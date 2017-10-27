@@ -227,7 +227,7 @@
 %% External API
 %%-------------------------------------------------------------------------
 -export([compose_query/1, compose_query/2,
-         dissect_query/1, parse/1,
+         dissect_query/1, normalize/1, parse/1,
          recompose/1, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
@@ -287,6 +287,21 @@
     query => unicode:chardata(),
     scheme => unicode:chardata(),
     userinfo => unicode:chardata()} | #{}.
+
+
+%%-------------------------------------------------------------------------
+%% Normalize URIs
+%%-------------------------------------------------------------------------
+-spec normalize(URIString) -> NormalizedURI when
+      URIString :: uri_string(),
+      NormalizedURI :: uri_string().
+normalize(URIString) ->
+    %% Case normalization and percent-encoding normalization are achieved
+    %% by running parse and recompose on the input URI string.
+    M = parse(URIString),
+    M1 = normalize_scheme_based(M),
+    M2 = normalize_path_segment(M1),
+    recompose(M2).
 
 %%-------------------------------------------------------------------------
 %% Parse URIs
@@ -1883,3 +1898,153 @@ form_urldecode(<<H/utf8,T/binary>>, Acc) ->
     end;
 form_urldecode(<<H,_/binary>>, _Acc) ->
     throw({error, invalid_character, [H]}).
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for normalize
+%%-------------------------------------------------------------------------
+
+%% RFC 3986
+%% 6.2.2.3. Path Segment Normalization
+%% 5.2.4.   Remove Dot Segments
+normalize_path_segment(Map) ->
+    Path = maps:get(path, Map, undefined),
+    Map#{path => remove_dot_segments(Path)}.
+
+
+remove_dot_segments(Path) when is_binary(Path) ->
+    remove_dot_segments(Path, <<>>);
+remove_dot_segments(Path) when is_list(Path) ->
+    B = convert_binary(Path, utf8, utf8),
+    B1 = remove_dot_segments(B, <<>>),
+    convert_list(B1, utf8).
+%%
+remove_dot_segments(<<>>, Output) ->
+    Output;
+remove_dot_segments(<<"../",T/binary>>, Output) ->
+    remove_dot_segments(T, Output);
+remove_dot_segments(<<"./",T/binary>>, Output) ->
+    remove_dot_segments(T, Output);
+remove_dot_segments(<<"/./",T/binary>>, Output) ->
+    remove_dot_segments(<<$/,T/binary>>, Output);
+remove_dot_segments(<<"/.">>, Output) ->
+    remove_dot_segments(<<$/>>, Output);
+remove_dot_segments(<<"/../",T/binary>>, Output) ->
+    Out1 = remove_last_segment(Output),
+    remove_dot_segments(<<$/,T/binary>>, Out1);
+remove_dot_segments(<<"/..">>, Output) ->
+    Out1 = remove_last_segment(Output),
+    remove_dot_segments(<<$/>>, Out1);
+remove_dot_segments(<<$.>>, Output) ->
+    remove_dot_segments(<<>>, Output);
+remove_dot_segments(<<"..">>, Output) ->
+    remove_dot_segments(<<>>, Output);
+remove_dot_segments(Input, Output) ->
+    {First, Rest} = first_path_segment(Input),
+    remove_dot_segments(Rest, <<Output/binary,First/binary>>).
+
+
+first_path_segment(Input) ->
+    F = first_path_segment(Input, <<>>),
+    split_binary(Input, byte_size(F)).
+%%
+first_path_segment(<<$/,T/binary>>, Acc) ->
+    first_path_segment_end(<<T/binary>>, <<Acc/binary,$/>>);
+first_path_segment(<<C,T/binary>>, Acc) ->
+    first_path_segment_end(<<T/binary>>, <<Acc/binary,C>>).
+
+
+first_path_segment_end(<<>>, Acc) ->
+    Acc;
+first_path_segment_end(<<$/,_/binary>>, Acc) ->
+    Acc;
+first_path_segment_end(<<C,T/binary>>, Acc) ->
+    first_path_segment_end(<<T/binary>>, <<Acc/binary,C>>).
+
+
+remove_last_segment(<<>>) ->
+    <<>>;
+remove_last_segment(B) ->
+    {Init, Last} = split_binary(B, byte_size(B) - 1),
+    case Last of
+        <<$/>> ->
+            Init;
+        _Char ->
+            remove_last_segment(Init)
+    end.
+
+
+%% RFC 3986, 6.2.3.  Scheme-Based Normalization
+normalize_scheme_based(Map) ->
+    Scheme = maps:get(scheme, Map, undefined),
+    Port = maps:get(port, Map, undefined),
+    Path= maps:get(path, Map, undefined),
+    case Scheme of
+        "http" ->
+            normalize_http(Map, Port, Path);
+        <<"http">> ->
+            normalize_http(Map, Port, Path);
+        "https" ->
+            normalize_https(Map, Port, Path);
+        <<"https">> ->
+            normalize_https(Map, Port, Path);
+        "ftp" ->
+            normalize_ftp(Map, Port);
+        <<"ftp">> ->
+            normalize_ftp(Map, Port);
+        "ssh" ->
+            normalize_ssh_sftp(Map, Port);
+        <<"ssh">> ->
+            normalize_ssh_sftp(Map, Port);
+        "sftp" ->
+            normalize_ssh_sftp(Map, Port);
+        <<"sftp">> ->
+            normalize_ssh_sftp(Map, Port);
+        "tftp" ->
+            normalize_tftp(Map, Port);
+        <<"tftp">> ->
+            normalize_tftp(Map, Port);
+        _Else -> Map
+    end.
+
+
+normalize_http(Map, Port, Path) ->
+    M1 = normalize_port(Map, Port, 80),
+    normalize_http_path(M1, Path).
+
+
+normalize_https(Map, Port, Path) ->
+    M1 = normalize_port(Map, Port, 443),
+    normalize_http_path(M1, Path).
+
+
+normalize_ftp(Map, Port) ->
+    normalize_port(Map, Port, 21).
+
+
+normalize_ssh_sftp(Map, Port) ->
+    normalize_port(Map, Port, 22).
+
+
+normalize_tftp(Map, Port) ->
+    normalize_port(Map, Port, 69).
+
+
+normalize_port(Map, Port, Default) ->
+    case Port of
+        Default ->
+            maps:remove(port, Map);
+        _Else ->
+            Map
+    end.
+
+
+normalize_http_path(Map, Path) ->
+    case Path of
+        "" ->
+            Map#{path => "/"};
+        <<>> ->
+            Map#{path => <<"/">>};
+        _Else ->
+            Map
+    end.

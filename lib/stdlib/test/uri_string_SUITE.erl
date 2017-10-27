@@ -22,6 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,
+         normalize/1,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
          parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
@@ -65,6 +66,7 @@ suite() ->
 
 all() ->
     [
+     normalize,
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_pct_encoded_userinfo,
@@ -867,3 +869,23 @@ dissect_query_negative(_Config) ->
     {error,invalid_character,"ö"} = uri_string:dissect_query(<<"föo+bar=1&amp;%C3%B6=2">>),
     {error,invalid_input,<<"ö">>} =
         uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2ö">>]).
+
+normalize(_Config) ->
+    "/a/g" = uri_string:normalize("/a/b/c/./../../g"),
+    <<"mid/6">> = uri_string:normalize(<<"mid/content=5/../6">>),
+    "http://localhost-%C3%B6rebro/a/g" =
+        uri_string:normalize("http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g"),
+    <<"http://localhost-%C3%B6rebro/a/g">> =
+        uri_string:normalize(<<"http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:443">>),
+    <<"https://localhost:445/">> =
+        uri_string:normalize(<<"https://localhost:445">>),
+    <<"ftp://localhost">> =
+        uri_string:normalize(<<"ftp://localhost:21">>),
+    <<"ssh://localhost">> =
+        uri_string:normalize(<<"ssh://localhost:22">>),
+    <<"sftp://localhost">> =
+        uri_string:normalize(<<"sftp://localhost:22">>),
+    <<"tftp://localhost">> =
+        uri_string:normalize(<<"tftp://localhost:69">>).
