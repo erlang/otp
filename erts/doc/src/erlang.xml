@@ -7190,7 +7190,7 @@ ok
           effects only processes spawned efter the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
           <seealso marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seealso> or
-          <seealso marker="#process_flag_message_queue_data">
+          <seealso marker="#process_flag_max_heap_size">
           <c>process_flag/2</c></seealso>.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
