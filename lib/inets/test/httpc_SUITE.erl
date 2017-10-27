@@ -130,7 +130,8 @@ only_simulated() ->
      port_in_host_header,
      redirect_port_in_host_header,
      relaxed,
-     multipart_chunks
+     multipart_chunks,
+     stream_fun_server_close
     ].
 
 misc() ->
@@ -745,7 +746,7 @@ empty_body() ->
 empty_body(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/empty.html", Config),
     {ok, {{_,200,_}, [_ | _], []}} =
-	httpc:request(get, {URL, []}, [{timeout, 500}], []).
+	httpc:request(get, {URL, []}, [], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1177,6 +1178,22 @@ wait_for_whole_response(Config) when is_list(Config) ->
      RespSeqNumServer ! shutdown,
      ReqSeqNumServer ! shutdown.
 
+%%--------------------------------------------------------------------
+stream_fun_server_close() ->
+    [{doc, "Test that an error msg is received when using a receiver fun as stream target"}].
+stream_fun_server_close(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/delay_close.html", Config), []},
+    Self = self(),
+    Fun = fun(X) -> Self ! X end,
+    {ok, RequestId} = httpc:request(get, Request, [], [{sync, false}, {receiver, Fun}]),
+    receive
+        {RequestId, {error, Reason}} ->
+            ct:pal("Close ~p", [Reason]),
+            ok
+    after 13000 ->
+            ct:fail(did_not_receive_close)
+    end. 
+                                             
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -2029,6 +2046,9 @@ handle_uri(_,"/multipart_chunks.html",_,_,Socket,_) ->
     send(Socket, Head),
     send_multipart_chunks(Socket),
     http_chunk:encode_last();
+handle_uri(_,"/delay_close.html",_,_,Socket,_) ->
+    ct:sleep(10000),
+    close(Socket);
 handle_uri("HEAD",_,_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:0\r\n\r\n";
