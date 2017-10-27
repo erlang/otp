@@ -136,6 +136,23 @@
     See also <seealso marker="#supports-0">crypto:supports/0</seealso>
     </p>
 
+    <code>engine_key_ref() = #{engine   := engine_ref(),
+                               key_id   := key_id(),
+                               password => password()}</code>
+
+    <code>engine_key_ref() = term()</code>
+    <p>The result of a call to <seealso marker="#engine_load-3">engine_load/3</seealso>.
+    </p>
+
+    <code>key_id() = string() | binary()</code>
+    <p>Identifies the key to be used. The format depends on the loaded engine. It is passed to
+    the <c>ENGINE_load_(private|public)_key</c> functions in libcrypto.
+    </p>
+
+    <code>password() = string() | binary()</code>
+    <p>The key's password
+    </p>
+
      <code>stream_cipher() = rc4 | aes_ctr </code>
 
      <code>block_cipher() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
@@ -584,7 +601,7 @@
       <type>
 	<v>Type = rsa</v>
 	<v>CipherText = binary()</v>
-	<v>PrivateKey = rsa_private()</v>
+	<v>PrivateKey = rsa_private() | engine_key_ref()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
@@ -609,7 +626,7 @@
 	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
 	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
 	used, where N is public modulus of the RSA key.</d>
-	<v>PrivateKey = rsa_private()</v>
+	<v>PrivateKey = rsa_private() | engine_key_ref()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>CipherText = binary()</v>
       </type>
@@ -628,7 +645,7 @@
       <type>
 	<v>Type = rsa</v>
 	<v>CipherText = binary()</v>
-	<v>PublicKey =  rsa_public() </v>
+	<v>PublicKey =  rsa_public() | engine_key_ref()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
@@ -653,7 +670,7 @@
 	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
 	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
 	used, where N is public modulus of the RSA key.</d>
-	<v>PublicKey = rsa_public()</v>
+	<v>PublicKey = rsa_public() | engine_key_ref()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>CipherText = binary()</v>
       </type>
@@ -706,7 +723,7 @@
 	signed or it is the hashed value of "cleartext" i.e. the
 	digest (plaintext).</d>
 	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
-	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()]</v>
+	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()] | engine_key_ref()</v>
 	<v>Options = sign_options()</v>
       </type>
       <desc>
@@ -897,7 +914,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
         or it is the hashed value of "cleartext" i.e. the digest (plaintext).</d>
 	<v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
 	<v>Signature = binary()</v>
-	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()]</v>
+	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()] | engine_key_ref()</v>
 	<v>Options = sign_options()</v>
       </type>
       <desc>
