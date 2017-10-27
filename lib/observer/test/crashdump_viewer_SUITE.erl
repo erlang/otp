@@ -649,13 +649,7 @@ do_create_dumps(DataDir,Rel) ->
 	current ->
 	    CD3 = dump_with_args(DataDir,Rel,"instr","+Mim true"),
 	    CD4 = dump_with_strange_module_name(DataDir,Rel,"strangemodname"),
-	    Tmp = dump_with_args(DataDir,Rel,"trunc_bytes",""),
-            {ok,#file_info{size=Max}} = file:read_file_info(Tmp),
-            ok = file:delete(Tmp),
-            Bytes = max(15,rand:uniform(Max)),
-            CD5 = dump_with_args(DataDir,Rel,"trunc_bytes",
-                                 "-env ERL_CRASH_DUMP_BYTES " ++
-                                     integer_to_list(Bytes)),
+            CD5 = dump_with_size_limit_reached(DataDir,Rel,"trunc_bytes"),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
             CD7 = dump_with_maps(DataDir,Rel,"maps"),
             TruncatedDumps = truncate_dump(CD1),
@@ -767,6 +761,28 @@ dump_with_strange_module_name(DataDir,Rel,DumpName) ->
     CD = dump(N1,DataDir,Rel,DumpName),
     ?t:stop_node(n1),
     CD.
+
+dump_with_size_limit_reached(DataDir,Rel,DumpName) ->
+    Tmp = dump_with_args(DataDir,Rel,DumpName,""),
+    {ok,#file_info{size=Max}} = file:read_file_info(Tmp),
+    ok = file:delete(Tmp),
+    dump_with_size_limit_reached(DataDir,Rel,DumpName,Max).
+
+dump_with_size_limit_reached(DataDir,Rel,DumpName,Max) ->
+    Bytes = max(15,rand:uniform(Max)),
+    CD = dump_with_args(DataDir,Rel,DumpName,
+                        "-env ERL_CRASH_DUMP_BYTES " ++
+                            integer_to_list(Bytes)),
+    {ok,#file_info{size=Size}} = file:read_file_info(CD),
+    if Size < Bytes ->
+            %% This means that the dump was actually smaller than the
+            %% randomly selected truncation size, so we'll just do it
+            %% again with a smaller numer
+            ok = file:delete(CD),
+            dump_with_size_limit_reached(DataDir,Rel,DumpName,Size-3);
+       true ->
+            CD
+    end.
 
 dump_with_unicode_atoms(DataDir,Rel,DumpName) ->
     Opt = rel_opt(Rel),
