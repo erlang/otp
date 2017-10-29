@@ -115,6 +115,7 @@ only_simulated() ->
      invalid_chunk_size,
      headers_dummy,
      headers_with_obs_fold,
+     headers_conflict_chunked_with_length,
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
@@ -978,7 +979,6 @@ headers_dummy(Config) when is_list(Config) ->
 		       {"If-Range", "Sat, 29 Oct 1994 19:43:31 GMT"},
 		       {"If-Match", "*"},
 		       {"Content-Type", "text/plain"},
-		       {"Content-Encoding", "chunked"},
 		       {"Content-Length", "6"},
 		       {"Content-Language", "en"},
 		       {"Content-Location", "http://www.foobar.se"},
@@ -1001,6 +1001,18 @@ headers_with_obs_fold(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
     {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [], []),
     "a b" = proplists:get_value("folded", Headers).
+
+%%-------------------------------------------------------------------------
+
+headers_conflict_chunked_with_length(doc) ->
+    ["Test the code for handling headers with both Transfer-Encoding"
+     "and Content-Length which must receive error in default (not relaxed) mode"
+     "and must receive successful response in relaxed mode"];
+headers_conflict_chunked_with_length(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/headers_conflict_chunked_with_length.html", Config), []},
+    {error, {could_not_parse_as_http, _}} = httpc:request(get, Request, [{relaxed, false}], []),
+    {ok,{{_,200,_},_,_}} = httpc:request(get, Request, [{relaxed, true}], []),
+    ok.
 
 %%-------------------------------------------------------------------------
 
@@ -1869,7 +1881,6 @@ handle_uri(_,"/dummy_headers.html",_,_,Socket,_) ->
     %% user to evaluate. This is not a valid response
     %% it only tests that the header handling code works.
     Head = "HTTP/1.1 200 ok\r\n" ++
-	"Content-Length:32\r\n" ++
 	"Pragma:1#no-cache\r\n"  ++
 	"Via:1.0 fred, 1.1 nowhere.com (Apache/1.1)\r\n"  ++
 	"Warning:1#pseudonym foobar\r\n"  ++
@@ -1898,6 +1909,15 @@ handle_uri(_,"/obs_folded_headers.html",_,_,_,_) ->
     "Folded: a\r\n"
     " b\r\n\r\n"
     "Hello";
+
+handle_uri(_,"/headers_conflict_chunked_with_length.html",_,_,Socket,_) ->
+    Head =  "HTTP/1.1 200 ok\r\n"
+        "Content-Length:32\r\n"
+	"Transfer-Encoding:Chunked\r\n\r\n",
+    send(Socket, Head),
+    send(Socket, http_chunk:encode("<HTML><BODY>fo")),
+    send(Socket, http_chunk:encode("obar</BODY></HTML>")),
+    http_chunk:encode_last();
 
 handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
