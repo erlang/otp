@@ -211,7 +211,7 @@ snmp:c("MY-MIB", [{il, ["sasl/priv/mibs"]}]).</code>
 
       <p>The following MIBs are defined in the OTP system:</p>
       <list type="bulleted">
-	<item><p><c>OTP-REG)</c> (in SASL) contains the top-level
+	<item><p><c>OTP-REG</c> (in SASL) contains the top-level
 	OTP registration objects, used by all other MIBs.</p></item>
 	<item><p><c>OTP-TC</c> (in SASL) contains the general
 	Textual Conventions, which can be used by any other MIB.</p></item>
