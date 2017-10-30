@@ -375,7 +375,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
     do_listing(Simple, TargetDir, dsetel, ".dsetel"),
     do_listing(Simple, TargetDir, dkern, ".kernel"),
-    do_listing(Simple, TargetDir, dlife, ".life"),
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),

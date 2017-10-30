@@ -160,8 +160,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
-	{#k_fdef{anno=#k{us=[],ns=[],a=Ab},
-		 func=F,arity=Arity,vars=Kvs,body=B1},St3}
+        {make_fdef(#k{us=[],ns=[],a=Ab}, F, Arity, Kvs, B1),St3}
     catch
 	Class:Error ->
 	    Stack = erlang:get_stacktrace(),
@@ -2262,9 +2261,8 @@ iletrec_funs_gen(Fs, FreeVs, St) ->
 		  Arity0 = length(Vs),
 		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0#kern{ff={N,Arity0}}),
 		  Arity = Arity0 + length(FreeVs),
-		  Fun = #k_fdef{anno=#k{us=[],ns=[],a=Fa},
-				func=N,arity=Arity,
-				vars=Vs ++ FreeVs,body=Fb1},
+                  Fun = make_fdef(#k{us=[],ns=[],a=Fa}, N, Arity,
+                                  Vs++FreeVs, Fb1),
 		  Lst1#kern{funs=[Fun|Lst1#kern.funs]}
 	  end, St, Fs).
 
@@ -2408,8 +2406,7 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 		%% No id annotation. Must invent a fun name.
 		new_fun_name(St1)
 	end,
-    Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
-		  vars=Vs ++ Fvs,body=B1},
+    Fun = make_fdef(#k{us=[],ns=[],a=A}, Fname, Arity, Vs++Fvs, B1),
     {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
 	    op=#k_internal{name=make_fun,arity=length(Free)+2},
 	    args=[#k_atom{val=Fname},#k_int{val=Arity}|Fvs],
@@ -2425,6 +2422,16 @@ uexpr(Lit, {break,Rs0}, St0) ->
 
 add_local_function(_, #kern{funs=ignore}=St) -> St;
 add_local_function(F, #kern{funs=Funs}=St) -> St#kern{funs=[F|Funs]}.
+
+%% Make a #k_fdef{}, making sure that the body is always a #k_match{}.
+make_fdef(Anno, Name, Arity, Vs, #k_match{}=Body) ->
+    #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Body};
+make_fdef(Anno, Name, Arity, Vs, Body) ->
+    Ka = get_kanno(Body),
+    Match = #k_match{anno=#k{us=Ka#k.us,ns=[],a=Ka#k.a},
+                     vars=Vs,body=Body,ret=[]},
+    #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Match}.
+
 
 %% handle_reuse_annos([#k_var{}], State) -> State.
 %%  In general, it is only safe to reuse a variable for a match context

@@ -23,14 +23,12 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
--include("v3_life.hrl").
 
 -import(lists, [foreach/2]).
 
 -type code() :: cerl:c_module()
               | beam_utils:module_code()
               | #k_mdef{}
-              | {module(),_,_,_}                %v3_life
               | [_].                            %form-based format
 
 -spec module(file:io_device(), code()) -> 'ok'.
@@ -42,13 +40,9 @@ module(File, #k_mdef{}=Kern) ->
     %% This is a kernel module.
     io:put_chars(File, v3_kernel_pp:format(Kern));
     %%io:put_chars(File, io_lib:format("~p~n", [Kern]));
-module(File, {Mod,Exp,Attr,Kern}) ->
-    %% This is output from beam_life (v3).
-    io:fwrite(File, "~w.~n~p.~n~p.~n", [Mod,Exp,Attr]),
-    foreach(fun (F) -> function(File, F) end, Kern);
 module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
-    %% This is output from beam_codegen.
-    io:format(Stream, "{module, ~p}.  %% version = ~w\n", 
+    %% This is output from v3_codegen.
+    io:format(Stream, "{module, ~p}.  %% version = ~w\n",
 	      [Mod, beam_opcodes:format_number()]),
     io:format(Stream, "\n{exports, ~p}.\n", [Exp]),
     io:format(Stream, "\n{attributes, ~p}.\n", [Attr]),
@@ -68,60 +62,3 @@ format_asm([{label,L}|Is]) ->
 format_asm([I|Is]) ->
     [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
 format_asm([]) -> [].
-
-function(File, {function,Name,Arity,Args,Body,Vdb,_Anno}) ->
-    io:nl(File),
-    io:format(File, "function ~p/~p.\n", [Name,Arity]),
-    io:format(File, " ~p.\n", [Args]),
-    print_vdb(File, Vdb),
-    put(beam_listing_nl, false),
-    nl(File),
-    foreach(fun(F) -> format(File, F, []) end, Body),
-    nl(File),
-    erase(beam_listing_nl).
-
-format(File, #l{ke=Ke,i=I,vdb=Vdb}, Ind) ->
-    nl(File),
-    ind_format(File, Ind, "~p ", [I]),
-    print_vdb(File, Vdb),
-    nl(File),
-    format(File, Ke, Ind);
-format(File, Tuple, Ind) when is_tuple(Tuple) ->
-    ind_format(File, Ind, "{", []),
-    format_list(File, tuple_to_list(Tuple), [$\s|Ind]),
-    ind_format(File, Ind, "}", []);
-format(File, List, Ind) when is_list(List) ->
-    ind_format(File, Ind, "[", []),
-    format_list(File, List, [$\s|Ind]),
-    ind_format(File, Ind, "]", []);
-format(File, F, Ind) ->
-    ind_format(File, Ind, "~p", [F]).
-
-format_list(File, [F], Ind) ->
-    format(File, F, Ind);
-format_list(File, [F|Fs], Ind) ->
-    format(File, F, Ind),
-    ind_format(File, Ind, ",", []),
-    format_list(File, Fs, Ind);
-format_list(_, [], _) -> ok.
-
-
-print_vdb(File, [{Var,F,E}|Vs]) ->
-    io:format(File, "~p:~p..~p ", [Var,F,E]),
-    print_vdb(File, Vs);
-print_vdb(_, []) -> ok.
-
-ind_format(File, Ind, Format, Args) ->
-    case get(beam_listing_nl) of
-	true ->
-	    put(beam_listing_nl, false),
-	    io:put_chars(File, Ind);
-	false -> ok
-    end,
-    io:format(File, Format, Args).
-    
-nl(File) ->
-    case put(beam_listing_nl, true) of
-	true -> ok;
-	false -> io:nl(File)
-    end.
