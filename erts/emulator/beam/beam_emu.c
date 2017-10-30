@@ -3199,13 +3199,16 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     Export e;
     Export* ep;
 
-    if (Mod == am_erlang && Name == am_apply && arity == 3) {
-	/*
-	 * Special case. apply/3 is built-in (implemented in C),
-	 * but implemented in a different way than all other
-	 * BIFs.
-	 */
-	return 1;
+    if (Mod == am_erlang) {
+        /*
+         * Special case for built-in functions that are implemented
+         * as instructions as opposed to SNIFs.
+         */
+        if (Name == am_apply && (arity == 2 || arity == 3)) {
+            return 1;
+        } else if (Name == am_yield && arity == 0) {
+            return 1;
+        }
     }
 
     e.info.mfa.module = Mod;
