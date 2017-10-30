@@ -103,7 +103,7 @@ Uint erts_ioq_sizeq(ErtsIOQueue *q);
 
 int erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
                             Uint* pvsize, Uint* pcsize,
-                            Uint* total_size, Uint blimit);
+                            size_t* total_size, Uint blimit);
 int erts_ioq_iolist_to_vec(Eterm obj, SysIOVec* iov,
                            ErtsIOQBinary** binv, ErtsIOQBinary* cbin,
                            Uint bin_limit, int driver_binary);
@@ -111,7 +111,7 @@ int erts_ioq_iolist_to_vec(Eterm obj, SysIOVec* iov,
 ERTS_GLB_INLINE
 int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, Uint* csize,
                             Uint* pvsize, Uint* pcsize,
-                            Uint* total_size, Uint blimit);
+                            size_t* total_size, Uint blimit);
 ERTS_GLB_INLINE
 int erts_ioq_iodata_to_vec(Eterm obj, SysIOVec* iov,
                            ErtsIOQBinary** binv, ErtsIOQBinary* cbin,
@@ -123,7 +123,7 @@ int erts_ioq_iodata_to_vec(Eterm obj, SysIOVec* iov,
 ERTS_GLB_INLINE
 int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, Uint* csize,
                             Uint* pvsize, Uint* pcsize,
-                            Uint* total_size, Uint blimit) {
+                            size_t* total_size, Uint blimit) {
   if (is_binary(obj)) {
     /* We optimize for when we get a procbin without a bit-offset
      * that fits in one iov slot

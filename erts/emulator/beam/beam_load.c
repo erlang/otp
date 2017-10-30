@@ -5022,7 +5022,7 @@ freeze_code(LoaderState* stp)
                  */
                 codev[pos] = (BeamInstr) (codev + value);
             } else {
-#ifdef DEBUG
+#if defined(DEBUG) && defined(BEAM_WIDE_MASK)
                 Uint w;
 #endif
                 Sint32 rel = lp->offset + value;

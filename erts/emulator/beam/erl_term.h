@@ -862,7 +862,7 @@ do {									\
   ((ErtsMRefThing *) (Hp))->mb = (Binp);				\
   ((ErtsMRefThing *) (Hp))->next = (Ohp)->first;			\
   (Ohp)->first = (struct erl_off_heap_header*) (Hp);			\
-  ASSERT(erts_is_ref_numbers_magic(&(Binp)->refn));			\
+  ASSERT(erts_is_ref_numbers_magic((Binp)->refn));			\
 } while (0)
 
 #endif /* ARCH_32 */

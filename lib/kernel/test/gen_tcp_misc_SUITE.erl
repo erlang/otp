@@ -1572,52 +1572,56 @@ fill_sendq(Config) when is_list(Config) ->
     Master = self(),
     Server =
 	spawn_link(fun () ->
-			   {ok,L} = gen_tcp:listen
-				      (0, [{active,false},binary,
-					   {reuseaddr,true},{packet,0}]),
+			   {ok,L} = gen_tcp:listen(0, [{active,false},binary,
+                                                       {reuseaddr,true},{packet,0}]),
 			   {ok,Port} = inet:port(L),
 			   Master ! {self(),client,
 				     fill_sendq_client(Port, Master)},
 			   fill_sendq_srv(L, Master)
 		   end),
     io:format("~p Server~n", [Server]),
-    receive {Server,client,Client} ->
-		  io:format("~p Client~n", [Client]),
-		  receive {Server,reader,Reader} ->
-				io:format("~p Reader~n", [Reader]),
-				fill_sendq_loop(Server, Client, Reader)
+    receive
+        {Server,client,Client} ->
+            io:format("~p Client~n", [Client]),
+            receive
+                {Server,reader,Reader} ->
+                    io:format("~p Reader~n", [Reader]),
+                    fill_sendq_loop(Server, Client, Reader)
 	    end
     end.
 
 fill_sendq_loop(Server, Client, Reader) ->
     %% Master
     %%
-    receive {Server,send} ->
+    receive
+        {Server,send} ->
 	    fill_sendq_loop(Server, Client, Reader)
     after 2000 ->
 	    %% Send queue full, sender blocked -> close client.
 	    io:format("Send timeout, closing Client...~n", []),
 	    Client ! {self(),close},
-	    receive {Server,[{error,closed}]} ->
-			  io:format("Got server closed.~n"),
-			  receive {Reader,[{error,closed}]} ->
-					io:format
-						("Got reader closed.~n"),
-					ok
-				after 3000 ->
-					ct:fail({timeout,{closed,reader}})
-				end;
-			  {Reader,[{error,closed}]} ->
-			  io:format("Got reader closed.~n"),
-			  receive {Server,[{error,closed}]} ->
-					io:format("Got server closed~n"),
-					ok
-				after 3000 ->
-					ct:fail({timeout,{closed,server}})
-				end
-		  after 3000 ->
-			  ct:fail({timeout,{closed,[server,reader]}})
-		  end
+	    receive
+                {Server,[{error,closed}]} ->
+                    io:format("Got server closed.~n"),
+                    receive
+                        {Reader,[{error,closed}]} ->
+                            io:format("Got reader closed.~n"),
+                            ok
+                    after 3000 ->
+                            ct:fail({timeout,{closed,reader}})
+                    end;
+                {Reader,[{error,closed}]} ->
+                    io:format("Got reader closed.~n"),
+                    receive
+                        {Server,[{error,closed}]} ->
+                            io:format("Got server closed~n"),
+                            ok
+                    after 3000 ->
+                            ct:fail({timeout,{closed,server}})
+                    end
+            after 3000 ->
+                    ct:fail({timeout,{closed,[server,reader]}})
+            end
     end.
 
 fill_sendq_srv(L, Master) ->
