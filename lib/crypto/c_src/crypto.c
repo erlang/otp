@@ -2846,7 +2846,7 @@ static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrimeLen, Generator) */
     int prime_len, generator;
-    DH* dh_params;
+    DH* dh_params = NULL;
     int p_len, g_len;
     unsigned char *p_ptr, *g_ptr;
     ERL_NIF_TERM ret_p, ret_g;
@@ -2857,8 +2857,8 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
 
 	return enif_make_badarg(env);
     }
-    dh_params = DH_generate_parameters(prime_len, generator, NULL, NULL);
-    if (dh_params == NULL) {
+
+    if (DH_generate_parameters_ex(dh_params, prime_len, generator, NULL)) {
 	return atom_error;
     }
     DH_get0_pqg(dh_params, &dh_p, &dh_q, &dh_g);
