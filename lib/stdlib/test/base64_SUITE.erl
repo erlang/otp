@@ -119,44 +119,51 @@ illegal(Config) when is_list(Config) ->
     ok.
 %%-------------------------------------------------------------------------
 %% mime_decode and mime_decode_to_string have different implementations
-%% so test both with the same input separately. Both functions have
-%% the same implementation for binary/string arguments.
+%% so test both with the same input separately.
 %%
 %% Test base64:mime_decode/1.
 mime_decode(Config) when is_list(Config) ->
+    MimeDecode = fun(In) ->
+                         Out = base64:mime_decode(In),
+                         Out = base64:mime_decode(binary_to_list(In))
+                 end,
     %% Test correct padding
-    <<"one">> = base64:mime_decode(<<"b25l">>),
-    <<"on">>  = base64:mime_decode(<<"b24=">>),
-    <<"o">>   = base64:mime_decode(<<"bw==">>),
+    <<"one">> = MimeDecode(<<"b25l">>),
+    <<"on">>  = MimeDecode(<<"b24=">>),
+    <<"o">>   = MimeDecode(<<"bw==">>),
     %% Test 1 extra padding
-    <<"one">> = base64:mime_decode(<<"b25l= =">>),
-    <<"on">>  = base64:mime_decode(<<"b24== =">>),
-    <<"o">>   = base64:mime_decode(<<"bw=== =">>),
+    <<"one">> = MimeDecode(<<"b25l= =">>),
+    <<"on">>  = MimeDecode(<<"b24== =">>),
+    <<"o">>   = MimeDecode(<<"bw=== =">>),
     %% Test 2 extra padding
-    <<"one">> = base64:mime_decode(<<"b25l===">>),
-    <<"on">>  = base64:mime_decode(<<"b24====">>),
-    <<"o">>   = base64:mime_decode(<<"bw=====">>),
+    <<"one">> = MimeDecode(<<"b25l===">>),
+    <<"on">>  = MimeDecode(<<"b24====">>),
+    <<"o">>   = MimeDecode(<<"bw=====">>),
     %% Test misc embedded padding
-    <<"one">> = base64:mime_decode(<<"b2=5l===">>),
-    <<"on">>  = base64:mime_decode(<<"b=24====">>),
-    <<"o">>   = base64:mime_decode(<<"b=w=====">>),
+    <<"one">> = MimeDecode(<<"b2=5l===">>),
+    <<"on">>  = MimeDecode(<<"b=24====">>),
+    <<"o">>   = MimeDecode(<<"b=w=====">>),
     %% Test misc white space and illegals with embedded padding
-    <<"one">> = base64:mime_decode(<<" b~2=\r\n5()l===">>),
-    <<"on">>  = base64:mime_decode(<<"\tb =2\"¤4=¤=   ==">>),
-    <<"o">>   = base64:mime_decode(<<"\nb=w=====">>),
+    <<"one">> = MimeDecode(<<" b~2=\r\n5()l===">>),
+    <<"on">>  = MimeDecode(<<"\tb =2\"¤4=¤=   ==">>),
+    <<"o">>   = MimeDecode(<<"\nb=w=====">>),
     %% Two pads
     <<"Aladdin:open sesame">> =
-	base64:mime_decode("QWxhZGRpbjpvc()GVuIHNlc2FtZQ=="),
+	MimeDecode(<<"QWxhZGRpbjpvc()GVuIHNlc2FtZQ==">>),
     %% One pad to ignore, followed by more text
-    <<"Hello World!!">> = base64:mime_decode(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
+    <<"Hello World!!">> = MimeDecode(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
     %% No pad
     <<"Aladdin:open sesam">> =
-	base64:mime_decode("QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft"),
+	MimeDecode(<<"QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft">>),
     %% Encoded base 64 strings may be divided by non base 64 chars.
     %% In this cases whitespaces.
     <<"0123456789!@#0^&*();:<>,. []{}">> =
-	base64:mime_decode(
+	MimeDecode(
 	  <<"MDEy MzQ1Njc4 \tOSFAIzBeJ \nio)(oKTs6 PD4sLi \r\nBbXXt9">>),
+    %% Zeroes
+    <<"012">> = MimeDecode(<<"\000M\000D\000E\000y=\000">>),
+    <<"o">>   = MimeDecode(<<"bw==\000">>),
+    <<"o">>   = MimeDecode(<<"bw=\000=">>),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -165,39 +172,48 @@ mime_decode(Config) when is_list(Config) ->
 
 %% Test base64:mime_decode_to_string/1.
 mime_decode_to_string(Config) when is_list(Config) ->
+    MimeDecodeToString =
+        fun(In) ->
+                Out = base64:mime_decode_to_string(In),
+                Out = base64:mime_decode_to_string(binary_to_list(In))
+        end,
     %% Test correct padding
-    "one" = base64:mime_decode_to_string(<<"b25l">>),
-    "on"  = base64:mime_decode_to_string(<<"b24=">>),
-    "o"   = base64:mime_decode_to_string(<<"bw==">>),
+    "one" = MimeDecodeToString(<<"b25l">>),
+    "on"  = MimeDecodeToString(<<"b24=">>),
+    "o"   = MimeDecodeToString(<<"bw==">>),
     %% Test 1 extra padding
-    "one" = base64:mime_decode_to_string(<<"b25l= =">>),
-    "on"  = base64:mime_decode_to_string(<<"b24== =">>),
-    "o"   = base64:mime_decode_to_string(<<"bw=== =">>),
+    "one" = MimeDecodeToString(<<"b25l= =">>),
+    "on"  = MimeDecodeToString(<<"b24== =">>),
+    "o"   = MimeDecodeToString(<<"bw=== =">>),
     %% Test 2 extra padding
-    "one" = base64:mime_decode_to_string(<<"b25l===">>),
-    "on"  = base64:mime_decode_to_string(<<"b24====">>),
-    "o"   = base64:mime_decode_to_string(<<"bw=====">>),
+    "one" = MimeDecodeToString(<<"b25l===">>),
+    "on"  = MimeDecodeToString(<<"b24====">>),
+    "o"   = MimeDecodeToString(<<"bw=====">>),
     %% Test misc embedded padding
-    "one" = base64:mime_decode_to_string(<<"b2=5l===">>),
-    "on"  = base64:mime_decode_to_string(<<"b=24====">>),
-    "o"   = base64:mime_decode_to_string(<<"b=w=====">>),
+    "one" = MimeDecodeToString(<<"b2=5l===">>),
+    "on"  = MimeDecodeToString(<<"b=24====">>),
+    "o"   = MimeDecodeToString(<<"b=w=====">>),
     %% Test misc white space and illegals with embedded padding
-    "one" = base64:mime_decode_to_string(<<" b~2=\r\n5()l===">>),
-    "on"  = base64:mime_decode_to_string(<<"\tb =2\"¤4=¤=   ==">>),
-    "o"   = base64:mime_decode_to_string(<<"\nb=w=====">>),
+    "one" = MimeDecodeToString(<<" b~2=\r\n5()l===">>),
+    "on"  = MimeDecodeToString(<<"\tb =2\"¤4=¤=   ==">>),
+    "o"   = MimeDecodeToString(<<"\nb=w=====">>),
     %% Two pads
     "Aladdin:open sesame" =
-	base64:mime_decode_to_string("QWxhZGRpbjpvc()GVuIHNlc2FtZQ=="),
+	MimeDecodeToString(<<"QWxhZGRpbjpvc()GVuIHNlc2FtZQ==">>),
     %% One pad to ignore, followed by more text
-    "Hello World!!" = base64:mime_decode_to_string(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
+    "Hello World!!" = MimeDecodeToString(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
     %% No pad
     "Aladdin:open sesam" =
-	base64:mime_decode_to_string("QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft"),
+	MimeDecodeToString(<<"QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft">>),
     %% Encoded base 64 strings may be divided by non base 64 chars.
     %% In this cases whitespaces.
     "0123456789!@#0^&*();:<>,. []{}" =
-	base64:mime_decode_to_string(
+	MimeDecodeToString(
 	  <<"MDEy MzQ1Njc4 \tOSFAIzBeJ \nio)(oKTs6 PD4sLi \r\nBbXXt9">>),
+    %% Zeroes
+    "012" = MimeDecodeToString(<<"\000M\000D\000E\000y=\000">>),
+    "o"   = MimeDecodeToString(<<"bw==\000">>),
+    "o"   = MimeDecodeToString(<<"bw=\000=">>),
     ok.
 
 %%-------------------------------------------------------------------------
