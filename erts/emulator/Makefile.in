@@ -74,9 +74,8 @@ endif
 endif
 
 ifeq ($(PROFILE_COMPILER), gcc)
-PROFILE_CORRECTION=@PROFILE_CORRECTION@
 PROFILE_GENERATE=-fprofile-generate
-PROFILE_USE=-fprofile-use $(PROFILE_CORRECTION)
+PROFILE_USE=-fprofile-use -fprofile-correction
 PROFILE_USE_DEPS=$(OBJDIR)/%_pu.gcda
 endif
 ifeq ($(PROFILE_COMPILER), clang)
@@ -816,14 +815,7 @@ $(ERL_TOP)/lib/%.beam:
 
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
-# -fprofile-correction is needed in order to use PGO on erl_process
-# as multiple threads execute in that file.
-ifeq ($(PROFILE_CORRECTION),)
-PROFILE_OBJS = $(OBJDIR)/beam_emu.o
-RUN_OBJS = $(OBJDIR)/erl_process.o
-else
 PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
-endif
 
 EMU_OBJS = \
 	$(OBJDIR)/beam_opcodes.o \
