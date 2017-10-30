@@ -273,7 +273,7 @@
 %%   %x96    `    grave / accent
 %%-------------------------------------------------------------------------
 -type uri_string() :: iodata().
--type error() :: {error, atom(), list() | binary()}.
+-type error() :: {error, atom(), term()}.
 
 
 %%-------------------------------------------------------------------------
@@ -298,10 +298,11 @@
 normalize(URIString) ->
     %% Case normalization and percent-encoding normalization are achieved
     %% by running parse and recompose on the input URI string.
-    M = parse(URIString),
-    M1 = normalize_scheme_based(M),
-    M2 = normalize_path_segment(M1),
-    recompose(M2).
+    recompose(
+      normalize_path_segment(
+        normalize_scheme_based(
+          parse(URIString)))).
+
 
 %%-------------------------------------------------------------------------
 %% Parse URIs
@@ -311,8 +312,7 @@ normalize(URIString) ->
       URIMap :: uri_map()
               | error().
 parse(URIString) when is_binary(URIString) ->
-    try parse_uri_reference(URIString, #{}) of
-        Result -> Result
+    try parse_uri_reference(URIString, #{})
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
@@ -321,8 +321,6 @@ parse(URIString) when is_list(URIString) ->
         Binary = unicode:characters_to_binary(URIString),
         Map = parse_uri_reference(Binary, #{}),
         convert_mapfields_to_list(Map)
-    of
-        Result -> Result
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -348,8 +346,6 @@ recompose(Map) ->
                 T4 = update_path(Map, T3),
                 T5 = update_query(Map, T4),
                 update_fragment(Map, T5)
-            of
-                Result -> Result
             catch
                 throw:{error, Atom, RestData} -> {error, Atom, RestData}
             end
@@ -371,8 +367,6 @@ transcode(URIString, Options) when is_binary(URIString) ->
         List = convert_list(URIString, InEnc),
         Output = transcode(List, [], InEnc, OutEnc),
         convert_binary(Output, utf8, OutEnc)
-    of
-        Result -> Result
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
@@ -380,8 +374,7 @@ transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
     OutEnc = proplists:get_value(out_encoding, Options, utf8),
     Flattened = flatten_list(URIString, InEnc),
-    try transcode(Flattened, [], InEnc, OutEnc) of
-        Result -> Result
+    try transcode(Flattened, [], InEnc, OutEnc)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -413,8 +406,7 @@ compose_query(List) ->
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
-    try compose_query(List, Options, false, <<>>) of
-        Result -> Result
+    try compose_query(List, Options, false, <<>>)
     catch
       throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -423,8 +415,7 @@ compose_query([{Key,Value}|Rest], Options, IsList, Acc) ->
     Separator = get_separator(Options, Rest),
     K = form_urlencode(Key),
     V = form_urlencode(Value),
-    Flag = is_list(Key) orelse is_list(Value),
-    IsListNew = IsList orelse Flag,
+    IsListNew = IsList orelse is_list(Key) orelse is_list(Value),
     compose_query(Rest, Options, IsListNew, <<Acc/binary,K/binary,"=",V/binary,Separator/binary>>);
 compose_query([], _Options, IsList, Acc) ->
     case IsList of
@@ -448,14 +439,11 @@ dissect_query(QueryString) when is_list(QueryString) ->
     try
         B = convert_binary(QueryString, utf8, utf8),
         dissect_query_key(B, true, [], <<>>, <<>>)
-    of
-        Result -> Result
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
 dissect_query(QueryString) ->
-    try dissect_query_key(QueryString, false, [], <<>>, <<>>) of
-        Result -> Result
+    try dissect_query_key(QueryString, false, [], <<>>, <<>>)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -485,8 +473,7 @@ convert_mapfields_to_list(Map) ->
 -spec parse_uri_reference(binary(), uri_map()) -> uri_map().
 parse_uri_reference(<<>>, _) -> #{path => <<>>};
 parse_uri_reference(URIString, URI) ->
-    try parse_scheme_start(URIString, URI) of
-        Res -> Res
+    try parse_scheme_start(URIString, URI)
     catch
         throw:{_,_,_} ->
             parse_relative_part(URIString, URI)
@@ -1177,9 +1164,7 @@ calculate_parsed_query_fragment(Input, Unparsed) ->
 get_port(<<>>) ->
     undefined;
 get_port(B) ->
-    try binary_to_integer(B) of
-        Port ->
-            Port
+    try binary_to_integer(B)
     catch
         error:badarg ->
             throw({error, invalid_uri, B})
@@ -1480,60 +1465,65 @@ bracket_ipv6(Addr) when is_list(Addr) ->
 %%-------------------------------------------------------------------------
 %% Checks if input Map has valid combination of fields that can be
 %% recomposed into a URI.
-%% It filters out the following combinations from the set of all possible
-%% values:
-%%   - <no-userinfo> <no-host> port
-%%     E.g. ":8080" - invalid URI
-%%   - userinfo <no-host> <no-port>
-%%     E.g. "//user@" - invalid URI
-%%   - userinfo <no-host> port
-%%     E.g. "//user@:8080" => #{host => [],port => 8080,userinfo => "user"}
-%%     There is always at least an empty host when both userinfo and port
-%%     are present.
-%%   - #{path => "///"} otherwise the following would be true:
-%%     "/////" = uri_string:recompose(#{host => "", path => "///"})
-%%     "/////" = uri_string:recompose(#{path => "/////"})
-%%     AND
-%%     path-absolute = "/" [ segment-nz *( "/" segment ) ]
+%%
+%% The implementation is based on a decision tree that fulfills the
+%% following rules:
+%%   - 'path' shall always be present in the input map
+%%       URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+%%       hier-part   = "//" authority path-abempty
+%%                      / path-absolute
+%%                      / path-rootless
+%%                      / path-empty
+%%   - 'host' shall be present in the input map when 'path' starts with
+%%     two slashes ("//")
+%%       path          = path-abempty    ; begins with "/" or is empty
+%%                     / path-absolute   ; begins with "/" but not "//"
+%%                     / path-noscheme   ; begins with a non-colon segment
+%%                     / path-rootless   ; begins with a segment
+%%                     / path-empty      ; zero characters
+%%       path-abempty  = *( "/" segment )
+%%       segment       = *pchar
+%%   - 'host' shall be present if userinfo or port is present in input map
+%%       authority   = [ userinfo "@" ] host [ ":" port ]
+%%   - All fields shall be valid (scheme, userinfo, host, port, path, query
+%%     or fragment).
 %%-------------------------------------------------------------------------
-is_valid_map(Map) ->
-    case
-        ((not maps:is_key(userinfo, Map) andalso
-         not maps:is_key(host, Map) andalso
-         maps:is_key(port, Map))
-        orelse
-        (maps:is_key(userinfo, Map) andalso
-         not maps:is_key(host, Map) andalso
-         not maps:is_key(port, Map))
-        orelse
-        (maps:is_key(userinfo, Map) andalso
-         not maps:is_key(host, Map) andalso
-         maps:is_key(port, Map))) orelse
-        not maps:is_key(path, Map) orelse
-        not is_host_and_path_valid(Map) orelse
-        invalid_field_present(Map)
-    of
+is_valid_map(#{path := Path} = Map) ->
+    case starts_with_two_slash(Path) of
         true ->
-            false;
+            is_valid_map_host(Map);
         false ->
-            true
-    end.
+            case maps:is_key(userinfo, Map) of
+                true ->
+                    is_valid_map_host(Map);
+                false ->
+                    case maps:is_key(port, Map) of
+                        true ->
+                            is_valid_map_host(Map);
+                        false ->
+                            all_fields_valid(Map)
+                    end
+            end
+    end;
+is_valid_map(#{}) ->
+    false.
 
 
-invalid_field_present(Map) ->
-    Fun = fun(K, _, AccIn) -> AccIn orelse
-                                      ((K =/= scheme) andalso (K =/= userinfo)
-                                       andalso (K =/= host) andalso (K =/= port)
-                                       andalso (K =/= path) andalso (K =/= query)
-                                       andalso (K =/= fragment))
+is_valid_map_host(Map) ->
+    maps:is_key(host, Map) andalso all_fields_valid(Map).
+
+
+all_fields_valid(Map) ->
+    Fun = fun(scheme, _, Acc) -> Acc;
+             (userinfo, _, Acc) -> Acc;
+             (host, _, Acc) -> Acc;
+             (port, _, Acc) -> Acc;
+             (path, _, Acc) -> Acc;
+             (query, _, Acc) -> Acc;
+             (fragment, _, Acc) -> Acc;
+             (_, _, _) -> false
           end,
-    maps:fold(Fun, false, Map).
-
-
-is_host_and_path_valid(Map) ->
-    Host = maps:get(host, Map, undefined),
-    Path = maps:get(path, Map, undefined),
-    not (Host =:= undefined andalso starts_with_two_slash(Path)).
+    maps:fold(Fun, true, Map).
 
 
 starts_with_two_slash([$/,$/|_]) ->

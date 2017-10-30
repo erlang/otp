@@ -119,7 +119,7 @@
 	  <item><c>invalid_utf8</c></item>
 	  <item><c>missing_value</c></item>
 	</list>
-	<p>The third component is a list or binary providing additional information about the
+	<p>The third component is a term providing additional information about the
 	cause of the error.</p>
       </desc>
     </datatype>
