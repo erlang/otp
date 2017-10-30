@@ -728,8 +728,15 @@ static void mark_literal(Eterm* ptr)
 
     ap = bsearch(ptr, lit_areas, num_lit_areas, sizeof(ErtsLiteralArea*),
                  search_areas);
-    ASSERT(ap);
-    ap[0]->off_heap = (struct erl_off_heap_header *) 1;
+
+    /*
+     * If the literal was created by native code, this search will not
+     * find it and ap will be NULL.
+     */
+
+    if (ap) {
+        ap[0]->off_heap = (struct erl_off_heap_header *) 1;
+    }
 }
 
 
