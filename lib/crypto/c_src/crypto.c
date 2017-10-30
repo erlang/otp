@@ -277,7 +277,7 @@ static HMAC_CTX *HMAC_CTX_new()
 static void HMAC_CTX_free(HMAC_CTX *ctx)
 {
     HMAC_CTX_cleanup(ctx);
-    return CRYPTO_free(ctx);
+    CRYPTO_free(ctx);
 }
 
 #define EVP_MD_CTX_new() EVP_MD_CTX_create()
