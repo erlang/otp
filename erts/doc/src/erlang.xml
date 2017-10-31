@@ -8876,6 +8876,10 @@ hello
 </pre>
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
+        <note>
+          <p>There is no guarantee that this function will return
+            the same encoded representation for the same term.</p>
+        </note>
       </desc>
     </func>
 
