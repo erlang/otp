@@ -296,12 +296,14 @@
       URIString :: uri_string(),
       NormalizedURI :: uri_string().
 normalize(URIString) ->
-    %% Case normalization and percent-encoding normalization are achieved
-    %% by running parse and recompose on the input URI string.
+    %% Percent-encoding normalization and case normalization for
+    %% percent-encoded triplets are achieved by running parse and
+    %% recompose on the input URI string.
     recompose(
       normalize_path_segment(
         normalize_scheme_based(
-          parse(URIString)))).
+          normalize_case(
+            parse(URIString))))).
 
 
 %%-------------------------------------------------------------------------
@@ -1894,7 +1896,32 @@ form_urldecode(<<H,_/binary>>, _Acc) ->
 %% Helper functions for normalize
 %%-------------------------------------------------------------------------
 
-%% RFC 3986
+%% 6.2.2.1.  Case Normalization
+normalize_case(#{scheme := Scheme, host := Host} = Map) ->
+    Map#{scheme => to_lower(Scheme),
+         host => to_lower(Host)};
+normalize_case(#{host := Host} = Map) ->
+    Map#{host => to_lower(Host)};
+normalize_case(#{scheme := Scheme} = Map) ->
+    Map#{scheme => to_lower(Scheme)};
+normalize_case(#{} = Map) ->
+    Map.
+
+
+to_lower(Cs) when is_list(Cs) ->
+    B = convert_binary(Cs, utf8, utf8),
+    convert_list(to_lower(B), utf8);
+to_lower(Cs) when is_binary(Cs) ->
+    to_lower(Cs, <<>>).
+%%
+to_lower(<<C,Cs/binary>>, Acc) when $A =< C, C =< $Z ->
+    to_lower(Cs, <<Acc/binary,(C + 32)>>);
+to_lower(<<C,Cs/binary>>, Acc) ->
+    to_lower(Cs, <<Acc/binary,C>>);
+to_lower(<<>>, Acc) ->
+    Acc.
+
+
 %% 6.2.2.3. Path Segment Normalization
 %% 5.2.4.   Remove Dot Segments
 normalize_path_segment(Map) ->
