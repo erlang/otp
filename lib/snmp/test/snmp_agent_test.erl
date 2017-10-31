@@ -605,7 +605,12 @@ init_per_group(multiple_reqs_3 = GroupName, Config) ->
 init_per_group(test_multi_threaded = GroupName, Config) -> 
     init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(test_v3 = GroupName, Config) -> 
-    init_v3(snmp_test_lib:init_group_top_dir(GroupName, Config));
+    case snmp_test_lib:crypto_start() of
+        ok ->
+            init_v3(snmp_test_lib:init_group_top_dir(GroupName, Config));
+        _ ->
+            {skip, "Crypto did not start"}
+    end;
 init_per_group(test_v1_v2 = GroupName, Config) -> 
     init_v1_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(test_v2 = GroupName, Config) -> 
@@ -631,11 +636,26 @@ init_per_group(mib_storage_varm_dets = GroupName, Config) ->
     init_varm_mib_storage_dets(
       snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_size_check_mnesia = GroupName, Config) -> 
-    init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+       case snmp_test_lib:crypto_start() of
+           ok ->
+               init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+           _ ->
+               {skip, "Crypto did not start"}
+       end;
 init_per_group(mib_storage_size_check_dets = GroupName, Config) -> 
-    init_size_check_msd(snmp_test_lib:init_group_top_dir(GroupName, Config));
+       case snmp_test_lib:crypto_start() of
+           ok ->
+               init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+           _ ->
+               {skip, "Crypto did not start"}
+       end;
 init_per_group(mib_storage_size_check_ets = GroupName, Config) -> 
-    init_size_check_mse(snmp_test_lib:init_group_top_dir(GroupName, Config));
+           case snmp_test_lib:crypto_start() of
+           ok ->
+               init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+           _ ->
+               {skip, "Crypto did not start"}
+       end;
 init_per_group(mib_storage_mnesia = GroupName, Config) -> 
     init_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
 							     Config));
