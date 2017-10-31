@@ -131,7 +131,10 @@ my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
-# Defines the argument types and their loaded size assuming no packing.
+# Define the operand types and their loaded size assuming no packing.
+#
+# Those are the types that can be used in the definition of a specific
+# instruction.
 #
 my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'x' => 1,	# x(N), N > 0 - x register
@@ -154,10 +157,33 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'A' => 1,	# arity value
 		'P' => 1,	# byte offset into tuple or stack
 		'Q' => 1,	# like 'P', but packable
-		'h' => 1,	# character
+		'h' => 1,	# character (not used)
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
 	     );
+
+#
+# Define the types that may be used in a transformation rule.
+#
+# %pattern_type defines the types that may be used in a pattern
+# on the left side.
+#
+# %construction_type defines the types that may be used when
+# constructing a new instruction on the right side (a subset of
+# the pattern types that are possible to construct).
+#
+my $pattern_types = "acdfjilnopqsuxy";
+my %pattern_type;
+@pattern_type{split("", $pattern_types)} = (1) x length($pattern_types);
+
+my %construction_type;
+foreach my $type (keys %pattern_type) {
+    $construction_type{$type} = 1
+        if index($genop_types, $type) >= 0;
+}
+foreach my $makes_no_sense ('f', 'j', 'o', 'p', 'q') {
+    delete $construction_type{$makes_no_sense};
+}
 
 #
 # Generate bits.
@@ -194,7 +220,8 @@ sub define_type_bit {
     define_type_bit('S', $type_bit{'d'});
     define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
-    # Aliases (for matching purposes).
+    # Aliases of 'u'.  Those specify how to load the operand and
+    # what kind of packing can be done.
     define_type_bit('t', $type_bit{'u'});
     define_type_bit('I', $type_bit{'u'});
     define_type_bit('W', $type_bit{'u'});
@@ -2156,12 +2183,19 @@ sub tr_parse_op {
     if (/^([a-z*]+)(.*)/) {
 	$type = $1;
 	$_ = $2;
+        error("$type: only a single type is allowed on right side of transformations")
+            if not $src and length($type) > 1;
 	foreach (split('', $type)) {
-	    error("bad type in $op")
-		unless defined $type_bit{$_} or $type eq '*';
-	    $_ eq 'r' and
-		error("$op: 'r' is not allowed in transformations")
-	}
+            next if $src and $type eq '*';
+            error("$op: not a type")
+                unless defined $type_bit{$_};
+            error("$op: the type '$_' is not allowed in transformations")
+                unless defined $pattern_type{$_};
+            if (not $src) {
+                error("$op: type '$_' is not allowed on the right side of transformations")
+                    unless defined $construction_type{$_};
+            }
+        }
     }
 
     # Get an optional condition. (In source.)
@@ -2194,10 +2228,18 @@ sub tr_parse_op {
     }
 
     # Get an optional value. (In destination.)
-    $type_val = $type eq 'x' ? 1023 : 0;
+    if ($type eq 'x') {
+        $type_val = 1023;
+    } elsif ($type eq 'a') {
+        $type_val = 'am_Empty';
+    } else {
+        $type_val = 0;
+    }
     if (/^=(.*)/) {
-	error("value not allowed in source: $op")
+	error("$op: value not allowed in source")
 	    if $src;
+        error("$op: the type 'n' must not be given a value")
+            if $type eq 'n';
 	$type_val = $1;
 	$_ = '';
     }
@@ -2207,13 +2249,16 @@ sub tr_parse_op {
     error("garbage '$_' after operand: $op")
 	unless /^\s*$/;
 
-    # Test that destination has no conditions.
+    # Check the conditions.
 
-    unless ($src) {
-	error("condition not allowed in destination: $op")
+    if ($src) {
+        error("$op: the type '$type' is not allowed to be compared with a literal value")
+            if $cond and not $construction_type{$type};
+    } else {
+	error("$op: condition not allowed in destination")
 	    if $cond;
-	error("variable name and type cannot be combined in destination: $op")
-	    if $var && $type;
+	error("$op: variable name and type cannot be combined in destination")
+	    if $var and $type;
     }
 
     ($var,$type,$type_val,$cond,$cond_val);
