@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -25,8 +25,8 @@
 %% Currently defined opcodes
 %%
 -define(QUERY,    16#0).          %% standard query
--define(IQUERY,   16#1).	      %% inverse query 
--define(STATUS,   16#2).	      %% nameserver status query 
+-define(IQUERY,   16#1).	      %% inverse query
+-define(STATUS,   16#2).	      %% nameserver status query
 %% -define(xxx,   16#3)  %% 16#3 reserved
 %%  non standard
 -define(UPDATEA,  16#9).	       %% add resource record
@@ -35,7 +35,7 @@
 -define(UPDATEM,  16#c).	       %% modify a specific resource record
 -define(UPDATEMA, 16#d).	       %% modify all named resource record
 
--define(ZONEINIT, 16#e).	       %% initial zone transfer 
+-define(ZONEINIT, 16#e).	       %% initial zone transfer
 -define(ZONEREF,  16#f).	       %% incremental zone referesh
 
 
@@ -48,7 +48,7 @@
 -define(NXDOMAIN, 3).		%% non existent domain
 -define(NOTIMP,	  4).		%% not implemented
 -define(REFUSED,  5).		%% query refused
-%%	non standard 
+%%	non standard
 -define(NOCHANGE, 16#f).		%% update failed to change db
 -define(BADVERS,  16).
 
@@ -76,6 +76,8 @@
 -define(T_SRV,          33).            %% services
 %% NAPTR (RFC 2915)
 -define(T_NAPTR,        35).            %% naming authority pointer
+%% CERT (RFC 4398)
+-define(T_CERT,         37).            %% certificate record: stores PKIX, SPKI, PGP, etc. (RFC4398)
 -define(T_OPT,          41).            %% EDNS pseudo-rr RFC2671(7)
 %% SPF (RFC 4408)
 -define(T_SPF,          99).            %% server policy framework
@@ -114,6 +116,8 @@
 -define(S_SRV,          srv).           %% services
 %% NAPTR (RFC 2915)
 -define(S_NAPTR,        naptr).         %% naming authority pointer
+%% CERT (RFC 4398)
+-define(S_CERT,         cert).          %% certificate record: stores PKIX, SPKI, PGP, etc. (RFC4398)
 -define(S_OPT,          opt).           %% EDNS pseudo-rr RFC2671(7)
 %% SPF (RFC 4408)
 -define(S_SPF,          spf).           %% server policy framework
@@ -136,7 +140,7 @@
 -define(C_CHAOS,	3).		%% for chaos net at MIT
 -define(C_HS,		4).		%% for Hesiod name server at MIT
 %%  Query class values which do not appear in resource records
--define(C_ANY,		255).		%% wildcard match 
+-define(C_ANY,		255).		%% wildcard match
 
 
 %% indirection mask for compressed domain names
@@ -148,15 +152,15 @@
 %% least significant first, while the order of transmition is most
 %% significant first.  This requires a somewhat confusing rearrangement.
 %%
--record(dns_header, 
+-record(dns_header,
 	{
-	 id = 0,       %% ushort query identification number 
+	 id = 0,       %% ushort query identification number
 	 %% byte F0
 	 qr = 0,       %% :1   response flag
 	 opcode = 0,   %% :4   purpose of message
 	 aa = 0,       %% :1   authoritive answer
 	 tc = 0,       %% :1   truncated message
-	 rd = 0,       %% :1   recursion desired 
+	 rd = 0,       %% :1   recursion desired
 	 %% byte F1
 	 ra = 0,       %% :1   recursion available
 	 pr = 0,       %% :1   primary server required (non standard)

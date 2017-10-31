@@ -324,6 +324,7 @@ decode_type(Type) ->
 	?T_AAAA -> ?S_AAAA;
 	?T_SRV -> ?S_SRV;
 	?T_NAPTR -> ?S_NAPTR;
+    ?T_CERT -> ?S_CERT;
 	?T_OPT -> ?S_OPT;
 	?T_SPF -> ?S_SPF;
 	%% non standard
@@ -363,6 +364,7 @@ encode_type(Type) ->
 	?S_AAAA -> ?T_AAAA;
 	?S_SRV -> ?T_SRV;
 	?S_NAPTR -> ?T_NAPTR;
+    ?S_CERT -> ?T_CERT;
 	?S_OPT -> ?T_OPT;
 	?S_SPF -> ?T_SPF;
 	%% non standard
@@ -415,7 +417,7 @@ encode_opcode(Opcode) ->
 	status -> ?STATUS;
 	_ when is_integer(Opcode) -> Opcode %% non-standard opcode
     end.
-	    
+
 
 encode_boolean(true) -> 1;
 encode_boolean(false) -> 0;
@@ -431,8 +433,8 @@ decode_data(<<A,B,C,D>>, in, ?S_A,  _)   -> {A,B,C,D};
 decode_data(<<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>, in, ?S_AAAA, _) ->
     {A,B,C,D,E,F,G,H};
 decode_data(Dom, _, ?S_NS, Buffer)    -> decode_domain(Dom, Buffer);
-decode_data(Dom, _, ?S_MD, Buffer)    -> decode_domain(Dom, Buffer); 
-decode_data(Dom, _, ?S_MF, Buffer)    -> decode_domain(Dom, Buffer); 
+decode_data(Dom, _, ?S_MD, Buffer)    -> decode_domain(Dom, Buffer);
+decode_data(Dom, _, ?S_MF, Buffer)    -> decode_domain(Dom, Buffer);
 decode_data(Dom, _, ?S_CNAME, Buffer) -> decode_domain(Dom, Buffer);
 decode_data(Data0, _, ?S_SOA, Buffer) ->
     {Data1,MName} = decode_name(Data0, Buffer),
@@ -445,11 +447,11 @@ decode_data(Data0, _, ?S_SOA, Buffer) ->
 	    %% Broken SOA RR data
 	    throw(?DECODE_ERROR)
     end;
-decode_data(Dom, _, ?S_MB, Buffer)    -> decode_domain(Dom, Buffer); 
-decode_data(Dom, _, ?S_MG, Buffer)    -> decode_domain(Dom, Buffer); 
-decode_data(Dom, _, ?S_MR, Buffer)    -> decode_domain(Dom, Buffer); 
+decode_data(Dom, _, ?S_MB, Buffer)    -> decode_domain(Dom, Buffer);
+decode_data(Dom, _, ?S_MG, Buffer)    -> decode_domain(Dom, Buffer);
+decode_data(Dom, _, ?S_MR, Buffer)    -> decode_domain(Dom, Buffer);
 decode_data(Data, _, ?S_NULL, _) -> Data;
-decode_data(<<A,B,C,D,Proto,BitMap/binary>>, in, ?S_WKS, _Buffer) -> 
+decode_data(<<A,B,C,D,Proto,BitMap/binary>>, in, ?S_WKS, _Buffer) ->
     {{A,B,C,D},Proto,BitMap};
 decode_data(Dom, _, ?S_PTR, Buffer)   -> decode_domain(Dom, Buffer);
 decode_data(<<CpuLen,CPU:CpuLen/binary,
@@ -474,7 +476,9 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
     {Data,Regexp} = decode_characters(Data2, utf8),
     Replacement = decode_domain(Data, Buffer),
     {Order,Preference,string:to_lower(Flags),string:to_lower(Services),
-     Regexp,Replacement};
+	 Regexp,Replacement};
+decode_data(<<CertType:16,KeyTag:16,Algo:8,Cert/binary>>, _, ?S_CERT, _) ->
+    {decode_cert_type(CertType),KeyTag,decode_algorithm(Algo),Cert};
 %% ?S_OPT falls through to default
 decode_data(Data, _, ?S_TXT, _) ->
     decode_txt(Data);
@@ -556,7 +560,7 @@ decode_name_labels([Label|Labels], Name) ->
     decode_name_labels(Labels, "."++decode_name_label(Label, Name)).
 
 decode_name_label(<<>>, _Name) ->
-    %% Empty label is only allowed for the root domain, 
+    %% Empty label is only allowed for the root domain,
     %% and that is handled above.
     throw(?DECODE_ERROR);
 decode_name_label(Label, Name) ->
@@ -579,6 +583,38 @@ decode_name_label(Label, Name, N) ->
 	    %% This should not happen but makes surrounding
 	    %% programming errors easier to locate.
 	    erlang:error(badarg, [Label,Name,N])
+	end.
+
+decode_cert_type(CertType) ->
+    case CertType of
+    1 -> "PKIX";    % X.509 as per PKIX
+    2 -> "SPKI";    % SPKI certificate
+    3 -> "PGP";     % OpenPGP packet
+    4 -> "IPKIX";   % The URL of an X.509 data object
+    5 -> "ISPKI";   % The URL of an SPKI certificate
+    6 -> "IPGP";    % The fingerprint and URL of an OpenPGP packet
+    7 -> "ACPKIX";  % Attribute Certificate
+    8 -> "IACPKIX"; % The URL of an Attribute Certificate
+    253 -> "URI";   % URI private
+    254 -> "OID";   % OID private
+    _ ->
+        %% Don't know what type
+        throw(?DECODE_ERROR)
+    end.
+
+decode_algorithm(Algo) ->
+    case Algo of
+    1 -> "RSAMD5";  % RSA/MD5 [RFC2537]
+    2 -> "DH";      % Diffie-Hellman [RFC2539]
+    3 -> "DSA";     % DSA/SHA-1 [RFC2536]
+    4 -> "ECC";     % Elliptic Curve
+    5 -> "RSASHA1"; % RSA/SHA-1 [RFC3110]
+    252 -> "INDIRECT";
+    253 -> "PRIVATEDNS";
+    254 -> "PRIVATEOID";
+    _ ->
+        %% Don't know what type
+        throw(?DECODE_ERROR)
     end.
 
 %%
@@ -617,7 +653,7 @@ encode_data(Comp, Pos, ?S_MX, in, {Pref,Exch}) ->
     encode_name(<<Pref:16>>, Comp, Pos+2, Exch);
 encode_data(Comp, Pos, ?S_SRV, in, {Prio,Weight,Port,Target}) ->
     encode_name(<<Prio:16,Weight:16,Port:16>>, Comp, Pos+2+2+2, Target);
-encode_data(Comp, Pos, ?S_NAPTR, in, 
+encode_data(Comp, Pos, ?S_NAPTR, in,
 	    {Order,Preference,Flags,Services,Regexp,Replacement}) ->
     B0 = <<Order:16,Preference:16>>,
     B1 = encode_string(B0, iolist_to_binary(Flags)),
@@ -670,7 +706,7 @@ encode_name(Comp, Pos, Name) ->
 %% only compression that suffers. Furthermore encode+decode
 %% this way becomes an identity operation for any decoded
 %% DNS message which is nice for testing encode.
-%% 
+%%
 encode_name(Bin0, Comp0, Pos, Name) ->
     case encode_labels(Bin0, Comp0, Pos, name2labels(Name)) of
 	{Bin,_}=Result when byte_size(Bin) - byte_size(Bin0) =< 255 -> Result;
