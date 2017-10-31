@@ -188,6 +188,7 @@ daemon(Port) ->
 daemon(Socket, UserOptions) when is_port(Socket) ->
     try
         #{} = Options = ssh_options:handle_options(server, UserOptions),
+
         case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
             ok ->
                 {ok, {IP,Port}} = inet:sockname(Socket),
@@ -461,6 +462,9 @@ open_listen_socket(_Host0, Port0, Options0) ->
 %%%----------------------------------------------------------------
 finalize_start(Host, Port, Profile, Options0, F) ->
     try
+        %% throws error:Error if no usable hostkey is found
+        ssh_connection_handler:available_hkey_algorithms(server, Options0),
+
         sshd_sup:start_child(Host, Port, Profile, Options0)
     of
         {error, {already_started, _}} ->
@@ -470,6 +474,8 @@ finalize_start(Host, Port, Profile, Options0, F) ->
         Result = {ok,_} ->
             F(Options0, Result)
     catch
+        error:{shutdown,Err} ->
+            {error,Err};
         exit:{noproc, _} ->
             {error, ssh_not_started}
     end.

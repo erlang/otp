@@ -145,14 +145,17 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
     case KeyCb:user_key(KeyAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
         {ok, PrivKey} ->
             try
+                %% Check the key - the KeyCb may be a buggy plugin
+                true = ssh_transport:valid_key_sha_alg(PrivKey, KeyAlg),
                 Key = ssh_transport:extract_public_key(PrivKey),
                 public_key:ssh_encode(Key, ssh2_pubkey)
             of
                 PubKeyBlob -> {ok,{PrivKey,PubKeyBlob}}
             catch
                 _:_ -> 
-		    not_ok
+                    not_ok
             end;
+
 	_Error ->
 	    not_ok
     end.

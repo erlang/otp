@@ -57,9 +57,9 @@
 
 %%% Properties:
 
-prop_seq(_Config) ->
+prop_seq(Config) ->
     {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
-    {_, _, Port} = init_daemon(),
+    {_, _, Port} = init_daemon(Config),
     numtests(1000,
 	     ?FORALL(Delay, choose(0,100),%% Micro seconds
 		     try 
@@ -86,7 +86,8 @@ any_relevant_error_report(Pid) ->
 	      end, Reports).
 
 %%%================================================================
-init_daemon() ->
+init_daemon(Config) ->
     ok = begin ssh:stop(), ssh:start() end,
-    ssh_test_lib:daemon([]).
+    DataDir = proplists:get_value(data_dir, Config),
+    ssh_test_lib:daemon([{system_dir,DataDir}]).
 
