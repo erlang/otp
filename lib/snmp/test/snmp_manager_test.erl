@@ -156,16 +156,25 @@ init_per_suite(Config0) when is_list(Config0) ->
     ?DBG("init_per_suite -> entry with"
 	 "~n   Config0: ~p", [Config0]),
 
-    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
-    Config2   = snmp_test_lib:fix_data_dir(Config1),
-
-    %% Mib-dirs
-    %% data_dir is trashed by the test-server / common-test
-    %% so there is no point in fixing it...
-    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-
-    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+    %% Preferably this test SUITE should be divided into groups
+    %% so that if crypto does not work only v3 tests that
+    %% need crypto will be skipped, but as this is only a
+    %% problem with one legacy test machine, we will procrastinate
+    %% until we have a more important reason to fix this. 
+    case snmp_test_lib:crypto_start() of
+        ok ->
+            Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+            Config2   = snmp_test_lib:fix_data_dir(Config1),
+            %% Mib-dirs
+            %% data_dir is trashed by the test-server / common-test
+            %% so there is no point in fixing it...
+            MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+            StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+            
+            [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2];
+        _ ->
+            {skip, "Crypto did not start"}
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
 
