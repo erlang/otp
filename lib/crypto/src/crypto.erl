@@ -42,6 +42,7 @@
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+-export([privkey_to_pubkey/2]).
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 %% Engine
@@ -1058,6 +1059,16 @@ ec_curves() ->
 ec_curve(X) ->
     crypto_ec_curves:curve(X).
 
+
+privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
+    case privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap)) of
+        [_|_]=L -> map_ensure_bin_as_int(L);
+        X -> X
+    end.
+            
+privkey_to_pubkey_nif(_Alg, _EngineMap) -> ?nif_stub.
+
+
 %%
 %% EC
 %%
@@ -1124,6 +1135,14 @@ ensure_int_as_bin(Int) when is_integer(Int) ->
     int_to_bin(Int);
 ensure_int_as_bin(Bin) ->
     Bin.
+
+map_ensure_bin_as_int(List) when is_list(List) ->
+    lists:map(fun ensure_bin_as_int/1, List).
+
+ensure_bin_as_int(Bin) when is_binary(Bin) ->
+    bin_to_int(Bin);
+ensure_bin_as_int(E) ->
+    E.
 
 format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_binary(T) -> format_pwd(M);
 format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_list(T) -> format_pwd(M#{key_id:=list_to_binary(T)});
