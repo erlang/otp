@@ -480,13 +480,13 @@ stats_standard_normal(Config) when is_list(Config) ->
 stats_standard_normal(Fun, S) ->
 %%%
 %%% ct config:
-%%% {rand_SUITE, [{stats_standard_normal,[{seconds, 8}, {std_devs, 4.0}]}]}.
+%%% {rand_SUITE, [{stats_standard_normal,[{seconds, 8}, {std_devs, 4.2}]}]}.
 %%%
     Seconds = ct:get_config({?MODULE, ?FUNCTION_NAME, seconds}, 8),
     StdDevs =
         ct:get_config(
           {?MODULE, ?FUNCTION_NAME, std_devs},
-          4.0), % probability erfc(4/sqrt(2)) (1/15787) to fail a bucket
+          4.2), % probability erfc(4.2/sqrt(2)) (1/37465) to fail a bucket
 %%%
     ct:timetrap({seconds, Seconds + 120}),
     %% Buckets is chosen to get a range where the the probability to land
@@ -528,9 +528,9 @@ stats_standard_normal(Fun, S) ->
            W, TotalRounds, StdDevs, PositiveHistogram, Buckets),
          check_histogram(
            W, TotalRounds, StdDevs, NegativeHistogram, Buckets)},
-    %% If the probability for getting this Outlier is lower than 1/20,
+    %% If the probability for getting this Outlier is lower than 1/50,
     %% then this is fishy!
-    true = (1/20 =< OutlierProbability),
+    true = (1/50 =< OutlierProbability),
     {comment, {tp, TopPrecision, op, InvOP}}.
 %%
 stats_standard_normal(
