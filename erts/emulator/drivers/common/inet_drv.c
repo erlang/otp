@@ -12239,7 +12239,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	if (IS_SCTP(desc)) {
 	    unsigned int infotype = 0;
 	    socklen_t infolen = SCTP_ANC_BUFF_SIZE;
-	    char dummyread[1];
+	    char dummyread[3];
 	    iov->iov_base = udesc->i_ptr; /* Data will come here    */
 	    iov->iov_len = desc->bufsz; /* Remaining buffer space */
 	    
@@ -12252,7 +12252,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    mhdr.msg_flags	= 0;	   /* To be filled by "recvmsg"    */
 	   
 	    /* read bytes from notif fd */
-	    read(desc->s, dummyread, 1);
+	    read(desc->s, dummyread, 3);
 	    /* Do the actual SCTP receive: */
 	    DEBUGF(("usrsctp_recvv about to be called %x\r\n", desc->usrsctp_sock));
 	    n = p_usrsctp_recvv(desc->usrsctp_sock,
