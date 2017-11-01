@@ -348,6 +348,7 @@ static unsigned long one_value = 1;
 #ifdef HAVE_USRSCTP
 //#define SCTP_DEBUG 1
 #include <usrsctp.h>
+#include "safe_hash.h"
 #else
 #include <netinet/sctp.h>
 #endif
@@ -443,9 +444,6 @@ static unsigned long one_value = 1;
 #     define sctp_adaptation_layer_event sctp_adaption_layer_event
 #endif
 
-#endif /* ifndef HAVE_USRSCTP */
-
-#if !defined(HAVE_USRSCTP)
 #if defined(__GNUC__) && defined(HAVE_SCTP_BINDX)
 static typeof(sctp_bindx) *p_sctp_bindx = NULL;
 #else
@@ -485,7 +483,7 @@ static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
 #else
 static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
-#endif /* !defined(HAVE_USRSCTP) */
+#endif /* ifndef HAVE_USRSCTP */
 
 #ifdef HAVE_USRSCTP
 static typeof(usrsctp_bindx) *p_sctp_bindx = NULL;
@@ -512,6 +510,76 @@ static typeof(usrsctp_recvv) *p_usrsctp_recvv = NULL;
 static typeof(usrsctp_shutdown) *p_usrsctp_shutdown = NULL;
 static typeof(usrsctp_connect) *p_usrsctp_connect = NULL;
 static typeof(usrsctp_close) *p_usrsctp_close = NULL;
+
+struct usrsctp_driver_sock {
+    struct socket *so;
+    Eterm port;
+};
+
+static SafeHash drv_usrsctp_sock_tab;
+static int num_drv_usrsctp_prealloc;
+static struct usrsctp_driver_sock *drv_usrsctp_prealloc_first;
+erts_smp_spinlock_t drv_usrsctp_prealloc_lock;
+
+static ERTS_INLINE struct usrsctp_driver_sock *hash_get_usrsctp_driver(struct socket *so)
+{
+    struct usrsctp_driver_sock tmpl;
+    tmpl.so = so;
+    return (struct usrsctp_driver_sock *) safe_hash_get(&drv_usrsctp_sock_tab, (void *) &tmpl);
+}
+
+static ERTS_INLINE struct usrsctp_driver_sock* hash_new_usrsctp_driver(struct socket *so, Eterm port)
+{
+    struct usrsctp_driver_sock tmpl;
+    tmpl.so = so;
+    tmpl.port = port;
+    return  (struct usrsctp_driver_sock *) safe_hash_put(&drv_usrsctp_sock_tab, (void *) &tmpl);
+}
+
+static ERTS_INLINE void hash_erase_drv_usrsctp(struct usrsctp_driver_sock *usrsctp_drv_sock)
+{
+    safe_hash_erase(&drv_usrsctp_sock_tab, (void *) usrsctp_drv_sock);
+}
+
+static SafeHashValue drv_usrsctp_hash(void *des)
+{
+    SafeHashValue val = (SafeHashValue) ((struct usrsctp_driver_sock *) des)->so;
+    return val ^ (val >> 8);  /* Good enough for aligned pointer values? */
+}
+
+static int drv_usrsctp_cmp(void *des1, void *des2)
+{
+    return ( ((struct usrsctp_driver_sock *) des1)->so == 
+	     ((struct usrsctp_driver_sock *) des2)->so
+	    ? 0 : 1);
+}
+
+static void *drv_usrsctp_alloc(void *des_tmpl)
+{
+    struct usrsctp_driver_sock *drv_sock;
+    drv_sock = (struct usrsctp_driver_sock *) 
+	    erts_alloc(ERTS_ALC_T_DRV_SCTP_SOCK, sizeof(struct usrsctp_driver_sock));
+    
+    *drv_sock = *((struct usrsctp_driver_sock *) des_tmpl);
+
+    return (void *) drv_sock;
+}
+
+static void drv_usrsctp_free(void *des)
+{
+    erts_free(ERTS_ALC_T_DRV_SCTP_SOCK, (void *) des); 
+}
+static void usrsctp_init_socket_hash()
+{
+    SafeHashFunctions hf;
+    hf.hash = &drv_usrsctp_hash;
+    hf.cmp = &drv_usrsctp_cmp;
+    hf.alloc = &drv_usrsctp_alloc;
+    hf.free = &drv_usrsctp_free;
+    safe_hash_init(ERTS_ALC_T_DRV_SCTP_SOCK, &drv_usrsctp_sock_tab, "drv_usrsctp_sock_tab", 
+	    1024, hf);
+}
+
 #endif  /* HAVE_USRSCTP */
 
 #endif /* #if defined(HAVE_SCTP_H) */
@@ -4217,6 +4285,7 @@ static int inet_init()
 		p_usrsctp_init(0, NULL, NULL);
 #endif
 		drop_root_priv();
+		usrsctp_init_socket_hash();
 		//p_usrsctp_sysctl_set_sctp_ecn_enable(0);
 		//p_usrsctp_sysctl_set_sctp_auth_enable(0);
 		p_usrsctp_sysctl_set_sctp_delayed_sack_time_default(10);
