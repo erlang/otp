@@ -1136,7 +1136,6 @@ static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
 static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void       packet_inet_drv_input(ErlDrvData data, ErlDrvEvent event);
-static void	  packet_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
 static ErlDrvData udp_inet_start(ErlDrvPort, char* command);
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort, char* command);
@@ -1161,7 +1160,7 @@ static struct erl_drv_entry udp_inet_driver_entry =
     NULL, 
 #else
     packet_inet_drv_input,
-    packet_inet_drv_output,
+    NULL,
 #endif
     "udp_inet",
     NULL,
@@ -1196,7 +1195,7 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     NULL, 
 #else
     packet_inet_drv_input,
-    packet_inet_drv_output,
+    NULL,
 #endif
     "sctp_inet",
     NULL,
@@ -1262,7 +1261,6 @@ typedef struct {
 
 
 static int packet_inet_input(udp_descriptor* udesc, HANDLE event);
-static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
 #endif
 
 /* convert descriptor pointer to inet_descriptor pointer */
@@ -11300,24 +11298,20 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		 (desc->sfamily, &remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
 	
-	    sock_select(desc, FD_CONNECT, 1);
 	    code = sock_connect(desc->s, &remote.sa, len);
 
 	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
-		desc->state = INET_STATE_CONNECTING;
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
+		async_ok(desc);
 	    }
 	    else if (code == 0) { /* OK we are connected */
-		sock_select(desc, FD_CONNECT, 0);
-		desc->state = INET_STATE_CONNECTED;
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
 		async_ok(desc);
 	    }
 	    else {
-		sock_select(desc, FD_CONNECT, 0);
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
@@ -11832,77 +11826,6 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
     return count;
 }
 
-static void packet_inet_drv_output(ErlDrvData e, ErlDrvEvent event)
-{
-    (void)  packet_inet_output((udp_descriptor*)e, (HANDLE)event);
-}
-
-/* UDP/SCTP socket ready for output:
-**	This is a Back-End for Non-Block SCTP Connect (INET_STATE_CONNECTING)
-*/
-static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
-{
-    inet_descriptor* desc = INETP(udesc);
-    int ret = 0;
-    ErlDrvPort ix = desc->port;
-
-    DEBUGF(("packet_inet_output(%ld) {s=%d\r\n", 
-	    (long)desc->port, desc->s));
-
-    if (desc->state == INET_STATE_CONNECTING) {
-	sock_select(desc, FD_CONNECT, 0);
-
-	driver_cancel_timer(ix);  /* posssibly cancel a timer */
-#ifndef __WIN32__
-	/*
-	 * XXX This is strange.  This *should* work on Windows NT too,
-	 * but doesn't.  An bug in Winsock 2.0 for Windows NT?
-	 *
-	 * See "Unix Netwok Programming", W.R.Stevens, p 412 for a
-	 * discussion about Unix portability and non blocking connect.
-	 */
-
-#ifndef SO_ERROR
-	{
-	    int sz = sizeof(desc->remote);
-	    int code = sock_peer(desc->s,
-				 (struct sockaddr*) &desc->remote, &sz);
-
-	    if (IS_SOCKET_ERROR(code)) {
-		desc->state = INET_STATE_OPEN;  /* restore state */
-		ret =  async_error(desc, sock_errno());
-		goto done;
-	    }
-	}
-#else
-	{
-	    int error = 0;	/* Has to be initiated, we check it */
-	    unsigned int sz = sizeof(error);   /* even if we get -1 */
-	    int code = sock_getopt(desc->s, SOL_SOCKET, SO_ERROR, 
-				   (void *)&error, &sz);
-
-	    if ((code < 0) || error) {
-		desc->state = INET_STATE_OPEN;  /* restore state */
-		ret = async_error(desc, error);
-		goto done;
-	    }
-	}
-#endif /* SO_ERROR */
-#endif /* !__WIN32__ */
-
-	desc->state = INET_STATE_CONNECTED;
-	async_ok(desc);
-    }
-    else {
-	sock_select(desc,FD_CONNECT,0);
-
-	DEBUGF(("packet_inet_output(%ld): bad state: %04x\r\n", 
-		(long)desc->port, desc->state));
-    }
- done:
-    DEBUGF(("packet_inet_output(%ld) }\r\n", (long)desc->port));
-    return ret;
-}
 #endif
 
 /*---------------------------------------------------------------------------*/
