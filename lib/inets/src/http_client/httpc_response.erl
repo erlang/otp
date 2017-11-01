@@ -269,7 +269,7 @@ parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers,
 		  MaxHeaderSize, Result, Relaxed);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, _) ->
+	      MaxHeaderSize, Result, Relaxed) ->
     HTTPHeaders = [lists:reverse(Header) | Headers],
     Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
 			   0, HTTPHeaders),
@@ -277,8 +277,42 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
  	true ->   
 	    ResponseHeaderRcord = 
 		http_response:headers(HTTPHeaders, #http_response_h{}),
-	    {ok, list_to_tuple(
-		   lists:reverse([Body, ResponseHeaderRcord | Result]))};
+
+            %% RFC7230, Section 3.3.3
+            %% If a message is received with both a Transfer-Encoding and a
+            %% Content-Length header field, the Transfer-Encoding overrides the
+            %% Content-Length. Such a message might indicate an attempt to
+            %% perform request smuggling (Section 9.5) or response splitting
+            %% (Section 9.4) and ought to be handled as an error. A sender MUST
+            %% remove the received Content-Length field prior to forwarding such
+            %% a message downstream.
+            case ResponseHeaderRcord#http_response_h.'transfer-encoding' of
+                undefined ->
+                    {ok, list_to_tuple(
+                           lists:reverse([Body, ResponseHeaderRcord | Result]))};
+                Value ->
+                    TransferEncoding = string:lowercase(Value),
+                    ContentLength = ResponseHeaderRcord#http_response_h.'content-length',
+                    if
+                        %% Respond without error but remove Content-Length field in relaxed mode
+                        (Relaxed =:= true)
+                        andalso (TransferEncoding =:= "chunked")
+                        andalso (ContentLength =/= "-1") ->
+                            ResponseHeaderRcordFixed =
+                                ResponseHeaderRcord#http_response_h{'content-length' = "-1"},
+                            {ok, list_to_tuple(
+                                   lists:reverse([Body, ResponseHeaderRcordFixed | Result]))};
+                        %% Respond with error in default (not relaxed) mode
+                        (Relaxed =:= false)
+                        andalso (TransferEncoding =:= "chunked")
+                        andalso (ContentLength =/= "-1") ->
+                            throw({error, {headers_conflict, {'content-length',
+                                                              'transfer-encoding'}}});
+                        true  ->
+                            {ok, list_to_tuple(
+                                   lists:reverse([Body, ResponseHeaderRcord | Result]))}
+                    end
+            end;
  	false ->
 	    throw({error, {header_too_long, MaxHeaderSize, 
 			   MaxHeaderSize-Length}})
