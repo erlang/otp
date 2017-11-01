@@ -287,8 +287,7 @@
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
-                           {relaxed,         boolean()} |
-	                   {url_encode,      boolean()}</v>
+                           {relaxed,         boolean()}</v>
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
@@ -378,13 +377,6 @@
             <p>If set to <c>true</c>, workarounds for known server deviations 
 	    from the HTTP-standard are enabled.</p>
             <p>Default is <c>false</c>.</p>
-	  </item>
-
-	  <tag><c><![CDATA[url_encode]]></c></tag>
-          <item>
-            <p>Applies Percent-encoding, also known as URL encoding on the 
-	    URL.</p>
-	    <p>Default is <c>false</c>.</p>
 	  </item>
         </taglist>
 
