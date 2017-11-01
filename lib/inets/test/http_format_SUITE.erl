@@ -535,7 +535,7 @@ esi_parse_headers(Config) when is_list(Config) ->
 	 {"location","http://foo.bar.se"}], 302} =
 	httpd_esi:handle_headers(Headers2),
     
-    {proceed,"/foo/bar.html"} = 
+   {ok,[{"location","/foo/bar.html"}], 302} = 
 	httpd_esi:handle_headers("location:/foo/bar.html\r\n").
 
 %%--------------------------------------------------------------------

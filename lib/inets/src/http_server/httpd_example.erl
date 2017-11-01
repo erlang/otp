@@ -20,7 +20,7 @@
 %%
 -module(httpd_example).
 -export([print/1]).
--export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2]).
+-export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2,new_status_and_location/2]).
 
 -export([newformat/3, post_chunked/3]).
 %% These are used by the inets test-suite
@@ -89,6 +89,9 @@ post(Env,Input) ->
 
 yahoo(_Env,_Input) ->
   "Location: http://www.yahoo.com\r\n\r\n".
+
+new_status_and_location(_Env,_Input) ->
+  "status:201\r\n Location: http://www.yahoo.com\r\n\r\n".
 
 default(Env,Input) ->
   [header(),
