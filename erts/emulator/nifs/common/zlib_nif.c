@@ -929,7 +929,7 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
         return enif_raise_exception(env, am_not_initialized);
     }
 
-    if(d->eos_seen) {
+    if(d->eos_seen && enif_ioq_size(d->input_queue) > 0) {
         int res;
 
         switch(d->eos_behavior) {
@@ -943,11 +943,10 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
             }
 
             d->eos_seen = 0;
+
             break;
         case EOS_BEHAVIOR_CUT:
             zlib_reset_input(d);
-
-            return enif_make_tuple2(env, am_finished, enif_make_list(env, 0));
         }
     }
 
