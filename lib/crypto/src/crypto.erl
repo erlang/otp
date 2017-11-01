@@ -53,6 +53,11 @@
          engine_list/0
         ]).
 
+-export_type([engine_ref/0,
+              key_id/0,
+              password/0
+             ]).
+
 
 %% Private. For tests.
 -export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2, get_test_engine/0]).
@@ -429,8 +434,18 @@ sign(Algorithm, Type, Data, Key, Options) ->
     end.
 
 
+
+-type key_id()   :: string() | binary() .
+-type password() :: string() | binary() .
+
+-type engine_key_ref() :: #{engine :=   engine_ref(),
+                            key_id :=   key_id(),
+                            password => password(),
+                            term() => term() 
+                           }.
+
 -type pk_algs() :: rsa | ecdsa | dss .
--type pk_key()  :: map() | [integer() | binary()] .
+-type pk_key()  :: engine_key_ref() | [integer() | binary()] .
 -type pk_opt()  :: list() | rsa_padding() .
 
 -spec public_encrypt(pk_algs(),  binary(), pk_key(), pk_opt()) -> binary().
@@ -589,6 +604,8 @@ compute_key(ecdh, Others, My, Curve) ->
                               engine_method_pkey_meths | engine_method_pkey_asn1_meths | 
                               engine_method_ec.
 
+-type engine_ref() :: term().
+
 -spec engine_get_all_methods() ->
     [engine_method_type()].
 engine_get_all_methods() ->
@@ -600,7 +617,7 @@ engine_get_all_methods() ->
 -spec engine_load(EngineId::unicode:chardata(),
                   PreCmds::[{unicode:chardata(), unicode:chardata()}],
                   PostCmds::[{unicode:chardata(), unicode:chardata()}]) ->
-    {ok, Engine::term()} | {error, Reason::term()}.
+    {ok, Engine::engine_ref()} | {error, Reason::term()}.
 engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds), is_list(PostCmds) ->
     engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
 
