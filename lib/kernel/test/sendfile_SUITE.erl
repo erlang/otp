@@ -40,7 +40,8 @@
      t_sendfile_sendduring/1,
      t_sendfile_recvduring/1,
      t_sendfile_closeduring/1,
-     t_sendfile_crashduring/1]).
+     t_sendfile_crashduring/1,
+     t_sendfile_arguments/1]).
 
 all() ->
     [t_sendfile_small,
@@ -55,7 +56,8 @@ all() ->
      t_sendfile_sendduring,
      t_sendfile_recvduring,
      t_sendfile_closeduring,
-     t_sendfile_crashduring].
+     t_sendfile_crashduring,
+     t_sendfile_arguments].
 
 init_per_suite(Config) ->
     case {os:type(),os:version()} of
@@ -370,6 +372,36 @@ t_sendfile_crashduring(Config) ->
 			die = Reason
 		end
 	end.
+
+t_sendfile_arguments(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+
+    {ok, Listener} = gen_tcp:listen(0,
+        [{packet, 0}, {active, false}, {reuseaddr, true}]),
+    {ok, Port} = inet:port(Listener),
+
+    ErrorCheck =
+        fun(Reason, Offset, Length, Opts) ->
+            {ok, Sender} = gen_tcp:connect({127, 0, 0, 1}, Port,
+                [{packet, 0}, {active, false}]),
+            {ok, Receiver} = gen_tcp:accept(Listener),
+            {ok, Fd} = file:open(Filename, [read, raw]),
+            {error, Reason} = file:sendfile(Fd, Sender, Offset, Length, Opts),
+            gen_tcp:close(Receiver),
+            gen_tcp:close(Sender),
+            file:close(Fd)
+        end,
+
+    ErrorCheck(einval, -1, 0, []),
+    ErrorCheck(einval, 0, -1, []),
+    ErrorCheck(badarg, gurka, 0, []),
+    ErrorCheck(badarg, 0, gurka, []),
+    ErrorCheck(badarg, 0, 0, gurka),
+    ErrorCheck(badarg, 0, 0, [{chunk_size, gurka}]),
+
+    gen_tcp:close(Listener),
+
+    ok.
 
 %% Generic sendfile server code
 sendfile_send(Send) ->
