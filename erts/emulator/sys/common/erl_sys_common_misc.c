@@ -31,6 +31,7 @@
 
 #include "sys.h"
 #include "global.h"
+#include "erl_port.h"
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
 #define __DARWIN__ 1
@@ -304,4 +305,20 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
 
     *p = '\0';
     return p - buffer;
+}
+
+/* used usrsctp in inet_drv.c to schedule port on usrsocket event */
+Eterm driver_erts_drvport2id(ErlDrvPort drvport)
+{
+    return erts_drvport2id(drvport);
+}
+
+int driver_port_task_input_schedule(Eterm port)
+{
+    return erts_port_task_schedule(port, NULL, ERTS_PORT_TASK_INPUT, -1);
+}
+
+int driver_port_task_output_schedule(Eterm port)
+{
+    return erts_port_task_schedule(port, NULL, ERTS_PORT_TASK_OUTPUT, -1);
 }

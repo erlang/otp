@@ -1569,7 +1569,10 @@ abort_nosuspend:
 fail:
 
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
-	erts_port_dec_refc(pp);
+    {	
+	if(pp)
+	    erts_port_dec_refc(pp);
+    }
 
     if (ptp) {
         abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
