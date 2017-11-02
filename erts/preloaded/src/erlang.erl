@@ -2201,6 +2201,7 @@ process_flag(_Flag, _Value) ->
       registered_name |
       sequential_trace_token |
       stack_size |
+      start_time |
       status |
       suspending |
       total_heap_size |
@@ -2245,6 +2246,7 @@ process_flag(_Flag, _Value) ->
       {registered_name, [] | (Atom :: atom())} |
       {sequential_trace_token, [] | (SequentialTraceToken :: term())} |
       {stack_size, Size :: non_neg_integer()} |
+      {start_time, StartTime :: integer()} |
       {status, Status :: exiting | garbage_collecting | waiting | running | runnable | suspended} |
       {suspending,
        SuspendeeList :: [{Suspendee :: pid(),

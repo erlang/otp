@@ -5315,6 +5315,11 @@ RealSystem = system + MissedSystem</code>
             <p><c><anno>Size</anno></c> is the stack size, in words,
               of the process.</p>
           </item>
+          <tag><c>{start_time, <anno>StartTime</anno>}</c></tag>
+          <item>
+            <p><c><anno>StartTime</anno></c> is Erlang monotonic time when
+              the process was started.</p>
+          </item>
           <tag><c>{status, <anno>Status</anno>}</c></tag>
           <item>
             <p><c><anno>Status</anno></c> is the status of the process and is
