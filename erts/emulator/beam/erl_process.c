@@ -3276,7 +3276,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     erts_aint32_t aux_work = 0;
     int thr_prgr_active = 1;
     erts_aint32_t flgs;
-    ERTS_MSACC_PUSH_STATE_M();
+    ERTS_MSACC_PUSH_STATE();
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
 
@@ -3385,9 +3385,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                                                                  - 1) + 1;
                             } else
                                 timeout = -1;
-                            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+                            ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_SLEEP);
                             res = erts_tse_twait(ssi->event, timeout);
-                            ERTS_MSACC_POP_STATE_M();
+                            ERTS_MSACC_POP_STATE();
                             current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
                                 erts_get_monotonic_time(esdp);
                         } while (res == EINTR);
@@ -9701,7 +9701,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                                      | ERTS_PROC_LOCK_STATUS
                                      | ERTS_PROC_LOCK_TRACE));
 
-            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
+            ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
             if (state & ERTS_PSFLG_FREE) {
                 if (!is_normal_sched) {
@@ -9916,7 +9916,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    case 0:			/* No process at all */
 	    default:
 		ASSERT(qmask == 0);
-                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
+                ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 		goto check_activities_to_run;
 	    }
 
@@ -10034,7 +10034,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	}
 
-        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
+        ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_EMULATOR);
 
 
 	if (flags & ERTS_RUNQ_FLG_PROTECTED)
