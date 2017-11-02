@@ -1837,24 +1837,16 @@ f.txt:  {person, "kalle", 25}.
 	<p>The file used must be opened using the <c>raw</c> flag, and the process
 	calling <c>sendfile</c> must be the controlling process of the socket.
 	See <seealso marker="gen_tcp#controlling_process-2"><c>gen_tcp:controlling_process/2</c></seealso>.</p>
-	<p>If the OS used does not support <c>sendfile</c>, an Erlang fallback
-	using
-	<seealso marker="#read/2"><c>read/2</c></seealso> and
-	<seealso marker="gen_tcp#send/2"><c>gen_tcp:send/2</c></seealso> is used.</p>
+	<p>If the OS used does not support non-blocking <c>sendfile</c>, an
+	Erlang fallback using <seealso marker="#read/2"><c>read/2</c></seealso>
+	and <seealso marker="gen_tcp#send/2"><c>gen_tcp:send/2</c></seealso> is
+        used.</p>
 	<p>The option list can contain the following options:</p>
 	<taglist>
           <tag><c>chunk_size</c></tag>
           <item><p>The chunk size used by the Erlang fallback to send
 	  data. If using the fallback, set this to a value
 	  that comfortably fits in the systems memory. Default is 20 MB.</p></item>
-	  <tag><c>use_threads</c></tag>
-          <item><p>Instructs the emulator to use the <c>async</c> thread pool for the
-	  <c>sendfile</c> system call. This can be useful if the OS you are running
-	  on does not properly support non-blocking <c>sendfile</c> calls. Notice that
-	  using <c>async</c> threads potentially makes your system vulnerable to slow
-	  client attacks. If set to <c>true</c> and no <c>async</c> threads are available,
-	  the <c>sendfile</c> call returns <c>{error,einval}</c>.
-	  Introduced in Erlang/OTP 17.0. Default is <c>false</c>.</p></item>
 	</taglist>
       </desc>
     </func>
