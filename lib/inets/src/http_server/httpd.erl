@@ -99,7 +99,14 @@ start_service(Conf) ->
 stop_service({Address, Port}) ->
     stop_service({Address, Port, ?DEFAULT_PROFILE});
 stop_service({Address, Port, Profile}) ->
-     httpd_sup:stop_child(Address, Port, Profile);
+    Name  = httpd_util:make_name("httpd_instance_sup", Address, Port, Profile),
+    Pid = whereis(Name),
+    MonitorRef = erlang:monitor(process, Pid),
+    Result = httpd_sup:stop_child(Address, Port, Profile),
+    receive
+        {'DOWN', MonitorRef, _, _, _} ->
+            Result
+    end;     
 stop_service(Pid) when is_pid(Pid) ->
     case service_info(Pid)  of
 	{ok, Info} ->	   

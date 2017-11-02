@@ -66,7 +66,7 @@ handle_headers("") ->
     {ok, [], 200};
 handle_headers(Headers) ->
     NewHeaders = string:tokens(Headers, ?CRLF),
-    handle_headers(NewHeaders, [], 200).
+    handle_headers(NewHeaders, [], 200, true).
 
 %%%========================================================================
 %%% Internal functions
@@ -80,21 +80,17 @@ parse_headers([?CR, ?LF, ?CR, ?LF | Rest], Acc) ->
 parse_headers([Char | Rest], Acc) ->
     parse_headers(Rest, [Char | Acc]).
  
-handle_headers([], NewHeaders, StatusCode) ->
+handle_headers([], NewHeaders, StatusCode, _) ->
     {ok, NewHeaders, StatusCode};
 
-handle_headers([Header | Headers], NewHeaders, StatusCode) -> 
+handle_headers([Header | Headers], NewHeaders, StatusCode, NoESIStatus) -> 
     {FieldName, FieldValue} = httpd_response:split_header(Header, []),
     case FieldName of
 	"location" ->
-	    case http_request:is_absolut_uri(FieldValue) of
-		true ->
-		    handle_headers(Headers, 
-				   [{FieldName, FieldValue} | NewHeaders], 
-				   302);
-		false ->
-		    {proceed, FieldValue}
-	    end;
+            handle_headers(Headers, 
+                           [{FieldName, FieldValue} | NewHeaders], 
+                           302, NoESIStatus);
+	
 	"status" ->
 	    NewStatusCode = 
 		case httpd_util:split(FieldValue," ",2) of
@@ -103,8 +99,9 @@ handle_headers([Header | Headers], NewHeaders, StatusCode) ->
 		    _ ->
 			200
 		end,
-	    handle_headers(Headers, NewHeaders, NewStatusCode);
+	    handle_headers(Headers, NewHeaders, NewStatusCode, false);
 	_ -> 
 	    handle_headers(Headers, 
-			     [{FieldName, FieldValue}| NewHeaders], StatusCode)
-    end.	
+                           [{FieldName, FieldValue}| NewHeaders], StatusCode,
+                           NoESIStatus)
+    end.	 
