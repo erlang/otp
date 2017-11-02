@@ -33,7 +33,39 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.4.2</title>
+  <section><title>Inets 6.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken handling of POST requests</p>
+          <p>
+	    New chunk mechanism of body data in POST requests added
+	    in 5d01c70ca399edf28e99dc760506329689fab6ba broke
+	    handling of POST body data not using the new mechanism.</p>
+          <p>
+	    Own Id: OTP-14656</p>
+        </item>
+        <item>
+          <p>
+	    Make sure ints:stop/2 of the service httpd is synchronous</p>
+          <p>
+	    Own Id: OTP-14696</p>
+        </item>
+        <item>
+          <p>
+	    Honor status code returned by ESI script and modernize
+	    "location" header handling.</p>
+          <p>
+	    Own Id: OTP-14716</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
