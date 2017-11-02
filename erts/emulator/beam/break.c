@@ -209,7 +209,6 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 void
 print_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
-    time_t approx_started;
     int garbing = 0;
     int running = 0;
     struct saved_calls *scb;
@@ -258,8 +257,6 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
-    approx_started = (time_t) p->approx_started;
-    erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
     ERTS_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
 

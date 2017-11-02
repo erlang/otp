@@ -107,9 +107,6 @@ void erts_p_slpq(void);
 void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 #endif
 
-typedef UWord erts_approx_time_t;
-erts_approx_time_t erts_get_approx_time(void);
-
 int erts_has_time_correction(void);
 int erts_check_time_adj_support(int time_correction,
 				ErtsTimeWarpMode time_warp_mode);

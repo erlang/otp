@@ -191,17 +191,6 @@ static struct {
 
 ErtsTimeSupData erts_time_sup__ erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
-/*
- * erts_get_approx_time() returns an *approximate* time
- * in seconds. NOTE that this time may jump backwards!!!
- */
-erts_approx_time_t
-erts_get_approx_time(void)
-{
-    ErtsSystemTime stime = erts_os_system_time();
-    return (erts_approx_time_t) ERTS_MONOTONIC_TO_SEC(stime);
-}
-
 static ERTS_INLINE void
 init_time_offset(ErtsMonotonicTime offset)
 {
