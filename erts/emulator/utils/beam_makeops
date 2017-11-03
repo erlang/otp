@@ -306,9 +306,14 @@ if ($wordsize == 64) {
 # Add placeholders for built-in macros.
 #
 
-$c_code{'IS_PACKED'} = ['$Expr',"built-in macro",('Expr')];
-$c_code{'ARG_POSITION'} = ['$Expr',"built-in macro",('Expr')];
-foreach my $name (keys %c_code) {
+my %predef_macros =
+    (IS_PACKED => ['Expr'],
+     ARG_POSITION => ['Expr'],
+    );
+foreach my $name (keys %predef_macros) {
+    my @args = @{$predef_macros{$name}};
+    my $body = join(':', map { '$' . $_ } @args);
+    $c_code{$name} = [$body,"built-in macro",@args],
     $c_code_used{$name} = 1;
 }
 
