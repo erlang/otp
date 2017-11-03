@@ -366,9 +366,9 @@ transcode(URIString, Options) when is_binary(URIString) ->
     try
         InEnc = proplists:get_value(in_encoding, Options, utf8),
         OutEnc = proplists:get_value(out_encoding, Options, utf8),
-        List = convert_list(URIString, InEnc),
+        List = convert_to_list(URIString, InEnc),
         Output = transcode(List, [], InEnc, OutEnc),
-        convert_binary(Output, utf8, OutEnc)
+        convert_to_binary(Output, utf8, OutEnc)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
@@ -421,7 +421,7 @@ compose_query([{Key,Value}|Rest], Options, IsList, Acc) ->
     compose_query(Rest, Options, IsListNew, <<Acc/binary,K/binary,"=",V/binary,Separator/binary>>);
 compose_query([], _Options, IsList, Acc) ->
     case IsList of
-        true -> convert_list(Acc, utf8);
+        true -> convert_to_list(Acc, utf8);
         false -> Acc
     end.
 
@@ -439,7 +439,7 @@ dissect_query([]) ->
     [];
 dissect_query(QueryString) when is_list(QueryString) ->
     try
-        B = convert_binary(QueryString, utf8, utf8),
+        B = convert_to_binary(QueryString, utf8, utf8),
         dissect_query_key(B, true, [], <<>>, <<>>)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
@@ -1174,6 +1174,9 @@ get_port(B) ->
 
 
 %% Strip last char if it is in list
+%%
+%% This function is optimized for speed: parse/1 is about 10% faster than
+%% with an alternative implementation based on lists and sets.
 strip_last_char(<<>>, _) -> <<>>;
 strip_last_char(Input, [C0]) ->
     case binary:last(Input) of
@@ -1491,22 +1494,13 @@ bracket_ipv6(Addr) when is_list(Addr) ->
 %%     or fragment).
 %%-------------------------------------------------------------------------
 is_valid_map(#{path := Path} = Map) ->
-    case starts_with_two_slash(Path) of
-        true ->
-            is_valid_map_host(Map);
-        false ->
-            case maps:is_key(userinfo, Map) of
-                true ->
-                    is_valid_map_host(Map);
-                false ->
-                    case maps:is_key(port, Map) of
-                        true ->
-                            is_valid_map_host(Map);
-                        false ->
-                            all_fields_valid(Map)
-                    end
-            end
-    end;
+    ((starts_with_two_slash(Path) andalso is_valid_map_host(Map))
+     orelse
+       (maps:is_key(userinfo, Map) andalso is_valid_map_host(Map))
+     orelse
+       (maps:is_key(port, Map) andalso is_valid_map_host(Map))
+     orelse
+     all_fields_valid(Map));
 is_valid_map(#{}) ->
     false.
 
@@ -1691,19 +1685,19 @@ transcode_pct([$%,C0,C1|Rest] = L, Acc, B, InEncoding, OutEncoding) ->
         false -> throw({error, invalid_percent_encoding,L})
     end;
 transcode_pct([_C|_Rest] = L, Acc, B, InEncoding, OutEncoding) ->
-    OutBinary = convert_binary(B, InEncoding, OutEncoding),
+    OutBinary = convert_to_binary(B, InEncoding, OutEncoding),
     PctEncUtf8 = percent_encode_segment(OutBinary),
-    Out = lists:reverse(convert_list(PctEncUtf8, utf8)),
+    Out = lists:reverse(convert_to_list(PctEncUtf8, utf8)),
     transcode(L, Out ++ Acc, [], InEncoding, OutEncoding);
 transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
-    OutBinary = convert_binary(B, InEncoding, OutEncoding),
+    OutBinary = convert_to_binary(B, InEncoding, OutEncoding),
     PctEncUtf8 = percent_encode_segment(OutBinary),
-    Out = convert_list(PctEncUtf8, utf8),
+    Out = convert_to_list(PctEncUtf8, utf8),
     lists:reverse(Acc) ++ Out.
 
 
 %% Convert to binary
-convert_binary(Binary, InEncoding, OutEncoding) ->
+convert_to_binary(Binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary(Binary, InEncoding, OutEncoding) of
         {error, _List, RestData} ->
             throw({error, invalid_input, RestData});
@@ -1715,7 +1709,7 @@ convert_binary(Binary, InEncoding, OutEncoding) ->
 
 
 %% Convert to list
-convert_list(Binary, InEncoding) ->
+convert_to_list(Binary, InEncoding) ->
     case unicode:characters_to_list(Binary, InEncoding) of
         {error, _List, RestData} ->
             throw({error, invalid_input, RestData});
@@ -1733,7 +1727,7 @@ flatten_list(L, InEnc) ->
     flatten_list(L, InEnc, []).
 %%
 flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
-    L = convert_list(H, InEnc),
+    L = convert_to_list(H, InEnc),
     flatten_list(T, InEnc, lists:reverse(L) ++ Acc);
 flatten_list([H|T], InEnc, Acc) when is_list(H) ->
     flatten_list(H ++ T, InEnc, Acc);
@@ -1768,7 +1762,7 @@ get_separator([{separator, semicolon}], _L) ->
 
 %% Form-urlencode input based on RFC 1866 [8.2.1]
 form_urlencode(Cs) when is_list(Cs) ->
-    B = convert_binary(Cs, utf8, utf8),
+    B = convert_to_binary(Cs, utf8, utf8),
     form_urlencode(B, <<>>);
 form_urlencode(Cs) ->
     form_urlencode(Cs, <<>>).
@@ -1865,7 +1859,7 @@ dissect_query_separator_semicolon(<<$;,T/binary>>, IsList, Acc, Key, Value) ->
 %% Form-urldecode input based on RFC 1866 [8.2.1]
 form_urldecode(true, B) ->
     Result = form_urldecode(B, <<>>),
-    convert_list(Result, utf8);
+    convert_to_list(Result, utf8);
 form_urldecode(false, B) ->
     form_urldecode(B, <<>>);
 form_urldecode(<<>>, Acc) ->
@@ -1878,7 +1872,7 @@ form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
             V = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             form_urldecode(T, <<Acc/binary, V>>);
         false ->
-            L = convert_list(<<$%,C0,C1,T/binary>>, utf8),
+            L = convert_to_list(<<$%,C0,C1,T/binary>>, utf8),
             throw({error, invalid_percent_encoding, L})
     end;
 form_urldecode(<<H/utf8,T/binary>>, Acc) ->
@@ -1909,8 +1903,8 @@ normalize_case(#{} = Map) ->
 
 
 to_lower(Cs) when is_list(Cs) ->
-    B = convert_binary(Cs, utf8, utf8),
-    convert_list(to_lower(B), utf8);
+    B = convert_to_binary(Cs, utf8, utf8),
+    convert_to_list(to_lower(B), utf8);
 to_lower(Cs) when is_binary(Cs) ->
     to_lower(Cs, <<>>).
 %%
@@ -1932,9 +1926,9 @@ normalize_path_segment(Map) ->
 remove_dot_segments(Path) when is_binary(Path) ->
     remove_dot_segments(Path, <<>>);
 remove_dot_segments(Path) when is_list(Path) ->
-    B = convert_binary(Path, utf8, utf8),
+    B = convert_to_binary(Path, utf8, utf8),
     B1 = remove_dot_segments(B, <<>>),
-    convert_list(B1, utf8).
+    convert_to_list(B1, utf8).
 %%
 remove_dot_segments(<<>>, Output) ->
     Output;
@@ -1996,33 +1990,28 @@ normalize_scheme_based(Map) ->
     Scheme = maps:get(scheme, Map, undefined),
     Port = maps:get(port, Map, undefined),
     Path= maps:get(path, Map, undefined),
-    case Scheme of
-        "http" ->
-            normalize_http(Map, Port, Path);
-        <<"http">> ->
-            normalize_http(Map, Port, Path);
-        "https" ->
-            normalize_https(Map, Port, Path);
-        <<"https">> ->
-            normalize_https(Map, Port, Path);
-        "ftp" ->
-            normalize_ftp(Map, Port);
-        <<"ftp">> ->
-            normalize_ftp(Map, Port);
-        "ssh" ->
-            normalize_ssh_sftp(Map, Port);
-        <<"ssh">> ->
-            normalize_ssh_sftp(Map, Port);
-        "sftp" ->
-            normalize_ssh_sftp(Map, Port);
-        <<"sftp">> ->
-            normalize_ssh_sftp(Map, Port);
-        "tftp" ->
-            normalize_tftp(Map, Port);
-        <<"tftp">> ->
-            normalize_tftp(Map, Port);
-        _Else -> Map
-    end.
+    normalize_scheme_based(Map, Scheme, Port, Path).
+%%
+normalize_scheme_based(Map, Scheme, Port, Path)
+  when Scheme =:= "http"; Scheme =:= <<"http">> ->
+    normalize_http(Map, Port, Path);
+normalize_scheme_based(Map, Scheme, Port, Path)
+  when Scheme =:= "https"; Scheme =:= <<"https">> ->
+    normalize_https(Map, Port, Path);
+normalize_scheme_based(Map, Scheme, Port, _Path)
+  when Scheme =:= "ftp"; Scheme =:= <<"ftp">> ->
+    normalize_ftp(Map, Port);
+normalize_scheme_based(Map, Scheme, Port, _Path)
+  when Scheme =:= "ssh"; Scheme =:= <<"ssh">> ->
+    normalize_ssh_sftp(Map, Port);
+normalize_scheme_based(Map, Scheme, Port, _Path)
+  when Scheme =:= "sftp"; Scheme =:= <<"sftp">> ->
+    normalize_ssh_sftp(Map, Port);
+normalize_scheme_based(Map, Scheme, Port, _Path)
+  when Scheme =:= "tftp"; Scheme =:= <<"tftp">> ->
+    normalize_tftp(Map, Port);
+normalize_scheme_based(Map, _, _, _) ->
+    Map.
 
 
 normalize_http(Map, Port, Path) ->
