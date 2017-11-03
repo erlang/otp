@@ -109,14 +109,6 @@
       <c>gen_server:call()</c> waits for the reply message.</p>
       </item>
 
-      <tag>Unused list comprehensions</tag>
-      <item><p>List comprehensions used only for their side effects,
-      will be optimized by BEAM to not produce the unused result
-      list. This optimization is not done by HiPE.</p>
-      <pre>
-_ = [io:format("~p~n",[N]) || N &lt;- lists:seq(1,10)],</pre>
-      </item>
-
     </taglist>
   </section>
   <section>
