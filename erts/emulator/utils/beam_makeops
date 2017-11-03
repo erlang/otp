@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 use strict;
-use vars qw($BEAM_FORMAT_NUMBER);
+use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
@@ -36,6 +36,7 @@ use constant PACK_CMD_LOOSE => '3';
 use constant PACK_CMD_WIDE => '4';
 
 $BEAM_FORMAT_NUMBER = undef;
+$GC_REGEXP = undef;
 
 my $target = \&emulator_output;
 my $outdir = ".";		# Directory for output files.
@@ -310,6 +311,7 @@ my %predef_macros =
     (IS_PACKED => ['Expr'],
      OPERAND_POSITION => ['Expr'],
      IF => ['Expr','IfTrue','IfFalse'],
+     REFRESH_GEN_DEST => [],
     );
 foreach my $name (keys %predef_macros) {
     my @args = @{$predef_macros{$name}};
@@ -392,8 +394,10 @@ while (<>) {
     #
     if (/^([\w_][\w\d_]+)=(.*)/) {
 	no strict 'refs';
-	my($name) = $1;
-	$$name = $2;
+	my $name = $1;
+        my $value = $2;
+        $value =~ s/;\s*$//;
+	$$name = $value;
 	next;
     }
 
@@ -1366,7 +1370,9 @@ sub cg_basic {
 #
 
 sub cg_combined_size {
-    my %params = (@_, pack_options => \@basic_pack_options);
+    my %params = (@_,
+                  pack_options => \@basic_pack_options,
+                  size_only => 1);
     $params{pack_options} = \@extended_pack_options
         if $params{first};
     my($size) = code_gen(%params);
@@ -1394,6 +1400,7 @@ sub code_gen {
     my %params = (extra_comments => '',
                   offset => 0,
                   inc => 0,
+                  size_only => 0,
                   @_);
     my $name = $params{name};
     my $extra_comments = $params{extra_comments};
@@ -1426,6 +1433,7 @@ sub code_gen {
 
     my $need_block = 0;
     my $arg_offset = $offset;
+    my $has_gen_dest = 0;
     @args = map { s/[?]$//g; $_ } @args;
     foreach (@args) {
 	my($this_size) = $arg_size{$_};
@@ -1436,6 +1444,7 @@ sub code_gen {
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
                 $this_size = $1;
+                $has_gen_dest = 1;
                 last SWITCH;
             };
 	    /^packed:[a-zA-z]:(\d):(.*)/ and do {
@@ -1468,6 +1477,7 @@ sub code_gen {
                 $var_decls .= "Eterm dst = " . arg_offset($arg_offset) . ";\n" .
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
+                $has_gen_dest = 1;
                 last SWITCH;
             };
             defined $arg_size{$_} and do {
@@ -1482,10 +1492,10 @@ sub code_gen {
     }
 
     #
-    # If the implementation is in beam_emu.c, there is nothing
-    # more to do.
+    # If the implementation is in beam_emu.c or if
+    # the caller only wants the size, we are done.
     #
-    unless (defined $c_code_ref) {
+    if (not defined $c_code_ref or $params{size_only}) {
         return ($size+1, undef, '');
     }
 
@@ -1550,7 +1560,34 @@ sub code_gen {
                     "{",
                     "$var_decls$body",
                     "}", "");
+
+    # Make sure that $REFRESH_GEN_DEST() is used when a
+    # general destination ('d') may have been clobbered by
+    # a GC.
+    my $gc_error = verify_gc_code($code, $has_gen_dest);
+    if (defined $gc_error) {
+        warn $gc_error;
+        error("... from the body of $name at $where");
+    }
+
+    # Done.
     ($size+1, $code, $pack_spec);
+}
+
+sub verify_gc_code {
+    my $code = shift;
+    my $has_gen_dest = shift;
+
+    return unless $has_gen_dest;
+
+    if ($code =~ /$GC_REGEXP/o) {
+        my $code_after_gc = substr($code, $+[0]);
+        unless ($code_after_gc =~ /dst_ptr = REG_TARGET_PTR/) {
+            return "pointer to destination register is invalid after GC -- " .
+                "use \$REFRESH_GEN_DEST()\n";
+        }
+    }
+    return undef;
 }
 
 sub arg_offset {
@@ -1668,7 +1705,10 @@ sub expand_macro {
         }
         my $part = $bool ? 'IfTrue' : 'IfFalse';
         $body = $new_bindings{$part};
+    } elsif ($name eq 'REFRESH_GEN_DEST') {
+        $body = "dst_ptr = REG_TARGET_PTR(dst)";
     }
+
 
     # Wrap body if needed and return result.
     $body = "do {\n$body\n} while (0)"
