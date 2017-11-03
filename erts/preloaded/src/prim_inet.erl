@@ -31,7 +31,7 @@
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
 -export([shutdown/2]).
--export([send/2, send/3, sendto/4, sendmsg/3]).
+-export([send/2, send/3, sendto/4, sendmsg/3, sendfile/4]).
 -export([recv/2, recv/3, async_recv/3]).
 -export([unrecv/2]).
 -export([recvfrom/2, recvfrom/3]).
@@ -496,6 +496,55 @@ sendmsg(S, #sctp_sndrcvinfo{}=SRI, Data) when is_port(S) ->
 	false -> {error,einval}
     catch
 	Reason -> {error,Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% SENDFILE(outsock(), Fd, Offset, Length) -> {ok,BytesSent} | {error, Reason}
+%%
+%% send Length data bytes from a file handle, to a socket, starting at Offset
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% "sendfile" is for TCP:
+
+sendfile(S, FileHandle, Offset, Length)
+        when not is_port(S);
+             not is_binary(FileHandle);
+             not is_integer(Offset);
+             not is_integer(Length) ->
+    {error, badarg};
+sendfile(S, FileHandle, Offset, Length) ->
+    case erlang:port_info(S, connected) of
+        {connected, Pid} when Pid =:= self() ->
+            sendfile_1(S, FileHandle, Offset, Length);
+        {connected, Pid} when Pid =/= self() ->
+            {error, not_owner};
+        _Other ->
+            {error, einval}
+    end.
+
+sendfile_1(S, FileHandle, Offset, 0) ->
+    sendfile_1(S, FileHandle, Offset, (1 bsl 63) - 1);
+sendfile_1(_S, _FileHandle, Offset, Length) when
+         Offset < 0; Offset > ((1 bsl 63) - 1);
+         Length < 0; Length > ((1 bsl 63) - 1) ->
+    {error, einval};
+sendfile_1(S, FileHandle, Offset, Length) ->
+    Args = [FileHandle,
+            ?int64(Offset),
+            ?int64(Length)],
+    case ctl_cmd(S, ?TCP_REQ_SENDFILE, Args) of
+        {ok, []} ->
+            receive
+                {sendfile, S, {ok, SentLow, SentHigh}} ->
+                    {ok, SentLow bor (SentHigh bsl 32)};
+                {sendfile, S, {error, Reason}} ->
+                    {error, Reason};
+                {'EXIT', S, _Reason} ->
+                    {error, closed}
+            end;
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

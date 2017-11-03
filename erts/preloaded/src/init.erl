@@ -200,10 +200,11 @@ boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
 
-    %% Load the zlib nif
+    %% Load the static nifs
     zlib:on_load(),
-    %% Load the tracer nif
     erl_tracer:on_load(),
+    prim_buffer:on_load(),
+    prim_file:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs

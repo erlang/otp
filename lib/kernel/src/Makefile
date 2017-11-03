@@ -120,6 +120,13 @@ MODULES = \
 	user \
 	user_drv \
 	user_sup \
+	raw_file_io \
+	raw_file_io_compressed \
+	raw_file_io_inflate \
+	raw_file_io_deflate \
+	raw_file_io_delayed \
+	raw_file_io_list \
+	raw_file_io_raw \
 	wrap_log_reader
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
@@ -226,7 +233,8 @@ $(EBIN)/disk_log_server.beam: disk_log.hrl
 $(EBIN)/dist_util.beam: ../include/dist_util.hrl ../include/dist.hrl
 $(EBIN)/erl_boot_server.beam: inet_boot.hrl
 $(EBIN)/erl_epmd.beam: inet_int.hrl erl_epmd.hrl
-$(EBIN)/file.beam: ../include/file.hrl
+$(EBIN)/file.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/file_io_server.beam: ../include/file.hrl file_int.hrl
 $(EBIN)/gen_tcp.beam: inet_int.hrl
 $(EBIN)/gen_udp.beam: inet_int.hrl
 $(EBIN)/gen_sctp.beam: ../include/inet_sctp.hrl
@@ -254,3 +262,10 @@ $(EBIN)/net_kernel.beam: ../include/net_address.hrl
 $(EBIN)/os.beam: ../include/file.hrl
 $(EBIN)/ram_file.beam: ../include/file.hrl
 $(EBIN)/wrap_log_reader.beam: disk_log.hrl ../include/file.hrl
+$(EBIN)/raw_file_io.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_compressed.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_inflate.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_deflate.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_delayed.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_list.beam: ../include/file.hrl file_int.hrl
+$(EBIN)/raw_file_io_raw.beam: ../include/file.hrl file_int.hrl

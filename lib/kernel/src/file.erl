@@ -72,7 +72,7 @@
               io_device/0, name/0, name_all/0, posix/0]).
 
 %%% Includes and defines
--include("file.hrl").
+-include("file_int.hrl").
 
 -define(FILE_IO_SERVER_TABLE, file_io_servers).
 
@@ -454,41 +454,23 @@ raw_write_file_info(Name, #file_info{} = Info) ->
       Reason :: posix() | badarg | system_limit.
 
 open(Item, ModeList) when is_list(ModeList) ->
-    case lists:member(raw, ModeList) of
-	%% Raw file, use ?PRIM_FILE to handle this file
-	true ->
+    case {lists:member(raw, ModeList), lists:member(ram, ModeList)} of
+        {false, false} ->
+            %% File server file
             Args = [file_name(Item) | ModeList],
             case check_args(Args) of
                 ok ->
                     [FileName | _] = Args,
-                    %% We rely on the returned Handle (in {ok, Handle})
-                    %% being a pid() or a #file_descriptor{}
-                    ?PRIM_FILE:open(FileName, ModeList);
+                    call(open, [FileName, ModeList]);
                 Error ->
                     Error
-	    end;
-	false ->
-	    case lists:member(ram, ModeList) of
-		%% RAM file, use ?RAM_FILE to handle this file
-		true ->
-		    case check_args(ModeList) of
-			ok ->
-			    ?RAM_FILE:open(Item, ModeList);
-			Error ->
-			    Error
-		    end;
-		%% File server file
-		false ->
-		    Args = [file_name(Item) | ModeList],
-		    case check_args(Args) of 
-			ok ->
-			    [FileName | _] = Args,
-			    call(open, [FileName, ModeList]);
-			Error ->
-			    Error
-		    end
-	    end
+            end;
+        {true, _Either} ->
+            raw_file_io:open(file_name(Item), ModeList);
+        {false, true} ->
+            ram_file:open(Item, ModeList)
     end;
+
 %% Old obsolete mode specification in atom or 2-tuple format
 open(Item, Mode) ->
     open(Item, mode_list(Mode)).
