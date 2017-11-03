@@ -309,7 +309,8 @@ if ($wordsize == 64) {
 my %predef_macros =
     (IS_PACKED => ['Expr'],
      OPERAND_POSITION => ['Expr'],
-);
+     IF => ['Expr','IfTrue','IfFalse'],
+    );
 foreach my $name (keys %predef_macros) {
     my @args = @{$predef_macros{$name}};
     my $body = join(':', map { '$' . $_ } @args);
@@ -1659,9 +1660,17 @@ sub expand_macro {
         }
     } elsif ($name eq 'IS_PACKED') {
         $body = ($body =~ /^I\[\d+\]$/) ? 0 : 1;
+    } elsif ($name eq 'IF') {
+        my $expr = $new_bindings{Expr};
+        my $bool = eval $expr;
+        if ($@ ne '') {
+            &error("bad expression '$expr' in \$IF()");
+        }
+        my $part = $bool ? 'IfTrue' : 'IfFalse';
+        $body = $new_bindings{$part};
     }
 
-    # Wrap body if needed and return resul.t
+    # Wrap body if needed and return result.
     $body = "do {\n$body\n} while (0)"
         if needs_do_wrapper($body);
     ($body,$rest);
