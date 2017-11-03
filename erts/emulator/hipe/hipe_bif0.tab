@@ -140,3 +140,4 @@ atom bs_validate_unicode_retract
 atom emulate_fpe
 atom emasculate_binary
 atom is_divisible
+atom is_unicode

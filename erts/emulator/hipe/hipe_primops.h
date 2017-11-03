@@ -64,6 +64,7 @@ PRIMOP_LIST(am_bs_put_utf16be, &nbif_bs_put_utf16be)
 PRIMOP_LIST(am_bs_put_utf16le, &nbif_bs_put_utf16le)
 PRIMOP_LIST(am_bs_get_utf16, &nbif_bs_get_utf16)
 PRIMOP_LIST(am_bs_validate_unicode, &nbif_bs_validate_unicode)
+PRIMOP_LIST(am_is_unicode, &nbif_is_unicode)
 PRIMOP_LIST(am_bs_validate_unicode_retract, &nbif_bs_validate_unicode_retract)
 
 PRIMOP_LIST(am_is_divisible, &nbif_is_divisible)

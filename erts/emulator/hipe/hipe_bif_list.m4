@@ -223,6 +223,7 @@ standard_bif_interface_3(nbif_find_na_or_make_stub, hipe_find_na_or_make_stub)
 standard_bif_interface_2(nbif_nonclosure_address, hipe_nonclosure_address)
 nocons_nofail_primop_interface_0(nbif_fclearerror_error, hipe_fclearerror_error)
 standard_bif_interface_2(nbif_is_divisible, hipe_is_divisible)
+noproc_primop_interface_1(nbif_is_unicode, hipe_is_unicode)
 
 /*
  * Mbox primops with implicit P parameter.
@@ -247,7 +248,11 @@ nofail_primop_interface_3(nbif_bs_get_float_2, erts_bs_get_float_2)
 standard_bif_interface_3(nbif_bs_put_utf8, hipe_bs_put_utf8)
 standard_bif_interface_3(nbif_bs_put_utf16be, hipe_bs_put_utf16be)
 standard_bif_interface_3(nbif_bs_put_utf16le, hipe_bs_put_utf16le)
+ifdef(`nogc_bif_interface_1',`
+nogc_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
+',`
 standard_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
+')
 
 /*
  * Bit-syntax primops without any P parameter.
