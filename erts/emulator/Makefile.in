@@ -634,6 +634,7 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
@@ -644,8 +645,7 @@ PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
@@ -786,6 +786,9 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 $(OBJDIR)/%.o: nifs/common/%.c
 	$(V_CC) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
 
+$(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
+
 # ----------------------------------------------------------------------
 # Specials
 #
@@ -874,18 +877,17 @@ RUN_OBJS += \
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \
 	   $(OBJDIR)/erl_tracer_nif.o \
-	   $(OBJDIR)/zlib_nif.o \
-	   $(OBJDIR)/prim_buffer_nif.o
+	   $(OBJDIR)/prim_buffer_nif.o \
+	   $(OBJDIR)/prim_file_nif.o \
+	   $(OBJDIR)/zlib_nif.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
-	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
 OS_OBJS = \
-	$(OBJDIR)/win_efile.o \
 	$(OBJDIR)/win_con.o \
 	$(OBJDIR)/dll_sys.o \
 	$(OBJDIR)/driver_tab.o \
@@ -894,7 +896,8 @@ OS_OBJS = \
 	$(OBJDIR)/sys_time.o \
 	$(OBJDIR)/sys_interrupt.o \
 	$(OBJDIR)/sys_env.o \
-	$(OBJDIR)/dosmap.o
+	$(OBJDIR)/dosmap.o \
+	$(OBJDIR)/win_prim_file.o
 
 else
 OS_OBJS = \
@@ -902,14 +905,13 @@ OS_OBJS = \
 	$(OBJDIR)/sys_drivers.o \
 	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/unix_efile.o \
+	$(OBJDIR)/elib_memmove.o \
 	$(OBJDIR)/gzio.o \
-	$(OBJDIR)/elib_memmove.o
+	$(OBJDIR)/unix_prim_file.o
 
 	OS_OBJS += $(OBJDIR)/sys_float.o \
                    $(OBJDIR)/sys_time.o
 DRV_OBJS = \
-	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
@@ -1137,6 +1139,7 @@ BEAM_SRC=$(wildcard beam/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
+NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 # We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
 # loadtime of the makefile and at that time these files are not generated yet.
@@ -1149,7 +1152,10 @@ ifeq ($(TARGET),win32)
 
 #DEP_CC=$(EMU_CC)
 DEP_CC=$(CC)
-DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
+DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
+	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
+	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
+
 # ifeq (@MIXED_CYGWIN_VC@,yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
@@ -1169,7 +1175,9 @@ MG_FLAG=-MG
 endif
 
 DEP_CC=$(CC)
-DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Inifs/common -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
+DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) \
+	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
+	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
@@ -1199,6 +1207,8 @@ $(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) \
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk

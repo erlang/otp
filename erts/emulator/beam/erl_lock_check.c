@@ -109,7 +109,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
     {	"release_literal_areas",		NULL			},
-    {	"efile_drv",				"address"		},
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
@@ -169,9 +168,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #ifdef DEBUG
     {   "save_ops_lock",                        NULL                    },
 #endif
-#endif
-#ifdef	USE_VM_PROBES
-    {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
     {	"os_monotonic_time",			NULL			},

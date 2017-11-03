@@ -100,6 +100,8 @@
 -define(TCP_REQ_RECV,           42).
 -define(TCP_REQ_UNRECV,         43).
 -define(TCP_REQ_SHUTDOWN,       44).
+-define(TCP_REQ_SENDFILE,       45).
+
 %% UDP and SCTP requests
 -define(PACKET_REQ_RECV,        60).
 %%-define(SCTP_REQ_LISTEN,        61). MERGED
@@ -317,6 +319,12 @@
 
 -define(int32(X), 
 	[((X) bsr 24) band 16#ff, ((X) bsr 16) band 16#ff,
+	 ((X) bsr 8) band 16#ff, (X) band 16#ff]).
+
+-define(int64(X),
+	[((X) bsr 56) band 16#ff, ((X) bsr 48) band 16#ff,
+	 ((X) bsr 40) band 16#ff, ((X) bsr 32) band 16#ff,
+	 ((X) bsr 24) band 16#ff, ((X) bsr 16) band 16#ff,
 	 ((X) bsr 8) band 16#ff, (X) band 16#ff]).
 
 -define(intAID(X), % For SCTP AssocID
