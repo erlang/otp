@@ -308,8 +308,8 @@ if ($wordsize == 64) {
 
 my %predef_macros =
     (IS_PACKED => ['Expr'],
-     ARG_POSITION => ['Expr'],
-    );
+     OPERAND_POSITION => ['Expr'],
+);
 foreach my $name (keys %predef_macros) {
     my @args = @{$predef_macros{$name}};
     my $body = join(':', map { '$' . $_ } @args);
@@ -1651,7 +1651,7 @@ sub expand_macro {
     }
 
     # Handle built-in macros.
-    if ($name eq 'ARG_POSITION') {
+    if ($name eq 'OPERAND_POSITION') {
         if ($body =~ /^I\[(\d+)\]$/) {
             $body = $1;
         } else {
