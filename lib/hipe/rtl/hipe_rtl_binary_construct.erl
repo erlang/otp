@@ -195,8 +195,13 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 
 	  bs_validate_unicode ->
 	    [_Arg] = Args,
-	    [hipe_rtl:mk_call([], bs_validate_unicode, Args,
-			      TrueLblName, FalseLblName, not_remote)];
+            [IsUnicode] = create_regs(1),
+            RetLbl = hipe_rtl:mk_new_label(),
+            [hipe_rtl:mk_call([IsUnicode], is_unicode, Args,
+                              hipe_rtl:label_name(RetLbl), [], not_remote),
+             RetLbl,
+             hipe_rtl:mk_branch(IsUnicode, ne, hipe_rtl:mk_imm(0),
+                                TrueLblName, FalseLblName, 0.99)];
 
 	  bs_final ->
 	    Zero = hipe_rtl:mk_imm(0),

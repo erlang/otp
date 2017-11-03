@@ -495,6 +495,12 @@ BIF_RETTYPE nbif_impl_hipe_bs_validate_unicode(NBIF_ALIST_1)
     return NIL;
 }
 
+Uint hipe_is_unicode(Eterm arg)
+{
+    return (Uint) validate_unicode(arg);
+}
+
+
 int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
 {
     if (!validate_unicode(arg)) {
