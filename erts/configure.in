@@ -175,7 +175,7 @@ AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
 to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
 [ case "x$enableval" in
-      xno|xyes|xlib|x)
+      xno|xyes|xlib|xusrsctp|x)
           ;;
       x*)
           AC_MSG_ERROR("invalid value --enable-sctp=$enableval")
@@ -1660,9 +1660,17 @@ if test "x$enable_sctp" != "xno" ; then
 fi
 
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" != "xno" ; then
+if test "x$enable_sctp" = "xusrsctp" ; then
+    case $host_os in
+	darwin*)
+	    SCTPLIB=libusrsctp.dylib
+	    ;;
+	linux*)
+	    SCTPLIB=libusrsctp.so
+	    ;;
+    esac
     AC_CHECK_HEADER(usrsctp.h,
-        [LIBSCTP=libusrsctp.dylib
+        [LIBSCTP=$SCTPLIB
 	AC_DEFINE(HAVE_SCTP_H, [1],
 	    [Define to 1 if you have the SCTP support])
 	AC_DEFINE(HAVE_USRSCTP, [1],
@@ -1674,7 +1682,8 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
-if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
+if test x"$ac_cv_header_netinet_sctp_h" = x"yes" || \
+   test x"$ac_cv_header_usrsctp_h" = x"yes" ; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])

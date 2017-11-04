@@ -512,6 +512,7 @@ static typeof(usrsctp_close) *p_usrsctp_close = NULL;
 static typeof(usrsctp_event_rcv_cb) *p_usrsctp_event_rcv_cb = NULL;
 static typeof(usrsctp_readable) *p_usrsctp_readable = NULL;
 static typeof(usrsctp_writeable) *p_usrsctp_writeable = NULL;
+static int usrsctp_available = 1;
 #endif  /* HAVE_USRSCTP */
 
 #endif /* #if defined(HAVE_SCTP_H) */
@@ -523,7 +524,7 @@ static typeof(usrsctp_writeable) *p_usrsctp_writeable = NULL;
 
 /* #define INET_DRV_DEBUG 1 */
 #ifdef INET_DRV_DEBUG
-#define DEBUG 1
+//#define DEBUG 1
 #undef DEBUGF
 #define DEBUGF(X) printf X
 #endif
@@ -1108,9 +1109,8 @@ typedef struct {
 #endif
 #ifdef HAVE_USRSCTP
     struct socket *usrsctp_sock; /* usrsctp socket from usrsctp headers */
-    int wpipe;
-    struct sctp_rcvinfo usrsctp_rcvi;
-    int usrsctp_flags;
+    ErlDrvMutex *recv_mtx;
+    int recv;
 #endif
 } inet_descriptor;
 
@@ -2810,18 +2810,18 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
     
     /* For #sctp_paddrinfo{}: */
     am_active,                         am_inactive,
-#    ifdef HAVE_DECL_SCTP_UNCONFIRMED
+#    if HAVE_DECL_SCTP_UNCONFIRMED
     am_unconfirmed,
 #    endif
     
     /* For #sctp_status{}: */
-#    ifdef HAVE_DECL_SCTP_EMPTY
+#    if HAVE_DECL_SCTP_EMPTY
     am_empty,
 #    endif
-#    ifdef HAVE_DECL_SCTP_BOUND
+#    if HAVE_DECL_SCTP_BOUND
     am_bound,
 #    endif
-#    ifdef HAVE_DECL_SCTP_LISTEN
+#    if HAVE_DECL_SCTP_LISTEN
     am_listen,
 #    endif
     am_cookie_wait,                    am_cookie_echoed,
@@ -2969,13 +2969,22 @@ static int usrsctp_parse_sndrcvinfo
 static void usrsctp_event_rcv_callback(struct socket *sock, void *arg)
 {
     struct usrsctp_driver_sock *drv_sock;
+    inet_descriptor *desc;
     drv_sock = hash_get_usrsctp_driver(sock);
 
     if (drv_sock) {
-	if(drv_sock->desc->active)
+	desc = drv_sock->desc;
+	erl_drv_mutex_lock(desc->recv_mtx);
+	if(desc->recv) {
+	    if(desc->recv == INET_ONCE) {
+		desc->recv = INET_PASSIVE;
+		erl_drv_mutex_unlock(desc->recv_mtx);
+	    }
 	    driver_port_task_input_schedule(drv_sock->port);
+	} else
+	    erl_drv_mutex_unlock(desc->recv_mtx);
     }
-}   
+}
 
 static void usrsctp_setup_sock(struct socket *sock, inet_descriptor *desc)
 {
@@ -2987,9 +2996,10 @@ static void usrsctp_setup_sock(struct socket *sock, inet_descriptor *desc)
 			      SCTP_REMOTE_ERROR,
 			      SCTP_SEND_FAILED_EVENT};
 
-    /* set socket fd to something but not INVALID_SOCKET */
+    /* set socket fd to something different from INVALID_SOCKET */
     desc->s = -2;
-    
+    desc->recv_mtx = erl_drv_mutex_create("usrsctp_rcv");
+
     p_usrsctp_set_non_blocking(sock, 1);
     p_usrsctp_event_rcv_cb(sock, usrsctp_event_rcv_callback, NULL);
     
@@ -3248,7 +3258,7 @@ static int sctp_parse_async_event
 	    case SCTP_ADDR_MADE_PRIM:
 		i = LOAD_ATOM (spec, i, am_addr_made_prim);
 		break;
-#ifdef HAVE_DECL_SCTP_ADDR_CONFIRMED
+#if HAVE_DECL_SCTP_ADDR_CONFIRMED
 	    case SCTP_ADDR_CONFIRMED:
 		i = LOAD_ATOM (spec, i, am_addr_confirmed);
 		break;
@@ -3313,7 +3323,7 @@ static int sctp_parse_async_event
 	    */
 	    char *chunk;
 	    int chlen, choff;
-#if HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
 	    struct sctp_send_failed_event * sptr = &(nptr->sn_send_failed_event);
 #else
 	    struct sctp_send_failed * sptr = &(nptr->sn_send_failed);
@@ -3324,7 +3334,7 @@ static int sctp_parse_async_event
 	    (void)LOAD_ATOM(spec, ok_pos, error_atom);
 
 	    i = LOAD_ATOM  (spec, i, am_sctp_send_failed);
-#if HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
 	    switch (sptr->ssfe_flags) {
 #else
 	    switch (sptr->ssf_flags) {
@@ -3339,7 +3349,7 @@ static int sctp_parse_async_event
 	    default:
 		ASSERT(0);
 	    }
-#if HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
 	    i = LOAD_INT      (spec, i, sptr->ssfe_error);
 	    /* Now parse the orig SCTP_SNDRCV info */
 	    i = LOAD_INT      (spec, i, &sptr->ssfe_info.snd_sid);
@@ -3359,7 +3369,7 @@ static int sctp_parse_async_event
 	       in LOAD_BINARY below, we must specify the offset wrt bin->
 	       orig_bytes. In Solaris 10, we don't have ssf_data:
 	    */
-#if HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
 	    chunk = (char*) (&(sptr->ssfe_data));
 #else
 #	    ifdef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
@@ -4078,18 +4088,18 @@ static void inet_init_sctp(void) {
     /* For #sctp_paddrinfo{}: */
     INIT_ATOM(active);
     INIT_ATOM(inactive);
-#    ifdef HAVE_DECL_SCTP_UNCONFIRMED
+#    if HAVE_DECL_SCTP_UNCONFIRMED
     INIT_ATOM(unconfirmed);
 #    endif
 
     /* For #sctp_status{}: */
-#    ifdef HAVE_DECL_SCTP_EMPTY
+#    if HAVE_DECL_SCTP_EMPTY
     INIT_ATOM(empty);
 #    endif
-#    ifdef HAVE_DECL_SCTP_BOUND
+#    if HAVE_DECL_SCTP_BOUND
     INIT_ATOM(bound);
 #    endif
-#    ifdef HAVE_DECL_SCTP_LISTEN
+#    if HAVE_DECL_SCTP_LISTEN
     INIT_ATOM(listen);
 #    endif
     INIT_ATOM(cookie_wait);
@@ -4214,7 +4224,7 @@ static int inet_init()
     inet_init_sctp();
     add_driver_entry(&sctp_inet_driver_entry);
 #   else
-#       if !defined(LIBSCTP) || !defined(HAVE_USRSCTP)
+#       if !defined(LIBSCTP)
 #           error LIBSCTP not defined
 #       endif
 
@@ -4245,49 +4255,64 @@ static int inet_init()
 		
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_socket", &ptr) == 0) {
 		    p_usrsctp_socket = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_bind", &ptr) == 0) {
 		    p_usrsctp_bind = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_getsockopt", &ptr) == 0) {
 		    p_usrsctp_getsockopt = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_setsockopt", &ptr) == 0) {
 		    p_usrsctp_setsockopt = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sendv", &ptr) == 0) {
 		    p_usrsctp_sendv = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_recvv", &ptr) == 0) {
 		    p_usrsctp_recvv = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_shutdown", &ptr) == 0) {
 		    p_usrsctp_shutdown = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_connect", &ptr) == 0) {
 		    p_usrsctp_connect = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_close", &ptr) == 0) {
 		    p_usrsctp_close = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_listen", &ptr) == 0) {
 		    p_usrsctp_listen = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_init", &ptr) == 0) {
 		    p_usrsctp_init = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_peeloff", &ptr) == 0) {
 		    p_usrsctp_peeloff = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_auth_enable", &ptr) == 0) {
 		    p_usrsctp_sysctl_set_sctp_auth_enable = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_ecn_enable", &ptr) == 0) {
 		    p_usrsctp_sysctl_set_sctp_ecn_enable = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_delayed_sack_time_default", &ptr) == 0) {
 		    p_usrsctp_sysctl_set_sctp_delayed_sack_time_default = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 #ifdef SCTP_DEBUG
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_debug_on", &ptr) == 0) {
 		    p_usrsctp_set_debug_on = ptr;
@@ -4295,38 +4320,40 @@ static int inet_init()
 #endif
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_set_non_blocking", &ptr) == 0) {
 		    p_usrsctp_set_non_blocking = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_event_rcv_cb", &ptr) == 0) {
 		    p_usrsctp_event_rcv_cb = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_readable", &ptr) == 0) {
 		    p_usrsctp_readable = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_writeable", &ptr) == 0) {
 		    p_usrsctp_writeable = ptr;
-		}
+		} else
+		    usrsctp_available = 0;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_freepaddrs", &ptr) == 0) {
 		    p_sctp_freepaddrs = ptr;
-		}
-		else {
-		    p_sctp_freepaddrs = NULL;
-		    p_sctp_getpaddrs = NULL;
-		}
-		inet_init_sctp();
+		} else
+		    usrsctp_available = 0;
+		if (usrsctp_available)
+		{
+		    inet_init_sctp();
 #ifdef SCTP_DEBUG 
-		p_usrsctp_init(0, NULL, usrsctp_debug_printf); 
+		    p_usrsctp_init(0, NULL, usrsctp_debug_printf);
 #else
-		p_usrsctp_init(0, NULL, NULL);
+		    p_usrsctp_init(0, NULL, NULL);
 #endif
-		drop_root_priv();
-		usrsctp_init_socket_hash();
-		//p_usrsctp_sysctl_set_sctp_ecn_enable(0);
-		//p_usrsctp_sysctl_set_sctp_auth_enable(0);
-		p_usrsctp_sysctl_set_sctp_delayed_sack_time_default(10);
+		    drop_root_priv();
+		    usrsctp_init_socket_hash();
+		    p_usrsctp_sysctl_set_sctp_delayed_sack_time_default(10);
 #ifdef SCTP_DEBUG
-		p_usrsctp_set_debug_on(SCTP_DEBUG_ALL);
-#endif		
-		add_driver_entry(&sctp_inet_driver_entry);
+		    p_usrsctp_set_debug_on(SCTP_DEBUG_ALL);
+#endif
+		    add_driver_entry(&sctp_inet_driver_entry);
+		}
 	    }
 	    else p_sctp_bindx = NULL;
 	}
@@ -4748,6 +4775,7 @@ static void desc_close(inet_descriptor* desc)
 	drv_sock.so = desc->usrsctp_sock;
 	hash_erase_drv_usrsctp(&drv_sock);
 	desc->s = INVALID_SOCKET;
+	erl_drv_mutex_destroy(desc->recv_mtx);
     }
 #endif
     if (desc->s != INVALID_SOCKET) {
@@ -4863,7 +4891,7 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 #endif
 
 #ifdef HAVE_USRSCTP
-    if (protocol == IPPROTO_SCTP) {
+    if (protocol == IPPROTO_SCTP && p_usrsctp_socket != NULL) {
 	if ((desc->usrsctp_sock = usrsctp_sock_open(domain, type, protocol, desc)) == NULL) 
 	{
 	   desc->s = INVALID_SOCKET;
@@ -6208,7 +6236,7 @@ done:
 }
 
 #elif defined(HAVE_GETIFADDRS)
-#ifdef  DEBUG
+#ifdef INET_DRV_DEBUG
 #define GETIFADDRS_BUFSZ (1)
 #else
 #define GETIFADDRS_BUFSZ (512)
@@ -7549,7 +7577,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    */
 	    return -1;
 	}
-#if HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
 	res = p_usrsctp_setsockopt(desc->usrsctp_sock, proto, type, arg_ptr, arg_sz);
 #else
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
@@ -7574,6 +7602,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
     /* If we got here, all "sock_setopt"s above were successful:   */
     if (IS_OPEN(desc) && desc->active != old_active) {
 #ifdef HAVE_USRSCTP
+	erl_drv_mutex_lock(desc->recv_mtx);
+	desc->recv = desc->active;
+	erl_drv_mutex_unlock(desc->recv_mtx);
 	if(desc->active) {
 	    if(p_usrsctp_readable(desc->usrsctp_sock))
 		driver_port_task_input_schedule(driver_erts_drvport2id(desc->port));
@@ -8007,7 +8038,7 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
     case SCTP_INACTIVE:
 	i = LOAD_ATOM	(spec, i, am_inactive);
 	break;
-#   ifdef HAVE_DECL_SCTP_UNCONFIRMED
+#   if HAVE_DECL_SCTP_UNCONFIRMED
     case SCTP_UNCONFIRMED:
       i = LOAD_ATOM	(spec, i, am_unconfirmed);
       break;
@@ -8640,7 +8671,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	}
 #endif
 	/* The following option is not available in Solaris 10: */
-#	ifdef HAVE_DECL_SCTP_DELAYED_ACK_TIME
+#	if HAVE_DECL_SCTP_DELAYED_ACK_TIME
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    struct       sctp_assoc_value av;
@@ -8687,7 +8718,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    switch(st.sstat_state)
 	    {
             /*  SCTP_EMPTY is not supported on SOLARIS10: */
-#	    ifdef HAVE_DECL_SCTP_EMPTY
+#	    if HAVE_DECL_SCTP_EMPTY
 	    case SCTP_EMPTY:
 		i = LOAD_ATOM	(spec, i, am_empty);
 		break;
@@ -8695,12 +8726,12 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    case SCTP_CLOSED:
 		i = LOAD_ATOM   (spec, i, am_closed);
 		break;
-#           ifdef HAVE_DECL_SCTP_BOUND
+#           if HAVE_DECL_SCTP_BOUND
 	    case SCTP_BOUND:
 		i = LOAD_ATOM	(spec, i, am_bound);
 		break;
 #           endif
-#           ifdef HAVE_DECL_SCTP_LISTEN
+#           if HAVE_DECL_SCTP_LISTEN
 	    case SCTP_LISTEN:
 		i = LOAD_ATOM	(spec, i, am_listen);
 		break;
@@ -10394,7 +10425,7 @@ static void inet_stop_select(ErlDrvEvent event, void* _)
 /* The peer socket has closed, cleanup and send event */
 static int tcp_recv_closed(tcp_descriptor* desc)
 {
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     long port = (long) desc->inet.port; /* Used after driver_exit() */
 #endif
     DEBUGF(("tcp_recv_closed(%ld): s=%d, in %s, line %d\r\n",
@@ -10862,7 +10893,7 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
      * the events with mask for the events we really want.
      */
 
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     if ((netEv.lNetworkEvents & ~(desc->inet.event_mask)) != 0) {
 	DEBUGF(("port %d:  ... unexpected event: %d\r\n",
 		desc->inet.port, netEv.lNetworkEvents & ~(desc->inet.event_mask)));
@@ -10943,7 +10974,7 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     long port = (long) desc->inet.port;  /* Used after driver_exit() */
 #endif
     ASSERT(!INETP(desc)->is_ignored);
@@ -12182,9 +12213,16 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     if (IS_SCTP(desc))
     {
 	ErlDrvSizeT   data_len;
-#ifndef HAVE_USRSCTP
+#ifdef HAVE_USRSCTP
+	struct sctp_sndinfo si;
+#else
 	struct iovec  iov[1];		 /* For real data            */
 	struct msghdr mhdr;		 /* Message wrapper          */
+	struct sctp_sndrcvinfo *sri;     /* The actual ancilary data */
+	union {                          /* For ancilary data        */
+	    struct cmsghdr hdr;
+	    char ancd[CMSG_SPACE(sizeof(*sri))];
+	} cmsg;
 #endif
 
 	if (len < SCTP_GET_SENDPARAMS_LEN) {
@@ -12193,7 +12231,6 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	}
 
 #ifdef HAVE_USRSCTP
-	struct sctp_sndinfo si;
 	ptr = sctp_get_sendparams(&si, ptr);
 	data_len = (buf + len) - ptr;
 	
@@ -12211,12 +12248,6 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	inet_output_count(desc, data_len);
 
 #else
-	struct sctp_sndrcvinfo *sri;     /* The actual ancilary data */
-	union {                          /* For ancilary data        */
-	    struct cmsghdr hdr;
-	    char ancd[CMSG_SPACE(sizeof(*sri))];
-	} cmsg;
-	
 	/* The ancilary data */
 	sri = (struct sctp_sndrcvinfo *) (CMSG_DATA(&cmsg.hdr));
 	/* Get the "sndrcvinfo" from the buffer, advancing the "ptr": */
@@ -12375,7 +12406,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    mhdr.msg_flags	= 0;	   /* To be filled by "recvmsg"    */
 	   
 	    /* Do the actual SCTP receive: */
-	    DEBUGF(("usrsctp_recvv about to be called %x\r\n", desc->usrsctp_sock));
+	    DEBUGF(("usrsctp_recvv about to be called %p\r\n", desc->usrsctp_sock));
 	    n = p_usrsctp_recvv(desc->usrsctp_sock,
 				udesc->i_ptr,
 				desc->bufsz,
@@ -12609,7 +12640,7 @@ static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 	ASSERT(0);
 	return;
     }
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     {
 	ErlDrvTime chk = erl_drv_monotonic_time(ERL_DRV_MSEC);
 	ASSERT(chk >= (*first)->when);
