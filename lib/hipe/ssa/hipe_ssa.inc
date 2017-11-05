@@ -463,20 +463,20 @@ updateStatementDefs([], Statement, Current, Acc) ->
 %%----------------------------------------------------------------------
 
 updateIndices(Current, Variable) ->
-  case ?CODE:is_var(Variable) of
-    true ->
-      NewVar = ?CODE:mk_new_var(),
-      {NewVar,gb_trees:enter(Variable, NewVar, Current)};
-    false ->
-      case is_fp_temp(Variable) of
-	true ->
-	  NewFVar = mk_new_fp_temp(),
-	  {NewFVar,gb_trees:enter(Variable, NewFVar, Current)};
-	false ->
-	  NewReg = ?CODE:mk_new_reg(),
-	  {NewReg,gb_trees:enter(Variable, NewReg, Current)}
-      end
-  end.
+  New =
+    case ?CODE:is_var(Variable) of
+      true -> ?CODE:mk_new_var();
+      false ->
+        case is_fp_temp(Variable) of
+          true -> mk_new_fp_temp();
+          false ->
+            case ?CODE:reg_is_gcsafe(Variable) of
+              true -> ?CODE:mk_new_reg_gcsafe();
+              false -> ?CODE:mk_new_reg()
+            end
+        end
+    end,
+  {New, gb_trees:enter(Variable, New, Current)}.
 
 %%----------------------------------------------------------------------
 %% Procedure : updateSuccPhi/4

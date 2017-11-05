@@ -1414,6 +1414,7 @@ opt_keys() ->
      use_clusters,
      use_jumptable,
      verbose,
+     verify_gcsafe,
      %% verbose_spills,
      x87].
 
@@ -1510,7 +1511,8 @@ opt_negations() ->
    {no_use_callgraph, use_callgraph},
    {no_use_clusters, use_clusters},
    {no_use_inline_atom_search, use_inline_atom_search},
-   {no_use_indexing, use_indexing}].
+   {no_use_indexing, use_indexing},
+   {no_verify_gcsafe, verify_gcsafe}].
 
 %% Don't use negative forms in right-hand sides of aliases and expansions!
 %% We only expand negations once, before the other expansions are done.

@@ -41,9 +41,9 @@
 
 -type variable_annotation() :: {atom(), any(), fun((any()) -> string())}.
 
--record(icode_variable, {name :: non_neg_integer(), 
-			 kind :: 'var' | 'reg' | 'fvar',
-			 annotation = [] :: [] | variable_annotation()}). 
+-record(icode_variable, {name :: non_neg_integer(),
+			 kind :: 'var' | 'reg' | 'reg_gcsafe' | 'fvar',
+			 annotation = [] :: [] | variable_annotation()}).
 
 %%---------------------------------------------------------------------
 %% Type declarations for Icode instructions
@@ -66,7 +66,7 @@
 -type icode_funcall()   :: mfa() | icode_primop().
 
 -type icode_var()	:: #icode_variable{kind::'var'}.
--type icode_reg()	:: #icode_variable{kind::'reg'}.
+-type icode_reg()	:: #icode_variable{kind::'reg'|'reg_gcsafe'}.
 -type icode_fvar()	:: #icode_variable{kind::'fvar'}.
 -type icode_argument()	:: #icode_const{} | #icode_variable{}.
 -type icode_term_arg()	:: icode_var() | #icode_const{}.

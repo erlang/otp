@@ -794,7 +794,7 @@ trans_fun([{bs_append,{f,Lbl},Size,W,R,U,Binary,{field_flags,F},Dst}|
   SizeArg = trans_arg(Size),
   BinArg = trans_arg(Binary),
   IcodeDst = mk_var(Dst),
-  Offset = mk_var(reg),
+  Offset = mk_var(reg_gcsafe),
   Base = mk_var(reg),
   trans_bin_call({hipe_bs_primop,{bs_append,W,R,U,F}},Lbl,[SizeArg,BinArg],
 		[IcodeDst,Base,Offset],
@@ -805,7 +805,7 @@ trans_fun([{bs_private_append,{f,Lbl},Size,U,Binary,{field_flags,F},Dst}|
   SizeArg = trans_arg(Size),
   BinArg = trans_arg(Binary),
   IcodeDst = mk_var(Dst),
-  Offset = mk_var(reg),
+  Offset = mk_var(reg_gcsafe),
   Base = mk_var(reg),
   trans_bin_call({hipe_bs_primop,{bs_private_append,U,F}},
 		 Lbl,[SizeArg,BinArg],
@@ -844,7 +844,7 @@ trans_fun([{bs_init2,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
 	   Instructions], Env) ->
   Dst = mk_var(X),
   Flags = resolve_native_endianess(Flags0),
-  Offset = mk_var(reg),
+  Offset = mk_var(reg_gcsafe),
   Base = mk_var(reg),
   {Name, Args} =
     case Size of
@@ -860,7 +860,7 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
 	   Instructions], Env) ->
   Dst = mk_var(X),
   Flags = resolve_native_endianess(Flags0),
-  Offset = mk_var(reg),
+  Offset = mk_var(reg_gcsafe),
   Base = mk_var(reg),
   {Name, Args} =
     case Size of
@@ -1505,7 +1505,10 @@ clone_dst(Dest) ->
   New = 
     case hipe_icode:is_reg(Dest) of
       true ->
-	mk_var(reg);
+	case hipe_icode:reg_is_gcsafe(Dest) of
+	  true -> mk_var(reg_gcsafe);
+	  false -> mk_var(reg)
+	end;
       false ->
 	true = hipe_icode:is_var(Dest),	      
 	mk_var(new)
@@ -2126,7 +2129,12 @@ mk_var(reg) ->
   T = hipe_gensym:new_var(icode),
   V = (5*T)+4,
   hipe_gensym:update_vrange(icode,V),
-  hipe_icode:mk_reg(V).
+  hipe_icode:mk_reg(V);
+mk_var(reg_gcsafe) ->
+  T = hipe_gensym:new_var(icode),
+  V = (5*T)+4, % same namespace as 'reg'
+  hipe_gensym:update_vrange(icode,V),
+  hipe_icode:mk_reg_gcsafe(V).
 
 %%-----------------------------------------------------------------------
 %% Make an icode label of proper type

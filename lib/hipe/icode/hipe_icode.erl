@@ -515,10 +515,12 @@
 	 annotate_variable/2,  %% annotate_var_or_reg(VarOrReg, Type)
 	 unannotate_variable/1,%% unannotate_var_or_reg(VarOrReg)
 	 mk_reg/1,               %% mk_reg(Id)
+	 mk_reg_gcsafe/1,        %% mk_reg_gcsafe(Id)
 	 mk_fvar/1,              %% mk_fvar(Id)
 	 mk_new_var/0,           %% mk_new_var()
 	 mk_new_fvar/0,          %% mk_new_fvar()
 	 mk_new_reg/0,           %% mk_new_reg()
+	 mk_new_reg_gcsafe/0,    %% mk_new_reg_gcsafe()
 	 mk_phi/1,               %% mk_phi(Id)
 	 mk_phi/2                %% mk_phi(Id, ArgList)
 	]).
@@ -1260,14 +1262,22 @@ is_var(_) -> false.
 -spec mk_reg(non_neg_integer()) -> #icode_variable{kind::'reg'}.
 mk_reg(V) -> #icode_variable{name=V, kind=reg}.
 
--spec reg_name(#icode_variable{kind::'reg'}) -> non_neg_integer().
-reg_name(#icode_variable{name=Name, kind=reg}) -> Name.
+-spec mk_reg_gcsafe(non_neg_integer()) -> #icode_variable{kind::'reg_gcsafe'}.
+mk_reg_gcsafe(V) -> #icode_variable{name=V, kind=reg_gcsafe}.
 
--spec reg_is_gcsafe(#icode_variable{kind::'reg'}) -> 'false'.
-reg_is_gcsafe(#icode_variable{kind=reg}) -> false. % for now
+-spec reg_name(#icode_variable{kind::'reg'|'reg_gcsafe'})
+	      -> non_neg_integer().
+reg_name(#icode_variable{name=Name, kind=reg})        -> Name;
+reg_name(#icode_variable{name=Name, kind=reg_gcsafe}) -> Name.
+
+-spec reg_is_gcsafe(#icode_variable{kind::'reg'}) -> 'false';
+		   (#icode_variable{kind::'reg_gcsafe'}) -> 'true'.
+reg_is_gcsafe(#icode_variable{kind=reg})        -> false;
+reg_is_gcsafe(#icode_variable{kind=reg_gcsafe}) -> true.
 
 -spec is_reg(icode_argument()) -> boolean().
-is_reg(#icode_variable{kind=reg}) -> true;
+is_reg(#icode_variable{kind=reg})        -> true;
+is_reg(#icode_variable{kind=reg_gcsafe}) -> true;
 is_reg(_) -> false.
 
 -spec mk_fvar(non_neg_integer()) -> #icode_variable{kind::'fvar'}.
@@ -1674,6 +1684,16 @@ mk_new_fvar() ->
 -spec mk_new_reg() -> icode_reg().
 mk_new_reg() ->
   mk_reg(hipe_gensym:get_next_var(icode)).
+
+%%
+%% @doc Makes a new gcsafe register; that is, a register that is allowed to be
+%% live over calls and other operations that might cause GCs and thus move heap
+%% data around.
+%%
+
+-spec mk_new_reg_gcsafe() -> icode_reg().
+mk_new_reg_gcsafe() ->
+  mk_reg_gcsafe(hipe_gensym:get_next_var(icode)).
 
 %%
 %% @doc Makes a new label.

@@ -179,6 +179,7 @@
 	     hipe_rtl_to_sparc,
 	     hipe_rtl_to_x86,
 	     hipe_rtl_varmap,
+	     hipe_rtl_verify_gcsafe,
 	     hipe_segment_trees,
 	     hipe_sdi,
 	     hipe_sparc,

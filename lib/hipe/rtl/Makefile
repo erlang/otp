@@ -50,7 +50,7 @@ HIPE_MODULES = hipe_rtl hipe_rtl_cfg \
 	  hipe_rtl_ssa hipe_rtl_ssa_const_prop \
 	  hipe_rtl_cleanup_const hipe_rtl_symbolic hipe_rtl_lcm \
 	  hipe_rtl_ssapre hipe_rtl_binary hipe_rtl_ssa_avail_expr \
-	  hipe_rtl_arch hipe_tagscheme
+	  hipe_rtl_arch hipe_tagscheme hipe_rtl_verify_gcsafe
 else
 HIPE_MODULES =
 endif
