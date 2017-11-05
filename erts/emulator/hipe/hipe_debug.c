@@ -135,7 +135,9 @@ static void print_heap(Eterm *pos, Eterm *end)
     printf("From: 0x%0*lx to 0x%0*lx\n\r",
 	   2*(int)sizeof(long), (unsigned long)pos,
 	   2*(int)sizeof(long), (unsigned long)end);
-    printf(" |         H E A P         |\r\n");
+    printf(" | %*s H E A P %*s |\r\n",
+	   2*(int)sizeof(long)-1, "",
+	   2*(int)sizeof(long)-1, "");
     printf(" | %*s | %*s |\r\n",
 	   2+2*(int)sizeof(long), "Address",
 	   2+2*(int)sizeof(long), "Contents");
@@ -158,8 +160,10 @@ static void print_heap(Eterm *pos, Eterm *end)
 		++pos;
 		--ari;
 	    }
-	} else
+	} else {
+	    fflush(stdout);
 	    erts_printf("%.30T", val);
+	}
 	printf("\r\n");
     }
     printf(" |%s|%s|\r\n", dashes, dashes);
