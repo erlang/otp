@@ -99,17 +99,6 @@
       each mode.</p>
       </item>
 
-      <tag>Optimization for <c>receive</c> with unique references</tag>
-      <item><p>The BEAM compiler can do an optimization when
-      a <c>receive</c> statement is <em>only</em> waiting for messages
-      containing a reference created before the receive. All messages
-      that existed in the queue when the reference was created will be
-      bypassed, as they cannot possibly contain the reference. HiPE
-      does not implement this optimization.</p>
-      <p>An example of this is when
-      <c>gen_server:call()</c> waits for the reply message.</p>
-      </item>
-
     </taglist>
   </section>
   <section>

@@ -531,6 +531,9 @@ static const struct rts_param rts_params[] = {
       1, offsetof(struct process, hipe.gc_is_unsafe)
 #endif
     },
+
+    { 54, "P_MSG_LAST", 1, offsetof(struct process, msg.last) },
+    { 55, "P_MSG_SAVED_LAST", 1, offsetof(struct process, msg.saved_last) },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)

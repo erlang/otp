@@ -1160,6 +1160,8 @@ basic_type(#gc_test{}) -> not_analysed;
 %% Message handling
 basic_type(check_get_msg) -> not_analysed;
 basic_type(next_msg) -> not_analysed;
+basic_type(recv_mark) -> not_analysed;
+basic_type(recv_set) -> not_analysed;
 basic_type(select_msg) -> not_analysed;
 basic_type(suspend_msg) -> not_analysed;
 %% Functions

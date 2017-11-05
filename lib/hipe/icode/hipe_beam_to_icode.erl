@@ -415,11 +415,13 @@ trans_fun([{wait_timeout,{_,Lbl},Reg}|Instructions], Env) ->
   SuspTmout = hipe_icode:mk_if(suspend_msg_timeout,[],
 			       map_label(Lbl),hipe_icode:label_name(DoneLbl)),
   Movs ++ [SetTmout, SuspTmout, DoneLbl | trans_fun(Instructions,Env1)];
-%%--- recv_mark/1 & recv_set/1 ---  XXX: Handle better??
+%%--- recv_mark/1 & recv_set/1 ---
 trans_fun([{recv_mark,{f,_}}|Instructions], Env) ->
-  trans_fun(Instructions,Env);
+  Mark = hipe_icode:mk_primop([],recv_mark,[]),
+  [Mark | trans_fun(Instructions,Env)];
 trans_fun([{recv_set,{f,_}}|Instructions], Env) ->
-  trans_fun(Instructions,Env);
+  Set = hipe_icode:mk_primop([],recv_set,[]),
+  [Set | trans_fun(Instructions,Env)];
 %%--------------------------------------------------------------------
 %%--- Translation of arithmetics {bif,ArithOp, ...} ---
 %%--------------------------------------------------------------------
