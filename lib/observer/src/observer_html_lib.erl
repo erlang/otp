@@ -355,11 +355,11 @@ href_proc_bin(From, T, Acc, LTB) ->
                                 PreviewStr
                         end
                 end;
-	    [PreviewIntStr,SizeStr,Md5] when From =:= obs ->
+	    [PreviewIntStr,PreviewBitSizeStr,SizeStr,Md5] when From =:= obs ->
 		Size = list_to_integer(SizeStr),
                 PreviewInt = list_to_integer(PreviewIntStr),
-		PrevSize = (trunc(math:log2(PreviewInt)/8)+1)*8,
-		PreviewStr = preview_string(Size,<<PreviewInt:PrevSize>>),
+                PreviewBitSize = list_to_integer(PreviewBitSizeStr),
+		PreviewStr = preview_string(Size,<<PreviewInt:PreviewBitSize>>),
 		if LTB ->
 			href("TARGET=\"expanded\"",
 			     ["#OBSBinary?key1="++PreviewIntStr++
