@@ -64,8 +64,9 @@
       </item>
 
       <tag>Tracing</tag>
-      <item><p>Modules compiled with HiPE have very limited support for runtime tracing
-      using <seealso marker="erts:erlang#trace_pattern/3"><c>erlang:trace_pattern/3</c></seealso>.</p>
+      <item><p>Erlang call trace is not supported by HiPE. Calling
+      <seealso marker="erts:erlang#trace_pattern/3"><c>erlang:trace_pattern({M,F,A}, ...)</c></seealso>
+      does not have any effect on HiPE compiled modules.</p>
       </item>
 
       <tag>NIFs</tag>
