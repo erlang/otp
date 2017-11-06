@@ -71,6 +71,8 @@ hex_binary_fun(Bin) ->
 	    plain_html(io_lib:format("~s",[S]))
     end.
 
+format_hex(<<>>,_) ->
+    [];
 format_hex(<<B1:4,B2:4>>,_) ->
     [integer_to_list(B1,16),integer_to_list(B2,16)];
 format_hex(<<B1:4,B2:4,Bin/binary>>,0) ->
