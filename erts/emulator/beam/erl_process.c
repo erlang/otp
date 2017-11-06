@@ -9824,7 +9824,7 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
 	    goto badarg;
 	req_type = tp[1];
 	req_id = tp[2];
-	req_id_sz = is_immed(req_id) ? req_id : size_object(req_id);
+	req_id_sz = is_immed(req_id) ? 0 : size_object(req_id);
 	tot_sz = req_id_sz;
 	for (i = 0; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++) {
 	    int tix = 3 + i;
