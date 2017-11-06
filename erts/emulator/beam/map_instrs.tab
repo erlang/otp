@@ -31,7 +31,7 @@ new_map(Dst, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
-    res = new_map(c_p, reg, $Live, $N, $NEXT_INSTRUCTION);
+    res = erts_gc_new_map(c_p, reg, $Live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     $REFRESH_GEN_DEST();
     $Dst = res;
@@ -44,7 +44,7 @@ i_new_small_map_lit(Dst, Live, Keys) {
     Eterm keys = $Keys;
 
     HEAVY_SWAPOUT;
-    res = new_small_map_lit(c_p, reg, keys, $Live, $NEXT_INSTRUCTION);
+    res = erts_gc_new_small_map_lit(c_p, reg, keys, $Live, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     $REFRESH_GEN_DEST();
     $Dst = res;
@@ -133,7 +133,7 @@ update_map_assoc(Src, Dst, Live, N) {
 
     reg[live] = $Src;
     HEAVY_SWAPOUT;
-    res = update_map_assoc(c_p, reg, live, $N, $NEXT_INSTRUCTION);
+    res = erts_gc_update_map_assoc(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     ASSERT(is_value(res));
     $REFRESH_GEN_DEST();
@@ -147,7 +147,7 @@ update_map_exact(Fail, Src, Dst, Live, N) {
 
     reg[live] = $Src;
     HEAVY_SWAPOUT;
-    res = update_map_exact(c_p, reg, live, $N, $NEXT_INSTRUCTION);
+    res = erts_gc_update_map_exact(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     if (is_value(res)) {
         $REFRESH_GEN_DEST();

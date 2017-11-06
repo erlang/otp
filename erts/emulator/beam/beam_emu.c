@@ -400,12 +400,13 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
-static Eterm new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr) NOINLINE;
-static Eterm new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
+static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
+                             Uint n, BeamInstr* ptr) NOINLINE;
+static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
                                Uint live, BeamInstr* ptr) NOINLINE;
-static Eterm update_map_assoc(Process* p, Eterm* reg, Uint live,
+static Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
                               Uint n, BeamInstr* new_p) NOINLINE;
-static Eterm update_map_exact(Process* p, Eterm* reg, Uint live,
+static Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
                               Uint n, Eterm* new_p) NOINLINE;
 static Eterm get_map_element(Eterm map, Eterm key);
 static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
@@ -2755,7 +2756,7 @@ do {						\
 
 
 static Eterm
-new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
+erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 {
     Uint i;
     Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
@@ -2812,7 +2813,8 @@ new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 }
 
 static Eterm
-new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal, Uint live, BeamInstr* ptr)
+erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
+                          Uint live, BeamInstr* ptr)
 {
     Eterm* keys = tuple_val(keys_literal);
     Uint n = arityval(*keys);
@@ -2846,7 +2848,8 @@ new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal, Uint live, BeamIns
 }
 
 static Eterm
-update_map_assoc(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* new_p)
+erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
+                         Uint n, BeamInstr* new_p)
 {
     Uint num_old;
     Uint num_updates;
@@ -2892,7 +2895,7 @@ update_map_assoc(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* new_p)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, live, n, new_p);
+	return erts_gc_new_map(p, reg, live, n, new_p);
     }
 
     /*
@@ -3048,7 +3051,7 @@ update_map_assoc(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* new_p)
  */
 
 static Eterm
-update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
+erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
 {
     Uint i;
     Uint num_old;
