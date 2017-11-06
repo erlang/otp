@@ -1682,7 +1682,7 @@ do_random_test() ->
     ets:delete(Set),
     verify_etsmem(EtsMem).
 
-%% Ttest various variants of update_element.
+%% Test various variants of update_element.
 update_element(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     repeat_for_opts(fun update_element_opts/1),
