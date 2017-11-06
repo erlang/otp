@@ -135,7 +135,6 @@ atom bs_utf16_size
 atom bs_put_utf16be
 atom bs_put_utf16le
 atom bs_get_utf16
-atom bs_validate_unicode
 atom bs_validate_unicode_retract
 atom emulate_fpe
 atom emasculate_binary
