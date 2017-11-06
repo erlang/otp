@@ -998,7 +998,9 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 
     fixup_cp_before_trace(c_p, &return_to_trace);
 
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
     /* restore cp after potential fixup */
     c_p->cp = cp_save;
