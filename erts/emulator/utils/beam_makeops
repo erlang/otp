@@ -308,8 +308,7 @@ if ($wordsize == 64) {
 #
 
 my %predef_macros =
-    (IS_PACKED => ['Expr'],
-     OPERAND_POSITION => ['Expr'],
+    (OPERAND_POSITION => ['Expr'],
      IF => ['Expr','IfTrue','IfFalse'],
      REFRESH_GEN_DEST => [],
     );
@@ -1695,8 +1694,6 @@ sub expand_macro {
         } else {
             $body = 0;
         }
-    } elsif ($name eq 'IS_PACKED') {
-        $body = ($body =~ /^I\[\d+\]$/) ? 0 : 1;
     } elsif ($name eq 'IF') {
         my $expr = $new_bindings{Expr};
         my $bool = eval $expr;
