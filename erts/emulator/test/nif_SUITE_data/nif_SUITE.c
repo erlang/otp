@@ -3403,6 +3403,15 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 		return enif_make_badarg(env);
 	    else
 		return enif_make_atom(env, "true");
+        } else if (enif_is_identical(argv[0], enif_make_atom(env, "peek_head"))) {
+            ERL_NIF_TERM head_term;
+
+            if(enif_ioq_peek_head(env, ioq->q, NULL, &head_term)) {
+                return enif_make_tuple2(env,
+                    enif_make_atom(env, "true"), head_term);
+            }
+
+            return enif_make_atom(env, "false");
         } else if (enif_is_identical(argv[0], enif_make_atom(env, "peek"))) {
             int iovlen, num, i, off = 0;
             SysIOVec *iov = enif_ioq_peek(ioq->q, &iovlen);

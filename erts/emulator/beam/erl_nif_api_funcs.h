@@ -198,6 +198,7 @@ ERL_NIF_API_FUNC_DECL(SysIOVec*,enif_ioq_peek,(ErlNifIOQueue *q, int *iovlen));
 ERL_NIF_API_FUNC_DECL(int,enif_inspect_iovec,(ErlNifEnv *env, size_t max_length, ERL_NIF_TERM iovec_term, ERL_NIF_TERM *tail, ErlNifIOVec **iovec));
 ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
 
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *head));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -373,6 +374,7 @@ ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
 #  define enif_ioq_peek ERL_NIF_API_FUNC_MACRO(enif_ioq_peek)
 #  define enif_inspect_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iovec)
 #  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
+#  define enif_ioq_peek_head ERL_NIF_API_FUNC_MACRO(enif_ioq_peek_head)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
