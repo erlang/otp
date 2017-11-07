@@ -188,14 +188,13 @@ deflateReset_nif(_Z) ->
 deflateParams(Z, Level0, Strategy0) ->
     Level = arg_level(Level0),
     Strategy = arg_strategy(Strategy0),
+    Progress = deflate(Z, <<>>, sync),
     case deflateParams_nif(Z, Level, Strategy) of
-        buf_error ->
-            %% We had data left in the pipe; flush everything and stash it away
-            %% for the next deflate call before trying again.
-            Output = deflate(Z, <<>>, full),
-            save_progress(Z, deflate, Output),
-            deflateParams_nif(Z, Level, Strategy);
-        Any -> Any
+        ok ->
+            save_progress(Z, deflate, Progress),
+            ok;
+        Other ->
+            Other
     end.
 deflateParams_nif(_Z, _Level, _Strategy) ->
     erlang:nif_error(undef).
