@@ -166,7 +166,7 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok, zlib:deflateInit(Z12,default,deflated,-Wbits,8,default)),
 			  ?m(ok,zlib:close(Z11)),
 			  ?m(ok,zlib:close(Z12))
-		  end, lists:seq(8, 15)),
+		  end, lists:seq(9, 15)),
 
     lists:foreach(fun(MemLevel) ->
 			  Z = zlib:open(),
