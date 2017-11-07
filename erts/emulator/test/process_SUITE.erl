@@ -2532,8 +2532,13 @@ system_task_on_suspended(Config) when is_list(Config) ->
     end.
 
 gc_request_when_gc_disabled(Config) when is_list(Config) ->
-    Master = self(),
     AIS = erts_debug:set_internal_state(available_internal_state, true),
+    gc_request_when_gc_disabled_do(ref),
+    gc_request_when_gc_disabled_do(immed),
+    erts_debug:set_internal_state(available_internal_state, AIS).
+
+gc_request_when_gc_disabled_do(ReqIdType) ->
+    Master = self(),
     {P, M} = spawn_opt(fun () ->
 			       true = erts_debug:set_internal_state(gc_state,
 								    false),
@@ -2545,7 +2550,10 @@ gc_request_when_gc_disabled(Config) when is_list(Config) ->
 			       receive after 100 -> ok end
 		       end, [monitor, link]),
     receive {P, gc_state, false} -> ok end,
-    ReqId = make_ref(),
+    ReqId = case ReqIdType of
+                ref -> make_ref();
+                immed -> immed
+            end,
     async = garbage_collect(P, [{async, ReqId}]),
     receive
 	{garbage_collect, ReqId, Result} ->
@@ -2554,7 +2562,6 @@ gc_request_when_gc_disabled(Config) when is_list(Config) ->
 	    ok
     end,
     receive {garbage_collect, ReqId, true} -> ok end,
-    erts_debug:set_internal_state(available_internal_state, AIS),
     receive {'DOWN', M, process, P, _Reason} -> ok end,
     ok.
 
