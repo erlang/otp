@@ -4730,11 +4730,11 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="3"/>
+      <name name="process_flag" arity="2" clause_i="3"
+	    anchor="process_flag_min_heap_size"/>
       <fsummary>Set process flag min_heap_size for the calling process.
       </fsummary>
       <desc>
-        <marker id="process_flag_min_heap_size"/>
         <p>Changes the minimum heap size for the calling process.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
@@ -4752,12 +4752,12 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="5"/>
+      <name name="process_flag" arity="2" clause_i="5"
+	    anchor="process_flag_max_heap_size"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
       <type name="max_heap_size"/>
       <desc>
-        <marker id="process_flag_max_heap_size"/>
         <p>This flag sets the maximum heap size for the calling process.
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
@@ -4826,12 +4826,12 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="6"/>
+      <name name="process_flag" arity="2" clause_i="6"
+	    anchor="process_flag_message_queue_data"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
       <type name="message_queue_data"/>
       <desc>
-        <marker id="process_flag_message_queue_data"/>
         <p>This flag determines how messages in the message queue
           are stored, as follows:</p>
         <taglist>
@@ -4868,11 +4868,12 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="7"/>
+      <name name="process_flag" arity="2" clause_i="7"
+	    anchor="process_flag_priority"/>
       <fsummary>Set process flag priority for the calling process.</fsummary>
       <type name="priority_level"/>
       <desc>
-        <p><marker id="process_flag_priority"></marker>
+        <p>
           Sets the process priority. <c><anno>Level</anno></c> is an atom.
           Four priority levels exist: <c>low</c>,
           <c>normal</c>, <c>high</c>, and <c>max</c>. Default
@@ -6347,10 +6348,10 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="1"/>
+      <name name="statistics" arity="1" clause_i="1"
+	    anchor="statistics_active_tasks"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
-        <marker id="statistics_active_tasks"></marker>
         <p>Returns the same as
 	<seealso marker="#statistics_active_tasks_all">
         <c>statistics(active_tasks_all)</c></seealso>
@@ -6362,10 +6363,10 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="2"/>
+      <name name="statistics" arity="1" clause_i="2"
+	    anchor="statistics_active_tasks_all"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
-        <marker id="statistics_active_tasks_all"></marker>
         <p>Returns a list where each element represents the amount
           of active processes and ports on each run queue and its
           associated schedulers. That is, the number of processes and
@@ -6413,10 +6414,10 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="4"/>
+      <name name="statistics" arity="1" clause_i="4"
+	    anchor="statistics_exact_reductions"/>
       <fsummary>Information about exact reductions.</fsummary>
       <desc>
-        <marker id="statistics_exact_reductions"></marker>
         <p>Returns the number of exact reductions.</p>
         <note>
           <p><c>statistics(exact_reductions)</c> is
@@ -6451,10 +6452,10 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="7"/>
+      <name name="statistics" arity="1" clause_i="7"
+	    anchor="statistics_microstate_accounting"/>
       <fsummary>Information about microstate accounting.</fsummary>
       <desc>
-        <marker id="statistics_microstate_accounting"></marker>
         <p>Microstate accounting can be used to measure how much time the Erlang
           runtime system spends doing various tasks. It is designed to be as
           lightweight as possible, but some overhead exists when this
@@ -6594,10 +6595,10 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="8"/>
+      <name name="statistics" arity="1" clause_i="8"
+	    anchor="statistics_reductions"/>
       <fsummary>Information about reductions.</fsummary>
       <desc>
-        <marker id="statistics_reductions"></marker>
         <p>Returns information about reductions, for example:</p>
         <pre>
 > <input>statistics(reductions).</input>
@@ -6613,9 +6614,10 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="9"/>
+      <name name="statistics" arity="1" clause_i="9"
+	    anchor="statistics_run_queue"/>
       <fsummary>Information about the run-queues.</fsummary>
-      <desc><marker id="statistics_run_queue"></marker>
+      <desc>
         <p>Returns the total length of all normal run-queues. That is, the number
           of processes and ports that are ready to run on all available
           normal run-queues. Dirty run queues are not part of the
@@ -6629,9 +6631,10 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="10"/>
+      <name name="statistics" arity="1" clause_i="10"
+	    anchor="statistics_run_queue_lengths"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
-      <desc><marker id="statistics_run_queue_lengths"></marker>
+      <desc>
         <p>Returns the same as
 	<seealso marker="#statistics_run_queue_lengths_all">
         <c>statistics(run_queue_lengths_all)</c></seealso>
@@ -6643,9 +6646,10 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="11"/>
+      <name name="statistics" arity="1" clause_i="11"
+	    anchor="statistics_run_queue_lengths_all"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
-      <desc><marker id="statistics_run_queue_lengths_all"></marker>
+      <desc>
         <p>Returns a list where each element represents the amount
           of processes and ports ready to run for each run queue.
 	  Values for normal run queues are located first in the
@@ -6703,10 +6707,10 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="13"/>
+      <name name="statistics" arity="1" clause_i="13"
+	    anchor="statistics_scheduler_wall_time"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
-        <marker id="statistics_scheduler_wall_time"></marker>
         <p>Returns a list of tuples with
           <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
           <anno>TotalTime</anno>}</c>, where
@@ -6824,10 +6828,10 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="14"/>
+      <name name="statistics" arity="1" clause_i="14"
+	    anchor="statistics_scheduler_wall_time_all"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
-        <marker id="statistics_scheduler_wall_time_all"></marker>
 	<p>The same as
 	<seealso marker="#statistics_scheduler_wall_time"><c>statistics(scheduler_wall_time)</c></seealso>,
 	except that it also include information about all dirty I/O
@@ -6849,9 +6853,10 @@ ok
       </desc>
     </func>
     <func>
-      <name name="statistics" arity="1" clause_i="15"/>
+      <name name="statistics" arity="1" clause_i="15"
+	    anchor="statistics_total_active_tasks"/>
       <fsummary>Information about active processes and ports.</fsummary>
-      <desc><marker id="statistics_total_active_tasks"></marker>
+      <desc>
         <p>The same as calling
 	<c>lists:sum(</c><seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso><c>)</c>,
 	but more efficient.</p>
@@ -6859,9 +6864,10 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="16"/>
+      <name name="statistics" arity="1" clause_i="16"
+	    anchor="statistics_total_active_tasks_all"/>
       <fsummary>Information about active processes and ports.</fsummary>
-      <desc><marker id="statistics_total_active_tasks_all"></marker>
+      <desc>
         <p>The same as calling
 	<c>lists:sum(</c><seealso marker="#statistics_active_tasks_all"><c>statistics(active_tasks_all)</c></seealso><c>)</c>,
 	but more efficient.</p>
@@ -6869,9 +6875,10 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="17"/>
+      <name name="statistics" arity="1" clause_i="17"
+	    anchor="statistics_total_run_queue_lengths"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
-      <desc><marker id="statistics_total_run_queue_lengths"></marker>
+      <desc>
         <p>The same as calling
 	<c>lists:sum(</c><seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso><c>)</c>,
 	but more efficient.</p>
@@ -6879,9 +6886,10 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="18"/>
+      <name name="statistics" arity="1" clause_i="18"
+	    anchor="statistics_total_run_queue_lengths_all"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
-      <desc><marker id="statistics_total_run_queue_lengths_all"></marker>
+      <desc>
         <p>The same as calling
 	<c>lists:sum(</c><seealso marker="#statistics_run_queue_lengths_all"><c>statistics(run_queue_lengths_all)</c></seealso><c>)</c>,
 	but more efficient.</p>
@@ -7029,7 +7037,8 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="2"/>
+      <name name="system_flag" arity="2" clause_i="2"
+	    anchor="system_flag_cpu_topology"/>
       <fsummary>Set system flag <c>cpu_topology</c>.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -7038,7 +7047,7 @@ ok
       <type name="info_list"/>
       <desc>
         <warning>
-          <p><marker id="system_flag_cpu_topology"></marker>
+          <p>
             <em>This argument is deprecated.</em>
             Instead of using this argument, use command-line argument
             <seealso marker="erts:erl#+sct"><c>+sct</c></seealso> in
@@ -7076,10 +7085,11 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="3"/>
+      <name name="system_flag" arity="2" clause_i="3"
+	    anchor="system_flag_dirty_cpu_schedulers_online"/>
       <fsummary>Set system_flag_dirty_cpu_schedulers_online.</fsummary>
       <desc>
-        <p><marker id="system_flag_dirty_cpu_schedulers_online"></marker>
+        <p>
           Sets the number of dirty CPU schedulers online. Range is
           <c><![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]></c>, where <c>N</c>
           is the smallest of the return values of
@@ -7123,10 +7133,11 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="5"/>
+      <name name="system_flag" arity="2" clause_i="5"
+	    anchor="system_flag_microstate_accounting"/>
       <fsummary>Set system flag microstate_accounting.</fsummary>
       <desc>
-        <p><marker id="system_flag_microstate_accounting"></marker>
+        <p>
           Turns on/off microstate accounting measurements. When passing reset,
           all counters are reset to 0.</p>
         <p>For more information see
@@ -7168,28 +7179,29 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="8"/>
+      <name name="system_flag" arity="2" clause_i="8"
+	    anchor="system_flag_max_heap_size"/>
       <fsummary>Set system flag max_heap_size.</fsummary>
       <type name="max_heap_size"/>
       <desc>
-        <marker id="system_flag_max_heap_size"></marker>
         <p>
           Sets the default maximum heap size settings for processes.
           The size is specified in words. The new <c>max_heap_size</c>
           effects only processes spawned efter the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
           <seealso marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seealso> or
-          <seealso marker="#process_flag_message_queue_data">
+          <seealso marker="#process_flag_max_heap_size">
           <c>process_flag/2</c></seealso>.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="9"
+	    anchor="system_flag_multi_scheduling"/>
       <fsummary>Set system flag multi_scheduling.</fsummary>
       <desc>
-        <p><marker id="system_flag_multi_scheduling"></marker>
+        <p>
           If multi-scheduling is enabled, more than one scheduler
           thread is used by the emulator. Multi-scheduling can be
           blocked in two different ways. Either all schedulers but
@@ -7241,12 +7253,13 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="10"/>
+      <name name="system_flag" arity="2" clause_i="10"
+	    anchor="system_flag_scheduler_bind_type"/>
       <fsummary>Set system flag scheduler_bind_type.</fsummary>
       <type name="scheduler_bind_type"/>
       <desc>
         <warning>
-          <p><marker id="system_flag_scheduler_bind_type"></marker>
+          <p>
             <em>This argument is deprecated.</em>
             Instead of using this argument, use command-line argument
             <seealso marker="erts:erl#+sbt"><c>+sbt</c></seealso> in
@@ -7367,10 +7380,11 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="11"/>
+      <name name="system_flag" arity="2" clause_i="11"
+	    anchor="system_flag_scheduler_wall_time"/>
       <fsummary>Set system flag scheduler_wall_time.</fsummary>
       <desc>
-        <p><marker id="system_flag_scheduler_wall_time"></marker>
+        <p>
           Turns on or off scheduler wall time measurements.</p>
         <p>For more information, see
           <seealso marker="#statistics_scheduler_wall_time">
@@ -7379,10 +7393,11 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="12"/>
+      <name name="system_flag" arity="2" clause_i="12"
+	    anchor="system_flag_schedulers_online"/>
       <fsummary>Set system flag schedulers_online.</fsummary>
       <desc>
-        <p><marker id="system_flag_schedulers_online"></marker>
+        <p>
           Sets the number of schedulers online. Range is
           <c><![CDATA[1 <= SchedulersOnline <=
           erlang:system_info(schedulers)]]></c>.</p>
@@ -7421,10 +7436,11 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="14"/>
+      <name name="system_flag" arity="2" clause_i="14"
+	    anchor="system_flag_time_offset"/>
       <fsummary>Finalize the time offset.</fsummary>
       <desc>
-        <p><marker id="system_flag_time_offset"></marker>
+        <p>
           Finalizes the <seealso marker="#time_offset/0">time offset</seealso>
           when <seealso marker="time_correction#Single_Time_Warp_Mode">single
           time warp mode</seealso> is used. If another time warp mode
@@ -7597,7 +7613,8 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="12"/>
+      <name name="system_info" arity="1" clause_i="12"
+	    anchor="system_info_cpu_topology"/>
       <name name="system_info" arity="1" clause_i="13"/>
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
@@ -7625,7 +7642,6 @@ ok
       </type_desc>
       <desc>
         <marker id="system_info_cpu_topology_tags"></marker>
-        <marker id="system_info_cpu_topology"></marker>
         <p>Returns various information about the CPU topology of
           the current system (emulator) as specified by
           <c><anno>Item</anno></c>:</p>
