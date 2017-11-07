@@ -34,7 +34,7 @@
       Base64String :: ascii_string().
 
 encode_to_string(Bin) when is_binary(Bin) ->
-    encode_binary_to_string(Bin);
+    encode_to_string(binary_to_list(Bin));
 encode_to_string(List) when is_list(List) ->
     encode_list_to_string(List).
 
@@ -46,22 +46,6 @@ encode(Bin) when is_binary(Bin) ->
     encode_binary(Bin, <<>>);
 encode(List) when is_list(List) ->
     encode_list(List, <<>>).
-
-encode_binary_to_string(<<>>) ->
-    [];
-encode_binary_to_string(<<B1:8>>) ->
-    [b64e(B1 bsr 2),
-     b64e((B1 band 3) bsl 4), $=, $=];
-encode_binary_to_string(<<B1:8, B2:8>>) ->
-    [b64e(B1 bsr 2),
-     b64e(((B1 band 3) bsl 4) bor (B2 bsr 4)),
-     b64e((B2 band 15) bsl 2), $=];
-encode_binary_to_string(<<B1:8, B2:8, B3:8, Ls/bits>>) ->
-    BB = (B1 bsl 16) bor (B2 bsl 8) bor B3,
-    [b64e(BB bsr 18),
-     b64e((BB bsr 12) band 63),
-     b64e((BB bsr 6) band 63),
-     b64e(BB band 63) | encode_binary_to_string(Ls)].
 
 encode_list_to_string([]) ->
     [];
@@ -141,7 +125,7 @@ mime_decode(List) when is_list(List) ->
       DataString :: ascii_string().
 
 decode_to_string(Bin) when is_binary(Bin) ->
-    decode_binary_to_string(Bin);
+    decode_to_string(binary_to_list(Bin));
 decode_to_string(List) when is_list(List) ->
     decode_list_to_string(List).
 
@@ -150,7 +134,7 @@ decode_to_string(List) when is_list(List) ->
       DataString :: ascii_string().
 
 mime_decode_to_string(Bin) when is_binary(Bin) ->
-    mime_decode_binary_to_string(Bin);
+    mime_decode_to_string(binary_to_list(Bin));
 mime_decode_to_string(List) when is_list(List) ->
     mime_decode_list_to_string(List).
 
@@ -339,67 +323,6 @@ mime_decode_list_to_string_after_eq([], B1, B2, eq) ->
 mime_decode_list_to_string_after_eq([], B1, B2, B3) ->
     binary_to_list(<<B1:6,B2:6,(B3 bsr 2):4>>).
 
-mime_decode_binary_to_string(<<0:8, Cs/bits>>) ->
-    mime_decode_binary_to_string(Cs);
-mime_decode_binary_to_string(<<C1:8, Cs/bits>>) ->
-    case b64d(C1) of
-        B1 when is_integer(B1) -> mime_decode_binary_to_string(Cs, B1);
-        _ -> mime_decode_binary_to_string(Cs) % eq is padding
-    end;
-mime_decode_binary_to_string(<<>>) ->
-    [].
-
-mime_decode_binary_to_string(<<0:8, Cs/bits>>, B1) ->
-    mime_decode_binary_to_string(Cs, B1);
-mime_decode_binary_to_string(<<C2:8, Cs/bits>>, B1) ->
-    case b64d(C2) of
-        B2 when is_integer(B2) ->
-            mime_decode_binary_to_string(Cs, B1, B2);
-        _ -> mime_decode_binary_to_string(Cs, B1) % eq is padding
-    end.
-
-mime_decode_binary_to_string(<<0:8, Cs/bits>>, B1, B2) ->
-    mime_decode_binary_to_string(Cs, B1, B2);
-mime_decode_binary_to_string(<<C3:8, Cs/bits>>, B1, B2) ->
-    case b64d(C3) of
-        B3 when is_integer(B3) ->
-            mime_decode_binary_to_string(Cs, B1, B2, B3);
-        eq=B3 -> mime_decode_binary_to_string_after_eq(Cs, B1, B2, B3);
-        _ -> mime_decode_binary_to_string(Cs, B1, B2)
-    end.
-
-mime_decode_binary_to_string(<<0:8, Cs/bits>>, B1, B2, B3) ->
-    mime_decode_binary_to_string(Cs, B1, B2, B3);
-mime_decode_binary_to_string(<<C4:8, Cs/bits>>, B1, B2, B3) ->
-    case b64d(C4) of
-        B4 when is_integer(B4) ->
-            Bits4x6 = (B1 bsl 18) bor (B2 bsl 12) bor (B3 bsl 6) bor B4,
-            Octet1 = Bits4x6 bsr 16,
-            Octet2 = (Bits4x6 bsr 8) band 16#ff,
-            Octet3 = Bits4x6 band 16#ff,
-            [Octet1, Octet2, Octet3 | mime_decode_binary_to_string(Cs)];
-        eq ->
-            mime_decode_binary_to_string_after_eq(Cs, B1, B2, B3);
-        _ -> mime_decode_binary_to_string(Cs, B1, B2, B3)
-    end.
-
-mime_decode_binary_to_string_after_eq(<<0:8, Cs/bits>>, B1, B2, B3) ->
-    mime_decode_binary_to_string_after_eq(Cs, B1, B2, B3);
-mime_decode_binary_to_string_after_eq(<<C:8, Cs/bits>>=Cs0, B1, B2, B3) ->
-    case b64d(C) of
-        B when is_integer(B) ->
-            %% More valid data, skip the eq as invalid
-            case B3 of
-                eq -> mime_decode_binary_to_string(Cs, B1, B2, B);
-                _ -> mime_decode_binary_to_string(Cs0, B1, B2, B3)
-            end;
-        _ -> mime_decode_binary_to_string_after_eq(Cs, B1, B2, B3)
-    end;
-mime_decode_binary_to_string_after_eq(<<>>, B1, B2, eq) ->
-    binary_to_list(<<B1:6,(B2 bsr 4):2>>);
-mime_decode_binary_to_string_after_eq(<<>>, B1, B2, B3) ->
-    binary_to_list(<<B1:6,B2:6,(B3 bsr 2):4>>).
-
 decode_list([C1 | Cs], A) ->
     case b64d(C1) of
         ws -> decode_list(Cs, A);
@@ -456,6 +379,14 @@ decode_binary(<<C4:8, Cs/bits>>, A, B1, B2, B3) ->
         B4                -> decode_binary(Cs, <<A/binary,B1:6,B2:6,B3:6,B4:6>>)
     end.
 
+only_ws_binary(<<>>, A) ->
+    A;
+only_ws_binary(<<C:8, Cs/bits>>, A) ->
+    case b64d(C) of
+        ws -> only_ws_binary(Cs, A);
+        _ -> erlang:error(function_clause)
+    end.
+
 decode_list_to_string([C1 | Cs]) ->
     case b64d(C1) of
         ws -> decode_list_to_string(Cs);
@@ -497,49 +428,6 @@ only_ws([], A) ->
 only_ws([C | Cs], A) ->
     case b64d(C) of
         ws -> only_ws(Cs, A);
-        _ -> erlang:error(function_clause)
-    end.
-
-decode_binary_to_string(<<C1:8, Cs/bits>>) ->
-    case b64d(C1) of
-        ws -> decode_binary_to_string(Cs);
-        B1 -> decode_binary_to_string(Cs, B1)
-    end;
-decode_binary_to_string(<<>>) ->
-    [].
-
-decode_binary_to_string(<<C2:8, Cs/bits>>, B1) ->
-    case b64d(C2) of
-        ws -> decode_binary_to_string(Cs, B1);
-        B2 -> decode_binary_to_string(Cs, B1, B2)
-    end.
-
-decode_binary_to_string(<<C3:8, Cs/bits>>, B1, B2) ->
-    case b64d(C3) of
-        ws -> decode_binary_to_string(Cs, B1, B2);
-        B3 -> decode_binary_to_string(Cs, B1, B2, B3)
-    end.
-
-decode_binary_to_string(<<C4:8, Cs/bits>>, B1, B2, B3) ->
-    case b64d(C4) of
-        ws -> decode_binary_to_string(Cs, B1, B2, B3);
-        eq when B3 =:= eq ->
-            only_ws_binary(Cs, binary_to_list(<<B1:6,(B2 bsr 4):2>>));
-        eq ->
-            only_ws_binary(Cs, binary_to_list(<<B1:6,B2:6,(B3 bsr 2):4>>));
-        B4 ->
-            Bits4x6 = (B1 bsl 18) bor (B2 bsl 12) bor (B3 bsl 6) bor B4,
-            Octet1 = Bits4x6 bsr 16,
-            Octet2 = (Bits4x6 bsr 8) band 16#ff,
-            Octet3 = Bits4x6 band 16#ff,
-            [Octet1, Octet2, Octet3 | decode_binary_to_string(Cs)]
-    end.
-
-only_ws_binary(<<>>, A) ->
-    A;
-only_ws_binary(<<C:8, Cs/bits>>, A) ->
-    case b64d(C) of
-        ws -> only_ws_binary(Cs, A);
         _ -> erlang:error(function_clause)
     end.
 
