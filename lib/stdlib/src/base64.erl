@@ -66,15 +66,15 @@ encode_list_to_string([B1,B2,B3|Ls]) ->
 encode_binary(<<>>, A) ->
     A;
 encode_binary(<<B1:8>>, A) ->
-    <<A/binary,(b64e(B1 bsr 2)):8,(b64e((B1 band 3) bsl 4)):8,$=:8,$=:8>>;
+    <<A/bits,(b64e(B1 bsr 2)):8,(b64e((B1 band 3) bsl 4)):8,$=:8,$=:8>>;
 encode_binary(<<B1:8, B2:8>>, A) ->
-    <<A/binary,(b64e(B1 bsr 2)):8,
+    <<A/bits,(b64e(B1 bsr 2)):8,
       (b64e(((B1 band 3) bsl 4) bor (B2 bsr 4))):8,
       (b64e((B2 band 15) bsl 2)):8, $=:8>>;
 encode_binary(<<B1:8, B2:8, B3:8, Ls/bits>>, A) ->
     BB = (B1 bsl 16) bor (B2 bsl 8) bor B3,
     encode_binary(Ls,
-                  <<A/binary,(b64e(BB bsr 18)):8,
+                  <<A/bits,(b64e(BB bsr 18)):8,
                     (b64e((BB bsr 12) band 63)):8,
                     (b64e((BB bsr 6) band 63)):8,
                     (b64e(BB band 63)):8>>).
@@ -82,15 +82,15 @@ encode_binary(<<B1:8, B2:8, B3:8, Ls/bits>>, A) ->
 encode_list([], A) ->
     A;
 encode_list([B1], A) ->
-    <<A/binary,(b64e(B1 bsr 2)):8,(b64e((B1 band 3) bsl 4)):8,$=:8,$=:8>>;
+    <<A/bits,(b64e(B1 bsr 2)):8,(b64e((B1 band 3) bsl 4)):8,$=:8,$=:8>>;
 encode_list([B1,B2], A) ->
-    <<A/binary,(b64e(B1 bsr 2)):8,
+    <<A/bits,(b64e(B1 bsr 2)):8,
       (b64e(((B1 band 3) bsl 4) bor (B2 bsr 4))):8,
       (b64e((B2 band 15) bsl 2)):8, $=:8>>;
 encode_list([B1,B2,B3|Ls], A) ->
     BB = (B1 bsl 16) bor (B2 bsl 8) bor B3,
     encode_list(Ls,
-                <<A/binary,(b64e(BB bsr 18)):8,
+                <<A/bits,(b64e(BB bsr 18)):8,
                   (b64e((BB bsr 12) band 63)):8,
                   (b64e((BB bsr 6) band 63)):8,
                   (b64e(BB band 63)):8>>).
@@ -195,9 +195,9 @@ mime_decode_list_after_eq([C | Cs], A, B1, B2, B3) ->
         _ -> mime_decode_list_after_eq(Cs, A, B1, B2, B3)
     end;
 mime_decode_list_after_eq([], A, B1, B2, eq) ->
-    <<A/binary,B1:6,(B2 bsr 4):2>>;
+    <<A/bits,B1:6,(B2 bsr 4):2>>;
 mime_decode_list_after_eq([], A, B1, B2, B3) ->
-    <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>.
+    <<A/bits,B1:6,B2:6,(B3 bsr 2):4>>.
 
 mime_decode_binary(<<0:8, Cs/bits>>, A) ->
     mime_decode_binary(Cs, A);
@@ -253,9 +253,9 @@ mime_decode_binary_after_eq(<<C:8, Cs/bits>>, A, B1, B2, B3) ->
         _ -> mime_decode_binary_after_eq(Cs, A, B1, B2, B3)
     end;
 mime_decode_binary_after_eq(<<>>, A, B1, B2, eq) ->
-    <<A/binary,B1:6,(B2 bsr 4):2>>;
+    <<A/bits,B1:6,(B2 bsr 4):2>>;
 mime_decode_binary_after_eq(<<>>, A, B1, B2, B3) ->
-    <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>.
+    <<A/bits,B1:6,B2:6,(B3 bsr 2):4>>.
 
 mime_decode_list_to_string([0 | Cs]) ->
     mime_decode_list_to_string(Cs);
@@ -346,9 +346,9 @@ decode_list([C3 | Cs], A, B1, B2) ->
 decode_list([C4 | Cs], A, B1, B2, B3) ->
     case b64d(C4) of
         ws                -> decode_list(Cs, A, B1, B2, B3);
-        eq when B3 =:= eq -> only_ws(Cs, <<A/binary,B1:6,(B2 bsr 4):2>>);
-        eq                -> only_ws(Cs, <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>);
-        B4                -> decode_list(Cs, <<A/binary,B1:6,B2:6,B3:6,B4:6>>)
+        eq when B3 =:= eq -> only_ws(Cs, <<A/bits,B1:6,(B2 bsr 4):2>>);
+        eq                -> only_ws(Cs, <<A/bits,B1:6,B2:6,(B3 bsr 2):4>>);
+        B4                -> decode_list(Cs, <<A/bits,B1:6,B2:6,B3:6,B4:6>>)
     end.
 
 decode_binary(<<C1:8, Cs/bits>>, A) ->
@@ -374,9 +374,9 @@ decode_binary(<<C3:8, Cs/bits>>, A, B1, B2) ->
 decode_binary(<<C4:8, Cs/bits>>, A, B1, B2, B3) ->
     case b64d(C4) of
         ws                -> decode_binary(Cs, A, B1, B2, B3);
-        eq when B3 =:= eq -> only_ws_binary(Cs, <<A/binary,B1:6,(B2 bsr 4):2>>);
-        eq                -> only_ws_binary(Cs, <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>);
-        B4                -> decode_binary(Cs, <<A/binary,B1:6,B2:6,B3:6,B4:6>>)
+        eq when B3 =:= eq -> only_ws_binary(Cs, <<A/bits,B1:6,(B2 bsr 4):2>>);
+        eq                -> only_ws_binary(Cs, <<A/bits,B1:6,B2:6,(B3 bsr 2):4>>);
+        B4                -> decode_binary(Cs, <<A/bits,B1:6,B2:6,B3:6,B4:6>>)
     end.
 
 only_ws_binary(<<>>, A) ->
