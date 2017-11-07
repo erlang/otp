@@ -280,6 +280,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
 	    gen_handshake(ssl_connection, hello, internal, {common_client_hello, Type, ServerHelloExt},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
+                                             client_hello_version = ClientVersion,
 					     hashsign_algorithm = HashSign,
 					     session = Session,
 					     negotiated_protocol = Protocol})

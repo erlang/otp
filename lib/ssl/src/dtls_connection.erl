@@ -575,6 +575,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 
 	    State = prepare_flight(State0#state{connection_states = ConnectionStates,
 						negotiated_version = Version,
+                                                client_hello_version = ClientVersion,
 						hashsign_algorithm = HashSign,
 						session = Session,
 						negotiated_protocol = Protocol}),
