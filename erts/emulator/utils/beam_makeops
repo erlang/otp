@@ -78,6 +78,10 @@ my %num_specific;
 my %gen_to_spec;
 my %specific_op;
 
+# The following hashes are used for error checking.
+my %print_name;
+my %specific_op_arity;
+
 # Information about each specific operator. Key is the print name (e.g. get_list_xxy).
 # Value is a hash.
 my %spec_op_info;
@@ -1055,6 +1059,22 @@ sub parse_specific_op {
     my $key = "$name/$arity";
     foreach my $args_ref (@res) {
         @args = @$args_ref;
+        my $arity = @args;
+        my $loc = "$ARGV($.)";
+        if (defined $specific_op_arity{$name}) {
+            my($prev_arity,$loc) = @{$specific_op_arity{$name}};
+            if ($arity != $prev_arity) {
+                error("$name defined with arity $arity, " .
+                      "but previously defined with arity $prev_arity at $loc");
+            }
+        }
+        $specific_op_arity{$name} = [$arity,$loc];
+        my $print_name = print_name($name, @args);
+        if (defined $print_name{$print_name}) {
+            error("$name @args: already defined at " .
+                  $print_name{$print_name});
+        }
+        $print_name{$print_name} = $loc;
         push @{$specific_op{$key}}, [$name,$hotness,@args];
     }
 
