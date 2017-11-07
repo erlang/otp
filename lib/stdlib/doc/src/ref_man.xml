@@ -93,6 +93,7 @@
   <xi:include href="sys.xml"/>
   <xi:include href="timer.xml"/>
   <xi:include href="unicode.xml"/>
+  <xi:include href="uri_string.xml"/>
   <xi:include href="win32reg.xml"/>
   <xi:include href="zip.xml"/>
 </application>

@@ -60,6 +60,7 @@
   <xi:include href="../specs/specs_sys.xml"/>
   <xi:include href="../specs/specs_timer.xml"/>
   <xi:include href="../specs/specs_unicode.xml"/>
+  <xi:include href="../specs/specs_uri_string.xml"/>
   <xi:include href="../specs/specs_win32reg.xml"/>
   <xi:include href="../specs/specs_zip.xml"/>
 </specs>

@@ -87,6 +87,7 @@ MODULES= \
 	timer_simple_SUITE \
 	unicode_SUITE \
 	unicode_util_SUITE \
+	uri_string_SUITE \
 	win32reg_SUITE \
 	y2k_SUITE \
 	select_SUITE \
