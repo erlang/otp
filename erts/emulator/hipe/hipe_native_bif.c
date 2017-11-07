@@ -482,15 +482,6 @@ static int validate_unicode(Eterm arg)
     return 1;
 }
 
-BIF_RETTYPE nbif_impl_hipe_bs_validate_unicode(NBIF_ALIST_1)
-{
-    Process *p = BIF_P;
-    Eterm arg = BIF_ARG_1;
-    if (!validate_unicode(arg))
-	BIF_ERROR(p, BADARG);
-    return NIL;
-}
-
 Uint hipe_is_unicode(Eterm arg)
 {
     return (Uint) validate_unicode(arg);

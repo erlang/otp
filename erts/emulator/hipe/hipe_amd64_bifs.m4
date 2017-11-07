@@ -462,42 +462,6 @@ ASYM($1):
 	TYPE_FUNCTION(ASYM($1))
 #endif')
 
-/*
- * nogc_bif_interface_1(nbif_name, cbif_name)
- *
- * Generate native interface for a bif with implicit P
- * The bif can fail but cannot do GC.
- */
-
-define(nogc_bif_interface_1,
-`
-#ifndef HAVE_$1
-#`define' HAVE_$1
-	TEXT
-	.align	4
-	GLOBAL(ASYM($1))
-ASYM($1):
-	/* set up the parameters */
-	movq	P, %rdi
-	NBIF_ARG(%rsi,1,0)
-
-	/* make the call on the C stack */
-	SWITCH_ERLANG_TO_C
-	pushq	%rsi
-	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
-	sub	$(8), %rsp	/* stack frame 16-byte alignment */
-	CALL_BIF($2)
-	add	$(1*8 + 8), %rsp
-	SWITCH_C_TO_ERLANG
-
-	/* throw exception if failure, otherwise return */
-	TEST_GOT_EXN
-	jz	nbif_1_simple_exception
-	NBIF_RET(1)
-	SET_SIZE(ASYM($1))
-	TYPE_FUNCTION(ASYM($1))
-#endif')
-
 
 /*
  * noproc_primop_interface_0(nbif_name, cbif_name)

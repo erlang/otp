@@ -248,11 +248,6 @@ nofail_primop_interface_3(nbif_bs_get_float_2, erts_bs_get_float_2)
 standard_bif_interface_3(nbif_bs_put_utf8, hipe_bs_put_utf8)
 standard_bif_interface_3(nbif_bs_put_utf16be, hipe_bs_put_utf16be)
 standard_bif_interface_3(nbif_bs_put_utf16le, hipe_bs_put_utf16le)
-ifdef(`nogc_bif_interface_1',`
-nogc_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
-',`
-standard_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
-')
 
 /*
  * Bit-syntax primops without any P parameter.
