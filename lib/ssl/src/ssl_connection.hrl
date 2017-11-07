@@ -57,6 +57,7 @@
 	  session_cache_cb      :: atom(),
 	  crl_db                :: term(), 
           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
+          client_hello_version  :: ssl_record:ssl_version() | 'undefined',
           client_certificate_requested = false :: boolean(),
 	  key_algorithm         :: ssl_cipher:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
