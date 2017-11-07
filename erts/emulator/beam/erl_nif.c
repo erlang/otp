@@ -3488,6 +3488,10 @@ static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
     if (thing_subtag(*parent_header) == REFC_BINARY_SUBTAG) {
         ProcBin *pb = (ProcBin*)parent_header;
 
+        if (pb->flags & (PB_IS_WRITABLE | PB_ACTIVE_WRITER)) {
+            erts_emasculate_writable_binary(pb);
+        }
+
         ASSERT(pb->val != NULL);
         ASSERT(byte_offset < pb->size);
         ASSERT(&pb->bytes[byte_offset] >= (byte*)(pb->val)->orig_bytes);
