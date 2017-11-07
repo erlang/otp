@@ -38,7 +38,10 @@
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
          recompose_autogen/1, parse_recompose_autogen/1,
-         transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1
+         transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
+         compose_query/1, compose_query_latin1/1, compose_query_negative/1,
+         dissect_query/1, dissect_query_negative/1,
+         interop_query_latin1/1, interop_query_utf8/1
         ]).
 
 
@@ -107,7 +110,14 @@ all() ->
      transcode_basic,
      transcode_options,
      transcode_mixed,
-     transcode_negative
+     transcode_negative,
+     compose_query,
+     compose_query_latin1,
+     compose_query_negative,
+     dissect_query,
+     dissect_query_negative,
+     interop_query_latin1,
+     interop_query_utf8
     ].
 
 groups() ->
@@ -823,6 +833,65 @@ transcode_negative(_Config) ->
     {error,invalid_input,<<"ö">>} =
         uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
 
+compose_query(_Config) ->
+    [] = uri_string:compose_query([]),
+    "foo=1&bar=2" = uri_string:compose_query([{<<"foo">>,"1"}, {"bar", "2"}]),
+    "foo=1&b%C3%A4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,utf8}]),
+    "foo=1&b%C3%A4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,unicode}]),
+    "foo=1&b%E4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,latin1}]),
+    "foo+bar=1&%E5%90%88=2" = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
+    "foo+bar=1&%26%2321512%3B=2" =
+        uri_string:compose_query([{"foo bar","1"}, {"合", "2"}],[{encoding,latin1}]),
+    "foo+bar=1&%C3%B6=2" = uri_string:compose_query([{<<"foo bar">>,<<"1">>}, {"ö", <<"2">>}]),
+    <<"foo+bar=1&%C3%B6=2">> =
+        uri_string:compose_query([{<<"foo bar">>,<<"1">>}, {<<"ö"/utf8>>, <<"2">>}]).
+
+compose_query_latin1(_Config) ->
+    Q = uri_string:compose_query([{"合foö bar","1"}, {"合", "合"}],[{encoding,latin1}]),
+    Q1 = uri_string:transcode(Q, [{in_encoding, latin1}]),
+    [{"合foö bar","1"}, {"合", "合"}] = uri_string:dissect_query(Q1),
+    Q2 = uri_string:compose_query([{<<"合foö bar"/utf8>>,<<"1">>}, {<<"合"/utf8>>, <<"合"/utf8>>}],
+                                  [{encoding,latin1}]),
+    Q3 = uri_string:transcode(Q2, [{in_encoding, latin1}]),
+    [{<<"合foö bar"/utf8>>,<<"1">>}, {<<"合"/utf8>>, <<"合"/utf8>>}] =
+        uri_string:dissect_query(Q3).
+
+compose_query_negative(_Config) ->
+    {error,invalid_input,4} = uri_string:compose_query([{"",4}]),
+    {error,invalid_input,5} = uri_string:compose_query([{5,""}]),
+    {error,invalid_encoding,utf16} =
+        uri_string:compose_query([{"foo bar","1"}, {<<"ö">>, "2"}],[{encoding,utf16}]).
+
+dissect_query(_Config) ->
+    [] = uri_string:dissect_query(""),
+    [{"foo","1"}, {"amp;bar", "2"}] = uri_string:dissect_query("foo=1&amp;bar=2"),
+    [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1&bar=2"),
+    [{"foo","1;bar=2"}] = uri_string:dissect_query("foo=1;bar=2"),
+    [{"foo","1"}, {"bar", "222"}] = uri_string:dissect_query([<<"foo=1&bar=2">>,"22"]),
+    [{"foo","ö"}, {"bar", "2"}] = uri_string:dissect_query("foo=%C3%B6&bar=2"),
+    [{<<"foo">>,<<"ö"/utf8>>}, {<<"bar">>, <<"2">>}] =
+        uri_string:dissect_query(<<"foo=%C3%B6&bar=2">>),
+    [{"foo bar","1"},{"ö","2"}] =
+        uri_string:dissect_query([<<"foo+bar=1&">>,<<"%C3%B6=2">>]),
+    [{"foo bar","1"},{[21512],"2"}] =
+        uri_string:dissect_query("foo+bar=1&%26%2321512%3B=2"),
+    [{<<"foo bar">>,<<"1">>},{<<"合"/utf8>>,<<"2">>}] =
+        uri_string:dissect_query(<<"foo+bar=1&%26%2321512%3B=2">>),
+    [{"föo bar","1"},{"ö","2"}] =
+        uri_string:dissect_query("föo+bar=1&%C3%B6=2"),
+    [{<<"föo bar"/utf8>>,<<"1">>},{<<"ö"/utf8>>,<<"2">>}] =
+        uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2"/utf8>>).
+
+dissect_query_negative(_Config) ->
+    {error,missing_value,"&"} =
+        uri_string:dissect_query("foo1&bar=2"),
+    {error,invalid_percent_encoding,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
+    {error,invalid_input,[153]} =
+        uri_string:dissect_query("foo=%99%B6&amp;bar=2"),
+    {error,invalid_character,"ö"} = uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2">>),
+    {error,invalid_input,<<"ö">>} =
+        uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2ö">>]).
+
 normalize(_Config) ->
     "/a/g" = uri_string:normalize("/a/b/c/./../../g"),
     <<"mid/6">> = uri_string:normalize(<<"mid/content=5/../6">>),
@@ -842,3 +911,16 @@ normalize(_Config) ->
         uri_string:normalize(<<"sftp://localhost:22">>),
     <<"tftp://localhost">> =
         uri_string:normalize(<<"tftp://localhost:69">>).
+
+interop_query_utf8(_Config) ->
+    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
+    Uri = uri_string:recompose(#{path => "/", query => Q}),
+    #{query := Q1} = uri_string:parse(Uri),
+    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).
+
+interop_query_latin1(_Config) ->
+    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}], [{encoding,latin1}]),
+    Uri = uri_string:recompose(#{path => "/", query => Q}),
+    Uri1 = uri_string:transcode(Uri, [{in_encoding, latin1}]),
+    #{query := Q1} = uri_string:parse(Uri1),
+    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).

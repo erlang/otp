@@ -31,7 +31,8 @@
   <modulesummary>URI processing functions.</modulesummary>
   <description>
     <p>This module contains functions for parsing and handling URIs
-    (<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>).
+    (<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>) and
+    form-urlencoded query strings (<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>).
     </p>
     <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
     rule named <em>URI</em> in <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.
@@ -71,6 +72,13 @@
       <item>Transforming URIs into a normalized form<br></br>
       <seealso marker="#normalize/1"><c>normalize/1</c></seealso>
       </item>
+      <item>Composing form-urlencoded query strings from a list of key-value pairs<br></br>
+      <seealso marker="#compose_query/1"><c>compose_query/1</c></seealso><br></br>
+      <seealso marker="#compose_query/2"><c>compose_query/2</c></seealso>
+      </item>
+      <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
+      <seealso marker="#dissect_query/1"><c>dissect_query/1</c></seealso>
+      </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
     <list type="bulleted">
@@ -102,12 +110,15 @@
       <desc>
         <p>Error tuple indicating the type of error. Possible values of the second component:</p>
 	<list type="bulleted">
+	  <item><c>invalid_character</c></item>
+	  <item><c>invalid_encoding</c></item>
 	  <item><c>invalid_input</c></item>
 	  <item><c>invalid_map</c></item>
 	  <item><c>invalid_percent_encoding</c></item>
 	  <item><c>invalid_scheme</c></item>
 	  <item><c>invalid_uri</c></item>
 	  <item><c>invalid_utf8</c></item>
+	  <item><c>missing_value</c></item>
 	</list>
 	<p>The third component is a term providing additional information about the
 	cause of the error.</p>
@@ -132,6 +143,91 @@
   </datatypes>
 
   <funcs>
+
+    <func>
+      <name name="compose_query" arity="1"/>
+      <fsummary>Compose urlencoded query string.</fsummary>
+      <desc>
+        <p>Composes a form-urlencoded <c><anno>QueryString</anno></c> based on a
+	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
+        Form-urlencoding is defined in section
+	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
+	specification.
+	</p>
+	<p>See also the opposite operation <seealso marker="#dissect_query/1">
+	<c>dissect_query/1</c></seealso>.
+	</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).</input>
+<![CDATA["foo+bar=1&city=%C3%B6rebro"]]>
+2> <![CDATA[uri_string:compose_query([{<<"foo bar">>,<<"1">>},
+2> {<<"city">>,<<"örebro"/utf8>>}]).]]>
+<![CDATA[<<"foo+bar=1&city=%C3%B6rebro">>]]>
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="compose_query" arity="2"/>
+      <fsummary>Compose urlencoded query string.</fsummary>
+      <desc>
+        <p>Same as <c>compose_query/1</c> but with an additional
+	<c><anno>Options</anno></c> parameter, that controls the encoding ("charset")
+	used by the encoding algorithm. There are two supported encodings: <c>utf8</c>
+	(or <c>unicode</c>) and <c>latin1</c>.
+	</p>
+	<p>Each character in the entry's name and value that cannot be expressed using
+	the selected character encoding, is replaced by a string consisting of a U+0026
+	AMPERSAND character (<![CDATA[&]]>), a "#" (U+0023) character, one or more ASCII
+	digits representing the Unicode code point of the character in base ten, and
+	finally	a ";" (U+003B) character.
+	</p>
+	<p>Bytes that are out of the range 0x2A, 0x2D, 0x2E, 0x30 to 0x39, 0x41 to 0x5A, 0x5F,
+	0x61 to 0x7A, are percent-encoded (U+0025 PERCENT SIGN character (%) followed by
+	uppercase ASCII hex digits representing the hexadecimal value of the byte).
+	</p>
+	<p>See also the opposite operation <seealso marker="#dissect_query/1">
+	<c>dissect_query/1</c></seealso>.
+	</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],</input>
+1> [{encoding, latin1}]).
+<![CDATA["foo+bar=1&city=%F6rebro"
+2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
+2> {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).]]>
+<![CDATA[<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>]]>
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dissect_query" arity="1"/>
+      <fsummary>Dissect query string.</fsummary>
+      <desc>
+        <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
+	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
+        Form-urlencoding is defined in section
+	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
+	specification.
+	</p>
+	<p>It is not as strict for its input as the decoding algorithm defined by
+	<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
+	and accepts all unicode characters.</p>
+	<p>See also the opposite operation <seealso marker="#compose_query/1">
+	<c>compose_query/1</c></seealso>.
+	</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:dissect_query("foo+bar=1&city=%C3%B6rebro").]]></input>
+[{"foo bar","1"},{"city","örebro"}]
+2> <![CDATA[uri_string:dissect_query(<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>).]]>
+<![CDATA[[{<<"foo bar">>,<<"1">>},
+ {<<"city">>,<<230,157,177,228,186,172>>}] ]]>
+	</pre>
+      </desc>
+    </func>
 
     <func>
       <name name="normalize" arity="1"/>

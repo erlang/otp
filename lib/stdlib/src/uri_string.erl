@@ -226,7 +226,8 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([normalize/1, parse/1,
+-export([compose_query/1, compose_query/2,
+         dissect_query/1, normalize/1, parse/1,
          recompose/1, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
@@ -376,6 +377,76 @@ transcode(URIString, Options) when is_list(URIString) ->
     OutEnc = proplists:get_value(out_encoding, Options, utf8),
     Flattened = flatten_list(URIString, InEnc),
     try transcode(Flattened, [], InEnc, OutEnc)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+
+
+%%-------------------------------------------------------------------------
+%% Functions for working with the query part of a URI as a list
+%% of key/value pairs.
+%% HTML5 - 4.10.22.6 URL-encoded form data
+%%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
+%% Compose urlencoded query string from a list of unescaped key/value pairs.
+%% (application/x-www-form-urlencoded encoding algorithm)
+%%-------------------------------------------------------------------------
+-spec compose_query(QueryList) -> QueryString when
+      QueryList :: [{uri_string(), uri_string()}],
+      QueryString :: uri_string()
+                   | error().
+compose_query(List) ->
+    compose_query(List, [{encoding, utf8}]).
+
+
+-spec compose_query(QueryList, Options) -> QueryString when
+      QueryList :: [{uri_string(), uri_string()}],
+      Options :: [{encoding, atom()}],
+      QueryString :: uri_string()
+                   | error().
+compose_query([],_Options) ->
+    [];
+compose_query(List, Options) ->
+    try compose_query(List, Options, false, <<>>)
+    catch
+      throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+%%
+compose_query([{Key,Value}|Rest], Options, IsList, Acc) ->
+    Separator = get_separator(Rest),
+    K = form_urlencode(Key, Options),
+    V = form_urlencode(Value, Options),
+    IsListNew = IsList orelse is_list(Key) orelse is_list(Value),
+    compose_query(Rest, Options, IsListNew, <<Acc/binary,K/binary,"=",V/binary,Separator/binary>>);
+compose_query([], _Options, IsList, Acc) ->
+    case IsList of
+        true -> convert_to_list(Acc, utf8);
+        false -> Acc
+    end.
+
+
+%%-------------------------------------------------------------------------
+%% Dissect a query string into a list of unescaped key/value pairs.
+%% (application/x-www-form-urlencoded decoding algorithm)
+%%-------------------------------------------------------------------------
+-spec dissect_query(QueryString) -> QueryList when
+      QueryString :: uri_string(),
+      QueryList :: [{uri_string(), uri_string()}]
+                 | error().
+dissect_query(<<>>) ->
+    [];
+dissect_query([]) ->
+    [];
+dissect_query(QueryString) when is_list(QueryString) ->
+    try
+        B = convert_to_binary(QueryString, utf8, utf8),
+        dissect_query_key(B, true, [], <<>>, <<>>)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
+dissect_query(QueryString) ->
+    try dissect_query_key(QueryString, false, [], <<>>, <<>>)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -583,6 +654,7 @@ maybe_add_path(Map) ->
         _Else ->
             Map
     end.
+
 
 
 -spec parse_scheme(binary(), uri_map()) -> {binary(), uri_map()}.
@@ -1670,6 +1742,161 @@ flatten_list(Arg, _, _) ->
 
 percent_encode_segment(Segment) ->
     percent_encode_binary(Segment, <<>>).
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for compose_query
+%%-------------------------------------------------------------------------
+
+%% Returns separator to be used between key-value pairs
+get_separator(L) when length(L) =:= 0 ->
+    <<>>;
+get_separator(_L) ->
+    <<"&">>.
+
+
+%% HTML5 - 4.10.22.6 URL-encoded form data - encoding
+form_urlencode(Cs, [{encoding, latin1}]) when is_list(Cs) ->
+    B = convert_to_binary(Cs, utf8, utf8),
+    html5_byte_encode(base10_encode(B));
+form_urlencode(Cs, [{encoding, latin1}]) when is_binary(Cs) ->
+    html5_byte_encode(base10_encode(Cs));
+form_urlencode(Cs, [{encoding, Encoding}])
+  when is_list(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+    B = convert_to_binary(Cs, utf8, Encoding),
+    html5_byte_encode(B);
+form_urlencode(Cs, [{encoding, Encoding}])
+  when is_binary(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+    html5_byte_encode(Cs);
+form_urlencode(Cs, [{encoding, Encoding}]) when is_list(Cs); is_binary(Cs) ->
+    throw({error,invalid_encoding, Encoding});
+form_urlencode(Cs, _) ->
+    throw({error,invalid_input, Cs}).
+
+
+%% For each character in the entry's name and value that cannot be expressed using
+%% the selected character encoding, replace the character by a string consisting of
+%% a U+0026 AMPERSAND character (&), a "#" (U+0023) character, one or more ASCII
+%% digits representing the Unicode code point of the character in base ten, and
+%% finally a ";" (U+003B) character.
+base10_encode(Cs) ->
+    base10_encode(Cs, <<>>).
+%%
+base10_encode(<<>>, Acc) ->
+    Acc;
+base10_encode(<<H/utf8,T/binary>>, Acc) when H > 255 ->
+    Base10 = convert_to_binary(integer_to_list(H,10), utf8, utf8),
+    base10_encode(T, <<Acc/binary,"&#",Base10/binary,$;>>);
+base10_encode(<<H/utf8,T/binary>>, Acc) ->
+    base10_encode(T, <<Acc/binary,H>>).
+
+
+html5_byte_encode(B) ->
+    html5_byte_encode(B, <<>>).
+%%
+html5_byte_encode(<<>>, Acc) ->
+    Acc;
+html5_byte_encode(<<$ ,T/binary>>, Acc) ->
+    html5_byte_encode(T, <<Acc/binary,$+>>);
+html5_byte_encode(<<H,T/binary>>, Acc) ->
+    case is_url_char(H) of
+        true ->
+            html5_byte_encode(T, <<Acc/binary,H>>);
+        false ->
+            <<A:4,B:4>> = <<H>>,
+            html5_byte_encode(T, <<Acc/binary,$%,(?DEC2HEX(A)),(?DEC2HEX(B))>>)
+    end;
+html5_byte_encode(H, _Acc) ->
+    throw({error,invalid_input, H}).
+
+
+%% Return true if input char can appear in form-urlencoded string
+%% Allowed chararacters:
+%%   0x2A, 0x2D, 0x2E, 0x30 to 0x39, 0x41 to 0x5A,
+%%   0x5F, 0x61 to 0x7A
+is_url_char(C)
+  when C =:= 16#2A; C =:= 16#2D;
+       C =:= 16#2E; C =:= 16#5F;
+       16#30 =< C, C =< 16#39;
+       16#41 =< C, C =< 16#5A;
+       16#61 =< C, C =< 16#7A -> true;
+is_url_char(_) -> false.
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for dissect_query
+%%-------------------------------------------------------------------------
+dissect_query_key(<<$=,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_value(T, IsList, Acc, Key, Value);
+dissect_query_key(<<"&#",T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, <<Key/binary,"&#">>, Value);
+dissect_query_key(<<$&,_T/binary>>, _IsList, _Acc, _Key, _Value) ->
+    throw({error, missing_value, "&"});
+dissect_query_key(<<H,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, <<Key/binary,H>>, Value);
+dissect_query_key(B, _, _, _, _) ->
+    throw({error, missing_value, B}).
+
+
+dissect_query_value(<<$&,T/binary>>, IsList, Acc, Key, Value) ->
+    K = form_urldecode(IsList, Key),
+    V = form_urldecode(IsList, Value),
+    dissect_query_key(T, IsList, [{K,V}|Acc], <<>>, <<>>);
+dissect_query_value(<<H,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_value(T, IsList, Acc, Key, <<Value/binary,H>>);
+dissect_query_value(<<>>, IsList, Acc, Key, Value) ->
+    K = form_urldecode(IsList, Key),
+    V = form_urldecode(IsList, Value),
+    lists:reverse([{K,V}|Acc]).
+
+
+%% Form-urldecode input based on RFC 1866 [8.2.1]
+form_urldecode(true, B) ->
+    Result = base10_decode(form_urldecode(B, <<>>)),
+    convert_to_list(Result, utf8);
+form_urldecode(false, B) ->
+    base10_decode(form_urldecode(B, <<>>));
+form_urldecode(<<>>, Acc) ->
+    Acc;
+form_urldecode(<<$+,T/binary>>, Acc) ->
+    form_urldecode(T, <<Acc/binary,$ >>);
+form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
+    case is_hex_digit(C0) andalso is_hex_digit(C1) of
+        true ->
+            V = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
+            form_urldecode(T, <<Acc/binary, V>>);
+        false ->
+            L = convert_to_list(<<$%,C0,C1,T/binary>>, utf8),
+            throw({error, invalid_percent_encoding, L})
+    end;
+form_urldecode(<<H/utf8,T/binary>>, Acc) ->
+    form_urldecode(T, <<Acc/binary,H/utf8>>);
+form_urldecode(<<H,_/binary>>, _Acc) ->
+    throw({error, invalid_character, [H]}).
+
+base10_decode(Cs) ->
+    base10_decode(Cs, <<>>).
+%
+base10_decode(<<>>, Acc) ->
+    Acc;
+base10_decode(<<"&#",T/binary>>, Acc) ->
+    base10_decode_unicode(T, Acc);
+base10_decode(<<H/utf8,T/binary>>, Acc) ->
+    base10_decode(T,<<Acc/binary,H/utf8>>);
+base10_decode(<<H,_/binary>>, _) ->
+    throw({error, invalid_input, [H]}).
+
+
+base10_decode_unicode(B, Acc) ->
+    base10_decode_unicode(B, 0, Acc).
+%%
+base10_decode_unicode(<<H/utf8,T/binary>>, Codepoint, Acc) when $0 =< H, H =< $9 ->
+    Res = Codepoint * 10 + (H - $0),
+    base10_decode_unicode(T, Res, Acc);
+base10_decode_unicode(<<$;,T/binary>>, Codepoint, Acc) ->
+    base10_decode(T, <<Acc/binary,Codepoint/utf8>>);
+base10_decode_unicode(<<H,_/binary>>, _, _) ->
+    throw({error, invalid_input, [H]}).
 
 
 %%-------------------------------------------------------------------------
