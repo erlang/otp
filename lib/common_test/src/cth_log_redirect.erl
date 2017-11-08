@@ -121,8 +121,8 @@ handle_event({_Type,GL,_Msg}, #eh_state{handle_remote_events = false} = State)
   when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
-    case lists:keyfind(sasl, 1, application:which_applications()) of
-	false ->
+    case whereis(sasl_sup) of
+	undefined ->
 	    sasl_not_started;
 	_Else ->
 	    {ok, ErrLogType} = application:get_env(sasl, errlog_type),
