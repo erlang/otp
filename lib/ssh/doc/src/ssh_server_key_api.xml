@@ -82,8 +82,9 @@
 	<v>DaemonOptions = proplists:proplist()</v>
 	<d>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>. The option list given in
 	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
-	<v>Key = private_key()</v>
-	<d>Private key of the host matching the <c>Algorithm</c>.</d>
+	<v>Key = private_key() | crypto:engine_key_ref()</v>
+	<d>Private key of the host matching the <c>Algorithm</c>.
+	It may be a reference to a 'ssh-rsa', rsa-sha2-* or 'ssh-dss' (NOT ecdsa) key stored in a loaded Engine.</d>
 	<v>Reason = term()</v>
       </type>
       <desc>
