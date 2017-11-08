@@ -383,8 +383,7 @@ only_ws_binary(<<>>, A) ->
     A;
 only_ws_binary(<<C:8, Cs/bits>>, A) ->
     case b64d(C) of
-        ws -> only_ws_binary(Cs, A);
-        _ -> erlang:error(function_clause)
+        ws -> only_ws_binary(Cs, A)
     end.
 
 decode_list_to_string([C1 | Cs]) ->
@@ -427,8 +426,7 @@ only_ws([], A) ->
     A;
 only_ws([C | Cs], A) ->
     case b64d(C) of
-        ws -> only_ws(Cs, A);
-        _ -> erlang:error(function_clause)
+        ws -> only_ws(Cs, A)
     end.
 
 %%%========================================================================

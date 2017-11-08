@@ -97,10 +97,9 @@ base64_otp_5635(Config) when is_list(Config) ->
     <<"===">> = base64:decode(base64:encode("===")),
     ok.
 %%-------------------------------------------------------------------------
-%% OTP-6279: Guard needed so that function fails in a correct
-%% way for faulty input, i.e. function_clause.
+%% OTP-6279: Make sure illegal characters are rejected when decoding.
 base64_otp_6279(Config) when is_list(Config) ->
-    {'EXIT',{function_clause, _}} = (catch base64:decode("dGVzda==a")),
+    {'EXIT',_} = (catch base64:decode("dGVzda==a")),
     ok.
 %%-------------------------------------------------------------------------
 %% Encode and decode big binaries.
@@ -115,7 +114,13 @@ big(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 %% Make sure illegal characters are rejected when decoding.
 illegal(Config) when is_list(Config) ->
-    {'EXIT',{function_clause, _}} = (catch base64:decode("()")),
+    %% A few samples with different error reasons. Nothing can be
+    %% assumed about the reason for the crash.
+    {'EXIT',_} = (catch base64:decode("()")),
+    {'EXIT',_} = (catch base64:decode(<<19:8,20:8,21:8,22:8>>)),
+    {'EXIT',_} = (catch base64:decode([19,20,21,22])),
+    {'EXIT',_} = (catch base64:decode_to_string(<<19:8,20:8,21:8,22:8>>)),
+    {'EXIT',_} = (catch base64:decode_to_string([19,20,21,22])),
     ok.
 %%-------------------------------------------------------------------------
 %% mime_decode and mime_decode_to_string have different implementations
