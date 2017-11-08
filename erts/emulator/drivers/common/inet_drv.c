@@ -2904,7 +2904,8 @@ static void drv_usrsctp_free(void *des)
 {
     erts_free(ERTS_ALC_T_DRV_SCTP_SOCK, (void *) des); 
 }
-static void usrsctp_init_socket_hash()
+
+static void usrsctp_init_socket_hash(void)
 {
     SafeHashFunctions hf;
     hf.hash = &drv_usrsctp_hash;
@@ -4118,10 +4119,10 @@ static void inet_init_sctp(void) {
    but for now; set beam to be setuid root.
    uid will be dropped once the raw socket is open.
    aka usrsctp has initialized */
-static void drop_root_priv()
+static void drop_root_priv(void)
 {
-    seteuid(getuid());
-    setegid(getgid());
+    ASSERT(seteuid(getuid()) == 0);
+    ASSERT(setegid(getgid()) == 0);
 }
 
 #ifdef SCTP_DEBUG
@@ -6923,7 +6924,7 @@ static char* sctp_get_sendparams(struct sctp_sndinfo* si, char* curr)
 {
     int eflags;
     int cflags;
-    
+
     si->snd_sid       = get_int16(curr);		curr += 2;
 
     /* The "flags" are already ORed at the Erlang side, here we
@@ -6940,7 +6941,7 @@ static char* sctp_get_sendparams(struct sctp_sndinfo* si, char* curr)
     si->snd_ppid	    = sock_htonl(get_int32(curr));
 							curr += 4;
     si->snd_context	    = get_int32(curr);		curr += 4;
-			      get_int32(curr);		curr += 4;  /* ignore time to live */
+							curr += 4;  /* ignore time to live */
     si->snd_assoc_id	    = GET_ASSOC_ID  (curr);	curr += ASSOC_ID_LEN;
 
     return curr;
@@ -7200,6 +7201,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
@@ -7213,6 +7215,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
@@ -7227,6 +7230,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
@@ -7245,6 +7249,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_IP;
@@ -7263,6 +7268,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_IPV6;
@@ -7280,6 +7286,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	{
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ival= get_int32 (curr);   curr += 4;
 	    proto   = IPPROTO_IPV6;
@@ -7400,6 +7407,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    /* XXX: do we need to convert the Ind into network byte order??? */
 #ifdef HAVE_USRSCTP
 	    curr += 4;
+	    continue;
 #else
 	    arg.ad.ssb_adaptation_ind = sock_htonl (get_int32(curr));  curr += 4;
 
@@ -7510,6 +7518,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    CHKLEN(curr, 9);
 #ifdef HAVE_USRSCTP
 	    curr += 9;
+	    continue;
 #else
 	    /* We do not support "sctp_authentication_event" -- it is not
 	       implemented in Linux Kernel SCTP anyway.   Just in case if
