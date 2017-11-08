@@ -26,10 +26,25 @@
 %% Tables
 %% ------
 %% cdv_dump_index_table: This table holds all tags read from the
-%% crashdump.  Each tag indicates where the information about a
-%% specific item starts.  The table entry for a tag includes the start
-%% position for this item-information. In a crash dump file, all tags
-%% start with a "=" at the beginning of a line.
+%% crashdump, except the 'binary' tag.  Each tag indicates where the
+%% information about a specific item starts.  The table entry for a
+%% tag includes the start position for this item-information. In a
+%% crash dump file, all tags start with a "=" at the beginning of a
+%% line.
+%%
+%% cdv_binary_index_table: This table holds all 'binary' tags. The hex
+%% address for each binary is converted to its integer value before
+%% storing Address -> Start Position in this table. The hex value of
+%% the address is never used for lookup.
+%%
+%% cdv_reg_proc_table: This table holds mappings between pid and
+%% registered name. This is used for timers and monitors.
+%%
+%% cdv_heap_file_chars: For each 'proc_heap' and 'literals' tag, this
+%% table contains the number of characters to read from the crash dump
+%% file. This is used for giving an indication in percent of the
+%% progress when parsing this data.
+%%
 %%
 %% Process state
 %% -------------
@@ -73,6 +88,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3]).
 
+%% Test support
+-export([get_dump_versions/0]).
+
 %% Debug support
 -export([debug/1,stop_debug/0]).
 
@@ -87,6 +105,7 @@
 			    % line_head/1 function can return
 -define(not_available,"N/A").
 -define(binary_size_progress_limit,10000).
+-define(max_dump_version,[0,4]).
 
 
 %% All possible tags - use macros in order to avoid misspelling in the code
@@ -294,6 +313,11 @@ port(Id) ->
 expand_binary(Pos) ->
     call({expand_binary,Pos}).
 
+%%%-----------------------------------------------------------------
+%%% For testing only - called from crashdump_viewer_SUITE
+get_dump_versions() ->
+    call(get_dump_versions).
+
 %%====================================================================
 %% Server functions
 %%====================================================================
@@ -455,8 +479,9 @@ handle_call(index_tables,_From,State=#state{file=File}) ->
 handle_call(schedulers,_From,State=#state{file=File}) ->
     Schedulers=schedulers(File),
     TW = truncated_warning([?scheduler]),
-    {reply,{ok,Schedulers,TW},State}.
-
+    {reply,{ok,Schedulers,TW},State};
+handle_call(get_dump_versions,_From,State=#state{dump_vsn=DumpVsn}) ->
+    {reply,{ok,{?max_dump_version,DumpVsn}},State}.
 
 
 %%--------------------------------------------------------------------
@@ -781,10 +806,8 @@ parse_vsn_str(Str,WS) ->
 
 
 %%%-----------------------------------------------------------------
-%%% Traverse crash dump and insert index in table for each heading
-%%%
-%%% Progress is reported during the time and MUST be checked with
-%%% crashdump_viewer:get_progress/0 until it returns {ok,done}.
+%%% Traverse crash dump and insert index in table for each heading.
+%%% Progress is reported during the time.
 do_read_file(File) ->
     erase(?literals),                           %Clear literal cache.
     put(truncated,false),                       %Not truncated (yet).
@@ -800,17 +823,21 @@ do_read_file(File) ->
 		    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,1),
 		    case Tag of
 			?erl_crash_dump ->
-			    reset_tables(),
-			    insert_index(Tag,Id,N1+1),
-			    put_last_tag(Tag,""),
-                            DumpVsn = [list_to_integer(L) ||
-                                          L<-string:lexemes(Id,".")],
-                            AddrAdj = get_bin_addr_adj(DumpVsn),
-                            indexify(Fd,AddrAdj,Rest,N1),
-			    end_progress(),
-			    check_if_truncated(),
-			    close(Fd),
-                            {ok,DumpVsn};
+                            case check_dump_version(Id) of
+                                {ok,DumpVsn} ->
+                                    reset_tables(),
+                                    insert_index(Tag,Id,N1+1),
+                                    put_last_tag(Tag,""),
+                                    AddrAdj = get_bin_addr_adj(DumpVsn),
+                                    indexify(Fd,AddrAdj,Rest,N1),
+                                    end_progress(),
+                                    check_if_truncated(),
+                                    close(Fd),
+                                    {ok,DumpVsn};
+                                Error ->
+                                    close(Fd),
+                                    Error
+                            end;
 			_Other ->
 			    R = io_lib:format(
 				  "~ts is not an Erlang crash dump~n",
@@ -836,6 +863,18 @@ do_read_file(File) ->
 	_other ->
 	    R = io_lib:format("~ts is not an Erlang crash dump~n",[File]),
 	    {error,R}
+    end.
+
+check_dump_version(Vsn) ->
+    DumpVsn = [list_to_integer(L) || L<-string:lexemes(Vsn,".")],
+    if DumpVsn > ?max_dump_version ->
+            Info =
+                "This Crashdump Viewer is too old for the given "
+                "Erlang crash dump. Please use a newer version of "
+                "Crashdump Viewer.",
+            {error,Info};
+       true ->
+            {ok,DumpVsn}
     end.
 
 indexify(Fd,AddrAdj,Bin,N) ->
@@ -1083,7 +1122,7 @@ get_proc_details(File,Pid,WS,DumpVsn) ->
 	    {{Stack,MsgQ,Dict},TW} =
 		case truncated_warning([{?proc,Pid}]) of
 		    [] ->
-			{expand_memory(Fd,Pid,DumpVsn),[]};
+                        expand_memory(Fd,Pid,DumpVsn);
 		    TW0 ->
 			{{[],[],[]},TW0}
 		end,
@@ -1418,7 +1457,15 @@ expand_memory(Fd,Pid,DumpVsn) ->
 		read_messages(Fd,Pid,BinAddrAdj,Dict),
 		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
     erase(fd),
-    Expanded.
+    IncompleteWarning =
+        case erase(incomplete_heap) of
+            undefined ->
+                [];
+            true ->
+                ["WARNING: This process has an incomplete heap. "
+                 "Some information might be missing."]
+        end,
+    {Expanded,IncompleteWarning}.
 
 read_literals(Fd) ->
     case lookup_index(?literals,[]) of
@@ -2747,6 +2794,7 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 	none ->
 	    case get(fd) of
 		end_of_heap ->
+                    put(incomplete_heap,true),
 		    {['#CDVIncompleteHeap'],Line,D0};
 		Fd ->
 		    case bytes(Fd) of
