@@ -1683,13 +1683,16 @@ bad_dist_ext_size(Config) when is_list(Config) ->
     start_node_monitors([Offender,Victim]),
 
     Parent = self(),
-    P = spawn_link(Victim,
+    P = spawn_opt(Victim,
                    fun () ->
                            Parent ! {self(), started},
                            receive check_msgs -> ok end,  %% DID CRASH HERE
                            bad_dist_ext_check_msgs([one]),
                            Parent ! {self(), messages_checked}
-                   end),
+                   end,
+                 [link,
+                  %% on_heap to force total_heap_size to inspect msg queue
+                  {message_queue_data, on_heap}]),
 
     receive {P, started} -> ok end,
     P ! one,
@@ -1712,6 +1715,7 @@ bad_dist_ext_size(Config) when is_list(Config) ->
 
     verify_still_up(Offender, Victim),
 
+    %% Let process_info(P, total_heap_size) find bad msg and disconnect
     rpc:call(Victim, erlang, process_info, [P, total_heap_size]),
 
     verify_down(Offender, connection_closed, Victim, killed),
