@@ -2979,8 +2979,8 @@ static void usrsctp_event_rcv_callback(struct socket *sock, void *arg)
 	if(desc->recv) {
 	    if(desc->recv == INET_ONCE) {
 		desc->recv = INET_PASSIVE;
-		erl_drv_mutex_unlock(desc->recv_mtx);
 	    }
+	    erl_drv_mutex_unlock(desc->recv_mtx);
 	    driver_port_task_input_schedule(drv_sock->port);
 	} else
 	    erl_drv_mutex_unlock(desc->recv_mtx);
