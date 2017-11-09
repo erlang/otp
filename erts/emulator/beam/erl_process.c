@@ -3417,7 +3417,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     int thr_prgr_active = 1;
     erts_aint32_t flgs;
 #endif
-    ERTS_MSACC_PUSH_STATE_M();
+    ERTS_MSACC_PUSH_STATE();
 #ifdef ERTS_SMP
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
@@ -3542,9 +3542,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 								     - 1) + 1;
 				} else
 				    timeout = -1;
-                                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+                                ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_SLEEP);
 				res = erts_tse_twait(ssi->event, timeout);
-                                ERTS_MSACC_POP_STATE_M();
+                                ERTS_MSACC_POP_STATE();
 				current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
 				    erts_get_monotonic_time(esdp);
 			    } while (res == EINTR);
@@ -3743,12 +3743,12 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
-	ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+	ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_CHECK_IO);
         LTTNG2(scheduler_poll, esdp->no, 0);
 
 	erl_sys_schedule(0);
 
-	ERTS_MSACC_POP_STATE_M();
+	ERTS_MSACC_POP_STATE();
 
 	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	    ErtsMonotonicTime current_time = erts_get_monotonic_time(esdp);
@@ -10350,7 +10350,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                                      | ERTS_PROC_LOCK_STATUS
                                      | ERTS_PROC_LOCK_TRACE));
 
-            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
+            ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
 #ifdef ERTS_SMP
             if (state & ERTS_PSFLG_FREE) {
@@ -10642,7 +10642,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    case 0:			/* No process at all */
 	    default:
 		ASSERT(qmask == 0);
-                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
+                ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 		goto check_activities_to_run;
 	    }
 
@@ -10766,7 +10766,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	}
 
-        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
+        ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_EMULATOR);
 
 #ifdef ERTS_SMP
 
