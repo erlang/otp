@@ -686,6 +686,11 @@ api_g_un_zip(Config) when is_list(Config) ->
     Concatenated = <<Bin/binary, Bin/binary>>,
     ?m(Concatenated, zlib:gunzip([Comp, Comp])),
 
+    %% Don't explode if the uncompressed size is a perfect multiple of the
+    %% internal inflate chunk size.
+    ChunkSizedData = <<0:16384/unit:8>>,
+    ?m(ChunkSizedData, zlib:gunzip(zlib:gzip(ChunkSizedData))),
+
     %% Bad CRC; bad length.
     BadCrc = bad_crc_data(),
     ?m(?EXIT(data_error),(catch zlib:gunzip(BadCrc))),
