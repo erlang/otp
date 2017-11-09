@@ -59,7 +59,8 @@
 	 pkix_crl_verify/2,
 	 pkix_crl_issuer/1,
 	 short_name_hash/1,
-         pkix_test_data/1
+         pkix_test_data/1,
+         pkix_test_root_cert/2
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
@@ -1033,10 +1034,12 @@ short_name_hash({rdnSequence, _Attributes} = Name) ->
 
 
 %%--------------------------------------------------------------------
--spec pkix_test_data(#{chain_type() := pubkey_cert:chain_opts()}) ->
-                            pubkey_cert:test_config().
+-spec pkix_test_data(#{chain_type() := pubkey_cert:chain_opts()} |
+                     pubkey_cert:chain_opts()) ->
+                            pubkey_cert:test_config() |
+                            [pubkey_cert:conf_opt()].
 
-%% Description: Generates OpenSSL-style hash of a name.
+%% Description: Generates cert(s) and ssl configuration
 %%--------------------------------------------------------------------
 
 pkix_test_data(#{client_chain := ClientChain0,
@@ -1045,7 +1048,21 @@ pkix_test_data(#{client_chain := ClientChain0,
     ClientChain = maps:merge(Default, ClientChain0),
     ServerChain = maps:merge(Default, ServerChain0),
     pubkey_cert:gen_test_certs(#{client_chain => ClientChain,
-                                 server_chain => ServerChain}).
+                                 server_chain => ServerChain});
+pkix_test_data(#{} = Chain) ->
+    Default = #{intermediates => []},
+    pubkey_cert:gen_test_certs(maps:merge(Default, Chain)).
+
+%%--------------------------------------------------------------------
+-spec pkix_test_root_cert(
+        Name :: string(), Opts :: [pubkey_cert:cert_opt()]) ->
+                                 pubkey_cert:test_root_cert().
+
+%% Description: Generates a root cert suitable for pkix_test_data/1
+%%--------------------------------------------------------------------
+
+pkix_test_root_cert(Name, Opts) ->
+    pubkey_cert:root_cert(Name, Opts).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
