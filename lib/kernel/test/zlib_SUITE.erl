@@ -166,7 +166,7 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok, zlib:deflateInit(Z12,default,deflated,-Wbits,8,default)),
 			  ?m(ok,zlib:close(Z11)),
 			  ?m(ok,zlib:close(Z12))
-		  end, lists:seq(8, 15)),
+		  end, lists:seq(9, 15)),
 
     lists:foreach(fun(MemLevel) ->
 			  Z = zlib:open(),
@@ -213,12 +213,46 @@ api_deflateReset(Config) when is_list(Config) ->
 
 %% Test deflateParams.
 api_deflateParams(Config) when is_list(Config) ->
+    Levels = [none, default, best_speed, best_compression] ++ lists:seq(0, 9),
+    Strategies = [filtered, huffman_only, rle, default],
+
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
-    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
-    ?m(ok, zlib:deflateParams(Z1, best_compression, huffman_only)),
-    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
-    ?m(ok, zlib:close(Z1)).
+
+    ApiTest =
+        fun(Level, Strategy) ->
+            ?m(ok, zlib:deflateParams(Z1, Level, Strategy)),
+            ?m(ok, zlib:deflateReset(Z1))
+        end,
+
+    [ ApiTest(Level, Strategy) || Level <- Levels, Strategy <- Strategies ],
+
+    ?m(ok, zlib:close(Z1)),
+
+    FlushTest =
+        fun FlushTest(Size, Level, Strategy) ->
+            Z = zlib:open(),
+            ok = zlib:deflateInit(Z, default),
+            Data = gen_determ_rand_bytes(Size),
+            case zlib:deflate(Z, Data, none) of
+                [<<120, 156>>] ->
+                    %% All data is present in the internal zlib state, and will
+                    %% be flushed on deflateParams.
+
+                    ok = zlib:deflateParams(Z, Level, Strategy),
+                    Compressed = [<<120, 156>>, zlib:deflate(Z, <<>>, finish)],
+                    Data = zlib:uncompress(Compressed),
+                    zlib:close(Z),
+
+                    FlushTest(Size + (1 bsl 10), Level, Strategy);
+                _Other ->
+                    ok
+            end
+        end,
+
+    [ FlushTest(1, Level, Strategy) || Level <- Levels, Strategy <- Strategies ],
+
+    ok.
 
 %% Test deflate.
 api_deflate(Config) when is_list(Config) ->
@@ -762,13 +796,13 @@ zip_usage({run,ZIP,ORIG}) ->
 
     ?m(ok, zlib:deflateInit(Z, default, deflated, -15, 8, default)),
     C2 = zlib:deflate(Z, ORIG, finish),
-    ?m(true, C1 == list_to_binary(C2)),
+    ?m(ORIG, zlib:unzip(C2)),
     ?m(ok, zlib:deflateEnd(Z)),
 
     ?m(ok, zlib:deflateInit(Z, none, deflated, -15, 8, filtered)),
     ?m(ok, zlib:deflateParams(Z, default, default)),
     C3 = zlib:deflate(Z, ORIG, finish),
-    ?m(true, C1 == list_to_binary(C3)),
+    ?m(ORIG, zlib:unzip(C3)),
     ?m(ok, zlib:deflateEnd(Z)),
 
     ok = zlib:close(Z),
