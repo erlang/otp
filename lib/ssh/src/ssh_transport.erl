@@ -1827,12 +1827,6 @@ same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 trim_tail(Str) ->
-    lists:reverse(trim_head(lists:reverse(Str))).
-
-trim_head([$\s|Cs]) -> trim_head(Cs);
-trim_head([$\t|Cs]) -> trim_head(Cs);
-trim_head([$\n|Cs]) -> trim_head(Cs);
-trim_head([$\r|Cs]) -> trim_head(Cs);
-trim_head(Cs) -> Cs.
-
-
+    lists:takewhile(fun(C) -> 
+			    C=/=$\r andalso C=/=$\n
+		    end, Str).
