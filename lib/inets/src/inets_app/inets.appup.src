@@ -18,10 +18,14 @@
 %% %CopyrightEnd%
 {"%VSN%",
  [
+  {<<"6.4.3">>, [{load_module, httpd_esi, 
+		  soft_purge, soft_purge, []}]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ],
  [
+  {<<"6.4.3">>, [{load_module, httpd_esi, 
+		  soft_purge, soft_purge, []}]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ]

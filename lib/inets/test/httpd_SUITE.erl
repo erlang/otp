@@ -923,8 +923,11 @@ esi(Config) when is_list(Config) ->
 		      {no_header, "cache-control"}]),
     ok = http_status("GET /cgi-bin/erl/httpd_example:peer ",
 	  	     Config, [{statuscode, 200},
-	 	      {header, "peer-cert-exist", peer(Config)}]).
-
+                              {header, "peer-cert-exist", peer(Config)}]),
+    ok = http_status("GET /cgi-bin/erl/httpd_example:new_status_and_location ",
+                     Config, [{statuscode, 201},
+                              {header, "location"}]).
+    
 %%-------------------------------------------------------------------------
 esi_put() ->
     [{doc, "Test mod_esi PUT"}].

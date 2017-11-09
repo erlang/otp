@@ -91,7 +91,7 @@ yahoo(_Env,_Input) ->
   "Location: http://www.yahoo.com\r\n\r\n".
 
 new_status_and_location(_Env,_Input) ->
-  "status:201\r\n Location: http://www.yahoo.com\r\n\r\n".
+  "status:201 Created\r\n Location: http://www.yahoo.com\r\n\r\n".
 
 default(Env,Input) ->
   [header(),
