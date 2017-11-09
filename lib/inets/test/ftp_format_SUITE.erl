@@ -22,7 +22,6 @@
 -author('ingela@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("ftp_internal.hrl").
 
 %% Test server specific exports

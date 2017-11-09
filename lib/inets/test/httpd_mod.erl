@@ -22,7 +22,6 @@
 -module(httpd_mod).
 
 -include("test_server.hrl").
--include("test_server_line.hrl").
 
 %% General testcases bodies called from httpd_SUITE
 -export([alias/4, actions/4, security/5, auth/4, auth_api/6,
