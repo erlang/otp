@@ -353,6 +353,8 @@ match(P, E, Bs) ->
 	map ->
 	    %% The most we can do is to say "definitely no match" if a
 	    %% map pattern is matched against non-map data.
+            %% (Note: See the document internal_doc/cerl-notes.md for
+            %% information why we don't try to do more here.)
 	    case E of
 		any ->
 		    {false, Bs};
