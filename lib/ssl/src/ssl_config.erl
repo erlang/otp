@@ -36,7 +36,7 @@ init(SslOpts, Role) ->
 	= init_certificates(SslOpts, Role),
     PrivateKey =
 	init_private_key(PemCache, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
-			 SslOpts#ssl_options.password, Role),
+			 SslOpts#ssl_options.password, SslOpts#ssl_options.client_cert_verify_fun, Role),
     DHParams = init_diffie_hellman(PemCache, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
     {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
@@ -92,9 +92,11 @@ init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server
 init_certificates(Cert, Config, _, _) ->
     {ok, Config#{own_certificate => Cert}}.
         
-init_private_key(_, undefined, <<>>, _Password, _Client) ->
+init_private_key(_, undefined, <<>>, _Password, undefined, _Client) ->
     undefined;
-init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
+init_private_key(_,_,_,_,Fun,client) when is_function(Fun) ->
+    Fun;
+init_private_key(DbHandle, undefined, KeyFile, Password, _, _) ->
     try
 	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
 	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
@@ -109,7 +111,7 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 	    file_error(KeyFile, {keyfile, Reason}) 
     end;
 
-init_private_key(_,{Asn1Type, PrivateKey},_,_,_) ->
+init_private_key(_,{Asn1Type, PrivateKey},_,_,_,_) ->
     private_key(init_private_key(Asn1Type, PrivateKey)).
 
 init_private_key(Asn1Type, PrivateKey) ->
