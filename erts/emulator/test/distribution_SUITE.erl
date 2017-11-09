@@ -1363,81 +1363,59 @@ bad_dist_structure(Config) when is_list(Config) ->
     start_monitor(Offender,P),
     P ! one,
     send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_LINK},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,'replace'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,'replace',make_ref()},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,make_ref(),P},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     send_bad_structure(Offender, P,{?DOP_EXIT,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT,make_ref(),normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT_TT,'replace',token,P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT_TT,make_ref(),token,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2,make_ref(),normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2_TT,'replace',token,P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2_TT,make_ref(),token,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace','atomic'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace',P},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name,token},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace',''},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',P},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name,{token}},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND_TT,'',P},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND_TT,'',name,token},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,''},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,'',name},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,'',P,{token}},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     P ! two,
     P ! check_msgs,
     receive
@@ -1796,10 +1774,11 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
     Parent = self(),
     Done = make_ref(),
-    spawn(Offender,
+    spawn_link(Offender,
           fun () ->
                   Node = node(Victim),
                   pong = net_adm:ping(Node),
+                  erlang:monitor_node(Node, true),
                   DPrt = dport(Node),
                   Bad1 = case WhereToPutSelf of
                              0 ->
@@ -1813,7 +1792,16 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
                       [] -> [];
                       _Other -> [dmsg_ext(PayLoad)]
                   end,
+
+                  receive {nodedown, Node} -> exit("premature nodedown")
+                  after 10 -> ok
+                  end,
+
                   port_command(DPrt, DData),
+
+                  receive {nodedown, Node} -> ok
+                  after 5000 -> exit("missing nodedown")
+                  end,
                   Parent ! {DData,Done}
           end),
     receive
