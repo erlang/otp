@@ -33,7 +33,26 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.4.3</title>
+  <section><title>Inets 6.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the handling of location headers so that the
+	    status code is not hard coded. This should have been
+	    fixed by commit 2cc5ba70cbbc6b3ace81a2a0324417c3b65265bb
+	    but unfortunately was broken during a code refactoring
+	    and unnoticed due to a faulty placed test case.</p>
+          <p>
+	    Own Id: OTP-14761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>
