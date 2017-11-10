@@ -44,6 +44,7 @@ MODULES = \
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
 	ssl_dist_SUITE \
+	ssl_engine_SUITE\
 	ssl_handshake_SUITE \
 	ssl_npn_hello_SUITE \
 	ssl_npn_handshake_SUITE \

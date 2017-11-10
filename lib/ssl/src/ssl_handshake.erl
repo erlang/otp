@@ -1702,14 +1702,20 @@ digitally_signed(Version, Hashes, HashAlgo, PrivateKey) ->
 	error:badkey->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
-
+do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine) 
+  when Minor >= 3 ->
+    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
 do_digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
-    public_key:sign({digest, Hash}, HashAlgo, Key);
-do_digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
 do_digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
+do_digitally_signed({3, _}, Hash, _, 
+                    #{algorithm := rsa} = Engine) ->
+    crypto:private_encrypt(rsa, Hash, maps:remove(algorithm, Engine),
+                           rsa_pkcs1_padding);
+do_digitally_signed({3, _}, Hash, HashAlgo, #{algorithm := Alg} = Engine) ->
+    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
 do_digitally_signed(_Version, Hash, HashAlgo, Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
 

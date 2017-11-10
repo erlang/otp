@@ -896,7 +896,8 @@ validate_option(key, {KeyType, Value}) when is_binary(Value),
 					    KeyType == 'ECPrivateKey';
 					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
-
+validate_option(key, #{algorithm := _} = Value) ->
+    Value;
 validate_option(keyfile, undefined) ->
    <<>>;
 validate_option(keyfile, Value) when is_binary(Value) ->
