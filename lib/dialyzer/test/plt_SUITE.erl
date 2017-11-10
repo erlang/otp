@@ -9,14 +9,14 @@
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
          remove_plt/1, run_plt_check/1, run_succ_typings/1,
-         bad_dialyzer_attr/1, merge_plts/1]).
+         bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
 all() -> [build_plt, beam_tests, update_plt, run_plt_check,
           remove_plt, run_succ_typings, local_fun_same_as_callback,
-          bad_dialyzer_attr, merge_plts].
+          bad_dialyzer_attr, merge_plts, bad_record_type].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -368,6 +368,32 @@ create_plts(Mod1, Mod2, Config) ->
     {[BeamFile1, BeamFile2], Plt1, Plt2}.
 
 %% End of merge_plts().
+
+bad_record_type(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Source = lists:concat([bad_record_type, ".erl"]),
+    Filename = filename:join(PrivDir, Source),
+    PltFilename = dialyzer_common:plt_file(PrivDir),
+
+    Opts = [{files, [Filename]},
+            {check_plt, false},
+            {from, src_code},
+            {init_plt, PltFilename}],
+
+    Prog = <<"-module(bad_record_type).
+              -export([r/0]).
+              -record(r, {f = 3 :: integer()}).
+              -spec r() -> #r{f :: atom()}.
+              r() ->
+                  #r{}.">>,
+    ok = file:write_file(Filename, Prog),
+    {dialyzer_error,
+     "Analysis failed with error:\n" ++ Str} =
+        (catch dialyzer:run(Opts)),
+    P = string:str(Str,
+                    "bad_record_type.erl:4: Illegal declaration of #r{f}"),
+    true = P > 0,
+    ok.
 
 erlang_beam() ->
     case code:where_is_file("erlang.beam") of

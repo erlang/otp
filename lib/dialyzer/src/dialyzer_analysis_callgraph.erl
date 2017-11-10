@@ -165,7 +165,11 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
 
 remote_type_postprocessing(TmpCServer, Args) ->
   Fun = fun() ->
-            exit(remote_type_postproc(TmpCServer, Args))
+            exit(try remote_type_postproc(TmpCServer, Args) of
+                     R -> R
+                 catch
+                   throw:{error,_}=Error -> Error
+                 end)
         end,
   {Pid, Ref} = erlang:spawn_monitor(Fun),
   dialyzer_codeserver:give_away(TmpCServer, Pid),
