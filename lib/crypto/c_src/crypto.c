@@ -645,7 +645,6 @@ static ERL_NIF_TERM atom_md5;
 static ERL_NIF_TERM atom_ripemd160;
 
 #ifdef HAS_ENGINE_SUPPORT
-static ERL_NIF_TERM atom_bad_engine;
 static ERL_NIF_TERM atom_bad_engine_method;
 static ERL_NIF_TERM atom_bad_engine_id;
 static ERL_NIF_TERM atom_ctrl_cmd_failed;
@@ -1051,7 +1050,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
 
 #ifdef HAS_ENGINE_SUPPORT
-    atom_bad_engine = enif_make_atom(env,"bad_engine");
     atom_bad_engine_method = enif_make_atom(env,"bad_engine_method");
     atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
     atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
