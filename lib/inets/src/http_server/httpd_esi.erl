@@ -86,7 +86,7 @@ handle_headers([], NewHeaders, StatusCode, _) ->
 handle_headers([Header | Headers], NewHeaders, StatusCode, NoESIStatus) -> 
     {FieldName, FieldValue} = httpd_response:split_header(Header, []),
     case FieldName of
-	"location" ->
+	"location" when NoESIStatus == true ->
             handle_headers(Headers, 
                            [{FieldName, FieldValue} | NewHeaders], 
                            302, NoESIStatus);

@@ -3323,36 +3323,38 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
         size = binary_size(binary);
         binary_header = binary_val(binary);
 
-        /* If we're a sub-binary we'll need to check our underlying binary to
-         * determine whether we're on-heap or not. */
-        if(thing_subtag(*binary_header) == SUB_BINARY_SUBTAG) {
-            ErlSubBin *sb = (ErlSubBin*)binary_header;
+        if (size > 0) {
+            /* If we're a sub-binary we'll need to check our underlying binary
+             * to determine whether we're on-heap or not. */
+            if (thing_subtag(*binary_header) == SUB_BINARY_SUBTAG) {
+                ErlSubBin *sb = (ErlSubBin*)binary_header;
 
-            /* Reject bitstrings */
-            if((sb->bitoffs + sb->bitsize) > 0) {
-                return 0;
+                /* Reject bitstrings */
+                if((sb->bitoffs + sb->bitsize) > 0) {
+                    return 0;
+                }
+
+                ASSERT(size <= binary_size(sb->orig));
+                binary_header = binary_val(sb->orig);
             }
 
-            ASSERT(size <= binary_size(sb->orig));
-            binary_header = binary_val(sb->orig);
-        }
+            if (thing_subtag(*binary_header) == HEAP_BINARY_SUBTAG) {
+                ASSERT(size <= ERL_ONHEAP_BIN_LIMIT);
 
-        if(thing_subtag(*binary_header) == HEAP_BINARY_SUBTAG) {
-            ASSERT(size <= ERL_ONHEAP_BIN_LIMIT);
+                result->iovec_len += 1;
+                result->onheap_size += size;
+            } else {
+                ASSERT(thing_subtag(*binary_header) == REFC_BINARY_SUBTAG);
 
-            result->iovec_len += 1;
-            result->onheap_size += size;
-        } else {
-            ASSERT(thing_subtag(*binary_header) == REFC_BINARY_SUBTAG);
-
-            result->iovec_len += 1 + size / MAX_SYSIOVEC_IOVLEN;
-            result->offheap_size += size;
+                result->iovec_len += 1 + size / MAX_SYSIOVEC_IOVLEN;
+                result->offheap_size += size;
+            }
         }
 
         result->sublist_length += 1;
         lookahead = CDR(cell);
 
-        if(result->sublist_length >= max_length) {
+        if (result->sublist_length >= max_length) {
             break;
         }
     }
@@ -3384,6 +3386,10 @@ static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
 
     if (thing_subtag(*parent_header) == REFC_BINARY_SUBTAG) {
         ProcBin *pb = (ProcBin*)parent_header;
+
+        if (pb->flags & (PB_IS_WRITABLE | PB_ACTIVE_WRITER)) {
+            erts_emasculate_writable_binary(pb);
+        }
 
         ASSERT(pb->val != NULL);
         ASSERT(byte_offset < pb->size);
@@ -3428,7 +3434,7 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
 
         /* If this isn't a refc binary, copy its contents to the onheap buffer
          * and reference that instead. */
-        if (raw_data.ref_bin == NULL) {
+        if (raw_data.size > 0 && raw_data.ref_bin == NULL) {
             ASSERT(onheap_offset < onheap_data.size);
             ASSERT(slice->onheap_size > 0);
 
@@ -3439,12 +3445,11 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
             raw_data.ref_bin = onheap_data.ref_bin;
         }
 
-        ASSERT(raw_data.ref_bin != NULL);
-
         while (raw_data.size > 0) {
             UWord chunk_len = MIN(raw_data.size, MAX_SYSIOVEC_IOVLEN);
 
             ASSERT(iovec_idx < iovec->iovcnt);
+            ASSERT(raw_data.ref_bin != NULL);
 
             iovec->iov[iovec_idx].iov_base = raw_data.data;
             iovec->iov[iovec_idx].iov_len = chunk_len;
