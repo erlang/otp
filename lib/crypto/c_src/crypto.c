@@ -348,6 +348,10 @@ static INLINE void RSA_get0_crt_params(const RSA *r, const BIGNUM **dmp1, const 
 
 static INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key);
 static INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+static INLINE void DSA_get0_pqg(const DSA *dsa,
+			       const BIGNUM **p, const BIGNUM **q, const BIGNUM **g);
+static INLINE void DSA_get0_key(const DSA *dsa,
+			       const BIGNUM **pub_key, const BIGNUM **priv_key);
 
 static INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key)
 {
@@ -363,6 +367,23 @@ static INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
     d->g = g;
     return 1;
 }
+
+static INLINE void
+DSA_get0_pqg(const DSA *dsa, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
+{
+    *p = dsa->p;
+    *q = dsa->q;
+    *g = dsa->g;
+}
+
+static INLINE void
+DSA_get0_key(const DSA *dsa, const BIGNUM **pub_key, const BIGNUM **priv_key)
+{
+    if (pub_key) *pub_key = dsa->pub_key;
+    if (priv_key) *priv_key = dsa->priv_key;
+}
+
+
 
 static INLINE int DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key);
 static INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
@@ -393,6 +414,8 @@ static INLINE int DH_set_length(DH *dh, long length)
     return 1;
 }
 
+
+
 static INLINE void
 DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
 {
@@ -404,8 +427,8 @@ DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
 static INLINE void
 DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
 {
-    *pub_key = dh->pub_key;
-    *priv_key = dh->priv_key;
+    if (pub_key) *pub_key = dh->pub_key;
+    if (priv_key) *priv_key = dh->priv_key;
 }
 
 #else /* End of compatibility definitions. */
@@ -454,6 +477,7 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
 static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -542,6 +566,7 @@ static ErlNifFunc nif_funcs[] = {
     {"dh_check", 1, dh_check},
     {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
+    {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
     {"srp_host_secret_nif", 5, srp_host_secret_nif},
@@ -4765,6 +4790,83 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 
 
 /*--------------------------------*/
+static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ /* (Algorithm, PrivKey | KeyMap) */
+    EVP_PKEY *pkey;
+    ERL_NIF_TERM alg = argv[0];
+    ERL_NIF_TERM result[8];
+
+    if (get_pkey_private_key(env, alg, argv[1], &pkey) != PKEY_OK) {
+	return enif_make_badarg(env);
+    }
+
+    if (alg == atom_rsa) {
+        const BIGNUM *n = NULL, *e = NULL, *d = NULL;
+        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+        if (rsa) {
+            RSA_get0_key(rsa, &n, &e, &d);
+            result[0] = bin_from_bn(env, e);  // Exponent E
+            result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+            EVP_PKEY_free(pkey);
+            return enif_make_list_from_array(env, result, 2);
+        }
+
+    } else if (argv[0] == atom_dss) {
+        const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
+        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
+        if (dsa) {
+            DSA_get0_pqg(dsa, &p, &q, &g);
+            DSA_get0_key(dsa, &pub_key, NULL);
+            result[0] = bin_from_bn(env, p);
+            result[1] = bin_from_bn(env, q);
+            result[2] = bin_from_bn(env, g);
+            result[3] = bin_from_bn(env, pub_key);
+            EVP_PKEY_free(pkey);
+            return enif_make_list_from_array(env, result, 4);
+        }
+
+    } else if (argv[0] == atom_ecdsa) {
+#if defined(HAVE_EC)
+        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+        if (ec) {
+            /* Example of result:
+               {
+                 Curve =  {Field, Prime, Point, Order, CoFactor} =
+                    { 
+                      Field =  {prime_field,<<255,...,255>>},
+                      Prime = {<<255,...,252>>,
+                               <<90,...,75>>,
+                               <<196,...,144>>
+                              },
+                      Point =    <<4,...,245>>,
+                      Order =    <<255,...,81>>,
+                      CoFactor = <<1>>
+                    },
+                Key = <<151,...,62>>
+              }
+              or
+              { 
+                Curve =
+                    {characteristic_two_field, 
+                     M,
+                     Basis = {tpbasis, _}
+                           | {ppbasis, k1, k2, k3}
+                    },
+                Key
+               }
+            */
+            EVP_PKEY_free(pkey);
+            return atom_notsup;
+        }
+#else
+        EVP_PKEY_free(pkey);
+        return atom_notsup;
+#endif
+    }
+
+    if (pkey) EVP_PKEY_free(pkey);
+    return enif_make_badarg(env);
+}
 
 /*================================================================*/
 

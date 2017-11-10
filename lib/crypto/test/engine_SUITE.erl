@@ -56,7 +56,9 @@ groups() ->
        priv_encrypt_pub_decrypt_rsa,
        priv_encrypt_pub_decrypt_rsa_pwd,
        pub_encrypt_priv_decrypt_rsa,
-       pub_encrypt_priv_decrypt_rsa_pwd
+       pub_encrypt_priv_decrypt_rsa_pwd,
+       get_pub_from_priv_key_dsa,
+       get_pub_from_priv_key_ecdsa
       ]}].
 
 
@@ -410,6 +412,31 @@ pub_encrypt_priv_decrypt_rsa_pwd(Config) ->
              key_id => key_id(Config, "rsa_public_key.pem")},
     pub_enc_priv_dec(rsa, Pub, Priv,  rsa_pkcs1_padding).
 
+get_pub_from_priv_key_rsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem")},
+    Pub = crypto:privkey_to_pubkey(rsa, Priv),
+    ct:log("rsa Pub = ~p",[Pub]),
+    sign_verify(rsa, sha, Priv, Pub).
+
+get_pub_from_priv_key_dsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "dsa_private_key.pem")},
+    Pub = crypto:privkey_to_pubkey(dss, Priv),
+    ct:log("dsa Pub = ~p",[Pub]),
+    sign_verify(dss, sha, Priv, Pub).
+
+get_pub_from_priv_key_ecdsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "ecdsa_private_key.pem")},
+    Pub = crypto:privkey_to_pubkey(ecdsa, Priv),
+    case Pub of
+        notsup -> {skip, "ECDSA not implemented"};
+        _ ->
+            ct:log("ecdsa Pub = ~p",[Pub]),
+            sign_verify(ecdsa, sha, Priv, Pub)
+    end.
+    
 %%%================================================================
 %%% Help for engine_stored_pub_priv_keys* test cases
 %%%
