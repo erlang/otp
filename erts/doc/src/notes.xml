@@ -31,6 +31,49 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Microstate accounting sometimes produced incorrect
+	    results for dirty schedulers.</p>
+          <p>
+	    Own Id: OTP-14707</p>
+        </item>
+        <item>
+	    <p>Fixed a regression in <c>zlib:gunzip/1</c> that
+	    prevented it from working when the decompressed size was
+	    a perfect multiple of 16384. This regression was
+	    introduced in 20.1.1</p>
+          <p>
+	    Own Id: OTP-14730 Aux Id: ERL-507 </p>
+        </item>
+        <item>
+	    <p>Fixed a memory corruption bug in
+	    <c>enif_inspect_iovec</c>; writable binaries stayed
+	    writable after entering the iovec.</p>
+          <p>
+	    Own Id: OTP-14745</p>
+        </item>
+        <item>
+	    <p>Fixed a crash in <c>enif_inspect_iovec</c> on
+	    encountering empty binaries.</p>
+          <p>
+	    Own Id: OTP-14750</p>
+        </item>
+        <item>
+	    <p><c>zlib:deflateParams/3</c> will no longer return
+	    <c>buf_error</c> when called after <c>zlib:deflate/2</c>
+	    with zlib <c>1.2.11</c>.</p>
+          <p>
+	    Own Id: OTP-14751</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

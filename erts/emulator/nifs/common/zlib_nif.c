@@ -717,7 +717,9 @@ static ERL_NIF_TERM zlib_deflateEnd(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM zlib_deflateParams(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
+
     int res, level, strategy;
+    Bytef dummy_buffer;
 
     if(argc != 3 || !get_zlib_data(env, argv[0], &d)
                  || !enif_get_int(env, argv[1], &level)
@@ -729,11 +731,26 @@ static ERL_NIF_TERM zlib_deflateParams(ErlNifEnv *env, int argc, const ERL_NIF_T
         return enif_raise_exception(env, am_not_initialized);
     }
 
-    /* deflateParams will flush everything currently in the stream, corrupting
-     * the heap unless it's empty. We therefore pretend to have a full output
-     * buffer, forcing a Z_BUF_ERROR if there's anything left to be flushed. */
-    d->s.avail_out = 0;
+    /* This is a bit of a hack; deflateParams flushes with Z_BLOCK which won't
+     * stop at a byte boundary, so we can't split this operation up, and we
+     * can't allocate a buffer large enough to fit it in one go since we have
+     * to support zlib versions that lack deflatePending.
+     *
+     * We therefore flush everything prior to this call to ensure that we are
+     * stopped on a byte boundary and have no pending data. We then hand it a
+     * dummy buffer to detect when this assumption doesn't hold (Hopefully
+     * never), and to smooth over an issue with zlib 1.2.11 which always
+     * returns Z_BUF_ERROR when d->s.avail_out is 0, regardless of whether
+     * there's any pending data or not. */
+
+    d->s.next_out = &dummy_buffer;
+    d->s.avail_out = 1;
+
     res = deflateParams(&d->s, level, strategy);
+
+    if(d->s.avail_out == 0) {
+        return zlib_return(env, Z_STREAM_ERROR);
+    }
 
     return zlib_return(env, res);
 }
@@ -929,7 +946,7 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
         return enif_raise_exception(env, am_not_initialized);
     }
 
-    if(d->eos_seen) {
+    if(d->eos_seen && enif_ioq_size(d->input_queue) > 0) {
         int res;
 
         switch(d->eos_behavior) {
@@ -943,11 +960,10 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
             }
 
             d->eos_seen = 0;
+
             break;
         case EOS_BEHAVIOR_CUT:
             zlib_reset_input(d);
-
-            return enif_make_tuple2(env, am_finished, enif_make_list(env, 0));
         }
     }
 
