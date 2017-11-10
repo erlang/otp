@@ -88,8 +88,17 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    [{agent_port, ?AGENT_PORT}, {manager_port, ?MANAGER_PORT} | Config].
-    
+    case re:run(os:cmd("snmpd -v"),"NET-SNMP", [{capture, first}]) of
+        nomatch ->
+            {skip, "snmpd is NOT NET-SNMP"};
+        {match, _} ->
+            case re:run(os:cmd("snmpd -v"),"5.4|5.6.2.1", [{capture, first}]) of
+                nomatch ->
+                    [{agent_port, ?AGENT_PORT}, {manager_port, ?MANAGER_PORT} | Config];
+                {match, _} ->
+                    {skip, "buggy snmpd"}
+            end
+    end.
 end_per_suite(_Config) ->
     ok.
 
@@ -322,7 +331,7 @@ snmpget(Oid, Transport, Config) ->
 
     Args =
 	["-c", "public", net_snmp_version(Versions),
-	 "-m", "",
+	 "-m", ":",
 	 "-Cf",
 	 net_snmp_addr_str(Transport),
 	 oid_str(Oid)],
@@ -353,11 +362,13 @@ start_snmpd(Community, SysDescr, Config) ->
 	["--rocommunity"++domain_suffix(Domain)++"="
 	 ++Community++" "++inet_parse:ntoa(Ip)
 	 || {Domain, {Ip, _}} <- Targets],
+
     SnmpdArgs =
-	["-f", "-r", %"-Dverbose",
-	 "-c", filename:join(DataDir, "snmpd.conf"),
-	 "-C", "-Lo",
-	 "-m", "",
+        ["-f", "-r", %"-Dverbose",
+         "-c", filename:join(DataDir, "snmpd.conf"),
+         "-C",
+         "-Lo",
+	 "-m", ":",
 	 "--sysDescr="++SysDescr,
 	 "--agentXSocket=tcp:localhost:"++integer_to_list(Port)]
 	++ CommunityArgs
