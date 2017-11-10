@@ -205,6 +205,7 @@ Eshell V5.0  (abort with ^G)
       <item><c>depth</c></item>
       <item><c>hibernate_after</c></item>
       <item><c>ciphers</c> (use old string format)</item>
+      <item><c>eccs</c> (use comma-separated curve names)</item>
     </list>
 
     <p>Note that <c>verify_fun</c> needs to be written in a different
