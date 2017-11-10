@@ -182,7 +182,8 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, SourceFile, Opts,
     Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
     MD5 = module_md5(Essentials1),
     Essentials = finalize_fun_table(Essentials1, MD5),
-    {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, MD5),
+    {Attributes,Compile} = build_attributes(Opts, CompilerOpts, SourceFile,
+                                            Attr, MD5),
     AttrChunk = chunk(<<"Attr">>, Attributes),
     CompileChunk = chunk(<<"CInf">>, Compile),
 
@@ -264,16 +265,16 @@ flatten_exports(Exps) ->
 flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
-build_attributes(Opts, SourceFile, Attr, MD5) ->
+build_attributes(Opts, CompilerOpts, SourceFile, Attr, MD5) ->
     Misc0 = case SourceFile of
 		[] -> [];
 		[_|_] -> [{source,SourceFile}]
 	    end,
-    Misc = case member(slim, Opts) of
+    Misc = case member(slim, CompilerOpts) of
 	       false -> Misc0;
 	       true -> []
 	   end,
-    Compile = case member(deterministic, Opts) of
+    Compile = case member(deterministic, CompilerOpts) of
 		  false ->
 		      [{options,Opts},{version,?COMPILER_VSN}|Misc];
 		  true ->
