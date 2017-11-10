@@ -1318,10 +1318,13 @@ do_warnings_2([], Next, F) ->
 %% pre-loads the modules that are used by a typical compilation.
 
 pre_load_check(Config) ->
-    case test_server:is_cover() of
-	true ->
+    case {test_server:is_cover(),code:module_info(native)} of
+	{true,_} ->
 	    {skip,"Cover is running"};
-	false ->
+        {false,true} ->
+            %% Tracing won't work.
+            {skip,"'code' is native-compiled"};
+	{false,false} ->
 	    try
 		do_pre_load_check(Config)
 	    after
