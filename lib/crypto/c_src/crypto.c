@@ -1,4 +1,4 @@
-/* 
+/*
  * %CopyrightBegin%
  *
  * Copyright Ericsson AB 2010-2017. All Rights Reserved.
@@ -19,8 +19,8 @@
  */
 
 /*
- * Purpose:  Dynamically loadable NIF library for cryptography. 
- * Based on OpenSSL. 
+ * Purpose:  Dynamically loadable NIF library for cryptography.
+ * Based on OpenSSL.
  */
 
 #ifdef __WIN32__
@@ -60,6 +60,8 @@
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/engine.h>
+#include <openssl/err.h>
 
 /* Helper macro to construct a OPENSSL_VERSION_NUMBER.
  * See openssl/opensslv.h
@@ -79,9 +81,9 @@
  *
  * Therefor works tests like this as intendend:
  *     OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
- * (The test is for example "2.4.2" >= "1.0.0" although the test 
+ * (The test is for example "2.4.2" >= "1.0.0" although the test
  *  with the cloned OpenSSL test would be "1.0.1" >= "1.0.0")
- *     
+ *
  * But tests like this gives wrong result:
  *     OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
  * (The test is false since "2.4.2" < "1.1.0".  It should have been
@@ -117,6 +119,10 @@
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'h')
+#define HAS_ENGINE_SUPPORT
 #endif
 
 #include "crypto_callback.h"
@@ -240,7 +246,7 @@
 
 /* This shall correspond to the similar macro in crypto.erl */
 /* Current value is: erlang:system_info(context_reductions) * 10 */
-#define MAX_BYTES_TO_NIF 20000 
+#define MAX_BYTES_TO_NIF 20000
 
 #define CONSUME_REDS(NifEnv, Ibin)			\
 do {							\
@@ -466,6 +472,22 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
+static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
 static void init_digest_types(ErlNifEnv* env);
@@ -529,11 +551,26 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_gcm_decrypt", 5, aes_gcm_decrypt},
 
     {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
-    {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt}
+    {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt},
+
+    {"engine_by_id_nif", 1, engine_by_id_nif},
+    {"engine_init_nif", 1, engine_init_nif},
+    {"engine_finish_nif", 1, engine_finish_nif},
+    {"engine_free_nif", 1, engine_free_nif},
+    {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif},
+    {"engine_ctrl_cmd_strings_nif", 2, engine_ctrl_cmd_strings_nif},
+    {"engine_register_nif", 2, engine_register_nif},
+    {"engine_unregister_nif", 2, engine_unregister_nif},
+    {"engine_add_nif", 1, engine_add_nif},
+    {"engine_remove_nif", 1, engine_remove_nif},
+    {"engine_get_first_nif", 0, engine_get_first_nif},
+    {"engine_get_next_nif", 1, engine_get_next_nif},
+    {"engine_get_id_nif", 1, engine_get_id_nif},
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif}
+
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
-
 
 #define MD5_CTX_LEN       (sizeof(MD5_CTX))
 #define MD4_CTX_LEN       (sizeof(MD4_CTX))
@@ -603,8 +640,30 @@ static ERL_NIF_TERM atom_sha512;
 static ERL_NIF_TERM atom_md5;
 static ERL_NIF_TERM atom_ripemd160;
 
+#ifdef HAS_ENGINE_SUPPORT
+static ERL_NIF_TERM atom_bad_engine;
+static ERL_NIF_TERM atom_bad_engine_method;
+static ERL_NIF_TERM atom_bad_engine_id;
+static ERL_NIF_TERM atom_ctrl_cmd_failed;
+static ERL_NIF_TERM atom_engine_init_failed;
+static ERL_NIF_TERM atom_register_engine_failed;
+static ERL_NIF_TERM atom_add_engine_failed;
+static ERL_NIF_TERM atom_remove_engine_failed;
+static ERL_NIF_TERM atom_engine_method_not_supported;
 
-
+static ERL_NIF_TERM atom_engine_method_rsa;
+static ERL_NIF_TERM atom_engine_method_dsa;
+static ERL_NIF_TERM atom_engine_method_dh;
+static ERL_NIF_TERM atom_engine_method_rand;
+static ERL_NIF_TERM atom_engine_method_ecdh;
+static ERL_NIF_TERM atom_engine_method_ecdsa;
+static ERL_NIF_TERM atom_engine_method_ciphers;
+static ERL_NIF_TERM atom_engine_method_digests;
+static ERL_NIF_TERM atom_engine_method_store;
+static ERL_NIF_TERM atom_engine_method_pkey_meths;
+static ERL_NIF_TERM atom_engine_method_pkey_asn1_meths;
+static ERL_NIF_TERM atom_engine_method_ec;
+#endif
 static ErlNifResourceType* hmac_context_rtype;
 struct hmac_context
 {
@@ -728,11 +787,13 @@ static struct cipher_type_t cipher_types[] =
 
 static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
+
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
 #define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
 #define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
 */
+
 #define PRINTF_ERR0(FMT)
 #define PRINTF_ERR1(FMT,A1)
 #define PRINTF_ERR2(FMT,A1,A2)
@@ -755,6 +816,23 @@ struct evp_cipher_ctx {
 };
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
     EVP_CIPHER_CTX_free(ctx->ctx);
+}
+#endif
+
+// Engine
+#ifdef HAS_ENGINE_SUPPORT
+static ErlNifResourceType* engine_ctx_rtype;
+struct engine_ctx {
+    ENGINE *engine;
+    char *id;
+};
+static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
+    PRINTF_ERR0("engine_ctx_dtor");
+    if(ctx->id) {
+        PRINTF_ERR1("  non empty ctx->id=%s", ctx->id);
+        enif_free(ctx->id);
+    } else
+         PRINTF_ERR0("  empty ctx->id=NULL");
 }
 #endif
 
@@ -793,7 +871,7 @@ static char crypto_callback_name[] = "crypto_callback";
 static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
     int i;
-    
+
     for (i = bin->size; i > 0; i--) {
 	if (bin->data[i-1] == '/')
 	    break;
@@ -869,12 +947,23 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         return __LINE__;
     }
 #endif
+#ifdef HAS_ENGINE_SUPPORT
+    engine_ctx_rtype = enif_open_resource_type(env, NULL, "ENGINE_CTX",
+                                                   (ErlNifResourceDtor*) engine_ctx_dtor,
+                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   NULL);
+    if (!engine_ctx_rtype) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
+        return __LINE__;
+    }
+
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
 	 */
 	return 0;
     }
+#endif 
 
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -952,6 +1041,30 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
 
+#ifdef HAS_ENGINE_SUPPORT
+    atom_bad_engine = enif_make_atom(env,"bad_engine");
+    atom_bad_engine_method = enif_make_atom(env,"bad_engine_method");
+    atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
+    atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
+    atom_engine_init_failed = enif_make_atom(env,"engine_init_failed");
+    atom_engine_method_not_supported = enif_make_atom(env,"engine_method_not_supported");
+    atom_add_engine_failed = enif_make_atom(env,"add_engine_failed");
+    atom_remove_engine_failed = enif_make_atom(env,"remove_engine_failed");
+
+    atom_engine_method_rsa = enif_make_atom(env,"engine_method_rsa");
+    atom_engine_method_dsa = enif_make_atom(env,"engine_method_dsa");
+    atom_engine_method_dh = enif_make_atom(env,"engine_method_dh");
+    atom_engine_method_rand = enif_make_atom(env,"engine_method_rand");
+    atom_engine_method_ecdh = enif_make_atom(env,"engine_method_ecdh");
+    atom_engine_method_ecdsa = enif_make_atom(env,"engine_method_ecdsa");
+    atom_engine_method_store = enif_make_atom(env,"engine_method_store");
+    atom_engine_method_ciphers = enif_make_atom(env,"engine_method_ciphers");
+    atom_engine_method_digests = enif_make_atom(env,"engine_method_digests");
+    atom_engine_method_pkey_meths = enif_make_atom(env,"engine_method_pkey_meths");
+    atom_engine_method_pkey_asn1_meths = enif_make_atom(env,"engine_method_pkey_asn1_meths");
+    atom_engine_method_ec = enif_make_atom(env,"engine_method_ec");
+#endif
+
     init_digest_types(env);
     init_cipher_types(env);
     init_algorithms_types(env);
@@ -973,24 +1086,24 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
 #endif
-    
+
 #ifdef OPENSSL_THREADS
     enif_system_info(&sys_info, sizeof(sys_info));
     if (sys_info.scheduler_threads > 1) {
-	nlocks = CRYPTO_num_locks(); 
+	nlocks = CRYPTO_num_locks();
     }
     /* else no need for locks */
 #endif
-    
+
     ccb = (*funcp)(nlocks);
-    
+
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
 	return __LINE__;
     }
-    
+
     CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
-    
+
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
 	CRYPTO_set_locking_callback(ccb->locking_function);
@@ -1186,11 +1299,11 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
      * Version string is still from library though.
      */
 
-    memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);    
+    memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);
     memcpy(enif_make_new_binary(env, ver_sz, &ver_term), ver, ver_sz);
 
     return enif_make_list1(env, enif_make_tuple3(env, name_term,
-						 enif_make_int(env, ver_num),						 
+						 enif_make_int(env, ver_num),
 						 ver_term));
 }
 
@@ -1225,6 +1338,8 @@ static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TER
     }
 }
 
+
+#if defined(HAVE_EC)
 static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
 {
     ERL_NIF_TERM reason;
@@ -1233,6 +1348,7 @@ static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
     else
 	return enif_make_badarg(env);
 }
+#endif
 
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */
@@ -1668,7 +1784,7 @@ static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 {/* (Context, Data) */
     ErlNifBinary data;
     struct hmac_context* obj;
-    
+
     if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
 	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
@@ -1704,13 +1820,13 @@ static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	enif_mutex_unlock(obj->mtx);
 	return enif_make_badarg(env);
     }
-    
+
     HMAC_Final(obj->ctx, mac_buf, &mac_len);
     HMAC_CTX_free(obj->ctx);
     obj->alive = 0;
     enif_mutex_unlock(obj->mtx);
 
-    if (argc == 2 && req_len < mac_len) { 
+    if (argc == 2 && req_len < mac_len) {
         /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
@@ -2021,7 +2137,7 @@ static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_
 }
 
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* ({Key, IVec, ECount, Num}, Data) */    
+{/* ({Key, IVec, ECount, Num}, Data) */
     ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
     AES_KEY aes_key;
     unsigned int num;
@@ -2042,14 +2158,14 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
         return enif_make_badarg(env);
     }
 
-    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term); 
+    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term);
     ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term);
-    
+
     memcpy(ivec2_buf, ivec_bin.data, 16);
     memcpy(ecount2_buf, ecount_bin.data, ecount_bin.size);
 
     AES_ctr128_encrypt((unsigned char *) text_bin.data,
-		       enif_make_new_binary(env, text_bin.size, &cipher_term), 
+		       enif_make_new_binary(env, text_bin.size, &cipher_term),
 		       text_bin.size, &aes_key, ivec2_buf, ecount2_buf, &num);
 
     num2_term = enif_make_uint(env, num);
@@ -2352,7 +2468,7 @@ out_err:
 }
 
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes) */     
+{/* (Bytes) */
     unsigned bytes;
     unsigned char* data;
     ERL_NIF_TERM ret;
@@ -2446,7 +2562,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     bn_to = BN_new();
     BN_sub(bn_to, bn_rand, bn_from);
-    BN_pseudo_rand_range(bn_rand, bn_to);      
+    BN_pseudo_rand_range(bn_rand, bn_to);
     BN_add(bn_rand, bn_rand, bn_from);
     dlen = BN_num_bytes(bn_rand);
     data = enif_make_new_binary(env, dlen+4, &ret);
@@ -2464,7 +2580,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo=NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
-    unsigned dlen;      
+    unsigned dlen;
     unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
     unsigned extra_byte;
     ERL_NIF_TERM ret;
@@ -2485,7 +2601,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     dlen = BN_num_bytes(bn_result);
     extra_byte = bin_hdr && BN_is_bit_set(bn_result, dlen*8-1);
     ptr = enif_make_new_binary(env, bin_hdr+extra_byte+dlen, &ret);
-    if (bin_hdr) {	
+    if (bin_hdr) {
 	put_int32(ptr, extra_byte+dlen);
 	ptr[4] = 0; /* extra zeroed byte to ensure a positive mpint */
 	ptr += bin_hdr + extra_byte;
@@ -2545,6 +2661,7 @@ static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
     return NULL;
 }
 
+
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data1, Data2) */
     ErlNifBinary d1, d2;
@@ -2578,7 +2695,7 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	return enif_make_badarg(env);
     }
     RC4_set_key((RC4_KEY*)enif_make_new_binary(env, sizeof(RC4_KEY), &ret),
-		key.size, key.data);        
+		key.size, key.data);
     return ret;
 #else
     return enif_raise_exception(env, atom_notsup);
@@ -2871,7 +2988,7 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
     BN_bn2bin(dh_g, g_ptr);
     ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr, p_len);
     ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr, g_len);
-    return enif_make_list2(env, ret_p, ret_g);    
+    return enif_make_list2(env, ret_p, ret_g);
 }
 
 static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2881,9 +2998,9 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM ret, head, tail;
     BIGNUM *dh_p, *dh_g;
 
-    if (!enif_get_list_cell(env, argv[0], &head, &tail)   
+    if (!enif_get_list_cell(env, argv[0], &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)   
+	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_g)
 	|| !enif_is_empty_list(env,tail)) {
 
@@ -2900,12 +3017,12 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 	else if (i & DH_NOT_SUITABLE_GENERATOR)	ret = atom_not_suitable_generator;
 	else ret = enif_make_tuple2(env, atom_unknown, enif_make_uint(env, i));
     }
-    else { /* Check Failed */       
+    else { /* Check Failed */
 	ret = enif_make_tuple2(env, atom_error, atom_check_failed);
     }
     DH_free(dh_params);
     return ret;
-}   
+}
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
@@ -3007,7 +3124,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	i = DH_compute_key(ret_bin.data, other_pub_key, dh_params);
 	if (i > 0) {
 	    if (i != ret_bin.size) {
-		enif_realloc_binary(&ret_bin, i); 
+		enif_realloc_binary(&ret_bin, i);
 	    }
 	    ret = enif_make_binary(env, &ret_bin);
 	}
@@ -3965,7 +4082,7 @@ printf("\r\n");
     }
 
 #ifdef HAS_EVP_PKEY_CTX
-/* printf("EVP interface\r\n"); 
+/* printf("EVP interface\r\n");
  */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (!ctx) goto badarg;
@@ -4095,7 +4212,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     }
 
 #ifdef HAS_EVP_PKEY_CTX
-/* printf("EVP interface\r\n"); 
+/* printf("EVP interface\r\n");
  */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (!ctx) goto badarg;
@@ -4553,4 +4670,599 @@ static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         return enif_make_badarg(env);
     RAND_seed(seed_bin.data,seed_bin.size);
     return atom_ok;
+}
+
+/*================================================================*/
+/* Engine */
+/*================================================================*/
+static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (EngineId) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ErlNifBinary engine_id_bin;
+    unsigned int engine_id_len = 0;
+    char *engine_id;
+    ENGINE *engine;
+    struct engine_ctx *ctx;
+
+    // Get Engine Id
+    if(!enif_inspect_binary(env, argv[0], &engine_id_bin)) {
+        PRINTF_ERR0("engine_by_id_nif Leaved: badarg");
+        return enif_make_badarg(env);
+    } else {
+        engine_id_len = engine_id_bin.size+1;
+        engine_id = enif_alloc(engine_id_len);
+        (void) memcpy(engine_id, engine_id_bin.data, engine_id_len);
+        engine_id[engine_id_len-1] = '\0';
+    }
+
+    engine = ENGINE_by_id(engine_id);
+    if(!engine) {
+        PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
+        return enif_make_tuple2(env, atom_error, atom_bad_engine_id);
+    }
+
+    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    ctx->engine = engine;
+    ctx->id = engine_id;
+
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret = atom_ok;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_init_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    if (!ENGINE_init(ctx->engine)) {
+        //ERR_print_errors_fp(stderr);
+        PRINTF_ERR0("engine_init_nif Leaved: {error, engine_init_failed}");
+        return enif_make_tuple2(env, atom_error, atom_engine_init_failed);
+    }
+
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_free_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    ENGINE_free(ctx->engine);
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_finish_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    ENGINE_finish(ctx->engine);
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+#ifdef HAS_ENGINE_SUPPORT
+    ENGINE_load_dynamic();
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, Commands) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret = atom_ok;
+    unsigned int cmds_len = 0;
+    char **cmds = NULL;
+    struct engine_ctx *ctx;
+    int i;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    PRINTF_ERR1("Engine Id:  %s\r\n", ENGINE_get_id(ctx->engine));
+
+    // Get Command List
+    if(!enif_get_list_length(env, argv[1], &cmds_len)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Bad Command List");
+        return enif_make_badarg(env);
+    } else {
+        cmds_len *= 2; // Key-Value list from erlang
+        cmds = enif_alloc((cmds_len+1)*sizeof(char*));
+        if(get_engine_load_cmd_list(env, argv[1], cmds, 0)) {
+            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Couldn't read Command List");
+            ret = enif_make_badarg(env);
+            goto error;
+        }
+    }
+
+    for(i = 0; i < cmds_len; i+=2) {
+        PRINTF_ERR2("Cmd:  %s:%s\r\n",
+                   cmds[i] ? cmds[i] : "(NULL)",
+                   cmds[i+1] ? cmds[i+1] : "(NULL)");
+        if(!ENGINE_ctrl_cmd_string(ctx->engine, cmds[i], cmds[i+1], 0)) {
+            PRINTF_ERR2("Command failed:  %s:%s\r\n",
+                        cmds[i] ? cmds[i] : "(NULL)",
+                        cmds[i+1] ? cmds[i+1] : "(NULL)");
+            //ENGINE_free(ctx->engine);
+            ret = enif_make_tuple2(env, atom_error, atom_ctrl_cmd_failed);
+            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: {error, ctrl_cmd_failed}");
+            goto error;
+        }
+}
+
+ error:
+    for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
+        enif_free(cmds[i]);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_add_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    if (!ENGINE_add(ctx->engine)) {
+        PRINTF_ERR0("engine_add_nif Leaved: {error, add_engine_failed}");
+        return enif_make_tuple2(env, atom_error, atom_add_engine_failed);
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_remove_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    if (!ENGINE_remove(ctx->engine)) {
+        PRINTF_ERR0("engine_remove_nif Leaved: {error, remove_engine_failed}");
+        return enif_make_tuple2(env, atom_error, atom_remove_engine_failed);
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, EngineMethod) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+    unsigned int method;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_register_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    // Get Method
+    if (!enif_get_uint(env, argv[1], &method)) {
+        PRINTF_ERR0("engine_register_nif Leaved: Parameter Method not an uint");
+        return enif_make_badarg(env);
+    }
+
+    switch(method)
+    {
+#ifdef ENGINE_METHOD_RSA
+    case ENGINE_METHOD_RSA:
+        if (!ENGINE_register_RSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    case ENGINE_METHOD_DSA:
+        if (!ENGINE_register_DSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DH
+    case ENGINE_METHOD_DH:
+        if (!ENGINE_register_DH(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    case ENGINE_METHOD_RAND:
+        if (!ENGINE_register_RAND(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    case ENGINE_METHOD_ECDH:
+        if (!ENGINE_register_ECDH(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    case ENGINE_METHOD_ECDSA:
+        if (!ENGINE_register_ECDSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    case ENGINE_METHOD_STORE:
+        if (!ENGINE_register_STORE(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    case ENGINE_METHOD_CIPHERS:
+        if (!ENGINE_register_ciphers(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    case ENGINE_METHOD_DIGESTS:
+        if (!ENGINE_register_digests(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    case ENGINE_METHOD_PKEY_METHS:
+        if (!ENGINE_register_pkey_meths(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    case ENGINE_METHOD_PKEY_ASN1_METHS:
+        if (!ENGINE_register_pkey_asn1_meths(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_EC
+    case ENGINE_METHOD_EC:
+        if (!ENGINE_register_EC(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+    default:
+        return  enif_make_tuple2(env, atom_error, atom_engine_method_not_supported);
+        break;
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, EngineMethod) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+    unsigned int method;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    // Get Method
+    if (!enif_get_uint(env, argv[1], &method)) {
+        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter Method not an uint");
+        return enif_make_badarg(env);
+    }
+
+    switch(method)
+    {
+#ifdef ENGINE_METHOD_RSA
+    case ENGINE_METHOD_RSA:
+        ENGINE_unregister_RSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    case ENGINE_METHOD_DSA:
+        ENGINE_unregister_DSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DH
+    case ENGINE_METHOD_DH:
+        ENGINE_unregister_DH(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    case ENGINE_METHOD_RAND:
+        ENGINE_unregister_RAND(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    case ENGINE_METHOD_ECDH:
+        ENGINE_unregister_ECDH(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    case ENGINE_METHOD_ECDSA:
+        ENGINE_unregister_ECDSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    case ENGINE_METHOD_STORE:
+        ENGINE_unregister_STORE(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    case ENGINE_METHOD_CIPHERS:
+        ENGINE_unregister_ciphers(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    case ENGINE_METHOD_DIGESTS:
+        ENGINE_unregister_digests(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    case ENGINE_METHOD_PKEY_METHS:
+        ENGINE_unregister_pkey_meths(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    case ENGINE_METHOD_PKEY_ASN1_METHS:
+        ENGINE_unregister_pkey_asn1_meths(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_EC
+    case ENGINE_METHOD_EC:
+        ENGINE_unregister_EC(ctx->engine);
+        break;
+#endif
+    default:
+        break;
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ENGINE *engine;
+    ErlNifBinary engine_bin;
+    struct engine_ctx *ctx;
+
+    engine = ENGINE_get_first();
+    if(!engine) {
+        enif_alloc_binary(0, &engine_bin);
+        engine_bin.size = 0;
+        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
+    }
+
+    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    ctx->engine = engine;
+    ctx->id = NULL;
+
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ENGINE *engine;
+    ErlNifBinary engine_bin;
+    struct engine_ctx *ctx, *next_ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_next_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    engine = ENGINE_get_next(ctx->engine);
+    if (!engine) {
+        enif_alloc_binary(0, &engine_bin);
+        engine_bin.size = 0;
+        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
+    }
+
+    next_ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    next_ctx->engine = engine;
+    next_ctx->id = NULL;
+
+    ret = enif_make_resource(env, next_ctx);
+    enif_release_resource(next_ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ErlNifBinary engine_id_bin;
+    const char *engine_id;
+    int size;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_id_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    engine_id = ENGINE_get_id(ctx->engine);
+    if (!engine_id) {
+        enif_alloc_binary(0, &engine_id_bin);
+        engine_id_bin.size = 0;
+        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_id_bin));
+    }
+
+    size = strlen(engine_id);
+    enif_alloc_binary(size, &engine_id_bin);
+    engine_id_bin.size = size;
+    memcpy(engine_id_bin.data, engine_id, size);
+
+    return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_id_bin));
+#else
+    return atom_notsup;
+#endif
+}
+
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i)
+{
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM head, tail;
+    const ERL_NIF_TERM *tmp_tuple;
+    ErlNifBinary tmpbin;
+    int arity;
+    char* tmpstr;
+    int tmplen = 0;
+
+    if(!enif_is_empty_list(env, term)) {
+        if(!enif_get_list_cell(env, term, &head, &tail)) {
+            cmds[i] = NULL;
+            return -1;
+        } else {
+            if(!enif_get_tuple(env, head, &arity, &tmp_tuple)  || arity != 2) {
+                cmds[i] = NULL;
+                return -1;
+            } else {
+                if(!enif_inspect_binary(env, tmp_tuple[0], &tmpbin)) {
+                    cmds[i] = NULL;
+                    return -1;
+                } else {
+                    tmplen = tmpbin.size+1;
+                    tmpstr = enif_alloc(tmplen);
+                    (void) memcpy(tmpstr, tmpbin.data, tmplen);
+                    tmpstr[tmplen-1] = '\0';
+                    cmds[i++] = tmpstr;
+                }
+                if(!enif_inspect_binary(env, tmp_tuple[1], &tmpbin)) {
+                    cmds[i] = NULL;
+                    return -1;
+                } else {
+                    if(tmpbin.size == 0)
+                        cmds[i++] = NULL;
+                    else {
+                        tmplen = tmpbin.size+1;
+                        tmpstr = enif_alloc(tmplen);
+                        (void) memcpy(tmpstr, tmpbin.data, tmplen);
+                        tmpstr[tmplen-1] = '\0';
+                        cmds[i++] = tmpstr;
+                    }
+                }
+                return get_engine_load_cmd_list(env, tail, cmds, i);
+            }
+        }
+    } else {
+        cmds[i] = NULL;
+        return 0;
+    }
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM method_array[12];
+    int i = 0;
+
+#ifdef ENGINE_METHOD_RSA
+    method_array[i++] = atom_engine_method_rsa;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    method_array[i++] = atom_engine_method_dsa;
+#endif
+#ifdef ENGINE_METHOD_DH
+    method_array[i++] = atom_engine_method_dh;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    method_array[i++] = atom_engine_method_rand;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    method_array[i++] = atom_engine_method_ecdh;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    method_array[i++] = atom_engine_method_ecdsa;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    method_array[i++] = atom_engine_method_store;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    method_array[i++] = atom_engine_method_ciphers;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    method_array[i++] = atom_engine_method_digests;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    method_array[i++] = atom_engine_method_pkey_meths;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    method_array[i++] = atom_engine_method_pkey_asn1_meths;
+#endif
+#ifdef ENGINE_METHOD_EC
+    method_array[i++] = atom_engine_method_ec;
+#endif
+
+    return enif_make_list_from_array(env, method_array, i);
+#else
+    return atom_notsup;
+#endif
 }

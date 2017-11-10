@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,6 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-
     </legalnotice>
 
     <title>crypto</title>
@@ -68,11 +67,11 @@
 
  <section>
     <title>DATA TYPES </title>
-    
-    <code>key_value()  = integer() | binary() </code>
+
+    <code>key_value() = integer() | binary() </code>
     <p>Always <c>binary()</c> when used as return value</p>
 
-    <code>rsa_public()  = [key_value()] = [E, N]  </code>
+    <code>rsa_public() = [key_value()] = [E, N]  </code>
     <p> Where E is the public exponent and N is public modulus. </p>
 
     <code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code>
@@ -85,7 +84,7 @@
     <code>dss_public() = [key_value()] = [P, Q, G, Y] </code>
     <p>Where P, Q and G are the dss parameters and Y is the public key.</p>
 
-    <code>dss_private() =  [key_value()] = [P, Q, G, X] </code>
+    <code>dss_private() = [key_value()] = [P, Q, G, X] </code>
     <p>Where P, Q and G are the dss parameters and X is the private key.</p>
 
     <code>srp_public() = key_value() </code>
@@ -109,15 +108,16 @@
 
     <code>ecdh_private() = key_value() </code>
 
-    <code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code>
+    <code>ecdh_params() = ec_named_curve() | ec_explicit_curve()</code>
 
     <code>ec_explicit_curve() =
-    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code>
+    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(),
+     CoFactor :: none | integer()} </code>
 
     <code>ec_field() = {prime_field, Prime :: integer()} |
     {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code>
 
-    <code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
+    <code>ec_basis() = {tpbasis, K :: non_neg_integer()} |
     {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} |
     onbasis</code>
 
@@ -138,14 +138,14 @@
 
      <code>stream_cipher() = rc4 | aes_ctr </code>
 
-     <code>block_cipher() =  aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
+     <code>block_cipher() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
 
-     <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
+     <code>aead_cipher() = aes_gcm | chacha20_poly1305 </code>
 
-     <code>stream_key() =  aes_key() | rc4_key() </code>
+     <code>stream_key() = aes_key() | rc4_key() </code>
 
-     <code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code>
+     <code>block_key() = aes_key() |  blowfish_key() | des_key()| des3_key() </code>
 
      <code>aes_key() = iodata() </code> <p>Key length is 128, 192 or 256 bits</p>
 
@@ -174,13 +174,17 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
-     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
-     des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
-     <code> mac_algorithms() =   hmac | cmac</code>
-     <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
+     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc |
+     des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
+     <code> mac_algorithms() = hmac | cmac</code>
+     <code> public_key_algorithms() = rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
      </p>
+     <code>engine_method_type() = engine_method_rsa | engine_method_dsa | engine_method_dh |
+     engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
+     engine_method_ciphers | engine_method_digests | engine_method_store |
+     engine_method_pkey_meths | engine_method_pkey_asn1_meths</code>
 
  </section>
 
@@ -261,13 +265,13 @@
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
-    
+
      <func>
       <name>bytes_to_integer(Bin) -> Integer </name>
       <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
       <type>
 	<v>Bin = binary() - as returned by crypto functions</v>
-	
+
         <v>Integer = integer() </v>
       </type>
       <desc>
@@ -439,7 +443,7 @@
       </type>
       <desc>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
-        must have been generated using an HMAC init function (such as 
+        must have been generated using an HMAC init function (such as
         <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
         must be passed into the next call to <c>hmac_update</c>
 	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
@@ -594,7 +598,7 @@
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
@@ -905,6 +909,124 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       </desc>
     </func>
 
+    <!-- Engine functions -->
+    <func>
+      <name>engine_get_all_methods() -> Result</name>
+      <fsummary>Return list of all possible engine methods</fsummary>
+      <type>
+	<v>Result = [EngineMethod::atom()]</v>
+      </type>
+      <desc>
+	<p>
+	  Returns a list of all possible engine methods.
+	</p>
+	<p>	  
+	  May throw exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_load(EngineId, PreCmds, PostCmds) -> Result</name>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <type>
+	<v>EngineId = unicode:chardata()</v>
+	<v>PreCmds, PostCmds = [{unicode:chardata(), unicode:chardata()}]</v>
+	<v>Result = {ok, Engine::term()} | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
+	  an engine handle. This function is the same as calling <c>engine_load/4</c> with 
+	  <c>EngineMethods</c> set to a list of all the possible methods.  An error tuple is 
+	  returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_load(EngineId, PreCmds, PostCmds, EngineMethods) -> Result</name>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <type>
+	<v>EngineId = unicode:chardata()</v>
+	<v>PreCmds, PostCmds = [{unicode:chardata(), unicode:chardata()}]</v>
+	<v>EngineMethods = [engine_method_type()]</v>
+	<v>Result = {ok, Engine::term()} | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
+	  an engine handle. An error tuple is returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_unload(Engine) -> Result</name>
+      <fsummary>Dynamical load an encryption engine</fsummary>
+      <type>
+	<v>Engine = term()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Unloads the OpenSSL engine given by <c>EngineId</c>.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameter is in wrong format.
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_list() -> Result</name>
+      <fsummary>List the known engine ids</fsummary>
+      <type>
+	<v>Result = [EngineId::unicode:chardata()]</v>
+      </type>
+      <desc>
+	<p>List the id's of all engines in OpenSSL's internal list.</p>
+	<p>
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso> 
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
  </funcs>
 
   <!-- Maybe put this in the users guide -->
@@ -979,4 +1101,3 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
   <!--   </p> -->
   <!-- </section> -->
 </erlref>
-

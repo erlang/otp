@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,12 +78,16 @@ CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
 
 NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
+TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
+
 ifeq ($(findstring win32,$(TARGET)), win32)
 NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).dll
 CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).dll
+TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll
 else
 NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).so
 CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).so
+TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).so
 endif
 
 ifeq ($(HOST_OS),)
@@ -129,9 +133,21 @@ ALL_STATIC_CFLAGS = $(DED_STATIC_CFLAGS) $(INCLUDES)
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB)
+debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB) 
 
 static_lib: $(NIF_ARCHIVE)
+
+$(OBJDIR)/otp_test_engine$(TYPEMARKER).o: otp_test_engine.c
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+
+$(LIBDIR)/otp_test_engine$(TYPEMARKER).so: $(TEST_ENGINE_OBJS)
+	$(V_at)$(INSTALL_DIR) $(LIBDIR)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+
+$(LIBDIR)/otp_test_engine$(TYPEMARKER).dll: $(TEST_ENGINE_OBJS)
+	$(V_at)$(INSTALL_DIR) $(LIBDIR)
+	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(TEST_ENGINE_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
@@ -170,6 +186,7 @@ ifeq ($(findstring win32,$(TARGET)), win32)
 	rm -f $(LIBDIR)/crypto.debug.dll
 	rm -f $(LIBDIR)/crypto_callback.dll
 	rm -f $(LIBDIR)/crypto_callback.debug.dll
+	rm -f $(LIBDIR)/otp_test_engine.dll
 else
 	rm -f $(LIBDIR)/crypto.so
 	rm -f $(LIBDIR)/crypto.debug.so
@@ -177,6 +194,7 @@ else
 	rm -f $(LIBDIR)/crypto_callback.so
 	rm -f $(LIBDIR)/crypto_callback.debug.so
 	rm -f $(LIBDIR)/crypto_callback.valgrind.so
+	rm -f $(LIBDIR)/otp_test_engine.so
 endif
 	rm -f $(OBJDIR)/crypto.o
 	rm -f $(OBJDIR)/crypto_static.o
@@ -187,6 +205,7 @@ endif
 	rm -f $(OBJDIR)/crypto_callback.o
 	rm -f $(OBJDIR)/crypto_callback.debug.o
 	rm -f $(OBJDIR)/crypto_callback.valgrind.o
+	rm -f $(OBJDIR)/otp_test_engine.o
 	rm -f core *~
 
 docs:
@@ -206,6 +225,8 @@ ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
 endif
+	$(INSTALL_PROGRAM) $(TEST_ENGINE_OBJS) "$(RELSYSDIR)/priv/obj"
+	$(INSTALL_PROGRAM) $(TEST_ENGINE_LIB) "$(RELSYSDIR)/priv/lib"
 
 release_docs_spec:
 
