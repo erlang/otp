@@ -91,7 +91,15 @@ init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server
     end;
 init_certificates(Cert, Config, _, _) ->
     {ok, Config#{own_certificate => Cert}}.
-        
+init_private_key(_, #{algorithm := Alg} = Key, <<>>, _Password, _Client) when Alg == ecdsa;
+                                                                              Alg == rsa;
+                                                                              Alg == dss ->
+    case maps:is_key(engine, Key) andalso maps:is_key(key_id, Key) of
+        true ->
+            Key;
+        false ->
+            throw({key, {invalid_key_id, Key}})
+    end;
 init_private_key(_, undefined, <<>>, _Password, _Client) ->
     undefined;
 init_private_key(DbHandle, undefined, KeyFile, Password, _) ->

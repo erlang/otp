@@ -69,7 +69,9 @@
 	<p><c>| {cert, public_key:der_encoded()}</c></p>
 	<p><c>| {certfile, path()}</c></p>
 	<p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
-	| 'PrivateKeyInfo', public_key:der_encoded()}}</c></p>
+	| 'PrivateKeyInfo', public_key:der_encoded()} |
+	#{algorithm := rsa | dss | ecdsa,
+	engine := crypto:engine_ref(), key_id := crypto:key_id(), password => crypto:password()}</c></p>
 	<p><c>| {keyfile, path()}</c></p>
 	<p><c>| {password, string()}</c></p>
 	<p><c>| {cacerts, [public_key:der_encoded()]}</c></p>
@@ -202,8 +204,12 @@
       <item><p>Path to a file containing the user certificate.</p></item>
       
       <tag><c>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey'
-      |'PrivateKeyInfo', public_key:der_encoded()}}</c></tag>
-      <item><p>The DER-encoded user's private key. If this option 
+      |'PrivateKeyInfo', public_key:der_encoded()} |  #{algorithm := rsa | dss | ecdsa,
+	engine := crypto:engine_ref(), key_id :=  crypto:key_id(), password => crypto:password()}</c></tag>
+      <item><p>The DER-encoded user's private key or a map refering to a crypto
+      engine and its key reference that optionally can be password protected,
+      seealso <seealso marker="crypto:engine_load-4"> crypto:engine_load/4
+      </seealso> and  <seealso marker="crypto:engine_load"> Crypto's Users Guide</seealso>. If this option 
       is supplied, it overrides option <c>keyfile</c>.</p></item>
       
       <tag><c>{keyfile, path()}</c></tag>
