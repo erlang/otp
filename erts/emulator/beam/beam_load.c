@@ -2384,8 +2384,18 @@ load_code(LoaderState* stp)
 		    code[ci++] = NIL;
 		    break;
 		case TAG_q:
-		    new_literal_patch(stp, ci);
-		    code[ci++] = tmp_op->a[arg].val;
+                    {
+                        BeamInstr val = tmp_op->a[arg].val;
+                        Eterm term = stp->literals[val].term;
+                        new_literal_patch(stp, ci);
+                        code[ci++] = val;
+                        switch (loader_tag(term)) {
+                        case LOADER_X_REG:
+                        case LOADER_Y_REG:
+                            LoadError1(stp, "the term '%T' would be confused "
+                                       "with a register", term);
+                        }
+                    }
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for general source",
