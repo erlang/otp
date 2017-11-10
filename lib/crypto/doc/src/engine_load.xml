@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2017</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    </legalnotice>
+    <title>Engine Load</title>
+    <prepared>Lars Thorsén</prepared>
+    <date>2017-08-22</date>
+    <file>engine_load.xml</file>
+  </header>
+  <p>
+    <marker id="engine_load"></marker>
+    This chapter describes the support for loading encryption engines in the crypto application.
+  </p>
+
+  <section>
+    <title>Background</title>
+    <p>
+      OpenSSL exposes an Engine API, which makes it possible to plug in alternative
+      implementations for some or all of the cryptographic operations implemented by OpenSSL.
+      When configured appropriately, OpenSSL calls the engine's implementation of these
+      operations instead of its own.
+    </p>
+    <p>
+      Typically, OpenSSL engines provide a hardware implementation of specific cryptographic
+      operations. The hardware implementation usually offers improved performance over its
+      software-based counterpart, which is known as cryptographic acceleration.
+    </p>
+  </section>
+
+  <section>
+    <title>Use Cases</title>
+    <section>
+      <title>Dynamically load an engine from default directory</title>
+      <p>
+	If the engine is located in the OpenSSL/LibreSSL installation <c>engines</c> directory.
+      </p>
+      <code>
+1> {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine">>, [], []).
+ {ok, #Ref}</code>
+       <note>
+	<p>The file name requirement on the engine dynamic library can differ between SSL versions.</p>
+      </note>
+    </section>
+
+    <section>
+      <title>Load an engine with the dynamic engine</title>
+      <p>
+	Load an engine with the help of the dynamic engine by giving the path to the library.
+      </p>
+      <code>
+ 2> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
+                                      [{&lt;&lt;"SO_PATH">>,
+                                        &lt;&lt;"/some/path/otp_test_engine.so">>},
+                                       {&lt;&lt;"ID">>, &lt;&lt;"MD5">>},
+                                       &lt;&lt;"LOAD">>],
+                                      []).
+ {ok, #Ref}</code>
+      <note>
+	<p>The dynamic engine is not supported in LibreSSL from version 2.2.1</p>
+      </note>
+    </section>
+
+    <section>
+      <title>Load an engine and replace some methods</title>
+      <p>
+	Load an engine with the help of the dynamic engine and just
+	replace some engine methods.
+      </p>
+      <code>
+ 3> Methods = crypto:engine_get_all_methods() -- [engine_method_dh,engine_method_rand,
+engine_method_ciphers,engine_method_digests, engine_method_store,
+engine_method_pkey_meths, engine_method_pkey_asn1_meths].
+[engine_method_rsa,engine_method_dsa,
+ engine_method_ecdh,engine_method_ecdsa]
+ 4> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
+                                      [{&lt;&lt;"SO_PATH">>,
+                                        &lt;&lt;"/some/path/otp_test_engine.so">>},
+                                       {&lt;&lt;"ID">>, &lt;&lt;"MD5">>},
+                                       &lt;&lt;"LOAD">>],
+                                      [],
+		                      Methods).
+ {ok, #Ref}</code>
+    </section>
+
+    <section>
+      <title>List all engines currently loaded</title>
+      <code>
+ 5> crypto:engine_list().
+[&lt;&lt;"dynamic">>, &lt;&lt;"MD5">>]</code>
+    </section>
+
+  </section>
+</chapter>
