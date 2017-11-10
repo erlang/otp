@@ -38,6 +38,7 @@ MODULES= \
 	ssh_basic_SUITE \
 	ssh_bench_SUITE \
 	ssh_connection_SUITE \
+	ssh_engine_SUITE \
 	ssh_protocol_SUITE \
 	ssh_property_test_SUITE \
 	ssh_sftp_SUITE \
@@ -49,6 +50,7 @@ MODULES= \
 	ssh_test_lib \
 	ssh_key_cb \
 	ssh_key_cb_options \
+	ssh_key_cb_engine_keys \
 	ssh_trpt_test_lib \
 	ssh_echo_server \
 	ssh_bench_dev_null \

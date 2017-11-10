@@ -56,11 +56,17 @@
       <tag><c>string() =</c></tag>
       <item><p><c>[byte()]</c></p></item>
       <tag><c>public_key() =</c></tag>
-      <item><p><c>#'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</c></p></item>
+      <item><p><c>#'RSAPublicKey'{} 
+      | {integer(),#'Dss-Parms'{}} 
+      | {#'ECPoint'{},{namedCurve,Curve::string()}}</c></p></item>
       <tag><c>private_key() =</c></tag>
-      <item><p><c>#'RSAPrivateKey'{} | #'DSAPrivateKey'{} | term()</c></p></item>
+      <item><p><c>#'RSAPrivateKey'{} 
+      | #'DSAPrivateKey'{} 
+      | #'ECPrivateKey'{}</c></p></item>      
       <tag><c>public_key_algorithm() =</c></tag>
-      <item><p><c>'ssh-rsa'| 'ssh-dss' | atom()</c></p></item>
+      <item><p><c>'ssh-rsa' | 'ssh-dss' 
+      | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512' 
+      | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
     </taglist>
   </section>
 
@@ -73,10 +79,11 @@
       <d>Description of the host that owns the <c>PublicKey</c>.</d>
 
       <v>Key = public_key()</v>
-      <d>Normally an RSA or DSA public key, but handling of other public keys can be added.</d>
+      <d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
 
       <v>ConnectOptions = proplists:proplist()</v>
-      <d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso></d>
+      <d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>. The option list given in
+	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
       <v>Reason = term().</v>
       </type>
       <desc>
@@ -89,17 +96,17 @@
       <fsummary>Checks if a host key is trusted.</fsummary>
       <type>
 	<v>Key = public_key() </v>
-	<d>Normally an RSA or DSA public key, but handling of other public keys can be added.</d>
+	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
 
 	<v>Host = string()</v>
 	<d>Description of the host.</d>
 
 	<v>Algorithm = public_key_algorithm()</v>
-	<d>Host key algorithm. Is to support <c>'ssh-rsa'| 'ssh-dss'</c>, but more algorithms
-	can be handled.</d>
+	<d>Host key algorithm.</d>
 
 	<v>ConnectOptions = proplists:proplist() </v>
-	<d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>.</d>
+	<d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>. The option list given in
+	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
 
 	<v>Result = boolean()</v>
       </type>
@@ -110,15 +117,15 @@
 
     <func>
       <name>Module:user_key(Algorithm, ConnectOptions) ->
-      {ok,  PrivateKey}  | {error, Reason}</name>
+      {ok, PrivateKey}  | {error, Reason}</name>
       <fsummary>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</fsummary>
       <type>
 	<v>Algorithm = public_key_algorithm()</v>
-	<d>Host key algorithm. Is to support <c>'ssh-rsa'| 'ssh-dss'</c> but more algorithms
-	can be handled.</d>
+	<d>Host key algorithm.</d>
 
 	<v>ConnectOptions = proplists:proplist()</v>
-	<d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso></d>
+	<d>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>. The option list given in
+	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
 
 	<v>PrivateKey = private_key()</v>
 	<d>Private key of the user matching the <c>Algorithm</c>.</d>

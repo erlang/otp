@@ -811,7 +811,15 @@ extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Q}) ->
-    {#'ECPoint'{point=Q}, {namedCurve,OID}}.
+    {#'ECPoint'{point=Q}, {namedCurve,OID}};
+extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
+    case {Alg, crypto:privkey_to_pubkey(Alg, M)} of
+        {rsa, [E,N]} ->
+            #'RSAPublicKey'{modulus = N, publicExponent = E};
+        {dss, [P,Q,G,Y]} ->
+            {Y, #'Dss-Parms'{p=P, q=Q, g=G}}
+    end.
+
 
 
 verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
@@ -1261,16 +1269,24 @@ payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     <<Payload:PayloadLen/binary, _/binary>> = PayloadAndPadding,
     Payload.
 
+sign(SigData, HashAlg, #{algorithm:=dss} = Key) ->
+    mk_dss_sig(crypto:sign(dss, HashAlg, SigData, Key));
+sign(SigData, HashAlg, #{algorithm:=SigAlg} = Key) ->
+    crypto:sign(SigAlg, HashAlg, SigData, Key);
 sign(SigData, HashAlg,  #'DSAPrivateKey'{} = Key) ->
-    DerSignature = public_key:sign(SigData, HashAlg, Key),
-    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
-    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
+    mk_dss_sig(public_key:sign(SigData, HashAlg, Key));
 sign(SigData, HashAlg, Key = #'ECPrivateKey'{}) ->
     DerEncodedSign =  public_key:sign(SigData, HashAlg, Key),
     #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
     <<?Empint(R),?Empint(S)>>;
 sign(SigData, HashAlg, Key) ->
     public_key:sign(SigData, HashAlg, Key).
+
+
+mk_dss_sig(DerSignature) ->
+    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
+    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
+
 
 verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key) ->
     case Sig of
@@ -1822,6 +1838,8 @@ kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
       ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>.
 
 %%%----------------------------------------------------------------
+
+valid_key_sha_alg(#{engine:=_, key_id:=_}, _Alg) -> true; % Engine key
 
 valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
 valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-384') -> true;

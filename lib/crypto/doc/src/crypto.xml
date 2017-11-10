@@ -617,6 +617,21 @@
     </func>
 
     <func>
+      <name>privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey</name>
+      <fsummary>Fetches a public key from an Engine stored private key.</fsummary>
+      <type>
+	<v>Type = rsa | dss</v>
+	<v>EnginePrivateKeyRef = engine_key_ref()</v>
+	<v>PublicKey =  rsa_public() | dss_public()</v>
+      </type>
+      <desc>
+	<p>Fetches the corresponding public key from a private key stored in an Engine.
+	The key must be of the type indicated by the Type parameter.
+	</p>	
+      </desc>
+    </func>
+
+    <func>
       <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
