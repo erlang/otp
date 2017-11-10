@@ -43,10 +43,24 @@ all() ->
      unknown_engine,
      pre_command_fail_bad_value,
      pre_command_fail_bad_key,
-     failed_engine_init
+     failed_engine_init,
+     {group, engine_stored_key}
     ].
 
-init_per_suite(Config) ->    
+groups() ->
+    [{engine_stored_key, [],
+      [sign_verify_rsa,
+       sign_verify_dsa,
+       sign_verify_ecdsa,
+       sign_verify_rsa_pwd,
+       priv_encrypt_pub_decrypt_rsa,
+       priv_encrypt_pub_decrypt_rsa_pwd,
+       pub_encrypt_priv_decrypt_rsa,
+       pub_encrypt_priv_decrypt_rsa_pwd
+      ]}].
+
+
+init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
             Config;
@@ -59,9 +73,31 @@ end_per_suite(_Config) ->
     ok.
 
 %%--------------------------------------------------------------------
+init_per_group(engine_stored_key, Config) ->
+    case load_storage_engine(Config) of
+        {ok, E} ->
+            KeyDir = key_dir(Config),
+            [{storage_engine,E}, {storage_dir,KeyDir} | Config];
+        {error, notexist} ->
+            {skip, "OTP Test engine not found"};
+        {error, notsup} ->
+            {skip, "Engine not supported on this OpenSSL version"};
+        {error, bad_engine_id} ->
+            {skip, "Dynamic Engine not supported"};
+        Other ->
+            ct:log("Engine load failed: ~p",[Other]),
+            {fail, "Engine load failed"}
+    end;
 init_per_group(_Group, Config0) ->
     Config0.
 
+end_per_group(engine_stored_key, Config) ->
+    case proplists:get_value(storage_engine, Config) of
+        undefined ->
+            ok;
+        E ->
+            ok = crypto:engine_unload(E)
+    end;
 end_per_group(_, _) ->
     ok.
 
@@ -310,3 +346,141 @@ failed_engine_init(Config) when is_list(Config) ->
        error:notsup ->
           {skip, "Engine not supported on this OpenSSL version"}
    end.
+
+%%%----------------------------------------------------------------
+%%% Pub/priv key storage tests.  Thoose are for testing the crypto.erl
+%%% support for using priv/pub keys stored in an engine.
+
+sign_verify_rsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key.pem")},
+    sign_verify(rsa, sha, Priv, Pub).
+
+sign_verify_dsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "dsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "dsa_public_key.pem")},
+    sign_verify(dss, sha, Priv, Pub).
+
+sign_verify_ecdsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "ecdsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "ecdsa_public_key.pem")},
+    sign_verify(ecdsa, sha, Priv, Pub).
+
+sign_verify_rsa_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
+             password => "password"},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key_pwd.pem")},
+    sign_verify(rsa, sha, Priv, Pub).
+
+priv_encrypt_pub_decrypt_rsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key.pem")},
+    priv_enc_pub_dec(rsa, Priv, Pub,  rsa_pkcs1_padding).
+
+priv_encrypt_pub_decrypt_rsa_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
+             password => "password"},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key_pwd.pem")},
+    priv_enc_pub_dec(rsa, Priv, Pub,  rsa_pkcs1_padding).
+
+pub_encrypt_priv_decrypt_rsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key.pem")},
+    pub_enc_priv_dec(rsa, Pub, Priv,  rsa_pkcs1_padding).
+
+pub_encrypt_priv_decrypt_rsa_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem"),
+             password => "password"},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key.pem")},
+    pub_enc_priv_dec(rsa, Pub, Priv,  rsa_pkcs1_padding).
+
+%%%================================================================
+%%% Help for engine_stored_pub_priv_keys* test cases
+%%%
+load_storage_engine(_Config) ->
+    case crypto:get_test_engine() of
+        {ok, Engine} ->
+            try crypto:engine_load(<<"dynamic">>,
+                                   [{<<"SO_PATH">>, Engine},
+                                    <<"LOAD">>],
+                                   [])
+            catch
+                error:notsup ->
+                    {error, notsup}
+            end;
+
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+key_dir(Config) ->
+    DataDir = unicode:characters_to_binary(proplists:get_value(data_dir, Config)),
+    filename:join(DataDir, "pkcs8").
+
+
+engine_ref(Config) ->
+    proplists:get_value(storage_engine, Config).
+
+key_id(Config, File) ->
+    filename:join(proplists:get_value(storage_dir,Config), File).
+
+pubkey_alg_supported(Alg) ->
+    lists:member(Alg,
+                 proplists:get_value(public_keys, crypto:supports())).
+
+
+pub_enc_priv_dec(Alg, KeyEnc, KeyDec, Padding) ->
+    case pubkey_alg_supported(Alg) of
+        true ->
+            PlainText = <<"Hej på dig">>,
+            CryptoText = crypto:public_encrypt(Alg, PlainText, KeyEnc, Padding),
+            case crypto:private_decrypt(Alg, CryptoText, KeyDec, Padding) of
+                PlainText -> ok;
+                _ -> {fail, "Encrypt-decrypt error"}
+            end;
+        false ->
+            {skip, lists:concat([Alg," is not supported by cryptolib"])}
+    end.
+
+priv_enc_pub_dec(Alg, KeyEnc, KeyDec, Padding) ->
+    case pubkey_alg_supported(Alg) of
+        true ->
+            PlainText = <<"Hej på dig">>,
+            CryptoText = crypto:private_encrypt(Alg, PlainText, KeyEnc, Padding),
+            case crypto:public_decrypt(Alg, CryptoText, KeyDec, Padding) of
+                PlainText -> ok;
+                _ -> {fail, "Encrypt-decrypt error"}
+            end;
+        false ->
+            {skip, lists:concat([Alg," is not supported by cryptolib"])}
+    end.
+
+sign_verify(Alg, Sha, KeySign, KeyVerify) ->
+    case pubkey_alg_supported(Alg) of
+        true ->
+            PlainText = <<"Hej på dig">>,
+            Signature = crypto:sign(Alg, Sha, PlainText, KeySign),
+            case crypto:verify(Alg, Sha, PlainText, Signature, KeyVerify) of
+                true -> ok;
+                _ -> {fail, "Sign-verify error"}
+            end;
+        false ->
+            {skip, lists:concat([Alg," is not supported by cryptolib"])}
+    end.
