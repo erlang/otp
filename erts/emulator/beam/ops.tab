@@ -1565,7 +1565,12 @@ on_load
 #
 # R14A.
 #
-recv_mark f
+# Modified in OTP 21 because it turns out that we don't need the
+# label after all.
+#
+
+recv_mark f => i_recv_mark
+i_recv_mark
 
 recv_set Fail | label Lbl | loop_rec Lf Reg => \
    i_recv_set | label Lbl | loop_rec Lf Reg

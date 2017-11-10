@@ -43,27 +43,23 @@
 //  *
 //  */
 
-recv_mark(Dest) {
+i_recv_mark() {
     /*
-     * Save the current position in message buffer and the
-     * the label for the loop_rec/2 instruction for the
-     * the receive statement.
+     * Save the current position in message buffer.
      */
-    $SET_REL_I(c_p->msg.mark, $Dest);
     c_p->msg.saved_last = c_p->msg.last;
 }
 
 i_recv_set() {
     /*
-     * If the mark is valid (points to the loop_rec/2
-     * instruction that follows), we know that the saved
-     * position points to the first message that could
-     * possibly be matched out.
+     * If c_p->msg.saved_last is non-zero, it points to the first
+     * message that could possibly be matched out.
      *
-     * If the mark is invalid, we do nothing, meaning that
-     * we will look through all messages in the message queue.
+     * If c_p->msg.saved_last is zero, it means that it was invalidated
+     * because another receive was executed before this i_recv_set()
+     * instruction was reached.
      */
-    if (c_p->msg.mark == (BeamInstr *) ($NEXT_INSTRUCTION)) {
+    if (c_p->msg.saved_last) {
         c_p->msg.save = c_p->msg.saved_last;
     }
     SET_I($NEXT_INSTRUCTION);
@@ -131,6 +127,7 @@ i_loop_rec(Dest) {
             ASSERT(HTOP == c_p->htop && E == c_p->stop);
             /* TODO: Add DTrace probe for this bad message situation? */
             UNLINK_MESSAGE(c_p, msgp);
+            c_p->msg.saved_last = 0; /* Better safe than sorry. */
             msgp->next = NULL;
             erts_cleanup_messages(msgp);
             goto loop_rec__;

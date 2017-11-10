@@ -167,10 +167,9 @@ typedef struct {
     Sint len;            /* queue length */
 
     /*
-     * The following two fields are used by the recv_mark/1 and
+     * The following field is used by the recv_mark/1 and
      * recv_set/1 instructions.
      */
-    BeamInstr* mark;		/* address to rec_loop/2 instruction */
     ErtsMessage** saved_last;	/* saved last pointer */
 } ErlMessageQueue;
 
@@ -236,12 +235,17 @@ typedef struct erl_trace_message_queue__ {
      (p)->msg.len--; \
      if (__mp == NULL) \
          (p)->msg.last = (p)->msg.save; \
-     (p)->msg.mark = 0; \
 } while(0)
 
-/* Reset message save point (after receive match) */
-#define JOIN_MESSAGE(p) \
-     (p)->msg.save = &(p)->msg.first
+/*
+ * Reset message save point (after receive match).
+ * Also invalidate the saved position since it may no
+ * longer be safe to use.
+ */
+#define JOIN_MESSAGE(p) do {                    \
+    (p)->msg.save = &(p)->msg.first;            \
+    (p)->msg.saved_last = 0;                    \
+} while(0)
 
 /* Save current message */
 #define SAVE_MESSAGE(p) \

@@ -1454,6 +1454,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
 	    c_p->cp = 0;	/* To avoid keeping stale references. */
+            c_p->msg.saved_last = 0;  /* No longer safe to use this position */
 	    return new_pc;
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
