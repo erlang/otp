@@ -47,8 +47,10 @@ static void print_slot(Eterm *sp, unsigned int live)
     printf(" | 0x%0*lx | 0x%0*lx | ",
 	   2*(int)sizeof(long), (unsigned long)sp,
 	   2*(int)sizeof(long), val);
-    if (live)
+    if (live) {
+	fflush(stdout);
 	erts_printf("%.30T", val);
+    }
     printf("\r\n");
 }
 
@@ -68,7 +70,9 @@ void hipe_print_nstack(Process *p)
 	[0 ... 2*sizeof(long)+3] = '-'
     };
 
-    printf(" |      NATIVE  STACK      |\r\n");
+    printf(" | %*s NATIVE   STACK %*s |\r\n",
+	   2*(int)sizeof(long)-5, "",
+	   2*(int)sizeof(long)-4, "");
     printf(" |%s|%s|\r\n", dashes, dashes);
     printf(" | %*s | 0x%0*lx |\r\n",
 	   2+2*(int)sizeof(long), "heap",
