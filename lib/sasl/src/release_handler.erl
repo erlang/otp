@@ -1353,34 +1353,10 @@ do_reboot_old_release(#state{releases = Releases,
 		      Vsn) ->
     case lists:keysearch(Vsn, #release.vsn, Releases) of
 	{value, #release{erts_vsn = EVsn, status = old}} ->
-	    CurrentRunning = case os:type() of
-				 {win32,nt} ->
-				     %% Get the current release on NT
-				     case lists:keysearch(permanent, 
-							  #release.status,
-							  Releases) of
-					 false ->
-					     lists:keysearch(current,
-							     #release.status,
-							     Releases);
-					 {value,CR} ->
-					     CR
-				     end;
-				 _ ->
-				     false
-			     end,
 	    set_permanent_files(RelDir, EVsn, Vsn, Masters, Static),
 	    NewReleases = set_status(Vsn, permanent, Releases),
 	    write_releases(RelDir, NewReleases, Masters),
-	    case os:type() of
-		{win32,nt} ->
-		    %% Edit up the services and set a reasonable heart 
-		    %% command
-		    do_back_service(Vsn,CurrentRunning#release.vsn,EVsn,
-				   CurrentRunning#release.erts_vsn);
-		_ ->
-		    ok
-	    end,
+            maybe_handle_win32_nt_service(Releases, Vsn, EVsn),
 	    ok;
 	{value, #release{status = Status}} ->
 	    {error, {bad_status, Status}};
@@ -1394,39 +1370,42 @@ do_restart_new_release(#state{releases = Releases,
                       Vsn) ->
     case lists:keysearch(Vsn, #release.vsn, Releases) of
         {value, #release{erts_vsn = EVsn, status = unpacked}} ->
-            CurrentRunning = case os:type() of
+
+            set_permanent_files(RelDir, EVsn, Vsn, Masters, Static),
+            NewReleases = set_status(Vsn, permanent, Releases),
+            write_releases(RelDir, NewReleases, Masters),
+            maybe_handle_win32_nt_service(Releases, Vsn, EVsn),
+            ok;
+        {value, #release{status = Status}} ->
+            {error, {bad_status, Status}};
+        false ->
+            {error, {no_such_release, Vsn}}
+    end.
+
+maybe_handle_win32_nt_service(Releases, Vsn, EVsn) ->
+    case os:type() of
                                  {win32,nt} ->
                                      %% Get the current release on NT
-                                     case lists:keysearch(permanent,
+            case (case lists:keysearch(permanent,
                                                           #release.status,
                                                           Releases) of
                                          false ->
                                              lists:keysearch(current,
                                                              #release.status,
                                                              Releases);
-                                         {value,CR} ->
-                                             CR
-                                     end;
-                                 _ ->
-                                     false
-                             end,
-            set_permanent_files(RelDir, EVsn, Vsn, Masters, Static),
-            NewReleases = set_status(Vsn, permanent, Releases),
-            write_releases(RelDir, NewReleases, Masters),
-            case os:type() of
-                {win32,nt} ->
+                    Value ->
+                        Value
+                  end) of
+                false ->
+                    throw({error,no_current_release_for_service});
+                {value, CurrentRunning} ->
                     %% Edit up the services and set a reasonable heart
                     %% command
                     do_back_service(Vsn,CurrentRunning#release.vsn,EVsn,
-                                   CurrentRunning#release.erts_vsn);
+                                    CurrentRunning#release.erts_vsn)
+            end;
                 _ ->
                     ok
-            end,
-            ok;
-        {value, #release{status = Status}} ->
-            {error, {bad_status, Status}};
-        false ->
-            {error, {no_such_release, Vsn}}
     end.
 
 %%-----------------------------------------------------------------
