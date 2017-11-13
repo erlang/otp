@@ -1448,16 +1448,16 @@ beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpt
 	{ok,DebugInfo,Opts0} ->
 	    Opts1 = [O || O <- Opts0, effects_code_generation(O)],
 	    Chunks = [{<<"Dbgi">>, DebugInfo} | ExtraChunks],
-	    CompileInfo = compile_info(File, Opts1),
+	    CompileInfo = compile_info(File, CompilerOpts, Opts1),
 	    {ok,Code} = beam_asm:module(Code0, Chunks, CompileInfo, CompilerOpts),
 	    {ok,Code,St#compile{abstract_code=[]}};
 	{error,Es} ->
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
 
-compile_info(File, Opts) ->
-    IsSlim = member(slim, Opts),
-    IsDeterministic = member(deterministic, Opts),
+compile_info(File, CompilerOpts, Opts) ->
+    IsSlim = member(slim, CompilerOpts),
+    IsDeterministic = member(deterministic, CompilerOpts),
     Info0 = proplists:get_value(compile_info, Opts, []),
     Info1 =
 	case paranoid_absname(File) of
