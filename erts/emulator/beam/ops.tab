@@ -511,8 +511,6 @@ put_list y x x
 put_list y y x
 put_list x y x
 
-put_list y x x
-
 # put_list SrcReg Constant Dst
 
 put_list x c x

@@ -20,13 +20,12 @@
 //
 
 //
-// Use if there is a garbage collection before storing to a
-// general destination (either X or Y register).
+// Define a regular expression that will match instructions that
+// perform GC.  That will allow beam_makeops to check for instructions
+// that don't use $REFRESH_GEN_DEST() when they should.
 //
 
-REFRESH_GEN_DEST() {
-    dst_ptr = REG_TARGET_PTR(dst);
-}
+GC_REGEXP=erts_garbage_collect|erts_gc|GcBifFunction;
 
 // $Offset is relative to the start of the instruction (not to the
 // location of the failure label reference). Since combined

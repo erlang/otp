@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 use strict;
-use vars qw($BEAM_FORMAT_NUMBER);
+use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
@@ -36,6 +36,7 @@ use constant PACK_CMD_LOOSE => '3';
 use constant PACK_CMD_WIDE => '4';
 
 $BEAM_FORMAT_NUMBER = undef;
+$GC_REGEXP = undef;
 
 my $target = \&emulator_output;
 my $outdir = ".";		# Directory for output files.
@@ -76,6 +77,10 @@ my %gen_opnum;
 my %num_specific;
 my %gen_to_spec;
 my %specific_op;
+
+# The following hashes are used for error checking.
+my %print_name;
+my %specific_op_arity;
 
 # Information about each specific operator. Key is the print name (e.g. get_list_xxy).
 # Value is a hash.
@@ -131,7 +136,10 @@ my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
-# Defines the argument types and their loaded size assuming no packing.
+# Define the operand types and their loaded size assuming no packing.
+#
+# Those are the types that can be used in the definition of a specific
+# instruction.
 #
 my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'x' => 1,	# x(N), N > 0 - x register
@@ -154,10 +162,33 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'A' => 1,	# arity value
 		'P' => 1,	# byte offset into tuple or stack
 		'Q' => 1,	# like 'P', but packable
-		'h' => 1,	# character
+		'h' => 1,	# character (not used)
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
 	     );
+
+#
+# Define the types that may be used in a transformation rule.
+#
+# %pattern_type defines the types that may be used in a pattern
+# on the left side.
+#
+# %construction_type defines the types that may be used when
+# constructing a new instruction on the right side (a subset of
+# the pattern types that are possible to construct).
+#
+my $pattern_types = "acdfjilnopqsuxy";
+my %pattern_type;
+@pattern_type{split("", $pattern_types)} = (1) x length($pattern_types);
+
+my %construction_type;
+foreach my $type (keys %pattern_type) {
+    $construction_type{$type} = 1
+        if index($genop_types, $type) >= 0;
+}
+foreach my $makes_no_sense ('f', 'j', 'o', 'p', 'q') {
+    delete $construction_type{$makes_no_sense};
+}
 
 #
 # Generate bits.
@@ -194,7 +225,8 @@ sub define_type_bit {
     define_type_bit('S', $type_bit{'d'});
     define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
-    # Aliases (for matching purposes).
+    # Aliases of 'u'.  Those specify how to load the operand and
+    # what kind of packing can be done.
     define_type_bit('t', $type_bit{'u'});
     define_type_bit('I', $type_bit{'u'});
     define_type_bit('W', $type_bit{'u'});
@@ -279,9 +311,15 @@ if ($wordsize == 64) {
 # Add placeholders for built-in macros.
 #
 
-$c_code{'IS_PACKED'} = ['$Expr',"built-in macro",('Expr')];
-$c_code{'ARG_POSITION'} = ['$Expr',"built-in macro",('Expr')];
-foreach my $name (keys %c_code) {
+my %predef_macros =
+    (OPERAND_POSITION => ['Expr'],
+     IF => ['Expr','IfTrue','IfFalse'],
+     REFRESH_GEN_DEST => [],
+    );
+foreach my $name (keys %predef_macros) {
+    my @args = @{$predef_macros{$name}};
+    my $body = join(':', map { '$' . $_ } @args);
+    $c_code{$name} = [$body,"built-in macro",@args],
     $c_code_used{$name} = 1;
 }
 
@@ -359,8 +397,10 @@ while (<>) {
     #
     if (/^([\w_][\w\d_]+)=(.*)/) {
 	no strict 'refs';
-	my($name) = $1;
-	$$name = $2;
+	my $name = $1;
+        my $value = $2;
+        $value =~ s/;\s*$//;
+	$$name = $value;
 	next;
     }
 
@@ -1019,6 +1059,22 @@ sub parse_specific_op {
     my $key = "$name/$arity";
     foreach my $args_ref (@res) {
         @args = @$args_ref;
+        my $arity = @args;
+        my $loc = "$ARGV($.)";
+        if (defined $specific_op_arity{$name}) {
+            my($prev_arity,$loc) = @{$specific_op_arity{$name}};
+            if ($arity != $prev_arity) {
+                error("$name defined with arity $arity, " .
+                      "but previously defined with arity $prev_arity at $loc");
+            }
+        }
+        $specific_op_arity{$name} = [$arity,$loc];
+        my $print_name = print_name($name, @args);
+        if (defined $print_name{$print_name}) {
+            error("$name @args: already defined at " .
+                  $print_name{$print_name});
+        }
+        $print_name{$print_name} = $loc;
         push @{$specific_op{$key}}, [$name,$hotness,@args];
     }
 
@@ -1333,7 +1389,9 @@ sub cg_basic {
 #
 
 sub cg_combined_size {
-    my %params = (@_, pack_options => \@basic_pack_options);
+    my %params = (@_,
+                  pack_options => \@basic_pack_options,
+                  size_only => 1);
     $params{pack_options} = \@extended_pack_options
         if $params{first};
     my($size) = code_gen(%params);
@@ -1361,6 +1419,7 @@ sub code_gen {
     my %params = (extra_comments => '',
                   offset => 0,
                   inc => 0,
+                  size_only => 0,
                   @_);
     my $name = $params{name};
     my $extra_comments = $params{extra_comments};
@@ -1393,6 +1452,7 @@ sub code_gen {
 
     my $need_block = 0;
     my $arg_offset = $offset;
+    my $has_gen_dest = 0;
     @args = map { s/[?]$//g; $_ } @args;
     foreach (@args) {
 	my($this_size) = $arg_size{$_};
@@ -1403,6 +1463,7 @@ sub code_gen {
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
                 $this_size = $1;
+                $has_gen_dest = 1;
                 last SWITCH;
             };
 	    /^packed:[a-zA-z]:(\d):(.*)/ and do {
@@ -1435,6 +1496,7 @@ sub code_gen {
                 $var_decls .= "Eterm dst = " . arg_offset($arg_offset) . ";\n" .
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
+                $has_gen_dest = 1;
                 last SWITCH;
             };
             defined $arg_size{$_} and do {
@@ -1449,10 +1511,10 @@ sub code_gen {
     }
 
     #
-    # If the implementation is in beam_emu.c, there is nothing
-    # more to do.
+    # If the implementation is in beam_emu.c or if
+    # the caller only wants the size, we are done.
     #
-    unless (defined $c_code_ref) {
+    if (not defined $c_code_ref or $params{size_only}) {
         return ($size+1, undef, '');
     }
 
@@ -1517,7 +1579,34 @@ sub code_gen {
                     "{",
                     "$var_decls$body",
                     "}", "");
+
+    # Make sure that $REFRESH_GEN_DEST() is used when a
+    # general destination ('d') may have been clobbered by
+    # a GC.
+    my $gc_error = verify_gc_code($code, $has_gen_dest);
+    if (defined $gc_error) {
+        warn $gc_error;
+        error("... from the body of $name at $where");
+    }
+
+    # Done.
     ($size+1, $code, $pack_spec);
+}
+
+sub verify_gc_code {
+    my $code = shift;
+    my $has_gen_dest = shift;
+
+    return unless $has_gen_dest;
+
+    if ($code =~ /$GC_REGEXP/o) {
+        my $code_after_gc = substr($code, $+[0]);
+        unless ($code_after_gc =~ /dst_ptr = REG_TARGET_PTR/) {
+            return "pointer to destination register is invalid after GC -- " .
+                "use \$REFRESH_GEN_DEST()\n";
+        }
+    }
+    return undef;
 }
 
 sub arg_offset {
@@ -1619,17 +1708,26 @@ sub expand_macro {
     }
 
     # Handle built-in macros.
-    if ($name eq 'ARG_POSITION') {
+    if ($name eq 'OPERAND_POSITION') {
         if ($body =~ /^I\[(\d+)\]$/) {
             $body = $1;
         } else {
             $body = 0;
         }
-    } elsif ($name eq 'IS_PACKED') {
-        $body = ($body =~ /^I\[\d+\]$/) ? 0 : 1;
+    } elsif ($name eq 'IF') {
+        my $expr = $new_bindings{Expr};
+        my $bool = eval $expr;
+        if ($@ ne '') {
+            &error("bad expression '$expr' in \$IF()");
+        }
+        my $part = $bool ? 'IfTrue' : 'IfFalse';
+        $body = $new_bindings{$part};
+    } elsif ($name eq 'REFRESH_GEN_DEST') {
+        $body = "dst_ptr = REG_TARGET_PTR(dst)";
     }
 
-    # Wrap body if needed and return resul.t
+
+    # Wrap body if needed and return result.
     $body = "do {\n$body\n} while (0)"
         if needs_do_wrapper($body);
     ($body,$rest);
@@ -2156,12 +2254,19 @@ sub tr_parse_op {
     if (/^([a-z*]+)(.*)/) {
 	$type = $1;
 	$_ = $2;
+        error("$type: only a single type is allowed on right side of transformations")
+            if not $src and length($type) > 1;
 	foreach (split('', $type)) {
-	    error("bad type in $op")
-		unless defined $type_bit{$_} or $type eq '*';
-	    $_ eq 'r' and
-		error("$op: 'r' is not allowed in transformations")
-	}
+            next if $src and $type eq '*';
+            error("$op: not a type")
+                unless defined $type_bit{$_};
+            error("$op: the type '$_' is not allowed in transformations")
+                unless defined $pattern_type{$_};
+            if (not $src) {
+                error("$op: type '$_' is not allowed on the right side of transformations")
+                    unless defined $construction_type{$_};
+            }
+        }
     }
 
     # Get an optional condition. (In source.)
@@ -2194,10 +2299,18 @@ sub tr_parse_op {
     }
 
     # Get an optional value. (In destination.)
-    $type_val = $type eq 'x' ? 1023 : 0;
+    if ($type eq 'x') {
+        $type_val = 1023;
+    } elsif ($type eq 'a') {
+        $type_val = 'am_Empty';
+    } else {
+        $type_val = 0;
+    }
     if (/^=(.*)/) {
-	error("value not allowed in source: $op")
+	error("$op: value not allowed in source")
 	    if $src;
+        error("$op: the type 'n' must not be given a value")
+            if $type eq 'n';
 	$type_val = $1;
 	$_ = '';
     }
@@ -2207,13 +2320,16 @@ sub tr_parse_op {
     error("garbage '$_' after operand: $op")
 	unless /^\s*$/;
 
-    # Test that destination has no conditions.
+    # Check the conditions.
 
-    unless ($src) {
-	error("condition not allowed in destination: $op")
+    if ($src) {
+        error("$op: the type '$type' is not allowed to be compared with a literal value")
+            if $cond and not $construction_type{$type};
+    } else {
+	error("$op: condition not allowed in destination")
 	    if $cond;
-	error("variable name and type cannot be combined in destination: $op")
-	    if $var && $type;
+	error("$op: variable name and type cannot be combined in destination")
+	    if $var and $type;
     }
 
     ($var,$type,$type_val,$cond,$cond_val);
