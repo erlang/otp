@@ -4686,6 +4686,7 @@ info_cpool(Allctr_t *allctr,
     if (hpp || szp) {
 	res = NIL;
 
+      if (!sz_only) {
         add_3tup(hpp, szp, &res, am.fail_pooled,
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_pooled)),
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_pooled)));
@@ -4733,6 +4734,7 @@ info_cpool(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res,
 		 am.carriers_size,
 		 bld_unstable_uint(hpp, szp, csz));
+      }
 	if (!sz_only)
 	    add_2tup(hpp, szp, &res,
 		     am.carriers,
