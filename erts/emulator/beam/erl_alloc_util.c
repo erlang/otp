@@ -4746,9 +4746,6 @@ info_cpool(Allctr_t *allctr,
 	    add_2tup(hpp, szp, &res,
 		     am.blocks,
 		     bld_unstable_uint(hpp, szp, nob));
-        add_3tup(hpp, szp, &res, am.fetch,
-                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fetch)),
-                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fetch)));
     }
 
     return res;
