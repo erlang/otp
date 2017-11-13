@@ -3713,14 +3713,13 @@ memory_is_supported() ->
 
 get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
     get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([{_, _, _, _} | Rest], Acc) ->
-    get_blocks_size(Rest, Acc);
 get_blocks_size([{blocks_size, Sz} | Rest], Acc) ->
     get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([{_, _} | Rest], Acc) ->
+get_blocks_size([_ | Rest], Acc) ->
     get_blocks_size(Rest, Acc);
 get_blocks_size([], Acc) ->
     Acc.
+
 
 blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
 						     Carriers == mbcs_pool;
