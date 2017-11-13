@@ -208,7 +208,7 @@
 	engine := crypto:engine_ref(), key_id :=  crypto:key_id(), password => crypto:password()}</c></tag>
       <item><p>The DER-encoded user's private key or a map refering to a crypto
       engine and its key reference that optionally can be password protected,
-      seealso <seealso marker="crypto:engine_load-4"> crypto:engine_load/4
+      seealso <seealso marker="crypto:crypto#engine_load-4"> crypto:engine_load/4
       </seealso> and  <seealso marker="crypto:engine_load"> Crypto's Users Guide</seealso>. If this option 
       is supplied, it overrides option <c>keyfile</c>.</p></item>
       
