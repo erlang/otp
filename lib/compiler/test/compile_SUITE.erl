@@ -119,9 +119,19 @@ file_1(Config) when is_list(Config) ->
     true = exists(Target),
     passed = run(Target, test, []),
 
+    %% Test option 'deterministic' as a compiler attribute.
+    Det = deterministic_module,
+    {DetPath, DetTarget} = get_files(Config, Det, "det_target"),
+    {ok,Det,DetCode} = compile:file(DetPath, [binary]),
+    {module,Det} = code:load_binary(Det, "", DetCode),
+    [{version,_}] = Det:module_info(compile),
+    true = code:delete(Det),
+    false = code:purge(Det),
+
     %% Cleanup.
     ok = file:delete(Target),
     ok = file:del_dir(filename:dirname(Target)),
+    ok = file:del_dir(filename:dirname(DetTarget)),
 
     %% There should not be any messages in the messages.
     receive
