@@ -752,8 +752,8 @@ abort_write(B, What, Args, Reason) ->
     Opaque = B#backup_args.opaque,
     dbg_out("Failed to perform backup. M=~p:F=~p:A=~p -> ~p~n",
 	    [Mod, What, Args, Reason]),
-    try apply(Mod, abort_write, [Opaque]) of
-	{ok, _Res} -> throw({error, Reason})
+    try {ok, _Res} = apply(Mod, abort_write, [Opaque]) of
+        _ -> throw({error, Reason})
     catch _:Other ->
 	    error("Failed to abort backup. ~p:~p~p -> ~p~n",
 		  [Mod, abort_write, [Opaque], Other]),
