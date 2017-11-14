@@ -372,7 +372,7 @@ d2e({type,_,binary,[Base,Unit]}, _Prec) ->
     {integer,_,U} = erl_eval:partial_eval(Unit),
     #t_binary{base_size = B, unit_size = U};
 d2e({type,_,map,any}, _Prec) ->
-    #t_map{types = []};
+    #t_type{name = #t_name{name = map}, args = []};
 d2e({type,_,map,Es}, _Prec) ->
     #t_map{types = d2e(Es) };
 d2e({type,_,map_field_assoc,[K,V]}, Prec) ->
