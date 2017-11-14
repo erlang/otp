@@ -294,6 +294,8 @@ valfun_1({bs_context_to_binary,Ctx}, #vst{current=#st{x=Xs}}=Vst) ->
     end;
 valfun_1(bs_init_writable=I, Vst) ->
     call(I, 1, Vst);
+valfun_1(build_stacktrace=I, Vst) ->
+    call(I, 1, Vst);
 valfun_1({move,{y,_}=Src,{y,_}=Dst}, Vst) ->
     %% The stack trimming optimization may generate a move from an initialized
     %% but unassigned Y register to another Y register.

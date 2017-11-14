@@ -144,6 +144,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
+               in_try_head=false :: boolean(),  %In a try head.
                catch_scope = none               %Inside/outside try or catch
                    :: catch_scope()
               }).
@@ -312,6 +313,10 @@ format_error({unused_var, V}) ->
     io_lib:format("variable ~w is unused", [V]);
 format_error({variable_in_record_def,V}) ->
     io_lib:format("variable ~w in record definition", [V]);
+format_error({stacktrace_guard,V}) ->
+    io_lib:format("stacktrace variable ~w must not be used in a guard", [V]);
+format_error({stacktrace_bound,V}) ->
+    io_lib:format("stacktrace variable ~w must not be previously bound", [V]);
 %% --- binaries ---
 format_error({undefined_bittype,Type}) ->
     io_lib:format("bit type ~tw undefined", [Type]);
@@ -3218,11 +3223,11 @@ is_module_dialyzer_option(Option) ->
 
 try_clauses(Scs, Ccs, In, Vt, St0) ->
     {Csvt0,St1} = icrt_clauses(Scs, Vt, St0),
-    St2 = St1#lint{catch_scope=try_catch},
+    St2 = St1#lint{catch_scope=try_catch,in_try_head=true},
     {Csvt1,St3} = icrt_clauses(Ccs, Vt, St2),
     Csvt = Csvt0 ++ Csvt1,
     UpdVt = icrt_export(Csvt, Vt, In, St3),
-    {UpdVt,St3}.
+    {UpdVt,St3#lint{in_try_head=false}}.
 
 %% icrt_clauses(Clauses, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.
@@ -3239,12 +3244,29 @@ icrt_clauses(Cs, Vt, St) ->
     mapfoldl(fun (C, St0) -> icrt_clause(C, Vt, St0) end, St, Cs).
 
 icrt_clause({clause,_Line,H,G,B}, Vt0, #lint{catch_scope=Scope}=St0) ->
-    {Hvt,Binvt,St1} = head(H, Vt0, St0),
-    Vt1 = vtupdate(Hvt, Binvt),
-    {Gvt,St2} = guard(G, vtupdate(Vt1, Vt0), St1),
-    Vt2 = vtupdate(Gvt, Vt1),
-    {Bvt,St3} = exprs(B, vtupdate(Vt2, Vt0), St2),
-    {vtupdate(Bvt, Vt2),St3#lint{catch_scope=Scope}}.
+    Vt1 = taint_stack_var(Vt0, H, St0),
+    {Hvt,Binvt,St1} = head(H, Vt1, St0),
+    Vt2 = vtupdate(Hvt, Binvt),
+    Vt3 = taint_stack_var(Vt2, H, St0),
+    {Gvt,St2} = guard(G, vtupdate(Vt3, Vt0), St1#lint{in_try_head=false}),
+    Vt4 = vtupdate(Gvt, Vt2),
+    {Bvt,St3} = exprs(B, vtupdate(Vt4, Vt0), St2),
+    {vtupdate(Bvt, Vt4),St3#lint{catch_scope=Scope}}.
+
+taint_stack_var(Vt, Pat, #lint{in_try_head=true}) ->
+    [{tuple,_,[_,_,{var,_,Stk}]}] = Pat,
+    case Stk of
+        '_' ->
+            Vt;
+        _ ->
+            lists:map(fun({V,{bound,Used,Lines}}) when V =:= Stk ->
+                              {V,{stacktrace,Used,Lines}};
+                         (B) ->
+                              B
+                      end, Vt)
+    end;
+taint_stack_var(Vt, _Pat, #lint{in_try_head=false}) ->
+    Vt.
 
 icrt_export(Vts, Vt, {Tag,Attrs}, St) ->
     {_File,Loc} = loc(Attrs, St),
@@ -3484,6 +3506,9 @@ pat_var(V, Line, Vt, Bvt, St) ->
                     {[{V,{bound,used,Ls}}],[],
                      %% As this is matching, exported vars are risky.
                      add_warning(Line, {exported_var,V,From}, St)};
+                {ok,{stacktrace,_Usage,Ls}} ->
+                    {[{V,{bound,used,Ls}}],[],
+                     add_error(Line, {stacktrace_bound,V}, St)};
                 error when St#lint.recdef_top ->
                     {[],[{V,{bound,unused,[Line]}}],
                      add_error(Line, {variable_in_record_def,V}, St)};
@@ -3541,6 +3566,9 @@ expr_var(V, Line, Vt, St) ->
                 false ->
                     {[{V,{{export,From},used,Ls}}],St}
             end;
+        {ok,{stacktrace,_Usage,Ls}} ->
+            {[{V,{bound,used,Ls}}],
+             add_error(Line, {stacktrace_guard,V}, St)};
         error ->
             {[{V,{bound,used,[Line]}}],
              add_error(Line, {unbound_var,V}, St)}

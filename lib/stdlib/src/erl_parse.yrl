@@ -41,7 +41,7 @@ record_expr record_tuple record_field record_fields
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
-try_expr try_catch try_clause try_clauses
+try_expr try_catch try_clause try_clauses try_opt_stacktrace
 function_call argument_list
 exprs guard
 atomic strings
@@ -504,13 +504,15 @@ try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
 try_clause -> pat_expr clause_guard clause_body :
 	A = ?anno('$1'),
 	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,A,'_'}]}],'$2','$3'}.
-try_clause -> atom ':' pat_expr clause_guard clause_body :
+try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	{clause,A,[{tuple,A,['$1','$3',{var,A,'_'}]}],'$4','$5'}.
-try_clause -> var ':' pat_expr clause_guard clause_body :
+	{clause,A,[{tuple,A,['$1','$3',{var,A,'$4'}]}],'$5','$6'}.
+try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	{clause,A,[{tuple,A,['$1','$3',{var,A,'_'}]}],'$4','$5'}.
+	{clause,A,[{tuple,A,['$1','$3',{var,A,'$4'}]}],'$5','$6'}.
 
+try_opt_stacktrace -> ':' var : element(3, '$2').
+try_opt_stacktrace -> '$empty' : '_'.
 
 argument_list -> '(' ')' : {[],?anno('$1')}.
 argument_list -> '(' exprs ')' : {'$2',?anno('$1')}.

@@ -1186,7 +1186,8 @@ basic_type(unsafe_hd) -> not_analysed;
 basic_type(unsafe_tl) -> not_int;
 basic_type(#element{}) -> not_analysed;
 basic_type(#unsafe_element{}) -> not_analysed;
-basic_type(#unsafe_update_element{}) -> not_analysed.
+basic_type(#unsafe_update_element{}) -> not_analysed;
+basic_type(build_stacktrace) -> not_int.
 
 -spec analyse_bs_get_integer(integer(), integer(), boolean()) -> range_tuple().
 

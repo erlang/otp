@@ -1165,6 +1165,13 @@ resolve_inst({get_map_elements,Args0},_,_,_) ->
     {get_map_elements,FLbl,Src,{list,List}};
 
 %%
+%% OTP 21.
+%%
+
+resolve_inst({build_stacktrace,[]},_,_,_) ->
+    build_stacktrace;
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).

@@ -1656,6 +1656,11 @@ internal_cg(bs_init_writable=I, As, Rs, Le, Vdb, Bef, St) ->
     {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
     Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
     {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St};
+internal_cg(build_stacktrace=I, As, Rs, Le, Vdb, Bef, St) ->
+    %% This behaves like a function call.
+    {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
+    Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
+    {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St};
 internal_cg(raise, As, Rs, Le, Vdb, Bef, St) ->
     %% raise can be treated like a guard BIF.
     bif_cg(raise, As, Rs, Le, Vdb, Bef, St).

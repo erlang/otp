@@ -1159,6 +1159,11 @@ trans_fun([{put_map_exact,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) -
 	  gen_put_map_instrs(new, exact, TempMapVar, Dst, new, Pairs, Env1)
       end,
   [MapMove, TempMapMove, PutInstructions | trans_fun(Instructions, Env2)];
+%%--- build_stacktrace ---
+trans_fun([build_stacktrace|Instructions], Env) ->
+  Vars = [mk_var({x,0})], %{x,0} is implict arg and dst
+  [hipe_icode:mk_primop(Vars,build_stacktrace,Vars),
+   trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------

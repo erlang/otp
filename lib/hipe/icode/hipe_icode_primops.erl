@@ -132,6 +132,7 @@ is_safe({hipe_bs_primop, {bs_match_string, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_append, _, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_private_append, _, _}}) -> false;
 is_safe({hipe_bs_primop, bs_init_writable}) -> true;
+is_safe(build_stacktrace) -> true;
 is_safe(#mkfun{}) -> true;
 is_safe(#unsafe_element{}) -> true;
 is_safe(#unsafe_update_element{}) -> true;
@@ -234,6 +235,7 @@ fails({hipe_bs_primop, bs_final}) -> false;
 fails({hipe_bs_primop, {bs_append, _, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_private_append, _, _}}) -> true;
 fails({hipe_bs_primop, bs_init_writable}) -> true;
+fails(build_stacktrace) -> false;
 fails(#mkfun{}) -> false;
 fails(#unsafe_element{}) -> false;
 fails(#unsafe_update_element{}) -> false;
@@ -731,6 +733,8 @@ type(Primop, Args) ->
       erl_types:t_any();
     debug_native_called ->
       erl_types:t_any();
+    build_stacktrace ->
+      erl_types:t_list();
     {M, F, A} ->
       erl_bif_types:type(M, F, A, Args)
   end.
@@ -903,6 +907,8 @@ type(Primop) ->
       erl_types:t_any();
 %%% -----------------------------------------------------
 %%% Other
+    build_stacktrace ->
+      erl_types:t_any();
     #closure_element{} ->
       erl_types:t_any();
     redtest ->

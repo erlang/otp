@@ -920,8 +920,9 @@ try_exception(Ecs0, St0) ->
     %% Note that Tag is not needed for rethrow - it is already in Info.
     {Evs,St1} = new_vars(3, St0), % Tag, Value, Info
     {Ecs1,Ceps,St2} = clauses(Ecs0, St1),
+    Ecs2 = try_build_stacktrace(Ecs1, hd(Evs)),
     [_,Value,Info] = Evs,
-    LA = case Ecs1 of
+    LA = case Ecs2 of
 	     [] -> [];
 	     [C|_] -> get_lineno_anno(C)
 	 end,
@@ -930,7 +931,7 @@ try_exception(Ecs0, St0) ->
 		  body=[#iprimop{anno=#a{},       %Must have an #a{}
 				 name=#c_literal{val=raise},
 				 args=[Info,Value]}]},
-    Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
+    Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs2,fc=Ec}],
     {Evs,Ceps++Hs,St2}.
 
 try_after(As, St0) ->
@@ -945,6 +946,25 @@ try_after(As, St0) ->
 		  body=B},
     Hs = [#icase{anno=#a{},args=[c_tuple(Evs)],clauses=[],fc=Ec}],
     {Evs,Hs,St1}.
+
+try_build_stacktrace([#iclause{pats=Ps0,body=B0}=C0|Cs], RawStk) ->
+    [#c_tuple{es=[Class,Exc,Stk]}=Tup] = Ps0,
+    case Stk of
+        #c_var{name='_'} ->
+            %% Stacktrace variable is not used. Nothing to do.
+            [C0|try_build_stacktrace(Cs, RawStk)];
+        _ ->
+            %% Add code to build the stacktrace.
+            Ps = [Tup#c_tuple{es=[Class,Exc,RawStk]}],
+            Call = #iprimop{anno=#a{},
+                            name=#c_literal{val=build_stacktrace},
+                            args=[RawStk]},
+            Iset = #iset{var=Stk,arg=Call},
+            B = [Iset|B0],
+            C = C0#iclause{pats=Ps,body=B},
+            [C|try_build_stacktrace(Cs, RawStk)]
+    end;
+try_build_stacktrace([], _) -> [].
 
 %% expr_bin([ArgExpr], St) -> {[Arg],[PreExpr],St}.
 %%  Flatten the arguments of a bin. Do this straight left to right!

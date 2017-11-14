@@ -66,7 +66,8 @@
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
-         get_stacktrace/1, otp_14285/1, otp_14378/1]).
+         get_stacktrace/1, stacktrace_syntax/1,
+         otp_14285/1, otp_14378/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -87,7 +88,7 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     get_stacktrace, otp_14285, otp_14378].
+     get_stacktrace, stacktrace_syntax, otp_14285, otp_14378].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4128,6 +4129,40 @@ get_stacktrace(Config) ->
 
     run(Config, Ts),
     ok.
+
+stacktrace_syntax(Config) ->
+    Ts = [{guard,
+           <<"t1() ->
+                  try error(foo)
+                  catch _:_:Stk when is_number(Stk) -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{stacktrace_guard,'Stk'}}],[]}},
+          {bound,
+           <<"t1() ->
+                  Stk = [],
+                  try error(foo)
+                  catch _:_:Stk -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{4,erl_lint,{stacktrace_bound,'Stk'}}],[]}},
+          {guard_and_bound,
+           <<"t1() ->
+                  Stk = [],
+                  try error(foo)
+                  catch _:_:Stk when is_integer(Stk) -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{4,erl_lint,{stacktrace_bound,'Stk'}},
+                    {4,erl_lint,{stacktrace_guard,'Stk'}}],[]}}
+         ],
+
+    run(Config, Ts),
+    ok.
+
 
 %% Unicode atoms.
 otp_14285(Config) ->

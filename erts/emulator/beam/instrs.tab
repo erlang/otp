@@ -924,3 +924,8 @@ i_raise() {
     //| -no_next
 }
 
+build_stacktrace() {
+    SWAPOUT;
+    x(0) = build_stacktrace(c_p, x(0));
+    SWAPIN;
+}
