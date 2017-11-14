@@ -166,7 +166,8 @@ public class OtpLocalNode extends AbstractNode {
             refId[0] = 0;
 
             refId[1]++;
-            if (refId[1] == 0) {
+            if (refId[1] == Integer.MAX_VALUE) {
+                refId[1] = 0;
                 refId[2]++;
             }
         }
