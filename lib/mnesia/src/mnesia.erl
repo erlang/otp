@@ -2681,7 +2681,7 @@ del_table_index(Tab, Ix) ->
 
 -spec transform_table(Tab::table(), Fun, [Attr]) -> t_result(ok) when
       Attr :: atom(),
-      Fun:: fun((Record::tuple()) -> Transformed::tuple()).
+      Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA) ->
     try val({Tab, record_name}) of
 	OldRN -> mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
@@ -2692,7 +2692,7 @@ transform_table(Tab, Fun, NewA) ->
 -spec transform_table(Tab::table(), Fun, [Attr], RecName) -> t_result(ok) when
       RecName :: atom(),
       Attr :: atom(),
-      Fun:: fun((Record::tuple()) -> Transformed::tuple()).
+      Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA, NewRN) ->
     mnesia_schema:transform_table(Tab, Fun, NewA, NewRN).
 
