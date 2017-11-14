@@ -324,23 +324,32 @@ renegotiate_data(ConnectionHandler) ->
 %% Internal process state
 %%====================================================================
 -record(data, {
-	  starter                               :: pid(),
+	  starter                               :: pid()
+						 | undefined,
 	  auth_user                             :: string()
 						 | undefined,
 	  connection_state                      :: #connection{},
-	  latest_channel_id         = 0         :: non_neg_integer(),
+	  latest_channel_id         = 0         :: non_neg_integer()
+                                                 | undefined,
 	  idle_timer_ref                        :: undefined 
 						 | infinity
 						 | reference(),
 	  idle_timer_value          = infinity  :: infinity
 						 | pos_integer(),
-	  transport_protocol                    :: atom(),	% ex: tcp
-	  transport_cb                          :: atom(),	% ex: gen_tcp
-	  transport_close_tag                   :: atom(),	% ex: tcp_closed
-	  ssh_params                            :: #ssh{},
-	  socket                                :: inet:socket(),
-	  decrypted_data_buffer     = <<>>      :: binary(),
-	  encrypted_data_buffer     = <<>>      :: binary(),
+	  transport_protocol                    :: atom()
+                                                 | undefined,	% ex: tcp
+	  transport_cb                          :: atom()
+                                                 | undefined,	% ex: gen_tcp
+	  transport_close_tag                   :: atom()
+                                                 | undefined,	% ex: tcp_closed
+	  ssh_params                            :: #ssh{}
+                                                 | undefined,
+	  socket                                :: inet:socket()
+                                                 | undefined,
+	  decrypted_data_buffer     = <<>>      :: binary()
+                                                 | undefined,
+	  encrypted_data_buffer     = <<>>      :: binary()
+                                                 | undefined,
 	  undecrypted_packet_length             :: undefined | non_neg_integer(),
 	  key_exchange_init_msg                 :: #ssh_msg_kexinit{}
 						 | undefined,
