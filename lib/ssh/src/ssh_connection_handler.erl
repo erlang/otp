@@ -369,16 +369,17 @@ init_connection_handler(Role, Socket, Opts) ->
                                   StartState,
                                   D);
 
-        {stop, enotconn} ->
-	    %% Handles the abnormal sequence:
-	    %%    SYN->
-	    %%            <-SYNACK
-	    %%    ACK->
-	    %%    RST->
-	    exit({shutdown, "TCP connection to server was prematurely closed by the client"});
-        
-	{stop, OtherError} ->
-	    exit({shutdown, {init,OtherError}})
+        {stop, Error} ->
+            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+            C = #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
+                            sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                            connection_supervisor = proplists:get_value(connection_sup, Sups)
+                           },
+            gen_statem:enter_loop(?MODULE,
+                                  [],
+                                  {init_error,Error},
+                                  #data{connection_state=C,
+                                        socket=Socket})
     end.
 
 
@@ -530,6 +531,21 @@ renegotiation(_) -> false.
 
 callback_mode() ->
     handle_event_function.
+
+
+handle_event(_, _Event, {init_error,Error}, _) ->
+    case Error of
+        enotconn ->
+           %% Handles the abnormal sequence:
+           %%    SYN->
+           %%            <-SYNACK
+           %%    ACK->
+           %%    RST->
+            {stop, {shutdown,"TCP connenction to server was prematurely closed by the client"}};
+
+        OtherError ->
+            {stop, {shutdown,{init,OtherError}}}
+    end;
 
 %%% ######## {hello, client|server} ####
 %% The very first event that is sent when the we are set as controlling process of Socket
