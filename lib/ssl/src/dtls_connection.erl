@@ -247,7 +247,11 @@ callback_mode() ->
 %%--------------------------------------------------------------------
 %% State functions 
 %%--------------------------------------------------------------------
-
+%%--------------------------------------------------------------------
+-spec init(gen_statem:event_type(),
+	   {start, timeout()} | term(), #state{}) ->
+		   gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 init(enter, _, State) ->
     {keep_state, State};     
 init({call, From}, {start, Timeout}, 
@@ -292,7 +296,12 @@ init({call, _} = Type, Event, #state{role = server} = State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State#state{flight_state = reliable}, ?MODULE);
 init(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
- 
+
+%%--------------------------------------------------------------------
+-spec error(gen_statem:event_type(),
+	   {start, timeout()} | term(), #state{}) ->
+		   gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 error(enter, _, State) ->
     {keep_state, State};     
 error({call, From}, {start, _Timeout}, {Error, State}) ->
@@ -399,6 +408,10 @@ hello(state_timeout, Event, State) ->
 hello(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
+%%--------------------------------------------------------------------
+-spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 abbreviated(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
@@ -418,7 +431,10 @@ abbreviated(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
-
+%%--------------------------------------------------------------------
+-spec certify(gen_statem:event_type(), term(), #state{}) ->
+		     gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 certify(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
@@ -431,6 +447,10 @@ certify(state_timeout, Event, State) ->
 certify(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
+%%--------------------------------------------------------------------
+-spec cipher(gen_statem:event_type(), term(), #state{}) ->
+		    gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 cipher(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
@@ -451,6 +471,11 @@ cipher(state_timeout, Event, State) ->
 cipher(Type, Event, State) ->
      ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
+%%--------------------------------------------------------------------
+-spec connection(gen_statem:event_type(),  
+		 #hello_request{} | #client_hello{}| term(), #state{}) ->
+			gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 connection(enter, _, State) ->
     {keep_state, State};     
 connection(info, Event, State) ->
@@ -492,6 +517,10 @@ connection(Type, Event, State) ->
      ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%TODO does this make sense for DTLS ?
+%%--------------------------------------------------------------------
+-spec downgrade(gen_statem:event_type(), term(), #state{}) ->
+		       gen_statem:state_function_result().
+%%--------------------------------------------------------------------
 downgrade(enter, _, State) ->
     {keep_state, State};
 downgrade(Type, Event, State) ->
