@@ -497,16 +497,12 @@ int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
     return 1;
 }
 
-/* Called via standard_bif_interface_2 */
-BIF_RETTYPE nbif_impl_hipe_is_divisible(NBIF_ALIST_2)
+Uint hipe_is_divisible(Uint dividend, Uint divisor)
 {
-    /* Arguments are Eterm-sized unsigned integers */
-    Uint dividend = BIF_ARG_1;
-    Uint divisor = BIF_ARG_2;
     if (dividend % divisor) {
-	BIF_ERROR(BIF_P, BADARG);
+        return 0;
     } else {
-	return NIL;
+        return 1;
     }
 }
 

@@ -230,7 +230,10 @@ pp_arg(Dev, Arg) ->
 	  case hipe_icode:is_reg(Arg) of
 	    true ->
 	      N = hipe_icode:reg_name(Arg),
-	      io:format(Dev, "r~p", [N]);
+	      case hipe_icode:reg_is_gcsafe(Arg) of
+		true  -> io:format(Dev, "rs~p", [N]);
+		false -> io:format(Dev, "r~p", [N])
+	      end;
 	    false ->
 	      N = hipe_icode:fvar_name(Arg),
 	      io:format(Dev, "fv~p", [N])

@@ -77,6 +77,7 @@ print_var(#icode_variable{name=V, kind=Kind, annotation=T}) ->
   case Kind of
     var -> io:format("v~p", [V]);
     reg -> io:format("r~p", [V]);
+    reg_gcsafe -> io:format("rs~p", [V]);
     fvar -> io:format("fv~p", [V])
   end,
   case T of

@@ -182,41 +182,40 @@ delete_exprs(Code, _, _, []) ->
   Code;
 delete_exprs(Code, ExprMap, IdMap, [ExprId|Exprs]) ->
   Expr = expr_id_map_get_expr(IdMap, ExprId),
-  %% Perform a foldl that goes through the code and deletes all
-  %% occurences of the expression.
-  NewCode =
-    lists:reverse
-      (lists:foldl(fun(CodeExpr, Acc) ->
-                     case is_expr(CodeExpr) of
-                       true ->
-                         case expr_clear_dst(CodeExpr) =:= Expr of
-                           true ->
-                             pp_debug("  Deleting:         ", []),
-                             pp_debug_instr(CodeExpr),
-                             %% Lookup expression entry.
-                             Defines = 
-                               case expr_map_lookup(ExprMap, Expr) of
-                                 {value, {_, _, Defs}} -> 
-				   Defs;
-                                 none -> 
-                                   exit({?MODULE, expr_map_lookup,
-                                         "expression missing"})
-                               end,
-                             MoveCode = 
-                               mk_expr_move_instr(hipe_rtl:defines(CodeExpr),
-						  Defines),
-                             pp_debug("    Replacing with: ", []),
-                             pp_debug_instr(MoveCode),
-                             [MoveCode|Acc];
-                           false ->
-                             [CodeExpr|Acc]
-                         end;
-		       false ->
-                             [CodeExpr|Acc]
-                     end
-                   end, 
-		   [], Code)),
+  %% Lookup expression entry.
+  {value, {_, _, Defines}} = expr_map_lookup(ExprMap, Expr),
+  %% Go through the code and deletes all occurences of the expression.
+  NewCode = delete_expr(Code, Expr, Defines, []),
   delete_exprs(NewCode, ExprMap, IdMap, Exprs).
+
+delete_expr([], _Expr, _Defines, Acc) -> lists:reverse(Acc);
+delete_expr([CodeExpr|Code], Expr, Defines, Acc) ->
+  case exp_kill_expr(CodeExpr, [Expr]) of
+    [] -> % Expr was killed; deleting stops here
+      pp_debug("  Stopping before:  ", []),
+      pp_debug_instr(CodeExpr),
+      lists:reverse(Acc, [CodeExpr|Code]);
+    [Expr] ->
+      NewCodeExpr =
+        case is_expr(CodeExpr) of
+          true ->
+            case expr_clear_dst(CodeExpr) =:= Expr of
+              true ->
+                pp_debug("  Deleting:         ", []),
+                pp_debug_instr(CodeExpr),
+                MoveCode = mk_expr_move_instr(hipe_rtl:defines(CodeExpr),
+                                              Defines),
+                pp_debug("    Replacing with: ", []),
+                pp_debug_instr(MoveCode),
+                MoveCode;
+              false ->
+                CodeExpr
+            end;
+          false ->
+            CodeExpr
+        end,
+      delete_expr(Code, Expr, Defines, [NewCodeExpr|Acc])
+  end.
 
 %%=============================================================================
 %% Goes through the given list of expressions and inserts them at 
@@ -226,13 +225,12 @@ insert_exprs(CFG, _, _, _, _, BetweenMap, []) ->
 insert_exprs(CFG, Pred, Succ, ExprMap, IdMap, BetweenMap, [ExprId|Exprs]) ->
   Expr = expr_id_map_get_expr(IdMap, ExprId),
   Instr = expr_map_get_instr(ExprMap, Expr),
-  case hipe_rtl_cfg:succ(CFG, Pred) of
-    [_] ->
+  case try_insert_expr_last(CFG, Pred, Instr) of
+    {ok, NewCFG} ->
       pp_debug("  Inserted last: ", []),
       pp_debug_instr(Instr),
-      NewCFG = insert_expr_last(CFG, Pred, Instr),
       insert_exprs(NewCFG, Pred, Succ, ExprMap, IdMap, BetweenMap, Exprs);
-    _ ->
+    not_safe ->
       case hipe_rtl_cfg:pred(CFG, Succ) of
         [_] ->
 	  pp_debug("  Inserted first: ", []),
@@ -252,25 +250,31 @@ insert_exprs(CFG, Pred, Succ, ExprMap, IdMap, BetweenMap, [ExprId|Exprs]) ->
 %% Recursively goes through the code in a block and returns a new block
 %% with the new code inserted second to last (assuming the last expression
 %% is a branch operation).
-insert_expr_last(CFG0, Label, Instr) ->
-  Code0 = hipe_bb:code(hipe_rtl_cfg:bb(CFG0, Label)),
-  %% FIXME: Use hipe_bb:butlast() instead?
-  Code1 = insert_expr_last_work(Label, Instr, Code0),
-  hipe_rtl_cfg:bb_add(CFG0, Label, hipe_bb:mk_bb(Code1)).
+try_insert_expr_last(CFG0, Label, Instr) ->
+  case hipe_rtl_cfg:succ(CFG0, Label) of
+    [_] ->
+      Code0 = hipe_bb:code(hipe_rtl_cfg:bb(CFG0, Label)),
+      case insert_expr_last_work(Instr, Code0) of
+        not_safe -> not_safe;
+        Code1 ->
+          {ok, hipe_rtl_cfg:bb_add(CFG0, Label, hipe_bb:mk_bb(Code1))}
+      end;
+    _ -> not_safe
+  end.
 
 %%=============================================================================
 %% Recursively goes through the code in a block and returns a new block
 %% with the new code inserted second to last (assuming the last expression
 %% is a branch operation).
-insert_expr_last_work(_, Instr, []) ->
-  %% This case should not happen since this means that block was completely 
-  %% empty when the function was called. For compatibility we insert it last.
-  [Instr];
-insert_expr_last_work(_, Instr, [Code1]) ->
+insert_expr_last_work(_Instr, [#call{}]) ->
+  %% Call instructions clobber all expressions; we musn't insert the expression
+  %% before it
+  not_safe;
+insert_expr_last_work(Instr, [Code1]) ->
   %% We insert the code next to last.
   [Instr, Code1];
-insert_expr_last_work(Label, Instr, [Code|Codes]) ->
-  [Code|insert_expr_last_work(Label, Instr, Codes)].
+insert_expr_last_work(Instr, [Code|Codes]) ->
+  [Code|insert_expr_last_work(Instr, Codes)].
 
 %%=============================================================================
 %% Inserts expression first in the block for the given label.
@@ -305,7 +309,8 @@ insert_expr_between(CFG0, BetweenMap, Pred, Succ, Instr) ->
     {value, Label} ->
       pp_debug("    Using existing new bb for edge (~w,~w) with label ~w~n", 
 	       [Pred, Succ, Label]),
-      {insert_expr_last(CFG0, Label, Instr), BetweenMap}
+      {ok, NewCfg} = try_insert_expr_last(CFG0, Label, Instr),
+      {NewCfg, BetweenMap}
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

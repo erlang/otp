@@ -1740,7 +1740,10 @@ pp_reg(Dev, Arg) ->
     true ->
       pp_hard_reg(Dev, reg_index(Arg));
     false ->
-      io:format(Dev, "r~w", [reg_index(Arg)])
+      case reg_is_gcsafe(Arg) of
+        true -> io:format(Dev, "rs~w", [reg_index(Arg)]);
+        false -> io:format(Dev, "r~w", [reg_index(Arg)])
+      end
   end.
 
 pp_var(Dev, Arg) ->

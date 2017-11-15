@@ -69,9 +69,9 @@ cleanup_instr([Const|Left], I, Acc) ->
   case I of
     X when is_record(X, fp_unop) orelse is_record(X, fp) ->
       Fdst = hipe_rtl:mk_new_fpreg(),
-      Fconv = hipe_tagscheme:unsafe_untag_float(Fdst, Dst),		  
+      Fconv = lists:flatten(hipe_tagscheme:unsafe_untag_float(Fdst, Dst)),
       NewI = hipe_rtl:subst_uses([{Const, Fdst}], I),
-      cleanup_instr(Left, NewI, Fconv ++ [Load|Acc]);
+      cleanup_instr(Left, NewI, lists:reverse(Fconv, [Load|Acc]));
     _ ->
       NewI = hipe_rtl:subst_uses([{Const, Dst}], I),
       cleanup_instr(Left, NewI, [Load|Acc])

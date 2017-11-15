@@ -730,7 +730,7 @@ get_base(Orig,Base) ->
   [hipe_tagscheme:test_heap_binary(Orig, hipe_rtl:label_name(HeapLbl),
 				   hipe_rtl:label_name(REFCLbl)),
    HeapLbl,
-   hipe_rtl:mk_alu(Base, Orig, 'add', hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
+   hipe_tagscheme:get_field_addr_from_term({heap_bin, {data, 0}}, Orig, Base),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
    REFCLbl,
    get_field_from_term({proc_bin, flags}, Orig, Flags),
@@ -740,7 +740,7 @@ get_base(Orig,Base) ->
    WritableLbl,
    hipe_rtl:mk_call([], emasculate_binary, [Orig], [], [], 'not_remote'),
    NotWritableLbl,
-   hipe_rtl:mk_load(Base, Orig, hipe_rtl:mk_imm(?PROC_BIN_BYTES-2)),
+   get_field_from_term({proc_bin, bytes}, Orig, Base),
    EndLbl].
 
 extract_matchstate_var(binsize, Ms) ->
@@ -842,12 +842,12 @@ make_dyn_prep(SizeReg, CCode) ->
 %%------------------------------------------------------------------------
 
 get_unaligned_int(Dst1, Size, Base, Offset, Shiftr, Type, TrueLblName) ->
-  [Reg] = create_regs(1),
+  [Reg] = create_gcsafe_regs(1),
   [get_maybe_unaligned_int_to_reg(Reg, Size, Base, Offset, Shiftr, Type),
    do_bignum_code(Size, Type, Reg, Dst1, TrueLblName)].
 
 get_maybe_unaligned_int_to_reg(Reg, Size, Base, Offset, Shiftr, Type) ->
-  [LowBits] = create_regs(1),
+  [LowBits] = create_gcsafe_regs(1),
   [AlignedLbl, UnAlignedLbl, EndLbl] = create_lbls(3),
   [hipe_rtl:mk_alub(LowBits, Offset, 'and', hipe_rtl:mk_imm(?LOW_BITS),
 		    eq, hipe_rtl:label_name(AlignedLbl), 
@@ -1001,7 +1001,7 @@ do_bignum_code(Size, {Signedness,_}, Src, Dst1, TrueLblName)
     end.
 
 signed_bignum(Dst1, Src, TrueLblName) ->
-  Tmp1 = hipe_rtl:mk_new_reg(),
+  Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
   BignumLabel = hipe_rtl:mk_new_label(),
   [hipe_tagscheme:realtag_fixnum(Dst1, Src),
    hipe_tagscheme:realuntag_fixnum(Tmp1, Dst1),
