@@ -27,7 +27,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
--include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
 %%--------------------------------------------------------------------

@@ -22,7 +22,6 @@
 -module(httpd_load).
 
 -include("test_server.hrl").
--include("test_server_line.hrl").
 
 %% General testcases bodies called from httpd_SUITE
 -export([load_test/5]).

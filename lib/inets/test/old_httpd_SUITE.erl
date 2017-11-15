@@ -22,7 +22,6 @@
 -module(old_httpd_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
--include("test_server_line.hrl").
 -include("inets_test_lib.hrl").
 
 -include_lib("kernel/include/file.hrl").
