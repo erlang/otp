@@ -427,9 +427,11 @@ binary_to_term(_Binary) ->
     erlang:nif_error(undefined).
 
 %% binary_to_term/2
--spec binary_to_term(Binary, Opts) -> term() when
+-spec binary_to_term(Binary, Opts) -> term() | {term(), Used} when
       Binary :: ext_binary(),
-      Opts :: [safe].
+      Opt :: safe | used,
+      Opts :: [Opt],
+      Used :: pos_integer().
 binary_to_term(_Binary, _Opts) ->
     erlang:nif_error(undefined).
 

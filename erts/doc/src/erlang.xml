@@ -557,9 +557,7 @@ hello
       <name name="binary_to_term" arity="2"/>
       <fsummary>Decode an Erlang external term format binary.</fsummary>
       <desc>
-        <p>As <c>binary_to_term/1</c>, but takes options that affect decoding
-          of the binary.</p>
-        <p>Option:</p>
+        <p>As <c>binary_to_term/1</c>, but takes these options:</p>
         <taglist>
           <tag><c>safe</c></tag>
           <item>
@@ -575,18 +573,31 @@ hello
               creation of new external function references.
               None of those resources are garbage collected, so unchecked
               creation of them can exhaust available memory.</p>
+        <pre>
+> <input>binary_to_term(&lt;&lt;131,100,0,5,"hello">>, [safe]).</input>
+** exception error: bad argument
+> <input>hello.</input>
+hello
+> <input>binary_to_term(&lt;&lt;131,100,0,5,"hello">>, [safe]).</input>
+hello
+</pre>
+          </item>
+          <tag><c>used</c></tag>
+          <item>
+	    <p>Changes the return value to <c>{Term, Used}</c> where <c>Used</c>
+	    is the number of bytes actually read from <c>Binary</c>.</p>
+        <pre>
+> <input>Input = &lt;&lt;131,100,0,5,"hello","world">>.</input>
+&lt;&lt;131,100,0,5,104,101,108,108,111,119,111,114,108,100>>
+> <input>{Term, Used} = binary_to_term(Input, [used]).</input>
+{hello, 9}
+> <input>split_binary(Input, Used).</input>
+{&lt;&lt;131,100,0,5,104,101,108,108,111>>, &lt;&lt;"world">>}
+</pre>
           </item>
         </taglist>
         <p>Failure: <c>badarg</c> if <c>safe</c> is specified and unsafe
           data is decoded.</p>
-        <pre>
-> <input>binary_to_term(&lt;&lt;131,100,0,5,104,101,108,108,111>>, [safe]).</input>
-** exception error: bad argument
-> <input>hello.</input>
-hello
-> <input>binary_to_term(&lt;&lt;131,100,0,5,104,101,108,108,111>>, [safe]).</input>
-hello
-</pre>
         <p>See also
           <seealso marker="#term_to_binary/1"><c>term_to_binary/1</c></seealso>,
           <seealso marker="#binary_to_term/1">

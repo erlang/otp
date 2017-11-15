@@ -48,6 +48,7 @@
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, float_middle_endian/1,
+         b2t_used_big/1,
 	 external_size/1, t_iolist_size/1,
 	 t_hash/1,
 	 bad_size/1,
@@ -72,6 +73,7 @@ all() ->
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
      terms_float, float_middle_endian, external_size, t_iolist_size,
+     b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
@@ -425,39 +427,76 @@ bad_term_to_binary(Config) when is_list(Config) ->
 
 terms(Config) when is_list(Config) ->
     TestFun = fun(Term) ->
-		      try
-			  S = io_lib:format("~p", [Term]),
-			  io:put_chars(S)
-		      catch
-			  error:badarg ->
-			      io:put_chars("bit sized binary")
-		      end,
+                      S = io_lib:format("~p", [Term]),
+                      io:put_chars(S),
 		      Bin = term_to_binary(Term),
 		      case erlang:external_size(Bin) of
 			  Sz when is_integer(Sz), size(Bin) =< Sz ->
 			      ok
 		      end,
-              Bin1 = term_to_binary(Term, [{minor_version, 1}]),
-              case erlang:external_size(Bin1, [{minor_version, 1}]) of
-              Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
-                  ok
-              end,
+                      Bin1 = term_to_binary(Term, [{minor_version, 1}]),
+                      case erlang:external_size(Bin1, [{minor_version, 1}]) of
+                          Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
+                              ok
+                      end,
 		      Term = binary_to_term_stress(Bin),
 		      Term = binary_to_term_stress(Bin, [safe]),
-		      Unaligned = make_unaligned_sub_binary(Bin),
-		      Term = binary_to_term_stress(Unaligned),
-		      Term = binary_to_term_stress(Unaligned, []),
-		      Term = binary_to_term_stress(Bin, [safe]),
+                      Bin_sz = byte_size(Bin),
+		      {Term,Bin_sz} = binary_to_term_stress(Bin, [used]),
+
+                      BinE = <<Bin/binary, 1, 2, 3>>,
+		      {Term,Bin_sz} = binary_to_term_stress(BinE, [used]),
+
+		      BinU = make_unaligned_sub_binary(Bin),
+		      Term = binary_to_term_stress(BinU),
+		      Term = binary_to_term_stress(BinU, []),
+		      Term = binary_to_term_stress(BinU, [safe]),
+		      {Term,Bin_sz} = binary_to_term_stress(BinU, [used]),
+
+                      BinUE = make_unaligned_sub_binary(BinE),
+		      {Term,Bin_sz} = binary_to_term_stress(BinUE, [used]),
+
 		      BinC = erlang:term_to_binary(Term, [compressed]),
+                      BinC_sz = byte_size(BinC),
+		      true = BinC_sz =< size(Bin),
 		      Term = binary_to_term_stress(BinC),
-		      true = size(BinC) =< size(Bin),
+		      {Term, BinC_sz} = binary_to_term_stress(BinC, [used]),
+
 		      Bin = term_to_binary(Term, [{compressed,0}]),
 		      terms_compression_levels(Term, size(Bin), 1),
-		      UnalignedC = make_unaligned_sub_binary(BinC),
-		      Term = binary_to_term_stress(UnalignedC)
+
+		      BinUC = make_unaligned_sub_binary(BinC),
+		      Term = binary_to_term_stress(BinUC),
+                      {Term,BinC_sz} = binary_to_term_stress(BinUC, [used]),
+
+                      BinCE = <<BinC/binary, 1, 2, 3>>,
+		      {Term,BinC_sz} = binary_to_term_stress(BinCE, [used]),
+
+		      BinUCE = make_unaligned_sub_binary(BinCE),
+		      Term = binary_to_term_stress(BinUCE),
+                      {Term,BinC_sz} = binary_to_term_stress(BinUCE, [used])
 	      end,
     test_terms(TestFun),
     ok.
+
+%% Test binary_to_term(_, [used]) returning a big Used integer.
+b2t_used_big(_Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            {skipped, "This is not a 32-bit machine"};
+        4 ->
+            %% Use a long utf8 atom for large external format but compact on heap.
+            BigAtom = binary_to_atom(<< <<16#F0908D88:32>> || _ <- lists:seq(1,255) >>,
+                                     utf8),
+            Atoms = (1 bsl 17) + (1 bsl 9),
+            BigAtomList = lists:duplicate(Atoms, BigAtom),
+            BigBin = term_to_binary(BigAtomList),
+            {BigAtomList, Used} = binary_to_term(BigBin, [used]),
+            2 = erts_debug:size(Used),
+            Used = byte_size(BigBin),
+            Used = 1 + 1 + 4 + Atoms*(1+2+4*255) + 1,
+            ok
+    end.
 
 terms_compression_levels(Term, UncompressedSz, Level) when Level < 10 ->
     BinC = erlang:term_to_binary(Term, [{compressed,Level}]),
