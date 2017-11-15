@@ -60,8 +60,8 @@
 -define(uint16(X), << ?UINT16(X) >> ).
 -define(uint32(X), << ?UINT32(X) >> ).
 -define(uint64(X), << ?UINT64(X) >> ).
--define(string(X), << ?STRING(list_to_binary(X)) >> ).
 -define(string_utf8(X), << ?STRING(unicode:characters_to_binary(X)) >> ).
+-define(string(X), ?string_utf8(X)).
 -define(binary(X), << ?STRING(X) >>).
 
 -define(SSH_CIPHER_NONE, 0).
