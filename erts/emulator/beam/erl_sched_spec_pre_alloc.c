@@ -161,7 +161,7 @@ enqueue_remote_managed_thread(erts_sspa_chunk_header_t *chdr,
 	    if ((i & 1) == 0)
 		itmp = itmp2;
 	    else {
-		enq = (erts_sspa_blk_t *) itmp;
+		enq = (erts_sspa_blk_t *) itmp2;
 		itmp = erts_atomic_read_acqb(&enq->next_atmc);
 		ASSERT(itmp != ERTS_AINT_NULL);
 	    }
