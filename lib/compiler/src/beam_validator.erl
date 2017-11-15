@@ -899,9 +899,9 @@ verify_call_match_context(Lbl, #vst{ft=Ft}) ->
 	    error({binary_and_context_regs_different,Bin,Ctx})
     end.
 
-allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
+allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
     verify_live(Live, Vst0),
-    Vst = prune_x_regs(Live, Vst0),
+    Vst = #vst{current=St} = prune_x_regs(Live, Vst0),
     Ys = init_regs(Stk, case Zero of 
 			    true -> initialized;
 			    false -> uninitialized
