@@ -3480,7 +3480,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     goto done;
 }
 
-BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
 {
     DistEntry* dep;
     Uint32 conn_id;
@@ -3580,7 +3580,7 @@ static Sint abort_connection(DistEntry* dep, Uint32 conn_id)
     return 0;
 }
 
-BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_abort_connection_2(BIF_ALIST_2)
 {
     DistEntry* dep;
     Eterm* tp;

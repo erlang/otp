@@ -456,7 +456,7 @@ handle_call({passive_cnct, Node}, From, State) ->
     verbose({passive_cnct, Node}, 1, State),
     Type = normal,
     WaitForBarred = true,
-    R = case (catch erlang:new_connection_id(Node)) of
+    R = case (catch erts_internal:new_connection(Node)) of
             {Nr,_DHandle}=ConnId when is_integer(Nr) ->
                 do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
 
@@ -477,7 +477,7 @@ handle_call({connect, _, Node, _, _}, From, State) when Node =:= node() ->
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     ConnLookup = ets:lookup(sys_dist, Node),
-    R = case (catch erlang:new_connection_id(Node)) of
+    R = case (catch erts_internal:new_connection(Node)) of
             {Nr,_DHandle}=ConnId when is_integer(Nr) ->
                 do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State);
                     
@@ -708,7 +708,7 @@ handle_info({auto_connect,Node, Nr, DHandle}, State) ->
                 S;
 
             {reply, false, S} -> %% Connection refused
-                erlang:abort_connection_id(Node, ConnId),
+                erts_internal:abort_connection(Node, ConnId),
                 S
         end,
     {noreply, NewState};
@@ -793,7 +793,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
 	_ ->
-            case (catch erlang:new_connection_id(Node)) of
+            case (catch erts_internal:new_connection(Node)) of
                 {Nr,_DHandle}=ConnId when is_integer(Nr) ->
                     ets:insert(sys_dist, #connection{node = Node,
                                                      conn_id = ConnId,
@@ -995,7 +995,7 @@ pending_nodedown(Conn, Node, Type, State) ->
     % Don't bar connections that have never been alive
     %mark_sys_dist_nodedown(Node),
     % - instead just delete the node:
-    erlang:abort_connection_id(Node, Conn#connection.conn_id),
+    erts_internal:abort_connection(Node, Conn#connection.conn_id),
     ets:delete(sys_dist, Node),
     reply_waiting(Node,Conn#connection.waiting, false),
     case Type of
@@ -1010,9 +1010,9 @@ up_pending_nodedown(Conn, Node, _Reason, _Type, State) ->
     AcceptPid = Conn#connection.pending_owner,
     Owners = State#state.conn_owners,
     Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
-    erlang:abort_connection_id(Node, Conn#connection.conn_id),    
+    erts_internal:abort_connection(Node, Conn#connection.conn_id),
     Conn1 = Conn#connection { owner = AcceptPid,
-                              conn_id = erlang:new_connection_id(Node),
+                              conn_id = erts_internal:new_connection(Node),
 			      pending_owner = undefined,
 			      state = pending },
     ets:insert(sys_dist, Conn1),
@@ -1029,7 +1029,7 @@ up_nodedown(Conn, Node, _Reason, Type, State) ->
     State.
 
 mark_sys_dist_nodedown(Conn, Node) ->
-    erlang:abort_connection_id(Node, Conn#connection.conn_id),
+    erts_internal:abort_connection(Node, Conn#connection.conn_id),
     case application:get_env(kernel, dist_auto_connect) of
 	{ok, once} ->
 	    ets:insert(sys_dist, #barred_connection{node = Node});

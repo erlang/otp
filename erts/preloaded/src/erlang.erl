@@ -164,8 +164,6 @@
 -export([registered/0, resume_process/1, round/1, self/0]).
 -export([seq_trace/2, seq_trace_print/1, seq_trace_print/2, setnode/2]).
 -export([setnode/3, size/1, spawn/3, spawn_link/3, split_binary/2]).
--export([new_connection_id/1]).
--export([abort_connection_id/2]).
 -export([suspend_process/2, system_monitor/0]).
 -export([system_monitor/1, system_monitor/2, system_profile/0]).
 -export([system_profile/2, throw/1, time/0, trace/3, trace_delivered/1]).
@@ -1661,20 +1659,6 @@ setnode(_P1, _P2) ->
       P2 :: port(),
       P3 :: {term(), term(), term(), term()}.
 setnode(_P1, _P2, _P3) ->
-    erlang:nif_error(undefined).
-
-%% new_connection_id/1
--spec erlang:new_connection_id(Node) -> ConnId when
-      Node :: atom(),
-      ConnId :: {integer(), dist_handle()}.
-new_connection_id(_Node) ->
-    erlang:nif_error(undefined).
-
-%% abort_connection_id/2
--spec erlang:abort_connection_id(Node, ConnId) -> boolean() when
-      Node :: atom(),
-      ConnId :: {integer(), dist_handle()}.
-abort_connection_id(_Node, _ConnId) ->
     erlang:nif_error(undefined).
 
 %% size/1
