@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 6.0.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fail labels on guard BIFs weren't taken into account
+	    during an optimization pass, and a bug in the validation
+	    pass sometimes prevented this from being noticed when a
+	    fault occurred.</p>
+          <p>
+	    Own Id: OTP-14522 Aux Id: ERIERL-48 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 6.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

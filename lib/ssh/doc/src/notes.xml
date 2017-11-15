@@ -30,6 +30,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

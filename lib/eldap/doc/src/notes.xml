@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc building environment updates</p>
+          <p>
+	    Own Id: OTP-14765</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
