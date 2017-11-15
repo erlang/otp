@@ -1274,8 +1274,11 @@ static dsize_t I_bxor(ErtsDigit* x, dsize_t xl, short xsgn,
 		*r++ = ~c ^ *y++;
 		x++;
 	    }
-	    while(xl--)
-		*r++ = ~*x++;
+	    while(xl--) {
+		DSUBb(*x,0,b,c);
+		*r++ = ~c;
+		x++;
+	    }
 	}
 	else {
 	    ErtsDigit b1, b2;
@@ -1293,7 +1296,9 @@ static dsize_t I_bxor(ErtsDigit* x, dsize_t xl, short xsgn,
 		x++; y++;
 	    }
 	    while(xl--) {
-		*r++ = *x++;
+                DSUBb(*x,0,b1,c1);
+		*r++ = c1;
+                x++;
 	    }
 	}
     }

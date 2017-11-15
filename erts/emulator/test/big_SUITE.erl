@@ -24,6 +24,7 @@
 	 init_per_group/2,end_per_group/2]).
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
 	 borders/1, negative/1, big_float_1/1, big_float_2/1,
+         bxor_2pow/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1]).
 
 %% Internal exports.
@@ -41,6 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,
      borders, negative, {group, big_float}, shift_limit_1,
+     bxor_2pow,
      powmod, system_limit, toobig, otp_6692].
 
 groups() -> 
@@ -424,3 +426,54 @@ loop2(X,Y,N,M) ->
     end,
     loop2(X,Y,N+1,M).
     
+
+%% ERL-450
+bxor_2pow(_Config) ->
+    IL = lists:seq(8*3, 8*16, 4),
+    JL = lists:seq(0, 64),
+    [bxor_2pow_1((1 bsl I), (1 bsl J))
+     || I <- IL, J <- JL],
+    ok.
+
+bxor_2pow_1(A, B) ->
+    for(-1,1, fun(Ad) ->
+                      for(-1,1, fun(Bd) ->
+                                        bxor_2pow_2(A+Ad, B+Bd),
+                                        bxor_2pow_2(-A+Ad, B+Bd),
+                                        bxor_2pow_2(A+Ad, -B+Bd),
+                                        bxor_2pow_2(-A+Ad, -B+Bd)
+                                end)
+              end).
+
+for(From, To, _Fun) when From > To ->
+    ok;
+for(From, To, Fun) ->
+    Fun(From),
+    for(From+1, To, Fun).
+
+bxor_2pow_2(A, B) ->
+    Correct = my_bxor(A, B),
+    case A bxor B of
+        Correct -> ok;
+        Wrong ->
+            io:format("~.16b bxor ~.16b\n", [A,B]),
+            io:format("Expected ~.16b\n", [Correct]),
+            io:format("Got      ~.16b\n", [Wrong]),
+            ct:fail({failed, 'bxor'})
+
+    end.
+
+%% Implement bxor without bxor
+my_bxor(A, B) ->
+    my_bxor(A, B, 0, 0).
+
+my_bxor(0, 0, _, Acc) -> Acc;
+my_bxor(-1, -1, _, Acc) -> Acc;
+my_bxor(-1, 0, N, Acc) -> (-1 bsl N) bor Acc; % sign extension
+my_bxor(0, -1, N, Acc) -> (-1 bsl N) bor Acc; % sign extension
+my_bxor(A, B, N, Acc0) ->
+    Acc1 = case (A band 1) =:= (B band 1) of
+               true -> Acc0;
+               false -> Acc0 bor (1 bsl N)
+          end,
+    my_bxor(A bsr 1, B bsr 1, N+1, Acc1).
