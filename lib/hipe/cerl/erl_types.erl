@@ -1877,6 +1877,7 @@ t_map_put(KV, Map, Opaques) ->
 
 %% Key and Value are *not* unopaqued, but the map is
 map_put(_, ?none, _) -> ?none;
+map_put(_, ?unit, _) -> ?none;
 map_put({Key, Value}, ?map(Pairs,DefK,DefV), Opaques) ->
   case t_is_none_or_unit(Key) orelse t_is_none_or_unit(Value) of
     true -> ?none;
@@ -1902,6 +1903,7 @@ t_map_update(KV, Map) ->
 -spec t_map_update({erl_type(), erl_type()}, erl_type(), opaques()) -> erl_type().
 
 t_map_update(_, ?none, _) -> ?none;
+t_map_update(_, ?unit, _) -> ?none;
 t_map_update(KV={Key, _}, M, Opaques) ->
   case t_is_subtype(t_atom('true'), t_map_is_key(Key, M, Opaques)) of
     false -> ?none;
@@ -1922,6 +1924,7 @@ t_map_get(Key, Map, Opaques) ->
 	    end).
 
 map_get(_, ?none) -> ?none;
+map_get(_, ?unit) -> ?none;
 map_get(Key, ?map(Pairs, DefK, DefV)) ->
   DefRes =
     case t_do_overlap(DefK, Key) of
@@ -1957,6 +1960,7 @@ t_map_is_key(Key, Map, Opaques) ->
 	    end).
 
 map_is_key(_, ?none) -> ?none;
+map_is_key(_, ?unit) -> ?none;
 map_is_key(Key, ?map(Pairs, DefK, _DefV)) ->
   case is_singleton_type(Key) of
     true ->
