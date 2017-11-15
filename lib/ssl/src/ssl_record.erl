@@ -53,10 +53,10 @@
 -type ssl_atom_version() :: tls_record:tls_atom_version().
 -type connection_states() :: term(). %% Map
 -type connection_state() :: term(). %% Map
-%%====================================================================
-%% Internal application API
-%%====================================================================
 
+%%====================================================================
+%% Connection state handling
+%%====================================================================
 
 %%--------------------------------------------------------------------
 -spec current_connection_state(connection_states(), read | write) ->
@@ -267,6 +267,9 @@ set_pending_cipher_state(#{pending_read := Read,
       pending_read => Read#{cipher_state => ServerState},
       pending_write => Write#{cipher_state => ClientState}}.
 
+%%====================================================================
+%% Compression
+%%====================================================================
 
 uncompress(?NULL, Data, CS) ->
     {Data, CS}.
@@ -281,6 +284,11 @@ compress(?NULL, Data, CS) ->
 %%--------------------------------------------------------------------
 compressions() ->
     [?byte(?NULL)].
+
+
+%%====================================================================
+%% Payload encryption/decryption
+%%====================================================================
 
 %%--------------------------------------------------------------------
 -spec cipher(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
