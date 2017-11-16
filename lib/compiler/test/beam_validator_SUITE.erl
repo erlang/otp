@@ -421,9 +421,9 @@ try_bin_opt(Mod) ->
     try
 	do_bin_opt(Mod)
     catch
-	Class:Error ->
+	Class:Error:Stk ->
 	    io:format("~p: ~p ~p\n~p\n",
-		      [Mod,Class,Error,erlang:get_stacktrace()]),
+		      [Mod,Class,Error,Stk]),
 	    error
     end.
 

@@ -222,9 +222,8 @@ do_ref_opt(Source, PrivDir) ->
 		    collect_recv_opt_instrs(Code)
 	end,
 	ok
-    catch Class:Error ->
-	    io:format("~s: ~p ~p\n~p\n",
-		      [Source,Class,Error,erlang:get_stacktrace()]),
+    catch Class:Error:Stk ->
+	    io:format("~s: ~p ~p\n~p\n", [Source,Class,Error,Stk]),
 	    error
     end.
 

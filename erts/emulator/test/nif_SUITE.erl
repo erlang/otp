@@ -2257,9 +2257,8 @@ nif_schedule(Config) when is_list(Config) ->
     {B,A} = call_nif_schedule(A, B),
     ok = try call_nif_schedule(1, 2)
 	 catch
-	     error:badarg ->
-		 [{?MODULE,call_nif_schedule,[1,2],_}|_] =
-		     erlang:get_stacktrace(),
+	     error:badarg:Stk ->
+		 [{?MODULE,call_nif_schedule,[1,2],_}|_] = Stk,
 		 ok
 	 end,
     ok.
@@ -2429,8 +2428,8 @@ nif_raise_exceptions(NifFunc) ->
                             erlang:apply(?MODULE,NifFunc,[Term]),
                             ct:fail({expected,Term})
                         catch
-                            error:Term ->
-                                [{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+                            error:Term:Stk ->
+                                [{?MODULE,NifFunc,[Term],_}|_] = Stk,
                                 ok
                         end
                 end, ok, ExcTerms).

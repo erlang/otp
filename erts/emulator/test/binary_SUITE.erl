@@ -1472,13 +1472,13 @@ error_after_yield(Type, M, F, AN, AFun, TrapFunc) ->
 					   apply(M, F, A),
 					   exit({unexpected_success, {M, F, A}})
 				       catch
-					   error:Type ->
+					   error:Type:Stk ->
 					       erlang:trace(self(),false,[running,{tracer,Tracer}]),
 					       %% We threw the exception from the native
 					       %% function we trapped to, but we want
 					       %% the BIF that originally was called
 					       %% to appear in the stack trace.
-					       [{M, F, A, _} | _] = erlang:get_stacktrace()
+					       [{M, F, A, _} | _] = Stk
 				       end
 			       end),
     receive

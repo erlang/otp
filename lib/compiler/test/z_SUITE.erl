@@ -54,8 +54,7 @@ do_loaded([{M,_}|Ms], E0) ->
 	    _ = M:module_info(functions),
 	    E0
 	catch
-	    C:Error ->
-		Stk = erlang:get_stacktrace(),
+	    C:Error:Stk ->
 		io:format("~p:~p\n~p\n", [C,Error,Stk]),
 		E0 + 1
 	end,

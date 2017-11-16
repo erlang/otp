@@ -2614,8 +2614,8 @@ rpc(Config, Fun) ->
                                 Result
                                     = try Fun() of
                                           Res -> Res
-                                      catch E:R ->
-                                              {'EXIT',E,R,erlang:get_stacktrace()}
+                                      catch E:R:Stk ->
+                                              {'EXIT',E,R,Stk}
                                       end,
                                 Self ! {Ref, Result}
                         end),
