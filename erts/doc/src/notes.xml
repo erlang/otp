@@ -2893,6 +2893,58 @@
 
 </section>
 
+<section><title>Erts 7.3.1.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix performance bug in pre-allocators that could cause
+	    them to permanently fall back on normal more expensive
+	    memory allocation. Pre-allocators are used for quick
+	    allocation of short lived meta data used by messages and
+	    other scheduled tasks. Bug exists since OTP_R15B02.</p>
+          <p>
+	    Own Id: OTP-14491</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in operator <c>bxor</c> causing erroneuos
+	    result when one operand is a big <em>negative</em>
+	    integer with the lowest <c>N*W</c> bits as zero and the
+	    other operand not larger than <c>N*W</c> bits. <c>N</c>
+	    is an integer of 1 or larger and <c>W</c> is 32 or 64
+	    depending on word size.</p>
+          <p>
+	    Own Id: OTP-14514</p>
+        </item>
+        <item>
+          <p>
+	    A timer internal bit-field used for storing scheduler id
+	    was too small. As a result, VM internal timer data
+	    structures could become inconsistent when using 1024
+	    schedulers on the system. Note that systems with less
+	    than 1024 schedulers are not effected by this bug.</p>
+          <p>
+	    This bug was introduced in ERTS version 7.0 (OTP 18.0).</p>
+          <p>
+	    Own Id: OTP-14548 Aux Id: OTP-11997, ERL-468 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>binary_to_term</c> and
+	    <c>binary_to_atom</c> that could cause VM crash.
+	    Typically happens when the last character of an UTF8
+	    string is in the range 128 to 255, but truncated to only
+	    one byte. Bug exists in <c>binary_to_term</c> since ERTS
+	    version 5.10.2 (OTP_R16B01) and <c>binary_to_atom</c>
+	    since ERTS version 9.0 (OTP-20.0).</p>
+          <p>
+	    Own Id: OTP-14590 Aux Id: ERL-474 </p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>Erts 7.3.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

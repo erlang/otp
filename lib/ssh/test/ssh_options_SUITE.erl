@@ -36,7 +36,9 @@
 	 id_string_no_opt_client/1, 
 	 id_string_no_opt_server/1, 
 	 id_string_own_string_client/1, 
+	 id_string_own_string_client_trail_space/1, 
 	 id_string_own_string_server/1, 
+	 id_string_own_string_server_trail_space/1, 
 	 id_string_random_client/1, 
 	 id_string_random_server/1, 
 	 max_sessions_sftp_start_channel_parallel/1, 
@@ -116,9 +118,11 @@ all() ->
      hostkey_fingerprint_check_list,
      id_string_no_opt_client,
      id_string_own_string_client,
+     id_string_own_string_client_trail_space,
      id_string_random_client,
      id_string_no_opt_server,
      id_string_own_string_server,
+     id_string_own_string_server_trail_space,
      id_string_random_server,
      {group, hardening_tests}
     ].
@@ -1035,6 +1039,19 @@ id_string_own_string_client(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+id_string_own_string_client_trail_space(Config) ->
+    {Server, _Host, Port} = fake_daemon(Config),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle "}], 1000),
+    receive
+	{id,Server,"SSH-2.0-Pelle \r\n"} ->
+	    ok;
+	{id,Server,Other} ->
+	    ct:fail("Unexpected id: ~s.",[Other])
+    after 5000 ->
+	    {fail,timeout}
+    end.
+
+%%--------------------------------------------------------------------
 id_string_random_client(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
     {error,_} = ssh:connect("localhost", Port, [{id_string,random}], 1000),
@@ -1061,6 +1078,12 @@ id_string_own_string_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,"Olle"}]),
     {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
+
+%%--------------------------------------------------------------------
+id_string_own_string_server_trail_space(Config) ->
+    {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,"Olle "}]),
+    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,"SSH-2.0-Olle \r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
