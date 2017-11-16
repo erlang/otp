@@ -52,6 +52,7 @@
 struct sock_list {
     struct sock_list *next;
     int fd;
+    int domain;
     int type;
     int protocol;
     struct sockaddr_in addr;
@@ -104,7 +105,8 @@ int parse_addr(addr, str)
     return 0;
 }
 
-struct sock_list *new_entry(type, argstr)
+struct sock_list *new_entry(domain, type, argstr)
+    int domain;
     int type;
     char *argstr;
 {
@@ -124,6 +126,14 @@ struct sock_list *new_entry(type, argstr)
     } else {
 	sle->arg = "-fd";
     }
+
+    if (domain == AF_ROUTE) {
+	sle->protocol = 0;
+	sle->type = type;
+	sle->domain = AF_ROUTE;
+	return sle;
+    }
+
     sle->type = type;
     switch (type) {
         case SOCK_RAW: {
@@ -135,11 +145,13 @@ struct sock_list *new_entry(type, argstr)
 		return NULL;
 	    }
 	    sle->protocol = pe->p_proto;
+	    sle->domain = domain;
 	    break;
 	}
         case SOCK_STREAM:
         case SOCK_DGRAM:
 	    sle->protocol = 0;
+	    sle->domain = domain;
 	    if (parse_addr(&sle->addr, argstr) < 0) {
 		free(sle);
 		return NULL;
@@ -152,7 +164,7 @@ struct sock_list *new_entry(type, argstr)
 int open_socket(sle)
     struct sock_list *sle;
 {
-    sle->fd = socket(AF_INET, sle->type, sle->protocol);
+    sle->fd = socket(sle->domain, sle->type, sle->protocol);
     if (sle->fd < 0) {
 	perror("socket");
 	return -1;
@@ -179,10 +191,10 @@ int main(argc, argv)
     int count = 0;
     int c;
 
-    while ((c = getopt(argc, argv, "s:d:r:")) != EOF)
+    while ((c = getopt(argc, argv, "s:d:r:z:")) != EOF)
 	switch (c) {
 	case 's':
-	    sltmp = new_entry(SOCK_STREAM, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_STREAM, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
@@ -191,7 +203,7 @@ int main(argc, argv)
 	    count++;
 	    break;
 	case 'd':
-	    sltmp = new_entry(SOCK_DGRAM, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_DGRAM, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
@@ -200,7 +212,25 @@ int main(argc, argv)
 	    count++;
 	    break;
 	case 'r':
-	    sltmp = new_entry(SOCK_RAW, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 'R':
+	    sltmp = new_entry(AF_INET6, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 'z':
+	    sltmp = new_entry(AF_ROUTE, SOCK_RAW, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
