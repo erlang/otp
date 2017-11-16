@@ -50,6 +50,7 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "erl_check_io.h"
+#include "erl_driver_global.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -2105,6 +2106,18 @@ erl_start(int argc, char **argv)
 				 "Invalid ets busy wait threshold: %s\n", arg);
 		    erts_usage();
 		}
+	    }
+	    else if (has_prefix("sctp_raw_ipv4", sub_param)) {
+		arg = get_arg(sub_param+13, argv[i+1], &i);
+		sctp_raw_ipv4 = atoi(arg);
+	    }
+	    else if (has_prefix("sctp_raw_ipv6", sub_param)) {
+		arg = get_arg(sub_param+13, argv[i+1], &i);
+		sctp_raw_ipv6 = atoi(arg);
+	    }
+	    else if (has_prefix("sctp_raw_route", sub_param)) {
+		arg = get_arg(sub_param+14, argv[i+1], &i);
+		sctp_raw_route = atoi(arg);
 	    }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);

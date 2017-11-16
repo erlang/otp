@@ -68,6 +68,7 @@
 
 
 #include "erl_driver.h"
+#include "erl_driver_global.h"
 
 /* The IS_SOCKET_ERROR macro below is used for portability reasons. While
    POSIX specifies that errors from socket-related system calls should be
@@ -485,6 +486,9 @@ static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif /* ifndef HAVE_USRSCTP */
 
 #ifdef HAVE_USRSCTP
+int sctp_raw_ipv4 = 0;
+int sctp_raw_ipv6 = 0;
+int sctp_raw_route = 0;
 static typeof(usrsctp_bindx) *p_sctp_bindx = NULL;
 static typeof(usrsctp_getladdrs) *p_sctp_getladdrs = NULL;
 static typeof(usrsctp_freeladdrs) *p_sctp_freeladdrs = NULL;
@@ -4339,13 +4343,14 @@ static int inet_init()
 		    p_sctp_freepaddrs = ptr;
 		} else
 		    usrsctp_available = 0;
+
 		if (usrsctp_available)
 		{
 		    inet_init_sctp();
 #ifdef SCTP_DEBUG 
-		    p_usrsctp_init(0, NULL, usrsctp_debug_printf);
+		    p_usrsctp_init(0, NULL, usrsctp_debug_printf, sctp_raw_ipv4, sctp_raw_ipv6, sctp_raw_route);
 #else
-		    p_usrsctp_init(0, NULL, NULL);
+		    p_usrsctp_init(0, NULL, NULL,sctp_raw_ipv4, sctp_raw_ipv6, sctp_raw_route);
 #endif
 		    drop_root_priv();
 		    usrsctp_init_socket_hash();
