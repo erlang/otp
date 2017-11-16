@@ -385,22 +385,24 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	if (!rp)
 	    goto done;
 	erts_smp_proc_lock(rp, rp_locks);
-	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
-	if (rlnk != NULL) {
-	    ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
-	    erts_destroy_link(rlnk);
-	}
-	n = ERTS_LINK_REFC(lnk);
-	for (i = 0; i < n; ++i) {
-	    Eterm tup;
-	    Eterm *hp;
-	    ErtsMessage *msgp;
+        if (!ERTS_PROC_IS_EXITING(rp)) {
+            rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
+            if (rlnk != NULL) {
+                ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
+                erts_destroy_link(rlnk);
+            }
+            n = ERTS_LINK_REFC(lnk);
+            for (i = 0; i < n; ++i) {
+                Eterm tup;
+                Eterm *hp;
+                ErtsMessage *msgp;
 
-	    msgp = erts_alloc_message_heap(rp, &rp_locks,
-					   3, &hp, &ohp);
-	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, rp_locks, msgp, tup, am_system);
-	}
+                msgp = erts_alloc_message_heap(rp, &rp_locks,
+                                               3, &hp, &ohp);
+                tup = TUPLE2(hp, am_nodedown, name);
+                erts_queue_message(rp, rp_locks, msgp, tup, am_system);
+            }
+        }
 	erts_smp_proc_unlock(rp, rp_locks);
     }
  done:
