@@ -890,9 +890,21 @@ premaster_secret(#server_dhe_psk_params{
 		    LookupFun) ->
     PremasterSecret = premaster_secret(PublicDhKey, PrivateDhKey, Params),
     psk_secret(IdentityHint, LookupFun, PremasterSecret);
+premaster_secret(#server_ecdhe_psk_params{
+		    hint = IdentityHint,
+                    dh_params = #server_ecdh_params{
+                                   public = ECServerPubKey}},
+		    PrivateEcDhKey,
+		    LookupFun) ->
+    PremasterSecret = premaster_secret(#'ECPoint'{point = ECServerPubKey}, PrivateEcDhKey),
+    psk_secret(IdentityHint, LookupFun, PremasterSecret);
 premaster_secret({rsa_psk, PSKIdentity}, PSKLookup, RSAPremasterSecret) ->
-    psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret).
-
+    psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret);
+premaster_secret(#client_ecdhe_psk_identity{
+		    identity =  PSKIdentity,
+		    dh_public = PublicEcDhPoint}, PrivateEcDhKey, PSKLookup) ->
+    PremasterSecret = premaster_secret(#'ECPoint'{point = PublicEcDhPoint}, PrivateEcDhKey),
+    psk_secret(PSKIdentity, PSKLookup, PremasterSecret).
 premaster_secret(#client_dhe_psk_identity{
 		    identity =  PSKIdentity,
 		    dh_public = PublicDhKey}, PrivateKey, #'DHParameter'{} = Params, PSKLookup) ->
@@ -1753,6 +1765,22 @@ dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
 		       signature = Signature};
+dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
+		 ?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
+		 ?BYTE(PointLen), ECPoint:PointLen/binary,
+		 _/binary>> = KeyStruct,
+	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, Version) ->
+    DHParams = #server_ecdh_params{
+                  curve = {namedCurve, tls_v1:enum_to_oid(CurveID)},
+                  public = ECPoint},
+    Params = #server_ecdhe_psk_params{
+                hint = IdentityHint,
+                dh_params = DHParams},
+    {BinMsg, HashSign, Signature} = dec_server_key_params(Len + 2 + PointLen + 4, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
 dec_server_key(<<?UINT16(NLen), N:NLen/binary,
 		 ?UINT16(GLen), G:GLen/binary,
 		 ?BYTE(SLen), S:SLen/binary,
@@ -2066,7 +2094,8 @@ filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc
       KeyExchange == ecdh_anon;
       KeyExchange == srp_anon;
       KeyExchange == psk;
-      KeyExchange == dhe_psk ->
+      KeyExchange == dhe_psk;
+      KeyExchange == ecdhe_psk ->
     %% In this case hashsigns is not used as the kexchange is anonaymous
     filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]).
 
@@ -2275,6 +2304,8 @@ advertises_ec_ciphers([{ecdh_rsa, _,_,_} | _]) ->
 advertises_ec_ciphers([{ecdhe_rsa, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([{ecdhe_psk, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).

@@ -1570,7 +1570,6 @@ certify_client_key_exchange(#client_dhe_psk_identity{} = ClientKey,
     PremasterSecret = 
 	ssl_handshake:premaster_secret(ClientKey, ServerDhPrivateKey, Params, PSKLookup),
     calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
-
 certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
 			    #state{diffie_hellman_keys = ServerEcDhPrivateKey,
 				   ssl_options =
@@ -1579,7 +1578,6 @@ certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
     PremasterSecret =
 	ssl_handshake:premaster_secret(ClientKey, ServerEcDhPrivateKey, PSKLookup),
     calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
-
 certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
 			    #state{private_key = Key,
 				   ssl_options = 
