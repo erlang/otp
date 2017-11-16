@@ -1985,39 +1985,26 @@ true</pre>
       <fsummary>Get the call stack back-trace of the last exception.</fsummary>
       <type name="stack_item"/>
       <desc>
-        <p>Gets the call stack back-trace (<em>stacktrace</em>) for an
-          exception that has just been caught
-	  in the calling process as a list of
-          <c>{<anno>Module</anno>,<anno>Function</anno>,<anno>Arity</anno>,<anno>Location</anno>}</c>
-          tuples. Field <c><anno>Arity</anno></c> in the first tuple can be the
-          argument list of that function call instead of an arity integer,
-          depending on the exception.</p>
+	<warning><p><c>erlang:get_stacktrace/0</c> is deprecated and will stop working
+	in a future release.</p></warning>
+      <p>Instead of using <c>erlang:get_stacktrace/0</c> to retrieve
+      the call stack back-trace, use the following syntax:</p>
+<pre>
+try Expr
+catch
+  Class:Reason:Stacktrace ->
+   {Class,Reason,Stacktrace}
+end</pre>
+        <p><c>erlang:get_stacktrace/0</c> retrieves the call stack back-trace
+        (<em>stacktrace</em>) for an exception that has just been
+        caught in the calling process as a list of
+        <c>{<anno>Module</anno>,<anno>Function</anno>,<anno>Arity</anno>,<anno>Location</anno>}</c>
+        tuples. Field <c><anno>Arity</anno></c> in the first tuple can
+        be the argument list of that function call instead of an arity
+        integer, depending on the exception.</p>
         <p>If there has not been any exceptions in a process, the
           stacktrace is <c>[]</c>. After a code change for the process,
           the stacktrace can also be reset to <c>[]</c>.</p>
-	<p><c>erlang:get_stacktrace/0</c> is only guaranteed to return
-	a stacktrace if called (directly or indirectly) from within the
-	scope of a <c>try</c> expression. That is, the following call works:</p>
-<pre>
-try Expr
-catch
-  C:R ->
-   {C,R,erlang:get_stacktrace()}
-end</pre>
-	<p>As does this call:</p>
-<pre>
-try Expr
-catch
-  C:R ->
-   {C,R,helper()}
-end
-
-helper() ->
-  erlang:get_stacktrace().</pre>
-
-        <warning><p>In a future release,
-        <c>erlang:get_stacktrace/0</c> will return <c>[]</c> if called
-        from outside a <c>try</c> expression.</p></warning>
         <p>The stacktrace is the same data as operator <c>catch</c>
           returns, for example:</p>
         <pre>
