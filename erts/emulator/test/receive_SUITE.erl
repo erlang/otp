@@ -25,14 +25,16 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-	 call_with_huge_message_queue/1,receive_in_between/1]).
+	 call_with_huge_message_queue/1,receive_in_between/1,
+         receive_opt_exception/1,receive_opt_recursion/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
-all() -> 
-    [call_with_huge_message_queue, receive_in_between].
+all() ->
+    [call_with_huge_message_queue, receive_in_between,
+     receive_opt_exception, receive_opt_recursion].
 
 call_with_huge_message_queue(Config) when is_list(Config) ->
     Pid = spawn_link(fun echo_loop/0),
@@ -111,6 +113,60 @@ call2(Pid, Msg) ->
 receive_one() ->
     receive
 	dummy -> ok
+    end.
+
+receive_opt_exception(_Config) ->
+    Recurse = fun() ->
+                      %% Overwrite with the same mark,
+                      %% and never consume it.
+                      ThrowFun = fun() -> throw(aborted) end,
+                      aborted = (catch do_receive_opt_exception(ThrowFun)),
+                      ok
+              end,
+    do_receive_opt_exception(Recurse),
+
+    %% Eat the second message.
+    receive
+        Ref when is_reference(Ref) -> ok
+    end.
+
+do_receive_opt_exception(Disturber) ->
+    %% Create a receive mark.
+    Ref = make_ref(),
+    self() ! Ref,
+    Disturber(),
+    receive
+        Ref ->
+            ok
+    after 0 ->
+            error(the_expected_message_was_not_there)
+    end.
+
+receive_opt_recursion(_Config) ->
+    Recurse = fun() ->
+                      %% Overwrite with the same mark,
+                      %% and never consume it.
+                      NoOp = fun() -> ok end,
+                      BlackHole = spawn(NoOp),
+                      expected = do_receive_opt_recursion(BlackHole, NoOp, true),
+                      ok
+              end,
+    do_receive_opt_recursion(self(), Recurse, false),
+    ok.
+
+do_receive_opt_recursion(Recipient, Disturber, IsInner) ->
+    Ref = make_ref(),
+    Recipient ! Ref,
+    Disturber(),
+    receive
+        Ref -> ok
+    after 0 ->
+            case IsInner of
+                true ->
+                    expected;
+                false ->
+                    error(the_expected_message_was_not_there)
+            end
     end.
 
 %%%
