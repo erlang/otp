@@ -230,7 +230,12 @@ $ <input>erl -sname foobar</input></pre>
           <item>
             <p>The tuple <c>{nodedown_reason, Reason}</c> is included in
               <c>InfoList</c> in <c>nodedown</c> messages.</p>
-            <p><c>Reason</c> can be any of the following:</p>
+            <p>
+	      <c>Reason</c> can, depending on which
+	      distribution module or process that is used be any term,
+	      but for the standard TCP distribution module it is
+	      any of the following:
+	    </p>
             <taglist>
               <tag><c>connection_setup_failed</c></tag>
               <item><p>The connection setup failed (after <c>nodeup</c>
