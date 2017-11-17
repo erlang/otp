@@ -587,9 +587,6 @@ terminate(Reason, StateName, State) ->
 format_status(Type, Data) ->
     ssl_connection:format_status(Type, Data).
 
-code_change(_OldVsn, StateName, State0, {Direction, From, To}) ->
-    State = convert_state(State0, Direction, From, To),
-    {ok, StateName, State};
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.
 
@@ -781,14 +778,3 @@ assert_buffer_sanity(Bin, _) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
                              malformed_handshake_data))
     end.  
-
-convert_state(#state{ssl_options = Options} = State, up, "5.3.5", "5.3.6") ->
-    State#state{ssl_options = convert_options_partial_chain(Options, up)};
-convert_state(#state{ssl_options = Options} = State, down, "5.3.6", "5.3.5") ->
-    State#state{ssl_options = convert_options_partial_chain(Options, down)}.
-
-convert_options_partial_chain(Options, up) ->
-    {Head, Tail} = lists:split(5, tuple_to_list(Options)),
-    list_to_tuple(Head ++ [{partial_chain, fun(_) -> unknown_ca end}] ++ Tail);
-convert_options_partial_chain(Options, down) ->
-    list_to_tuple(proplists:delete(partial_chain, tuple_to_list(Options))).
