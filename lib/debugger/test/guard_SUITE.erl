@@ -390,7 +390,7 @@ all_types() ->
      {atom, xxxx},
      {ref, make_ref()},
      {pid, self()},
-     {port, open_port({spawn, efile}, [])},
+     {port, make_port()},
      {function, fun(X) -> X+1, "" end},
      {binary, list_to_binary([])}].
 
@@ -434,6 +434,9 @@ type_test(binary, X) when binary(X) ->
     binary;
 type_test(function, X) when function(X) ->
     function.
+
+make_port() ->
+    hd(erlang:ports()).
 
 const_guard(Config) when is_list(Config) ->
     if

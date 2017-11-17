@@ -6369,7 +6369,7 @@ very_big_num(0, Result) ->
     Result.
 
 make_port() ->
-    open_port({spawn, "efile"}, [eof]).
+    hd(erlang:ports()).
 
 make_pid() ->
     spawn_link(fun sleeper/0).
