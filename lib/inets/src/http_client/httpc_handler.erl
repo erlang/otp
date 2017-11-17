@@ -109,7 +109,7 @@ start_link(Parent, Request, Options, ProfileName) ->
 %% to be called by the httpc manager process.
 %%--------------------------------------------------------------------
 send(Request, Pid) ->
-    call(Request, Pid, 5000).
+    call(Request, Pid).
 
 
 %%--------------------------------------------------------------------
@@ -712,12 +712,16 @@ do_handle_info({'EXIT', _, _}, State = #state{request = undefined}) ->
 do_handle_info({'EXIT', _, _}, State) ->
     {noreply, State#state{status = close}}.
     
-
 call(Msg, Pid) ->
-    call(Msg, Pid, infinity).
-
-call(Msg, Pid, Timeout) ->
-    gen_server:call(Pid, Msg, Timeout).
+    try gen_server:call(Pid, Msg)
+    catch
+ 	exit:{noproc, _} ->
+ 	    {error, closed};
+	exit:{normal, _} ->
+	    {error, closed};
+	exit:{{shutdown, _},_} ->
+	    {error, closed}
+    end.
 
 cast(Msg, Pid) ->
     gen_server:cast(Pid, Msg).

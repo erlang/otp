@@ -58,7 +58,7 @@ all() ->
 groups() ->
     [
      {http, [], real_requests()},
-     {sim_http, [], only_simulated()},
+     {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
      {misc, [], misc()}
@@ -119,7 +119,6 @@ only_simulated() ->
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
-     process_leak_on_keepalive,
      transfer_encoding,
      transfer_encoding_identity,
      redirect_loop,
