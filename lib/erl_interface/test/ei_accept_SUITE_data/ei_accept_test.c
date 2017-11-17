@@ -43,6 +43,7 @@
 #include "ei_runner.h"
 
 static void cmd_ei_connect_init(char* buf, int len);
+static void cmd_ei_publish(char* buf, int len);
 static void cmd_ei_accept(char* buf, int len);
 static void cmd_ei_receive(char* buf, int len);
 static void cmd_ei_unpublish(char* buf, int len);
@@ -58,6 +59,7 @@ static struct {
     void (*func)(char* buf, int len);
 } commands[] = {
     "ei_connect_init",  3, cmd_ei_connect_init,
+    "ei_publish", 	1, cmd_ei_publish,
     "ei_accept", 	1, cmd_ei_accept,
     "ei_receive",  	1, cmd_ei_receive,
     "ei_unpublish",     0, cmd_ei_unpublish
@@ -149,11 +151,10 @@ static int my_listen(int port)
     return listen_fd;
 }
 
-static void cmd_ei_accept(char* buf, int len)
+static void cmd_ei_publish(char* buf, int len)
 {
     int index = 0;
     int listen, r;
-    ErlConnect conn;
     long port;
     ei_x_buff x;
     int i;
@@ -170,6 +171,29 @@ static void cmd_ei_accept(char* buf, int len)
 #ifdef VXWORKS
     save_fd(i);
 #endif
+    /* send listen-fd, result and errno */
+    ei_x_new_with_version(&x);
+    ei_x_encode_tuple_header(&x, 3);
+    ei_x_encode_long(&x, listen);
+    ei_x_encode_long(&x, i);
+    ei_x_encode_long(&x, erl_errno);
+    send_bin_term(&x);
+    ei_x_free(&x);
+}
+
+static void cmd_ei_accept(char* buf, int len)
+{
+    int index = 0;
+    int r;
+    ErlConnect conn;
+    long listen;
+    ei_x_buff x;
+    int i;
+
+    /* get port */
+    if (ei_decode_long(buf, &index, &listen) < 0)
+	fail("expected int (listen fd)");
+
     r = ei_accept(&ec, listen, &conn);
 #ifdef VXWORKS
     save_fd(r);

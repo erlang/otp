@@ -57,11 +57,9 @@
  
 #define ERST_INTERNAL_CHANNEL_NO 0
 
-#define ERTS_DE_SFLG_CONNECTED			(((Uint32) 1) <<  0)
-#define ERTS_DE_SFLG_EXITING			(((Uint32) 1) <<  1)
-
-#define ERTS_DE_SFLGS_ALL			(ERTS_DE_SFLG_CONNECTED \
-						 | ERTS_DE_SFLG_EXITING)
+#define ERTS_DE_SFLG_PENDING			(((Uint32) 1) <<  0)
+#define ERTS_DE_SFLG_CONNECTED			(((Uint32) 1) <<  1)
+#define ERTS_DE_SFLG_EXITING			(((Uint32) 1) <<  2)
 
 #define ERTS_DE_QFLG_BUSY			(((erts_aint32_t) 1) <<  0)
 #define ERTS_DE_QFLG_EXIT			(((erts_aint32_t) 1) <<  1)
@@ -85,10 +83,12 @@ typedef struct ErtsDistOutputBuf_ ErtsDistOutputBuf;
 struct ErtsDistOutputBuf_ {
 #ifdef DEBUG
     Uint dbg_pattern;
+    byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;
     byte *extp;
     byte *ext_endp;
+    byte *msg_start;
     byte data[1];
 };
 
@@ -108,8 +108,6 @@ struct ErtsProcList_;
  *   Lock mutexes with lower numbers before mutexes with higher numbers and
  *   unlock mutexes with higher numbers before mutexes with higher numbers.
  */
-
-struct erl_link;
 
 typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
@@ -159,6 +157,8 @@ typedef struct dist_entry_ {
     struct cache* cache;	/* The atom cache */
 
     ErtsThrPrgrLaterOp later_op;
+
+    struct transcode_context* transcode_ctx;
 } DistEntry;
 
 typedef struct erl_node_ {
@@ -177,9 +177,11 @@ extern erts_rwmtx_t erts_node_table_rwmtx;
 
 extern DistEntry *erts_hidden_dist_entries;
 extern DistEntry *erts_visible_dist_entries;
+extern DistEntry *erts_pending_dist_entries;
 extern DistEntry *erts_not_connected_dist_entries;
 extern Sint erts_no_of_hidden_dist_entries;
 extern Sint erts_no_of_visible_dist_entries;
+extern Sint erts_no_of_pending_dist_entries;
 extern Sint erts_no_of_not_connected_dist_entries;
 
 extern DistEntry *erts_this_dist_entry;
@@ -195,6 +197,7 @@ void erts_schedule_delete_dist_entry(DistEntry *);
 Uint erts_dist_table_size(void);
 void erts_dist_table_info(fmtfn_t, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
+void erts_set_dist_entry_pending(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32);
 void erts_schedule_delete_node(ErlNode *);
@@ -210,6 +213,7 @@ int erts_lc_is_de_rlocked(DistEntry *);
 #endif
 int erts_dist_entry_destructor(Binary *bin);
 DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle);
+Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*);
 Eterm erts_make_dhandle(Process *c_p, DistEntry *dep);
 void erts_ref_dist_entry(DistEntry *dep);
 void erts_deref_dist_entry(DistEntry *dep);

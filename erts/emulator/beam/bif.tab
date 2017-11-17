@@ -153,13 +153,11 @@ bif erlang:whereis/1
 bif erlang:spawn_opt/1
 bif erlang:setnode/2
 bif erlang:setnode/3
-bif erlang:dist_exit/3
 bif erlang:dist_get_stat/1
 bif erlang:dist_ctrl_input_handler/2
 bif erlang:dist_ctrl_put_data/2
 bif erlang:dist_ctrl_get_data/1
 bif erlang:dist_ctrl_get_data_notification/1
-
 
 # Static native functions in erts_internal
 bif erts_internal:port_info/1
@@ -691,3 +689,11 @@ bif erts_internal:maps_to_list/2
 #
 
 bif erlang:iolist_to_iovec/1
+
+#
+# New in 21.0
+#
+
+bif erts_internal:new_connection/1
+bif erts_internal:abort_connection/2
+

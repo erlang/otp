@@ -45,6 +45,18 @@
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
+#define DFLAG_NO_MAGIC            0x100000
+
+/* Mandatory flags for distribution (sync with dist_util.erl) */
+#define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
+                              | DFLAG_EXTENDED_PIDS_PORTS       \
+			      | DFLAG_UTF8_ATOMS                \
+			      | DFLAG_NEW_FUN_TAGS)
+
+/* Additional optimistic flags when encoding toward pending connection */
+#define DFLAG_DIST_HOPEFULLY (DFLAG_NO_MAGIC                    \
+                              | DFLAG_EXPORT_PTR_TAG            \
+                              | DFLAG_BIT_BINARIES)
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -79,25 +91,19 @@
 #define DOP_SEND_SENDER_TT      23
 
 /* distribution trap functions */
-extern Export* dsend2_trap;
-extern Export* dsend3_trap;
-extern Export* dlink_trap;
-extern Export* dunlink_trap;
 extern Export* dmonitor_node_trap;
-extern Export* dgroup_leader_trap;
-extern Export* dexit_trap;
 extern Export* dmonitor_p_trap;
 
 typedef enum {
     ERTS_DSP_NO_LOCK,
-    ERTS_DSP_RLOCK,
-    ERTS_DSP_RWLOCK
+    ERTS_DSP_RLOCK
 } ErtsDSigPrepLock;
 
 
 typedef struct {
     Process *proc;
     DistEntry *dep;
+    Eterm node;   /* used if dep == NULL */
     Eterm cid;
     Eterm connection_id;
     int no_suspend;
@@ -117,14 +123,10 @@ extern int erts_is_alive;
 
 /*
  * erts_dsig_prepare() prepares a send of a distributed signal.
- * One of the values defined below are returned. If the returned
- * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before appropriate actions
- * have been taken. Appropriate actions would typically be setting
- * up the connection.
+ * One of the values defined below are returned.
  */
 
-/* Connected; signal can be sent. */
+/* Connected; signals can be enqueued and sent. */
 #define ERTS_DSIG_PREP_CONNECTED	0
 /* Not connected; connection needs to be set up. */
 #define ERTS_DSIG_PREP_NOT_CONNECTED	1
@@ -132,15 +134,21 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_WOULD_SUSPEND	2
 /* System not alive (distributed) */
 #define ERTS_DSIG_PREP_NOT_ALIVE	3
+/* Pending connection; signals can be enqueued */
+#define ERTS_DSIG_PREP_PENDING	        4
 
 ERTS_GLB_INLINE int erts_dsig_prepare(ErtsDSigData *,
-				      DistEntry *,
+				      DistEntry*,
 				      Process *,
+                                      ErtsProcLocks,
 				      ErtsDSigPrepLock,
+				      int,
 				      int);
 
 ERTS_GLB_INLINE
 void erts_schedule_dist_command(Port *, DistEntry *);
+
+int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -148,27 +156,58 @@ ERTS_GLB_INLINE int
 erts_dsig_prepare(ErtsDSigData *dsdp,
 		  DistEntry *dep,
 		  Process *proc,
+                  ErtsProcLocks proc_locks,
 		  ErtsDSigPrepLock dspl,
-		  int no_suspend)
+		  int no_suspend,
+		  int connect)
 {
-    int failure;
+    int res;
+
     if (!erts_is_alive)
 	return ERTS_DSIG_PREP_NOT_ALIVE;
-    if (!dep)
-	return ERTS_DSIG_PREP_NOT_CONNECTED;
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_de_rwlock(dep);
-    else
-	erts_de_rlock(dep);
-    if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	failure = ERTS_DSIG_PREP_NOT_CONNECTED;
+    if (!dep) {
+        ASSERT(!connect);
+        return ERTS_DSIG_PREP_NOT_CONNECTED;
+    }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (connect) {
+        erts_proc_lc_might_unlock(proc, proc_locks);
+    }
+#endif
+
+retry:
+    erts_de_rlock(dep);
+
+    if (ERTS_DE_IS_CONNECTED(dep)) {
+	res = ERTS_DSIG_PREP_CONNECTED;
+    }
+    else if (dep->status & ERTS_DE_SFLG_PENDING) {
+	res = ERTS_DSIG_PREP_PENDING;
+    }
+    else if (dep->status & ERTS_DE_SFLG_EXITING) {
+	res = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
-    if (no_suspend) {
-        if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
-	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	    goto fail;
+    else if (connect) {
+        ASSERT(dep->status == 0);
+        erts_de_runlock(dep);
+        if (!erts_auto_connect(dep, proc, proc_locks)) {
+            return ERTS_DSIG_PREP_NOT_ALIVE;
         }
+	goto retry;
+    }
+    else {
+        ASSERT(dep->status == 0);
+	res = ERTS_DSIG_PREP_NOT_CONNECTED;
+	goto fail;
+    }
+
+    if (no_suspend) {
+	if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
+	    res = ERTS_DSIG_PREP_WOULD_SUSPEND;
+	    goto fail;
+	}
     }
     dsdp->proc = proc;
     dsdp->dep = dep;
@@ -177,15 +216,11 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
-    return ERTS_DSIG_PREP_CONNECTED;
+    return res;
 
  fail:
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_de_rwunlock(dep);
-    else
-	erts_de_runlock(dep);
-    return failure;
-
+    erts_de_runlock(dep);
+    return res;
 }
 
 ERTS_GLB_INLINE
@@ -332,7 +367,7 @@ struct erts_dsig_send_context {
     Eterm ctl;
     Eterm msg;
     int force_busy;
-    Uint32 pass_through_size;
+    Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
     ErtsAtomCacheMap *acmp;
     ErtsDistOutputBuf *obuf;
@@ -346,11 +381,12 @@ struct erts_dsig_send_context {
 
 typedef struct {
     int suspend;
+    int connect;
 
     Eterm ctl_heap[6];
     ErtsDSigData dsd;
-    DistEntry* dep_to_deref;
     DistEntry *dep;
+    int deref_dep;
     struct erts_dsig_send_context dss;
 
     Eterm return_term;

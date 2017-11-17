@@ -31,8 +31,7 @@
 -export([localtime_to_universaltime/1]).
 -export([suspend_process/1]).
 -export([min/2, max/2]).
--export([dlink/1, dunlink/1, dsend/2, dsend/3, dgroup_leader/2,
-	 dexit/2, dmonitor_node/3, dmonitor_p/2]).
+-export([dmonitor_node/3, dmonitor_p/2]).
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
@@ -124,7 +123,7 @@
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
--export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
+-export([display_nl/0, display_string/1, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
@@ -702,14 +701,6 @@ display_nl() ->
 -spec erlang:display_string(P1) -> true when
       P1 :: string().
 display_string(_P1) ->
-    erlang:nif_error(undefined).
-
-%% dist_exit/3
--spec erlang:dist_exit(P1, P2, P3) -> true when
-      P1 :: pid(),
-      P2 :: kill | noconnection | normal,
-      P3 :: pid() | port().
-dist_exit(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
 
 %% dt_append_vm_tag_data/1
@@ -3267,34 +3258,11 @@ dist_ctrl_get_data_notification(_DHandle) ->
 dist_get_stat(_DHandle) ->
     erlang:nif_error(undefined).
 
-%%
-%% If the emulator wants to perform a distributed command and
-%% a connection is not established to the actual node the following 
-%% functions are called in order to set up the connection and then
-%% reactivate the command.
-%%
 
--spec erlang:dlink(pid() | port()) -> 'true'.
-dlink(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:link(Pid);
-	false -> erlang:dist_exit(erlang:self(), noconnection, Pid), true
-    end.
-
-%% Can this ever happen?
--spec erlang:dunlink(identifier()) -> 'true'.
-dunlink(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:unlink(Pid);
-	false -> true
-    end.
-
-dmonitor_node(Node, Flag, []) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:monitor_node(Node, Flag, []);
-	false -> erlang:self() ! {nodedown, Node}, true
-    end;
-
+dmonitor_node(Node, _Flag, []) ->
+    %% Only called when auto-connect attempt failed early in VM
+    erlang:self() ! {nodedown, Node},
+    true;
 dmonitor_node(Node, Flag, Opts) ->
     case lists:member(allow_passive_connect, Opts) of
 	true ->
@@ -3306,71 +3274,12 @@ dmonitor_node(Node, Flag, Opts) ->
 	    dmonitor_node(Node,Flag,[])
     end.
 
-dgroup_leader(Leader, Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:group_leader(Leader, Pid);
-	false -> true  %% bad arg ?
-    end.
-
-dexit(Pid, Reason) -> 
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:exit(Pid, Reason);
-	false -> true
-    end.
-
-dsend(Pid, Msg) when erlang:is_pid(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:send(Pid, Msg);
-	false -> Msg
-    end;
-dsend(Port, Msg) when erlang:is_port(Port) ->
-    case net_kernel:connect(erlang:node(Port)) of
-	true -> erlang:send(Port, Msg);
-	false -> Msg
-    end;
-dsend({Name, Node}, Msg) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:send({Name,Node}, Msg);
-	false -> Msg;
-	ignored -> Msg				% Not distributed.
-    end.
-
-dsend(Pid, Msg, Opts) when erlang:is_pid(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:send(Pid, Msg, Opts);
-	false -> ok
-    end;
-dsend(Port, Msg, Opts) when erlang:is_port(Port) ->
-    case net_kernel:connect(erlang:node(Port)) of
-	true -> erlang:send(Port, Msg, Opts);
-	false -> ok
-    end;
-dsend({Name, Node}, Msg, Opts) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:send({Name,Node}, Msg, Opts);
-	false -> ok;
-	ignored -> ok				% Not distributed.
-    end.
-
 -spec erlang:dmonitor_p('process', pid() | {atom(),atom()}) -> reference().
 dmonitor_p(process, ProcSpec) ->
-    %% ProcSpec = pid() | {atom(),atom()}
-    %% ProcSpec CANNOT be an atom because a locally registered process
-    %% is never handled here.
-    Node = case ProcSpec of
-	       {S,N} when erlang:is_atom(S),
-                          erlang:is_atom(N),
-                          N =/= erlang:node() -> N;
-	       _ when erlang:is_pid(ProcSpec) -> erlang:node(ProcSpec)
-	   end,
-    case net_kernel:connect(Node) of
-	true ->
-	    erlang:monitor(process, ProcSpec);
-	false ->
-	    Ref = erlang:make_ref(),
-	    erlang:self() ! {'DOWN', Ref, process, ProcSpec, noconnection},
-	    Ref
-    end.
+    %% Only called when auto-connect attempt failed early in VM
+    Ref = erlang:make_ref(),
+    erlang:self() ! {'DOWN', Ref, process, ProcSpec, noconnection},
+    Ref.
 
 %%
 %% Trap function used when modified timing has been enabled.

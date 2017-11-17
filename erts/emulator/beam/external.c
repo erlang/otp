@@ -122,6 +122,9 @@ static int encode_size_struct_int(struct TTBSizeContext_*, ErtsAtomCacheMap *acm
 
 static Export binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
+static Sint transcode_dist_obuf(ErtsDistOutputBuf*, DistEntry*, Uint32 dflags, Sint reds);
+
+
 
 void erts_init_external(void) {
     erts_init_trap_export(&term_to_binary_trap_export,
@@ -220,23 +223,10 @@ erts_destroy_atom_cache_map(ErtsAtomCacheMap *acmp)
 static ERTS_INLINE void
 insert_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 {
-    /*
-     * If the receiver do not understand utf8 atoms
-     * and this atom cannot be represented in latin1,
-     * we are not allowed to cache it.
-     *
-     * In this case all atoms are assumed to have
-     * latin1 encoding in the cache. By refusing it
-     * in the cache we will instead encode it using
-     * ATOM_UTF8_EXT/SMALL_ATOM_UTF8_EXT which the
-     * receiver do not recognize and tear down the
-     * connection.
-     */
-    if (acmp && acmp->sz < ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES
-	&& ((dflags & DFLAG_UTF8_ATOMS)
-	    || atom_tab(atom_val(atom))->latin1_chars >= 0)) {
+    if (acmp && acmp->sz < ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES) {
 	int ix;
 	ASSERT(acmp->hdr_sz < 0);
+        ASSERT(dflags & DFLAG_UTF8_ATOMS);
 	ix = atom2cix(atom);
 	if (acmp->cache[ix].iix < 0) {
 	    acmp->cache[ix].iix = acmp->sz;
@@ -256,9 +246,7 @@ get_iix_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 	ASSERT(is_atom(atom));
 	ix = atom2cix(atom);
 	if (acmp->cache[ix].iix < 0) {
-	    ASSERT(acmp->sz == ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES
-		   || (!(dflags & DFLAG_UTF8_ATOMS)
-		       && atom_tab(atom_val(atom))->latin1_chars < 0));
+	    ASSERT(acmp->sz == ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES);
 	    return -1;
 	}
 	else {
@@ -272,7 +260,6 @@ void
 erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 {
     if (acmp) {
-	int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
 	int long_atoms = 0; /* !0 if one or more atoms are longer than 255. */
 	int i;
 	int sz;
@@ -283,6 +270,7 @@ erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 	    + 1 /* number of internal cache entries */
 	    ;
 	int min_sz;
+        ASSERT(dflags & DFLAG_UTF8_ATOMS);
 	ASSERT(acmp->hdr_sz < 0);
 	/* Make sure cache update instructions fit */
 	min_sz = fix_sz+(2+4)*acmp->sz;
@@ -294,7 +282,7 @@ erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 	    atom = acmp->cache[acmp->cix[i]].atom;
 	    ASSERT(is_atom(atom));
 	    a = atom_tab(atom_val(atom));
-	    len = (int) (utf8_atoms ? a->len : a->latin1_chars);
+	    len = (int) a->len;
 	    ASSERT(len >= 0);
 	    if (!long_atoms && len > 255)
 		long_atoms = 1;
@@ -364,18 +352,62 @@ byte *erts_encode_ext_dist_header_setup(byte *ctl_ext, ErtsAtomCacheMap *acmp)
     }
 }
 
-byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint32 dflags)
+
+#define PASS_THROUGH 'p'
+
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
+                                          DistEntry* dep,
+                                          Uint32 dflags,
+                                          Sint reds)
 {
     byte *ip;
     byte instr_buf[(2+4)*ERTS_ATOM_CACHE_SIZE];
     int ci, sz;
     byte dist_hdr_flags;
     int long_atoms;
-    int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
-    register byte *ep = ext;
-    ASSERT(ep[0] == VERSION_MAGIC);
-    if (ep[1] != DIST_HEADER)
-	return ext;
+    register byte *ep = ob->extp;
+    ASSERT(dflags & DFLAG_UTF8_ATOMS);
+
+    /*
+     * The buffer can have different layouts at this point depending on
+     * what was known when encoded:
+     *
+     * Pending connection: CtrlTerm [, MsgTerm]
+     * With atom cache   : VERSION_MAGIC, DIST_HEADER, ..., CtrlTerm [, MsgTerm]
+     * No atom cache     : VERSION_MAGIC, CtrlTerm [, VERSION_MAGIC, MsgTerm]
+     */
+
+    if (ep[0] != VERSION_MAGIC || dep->transcode_ctx) {
+        /*
+         * Was encoded without atom cache toward pending connection.
+         */
+        ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
+
+        if (~dflags & (DFLAG_BIT_BINARIES | DFLAG_EXPORT_PTR_TAG
+                       | DFLAG_DIST_HDR_ATOM_CACHE)) {
+            reds = transcode_dist_obuf(ob, dep, dflags, reds);
+            if (reds < 0)
+                return reds;
+            ep = ob->extp;
+        }
+        if (dflags & DFLAG_DIST_HDR_ATOM_CACHE) {
+            /*
+             * Encoding was done without atom caching but receiver expects
+             * a dist header, so we prepend an empty one.
+             */
+            *--ep = 0; /* NumberOfAtomCacheRefs */
+            *--ep = DIST_HEADER;
+            *--ep = VERSION_MAGIC;
+        }
+        goto done;
+    }
+    else if (ep[1] != DIST_HEADER) {
+        ASSERT(ep[1] == SMALL_TUPLE_EXT || ep[1] == LARGE_TUPLE_EXT);
+        ASSERT(!(dflags & DFLAG_DIST_HDR_ATOM_CACHE));
+        /* Node without atom cache, 'pass through' needed */
+        *--ep = PASS_THROUGH;
+        goto done;
+    }
 
     dist_hdr_flags = ep[2];
     long_atoms = ERTS_DIST_HDR_LONG_ATOMS_FLG & ((int) dist_hdr_flags);
@@ -403,6 +435,7 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
 			 / sizeof(Uint32))+1];
 	register Uint32 flgs;
 	int iix, flgs_bytes, flgs_buf_ix, used_half_bytes;
+        ErtsAtomCache* cache = dep->cache;
 #ifdef DEBUG
 	int tot_used_half_bytes;
 #endif
@@ -445,17 +478,9 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
 		Atom *a;
 		cache->out_arr[cix] = atom;
 		a = atom_tab(atom_val(atom));
-		if (utf8_atoms) {
-		    sz = a->len;
-		    ep -= sz;
-		    sys_memcpy((void *) ep, (void *) a->name, sz);
-		}
-		else {
-		    ASSERT(0 <= a->latin1_chars && a->latin1_chars <= MAX_ATOM_CHARACTERS);
-		    ep -= a->latin1_chars;
-		    sz = erts_utf8_to_latin1(ep, a->name, a->len);
-		    ASSERT(a->latin1_chars == sz);
-		}
+                sz = a->len;
+                ep -= sz;
+                sys_memcpy((void *) ep, (void *) a->name, sz);
 		if (long_atoms) {
 		    ep -= 2;
 		    put_int16(sz, ep);
@@ -502,12 +527,16 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
 		break;
 	    }
 	}
+        reds -= 3; /*was ERTS_PORT_REDS_DIST_CMD_FINALIZE*/
     }
     --ep;
     put_int8(ci, ep);
     *--ep = DIST_HEADER;
     *--ep = VERSION_MAGIC;
-    return ep;
+done:
+    ob->extp = ep;
+    ASSERT(&ob->data[0] <= ob->extp && ob->extp < ob->ext_endp);
+    return reds < 0 ? 0 : reds;
 }
 
 int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
@@ -518,7 +547,7 @@ int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
 	return -1;
     } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
@@ -534,7 +563,7 @@ int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx
 	return -1;
     } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
@@ -566,7 +595,7 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap 
 {
     if (!ctx || !ctx->wstack.wstart) {
     #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
     #endif
 	    *(*ext)++ = VERSION_MAGIC;
     }
@@ -641,7 +670,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 #endif
 
     register byte *ep = ext;
-    int utf8_atoms = (int) (dep->flags & DFLAG_UTF8_ATOMS);
+    ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
 
     edep->heap_size = -1;
     edep->ext_endp = ext+size;
@@ -667,17 +696,16 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
     erts_de_rlock(dep);
 
-    if ((dep->status & (ERTS_DE_SFLG_EXITING|ERTS_DE_SFLG_CONNECTED))
-        != ERTS_DE_SFLG_CONNECTED) {
+    if (dep->status != ERTS_DE_SFLG_CONNECTED &&
+	dep->status != ERTS_DE_SFLG_PENDING) {
         erts_de_runlock(dep);
         return ERTS_PREP_DIST_EXT_CLOSED;
     }
-
     if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 
     *connection_id = dep->connection_id;
-    edep->flags |= (dep->connection_id & ERTS_DIST_EXT_CON_ID_MASK);
+    edep->connection_id = dep->connection_id;
 
     if (ep[1] != DIST_HEADER) {
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
@@ -804,9 +832,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		    CHKSIZE(len);
 		    atom = erts_atom_put((byte *) ep,
 					 len,
-					 (utf8_atoms
-					  ? ERTS_ATOM_ENC_UTF8
-					  : ERTS_ATOM_ENC_LATIN1),
+                                         ERTS_ATOM_ENC_UTF8,
 					 0);
 		    if (is_non_value(atom))
 			ERTS_EXT_HDR_FAIL;
@@ -893,7 +919,7 @@ bad_dist_ext(ErtsDistExternal *edep)
 		erts_dsprintf(dsbufp, ", %d=%T", i, edep->attab.atom[i]);
 	}
 	erts_send_warning_to_logger_nogl(dsbufp);
-	erts_kill_dist_connection(dep, ERTS_DIST_EXT_CON_ID(edep));
+	erts_kill_dist_connection(dep, edep->connection_id);
     }
 }
 
@@ -2135,7 +2161,7 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 {
     int iix;
     int len;
-    int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
+    const int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
 
     ASSERT(is_atom(atom));
 
@@ -2530,8 +2556,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    break;
 	}
 
-    L_jump_start:
-
 	if (ctx && --r <= 0) {
 	    *reds = 0;
 	    ctx->obj = obj;
@@ -2539,6 +2563,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
+
+    L_jump_start:
 	switch(tag_val_def(obj)) {
 	case NIL_DEF:
 	    *ep++ = NIL_EXT;
@@ -2903,61 +2929,26 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 		int ei;
 
-		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
-				 (UWord) ep); /* Position for patching in size */
-		    ep += 4;
-		    *ep = funp->arity;
-		    ep += 1;
-		    sys_memcpy(ep, funp->fe->uniq, 16);
-		    ep += 16;
-		    put_int32(funp->fe->index, ep);
-		    ep += 4;
-		    put_int32(funp->num_free, ep);
-		    ep += 4;
-		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
-		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
-		    ep = enc_pid(acmp, funp->creator, ep, dflags);
-		} else {
-		    /*
-		     * Communicating with an obsolete erl_interface or
-		     * jinterface node. Convert the fun to a tuple to
-		     * avoid crasching.
-		     */
-		
-		    /* Tag, arity */
-		    *ep++ = SMALL_TUPLE_EXT;
-		    put_int8(5, ep);
-		    ep += 1;
-		
-		    /* 'fun' */
-		    ep = enc_atom(acmp, am_fun, ep, dflags);
-		
-		    /* Module name */
-		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		
-		    /* Index, Uniq */
-		    *ep++ = INTEGER_EXT;
-		    put_int32(funp->fe->old_index, ep);
-		    ep += 4;
-		    *ep++ = INTEGER_EXT;
-		    put_int32(funp->fe->old_uniq, ep);
-		    ep += 4;
-		
-		    /* Environment sub-tuple arity */
-		    ASSERT(funp->num_free < MAX_ARG);
-		    *ep++ = SMALL_TUPLE_EXT;
-		    put_int8(funp->num_free, ep);
-		    ep += 1;
-		}
-		for (ei = funp->num_free-1; ei > 0; ei--) {
+		ASSERT(dflags & DFLAG_NEW_FUN_TAGS);
+                *ep++ = NEW_FUN_EXT;
+                WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+                             (UWord) ep); /* Position for patching in size */
+                ep += 4;
+                *ep = funp->arity;
+                ep += 1;
+                sys_memcpy(ep, funp->fe->uniq, 16);
+                ep += 16;
+                put_int32(funp->fe->index, ep);
+                ep += 4;
+                put_int32(funp->num_free, ep);
+                ep += 4;
+                ep = enc_atom(acmp, funp->fe->module, ep, dflags);
+                ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
+                ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
+                ep = enc_pid(acmp, funp->creator, ep, dflags);
+
+		for (ei = funp->num_free-1; ei >= 0; ei--) {
 		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
-		}
-		if (funp->num_free != 0) {
-		    obj = funp->env[0];
-		    goto L_jump_start;
 		}
 	    }
 	    break;
@@ -3296,6 +3287,7 @@ dec_term_atom_common:
             n--;
 	    if (ctx) {
                 if (reds < n) {
+                    ASSERT(reds > 0);
 		    ctx->state = B2TDecodeList;
 		    ctx->u.dc.remaining_n = n - reds;
 		    n = reds;
@@ -4306,24 +4298,12 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 		
-		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    result += 20+1+1+4;	/* New ID + Tag */
-		    result += 4; /* Length field (number of free variables */
-		    result += encode_size_struct2(acmp, funp->creator, dflags);
-		    result += encode_size_struct2(acmp, funp->fe->module, dflags);
-		    result += 2 * (1+4);	/* Index, Uniq */
-		} else {
-		    /*
-		     * Size when fun is mapped to a tuple.
-		     */
-		    result += 1 + 1; /* Tuple tag, arity */
-		    result += 1 + 1 + 2 +
-			atom_tab(atom_val(am_fun))->len; /* 'fun' */
-		    result += 1 + 1 + 2 +
-			atom_tab(atom_val(funp->fe->module))->len; /* Module name */
-		    result += 2 * (1 + 4); /* Index + Uniq */
-		    result += 1 + (funp->num_free < 0x100 ? 1 : 4);
-		}
+                ASSERT(dflags & DFLAG_NEW_FUN_TAGS);
+                result += 20+1+1+4;	/* New ID + Tag */
+                result += 4; /* Length field (number of free variables */
+                result += encode_size_struct2(acmp, funp->creator, dflags);
+                result += encode_size_struct2(acmp, funp->fe->module, dflags);
+                result += 2 * (1+4);	/* Index, Uniq */
 		if (funp->num_free > 1) {
 		    WSTACK_PUSH2(s, (UWord) (funp->env + 1),
 				    (UWord) TERM_ARRAY_OP(funp->num_free-1));
@@ -4411,7 +4391,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
         }
     }
     else
-        reds = 0; /* not used but compiler warns anyway */
+        ERTS_UNDEF(reds, 0);
 
     heap_size = 0;
     terms = 1;
@@ -4720,4 +4700,178 @@ error:
 #undef SKIP
 #undef SKIP2
 #undef CHKSIZE
+}
+
+
+struct transcode_context {
+    enum {
+        TRANSCODE_DEC_MSG_SIZE,
+        TRANSCODE_DEC_MSG,
+        TRANSCODE_ENC_CTL,
+        TRANSCODE_ENC_MSG
+    }state;
+    Eterm ctl_term;
+    Eterm* ctl_heap;
+    ErtsHeapFactory ctl_factory;
+    Eterm* msg_heap;
+    B2TContext b2t;
+    TTBEncodeContext ttb;
+#ifdef DEBUG
+    ErtsDistOutputBuf* dbg_ob;
+#endif
+};
+
+void transcode_free_ctx(DistEntry* dep)
+{
+    struct transcode_context* ctx = dep->transcode_ctx;
+
+    erts_factory_close(&ctx->ctl_factory);
+    erts_free(ERTS_ALC_T_DIST_TRANSCODE, ctx->ctl_heap);
+
+    if (ctx->msg_heap) {
+        erts_factory_close(&ctx->b2t.u.dc.factory);
+        erts_free(ERTS_ALC_T_DIST_TRANSCODE, ctx->msg_heap);
+    }
+    erts_free(ERTS_ALC_T_DIST_TRANSCODE, ctx);
+    dep->transcode_ctx = NULL;
+}
+
+Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
+                         DistEntry* dep,
+                         Uint32 dflags,
+                         Sint reds)
+{
+    Sint hsz;
+    byte* decp;
+    const int have_msg = !!ob->msg_start;
+    int i;
+    struct transcode_context* ctx = dep->transcode_ctx;
+
+    if (!ctx) { /* first call for 'ob' */
+
+        if (~dflags & (DFLAG_BIT_BINARIES | DFLAG_EXPORT_PTR_TAG)) {
+            /*
+             * Receiver does not support bitstrings and/or export funs.
+             * We need to transcode control and message terms to use tuple fallbacks.
+             */
+            ctx = erts_alloc(ERTS_ALC_T_DIST_TRANSCODE, sizeof(struct transcode_context));
+            dep->transcode_ctx = ctx;
+        #ifdef DEBUG
+            ctx->dbg_ob = ob;
+        #endif
+
+            hsz = decoded_size(ob->extp, ob->ext_endp, 0, NULL);
+            ctx->ctl_heap = erts_alloc(ERTS_ALC_T_DIST_TRANSCODE, hsz*sizeof(Eterm));
+            erts_factory_tmp_init(&ctx->ctl_factory, ctx->ctl_heap, hsz, ERTS_ALC_T_DIST_TRANSCODE);
+            ctx->msg_heap = NULL;
+
+            decp = dec_term(NULL, &ctx->ctl_factory, ob->extp, &ctx->ctl_term, NULL);
+            if (have_msg) {
+                ASSERT(decp == ob->msg_start); (void)decp;
+                ctx->b2t.u.sc.ep = NULL;
+                ctx->b2t.state = B2TSize;
+                ctx->b2t.aligned_alloc = NULL;
+                ctx->b2t.b2ts.exttmp = 0;
+                ctx->state = TRANSCODE_DEC_MSG_SIZE;
+            }
+            else {
+                ASSERT(decp == ob->ext_endp);
+                ctx->state = TRANSCODE_ENC_CTL;
+            }
+        }
+        else {
+            /*
+             * No need for full transcoding, but primitive receiver (erl_/jinterface)
+             * expects VERSION_MAGIC before both control and message terms.
+             */
+            if (ob->msg_start) {
+                Sint ctl_bytes = ob->msg_start - ob->extp;
+                ASSERT(ob->extp < ob->msg_start && ob->msg_start < ob->ext_endp);
+                /* Move control term back 1 byte to make room */
+                sys_memmove(ob->extp-1, ob->extp, ctl_bytes);
+                *--(ob->msg_start) = VERSION_MAGIC;
+                --(ob->extp);
+                reds -= ctl_bytes / (B2T_BYTES_PER_REDUCTION * B2T_MEMCPY_FACTOR);
+            }
+            *--(ob->extp) = VERSION_MAGIC;
+            goto done;
+        }
+    }
+    else {
+        ASSERT(ctx->dbg_ob == ob);
+    }
+    ctx->b2t.reds = reds * B2T_BYTES_PER_REDUCTION;
+
+    switch (ctx->state) {
+    case TRANSCODE_DEC_MSG_SIZE:
+        hsz = decoded_size(ob->msg_start, ob->ext_endp, 0, &ctx->b2t);
+        if (ctx->b2t.state == B2TSize) {
+            return -1;
+        }
+        ASSERT(ctx->b2t.state == B2TDecodeInit);
+        ctx->msg_heap = erts_alloc(ERTS_ALC_T_DIST_TRANSCODE, hsz*sizeof(Eterm));
+        ctx->b2t.u.dc.ep = ob->msg_start;
+        ctx->b2t.u.dc.res = (Eterm) NULL;
+        ctx->b2t.u.dc.next = &ctx->b2t.u.dc.res;
+        erts_factory_tmp_init(&ctx->b2t.u.dc.factory,
+                              ctx->msg_heap, hsz, ERTS_ALC_T_DIST_TRANSCODE);
+        ctx->b2t.u.dc.flat_maps.wstart = NULL;
+        ctx->b2t.u.dc.hamt_array.pstart = NULL;
+        ctx->b2t.state = B2TDecode;
+
+        ctx->state = TRANSCODE_DEC_MSG;
+    case TRANSCODE_DEC_MSG:
+        if (ctx->b2t.reds <= 0)
+            ctx->b2t.reds = 1;
+        decp = dec_term(NULL, NULL, NULL, NULL, &ctx->b2t);
+        if (ctx->b2t.state < B2TDone) {
+            return -1;
+        }
+        ASSERT(ctx->b2t.state == B2TDone);
+        ASSERT(decp && decp <= ob->ext_endp);
+        reds = ctx->b2t.reds / B2T_BYTES_PER_REDUCTION;
+        b2t_destroy_context(&ctx->b2t);
+
+        ctx->state = TRANSCODE_ENC_CTL;
+    case TRANSCODE_ENC_CTL:
+        if (!(dflags & DFLAG_DIST_HDR_ATOM_CACHE)) {
+            ASSERT(!(dflags & DFLAG_NO_MAGIC));
+            ob->extp -= 2; /* VERSION_MAGIC x 2 */
+        }
+        ob->ext_endp = ob->extp;
+        i = erts_encode_dist_ext(ctx->ctl_term, &ob->ext_endp, dflags,
+                                 NULL, NULL, NULL);
+        ASSERT(i == 0); (void)i;
+        ASSERT(ob->ext_endp <= ob->alloc_endp);
+
+        if (!have_msg) {
+            break;
+        }
+        ob->msg_start = ob->ext_endp;
+        ctx->ttb.wstack.wstart = NULL;
+        ctx->ttb.flags = dflags;
+        ctx->ttb.level = 0;
+
+        ctx->state = TRANSCODE_ENC_MSG;
+    case TRANSCODE_ENC_MSG:
+        reds *= TERM_TO_BINARY_LOOP_FACTOR;
+        if (erts_encode_dist_ext(ctx->b2t.u.dc.res, &ob->ext_endp, dflags, NULL,
+                                 &ctx->ttb, &reds)) {
+            return -1;
+        }
+        reds /= TERM_TO_BINARY_LOOP_FACTOR;
+
+        ASSERT(ob->ext_endp <= ob->alloc_endp);
+
+    }
+    transcode_free_ctx(dep);
+
+done:
+    if (!(dflags & DFLAG_DIST_HDR_ATOM_CACHE))
+        *--(ob->extp) = PASS_THROUGH;
+
+    if (reds < 0)
+        reds = 0;
+
+    return reds;
 }

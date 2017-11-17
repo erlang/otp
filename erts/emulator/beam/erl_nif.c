@@ -1201,11 +1201,12 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
     Sint size;
     ErtsHeapFactory factory;
     byte *bp = (byte*) data;
+    Uint32 flags = 0;
 
-    ERTS_CT_ASSERT(ERL_NIF_BIN2TERM_SAFE == ERTS_DIST_EXT_BTT_SAFE);
-
-    if (opts & ~ERL_NIF_BIN2TERM_SAFE) {
-        return 0;
+    switch ((Uint32)opts) {
+    case 0: break;
+    case ERL_NIF_BIN2TERM_SAFE: flags = ERTS_DIST_EXT_BTT_SAFE; break;
+    default: return 0;
     }
     if ((size = erts_decode_ext_size(bp, data_sz)) < 0)
         return 0;
@@ -1217,7 +1218,7 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
         erts_factory_dummy_init(&factory);
     }
 
-    *term = erts_decode_ext(&factory, &bp, (Uint32)opts);
+    *term = erts_decode_ext(&factory, &bp, flags);
 
     if (is_non_value(*term)) {
         return 0;

@@ -35,13 +35,18 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+%-define(Line, erlang:display({line,?LINE}),).
+-define(Line,).
+
 -export([all/0, suite/0, groups/0,
          ping/1, bulk_send_small/1,
+         group_leader/1,
+         optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
          local_send_legal/1, link_to_busy/1, exit_to_busy/1,
          lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
-         applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
+         ref_port_roundtrip/1, nil_roundtrip/1,
          trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
          stop_dist/1,
          dist_auto_connect_never/1, dist_auto_connect_once/1,
@@ -61,6 +66,8 @@
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
+         group_leader_1/1,
+         optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
          dist_evil_parallel_receiver/0]).
@@ -74,8 +81,10 @@ suite() ->
 
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
+     group_leader,
+     optimistic_dflags,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
-     link_to_dead_new_node, applied_monitor_node,
+     link_to_dead_new_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
      dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
@@ -123,6 +132,96 @@ ping(Config) when is_list(Config) ->
     test_server:do_times(Times, fun() -> pong = net_adm:ping(Node) end),
 
     ok.
+
+%% Test erlang:group_leader(_, ExternalPid), i.e. DOP_GROUP_LEADER
+group_leader(Config) when is_list(Config) ->
+    ?Line Sock = start_relay_node(group_leader_1, []),
+    ?Line Sock2 = start_relay_node(group_leader_2, []),
+    try
+        ?Line Node2 = inet_rpc_nodename(Sock2),
+        ?Line {ok, ok} = do_inet_rpc(Sock, ?MODULE, group_leader_1, [Node2])
+    after
+        ?Line stop_relay_node(Sock),
+        ?Line stop_relay_node(Sock2)
+    end,
+    ok.
+
+group_leader_1(Node2) ->
+    ?Line ExtPid = spawn(Node2, fun F() ->
+                                        receive {From, group_leader} ->
+                                                From ! {self(), group_leader, group_leader()}
+                                        end,
+                                        F()
+                                end),
+    ?Line GL1 = self(),
+    ?Line group_leader(GL1, ExtPid),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL1} = receive_one(),
+
+    %% Kill connection and repeat test when group_leader/2 triggers auto-connect
+    ?Line net_kernel:monitor_nodes(true),
+    ?Line net_kernel:disconnect(Node2),
+    ?Line {nodedown, Node2} = receive_one(),
+    ?Line GL2 = spawn(fun() -> dummy end),
+    ?Line group_leader(GL2, ExtPid),
+    ?Line {nodeup, Node2} = receive_one(),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL2} = receive_one(),
+    ok.
+
+%% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
+optimistic_dflags(Config) when is_list(Config) ->
+    ?Line Sender = start_relay_node(optimistic_dflags_sender, []),
+    ?Line Echo = start_relay_node(optimistic_dflags_echo, []),
+    try
+        ?Line {ok, ok} = do_inet_rpc(Echo, ?MODULE, optimistic_dflags_echo, []),
+
+        ?Line EchoNode = inet_rpc_nodename(Echo),
+        ?Line {ok, ok} = do_inet_rpc(Sender, ?MODULE, optimistic_dflags_sender, [EchoNode])
+    after
+        ?Line stop_relay_node(Sender),
+        ?Line stop_relay_node(Echo)
+    end,
+    ok.
+
+optimistic_dflags_echo() ->
+    P = spawn(fun F() ->
+                      receive {From, Term} ->
+                              From ! {self(), Term}
+                      end,
+                      F()
+              end),
+    register(optimistic_dflags_echo, P),
+    optimistic_dflags_echo ! {self(), hello},
+    {P, hello} = receive_one(),
+    ok.
+
+optimistic_dflags_sender(EchoNode) ->
+    ?Line net_kernel:monitor_nodes(true),
+
+    optimistic_dflags_do(EchoNode, <<1:1>>),
+    optimistic_dflags_do(EchoNode, fun lists:map/2),
+    ok.
+
+optimistic_dflags_do(EchoNode, Term) ->
+    ?Line {optimistic_dflags_echo, EchoNode} ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+    %% repeat with pid destination
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ?Line EchoPid ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ok.
+
+
+receive_one() ->
+    receive M -> M after 1000 -> timeout end.
+
 
 bulk_send_small(Config) when is_list(Config) ->
     bulk_send(64, 32).
@@ -639,26 +738,6 @@ link_to_dead_new_node(Config) when is_list(Config) ->
     end,
     ok.
 
-%% Test that monitor_node/2 works when applied.
-applied_monitor_node(Config) when is_list(Config) ->
-    NonExisting = list_to_atom("__non_existing__@" ++ hostname()),
-
-    %% Tail-recursive call to apply (since the node is non-existing,
-    %% there will be a trap).
-
-    true = tail_apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    %% Ordinary call (with trap).
-
-    true = apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    ok.
-
-tail_apply(M, F, A) ->
-    apply(M, F, A).
-
 %% Test that sending a port or reference to another node and back again
 %% doesn't correct them in any way.
 ref_port_roundtrip(Config) when is_list(Config) ->
@@ -1158,8 +1237,6 @@ contended_atom_cache_entry_test(Config, Type) ->
     spawn_link(
       SNode,
       fun () ->
-              erts_debug:set_internal_state(available_internal_state,
-                                            true),
               Master = self(),
               CIX = get_cix(),
               TestAtoms = case Type of
@@ -1244,7 +1321,7 @@ get_cix(CIX) when is_integer(CIX), CIX < 0 ->
 get_cix(CIX) when is_integer(CIX) ->
     get_cix(CIX,
             unwanted_cixs(),
-            erts_debug:get_internal_state(max_atom_out_cache_index)).
+            get_internal_state(max_atom_out_cache_index)).
 
 get_cix(CIX, Unwanted, MaxCIX) when CIX > MaxCIX ->
     get_cix(0, Unwanted, MaxCIX);
@@ -1256,8 +1333,8 @@ get_cix(CIX, Unwanted, MaxCIX) ->
 
 unwanted_cixs() ->
     lists:map(fun (Node) ->
-                      erts_debug:get_internal_state({atom_out_cache_index,
-                                                     Node})
+                      get_internal_state({atom_out_cache_index,
+                                          Node})
               end,
               nodes()).
 
@@ -1266,7 +1343,7 @@ get_conflicting_atoms(_CIX, 0) ->
     [];
 get_conflicting_atoms(CIX, N) ->
     Atom = list_to_atom("atom" ++ integer_to_list(erlang:unique_integer([positive]))),
-    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+    case get_internal_state({atom_out_cache_index, Atom}) of
         CIX ->
             [Atom|get_conflicting_atoms(CIX, N-1)];
         _ ->
@@ -1277,7 +1354,7 @@ get_conflicting_unicode_atoms(_CIX, 0) ->
     [];
 get_conflicting_unicode_atoms(CIX, N) ->
     Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(erlang:unique_integer([positive]))),
-    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+    case get_internal_state({atom_out_cache_index, Atom}) of
         CIX ->
             [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
         _ ->
@@ -1885,11 +1962,26 @@ send_bad_dhdr(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
     receive Done -> ok end.
 
 dctrl(Node) when is_atom(Node) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
-        true -> true;
-        _ -> erts_debug:set_internal_state(available_internal_state, true)
-    end,
-    erts_debug:get_internal_state({dist_ctrl, Node}).
+    get_internal_state({dist_ctrl, Node}).
+
+get_internal_state(Op) ->
+    try erts_debug:get_internal_state(Op) of
+        R -> R
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            erts_debug:get_internal_state(Op)
+    end.
+
+set_internal_state(Op, Val) ->
+    try erts_debug:set_internal_state(Op, Val) of
+        R -> R
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            erts_debug:set_internal_state(Op, Val)
+    end.
+
 
 dmsg_hdr() ->
     [131, % Version Magic
@@ -2032,11 +2124,9 @@ freeze_node(Node, MS) ->
     Freezer = self(),
     spawn_link(Node,
                fun () ->
-                       erts_debug:set_internal_state(available_internal_state,
-                                                     true),
                        dctrl_dop_send(Freezer, DoingIt),
                        receive after Own -> ok end,
-                       erts_debug:set_internal_state(block, MS+Own)
+                       set_internal_state(block, MS+Own)
                end),
     receive DoingIt -> ok end,
     receive after Own -> ok end.
@@ -2240,8 +2330,7 @@ forever(Fun) ->
     forever(Fun).
 
 abort(Why) ->
-    erts_debug:set_internal_state(available_internal_state, true),
-    erts_debug:set_internal_state(abort, Why).
+    set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->

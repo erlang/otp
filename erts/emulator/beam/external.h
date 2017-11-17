@@ -109,34 +109,25 @@ typedef struct {
 } ErtsAtomTranslationTable;
 
 /*
- * These flags are tagged onto the high bits of a connection ID and stored in
- * the ErtsDistExternal structure's flags field.  They are used to indicate
- * various bits of state necessary to decode binaries in a variety of
- * scenarios. The mask ERTS_DIST_EXT_CON_ID_MASK is used later to separate the
- * connection ID from the flags. Be careful to ensure that the mask does not
- * overlap any of the bits used for flags, or ERTS will leak flags bits into
- * connection IDs and leak connection ID bits into the flags.
+ * These flags are stored in the ErtsDistExternal structure's flags field.
+ * They are used to indicate various bits of state necessary to decode binaries
+ * in a variety of scenarios.
  */
-#define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x80000000)
-#define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x40000000)
-#define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x20000000)
-#define ERTS_DIST_EXT_CON_ID_MASK    ((Uint32) 0x1fffffff)
+#define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x1)
+#define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
+#define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
 
-#define ERTS_DIST_EXT_CON_ID(DIST_EXTP) \
-  ((DIST_EXTP)->flags & ERTS_DIST_EXT_CON_ID_MASK)
+#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
+
 typedef struct {
     DistEntry *dep;
     byte *extp;
     byte *ext_endp;
     Sint heap_size;
+    Uint32 connection_id;
     Uint32 flags;
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
-
-typedef struct {
-    int have_header;
-    int cache_entries;
-} ErtsDistHeaderPeek;
 
 #define ERTS_DIST_EXT_SIZE(EDEP) \
   (sizeof(ErtsDistExternal) \
@@ -163,7 +154,7 @@ void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
-byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *, Uint32);
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
 struct erts_dsig_send_context;
 int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
 int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
@@ -177,9 +168,6 @@ Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
-#ifdef ERTS_WANT_EXTERNAL_TAGS
-ERTS_GLB_INLINE void erts_peek_dist_header(ErtsDistHeaderPeek *, byte *, Uint);
-#endif
 ERTS_GLB_INLINE void erts_free_dist_ext_copy(ErtsDistExternal *);
 ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
 ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
@@ -207,23 +195,9 @@ void erts_binary2term_abort(ErtsBinary2TermState *);
 Eterm erts_binary2term_create(ErtsBinary2TermState *, ErtsHeapFactory*);
 int erts_debug_max_atom_out_cache_index(void);
 int erts_debug_atom_to_out_cache_index(Eterm);
-
+void transcode_free_ctx(DistEntry* dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-#ifdef ERTS_WANT_EXTERNAL_TAGS
-ERTS_GLB_INLINE void
-erts_peek_dist_header(ErtsDistHeaderPeek *dhpp, byte *ext, Uint sz)
-{
-    if (ext[0] == VERSION_MAGIC
-	|| ext[1] != DIST_HEADER
-	|| sz < (1+1+1))
-	dhpp->have_header = 0;
-    else {
-	dhpp->have_header = 1;
-	dhpp->cache_entries = (int) get_int8(&ext[2]);
-    }
-}
-#endif
 
 ERTS_GLB_INLINE void
 erts_free_dist_ext_copy(ErtsDistExternal *edep)

@@ -250,7 +250,8 @@ check_dflags(#hs_data{other_node = Node,
                       require_flags = RequiredFlags} = HSData) ->
     Mandatory = ((?DFLAG_EXTENDED_REFERENCES
                       bor ?DFLAG_EXTENDED_PIDS_PORTS
-                      bor ?DFLAG_UTF8_ATOMS)
+                      bor ?DFLAG_UTF8_ATOMS
+                      bor ?DFLAG_NEW_FUN_TAGS)
                      bor RequiredFlags),
     Missing = check_mandatory(0, ?DFLAGS_ALL, Mandatory,
                               OtherFlags, []),

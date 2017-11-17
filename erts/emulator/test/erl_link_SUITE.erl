@@ -200,13 +200,16 @@ monitor_nodes(Config) when is_list(Config) ->
     monitor_node(A, true),
     check_monitor_node(self(), A, 1),
     check_monitor_node(self(), B, 3),
+    ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    %%OTP-21: monitor_node(_,false) does not trigger auto-connect anymore
+    %%        and therefore no nodedown if it fails.
+    %%ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, D} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, D} -> ok after 1000 -> timeout end,
     check_monitor_node(self(), C, 0),
     check_monitor_node(self(), D, 0),
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, D} -> ok end,
-    receive {nodedown, D} -> ok end,
+
     stop_node(A),
     receive {nodedown, A} -> ok end,
     check_monitor_node(self(), A, 0),

@@ -61,9 +61,11 @@
 %% From R9 and forward extended references is compulsory
 %% From R10 and forward extended pids and ports are compulsory
 %% From R20 and forward UTF8 atoms are compulsory
+%% From R21 and forward NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...})
 -define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor
                             ?DFLAG_EXTENDED_PIDS_PORTS bor
-                            ?DFLAG_UTF8_ATOMS)).
+                            ?DFLAG_UTF8_ATOMS bor
+                            ?DFLAG_NEW_FUN_TAGS)).
 
 -define(PASS_THROUGH, $p).
 
@@ -682,7 +684,7 @@ recv_message(Socket) ->
 	    <<_:Siz/binary,B2/binary>> = B1,
 	    Message = case (catch binary_to_term(B2)) of
 			  {'EXIT', _} ->
-			      could_not_digest_message;
+			      {could_not_digest_message,B2};
 			  Other ->
 			      Other
 		      end,

@@ -39,9 +39,11 @@ erts_rwmtx_t erts_node_table_rwmtx;
 
 DistEntry *erts_hidden_dist_entries;
 DistEntry *erts_visible_dist_entries;
+DistEntry *erts_pending_dist_entries;
 DistEntry *erts_not_connected_dist_entries; /* including erts_this_dist_entry */
 Sint erts_no_of_hidden_dist_entries;
 Sint erts_no_of_visible_dist_entries;
+Sint erts_no_of_pending_dist_entries;
 Sint erts_no_of_not_connected_dist_entries; /* including erts_this_dist_entry */
 
 DistEntry *erts_this_dist_entry;
@@ -101,7 +103,9 @@ void
 erts_ref_dist_entry(DistEntry *dep)
 {
     ASSERT(dep);
-    de_refc_inc(dep, 1);
+    if (de_refc_inc_read(dep, 1) == 1) {
+        de_refc_inc(dep, 2);  /* Pending delete */
+    }
 }
 
 void
@@ -139,9 +143,7 @@ dist_table_cmp(void *dep1, void *dep2)
 static void*
 dist_table_alloc(void *dep_tmpl)
 {
-#ifdef DEBUG
     erts_aint_t refc;
-#endif
     Eterm sysname;
     Binary *bin;
     DistEntry *dep;
@@ -158,13 +160,8 @@ dist_table_alloc(void *dep_tmpl)
 
     dist_entries++;
 
-#ifdef DEBUG
-    refc =
-#else
-    (void)
-#endif
-        de_refc_dec_read(dep, -1);
-    ASSERT(refc == -1);
+    refc = de_refc_dec_read(dep, -1);
+    ASSERT(refc == -1); (void)refc;
 
     dep->prev				= NULL;
     erts_rwmtx_init_opt(&dep->rwmtx, &rwmtx_opt, "dist_entry", sysname,
@@ -202,6 +199,7 @@ dist_table_alloc(void *dep_tmpl)
     erts_port_task_handle_init(&dep->dist_cmd);
     dep->send				= NULL;
     dep->cache				= NULL;
+    dep->transcode_ctx                  = NULL;
 
     /* Link in */
 
@@ -224,6 +222,8 @@ dist_table_free(void *vdep)
 {
     DistEntry *dep = (DistEntry *) vdep;
 
+    ASSERT(de_refc_read(dep, -1) == -1);
+    ASSERT(dep->status == 0);
     ASSERT(is_nil(dep->cid));
     ASSERT(dep->nlinks == NULL);
     ASSERT(dep->node_links == NULL);
@@ -384,56 +384,92 @@ erts_dhandle_to_dist_entry(Eterm dhandle)
 }
 
 Eterm
-erts_make_dhandle(Process *c_p, DistEntry *dep)
+erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp, DistEntry *dep)
 {
-    Binary *bin;
-    Eterm *hp;
-
-    bin = ErtsDistEntry2Bin(dep);
+    Binary *bin = ErtsDistEntry2Bin(dep);
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
-    hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
-    return erts_mk_magic_ref(&hp, &c_p->off_heap, bin);
+    return erts_mk_magic_ref(hpp, ohp, bin);
 }
 
-static void try_delete_dist_entry(void *vbin);
+Eterm
+erts_make_dhandle(Process *c_p, DistEntry *dep)
+{
+    Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_build_dhandle(&hp, &c_p->off_heap, dep);
+}
+
+static void start_timer_delete_dist_entry(void *vdep);
+static void prepare_try_delete_dist_entry(void *vdep);
+static void try_delete_dist_entry(DistEntry*);
+
+static void schedule_delete_dist_entry(DistEntry* dep)
+{
+    /*
+     * Here we need thread progress to wait for other threads, that may have
+     * done lookup without refc++, to do either refc++ or drop their refs.
+     *
+     * Note that timeouts do not guarantee thread progress.
+     */
+    erts_schedule_thr_prgr_later_op(start_timer_delete_dist_entry,
+                                    dep, &dep->later_op);
+}
 
 static void
-prepare_try_delete_dist_entry(void *vbin)
+start_timer_delete_dist_entry(void *vdep)
 {
-    Binary *bin = (Binary *) vbin;
-    DistEntry *dep = ErtsBin2DistEntry(bin);
-    Uint size;
-    erts_aint_t refc;
-
-    refc = de_refc_read(dep, 0);
-    if (refc > 0)
-        return;
-
-    size = ERTS_MAGIC_BIN_SIZE(sizeof(DistEntry));
-    erts_schedule_thr_prgr_later_cleanup_op(try_delete_dist_entry,
-                                            vbin, &dep->later_op, size);
+    if (node_tab_delete_delay == 0) {
+        prepare_try_delete_dist_entry(vdep);
+    }
+    else {
+        ASSERT(node_tab_delete_delay > 0);
+        erts_start_timer_callback(node_tab_delete_delay,
+                                  prepare_try_delete_dist_entry,
+                                  vdep);
+    }
 }
 
-static void try_delete_dist_entry(void *vbin)
+static void
+prepare_try_delete_dist_entry(void *vdep)
 {
-    Binary *bin = (Binary *) vbin;
-    DistEntry *dep = ErtsBin2DistEntry(bin);
+    DistEntry *dep = vdep;
+    erts_aint_t refc;
+
+    /*
+     * Time has passed since we decremented refc to zero and DistEntry may
+     * have been revived. Do a fast check without table lock first.
+     */
+    refc = de_refc_read(dep, 0);
+    if (refc == 0) {
+        try_delete_dist_entry(dep);
+    }
+    else {
+        /*
+         * Someone has done lookup and done refc++ for us.
+         */
+        refc = de_refc_dec_read(dep, 0);
+        if (refc == 0)
+            schedule_delete_dist_entry(dep);
+    }
+}
+
+static void try_delete_dist_entry(DistEntry* dep)
+{
     erts_aint_t refc;
 
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
     /*
      * Another thread might have looked up this dist entry after
      * we decided to delete it (refc became zero). If so, the other
-     * thread incremented refc twice. Once for the new reference
-     * and once for this thread.
+     * thread incremented refc one extra step for this thread.
      *
-     * If refc reach -1, no one has used the entry since we
-     * set up the timer. Delete the entry.
+     * If refc reach -1, no one has done lookup and no one can do lookup
+     * as we have table lock. Delete the entry.
      *
-     * If refc reach 0, the entry is currently not in use
-     * but has been used since we set up the timer. Set up a
-     * new timer.
+     * If refc reach 0, someone raced us and either
+     *  (1) did lookup with own refc++ and already released it again
+     *  (2) did lookup without own refc++
+     * Schedule new delete operation.
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
@@ -443,12 +479,7 @@ static void try_delete_dist_entry(void *vbin)
     erts_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 
     if (refc == 0) {
-        if (node_tab_delete_delay == 0)
-            prepare_try_delete_dist_entry(vbin);
-        else if (node_tab_delete_delay > 0)
-            erts_start_timer_callback(node_tab_delete_delay,
-                                      prepare_try_delete_dist_entry,
-                                      vbin);
+        schedule_delete_dist_entry(dep);
     }
 }
 
@@ -462,12 +493,7 @@ int erts_dist_entry_destructor(Binary *bin)
     if (refc == -1)
         return 1; /* Allow deallocation of structure... */
 
-    if (node_tab_delete_delay == 0)
-        prepare_try_delete_dist_entry((void *) bin);
-    else if (node_tab_delete_delay > 0)
-        erts_start_timer_callback(node_tab_delete_delay,
-                                  prepare_try_delete_dist_entry,
-                                  (void *) bin);
+    schedule_delete_dist_entry(dep);
 
     return 0;
 }
@@ -498,12 +524,17 @@ erts_dist_table_size(void)
 	i++;
     ASSERT(i == erts_no_of_hidden_dist_entries);
     i = 0;
+    for(dep = erts_pending_dist_entries; dep; dep = dep->next)
+        i++;
+    ASSERT(i == erts_no_of_pending_dist_entries);
+    i = 0;
     for(dep = erts_not_connected_dist_entries; dep; dep = dep->next)
 	i++;
     ASSERT(i == erts_no_of_not_connected_dist_entries);
 
     ASSERT(dist_entries == (erts_no_of_visible_dist_entries
 			    + erts_no_of_hidden_dist_entries
+                            + erts_no_of_pending_dist_entries
 			    + erts_no_of_not_connected_dist_entries));
 #endif
 
@@ -518,43 +549,46 @@ erts_dist_table_size(void)
 void
 erts_set_dist_entry_not_connected(DistEntry *dep)
 {
+    DistEntry** head;
+
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
     ASSERT(dep != erts_this_dist_entry);
-    ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
 
-    if(dep->flags & DFLAG_PUBLISHED) {
-	if(dep->prev) {
-	    ASSERT(is_in_de_list(dep, erts_visible_dist_entries));
-	    dep->prev->next = dep->next;
-	}
-	else {
-	    ASSERT(erts_visible_dist_entries == dep);
-	    erts_visible_dist_entries = dep->next;
-	}
-
-	ASSERT(erts_no_of_visible_dist_entries > 0);
-	erts_no_of_visible_dist_entries--;
+    if (dep->status & ERTS_DE_SFLG_PENDING) {
+        ASSERT(is_nil(dep->cid));
+        ASSERT(erts_no_of_pending_dist_entries > 0);
+        erts_no_of_pending_dist_entries--;
+        head = &erts_pending_dist_entries;
     }
     else {
-	if(dep->prev) {
-	    ASSERT(is_in_de_list(dep, erts_hidden_dist_entries));
-	    dep->prev->next = dep->next;
-	}
-	else {
-	    ASSERT(erts_hidden_dist_entries == dep);
-	    erts_hidden_dist_entries = dep->next;
-	}
-
-	ASSERT(erts_no_of_hidden_dist_entries > 0);
-	erts_no_of_hidden_dist_entries--;
+        ASSERT(dep->status != 0);
+        ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
+        if (dep->flags & DFLAG_PUBLISHED) {
+            ASSERT(erts_no_of_visible_dist_entries > 0);
+            erts_no_of_visible_dist_entries--;
+            head = &erts_visible_dist_entries;
+        }
+        else {
+            ASSERT(erts_no_of_hidden_dist_entries > 0);
+            erts_no_of_hidden_dist_entries--;
+            head = &erts_hidden_dist_entries;
+        }
     }
 
+    if(dep->prev) {
+        ASSERT(is_in_de_list(dep, *head));
+        dep->prev->next = dep->next;
+    }
+    else {
+        ASSERT(*head == dep);
+        *head = dep->next;
+    }
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    dep->status &= ~ERTS_DE_SFLG_CONNECTED;
+    dep->status &= ~(ERTS_DE_SFLG_PENDING | ERTS_DE_SFLG_CONNECTED);
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -570,46 +604,87 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 }
 
 void
-erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
+erts_set_dist_entry_pending(DistEntry *dep)
 {
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
     ASSERT(dep != erts_this_dist_entry);
+    ASSERT(dep->status == 0);
     ASSERT(is_nil(dep->cid));
-    ASSERT(is_internal_port(cid) || is_internal_pid(cid));
 
     if(dep->prev) {
-	ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
-	dep->prev->next = dep->next;
+        ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
+        dep->prev->next = dep->next;
     }
     else {
-	ASSERT(erts_not_connected_dist_entries == dep);
-	erts_not_connected_dist_entries = dep->next;
+        ASSERT(dep == erts_not_connected_dist_entries);
+        erts_not_connected_dist_entries = dep->next;
     }
 
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    ASSERT(erts_no_of_not_connected_dist_entries > 0);
     erts_no_of_not_connected_dist_entries--;
 
+    dep->status = ERTS_DE_SFLG_PENDING;
+    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
+    dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
+
+    dep->prev = NULL;
+    dep->next = erts_pending_dist_entries;
+    if(erts_pending_dist_entries) {
+	ASSERT(erts_pending_dist_entries->prev == NULL);
+	erts_pending_dist_entries->prev = dep;
+    }
+    erts_pending_dist_entries = dep;
+    erts_no_of_pending_dist_entries++;
+    erts_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+}
+
+void
+erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
+{
+    erts_aint32_t set_qflgs;
+
+    ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
+    erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
+
+    ASSERT(dep != erts_this_dist_entry);
+    ASSERT(is_nil(dep->cid));
+    ASSERT(dep->status & ERTS_DE_SFLG_PENDING);
+    ASSERT(is_internal_port(cid) || is_internal_pid(cid));
+
+    if(dep->prev) {
+	ASSERT(is_in_de_list(dep, erts_pending_dist_entries));
+	dep->prev->next = dep->next;
+    }
+    else {
+	ASSERT(erts_pending_dist_entries == dep);
+	erts_pending_dist_entries = dep->next;
+    }
+
+    if(dep->next)
+	dep->next->prev = dep->prev;
+
+    ASSERT(erts_no_of_pending_dist_entries > 0);
+    erts_no_of_pending_dist_entries--;
+
+    dep->status &= ~ERTS_DE_SFLG_PENDING;
     dep->status |= ERTS_DE_SFLG_CONNECTED;
-    dep->flags = flags;
+    dep->flags = flags & ~DFLAG_NO_MAGIC;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);
 
-    dep->connection_id++;
-    dep->connection_id &= ERTS_DIST_EXT_CON_ID_MASK;
     dep->prev = NULL;
 
     erts_atomic64_set_nob(&dep->in, 0);
     erts_atomic64_set_nob(&dep->out, 0);
-    erts_atomic32_set_nob(&dep->qflgs,
-                          (is_internal_port(cid)
-                           ? ERTS_DE_QFLG_PORT_CTRL
-                           : ERTS_DE_QFLG_PROC_CTRL));
+    set_qflgs = (is_internal_port(cid) ?
+                 ERTS_DE_QFLG_PORT_CTRL : ERTS_DE_QFLG_PROC_CTRL);
+    erts_atomic32_read_bor_nob(&dep->qflgs, set_qflgs);
+
     if(flags & DFLAG_PUBLISHED) {
 	dep->next = erts_visible_dist_entries;
 	if(erts_visible_dist_entries) {
@@ -929,9 +1004,11 @@ void erts_init_node_tables(int dd_sec)
 
     erts_hidden_dist_entries				= NULL;
     erts_visible_dist_entries				= NULL;
+    erts_pending_dist_entries			        = NULL;
     erts_not_connected_dist_entries			= NULL;
     erts_no_of_hidden_dist_entries			= 0;
     erts_no_of_visible_dist_entries			= 0;
+    erts_no_of_pending_dist_entries			= 0;
     erts_no_of_not_connected_dist_entries		= 0;
 
     node_tmpl.sysname = am_Noname;
@@ -1057,6 +1134,7 @@ typedef struct {
 typedef struct dist_referrer_ {
     struct dist_referrer_ *next;
     int heap_ref;
+    int ets_ref;
     int node_ref;
     int ctrl_ref;
     int system_ref;
@@ -1175,10 +1253,11 @@ insert_dist_referrer(ReferredDist *referred_dist,
 	else {
 	    Uint *hp = &drp->id_heap[0];
 	    ASSERT(is_tuple(id));
-	    drp->id = copy_struct(id, size_object(id), &hp, NULL);
+            drp->id = copy_struct(id, size_object(id), &hp, NULL);
 	}
 	drp->creation = creation;
 	drp->heap_ref = 0;
+        drp->ets_ref = 0;
 	drp->node_ref = 0;
 	drp->ctrl_ref = 0;
 	drp->system_ref = 0;
@@ -1188,6 +1267,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
     case NODE_REF:	drp->node_ref++;	break;
     case CTRL_REF:	drp->ctrl_ref++;	break;
     case HEAP_REF:	drp->heap_ref++;	break;
+    case ETS_REF:	drp->ets_ref++;	        break;
     case SYSTEM_REF:	drp->system_ref++;	break;
     default:		ASSERT(0);
     }
@@ -1300,6 +1380,11 @@ insert_offheap2(ErlOffHeap *oh, void *arg)
     (((Bin)->intern.flags & BIN_FLAG_MAGIC)                             \
      && ERTS_MAGIC_BIN_DESTRUCTOR((Bin)) == erts_dist_entry_destructor)
 
+#define IsSendCtxBinary(Bin)                                            \
+    (((Bin)->intern.flags & BIN_FLAG_MAGIC)                             \
+     && ERTS_MAGIC_BIN_DESTRUCTOR((Bin)) == erts_dsend_context_dtor)
+
+
 static void
 insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 {
@@ -1336,7 +1421,12 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    inserted_bins = nib;
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		}
-	    }		
+	    }
+            else if (IsSendCtxBinary(u.mref->mb)) {
+                ErtsSendContext* ctx = ERTS_MAGIC_BIN_DATA(u.mref->mb);
+                if (ctx->deref_dep)
+                    insert_dist_entry(ctx->dep, type, id, 0);
+            }
 	    break;
 	case REFC_BINARY_SUBTAG:
 	case FUN_SUBTAG:
@@ -1463,9 +1553,9 @@ insert_delayed_delete_node(void *state,
 }
 
 static void
-insert_thr_prgr_delete_dist_entry(void *arg, ErtsThrPrgrVal thr_prgr, void *vbin)
+insert_thr_prgr_delete_dist_entry(void *arg, ErtsThrPrgrVal thr_prgr, void *vdep)
 {
-    DistEntry *dep = ErtsBin2DistEntry(vbin);
+    DistEntry *dep = vdep;
     Eterm heap[3];
     insert_dist_entry(dep,
 		      SYSTEM_REF,
@@ -1476,9 +1566,9 @@ insert_thr_prgr_delete_dist_entry(void *arg, ErtsThrPrgrVal thr_prgr, void *vbin
 static void
 insert_delayed_delete_dist_entry(void *state,
 				 ErtsMonotonicTime timeout_pos,
-				 void *vbin)
+				 void *vdep)
 {
-    DistEntry *dep = ErtsBin2DistEntry(vbin);
+    DistEntry *dep = vdep;
     Eterm heap[3];
     insert_dist_entry(dep,
 		      SYSTEM_REF,
@@ -1520,7 +1610,7 @@ setup_reference_table(void)
     erts_debug_callback_timer_foreach(prepare_try_delete_dist_entry,
 				      insert_delayed_delete_dist_entry,
 				      NULL);
-    erts_debug_later_op_foreach(try_delete_dist_entry,
+    erts_debug_later_op_foreach(start_timer_delete_dist_entry,
                                 insert_thr_prgr_delete_dist_entry,
                                 NULL);
 
@@ -1684,6 +1774,15 @@ setup_reference_table(void)
 	    insert_links(dep->node_links, dep->sysname);
 	if(dep->monitors)
 	    insert_monitors(dep->monitors, dep->sysname);
+    }
+
+    for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
+        if(dep->nlinks)
+            insert_links2(dep->nlinks, dep->sysname);
+        if(dep->node_links)
+            insert_links(dep->node_links, dep->sysname);
+        if(dep->monitors)
+            insert_monitors(dep->monitors, dep->sysname);
     }
 
     /* Not connected dist entries should not have any links,
@@ -1855,6 +1954,10 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
 		tup = MK_2TUP(AM_heap, MK_UINT(drp->heap_ref));
 		drl = MK_CONS(tup, drl);
 	    }
+            if(drp->ets_ref) {
+                tup = MK_2TUP(AM_ets, MK_UINT(drp->ets_ref));
+                drl = MK_CONS(tup, drl);
+            }
 	    if(drp->system_ref) {
 		tup = MK_2TUP(AM_system, MK_UINT(drp->system_ref));
 		drl = MK_CONS(tup, drl);
@@ -1871,12 +1974,17 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
 	    else if (is_tuple(drp->id)) {
 		Eterm *t;
 		ASSERT(drp->system_ref && !drp->node_ref
-		       && !drp->ctrl_ref && !drp->heap_ref);
+		       && !drp->ctrl_ref && !drp->heap_ref && !drp->ets_ref);
 		t = tuple_val(drp->id);
 		ASSERT(2 == arityval(t[0]));
 		tup = MK_2TUP(t[1], t[2]);
 	    }
-	    else {
+	    else if (drp->ets_ref) {
+                ASSERT(!drp->heap_ref && !drp->node_ref &&
+                       !drp->ctrl_ref && !drp->system_ref);
+                tup = MK_2TUP(AM_ets, drp->id);
+            }
+            else {
 		ASSERT(!drp->ctrl_ref && drp->node_ref);
 		ASSERT(is_atom(drp->id));
 		tup = MK_2TUP(drp->id, MK_UINT(drp->creation));

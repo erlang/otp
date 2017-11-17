@@ -651,11 +651,10 @@ do_echo(DataList, Config, OutTrans, InTrans, ExtraArgs)
 echo_loop([D|Ds], Echoer, OutTrans, InTrans, TermAcc) ->
     OutMsg = OutTrans(D),
     Echoer ! OutMsg,
-    io:format("echo_server ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
+    %%io:format("echo_server ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
     receive
 	Reply ->
-	    io:format("echo_server ~p: receive ~P~n",
-		      [self(),Reply,10]),
+	    %%io:format("echo_server ~p: receive ~P~n", [self(),Reply,10]),
 	    InTrans(Echoer, D, Reply)
     end,
     Term = case OutMsg of
@@ -670,11 +669,10 @@ echo_loop(Cont, Echoer, OutTrans, InTrans, TermAcc)
   when is_function(Cont, 0) ->
     check_terms(Echoer, TermAcc),
     OutMsg = Echoer ! {self(),undefined,hash_clear},
-    io:format("echo_server ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
+    %%io:format("echo_server ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
     receive
 	{Echoer,hash_cleared,hash_clear}=Reply ->
-	    io:format("echo_server ~p: receive ~P~n",
-		      [self(),Reply,10]),
+	    %%io:format("echo_server ~p: receive ~P~n", [self(),Reply,10]),
 	    ok;
 	Other ->
 	    io:format("echo_server_terms unexpected ~p: receive ~P~n",
@@ -686,11 +684,10 @@ echo_loop(Cont, Echoer, OutTrans, InTrans, TermAcc)
 check_terms(Echoer, [Term | Rest]) ->
     OutMsg = {self(),Term,hash_lookup},
     Echoer ! OutMsg,
-    io:format("check_terms ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
+    %%io:format("check_terms ~p: ~p ! ~P~n", [self(),Echoer,OutMsg,10]),
     receive
 	{Echoer,true,hash_lookup} = ReplyMsg ->
-	    io:format("check_terms ~p: receive ~P~n",
-		      [self(),ReplyMsg,10]),
+	    %%io:format("check_terms ~p: receive ~P~n", [self(),ReplyMsg,10]),
 	    check_terms(Echoer, Rest);
 	Other ->
 	    io:format("check_terms unexpected ~p: receive ~P~n",

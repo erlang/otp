@@ -108,6 +108,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom auto_connect
 atom await_microstate_accounting_modifications
 atom await_port_send_result
 atom await_proc_exit
@@ -198,9 +199,7 @@ atom debug_flags
 atom decimals
 atom default
 atom delay_trap
-atom dexit
 atom depth
-atom dgroup_leader
 atom dictionary
 atom dirty_bif_exception
 atom dirty_bif_result
@@ -221,7 +220,6 @@ atom dist_ctrl_put_data
 atom dist_data
 atom Div='/'
 atom div
-atom dlink
 atom dmonitor_node
 atom dmonitor_p
 atom DollarDollar='$$'
@@ -230,9 +228,7 @@ atom dollar_endonly
 atom dotall
 atom driver
 atom driver_options
-atom dsend
 atom dsend_continue_trap
-atom dunlink
 atom duplicate_bag
 atom duplicated
 atom dupnames

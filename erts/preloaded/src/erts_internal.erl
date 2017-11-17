@@ -63,6 +63,9 @@
 
 -export([dist_ctrl_put_data/2]).
 
+-export([new_connection/1]).
+-export([abort_connection/2]).
+
 %% Auto import name clash
 -export([check_process_code/1]).
 
@@ -498,3 +501,16 @@ dist_ctrl_put_data(DHandle, IoList) ->
                           | RootST],
 	    erlang:raise(Class, Reason, StackTrace)
     end.
+
+
+-spec erts_internal:new_connection(Node) -> ConnId when
+      Node :: atom(),
+      ConnId :: {integer(), erlang:dist_handle()}.
+new_connection(_Node) ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:abort_connection(Node, ConnId) -> boolean() when
+      Node :: atom(),
+      ConnId :: {integer(), erlang:dist_handle()}.
+abort_connection(_Node, _ConnId) ->
+    erlang:nif_error(undefined).
