@@ -441,8 +441,8 @@ init(Type, Event, State) ->
 
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
-error({call, From}, Msg, State) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State);
+error({call, _} = Call, Msg, State) ->
+    ssl_connection:?FUNCTION_NAME(Call, Msg, State, ?MODULE);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
@@ -651,10 +651,7 @@ tls_handshake_events(Packets) ->
 		      {next_event, internal, {handshake, Packet}}
 	      end, Packets).
 
-handle_call(Event, From, StateName, State) ->
-    ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
- 
-%% raw data from socket, unpack records
+%% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
             #state{data_tag = Protocol} = State0) ->
     case next_tls_record(Data, State0) of
@@ -697,7 +694,7 @@ handle_info({CloseTag, Socket}, StateName,
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_alerts([], Result) ->
     Result;

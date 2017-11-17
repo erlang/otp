@@ -232,8 +232,6 @@ next_event(StateName, Record,
 	#alert{} = Alert ->
 	    {next_state, StateName, State0, [{next_event, internal, Alert} | Actions]}
     end.
-handle_call(Event, From, StateName, State) ->
-    ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
 
 handle_common_event(internal, #alert{} = Alert, StateName, 
 		    #state{negotiated_version = Version} = State) ->
@@ -470,8 +468,8 @@ error(enter, _, State) ->
     {keep_state, State};     
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
-error({call, From}, Msg, State) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State);
+error({call, _} = Call, Msg, State) ->
+    ssl_connection:?FUNCTION_NAME(Call, Msg, State, ?MODULE);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
 
@@ -864,7 +862,7 @@ handle_info(new_cookie_secret, StateName,
                                             CookieInfo#{current_cookie_secret => dtls_v1:cookie_secret(),
                                                         previous_cookie_secret => Secret}}};
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_state_timeout(flight_retransmission_timeout, StateName, 
                     #state{flight_state = {retransmit, NextTimeout}} = State0) ->

@@ -61,13 +61,10 @@
 
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
--export([init/4, hello/4, abbreviated/4, certify/4, cipher/4, connection/4, downgrade/4]).
+-export([init/4, error/4, hello/4, abbreviated/4, certify/4, cipher/4, connection/4, downgrade/4]).
 
 %% gen_statem callbacks
 -export([terminate/3, format_status/2]).
-
-%% TODO: do not export, call state function instead
--export([handle_info/3, handle_call/5,  handle_common_event/5]).
 
 %%====================================================================
 %% Setup
@@ -538,6 +535,15 @@ init({call, From}, Msg, State, Connection) ->
 init(_Type, _Event, _State, _Connection) ->
     {keep_state_and_data, [postpone]}.
 	
+%%--------------------------------------------------------------------
+-spec error(gen_statem:event_type(),
+	   {start, timeout()} | term(), #state{},
+            tls_connection | dtls_connection) ->
+		   gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+error({call, From}, Msg, State, Connection) ->
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection).
+
 %%--------------------------------------------------------------------
 -spec hello(gen_statem:event_type(),
 	    #hello_request{} | #server_hello{} | term(),
