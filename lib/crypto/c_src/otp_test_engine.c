@@ -218,9 +218,9 @@ EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *
     fclose(f);
     
     if (!pkey) {
-        fprintf(stderr, "%s:%d Key read from file failed. ", __FILE__,__LINE__);
+        fprintf(stderr, "%s:%d Key read from file %s failed.\r\n", __FILE__,__LINE__,id);
         if (callback_data) 
-            fprintf(stderr, "Pwd = \"%s\". ", (char *)callback_data);
+            fprintf(stderr, "Pwd = \"%s\".\r\n", (char *)callback_data);
         fprintf(stderr, "Contents of file \"%s\":\r\n",id);
         f = fopen(id, "r");
         { /* Print the contents of the key file */
@@ -228,12 +228,14 @@ EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *
             while (!feof(f)) {
                 switch (c=fgetc(f)) {
                 case '\n':
-                case '\r': putc('\r',stdout); putc('\n',stdout); break;
-                default: putc(c, stdout);
+                case '\r': putc('\r',stderr); putc('\n',stderr); break;
+                default: putc(c, stderr);
                 }
             }
         }
+        fprintf(stderr, "File contents printed.\r\n");
         fclose(f);
+        return NULL;
     }
     
     return pkey;
