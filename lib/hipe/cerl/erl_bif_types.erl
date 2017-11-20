@@ -1701,24 +1701,6 @@ type(maps, size, 1, Xs, Opaques) ->
 		 t_from_range(LowerBound, UpperBound)
 	     end
 	 end, Opaques);
-type(maps, to_list, 1, Xs, Opaques) ->
-  strict(maps, to_list, 1, Xs,
-	 fun ([Map]) ->
-	     DefK = t_map_def_key(Map, Opaques),
-	     DefV = t_map_def_val(Map, Opaques),
-	     Pairs = t_map_entries(Map, Opaques),
-	     EType = lists:foldl(
-		       fun({K,_,V},EType0) ->
-			   case t_is_none(V) of
-			     true -> t_subtract(EType0, t_tuple([K,t_any()]));
-			     false -> t_sup(EType0, t_tuple([K,V]))
-			   end
-		       end, t_tuple([DefK, DefV]), Pairs),
-	     case t_is_none(EType) of
-	       true -> t_nil();
-	       false -> t_list(EType)
-	     end
-	 end, Opaques);
 type(maps, update, 3, Xs, Opaques) ->
   strict(maps, update, 3, Xs,
 	 fun ([Key, Value, Map]) ->
@@ -2647,8 +2629,6 @@ arg_types(maps, merge, 2) ->
 arg_types(maps, put, 3) ->
   [t_any(), t_any(), t_map()];
 arg_types(maps, size, 1) ->
-  [t_map()];
-arg_types(maps, to_list, 1) ->
   [t_map()];
 arg_types(maps, update, 3) ->
   [t_any(), t_any(), t_map()];

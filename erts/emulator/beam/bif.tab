@@ -627,7 +627,6 @@ bif re:inspect/2
 
 ubif erlang:is_map/1
 gcbif erlang:map_size/1
-bif maps:to_list/1
 bif maps:find/2
 bif maps:get/2
 bif maps:from_list/1
@@ -682,12 +681,10 @@ bif math:floor/1
 bif math:ceil/1
 bif math:fmod/2
 bif os:set_signal/2
-bif erts_internal:maps_to_list/2
 
 #
 # New in 20.1
 #
-
 bif erlang:iolist_to_iovec/1
 
 #
@@ -696,4 +693,4 @@ bif erlang:iolist_to_iovec/1
 
 bif erts_internal:new_connection/1
 bif erts_internal:abort_connection/2
-
+bif erts_internal:map_next/3

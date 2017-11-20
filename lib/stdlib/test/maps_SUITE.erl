@@ -30,6 +30,7 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
+         t_iterator_1/1,
          t_with_2/1,t_without_2/1]).
 
 %%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -47,6 +48,7 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
+     t_iterator_1,
      t_with_2,t_without_2].
 
 t_update_with_3(Config) when is_list(Config) ->
@@ -127,6 +129,8 @@ t_filter_2(Config) when is_list(Config) ->
     Pred2 = fun(K,V) -> is_list(K) andalso (V rem 2) =:= 0 end,
     #{a := 2,c := 4} = maps:filter(Pred1,M),
     #{"b" := 2,"c" := 4} = maps:filter(Pred2,M),
+    #{a := 2,c := 4} = maps:filter(Pred1,maps:iterator(M)),
+    #{"b" := 2,"c" := 4} = maps:filter(Pred2,maps:iterator(M)),
     %% error case
     ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> ok end,id(a))),
     ?badarg(filter,[<<>>,#{}]) = (catch maps:filter(id(<<>>),#{})),
@@ -139,6 +143,8 @@ t_fold_3(Config) when is_list(Config) ->
     Tot0 = lists:sum(Vs),
     Tot1 = maps:fold(fun({k,_},V,A) -> A + V end, 0, M0),
     true = Tot0 =:= Tot1,
+    Tot2 = maps:fold(fun({k,_},V,A) -> A + V end, 0, maps:iterator(M0)),
+    true = Tot0 =:= Tot2,
 
     %% error case
     ?badmap(a,fold,[_,0,a]) = (catch maps:fold(fun(_,_,_) -> ok end,0,id(a))),
@@ -151,12 +157,48 @@ t_map_2(Config) when is_list(Config) ->
     #{ {k,1} := 1, {k,200} := 200} = M0,
     M1 = maps:map(fun({k,_},V) -> V + 42 end, M0),
     #{ {k,1} := 43, {k,200} := 242} = M1,
+    M2 = maps:map(fun({k,_},V) -> V + 42 end, maps:iterator(M0)),
+    #{ {k,1} := 43, {k,200} := 242} = M2,
 
     %% error case
     ?badmap(a,map,[_,a]) = (catch maps:map(fun(_,_) -> ok end, id(a))),
     ?badarg(map,[<<>>,#{}]) = (catch maps:map(id(<<>>),#{})),
     ok.
 
+t_iterator_1(Config) when is_list(Config) ->
+
+    %% Small map test
+    M0 = #{ a => 1, b => 2 },
+    I0 = maps:iterator(M0),
+    {K1,V1,I1} = maps:next(I0),
+    {K2,V2,I2} = maps:next(I1),
+    none = maps:next(I2),
+
+    KVList = lists:sort([{K1,V1},{K2,V2}]),
+    KVList = lists:sort(maps:to_list(M0)),
+
+    %% Large map test
+
+    Vs2 = lists:seq(1,200),
+    M2 = maps:from_list([{{k,I},I}||I<-Vs2]),
+    KVList2 = lists:sort(iter_kv(maps:iterator(M2))),
+    KVList2 = lists:sort(maps:to_list(M2)),
+
+    %% Larger map test
+
+    Vs3 = lists:seq(1,10000),
+    M3 = maps:from_list([{{k,I},I}||I<-Vs3]),
+    KVList3 = lists:sort(iter_kv(maps:iterator(M3))),
+    KVList3 = lists:sort(maps:to_list(M3)),
+    ok.
+
+iter_kv(I) ->
+    case maps:next(I) of
+        none ->
+            [];
+        {K,V,NI} ->
+            [{K,V} | iter_kv(NI)]
+    end.
 
 t_size_1(Config) when is_list(Config) ->
       0 = maps:size(#{}),

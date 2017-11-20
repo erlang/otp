@@ -52,7 +52,7 @@
          t_bif_map_values/1,
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
-         t_bif_erts_internal_maps_to_list/1,
+         t_bif_map_next/1,
 
          %% erlang
          t_erlang_hash/1,
@@ -119,7 +119,7 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_update,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
-          t_bif_erts_internal_maps_to_list,
+          t_bif_map_next,
 
           %% erlang
           t_erlang_hash, t_map_encode_decode,
@@ -2364,40 +2364,70 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
 
-t_bif_erts_internal_maps_to_list(Config) when is_list(Config) ->
-    %% small maps
-    [] = erts_internal:maps_to_list(#{},-1),
-    [] = erts_internal:maps_to_list(#{},-2),
-    [] = erts_internal:maps_to_list(#{},10),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, 2)),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, -1)),
-    [{_,_}] = erts_internal:maps_to_list(#{a=>1,b=>2}, 1),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},-2)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},3)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},5)),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},2),
-    [{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},1),
-    [] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},0),
+t_bif_map_next(Config) when is_list(Config) ->
 
-    %% big maps
-    M = maps:from_list([{I,ok}||I <- lists:seq(1,500)]),
-    [] = erts_internal:maps_to_list(M,0),
-    [{_,_}] = erts_internal:maps_to_list(M,1),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(M,2),
-    Ls1 = erts_internal:maps_to_list(M,10),
-    10 = length(Ls1),
-    Ls2 = erts_internal:maps_to_list(M,20),
-    20 = length(Ls2),
-    Ls3 = erts_internal:maps_to_list(M,120),
-    120 = length(Ls3),
-    Ls4 = erts_internal:maps_to_list(M,-1),
-    500 = length(Ls4),
+    erts_debug:set_internal_state(available_internal_state, true),
 
-    %% error cases
-    {'EXIT', {{badmap,[{a,b},b]},_}} = (catch erts_internal:maps_to_list(id([{a,b},b]),id(1))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{}),id(a))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{1=>2}),id(<<>>))),
+    try
+
+        none = maps:next(maps:iterator(id(#{}))),
+
+        verify_iterator(#{}),
+        verify_iterator(#{a => 1, b => 2, c => 3}),
+
+        %% Use fatmap in order to test iterating in very deep maps
+        FM = fatmap(43),
+        verify_iterator(FM),
+
+        {'EXIT', {{badmap,[{a,b},b]},_}} = (catch maps:iterator(id([{a,b},b]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id(a))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([a|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFFFFFFFFFFF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-16#FFFFFFFFFFFFFFFF|FM]))),
+
+        %% This us a whitebox test that the error code works correctly.
+        %% It uses a path for a tree of depth 4 and tries to do next on
+        %% each of those paths.
+        (fun F(0) -> ok;
+             F(N) ->
+                 try maps:next([N|FM]) of
+                     none ->
+                         F(N-1);
+                     {_K,_V,_I} ->
+                         F(N-1)
+                 catch error:badarg ->
+                         F(N-1)
+                 end
+         end)(16#FFFF),
+
+        ok
+    after
+            erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+verify_iterator(Map) ->
+    KVs = t_fold(fun(K, V, A) -> [{K, V} | A] end, [], Map),
+
+    %% Verify that KVs created by iterating Map is of
+    %% correct size and contains all elements
+    true = length(KVs) == maps:size(Map),
+    [maps:get(K, Map) || {K, _} <- KVs],
     ok.
+
+
+t_fold(Fun, Init, Map) ->
+    t_fold_1(Fun, Init, maps:iterator(Map)).
+
+t_fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, V, NextIter} ->
+            t_fold_1(Fun, Fun(K,V,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 t_bif_build_and_check(Config) when is_list(Config) ->
     ok = check_build_and_remove(750,[fun(K) -> [K,K] end,

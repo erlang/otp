@@ -64,7 +64,6 @@ typedef struct flatmap_s {
 #define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
     (((++(Lvl)) & 7) ? (Hx) >> 4 : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), Key)))
 
-
 /* erl_term.h stuff */
 #define flatmap_get_values(x)        (((Eterm *)(x)) + sizeof(flatmap_t)/sizeof(Eterm))
 #define flatmap_get_keys(x)          (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)

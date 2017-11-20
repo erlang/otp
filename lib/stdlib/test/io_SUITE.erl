@@ -2138,8 +2138,8 @@ otp_14175(_Config) ->
     "#{}" = p(#{}, 1),
     "#{...}" = p(#{a => 1}, 1),
     "#{#{} => a}" = p(#{#{} => a}, 2),
-    "#{a => 1,...}" = p(#{a => 1, b => 2}, 2),
-    "#{a => 1,b => 2}" = p(#{a => 1, b => 2}, -1),
+    mt("#{a => 1,...}", p(#{a => 1, b => 2}, 2)),
+    mt("#{a => 1,b => 2}", p(#{a => 1, b => 2}, -1)),
 
     M = #{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,
           kccccccccccccccccccc => v3,kddddddddddddddddddd => v4,

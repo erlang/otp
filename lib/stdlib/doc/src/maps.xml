@@ -33,16 +33,31 @@
     <p>This module contains functions for maps processing.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="iterator"/>
+      <desc>
+        <p>An iterator representing the key value associations in a map.</p>
+        <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>.</p>
+        <p>Consumed by <seealso marker="#next-1"><c>maps:next/1</c></seealso>,
+          <seealso marker="#filter-2"><c>maps:filter/2</c></seealso>,
+          <seealso marker="#fold-3"><c>maps:fold/3</c></seealso> and
+          <seealso marker="#map-2"><c>maps:map/2</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name name="filter" arity="2"/>
       <fsummary>Select pairs that satisfy a predicate.</fsummary>
       <desc>
-        <p>Returns a map <c><anno>Map2</anno></c> for which predicate
-          <c><anno>Pred</anno></c> holds true in <c><anno>Map1</anno></c>.</p>
+        <p>Returns a map <c><anno>Map</anno></c> for which predicate
+          <c><anno>Pred</anno></c> holds true in <c><anno>MapOrIter</anno></c>.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
-          <c><anno>Map1</anno></c> is not a map, or with <c>badarg</c> if
-          <c><anno>Pred</anno></c> is not a function of arity 2.</p>
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Pred</anno></c> is not a
+          function of arity 2.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
@@ -76,12 +91,16 @@
       <fsummary></fsummary>
       <desc>
         <p>Calls <c>F(K, V, AccIn)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V</anno></c> association in <c><anno>Map</anno></c> in
+          <c><anno>V</anno></c> association in <c><anno>MapOrIter</anno></c> in
           any order. Function <c>fun F/3</c> must return a new
           accumulator, which is passed to the next successive call.
           This function returns the final value of the accumulator. The initial
           accumulator value <c><anno>Init</anno></c> is returned if the map is
           empty.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 3.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
@@ -169,6 +188,32 @@ false</code>
     </func>
 
     <func>
+      <name name="iterator" arity="1"/>
+      <fsummary>Create a map iterator.</fsummary>
+      <desc>
+        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
+          be used by <seealso marker="#next-1"><c>maps:next/1</c></seealso>
+          to traverse the key-value associations in a map. When iterating
+          over a map, the memory usage is guaranteed to be bounded no matter
+          the size of the map.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> I = maps:iterator(M).
+[{a,1},{b,2}]
+> {K1, V1, I2} = maps:next(I).
+{a,1,[{b,2}]}
+> {K2, V2, I3} = maps:next(I2).
+{b,2,[]}
+> maps:next(I3).
+none</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="keys" arity="1"/>
       <fsummary></fsummary>
       <desc>
@@ -188,12 +233,16 @@ false</code>
       <name name="map" arity="2"/>
       <fsummary></fsummary>
       <desc>
-        <p>Produces a new map <c><anno>Map2</anno></c> by calling function
+        <p>Produces a new map <c><anno>Map</anno></c> by calling function
           <c>fun F(K, V1)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V1</anno></c> association in <c><anno>Map1</anno></c> in
+          <c><anno>V1</anno></c> association in <c><anno>MapOrIter</anno></c> in
           any order. Function <c>fun F/2</c> must return value
           <c><anno>V2</anno></c> to be associated with key <c><anno>K</anno></c>
-          for the new map <c><anno>Map2</anno></c>.</p>
+          for the new map <c><anno>Map</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 2.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Fun = fun(K,V1) when is_list(K) -> V1*2 end,
@@ -230,6 +279,35 @@ false</code>
         <code type="none">
 > maps:new().
 #{}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="next" arity="1"/>
+      <fsummary>Get the next key and value from an iterator.</fsummary>
+      <desc>
+        <p>Returns the next key-value association in
+          <c><anno>Iterator</anno></c> and a new iterator for the
+          remaining associations in the iterator.
+        </p>
+        <p>
+          If there are no more associations in the iterator,
+          <c>none</c> is returned.
+        </p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{a => 1, b => 2, c => 3}.
+#{a => 1,b => 2,c => 3}
+> Iter = maps:iterator(Map).
+[{a,1},{b,2},{c,3}]
+> {_, _, Iter1} = maps:next(Iter).
+{a,1,[{b,2},{c,3}]}
+> {_, _, Iter2} = maps:next(Iter1).
+{b,2,[{c,3}]}
+> {_, _, Iter3} = maps:next(Iter2).
+{c,3,[]}
+> maps:next(Iter3).
+none</code>
       </desc>
     </func>
 
