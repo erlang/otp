@@ -431,7 +431,7 @@ init({call, From}, {start, Timeout},
     {Record, State} = next_record(State1),
     next_event(hello, Record, State);
 init(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
  
 %%--------------------------------------------------------------------
 -spec error(gen_statem:event_type(),
@@ -442,7 +442,7 @@ init(Type, Event, State) ->
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
 error({call, _} = Call, Msg, State) ->
-    ssl_connection:?FUNCTION_NAME(Call, Msg, State, ?MODULE);
+    gen_handshake(?FUNCTION_NAME, Call, Msg, State);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
@@ -472,14 +472,13 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
 			   undefined -> CurrentProtocol;
 			   _ -> Protocol0
 		       end,
-	    
-	    gen_handshake(ssl_connection, hello, internal, {common_client_hello, Type, ServerHelloExt},
-				 State#state{connection_states  = ConnectionStates,
-					     negotiated_version = Version,
-                                             client_hello_version = ClientVersion,
-					     hashsign_algorithm = HashSign,
-					     session = Session,
-					     negotiated_protocol = Protocol})
+            gen_handshake(?FUNCTION_NAME, internal, {common_client_hello, Type, ServerHelloExt},
+                          State#state{connection_states  = ConnectionStates,
+                                      negotiated_version = Version,
+                                      hashsign_algorithm = HashSign,
+                                      client_hello_version = ClientVersion,
+                                      session = Session,
+                                      negotiated_protocol = Protocol})
     end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
@@ -497,7 +496,7 @@ hello(internal, #server_hello{} = Hello,
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
@@ -506,7 +505,7 @@ hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
@@ -515,7 +514,7 @@ abbreviated(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
@@ -524,7 +523,7 @@ certify(Type, Event, State) ->
 cipher(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),  
@@ -715,9 +714,9 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
 
-gen_handshake(GenConnection, StateName, Type, Event, 
+gen_handshake(StateName, Type, Event, 
 	      #state{negotiated_version = Version} = State) ->
-    try GenConnection:StateName(Type, Event, State, ?MODULE) of
+    try ssl_connection:StateName(Type, Event, State, ?MODULE) of
 	Result ->
 	    Result
     catch 
