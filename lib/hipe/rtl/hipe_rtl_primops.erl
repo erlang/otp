@@ -291,6 +291,10 @@ gen_primop({Op,Dst,Args,Cont,Fail}, IsGuard, ConstTab) ->
 	    gen_select_msg(Dst, Cont);
 	  clear_timeout ->
 	    gen_clear_timeout(Dst, GotoCont);
+          recv_mark ->
+            gen_recv_mark(Dst, GotoCont);
+	  recv_set ->
+            gen_recv_set(Dst, Cont);
 	  set_timeout ->
 	    %% BIF call: am_set_timeout -> nbif_set_timeout -> hipe_set_timeout
 	    [hipe_rtl:mk_call(Dst, set_timeout, Args, Cont, Fail, not_remote)];
@@ -1063,6 +1067,27 @@ gen_tuple_header(Ptr, Arity) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Receives
+
+%%% recv_mark is:
+%%%	p->msg.saved_last = p->msg.last;
+gen_recv_mark([], GotoCont) ->
+  TmpLast = hipe_rtl:mk_new_reg(),
+  [load_p_field(TmpLast, ?P_MSG_LAST),
+   store_p_field(TmpLast, ?P_MSG_SAVED_LAST),
+   GotoCont].
+
+%%% recv_set is:
+%%%	if (p->msg.saved_last)
+%%%	    p->msg.save = p->msg.saved_last;
+gen_recv_set([], Cont) ->
+  TmpSave = hipe_rtl:mk_new_reg(),
+  TrueLbl = hipe_rtl:mk_new_label(),
+  [load_p_field(TmpSave, ?P_MSG_SAVED_LAST),
+   hipe_rtl:mk_branch(TmpSave, ne, hipe_rtl:mk_imm(0),
+                      hipe_rtl:label_name(TrueLbl), Cont),
+   TrueLbl,
+   store_p_field(TmpSave, ?P_MSG_SAVE),
+   hipe_rtl:mk_goto(Cont)].
 
 gen_check_get_msg(Dsts, GotoCont, Fail) ->
   gen_check_get_msg_outofline(Dsts, GotoCont, Fail).

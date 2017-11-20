@@ -67,6 +67,8 @@ is_safe(fp_mul) -> false;
 is_safe(fp_sub) -> false;
 is_safe(mktuple) -> true;
 is_safe(next_msg) -> false;
+is_safe(recv_mark) -> false;
+is_safe(recv_set) -> false;
 is_safe(redtest) -> false;
 is_safe(select_msg) -> false;
 is_safe(self) -> true;
@@ -165,6 +167,8 @@ fails(fp_mul) -> false;
 fails(fp_sub) -> false;
 fails(mktuple) -> false;
 fails(next_msg) -> false;
+fails(recv_mark) -> false;
+fails(recv_set) -> false;
 fails(redtest) -> false;
 fails(select_msg) -> false;
 fails(self) -> false;
@@ -709,6 +713,10 @@ type(Primop, Args) ->
       erl_types:t_any();
     next_msg ->
       erl_types:t_any();
+    recv_mark ->
+      erl_types:t_any();
+    recv_set ->
+      erl_types:t_any();
     select_msg ->
       erl_types:t_any();
     set_timeout ->
@@ -882,6 +890,10 @@ type(Primop) ->
     clear_timeout ->
       erl_types:t_any();
     next_msg ->
+      erl_types:t_any();
+    recv_mark ->
+      erl_types:t_any();
+    recv_set ->
       erl_types:t_any();
     select_msg ->
       erl_types:t_any();

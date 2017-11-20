@@ -254,6 +254,8 @@ void hipe_handle_exception(Process *c_p)
     /* Synthesized to avoid having to generate code for it. */
     c_p->def_arg_reg[0] = exception_tag[GET_EXC_CLASS(c_p->freason)];
 
+    c_p->msg.saved_last = 0;  /* No longer safe to use this position */
+
     hipe_find_handler(c_p);
 }
 
