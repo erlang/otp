@@ -145,6 +145,7 @@
 
 
 -record(state,{file,dump_vsn,wordsize=4,num_atoms="unknown"}).
+-record(dec_opts, {bin_addr_adj=0}).
 
 %%%-----------------------------------------------------------------
 %%% Debugging
@@ -828,8 +829,8 @@ do_read_file(File) ->
                                     reset_tables(),
                                     insert_index(Tag,Id,N1+1),
                                     put_last_tag(Tag,""),
-                                    AddrAdj = get_bin_addr_adj(DumpVsn),
-                                    indexify(Fd,AddrAdj,Rest,N1),
+                                    DecodeOpts = get_decode_opts(DumpVsn),
+                                    indexify(Fd,DecodeOpts,Rest,N1),
                                     end_progress(),
                                     check_if_truncated(),
                                     close(Fd),
@@ -877,7 +878,7 @@ check_dump_version(Vsn) ->
             {ok,DumpVsn}
     end.
 
-indexify(Fd,AddrAdj,Bin,N) ->
+indexify(Fd,DecodeOpts,Bin,N) ->
     case binary:match(Bin,<<"\n=">>) of
 	{Start,Len} ->
 	    Pos = Start+Len,
@@ -890,7 +891,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
                     %% order to minimize lookup time. Key is the
                     %% translated address.
                     {HexAddr,_} = get_hex(Id),
-                    Addr = HexAddr bor AddrAdj,
+                    Addr = HexAddr bor DecodeOpts#dec_opts.bin_addr_adj,
                     insert_binary_index(Addr,NewPos);
                 _ ->
                     insert_index(Tag,Id,NewPos)
@@ -914,7 +915,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
                     end;
                 _ -> ok
             end,
-	    indexify(Fd,AddrAdj,Rest,N1);
+	    indexify(Fd,DecodeOpts,Rest,N1);
 	nomatch ->
 	    case progress_read(Fd) of
 		{ok,Chunk0} when is_binary(Chunk0) ->
@@ -925,7 +926,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
 			    _ ->
 				{Chunk0,N+byte_size(Bin)}
 			end,
-		    indexify(Fd,AddrAdj,Chunk,N1);
+		    indexify(Fd,DecodeOpts,Chunk,N1);
 		eof ->
 		    eof
 	    end
@@ -1441,21 +1442,21 @@ maybe_other_node2(Channel) ->
 
 
 expand_memory(Fd,Pid,DumpVsn) ->
-    BinAddrAdj = get_bin_addr_adj(DumpVsn),
+    DecodeOpts = get_decode_opts(DumpVsn),
     put(fd,Fd),
     Dict0 = case get(?literals) of
                 undefined ->
-                    Literals = read_literals(Fd),
+                    Literals = read_literals(Fd,DecodeOpts),
                     put(?literals,Literals),
                     put(fd,Fd),
                     Literals;
                 Literals ->
                     Literals
             end,
-    Dict = read_heap(Fd,Pid,BinAddrAdj,Dict0),
-    Expanded = {read_stack_dump(Fd,Pid,BinAddrAdj,Dict),
-		read_messages(Fd,Pid,BinAddrAdj,Dict),
-		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
+    Dict = read_heap(Fd,Pid,DecodeOpts,Dict0),
+    Expanded = {read_stack_dump(Fd,Pid,DecodeOpts,Dict),
+		read_messages(Fd,Pid,DecodeOpts,Dict),
+		read_dictionary(Fd,Pid,DecodeOpts,Dict)},
     erase(fd),
     IncompleteWarning =
         case erase(incomplete_heap) of
@@ -1467,52 +1468,58 @@ expand_memory(Fd,Pid,DumpVsn) ->
         end,
     {Expanded,IncompleteWarning}.
 
-read_literals(Fd) ->
+read_literals(Fd,DecodeOpts) ->
     case lookup_index(?literals,[]) of
 	[{_,Start}] ->
             [{_,Chars}] = ets:lookup(cdv_heap_file_chars,literals),
             init_progress("Reading literals",Chars),
 	    pos_bof(Fd,Start),
-	    read_heap(0,gb_trees:empty());
+	    read_heap(DecodeOpts,gb_trees:empty());
         [] ->
             gb_trees:empty()
     end.
 
-%%%-----------------------------------------------------------------
-%%% This is a workaround for a bug in dump versions prior to 0.3:
-%%% Addresses were truncated to 32 bits. This could cause binaries to
-%%% get the same address as heap terms in the dump. To work around it
-%%% we always store binaries on very high addresses in the gb_tree.
-get_bin_addr_adj(DumpVsn) when DumpVsn < [0,3] ->
-    16#f bsl 64;
-get_bin_addr_adj(_) ->
-    0.
+get_decode_opts(DumpVsn) ->
+    BinAddrAdj = if
+                     DumpVsn < [0,3] ->
+                         %% This is a workaround for a bug in dump
+                         %% versions prior to 0.3: Addresses were
+                         %% truncated to 32 bits. This could cause
+                         %% binaries to get the same address as heap
+                         %% terms in the dump. To work around it we
+                         %% always store binaries on very high
+                         %% addresses in the gb_tree.
+                         16#f bsl 64;
+                     true ->
+                         0
+                 end,
+    #dec_opts{bin_addr_adj=BinAddrAdj}.
 
 %%%
 %%% Read top level section.
 %%%
 
-read_stack_dump(Fd,Pid,BinAddrAdj,Dict) ->
+read_stack_dump(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_stack,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_stack_dump1(Fd,BinAddrAdj,Dict,[]);
+	    read_stack_dump1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_stack_dump1(Fd,BinAddrAdj,Dict,Acc) ->
+read_stack_dump1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Stack = parse_top(Line,BinAddrAdj,Dict),
-	    read_stack_dump1(Fd,BinAddrAdj,Dict,[Stack|Acc])
+	    Stack = parse_top(Line,DecodeOpts,Dict),
+	    read_stack_dump1(Fd,DecodeOpts,Dict,[Stack|Acc])
     end.
 
-parse_top(Line0, BinAddrAdj, D) ->
+parse_top(Line0, DecodeOpts, D) ->
     {Label,Line1} = get_label(Line0),
-    {Term,Line,D} = parse_term(Line1, BinAddrAdj, D),
+    {Term,Line,D} = parse_term(Line1, DecodeOpts, D),
     [] = skip_blanks(Line),
     {Label,Term}.
 
@@ -1520,27 +1527,27 @@ parse_top(Line0, BinAddrAdj, D) ->
 %%% Read message queue.
 %%%
 
-read_messages(Fd,Pid,BinAddrAdj,Dict) ->
+read_messages(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_messages,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_messages1(Fd,BinAddrAdj,Dict,[]);
+	    read_messages1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_messages1(Fd,BinAddrAdj,Dict,Acc) ->
+read_messages1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_message(Line,BinAddrAdj,Dict),
-	    read_messages1(Fd,BinAddrAdj,Dict,[Msg|Acc])
+	    Msg = parse_message(Line,DecodeOpts,Dict),
+	    read_messages1(Fd,DecodeOpts,Dict,[Msg|Acc])
     end.
     
-parse_message(Line0, BinAddrAdj, D) ->
-    {Msg,":"++Line1,_} = parse_term(Line0, BinAddrAdj, D),
-    {Token,Line,_} = parse_term(Line1, BinAddrAdj, D),
+parse_message(Line0, DecodeOpts, D) ->
+    {Msg,":"++Line1,_} = parse_term(Line0, DecodeOpts, D),
+    {Token,Line,_} = parse_term(Line1, DecodeOpts, D),
     [] = skip_blanks(Line),
     {Msg,Token}.
     
@@ -1548,26 +1555,26 @@ parse_message(Line0, BinAddrAdj, D) ->
 %%% Read process dictionary
 %%%
 
-read_dictionary(Fd,Pid,BinAddrAdj,Dict) ->
+read_dictionary(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_dictionary,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_dictionary1(Fd,BinAddrAdj,Dict,[]);
+	    read_dictionary1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_dictionary1(Fd,BinAddrAdj,Dict,Acc) ->
+read_dictionary1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_dictionary(Line,BinAddrAdj,Dict),
-	    read_dictionary1(Fd,BinAddrAdj,Dict,[Msg|Acc])
+	    Msg = parse_dictionary(Line,DecodeOpts,Dict),
+	    read_dictionary1(Fd,DecodeOpts,Dict,[Msg|Acc])
     end.
     
-parse_dictionary(Line0, BinAddrAdj, D) ->
-    {Entry,Line,_} = parse_term(Line0, BinAddrAdj, D),
+parse_dictionary(Line0, DecodeOpts, D) ->
+    {Entry,Line,_} = parse_term(Line0, DecodeOpts, D),
     [] = skip_blanks(Line),
     Entry.
     
@@ -1575,18 +1582,18 @@ parse_dictionary(Line0, BinAddrAdj, D) ->
 %%% Read heap data.
 %%%
 
-read_heap(Fd,Pid,BinAddrAdj,Dict0) ->
+read_heap(Fd,Pid,DecodeOpts,Dict0) ->
     case lookup_index(?proc_heap,Pid) of
 	[{_,Pos}] ->
             [{_,Chars}] = ets:lookup(cdv_heap_file_chars,Pid),
             init_progress("Reading process heap",Chars),
 	    pos_bof(Fd,Pos),
-	    read_heap(BinAddrAdj,Dict0);
+	    read_heap(DecodeOpts,Dict0);
 	[] ->
 	    Dict0
     end.
 
-read_heap(BinAddrAdj,Dict0) ->
+read_heap(DecodeOpts,Dict0) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case get(fd) of
 	end_of_heap ->
@@ -1600,14 +1607,14 @@ read_heap(BinAddrAdj,Dict0) ->
 		    Dict0;
 		Line ->
                     update_progress(length(Line)+1),
-		    Dict = parse(Line,BinAddrAdj,Dict0),
-		    read_heap(BinAddrAdj,Dict)
+		    Dict = parse(Line,DecodeOpts,Dict0),
+		    read_heap(DecodeOpts,Dict)
 	    end
     end.
 
-parse(Line0, BinAddrAdj, Dict0) ->
+parse(Line0, DecodeOpts, Dict0) ->
     {Addr,":"++Line1} = get_hex(Line0),
-    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, BinAddrAdj, Dict0),
+    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
     [] = skip_blanks(Line),
     Dict.
 
@@ -2599,71 +2606,71 @@ get_limited_stack(Fd, N, Ds) ->
 %%%-----------------------------------------------------------------
 %%% Parse memory in crashdump version 0.1 and newer
 %%%
-parse_heap_term([$l|Line0], Addr, BinAddrAdj, D0) ->	%Cons cell.
-    {H,"|"++Line1,D1} = parse_term(Line0, BinAddrAdj, D0),
-    {T,Line,D2} = parse_term(Line1, BinAddrAdj, D1),
+parse_heap_term([$l|Line0], Addr, DecodeOpts, D0) ->	%Cons cell.
+    {H,"|"++Line1,D1} = parse_term(Line0, DecodeOpts, D0),
+    {T,Line,D2} = parse_term(Line1, DecodeOpts, D1),
     Term = [H|T],
     D = gb_trees:insert(Addr, Term, D2),
     {Term,Line,D};
-parse_heap_term([$t|Line0], Addr, BinAddrAdj, D) ->	%Tuple
+parse_heap_term([$t|Line0], Addr, DecodeOpts, D) ->	%Tuple
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, BinAddrAdj, D, []);
-parse_heap_term([$F|Line0], Addr, _BinAddrAdj, D0) ->	%Float
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []);
+parse_heap_term([$F|Line0], Addr, _DecodeOpts, D0) ->	%Float
     {N,":"++Line1} = get_hex(Line0),
     {Chars,Line} = get_chars(N, Line1),
     Term = list_to_float(Chars),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B16#"++Line0, Addr, _BinAddrAdj, D0) -> %Positive big number.
+parse_heap_term("B16#"++Line0, Addr, _DecodeOpts, D0) -> %Positive big number.
     {Term,Line} = get_hex(Line0),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B-16#"++Line0, Addr, _BinAddrAdj, D0) -> %Negative big number
+parse_heap_term("B-16#"++Line0, Addr, _DecodeOpts, D0) -> %Negative big number
     {Term0,Line} = get_hex(Line0),
     Term = -Term0,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B"++Line0, Addr, _BinAddrAdj, D0) ->	%Decimal big num
+parse_heap_term("B"++Line0, Addr, _DecodeOpts, D0) ->	%Decimal big num
     case string:to_integer(Line0) of
 	{Int,Line} when is_integer(Int) ->
 	    D = gb_trees:insert(Addr, Int, D0),
 	    {Int,Line,D}
     end;
-parse_heap_term([$P|Line0], Addr, _BinAddrAdj, D0) ->	% External Pid.
+parse_heap_term([$P|Line0], Addr, _DecodeOpts, D0) ->	% External Pid.
     {Pid0,Line} = get_id(Line0),
     Pid = ['#CDVPid'|Pid0],
     D = gb_trees:insert(Addr, Pid, D0),
     {Pid,Line,D};
-parse_heap_term([$p|Line0], Addr, _BinAddrAdj, D0) ->   % External Port.
+parse_heap_term([$p|Line0], Addr, _DecodeOpts, D0) ->   % External Port.
     {Port0,Line} = get_id(Line0),
     Port = ['#CDVPort'|Port0],
     D = gb_trees:insert(Addr, Port, D0),
     {Port,Line,D};
-parse_heap_term("E"++Line0, Addr, _BinAddrAdj, D0) ->	%Term encoded in external format.
+parse_heap_term("E"++Line0, Addr, _DecodeOpts, D0) ->	%Term encoded in external format.
     {Bin,Line} = get_binary(Line0),
     Term = binary_to_term(Bin),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yh"++Line0, Addr, _BinAddrAdj, D0) ->	%Heap binary.
+parse_heap_term("Yh"++Line0, Addr, _DecodeOpts, D0) ->	%Heap binary.
     {Term,Line} = get_binary(Line0),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yc"++Line0, Addr, BinAddrAdj, D0) ->	%Reference-counted binary.
+parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
     {Binp0,":"++Line1} = get_hex(Line0),
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
-    Binp = Binp0 bor BinAddrAdj,
+    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
     Term = case lookup_binary_index(Binp) of
                [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
 	       [] -> '#CDVNonexistingBinary'
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
+parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
     {Binp0,":"++Line1} = get_hex(Line0),
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
-    Binp = Binp0 bor BinAddrAdj,
+    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
     Term = case lookup_binary_index(Binp) of
                [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
 	       [] ->
@@ -2675,36 +2682,36 @@ parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Mf"++Line0, Addr, BinAddrAdj, D0) -> %Flatmap.
+parse_heap_term("Mf"++Line0, Addr, DecodeOpts, D0) -> %Flatmap.
     {Size,":"++Line1} = get_hex(Line0),
-    {Keys,":"++Line2,D1} = parse_term(Line1, BinAddrAdj, D0),
-    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,BinAddrAdj, D1, []),
+    {Keys,":"++Line2,D1} = parse_term(Line1, DecodeOpts, D0),
+    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
     Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
     Map = maps:from_list(Pairs),
     D = gb_trees:update(Addr, Map, D2),
     {Map,Line,D};
-parse_heap_term("Mh"++Line0, Addr, BinAddrAdj, D0) -> %Head node in a hashmap.
+parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {MapSize,":"++Line1} = get_hex(Line0),
     {N,":"++Line2} = get_hex(Line1),
-    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, BinAddrAdj, D0, []),
+    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, DecodeOpts, D0, []),
     Map = maps:from_list(flatten_hashmap_nodes(Nodes)),
     MapSize = maps:size(Map),                   %Assertion.
     D = gb_trees:update(Addr, Map, D1),
     {Map,Line,D};
-parse_heap_term("Mn"++Line0, Addr, BinAddrAdj, D) -> %Interior node in a hashmap.
+parse_heap_term("Mn"++Line0, Addr, DecodeOpts, D) -> %Interior node in a hashmap.
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, BinAddrAdj, D, []).
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []).
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
     D = gb_trees:insert(Addr, Tuple, D0),
     {Tuple,Line,D};
-parse_tuple(N, Line0, Addr, BinAddrAdj, D0, Acc) ->
-    case parse_term(Line0, BinAddrAdj, D0) of
+parse_tuple(N, Line0, Addr, DecodeOpts, D0, Acc) ->
+    case parse_term(Line0, DecodeOpts, D0) of
 	{Term,[$,|Line],D} when N > 1 ->
-	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc]);
+	    parse_tuple(N-1, Line, Addr, DecodeOpts, D, [Term|Acc]);
 	{Term,Line,D}->
-	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc])
+	    parse_tuple(N-1, Line, Addr, DecodeOpts, D, [Term|Acc])
     end.
 
 zip_tuples(0, _T1, _T2, Acc) ->
@@ -2726,9 +2733,9 @@ flatten_hashmap_nodes_1(N, Tuple0, Acc0) ->
             flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, Acc)
     end.
 
-parse_term([$H|Line0], BinAddrAdj, D) ->        %Pointer to heap term.
+parse_term([$H|Line0], DecodeOpts, D) ->        %Pointer to heap term.
     {Ptr,Line} = get_hex(Line0),
-    deref_ptr(Ptr, Line, BinAddrAdj, D);
+    deref_ptr(Ptr, Line, DecodeOpts, D);
 parse_term([$N|Line], _, D) ->			%[] (nil).
     {[],Line,D};
 parse_term([$I|Line0], _, D) ->			%Small.
@@ -2785,7 +2792,7 @@ parse_atom_translation_table(N, Line0, As) ->
     
     
 
-deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
+deref_ptr(Ptr, Line, DecodeOpts, D0) ->
     case gb_trees:lookup(Ptr, D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
@@ -2798,11 +2805,11 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 		    case bytes(Fd) of
 			"="++_ ->
 			    put(fd, end_of_heap),
-			    deref_ptr(Ptr, Line, BinAddrAdj, D0);
+			    deref_ptr(Ptr, Line, DecodeOpts, D0);
 			L ->
                             update_progress(length(L)+1),
-			    D = parse(L, BinAddrAdj, D0),
-			    deref_ptr(Ptr, Line, BinAddrAdj, D)
+			    D = parse(L, DecodeOpts, D0),
+			    deref_ptr(Ptr, Line, DecodeOpts, D)
 		    end
 	    end
     end.
