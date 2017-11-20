@@ -40,11 +40,11 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Config) ->
-    try
-	Server = setup(ssl, node()),
-	[{server_node, Server}|Config]
-    catch _:_ ->
-	    {skipped, "Benchmark machines only"}
+    case node() of
+        nonode@nohost ->
+            {skipped, "Node not distributed"};
+        _ ->
+            [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
     end.
 
 end_per_suite(_Config) ->
@@ -132,10 +132,10 @@ bypass_pem_cache(_Config) ->
 
 
 ssl() ->
-    test(ssl, ?COUNT, node()).
+    test(ssl, ?COUNT).
 
-test(Type, Count, Host) ->
-    Server = setup(Type, Host),
+test(Type, Count) ->
+    Server = ssl_bench_test_lib:setup(perf_server),
     (do_test(Type, setup_connection, Count * 20, 1, Server)),
     (do_test(Type, setup_connection, Count, 100, Server)),
     (do_test(Type, payload, Count*300, 10, Server)),
@@ -294,47 +294,6 @@ msg() ->
       "asdlkjsafsdfoierwlejsdlkfjsdf">>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-setup(_Type, nonode@nohost) ->
-    exit(dist_not_enabled);
-setup(Type, _This) ->
-    Host = case os:getenv(?remote_host) of
-	       false ->
-		   {ok, This} = inet:gethostname(),
-		   This;
-	       RemHost ->
-		   RemHost
-	   end,
-    Node = list_to_atom("perf_server@" ++ Host),
-    SlaveArgs = case init:get_argument(pa) of
-	       {ok, PaPaths} ->
-		   lists:append([" -pa " ++ P || [P] <- PaPaths]);
-	       _ -> []
-	   end,
-    %% io:format("Slave args: ~p~n",[SlaveArgs]),
-    Prog =
-	case os:find_executable("erl") of
-	    false -> "erl";
-	    P -> P
-	end,
-    io:format("Prog = ~p~n", [Prog]),
-
-    case net_adm:ping(Node) of
-	pong -> ok;
-	pang ->
-	    {ok, Node} = slave:start(Host, perf_server, SlaveArgs, no_link, Prog)
-    end,
-    Path = code:get_path(),
-    true = rpc:call(Node, code, set_path, [Path]),
-    ok = rpc:call(Node, ?MODULE, setup_server, [Type, node()]),
-    io:format("Client (~p) using ~s~n",[node(), code:which(ssl)]),
-    (Node =:= node()) andalso restrict_schedulers(client),
-    Node.
-
-setup_server(_Type, ClientNode) ->
-    (ClientNode =:= node()) andalso restrict_schedulers(server),
-    io:format("Server (~p) using ~s~n",[node(), code:which(ssl)]),
-    ok.
-
 
 ensure_all_started(App, Ack) ->
     case application:start(App) of
@@ -357,13 +316,6 @@ setup_server_init(Type, Tc, Loop, PC) ->
 	  end,
     unlink(Pid),
     Res.
-
-restrict_schedulers(Type) ->
-    %% We expect this to run on 8 core machine
-    Extra0 = 1,
-    Extra =  if (Type =:= server) -> -Extra0; true -> Extra0 end,
-    Scheds = erlang:system_info(schedulers),
-    erlang:system_flag(schedulers_online, (Scheds div 2) + Extra).
 
 tc(Fun, Mod, Line) ->
     case timer:tc(Fun) of
