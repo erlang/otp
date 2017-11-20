@@ -787,8 +787,10 @@ asm_passes() ->
      | binary_passes()].
 
 binary_passes() ->
-    [{native_compile,fun test_native/1,fun native_compile/2},
-     {unless,binary,?pass(save_binary,not_werror)}].
+    [{iff,'to_dis',{listing,"dis"}},
+     {native_compile,fun test_native/1,fun native_compile/2},
+     {unless,binary,?pass(save_binary,not_werror)}
+    ].
 
 %%%
 %%% Compiler passes.

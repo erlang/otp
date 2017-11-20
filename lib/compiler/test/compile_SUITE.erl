@@ -408,6 +408,7 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     ok = file:delete(filename:join(Listings, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
     do_listing(Simple, TargetDir, to_kernel, ".kernel"),
+    do_listing(Simple, TargetDir, to_dis, ".dis"),
 
     %% Final clean up.
     lists:foreach(fun(F) -> ok = file:delete(F) end,
@@ -423,6 +424,7 @@ listings_big(Config) when is_list(Config) ->
     do_listing(Big, TargetDir, 'E'),
     do_listing(Big, TargetDir, 'P'),
     do_listing(Big, TargetDir, dkern, ".kernel"),
+    do_listing(Big, TargetDir, to_dis, ".dis"),
 
     TargetNoext = filename:rootname(Target, code:objfile_extension()),
     {ok,big} = compile:file(TargetNoext, [from_asm,{outdir,TargetDir}]),
