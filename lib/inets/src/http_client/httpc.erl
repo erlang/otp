@@ -175,10 +175,10 @@ request(Method,
        (Method =:= delete) orelse 
        (Method =:= trace) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
-    case uri_parse(Url, Options) of
-	{error, Reason} ->
+    case uri_string:parse(uri_string:normalize(Url)) of
+	{error, Reason, _} ->
 	    {error, Reason};
-	{ok, ParsedUrl} ->
+	ParsedUrl ->
 	    case header_parse(Headers) of
 		{error, Reason} ->
 		    {error, Reason};
@@ -189,10 +189,10 @@ request(Method,
     end.
 
 do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
-    case uri_parse(Url, Options) of
-	{error, Reason} ->
+    case uri_string:parse(uri_string:normalize(Url)) of
+	{error, Reason, _} ->
 	    {error, Reason};
-	{ok, ParsedUrl} ->
+	ParsedUrl ->
 	    handle_request(Method, Url, 
 			   ParsedUrl, Headers, ContentType, Body, 
 			   HTTPOptions, Options, Profile)
@@ -312,23 +312,28 @@ store_cookies(SetCookieHeaders, Url) ->
 
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
-    try 
-	begin
+    case uri_string:parse(uri_string:normalize(Url)) of
+        {error, Bad, _} ->
+            {error, {parse_failed, Bad}};
+        URI ->
+            Scheme = scheme_to_atom(maps:get(scheme, URI, '')),
+            Host = maps:get(host, URI, ""),
+            Port = maps:get(port, URI, default_port(Scheme)),
+            Path = maps:get(path, URI, ""),
 	    %% Since the Address part is not actually used
 	    %% by the manager when storing cookies, we dont
 	    %% care about ipv6-host-with-brackets.
-	    {ok, {_, _, Host, Port, Path, _}} = uri_parse(Url),
 	    Address     = {Host, Port}, 
 	    ProfileName = profile_name(Profile),
 	    Cookies     = httpc_cookie:cookies(SetCookieHeaders, Path, Host),
 	    httpc_manager:store_cookies(Cookies, Address, ProfileName), 
 	    ok
-	end
-    catch 
-	error:{badmatch, Bad} ->
-	    {error, {parse_failed, Bad}}
     end.
 
+default_port(http) ->
+    80;
+default_port(https) ->
+    443.
 
 %%--------------------------------------------------------------------------
 %% cookie_header(Url) -> Header | {error, Reason}
@@ -495,7 +500,7 @@ service_info(Pid) ->
 %%% Internal functions
 %%%========================================================================
 handle_request(Method, Url, 
-	       {Scheme, UserInfo, Host, Port, Path, Query}, 
+               URI,
 	       Headers0, ContentType, Body0,
 	       HTTPOptions0, Options0, Profile) ->
 
@@ -520,37 +525,40 @@ handle_request(Method, Url,
 			throw({error, {bad_body, Body0}})
 		end,
 
-	    HTTPOptions   = http_options(HTTPOptions0),
-	    Options       = request_options(Options0), 
-	    Sync          = proplists:get_value(sync,   Options),
-	    Stream        = proplists:get_value(stream, Options),
-	    Host2         = http_request:normalize_host(Scheme, Host, Port),
-	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
-	    Receiver      = proplists:get_value(receiver, Options),
-	    SocketOpts    = proplists:get_value(socket_opts, Options),
-	    BracketedHost = proplists:get_value(ipv6_host_with_brackets, 
-						Options),
-	    MaybeEscPath  = maybe_encode_uri(HTTPOptions, Path),
-	    MaybeEscQuery = maybe_encode_uri(HTTPOptions, Query),
-	    AbsUri        = maybe_encode_uri(HTTPOptions, Url),
+            HTTPOptions   = http_options(HTTPOptions0),
+            Options       = request_options(Options0),
+            Sync          = proplists:get_value(sync,   Options),
+            Stream        = proplists:get_value(stream, Options),
+            Receiver      = proplists:get_value(receiver, Options),
+            SocketOpts    = proplists:get_value(socket_opts, Options),
+            BracketedHost = proplists:get_value(ipv6_host_with_brackets,
+                                                Options),
+
+            Scheme        = scheme_to_atom(maps:get(scheme, URI, '')),
+            Userinfo      = maps:get(userinfo, URI, ""),
+            Host          = http_util:maybe_add_brackets(maps:get(host, URI, ""), BracketedHost),
+            Port          = maps:get(port, URI, default_port(Scheme)),
+            Host2         = http_request:normalize_host(Scheme, Host, Port),
+            Path          = maps:get(path, URI, ""),
+            Query         = add_question_mark(maps:get(query, URI, "")),
+            HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
 
 	    Request = #request{from          = Receiver,
-			       scheme        = Scheme, 
-			       address       = {host_address(Host, BracketedHost), Port},
-			       path          = MaybeEscPath,
-			       pquery        = MaybeEscQuery,
+			       scheme        = Scheme,
+			       address       = {Host, Port},
+			       path          = Path,
+			       pquery        = Query,
 			       method        = Method,
 			       headers       = HeadersRecord, 
 			       content       = {ContentType, Body},
 			       settings      = HTTPOptions, 
-			       abs_uri       = AbsUri,
-			       userinfo      = UserInfo, 
+			       abs_uri       = Url,
+			       userinfo      = Userinfo,
 			       stream        = Stream, 
 			       headers_as_is = headers_as_is(Headers0, Options),
 			       socket_opts   = SocketOpts, 
 			       started       = Started,
 			       ipv6_host_with_brackets = BracketedHost},
-
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
 		    handle_answer(RequestId, Sync, Options);
@@ -565,14 +573,31 @@ handle_request(Method, Url,
 	    Error
     end.
 
+
+add_question_mark(<<>>) ->
+    <<>>;
+add_question_mark([]) ->
+    [];
+add_question_mark(Comp) when is_binary(Comp) ->
+    <<$?, Comp/binary>>;
+add_question_mark(Comp) when is_list(Comp) ->
+    [$?|Comp].
+
+
+scheme_to_atom("http") ->
+    http;
+scheme_to_atom("https") ->
+    https;
+scheme_to_atom('') ->
+    '';
+scheme_to_atom(Scheme) ->
+    throw({error, {bad_scheme, Scheme}}).
+
+
 ensure_chunked_encoding(Hdrs) ->
     Key = "transfer-encoding",
     lists:keystore(Key, 1, Hdrs, {Key, "chunked"}).
 
-maybe_encode_uri(#http_options{url_encode = true}, URI) ->
-    http_uri:encode(URI);
-maybe_encode_uri(_, URI) ->
-    URI.
 
 mk_chunkify_fun(ProcessBody) ->
     fun(eof_body) ->
@@ -1190,17 +1215,6 @@ validate_headers(RequestHeaders, _, _) ->
 %% These functions is just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
 
-scheme_defaults() ->
-    [{http, 80}, {https, 443}].
-
-uri_parse(URI) ->
-    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()}]).
-
-uri_parse(URI, Opts) ->
-    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
-
-
-%%--------------------------------------------------------------------------
 header_parse([]) ->
     ok;
 header_parse([{Field, Value}|T]) when is_list(Field), is_list(Value) ->    
@@ -1221,10 +1235,6 @@ child_name(Pid, [{Name, Pid} | _]) ->
 child_name(Pid, [_ | Children]) ->
     child_name(Pid, Children).
 
-host_address(Host, false) ->
-    Host;
-host_address(Host, true) ->
-    string:strip(string:strip(Host, right, $]), left, $[).
 
 check_body_gen({Fun, _}) when is_function(Fun) -> 
     ok;

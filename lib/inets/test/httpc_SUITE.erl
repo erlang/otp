@@ -68,6 +68,7 @@ real_requests()->
     [
      head,
      get,
+     get_query_string,
      post,
      delete,
      post_stream,
@@ -243,6 +244,15 @@ get(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], BinBody}} =  httpc:request(get, Request, [], [{body_format, binary}]),
     true = is_binary(BinBody).
+
+
+get_query_string() ->
+    [{doc, "Test http get request with query string against local server"}].
+get_query_string(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/dummy.html?foo=bar", Config), []},
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+
+    inets_test_lib:check_body(Body).
 %%--------------------------------------------------------------------
 post() ->
     [{"Test http post request against local server. We do in this case "
@@ -1711,6 +1721,9 @@ content_length(["content-length:" ++ Value | _]) ->
     list_to_integer(string:strip(Value));
 content_length([_Head | Tail]) ->
    content_length(Tail).
+
+handle_uri("GET","/dummy.html?foo=bar",_,_,_,_) ->
+    "HTTP/1.0 200 OK\r\n\r\nTEST";
 
 handle_uri(_,"/just_close.html",_,_,_,_) ->
 		close;
