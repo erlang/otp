@@ -37,7 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = eldap.xml
 
-XML_PART_FILES = release_notes.xml usersguide.xml
+XML_PART_FILES = usersguide.xml
 XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml

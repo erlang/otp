@@ -41,7 +41,7 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = debugger.xml i.xml int.xml
 
 XML_PART_FILES = part.xml
-XML_CHAPTER_FILES = debugger_chapter.xml notes.xml
+XML_CHAPTER_FILES = introduction.xml debugger_chapter.xml notes.xml
 
 BOOK_FILES = book.xml
 

@@ -48,12 +48,12 @@ XML_PART_FILES = \
 	part.xml
 
 XML_CHAPTER_FILES = \
+	introduction_ug.xml \
 	crashdump_ug.xml \
 	etop_ug.xml \
 	observer_ug.xml \
 	ttb_ug.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 BOOK_FILES = book.xml
 

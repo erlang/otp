@@ -50,6 +50,8 @@ include ../tutorial/xmlfiles.mk
 include ../design_principles/xmlfiles.mk
 include ../oam/xmlfiles.mk
 
+BOOK_FILES = book.xml
+
 XML_FILES = \
 	$(INST_GUIDE_CHAPTER_FILES:%=../installation_guide/%) \
 	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=../system_principles/%) \
@@ -70,9 +72,9 @@ XML_FILES = \
 	../efficiency_guide/part.xml \
 	../tutorial/part.xml \
 	../design_principles/part.xml \
-	../oam/part.xml
+	../oam/part.xml \
+	$(BOOK_FILES)
 
-BOOK_FILES = book.xml
 
 XMLLINT_SRCDIRS= ../installation_guide:../system_principles:../embedded:../getting_started:../reference_manual:../programming_examples:../efficiency_guide:../tutorial:../design_principles:../oam
 HTMLDIR= ../html

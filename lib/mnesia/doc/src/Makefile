@@ -48,6 +48,7 @@ XML_PART_FILES = \
 
 XML_CHAPTER_FILES = \
 	Mnesia_chap1.xml \
+	Mnesia_overview.xml \
 	Mnesia_chap2.xml \
 	Mnesia_chap3.xml \
 	Mnesia_chap4.xml \

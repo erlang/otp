@@ -45,7 +45,7 @@ XML_REF3_FILES = dbg.xml dyntrace.xml erts_alloc_config.xml system_information.x
 XML_REF6_FILES = runtime_tools_app.xml
 
 XML_PART_FILES = part.xml
-XML_CHAPTER_FILES = notes.xml notes_history.xml LTTng.xml
+XML_CHAPTER_FILES = notes.xml LTTng.xml
 
 GENERATED_XML_FILES = DTRACE.xml SYSTEMTAP.xml
 
@@ -54,7 +54,8 @@ BOOK_FILES = book.xml
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) \
-	$(XML_REF6_FILES) $(XML_APPLICATION_FILES)
+	$(XML_REF6_FILES) $(XML_APPLICATION_FILES) \
+	$(GENERATED_XML_FILES)
 
 GIF_FILES =
 
@@ -89,7 +90,6 @@ SPECS_FLAGS = -I../../include -I../../../kernel/src
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(XML_FILES): $(GENERATED_XML_FILES)
 
 %.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@

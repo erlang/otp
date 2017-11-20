@@ -46,12 +46,11 @@ XML_PART_FILES = \
 	part.xml
 XML_CHAPTER_FILES = \
 	notes.xml \
-	notes_history.xml \
 	jinterface_users_guide.xml
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
+XML_FILES = $(BOOK_FILES) $(XML_APP_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
 GIF_FILES =

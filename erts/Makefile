@@ -145,3 +145,7 @@ release:
 .PHONY: release_docs
 release_docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
+
+.PHONY: xmllint
+xmllint:
+	$(MAKE) -C doc/src $@
