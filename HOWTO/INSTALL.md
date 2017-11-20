@@ -18,9 +18,6 @@ Required Utilities
 
 These are the tools you need in order to unpack and build Erlang/OTP.
 
-> *WARNING*: Please have a look at the [Known platform issues][] chapter
-> before you start.
-
 ### Unpacking ###
 
 *   GNU unzip, or a modern uncompress.
@@ -794,7 +791,6 @@ Use `hipe:help_options/0` to print out the available options.
    [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
    [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
    [System Principles]: ../system_principles/system_principles
-   [Known platform issues]: #Known-platform-issues
    [native build]: #How-to-Build-and-Install-ErlangOTP
    [cross build]: INSTALL-CROSS.md
    [Required Utilities]: #Required-Utilities

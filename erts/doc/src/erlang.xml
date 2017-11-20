@@ -2955,7 +2955,10 @@ os_prompt%</pre>
             <p>The total amount of memory currently allocated for
               the emulator that is not directly related to any Erlang
               process. Memory presented as <c>processes</c> is not
-              included in this memory.</p>
+              included in this memory. <seealso marker="tools:instrument">
+              <c>instrument(3)</c></seealso> can be used to
+              get a more detailed breakdown of what memory is part
+              of this type.</p>
           </item>
           <tag><c>atom</c></tag>
           <item>
@@ -4687,7 +4690,7 @@ RealSystem = system + MissedSystem</code>
         <p>The default <c>message_queue_data</c> process flag is determined
           by command-line argument <seealso marker="erl#+hmqd">
           <c>+hmqd</c></seealso> in <c>erl(1)</c>.</p>
-        <p>If the process potentially can get many messages,
+        <p>If the process potentially can get many messages in its queue,
           you are advised to set the flag to <c>off_heap</c>. This
           because a garbage collection with many messages placed on
           the heap can become extremely expensive and the process can
@@ -4960,11 +4963,15 @@ RealSystem = system + MissedSystem</code>
           <tag><c>{binary, <anno>BinInfo</anno>}</c></tag>
           <item>
             <p><c><anno>BinInfo</anno></c> is a list containing miscellaneous
-              information about binaries currently referred to by this
-              process. This <c><anno>InfoTuple</anno></c> can be changed or
+              information about binaries on the heap of this
+              process.
+              This <c><anno>InfoTuple</anno></c> can be changed or
               removed without prior notice. In the current implementation
               <c><anno>BinInfo</anno></c> is a list of tuples. The tuples
               contain; <c>BinaryId</c>, <c>BinarySize</c>, <c>BinaryRefcCount</c>.</p>
+            <p>The message queue is on the heap depending on the
+              process flag <seealso marker="#process_flag_message_queue_data">
+            <c>message_queue_data</c></seealso>.</p>
           </item>
           <tag><c>{catchlevel, <anno>CatchLevel</anno>}</c></tag>
           <item>
@@ -8869,6 +8876,10 @@ hello
 </pre>
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
+        <note>
+          <p>There is no guarantee that this function will return
+            the same encoded representation for the same term.</p>
+        </note>
       </desc>
     </func>
 

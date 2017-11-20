@@ -41,30 +41,87 @@
     <p>Erlang/OTP contains several tools to help finding bottlenecks:</p>
 
     <list type="bulleted">
-      <item><c>fprof</c> provides the most detailed information about
-      where the program time is spent, but it significantly slows down the
-      program it profiles.</item>
+      <item><p><seealso marker="tools:fprof"><c>fprof</c></seealso> provides
+          the most detailed information about where the program time is spent,
+          but it significantly slows down the program it profiles.</p></item>
 
-      <item><p><c>eprof</c> provides time information of each function
-      used in the program. No call graph is produced, but <c>eprof</c> has
-      considerable less impact on the program it profiles.</p>
-      <p>If the program is too large to be profiled by <c>fprof</c> or
-      <c>eprof</c>, the <c>cover</c> and <c>cprof</c> tools can be used
-      to locate code parts that are to be more thoroughly profiled using
-      <c>fprof</c> or <c>eprof</c>.</p></item>
+      <item><p><seealso marker="tools:eprof"><c>eprof</c></seealso> provides
+          time information of each function used in the program. No call graph is
+          produced, but <c>eprof</c> has considerable less impact on the program it
+          profiles.</p>
+        <p>If the program is too large to be profiled by <c>fprof</c> or
+          <c>eprof</c>, <c>cprof</c> can be used to locate code parts that
+          are to be more thoroughly profiled using <c>fprof</c> or <c>eprof</c>.</p></item>
 
-      <item><c>cover</c> provides execution counts per line per
-      process, with less overhead than <c>fprof</c>. Execution counts
-      can, with some caution, be used to locate potential performance
-      bottlenecks.</item>
+      <item><p><seealso marker="tools:cprof"><c>cprof</c></seealso> is the
+          most lightweight tool, but it only provides execution counts on a
+          function basis (for all processes, not per process).</p></item>
 
-      <item><c>cprof</c> is the most lightweight tool, but it only
-      provides execution counts on a function basis (for all processes,
-      not per process).</item>
+      <item><p><seealso marker="runtime_tools:dbg"><c>dbg</c></seealso> is the
+          generic erlang tracing frontend. By using the <c>timestamp</c> or
+          <c>cpu_timestamp</c> options it can be used to time how long function
+          calls in a live system take.</p></item>
+
+      <item><p><seealso marker="tools:lcnt"><c>lcnt</c></seealso> is used
+          to find contention points in the Erlang Run-Time System's internal
+          locking mechanisms. It is useful when looking for bottlenecks in
+          interaction between process, port, ets tables and other entities
+          that can be run in parallel.</p></item>
+
     </list>
 
     <p>The tools are further described in
     <seealso marker="#profiling_tools">Tools</seealso>.</p>
+
+    <p>There are also several open source tools outside of Erlang/OTP
+    that can be used to help profiling. Some of them are:</p>
+
+    <list type="bulleted">
+      <item><url href="https://github.com/isacssouza/erlgrind">erlgrind</url>
+      can be used to visualize fprof data in kcachegrind.</item>
+      <item><url href="https://github.com/proger/eflame">eflame</url>
+      is an alternative to fprof that displays the profiling output as a flamegraph.</item>
+      <item><url href="https://ferd.github.io/recon/index.html">recon</url>
+      is a collection of Erlang profiling and debugging tools.
+      This tool comes with an accompanying E-book called
+      <url href="https://www.erlang-in-anger.com/">Erlang in Anger</url>.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Memory profiling</title>
+    <pre>eheap_alloc: Cannot allocate 1234567890 bytes of memory (of type "heap").</pre>
+    <p>The above slogan is one of the more common reasons for Erlang to terminate.
+      For unknown reasons the Erlang Run-Time System failed to allocate memory to
+      use. When this happens a crash dump is generated that contains information
+      about the state of the system as it ran out of mmeory. Use the
+      <seealso marker="observer:cdv"><c>crashdump_viewer</c></seealso> to get a
+      view of the memory is being used. Look for processes with large heaps or
+      many messages, large ets tables, etc.</p>
+    <p>When looking at memory usage in a running system the most basic function
+      to get information from is <seealso marker="erts:erlang#memory/0"><c>
+      erlang:memory()</c></seealso>. It returns the current memory usage
+      of the system. <seealso marker="tools:instrument"><c>instrument(3)</c></seealso>
+      can be used to get a more detailed breakdown of where memory is used.</p>
+    <p>Processes, ports and ets tables can then be inspecting using their
+      respective info functions, i.e.
+      <seealso marker="erts:erlang#process_info_memory"><c>erlang:process_info/2
+      </c></seealso>,
+      <seealso marker="erts:erlang#port_info_memory"><c>erlang:port_info/2
+      </c></seealso> and
+      <seealso marker="stdlib:ets#info/1"><c>ets:info/1</c></seealso>.
+    </p>
+    <p>Sometimes the system can enter a state where the reported memory
+      from <c>erlang:memory(total)</c> is very different from the
+      memory reported by the OS. This can be because of internal
+      fragmentation within the Erlang Run-Time System. Data about
+      how memory is allocated can be retrieved using
+      <seealso marker="erts:erlang#system_info_allocator">
+        <c>erlang:system_info(allocator)</c></seealso>.
+      The data you get from that function is very raw and not very plesant to read.
+      <url href="http://ferd.github.io/recon/recon_alloc.html">recon_alloc</url>
+      can be used to extract useful information from system_info
+      statistics counters.</p>
   </section>
 
   <section>
@@ -80,6 +137,22 @@
       tools on the whole system. Instead you want to concentrate on
       central processes and modules, which contribute for a big part
       of the execution.</p>
+
+    <p>There are also some tools that can be used to get a view of the
+      whole system with more or less overhead.</p>
+    <list type="bulleted">
+      <item><seealso marker="observer:observer"><c>observer</c></seealso>
+      is a GUI tool that can connect to remote nodes and display a
+      variety of information about the running system.</item>
+      <item><seealso marker="observer:etop"><c>etop</c></seealso>
+      is a command line tool that can connect to remote nodes and
+      display information similar to what the UNIX tool top shows.</item>
+      <item><seealso marker="runtime_tools:msacc"><c>msacc</c></seealso>
+      allows the user to get a view of what the Erlang Run-Time system
+      is spending its time doing. Has a very low overhead, which makes it
+      useful to run in heavily loaded systems to get some idea of where
+      to start doing more granular profiling.</item>
+    </list>
   </section>
 
   <section>
@@ -128,7 +201,7 @@
       performance impact. Using <c>fprof</c> is just a matter of
       calling a few library functions, see the
       <seealso marker="tools:fprof">fprof</seealso> manual page in
-      Tools .<c>fprof</c> was introduced in R8.</p>
+      Tools.</p>
     </section>
 
     <section>
@@ -139,20 +212,6 @@
       shown as percentage of total time and absolute time. For more
       information, see the <seealso marker="tools:eprof">eprof</seealso>
       manual page in Tools.</p>
-    </section>
-
-    <section>
-      <title>cover</title>
-      <p>The primary use of <c>cover</c> is coverage analysis to verify
-      test cases, making sure that all relevant code is covered.
-      <c>cover</c> counts how many times each executable line of code
-      is executed when a program is run, on a per module basis.</p>
-      <p>Clearly, this information can be used to determine what
-      code is run very frequently and can therefore be subject for
-      optimization. Using <c>cover</c> is just a matter of calling a
-      few library functions, see the
-      <seealso marker="tools:cover">cover</seealso> manual page in
-      Tools.</p>
     </section>
 
     <section>
@@ -202,16 +261,6 @@
           <cell>No</cell>
         </row>
         <row>
-          <cell><c>cover</c></cell>
-          <cell>Per module to screen/file</cell>
-          <cell>Small</cell>
-          <cell>Moderate slowdown</cell>
-          <cell>Yes, per line</cell>
-          <cell>No</cell>
-          <cell>No</cell>
-          <cell>No</cell>
-        </row>
-        <row>
           <cell><c>cprof</c></cell>
           <cell>Per module to caller</cell>
           <cell>Small</cell>
@@ -224,6 +273,37 @@
         <tcaption>Tool Summary</tcaption>
       </table>
     </section>
+
+    <section>
+      <title>dbg</title>
+      <p><c>dbg</c> is a generic Erlang trace tool. By using the
+      <c>timestamp</c> or <c>cpu_timestamp</c> options it can be used
+      as a precision instrument to profile how long time a function
+      call takes for a specific process. This can be very useful when
+      trying to understand where time is spent in a heavily loaded
+      system as it is possible to limit the scope of what is profiled
+      to be very small.
+      For more information, see the
+      <seealso marker="runtime_tools:dbg">dbg</seealso> manual page in
+      Runtime Tools.</p>
+    </section>
+
+    <section>
+      <title>lcnt</title>
+      <p><c>lcnt</c> is used to profile interactions inbetween
+        entities that run in parallel. For example if you have
+        a process that all other processes in the system needs
+        to interact with (maybe it has some global configuration),
+        then <c>lcnt</c> can be used to figure out if the interaction
+        with that process is a problem.</p>
+      <p>In the Erlang Run-time System entities are only run in parallel
+        when there are multiple schedulers. Therefore <c>lcnt</c> will
+        show more contention points (and thus be more useful) on systems
+        using many schedulers on many cores.</p>
+      <p>For more information, see the
+        <seealso marker="tools:lcnt">lcnt</seealso> manual page in Tools.</p>
+    </section>
+
   </section>
 
   <section>
@@ -282,4 +362,3 @@
     </list>
   </section>
 </chapter>
-
