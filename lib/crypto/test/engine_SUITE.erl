@@ -53,10 +53,15 @@ groups() ->
        sign_verify_dsa,
        sign_verify_ecdsa,
        sign_verify_rsa_pwd,
+       sign_verify_rsa_pwd_bad_pwd,
        priv_encrypt_pub_decrypt_rsa,
        priv_encrypt_pub_decrypt_rsa_pwd,
        pub_encrypt_priv_decrypt_rsa,
        pub_encrypt_priv_decrypt_rsa_pwd,
+       get_pub_from_priv_key_rsa,
+       get_pub_from_priv_key_rsa_pwd,
+       get_pub_from_priv_key_rsa_pwd_no_pwd,
+       get_pub_from_priv_key_rsa_pwd_bad_pwd,
        get_pub_from_priv_key_dsa,
        get_pub_from_priv_key_ecdsa
       ]}].
@@ -382,6 +387,18 @@ sign_verify_rsa_pwd(Config) ->
              key_id => key_id(Config, "rsa_public_key_pwd.pem")},
     sign_verify(rsa, sha, Priv, Pub).
 
+sign_verify_rsa_pwd_bad_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
+             password => "Bad password"},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key_pwd.pem")},
+    try sign_verify(rsa, sha, Priv, Pub) of
+        _ -> {fail, "PWD prot pubkey sign succeded with no pwd!"}
+    catch
+        error:badarg -> ok
+    end.  
+
 priv_encrypt_pub_decrypt_rsa(Config) ->
     Priv = #{engine => engine_ref(Config),
              key_id => key_id(Config, "rsa_private_key.pem")},
@@ -406,10 +423,10 @@ pub_encrypt_priv_decrypt_rsa(Config) ->
 
 pub_encrypt_priv_decrypt_rsa_pwd(Config) ->
     Priv = #{engine => engine_ref(Config),
-             key_id => key_id(Config, "rsa_private_key.pem"),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
              password => "password"},
     Pub  = #{engine => engine_ref(Config),
-             key_id => key_id(Config, "rsa_public_key.pem")},
+             key_id => key_id(Config, "rsa_public_key_pwd.pem")},
     pub_enc_priv_dec(rsa, Pub, Priv,  rsa_pkcs1_padding).
 
 get_pub_from_priv_key_rsa(Config) ->
@@ -418,6 +435,33 @@ get_pub_from_priv_key_rsa(Config) ->
     Pub = crypto:privkey_to_pubkey(rsa, Priv),
     ct:log("rsa Pub = ~p",[Pub]),
     sign_verify(rsa, sha, Priv, Pub).
+
+get_pub_from_priv_key_rsa_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
+             password => "password"},
+    Pub = crypto:privkey_to_pubkey(rsa, Priv),
+    ct:log("rsa Pub = ~p",[Pub]),
+    sign_verify(rsa, sha, Priv, Pub).
+
+get_pub_from_priv_key_rsa_pwd_no_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem")},
+    try crypto:privkey_to_pubkey(rsa, Priv) of
+        _ -> {fail, "PWD prot pubkey fetch succeded with no pwd!"}
+    catch
+        error:badarg -> ok
+    end.
+
+get_pub_from_priv_key_rsa_pwd_bad_pwd(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key_pwd.pem"),
+             password => "Bad password"},
+    try crypto:privkey_to_pubkey(rsa, Priv) of
+        _ -> {fail, "PWD prot pubkey fetch succeded with bad pwd!"}
+    catch
+        error:badarg -> ok
+    end.
 
 get_pub_from_priv_key_dsa(Config) ->
     Priv = #{engine => engine_ref(Config),
