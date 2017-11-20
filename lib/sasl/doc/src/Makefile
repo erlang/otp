@@ -47,8 +47,7 @@ XML_REF6_FILES = sasl_app.xml
 XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = sasl_intro.xml \
 	error_logging.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 BOOK_FILES = book.xml
 

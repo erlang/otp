@@ -29,5 +29,5 @@ EFF_GUIDE_CHAPTER_FILES = \
 	processes.xml \
 	profiling.xml \
 	tablesDatabases.xml \
-	drivers.xml
-
+	drivers.xml \
+	retired_myths.xml

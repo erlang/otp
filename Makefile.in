@@ -427,6 +427,18 @@ ifneq  ($(OTP_SMALL_BUILD),true)
 	echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
 endif
 
+xmllint: docs
+	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	$(MAKE) -C erts/ $@
+ifeq ($(OTP_SMALL_BUILD),true)
+	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	$(MAKE) -C lib/ $@
+else
+	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	$(MAKE) BUILD_ALL=1 -C lib/ $@
+	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	$(MAKE) -C system/doc $@
+endif
 
 mod2app: 
 	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml

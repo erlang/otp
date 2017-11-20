@@ -104,7 +104,8 @@ XML_REF3_FILES = \
 XML_REF6_FILES = stdlib_app.xml
 
 XML_PART_FILES = part.xml
-XML_CHAPTER_FILES = io_protocol.xml unicode_usage.xml notes.xml notes_history.xml assert_hrl.xml
+XML_CHAPTER_FILES = introduction.xml io_protocol.xml unicode_usage.xml \
+	notes.xml assert_hrl.xml
 
 BOOK_FILES = book.xml
 

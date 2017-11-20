@@ -130,7 +130,6 @@ release_spec: opt
 
 release_docs_spec:
 
-
-
+xmllint:
 
 # ----------------------------------------------------

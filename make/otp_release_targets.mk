@@ -94,6 +94,8 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 # ------------------------------------------------------------------------
 # The following targets just exist in the documentation directory
 # ------------------------------------------------------------------------
+.PHONY: xmllint
+
 ifneq ($(XML_FILES),)
 
 # ----------------------------------------------------
@@ -108,21 +110,38 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 	        -xinclude $(TOP_SPECS_PARAM)  \
 		-path $(DOCGEN)/priv/dtd \
 	        -path $(DOCGEN)/priv/dtd_html_entities \
-	        $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
+	        $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@
 
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
-xmllint: $(XML_FILES)
-	@echo "Running xmllint"
-	@BookFiles=`awk -F\" '/xi:include/ {print $$2}' book.xml`; \
-	for i in $$BookFiles; do \
-		if [ $$i = "notes.xml" ]; then \
-			echo Checking $$i; \
-			xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities $$i; \
-		else\
-			awk -F\" '/xi:include/ {print "echo Checking " $$2 ;print "xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities:$(XMLLINT_SRCDIRS) " $$2}' $$i |sh; \
-		fi \
-	done
+## Here awk is used to find all xi:include files in $(BOOK_FILES)
+## Then we look into all those files check for xi:includes
+BOOK_XI_INC_FILES:=$(foreach file,$(BOOK_FILES),$(shell awk -F\" '/xi:include/ {print $$2}' $(file))) $(BOOK_FILES)
+ALL_XI_INC_FILES:=$(foreach file,$(BOOK_XI_INC_FILES),$(shell awk -F\" '/xi:include/ {if ("$(dir $(file))" != "./") printf "$(dir $(file))"; print $$2}' $(file))) $(BOOK_XI_INC_FILES)
+
+## These are the patterns of file names that xmllint cannot currently parse
+XI_INC_FILES:=%user_man.xml %usersguide.xml %refman.xml %ref_man.xml %part.xml %book.xml
+
+## These are the files that we should run the xmllint on
+LINT_XI_INC_FILES := $(filter-out $(XI_INC_FILES), $(ALL_XI_INC_FILES))
+
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+XMLLINT_SRCDIRS:=$(subst $(SPACE),:,$(sort $(foreach file,$(XML_FILES),$(dir $(file)))))
+
+xmllint: $(ALL_XI_INC_FILES)
+## We verify that the $(XML_FILES) variable in the Makefile have exactly
+## the same files as we found out by following xi:include.
+ifneq ($(filter-out $(filter %.xml,$(XML_FILES)),$(ALL_XI_INC_FILES)),)
+	$(error "$(filter-out $(filter %.xml,$(XML_FILES)),$(ALL_XI_INC_FILES)) in $$ALL_XI_INC_FILES but not in $$XML_FILES");
+endif
+ifneq ($(filter-out $(ALL_XI_INC_FILES),$(filter %.xml,$(XML_FILES))),)
+	$(error "$(filter-out $(ALL_XI_INC_FILES),$(filter %.xml,$(XML_FILES))) in $$XML_FILES but not in $$ALL_XI_INC_FILES");
+endif
+	@echo "xmllint $(LINT_XI_INC_FILES)"
+	@xmllint --noout --valid --nodefdtd --loaddtd --path \
+	$(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities:$(XMLLINT_SRCDIRS) \
+	$(LINT_XI_INC_FILES)
 
 # ----------------------------------------------------
 # Local documentation target for testing 
@@ -143,6 +162,8 @@ local_copy_of_topdefs:
 		$(DOCGEN)/priv/js/flipmenu/flip_static.gif \
 		$(DOCGEN)/priv/js/flipmenu/flipmenu.js $(HTMLDIR)/js/flipmenu
 
+else
+xmllint:
 endif
 
 # ----------------------------------------------------

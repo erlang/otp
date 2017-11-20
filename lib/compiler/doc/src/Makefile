@@ -39,7 +39,7 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = compile.xml
 
 XML_PART_FILES =
-XML_CHAPTER_FILES = notes.xml notes_history.xml
+XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml
 

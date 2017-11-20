@@ -29,5 +29,5 @@ include $(ERL_TOP)/make/target.mk
 debug opt shared purify quantify purecov gcov:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
-clean depend docs release release_docs tests release_tests check:
+clean depend docs release release_docs tests release_tests check xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

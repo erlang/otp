@@ -52,9 +52,9 @@ XML_PART_FILES = \
 		 usersguide.xml
 XML_CHAPTER_FILES = notes.xml \
 	introduction.xml \
-	ssh_protocol.xml \
 	using_ssh.xml \
 	configure_algos.xml
+#	ssh_protocol.xml \
 
 BOOK_FILES = book.xml
 

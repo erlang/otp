@@ -854,3 +854,5 @@ endif
 release_docs:
 
 release_tests:
+
+xmllint:
