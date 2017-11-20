@@ -128,6 +128,7 @@ only_simulated() ->
      redirect_found,
      redirect_see_other,
      redirect_temporary_redirect,
+     redirect_relative_uri,
      port_in_host_header,
      redirect_port_in_host_header,
      relaxed,
@@ -586,7 +587,26 @@ redirect_temporary_redirect(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL307, [],"text/plain", "foobar"},
 			[], []).
+%%-------------------------------------------------------------------------
+redirect_relative_uri() ->
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a preferred URI reference for the new permanent URI.  The user "
+      "agent MAY use the Location field value for automatic redirection.  The server's "
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the new URI(s)."}].
+redirect_relative_uri(Config) when is_list(Config) ->
 
+    URL301 = url(group_name(Config), "/301_rel_uri.html", Config),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, []}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL301, []}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
+			[], []).
 %%-------------------------------------------------------------------------
 redirect_loop() ->
     [{"doc, Test redirect loop detection"}].
@@ -1789,6 +1809,23 @@ handle_uri(_,"/301.html",Port,_,Socket,_) ->
 	"Location:" ++ NewUri ++  "\r\n" ++
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
+
+
+handle_uri("HEAD","/301_rel_uri.html",_,_,_,_) ->
+    NewUri = "/dummy.html",
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
+
+handle_uri(_,"/301_rel_uri.html",_,_,_,_) ->
+    NewUri = "/dummy.html",
+  Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
+
 
 handle_uri("HEAD","/302.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
