@@ -30,14 +30,14 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([app_test/1, appup_test/1]).
+-export([app_test/1, appup_test/1, refc/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [app_test, appup_test].
+    [app_test, appup_test, refc].
 
 groups() -> 
     [].
@@ -162,4 +162,69 @@ check_appup([Vsn|Vsns],Instrs,Expected) ->
 	Other -> ct:fail({unexpected_result_for_vsn,Vsn,Other})
     end;
 check_appup([],_,_) ->
+    ok.
+
+%%% Check that refc module handles the counters as expected
+refc(_Config) ->
+    Enable = fun(Enable) -> erlang:system_flag(scheduler_wall_time, Enable) end,
+    IsOn = fun() -> undefined /= erlang:statistics(scheduler_wall_time) end,
+    Tester = self(),
+    Loop = fun Loop() ->
+                   receive
+                       die -> normal;
+                       {apply, Bool} ->
+                           Res = Enable(Bool),
+                           Tester ! {self(), Res},
+                           Loop()
+                   end
+           end,
+
+    %% Counter should be 0
+    false = Enable(false),
+
+    false = Enable(true),
+    true  = Enable(true),
+    true  = Enable(false),
+    true  = Enable(false),
+
+    %% Counter should be 0
+    false = IsOn(),
+
+    P1 = spawn_link(Loop),
+    P1 ! {apply, true},
+    receive {P1, R1} -> false = R1 end,
+
+    %% P1 has turned it on counter should be one
+    true = IsOn(),
+    true = Enable(true),
+    true = Enable(false),
+    true = IsOn(),
+
+    P1 ! {apply, false},
+    receive {P1, R2} -> true = R2 end,
+    false = IsOn(),
+
+    P1 ! {apply, true},
+    receive {P1, R3} -> false = R3 end,
+    true = IsOn(),
+    true = Enable(false),
+
+
+    P1 ! die,
+    timer:sleep(100),
+    false = IsOn(),
+    false = Enable(false),
+
+    P2 = spawn_link(Loop),
+    P2 ! {apply, true},
+    receive {P2, R4} -> false = R4 end,
+    true = IsOn(),
+    P2 ! {apply, true},
+    receive {P2, R5} -> true = R5 end,
+    true = IsOn(),
+
+    P2 ! die,
+    timer:sleep(100),
+    false = IsOn(),
+
     ok.
