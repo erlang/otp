@@ -1082,7 +1082,7 @@ id_string_own_string_server(Config) ->
 %%--------------------------------------------------------------------
 id_string_own_string_server_trail_space(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,"Olle "}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle \r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
