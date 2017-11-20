@@ -500,7 +500,7 @@ all_types() ->
      {atom, xxxx},
      {ref, make_ref()},
      {pid, self()},
-     {port, open_port({spawn, efile}, [])},
+     {port, make_port()},
      {function, fun(_) -> "" end},
      {function, fun erlang:abs/1},
      {binary, list_to_binary([])},
@@ -550,5 +550,8 @@ type_test(bitstring, X) when is_bitstring(X) ->
     bitstring;
 type_test(function, X) when is_function(X) ->
     function.
+
+make_port() ->
+    hd(erlang:ports()).
 
 id(I) -> I.

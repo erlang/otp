@@ -742,7 +742,7 @@ link_to_dead_new_node(Config) when is_list(Config) ->
 %% doesn't correct them in any way.
 ref_port_roundtrip(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    Port = open_port({spawn, efile}, []),
+    Port = make_port(),
     Ref = make_ref(),
     {ok, Node} = start_node(ref_port_roundtrip),
     net_adm:ping(Node),
@@ -762,6 +762,9 @@ ref_port_roundtrip(Config) when is_list(Config) ->
               ct:fail(timeout)
     end,
     ok.
+
+make_port() ->
+    hd(erlang:ports()).
 
 roundtrip(Term) ->
     exit(Term).
