@@ -114,7 +114,8 @@ open(Protocol, Family, Type, Opts, Req, Data) ->
 
 enc_family(inet)  -> ?INET_AF_INET;
 enc_family(inet6) -> ?INET_AF_INET6;
-enc_family(local) -> ?INET_AF_LOCAL.
+enc_family(local) -> ?INET_AF_LOCAL;
+enc_family(unspec) -> ?INET_AF_UNSPEC.          % Tail-f special
 
 enc_type(stream) -> ?INET_TYPE_STREAM;
 enc_type(dgram) -> ?INET_TYPE_DGRAM;
@@ -430,7 +431,11 @@ accept_opts(L, S, FamilyOpts) ->
           [active, nodelay, keepalive, delay_send, priority, linger]
           ++ FamilyOpts)
     of
-	{ok, Opts} ->
+	{ok, Opts0} ->
+            %% Tail-f: Setting TOS on an IPv6 (TCP) socket seems to always
+            %% fail with ENOPROTOOPT on Solaris 10 - avoid triggering
+            %% this problem with an unneeded setting to 0 (default) here.
+            Opts = [Opt || Opt <- Opts0, Opt /= {tos, 0}],
             case setopts(S, Opts) of
                 ok ->
                     {ok, S};
@@ -795,6 +800,8 @@ recvfrom0(_, _, _) -> {error,einval}.
 
 peername(S) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_PEER, []) of
+	{ok, [?INET_AF_UNSPEC | Addr]} ->
+            {ok, list_to_binary(Addr)};
 	{ok, [F | Addr]} ->
 	    {A, _} = get_addr(F, Addr),
 	    {ok, A};
@@ -803,6 +810,11 @@ peername(S) when is_port(S) ->
 
 setpeername(S, undefined) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETPEER, []) of
+	{ok, []} -> ok;
+	{error, _} = Error -> Error
+    end;
+setpeername(S, Bin) when is_port(S), is_binary(Bin) -> % Tail-f special
+    case ctl_cmd(S, ?INET_REQ_SETPEER, [Bin, 0]) of
 	{ok, []} -> ok;
 	{error, _} = Error -> Error
     end;
@@ -2532,7 +2544,8 @@ dec_status(Flags) ->
 		{listen, ?INET_F_LISTEN},
 		{connected, ?INET_F_ACTIVE},
 		{bound, ?INET_F_BOUND},
-		{open, ?INET_F_OPEN}
+		{open, ?INET_F_OPEN},
+		{prebound, ?INET_F_PREBOUND}
 	       ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

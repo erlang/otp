@@ -40,6 +40,7 @@
 -export([address/1, strict_address/1]).
 -export([visible_string/1, domain/1]).
 -export([ntoa/1, dots/1]).
+-export([ntoa_strict/1]).
 -export([split_line/1]).
 
 -import(lists, [reverse/1]).
@@ -755,24 +756,31 @@ dup(0, _, L) ->
 dup(N, E, L) when is_integer(N), N >= 1 ->
     dup(N-1, E, [E|L]).
 
+%% Tail-f: No IPv4-embedded for IPv6, per RFC 6021
+ntoa_strict(Addr) ->
+    ntoa2(Addr, true).
 
+ntoa(Addr) ->
+    ntoa2(Addr, false).
 
 %% Convert IPv4 address to ascii
 %% Convert IPv6 / IPV4 address to ascii (plain format)
-ntoa({A,B,C,D}) when (A band B band C band D band (bnot 16#ff)) =:= 0 ->
+ntoa2({A,B,C,D}, _Strict) when (A band B band C band D band (bnot 16#ff)) =:= 0 ->
     integer_to_list(A) ++ "." ++ integer_to_list(B) ++ "." ++ 
 	integer_to_list(C) ++ "." ++ integer_to_list(D);
 %% ANY
-ntoa({0,0,0,0,0,0,0,0}) -> "::";
+ntoa2({0,0,0,0,0,0,0,0}, _Strict) -> "::";
 %% LOOPBACK
-ntoa({0,0,0,0,0,0,0,1}) -> "::1";
+ntoa2({0,0,0,0,0,0,0,1}, _Strict) -> "::1";
 %% IPV4 ipv6 host address
-ntoa({0,0,0,0,0,0,A,B}) when (A band B band (bnot 16#ffff)) =:= 0 ->
+ntoa2({0,0,0,0,0,0,A,B}, false) when (A band B band (bnot 16#ffff)) =:= 0 ->
+    %% Tail-f: Deprecated per RFC 4291 2.5.5.1
+    %% - also not produced by at least Linux/FreeBSD inet_ntop(3)
     "::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 %% IPV4 non ipv6 host address
-ntoa({0,0,0,0,0,16#ffff,A,B}) when (A band B band (bnot 16#ffff)) =:= 0 ->
+ntoa2({0,0,0,0,0,16#ffff,A,B}, false) when (A band B band (bnot 16#ffff)) =:= 0 ->
     "::ffff:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
-ntoa({A,B,C,D,E,F,G,H})
+ntoa2({A,B,C,D,E,F,G,H}, _Strict)
   when (A band B band C band D band E band F band G band H band
             (bnot 16#ffff)) =:= 0 ->
     if
@@ -786,7 +794,7 @@ ntoa({A,B,C,D,E,F,G,H})
             %% to replace with "::"
             ntoa([A,B,C,D,E,F,G,H], [])
     end;
-ntoa(_) ->
+ntoa2(_ErrVal, _Strict) ->
     {error, einval}.
 
 %% Find first double zero

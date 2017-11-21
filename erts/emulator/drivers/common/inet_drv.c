@@ -324,6 +324,15 @@ static unsigned long one_value = 1;
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+/* Tail-f: SOL_IP */
+#if !defined(SOL_IP) && defined(IPPROTO_IP)
+#define SOL_IP IPPROTO_IP
+#endif
+
+/* Tail-f: VXWORKS */
+#ifdef VXWORKS
+#include <rpc/rpctypes.h>
+#endif
 #ifdef DEF_INADDR_LOOPBACK_IN_RPC_TYPES_H
 #include <rpc/types.h>
 #endif
@@ -699,6 +708,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_F_LST          0x0040
 #define INET_F_BUSY         0x0080 
 #define INET_F_MULTI_CLIENT 0x0100 /* Multiple clients for one descriptor, i.e. multi-accept */
+#define INET_F_PREBOUND     0x1000 /* Tail-f addition */
 
 /* One numberspace for *_REQ_* so if an e.g UDP request is issued
 ** for a TCP socket, the driver can protest.
@@ -933,6 +943,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 
 #define INET_MAX_OPT_BUFFER (64*1024)
 
+#define HTTP_HDR_SZ         (100 + (1024*4))
 #define INET_DEF_BUFFER     1460        /* default buffer size */
 #define INET_MIN_BUFFER     1           /* internal min buffer */
 
@@ -1016,6 +1027,12 @@ typedef union {
 #define addrlen(data)					\
     ((((unsigned char*)(data))[0] == INET_AF_INET) ?	\
      (1 + 2 + 4) : localaddrlen(data))
+#endif
+
+#ifdef AF_INET6
+#define IS_INET(family) ((family) == AF_INET || (family) == AF_INET6)
+#else
+#define IS_INET(family) ((family) == AF_INET)
 #endif
 
 typedef struct _multi_timer_data {
@@ -1979,6 +1996,24 @@ static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
     *ptr++ = rep;
     memcpy(ptr, buf, len);
     return len+1;
+}
+
+/* less general control reply function */
+static int ctl_reply2(int rep, int code, char* buf, int len,
+                      char** rbuf, int rsize)
+{
+    char* ptr;
+
+    if ((len+2) > rsize) {
+	ptr = ALLOC(len+2);
+	*rbuf = ptr;
+    }
+    else
+	ptr = *rbuf;
+    *ptr++ = rep;
+    *ptr++ = code;
+    memcpy(ptr, buf, len);
+    return len+2;
 }
 
 /* general control error reply function */
@@ -4663,6 +4698,11 @@ static void desc_close_read(inet_descriptor* desc)
 static int erl_inet_close(inet_descriptor* desc)
 {
     free_subscribers(&desc->empty_out_q_subs);
+    if (desc->sfamily == AF_UNSPEC && desc->peer_ptr != NULL) {
+	/* Tail-f: dynamically allocated string for peername */
+	FREE(desc->peer_ptr);
+	desc->peer_ptr = NULL;
+    }
     if ((desc->prebound == 0) && (desc->state & INET_F_OPEN)) {
 	desc_close(desc);
 	desc->state = INET_STATE_CLOSED;
@@ -4780,7 +4820,7 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     inet_address name;
     unsigned int sz;
 
-    if (bound) {
+    if (bound && IS_INET(domain)) {
         /* check that it is a socket and that the socket is bound */
         sz = sizeof(name);
 	sys_memzero((char *) &name, sz);
@@ -4800,12 +4840,22 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
 
     desc->state = INET_STATE_OPEN;
 
-    if (type == SOCK_STREAM) { /* check if connected */
+    if (IS_INET(domain)) {
+      if (type == SOCK_STREAM) { /* check if connected */
 	sz = sizeof(name);
 	if (!IS_SOCKET_ERROR(sock_peer(s, (struct sockaddr*) &name, &sz))) {
 	    desc->state = INET_STATE_CONNECTED;
         }
+#ifdef __OSE__
+            /* since we are dealing with different descriptors (i.e. inet and
+               socket) the select part should be initialized with the right
+               values */
+            inet_select_init(desc);
+#endif
+      }
     }
+    else
+      desc->state = INET_STATE_CONNECTED; /* assume connected */
 
     desc->prebound = 1; /* used to prevent a real close since
 			 * the fd probably comes from an 
@@ -6255,7 +6305,8 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 #if  defined(IP_TOS) && defined(IPPROTO_IP)             \
     && defined(SO_PRIORITY) && !defined(__WIN32__)
 static int setopt_prio_tos_trick
-	(int fd, int proto, int type, char* arg_ptr, int arg_sz, int propagate)
+	(int fd, int proto, int type, char* arg_ptr, int arg_sz,
+         int propagate, int is_inet)
 {
     /* The relations between SO_PRIORITY, TOS and other options
        is not what you (or at least I) would expect...:
@@ -6275,8 +6326,12 @@ static int setopt_prio_tos_trick
 
     res_prio = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
 		      (char *) &tmp_ival_prio, &tmp_arg_sz_prio);
-    res_tos = sock_getopt(fd, IPPROTO_IP, IP_TOS,
-		      (char *) &tmp_ival_tos, &tmp_arg_sz_tos);
+    if (is_inet) {
+        res_tos = sock_getopt(fd, IPPROTO_IP, IP_TOS,
+                              (char *) &tmp_ival_tos, &tmp_arg_sz_tos);
+    } else {
+        res_tos = -1;
+    }
 	    res = sock_setopt(fd, proto, type, arg_ptr, arg_sz);
 	    if (res == 0) {
 		if (type != SO_PRIORITY) {
@@ -6304,6 +6359,15 @@ static int setopt_prio_tos_trick
 			res = res_prio;
 		    }
 		}
+	    }
+	    if (res == 0 && res_prio == 0) {
+		res_prio = sock_setopt(fd,
+				       SOL_SOCKET,
+				       SO_PRIORITY,
+				       (char *) &tmp_ival_prio,
+				       tmp_arg_sz_prio);
+		if (propagate)
+		    res = res_prio;
 	    }
 	}
     }
@@ -6431,6 +6495,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    DEBUGF(("inet_set_opts(%ld): s=%d, PACKET=%d\r\n",
 		    (long)desc->port, desc->s, ival));
 	    desc->htype = ival;
+	    if ((ival == TCP_PB_HTTP || ival == TCP_PB_HTTPH) &&
+                (desc->bufsz < HTTP_HDR_SZ)) {
+                desc->bufsz = HTTP_HDR_SZ;
+            }
 	    continue;
 
 	case INET_LOPT_PACKET_SIZE:
@@ -6626,8 +6694,32 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    continue;
 #endif
 	case INET_OPT_TOS:
-#if defined(IP_TOS) && defined(IPPROTO_IP)
-	    proto = IPPROTO_IP;
+/* Tail-f: support DSCP on IPv6 */
+#if defined(HAVE_IN6) && defined(AF_INET6)
+            if (desc->sfamily == AF_INET6) {
+                /* Maybe the user should do it right, but... */
+#if defined(__linux__) && !defined(IPV6_TCLASS)
+                /* hack workaround for include file confusion */
+                /* actual define is (may be) in <linux/in6.h> only */
+#define IPV6_TCLASS 67
+#endif
+#if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
+                /* This is the Linux/FreeBSD/Solaris/QNX(?) way */
+                proto = IPPROTO_IPV6;
+                type = IPV6_TCLASS;
+                propagate = 1;
+                DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_TCLASS=%d\r\n",
+                        (long)desc->port, desc->s, ival));
+                break;
+#else
+                /* Didn't find anything for NetBSD or MacOSX */
+                /* Fall through - maybe IP_TOS works... */
+                ;
+#endif
+            }
+#endif
+#if defined(IP_TOS) && defined(SOL_IP)
+	    proto = SOL_IP;
 	    type = IP_TOS;
 	    propagate = 1;
 	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_TOS=%d\r\n",
@@ -6825,9 +6917,14 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	default:
 	    return -1;
 	}
-#if  defined(IP_TOS) && defined(IPPROTO_IP) \
+
+	if (!IS_INET(desc->sfamily) && proto != SOL_SOCKET)
+	    continue;
+
+#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
     && defined(SO_PRIORITY) && !defined(__WIN32__)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, propagate);
+	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz,
+                                     propagate, IS_INET(desc->sfamily));
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
@@ -7508,7 +7605,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 #if  defined(IP_TOS) && defined(IPPROTO_IP)             \
     && defined(SO_PRIORITY) && !defined(__WIN32__)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
+            res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz,
+                                         1, IS_INET(desc->sfamily));
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
@@ -8079,7 +8177,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    RETURN_ERROR();
 	}
 	/* We have 5 bytes allocated to ptr */
-	if (IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz))) {
+	if ((!IS_INET(desc->sfamily) && proto != SOL_SOCKET) ||
+	   IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz))){
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 	}
@@ -9327,8 +9426,8 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     case INET_REQ_GETSTATUS: {
 	char tbuf[4];
 
-	DEBUGF(("inet_ctl(%ld): GETSTATUS\r\n", (long)desc->port)); 
-	put_int32(desc->state, tbuf);
+	DEBUGF(("inet_ctl(%ld): GETSTATUS\r\n", (long)desc->port));
+	put_int32(desc->state | (desc->prebound ? INET_F_PREBOUND : 0), tbuf);
 	return ctl_reply(INET_REP_OK, tbuf, 4, rbuf, rsize);
     }
 
@@ -9349,6 +9448,9 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    put_int32(INET_AF_LOCAL, &tbuf[0]);
 	}
 #endif
+	else if (desc->sfamily == AF_UNSPEC) {
+	    put_int32(INET_AF_UNSPEC, &tbuf[0]);
+	}
 	else
 	    return ctl_error(EINVAL, rbuf, rsize);
 
@@ -9429,11 +9531,20 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	inet_address peer;
 	inet_address* ptr;
 	unsigned int sz;
+	char *s;
 
 	DEBUGF(("inet_ctl(%ld): PEER\r\n", (long)desc->port)); 
 
 	if (!(desc->state & INET_F_ACTIVE))
 	    return ctl_error(ENOTCONN, rbuf, rsize);
+	if (desc->sfamily == AF_UNSPEC) {
+	    /* Tail-f: dynamically allocated string */
+	    if ((s = (char *)desc->peer_ptr) != NULL)
+		return ctl_reply2(INET_REP_OK, AF_UNSPEC, s, strlen(s),
+                                  rbuf, rsize);
+	    else
+		return ctl_error(EINVAL, rbuf, rsize);
+	}
 	if ((ptr = desc->peer_ptr) != NULL) {
 	    sz = desc->peer_addr_len;
 	}
@@ -9453,6 +9564,18 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
     case INET_REQ_SETPEER: { /* set fake peername Port Address */
         char *xerror;
+	if (desc->sfamily == AF_UNSPEC) {
+	    /* Tail-f: dynamically allocated string */
+	    if (desc->peer_ptr != NULL)
+		FREE(desc->peer_ptr);
+	    if (len == 0) {
+		desc->peer_ptr = NULL;
+	    } else {
+		desc->peer_ptr = ALLOC(len);
+		sys_memcpy(desc->peer_ptr, buf, len);
+	    }
+	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
+	}
 	if (len == 0) {
 	    desc->peer_ptr = NULL;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
@@ -9514,6 +9637,9 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    sz = desc->name_addr_len;
 	}
 	else {
+	if (!IS_INET(desc->sfamily))
+	    return ctl_error(EINVAL, rbuf, rsize);
+
 	    ptr = &name;
 	    sz = sizeof(name);
 	    sys_memzero((char *) &name, sz);
@@ -9559,6 +9685,14 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if ((xerror = inet_set_faddress
 	     (desc->sfamily, &local, &buf, &len)) != NULL)
 	    return ctl_xerror(xerror, rbuf, rsize);
+
+	/* Tail-f: Bind AF_INET6 socket for IPv6 only */
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPV6_V6ONLY)
+        if (desc->sfamily == AF_INET6) {
+	    int on = 1;
+            sock_setopt(desc->s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+        }
+#endif
 
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
@@ -10088,6 +10222,9 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    domain = AF_UNIX;
 	    break;
 #endif
+        case INET_AF_UNSPEC:
+            domain = AF_UNSPEC;
+            break;
 	default:
 	    return ctl_xerror(str_eafnosupport, rbuf, rsize);
 	}
@@ -10231,9 +10368,13 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    enq_multi_op(desc, tbuf, INET_REQ_ACCEPT, caller, mtd, &monitor);
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
  	} else {
-	    n = sizeof(desc->inet.remote);
-	    sys_memzero((char *) &remote, n);
-	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &n);
+	    if (IS_INET(desc->inet.sfamily)) {
+		n = sizeof(desc->inet.remote);
+		sys_memzero((char *) &remote, n);
+		s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &n);
+	    }
+	    else
+		s = sock_accept(desc->inet.s, NULL, 0);
 	    if (s == INVALID_SOCKET) {
 		if (sock_errno() == ERRNO_BLOCK) {
 		    ErlDrvMonitor monitor;
@@ -11219,9 +11360,14 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	inet_address remote;
 	inet_async_op *this_op = desc->inet.opt;
 
-	len = sizeof(desc->inet.remote);
-	sys_memzero((char *) &remote, len);
-	s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
+	if (IS_INET(desc->inet.sfamily)) { /* Tail-f: Be more forgiving */
+	    len = sizeof(desc->inet.remote);
+	    sys_memzero((char *) &remote, len);
+	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
+	}
+	else {
+	    s = sock_accept(desc->inet.s, NULL, 0);
+	}
 	if (s == INVALID_SOCKET && sock_errno() == ERRNO_BLOCK) {
 	    /* Just try again, no real error, just a ghost trigger from poll, 
 	       keep the default return code and everything else as is */
@@ -11286,9 +11432,15 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 #endif
 
 	while (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
-	    len = sizeof(desc->inet.remote);
-	    sys_memzero((char *) &remote, len);
-	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
+
+            /* Tail-f: */
+	    if (IS_INET(desc->inet.sfamily)) {
+		len = sizeof(desc->inet.remote);
+		sys_memzero((char *) &remote, len);
+		s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
+	    } else
+		s = sock_accept(desc->inet.s, NULL, 0);
+	    
 	    if (s == INVALID_SOCKET && sock_errno() == ERRNO_BLOCK) {
 		/* Just try again, no real error, keep the last return code */
 		goto done;

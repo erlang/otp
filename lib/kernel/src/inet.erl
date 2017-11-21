@@ -110,7 +110,8 @@
 -type returned_non_ip_address() ::
 	{'local', binary()} |
 	{'unspec', <<>>} |
-	{'undefined', any()}.
+	{'undefined', any()} |
+	binary().            % Tail-f special for sockets with family 'unspec'
 -type posix() ::
         'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
         'econnaborted' | 'econnrefused' | 'econnreset' |
@@ -173,7 +174,8 @@
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 -type socket_address() ::
-	ip_address() | 'any' | 'loopback' | local_address().
+	ip_address() | 'any' | 'loopback' | local_address() |
+	binary().            % Tail-f special for sockets with family 'unspec'
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -221,6 +223,8 @@ peername(Socket) ->
 
 setpeername(Socket, {IP,Port}) ->
     prim_inet:setpeername(Socket, {IP,Port});
+setpeername(Socket, Bin) when is_binary(Bin) ->
+    prim_inet:setpeername(Socket, Bin);
 setpeername(Socket, undefined) ->
     prim_inet:setpeername(Socket, undefined).
 
@@ -1467,10 +1471,11 @@ change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
     Addr.
 
 
+%% Tail-f: patch kernel
 -spec fdopen(Fd :: non_neg_integer(),
 	     Opts :: [socket_setopt()],
 	     Protocol :: socket_protocol(),
-	     Family :: address_family(),
+	     Family :: address_family() | 'unspec', % 'unspec' is Tail-f special
 	     Type :: socket_type(),
 	     Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.

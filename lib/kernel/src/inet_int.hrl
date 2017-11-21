@@ -61,6 +61,7 @@
 -define(INET_F_ACC,          16#0020).
 -define(INET_F_LST,          16#0040).
 -define(INET_F_BUSY,         16#0080).
+-define(INET_F_PREBOUND,     16#1000).	% Tail-f addition
 
 %% request codes (erlang:port_control/3)
 -define(INET_REQ_OPEN,          1).
