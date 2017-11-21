@@ -403,6 +403,10 @@ special(File,Procs) ->
             verify_binaries(Binaries, proplists:get_value(bins,Dict)),
 	    io:format("  binaries ok",[]),
 
+            SubBinaries = crashdump_helper:create_sub_binaries(Binaries),
+            verify_binaries(SubBinaries, proplists:get_value(sub_bins,Dict)),
+	    io:format("  sub binaries ok",[]),
+
 	    #proc{last_calls=LastCalls} = ProcDetails,
             true = length(LastCalls) =< 4,
 
@@ -461,7 +465,9 @@ special(File,Procs) ->
             %% i.e. no binary exist in the dump
 	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
 	    Pid = pid_to_list(Pid0),
-	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+            %%WarnIncompleteHeap = ["WARNING: This process has an incomplete heap. Some information might be missing."],
+	    {ok,ProcDetails=#proc{},[]} =
+                crashdump_viewer:proc_details(Pid),
 	    io:format("  process details ok",[]),
 
 	    #proc{dict=Dict} = ProcDetails,

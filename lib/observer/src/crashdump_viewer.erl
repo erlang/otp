@@ -2660,27 +2660,25 @@ parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
     Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
-    Term = case lookup_binary_index(Binp) of
-               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
-	       [] -> '#CDVNonexistingBinary'
-	   end,
-    D = gb_trees:insert(Addr, Term, D0),
-    {Term,Line,D};
+    case lookup_binary_index(Binp) of
+        [{_,Start}] ->
+            SymbolicBin = {'#CDVBin',Start},
+            Term = cdvbin(Offset, Sz, SymbolicBin),
+            D1 = gb_trees:insert(Addr, Term, D0),
+            D = gb_trees:insert(Binp, SymbolicBin, D1),
+            {Term,Line,D};
+        [] ->
+            Term = '#CDVNonexistingBinary',
+            D1 = gb_trees:insert(Addr, Term, D0),
+            D = gb_trees:insert(Binp, Term, D1),
+            {Term,Line,D}
+    end;
 parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
     {Binp0,":"++Line1} = get_hex(Line0),
     {Offset,":"++Line2} = get_hex(Line1),
-    {Sz,Line} = get_hex(Line2),
-    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
-    Term = case lookup_binary_index(Binp) of
-               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
-	       [] ->
-		   %% Might it be on the heap?
-		   case gb_trees:lookup(Binp, D0) of
-		       {value,Bin} -> cdvbin(Offset,Sz,Bin);
-		       none -> '#CDVNonexistingBinary'
-		   end
-	   end,
-    D = gb_trees:insert(Addr, Term, D0),
+    {Sz,Line3} = get_hex(Line2),
+    {Term,Line,D1} = deref_bin(Binp0, Offset, Sz, Line3, DecodeOpts, D0),
+    D = gb_trees:insert(Addr, Term, D1),
     {Term,Line,D};
 parse_heap_term("Mf"++Line0, Addr, DecodeOpts, D0) -> %Flatmap.
     {Size,":"++Line1} = get_hex(Line0),
@@ -2789,11 +2787,39 @@ parse_atom_translation_table(0, Line0, As) ->
 parse_atom_translation_table(N, Line0, As) ->
     {A, Line1, _} = parse_atom(Line0, []),
     parse_atom_translation_table(N-1, Line1, [A|As]).
-    
-    
 
-deref_ptr(Ptr, Line, DecodeOpts, D0) ->
-    case gb_trees:lookup(Ptr, D0) of
+
+deref_ptr(Ptr, Line, DecodeOpts, D) ->
+    Lookup = fun(D0) ->
+                     gb_trees:lookup(Ptr, D0)
+             end,
+    do_deref_ptr(Lookup, Line, DecodeOpts, D).
+
+deref_bin(Binp0, Offset, Sz, Line, DecodeOpts, D) ->
+    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
+    Lookup = fun(D0) ->
+                     lookup_binary(Binp, Offset, Sz, D0)
+             end,
+    do_deref_ptr(Lookup, Line, DecodeOpts, D).
+
+lookup_binary(Binp, Offset, Sz, D) ->
+    case lookup_binary_index(Binp) of
+        [{_,Start}] ->
+            Term = cdvbin(Offset, Sz, {'#CDVBin',Start}),
+            {value,Term};
+        [] ->
+            case gb_trees:lookup(Binp, D) of
+                {value,<<_:Offset/bytes,Sub:Sz/bytes,_/bytes>>} ->
+                    {value,Sub};
+                {value,SymbolicBin} ->
+                    {value,cdvbin(Offset, Sz, SymbolicBin)};
+                none ->
+                    none
+            end
+    end.
+
+do_deref_ptr(Lookup, Line, DecodeOpts, D0) ->
+    case Lookup(D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
 	none ->
@@ -2805,11 +2831,11 @@ deref_ptr(Ptr, Line, DecodeOpts, D0) ->
 		    case bytes(Fd) of
 			"="++_ ->
 			    put(fd, end_of_heap),
-			    deref_ptr(Ptr, Line, DecodeOpts, D0);
+			    do_deref_ptr(Lookup, Line, DecodeOpts, D0);
 			L ->
                             update_progress(length(L)+1),
 			    D = parse(L, DecodeOpts, D0),
-			    deref_ptr(Ptr, Line, DecodeOpts, D)
+			    do_deref_ptr(Lookup, Line, DecodeOpts, D)
 		    end
 	    end
     end.
