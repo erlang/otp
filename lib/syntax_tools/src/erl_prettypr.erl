@@ -774,9 +774,17 @@ lay_2(Node, Ctxt) ->
 	class_qualifier ->
 	    Ctxt1 = set_prec(Ctxt, max_prec()),
 	    D1 = lay(erl_syntax:class_qualifier_argument(Node), Ctxt1),
-	    D2 = lay(erl_syntax:class_qualifier_body(Node), Ctxt1),
-	    beside(D1, beside(text(":"), D2));
-
+            D2 = lay(erl_syntax:class_qualifier_body(Node), Ctxt1),
+            Stacktrace = erl_syntax:class_qualifier_stacktrace(Node),
+            case erl_syntax:variable_name(Stacktrace) of
+                '_' ->
+                    beside(D1, beside(text(":"), D2));
+                _ ->
+                    D3 = lay(erl_syntax:class_qualifier_stacktrace(Node),
+                             Ctxt1),
+                    beside(D1, beside(beside(text(":"), D2),
+                                      beside(text(":"), D3)))
+            end;
 	comment ->
 	    D = stack_comment_lines(
 		  erl_syntax:comment_text(Node)),
