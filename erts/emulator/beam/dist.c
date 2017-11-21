@@ -2335,10 +2335,10 @@ erts_dist_command(Port *prt, int initial_reds)
 	    ASSERT(ob);
 	    do {
 		reds = erts_encode_ext_dist_header_finalize(ob, dep, flags, reds);
-                if (reds >= 0) {
-                    last_finalized  = ob;
-                    ob = ob->next;
-                }
+                if (reds < 0)
+                    break;
+                last_finalized  = ob;
+                ob = ob->next;
 	    } while (ob);
             if (last_finalized) {
                 /*
