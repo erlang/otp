@@ -752,8 +752,8 @@ pgen_dispatcher(Gen, Types) ->
     emit(["decode(Type, ",Data,") ->",nl]),
 
     case NoOkWrapper of
-        false -> emit(["try",nl," case",nl,"  begin",nl]);
-        true -> emit(["case",nl,"  begin"])
+        false -> emit(["try",nl]);
+        true -> ok
     end,
 
     DecWrap =
@@ -769,22 +769,29 @@ pgen_dispatcher(Gen, Types) ->
 		"Data"
 	end,
 
-    emit(["   decode_disp(Type, ",DecWrap,")",nl,"  end of",nl]),
-    case Gen of
-	#gen{erule=ber} ->
-	    emit(["   Result ->",nl]);
-	#gen{erule=per} ->
-	    emit(["   {Result,Rest} ->",nl])
+    DecodeDisp = ["decode_disp(Type, ",DecWrap,")"],
+    case {Gen,ReturnRest} of
+	{#gen{erule=ber},true} ->
+	    emit(["   Result = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result","Rest"]);
+	{#gen{erule=ber},false} ->
+	    emit(["   Result = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result"]);
+
+
+	{#gen{erule=per},true} ->
+	    emit(["   {Result,Rest} = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result","Rest"]);
+	{#gen{erule=per},false} ->
+	    emit(["   {Result,_Rest} = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result"])
     end,
-    case ReturnRest of
-	false -> result_line(NoOkWrapper, ["Result"]);
-	true ->  result_line(NoOkWrapper, ["Result","Rest"])
-    end,
+
     case NoOkWrapper of
 	false ->
-	    emit([nl,"  end",nl,try_catch(),nl,nl]);
+	    emit([nl,try_catch(),nl,nl]);
 	true ->
-	    emit([nl,"end.",nl,nl])
+	    emit([".",nl,nl])
     end,
 
     %% REST of MODULE
@@ -795,7 +802,7 @@ pgen_dispatcher(Gen, Types) ->
     gen_dispatcher(Types, "decode_disp", "dec_").
 
 result_line(NoOkWrapper, Items) ->
-    S = ["    "|case NoOkWrapper of
+    S = ["   "|case NoOkWrapper of
 		    false -> result_line_1(["ok"|Items]);
 		    true -> result_line_1(Items)
 		end],
