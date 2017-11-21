@@ -558,19 +558,44 @@ int main(int argc, char **argv)
     } else {
         add_Eargs(emu);       /* argv[0] = erl or cerl */
     }
-    /*
-     * Add the bindir to the path (unless it is there already).
-     */
+
+    /* Add the bindir to the front of the PATH, and remove all subsequent
+     * occurrences to avoid ballooning it on repeated up/downgrades. */
 
     s = get_env("PATH");
-    if (!s) {
-	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
-    } else if (strstr(s, bindir) == NULL) {
-	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir,
-		rootdir, s);
+
+    if (s == NULL) {
+        erts_snprintf(tmpStr, sizeof(tmpStr),
+            "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP, bindir, rootdir);
+    } else if (strstr(s, rootdir) == NULL) {
+        erts_snprintf(tmpStr, sizeof(tmpStr),
+            "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, rootdir, s);
     } else {
-	erts_snprintf(tmpStr, sizeof(tmpStr), "%s", s);
+        const char *bindir_slug, *bindir_slug_index;
+        int bindir_slug_length;
+        const char *in_index;
+        char *out_index;
+
+        erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP, bindir);
+
+        bindir_slug = strsave(tmpStr);
+        bindir_slug_length = strlen(bindir_slug);
+
+        out_index = &tmpStr[bindir_slug_length];
+        in_index = s;
+
+        while ((bindir_slug_index = strstr(in_index, bindir_slug))) {
+            int block_length = (bindir_slug_index - in_index);
+
+            memcpy(out_index, in_index, block_length);
+
+            in_index = bindir_slug_index + bindir_slug_length;
+            out_index += block_length;
+        }
+
+        strcpy(out_index, in_index);
     }
+
     free_env_val(s);
     set_env("PATH", tmpStr);
     
