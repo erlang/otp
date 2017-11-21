@@ -707,6 +707,7 @@ gen_exports([_|_]=L0, Prefix, Arity) ->
 pgen_dispatcher(Erules, []) ->
     gen_info_functions(Erules);
 pgen_dispatcher(Gen, Types) ->
+    %% MODULE HEAD
     emit(["-export([encode/2,decode/2]).",nl,nl]),
     gen_info_functions(Gen),
 
@@ -714,6 +715,7 @@ pgen_dispatcher(Gen, Types) ->
     NoFinalPadding = lists:member(no_final_padding, Options),
     NoOkWrapper = proplists:get_bool(no_ok_wrapper, Options),
 
+    %% ENCODER
     Call = case Gen of
 	       #gen{erule=per,aligned=true} ->
 		   asn1ct_func:need({per,complete,1}),
@@ -740,6 +742,7 @@ pgen_dispatcher(Gen, Types) ->
     end,
     emit([nl,nl]),
 
+    %% DECODER
     ReturnRest = proplists:get_bool(undec_rest, Gen#gen.options),
     Data = case Gen#gen.erule =:= ber andalso ReturnRest of
 	       true -> "Data0";
@@ -747,6 +750,12 @@ pgen_dispatcher(Gen, Types) ->
 	   end,
 
     emit(["decode(Type, ",Data,") ->",nl]),
+
+    case NoOkWrapper of
+        false -> emit(["try",nl," case",nl,"  begin",nl]);
+        true -> emit(["case",nl,"  begin"])
+    end,
+
     DecWrap =
 	case {Gen,ReturnRest} of
 	    {#gen{erule=ber},false} ->
@@ -754,20 +763,18 @@ pgen_dispatcher(Gen, Types) ->
 		"element(1, ber_decode_nif(Data))";
 	    {#gen{erule=ber},true} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
-		emit(["{Data,Rest} = ber_decode_nif(Data0),",nl]),
+		emit(["   {Data,Rest} = ber_decode_nif(Data0),",nl]),
 		"Data";
 	    {_,_} ->
 		"Data"
 	end,
-    emit([case NoOkWrapper of
-	      false -> "try";
-	      true -> "case"
-	  end, " decode_disp(Type, ",DecWrap,") of",nl]),
+
+    emit(["   decode_disp(Type, ",DecWrap,")",nl,"  end of",nl]),
     case Gen of
 	#gen{erule=ber} ->
-	    emit(["  Result ->",nl]);
+	    emit(["   Result ->",nl]);
 	#gen{erule=per} ->
-	    emit(["  {Result,Rest} ->",nl])
+	    emit(["   {Result,Rest} ->",nl])
     end,
     case ReturnRest of
 	false -> result_line(NoOkWrapper, ["Result"]);
@@ -775,11 +782,12 @@ pgen_dispatcher(Gen, Types) ->
     end,
     case NoOkWrapper of
 	false ->
-	    emit([nl,try_catch(),nl,nl]);
+	    emit([nl,"  end",nl,try_catch(),nl,nl]);
 	true ->
 	    emit([nl,"end.",nl,nl])
     end,
 
+    %% REST of MODULE
     gen_decode_partial_incomplete(Gen),
     gen_partial_inc_dispatcher(Gen),
 
