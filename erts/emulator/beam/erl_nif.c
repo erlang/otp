@@ -544,6 +544,9 @@ void enif_clear_env(ErlNifEnv* env)
     ASSERT(p == menv->env.proc);
     ASSERT(p->common.id == ERTS_INVALID_PID);
     ASSERT(MBUF(p) == menv->env.heap_frag);
+
+    free_tmp_objs(env);
+
     if (MBUF(p) != NULL) {
 	erts_cleanup_offheap(&MSO(p));
 	clear_offheap(&MSO(p));
@@ -555,7 +558,6 @@ void enif_clear_env(ErlNifEnv* env)
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));
-    free_tmp_objs(env);
 }
 
 #ifdef DEBUG

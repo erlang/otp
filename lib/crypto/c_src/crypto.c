@@ -4657,7 +4657,6 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 
     enif_alloc_binary(outlen, &out_bin);
 
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(out_bin.data, out_bin.size);
     if (is_private) {
 	if (is_encrypt) {
 	    /* private_encrypt */
