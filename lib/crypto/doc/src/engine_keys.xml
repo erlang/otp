@@ -39,8 +39,8 @@
       for details and how to load an Engine.
     </p>
     <p>
-      In addition to provide alternative cryptographic implementations, an engine could provide a storage for
-      private or public keys. Such a storage could be made safer than the normal file system. Such techniques are not 
+      An engine could among other tasks provide a storage for
+      private or public keys. Such a storage could be made safer than the normal file system. Thoose techniques are not 
       described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
       such an engine.
     </p>
@@ -50,7 +50,8 @@
     </p>
     <p>
       OTP/Crypto requires that the user provides two or three items of information about the key. The application used
-      by the user is usually on a higher level, for example <seealso marker="ssl:ssl_app#application">SSL</seealso>. If using
+      by the user is usually on a higher level, for example in
+      <seealso marker="ssl:ssl#key_option_def">SSL</seealso>. If using
       the crypto application directly, it is required that:
     </p>
     <list>
