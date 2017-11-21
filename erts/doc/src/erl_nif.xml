@@ -2760,6 +2760,18 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>void *</ret>
+        <nametext>enif_realloc(void* ptr, size_t size)</nametext></name>
+      <fsummary>Reallocate dynamic memory.</fsummary>
+      <desc>
+        <p>Reallocates memory allocated by
+          <seealso marker="#enif_alloc"><c>enif_alloc</c></seealso> to
+          <c>size</c> bytes.</p>
+        <p>Returns <c>NULL</c> if the reallocation fails.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret>
         <nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext>
       </name>
