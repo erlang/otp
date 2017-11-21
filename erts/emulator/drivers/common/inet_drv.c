@@ -7618,11 +7618,14 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #ifdef HAVE_USRSCTP
 	erl_drv_mutex_lock(desc->recv_mtx);
 	desc->recv = desc->active;
-	erl_drv_mutex_unlock(desc->recv_mtx);
 	if(desc->active) {
-	    if(p_usrsctp_readable(desc->usrsctp_sock))
+	    if(p_usrsctp_readable(desc->usrsctp_sock)) {
+		if (desc->recv == INET_ONCE)
+		    desc->recv = INET_PASSIVE;
 		driver_port_task_input_schedule(driver_erts_drvport2id(desc->port));
+	    }
 	}
+	erl_drv_mutex_unlock(desc->recv_mtx);
 #else
 	sock_select(desc, (FD_READ|FD_CLOSE), (desc->active > 0));
 #endif
