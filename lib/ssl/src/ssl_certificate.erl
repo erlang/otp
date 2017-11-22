@@ -138,13 +138,8 @@ validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
 validate(_, valid, UserState) ->
     {valid, UserState};
-validate(Cert, valid_peer, UserState = {client, _,_, Hostname, _, _}) when Hostname =/= undefined ->
-    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}]) of
-        true ->
-            {valid, UserState};
-        false ->
-            {fail, {bad_cert, hostname_check_failed}}
-    end;
+validate(Cert, valid_peer, UserState = {client, _,_, Hostname, _, _}) when Hostname =/= disable ->
+    verify_hostname(Hostname, Cert, UserState);  
 validate(_, valid_peer, UserState) ->    
    {valid, UserState}.
 
@@ -337,3 +332,32 @@ new_trusteded_chain(DerCert, [_ | Rest]) ->
     new_trusteded_chain(DerCert, Rest);
 new_trusteded_chain(_, []) ->
     unknown_ca.
+
+verify_hostname({fallback, Hostname}, Cert, UserState) when is_list(Hostname) ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}]) of
+        true ->
+            {valid, UserState};
+        false ->
+            case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}]) of
+                true ->
+                    {valid, UserState};
+                false ->
+                    {fail, {bad_cert, hostname_check_failed}}
+            end
+    end;
+
+verify_hostname({fallback, Hostname}, Cert, UserState) ->
+    case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}]) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end;
+
+verify_hostname(Hostname, Cert, UserState) ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}]) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end.

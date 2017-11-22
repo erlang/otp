@@ -1003,7 +1003,7 @@ validate_option(server_name_indication = Opt, Value) when is_list(Value) ->
 validate_option(server_name_indication, undefined = Value) ->
     Value;
 validate_option(server_name_indication, disable) ->
-    undefined;
+    disable;
 
 validate_option(sni_hosts, []) ->
     [];

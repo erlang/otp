@@ -50,7 +50,7 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/6, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+-export([certify/7, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
@@ -389,21 +389,21 @@ verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), #ssl_options{}, term(),
-	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
+	      client | server, inet:hostname() | inet:ip_address()) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-        Opts, CRLDbHandle, Role) ->    
+        Opts, CRLDbHandle, Role, Host) ->    
 
+    ServerName = server_name(Opts#ssl_options.server_name_indication, Host, Role),
     [PeerCert | _] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
                                                   Opts#ssl_options.partial_chain),
         ValidationFunAndState = validation_fun_and_state(Opts#ssl_options.verify_fun, Role, 
-                                                         CertDbHandle, CertDbRef,  
-                                                         Opts#ssl_options.server_name_indication,
+                                                         CertDbHandle, CertDbRef, ServerName,
                                                          Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
 	case public_key:pkix_path_validation(TrustedCert,
 					     CertPath,
@@ -1528,6 +1528,8 @@ select_shared_curve([Curve | Rest], Curves) ->
 
 sni(undefined) ->
     undefined;
+sni(disable) ->
+    undefined;
 sni(Hostname) ->
     #sni{hostname = Hostname}.
 
@@ -2353,3 +2355,9 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
 available_signature_algs(_, _, _, _) -> 
     undefined.
 
+server_name(_, _, server) ->
+    undefined; %% Not interesting to check your own name.
+server_name(undefined, Host, client) ->
+    {fallback, Host}; %% Fallback to Host argument to connect
+server_name(SNI, _, client) ->
+    SNI. %% If Server Name Indication is available

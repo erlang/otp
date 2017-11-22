@@ -241,7 +241,7 @@ init({call, From}, {start, Timeout},
     {Record, State} = next_record(State1),
     next_event(hello, Record, State);
 init(Type, Event, State) ->
-    gen_handshake(ssl_connection, init, Type, Event, State).
+    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
  
 %%--------------------------------------------------------------------
 -spec error(gen_statem:event_type(),
@@ -252,7 +252,7 @@ init(Type, Event, State) ->
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
 error({call, From}, Msg, State) ->
-    handle_call(Msg, From, error, State);
+    handle_call(Msg, From, ?FUNCTION_NAME, State);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
@@ -305,36 +305,36 @@ hello(internal, #server_hello{} = Hello,
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 hello(info, Event, State) ->
-    gen_info(Event, hello, State);
+    gen_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    gen_handshake(ssl_connection, hello, Type, Event, State).
+    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
 			 gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 abbreviated(info, Event, State) ->
-    gen_info(Event, abbreviated, State);
+    gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    gen_handshake(ssl_connection, abbreviated, Type, Event, State).
+    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
 		     gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 certify(info, Event, State) ->
-    gen_info(Event, certify, State);
+    gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    gen_handshake(ssl_connection, certify, Type, Event, State).
+    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
 		    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 cipher(info, Event, State) ->
-    gen_info(Event, cipher, State);
+    gen_info(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     gen_handshake(ssl_connection, cipher, Type, Event, State).
+     gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),  
@@ -342,7 +342,7 @@ cipher(Type, Event, State) ->
 			gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 connection(info, Event, State) ->
-    gen_info(Event, connection, State);
+    gen_info(Event, ?FUNCTION_NAME, State);
 connection(internal, #hello_request{},
 	   #state{role = client, host = Host, port = Port,
 		  session = #session{own_certificate = Cert} = Session0,
@@ -374,16 +374,16 @@ connection(internal, #client_hello{},
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     State1 = send_alert(Alert, State0),
     {Record, State} = ssl_connection:prepare_connection(State1, ?MODULE),
-    next_event(connection, Record, State);
+    next_event(?FUNCTION_NAME, Record, State);
 connection(Type, Event, State) ->
-    ssl_connection:connection(Type, Event, State, ?MODULE).
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 downgrade(Type, Event, State) ->
-     ssl_connection:downgrade(Type, Event, State, ?MODULE).
+     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 %% Event handling functions called by state functions to handle

@@ -589,22 +589,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{server_name_indication, HostName :: hostname()}</c></tag>
       <item><p>Specify the hostname to be used in TLS Server Name Indication extension.
-      Is usefull when upgrading a TCP socket to a TLS socket or if the hostname can not be 
-      derived from the Host argument to <seealso marker="ssl#connect-3">ssl:connect/3</seealso>.
-      Will also cause the client to preform host name verification of the peer certificate
-      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname(PeerCert, [{dns_id, HostName}])</seealso>
-      </p> during the x509-path validation. If the check fails the error {bad_cert, hostname_check_failiure} will be
-      propagated to the path validation fun <seealso marker="#verify_fun">verify_fun</seealso>
+      If not specified it will default to the <c>Host</c> argument of <seealso marker="#connect-3">connect/[3,4]</seealso>
+      unless it is of type inet:ipaddress().</p>
+      <p>
+	The <c>HostName</c> will also be used in the hostname verification of the peer certificate using
+	<seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+      </p>
       </item>
-
-	<tag><c>{server_name_indication, disable}</c></tag>
-      <item>
-        <p>When starting a TLS connection without upgrade, the Server Name
-        Indication extension is sent if possible that is can be derived from the Host argument 
-        to <seealso marker="ssl#connect-3">ssl:connect/3</seealso>.  
-	This option can be used to disable that behavior.</p>
-	<note><p> Note that this also disables the default host name verification check of the peer certificate.</p></note>
-      </item>
+      <tag><c>{server_name_indication, disable}</c></tag>
+	<item>
+          <p> Prevents the Server Name Indication extension from being sent and
+	  disables the hostname verification check
+	  <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> </p>
+	</item>
       <tag><c>{fallback, boolean()}</c></tag>
       <item>
 	<p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.
@@ -881,6 +878,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
 	  connected socket to an SSL socket, that is, performs the
 	  client-side ssl handshake.</p>
+	  
+	  <note><p>If the option <c>verify</c> is set to <c>verify_peer</c>
+	  the option <c>server_name_indication</c> shall also be specified,
+	  if it is not no Server Name Indication extension will be sent,
+	  and <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>
+	  will be called with the IP-address of the connection as <c>ReferenceID</c>, which is proably not what you want.</p></note>
     </desc>
     </func>
 
@@ -897,7 +900,24 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <v>SslSocket = sslsocket()</v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Opens an SSL connection to <c>Host</c>, <c>Port</c>.</p></desc>
+      <desc><p>Opens an SSL connection to <c>Host</c>, <c>Port</c>.</p>
+      
+      <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
+      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
+      will be performed in addition to the usual x509-path validation checks. If the check fails the error {bad_cert, hostname_check_failed} will
+      be propagated to the path validation fun <seealso marker="#verify_fun">verify_fun</seealso>, where it is possible to do customized
+      checks by using the full possibilitis of the <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> API.
+      
+      When the option <c>server_name_indication</c> is provided, its value (the DNS name) will be used as <c>ReferenceID</c>
+      to <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+      When no <c>server_name_indication</c> option is given, the <c>Host</c> argument will be used as
+      Server Name Indication extension. The <c>Host</c> argument will also be used for the
+      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> check and if the <c>Host</c>
+      argument is an <c>inet:ip_address()</c> the <c>ReferenceID</c> used for the check will be <c>{ip, Host}</c> otherwise
+      <c>dns_id</c> will be assumed with a fallback to <c>ip</c> if that fails. </p>
+      <note><p>According to good practices certificates should not use IP-addresses as "server names". It would
+      be very surprising if this happen outside a closed network. </p></note> 
+      </desc>
     </func>
 
     <func>
