@@ -952,6 +952,8 @@ typedef struct {
       <desc>
         <p>Allocates memory of <c>size</c> bytes.</p>
         <p>Returns <c>NULL</c> if the allocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
@@ -2768,6 +2770,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <seealso marker="#enif_alloc"><c>enif_alloc</c></seealso> to
           <c>size</c> bytes.</p>
         <p>Returns <c>NULL</c> if the reallocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
