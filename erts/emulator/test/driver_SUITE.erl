@@ -80,6 +80,7 @@
          async_blast/1,
          thr_msg_blast/1,
          consume_timeslice/1,
+         env/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -166,6 +167,7 @@ all() -> %% Keep a_test first and z_test last...
      async_blast,
      thr_msg_blast,
      consume_timeslice,
+     env,
      z_test].
 
 groups() -> 
@@ -2359,6 +2361,51 @@ count_proc_sched(Ps, PNs) ->
     after 0 ->
               PNs
     end.
+
+%%
+%% Tests whether erl_drv_putenv reflects in os:getenv and vice versa.
+%%
+env(Config) when is_list(Config) ->
+    ok = load_driver(proplists:get_value(data_dir, Config), env_drv),
+    Port = open_port({spawn_driver, env_drv}, []),
+    true = is_port(Port),
+
+    Keys = ["env_drv_a_key", "env_drv_b_key", "env_drv_c_key"],
+    Values = ["a_value", "b_value", "c_value"],
+
+    [env_put_test(Port, Key, Value) || Key <- Keys, Value <- Values],
+    [env_get_test(Port, Key, Value) || Key <- Keys, Value <- Values],
+    [env_oversize_test(Port, Key) || Key <- Keys],
+    [env_notfound_test(Port, Key) || Key <- Keys],
+
+    true = port_close(Port),
+    erl_ddll:unload_driver(env_drv),
+    ok.
+
+env_control(Port, Command, Key, Value) ->
+    KeyBin = list_to_binary(Key),
+    ValueBin = list_to_binary(Value),
+    Header = <<(byte_size(KeyBin)), (byte_size(ValueBin))>>,
+    Payload = <<KeyBin/binary, ValueBin/binary>>,
+    port_control(Port, Command, <<Header/binary, Payload/binary>>).
+
+env_put_test(Port, Key, Value) ->
+    os:unsetenv(Key),
+    [0] = env_control(Port, 0, Key, Value),
+    Value = os:getenv(Key).
+
+env_get_test(Port, Key, ExpectedValue) ->
+    true = os:putenv(Key, ExpectedValue),
+    [0] = env_control(Port, 1, Key, ExpectedValue).
+
+env_oversize_test(Port, Key) ->
+    os:putenv(Key, [$A || _ <- lists:seq(1, 1024)]),
+    [127] = env_control(Port, 1, Key, "").
+
+env_notfound_test(Port, Key) ->
+    true = os:unsetenv(Key),
+    [255] = env_control(Port, 1, Key, "").
+
 
 a_test(Config) when is_list(Config) ->
     rpc(Config, fun check_io_debug/0).

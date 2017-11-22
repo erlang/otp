@@ -45,7 +45,7 @@
 #include "dtrace-wrapper.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
-static char* convert_environment(Eterm env);
+static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs);
 static char **convert_args(Eterm);
 static void free_args(char **);
 
@@ -651,6 +651,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
 static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
+    int merged_environment = 0;
     Sint i;
     Eterm option;
     Uint arity;
@@ -672,12 +673,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     opts.read_write = 0;
     opts.hide_window = 0;
     opts.wd = NULL;
-    opts.envir = NULL;
     opts.exit_status = 0;
     opts.overlapped_io = 0; 
     opts.spawn_type = ERTS_SPAWN_ANY; 
     opts.argv = NULL;
     opts.parallelism = erts_port_parallelism;
+    erts_osenv_init(&opts.envir);
+
     linebuf = 0;
 
     *err_nump = 0;
@@ -718,11 +720,16 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 			goto badarg;
 		    }
 		} else if (option == am_env) {
-                    if (opts.envir) /* ignore previous env option... */
-                        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, opts.envir);
-                    opts.envir = convert_environment(*tp);
-                    if (!opts.envir)
-			goto badarg;
+		    if (merged_environment) {
+		        /* Ignore previous env option */
+		        erts_osenv_clear(&opts.envir);
+		    }
+
+		    merged_environment = 1;
+
+		    if (merge_global_environment(&opts.envir, *tp)) {
+		        goto badarg;
+		    }
 		} else if (option == am_args) {
 		    char **av;
 		    char **oav = opts.argv;
@@ -807,6 +814,12 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     if((linebuf && opts.packet_bytes) || 
        (opts.redir_stderr && !opts.use_stdio)) {
 	goto badarg;
+}
+
+    /* If we lacked an env option, fill in the global environment without
+     * changes. */
+    if (!merged_environment) {
+        merge_global_environment(&opts.envir, NIL);
     }
 
     /*
@@ -956,8 +969,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	erts_atomic32_read_bor_relb(&port->state, sflgs);
  
  do_return:
-    if (opts.envir)
-        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, opts.envir);
+    erts_osenv_clear(&opts.envir);
     if (name_buf)
 	erts_free(ERTS_ALC_T_TMP, (void *) name_buf);
     if (opts.argv) {
@@ -975,6 +987,45 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	*err_nump = BADARG;
     port = NULL;
     goto do_return;
+}
+
+/* Merges the the global environment and the given {Key, Value} list into env,
+ * unsetting all keys whose value is either 'false' or NIL. The behavior on
+ * NIL is undocumented and perhaps surprising, but the previous implementation
+ * worked in this manner. */
+static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs) {
+    const erts_osenv_t *global_env = erts_sys_rlock_global_osenv();
+    erts_osenv_merge(env, global_env, 0);
+    erts_sys_runlock_global_osenv();
+
+    while (is_list(key_value_pairs)) {
+        Eterm *cell, *tuple;
+
+        cell = list_val(key_value_pairs);
+
+        if(!is_tuple_arity(CAR(cell), 2)) {
+            return -1;
+        }
+
+        tuple = tuple_val(CAR(cell));
+        key_value_pairs = CDR(cell);
+
+        if(is_nil(tuple[2]) || tuple[2] == am_false) {
+            if(erts_osenv_unset_term(env, tuple[1]) < 0) {
+                return -1;
+            }
+        } else {
+            if(erts_osenv_put_term(env, tuple[1], tuple[2]) < 0) {
+                return -1;
+            }
+        }
+    }
+
+    if(!is_nil(key_value_pairs)) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /* Arguments can be given i unicode and as raw binaries, convert filename is used to convert */
@@ -1022,130 +1073,6 @@ static void free_args(char **av)
 	}
     }
     erts_free(ERTS_ALC_T_TMP, av);
-}
-
-#ifdef DEBUG
-#define ERTS_CONV_ENV_BUF_EXTRA 2
-#else
-#define ERTS_CONV_ENV_BUF_EXTRA 1024
-#endif
-
-static char* convert_environment(Eterm env)
-{
-    /*
-     * Returns environment buffer in memory allocated
-     * as ERTS_ALC_T_OPEN_PORT_ENV. Caller *needs*
-     * to deallocate...
-     */
-
-    Sint size, alloc_size;
-    byte* bytes;
-    int encoding = erts_get_native_filename_encoding();
-
-    alloc_size = ERTS_CONV_ENV_BUF_EXTRA;
-    bytes = erts_alloc(ERTS_ALC_T_OPEN_PORT_ENV,
-                       alloc_size);
-    size = 0;
-
-    /* ERTS_CONV_ENV_BUF_EXTRA >= for end delimiter... */
-    ERTS_CT_ASSERT(ERTS_CONV_ENV_BUF_EXTRA >= 2);
-
-    while (is_list(env)) {
-        Sint var_sz, val_sz, need;
-        byte *str, *limit;
-	Eterm tmp, *tp, *consp;
-
-        consp = list_val(env);
-	tmp = CAR(consp);
-	if (is_not_tuple_arity(tmp, 2))
-	    goto error;
-
-	tp = tuple_val(tmp);
-
-        /* Check encoding of env variable... */
-        if (is_not_list(tp[1]))
-            goto error;
-        var_sz = erts_native_filename_need(tp[1], encoding);
-        if (var_sz <= 0)
-            goto error;
-        /* Check encoding of value... */
-        if (tp[2] == am_false || is_nil(tp[2]))
-            val_sz = 0;
-        else if (is_not_list(tp[2]))
-            goto error;
-        else {
-            val_sz = erts_native_filename_need(tp[2], encoding);
-            if (val_sz < 0)
-                goto error;
-        }
-
-        /* Ensure enough memory... */
-        need = size;
-        need += var_sz + val_sz;
-        /* '=' and '\0' */
-        need += 2 * erts_raw_env_7bit_ascii_char_need(encoding);
-        if (need > alloc_size) {
-            alloc_size = (need - alloc_size) + alloc_size;
-            alloc_size += ERTS_CONV_ENV_BUF_EXTRA;
-            bytes = erts_realloc(ERTS_ALC_T_OPEN_PORT_ENV,
-                                 bytes, alloc_size);
-        }
-
-        /* Write environment variable name... */
-        str = bytes + size;
-        erts_native_filename_put(tp[1], encoding, str);
-        /* empty variable name is not allowed... */
-        if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
-            goto error;
-
-        /*
-         * Drop null characters at the end and verify that we do
-         * not have any '=' characters in the name...
-         */
-        limit = str + var_sz;
-        while (str < limit) {
-            if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
-                break;
-            if (erts_raw_env_char_is_7bit_ascii_char('=', str, encoding))
-                goto error;
-            str = erts_raw_env_next_char(str, encoding);
-        }
-
-        /* Write the equals sign... */
-        str = erts_raw_env_7bit_ascii_char_put('=', str, encoding);
-
-        /* Write the value... */
-        if (val_sz > 0) {
-            limit = str + val_sz;
-            erts_native_filename_put(tp[2], encoding, str);
-            while (str < limit) {
-                if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
-                    break;
-                str = erts_raw_env_next_char(str, encoding);
-            }
-        }
-
-        /* Delimit... */
-        str = erts_raw_env_7bit_ascii_char_put('\0', str, encoding);
-
-        size = str - bytes;
-        ASSERT(size <= alloc_size);
-
-        env = CDR(consp);
-    }
-
-    /* End delimit... */
-    (void) erts_raw_env_7bit_ascii_char_put('\0', &bytes[size], encoding);
-
-    if (is_nil(env))
-        return (char *) bytes;
-
-error:
-
-    if (bytes)
-        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, bytes);
-
-    return (char *) NULL; /* error... */
 }
 
 /* ------------ decode_packet() and friends: */

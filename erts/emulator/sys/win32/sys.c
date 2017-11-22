@@ -77,6 +77,7 @@ static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
 static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PATH],
 			   BOOL search_in_path, BOOL handle_quotes,
 			   int *error_return);
+static void *build_env_block(const erts_osenv_t *env);
 
 HANDLE erts_service_event;
 
@@ -1190,7 +1191,6 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
     int ok;
     int neededSelects = 0;
     SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-    char* envir = opts->envir;
     int errno_return = -1;
     wchar_t *name;
     int len;
@@ -1265,29 +1265,33 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	name[i] = L'\0';
     }
     DEBUGF(("Spawning \"%S\"\n", name));
-    envir = win_build_environment(envir); /* Always a unicode environment */ 
-    ok = create_child_process(name,
-			      hChildStdin,
-			      hChildStdout,
-			      hChildStderr,
-			      &dp->port_pid,
-			      &pid,
-			      opts->hide_window,
-			      (LPVOID) envir,
-			      (wchar_t *) opts->wd,
-			      opts->spawn_type,
-			      (wchar_t **) opts->argv,
-			      &errno_return);
-    CloseHandle(hChildStdin);
-    CloseHandle(hChildStdout);
-    if (close_child_stderr && hChildStderr != INVALID_HANDLE_VALUE &&
-	hChildStderr != 0) {
-	CloseHandle(hChildStderr);
-    }
-    erts_free(ERTS_ALC_T_TMP, name);
 
-    if (envir != NULL) {
-	erts_free(ERTS_ALC_T_ENVIRONMENT, envir);
+    {
+        void *environment_block = build_env_block(&opts->envir);
+
+        ok = create_child_process(name,
+                                  hChildStdin,
+                                  hChildStdout,
+                                  hChildStderr,
+                                  &dp->port_pid,
+                                  &pid,
+                                  opts->hide_window,
+                                  environment_block,
+                                  (wchar_t *) opts->wd,
+                                  opts->spawn_type,
+                                  (wchar_t **) opts->argv,
+                                  &errno_return);
+
+        CloseHandle(hChildStdin);
+        CloseHandle(hChildStdout);
+
+        if (close_child_stderr && hChildStderr != INVALID_HANDLE_VALUE &&
+            hChildStderr != 0) {
+            CloseHandle(hChildStderr);
+        }
+
+        erts_free(ERTS_ALC_T_TMP, environment_block);
+        erts_free(ERTS_ALC_T_TMP, name);
     }
 
     if (!ok) {
@@ -1336,6 +1340,41 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	errno = errno_return;
     }
     return retval;
+}
+
+struct __build_env_state {
+    WCHAR *next_variable;
+};
+
+static void build_env_foreach(void *_state, const erts_osenv_data_t *key,
+                              const erts_osenv_data_t *value)
+{
+    struct __build_env_state *state = (struct __build_env_state*)(_state);
+
+    sys_memcpy(state->next_variable, key->data, key->length);
+    state->next_variable += (int)key->length / sizeof(WCHAR);
+    *state->next_variable++ = L'=';
+
+    sys_memcpy(state->next_variable, value->data, value->length);
+    state->next_variable += (int)value->length / sizeof(WCHAR);
+    *state->next_variable++ = L'\0';
+}
+
+/* Builds an environment block suitable for CreateProcessW. */
+static void *build_env_block(const erts_osenv_t *env) {
+    struct __build_env_state build_state;
+    WCHAR *env_block;
+
+    env_block = erts_alloc(ERTS_ALC_T_TMP, env->content_size +
+        (env->variable_count * sizeof(L"=\0") + sizeof(L'\0')));
+
+    build_state.next_variable = env_block;
+
+    erts_osenv_foreach_native(env, &build_state, build_env_foreach);
+
+    (*build_state.next_variable) = L'\0';
+
+    return env_block;
 }
 
 static int

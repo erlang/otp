@@ -1264,7 +1264,7 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
+Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);

@@ -50,7 +50,7 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "erl_check_io.h"
-
+#include "erl_osenv.h"
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
 #include "hipe_signal.h"	/* for hipe_signal_init() */
@@ -803,8 +803,9 @@ early_init(int *argc, char **argv) /*
 
     envbufsz = sizeof(envbuf);
 
-    /* erts_sys_getenv(_raw)() not initialized yet; need erts_sys_getenv__() */
-    if (erts_sys_getenv__("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0)
+    /* erts_osenv hasn't been initialized yet, so we need to fall back to
+     * erts_sys_explicit_host_getenv() */
+    if (erts_sys_explicit_host_getenv("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 1)
 	erts_async_max_threads = atoi(envbuf);
     else
 	erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
@@ -1210,20 +1211,20 @@ erl_start(int argc, char **argv)
 			 &time_warp_mode);
 
     envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv_raw(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
+    if (erts_sys_explicit_8bit_getenv(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 1)
 	user_requested_db_max_tabs = atoi(envbuf);
     else
 	user_requested_db_max_tabs = 0;
 
     envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv_raw("ERL_FULLSWEEP_AFTER", envbuf, &envbufsz) == 0) {
+    if (erts_sys_explicit_8bit_getenv("ERL_FULLSWEEP_AFTER", envbuf, &envbufsz) == 1) {
 	Uint16 max_gen_gcs = atoi(envbuf);
 	erts_atomic32_set_nob(&erts_max_gen_gcs,
 				  (erts_aint32_t) max_gen_gcs);
     }
 
     envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv_raw("ERL_MAX_PORTS", envbuf, &envbufsz) == 0) {
+    if (erts_sys_explicit_8bit_getenv("ERL_MAX_PORTS", envbuf, &envbufsz) == 1) {
 	port_tab_sz = atoi(envbuf);
 	port_tab_sz_ignore_files = 1;
     }

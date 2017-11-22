@@ -2083,18 +2083,9 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
     return name_buf;
 }
 
-
-static int filename_len_16bit(byte *str) 
+Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes)
 {
-    byte *p = str;
-    while(*p != '\0' || p[1] != '\0') {
-	p += 2;
-    }
-    return (p - str);
-}
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
-{
-    Uint size,num_chars;
+    Uint num_chars;
     Eterm *hp;
     byte *err_pos;
     Uint num_built; /* characters */
@@ -2108,7 +2099,6 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
     case ERL_FILENAME_UTF8_MAC:
 	mac = 1;
     case ERL_FILENAME_UTF8:
-	size = strlen((char *) bytes);
 	if (size == 0)
 	    return NIL;
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
@@ -2123,7 +2113,6 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	} 
 	return ret;
     case ERL_FILENAME_WIN_WCHAR:
-	size=filename_len_16bit(bytes);
 	if ((size % 2) != 0) { /* Panic fixup to avoid crashing the emulator */
 	    size--;
 	    hp = HAlloc(p, size+2);
@@ -2146,7 +2135,6 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	goto noconvert;
     }
  noconvert:
-    size = strlen((char *) bytes);
     hp = HAlloc(p, 2 * size);
     return erts_bin_bytes_to_list(NIL, hp, bytes, size, 0);
 }

@@ -1212,7 +1212,7 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 #  define PURIFY_MSG(msg)                                                    \
     do {								     \
 	char buf__[1]; size_t bufsz__ = sizeof(buf__);			     \
-	if (erts_sys_getenv_raw("VALGRIND_LOG_XML", buf__, &bufsz__) >= 0) { \
+	if (erts_sys_explicit_8bit_getenv("VALGRIND_LOG_XML", buf__, &bufsz__) >= 0) { \
 	    VALGRIND_PRINTF_XML("<erlang_error_log>"			     \
 			    "%s, line %d: %s</erlang_error_log>\n",	     \
 			    __FILE__, __LINE__, msg);			     \

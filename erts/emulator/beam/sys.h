@@ -636,6 +636,8 @@ typedef struct preload {
  */
 typedef Eterm ErtsTracer;
 
+#include "erl_osenv.h"
+
 /*
  * This structure contains options to all built in drivers.
  * None of the drivers use all of the fields.
@@ -651,8 +653,7 @@ typedef struct _SysDriverOpts {
     int hide_window;		/* Hide this windows (Windows). */
     int exit_status;		/* Report exit status of subprocess. */
     int overlapped_io;          /* Only has effect on windows NT et al */
-    char *envir;		/* Environment of the port process, */
-				/* in Windows format. */
+    erts_osenv_t envir;		/* Environment of the port process */
     char **argv;                /* Argument vector in Unix'ish format. */
     char *wd;			/* Working directory. */
     unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER | 
@@ -782,9 +783,6 @@ void set_break_quit(void (*)(void), void (*)(void));
 
 void os_flavor(char*, unsigned);
 void os_version(int*, int*, int*);
-void init_getenv_state(GETENV_STATE *);
-char * getenv_string(GETENV_STATE *);
-void fini_getenv_state(GETENV_STATE *);
 
 #define HAVE_ERTS_CHECK_IO_DEBUG
 typedef struct {
@@ -805,20 +803,21 @@ int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
 
-/* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
-int erts_sys_putenv(char *key, char *value);
-/* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_putenv_raw(char *key, char *value);
-/* erts_sys_getenv() returns 0 on success (length of value string in
-   *size), a value > 0 if value buffer is too small (*size is set to needed
-   size), and a value < 0 on failure. */
-int erts_sys_getenv(char *key, char *value, size_t *size);
-/* Simple variant used from drivers, raw eightbit interface */
-int erts_sys_getenv_raw(char *key, char *value, size_t *size);
-/* erts_sys_getenv__() is only allowed to be used in early init phase */
-int erts_sys_getenv__(char *key, char *value, size_t *size);
-/* erst_sys_unsetenv() returns 0 on success and a value != 0 on failure. */
-int erts_sys_unsetenv(char *key);
+/* erl_drv_get/putenv have been implicitly 8-bit for so long that we can't
+ * change them without breaking things on Windows. Their return values are
+ * identical to erts_osenv_get/putenv */
+int erts_sys_explicit_8bit_getenv(char *key, char *value, size_t *size);
+int erts_sys_explicit_8bit_putenv(char *key, char *value);
+
+/* This is identical to erts_sys_explicit_8bit_getenv but falls down to the
+ * host OS implementation instead of erts_osenv. */
+int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size);
+
+const erts_osenv_t *erts_sys_rlock_global_osenv(void);
+void erts_sys_runlock_global_osenv(void);
+
+erts_osenv_t *erts_sys_rwlock_global_osenv(void);
+void erts_sys_rwunlock_global_osenv(void);
 
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);

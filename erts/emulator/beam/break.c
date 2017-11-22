@@ -775,16 +775,16 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      * - write dump until alarm or file is written completely
      */
 	
-    if (erts_sys_getenv__("ERL_CRASH_DUMP_SECONDS", env, &envsz) != 0) {
-	env_erl_crash_dump_seconds_set = 0;
-	secs = -1;
+    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_SECONDS", env, &envsz) == 1) {
+        env_erl_crash_dump_seconds_set = 1;
+        secs = atoi(env);
     } else {
-	env_erl_crash_dump_seconds_set = 1;
-	secs = atoi(env);
+        env_erl_crash_dump_seconds_set = 0;
+        secs = -1;
     }
 
     if (secs == 0) {
-	return;
+        return;
     }
 
     /* erts_sys_prepare_crash_dump returns 1 if heart port is found, otherwise 0
@@ -800,7 +800,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     crash_dump_limit = ERTS_SINT64_MAX;
     envsz = sizeof(env);
-    if (erts_sys_getenv__("ERL_CRASH_DUMP_BYTES", env, &envsz) == 0) {
+    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_BYTES", env, &envsz) == 1) {
         Sint64 limit;
         char* endptr;
         errno = 0;
@@ -813,7 +813,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
         }
     }
 
-    if (erts_sys_getenv__("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
+    if (erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 1)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];

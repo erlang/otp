@@ -7715,13 +7715,27 @@ int null_func(void)
 int
 erl_drv_putenv(const char *key, char *value)
 {
-    return erts_sys_putenv_raw((char*)key, value);
+    switch (erts_sys_explicit_8bit_putenv((char*)key, value)) {
+    case -1: /* Insufficient buffer space */
+        return 1;
+    case 1: /* Success */
+        return 0;
+    default: /* Not found */
+        return -1;
+    }
 }
 
 int
 erl_drv_getenv(const char *key, char *value, size_t *value_size)
 {
-    return erts_sys_getenv_raw((char*)key, value, value_size);
+    switch (erts_sys_explicit_8bit_getenv((char*)key, value, value_size)) {
+    case -1: /* Insufficient buffer space */
+        return 1;
+    case 1: /* Success */
+        return 0;
+    default: /* Not found */
+        return -1;
+    }
 }
 
 /* get heart_port
