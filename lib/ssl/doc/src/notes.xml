@@ -28,6 +28,60 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 7.3.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> An erlang TLS server configured with cipher suites
+	    using rsa key exchange, may be vulnerable to an Adaptive
+	    Chosen Ciphertext attack (AKA Bleichenbacher attack)
+	    against RSA, which when exploited, may result in
+	    plaintext recovery of encrypted messages and/or a
+	    Man-in-the-middle (MiTM) attack, despite the attacker not
+	    having gained access to the server’s private key
+	    itself. <url
+	    href="https://nvd.nist.gov/vuln/detail/CVE-2017-1000385">CVE-2017-1000385</url>
+	    </p> <p> Exploiting this vulnerability to perform
+	    plaintext recovery of encrypted messages will, in most
+	    practical cases, allow an attacker to read the plaintext
+	    only after the session has completed. Only TLS sessions
+	    established using RSA key exchange are vulnerable to this
+	    attack. </p> <p> Exploiting this vulnerability to conduct
+	    a MiTM attack requires the attacker to complete the
+	    initial attack, which may require thousands of server
+	    requests, during the handshake phase of the targeted
+	    session within the window of the configured handshake
+	    timeout. This attack may be conducted against any TLS
+	    session using RSA signatures, but only if cipher suites
+	    using RSA key exchange are also enabled on the server.
+	    The limited window of opportunity, limitations in
+	    bandwidth, and latency make this attack significantly
+	    more difficult to execute. </p> <p> RSA key exchange is
+	    enabled by default although least prioritized if server
+	    order is honored. For such a cipher suite to be chosen it
+	    must also be supported by the client and probably the
+	    only shared cipher suite. </p> <p> Captured TLS sessions
+	    encrypted with ephemeral cipher suites (DHE or ECDHE) are
+	    not at risk for subsequent decryption due to this
+	    vulnerability. </p> <p> As a workaround if default cipher
+	    suite configuration was used you can configure the server
+	    to not use vulnerable suites with the ciphers option like
+	    this: </p> <c> {ciphers, [Suite || Suite &lt;-
+	    ssl:cipher_suites(), element(1,Suite) =/= rsa]} </c> <p>
+	    that is your code will look somethingh like this: </p>
+	    <c> ssl:listen(Port, [{ciphers, [Suite || Suite &lt;-
+	    ssl:cipher_suites(), element(1,S) =/= rsa]} | Options]).
+	    </c> <p> Thanks to Hanno Böck, Juraj Somorovsky and
+	    Craig Young for reporting this vulnerability. </p>
+          <p>
+	    Own Id: OTP-14748</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 7.3.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
