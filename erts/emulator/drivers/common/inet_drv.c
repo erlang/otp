@@ -4117,18 +4117,6 @@ static void inet_init_sctp(void) {
 }
 
 #ifdef HAVE_USRSCTP
-/* Haven't figured out any good way of opening a raw socket
-   without beeing root on macos.
-   could add code for using the setuid_socket_wrapper.
-   but for now; set beam to be setuid root.
-   uid will be dropped once the raw socket is open.
-   aka usrsctp has initialized */
-static void drop_root_priv(void)
-{
-    ASSERT(seteuid(getuid()) == 0);
-    ASSERT(setegid(getgid()) == 0);
-}
-
 #ifdef SCTP_DEBUG
 static void usrsctp_debug_printf(const char *format, ...)
 {
@@ -4352,7 +4340,6 @@ static int inet_init()
 #else
 		    p_usrsctp_init(0, NULL, NULL,sctp_raw_ipv4, sctp_raw_ipv6, sctp_raw_route);
 #endif
-		    drop_root_priv();
 		    usrsctp_init_socket_hash();
 		    p_usrsctp_sysctl_set_sctp_delayed_sack_time_default(10);
 #ifdef SCTP_DEBUG
