@@ -38,6 +38,8 @@
 -define(Empint(X),  (mpint(X))/binary ).
 -define(Estring(X), (string(X))/binary ).
 
+-define(b64enc(X), base64:encode(iolist_to_binary(X)) ).
+-define(b64mime_dec(X), base64:mime_decode(iolist_to_binary(X)) ).
 
 %% Max encoded line length is 72, but conformance examples use 68
 %% Comment from rfc 4716: "The following are some examples of public
@@ -163,7 +165,7 @@ rfc4716_decode_line(Line, Lines, Acc) ->
 	    rfc4716_decode_lines(Lines, [{string_decode(Tag), unicode_decode(Value)} | Acc]);
 	_ ->
 	    {Body, Rest} = join_entry([Line | Lines], []),
-	    {lists:reverse(Acc), rfc4716_pubkey_decode(base64:mime_decode(Body)), Rest}
+	    {lists:reverse(Acc), rfc4716_pubkey_decode(?b64mime_dec(Body)), Rest}
     end.
 
 join_entry([<<"---- END SSH2 PUBLIC KEY ----", _/binary>>| Lines], Entry) ->
@@ -257,11 +259,11 @@ decode_comment(Comment) ->
 
 openssh_pubkey_decode(Type,  Base64Enc) ->
     try
-        <<?DEC_BIN(Type,_TL), Bin/binary>> = base64:mime_decode(Base64Enc),
+        <<?DEC_BIN(Type,_TL), Bin/binary>> = ?b64mime_dec(Base64Enc),
 	ssh2_pubkey_decode(Type,  Bin)
     catch
 	_:_ ->
-	    {Type, base64:mime_decode(Base64Enc)}
+	    {Type, ?b64mime_dec(Base64Enc)}
     end.
 
 
@@ -292,12 +294,12 @@ do_encode(Type, Key, Attributes) ->
 
 rfc4716_encode(Key, [],[]) ->
     iolist_to_binary([begin_marker(),"\n",
-			     split_lines(base64:encode(ssh2_pubkey_encode(Key))),
+			     split_lines(?b64enc(ssh2_pubkey_encode(Key))),
 			     "\n", end_marker(), "\n"]);
 rfc4716_encode(Key, [], [_|_] = Acc) ->
     iolist_to_binary([begin_marker(), "\n",
 			     lists:reverse(Acc),
-			     split_lines(base64:encode(ssh2_pubkey_encode(Key))),
+			     split_lines(?b64enc(ssh2_pubkey_encode(Key))),
 			     "\n", end_marker(), "\n"]);
 rfc4716_encode(Key, [ Header | Headers], Acc) ->
     LinesStr = rfc4716_encode_header(Header),
@@ -326,7 +328,7 @@ rfc4716_encode_value(Value) ->
 
 openssh_encode(openssh_public_key, Key, Attributes) ->
     Comment = proplists:get_value(comment, Attributes, ""),
-    Enc = base64:encode(ssh2_pubkey_encode(Key)),
+    Enc = ?b64enc(ssh2_pubkey_encode(Key)),
     iolist_to_binary([key_type(Key), " ",  Enc,  " ", Comment, "\n"]);
 
 openssh_encode(auth_keys, Key, Attributes) ->
@@ -351,10 +353,10 @@ openssh_encode(known_hosts, Key, Attributes) ->
     end.
 
 openssh_ssh2_auth_keys_encode(undefined, Key, Comment) ->
-    iolist_to_binary([key_type(Key)," ",  base64:encode(ssh2_pubkey_encode(Key)), line_end(Comment)]);
+    iolist_to_binary([key_type(Key)," ",  ?b64enc(ssh2_pubkey_encode(Key)), line_end(Comment)]);
 openssh_ssh2_auth_keys_encode(Options, Key, Comment) ->
     iolist_to_binary([comma_list_encode(Options, []), " ",
-			     key_type(Key)," ", base64:encode(ssh2_pubkey_encode(Key)), line_end(Comment)]).
+			     key_type(Key)," ", ?b64enc(ssh2_pubkey_encode(Key)), line_end(Comment)]).
 
 openssh_ssh1_auth_keys_encode(undefined, Bits,
 			      #'RSAPublicKey'{modulus = N, publicExponent = E},
@@ -369,7 +371,7 @@ openssh_ssh1_auth_keys_encode(Options, Bits,
 
 openssh_ssh2_know_hosts_encode(Hostnames, Key, Comment) ->
     iolist_to_binary([comma_list_encode(Hostnames, []), " ",
-			     key_type(Key)," ",  base64:encode(ssh2_pubkey_encode(Key)), line_end(Comment)]).
+			     key_type(Key)," ",  ?b64enc(ssh2_pubkey_encode(Key)), line_end(Comment)]).
 
 openssh_ssh1_known_hosts_encode(Hostnames, Bits,
 				#'RSAPublicKey'{modulus = N, publicExponent = E},
