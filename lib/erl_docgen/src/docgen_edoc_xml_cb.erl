@@ -489,6 +489,8 @@ otp_xmlify_a_href("#"++_ = Marker, Es0) -> % <seealso marker="#what">
     {Marker, Es0};
 otp_xmlify_a_href("http:"++_ = URL, Es0) -> % external URL
     {URL, Es0};
+otp_xmlify_a_href("https:"++_ = URL, Es0) -> % external URL
+    {URL, Es0};
 otp_xmlify_a_href("OTPROOT"++AppRef, Es0) -> % <.. marker="App:FileRef
     [AppS, "doc", FileRef1] = split(AppRef, "/"),
     FileRef = AppS++":"++otp_xmlify_a_fileref(FileRef1, AppS),
