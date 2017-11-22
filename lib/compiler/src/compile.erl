@@ -787,7 +787,7 @@ asm_passes() ->
      | binary_passes()].
 
 binary_passes() ->
-    [{iff,'to_dis',{listing,"dis"}},
+    [{iff,'to_dis',?pass(to_dis)},
      {native_compile,fun test_native/1,fun native_compile/2},
      {unless,binary,?pass(save_binary,not_werror)}
     ].
@@ -1765,6 +1765,21 @@ listing(LFun, Ext, Code, St) ->
 	    Es = [{Lfile,[{none,compile,{write_error,Error}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+to_dis(Code, #compile{module=Module,ofile=Outfile}=St) ->
+    Loaded = code:is_loaded(Module),
+    Sticky = code:is_sticky(Module),
+    _ = [code:unstick_mod(Module) || Sticky],
+
+    {module,Module} = code:load_binary(Module, "", Code),
+    DestDir = filename:dirname(Outfile),
+    DisFile = filename:join(DestDir, atom_to_list(Module) ++ ".dis"),
+    ok = erts_debug:dis_to_file(Module, DisFile),
+
+    %% Restore loaded module
+    _ = [{module, Module} = code:load_file(Module) || Loaded =/= false],
+    [code:stick_mod(Module) || Sticky],
+    {ok,Code,St}.
 
 output_encoding(F, #compile{encoding = none}) ->
     ok = io:setopts(F, [{encoding, epp:default_encoding()}]);

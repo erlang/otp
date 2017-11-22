@@ -21,7 +21,7 @@
 
 %% Low-level debugging support. EXPERIMENTAL!
 
--export([size/1,df/1,df/2,df/3,df/4,ic/1]).
+-export([size/1,df/1,df/2,df/3,dis_to_file/2,ic/1]).
 
 %% This module contains the following *experimental* BIFs:
 %%   disassemble/1
@@ -347,41 +347,43 @@ is_term_seen(_, []) -> false.
 -spec df(module()) -> df_ret().
 
 df(Mod) when is_atom(Mod) ->
-    df(lists:concat([Mod, ".dis"]), Mod).
-
--spec df(module(), atom()) -> df_ret();
-        (file:io_device() | file:filename(), module()) -> df_ret().
-
-df(Mod, Func) when is_atom(Mod), is_atom(Func) ->
-    df(lists:concat([Mod, "_", Func, ".dis"]), Mod, Func);
-df(Name, Mod) when is_atom(Mod) ->
     try Mod:module_info(functions) of
 	Fs0 when is_list(Fs0) ->
+	    Name = lists:concat([Mod, ".dis"]),
 	    Fs = [{Mod,Func,Arity} || {Func,Arity} <- Fs0],
 	    dff(Name, Fs)
     catch _:_ -> {undef,Mod}
     end.
 
+-spec df(module(), atom()) -> df_ret().
 
--spec df(module(), atom(), arity()) -> df_ret();
-        (file:io_device() | file:filename(), module(), atom()) -> df_ret().
-
-df(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
-    df(lists:concat([Mod, "_", Func, "_", Arity, ".dis"]), Mod, Func, Arity);
-df(Name, Mod, Func) when is_atom(Mod), is_atom(Func) ->
+df(Mod, Func) when is_atom(Mod), is_atom(Func) ->
     try Mod:module_info(functions) of
 	Fs0 when is_list(Fs0) ->
+	    Name = lists:concat([Mod, "_", Func, ".dis"]),
 	    Fs = [{Mod,Func1,Arity} || {Func1,Arity} <- Fs0, Func1 =:= Func],
 	    dff(Name, Fs)
     catch _:_ -> {undef,Mod}
     end.
 
--spec df(file:io_device() | file:filename(), module(), atom(), arity()) -> df_ret().
-df(Name, Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
+-spec df(module(), atom(), arity()) -> df_ret().
+
+df(Mod, Func, Arity) when is_atom(Mod), is_atom(Func) ->
     try Mod:module_info(functions) of
 	Fs0 when is_list(Fs0) ->
+	    Name = lists:concat([Mod, "_", Func, "_", Arity, ".dis"]),
 	    Fs = [{Mod,Func1,Arity1} || {Func1,Arity1} <- Fs0,
 					Func1 =:= Func, Arity1 =:= Arity],
+	    dff(Name, Fs)
+    catch _:_ -> {undef,Mod}
+    end.
+
+-spec dis_to_file(module(), file:filename()) -> df_ret().
+
+dis_to_file(Mod, Name) when is_atom(Mod) ->
+    try Mod:module_info(functions) of
+	Fs0 when is_list(Fs0) ->
+	    Fs = [{Mod,Func,Arity} || {Func,Arity} <- Fs0],
 	    dff(Name, Fs)
     catch _:_ -> {undef,Mod}
     end.

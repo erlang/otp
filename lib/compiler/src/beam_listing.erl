@@ -54,19 +54,6 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
 			[Name, Arity, Entry]),
 	      io:put_chars(Stream, format_asm(Asm))
       end, Code);
-module(Stream, Code) when is_binary(Code) ->
-    #beam_file{ module = Module, compile_info = CInfo } = beam_disasm:file(Code),
-    Loaded = code:is_loaded(Module),
-    Sticky = code:is_sticky(Module),
-    [code:unstick_mod(Module) || Sticky],
-
-    {module, Module} = code:load_binary(Module, proplists:get_value(source, CInfo), Code),
-    ok = erts_debug:df(Stream, Module),
-
-    %% Restore loaded module
-    _ = [{module, Module} = code:load_file(Module) || Loaded =/= false],
-    [code:stick_mod(Module) || Sticky],
-    ok;
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
