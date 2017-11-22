@@ -2107,6 +2107,7 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
+#ifdef HAVE_USRSCTP
 	    else if (has_prefix("sctp_raw_ipv4", sub_param)) {
 		arg = get_arg(sub_param+13, argv[i+1], &i);
 		sctp_raw_ipv4 = atoi(arg);
@@ -2119,6 +2120,7 @@ erl_start(int argc, char **argv)
 		arg = get_arg(sub_param+14, argv[i+1], &i);
 		sctp_raw_route = atoi(arg);
 	    }
+#endif
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
