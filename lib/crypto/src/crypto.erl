@@ -1100,7 +1100,7 @@ ec_curve(X) ->
 
 
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
-    case privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap)) of
+    case notsup_to_error(privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))) of
         [_|_]=L -> map_ensure_bin_as_int(L);
         X -> X
     end.

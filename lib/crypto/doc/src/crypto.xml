@@ -628,6 +628,10 @@
 	<p>Fetches the corresponding public key from a private key stored in an Engine.
 	The key must be of the type indicated by the Type parameter.
 	</p>	
+	<p>	  
+	  May throw exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
       </desc>
     </func>
 

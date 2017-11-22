@@ -4011,7 +4011,7 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
             return PKEY_BADARG;
         password = get_key_password(env, key);
         *pkey = ENGINE_load_private_key(e, id, NULL, password);
-        if (!pkey)
+        if (!*pkey)
             return PKEY_BADARG;
         enif_free(id);
 #else
@@ -4794,7 +4794,6 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
     EVP_PKEY *pkey;
     ERL_NIF_TERM alg = argv[0];
     ERL_NIF_TERM result[8];
-
     if (get_pkey_private_key(env, alg, argv[1], &pkey) != PKEY_OK) {
 	return enif_make_badarg(env);
     }
