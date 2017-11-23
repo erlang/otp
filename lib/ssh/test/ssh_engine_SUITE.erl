@@ -57,7 +57,6 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        case load_engine() of
            {ok,E} -> 
-               ssh_dbg:messages(fun ct:pal/2),
                [{engine,E}|Config];
            {error, notsup} ->
                {skip, "Engine not supported on this OpenSSL version"};
