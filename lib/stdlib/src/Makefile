@@ -154,7 +154,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
+ERL_COMPILE_FLAGS += +native "+{hipe,[verify_gcsafe]}"
 endif
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include -Werror
 
