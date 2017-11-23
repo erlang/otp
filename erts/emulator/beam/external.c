@@ -383,6 +383,21 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
          */
         ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
 
+        if (~dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)
+            && ep[0] == SMALL_TUPLE_EXT
+            && ep[1] == 4
+            && ep[2] == SMALL_INTEGER_EXT
+            && (ep[3] == DOP_MONITOR_P ||
+                ep[3] == DOP_MONITOR_P_EXIT ||
+                ep[3] == DOP_DEMONITOR_P)) {
+            /*
+             * Receiver does not support process monitoring.
+             * Suppress monitor control msg (see erts_dsig_send_monitor)
+             * by converting it to an empty (tick) packet.
+             */
+            ob->ext_endp = ob->extp;
+            return reds;
+        }
         if (~dflags & (DFLAG_BIT_BINARIES | DFLAG_EXPORT_PTR_TAG
                        | DFLAG_DIST_HDR_ATOM_CACHE)) {
             reds = transcode_dist_obuf(ob, dep, dflags, reds);

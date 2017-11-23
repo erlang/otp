@@ -56,7 +56,9 @@
 /* Additional optimistic flags when encoding toward pending connection */
 #define DFLAG_DIST_HOPEFULLY (DFLAG_NO_MAGIC                    \
                               | DFLAG_EXPORT_PTR_TAG            \
-                              | DFLAG_BIT_BINARIES)
+                              | DFLAG_BIT_BINARIES              \
+                              | DFLAG_DIST_MONITOR              \
+                              | DFLAG_DIST_MONITOR_NAME)
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\

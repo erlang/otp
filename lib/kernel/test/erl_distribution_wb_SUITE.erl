@@ -677,6 +677,8 @@ build_rex_message(Cookie,OurName) ->
 %% Receive a distribution message    
 recv_message(Socket) ->
     case gen_tcp:recv(Socket, 0) of
+        {ok,[]} ->
+            recv_message(Socket);  %% a tick, ignore
 	{ok,Data} ->
 	    B0 = list_to_binary(Data),
 	    <<?PASS_THROUGH, B1/binary>> = B0,

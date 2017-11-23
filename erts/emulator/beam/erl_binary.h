@@ -363,8 +363,6 @@ erts_free_aligned_binary_bytes(byte* buf)
 #  define CHICKEN_PAD (sizeof(void*) - 1)
 #endif
 
-/* Caller must initialize 'refc'
-*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
@@ -383,8 +381,6 @@ erts_bin_drv_alloc_fnf(Uint size)
     return res;
 }
 
-/* Caller must initialize 'refc'
-*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
@@ -401,9 +397,6 @@ erts_bin_drv_alloc(Uint size)
     return res;
 }
 
-
-/* Caller must initialize 'refc'
-*/
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
