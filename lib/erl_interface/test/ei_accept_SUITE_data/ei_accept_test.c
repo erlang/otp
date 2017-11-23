@@ -224,7 +224,7 @@ static void cmd_ei_receive(char* buf, int len)
 	if (got == ERL_TICK)
 	    continue;
 	if (got == ERL_ERROR)
-	    fail("ei_xreceive_msg");
+	    fail1("ei_xreceive_msg, got==%d", got);
 	break;
     }
     index = 1;

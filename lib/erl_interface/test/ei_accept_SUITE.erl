@@ -25,7 +25,8 @@
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
 -export([all/0, suite/0,
-         ei_accept/1, ei_threaded_accept/1]).
+         ei_accept/1, ei_threaded_accept/1,
+         monitor_ei_process/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
@@ -34,7 +35,8 @@ suite() ->
      {timetrap, {seconds, 30}}].
 
 all() -> 
-    [ei_accept, ei_threaded_accept].
+    [ei_accept, ei_threaded_accept,
+     monitor_ei_process].
 
 ei_accept(Config) when is_list(Config) ->
     P = runner:start(?interpret),
@@ -58,6 +60,7 @@ ei_accept(Config) when is_list(Config) ->
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
     {any, EINode} ! TermToSend,
+
     {ok, Fd, _Node} = ei_accept(P, ListenFd),
     Got1 = ei_receive(P, Fd),
 
@@ -83,6 +86,41 @@ ei_threaded_accept(Config) when is_list(Config) ->
     TestServerPid = self(),
     [spawn_link(fun() -> send_rec_einode(I, TestServerPid) end) || I <- lists:seq(0, N-1)],
     [receive I -> ok end || I <- lists:seq(0, N-1) ],
+    ok.
+
+
+%% Test erlang:monitor toward erl_interface "processes"
+monitor_ei_process(Config) when is_list(Config) ->
+    P = runner:start(?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+
+    Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
+    io:format("Myname ~p ~n",  [Myname]),
+    EINode = list_to_atom("c42@"++Myname),
+    io:format("EINode ~p ~n",  [EINode]),
+
+    Self = self(),
+    Port = 6543,
+    {ok, ListenFd} = ei_publish(P, Port),
+    MRef1 = erlang:monitor(process, {any, EINode}),
+    {any, EINode} ! hello,
+
+    {ok, Fd, _Node} = ei_accept(P, ListenFd),
+    hello = ei_receive(P, Fd),
+
+    %% Again, now on an established connection.
+    MRef2 = erlang:monitor(process, {any, EINode}),
+    {any, EINode} ! hello,
+    hello = ei_receive(P, Fd),
+
+    ok = receive M -> M after 0 -> ok end,
+
+    runner:finish(P),
+
+    [{'DOWN', MRef1, process, {any, EINode}, noconnection},
+     {'DOWN', MRef2, process, {any, EINode}, noconnection}
+    ] = lists:sort(flush(2, 1000)),
+
     ok.
 
 waitfornode(String,0) ->
@@ -156,3 +194,12 @@ ei_receive(P, Fd) ->
 
 send_command(P, Name, Args) ->
     runner:send_term(P, {Name,list_to_tuple(Args)}).
+
+flush(0, Timeout) ->
+    flush(1, Timeout div 10);
+flush(Expected, Timeout) ->
+    receive M ->
+            [M | flush(Expected-1, Timeout)]
+    after Timeout ->
+            []
+    end.

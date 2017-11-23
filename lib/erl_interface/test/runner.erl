@@ -67,7 +67,12 @@ start({Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
 
 finish(Port) when is_port(Port) ->
     send_eot(Port),
-    recv_eot(Port).
+    ok = recv_eot(Port),
+    0 = receive
+            {Port,{exit_status,Status}} ->
+                Status
+        end,
+    ok.
 
 %% Sends an Erlang term to a C program.
 

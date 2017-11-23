@@ -3358,25 +3358,6 @@ RealSystem = system + MissedSystem</code>
               monitored process resides). </p></item>
         </taglist>
 
-        <p>If an attempt is made to monitor a process on an older node
-          (where remote process monitoring is not implemented or
-          where remote process monitoring by registered name is not
-          implemented), the call fails with <c>badarg</c>.</p>
-        <note>
-          <p>The format of the <c>'DOWN'</c> message changed in ERTS
-            5.2 (Erlang/OTP R9B) for monitoring
-            <em>by registered name</em>. Element <c>Object</c> of
-            the <c>'DOWN'</c> message could in earlier versions
-            sometimes be the process identifier of the monitored process and sometimes
-            be the registered name. Now element <c>Object</c> is
-            always a tuple consisting of the registered name and
-            the node name. Processes on new nodes (ERTS 5.2
-            or higher versions) always get <c>'DOWN'</c> messages on
-            the new format even if they are monitoring processes on old
-            nodes. Processes on old nodes always get <c>'DOWN'</c>
-            messages on the old format.</p>
-        </note>
-
         <taglist>
         <tag>Monitoring a <marker id="monitor_process"/><c>process</c></tag>
         <item>
@@ -3384,7 +3365,19 @@ RealSystem = system + MissedSystem</code>
             process identified by <c><anno>Item</anno></c>, which can be a
             <c>pid()</c> (local or remote), an atom <c>RegisteredName</c> or
             a tuple <c>{RegisteredName, Node}</c> for a registered process,
-            located elsewhere.</p>
+          located elsewhere.</p>
+
+        <note><p>Before ERTS 10.0 (OTP 21.0), monitoring a process could fail with
+	  <c>badarg</c> if the monitored process resided on a primitive node
+	  (such as erl_interface or jinterface), where remote process monitoring
+	  is not implemented.</p>
+	  <p>Now, such a call to <c>monitor</c> will instead succeed and a
+	  monitor is created. But the monitor will only supervise the
+	  connection. That is, a <c>{'DOWN', _, process, _, noconnection}</c> is
+	  the only message that may be received, as the primitive node have no
+	  way of reporting the status of the monitored process.</p>
+	</note>
+
         </item>
 
         <tag>Monitoring a <marker id="monitor_port"/><c>port</c></tag>

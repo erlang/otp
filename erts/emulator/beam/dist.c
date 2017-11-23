@@ -877,6 +877,13 @@ erts_dsig_send_m_exit(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
     DeclareTmpHeapNoproc(ctl_heap,6);
     int res;
 
+    if (~dsdp->dep->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+        /*
+         * Receiver does not support DOP_MONITOR_P_EXIT (see dsig_send_monitor)
+         */
+        return ERTS_DSIG_SEND_OK;
+    }
+
     UseTmpHeapNoproc(6);
 
     ctl = TUPLE5(&ctl_heap[0], make_small(DOP_MONITOR_P_EXIT),
@@ -904,6 +911,16 @@ erts_dsig_send_monitor(ErtsDSigData *dsdp, Eterm watcher, Eterm watched,
     DeclareTmpHeapNoproc(ctl_heap,5);
     int res;
 
+    if (~dsdp->dep->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+        /*
+         * Receiver does not support DOP_MONITOR_P.
+         * Just avoid sending it and by doing that reduce this monitor
+         * to only supervise the connection. This will work for simple c-nodes
+         * with a 1-to-1 relation between "Erlang process" and OS-process.
+         */
+        return ERTS_DSIG_SEND_OK;
+    }
+
     UseTmpHeapNoproc(5);
     ctl = TUPLE4(&ctl_heap[0],
 		 make_small(DOP_MONITOR_P),
@@ -925,6 +942,13 @@ erts_dsig_send_demonitor(ErtsDSigData *dsdp, Eterm watcher,
     Eterm ctl;
     DeclareTmpHeapNoproc(ctl_heap,5);
     int res;
+
+    if (~dsdp->dep->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+        /*
+         * Receiver does not support DOP_DEMONITOR_P (see dsig_send_monitor)
+         */
+        return ERTS_DSIG_SEND_OK;
+    }
 
     UseTmpHeapNoproc(5);
     ctl = TUPLE4(&ctl_heap[0],
@@ -2379,7 +2403,7 @@ erts_dist_command(Port *prt, int initial_reds)
                 break;
             }
 	    ASSERT(&oq.first->data[0] <= oq.first->extp
-		   && oq.first->extp < oq.first->ext_endp);
+		   && oq.first->extp <= oq.first->ext_endp);
 	    size = (*send)(prt, oq.first);
             erts_atomic64_inc_nob(&dep->out);
 	    esdp->io.out += (Uint64) size;
