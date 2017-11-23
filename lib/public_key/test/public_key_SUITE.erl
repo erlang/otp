@@ -1034,8 +1034,6 @@ pkix_verify_hostname_subjAltName_IP(Config) ->
     true  =  public_key:pkix_verify_hostname(Cert, [{ip, {10,67,16,75}}]),
     false =  public_key:pkix_verify_hostname(Cert, [{ip, {1,2,3,4}}]),
     false =  public_key:pkix_verify_hostname(Cert, [{ip, {10,11,12,13}}]).
-        
-
 %%--------------------------------------------------------------------
 pkix_iso_rsa_oid() ->
  [{doc, "Test workaround for supporting certs that use ISO oids"

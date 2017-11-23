@@ -35,6 +35,30 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Hostname verification: Add handling of the general name
+	    <c>iPAddress</c> in certificate's subject alternative
+	    name extension (<c>subjAltName</c>).</p>
+          <p>
+	    Own Id: OTP-14653</p>
+        </item>
+        <item>
+          <p>
+	    Correct key handling in pkix_test_data/1 and use a
+	    generic example mail address instead of an existing one.</p>
+          <p>
+	    Own Id: OTP-14766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
