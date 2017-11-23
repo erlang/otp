@@ -2492,8 +2492,15 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 	eof ->
 	    ignore;
 	{ok,"%"++_=Line} ->		 %Comment line - not executed.
+        NCovLines = 
+            case CovLines of
+                [{L, _N}|CovLines1] ->
+                    CovLines1;
+                _ ->
+                    CovLines
+            end,
 	    ok = file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
-	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
+	    print_lines(Module, NCovLines, InFd, OutFd, L+1, HTML);
 	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of

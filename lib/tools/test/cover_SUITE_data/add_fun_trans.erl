@@ -6,20 +6,19 @@
 %%% @end
 %%% Created : 23 Nov 2017 by Chen Slepher <slepheric@gmail.com>
 %%%-------------------------------------------------------------------
--module(multi).
-
--compile({parse_transform, add_fun_trans}).
+-module(add_fun_trans).
 
 %% API
--export([a/0, b/0, c/0, d/0]).
+-export([parse_transform/2]).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-
-a() -> ok. b() -> ok. c() -> ok.
-
-d() -> ok.
+parse_transform(Forms, _Opts) ->
+    Export = {attribute,1,export,[{e, 0}]},
+    Function = {function, 1, e, 0, [{clause, 1, [], [], [{atom, 1, ok}]}]},
+    NForms = insert_export(Export, Forms, []),
+    insert_form(Function, NForms, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -30,3 +29,13 @@ d() -> ok.
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+insert_export(Export, [{attribute,_Line,module,_Mod} = Module|T], Acc) ->
+    lists:reverse(Acc) ++ [Module,Export] ++ T;
+insert_export(Export, [Form|Forms], Acc) ->
+    insert_export(Export, Forms, [Form|Acc]).
+
+insert_form(Fun, [{eof, _ELine} = EOF|T], Heads) ->
+    lists:reverse(Heads) ++ [Fun,EOF|T];
+insert_form(Fun, [H|T], Heads) ->
+    insert_form(Fun, T, [H|Heads]).

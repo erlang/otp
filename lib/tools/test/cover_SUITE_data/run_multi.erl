@@ -17,7 +17,7 @@
 run([File]) ->
     NewFile = lists:flatten(io_lib:format("test/cover_SUITE_data/~s", [File])),
     io:format("file is ~s~n", [NewFile]),
-    cover:compile("test/cover_SUITE_data/multi.erl"),
+    {ok, _} = cover:compile_beam(multi),
     multi:b(),
     multi:c(),
     multi:d(),
