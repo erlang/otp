@@ -1335,24 +1335,38 @@ test_value(Module, Type, Value) ->
     in_process(fun() ->
                    case catch Module:encode(Type, Value) of
                        {ok, Bytes} ->
-                           NewBytes = prepare_bytes(Bytes),
-                           case Module:decode(Type, NewBytes) of
-                               {ok, Value} ->
-                                   {ok, {Module, Type, Value}};
-                               {ok, Res}   ->
-                                   {error, {asn1,
-                                            {encode_decode_mismatch,
-                                             {{Module, Type, Value}, Res}}}};
-                               Error       ->
-                                   {error, {asn1,
-                                            {{decode,
-                                              {Module, Type, Value}, Error}}}}
-                           end;
+                           test_value_decode(Module, Type, Value, Bytes);
+                       Bytes when is_binary(Bytes) ->
+                           test_value_decode(Module, Type, Value, Bytes);
                        Error ->
                            {error, {asn1,
                                     {encode, {{Module, Type, Value}, Error}}}}
                    end
                end).
+
+
+test_value_decode(Module, Type, Value, Bytes) ->
+    NewBytes = prepare_bytes(Bytes),
+    case Module:decode(Type, NewBytes) of
+        {ok,Value}      -> {ok, {Module,Type,Value}};
+        {ok,Value,<<>>} -> {ok, {Module,Type,Value}};
+        Value           -> {ok, {Module,Type,Value}};
+        {Value,<<>>}    -> {ok, {Module,Type,Value}};
+
+        %% Errors:
+        {ok, Res}   ->
+            {error, {asn1,
+                     {encode_decode_mismatch,
+                      {{Module, Type, Value}, Res}}}};
+        {ok, Res, Rest} ->
+            {error, {asn1,
+                     {encode_decode_mismatch,
+                      {{Module, Type, Value}, {Res,Rest}}}}};
+        Error       ->
+            {error, {asn1,
+                     {{decode,
+                       {Module, Type, Value}, Error}}}}
+    end.
 
 value(Module, Type) -> value(Module, Type, []).
 
