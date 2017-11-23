@@ -1224,7 +1224,6 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 		[], CertDbData).
 
 %%-------------Handle handshake messages --------------------------------
-
 validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
                          ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
