@@ -203,7 +203,9 @@
       <tag><c>{certfile, path()}</c></tag>
       <item><p>Path to a file containing the user certificate.</p></item>
       
-      <tag><c>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey'
+      <tag>
+	<marker id="key_option_def"/>
+	<c>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey'
       |'PrivateKeyInfo', public_key:der_encoded()} |  #{algorithm := rsa | dss | ecdsa,
 	engine := crypto:engine_ref(), key_id :=  crypto:key_id(), password => crypto:password()}</c></tag>
       <item><p>The DER-encoded user's private key or a map refering to a crypto

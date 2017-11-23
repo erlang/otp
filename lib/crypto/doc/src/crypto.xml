@@ -136,11 +136,12 @@
     See also <seealso marker="#supports-0">crypto:supports/0</seealso>
     </p>
 
+    <marker id="engine_key_ref_type"/>
     <code>engine_key_ref() = #{engine   := engine_ref(),
                                key_id   := key_id(),
                                password => password()}</code>
 
-    <code>engine_key_ref() = term()</code>
+    <code>engine_ref() = term()</code>
     <p>The result of a call to <seealso marker="#engine_load-3">engine_load/3</seealso>.
     </p>
 
