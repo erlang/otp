@@ -2448,7 +2448,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
-		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
+		    CovLines = merge_lines(lists:keysort(1,ets:select(?COLLECTION_TABLE, MS))),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
 		    if
@@ -2470,6 +2470,15 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
+merge_lines(CovLines) ->
+    merge_lines(CovLines, []).
+
+merge_lines([{L, N}|T], [{L, NAcc}|TAcc]) ->
+    merge_lines(T, [{L, NAcc + N}|TAcc]);
+merge_lines([{L, N}|T], Acc) ->
+    merge_lines(T, [{L, N}|Acc]);
+merge_lines([], Acc) ->
+    lists:reverse(Acc).
 
 print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
     case file:read_line(InFd) of
