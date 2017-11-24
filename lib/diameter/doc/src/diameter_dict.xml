@@ -486,9 +486,9 @@ will result in the following record definition given an empty
 prefix.</p>
 
 <pre>
--record('SIP-Deregistration-Reason' {'SIP-Reason-Code',
-                                     'SIP-Reason-Info',
-                                     'AVP'}).
+-record('SIP-Deregistration-Reason', {'SIP-Reason-Code',
+                                      'SIP-Reason-Info',
+                                      'AVP'}).
 </pre>
 
 <p>
