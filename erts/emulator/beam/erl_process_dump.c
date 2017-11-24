@@ -51,6 +51,8 @@ static void stack_trace_dump(fmtfn_t to, void *to_arg, Eterm* sp);
 static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
+void erts_print_base64(fmtfn_t to, void *to_arg,
+                       byte* src, Uint size);
 static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 static void mark_literal(Eterm* ptr);
 static void init_literal_areas(void);
@@ -193,6 +195,7 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
     else {
 	byte *e;
 	size_t sz;
+
 	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB))
 	    erts_print(to, to_arg, "D0:");
 	else {
@@ -210,12 +213,18 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 	else {
 	    ASSERT(*e == VERSION_MAGIC);
 	}
-
 	erts_print(to, to_arg, "E%X:", sz);
-	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
-	    erts_print(to, to_arg, "%02X", VERSION_MAGIC);
-	while (e < edep->ext_endp)
-	    erts_print(to, to_arg, "%02X", *e++);
+        if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR) {
+            byte sbuf[3];
+            int i = 0;
+
+            sbuf[i++] = VERSION_MAGIC;
+            while (i < sizeof(sbuf) && e < edep->ext_endp) {
+                sbuf[i++] = *e++;
+            }
+            erts_print_base64(to, to_arg, sbuf, i);
+        }
+        erts_print_base64(to, to_arg, e, edep->ext_endp - e);
     }
 }
 
@@ -444,16 +453,13 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 		} else if (is_binary_header(hdr)) {
 		    Uint tag = thing_subtag(hdr);
 		    Uint size = binary_size(x);
-		    Uint i;
 
 		    if (tag == HEAP_BINARY_SUBTAG) {
 			byte* p;
 
 			erts_print(to, to_arg, "Yh%X:", size);
 			p = binary_bytes(x);
-			for (i = 0; i < size; i++) {
-			    erts_print(to, to_arg, "%02X", p[i]);
-			}
+                        erts_print_base64(to, to_arg, p, size);
 		    } else if (tag == REFC_BINARY_SUBTAG) {
 			ProcBin* pb = (ProcBin *) binary_val(x);
 			Binary* val = pb->val;
@@ -596,16 +602,13 @@ static void
 dump_binaries(fmtfn_t to, void *to_arg, Binary* current)
 {
     while (current) {
-	long i;
-	long size = current->orig_size;
+	SWord size = current->orig_size;
 	byte* bytes = (byte*) current->orig_bytes;
 
 	erts_print(to, to_arg, "=binary:" PTR_FMT "\n", current);
 	erts_print(to, to_arg, "%X:", size);
-	for (i = 0; i < size; i++) {
-	    erts_print(to, to_arg, "%02X", bytes[i]);
-	}
-	erts_putc(to, to_arg, '\n');
+        erts_print_base64(to, to_arg, bytes, size);
+        erts_putc(to, to_arg, '\n');
 	current = (Binary *) current->intern.flags;
     }
 }
@@ -644,9 +647,7 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
     s = p = sbuf;
     erts_encode_ext(term, &p);
     erts_print(to, to_arg, "E%X:", p-s);
-    while (s < p) {
-	erts_print(to, to_arg, "%02X", *s++);
-    }
+    erts_print_base64(to, to_arg, sbuf, p-s);
 }
 
 /*
@@ -802,16 +803,13 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             } else if (is_binary_header(w)) {
                 Uint tag = thing_subtag(w);
                 Uint size = binary_size(term);
-                Uint i;
 
                 if (tag == HEAP_BINARY_SUBTAG) {
                     byte* p;
 
                     erts_print(to, to_arg, "Yh%X:", size);
                     p = binary_bytes(term);
-                    for (i = 0; i < size; i++) {
-                        erts_print(to, to_arg, "%02X", p[i]);
-                    }
+                    erts_print_base64(to, to_arg, p, size);
                 } else if (tag == REFC_BINARY_SUBTAG) {
                     ProcBin* pb = (ProcBin *) binary_val(term);
                     Binary* val = pb->val;

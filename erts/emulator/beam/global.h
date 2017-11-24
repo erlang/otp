@@ -966,6 +966,7 @@ void process_info(fmtfn_t, void *);
 void print_process_info(fmtfn_t, void *, Process*);
 void info(fmtfn_t, void *);
 void loaded(fmtfn_t, void *);
+void erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size);
 
 /* sighandler sys.c */
 int erts_set_signal(Eterm signal, Eterm type);

@@ -105,8 +105,10 @@
 			    % line_head/1 function can return
 -define(not_available,"N/A").
 -define(binary_size_progress_limit,10000).
--define(max_dump_version,[0,4]).
+-define(max_dump_version,[0,5]).
 
+%% The value of the next define must be divisible by 4.
+-define(base64_chunk_size, (4*256)).
 
 %% All possible tags - use macros in order to avoid misspelling in the code
 -define(abort,abort).
@@ -145,6 +147,7 @@
 
 
 -record(state,{file,dump_vsn,wordsize=4,num_atoms="unknown"}).
+-record(dec_opts, {bin_addr_adj=0,base64=true}).
 
 %%%-----------------------------------------------------------------
 %%% Debugging
@@ -367,10 +370,12 @@ handle_call(general_info,_From,State=#state{file=File}) ->
     ets:insert(cdv_reg_proc_table,
 	       {cdv_dump_node_name,GenInfo#general_info.node_name}),
     {reply,{ok,GenInfo,TW},State#state{wordsize=WS, num_atoms=NumAtoms}};
-handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
+handle_call({expand_binary,{Offset,Size,Pos}},_From,
+            #state{file=File,dump_vsn=DumpVsn}=State) ->
     Fd = open(File),
     pos_bof(Fd,Pos),
-    {Bin,_Line} = get_binary(Offset,Size,bytes(Fd)),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    {Bin,_Line} = get_binary(Offset,Size,bytes(Fd),DecodeOpts),
     close(Fd),
     {reply,{ok,Bin},State};
 handle_call(procs_summary,_From,State=#state{file=File,wordsize=WS}) ->
@@ -443,9 +448,11 @@ handle_call(loaded_mods,_From,State=#state{file=File}) ->
     TW = truncated_warning([?mod]),
     {_CC,_OC,Mods} = loaded_mods(File),
     {reply,{ok,Mods,TW},State};
-handle_call({loaded_mod_details,Mod},_From,State=#state{file=File}) ->
+handle_call({loaded_mod_details,Mod},_From,
+            #state{dump_vsn=DumpVsn,file=File}=State) ->
     TW = truncated_warning([{?mod,Mod}]),
-    ModInfo = get_loaded_mod_details(File,Mod),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    ModInfo = get_loaded_mod_details(File,Mod,DecodeOpts),
     {reply,{ok,ModInfo,TW},State};
 handle_call(funs,_From,State=#state{file=File}) ->
     TW = truncated_warning([?fu]),
@@ -828,8 +835,8 @@ do_read_file(File) ->
                                     reset_tables(),
                                     insert_index(Tag,Id,N1+1),
                                     put_last_tag(Tag,""),
-                                    AddrAdj = get_bin_addr_adj(DumpVsn),
-                                    indexify(Fd,AddrAdj,Rest,N1),
+                                    DecodeOpts = get_decode_opts(DumpVsn),
+                                    indexify(Fd,DecodeOpts,Rest,N1),
                                     end_progress(),
                                     check_if_truncated(),
                                     close(Fd),
@@ -877,7 +884,7 @@ check_dump_version(Vsn) ->
             {ok,DumpVsn}
     end.
 
-indexify(Fd,AddrAdj,Bin,N) ->
+indexify(Fd,DecodeOpts,Bin,N) ->
     case binary:match(Bin,<<"\n=">>) of
 	{Start,Len} ->
 	    Pos = Start+Len,
@@ -890,7 +897,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
                     %% order to minimize lookup time. Key is the
                     %% translated address.
                     {HexAddr,_} = get_hex(Id),
-                    Addr = HexAddr bor AddrAdj,
+                    Addr = HexAddr bor DecodeOpts#dec_opts.bin_addr_adj,
                     insert_binary_index(Addr,NewPos);
                 _ ->
                     insert_index(Tag,Id,NewPos)
@@ -914,7 +921,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
                     end;
                 _ -> ok
             end,
-	    indexify(Fd,AddrAdj,Rest,N1);
+	    indexify(Fd,DecodeOpts,Rest,N1);
 	nomatch ->
 	    case progress_read(Fd) of
 		{ok,Chunk0} when is_binary(Chunk0) ->
@@ -925,7 +932,7 @@ indexify(Fd,AddrAdj,Bin,N) ->
 			    _ ->
 				{Chunk0,N+byte_size(Bin)}
 			end,
-		    indexify(Fd,AddrAdj,Chunk,N1);
+		    indexify(Fd,DecodeOpts,Chunk,N1);
 		eof ->
 		    eof
 	    end
@@ -1441,21 +1448,21 @@ maybe_other_node2(Channel) ->
 
 
 expand_memory(Fd,Pid,DumpVsn) ->
-    BinAddrAdj = get_bin_addr_adj(DumpVsn),
+    DecodeOpts = get_decode_opts(DumpVsn),
     put(fd,Fd),
     Dict0 = case get(?literals) of
                 undefined ->
-                    Literals = read_literals(Fd),
+                    Literals = read_literals(Fd,DecodeOpts),
                     put(?literals,Literals),
                     put(fd,Fd),
                     Literals;
                 Literals ->
                     Literals
             end,
-    Dict = read_heap(Fd,Pid,BinAddrAdj,Dict0),
-    Expanded = {read_stack_dump(Fd,Pid,BinAddrAdj,Dict),
-		read_messages(Fd,Pid,BinAddrAdj,Dict),
-		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
+    Dict = read_heap(Fd,Pid,DecodeOpts,Dict0),
+    Expanded = {read_stack_dump(Fd,Pid,DecodeOpts,Dict),
+		read_messages(Fd,Pid,DecodeOpts,Dict),
+		read_dictionary(Fd,Pid,DecodeOpts,Dict)},
     erase(fd),
     IncompleteWarning =
         case erase(incomplete_heap) of
@@ -1467,52 +1474,59 @@ expand_memory(Fd,Pid,DumpVsn) ->
         end,
     {Expanded,IncompleteWarning}.
 
-read_literals(Fd) ->
+read_literals(Fd,DecodeOpts) ->
     case lookup_index(?literals,[]) of
 	[{_,Start}] ->
             [{_,Chars}] = ets:lookup(cdv_heap_file_chars,literals),
             init_progress("Reading literals",Chars),
 	    pos_bof(Fd,Start),
-	    read_heap(0,gb_trees:empty());
+	    read_heap(DecodeOpts,gb_trees:empty());
         [] ->
             gb_trees:empty()
     end.
 
-%%%-----------------------------------------------------------------
-%%% This is a workaround for a bug in dump versions prior to 0.3:
-%%% Addresses were truncated to 32 bits. This could cause binaries to
-%%% get the same address as heap terms in the dump. To work around it
-%%% we always store binaries on very high addresses in the gb_tree.
-get_bin_addr_adj(DumpVsn) when DumpVsn < [0,3] ->
-    16#f bsl 64;
-get_bin_addr_adj(_) ->
-    0.
+get_decode_opts(DumpVsn) ->
+    BinAddrAdj = if
+                     DumpVsn < [0,3] ->
+                         %% This is a workaround for a bug in dump
+                         %% versions prior to 0.3: Addresses were
+                         %% truncated to 32 bits. This could cause
+                         %% binaries to get the same address as heap
+                         %% terms in the dump. To work around it we
+                         %% always store binaries on very high
+                         %% addresses in the gb_tree.
+                         16#f bsl 64;
+                     true ->
+                         0
+                 end,
+    Base64 = DumpVsn >= [0,5],
+    #dec_opts{bin_addr_adj=BinAddrAdj,base64=Base64}.
 
 %%%
 %%% Read top level section.
 %%%
 
-read_stack_dump(Fd,Pid,BinAddrAdj,Dict) ->
+read_stack_dump(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_stack,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_stack_dump1(Fd,BinAddrAdj,Dict,[]);
+	    read_stack_dump1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_stack_dump1(Fd,BinAddrAdj,Dict,Acc) ->
+read_stack_dump1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Stack = parse_top(Line,BinAddrAdj,Dict),
-	    read_stack_dump1(Fd,BinAddrAdj,Dict,[Stack|Acc])
+	    Stack = parse_top(Line,DecodeOpts,Dict),
+	    read_stack_dump1(Fd,DecodeOpts,Dict,[Stack|Acc])
     end.
 
-parse_top(Line0, BinAddrAdj, D) ->
+parse_top(Line0, DecodeOpts, D) ->
     {Label,Line1} = get_label(Line0),
-    {Term,Line,D} = parse_term(Line1, BinAddrAdj, D),
+    {Term,Line,D} = parse_term(Line1, DecodeOpts, D),
     [] = skip_blanks(Line),
     {Label,Term}.
 
@@ -1520,27 +1534,27 @@ parse_top(Line0, BinAddrAdj, D) ->
 %%% Read message queue.
 %%%
 
-read_messages(Fd,Pid,BinAddrAdj,Dict) ->
+read_messages(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_messages,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_messages1(Fd,BinAddrAdj,Dict,[]);
+	    read_messages1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_messages1(Fd,BinAddrAdj,Dict,Acc) ->
+read_messages1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_message(Line,BinAddrAdj,Dict),
-	    read_messages1(Fd,BinAddrAdj,Dict,[Msg|Acc])
+	    Msg = parse_message(Line,DecodeOpts,Dict),
+	    read_messages1(Fd,DecodeOpts,Dict,[Msg|Acc])
     end.
     
-parse_message(Line0, BinAddrAdj, D) ->
-    {Msg,":"++Line1,_} = parse_term(Line0, BinAddrAdj, D),
-    {Token,Line,_} = parse_term(Line1, BinAddrAdj, D),
+parse_message(Line0, DecodeOpts, D) ->
+    {Msg,":"++Line1,_} = parse_term(Line0, DecodeOpts, D),
+    {Token,Line,_} = parse_term(Line1, DecodeOpts, D),
     [] = skip_blanks(Line),
     {Msg,Token}.
     
@@ -1548,26 +1562,26 @@ parse_message(Line0, BinAddrAdj, D) ->
 %%% Read process dictionary
 %%%
 
-read_dictionary(Fd,Pid,BinAddrAdj,Dict) ->
+read_dictionary(Fd,Pid,DecodeOpts,Dict) ->
     case lookup_index(?proc_dictionary,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_dictionary1(Fd,BinAddrAdj,Dict,[]);
+	    read_dictionary1(Fd,DecodeOpts,Dict,[]);
 	[] ->
 	    []
     end.
-read_dictionary1(Fd,BinAddrAdj,Dict,Acc) ->
+read_dictionary1(Fd,DecodeOpts,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_dictionary(Line,BinAddrAdj,Dict),
-	    read_dictionary1(Fd,BinAddrAdj,Dict,[Msg|Acc])
+	    Msg = parse_dictionary(Line,DecodeOpts,Dict),
+	    read_dictionary1(Fd,DecodeOpts,Dict,[Msg|Acc])
     end.
     
-parse_dictionary(Line0, BinAddrAdj, D) ->
-    {Entry,Line,_} = parse_term(Line0, BinAddrAdj, D),
+parse_dictionary(Line0, DecodeOpts, D) ->
+    {Entry,Line,_} = parse_term(Line0, DecodeOpts, D),
     [] = skip_blanks(Line),
     Entry.
     
@@ -1575,18 +1589,18 @@ parse_dictionary(Line0, BinAddrAdj, D) ->
 %%% Read heap data.
 %%%
 
-read_heap(Fd,Pid,BinAddrAdj,Dict0) ->
+read_heap(Fd,Pid,DecodeOpts,Dict0) ->
     case lookup_index(?proc_heap,Pid) of
 	[{_,Pos}] ->
             [{_,Chars}] = ets:lookup(cdv_heap_file_chars,Pid),
             init_progress("Reading process heap",Chars),
 	    pos_bof(Fd,Pos),
-	    read_heap(BinAddrAdj,Dict0);
+	    read_heap(DecodeOpts,Dict0);
 	[] ->
 	    Dict0
     end.
 
-read_heap(BinAddrAdj,Dict0) ->
+read_heap(DecodeOpts,Dict0) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case get(fd) of
 	end_of_heap ->
@@ -1600,14 +1614,14 @@ read_heap(BinAddrAdj,Dict0) ->
 		    Dict0;
 		Line ->
                     update_progress(length(Line)+1),
-		    Dict = parse(Line,BinAddrAdj,Dict0),
-		    read_heap(BinAddrAdj,Dict)
+		    Dict = parse(Line,DecodeOpts,Dict0),
+		    read_heap(DecodeOpts,Dict)
 	    end
     end.
 
-parse(Line0, BinAddrAdj, Dict0) ->
+parse(Line0, DecodeOpts, Dict0) ->
     {Addr,":"++Line1} = get_hex(Line0),
-    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, BinAddrAdj, Dict0),
+    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
     [] = skip_blanks(Line),
     Dict.
 
@@ -1927,12 +1941,15 @@ get_nodeinfo(Fd,Nod) ->
 
 %%-----------------------------------------------------------------
 %% Page with details about one loaded modules
-get_loaded_mod_details(File,Mod) ->
+get_loaded_mod_details(File,Mod,DecodeOpts) ->
     [{_,Start}] = lookup_index(?mod,Mod),
     Fd = open(File),
     pos_bof(Fd,Start),
     InitLM = #loaded_mod{mod=Mod,old_size="No old code exists"},
-    ModInfo = get_loaded_mod_info(Fd,InitLM,fun all_modinfo/3),
+    Fun = fun(F, LM, LineHead) ->
+                  all_modinfo(F, LM, LineHead, DecodeOpts)
+          end,
+    ModInfo = get_loaded_mod_info(Fd,InitLM,Fun),
     close(Fd),
     ModInfo.
 
@@ -1990,59 +2007,44 @@ get_loaded_mod_info(Fd,LM,Fun) ->
 
 main_modinfo(_Fd,LM,_LineHead) ->
     LM.
-all_modinfo(Fd,LM,LineHead) ->
+all_modinfo(Fd,LM,LineHead,DecodeOpts) ->
     case LineHead of
 	"Current attributes" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{current_attrib=Str};
 	"Current compilation info" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{current_comp_info=Str};
 	"Old attributes" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{old_attrib=Str};
 	"Old compilation info" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{old_comp_info=Str};
 	Other ->
 	    unexpected(Fd,Other,"loaded modules info"),
 	    LM
     end.
-    
 
-hex_to_str(Hex) ->
-    Term = hex_to_term(Hex,[]),
-    io_lib:format("~tp~n",[Term]).
-
-hex_to_term([X,Y|Hex],Acc) ->
-    MS = hex_to_dec([X]),
-    LS = hex_to_dec([Y]),
-    Z = 16*MS+LS,
-    hex_to_term(Hex,[Z|Acc]);
-hex_to_term([],Acc) ->
-    Bin = list_to_binary(lists:reverse(Acc)),
-    case catch binary_to_term(Bin) of
-	{'EXIT',_Reason} ->
-	    {"WARNING: The term is probably truncated!",
-	     "I can not do binary_to_term.",
-	     Bin};
-	Term ->
-	    Term
-    end;
-hex_to_term(Rest,Acc) ->
-    {"WARNING: The term is probably truncated!",
-     "I can not convert hex to term.",
-     Rest,list_to_binary(lists:reverse(Acc))}.
-
-
-hex_to_dec("F") -> 15;
-hex_to_dec("E") -> 14;
-hex_to_dec("D") -> 13;
-hex_to_dec("C") -> 12;
-hex_to_dec("B") -> 11;
-hex_to_dec("A") -> 10;
-hex_to_dec(N) -> list_to_integer(N).
-    
+get_attribute(Fd, DecodeOpts) ->
+    Bytes = bytes(Fd, ""),
+    try get_binary(Bytes, DecodeOpts) of
+        {Bin,_} ->
+            try binary_to_term(Bin) of
+                Term ->
+                    io_lib:format("~tp~n",[Term])
+            catch
+                _:_ ->
+                    {"WARNING: The term is probably truncated!",
+                     "I cannot do binary_to_term/1.",
+                     Bin}
+            end
+    catch
+        _:_ ->
+            {"WARNING: The term is probably truncated!",
+             "I cannot convert to binary.",
+             Bytes}
+    end.
 
 %%-----------------------------------------------------------------
 %% Page with list of all funs
@@ -2599,112 +2601,110 @@ get_limited_stack(Fd, N, Ds) ->
 %%%-----------------------------------------------------------------
 %%% Parse memory in crashdump version 0.1 and newer
 %%%
-parse_heap_term([$l|Line0], Addr, BinAddrAdj, D0) ->	%Cons cell.
-    {H,"|"++Line1,D1} = parse_term(Line0, BinAddrAdj, D0),
-    {T,Line,D2} = parse_term(Line1, BinAddrAdj, D1),
+parse_heap_term([$l|Line0], Addr, DecodeOpts, D0) ->	%Cons cell.
+    {H,"|"++Line1,D1} = parse_term(Line0, DecodeOpts, D0),
+    {T,Line,D2} = parse_term(Line1, DecodeOpts, D1),
     Term = [H|T],
     D = gb_trees:insert(Addr, Term, D2),
     {Term,Line,D};
-parse_heap_term([$t|Line0], Addr, BinAddrAdj, D) ->	%Tuple
+parse_heap_term([$t|Line0], Addr, DecodeOpts, D) ->	%Tuple
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, BinAddrAdj, D, []);
-parse_heap_term([$F|Line0], Addr, _BinAddrAdj, D0) ->	%Float
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []);
+parse_heap_term([$F|Line0], Addr, _DecodeOpts, D0) ->	%Float
     {N,":"++Line1} = get_hex(Line0),
     {Chars,Line} = get_chars(N, Line1),
     Term = list_to_float(Chars),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B16#"++Line0, Addr, _BinAddrAdj, D0) -> %Positive big number.
+parse_heap_term("B16#"++Line0, Addr, _DecodeOpts, D0) -> %Positive big number.
     {Term,Line} = get_hex(Line0),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B-16#"++Line0, Addr, _BinAddrAdj, D0) -> %Negative big number
+parse_heap_term("B-16#"++Line0, Addr, _DecodeOpts, D0) -> %Negative big number
     {Term0,Line} = get_hex(Line0),
     Term = -Term0,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B"++Line0, Addr, _BinAddrAdj, D0) ->	%Decimal big num
+parse_heap_term("B"++Line0, Addr, _DecodeOpts, D0) ->	%Decimal big num
     case string:to_integer(Line0) of
 	{Int,Line} when is_integer(Int) ->
 	    D = gb_trees:insert(Addr, Int, D0),
 	    {Int,Line,D}
     end;
-parse_heap_term([$P|Line0], Addr, _BinAddrAdj, D0) ->	% External Pid.
+parse_heap_term([$P|Line0], Addr, _DecodeOpts, D0) ->	% External Pid.
     {Pid0,Line} = get_id(Line0),
     Pid = ['#CDVPid'|Pid0],
     D = gb_trees:insert(Addr, Pid, D0),
     {Pid,Line,D};
-parse_heap_term([$p|Line0], Addr, _BinAddrAdj, D0) ->   % External Port.
+parse_heap_term([$p|Line0], Addr, _DecodeOpts, D0) ->   % External Port.
     {Port0,Line} = get_id(Line0),
     Port = ['#CDVPort'|Port0],
     D = gb_trees:insert(Addr, Port, D0),
     {Port,Line,D};
-parse_heap_term("E"++Line0, Addr, _BinAddrAdj, D0) ->	%Term encoded in external format.
-    {Bin,Line} = get_binary(Line0),
+parse_heap_term("E"++Line0, Addr, DecodeOpts, D0) ->	%Term encoded in external format.
+    {Bin,Line} = get_binary(Line0, DecodeOpts),
     Term = binary_to_term(Bin),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yh"++Line0, Addr, _BinAddrAdj, D0) ->	%Heap binary.
-    {Term,Line} = get_binary(Line0),
+parse_heap_term("Yh"++Line0, Addr, DecodeOpts, D0) ->	%Heap binary.
+    {Term,Line} = get_binary(Line0, DecodeOpts),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yc"++Line0, Addr, BinAddrAdj, D0) ->	%Reference-counted binary.
+parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
     {Binp0,":"++Line1} = get_hex(Line0),
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
-    Binp = Binp0 bor BinAddrAdj,
-    Term = case lookup_binary_index(Binp) of
-               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
-	       [] -> '#CDVNonexistingBinary'
-	   end,
-    D = gb_trees:insert(Addr, Term, D0),
-    {Term,Line,D};
-parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
+    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
+    case lookup_binary_index(Binp) of
+        [{_,Start}] ->
+            SymbolicBin = {'#CDVBin',Start},
+            Term = cdvbin(Offset, Sz, SymbolicBin),
+            D1 = gb_trees:insert(Addr, Term, D0),
+            D = gb_trees:insert(Binp, SymbolicBin, D1),
+            {Term,Line,D};
+        [] ->
+            Term = '#CDVNonexistingBinary',
+            D1 = gb_trees:insert(Addr, Term, D0),
+            D = gb_trees:insert(Binp, Term, D1),
+            {Term,Line,D}
+    end;
+parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
     {Binp0,":"++Line1} = get_hex(Line0),
     {Offset,":"++Line2} = get_hex(Line1),
-    {Sz,Line} = get_hex(Line2),
-    Binp = Binp0 bor BinAddrAdj,
-    Term = case lookup_binary_index(Binp) of
-               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
-	       [] ->
-		   %% Might it be on the heap?
-		   case gb_trees:lookup(Binp, D0) of
-		       {value,Bin} -> cdvbin(Offset,Sz,Bin);
-		       none -> '#CDVNonexistingBinary'
-		   end
-	   end,
-    D = gb_trees:insert(Addr, Term, D0),
+    {Sz,Line3} = get_hex(Line2),
+    {Term,Line,D1} = deref_bin(Binp0, Offset, Sz, Line3, DecodeOpts, D0),
+    D = gb_trees:insert(Addr, Term, D1),
     {Term,Line,D};
-parse_heap_term("Mf"++Line0, Addr, BinAddrAdj, D0) -> %Flatmap.
+parse_heap_term("Mf"++Line0, Addr, DecodeOpts, D0) -> %Flatmap.
     {Size,":"++Line1} = get_hex(Line0),
-    {Keys,":"++Line2,D1} = parse_term(Line1, BinAddrAdj, D0),
-    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,BinAddrAdj, D1, []),
+    {Keys,":"++Line2,D1} = parse_term(Line1, DecodeOpts, D0),
+    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
     Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
     Map = maps:from_list(Pairs),
     D = gb_trees:update(Addr, Map, D2),
     {Map,Line,D};
-parse_heap_term("Mh"++Line0, Addr, BinAddrAdj, D0) -> %Head node in a hashmap.
+parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {MapSize,":"++Line1} = get_hex(Line0),
     {N,":"++Line2} = get_hex(Line1),
-    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, BinAddrAdj, D0, []),
+    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, DecodeOpts, D0, []),
     Map = maps:from_list(flatten_hashmap_nodes(Nodes)),
     MapSize = maps:size(Map),                   %Assertion.
     D = gb_trees:update(Addr, Map, D1),
     {Map,Line,D};
-parse_heap_term("Mn"++Line0, Addr, BinAddrAdj, D) -> %Interior node in a hashmap.
+parse_heap_term("Mn"++Line0, Addr, DecodeOpts, D) -> %Interior node in a hashmap.
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, BinAddrAdj, D, []).
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []).
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
     D = gb_trees:insert(Addr, Tuple, D0),
     {Tuple,Line,D};
-parse_tuple(N, Line0, Addr, BinAddrAdj, D0, Acc) ->
-    case parse_term(Line0, BinAddrAdj, D0) of
+parse_tuple(N, Line0, Addr, DecodeOpts, D0, Acc) ->
+    case parse_term(Line0, DecodeOpts, D0) of
 	{Term,[$,|Line],D} when N > 1 ->
-	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc]);
+	    parse_tuple(N-1, Line, Addr, DecodeOpts, D, [Term|Acc]);
 	{Term,Line,D}->
-	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc])
+	    parse_tuple(N-1, Line, Addr, DecodeOpts, D, [Term|Acc])
     end.
 
 zip_tuples(0, _T1, _T2, Acc) ->
@@ -2726,9 +2726,9 @@ flatten_hashmap_nodes_1(N, Tuple0, Acc0) ->
             flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, Acc)
     end.
 
-parse_term([$H|Line0], BinAddrAdj, D) ->        %Pointer to heap term.
+parse_term([$H|Line0], DecodeOpts, D) ->        %Pointer to heap term.
     {Ptr,Line} = get_hex(Line0),
-    deref_ptr(Ptr, Line, BinAddrAdj, D);
+    deref_ptr(Ptr, Line, DecodeOpts, D);
 parse_term([$N|Line], _, D) ->			%[] (nil).
     {[],Line,D};
 parse_term([$I|Line0], _, D) ->			%Small.
@@ -2745,11 +2745,11 @@ parse_term([$p|Line0], _, D) ->			%Port.
 parse_term([$S|Str0], _, D) ->			%Information string.
     Str = lists:reverse(skip_blanks(lists:reverse(Str0))),
     {Str,[],D};
-parse_term([$D|Line0], _, D) ->                 %DistExternal
+parse_term([$D|Line0], DecodeOpts, D) ->                 %DistExternal
     try
 	{AttabSize,":"++Line1} = get_hex(Line0),
 	{Attab, "E"++Line2} = parse_atom_translation_table(AttabSize, Line1, []),
-	{Bin,Line3} = get_binary(Line2),
+	{Bin,Line3} = get_binary(Line2, DecodeOpts),
 	{try
 	     erts_debug:dist_ext_to_term(Attab, Bin)
 	 catch
@@ -2782,11 +2782,39 @@ parse_atom_translation_table(0, Line0, As) ->
 parse_atom_translation_table(N, Line0, As) ->
     {A, Line1, _} = parse_atom(Line0, []),
     parse_atom_translation_table(N-1, Line1, [A|As]).
-    
-    
 
-deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
-    case gb_trees:lookup(Ptr, D0) of
+
+deref_ptr(Ptr, Line, DecodeOpts, D) ->
+    Lookup = fun(D0) ->
+                     gb_trees:lookup(Ptr, D0)
+             end,
+    do_deref_ptr(Lookup, Line, DecodeOpts, D).
+
+deref_bin(Binp0, Offset, Sz, Line, DecodeOpts, D) ->
+    Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
+    Lookup = fun(D0) ->
+                     lookup_binary(Binp, Offset, Sz, D0)
+             end,
+    do_deref_ptr(Lookup, Line, DecodeOpts, D).
+
+lookup_binary(Binp, Offset, Sz, D) ->
+    case lookup_binary_index(Binp) of
+        [{_,Start}] ->
+            Term = cdvbin(Offset, Sz, {'#CDVBin',Start}),
+            {value,Term};
+        [] ->
+            case gb_trees:lookup(Binp, D) of
+                {value,<<_:Offset/bytes,Sub:Sz/bytes,_/bytes>>} ->
+                    {value,Sub};
+                {value,SymbolicBin} ->
+                    {value,cdvbin(Offset, Sz, SymbolicBin)};
+                none ->
+                    none
+            end
+    end.
+
+do_deref_ptr(Lookup, Line, DecodeOpts, D0) ->
+    case Lookup(D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
 	none ->
@@ -2798,11 +2826,11 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 		    case bytes(Fd) of
 			"="++_ ->
 			    put(fd, end_of_heap),
-			    deref_ptr(Ptr, Line, BinAddrAdj, D0);
+			    do_deref_ptr(Lookup, Line, DecodeOpts, D0);
 			L ->
                             update_progress(length(L)+1),
-			    D = parse(L, BinAddrAdj, D0),
-			    deref_ptr(Ptr, Line, BinAddrAdj, D)
+			    D = parse(L, DecodeOpts, D0),
+			    do_deref_ptr(Lookup, Line, DecodeOpts, D)
 		    end
 	    end
     end.
@@ -2865,35 +2893,79 @@ get_label([$:|Line], Acc) ->
 get_label([H|T], Acc) ->
     get_label(T, [H|Acc]).
 
-get_binary(Line0) ->
+get_binary(Line0,DecodeOpts) ->
     case get_hex(Line0) of
         {N,":"++Line} ->
-            do_get_binary(N, Line, [], false);
+            get_binary_1(N, Line, DecodeOpts);
         _  ->
            {'#CDVTruncatedBinary',[]}
     end.
 
-get_binary(Offset,Size,Line0) ->
+get_binary_1(N,Line,#dec_opts{base64=false}) ->
+    get_binary_hex(N, Line, [], false);
+get_binary_1(N,Line0,#dec_opts{base64=true}) ->
+    NumBytes = ((N+2) div 3) * 4,
+    {Base64,Line} = lists:split(NumBytes, Line0),
+    Bin = get_binary_base64(list_to_binary(Base64), <<>>, false),
+    {Bin,Line}.
+
+get_binary(Offset,Size,Line0,DecodeOpts) ->
     case get_hex(Line0) of
         {_N,":"++Line} ->
-            Progress = Size>?binary_size_progress_limit,
-            Progress andalso init_progress("Reading binary",Size),
-            do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), [],
-                          Progress);
-        _  ->
-           {'#CDVTruncatedBinary',[]}
+            get_binary_1(Offset,Size,Line,DecodeOpts);
+        _ ->
+            {'#CDVTruncatedBinary',[]}
     end.
 
-do_get_binary(0, Line, Acc, Progress) ->
+get_binary_1(Offset,Size,Line,#dec_opts{base64=false}) ->
+    Progress = Size > ?binary_size_progress_limit,
+    Progress andalso init_progress("Reading binary",Size),
+    get_binary_hex(Size, lists:sublist(Line,(Offset*2)+1,Size*2), [],
+                  Progress);
+get_binary_1(StartOffset,Size,Line,#dec_opts{base64=true}) ->
+    Progress = Size > ?binary_size_progress_limit,
+    Progress andalso init_progress("Reading binary",Size),
+    EndOffset = StartOffset + Size,
+    StartByte = (StartOffset div 3) * 4,
+    EndByte = ((EndOffset + 2) div 3) * 4,
+    NumBytes = EndByte - StartByte,
+    case list_to_binary(Line) of
+        <<_:StartByte/bytes,Base64:NumBytes/bytes,_/bytes>> ->
+            Bin0 = get_binary_base64(Base64, <<>>, Progress),
+            Skip = StartOffset - (StartOffset div 3) * 3,
+            <<_:Skip/bytes,Bin:Size/bytes,_/bytes>> = Bin0,
+            {Bin,[]};
+        _ ->
+            {'#CDVTruncatedBinary',[]}
+    end.
+
+get_binary_hex(0, Line, Acc, Progress) ->
     Progress andalso end_progress(),
     {list_to_binary(lists:reverse(Acc)),Line};
-do_get_binary(N, [A,B|Line], Acc, Progress) ->
+get_binary_hex(N, [A,B|Line], Acc, Progress) ->
     Byte = (get_hex_digit(A) bsl 4) bor get_hex_digit(B),
     Progress andalso update_progress(),
-    do_get_binary(N-1, Line, [Byte|Acc], Progress);
-do_get_binary(_N, [], _Acc, Progress) ->
+    get_binary_hex(N-1, Line, [Byte|Acc], Progress);
+get_binary_hex(_N, [], _Acc, Progress) ->
     Progress andalso end_progress(),
     {'#CDVTruncatedBinary',[]}.
+
+get_binary_base64(<<Chunk0:?base64_chunk_size/bytes,T/bytes>>,
+                  Acc0, Progress) ->
+    Chunk = base64:decode(Chunk0),
+    Acc = <<Acc0/binary,Chunk/binary>>,
+    Progress andalso update_progress(?base64_chunk_size * 3 div 4),
+    get_binary_base64(T, Acc, Progress);
+get_binary_base64(Chunk0, Acc, Progress) ->
+    case Progress of
+        true ->
+            update_progress(?base64_chunk_size * 3 div 4),
+            end_progress();
+        false ->
+            ok
+    end,
+    Chunk = base64:decode(Chunk0),
+    <<Acc/binary,Chunk/binary>>.
 
 cdvbin(Offset,Size,{'#CDVBin',Pos}) ->
     ['#CDVBin',Offset,Size,Pos];
