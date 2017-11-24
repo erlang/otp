@@ -488,9 +488,7 @@ loaded(fmtfn_t to, void *to_arg)
 static void
 dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
 {
-    while (size-- > 0) {
-	erts_print(to, to_arg, "%02X", *ptr++);
-    }
+    erts_print_base64(to, to_arg, ptr, size);
     erts_print(to, to_arg, "\n");
 }
 
@@ -848,7 +846,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
 
     time(&now);
-    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.4\n%s", ctime(&now));
+    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.5\n%s", ctime(&now));
 
     if (file != NULL)
        erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
@@ -959,3 +957,28 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_fprintf(stderr,"done\n");
 }
 
+void
+erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size)
+{
+    static const byte base64_chars[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    while (size >= 3) {
+        erts_putc(to, to_arg, base64_chars[src[0] >> 2]);
+        erts_putc(to, to_arg, base64_chars[((src[0] & 0x03) << 4) | (src[1] >> 4)]);
+        erts_putc(to, to_arg, base64_chars[((src[1] & 0x0f) << 2) | (src[2] >> 6)]);
+        erts_putc(to, to_arg, base64_chars[src[2] & 0x3f]);
+        size -= 3;
+        src += 3;
+    }
+    if (size == 1) {
+        erts_putc(to, to_arg, base64_chars[src[0] >> 2]);
+        erts_putc(to, to_arg, base64_chars[(src[0] & 0x03) << 4]);
+        erts_print(to, to_arg, "==");
+    } else if (size == 2) {
+        erts_putc(to, to_arg, base64_chars[src[0] >> 2]);
+        erts_putc(to, to_arg, base64_chars[((src[0] & 0x03) << 4) | (src[1] >> 4)]);
+        erts_putc(to, to_arg, base64_chars[(src[1] & 0x0f) << 2]);
+        erts_putc(to, to_arg, '=');
+    }
+}
