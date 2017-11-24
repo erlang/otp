@@ -25,6 +25,7 @@
          multi_proc_purge/1, t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
+         fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
          t_copy_literals/1, t_copy_literals_frags/1]).
 
@@ -38,7 +39,8 @@ all() ->
      call_purged_fun_code_reload, call_purged_fun_code_there,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5,
-     constant_pools, constant_refc_binaries, false_dependency,
+     constant_pools, constant_refc_binaries, fake_literals,
+     false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
 
 init_per_suite(Config) ->
@@ -553,6 +555,62 @@ wait_for_memory_deallocations() ->
             erts_debug:set_internal_state(available_internal_state, true),
             wait_for_memory_deallocations()
     end.
+
+fake_literals(_Config) ->
+    Mod = fake__literals__module,
+    try
+        do_fake_literals(Mod)
+    after
+        _ = code:purge(Mod),
+        _ = code:delete(Mod),
+        _ = code:purge(Mod),
+        _ = code:delete(Mod)
+    end,
+    ok.
+
+do_fake_literals(Mod) ->
+    Tid = ets:new(test, []),
+    ExtTerms = get_external_terms(),
+    Term0 = {self(),make_ref(),Tid,fun() -> ok end,ExtTerms},
+    Terms = [begin
+                 make_literal_module(Mod, Term0),
+                 Mod:term()
+             end || _ <- lists:seq(1, 10)],
+    verify_lit_terms(Terms, Term0),
+    true = ets:delete(Tid),
+    ok.
+
+make_literal_module(Mod, Term) ->
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,2,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,{literal,Term},{x,0}},
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,2},
+    {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
+    code:load_binary(Mod, atom_to_list(Mod), Beam).
+
+verify_lit_terms([H|T], Term) ->
+    case H =:= Term of
+        true ->
+            verify_lit_terms(T, Term);
+        false ->
+            error({bad_term,H})
+    end;
+verify_lit_terms([], _) ->
+    ok.
+
+get_external_terms() ->
+    {ok,Node} =	test_server:start_node(?FUNCTION_NAME, slave, []),
+    Ref = rpc:call(Node, erlang, make_ref, []),
+    Ports = rpc:call(Node, erlang, ports, []),
+    Pid = rpc:call(Node, erlang, self, []),
+    _ = test_server:stop_node(Node),
+    {Ref,hd(Ports),Pid}.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
 %% to a module in a process. (Thanks to Richard Carlsson.)

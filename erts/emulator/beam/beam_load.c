@@ -5665,13 +5665,36 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 	return;
 
     oh = literal_area->off_heap;
-	
+
     while (oh) {
-	Binary* bptr;
-	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
-	bptr = ((ProcBin*)oh)->val;
-        erts_bin_release(bptr);
-	oh = oh->next;
+        switch (thing_subtag(oh->thing_word)) {
+        case REFC_BINARY_SUBTAG:
+            {
+                Binary* bptr = ((ProcBin*)oh)->val;
+                erts_bin_release(bptr);
+                break;
+            }
+        case FUN_SUBTAG:
+            {
+                ErlFunEntry* fe = ((ErlFunThing*)oh)->fe;
+                if (erts_smp_refc_dectest(&fe->refc, 0) == 0) {
+                    erts_erase_fun_entry(fe);
+                }
+                break;
+            }
+        case REF_SUBTAG:
+            {
+                ErtsMagicBinary *bptr;
+                ASSERT(is_magic_ref_thing(oh));
+                bptr = ((ErtsMRefThing *) oh)->mb;
+                erts_bin_release((Binary *) bptr);
+                break;
+            }
+        default:
+            ASSERT(is_external_header(oh->thing_word));
+            erts_deref_node_entry(((ExternalThing*)oh)->node);
+        }
+        oh = oh->next;
     }
     erts_free(ERTS_ALC_T_LITERAL, literal_area);
 }
