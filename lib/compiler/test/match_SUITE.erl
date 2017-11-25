@@ -617,6 +617,10 @@ grab_bag(_Config) ->
 	 {bad,16#555555555555555555555555555555555555555555555555555}],
     ok = grab_bag_remove_failure(L, unit, 0),
 
+    {42,<<43,44>>} = grab_bag_single_valued(<<42,43,44>>),
+    empty_list = grab_bag_single_valued([]),
+    empty_tuple = grab_bag_single_valued({}),
+
     ok.
 
 grab_bag_remove_failure([], _Unit, _MaxFailure) ->
@@ -633,6 +637,12 @@ grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
 	{min,_} ->
 	    ok
     end.
+
+%% Cover a line v3_kernel that places binary matching first.
+grab_bag_single_valued(<<H,T/bytes>>) -> {H,T};
+grab_bag_single_valued([]) -> empty_list;
+grab_bag_single_valued({}) -> empty_tuple.
+
 
 %% Regression in 19.0, reported by Alexei Sholik
 literal_binary(_Config) ->
