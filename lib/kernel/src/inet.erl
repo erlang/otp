@@ -72,7 +72,7 @@
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
--export_type([address_family/0, hostent/0, hostname/0, ip4_address/0,
+-export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
 	      local_address/0, socket_address/0, returned_non_ip_address/0,
 	      socket_setopt/0, socket_getopt/0,
@@ -1452,11 +1452,14 @@ fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec i() -> ok.
 i() -> i(tcp), i(udp), i(sctp).
 
+-spec i(socket_protocol()) -> ok.
 i(Proto) -> i(Proto, [port, module, recv, sent, owner,
 		      local_address, foreign_address, state, type]).
 
+-spec i(socket_protocol(), [atom()]) -> ok.
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
 i(udp, Fs) ->
