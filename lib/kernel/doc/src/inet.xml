@@ -197,6 +197,9 @@ fe80::204:acff:fe17:bf38
     <datatype>
       <name name="address_family"/>
     </datatype>
+    <datatype>
+      <name name="socket_protocol"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -455,6 +458,61 @@ get_tcpi_sacked(Sock) ->
           <tag><c>send_oct</c></tag>
           <item>
             <p>Number of bytes sent from the socket.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="0" />
+      <name name="i" arity="1" />
+      <name name="i" arity="2" />
+      <fsummary>Displays information and statistics about sockets on the terminal</fsummary>
+      <desc>
+        <p>
+          Lists all TCP, UDP and SCTP sockets, including those that the Erlang runtime system uses as well as
+          those created by the application.
+        </p>
+        <p>
+          The following options are available:
+        </p>
+
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>
+            <p>The internal index of the port.</p>
+          </item>
+          <tag><c>module</c></tag>
+          <item>
+            <p>The callback module of the socket.</p>
+          </item>
+          <tag><c>recv</c></tag>
+          <item>
+            <p>Number of bytes received by the socket.</p>
+          </item>
+          <tag><c>sent</c></tag>
+          <item>
+            <p>Number of bytes sent from the socket.</p>
+          </item>
+          <tag><c>owner</c></tag>
+          <item>
+            <p>The socket owner process.</p>
+          </item>
+          <tag><c>local_address</c></tag>
+          <item>
+            <p>The local address of the socket.</p>
+          </item>
+          <tag><c>foreign_address</c></tag>
+          <item>
+            <p>The address and port of the other end of the connection.</p>
+          </item>
+          <tag><c>state</c></tag>
+          <item>
+            <p>The connection state.</p>
+          </item>
+          <tag><c>type</c></tag>
+          <item>
+            <p>STREAM or DGRAM or SEQPACKET.</p>
           </item>
         </taglist>
       </desc>
@@ -1214,7 +1272,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
 	  For one-to-many style sockets, the special value <c>0</c>
 	  is defined to mean that the returned addresses must be
 	  without any particular association.
-	  How different SCTP implementations interprets this varies somewhat.
+	  How different SCTP implementations interpret this varies somewhat.
         </p>
       </desc>
     </func>
