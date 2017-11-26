@@ -32,7 +32,8 @@
 
 -import(lists, [map/2,member/2,sort/1,reverse/1,splitwith/2]).
 
--define(is_const(Val), (element(1, Val) =:= integer orelse
+-define(is_const(Val), (Val =:= nil orelse
+                        element(1, Val) =:= integer orelse
                         element(1, Val) =:= float orelse
                         element(1, Val) =:= atom orelse
                         element(1, Val) =:= literal)).
