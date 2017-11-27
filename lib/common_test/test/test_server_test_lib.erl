@@ -121,7 +121,7 @@ parse_suite(FileName) ->
     end.
 
 fline(Fd) ->
-    case prim_file:read_line(Fd) of
+    case file:read_line(Fd) of
 	eof -> eof;
 	{ok, Line} -> Line
     end.

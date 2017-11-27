@@ -775,7 +775,7 @@ errors(Config) when is_list(Config) ->
     {error, bad_driver_name} = erl_ddll:load_driver(Path, wrongname_drv),
 
     %% We assume that there is a statically linked driver named "ddll":
-    {error, linked_in_driver} = erl_ddll:unload_driver(efile),
+    {error, linked_in_driver} = erl_ddll:unload_driver(ram_file_drv),
     {error, not_loaded} = erl_ddll:unload_driver("__pucko_driver__"),
 
     case os:type() of

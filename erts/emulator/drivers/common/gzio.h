@@ -20,13 +20,5 @@
 
 #include "zlib.h"
 
-typedef struct erts_gzFile* ErtsGzFile;
-
-ErtsGzFile erts_gzopen (const char *path, const char *mode);
-int erts_gzread(ErtsGzFile file, voidp buf, unsigned len);
-int erts_gzwrite(ErtsGzFile file, voidp buf, unsigned len);
-int erts_gzseek(ErtsGzFile, int, int);
-int erts_gzflush(ErtsGzFile file, int flush);
-int erts_gzclose(ErtsGzFile file);
 ErlDrvBinary* erts_gzinflate_buffer(char*, uLong);
 ErlDrvBinary* erts_gzdeflate_buffer(char*, uLong);

@@ -86,6 +86,10 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hipe_mfait_lock",			NULL			},
 #endif
     {	"nodes_monitors",			NULL			},
+    {	"meta_name_tab",	         	"address"		},
+    {	"db_tab",				"address"		},
+    {	"db_tab_fix",				"address"		},
+    {	"db_hash_slot",				"address"		},
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
@@ -95,12 +99,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
     {	"purge_state",		      		NULL			},
-    {	"meta_name_tab",	         	"address"		},
-    {	"db_tab",				"address"		},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
-    {	"db_tab_fix",				"address"		},
-    {	"db_hash_slot",				"address"		},
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},
@@ -109,7 +109,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
     {	"release_literal_areas",		NULL			},
-    {	"efile_drv",				"address"		},
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
@@ -169,9 +168,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #ifdef DEBUG
     {   "save_ops_lock",                        NULL                    },
 #endif
-#endif
-#ifdef	USE_VM_PROBES
-    {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
     {	"os_monotonic_time",			NULL			},
