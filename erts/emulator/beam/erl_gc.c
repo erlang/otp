@@ -1210,8 +1210,8 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     p->old_htop = old_htop;
 
     /*
-     * Prepare to sweep binaries. Since all MSOs on the new heap
-     * must be come before MSOs on the old heap, find the end of
+     * Prepare to sweep off-heap objects. Since all MSOs on the new
+     * heap must be come before MSOs on the old heap, find the end of
      * current MSO list and use that as a starting point.
      */
 
@@ -1223,25 +1223,50 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     }
 
     /*
-     * Sweep through all binaries in the temporary literal area.
+     * Sweep through all off-heap objects in the temporary literal area.
      */
 
     while (oh) {
 	if (IS_MOVED_BOXED(oh->thing_word)) {
-	    Binary* bptr;
 	    struct erl_off_heap_header* ptr;
 
-	    ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
-	    ASSERT(thing_subtag(ptr->thing_word) == REFC_BINARY_SUBTAG);
-	    bptr = ((ProcBin*)ptr)->val;
-
-	    /*
-	     * This binary has been copied to the heap.
+            /*
+	     * This off-heap object has been copied to the heap.
 	     * We must increment its reference count and
 	     * link it into the MSO list for the process.
 	     */
 
-	    erts_refc_inc(&bptr->intern.refc, 1);
+	    ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
+            switch (thing_subtag(ptr->thing_word)) {
+            case REFC_BINARY_SUBTAG:
+                {
+                    Binary* bptr = ((ProcBin*)ptr)->val;
+                    erts_refc_inc(&bptr->intern.refc, 1);
+                    break;
+                }
+            case FUN_SUBTAG:
+                {
+                    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
+                    erts_refc_inc(&fe->refc, 1);
+                    break;
+                }
+            case REF_SUBTAG:
+                {
+                    ErtsMagicBinary *bptr;
+                    ASSERT(is_magic_ref_thing(ptr));
+                    bptr = ((ErtsMRefThing *) ptr)->mb;
+                    erts_refc_inc(&bptr->intern.refc, 1);
+                    break;
+                }
+            default:
+                {
+                    ExternalThing *etp;
+                    ASSERT(is_external_header(ptr->thing_word));
+                    etp = (ExternalThing *) ptr;
+                    erts_smp_refc_inc(&etp->node->refc, 1);
+                    break;
+                }
+            }
 	    *prev = ptr;
 	    prev = &ptr->next;
 	}
