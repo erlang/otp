@@ -1263,7 +1263,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     ExternalThing *etp;
                     ASSERT(is_external_header(ptr->thing_word));
                     etp = (ExternalThing *) ptr;
-                    erts_smp_refc_inc(&etp->node->refc, 1);
+                    erts_refc_inc(&etp->node->refc, 1);
                     break;
                 }
             }

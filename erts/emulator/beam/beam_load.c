@@ -6040,7 +6040,7 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
         case FUN_SUBTAG:
             {
                 ErlFunEntry* fe = ((ErlFunThing*)oh)->fe;
-                if (erts_smp_refc_dectest(&fe->refc, 0) == 0) {
+                if (erts_refc_dectest(&fe->refc, 0) == 0) {
                     erts_erase_fun_entry(fe);
                 }
                 break;
