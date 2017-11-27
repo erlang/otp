@@ -181,6 +181,12 @@
       <item>
         <p>Controls the number of log files written before older
           files are reused. Defaults to 5, minimum is 2, maximum is 1000.</p>
+	<p>Note that, as a way to indicate the newest file, <c>run_erl</c> will
+	delete the oldest log file to maintain a "hole" in the file
+	sequences. For example, if log files #1, #2, #4 and #5 exists, that
+	means #2 is the latest and #4 is the oldest. You will therefore at most
+	get one less log file than the value set by
+	<c>RUN_ERL_LOG_GENERATIONS</c>.</p>
       </item>
       <tag><c>RUN_ERL_LOG_MAXSIZE</c></tag>
       <item>
