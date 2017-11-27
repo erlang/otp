@@ -240,9 +240,7 @@ build_form(Id, Chunks0) when byte_size(Id) =:= 4, is_list(Chunks0) ->
 
 chunk(Id, Contents) when byte_size(Id) =:= 4, is_binary(Contents) ->
     Size = byte_size(Contents),
-    [<<Id/binary,Size:32>>,Contents|pad(Size)];
-chunk(Id, Contents) when is_list(Contents) ->
-    chunk(Id, list_to_binary(Contents)).
+    [<<Id/binary,Size:32>>,Contents|pad(Size)].
 
 %% Build a correctly padded chunk (with a sub-header).
 
