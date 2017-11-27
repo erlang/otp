@@ -219,11 +219,20 @@ alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
-    
+
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
+opt([{set,[X],_,move},{set,[X],_,move}=I|Is]) ->
+    opt([I|Is]);
+opt([{set,[{x,0}],[S1],move}=I1,{set,[D2],[{x,0}],move}|Is]) ->
+    opt([I1,{set,[D2],[S1],move}|Is]);
+opt([{set,[{x,0}],[S1],move}=I1,{set,[D2],[S2],move}|Is0]) when S1 =/= D2 ->
+    %% Place move S x0 at the end of move sequences so that
+    %% loader can merge with the following instruction
+    {Ds,Is} = opt_moves([D2], Is0),
+    [{set,Ds,[S2],move}|opt([I1|Is])];
 opt([{set,_,_,{line,_}}=Line1,
      {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
      {set,_,_,{line,_}}=Line2,
