@@ -1343,11 +1343,8 @@ static int sf_open(const char *path, int type, mode_t mode) {
     return fd;
 }
 static int sf_close(int fd) {
-    int res = 0;
-
-    do { res = close(fd); } while(fd < 0 && errno == EINTR);
-
-    return res;
+    /* "close() should not be retried after an EINTR" */
+    return close(fd);
 }
 /* Extract any control sequences that are ment only for run_erl
  * and should not be forwarded to the pty.
