@@ -319,7 +319,7 @@ store_cookies(SetCookieHeaders, Url, Profile)
             Scheme = scheme_to_atom(maps:get(scheme, URI, '')),
             Host = maps:get(host, URI, ""),
             Port = maps:get(port, URI, default_port(Scheme)),
-            Path = maps:get(path, URI, ""),
+            Path = uri_string:recompose(#{path => maps:get(path, URI, "")}),
 	    %% Since the Address part is not actually used
 	    %% by the manager when storing cookies, we dont
 	    %% care about ipv6-host-with-brackets.
@@ -539,7 +539,7 @@ handle_request(Method, Url,
             Host          = http_util:maybe_add_brackets(maps:get(host, URI, ""), BracketedHost),
             Port          = maps:get(port, URI, default_port(Scheme)),
             Host2         = http_request:normalize_host(Scheme, Host, Port),
-            Path          = maps:get(path, URI, ""),
+            Path          = uri_string:recompose(#{path => maps:get(path, URI, "")}),
             Query         = add_question_mark(maps:get(query, URI, "")),
             HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
 

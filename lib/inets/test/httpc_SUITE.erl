@@ -58,6 +58,9 @@ all() ->
 groups() ->
     [
      {http, [], real_requests()},
+     %% process_leak_on_keepalive is depending on stream_fun_server_close
+     %% and it shall be the last test case in the suite otherwise cookie
+     %% will fail.
      {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
@@ -133,6 +136,7 @@ only_simulated() ->
      redirect_port_in_host_header,
      relaxed,
      multipart_chunks,
+     get_space,
      stream_fun_server_close
     ].
 
@@ -254,6 +258,16 @@ get_query_string(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
 
     inets_test_lib:check_body(Body).
+
+%%--------------------------------------------------------------------
+get_space() ->
+    [{"Test http get request with '%20' in the path of the URL."}].
+get_space(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/space%20.html", Config), []},
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+
+    inets_test_lib:check_body(Body).
+
 %%--------------------------------------------------------------------
 post() ->
     [{"Test http post request against local server. We do in this case "
@@ -1084,8 +1098,6 @@ remote_socket_close_async(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 process_leak_on_keepalive(Config) ->
-    {ok, ClosedSocket} = gen_tcp:listen(6666, [{active, false}]),
-    ok = gen_tcp:close(ClosedSocket),
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     HttpcHandlers0 = supervisor:which_children(httpc_handler_sup),
     {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
@@ -1097,11 +1109,10 @@ process_leak_on_keepalive(Config) ->
         ordsets:to_list(
           ordsets:subtract(ordsets:from_list(HttpcHandlers1),
                            ordsets:from_list(HttpcHandlers0))),
-    sys:replace_state(
-      Pid, fun (State) ->
-                   Session = element(3, State),
-                   setelement(3, State, Session#session{socket=ClosedSocket})
-           end),
+    State = sys:get_state(Pid),
+    #session{socket=Socket} = element(3, State),
+    gen_tcp:close(Socket),
+
     {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
     %% bad handler with the closed socket should get replaced by
     %% the new one, so children count should stay the same
@@ -1744,6 +1755,12 @@ content_length([_Head | Tail]) ->
 
 handle_uri("GET","/dummy.html?foo=bar",_,_,_,_) ->
     "HTTP/1.0 200 OK\r\n\r\nTEST";
+
+handle_uri("GET","/space%20.html",_,_,_,_) ->
+    Body = "<HTML><BODY>foobar</BODY></HTML>",
+    "HTTP/1.1 200 OK\r\n" ++
+        "Content-Length:" ++ integer_to_list(length(Body)) ++ "\r\n\r\n" ++
+        Body;
 
 handle_uri(_,"/just_close.html",_,_,_,_) ->
 		close;
