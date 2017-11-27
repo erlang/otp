@@ -50,10 +50,11 @@
 ** 2.9: 18.2 enif_getenv
 ** 2.10: Time API
 ** 2.11: 19.0 enif_snprintf 
-** 2.12: 20.0 add enif_queue
+** 2.12: 20.0 add enif_select, enif_open_resource_type_x
+** 2.13: 20.1 add enif_ioq
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 12
+#define ERL_NIF_MINOR_VERSION 13
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
