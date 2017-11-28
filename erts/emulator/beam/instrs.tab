@@ -936,3 +936,28 @@ build_stacktrace() {
     x(0) = build_stacktrace(c_p, x(0));
     SWAPIN;
 }
+
+raw_raise() {
+    Eterm class = x(0);
+    Eterm value = x(1);
+    Eterm stacktrace = x(2);
+
+    if (class == am_error) {
+        c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
+        c_p->fvalue = value;
+        c_p->ftrace = stacktrace;
+        goto find_func_info;
+    } else if (class == am_exit) {
+        c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
+        c_p->fvalue = value;
+        c_p->ftrace = stacktrace;
+        goto find_func_info;
+    } else if (class == am_throw) {
+        c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
+        c_p->fvalue = value;
+        c_p->ftrace = stacktrace;
+        goto find_func_info;
+    } else {
+        x(0) = am_badarg;
+    }
+}

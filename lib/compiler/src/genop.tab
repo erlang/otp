@@ -554,3 +554,13 @@ BEAM_FORMAT_NUMBER=0
 ##       Do a garbage collection if necessary to allocate space on the heap
 ##       for the result.
 160: build_stacktrace/0
+
+## @spec raw_raise
+## @doc  This instruction works like the erlang:raise/3 BIF, except that the
+##       stacktrace in x(2) must be a raw stacktrace.
+##       x(0) is the class of the exception (error, exit, or throw),
+##       x(1) is the exception term, and x(2) is the raw stackframe.
+##       If x(0) is not a valid class, the instruction will not throw an
+##       exception, but store the atom 'badarg' in x(0) and execute the
+##       next instruction.
+161: raw_raise/0

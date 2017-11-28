@@ -36,6 +36,7 @@ AEXTERN(int,nbif_suspend_msg,(void));
 AEXTERN(int,nbif_suspend_msg_timeout,(void));
 
 AEXTERN(Eterm,nbif_rethrow,(Process*, Eterm, Eterm));
+AEXTERN(Eterm,nbif_raw_raise,(Process*, Eterm, Eterm, Eterm));
 AEXTERN(Eterm,nbif_set_timeout,(Process*, Eterm));
 
 AEXTERN(Eterm,nbif_gc_1,(void));
@@ -82,6 +83,7 @@ void hipe_gc(Process*, Eterm);
 BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1);
 void hipe_handle_exception(Process*);
 BIF_RETTYPE nbif_impl_hipe_rethrow(NBIF_ALIST_2);
+BIF_RETTYPE nbif_impl_hipe_raw_raise(NBIF_ALIST_3);
 char *hipe_bs_allocate(int);
 Binary *hipe_bs_reallocate(Binary*, int);
 int hipe_bs_put_small_float(Process*, Eterm, Uint, byte*, unsigned, unsigned);

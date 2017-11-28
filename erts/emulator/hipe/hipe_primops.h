@@ -46,6 +46,7 @@ PRIMOP_LIST(am_clear_timeout, &nbif_clear_timeout)
 PRIMOP_LIST(am_select_msg, &nbif_select_msg)
 PRIMOP_LIST(am_set_timeout, &nbif_set_timeout)
 PRIMOP_LIST(am_rethrow, &nbif_rethrow)
+PRIMOP_LIST(am_raw_raise, &nbif_raw_raise)
 
 
 PRIMOP_LIST(am_bs_get_integer_2, &nbif_bs_get_integer_2)

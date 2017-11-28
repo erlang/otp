@@ -1855,7 +1855,12 @@ internal_cg(guard_error, [ExitCall], _Rs, Le, Vdb, Bef, St) ->
     {Ms,_} = cg_call_args(As, Bef, Le#l.i, Vdb),
     Call = {call_ext,Arity,{extfunc,Mod,Name,Arity}},
     Is = Ms++[line(Le),Call],
-    {Is,Bef,St}.
+    {Is,Bef,St};
+internal_cg(raw_raise=I, As, Rs, Le, Vdb, Bef, St) ->
+    %% This behaves like a function call.
+    {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
+    Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
+    {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St}.
 
 %% bif_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
 %%      {[Ainstr],StackReg,State}.

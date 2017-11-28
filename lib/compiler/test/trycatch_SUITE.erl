@@ -27,7 +27,7 @@
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
-         stacktrace/1,nested_stacktrace/1]).
+         stacktrace/1,nested_stacktrace/1,raise/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,7 +44,7 @@ groups() ->
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
-       stacktrace,nested_stacktrace]}].
+       stacktrace,nested_stacktrace,raise]}].
 
 
 init_per_suite(Config) ->
@@ -116,6 +116,16 @@ basic(Conf) when is_list(Conf) ->
 	     {a,variable} -> ok
 	 catch nisse -> erro
 	 end,
+
+    %% Unmatchable clauses.
+    try
+        throw(thrown)
+    catch
+        {a,b}={a,b,c} ->                        %Intentionally no match.
+            ok;
+        thrown ->
+            ok
+    end,
 
     ok.
 
@@ -1157,6 +1167,100 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
                          {caught2,S2}
                  end,
             {caught1,S1,T2}
+    end.
+
+raise(_Config) ->
+    test_raise(fun() -> exit({exit,tuple}) end),
+    test_raise(fun() -> abs(id(x)) end),
+    test_raise(fun() -> throw({was,thrown}) end),
+
+    badarg = bad_raise(fun() -> abs(id(x)) end),
+
+    ok.
+
+bad_raise(Expr) ->
+    try
+        Expr()
+    catch
+        _:E:Stk ->
+            erlang:raise(bad_class, E, Stk)
+    end.
+
+test_raise(Expr) ->
+    test_raise_1(Expr),
+    test_raise_2(Expr),
+    test_raise_3(Expr).
+
+test_raise_1(Expr) ->
+    erase(exception),
+    try
+        do_test_raise_1(Expr)
+    catch
+        C:E:Stk ->
+            {C,E,Stk} = erase(exception)
+    end.
+
+do_test_raise_1(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here the stacktrace must be built.
+            put(exception, {C,E,Stk}),
+            erlang:raise(C, E, Stk)
+    end.
+
+test_raise_2(Expr) ->
+    erase(exception),
+    try
+        do_test_raise_2(Expr)
+    catch
+        C:E:Stk ->
+            {C,E} = erase(exception),
+            try
+                Expr()
+            catch
+                _:_:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_2(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here it is possible to replace erlang:raise/3 with
+            %% the raw_raise/3 instruction since the stacktrace is
+            %% not actually used.
+            put(exception, {C,E}),
+            erlang:raise(C, E, Stk)
+    end.
+
+test_raise_3(Expr) ->
+    try
+        do_test_raise_3(Expr)
+    catch
+        exit:{exception,C,E}:Stk ->
+            try
+                Expr()
+            catch
+                C:E:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_3(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here it is possible to replace erlang:raise/3 with
+            %% the raw_raise/3 instruction since the stacktrace is
+            %% not actually used.
+            erlang:raise(exit, {exception,C,E}, Stk)
     end.
 
 

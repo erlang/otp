@@ -314,6 +314,32 @@ BIF_RETTYPE nbif_impl_hipe_rethrow(NBIF_ALIST_2)
     }
 }
 
+/* Called via standard_bif_interface_3 */
+BIF_RETTYPE nbif_impl_hipe_raw_raise(NBIF_ALIST_3)
+{
+    Process *c_p = BIF_P;
+    Eterm class = BIF_ARG_1;
+    Eterm value = BIF_ARG_2;
+    Eterm stacktrace = BIF_ARG_3;
+    Eterm reason;
+
+    if (class == am_error) {
+	c_p->fvalue = value;
+	reason = EXC_ERROR;
+    } else if (class == am_exit) {
+	c_p->fvalue = value;
+	reason = EXC_EXIT;
+    } else if (class == am_throw) {
+	c_p->fvalue = value;
+	reason = EXC_THROWN;
+    } else {
+        return am_badarg;
+    }
+    reason &= ~EXF_SAVETRACE;
+    c_p->ftrace = stacktrace;
+    BIF_ERROR(c_p, reason);
+}
+
 /*
  * Support for compiled binary syntax operations.
  */

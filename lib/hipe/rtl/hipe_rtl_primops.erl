@@ -396,6 +396,8 @@ gen_primop({Op,Dst,Args,Cont,Fail}, IsGuard, ConstTab) ->
 	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
           build_stacktrace ->
 	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
+          raw_raise ->
+	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
 
 	  %% Only names listed above are accepted! MFA:s are not primops!
 	  _ ->

@@ -524,6 +524,8 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
+valfun_4(raw_raise=I, Vst) ->
+    call(I, 3, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),

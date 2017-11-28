@@ -24,6 +24,7 @@ test() ->
   ok = test_bad_fun_call(),
   ok = test_guard_bif(),
   ok = test_eclectic(),
+  ok = test_raise(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -579,3 +580,99 @@ my_add(A, B) ->
 
 my_abs(X) ->
   abs(X).
+
+test_raise() ->
+  test_raise(fun() -> exit({exit,tuple}) end),
+  test_raise(fun() -> abs(id(x)) end),
+  test_raise(fun() -> throw({was,thrown}) end),
+
+  badarg = bad_raise(fun() -> abs(id(x)) end),
+
+  ok.
+
+bad_raise(Expr) ->
+  try
+    Expr()
+  catch
+    _:E:Stk ->
+      erlang:raise(bad_class, E, Stk)
+  end.
+
+test_raise(Expr) ->
+  test_raise_1(Expr),
+  test_raise_2(Expr),
+  test_raise_3(Expr).
+
+test_raise_1(Expr) ->
+  erase(exception),
+  try
+    do_test_raise_1(Expr)
+  catch
+    C:E:Stk ->
+      {C,E,Stk} = erase(exception)
+  end.
+
+do_test_raise_1(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here the stacktrace must be built.
+      put(exception, {C,E,Stk}),
+      erlang:raise(C, E, Stk)
+  end.
+
+test_raise_2(Expr) ->
+  erase(exception),
+  try
+    do_test_raise_2(Expr)
+  catch
+    C:E:Stk ->
+      {C,E} = erase(exception),
+      try
+        Expr()
+      catch
+        _:_:S ->
+          [StkTop|_] = S,
+          [StkTop|_] = Stk
+      end
+  end.
+
+do_test_raise_2(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here it is possible to replace erlang:raise/3 with
+      %% the raw_raise/3 instruction since the stacktrace is
+      %% not actually used.
+      put(exception, {C,E}),
+      erlang:raise(C, E, Stk)
+  end.
+
+test_raise_3(Expr) ->
+  try
+    do_test_raise_3(Expr)
+  catch
+    exit:{exception,C,E}:Stk ->
+      try
+        Expr()
+      catch
+        C:E:S ->
+          [StkTop|_] = S,
+          [StkTop|_] = Stk
+      end
+  end.
+
+do_test_raise_3(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here it is possible to replace erlang:raise/3 with
+      %% the raw_raise/3 instruction since the stacktrace is
+      %% not actually used.
+      erlang:raise(exit, {exception,C,E}, Stk)
+  end.
+
+id(I) -> I.
