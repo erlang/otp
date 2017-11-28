@@ -283,8 +283,8 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str1} =
         (catch dialyzer:run(Opts)),
-    P1 = string:str(Str1, "dial.erl:2: function undef/0 undefined"),
-    true = P1 > 0,
+    S1 = string:find(Str1, "dial.erl:2: function undef/0 undefined"),
+    true = is_list(S1),
 
     Prog2 = <<"-module(dial).
                -dialyzer({no_return, [{undef,1,2}]}).">>,
@@ -292,9 +292,9 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str2} =
         (catch dialyzer:run(Opts)),
-    P2 = string:str(Str2, "dial.erl:2: badly formed dialyzer "
-                          "attribute: {no_return,{undef,1,2}}"),
-    true = P2 > 0,
+    S2 = string:find(Str2, "dial.erl:2: badly formed dialyzer "
+                           "attribute: {no_return,{undef,1,2}}"),
+    true = is_list(S2),
 
     ok.
 
