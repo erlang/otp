@@ -4825,9 +4825,10 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
 
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
-        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
-        if (ec) {
-            /* Example of result:
+        /* not yet implemented
+          EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+          if (ec) {
+          / * Example of result:
                {
                  Curve =  {Field, Prime, Point, Order, CoFactor} =
                     { 
@@ -4841,7 +4842,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
                       CoFactor = <<1>>
                     },
                 Key = <<151,...,62>>
-              }
+                }
               or
               { 
                 Curve =
@@ -4852,16 +4853,13 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
                     },
                 Key
                }
-            */
+        * /
             EVP_PKEY_free(pkey);
-            return atom_notsup;
-        }
-#else
-        EVP_PKEY_free(pkey);
-        return atom_notsup;
+            return enif_make_list_from_array(env, ..., ...);
+        */
 #endif
     }
-
+    
     if (pkey) EVP_PKEY_free(pkey);
     return enif_make_badarg(env);
 }

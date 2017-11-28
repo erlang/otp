@@ -1061,9 +1061,17 @@ ec_curve(X) ->
 
 
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
-    case notsup_to_error(privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))) of
+    try privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))
+    of
         [_|_]=L -> map_ensure_bin_as_int(L);
         X -> X
+    catch
+        error:badarg when Alg==ecdsa ->
+            {error, notsup};
+        error:badarg ->
+            {error, not_found};
+        error:notsup ->
+            {error, notsup}
     end.
             
 privkey_to_pubkey_nif(_Alg, _EngineMap) -> ?nif_stub.
