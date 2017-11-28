@@ -38,7 +38,7 @@ start_link() ->
 
 -spec scheduler_wall_time(boolean()) -> boolean().
 scheduler_wall_time(Bool) ->
-    gen_server:call(kernel_refc, {scheduler_wall_time, self(), Bool}).
+    gen_server:call(kernel_refc, {scheduler_wall_time, self(), Bool}, infinity).
 
 %%-----------------------------------------------------------------
 %% Callback functions from gen_server
@@ -136,4 +136,4 @@ cleanup(Resource, Cnt0, Pid) ->
 any(Cnt) -> maps:size(Cnt) > 0.
 
 resource(scheduler_wall_time, Enable) ->
-    _ = erlang:system_flag(scheduler_wall_time, Enable).
+    _ = erts_internal:scheduler_wall_time(Enable).
