@@ -324,12 +324,13 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
                           timer = Timer,
                           this_flags = 0,
                           allowed = Allowed},
+                    link(DistCtrl),
 		    dist_util:handshake_other_started(trace(HSData));
 		{false,IP} ->
 		    error_logger:error_msg(
                       "** Connection attempt from "
                       "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown(trace(no_node))
+		    ?shutdown2(no_node, trace({disallowed, IP}))
 	    end
     end.
 
@@ -382,21 +383,26 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                                   this_flags = 0,
                                   other_version = Version,
                                   request_type = Type},
+                            link(DistCtrl),
 			    dist_util:handshake_we_started(trace(HSData));
 			Other ->
 			    %% Other Node may have closed since 
 			    %% port_please !
 			    ?shutdown2(
                                Node,
-                               trace({shutdown, {connect_failed, Other}}))
+                               trace(
+                                 {ssl_connect_failed, Ip, TcpPort, Other}))
 		    end;
 		Other ->
 		    ?shutdown2(
                        Node,
-                       trace({shutdown, {port_please_failed, Other}}))
+                       trace(
+                         {port_please_failed, ErlEpmd, Name, Ip, Other}))
 	    end;
 	Other ->
-	    ?shutdown2(Node, trace({shutdown, {getaddr_failed, Other}}))
+	    ?shutdown2(
+               Node,
+               trace({getaddr_failed, Driver, Address, Other}))
     end.
 
 close(Socket) ->
@@ -415,8 +421,9 @@ check_ip(Driver, SslSocket) ->
 	    case get_ifs(SslSocket) of
 		{ok, IFs, IP} ->
 		    check_ip(Driver, IFs, IP);
-		_ ->
-		    ?shutdown(no_node)
+		Other ->
+		    ?shutdown2(
+                       no_node, trace({check_ip_failed, SslSocket, Other}))
 	    end;
 	_ ->
 	    true
@@ -445,23 +452,22 @@ get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
 
 %% If Node is illegal terminate the connection setup!!
 splitnode(Driver, Node, LongOrShortNames) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[Name|Tail] when Tail =/= [] ->
-	    Host = lists:append(Tail),
+    case string:split(atom_to_list(Node), "@") of
+	[Name, Host] when Host =/= [] ->
 	    check_node(Driver, Name, Node, Host, LongOrShortNames);
 	[_] ->
 	    error_logger:error_msg(
               "** Nodename ~p illegal, no '@' character **~n",
               [Node]),
-	    ?shutdown(Node);
+	    ?shutdown2(Node, trace({illegal_node_n@me, Node}));
 	_ ->
 	    error_logger:error_msg(
               "** Nodename ~p illegal **~n", [Node]),
-	    ?shutdown(Node)
+	    ?shutdown2(Node, trace({illegal_node_name, Node}))
     end.
 
 check_node(Driver, Name, Node, Host, LongOrShortNames) ->
-    case split_node(Host, $., []) of
+    case string:split(Host, ".") of
 	[_] when LongOrShortNames == longnames ->
 	    case Driver:parse_address(Host) of
 		{ok, _} ->
@@ -472,35 +478,28 @@ check_node(Driver, Name, Node, Host, LongOrShortNames) ->
                       "fully qualified hostnames **~n"
                       "** Hostname ~s is illegal **~n",
                       [Host]),
-		    ?shutdown(Node)
+		    ?shutdown2(Node, trace({not_longnames, Host}))
 	    end;
-	[_, _ | _] when LongOrShortNames == shortnames ->
+	[_, _] when LongOrShortNames == shortnames ->
 	    error_logger:error_msg(
               "** System NOT running to use "
               "fully qualified hostnames **~n"
               "** Hostname ~s is illegal **~n",
               [Host]),
-	    ?shutdown(Node);
+	    ?shutdown2(Node, trace({not_shortnames, Host}));
 	_ ->
 	    [Name, Host]
     end.
 
 split_node(Node) when is_atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-        [_, Host] ->
+    case string:split(atom_to_list(Node), "@") of
+        [Name, Host] when Name =/= [], Host =/= [] ->
             Host;
         _ ->
             false
     end;
 split_node(_) ->
     false.
-%%
-split_node([Chr|T], Chr, Ack) -> 
-    [lists:reverse(Ack)|split_node(T, Chr, [])];
-split_node([H|T], Chr, Ack) -> 
-    split_node(T, Chr, [H|Ack]);
-split_node([], _, Ack) -> 
-    [lists:reverse(Ack)].
 
 %% -------------------------------------------------------------------------
 

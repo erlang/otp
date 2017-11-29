@@ -467,7 +467,8 @@ init(Type, Event, State) ->
 error(enter, _, State) ->
     {keep_state, State};     
 error({call, From}, {start, _Timeout}, {Error, State}) ->
-    {stop_and_reply, normal, {reply, From, {error, Error}}, State};
+    ssl_connection:stop_and_reply(
+      normal, {reply, From, {error, Error}}, State);
 error({call, _} = Call, Msg, State) ->
     gen_handshake(?FUNCTION_NAME, Call, Msg, State);
 error(_, _, _) ->
@@ -821,7 +822,7 @@ handle_info({Protocol, _, _, _, Data}, StateName,
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
 	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
-	    {stop, {shutdown, own_alert}}
+	    ssl_connection:stop({shutdown, own_alert}, State0)
     end;
 handle_info({CloseTag, Socket}, StateName,
 	    #state{socket = Socket, 
@@ -846,7 +847,7 @@ handle_info({CloseTag, Socket}, StateName,
                     ok
             end,
             ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-            {stop, {shutdown, transport_closed}};
+            ssl_connection:stop({shutdown, transport_closed}, State);
         true ->
             %% Fixes non-delivery of final DTLS record in {active, once}.
             %% Basically allows the application the opportunity to set {active, once} again
@@ -872,7 +873,7 @@ handle_state_timeout(flight_retransmission_timeout, StateName,
 
 handle_alerts([], Result) ->
     Result;
-handle_alerts(_, {stop,_} = Stop) ->
+handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));

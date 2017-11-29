@@ -49,7 +49,7 @@
 
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
-	 handle_normal_shutdown/3 
+	 handle_normal_shutdown/3, stop/2, stop_and_reply/3
 	]).
 
 %% Data handling
@@ -316,7 +316,7 @@ handle_own_alert(Alert, Version, StateName,
     catch _:_ ->
 	    ok
     end,
-    {stop, {shutdown, own_alert}}.
+    stop({shutdown, own_alert}, State).
 
 handle_normal_shutdown(Alert, _, #state{socket = Socket,
 					transport_cb = Transport,
@@ -340,24 +340,24 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
 		    protocol_cb = Connection,
 		    ssl_options = SslOpts, start_or_recv_from = From, host = Host,
 		    port = Port, session = Session, user_application = {_Mon, Pid},
-		    role = Role, socket_options = Opts, tracker = Tracker}) ->
+		    role = Role, socket_options = Opts, tracker = Tracker} = State) ->
     invalidate_session(Role, Host, Port, Session),
     log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), 
               StateName, Alert#alert{role = opposite_role(Role)}),
     alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
-    {stop, normal};
+    stop(normal, State);
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
 	     StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
-    {stop, {shutdown, peer_close}};
+    stop({shutdown, peer_close}, State);
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{role = Role, ssl_options = SslOpts, protocol_cb = Connection, renegotiation = {true, internal}} = State) ->
     log_alert(SslOpts#ssl_options.log_alert, Role, 
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     handle_normal_shutdown(Alert, StateName, State),
-    {stop, {shutdown, peer_close}};
+    stop({shutdown, peer_close}, State);
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{role = Role,
@@ -404,7 +404,7 @@ write_application_data(Data0, {FromPid, _} = From,
                 ok when FromPid =:= self() ->
                     hibernate_after(connection, NewState, []);
                 Error when FromPid =:= self() ->
-                    {stop, {shutdown, Error}, NewState};
+                    stop({shutdown, Error}, NewState);
                 ok ->
                     hibernate_after(connection, NewState, [{reply, From, ok}]);
                 Result ->
@@ -446,8 +446,8 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
                             Connection:next_record_if_active(State);
                         _ -> %% We have more data
                             read_application_data(<<>>, State)
-                    catch _:Reason ->
-                            death_row(State, Reason)
+                    catch error:_ ->
+                            death_row(State, disconnect)
                     end;
                 _ ->
                     SocketOpt =
@@ -479,7 +479,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	    Connection:next_record_if_active(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker, Connection),
-            stop_normal(State0)
+            stop(normal, State0)
     end.
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
@@ -581,7 +581,7 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
 	init({call, From}, {start, Timeout}, 
 	     State#state{ssl_options = SslOpts, socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
-	    {stop_and_reply, normal, {reply, From, {error, Error}}}
+	    stop_and_reply(normal, {reply, From, {error, Error}}, State0)
     end;
 init({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
@@ -966,7 +966,7 @@ connection({call, {FromPid, _} = From}, {application_data, Data},
      catch throw:Error ->
              case self() of
                  FromPid ->
-                     {stop, {shutdown, Error}};
+                     stop({shutdown, Error}, State);
                  _ ->
                      hibernate_after(
                        ?FUNCTION_NAME, State, [{reply, From, Error}])
@@ -1017,8 +1017,8 @@ connection(
                       ProtocolSpecific#{d_handle => DHandle}},
             {Record, NewerState} = Connection:next_record_if_active(NewState),
             Connection:next_event(connection, Record, NewerState, [{reply, From, ok}])
-    catch _:Reason ->
-            death_row(State, Reason)
+    catch error:_ ->
+            death_row(State, disconnect)
     end;
 connection({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
@@ -1030,8 +1030,8 @@ connection(
   _) ->
     eat_msgs(Msg),
     try send_dist_data(?FUNCTION_NAME, State, DHandle, [])
-    catch _:Reason ->
-            death_row(State, Reason)
+    catch error:_ ->
+            death_row(State, disconnect)
     end;
 connection(
   info, {send, From, Ref, Data},
@@ -1072,20 +1072,22 @@ connection(Type, Msg, State, Connection) ->
 %% or the socket may die too
 death_row(
   info, {'DOWN', MonitorRef, _, _, Reason},
-  #state{user_application={MonitorRef,_Pid} = State},
+  #state{user_application={MonitorRef,_Pid}},
   _) ->
-    {stop, {shutdown, Reason}, State};
+    {stop, {shutdown, Reason}};
 death_row(
-  info, {'EXIT', Socket, Reason}, #state{socket = Socket} = State, _) ->
-    {stop, {shutdown, Reason}, State};
+  info, {'EXIT', Socket, Reason}, #state{socket = Socket}, _) ->
+    {stop, {shutdown, Reason}};
 death_row(state_timeout, Reason, _State, _Connection) ->
     {stop, {shutdown,Reason}};
-death_row(_Type, _Msg, State, _Connection) ->
-    {keep_state, State, [postpone]}.
+death_row(_Type, _Msg, _State, _Connection) ->
+    %% Waste all other events
+    keep_state_and_data.
 
 %% State entry function
 death_row(State, Reason) ->
-    {next_state, death_row, State, [{state_timeout, 5000, Reason}]}.
+    {next_state, death_row, State,
+     [{state_timeout, 5000, Reason}]}.
 
 %%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), 
@@ -1098,10 +1100,10 @@ downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
     tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
     Transport:controlling_process(Socket, Pid),
     gen_statem:reply(From, {ok, Socket}),
-    stop_normal(State);
+    stop(normal, State);
 downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
     gen_statem:reply(From, {error, timeout}),
-    stop_normal(State);
+    stop(normal, State);
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
 
@@ -1116,7 +1118,7 @@ handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, co
 handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #state{role = client}, _) 
   when StateName =/= connection ->
     {keep_state_and_data};
-handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName, 
+handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{tls_handshake_history = Hs0,
 			   ssl_options = #ssl_options{v2_hello_compatible = V2HComp}} = State0, 
 		    Connection) ->
@@ -1135,8 +1137,8 @@ handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
 handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->
     case read_application_data(Data, State0) of
-	{stop, Reason, State} ->
-   	    {stop, Reason, State};
+	{stop, _, _} = Stop->
+            Stop;
 	{Record, State} ->
    	    Connection:next_event(StateName, Record, State)
     end;
@@ -1165,8 +1167,9 @@ handle_call({close, _} = Close, From, StateName, State, Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
     Result = Connection:terminate(Close, StateName, State#state{terminated = true}),
-    {stop_and_reply, {shutdown, normal},  
-     {reply, From, Result}, State};
+    stop_and_reply(
+      {shutdown, normal},
+      {reply, From, Result}, State);
 handle_call({shutdown, How0}, From, _,
 	    #state{transport_cb = Transport,
 		   negotiated_version = Version,
@@ -1187,7 +1190,7 @@ handle_call({shutdown, How0}, From, _,
 	    {keep_state_and_data, [{reply, From, ok}]};
 	Error ->
 	    gen_statem:reply(From, {error, Error}),
-            stop_normal(State)
+            stop(normal, State)
     end;
 handle_call({recv, _N, _Timeout}, From, _,  
 		  #state{socket_options = 
@@ -1267,33 +1270,50 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 		   tracker = Tracker} = State)  when StateName =/= connection ->
     alert_user(Transport, Tracker,Socket, 
 	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, Connection),
-    stop_normal(State);
+    stop(normal, State);
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
 							  error_tag = ErrorTag} = State)  ->
     Report = io_lib:format("SSL: Socket error: ~p ~n", [Reason]),
     error_logger:error_report(Report),
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    stop_normal(State);
+    stop(normal, State);
 
 handle_info(
+  {'DOWN', MonitorRef, _, _, Reason}, _,
+  #state{
+     user_application = {MonitorRef, _Pid},
+     ssl_options = #ssl_options{erl_dist = true}}) ->
+    {stop, {shutdown, Reason}};
+handle_info(
   {'DOWN', MonitorRef, _, _, _}, _,
-  #state{user_application={MonitorRef,_Pid}} = State) ->
-    stop_normal(State);
+  #state{user_application = {MonitorRef, _Pid}}) ->
+    {stop, normal};
+handle_info(
+  {'EXIT', Pid, _Reason}, StateName,
+  #state{user_application = {_MonitorRef, Pid}} = State) ->
+    %% It seems the user application has linked to us
+    %% - ignore that and let the monitor handle this
+    {next_state, StateName, State};
+
 %%% So that terminate will be run when supervisor issues shutdown
 handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
-    {stop, shutdown, State};
+    stop(shutdown, State);
 handle_info({'EXIT', Socket, normal}, _StateName, #state{socket = Socket} = State) ->
     %% Handle as transport close"
-    {stop, {shutdown, transport_closed}, State};
+    stop({shutdown, transport_closed}, State);
 handle_info({'EXIT', Socket, Reason}, _StateName, #state{socket = Socket} = State) ->
-    {stop, {shutdown, Reason}, State};
+    stop({shutdown, Reason}, State);
+
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}};
+
 handle_info({cancel_start_or_recv, StartFrom}, StateName,
 	    #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
-    {stop_and_reply, {shutdown, user_timeout},  
-     {reply, StartFrom, {error, timeout}}, State#state{timer = undefined}};
+    stop_and_reply(
+      {shutdown, user_timeout},
+      {reply, StartFrom, {error, timeout}},
+      State#state{timer = undefined});
 handle_info({cancel_start_or_recv, RecvFrom}, StateName, 
 	    #state{start_or_recv_from = RecvFrom} = State) when RecvFrom =/= undefined ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
@@ -2437,8 +2457,8 @@ handle_active_option(_, connection = StateName0, To, Reply, #state{protocol_cb =
 	    hibernate_after(StateName, State, [{reply, To, Reply}]);
 	{next_state, StateName, State, Actions} -> 
 	    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
-	{stop, Reason, State} ->
-	    {stop, Reason, State}
+	{stop, _, _} = Stop ->
+	    Stop
     end;
 handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = State) ->
     %% Active once already set 
@@ -2447,8 +2467,8 @@ handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = 
 %% user_data_buffer =/= <<>>
 handle_active_option(_, StateName0, To, Reply, #state{protocol_cb = Connection} = State0) -> 
     case read_application_data(<<>>, State0) of
-	{stop, Reason, State} ->
-	    {stop, Reason, State};
+	{stop, _, _} = Stop ->
+	    Stop;
 	{Record, State1} ->
 	    %% Note: Renogotiation may cause StateName0 =/= StateName
 	    case Connection:next_event(StateName0, Record, State1) of
@@ -2606,7 +2626,8 @@ send_or_reply(_, Pid, _From, Data) ->
     send_user(Pid, Data).
 
 send_user(Pid, Msg) ->
-    Pid ! Msg.
+    Pid ! Msg,
+    ok.
 
 alert_user(Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role, Connection) ->
     alert_user(Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role, Connection);
@@ -2719,14 +2740,22 @@ eat_msgs(Msg) ->
     after 0 -> ok
     end.
 
-%% When running with erl_dist the stop reason 'normal'
-%% would be too silent and prevent cleanup
-stop_normal(State) ->
-    Reason =
-        case State of
-            #state{ssl_options = #ssl_options{erl_dist = true}} ->
-                {shutdown, normal};
-            _ ->
-                normal
-        end,
-    {stop, Reason, State}.
+%% When acting as distribution controller map the exit reason
+%% to follow the documented nodedown_reason for net_kernel
+stop(Reason, State) ->
+    {stop, erl_dist_stop_reason(Reason, State), State}.
+
+stop_and_reply(Reason, Replies, State) ->
+    {stop_and_reply, erl_dist_stop_reason(Reason, State), Replies, State}.
+
+erl_dist_stop_reason(
+  Reason, #state{ssl_options = #ssl_options{erl_dist = true}}) ->
+    case Reason of
+        normal ->
+            %% We can not exit with normal since that will not bring
+            %% down the rest of the distribution processes
+            {shutdown, normal};
+        _ -> Reason
+    end;
+erl_dist_stop_reason(Reason, _State) ->
+    Reason.
