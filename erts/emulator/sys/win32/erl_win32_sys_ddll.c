@@ -46,8 +46,16 @@ static TWinDynDriverCallbacks wddc;
 static TWinDynNifCallbacks nif_callbacks;
 
 void erl_sys_ddll_init(void) {
+    WCHAR cwd_buffer[MAX_PATH];
+
     tls_index = TlsAlloc();
     ERL_INIT_CALLBACK_STRUCTURE(wddc);
+
+    /* LOAD_WITH_ALTERED_SEARCH_PATH removes the startup directory from the
+     * search path, so we add it separately to be backwards compatible. */
+    if (GetCurrentDirectoryW(sizeof(cwd_buffer), cwd_buffer)) {
+        SetDllDirectoryW(cwd_buffer);
+    }
 
 #define ERL_NIF_API_FUNC_DECL(RET,NAME,ARGS) nif_callbacks.NAME = NAME
 #include "erl_nif_api_funcs.h"
@@ -81,7 +89,10 @@ int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* e
 						   ERTS_ALC_T_TMP, &used, EXT_LEN);
     wcscpy(&wcp[used/2 - 1], FILE_EXT_WCHAR);
 
-    if ((hinstance = LoadLibraryW(wcp)) == NULL) {
+    /* LOAD_WITH_ALTERED_SEARCH_PATH adds the specified DLL's directory to the
+     * dependency search path. This also removes the directory we started in,
+     * but we've explicitly added that in in erl_sys_ddll_init. */
+    if ((hinstance = LoadLibraryExW(wcp, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)) == NULL) {
 	code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
 	if (err != NULL) {
 	    err->str = erts_sys_ddll_error(code);
