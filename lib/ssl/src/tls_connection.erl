@@ -141,12 +141,14 @@ next_record(#state{protocol_buffers =
     end;
 next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_cipher_texts = []},
 		   socket = Socket,
+                   close_tag = CloseTag,
 		   transport_cb = Transport} = State) ->
     case tls_socket:setopts(Transport, Socket, [{active,once}]) of
 	ok ->
 	    {no_record, State};
 	_ ->
-	    {socket_closed, State}
+            self() ! {CloseTag, Socket},
+	    {no_record, State}
     end;
 next_record(State) ->
     {no_record, State}.
@@ -154,15 +156,10 @@ next_record(State) ->
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
-next_event(StateName, socket_closed, State, _) ->
-    ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    {stop, {shutdown, transport_closed}, State};
 next_event(connection = StateName, no_record, State0, Actions) ->
     case next_record_if_active(State0) of
 	{no_record, State} ->
 	    ssl_connection:hibernate_after(StateName, State, Actions);
-	{socket_closed, State} ->
-	    next_event(StateName, socket_closed, State, Actions);
 	{#ssl_tls{} = Record, State} ->
 	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	{#alert{} = Alert, State} ->
