@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,11 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),
 		    dist_util:reset_timer(Timer),
-		    case ssl_tls_dist_proxy:connect(Driver, Address, TcpPort) of
+		    case
+                        ssl_tls_dist_proxy:connect(
+                          Driver, Address, TcpPort,
+                          [{server_name_indication, atom_to_list(Node)}])
+                    of
 			{ok, Socket} ->
 			    HSData = connect_hs_data(Kernel, Node, MyNode, Socket, 
 						     Timer, Version, Ip, TcpPort, Address,
