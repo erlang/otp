@@ -679,28 +679,26 @@ basic_block([Ke|Kes], Acc) ->
 	no_block -> {reverse(Acc, [Ke]),Kes}
     end.
 
-%% #k_put{} instructions that may garbage collect are not allowed in basic blocks.
-
-collect_block(#k_put{arg=#k_binary{}}) ->
-    no_block;
-collect_block(#k_put{arg=#k_map{}}) ->
-    no_block;
-collect_block(#k_put{}) ->
-    include;
-collect_block(#k_call{op=#k_var{}=Var,args=As}) ->
-    {block_end,As++[Var]};
+collect_block(#k_put{arg=Arg}) ->
+    %% #k_put{} instructions that may garbage collect are not allowed
+    %% in basic blocks.
+    case Arg of
+        #k_binary{} -> no_block;
+        #k_map{} -> no_block;
+        _ -> include
+    end;
 collect_block(#k_call{op=Func,args=As}) ->
     {block_end,As++func_vars(Func)};
-collect_block(#k_enter{op=#k_var{}=Var,args=As}) ->
-    {block_end,As++[Var]};
 collect_block(#k_enter{op=Func,args=As}) ->
     {block_end,As++func_vars(Func)};
 collect_block(#k_return{args=Rs}) ->
     {block_end,Rs};
 collect_block(#k_break{args=Bs}) ->
     {block_end,Bs};
-collect_block(_)                     -> no_block.
+collect_block(_) -> no_block.
 
+func_vars(#k_var{}=Var) ->
+    [Var];
 func_vars(#k_remote{mod=M,name=F})
   when is_record(M, k_var); is_record(F, k_var) ->
     [M,F];
