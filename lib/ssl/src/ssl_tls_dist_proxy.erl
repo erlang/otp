@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -369,6 +369,17 @@ loop_conn(World, Erts) ->
     end.
 
 get_ssl_options(Type) ->
+    try ets:lookup(ssl_dist_opts, Type) of
+        [{Type, Opts}] ->
+            [{erl_dist, true} | Opts];
+        _ ->
+            get_ssl_dist_arguments(Type)
+    catch
+        error:badarg ->
+            get_ssl_dist_arguments(Type)
+    end.
+
+get_ssl_dist_arguments(Type) ->
     case init:get_argument(ssl_dist_opt) of
 	{ok, Args} ->
 	    [{erl_dist, true} | ssl_options(Type, lists:append(Args))];
