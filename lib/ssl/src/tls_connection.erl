@@ -431,7 +431,7 @@ init({call, From}, {start, Timeout},
     {Record, State} = next_record(State1),
     next_event(hello, Record, State);
 init(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
  
 %%--------------------------------------------------------------------
 -spec error(gen_statem:event_type(),
@@ -441,8 +441,8 @@ init(Type, Event, State) ->
 
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
-error({call, From}, Msg, State) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State);
+error({call, _} = Call, Msg, State) ->
+    gen_handshake(?FUNCTION_NAME, Call, Msg, State);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
@@ -472,14 +472,13 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
 			   undefined -> CurrentProtocol;
 			   _ -> Protocol0
 		       end,
-	    
-	    gen_handshake(ssl_connection, hello, internal, {common_client_hello, Type, ServerHelloExt},
-				 State#state{connection_states  = ConnectionStates,
-					     negotiated_version = Version,
-                                             client_hello_version = ClientVersion,
-					     hashsign_algorithm = HashSign,
-					     session = Session,
-					     negotiated_protocol = Protocol})
+            gen_handshake(?FUNCTION_NAME, internal, {common_client_hello, Type, ServerHelloExt},
+                          State#state{connection_states  = ConnectionStates,
+                                      negotiated_version = Version,
+                                      hashsign_algorithm = HashSign,
+                                      client_hello_version = ClientVersion,
+                                      session = Session,
+                                      negotiated_protocol = Protocol})
     end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
@@ -497,7 +496,7 @@ hello(internal, #server_hello{} = Hello,
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
@@ -506,7 +505,7 @@ hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
@@ -515,7 +514,7 @@ abbreviated(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
@@ -524,7 +523,7 @@ certify(Type, Event, State) ->
 cipher(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     gen_handshake(ssl_connection, ?FUNCTION_NAME, Type, Event, State).
+     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),  
@@ -587,9 +586,6 @@ terminate(Reason, StateName, State) ->
 format_status(Type, Data) ->
     ssl_connection:format_status(Type, Data).
 
-code_change(_OldVsn, StateName, State0, {Direction, From, To}) ->
-    State = convert_state(State0, Direction, From, To),
-    {ok, StateName, State};
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.
 
@@ -651,10 +647,7 @@ tls_handshake_events(Packets) ->
 		      {next_event, internal, {handshake, Packet}}
 	      end, Packets).
 
-handle_call(Event, From, StateName, State) ->
-    ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
- 
-%% raw data from socket, unpack records
+%% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
             #state{data_tag = Protocol} = State0) ->
     case next_tls_record(Data, State0) of
@@ -697,7 +690,7 @@ handle_info({CloseTag, Socket}, StateName,
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_alerts([], Result) ->
     Result;
@@ -721,9 +714,9 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
 
-gen_handshake(GenConnection, StateName, Type, Event, 
+gen_handshake(StateName, Type, Event, 
 	      #state{negotiated_version = Version} = State) ->
-    try GenConnection:StateName(Type, Event, State, ?MODULE) of
+    try ssl_connection:StateName(Type, Event, State, ?MODULE) of
 	Result ->
 	    Result
     catch 
@@ -784,14 +777,3 @@ assert_buffer_sanity(Bin, _) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
                              malformed_handshake_data))
     end.  
-
-convert_state(#state{ssl_options = Options} = State, up, "5.3.5", "5.3.6") ->
-    State#state{ssl_options = convert_options_partial_chain(Options, up)};
-convert_state(#state{ssl_options = Options} = State, down, "5.3.6", "5.3.5") ->
-    State#state{ssl_options = convert_options_partial_chain(Options, down)}.
-
-convert_options_partial_chain(Options, up) ->
-    {Head, Tail} = lists:split(5, tuple_to_list(Options)),
-    list_to_tuple(Head ++ [{partial_chain, fun(_) -> unknown_ca end}] ++ Tail);
-convert_options_partial_chain(Options, down) ->
-    list_to_tuple(proplists:delete(partial_chain, tuple_to_list(Options))).
