@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 8.2.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added more statistics for
+	    <c>erlang:system_info({allocator,A})</c> in the <c>mbcs_pool</c>
+	    section.
+	  </p>
+          <p>
+	    Own Id: OTP-14795 Aux Id: ERL-88 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erts 8.2.2</title>
 
