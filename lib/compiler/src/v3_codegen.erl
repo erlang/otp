@@ -711,23 +711,21 @@ cg_basic_block(Kes, Fb, Lf, As, Vdb, Bef, St0) ->
     Res = make_reservation(As, 0),
     Regs0 = reserve(Res, Bef#sr.reg, Bef#sr.stk),
     Stk = extend_stack(Bef, Lf, Lf+1, Vdb),
-    Int0 = Bef#sr{reg=Regs0,stk=Stk,res=Res},
-    X0_v0 = x0_vars(As, Fb, Lf, Vdb),
-    {Keis,{Aft,_,St1}} =
+    Int = Bef#sr{reg=Regs0,stk=Stk,res=Res},
+    {Keis,{Aft,St1}} =
 	flatmapfoldl(fun(Ke, St) -> cg_basic_block(Ke, St, Lf, Vdb) end,
-		     {Int0,X0_v0,St0}, need_heap(Kes, Fb)),
+		     {Int,St0}, need_heap(Kes, Fb)),
     {Keis,Aft,St1}.
 
-cg_basic_block(#cg_need_heap{}=Ke, {Inta,X0v,Sta}, _Lf, Vdb) ->
-    {Keis,Intb,Stb} = cg(Ke, Vdb, Inta, Sta),
-    {Keis, {Intb,X0v,Stb}};
-cg_basic_block(Ke, {Inta,X0_v1,Sta}, Lf, Vdb) ->
+cg_basic_block(#cg_need_heap{}=Ke, {Bef,St0}, _Lf, Vdb) ->
+    {Keis,Aft,St1} = cg(Ke, Vdb, Bef, St0),
+    {Keis,{Aft,St1}};
+cg_basic_block(Ke, {Bef,St0}, Lf, Vdb) ->
     #l{i=I} = get_kanno(Ke),
-    {Sis,Intb} = save_carefully(Inta, I, Lf+1, Vdb),
-    {X0_v2,Intc} = allocate_x0(X0_v1, I, Intb),
-    Intd = reserve(Intc),
-    {Keis,Inte,Stb} = cg(Ke, Vdb, Intd, Sta),
-    {Sis ++ Keis, {Inte,X0_v2,Stb}}.
+    {Sis,Int0} = save_carefully(Bef, I, Lf+1, Vdb),
+    Int1 = reserve(Int0),
+    {Keis,Aft,St1} = cg(Ke, Vdb, Int1, St0),
+    {Sis ++ Keis,{Aft,St1}}.
 
 make_reservation([], _) -> [];
 make_reservation([#k_var{name=V}|As], I) -> [{I,V}|make_reservation(As, I+1)];
@@ -777,29 +775,6 @@ save_carefully([V|Vs], Bef, Acc) ->
 	    {x,_} = SrcReg,			%Assertion - must be X register.
 	    save_carefully(Vs, Bef#sr{stk=Stk1}, [Move|Acc])
     end.
-
-x0_vars([], _Fb, _Lf, _Vdb) -> [];
-x0_vars([#k_var{name=V}|_], Fb, _Lf, Vdb) ->
-    {V,F,_L} = VFL = vdb_find(V, Vdb),
-    x0_vars1([VFL], Fb, F, Vdb);
-x0_vars([X0|_], Fb, Lf, Vdb) ->
-    x0_vars1([{X0,Lf,Lf}], Fb, Lf, Vdb).
-
-x0_vars1(X0, Fb, Xf, Vdb) ->
-    Vs0 = [VFL || {_V,F,L}=VFL <- Vdb,
-		  F >= Fb,
-		  L < Xf],
-    Vs1 = keysort(3, Vs0),
-    keysort(2, X0++Vs1).
-
-allocate_x0([], _, Bef) -> {[],Bef#sr{res=[]}};
-allocate_x0([{_,_,L}|Vs], I, Bef) when L =< I ->
-    allocate_x0(Vs, I, Bef);
-allocate_x0([{V,_F,_L}=VFL|Vs], _, Bef) ->
-    {[VFL|Vs],Bef#sr{res=reserve_x0(V, Bef#sr.res)}}.
-
-reserve_x0(V, [_|Res]) -> [{0,V}|Res];
-reserve_x0(V, []) -> [{0,V}].
 
 top_level_block(Keis, #sr{stk=[]}, _MaxRegs, #cg{need_frame=false}) ->
     Keis;

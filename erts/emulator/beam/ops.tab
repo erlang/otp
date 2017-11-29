@@ -503,6 +503,10 @@ i_put_tuple xy I
 #
 put_list Const=c n Dst => move Const x | put_list x n Dst
 
+put_list Src Dst=x Dst => update_list Src Dst
+
+update_list xyc x
+
 put_list x n x
 put_list y n x
 put_list x x x
@@ -525,8 +529,6 @@ put_list c y x
 
 # The following put_list instructions using x(0) are frequently used.
 
-put_list y r r
-put_list x r r
 put_list r n r
 put_list r n x
 put_list r x x
@@ -536,6 +538,7 @@ put_list x x r
 %cold
 put_list s s d
 %hot
+
 
 #
 # Some more only used by the emulator
