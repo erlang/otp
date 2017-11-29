@@ -357,7 +357,11 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-                    Opts = trace(connect_options(get_ssl_options(client))),
+                    Opts =
+                        trace(
+                          connect_options(
+                            [{server_name_indication, atom_to_list(Node)}
+                             |get_ssl_options(client)])),
 		    dist_util:reset_timer(Timer),
                     case ssl:connect(
                            Address, TcpPort,
