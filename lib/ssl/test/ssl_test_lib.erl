@@ -1025,48 +1025,54 @@ string_regex_filter(_Str, _Search) ->
     false.
 
 anonymous_suites(Version) ->
-    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],
-    ssl_cipher:filter_suites(Suites).
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:anonymous_suites(Version))].
 
 psk_suites(Version) ->
-    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:psk_suites(Version)],
-    ssl_cipher:filter_suites(Suites).
+    [ssl_cipher:erl_suite_definition(S) || S <-  ssl_cipher:filter_suites(ssl_cipher:psk_suites(Version))].
 
 psk_anon_suites(Version) ->
-    Suites = [Suite || Suite <- psk_suites(Version), is_psk_anon_suite(Suite)],
-    ssl_cipher:filter_suites(Suites).
+    [Suite || Suite <-  psk_suites(Version), is_psk_anon_suite(Suite)].
 
 srp_suites() ->
-    Suites =
-	[{srp_anon, '3des_ede_cbc', sha},
-	 {srp_rsa, '3des_ede_cbc', sha},
-	 {srp_anon, aes_128_cbc, sha},
-	 {srp_rsa, aes_128_cbc, sha},
-	 {srp_anon, aes_256_cbc, sha},
-	 {srp_rsa, aes_256_cbc, sha}],
-    ssl_cipher:filter_suites(Suites).
-
+    [ssl_cipher:erl_suite_definition(Suite) || 
+        Suite  <-
+            ssl_cipher:filter_suites([tuple_to_map(S) || 
+                                         S <- [{srp_anon,'3des_ede_cbc', sha},
+                                               {srp_rsa, '3des_ede_cbc', sha},
+                                               {srp_anon, aes_128_cbc, sha},
+                                               {srp_rsa, aes_128_cbc, sha},
+                                               {srp_anon, aes_256_cbc, sha},
+                                               {srp_rsa, aes_256_cbc, sha}]])].
 srp_anon_suites() ->
-    Suites =
-	[{srp_anon, '3des_ede_cbc', sha},
-	 {srp_anon, aes_128_cbc, sha},
-	 {srp_anon, aes_256_cbc, sha}],
-    ssl_cipher:filter_suites(Suites).
-
+    [ssl_cipher:erl_suite_definition(Suite) || 
+        Suite  <-
+            ssl_cipher:filter_suites([tuple_to_map(S) || 
+                                         S <-[{srp_anon, '3des_ede_cbc', sha},
+                                              {srp_anon, aes_128_cbc, sha},
+                                              {srp_anon, aes_256_cbc, sha}]])].
 srp_dss_suites() ->
-    Suites =
-	[{srp_dss, '3des_ede_cbc', sha},
-	 {srp_dss, aes_128_cbc, sha},
-	 {srp_dss, aes_256_cbc, sha}],
-    ssl_cipher:filter_suites(Suites).
-
+    [ssl_cipher:erl_suite_definition(Suite) || 
+        Suite  <-
+            ssl_cipher:filter_suites([tuple_to_map(S) || 
+                                         S <-	[{srp_dss, '3des_ede_cbc', sha},
+                                                 {srp_dss, aes_128_cbc, sha},
+                                                 {srp_dss, aes_256_cbc, sha}]])].
 rc4_suites(Version) ->
-    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:rc4_suites(Version)],
-    ssl_cipher:filter_suites(Suites).
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:rc4_suites(Version))].
 
 des_suites(Version) ->
-    Suites = ssl_cipher:des_suites(Version),
-    ssl_cipher:filter_suites(Suites).
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:des_suites(Version))].
+
+tuple_to_map({Kex, Cipher, Mac}) ->
+    #{key_exchange => Kex,
+      cipher => Cipher,
+      mac => Mac,
+      prf => default_prf};
+tuple_to_map({Kex, Cipher, Mac, Prf}) ->
+    #{key_exchange => Kex,
+      cipher => Cipher,
+      mac => Mac,
+      prf => Prf}.
 
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
