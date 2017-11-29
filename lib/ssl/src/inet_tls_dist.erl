@@ -524,6 +524,17 @@ nodelay() ->
 
 
 get_ssl_options(Type) ->
+    try ets:lookup(ssl_dist_opts, Type) of
+        [{Type, Opts}] ->
+            [{erl_dist, true} | Opts];
+        _ ->
+            get_ssl_dist_arguments(Type)
+    catch
+        error:badarg ->
+            get_ssl_dist_arguments(Type)
+    end.
+
+get_ssl_dist_arguments(Type) ->
     case init:get_argument(ssl_dist_opt) of
 	{ok, Args} ->
 	    [{erl_dist, true} | ssl_options(Type, lists:append(Args))];
