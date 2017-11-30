@@ -39,7 +39,8 @@
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
-	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1]).
+	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
+         check_bitstring_list/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -71,7 +72,8 @@ groups() ->
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
-       get_payload,escape,num_slots_different]}].
+       get_payload,escape,num_slots_different,
+       check_bitstring_list]}].
 
 
 init_per_suite(Config) ->
@@ -1572,6 +1574,18 @@ lgettext(<<"de">>, <<"navigation">>, <<"Results">>) ->
 lgettext(<<"de">>, <<"navigation">>, <<"Resources">>) ->
     {ok, <<"Ressourcen">>}.
 
+%% Cover more code in beam_bsm.
+check_bitstring_list(_Config) ->
+    true = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [1,0,1,1]),
+    false = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [0]),
+    ok.
+
+check_bitstring_list(<<H:1,T1/bitstring>>, [H|T2]) ->
+    check_bitstring_list(T1, T2);
+check_bitstring_list(<<>>, []) ->
+    true;
+check_bitstring_list(_, _) ->
+    false.
 
 check(F, R) ->
     R = F().

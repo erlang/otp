@@ -336,17 +336,6 @@ opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc0, St0) ->
             {Acc,St} = opt_useless_loads(Acc0, L, St0),
 	    opt(Is, Acc, St)
     end;
-opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc0, St0) ->
-    %% Similar to the above, except we have a fall-through rather than jump
-    %%    Test Label Ops
-    %%    label Label
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    opt(Is, [I|Acc0], label_used(Lbl, St0));
-	true ->
-            {Acc,St} = opt_useless_loads(Acc0, L, St0),
-	    opt(Is, Acc, St)
-    end;
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->

@@ -24,7 +24,8 @@
 	 apply_fun/1,apply_mf/1,bs_init/1,bs_save/1,
 	 is_not_killed/1,is_not_used_at/1,
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
-	 y_registers/1]).
+         y_registers/1,user_predef/1,scan_f/1,cafu/1,
+         receive_label/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -46,7 +47,10 @@ groups() ->
        otp_8949_b,
        liveopt,
        coverage,
-       y_registers
+       y_registers,
+       user_predef,
+       scan_f,
+       cafu
       ]}].
 
 init_per_suite(Config) ->
@@ -375,6 +379,71 @@ yellow(Hill) ->
 do(A, B) -> {A,B}.
 appointment(#{"resolution" := Url}) ->
     do(receive _ -> Url end, #{true => Url}).
+
+%% From epp.erl.
+user_predef(_Config) ->
+    #{key:="value"} = user_predef({key,"value"}, #{}),
+    #{key:="value"} = user_predef({key,"value"}, #{key=>defined}),
+    error = user_predef({key,"value"}, #{key=>[defined]}),
+    ok.
+
+user_predef({M,Val}, Ms) ->
+    case Ms of
+	#{M:=Defs} when is_list(Defs) ->
+	    error;
+	_ ->
+	    Ms#{M=>Val}
+    end.
+
+%% From disk_log_1.erl.
+scan_f(_Config) ->
+    {1,<<>>,[]} = scan_f(<<1:32>>, 1, []),
+    {1,<<>>,[<<156>>]} = scan_f(<<1:32,156,1:32>>, 1, []),
+    ok.
+
+scan_f(<<Size:32,Tail/binary>>, FSz, Acc) when Size =< FSz ->
+    case Tail of
+        <<BinTerm:Size/binary,Tail2/binary>> ->
+            scan_f(Tail2, FSz, [BinTerm | Acc]);
+        _ ->
+            {Size,Tail,Acc}
+    end.
+
+%% From file_io_server.erl.
+cafu(_Config) ->
+    error = cafu(<<42:32>>, -1, 0, {utf32,big}),
+    error = cafu(<<42:32>>, 10, 0, {utf32,big}),
+    error = cafu(<<42:32>>, -1, 0, {utf32,little}),
+    ok.
+
+cafu(<<_/big-utf32,Rest/binary>>, N, Count, {utf32,big}) when N < 0 ->
+    cafu(Rest, -1, Count+1, {utf32,big});
+cafu(<<_/big-utf32,Rest/binary>>, N, Count, {utf32,big}) ->
+    cafu(Rest, N-1, Count+1, {utf32,big});
+cafu(<<_/little-utf32,Rest/binary>>, N, Count, {utf32,little}) when N < 0 ->
+    cafu(Rest, -1, Count+1, {utf32,little});
+cafu(_, _, _, _) ->
+    error.
+
+-record(rec_label, {bool}).
+
+receive_label(_Config) ->
+    Pid = spawn_link(fun() -> do_receive_label(#rec_label{bool=true}) end),
+    Msg = {a,b,c},
+    Pid ! {self(),Msg},
+    receive
+        {ok,Msg} ->
+            unlink(Pid),
+            exit(Pid, die),
+            ok
+    end.
+
+do_receive_label(Rec) ->
+    receive
+        {From,Message} when Rec#rec_label.bool ->
+            From ! {ok,Message},
+            do_receive_label(Rec)
+    end.
 
 %% The identity function.
 id(I) -> I.
