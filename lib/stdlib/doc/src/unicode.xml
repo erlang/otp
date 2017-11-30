@@ -239,8 +239,13 @@
               <c><anno>InEncoding</anno></c>.</p>
           </item>
         </list>
-        <p>Only when <c><anno>InEncoding</anno></c> is one of the UTF
-          encodings, integers in the list are allowed to be &gt; 255.</p>
+	<p>
+	  Note that integers in the list always represent code points
+	  regardless of <c><anno>InEncoding</anno></c> passed. If
+	  <c><anno>InEncoding</anno> latin1</c> is passed, only code
+	  points &lt; 256 are allowed; otherwise, all valid unicode code
+	  points are allowed.
+	</p>
         <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, parameter
           <c><anno>Data</anno></c> corresponds to the <c>iodata()</c> type,
           but for <c>unicode</c>, parameter <c><anno>Data</anno></c> can
