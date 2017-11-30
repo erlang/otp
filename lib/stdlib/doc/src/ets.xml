@@ -1961,7 +1961,7 @@ true</pre>
           The return value is a list of the new counter values from each 
           update operation in the same order as in the operation list. If an 
           empty list is specified, nothing is updated and an empty list is 
-          returned. If the function fails, no updates is done.</p>
+          returned. If the function fails, no updates are done.</p>
         <p>The specified <c><anno>Key</anno></c> is used to identify the object
           by either <em>matching</em> the key of an object in a <c>set</c>
           table, or <em>compare equal</em> to the key of an object in an
