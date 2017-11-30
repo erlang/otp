@@ -312,12 +312,23 @@ get(_) ->
     add_get_tests.
 
 count(Config) ->
+    Parent = self(),
+    Exec = fun() ->
+                   do_measure(Config),
+                   Parent ! {test_done, self()}
+           end,
     ct:timetrap({minutes,5}),
     case ct:get_timetrap_info() of
-        {_,{_,Scale}} ->
+        {_,{_,Scale}} when Scale > 1 ->
             {skip,{measurments_skipped_debug,Scale}};
-        _ -> % No scaling
-            do_measure(Config)
+        _ -> % No scaling, run at most 2 min
+            Tester = spawn(Exec),
+            receive {test_done, Tester} -> ok
+            after 120000 ->
+                    io:format("Timelimit reached stopping~n",[]),
+                    exit(Tester, die)
+            end,
+            ok
     end.
 
 do_measure(Config) ->
