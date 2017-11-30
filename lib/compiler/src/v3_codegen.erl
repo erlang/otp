@@ -51,7 +51,7 @@ set_kanno(Kthing, Anno) -> setelement(2, Kthing, Anno).
 %% Stack/register state record.
 -record(sr, {reg=[],				%Register table
 	     stk=[],				%Stack table
-	     res=[]}).				%Reserved regs: [{reserved,I,V}]
+	     res=[]}).				%Registers to reserve
 
 %% Internal records.
 -record(cg_need_heap, {anno=[] :: term(),
@@ -704,14 +704,41 @@ func_vars(#k_remote{mod=M,name=F})
     [M,F];
 func_vars(_) -> [].
 
-%% cg_basic_block([Kexpr], FirstI, LastI, As, Vdb, StackReg, State) ->
+%% cg_basic_block([Kexpr], FirstI, LastI, Arguments, Vdb, StackReg, State) ->
 %%      {[Ainstr],StackReg,State}.
+%%
+%%  Do a specialized code generation for a basic block of #put{}
+%%  instructions (that don't do any garbage collection) followed by a
+%%  call, break, or return.
+%%
+%%  'Arguments' is a list of the variables that must be loaded into
+%%  consecutive X registers before the last instruction in the block.
+%%  The point of this specialized code generation is to try put the
+%%  all of the variables in 'Arguments' into the correct X register
+%%  to begin with, instead of putting them into the first available
+%%  X register and having to move them to the correct X register
+%%  later.
+%%
+%%  To achieve that, we attempt to reserve the X registers that the
+%%  variables in 'Arguments' will need to be in when the block ends.
+%%
+%%  To make it more likely that reservations will be successful, we
+%%  will try to save variables that need to be saved to the stack as
+%%  early as possible (if an X register needed by a variable in
+%%  Arguments is occupied by another variable, the value in the
+%%  X register can be evicted if it is saved on the stack).
+%%
+%%  We will take care not to increase the size of stack frame compared
+%%  to what the standard code generator would have done (that is, to
+%%  save all X registers at the last possible moment). We will do that
+%%  by extending the stack frame to the minimal size needed to save
+%%  all that needs to be saved using extend_stack/4, and use
+%%  save_carefully/4 during code generation to only save the variables
+%%  that can be saved without growing the stack frame.
 
 cg_basic_block(Kes, Fb, Lf, As, Vdb, Bef, St0) ->
-    Res = make_reservation(As, 0),
-    Regs0 = reserve(Res, Bef#sr.reg, Bef#sr.stk),
-    Stk = extend_stack(Bef, Lf, Lf+1, Vdb),
-    Int = Bef#sr{reg=Regs0,stk=Stk,res=Res},
+    Int0 = reserve_arg_regs(As, Bef),
+    Int = extend_stack(Int0, Lf, Lf+1, Vdb),
     {Keis,{Aft,St1}} =
 	flatmapfoldl(fun(Ke, St) -> cg_basic_block(Ke, St, Lf, Vdb) end,
 		     {Int,St0}, need_heap(Kes, Fb)),
@@ -722,59 +749,88 @@ cg_basic_block(#cg_need_heap{}=Ke, {Bef,St0}, _Lf, Vdb) ->
     {Keis,{Aft,St1}};
 cg_basic_block(Ke, {Bef,St0}, Lf, Vdb) ->
     #l{i=I} = get_kanno(Ke),
+
+    %% Save all we can to increase the possibility that reserving
+    %% registers will succeed.
     {Sis,Int0} = save_carefully(Bef, I, Lf+1, Vdb),
     Int1 = reserve(Int0),
     {Keis,Aft,St1} = cg(Ke, Vdb, Int1, St0),
     {Sis ++ Keis,{Aft,St1}}.
 
-make_reservation([], _) -> [];
-make_reservation([#k_var{name=V}|As], I) -> [{I,V}|make_reservation(As, I+1)];
-make_reservation([A|As], I) -> [{I,A}|make_reservation(As, I+1)].
+%% reserve_arg_regs([Argument], Bef) -> Aft.
+%%  Try to reserve the X registers for all arguments. All registers
+%%  that we wish to reserve will be saved in Bef#sr.res.
 
-reserve(Sr) -> Sr#sr{reg=reserve(Sr#sr.res, Sr#sr.reg, Sr#sr.stk)}.
+reserve_arg_regs(As, Bef) ->
+    Res = reserve_arg_regs_1(As, 0),
+    reserve(Bef#sr{res=Res}).
 
-reserve([{I,V}|Rs], [free|Regs], Stk) -> [{reserved,I,V}|reserve(Rs, Regs, Stk)];
-reserve([{I,V}|Rs], [{I,V}|Regs], Stk) -> [{I,V}|reserve(Rs, Regs, Stk)];
-reserve([{I,V}|Rs], [{I,Var}|Regs], Stk) ->
+reserve_arg_regs_1([#k_var{name=V}|As], I) ->
+    [{I,V}|reserve_arg_regs_1(As, I+1)];
+reserve_arg_regs_1([A|As], I) ->
+    [{I,A}|reserve_arg_regs_1(As, I+1)];
+reserve_arg_regs_1([], _) -> [].
+
+%% reserve(Bef) -> Aft.
+%%  Try to reserve more registers. The registers we wish to reserve
+%%  are found in Bef#sr.res.
+
+reserve(#sr{reg=Regs,stk=Stk,res=Res}=Sr) ->
+    Sr#sr{reg=reserve_1(Res, Regs, Stk)}.
+
+reserve_1([{I,V}|Rs], [free|Regs], Stk) ->
+    [{reserved,I,V}|reserve_1(Rs, Regs, Stk)];
+reserve_1([{I,V}|Rs], [{I,V}|Regs], Stk) ->
+    [{I,V}|reserve_1(Rs, Regs, Stk)];
+reserve_1([{I,V}|Rs], [{I,Var}|Regs], Stk) ->
     case on_stack(Var, Stk) of
-	true -> [{reserved,I,V}|reserve(Rs, Regs, Stk)];
-	false -> [{I,Var}|reserve(Rs, Regs, Stk)]
+	true -> [{reserved,I,V}|reserve_1(Rs, Regs, Stk)];
+	false -> [{I,Var}|reserve_1(Rs, Regs, Stk)]
     end;
-reserve([{I,V}|Rs], [{reserved,I,_}|Regs], Stk) ->
-    [{reserved,I,V}|reserve(Rs, Regs, Stk)];
-%reserve([{I,V}|Rs], [Other|Regs], Stk) -> [Other|reserve(Rs, Regs, Stk)];
-reserve([{I,V}|Rs], [], Stk) -> [{reserved,I,V}|reserve(Rs, [], Stk)];
-reserve([], Regs, _) -> Regs.
+reserve_1([{I,V}|Rs], [{reserved,I,_}|Regs], Stk) ->
+    [{reserved,I,V}|reserve_1(Rs, Regs, Stk)];
+reserve_1([{I,V}|Rs], [], Stk) ->
+    [{reserved,I,V}|reserve_1(Rs, [], Stk)];
+reserve_1([], Regs, _) -> Regs.
 
-extend_stack(Bef, Fb, Lf, Vdb) ->
-    Stk0 = clear_dead_stk(Bef#sr.stk, Fb, Vdb),
-    Saves = [V || {V,F,L} <- Vdb,
-		  F < Fb,
-		  L >= Lf,
-		  not on_stack(V, Stk0)],
-    Stk1 = foldl(fun (V, Stk) -> put_stack(V, Stk) end, Stk0, Saves),
-    Bef#sr.stk ++ lists:duplicate(length(Stk1) - length(Bef#sr.stk), free).
+%% extend_stack(Bef, FirstBefore, LastFrom, Vdb) -> Aft.
+%%  Extend the stack enough to fit all variables alive past LastFrom
+%%  and not already on the stack.
 
-save_carefully(Bef, Fb, Lf, Vdb) ->
-    Stk = Bef#sr.stk,
-    %% New variables that are in use but not on stack.
-    New = [VFL || {V,F,L} = VFL <- Vdb,
-		  F < Fb,
-		  L >= Lf,
-		  not on_stack(V, Stk)],
-    Saves = [V || {V,_,_} <- keysort(2, New)],
-    save_carefully(Saves, Bef, []).
+extend_stack(#sr{stk=Stk0}=Bef, Fb, Lf, Vdb) ->
+    Stk1 = clear_dead_stk(Stk0, Fb, Vdb),
+    New = new_not_on_stack(Stk1, Fb, Lf, Vdb),
+    Stk2 = foldl(fun ({V,_,_}, Stk) -> put_stack(V, Stk) end, Stk1, New),
+    Stk = Stk0 ++ lists:duplicate(length(Stk2) - length(Stk0), free),
+    Bef#sr{stk=Stk}.
 
-save_carefully([], Bef, Acc) -> {reverse(Acc),Bef};
-save_carefully([V|Vs], Bef, Acc) ->
-    case put_stack_carefully(V, Bef#sr.stk) of
-	error -> {reverse(Acc),Bef};
+%% save_carefully(Bef, FirstBefore, LastFrom, Vdb) -> {[SaveVar],Aft}.
+%%  Save variables which are used past current point and which are not
+%%  already on the stack, but only if the variables can be saved without
+%%  growing the stack frame.
+
+save_carefully(#sr{stk=Stk}=Bef, Fb, Lf, Vdb) ->
+    New0 = new_not_on_stack(Stk, Fb, Lf, Vdb),
+    New = keysort(2, New0),
+    save_carefully_1(New, Bef, []).
+
+save_carefully_1([{V,_,_}|Vs], #sr{reg=Regs,stk=Stk0}=Bef, Acc) ->
+    case put_stack_carefully(V, Stk0) of
+	error ->
+            {reverse(Acc),Bef};
 	Stk1 ->
-	    SrcReg = fetch_reg(V, Bef#sr.reg),
+	    SrcReg = fetch_reg(V, Regs),
 	    Move = {move,SrcReg,fetch_stack(V, Stk1)},
 	    {x,_} = SrcReg,			%Assertion - must be X register.
-	    save_carefully(Vs, Bef#sr{stk=Stk1}, [Move|Acc])
-    end.
+	    save_carefully_1(Vs, Bef#sr{stk=Stk1}, [Move|Acc])
+    end;
+save_carefully_1([], Bef, Acc) ->
+    {reverse(Acc),Bef}.
+
+%% top_level_block([Instruction], Bef, MaxRegs, St) -> [Instruction].
+%%  For the top-level block, allocate a stack frame a necessary,
+%%  adjust Y register numbering and instructions that return
+%%  from the function.
 
 top_level_block(Keis, #sr{stk=[]}, _MaxRegs, #cg{need_frame=false}) ->
     Keis;
@@ -2338,21 +2394,21 @@ break_up_cycle1(Dst, [M|Path], LastMove) ->
 %% clear_dead(Sr, Until, Vdb) -> Aft.
 %%  Remove all variables in Sr which have died AT ALL so far.
 
-clear_dead(Sr, Until, Vdb) ->
-    Sr#sr{reg=clear_dead_reg(Sr, Until, Vdb),
-	  stk=clear_dead_stk(Sr#sr.stk, Until, Vdb)}.
+clear_dead(#sr{stk=Stk}=Sr0, Until, Vdb) ->
+    Sr = Sr0#sr{reg=clear_dead_reg(Sr0, Until, Vdb),
+                stk=clear_dead_stk(Stk, Until, Vdb)},
+    reserve(Sr).
 
 clear_dead_reg(Sr, Until, Vdb) ->
-    Reg = [case R of
-            {_I,V} = IV ->
-                case vdb_find(V, Vdb) of
-                    {V,_,L} when L > Until -> IV;
-                    _ -> free		%Remove anything else
-                end;
-            {reserved,_I,_V} = Reserved -> Reserved;
-            free -> free
-        end || R <- Sr#sr.reg],
-    reserve(Sr#sr.res, Reg, Sr#sr.stk).
+    [case R of
+         {_I,V} = IV ->
+             case vdb_find(V, Vdb) of
+                 {V,_,L} when L > Until -> IV;
+                 _ -> free                      %Remove anything else
+             end;
+         {reserved,_I,_V}=Reserved -> Reserved;
+         free -> free
+     end || R <- Sr#sr.reg].
 
 clear_dead_stk(Stk, Until, Vdb) ->
     [case S of
@@ -2424,15 +2480,24 @@ adjust_stack(Bef, Fb, Lf, Vdb) ->
 
 save_stack(Stk0, Fb, Lf, Vdb) ->
     %% New variables that are in use but not on stack.
-    New = [VFL || {V,F,L} = VFL <- Vdb,
-		  F < Fb,
-		  L >= Lf,
-		  not on_stack(V, Stk0)],
+    New = new_not_on_stack(Stk0, Fb, Lf, Vdb),
+
     %% Add new variables that are not just dropped immediately.
     %% N.B. foldr works backwards from the end!!
     Saves = [V || {V,_,_} <- keysort(3, New)],
     Stk1 = foldr(fun (V, Stk) -> put_stack(V, Stk) end, Stk0, Saves),
     {Stk1,Saves}.
+
+%% new_not_on_stack(Stack, FirstBefore, LastFrom, Vdb) ->
+%%                 [{Variable,First,Last}]
+%%  Return information about all variables that are used past current
+%%  point and that are not already on the stack.
+
+new_not_on_stack(Stk, Fb, Lf, Vdb) ->
+    [VFL || {V,F,L} = VFL <- Vdb,
+            F < Fb,
+            L >= Lf,
+            not on_stack(V, Stk)].
 
 %% saves([SaveVar], Reg, Stk) -> [{move,Reg,Stk}].
 %%  Generate move instructions to save variables onto stack.  The

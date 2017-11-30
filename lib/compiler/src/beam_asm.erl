@@ -24,7 +24,7 @@
 -export([module/4]).
 -export([encode/2]).
 
--export_type([fail/0,label/0,reg/0,src/0,module_code/0,function_name/0]).
+-export_type([fail/0,label/0,reg/0,reg_num/0,src/0,module_code/0,function_name/0]).
 
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
