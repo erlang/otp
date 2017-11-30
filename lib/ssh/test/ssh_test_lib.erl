@@ -28,9 +28,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
-
-
--define(TIMEOUT, 50000).
+-include("ssh_test_lib.hrl").
 
 %%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
@@ -772,12 +770,12 @@ ssh_type1() ->
 		not_found;
 	    Path ->
 		ct:log("~p:~p Found \"ssh\" at ~p",[?MODULE,?LINE,Path]),
-		case os:cmd("ssh -V") of
+                case installed_ssh_version(timeout) of
 		    Version = "OpenSSH" ++ _ ->
                         ct:log("~p:~p Found OpenSSH  ~p",[?MODULE,?LINE,Version]),
 			openSSH;
-		    Str -> 
-			ct:log("ssh client ~p is unknown",[Str]),
+                    Other ->
+			ct:log("ssh client ~p is unknown",[Other]),
 			unknown
 		end
 	end
@@ -786,6 +784,20 @@ ssh_type1() ->
 	    ct:log("~p:~p Exception ~p:~p",[?MODULE,?LINE,Class,Exception]),
 	    not_found
     end.
+
+installed_ssh_version(TimeoutReturn) ->
+    Parent = self(),
+    Pid = spawn(fun() ->
+                        Parent ! {open_ssh_version, os:cmd("ssh -V")}
+                end),
+    receive
+        {open_ssh_version, V} ->
+            V
+    after ?TIMEOUT ->
+            exit(Pid, kill),
+            TimeoutReturn
+    end.
+
 
 		   
 

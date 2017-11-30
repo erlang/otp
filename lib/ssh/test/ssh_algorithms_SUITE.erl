@@ -29,15 +29,13 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 35000).
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,round(1.5*?TIMEOUT/1000)}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -90,7 +88,7 @@ init_per_suite(Config) ->
 		  " -- Max num algorithms: ~p~n"
 		 ,[os:getenv("HOME"),
 		   init:get_argument(home),
-		   os:cmd("ssh -V"),
+		   ssh_test_lib:installed_ssh_version("TIMEOUT"),
 		   ssh:default_algorithms(),
 		   crypto:info_lib(),
 		   ssh_test_lib:default_algorithms(sshc),

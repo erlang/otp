@@ -27,7 +27,6 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 50000).
 -define(SSH_DEFAULT_PORT, 22).
 -define(REKEY_DATA_TMO, 65000).
 
