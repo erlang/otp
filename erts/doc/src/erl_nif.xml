@@ -952,6 +952,8 @@ typedef struct {
       <desc>
         <p>Allocates memory of <c>size</c> bytes.</p>
         <p>Returns <c>NULL</c> if the allocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
@@ -2756,6 +2758,20 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <c>enif_has_pending_exception</c></seealso> and
           <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void *</ret>
+        <nametext>enif_realloc(void* ptr, size_t size)</nametext></name>
+      <fsummary>Reallocate dynamic memory.</fsummary>
+      <desc>
+        <p>Reallocates memory allocated by
+          <seealso marker="#enif_alloc"><c>enif_alloc</c></seealso> to
+          <c>size</c> bytes.</p>
+        <p>Returns <c>NULL</c> if the reallocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
