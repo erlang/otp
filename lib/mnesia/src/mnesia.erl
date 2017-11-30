@@ -151,7 +151,8 @@
         {'snmp', SnmpStruct::term()} |
         {'storage_properties', [{Backend::module(), [BackendProp::_]}]} |
         {'type', 'set' | 'ordered_set' | 'bag'} |
-        {'local_content', boolean()}.
+        {'local_content', boolean()} |
+        {'user_properties', proplists:proplist()}.
 
 -type t_result(Res) :: {'atomic', Res} | {'aborted', Reason::term()}.
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
