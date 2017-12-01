@@ -2146,7 +2146,6 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
     Eterm obj;
     DECLARE_ESTACK(stack);
     Sint need = 0;
-    int seen_null = 0;
 
     if (is_atom(ioterm)) {
 	Atom* ap;
@@ -2191,9 +2190,7 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
             byte *name = ap->name;
             int len = ap->len;
             for (i = 0; i < len; i++) {
-                if (name[i] == 0)
-                    seen_null = 1;
-                else if (seen_null) {
+                if (name[i] == 0) {
                     need = -1;
                     break;
                 }
@@ -2233,9 +2230,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
                          * Do not allow null in
                          * the middle of filenames
                          */
-                        if (x == 0)
-                            seen_null = 1;
-                        else if (seen_null) {
+                        if (x == 0) {
                             DESTROY_ESTACK(stack);
                             return ((Sint) -1);
                         }
@@ -2568,7 +2563,6 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P,BADARG);
     }
     if (is_binary(BIF_ARG_1)) {
-        int seen_null = 0;
 	byte *temp_alloc = NULL;
 	byte *bytes;
 	byte *err_pos;
@@ -2585,8 +2579,6 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
             for (i = 0; i < size; i++) {
                 /* Don't allow null in the middle of filenames... */
                 if (bytes[i] == 0)
-                    seen_null = 1;
-                else if (seen_null)
                     goto bin_name_error;
                 bin_p[i] = bytes[i];
             }
@@ -2605,8 +2597,6 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	    while (size--) {
                 /* Don't allow null in the middle of filenames... */
                 if (*bytes == 0)
-                    seen_null = 1;
-                else if (seen_null)
                     goto bin_name_error;
 		*bin_p++ = *bytes++;
 		*bin_p++ = 0;

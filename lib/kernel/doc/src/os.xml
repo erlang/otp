@@ -58,17 +58,6 @@
 	operations to fail.
       </p>
     </note>
-    <warning>
-      <p>
-	Currently null characters at the end of filenames,
-	environment variable names and values will be accepted
-	by the primitive operations. Such filenames, environment
-	variable names and values are however still documented as
-	invalid. The implementation will also change in the
-	future and reject such filenames, environment variable
-	names and values.
-      </p>
-    </warning>
   </description>
 
   <datatypes>
@@ -143,12 +132,8 @@
 	  <warning><p>Previous implementation used to allow all characters
 	  as long as they were integer values greater than or equal to zero.
 	  This sometimes lead to unwanted results since null characters
-	  (integer value zero) often are interpreted as string termination.
-	  Current implementation still accepts null characters at the end
-	  of <c><anno>Command</anno></c> even though the documentation
-	  states that no null characters are allowed. This will however
-	  be changed in the future so that no null characters at all will
-	  be accepted.</p></warning>
+	  (integer value zero) often are interpreted as string termination. The
+	  current implementation rejects these.</p></warning>
         <p><em>Examples:</em></p>
         <code type="none">
 LsOut = os:cmd("ls"), % on unix platform
