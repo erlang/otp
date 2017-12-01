@@ -148,6 +148,10 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 call(Process, Label, Request) -> 
     call(Process, Label, Request, ?default_timeout).
 
+%% Optimize a common case.
+call(Process, Label, Request, Timeout) when is_pid(Process),
+  Timeout =:= infinity orelse is_integer(Timeout) andalso Timeout >= 0 ->
+    do_call(Process, Label, Request, Timeout);
 call(Process, Label, Request, Timeout)
   when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
     Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
