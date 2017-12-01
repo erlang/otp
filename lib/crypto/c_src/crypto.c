@@ -4886,7 +4886,6 @@ static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret;
     ErlNifBinary engine_id_bin;
-    unsigned int engine_id_len = 0;
     char *engine_id;
     ENGINE *engine;
     struct engine_ctx *ctx;
@@ -4896,14 +4895,14 @@ static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
         PRINTF_ERR0("engine_by_id_nif Leaved: badarg");
         return enif_make_badarg(env);
     } else {
-        engine_id_len = engine_id_bin.size+1;
-        engine_id = enif_alloc(engine_id_len);
-        (void) memcpy(engine_id, engine_id_bin.data, engine_id_len);
-        engine_id[engine_id_len-1] = '\0';
+        engine_id = enif_alloc(engine_id_bin.size+1);
+        (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
+        engine_id[engine_id_bin.size] = '\0';
     }
 
     engine = ENGINE_by_id(engine_id);
     if(!engine) {
+        enif_free(engine_id);
         PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
         return enif_make_tuple2(env, atom_error, atom_bad_engine_id);
     }
@@ -5038,7 +5037,8 @@ static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const 
 
  error:
     for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
-        enif_free(cmds[i]);
+        enif_free(cmds[i]);    
+    enif_free(cmds);
     return ret;
 #else
     return atom_notsup;
@@ -5377,7 +5377,6 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     ErlNifBinary tmpbin;
     int arity;
     char* tmpstr;
-    int tmplen = 0;
 
     if(!enif_is_empty_list(env, term)) {
         if(!enif_get_list_cell(env, term, &head, &tail)) {
@@ -5392,10 +5391,9 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
                     cmds[i] = NULL;
                     return -1;
                 } else {
-                    tmplen = tmpbin.size+1;
-                    tmpstr = enif_alloc(tmplen);
-                    (void) memcpy(tmpstr, tmpbin.data, tmplen);
-                    tmpstr[tmplen-1] = '\0';
+                    tmpstr = enif_alloc(tmpbin.size+1);
+                    (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
+                    tmpstr[tmpbin.size] = '\0';
                     cmds[i++] = tmpstr;
                 }
                 if(!enif_inspect_binary(env, tmp_tuple[1], &tmpbin)) {
@@ -5405,10 +5403,9 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
                     if(tmpbin.size == 0)
                         cmds[i++] = NULL;
                     else {
-                        tmplen = tmpbin.size+1;
-                        tmpstr = enif_alloc(tmplen);
-                        (void) memcpy(tmpstr, tmpbin.data, tmplen);
-                        tmpstr[tmplen-1] = '\0';
+                        tmpstr = enif_alloc(tmpbin.size+1);
+                        (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
+                        tmpstr[tmpbin.size] = '\0';
                         cmds[i++] = tmpstr;
                     }
                 }
