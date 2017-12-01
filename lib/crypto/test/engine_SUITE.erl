@@ -44,6 +44,8 @@ all() ->
      pre_command_fail_bad_value,
      pre_command_fail_bad_key,
      failed_engine_init,
+     ctrl_cmd_string,
+     ctrl_cmd_string_optional,
      {group, engine_stored_key}
     ].
 
@@ -353,6 +355,67 @@ failed_engine_init(Config) when is_list(Config) ->
        error:notsup ->
           {skip, "Engine not supported on this OpenSSL version"}
    end.
+
+
+ctrl_cmd_string()->
+    [{doc, "Test that a not known optional ctrl comand do not fail"}].
+ctrl_cmd_string(Config) when is_list(Config) ->
+    try
+        case crypto:get_test_engine() of
+            {error, notexist} ->
+                {skip, "OTP Test engine not found"};
+            {ok, Engine} ->
+                case crypto:engine_load(<<"dynamic">>,
+                                        [{<<"SO_PATH">>, Engine},
+                                         {<<"ID">>, <<"MD5">>},
+                                         <<"LOAD">>],
+                                        []) of
+                    {ok, E} ->        
+                        case crypto:engine_ctrl_cmd_string(E, <<"TEST">>, <<"17">>) of
+                            ok ->
+                                ct:fail(fail_ctrl_cmd_should_fail);
+                            {error,ctrl_cmd_failed} -> 
+                                ok
+                        end,
+                        ok = crypto:engine_unload(E);              
+                    {error, bad_engine_id} ->
+                        {skip, "Dynamic Engine not supported"}
+                end
+        end
+   catch 
+       error:notsup ->
+          {skip, "Engine not supported on this OpenSSL version"}
+   end.        
+
+ctrl_cmd_string_optional()->
+    [{doc, "Test that a not known optional ctrl comand do not fail"}].
+ctrl_cmd_string_optional(Config) when is_list(Config) ->
+    try
+        case crypto:get_test_engine() of
+            {error, notexist} ->
+                {skip, "OTP Test engine not found"};
+            {ok, Engine} ->
+                case crypto:engine_load(<<"dynamic">>,
+                                        [{<<"SO_PATH">>, Engine},
+                                         {<<"ID">>, <<"MD5">>},
+                                         <<"LOAD">>],
+                                        []) of
+                    {ok, E} ->        
+                        case crypto:engine_ctrl_cmd_string(E, <<"TEST">>, <<"17">>, true) of
+                            ok ->
+                                ok;
+                            _ -> 
+                                ct:fail(fail_ctrl_cmd_string)
+                        end,
+                        ok = crypto:engine_unload(E);              
+                    {error, bad_engine_id} ->
+                        {skip, "Dynamic Engine not supported"}
+                end
+        end
+   catch 
+       error:notsup ->
+          {skip, "Engine not supported on this OpenSSL version"}
+   end.        
 
 %%%----------------------------------------------------------------
 %%% Pub/priv key storage tests.  Thoose are for testing the crypto.erl
