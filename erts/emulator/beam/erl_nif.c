@@ -3605,6 +3605,55 @@ int enif_ioq_deq(ErlNifIOQueue *q, size_t elems, size_t *size)
     return 1;
 }
 
+int enif_ioq_peek_head(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *bin_term) {
+    SysIOVec *iov_entry;
+    Binary *ref_bin;
+
+    if (q->size == 0) {
+        return 0;
+    }
+
+    ASSERT(q->b_head != q->b_tail && q->v_head != q->v_tail);
+
+    ref_bin = &q->b_head[0]->nif;
+    iov_entry = &q->v_head[0];
+
+    if (size != NULL) {
+        *size = iov_entry->iov_len;
+    }
+
+    if (iov_entry->iov_len > ERL_ONHEAP_BIN_LIMIT) {
+        ProcBin *pb = (ProcBin*)alloc_heap(env, PROC_BIN_SIZE);
+
+        pb->thing_word = HEADER_PROC_BIN;
+        pb->next = MSO(env->proc).first;
+        pb->val = ref_bin;
+        pb->flags = 0;
+
+        ASSERT((byte*)iov_entry->iov_base >= (byte*)ref_bin->orig_bytes);
+        ASSERT(iov_entry->iov_len <= ref_bin->orig_size);
+
+        pb->bytes = (byte*)iov_entry->iov_base;
+        pb->size = iov_entry->iov_len;
+
+        MSO(env->proc).first = (struct erl_off_heap_header*) pb;
+        OH_OVERHEAD(&(MSO(env->proc)), pb->size / sizeof(Eterm));
+
+        erts_refc_inc(&ref_bin->intern.refc, 2);
+        *bin_term = make_binary(pb);
+    } else {
+        ErlHeapBin* hb = (ErlHeapBin*)alloc_heap(env, heap_bin_size(iov_entry->iov_len));
+
+        hb->thing_word = header_heap_bin(iov_entry->iov_len);
+        hb->size = iov_entry->iov_len;
+
+        sys_memcpy(hb->data, iov_entry->iov_base, iov_entry->iov_len);
+        *bin_term = make_binary(hb);
+    }
+
+    return 1;
+}
+
 SysIOVec *enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)
 {
     return erts_ioq_peekq(q, iovlen);

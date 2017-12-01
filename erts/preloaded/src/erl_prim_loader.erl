@@ -151,9 +151,8 @@ start_inet(Parent) ->
     loop(State, Parent, []).
 
 start_efile(Parent) ->
-    {ok, Port} = prim_file:start(),
     %% Check that we started in a valid directory.
-    case prim_file:get_cwd(Port) of
+    case prim_file:get_cwd() of
 	{error, _} ->
 	    %% At this point in the startup, we have no error_logger at all.
 	    Report = "Invalid current directory or invalid filename "
@@ -165,7 +164,7 @@ start_efile(Parent) ->
     end,
     PS = prim_init(),
     State = #state {loader = efile,
-                    data = Port,
+                    data = noport,
                     timeout = ?EFILE_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
@@ -401,12 +400,12 @@ handle_get_cwd(State = #state{loader = inet}, Drive) ->
     ?SAFE2(inet_get_cwd(State, Drive), State).
     
 handle_stop(State = #state{loader = efile}) ->
-    efile_stop_port(State);
+    State;
 handle_stop(State = #state{loader = inet}) ->
     inet_stop_port(State).
 
-handle_exit(State = #state{loader = efile}, Who, Reason) ->
-    efile_exit_port(State, Who, Reason);
+handle_exit(State = #state{loader = efile}, _Who, _Reason) ->
+    State;
 handle_exit(State = #state{loader = inet}, Who, Reason) ->
     inet_exit_port(State, Who, Reason).
 
@@ -474,15 +473,6 @@ efile_read_file_info(#state{prim_state = PS} = State, File, FollowLinks) ->
 efile_get_cwd(#state{prim_state = PS} = State, Drive) ->
     {Res, PS2} = prim_get_cwd(PS, Drive),
     {Res, State#state{prim_state = PS2}}.
-
-efile_stop_port(#state{data=Port}=State) ->
-    prim_file:close(Port),
-    State#state{data=noport}.
-
-efile_exit_port(State, Port, Reason) when State#state.data =:= Port ->
-    exit({port_died,Reason});
-efile_exit_port(State, _Port, _Reason) ->
-    State.
 
 efile_timeout_handler(State, _Parent) ->
     prim_purge_cache(),

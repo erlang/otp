@@ -52,9 +52,10 @@
 ** 2.11: 19.0 enif_snprintf 
 ** 2.12: 20.0 add enif_select, enif_open_resource_type_x
 ** 2.13: 20.1 add enif_ioq
+** 2.14: 21.0 add enif_ioq_peek_head
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 13
+#define ERL_NIF_MINOR_VERSION 14
 
 /*
  * The emulator will refuse to load a nif-lib with a major version

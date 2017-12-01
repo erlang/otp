@@ -151,6 +151,11 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     [ok] = mcall(Node,
                  [fun() ->
                           ok = erlang:load_nif(NifLib, []),
+                          %% Perform a dry run to ensure that all required code
+                          %% is loaded. Otherwise the test will fail since code
+                          %% loading is done through dirty IO and it won't make
+                          %% any progress during this test.
+                          _DryRun = test_dirty_scheduler_exit(),
 			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
 			  End = erlang:monotonic_time(millisecond),
@@ -171,19 +176,18 @@ test_dse(N,Pids) ->
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
-    wait_dse(Killed);
+    wait_dse(Killed, ok);
 kill_dse([Pid|Pids],AlreadyKilled) ->
     exit(Pid,kill),
     kill_dse(Pids,[Pid|AlreadyKilled]).
 
-wait_dse([]) ->
-    ok;
-wait_dse([Pid|Pids]) ->
+wait_dse([], Result) ->
+    Result;
+wait_dse([Pid|Pids], Result) ->
     receive
-        {'EXIT',Pid,Reason} ->
-	    killed = Reason
-    end,
-    wait_dse(Pids).
+        {'EXIT', Pid, killed} -> wait_dse(Pids, Result);
+        {'EXIT', Pid, _Other} -> wait_dse(Pids, failed)
+    end.
 
 dirty_call_while_terminated(Config) when is_list(Config) ->
     Me = self(),
@@ -287,9 +291,9 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% dirty NIF where the main lock is needed for that access do not get
 %% blocked. Each test passes its pid to dirty_sleeper, which sends a
 %% 'ready' message when it's running on a dirty scheduler and just before
-%% it starts a 6 second sleep. When it receives the message, it verifies
+%% it starts a 2 second sleep. When it receives the message, it verifies
 %% that access to the dirty process is as it expects.  After the dirty
-%% process finishes its 6 second sleep but before it returns from the dirty
+%% process finishes its 2 second sleep but before it returns from the dirty
 %% scheduler, it sends a 'done' message. If the tester already received
 %% that message, the test fails because it means attempting to access the
 %% dirty process waited for that process to return to a regular scheduler,
@@ -353,7 +357,7 @@ dirty_process_trace(Config) when is_list(Config) ->
 			      error(missing_trace_return_message)
 		      end
 	      after
-		  6500 ->
+		  2500 ->
 		      error(missing_done_message)
 	      end,
 	      ok
@@ -380,7 +384,7 @@ code_purge(Config) when is_list(Config) ->
     Start = erlang:monotonic_time(),
     {Pid1, Mon1} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -388,7 +392,7 @@ code_purge(Config) when is_list(Config) ->
     {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
     {Pid2, Mon2} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -490,7 +494,7 @@ test_dirty_process_access(Start, Test, Finish) ->
 			 ok
 		 end
 	 after
-	     3000 ->
+	     1000 ->
 		 error(timeout)
 	 end,
     ok = Finish(NifPid).

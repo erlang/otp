@@ -367,6 +367,8 @@ return term;</code>
             <c>enif_ioq_deq()</c></seealso></item>
             <item><seealso marker="#enif_ioq_peek">
             <c>enif_ioq_peek()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_peek_head">
+            <c>enif_ioq_peek_head()</c></seealso></item>
             <item><seealso marker="#enif_inspect_iovec">
             <c>enif_inspect_iovec()</c></seealso></item>
             <item><seealso marker="#enif_free_iovec">
@@ -1683,12 +1685,26 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       <fsummary>Peek inside the IO Queue</fsummary>
       <desc>
         <p>Get the I/O queue as a pointer to an array of <c>SysIOVec</c>s.
-          It also returns the number of elements in <c>iovlen</c>.
-          This is the only way to get data out of the queue.</p>
+           It also returns the number of elements in <c>iovlen</c>.</p>
         <p>Nothing is removed from the queue by this function, that must be done
           with <seealso marker="#enif_ioq_deq"><c>enif_ioq_deq</c></seealso>.</p>
          <p>The returned array is suitable to use with the Unix system
           call <c>writev</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_peek_head(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *bin_term)</nametext></name>
+      <fsummary>Peek the head of the IO Queue.</fsummary>
+      <desc>
+        <p>Get the head of the IO Queue as a binary term.</p>
+        <p>If <c>size</c> is not <c>NULL</c>, the size of the head is placed
+           there.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+           with <seealso marker="#enif_ioq_deq"><c>enif_ioq_deq</c></seealso>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if the queue is
+           empty.</p>
       </desc>
     </func>
 

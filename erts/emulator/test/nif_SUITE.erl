@@ -3037,14 +3037,17 @@ nif_ioq(Config) ->
          {enqbraw,a},
          {enqbraw,a, 5},
          {peek,   a},
+         {peek_head,  a},
          {deq,    a, 42},
 
          %% Test enqv
          {enqv,   a, 2, 100},
+         {peek_head,  a},
          {deq,    a, all},
 
          %% This skips all elements but one in the iolist
          {enqv,   a, 5, iolist_size(nif_ioq_payload(5)) - 1},
+         {peek_head,  a},
          {peek,   a},
 
          %% Test to enqueue a bunch of refc binaries
@@ -3074,8 +3077,12 @@ nif_ioq(Config) ->
 
     Q = ioq_nif(create),
 
+    false = ioq_nif(peek_head, Q),
+
     {'EXIT', {badarg, _}} = (catch ioq_nif(deq, Q, 1)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, 1, 1234)),
+
+    false = ioq_nif(peek_head, Q),
 
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [atom_in_list], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [make_ref()], 0)),
@@ -3084,6 +3091,8 @@ nif_ioq(Config) ->
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [#{}], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [1 bsl 64], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [{tuple}], 0)),
+
+    false = ioq_nif(peek_head, Q),
 
     {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [atom_in_list], use_stack)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [make_ref()], no_stack)),
@@ -3144,6 +3153,20 @@ nif_ioq_run([{peek, Name} = H|T], State) ->
     Data = ioq_nif(peek, IOQ, ioq_nif(size, IOQ)),
 
     true = iolist_to_binary(B) == iolist_to_binary(Data),
+    nif_ioq_run(T, State);
+nif_ioq_run([{peek_head, Name} = H|T], State) ->
+    #{ q := IOQ, b := B } = maps:get(Name, State),
+    RefData = iolist_to_binary(B),
+
+    ct:log("~p", [H]),
+
+    {true, QueueHead} = ioq_nif(peek_head, IOQ),
+    true = byte_size(QueueHead) > 0,
+
+    {RefHead, _Tail} = split_binary(RefData, byte_size(QueueHead)),
+
+    true = QueueHead =:= RefHead,
+
     nif_ioq_run(T, State);
 nif_ioq_run([{deq, Name, all}|T], State) ->
     #{ q := IOQ, b := B } = maps:get(Name, State),
