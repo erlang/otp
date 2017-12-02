@@ -2462,9 +2462,11 @@ cexpr(#icase{anno=A,args=Largs,clauses=Lcs,fc=Lfc}, As, St0) ->
 cexpr(#ireceive1{anno=A,clauses=Lcs}, As, St0) ->
     Exp = intersection(A#a.ns, As),		%Exports
     {Ccs,St1} = cclauses(Lcs, Exp, St0),
+    True = #c_literal{val=true},
+    Action = core_lib:make_values(lists:duplicate(1+length(Exp), True)),
     {#c_receive{anno=A#a.anno,
 		clauses=Ccs,
-		timeout=#c_literal{val=infinity},action=#c_literal{val=true}},
+		timeout=#c_literal{val=infinity},action=Action},
      Exp,A#a.us,St1};
 cexpr(#ireceive2{anno=A,clauses=Lcs,timeout=Lto,action=Les}, As, St0) ->
     Exp = intersection(A#a.ns, As),		%Exports
