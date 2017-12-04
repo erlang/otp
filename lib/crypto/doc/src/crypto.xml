@@ -1181,6 +1181,57 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       </desc>
     </func>
 
+    <func>
+      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg) -> Result</name>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <type>
+	<v>Engine = term()</v>
+	<v>CmdName = unicode:chardata()</v>
+	<v>CmdArg = unicode:chardata()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  This function is the same as calling <c>engine_ctrl_cmd_string/4</c> with 
+	  <c>Optional</c> set to <c>false</c>.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) -> Result</name>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <type>
+	<v>Engine = term()</v>
+	<v>CmdName = unicode:chardata()</v>
+	<v>CmdArg = unicode:chardata()</v>
+	<v>Optional = boolean()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  <c>Optional</c> is a boolean argument that can relax the semantics of the function. 
+	  If set to <c>true</c> it will only return failure if the ENGINE supported the given 
+	  command name but failed while executing it, if the ENGINE doesn't support the command 
+	  name it will simply return success without doing anything. In this case we assume 
+	  the user is only supplying commands specific to the given ENGINE so we set this to
+	  <c>false</c>.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is 
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
  </funcs>
 
   <!-- Maybe put this in the users guide -->

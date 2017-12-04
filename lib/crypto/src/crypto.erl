@@ -52,7 +52,9 @@
          engine_load/3,
          engine_load/4,
          engine_unload/1,
-         engine_list/0
+         engine_list/0,
+         engine_ctrl_cmd_string/3,
+         engine_ctrl_cmd_string/4
         ]).
 
 -export_type([engine_ref/0,
@@ -687,7 +689,7 @@ engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
 
 engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
     try
-        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds))),
+        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
         ok = engine_nif_wrapper(engine_add_nif(Engine)),
         ok = engine_nif_wrapper(engine_init_nif(Engine)),
         engine_load_2(Engine, PostCmds, EngineMethods),
@@ -701,7 +703,7 @@ engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
 
 engine_load_2(Engine, PostCmds, EngineMethods) ->
     try
-        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds))),
+        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds), 0)),
         [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
             Method <- EngineMethods],
         ok
@@ -767,6 +769,35 @@ engine_list(Engine0, IdList) ->
             end
     end.
 
+%%----------------------------------------------------------------------
+%% Function: engine_ctrl_cmd_string/3
+%%----------------------------------------------------------------------
+-spec engine_ctrl_cmd_string(Engine::term(),
+                      CmdName::unicode:chardata(), 
+                      CmdArg::unicode:chardata()) ->
+    ok | {error, Reason::term()}.
+engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
+    engine_ctrl_cmd_string(Engine, CmdName, CmdArg, false).
+
+%%----------------------------------------------------------------------
+%% Function: engine_ctrl_cmd_string/4
+%%----------------------------------------------------------------------
+-spec engine_ctrl_cmd_string(Engine::term(),
+                      CmdName::unicode:chardata(), 
+                      CmdArg::unicode:chardata(),
+                      Optional::boolean()) ->
+    ok | {error, Reason::term()}.
+engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
+    case engine_ctrl_cmd_strings_nif(Engine, 
+                                     ensure_bin_cmds([{CmdName, CmdArg}]), 
+                                     bool_to_int(Optional)) of
+        ok ->
+            ok;
+        notsup ->
+            erlang:error(notsup);
+        {error, Error} ->
+            {error, Error}
+    end.
 
 %%--------------------------------------------------------------------
 %%% On load
@@ -1266,7 +1297,7 @@ engine_init_nif(_Engine) -> ?nif_stub.
 engine_finish_nif(_Engine) -> ?nif_stub.
 engine_free_nif(_Engine) -> ?nif_stub.
 engine_load_dynamic_nif() -> ?nif_stub.
-engine_ctrl_cmd_strings_nif(_Engine, _Cmds) -> ?nif_stub.
+engine_ctrl_cmd_strings_nif(_Engine, _Cmds, _Optional) -> ?nif_stub.
 engine_add_nif(_Engine)  -> ?nif_stub.
 engine_remove_nif(_Engine)  -> ?nif_stub.
 engine_register_nif(_Engine, _EngineMethod) -> ?nif_stub.
@@ -1308,6 +1339,9 @@ engine_methods_convert_to_bitmask(engine_method_none, _BitMask) ->
     16#0000;
 engine_methods_convert_to_bitmask([M |Ms], BitMask) ->
     engine_methods_convert_to_bitmask(Ms, BitMask bor engine_method_atom_to_int(M)).
+
+bool_to_int(true) -> 1;
+bool_to_int(false) -> 0.
 
 engine_method_atom_to_int(engine_method_rsa) -> 16#0001;
 engine_method_atom_to_int(engine_method_dsa) -> 16#0002;
