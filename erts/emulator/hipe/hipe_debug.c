@@ -63,12 +63,13 @@ static void print_beam_pc(BeamInstr *pc)
 	printf("normal-process-exit");
     } else {
 	ErtsCodeMFA *cmfa = find_function_from_pc(pc);
-	if (cmfa)
+	if (cmfa) {
+	    fflush(stdout);
 	    erts_printf("%T:%T/%bpu + 0x%bpx",
 			cmfa->module, cmfa->function,
                         cmfa->arity,
                         pc - erts_codemfa_to_code(cmfa));
-	else
+	} else
 	    printf("?");
     }
 }
@@ -116,6 +117,7 @@ static void print_stack(Eterm *sp, Eterm *end)
 	    printf(" | 0x%0*lx | 0x%0*lx | ",
 		   2*(int)sizeof(long), (unsigned long)sp,
 		   2*(int)sizeof(long), (unsigned long)val);
+	    fflush(stdout);
 	    erts_printf("%.30T", val);
 	    printf("\r\n");
 	}
@@ -126,7 +128,9 @@ static void print_stack(Eterm *sp, Eterm *end)
 
 void hipe_print_estack(Process *p)
 {
-    printf(" |       BEAM  STACK       |\r\n");
+    printf(" | %*s BEAM   STACK %*s |\r\n",
+	   2*(int)sizeof(long)-3, "",
+	   2*(int)sizeof(long)-4, "");
     print_stack(p->stop, STACK_START(p));
 }
 
@@ -177,11 +181,15 @@ void hipe_print_heap(Process *p)
 void hipe_print_pcb(Process *p)
 {
     printf("P: 0x%0*lx\r\n", 2*(int)sizeof(long), (unsigned long)p);
-    printf("-----------------------------------------------\r\n");
-    printf("Offset| Name        | Value      | *Value     |\r\n");
+    printf("%.*s\r\n",
+           6+1+13+1+2*(int)sizeof(long)+4+1+2*(int)sizeof(long)+4+1,
+           "---------------------------------------------------------------");
+    printf("Offset| Name        | Value %*s | *Value %*s |\r\n",
+           2*(int)sizeof(long)-4, "",
+           2*(int)sizeof(long)-5, "");
 #undef U
 #define U(n,x) \
-    printf(" % 4d | %s | 0x%0*lx |            |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x)
+    printf(" % 4d | %s | 0x%0*lx | %*s |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long)+2, "")
 #undef P
 #define P(n,x) \
     printf(" % 4d | %s | 0x%0*lx | 0x%0*lx |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long), p->x ? (unsigned long)*(p->x) : -1UL)
@@ -245,5 +253,7 @@ void hipe_print_pcb(Process *p)
 #endif	/* HIPE */
 #undef U
 #undef P
-    printf("-----------------------------------------------\r\n");
+    printf("%.*s\r\n",
+           6+1+14+1+2*(int)sizeof(long)+4+1+2*(int)sizeof(long)+4+1,
+           "---------------------------------------------------------------");
 }
