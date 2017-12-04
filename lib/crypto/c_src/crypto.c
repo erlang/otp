@@ -587,7 +587,7 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_finish_nif", 1, engine_finish_nif},
     {"engine_free_nif", 1, engine_free_nif},
     {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif},
-    {"engine_ctrl_cmd_strings_nif", 2, engine_ctrl_cmd_strings_nif},
+    {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif},
     {"engine_register_nif", 2, engine_register_nif},
     {"engine_unregister_nif", 2, engine_unregister_nif},
     {"engine_add_nif", 1, engine_add_nif},
@@ -4994,7 +4994,7 @@ static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const 
     unsigned int cmds_len = 0;
     char **cmds = NULL;
     struct engine_ctx *ctx;
-    int i;
+    int i, optional = 0;
 
     // Get Engine
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
@@ -5018,11 +5018,16 @@ static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const 
         }
     }
 
+    if(!enif_get_int(env, argv[2], &optional)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter optional not an integer");
+        return enif_make_badarg(env);
+    }
+
     for(i = 0; i < cmds_len; i+=2) {
         PRINTF_ERR2("Cmd:  %s:%s\r\n",
                    cmds[i] ? cmds[i] : "(NULL)",
                    cmds[i+1] ? cmds[i+1] : "(NULL)");
-        if(!ENGINE_ctrl_cmd_string(ctx->engine, cmds[i], cmds[i+1], 0)) {
+        if(!ENGINE_ctrl_cmd_string(ctx->engine, cmds[i], cmds[i+1], optional)) {
             PRINTF_ERR2("Command failed:  %s:%s\r\n",
                         cmds[i] ? cmds[i] : "(NULL)",
                         cmds[i+1] ? cmds[i+1] : "(NULL)");
@@ -5031,7 +5036,7 @@ static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const 
             PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: {error, ctrl_cmd_failed}");
             goto error;
         }
-}
+    }
 
  error:
     for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
