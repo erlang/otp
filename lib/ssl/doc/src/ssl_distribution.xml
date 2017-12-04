@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -180,10 +180,96 @@ Eshell V5.0  (abort with ^G)
 
   <section>
     <title>Specifying SSL Options</title>
-    <p>For SSL to work, at least
-    a public key and a certificate must be specified for the server
-    side. In the following example, the PEM-files consist of two
-    entries, the server certificate and its private key.</p>
+
+    <p>
+      The SSL distribution options can be written into a file
+      that is consulted when the node is started.  This file name
+      is then specified with the command line argument
+      <c>-ssl_dist_optfile</c>.
+    </p>
+    <p>
+      Any available SSL option can be specified in an options file,
+      but note that options that take a <c>fun()</c> has to use
+      the syntax <c>fun Mod:Func/Arity</c> since a function
+      body can not be compiled when consulting a file.
+    </p>
+    <p>
+      Do not tamper with the socket options
+      <c>list</c>, <c>binary</c>, <c>active</c>, <c>packet</c>,
+      <c>nodelay</c> and <c>deliver</c> since they are used
+      by the distribution protocol handler itself.
+      Other raw socket options such as <c>packet_size</c> may
+      interfere severely, so beware!
+    </p>
+    <p>
+      For SSL to work, at least a public key and a certificate
+      must be specified for the server side.
+      In the following example, the PEM file
+      <c>"/home/me/ssl/erlserver.pem"</c> contains both
+      the server certificate and its private key.
+    </p>
+    <p>
+      Create a file named for example
+      <c>"/home/me/ssl/ssl_test@myhost.conf"</c>:
+    </p>
+    <code type="none"><![CDATA[
+[{server,
+  [{certfile, "/home/me/ssl/erlserver.pem"},
+   {secure_renegotiate, true}]},
+ {client,
+  [{secure_renegotiate, true}]}].]]>
+    </code>
+    <p>
+      And then start the node like this
+      (line breaks in the command are for readability,
+      and shall not be there when typed):
+    </p>
+    <code type="none"><![CDATA[
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
+  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
+  -sname ssl_test]]>
+    </code>
+    <p>
+      The options in the <c>{server, Opts}</c> tuple are used
+      when calling <c>ssl:ssl_accept/3</c>, and the options in the
+      <c>{client, Opts}</c> tuple are used when calling
+      <c>ssl:connect/4</c>.
+    </p>
+    <p>
+      For the client, the option
+      <c>{server_name_indication, atom_to_list(TargetNode)}</c>
+      is added when connecting.
+      This makes it possible to use the client option
+      <c>{verify, verify_peer}</c>,
+      and the client will verify that the certificate matches
+      the node name you are connecting to.
+      This only works if the the server certificate is issued
+      to the name <c>atom_to_list(TargetNode)</c>.
+    </p>
+    <p>
+      For the server it is also possible to use the option
+      <c>{verify, verify_peer}</c> and the server will only accept
+      client connections with certificates that are trusted by
+      a root certificate that the server knows.
+      A client that presents an untrusted certificate will be rejected.
+      This option is preferably combined with
+      <c>{fail_if_no_peer_cert, true}</c> or a client will
+      still be accepted if it does not present any certificate.
+    </p>
+    <p>
+      A node started in this way is fully functional, using SSL
+      as the distribution protocol.
+    </p>
+  </section>
+
+  <section>
+    <title>Specifying SSL Options (Legacy)</title>
+
+    <p>
+      As in the previous section the PEM file
+      <c>"/home/me/ssl/erlserver.pem"</c> contains both
+      the server certificate and its private key.
+    </p>
 
     <p>On the <c>erl</c> command line you can specify options that the
     SSL distribution adds when creating a socket.</p>
@@ -226,24 +312,26 @@ Eshell V5.0  (abort with ^G)
     SSL options and their values. Argument <c>-ssl_dist_opt</c> can
     be repeated any number of times.</p>
 
-      <p>An example command line can now look as follows
+    <p>
+      An example command line doing the same as the example
+      in the previous section can now look as follows
       (line breaks in the command are for readability, 
-      and are not be there when typed):</p>
-    <code type="none">
+      and shall not be there when typed):
+    </p>
+    <code type="none"><![CDATA[
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
-  -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem" 
+  -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem"
   -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true
   -sname ssl_test
 Erlang (BEAM) emulator version 5.0 [source]
- 
+
 Eshell V5.0  (abort with ^G)
-(ssl_test@myhost)1>     </code>
-    <p>A node started in this way is fully functional, using SSL
-      as the distribution protocol.</p>
+(ssl_test@myhost)1>]]>
+    </code>
   </section>
 
   <section>
-    <title>Setting up Environment to Always Use SSL</title>
+    <title>Setting up Environment to Always Use SSL (Legacy)</title>
     <p>A convenient way to specify arguments to Erlang is to use environment 
       variable <c>ERL_FLAGS</c>. All the flags needed to
       use the SSL distribution can be specified in that variable and are
@@ -285,15 +373,11 @@ Eshell V5.0  (abort with ^G)
     variable.</p>
 
     <p>An example command line with this option would look like this:</p>
-    <code type="none">
+    <code type="none"><![CDATA[
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet6_tls
-  -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem"
-  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true
-  -sname ssl_test
-Erlang (BEAM) emulator version 5.0 [source]
-
-Eshell V5.0  (abort with ^G)
-(ssl_test@myhost)1>     </code>
+  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
+  -sname ssl_test]]>
+    </code>
 
     <p>A node started in this way will only be able to communicate with
     other nodes using SSL distribution over IPv6.</p>

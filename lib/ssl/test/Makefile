@@ -37,6 +37,8 @@ VSN=$(GS_VSN)
 
 MODULES = \
 	ssl_test_lib \
+	ssl_bench_test_lib \
+	ssl_dist_test_lib \
 	ssl_alpn_handshake_SUITE \
 	ssl_basic_SUITE \
 	ssl_bench_SUITE \
@@ -44,6 +46,7 @@ MODULES = \
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
 	ssl_dist_SUITE \
+	ssl_dist_bench_SUITE \
 	ssl_engine_SUITE\
 	ssl_handshake_SUITE \
 	ssl_npn_hello_SUITE \
@@ -62,7 +65,8 @@ MODULES = \
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-HRL_FILES =
+HRL_FILES = \
+	ssl_dist_test_lib.hrl
 
 HRL_FILES_SRC = \
 	ssl_api.hrl\
