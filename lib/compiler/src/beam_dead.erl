@@ -272,7 +272,8 @@ backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
     end;
 backward([{jump,{f,To}}=J|[{bif,Op,{f,BifFail},Ops,Reg}|Is]=Is0], D, Acc) ->
     try replace_comp_op(To, Reg, Op, Ops, D) of
-	I -> backward(Is, D, I++Acc)
+	{Test,Jump} ->
+            backward([Jump,Test|Is], D, Acc)
     catch
 	throw:not_possible ->
 	    case To =:= BifFail of
@@ -446,7 +447,7 @@ prune_redundant([], _) -> [].
 replace_comp_op(To, Reg, Op, Ops, D) ->
     False = comp_op_find_shortcut(To, Reg, {atom,false}, D),
     True = comp_op_find_shortcut(To, Reg, {atom,true}, D),
-    [bif_to_test(Op, Ops, False),{jump,{f,True}}].
+    {bif_to_test(Op, Ops, False),{jump,{f,True}}}.
 
 comp_op_find_shortcut(To0, Reg, Val, D) ->
     case shortcut_select_label(To0, Reg, Val, D) of
@@ -483,15 +484,22 @@ not_possible() -> throw(not_possible).
 %%   F1:  is_eq_exact F2 Reg Lit2          F1: is_eq_exact F2 Reg Lit2
 %%   L2:  ....				   L2:
 %%
-combine_eqs(To, [Reg,{Type,_}=Lit1]=Ops, D, [{label,L1}|_])
-  when Type =:= atom; Type =:= integer ->
+combine_eqs(To, [Reg,{Type,_}=Lit1]=Ops, D, Acc)
+    when Type =:= atom; Type =:= integer ->
+    Next = case Acc of
+               [{label,Lbl}|_] -> Lbl;
+               [{jump,{f,Lbl}}|_] -> Lbl
+           end,
     case beam_utils:code_at(To, D) of
 	[{test,is_eq_exact,{f,F2},[Reg,{Type,_}=Lit2]},
 	 {label,L2}|_] when Lit1 =/= Lit2 ->
-	    {select,select_val,Reg,{f,F2},[Lit1,{f,L1},Lit2,{f,L2}]};
+	    {select,select_val,Reg,{f,F2},[Lit1,{f,Next},Lit2,{f,L2}]};
+	[{test,is_eq_exact,{f,F2},[Reg,{Type,_}=Lit2]},
+	 {jump,{f,L2}}|_] when Lit1 =/= Lit2 ->
+	    {select,select_val,Reg,{f,F2},[Lit1,{f,Next},Lit2,{f,L2}]};
 	[{select,select_val,Reg,{f,F2},[{Type,_}|_]=List0}|_] ->
 	    List = remove_from_list(Lit1, List0),
-	    {select,select_val,Reg,{f,F2},[Lit1,{f,L1}|List]};
+	    {select,select_val,Reg,{f,F2},[Lit1,{f,Next}|List]};
 	_Is ->
 	    {test,is_eq_exact,{f,To},Ops}
 	end;
