@@ -49,6 +49,7 @@
                     | {'logfile', string()}.
 -type option()     :: {'timeout', timeout()}
 		    | {'debug', [debug_flag()]}
+		    | {'hibernate_after', timeout()}
 		    | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type options()    :: [option()].
 
