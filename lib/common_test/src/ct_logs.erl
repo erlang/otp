@@ -3129,8 +3129,8 @@ locate_priv_file(FileName) ->
 			filename:join(get(ct_run_dir), FileName);
 		    _ ->			
 			%% executed on other process than ct_logs
-			{ok,RunDir} = get_log_dir(true),
-			filename:join(RunDir, FileName)
+			{ok,LogDir} = get_log_dir(true),
+			filename:join(LogDir, FileName)
 		end,
 	    case filelib:is_file(PrivResultFile) of
 		true ->
@@ -3212,6 +3212,10 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 					  ?all_runs_name), Cwd),
     TestIndex = make_relative(filename:join(filename:dirname(CtLogdir),
 					    ?index_name), Cwd),
+    LatestTest = make_relative(filename:join(filename:dirname(CtLogdir),
+                                           ?suitelog_name++".latest.html"),
+                             Cwd),
+
     case Basic of
 	true ->
 	    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
@@ -3238,7 +3242,9 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 	      "<a href=\"", uri(AllRuns),
 	      "\">Test run history\n</a>  |  ",
 	      "<a href=\"", uri(TestIndex),
-	      "\">Top level test index\n</a>\n</p>\n",
+	      "\">Top level test index\n</a>  |  ",
+	      "<a href=\"", uri(LatestTest),
+              "\">Latest test result</a>\n</p>\n",
 	      Copyright,"</center>\n</body>\n</html>\n"]};
 	_ ->
 	    Copyright = 
@@ -3285,7 +3291,9 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 	      "<a href=\"", uri(AllRuns),
 	      "\">Test run history\n</a>  |  ",
 	      "<a href=\"", uri(TestIndex),
-	      "\">Top level test index\n</a>\n</p>\n",
+	      "\">Top level test index\n</a>  |  ",
+	      "<a href=\"", uri(LatestTest),
+              "\">Latest test result</a>\n</p>\n",
 	      Copyright,"</center>\n</body>\n</html>\n"]}
     end.
 
