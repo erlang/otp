@@ -343,6 +343,7 @@ code_change(_,State,_)->
 % Start the gen_server
 %----------------------------------------------------------------------
 init({Path,Config})->
+    ct_util:mark_process(),
     case filelib:is_dir(Path) of
 	true ->
 	    {ok, Table} = get_tool_files_data(),

@@ -116,6 +116,7 @@ sync_notify(Event) ->
 %% this function is called to initialize the event handler.
 %%--------------------------------------------------------------------
 init(_) ->
+    ct_util:mark_process(),
     ct_master_logs:log("CT Master Event Handler started","",[]),
     {ok,#state{}}.
 

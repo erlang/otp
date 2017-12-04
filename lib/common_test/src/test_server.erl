@@ -415,6 +415,7 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
 	     status=starting,ret_val=[],comment="",timeout=infinity,
 	     config=hd(Args)},
+    ct_util:mark_process(),
     run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):
@@ -785,6 +786,7 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 	      Why,Loc,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
@@ -815,6 +817,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 	      Why,_Loc,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		{RetVal,Report} =
 		    case proplists:get_value(tc_status, EndConf) of
 			undefined ->
@@ -864,6 +867,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		test_server_sup:framework_call(report, [framework_error,
 							{{FwMod,FwFunc},
 							 FwError}]),
@@ -880,6 +884,7 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     spawn_link(FwCall);
 
 spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
+    ct_util:mark_process(),
     {Func1,EndTCFunc} = case Func of
 			    CF when CF == init_per_suite; CF == end_per_suite;
 				    CF == init_per_group; CF == end_per_group ->
@@ -918,6 +923,7 @@ start_job_proxy() ->
 
 %% The io_reply_proxy is not the most satisfying solution but it works...
 io_reply_proxy(ReplyTo) ->
+    ct_util:mark_process(),
     receive
 	IoReply when is_tuple(IoReply),
 		     element(1, IoReply) == io_reply ->
@@ -927,6 +933,7 @@ io_reply_proxy(ReplyTo) ->
     end.
 
 job_proxy_msgloop() ->
+    ct_util:mark_process(),
     receive
 
 	%%
@@ -1804,6 +1811,7 @@ break(CBM, TestCase, Comment) ->
 spawn_break_process(Pid, PName) ->
     spawn(fun() ->
 		  register(PName, self()),
+                  ct_util:mark_process(),
 		  receive
 		      continue -> continue(Pid);
 		      cancel -> ok
@@ -2001,6 +2009,7 @@ time_ms_apply(Func, TCPid, MultAndScale) ->
 
 user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     Spawner ! {self(),infinity},
     MonRef = monitor(process, TCPid),
     UserTTSup = self(),
@@ -2571,6 +2580,7 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 -spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
 start_job_proxy_fun(Master, Fun) ->
     fun () ->
+            ct_util:mark_process(),
             _ = start_job_proxy(),
             receive
                 Ref ->

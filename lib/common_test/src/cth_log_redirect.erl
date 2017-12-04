@@ -56,6 +56,7 @@ id(_Opts) ->
     ?MODULE.
 
 init(?MODULE, _Opts) ->
+    ct_util:mark_process(),
     error_logger:add_report_handler(?MODULE),
     tc_log_async.
 

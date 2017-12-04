@@ -78,6 +78,7 @@ release() ->
 
 %% @doc Initiates the server
 init(Id) ->
+    ct_util:mark_process(),
     {ok, #state{ id = Id }}.
 
 %% @doc Handling call messages

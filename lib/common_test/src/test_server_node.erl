@@ -749,6 +749,7 @@ unpack(Bin) ->
 id(I) -> I.
    
 print_data(Port) ->
+    ct_util:mark_process(),
     receive
 	{Port, {data, Bytes}} ->
 	    io:put_chars(Bytes),

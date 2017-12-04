@@ -137,6 +137,7 @@ is_alive() ->
 %% this function is called to initialize the event handler.
 %%--------------------------------------------------------------------
 init(RecvPids) ->
+    ct_util:mark_process(),
     %% RecvPids = [{RecvTag,Pid}]
     {ok,#state{receivers=RecvPids}}.
 

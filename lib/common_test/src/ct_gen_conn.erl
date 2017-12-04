@@ -186,9 +186,11 @@ end_log() ->
 do_within_time(Fun,Timeout) ->
     Self = self(),
     Silent = get(silent),
-    TmpPid = spawn_link(fun() -> put(silent,Silent),
-				 R = Fun(),
-				 Self ! {self(),R}
+    TmpPid = spawn_link(fun() -> 
+                                ct_util:mark_process(),
+                                put(silent,Silent),
+                                R = Fun(),
+                                Self ! {self(),R}
 			end),
     ConnPid = get(conn_pid),
     receive
@@ -301,6 +303,7 @@ return({To,Ref},Result) ->
 
 init_gen(Parent,Opts) ->
     process_flag(trap_exit,true),
+    ct_util:mark_process(),
     put(silent,false),
     try (Opts#gen_opts.callback):init(Opts#gen_opts.name,
 				      Opts#gen_opts.address,

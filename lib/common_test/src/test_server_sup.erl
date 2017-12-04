@@ -56,6 +56,7 @@ timetrap(Timeout0, Scale, Pid) ->
 
 timetrap(Timeout0, ReportTVal, Scale, Pid) ->
     process_flag(priority, max),
+    ct_util:mark_process(),
     Timeout = if not Scale -> Timeout0;
 		 true -> test_server:timetrap_scale_factor() * Timeout0
 	      end,
@@ -773,6 +774,7 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
 		false ->
 		    ok
 	    end,
+            ct_util:mark_process(),
 	    try apply(Mod,Func,Args) of
 		Result ->
 		    Result
@@ -850,6 +852,7 @@ util_start() ->
 	undefined ->	
 	    spawn_link(fun() ->
 			       register(?MODULE, self()),
+                               put(app, common_test),
 			       util_loop(#util_state{starter=Starter})
 		       end),
 	    ok;

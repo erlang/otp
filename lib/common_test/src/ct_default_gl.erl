@@ -55,6 +55,7 @@ stop() ->
 
 init([ParentGL]) ->
     register(?MODULE, self()),
+    ct_util:mark_process(),
     {ok,#{parent_gl_pid => ParentGL,
 	  parent_gl_monitor => erlang:monitor(process,ParentGL)}}.
 

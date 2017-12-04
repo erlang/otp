@@ -88,6 +88,7 @@ stop() ->
 
 init(Parent,LogDir,Nodes) ->
     register(?MODULE,self()),
+    ct_util:mark_process(),
     Time = calendar:local_time(),
     RunDir = make_dirname(Time),
     RunDirAbs = filename:join(LogDir,RunDir),
