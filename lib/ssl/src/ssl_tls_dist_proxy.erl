@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 -module(ssl_tls_dist_proxy).
 
 
--export([listen/2, accept/2, connect/3, get_tcp_address/1]).
+-export([listen/2, accept/2, connect/4, get_tcp_address/1]).
 -export([init/1, start_link/0, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3, ssl_options/2]).
 
@@ -45,8 +45,9 @@ listen(Driver, Name) ->
 accept(Driver, Listen) ->
     gen_server:call(?MODULE, {accept, Driver, Listen}, infinity).
 
-connect(Driver, Ip, Port) ->
-    gen_server:call(?MODULE, {connect, Driver, Ip, Port}, infinity).
+connect(Driver, Ip, Port, ExtraOpts) ->
+    gen_server:call(
+      ?MODULE, {connect, Driver, Ip, Port, ExtraOpts}, infinity).
 
 
 do_listen(Options) ->
@@ -134,9 +135,11 @@ handle_call({accept, _Driver, Listen}, {From, _}, State = #state{listen={_, Worl
     WorldPid = spawn_link(fun() -> accept_loop(Self, world, World, Listen) end),
     {reply, ErtsPid, State#state{accept_loop={ErtsPid, WorldPid}}};
 
-handle_call({connect, Driver, Ip, Port}, {From, _}, State) ->
+handle_call({connect, Driver, Ip, Port, ExtraOpts}, {From, _}, State) ->
     Me = self(),
-    Pid = spawn_link(fun() -> setup_proxy(Driver, Ip, Port, Me) end),
+    Pid =
+        spawn_link(
+          fun() -> setup_proxy(Driver, Ip, Port, ExtraOpts, Me) end),
     receive 
 	{Pid, go_ahead, LPort} -> 
 	    Res = {ok, Socket} = try_connect(LPort),
@@ -270,9 +273,9 @@ try_connect(Port) ->
 	    try_connect(Port)
     end.
 
-setup_proxy(Driver, Ip, Port, Parent) ->
+setup_proxy(Driver, Ip, Port, ExtraOpts, Parent) ->
     process_flag(trap_exit, true),
-    Opts = connect_options(get_ssl_options(client)),
+    Opts = connect_options(ExtraOpts ++ get_ssl_options(client)),
     case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay(),
                                 Driver:family()] ++ Opts) of
 	{ok, World} ->
@@ -369,6 +372,17 @@ loop_conn(World, Erts) ->
     end.
 
 get_ssl_options(Type) ->
+    try ets:lookup(ssl_dist_opts, Type) of
+        [{Type, Opts}] ->
+            [{erl_dist, true} | Opts];
+        _ ->
+            get_ssl_dist_arguments(Type)
+    catch
+        error:badarg ->
+            get_ssl_dist_arguments(Type)
+    end.
+
+get_ssl_dist_arguments(Type) ->
     case init:get_argument(ssl_dist_opt) of
 	{ok, Args} ->
 	    [{erl_dist, true} | ssl_options(Type, lists:append(Args))];

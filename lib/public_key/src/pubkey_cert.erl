@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,11 +33,12 @@
 	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
 	 select_extension/2, match_name/3,
 	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1,
-         gen_test_certs/1]).
+         gen_test_certs/1, root_cert/2]).
 
 -define(NULL, 0).
 
--export_type([chain_opts/0, test_config/0]).
+-export_type([cert_opt/0, chain_opts/0, conf_opt/0,
+              test_config/0, test_root_cert/0]).
 
 -type cert_opt()  :: {digest, public_key:digest_type()} | 
                      {key, public_key:key_params() | public_key:private_key()} | 
@@ -46,9 +47,12 @@
 -type chain_end()   :: root | peer.
 -type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
 -type conf_opt()    :: {cert, public_key:der_encoded()} | 
-                       {key,  public_key:der_encoded()} |
+                       {key,  public_key:private_key()} |
                        {cacerts, [public_key:der_encoded()]}.
--type test_config() :: #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
+-type test_config() ::
+        #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
+-type test_root_cert() ::
+        #{cert := binary(), key := public_key:private_key()}.
 %%====================================================================
 %% Internal application APIu
 %%====================================================================
@@ -430,31 +434,94 @@ match_name(Fun, Name, PermittedName, [Head | Tail]) ->
 	false ->
 	    match_name(Fun, Name, Head, Tail)
     end.
+
 %%%
--spec gen_test_certs(#{server_chain:= chain_opts(), client_chain:= chain_opts()}) -> test_config().
- 
-%% Generates server and and client configuration for testing 
+-spec gen_test_certs(#{server_chain:= chain_opts(),
+                       client_chain:= chain_opts()} |
+                     chain_opts()) ->
+                            test_config() |
+                            [conf_opt()].
+%%
+%% Generates server and and client configuration for testing
 %% purposes. All certificate options have default values
-gen_test_certs(#{client_chain := #{root := ClientRootConf,
-                                   intermediates := ClientCAs,
-                                   peer := ClientPeer}, 
-                 server_chain := 
-                     #{root := ServerRootConf,
-                       intermediates := ServerCAs,
-                       peer := ServerPeer}}) ->
-    SRootKey = gen_key(proplists:get_value(key, ServerRootConf, default_key_gen())),
-    CRootKey = gen_key(proplists:get_value(key, ClientRootConf, default_key_gen())),
-    ServerRoot = root_cert("server", SRootKey, ClientRootConf),
-    ClientRoot = root_cert("client", CRootKey, ServerRootConf),
-    
-    [{ServerDERCert, ServerDERKey} | ServerCAsKeys] = config(server, ServerRoot, 
-                                                       SRootKey, lists:reverse([ServerPeer | lists:reverse(ServerCAs)])),
-    [{ClientDERCert, ClientDERKey} | ClientCAsKeys] = config(client, ClientRoot, 
-                                                       CRootKey, lists:reverse([ClientPeer | lists:reverse(ClientCAs)])),
-    ServerDERCA = ca_config(ClientRoot, ServerCAsKeys),
-    ClientDERCA = ca_config(ServerRoot, ClientCAsKeys),
-    #{server_config => [{cert, ServerDERCert}, {key, ServerDERKey}, {cacerts, ServerDERCA}], 
-      client_config => [{cert, ClientDERCert}, {key, ClientDERKey}, {cacerts, ClientDERCA}]}.
+gen_test_certs(
+  #{client_chain :=
+        #{root := ClientRoot,
+          intermediates := ClientCAs,
+          peer := ClientPeer},
+    server_chain :=
+        #{root := ServerRoot,
+          intermediates := ServerCAs,
+          peer := ServerPeer}}) ->
+    #{cert := ServerRootCert, key := ServerRootKey} =
+        case ServerRoot of
+            #{} ->
+                ServerRoot;
+            ServerRootConf when is_list(ServerRootConf) ->
+                root_cert("SERVER ROOT CA", ServerRootConf)
+        end,
+    #{cert := ClientRootCert, key := ClientRootKey} =
+        case ClientRoot of
+            #{} ->
+                ClientRoot;
+            ClientRootConf when is_list(ClientRootConf) ->
+                root_cert("CLIENT ROOT CA", ClientRootConf)
+        end,
+    [{ServerDERCert, ServerDERKey} | ServerCAsKeys] =
+        config(
+          server, ServerRootCert, ServerRootKey,
+          lists:reverse([ServerPeer | lists:reverse(ServerCAs)])),
+    [{ClientDERCert, ClientDERKey} | ClientCAsKeys] =
+        config(
+          client, ClientRootCert, ClientRootKey,
+          lists:reverse([ClientPeer | lists:reverse(ClientCAs)])),
+    ServerDERCA = ca_config(ClientRootCert, ServerCAsKeys),
+    ClientDERCA = ca_config(ServerRootCert, ClientCAsKeys),
+    #{server_config =>
+          [{cert, ServerDERCert}, {key, ServerDERKey},
+           {cacerts, ServerDERCA}],
+      client_config =>
+          [{cert, ClientDERCert}, {key, ClientDERKey},
+           {cacerts, ClientDERCA}]};
+%%
+%% Generates a node configuration for testing purposes,
+%% when using the node server cert also for the client.
+%% All certificate options have default values
+gen_test_certs(
+  #{root := Root, intermediates := CAs, peer := Peer}) ->
+    #{cert := RootCert, key := RootKey} =
+        case Root of
+            #{} ->
+                Root;
+            RootConf when is_list(RootConf) ->
+                root_cert("SERVER ROOT CA", RootConf)
+        end,
+    [{DERCert, DERKey} | CAsKeys] =
+        config(
+          server, RootCert, RootKey,
+          lists:reverse([Peer | lists:reverse(CAs)])),
+    DERCAs = ca_config(RootCert, CAsKeys),
+    [{cert, DERCert}, {key, DERKey}, {cacerts, DERCAs}].
+
+%%%
+-spec root_cert(string(), [cert_opt()]) -> test_root_cert().
+%%
+%% Generate a self-signed root cert
+root_cert(Name, Opts) ->
+    PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
+    TBS = cert_template(),
+    Issuer = subject("root", Name),
+    OTPTBS =
+        TBS#'OTPTBSCertificate'{
+          signature = sign_algorithm(PrivKey, Opts),
+          issuer = Issuer,
+          validity = validity(Opts),
+          subject = Issuer,
+          subjectPublicKeyInfo = public_key(PrivKey),
+          extensions = extensions(undefined, ca, Opts)
+         },
+    #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
+      key => PrivKey}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1103,7 +1170,7 @@ missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserS
 	     UserState}
     end.
 
- gen_key(KeyGen) ->
+gen_key(KeyGen) ->
      case is_key(KeyGen) of
          true ->
              KeyGen;
@@ -1120,28 +1187,14 @@ is_key(#'ECPrivateKey'{}) ->
 is_key(_) ->
     false.
 
-root_cert(Role, PrivKey, Opts) ->
-     TBS = cert_template(),
-     Issuer = issuer("root", Role, " ROOT CA"),
-     OTPTBS = TBS#'OTPTBSCertificate'{
-                signature = sign_algorithm(PrivKey, Opts),
-                issuer = Issuer,
-                validity = validity(Opts),  
-                subject = Issuer,
-                subjectPublicKeyInfo = public_key(PrivKey),
-                extensions = extensions(Role, ca, Opts)
-               },
-     public_key:pkix_sign(OTPTBS, PrivKey).
 
 cert_template() ->
     #'OTPTBSCertificate'{
        version = v3,              
-       serialNumber = trunc(rand:uniform()*100000000)*10000 + 1,
+       serialNumber = erlang:unique_integer([positive, monotonic]),
        issuerUniqueID = asn1_NOVALUE,       
        subjectUniqueID = asn1_NOVALUE
       }.
-issuer(Contact, Role, Name) ->
-  subject(Contact, Role ++ Name).
 
 subject(Contact, Name) ->
     Opts = [{email, Contact ++ "@example.org"},
@@ -1176,9 +1229,11 @@ validity(Opts) ->
     DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
-    Format = fun({Y,M,D}) -> 
-                     lists:flatten(io_lib:format("~w~2..0w~2..0w000000Z",[Y,M,D])) 
-             end,
+    Format =
+        fun({Y,M,D}) ->
+                lists:flatten(
+                  io_lib:format("~4..0w~2..0w~2..0w000000Z",[Y,M,D]))
+        end,
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.
 
@@ -1240,7 +1295,6 @@ cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Iss
                subject = subject(Contact, atom_to_list(Role) ++ Name),
                subjectPublicKeyInfo = public_key(Key),
                extensions = extensions(Role, Type, Opts)
-               
               },
     public_key:pkix_sign(OTPTBS, PrivKey).
 
@@ -1297,7 +1351,7 @@ add_default_extensions(server, peer, Exts) ->
               ],
     add_default_extensions(Default, Exts);
     
-add_default_extensions(_, peer, Exts) ->
+add_default_extensions(client, peer, Exts) ->
     Exts.
 
 add_default_extensions(Defaults0, Exts) ->
