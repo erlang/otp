@@ -184,6 +184,7 @@ reset_state() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     Empty = gb_trees:empty(),
     {ok,Shared} = test_server_gl:start_link(self()),
     {ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
@@ -262,7 +263,7 @@ handle_call(reset_state, From, #st{phase=stopping,pending_ops=Ops}=St) ->
 		 {Result,NewSt1}
 	 end,
     {noreply,St#st{pending_ops=[{From,Op}|Ops]}};
-handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
+handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,shared_gl=Shared0,gls=Gls,
 				    offline_buffer=OfflineBuff}) ->
     %% close open log files
     lists:foreach(fun(Tag) ->
@@ -273,6 +274,7 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 				  file:close(Fd)
 			  end
 		  end, Tags),
+    test_server_gl:stop(Shared0),
     GlList = gb_sets:to_list(Gls),
     _ = [test_server_gl:stop(GL) || GL <- GlList],
     timer:sleep(100),
@@ -320,7 +322,7 @@ handle_call(finish, From, St) ->
 
 handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
     Gls = gb_sets:delete_any(Pid, Gls0),
-    case gb_sets:is_empty(Gls) andalso stopping =/= undefined of
+    case gb_sets:is_empty(Gls) andalso From =/= undefined of
 	true ->
 	    %% No more group leaders left.
 	    gen_server:reply(From, ok),
@@ -329,6 +331,9 @@ handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
 	    %% Wait for more group leaders to finish.
 	    {noreply,St#st{gls=Gls,phase=stopping}}
     end;
+handle_info({'EXIT',Pid,killed}, #st{gls=Gls0}=St) ->
+    %% forced termination of group leader
+    {noreply,St#st{gls=gb_sets:delete_any(Pid, Gls0)}};
 handle_info({'EXIT',_Pid,Reason}, _St) ->
     exit(Reason);
 handle_info(stop_group_leaders, #st{gls=Gls}=St) ->

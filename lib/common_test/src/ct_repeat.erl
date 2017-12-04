@@ -70,6 +70,7 @@ loop_test(If,Args) when is_list(Args) ->
 				    CtrlPid = self(),
 				    spawn(
 				      fun() ->
+                                              ct_util:mark_process(),
 					      stop_after(CtrlPid,Secs,ForceStop)
 				      end)
 			    end,
@@ -134,6 +135,7 @@ spawn_tester(script,Ctrl,Args) ->
 
 spawn_tester(func,Ctrl,Opts) ->
     Tester = fun() ->
+                     ct_util:mark_process(),
 		     case catch ct_run:run_test2(Opts) of
 			 {'EXIT',Reason} ->
 			     exit(Reason);

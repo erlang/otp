@@ -157,6 +157,7 @@ test_info(_VtsPid,Type,Data) ->
 init(Parent) ->
     register(?MODULE,self()),
     process_flag(trap_exit,true),
+    ct_util:mark_process(),
     Parent ! {self(),started},
     {ok,Cwd} = file:get_cwd(),
     InitState = #state{start_dir=Cwd},
@@ -284,6 +285,7 @@ run_test1(State=#state{tests=Tests,current_log_dir=LogDir,
 		       logopts=LogOpts}) ->
     Self=self(),
     RunTest = fun() ->
+                      ct_util:mark_process(),
 		      case ct_run:do_run(Tests,[],LogDir,LogOpts) of
 			  {error,_Reason} ->
 			      aborted();

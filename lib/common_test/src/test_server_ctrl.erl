@@ -1127,6 +1127,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	    RejectIoReqs, CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
     _ = test_server_io:start_link(),
+    put(app, common_test),
     put(test_server_name, Name),
     put(test_server_dir, Dir),
     put(test_server_total_time, 0),
@@ -3724,6 +3725,7 @@ run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData, Mode) ->
 	    spawn_link(
 	      fun() ->
 		      process_flag(trap_exit, true),
+                      ct_util:mark_process(),
 		      _ = [put(Key, Val) || {Key,Val} <- Dictionary],
 		      set_io_buffering({tc,Main}),
 		      run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
