@@ -299,7 +299,7 @@ open_help(_Parent, HelpHtmlFile) ->
 %%--------------------------------------------------------------------
     
 to_string(Atom) when is_atom(Atom) ->
-    io_lib:format("~tw", [Atom]);
+    atom_to_list(Atom);
 to_string(Integer) when is_integer(Integer) ->
     integer_to_list(Integer);
 to_string([]) -> "";
