@@ -542,6 +542,13 @@ put_list(Hd, Tl, Dst) {
     HTOP += 2;
 }
 
+update_list(Hd, Dst) {
+    HTOP[0] = $Hd;
+    HTOP[1] = $Dst;
+    $Dst = make_list(HTOP);
+    HTOP += 2;
+}
+
 i_put_tuple := i_put_tuple.make.fill;
 
 i_put_tuple.make(Dst) {

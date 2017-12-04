@@ -40,7 +40,7 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         check_bitstring_list/1]).
+         check_bitstring_list/1,guard/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -73,7 +73,7 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       check_bitstring_list]}].
+       check_bitstring_list,guard]}].
 
 
 init_per_suite(Config) ->
@@ -1586,6 +1586,18 @@ check_bitstring_list(<<>>, []) ->
     true;
 check_bitstring_list(_, _) ->
     false.
+
+guard(_Config) ->
+    Tuple = id({a,b}),
+    ok = guard_1(<<1,2,3>>, {1,2,3}),
+
+    ok.
+
+%% Cover handling of #k_put{} in v3_codegen:bsm_rename_ctx/4.
+
+guard_1(<<A,B,C>>, Tuple) when Tuple =:= {A,B,C} ->
+    ok.
+
 
 check(F, R) ->
     R = F().
