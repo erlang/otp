@@ -28,14 +28,16 @@
      init_per_testcase/2, end_per_testcase/2]).
 
 -export(
-    [toggle_lock_counting/1, error_on_invalid_category/1, preserve_locks/1]).
+    [toggle_lock_counting/1, error_on_invalid_category/1, preserve_locks/1,
+     registered_processes/1, registered_db_tables/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 10}}].
 
 all() ->
-    [toggle_lock_counting, error_on_invalid_category, preserve_locks].
+    [toggle_lock_counting, error_on_invalid_category, preserve_locks,
+     registered_processes, registered_db_tables].
 
 init_per_suite(Config) ->
     case erlang:system_info(lock_counting) of
@@ -153,4 +155,26 @@ preserve_locks(Config) when is_list(Config) ->
 
 error_on_invalid_category(Config) when is_list(Config) ->
     {error, badarg, q_invalid} = erts_debug:lcnt_control(mask, [q_invalid]),
+    ok.
+
+registered_processes(Config) when is_list(Config) ->
+    %% There ought to be at least one registered process (init/code_server)
+    erts_debug:lcnt_control(mask, [process]),
+    [_, {locks, ProcLocks}] = erts_debug:lcnt_collect(),
+    true = lists:any(
+        fun
+            ({proc_main, RegName, _, _}) when is_atom(RegName) -> true;
+            (_Lock) -> false
+        end, ProcLocks),
+    ok.
+
+registered_db_tables(Config) when is_list(Config) ->
+    %% There ought to be at least one registered table (code)
+    erts_debug:lcnt_control(mask, [db]),
+    [_, {locks, DbLocks}] = erts_debug:lcnt_collect(),
+    true = lists:any(
+        fun
+            ({db_tab, RegName, _, _}) when is_atom(RegName) -> true;
+            (_Lock) -> false
+        end, DbLocks),
     ok.
