@@ -495,7 +495,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 	       #state{session = #session{session_id = OldId},
 		      negotiated_version = ReqVersion,
 		      negotiated_protocol = CurrentProtocol} = State0) ->
-    {KeyAlgorithm, _, _, _} =
+    #{key_exchange := KeyAlgorithm} =
 	ssl_cipher:suite_definition(CipherSuite),
     
     PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
@@ -1406,9 +1406,9 @@ connection_info(#state{sni_hostname = SNIHostname,
 		       negotiated_version =  {_,_} = Version, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
-    CipherSuiteDef = ssl_cipher:erl_suite_definition(CipherSuite),
-    IsNamedCurveSuite = lists:member(element(1,CipherSuiteDef),
-			      [ecdh_ecdsa, ecdhe_ecdsa, ecdh_anon]),
+    CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher:suite_definition(CipherSuite),
+    IsNamedCurveSuite = lists:member(KexAlg,
+                                     [ecdh_ecdsa, ecdhe_ecdsa, ecdh_anon]),
     CurveInfo = case ECCCurve of
 		    {namedCurve, Curve} when IsNamedCurveSuite ->
 			[{ecc, {named_curve, pubkey_cert_records:namedCurves(Curve)}}];
@@ -1417,7 +1417,7 @@ connection_info(#state{sni_hostname = SNIHostname,
 		end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
-     {cipher_suite, CipherSuiteDef},
+     {cipher_suite, ssl_cipher:erl_suite_definition(CipherSuiteDef)},
      {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = ConnectionStates}) ->
@@ -1485,7 +1485,7 @@ resumed_server_hello(#state{session = Session,
 
 server_hello(ServerHello, State0, Connection) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
-    {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
+    #{key_exchange := KeyAlgorithm}  = ssl_cipher:suite_definition(CipherSuite),
     State = Connection:queue_handshake(ServerHello, State0),
     State#state{key_algorithm = KeyAlgorithm}.
 
@@ -1499,8 +1499,8 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
     State1 = State0#state{session =
 			 Session#session{peer_certificate = PeerCert},
 			 public_key_info = PublicKeyInfo},
-    {KeyAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
-    State2 = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlg, State1),
+    #{key_exchange := KeyAlgorithm} = ssl_cipher:suite_definition(CipherSuite),
+    State2 = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
 
     {Record, State} = Connection:next_record(State2),
     Connection:next_event(certify, Record, State).

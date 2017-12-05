@@ -374,13 +374,12 @@ negotiated_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_protocol(Pid).
 
 %%--------------------------------------------------------------------
--spec cipher_suites() -> [ssl_cipher:erl_cipher_suite()] | [string()].
+-spec cipher_suites() -> [ssl_cipher:old_erl_cipher_suite()] | [string()].
 %%--------------------------------------------------------------------
 cipher_suites() ->
     cipher_suites(erlang).
 %%--------------------------------------------------------------------
--spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:erl_cipher_suite()] |
-					       [string()].
+-spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:old_erl_cipher_suite() | string()].
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
@@ -1153,9 +1152,8 @@ binary_cipher_suites(Version, []) ->
     %% not require explicit configuration
     ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version)));
 binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
-    Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
+    Ciphers = [ssl_cipher:suite(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
-
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     All = ssl_cipher:all_suites(tls_version(Version)),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
@@ -1174,6 +1172,17 @@ binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
+
+tuple_to_map({Kex, Cipher, Mac}) ->
+    #{key_exchange => Kex,
+      cipher => Cipher,
+      mac => Mac,
+      prf => default_prf};
+tuple_to_map({Kex, Cipher, Mac, Prf}) ->
+    #{key_exchange => Kex,
+      cipher => Cipher,
+      mac => Mac,
+      prf => Prf}.
 
 handle_eccs_option(Value, Version) when is_list(Value) ->
     {_Major, Minor} = tls_version(Version),
