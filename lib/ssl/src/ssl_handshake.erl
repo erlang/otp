@@ -1155,21 +1155,21 @@ certificate_types(_, {N, M}) when N >= 3 andalso M >= 3 ->
 	    <<?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>
     end;
 
-certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == rsa;
-						  KeyExchange == dh_rsa;
-						  KeyExchange == dhe_rsa;
-						  KeyExchange == ecdhe_rsa ->
+certificate_types(#{key_exchange := KeyExchange}, _) when KeyExchange == rsa;
+                                                          KeyExchange == dh_rsa;
+                                                          KeyExchange == dhe_rsa;
+                                                          KeyExchange == ecdhe_rsa ->
     <<?BYTE(?RSA_SIGN)>>;
 
-certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dh_dss; 
-						   KeyExchange == dhe_dss;
-						   KeyExchange == srp_dss ->
+certificate_types(#{key_exchange := KeyExchange}, _)  when KeyExchange == dh_dss; 
+                                                           KeyExchange == dhe_dss;
+                                                           KeyExchange == srp_dss ->
     <<?BYTE(?DSS_SIGN)>>;
 
-certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == dh_ecdsa;
-						  KeyExchange == dhe_ecdsa;
-						  KeyExchange == ecdh_ecdsa;
-						  KeyExchange == ecdhe_ecdsa ->
+certificate_types(#{key_exchange := KeyExchange}, _) when KeyExchange == dh_ecdsa;
+                                                          KeyExchange == dhe_ecdsa;
+                                                          KeyExchange == ecdh_ecdsa;
+                                                          KeyExchange == ecdhe_ecdsa ->
     <<?BYTE(?ECDSA_SIGN)>>;
 
 certificate_types(_, _) ->
@@ -1996,23 +1996,23 @@ handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
 
 filter_hashsigns([], [], _, Acc) ->
     lists:reverse(Acc);
-filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns,
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns,
 		 Acc) when KeyExchange == dhe_ecdsa;
 			   KeyExchange == ecdhe_ecdsa ->
     do_filter_hashsigns(ecdsa, Suite, Suites, Algos, HashSigns, Acc);
 
-filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns,
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns,
 		 Acc) when KeyExchange == rsa;
 			   KeyExchange == dhe_rsa;
 			   KeyExchange == ecdhe_rsa;
 			   KeyExchange == srp_rsa;
 			   KeyExchange == rsa_psk ->
     do_filter_hashsigns(rsa, Suite, Suites, Algos, HashSigns, Acc);
-filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc) when 
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
       KeyExchange == dhe_dss;
       KeyExchange == srp_dss ->							       
     do_filter_hashsigns(dsa, Suite, Suites, Algos, HashSigns, Acc);
-filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc) when 
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
       KeyExchange == dh_dss; 
       KeyExchange == dh_rsa; 
       KeyExchange == dh_ecdsa;
@@ -2022,7 +2022,7 @@ filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc
       %%  algorithm pair appearing in the hash_sign extension.  The names
     %%  DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are historical.
     filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]);
-filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc) when 
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
       KeyExchange == dh_anon;
       KeyExchange == ecdh_anon;
       KeyExchange == srp_anon;
@@ -2226,15 +2226,15 @@ handle_ecc_point_fmt_extension(_) ->
 
 advertises_ec_ciphers([]) ->
     false;
-advertises_ec_ciphers([{ecdh_ecdsa, _,_,_} | _]) ->
+advertises_ec_ciphers([#{key_exchange := ecdh_ecdsa} | _]) ->
     true;
-advertises_ec_ciphers([{ecdhe_ecdsa, _,_,_} | _]) ->
+advertises_ec_ciphers([#{key_exchange := ecdhe_ecdsa} | _]) ->
     true;
-advertises_ec_ciphers([{ecdh_rsa, _,_,_} | _]) ->
+advertises_ec_ciphers([#{key_exchange := ecdh_rsa} | _]) ->
     true;
-advertises_ec_ciphers([{ecdhe_rsa, _,_,_} | _]) ->
+advertises_ec_ciphers([#{key_exchange := ecdhe_rsa} | _]) ->
     true;
-advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
+advertises_ec_ciphers([#{key_exchange := ecdh_anon} | _]) ->
     true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).
