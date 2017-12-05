@@ -357,14 +357,9 @@ match(#k_alt{anno=A,first=Kf,then=Kt}, Ls, I, Vdb0) ->
     F = match(Kf, Ls, I+1, Vdb1),
     T = match(Kt, Ls, I+1, Vdb1),
     #k_alt{anno=[],first=F,then=T};
-match(#k_select{anno=A,var=V,types=Kts}=Select, Ls0, I, Vdb0) ->
-    Vanno = get_kanno(V),
-    Ls1 = case member(no_usage, Vanno) of
-              false -> add_element(V#k_var.name, Ls0);
-              true -> Ls0
-          end,
-    Vdb1 = use_vars(union(A#k.us, Ls1), I, Vdb0),
-    Ts = [type_clause(Tc, Ls1, I+1, Vdb1) || Tc <- Kts],
+match(#k_select{anno=A,types=Kts}=Select, Ls, I, Vdb0) ->
+    Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
+    Ts = [type_clause(Tc, Ls, I+1, Vdb1) || Tc <- Kts],
     Select#k_select{anno=[],types=Ts};
 match(#k_guard{anno=A,clauses=Kcs}, Ls, I, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
