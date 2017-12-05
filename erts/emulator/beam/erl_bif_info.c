@@ -4465,7 +4465,7 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
 static Eterm lcnt_pretty_print_lock_id(erts_lcnt_lock_info_t *info) {
     Eterm id = info->id;
 
-    if((info->flags & ERTS_LOCK_FLAGS_MASK_TYPE) == ERTS_LOCK_TYPE_PROCLOCK) {
+    if((info->flags & ERTS_LOCK_FLAGS_MASK_TYPE) == ERTS_LOCK_FLAGS_TYPE_PROCLOCK) {
         /* Use registered names as id's for process locks if available. Thread
          * progress is delayed since we may be running on a dirty scheduler. */
         ErtsThrPrgrDelayHandle delay_handle;
