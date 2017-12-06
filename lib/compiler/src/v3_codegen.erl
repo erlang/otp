@@ -702,9 +702,6 @@ bsm_rename_ctx(#k_protected{arg=Ts0}=Prot, Old, New, _InProt) ->
     InProt = true,
     Ts = bsm_rename_ctx_list(Ts0, Old, New, InProt),
     bsm_forget_var(Prot#k_protected{arg=Ts}, Old);
-bsm_rename_ctx(#k_match{body=Ms0}=Match, Old, New, InProt) ->
-    Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
-    Match#k_match{body=Ms};
 bsm_rename_ctx(#k_guard_match{body=Ms0}=Match, Old, New, InProt) ->
     Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
     Match#k_guard_match{body=Ms};
