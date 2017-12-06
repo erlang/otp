@@ -330,10 +330,8 @@ expr(#k_put{anno=A}=Put, I, _Vdb) ->
     Put#k_put{anno=#l{i=I,a=A#k.a}};
 expr(#k_break{anno=A}=Break, I, _Vdb) ->
     Break#k_break{anno=#l{i=I,a=A#k.a}};
-expr(#k_guard_break{anno=A}=Break, I, Vdb) ->
-    Locked = [V || {V,_,_} <- Vdb],
-    L = #l{i=I,a=A#k.a},
-    Break#k_guard_break{anno=L,locked=Locked};
+expr(#k_guard_break{anno=A}=Break, I, _Vdb) ->
+    Break#k_guard_break{anno=#l{i=I,a=A#k.a}};
 expr(#k_return{anno=A}=Ret, I, _Vdb) ->
     Ret#k_return{anno=#l{i=I,a=A#k.a}}.
 
@@ -494,8 +492,8 @@ cg(#k_return{anno=Le,args=Rs}, Vdb, Bef, St) ->
     return_cg(Rs, Le, Vdb, Bef, St);
 cg(#k_break{anno=Le,args=Bs}, Vdb, Bef, St) ->
     break_cg(Bs, Le, Vdb, Bef, St);
-cg(#k_guard_break{anno=Le,args=Bs,locked=N}, Vdb, Bef, St) ->
-    guard_break_cg(Bs, N, Le, Vdb, Bef, St);
+cg(#k_guard_break{anno=Le,args=Bs}, Vdb, Bef, St) ->
+    guard_break_cg(Bs, Le, Vdb, Bef, St);
 cg(#cg_need_heap{h=H}, _Vdb, Bef, St) ->
     {[{test_heap,H,max_reg(Bef#sr.reg)}],Bef,St}.
 
@@ -718,9 +716,8 @@ bsm_rename_ctx(#cg_block{es=Es0}=Block, Old, New, true) ->
     %% inside the block.
     Es = bsm_rename_ctx_list(Es0, Old, New, true),
     bsm_forget_var(Block#cg_block{es=Es}, Old);
-bsm_rename_ctx(#k_guard_break{locked=Locked0}=Break, Old, _New, _InProt) ->
-    Locked = Locked0 -- [Old],
-    bsm_forget_var(Break#k_guard_break{locked=Locked}, Old).
+bsm_rename_ctx(#k_guard_break{}=Break, Old, _New, _InProt) ->
+    bsm_forget_var(Break, Old).
 
 bsm_rename_ctx_list([C|Cs], Old, New, InProt) ->
     [bsm_rename_ctx(C, Old, New, InProt)|
@@ -2330,33 +2327,18 @@ break_cg(Bs, Le, Vdb, Bef, St) ->
     {Ms ++ [{jump,{f,St#cg.break}}],
      Int#sr{reg=clear_regs(Int#sr.reg)},St}.
 
-guard_break_cg(Bs, Locked, #l{i=I}, Vdb, #sr{reg=Reg0}=Bef, St) ->
-    RegLocked = get_locked_regs(Reg0, Locked),
-    #sr{reg=Reg1} = Int = clear_dead(Bef#sr{reg=RegLocked}, I, Vdb),
+guard_break_cg(Bs, #l{i=I}, Vdb, #sr{reg=Reg0}=Bef, St) ->
+    #sr{reg=Reg1} = Int = clear_dead(Bef, I, Vdb),
     Reg2 = trim_free(Reg1),
     NumLocked = length(Reg2),
     Moves0 = gen_moves(Bs, Bef, NumLocked, []),
-    Moves = order_moves(Moves0, find_scratch_reg(RegLocked)),
+    Moves = order_moves(Moves0, find_scratch_reg(Reg0)),
     {BreakVars,_} = mapfoldl(fun(_, RegNum) ->
 				     {{RegNum,gbreakvar},RegNum+1}
 			     end, length(Reg2), Bs),
     Reg = Reg2 ++ BreakVars,
     Aft = Int#sr{reg=Reg},
     {Moves ++ [{jump,{f,St#cg.break}}],Aft,St}.
-
-get_locked_regs([R|Rs0], Preserve) ->
-    case {get_locked_regs(Rs0, Preserve),R} of
-	{[],{_,V}} ->
-	    case lists:member(V, Preserve) of
-		true -> [R];
-		false -> []
-	    end;
-	{[],_} ->
-	    [];
-	{Rs,_} ->
-	    [R|Rs]
-    end;
-get_locked_regs([], _) -> [].
 
 %% cg_reg_arg(Arg0, Info) -> Arg
 %% cg_reg_args([Arg0], Info) -> [Arg]
