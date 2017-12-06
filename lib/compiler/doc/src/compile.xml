@@ -233,6 +233,15 @@ module.beam: module.erl \
   header.hrl</code>
           </item>
 
+          <tag><c>makedep_side_effect</c></tag>
+          <item>
+	    <p>The dependecies are created as a side effect to the
+	    normal compilation process. This means that the object
+	    file will also be produced. This option override the
+	    <c>makedep</c> option.
+	    </p>
+	  </item>
+
           <tag><c>{makedep_output, Output}</c></tag>
           <item>
             <p>Writes generated rules to <c>Output</c> instead of the

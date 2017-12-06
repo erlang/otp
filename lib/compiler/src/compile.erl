@@ -203,7 +203,12 @@ expand_opts(Opts0) ->
 	       {_,_,undefined} -> [debug_info|Opts0];
 	       {_,_,_} -> Opts0
 	   end,
-    foldr(fun expand_opt/2, [], Opts).
+    %% iff,unless processing is to complex...
+    Opts1 = case proplists:is_defined(makedep_side_effect,Opts) of
+                true -> proplists:delete(makedep,Opts);
+                false -> Opts
+            end,
+    foldr(fun expand_opt/2, [], Opts1).
 
 expand_opt(basic_validation, Os) ->
     [no_code_generation,to_pp,binary|Os];
@@ -674,6 +679,7 @@ select_list_passes_1([], _, Acc) ->
 standard_passes() ->
     [?pass(transform_module),
 
+     {iff,makedep_side_effect,?pass(makedep_and_output)},
      {iff,makedep,[
 	 ?pass(makedep),
 	 {unless,binary,?pass(makedep_output)}
@@ -1126,6 +1132,16 @@ core_lint_module(Code, St) ->
 	{error,Es,Ws} ->
 	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
 			      errors=St#compile.errors ++ Es}}
+    end.
+
+%% makedep + output and continue
+makedep_and_output(Code0, St) ->
+    {ok,DepCode,St1} = makedep(Code0,St),
+    case makedep_output(DepCode, St1) of
+        {ok,_IgnoreCode,St2} ->
+            {ok,Code0,St2};
+        {error,St2} ->
+            {error,St2}
     end.
 
 makedep(Code0, #compile{ifile=Ifile,ofile=Ofile,options=Opts}=St) ->
