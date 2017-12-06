@@ -143,10 +143,16 @@ next_record(#state{role = server,
     dtls_udp_listener:active_once(Listener, Client, self()),
     {no_record, State};
 next_record(#state{role = client,
-		   socket = {_Server, Socket},
+		   socket = {_Server, Socket} = DTLSSocket,
+                   close_tag = CloseTag,
 		   transport_cb = Transport} = State) -> 
-    dtls_socket:setopts(Transport, Socket, [{active,once}]),
-    {no_record, State};
+    case dtls_socket:setopts(Transport, Socket, [{active,once}]) of
+        ok ->
+ 	    {no_record, State};
+ 	_ ->
+            self() ! {CloseTag, DTLSSocket},
+	    {no_record, State}
+    end;
 next_record(State) ->
     {no_record, State}.
 
