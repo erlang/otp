@@ -562,7 +562,7 @@ void enif_clear_env(ErlNifEnv* env)
 
 #ifdef DEBUG
 static int enif_send_delay = 0;
-#define ERTS_FORCE_ENIF_SEND_DELAY() (enif_send_delay++ % 2 == 0)
+#define ERTS_FORCE_ENIF_SEND_DELAY() (enif_send_delay++ % 32 == 0)
 #else
 #ifdef ERTS_PROC_LOCK_OWN_IMPL
 #define ERTS_FORCE_ENIF_SEND_DELAY() 0
