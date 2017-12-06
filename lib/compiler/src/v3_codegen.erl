@@ -1487,8 +1487,6 @@ guard_clause_cg(#k_guard_clause{anno=#l{vdb=Vdb},guard=G,body=B}, Fail, Bef, St0
 
 guard_cg(#k_protected{arg=Ts,ret=Rs,anno=#l{i=I,vdb=Pdb}}, Fail, _Vdb, Bef, St) ->
     protected_cg(Ts, Rs, Fail, I, Pdb, Bef, St);
-guard_cg(#cg_block{es=Ts,anno=#l{i=I,vdb=Bdb}}, Fail, _Vdb, Bef, St) ->
-    guard_cg_list(Ts, Fail, I, Bdb, Bef, St);
 guard_cg(#k_test{anno=#l{i=I},op=Test0,args=As,inverted=Inverted},
          Fail, Vdb, Bef, St0) ->
     #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Test}} = Test0,
