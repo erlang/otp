@@ -1504,6 +1504,18 @@ guard_cg(G, _Fail, Vdb, Bef, St) ->
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{Aft}]),
     {Gis,Aft,St1}.
 
+%% guard_cg_list([Kexpr], Fail, I, Vdb, StackReg, St) ->
+%%      {[Ainstr],StackReg,St}.
+
+guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
+    {Keis,{Aft,St1}} =
+	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
+			     {Keis,Intb,Stb} =
+				 guard_cg(Ke, Fail, Vdb, Inta, Sta),
+			     {Keis,{Intb,Stb}}
+		     end, {Bef,St0}, need_heap(Kes, I)),
+    {Keis,Aft,St1}.
+
 %% protected_cg([Kexpr], [Ret], Fail, I, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %%  Do a protected.  Protecteds without return values are just done
 %%  for effect, the return value is not checked, success passes on to
@@ -1559,18 +1571,6 @@ test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),
     {[beam_utils:bif_to_test(Test, Args, {f,Fail})],Aft,St}.
-
-%% guard_cg_list([Kexpr], Fail, I, Vdb, StackReg, St) ->
-%%      {[Ainstr],StackReg,St}.
-
-guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
-    {Keis,{Aft,St1}} =
-	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
-			     {Keis,Intb,Stb} =
-				 guard_cg(Ke, Fail, Vdb, Inta, Sta),
-			     {Keis,{Intb,Stb}}
-		     end, {Bef,St0}, need_heap(Kes, I)),
-    {Keis,Aft,St1}.
 
 %% match_fmf(Fun, LastFail, State, [Clause]) -> {Is,Aft,State}.
 %%  This is a special flatmapfoldl for match code gen where we
