@@ -1621,7 +1621,9 @@ type_tests() ->
      is_reference,
      is_port,
      is_binary,
-     is_function].
+     is_bitstring,
+     is_function,
+     is_map].
 
 basic_andalso_orelse(Config) when is_list(Config) ->
     T = id({type,integers,23,42}),
