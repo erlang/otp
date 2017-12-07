@@ -1346,6 +1346,7 @@ static int windows_to_posix_errno(DWORD last_error) {
     case ERROR_PATH_NOT_FOUND:
     case ERROR_FILE_NOT_FOUND:
     case ERROR_NO_MORE_FILES:
+    case ERROR_INVALID_NAME:
         return ENOENT;
     case ERROR_TOO_MANY_OPEN_FILES:
         return EMFILE;
