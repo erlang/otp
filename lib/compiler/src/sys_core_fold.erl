@@ -2622,9 +2622,13 @@ delay_build_expr_1(#c_receive{clauses=Cs0,
 			      timeout=Timeout,
 			      action=A0}=Rec, TypeSig) ->
     Cs = delay_build_cs(Cs0, TypeSig),
-    A = case Timeout of
-	    #c_literal{val=infinity} -> A0;
-	    _ -> delay_build_expr(A0, TypeSig)
+    A = case {Timeout,A0} of
+	    {#c_literal{val=infinity},#c_literal{}} ->
+                {_Type,Arity} = TypeSig,
+                Es = lists:duplicate(Arity, A0),
+                core_lib:make_values(Es);
+	    _ ->
+                delay_build_expr(A0, TypeSig)
 	end,
     Rec#c_receive{clauses=Cs,action=A};
 delay_build_expr_1(#c_seq{body=B0}=Seq, TypeSig) ->

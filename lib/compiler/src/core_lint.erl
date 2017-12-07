@@ -353,12 +353,6 @@ expr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     Pc = case_patcount(Cs),
     St1 = body(Arg, Def, Pc, St0),
     clauses(Cs, Def, Pc, Rt, St1);
-expr(#c_receive{clauses=Cs,timeout=#c_literal{val=infinity},
-		action=#c_literal{}},
-     Def, Rt, St) ->
-    %% If the timeout is 'infinity', the after code can never
-    %% be reached. We don't care if the return count is wrong.
-    clauses(Cs, Def, 1, Rt, St);
 expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
     St1 = expr(T, Def, 1, St0),
     St2 = body(A, Def, Rt, St1),

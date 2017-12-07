@@ -265,6 +265,10 @@ export(Config) when is_list(Config) ->
     self() ! {result,Ref,42},
     42 = export_1(Ref),
     {error,timeout} = export_1(Ref),
+
+    self() ! {result,Ref},
+    {ok,Ref} = export_2(),
+
     ok.
 
 export_1(Reference) ->
@@ -280,6 +284,10 @@ export_1(Reference) ->
     %% by beam_block.
     id({build,self()}),
     Result.
+
+export_2() ->
+    receive {result,Result} -> ok end,
+    {ok,Result}.
 
 wait(Config) when is_list(Config) ->
     self() ! <<42>>,

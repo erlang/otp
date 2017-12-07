@@ -108,6 +108,7 @@ copy_anno(Kdst, Ksrc) ->
 -record(iclause, {anno=[],isub,osub,pats,guard,body}).
 -record(ireceive_accept, {anno=[],arg}).
 -record(ireceive_next, {anno=[],arg}).
+-record(ignored, {anno=[]}).
 
 -type warning() :: term().	% XXX: REFINE
 
@@ -489,7 +490,7 @@ make_alt(First0, Then0) ->
     Then1 = pre_seq(droplast(Then0), last(Then0)),
     First2 = make_protected(First1),
     Then2 = make_protected(Then1),
-    Body = #k_atom{val=ignored},
+    Body = #ignored{},
     First3 = #k_guard_clause{guard=First2,body=Body},
     Then3 = #k_guard_clause{guard=Then2,body=Body},
     First = #k_guard{clauses=[First3]},
@@ -2225,7 +2226,9 @@ ubody(E, return, St0) ->
 	    {Ea,Pa,St1} = force_atomic(E, St0),
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), return, St1)
     end;
-ubody(E, {break,_Rs} = Break, St0) ->
+ubody(#ignored{}, {break,_} = Break, St) ->
+    ubody(#ivalues{args=[]}, Break, St);
+ubody(E, {break,[_]} = Break, St0) ->
     %%ok = io:fwrite("ubody ~w:~p~n", [?LINE,{E,Br}]),
     %% Exiting expressions need no trailing break.
     case is_exit_expr(E) of
@@ -2233,6 +2236,16 @@ ubody(E, {break,_Rs} = Break, St0) ->
 	false ->
 	    {Ea,Pa,St1} = force_atomic(E, St0),
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1)
+    end;
+ubody(E, {break,Rs}=Break, St0) ->
+    case is_exit_expr(E) of
+        true ->
+            uexpr(E, return, St0);
+        false ->
+            {Vs,St1} = new_vars(length(Rs), St0),
+            Iset = #iset{vars=Vs,arg=E},
+            PreSeq = pre_seq([Iset], #ivalues{args=Vs}),
+            ubody(PreSeq, Break, St1)
     end.
 
 iletrec_funs(#iletrec{defs=Fs}, St0) ->

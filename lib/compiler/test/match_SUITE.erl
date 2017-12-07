@@ -24,7 +24,8 @@
 	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
-	 coverage/1,grab_bag/1,literal_binary/1]).
+	 coverage/1,grab_bag/1,literal_binary/1,
+         unary_op/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +41,7 @@ groups() ->
        match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag,literal_binary]}].
+       grab_bag,literal_binary,unary_op]}].
 
 
 init_per_suite(Config) ->
@@ -661,6 +662,75 @@ literal_binary_match(bar, <<"x">>) -> 1;
 literal_binary_match(_, <<"x">>) -> 2;
 literal_binary_match(_, <<"y">>) -> 3;
 literal_binary_match(_, _) -> fail.
+
+unary_op(Config) ->
+    %% ERL-514. This test case only verifies that the code
+    %% calculates the correct result, not that the generated
+    %% code is optimial.
+
+    {non_associative,30} = unary_op_1('&'),
+    {non_associative,300} = unary_op_1('^'),
+    {non_associative,300} = unary_op_1('not'),
+    {non_associative,300} = unary_op_1('+'),
+    {non_associative,300} = unary_op_1('-'),
+    {non_associative,300} = unary_op_1('~~~'),
+    {non_associative,300} = unary_op_1('!'),
+    {non_associative,320} = unary_op_1('@'),
+
+    error = unary_op_1(Config),
+    error = unary_op_1(abc),
+    error = unary_op_1(42),
+
+    ok.
+
+unary_op_1(Vop@1) ->
+    %% If all optimizations are working as they should, there should
+    %% be no stack frame and all '=:=' tests should be coalesced into
+    %% a single select_val instruction.
+
+    case Vop@1 =:= '&' of
+        true ->
+            {non_associative,30};
+        false ->
+            case
+                case Vop@1 =:= '^' of
+                    true ->
+                        true;
+                    false ->
+                        case Vop@1 =:= 'not' of
+                            true ->
+                                true;
+                            false ->
+                                case Vop@1 =:= '+' of
+                                    true ->
+                                        true;
+                                    false ->
+                                        case Vop@1 =:= '-' of
+                                            true ->
+                                                true;
+                                            false ->
+                                                case Vop@1 =:= '~~~' of
+                                                    true ->
+                                                        true;
+                                                    false ->
+                                                        Vop@1 =:= '!'
+                                                end
+                                        end
+                                end
+                        end
+                end
+            of
+                true ->
+                    {non_associative,300};
+                false ->
+                    case Vop@1 =:= '@' of
+                        true ->
+                            {non_associative,320};
+                        false ->
+                            error
+                    end
+            end
+    end.
 
 
 id(I) -> I.
