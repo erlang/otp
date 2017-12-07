@@ -79,7 +79,7 @@ significant.
 <!ENTITY app_handle_answer '<seealso marker="diameter_app#Mod:handle_answer-4">handle_answer/4</seealso>'>
 <!ENTITY app_handle_request '<seealso marker="diameter_app#Mod:handle_request-3">handle_request/3</seealso>'>
 <!ENTITY app_handle_error '<seealso marker="diameter_app#Mod:handle_error-4">handle_error/4</seealso>'>
-<!ENTITY app_peer_down '<seealso marker="diameter_app#Mod:peer_down-3">peer_up/3</seealso>'>
+<!ENTITY app_peer_down '<seealso marker="diameter_app#Mod:peer_down-3">peer_down/3</seealso>'>
 <!ENTITY app_peer_up '<seealso marker="diameter_app#Mod:peer_up-3">peer_up/3</seealso>'>
 <!ENTITY app_pick_peer '<seealso marker="diameter_app#Mod:pick_peer-4">pick_peer/4</seealso>'>
 <!ENTITY app_prepare_retransmit '<seealso marker="diameter_app#Mod:prepare_retransmit-3">prepare_retransmit/3</seealso>'>
