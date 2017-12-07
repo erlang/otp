@@ -598,6 +598,7 @@ check_ssh_client_support2(P) ->
 	{P, {data, _A}} ->
 	    check_ssh_client_support2(P);
 	{P, {exit_status, E}} ->
+            ct:log("~p:~p exit_status:~n~p",[?MODULE,?LINE,E]),
 	    E
     after 5000 ->
 	    ct:log("Openssh command timed out ~n"),
@@ -649,14 +650,14 @@ default_algorithms(sshc, DaemonOptions) ->
 	{hostport,Srvr,{_Host,Port}} ->
 	    spawn(fun()-> os:cmd(lists:concat(["ssh -o \"StrictHostKeyChecking no\" -p ",Port," localhost"])) end)
     after ?TIMEOUT ->
-	    ct:fail("No server respons 1")
+	    ct:fail("No server respons (timeout) 1")
     end,
 
     receive
 	{result,Srvr,L} ->
 	    L
     after ?TIMEOUT ->
-	    ct:fail("No server respons 2")
+	    ct:fail("No server respons (timeout) 2")
     end.
 
 run_fake_ssh({ok,InitialState}) ->

@@ -316,10 +316,10 @@ sshc_simple_exec_os_cmd(Config) ->
 		    ok;
 		false ->
 		    ct:log("Bad result: ~p~nExpected: ~p~nMangled result: ~p", [RawResult,Expect,Lines]),
-		    {fail, "Bad result"}
+		    {fail, "Bad result (see log in testcase)"}
 	    end
     after ?TIMEOUT ->
-	    ct:fail("Did not receive answer")
+	    ct:fail("Did not receive answer (timeout)")
     end.
 
 %%--------------------------------------------------------------------

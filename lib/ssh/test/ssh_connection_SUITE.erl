@@ -91,7 +91,7 @@ end_per_suite(Config) ->
 init_per_group(openssh, Config) ->
     case ssh_test_lib:gen_tcp_connect("localhost", 22, []) of
 	{error,econnrefused} ->
-	    {skip,"No openssh deamon"};
+	    {skip,"No openssh deamon (econnrefused)"};
 	{ok, Socket} ->
 	    gen_tcp:close(Socket),
 	    ssh_test_lib:openssh_sanity_check(Config)

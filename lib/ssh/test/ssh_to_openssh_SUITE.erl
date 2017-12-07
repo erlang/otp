@@ -68,7 +68,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        case gen_tcp:connect("localhost", 22, []) of
 	   {error,econnrefused} ->
-	       {skip,"No openssh deamon"};
+	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
 	       ssh_test_lib:openssh_sanity_check(Config)
        end
