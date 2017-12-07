@@ -610,6 +610,12 @@ certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(internal = Type, #server_hello_done{} = Event, State) ->
     ssl_connection:certify(Type, Event, prepare_flight(State), ?MODULE);
+certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
+    {State1, Actions0} = send_handshake_flight(State0, retransmit_epoch(?FUNCTION_NAME, State0)),
+    {Record, State2} = next_record(State1),
+    {next_state, ?FUNCTION_NAME, State, Actions} = next_event(?FUNCTION_NAME, Record, State2, Actions0),
+    %% This will reset the retransmission timer by repeating the enter state event
+    {repeat_state, State, Actions};
 certify(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
