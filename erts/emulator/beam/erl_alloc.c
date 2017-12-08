@@ -3722,7 +3722,9 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 
 	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
 
-	case 0xf16: {
+        case 0xf16: return (UWord) erts_realloc(ERTS_ALC_T_TEST, (void*)a1, (Uint)a2);
+
+	case 0xf17: {
             Uint extra_hdr_sz = UNIT_CEILING((Uint)a1);
 	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
 	    Uint offset = ts->allctr[0]->mbc_header_size;
@@ -3749,7 +3751,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    *(void**)a3 = orig_destroying_mbc;
 	    return offset;
 	}
-	case 0xf17: {
+	case 0xf18: {
 	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
 	    return ts->allctr[0]->largest_mbc_size;
 	}
