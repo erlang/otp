@@ -330,10 +330,8 @@ expr(#k_put{anno=A}=Put, I, _Vdb) ->
     Put#k_put{anno=#l{i=I,a=A#k.a}};
 expr(#k_break{anno=A}=Break, I, _Vdb) ->
     Break#k_break{anno=#l{i=I,a=A#k.a}};
-expr(#k_guard_break{anno=A}=Break, I, Vdb) ->
-    Locked = [V || {V,_,_} <- Vdb],
-    L = #l{i=I,a=A#k.a},
-    Break#k_guard_break{anno=L,locked=Locked};
+expr(#k_guard_break{anno=A}=Break, I, _Vdb) ->
+    Break#k_guard_break{anno=#l{i=I,a=A#k.a}};
 expr(#k_return{anno=A}=Ret, I, _Vdb) ->
     Ret#k_return{anno=#l{i=I,a=A#k.a}}.
 
@@ -357,14 +355,9 @@ match(#k_alt{anno=A,first=Kf,then=Kt}, Ls, I, Vdb0) ->
     F = match(Kf, Ls, I+1, Vdb1),
     T = match(Kt, Ls, I+1, Vdb1),
     #k_alt{anno=[],first=F,then=T};
-match(#k_select{anno=A,var=V,types=Kts}=Select, Ls0, I, Vdb0) ->
-    Vanno = get_kanno(V),
-    Ls1 = case member(no_usage, Vanno) of
-              false -> add_element(V#k_var.name, Ls0);
-              true -> Ls0
-          end,
-    Vdb1 = use_vars(union(A#k.us, Ls1), I, Vdb0),
-    Ts = [type_clause(Tc, Ls1, I+1, Vdb1) || Tc <- Kts],
+match(#k_select{anno=A,types=Kts}=Select, Ls, I, Vdb0) ->
+    Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
+    Ts = [type_clause(Tc, Ls, I+1, Vdb1) || Tc <- Kts],
     Select#k_select{anno=[],types=Ts};
 match(#k_guard{anno=A,clauses=Kcs}, Ls, I, Vdb0) ->
     Vdb1 = use_vars(union(A#k.us, Ls), I, Vdb0),
@@ -499,8 +492,8 @@ cg(#k_return{anno=Le,args=Rs}, Vdb, Bef, St) ->
     return_cg(Rs, Le, Vdb, Bef, St);
 cg(#k_break{anno=Le,args=Bs}, Vdb, Bef, St) ->
     break_cg(Bs, Le, Vdb, Bef, St);
-cg(#k_guard_break{anno=Le,args=Bs,locked=N}, Vdb, Bef, St) ->
-    guard_break_cg(Bs, N, Le, Vdb, Bef, St);
+cg(#k_guard_break{anno=Le,args=Bs}, Vdb, Bef, St) ->
+    guard_break_cg(Bs, Le, Vdb, Bef, St);
 cg(#cg_need_heap{h=H}, _Vdb, Bef, St) ->
     {[{test_heap,H,max_reg(Bef#sr.reg)}],Bef,St}.
 
@@ -707,9 +700,6 @@ bsm_rename_ctx(#k_protected{arg=Ts0}=Prot, Old, New, _InProt) ->
     InProt = true,
     Ts = bsm_rename_ctx_list(Ts0, Old, New, InProt),
     bsm_forget_var(Prot#k_protected{arg=Ts}, Old);
-bsm_rename_ctx(#k_match{body=Ms0}=Match, Old, New, InProt) ->
-    Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
-    Match#k_match{body=Ms};
 bsm_rename_ctx(#k_guard_match{body=Ms0}=Match, Old, New, InProt) ->
     Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
     Match#k_guard_match{body=Ms};
@@ -726,9 +716,8 @@ bsm_rename_ctx(#cg_block{es=Es0}=Block, Old, New, true) ->
     %% inside the block.
     Es = bsm_rename_ctx_list(Es0, Old, New, true),
     bsm_forget_var(Block#cg_block{es=Es}, Old);
-bsm_rename_ctx(#k_guard_break{locked=Locked0}=Break, Old, _New, _InProt) ->
-    Locked = Locked0 -- [Old],
-    bsm_forget_var(Break#k_guard_break{locked=Locked}, Old).
+bsm_rename_ctx(#k_guard_break{}=Break, Old, _New, _InProt) ->
+    bsm_forget_var(Break, Old).
 
 bsm_rename_ctx_list([C|Cs], Old, New, InProt) ->
     [bsm_rename_ctx(C, Old, New, InProt)|
@@ -1492,8 +1481,6 @@ guard_clause_cg(#k_guard_clause{anno=#l{vdb=Vdb},guard=G,body=B}, Fail, Bef, St0
 
 guard_cg(#k_protected{arg=Ts,ret=Rs,anno=#l{i=I,vdb=Pdb}}, Fail, _Vdb, Bef, St) ->
     protected_cg(Ts, Rs, Fail, I, Pdb, Bef, St);
-guard_cg(#cg_block{es=Ts,anno=#l{i=I,vdb=Bdb}}, Fail, _Vdb, Bef, St) ->
-    guard_cg_list(Ts, Fail, I, Bdb, Bef, St);
 guard_cg(#k_test{anno=#l{i=I},op=Test0,args=As,inverted=Inverted},
          Fail, Vdb, Bef, St0) ->
     #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Test}} = Test0,
@@ -1510,6 +1497,18 @@ guard_cg(G, _Fail, Vdb, Bef, St) ->
     {Gis,Aft,St1} = cg(G, Vdb, Bef, St),
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{Aft}]),
     {Gis,Aft,St1}.
+
+%% guard_cg_list([Kexpr], Fail, I, Vdb, StackReg, St) ->
+%%      {[Ainstr],StackReg,St}.
+
+guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
+    {Keis,{Aft,St1}} =
+	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
+			     {Keis,Intb,Stb} =
+				 guard_cg(Ke, Fail, Vdb, Inta, Sta),
+			     {Keis,{Intb,Stb}}
+		     end, {Bef,St0}, need_heap(Kes, I)),
+    {Keis,Aft,St1}.
 
 %% protected_cg([Kexpr], [Ret], Fail, I, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %%  Do a protected.  Protecteds without return values are just done
@@ -1566,18 +1565,6 @@ test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),
     {[beam_utils:bif_to_test(Test, Args, {f,Fail})],Aft,St}.
-
-%% guard_cg_list([Kexpr], Fail, I, Vdb, StackReg, St) ->
-%%      {[Ainstr],StackReg,St}.
-
-guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
-    {Keis,{Aft,St1}} =
-	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
-			     {Keis,Intb,Stb} =
-				 guard_cg(Ke, Fail, Vdb, Inta, Sta),
-			     {Keis,{Intb,Stb}}
-		     end, {Bef,St0}, need_heap(Kes, I)),
-    {Keis,Aft,St1}.
 
 %% match_fmf(Fun, LastFail, State, [Clause]) -> {Is,Aft,State}.
 %%  This is a special flatmapfoldl for match code gen where we
@@ -2340,33 +2327,18 @@ break_cg(Bs, Le, Vdb, Bef, St) ->
     {Ms ++ [{jump,{f,St#cg.break}}],
      Int#sr{reg=clear_regs(Int#sr.reg)},St}.
 
-guard_break_cg(Bs, Locked, #l{i=I}, Vdb, #sr{reg=Reg0}=Bef, St) ->
-    RegLocked = get_locked_regs(Reg0, Locked),
-    #sr{reg=Reg1} = Int = clear_dead(Bef#sr{reg=RegLocked}, I, Vdb),
+guard_break_cg(Bs, #l{i=I}, Vdb, #sr{reg=Reg0}=Bef, St) ->
+    #sr{reg=Reg1} = Int = clear_dead(Bef, I, Vdb),
     Reg2 = trim_free(Reg1),
     NumLocked = length(Reg2),
     Moves0 = gen_moves(Bs, Bef, NumLocked, []),
-    Moves = order_moves(Moves0, find_scratch_reg(RegLocked)),
+    Moves = order_moves(Moves0, find_scratch_reg(Reg0)),
     {BreakVars,_} = mapfoldl(fun(_, RegNum) ->
 				     {{RegNum,gbreakvar},RegNum+1}
 			     end, length(Reg2), Bs),
     Reg = Reg2 ++ BreakVars,
     Aft = Int#sr{reg=Reg},
     {Moves ++ [{jump,{f,St#cg.break}}],Aft,St}.
-
-get_locked_regs([R|Rs0], Preserve) ->
-    case {get_locked_regs(Rs0, Preserve),R} of
-	{[],{_,V}} ->
-	    case lists:member(V, Preserve) of
-		true -> [R];
-		false -> []
-	    end;
-	{[],_} ->
-	    [];
-	{Rs,_} ->
-	    [R|Rs]
-    end;
-get_locked_regs([], _) -> [].
 
 %% cg_reg_arg(Arg0, Info) -> Arg
 %% cg_reg_args([Arg0], Info) -> [Arg]

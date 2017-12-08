@@ -1590,14 +1590,16 @@ check_bitstring_list(_, _) ->
 guard(_Config) ->
     Tuple = id({a,b}),
     ok = guard_1(<<1,2,3>>, {1,2,3}),
-
+    ok = guard_2(<<42>>, #{}),
     ok.
 
 %% Cover handling of #k_put{} in v3_codegen:bsm_rename_ctx/4.
-
 guard_1(<<A,B,C>>, Tuple) when Tuple =:= {A,B,C} ->
     ok.
 
+%% Cover handling of #k_call{} in v3_codegen:bsm_rename_ctx/4.
+guard_2(<<_>>, Healing) when Healing#{[] => Healing} =:= #{[] => #{}} ->
+    ok.
 
 check(F, R) ->
     R = F().

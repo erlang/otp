@@ -79,7 +79,7 @@
 -record(k_guard_clause, {anno=[],guard,body}).
 
 -record(k_break, {anno=[],args=[]}).
--record(k_guard_break, {anno=[],args=[],locked=[]}).
+-record(k_guard_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).
 
 %%k_get_anno(Thing) -> element(2, Thing).
