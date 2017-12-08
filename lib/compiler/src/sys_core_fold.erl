@@ -125,8 +125,7 @@ function_1({#c_var{name={F,Arity}}=Name,B0}) ->
 			  end, B0, 20),
 	{Name,B}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.

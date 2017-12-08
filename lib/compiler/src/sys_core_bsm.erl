@@ -44,8 +44,7 @@ function([{#c_var{name={F,Arity}}=Name,B0}|Fs], FsAcc, Ws0) ->
         {B,Ws} ->
             function(Fs, [{Name,B}|FsAcc], Ws)
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end;

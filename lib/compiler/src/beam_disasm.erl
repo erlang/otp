@@ -163,8 +163,8 @@ pp_instr(I) ->
 
 file(File) ->
     try process_chunks(File)
-    catch error:Reason ->
-	    {error,?MODULE,{internal,{Reason,erlang:get_stacktrace()}}}
+    catch error:Reason:Stack ->
+            {error,?MODULE,{internal,{Reason,Stack}}}
     end.
 
 %%-----------------------------------------------------------------------

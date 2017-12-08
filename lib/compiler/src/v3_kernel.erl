@@ -163,8 +163,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 	%%B1 = B0, St3 = St2,				%Null second pass
         {make_fdef(#k{us=[],ns=[],a=Ab}, F, Arity, Kvs, B1),St3}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.

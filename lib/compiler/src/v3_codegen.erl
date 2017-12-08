@@ -93,8 +93,7 @@ function(#k_fdef{anno=#k{a=Anno},func=Name,arity=Arity,
         Func = {function,Name,Arity,EntryLabel,Asm},
         {Func,St}
     catch
-        Class:Error ->
-            Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end.

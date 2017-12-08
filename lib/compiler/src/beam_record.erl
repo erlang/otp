@@ -56,8 +56,7 @@ function({function,Name,Arity,CLabel,Is}) ->
         Idx = beam_utils:index_labels(Is),
         {function,Name,Arity,CLabel,rewrite(Is,Idx)}
     catch
-        Class:Error ->
-            Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end.

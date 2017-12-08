@@ -43,8 +43,7 @@ function({function,Name,Arity,CLabel,Asm0}) ->
 	Asm = beam_utils:delete_live_annos(Asm3),
 	{function,Name,Arity,CLabel,Asm}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
