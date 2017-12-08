@@ -26,7 +26,8 @@
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
-	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1]).
+	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
+         stacktrace/1,nested_stacktrace/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -42,7 +43,8 @@ groups() ->
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
-       hockey,handle_info,catch_in_catch,grab_bag]}].
+       hockey,handle_info,catch_in_catch,grab_bag,
+       stacktrace,nested_stacktrace]}].
 
 
 init_per_suite(Config) ->
@@ -1038,6 +1040,124 @@ grab_bag(_Config) ->
     22 = (catch 22),
 
     ok.
+
+stacktrace(_Config) ->
+    V = [make_ref()|self()],
+    case ?MODULE:module_info(native) of
+        false ->
+            {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]}} =
+                stacktrace_1({'abs',V}, error, {value,V}),
+            {caught2,{error,badarith},[{erlang,'+',[0,a],_},
+                                       {?MODULE,my_add,2,_}|_]} =
+                stacktrace_1({'div',{1,0}}, error, {'add',{0,a}});
+        true ->
+            {value2,{caught1,badarg,[{?MODULE,my_abs,1,_}|_]}} =
+                stacktrace_1({'abs',V}, error, {value,V}),
+            {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]} =
+                stacktrace_1({'div',{1,0}}, error, {'add',{0,a}})
+    end,
+    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]} =
+        stacktrace_1({value,V}, error, {value,V}),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {throw,V}),
+
+    try
+        stacktrace_2()
+    catch
+        error:{badmatch,_}:Stk2 ->
+            [{?MODULE,stacktrace_2,0,_},
+             {?MODULE,stacktrace,1,_}|_] = Stk2,
+            Stk2 = erlang:get_stacktrace(),
+            ok
+    end,
+
+    try
+        stacktrace_3(a, b)
+    catch
+        error:function_clause:Stk3 ->
+            Stk3 = erlang:get_stacktrace(),
+            case lists:module_info(native) of
+                false ->
+                    [{lists,prefix,[a,b],_}|_] = Stk3;
+                true ->
+                    [{lists,prefix,2,_}|_] = Stk3
+            end
+    end,
+
+    try
+        throw(x)
+    catch
+        throw:x:IntentionallyUnused ->
+            ok
+    end.
+
+stacktrace_1(X, C1, Y) ->
+    try try foo(X) of
+            C1 -> value1
+        catch
+            C1:D1:Stk1 ->
+                Stk1 = erlang:get_stacktrace(),
+                {caught1,D1,Stk1}
+        after
+            foo(Y)
+        end of
+        V2 -> {value2,V2}
+    catch
+        C2:D2:Stk2 -> {caught2,{C2,D2},Stk2=erlang:get_stacktrace()}
+    end.
+
+stacktrace_2() ->
+    ok = erlang:process_info(self(), current_function),
+    ok.
+
+stacktrace_3(A, B) ->
+    {ok,lists:prefix(A, B)}.
+
+nested_stacktrace(_Config) ->
+    V = [{make_ref()}|[self()]],
+    value1 = nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+                                 {void,void,void}),
+    case ?MODULE:module_info(native) of
+        false ->
+            {caught1,
+             [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+             value2} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{value,{V,x2}},void,{V,x2}}),
+            {caught1,
+             [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+             {caught2,[{erlang,abs,[V],_}|_]}} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{'abs',V},error,badarg});
+        true ->
+            {caught1,
+             [{?MODULE,my_add,2,_}|_],
+             value2} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{value,{V,x2}},void,{V,x2}}),
+            {caught1,
+             [{?MODULE,my_add,2,_}|_],
+             {caught2,[{?MODULE,my_abs,1,_}|_]}} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{'abs',V},error,badarg})
+    end,
+    ok.
+
+nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
+    try foo(X1) of
+        V1 -> value1
+    catch
+        C1:V1:S1 ->
+            S1 = erlang:get_stacktrace(),
+            T2 = try foo(X2) of
+                     V2 -> value2
+                 catch
+                     C2:V2:S2 ->
+                         S2 = erlang:get_stacktrace(),
+                         {caught2,S2}
+                 end,
+            {caught1,S1,T2}
+    end.
 
 
 id(I) -> I.

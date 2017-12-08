@@ -104,6 +104,9 @@ void hipe_emulate_fpe(Process*);
 AEXTERN(void,nbif_emasculate_binary,(Eterm));
 void hipe_emasculate_binary(Eterm);
 
+AEXTERN(BIF_RETTYPE,nbif_hipe_bifs_build_stacktrace,(Process*,Eterm));
+BIF_RETTYPE hipe_bifs_build_stacktrace_1(BIF_ALIST_1);
+
 /*
  * Stuff that is different in SMP and non-SMP.
  */

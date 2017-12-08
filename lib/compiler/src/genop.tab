@@ -545,3 +545,12 @@ BEAM_FORMAT_NUMBER=0
 ##      Test the arity of Reg and jumps to Lbl if it is not N.
 ##      Test the first element of the tuple and jumps to Lbl if it is not Atom.
 159: is_tagged_tuple/4
+
+# OTP 21
+
+## @spec build_stacktrace
+## @doc  Given the raw stacktrace in x(0), build a cooked stacktrace suitable
+##       for human consumption. Store it in x(0). Destroys all other registers.
+##       Do a garbage collection if necessary to allocate space on the heap
+##       for the result.
+160: build_stacktrace/0

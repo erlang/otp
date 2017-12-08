@@ -190,3 +190,8 @@ BIF_RETTYPE hipe_bifs_llvm_fix_pinned_regs_0(BIF_ALIST_0)
 {
     BIF_RET(am_ok);
 }
+
+BIF_RETTYPE hipe_bifs_build_stacktrace_1(BIF_ALIST_1)
+{
+    BIF_RET(build_stacktrace(BIF_P, BIF_ARG_1));
+}

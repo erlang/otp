@@ -108,90 +108,80 @@ dirty_bif_exception(Config) when is_list(Config) ->
 			      erts_debug:dirty_cpu(error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk1 ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_] = Stk1,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty_cpu,[error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk2 ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_] = Stk2,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty_io(error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_io,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk3 ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_] = Stk3,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty_io,[error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_io,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk4 ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_] = Stk4,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(normal, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[normal, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk5 ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_] = Stk5,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[normal, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[normal, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk6 ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_] = Stk6,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(dirty_cpu, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk7 ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_] = Stk7,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[dirty_cpu, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk8 ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_] = Stk8,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(dirty_io, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk9 ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_] = Stk9,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[dirty_io, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk10 ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_] = Stk10,
 				  ok
 			  end
 		  end,
@@ -204,25 +194,22 @@ dirty_bif_multischedule_exception(Config) when is_list(Config) ->
     try
 	erts_debug:dirty_cpu(reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty_cpu,[reschedule, 1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk1 ->
+	    [{erts_debug,dirty_cpu,[reschedule, 1001],_}|_] = Stk1,
 	    ok
     end,
     try
 	erts_debug:dirty_io(reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty_io,[reschedule, 1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk2 ->
+	    [{erts_debug,dirty_io,[reschedule, 1001],_}|_] = Stk2,
 	    ok
     end,
     try
 	erts_debug:dirty(normal,reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty,[normal,reschedule,1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk3 ->
+	    [{erts_debug,dirty,[normal,reschedule,1001],_}|_] = Stk3,
 	    ok
     end.
 

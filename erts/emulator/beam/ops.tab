@@ -1578,3 +1578,9 @@ i_recv_mark
 recv_set Fail | label Lbl | loop_rec Lf Reg => \
    i_recv_set | label Lbl | loop_rec Lf Reg
 i_recv_set
+
+#
+# OTP 21.
+#
+
+build_stacktrace

@@ -500,9 +500,8 @@ do_kernel_listing({M,A}) ->
 	    io:format("*** compilation failure '~p' for module ~s\n",
 		      [Error,M]),
 	    error;
-	Class:Error ->
-	    io:format("~p: ~p ~p\n~p\n",
-		      [M,Class,Error,erlang:get_stacktrace()]),
+	Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
 
@@ -902,9 +901,8 @@ do_core_pp({M,A}, Outdir) ->
 	    io:format("*** compilation failure '~p' for module ~s\n",
 		      [Error,M]),
 	    error;
-	Class:Error ->
-	    io:format("~p: ~p ~p\n~p\n",
-		      [M,Class,Error,erlang:get_stacktrace()]),
+	Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
 
@@ -961,9 +959,8 @@ do_core_roundtrip(Beam, Outdir) ->
 	    io:format("*** compilation failure '~p' for file ~s\n",
 		      [Error,Beam]),
 	    error;
-	Class:Error ->
-	    io:format("~p: ~p ~p\n~p\n",
-		      [Beam,Class,Error,erlang:get_stacktrace()]),
+	Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [Beam,Class,Error,Stk]),
 	    error
     end.
 
@@ -1148,9 +1145,8 @@ do_asm(Beam, Outdir) ->
 			  [Other,AsmFile]),
 		error
 	end
-    catch Class:Error ->
-	    io:format("~p: ~p ~p\n~p\n",
-		      [M,Class,Error,erlang:get_stacktrace()]),
+    catch Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
 
@@ -1167,9 +1163,8 @@ do_opt_guards(Beam) ->
     try
 	{ok,M,Asm} = compile:forms(A, ['S']),
 	do_opt_guards_mod(Asm)
-    catch Class:Error ->
-	    io:format("~p: ~p ~p\n~p\n",
-		      [M,Class,Error,erlang:get_stacktrace()]),
+    catch Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
 

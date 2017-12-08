@@ -109,9 +109,8 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	call_dirty_nif_exception(1),
 	ct:fail(expected_badarg)
     catch
-	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
-		erlang:get_stacktrace(),
+	error:badarg:Stk1 ->
+	    [{?MODULE,call_dirty_nif_exception,[1],_}|_] = Stk1,
 	    ok
     end,
     try
@@ -121,9 +120,8 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	call_dirty_nif_exception(0),
 	ct:fail(expected_badarg)
     catch
-	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
-		erlang:get_stacktrace(),
+	error:badarg:Stk2 ->
+	    [{?MODULE,call_dirty_nif_exception,[0],_}|_] = Stk2,
 	    ok
     end,
     %% this checks that a dirty NIF can raise various terms as
@@ -138,8 +136,8 @@ nif_raise_exceptions(NifFunc) ->
                             erlang:apply(?MODULE,NifFunc,[Term]),
                             ct:fail({expected,Term})
                         catch
-                            error:Term ->
-                                [{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+                            error:Term:Stk ->
+                                [{?MODULE,NifFunc,[Term],_}|_] = Stk,
                                 ok
                         end
                 end, ok, ExcTerms).

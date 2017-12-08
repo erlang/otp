@@ -395,12 +395,12 @@ raise(Conf) when is_list(Conf) ->
     try 
         try foo({'div',{1,0}}) 
         catch
-            error:badarith ->
+            error:badarith:A0 ->
                 put(raise, A0 = erlang:get_stacktrace()),
                 erlang:raise(error, badarith, A0)
         end
     catch
-        error:badarith ->
+        error:badarith:A1 ->
             A1 = erlang:get_stacktrace(),
             A1 = get(raise)
     end,

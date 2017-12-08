@@ -32,3 +32,4 @@ bif hipe_bifs:modeswitch_debug_on/0
 bif hipe_bifs:modeswitch_debug_off/0
 bif hipe_bifs:debug_native_called/2
 bif hipe_bifs:llvm_fix_pinned_regs/0
+bif hipe_bifs:build_stacktrace/1

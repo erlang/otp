@@ -415,6 +415,8 @@ expr(#c_call{module=M0,name=N0}=Call0, Ctxt, Sub) ->
 	no -> call(Call, M1, N1, Sub);
 	{yes,Seq} -> expr(Seq, Ctxt, Sub)
     end;
+expr(#c_primop{name=#c_literal{val=build_stacktrace}}, effect, _Sub) ->
+    void();
 expr(#c_primop{args=As0}=Prim, _, Sub) ->
     As1 = expr_list(As0, value, Sub),
     Prim#c_primop{args=As1};

@@ -781,6 +781,8 @@ live_opt([{block,Bl0}|Is], Regs0, D, Acc) ->
     {Bl,Regs} = live_opt_block(reverse(Bl0), Regs0, D, [Live0]),
     Live = {'%live',live_regs(Regs),Regs},
     live_opt(Is, Regs, D, [{block,[Live|Bl]}|Acc]);
+live_opt([build_stacktrace=I|Is], _, D, Acc) ->
+    live_opt(Is, live_call(1), D, [I|Acc]);
 live_opt([{label,L}=I|Is], Regs, D0, Acc) ->
     D = gb_trees:insert(L, Regs, D0),
     live_opt(Is, Regs, D, [I|Acc]);

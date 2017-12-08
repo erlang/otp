@@ -83,6 +83,7 @@ PRIMOP_LIST(am_emulate_fpe, &nbif_emulate_fpe)
 #endif
 PRIMOP_LIST(am_emasculate_binary, &nbif_emasculate_binary)
 PRIMOP_LIST(am_debug_native_called, &nbif_hipe_bifs_debug_native_called)
+PRIMOP_LIST(am_build_stacktrace, &nbif_hipe_bifs_build_stacktrace)
 
 #if defined(__sparc__)
 #include "hipe_sparc_primops.h"

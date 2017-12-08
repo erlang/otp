@@ -318,8 +318,7 @@ expect_error(Fun) ->
 	    io:format("~p", [Any]),
 	    ct:fail(call_was_supposed_to_fail)
     catch
-	Class:Reason ->
-	    Stk = erlang:get_stacktrace(),
+	Class:Reason:Stk ->
 	    io:format("~p:~p\n~p\n", [Class,Reason,Stk]),
 	    case {Class,Reason} of
 		{error,undef} ->

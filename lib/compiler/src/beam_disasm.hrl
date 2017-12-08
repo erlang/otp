@@ -26,7 +26,8 @@
 %%      IT SHOULD BE MOVED TO A FILE THAT DEFINES (AND EXPORTS)
 %%      PROPER TYPES FOR THE SET OF BEAM INSTRUCTIONS.
 %%
--type beam_instr() :: 'bs_init_writable' | 'fclearerror' | 'if_end'
+-type beam_instr() :: 'bs_init_writable' | 'build_stacktrace'
+                    | 'fclearerror' | 'if_end'
                     | 'remove_message' | 'return' | 'send' | 'timeout'
                     | tuple().  %% XXX: Very underspecified - FIX THIS
 
