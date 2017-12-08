@@ -72,7 +72,7 @@
 
   <section>
     <title>DEPENDENCIES</title>
-    <p>The SSL application uses the <c>public_key</c> and
+    <p>The SSL application uses the <c>public_key</c>, <c>asn1</c> and
     Crypto application to handle public keys and encryption, hence
     these applications must be loaded for the SSL application to work. 
     In an embedded environment this means they must be started with
@@ -123,14 +123,14 @@
       new client connections.  If the maximum number of sessions is
       reached, the current cache entries will be invalidated
       regardless of their remaining lifetime. Defaults to
-      1000.</p></item>
+      1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
 
       <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
       <item><p>Limits the growth of the servers session cache, that is
       how many client sessions are cached by the server. If the
       maximum number of sessions is reached, the current cache entries
       will be invalidated regardless of their remaining
-      lifetime. Defaults to 1000.</p></item>
+      lifetime. Defaults to 1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
@@ -145,9 +145,8 @@
       <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
       <item>
 	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
-	The PEM cache has proven to be a bottleneck, until the
-	implementation has been improved this can be used as
-	a workaround. Defaults to false.
+	Can be used as a workaround for the PEM-cache bottlneck
+	before ssl-8.1.1. Defaults to false.
 	</p>
       </item>
       
