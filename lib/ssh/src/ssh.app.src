@@ -42,10 +42,10 @@
   {env, []},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-3.7.3",
+			  "crypto-4.2",
 			  "erts-6.0",
 			  "kernel-3.0",
-			  "public_key-1.4",
+			  "public_key-1.5.2",
 			  "stdlib-3.3"
 			 ]}]}.
 
