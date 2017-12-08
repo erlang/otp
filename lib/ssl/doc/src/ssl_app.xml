@@ -38,8 +38,8 @@
       The ssl application is an implementation of the SSL/TLS protocol in Erlang.
     </p>
     <list type="bulleted">
-      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, and TLS-1.2.</item>
+      <item>Supported SSL/TLS/DTLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1, TLS-1.2, DTLS-1.0 (based on TLS-1.1), DTLS-1.2 (based on TLS-1.2)</item>
       <item>For security reasons SSL-2.0 is not supported.</item>
       <item>For security reasons SSL-3.0 is no longer supported by default,
       but can be configured.</item>
@@ -167,7 +167,7 @@
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
     <p>The SSL application uses the default <seealso
     marker="kernel:error_logger">OTP error logger</seealso> to log
-    unexpected errors and TLS alerts. The logging of TLS alerts may be
+    unexpected errors and TLS/DTLS alerts. The logging of TLS/DTLS alerts may be
     turned off with the <c>log_alert</c> option. </p>
   </section>
 

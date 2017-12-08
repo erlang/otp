@@ -32,7 +32,7 @@
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
     <p>
-      This module contains interface functions for the SSL/TLS protocol.
+      This module contains interface functions for the SSL/TLS/DTLS protocol.
       For detailed information about the supported standards see 
       <seealso marker="ssl_app">ssl(6)</seealso>.
     </p>
@@ -40,7 +40,7 @@
     
   <section>
     <title>DATA TYPES</title>
-    <p>The following data types are used in the functions for SSL:</p>
+    <p>The following data types are used in the functions for SSL/TLS/DTLS:</p>
 
     <taglist>
 
@@ -56,9 +56,11 @@
       <p>The default socket options are
       <c>[{mode,list},{packet, 0},{header, 0},{active, true}]</c>.</p>
       <p>For valid options, see the
-      <seealso marker="kernel:inet">inet(3)</seealso> and
-      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
-      in Kernel.</p></item>
+      <seealso marker="kernel:inet">inet(3)</seealso>,
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> and
+      <seealso marker="kernel:gen_tcp">gen_udp(3)</seealso> 
+      manual pages
+      in Kernel. Note that stream oriented options such as packet are only relevant for SSL/TLS and not DTLS</p></item>
 
       <tag><marker id="type-ssloption"/><c>ssl_option() =</c></tag>
       <item>
@@ -95,13 +97,14 @@
       <item><p><c>{cb_info, {CallbackModule::atom(), DataTag::atom(),
 
       ClosedTag::atom(), ErrTag:atom()}}</c></p>
-      <p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error}</c>. Can be used
-      to customize the transport layer. The callback module must implement a
+      <p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error}</c> for TLS
+      and <c>{gen_udp, udp, udp_closed, udp_error}</c> for DTLS. Can be used
+      to customize the transport layer. For TLS the callback module must implement a
       reliable transport protocol, behave as <c>gen_tcp</c>, and have functions
       corresponding to <c>inet:setopts/2</c>, <c>inet:getopts/2</c>,
       <c>inet:peername/1</c>, <c>inet:sockname/1</c>, and <c>inet:port/1</c>.
       The callback <c>gen_tcp</c> is treated specially and calls <c>inet</c>
-      directly.</p>
+      directly.</p> For DTLS this feature must be considered exprimental.
       <taglist>
 	<tag><c>CallbackModule =</c></tag>
 	<item><p><c>atom()</c></p></item>
@@ -184,7 +187,7 @@
   </section>
 
   <section>
-    <title>SSL OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</title>
+    <title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</title>
 
     <p>The following options have the same meaning in the client and 
     the server:</p>
@@ -289,11 +292,11 @@ atom()}} |
 	<list type="bulleted">
 	  <item><p>If the verify callback fun returns <c>{fail, Reason}</c>,
 	  the verification process is immediately stopped, an alert is
-	  sent to the peer, and the TLS/SSL handshake terminates.</p></item>
+	  sent to the peer, and the TLS/DTLS handshake terminates.</p></item>
 	  <item><p>If the verify callback fun returns <c>{valid, UserState}</c>,
 	  the verification process continues.</p></item> 
 	  <item><p>If the verify callback fun always returns
-	  <c>{valid, UserState}</c>, the TLS/SSL handshake does not
+	  <c>{valid, UserState}</c>, the TLS/DTLS handshake does not
 	  terminate regarding verification failures and the connection is
 	  established.</p></item>
 	  <item><p>If called with an extension unknown to the user application,
@@ -464,7 +467,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       See also <seealso marker="ssl:ssl_app">ssl(6).</seealso></p></item>
 
       <tag><c>{hibernate_after, integer()|undefined}</c></tag>
-      <item><p>When an integer-value is specified, <c>ssl_connection</c>
+      <item><p>When an integer-value is specified, <c>TLS/DTLS-connection</c>
       goes into hibernation after the specified number of milliseconds
       of inactivity, thus reducing its memory footprint. When
       <c>undefined</c> is specified (this is the default), the process
@@ -524,7 +527,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
   </section>
   
   <section>
-    <title>SSL OPTION DESCRIPTIONS - CLIENT SIDE</title>
+    <title>TLS/DTLS OPTION DESCRIPTIONS - CLIENT SIDE</title>
 
     <p>The following options are client-specific or have a slightly different
     meaning in the client than in the server:</p>
@@ -664,7 +667,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
    </section>
    
   <section>
-    <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
+    <title>TLS/DTLS OPTION DESCRIPTIONS - SERVER SIDE</title>
 
     <p>The following options are server-specific or have a slightly different
     meaning in the server than in the client:</p>
@@ -702,7 +705,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </p></item>
 
       <tag><c>{fail_if_no_peer_cert, boolean()}</c></tag>
-      <item><p>Used together with <c>{verify, verify_peer}</c> by an SSL server.
+      <item><p>Used together with <c>{verify, verify_peer}</c> by an TLS/DTLS server.
       If set to <c>true</c>, the server fails if the client does not have
       a certificate to send, that is, sends an empty certificate. If set to
       <c>false</c>, it fails only if the client sends an invalid
@@ -716,7 +719,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{reuse_session, fun(SuggestedSessionId,
       PeerCert, Compression, CipherSuite) -> boolean()}</c></tag>
-      <item><p>Enables the SSL server to have a local policy
+      <item><p>Enables the TLS/DTLS server to have a local policy
       for deciding if a session is to be reused or not.
       Meaningful only if <c>reuse_sessions</c> is set to <c>true</c>.
       <c>SuggestedSessionId</c> is a <c>binary()</c>, <c>PeerCert</c> is
@@ -814,7 +817,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
   <section>
     <title>General</title>
       
-    <p>When an SSL socket is in active mode (the default), data from the
+    <p>When an TLS/DTLS socket is in active mode (the default), data from the
       socket is delivered to the owner of the socket in the form of
       messages:</p>
 
@@ -872,20 +875,20 @@ fun(srp, Username :: string(), UserState :: term()) ->
    
     <func>
       <name>connect(Socket, SslOptions) -> </name>
-      <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket}
+      <name>connect(Socket, SslOptions, Timeout) -> {ok, TLSSocket}
 	| {error, Reason}</name>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
-	equivalent, connected socket to an SSL socket.</fsummary>
+	equivalent, connected socket to an TLS socket.</fsummary>
       <type>
 	<v>Socket = socket()</v>
 	<v>SslOptions = [ssl_option()]</v>
 	<v>Timeout = integer() | infinity</v>
-	<v>SslSocket = sslsocket()</v>
+	<v>TLSSocket = sslsocket()</v>
 	<v>Reason = term()</v>
       </type>
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
-	  connected socket to an SSL socket, that is, performs the
-	  client-side ssl handshake.</p>
+	  connected socket to an TLS socket, that is, performs the
+	  client-side TLS handshake.</p>
 	  
 	  <note><p>If the option <c>verify</c> is set to <c>verify_peer</c>
 	  the option <c>server_name_indication</c> shall also be specified,
@@ -899,7 +902,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name>connect(Host, Port, Options) -></name>
       <name>connect(Host, Port, Options, Timeout) ->
 	  {ok, SslSocket} | {error, Reason}</name>
-      <fsummary>Opens an SSL connection to <c>Host</c>, <c>Port</c>.</fsummary>
+      <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
       <type>
 	  <v>Host = host()</v>
 	  <v>Port = integer()</v>
@@ -908,7 +911,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <v>SslSocket = sslsocket()</v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Opens an SSL connection to <c>Host</c>, <c>Port</c>.</p>
+      <desc><p>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
       
       <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
       <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
@@ -930,24 +933,24 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
     <func>
       <name>close(SslSocket) -> ok | {error, Reason}</name>
-      <fsummary>Closes an SSL connection.</fsummary>
+      <fsummary>Closes an TLS/DTLS connection.</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Closes an SSL connection.</p>
+      <desc><p>Closes an TLS/DTLS connection.</p>
       </desc>
     </func>
 
     <func>
       <name>close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
-      <fsummary>Closes an SSL connection.</fsummary>
+      <fsummary>Closes an TLS connection.</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
 	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Closes or downgrades an SSL connection. In the latter case the transport
+      <desc><p>Closes or downgrades an TLS connection. In the latter case the transport
       connection will be handed over to the <c>NewController</c> process after receiving
       the TLS close alert from the peer. The returned transport socket will have
       the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
@@ -958,7 +961,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name>controlling_process(SslSocket, NewOwner) ->
 	ok | {error, Reason}</name>
 	<fsummary>Assigns a new controlling process to the
-	SSL socket.</fsummary>
+	TLS/DTLS socket.</fsummary>
 	<type>
 	  <v>SslSocket = sslsocket()</v>
 	  <v>NewOwner = pid()</v>
@@ -1121,7 +1124,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  extra key material. It either takes user-generated values for
 	  <c>Secret</c> and <c>Seed</c> or atoms directing it to use a specific
 	  value from the session security parameters.</p>
-        <p>Can only be used with TLS connections; <c>{error, undefined}</c>
+        <p>Can only be used with TLS/DTLS connections; <c>{error, undefined}</c>
 	  is returned for SSLv3 connections.</p>
       </desc>
     </func>
@@ -1221,7 +1224,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Performs the SSL/TLS server-side handshake.</p>
+        <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
 	<p><c>Socket</c> is a socket as returned by
 	<seealso marker="#transport_accept-2">ssl:transport_accept/[1,2]</seealso>
 	</p>
@@ -1231,7 +1234,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>ssl_accept(Socket, SslOptions) -> </name>
       <name>ssl_accept(Socket, SslOptions, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
-      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
 	<v>SslOptions = [ssl_option()]</v>
@@ -1248,10 +1251,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	by calling this function, else the upgrade succeeds or does not
 	succeed depending on timing.</p></warning>
 	
-	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS
+	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS/DTLS
 	options to those specified in
 	<seealso marker="#listen-2">ssl:listen/2 </seealso> and then performs
-	the SSL/TLS handshake.
+	the SSL/TLS/DTLS handshake.
 	</p>
       </desc>
     </func>
@@ -1310,7 +1313,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	The socket returned is to be passed to
 	<seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>
 	to complete handshaking, that is,
-	establishing the SSL/TLS connection.</p>
+	establishing the SSL/TLS/DTLS connection.</p>
         <warning>
           <p>The socket returned can only be used with
 	  <seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>.
@@ -1342,17 +1345,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <item>The application version of the SSL application.</item>
 
 	  <tag><c>supported</c></tag>
-	  <item>TLS/SSL versions supported by default.
+	  <item>SSL/TLS/DTLS versions supported by default.
 	  Overridden by a version option on
 	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
-	  For the negotiated TLS/SSL version, see <seealso
+	  For the negotiated SSL/TLS/DTLS version, see <seealso
 	  marker="#connection_information-1">ssl:connection_information/1
 	  </seealso>.</item>
   
 	  <tag><c>available</c></tag>
-	  <item>All TLS/SSL versions supported by the SSL application.
+	  <item>All SSL/TLS/DTLS versions supported by the SSL application.
 	  TLS 1.2 requires sufficient support from the Crypto
 	  application.</item>
 	</taglist>
@@ -1365,6 +1368,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <title>SEE ALSO</title>
     <p><seealso marker="kernel:inet">inet(3)</seealso> and
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>
+      <seealso marker="kernel:gen_udp">gen_udp(3)</seealso>
     </p>
   </section>
 
