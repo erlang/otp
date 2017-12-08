@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug for hipe compiled code using
+	    <c>&lt;&lt;X/utf32&gt;&gt;</c> binary construction that
+	    could cause faulty result or even VM crash.</p>
+          <p>
+	    On architectures other than x86_64, code need to be
+	    recompiled to benefit from this fix.</p>
+          <p>
+	    Own Id: OTP-14740</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added documentation about limitations of hipe compared to
+	    beam compiled code.</p>
+          <p>
+	    Own Id: OTP-14767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.16.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The '<c>deterministic</c>' option was not recognized
+	    when given in a <c>-compile()</c> attribute in the source
+	    code.</p>
+          <p>
+	    Own Id: OTP-14773 Aux Id: ERL-498 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

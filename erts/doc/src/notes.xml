@@ -31,6 +31,143 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug in tracing where the {caller} match spec
+	    function would be set to undefined incorrectly when used
+	    in conjunction with return_to or return_trace on some
+	    functions.</p>
+          <p>
+	    The functions effected are: erlang:put/2, erlang:erase/1,
+	    erlang:process_info/1,2, erlang:nif_load/2,
+	    erts_internal:garbage_collection/1 and
+	    erts_internal:check_process_code/1.</p>
+          <p>
+	    Because of this bug, the analysis done by fprof could
+	    become incorrect when the functions above are the
+	    tail-call in a function.</p>
+          <p>
+	    Own Id: OTP-14677</p>
+        </item>
+        <item>
+          <p>
+	    Fix emulator deadlock that would happen if
+	    <c>trap_exit</c> was set to true and a process sends an
+	    exit signal to itself using <c>exit(self(), Reason)</c>
+	    while receive tracing was enabled for that process.</p>
+          <p>
+	    Own Id: OTP-14678 Aux Id: ERL-495 </p>
+        </item>
+        <item>
+	    <p>Writing of crash dumps is significantly faster.</p>
+	    <p>Maps are now included in crash dumps.</p>
+	    <p>Constants terms would only be shown in one process,
+	    while other processes referencing the same constant term
+	    would show a marker for incomplete heap. </p>
+          <p>
+	    Own Id: OTP-14685 Aux Id: OTP-14611, OTP-14603, OTP-14595 </p>
+        </item>
+        <item>
+          <p>
+	    The fallback home directory for windows has been changed
+	    to be the PROFILE directory instead of the WINDOWS
+	    directory. The fallback is used when the environment
+	    variables HOMEDRIVE and HOMEPATH have not been set.</p>
+          <p>
+	    Own Id: OTP-14691</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug for hipe compiled code using
+	    <c>&lt;&lt;X/utf32&gt;&gt;</c> binary construction that
+	    could cause faulty result or even VM crash.</p>
+          <p>
+	    On architectures other than x86_64, code need to be
+	    recompiled to benefit from this fix.</p>
+          <p>
+	    Own Id: OTP-14740</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:garbage_collect/2</c> and
+	    <c>erlang:check_process_code/3</c>, when called with
+	    option <c>{async,ReqestId}</c>. Could cause VM crash or
+	    heap corruption if <c>RequestId</c> was an immediate term
+	    (like a pid, atom or small integer). Bug exists since
+	    OTP-17.0.</p>
+          <p>
+	    Own Id: OTP-14752</p>
+        </item>
+        <item>
+	    <p>ERL_NIF_MINOR_VERSION wasn't bumped with the addition
+	    of <c>enif_ioq_*</c>.</p>
+          <p>
+	    Own Id: OTP-14779</p>
+        </item>
+        <item>
+	    <p>Purging of loaded code that contained "fake literals"
+	    (for example the magic reference obtained from
+	    '<c>ets:new/2</c>') would crash the runtime system.
+	    Corrected.</p>
+          <p>
+	    Own Id: OTP-14791</p>
+        </item>
+        <item>
+	    <p>Setting the size of the atom table to a number near
+	    2147483647 (using the '<c>+t</c>' option) would cause the
+	    emulator to exit with a failure to allocate a huge amount
+	    of memory. This has been corrected. Also the usage
+	    message for the '<c>+t</c>' option has been corrected to
+	    show the correct upper limit 2147483647 instead of 0.</p>
+          <p>
+	    Own Id: OTP-14796</p>
+        </item>
+        <item>
+	    <p>Fixed a bug that prevented registered process names
+	    from being resolved in lcnt results.</p>
+          <p>
+	    Own Id: OTP-14803</p>
+        </item>
+        <item>
+	    <p>Formatting bugs were fixed in several HiPE debug
+	    BIFs.</p>
+          <p>
+	    Own Id: OTP-14804</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Binaries and some other data in crash dumps are now
+	    encoded in base64 (instead of in hex), which will reduce
+	    the size of crash dumps.</p>
+	    <p>A few bugs in the handling of sub binaries in
+	    <c>crashdump_viewer</c> have been fixed.</p>
+          <p>
+	    Own Id: OTP-14686</p>
+        </item>
+        <item>
+          <p>
+	    Micro optimization for send operations of messages to
+	    other nodes. The local ack-message, which is otherwise
+	    sent back from TPC/IP port driver to sending client
+	    process, is now ignored earlier for distributed send
+	    operations.</p>
+          <p>
+	    Own Id: OTP-14689</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

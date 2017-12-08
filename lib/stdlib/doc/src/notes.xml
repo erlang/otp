@@ -31,6 +31,49 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Make <c>ets:i/1</c> exit cleaner when ^D is input
+	    while browsing a table. Only the old Erlang shell is
+	    affected (<c>erl(1)</c> flag <c>-oldshell</c>). </p>
+          <p>
+	    Own Id: OTP-14663</p>
+        </item>
+        <item>
+          <p>
+	    Fixed handling of windows UNC paths in module
+	    <c>filename</c>.</p>
+          <p>
+	    Own Id: OTP-14693</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve performance of the new string functionality when
+	    handling ASCII characters.</p>
+          <p>
+	    Own Id: OTP-14670</p>
+        </item>
+        <item>
+          <p>
+	    Added a clarification to the documentation of
+	    <c>unicode:characters_to_list/2</c>.</p>
+          <p>
+	    Own Id: OTP-14798</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

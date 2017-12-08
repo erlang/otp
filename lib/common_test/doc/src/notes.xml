@@ -33,6 +33,33 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.15.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new function, <c>ct:remaining_test_procs/0</c>, returns
+	    the identity of test- and group leader processes that are
+	    still running at the time of the call.</p>
+          <p>
+	    Own Id: OTP-13832</p>
+        </item>
+        <item>
+          <p>
+	    A "latest test result" link is now displayed in the
+	    footer of each test index page, which performs a jump to
+	    the most recently generated test index. This is useful
+	    for making quick comparisons of results between test runs
+	    without having to traverse the log file tree.</p>
+          <p>
+	    Own Id: OTP-14281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.2</title>
 
     <section><title>Improvements and New Features</title>

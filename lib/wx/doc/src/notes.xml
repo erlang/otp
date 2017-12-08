@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx crashes in otp 20.1 if empty binaries was sent down as
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-14688</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

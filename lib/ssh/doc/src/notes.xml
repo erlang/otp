@@ -30,6 +30,48 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Passphrase option for ecdsa public keys was missing.</p>
+          <p>
+	    Own Id: OTP-14602</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The host and user public key handling is hardened so that
+	    a faulty plugin can't deliver a key of wrong type.</p>
+          <p>
+	    Better checks in the server of the available hostkey's
+	    types at start and at each accept.</p>
+          <p>
+	    Better checks in the client of the available user public
+	    key types at connect.</p>
+          <p>
+	    Own Id: OTP-14676 Aux Id: ERIERL-52, OTP-14570 </p>
+        </item>
+        <item>
+          <p>
+	    SSH can now fetch the host key from the private keys
+	    stored in an Engine. See the crypto application for
+	    details about Engines.</p>
+          <p>
+	    Own Id: OTP-14757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

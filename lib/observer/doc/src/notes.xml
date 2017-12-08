@@ -32,6 +32,73 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug introduced in OTP-20 would make Crashdump Viewer
+	    crash when trying to expand an empty binary. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14642</p>
+        </item>
+        <item>
+          <p>
+	    If a match spec in the config file contained more than
+	    one clause, observer would earlier crash when trying to
+	    display it in the GUI. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14643 Aux Id: ERL-489 </p>
+        </item>
+        <item>
+	    <p>Writing of crash dumps is significantly faster.</p>
+	    <p>Maps are now included in crash dumps.</p>
+	    <p>Constants terms would only be shown in one process,
+	    while other processes referencing the same constant term
+	    would show a marker for incomplete heap. </p>
+          <p>
+	    Own Id: OTP-14685 Aux Id: OTP-14611, OTP-14603, OTP-14595 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Binaries and some other data in crash dumps are now
+	    encoded in base64 (instead of in hex), which will reduce
+	    the size of crash dumps.</p>
+	    <p>A few bugs in the handling of sub binaries in
+	    <c>crashdump_viewer</c> have been fixed.</p>
+          <p>
+	    Own Id: OTP-14686</p>
+        </item>
+        <item>
+          <p>
+	    In order to allow future improvements, Crashdump Viewer
+	    now checks the version tag of the crashdump to see that
+	    it is a known format. If the crashdump version is newer
+	    than Crashdump Viewer is prepared to read, then an
+	    information dialog is displayed before Crashdump Viewer
+	    terminates.</p>
+          <p>
+	    If an incomplete process heap is discovered in a
+	    crashdump, Crashdump Viewer will now display a warning
+	    for this, similar to the warning displayed when a
+	    crashdump is truncated. Incomplete heaps can occur if for
+	    instance the literals are not included, which is the case
+	    for all dumps prior to OTP-20.2.</p>
+          <p>
+	    Own Id: OTP-14755</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.5</title>
 
     <section><title>Improvements and New Features</title>
