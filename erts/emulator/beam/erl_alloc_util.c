@@ -2083,27 +2083,14 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	res = 1;
 
 	blk = UMEM2BLK(ptr);
-	if (IS_FREE_LAST_MBC_BLK(blk)) {
+	if (blk->bhdr == HOMECOMING_MBC_BLK_HDR) {
 	    /*
 	     * A multiblock carrier that previously has been migrated away
 	     * from us and now is back to be deallocated. For more info
 	     * see schedule_dealloc_carrier().
-	     *
-	     * Note that we cannot use FBLK_TO_MBC(blk) since it
-	     * data has been overwritten by the queue.
 	     */
-	    Carrier_t *crr = FIRST_BLK_TO_MBC(allctr, blk);
-
-	     /* Restore word overwritten by the dd-queue as it will be read
-	      * if this carrier is pulled from dc_list by cpool_fetch()
-	      */
-	    ERTS_ALC_CPOOL_ASSERT(FBLK_TO_MBC(blk) != crr);
-	    ERTS_CT_ASSERT(sizeof(ErtsAllctrDDBlock_t) == sizeof(void*));
-#ifdef MBC_ABLK_OFFSET_BITS
-	    blk->u.carrier = crr;
-#else
-	    blk->carrier = crr;
-#endif
+	    Carrier_t *crr = ErtsContainerStruct(blk, Carrier_t,
+                                                 cpool.homecoming_dd.blk);
 
 	    ERTS_ALC_CPOOL_ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(allctr));
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
@@ -2116,6 +2103,7 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	    schedule_dealloc_carrier(allctr, crr);
 	}
 	else {
+            ASSERT(IS_SBC_BLK(blk) || !IS_FREE_BLK(blk));
 
 	    INC_CC(allctr->calls.this_free);
 
@@ -3543,6 +3531,8 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 			      == (erts_smp_atomic_read_nob(&crr->allctr)
 				  & ~ERTS_CRR_ALCTR_FLG_MASK));
 
+        blk = &crr->cpool.homecoming_dd.blk;
+        ERTS_ALC_CPOOL_ASSERT(blk->bhdr == HOMECOMING_MBC_BLK_HDR);
 	if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(blk), cinit))
 	    erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
 	return;
@@ -3581,6 +3571,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 static ERTS_INLINE void
 cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 {
+    crr->cpool.homecoming_dd.blk.bhdr = HOMECOMING_MBC_BLK_HDR;
     erts_atomic_init_nob(&crr->cpool.next, ERTS_AINT_NULL);
     erts_atomic_init_nob(&crr->cpool.prev, ERTS_AINT_NULL);
     crr->cpool.orig_allctr = allctr;
