@@ -53,7 +53,6 @@ Allctr_t *erts_aoffalc_start(AOFFAllctr_t *, AOFFAllctrInit_t*, AllctrInit_t *);
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
 
-
 struct AOFFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 

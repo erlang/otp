@@ -92,18 +92,6 @@
 #define RBT_ASSERT(x)
 #endif
 
-
-/* Types... */
-typedef struct AOFF_RBTree_t_ AOFF_RBTree_t;
-
-struct AOFF_RBTree_t_ {
-    Block_t hdr;
-    AOFF_RBTree_t *parent;
-    AOFF_RBTree_t *left;
-    AOFF_RBTree_t *right;
-    Uint32 flags;
-    Uint32 max_sz;  /* of all blocks in this sub-tree */
-};
 #define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
 /* BF block nodes keeps list of all with equal size
@@ -120,7 +108,7 @@ typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
-    AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
+    AOFF_RBTree_t rbt_node;   /* My node in the carrier tree */
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
 #define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
@@ -136,8 +124,9 @@ struct AOFF_Carrier_t_ {
 */
 
 #ifdef HARD_DEBUG
-#  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
+#  define HARD_CHECK_IS_MEMBER(ROOT,NODE) ASSERT(rbt_is_member(ROOT,NODE))
 #  define HARD_CHECK_TREE(CRR,FLV,ROOT,SZ) check_tree(CRR, FLV, ROOT, SZ)
+static int rbt_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
 static AOFF_RBTree_t * check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, Uint);
 #else
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
@@ -178,6 +167,27 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
     }
     else ASSERT(new_max == old_max);
 }
+
+#ifdef ERTS_SMP
+/*
+ * Set possibly new larger 'max_sz' of node and propagate change toward root
+ */
+void erts_aoff_larger_max_size(AOFF_RBTree_t *node)
+{
+    AOFF_RBTree_t* x = node;
+    const Uint new_sz = node->hdr.bhdr;
+
+    ASSERT(!x->left  || x->left->max_sz  <= x->max_sz);
+    ASSERT(!x->right || x->right->max_sz <= x->max_sz);
+
+    while (new_sz > x->max_sz) {
+        x->max_sz = new_sz;
+        x = x->parent;
+        if (!x)
+            break;
+    }
+}
+#endif
 
 static ERTS_INLINE SWord cmp_blocks(enum AOFF_Flavor flavor,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
@@ -220,9 +230,6 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
 static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
 static void rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
 static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
-#ifdef HARD_DEBUG
-static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
-#endif
 
 static Eterm info_options(Allctr_t *, char *, fmtfn_t *, void *, Uint **, Uint *);
 static void init_atoms(void);
@@ -719,19 +726,20 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 
     rbt_insert(alc->flavor, &blk_crr->root, blk);
 
-    /* Update the carrier tree with a potentially new (larger) max_sz
-    */
+    /*
+     * Update carrier tree with a potentially new (larger) max_sz
+     */
     crr_node = &blk_crr->rbt_node;
     if (blk_sz > crr_node->hdr.bhdr) {
-	ASSERT(blk_sz == blk_crr->root->max_sz);
-	crr_node->hdr.bhdr = blk_sz;
-	while (blk_sz > crr_node->max_sz) {
-	    crr_node->max_sz = blk_sz;
-	    crr_node = crr_node->parent;
-	    if (!crr_node) break;
-	}
+        ASSERT(blk_sz == blk_crr->root->max_sz);
+        crr_node->hdr.bhdr = blk_sz;
+        while (blk_sz > crr_node->max_sz) {
+            crr_node->max_sz = blk_sz;
+            crr_node = crr_node->parent;
+            if (!crr_node) break;
+        }
     }
-    HARD_CHECK_TREE(&blk_crr->crr, alc->flavor, blk_crr->root, 0);
+    HARD_CHECK_TREE(NULL, AOFF_AOFF, alc->mbc_root, 0);
 }
 
 static void
@@ -825,6 +833,18 @@ rbt_search(AOFF_RBTree_t* root, Uint size)
 	}
     }
 }
+
+#ifdef ERTS_SMP
+Carrier_t* aoff_lookup_pooled_mbc(Allctr_t* allctr, Uint size)
+{
+    AOFF_RBTree_t* node;
+
+    if (!allctr->cpool.pooled_tree)
+	return NULL;
+    node = rbt_search(allctr->cpool.pooled_tree, size);
+    return node ? ErtsContainerStruct(node, Carrier_t, cpool.pooled) : NULL;
+}
+#endif
 
 static Block_t *
 aoff_get_free_block(Allctr_t *allctr, Uint size,
@@ -920,16 +940,31 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
+#ifdef ERTS_SMP
+void aoff_add_pooled_mbc(Allctr_t *allctr, Carrier_t *crr)
+{
+    AOFF_RBTree_t **root = &allctr->cpool.pooled_tree;
+
+    ASSERT(allctr == crr->cpool.orig_allctr);
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
+
+    /* Link carrier in address order tree
+     */
+    rbt_insert(AOFF_AOFF, root, &crr->cpool.pooled);
+
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
+}
+#endif
+
 static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
-    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
-    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t **root = &alc->mbc_root;
+    AOFF_RBTree_t **root = &((AOFFAllctr_t*)allctr)->mbc_root;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*)carrier;
 
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
 
     if (!IS_CRR_IN_TREE(crr,*root))
-        return;
+	return;
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
@@ -941,6 +976,26 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
+
+#ifdef ERTS_SMP
+void aoff_remove_pooled_mbc(Allctr_t *allctr, Carrier_t *crr)
+{
+    ASSERT(allctr == crr->cpool.orig_allctr);
+
+    HARD_CHECK_TREE(NULL, 0, allctr->cpool.pooled_tree, 0);
+
+    rbt_delete(&allctr->cpool.pooled_tree, &crr->cpool.pooled);
+#ifdef DEBUG
+    crr->cpool.pooled.parent = NULL;
+    crr->cpool.pooled.left = NULL;
+    crr->cpool.pooled.right = NULL;
+    crr->cpool.pooled.max_sz = 0;
+#endif
+    HARD_CHECK_TREE(NULL, 0, allctr->cpool.pooled_tree, 0);
+
+}
+#endif
+
 
 static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
 {
@@ -1085,12 +1140,13 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 
 
 #ifdef HARD_DEBUG
-
-static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node)
+static int rbt_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node)
 {
     while (node != root) {
-	ASSERT(node->parent);
-	ASSERT(node->parent->left == node || node->parent->right == node);
+        if (!node->parent || (node->parent->left != node &&
+                              node->parent->right != node)) {
+            return 0;
+        }
 	node = node->parent;
     }    
     return 1;

@@ -307,6 +307,7 @@ typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
 typedef struct Carrier_t_ Carrier_t;
 
+
 typedef struct {
     UWord bhdr;
 #if !MBC_ABLK_OFFSET_BITS
@@ -373,13 +374,24 @@ typedef struct {
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 
+/* This AOFF stuff really belong in erl_ao_firstfit_alloc.h */
+typedef struct AOFF_RBTree_t_ AOFF_RBTree_t;
+struct AOFF_RBTree_t_ {
+    Block_t hdr;
+    AOFF_RBTree_t *parent;
+    AOFF_RBTree_t *left;
+    AOFF_RBTree_t *right;
+    Uint32 flags;
+    Uint32 max_sz;  /* of all blocks in this sub-tree */
+};
+#ifdef ERTS_SMP
+void aoff_add_pooled_mbc(Allctr_t*, Carrier_t*);
+void aoff_remove_pooled_mbc(Allctr_t*, Carrier_t*);
+Carrier_t* aoff_lookup_pooled_mbc(Allctr_t*, Uint size);
+void erts_aoff_larger_max_size(AOFF_RBTree_t *node);
+#endif
 
 #ifdef ERTS_SMP
-
-typedef struct ErtsDoubleLink_t_ {
-    struct ErtsDoubleLink_t_ *next;
-    struct ErtsDoubleLink_t_ *prev;
-}ErtsDoubleLink_t;
 
 typedef struct {
     ErtsFakeDDBlock_t homecoming_dd;
@@ -391,7 +403,12 @@ typedef struct {
     UWord abandon_limit;
     UWord blocks;
     UWord blocks_size;
-    ErtsDoubleLink_t abandoned; /* node in pooled_list or traitor_list */
+    enum {
+        ERTS_MBC_IS_HOME,
+        ERTS_MBC_WAS_POOLED,
+        ERTS_MBC_WAS_TRAITOR
+    } state;
+    AOFF_RBTree_t pooled;  /* node in pooled_tree */
 } ErtsAlcCPoolData_t;
 
 #endif
@@ -566,15 +583,14 @@ struct Allctr_t_ {
     UWord               crr_set_flgs;
     UWord               crr_clr_flgs;
 
-    /* Carriers */
+    /* Carriers *employed* by this allocator */
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
 #ifdef ERTS_SMP
     struct {
-	/* pooled_list, traitor list and dc_list contain only
-           carriers _created_ by this allocator */
-	ErtsDoubleLink_t pooled_list;
-	ErtsDoubleLink_t traitor_list;
+	/* pooled_tree and dc_list contain only
+           carriers *created* by this allocator */
+	AOFF_RBTree_t*   pooled_tree;
 	CarrierList_t	 dc_list;
 
 	UWord		abandon_limit;
@@ -685,7 +701,6 @@ void erts_alcu_assert_failed(char* expr, char* file, int line, char *func);
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);
 #endif
-
 
 #endif /* #if defined(GET_ERL_ALLOC_UTIL_IMPL)
 	      && !defined(ERL_ALLOC_UTIL_IMPL__) */
