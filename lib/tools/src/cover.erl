@@ -2456,7 +2456,9 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
-		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
+                    CovLines0 =
+                        lists:keysort(1, ets:select(?COLLECTION_TABLE, MS)),
+                    CovLines = merge_dup_lines(CovLines0),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
 		    if HTML ->
@@ -2477,19 +2479,23 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
+merge_dup_lines(CovLines) ->
+    merge_dup_lines(CovLines, []).
+merge_dup_lines([{L, N}|T], [{L, NAcc}|TAcc]) ->
+    merge_dup_lines(T, [{L, NAcc + N}|TAcc]);
+merge_dup_lines([{L, N}|T], Acc) ->
+    merge_dup_lines(T, [{L, N}|Acc]);
+merge_dup_lines([], Acc) ->
+    lists:reverse(Acc).
 
 print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
     case file:read_line(InFd) of
 	eof ->
 	    ignore;
-	{ok,"%"++_=Line} ->		 %Comment line - not executed.
-	    ok = file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
-	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
 	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
-		    %% N = lists:foldl(fun([Ni], Nacc) -> Nacc+Ni end, 0, Ns),
                     if N=:=0, HTML=:=true ->
                            LineNoNL = Line -- "\n",
                            Str = "     0",
@@ -2508,7 +2514,7 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                            ok = file:write(OutFd, [Str,fill3(),Line])
                     end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
-		_ ->
+		_ ->                            %Including comment lines
 		    ok = file:write(OutFd, [tab(),Line]),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
