@@ -35,7 +35,7 @@
 
   <description>
     <p>
-      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+      The ssl application is an implementation of the SSL/TLS/DTLS protocol in Erlang.
     </p>
     <list type="bulleted">
       <item>Supported SSL/TLS/DTLS-versions are SSL-3.0, TLS-1.0,
@@ -94,13 +94,20 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:ssl_tls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      protocols currently supported by the SSL application.
+      TLS protocols currently supported by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
+      <tag><c>dtls_protocol_version = </c><seealso marker="ssl#type-protocol">ssl:dtls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      DTLS protocols currently supported by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
+      
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
       <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
       recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However

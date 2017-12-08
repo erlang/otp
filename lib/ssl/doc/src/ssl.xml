@@ -104,7 +104,7 @@
       corresponding to <c>inet:setopts/2</c>, <c>inet:getopts/2</c>,
       <c>inet:peername/1</c>, <c>inet:sockname/1</c>, and <c>inet:port/1</c>.
       The callback <c>gen_tcp</c> is treated specially and calls <c>inet</c>
-      directly.</p> For DTLS this feature must be considered exprimental.
+      directly. For DTLS this feature must be considered exprimental.</p>
       <taglist>
 	<tag><c>CallbackModule =</c></tag>
 	<item><p><c>atom()</c></p></item>
@@ -140,9 +140,15 @@
 
       <tag><c>sslsocket() =</c></tag>
       <item><p>opaque()</p></item>
-
-      <tag><marker id="type-protocol"/><c>protocol() =</c></tag>
+      
+      <tag><marker id="type-protocol"/><c> protocol_versions() =</c></tag>
+      <item><p><c> ssl_tls_protocol() |  dtls_protocol() </c></p></item>
+      
+      <tag><marker id="type-protocol"/><c> ssl_tls_protocol() =</c></tag>
       <item><p><c>sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
+
+      <tag><marker id="type-protocol"/><c> dtls_protocol() =</c></tag>
+      <item><p><c>'dtlsv1' | 'dtlsv1.2'</c></p></item>
 
       <tag><c>ciphers() =</c></tag>
       <item><p><c>= [ciphersuite()] | string()</c></p>
@@ -459,10 +465,10 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
       with the selected CA as trusted anchor and the rest of the chain.</p></item>
 
-      <tag><c>{versions, [protocol()]}</c></tag>
+      <tag><c>{versions, [protocol_versions()]}</c></tag>
       <item><p>TLS protocol versions supported by started clients and servers.
       This option overrides the application environment option
-      <c>protocol_version</c>. If the environment option is not set, it defaults
+      <c>protocol_version</c> and  <c>dtls_protocol_version</c>. If the environment option is not set, it defaults
       to all versions, except SSL-3.0, supported by the SSL application.
       See also <seealso marker="ssl:ssl_app">ssl(6).</seealso></p></item>
 
@@ -835,6 +841,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>cipher_suites() -></name>
       <name>cipher_suites(Type) -> ciphers()</name>
+      <name>cipher_suites(Type, protocol_version()) -> ciphers()</name>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
       <type>
         <v>Type = erlang | openssl | all</v>
@@ -846,13 +853,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	all available cipher suites. The cipher suites not present
 	in <c>cipher_suites(erlang)</c> but included in
 	<c>cipher_suites(all)</c> are not used unless explicitly configured
-	by the user.</p>
+	by the user. If the version option is not specified, the highest supported
+	TLS version will be used to determine the supported cipher suites</p>
     </desc>
     </func>
 
     <func>
       <name>eccs() -></name>
-      <name>eccs(protocol()) -> [named_curve()]</name>
+      <name>eccs(protocol_version()) -> [named_curve()]</name>
       <fsummary>Returns a list of supported ECCs.</fsummary>
 
       <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
@@ -860,7 +868,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       supported protocols and then deduplicating the output.</p>
       </desc>
     </func>
-
+    
     <func>
       <name>clear_pem_cache() -> ok </name>
       <fsummary> Clears the pem cache</fsummary>
@@ -917,7 +925,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
       will be performed in addition to the usual x509-path validation checks. If the check fails the error {bad_cert, hostname_check_failed} will
       be propagated to the path validation fun <seealso marker="#verify_fun">verify_fun</seealso>, where it is possible to do customized
-      checks by using the full possibilitis of the <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> API.
+      checks by using the full possibilities of the <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> API.
       
       When the option <c>server_name_indication</c> is provided, its value (the DNS name) will be used as <c>ReferenceID</c>
       to <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
@@ -1335,7 +1343,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns version information relevant for the
 	SSL application.</fsummary>
       <type>
-	<v>versions_info() = {app_vsn, string()} | {supported | available, [protocol()] </v>
+	<v>versions_info() = {app_vsn, string()} | {supported | available, [ssl_tls_protocol()]} |
+	{supported_dtls | available_dtls, [dtls_protocol()]}	</v>
       </type>
       <desc>
 	<p>Returns version information relevant for the SSL
@@ -1345,19 +1354,35 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <item>The application version of the SSL application.</item>
 
 	  <tag><c>supported</c></tag>
-	  <item>SSL/TLS/DTLS versions supported by default.
+	  <item>SSL/TLS versions supported by default.
 	  Overridden by a version option on
 	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
-	  For the negotiated SSL/TLS/DTLS version, see <seealso
+	  For the negotiated SSL/TLS version, see <seealso
 	  marker="#connection_information-1">ssl:connection_information/1
 	  </seealso>.</item>
-  
+	  
+	  <tag><c>supported_dtls</c></tag>
+	  <item>DTLS versions supported by default.
+	  Overridden by a version option on
+	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
+	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
+	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
+	  For the negotiated DTLS version, see <seealso
+	  marker="#connection_information-1">ssl:connection_information/1
+	  </seealso>.</item>
+
 	  <tag><c>available</c></tag>
-	  <item>All SSL/TLS/DTLS versions supported by the SSL application.
+	  <item>All SSL/TLS versions supported by the SSL application.
 	  TLS 1.2 requires sufficient support from the Crypto
 	  application.</item>
+
+	  <tag><c>available_dtls</c></tag>
+	  <item>All DTLS versions supported by the SSL application.
+	  DTLS 1.2 requires sufficient support from the Crypto
+	  application.</item>
+	  
 	</taglist>
       </desc>
     </func>

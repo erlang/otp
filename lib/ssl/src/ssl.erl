@@ -39,7 +39,7 @@
 	]).
 %% SSL/TLS protocol handling
 
--export([cipher_suites/0, cipher_suites/1, eccs/0, eccs/1, versions/0, 
+-export([cipher_suites/0, cipher_suites/1, cipher_suites/2, eccs/0, eccs/1, versions/0, 
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
@@ -383,13 +383,31 @@ cipher_suites() ->
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
-    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(default)];
-
+    Version = tls_record:highest_protocol_version([]),			  
+    cipher_suites(erlang, Version);
 cipher_suites(openssl) ->
-    [ssl_cipher:openssl_suite_name(Suite) || Suite <- available_suites(default)];
-
+    Version = tls_record:highest_protocol_version([]),			  
+    cipher_suites(openssl, Version);
 cipher_suites(all) ->
-    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
+    Version = tls_record:highest_protocol_version([]),			  
+    cipher_suites(all, Version).
+
+%%--------------------------------------------------------------------
+-spec cipher_suites(erlang | openssl | all, tls_record:tls_version() |
+                    dtls_record:dtls_version()) -> [ssl_cipher:old_erl_cipher_suite() | string()].
+%% Description: Returns all supported cipher suites.
+%%--------------------------------------------------------------------
+cipher_suites(Type, Version) when Version == 'dtlsv1';
+                                  Version == 'dtlsv1.2' ->
+    cipher_suites(Type, dtls_record:protocol_version(Version));
+cipher_suites(Type, Version) when is_atom(Version) ->
+    cipher_suites(Type, tls_record:protocol_version(Version));
+cipher_suites(erlang, Version) ->
+    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(default, Version)];
+cipher_suites(openssl, Version) ->
+    [ssl_cipher:openssl_suite_name(Suite) || Suite <- available_suites(default, Version)];
+cipher_suites(all, Version) ->
+    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all, Version)].
 
 %%--------------------------------------------------------------------
 -spec eccs() -> tls_v1:curves().
@@ -410,6 +428,11 @@ eccs({3,0}) ->
 eccs({3,_}) ->
     Curves = tls_v1:ecc_curves(all),
     eccs_filter_supported(Curves);
+eccs({_,_} = DTLSVersion) ->
+    eccs(dtls_v1:corresponding_tls_version(DTLSVersion));
+eccs(DTLSAtomVersion) when DTLSAtomVersion == 'dtlsv1';
+                           DTLSAtomVersion == 'dtlsv2' ->
+    eccs(dtls_record:protocol_version(DTLSAtomVersion));
 eccs(AtomVersion) when is_atom(AtomVersion) ->
     eccs(tls_record:protocol_version(AtomVersion)).
 
@@ -542,16 +565,23 @@ sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)
 
 %%---------------------------------------------------------------
 -spec versions() -> [{ssl_app, string()} | {supported, [tls_record:tls_atom_version()]} |
-		     {available, [tls_record:tls_atom_version()]}].
+                     {supported_dtls, [dtls_record:dtls_atom_version()]} |
+		     {available, [tls_record:tls_atom_version()]} |
+                     {available_dtls, [dtls_record:dtls_atom_version()]}].
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
 versions() ->
-    Vsns = tls_record:supported_protocol_versions(),
-    SupportedVsns = [tls_record:protocol_version(Vsn) || Vsn <- Vsns],
-    AvailableVsns = ?ALL_AVAILABLE_VERSIONS,
-    %% TODO Add DTLS versions when supported
-    [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
+    TLSVsns = tls_record:supported_protocol_versions(),
+    DTLSVsns = dtls_record:supported_protocol_versions(),
+    SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- TLSVsns],
+    SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- DTLSVsns],
+    AvailableTLSVsns = ?ALL_AVAILABLE_VERSIONS,
+    AvailableDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
+    [{ssl_app, ?VSN}, {supported, SupportedTLSVsns}, 
+     {supported_dtls, SupportedDTLSVsns}, 
+     {available, AvailableTLSVsns}, 
+     {available_dtls, AvailableDTLSVsns}].
 
 
 %%---------------------------------------------------------------
@@ -633,12 +663,10 @@ tls_version({254, _} = Version) ->
 %%%--------------------------------------------------------------------
 
 %% Possible filters out suites not supported by crypto 
-available_suites(default) ->  
-    Version = tls_record:highest_protocol_version([]),			  
+available_suites(default, Version) ->  
     ssl_cipher:filter_suites(ssl_cipher:suites(Version));
 
-available_suites(all) ->  
-    Version = tls_record:highest_protocol_version([]),			  
+available_suites(all, Version) ->  
     ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->

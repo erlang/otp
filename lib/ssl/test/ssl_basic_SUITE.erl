@@ -3137,18 +3137,25 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 defaults(Config) when is_list(Config)->
-    [_, 
-     {supported, Supported},
-     {available, Available}]
-	= ssl:versions(),
-    true = lists:member(sslv3, Available),
-    false = lists:member(sslv3, Supported),
+    Versions = ssl:versions(),
+    true = lists:member(sslv3, proplists:get_value(available, Versions)),
+    false = lists:member(sslv3,  proplists:get_value(supported, Versions)),
+    true = lists:member('tlsv1', proplists:get_value(available, Versions)),
+    true = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
+    true = lists:member('tlsv1.1', proplists:get_value(available, Versions)),
+    true = lists:member('tlsv1.1',  proplists:get_value(supported, Versions)),
+    true = lists:member('tlsv1.2', proplists:get_value(available, Versions)),
+    true = lists:member('tlsv1.2',  proplists:get_value(supported, Versions)),    
     false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
     true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)),
     false = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites()),
     true = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites(all)),
     false = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites()),
-    true = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites(all)).
+    true = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites(all)),
+    true = lists:member('dtlsv1.2', proplists:get_value(available_dtls, Versions)),
+    true = lists:member('dtlsv1', proplists:get_value(available_dtls, Versions)),
+    true = lists:member('dtlsv1.2', proplists:get_value(supported_dtls, Versions)),
+    true = lists:member('dtlsv1', proplists:get_value(supported_dtls, Versions)).
 
 %%--------------------------------------------------------------------
 reuseaddr() ->
