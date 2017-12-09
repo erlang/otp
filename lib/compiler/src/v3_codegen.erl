@@ -447,7 +447,7 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B,_Aft,St} = cg_list(Les, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
@@ -499,19 +499,19 @@ cg(#cg_need_heap{h=H}, _Vdb, Bef, St) ->
 
 %% cg_list([Kexpr], FirstI, Vdb, StackReg, St) -> {[Ainstr],StackReg,St}.
 
-cg_list(Kes, I, Vdb, Bef, St0) ->
+cg_list(Kes, Vdb, Bef, St0) ->
     {Keis,{Aft,St1}} =
 	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
 			     {Keis,Intb,Stb} = cg(Ke, Vdb, Inta, Sta),
 			     {Keis,{Intb,Stb}}
-		     end, {Bef,St0}, need_heap(Kes, I)),
+		     end, {Bef,St0}, need_heap(Kes)),
     {Keis,Aft,St1}.
 
 %% need_heap([Lkexpr], I, St) -> [Lkexpr].
 %%  Insert need_heap instructions in Kexpr list.  Try to be smart and
 %%  collect them together as much as possible.
 
-need_heap(Kes0, _I) ->
+need_heap(Kes0) ->
     {Kes,H} = need_heap_0(reverse(Kes0), 0, []),
 
     %% Prepend need_heap if necessary.
@@ -742,26 +742,24 @@ block_cg(Es, Le, _Vdb, Bef, St) ->
     block_cg(Es, Le, Bef, St).
 
 block_cg(Es, Le, Bef, #cg{is_top_block=false}=St) ->
-    cg_block(Es, Le#l.i, Le#l.vdb, Bef, St);
+    cg_block(Es, Le#l.vdb, Bef, St);
 block_cg(Es, Le, Bef, St0) ->
-    {Is0,Aft,St} = cg_block(Es, Le#l.i, Le#l.vdb, Bef,
+    {Is0,Aft,St} = cg_block(Es, Le#l.vdb, Bef,
 			    St0#cg{is_top_block=false,need_frame=false}),
     Is = top_level_block(Is0, Aft, max_reg(Bef#sr.reg), St),
     {Is,Aft,St#cg{is_top_block=true}}.
 
-cg_block([], _I, _Vdb, Bef, St0) ->
+cg_block([], _Vdb, Bef, St0) ->
     {[],Bef,St0};
-cg_block(Kes0, I, Vdb, Bef, St0) ->
+cg_block(Kes0, Vdb, Bef, St0) ->
     {Kes2,Int1,St1} =
 	case basic_block(Kes0) of
 	    {Kes1,LastI,Args,Rest} ->
-		Ke = hd(Kes1),
-                #l{i=Fb} = get_kanno(Ke),
-		cg_basic_block(Kes1, Fb, LastI, Args, Vdb, Bef, St0);
+		cg_basic_block(Kes1, LastI, Args, Vdb, Bef, St0);
 	    {Kes1,Rest} ->
-		cg_list(Kes1, I, Vdb, Bef, St0)
+		cg_list(Kes1, Vdb, Bef, St0)
 	end,
-    {Kes3,Int2,St2} = cg_block(Rest, I, Vdb, Int1, St1),
+    {Kes3,Int2,St2} = cg_block(Rest, Vdb, Int1, St1),
     {Kes2 ++ Kes3,Int2,St2}.
 
 basic_block(Kes) -> basic_block(Kes, []).
@@ -839,12 +837,12 @@ func_vars(_) -> [].
 %%  save_carefully/4 during code generation to only save the variables
 %%  that can be saved without growing the stack frame.
 
-cg_basic_block(Kes, Fb, Lf, As, Vdb, Bef, St0) ->
+cg_basic_block(Kes, Lf, As, Vdb, Bef, St0) ->
     Int0 = reserve_arg_regs(As, Bef),
     Int = extend_stack(Int0, Lf, Lf+1, Vdb),
     {Keis,{Aft,St1}} =
 	flatmapfoldl(fun(Ke, St) -> cg_basic_block(Ke, St, Lf, Vdb) end,
-		     {Int,St0}, need_heap(Kes, Fb)),
+		     {Int,St0}, need_heap(Kes)),
     {Keis,Aft,St1}.
 
 cg_basic_block(#cg_need_heap{}=Ke, {Bef,St0}, _Lf, Vdb) ->
@@ -1479,8 +1477,8 @@ guard_clause_cg(#k_guard_clause{anno=#l{vdb=Vdb},guard=G,body=B}, Fail, Bef, St0
 %%  the correct exit point.  Primops and tests all go to the next
 %%  instruction on success or jump to a failure label.
 
-guard_cg(#k_protected{arg=Ts,ret=Rs,anno=#l{i=I,vdb=Pdb}}, Fail, _Vdb, Bef, St) ->
-    protected_cg(Ts, Rs, Fail, I, Pdb, Bef, St);
+guard_cg(#k_protected{arg=Ts,ret=Rs,anno=#l{vdb=Pdb}}, Fail, _Vdb, Bef, St) ->
+    protected_cg(Ts, Rs, Fail, Pdb, Bef, St);
 guard_cg(#k_test{anno=#l{i=I},op=Test0,args=As,inverted=Inverted},
          Fail, Vdb, Bef, St0) ->
     #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Test}} = Test0,
@@ -1501,13 +1499,13 @@ guard_cg(G, _Fail, Vdb, Bef, St) ->
 %% guard_cg_list([Kexpr], Fail, I, Vdb, StackReg, St) ->
 %%      {[Ainstr],StackReg,St}.
 
-guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
+guard_cg_list(Kes, Fail, Vdb, Bef, St0) ->
     {Keis,{Aft,St1}} =
 	flatmapfoldl(fun (Ke, {Inta,Sta}) ->
 			     {Keis,Intb,Stb} =
 				 guard_cg(Ke, Fail, Vdb, Inta, Sta),
 			     {Keis,{Intb,Stb}}
-		     end, {Bef,St0}, need_heap(Kes, I)),
+		     end, {Bef,St0}, need_heap(Kes)),
     {Keis,Aft,St1}.
 
 %% protected_cg([Kexpr], [Ret], Fail, I, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
@@ -1517,15 +1515,14 @@ guard_cg_list(Kes, Fail, I, Vdb, Bef, St0) ->
 %%  return values then these must be set to 'false' on failure,
 %%  control always passes to the next instruction.
 
-protected_cg(Ts, [], Fail, I, Vdb, Bef, St0) ->
+protected_cg(Ts, [], Fail, Vdb, Bef, St0) ->
     %% Protect these calls, revert when done.
-    {Tis,Aft,St1} = guard_cg_list(Ts, Fail, I, Vdb, Bef,
-				  St0#cg{bfail=Fail}),
+    {Tis,Aft,St1} = guard_cg_list(Ts, Fail, Vdb, Bef, St0#cg{bfail=Fail}),
     {Tis,Aft,St1#cg{bfail=St0#cg.bfail}};
-protected_cg(Ts, Rs, _Fail, I, Vdb, Bef, St0) ->
+protected_cg(Ts, Rs, _Fail, Vdb, Bef, St0) ->
     {Pfail,St1} = new_label(St0),
     {Psucc,St2} = new_label(St1),
-    {Tis,Aft,St3} = guard_cg_list(Ts, Pfail, I, Vdb, Bef,
+    {Tis,Aft,St3} = guard_cg_list(Ts, Pfail, Vdb, Bef,
 				  St2#cg{bfail=Pfail}),
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{Rs,I,Vdb,Aft}]),
     %% Set return values to false.
@@ -1897,17 +1894,17 @@ cg_recv_wait(#k_atom{val=infinity}, #cg_block{anno=Le,es=Tes}, I, Bef, St0) ->
     %% But to keep the stack and register information up to date,
     %% we will generate the code for the 'after' body, and then discard it.
     Int1 = clear_dead(Bef, I, Le#l.vdb),
-    {_,Int2,St1} = cg_block(Tes, Le#l.i, Le#l.vdb,
+    {_,Int2,St1} = cg_block(Tes, Le#l.vdb,
                             Int1#sr{reg=clear_regs(Int1#sr.reg)}, St0),
     {[{wait,{f,St1#cg.recv}}],Int2,St1};
 cg_recv_wait(#k_int{val=0}, #cg_block{anno=Le,es=Tes}, _I, Bef, St0) ->
-    {Tis,Int,St1} = cg_block(Tes, Le#l.i, Le#l.vdb, Bef, St0),
+    {Tis,Int,St1} = cg_block(Tes, Le#l.vdb, Bef, St0),
     {[timeout|Tis],Int,St1};
 cg_recv_wait(Te, #cg_block{anno=Le,es=Tes}, I, Bef, St0) ->
     Reg = cg_reg_arg(Te, Bef),
     %% Must have empty registers here!  Bug if anything in registers.
     Int0 = clear_dead(Bef, I, Le#l.vdb),
-    {Tis,Int,St1} = cg_block(Tes, Le#l.i, Le#l.vdb,
+    {Tis,Int,St1} = cg_block(Tes, Le#l.vdb,
 			     Int0#sr{reg=clear_regs(Int0#sr.reg)}, St0),
     {[{wait_timeout,{f,St1#cg.recv},Reg},timeout] ++ Tis,Int,St1}.
 
@@ -1968,7 +1965,7 @@ catch_cg(#cg_block{es=C}, #k_var{name=R}, Le, Vdb, Bef, St0) ->
     CatchTag = Le#l.i,
     Int1 = Bef#sr{stk=put_catch(CatchTag, Bef#sr.stk)},
     CatchReg = fetch_stack({catch_tag,CatchTag}, Int1#sr.stk),
-    {Cis,Int2,St2} = cg_block(C, Le#l.i, Le#l.vdb, Int1,
+    {Cis,Int2,St2} = cg_block(C, Le#l.vdb, Int1,
 			      St1#cg{break=B,in_catch=true}),
     [] = Int2#sr.reg,				%Assertion.
     Aft = Int2#sr{reg=[{0,R}],stk=drop_catch(CatchTag, Int2#sr.stk)},
