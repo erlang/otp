@@ -71,14 +71,8 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
 
 int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
-    Sint rel32;
-
     ASSERT(trampoline == NULL);
-
-    rel32 = (Sint)destAddress - (Sint)callAddress - 4;
-    if ((Sint)(Sint32)rel32 != rel32)
-	return -1;
-    *(Uint32*)callAddress = (Uint32)rel32;
+    *(Uint64*)callAddress = (Uint64)destAddress;
     hipe_flush_icache_word(callAddress);
     return 0;
 }
@@ -98,15 +92,28 @@ static void *alloc_code(unsigned int alloc_bytes)
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)
 {
+    Uint64 address, *ptr;
     if (is_not_nil(callees))
 	return NULL;
     *trampolines = NIL;
-    return alloc_code(nrbytes);
+
+    address = (Uint64)alloc_code(nrbytes+16);
+    ptr = (Uint64*)address;
+
+    if (address % 16 == 0) {
+        ptr[1] = address;
+        ptr += 2;
+    } else {
+        ptr[0] = address;
+        ptr += 1;
+    }
+    return (void*)ptr;
 }
 
 void hipe_free_code(void* code, unsigned int bytes)
 {
-    erts_free(ERTS_ALC_T_HIPE_EXEC, code);
+    Uint64 *ptr = (Uint64*)code;
+    erts_free(ERTS_ALC_T_HIPE_EXEC, (void*)ptr[-1]);
 }
 
 /* Make stub for native code calling exported beam function.
@@ -129,10 +136,9 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
      */
     unsigned int codeSize;
     unsigned char *code, *codep;
-    unsigned int callEmuOffset;
 
-    codeSize =	/* 23, 26, 29, or 32 bytes */
-      23 +	/* 23 when all offsets are 8-bit */
+    codeSize =	/* 30, 33, 36, or 39 bytes */
+      30 +	/* 30 when all offsets are 8-bit */
       (P_CALLEE_EXP >= 128 ? 3 : 0) +
       ((P_CALLEE_EXP + 4) >= 128 ? 3 : 0) +
       (P_ARITY >= 128 ? 3 : 0);
@@ -197,14 +203,15 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     codep[0] = beamArity;
     codep += 1;
 
-    /* jmp callemu; 5 bytes */
-    callEmuOffset = (unsigned char*)nbif_callemu - (code + codeSize);
-    codep[0] = 0xe9;
-    codep[1] =  callEmuOffset        & 0xFF;
-    codep[2] = (callEmuOffset >>  8) & 0xFF;
-    codep[3] = (callEmuOffset >> 16) & 0xFF;
-    codep[4] = (callEmuOffset >> 24) & 0xFF;
-    codep += 5;
+    /* jmp callemu; 12 bytes */
+    codep[0] = 0x48;
+    codep[1] = 0xb8;
+    codep += 2;
+    *(Uint64*)codep = (Uint64)nbif_callemu;
+    codep += 8;
+    codep[0] = 0xff;
+    codep[1] = 0xe0;
+    codep += 2;
 
     ASSERT(codep == code + codeSize);
 
