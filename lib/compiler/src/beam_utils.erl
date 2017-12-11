@@ -26,7 +26,9 @@
 	 empty_label_index/0,index_label/3,index_labels/1,replace_labels/4,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
-	 split_even/1]).
+         anno_defs/1,
+	 split_even/1
+        ]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).
 
@@ -293,13 +295,29 @@ combine_heap_needs(Words, {alloc,Alloc}) when is_integer(Words) ->
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
     H1+H2.
 
+%% anno_defs(Instructions) -> Instructions'
+%%  Add {'%def',RegisterBitmap} annotations to the beginning of
+%%  each block.  Iff bit X is set in the the bitmap, it means
+%%  that {x,X} is defined when the block is entered.
+
+-spec anno_defs([instruction()]) -> [instruction()].
+
+anno_defs(Is0) ->
+    {Bef,[Fi|Is1]} =
+	splitwith(fun({func_info,_,_,_}) -> false;
+		     (_) -> true
+		  end, Is0),
+    {func_info,_,_,Arity} = Fi,
+    Regs = init_def_regs(Arity),
+    Is = defs(Is1, Regs, #{}),
+    Bef ++ [Fi|Is].
+
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
 
 -spec split_even(list()) -> {list(),list()}.
 
 split_even(Rs) -> split_even(Rs, [], []).
-
 
 %%%
 %%% Local functions.
@@ -965,3 +983,208 @@ split_even([], Ss, Ds) ->
     {reverse(Ss),reverse(Ds)};
 split_even([S,D|Rs], Ss, Ds) ->
     split_even(Rs, [S|Ss], [D|Ds]).
+
+%%%
+%%% Add annotations for defined registers.
+%%%
+%%% This analysis is done by scanning the instructions in
+%%% execution order.
+%%%
+
+defs([{apply,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{bif,_,{f,Fail},_Src,Dst}=I|Is], Regs0, D) ->
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, update_regs(Fail, Regs0, D))];
+defs([{block,Block0}|Is], Regs0, D0) ->
+    {Block,Regs,D} = defs_list(Block0, Regs0, D0),
+    [{block,[{'%def',Regs0}|Block]}|defs(Is, Regs, D)];
+defs([{bs_init,{f,L},_,_,_,Dst}=I|Is], Regs0, D) ->
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, update_regs(L, Regs, D))];
+defs([{bs_put,{f,L},_,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, update_regs(L, Regs, D))];
+defs([build_stacktrace=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{call,_,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{call_ext,_,{extfunc,M,F,A}}=I|Is], _Regs, D) ->
+    case erl_bifs:is_exit_bif(M, F, A) of
+        false ->
+            [I|defs(Is, 1, D)];
+        true ->
+            [I|defs_unreachable(Is, D)]
+    end;
+defs([{call_ext,_,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{call_fun,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{'catch',_,{f,L}}=I|Is], Regs, D) ->
+    RegsAtLabel = init_def_regs(1),
+    [I|defs(Is, Regs, update_regs(L, RegsAtLabel, D))];
+defs([{catch_end,_}=I|Is], _Regs, D) ->
+    Regs = init_def_regs(1),
+    [I|defs(Is, Regs, D)];
+defs([{gc_bif,_,{f,Fail},Live,_Src,Dst}=I|Is], Regs0, D) ->
+    true = all_defined(Live, Regs0),            %Assertion.
+    Regs = def_regs([Dst], init_def_regs(Live)),
+    [I|defs(Is, Regs, update_regs(Fail, Regs0, D))];
+defs([{get_map_elements,{f,L},_Src,{list,DstList}}=I|Is], Regs0, D) ->
+    {_,Ds} = beam_utils:split_even(DstList),
+    Regs = def_regs(Ds, Regs0),
+    [I|defs(Is, Regs, update_regs(L, Regs0, D))];
+defs([{get_tuple_element,_,_,Dst}=I|Is], Regs0, D) ->
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, D)];
+defs([{jump,{f,L}}=I|Is], Regs, D) ->
+    [I|defs_unreachable(Is, update_regs(L, Regs, D))];
+defs([{label,L}=I|Is], Regs0, D) ->
+    case D of
+        #{L:=Regs1} ->
+            Regs = Regs0 band Regs1,
+            [I|defs(Is, Regs, D)];
+        #{} ->
+            [I|defs(Is, Regs0, D)]
+    end;
+defs([{loop_rec,{f,L},{x,0}}=I|Is], _Regs, D0) ->
+    RegsAtLabel = init_def_regs(0),
+    D = update_regs(L, RegsAtLabel, D0),
+    [I|defs(Is, init_def_regs(1), D)];
+defs([{loop_rec_end,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 0, D)];
+defs([{make_fun2,_,_,_,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 1, D)];
+defs([{move,_,Dst}=I|Is], Regs0, D) ->
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, D)];
+defs([{put_map,{f,Fail},_,_,Dst,_,_}=I|Is], Regs0, D) ->
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, update_regs(Fail, Regs0, D))];
+defs([return=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+defs([{select,_,_Src,Fail,List}=I|Is], Regs, D0) ->
+    D = update_list([Fail|List], Regs, D0),
+    [I|defs_unreachable(Is, D)];
+defs([{test,_,{f,L},_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, update_regs(L, Regs, D))];
+defs([{test,_,{f,L},Live,_,Dst}=I|Is], Regs0, D) ->
+    true = all_defined(Live, Regs0),             %Assertion.
+    Regs = def_regs([Dst], init_def_regs(Live)),
+    [I|defs(Is, Regs, update_regs(L, Regs0, D))];
+defs([{'try',_,{f,L}}=I|Is], Regs, D) ->
+    RegsAtLabel = init_def_regs(3),
+    [I|defs(Is, Regs, update_regs(L, RegsAtLabel, D))];
+defs([{try_case,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, init_def_regs(3), D)];
+defs([{wait,_}=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+defs([{wait_timeout,_,_}=I|Is], _Regs, D) ->
+    [I|defs(Is, 0, D)];
+
+%% Exceptions.
+defs([{badmatch,_}=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+defs([{case_end,_}=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+defs([if_end=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+defs([{try_case_end,_}=I|Is], _Regs, D) ->
+    [I|defs_unreachable(Is, D)];
+
+%% Neutral instructions
+defs([{bs_context_to_binary,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{bs_restore2,_,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{bs_save2,_,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{deallocate,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{kill,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{line,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{recv_mark,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{recv_set,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([timeout=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{trim,_,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{try_end,_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([{'%',_}=I|Is], Regs, D) ->
+    [I|defs(Is, Regs, D)];
+defs([], _, _) -> [].
+
+defs_unreachable([{label,L}=I|Is], D) ->
+    case D of
+        #{L:=Regs} ->
+            [I|defs(Is, Regs, D)];
+        #{} ->
+            defs_unreachable(Is, D)
+    end;
+defs_unreachable([_|Is], D) ->
+    defs_unreachable(Is, D);
+defs_unreachable([], _D) -> [].
+
+defs_list(Is, Regs, D) ->
+    defs_list(Is, Regs, D, []).
+
+defs_list([{set,Ds,_,{alloc,Live,Info}}=I|Is], Regs0, D0, Acc) ->
+    true = all_defined(Live, Regs0),             %Assertion.
+    D = case Info of
+            {gc_bif,_,{f,Fail}} ->
+                update_regs(Fail, Regs0, D0);
+            {put_map,_,{f,Fail}} ->
+                update_regs(Fail, Regs0, D0);
+            _ ->
+                D0
+        end,
+    Regs = def_regs(Ds, init_def_regs(Live)),
+    defs_list(Is, Regs, D, [I|Acc]);
+defs_list([{set,Ds,_,Info}=I|Is], Regs0, D0, Acc) ->
+    D = case Info of
+            {bif,_,{f,Fail}} ->
+                update_regs(Fail, Regs0, D0);
+            {try_catch,'catch',{f,Fail}} ->
+                update_regs(Fail, init_def_regs(1), D0);
+            {try_catch,'try',{f,Fail}} ->
+                update_regs(Fail, init_def_regs(3), D0);
+            _ ->
+                D0
+        end,
+    Regs = def_regs(Ds, Regs0),
+    defs_list(Is, Regs, D, [I|Acc]);
+defs_list([], Regs, D, Acc) ->
+    {reverse(Acc),Regs,D}.
+
+init_def_regs(Arity) ->
+    (1 bsl Arity) - 1.
+
+def_regs([{x,X}|T], Regs) ->
+    def_regs(T, Regs bor (1 bsl X));
+def_regs([_|T], Regs) ->
+    def_regs(T, Regs);
+def_regs([], Regs) -> Regs.
+
+update_list([{f,L}|T], Regs, D0) ->
+    D = update_regs(L, Regs, D0),
+    update_list(T, Regs, D);
+update_list([_|T], Regs, D) ->
+    update_list(T, Regs, D);
+update_list([], _Regs, D) -> D.
+
+update_regs(L, Regs0, D) ->
+    case D of
+        #{L:=Regs1} ->
+            Regs = Regs0 band Regs1,
+            D#{L:=Regs};
+        #{} ->
+            D#{L=>Regs0}
+    end.
+
+all_defined(Live, Regs) ->
+    All = (1 bsl Live) - 1,
+    Regs band All =:= All.
