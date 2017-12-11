@@ -743,11 +743,42 @@ block_cg(Es, Le, _Vdb, Bef, St) ->
 
 block_cg(Es, Le, Bef, #cg{is_top_block=false}=St) ->
     cg_block(Es, Le#l.vdb, Bef, St);
-block_cg(Es, Le, Bef, St0) ->
-    {Is0,Aft,St} = cg_block(Es, Le#l.vdb, Bef,
-			    St0#cg{is_top_block=false,need_frame=false}),
-    Is = top_level_block(Is0, Aft, max_reg(Bef#sr.reg), St),
-    {Is,Aft,St#cg{is_top_block=true}}.
+block_cg(Es, Le, Bef, #cg{is_top_block=true}=St0) ->
+    %% No stack frame has been established yet. Do we need one?
+    case need_stackframe(Es) of
+        true ->
+            %% We need a stack frame. Generate the code and add the
+            %% code for creating and deallocating the stack frame.
+            {Is0,Aft,St} = cg_block(Es, Le#l.vdb, Bef,
+                                    St0#cg{is_top_block=false,need_frame=false}),
+            Is = top_level_block(Is0, Aft, max_reg(Bef#sr.reg), St),
+            {Is,Aft,St#cg{is_top_block=true}};
+        false ->
+            %% This sequence of instructions ending in a #k_match{} (a
+            %% 'case' or 'if') in the Erlang code does not need a
+            %% stack frame yet. Delay the creation (if a stack frame
+            %% is needed at all, it will be created inside the
+            %% #k_match{}).
+            cg_list(Es, Le#l.vdb, Bef, St0)
+    end.
+
+%% need_stackframe([Kexpr]) -> true|false.
+%%  Does this list of instructions need a stack frame?
+%%
+%%  A sequence of instructions that don't clobber the X registers
+%%  followed by a single #k_match{} doesn't need a stack frame.
+
+need_stackframe([H|T]) ->
+    case H of
+        #k_bif{op=#k_internal{}} -> true;
+        #k_put{arg=#k_binary{}} -> true;
+        #k_bif{} -> need_stackframe(T);
+        #k_put{} -> need_stackframe(T);
+        #k_guard_match{} -> need_stackframe(T);
+        #k_match{} when T =:= [] -> false;
+        _ -> true
+    end;
+need_stackframe([]) -> false.
 
 cg_block([], _Vdb, Bef, St0) ->
     {[],Bef,St0};
