@@ -37,13 +37,14 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	%% Collect basic blocks and optimize them.
 	Is1 = blockify(Is0),
 	Is2 = embed_lines(Is1),
-	Is3 = move_allocates(Is2),
-	Is4 = beam_utils:live_opt(Is3),
-	Is5 = opt_blocks(Is4),
-	Is6 = beam_utils:delete_live_annos(Is5),
+        Is3 = beam_utils:anno_defs(Is2),
+        Is4 = move_allocates(Is3),
+        Is5 = beam_utils:live_opt(Is4),
+        Is6 = opt_blocks(Is5),
+        Is = beam_utils:delete_live_annos(Is6),
 
-	%% Done.
-	{function,Name,Arity,CLabel,Is6}
+        %% Done.
+        {function,Name,Arity,CLabel,Is}
     catch
 	Class:Error ->
 	    Stack = erlang:get_stacktrace(),
@@ -173,7 +174,7 @@ find_fixpoint(OptFun, Is0) ->
 %%  safe to assume that if x(N) is initialized, then all lower-numbered
 %%  x registers are also initialized.
 %%
-%%  For example, in general it is not safe to transform the following
+%%  For example, we must be careful when transforming the following
 %%  instructions:
 %%
 %%     get_tuple_element x(0) Element => x(1)
@@ -185,13 +186,9 @@ find_fixpoint(OptFun, Is0) ->
 %%     get_tuple_element x(0) Element => x(1)
 %%
 %%  The transformation is safe if and only if x(1) has been
-%%  initialized previously. Unfortunately, beam_reorder may have moved
-%%  a get_tuple_element instruction so that x(1) is not always
-%%  initialized when this code is reached. To find whether or not x(1)
-%%  is initialized, we would need to analyze all code preceding these
-%%  two instructions (across branches). Since we currently don't have
-%%  any practical mechanism for doing that, we will have to
-%%  conservatively assume that the transformation is unsafe.
+%%  initialized previously.  We will use the annotations added by
+%%  beam_utils:anno_defs/1 to determine whether x(a) has been
+%%  initialized.
 
 move_allocates([{block,Bl0}|Is]) ->
     Bl = move_allocates_1(reverse(Bl0), []),
@@ -200,15 +197,20 @@ move_allocates([I|Is]) ->
     [I|move_allocates(Is)];
 move_allocates([]) -> [].
 
+move_allocates_1([{'%def',_}|Is], Acc) ->
+    move_allocates_1(Is, Acc);
 move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
-    case {alloc_may_pass(I),alloc_live_regs(I, Live0)} of
-	{false,_} ->
-	    move_allocates_1(Is, [I|Acc0]);
-	{true,not_possible} ->
-	    move_allocates_1(Is, [I|Acc0]);
-	{true,Live} when is_integer(Live) ->
-	    A = {set,[],[],{alloc,Live,Info}},
-	    move_allocates_1(Is, [A,I|Acc])
+    case alloc_may_pass(I) of
+        false ->
+            move_allocates_1(Is, [I|Acc0]);
+        true ->
+            case alloc_live_regs(I, Is, Live0) of
+                not_possible ->
+                    move_allocates_1(Is, [I|Acc0]);
+                Live when is_integer(Live) ->
+                    A = {set,[],[],{alloc,Live,Info}},
+                    move_allocates_1(Is, [A,I|Acc])
+            end
     end;
 move_allocates_1([I|Is], Acc) ->
     move_allocates_1(Is, [I|Acc]);
@@ -472,16 +474,34 @@ count_ones(Bits, Acc) ->
 %% Calculate the new number of live registers when we move an allocate
 %% instruction upwards, passing a 'set' instruction.
 
-alloc_live_regs({set,Ds,Ss,_}, Regs0) ->
+alloc_live_regs({set,Ds,Ss,_}, Is, Regs0) ->
     Rset = x_live(Ss, x_dead(Ds, (1 bsl Regs0)-1)),
-    live_regs(0, Rset).
+    Live = live_regs(0, Rset),
+    case ensure_contiguous(Rset, Live) of
+        not_possible ->
+            %% Liveness information (looking forward in the
+            %% instruction stream) can't prove that moving this
+            %% allocation instruction is safe. Now use the annotation
+            %% of defined registers at the beginning of the current
+            %% block to see whether moving would be safe.
+            Def0 = defined_regs(Is, 0),
+            Def = Def0 band ((1 bsl Live) - 1),
+            ensure_contiguous(Rset bor Def, Live);
+        Live ->
+            %% Safe based on liveness information.
+            Live
+    end.
 
 live_regs(N, 0) ->
     N;
-live_regs(N, Regs) when Regs band 1 =:= 1 ->
-    live_regs(N+1, Regs bsr 1);
-live_regs(_, _) ->
-    not_possible.
+live_regs(N, Regs) ->
+    live_regs(N+1, Regs bsr 1).
+
+ensure_contiguous(Regs, Live) ->
+    case (1 bsl Live) - 1 of
+        Regs -> Live;
+        _ -> not_possible
+    end.
 
 x_dead([{x,N}|Rs], Regs) -> x_dead(Rs, Regs band (bnot (1 bsl N)));
 x_dead([_|Rs], Regs) -> x_dead(Rs, Regs);
@@ -490,3 +510,14 @@ x_dead([], Regs) -> Regs.
 x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
 x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
+
+%% defined_regs(ReversedInstructions) -> RegBitmap.
+%%  Given a reversed instruction stream, determine the
+%%  the registers that are defined.
+
+defined_regs([{'%def',Def}|_], Regs) ->
+    Def bor Regs;
+defined_regs([{set,Ds,_,{alloc,Live,_}}|_], Regs) ->
+    x_live(Ds, Regs bor ((1 bsl Live) - 1));
+defined_regs([{set,Ds,_,_}|Is], Regs) ->
+    defined_regs(Is, x_live(Ds, Regs)).
