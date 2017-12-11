@@ -15,19 +15,12 @@
 %%
 %% %CopyrightEnd%
 %%
-%% File:    beam_record.erl
-%% Author:  Björn-Egil Dahlberg
-%% Created: 2014-09-03
-%%
-
--module(beam_record).
--export([module/2]).
 
 %% Rewrite the instruction stream on tagged tuple tests.
-%% Tagged tuples means a tuple of any arity with an atom as its first element.
-%% Typically records, ok-tuples and error-tuples.
-%% 
-%% from:
+%% Tagged tuples means a tuple of any arity with an atom as its
+%% first element, such as records and error tuples.
+%%
+%% From:
 %%     ...
 %%     {test,is_tuple,Fail,[Src]}.
 %%     {test,test_arity,Fail,[Src,Sz]}.
@@ -36,13 +29,16 @@
 %%     ...
 %%     {test,is_eq_exact,Fail,[Dst,Atom]}.
 %%     ...
-%% to:
+%% To:
 %%     ...
 %%     {test,is_tagged_tuple,Fail,[Src,Sz,Atom]}.
 %%     ...
+%%
 
+-module(beam_record).
+-export([module/2]).
 
--import(lists, [reverse/1]).
+-import(lists, [reverse/1,reverse/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -51,10 +47,12 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is}) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
-        Idx = beam_utils:index_labels(Is),
-        {function,Name,Arity,CLabel,rewrite(Is,Idx)}
+        Is1 = beam_utils:anno_defs(Is0),
+        Idx = beam_utils:index_labels(Is1),
+        Is = rewrite(reverse(Is1), Idx),
+        {function,Name,Arity,CLabel,Is}
     catch
         Class:Error ->
             Stack = erlang:get_stacktrace(),
@@ -62,45 +60,73 @@ function({function,Name,Arity,CLabel,Is}) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-rewrite(Is,Idx) ->
-    rewrite(Is,Idx,[]).
+rewrite(Is, Idx) ->
+    rewrite(Is, Idx, 0, []).
 
-rewrite([{test,is_tuple,Fail,[Src]}=I1,
-         {test,test_arity,Fail,[Src,N]}=I2|Is],Idx,Acc) ->
-    case is_tagged_tuple(Is,Fail,Src,Idx) of
+rewrite([{test,test_arity,Fail,[Src,N]}=TA,
+         {test,is_tuple,Fail,[Src]}=TT|Is], Idx, Def, Acc0) ->
+    case is_tagged_tuple(Acc0, Def, Fail, Src, Idx) of
         no ->
-            rewrite(Is,Idx,[I2,I1|Acc]);
-        {Atom,[{block,[]}|Is1]} ->
-            rewrite(Is1,Idx,[{test,is_tagged_tuple,Fail,[Src,N,Atom]}|Acc]);
-        {Atom,Is1} ->
-            rewrite(Is1,Idx,[{test,is_tagged_tuple,Fail,[Src,N,Atom]}|Acc])
+            rewrite(Is, Idx, 0, [TT,TA|Acc0]);
+        {yes,Atom,Acc} ->
+            I = {test,is_tagged_tuple,Fail,[Src,N,Atom]},
+            rewrite(Is, Idx, Def, [I|Acc])
     end;
-rewrite([I|Is],Idx,Acc) ->
-    rewrite(Is,Idx,[I|Acc]);
-rewrite([],_,Acc) -> reverse(Acc).
+rewrite([{block,[{'%def',Def}|Bl]}|Is], Idx, _Def, Acc) ->
+    rewrite(Is, Idx, Def, [{block,Bl}|Acc]);
+rewrite([{label,L}=I|Is], Idx0, Def, Acc) ->
+    Idx = beam_utils:index_label(L, Acc, Idx0),
+    rewrite(Is, Idx, Def, [I|Acc]);
+rewrite([I|Is], Idx, Def, Acc) ->
+    rewrite(Is, Idx, Def, [I|Acc]);
+rewrite([], _, _, Acc) -> Acc.
 
-is_tagged_tuple([{block,[{set,[Dst],[Src],{get_tuple_element,0}}=B|Bs]},
-                 {test,is_eq_exact,Fail,[Dst,{atom,_}=Atom]}|Is],Fail,Src,Idx) ->
-
-    %% if Dst is killed in the instruction stream and at fail label,
-    %% we can safely remove get_tuple_element.
-    %%
-    %% if Dst is not killed in the stream, we cannot remove get_tuple_element
-    %% since it is referenced.
-
-    case is_killed(Dst,Is,Fail,Idx) of
-        true  -> {Atom,[{block,Bs}|Is]};
-        false -> {Atom,[{block,[B|Bs]}|Is]}
+is_tagged_tuple([{block,Bl},
+                 {test,is_eq_exact,Fail,[Dst,{atom,_}=Atom]}|Is],
+                Def, Fail, Src, Idx) ->
+    case is_tagged_tuple_1(Bl, Is, Fail, Src, Dst, Idx, Def, []) of
+        no ->
+            no;
+        {yes,[]} ->
+            {yes,Atom,Is};
+        {yes,[_|_]=Block} ->
+            {yes,Atom,[{block,Block}|Is]}
     end;
-is_tagged_tuple([{block,[{set,_,_,_}=B|Bs]},
-                 {test,is_eq_exact,_,_}=I|Is],Fail,Src,Idx) ->
-    case is_tagged_tuple([{block,Bs},I|Is],Fail,Src,Idx) of
-        {Atom,[{block,Bsr}|Isr]} -> {Atom,[{block,[B|Bsr]}|Isr]};
-        no                       -> no
-    end;
-is_tagged_tuple(_Is,_Fail,_Src,_Idx) ->
+is_tagged_tuple(_, _, _, _, _) ->
     no.
 
-is_killed(Dst,Is,{_,Lbl},Idx) ->
-    beam_utils:is_killed(Dst,Is,Idx) andalso
-        beam_utils:is_killed_at(Dst,Lbl,Idx).
+is_tagged_tuple_1([{set,[Dst],[Src],{get_tuple_element,0}}=I|Bl],
+                  Is, Fail, Src, Dst, Idx, Def, Acc) ->
+    %% Check usage of Dst to find out whether the get_tuple_element
+    %% is needed.
+    case usage(Dst, Is, Fail, Idx) of
+        killed ->
+            %% Safe to remove the get_tuple_element instruction.
+            {yes,reverse(Acc, Bl)};
+        used ->
+            %% Actively used. Must keep instruction.
+            {yes,reverse(Acc, [I|Bl])};
+        not_used ->
+            %% Not actually used (but must be initialized).
+            case is_defined(Dst, Def) of
+                false ->
+                    %% Dst must be initialized, but the
+                    %% actual value does not matter.
+                    Kill = {set,[Dst],[nil],move},
+                    {yes,reverse(Acc, [Kill|Bl])};
+                true ->
+                    %% The register is previously initialized.
+                    %% We can remove the instruction.
+                    {yes,reverse(Acc, Bl)}
+            end
+    end;
+is_tagged_tuple_1([I|Bl], Is, Fail, Src, Dst, Idx, Def, Acc) ->
+    is_tagged_tuple_1(Bl, Is, Fail, Src, Dst, Idx, Def, [I|Acc]);
+is_tagged_tuple_1(_, _, _, _, _, _, _, _) ->
+    no.
+
+usage(Dst, Is, Fail, Idx) ->
+    beam_utils:usage(Dst, [{test,is_number,Fail,[nil]}|Is], Idx).
+
+is_defined({x,X}, Def) ->
+    (Def bsr X) band 1 =:= 1.
