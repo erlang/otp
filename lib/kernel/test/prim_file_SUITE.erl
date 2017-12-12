@@ -2108,11 +2108,24 @@ free_memory() ->
 		       {value, {buffered_memory, Buffed}} -> Buffed;
 		       false -> 0
 		   end),
-	TotFree div (1024*1024)
+	usable_mem(TotFree) div (1024*1024)
     catch
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
+
+usable_mem(Memory) ->
+    case test_server:is_valgrind() of
+        true ->
+            %% Valgrind uses extra memory for the V- and A-bits.
+            %% http://valgrind.org/docs/manual/mc-manual.html#mc-manual.value
+            %% Docs says it uses "compression to represent the V bits compactly"
+            %% but let's be conservative and cut usable memory in half.
+            Memory div 2;
+        false ->
+            Memory
+    end.
+
 
 %%%-----------------------------------------------------------------
 %%% Utilities
