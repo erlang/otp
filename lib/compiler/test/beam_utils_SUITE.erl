@@ -25,7 +25,7 @@
 	 is_not_killed/1,is_not_used_at/1,
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
          y_registers/1,user_predef/1,scan_f/1,cafu/1,
-         receive_label/1]).
+         receive_label/1,read_size_file_version/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -50,7 +50,8 @@ groups() ->
        y_registers,
        user_predef,
        scan_f,
-       cafu
+       cafu,
+       read_size_file_version
       ]}].
 
 init_per_suite(Config) ->
@@ -443,6 +444,19 @@ do_receive_label(Rec) ->
         {From,Message} when Rec#rec_label.bool ->
             From ! {ok,Message},
             do_receive_label(Rec)
+    end.
+
+read_size_file_version(_Config) ->
+    ok = do_read_size_file_version({ok,<<42>>}),
+    {ok,7777} = do_read_size_file_version({ok,<<7777:32>>}),
+    ok.
+
+do_read_size_file_version(E) ->
+    case E of
+	{ok,<<Version>>} when Version =:= 42 ->
+            ok;
+	{ok,<<MaxFiles:32>>} ->
+            {ok,MaxFiles}
     end.
 
 %% The identity function.

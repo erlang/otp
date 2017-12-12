@@ -318,6 +318,10 @@ check_liveness(R, [{block,Blk}|Is], St0) ->
     case check_liveness_block(R, Blk, St0) of
 	{transparent,St1} ->
 	    check_liveness(R, Is, St1);
+	{alloc_used,St1} ->
+            %% Used by an allocating instruction, but value not referenced.
+            %% Must check the rest of the instructions.
+	    not_used(check_liveness(R, Is, St1));
 	{Other,_}=Res when is_atom(Other) ->
 	    Res
     end;
@@ -588,7 +592,7 @@ check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
 
 %% check_liveness_block(Reg, [Instruction], State) ->
-%%     {killed | not_used | used | transparent,State'}
+%%     {killed | not_used | used | alloc_used | transparent,State'}
 %%  Finds out how Reg is used in the instruction sequence inside a block.
 %%  Returns one of:
 %%    killed - Reg is assigned a new value or killed by an
@@ -596,6 +600,7 @@ check_liveness_ret(_, _, St) -> {killed,St}.
 %%    not_used - The value is not used, but the register is referenced
 %%       e.g. by an allocation instruction
 %%    transparent - Reg is neither used nor killed
+%%    alloc_used - Used only in an allocate instruction
 %%    used - Reg is explicitly used by an instruction
 %%
 %%  '%live' annotations are not allowed.
@@ -609,7 +614,7 @@ check_liveness_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St0) ->
 	true ->
 	    case check_liveness_block_1(R, Ss, Ds, Op, Is, St0) of
 		{killed,St} -> {not_used,St};
-		{transparent,St} -> {not_used,St};
+                {transparent,St} -> {alloc_used,St};
 		{_,_}=Res -> Res
 	    end
     end;
