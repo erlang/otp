@@ -1673,7 +1673,10 @@ smp_select0(Config) ->
 smp_select_loop(_, 0) ->
     ok;
 smp_select_loop(Port, N) ->
-    "ok" = erlang:port_control(Port, ?CHKIO_SMP_SELECT, []),
+    case erlang:port_control(Port, ?CHKIO_SMP_SELECT, []) of
+        "yield" -> erlang:yield();
+        "ok" -> ok
+    end,
     receive
         stop -> 
             io:format("Worker ~p stopped with ~p laps left\n",[self(), N]), 
