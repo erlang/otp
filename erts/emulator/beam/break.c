@@ -358,7 +358,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
 static void
 print_garb_info(fmtfn_t to, void *to_arg, Process* p)
 {
-    /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
+    /* A scheduler is probably concurrently doing gc... */
     if (!ERTS_IS_CRASH_DUMPING)
       return;
     erts_print(to, to_arg, "New heap start: %bpX\n", p->heap);

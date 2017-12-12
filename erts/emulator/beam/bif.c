@@ -247,10 +247,8 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		 */
 		state = erts_atomic32_read_acqb(&BIF_P->state);
 		if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-#ifdef ERTS_SMP
 		    if (state & ERTS_PSFLG_PENDING_EXIT)
 			erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-#endif
 		    ERTS_BIF_EXITED(BIF_P);
 		}
 		BIF_RET(am_true);
