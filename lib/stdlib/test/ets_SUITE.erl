@@ -5716,25 +5716,39 @@ etsmem() ->
 	 end},
     {Mem,AllTabs}.
 
-verify_etsmem({MemInfo,AllTabs}) ->
+
+verify_etsmem(MI) ->
     wait_for_test_procs(),
+    verify_etsmem(MI, 1).
+
+verify_etsmem({MemInfo,AllTabs}, Try) ->
     case etsmem() of
 	{MemInfo,_} ->
 	    io:format("Ets mem info: ~p", [MemInfo]),
-	    case MemInfo of
-		{ErlMem,EtsAlloc} when ErlMem == notsup; EtsAlloc == undefined ->
+	    case {MemInfo, Try} of
+		{{ErlMem,EtsAlloc},_} when ErlMem == notsup; EtsAlloc == undefined ->
 		    %% Use 'erl +Mea max' to do more complete memory leak testing.
 		    {comment,"Incomplete or no mem leak testing"};
-		_ ->
-		    ok
+		{_, 1} ->
+                    ok;
+                _ ->
+                    {comment, "Transient memory discrepancy"}
 	    end;
 	{MemInfo2, AllTabs2} ->
 	    io:format("Expected: ~p", [MemInfo]),
 	    io:format("Actual:   ~p", [MemInfo2]),
 	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
 	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
-	    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
-	    {comment, "Failed memory check"}
+            case Try < 2 of
+                true ->
+                    io:format("\nThis discrepancy could be caused by an "
+                              "inconsistent memory \"snapshot\""
+                              "\nTry again...\n", []),
+                    verify_etsmem({MemInfo, AllTabs}, Try+1);
+                false ->
+                    ets_test_spawn_logger ! {failed_memcheck, get('__ETS_TEST_CASE__')},
+                    {comment, "Failed memory check"}
+            end
     end.
 
 
