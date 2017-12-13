@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The error message returned from Dialyzer when, for
+	    example, a modified record field type is not a subtype of
+	    the declared type, no longer includes a call stack. The
+	    bug was introduced in Erlang/OTP 19.3. </p>
+          <p>
+	    Own Id: OTP-14742</p>
+        </item>
+        <item>
+	    <p> A bug relating to maps and never returning functions
+	    has been fixed. </p>
+          <p>
+	    Own Id: OTP-14743</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

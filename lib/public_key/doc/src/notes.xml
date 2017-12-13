@@ -35,6 +35,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in <c>public_key:ssh_encode/2</c> that made
+	    it possible to erroneously encode e.g. an RSA key with
+	    another type e.g. ECDSA in the resulting binary.</p>
+          <p>
+	    Own Id: OTP-14570 Aux Id: ERIERL-52, OTP-14676 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected handling of parameterized EC keys in
+	    public_key:generate_key/1 so that it will work as
+	    expected instead of causing a runtime error in crypto.</p>
+          <p>
+	    Own Id: OTP-14620</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.5.1</title>
 
     <section><title>Improvements and New Features</title>

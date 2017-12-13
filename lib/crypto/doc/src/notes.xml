@@ -31,6 +31,76 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The compatibility function <c>void HMAC_CTX_free</c> in
+	    <c>crypto.c</c> erroneously tried to return a value.</p>
+          <p>
+	    Own Id: OTP-14720</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Rewrite public and private key encode/decode with EVP
+	    api. New RSA padding options added. This is a modified
+	    half of PR-838.</p>
+          <p>
+	    Own Id: OTP-14446</p>
+        </item>
+        <item>
+          <p>
+	    The crypto API is extended to use private/public keys
+	    stored in an Engine for sign/verify or encrypt/decrypt
+	    operations.</p>
+          <p>
+	    The ssl application provides an API to use this new
+	    engine concept in TLS.</p>
+          <p>
+	    Own Id: OTP-14448</p>
+        </item>
+        <item>
+	    <p> Add support to plug in alternative implementations
+	    for some or all of the cryptographic operations supported
+	    by the OpenSSL Engine API. When configured appropriately,
+	    OpenSSL calls the engine's implementation of these
+	    operations instead of its own. </p>
+          <p>
+	    Own Id: OTP-14567</p>
+        </item>
+        <item>
+          <p>
+	    Replaced a call of the OpenSSL deprecated function
+	    <c>DH_generate_parameters</c> in <c>crypto.c</c>.</p>
+          <p>
+	    Own Id: OTP-14639</p>
+        </item>
+        <item>
+          <p>
+	    Documentation added about how to use keys stored in an
+	    Engine.</p>
+          <p>
+	    Own Id: OTP-14735 Aux Id: OTP-14448 </p>
+        </item>
+        <item>
+	    <p> Add engine_ ctrl_cmd_string/3,4 the OpenSSL Engine
+	    support in crypto. </p>
+          <p>
+	    Own Id: OTP-14801</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

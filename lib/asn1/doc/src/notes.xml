@@ -32,6 +32,31 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    There was a issue with BER encoding and the
+	    <c>undec_rest</c> option in generated decoders. An
+	    exception could be thrown instead of returning an error
+	    tuple.</p>
+          <p>
+	    Own Id: OTP-14786 Aux Id: ERL-518 </p>
+        </item>
+        <item>
+          <p>
+	    The asn1ct:test functions crashed on decoders generated
+	    with options <c>no_ok_wrapper</c>, <c>undec_rest</c>.</p>
+          <p>
+	    Own Id: OTP-14787 Aux Id: ERL-518 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

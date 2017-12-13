@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosEvent 2.2.1</title>
+  <section><title>cosEvent 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosEvent 2.2.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

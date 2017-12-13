@@ -43,6 +43,22 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typo: peer_down/3 was written where
+	    peer_down/3 was intended.</p>
+          <p>
+	    Own Id: OTP-14805</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

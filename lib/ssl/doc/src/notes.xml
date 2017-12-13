@@ -27,6 +27,61 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Packet options cannot be supported for unreliable
+	    transports, that is, packet option for DTLS over udp will
+	    not be supported.</p>
+          <p>
+	    Own Id: OTP-14664</p>
+        </item>
+        <item>
+          <p>
+	    Ensure data delivery before close if possible. This fix
+	    is related to fix in PR-1479.</p>
+          <p>
+	    Own Id: OTP-14794</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The crypto API is extended to use private/public keys
+	    stored in an Engine for sign/verify or encrypt/decrypt
+	    operations.</p>
+          <p>
+	    The ssl application provides an API to use this new
+	    engine concept in TLS.</p>
+          <p>
+	    Own Id: OTP-14448</p>
+        </item>
+        <item>
+          <p>
+	    Implemented renegotiation for DTLS</p>
+          <p>
+	    Own Id: OTP-14563</p>
+        </item>
+        <item>
+          <p>
+	    A new command line option <c>-ssl_dist_optfile</c> has
+	    been added to facilitate specifying the many options
+	    needed when using SSL as the distribution protocol.</p>
+          <p>
+	    Own Id: OTP-14657</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.2</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
