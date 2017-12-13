@@ -105,8 +105,7 @@ function({function,Name,Arity,Entry,Is}, FIndex) ->
 	D = #btb{f=FIndex,index=Index},
 	{function,Name,Arity,Entry,btb_opt_1(Is, D, [])}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.

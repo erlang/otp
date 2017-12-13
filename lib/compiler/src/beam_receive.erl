@@ -82,8 +82,7 @@ function({function,Name,Arity,Entry,Is}) ->
 	D = beam_utils:index_labels(Is),
 	{function,Name,Arity,Entry,opt(Is, D, [])}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.

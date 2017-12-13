@@ -81,8 +81,7 @@ visit_module_1([{Name,F0}|Fs], Env, Acc) ->
 	{F,_} ->
 	    visit_module_1(Fs, Env, [{Name,F}|Acc])
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    #c_var{name={Func,Arity}} = Name,
 	    io:fwrite("Function: ~w/~w\n", [Func,Arity]),
 	    erlang:raise(Class, Error, Stack)

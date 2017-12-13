@@ -45,8 +45,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	%% Done.
 	{function,Name,Arity,CLabel,Is6}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.

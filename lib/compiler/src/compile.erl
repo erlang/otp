@@ -1530,15 +1530,14 @@ native_compile_1(Code, St) ->
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     catch
-	Class:R ->
-	    Stk = erlang:get_stacktrace(),
+	Class:R:Stack ->
 	    case IgnoreErrors of
 		true ->
 		    Ws = [{St#compile.ifile,
-			   [{none,?MODULE,{native_crash,R,Stk}}]}],
+			   [{none,?MODULE,{native_crash,R,Stack}}]}],
 		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    erlang:raise(Class, R, Stk)
+		    erlang:raise(Class, R, Stack)
 	    end
     end.
 

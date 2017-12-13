@@ -64,8 +64,7 @@ def({#c_var{name={F,Arity}}=Name,B0}) ->
         erase(new_var_num),
         {Name,B1}
     catch
-        Class:Error ->
-            Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
             io:fwrite("Function: ~w/~w\n", [F,Arity]),
             erlang:raise(Class, Error, Stack)
     end.

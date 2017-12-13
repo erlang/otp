@@ -130,9 +130,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	throw:Error ->
 	    %% Controlled error.
 	    [Error|validate_0(Module, Fs, Ft)];
-	Class:Error ->
+        Class:Error:Stack ->
 	    %% Crash.
-	    Stack = erlang:get_stacktrace(),
 	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
 	    erlang:raise(Class, Error, Stack)
     end.

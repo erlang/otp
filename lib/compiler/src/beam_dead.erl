@@ -56,8 +56,7 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 	Is = move_move_into_block(Is3, []),
 	{{function,Name,Arity,CLabel,Is},Lc}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
