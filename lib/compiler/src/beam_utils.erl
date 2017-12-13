@@ -380,9 +380,16 @@ check_liveness(R, [{bs_init,_,_,none,Ss,Dst}|Is], St) ->
 check_liveness(R, [{bs_init,_,_,Live,Ss,Dst}|Is], St) ->
     case R of
 	{x,X} ->
-	    case X < Live orelse member(R, Ss) of
-		true -> {used,St};
-		false -> {killed,St}
+            case member(R, Ss) of
+                true ->
+                    {used,St};
+                false ->
+                    if
+                        X < Live ->
+                            not_used(check_liveness(R, Is, St));
+                        true ->
+                            {killed,St}
+                    end
 	    end;
 	{y,_} ->
 	    case member(R, Ss) of

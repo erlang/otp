@@ -122,6 +122,15 @@ bs_init(_Config) ->
     {'EXIT',{badarg,_}} = (catch do_bs_init_2([0.5])),
     {'EXIT',{badarg,_}} = (catch do_bs_init_2([-1])),
     {'EXIT',{badarg,_}} = (catch do_bs_init_2([1 bsl 32])),
+
+    <<>> = do_bs_init_3({tag,0}, 0, 0),
+    <<0>> = do_bs_init_3({tag,0}, 2, 1),
+
+    <<"_build/shared">> = do_bs_init_4([], false),
+    <<"abc/shared">> = do_bs_init_4(<<"abc">>, false),
+    <<"foo/foo">> = do_bs_init_4(<<"foo">>, true),
+    error = do_bs_init_4([], not_boolean),
+
     ok.
 
 do_bs_init_1([?MODULE], Sz) ->
@@ -139,6 +148,45 @@ do_bs_init_2(SigNos) ->
 	    erlang:error(badarg)
     >>.
 
+do_bs_init_3({tag,Pos}, Offset, Len) ->
+    N0 = Offset - Pos,
+    N = if N0 > Len -> Len;
+           true -> N0
+        end,
+    <<0:N/unit:8>>.
+
+do_bs_init_4(Arg1, Arg2) ->
+    Build =
+        case id(Arg1) of
+            X when X =:= [] orelse X =:= false -> <<"_build">>;
+            X -> X
+        end,
+    case id(Arg2) of
+        true ->
+            id(<<case Build of
+                     Rewrite when is_binary(Rewrite) ->
+                         Rewrite;
+                     Rewrite ->
+                         id(Rewrite)
+                 end/binary,
+                 "/",
+                 case id(<<"foo">>) of
+                     Rewrite when is_binary(Rewrite) ->
+                         Rewrite;
+                     Rewrite ->
+                         id(Rewrite)
+                 end/binary>>);
+        false ->
+            id(<<case Build of
+                     Rewrite when is_binary(Rewrite) ->
+                         Rewrite;
+                     Rewrite ->
+                         id(Rewrite)
+                 end/binary,
+                 "/shared">>);
+        Other ->
+            error
+    end.
 
 bs_save(_Config) ->
     {a,30,<<>>} = do_bs_save(<<1:1,30:5>>),
