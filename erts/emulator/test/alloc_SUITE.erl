@@ -67,7 +67,10 @@ cpool(Cfg) -> drv_case(Cfg).
 migration(Cfg) ->
     case erlang:system_info(smp_support) of
 	true ->
-	    drv_case(Cfg, concurrent, "+MZe true");
+            %% Enable test_alloc.
+            %% Disable driver_alloc to avoid recursive alloc_util calls
+            %% through enif_mutex_create() in my_creating_mbc().
+	    drv_case(Cfg, concurrent, "+MZe true +MRe false");
 	false ->
 	    {skipped, "No smp"}
     end.
