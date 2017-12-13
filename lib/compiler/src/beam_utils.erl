@@ -22,7 +22,7 @@
 
 -module(beam_utils).
 -export([is_killed_block/2,is_killed/3,is_killed_at/3,
-	 is_not_used/3,
+	 is_not_used/3,usage/3,
 	 empty_label_index/0,index_label/3,index_labels/1,replace_labels/4,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
@@ -61,6 +61,23 @@
 -record(live,
 	{lbl :: code_index(),            %Label to code index.
 	 res :: result_cache()}).        %Result cache for each label.
+
+%% usage(Register, [Instruction], State) -> killed|not_used|used.
+%%  Determine the usage of Register in the instruction sequence.
+%%  The return value is one of:
+%%
+%%  killed   - The register is not used in any way.
+%%  not_used - The register is referenced only by an allocating instruction
+%%             (the actual value does not matter).
+%%  used     - The register is used (its value do matter).
+
+-spec usage(beam_asm:reg(), [instruction()], code_index()) ->
+  'killed' | 'not_used' | 'used'.
+
+usage(R, Is, D) ->
+    St = #live{lbl=D,res=gb_trees:empty()},
+    {Usage,_} = check_liveness(R, Is, St),
+    Usage.
 
 
 %% is_killed_block(Register, [Instruction]) -> true|false
