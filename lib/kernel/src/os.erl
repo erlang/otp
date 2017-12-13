@@ -21,7 +21,7 @@
 
 %% Provides a common operating system interface.
 
--export([type/0, version/0, cmd/1, find_executable/1, find_executable/2]).
+-export([type/0, version/0, cmd/1, cmd/2, find_executable/1, find_executable/2]).
 
 -include("file.hrl").
 
@@ -31,6 +31,11 @@
          perf_counter/0, perf_counter/1,
          putenv/2, set_signal/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
+
+-type os_command() :: atom() | io_lib:chars().
+-type os_command_opts() :: #{ max_size => non_neg_integer() | infinity }.
+
+-export_type([os_command/0, os_command_opts/0]).
 
 -spec getenv() -> [string()].
 
@@ -232,15 +237,21 @@ extensions() ->
 
 %% Executes the given command in the default shell for the operating system.
 -spec cmd(Command) -> string() when
-      Command :: atom() | io_lib:chars().
+      Command :: os_command().
 cmd(Cmd) ->
+    cmd(Cmd, #{ }).
+
+-spec cmd(Command, Options) -> string() when
+      Command :: os_command(),
+      Options :: os_command_opts().
+cmd(Cmd, Opts) ->
     validate(Cmd),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), Cmd),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
                                          stream, in, hide | SpawnOpts]),
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, MonRef, Eot, []),
+    Bytes = get_data(Port, MonRef, Eot, [], 0, maps:get(max_size, Opts, infinity)),
     demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
@@ -291,12 +302,13 @@ validate1([List|Rest]) when is_list(List) ->
 validate1([]) ->
     ok.
 
-get_data(Port, MonRef, Eot, Sofar) ->
+get_data(Port, MonRef, Eot, Sofar, Size, Max) ->
     receive
 	{Port, {data, Bytes}} ->
-            case eot(Bytes, Eot) of
+            case eot(Bytes, Eot, Size, Max) of
                 more ->
-                    get_data(Port, MonRef, Eot, [Sofar,Bytes]);
+                    get_data(Port, MonRef, Eot, [Sofar, Bytes],
+                             Size + size(Bytes), Max);
                 Last ->
                     catch port_close(Port),
                     flush_until_down(Port, MonRef),
@@ -307,13 +319,16 @@ get_data(Port, MonRef, Eot, Sofar) ->
 	    iolist_to_binary(Sofar)
     end.
 
-eot(_Bs, <<>>) ->
+eot(_Bs, <<>>, _Size, _Max) ->
     more;
-eot(Bs, Eot) ->
+eot(Bs, Eot, Size, Max) ->
     case binary:match(Bs, Eot) of
-        nomatch -> more;
-        {Pos, _} ->
-            binary:part(Bs,{0, Pos})
+        nomatch when Size + size(Bs) < Max ->
+            more;
+        {Pos, _} when Size + Pos < Max ->
+            binary:part(Bs,{0, Pos});
+        _ ->
+            binary:part(Bs,{0, Max - Size})
     end.
 
 %% When port_close returns we know that all the
