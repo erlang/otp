@@ -68,7 +68,8 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 		  erlang:dt_restore_tag(Utag),
 		  %% process_flag(trap_exit, true),
 		  case parse_options(ModeList) of
-		      {ReadMode, UnicodeMode, Opts} ->
+                      {ReadMode, UnicodeMode, Opts0} ->
+                          Opts = maybe_add_read_ahead(ReadMode, Opts0),
 			  case raw_file_io:open(FileName, [raw | Opts]) of
 			      {error, Reason} = Error ->
 				  Self ! {Ref, Error},
@@ -158,6 +159,24 @@ valid_enc({utf32,little}) ->
 valid_enc(_Other) ->
     {error,badarg}.
 
+%% Add a small read_ahead buffer if the file is opened for reading
+%% only in list mode and no read_ahead is already given.
+maybe_add_read_ahead(binary, Opts) ->
+    Opts;
+maybe_add_read_ahead(list, Opts) ->
+    P = fun(read_ahead) -> true;
+           ({read_ahead,_}) -> true;
+           (append) -> true;
+           (exclusive) -> true;
+           (write) -> true;
+           (_) -> false
+        end,
+    case lists:any(P, Opts) of
+        false ->
+            [{read_ahead, 4096}|Opts];
+        true ->
+            Opts
+    end.
 
 server_loop(#state{mref = Mref} = State) ->
     receive
