@@ -170,6 +170,10 @@
         <p>If the edge would create a cycle in
           an <seealso marker="#acyclic_digraph">acyclic digraph</seealso>,
           <c>{error,&nbsp;{bad_edge,&nbsp;<anno>Path</anno>}}</c> is returned.
+          If <c><anno>G</anno></c> already has an edge with value
+          <c><anno>E</anno></c> connecting a different pair of vertices,
+          <c>{error,&nbsp;{bad_edge,&nbsp;[<anno>V1</anno>,&nbsp;<anno>V2</anno>]}}</c>
+          is returned.
           If either of <c><anno>V1</anno></c> or <c><anno>V2</anno></c> is not
           a vertex of digraph <c><anno>G</anno></c>,
           <c>{error,&nbsp;{bad_vertex,&nbsp;</c><anno>V</anno><c>}}</c> is

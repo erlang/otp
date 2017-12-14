@@ -67,14 +67,7 @@ client_hello(Host, Port, ConnectionStates,
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, 
                                                        Renegotiation),
-    CipherSuites = 
-	case Fallback of
-	    true ->
-	        [?TLS_FALLBACK_SCSV | 
-                 ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation)];
-	    false ->
-		ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation)
-	end,
+    CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),    
     #client_hello{session_id = Id,
 		  client_version = Version,

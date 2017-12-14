@@ -67,7 +67,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/2,  available_signature_algs/4, 
-         cipher_suites/2, prf/6, select_session/11, supported_ecc/1,
+         cipher_suites/3, prf/6, select_session/11, supported_ecc/1,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
@@ -801,6 +801,11 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
 available_signature_algs(_, _, _, _) -> 
     undefined.
 
+cipher_suites(Suites, Renegotiation, true) ->
+    %% TLS_FALLBACK_SCSV should be placed last -RFC7507
+    cipher_suites(Suites, Renegotiation) ++ [?TLS_FALLBACK_SCSV];
+cipher_suites(Suites, Renegotiation, false) ->
+    cipher_suites(Suites, Renegotiation).
 cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
 cipher_suites(Suites, true) ->
