@@ -51,7 +51,7 @@
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/2,
-	 sha/1, sign/3, verify/4]).
+	 sha/1, sign/3, verify/5]).
 
 %%% For test suites
 -export([pack/3]).
@@ -825,7 +825,7 @@ extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
 verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
     case atom_to_list(Alg#alg.hkey) of
         AlgStr ->
-            case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey) of
+            case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey, SSH) of
                 false ->
                     {error, bad_signature};
                 true ->
@@ -1288,7 +1288,7 @@ mk_dss_sig(DerSignature) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
 
-verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key) ->
+verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
     case Sig of
         <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> ->
             Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
@@ -1296,7 +1296,7 @@ verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key) ->
         _ ->
             false
     end;
-verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key) ->
+verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) ->
     case Sig of
         <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
           ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> ->
@@ -1306,7 +1306,15 @@ verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key) ->
         _ ->
             false
     end;
-verify(PlainText, HashAlg, Sig, Key) ->
+
+verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
+                                                            c_version = "SSH-2.0-OpenSSH_7."++_})
+  when HashAlg == sha256; HashAlg == sha512 ->
+    %% Public key signing bug in in OpenSSH >= 7.2
+    public_key:verify(PlainText, HashAlg, Sig, Key)
+        orelse public_key:verify(PlainText, sha, Sig, Key);
+
+verify(PlainText, HashAlg, Sig, Key, _) ->
     public_key:verify(PlainText, HashAlg, Sig, Key).
 
 
