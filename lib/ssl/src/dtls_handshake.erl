@@ -67,7 +67,8 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 %%--------------------------------------------------------------------
 client_hello(Host, Port, Cookie, ConnectionStates,
 	     #ssl_options{versions = Versions,
-			  ciphers = UserSuites
+			  ciphers = UserSuites,
+                          fallback = Fallback
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version =  dtls_record:highest_protocol_version(Versions),
@@ -83,7 +84,9 @@ client_hello(Host, Port, Cookie, ConnectionStates,
 
     #client_hello{session_id = Id,
 		  client_version = Version,
-		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
+		  cipher_suites = 
+                      ssl_handshake:cipher_suites(CipherSuites, 
+                                                  Renegotiation, Fallback),
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  cookie = Cookie,
