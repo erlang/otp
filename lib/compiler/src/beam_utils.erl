@@ -30,7 +30,7 @@
 
 -export_type([code_index/0,module_code/0,instruction/0]).
 
--import(lists, [map/2,member/2,sort/1,reverse/1,splitwith/2]).
+-import(lists, [flatmap/2,map/2,member/2,sort/1,reverse/1,splitwith/2]).
 
 -define(is_const(Val), (Val =:= nil orelse
                         element(1, Val) =:= integer orelse
@@ -282,16 +282,16 @@ delete_live_annos([]) -> [].
 %% combine_heap_needs(HeapNeed1, HeapNeed2) -> HeapNeed
 %%  Combine the heap need for two allocation instructions.
 
--spec combine_heap_needs(term(), term()) -> term().
+-type heap_need_tag() :: 'floats' | 'words'.
+-type heap_need() :: non_neg_integer() |
+                     {'alloc',[{heap_need_tag(),non_neg_integer()}]}.
+-spec combine_heap_needs(heap_need(), heap_need()) -> heap_need().
 
-combine_heap_needs({alloc,Alloc1}, {alloc,Alloc2}) ->
-    {alloc,combine_alloc_lists(Alloc1, Alloc2)};
-combine_heap_needs({alloc,Alloc}, Words) when is_integer(Words) ->
-    {alloc,combine_alloc_lists(Alloc, [{words,Words}])};
-combine_heap_needs(Words, {alloc,Alloc}) when is_integer(Words) ->
-    {alloc,combine_alloc_lists(Alloc, [{words,Words}])};
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
-    H1+H2.
+    H1 + H2;
+combine_heap_needs(H1, H2) ->
+    combine_alloc_lists([H1,H2]).
+
 
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
@@ -723,22 +723,18 @@ label(Old, D, Fb) ->
         _ -> Fb(Old)
     end.
 
-%% Help functions for combine_heap_needs.
+%% Help function for combine_heap_needs.
 
-combine_alloc_lists(Al1, Al2) ->
-    combine_alloc_lists_1(sort(Al1++Al2)).
-
-combine_alloc_lists_1([{words,W1},{words,W2}|T])
-  when is_integer(W1), is_integer(W2) ->
-    [{words,W1+W2}|combine_alloc_lists_1(T)];
-combine_alloc_lists_1([{floats,F1},{floats,F2}|T])
-  when is_integer(F1), is_integer(F2) ->
-    [{floats,F1+F2}|combine_alloc_lists_1(T)];
-combine_alloc_lists_1([{words,_}=W|T]) ->
-    [W|combine_alloc_lists_1(T)];
-combine_alloc_lists_1([{floats,_}=F|T]) ->
-    [F|combine_alloc_lists_1(T)];
-combine_alloc_lists_1([]) -> [].
+combine_alloc_lists(Al0) ->
+    Al1 = flatmap(fun(Words) when is_integer(Words) ->
+                         [{words,Words}];
+                    ({alloc,List}) ->
+                         List
+                 end, Al0),
+    Al2 = sofs:relation(Al1),
+    Al3 = sofs:relation_to_family(Al2),
+    Al4 = sofs:to_external(Al3),
+    [{Tag,lists:sum(L)} || {Tag,L} <- Al4].
 
 %% live_opt/4.
 
