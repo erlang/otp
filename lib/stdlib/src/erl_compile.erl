@@ -188,6 +188,8 @@ parse_dep_option("", T) ->
     {[makedep,{makedep_output,standard_io}],T};
 parse_dep_option("D", T) ->
     {[makedep],T};
+parse_dep_option("MD", T) ->
+    {[makedep_side_effect],T};
 parse_dep_option("F"++Opt, T0) ->
     {File,T} = get_option("MF", Opt, T0),
     {[makedep,{makedep_output,File}],T};
@@ -221,6 +223,7 @@ usage() ->
 	  "the dependencies"},
 	 {"-MP","add a phony target for each dependency"},
 	 {"-MD","same as -M -MT file (with default 'file')"},
+	 {"-MMD","generate dependencies as a side-effect"},
 	 {"-o name","name output directory or file"},
 	 {"-pa path","add path to the front of Erlang's code path"},
 	 {"-pz path","add path to the end of Erlang's code path"},

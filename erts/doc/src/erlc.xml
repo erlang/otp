@@ -143,6 +143,14 @@
         <p>Produces a Makefile rule to track header dependencies. The
           rule is sent to <c>stdout</c>. No object file is produced.</p>
       </item>
+
+      <tag><c>-MMD</c></tag>
+      <item>
+        <p>Generate dependencies as a side-effect. The object file
+	will be produced as normal. This option overrides the
+	option <c><![CDATA[-M]]></c>.</p>
+      </item>
+
       <tag><c>-MF &lt;Makefile&gt;</c></tag>
       <item>
         <p>As option <c><![CDATA[-M]]></c>, except that the

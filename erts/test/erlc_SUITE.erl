@@ -257,7 +257,7 @@ erlc() ->
 make_dep_options(Config) ->
     {SrcDir,OutDir,Cmd} = get_cmd(Config),
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
-
+    BeamFileName = filename:join(OutDir, "erl_test_ok.beam"),
 
     DepRE = ["/erl_test_ok[.]beam: \\\\$",
              "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
@@ -285,22 +285,29 @@ make_dep_options(Config) ->
      "missing.hrl$",
      "_OK_"],
 
+    file:delete(BeamFileName),
+
     %% Test plain -M
     run(Config, Cmd, FileName, "-M", DepRE),
+    false = exists(BeamFileName),
 
     %% Test -MF File
     DepFile = filename:join(OutDir, "my.deps"),
     run(Config, Cmd, FileName, "-MF "++DepFile, ["_OK_"]),
     {ok,MFBin} = file:read_file(DepFile),
     verify_result(binary_to_list(MFBin)++["_OK_"], DepRE),
+    false = exists(BeamFileName),
 
     %% Test -MD
     run(Config, Cmd, FileName, "-MD", ["_OK_"]),
     MDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
     {ok,MFBin} = file:read_file(MDFile),
+    file:delete(MDFile), %% used further down!
+    false = exists(BeamFileName),
 
     %% Test -M -MT Target
     run(Config, Cmd, FileName, "-M -MT target", DepRETarget),
+    false = exists(BeamFileName),
 
     %% Test -MF File -MT Target
     TargetDepFile = filename:join(OutDir, "target.deps"),
@@ -308,23 +315,110 @@ make_dep_options(Config) ->
         ["_OK_"]),
     {ok,TargetBin} = file:read_file(TargetDepFile),
     verify_result(binary_to_list(TargetBin)++["_OK_"], DepRETarget),
+    file:delete(TargetDepFile),
+    false = exists(BeamFileName),
 
     %% Test -MD -MT Target
     run(Config, Cmd, FileName, "-MD -MT target", ["_OK_"]),
     TargetMDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
     {ok,TargetBin} = file:read_file(TargetMDFile),
+    file:delete(TargetDepFile),
+    false = exists(BeamFileName),
 
     %% Test -M -MQ Target. (Note: Passing a $ on the command line
     %% portably for Unix and Windows is tricky, so we will just test
     %% that MQ works at all.)
     run(Config, Cmd, FileName, "-M -MQ target", DepRETarget),
+    false = exists(BeamFileName),
 
     %% Test -M -MP
     run(Config, Cmd, FileName, "-M -MP", DepREMP),
+    false = exists(BeamFileName),
 
     %% Test -M -MG
     MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
     run(Config, Cmd, MissingHeader, "-M -MG", DepREMissing),
+    false = exists(BeamFileName),
+
+    %%
+    %% check the above variants with side-effect -MMD
+    %%
+
+    %% since compiler is run on the erlang code a warning will be
+    %% issued by the compiler, match that.
+    WarningRE = "/system_test/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+: "
+        "Warning: function foo/0 is unused$",
+    ErrorRE = "/system_test/erlc_SUITE_data/src/erl_test_missing_header.erl:"
+        "[0-9]+: can't find include file \"missing.hrl\"$",
+
+    DepRE_MMD = insert_before("_OK_", WarningRE, DepRE),
+    DepRETarget_MMD = insert_before("_OK_", WarningRE, DepRETarget),
+    DepREMP_MMD = insert_before("_OK_",WarningRE,DepREMP),
+    DepREMissing_MMD = (insert_before("_OK_",ErrorRE,DepREMissing)--
+                            ["_OK_"]) ++ ["_ERROR_"],
+    CompRE = [WarningRE,"_OK_"],
+
+
+    %% Test plain -MMD -M
+    run(Config, Cmd, FileName, "-MMD -M", DepRE_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MF File
+    DepFile = filename:join(OutDir, "my.deps"),
+    run(Config, Cmd, FileName, "-MMD -MF "++DepFile, CompRE),
+    {ok,MFBin} = file:read_file(DepFile),
+    verify_result(binary_to_list(MFBin)++["_OK_"], DepRE),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MD
+    run(Config, Cmd, FileName, "-MMD -MD", CompRE),
+    MDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,MFBin} = file:read_file(MDFile),
+    file:delete(MDFile), %% used further down!
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MT Target
+    run(Config, Cmd, FileName, "-MMD -M -MT target", DepRETarget_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MF File -MT Target
+    TargetDepFile = filename:join(OutDir, "target.deps"),
+    run(Config, Cmd, FileName, "-MMD -MF "++TargetDepFile++" -MT target",
+        CompRE),
+    {ok,TargetBin} = file:read_file(TargetDepFile),
+    verify_result(binary_to_list(TargetBin)++["_OK_"], DepRETarget),
+    file:delete(TargetDepFile),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MD -MT Target
+    run(Config, Cmd, FileName, "-MMD -MD -MT target", CompRE),
+    TargetMDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,TargetBin} = file:read_file(TargetMDFile),
+    file:delete(TargetDepFile),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MQ Target. (Note: Passing a $ on the command line
+    %% portably for Unix and Windows is tricky, so we will just test
+    %% that MQ works at all.)
+    run(Config, Cmd, FileName, "-MMD -M -MQ target", DepRETarget_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MP
+    run(Config, Cmd, FileName, "-MMD -M -MP", DepREMP_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MG
+    MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
+    run(Config, Cmd, MissingHeader, "-MMD -M -MG", DepREMissing_MMD),
+    false = exists(BeamFileName),
     ok.
 
 %% Runs a command.
@@ -340,6 +434,12 @@ verify_result(Result, Expect) ->
     io:format("Result: ~p", [Messages]),
     io:format("Expected: ~p", [Expect]),
     match_messages(Messages, Expect).
+
+%% insert What before Item, crash if Item is not found
+insert_before(Item, What, [Item|List]) ->
+    [What,Item|List];
+insert_before(Item, What, [Other|List]) ->
+    [Other|insert_before(Item, What, List)].
 
 split([$\n|Rest], Current, Lines) ->
     split(Rest, [], [lists:reverse(Current)|Lines]);
