@@ -1359,13 +1359,13 @@ group_name(Config) ->
 server_start(sim_http, _) ->
     Inet = inet_version(),
     ok = httpc:set_options([{ipfamily, Inet}]),
-    {_Pid, Port} = dummy_server(Inet),
+    {_Pid, Port} = http_test_lib:dummy_server(ip_comm, Inet, [{content_cb, ?MODULE}]),
     Port;
 
 server_start(sim_https, SslConfig) ->
     Inet = inet_version(),
     ok = httpc:set_options([{ipfamily, Inet}]),
-    {_Pid, Port} = dummy_server(ssl, Inet, SslConfig),
+    {_Pid, Port} = http_test_lib:dummy_server(ssl, Inet, [{ssl, SslConfig}, {content_cb, ?MODULE}]),
     Port;
 
 server_start(_, HttpdConfig) ->
@@ -1469,13 +1469,7 @@ receive_replys([ID|IDs]) ->
 	    ct:pal({recived_canceld_id, Other})
     end.
 
-%% Perform a synchronous stop
-dummy_server_stop(Pid) ->
-    Pid ! {stop, self()},
-    receive 
-	{stopped, Pid} ->
-	    ok
-    end.
+
 
 inet_version() ->
     inet. %% Just run inet for now
@@ -1629,7 +1623,6 @@ handle_request(Module, Function, Args, Socket) ->
     end.
 
 handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket) ->
-
     ct:print("Request: ~p ~p", [Method, RelUri]),
 
     NextRequest = 

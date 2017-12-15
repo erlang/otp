@@ -150,6 +150,7 @@ INETS_ROOT = ../../inets
 MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
+	make_certs                      \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE  		\
 	http_format_SUITE 		\
@@ -157,6 +158,8 @@ MODULES =                 		\
 	httpc_cookie_SUITE		\
 	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
+	httpd_bench_SUITE               \
+	http_test_lib    		\
 	old_httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
@@ -189,7 +192,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec
+INETS_SPECS = inets.spec inets_bench.spec
 COVER_FILE = inets.cover
 INETS_FILES = inets.config $(INETS_SPECS)
 
@@ -200,8 +203,10 @@ INETS_FILES = inets.config $(INETS_SPECS)
 # 	inets_ftp_suite \
 # 	inets_tftp_suite
 
+
 INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data httpd_bench_SUITE_data
+
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
 
