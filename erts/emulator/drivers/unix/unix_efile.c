@@ -466,7 +466,7 @@ efile_may_openfile(Efile_error* errInfo, char *name) {
 void
 efile_closefile(int fd)
 {
-    while((close(fd) < 0) && (errno == EINTR));
+    close(fd);
 }
 
 int
