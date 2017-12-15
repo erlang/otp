@@ -463,8 +463,9 @@ connect_bin(essl, Host, Port, Opts0) ->
     connect(ssl, Host, Port, Opts);
 connect_bin(ip_comm, Host, Port, Opts0) ->
     Opts = [binary, {packet, 0} | Opts0],
-    connect(ip_comm, Host, Port, Opts).
-
+    connect(ip_comm, Host, Port, Opts);
+connect_bin(Type, Host, Port, Opts) ->
+    connect(Type, Host, Port, Opts).
 
 connect_byte(SockType, Host, Port) ->
     connect_byte(SockType, Host, Port, []).
@@ -477,27 +478,40 @@ connect_byte(essl, Host, Port, Opts0) ->
     connect(ssl, Host, Port, Opts);
 connect_byte(ip_comm, Host, Port, Opts0) ->
     Opts = [{packet,0} | Opts0],
-    connect(ip_comm, Host, Port, Opts).
+    connect(ip_comm, Host, Port, Opts);
+connect_byte(Type, Host, Port, Opts) ->
+    connect(Type, Host, Port, Opts).
 
 connect(ip_comm, Host, Port, Opts) ->
     gen_tcp:connect(Host, Port, Opts);
 connect(ssl, Host, Port, Opts) ->
-    ssl:connect(Host, Port, Opts).
+    ssl:connect(Host, Port, Opts);
+connect(openssl_port, Host, Port, Opts) ->
+    CaCertFile = proplists:get_value(cacertfile, Opts),
+    Cmd = "openssl s_client -quiet -port " ++ integer_to_list(Port)  ++ " -host " ++ Host 
+	++ " -CAfile " ++ CaCertFile,
+    ct:log("openssl cmd: ~p~n", [Cmd]),
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    read_junk(OpensslPort),
+    {ok, OpensslPort}.
 
 send(ssl, Socket, Data) ->
     ssl:send(Socket, Data);
 send(essl, Socket, Data) ->
     ssl:send(Socket, Data);
 send(ip_comm,Socket,Data) ->
-    gen_tcp:send(Socket,Data).
-
-
+    gen_tcp:send(Socket,Data);
+send(openssl_port, Port, Data) ->
+    true = port_command(Port, Data),
+    ok.
 close(ssl,Socket) ->
     catch ssl:close(Socket);
 close(essl,Socket) ->
     catch ssl:close(Socket);
 close(ip_comm,Socket) ->
-    catch gen_tcp:close(Socket).
+    catch gen_tcp:close(Socket);
+close(openssl_port, Port) ->
+    exit(Port, normal).
 
 
 hours(N)   -> trunc(N * 1000 * 60 * 60).
@@ -572,3 +586,11 @@ do_inet_port(Node) ->
     {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
     {ok, Port} = rpc:call(Node, inet, port, [Socket]),
     {Port, Socket}.
+
+read_junk(OpensslPort) ->
+    receive
+	{OpensslPort, _} ->
+	    read_junk(OpensslPort)
+    after 500 -> 
+	    ok    
+    end.
