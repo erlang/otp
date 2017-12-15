@@ -293,7 +293,7 @@ fetch_stats_loop(Parent, Time) ->
     erlang:system_flag(scheduler_wall_time, true),
     receive
 	_Msg ->
-	    %% erlang:system_flag(scheduler_wall_time, false)
+	    erlang:system_flag(scheduler_wall_time, false),
 	    ok
     after Time ->
 	    _M = Parent ! {stats, 1,
@@ -340,7 +340,6 @@ etop_collect(Collector) ->
 
     case SchedulerWallTime of
 	undefined ->
-            erlang:system_flag(scheduler_wall_time,true),
             spawn(fun() -> flag_holder_proc(Collector) end),
             ok;
 	_ ->
@@ -348,10 +347,11 @@ etop_collect(Collector) ->
     end.
 
 flag_holder_proc(Collector) ->
+    erlang:system_flag(scheduler_wall_time,true),
     Ref = erlang:monitor(process,Collector),
     receive
 	{'DOWN',Ref,_,_,_} ->
-	    %% erlang:system_flag(scheduler_wall_time,false)
+	    erlang:system_flag(scheduler_wall_time,false),
 	    ok
     end.
 
