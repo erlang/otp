@@ -257,8 +257,9 @@ ok</pre>
 \x{400}
 ok
 5> <input>io:fwrite("~s~n",[[1024]]).</input>
-** exception exit: {badarg,[{io,format,[&lt;0.26.0&gt;,"~s~n",[[1024]]]},
-   ...</pre>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0>,"~s~n",[[1024]])</pre>
           </item>
           <tag><c>w</c></tag>
           <item>
@@ -454,12 +455,9 @@ ok</pre>
 abc def 'abc def'  {foo,1} A
 ok
 2> <input>io:fwrite("~s", [65]).</input>
-** exception exit: {badarg,[{io,format,[&lt;0.22.0>,"~s","A"]},
-                            {erl_eval,do_apply,5},
-                            {shell,exprs,6},
-                            {shell,eval_exprs,6},
-                            {shell,eval_loop,3}]}
-     in function  io:o_request/2</pre>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0>,"~s","A")</pre>
         <p>In this example, an attempt was made to output the single
           character 65 with the aid of the string formatting directive
           <c>"~s"</c>.</p>
