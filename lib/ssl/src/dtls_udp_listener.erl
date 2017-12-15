@@ -153,15 +153,18 @@ handle_info({udp_error, Socket, Error}, #state{listner = Socket} = State) ->
 
 handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
 						 dtls_processes = Processes0,
+                                                 dtls_msq_queues = MsgQueues0,
                                                  close = ListenClosed} = State) ->
     Client = kv_get(Pid, Processes0),
     Processes = kv_delete(Pid, Processes0),
+    MsgQueues = kv_delete(Client, MsgQueues0),
     case ListenClosed andalso kv_empty(Processes) of
         true ->
             {stop, normal, State};
         false ->
             {noreply, State#state{clients = set_delete(Client, Clients),
-                                  dtls_processes = Processes}}
+                                  dtls_processes = Processes,
+                                  dtls_msq_queues = MsgQueues}}
     end.
 
 terminate(_Reason, _State) ->
