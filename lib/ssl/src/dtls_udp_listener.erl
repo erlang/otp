@@ -84,7 +84,7 @@ init([Port, EmOpts, InetOptions, DTLSOptions]) ->
 		    listner = Socket,
                     close = false}}
     catch _:_ ->
-	    {error, closed}
+	    {stop, {shutdown, {error, closed}}}
     end.
 handle_call({accept, _}, _, #state{close = true} = State) ->
     {reply, {error, closed}, State};
