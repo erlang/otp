@@ -695,7 +695,27 @@ t_is_map(Config) when is_list(Config) ->
     if is_map(#{b=>1}) -> ok end,
     if not is_map([1,2,3]) -> ok end,
     if not is_map(x) -> ok end,
+
+    ok = do_t_is_map(map, #{}),
+    error = do_t_is_map(map, {a,b,c}),
+    ok = do_t_is_map(number, 42),
+    ok = do_t_is_map(number, 42.0),
+    error = do_t_is_map(number, {a,b,c}),
     ok.
+
+do_t_is_map(What, X) ->
+    B = case What of
+            map ->
+                %% Cover conversion of is_map/1 BIF to test instruction
+                %% in beam_utils:bif_to_test/3.
+                is_map(X);
+            number ->
+                is_number(X)
+        end,
+    case B of
+        true -> ok;
+        false -> error
+    end.
 
 % test map updates without matching
 t_update_literals(Config) when is_list(Config) ->
