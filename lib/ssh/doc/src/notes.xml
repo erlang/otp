@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix problem with OpenSSH 7.2 (and later) clients that has
+	    used sha1 instead of sha2 for rsa-sha-256/512 user's
+	    public keys.</p>
+          <p>
+	    Own Id: OTP-14827 Aux Id: ERL-531 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

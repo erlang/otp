@@ -304,11 +304,10 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 							   SigWLen/binary>>
 						 }, 
 			SessionId, 
-			#ssh{opts = Opts,
-			     userauth_supported_methods = Methods} = Ssh) ->
+			#ssh{userauth_supported_methods = Methods} = Ssh) ->
     
     case verify_sig(SessionId, User, "ssh-connection", 
-		    BAlg, KeyBlob, SigWLen, Opts) of
+		    BAlg, KeyBlob, SigWLen, Ssh) of
 	true ->
 	    {authorized, User, 
 	     ssh_transport:ssh_packet(
@@ -518,7 +517,7 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 	    false
     end.
 
-verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, Opts) ->
+verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts = Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
         {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
@@ -529,7 +528,7 @@ verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, Opts) ->
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
         <<?UINT32(AlgLen), _Alg:AlgLen/binary,
           ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-        ssh_transport:verify(PlainText, ssh_transport:sha(Alg), Sig, Key)
+        ssh_transport:verify(PlainText, ssh_transport:sha(Alg), Sig, Key, Ssh)
     catch
 	_:_ ->
 	    false
