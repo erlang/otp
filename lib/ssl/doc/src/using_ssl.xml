@@ -152,4 +152,41 @@ Shell got {ssl,{sslsocket,[...]},"foo"}
 ok</code>
     </section>
   </section>
+
+   <section>
+    <title>Using an Engine Stored Key</title>
+    
+    <p>Erlang ssl application is able to use private keys provided
+    by OpenSSL engines using the following mechanism:</p>
+    
+    <code type="erl">1> ssl:start().
+ok</code>
+
+    <p>Load a crypto engine, should be done once per engine used. For example
+    dynamically load the engine called <c>MyEngine</c>:
+    </p>
+    <code type="erl">2> {ok, EngineRef} =
+crypto:engine_load(&lt;&lt;"dynamic">>,
+                   [{&lt;&lt;"SO_PATH">>, "/tmp/user/engines/MyEngine"},&lt;&lt;"LOAD">>],[]).
+{ok,#Ref&lt;0.2399045421.3028942852.173962>}
+    </code>
+    
+    <p>Create a map with the engine information and the algorithm used by the engine:</p>
+    <code type="erl">3> PrivKey =
+ #{algorithm => rsa,
+   engine => EngineRef,
+   key_id => "id of the private key in Engine"}.
+    </code>
+    <p>Use the map in the ssl key option:</p>
+    <code type="erl">4> {ok, SSLSocket} =
+ssl:connect("localhost", 9999,
+            [{cacertfile, "cacerts.pem"},
+             {certfile, "cert.pem"},
+             {key, PrivKey}], infinity).
+    </code>
+
+    <p>See also <seealso marker="crypto:engine_load#engine_load"> crypto documentation</seealso> </p>
+    
+     </section>      
+  
  </chapter>
