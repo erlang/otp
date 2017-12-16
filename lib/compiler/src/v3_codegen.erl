@@ -184,6 +184,30 @@ avoid_stack_frame_1(#k_select{var=#k_var{anno=Vanno},types=Types0}=Select) ->
             %%
             throw(impossible)
     end;
+avoid_stack_frame_1(#k_seq{arg=#k_call{anno=Anno,op=Op}=Call,
+                           body=#k_break{args=BrArgs0}}=Seq) ->
+    case Op of
+        #k_remote{mod=#k_atom{val=Mod},
+                  name=#k_atom{val=Name},
+                  arity=Arity} ->
+            case erl_bifs:is_exit_bif(Mod, Name, Arity) of
+                false ->
+                    %% Will clobber X registers. Must have a stack frame.
+                    throw(impossible);
+                true ->
+                    %% The call to this BIF will never return. It is safe
+                    %% to suppress the stack frame.
+                    Bif = #k_bif{anno=Anno,
+                                 op=#k_internal{name=guard_error,arity=1},
+                                 args=[Call],ret=[]},
+                    BrArgs = lists:duplicate(length(BrArgs0), #k_nil{}),
+                    GB = #k_guard_break{anno=#k{us=[],ns=[],a=[]},args=BrArgs},
+                    Seq#k_seq{arg=Bif,body=GB}
+            end;
+        _ ->
+            %% Will clobber X registers. Must have a stack frame.
+            throw(impossible)
+    end;
 avoid_stack_frame_1(#k_seq{arg=A0,body=B0}=Seq) ->
     A = avoid_stack_frame_1(A0),
     B = avoid_stack_frame_1(B0),
@@ -1820,7 +1844,18 @@ internal_cg(build_stacktrace=I, As, Rs, Le, Vdb, Bef, St) ->
     {Sis++[I],clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb),St};
 internal_cg(raise, As, Rs, Le, Vdb, Bef, St) ->
     %% raise can be treated like a guard BIF.
-    bif_cg(raise, As, Rs, Le, Vdb, Bef, St).
+    bif_cg(raise, As, Rs, Le, Vdb, Bef, St);
+internal_cg(guard_error, [ExitCall], _Rs, Le, Vdb, Bef, St) ->
+    %% A call an exit BIF from inside a #k_guard_match{}.
+    %% Generate a standard call, but leave the register descriptors
+    %% alone, effectively pretending that there was no call.
+    #k_call{op=#k_remote{mod=#k_atom{val=Mod},name=#k_atom{val=Name}},
+            args=As} = ExitCall,
+    Arity = length(As),
+    {Ms,_} = cg_call_args(As, Bef, Le#l.i, Vdb),
+    Call = {call_ext,Arity,{extfunc,Mod,Name,Arity}},
+    Is = Ms++[line(Le),Call],
+    {Is,Bef,St}.
 
 %% bif_cg(Bif, [Arg], [Ret], Le, Vdb, StackReg, State) ->
 %%      {[Ainstr],StackReg,State}.
