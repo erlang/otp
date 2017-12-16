@@ -203,12 +203,13 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     codep[0] = beamArity;
     codep += 1;
 
-    /* jmp callemu; 12 bytes */
+    /* movabsq callemu, %rax; 10 bytes */
     codep[0] = 0x48;
     codep[1] = 0xb8;
     codep += 2;
     *(Uint64*)codep = (Uint64)nbif_callemu;
     codep += 8;
+    /* jmpq *%rax; 2 bytes */
     codep[0] = 0xff;
     codep[1] = 0xe0;
     codep += 2;
