@@ -52,9 +52,9 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
     switch (type) {
       case am_closure:
       case am_constant:
+      case am_c_const:
 	*(Uint64*)address = value;
 	break;
-      case am_c_const:
       case am_atom:
 	/* check that value fits in an unsigned imm32 */
 	/* XXX: are we sure it's not really a signed imm32? */
@@ -92,28 +92,15 @@ static void *alloc_code(unsigned int alloc_bytes)
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)
 {
-    Uint64 address, *ptr;
     if (is_not_nil(callees))
 	return NULL;
     *trampolines = NIL;
-
-    address = (Uint64)alloc_code(nrbytes+16);
-    ptr = (Uint64*)address;
-
-    if (address % 16 == 0) {
-        ptr[1] = address;
-        ptr += 2;
-    } else {
-        ptr[0] = address;
-        ptr += 1;
-    }
-    return (void*)ptr;
+    return alloc_code(nrbytes);
 }
 
 void hipe_free_code(void* code, unsigned int bytes)
 {
-    Uint64 *ptr = (Uint64*)code;
-    erts_free(ERTS_ALC_T_HIPE_EXEC, (void*)ptr[-1]);
+    erts_free(ERTS_ALC_T_HIPE_EXEC, code);
 }
 
 /* Make stub for native code calling exported beam function.

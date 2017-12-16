@@ -94,9 +94,6 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 
 -ifdef(HIPE_AMD64).
 patch_relocs(CodeSize, CodeBinary, SlimRefs) ->
-  Loads = proplists:get_value(?LOAD_ADDRESS, SlimRefs, []),
-  CConsts = proplists:get_value({c_const,sse2_fnegate_mask}, Loads, []),
-
   CodeSize1 =
     case CodeSize rem 8 of
       0 -> CodeSize;
@@ -106,51 +103,30 @@ patch_relocs(CodeSize, CodeBinary, SlimRefs) ->
   Locals = proplists:get_value(?CALL_LOCAL, SlimRefs, []),
   Remotes = proplists:get_value(?CALL_REMOTE, SlimRefs, []),
 
-  Loads1 = proplists:delete({c_const,sse2_fnegate_mask}, Loads),
-
   Locals1 = fix_refs(CodeSize1, Locals),
   NLocals = length(Locals1),
 
   Remotes1 = fix_refs(CodeSize1 + 8 * NLocals, Remotes),
   NRemotes = length(Remotes1),
 
-
   SlimRefs1 =
     lists:foldl(fun proplists:delete/2, SlimRefs,
-                [?LOAD_ADDRESS, ?CALL_LOCAL, ?CALL_REMOTE]),
+                [?CALL_LOCAL, ?CALL_REMOTE]),
 
   CodeSize2 = CodeSize1 + 8 * (NLocals + NRemotes),
 
-  CodeSize3 =
-    case CodeSize2 rem 16 of
-      0 -> CodeSize2;
-      Y -> CodeSize2 + 16 - Y
-    end,
-
-  PatchSize = CodeSize3 - CodeSize,
+  PatchSize = CodeSize2 - CodeSize,
 
   Relocs = lists:usort(
-             [ {O, CodeSize3-O-4} || O <- CConsts ] ++
                reloc_offsets(CodeSize1, Locals ++ Remotes)),
-
-  CodeSize4 =
-    case CConsts of
-      [] -> CodeSize3;
-      _ -> CodeSize3 + 16
-    end,
 
   CodeBinary1 =
     iolist_to_binary(
       [patch_code_binary(0, Relocs, CodeBinary),
-       <<0:PatchSize/unit:8>>,
-       case CConsts of
-         [] -> [];
-         _ -> <<16#8000000000000000:64/little,0:64>>
-       end
-       ]),
+       <<0:PatchSize/unit:8>>]),
 
-  {CodeSize4, CodeBinary1,
-   [{?LOAD_ADDRESS, Loads1}, {?CALL_REMOTE, Remotes1}, {?CALL_LOCAL, Locals1}|SlimRefs1]}.
+  {CodeSize2, CodeBinary1,
+   [{?CALL_REMOTE, Remotes1}, {?CALL_LOCAL, Locals1}|SlimRefs1]}.
 
 patch_code_binary(_, [], Binary) ->
   [Binary];
@@ -834,6 +810,7 @@ resolve_sse2_op(Op) ->
     fdiv -> divsd;
     fmul -> mulsd;
     fsub -> subsd;
+    xorpd -> xorpd;
     _ -> exit({?MODULE, unknown_sse2_operator, Op})
   end.
 
@@ -862,19 +839,11 @@ resolve_sse2_fmove_args(Src, Dst) ->
   end.
 
 %%% xorpd xmm, mem
--ifdef(HIPE_AMD64).
-resolve_sse2_fchs_arg(Dst=#x86_temp{type=double}) ->
-  {temp_to_xmm(Dst),
-   {rm64fp, {rm_mem, {ea_disp32_rip,
-                      {?LOAD_ADDRESS,
-                       {c_const, sse2_fnegate_mask}}}}}}.
--else.
 resolve_sse2_fchs_arg(Dst=#x86_temp{type=double}) ->
   {temp_to_xmm(Dst),
    {rm64fp, {rm_mem, ?HIPE_X86_ENCODE:?EA_DISP32_ABSOLUTE(
 		       {?LOAD_ADDRESS,
 			{c_const, sse2_fnegate_mask}})}}}.
--endif.
 
 %% mov mem, imm
 resolve_move_args(#x86_imm{value=ImmSrc}, Dst=#x86_mem{type=Type}, Context) ->
