@@ -23,7 +23,7 @@
 -module(beam_block).
 
 -export([module/2]).
--import(lists, [reverse/1,reverse/2,foldl/3,member/2]).
+-import(lists, [reverse/1,reverse/2,member/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -41,7 +41,8 @@ function({function,Name,Arity,CLabel,Is0}) ->
         Is4 = move_allocates(Is3),
         Is5 = beam_utils:live_opt(Is4),
         Is6 = opt_blocks(Is5),
-        Is = beam_utils:delete_live_annos(Is6),
+        Is7 = beam_utils:delete_live_annos(Is6),
+        Is = opt_allocs(Is7),
 
         %% Done.
         {function,Name,Arity,CLabel,Is}
@@ -143,10 +144,9 @@ opt_blocks([I|Is]) ->
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    Is = find_fixpoint(fun(Is) ->
-			       opt_tuple_element(opt(Is))
-		       end, Is0),
-    opt_alloc(Is).
+    find_fixpoint(fun(Is) ->
+                          opt_tuple_element(opt(Is))
+                  end, Is0).
 
 find_fixpoint(OptFun, Is0) ->
     case OptFun(Is0) of
@@ -411,31 +411,47 @@ eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
 	    no
     end.
 
+%% opt_allocs(Instructions) -> Instructions.  Optimize allocate
+%%  instructions inside blocks. If safe, replace an allocate_zero
+%%  instruction with the slightly cheaper allocate instruction.
+
+opt_allocs(Is) ->
+    D = beam_utils:index_labels(Is),
+    opt_allocs_1(Is, D).
+
+opt_allocs_1([{block,Bl0}|Is], D) ->
+    Bl = opt_alloc(Bl0, {D,Is}),
+    [{block,Bl}|opt_allocs_1(Is, D)];
+opt_allocs_1([I|Is], D) ->
+    [I|opt_allocs_1(Is, D)];
+opt_allocs_1([], _) -> [].
+
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
 
 opt_alloc([{set,[],[],{alloc,Live0,Info0}},
-	   {set,[],[],{alloc,Live,Info}}|Is]) ->
+           {set,[],[],{alloc,Live,Info}}|Is], D) ->
     Live = Live0,				%Assertion.
     Alloc = combine_alloc(Info0, Info),
     I = {set,[],[],{alloc,Live,Alloc}},
-    opt_alloc([I|Is]);
-opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is]) ->
-    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|Is];
-opt_alloc([I|Is]) -> [I|opt_alloc(Is)];
-opt_alloc([]) -> [].
+    opt_alloc([I|Is], D);
+opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is], D) ->
+    [{set,[],[],opt_alloc(Is, D, Ns, Nh, R)}|Is];
+opt_alloc([I|Is], D) -> [I|opt_alloc(Is, D)];
+opt_alloc([], _) -> [].
 
 combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
     {zero,Ns,beam_utils:combine_heap_needs(Nh1, Nh2),Init}.
-	
+
 %% opt_alloc(Instructions, FrameSize, HeapNeed, LivingRegs) -> [Instr]
 %%  Generates the optimal sequence of instructions for
 %%  allocating and initalizing the stack frame and needed heap.
 
-opt_alloc(_Is, nostack, Nh, LivingRegs) ->
+opt_alloc(_Is, _D, nostack, Nh, LivingRegs) ->
     {alloc,LivingRegs,{nozero,nostack,Nh,[]}};
-opt_alloc(Is, Ns, Nh, LivingRegs) ->
-    InitRegs = init_yreg(Is, 0),
+opt_alloc(Bl, {D,OuterIs}, Ns, Nh, LivingRegs) ->
+    Is = [{block,Bl}|OuterIs],
+    InitRegs = init_yregs(Ns, Is, D),
     case count_ones(InitRegs) of
 	N when N*2 > Ns ->
 	    {alloc,LivingRegs,{nozero,Ns,Nh,gen_init(Ns, InitRegs)}};
@@ -451,19 +467,14 @@ gen_init(Fs, Regs, Y, Acc) when Regs band 1 =:= 0 ->
 gen_init(Fs, Regs, Y, Acc) ->
     gen_init(Fs, Regs bsr 1, Y+1, Acc).
 
-%% init_yreg(Instructions, RegSet) -> RegSetInitialized
-%%  Calculate the set of initialized y registers.
-
-init_yreg([{set,_,_,{bif,_,_}}|_], Reg) -> Reg;
-init_yreg([{set,_,_,{alloc,_,{gc_bif,_,_}}}|_], Reg) -> Reg;
-init_yreg([{set,_,_,{alloc,_,{put_map,_,_}}}|_], Reg) -> Reg;
-init_yreg([{set,Ds,_,_}|Is], Reg) -> init_yreg(Is, add_yregs(Ds, Reg));
-init_yreg(_Is, Reg) -> Reg.
-
-add_yregs(Ys, Reg) -> foldl(fun(Y, R0) -> add_yreg(Y, R0) end, Reg, Ys).
-    
-add_yreg({y,Y}, Reg) -> Reg bor (1 bsl Y);
-add_yreg(_, Reg)     -> Reg.
+init_yregs(Y, Is, D) when Y >= 0 ->
+    case beam_utils:is_killed({y,Y}, Is, D) of
+        true ->
+            (1 bsl Y) bor init_yregs(Y-1, Is, D);
+        false ->
+            init_yregs(Y-1, Is, D)
+    end;
+init_yregs(_, _, _) -> 0.
 
 count_ones(Bits) -> count_ones(Bits, 0).
 count_ones(0, Acc) -> Acc;
