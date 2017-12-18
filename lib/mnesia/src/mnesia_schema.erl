@@ -952,19 +952,9 @@ get_index_plugins() ->
     get_schema_user_property(mnesia_index_plugins).
 
 get_schema_user_property(Key) ->
-    Tab = schema,
-    %% Must work reliably both within transactions and outside of transactions
-    Res = case get(mnesia_activity_state) of
-	      undefined ->
-		  dirty_read_table_property(Tab, Key);
-	      _ ->
-		  do_read_table_property(Tab, Key)
-	  end,
-    case Res of
-	undefined ->
-	    [];
-	{_, Types} ->
-	    Types
+    case dirty_read_table_property(schema, Key) of
+	undefined ->  [];
+	{_, Types} -> Types
     end.
 
 get_ext_types_disc() ->
