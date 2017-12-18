@@ -146,7 +146,26 @@ msg_formater(msg, {trace_ts,_Pid,return_from,{ssh_message,encode,1},_Res,_TS}, D
 msg_formater(msg, {trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
     D;
 msg_formater(msg, {trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
-    fmt("~n~s ~p RECV ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
+    Extra =
+        case Msg of
+            #ssh_msg_userauth_info_request{data = D0} ->
+                try ssh_message:decode_keyboard_interactive_prompts(D0, [])
+                of
+                    Acc ->
+                        io_lib:format("  -- decoded data:~n", []) ++
+                        element(1,
+                                lists:mapfoldl(
+                                  fun({Prompt,Echo}, N) ->
+                                          {io_lib:format("     prompt[~p]: \"~s\" (echo=~p)~n",[N,Prompt,Echo]), N+1}
+                                  end, 1, Acc))
+                catch
+                    _:_ ->
+                        ""
+                end;
+            _ ->
+                ""
+        end,
+    fmt("~n~s ~p RECV ~s~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg)),Extra], D);
 
 msg_formater(_auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_failure{authentications=As},TS}, D) -> 
     fmt("~n~s ~p Client login FAILURE. Try ~s~n", [ts(TS),Pid,As], D);
@@ -232,21 +251,22 @@ msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,known_host_key,3}, Res
     end;
 
 msg_formater(_, {trace_ts,Pid,call,{ssh_auth,publickey_msg,[[SigAlg,#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with public key algorithm ~p~n", [ts(TS),Pid,User,SigAlg], D);
+     fmt("~n~s ~p Client will try to login user ~p with method: public key algorithm ~p~n", [ts(TS),Pid,User,SigAlg], D);
 msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't login with that kind of public key~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{_,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p logged in~n", [ts(TS),Pid,User], D);
+     fmt("~s ~p User ~p can't use that kind of public key~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,publickey_msg,1},_,_TS}, D) -> D;
 
 msg_formater(_, {trace_ts,Pid,call,{ssh_auth,password_msg,[[#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with password~n", [ts(TS),Pid,User], D);
+     fmt("~n~s ~p Client will try to login user ~p with method: password~n", [ts(TS),Pid,User], D);
 msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,password_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't login with password~n", [ts(TS),Pid,User], D);
+     fmt("~s ~p User ~p can't use method password as login method~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,password_msg,1},_Result,_TS}, D) -> D;
 
 msg_formater(_, {trace_ts,Pid,call,{ssh_auth,keyboard_interactive_msg,[[#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with password~n", [ts(TS),Pid,User], D);
+     fmt("~n~s ~p Client will try to login user ~p with method: keyboard-interactive~n", [ts(TS),Pid,User], D);
 msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,keyboard_interactive_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't login with keyboard_interactive password~n", [ts(TS),Pid,User], D);
+     fmt("~s ~p User ~p can't use method keyboard-interactive as login method~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,keyboard_interactive_msg,1},_Result,_TS}, D) -> D;
 
 msg_formater(msg, {trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
     fmt("~n~s ~p TCP SEND on ~p~n ~p~n", [ts(TS),Pid,Sock, shrink_bin(Bytes)], D);
