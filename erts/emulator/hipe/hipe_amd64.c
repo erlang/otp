@@ -52,9 +52,9 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
     switch (type) {
       case am_closure:
       case am_constant:
+      case am_c_const:
 	*(Uint64*)address = value;
 	break;
-      case am_c_const:
       case am_atom:
 	/* check that value fits in an unsigned imm32 */
 	/* XXX: are we sure it's not really a signed imm32? */
@@ -71,14 +71,8 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
 
 int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
-    Sint rel32;
-
     ASSERT(trampoline == NULL);
-
-    rel32 = (Sint)destAddress - (Sint)callAddress - 4;
-    if ((Sint)(Sint32)rel32 != rel32)
-	return -1;
-    *(Uint32*)callAddress = (Uint32)rel32;
+    *(Uint64*)callAddress = (Uint64)destAddress;
     hipe_flush_icache_word(callAddress);
     return 0;
 }
@@ -129,10 +123,9 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
      */
     unsigned int codeSize;
     unsigned char *code, *codep;
-    unsigned int callEmuOffset;
 
-    codeSize =	/* 23, 26, 29, or 32 bytes */
-      23 +	/* 23 when all offsets are 8-bit */
+    codeSize =	/* 30, 33, 36, or 39 bytes */
+      30 +	/* 30 when all offsets are 8-bit */
       (P_CALLEE_EXP >= 128 ? 3 : 0) +
       ((P_CALLEE_EXP + 4) >= 128 ? 3 : 0) +
       (P_ARITY >= 128 ? 3 : 0);
@@ -197,14 +190,16 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     codep[0] = beamArity;
     codep += 1;
 
-    /* jmp callemu; 5 bytes */
-    callEmuOffset = (unsigned char*)nbif_callemu - (code + codeSize);
-    codep[0] = 0xe9;
-    codep[1] =  callEmuOffset        & 0xFF;
-    codep[2] = (callEmuOffset >>  8) & 0xFF;
-    codep[3] = (callEmuOffset >> 16) & 0xFF;
-    codep[4] = (callEmuOffset >> 24) & 0xFF;
-    codep += 5;
+    /* movabsq callemu, %rax; 10 bytes */
+    codep[0] = 0x48;
+    codep[1] = 0xb8;
+    codep += 2;
+    *(Uint64*)codep = (Uint64)nbif_callemu;
+    codep += 8;
+    /* jmpq *%rax; 2 bytes */
+    codep[0] = 0xff;
+    codep[1] = 0xe0;
+    codep += 2;
 
     ASSERT(codep == code + codeSize);
 

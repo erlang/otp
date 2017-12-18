@@ -2745,23 +2745,6 @@ if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   fi
 fi
 
-dnl Check to disable -fPIE and friends for HiPE on amd64
-if test X${enable_hipe} = Xyes && test X$ARCH = Xamd64; then
-   AC_TRY_COMPILE(, [#if defined(__pie__) || defined(__PIE__)
-		     #error -fPIE is enabled by default
-		     #endif],
-		    [AC_MSG_NOTICE([No -fPIE enabled by default])],
-		    [AC_MSG_WARN([Security feature -fPIE will be disabled for HiPE])
-		     STATIC_CFLAGS="-fno-PIE $STATIC_CFLAGS"
-		     saved_LDFLAGS=$LDFLAGS
-		     LDFLAGS="-no-pie $LDFLAGS"
-		     AC_TRY_LINK(,, [],
-			[LDFLAGS="-fno-PIE $saved_LDFLAGS"
-			 AC_TRY_LINK(,, [],
-			    [AC_MSG_WARN([Linked does not accept option -no-pie nor -fno-PIE])
-			     LDFLAGS=$saved_LDFLAGS])])])
-fi
-
 if test X${enable_hipe} = Xyes; then
    case $OPSYS in
 	linux)

@@ -428,8 +428,8 @@ call_encode(Opnds) ->
     case Opnds of
 	{{rel32,Rel32}} ->
 	    [16#E8 | le32(Rel32, [])];
-%%% 	{{rm32,RM32}} ->
-%%% 	    [16#FF | encode_rm(RM32, 2#010, [])];
+	{{rm32,RM32}} ->
+	    [16#FF | encode_rm(RM32, 2#010, [])];
 	{{rm64,RM64}} -> % Defaults to 64 bits on amd64
 	    [16#FF | encode_rm(RM64, 2#010, [])]
     end.
@@ -555,8 +555,8 @@ jmp_encode(Opnds) ->
 	    [16#EB, Rel8];
 	{{rel32,Rel32}} ->
 	    [16#E9 | le32(Rel32, [])];
-%%% 	{{rm32,RM32}} ->
-%%% 	    [16#FF | encode_rm(RM32, 2#100, [])]
+	{{rm32,RM32}} ->
+	    [16#FF | encode_rm(RM32, 2#100, [])];
 	{{rm64,RM64}} ->
 	    [16#FF | encode_rm(RM64, 2#100, [])]
     end.
