@@ -151,7 +151,7 @@
          apps :: match([{0..16#FFFFFFFF, diameter:app_alias()}] %% {Id, Alias}
                        | [diameter:app_alias()]),               %% remote
          caps :: match(#diameter_caps{}),
-         started = diameter_lib:now(),     %% at process start or sharing
+         started = diameter_lib:now(),     %% at connection_up
          watchdog :: match(pid()           %% key into watchdogT
                            | undefined)}). %% undefined if remote
 
