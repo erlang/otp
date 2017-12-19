@@ -857,9 +857,9 @@ retainer_loop(Cp = #checkpoint_args{is_activated=false, name=Name}) ->
 retainer_loop(Cp = #checkpoint_args{name=Name}) ->
     receive
 	{_From, {retain, Tid, Tab, Key, OldRecs}} ->
-	    R = val({Tab, {retainer, Name}}),
+	    R = ?catch_val({Tab, {retainer, Name}}),
 	    PendingTab = Cp#checkpoint_args.pending_tab,
-	    case R#retainer.really_retain of
+            case is_record(R, retainer) andalso R#retainer.really_retain of
 		true ->
 		    Store = R#retainer.store,
 		    try true = ets:member(PendingTab, Tid),
