@@ -39,7 +39,33 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.15.2</title>
+  <section><title>Mnesia 4.15.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed a quadratic behavior in startup. This change
+	    implies that backend plugins (if used) must be set when
+	    the schema is created or via configuration parameters
+	    before mnesia is started.</p>
+          <p>
+	    Own Id: OTP-14829 Aux Id: ERIERL-84 </p>
+        </item>
+        <item>
+          <p>
+	    Bad timing could crash mnesia after a checkpoint was
+	    deactivated and reactivated with the same checkpoint name
+	    on different tables.</p>
+          <p>
+	    Own Id: OTP-14841 Aux Id: ERIERL-113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
