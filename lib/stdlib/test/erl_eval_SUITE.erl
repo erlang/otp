@@ -1033,6 +1033,14 @@ otp_14826(_Config) ->
     backtrace_check("try a of b -> bar after foo end.",
                     {try_clause,a},
                     [{erl_eval,try_clauses,8}]),
+    check(fun() -> X = try foo:bar() catch A:B:C -> {A,B} end, X end,
+          "try foo:bar() catch A:B:C -> {A,B} end.",
+          {error, undef}),
+    backtrace_check("C = 4, try foo:bar() catch A:B:C -> {A,B,C} end.",
+                    stacktrace_bound,
+                    [{erl_eval,check_stacktrace_vars,2},
+                     {erl_eval,try_clauses,8}],
+                    none, none),
     backtrace_catch("catch (try a of b -> bar after foo end).",
                     {try_clause,a},
                     [{erl_eval,try_clauses,8}]),
@@ -1040,6 +1048,18 @@ otp_14826(_Config) ->
                     badarith,
                     [{erlang,'/',[1,0],[]},
                      {erl_eval,do_apply,6}]),
+    Es = [{'try',1,[{call,1,{remote,1,{atom,1,foo},{atom,1,bar}},[]}],
+           [],
+           [{clause,1,[{tuple,1,[{var,1,'A'},{var,1,'B'},{atom,1,'C'}]}],
+             [],[{tuple,1,[{var,1,'A'},{var,1,'B'},{atom,1,'C'}]}]}],[]}],
+    try
+        erl_eval:exprs(Es, [], none, none),
+        ct:fail(stacktrace_variable)
+    catch
+        error:{illegal_stacktrace_variable,{atom,1,'C'}}:S ->
+            [{erl_eval,check_stacktrace_vars,2,_},
+             {erl_eval,try_clauses,8,_}|_] = S
+    end,
     backtrace_check("{1,1} = {A = 1, A = 2}.",
                     {badmatch, 1},
                     [erl_eval, {lists,foldl,3}]),

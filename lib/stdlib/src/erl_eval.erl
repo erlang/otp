@@ -904,9 +904,9 @@ if_clauses([], _Bs, _Lf, _Ef, _RBs) ->
 
 %% try_clauses(Body, CaseClauses, CatchClauses, AfterBody, Bindings, 
 %%             LocalFuncHandler, ExtFuncHandler, RBs)
-%% When/if variable bindings between the different parts of a
-%% try-catch expression are introduced this will have to be rewritten.
+
 try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
+    check_stacktrace_vars(Catches, Bs),
     try exprs(B, Bs, Lf, Ef, none) of
 	{value,V,Bs1} when Cases =:= [] ->
 	    ret_expr(V, Bs1, RBs);
@@ -919,7 +919,6 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 	    end
     catch
 	Class:Reason:Stacktrace when Catches =:= [] ->
-	    %% Rethrow
 	    erlang:raise(Class, Reason, Stacktrace);
 	Class:Reason:Stacktrace ->
             V = {Class,Reason,Stacktrace},
@@ -936,6 +935,23 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 		exprs(AB, Bs, Lf, Ef, none)
 	end
     end.
+
+check_stacktrace_vars([{clause,_,[{tuple,_,[_,_,STV]}],_,_}|Cs], Bs) ->
+    case STV of
+        {var,_,V} ->
+            case binding(V, Bs) of
+                {value, _} ->
+                    erlang:raise(error, stacktrace_bound, ?STACKTRACE);
+                unbound ->
+                    check_stacktrace_vars(Cs, Bs)
+            end;
+        _ ->
+            erlang:raise(error,
+                         {illegal_stacktrace_variable,STV},
+                         ?STACKTRACE)
+    end;
+check_stacktrace_vars([], _Bs) ->
+    ok.
 
 %% case_clauses(Value, Clauses, Bindings, LocalFuncHandler, ExtFuncHandler, 
 %%              RBs)
