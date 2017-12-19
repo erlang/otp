@@ -106,6 +106,7 @@ MODULES = \
 	inet_sctp \
 	kernel \
 	kernel_config \
+	kernel_refc \
 	local_udp \
 	local_tcp \
 	net \

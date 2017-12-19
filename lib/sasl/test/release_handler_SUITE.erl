@@ -22,7 +22,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include("test_lib.hrl").
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
+-export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
 
 % Default timetrap timeout (set in init_per_testcase).
 %-define(default_timeout, ?t:minutes(40)).
@@ -1085,8 +1086,9 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     Rel2Dir = filename:dirname(Rel2),
 
     %% Start a slave node
+    PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = t_start_node(otp_9395_update_many_mods, Rel1,
-			      filename:join(Rel1Dir,"sys.config")),
+			      filename:join(Rel1Dir,"sys.config"), "-pa " ++ PA),
 
     %% Start a lot of processes on the new node, all with refs to each
     %% module that will be updated
@@ -1109,8 +1111,8 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    SWTFlag0 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1135,9 +1137,9 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    SWTFlag0 ! die,
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1160,6 +1162,15 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     true = (X2 =< X0),  % disregarding wait time for file access etc.
 
     ok.
+
+scheduler_wall_time() ->
+    erlang:system_flag(scheduler_wall_time,true),
+    receive _Msg -> normal end.
+
+garbage_collect() ->
+    Pids = processes(),
+    [erlang:garbage_collect(Pid) || Pid <- Pids].
+
 
 otp_9395_update_many_mods(cleanup,_Conf) ->
     stop_node(node_name(otp_9395_update_many_mods)).
@@ -1190,8 +1201,9 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     Rel2Dir = filename:dirname(Rel2),
 
     %% Start a slave node
+    PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = t_start_node(otp_9395_rm_many_mods, Rel1,
-			      filename:join(Rel1Dir,"sys.config")),
+			      filename:join(Rel1Dir,"sys.config"), "-pa " ++ PA),
 
     %% Start a lot of processes on the new node, all with refs to each
     %% module that will be updated
@@ -1214,8 +1226,8 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    SWTFlag0 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1240,9 +1252,9 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    SWTFlag0 ! die,
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),

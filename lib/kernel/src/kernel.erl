@@ -111,6 +111,13 @@ init([]) ->
                type => worker,
                modules => [kernel_config]},
 
+    RefC = #{id => kernel_refc,
+             start => {kernel_refc, start_link, []},
+             restart => permanent,
+             shutdown => 2000,
+             type => worker,
+             modules => [kernel_refc]},
+
     Code = #{id => code_server,
              start => {code, start_link, []},
              restart => permanent,
@@ -148,7 +155,7 @@ init([]) ->
 
     case init:get_argument(mode) of
         {ok, [["minimal"]]} ->
-            {ok, {SupFlags, [Code, File, StdError, User, Config, SafeSup]}};
+            {ok, {SupFlags, [Code, File, StdError, User, Config, RefC, SafeSup]}};
         _ ->
             Rpc = #{id => rex,
                     start => {rpc, start_link, []},
@@ -199,7 +206,7 @@ init([]) ->
             {ok, {SupFlags,
                   [Code, Rpc, Global, InetDb | DistAC] ++
                   [NetSup, GlGroup, File, SigSrv,
-                   StdError, User, Config, SafeSup] ++ Timer}}
+                   StdError, User, Config, RefC, SafeSup] ++ Timer}}
     end;
 init(safe) ->
     SupFlags = #{strategy => one_for_one,

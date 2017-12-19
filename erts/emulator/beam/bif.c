@@ -59,6 +59,7 @@ Export *erts_convert_time_unit_trap = NULL;
 static Export *await_msacc_mod_trap = NULL;
 static erts_atomic32_t msacc;
 
+static Export *system_flag_scheduler_wall_time_trap;
 static Export *await_sched_wall_time_mod_trap;
 static erts_atomic32_t sched_wall_time;
 
@@ -4496,7 +4497,7 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 }
-    
+
 BIF_RETTYPE system_flag_2(BIF_ALIST_2)    
 {
     Sint n;
@@ -4714,17 +4715,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 
 	BIF_RET(am_true);
     } else if (BIF_ARG_1 == am_scheduler_wall_time) {
-	if (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false) {
-	    erts_aint32_t new = BIF_ARG_2 == am_true ? 1 : 0;
-	    erts_aint32_t old = erts_atomic32_xchg_nob(&sched_wall_time,
-							   new);
-	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new, 0, 0);
-	    ASSERT(is_value(ref));
-	    BIF_TRAP2(await_sched_wall_time_mod_trap,
-		      BIF_P,
-		      ref,
-		      old ? am_true : am_false);
-	}
+	if (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false)
+            BIF_TRAP1(system_flag_scheduler_wall_time_trap,
+                      BIF_P, BIF_ARG_2);
     } else if (BIF_ARG_1 == am_dirty_cpu_schedulers_online) {
 	Sint old_no;
 	if (!is_small(BIF_ARG_2))
@@ -4834,6 +4827,17 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
     }
     error:
     BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE erts_internal_scheduler_wall_time_1(BIF_ALIST_1)
+{
+    erts_aint32_t new = BIF_ARG_1 == am_true ? 1 : 0;
+    erts_aint32_t old = erts_atomic32_xchg_nob(&sched_wall_time,
+                                               new);
+    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new, 0, 0);
+    ASSERT(is_value(ref));
+    BIF_TRAP2(await_sched_wall_time_mod_trap,
+              BIF_P, ref, old ? am_true : am_false);
 }
 
 /**********************************************************************/
@@ -5094,8 +5098,10 @@ void erts_init_bif(void)
     await_proc_exit_trap = erts_export_put(am_erlang,am_await_proc_exit,3);
     await_port_send_result_trap
 	= erts_export_put(am_erts_internal, am_await_port_send_result, 3);
+    system_flag_scheduler_wall_time_trap
+        = erts_export_put(am_erts_internal, am_system_flag_scheduler_wall_time, 1);
     await_sched_wall_time_mod_trap
-        = erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+        = erts_export_put(am_erts_internal, am_await_sched_wall_time_modifications, 2);
     await_msacc_mod_trap
 	= erts_export_put(am_erts_internal, am_await_microstate_accounting_modifications, 3);
 

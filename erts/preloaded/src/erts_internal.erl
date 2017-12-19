@@ -66,6 +66,10 @@
 -export([new_connection/1]).
 -export([abort_connection/2]).
 
+-export([scheduler_wall_time/1, system_flag_scheduler_wall_time/1,
+         gather_sched_wall_time_result/1,
+	 await_sched_wall_time_modifications/2]).
+
 %% Auto import name clash
 -export([check_process_code/1]).
 
@@ -517,3 +521,50 @@ new_connection(_Node) ->
       ConnId :: {integer(), erlang:dist_handle()}.
 abort_connection(_Node, _ConnId) ->
     erlang:nif_error(undefined).
+
+%% Scheduler wall time
+
+-spec erts_internal:system_flag_scheduler_wall_time(Enable) -> boolean() when
+      Enable :: boolean().
+
+system_flag_scheduler_wall_time(Bool) ->
+    kernel_refc:scheduler_wall_time(Bool).
+
+
+-spec erts_internal:await_sched_wall_time_modifications(Ref, Result) -> boolean() when
+      Ref :: reference(),
+      Result :: boolean().
+
+-spec erts_internal:scheduler_wall_time(Enable) -> boolean() when
+      Enable :: boolean().
+
+scheduler_wall_time(_Enable) ->
+    erlang:nif_error(undefined).
+
+await_sched_wall_time_modifications(Ref, Result) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers)),
+    Result.
+
+-spec erts_internal:gather_sched_wall_time_result(Ref) -> [{pos_integer(),
+						     non_neg_integer(),
+						     non_neg_integer()}] when
+      Ref :: reference().
+
+gather_sched_wall_time_result(Ref) when erlang:is_reference(Ref) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers), []).
+
+sched_wall_time(_Ref, 0) ->
+    ok;
+sched_wall_time(Ref, N) ->
+    receive Ref -> sched_wall_time(Ref, N-1) end.
+
+sched_wall_time(_Ref, 0, Acc) ->
+    Acc;
+sched_wall_time(Ref, N, undefined) ->
+    receive {Ref, _} -> sched_wall_time(Ref, N-1, undefined) end;
+sched_wall_time(Ref, N, Acc) ->
+    receive
+	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWTL} when erlang:is_list(SWTL) -> sched_wall_time(Ref, N-1, Acc ++ SWTL);
+	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
+    end.

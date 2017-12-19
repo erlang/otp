@@ -641,6 +641,7 @@ atom suspending
 atom sys_misc
 atom system
 atom system_error
+atom system_flag_scheduler_wall_time
 atom system_limit
 atom system_version
 atom system_architecture

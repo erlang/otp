@@ -4758,7 +4758,7 @@ erts_bif_info_init(void)
     alloc_info_trap = erts_export_put(am_erlang, am_alloc_info, 1);
     alloc_sizes_trap = erts_export_put(am_erlang, am_alloc_sizes, 1);
     gather_sched_wall_time_res_trap
-	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
+	= erts_export_put(am_erts_internal, am_gather_sched_wall_time_result, 1);
     gather_gc_info_res_trap
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     gather_io_bytes_trap
