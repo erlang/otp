@@ -29,6 +29,9 @@
 	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
 	 basic_stats_standard_normal/1,
 	 basic_stats_normal/1,
+         stats_standard_normal_box_muller/1,
+         stats_standard_normal_box_muller_2/1,
+         stats_standard_normal/1,
          uniform_real_conv/1,
 	 plugin/1, measure/1,
 	 reference_jump_state/1, reference_jump_procdict/1]).
@@ -57,7 +60,10 @@ all() ->
 groups() ->
     [{basic_stats, [parallel],
       [basic_stats_uniform_1, basic_stats_uniform_2,
-       basic_stats_standard_normal]},
+       basic_stats_standard_normal,
+       stats_standard_normal_box_muller,
+       stats_standard_normal_box_muller_2,
+       stats_standard_normal]},
      {reference_jump, [parallel],
       [reference_jump_state, reference_jump_procdict]}].
 
@@ -409,6 +415,206 @@ normal_s(Mean, Variance, State0) when Mean == 0, Variance == 1 ->
     rand:normal_s(State0);
 normal_s(Mean, Variance, State0) ->
     rand:normal_s(Mean, Variance, State0).
+
+
+
+-dialyzer({no_improper_lists, stats_standard_normal_box_muller/1}).
+stats_standard_normal_box_muller(Config) when is_list(Config) ->
+    try math:erfc(1.0) of
+        _ ->
+            TwoPi = 2.0 * math:pi(),
+            NormalS =
+                fun
+                    ([S0]) ->
+                        {U1, S1} = rand:uniform_real_s(S0),
+                        R = math:sqrt(-2.0 * math:log(U1)),
+                        {U2, S2} = rand:uniform_s(S1),
+                        T = TwoPi * U2,
+                        Z0 = R * math:cos(T),
+                        Z1 = R * math:sin(T),
+                        {Z0, [S2|Z1]};
+                    ([S|Z]) ->
+                        {Z, [S]}
+                end,
+            State = [rand:seed(exrop)],
+            stats_standard_normal(NormalS, State)
+    catch error:_ ->
+            {skip, "math:erfc/1 not supported"}
+    end.
+
+-dialyzer({no_improper_lists, stats_standard_normal_box_muller_2/1}).
+stats_standard_normal_box_muller_2(Config) when is_list(Config) ->
+    try math:erfc(1.0) of
+        _ ->
+            TwoPi = 2.0 * math:pi(),
+            NormalS =
+                fun
+                    ([S0]) ->
+                        {U0, S1} = rand:uniform_s(S0),
+                        U1 = 1.0 - U0,
+                        R = math:sqrt(-2.0 * math:log(U1)),
+                        {U2, S2} = rand:uniform_s(S1),
+                        T = TwoPi * U2,
+                        Z0 = R * math:cos(T),
+                        Z1 = R * math:sin(T),
+                        {Z0, [S2|Z1]};
+                    ([S|Z]) ->
+                        {Z, [S]}
+                end,
+            State = [rand:seed(exrop)],
+            stats_standard_normal(NormalS, State)
+    catch error:_ ->
+            {skip, "math:erfc/1 not supported"}
+    end.
+
+
+stats_standard_normal(Config) when is_list(Config) ->
+    try math:erfc(1.0) of
+        _ ->
+            stats_standard_normal(
+              fun rand:normal_s/1, rand:seed_s(exrop))
+    catch error:_ ->
+            {skip, "math:erfc/1 not supported"}
+    end.
+%%
+stats_standard_normal(Fun, S) ->
+%%%
+%%% ct config:
+%%% {rand_SUITE, [{stats_standard_normal,[{seconds, 8}, {std_devs, 4.2}]}]}.
+%%%
+    Seconds = ct:get_config({?MODULE, ?FUNCTION_NAME, seconds}, 8),
+    StdDevs =
+        ct:get_config(
+          {?MODULE, ?FUNCTION_NAME, std_devs},
+          4.2), % probability erfc(4.2/sqrt(2)) (1/37465) to fail a bucket
+%%%
+    ct:timetrap({seconds, Seconds + 120}),
+    %% Buckets is chosen to get a range where the the probability to land
+    %% in the top catch-all bucket is not vanishingly low, but with
+    %% these values it is about 1/25 of the probability for the low bucket
+    %% (closest to 0).
+    %%
+    %% Rounds is calculated so the expected value for the low
+    %% bucket will be at least TargetHits.
+    %%
+    InvDelta = 512,
+    Buckets = 4 * InvDelta, % 4 std devs range
+    TargetHits = 1024,
+    Sqrt2 = math:sqrt(2.0),
+    W = InvDelta * Sqrt2,
+    P0 = math:erf(1 / W),
+    Rounds = TargetHits * ceil(1.0 / P0),
+    Histogram = array:new({default, 0}),
+    StopTime = erlang:monotonic_time(second) + Seconds,
+    ct:pal(
+      "Running standard normal test against ~w std devs for ~w seconds...",
+      [StdDevs, Seconds]),
+    {PositiveHistogram, NegativeHistogram, Outlier, TotalRounds} =
+        stats_standard_normal(
+          InvDelta, Buckets, Histogram, Histogram, 0.0,
+          Fun, S, Rounds, StopTime, Rounds, 0),
+    Precision = math:sqrt(TotalRounds * P0) / StdDevs,
+    TopP = math:erfc(Buckets / W),
+    TopPrecision = math:sqrt(TotalRounds * TopP) / StdDevs,
+    OutlierProbability = math:erfc(Outlier / Sqrt2) * TotalRounds,
+    InvOP = 1.0 / OutlierProbability,
+    ct:pal(
+      "Total rounds: ~w, tolerance: 1/~.2f..1/~.2f, "
+      "outlier: ~.2f, probability 1/~.2f.",
+      [TotalRounds, Precision, TopPrecision, Outlier, InvOP]),
+    {TotalRounds, [], []} =
+        {TotalRounds,
+         check_histogram(
+           W, TotalRounds, StdDevs, PositiveHistogram, Buckets),
+         check_histogram(
+           W, TotalRounds, StdDevs, NegativeHistogram, Buckets)},
+    %% If the probability for getting this Outlier is lower than 1/50,
+    %% then this is fishy!
+    true = (1/50 =< OutlierProbability),
+    {comment, {tp, TopPrecision, op, InvOP}}.
+%%
+stats_standard_normal(
+  InvDelta, Buckets, PositiveHistogram, NegativeHistogram, Outlier,
+  Fun, S, 0, StopTime, Rounds, TotalRounds) ->
+    case erlang:monotonic_time(second) of
+        Now when Now < StopTime ->
+            stats_standard_normal(
+              InvDelta, Buckets,
+              PositiveHistogram, NegativeHistogram, Outlier,
+              Fun, S, Rounds, StopTime, Rounds, TotalRounds + Rounds);
+        _ ->
+            {PositiveHistogram, NegativeHistogram,
+             Outlier, TotalRounds + Rounds}
+    end;
+stats_standard_normal(
+  InvDelta, Buckets, PositiveHistogram, NegativeHistogram, Outlier,
+  Fun, S, Count, StopTime, Rounds, TotalRounds) ->
+    case Fun(S) of
+        {X, NewS} when 0.0 =< X ->
+            Bucket = min(Buckets, floor(X * InvDelta)),
+            stats_standard_normal(
+              InvDelta, Buckets,
+              increment_bucket(Bucket, PositiveHistogram),
+              NegativeHistogram, max(Outlier, X),
+              Fun, NewS, Count - 1, StopTime, Rounds, TotalRounds);
+        {MinusX, NewS} ->
+            X = -MinusX,
+            Bucket = min(Buckets, floor(X * InvDelta)),
+            stats_standard_normal(
+              InvDelta, Buckets,
+              PositiveHistogram,
+              increment_bucket(Bucket, NegativeHistogram), max(Outlier, X),
+              Fun, NewS, Count - 1, StopTime, Rounds, TotalRounds)
+    end.
+
+increment_bucket(Bucket, Array) ->
+    array:set(Bucket, array:get(Bucket, Array) + 1, Array).
+
+check_histogram(W, Rounds, StdDevs, Histogram, Buckets) ->
+    %%PrevBucket = 512,
+    %%Bucket = PrevBucket - 1,
+    %%P = 0.5 * math:erfc(PrevBucket / W),
+    TargetP = 0.5 * math:erfc(Buckets / W),
+    P = 0.0,
+    N = 0,
+    check_histogram(
+      W, Rounds, StdDevs, Histogram, TargetP,
+      Buckets, Buckets, P, N).
+%%
+check_histogram(
+  _W, _Rounds, _StdDevs, _Histogram, _TargetP,
+  0, _PrevBucket, _PrevP, _PrevN) ->
+    [];
+check_histogram(
+  W, Rounds, StdDevs, Histogram, TargetP,
+  Bucket, PrevBucket, PrevP, PrevN) ->
+    N = PrevN + array:get(Bucket, Histogram),
+    P = 0.5 * math:erfc(Bucket / W),
+    BucketP = P - PrevP,
+    if
+        TargetP =< BucketP ->
+            check_histogram(
+              W, Rounds, StdDevs, Histogram, TargetP,
+              Bucket - 1, PrevBucket, PrevP, N);
+        true ->
+            Exp = BucketP * Rounds,
+            Var = Rounds * BucketP*(1.0 - BucketP),
+            Threshold = StdDevs * math:sqrt(Var),
+            LowerLimit = floor(Exp - Threshold),
+            UpperLimit = ceil(Exp + Threshold),
+            if
+                N < LowerLimit; UpperLimit < N ->
+                    [#{bucket => {Bucket, PrevBucket}, n => N, exp => Exp,
+                       lower => LowerLimit, upper => UpperLimit} |
+                     check_histogram(
+                       W, Rounds, StdDevs, Histogram, TargetP,
+                       Bucket - 1, Bucket, P, 0)];
+                true ->
+                    check_histogram(
+                      W, Rounds, StdDevs, Histogram, TargetP,
+                      Bucket - 1, Bucket, P, 0)
+            end
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% White box test of the conversion to float
