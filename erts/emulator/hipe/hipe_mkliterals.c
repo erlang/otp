@@ -471,7 +471,6 @@ static const struct rts_param rts_params[] = {
       0
 #endif
     },
-    /* This parameter is always defined, but its value depends on ERTS_SMP. */
     { 19, "MSG_MESSAGE",
       1, offsetof(struct erl_mesg, m[0])
     },
