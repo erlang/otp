@@ -381,12 +381,12 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == anonymous_cipher_suites;
 					 TestCase == psk_anon_cipher_suites;
 					 TestCase == psk_anon_with_hint_cipher_suites;
-                                         TestCase == srp_cipher_suites,
-                                         TestCase == srp_anon_cipher_suites,
-                                         TestCase == srp_dsa_cipher_suites,
-                                         TestCase == des_rsa_cipher_suites,
-                                         TestCase == des_ecdh_rsa_cipher_suites,
-					 TestCase == versions_option,
+                                         TestCase == srp_cipher_suites;
+                                         TestCase == srp_anon_cipher_suites;
+                                         TestCase == srp_dsa_cipher_suites;
+                                         TestCase == des_rsa_cipher_suites;
+                                         TestCase == des_ecdh_rsa_cipher_suites;
+					 TestCase == versions_option;
 					 TestCase == tls_tcp_connect_big ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 60}),
@@ -426,6 +426,12 @@ init_per_testcase(rizzo_disabled, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 60}),
     rizzo_add_mitigation_option(disabled, Config);
+
+init_per_testcase(TestCase, Config) when TestCase == no_reuses_session_server_restart_new_cert_file;
+                                         TestCase == no_reuses_session_server_restart_new_cert ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 15}),
+    Config;
 
 init_per_testcase(prf, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
