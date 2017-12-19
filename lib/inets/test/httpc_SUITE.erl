@@ -1556,7 +1556,7 @@ dummy_request_handler_loop({Module, Function, Args}, SockType, Socket) ->
 handle_request(Module, Function, Args, Socket) ->
     case Module:Function(Args) of
 	{ok, Result} ->
-	    case handle_http_msg(Result, Socket) of
+	    case handle_http_msg(Result, Socket, []) of
 		stop ->
 		    stop;
 		<<>> ->
@@ -1581,7 +1581,7 @@ handle_request(Module, Function, Args, Socket) ->
 	    NewMFA
     end.
 
-handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket) ->
+handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket, _) ->
     ct:print("Request: ~p ~p", [Method, RelUri]),
 
     NextRequest = 
