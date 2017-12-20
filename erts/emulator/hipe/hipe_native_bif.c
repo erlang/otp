@@ -398,12 +398,8 @@ Eterm hipe_bs_utf8_size(Eterm arg)
 	return make_small(4);
 }
 
-BIF_RETTYPE nbif_impl_hipe_bs_put_utf8(NBIF_ALIST_3)
+Eterm hipe_bs_put_utf8(Process* p, Eterm arg, byte* base, Uint offset)
 {
-    Process* p = BIF_P;
-    Eterm arg = BIF_ARG_1;
-    byte* base = (byte*) BIF_ARG_2;
-    Uint offset = (Uint) BIF_ARG_3;
     byte *save_bin_buf;
     Uint save_bin_offset;
     int res;
@@ -419,7 +415,8 @@ BIF_RETTYPE nbif_impl_hipe_bs_put_utf8(NBIF_ALIST_3)
     erts_current_bin = save_bin_buf;
     erts_bin_offset = save_bin_offset;
     if (res == 0)
-	BIF_ERROR(p, BADARG);
+        return 0;
+    ASSERT(new_offset != 0);
     return new_offset;
 }
 
