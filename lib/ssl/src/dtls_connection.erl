@@ -218,12 +218,12 @@ next_event(StateName, Record,
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
     case Record of
 	no_record ->
-	    {next_state, StateName, State0, Actions};
+            {next_state, StateName, State0, Actions};
         #ssl_tls{epoch = CurrentEpoch,
                  version = Version} = Record ->
             State = dtls_version(StateName, Version, State0),
-            {next_state, StateName,  State,
-         [{next_event, internal, {protocol_record, Record}} | Actions]};
+            {next_state, StateName, State, 
+             [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#ssl_tls{epoch = _Epoch,
 		 version = _Version} = _Record ->
 	    %% TODO maybe buffer later epoch
@@ -863,12 +863,14 @@ handle_info(new_cookie_secret, StateName,
 handle_info(Msg, StateName, State) ->
     ssl_connection:StateName(info, Msg, State, ?MODULE).
 
-handle_state_timeout(flight_retransmission_timeout, StateName, 
-                    #state{flight_state = {retransmit, NextTimeout}} = State0) ->
-    {State1, Actions} = send_handshake_flight(State0#state{flight_state = {retransmit, NextTimeout}}, 
+handle_state_timeout(flight_retransmission_timeout, StateName,
+                     #state{flight_state = {retransmit, NextTimeout}} = State0) ->
+    {State1, Actions0} = send_handshake_flight(State0#state{flight_state = {retransmit, NextTimeout}}, 
                                               retransmit_epoch(StateName, State0)),
-    {Record, State} = next_record(State1),
-    next_event(StateName, Record, State, Actions).
+    {Record, State2} = next_record(State1),
+    {next_state, StateName, State, Actions} = next_event(StateName, Record, State2, Actions0),
+    %% This will reset the retransmission timer by repeating the enter state event
+    {repeat_state, State, Actions}.
 
 handle_alerts([], Result) ->
     Result;
