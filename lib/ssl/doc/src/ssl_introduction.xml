@@ -36,7 +36,7 @@
     <title>Purpose</title>
     <p>Transport Layer Security (TLS) and its predecessor, the Secure
     Sockets Layer (SSL), are cryptographic protocols designed to
-    provide communications security over a computer network. The protocols use
+    provide communications security over a computer network. The protocols
     use X.509 certificates and hence public key (asymmetric) cryptography to
     authenticate the counterpart with whom they communicate,
     and to exchange a symmetric key for payload encryption. The protocol provides
