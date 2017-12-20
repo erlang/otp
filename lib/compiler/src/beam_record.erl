@@ -71,7 +71,7 @@ rewrite([{test,test_arity,Fail,[Src,N]}=TA,
             I = {test,is_tagged_tuple,Fail,[Src,N,Atom]},
             rewrite(Is, Idx, Def, [I|Acc])
     end;
-rewrite([{block,[{'%def',Def}|Bl]}|Is], Idx, _Def, Acc) ->
+rewrite([{block,[{'%anno',{def,Def}}|Bl]}|Is], Idx, _Def, Acc) ->
     rewrite(Is, Idx, Def, [{block,Bl}|Acc]);
 rewrite([{label,L}=I|Is], Idx0, Def, Acc) ->
     Idx = beam_utils:index_label(L, Acc, Idx0),

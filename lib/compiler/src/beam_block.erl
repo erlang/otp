@@ -41,7 +41,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
         Is4 = move_allocates(Is3),
         Is5 = beam_utils:live_opt(Is4),
         Is6 = opt_blocks(Is5),
-        Is7 = beam_utils:delete_live_annos(Is6),
+        Is7 = beam_utils:delete_annos(Is6),
         Is = opt_allocs(Is7),
 
         %% Done.
@@ -137,7 +137,7 @@ embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
-    [{'%live',_,_}|Bl] = Bl0,
+    [{'%anno',_}|Bl] = Bl0,
     [{block,opt_block(Bl)}|opt_blocks(Is)];
 opt_blocks([I|Is]) ->
     [I|opt_blocks(Is)];
@@ -196,7 +196,7 @@ move_allocates([I|Is]) ->
     [I|move_allocates(Is)];
 move_allocates([]) -> [].
 
-move_allocates_1([{'%def',_}|Is], Acc) ->
+move_allocates_1([{'%anno',_}|Is], Acc) ->
     move_allocates_1(Is, Acc);
 move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
     case alloc_may_pass(I) of
@@ -243,7 +243,7 @@ opt([{set,_,_,{line,_}}=Line1,
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
-opt([{'%live',_,_}=I|Is]) ->
+opt([{'%anno',_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
@@ -525,7 +525,7 @@ x_live([], Regs) -> Regs.
 %%  Given a reversed instruction stream, determine the
 %%  the registers that are defined.
 
-defined_regs([{'%def',Def}|_], Regs) ->
+defined_regs([{'%anno',{def,Def}}|_], Regs) ->
     Def bor Regs;
 defined_regs([{set,Ds,_,{alloc,Live,_}}|_], Regs) ->
     x_live(Ds, Regs bor ((1 bsl Live) - 1));

@@ -25,7 +25,7 @@
 	 is_not_used/3,usage/3,
 	 empty_label_index/0,index_label/3,index_labels/1,replace_labels/4,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
-	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
+	 live_opt/1,delete_annos/1,combine_heap_needs/2,
          anno_defs/1,
 	 split_even/1
         ]).
@@ -95,7 +95,7 @@ is_killed_block({x,X}, [{set,_,_,{alloc,Live,_}}|_]) ->
     X >= Live;
 is_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
     not member(R, Ss) andalso (member(R, Ds) orelse is_killed_block(R, Is));
-is_killed_block(R, [{'%live',_,Regs}|Is]) ->
+is_killed_block(R, [{'%anno',{used,Regs}}|Is]) ->
     case R of
 	{x,X} when (Regs bsr X) band 1 =:= 0 -> true;
 	_ -> is_killed_block(R, Is)
@@ -270,7 +270,7 @@ is_pure_test({test,Op,_,Ops}) ->
 %%  Go through the instruction sequence in reverse execution
 %%  order, keep track of liveness and remove 'move' instructions
 %%  whose destination is a register that will not be used.
-%%  Also insert {'%live',Live,Regs} annotations at the beginning
+%%  Also insert {used,Regs} annotations at the beginning
 %%  and end of each block.
 
 -spec live_opt([instruction()]) -> [instruction()].
@@ -285,22 +285,22 @@ live_opt(Is0) ->
     Bef ++ [Fi|live_opt(reverse(Is), 0, D, [])].
 
 
-%% delete_live_annos([Instruction]) -> [Instruction].
-%%  Delete all live annotations.
+%% delete_annos([Instruction]) -> [Instruction].
+%%  Delete all annotations.
 
--spec delete_live_annos([instruction()]) -> [instruction()].
+-spec delete_annos([instruction()]) -> [instruction()].
 
-delete_live_annos([{block,Bl0}|Is]) ->
-    case delete_live_annos(Bl0) of
-	[] -> delete_live_annos(Is);
-	[_|_]=Bl -> [{block,Bl}|delete_live_annos(Is)]
+delete_annos([{block,Bl0}|Is]) ->
+    case delete_annos(Bl0) of
+	[] -> delete_annos(Is);
+	[_|_]=Bl -> [{block,Bl}|delete_annos(Is)]
     end;
-delete_live_annos([{'%live',_,_}|Is]) ->
-    delete_live_annos(Is);
-delete_live_annos([I|Is]) ->
-    [I|delete_live_annos(Is)];
-delete_live_annos([]) -> [].
-    
+delete_annos([{'%anno',_}|Is]) ->
+    delete_annos(Is);
+delete_annos([I|Is]) ->
+    [I|delete_annos(Is)];
+delete_annos([]) -> [].
+
 %% combine_heap_needs(HeapNeed1, HeapNeed2) -> HeapNeed
 %%  Combine the heap need for two allocation instructions.
 
@@ -316,7 +316,7 @@ combine_heap_needs(H1, H2) ->
 
 
 %% anno_defs(Instructions) -> Instructions'
-%%  Add {'%def',RegisterBitmap} annotations to the beginning of
+%%  Add {def,RegisterBitmap} annotations to the beginning of
 %%  each block.  Iff bit X is set in the the bitmap, it means
 %%  that {x,X} is defined when the block is entered.
 
@@ -658,7 +658,7 @@ check_liveness_ret(_, _, St) -> {killed,St}.
 %%    alloc_used - Used only in an allocate instruction
 %%    used - Reg is explicitly used by an instruction
 %%
-%%  '%live' annotations are not allowed.
+%%  Annotations are not allowed.
 %%
 %%  (Unknown instructions will cause an exception.)
 
@@ -855,9 +855,9 @@ live_opt([{test,bs_start_match2,Fail,Live,[Src,_],_}=I|Is], _, D, Acc) ->
 
 %% Other instructions.
 live_opt([{block,Bl0}|Is], Regs0, D, Acc) ->
-    Live0 = {'%live',live_regs(Regs0),Regs0},
+    Live0 = make_anno({used,Regs0}),
     {Bl,Regs} = live_opt_block(reverse(Bl0), Regs0, D, [Live0]),
-    Live = {'%live',live_regs(Regs),Regs},
+    Live = make_anno({used,Regs}),
     live_opt(Is, Regs, D, [{block,[Live|Bl]}|Acc]);
 live_opt([build_stacktrace=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(1), D, [I|Acc]);
@@ -971,7 +971,7 @@ live_opt_block([{set,Ds,Ss,Op0}|Is], Regs0, D, Acc) ->
         _ ->
             live_opt_block(Is, Regs, D, [I|Acc])
     end;
-live_opt_block([{'%live',_,_}|Is], Regs, D, Acc) ->
+live_opt_block([{'%anno',_}|Is], Regs, D, Acc) ->
     live_opt_block(Is, Regs, D, Acc);
 live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
 
@@ -1046,7 +1046,7 @@ defs([{bif,_,{f,Fail},_Src,Dst}=I|Is], Regs0, D) ->
     [I|defs(Is, Regs, update_regs(Fail, Regs0, D))];
 defs([{block,Block0}|Is], Regs0, D0) ->
     {Block,Regs,D} = defs_list(Block0, Regs0, D0),
-    [{block,[{'%def',Regs0}|Block]}|defs(Is, Regs, D)];
+    [{block,[make_anno({def,Regs0})|Block]}|defs(Is, Regs, D)];
 defs([{bs_init,{f,L},_,_,_,Dst}=I|Is], Regs0, D) ->
     Regs = def_regs([Dst], Regs0),
     [I|defs(Is, Regs, update_regs(L, Regs, D))];
@@ -1236,3 +1236,13 @@ update_regs(L, Regs0, D) ->
 all_defined(Live, Regs) ->
     All = (1 bsl Live) - 1,
     Regs band All =:= All.
+
+%%%
+%%% Utilities.
+%%%
+
+%% make_anno(Anno) -> WrappedAnno.
+%%  Wrap an annotation term.
+
+make_anno(Anno) ->
+    {'%anno',Anno}.

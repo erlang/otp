@@ -40,7 +40,7 @@ function({function,Name,Arity,CLabel,Asm0}) ->
 	Asm1 = beam_utils:live_opt(Asm0),
 	Asm2 = opt(Asm1, [], tdb_new()),
 	Asm3 = beam_utils:live_opt(Asm2),
-	Asm = beam_utils:delete_live_annos(Asm3),
+	Asm = beam_utils:delete_annos(Asm3),
 	{function,Name,Arity,CLabel,Asm}
     catch
         Class:Error:Stack ->
@@ -300,7 +300,7 @@ clearerror([], OrigIs) -> [{set,[],[],fclearerror}|OrigIs].
 %%  Combine two blocks and eliminate any move instructions that assign
 %%  to registers that are killed later in the block.
 %%
-merge_blocks(B1, [{'%live',_,_}|B2]) ->
+merge_blocks(B1, [{'%anno',_}|B2]) ->
     merge_blocks_1(B1++[{set,[],[],stop_here}|B2]).
 
 merge_blocks_1([{set,[],_,stop_here}|Is]) -> Is;
@@ -355,7 +355,7 @@ flt_need_heap_2({set,_,_,{alloc,_,_}}, H, Fl) ->
     {flt_alloc(H, Fl),0,0};
 flt_need_heap_2({set,_,_,{set_tuple_element,_}}, H, Fl) ->
     {flt_alloc(H, Fl),0,0};
-flt_need_heap_2({'%live',_,_}, H, Fl) ->
+flt_need_heap_2({'%anno',_}, H, Fl) ->
     {flt_alloc(H, Fl),0,0};
 %% All other instructions are "neutral". We just pass them.
 flt_need_heap_2(_, H, Fl) ->
@@ -382,7 +382,7 @@ build_alloc(Words, Floats) -> {alloc,[{words,Words},{floats,Floats}]}.
 %%  is not continous at an allocation function (e.g. if {x,0} and {x,2}
 %%  are live, but not {x,1}).
 
-flt_liveness([{'%live',_Live,Regs}=LiveInstr|Is]) ->
+flt_liveness([{'%anno',{used,Regs}}=LiveInstr|Is]) ->
     flt_liveness_1(Is, Regs, [LiveInstr]).
 
 flt_liveness_1([{set,Ds,Ss,{alloc,Live0,Alloc}}|Is], Regs0, Acc) ->
@@ -394,7 +394,7 @@ flt_liveness_1([{set,Ds,Ss,{alloc,Live0,Alloc}}|Is], Regs0, Acc) ->
 flt_liveness_1([{set,Ds,_,_}=I|Is], Regs0, Acc) ->
     Regs = x_live(Ds, Regs0),
     flt_liveness_1(Is, Regs, [I|Acc]);
-flt_liveness_1([{'%live',_,_}], _Regs, Acc) ->
+flt_liveness_1([{'%anno',_}], _Regs, Acc) ->
     reverse(Acc).
 
 init_regs(Live) ->
@@ -418,7 +418,8 @@ x_live([], Regs) -> Regs.
 %%  Update the type database to account for executing an instruction.
 %%
 %%  First the cases for instructions inside basic blocks.
-update({'%live',_,_}, Ts) -> Ts;
+update({'%anno',_}, Ts) ->
+    Ts;
 update({set,[D],[S],move}, Ts) ->
     tdb_copy(S, D, Ts);
 update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->
