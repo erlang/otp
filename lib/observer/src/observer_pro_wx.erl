@@ -27,7 +27,7 @@
 	 handle_event/2, handle_cast/2]).
 
 -include_lib("wx/include/wx.hrl").
--include("../include/etop.hrl").
+-include("etop.hrl").
 -include("observer_defs.hrl").
 -include("etop_defs.hrl").
 
