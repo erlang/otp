@@ -54,8 +54,6 @@ EL_FILES = $(EMACS_FILES:%=%.el)
 
 ELC_FILES = $(EMACS_FILES:%=%.elc) 
 
-TEST_FILES = test.erl.indented test.erl.orig
-
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -75,7 +73,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/emacs"
-	$(INSTALL_DATA) $(EL_FILES) $(README_FILES) $(TEST_FILES) \
+	$(INSTALL_DATA) $(EL_FILES) $(README_FILES) \
 		"$(RELSYSDIR)/emacs"
 
 ifeq ($(DOCTYPE),pdf)
@@ -89,19 +87,3 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(MAN_FILES) "$(RELEASE_PATH)/man/man3"
 endif
 endif
-
-EMACS ?= emacs
-
-test_indentation:
-	@rm -f test.erl
-	@rm -f test_indent.el
-	@echo '(load "erlang-start")' >> test_indent.el
-	@echo '(find-file "test.erl.orig")' >> test_indent.el
-	@echo "(require 'cl)    ; required with Emacs < 23 for ignore-errors" >> test_indent.el
-	@echo '(erlang-mode)' >> test_indent.el
-	@echo '(toggle-debug-on-error)' >> test_indent.el
-	@echo '(erlang-indent-current-buffer)' >> test_indent.el
-	@echo '(write-file "test.erl")' >> test_indent.el
-	$(EMACS) --batch -Q -L . -l test_indent.el
-	diff -u test.erl.indented test.erl
-	@echo "No differences between expected and actual indentation"
