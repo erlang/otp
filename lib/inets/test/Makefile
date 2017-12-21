@@ -160,10 +160,8 @@ MODULES =                 		\
 	httpd_SUITE       		\
 	httpd_bench_SUITE               \
 	http_test_lib    		\
-	old_httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
-	httpd_block	  		\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
