@@ -961,7 +961,6 @@ chkio_drv_control(ErlDrvData drv_data,
 	break;
     }
     case CHKIO_SMP_SELECT: {
-	int rounds = 1; /*rand(); */
 	ChkioSmpSelect* pip = (ChkioSmpSelect*) cddp->test_data;
 	if (pip == NULL) {
 	    erl_drv_mutex_lock(smp_pipes_mtx);
@@ -978,7 +977,8 @@ chkio_drv_control(ErlDrvData drv_data,
 	    }
 	    erl_drv_mutex_unlock(smp_pipes_mtx);	    
 	}
-	while (rounds--) {
+        res_str = NULL;
+	{
 	    int op = rand_r(&pip->rand_state);
 	    switch (pip->state) {
 	    case Closed: {
@@ -988,7 +988,6 @@ chkio_drv_control(ErlDrvData drv_data,
 		    fcntl(fds[0], F_SETFL, flags|O_NONBLOCK) < 0) {
 
 		    driver_failure_posix(cddp->port, errno);
-		    rounds = 0;
 		    break;
 		}
 		TRACEF(("%T: Created pipe [%d->%d]\n", cddp->id, fds[1], fds[0]));
@@ -1075,7 +1074,9 @@ chkio_drv_control(ErlDrvData drv_data,
 		    pip->next_write++;
 		}
 		break;
-	    case Waiting:
+            case Waiting:
+                res_str = "yield";
+                res_len = -1;
 		break;
 	    default:
 		fprintf(stderr, "Strange state %d\n", pip->state);
@@ -1091,9 +1092,11 @@ chkio_drv_control(ErlDrvData drv_data,
 	    else {
 		cddp->test_data = pip;
 	    }
-	}	
-	res_str = "ok";
-	res_len = -1;
+	}
+        if (!res_str) {
+            res_str = "ok";
+            res_len = -1;
+        }
 	break;
     }
     case CHKIO_DRV_USE:
