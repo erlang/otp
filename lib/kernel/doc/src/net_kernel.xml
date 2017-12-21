@@ -56,7 +56,7 @@ $ <input>erl -sname foobar</input></pre>
     <p>Normally, connections are established automatically when
       another node is referenced. This functionality can be disabled
       by setting Kernel configuration parameter
-      <c>dist_auto_connect</c> to <c>false</c>, see
+      <c>dist_auto_connect</c> to <c>never</c>, see
       <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
       connections must be established explicitly by calling
       <seealso marker="#connect_node/1"><c>connect_node/1</c></seealso>.</p>
