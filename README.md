@@ -60,7 +60,7 @@ We are grateful to the community for contributing bug fixes and improvements. Re
 
 ### Contribution Guide
 
-Read our [contribution guide](https://github.com/erlang/otp/wiki/contribution-guidelines) to learn about our development process, how to propose fixes and improvements, and how to test your changes to Erlang/OTP before submitting a pull request.
+Read our [contribution guide](CONTRIBUTING.md) to learn about our development process, how to propose fixes and improvements, and how to test your changes to Erlang/OTP before submitting a pull request.
 
 ### Help Wanted
 
