@@ -27,7 +27,6 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 50000).
 -define(SSH_DEFAULT_PORT, 22).
 -define(REKEY_DATA_TMO, 65000).
 
@@ -69,7 +68,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        case gen_tcp:connect("localhost", 22, []) of
 	   {error,econnrefused} ->
-	       {skip,"No openssh deamon"};
+	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
 	       ssh_test_lib:openssh_sanity_check(Config)
        end
