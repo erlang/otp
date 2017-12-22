@@ -181,8 +181,9 @@ init_per_group(openssh_server, Config) ->
 	    [{peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
 	{error,"Key exchange failed"} ->
 	    {skip, "openssh server doesn't support the tested kex algorithm"};
-	_ ->
-	    {skip, "No openssh server"} 
+	Other ->
+            ct:log("No openssh server. Cause:~n~p~n",[Other]),
+	    {skip, "No openssh daemon (see log in testcase)"} 
     end;
 
 init_per_group(remote_tar, Config) ->
