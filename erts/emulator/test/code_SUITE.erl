@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
          constant_pools/1,constant_refc_binaries/1,
          fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
-         t_copy_literals/1, t_copy_literals_frags/1]).
+         t_copy_literals/1, t_copy_literals_frags/1,
+         erl_544/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -41,7 +42,8 @@ all() ->
      module_md5,
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
-     coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
+     coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
+     erl_544].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -918,6 +920,48 @@ reloader(Mod,Code,Time) ->
               reloader(Mod,Code,Time)
     end.
 
+erl_544(Config) when is_list(Config) ->
+    case file:native_name_encoding() of
+        utf8 ->
+            {ok, CWD} = file:get_cwd(),
+            try
+                Mod = erl_544,
+                FileName = atom_to_list(Mod) ++ ".erl",
+                Priv = proplists:get_value(priv_dir, Config),
+                Data = proplists:get_value(data_dir, Config),
+                {ok, FileContent} = file:read_file(filename:join(Data,
+                                                                 FileName)),
+                Dir = filename:join(Priv, [16#2620,16#2620,16#2620]),
+                File = filename:join(Dir, FileName),
+                io:format("~ts~n", [File]),
+                ok = file:make_dir(Dir),
+                ok = file:set_cwd(Dir),
+                ok = file:write_file(File, [FileContent]),
+                {ok, Mod} = compile:file(File),
+                Res1 = (catch Mod:err()),
+                io:format("~p~n", [Res1]),
+                {'EXIT', {err, [{Mod, err, 0, Info1}|_]}} = Res1,
+                File = proplists:get_value(file, Info1),
+                Me = self(),
+                Go = make_ref(),
+                Tester = spawn_link(fun () ->
+                                            Mod:wait(Me, Go),
+                                            Mod:err()
+                                    end),
+                receive Go -> ok end,
+                Res2 = process_info(Tester, current_stacktrace),
+                io:format("~p~n", [Res2]),
+                {current_stacktrace,
+                 [{Mod, wait, 2, Info2}|_]} = Res2,
+                File = proplists:get_value(file, Info2),
+                ok
+            after
+                ok = file:set_cwd(CWD)
+            end,
+            ok;
+        _Enc ->
+            {skipped, "Only run when native file name encoding is utf8"}
+    end.
 
 %% Utilities.
 

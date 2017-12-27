@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@
 #include "erl_zlib.h"
 #include "erl_map.h"
 #include "erl_process_dict.h"
+#include "erl_unicode.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -1792,7 +1793,7 @@ read_line_table(LoaderState* stp)
 
 	    GetInt(stp, 2, n);
 	    GetString(stp, fname, n);
-	    stp->fname[i] = erts_atom_put(fname, n, ERTS_ATOM_ENC_LATIN1, 1);
+	    stp->fname[i] = erts_atom_put(fname, n, ERTS_ATOM_ENC_UTF8, 1);
 	}
     }
 
@@ -5891,8 +5892,7 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
 	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
 	} else {
-	    Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
-	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, NIL);
+            file_term = erts_atom_to_string(&hp, (fi->fname_ptr)[file-1]);
 	}
 
 	tuple = TUPLE2(hp, am_line, make_small(line));
