@@ -80,7 +80,7 @@ To configure and run the tests `ts` is used. `ts` is a wrapper module to
 [common_test][] which takes care of configuration and build issues before
 [common_test][] is started.
 
-`ts` has a lot of special options and functions which can be usefull when
+`ts` has a lot of special options and functions which can be useful when
 testing Erlang/OTP. For a full listing issue `ts:help()` in the erlang shell.
 
 ### Configuring the test environment
