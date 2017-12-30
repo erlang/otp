@@ -379,10 +379,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	    Case = Case1#c_case{arg=Arg2,clauses=Cs2},
 	    warn_no_clause_match(Case1, Case),
 	    Expr = eval_case(Case, Sub),
-            case move_case_into_arg(Case, Sub) of
-                impossible -> Expr;
-                Other -> Other
-            end;
+            move_case_into_arg(Expr, Sub);
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
@@ -2815,7 +2812,7 @@ move_case_into_arg(#c_case{arg=#c_case{arg=OuterArg,
 	    Outer#c_case{arg=OuterArg,
 			 clauses=[OuterCa,OuterCb]};
         false ->
-            impossible
+            Inner0
     end;
 move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
                            clauses=InnerClauses}=Inner, _Sub) ->
@@ -2831,8 +2828,8 @@ move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
     %%
     Outer#c_seq{arg=OuterArg,
                 body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
-move_case_into_arg(_, _) ->
-    impossible.
+move_case_into_arg(Expr, _) ->
+    Expr.
 
 is_any_var_used([#c_var{name=V}|Vs], Expr) ->
     case core_lib:is_var_used(V, Expr) of
