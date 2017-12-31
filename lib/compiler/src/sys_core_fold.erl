@@ -145,14 +145,9 @@ find_fixpoint(OptFun, Core0, Max) ->
 body(Body, Sub) ->
     body(Body, value, Sub).
 
-body(#c_values{anno=A,es=Es0}, Ctxt, Sub) ->
-    Es1 = expr_list(Es0, Ctxt, Sub),
-    case Ctxt of
-	value ->
-	    #c_values{anno=A,es=Es1};
-	effect ->
-	    make_effect_seq(Es1, Sub)
-    end;
+body(#c_values{anno=A,es=Es0}, value, Sub) ->
+    Es1 = expr_list(Es0, value, Sub),
+    #c_values{anno=A,es=Es1};
 body(E, Ctxt, Sub) ->
     ?ASSERT(verify_scope(E, Sub)),
     expr(E, Ctxt, Sub).
@@ -2687,22 +2682,73 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
-	{Vs,Arg1,Body} ->
-	    %% If none of the variables are used in the body, we can
-	    %% rewrite the let to a sequence:
-	    %%    let <Var> = Arg in BodyWithoutVar ==>
-	    %%        seq Arg BodyWithoutVar
-	    case is_any_var_used(Vs, Body) of
-		false ->
-		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-		    #c_seq{arg=Arg,body=Body};
-		true ->
-		    Let1 = Let0#c_let{vars=Vs,arg=Arg1,body=Body},
-		    opt_bool_case_in_let(Let1, Sub)
+	{[#c_var{name=V}=Var|Vars]=Vars0,Arg1,Body} ->
+            case core_lib:is_var_used(V, Body) of
+                false when Vars =:= [] ->
+                    %% If the variable is not used in the body, we can
+                    %% rewrite the let to a sequence:
+                    %%    let <Var> = Arg in BodyWithoutVar ==>
+                    %%        seq Arg BodyWithoutVar
+                    Arg = maybe_suppress_warnings(Arg1, Var, PrevBody),
+                    #c_seq{arg=Arg,body=Body};
+                false ->
+                    %% There are multiple values returned by the argument
+                    %% and the first value is not used (this is a 'case'
+                    %% with exported variables, but the return value is
+                    %% ignored). We can remove the first variable and the
+                    %% the first value returned from the 'let' argument.
+                    Arg2 = remove_first_value(Arg1, Sub),
+                    Let1 = Let0#c_let{vars=Vars,arg=Arg2,body=Body},
+                    post_opt_let(Let1, Sub);
+                true ->
+                    Let1 = Let0#c_let{vars=Vars0,arg=Arg1,body=Body},
+                    post_opt_let(Let1, Sub)
 	    end
     end.
 
-%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody) -> Arg'
+%% post_opt_let(Let, Sub)
+%%  Final optimizations of the let.
+%%
+%%  Note that the substitutions and scope in Sub have been cleared
+%%  and should not be used.
+
+post_opt_let(Let, Sub) ->
+    opt_bool_case_in_let(Let, Sub).
+
+
+%% remove_first_value(Core0, Sub) -> Core.
+%%  Core0 is an expression that returns at least two values.
+%%  Remove the first value returned from Core0.
+
+remove_first_value(#c_values{es=[V|Vs]}, Sub) ->
+    Values = core_lib:make_values(Vs),
+    case is_safe_simple(V, Sub) of
+        false ->
+            #c_seq{arg=V,body=Values};
+        true ->
+            Values
+    end;
+remove_first_value(#c_case{clauses=Cs0}=Core, Sub) ->
+    Cs = remove_first_value_cs(Cs0, Sub),
+    Core#c_case{clauses=Cs};
+remove_first_value(#c_receive{clauses=Cs0,action=Act0}=Core, Sub) ->
+    Cs = remove_first_value_cs(Cs0, Sub),
+    Act = remove_first_value(Act0, Sub),
+    Core#c_receive{clauses=Cs,action=Act};
+remove_first_value(#c_let{body=B}=Core, Sub) ->
+    Core#c_let{body=remove_first_value(B, Sub)};
+remove_first_value(#c_seq{body=B}=Core, Sub) ->
+    Core#c_seq{body=remove_first_value(B, Sub)};
+remove_first_value(#c_primop{}=Core, _Sub) ->
+    Core;
+remove_first_value(#c_call{}=Core, _Sub) ->
+    Core.
+
+remove_first_value_cs(Cs, Sub) ->
+    [C#c_clause{body=remove_first_value(B, Sub)} ||
+        #c_clause{body=B}=C <- Cs].
+
+%% maybe_suppress_warnings(Arg, #c_var{}, PreviousBody) -> Arg'
 %%  Try to suppress false warnings when a variable is not used.
 %%  For instance, we don't expect a warning for useless building in:
 %%
@@ -2713,12 +2759,12 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
 %%  referenced in the original unoptimized code. If they were, we will
 %%  consider the warning false and suppress it.
 
-maybe_suppress_warnings(Arg, Vs, PrevBody) ->
+maybe_suppress_warnings(Arg, #c_var{name=V}, PrevBody) ->
     case should_suppress_warning(Arg) of
 	true ->
 	    Arg;				%Already suppressed.
 	false ->
-	    case is_any_var_used(Vs, PrevBody) of
+	    case core_lib:is_var_used(V, PrevBody) of
 		true ->
 		    suppress_warning([Arg]);
 		false ->
@@ -2825,13 +2871,6 @@ move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
                 body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
 move_case_into_arg(Expr, _) ->
     Expr.
-
-is_any_var_used([#c_var{name=V}|Vs], Expr) ->
-    case core_lib:is_var_used(V, Expr) of
-	false -> is_any_var_used(Vs, Expr);
-	true -> true
-    end;
-is_any_var_used([], _) -> false.
 
 %%%
 %%% Retrieving information about types.
