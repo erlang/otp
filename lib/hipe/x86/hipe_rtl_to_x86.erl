@@ -646,7 +646,7 @@ conv_imm(Opnd, Map) ->
 is_imm64(Value) when is_integer(Value) ->
   (Value < -(1 bsl (32 - 1))) or (Value > (1 bsl (32 - 1)) - 1);
 is_imm64({_,atom})    -> false; % Atoms are 32 bits.
-is_imm64({_,c_const}) -> false; % c_consts are 32 bits.
+is_imm64({_,c_const}) -> true;  % c_consts are 64 bits.
 is_imm64({_,_})       -> true . % Other relocs are 64 bits.
 -else.
 conv_imm(Opnd, Map) ->
@@ -777,6 +777,18 @@ conv_fconv(Dst, Src) ->
 
 %%% Finalise the conversion of a 2-address FP operation.
 
+-ifdef(HIPE_AMD64).
+conv_fp_unary(Dst, Src, 'fchs') ->
+  Tmp = new_untagged_temp(),
+  case same_opnd(Dst, Src) of
+    true ->
+      [];
+    _ ->
+      [hipe_x86:mk_fmove(Src, Dst)]
+  end ++
+    mk_load_address(c_const, hipe_x86:mk_imm({sse2_fnegate_mask, c_const}), Tmp) ++
+    [hipe_x86:mk_fp_binop('xorpd', hipe_x86:mk_mem(Tmp, hipe_x86:mk_imm(0), double), Dst)].
+-else.
 conv_fp_unary(Dst, Src, FpUnOp) ->
   case same_opnd(Dst, Src) of
     true ->
@@ -785,6 +797,7 @@ conv_fp_unary(Dst, Src, FpUnOp) ->
       [hipe_x86:mk_fmove(Src, Dst),
        hipe_x86:mk_fp_unop(FpUnOp, Dst)]
   end.
+-endif.
 
 conv_fp_unop(RtlFpUnOp) ->
   case RtlFpUnOp of
@@ -854,13 +867,8 @@ mk_jmp_switch(Index, JTabLab, Labels) ->
 %%% Finalise the translation of a load_address instruction.
 
 -ifdef(HIPE_AMD64).
-mk_load_address(Type, Src, Dst) ->
-  case Type of
-    c_const -> % 32 bits
-      [hipe_x86:mk_move(Src, Dst)];
-    _ ->
-      [hipe_x86:mk_move64(Src, Dst)]
-  end.
+mk_load_address(_Type, Src, Dst) ->
+  [hipe_x86:mk_move64(Src, Dst)].
 -else.
 mk_load_address(_Type, Src, Dst) ->
   [hipe_x86:mk_move(Src, Dst)].
