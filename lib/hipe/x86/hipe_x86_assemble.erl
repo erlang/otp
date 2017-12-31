@@ -735,6 +735,7 @@ resolve_sse2_op(Op) ->
     fdiv -> divsd;
     fmul -> mulsd;
     fsub -> subsd;
+    xorpd -> xorpd;
     _ -> exit({?MODULE, unknown_sse2_operator, Op})
   end.
 

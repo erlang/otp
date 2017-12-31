@@ -274,6 +274,7 @@ needs_trampolines(Architecture) ->
     arm -> true;
     powerpc -> true;
     ppc64 -> true;
+    amd64 -> true;
     _ -> false
   end.
 
