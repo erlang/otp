@@ -189,7 +189,7 @@ table(Name) ->
 %% Returns a list of names of the files in the tar file Name.
 %% Options accepted: compressed, verbose, cooked.
 -spec table(open_handle(), [compressed | verbose | cooked]) ->
-                   {ok, [tar_entry()]} | {error, term()}.
+                   {ok, [string() | tar_entry()]} | {error, term()}.
 table(Name, Opts) when is_list(Opts) ->
     foldl_read(Name, fun table1/4, [], table_opts(Opts)).
 
