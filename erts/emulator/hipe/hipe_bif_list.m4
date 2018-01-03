@@ -246,7 +246,7 @@ noproc_primop_interface_2(nbif_eq_2, eq)
 nofail_primop_interface_3(nbif_bs_get_integer_2, erts_bs_get_integer_2)
 nofail_primop_interface_3(nbif_bs_get_binary_2, erts_bs_get_binary_2)
 nofail_primop_interface_3(nbif_bs_get_float_2, erts_bs_get_float_2)
-standard_bif_interface_3(nbif_bs_put_utf8, hipe_bs_put_utf8)
+nocons_nofail_primop_interface_3(nbif_bs_put_utf8, hipe_bs_put_utf8)
 standard_bif_interface_3(nbif_bs_put_utf16be, hipe_bs_put_utf16be)
 standard_bif_interface_3(nbif_bs_put_utf16le, hipe_bs_put_utf16le)
 
