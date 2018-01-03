@@ -168,9 +168,13 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 
 	  bs_put_utf8 ->
 	    [_Src, _Base, _Offset] = Args,
-	    NewDsts = get_real(Dst),
-	    [hipe_rtl:mk_call(NewDsts, bs_put_utf8, Args,
-			      TrueLblName, FalseLblName, not_remote)];
+	    [NewOffs] = get_real(Dst),
+            RetLbl = hipe_rtl:mk_new_label(),
+            [hipe_rtl:mk_call([NewOffs], bs_put_utf8, Args,
+                              hipe_rtl:label_name(RetLbl), [], not_remote),
+             RetLbl,
+             hipe_rtl:mk_branch(NewOffs, ne, hipe_rtl:mk_imm(0),
+                                TrueLblName, FalseLblName, 0.99)];
 
 	  bs_utf16_size ->
 	    case Dst of

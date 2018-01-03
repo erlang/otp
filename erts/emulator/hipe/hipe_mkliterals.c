@@ -535,6 +535,11 @@ static const struct rts_param rts_params[] = {
 static unsigned int literals_crc;
 static unsigned int system_crc;
 
+/*
+ * Change this version value to detect incompatible changes in primop interface.
+ */
+#define PRIMOP_ABI_VSN 0x090300  /* erts-9.3 */
+
 static void compute_crc(void)
 {
     unsigned int crc_value;
@@ -550,6 +555,8 @@ static void compute_crc(void)
     for (i = 0; i < NR_PARAMS; ++i)
 	if (rts_params[i].is_defined)
 	    crc_value = crc_update_int(crc_value, &rts_params[i].value);
+
+    crc_value ^= PRIMOP_ABI_VSN;
     crc_value &= 0x07FFFFFF;
     system_crc = crc_value;
 }

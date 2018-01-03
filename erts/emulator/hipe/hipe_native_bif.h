@@ -88,7 +88,7 @@ Binary *hipe_bs_reallocate(Binary*, int);
 int hipe_bs_put_small_float(Process*, Eterm, Uint, byte*, unsigned, unsigned);
 void hipe_bs_put_bits(Eterm, Uint, byte*, unsigned, unsigned);
 Eterm hipe_bs_utf8_size(Eterm);
-BIF_RETTYPE nbif_impl_hipe_bs_put_utf8(NBIF_ALIST_3);
+Eterm hipe_bs_put_utf8(Process*, Eterm arg, byte* base, Uint offset);
 Eterm hipe_bs_utf16_size(Eterm);
 BIF_RETTYPE nbif_impl_hipe_bs_put_utf16be(NBIF_ALIST_3);
 BIF_RETTYPE nbif_impl_hipe_bs_put_utf16le(NBIF_ALIST_3);
