@@ -439,8 +439,13 @@ init(Type, Event, State) ->
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     ssl_connection:stop_and_reply(
       normal, {reply, From, {error, Error}}, State);
-error({call, _} = Call, Msg, State) ->
-    gen_handshake(?FUNCTION_NAME, Call, Msg, State);
+error({call, From}, {start, _Timeout}, 
+      #state{protocol_specific = #{error := Error}} = State) ->
+    ssl_connection:stop_and_reply(
+      normal, {reply, From, {error, Error}}, State);
+error({call, _} = Call, Msg, {Error, #state{protocol_specific = Map} = State}) ->
+    gen_handshake(?FUNCTION_NAME, Call, Msg, 
+                  State#state{protocol_specific = Map#{error => Error}});
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
