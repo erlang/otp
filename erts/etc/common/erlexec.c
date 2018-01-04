@@ -167,6 +167,11 @@ static char *plusz_val_switches[] = {
     "dbbl",
     "dntgc",
     "ebwt",
+#ifdef HAVE_USRSCTP
+    "sctp_raw_ipv4",
+    "sctp_raw_ipv6",
+    "sctp_raw_route",
+#endif
     NULL
 };
 

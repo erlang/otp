@@ -29,8 +29,8 @@
 
 #include "safe_hash.h"
 
-/* Currently only used by erl_check_io on Windows */
-#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+/* Currently only used by erl_check_io on Windows and USRSCTP if enabled */
+#if !defined(ERTS_SYS_CONTINOUS_FD_NUMBERS) || defined(HAVE_USRSCTP)
 
 
 static ERTS_INLINE void set_size(SafeHash* h, int size)

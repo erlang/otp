@@ -38,7 +38,11 @@
 #endif
 
 #include "erl_drv_nif.h"
-
+#if SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long Eterm;
+#elif SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int Eterm;
+#endif
 #include <stdlib.h>
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
@@ -342,6 +346,9 @@ EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len);
 EXTERN int driver_set_timer(ErlDrvPort port, unsigned long time);
 EXTERN int driver_cancel_timer(ErlDrvPort port);
 EXTERN int driver_read_timer(ErlDrvPort port, unsigned long *time_left);
+EXTERN Eterm driver_erts_drvport2id(ErlDrvPort port);
+EXTERN int driver_port_task_input_schedule(Eterm port);
+EXTERN int driver_port_task_output_schedule(Eterm port);
 
 /*
  * Inform runtime system about lengthy work.

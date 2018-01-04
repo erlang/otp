@@ -82,6 +82,7 @@
 
 
 #include "erl_driver.h"
+#include "erl_driver_global.h"
 
 /* The IS_SOCKET_ERROR macro below is used for portability reasons. While
    POSIX specifies that errors from socket-related system calls should be
@@ -359,16 +360,24 @@ static unsigned long one_value = 1;
 #undef HAVE_SCTP
 #if defined(HAVE_SCTP_H)
 
+#ifdef HAVE_USRSCTP
+/* #define SCTP_DEBUG 1 */
+#include <usrsctp.h>
+#else
 #include <netinet/sctp.h>
+#endif
 
 /* SCTP Socket API Draft from version 11 on specifies that netinet/sctp.h must
    explicitly define HAVE_SCTP in case when SCTP is supported,  but Solaris 10
    still apparently uses Draft 10, and does not define that symbol, so we have
    to define it explicitly:
 */
+
 #ifndef     HAVE_SCTP
 #    define HAVE_SCTP
 #endif
+
+#ifndef HAVE_USRSCTP
 
 /* These changed in draft 11, so SOLARIS10 uses the old MSG_* */
 #if ! HAVE_DECL_SCTP_UNORDERED
@@ -488,6 +497,41 @@ static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
 #else
 static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
+#endif /* ifndef HAVE_USRSCTP */
+
+#ifdef HAVE_USRSCTP
+int sctp_raw_ipv4 = 0;
+int sctp_raw_ipv6 = 0;
+int sctp_raw_route = 0;
+static typeof(usrsctp_bindx) *p_sctp_bindx = NULL;
+static typeof(usrsctp_getladdrs) *p_sctp_getladdrs = NULL;
+static typeof(usrsctp_freeladdrs) *p_sctp_freeladdrs = NULL;
+static typeof(usrsctp_getpaddrs) *p_sctp_getpaddrs = NULL;
+static typeof(usrsctp_freepaddrs) *p_sctp_freepaddrs = NULL;
+static typeof(usrsctp_set_non_blocking) *p_usrsctp_set_non_blocking = NULL;
+static typeof(usrsctp_init) *p_usrsctp_init = NULL;
+static typeof(usrsctp_peeloff) *p_usrsctp_peeloff = NULL;
+static typeof(usrsctp_sysctl_set_sctp_ecn_enable) *p_usrsctp_sysctl_set_sctp_ecn_enable = NULL;
+static typeof(usrsctp_sysctl_set_sctp_auth_enable) *p_usrsctp_sysctl_set_sctp_auth_enable = NULL;
+static typeof(usrsctp_sysctl_set_sctp_delayed_sack_time_default) *p_usrsctp_sysctl_set_sctp_delayed_sack_time_default = NULL;
+#ifdef SCTP_DEBUG
+static typeof(usrsctp_sysctl_set_sctp_debug_on) *p_usrsctp_set_debug_on = NULL;
+#endif
+static typeof(usrsctp_listen) *p_usrsctp_listen = NULL;
+static typeof(usrsctp_socket) *p_usrsctp_socket = NULL;
+static typeof(usrsctp_bind) *p_usrsctp_bind = NULL;
+static typeof(usrsctp_getsockopt) *p_usrsctp_getsockopt = NULL;
+static typeof(usrsctp_setsockopt) *p_usrsctp_setsockopt = NULL;
+static typeof(usrsctp_sendv) *p_usrsctp_sendv = NULL;
+static typeof(usrsctp_recvv) *p_usrsctp_recvv = NULL;
+static typeof(usrsctp_shutdown) *p_usrsctp_shutdown = NULL;
+static typeof(usrsctp_connect) *p_usrsctp_connect = NULL;
+static typeof(usrsctp_close) *p_usrsctp_close = NULL;
+static typeof(usrsctp_event_rcv_cb) *p_usrsctp_event_rcv_cb = NULL;
+static typeof(usrsctp_readable) *p_usrsctp_readable = NULL;
+static typeof(usrsctp_writeable) *p_usrsctp_writeable = NULL;
+static int usrsctp_available = 1;
+#endif  /* HAVE_USRSCTP */
 
 #endif /* #if defined(HAVE_SCTP_H) */
 
@@ -498,7 +542,7 @@ static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 /* #define INET_DRV_DEBUG 1 */
 #ifdef INET_DRV_DEBUG
-#define DEBUG 1
+//#define DEBUG 1
 #undef DEBUGF
 #define DEBUGF(X) printf X
 #endif
@@ -1082,6 +1126,11 @@ typedef struct {
 #ifdef HAVE_SETNS
     char *netns;                /* Socket network namespace name
 				   as full file path */
+#endif
+#ifdef HAVE_USRSCTP
+    struct socket *usrsctp_sock; /* usrsctp socket from usrsctp headers */
+    ErlDrvMutex *recv_mtx;
+    int recv;
 #endif
 } inet_descriptor;
 
@@ -2828,6 +2877,206 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
 #define SCTP_PARSE_SNDRCVINFO_CNT                            \
         (5*LOAD_ATOM_CNT + 5*LOAD_INT_CNT + 2*LOAD_UINT_CNT + \
 	 LOAD_NIL_CNT + LOAD_LIST_CNT + LOAD_ASSOC_ID_CNT + LOAD_TUPLE_CNT)
+
+#ifdef HAVE_USRSCTP
+
+#include "safe_hash.h"
+
+struct usrsctp_driver_sock {
+    SafeHashBucket hb;
+    struct socket *so;
+    inet_descriptor *desc;
+    Eterm port;
+};
+
+static SafeHash drv_usrsctp_sock_tab;
+
+static ERTS_INLINE struct usrsctp_driver_sock *hash_get_usrsctp_driver(struct socket *so)
+{
+    struct usrsctp_driver_sock tmpl;
+    tmpl.so = so;
+    return (struct usrsctp_driver_sock *) safe_hash_get(&drv_usrsctp_sock_tab, (void *) &tmpl);
+}
+
+static ERTS_INLINE struct usrsctp_driver_sock* hash_new_usrsctp_driver(struct socket *so, inet_descriptor *desc)
+{
+    struct usrsctp_driver_sock tmpl;
+    tmpl.so = so;
+    tmpl.port = driver_erts_drvport2id(desc->port);
+    tmpl.desc = desc;
+    return  (struct usrsctp_driver_sock *) safe_hash_put(&drv_usrsctp_sock_tab, (void *) &tmpl);
+}
+
+static ERTS_INLINE void hash_erase_drv_usrsctp(struct usrsctp_driver_sock *usrsctp_drv_sock)
+{
+    safe_hash_erase(&drv_usrsctp_sock_tab, (void *) usrsctp_drv_sock);
+}
+
+static SafeHashValue drv_usrsctp_hash(void *des)
+{
+    SafeHashValue val = (SafeHashValue) ((struct usrsctp_driver_sock *) des)->so;
+    return val ^ (val >> 8);  /* Good enough for aligned pointer values? */
+}
+
+static int drv_usrsctp_cmp(void *des1, void *des2)
+{   
+    return ( ((struct usrsctp_driver_sock *) des1)->so == 
+	     ((struct usrsctp_driver_sock *) des2)->so
+	    ? 0 : 1);
+}
+
+static void *drv_usrsctp_alloc(void *des_tmpl)
+{
+    struct usrsctp_driver_sock *in;
+    struct usrsctp_driver_sock *out;
+
+    in = (struct usrsctp_driver_sock *) des_tmpl;
+    out = (struct usrsctp_driver_sock *)
+	    erts_alloc(ERTS_ALC_T_DRV_SCTP_SOCK, sizeof(struct usrsctp_driver_sock));
+    out->so = in->so;
+    out->port = in->port;
+    out->desc = in->desc;
+
+    return (void *) out;
+}
+
+static void drv_usrsctp_free(void *des)
+{
+    erts_free(ERTS_ALC_T_DRV_SCTP_SOCK, (void *) des); 
+}
+
+static void usrsctp_init_socket_hash(void)
+{
+    SafeHashFunctions hf;
+    hf.hash = &drv_usrsctp_hash;
+    hf.cmp = &drv_usrsctp_cmp;
+    hf.alloc = &drv_usrsctp_alloc;
+    hf.free = &drv_usrsctp_free;
+    safe_hash_init(ERTS_ALC_T_DRV_SCTP_SOCK, &drv_usrsctp_sock_tab, "drv_usrsctp_sock_tab", 
+	   ERTS_LOCK_FLAGS_CATEGORY_IO, 1024, hf);
+}
+
+static int usrsctp_parse_sndrcvinfo
+	   (ErlDrvTermData * spec, int i, struct msghdr *mptr)
+{
+    int n;
+    int s = 0;
+
+    if (! (mptr->msg_flags & MSG_NOTIFICATION)) {
+	struct sctp_rcvinfo *ri = (struct sctp_rcvinfo *) mptr->msg_control;
+	i = LOAD_ATOM	(spec, i, am_sctp_sndrcvinfo);
+	i = LOAD_INT	(spec, i, ri->rcv_sid);
+	i = LOAD_INT	(spec, i, ri->rcv_ssn); /* no such value in usrsctp */
+	/* Now Flags, as a list: */
+	n = 0;
+	if (ri->rcv_flags & SCTP_UNORDERED)
+	    { i = LOAD_ATOM (spec, i, am_unordered);     n++; }
+
+	if (ri->rcv_flags & SCTP_ADDR_OVER)
+	    { i = LOAD_ATOM (spec, i, am_addr_over);     n++; }
+
+	if (ri->rcv_flags & SCTP_ABORT)
+	    { i = LOAD_ATOM (spec, i, am_abort);	     n++; }
+
+	if (ri->rcv_flags & SCTP_EOF)
+	    { i = LOAD_ATOM (spec, i, am_eof);	     n++; }
+
+	/* SCTP_SENDALL is not yet supported by the Linux kernel     */
+	i = LOAD_NIL	(spec, i);
+	i = LOAD_LIST	(spec, i, n+1);
+
+	/* Continue with other top-level fields: */
+	i = LOAD_INT	(spec, i, sock_ntohl(ri->rcv_ppid));
+	i = LOAD_INT	(spec, i, ri->rcv_context);
+	i = LOAD_INT	(spec, i, 0);
+	i = LOAD_UINT	(spec, i, ri->rcv_tsn);
+	i = LOAD_UINT	(spec, i, ri->rcv_cumtsn);
+	i = LOAD_ASSOC_ID	(spec, i, ri->rcv_assoc_id);
+
+	/* Close up the record: */
+	i = LOAD_TUPLE	(spec, i, 10);
+	s++;
+    }
+    /* Now make the list of tuples created above. Normally, it will be [] or
+       a singleton list.   The list must first be closed with NIL, otherwise
+       traversing it in Erlang would be problematic:
+    */
+    i = LOAD_NIL (spec, i);
+    i = LOAD_LIST(spec, i, s+1);
+
+    return i;
+}
+
+static void usrsctp_event_rcv_callback(struct socket *sock, void *arg)
+{
+    struct usrsctp_driver_sock *drv_sock;
+    inet_descriptor *desc;
+    drv_sock = hash_get_usrsctp_driver(sock);
+
+    if (drv_sock) {
+	desc = drv_sock->desc;
+	erl_drv_mutex_lock(desc->recv_mtx);
+	if(desc->recv) {
+	    if(desc->recv == INET_ONCE) {
+		desc->recv = INET_PASSIVE;
+	    }
+	    erl_drv_mutex_unlock(desc->recv_mtx);
+	    driver_port_task_input_schedule(drv_sock->port);
+	} else
+	    erl_drv_mutex_unlock(desc->recv_mtx);
+    }
+}
+
+static void usrsctp_setup_sock(struct socket *sock, inet_descriptor *desc)
+{
+    int i;
+    const int on = 1;
+    struct sctp_event event;
+    uint16_t event_types[] = {SCTP_ASSOC_CHANGE,
+			      SCTP_PEER_ADDR_CHANGE,
+			      SCTP_REMOTE_ERROR,
+			      SCTP_SEND_FAILED_EVENT};
+
+    /* set socket fd to something different from INVALID_SOCKET */
+    desc->s = -2;
+    desc->recv_mtx = erl_drv_mutex_create("usrsctp_rcv");
+
+    p_usrsctp_set_non_blocking(sock, 1);
+    p_usrsctp_event_rcv_cb(sock, usrsctp_event_rcv_callback, NULL);
+    
+    memset(&event, 0, sizeof(event));
+    event.se_assoc_id = SCTP_ALL_ASSOC;
+    event.se_on = 1;
+    for (i = 0; i < sizeof(event_types)/sizeof(uint16_t); i++) {
+	event.se_type = event_types[i];
+	if (p_usrsctp_setsockopt(sock, IPPROTO_SCTP, SCTP_EVENT, &event, sizeof(event)) < 0) {
+	    perror("setsockopt SCTP_EVENT");
+	}
+    }
+
+    if (p_usrsctp_setsockopt(sock, IPPROTO_SCTP, SCTP_RECVRCVINFO, &on, sizeof(int)) < 0)
+	perror("usrsctp_setsockopt SCTP_RECVRCVINFO");
+    
+    return;
+}
+
+static struct socket* usrsctp_sock_open(int domain, int type, int protocol, inet_descriptor *desc) 
+{
+    struct socket* sock;
+    sock = p_usrsctp_socket(domain, type, protocol,
+			    NULL,
+			    NULL,
+			    0, NULL);
+    usrsctp_setup_sock(sock, desc);
+    hash_new_usrsctp_driver(sock, desc);
+
+    return sock;
+}
+
+
+
+#else
+
 static int sctp_parse_sndrcvinfo
 	   (ErlDrvTermData * spec, int i, struct sctp_sndrcvinfo * sri)
 {
@@ -2866,6 +3115,7 @@ static int sctp_parse_sndrcvinfo
     i = LOAD_TUPLE	(spec, i, 10);
     return i;
 }
+
 
 /*
 ** This function skips non-SCTP ancillary data, returns SCTP-specific anc.data
@@ -2908,6 +3158,7 @@ static int sctp_parse_ancillary_data
     i = LOAD_LIST(spec, i, s+1);
     return i;
 }
+#endif
 
 /*
 ** Parsing of ERROR and ABORT SCTP chunks. The function returns a list of error
@@ -3084,6 +3335,9 @@ static int sctp_parse_async_event
 	    i = LOAD_INT   (spec, i, sock_ntohs(sptr->sre_error));
 	    i = LOAD_INT   (spec, i, sptr->sre_assoc_id);
 
+	    DEBUGF(("sre_length %d", sptr->sre_length));
+
+
 #	    ifdef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
 	    chunk = (char*) (&(sptr->sre_data));
 #	    else
@@ -3110,14 +3364,23 @@ static int sctp_parse_async_event
 	    */
 	    char *chunk;
 	    int chlen, choff;
+#ifdef HAVE_USRSCTP
+	    struct sctp_send_failed_event * sptr = &(nptr->sn_send_failed_event);
+#else
 	    struct sctp_send_failed * sptr = &(nptr->sn_send_failed);
+#endif
 	    ASSERT(sptr->ssf_length <= sz);	/* No buffer overrun */
 
 	    /* Over-write 'ok' with 'error', continue from curr "i": */
 	    (void)LOAD_ATOM(spec, ok_pos, error_atom);
 
 	    i = LOAD_ATOM  (spec, i, am_sctp_send_failed);
+#ifdef HAVE_USRSCTP
+	    switch (sptr->ssfe_flags) {
+#else
 	    switch (sptr->ssf_flags) {
+
+#endif
 	    case SCTP_DATA_SENT:
 		i = LOAD_ATOM (spec, i, am_true);
 		break;
@@ -3127,22 +3390,42 @@ static int sctp_parse_async_event
 	    default:
 		ASSERT(0);
 	    }
-	    i = LOAD_INT      (spec, i, sptr->ssf_error);
+#ifdef HAVE_USRSCTP
+	    i = LOAD_INT      (spec, i, sptr->ssfe_error);
+	    /* Now parse the orig SCTP_SNDRCV info */
+	    i = LOAD_INT      (spec, i, &sptr->ssfe_info.snd_sid);
+	    i = LOAD_INT      (spec, i, &sptr->ssfe_info.snd_flags);
+	    i = LOAD_INT      (spec, i, &sptr->ssfe_info.snd_ppid);
+	    i = LOAD_INT      (spec, i, &sptr->ssfe_info.snd_context);
+	    i = LOAD_TUPLE    (spec, i, 4);
+	    i = LOAD_ASSOC_ID (spec, i, sptr->ssfe_assoc_id);
+#else
+	    i = LOAD_INT      (spec, i, sptr->ssf_error); 
 	    /* Now parse the orig SCTP_SNDRCV info */
 	    i = sctp_parse_sndrcvinfo (spec, i, &sptr->ssf_info);
 	    i = LOAD_ASSOC_ID (spec, i, sptr->ssf_assoc_id);
+#endif
 
 	    /* Load the orig data chunk, as an unparsed binary. Note that
 	       in LOAD_BINARY below, we must specify the offset wrt bin->
 	       orig_bytes. In Solaris 10, we don't have ssf_data:
 	    */
+#ifdef HAVE_USRSCTP
+	    chunk = (char*) (&(sptr->ssfe_data));
+#else
 #	    ifdef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
 	    chunk = (char*) (&(sptr->ssf_data));
 #	    else
-	    chunk = ((char*) &(sptr->ssf_assoc_id))
+	    chunk = (char*) (&(sptr->ssf_assoc_id))
 		+ sizeof(sptr->ssf_assoc_id);
 #	    endif
+#endif
+
+#ifdef HAVE_USRSCTP
+	    chlen = sptr->ssfe_length - (chunk - (char*) sptr);
+#else
 	    chlen = sptr->ssf_length - (chunk - (char*) sptr);
+#endif
 	    choff = chunk - bin->orig_bytes;
 
 	    i = LOAD_BINARY(spec, i, bin, choff, chlen);
@@ -3290,8 +3573,12 @@ inet_async_binary_data
 
 	/* Put in the list (possibly empty) of Ancillary Data: */
 	mptr = (struct msghdr *) extra;
+#ifdef HAVE_USRSCTP
+	i = usrsctp_parse_sndrcvinfo (spec, i, mptr);
+	//i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
+#else
 	i = sctp_parse_ancillary_data (spec, i, mptr);
-
+#endif
 	/* Then: Data or Event (Notification)? */
 	if (mptr->msg_flags & MSG_NOTIFICATION)
 	    /* This is an Event, parse it. It may indicate a normal or an error
@@ -3474,6 +3761,7 @@ static int packet_binary_message
 
     DEBUGF(("packet_binary_message(%ld): len = %d\r\n",
 	   (long)desc->port, len));
+
 #   ifdef HAVE_SCTP
     i = LOAD_ATOM(spec, i, IS_SCTP(desc) ? am_sctp : am_udp); /* UDP|SCTP */
 #   else
@@ -3512,7 +3800,12 @@ static int packet_binary_message
 
 	/* Put in the list (possibly empty) of Ancillary Data: */
 	mptr = (struct msghdr *) extra;
+#ifdef HAVE_USRSCTP
+	i = usrsctp_parse_sndrcvinfo (spec, i, mptr);
+	//i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
+#else
 	i = sctp_parse_ancillary_data (spec, i, mptr);
+#endif
 
 	/* Then: Data or Event (Notification)? */
 	if (mptr->msg_flags & MSG_NOTIFICATION)
@@ -3858,6 +4151,21 @@ static void inet_init_sctp(void) {
     INIT_ATOM(shutdown_received);
     INIT_ATOM(shutdown_ack_sent);
 }
+
+#ifdef HAVE_USRSCTP
+#ifdef SCTP_DEBUG
+static void usrsctp_debug_printf(const char *format, ...)
+{
+    va_list ap;
+    printf("USRCTP: ");
+    va_start(ap, format);
+    vprintf(format, ap);
+    va_end(ap);
+    printf("\r");
+}
+#endif
+#endif
+
 #endif /* HAVE_SCTP */
 
 static int inet_init()
@@ -3949,9 +4257,142 @@ static int inet_init()
     inet_init_sctp();
     add_driver_entry(&sctp_inet_driver_entry);
 #   else
-#       ifndef LIBSCTP
+#       if !defined(LIBSCTP)
 #           error LIBSCTP not defined
 #       endif
+
+#	ifdef HAVE_USRSCTP
+    {
+	/* usrsctp definitions */
+	static void *h_libsctp = NULL;
+	if (erts_sys_ddll_open_noext(STRINGIFY(LIBSCTP), &h_libsctp, NULL)
+	    == 0) {
+	    void *ptr;
+	    if (erts_sys_ddll_sym(h_libsctp, "usrsctp_bindx", &ptr) == 0) {
+		p_sctp_bindx = ptr;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_getladdrs", &ptr) == 0) {
+		    p_sctp_getladdrs = ptr;
+		}
+		else p_sctp_getladdrs = NULL;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_freeladdrs", &ptr) == 0) {
+		    p_sctp_freeladdrs = ptr;
+		}
+		else {
+		    p_sctp_freeladdrs = NULL;
+		    p_sctp_getladdrs = NULL;
+		}
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_getpaddrs", &ptr) == 0) {
+		    p_sctp_getpaddrs = ptr;
+		}
+		else p_sctp_getpaddrs = NULL;
+		
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_socket", &ptr) == 0) {
+		    p_usrsctp_socket = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_bind", &ptr) == 0) {
+		    p_usrsctp_bind = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_getsockopt", &ptr) == 0) {
+		    p_usrsctp_getsockopt = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_setsockopt", &ptr) == 0) {
+		    p_usrsctp_setsockopt = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sendv", &ptr) == 0) {
+		    p_usrsctp_sendv = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_recvv", &ptr) == 0) {
+		    p_usrsctp_recvv = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_shutdown", &ptr) == 0) {
+		    p_usrsctp_shutdown = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_connect", &ptr) == 0) {
+		    p_usrsctp_connect = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_close", &ptr) == 0) {
+		    p_usrsctp_close = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_listen", &ptr) == 0) {
+		    p_usrsctp_listen = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_init", &ptr) == 0) {
+		    p_usrsctp_init = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_peeloff", &ptr) == 0) {
+		    p_usrsctp_peeloff = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_auth_enable", &ptr) == 0) {
+		    p_usrsctp_sysctl_set_sctp_auth_enable = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_ecn_enable", &ptr) == 0) {
+		    p_usrsctp_sysctl_set_sctp_ecn_enable = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_delayed_sack_time_default", &ptr) == 0) {
+		    p_usrsctp_sysctl_set_sctp_delayed_sack_time_default = ptr;
+		} else
+		    usrsctp_available = 0;
+#ifdef SCTP_DEBUG
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_debug_on", &ptr) == 0) {
+		    p_usrsctp_set_debug_on = ptr;
+		}
+#endif
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_set_non_blocking", &ptr) == 0) {
+		    p_usrsctp_set_non_blocking = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_event_rcv_cb", &ptr) == 0) {
+		    p_usrsctp_event_rcv_cb = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_readable", &ptr) == 0) {
+		    p_usrsctp_readable = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_writeable", &ptr) == 0) {
+		    p_usrsctp_writeable = ptr;
+		} else
+		    usrsctp_available = 0;
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_freepaddrs", &ptr) == 0) {
+		    p_sctp_freepaddrs = ptr;
+		} else
+		    usrsctp_available = 0;
+
+		if (usrsctp_available)
+		{
+		    inet_init_sctp();
+#ifdef SCTP_DEBUG 
+		    p_usrsctp_init(0, NULL, usrsctp_debug_printf, sctp_raw_ipv4, sctp_raw_ipv6, sctp_raw_route);
+#else
+		    p_usrsctp_init(0, NULL, NULL,sctp_raw_ipv4, sctp_raw_ipv6, sctp_raw_route);
+#endif
+		    usrsctp_init_socket_hash();
+		    p_usrsctp_sysctl_set_sctp_delayed_sack_time_default(10);
+#ifdef SCTP_DEBUG
+		    p_usrsctp_set_debug_on(SCTP_DEBUG_ALL);
+#endif
+		    add_driver_entry(&sctp_inet_driver_entry);
+		}
+	    }
+	    else p_sctp_bindx = NULL;
+	}
+    }
+#	else
+
     {
 	static void *h_libsctp = NULL;
 
@@ -3992,6 +4433,7 @@ static int inet_init()
 	    else p_sctp_bindx = NULL;
 	}
     }
+#	endif
 #   endif
 #endif
 
@@ -4358,6 +4800,17 @@ static ErlDrvSizeT reply_inet_addrs
 
 static void desc_close(inet_descriptor* desc)
 {
+    DEBUGF(("****desc_close called*****\r\n"));
+#ifdef HAVE_USRSCTP
+    if (IS_SCTP(desc)) {
+	struct usrsctp_driver_sock drv_sock;
+	p_usrsctp_close(desc->usrsctp_sock);
+	drv_sock.so = desc->usrsctp_sock;
+	hash_erase_drv_usrsctp(&drv_sock);
+	desc->s = INVALID_SOCKET;
+	erl_drv_mutex_destroy(desc->recv_mtx);
+    }
+#endif
     if (desc->s != INVALID_SOCKET) {
 #ifdef __WIN32__
 	winsock_event_select(desc, FD_READ|FD_WRITE|FD_CLOSE, 0);
@@ -4406,6 +4859,7 @@ static void desc_close_read(inet_descriptor* desc)
 
 static int erl_inet_close(inet_descriptor* desc)
 {
+    DEBUGF(("erl_inet_close called\r\n"));
     free_subscribers(&desc->empty_out_q_subs);
     if ((desc->prebound == 0) && (desc->state & INET_F_OPEN)) {
 	desc_close(desc);
@@ -4468,8 +4922,23 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 #ifdef HAVE_SYS_UN_H
     if (domain == AF_UNIX) protocol = 0;
 #endif
-    if ((desc->s = sock_open(domain, type, protocol)) == INVALID_SOCKET)
-	save_errno = sock_errno();
+
+#ifdef HAVE_USRSCTP
+    if (protocol == IPPROTO_SCTP && p_usrsctp_socket != NULL) {
+	if ((desc->usrsctp_sock = usrsctp_sock_open(domain, type, protocol, desc)) == NULL) 
+	{
+	   desc->s = INVALID_SOCKET;
+	   save_errno = sock_errno();
+	}
+    }
+    else {
+#endif
+	if ((desc->s = sock_open(domain, type, protocol)) == INVALID_SOCKET)
+	    save_errno = sock_errno();
+#ifdef HAVE_USRSCTP
+    }
+#endif
+
 #ifdef HAVE_SETNS
     if (desc->netns != NULL) {
 	/* Restore network namespace */
@@ -4496,7 +4965,6 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 #endif
     if (desc->s == INVALID_SOCKET)
 	return ctl_error(save_errno, rbuf, rsize);
-
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT) {
 	save_errno = sock_errno();
 	while (close(desc->s) == INVALID_SOCKET &&
@@ -4504,7 +4972,10 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	desc->s = INVALID_SOCKET;
 	return ctl_error(save_errno, rbuf, rsize);
     }
-    SET_NONBLOCKING(desc->s);
+#ifdef HAVE_USRSCTP
+    if(!IS_SCTP(desc))
+#endif
+	SET_NONBLOCKING(desc->s);
 #ifdef __WIN32__
     driver_select(desc->port, desc->event, ERL_DRV_READ, 1);
 #endif
@@ -5798,7 +6269,7 @@ done:
 }
 
 #elif defined(HAVE_GETIFADDRS)
-#ifdef  DEBUG
+#ifdef INET_DRV_DEBUG
 #define GETIFADDRS_BUFSZ (1)
 #else
 #define GETIFADDRS_BUFSZ (512)
@@ -6465,12 +6936,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 }
 
 #ifdef HAVE_SCTP
-
+#define SCTP_GET_INITMSG_LEN (4*2)
+#define SCTP_GET_SENDPARAMS_LEN (2*2 + 3*4 + ASSOC_ID_LEN)
 /*  "sctp_get_initmsg":
 **  Used by both "send*" and "setsockopt". Gets the 4 fields of "sctp_initmsg"
 **  from the input buffer:
 */
-#define SCTP_GET_INITMSG_LEN (4*2)
 static char* sctp_get_initmsg(struct sctp_initmsg* ini, char* curr)
 {
     ini->sinit_num_ostreams   = get_int16 (curr);	curr += 2;
@@ -6480,6 +6951,36 @@ static char* sctp_get_initmsg(struct sctp_initmsg* ini, char* curr)
     return curr;
 }
 
+#ifdef HAVE_USRSCTP
+static char* sctp_get_sendparams(struct sctp_sndinfo* si, char* curr)
+{
+    int eflags;
+    int cflags;
+
+    si->snd_sid       = get_int16(curr);		curr += 2;
+
+    /* The "flags" are already ORed at the Erlang side, here we
+       reconstruct the real SCTP flags:
+    */
+    eflags		    = get_int16(curr);		curr += 2;
+    cflags		    = 0;
+    if (eflags & SCTP_FLAG_UNORDERED) cflags |= SCTP_UNORDERED;
+    if (eflags & SCTP_FLAG_ADDR_OVER) cflags |= SCTP_ADDR_OVER;
+    if (eflags & SCTP_FLAG_ABORT)     cflags |= SCTP_ABORT;
+    if (eflags & SCTP_FLAG_EOF)	      cflags |= SCTP_EOF;
+
+    si->snd_flags	    = cflags;
+    si->snd_ppid	    = sock_htonl(get_int32(curr));
+							curr += 4;
+    si->snd_context	    = get_int32(curr);		curr += 4;
+							curr += 4;  /* ignore time to live */
+    si->snd_assoc_id	    = GET_ASSOC_ID  (curr);	curr += ASSOC_ID_LEN;
+
+    return curr;
+}
+
+
+#else
 /*  "sctp_get_sendparams":
 **  Parses (from the command buffer) the 6 user-sprcified parms of
 **  "sctp_sndrcvinfo":
@@ -6487,7 +6988,6 @@ static char* sctp_get_initmsg(struct sctp_initmsg* ini, char* curr)
 **	timetoleave(u32), assoc_id
 **  Is used by both "send*" and "setsockopt":
 */
-#define SCTP_GET_SENDPARAMS_LEN (2*2 + 3*4 + ASSOC_ID_LEN)
 static char* sctp_get_sendparams (struct sctp_sndrcvinfo* sri, char* curr)
 {
     int eflags;
@@ -6517,6 +7017,7 @@ static char* sctp_get_sendparams (struct sctp_sndrcvinfo* sri, char* curr)
 
     return curr;
 }
+#endif /* ifdef HAVE_USRSCTP (else) */
 
 /* Set SCTP options:
 ** return -1 on error
@@ -6544,14 +7045,24 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	struct sctp_assocparams	    ap;
 	struct sctp_initmsg	    im;
 	struct linger		    lin;
-	struct sctp_setpeerprim	    prim;
 	struct sctp_setadaptation   ad;
 	struct sctp_paddrparams	    pap;
+#ifdef HAVE_USRSCTP
+	struct sctp_setprim	    prim;
+	struct sctp_sndinfo	    si;
+	struct sctp_assoc_value     av;
+#else
+	struct sctp_setpeerprim	    prim;
 	struct sctp_sndrcvinfo	    sri;
+#endif
 	struct sctp_event_subscribe es;
+#ifdef	SCTP_DELAYED_SACK
+	struct sctp_sack_info	    ssi;
+#else
 #	ifdef SCTP_DELAYED_ACK_TIME
 	struct sctp_assoc_value     av; /* Not in SOLARIS10 */
 #	endif
+#endif
 #	ifdef SO_BINDTODEVICE
 	char ifname[IFNAMSIZ];
 #	endif
@@ -6626,7 +7137,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #endif
 
 	/* SCTP options and applicable generic INET options: */
-
 	case SCTP_OPT_RTOINFO:
 	{
 	    CHKLEN(curr, ASSOC_ID_LEN + 3*4);
@@ -6721,30 +7231,45 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	case INET_OPT_REUSEADDR:
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
 	    type    = SO_REUSEADDR;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 	case INET_OPT_DONTROUTE:
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
 	    type    = SO_DONTROUTE;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 	case INET_OPT_PRIORITY:
 #	ifdef SO_PRIORITY
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
 	    type    = SO_PRIORITY;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 #	else
@@ -6754,11 +7279,16 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_OPT_TOS:
 #	if defined(IP_TOS) && defined(SOL_IP)
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_IP;
 	    type    = IP_TOS;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 #	else
@@ -6768,11 +7298,16 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #       if defined(IPV6_TCLASS) && defined(SOL_IPV6)
 	case INET_OPT_TCLASS:
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_IPV6;
 	    type    = IPV6_TCLASS;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 #	endif
@@ -6781,11 +7316,16 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_OPT_IPV6_V6ONLY:
 #       if HAVE_DECL_IPV6_V6ONLY
 	{
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ival= get_int32 (curr);   curr += 4;
 	    proto   = IPPROTO_IPV6;
 	    type    = IPV6_V6ONLY;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 #       elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
@@ -6840,11 +7380,20 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	case SCTP_OPT_MAXSEG:
 	{
+#ifdef HAVE_USRSCTP
+	    arg.av.assoc_value = get_int32 (curr); curr += 4;
+	    arg.av.assoc_id = 0;
+	    proto   = IPPROTO_SCTP;
+	    type    = SCTP_MAXSEG;
+	    arg_ptr = (char *) (&arg.av);
+	    arg_sz  = sizeof   ( arg.av);
+#else
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_MAXSEG;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
+#endif
 	    break;
 	}
 	case SCTP_OPT_PRIMARY_ADDR:
@@ -6857,13 +7406,23 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	       "sctp_setpeerprim" and "sctp_prim" (in Solaris 10, the latter
 	       is called "sctp_setprim"),  so we grouped them together:
 	    */
-	    arg.prim.sspp_assoc_id = GET_ASSOC_ID(curr); curr += ASSOC_ID_LEN;
+#ifdef HAVE_USRSCTP
+	    arg.prim.ssp_assoc_id = 
+#else
+	    arg.prim.sspp_assoc_id = 
+#endif
+		GET_ASSOC_ID(curr); curr += ASSOC_ID_LEN;
 
 	    /* Fill in "arg.prim.sspp_addr": */
 	    alen  = ptr + len - curr;
-	    if (inet_set_faddress
-		(desc->sfamily, (inet_address*) (&arg.prim.sspp_addr),
-		 &curr,  &alen) != NULL) return -1;
+	    if (inet_set_faddress(
+		desc->sfamily, (inet_address*) 
+#ifdef HAVE_USRSCTP
+		(&arg.prim.ssp_addr),
+#else
+		(&arg.prim.sspp_addr),
+#endif
+		&curr,  &alen) != NULL) return -1;
 
 	    proto = IPPROTO_SCTP;
 	    if (eopt == SCTP_OPT_PRIMARY_ADDR)
@@ -6878,12 +7437,17 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case SCTP_OPT_ADAPTATION_LAYER:
 	{
 	    /* XXX: do we need to convert the Ind into network byte order??? */
+#ifdef HAVE_USRSCTP
+	    curr += 4;
+	    continue;
+#else
 	    arg.ad.ssb_adaptation_ind = sock_htonl (get_int32(curr));  curr += 4;
 
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_ADAPTATION_LAYER;
 	    arg_ptr = (char*) (&arg.ad);
 	    arg_sz  = sizeof  ( arg.ad);
+#endif
 	    break;
 	}
 	case SCTP_OPT_PEER_ADDR_PARAMS:
@@ -6965,18 +7529,29 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case SCTP_OPT_DEFAULT_SEND_PARAM:
 	{
 	    CHKLEN(curr, SCTP_GET_SENDPARAMS_LEN);
+#ifdef HAVE_USRSCTP
+	    curr = sctp_get_sendparams (&arg.si, curr);
+	    proto   = IPPROTO_SCTP;
+	    type    = SCTP_DEFAULT_SNDINFO;
+	    arg_ptr = (char*) (&arg.si);
+	    arg_sz  = sizeof  ( arg.si);
+#else
 	    curr = sctp_get_sendparams (&arg.sri, curr);
-
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_DEFAULT_SEND_PARAM;
 	    arg_ptr = (char*) (&arg.sri);
 	    arg_sz  = sizeof  ( arg.sri);
+#endif
 	    VALGRIND_MAKE_MEM_DEFINED(arg_ptr, arg_sz); /*suppress "uninitialised bytes"*/
 	    break;
 	}
 	case SCTP_OPT_EVENTS:
 	{
 	    CHKLEN(curr, 9);
+#ifdef HAVE_USRSCTP
+	    curr += 9;
+	    continue;
+#else
 	    /* We do not support "sctp_authentication_event" -- it is not
 	       implemented in Linux Kernel SCTP anyway.   Just in case if
 	       the above structure has more fields than we support,  zero
@@ -7002,13 +7577,26 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    type    = SCTP_EVENTS;
 	    arg_ptr = (char*) (&arg.es);
 	    arg_sz  = sizeof  ( arg.es);
+#endif
 	    break;
 	}
-	/* The following is not available on Solaris 10: */
-#	ifdef SCTP_DELAYED_ACK_TIME
+	/* Linux, Soliris and FreeBSD seem to be supporting SCTP_DELAYED_SACK
+	   TODO: Add support for the freq option */
+#	if  defined(SCTP_DELAYED_ACK_TIME) || defined(SCTP_DELAYED_SACK)
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    CHKLEN(curr, ASSOC_ID_LEN + 4);
+#ifdef	SCTP_DELAYED_SACK
+	    arg.ssi.sack_assoc_id 
+		= GET_ASSOC_ID(curr); curr += ASSOC_ID_LEN;
+	    arg.ssi.sack_delay = get_int32(curr); curr += 4;
+	    arg.ssi.sack_freq = 2;
+	    proto = IPPROTO_SCTP;
+	    type = SCTP_DELAYED_SACK;
+	    arg_ptr = (char *) (&arg.ssi);
+	    arg_sz  = sizeof   ( arg.ssi);
+
+#else
 	    arg.av.assoc_id    = GET_ASSOC_ID(curr);	curr += ASSOC_ID_LEN;
 	    arg.av.assoc_value = get_int32(curr);	curr += 4;
 
@@ -7016,6 +7604,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    type    = SCTP_DELAYED_ACK_TIME;
 	    arg_ptr = (char*) (&arg.av);
 	    arg_sz  = sizeof  ( arg.av);
+#endif
 	    break;
 	}
 #	endif
@@ -7029,10 +7618,14 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    */
 	    return -1;
 	}
+#ifdef HAVE_USRSCTP
+	res = p_usrsctp_setsockopt(desc->usrsctp_sock, proto, type, arg_ptr, arg_sz);
+#else
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
 	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
+#endif
 #endif
 	/* The return values of "sock_setopt" can only be 0 or -1: */
 	ASSERT(res == 0 || res == -1);
@@ -7049,7 +7642,20 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
     }
     /* If we got here, all "sock_setopt"s above were successful:   */
     if (IS_OPEN(desc) && desc->active != old_active) {
+#ifdef HAVE_USRSCTP
+	erl_drv_mutex_lock(desc->recv_mtx);
+	desc->recv = desc->active;
+	if(desc->active) {
+	    if(p_usrsctp_readable(desc->usrsctp_sock)) {
+		if (desc->recv == INET_ONCE)
+		    desc->recv = INET_PASSIVE;
+		driver_port_task_input_schedule(driver_erts_drvport2id(desc->port));
+	    }
+	}
+	erl_drv_mutex_unlock(desc->recv_mtx);
+#else
 	sock_select(desc, (FD_READ|FD_CLOSE), (desc->active > 0));
+#endif
     }
     return 0;
 #   undef CHKLEN
@@ -7493,6 +8099,14 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
     return i;
 }
 
+#ifdef HAVE_USRSCTP
+#define sctp_getopt(proto, type, value, size) \
+    p_usrsctp_getsockopt(desc->usrsctp_sock, proto, type, value, size)
+#else
+#define sctp_getopt(proto, type, value, size) \
+    sock_getopt(desc->s, proto, type, value, size)
+#endif
+
 /*
 **  "sctp_fill_opts":   Returns {ok, Results}, or an error:
 */
@@ -7630,9 +8244,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    rti.srto_assoc_id = GET_ASSOC_ID(buf);
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
-	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_RTOINFO, 
-			    &rti, &sz) < 0) continue;
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_RTOINFO, 
+			    &rti, &sz) < 0)
+		continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
 		      2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT + 
@@ -7657,7 +8271,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_ASSOCINFO, 
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_ASSOCINFO, 
 			    &ap, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -7680,7 +8294,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    struct       sctp_initmsg im;
 	    unsigned int sz = sizeof(im);
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_INITMSG, 
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_INITMSG, 
 			    &im, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -7702,7 +8316,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    struct linger lg;
 	    unsigned int  sz = sizeof(lg);
 	    
-	    if (sock_getopt(desc->s, SOL_SOCKET, SO_LINGER,
+	    if (sctp_getopt(SOL_SOCKET, SO_LINGER,
 			    &lg, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -7884,7 +8498,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    default:	 ASSERT(0);
 	    }
-	    if (sock_getopt (desc->s, proto, type, &res, &sz) < 0) continue;
+	    if (sctp_getopt(proto, type, &res, &sz) < 0) continue;
 	    /* Form the result: */
 	    PLACE_FOR(spec, i, LOAD_ATOM_CNT + 
 		      (is_int ? LOAD_INT_CNT : LOAD_BOOL_CNT) +
@@ -7909,7 +8523,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP,
+	    if (sctp_getopt(IPPROTO_SCTP,
 			    (eopt == SCTP_OPT_PRIMARY_ADDR) ?
 			    SCTP_PRIMARY_ADDR : SCTP_SET_PEER_PRIMARY_ADDR,
 			    &sp, &sz) < 0) continue;
@@ -7940,7 +8554,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    struct       sctp_setadaptation ad;
 	    unsigned int sz  = sizeof (ad);
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_ADAPTATION_LAYER, 
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_ADAPTATION_LAYER, 
 			    &ad, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -7981,7 +8595,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    buflen -= buf - before;
 
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS, 
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS, 
 			    &ap, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -8052,6 +8666,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
 	}
+#if 0
 	case SCTP_OPT_DEFAULT_SEND_PARAM:
 	{
 	    struct       sctp_sndrcvinfo sri;
@@ -8098,6 +8713,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
 	}
+#endif
 	/* The following option is not available in Solaris 10: */
 #	if HAVE_DECL_SCTP_DELAYED_ACK_TIME
 	case SCTP_OPT_DELAYED_ACK_TIME:
@@ -8110,7 +8726,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_DELAYED_ACK_TIME,
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_DELAYED_ACK_TIME,
 			    &av, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT +
@@ -8134,7 +8750,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_STATUS,
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_STATUS,
 			    &st, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 3*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT +
@@ -8230,7 +8846,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    buflen -= buf - before;
 
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_GET_PEER_ADDR_INFO,
+	    if (sctp_getopt(IPPROTO_SCTP, SCTP_GET_PEER_ADDR_INFO,
 			    &pai, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -8703,7 +9319,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    ErlDrvSizeT rlen;
 
 	    assoc_id = get_int32(buf);
-	    n = p_sctp_getpaddrs(desc->s, assoc_id, &sa);
+	    n = p_sctp_getpaddrs(
+#ifdef HAVE_USRSCTP
+	    desc->usrsctp_sock,
+#else 
+	    desc->s, 
+#endif
+	    assoc_id, &sa);
 	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize, 0);
 	    if (n > 0) p_sctp_freepaddrs(sa);
 	    return rlen;
@@ -8780,7 +9402,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    ErlDrvSizeT rlen;
 
 	    assoc_id = get_int32(buf);
-	    n = p_sctp_getladdrs(desc->s, assoc_id, &sa);
+	    n = p_sctp_getladdrs(
+#ifdef HAVE_USRSCTP
+		desc->usrsctp_sock,
+#else
+		desc->s, 
+#endif		
+		assoc_id, &sa);
 	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize, 0);
 	    if (n > 0) p_sctp_freeladdrs(sa);
 	    return rlen;
@@ -8856,9 +9484,14 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	     (desc->sfamily, &local, &buf, &len)) != NULL)
 	    return ctl_xerror(xerror, rbuf, rsize);
 
+#ifdef HAVE_USRSCTP
+	if(IS_SCTP(desc)) {
+	    if (IS_SOCKET_ERROR(p_usrsctp_bind(desc->usrsctp_sock,(struct sockaddr*) &local, len)))
+		return ctl_error(sock_errno(), rbuf, rsize);
+	} else
+#endif
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
-
 	desc->state = INET_STATE_OPEN;
 
 	port = inet_address_port(&local);
@@ -9912,7 +10545,7 @@ static void inet_stop_select(ErlDrvEvent event, void* _)
 /* The peer socket has closed, cleanup and send event */
 static int tcp_recv_closed(tcp_descriptor* desc)
 {
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     long port = (long) desc->inet.port; /* Used after driver_exit() */
 #endif
     DEBUGF(("tcp_recv_closed(%ld): s=%d, in %s, line %d\r\n",
@@ -10380,7 +11013,7 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
      * the events with mask for the events we really want.
      */
 
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     if ((netEv.lNetworkEvents & ~(desc->inet.event_mask)) != 0) {
 	DEBUGF(("port %d:  ... unexpected event: %d\r\n",
 		desc->inet.port, netEv.lNetworkEvents & ~(desc->inet.event_mask)));
@@ -10461,7 +11094,7 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     long port = (long) desc->inet.port;  /* Used after driver_exit() */
 #endif
     ASSERT(!INETP(desc)->is_ignored);
@@ -11380,7 +12013,11 @@ static int should_use_so_bsdcompat(void)
  */
 static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol);
 
+#ifdef HAVE_USRSCTP
+static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, struct socket* s, int* err)
+#else
 static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
+#endif
 {
     ErlDrvSizeT q_low, q_high;
     ErlDrvPort port = desc->inet.port;
@@ -11388,8 +12025,15 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 
     copy_desc = (udp_descriptor*) packet_inet_start(port, NULL, IPPROTO_SCTP);
 
-    /* Setup event if needed */
-    if ((copy_desc->inet.s = s) != INVALID_SOCKET) {
+#ifdef HAVE_USRSCTP
+    usrsctp_setup_sock(s,INETP(copy_desc));
+    
+    if ((copy_desc->inet.usrsctp_sock = s) != NULL)
+#else
+    if ((copy_desc->inet.s = s) != INVALID_SOCKET) 
+#endif
+    {
+	/* Setup event if needed */
 	if ((copy_desc->inet.event = sock_create_event(INETP(copy_desc))) ==
 	    INVALID_EVENT) {
 	    *err = sock_errno();
@@ -11427,11 +12071,15 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
     copy_desc->inet.port = port;
     copy_desc->inet.dport = driver_mk_port(port);
     *err = 0;
+#ifdef HAVE_USRSCTP
+    hash_new_usrsctp_driver(copy_desc->inet.usrsctp_sock, &(copy_desc->inet));
+    if(copy_desc->inet.active && p_usrsctp_readable(s))
+	driver_port_task_input_schedule(driver_erts_drvport2id(copy_desc->inet.port));
+#endif
 
     return copy_desc;
 }
 #endif
-
 
 
 #ifdef HAVE_UDP
@@ -11663,9 +12311,11 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    if ((xerror = inet_set_faddress
 		 (desc->sfamily, &remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
-	
+#ifdef HAVE_USRSCTP
+	    code = p_usrsctp_connect(desc->usrsctp_sock, &remote.sa, len);
+#else
 	    code = sock_connect(desc->s, &remote.sa, len);
-
+#endif
 	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
 		if (timeout != INET_INFINITY)
@@ -11735,9 +12385,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		return ctl_error(EINVAL, rbuf, rsize);
 	    backlog = get_int16(buf);
 
+#ifdef HAVE_USRSCTP
+	    if (IS_SOCKET_ERROR(p_usrsctp_listen(desc->usrsctp_sock, backlog)))
+		return ctl_error(sock_errno(), rbuf, rsize);
+#else
 	    if (IS_SOCKET_ERROR(sock_listen(desc->s, backlog)))
 		return ctl_error(sock_errno(), rbuf, rsize);
-
+#endif
 	    desc->state = INET_STATE_LISTENING;   /* XXX: not used? */
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
@@ -11773,7 +12427,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		        return ctl_xerror(xerror, rbuf, rsize);
 
 		    /* Invoke the call: */
-		    if (p_sctp_bindx(desc->s, (struct sockaddr *)&addr, 1,
+		    if (p_sctp_bindx(
+#ifdef HAVE_USRSCTP
+				     desc->usrsctp_sock,	
+#else
+				     desc->s,
+#endif
+				     (struct sockaddr *)&addr, 1,
 				     rflag) < 0)
 			return ctl_error(sock_errno(), rbuf, rsize);
 		}
@@ -11788,35 +12448,53 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    Uint32 assoc_id;
 	    udp_descriptor* new_udesc;
 	    int err;
+#ifdef HAVE_USRSCTP
+	    struct socket *new_socket;
+#else
 	    SOCKET new_socket;
-
+#endif
 	    DEBUGF(("packet_inet_ctl(%ld): PEELOFF\r\n", (long)desc->port));
 	    if (!IS_SCTP(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
 	    if (!IS_OPEN(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
+#ifdef HAVE_USRSCTP
+	    if (! p_usrsctp_peeloff)
+#else
 	    if (! p_sctp_peeloff)
+#endif    
 		return ctl_error(ENOTSUP, rbuf, rsize);
 
 	    if (len != 4)
 		return ctl_error(EINVAL, rbuf, rsize);
 	    assoc_id = get_int32(buf);
-
+#ifdef HAVE_USRSCTP
+	    new_socket = p_usrsctp_peeloff(desc->usrsctp_sock, assoc_id);
+	    if (new_socket == NULL)
+#else
 	    new_socket = p_sctp_peeloff(desc->s, assoc_id);
-	    if (IS_SOCKET_ERROR(new_socket)) {
+	    if (IS_SOCKET_ERROR(new_socket)) 
+#endif
+	    {
+		DEBUGF(("new_socket is nulll!\r\n"));
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }
 
 	    desc->caller = driver_caller(desc->port);
 	    if ((new_udesc = sctp_inet_copy(udesc, new_socket, &err)) == NULL) {
+#ifdef HAVE_USRSCTP
+		p_usrsctp_close(new_socket);
+#else
 		sock_close(new_socket);
+#endif
 		desc->caller = 0;
 		return ctl_error(err, rbuf, rsize);
 	    }
 	    new_udesc->inet.state = INET_STATE_CONNECTED;
 	    new_udesc->inet.stype = SOCK_STREAM;
+#ifndef HAVE_USRSCTP
 	    SET_NONBLOCKING(new_udesc->inet.s);
-
+#endif
 	    inet_reply_ok_port(desc, new_udesc->inet.dport);
 	    (*rbuf)[0] = INET_REP;
 	    return 1;
@@ -11905,6 +12583,9 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     if (IS_SCTP(desc))
     {
 	ErlDrvSizeT   data_len;
+#ifdef HAVE_USRSCTP
+	struct sctp_sndinfo si;
+#else
 	struct iovec  iov[1];		 /* For real data            */
 	struct msghdr mhdr;		 /* Message wrapper          */
 	struct sctp_sndrcvinfo *sri;     /* The actual ancilary data */
@@ -11912,12 +12593,31 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    struct cmsghdr hdr;
 	    char ancd[CMSG_SPACE(sizeof(*sri))];
 	} cmsg;
-	
+#endif
+
 	if (len < SCTP_GET_SENDPARAMS_LEN) {
 	    inet_reply_error(desc, EINVAL);
 	    return;
 	}
+
+#ifdef HAVE_USRSCTP
+	ptr = sctp_get_sendparams(&si, ptr);
+	data_len = (buf + len) - ptr;
 	
+	code = p_usrsctp_sendv(desc->usrsctp_sock,
+			       ptr,
+			       data_len,
+			       NULL,
+			       0,
+			       &si,
+			       sizeof(struct sctp_sndinfo),
+			       SCTP_SENDV_SNDINFO,
+			       0);
+
+
+	inet_output_count(desc, data_len);
+
+#else
 	/* The ancilary data */
 	sri = (struct sctp_sndrcvinfo *) (CMSG_DATA(&cmsg.hdr));
 	/* Get the "sndrcvinfo" from the buffer, advancing the "ptr": */
@@ -11927,7 +12627,6 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	cmsg.hdr.cmsg_level = IPPROTO_SCTP;
 	cmsg.hdr.cmsg_type  = SCTP_SNDRCV;
 	cmsg.hdr.cmsg_len   = CMSG_LEN(sizeof(*sri));
-	
 	data_len = (buf + len) - ptr;
 	/* The whole msg. 
 	 * Solaris (XPG 4.2) requires iovlen >= 1 even for data_len == 0.
@@ -11947,6 +12646,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
 	code = sock_sendmsg(desc->s, &mhdr, 0);
+#endif
 	goto check_result_code;
     }
 #endif
@@ -12059,6 +12759,46 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 
 	/* Note: On Windows NT, recvfrom() fails if the socket is connected. */
 #ifdef HAVE_SCTP
+#ifdef HAVE_USRSCTP
+	/* For SCTP we must use recvmsg() */
+	if (IS_SCTP(desc)) {
+	    unsigned int infotype = 0;
+	    socklen_t infolen = SCTP_ANC_BUFF_SIZE;
+	    iov->iov_base = udesc->i_ptr; /* Data will come here    */
+	    iov->iov_len = desc->bufsz; /* Remaining buffer space */
+	    
+	    mhdr.msg_name	= &other.sa; /* FIXME: only ipv4 support, Peer addr comes into "other" */
+	    mhdr.msg_namelen	= len;
+	    mhdr.msg_iov	= iov;
+	    mhdr.msg_iovlen	= 1;
+	    mhdr.msg_control	= ancd;
+	    mhdr.msg_controllen	= SCTP_ANC_BUFF_SIZE;
+	    mhdr.msg_flags	= 0;	   /* To be filled by "recvmsg"    */
+	   
+	    /* Do the actual SCTP receive: */
+	    DEBUGF(("usrsctp_recvv about to be called %p\r\n", desc->usrsctp_sock));
+	    n = p_usrsctp_recvv(desc->usrsctp_sock,
+				udesc->i_ptr,
+				desc->bufsz,
+				&other.sa, 
+				&mhdr.msg_namelen,
+				mhdr.msg_control,
+				&infolen, 
+				&infotype,
+				&mhdr.msg_flags);
+	    len = mhdr.msg_namelen;
+	    DEBUGF(("n -> %d\r\n", n));
+	    DEBUGF(("infolen -> %d\r\n", infolen));
+	    DEBUGF(("infotype -> %d\r\n", infotype));
+#ifdef INET_DRV_DEBUG
+	    struct sctp_rcvinfo* ri = (struct sctp_rcvinfo *) mhdr.msg_control;
+#endif
+	    DEBUGF(("sctp_rcvinfo->rcv_sid %d\r\n", ri->rcv_sid));
+	    DEBUGF(("msg_flags %d\r\n", mhdr.msg_flags));
+
+	    goto check_result;
+	}
+#else
 	/* For SCTP we must use recvmsg() */
 	if (IS_SCTP(desc)) {
 	    iov->iov_base = udesc->i_ptr; /* Data will come here    */
@@ -12078,6 +12818,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    goto check_result;
 	}
 #endif
+#endif
 	/* Use recv() instead on connected sockets. */
 	if ((desc->state & INET_F_ACTIVE)) {
 	    n = sock_recv(desc->s, udesc->i_ptr, desc->bufsz, 0);
@@ -12090,6 +12831,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	/* Analyse the result: */
 	if (IS_SOCKET_ERROR(n)) {
 	    int err = sock_errno();
+	    DEBUGF(("errno -> %d\r\n", errno));
 	    if (err != ERRNO_BLOCK) {
 		/* real error */
 		release_buffer(udesc->i_buf);
@@ -12097,7 +12839,10 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		if (!desc->active) {
 		    async_error(desc, err);
 		    driver_cancel_timer(desc->port);
-		    sock_select(desc,FD_READ,0);
+#ifdef HAVE_USRSCTP
+		    if(!IS_SCTP(desc))
+#endif
+			sock_select(desc,FD_READ,0);
 		}
 		else {
 		    /* This is for an active desc only: */
@@ -12111,13 +12856,16 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		|| short_recv
 #endif
 		) {
+#ifndef HAVE_USRSCTP
 		sock_select(desc,FD_READ,1);
+#endif
 	    }
 	    return count;		/* strange, not ready */
 	}
 
 #ifdef HAVE_SCTP
 	if (IS_SCTP(desc) && (short_recv = !(mhdr.msg_flags & MSG_EOR))) {
+	    
 	    /* SCTP non-final message fragment */
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
@@ -12174,7 +12922,9 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    count++;
 	    if (!desc->active) {
 		driver_cancel_timer(desc->port); /* possibly cancel */
+#ifndef HAVE_USRSCTP
 		sock_select(desc,FD_READ,0);
+#endif
 		return count;  /* passive mode (read one packet only) */
 	    }
 	}
@@ -12184,7 +12934,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
      * that got that many messages or an SCTP socket that got that
      * many message fragments but still not the final
      */
-#ifdef HAVE_SCTP
+#if defined(HAVE_SCTP) && !defined(USRSCTP)
     if (short_recv) {
 	sock_select(desc, FD_READ, 1);
     }
@@ -12260,7 +13010,7 @@ static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 	ASSERT(0);
 	return;
     }
-#ifdef DEBUG
+#ifdef INET_DRV_DEBUG
     {
 	ErlDrvTime chk = erl_drv_monotonic_time(ERL_DRV_MSEC);
 	ASSERT(chk >= (*first)->when);

@@ -34,6 +34,8 @@
 #  define EXEC_PROGRAM "/bin/echo"
 #endif
 
+#define __APPLE_USE_RFC_3542 /* IPV6_PKTINFO */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,8 +54,12 @@
 struct sock_list {
     struct sock_list *next;
     int fd;
+    int domain;
     int type;
     int protocol;
+    int iphdr;
+    int ipv6pkt;
+    int rtmo;
     struct sockaddr_in addr;
     char *arg;
 };
@@ -104,7 +110,8 @@ int parse_addr(addr, str)
     return 0;
 }
 
-struct sock_list *new_entry(type, argstr)
+struct sock_list *new_entry(domain, type, argstr)
+    int domain;
     int type;
     char *argstr;
 {
@@ -124,6 +131,14 @@ struct sock_list *new_entry(type, argstr)
     } else {
 	sle->arg = "-fd";
     }
+
+    if (domain == AF_ROUTE) {
+	sle->protocol = 0;
+	sle->type = type;
+	sle->domain = AF_ROUTE;
+	return sle;
+    }
+
     sle->type = type;
     switch (type) {
         case SOCK_RAW: {
@@ -135,11 +150,13 @@ struct sock_list *new_entry(type, argstr)
 		return NULL;
 	    }
 	    sle->protocol = pe->p_proto;
+	    sle->domain = domain;
 	    break;
 	}
         case SOCK_STREAM:
         case SOCK_DGRAM:
 	    sle->protocol = 0;
+	    sle->domain = domain;
 	    if (parse_addr(&sle->addr, argstr) < 0) {
 		free(sle);
 		return NULL;
@@ -149,15 +166,62 @@ struct sock_list *new_entry(type, argstr)
     return sle;
 }
 
+#define SOCKET_TIMEOUT 100 /* in ms */
+void set_rcvtimeo_timeout(int fd) {
+    struct timeval timeout;
+
+    memset(&timeout, 0, sizeof(struct timeval));
+    timeout.tv_sec  = (SOCKET_TIMEOUT / 1000);
+    timeout.tv_usec = (SOCKET_TIMEOUT % 1000) * 1000;
+
+    if(setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(const void*)&timeout, sizeof(struct timeval)) < 0) {
+	perror("setsockopt SO_RCVTIMEO");
+	close(fd);
+    }
+}
+
+void set_ip_header_included(int fd) {
+    const int hdrincl = 1;
+    if(setsockopt(fd, IPPROTO_IP, IP_HDRINCL,(const void*)&hdrincl, sizeof(int)) < 0 ) {
+	perror("setsockopt IP_HDRINCL");
+	close(fd);
+    }
+}
+
+void set_ipv6_pkt(int fd) {
+    const int on = 1;
+#if defined(IPV6_RECVPKTINFO)
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, (const void *)&on, sizeof(on)) < 0) {
+	perror("setsockopt IPV6_RECVPKTINFO");
+	close(fd);
+	return;
+    }
+#endif
+#if defined(IPV6_PKTINFO)
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_PKTINFO,(const void*)&on, sizeof(on)) < 0) {
+	perror("setsockopt IPV6_PKTINFO");
+	close(fd);
+	return;
+    }
+#endif
+#if defined(IPV6_IPV6ONLY)
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (const void*)&on, (socklen_t)sizeof(on)) < 0) {
+	perror("setsockopt IPV6_V6ONLY");
+	close(fd);
+	return;
+    }
+#endif
+}
+
 int open_socket(sle)
     struct sock_list *sle;
 {
-    sle->fd = socket(AF_INET, sle->type, sle->protocol);
+    sle->fd = socket(sle->domain, sle->type, sle->protocol);
     if (sle->fd < 0) {
 	perror("socket");
 	return -1;
     }
-    if (sle->type != SOCK_RAW) {
+    if (sle->type != SOCK_RAW && sle->domain == AF_INET) {
 #if 0
 	printf("binding fd %d to %s:%d\n", sle->fd,
 	       inet_ntoa(sle->addr.sin_addr), ntohs(sle->addr.sin_port));
@@ -167,7 +231,15 @@ int open_socket(sle)
 	    close(sle->fd);
 	    return -1;
 	}
+    } else {
+	if(sle->iphdr)
+	    set_ip_header_included(sle->fd);
+	if(sle->ipv6pkt)
+	    set_ipv6_pkt(sle->fd);
+	if(sle->rtmo)
+	    set_rcvtimeo_timeout(sle->fd);
     }
+
     return sle->fd;
 }
 
@@ -179,31 +251,88 @@ int main(argc, argv)
     int count = 0;
     int c;
 
-    while ((c = getopt(argc, argv, "s:d:r:")) != EOF)
+    while ((c = getopt(argc, argv, "s:d:r:R:t:T:z:")) != EOF)
 	switch (c) {
 	case 's':
-	    sltmp = new_entry(SOCK_STREAM, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_STREAM, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 0;
 	    sltmp->next = sl;
 	    sl = sltmp;
 	    count++;
 	    break;
 	case 'd':
-	    sltmp = new_entry(SOCK_DGRAM, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_DGRAM, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 0;
 	    sltmp->next = sl;
 	    sl = sltmp;
 	    count++;
 	    break;
 	case 'r':
-	    sltmp = new_entry(SOCK_RAW, optarg);
+	    sltmp = new_entry(AF_INET, SOCK_RAW, optarg);
 	    if (!sltmp) {
 		exit(1);
 	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 0;
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 'R':
+	    sltmp = new_entry(AF_INET6, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 0;
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 't':
+	    sltmp = new_entry(AF_INET, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->iphdr = 1;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 1;
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 'T':
+	    sltmp = new_entry(AF_INET6, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 1;
+	    sltmp->rtmo = 1;
+	    sltmp->next = sl;
+	    sl = sltmp;
+	    count++;
+	    break;
+	case 'z':
+	    sltmp = new_entry(AF_ROUTE, SOCK_RAW, optarg);
+	    if (!sltmp) {
+		exit(1);
+	    }
+	    sltmp->iphdr = 0;
+	    sltmp->ipv6pkt = 0;
+	    sltmp->rtmo = 1;
 	    sltmp->next = sl;
 	    sl = sltmp;
 	    count++;

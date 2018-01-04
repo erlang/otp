@@ -175,7 +175,7 @@ AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
 to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
 [ case "x$enableval" in
-      xno|xyes|xlib|x)
+      xno|xyes|xlib|xusrsctp|x)
           ;;
       x*)
           AC_MSG_ERROR("invalid value --enable-sctp=$enableval")
@@ -1647,7 +1647,8 @@ AC_CHECK_HEADERS([sys/timerfd.h])
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" != "xno" ; then
+if test "x$enable_sctp" != "xno" && \
+   test "x$enable_sctp" != "xusrsctp" ; then
     AC_CHECK_HEADER(netinet/sctp.h,
         [LIBSCTP=libsctp.so.1
 	 AC_DEFINE(HAVE_SCTP_H, [1],
@@ -1659,7 +1660,30 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
-if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
+AC_SUBST(LIBSCTP)
+if test "x$enable_sctp" = "xusrsctp" ; then
+    case $host_os in
+	darwin*)
+	    SCTPLIB=libusrsctp.dylib
+	    ;;
+	linux*)
+	    SCTPLIB=libusrsctp.so
+	    ;;
+    esac
+    AC_CHECK_HEADER(usrsctp.h,
+        [LIBSCTP=$SCTPLIB
+	AC_DEFINE(HAVE_SCTP_H, [1],
+	    [Define to 1 if you have the SCTP support])
+	AC_DEFINE(HAVE_USRSCTP, [1],
+            [Define to 1 if you have the <usrsctp.h> header file])],
+	[],
+	[#if HAVE_SYS_SOCKET_H
+	 #include <sys/socket.h>
+	 #endif
+	])
+fi
+
+if test x"$ac_cv_header_netinet_sctp_h" = x"yes" ; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
@@ -1691,6 +1715,38 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
          #include <sys/socket.h>
          #endif
          #include <netinet/sctp.h>
+        ])
+fi
+
+if  test x"$ac_cv_header_usrsctp_h" = x"yes" ; then
+    AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
+                    SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
+		    SCTP_DELAYED_ACK_TIME,
+		    SCTP_EMPTY, SCTP_UNCONFIRMED,
+		    SCTP_CLOSED, SCTPS_IDLE,
+		    SCTP_BOUND, SCTPS_BOUND,
+		    SCTP_LISTEN, SCTPS_LISTEN,
+		    SCTP_COOKIE_WAIT, SCTPS_COOKIE_WAIT,
+		    SCTP_COOKIE_ECHOED, SCTPS_COOKIE_ECHOED,
+		    SCTP_ESTABLISHED, SCTPS_ESTABLISHED,
+		    SCTP_SHUTDOWN_PENDING, SCTPS_SHUTDOWN_PENDING,
+		    SCTP_SHUTDOWN_SENT, SCTPS_SHUTDOWN_SENT,
+		    SCTP_SHUTDOWN_RECEIVED, SCTPS_SHUTDOWN_RECEIVED,
+		    SCTP_SHUTDOWN_ACK_SENT, SCTPS_SHUTDOWN_ACK_SENT], [], [],
+        [#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <usrsctp.h>
+        ])
+    AC_CHECK_MEMBERS([struct sctp_paddrparams.spp_pathmtu,
+                      struct sctp_paddrparams.spp_sackdelay,
+                      struct sctp_paddrparams.spp_flags,
+                      struct sctp_remote_error.sre_data,
+                      struct sctp_send_failed.ssf_data], [], [],
+        [#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <usrsctp.h>
         ])
 fi
 
