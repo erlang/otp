@@ -312,7 +312,7 @@ delete_live_annos([]) -> [].
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
     H1 + H2;
 combine_heap_needs(H1, H2) ->
-    combine_alloc_lists([H1,H2]).
+    {alloc,combine_alloc_lists([H1,H2])}.
 
 
 %% anno_defs(Instructions) -> Instructions'
