@@ -465,7 +465,8 @@ init_table_holder(Parent, Accum0, Attrs) ->
     Backend = spawn_link(node(), observer_backend, procs_info, [self()]),
     Accum = case Accum0 of
                 true -> true;
-                false -> []
+                false -> [];
+                [] -> []
             end,
     table_holder(#holder{parent=Parent,
 			 info=array:new(),
