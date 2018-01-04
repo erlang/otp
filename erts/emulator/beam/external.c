@@ -1949,23 +1949,14 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		level = context->s.ec.level;
 		BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
 		if (level == 0 || real_size < 6) { /* We are done */
-		    ProcBin* pb;
 		return_normal:
 		    context->s.ec.result_bin = NULL;
 		    context->alive = 0;
-		    pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
-		    pb->thing_word = HEADER_PROC_BIN;
-		    pb->size = real_size;
-		    pb->next = MSO(p).first;
-		    MSO(p).first = (struct erl_off_heap_header*)pb;
-		    pb->val = result_bin;
-		    pb->bytes = (byte*) result_bin->orig_bytes;
-		    pb->flags = 0;
-		    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
 		    if (context_b && erts_refc_read(&context_b->intern.refc,0) == 0) {
 			erts_bin_free(context_b);
 		    }
-		    return make_binary(pb);
+		    return erts_build_proc_bin(&MSO(p), HAlloc(p, PROC_BIN_SIZE),
+                                               result_bin);
 		}
 		/* Continue with compression... */
 		/* To make absolutely sure that zlib does not barf on a reallocated context, 
@@ -2022,16 +2013,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			result_bin = erts_bin_realloc(context->s.cc.destination_bin,
 						      context->s.cc.dest_len+6);
 			context->s.cc.destination_bin = NULL;
-			pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
-			pb->thing_word = HEADER_PROC_BIN;
-			pb->size = context->s.cc.dest_len+6;
-			pb->next = MSO(p).first;
-			MSO(p).first = (struct erl_off_heap_header*)pb;
-			pb->val = result_bin;
 			ASSERT(erts_refc_read(&result_bin->intern.refc, 1));
-			pb->bytes = (byte*) result_bin->orig_bytes;
-			pb->flags = 0;
-			OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
 			erts_bin_free(context->s.cc.result_bin);
 			context->s.cc.result_bin = NULL;
 			context->alive = 0;
@@ -2039,7 +2021,9 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			if (context_b && erts_refc_read(&context_b->intern.refc,0) == 0) {
 			    erts_bin_free(context_b);
 			}
-			return make_binary(pb);
+			return erts_build_proc_bin(&MSO(p),
+						   HAlloc(p, PROC_BIN_SIZE),
+                                                   result_bin);
 		    }
 		default: /* Compression error, revert to uncompressed binary (still in 
 			    context) */
@@ -3535,18 +3519,9 @@ dec_term_atom_common:
 		    *objp = make_binary(hb);
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
-		    ProcBin* pb;
-		    pb = (ProcBin *) hp;
+
+		    *objp = erts_build_proc_bin(factory->off_heap, hp, dbin);
 		    hp += PROC_BIN_SIZE;
-		    pb->thing_word = HEADER_PROC_BIN;
-		    pb->size = n;
-		    pb->next = factory->off_heap->first;
-		    factory->off_heap->first = (struct erl_off_heap_header*)pb;
-		    OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
-		    pb->val = dbin;
-		    pb->bytes = (byte*) dbin->orig_bytes;
-		    pb->flags = 0;
-		    *objp = make_binary(pb);
                     if (ctx) {
                         int n_limit = reds * B2T_MEMCPY_FACTOR;
                         if (n > n_limit) {
@@ -3586,18 +3561,9 @@ dec_term_atom_common:
                     ep += n;
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
-		    ProcBin* pb;
+		    Uint n_copy = n;
 
-		    pb = (ProcBin *) hp;
-		    pb->thing_word = HEADER_PROC_BIN;
-		    pb->size = n;
-		    pb->next = factory->off_heap->first;
-		    factory->off_heap->first = (struct erl_off_heap_header*)pb;
-		    OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
-		    pb->val = dbin;
-		    pb->bytes = (byte*) dbin->orig_bytes;
-		    pb->flags = 0;
-		    bin = make_binary(pb);
+		    bin = erts_build_proc_bin(factory->off_heap, hp, dbin);
 		    hp += PROC_BIN_SIZE;
                     if (ctx) {
                         int n_limit = reds * B2T_MEMCPY_FACTOR;
@@ -3605,15 +3571,15 @@ dec_term_atom_common:
                             ctx->state = B2TDecodeBinary;
                             ctx->u.dc.remaining_n = n - n_limit;
                             ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
-                            n = n_limit;
+                            n_copy = n_limit;
                             reds = 0;
                         }
-                        else
+                        else {
                             reds -= n / B2T_MEMCPY_FACTOR;
+			}
                     }
-                    sys_memcpy(dbin->orig_bytes, ep, n);
-                    ep += n;
-                    n = pb->size;
+                    sys_memcpy(dbin->orig_bytes, ep, n_copy);
+                    ep += n_copy;
                 }
 
 		if (bitsize == 8 || n == 0) {

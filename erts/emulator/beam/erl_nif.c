@@ -1343,21 +1343,11 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
     }
     else if (bin->ref_bin != NULL) {
 	Binary* bptr = bin->ref_bin;
-	ProcBin* pb;
 	Eterm bin_term;
 	
-	/* !! Copy-paste from new_binary() !! */
-	pb = (ProcBin *) alloc_heap(env, PROC_BIN_SIZE);
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = bptr->orig_size;
-	pb->next = MSO(env->proc).first;
-	MSO(env->proc).first = (struct erl_off_heap_header*) pb;
-	pb->val = bptr;
-	pb->bytes = (byte*) bptr->orig_bytes;
-	pb->flags = 0;
-	
-	OH_OVERHEAD(&(MSO(env->proc)), pb->size / sizeof(Eterm));
-	bin_term = make_binary(pb);	
+        bin_term = erts_build_proc_bin(&MSO(env->proc),
+                                       alloc_heap(env, PROC_BIN_SIZE),
+                                       bptr);
 	if (erts_refc_read(&bptr->intern.refc, 1) == 1) {
 	    /* Total ownership transfer */
 	    bin->ref_bin = NULL;

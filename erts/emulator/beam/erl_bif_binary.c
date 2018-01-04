@@ -2731,28 +2731,21 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 	BIF_TRAP2(&binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
     } else {
 	Binary *save;
-	ProcBin* pb;
+        Eterm resbin;
 	Uint target_size = cbs->result->orig_size;
 	while (pos < target_size) {
 	    memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	}
-	save =  cbs->result;
+	save = cbs->result;
 	cbs->result = NULL;
 	cleanup_copy_bin_state(mb); /* now cbs is dead */
-	pb = (ProcBin *) HAlloc(BIF_P, PROC_BIN_SIZE);
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = target_size;
-	pb->next = MSO(BIF_P).first;
-	MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-	pb->val = save;
-	pb->bytes = t;
-	pb->flags = 0;
 
-	OH_OVERHEAD(&(MSO(BIF_P)), target_size / sizeof(Eterm));
-	BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
-
-	BIF_RET(make_binary(pb));
+        resbin = erts_build_proc_bin(&MSO(BIF_P),
+                                     HAlloc(BIF_P, PROC_BIN_SIZE),
+                                     save);
+        BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
+	BIF_RET(resbin);
     }
 }
 

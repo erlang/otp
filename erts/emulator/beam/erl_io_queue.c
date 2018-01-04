@@ -817,24 +817,15 @@ static Eterm iol2v_make_sub_bin(iol2v_state_t *state, Eterm bin_term,
 }
 
 static Eterm iol2v_promote_acc(iol2v_state_t *state) {
-    ProcBin *pb;
+    Eterm bin;
 
-    state->acc = erts_bin_realloc(state->acc, state->acc_size);
-
-    pb = (ProcBin*)HAlloc(state->process, PROC_BIN_SIZE);
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = state->acc_size;
-    pb->val = state->acc;
-    pb->bytes = (byte*)(state->acc)->orig_bytes;
-    pb->flags = 0;
-    pb->next = MSO(state->process).first;
-    OH_OVERHEAD(&(MSO(state->process)), pb->size / sizeof(Eterm));
-    MSO(state->process).first = (struct erl_off_heap_header*)pb;
-
+    bin = erts_build_proc_bin(&MSO(state->process),
+                              HAlloc(state->process, PROC_BIN_SIZE),
+                              erts_bin_realloc(state->acc, state->acc_size));
     state->acc_size = 0;
     state->acc = NULL;
 
-    return make_binary(pb);
+    return bin;
 }
 
 /* Destructively enqueues a term to the result list, saving us the hassle of
