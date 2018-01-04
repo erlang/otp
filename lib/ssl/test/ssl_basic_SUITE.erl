@@ -661,7 +661,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa, aes_128_cbc, sha}]} | 
+			    [{ciphers,[{dhe_rsa, aes_128_cbc, sha}]} | 
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -669,7 +669,7 @@ connection_info(Config) when is_list(Config) ->
 
     Version = ssl_test_lib:protocol_version(Config),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa, aes_128_cbc, sha}}},
+    ServerMsg = ClientMsg = {ok, {Version, {dhe_rsa, aes_128_cbc, sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -1284,9 +1284,14 @@ cipher_suites() ->
     [{doc,"Test API function cipher_suites/0"}].
 
 cipher_suites(Config) when is_list(Config) -> 
-    MandatoryCipherSuite = {rsa,'3des_ede_cbc',sha},
-    [_|_] = Suites = ssl:cipher_suites(),
-    true = lists:member(MandatoryCipherSuite, Suites),
+    MandatoryCipherSuiteTLS1_0TLS1_1 = {rsa,'3des_ede_cbc',sha},
+    MandatoryCipherSuiteTLS1_0TLS1_2 = {rsa,'aes_128_cbc',sha} ,
+    [_|_] = Suites = ssl:cipher_suites(), 
+    AllSuites = ssl:cipher_suites(all),
+    %% The mandantory suites will no longer be supported by default
+    %% due to security reasons
+    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, AllSuites),
+    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, AllSuites),
     Suites = ssl:cipher_suites(erlang),
     [_|_] =ssl:cipher_suites(openssl).
 
@@ -1295,7 +1300,7 @@ cipher_suites_mix() ->
     [{doc,"Test to have old and new cipher suites at the same time"}].
 
 cipher_suites_mix(Config) when is_list(Config) -> 
-    CipherSuites = [{ecdh_rsa,aes_128_cbc,sha256,sha256}, {rsa,aes_128_cbc,sha}],
+    CipherSuites = [{dhe_rsa,aes_128_cbc,sha256,sha256}, {dhe_rsa,aes_128_cbc,sha}],
     ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
 
@@ -3240,16 +3245,16 @@ tls_tcp_reuseaddr(Config) when is_list(Config) ->
 honor_server_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_server_cipher_order(Config) when is_list(Config) ->
-    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
-    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
-honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, {rsa, aes_256_cbc, sha}).
+    ClientCiphers = [{dhe_rsa, aes_128_cbc, sha}, {dhe_rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{dhe_rsa, aes_256_cbc, sha}, {dhe_rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, {dhe_rsa, aes_256_cbc, sha}).
 
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_client_cipher_order(Config) when is_list(Config) ->
-    ClientCiphers = [{rsa, aes_128_cbc, sha}, {rsa, aes_256_cbc, sha}],
-    ServerCiphers = [{rsa, aes_256_cbc, sha}, {rsa, aes_128_cbc, sha}],
-honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, {rsa, aes_128_cbc, sha}).
+    ClientCiphers = [{dhe_rsa, aes_128_cbc, sha}, {dhe_rsa, aes_256_cbc, sha}],
+    ServerCiphers = [{dhe_rsa, aes_256_cbc, sha}, {dhe_rsa, aes_128_cbc, sha}],
+honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, {dhe_rsa, aes_128_cbc, sha}).
 
 honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
@@ -4606,38 +4611,39 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
      ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)}.
 
 run_suites(Ciphers, Config, Type) ->
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Version = ssl_test_lib:protocol_version(Config),
     ct:log("Running cipher suites ~p~n", [Ciphers]),
     {ClientOpts, ServerOpts} =
 	case Type of
 	    rsa ->
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 ssl_test_lib:ssl_options(server_verification_opts, Config)};
+                 [{ciphers, Ciphers} |
+                  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
 	    dsa ->
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 ssl_test_lib:ssl_options(server_dsa_opts, Config)};
+                 [{ciphers, Ciphers} |
+		 ssl_test_lib:ssl_options(server_dsa_opts, Config)]};
 	    anonymous ->
 		%% No certs in opts!
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 [{reuseaddr, true}, {ciphers, ssl_test_lib:anonymous_suites(NVersion)} |
+		 [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options([], Config)]};
 	    psk ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_suites(NVersion)} | 
+                 [{ciphers, Ciphers} | 
                   ssl_test_lib:ssl_options(server_psk, Config)]};
 	    psk_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 [{ciphers, ssl_test_lib:psk_suites(NVersion)} |
+		 [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_psk_hint, Config)
                  ]};
 	    psk_anon ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_anon_suites(NVersion)} |
+                 [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_psk_anon, Config)]};
 	    psk_anon_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_anon_suites(NVersion)} |
+                 [{ciphers, Ciphers} |
 		 ssl_test_lib:ssl_options(server_psk_anon_hint, Config)]};
 	    srp ->
 		{ssl_test_lib:ssl_options(client_srp, Config),
@@ -4650,7 +4656,8 @@ run_suites(Ciphers, Config, Type) ->
 		 ssl_test_lib:ssl_options(server_srp_dsa, Config)};
 	    ecdsa ->
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 ssl_test_lib:ssl_options(server_ecdsa_opts, Config)};
+                 [{ciphers, Ciphers} |
+                  ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]};
 	    ecdh_rsa ->
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)};
@@ -4675,7 +4682,6 @@ run_suites(Ciphers, Config, Type) ->
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_verification_opts, Config)]}
 	end,
-
     Result =  lists:map(fun(Cipher) ->
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
 			ssl_test_lib:filter_suites(Ciphers, Version)),

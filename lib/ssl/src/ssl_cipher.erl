@@ -38,7 +38,7 @@
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
-	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
+	 rc4_suites/1, des_suites/1, rsa_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1]).
@@ -324,7 +324,8 @@ all_suites({3, _} = Version) ->
 	++ psk_suites(Version)
 	++ srp_suites()
         ++ rc4_suites(Version)
-        ++ des_suites(Version);
+        ++ des_suites(Version)
+        ++ rsa_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
@@ -373,7 +374,6 @@ anonymous_suites(N)  when N == 0;
 %%--------------------------------------------------------------------
 psk_suites({3, N}) ->
     psk_suites(N);
-
 psk_suites(N)
   when N >= 3 ->
     [
@@ -394,7 +394,6 @@ psk_suites(N)
      ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
      ?TLS_PSK_WITH_AES_128_CBC_SHA256
     ] ++ psk_suites(0);
-
 psk_suites(_) ->
 	[?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
 	 ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA,
@@ -460,6 +459,29 @@ des_suites(_)->
     [?TLS_DHE_RSA_WITH_DES_CBC_SHA,
      ?TLS_RSA_WITH_DES_CBC_SHA].
 
+%%--------------------------------------------------------------------
+-spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+%%
+%% Description: Returns a list of the RSA key exchange 
+%% cipher suites, only supported if explicitly set by user. 
+%% Are not considered secure any more. 
+%%--------------------------------------------------------------------
+rsa_suites({3, 0}) ->
+    rsa_suites(0);
+rsa_suites({3, Minor}) ->
+    rsa_suites(Minor) ++ rsa_suites(0);
+rsa_suites(0) ->
+    [?TLS_RSA_WITH_AES_256_CBC_SHA,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA,
+     ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
+    ];  
+rsa_suites(N) when N =< 3 ->
+    [
+     ?TLS_RSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA256
+    ].
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> erl_cipher_suite().
 %%
