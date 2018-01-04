@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1,binary_float/1,float_compare/1]).
+	 tuple/1,record_float/1,binary_float/1,float_compare/1,
+	 arity_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,7 +41,8 @@ groups() ->
        tuple,
        record_float,
        binary_float,
-       float_compare
+       float_compare,
+       arity_checks
       ]}].
 
 init_per_suite(Config) ->
@@ -171,6 +173,31 @@ do_float_compare(X) ->
         _T -> Y > 0
     end.
 
+arity_checks(_Config) ->
+    %% ERL-549: an unsafe optimization removed a test_arity instruction,
+    %% causing the following to return 'broken' instead of 'ok'.
+    ok = do_record_arity_check({rgb, 255, 255, 255, 1}),
+    ok = do_tuple_arity_check({255, 255, 255, 1}).
+ 
+-record(rgb, {r = 255, g = 255, b = 255}).
+
+do_record_arity_check(RGB) when
+        (element(2, RGB) >= 0), (element(2, RGB) =< 255),
+        (element(3, RGB) >= 0), (element(3, RGB) =< 255),
+        (element(4, RGB) >= 0), (element(4, RGB) =< 255) ->
+    if
+        element(1, RGB) =:= rgb, is_record(RGB, rgb) -> broken;
+        true -> ok
+    end.
+
+do_tuple_arity_check(RGB) when is_tuple(RGB),
+        (element(1, RGB) >= 0), (element(1, RGB) =< 255),
+        (element(2, RGB) >= 0), (element(2, RGB) =< 255),
+        (element(3, RGB) >= 0), (element(3, RGB) =< 255) ->
+    case RGB of
+        {255, _, _} -> broken;
+        _ -> ok
+    end.
 
 id(I) ->
     I.
