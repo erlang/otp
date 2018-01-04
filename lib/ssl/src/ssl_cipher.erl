@@ -457,7 +457,14 @@ rc4_suites(N) when N =< 3 ->
 %%--------------------------------------------------------------------
 des_suites(_)->
     [?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-     ?TLS_RSA_WITH_DES_CBC_SHA].
+     ?TLS_RSA_WITH_DES_CBC_SHA,
+     ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA
+    ].
 
 %%--------------------------------------------------------------------
 -spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [cipher_suite()].

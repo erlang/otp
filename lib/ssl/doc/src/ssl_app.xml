@@ -47,6 +47,8 @@
       but can be configured. (OTP 21) </item>
       <item>For security reasons DES cipher suites are no longer supported by default,
       but can be configured. (OTP 20) </item>
+    <item>For security reasons 3DES cipher suites are no longer supported by default,
+    but can be configured. (OTP 21) </item>
       <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
       </item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
