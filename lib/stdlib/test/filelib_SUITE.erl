@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
-         find_source/1]).
+         find_source/1, find_source_subdir/1]).
 
 -import(lists, [foreach/2]).
 
@@ -47,7 +47,7 @@ all() ->
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
      wildcard_symlink, is_file_symlink, file_props_symlink,
-     find_source].
+     find_source, find_source_subdir].
 
 groups() -> 
     [].
@@ -558,4 +558,25 @@ find_source(Config) when is_list(Config) ->
     %% local directory is in the default list for find_file
     {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir),
     {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir, []),
+    ok.
+
+find_source_subdir(Config) when is_list(Config) ->
+    BeamFile = code:which(inets), % Located in lib/inets/src/inets_app/
+    BeamName = filename:basename(BeamFile),
+    BeamDir = filename:dirname(BeamFile),
+    SrcName = filename:basename(BeamFile, ".beam") ++ ".erl",
+
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir),
+    SrcName = filename:basename(SrcFile),
+
+    {error, not_found} =
+        filelib:find_source(BeamName, BeamDir,
+                            [{".beam",".erl",[{"ebin","src"}]}]),
+    {ok, SrcFile} =
+        filelib:find_source(BeamName, BeamDir,
+                            [{".beam",".erl",
+                              [{"ebin",filename:join("src", "*")}]}]),
+
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
+
     ok.
