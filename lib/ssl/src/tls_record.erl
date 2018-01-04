@@ -32,7 +32,7 @@
 -include("ssl_cipher.hrl").
 
 %% Handling of incoming data
--export([get_tls_records/2, init_connection_states/2]).
+-export([get_tls_records/3, init_connection_states/2]).
 
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
@@ -75,16 +75,25 @@ init_connection_states(Role, BeastMitigation) ->
       pending_write => Pending}.
 
 %%--------------------------------------------------------------------
--spec get_tls_records(binary(), binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_tls_records(binary(), [tls_version()], binary()) -> {[binary()], binary()} | #alert{}.
 %%			     
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, <<>>) ->
-    get_tls_records_aux(Data, []);
-get_tls_records(Data, Buffer) ->
-    get_tls_records_aux(list_to_binary([Buffer, Data]), []).
+get_tls_records(Data, Versions, Buffer) ->
+    BinData = list_to_binary([Buffer, Data]),
+    case erlang:byte_size(BinData) of
+        N when N >= 3 ->
+            case assert_version(BinData, Versions) of
+                true ->
+                    get_tls_records_aux(BinData, []);
+                false ->
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            end;
+        _ ->
+            get_tls_records_aux(BinData, [])
+    end.
 
 %%====================================================================
 %% Encoding
@@ -385,6 +394,19 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       server_verify_data => undefined
      }.
 
+assert_version(<<1:1, Length0:15, Data0:Length0/binary, _/binary>>, Versions) ->
+    case Data0 of
+        <<?BYTE(?CLIENT_HELLO), ?BYTE(Major), ?BYTE(Minor), _/binary>> ->
+            %% First check v2_hello_compatible mode is active 
+            lists:member({2,0}, Versions) andalso
+            %% andalso we want to negotiate higher version
+                lists:member({Major, Minor}, Versions -- [{2,0}]); 
+        _ ->
+            false
+    end;
+assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) ->
+    is_acceptable_version({MajVer, MinVer}, Versions).
+                   
 get_tls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
 		     ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
 		    Acc) ->
@@ -428,10 +450,9 @@ get_tls_records_aux(<<1:1, Length0:15, Data0:Length0/binary, Rest/binary>>,
     end;
 
 get_tls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
-                     ?UINT16(Length), _/binary>>,
+                      ?UINT16(Length), _/binary>>,
                     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-
 get_tls_records_aux(<<1:1, Length0:15, _/binary>>,_Acc) 
   when Length0 > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);

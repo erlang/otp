@@ -629,17 +629,33 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   flight_buffer = []
 	  }.
 
-next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{tls_record_buffer = Buf0,
-						tls_cipher_texts = CT0} = Buffers} = State0) ->
-    case tls_record:get_tls_records(Data, Buf0) of
+next_tls_record(Data, StateName, #state{protocol_buffers = 
+                                            #protocol_buffers{tls_record_buffer = Buf0,
+                                                              tls_cipher_texts = CT0} = Buffers}
+                                        = State0) ->
+    case tls_record:get_tls_records(Data, 
+                                    acceptable_record_versions(StateName, State0),
+                                    Buf0) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(State0#state{protocol_buffers =
 					 Buffers#protocol_buffers{tls_record_buffer = Buf1,
 								  tls_cipher_texts = CT1}});
 	#alert{} = Alert ->
-	    Alert
+	    handle_record_alert(Alert, State0)
     end.
+
+acceptable_record_versions(hello, #state{ssl_options = #ssl_options{v2_hello_compatible = true}}) ->
+    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS ++ ['sslv2']];
+acceptable_record_versions(hello, _) ->
+    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS];
+acceptable_record_versions(_, #state{negotiated_version = Version}) ->
+    [Version].
+handle_record_alert(#alert{description = ?BAD_RECORD_MAC}, 
+                    #state{ssl_options = #ssl_options{v2_hello_compatible = true}}) ->
+    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
+handle_record_alert(Alert, _) ->
+    Alert.
 
 tls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->
@@ -649,7 +665,7 @@ tls_handshake_events(Packets) ->
 %% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
             #state{data_tag = Protocol} = State0) ->
-    case next_tls_record(Data, State0) of
+    case next_tls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
