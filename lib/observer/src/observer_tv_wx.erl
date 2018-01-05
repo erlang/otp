@@ -200,8 +200,8 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(Event, _State) ->
-    error({unhandled_event, Event}).
+handle_event(_Event, State) ->
+    {noreply, State}.
 
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
