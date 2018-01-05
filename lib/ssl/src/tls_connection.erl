@@ -80,8 +80,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} 
 	{ok, Pid} = tls_connection_sup:start_child([Role, Host, Port, Socket, 
 						    Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
-	ok = ssl_connection:handshake(SslSocket, Timeout),
-	{ok, SslSocket} 
+	ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
@@ -94,8 +93,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
-	ok = ssl_connection:handshake(SslSocket, Timeout),
-	{ok, SslSocket} 
+	ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error

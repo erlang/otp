@@ -37,7 +37,9 @@
 -include_lib("public_key/include/public_key.hrl").
 
 %% Setup
--export([connect/8, ssl_accept/7, handshake/2, handshake/3,
+
+-export([connect/8, handshake/7, handshake/2, handshake/3, hello/3,
+         handshake_continue/3, handshake_cancel/1,
 	 socket_control/4, socket_control/5, start_or_recv_cancel_timer/2]).
 
 %% User Events 
@@ -93,7 +95,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
--spec ssl_accept(tls_connection | dtls_connection,
+-spec handshake(tls_connection | dtls_connection,
 		 inet:port_number(), port(),
 		 {#ssl_options{}, #socket_options{}, undefined | pid()},
 		 pid(), tuple(), timeout()) ->
@@ -102,7 +104,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
-ssl_accept(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
+handshake(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
     try Connection:start_fsm(server, "localhost", Port, Socket, Opts, User, 
 		  CbInfo, Timeout)
     catch
@@ -111,28 +113,28 @@ ssl_accept(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
     end.	
 
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}, timeout()) ->  ok | {error, reason()}.
+-spec handshake(#sslsocket{}, timeout()) ->  {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Starts ssl handshake. 
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = Pid}, Timeout) ->  
+handshake(#sslsocket{pid = Pid} = Socket, Timeout) ->  
     case call(Pid, {start, Timeout}) of
 	connected ->
-	    ok;
+	    {ok, Socket};
  	Error ->
 	    Error
     end.
 
 %%--------------------------------------------------------------------
 -spec handshake(#sslsocket{}, {#ssl_options{},#socket_options{}},
-		timeout()) ->  ok | {error, reason()}.
+		timeout()) ->   {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Starts ssl handshake with some new options 
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = Pid}, SslOptions, Timeout) ->  
+handshake(#sslsocket{pid = Pid} = Socket, SslOptions, Timeout) ->  
     case call(Pid, {start, SslOptions, Timeout}) of
 	connected ->
-	    ok;
+	    {ok, Socket};
  	Error ->
 	    Error
     end.

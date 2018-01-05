@@ -963,7 +963,7 @@ controller_dies(Config) when is_list(Config) ->
 					    {mfa, {?MODULE, 
 						   controller_dies_result, [self(),
 									    ClientMsg]}},
-					    {options, [{reuseaddr,true}|ClientOpts]}]),
+					    {options, ClientOpts}]),
     ct:sleep(?SLEEP), %% so that they are connected
     
     exit(Server, killed),
@@ -988,7 +988,7 @@ tls_client_closes_socket(Config) when is_list(Config) ->
 
     Connect = fun() ->
 		      {ok, _Socket} = rpc:call(ClientNode, gen_tcp, connect, 
-					      [Hostname, Port, TcpOpts]),	      
+					      [Hostname, Port, [binary]]),	      
 		      %% Make sure that ssl_accept is called before 
 		      %% client process ends and closes socket.
 		      ct:sleep(?SLEEP)
@@ -1812,7 +1812,7 @@ tls_send_close(Config) when is_list(Config) ->
 				   {options,  [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, TcpS} = rpc:call(ClientNode, gen_tcp, connect, 
-			  [Hostname,Port,[binary, {active, false}, {reuseaddr, true}]]),
+			  [Hostname,Port,[binary, {active, false}]]),
     {ok, SslS} = rpc:call(ClientNode, ssl, connect, 
 			  [TcpS,[{active, false}|ClientOpts]]),
     
@@ -1956,7 +1956,7 @@ tls_upgrade(Config) when is_list(Config) ->
 				   {host, Hostname},
 				   {from, self()}, 
 				   {mfa, {?MODULE, upgrade_result, []}},
-				   {tcp_options, TcpOpts},
+				   {tcp_options, [binary]},
 				   {ssl_options, ClientOpts}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
