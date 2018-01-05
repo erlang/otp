@@ -77,7 +77,8 @@
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer
-	  %%send_queue           :: queue:queue(),
+          %%send_queue           :: queue:queue(),
+          hello,                %%:: #client_hello{} | #server_hello{}, 
 	  terminated = false                          ::boolean(),
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
@@ -88,11 +89,11 @@
 	  sni_hostname = undefined,
 	  downgrade,
 	  flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
-				   %% to when possible pack more than on TLS record into the 
-				   %% underlaying packet format. Introduced by DTLS - RFC 4347.
-				   %% The mecahnism is also usefull in TLS although we do not
-				   %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-	 flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
+          %% to when possible pack more than one TLS record into the 
+          %% underlaying packet format. Introduced by DTLS - RFC 4347.
+          %% The mecahnism is also usefull in TLS although we do not
+          %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
+          flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
           protocol_specific = #{}      :: map()                    
 	 }).
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

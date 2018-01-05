@@ -197,6 +197,18 @@
        | sect193r1 | sect193r2 | secp192k1 | secp192r1 | sect163k1
        | sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2</c></p></item>
 
+       <tag><c>hello_extensions() =</c></tag>
+       <item><p><c>#{renegotiation_info => 
+                   signature_algs => [{hash(), ecsda| rsa| dsa}] | undefined
+		   alpn => binary() | undefined,
+		   next_protocol_negotiation,
+		   srp => string() | undefined,
+		   ec_point_formats ,
+		   elliptic_curves = [oid] | undefined
+		   sni = string()} 
+       }</c></p></item>
+      
+
     </taglist>
   </section>
 
@@ -211,8 +223,16 @@
       <tag><c>{protocol, tls | dtls}</c></tag>
       <item><p>Choose TLS or DTLS protocol for the transport layer security.
       Defaults to <c>tls</c> Introduced in OTP 20, DTLS support is considered
-      experimental in this release. DTLS over other transports than UDP are not yet supported.</p></item>
+      experimental in this release. Other transports than UDP are not yet supported.</p></item>
 
+      <tag><c>{handshake, hello | full}</c></tag>
+      <item><p> Defaults to <c>full</c>. If hello is specified the handshake will
+      pause after the hello message and give the user a possibility make decisions
+      based on hello extensions before continuing or aborting the handshake by calling
+      <seealso marker="#handshake_continue-3"> handshake_continue/3</seealso> or
+      <seealso marker="#handshake_cancel-1"> handshake_cancel/1</seealso>
+      </p></item>
+      
       <tag><c>{cert, public_key:der_encoded()}</c></tag>
       <item><p>The DER-encoded users certificate. If this option
       is supplied, it overrides option <c>certfile</c>.</p></item>
@@ -919,15 +939,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
    
     <func>
       <name>connect(Socket, SslOptions) -> </name>
-      <name>connect(Socket, SslOptions, Timeout) -> {ok, TLSSocket}
+      <name>connect(Socket, SslOptions, Timeout) -> {ok, TLSSocket} | {ok, TLSSocket, Ext}
 	| {error, Reason}</name>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
 	equivalent, connected socket to an TLS socket.</fsummary>
       <type>
 	<v>Socket = socket()</v>
-	<v>SslOptions = [ssl_option()]</v>
+	<v>SslOptions = [{handshake, hello| full} | ssl_option()]</v>
 	<v>Timeout = integer() | infinity</v>
 	<v>TLSSocket = sslsocket()</v>
+	<v>Ext = hello_extensions()</v>
 	<v>Reason = term()</v>
       </type>
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
@@ -938,14 +959,25 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  the option <c>server_name_indication</c> shall also be specified,
 	  if it is not no Server Name Indication extension will be sent,
 	  and <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>
-	  will be called with the IP-address of the connection as <c>ReferenceID</c>, which is proably not what you want.</p></note>
+	  will be called with the IP-address of the connection as <c>ReferenceID</c>, which is proably not what you want.</p>
+	  </note>
+
+	  <p> If the option <c>{handshake, hello}</c> is used the
+	  handshake is paused after receiving the server hello message
+	  and the success response is <c>{ok, TLSSocket, Ext}</c>
+	  instead of <c>{ok, TLSSocket}</c>. Thereafter the handshake is continued or
+	  canceled by calling <seealso marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.	 
+	  </p>
+	  
     </desc>
     </func>
 
     <func>
       <name>connect(Host, Port, Options) -></name>
       <name>connect(Host, Port, Options, Timeout) ->
-	  {ok, SslSocket} | {error, Reason}</name>
+	  {ok, SslSocket}| {ok, TLSSocket, Ext} | {error, Reason}</name>
       <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
       <type>
 	  <v>Host = host()</v>
@@ -972,6 +1004,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <c>dns_id</c> will be assumed with a fallback to <c>ip</c> if that fails. </p>
       <note><p>According to good practices certificates should not use IP-addresses as "server names". It would
       be very surprising if this happen outside a closed network. </p></note> 
+
+
+      <p> If the option <c>{handshake, hello}</c> is used the
+	  handshake is paused after receiving the server hello message
+	  and the success response is <c>{ok, TLSSocket, Ext}</c>
+	  instead of <c>{ok, TLSSocket}</c>. Thereafter the handshake is continued or
+	  canceled by calling <seealso marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  </p>
       </desc>
     </func>
 
@@ -1112,6 +1154,85 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </func>
 
+    <func>
+      <name>handshake(Socket) -> </name>
+      <name>handshake(Socket, Timeout) -> {ok, Socket}  | {error, Reason}</name>
+      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <type>
+        <v>Socket = sslsocket()</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
+	<p><c>Socket</c> is a socket as returned by
+	<seealso marker="#transport_accept-2">ssl:transport_accept/[1,2]</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>handshake(Socket, SslOptions) -> </name>
+      <name>handshake(Socket, SslOptions, Timeout) -> {ok, Socket} | {ok, Socket, Ext} | {error, Reason}</name>
+      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
+      <type>
+        <v>Socket = socket() | sslsocket() </v>
+	<v>Ext = hello_extensions()</v>
+	<v>SslOptions = [{handshake, hello| full} | ssl_option()]</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
+	or equivalent, socket to an SSL socket, that is, performs
+        the SSL/TLS server-side handshake and returns the SSL socket.</p>
+
+	<warning><p>The Socket shall be in passive mode ({active,
+	false}) before calling this function or the handshake can fail
+	due to a race condition.</p></warning>
+	
+	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS/DTLS
+	options to those specified in
+	<seealso marker="#listen-2">ssl:listen/2 </seealso> and then performs
+	the SSL/TLS/DTLS handshake.</p>
+
+	<p>
+	  If option <c>{handshake, hello}</c> is specified the handshake is
+	  paused after receiving the client hello message and the
+	  sucess response is <c>{ok, TLSSocket, Ext}</c>  instead of <c>{ok,
+	  TLSSocket}</c>. Thereafter the handshake is continued or
+	  canceled by calling <seealso marker="#handshake_continue-3">
+	  <c>handshake_continue/3</c></seealso> or <seealso
+	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>handshake_cancel(Socket) -> ok </name>
+      <fsummary>Cancel handshake with a fatal alert</fsummary>
+      <type>
+        <v>Socket = sslsocket()</v>
+      </type>
+      <desc>
+        <p>Cancel the handshake with a fatal <c>USER_CANCELED</c> alert.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>handshake_continue(Socket, SSLOptions, Timeout) -> 	{ok, Socket} | {error, Reason}</name>
+      <fsummary>Continue the SSL/TLS handshake.</fsummary>
+      <type>
+        <v>Socket = sslsocket()</v>
+	<v>SslOptions = [ssl_option()]</v>
+	<v>Timeout = integer()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Continue the SSL/TLS handshake possiby with new, additional or changed options.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>listen(Port, Options) ->
 	{ok, ListenSocket} | {error, Reason}</name>

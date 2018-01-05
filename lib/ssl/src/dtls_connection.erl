@@ -55,7 +55,7 @@
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
-	 hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
+	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]). 
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
@@ -491,10 +491,11 @@ hello(enter, _, #state{role = client} = State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
 hello(internal, #client_hello{cookie = <<>>,
-			      client_version = Version} = Hello, #state{role = server,
-									transport_cb = Transport,
-									socket = Socket,
-                                                                        protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
+			      client_version = Version} = Hello, 
+      #state{role = server,
+             transport_cb = Transport,
+             socket = Socket,
+             protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
     Cookie = dtls_handshake:cookie(Secret, IP, Port, Hello),
     %% FROM RFC 6347 regarding HelloVerifyRequest message:
@@ -508,24 +509,6 @@ hello(internal, #client_hello{cookie = <<>>,
     {State2, Actions} = send_handshake(VerifyRequest, State1),
     {Record, State} = next_record(State2),
     next_event(?FUNCTION_NAME, Record, State#state{tls_handshake_history = ssl_handshake:init_handshake_history()}, Actions);
-hello(internal, #client_hello{cookie = Cookie} = Hello, #state{role = server,
-							       transport_cb = Transport,
-							       socket = Socket,
-                                                               protocol_specific = #{current_cookie_secret := Secret,
-                                                                                     previous_cookie_secret := PSecret}} = State0) ->
-    {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
-    case dtls_handshake:cookie(Secret, IP, Port, Hello) of
-	Cookie ->
-	    handle_client_hello(Hello, State0);
-	_ ->
-            case dtls_handshake:cookie(PSecret, IP, Port, Hello) of
-               	Cookie -> 
-                    handle_client_hello(Hello, State0);
-                _ ->
-                    %% Handle bad cookie as new cookie request RFC 6347 4.1.2
-                    hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
-            end
-    end;
 hello(internal, #hello_verify_request{cookie = Cookie}, #state{role = client,
 							       host = Host, port = Port, 
 							       ssl_options = SslOpts,
@@ -550,6 +533,34 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{role = client,
 						   Hello#client_hello.session_id}},
     {Record, State} = next_record(State3),
     next_event(?FUNCTION_NAME, Record, State, Actions);
+hello(internal, #client_hello{extensions = Extensions} = Hello, #state{ssl_options = #ssl_options{handshake = hello},
+                                                                       start_or_recv_from = From} = State) ->
+    {next_state, user_hello, State#state{start_or_recv_from = undefined,
+                                             hello = Hello},
+     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};
+hello(internal, #server_hello{extensions = Extensions} = Hello, #state{ssl_options = #ssl_options{handshake = hello},
+                                                                       start_or_recv_from = From} = State) ->
+    {next_state, user_hello, State#state{start_or_recv_from = undefined,
+                                             hello = Hello},
+     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};     
+hello(internal, #client_hello{cookie = Cookie} = Hello, #state{role = server,
+							       transport_cb = Transport,
+							       socket = Socket,
+                                                               protocol_specific = #{current_cookie_secret := Secret,
+                                                                                     previous_cookie_secret := PSecret}} = State0) ->
+    {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
+    case dtls_handshake:cookie(Secret, IP, Port, Hello) of
+	Cookie ->
+	    handle_client_hello(Hello, State0);
+	_ ->
+            case dtls_handshake:cookie(PSecret, IP, Port, Hello) of
+               	Cookie -> 
+                    handle_client_hello(Hello, State0);
+                _ ->
+                    %% Handle bad cookie as new cookie request RFC 6347 4.1.2
+                    hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
+            end
+    end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
@@ -574,6 +585,11 @@ hello(info, Event, State) ->
 hello(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+user_hello(enter, _, State) ->
+    {keep_state, State};     
+user_hello(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------

@@ -62,7 +62,7 @@
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
-	 hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
+	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3, death_row/3]).
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
@@ -80,7 +80,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} 
 	{ok, Pid} = tls_connection_sup:start_child([Role, Host, Port, Socket, 
 						    Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
-	ssl_connection:handshake(SslSocket, Timeout)
+        ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
@@ -93,7 +93,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, Pid, CbModule, Tracker),
-	ssl_connection:handshake(SslSocket, Timeout)
+        ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
@@ -452,6 +452,16 @@ error(_, _, _) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+hello(internal, #client_hello{extensions = Extensions} = Hello, #state{ssl_options = #ssl_options{handshake = hello},
+                                                                        start_or_recv_from = From} = State) ->
+     {next_state, user_hello, State#state{start_or_recv_from = undefined,
+                                              hello = Hello},
+     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};
+hello(internal, #server_hello{extensions = Extensions} = Hello, #state{ssl_options = #ssl_options{handshake = hello},
+                                                                       start_or_recv_from = From} = State) ->
+    {next_state, user_hello, State#state{start_or_recv_from = undefined,
+                                             hello = Hello},
+     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};     
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
 	     port = Port, session = #session{own_certificate = Cert} = Session0,
@@ -461,7 +471,6 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
 	     negotiated_protocol = CurrentProtocol,
 	     key_algorithm = KeyExAlg,
 	     ssl_options = SslOpts} = State) ->
-
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
         #alert{} = Alert ->
@@ -480,7 +489,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                       session = Session,
                                       negotiated_protocol = Protocol})
     end;
-hello(internal, #server_hello{} = Hello,
+hello(internal, #server_hello{} = Hello,      
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
 	     role = client,
@@ -496,6 +505,9 @@ hello(internal, #server_hello{} = Hello,
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+user_hello(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
@@ -744,7 +756,7 @@ gen_handshake(StateName, Type, Event,
 						       malformed_handshake_data),
 					    Version, StateName, State)  
     end.
-	    
+
 gen_info(Event, connection = StateName,  #state{negotiated_version = Version} = State) ->
     try handle_info(Event, StateName, State) of
 	Result ->

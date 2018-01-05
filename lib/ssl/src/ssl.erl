@@ -33,6 +33,7 @@
 -export([connect/3, connect/2, connect/4,
 	 listen/2, transport_accept/1, transport_accept/2,
 	 handshake/1, handshake/2, handshake/3, 
+         handshake_continue/3, handshake_cancel/1,
          ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
 	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2,
@@ -46,7 +47,7 @@
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2, tls_version/1]).
+-export([handle_options/2, tls_version/1, new_ssl_options/3]).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -194,7 +195,7 @@ ssl_accept(Socket, SslOptions, Timeout) ->
             Error
      end.
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}) -> ok | {error, reason()}.
+-spec handshake(#sslsocket{}) -> {ok, #sslsocket{}} | {error, reason()}.
 -spec handshake(#sslsocket{} | port(), timeout()| [ssl_option()
 						    | transport_option()]) ->
                        {ok, #sslsocket{}} | {error, reason()}.
@@ -254,6 +255,24 @@ handshake(Socket, SslOptions, Timeout) when is_port(Socket),
     catch
 	Error = {error, _Reason} -> Error
     end.
+
+%%--------------------------------------------------------------------
+-spec handshake_continue(#sslsocket{}, [ssl_option()], timeout()) -> 
+                                {ok, #sslsocket{}} | {error, reason()}.
+%%
+%%
+%% Description: Continues the handshke possible with newly supplied options.
+%%--------------------------------------------------------------------
+handshake_continue(Socket, SSLOptions, Timeout) ->
+    ssl_connection:handshake_continue(Socket, SSLOptions, Timeout).
+%%--------------------------------------------------------------------
+-spec  handshake_cancel(#sslsocket{}) -> term().
+%%
+%% Description: Cancels the handshakes sending a close alert.
+%%--------------------------------------------------------------------
+handshake_cancel(Socket) ->
+    ssl_connection:handshake_cancel(Socket).
+
 %%--------------------------------------------------------------------
 -spec  close(#sslsocket{}) -> term().
 %%
@@ -917,7 +936,8 @@ handle_options(Opts0, Role, Host) ->
 					     client, Role),
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
-                    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE)
+                    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE),
+                    handshake = handle_option(handshake, Opts, full)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
@@ -933,8 +953,7 @@ handle_options(Opts0, Role, Host) ->
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
-                  max_handshake_size],
-
+                  max_handshake_size, handshake],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -945,8 +964,6 @@ handle_options(Opts0, Role, Host) ->
     {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = Sock,
 		 inet_user = Sock, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
-
-
 
 handle_option(OptionName, Opts, Default, Role, Role) ->
     handle_option(OptionName, Opts, Default);
@@ -1174,6 +1191,10 @@ validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value
 validate_option(protocol, Value = tls) ->
     Value;
 validate_option(protocol, Value = dtls) ->
+    Value;
+validate_option(handshake, hello = Value) ->
+    Value;
+validate_option(handshake, full = Value) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
