@@ -279,13 +279,22 @@ bad_floats() ->
 %% (incorrectly) signed.
 
 huge_binaries() ->
-  AlmostIllegal = id(<<0:(id((1 bsl 32)-8))>>),
   case erlang:system_info(wordsize) of
-    4 -> huge_binaries_32(AlmostIllegal);
+    4 ->
+      Old = erts_debug:set_internal_state(available_internal_state, true),
+      case erts_debug:set_internal_state(binary, (1 bsl 29)-1) of
+        false ->
+          io:format("\nNot enough memory to create 512Mb binary\n",[]);
+        Bin->
+          huge_binaries_32(Bin)
+      end,
+      erts_debug:set_internal_state(available_internal_state, Old);
+
     8 -> ok
   end,
   garbage_collect(),
   id(<<0:(id((1 bsl 31)-1))>>),
+  garbage_collect(),
   id(<<0:(id((1 bsl 30)-1))>>),
   garbage_collect(),
   ok.
