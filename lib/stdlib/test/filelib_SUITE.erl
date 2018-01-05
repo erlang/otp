@@ -536,16 +536,18 @@ find_source(Config) when is_list(Config) ->
                                               [{".erl",".yrl",[{"",""}]}]),
 
     {ok, ParserErl} = filelib:find_source(code:which(core_parse)),
+    ParserErlName = filename:basename(ParserErl),
+    ParserErlDir = filename:dirname(ParserErl),
     {ok, ParserYrl} = filelib:find_source(ParserErl),
     "lry." ++ _ = lists:reverse(ParserYrl),
-    {ok, ParserYrl} = filelib:find_source(ParserErl,
+    {ok, ParserYrl} = filelib:find_source(ParserErlName, ParserErlDir,
                                            [{".beam",".erl",[{"ebin","src"}]},
                                             {".erl",".yrl",[{"",""}]}]),
 
     %% find_source automatically checks the local directory regardless of rules
     {ok, ParserYrl} = filelib:find_source(ParserErl),
-    {ok, ParserYrl} = filelib:find_source(ParserErl,
-                                          [{".beam",".erl",[{"ebin","src"}]}]),
+    {ok, ParserYrl} = filelib:find_source(ParserErlName, ParserErlDir,
+                                          [{".erl",".yrl",[{"ebin","src"}]}]),
 
     %% find_file does not check the local directory unless in the rules
     ParserYrlName = filename:basename(ParserYrl),
