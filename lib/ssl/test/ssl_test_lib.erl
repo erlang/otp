@@ -1024,15 +1024,26 @@ string_regex_filter(Str, Search) when is_list(Str) ->
 string_regex_filter(_Str, _Search) ->
     false.
 
-anonymous_suites(Version) ->
-    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:anonymous_suites(Version))].
+anonymous_suites({3,_ } = Version) ->
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:anonymous_suites(Version))];
+anonymous_suites(DTLSVersion) ->
+    Version = dtls_v1:corresponding_tls_version(DTLSVersion),
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:anonymous_suites(Version)), 
+                                           not ssl_cipher:is_stream_ciphersuite(tuple_to_map(ssl_cipher:erl_suite_definition(S)))].
 
-psk_suites(Version) ->
-    [ssl_cipher:erl_suite_definition(S) || S <-  ssl_cipher:filter_suites(ssl_cipher:psk_suites(Version))].
+psk_suites({3,_ } = Version) ->
+    [ssl_cipher:erl_suite_definition(S) || S <-  ssl_cipher:filter_suites(ssl_cipher:psk_suites(Version))];
+psk_suites(DTLSVersion) ->
+    Version = dtls_v1:corresponding_tls_version(DTLSVersion),
+    [ssl_cipher:erl_suite_definition(S) || S <-  ssl_cipher:filter_suites(ssl_cipher:psk_suites(Version)),  
+                                           not ssl_cipher:is_stream_ciphersuite(tuple_to_map(ssl_cipher:erl_suite_definition(S)))].
 
-psk_anon_suites(Version) ->
-    [Suite || Suite <-  psk_suites(Version), is_psk_anon_suite(Suite)].
-
+psk_anon_suites({3,_ } = Version) ->
+    [Suite || Suite <-  psk_suites(Version), is_psk_anon_suite(Suite)];
+psk_anon_suites(DTLSVersion) ->
+    Version = dtls_v1:corresponding_tls_version(DTLSVersion),
+    [Suite || Suite <- psk_suites(Version), is_psk_anon_suite(Suite),  
+              not ssl_cipher:is_stream_ciphersuite(tuple_to_map(Suite))].
 srp_suites() ->
     [ssl_cipher:erl_suite_definition(Suite) || 
         Suite  <-
