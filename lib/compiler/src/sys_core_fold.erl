@@ -2661,9 +2661,17 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
+    Sub = Sub1#sub{v=[],s=cerl_sets:new()},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
-    opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub1).
+    opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub).
+
+
+%% opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) -> Core.
+%%  Do final simplifications of the let.
+%%
+%%  Note that the substitutions and scope in Sub have been cleared
+%%  and should not be used.
 
 opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
     case {Vs0,Arg0,Body} of
