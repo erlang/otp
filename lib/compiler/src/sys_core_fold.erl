@@ -313,9 +313,15 @@ expr(#c_seq{arg=Arg0,body=B0}=Seq0, Ctxt, Sub) ->
 	false ->
 	    %% Arg cannot be "values" here - only a single value
 	    %% make sense here.
-	    case is_safe_simple(Arg, Sub) of
-		true -> B1;
-		false -> Seq0#c_seq{arg=Arg,body=B1}
+            case {Ctxt,is_safe_simple(Arg, Sub)} of
+                {effect,true} -> B1;
+                {effect,false} ->
+                    case is_safe_simple(B1, Sub) of
+                        true -> Arg;
+                        false -> Seq0#c_seq{arg=Arg,body=B1}
+                    end;
+                {value,true} -> B1;
+                {value,false} -> Seq0#c_seq{arg=Arg,body=B1}
 	    end
     end;
 expr(#c_let{}=Let0, Ctxt, Sub) ->
@@ -2664,7 +2670,7 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     Sub = Sub1#sub{v=[],s=cerl_sets:new()},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
-    opt_simple_let_2(Let, Vs, Arg, B, B0, Ctxt, Sub).
+    opt_simple_let_2(Let, Vs, Arg, B, B0, Sub).
 
 
 %% opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) -> Core.
@@ -2673,33 +2679,14 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
 %%  Note that the substitutions and scope in Sub have been cleared
 %%  and should not be used.
 
-opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
+opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
     case {Vs0,Arg0,Body} of
-	{[#c_var{name=N1}],Arg1,#c_var{name=N2}} ->
-	    case N1 =:= N2 of
-		true ->
-		    %% let <Var> = Arg in <Var>  ==>  Arg
-		    Arg1;
-		false ->
-		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
-		    #c_seq{arg=Arg,body=Body}
-	    end;
+	{[#c_var{name=V}],Arg1,#c_var{name=V}} ->
+            %% let <Var> = Arg in <Var>  ==>  Arg
+            Arg1;
 	{[],#c_values{es=[]},_} ->
 	    %% No variables left.
 	    Body;
-	{Vs,Arg1,#c_literal{}} ->
-	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
-	    case Ctxt of
-		effect ->
-		    %% Throw away the literal body.
-		    Arg;
-		value ->
-		    %% Since the variable is not used in the body, we
-		    %% can rewrite the let to a sequence.
-		    %%  let <Var> = Arg in Literal ==> seq Arg Literal
-		    #c_seq{arg=Arg,body=Body}
-	    end;
 	{Vs,Arg1,Body} ->
 	    %% If none of the variables are used in the body, we can
 	    %% rewrite the let to a sequence:
