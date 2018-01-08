@@ -593,6 +593,10 @@ check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
 check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
     I = {block,[{set,[D1,D2],[S],get_list}]},
     check_liveness(R, [I|Is], St);
+check_liveness(R, [remove_message|Is], St) ->
+    check_liveness(R, Is, St);
+check_liveness({x,X}, [build_stacktrace|_], St) when X > 0 ->
+    {killed,St};
 check_liveness(_R, Is, St) when is_list(Is) ->
     %% Not implemented. Conservatively assume that the register is used.
     {used,St}.
