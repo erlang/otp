@@ -92,7 +92,7 @@ simplify_basic_1([{set,[D],[{integer,Index},Reg],{bif,element,_}}=I0|Is], Ts0, A
     simplify_basic_1(Is, Ts, [I|Acc]);
 simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) ->
     case tdb_find(TupleReg, Ts0) of
-	{tuple,_,[Contents]} ->
+	{tuple,_,_,[Contents]} ->
 	    simplify_basic_1([{set,[D],[Contents],move}|Is0], Ts0, Acc);
 	_ ->
 	    Ts = update(I, Ts0),
@@ -113,8 +113,16 @@ simplify_basic_1([{test,is_integer,_,[R]}=I|Is], Ts, Acc) ->
     end;
 simplify_basic_1([{test,is_tuple,_,[R]}=I|Is], Ts, Acc) ->
     case tdb_find(R, Ts) of
-	{tuple,_,_} -> simplify_basic_1(Is, Ts, Acc);
+	{tuple,_,_,_} -> simplify_basic_1(Is, Ts, Acc);
 	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+    end;
+simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	{tuple,exact_size,Arity,_} ->
+	    simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
     end;
 simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
     case tdb_find(R, Ts0) of
@@ -138,6 +146,14 @@ simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) -
 	  end,
     Ts = update(I, Ts0),
     simplify_basic_1(Is0, Ts, Acc);
+simplify_basic_1([{test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I|Is], Ts0, Acc) ->
+    case tdb_find(R, Ts0) of
+	{tuple,exact_size,Arity,[Tag]} ->
+	    simplify_basic_1(Is, Ts0, Acc);
+	_Other ->
+	    Ts = update(I, Ts0),
+	    simplify_basic_1(Is, Ts, [I|Acc])
+    end;
 simplify_basic_1([{select,select_val,Reg,_,_}=I0|Is], Ts, Acc) ->
     I = case tdb_find(Reg, Ts) of
 	    {integer,Range} ->
@@ -416,9 +432,9 @@ update({'%live',_,_}, Ts) -> Ts;
 update({set,[D],[S],move}, Ts) ->
     tdb_copy(S, D, Ts);
 update({set,[D],[{integer,I},Reg],{bif,element,_}}, Ts0) ->
-    tdb_update([{Reg,{tuple,I,[]}},{D,kill}], Ts0);
+    tdb_update([{Reg,{tuple,min_size,I,[]}},{D,kill}], Ts0);
 update({set,[D],[_Index,Reg],{bif,element,_}}, Ts0) ->
-    tdb_update([{Reg,{tuple,0,[]}},{D,kill}], Ts0);
+    tdb_update([{Reg,{tuple,min_size,0,[]}},{D,kill}], Ts0);
 update({set,[D],Args,{bif,N,_}}, Ts0) ->
     Ar = length(Args),
     BoolOp = erl_internal:new_type_test(N, Ar) orelse
@@ -476,7 +492,7 @@ update({kill,D}, Ts) ->
 update({test,is_float,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,float}], Ts0);
 update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
-    tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
+    tdb_update([{Src,{tuple,exact_size,Arity,[]}}], Ts0);
 update({test,is_map,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,map}], Ts0);
 update({get_map_elements,_,Src,{list,Elems0}}, Ts0) ->
@@ -490,12 +506,12 @@ update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
 	error ->
 	    Ts;
 	{tuple_element,TupleReg,0} ->
-	    tdb_update([{TupleReg,{tuple,1,[Atom]}}], Ts);
+	    tdb_update([{TupleReg,{tuple,min_size,1,[Atom]}}], Ts);
 	_ ->
 	    Ts
     end;
 update({test,is_record,_Fail,[Src,Tag,{integer,Arity}]}, Ts) ->
-    tdb_update([{Src,{tuple,Arity,[Tag]}}], Ts);
+    tdb_update([{Src,{tuple,exact_size,Arity,[Tag]}}], Ts);
 
 %% Binary matching
 
@@ -537,7 +553,7 @@ update({call_ext,Ar,{extfunc,math,Math,Ar}}, Ts) ->
 update({call_ext,3,{extfunc,erlang,setelement,3}}, Ts0) ->
     Ts = tdb_kill_xregs(Ts0),
     case tdb_find({x,1}, Ts0) of
-	{tuple,Sz,_}=T0 ->
+	{tuple,SzKind,Sz,_}=T0 ->
 	    T = case tdb_find({x,0}, Ts0) of
 		    {integer,{I,I}} when I > 1 ->
 			%% First element is not changed. The result
@@ -546,7 +562,7 @@ update({call_ext,3,{extfunc,erlang,setelement,3}}, Ts0) ->
 		    _ ->
 			%% Position is 1 or unknown. May change the
 			%% first element of the tuple.
-			{tuple,Sz,[]}
+			{tuple,SzKind,Sz,[]}
 		end,
 	    tdb_update([{{x,0},T}], Ts);
 	_ ->
@@ -630,7 +646,7 @@ possibly_numeric(_) -> false.
 
 max_tuple_size(Reg, Ts) ->
     case tdb_find(Reg, Ts) of
-	{tuple,Sz,_} -> Sz;
+	{tuple,_,Sz,_} -> Sz;
 	_Other -> 0
     end.
 
@@ -786,11 +802,12 @@ checkerror_2(OrigIs) -> [{set,[],[],fcheckerror}|OrigIs].
 %%% Routines for maintaining a type database.  The type database 
 %%% associates type information with registers.
 %%%
-%%% {tuple,Size,First} means that the corresponding register contains a
-%%% tuple with *at least* Size elements.  An tuple with unknown
-%%% size is represented as {tuple,0,[]}. First is either [] (meaning that
-%%% the tuple's first element is unknown) or [FirstElement] (the contents
-%%% of the first element).
+%%% {tuple,min_size,Size,First} means that the corresponding register contains
+%%% a tuple with *at least* Size elements (conversely, exact_size means that it
+%%% contains a tuple with *exactly* Size elements). An tuple with unknown size
+%%% is represented as {tuple,min_size,0,[]}. First is either [] (meaning that
+%%% the tuple's first element is unknown) or [FirstElement] (the contents of
+%%% the first element).
 %%%
 %%% 'float' means that the register contains a float.
 %%%
@@ -834,7 +851,7 @@ tdb_copy(Literal, D, Ts) ->
 	       {literal,#{}} -> map;
 	       {literal,Tuple} when tuple_size(Tuple) >= 1 ->
 		   Lit = tag_literal(element(1, Tuple)),
-		   {tuple,tuple_size(Tuple),[Lit]};
+		   {tuple,exact_size,tuple_size(Tuple),[Lit]};
 	       _ -> term
 	   end,
     if
@@ -856,14 +873,14 @@ tag_literal(Lit) -> {literal,Lit}.
 %%  Updates a type database.  If a 'kill' operation is given, the type
 %%  information for that register will be removed from the database.
 %%  A kill operation takes precedence over other operations for the same
-%%  register (i.e. [{{x,0},kill},{{x,0},{tuple,5,[]}}] means that the
+%%  register (i.e. [{{x,0},kill},{{x,0},{tuple,min_size,5,[]}}] means that the
 %%  the existing type information, if any, will be discarded, and the
-%%  the '{tuple,5,[]}' information ignored.
+%%  the '{tuple,min_size,5,[]}' information ignored.
 %%
 %%  If NewInfo information is given and there exists information about
 %%  the register, the old and new type information will be merged.
-%%  For instance, {tuple,5,_} and {tuple,10,_} will be merged to produce
-%%  {tuple,10,_}.
+%%  For instance, {tuple,min_size,5,_} and {tuple,min_size,10,_} will be merged
+%%  to produce {tuple,min_size,10,_}.
 
 tdb_update(Uis0, Ts0) ->
     Uis1 = filter(fun ({{x,_},_Op}) -> true;
@@ -901,16 +918,20 @@ tdb_kill_xregs([]) -> [].
     
 remove_key(Key, [{Key,_Op}|Ops]) -> remove_key(Key, Ops);
 remove_key(_, Ops) -> Ops.
-    
+
 merge_type_info(I, I) -> I;
-merge_type_info({tuple,Sz1,Same}, {tuple,Sz2,Same}=Max) when Sz1 < Sz2 ->
+merge_type_info({tuple,min_size,Sz1,Same}, {tuple,min_size,Sz2,Same}=Max) when Sz1 < Sz2 ->
     Max;
-merge_type_info({tuple,Sz1,Same}=Max, {tuple,Sz2,Same}) when Sz1 > Sz2 ->
+merge_type_info({tuple,min_size,Sz1,Same}=Max, {tuple,min_size,Sz2,Same}) when Sz1 > Sz2 ->
     Max;
-merge_type_info({tuple,Sz1,[]}, {tuple,_Sz2,First}=Tuple2) ->
-    merge_type_info({tuple,Sz1,First}, Tuple2);
-merge_type_info({tuple,_Sz1,First}=Tuple1, {tuple,Sz2,_}) ->
-    merge_type_info(Tuple1, {tuple,Sz2,First});
+merge_type_info({tuple,exact_size,_,Same}=Exact, {tuple,_,_,Same}) ->
+    Exact;
+merge_type_info({tuple,_,_,Same},{tuple,exact_size,_,Same}=Exact) ->
+    Exact;
+merge_type_info({tuple,SzKind1,Sz1,[]}, {tuple,_SzKind2,_Sz2,First}=Tuple2) ->
+    merge_type_info({tuple,SzKind1,Sz1,First}, Tuple2);
+merge_type_info({tuple,_SzKind1,_Sz1,First}=Tuple1, {tuple,SzKind2,Sz2,_}) ->
+    merge_type_info(Tuple1, {tuple,SzKind2,Sz2,First});
 merge_type_info(integer, {integer,_}=Int) ->
     Int;
 merge_type_info({integer,_}=Int, integer) ->
@@ -928,7 +949,7 @@ verify_type({integer,{Min,Max}})
   when is_integer(Min), is_integer(Max) -> ok;
 verify_type(map) -> ok;
 verify_type(nonempty_list) -> ok;
-verify_type({tuple,Sz,[]}) when is_integer(Sz) -> ok;
-verify_type({tuple,Sz,[_]}) when is_integer(Sz) -> ok;
+verify_type({tuple,_,Sz,[]}) when is_integer(Sz) -> ok;
+verify_type({tuple,_,Sz,[_]}) when is_integer(Sz) -> ok;
 verify_type({tuple_element,_,_}) -> ok;
 verify_type(float) -> ok.
