@@ -155,9 +155,6 @@ erts_atomic32_t erts_writing_erl_crash_dump;
 erts_tsd_key_t erts_is_crash_dumping_key;
 int erts_initialized = 0;
 
-
-int erts_use_sender_punish;
-
 /*
  * Configurable parameters.
  */
@@ -757,8 +754,6 @@ early_init(int *argc, char **argv) /*
     erts_term_init();
 
     erts_initialized = 0;
-
-    erts_use_sender_punish = 1;
 
     erts_pre_early_init_cpu_topology(&max_reader_groups,
 				     &ncpu,
@@ -1765,8 +1760,6 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
-	    else if (sys_strcmp("nsp", sub_param) == 0)
-		erts_use_sender_punish = 0;
 	    else if (has_prefix("tbt", sub_param)) {
 		arg = get_arg(sub_param+3, argv[i+1], &i);
 		res = erts_init_scheduler_bind_type_string(arg);
