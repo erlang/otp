@@ -116,14 +116,6 @@ simplify_basic_1([{test,is_tuple,_,[R]}=I|Is], Ts, Acc) ->
 	{tuple,_,_} -> simplify_basic_1(Is, Ts, Acc);
 	_ -> simplify_basic_1(Is, Ts, [I|Acc])
     end;
-simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,Arity,_} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
-    end;
 simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
     case tdb_find(R, Ts0) of
 	map -> simplify_basic_1(Is, Ts0, Acc);
@@ -146,14 +138,6 @@ simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) -
 	  end,
     Ts = update(I, Ts0),
     simplify_basic_1(Is0, Ts, Acc);
-simplify_basic_1([{test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,Arity,[Tag]} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
-    end;
 simplify_basic_1([{select,select_val,Reg,_,_}=I0|Is], Ts, Acc) ->
     I = case tdb_find(Reg, Ts) of
 	    {integer,Range} ->
