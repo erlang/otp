@@ -55,16 +55,22 @@ basic_tests() ->
 init_per_suite(Config) ->
     ssh:start(),
     ?CHECK_CRYPTO(
-       case load_engine() of
-           {ok,E} -> 
-               [{engine,E}|Config];
-           {error, notsup} ->
-               {skip, "Engine not supported on this OpenSSL version"};
-           {error, bad_engine_id} ->
-               {skip, "Dynamic Engine not supported"};
-           Other ->
-               ct:log("Engine load failed: ~p",[Other]),
-               {fail, "Engine load failed"}
+       case crypto:info_lib() of
+           [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->
+               {skip, "Strange Engine stuff"};
+
+           _ ->
+               case load_engine() of
+                   {ok,E} ->
+                       [{engine,E}|Config];
+                   {error, notsup} ->
+                       {skip, "Engine not supported on this OpenSSL version"};
+                   {error, bad_engine_id} ->
+                       {skip, "Dynamic Engine not supported"};
+                   Other ->
+                       ct:log("Engine load failed: ~p",[Other]),
+                       {fail, "Engine load failed"}
+               end
        end
       ).
 
