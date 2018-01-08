@@ -93,13 +93,6 @@
       are now <em>rejected</em> and will cause primitive
       file operations fail.
     </p></note>
-    <warning><p>
-      Currently null characters at the end of the filename
-      will be accepted by primitive file operations. Such
-      filenames are however still documented as invalid. The
-      implementation will also change in the future and
-      reject such filenames.
-    </p></warning>
 
   </description>
 

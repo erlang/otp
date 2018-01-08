@@ -133,7 +133,7 @@
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
 
 
-typedef void *GETENV_STATE;
+void erts_sys_env_init(void);
 
 /*
 ** For the erl_timer_sup module.

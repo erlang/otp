@@ -62,9 +62,6 @@
 
 #include "erl_mseg.h"
 
-extern char **environ;
-erts_rwmtx_t environ_rwmtx;
-
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
 				 */
@@ -77,7 +74,7 @@ erts_rwmtx_t environ_rwmtx;
 
 #include "erl_check_io.h"
 #include "erl_cpu_topology.h"
-
+#include "erl_osenv.h"
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
@@ -454,10 +451,10 @@ prepare_crash_dump(int secs)
     close(crashdump_companion_cube_fd);
 
     envsz = sizeof(env);
-    i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
+    i = erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_NICE", env, &envsz);
     if (i >= 0) {
 	int nice_val;
-	nice_val = i != 0 ? 0 : atoi(env);
+	nice_val = i != 1 ? 0 : atoi(env);
 	if (nice_val > 39) {
 	    nice_val = 39;
 	}
@@ -749,34 +746,6 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
     *pBuild = get_number(&release); /* Pointer to build number. */
 }
 
-void init_getenv_state(GETENV_STATE *state)
-{
-   erts_rwmtx_rlock(&environ_rwmtx);
-   *state = NULL;
-}
-
-char *getenv_string(GETENV_STATE *state0)
-{
-   char **state = (char **) *state0;
-   char *cp;
-
-   ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&environ_rwmtx));
-
-   if (state == NULL)
-      state = environ;
-
-   cp = *state++;
-   *state0 = (GETENV_STATE) state;
-
-   return cp;
-}
-
-void fini_getenv_state(GETENV_STATE *state)
-{
-   *state = NULL;
-   erts_rwmtx_runlock(&environ_rwmtx);
-}
-
 void erts_do_break_handling(void)
 {
     struct termios temp_mode;
@@ -830,90 +799,6 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
-int
-erts_sys_putenv_raw(char *key, char *value) {
-    return erts_sys_putenv(key, value);
-}
-int
-erts_sys_putenv(char *key, char *value)
-{
-    int res;
-    char *env;
-    Uint need = strlen(key) + strlen(value) + 2;
-
-#ifdef HAVE_COPYING_PUTENV
-    env = erts_alloc(ERTS_ALC_T_TMP, need);
-#else
-    env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
-    erts_atomic_add_nob(&sys_misc_mem_sz, need);
-#endif
-    strcpy(env,key);
-    strcat(env,"=");
-    strcat(env,value);
-    erts_rwmtx_rwlock(&environ_rwmtx);
-    res = putenv(env);
-    erts_rwmtx_rwunlock(&environ_rwmtx);
-#ifdef HAVE_COPYING_PUTENV
-    erts_free(ERTS_ALC_T_TMP, env);
-#endif
-    return res;
-}
-
-int
-erts_sys_getenv__(char *key, char *value, size_t *size)
-{
-    int res;
-    char *orig_value = getenv(key);
-    if (!orig_value)
-	res = -1;
-    else {
-	size_t len = sys_strlen(orig_value);
-	if (len >= *size) {
-	    *size = len + 1;
-	    res = 1;
-	}
-	else {
-	    *size = len;
-	    sys_memcpy((void *) value, (void *) orig_value, len+1);
-	    res = 0;
-	}
-    }
-    return res;
-}
-
-int
-erts_sys_getenv_raw(char *key, char *value, size_t *size) {
-    return erts_sys_getenv(key, value, size);
-}
-
-/*
- * erts_sys_getenv
- * returns:
- *  -1, if environment key is not set with a value
- *   0, if environment key is set and value fits into buffer size
- *   1, if environment key is set but does not fit into buffer size
- *      size is set with the needed buffer size value
- */
-
-int
-erts_sys_getenv(char *key, char *value, size_t *size)
-{
-    int res;
-    erts_rwmtx_rlock(&environ_rwmtx);
-    res = erts_sys_getenv__(key, value, size);
-    erts_rwmtx_runlock(&environ_rwmtx);
-    return res;
-}
-
-int
-erts_sys_unsetenv(char *key)
-{
-    int res;
-    erts_rwmtx_rwlock(&environ_rwmtx);
-    res = unsetenv(key);
-    erts_rwmtx_rwunlock(&environ_rwmtx);
-    return res;
-}
 
 void sys_init_io(void) { }
 void erts_sys_alloc_init(void) { }
@@ -1260,14 +1145,9 @@ erts_sys_main_thread(void)
     }
 }
 
-
 void
 erl_sys_args(int* argc, char** argv)
 {
-
-    erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-
     ASSERT(argc && argv);
 
     max_files = erts_check_io_max_files();
@@ -1275,4 +1155,5 @@ erl_sys_args(int* argc, char** argv)
     init_smp_sig_notify();
     init_smp_sig_suspend();
 
+    erts_sys_env_init();
 }

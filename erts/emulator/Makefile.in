@@ -903,6 +903,7 @@ else
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
 	$(OBJDIR)/sys_drivers.o \
+	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/elib_memmove.o \
@@ -944,7 +945,8 @@ endif
 OS_OBJS +=	$(OBJDIR)/erl_poll.o \
 		$(OBJDIR)/erl_check_io.o \
 		$(OBJDIR)/erl_mseg.o \
-		$(OBJDIR)/erl_mmap.o \
+		$(OBJDIR)/erl_mmap.o  \
+		$(OBJDIR)/erl_osenv.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o \

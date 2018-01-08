@@ -2304,8 +2304,13 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           buffer is too small, a value &gt; <c>0</c> is returned and
           <c>*value_size</c> has been set to the buffer size needed.</p>
         <warning>
-          <p>Do <em>not</em> use libc's <c>getenv</c> or similar C library
-            interfaces from a driver.</p>
+          <p>This function reads the emulated environment used by
+            <seealso marker="os:getenv/1"><c>os:getenv/1</c></seealso> and not
+            the environment used by libc's <c>getenv(3)</c> or similar. Drivers
+            that <em>require</em> that these are in sync will need to do so
+            themselves, but keep in mind that they are segregated for a reason;
+            <c>getenv(3)</c> and its friends are <em>not thread-safe</em> and
+            may cause unrelated code to misbehave or crash the emulator.</p>
         </warning>
         <p>This function is thread-safe.</p>
       </desc>
@@ -2650,8 +2655,13 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
             environment variable is removed.</p>
         </note>
         <warning>
-          <p>Do <em>not</em> use libc's <c>putenv</c> or similar C library
-            interfaces from a driver.</p>
+          <p>This function modifies the emulated environment used by
+            <seealso marker="os:putenv/2"><c>os:putenv/2</c></seealso> and not
+            the environment used by libc's <c>putenv(3)</c> or similar. Drivers
+            that <em>require</em> that these are in sync will need to do so
+            themselves, but keep in mind that they are segregated for a reason;
+            <c>putenv(3)</c> and its friends are <em>not thread-safe</em> and
+            may cause unrelated code to misbehave or crash the emulator.</p>
         </warning>
         <p>This function is thread-safe.</p>
       </desc>

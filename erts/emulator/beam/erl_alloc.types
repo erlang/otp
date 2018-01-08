@@ -283,6 +283,8 @@ type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
 
+type	ENVIRONMENT	SYSTEM		SYSTEM		environment
+
 #
 # Types used for special emulators
 #
@@ -370,8 +372,6 @@ type	SYS_READ_BUF	TEMPORARY	SYSTEM		sys_read_buf
 type	FD_TAB		LONG_LIVED	SYSTEM		fd_tab
 type	FD_ENTRY_BUF	STANDARD	SYSTEM		fd_entry_buf
 type	CS_PROG_PATH	LONG_LIVED	SYSTEM		cs_prog_path
-type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
 type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
 
@@ -383,9 +383,7 @@ type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
 
 type	DRV_DATA_BUF	SYSTEM		SYSTEM		drv_data_buf
 type	PRELOADED	LONG_LIVED	SYSTEM		preloaded
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	WAITER_OBJ	LONG_LIVED	SYSTEM		waiter_object
-type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 type	CON_VPRINTF_BUF	TEMPORARY	SYSTEM		con_vprintf_buf
 
 +endif
