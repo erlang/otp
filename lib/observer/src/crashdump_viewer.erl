@@ -2027,12 +2027,16 @@ all_modinfo(Fd,LM,LineHead,DecodeOpts) ->
     end.
 
 get_attribute(Fd, DecodeOpts) ->
+    Term = do_get_attribute(Fd, DecodeOpts),
+    io_lib:format("~tp~n",[Term]).
+
+do_get_attribute(Fd, DecodeOpts) ->
     Bytes = bytes(Fd, ""),
     try get_binary(Bytes, DecodeOpts) of
         {Bin,_} ->
             try binary_to_term(Bin) of
                 Term ->
-                    io_lib:format("~tp~n",[Term])
+                    Term
             catch
                 _:_ ->
                     {"WARNING: The term is probably truncated!",

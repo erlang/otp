@@ -459,6 +459,27 @@ special(File,Procs) ->
 			old_attrib=undefined,
 			old_comp_info=undefined}=Mod2,
 	    ok;
+        ".trunc_mod" ->
+            ModName = atom_to_list(?helper_mod),
+            {ok,Mod=#loaded_mod{},[TW]} =
+                crashdump_viewer:loaded_mod_details(ModName),
+            "WARNING: The crash dump is truncated here."++_ = TW,
+            #loaded_mod{current_attrib=CA,current_comp_info=CCI,
+                        old_attrib=OA,old_comp_info=OCI} = Mod,
+            case lists:all(fun(undefined) ->
+                                   true;
+                              (S) when is_list(S) ->
+                                   io_lib:printable_unicode_list(lists:flatten(S));
+                              (_) -> false
+                           end,
+                           [CA,CCI,OA,OCI]) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({should_be_printable_strings_or_undefined,
+                             {CA,CCI,OA,OCI}})
+            end,
+            ok;
 	".trunc_bin1" ->
             %% This is 'full_dist' truncated after the first
             %% "=binary:"
@@ -658,13 +679,32 @@ do_create_dumps(DataDir,Rel) ->
             CD5 = dump_with_size_limit_reached(DataDir,Rel,"trunc_bytes"),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
             CD7 = dump_with_maps(DataDir,Rel,"maps"),
-            TruncatedDumps = truncate_dump(CD1),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7|TruncatedDumps], DosDump};
+            TruncDumpMod = truncate_dump_mod(CD1),
+            TruncatedDumpsBinary = truncate_dump_binary(CD1),
+	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,TruncDumpMod|TruncatedDumpsBinary],
+             DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
     end.
 
-truncate_dump(File) ->
+truncate_dump_mod(File) ->
+    {ok,Bin} = file:read_file(File),
+    ModNameBin = atom_to_binary(?helper_mod,latin1),
+    NewLine = case os:type() of
+                  {win32,_} -> <<"\r\n">>;
+                  _ -> <<"\n">>
+              end,
+    RE = <<NewLine/binary,"=mod:",ModNameBin/binary,
+           NewLine/binary,"Current size: [0-9]*",
+           NewLine/binary,"Current attributes: ...">>,
+    {match,[{Pos,Len}]} = re:run(Bin,RE),
+    Size = Pos + Len,
+    <<Truncated:Size/binary,_/binary>> = Bin,
+    DumpName = filename:rootname(File) ++ ".trunc_mod",
+    file:write_file(DumpName,Truncated),
+    DumpName.
+
+truncate_dump_binary(File) ->
     {ok,Bin} = file:read_file(File),
     BinTag = <<"\n=binary:">>,
     Colon = <<":">>,
