@@ -54,7 +54,7 @@
 	 sha/1, sign/3, verify/5]).
 
 %%% For test suites
--export([pack/3]).
+-export([pack/3, adjust_algs_for_peer_version/2]).
 -export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
 -define(Estring(X), ?STRING((if is_binary(X) -> X;

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+UBUNTU_VER=${1:-16.04}
+
+USER=sshtester
+PWD=foobar
+
+docker build \
+    -t ubuntubuildbase \
+    --build-arg https_proxy=$HTTPS_PROXY \
+    --build-arg http_proxy=$HTTP_PROXY \
+    - <<EOF
+
+    FROM ubuntu:$UBUNTU_VER
+    WORKDIR /buildroot
+
+    # Prepare for installing OpenSSH
+    RUN apt-get update
+    RUN apt-get upgrade -y
+    RUN apt-get -y install apt-utils
+    RUN apt-get -y install build-essential zlib1g-dev
+    RUN apt-get -y install sudo iputils-ping tcptraceroute net-tools
+    RUN apt-get -y install sshpass expect
+    RUN apt-get -y install libpam0g-dev
+
+    # A user for the tests
+    RUN (echo $PWD; echo $PWD; echo; echo; echo; echo; echo; echo ) | adduser $USER
+    RUN adduser $USER sudo
+
+    # Prepare the privsep preauth environment for openssh
+    RUN  mkdir -p /var/empty
+    RUN  chown root:sys /var/empty
+    RUN  chmod 755 /var/empty
+    RUN  groupadd -f sshd
+    RUN  ls /bin/false
+    RUN  id -u sshd 2> /dev/null || useradd -g sshd -c 'sshd privsep' -d /var/empty -s /bin/false sshd
+
+EOF
