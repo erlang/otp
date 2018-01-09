@@ -1974,9 +1974,11 @@ arith_abs(X1, Opaques) ->
         case infinity_geq(Min1, 0) of
           true -> {Min1, Max1};
           false ->
+            NegMin1 = infinity_inv(Min1),
+            NegMax1 = infinity_inv(Max1),
             case infinity_geq(Max1, 0) of
-              true  -> {0, infinity_inv(Min1)};
-              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+              true  -> {0, max(NegMin1, Max1)};
+              false -> {NegMax1, NegMin1}
             end
         end,
       t_from_range(NewMin, NewMax)
