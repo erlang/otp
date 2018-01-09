@@ -2148,7 +2148,7 @@ calc_mac_hash(Type, Version,
 	     MacSecret, SeqNo, Type,
 	     Length, PlainFragment).
 
-is_stream_ciphersuite({_, rc4_128, _, _}) ->
+is_stream_ciphersuite(#{cipher := rc4_128}) ->
     true;
 is_stream_ciphersuite(_) ->
     false.
