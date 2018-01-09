@@ -2745,7 +2745,7 @@ Return nil if inside string, t if in a comment."
                   (1+ (nth 2 stack-top)))
                  ((= (char-syntax (following-char)) ?\))
                   (goto-char (nth 1 stack-top))
-                  (cond ((looking-at "[({]\\s *\\($\\|%\\)")
+                  (cond ((erlang-record-or-function-args-p)
                          ;; Line ends with parenthesis.
                          (let ((previous (erlang-indent-find-preceding-expr))
                                (stack-pos (nth 2 stack-top)))
@@ -2758,7 +2758,7 @@ Return nil if inside string, t if in a comment."
                   (nth 2 stack-top))
                  (t
                   (goto-char (nth 1 stack-top))
-                  (let ((base (cond ((looking-at "[({]\\s *\\($\\|%\\)")
+                  (let ((base (cond ((erlang-record-or-function-args-p)
                                      ;; Line ends with parenthesis.
                                      (erlang-indent-parenthesis (nth 2 stack-top)))
                                     (t
@@ -3031,11 +3031,21 @@ This assumes that the preceding expression is either simple
                (t col)))
        col))))
 
+(defun erlang-record-or-function-args-p ()
+  (and (looking-at "[({]\\s *\\($\\|%\\)")
+       (or (eq (following-char) ?\( )
+           (save-excursion
+             (ignore-errors (forward-sexp (- 1)))
+             (eq (preceding-char) ?#)))))
+
 (defun erlang-indent-parenthesis (stack-position)
   (let ((previous (erlang-indent-find-preceding-expr)))
-    (if (> previous stack-position)
-        (+ stack-position erlang-argument-indent)
-      (+ previous erlang-argument-indent))))
+    (cond ((eq previous stack-position) ;; tuple or map not a record
+           (1+ stack-position))
+          ((> previous stack-position)
+           (+ stack-position erlang-argument-indent))
+          (t
+           (+ previous erlang-argument-indent)))))
 
 (defun erlang-skip-blank (&optional lim)
   "Skip over whitespace and comments until limit reached."

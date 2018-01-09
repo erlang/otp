@@ -79,20 +79,20 @@ match1({[H|T],
 
 match2(
   {
-    [H|T],
-    Other
+   [H|T],
+   Other
   },
   M2A2
  ) ->
     ok.
 
 match3({
-         M3A1,
-         [
-          H |
-          T
-         ],
-         Other
+        M3A1,
+        [
+         H |
+         T
+        ],
+        Other
        },
        M3A2
       ) ->

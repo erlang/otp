@@ -39,8 +39,8 @@ tuple(2) ->
     };
 tuple(3) ->
     {
-      a,
-      b,c
+     a,
+     b,c
     };
 tuple(4) ->
     { a
@@ -68,22 +68,23 @@ binary(4) ->
     >>.
 
 record(1) ->
-    #rec{a=1,
-         b=2
-        };
+    #record{a=1,
+            b=2
+           };
 record(2) ->
-    #rec{ a=1,
-          b=2
-        };
+    #record{ a=1,
+             b=2
+           };
 record(3) ->
-    #rec{
+    #record{
        a=1,
        b=2
       };
 record(4) ->
-    #rec{a=1
-        ,b=2
-        }.
+    #record{
+       a=1
+      ,b=2
+      }.
 
 map(1) ->
     #{a=>1,
@@ -95,9 +96,9 @@ map(2) ->
      };
 map(3) ->
     #{
-     a=>1,
-     b=>2
-    };
+      a=>1,
+      b=>2
+     };
 map(4) ->
     #{
       a => <<"a">>
