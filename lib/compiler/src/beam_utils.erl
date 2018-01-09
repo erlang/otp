@@ -902,7 +902,8 @@ live_opt([{test,_,Fail,Live,Ss,_}=I|Is], _, D, Acc) ->
     Regs1 = x_live(Ss, Regs0),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
+live_opt([{select,_,Src,Fail,List}=I|Is], _, D, Acc) ->
+    Regs0 = 0,
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
