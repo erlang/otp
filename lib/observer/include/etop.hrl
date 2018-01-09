@@ -18,4 +18,4 @@
 %% %CopyrightEnd%
 %%
 
--include("../../runtime_tools/include/observer_backend.hrl").
+-include_lib("runtime_tools/include/observer_backend.hrl").

@@ -132,6 +132,7 @@ JAVADOC-GENERATED
 /bootstrap/lib/ic
 /bootstrap/lib/orber
 /bootstrap/lib/parsetools
+/bootstrap/lib/runtime_tools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp
 /bootstrap/lib/syntax_tools
