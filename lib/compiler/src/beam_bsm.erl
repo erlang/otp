@@ -124,20 +124,21 @@ btb_opt_1([{test,bs_get_binary2,F,_,[Reg,{atom,all},U,Fs],Reg}=I0|Is], D, Acc0) 
 		  end,
 	    btb_opt_1(Is, D, Acc)
     end;
-btb_opt_1([{test,bs_get_binary2,F,_,[Ctx,{atom,all},U,Fs],Dst}=I0|Is], D, Acc0) ->
-    case btb_reaches_match(Is, [Ctx,Dst], D) of
+btb_opt_1([{test,bs_get_binary2,F,_,[Ctx,{atom,all},U,Fs],Dst}=I0|Is0], D, Acc0) ->
+    case btb_reaches_match(Is0, [Ctx,Dst], D) of
 	{error,Reason} ->
 	    Comment = btb_comment_no_opt(Reason, Fs),
-	    btb_opt_1(Is, D, [Comment,I0|Acc0]);
+	    btb_opt_1(Is0, D, [Comment,I0|Acc0]);
 	{ok,MustSave} when U =:= 1 ->
 	    Comment = btb_comment_opt(Fs),
-	    Acc1 = btb_gen_save(MustSave, Ctx, [Comment|Acc0]),
-	    Acc = [{move,Ctx,Dst}|Acc1],
+            Acc = btb_gen_save(MustSave, Ctx, [Comment|Acc0]),
+            Is = prepend_move(Ctx, Dst, Is0),
 	    btb_opt_1(Is, D, Acc);
 	{ok,MustSave} ->
 	    Comment = btb_comment_opt(Fs),
 	    Acc1 = btb_gen_save(MustSave, Ctx, [Comment|Acc0]),
-	    Acc = [{move,Ctx,Dst},{test,bs_test_unit,F,[Ctx,U]}|Acc1],
+            Acc = [{test,bs_test_unit,F,[Ctx,U]}|Acc1],
+            Is = prepend_move(Ctx, Dst, Is0),
 	    btb_opt_1(Is, D, Acc)
     end;
 btb_opt_1([I|Is], D, Acc) ->
@@ -149,6 +150,12 @@ btb_opt_1([], _, Acc) ->
 btb_gen_save(true, Reg, Acc) ->
     [{bs_save2,Reg,{atom,start}}|Acc];
 btb_gen_save(false, _, Acc) -> Acc.
+
+prepend_move(Ctx, Dst, [{block,Bl0}|Is]) ->
+    Bl = [{set,[Dst],[Ctx],move}|Bl0],
+    [{block,Bl}|Is];
+prepend_move(Ctx, Dst, Is) ->
+    [{move,Ctx,Dst}|Is].
 
 %% btb_reaches_match([Instruction], [Register], D) ->
 %%   {ok,MustSave}|{error,Reason}
