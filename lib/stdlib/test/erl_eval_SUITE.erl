@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@
          otp_8133/1,
          otp_10622/1,
          otp_13228/1,
+         otp_14826/1,
          funs/1,
 	 try_catch/1,
 	 eval_expr_5/1,
@@ -57,6 +58,7 @@
 
 -export([count_down/2, count_down_fun/0, do_apply/2, 
          local_func/3, local_func_value/2]).
+-export([simple/0]).
 
 -ifdef(STANDALONE).
 -define(config(A,B),config(A,B)).
@@ -83,7 +85,7 @@ all() ->
      pattern_expr, match_bin, guard_3, guard_4, guard_5, lc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
-     otp_8133, otp_10622, otp_13228,
+     otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
      eep37, eep43].
 
@@ -988,6 +990,173 @@ otp_13228(_Config) ->
     EFH = {value, fun({io, fwrite}, [atom]) -> io_fwrite end},
     {value, worked, []} = parse_and_run("foo(io:fwrite(atom)).", LFH, EFH).
 
+%% OTP-14826: more accurate stacktrace.
+otp_14826(_Config) ->
+    backtrace_check("fun(P) when is_pid(P) -> true end(a).",
+                    function_clause,
+                    [{erl_eval,'-inside-an-interpreted-fun-',[a],[]},
+                     {erl_eval,eval_fun,6},
+                     ?MODULE]),
+    backtrace_check("B.",
+                    {unbound_var, 'B'},
+                    [{erl_eval,expr,2}, ?MODULE]),
+    backtrace_check("B.",
+                    {unbound, 'B'},
+                    [{erl_eval,expr,5}, ?MODULE],
+                    none, none),
+    backtrace_check("1/0.",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    backtrace_catch("catch 1/0.",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    check(fun() -> catch exit(foo) end,
+          "catch exit(foo).",
+          {'EXIT', foo}),
+    check(fun() -> catch throw(foo) end,
+          "catch throw(foo).",
+          foo),
+    backtrace_check("try 1/0 after foo end.",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    backtrace_catch("catch (try 1/0 after foo end).",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    backtrace_catch("try catch 1/0 after foo end.",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    backtrace_check("try a of b -> bar after foo end.",
+                    {try_clause,a},
+                    [{erl_eval,try_clauses,8}]),
+    check(fun() -> X = try foo:bar() catch A:B:C -> {A,B} end, X end,
+          "try foo:bar() catch A:B:C -> {A,B} end.",
+          {error, undef}),
+    backtrace_check("C = 4, try foo:bar() catch A:B:C -> {A,B,C} end.",
+                    stacktrace_bound,
+                    [{erl_eval,check_stacktrace_vars,2},
+                     {erl_eval,try_clauses,8}],
+                    none, none),
+    backtrace_catch("catch (try a of b -> bar after foo end).",
+                    {try_clause,a},
+                    [{erl_eval,try_clauses,8}]),
+    backtrace_check("try 1/0 catch exit:a -> foo end.",
+                    badarith,
+                    [{erlang,'/',[1,0],[]},
+                     {erl_eval,do_apply,6}]),
+    Es = [{'try',1,[{call,1,{remote,1,{atom,1,foo},{atom,1,bar}},[]}],
+           [],
+           [{clause,1,[{tuple,1,[{var,1,'A'},{var,1,'B'},{atom,1,'C'}]}],
+             [],[{tuple,1,[{var,1,'A'},{var,1,'B'},{atom,1,'C'}]}]}],[]}],
+    try
+        erl_eval:exprs(Es, [], none, none),
+        ct:fail(stacktrace_variable)
+    catch
+        error:{illegal_stacktrace_variable,{atom,1,'C'}}:S ->
+            [{erl_eval,check_stacktrace_vars,2,_},
+             {erl_eval,try_clauses,8,_}|_] = S
+    end,
+    backtrace_check("{1,1} = {A = 1, A = 2}.",
+                    {badmatch, 1},
+                    [erl_eval, {lists,foldl,3}]),
+    backtrace_check("case a of a when foo:bar() -> x end.",
+                    guard_expr,
+                    [{erl_eval,guard0,4}], none, none),
+    backtrace_check("case a of foo() -> ok end.",
+                    {illegal_pattern,{call,1,{atom,1,foo},[]}},
+                    [{erl_eval,match,4}], none, none),
+    backtrace_check("case a of b -> ok end.",
+                    {case_clause,a},
+                    [{erl_eval,case_clauses,6}, ?MODULE]),
+    backtrace_check("if a =:= b -> ok end.",
+                    if_clause,
+                    [{erl_eval,if_clauses,5}, ?MODULE]),
+    backtrace_check("fun A(b) -> ok end(a).",
+                    function_clause,
+                    [{erl_eval,'-inside-an-interpreted-fun-',[a],[]},
+                     {erl_eval,eval_named_fun,8},
+                     ?MODULE]),
+    backtrace_check("[A || A <- a].",
+                    {bad_generator, a},
+                    [{erl_eval,eval_generate,7}, {erl_eval, eval_lc, 6}]),
+    backtrace_check("<< <<A>> || <<A>> <= a>>.",
+                    {bad_generator, a},
+                    [{erl_eval,eval_b_generate,7}, {erl_eval, eval_bc, 6}]),
+    backtrace_check("[A || A <- [1], begin a end].",
+                    {bad_filter, a},
+                    [{erl_eval,eval_filter,6}, {erl_eval, eval_generate, 7}]),
+    fun() ->
+            {'EXIT', {{badarity, {_Fun, []}}, BT}} =
+                (catch parse_and_run("fun(A) -> A end().")),
+            check_backtrace([{erl_eval,do_apply,5}, ?MODULE], BT)
+    end(),
+    fun() ->
+            {'EXIT', {{badarity, {_Fun, []}}, BT}} =
+                (catch parse_and_run("fun F(A) -> A end().")),
+            check_backtrace([{erl_eval,do_apply,5}, ?MODULE], BT)
+    end(),
+    backtrace_check("foo().",
+                    undef,
+                    [{erl_eval,foo,0},{erl_eval,local_func,6}],
+                    none, none),
+    backtrace_check("a orelse false.",
+                    {badarg, a},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("a andalso false.",
+                    {badarg, a},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("t = u.",
+                    {badmatch, u},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("{math,sqrt}(2).",
+                    {badfun, {math,sqrt}},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("erl_eval_SUITE:simple().",
+                    simple,
+                    [{?MODULE,simple1,0},{?MODULE,simple,0},erl_eval]),
+    Args = [{integer,1,I} || I <- lists:seq(1, 30)],
+    backtrace_check("fun(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,"
+                    "19,20,21,22,23,24,25,26,27,28,29,30) -> a end.",
+                    {argument_limit,
+                     {'fun',1,[{clause,1,Args,[],[{atom,1,a}]}]}},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("fun F(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,"
+                    "19,20,21,22,23,24,25,26,27,28,29,30) -> a end.",
+                    {argument_limit,
+                     {named_fun,1,'F',[{clause,1,Args,[],[{atom,1,a}]}]}},
+                    [{erl_eval,expr,5}, ?MODULE]),
+    backtrace_check("#r{}.",
+                    {undef_record,r},
+                    [{erl_eval,expr,5}, ?MODULE],
+                    none, none),
+    %% eval_bits
+    backtrace_check("<<100:8/bitstring>>.",
+                    badarg,
+                    [{eval_bits,eval_exp_field1,6},
+                     eval_bits,eval_bits,erl_eval]),
+    backtrace_check("<<100:8/foo>>.",
+                    {undefined_bittype,foo},
+                    [{eval_bits,make_bit_type,3},eval_bits,
+                     eval_bits,erl_eval],
+                    none, none),
+    backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
+                    badarg,
+                    [{eval_bits,eval_exp_field1,6},
+                     eval_bits,eval_bits,erl_eval],
+                    none, none),
+    ok.
+
+simple() ->
+    A = simple1(),
+    {A}.
+
+simple1() ->
+    erlang:error(simple).
+
 %% Simple cases, just to cover some code.
 funs(Config) when is_list(Config) ->
     do_funs(none, none),
@@ -1488,6 +1657,43 @@ error_check(String, Result, LFH, EFH) ->
             ct:fail({eval, Other, Result})
     end.
 
+backtrace_check(String, Result, Backtrace) ->
+    case catch parse_and_run(String) of
+        {'EXIT', {Result, BT}} ->
+            check_backtrace(Backtrace, BT);
+        Other ->
+            ct:fail({eval, Other, Result})
+    end.
+
+backtrace_check(String, Result, Backtrace, LFH, EFH) ->
+    case catch parse_and_run(String, LFH, EFH) of
+        {'EXIT', {Result, BT}} ->
+            check_backtrace(Backtrace, BT);
+        Other ->
+            ct:fail({eval, Other, Result})
+    end.
+
+backtrace_catch(String, Result, Backtrace) ->
+    case parse_and_run(String) of
+        {value, {'EXIT', {Result, BT}}, _Bindings} ->
+            check_backtrace(Backtrace, BT);
+        Other ->
+            ct:fail({eval, Other, Result})
+    end.
+
+check_backtrace([B1|Backtrace], [B2|BT]) ->
+    case {B1, B2} of
+        {M, {M,_,_,_}} ->
+            ok;
+        {{M,F,A}, {M,F,A,_}} ->
+            ok;
+        {B, B} ->
+            ok
+    end,
+    check_backtrace(Backtrace, BT);
+check_backtrace([], _) ->
+    ok.
+
 eval_string(String) ->
     {value, Result, _} = parse_and_run(String),
     Result.
@@ -1499,8 +1705,8 @@ parse_and_run(String) ->
 
 parse_and_run(String, LFH, EFH) ->
     {ok,Tokens,_} = erl_scan:string(String),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-    erl_eval:expr(Expr, [], LFH, EFH).
+    {ok, Exprs} = erl_parse:parse_exprs(Tokens),
+    erl_eval:exprs(Exprs, [], LFH, EFH).
 
 no_final_dot(S) ->
     case lists:reverse(S) of

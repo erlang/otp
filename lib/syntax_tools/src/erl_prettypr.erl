@@ -780,8 +780,7 @@ lay_2(Node, Ctxt) ->
                 '_' ->
                     beside(D1, beside(text(":"), D2));
                 _ ->
-                    D3 = lay(erl_syntax:class_qualifier_stacktrace(Node),
-                             Ctxt1),
+                    D3 = lay(Stacktrace, Ctxt1),
                     beside(D1, beside(beside(text(":"), D2),
                                       beside(text(":"), D3)))
             end;

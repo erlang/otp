@@ -1444,11 +1444,14 @@ b</pre>
           the process to terminate, it has no return value. Example:</p>
         <pre>
 > <input>catch error(foobar).</input>
-{'EXIT',{foobar,[{erl_eval,do_apply,5},
-                 {erl_eval,expr,5},
-                 {shell,exprs,6},
-                 {shell,eval_exprs,6},
-                 {shell,eval_loop,3}]}}</pre>
+{'EXIT',{foobar,[{shell,apply_fun,3,
+                        [{file,"shell.erl"},{line,906}]},
+                 {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,677}]},
+                 {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,430}]},
+                 {shell,exprs,7,[{file,"shell.erl"},{line,687}]},
+                 {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
+                 {shell,eval_loop,3,[{file,"shell.erl"},{line,627}]}]}}
+</pre>
       </desc>
     </func>
 

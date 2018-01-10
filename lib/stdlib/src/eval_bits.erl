@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@
 -compile({no_auto_import,[error/1]}).
 -export([expr_grp/3,expr_grp/5,match_bits/6, 
 	 match_bits/7,bin_gen/6]).
+
+-define(STACKTRACE,
+        element(2, erlang:process_info(self(), current_stacktrace))).
 
 %% Types used in this module:
 %% @type bindings(). An abstract structure for bindings between
@@ -93,9 +96,9 @@ eval_exp_field1(V, Size, Unit, Type, Endian, Sign) ->
 	eval_exp_field(V, Size, Unit, Type, Endian, Sign)
     catch
 	error:system_limit ->
-	    error(system_limit);
+	    erlang:raise(error, system_limit, ?STACKTRACE);
 	error:_ ->
-	    error(badarg)
+	    erlang:raise(error, badarg, ?STACKTRACE)
     end.
 
 eval_exp_field(Val, Size, Unit, integer, little, signed) ->
@@ -131,7 +134,7 @@ eval_exp_field(Val, all, Unit, binary, _, _) ->
 	Size when Size rem Unit =:= 0 ->
 	    <<Val:Size/binary-unit:1>>;
 	_ ->
-	    error(badarg)
+	    erlang:raise(error, badarg, ?STACKTRACE)
     end;
 eval_exp_field(Val, Size, Unit, binary, _, _) ->
     <<Val:(Size*Unit)/binary-unit:1>>.
@@ -377,12 +380,12 @@ make_bit_type(Line, default, Type0) ->
         {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
 	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
         {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)};
-        {error,Reason} -> error(Reason)
+        {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end;
 make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
     case erl_bits:set_bit_type(Size, Type0) of
         {ok,Size,Bt} -> {Size,erl_bits:as_list(Bt)};
-        {error,Reason} -> error(Reason)
+        {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end.
 
 match_check_size(Mfun, Size, Bs) ->
@@ -405,9 +408,3 @@ match_check_size(_, {value,_,_}, _Bs, _AllowAll) ->
     ok;	%From the debugger.
 match_check_size(_, _, _Bs, _AllowAll) ->
     throw(invalid).
-
-%% error(Reason) -> exception thrown
-%%  Throw a nice-looking exception, similar to exceptions from erl_eval.
-error(Reason) ->
-    erlang:raise(error, Reason, [{erl_eval,expr,3}]).
-

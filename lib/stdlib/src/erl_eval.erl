@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,6 +69,9 @@
 -type(non_local_function_handler() :: {value, nlfun_handler()}
                                     | none).
 
+-define(STACKTRACE,
+        element(2, erlang:process_info(self(), current_stacktrace))).
+
 %% exprs(ExpressionSeq, Bindings)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler, ExternalFuncHandler)
@@ -90,7 +93,7 @@ exprs(Exprs, Bs) ->
         ok -> 
             exprs(Exprs, Bs, none, none, none);
         {error,{_Line,_Mod,Error}} ->
-	    erlang:raise(error, Error, [{?MODULE,exprs,2}])
+	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
 -spec(exprs(Expressions, Bindings, LocalFunctionHandler) ->
@@ -141,7 +144,7 @@ expr(E, Bs) ->
         ok -> 
             expr(E, Bs, none, none, none);
         {error,{_Line,_Mod,Error}} ->
-	    erlang:raise(error, Error, [{?MODULE,expr,2}])
+	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
 -spec(expr(Expression, Bindings, LocalFunctionHandler) ->
@@ -182,7 +185,7 @@ check_command(Es, Bs) ->
 
 fun_data(F) when is_function(F) ->
     case erlang:fun_info(F, module) of
-        {module,erl_eval} ->
+        {module,?MODULE} ->
             case erlang:fun_info(F, env) of
                 {env,[{FBs,_FLf,_FEf,FCs}]} ->
                     {fun_data,FBs,FCs};
@@ -209,8 +212,8 @@ expr({var,_,V}, Bs, _Lf, _Ef, RBs) ->
     case binding(V, Bs) of
 	{value,Val} ->
             ret_expr(Val, Bs, RBs);
-	unbound -> % Should not happen.
-	    erlang:raise(error, {unbound,V}, stacktrace())
+	unbound -> % Cannot not happen if checked by erl_lint
+	    erlang:raise(error, {unbound,V}, ?STACKTRACE)
     end;
 expr({char,_,C}, Bs, _Lf, _Ef, RBs) ->
     ret_expr(C, Bs, RBs);
@@ -236,13 +239,13 @@ expr({tuple,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
     ret_expr(list_to_tuple(Vs), Bs, RBs);
 expr({record_field,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record_index,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 
 %% map
 expr({map,_,Binding,Es}, Bs0, Lf, Ef, RBs) ->
@@ -281,7 +284,7 @@ expr({'fun',_Line,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
     ret_expr(F, Bs, RBs);    
 expr({'fun',_Line,{function,Name,Arity}}, _Bs0, _Lf, _Ef, _RBs) -> % R8
     %% Don't know what to do...
-    erlang:raise(error, undef, [{erl_eval,Name,Arity}|stacktrace()]);
+    erlang:raise(error, undef, [{?MODULE,Name,Arity}|?STACKTRACE]);
 expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
@@ -326,7 +329,7 @@ expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
            eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T], Info) end;
 	_Other ->
 	    erlang:raise(error, {'argument_limit',{'fun',Line,Cs}},
-			 stacktrace())
+			 ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
 expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
@@ -378,7 +381,7 @@ expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
                           RF, Info) end;
         _Other ->
             erlang:raise(error, {'argument_limit',{named_fun,Line,Name,Cs}},
-                         stacktrace())
+                         ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
 expr({call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[{lc,_,_E,_Qs}=LC | As0]}, 
@@ -422,25 +425,28 @@ expr({call,_,Func0,As0}, Bs0, Lf, Ef, RBs) -> % function or {Mod,Fun}
     {As,Bs2} = expr_list(As0, Bs1, Lf, Ef),
     case Func of
 	{M,F} when is_atom(M), is_atom(F) ->
-	    erlang:raise(error, {badfun,Func}, stacktrace());
+	    erlang:raise(error, {badfun,Func}, ?STACKTRACE);
 	_ ->
 	    do_apply(Func, As, Bs2, Ef, RBs)
     end;
 expr({'catch',_,Expr}, Bs0, Lf, Ef, RBs) ->
-    Ref = make_ref(),
-    case catch {Ref,expr(Expr, Bs0, Lf, Ef, none)} of
-	{Ref,{value,V,Bs}} ->	  % Nothing was thrown (guaranteed).
-            ret_expr(V, Bs, RBs);
-	Other ->
-            ret_expr(Other, Bs0, RBs)
+    try expr(Expr, Bs0, Lf, Ef, none) of
+        {value,V,Bs} ->
+            ret_expr(V, Bs, RBs)
+    catch
+        throw:Term ->
+            ret_expr(Term, Bs0, RBs);
+        exit:Reason ->
+            ret_expr({'EXIT',Reason}, Bs0, RBs);
+        error:Reason:Stacktrace ->
+            ret_expr({'EXIT',{Reason,Stacktrace}}, Bs0, RBs)
     end;
 expr({match,_,Lhs,Rhs0}, Bs0, Lf, Ef, RBs) ->
     {value,Rhs,Bs1} = expr(Rhs0, Bs0, Lf, Ef, none),
     case match(Lhs, Rhs, Bs1) of
 	{match,Bs} ->
             ret_expr(Rhs, Bs, RBs);
-	nomatch ->
-	    erlang:raise(error, {badmatch,Rhs}, stacktrace())
+	nomatch -> erlang:raise(error, {badmatch,Rhs}, ?STACKTRACE)
     end;
 expr({op,_,Op,A0}, Bs0, Lf, Ef, RBs) ->
     {value,A,Bs} = expr(A0, Bs0, Lf, Ef, none),
@@ -452,7 +458,7 @@ expr({op,_,'andalso',L0,R0}, Bs0, Lf, Ef, RBs) ->
 		{value,R,_} = expr(R0, Bs1, Lf, Ef, none),
 		R;
 	    false -> false;
-	    _ -> erlang:raise(error, {badarg,L}, stacktrace())
+	    _ -> erlang:raise(error, {badarg,L}, ?STACKTRACE)
 	end,
     ret_expr(V, Bs1, RBs);
 expr({op,_,'orelse',L0,R0}, Bs0, Lf, Ef, RBs) ->
@@ -462,7 +468,7 @@ expr({op,_,'orelse',L0,R0}, Bs0, Lf, Ef, RBs) ->
 	    false ->
 		{value,R,_} = expr(R0, Bs1, Lf, Ef, none),
 		R;
-	    _ -> erlang:raise(error, {badarg,L}, stacktrace())
+	    _ -> erlang:raise(error, {badarg,L}, ?STACKTRACE)
 	end,
     ret_expr(V, Bs1, RBs);
 expr({op,_,Op,L0,R0}, Bs0, Lf, Ef, RBs) ->
@@ -474,7 +480,7 @@ expr({bin,_,Fs}, Bs0, Lf, Ef, RBs) ->
     {value,V,Bs} = eval_bits:expr_grp(Fs, Bs0, EvalFun),
     ret_expr(V, Bs, RBs);
 expr({remote,_,_,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {badexpr,':'}, stacktrace());
+    erlang:raise(error, {badexpr,':'}, ?STACKTRACE);
 expr({value,_,Val}, Bs, _Lf, _Ef, RBs) ->    % Special case straight values.
     ret_expr(Val, Bs, RBs).
 
@@ -570,7 +576,7 @@ local_func(Func, As, _Bs, {M,F,Eas}, _Ef, RBs) ->
     local_func2(apply(M, F, [Func,As|Eas]), RBs);
 %% Default unknown function handler to undefined function.
 local_func(Func, As0, _Bs0, none, _Ef, _RBs) ->
-    erlang:raise(error, undef, [{erl_eval,Func,length(As0)}|stacktrace()]).
+    erlang:raise(error, undef, [{?MODULE,Func,length(As0)}|?STACKTRACE]).
 
 local_func2({value,V,Bs}, RBs) ->
     ret_expr(V, Bs, RBs);
@@ -637,7 +643,7 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
                 {{arity, Arity}, Arity} ->
                     eval_fun(FCs, As, FBs, FLf, FEf, NRBs);
                 _ ->
-                    erlang:raise(error, {badarity,{Func,As}},stacktrace())
+                    erlang:raise(error, {badarity,{Func,As}},?STACKTRACE)
             end;
         {{env,[{FBs,FLf,FEf,FCs,FName}]},_} ->
             NRBs = if
@@ -648,7 +654,7 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
                 {{arity, Arity}, Arity} ->
                     eval_named_fun(FCs, As, FBs, FLf, FEf, FName, Func, NRBs);
                 _ ->
-                    erlang:raise(error, {badarity,{Func,As}},stacktrace())
+                    erlang:raise(error, {badarity,{Func,As}},?STACKTRACE)
             end;
         {no_env,none} when RBs =:= value ->
             %% Make tail recursive calls when possible.
@@ -730,7 +736,7 @@ eval_generate([V|Rest], P, Bs0, Lf, Ef, CompFun, Acc) ->
 eval_generate([], _P, _Bs0, _Lf, _Ef, _CompFun, Acc) ->
     Acc;
 eval_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
-    erlang:raise(error, {bad_generator,Term}, stacktrace()).
+    erlang:raise(error, {bad_generator,Term}, ?STACKTRACE).
 
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
     Mfun = match_fun(Bs0),
@@ -746,7 +752,7 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
 	    Acc
     end;
 eval_b_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
-    erlang:raise(error, {bad_generator,Term}, stacktrace()).
+    erlang:raise(error, {bad_generator,Term}, ?STACKTRACE).
 
 eval_filter(F, Bs0, Lf, Ef, CompFun, Acc) ->
     case erl_lint:is_guard_test(F) of
@@ -760,7 +766,7 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, Acc) ->
 		{value,true,Bs1} -> CompFun(Bs1);
 		{value,false,_} -> Acc;
 		{value,V,_} -> 
-                    erlang:raise(error, {bad_filter,V}, stacktrace())
+                    erlang:raise(error, {bad_filter,V}, ?STACKTRACE)
 	    end
     end.
 
@@ -816,7 +822,7 @@ eval_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, RBs) ->
     end;
 eval_fun([], As, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, function_clause, 
-		 [{?MODULE,'-inside-an-interpreted-fun-',As}|stacktrace()]).
+		 [{?MODULE,'-inside-an-interpreted-fun-',As}|?STACKTRACE]).
 
 
 eval_named_fun(As, Fun, {Bs0,Lf,Ef,Cs,Name}) ->
@@ -836,7 +842,7 @@ eval_named_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, Name, Fun, RBs) ->
     end;
 eval_named_fun([], As, _Bs, _Lf, _Ef, _Name, _Fun, _RBs) ->
     erlang:raise(error, function_clause,
-                 [{?MODULE,'-inside-an-interpreted-fun-',As}|stacktrace()]).
+                 [{?MODULE,'-inside-an-interpreted-fun-',As}|?STACKTRACE]).
 
 
 %% expr_list(ExpressionList, Bindings)
@@ -894,13 +900,13 @@ if_clauses([{clause,_,[],G,B}|Cs], Bs, Lf, Ef, RBs) ->
 	false -> if_clauses(Cs, Bs, Lf, Ef, RBs)
     end;
 if_clauses([], _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, if_clause, stacktrace()).
+    erlang:raise(error, if_clause, ?STACKTRACE).
 
 %% try_clauses(Body, CaseClauses, CatchClauses, AfterBody, Bindings, 
 %%             LocalFuncHandler, ExtFuncHandler, RBs)
-%% When/if variable bindings between the different parts of a
-%% try-catch expression are introduced this will have to be rewritten.
+
 try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
+    check_stacktrace_vars(Catches, Bs),
     try exprs(B, Bs, Lf, Ef, none) of
 	{value,V,Bs1} when Cases =:= [] ->
 	    ret_expr(V, Bs1, RBs);
@@ -909,23 +915,18 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 		{B2,Bs2} ->
 		    exprs(B2, Bs2, Lf, Ef, RBs);
 		nomatch ->
-		    erlang:raise(error, {try_clause,V}, stacktrace())
+		    erlang:raise(error, {try_clause,V}, ?STACKTRACE)
 	    end
     catch
-	Class:Reason when Catches =:= [] ->
-	    %% Rethrow
-	    erlang:raise(Class, Reason, stacktrace());
-	Class:Reason ->
-%%% 	    %% Set stacktrace
-%%% 	    try erlang:raise(Class, Reason, stacktrace())
-%%% 	    catch _:_ -> ok 
-%%% 	    end,
-            V = {Class,Reason,erlang:get_stacktrace()},
-	    case match_clause(Catches, [V],Bs, Lf, Ef) of
+	Class:Reason:Stacktrace when Catches =:= [] ->
+	    erlang:raise(Class, Reason, Stacktrace);
+	Class:Reason:Stacktrace ->
+            V = {Class,Reason,Stacktrace},
+	    case match_clause(Catches, [V], Bs, Lf, Ef) of
 		{B2,Bs2} ->
 		    exprs(B2, Bs2, Lf, Ef, RBs);
 		nomatch ->
-		    erlang:raise(Class, Reason, stacktrace())
+		    erlang:raise(Class, Reason, Stacktrace)
 	    end
     after
 	if AB =:= [] -> 
@@ -935,6 +936,23 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 	end
     end.
 
+check_stacktrace_vars([{clause,_,[{tuple,_,[_,_,STV]}],_,_}|Cs], Bs) ->
+    case STV of
+        {var,_,V} ->
+            case binding(V, Bs) of
+                {value, _} ->
+                    erlang:raise(error, stacktrace_bound, ?STACKTRACE);
+                unbound ->
+                    check_stacktrace_vars(Cs, Bs)
+            end;
+        _ ->
+            erlang:raise(error,
+                         {illegal_stacktrace_variable,STV},
+                         ?STACKTRACE)
+    end;
+check_stacktrace_vars([], _Bs) ->
+    ok.
+
 %% case_clauses(Value, Clauses, Bindings, LocalFuncHandler, ExtFuncHandler, 
 %%              RBs)
 
@@ -943,7 +961,7 @@ case_clauses(Val, Cs, Bs, Lf, Ef, RBs) ->
 	{B, Bs1} ->
 	    exprs(B, Bs1, Lf, Ef, RBs);
 	nomatch ->
-	    erlang:raise(error, {case_clause,Val}, stacktrace())
+	    erlang:raise(error, {case_clause,Val}, ?STACKTRACE)
     end.
 
 %%
@@ -1018,7 +1036,7 @@ guard0([G|Gs], Bs0, Lf, Ef) ->
                 {value,false,_} -> false
 	    end;
 	false ->
-	    erlang:raise(error, guard_expr, stacktrace())
+	    erlang:raise(error, guard_expr, ?STACKTRACE)
     end;
 guard0([], _Bs, _Lf, _Ef) -> true.
 
@@ -1073,7 +1091,7 @@ match(Pat, Term, Bs) ->
 match(Pat, Term, Bs, BBs) ->
     case catch match1(Pat, Term, Bs, BBs) of
 	invalid ->
-	    erlang:raise(error, {illegal_pattern,Pat}, stacktrace());
+	    erlang:raise(error, {illegal_pattern,Pat}, ?STACKTRACE);
 	Other ->
 	    Other
     end.
@@ -1254,7 +1272,7 @@ merge_bindings(Bs1, Bs2) ->
 		  case orddict:find(Name, Bs) of
 		      {ok,Val} -> Bs;		%Already with SAME value
 		      {ok,V1} -> 
-			  erlang:raise(error, {badmatch,V1}, stacktrace());
+			  erlang:raise(error, {badmatch,V1}, ?STACKTRACE);
 		      error -> orddict:store(Name, Val, Bs)
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
@@ -1264,7 +1282,7 @@ merge_bindings(Bs1, Bs2) ->
 %%       fun (Name, Val, Bs) ->
 %% 	      case orddict:find(Name, Bs) of
 %% 		  {ok,Val} -> orddict:erase(Name, Bs);
-%% 		  {ok,V1} -> erlang:raise(error,{badmatch,V1},stacktrace());
+%% 		  {ok,V1} -> erlang:raise(error,{badmatch,V1},?STACKTRACE);
 %% 		  error -> Bs
 %% 	      end
 %%       end, Bs2, Bs1).
@@ -1326,7 +1344,3 @@ ret_expr(_Old, New) ->
     New.
 
 line(Expr) -> element(2, Expr).
-
-%% {?MODULE,expr,3} is still the stacktrace, despite the
-%% fact that expr() now takes two, three or four arguments...
-stacktrace() -> [{?MODULE,expr,3}].
