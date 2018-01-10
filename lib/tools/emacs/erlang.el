@@ -2755,19 +2755,10 @@ Return nil if inside string, t if in a comment."
                          (nth 2 stack-top))))
                  ((= (following-char) ?,)
                   ;; a comma at the start of the line: line up with opening parenthesis.
-                  (nth 2 stack-top))
+                  (min (nth 2 stack-top)
+                       (erlang-indent-element stack-top indent-point token)))
                  (t
-                  (goto-char (nth 1 stack-top))
-                  (let ((base (cond ((erlang-record-or-function-args-p)
-                                     ;; Line ends with parenthesis.
-                                     (erlang-indent-parenthesis (nth 2 stack-top)))
-                                    (t
-                                     ;; Indent to the same column as the first
-                                     ;; argument.
-                                     (goto-char (1+ (nth 1 stack-top)))
-                                     (skip-chars-forward " \t")
-                                     (current-column)))))
-                    (erlang-indent-standard indent-point token base 't)))))
+                  (erlang-indent-element stack-top indent-point token))))
           ;;
           ((eq (car stack-top) '<<)
            ;; Element of binary (possible comprehension) expression,
@@ -2776,13 +2767,11 @@ Return nil if inside string, t if in a comment."
                   (+ 2 (nth 2 stack-top)))
                  ((looking-at "\\(>>\\)[^_a-zA-Z0-9]")
                   (nth 2 stack-top))
+                 ((= (following-char) ?,)
+                  (min (+ (nth 2 stack-top) 1)
+                       (- (erlang-indent-to-first-element stack-top 2) 1)))
                  (t
-                  (goto-char (nth 1 stack-top))
-                  ;; Indent to the same column as the first
-                  ;; argument.
-                  (goto-char (+ 2 (nth 1 stack-top)))
-                  (skip-chars-forward " \t")
-                  (current-column))))
+                  (erlang-indent-to-first-element stack-top 2))))
 
           ((memq (car stack-top) '(icr fun spec))
            ;; The default indentation is the column of the option
@@ -2917,6 +2906,22 @@ Return nil if inside string, t if in a comment."
                                 (current-column))) start-alternativ))))))
           )))
 
+(defun erlang-indent-to-first-element (stack-top extra)
+  ;; Indent to the same column as the first
+  ;; argument.  extra should be 1 for lists tuples or 2 for binaries
+  (goto-char (+ (nth 1 stack-top) extra))
+  (skip-chars-forward " \t")
+  (current-column))
+
+(defun erlang-indent-element (stack-top indent-point token)
+  (goto-char (nth 1 stack-top))
+  (let ((base (cond ((erlang-record-or-function-args-p)
+                     ;; Line ends with parenthesis.
+                     (erlang-indent-parenthesis (nth 2 stack-top)))
+                    (t
+                     (erlang-indent-to-first-element stack-top 1)))))
+    (erlang-indent-standard indent-point token base 't)))
+
 (defun erlang-indent-standard (indent-point token base inside-parenthesis)
   "Standard indent when in blocks or tuple or arguments.
    Look at last thing to see in what state we are, move relative to the base."
@@ -2942,6 +2947,9 @@ Return nil if inside string, t if in a comment."
                ;; Avoid treating comments a continued line.
                ((= (following-char) ?%)
                 base)
+               ((and (= (following-char) ?,) inside-parenthesis)
+                ;; a comma at the start of the line line up with parenthesis
+                (- base 1))
                ;; Continued line (e.g. line beginning
                ;; with an operator.)
                (t

@@ -64,7 +64,11 @@ binary(3) ->
 binary(4) ->
     <<
       1:8
-      ,2:8
+     ,2:8
+    >>;
+binary(5) ->
+    << 1:8
+     , 2:8
     >>.
 
 record(1) ->
@@ -84,7 +88,12 @@ record(4) ->
     #record{
        a=1
       ,b=2
-      }.
+      };
+record(Record) ->
+    Record#record{
+      a=1
+     ,b=2
+     }.
 
 map(1) ->
     #{a=>1,
