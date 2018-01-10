@@ -530,9 +530,10 @@ valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     Type = bif_type(Op, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
-    verify_live(Live, Vst1),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
     validate_src(Src, Vst),
@@ -686,6 +687,7 @@ valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     if
 	is_integer(Sz) ->
 	    ok;
@@ -698,6 +700,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     if
 	is_integer(Sz) ->
 	    ok;
@@ -710,6 +713,7 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     assert_term(Bits, Vst0),
     assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
@@ -945,6 +949,7 @@ deallocate(#vst{current=St}=Vst) ->
 
 test_heap(Heap, Live, Vst0) ->
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
     heap_alloc(Heap, Vst).
 
