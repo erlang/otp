@@ -240,6 +240,10 @@ opt([{set,_,_,{line,_}}=Line1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
+opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,L}}}=I1,
+     {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,L}}}=I2|Is])
+  when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
+    opt([I2,I1|Is]);
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
