@@ -775,6 +775,8 @@ asm_passes() ->
 	 {iff,drecv,{listing,"recv"}},
 	 {unless,no_record_opt,{pass,beam_record}},
 	 {iff,drecord,{listing,"record"}},
+         {unless,no_blk2,?pass(block2)},
+	 {iff,dblk2,{listing,"block2"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -1349,6 +1351,10 @@ v3_kernel(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
 	    %% warnings. Ignore any such warnings.
 	    {ok,Code,St}
     end.
+
+block2(Code0, #compile{options=Opts}=St) ->
+    {ok,Code} = beam_block:module(Code0, [no_blockify|Opts]),
+    {ok,Code,St}.
 
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
