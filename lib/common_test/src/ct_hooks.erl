@@ -26,6 +26,8 @@
 
 %% API Exports
 -export([init/1]).
+-export([groups/2]).
+-export([all/2]).
 -export([init_tc/3]).
 -export([end_tc/5]).
 -export([terminate/1]).
@@ -41,7 +43,8 @@
 					opts = [],
 					prio = ctfirst }]).
 
--record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
+-record(ct_hook_config, {id, module, prio, scope, opts = [],
+                         state = [], groups = []}).
 
 %% -------------------------------------------------------------------------
 %% API Functions
@@ -53,6 +56,47 @@
 init(Opts) ->
     call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
+
+%% Call the post_groups/2 hook callback
+groups(Mod, Groups) ->
+    Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
+               CTHooks when is_list(CTHooks) ->
+                   [{?config_name,CTHooks}];
+               CTHook when is_atom(CTHook) ->
+                   [{?config_name,[CTHook]}]
+           catch _:_ ->
+                   %% since this might be the first time Mod:suite()
+                   %% is called, and it might just fail or return
+                   %% something bad, we allow any failure here - it
+                   %% will be catched later if there is something
+                   %% really wrong.
+                   [{?config_name,[]}]
+           end,
+    case call(fun call_generic/3, Info ++ [{'$ct_groups',Groups}], [post_groups, Mod]) of
+        [{'$ct_groups',NewGroups}] ->
+            NewGroups;
+        Other ->
+            Other
+    end.
+
+%% Call the post_all/3 hook callback
+all(Mod, Tests) ->
+    Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
+               CTHooks when is_list(CTHooks) ->
+                   [{?config_name,CTHooks}];
+               CTHook when is_atom(CTHook) ->
+                   [{?config_name,[CTHook]}]
+           catch _:_ ->
+                   %% just allow any failure here - it will be catched
+                   %% later if there is something really wrong.
+                   [{?config_name,[]}]
+           end,
+    case call(fun call_generic/3, Info ++ [{'$ct_all',Tests}], [post_all, Mod]) of
+        [{'$ct_all',NewTests}] ->
+            NewTests;
+        Other ->
+            Other
+    end.
 
 %% @doc Called after all suites are done.
 -spec terminate(Hooks :: term()) ->
@@ -88,6 +132,7 @@ init_tc(Mod, init_per_suite, Config) ->
 		   [{?config_name,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
+
 init_tc(Mod, end_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
 init_tc(Mod, {init_per_group, GroupName, Properties}, Config) ->
@@ -163,7 +208,7 @@ call_id(#ct_hook_config{ module = Mod, opts = Opts} = Hook, Config, Scope) ->
     {Config, Hook#ct_hook_config{ id = Id, scope = scope(Scope)}}.
 	
 call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
-	  Config,_Meta) ->
+	  Config, _Meta) ->
     case Mod:init(Id, Opts) of
 	{ok, NewState} when P =:= undefined ->
 	    {Config, Hook#ct_hook_config{ state = NewState, prio = 0 } };
@@ -193,6 +238,18 @@ call_generic(Hook, Value, Meta) ->
 
 call_generic_fallback(Hook, Value, Meta) ->
     do_call_generic(Hook, Value, Meta, true).
+
+do_call_generic(#ct_hook_config{ module = Mod} = Hook,
+                [{'$ct_groups',Groups}], [post_groups | Args], Fallback) ->
+    NewGroups = catch_apply(Mod, post_groups, Args ++ [Groups],
+                            Groups, Fallback),
+    {[{'$ct_groups',NewGroups}], Hook#ct_hook_config{ groups = NewGroups } };
+
+do_call_generic(#ct_hook_config{ module = Mod, groups = Groups} = Hook,
+                [{'$ct_all',Tests}], [post_all | Args], Fallback) ->
+    NewTests = catch_apply(Mod, post_all, Args ++ [Tests, Groups],
+                           Tests, Fallback),
+    {[{'$ct_all',NewTests}], Hook};
 
 do_call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
                 Value, [Function | Args], Fallback) ->
@@ -228,6 +285,12 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		     Rest ++ [{NewId, call_init}]};
 		ExistingHook when is_tuple(ExistingHook) ->
 		    {Hooks, Rest};
+                _ when hd(Meta)=:=post_groups; hd(Meta)=:=post_all ->
+                    %% If CTH is started because of a call from
+                    %% groups/2 or all/2, CTH:init/1 must not be
+                    %% called (the suite scope should be used).
+                    {Hooks ++ [NewHook],
+		     Rest ++ [{NewId,NextFun}]};
 		_ ->
 		    {Hooks ++ [NewHook],
 		     Rest ++ [{NewId, call_init}, {NewId,NextFun}]}
@@ -237,8 +300,8 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	    Trace = erlang:get_stacktrace(),
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~tp:~tp",
 			[Error,{Reason,Trace}]),
-	    call([], {fail,"Failed to start CTH"
-		      ", see the CT Log for details"}, Meta, Hooks)
+	    call([], {fail,"Failed to start CTH, "
+		      "see the CT Log for details"}, Meta, Hooks)
     end;
 call([{HookId, call_init} | Rest], Config, Meta, Hooks) ->
     call([{HookId, fun call_init/3} | Rest], Config, Meta, Hooks);
@@ -278,6 +341,10 @@ scope([pre_init_per_suite, SuiteName|_]) ->
     [post_end_per_suite, SuiteName];
 scope([post_init_per_suite, SuiteName|_]) ->
     [post_end_per_suite, SuiteName];
+scope([post_groups, SuiteName|_]) ->
+    [post_groups, SuiteName];
+scope([post_all, SuiteName|_]) ->
+    [post_all, SuiteName];
 scope(init) ->
     none.
 
@@ -364,6 +431,7 @@ resort(Calls,Hooks,[F|_R]) when F == pre_end_per_testcase;
 				F == pre_end_per_suite;
 				F == post_end_per_suite ->
     lists:reverse(resort(Calls,Hooks));
+
 resort(Calls,Hooks,_Meta) ->
     resort(Calls,Hooks).
     

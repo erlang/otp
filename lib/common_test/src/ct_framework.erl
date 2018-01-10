@@ -1055,21 +1055,41 @@ group_or_func(Func, _Config) ->
 %%%      should be returned. 
 
 get_suite(Mod, all) ->
-    case catch apply(Mod, groups, []) of
-	{'EXIT',_} ->
-	    get_all(Mod, []);
-	GroupDefs when is_list(GroupDefs) ->
-	    case catch ct_groups:find_groups(Mod, all, all, GroupDefs) of
-		{error,_} = Error ->
-		    %% this makes test_server call error_in_suite as first
-		    %% (and only) test case so we can report Error properly
-		    [{?MODULE,error_in_suite,[[Error]]}];
-		ConfTests ->
-		    get_all(Mod, ConfTests)
-	    end;
-	_ ->
+    case safe_apply_groups_0(Mod,{ok,[]}) of
+        {ok,GroupDefs} ->
+            try ct_groups:find_groups(Mod, all, all, GroupDefs) of
+                ConfTests when is_list(ConfTests) ->
+                    get_all(Mod, ConfTests)
+            catch
+                throw:{error,Error} ->
+                    [{?MODULE,error_in_suite,[[{error,Error}]]}];
+                _:Error ->
+                    S = erlang:get_stacktrace(),
+                    [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
+            end;
+        {error,{bad_return,_Bad}} ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
-	    [{?MODULE,error_in_suite,[[{error,list_to_atom(E)}]]}]
+	    [{?MODULE,error_in_suite,[[{error,list_to_atom(E)}]]}];
+        {error,{bad_hook_return,Bad}} ->
+	    E = "Bad return value from post_groups/2 hook function",
+	    [{?MODULE,error_in_suite,[[{error,{list_to_atom(E),Bad}}]]}];
+        {error,{failed,ExitReason}} ->
+	    case ct_util:get_testdata({error_in_suite,Mod}) of
+		undefined ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "~w:groups/0 failed: ~p~n",
+					   [Mod,ExitReason]),
+		    io:format(?def_gl, ErrStr, []),
+		    %% save the error info so it doesn't get printed twice
+		    ct_util:set_testdata_async({{error_in_suite,Mod},
+						ExitReason});
+		_ExitReason ->
+		    ct_util:delete_testdata({error_in_suite,Mod})
+	    end,
+	    Reason = list_to_atom(atom_to_list(Mod)++":groups/0 failed"),
+	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
+        {error,What} ->
+            [{?MODULE,error_in_suite,[[{error,What}]]}]
     end;
 
 %%!============================================================
@@ -1079,54 +1099,75 @@ get_suite(Mod, all) ->
 
 %% group
 get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
-    Name = ?val(name, Props),
-    case catch apply(Mod, groups, []) of
-	{'EXIT',_} ->
-	    [Group];
-	GroupDefs when is_list(GroupDefs) ->
-	    case catch ct_groups:find_groups(Mod, Name, TCs, GroupDefs) of
-		{error,_} = Error ->
-		    %% this makes test_server call error_in_suite as first
-		    %% (and only) test case so we can report Error properly
-		    [{?MODULE,error_in_suite,[[Error]]}];
-		[] ->
-		    [];
-		ConfTests ->
-		    case lists:member(skipped, Props) of
-			true ->
-			    %% a *subgroup* specified *only* as skipped (and not
-			    %% as an explicit test) should not be returned, or
-			    %% init/end functions for top groups will be executed
-			    case catch ?val(name, element(2, hd(ConfTests))) of
-				Name ->		% top group
-				    ct_groups:delete_subs(ConfTests, ConfTests);
-				_ ->
-				    []
-			    end;
-			false ->
-			    ConfTests1 = ct_groups:delete_subs(ConfTests,
-							       ConfTests),
-			    case ?val(override, Props) of
-				undefined ->
-				    ConfTests1;
-				[] ->
-				    ConfTests1;
-				ORSpec ->
-				    ORSpec1 = if is_tuple(ORSpec) -> [ORSpec];
-						 true -> ORSpec end,
-				    ct_groups:search_and_override(ConfTests1,
-								  ORSpec1, Mod)
-			    end
-		    end
-	    end;
-	_ ->
+    case safe_apply_groups_0(Mod,{ok,[Group]}) of
+        {ok,GroupDefs} ->
+            Name = ?val(name, Props),
+            try ct_groups:find_groups(Mod, Name, TCs, GroupDefs) of
+                [] ->
+                    [];
+                ConfTests when is_list(ConfTests) ->
+                    case lists:member(skipped, Props) of
+                        true ->
+                            %% a *subgroup* specified *only* as skipped (and not
+                            %% as an explicit test) should not be returned, or
+                            %% init/end functions for top groups will be executed
+                            try ?val(name, element(2, hd(ConfTests))) of
+                                Name ->		% top group
+                                    ct_groups:delete_subs(ConfTests, ConfTests);
+                                _ -> []
+                            catch
+                                _:_ -> []
+                            end;
+                        false ->
+                            ConfTests1 = ct_groups:delete_subs(ConfTests,
+                                                               ConfTests),
+                            case ?val(override, Props) of
+                                undefined ->
+                                    ConfTests1;
+                                [] ->
+                                    ConfTests1;
+                                ORSpec ->
+                                    ORSpec1 = if is_tuple(ORSpec) -> [ORSpec];
+                                                 true -> ORSpec end,
+                                    ct_groups:search_and_override(ConfTests1,
+                                                                  ORSpec1, Mod)
+                            end
+                    end
+            catch
+                throw:{error,Error} ->
+                    [{?MODULE,error_in_suite,[[{error,Error}]]}];
+                _:Error ->
+                    S = erlang:get_stacktrace(),
+                    [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
+            end;
+        {error,{bad_return,_Bad}} ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
-	    [{?MODULE,error_in_suite,[[{error,list_to_atom(E)}]]}]
+	    [{?MODULE,error_in_suite,[[{error,list_to_atom(E)}]]}];
+        {error,{bad_hook_return,Bad}} ->
+            E = "Bad return value from post_groups/2 hook function",
+	    [{?MODULE,error_in_suite,[[{error,{list_to_atom(E),Bad}}]]}];
+        {error,{failed,ExitReason}} ->
+	    case ct_util:get_testdata({error_in_suite,Mod}) of
+		undefined ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "~w:groups/0 failed: ~p~n",
+					   [Mod,ExitReason]),
+		    io:format(?def_gl, ErrStr, []),
+		    %% save the error info so it doesn't get printed twice
+		    ct_util:set_testdata_async({{error_in_suite,Mod},
+						ExitReason});
+		_ExitReason ->
+		    ct_util:delete_testdata({error_in_suite,Mod})
+	    end,
+	    Reason = list_to_atom(atom_to_list(Mod)++":groups/0 failed"),
+	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
+         {error,What} ->
+            [{?MODULE,error_in_suite,[[{error,What}]]}]
     end;
 
 %% testcase
 get_suite(Mod, Name) ->
-     get_seq(Mod, Name).
+    get_seq(Mod, Name).
 
 %%%-----------------------------------------------------------------
 
@@ -1160,21 +1201,48 @@ get_all_cases1(_, []) ->
 
 %%%-----------------------------------------------------------------
 
-get_all(Mod, ConfTests) ->	
-    case catch apply(Mod, all, []) of
-	{'EXIT',{undef,[{Mod,all,[],_} | _]}} ->
+get_all(Mod, ConfTests) ->
+    case safe_apply_all_0(Mod) of
+        {ok,AllTCs} ->
+            %% expand group references using ConfTests
+            try ct_groups:expand_groups(AllTCs, ConfTests, Mod) of
+                {error,_} = Error ->
+                    [{?MODULE,error_in_suite,[[Error]]}];
+                Tests ->
+                    ct_groups:delete_subs(Tests, Tests)
+            catch
+                throw:{error,Error} ->
+                    [{?MODULE,error_in_suite,[[{error,Error}]]}];
+                _:Error ->
+                    S = erlang:get_stacktrace(),
+                    [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
+            end;
+        Skip = {skip,_Reason} ->
+	    Skip;
+        {error,undef} ->
+            Reason =
+                case code:which(Mod) of
+                    non_existing ->
+                        list_to_atom(
+                          atom_to_list(Mod)++
+                              " cannot be compiled or loaded");
+                    _ ->
+                        list_to_atom(
+                          atom_to_list(Mod)++":all/0 is missing")
+                end,
+            %% this makes test_server call error_in_suite as first
+            %% (and only) test case so we can report Reason properly
+            [{?MODULE,error_in_suite,[[{error,Reason}]]}];
+	{error,{bad_return,_Bad}} ->
 	    Reason =
-		case code:which(Mod) of
-		    non_existing ->
-			list_to_atom(atom_to_list(Mod)++
-					 " can not be compiled or loaded");
-		    _ ->
-			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
-		end,
-	    %% this makes test_server call error_in_suite as first
-	    %% (and only) test case so we can report Reason properly
+		list_to_atom("Bad return value from "++
+				 atom_to_list(Mod)++":all/0"),
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
-	{'EXIT',ExitReason} ->
+        {error,{bad_hook_return,Bad}} ->
+	    Reason =
+		list_to_atom("Bad return value from post_all/3 hook function"),
+	    [{?MODULE,error_in_suite,[[{error,{Reason,Bad}}]]}];
+        {error,{failed,ExitReason}} ->
 	    case ct_util:get_testdata({error_in_suite,Mod}) of
 		undefined ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
@@ -1191,28 +1259,8 @@ get_all(Mod, ConfTests) ->
 	    %% this makes test_server call error_in_suite as first
 	    %% (and only) test case so we can report Reason properly
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}];
-	AllTCs when is_list(AllTCs) ->
-	    case catch save_seqs(Mod,AllTCs) of
-		{error,What} ->
-		    [{?MODULE,error_in_suite,[[{error,What}]]}];
-		SeqsAndTCs ->
-		    %% expand group references in all() using ConfTests
-		    case catch ct_groups:expand_groups(SeqsAndTCs,
-						       ConfTests,
-						       Mod) of
-			{error,_} = Error ->
-			    [{?MODULE,error_in_suite,[[Error]]}];
-			Tests ->
-			    ct_groups:delete_subs(Tests, Tests)
-		    end
-	    end;
-	Skip = {skip,_Reason} ->
-	    Skip;
-	_ ->
-	    Reason = 
-		list_to_atom("Bad return value from "++
-				 atom_to_list(Mod)++":all/0"),
-	    [{?MODULE,error_in_suite,[[{error,Reason}]]}]
+        {error,What} ->
+            [{?MODULE,error_in_suite,[[{error,What}]]}]
     end.
 
 %%!============================================================
@@ -1570,3 +1618,68 @@ get_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
 %%% @spec get_log_dir() -> {ok,LogDir}
 get_log_dir() ->
     ct_logs:get_log_dir(true).
+
+%%%-----------------------------------------------------------------
+%%% Call all and group callbacks and post_* hooks with error handling
+safe_apply_all_0(Mod) ->
+    try apply(Mod, all, []) of
+        AllTCs0 when is_list(AllTCs0) ->
+	    try save_seqs(Mod,AllTCs0) of
+		SeqsAndTCs when is_list(SeqsAndTCs) ->
+                    all_hook(Mod,SeqsAndTCs)
+            catch throw:{error,What} ->
+		    {error,What}
+            end;
+        {skip,_}=Skip ->
+            all_hook(Mod,Skip);
+        Bad ->
+            {error,{bad_return,Bad}}
+    catch
+        _:Reason ->
+            handle_callback_crash(Reason,erlang:get_stacktrace(),Mod,all,{error,undef})
+    end.
+
+all_hook(Mod, All) ->
+    case ct_hooks:all(Mod, All) of
+        AllTCs when is_list(AllTCs) ->
+            {ok,AllTCs};
+        {skip,_}=Skip ->
+            Skip;
+        {fail,Reason} ->
+            {error,Reason};
+        Bad ->
+            {error,{bad_hook_return,Bad}}
+    end.
+
+safe_apply_groups_0(Mod,Default) ->
+    try apply(Mod, groups, []) of
+        GroupDefs when is_list(GroupDefs) ->
+            case ct_hooks:groups(Mod, GroupDefs) of
+                GroupDefs1 when is_list(GroupDefs1) ->
+                    {ok,GroupDefs1};
+                {fail,Reason} ->
+                    {error,Reason};
+                Bad ->
+                    {error,{bad_hook_return,Bad}}
+            end;
+        Bad ->
+            {error,{bad_return,Bad}}
+    catch
+        _:Reason ->
+            handle_callback_crash(Reason,erlang:get_stacktrace(),
+                                  Mod,groups,Default)
+    end.
+
+handle_callback_crash(undef,[{Mod,Func,[],_}|_],Mod,Func,Default) ->
+    case ct_hooks:Func(Mod, []) of
+        [] ->
+            Default;
+        List when is_list(List) ->
+            {ok,List};
+        {fail,Reason} ->
+            {error,Reason};
+        Bad ->
+            {error,{bad_hook_return,Bad}}
+    end;
+handle_callback_crash(Reason,Stacktrace,_Mod,_Func,_Default) ->
+    {error,{failed,{Reason,Stacktrace}}}.

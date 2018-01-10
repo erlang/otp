@@ -109,6 +109,129 @@
     </func>
 
     <func>
+      <name>Module:post_groups(SuiteName, GroupDefs) -&gt; NewGroupDefs</name>
+      <fsummary>Called after groups/0.</fsummary>
+      <type>
+        <v>SuiteName = atom()</v>
+        <v>GroupDefs = NewGroupDefs = [Group]</v>
+        <v>Group = {GroupName,Properties,GroupsAndTestCases}</v>
+        <v>GroupName = atom()</v>
+        <v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
+        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+        <v>TestCase = atom()</v>
+        <v>Shuffle = shuffle | {shuffle,Seed}</v>
+        <v>Seed = {integer(),integer(),integer()}</v>
+        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>N = integer() | forever</v>
+      </type>
+      <desc>
+        <p>OPTIONAL</p>
+
+        <p>This function is called after
+          <seealso marker="common_test#Module:groups-0"><c>groups/0</c></seealso>.
+	  It is used to modify the test group definitions, for
+	  instance to add or remove groups or change group properties.</p>
+
+        <p><c>GroupDefs</c> is what
+          <seealso marker="common_test#Module:groups-0"><c>groups/0</c></seealso>
+          returned, that is, a list of group definitions.</p>
+
+        <p><c>NewGroupDefs</c> is the possibly modified version of this list.</p>
+
+        <p>This function is called only if the CTH is added before
+          <c>init_per_suite</c> is run. For details, see section
+          <seealso marker="ct_hooks_chapter#scope">CTH Scope</seealso>
+          in the User's Guide.</p>
+
+	<p>Notice that for CTHs that are installed by means of the
+	  <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso>
+	  function, <c>post_groups/2</c> is called before
+	  the <seealso marker="#Module:init-2"><c>init/2</c></seealso>
+	  hook function. However, for CTHs that are installed by means
+	  of the CT start flag,
+	  the <seealso marker="#Module:init-2"><c>init/2</c></seealso>
+	  function is called first.</p>
+
+	<note>
+	  <p>Prior to each test execution, Common Test does a
+	    simulated test run in order to count test suites, groups
+	    and cases for logging purposes. This causes
+	    the <c>post_groups/2</c> hook function to always be called
+	    twice. For this reason, side effects are best avoided in
+	    this callback.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name>Module:post_all(SuiteName, Return, GroupDefs) -&gt; NewReturn</name>
+      <fsummary>Called after all/0.</fsummary>
+      <type>
+        <v>SuiteName = atom()</v>
+	<v>Return = NewReturn = Tests | {skip,Reason}</v>
+	<v>Tests = [TestCase | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
+	<v>TestCase = atom()</v>
+	<v>GroupName = atom()</v>
+	<v>Properties = GroupProperties | default</v>
+	<v>SubGroups = [{GroupName,Properties} | {GroupName,Properties,SubGroups}]</v>
+	<v>Shuffle = shuffle | {shuffle,Seed}</v>
+	<v>Seed = {integer(),integer(),integer()}</v>
+	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+	<v>N = integer() | forever</v>
+        <v>GroupDefs = NewGroupDefs = [Group]</v>
+        <v>Group = {GroupName,GroupProperties,GroupsAndTestCases}</v>
+        <v>GroupProperties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
+        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>OPTIONAL</p>
+
+        <p>This function is called after
+          <seealso marker="common_test#Module:all-0"><c>all/0</c></seealso>.
+	  It is used to modify the set of test cases and test group to
+	  be executed, for instance to add or remove test cases and
+	  groups, change group properties, or even skip all tests in
+	  the suite.</p>
+
+        <p><c>Return</c> is what
+          <seealso marker="common_test#Module:all-0"><c>all/0</c></seealso>
+          returned, that is, a list of test cases and groups to be
+          executed, or a tuple <c>{skip,Reason}</c>.</p>
+
+        <p><c>GroupDefs</c> is what
+          <seealso marker="common_test#Module:groups-0"><c>groups/0</c></seealso>
+          or the <c>post_groups/2</c> hook returned, that is, a list
+          of group definitions.</p>
+
+        <p><c>NewReturn</c> is the possibly modified version of <c>Return</c>.</p>
+
+        <p>This function is called only if the CTH is added before
+          <c>init_per_suite</c> is run. For details, see section
+          <seealso marker="ct_hooks_chapter#scope">CTH Scope</seealso>
+          in the User's Guide.</p>
+
+	<p>Notice that for CTHs that are installed by means of the
+	  <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso>
+	  function, <c>post_all/2</c> is called before
+	  the <seealso marker="#Module:init-2"><c>init/2</c></seealso>
+	  hook function. However, for CTHs that are installed by means
+	  of the CT start flag,
+	  the <seealso marker="#Module:init-2"><c>init/2</c></seealso>
+	  function is called first.</p>
+
+	<note>
+	  <p>Prior to each test execution, Common Test does a
+	    simulated test run in order to count test suites, groups
+	    and cases for logging purposes. This causes
+	    the <c>post_all/3</c> hook function to always be called
+	    twice. For this reason, side effects are best avoided in
+	    this callback.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
       <name>Module:pre_init_per_suite(SuiteName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_suite.</fsummary>
       <type>
