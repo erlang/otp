@@ -30,21 +30,21 @@ indent_if(1, Z) ->
             if_works
     end;
 indent_if(2, Z) ->
-    %% If (this is broken)
+    %% If
     if
         Z >= 0 ->
             X = 43 div Z,
             X
-                ; Z =< 10 ->
+      ; Z =< 10 ->
             43 div Z
-                ; Z == 5 orelse
+      ; Z == 5 orelse
         Z == 7 ->
             X = 43 div Z,
             X
-                ; is_number(Z),
+      ; is_number(Z),
         Z < 32 ->
             Z
-                ; true ->
+      ; true ->
             if_works
     end.
 
@@ -74,20 +74,20 @@ indent_case(1, Z) ->
             foo(X)
     end;
 indent_case(2, Z) ->
-    %% Case (also broken)
+    %% Case
     case {Z, foo, bar} of
         {Z,_,_} ->
             X = 43 div 4,
             foo(X)
-                ; {Z,_,_}	when
+      ; {Z,_,_}	when
               Z =:= 42 ->                       % line should be indented as a when
             X = 43 div 4,
             foo(X)
-                ; {Z,_,_}
+      ; {Z,_,_}
           when Z < 10 ->			% when should be indented
             X = 43 div 4,
             foo(X)
-                ; {Z,_,_}
+      ; {Z,_,_}
           when					% when should be indented
               Z < 10				% and the guards should follow when
               andalso				% unsure about how though
@@ -119,8 +119,8 @@ indent_receive(1) ->
     receive
         {Z,_,_} ->
             X = 43 div 4,
-            foo(X);
-        Z ->
+            foo(X)
+      ; Z ->
             X = 43 div 4,
             foo(X)
     end,

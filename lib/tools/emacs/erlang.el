@@ -4,7 +4,7 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.8.0
+;; Version:  2.8.1
 ;; Package-Requires: ((emacs "24.1"))
 
 ;; %CopyrightBegin%
@@ -84,7 +84,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.0"
+(defconst erlang-version "2.8.1"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -2827,12 +2827,13 @@ Return nil if inside string, t if in a comment."
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
-                 (cond ((looking-at "\\(end\\|after\\)\\($\\|[^_a-zA-Z0-9]\\)")
+                 (cond ((looking-at "\\(;\\|end\\|after\\)\\($\\|[^_a-zA-Z0-9]\\)")
                         (if (eq (car stack-top) '->)
                             (erlang-pop stack))
-                        (if stack
-                            (erlang-caddr (car stack))
-                          0))
+                        (cond ((and stack (looking-at ";"))
+                               (+ (erlang-caddr (car stack)) (- erlang-indent-level 2)))
+                              (stack (erlang-caddr (car stack)))
+                              (t off)))
                        ((looking-at "catch\\b\\($\\|[^_a-zA-Z0-9]\\)")
                         ;; Are we in a try
                         (let ((start (if (eq (car stack-top) '->)

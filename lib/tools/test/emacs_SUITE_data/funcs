@@ -142,7 +142,7 @@ funs(1)
                         end;
                    (Foo) when is_atom(Foo),
                               is_integer(X) ->
-                        X = 6* 45,
+                        X = 6 * 45,
                         Y = true andalso
                             kalle
                 end),
