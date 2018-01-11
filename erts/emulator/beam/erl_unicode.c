@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1158,14 +1158,15 @@ static ERTS_INLINE int
 analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left,
 	     Sint *num_latin1_chars, Uint max_chars)
 {
+    int res = ERTS_UTF8_OK;
     Uint latin1_count;
     int is_latin1;
+    Uint nchars = 0;
     *err_pos = source;
     if (num_latin1_chars) {
 	is_latin1 = 1;
 	latin1_count = 0;
     }
-    *num_chars = 0;
     while (size) {
 	if (((*source) & ((byte) 0x80)) == 0) {
 	    source++;
@@ -1174,11 +1175,13 @@ analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left
 		latin1_count++;
 	} else if (((*source) & ((byte) 0xE0)) == 0xC0) {
 	    if (size < 2) {
-		return ERTS_UTF8_INCOMPLETE;
+		res = ERTS_UTF8_INCOMPLETE;
+                break;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((*source) < 0xC2) /* overlong */) {
-		return ERTS_UTF8_ERROR;
+		res = ERTS_UTF8_ERROR;
+                break;
 	    }
 	    if (num_latin1_chars) {
 		latin1_count++;
@@ -1189,16 +1192,19 @@ analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left
 	    size -= 2;
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    if (size < 3) {
-		return ERTS_UTF8_INCOMPLETE;
+		res = ERTS_UTF8_INCOMPLETE;
+                break;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((source[2] & ((byte) 0xC0)) != 0x80) ||
 		(((*source) == 0xE0) && (source[1] < 0xA0)) /* overlong */ ) {
-		return ERTS_UTF8_ERROR;
+		res = ERTS_UTF8_ERROR;
+                break;
 	    }
 	    if ((((*source) & ((byte) 0xF)) == 0xD) && 
 		((source[1] & 0x20) != 0)) {
-		return ERTS_UTF8_ERROR;
+		res = ERTS_UTF8_ERROR;
+                break;
 	    }
 	    source += 3;
 	    size -= 3;
@@ -1206,37 +1212,47 @@ analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left
 		is_latin1 = 0;
 	} else if (((*source) & ((byte) 0xF8)) == 0xF0) {
 	    if (size < 4) {
-		return ERTS_UTF8_INCOMPLETE;
+		res = ERTS_UTF8_INCOMPLETE;
+                break;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((source[2] & ((byte) 0xC0)) != 0x80) ||
 		((source[3] & ((byte) 0xC0)) != 0x80) ||
 		(((*source) == 0xF0) && (source[1] < 0x90)) /* overlong */) {
-		return ERTS_UTF8_ERROR;
+		res = ERTS_UTF8_ERROR;
+                break;
 	    }
 	    if ((((*source) & ((byte)0x7)) > 0x4U) ||
 		((((*source) & ((byte)0x7)) == 0x4U) && 
 		 ((source[1] & ((byte)0x3F)) > 0xFU))) {
-		return ERTS_UTF8_ERROR;
+		res = ERTS_UTF8_ERROR;
+                break;
 	    }
 	    source += 4;
 	    size -= 4; 
 	    if (num_latin1_chars)
 		is_latin1 = 0;
 	} else {
-	    return ERTS_UTF8_ERROR;
+	    res = ERTS_UTF8_ERROR;
+            break;
 	}
-	++(*num_chars);
+	++nchars;
 	*err_pos = source;
-	if (max_chars && size > 0 && *num_chars == max_chars)
-	    return ERTS_UTF8_OK_MAX_CHARS;
+	if (max_chars && size > 0 && nchars == max_chars) {
+	    res = ERTS_UTF8_OK_MAX_CHARS;
+            break;
+        }
 	if (left && --(*left) <= 0 && size) {
-	    return ERTS_UTF8_ANALYZE_MORE;
+	    res = ERTS_UTF8_ANALYZE_MORE;
+            break;
 	}
     }
+
+    *num_chars = nchars;
     if (num_latin1_chars)
 	*num_latin1_chars = is_latin1 ? latin1_count : -1;
-    return ERTS_UTF8_OK;
+
+    return res;
 }
 
 int erts_analyze_utf8(byte *source, Uint size, 
@@ -1252,29 +1268,18 @@ int erts_analyze_utf8_x(byte *source, Uint size,
     return analyze_utf8(source, size, err_pos, num_chars, left, num_latin1_chars, max_chars);
 }
 
-/*
- * No errors should be able to occur - no overlongs, no malformed, no nothing
- */
-static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, 
-			     Uint left,
-			     Uint *num_built, Uint *num_eaten, Eterm tail)
+static ERTS_INLINE Eterm
+make_list_from_utf8_buf(Eterm **hpp, Uint num,
+                        byte *bytes, Uint sz, 
+                        Uint *num_built, Uint *num_eaten,
+                        Eterm tail)
 {
     Eterm *hp;
     Eterm ret;
+    Uint left = num;
     byte *source, *ssource;
     Uint unipoint;
-
-    ASSERT(num > 0);
-    if (left < num) {
-	if (left > 0)
-	    num = left;
-	else
-	    num = 1;
-    }
-    
-    *num_built = num; /* Always */
-
-    hp = HAlloc(p,num * 2);
+    hp = *hpp;
     ret = tail;
     source = bytes + sz;
     ssource = source;
@@ -1302,18 +1307,95 @@ static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
 	}
 	ret = CONS(hp,make_small(unipoint),ret);
 	hp += 2;
-	if (--num <= 0) {
+	if (--left <= 0) {
 	    break;
 	}
     }
+    *hpp = hp;
+    *num_built = num; /* Always */
     *num_eaten = (ssource - source);
     return ret;
 }
 
+/*
+ * No errors should be able to occur - no overlongs, no malformed, no nothing
+ */
+static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, 
+			     Uint left,
+			     Uint *num_built, Uint *num_eaten, Eterm tail)
+{
+    Eterm *hp;
+
+    ASSERT(num > 0);
+    if (left < num) {
+	if (left > 0)
+	    num = left;
+	else
+	    num = 1;
+    }
+    
+    hp = HAlloc(p,num * 2);
+
+    return make_list_from_utf8_buf(&hp, num, bytes, sz,
+                                   num_built, num_eaten,
+                                   tail);
+}
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail)
 {
     return do_utf8_to_list(p, num, bytes, sz, left, num_built, num_eaten, tail);
+}
+
+Uint erts_atom_to_string_length(Eterm atom)
+{
+    Atom *ap;
+
+    ASSERT(is_atom(atom));
+    ap = atom_tab(atom_val(atom));
+
+    if (ap->latin1_chars >= 0)
+        return (Uint) ap->len;
+    else {
+        byte* err_pos;
+        Uint num_chars;
+#ifdef DEBUG
+        int ares =
+#endif
+            erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
+        ASSERT(ares == ERTS_UTF8_OK);
+
+        return num_chars;
+    }
+}
+
+Eterm erts_atom_to_string(Eterm **hpp, Eterm atom)
+{
+    Atom *ap;
+
+    ASSERT(is_atom(atom));
+    ap = atom_tab(atom_val(atom));
+    if (ap->latin1_chars >= 0)
+        return buf_to_intlist(hpp, (char*)ap->name, ap->len, NIL);
+    else {
+        Eterm res;
+        byte* err_pos;
+        Uint num_chars, num_built, num_eaten;
+#ifdef DEBUG
+        Eterm *hp_start = *hpp;
+        int ares =
+#endif
+            erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
+        ASSERT(ares == ERTS_UTF8_OK);
+
+        res = make_list_from_utf8_buf(hpp, num_chars, ap->name, ap->len,
+                                      &num_built, &num_eaten, NIL);
+
+        ASSERT(num_built == num_chars);
+        ASSERT(num_eaten == ap->len);
+        ASSERT(*hpp - hp_start == 2*num_chars);
+
+        return res;
+    }
 }
 
 static int is_candidate(Uint cp)
