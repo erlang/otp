@@ -1122,7 +1122,6 @@ extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
 extern int erts_compat_rel;
-extern int erts_use_sender_punish;
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);

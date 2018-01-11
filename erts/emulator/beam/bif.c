@@ -2244,20 +2244,15 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
     
  send_message: {
 	ErtsProcLocks rp_locks = 0;
-	Sint res;
 	if (p == rp)
 	    rp_locks |= ERTS_PROC_LOCK_MAIN;
 	/* send to local process */
-	res = erts_send_message(p, rp, &rp_locks, msg, 0);
-	if (erts_use_sender_punish)
-	    res *= 4;
-	else
-	    res = 0;
+	erts_send_message(p, rp, &rp_locks, msg, 0);
 	erts_proc_unlock(rp,
 			     p == rp
 			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
 			     : rp_locks);
-	return res;
+	return 0;
     }
 }
 
@@ -2312,8 +2307,8 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     result = do_send(p, to, msg, &ref, ctx);
     ERTS_MSACC_POP_STATE_M_X();
 
-    if (result > 0) {
-	ERTS_VBUMP_REDS(p, result);
+    if (result >= 0) {
+	ERTS_VBUMP_REDS(p, 4);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
 	ERTS_BIF_PREP_RET(retval, am_ok);
@@ -2321,12 +2316,6 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     }
 
     switch (result) {
-    case 0:
-	/* May need to yield even though we do not bump reds here... */
-	if (ERTS_IS_PROC_OUT_OF_REDS(p))
-	    goto yield_return;
-	ERTS_BIF_PREP_RET(retval, am_ok);
-	break;
     case SEND_NOCONNECT:
 	if (ctx->connect) {
 	    ERTS_BIF_PREP_RET(retval, am_ok);
@@ -2443,8 +2432,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 
     ERTS_MSACC_POP_STATE_M_X();
 
-    if (result > 0) {
-	ERTS_VBUMP_REDS(p, result);
+    if (result >= 0) {
+	ERTS_VBUMP_REDS(p, 4);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
 	    goto yield_return;
 	ERTS_BIF_PREP_RET(retval, msg);
@@ -2452,12 +2441,6 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     }
 
     switch (result) {
-    case 0:
-	/* May need to yield even though we do not bump reds here... */
-	if (ERTS_IS_PROC_OUT_OF_REDS(p))
-	    goto yield_return;
-	ERTS_BIF_PREP_RET(retval, msg);
-	break;
     case SEND_NOCONNECT:
 	ERTS_BIF_PREP_RET(retval, msg);
 	break;
