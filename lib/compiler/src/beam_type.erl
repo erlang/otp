@@ -333,29 +333,17 @@ flt_need_heap_2({set,_,_,{put_tuple,_}}, H, Fl) ->
     {[],H+1,Fl};
 flt_need_heap_2({set,_,_,put}, H, Fl) ->
     {[],H+1,Fl};
-%% Then the "neutral" instructions. We just pass them.
-flt_need_heap_2({set,[{fr,_}],_,_}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,[],[],fclearerror}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,[],[],fcheckerror}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,{bif,_,_}}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,move}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,{get_tuple_element,_}}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,get_list}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,{try_catch,_,_}}, H, Fl) ->
-    {[],H,Fl};
-flt_need_heap_2({set,_,_,init}, H, Fl) ->
-    {[],H,Fl};
-%% All other instructions should cause the insertion of an allocation
+%% The following instructions cause the insertion of an allocation
 %% instruction if needed.
+flt_need_heap_2({set,_,_,{alloc,_,_}}, H, Fl) ->
+    {flt_alloc(H, Fl),0,0};
+flt_need_heap_2({set,_,_,{set_tuple_element,_}}, H, Fl) ->
+    {flt_alloc(H, Fl),0,0};
+flt_need_heap_2({'%live',_,_}, H, Fl) ->
+    {flt_alloc(H, Fl),0,0};
+%% All other instructions are "neutral". We just pass them.
 flt_need_heap_2(_, H, Fl) ->
-    {flt_alloc(H, Fl),0,0}.
+    {[],H,Fl}.
 
 flt_alloc(0, 0) ->
     [];

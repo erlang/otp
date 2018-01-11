@@ -118,6 +118,7 @@ is_killed(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
+	{exit_not_used,_} -> true;
 	{_,_} -> false
     end.
 
@@ -130,6 +131,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
     St0 = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
+	{exit_not_used,_} -> true;
 	{_,_} -> false
     end.
 
@@ -146,6 +148,7 @@ is_not_used(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{used,_} -> false;
+	{exit_not_used,_} -> false;
 	{_,_} -> true
     end.
 
@@ -309,7 +312,7 @@ delete_live_annos([]) -> [].
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
     H1 + H2;
 combine_heap_needs(H1, H2) ->
-    combine_alloc_lists([H1,H2]).
+    {alloc,combine_alloc_lists([H1,H2])}.
 
 
 %% anno_defs(Instructions) -> Instructions'
@@ -347,6 +350,9 @@ split_even(Rs) -> split_even(Rs, [], []).
 %%
 %%    killed - Reg is assigned or killed by an allocation instruction.
 %%    not_used - the value of Reg is not used, but Reg must not be garbage
+%%    exit_not_used - the value of Reg is not used, but must not be garbage
+%%                    because the stack will be scanned because an
+%%                    exit BIF will raise an exception
 %%    used - Reg is used
 
 check_liveness(R, [{block,Blk}|Is], St0) ->
@@ -369,6 +375,8 @@ check_liveness(R, [{test,_,{f,Fail},As}|Is], St0) ->
 	false ->
 	    case check_liveness_at(R, Fail, St0) of
 		{killed,St1} ->
+		    check_liveness(R, Is, St1);
+		{exit_not_used,St1} ->
 		    check_liveness(R, Is, St1);
 		{not_used,St1} ->
 		    not_used(check_liveness(R, Is, St1));
@@ -432,7 +440,7 @@ check_liveness(R, [{bs_init,_,_,Live,Ss,Dst}|Is], St) ->
 		false ->
 		    if
 			R =:= Dst -> {killed,St};
-			true -> check_liveness(R, Is, St)
+			true -> not_used(check_liveness(R, Is, St))
 		    end
 	    end
     end;
@@ -466,7 +474,7 @@ check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
 		    %% We must make sure we don't check beyond this
 		    %% instruction or we will fall through into random
 		    %% unrelated code and get stuck in a loop.
-		    {killed,St}
+		    {exit_not_used,St}
 	    end
     end;
 check_liveness(R, [{call_fun,Live}|Is], St) ->
@@ -631,6 +639,7 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 	    {Res,St#live{res=gb_trees:insert(Lbl, Res, St#live.res)}}
     end.
 
+not_used({exit_not_used,St}) -> {not_used,St};
 not_used({killed,St}) -> {not_used,St};
 not_used({_,_}=Res) -> Res.
 
@@ -659,13 +668,30 @@ check_liveness_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St0) ->
 	    {killed,St0};
 	true ->
 	    case check_liveness_block_1(R, Ss, Ds, Op, Is, St0) of
-		{killed,St} -> {not_used,St};
                 {transparent,St} -> {alloc_used,St};
-		{_,_}=Res -> Res
+		{_,_}=Res -> not_used(Res)
 	    end
     end;
-check_liveness_block({y,_}=R, [{set,Ds,Ss,{alloc,_Live,Op}}|Is], St) ->
-    check_liveness_block_1(R, Ss, Ds, Op, Is, St);
+check_liveness_block({y,_}=R, [{set,Ds,Ss,{alloc,_Live,Op}}|Is], St0) ->
+    case check_liveness_block_1(R, Ss, Ds, Op, Is, St0) of
+        {transparent,St} -> {alloc_used,St};
+        {_,_}=Res -> not_used(Res)
+    end;
+check_liveness_block({y,_}=R, [{set,Ds,Ss,{try_catch,_,Op}}|Is], St0) ->
+    case Ds of
+        [R] ->
+            {killed,St0};
+        _ ->
+            case check_liveness_block_1(R, Ss, Ds, Op, Is, St0) of
+                {exit_not_used,St} ->
+                    {used,St};
+                {transparent,St} ->
+                    %% Conservatively assumed that it is used.
+                    {used,St};
+                {_,_}=Res ->
+                    Res
+            end
+    end;
 check_liveness_block(R, [{set,Ds,Ss,Op}|Is], St) ->
     check_liveness_block_1(R, Ss, Ds, Op, Is, St);
 check_liveness_block(_, [], St) -> {transparent,St}.
@@ -679,6 +705,11 @@ check_liveness_block_1(R, Ss, Ds, Op, Is, St0) ->
 		{killed,St} ->
 		    case member(R, Ds) of
 			true -> {killed,St};
+			false -> check_liveness_block(R, Is, St)
+		    end;
+		{exit_not_used,St} ->
+		    case member(R, Ds) of
+			true -> {exit_not_used,St};
 			false -> check_liveness_block(R, Is, St)
 		    end;
 		{not_used,St} ->
