@@ -201,11 +201,11 @@ init_per_testcase(expired_session, Config) ->
 
 init_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs;
 					 TestCase == ciphers_dsa_signed_certs ->
-    ct:timetrap({seconds, 60}),
+    ct:timetrap({seconds, 90}),
     special_init(TestCase, Config);
 
 init_per_testcase(TestCase, Config) ->
-    ct:timetrap({seconds, 20}),
+    ct:timetrap({seconds, 35}),
     special_init(TestCase, Config).
 
 special_init(TestCase, Config)
