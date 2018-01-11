@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "beam_load.h"
+#include "erl_unicode.h"
 
 typedef struct {
     BeamInstr* start;		/* Pointer to start of module. */
@@ -341,8 +342,7 @@ lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 		Atom* mod_atom = atom_tab(atom_val(fi->mfa->module));
 		fi->needed += 2*(mod_atom->len+4);
 	    } else {
-		Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
-		fi->needed += 2*ap->len;
+                fi->needed += 2*erts_atom_to_string_length((fi->fname_ptr)[file-1]);
 	    }
 	    return;
 	} else {
