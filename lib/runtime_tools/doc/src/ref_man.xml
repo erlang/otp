@@ -37,6 +37,7 @@
   <xi:include href="dyntrace.xml"/>
   <xi:include href="erts_alloc_config.xml"/>
   <xi:include href="msacc.xml"/>
+  <xi:include href="scheduler.xml"/>
   <xi:include href="system_information.xml"/>
 </application>
 
