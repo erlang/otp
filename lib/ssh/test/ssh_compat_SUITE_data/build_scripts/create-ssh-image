@@ -47,7 +47,8 @@ cat - > TempDockerFile <<EOF
     RUN ./configure --without-pie \
                     --prefix=/buildroot/ssh \
                     --with-ssl-dir=/buildroot/ssl \
-                    --with-pam
+                    --with-pam \
+                    LDFLAGS=-Wl,-R/buildroot/ssl/lib
     RUN  make
     RUN  make install
     RUN  echo UsePAM yes >> /buildroot/ssh/etc/sshd_config

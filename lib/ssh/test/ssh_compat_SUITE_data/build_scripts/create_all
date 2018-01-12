@@ -3,19 +3,21 @@
 UBUNTU_VERSION=16.04
 
 SSH_SSL_VERSIONS=(\
-        openssh 4.4p1  openssl 0.9.8zh \
-        openssh 4.5p1  openssl 0.9.8zh \
-        openssh 5.0p1  openssl 0.9.8zh \
-        openssh 6.2p2  openssl 0.9.8zh \
-        openssh 6.3p1  openssl 0.9.8zh \
-                                       \
-        openssh 7.1p1  openssl 1.0.0t  \
-                                       \
-        openssh 7.1p1  openssl 1.0.1p  \
-                                       \
-        openssh 6.6p1  openssl 1.0.2n  \
-        openssh 7.1p1  openssl 1.0.2n  \
-        openssh 7.6p1  openssl 1.0.2n  \
+        openssh 4.4p1  openssl  0.9.8zh \
+        openssh 4.5p1  openssl  0.9.8zh \
+        openssh 5.0p1  openssl  0.9.8zh \
+        openssh 6.2p2  openssl  0.9.8zh \
+        openssh 6.3p1  openssl  0.9.8zh \
+                                        \
+        openssh 7.1p1  openssl  1.0.0t  \
+                                        \
+        openssh 7.1p1  openssl  1.0.1p  \
+                                        \
+        openssh 6.6p1  openssl  1.0.2n  \
+        openssh 7.1p1  openssl  1.0.2n  \
+        openssh 7.6p1  openssl  1.0.2n  \
+                                        \
+        openssh 7.6p1  libressl 2.6.4   \
 	)
 
 if [ "x$1" == "x-b" ]
