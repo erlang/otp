@@ -422,7 +422,7 @@ srp_suites() ->
      ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
 %%--------------------------------------------------------------------
--spec rc4_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
+-spec rc4_suites(Version::ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
 %% Description: Returns a list of the RSA|(ECDH/RSA)| (ECDH/ECDSA) 
 %% with RC4 cipher suites, only supported if explicitly set by user. 
@@ -430,13 +430,15 @@ srp_suites() ->
 %% belonged to the user configured only category.
 %%--------------------------------------------------------------------
 rc4_suites({3, 0}) ->
+    rc4_suites(0);
+rc4_suites({3, Minor}) ->
+    rc4_suites(Minor) ++ rc4_suites(0);
+rc4_suites(0) ->
     [?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5];
-rc4_suites({3, N}) when N =< 3 ->
+rc4_suites(N) when N =< 3 ->
     [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-     ?TLS_RSA_WITH_RC4_128_SHA,
-     ?TLS_RSA_WITH_RC4_128_MD5,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
 %%--------------------------------------------------------------------
