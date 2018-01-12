@@ -801,7 +801,7 @@ multiple_uses_cmp(<<_:16>>, <<_:16>>) -> false.
 first_after(Data, Offset) ->
     case byte_size(Data) > Offset of
 	false ->
-	    {First, Rest} = {ok, ok},
+	    {_First, _Rest} = {ok, ok},
 	    ok;
 	true ->
 	    <<_:Offset/binary, Rest/binary>> = Data,
@@ -1515,7 +1515,7 @@ is_next_char_whitespace(<<C/utf8,_/binary>>) ->
         {this_hdr = 17,
          ext_hdr_opts}).
 
-get_payload(Config) ->
+get_payload(_Config) ->
     <<3445:48>> = do_get_payload(#ext_header{ext_hdr_opts = <<3445:48>>}),
     {'EXIT',_} = (catch do_get_payload(#ext_header{})),
     ok.
@@ -1624,7 +1624,7 @@ bsm_must_save_and_not_save(<<>>, []) ->
     [].
 
 guard(_Config) ->
-    Tuple = id({a,b}),
+    _Tuple = id({a,b}),
     ok = guard_1(<<1,2,3>>, {1,2,3}),
     ok = guard_2(<<42>>, #{}),
     ok.
