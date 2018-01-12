@@ -179,6 +179,12 @@
 # define HAVE_ECB_IVEC_BUG
 #endif
 
+#define HAVE_RSA_SSLV23_PADDING
+#if defined(HAS_LIBRESSL)                                             \
+    && LIBRESSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(2,6,1)
+# undef HAVE_RSA_SSLV23_PADDING
+#endif
+
 #if defined(HAVE_CMAC)
 #include <openssl/cmac.h>
 #endif
@@ -659,7 +665,9 @@ static ERL_NIF_TERM atom_rsa_oaep_md;
 static ERL_NIF_TERM atom_rsa_pad; /* backwards compatibility */
 static ERL_NIF_TERM atom_rsa_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_pss_padding;
+#ifdef HAVE_RSA_SSLV23_PADDING
 static ERL_NIF_TERM atom_rsa_sslv23_padding;
+#endif
 static ERL_NIF_TERM atom_rsa_x931_padding;
 static ERL_NIF_TERM atom_rsa_pss_saltlen;
 static ERL_NIF_TERM atom_sha224;
@@ -1064,7 +1072,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_rsa_pad = enif_make_atom(env,"rsa_pad"); /* backwards compatibility */
     atom_rsa_padding = enif_make_atom(env,"rsa_padding");
     atom_rsa_pkcs1_pss_padding = enif_make_atom(env,"rsa_pkcs1_pss_padding");
+#ifdef HAVE_RSA_SSLV23_PADDING
     atom_rsa_sslv23_padding = enif_make_atom(env,"rsa_sslv23_padding");
+#endif
     atom_rsa_x931_padding = enif_make_atom(env,"rsa_x931_padding");
     atom_rsa_pss_saltlen = enif_make_atom(env,"rsa_pss_saltlen");
     atom_sha224 = enif_make_atom(env,"sha224");
@@ -4449,8 +4459,10 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 			opt->rsa_padding = RSA_PKCS1_PADDING;
 		    } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
 			opt->rsa_padding = RSA_PKCS1_OAEP_PADDING;
+#ifdef HAVE_RSA_SSLV23_PADDING
 		    } else if (tpl_terms[1] == atom_rsa_sslv23_padding) {
 			opt->rsa_padding = RSA_SSLV23_PADDING;
+#endif
 		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
 			opt->rsa_padding = RSA_X931_PADDING;
 		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
@@ -4516,7 +4528,10 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 #endif
     PKeyCryptOptions crypt_opt;
     ErlNifBinary in_bin, out_bin, tmp_bin;
-    size_t outlen, tmplen;
+    size_t outlen;
+#ifdef HAVE_RSA_SSLV23_PADDING
+    size_t tmplen;
+#endif
     int is_private = (argv[4] == atom_true),
         is_encrypt = (argv[5] == atom_true);
     int algo_init = 0;
@@ -4596,6 +4611,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 	if (crypt_opt.signature_md != NULL
 	    && EVP_PKEY_CTX_set_signature_md(ctx, crypt_opt.signature_md) <= 0)
 		goto badarg;
+#ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
 	    if (is_encrypt) {
 		RSA *rsa = EVP_PKEY_get1_RSA(pkey);
@@ -4607,9 +4623,11 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 		in_bin = tmp_bin;
 	    }
 	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_NO_PADDING) <= 0) goto badarg;
-	} else {
+	} else
+#endif
+                {
 	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_opt.rsa_padding) <= 0) goto badarg;
-	}
+        }
 #ifdef HAVE_RSA_OAEP_MD
 	if (crypt_opt.rsa_padding == RSA_PKCS1_OAEP_PADDING) {
 	    if (crypt_opt.rsa_oaep_md != NULL
@@ -4728,6 +4746,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 #endif
 
     if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
+#ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
 	    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
 	    unsigned char *p;
@@ -4745,6 +4764,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 		i = 1;
 	    }
 	}
+#endif
     }
 
     if (tmp_bin.data != NULL) {
