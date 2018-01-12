@@ -36,9 +36,10 @@
 -export([security_parameters/2, security_parameters/3, suite_definition/1,
 	 erl_suite_definition/1,
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
-	 suite/1, suites/1, all_suites/1, 
+	 suite/1, suites/1, all_suites/1, crypto_support_filters/0,
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
-	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
+	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, 
+         filter/2, filter_suites/1, filter_suites/2,  
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1]).
@@ -1817,9 +1818,9 @@ openssl_suite("ECDH-RSA-AES256-GCM-SHA384") ->
     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384.
 
 %%--------------------------------------------------------------------
--spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite().
+-spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite() | erl_cipher_suite().
 %%
-%% Description: Return openssl cipher suite name.
+%% Description: Return openssl cipher suite name if possible
 %%-------------------------------------------------------------------
 openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     "DHE-RSA-AES256-SHA";
@@ -2029,38 +2030,74 @@ filter(DerCert, Ciphers) ->
 	{_, ecdsa} ->
 	    Ciphers1 -- rsa_signed_suites()
     end.
-	
 %%--------------------------------------------------------------------
--spec filter_suites([cipher_suite()]) -> [cipher_suite()].
+-spec filter_suites([erl_cipher_suite()] | [cipher_suite()], map()) ->
+                           [erl_cipher_suite()] |  [cipher_suite()].
+%%
+%% Description: Filter suites using supplied filter funs
+%%-------------------------------------------------------------------	
+filter_suites(Suites, Filters) ->
+    ApplyFilters = fun(Suite) ->
+                           filter_suite(Suite, Filters)
+                   end,
+    lists:filter(ApplyFilters, Suites).
+    
+filter_suite(#{key_exchange := KeyExchange, 
+               cipher := Cipher, 
+               mac := Hash,
+               prf := Prf}, 
+             #{key_exchange_filters := KeyFilters,
+               cipher_filters := CipherFilters, 
+               mac_filters := HashFilters,
+               prf_filters := PrfFilters}) ->
+    all_filters(KeyExchange, KeyFilters) andalso
+        all_filters(Cipher, CipherFilters) andalso
+        all_filters(Hash, HashFilters) andalso
+        all_filters(Prf, PrfFilters);
+filter_suite(Suite, Filters) ->
+    filter_suite(suite_definition(Suite), Filters).
+
+%%--------------------------------------------------------------------
+-spec filter_suites([erl_cipher_suite()] | [cipher_suite()]) -> 
+                           [erl_cipher_suite()] | [cipher_suite()].
 %%
 %% Description: Filter suites for algorithms supported by crypto.
 %%-------------------------------------------------------------------
-filter_suites(Suites = [Value|_]) when is_map(Value) ->
-    Algos = crypto:supports(),
-    Hashs =  proplists:get_value(hashs, Algos),
-    lists:filter(fun(#{key_exchange := KeyExchange, 
-                       cipher := Cipher, 
-                       mac := Hash,
-                       prf := Prf}) ->
-			 is_acceptable_keyexchange(KeyExchange, proplists:get_value(public_keys, Algos)) andalso
-			     is_acceptable_cipher(Cipher, proplists:get_value(ciphers, Algos)) andalso
-			     is_acceptable_hash(Hash, Hashs) andalso
-			     is_acceptable_prf(Prf, Hashs)
-		 end, Suites);
-
 filter_suites(Suites) ->
+    Filters = crypto_support_filters(),
+    filter_suites(Suites, Filters).
+
+all_filters(_, []) ->
+    true;
+all_filters(Value, [Filter| Rest]) ->
+    case Filter(Value) of
+        true ->
+            all_filters(Value, Rest);
+        false ->
+            false
+    end.
+crypto_support_filters() ->
     Algos = crypto:supports(),
     Hashs =  proplists:get_value(hashs, Algos),
-    lists:filter(fun(Suite) ->
-			 #{key_exchange := KeyExchange, 
-                           cipher := Cipher, 
-                           mac := Hash,
-                           prf := Prf} = suite_definition(Suite),
-			 is_acceptable_keyexchange(KeyExchange, proplists:get_value(public_keys, Algos)) andalso
-			     is_acceptable_cipher(Cipher, proplists:get_value(ciphers, Algos)) andalso
-			     is_acceptable_hash(Hash, Hashs) andalso
-			     is_acceptable_prf(Prf, Hashs)
-		 end, Suites).
+    #{key_exchange_filters => 
+          [fun(KeyExchange) ->
+                  is_acceptable_keyexchange(KeyExchange,  
+                                            proplists:get_value(public_keys, Algos))
+           end],
+      cipher_filters => 
+          [fun(Cipher) ->
+                  is_acceptable_cipher(Cipher,  
+                                       proplists:get_value(ciphers, Algos))
+           end],
+      mac_filters => 
+          [fun(Hash) ->
+                  is_acceptable_hash(Hash, Hashs)
+          end],
+      prf_filters => 
+          [fun(Prf) ->
+                  is_acceptable_prf(Prf,  
+                                    proplists:get_value(hashs, Algos))
+          end]}.
 
 is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
                                                     KeyExchange == null ->

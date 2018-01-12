@@ -163,7 +163,8 @@ api_tests() ->
      server_name_indication_option,
      accept_pool,
      prf,
-     socket_options
+     socket_options,
+     cipher_suites
     ].
 
 api_tests_tls() ->
@@ -207,7 +208,7 @@ tls_cipher_tests() ->
      rc4_ecdsa_cipher_suites].
 
 cipher_tests() ->
-    [cipher_suites,
+    [old_cipher_suites,
      cipher_suites_mix,
      ciphers_rsa_signed_certs,
      ciphers_rsa_signed_certs_openssl_names,
@@ -702,8 +703,6 @@ secret_connection_info(Config) when is_list(Config) ->
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
-
-    Version = ssl_test_lib:protocol_version(Config),    
 			   
     ssl_test_lib:check_result(Server, true, Client, true),
     
@@ -1128,11 +1127,16 @@ fallback(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 cipher_format() ->
-    [{doc, "Test that cipher conversion from tuples to binarys works"}].
+    [{doc, "Test that cipher conversion from maps | tuples | stings to binarys works"}].
 cipher_format(Config) when is_list(Config) ->
-    {ok, Socket} = ssl:listen(0, [{ciphers, ssl:cipher_suites()}]),
-    ssl:close(Socket).
-
+    {ok, Socket0} = ssl:listen(0, [{ciphers, ssl:cipher_suites(default, 'tlsv1.2')}]),
+    ssl:close(Socket0),
+    %% Legacy
+    {ok, Socket1} = ssl:listen(0, [{ciphers, ssl:cipher_suites()}]),
+    ssl:close(Socket1),
+    {ok, Socket2} = ssl:listen(0, [{ciphers, ssl:cipher_suites(openssl)}]),
+    ssl:close(Socket2).
+   
 %%--------------------------------------------------------------------
 
 peername() ->
@@ -1283,10 +1287,58 @@ sockname_result(S) ->
     ssl:sockname(S).
 
 %%--------------------------------------------------------------------
+
 cipher_suites() ->
-    [{doc,"Test API function cipher_suites/0"}].
+    [{doc,"Test API function cipher_suites/2, filter_cipher_suites/2"
+      " and prepend|append_cipher_suites/2"}].
 
 cipher_suites(Config) when is_list(Config) -> 
+    Version = ssl_test_lib:protocol_version(Config),
+    All = [_|_] = ssl:cipher_suites(all, Version),
+    Default = [_|_] = ssl:cipher_suites(default, Version),
+    true = length(Default) < length(All),
+    Filters = [{key_exchange, 
+                fun(dhe_rsa) -> 
+                        true;
+                   (_) -> 
+                        false
+                end
+               }, 
+               {cipher, 
+                fun(aes_256_cbc) ->
+                        true;
+                   (_) -> 
+                        false
+                end
+               },
+               {mac, 
+                fun(sha) ->
+                        true;
+                   (_) -> 
+                        false
+                end
+               }
+              ],
+    Cipher = #{cipher => aes_256_cbc,
+               key_exchange => dhe_rsa,
+               mac => sha,
+               prf => default_prf},
+    [Cipher] = ssl:filter_cipher_suites(All, Filters),    
+    [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
+    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+    true = lists:member(Cipher, Default), 
+    false = lists:member(Cipher, Rest0), 
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+    true = lists:member(Cipher, Default),
+    false = lists:member(Cipher, Rest1).
+
+%%--------------------------------------------------------------------
+
+old_cipher_suites() ->
+    [{doc,"Test API function cipher_suites/0"}].
+
+old_cipher_suites(Config) when is_list(Config) -> 
     MandatoryCipherSuite = {rsa,'3des_ede_cbc',sha},
     [_|_] = Suites = ssl:cipher_suites(),
     true = lists:member(MandatoryCipherSuite, Suites),

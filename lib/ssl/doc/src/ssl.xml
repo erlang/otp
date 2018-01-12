@@ -138,17 +138,20 @@
       <tag><c>sslsocket() =</c></tag>
       <item><p>opaque()</p></item>
 
-      <tag><marker id="type-protocol"/><c>protocol() =</c></tag>
+      <tag><marker id="type-protocol"/><c>protocol_version() =</c></tag>
       <item><p><c>sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
 
       <tag><c>ciphers() =</c></tag>
-      <item><p><c>= [ciphersuite()] | string()</c></p>
-      <p>According to old API.</p></item>
+      <item><p><c>= [ciphersuite()]</c></p>
+      <p>Tuples and string formats accepted by versions
+      before ssl-8.2.4 will be converted for backwards compatibility</p></item>
 
       <tag><c>ciphersuite() =</c></tag>
-
-      <item><p><c>{key_exchange(), cipher(), MAC::hash()} |
-      {key_exchange(), cipher(), MAC::hash(), PRF::hash()}</c></p></item>
+      <item><p><c>
+      #{key_exchange := key_exchange(),
+        cipher := cipher(),
+        mac := MAC::hash() | aead,
+        prf := PRF::hash() | default_prf} </c></p></item>
 
       <tag><c>key_exchange()=</c></tag>
       <item><p><c>rsa | dhe_dss | dhe_rsa | dh_anon | psk | dhe_psk
@@ -164,6 +167,12 @@
 
       <tag><c>prf_random() =</c></tag>
       <item><p><c>client_random | server_random</c></p></item>
+
+      <tag><c>cipher_filters() =</c></tag>
+      <item><p><c> [{key_exchange | cipher | mac | prf, algo_filter()}])</c></p></item>
+
+      <tag><c>algo_filter() =</c></tag>
+      <item><p>fun(key_exchange() | cipher() | hash() | aead | default_prf) -> true | false </p></item>
 
       <tag><c>srp_param_type() =</c></tag>
       <item><p><c>srp_1024 | srp_1536 | srp_2048 | srp_3072
@@ -456,7 +465,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
       with the selected CA as trusted anchor and the rest of the chain.</p></item>
 
-      <tag><c>{versions, [protocol()]}</c></tag>
+      <tag><c>{versions, [protocol_version()]}</c></tag>
       <item><p>TLS protocol versions supported by started clients and servers.
       This option overrides the application environment option
       <c>protocol_version</c>. If the environment option is not set, it defaults
@@ -829,14 +838,34 @@ fun(srp, Username :: string(), UserState :: term()) ->
   </section>
   
   <funcs>
+
+    <func>
+      <name>append_cipher_suites(Deferred, Suites) -> ciphers() </name>
+      <fsummary></fsummary>
+      <type>
+           <v>Deferred = ciphers() | cipher_filters() </v>
+	   <v>Suites  = ciphers() </v>
+      </type>
+      <desc><p>Make <c>Deferred</c> suites become the least preferred
+      suites, that is put them at the end of the cipher suite list
+      <c>Suites</c> after removing them from <c>Suites</c> if
+      present. <c>Deferred</c> may be a list of cipher suits or a
+      list of filters in which case the filters are use on  <c>Suites</c> to
+      extract the Deferred cipher list.</p> 
+      </desc>
+    </func>
+    
     <func>
       <name>cipher_suites() -></name>
-      <name>cipher_suites(Type) -> ciphers()</name>
+      <name>cipher_suites(Type) -> old_ciphers()</name>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
       <type>
         <v>Type = erlang | openssl | all</v>
       </type>
-      <desc><p>Returns a list of supported cipher suites.
+      <desc>
+	<p>Returns a list of supported cipher suites.
+	This function will become deprecated in OTP 21, and replaced
+	by <seealso marker="#cipher_suites-2">ssl:cipher-suites/2</seealso>
 	<c>cipher_suites()</c> is equivalent to <c>cipher_suites(erlang).</c>
 	Type <c>openssl</c> is provided for backwards compatibility with the
 	old SSL, which used OpenSSL. <c>cipher_suites(all)</c> returns
@@ -844,12 +873,25 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	in <c>cipher_suites(erlang)</c> but included in
 	<c>cipher_suites(all)</c> are not used unless explicitly configured
 	by the user.</p>
+      </desc>
+    </func>
+    
+   <func>
+      <name>cipher_suites(Supported, Version) ->  ciphers()</name>
+      <fsummary>Returns a list of all default or
+      all supported cipher suites.</fsummary>
+      <type>
+        <v> Supported = default | all </v>
+	<v> Version = protocol_version() </v>
+      </type>
+      <desc><p>Returns all default or all supported cipher suites for a
+      TLS version</p>
     </desc>
     </func>
 
     <func>
       <name>eccs() -></name>
-      <name>eccs(protocol()) -> [named_curve()]</name>
+      <name>eccs(protocol_version()) -> [named_curve()]</name>
       <fsummary>Returns a list of supported ECCs.</fsummary>
 
       <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
@@ -1008,6 +1050,21 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </func>
 
+      <func>
+      <name>filter_cipher_suites(Suites, Filters) -> ciphers()</name>
+      <fsummary></fsummary>
+      <type>
+	<v> Suites = ciphers()</v>
+        <v> Filters = cipher_filters()</v>
+      </type>
+      <desc><p>Removes cipher suites if any of the filter functions
+      returns false for any part of the cipher suite. This function
+      also calls default filter functions to make sure the cipher
+      suites are supported by crypto. If no filter function is supplied for some
+      part the default behaviour is fun(Algorithm) -> true.</p>
+    </desc>
+    </func>
+    
     <func>
       <name>format_error(Reason) -> string()</name>
       <fsummary>Returns an error string.</fsummary>
@@ -1103,6 +1160,22 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </type>
       <desc>
         <p>Returns the address and port number of the peer.</p>
+      </desc>
+    </func>
+    
+      <func>
+      <name>prepend_cipher_suites(Preferred, Suites) -> ciphers()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Preferred = ciphers() | cipher_filters() </v>
+	<v>Suites = ciphers() </v>
+      </type>
+      <desc><p>Make <c>Preferred</c> suites become the most preferred
+      suites that is put them at the head of the cipher suite list
+      <c>Suites</c> after removing them from <c>Suites</c> if
+      present. <c>Preferred</c> may be a list of cipher suits or a
+      list of filters in which case the filters are use on <c>Suites</c> to
+      extract the preferred cipher list. </p>
       </desc>
     </func>
 
@@ -1332,7 +1405,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns version information relevant for the
 	SSL application.</fsummary>
       <type>
-	<v>versions_info() = {app_vsn, string()} | {supported | available, [protocol()] </v>
+	<v>versions_info() = {app_vsn, string()} | {supported | available, [protocol_version()] </v>
       </type>
       <desc>
 	<p>Returns version information relevant for the SSL
