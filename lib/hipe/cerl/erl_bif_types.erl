@@ -1903,7 +1903,8 @@ infinity_div(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
 
 infinity_bsl(pos_inf, _) -> pos_inf;
 infinity_bsl(neg_inf, _) -> neg_inf;
-infinity_bsl(Number, pos_inf) when is_integer(Number), Number >= 0 -> pos_inf;
+infinity_bsl(0, pos_inf) -> 0;
+infinity_bsl(Number, pos_inf) when is_integer(Number), Number > 0 -> pos_inf;
 infinity_bsl(Number, pos_inf) when is_integer(Number) -> neg_inf;
 infinity_bsl(Number, neg_inf) when is_integer(Number), Number >= 0 -> 0;
 infinity_bsl(Number, neg_inf) when is_integer(Number) -> -1;
