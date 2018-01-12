@@ -397,6 +397,8 @@ check_liveness(R, [{jump,{f,F}}|_], St) ->
     check_liveness_at(R, F, St);
 check_liveness(R, [{case_end,Used}|_], St) -> 
     check_liveness_ret(R, Used, St);
+check_liveness(R, [{try_case_end,Used}|_], St) ->
+    check_liveness_ret(R, Used, St);
 check_liveness(R, [{badmatch,Used}|_], St) ->
     check_liveness_ret(R, Used, St);
 check_liveness(_, [if_end|_], St) ->
@@ -522,16 +524,12 @@ check_liveness(R, [{make_fun2,_,_,_,NumFree}|Is], St) ->
 	{x,_} -> {killed,St};
 	{y,_} -> not_used(check_liveness(R, Is, St))
     end;
-check_liveness({x,_}=R, [{'catch',_,_}|Is], St) ->
-    %% All x registers will be killed if an exception occurs.
-    %% Therefore we only need to check the liveness for the
-    %% instructions following the catch instruction.
-    check_liveness(R, Is, St);
-check_liveness({x,_}=R, [{'try',_,_}|Is], St) ->
-    %% All x registers will be killed if an exception occurs.
-    %% Therefore we only need to check the liveness for the
-    %% instructions inside the 'try' block.
-    check_liveness(R, Is, St);
+check_liveness(R, [{'catch'=Op,Y,Fail}|Is], St) ->
+    Set = {set,[Y],[],{try_catch,Op,Fail}},
+    check_liveness(R, [{block,[Set]}|Is], St);
+check_liveness(R, [{'try'=Op,Y,Fail}|Is], St) ->
+    Set = {set,[Y],[],{try_catch,Op,Fail}},
+    check_liveness(R, [{block,[Set]}|Is], St);
 check_liveness(R, [{try_end,Y}|Is], St) ->
     case R of
 	Y ->
@@ -592,6 +590,12 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 check_liveness(R, [{put_map,F,Op,S,D,Live,{list,Puts}}|Is], St) ->
     Set = {set,[D],[S|Puts],{alloc,Live,{put_map,Op,F}}},
     check_liveness(R, [{block,[Set]}||Is], St);
+check_liveness(R, [{put_tuple,Ar,D}|Is], St) ->
+    Set = {set,[D],[],{put_tuple,Ar}},
+    check_liveness(R, [{block,[Set]}||Is], St);
+check_liveness(R, [{put_list,S1,S2,D}|Is], St) ->
+    Set = {set,[D],[S1,S2],put_list},
+    check_liveness(R, [{block,[Set]}||Is], St);
 check_liveness(R, [{test_heap,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
     check_liveness(R, [I|Is], St);
@@ -605,6 +609,12 @@ check_liveness(R, [remove_message|Is], St) ->
     check_liveness(R, Is, St);
 check_liveness({x,X}, [build_stacktrace|_], St) when X > 0 ->
     {killed,St};
+check_liveness(R, [{recv_mark,_}|Is], St) ->
+    check_liveness(R, Is, St);
+check_liveness(R, [{recv_set,_}|Is], St) ->
+    check_liveness(R, Is, St);
+check_liveness(R, [{'%',_}|Is], St) ->
+    check_liveness(R, Is, St);
 check_liveness(_R, Is, St) when is_list(Is) ->
     %% Not implemented. Conservatively assume that the register is used.
     {used,St}.
@@ -902,7 +912,8 @@ live_opt([{test,_,Fail,Live,Ss,_}=I|Is], _, D, Acc) ->
     Regs1 = x_live(Ss, Regs0),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
+live_opt([{select,_,Src,Fail,List}=I|Is], _, D, Acc) ->
+    Regs0 = 0,
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
@@ -925,6 +936,25 @@ live_opt([{get_map_elements,Fail,Src,{list,List}}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src|Ss], x_dead(Ds, Regs0)),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{gc_bif,N,F,R,As,Dst}=I|Is], Regs0, D, Acc) ->
+    Bl = [{set,[Dst],As,{alloc,R,{gc_bif,N,F}}}],
+    {_,Regs} = live_opt_block(Bl, Regs0, D, []),
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{bif,N,F,As,Dst}=I|Is], Regs0, D, Acc) ->
+    Bl = [{set,[Dst],As,{bif,N,F}}],
+    {_,Regs} = live_opt_block(Bl, Regs0, D, []),
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{get_tuple_element,Src,Idx,Dst}=I|Is], Regs0, D, Acc) ->
+    Bl = [{set,[Dst],[Src],{get_tuple_element,Idx}}],
+    {_,Regs} = live_opt_block(Bl, Regs0, D, []),
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{move,Src,Dst}=I|Is], Regs0, D, Acc) ->
+    Regs = x_live([Src], x_dead([Dst], Regs0)),
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{put_map,F,Op,S,Dst,R,{list,Puts}}=I|Is], Regs0, D, Acc) ->
+    Bl = [{set,[Dst],[S|Puts],{alloc,R,{put_map,Op,F}}}],
+    {_,Regs} = live_opt_block(Bl, Regs0, D, []),
+    live_opt(Is, Regs, D, [I|Acc]);
 
 %% Transparent instructions - they neither use nor modify x registers.
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
@@ -940,6 +970,10 @@ live_opt([{wait_timeout,_,nil}=I|Is], Regs, D, Acc) ->
 live_opt([{wait_timeout,_,{Tag,_}}=I|Is], Regs, D, Acc) when Tag =/= x ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{line,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{'catch',_,_}=I|Is], Regs, D, Acc) ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{'try',_,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 
 %% The following instructions can occur if the "compilation" has been

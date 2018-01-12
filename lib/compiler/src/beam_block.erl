@@ -28,15 +28,21 @@
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
-    Fs = [function(F) || F <- Fs0],
+module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
+    Blockify = not member(no_blockify, Opts),
+    Fs = [function(F, Blockify) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}) ->
+function({function,Name,Arity,CLabel,Is0}, Blockify) ->
     try
 	%% Collect basic blocks and optimize them.
-	Is1 = blockify(Is0),
-	Is2 = embed_lines(Is1),
+        Is2 = case Blockify of
+                  true ->
+                      Is1 = blockify(Is0),
+                      embed_lines(Is1);
+                  false ->
+                      Is0
+              end,
         Is3 = beam_utils:anno_defs(Is2),
         Is4 = move_allocates(Is3),
         Is5 = beam_utils:live_opt(Is4),
@@ -240,6 +246,10 @@ opt([{set,_,_,{line,_}}=Line1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
+opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,L}}}=I1,
+     {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,L}}}=I2|Is])
+  when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
+    opt([I2,I1|Is]);
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
