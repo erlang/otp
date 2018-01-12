@@ -820,10 +820,10 @@ dump_with_size_limit_reached(DataDir,Rel,DumpName,Max) ->
                         "-env ERL_CRASH_DUMP_BYTES " ++
                             integer_to_list(Bytes)),
     {ok,#file_info{size=Size}} = file:read_file_info(CD),
-    if Size < Bytes ->
+    if Size =< Bytes ->
             %% This means that the dump was actually smaller than the
             %% randomly selected truncation size, so we'll just do it
-            %% again with a smaller numer
+            %% again with a smaller number
             ok = file:delete(CD),
             dump_with_size_limit_reached(DataDir,Rel,DumpName,Size-3);
        true ->
