@@ -40,7 +40,7 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         check_bitstring_list/1,guard/1]).
+         beam_bsm/1,guard/1,is_ascii/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -73,7 +73,7 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       check_bitstring_list,guard]}].
+       beam_bsm,guard,is_ascii]}].
 
 
 init_per_suite(Config) ->
@@ -1574,10 +1574,22 @@ lgettext(<<"de">>, <<"navigation">>, <<"Results">>) ->
 lgettext(<<"de">>, <<"navigation">>, <<"Resources">>) ->
     {ok, <<"Ressourcen">>}.
 
-%% Cover more code in beam_bsm.
-check_bitstring_list(_Config) ->
+%% Test more code in beam_bsm.
+beam_bsm(_Config) ->
     true = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [1,0,1,1]),
     false = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [0]),
+
+    true = bsm_validate_scheme(<<>>),
+    true = bsm_validate_scheme(<<5,10>>),
+    false = bsm_validate_scheme(<<5,10,11,12>>),
+    true = bsm_validate_scheme([]),
+    true = bsm_validate_scheme([5,10]),
+    false = bsm_validate_scheme([5,6,7]),
+
+    <<1,2,3>> = bsm_must_save_and_not_save(<<1,2,3>>, []),
+    D = fun(N) -> 2*N end,
+    [2,4|<<3>>] = bsm_must_save_and_not_save(<<1,2,3>>, [D,D]),
+
     ok.
 
 check_bitstring_list(<<H:1,T1/bitstring>>, [H|T2]) ->
@@ -1586,6 +1598,30 @@ check_bitstring_list(<<>>, []) ->
     true;
 check_bitstring_list(_, _) ->
     false.
+
+bsm_validate_scheme([]) -> true;
+bsm_validate_scheme([H|T]) ->
+    case bsm_is_scheme(H) of
+        true -> bsm_validate_scheme(T);
+        false -> false
+    end;
+bsm_validate_scheme(<<>>) -> true;
+bsm_validate_scheme(<<H, Rest/binary>>) ->
+    case bsm_is_scheme(H) of
+        true -> bsm_validate_scheme(Rest);
+        false -> false
+    end.
+
+bsm_is_scheme(Int) ->
+    Int rem 5 =:= 0.
+
+%% NOT OPTIMIZED: different control paths use different positions in the binary
+bsm_must_save_and_not_save(Bin, []) ->
+    Bin;
+bsm_must_save_and_not_save(<<H,T/binary>>, [F|Fs]) ->
+    [F(H)|bsm_must_save_and_not_save(T, Fs)];
+bsm_must_save_and_not_save(<<>>, []) ->
+    [].
 
 guard(_Config) ->
     Tuple = id({a,b}),
@@ -1600,6 +1636,24 @@ guard_1(<<A,B,C>>, Tuple) when Tuple =:= {A,B,C} ->
 %% Cover handling of #k_call{} in v3_codegen:bsm_rename_ctx/4.
 guard_2(<<_>>, Healing) when Healing#{[] => Healing} =:= #{[] => #{}} ->
     ok.
+
+is_ascii(_Config) ->
+    true = do_is_ascii(<<>>),
+    true = do_is_ascii(<<"string">>),
+    false = do_is_ascii(<<1024/utf8>>),
+    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<$A,0:3>>)),
+    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<16#80,0:3>>)),
+    ok.
+
+do_is_ascii(<<>>) ->
+    true;
+do_is_ascii(<<C,_/binary>>) when C >= 16#80 ->
+    %% This clause must fail to match if the size of the argument in
+    %% bits is not divisible by 8. Beware of unsafe optimizations.
+    false;
+do_is_ascii(<<_, T/binary>>) ->
+    do_is_ascii(T).
+
 
 check(F, R) ->
     R = F().
