@@ -83,6 +83,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     link(OtherPid), % own node
     link(Pid2),     % external node
     erlang:monitor(process,OtherPid),
+    erlang:monitor(process,init), % named process
     erlang:monitor(process,Pid2),
 
     code:load_file(?MODULE),

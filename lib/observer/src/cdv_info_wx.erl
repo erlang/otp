@@ -95,6 +95,10 @@ handle_cast(Msg, State) ->
     io:format("~p~p: Unhandled cast ~tp~n",[?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
+handle_event(#wx{obj=MoreEntry,event=#wxMouse{type=left_down},userData={more,More}}, State) ->
+    observer_lib:add_scroll_entries(MoreEntry,More),
+    {noreply, State};
+
 handle_event(#wx{event=#wxMouse{type=left_down},userData=Target}, State) ->
     cdv_virtual_list_wx:start_detail_win(Target),
     {noreply, State};
