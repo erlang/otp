@@ -1240,7 +1240,7 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"Last calls" ->
 	    get_procinfo(Fd,Fun,Proc#proc{last_calls=get_last_calls(Fd)},WS);
 	"Link list" ->
-	    {Links,Monitors,MonitoredBy} = parse_link_list(bytes(Fd),[],[],[]),
+	    {Links,Monitors,MonitoredBy} = get_link_list(Fd),
 	    get_procinfo(Fd,Fun,Proc#proc{links=Links,
 					  monitors=Monitors,
 					  mon_by=MonitoredBy},WS);
@@ -1322,86 +1322,64 @@ get_last_calls(Fd,<<>>,Acc,Lines) ->
 	    lists:reverse(Lines,[byte_list_to_string(lists:reverse(Acc))])
     end.
 
-parse_link_list([SB|Str],Links,Monitors,MonitoredBy) when SB==$[; SB==$] ->
-    parse_link_list(Str,Links,Monitors,MonitoredBy);
-parse_link_list("#Port"++_=Str,Links,Monitors,MonitoredBy) ->
-    {Link,Rest} = parse_port(Str),
-    parse_link_list(Rest,[Link|Links],Monitors,MonitoredBy);
-parse_link_list("<"++_=Str,Links,Monitors,MonitoredBy) ->
-    {Link,Rest} = parse_pid(Str),
-    parse_link_list(Rest,[Link|Links],Monitors,MonitoredBy);
-parse_link_list("{to,"++Str,Links,Monitors,MonitoredBy) ->
-    {Mon,Rest} = parse_monitor(Str),
-    parse_link_list(Rest,Links,[Mon|Monitors],MonitoredBy);
-parse_link_list("{from,"++Str,Links,Monitors,MonitoredBy) ->
-    {Mon,Rest} = parse_monitor(Str),
-    parse_link_list(Rest,Links,Monitors,[Mon|MonitoredBy]);
-parse_link_list(", "++Rest,Links,Monitors,MonitoredBy) ->
-    parse_link_list(Rest,Links,Monitors,MonitoredBy);
-parse_link_list([],Links,Monitors,MonitoredBy) ->
-    {lists:reverse(Links),lists:reverse(Monitors),lists:reverse(MonitoredBy)};
-parse_link_list(Unexpected,Links,Monitors,MonitoredBy) ->
-    io:format("WARNING: found unexpected data in link list:~n~ts~n",[Unexpected]),
-    parse_link_list([],Links,Monitors,MonitoredBy).
-
-
-parse_port(Str) ->
-    {Port,Rest} = parse_link(Str,[]),
-    {{Port,Port},Rest}.
-
-parse_pid(Str) ->
-    {Pid,Rest} = parse_link(Str,[]),
-    {{Pid,Pid},Rest}.
-
-parse_monitor("{"++Str) ->
-    %% Named process
-    {Name,Node,Rest1} = parse_name_node(Str,[]),
-    Pid = get_pid_from_name(Name,Node),
-    case parse_link(string:strip(Rest1,left,$,),[]) of
-	{Ref,"}"++Rest2} ->
-	    %% Bug in break.c - prints an extra "}" for remote
-	    %% nodes... thus the strip
-	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},
-	     string:strip(Rest2,left,$})};
-	{Ref,[]} ->
-	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},[]}
-    end;
-parse_monitor(Str) ->
-    case parse_link(Str,[]) of
-	{Pid,","++Rest1} ->
-	    case parse_link(Rest1,[]) of
-		{Ref,"}"++Rest2} ->
-		    {{Pid,Pid++" ("++Ref++")"},Rest2};
-		{Ref,[]} ->
-		    {{Pid,Pid++" ("++Ref++")"},[]}
-	    end;
-	{Pid,[]} ->
-	    {{Pid,Pid++" (unknown_ref)"},[]}
+get_link_list(Fd) ->
+    case get_chunk(Fd) of
+	{ok,<<"[",Bin/binary>>} ->
+            #{links:=Links,
+              mons:=Monitors,
+              mon_by:=MonitoredBy} =
+                get_link_list(Fd,Bin,#{links=>[],mons=>[],mon_by=>[]}),
+            {lists:reverse(Links),
+             lists:reverse(Monitors),
+             lists:reverse(MonitoredBy)};
+        eof ->
+            {[],[],[]}
     end.
 
-parse_link(">"++Rest,Acc) ->
-    {lists:reverse(Acc,">"),Rest};
-parse_link([H|T],Acc) ->
-    parse_link(T,[H|Acc]);
-parse_link([],Acc) ->
-    %% truncated
-    {lists:reverse(Acc),[]}.
+get_link_list(Fd,<<NL:8,_/binary>>=Bin,Acc) when NL=:=$\r; NL=:=$\n->
+    skip(Fd,Bin),
+    Acc;
+get_link_list(Fd,Bin,Acc) ->
+    case binary:split(Bin,[<<", ">>,<<"]">>]) of
+        [Link,Rest] ->
+            get_link_list(Fd,Rest,get_link(Link,Acc));
+        [Incomplete] ->
+            case get_chunk(Fd) of
+                {ok,More} ->
+                    get_link_list(Fd,<<Incomplete/binary,More/binary>>,Acc);
+                eof ->
+                    Acc
+            end
+    end.
 
-parse_name_node(","++Rest,Name) ->
-    parse_name_node(Rest,Name,[]);
-parse_name_node([H|T],Name) ->
-    parse_name_node(T,[H|Name]);
-parse_name_node([],Name) ->
-    %% truncated
-    {lists:reverse(Name),[],[]}.
+get_link(<<"#Port",_/binary>>=PortBin,#{links:=Links}=Acc) ->
+    PortStr = binary_to_list(PortBin),
+    Acc#{links=>[{PortStr,PortStr}|Links]};
+get_link(<<"<",_/binary>>=PidBin,#{links:=Links}=Acc) ->
+    PidStr = binary_to_list(PidBin),
+    Acc#{links=>[{PidStr,PidStr}|Links]};
+get_link(<<"{to,",Bin/binary>>,#{mons:=Monitors}=Acc) ->
+    Acc#{mons=>[parse_monitor(Bin)|Monitors]};
+get_link(<<"{from,",Bin/binary>>,#{mon_by:=MonitoredBy}=Acc) ->
+    Acc#{mon_by=>[parse_monitor(Bin)|MonitoredBy]};
+get_link(Unexpected,Acc) ->
+    io:format("WARNING: found unexpected data in link list:~n~ts~n",[Unexpected]),
+    Acc.
 
-parse_name_node("}"++Rest,Name,Node) ->
-    {lists:reverse(Name),lists:reverse(Node),Rest};
-parse_name_node([H|T],Name,Node) ->
-    parse_name_node(T,Name,[H|Node]);
-parse_name_node([],Name,Node) ->
-    %% truncated
-    {lists:reverse(Name),lists:reverse(Node),[]}.
+parse_monitor(MonBin) ->
+    case binary:split(MonBin,[<<",">>,<<"{">>,<<"}">>],[global]) of
+        [PidBin,RefBin,<<>>] ->
+            PidStr = binary_to_list(PidBin),
+            RefStr = binary_to_list(RefBin),
+            {PidStr,PidStr++" ("++RefStr++")"};
+        [<<>>,NameBin,NodeBin,<<>>,RefBin,<<>>] ->
+            %% Named process
+            NameStr = binary_to_list(NameBin),
+            NodeStr = binary_to_list(NodeBin),
+            PidStr = get_pid_from_name(NameStr,NodeStr),
+            RefStr = binary_to_list(RefBin),
+            {PidStr,"{"++NameStr++","++NodeStr++"} ("++RefStr++")"}
+    end.
 
 get_pid_from_name(Name,Node) ->
     case ets:lookup(cdv_reg_proc_table,cdv_dump_node_name) of
