@@ -160,7 +160,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
 {
     /* Note that some C compilers don't support "static const" propagation
      * so we use a defines */
-    #define SYS_DOUBLE_RND_CONST 0.55555555555555555
+    #define SYS_DOUBLE_RND_CONST 0.5
     #define FRAC_SIZE            52
     #define EXP_SIZE             11
     #define EXP_MASK             ((1ll << EXP_SIZE) - 1)
@@ -256,11 +256,14 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         return p - buffer;
     } else if (exp >= FRAC_SIZE) {
         int_part  = mantissa << (exp - FRAC_SIZE);
+        exp = 0;
     } else if (exp >= 0) {
         int_part  = mantissa >> (FRAC_SIZE - exp);
         frac_part = (mantissa << (exp + 1)) & FRAC_MASK2;
+        exp = 0;
     } else /* if (exp < 0) */ {
-        frac_part = (mantissa & FRAC_MASK2) >> -(exp + 1);
+        frac_part = mantissa;
+        exp = -(exp+1);
     }
 
     if (!int_part) {
@@ -298,11 +301,22 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         max = decimals;
 
         for (i = 0; i < max; i++) {
-            /* frac_part *= 10; */
-            frac_part = (frac_part << 3) + (frac_part << 1);
+            if (frac_part > (ERTS_UINT64_MAX/16)) {
+                frac_part /= 16;
+                exp -= 4;
+            }
+            if (FRAC_SIZE + 1 + exp >= 64) {
+                *p++ = '0';
+                frac_part *= 5;
+                exp--;
+            }
+            else
+            {
+                frac_part *= 10;
 
-            *p++ = (char)((frac_part >> (FRAC_SIZE + 1)) + '0');
-            frac_part &= FRAC_MASK2;
+                *p++ = (char)((frac_part >> (FRAC_SIZE + 1 + exp)) + '0');
+                frac_part &= (1ll << (FRAC_SIZE + 1 + exp)) - 1;
+            }
         }
 
         /* Delete trailing zeroes */
