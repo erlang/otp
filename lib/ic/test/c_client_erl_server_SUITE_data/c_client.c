@@ -1365,8 +1365,8 @@ static int cmp_strRec(m_strRec *b1, m_strRec *b2)
 	    return 0;
     if (!cmp_str(b1->str6,b2->str6))
 	return 0;
-    for (i = 0; i < 2; i++)
-	for (j = 0; j < 3; j++)
+    for (i = 0; i < 3; i++)
+	for (j = 0; j < 2; j++)
 	    if (b1->str7[i][j] != b2->str7[i][j])
 		return 0;
     for (j = 0; j < 3; j++)
@@ -1579,8 +1579,8 @@ static void print_strRec(m_strRec* sr)
     fprintf(stdout, "\nboolean bb : %d\n",sr->bb);
     fprintf(stdout, "string str4 : %s\n",sr->str4);
     fprintf(stdout, "str7[2][3] :\n");
-    for (i = 0; i < 2; i++)
-	for (j = 0; j < 3; j++)
+    for (i = 0; i < 3; i++)
+	for (j = 0; j < 2; j++)
 	    fprintf(stdout, "str7[%d][%d]: %ld\n", i, j, sr->str7[i][j]);
     fprintf(stdout, "str5._length : %ld\n",sr->str5._length);
     for (j = 0; j < sr->str5._length; j++)

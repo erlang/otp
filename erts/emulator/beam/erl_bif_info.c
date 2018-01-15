@@ -4334,6 +4334,19 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                 BIF_RET(res);
             }
         }
+        else if (ERTS_IS_ATOM_STR("binary", BIF_ARG_1)) {
+            Sint64 size;
+            if (term_to_Sint64(BIF_ARG_2, &size)) {
+                Binary* refbin = erts_bin_drv_alloc_fnf(size);
+                if (!refbin)
+                    BIF_RET(am_false);
+                sys_memset(refbin->orig_bytes, 0, size);
+                BIF_RET(erts_build_proc_bin(&MSO(BIF_P),
+                                            HAlloc(BIF_P, PROC_BIN_SIZE),
+                                            refbin));
+            }
+        }
+
     }
 
     BIF_ERROR(BIF_P, BADARG);
