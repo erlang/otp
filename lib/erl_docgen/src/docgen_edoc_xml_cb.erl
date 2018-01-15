@@ -11,7 +11,7 @@
 %% limitations under the License.
 %%
 %% Copyright (c) 2001-2016 Richard Carlsson. Parts written by Ericsson
-%% are Copyright (c) Ericsson AB 2001-2017. All Rights Reserved.
+%% are Copyright (c) Ericsson AB 2001-2018. All Rights Reserved.
 %%
 
 -module(docgen_edoc_xml_cb).

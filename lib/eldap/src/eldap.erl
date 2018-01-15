@@ -6,7 +6,7 @@
 %%%           draft-ietf-asid-ldap-c-api-00.txt
 %%%
 %%% Copyright (c) 2010 Torbjorn Tornkvist
-%%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%% See MIT-LICENSE at the top dir for licensing information.
 %%% --------------------------------------------------------------------
 -vc('$Id$ ').
