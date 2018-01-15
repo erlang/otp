@@ -60,14 +60,36 @@ erts_init_binary(void)
 
 }
 
+static ERTS_INLINE
+Eterm build_proc_bin(ErlOffHeap* ohp, Eterm* hp, Binary* bptr)
+{
+    ProcBin* pb = (ProcBin *) hp;
+    pb->thing_word = HEADER_PROC_BIN;
+    pb->size = bptr->orig_size;
+    pb->next = ohp->first;
+    ohp->first = (struct erl_off_heap_header*)pb;
+    pb->val = bptr;
+    pb->bytes = (byte*) bptr->orig_bytes;
+    pb->flags = 0;
+    OH_OVERHEAD(ohp, pb->size / sizeof(Eterm));
+
+    return make_binary(pb);
+}
+
+/** @brief Initiate a ProcBin for a full Binary.
+ *  @param hp must point to PROC_BIN_SIZE available heap words.
+ */
+Eterm erts_build_proc_bin(ErlOffHeap* ohp, Eterm* hp, Binary* bptr)
+{
+    return build_proc_bin(ohp, hp, bptr);
+}
+
 /*
  * Create a brand new binary from scratch.
  */
-
 Eterm
 new_binary(Process *p, byte *buf, Uint len)
 {
-    ProcBin* pb;
     Binary* bptr;
 
     if (len <= ERL_ONHEAP_BIN_LIMIT) {
@@ -88,23 +110,7 @@ new_binary(Process *p, byte *buf, Uint len)
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
-    /*
-     * Now allocate the ProcBin on the heap.
-     */
-    pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = len;
-    pb->next = MSO(p).first;
-    MSO(p).first = (struct erl_off_heap_header*)pb;
-    pb->val = bptr;
-    pb->bytes = (byte*) bptr->orig_bytes;
-    pb->flags = 0;
-
-    /*
-     * Miscellaneous updates. Return the tagged binary.
-     */
-    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-    return make_binary(pb);
+    return build_proc_bin(&MSO(p), HAlloc(p, PROC_BIN_SIZE), bptr);
 }
 
 /* 
@@ -113,7 +119,6 @@ new_binary(Process *p, byte *buf, Uint len)
 
 Eterm erts_new_mso_binary(Process *p, byte *buf, Uint len)
 {
-    ProcBin* pb;
     Binary* bptr;
 
     /*
@@ -124,23 +129,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, Uint len)
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
-    /*
-     * Now allocate the ProcBin on the heap.
-     */
-    pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = len;
-    pb->next = MSO(p).first;
-    MSO(p).first = (struct erl_off_heap_header*)pb;
-    pb->val = bptr;
-    pb->bytes = (byte*) bptr->orig_bytes;
-    pb->flags = 0;
-
-    /*
-     * Miscellaneous updates. Return the tagged binary.
-     */
-    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-    return make_binary(pb);
+    return build_proc_bin(&MSO(p), HAlloc(p, PROC_BIN_SIZE), bptr);
 }
 
 /*
