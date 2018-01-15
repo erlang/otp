@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -296,7 +296,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
         for a file with the extension <c>.beam</c>, the default rule is to
         look for a file with a corresponding extension <c>.erl</c> by
         replacing the suffix <c>"ebin"</c> of the object directory path with
-        <c>"src"</c>.
+        <c>"src"</c> or <c>"src/*"</c>.
         The file search is done through <seealso
         marker="#find_file/3"><c>find_file/3</c></seealso>. The directory of
         the object file is always tried before any other directory specified

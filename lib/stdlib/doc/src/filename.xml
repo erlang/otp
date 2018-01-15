@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2017</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -399,15 +399,18 @@ true
           tuples <c>{<anno>BinSuffix</anno>, <anno>SourceSuffix</anno>}</c> and
           is interpreted as follows: if the end of the directory name where the
           object is located matches <c><anno>BinSuffix</anno></c>, then the
-          source code directory has the same name, but with
-          <c><anno>BinSuffix</anno></c> replaced by
-          <c><anno>SourceSuffix</anno></c>. <c><anno>Rules</anno></c> defaults
+	  name created by replacing <c><anno>BinSuffix</anno></c> with
+          <c><anno>SourceSuffix</anno></c> is expanded by calling
+	  <seealso marker="filelib#wildcard/1">
+	  <c>filelib:wildcard/1</c></seealso>.
+	  If a regular file is found among the matches, the function
+	  returns that location together with <c><anno>Options</anno></c>.
+          Otherwise the next rule is tried, and so on.</p>
+        <p><c><anno>Rules</anno></c> defaults
           to:</p>
         <code type="none">
-[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}]</code>
-        <p>If the source file is found in the resulting directory, the function
-          returns that location together with <c><anno>Options</anno></c>.
-          Otherwise the next rule is tried, and so on.</p>
+[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"},
+ {"ebin", "src/*"}, {"ebin", "esrc/*"}]</code>
         <p>The function returns <c>{<anno>SourceFile</anno>,
           <anno>Options</anno>}</c> if it succeeds.
           <c><anno>SourceFile</anno></c> is the absolute path to the source

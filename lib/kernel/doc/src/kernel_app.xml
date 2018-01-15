@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -469,8 +469,12 @@ MaxT = TickTime + TickTime / 4</code>
           <item><c>ObjSuffix = string()</c></item>
           <item><c>SrcSuffix = string()</c></item>
         </list>
-        <p>Specifies a list of rules for use by <c>filelib:find_file/2</c> and
-          <c>filelib:find_source/2</c>. If this is set to some other value
+        <p>Specifies a list of rules for use by
+	  <seealso marker="stdlib:filelib#find_file/2">
+	  <c>filelib:find_file/2</c></seealso>
+	  <seealso marker="stdlib:filelib#find_source/2">
+	  <c>filelib:find_source/2</c></seealso>
+          If this is set to some other value
           than the empty list, it replaces the default rules. Rules can be
           simple pairs of directory suffixes, such as <c>{"ebin",
           "src"}</c>, which are used by <c>filelib:find_file/2</c>, or
@@ -478,6 +482,16 @@ MaxT = TickTime + TickTime / 4</code>
           file name extensions, for example <c>[{".beam", ".erl", [{"ebin",
           "src"}]}</c>, which are used by <c>filelib:find_source/2</c>. Both
           kinds of rules can be mixed in the list.</p>
+	  <p>The interpretation of <c>ObjDirSuffix</c> and <c>SrcDirSuffix</c>
+	  is as follows: if the end of the directory name where an
+	  object is located matches <c>ObjDirSuffix</c>, then the
+	  name created by replacing <c>ObjDirSuffix</c> with
+	  <c>SrcDirSuffix</c> is expanded by calling
+	  <seealso marker="stdlib:filelib#wildcard/1">
+	  <c>filelib:wildcard/1</c></seealso>, and the first regular
+	  file found among the matches is the source file.
+	</p>
+
       </item>
     </taglist>
   </section>
