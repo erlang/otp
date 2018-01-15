@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -544,17 +544,16 @@ default_search_rules() ->
      {"", ".c", c_source_search_rules()},
      {"", ".in", basic_source_search_rules()},
      %% plain old directory rules, backwards compatible
-     {"", ""},
-     {"ebin","src"},
-     {"ebin","esrc"}
-    ].
+     {"", ""}] ++ erl_source_search_rules().
 
 basic_source_search_rules() ->
     (erl_source_search_rules()
      ++ c_source_search_rules()).
 
 erl_source_search_rules() ->
-    [{"ebin","src"}, {"ebin","esrc"}].
+    [{"ebin","src"}, {"ebin","esrc"},
+     {"ebin",filename:join("src", "*")},
+     {"ebin",filename:join("esrc", "*")}].
 
 c_source_search_rules() ->
     [{"priv","c_src"}, {"priv","src"}, {"bin","c_src"}, {"bin","src"}, {"", "src"}].
@@ -634,8 +633,16 @@ try_dir_rule(Dir, Filename, From, To) ->
 	    Src = filename:join(NewDir, Filename),
 	    case is_regular(Src) of
 		true -> {ok, Src};
-		false -> error
+		false -> find_regular_file(wildcard(Src))
 	    end;
 	false ->
 	    error
+    end.
+
+find_regular_file([]) ->
+    error;
+find_regular_file([File|Files]) ->
+    case is_regular(File) of
+        true -> {ok, File};
+        false -> find_regular_file(Files)
     end.
