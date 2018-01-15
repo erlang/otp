@@ -1,6 +1,6 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
