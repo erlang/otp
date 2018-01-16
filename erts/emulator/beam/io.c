@@ -3384,24 +3384,11 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if ((state & ERTS_PORT_SFLG_BINARY_IO) == 0) {
 	listp = buf_to_intlist(&hp, buf, len, listp);
     } else if (buf != NULL) {
-	ProcBin* pb;
-	Binary* bptr;
-
-	bptr = erts_bin_nrml_alloc(len);
+	Binary* bptr = erts_bin_nrml_alloc(len);
 	sys_memcpy(bptr->orig_bytes, buf, len);
 
-	pb = (ProcBin *) hp;
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = len;
-	pb->next = ohp->first;
-	ohp->first = (struct erl_off_heap_header*)pb;
-	pb->val = bptr;
-	pb->bytes = (byte*) bptr->orig_bytes;
-	pb->flags = 0;
+        listp = erts_build_proc_bin(ohp, hp, bptr);
 	hp += PROC_BIN_SIZE;
-
-	OH_OVERHEAD(ohp, pb->size / sizeof(Eterm));
-	listp = make_binary(pb);
     }
 
     /* Prepend the header */
@@ -4204,17 +4191,9 @@ write_port_control_result(int control_flags,
 	else {
 	    dbin = (ErlDrvBinary *) resp_bufp;
 	    if (dbin->orig_size > ERL_ONHEAP_BIN_LIMIT) {
-		ProcBin* pb = (ProcBin *) *hpp;
+                res = erts_build_proc_bin(ohp, *hpp, ErlDrvBinary2Binary(dbin));
 		*hpp += PROC_BIN_SIZE;
-		pb->thing_word = HEADER_PROC_BIN;
-		pb->size = dbin->orig_size;
-		pb->next = ohp->first;
-		ohp->first = (struct erl_off_heap_header *) pb;
-		pb->val = ErlDrvBinary2Binary(dbin);
-		pb->bytes = (byte*) dbin->orig_bytes;
-		pb->flags = 0;
-		OH_OVERHEAD(ohp, dbin->orig_size / sizeof(Eterm));
-		return make_binary(pb);
+                return res;
 	    }
 	    resp_bufp = dbin->orig_bytes;
 	    resp_size = dbin->orig_size;
@@ -5978,21 +5957,12 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 		mess = make_binary(hbp);
 	    }
 	    else {
-		ProcBin* pbp;
+		Eterm* hp;
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
-		pbp = (ProcBin *) erts_produce_heap(&factory,
-						    PROC_BIN_SIZE, HEAP_EXTRA);
-		pbp->thing_word = HEADER_PROC_BIN;
-		pbp->size = size;
-		pbp->next = factory.off_heap->first;
-		factory.off_heap->first = (struct erl_off_heap_header*)pbp;
-		pbp->val = bp;
-		pbp->bytes = (byte*) bp->orig_bytes;
-		pbp->flags = 0;
-		OH_OVERHEAD(factory.off_heap, pbp->size / sizeof(Eterm));
-		mess = make_binary(pbp);
+                hp = erts_produce_heap(&factory, PROC_BIN_SIZE, HEAP_EXTRA);
+                mess = erts_build_proc_bin(factory.off_heap, hp, bp);
 	    }
 	    ptr += 2;
 	    break;
