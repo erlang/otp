@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,7 +281,7 @@ comparison(Kind) ->
     SimpleTimerMon = norm(SimpleTimerMon0, Simple0),
     Generic = norm(Generic0, Simple0),
     GenericTimer = norm(GenericTimer0, Simple0),
-    {Parallelism, _N, Message} = bench_params(Kind),
+    {Parallelism, Message} = bench_params(Kind),
     Wordsize = erlang:system_info(wordsize),
     MSize = Wordsize * erts_debug:flat_size(Message),
     What = io_lib:format("#parallel gen_server instances: ~.4w, "
@@ -296,79 +296,78 @@ comparison(Kind) ->
     {comment, C}.
 
 norm(T, Ref) ->
-    io_lib:format("~.2f", [T/Ref]).
+    io_lib:format("~.2f", [Ref/T]).
+
+-define(MAX_TIME_SECS, 3).   % s
+-define(MAX_TIME, 1000 * ?MAX_TIME_SECS). % ms
+-define(CALLS_PER_LOOP, 5).
 
 do_tests(Test, ParamSet) ->
     {Client, ServerMod} = bench(Test),
-    {Parallelism, N, Message} = bench_params(ParamSet),
-    Fun = create_clients(N, Message, ServerMod, Client, Parallelism),
-    Time = run_test(Fun),
-    TimesPerTest = 5,
-    PerSecond = Parallelism * TimesPerTest * round((1000 * N) / Time),
+    {Parallelism, Message} = bench_params(ParamSet),
+    Fun = create_clients(Message, ServerMod, Client, Parallelism),
+    {TotalLoops, AllPidTime} = run_test(Fun),
+    PerSecond = ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime),
     ct_event:notify(#event{name = benchmark_data,
                            data = [{suite,"stdlib_gen_server"},
                                    {value,PerSecond}]}),
-    Time.
+    PerSecond.
 
-simple_client(0, _, _P) ->
-    ok;
+-define(COUNTER, n).
+
 simple_client(N, M, P) ->
+    put(?COUNTER, N),
     _ = simple_server:reply(P, M),
     _ = simple_server:reply(P, M),
     _ = simple_server:reply(P, M),
     _ = simple_server:reply(P, M),
     _ = simple_server:reply(P, M),
-    simple_client(N-1, M, P).
+    simple_client(N+1, M, P).
 
-simple_client_timer(0, _, _P) ->
-    ok;
 simple_client_timer(N, M, P) ->
+    put(?COUNTER, N),
     _ = simple_server_timer:reply(P, M),
     _ = simple_server_timer:reply(P, M),
     _ = simple_server_timer:reply(P, M),
     _ = simple_server_timer:reply(P, M),
     _ = simple_server_timer:reply(P, M),
-    simple_client_timer(N-1, M, P).
+    simple_client_timer(N+1, M, P).
 
-simple_client_mon(0, _, _P) ->
-    ok;
 simple_client_mon(N, M, P) ->
+    put(?COUNTER, N),
     _ = simple_server_mon:reply(P, M),
     _ = simple_server_mon:reply(P, M),
     _ = simple_server_mon:reply(P, M),
     _ = simple_server_mon:reply(P, M),
     _ = simple_server_mon:reply(P, M),
-    simple_client_mon(N-1, M, P).
+    simple_client_mon(N+1, M, P).
 
-simple_client_timer_mon(0, _, _P) ->
-    ok;
 simple_client_timer_mon(N, M, P) ->
+    put(?COUNTER, N),
     _ = simple_server_timer_mon:reply(P, M),
     _ = simple_server_timer_mon:reply(P, M),
     _ = simple_server_timer_mon:reply(P, M),
     _ = simple_server_timer_mon:reply(P, M),
     _ = simple_server_timer_mon:reply(P, M),
-    simple_client_timer_mon(N-1, M, P).
+    simple_client_timer_mon(N+1, M, P).
 
-generic_client(0, _, _P) ->
-    ok;
 generic_client(N, M, P) ->
+    put(?COUNTER, N),
     _ = generic_server:reply(P, M),
     _ = generic_server:reply(P, M),
     _ = generic_server:reply(P, M),
     _ = generic_server:reply(P, M),
     _ = generic_server:reply(P, M),
-    generic_client(N-1, M, P).
+    generic_client(N+1, M, P).
 
-generic_timer_client(0, _, _P) ->
-    ok;
 generic_timer_client(N, M, P) ->
+    put(?COUNTER, N),
     _ = generic_server_timer:reply(P, M),
     _ = generic_server_timer:reply(P, M),
     _ = generic_server_timer:reply(P, M),
     _ = generic_server_timer:reply(P, M),
     _ = generic_server_timer:reply(P, M),
-    generic_timer_client(N-1, M, P).
+    generic_timer_client(N+1, M, P).
 
 bench(simple) ->
     {fun simple_client/3, simple_server};
@@ -383,16 +382,16 @@ bench(generic) ->
 bench(generic_timer) ->
     {fun generic_timer_client/3, generic_server_timer}.
 
-%% -> {Parallelism, NumberOfMessages, MessageTerm}
-bench_params(single_small) -> {1, 700000, small()};
-bench_params(single_medium) -> {1, 350000, medium()};
-bench_params(single_big) -> {1, 70000, big()};
-bench_params(sched_small)  -> {parallelism(), 200000, small()};
-bench_params(sched_medium)  -> {parallelism(), 100000, medium()};
-bench_params(sched_big)  -> {parallelism(), 20000, big()};
-bench_params(multi_small)  -> {400, 2000, small()};
-bench_params(multi_medium)  -> {400, 1000, medium()};
-bench_params(multi_big)  -> {400, 200, big()}.
+%% -> {Parallelism, MessageTerm}
+bench_params(single_small) -> {1, small()};
+bench_params(single_medium) -> {1, medium()};
+bench_params(single_big) -> {1, big()};
+bench_params(sched_small)  -> {parallelism(), small()};
+bench_params(sched_medium)  -> {parallelism(), medium()};
+bench_params(sched_big)  -> {parallelism(), big()};
+bench_params(multi_small)  -> {400, small()};
+bench_params(multi_medium)  -> {400, medium()};
+bench_params(multi_big)  -> {400, big()}.
 
 small() ->
     small.
@@ -409,19 +408,38 @@ parallelism() ->
         _ -> 1
     end.
 
-create_clients(N, M, ServerMod, Client, Parallel) ->
+create_clients(M, ServerMod, Client, Parallel) ->
     fun() ->
             State = term,
             ServerPid = ServerMod:start(State),
-            PidRefs = [spawn_monitor(fun() -> Client(N, M, ServerPid) end) ||
+            PidRefs = [spawn_monitor(fun() -> Client(0, M, ServerPid) end) ||
                           _ <- lists:seq(1, Parallel)],
-            _ = [receive {'DOWN', Ref, _, _, _} -> ok end ||
-                    {_Pid, Ref} <- PidRefs],
-            ok = ServerMod:stop(ServerPid)
+            timer:sleep(?MAX_TIME),
+            try
+                AllPidsN = collect(PidRefs, []),
+                TotalLoops = lists:sum(AllPidsN),
+                TotalLoops
+            after
+                ok = ServerMod:stop(ServerPid)
+            end
     end.
+
+collect([], Result) ->
+    Result;
+collect([{Pid, Ref}|PidRefs], Result) ->
+    N = case erlang:process_info(Pid, dictionary) of
+            {dictionary, Dict} ->
+                {?COUNTER, N0} = lists:keyfind(?COUNTER, 1, Dict),
+                N0;
+            undefined -> % Process did not start in ?MAX_TIME_SECS.
+                0
+        end,
+    exit(Pid, kill),
+    receive {'DOWN', Ref, _, _, _} -> ok end,
+    collect(PidRefs, [N|Result]).
 
 run_test(Test) ->
     {T1, _} = statistics(runtime),
-    Test(),
+    Result = Test(),
     {T2, _} = statistics(runtime),
-    T2 - T1.
+    {Result, T2 - T1}.
