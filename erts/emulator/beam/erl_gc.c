@@ -1161,7 +1161,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
 	roots++;
 
-        while (g_sz--) {
+        for ( ; g_sz--; g_ptr++) {
             Eterm gval = *g_ptr;
 
             switch (primary_tag(gval)) {
@@ -1170,26 +1170,21 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 		val = *ptr;
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
+                    *g_ptr = val;
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr++);
-		} else {
-		    g_ptr++;
+                    move_boxed(ptr,val,&old_htop,g_ptr);
 		}
 		break;
 	    case TAG_PRIMARY_LIST:
                 ptr = list_val(gval);
                 val = *ptr;
                 if (IS_MOVED_CONS(val)) { /* Moved */
-                    *g_ptr++ = ptr[1];
+                    *g_ptr = ptr[1];
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    move_cons(ptr,val,&old_htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
+                    move_cons(ptr,val,&old_htop,g_ptr);
+                }
 		break;
 	    default:
-                g_ptr++;
 		break;
 	    }
 	}
@@ -1497,7 +1492,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
         Uint g_sz = roots->sz;
 
 	roots++;
-        while (g_sz--) {
+        for ( ; g_sz--; g_ptr++) {
             gval = *g_ptr;
 
             switch (primary_tag(gval)) {
@@ -1507,14 +1502,12 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
                 val = *ptr;
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
+                    *g_ptr = val;
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr++);
+                    move_boxed(ptr,val,&old_htop,g_ptr);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_boxed(ptr,val,&n_htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
+                    move_boxed(ptr,val,&n_htop,g_ptr);
+                }
                 break;
 	    }
 
@@ -1522,19 +1515,15 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
                 ptr = list_val(gval);
                 val = *ptr;
                 if (IS_MOVED_CONS(val)) { /* Moved */
-                    *g_ptr++ = ptr[1];
+                    *g_ptr = ptr[1];
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_cons(ptr,val,&old_htop,g_ptr++);
+                    move_cons(ptr,val,&old_htop,g_ptr);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_cons(ptr,val,&n_htop,g_ptr++);
-                } else {
-		    g_ptr++;
-		}
+                    move_cons(ptr,val,&n_htop,g_ptr);
+                }
 		break;
 	    }
-
 	    default:
-                g_ptr++;
 		break;
             }
         }
@@ -1818,7 +1807,7 @@ full_sweep_heaps(Process *p,
 	Eterm g_sz = roots->sz;
 
 	roots++;
-	while (g_sz--) {
+	for ( ; g_sz--; g_ptr++) {
 	    Eterm* ptr;
 	    Eterm val;
 	    Eterm gval = *g_ptr;
@@ -1830,32 +1819,26 @@ full_sweep_heaps(Process *p,
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
-		    *g_ptr++ = val;
+		    *g_ptr = val;
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_boxed(ptr,val,&n_htop,g_ptr++);
-		} else {
-		    g_ptr++;
+		    move_boxed(ptr,val,&n_htop,g_ptr);
 		}
-		continue;
+                break;
 	    }
 
 	    case TAG_PRIMARY_LIST: {
 		ptr = list_val(gval);
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
-		    *g_ptr++ = ptr[1];
+		    *g_ptr = ptr[1];
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_cons(ptr,val,&n_htop,g_ptr++);
-		} else {
-		    g_ptr++;
+		    move_cons(ptr,val,&n_htop,g_ptr);
 		}
-		continue;
+                break;
 	    }
 
-	    default: {
-		g_ptr++;
-		continue;
-	    }
+            default:
+                break;
 	    }
 	}
     }
