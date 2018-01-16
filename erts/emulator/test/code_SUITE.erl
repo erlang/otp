@@ -951,9 +951,14 @@ erl_544(Config) when is_list(Config) ->
                 receive Go -> ok end,
                 Res2 = process_info(Tester, current_stacktrace),
                 io:format("~p~n", [Res2]),
-                {current_stacktrace,
-                 [{Mod, wait, 2, Info2}|_]} = Res2,
+                {current_stacktrace, Stack} = Res2,
+                [{Mod, wait, 2, Info2}|_] = Stack,
                 File = proplists:get_value(file, Info2),
+                StackFun = fun(_, _, _) -> false end,
+                FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
+                Formated =
+                    lib:format_stacktrace(1, Stack, StackFun, FormatFun),
+                true = is_list(Formated),
                 ok
             after
                 ok = file:set_cwd(CWD)

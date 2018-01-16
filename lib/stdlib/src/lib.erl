@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -551,7 +551,7 @@ format_stacktrace1(S0, Stack0, PF, SF, Enc) ->
     format_stacktrace2(S, Stack, 1, PF, Enc).
 
 format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc) when is_integer(A) ->
-    [io_lib:fwrite(<<"~s~s ~ts ~s">>,
+    [io_lib:fwrite(<<"~s~s ~ts ~ts">>,
                    [sep(N, S), origin(N, M, F, A),
 		    mfa_to_string(M, F, A, Enc),
 		    location(L)])
@@ -573,7 +573,7 @@ location(L) ->
     Line = proplists:get_value(line, L),
     if
 	File =/= undefined, Line =/= undefined ->
-	    io_lib:format("(~s, line ~w)", [File, Line]);
+	    io_lib:format("(~ts, line ~w)", [File, Line]);
 	true ->
 	    ""
     end.
