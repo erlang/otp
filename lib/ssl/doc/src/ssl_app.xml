@@ -42,9 +42,11 @@
       TLS-1.1, and TLS-1.2.</item>
       <item>For security reasons SSL-2.0 is not supported.</item>
       <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured.</item>
+      but can be configured. (OTP 19) </item>
+      <item>For security reasons RSA key exchange cipher suites are no longer supported by default,
+      but can be configured. (OTP 21) </item>
       <item>For security reasons DES cipher suites are no longer supported by default,
-      but can be configured.</item>
+      but can be configured. (OTP 20) </item>
       <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
       </item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
