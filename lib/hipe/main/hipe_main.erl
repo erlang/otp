@@ -410,9 +410,9 @@ icode_to_rtl(MFA, Icode, Options, Servers) ->
         hipe_llvm_liveness:analyze(RtlCfg4)
     end,
   pp(RtlCfg5, MFA, rtl, pp_rtl, Options, Servers),
-  case proplists:get_bool(verify_gcsafe, Options) of
-    false -> ok;
-    true ->
+  case proplists:get_bool(no_verify_gcsafe, Options) of
+    true -> ok;
+    false ->
       ok = hipe_rtl_verify_gcsafe:check(RtlCfg5)
   end,
   LinearRTL1 = hipe_rtl_cfg:linearize(RtlCfg5),
