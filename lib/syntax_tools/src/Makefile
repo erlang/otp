@@ -27,7 +27,7 @@ INCLUDE=../include
 ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ./ -I$(INCLUDE)
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
+ERL_COMPILE_FLAGS += +native "+{hipe,[verify_gcsafe]}"
 endif
 ERL_COMPILE_FLAGS += +nowarn_shadow_vars +warn_unused_import #-Werror # +warn_missing_spec +warn_untyped_record
 
