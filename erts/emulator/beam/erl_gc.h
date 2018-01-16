@@ -33,14 +33,15 @@
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
-void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig);
+Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig);
 
-ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig);
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig)
 {
-    Eterm *ptr  = *pp;
-    Eterm *htop = *hpp;
+    Eterm *ERTS_RESTRICT htop = *hpp;
     Eterm gval;
 
     htop[0] = car;               /* copy car */
@@ -53,14 +54,15 @@ ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
 }
 #endif
 
-ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig)
 {
     Eterm gval;
     Sint nelts;
-    Eterm *ptr = *pp;
-    Eterm *htop = *hpp;
+    Eterm *ERTS_RESTRICT htop = *hpp;
 
     ASSERT(is_header(hdr));
     nelts = header_arity(hdr);
@@ -71,8 +73,7 @@ ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
             /* convert sub-binary to heap-binary if applicable */
             if (sb->bitsize == 0 && sb->bitoffs == 0 &&
                 sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
-                erts_sub_binary_to_heap_binary(pp, hpp, orig);
-                return;
+                return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
             }
         }
         nelts++;
@@ -90,7 +91,7 @@ ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
     while (nelts--) *htop++ = *ptr++;
 
     *hpp = htop;
-    *pp  = ptr;
+    return ptr;
 }
 #endif
 

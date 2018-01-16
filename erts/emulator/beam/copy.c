@@ -1985,7 +1985,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    move_boxed(&ptr, val, &hp, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
 		if (is_ordinary_ref_thing(hdr))
@@ -2002,7 +2002,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    move_cons(&ptr, val, &hp, &dummy_ref);
+	    move_cons(ptr, val, &hp, &dummy_ref);
 	    ptr += 2;
 	}
     }

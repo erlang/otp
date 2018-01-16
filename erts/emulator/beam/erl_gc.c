@@ -1172,7 +1172,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    move_boxed(&ptr,val,&old_htop,g_ptr++);
+                    move_boxed(ptr,val,&old_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -1183,7 +1183,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    move_cons(&ptr,val,&old_htop,g_ptr++);
+                    move_cons(ptr,val,&old_htop,g_ptr++);
                 } else {
 		    g_ptr++;
 		}
@@ -1509,9 +1509,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_boxed(&ptr,val,&old_htop,g_ptr++);
+                    move_boxed(ptr,val,&old_htop,g_ptr++);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_boxed(&ptr,val,&n_htop,g_ptr++);
+                    move_boxed(ptr,val,&n_htop,g_ptr++);
                 } else {
 		    g_ptr++;
 		}
@@ -1524,9 +1524,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_cons(&ptr,val,&old_htop,g_ptr++);
+                    move_cons(ptr,val,&old_htop,g_ptr++);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_cons(&ptr,val,&n_htop,g_ptr++);
+                    move_cons(ptr,val,&n_htop,g_ptr++);
                 } else {
 		    g_ptr++;
 		}
@@ -1568,9 +1568,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    move_boxed(&ptr,val,&old_htop,n_hp++);
+		    move_boxed(ptr,val,&old_htop,n_hp++);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    move_boxed(&ptr,val,&n_htop,n_hp++);
+		    move_boxed(ptr,val,&n_htop,n_hp++);
 		} else {
 		    n_hp++;
 		}
@@ -1582,9 +1582,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    move_cons(&ptr,val,&old_htop,n_hp++);
+		    move_cons(ptr,val,&old_htop,n_hp++);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    move_cons(&ptr,val,&n_htop,n_hp++);
+		    move_cons(ptr,val,&n_htop,n_hp++);
 		} else {
 		    n_hp++;
 		}
@@ -1604,10 +1604,10 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 			    *origptr = val;
 			    mb->base = binary_bytes(val);
 			} else if (ErtsInArea(ptr, mature, mature_size)) {
-			    move_boxed(&ptr,val,&old_htop,origptr);
+			    move_boxed(ptr,val,&old_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
 			} else if (ErtsInYoungGen(*origptr, ptr, oh, oh_size)) {
-			    move_boxed(&ptr,val,&n_htop,origptr);
+			    move_boxed(ptr,val,&n_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
 			}
 		    }
@@ -1832,7 +1832,7 @@ full_sweep_heaps(Process *p,
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_boxed(&ptr,val,&n_htop,g_ptr++);
+		    move_boxed(ptr,val,&n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -1845,7 +1845,7 @@ full_sweep_heaps(Process *p,
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_cons(&ptr,val,&n_htop,g_ptr++);
+		    move_cons(ptr,val,&n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -2134,7 +2134,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-		move_boxed(&ptr,val,&n_htop,n_hp++);
+		move_boxed(ptr,val,&n_htop,n_hp++);
 	    } else {
 		n_hp++;
 	    }
@@ -2146,7 +2146,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-		move_cons(&ptr,val,&n_htop,n_hp++);
+		move_cons(ptr,val,&n_htop,n_hp++);
 	    } else {
 		n_hp++;
 	    }
@@ -2167,7 +2167,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
-			move_boxed(&ptr,val,&n_htop,origptr);
+			move_boxed(ptr,val,&n_htop,origptr);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2230,7 +2230,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		move_boxed(&ptr,val,&htop,heap_ptr++);
+		move_boxed(ptr,val,&htop,heap_ptr++);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2242,7 +2242,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 	    if (IS_MOVED_CONS(val)) {
 		*heap_ptr++ = ptr[1];
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		move_cons(&ptr,val,&htop,heap_ptr++);
+		move_cons(ptr,val,&htop,heap_ptr++);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2263,7 +2263,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ErtsInArea(ptr, src, src_size)) {
-			move_boxed(&ptr,val,&htop,origptr);
+			move_boxed(ptr,val,&htop,origptr);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2296,11 +2296,11 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(val != ERTS_HOLE_MARKER);
 	if (is_header(val)) {
 	    ASSERT(ptr + header_arity(val) < end);
-	    move_boxed(&ptr, val, &n_htop, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &n_htop, &dummy_ref);
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    move_cons(&ptr, val, &n_htop, &dummy_ref);
+	    move_cons(ptr, val, &n_htop, &dummy_ref);
 	    ptr += 2;
 	}
     }
@@ -3281,8 +3281,7 @@ reply_gc_info(void *vgcirp)
 	gcireq_free(vgcirp);
 }
 
-void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig) {
-    Eterm *ptr = *pp;
+Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig) {
     Eterm *htop = *hpp;
     Eterm gval;
     ErlSubBin *sb = (ErlSubBin *)ptr;
@@ -3310,7 +3309,7 @@ void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig) {
     htop += heap_bin_size(sb->size);
 
     *hpp = htop;
-    *pp  = ptr;
+    return ptr;
 }
 
 
