@@ -8799,7 +8799,7 @@ ok
               <c>erlang:now()</c>. This is also the default if no
               time stamp flag is specified. If <c>cpu_timestamp</c> has
               been enabled through
-              <seealso marker="erlang:trace/3"><c>erlang:trace/3</c></seealso>,
+              <seealso marker="#trace/3"><c>erlang:trace/3</c></seealso>,
               this also effects the time stamp produced in profiling messages
               when flag <c>timestamp</c> is enabled.</p>
           </item>
