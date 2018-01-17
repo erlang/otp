@@ -2549,12 +2549,17 @@ int term_equals_2pow32(Eterm x)
     }
 }
 
+static ERTS_INLINE int c2int_is_valid_char(byte ch, int base) {
+    if (base <= 10)
+        return (ch >= '0' && ch < ('0' + base));
+    else
+        return (ch >= '0' && ch <= '9')
+            || (ch >= 'A' && ch < ('A' + base - 10))
+            || (ch >= 'a' && ch < ('a' + base - 10));
+}
+
 static ERTS_INLINE int c2int_is_invalid_char(byte ch, int base) {
-    return (ch < '0'
-            || (ch > ('0' + base - 1)
-                && !(base > 10
-                     && ((ch >= 'a' && ch < ('a' + base - 10))
-                         || (ch >= 'A' && ch < ('A' + base - 10))))));
+    return !c2int_is_valid_char(ch, base);
 }
 
 static ERTS_INLINE byte c2int_digit_from_base(byte ch) {
