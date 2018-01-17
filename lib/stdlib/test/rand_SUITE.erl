@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -505,10 +505,10 @@ stats_standard_normal(Fun, S) ->
     P0 = math:erf(1 / W),
     Rounds = TargetHits * ceil(1.0 / P0),
     Histogram = array:new({default, 0}),
-    StopTime = erlang:monotonic_time(second) + Seconds,
     ct:pal(
       "Running standard normal test against ~w std devs for ~w seconds...",
       [StdDevs, Seconds]),
+    StopTime = erlang:monotonic_time(second) + Seconds,
     {PositiveHistogram, NegativeHistogram, Outlier, TotalRounds} =
         stats_standard_normal(
           InvDelta, Buckets, Histogram, Histogram, 0.0,
@@ -522,15 +522,21 @@ stats_standard_normal(Fun, S) ->
       "Total rounds: ~w, tolerance: 1/~.2f..1/~.2f, "
       "outlier: ~.2f, probability 1/~.2f.",
       [TotalRounds, Precision, TopPrecision, Outlier, InvOP]),
-    {TotalRounds, [], []} =
-        {TotalRounds,
+    case
+        {bucket_error, TotalRounds,
          check_histogram(
            W, TotalRounds, StdDevs, PositiveHistogram, Buckets),
          check_histogram(
-           W, TotalRounds, StdDevs, NegativeHistogram, Buckets)},
-    %% If the probability for getting this Outlier is lower than 1/50,
+           W, TotalRounds, StdDevs, NegativeHistogram, Buckets)}
+    of
+        {_, _, [], []} ->
+            ok;
+        BucketErrors ->
+            ct:fail(BucketErrors)
+    end,
+    %% If the probability for getting this Outlier is lower than 1/100,
     %% then this is fishy!
-    true = (1/50 =< OutlierProbability),
+    (InvOP < 100) orelse ct:fail({outlier_fishy, InvOP}),
     {comment, {tp, TopPrecision, op, InvOP}}.
 %%
 stats_standard_normal(
@@ -571,9 +577,6 @@ increment_bucket(Bucket, Array) ->
     array:set(Bucket, array:get(Bucket, Array) + 1, Array).
 
 check_histogram(W, Rounds, StdDevs, Histogram, Buckets) ->
-    %%PrevBucket = 512,
-    %%Bucket = PrevBucket - 1,
-    %%P = 0.5 * math:erfc(PrevBucket / W),
     TargetP = 0.5 * math:erfc(Buckets / W),
     P = 0.0,
     N = 0,
@@ -592,7 +595,7 @@ check_histogram(
     P = 0.5 * math:erfc(Bucket / W),
     BucketP = P - PrevP,
     if
-        TargetP =< BucketP ->
+        BucketP < TargetP ->
             check_histogram(
               W, Rounds, StdDevs, Histogram, TargetP,
               Bucket - 1, PrevBucket, PrevP, N);
@@ -604,7 +607,7 @@ check_histogram(
             UpperLimit = ceil(Exp + Threshold),
             if
                 N < LowerLimit; UpperLimit < N ->
-                    [#{bucket => {Bucket, PrevBucket}, n => N, exp => Exp,
+                    [#{bucket => {Bucket, PrevBucket}, n => N,
                        lower => LowerLimit, upper => UpperLimit} |
                      check_histogram(
                        W, Rounds, StdDevs, Histogram, TargetP,
