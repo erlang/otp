@@ -919,9 +919,23 @@ i_bs_get_integer(Fail, Live, FlagsAndUnit, Ms, Sz, Dst) {
 }
 
 i_bs_get_utf8(Ctx, Fail, Dst) {
+    Eterm result;
     ErlBinMatchBuffer* mb = ms_matchbuffer($Ctx);
-    Eterm result = erts_bs_get_utf8(mb);
 
+    if (mb->size - mb->offset < 8) {
+        $FAIL($Fail);
+    }
+    if (BIT_OFFSET(mb->offset) != 0) {
+        result = erts_bs_get_utf8(mb);
+    } else {
+        byte b = mb->base[BYTE_OFFSET(mb->offset)];
+        if (b < 128) {
+            result = make_small(b);
+            mb->offset += 8;
+        } else {
+            result = erts_bs_get_utf8(mb);
+        }
+    }
     if (is_non_value(result)) {
         $FAIL($Fail);
     }
