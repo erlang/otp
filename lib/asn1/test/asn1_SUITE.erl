@@ -1355,8 +1355,8 @@ xref_export_all(_Config) ->
         [] ->
             ok;
         [_|_] ->
-            S = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
-            io:format("There are unused functions:\n\n~s\n", [S]),
+            Msg = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
+            io:format("There are unused functions:\n\n~s\n", [Msg]),
             ?t:fail(unused_functions)
     end.
 
