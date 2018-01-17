@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -701,7 +701,9 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
                                 {W,V0};
                             true -> case result_will_be_saved() of
                                      true -> V0;
-                                     false -> ignored
+                                     false ->
+                                         erlang:garbage_collect(),
+                                         ignored
                                  end
                         end,
                     {{value,V,Bs,get()},Bs};
