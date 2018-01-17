@@ -127,7 +127,8 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
 			cm = ConnectionHandler}};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
-		{exec, ChannelId, WantReply, Cmd}}, #state{exec=undefined} = State) ->
+		{exec, ChannelId, WantReply, Cmd}}, #state{exec=undefined,
+                                                           shell=?DEFAULT_SHELL} = State) ->
     {Reply, Status} = exec(Cmd),
     write_chars(ConnectionHandler,
 		ChannelId, io_lib:format("~p\n", [Reply])),
@@ -136,6 +137,15 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
     ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
     ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
+
+handle_ssh_msg({ssh_cm, ConnectionHandler,
+		{exec, ChannelId, WantReply, _Cmd}}, #state{exec = undefined} = State) ->
+    write_chars(ConnectionHandler, ChannelId, 1, "Prohibited.\n"),
+    ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, 255),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
+    {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
+
 handle_ssh_msg({ssh_cm, ConnectionHandler,
 		{exec, ChannelId, WantReply, Cmd}}, State) ->
     NewState = start_shell(ConnectionHandler, Cmd, State),
@@ -453,11 +463,14 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 %% %%% make sure that there is data to send
 %% %%% before calling ssh_connection:send
 write_chars(ConnectionHandler, ChannelId, Chars) ->
+    write_chars(ConnectionHandler, ChannelId, ?SSH_EXTENDED_DATA_DEFAULT, Chars).
+
+write_chars(ConnectionHandler, ChannelId, Type, Chars) ->
     case has_chars(Chars) of
         false -> ok;
         true -> ssh_connection:send(ConnectionHandler,
                                     ChannelId,
-                                    ?SSH_EXTENDED_DATA_DEFAULT,
+                                    Type,
                                     Chars)
     end.
 
