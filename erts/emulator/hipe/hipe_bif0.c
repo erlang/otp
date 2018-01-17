@@ -1773,7 +1773,8 @@ void hipe_redirect_to_module(Module* modp)
     struct hipe_mfa_info *p;
     struct hipe_ref_head* refh;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking() ||
+                       erts_is_multi_scheduling_blocked());
 
     for (p = mod2mfa_get(modp); p; p = p->next_in_mod) {
         if (p->new_address) {
