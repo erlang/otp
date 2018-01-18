@@ -37,7 +37,7 @@
 	 erl_suite_definition/1,
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
-	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
+	 ec_keyed_suites/0, chacha_suites/1, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, rsa_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
@@ -320,7 +320,8 @@ suites({_, Minor}) ->
 
 all_suites({3, _} = Version) ->
     suites(Version)
-	++ anonymous_suites(Version)
+        ++ chacha_suites(Version)
+        ++ anonymous_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites()
         ++ rc4_suites(Version)
@@ -328,6 +329,19 @@ all_suites({3, _} = Version) ->
         ++ rsa_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
+%%--------------------------------------------------------------------
+-spec chacha_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+%%
+%% Description: Returns list of the chacha cipher suites, only supported
+%% if explicitly set by user for now due to interop problems, proably need
+%% to be fixed in crypto.
+%%--------------------------------------------------------------------
+chacha_suites({3, _}) ->
+    [?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256];
+chacha_suites(_) ->
+    [].
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
@@ -335,7 +349,6 @@ all_suites(Version) ->
 %% Description: Returns a list of the anonymous cipher suites, only supported
 %% if explicitly set by user. Intended only for testing.
 %%--------------------------------------------------------------------
-
 anonymous_suites({3, N}) ->
     anonymous_suites(N);
 anonymous_suites({254, _} = Version) ->

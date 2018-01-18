@@ -1068,6 +1068,10 @@ srp_dss_suites() ->
                                          S <-	[{srp_dss, '3des_ede_cbc', sha},
                                                  {srp_dss, aes_128_cbc, sha},
                                                  {srp_dss, aes_256_cbc, sha}]])].
+
+chacha_suites(Version) ->
+    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:chacha_suites(Version))].
+
 rc4_suites(Version) ->
     [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:rc4_suites(Version))].
 
