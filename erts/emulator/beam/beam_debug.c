@@ -570,6 +570,16 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 		    }
 		    break;
 		}
+	    case op_i_make_fun_Wt:
+                if (*sign == 'W') {
+                    ErlFunEntry* fe = (ErlFunEntry *) *ap;
+                    ErtsCodeMFA* cmfa = find_function_from_pc(fe->address);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
+                } else {
+                    erts_print(to, to_arg, "%d", *ap);
+                }
+                break;
 	    default:
 		erts_print(to, to_arg, "%d", *ap);
 	    }
