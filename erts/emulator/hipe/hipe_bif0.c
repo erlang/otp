@@ -1112,7 +1112,7 @@ static struct hipe_mfa_info* mod2mfa_put(struct hipe_mfa_info* mfa)
 struct hipe_ref {
     struct hipe_ref_head head;    /* list of refs to same calleee */
     void *address;
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     void *trampoline;
 #endif
     unsigned int flags;
@@ -1543,7 +1543,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 
     ref = erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(struct hipe_ref));
     ref->address = address;
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     ref->trampoline = trampoline;
 #endif
     ref->flags = flags;
@@ -1818,7 +1818,7 @@ void hipe_redirect_to_module(Module* modp)
 	    if (ref->flags & REF_FLAG_IS_LOAD_MFA)
 		res = hipe_patch_insn(ref->address, (Uint)p->remote_address, am_load_mfa);
 	    else {
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
                 void* trampoline = ref->trampoline;
 #else
                 void* trampoline = NULL;
