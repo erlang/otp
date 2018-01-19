@@ -157,6 +157,21 @@ simplify_instr({select,select_val,Reg,_,_}=I, Ts) ->
          _ ->
              I
      end];
+simplify_instr({test,bs_test_unit,_,[Src,Unit]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,U} when U rem Unit =:= 0 -> [];
+        _ -> [I]
+    end;
+simplify_instr({test,is_binary,_,[Src]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,U} when U rem 8 =:= 0 -> [];
+        _ -> [I]
+    end;
+simplify_instr({test,is_bitstr,_,[Src]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,_} -> [];
+        _ -> [I]
+    end;
 simplify_instr(I, _) -> [I].
 
 simplify_select_val_int({select,select_val,R,_,L0}=I, {Min,Max}) ->
@@ -492,8 +507,12 @@ update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
 update({test,is_record,_Fail,[Src,Tag,{integer,Arity}]}, Ts) ->
     tdb_update([{Src,{tuple,exact_size,Arity,[Tag]}}], Ts);
 
-%% Binary matching
+%% Binaries and binary matching.
 
+update({test,is_binary,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,{binary,8}}], Ts0);
+update({test,is_bitstr,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,{binary,1}}], Ts0);
 update({test,bs_get_integer2,_,_,Args,Dst}, Ts) ->
     tdb_update([{Dst,get_bs_integer_type(Args)}], Ts);
 update({test,bs_get_utf8,_,_,_,Dst}, Ts) ->
@@ -502,8 +521,10 @@ update({test,bs_get_utf16,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,?UNICODE_INT}], Ts);
 update({test,bs_get_utf32,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,?UNICODE_INT}], Ts);
+update({bs_init,_,{bs_init2,_,_},_,_,Dst}, Ts) ->
+    tdb_update([{Dst,{binary,8}}], Ts);
 update({bs_init,_,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
+    tdb_update([{Dst,{binary,1}}], Ts);
 update({bs_put,_,_,_}, Ts) ->
     Ts;
 update({bs_save2,_,_}, Ts) ->
@@ -512,12 +533,19 @@ update({bs_restore2,_,_}, Ts) ->
     Ts;
 update({bs_context_to_binary,Dst}, Ts) ->
     tdb_update([{Dst,kill}], Ts);
-update({test,bs_start_match2,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
-update({test,bs_get_binary2,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
+update({test,bs_start_match2,_,_,[Src,_],Dst}, Ts) ->
+    Type = case tdb_find(Src, Ts) of
+               {binary,_}=Type0 -> Type0;
+               _ -> {binary,1}
+           end,
+    tdb_update([{Dst,Type}], Ts);
+update({test,bs_get_binary2,_,_,[_,_,Unit,_],Dst}, Ts) ->
+    true = is_integer(Unit),                    %Assertion.
+    tdb_update([{Dst,{binary,Unit}}], Ts);
 update({test,bs_get_float2,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,float}], Ts);
+update({test,bs_test_unit,_,[Src,Unit]}, Ts) ->
+    tdb_update([{Src,{binary,Unit}}], Ts);
 
 update({test,_Test,_Fail,_Other}, Ts) ->
     Ts;
@@ -554,6 +582,7 @@ update({call_fun, _}, Ts) -> tdb_kill_xregs(Ts);
 update({apply, _}, Ts) -> tdb_kill_xregs(Ts);
 
 update({line,_}, Ts) -> Ts;
+update({'%',_}, Ts) -> Ts;
 
 %% The instruction is unknown.  Kill all information.
 update(_I, _Ts) -> tdb_new().
@@ -792,6 +821,9 @@ checkerror_2(OrigIs) -> [{set,[],[],fcheckerror}|OrigIs].
 %%%
 %%% 'integer' or {integer,{Min,Max}} that the register contains an
 %%% integer.
+%%%
+%%% {binary,Unit} means that the register contains a binary/bitstring aligned
+%%% to unit Unit.
 
 %% tdb_new() -> EmptyDataBase
 %%  Creates a new, empty type database.
@@ -917,11 +949,14 @@ merge_type_info({integer,_}=Int, integer) ->
     Int;
 merge_type_info({integer,{Min1,Max1}}, {integer,{Min2,Max2}}) ->
     {integer,{max(Min1, Min2),min(Max1, Max2)}};
+merge_type_info({binary,U1}, {binary,U2}) ->
+    {binary,max(U1, U2)};
 merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
 verify_type({atom,_}) -> ok;
+verify_type({binary,U}) when is_integer(U) -> ok;
 verify_type(boolean) -> ok;
 verify_type(integer) -> ok;
 verify_type({integer,{Min,Max}})
