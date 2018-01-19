@@ -289,7 +289,7 @@ is_tcp_socket(Socket) ->
 daemon_shell_opt(Options) ->
      case proplists:get_value(shell, Options) of
 	 undefined ->
-	     [{shell, {shell, start, []}}  | Options];
+	     [{shell, ?DEFAULT_SHELL}  | Options];
 	 _ ->
 	     Options
      end.
