@@ -40,6 +40,7 @@
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
+#include "beam_catches.h"
 
 #ifdef ARCH_64
 # define HEXF "%016bpX"
@@ -609,18 +610,25 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'f':		/* Destination label */
-	    {
-                BeamInstr* target = f_to_addr(addr, op, ap);
-		ErtsCodeMFA* cmfa = find_function_from_pc(target);
-		if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
-		    erts_print(to, to_arg, "f(" HEXF ")", target);
-		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
-                               cmfa->function, cmfa->arity);
-		}
-		ap++;
-	    }
-	    break;
+            switch (op) {
+            case op_catch_yf:
+                erts_print(to, to_arg, "f(" HEXF ")", catch_pc((BeamInstr)*ap));
+                break;
+            default:
+                {
+                    BeamInstr* target = f_to_addr(addr, op, ap);
+                    ErtsCodeMFA* cmfa = find_function_from_pc(target);
+                    if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
+                        erts_print(to, to_arg, "f(" HEXF ")", target);
+                    } else {
+                        erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                                   cmfa->function, cmfa->arity);
+                    }
+                    ap++;
+                }
+                break;
+            }
+            break;
 	case 'p':		/* Pointer (to label) */
 	    {
                 BeamInstr* target = f_to_addr(addr, op, ap);
