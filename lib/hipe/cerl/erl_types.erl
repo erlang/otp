@@ -2351,6 +2351,8 @@ t_from_range(X, Y) ->
 
 -else.
 
+t_from_range(pos_inf, pos_inf) -> ?integer_pos;
+t_from_range(neg_inf, neg_inf) -> ?integer_neg;
 t_from_range(neg_inf, pos_inf) -> t_integer();
 t_from_range(neg_inf, Y) when is_integer(Y), Y < 0  -> ?integer_neg;
 t_from_range(neg_inf, Y) when is_integer(Y), Y >= 0 -> t_integer();
@@ -2383,6 +2385,8 @@ t_from_range(pos_inf, neg_inf) -> t_none().
 
 -spec t_from_range_unsafe(rng_elem(), rng_elem()) -> erl_type().
 
+t_from_range_unsafe(pos_inf, pos_inf) -> ?integer_pos;
+t_from_range_unsafe(neg_inf, neg_inf) -> ?integer_neg;
 t_from_range_unsafe(neg_inf, pos_inf) -> t_integer();
 t_from_range_unsafe(neg_inf, Y) -> ?int_range(neg_inf, Y);
 t_from_range_unsafe(X, pos_inf) -> ?int_range(X, pos_inf);
