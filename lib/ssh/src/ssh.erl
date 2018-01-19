@@ -134,7 +134,7 @@ daemon(Port, Options) ->
 daemon(HostAddr, Port, Options0) ->
     Options1 = case proplists:get_value(shell, Options0) of
 		   undefined ->
-		       [{shell, {shell, start, []}}  | Options0];
+		       [{shell, ?DEFAULT_SHELL}  | Options0];
 		   _ ->
 		       Options0
 	       end,
