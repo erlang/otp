@@ -572,7 +572,8 @@ change_accum(true, S0) ->
     S0#holder{accum=true};
 change_accum(false, S0=#holder{info=Info}) ->
     self() ! refresh,
-    S0#holder{accum=lists:sort(array:to_list(Info))}.
+    Accum = [{Pid, Reds} || #etop_proc_info{pid=Pid, reds=Reds} <- array:to_list(Info)],
+    S0#holder{accum=lists:sort(Accum)}.
 
 handle_update_old(#etop_info{procinfo=ProcInfo0},
                   S0=#holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
