@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -561,9 +561,10 @@ otp_5226(Config) when is_list(Config) ->
 otp_5327(Config) when is_list(Config) ->
     "exception error: bad argument" =
         comm_err(<<"<<\"hej\":default>>.">>),
+    L1 = erl_anno:new(1),
     <<"abc">> =
-        erl_parse:normalise({bin,1,[{bin_element,1,{string,1,"abc"},
-				     default,default}]}),
+        erl_parse:normalise({bin,L1,[{bin_element,L1,{string,L1,"abc"},
+                                      default,default}]}),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>):3/binary>>.">>),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>)/binary>>.">>),
     "exception error: bad argument" =
@@ -576,9 +577,9 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<10:default>>.">>),
     [<<98,1:1>>] = scan(<<"<<3:3,5:6>>.">>),
     {'EXIT',{badarg,_}} =
-        (catch erl_parse:normalise({bin,1,[{bin_element,1,{integer,1,17},
-                                            {atom,1,all},
-                                            default}]})),
+        (catch erl_parse:normalise({bin,L1,[{bin_element,L1,{integer,L1,17},
+                                             {atom,L1,all},
+                                             default}]})),
     [<<-20/signed>>] = scan(<<"<<-20/signed>> = <<-20>>.">>),
     [<<-300:16/signed>>] =
 	scan(<<"<<-300:16/signed>> = <<-300:16>>.">>),
@@ -2784,7 +2785,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"begin
                A = <<\"\\xaa\">>,
                S = lists:flatten(io_lib:format(\"~p/~p.\", [A, A])),
-               {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+               {ok, Ts, _} = erl_scan:string(S, 1),
                {ok, Es} = erl_parse:parse_exprs(Ts),
                B = erl_eval:new_bindings(),
                erl_eval:exprs(Es, B)
@@ -2797,7 +2798,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"io:setopts([{encoding,utf8}]).
            A = <<\"\\xaa\">>,
            S = lists:flatten(io_lib:format(\"~p/~p.\", [A, A])),
-           {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+           {ok, Ts, _} = erl_scan:string(S, 1),
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
@@ -2809,7 +2810,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"begin
                A = [1089],
                S = lists:flatten(io_lib:format(\"~tp/~tp.\", [A, A])),
-               {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+               {ok, Ts, _} = erl_scan:string(S, 1),
                {ok, Es} = erl_parse:parse_exprs(Ts),
                B = erl_eval:new_bindings(),
                erl_eval:exprs(Es, B)
@@ -2821,7 +2822,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"io:setopts([{encoding,utf8}]).
            A = [1089],
            S = lists:flatten(io_lib:format(\"~tp/~tp.\", [A, A])),
-           {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+           {ok, Ts, _} = erl_scan:string(S, 1),
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
@@ -2940,7 +2941,7 @@ otp_14296(Config) when is_list(Config) ->
     end(),
 
     fun() ->
-            Port = open_port({spawn, "ls"}, [line]),
+            Port = open_port({spawn, "ls"}, [{line,1}]),
             KnownPort = erlang:port_to_list(Port),
             S = KnownPort ++ ".",
             R = KnownPort ++ ".\n",
@@ -3012,7 +3013,7 @@ scan(B) ->
     scan(t(B), F).
 
 scan(S0, F) ->
-    case erl_scan:tokens([], S0, 1, [unicode]) of
+    case erl_scan:tokens([], S0, 1) of
         {done,{ok,Ts,_},S} ->
             [F(Ts) | scan(S, F)];
         _Else ->
