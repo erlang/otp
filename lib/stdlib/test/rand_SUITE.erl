@@ -486,13 +486,13 @@ stats_standard_normal(Config) when is_list(Config) ->
 stats_standard_normal(Fun, S, Retries) ->
 %%%
 %%% ct config:
-%%% {rand_SUITE, [{stats_standard_normal,[{seconds, 8}, {std_devs, 4.2}]}]}.
+%%% {rand_SUITE, [{stats_standard_normal,[{seconds, 8}, {std_devs, 4.0}]}]}.
 %%%
     Seconds = ct:get_config({?MODULE, ?FUNCTION_NAME, seconds}, 8),
     StdDevs =
         ct:get_config(
           {?MODULE, ?FUNCTION_NAME, std_devs},
-          4.2), % probability erfc(4.2/sqrt(2)) (1/37465) to fail a bucket
+          4.0), % probability erfc(4.0/sqrt(2)) (1/15787) to fail a bucket
 %%%
     ct:timetrap({seconds, Seconds + 120}),
     %% Buckets is chosen to get a range where the the probability to land
