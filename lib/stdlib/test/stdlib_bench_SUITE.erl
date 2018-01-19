@@ -331,7 +331,12 @@ comparison(Cases, Kind, Config) ->
     {comment, C}.
 
 norm(T, Ref) ->
-    io_lib:format("~.2f", [Ref/T]).
+    try Ref / T of
+        Norm ->
+            io_lib:format("~.2f", [Norm])
+    catch error:badarith ->
+            "---"
+    end.
 
 -define(MAX_TIME_SECS, 3).   % s
 -define(MAX_TIME, 1000 * ?MAX_TIME_SECS). % ms
