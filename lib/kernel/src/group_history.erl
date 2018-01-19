@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -260,7 +260,7 @@ resize_log(Name, _OldSize, NewSize) ->
         ok ->
             show('$#erlang-history-resize-result',
                  "ok~n", []);
-        {error, {new_size_too_small, _}} ->
+        {error, {new_size_too_small, _, _}} ->
             show('$#erlang-history-resize-result',
                  "failed (new size is too small)~n", []),
             disable_history();
