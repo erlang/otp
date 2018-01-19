@@ -934,7 +934,7 @@ pp_ins(Dev, Ver, I) ->
       end,
       case call_is_tail(I) of
         true -> write(Dev, "tail ");
-        false -> ok
+        false -> write(Dev, "notail ")
       end,
       write(Dev, ["call ", call_cconv(I), " "]),
       pp_options(Dev, call_ret_attrs(I)),
