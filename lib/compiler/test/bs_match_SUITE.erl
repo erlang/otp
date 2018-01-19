@@ -40,7 +40,7 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         beam_bsm/1,guard/1,is_ascii/1]).
+         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -73,7 +73,7 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       beam_bsm,guard,is_ascii]}].
+       beam_bsm,guard,is_ascii,non_opt_eq]}].
 
 
 init_per_suite(Config) ->
@@ -1654,6 +1654,21 @@ do_is_ascii(<<C,_/binary>>) when C >= 16#80 ->
 do_is_ascii(<<_, T/binary>>) ->
     do_is_ascii(T).
 
+non_opt_eq(_Config) ->
+    true = non_opt_eq([], <<>>),
+    true = non_opt_eq([$a], <<$a>>),
+    false = non_opt_eq([$a], <<$b>>),
+    ok.
+
+%% An example from the Efficiency Guide. It used to be not optimized,
+%% but now it can be optimized.
+
+non_opt_eq([H|T1], <<H,T2/binary>>) ->
+    non_opt_eq(T1, T2);
+non_opt_eq([_|_], <<_,_/binary>>) ->
+    false;
+non_opt_eq([], <<>>) ->
+    true.
 
 check(F, R) ->
     R = F().
