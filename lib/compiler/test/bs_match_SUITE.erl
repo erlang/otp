@@ -678,6 +678,10 @@ coverage(Config) when is_list(Config) ->
     <<>> = coverage_per_key(<<4:32>>),
     <<$a,$b,$c>> = coverage_per_key(<<7:32,"abc">>),
 
+    binary = coverage_bitstring(<<>>),
+    binary = coverage_bitstring(<<7>>),
+    bitstring = coverage_bitstring(<<7:4>>),
+    other = coverage_bitstring([a]),
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -767,6 +771,10 @@ coverage_bin_to_term_list_catch(<<>>, Acc) -> lists:reverse(Acc).
 coverage_per_key(<<BinSize:32,Bin/binary>> = B) ->
     true = (byte_size(B) =:= BinSize),
     Bin.
+
+coverage_bitstring(Bin) when is_binary(Bin) -> binary;
+coverage_bitstring(<<_/bitstring>>) -> bitstring;
+coverage_bitstring(_) -> other.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
