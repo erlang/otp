@@ -40,6 +40,7 @@
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
+#include "beam_catches.h"
 
 #ifdef ARCH_64
 # define HEXF "%016bpX"
@@ -55,6 +56,7 @@ static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap);
 static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap);
+static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes);
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -396,6 +398,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     BeamInstr args[8];		/* Arguments for this instruction. */
     BeamInstr* ap;			/* Pointer to arguments. */
     BeamInstr* unpacked;		/* Unpacked arguments */
+    BeamInstr* first_arg;               /* First argument */
 
     start_prog = opc[op].pack;
 
@@ -479,6 +482,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	}
 	ap = args;
     }
+
+    first_arg = ap;
 
     /*
      * Print the name and all operands of the instructions.
@@ -570,24 +575,60 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 		    }
 		    break;
 		}
+	    case op_i_make_fun_Wt:
+                if (*sign == 'W') {
+                    ErlFunEntry* fe = (ErlFunEntry *) *ap;
+                    ErtsCodeMFA* cmfa = find_function_from_pc(fe->address);
+		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                               cmfa->function, cmfa->arity);
+                } else {
+                    erts_print(to, to_arg, "%d", *ap);
+                }
+                break;
+	    case op_i_bs_match_string_xfWW:
+                if (ap - first_arg < 3) {
+                    erts_print(to, to_arg, "%d", *ap);
+                } else {
+                    Uint bits = ap[-1];
+                    Uint bytes = (bits+7)/8;
+                    byte* str = (byte *) *ap;
+                    print_byte_string(to, to_arg, str, bytes);
+                }
+                break;
+	    case op_bs_put_string_WW:
+                if (ap - first_arg == 0) {
+                    erts_print(to, to_arg, "%d", *ap);
+                } else {
+                    Uint bytes = ap[-1];
+                    byte* str = (byte *) ap[0];
+                    print_byte_string(to, to_arg, str, bytes);
+                }
+                break;
 	    default:
 		erts_print(to, to_arg, "%d", *ap);
 	    }
 	    ap++;
 	    break;
 	case 'f':		/* Destination label */
-	    {
-                BeamInstr* target = f_to_addr(addr, op, ap);
-		ErtsCodeMFA* cmfa = find_function_from_pc(target);
-		if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
-		    erts_print(to, to_arg, "f(" HEXF ")", target);
-		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
-                               cmfa->function, cmfa->arity);
-		}
-		ap++;
-	    }
-	    break;
+            switch (op) {
+            case op_catch_yf:
+                erts_print(to, to_arg, "f(" HEXF ")", catch_pc((BeamInstr)*ap));
+                break;
+            default:
+                {
+                    BeamInstr* target = f_to_addr(addr, op, ap);
+                    ErtsCodeMFA* cmfa = find_function_from_pc(target);
+                    if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
+                        erts_print(to, to_arg, "f(" HEXF ")", target);
+                    } else {
+                        erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+                                   cmfa->function, cmfa->arity);
+                    }
+                    ap++;
+                }
+                break;
+            }
+            break;
 	case 'p':		/* Pointer (to label) */
 	    {
                 BeamInstr* target = f_to_addr(addr, op, ap);
@@ -848,6 +889,14 @@ static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap)
     return base - 1 + opc[op].adjust + *ap;
 }
 
+static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes)
+{
+    Uint i;
+
+    for (i = 0; i < bytes; i++) {
+        erts_print(to, to_arg, "%02X", str[i]);
+    }
+}
 
 /*
  * Dirty BIF testing.
