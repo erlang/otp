@@ -289,7 +289,7 @@ opt_move(Dest, Is) ->
 opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
     %% Provided that the source register is killed by instructions
     %% that follow, the optimization is safe.
-    case eliminate_use_of_from_reg(Is0, R, D, []) of
+    case eliminate_use_of_from_reg(Is0, R, D) of
 	{yes,Is} -> opt_move_rev(D, Acc, Is);
 	no -> not_possible
     end;
@@ -347,7 +347,7 @@ opt_tuple_element_1([{set,_,_,{alloc,_,_}}|_], _, _, _) ->
 opt_tuple_element_1([{set,_,_,{try_catch,_,_}}|_], _, _, _) ->
     no;
 opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
-    case eliminate_use_of_from_reg(Is0, S, D, []) of
+    case eliminate_use_of_from_reg(Is0, S, D) of
 	no ->
 	    no;
 	{yes,Is} ->
@@ -389,6 +389,14 @@ is_killed_or_used(R, {set,Ss,Ds,_}) ->
 %%  that FromRegister is still used and that the optimization is not
 %%  possible.
 
+eliminate_use_of_from_reg(Is, From, To) ->
+    try
+        eliminate_use_of_from_reg(Is, From, To, [])
+    catch
+        throw:not_possible ->
+            no
+    end.
+
 eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
     if
 	X < Live ->
@@ -397,21 +405,32 @@ eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
 	    {yes,reverse(Acc, Is0)}
     end;
 eliminate_use_of_from_reg([{set,Ds,Ss0,Op}=I0|Is], From, To, Acc) ->
+    ensure_safe_tuple(I0, To),
     I = case member(From, Ss0) of
-	    true ->
-		Ss = [case S of
-			  From -> To;
-			  _ -> S
-		      end || S <- Ss0],
-		{set,Ds,Ss,Op};
-	    false ->
-		I0
-	end,
+            true ->
+                Ss = [case S of
+                          From -> To;
+                          _ -> S
+                      end || S <- Ss0],
+                {set,Ds,Ss,Op};
+            false ->
+                I0
+        end,
     case member(From, Ds) of
-	true ->
-	    {yes,reverse(Acc, [I|Is])};
-	false ->
-	    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+        true ->
+            {yes,reverse(Acc, [I|Is])};
+        false ->
+            case member(To, Ds) of
+                true ->
+                    case beam_utils:is_killed_block(From, Is) of
+                        true ->
+                            {yes,reverse(Acc, [I|Is])};
+                        false ->
+                            no
+                    end;
+                false ->
+                    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+            end
     end;
 eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
     case beam_utils:is_killed_block(From, [I]) of
@@ -420,6 +439,10 @@ eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
 	false ->
 	    no
     end.
+
+ensure_safe_tuple({set,[To],[],{put_tuple,_}}, To) ->
+    throw(not_possible);
+ensure_safe_tuple(_, _) -> ok.
 
 %% opt_allocs(Instructions) -> Instructions.  Optimize allocate
 %%  instructions inside blocks. If safe, replace an allocate_zero
