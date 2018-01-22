@@ -257,8 +257,6 @@ init_stack_page(Parent, Pid) ->
 					      [Pid, current_stacktrace])
 		     of
 			 {current_stacktrace,RawBt} ->
-			     observer_wx:try_rpc(node(Pid), erlang, process_info,
-						 [Pid, current_stacktrace]),
 			     wxListCtrl:deleteAllItems(LCtrl),
 			     wx:foldl(fun({M, F, A, Info}, Row) ->
 					      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),

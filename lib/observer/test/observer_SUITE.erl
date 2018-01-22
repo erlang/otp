@@ -113,7 +113,12 @@ appup_file(Config) when is_list(Config) ->
 basic(suite) -> [];
 basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
-    timer:send_after(100, "foobar"), %% Otherwise the timer server gets added to procs
+    %% Start these before
+    wx:new(),
+    wx:destroy(),
+    timer:send_after(100, "foobar"),
+    {foo, node@machine} ! dummy_msg,  %% start distribution stuff
+    %% Otherwise ever lasting servers gets added to procs
     ProcsBefore = processes(),
     ProcInfoBefore = [{P,process_info(P)} || P <- ProcsBefore],
     NumProcsBefore = length(ProcsBefore),
