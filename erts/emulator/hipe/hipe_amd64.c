@@ -75,7 +75,7 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
     Sint64 destOffset = (Sint64)destAddress - (Sint64)callAddress - 4;
 
     if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L)) {
-        destOffset = (Sint64)trampoline - (Sint64)callAddress - 4;
+        destOffset = (Sint64)(trampoline - 2) - (Sint64)callAddress - 4;
 
         if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L))
             return -1;
