@@ -2451,14 +2451,15 @@ rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
 des_rsa_cipher_suites()->
     [{doc, "Test the des_rsa ciphersuites"}].
 des_rsa_cipher_suites(Config) when is_list(Config) ->
-    Ciphers = ssl_test_lib:des_suites(Config),
+    NVersion = tls_record:highest_protocol_version([]),
+    Ciphers = [S || {rsa,_,_} = S <- ssl_test_lib:des_suites(NVersion)],
     run_suites(Ciphers, Config, des_rsa).
 %-------------------------------------------------------------------
 des_ecdh_rsa_cipher_suites()->
     [{doc, "Test ECDH rsa signed ciphersuites"}].
 des_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:des_suites(NVersion),
+    Ciphers = [S || {dhe_rsa,_,_} = S <- ssl_test_lib:des_suites(NVersion)],
     run_suites(Ciphers, Config, des_dhe_rsa).
 
 %%--------------------------------------------------------------------
