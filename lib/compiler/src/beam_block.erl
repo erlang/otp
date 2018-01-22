@@ -43,12 +43,13 @@ function({function,Name,Arity,CLabel,Is0}, Blockify) ->
                   false ->
                       Is0
               end,
-        Is3 = beam_utils:anno_defs(Is2),
-        Is4 = move_allocates(Is3),
-        Is5 = beam_utils:live_opt(Is4),
-        Is6 = opt_blocks(Is5),
-        Is7 = beam_utils:delete_annos(Is6),
-        Is = opt_allocs(Is7),
+        Is3 = local_cse(Is2),
+        Is4 = beam_utils:anno_defs(Is3),
+        Is5 = move_allocates(Is4),
+        Is6 = beam_utils:live_opt(Is5),
+        Is7 = opt_blocks(Is6),
+        Is8 = beam_utils:delete_annos(Is7),
+        Is = opt_allocs(Is8),
 
         %% Done.
         {function,Name,Arity,CLabel,Is}
@@ -564,3 +565,103 @@ defined_regs([{set,Ds,_,{alloc,Live,_}}|_], Regs) ->
     x_live(Ds, Regs bor ((1 bsl Live) - 1));
 defined_regs([{set,Ds,_,_}|Is], Regs) ->
     defined_regs(Is, x_live(Ds, Regs)).
+
+%%%
+%%% Do local common sub expression elimination (CSE) in each block.
+%%%
+
+local_cse([{block,Bl0}|Is]) ->
+    Bl = cse_block(Bl0, orddict:new(), []),
+    [{block,Bl}|local_cse(Is)];
+local_cse([I|Is]) ->
+    [I|local_cse(Is)];
+local_cse([]) -> [].
+
+cse_block([I|Is], Es0, Acc0) ->
+    Es1 = cse_clear(I, Es0),
+    case cse_expr(I) of
+        none ->
+            %% Instruction is not suitable for CSE.
+            cse_block(Is, Es1, [I|Acc0]);
+        {ok,D,Expr} ->
+            %% Suitable instruction. First update the dictionary of
+            %% suitable expressions for the next iteration.
+            Es = cse_add(D, Expr, Es1),
+
+            %% Search for a previous identical expression.
+            case cse_find(Expr, Es0) of
+                error ->
+                    %% Nothing found
+                    cse_block(Is, Es, [I|Acc0]);
+                Src ->
+                    %% Use the previously calculated result.
+                    %% Also eliminate any line instruction.
+                    Move = {set,[D],[Src],move},
+                    case Acc0 of
+                        [{set,_,_,{line,_}}|Acc] ->
+                            cse_block(Is, Es, [Move|Acc]);
+                        [_|_] ->
+                            cse_block(Is, Es, [Move|Acc0])
+                    end
+            end
+    end;
+cse_block([], _, Acc) ->
+    reverse(Acc).
+
+%% cse_find(Expr, Expressions) -> error | Register.
+%%  Find a previously evaluated expression whose result can be reused,
+%%  or return 'error' if no such expression is found.
+
+cse_find(Expr, Es) ->
+    case orddict:find(Expr, Es) of
+        {ok,{Src,_}} -> Src;
+        error -> error
+    end.
+
+cse_expr({set,[D],Ss,{bif,N,_}}) ->
+    {ok,D,{{bif,N},Ss}};
+cse_expr({set,[D],Ss,{alloc,_,{gc_bif,N,_}}}) ->
+    {ok,D,{{gc_bif,N},Ss}};
+cse_expr({set,[D],Ss,put_list}) ->
+    {ok,D,{put_list,Ss}};
+cse_expr(_) -> none.
+
+%% cse_clear(Instr, Expressions0) -> Expressions.
+%%  Remove all previous expressions that will become
+%%  invalid when this instruction is executed. Basically,
+%%  an expression is no longer safe to reuse when the
+%%  register it has been stored to has been modified, killed,
+%%  or if any of the source operands have changed.
+
+cse_clear({set,Ds,_,{alloc,Live,_}}, Es) ->
+    cse_clear_1(Es, Live, Ds);
+cse_clear({set,Ds,_,_}, Es) ->
+    cse_clear_1(Es, all, Ds).
+
+cse_clear_1(Es, Live, Ds0) ->
+    Ds = ordsets:from_list(Ds0),
+    [E || E <- Es, cse_is_safe(E, Live, Ds)].
+
+cse_is_safe({_,{Dst,Interfering}}, Live, Ds) ->
+    ordsets:is_disjoint(Interfering, Ds) andalso
+        case Dst of
+            {x,X} ->
+                X < Live;
+            _ ->
+                true
+        end.
+
+%% cse_add(Dest, Expr, Expressions0) -> Expressions.
+%%  Provided that it is safe, add a new expression to the dictionary
+%%  of already evaluated expressions.
+
+cse_add(D, {_,Ss}=Expr, Es) ->
+    case member(D, Ss) of
+        false ->
+            Interfering = ordsets:from_list([D|Ss]),
+            orddict:store(Expr, {D,Interfering}, Es);
+        true ->
+            %% Unsafe because the instruction overwrites one of
+            %% source operands.
+            Es
+    end.

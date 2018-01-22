@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1,
-	 erl_202/1,repro/1]).
+	 erl_202/1,repro/1,local_cse/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -40,7 +40,8 @@ groups() ->
        otp_7345,
        move_opt_across_gc_bif,
        erl_202,
-       repro
+       repro,
+       local_cse
       ]}].
 
 init_per_suite(Config) ->
@@ -236,6 +237,63 @@ find_operands(Cfg,XsiGraph,ActiveList,Count) ->
     NewActiveList=lists:reverse(TempActiveList),
     [Count+1, length(NewActiveList), length(digraph:vertices(XsiGraph))],
     find_operands(NewCfg,XsiGraph,NewActiveList,Count+1).
+
+%% Some tests of local common subexpression elimination (CSE).
+
+local_cse(_Config) ->
+    {Self,{ok,Self}} = local_cse_1(),
+
+    local_cse_2([]),
+    local_cse_2(lists:seq(1, 512)),
+    local_cse_2(?MODULE:module_info()),
+
+    {[b],[a,b]} = local_cse_3(a, b),
+
+    {2000,Self,{Self,write_cache}} = local_cse_4(),
+
+    ok.
+
+local_cse_1() ->
+    %% Cover handling of unsafe tuple construction in
+    %% eliminate_use_of_from_reg/4. It became necessary to handle
+    %% unsafe tuples when local CSE was introduced.
+
+    {self(),{ok,self()}}.
+
+local_cse_2(Term) ->
+    case cse_make_binary(Term) of
+        <<Size:8,BinTerm:Size/binary>> ->
+            Term = binary_to_term(BinTerm);
+        <<Size:8,SizeTerm:Size/binary,BinTerm/binary>> ->
+            {'$size',TermSize} = binary_to_term(SizeTerm),
+            TermSize = byte_size(BinTerm),
+            Term = binary_to_term(BinTerm)
+    end.
+
+%% Copy of observer_backend:ttb_make_binary/1. During development of
+%% the local CSE optimization this function was incorrectly optimized.
+
+cse_make_binary(Term) ->
+    B = term_to_binary(Term),
+    SizeB = byte_size(B),
+    if SizeB > 255 ->
+            SB = term_to_binary({'$size',SizeB}),
+            <<(byte_size(SB)):8, SB/binary, B/binary>>;
+       true ->
+            <<SizeB:8, B/binary>>
+    end.
+
+local_cse_3(X, Y) ->
+    %% The following expression was incorrectly transformed to {[X,Y],[X,Y]}
+    %% during development of the local CSE optimization.
+
+    {[Y],[X,Y]}.
+
+local_cse_4() ->
+    do_local_cse_4(2000, self(), {self(), write_cache}).
+
+do_local_cse_4(X, Y, Z) ->
+    {X,Y,Z}.
 
 %%%
 %%% Common functions.
