@@ -213,6 +213,8 @@ cipher_tests() ->
      ciphers_rsa_signed_certs_openssl_names,
      ciphers_dsa_signed_certs,
      ciphers_dsa_signed_certs_openssl_names,
+     chacha_rsa_cipher_suites,
+     chacha_ecdsa_cipher_suites,
      anonymous_cipher_suites,
      psk_cipher_suites,
      psk_with_hint_cipher_suites,
@@ -2371,7 +2373,24 @@ ciphers_dsa_signed_certs_openssl_names() ->
 ciphers_dsa_signed_certs_openssl_names(Config) when is_list(Config) ->
     Ciphers = ssl_test_lib:openssl_dsa_suites(),
     run_suites(Ciphers, Config, dsa).
+
 %%-------------------------------------------------------------------
+chacha_rsa_cipher_suites()->
+    [{doc,"Test the cacha with  ECDSA signed certs ciphersuites"}].
+chacha_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = [S || {KeyEx,_,_} = S <- ssl_test_lib:chacha_suites(NVersion),
+                    KeyEx == ecdhe_rsa, KeyEx == dhe_rsa],
+    run_suites(Ciphers, Config, chacha_ecdsa).
+
+%%-------------------------------------------------------------------
+chacha_ecdsa_cipher_suites()->
+    [{doc,"Test the cacha with  ECDSA signed certs ciphersuites"}].
+chacha_ecdsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = [S || {ecdhe_ecdsa,_,_} = S <- ssl_test_lib:chacha_suites(NVersion)],
+    run_suites(Ciphers, Config, chacha_rsa).
+%%-----------------------------------------------------------------
 anonymous_cipher_suites()->
     [{doc,"Test the anonymous ciphersuites"}].
 anonymous_cipher_suites(Config) when is_list(Config) ->
@@ -4684,7 +4703,15 @@ run_suites(Ciphers, Config, Type) ->
 	    des_rsa ->
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_verification_opts, Config)]}
+		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+            chacha_rsa ->
+                {ssl_test_lib:ssl_options(client_verification_opts, Config),
+                 [{ciphers, Ciphers} |
+                  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+            chacha_ecdsa ->
+               	{ssl_test_lib:ssl_options(client_verification_opts, Config),
+                 [{ciphers, Ciphers} |
+                  ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]} 
 	end,
     Result =  lists:map(fun(Cipher) ->
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
