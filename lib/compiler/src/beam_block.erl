@@ -231,7 +231,7 @@ alloc_may_pass({set,_,_,_}) -> true.
 %%  Optimize the instruction stream inside a basic block.
 
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
-opt([{set,[X],_,move},{set,[X],_,move}=I|Is]) ->
+opt([{set,[Dst],_,move},{set,[Dst],[Src],move}=I|Is]) when Dst =/= Src ->
     opt([I|Is]);
 opt([{set,[{x,0}],[S1],move}=I1,{set,[D2],[{x,0}],move}|Is]) ->
     opt([I1,{set,[D2],[S1],move}|Is]);
