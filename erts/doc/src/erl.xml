@@ -360,11 +360,12 @@
       </item>
       <tag><c><![CDATA[-mode interactive | embedded]]></c></tag>
       <item>
-        <p>Indicates if the system is to load code dynamically
-          (<c><![CDATA[interactive]]></c>), or if all code is to be loaded
-          during system initialization (<c><![CDATA[embedded]]></c>); see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.
-          Defaults to <c><![CDATA[interactive]]></c>.</p>
+        <p>Modules are auto loaded when they are first referenced if the
+          runtime system runs in <c><![CDATA[interactive]]></c> mode, which is
+          the default. In <c><![CDATA[embedded]]></c> mode modules are not auto
+          loaded. The latter is recommended when the boot script preloads all
+          modules, as conventionally happens in OTP releases. See
+          <seealso marker="kernel:code"><c>code(3)</c></seealso></p>.
       </item>
       <tag><c><![CDATA[-name Name]]></c></tag>
       <item>
@@ -1693,4 +1694,3 @@ code:load_abs("..../user_default").    ]]></code>
       <seealso marker="tools:make"><c>make(3)</c></seealso></p>
   </section>
 </comref>
-
