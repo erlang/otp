@@ -32,8 +32,8 @@
 %%                         (Optional - default efile)
 %%        -hosts [Node]  : List of hosts from which we can boot.
 %%                         (Mandatory if -loader inet)
-%%        -mode embedded : Load all modules at startup, no automatic loading
 %%        -mode interactive : Auto load modules (default system behaviour).
+%%        -mode embedded : Do not auto load modules (set it when the boot script loads them all).
 %%        -path          : Override path in bootfile.
 %%        -pa Path+      : Add my own paths first.
 %%        -pz Path+      : Add my own paths last.
