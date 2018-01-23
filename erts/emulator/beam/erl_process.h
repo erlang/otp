@@ -111,7 +111,7 @@ extern Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_total_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_cpu_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_io_schedulers);
-extern Uint erts_no_run_queues;
+extern Uint ERTS_WRITE_UNLIKELY(erts_no_run_queues);
 extern int erts_sched_thread_suggested_stack_size;
 extern int erts_dcpu_sched_thread_suggested_stack_size;
 extern int erts_dio_sched_thread_suggested_stack_size;
@@ -522,7 +522,7 @@ typedef union {
     char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsRunQueue))];
 } ErtsAlignedRunQueue;
 
-extern ErtsAlignedRunQueue *erts_aligned_run_queues;
+extern ErtsAlignedRunQueue * ERTS_WRITE_UNLIKELY(erts_aligned_run_queues);
 
 #define ERTS_PROC_REDUCTIONS_EXECUTED(SD, RQ, PRIO, REDS, AREDS)\
 do {								\
@@ -675,9 +675,9 @@ typedef union {
     char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsSchedulerData))];
 } ErtsAlignedSchedulerData;
 
-extern ErtsAlignedSchedulerData *erts_aligned_scheduler_data;
-extern ErtsAlignedSchedulerData *erts_aligned_dirty_cpu_scheduler_data;
-extern ErtsAlignedSchedulerData *erts_aligned_dirty_io_scheduler_data;
+extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_scheduler_data);
+extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_dirty_cpu_scheduler_data);
+extern ErtsAlignedSchedulerData * ERTS_WRITE_UNLIKELY(erts_aligned_dirty_io_scheduler_data);
 
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
