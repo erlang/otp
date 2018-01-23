@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1262,7 +1262,7 @@ parse_forms(Chars) ->
 parse_forms2([], _Cont, _Line, Forms) ->
     lists:reverse(Forms);
 parse_forms2(String, Cont0, Line, Forms) ->
-    case erl_scan:tokens(Cont0, String, Line, [unicode]) of
+    case erl_scan:tokens(Cont0, String, Line) of
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);
@@ -1303,7 +1303,7 @@ parse_and_pp_expr(String, Indent, Options) ->
     erl_pp:expr(parse_expr(StringDot), Indent, Options).
 
 parse_expr(Chars) ->
-    {ok, Tokens, _} = erl_scan:string(Chars, 1, [unicode]),
+    {ok, Tokens, _} = erl_scan:string(Chars, 1),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
     Expr.
 

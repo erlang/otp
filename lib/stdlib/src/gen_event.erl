@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,7 +125,8 @@
                     | {'logfile', string()}.
 -type option() :: {'timeout', timeout()}
                 | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:spawn_option()]}.
+                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'hibernate_after', timeout()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.

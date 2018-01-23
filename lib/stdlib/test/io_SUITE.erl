@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -714,7 +714,7 @@ p(Term, D) ->
     rp(Term, 1, 80, D).
 
 p(Term, Col, Ll, D) ->
-    rp(Term, Col, Ll, D, no_fun).
+    rp(Term, Col, Ll, D, none).
 
 rp(Term, Col, Ll, D) ->
     rp(Term, Col, Ll, D, fun rfd/2).
@@ -724,6 +724,8 @@ rp(Term, Col, Ll, D) ->
 rp(Term, Col, Ll, D, RF) ->
     rp(Term, Col, Ll, D, ?MAXCS, RF).
 
+rp(Term, Col, Ll, D, M, none) ->
+    rp(Term, Col, Ll, D, M, fun(_, _) -> no end);
 rp(Term, Col, Ll, D, M, RF) ->
     %% io:format("~n~n*** Col = ~p Ll = ~p D = ~p~n~p~n-->~n", 
     %%           [Col, Ll, D, Term]),

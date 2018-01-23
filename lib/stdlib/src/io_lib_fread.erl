@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 
 -spec fread(Continuation, String, Format) -> Return when
       Continuation :: io_lib:continuation() |  [],
-      String :: string(),
+      String :: string() | 'eof',
       Format :: string(),
       Return :: {'more', Continuation1 :: io_lib:continuation()}
               | {'done', Result, LeftOverChars :: string()},

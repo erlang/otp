@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3470,8 +3470,8 @@ start_procs(Parent, N1, N2, N3, Config) ->
     Pid6 = rpc:call(N3, ?MODULE, start_proc3, [test4]),
     assert_pid(Pid6),
     yes = global:register_name(test1, Pid3),
-    yes = global:register_name(test2, Pid4, {global, notify_all_name}),
-    yes = global:register_name(test3, Pid5, {global, random_notify_name}),
+    yes = global:register_name(test2, Pid4, fun global:notify_all_name/3),
+    yes = global:register_name(test3, Pid5, fun global:random_notify_name/3),
     Resolve = fun(Name, Pid1, Pid2) ->
 		      Parent ! {resolve_called, Name, node()},
 		      {Min, Max} = minmax(Pid1, Pid2),
@@ -3546,7 +3546,7 @@ start_proc_basic(Name) ->
     end.
 
 init_proc_basic(Parent, Name) ->
-    X = global:register_name(Name, self(), {?MODULE, fix_basic_name}),
+    X = global:register_name(Name, self(), fun ?MODULE:fix_basic_name/3),
     Parent ! {self(),X},
     loop().
 
@@ -3790,15 +3790,6 @@ stop() ->
     lists:foreach(fun(Node) ->
 			  test_server:stop_node(Node)
 		  end, nodes()).
-
-dbg_logs(Name) -> dbg_logs(Name, ?NODES).
-
-dbg_logs(Name, Nodes) ->
-    lists:foreach(fun(N) ->
-			  F = lists:concat([Name, ".log.", N, ".txt"]),
-			  ok = sys:log_to_file({global_name_server, N}, F)
-		  end, Nodes).
-
 
 %% Tests that locally loaded nodes do not loose contact with other nodes.
 global_lost_nodes(Config) when is_list(Config) ->

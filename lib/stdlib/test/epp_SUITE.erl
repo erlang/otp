@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -551,8 +551,8 @@ otp_8130(Config) when is_list(Config) ->
              "t() ->  "
              "   L = \"{ 34 , \\\"1\\\\x{AAA}\\\" , \\\"34\\\" , X . a , $\\\\x{AAA} }\", "
              "   R = ?M({34,\"1\\x{aaa}\",\"34\",X.a,$\\x{aaa}}),"
-             "   Lt = erl_scan:string(L, 1, [unicode]),"
-             "   Rt = erl_scan:string(R, 1, [unicode]),"
+             "   Lt = erl_scan:string(L, 1),"
+             "   Rt = erl_scan:string(R, 1),"
              "   Lt = Rt, ok. ">>,
           ok},
 

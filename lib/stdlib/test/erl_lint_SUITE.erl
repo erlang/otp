@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3982,8 +3982,9 @@ non_latin1_module(Config) ->
 
 do_non_latin1_module(Mod) ->
     File = atom_to_list(Mod) ++ ".erl",
-    Forms = [{attribute,1,file,{File,1}},
-             {attribute,1,module,Mod},
+    L1 = erl_anno:new(1),
+    Forms = [{attribute,L1,file,{File,1}},
+             {attribute,L1,module,Mod},
              {eof,2}],
     error = compile:forms(Forms),
     {error,_,[]} = compile:forms(Forms, [return]),

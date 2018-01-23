@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -198,7 +198,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%%    Name ::= {local, atom()} | {global, term()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' fsm
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{debug, [Flag]}]
