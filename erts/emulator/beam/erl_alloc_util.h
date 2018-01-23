@@ -63,7 +63,9 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
-    int acul;
+    UWord acul;
+    UWord acnl;
+    UWord acfml;
 
     void *fix;
     size_t *fix_type_size;
@@ -118,6 +120,8 @@ typedef struct {
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    1000,		/* (amount) acnl:  abandoned carriers number limit */\
+    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -151,6 +155,8 @@ typedef struct {
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    1000,		/* (amount) acnl:  abandoned carriers number limit */\
+    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -568,7 +574,9 @@ struct Allctr_t_ {
 	UWord		abandon_limit;
 	int		disable_abandon;
 	int		check_limit_count;
-	int		util_limit;
+	UWord		util_limit;       /* acul */
+        UWord           in_pool_limit;    /* acnl */
+        UWord           fblk_min_limit;   /* acmfl */
 	struct {
 	    erts_atomic_t	blocks_size;
 	    erts_atomic_t	no_blocks;

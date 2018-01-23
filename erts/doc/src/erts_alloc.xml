@@ -478,6 +478,28 @@
             allocators based on the <c>alloc_util</c> framework, except
             <c>temp_alloc</c> (which would be pointless).</p>
         </item>
+
+	<tag><marker id="M_acfml"/><c><![CDATA[+M<S>acfml <bytes>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier free block min limit. A valid <c><![CDATA[<bytes>]]></c>
+            is a positive integer representing a block size limit. The largest
+	    free block in a carrier must be at least <c>bytes</c> large, for the
+	    carrier to be abandoned. The default is zero but can be changed
+	    in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
+        <tag><marker id="M_acnl"/><c><![CDATA[+M<S>acnl <amount>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier number limit. A valid <c><![CDATA[<amount>]]></c>
+            is a positive integer representing max number of abandoned carriers per
+	    allocator instance. Defaults to 1000 which will practically disable
+	    the limit, but this can be changed in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
         <tag><marker id="M_as"/>
           <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|gf|af]]></c></tag>
         <item>

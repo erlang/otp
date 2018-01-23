@@ -1372,18 +1372,30 @@ handle_au_arg(struct au_init *auip,
 
     switch (sub_param[0]) {
     case 'a':
-	if (has_prefix("acul", sub_param)) {
-	    if (!auip->carrier_migration_allowed) {
-		if (!u_switch)
-		    goto bad_switch;
-		else {
-		    /* ignore */
-		    (void) get_acul_value(auip, sub_param + 4, argv, ip);
-		    break;
-		}
-	    }
-	    auip->init.util.acul = get_acul_value(auip, sub_param + 4, argv, ip);
-	}
+        if (sub_param[1] == 'c') { /* Migration parameters "ac*" */
+            UWord value;
+            UWord* wp;
+            if (!auip->carrier_migration_allowed && !u_switch)
+                goto bad_switch;
+
+            if (has_prefix("acul", sub_param)) {
+                value = get_acul_value(auip, sub_param + 4, argv, ip);
+                wp = &auip->init.util.acul;
+            }
+            else if (has_prefix("acnl", sub_param)) {
+                value = get_amount_value(sub_param + 4, argv, ip);
+                wp = &auip->init.util.acnl;
+            }
+            else if (has_prefix("acfml", sub_param)) {
+                value = get_amount_value(sub_param + 5, argv, ip);
+                wp = &auip->init.util.acfml;
+            }
+            else
+                goto bad_switch;
+
+            if (auip->carrier_migration_allowed)
+                *wp = value;
+        }
 	else if(has_prefix("asbcst", sub_param)) {
 	    auip->init.util.asbcst = get_kb_value(sub_param + 6, argv, ip);
 	}
