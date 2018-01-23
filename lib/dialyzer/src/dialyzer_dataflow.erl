@@ -3116,7 +3116,10 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
 state__remove_added_warnings(OldState, NewState) ->
   #state{warnings = OldWarnings} = OldState,
   #state{warnings = NewWarnings} = NewState,
-  {NewWarnings -- OldWarnings, NewState#state{warnings = OldWarnings}}.
+  case NewWarnings =:= OldWarnings of
+    true -> {[], NewState};
+    false -> {NewWarnings -- OldWarnings, NewState#state{warnings = OldWarnings}}
+  end.
 
 state__add_warnings(Warns, #state{warnings = Warnings} = State) ->
   State#state{warnings = Warns ++ Warnings}.

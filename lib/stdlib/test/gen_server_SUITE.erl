@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -346,7 +346,7 @@ stop10(_Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_server,start,[{global,to_stop},?MODULE,[],[]]),
-    global:sync(),
+    ok = global:sync(),
     ok = gen_server:stop({global,to_stop}),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
@@ -467,7 +467,7 @@ start_node(Name) ->
     %% After starting a slave, it takes a little while until global knows
     %% about it, even if nodes() includes it, so we make sure that global
     %% knows about it before registering something on all nodes.
-    global:sync(),
+    ok = global:sync(),
     N.
 
 call_remote1(Config) when is_list(Config) ->
@@ -605,7 +605,7 @@ cast_fast(Config) when is_list(Config) ->
 cast_fast_messup() ->
     %% Register a false node: hopp@hostname
     unregister(erl_epmd),
-    erl_epmd:start_link(),
+    {ok, _} = erl_epmd:start_link(),
     {ok,S} = gen_tcp:listen(0, []),
     {ok,P} = inet:port(S),
     {ok,_Creation} = erl_epmd:register_node(hopp, P),
@@ -1309,7 +1309,7 @@ do_call_with_huge_message_queue() ->
 
     {Time,ok} = tc(fun() -> calls(10000, Pid) end),
 
-    [self() ! {msg,N} || N <- lists:seq(1, 500000)],
+    _ = [self() ! {msg,N} || N <- lists:seq(1, 500000)],
     erlang:garbage_collect(),
     {NewTime,ok} = tc(fun() -> calls(10000, Pid) end),
     io:format("Time for empty message queue: ~p", [Time]),
@@ -1426,7 +1426,7 @@ undef_in_terminate(Config) when is_list(Config) ->
     State = {undef_in_terminate, {oc_server, terminate}},
     {ok, Server} = gen_server:start(?MODULE, {state, State}, []),
     try
-        gen_server:stop(Server),
+        ok = gen_server:stop(Server),
         ct:fail(failed)
     catch
         exit:{undef, [{oc_server, terminate, [], _}|_]} ->
@@ -1615,7 +1615,7 @@ handle_cast({From,delayed_cast,T}, _State) ->
 handle_cast(hibernate_now, _State) ->
     {noreply, [], hibernate};
 handle_cast(hibernate_later, _State) ->
-    timer:send_after(1000,self(),hibernate_now),
+    {ok, _} = timer:send_after(1000,self(),hibernate_now),
     {noreply, []};
 handle_cast({call_undef_fun, Mod, Fun}, State) ->
     Mod:Fun(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -266,7 +266,7 @@ inc_wrap_file(Log) ->
       Size :: dlog_size(),
       Reason :: no_such_log | nonode | {read_only_mode, Log}
               | {blocked_log, Log}
-              | {new_size_too_small, CurrentSize :: pos_integer()}
+              | {new_size_too_small, Log, CurrentSize :: pos_integer()}
               | {badarg, size}
               | {file_error, file:filename(), file_error()}.
 change_size(Log, NewSize) -> 

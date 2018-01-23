@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -389,7 +389,7 @@ stop10(_Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_fsm,start,[{global,to_stop},?MODULE,[],[]]),
-    global:sync(),
+    ok = global:sync(),
     ok = gen_fsm:stop({global,to_stop}),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
@@ -1005,7 +1005,7 @@ undef_in_terminate(Config) when is_list(Config) ->
     State = {undef_in_terminate, {?MODULE, terminate}},
     {ok, FSM} = gen_fsm:start(?MODULE, {state_data, State}, []),
     try
-        gen_fsm:stop(FSM),
+        ok = gen_fsm:stop(FSM),
         ct:fail(failed)
     catch
         exit:{undef, [{?MODULE, terminate, _, _}|_]} ->
@@ -1201,7 +1201,7 @@ timeout({timeout,Ref,{timeout,Time}}, {From,Ref}) ->
     Cref = gen_fsm:start_timer(Time, cancel),
     Time4 = Time*4,
     receive after Time4 -> ok end,
-    gen_fsm:cancel_timer(Cref),
+    _= gen_fsm:cancel_timer(Cref),
     {next_state, timeout, {From,Ref2}};
 timeout({timeout,Ref2,ok},{From,Ref2}) ->
     gen_fsm:reply(From, ok),
