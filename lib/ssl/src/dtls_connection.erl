@@ -758,10 +758,12 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
            flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}
 	  }.
 
-next_dtls_record(Data, #state{protocol_buffers = #protocol_buffers{
+next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 						   dtls_record_buffer = Buf0,
 						   dtls_cipher_texts = CT0} = Buffers} = State0) ->
-    case dtls_record:get_dtls_records(Data, Buf0) of
+    case dtls_record:get_dtls_records(Data,
+                                      acceptable_record_versions(StateName, State0), 
+                                      Buf0) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(State0#state{protocol_buffers =
@@ -770,6 +772,11 @@ next_dtls_record(Data, #state{protocol_buffers = #protocol_buffers{
 	#alert{} = Alert ->
 	    Alert
     end.
+
+acceptable_record_versions(hello, _) ->
+    [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_DATAGRAM_SUPPORTED_VERSIONS];
+acceptable_record_versions(_, #state{negotiated_version = Version}) ->
+    [Version].
 
 dtls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->
@@ -828,7 +835,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 %% raw data from socket, unpack records
 handle_info({Protocol, _, _, _, Data}, StateName,
             #state{data_tag = Protocol} = State0) ->
-    case next_dtls_record(Data, State0) of
+    case next_dtls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
