@@ -5,5 +5,6 @@
 {skip_suites,"../stdlib_test",string_SUITE, "bench only"}.
 
 {suites,"../stdlib_test",[stdlib_bench_SUITE]}.
-{skip_groups,"../stdlib_test",stdlib_bench_SUITE,[gen_server_comparison],
+{skip_groups,"../stdlib_test",stdlib_bench_SUITE,
+             [gen_server_comparison,gen_statem_comparison],
              "Not a benchmark"}.
