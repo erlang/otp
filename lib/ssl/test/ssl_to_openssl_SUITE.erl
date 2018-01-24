@@ -1016,7 +1016,7 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}}),
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "bad record mac"}}),
     process_flag(trap_exit, false).
 %%--------------------------------------------------------------------
 ssl2_erlang_server_openssl_client_comp() ->

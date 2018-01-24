@@ -30,7 +30,7 @@
 -include("ssl_cipher.hrl").
 
 %% Handling of incoming data
--export([get_dtls_records/2,  init_connection_states/2, empty_connection_state/1]).
+-export([get_dtls_records/3,  init_connection_states/2, empty_connection_state/1]).
 
 -export([save_current_connection_state/2, next_epoch/2, get_connection_state_by_epoch/3, replay_detect/2,
          init_connection_state_seq/2, current_connection_state_epoch/2]).
@@ -163,17 +163,25 @@ current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
     Epoch.
 
 %%--------------------------------------------------------------------
--spec get_dtls_records(binary(), binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_dtls_records(binary(), [dtls_version()], binary()) -> {[binary()], binary()} | #alert{}.
 %%
 %% Description: Given old buffer and new data from UDP/SCTP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% data
 %%--------------------------------------------------------------------
-get_dtls_records(Data, <<>>) ->
-    get_dtls_records_aux(Data, []);
-get_dtls_records(Data, Buffer) ->
-    get_dtls_records_aux(list_to_binary([Buffer, Data]), []).
-
+get_dtls_records(Data, Versions, Buffer) ->
+    BinData = list_to_binary([Buffer, Data]),
+    case erlang:byte_size(BinData) of
+        N when N >= 3 ->
+            case assert_version(BinData, Versions) of
+                true ->
+                    get_dtls_records_aux(BinData, []);
+                false ->
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            end;
+        _ ->
+            get_dtls_records_aux(BinData, [])
+    end.
 
 %%====================================================================
 %% Encoding DTLS records
@@ -397,6 +405,8 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       client_verify_data => undefined,
       server_verify_data => undefined
      }.
+assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) ->
+    is_acceptable_version({MajVer, MinVer}, Versions).
 
 get_dtls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
@@ -431,13 +441,9 @@ get_dtls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
 					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
 
-get_dtls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
+get_dtls_records_aux(<<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
 		       ?UINT16(Length), _/binary>>,
 		     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
-    ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-
-get_dtls_records_aux(<<1:1, Length0:15, _/binary>>,_Acc)
-  when Length0 > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
 get_dtls_records_aux(Data, Acc) ->
