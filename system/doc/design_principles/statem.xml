@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2016</year><year>2017</year>
+      <year>2016</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1679,8 +1679,8 @@ handle_event(
 		    {next_state, {open,LockButton}, Data,
 		     [{reply,From,ok}]};
 		[Digit|Rest] -> % Incomplete
-		    {keep_state, Data#{remaining := Rest, 30000},
-		     [{reply,From,ok}]};
+		    {keep_state, Data#{remaining := Rest},
+		     [{reply,From,ok}, 30000]};
 		[_|_] -> % Wrong
 		    {keep_state, Data#{remaining := Code},
 		     [{reply,From,ok}]}

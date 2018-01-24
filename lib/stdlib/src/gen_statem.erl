@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -78,9 +78,11 @@
 -type data() :: term().
 
 -type event_type() ::
-	{'call',From :: from()} | 'cast' | 'info' |
-	'timeout' | {'timeout', Name :: term()} | 'state_timeout' |
-	'internal'.
+        external_event_type() | timeout_event_type() | 'internal'.
+-type external_event_type() ::
+        {'call',From :: from()} | 'cast' | 'info'.
+-type timeout_event_type() ::
+        'timeout' | {'timeout', Name :: term()} | 'state_timeout'.
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
@@ -138,7 +140,9 @@
 -type enter_action() ::
 	'hibernate' | % Set the hibernate option
 	{'hibernate', Hibernate :: hibernate()} |
-	%%
+        timeout_action() |
+	reply_action().
+-type timeout_action() ::
 	(Timeout :: event_timeout()) | % {timeout,Timeout}
 	{'timeout', % Set the event_timeout option
 	 Time :: event_timeout(), EventContent :: term()} |
@@ -159,9 +163,7 @@
 	{'state_timeout', % Set the state_timeout option
 	 Time :: state_timeout(),
 	 EventContent :: term(),
-	 Options :: (timeout_option() | [timeout_option()])} |
-	%%
-	reply_action().
+	 Options :: (timeout_option() | [timeout_option()])}.
 -type reply_action() ::
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
@@ -320,12 +322,26 @@
     handle_event/4 % For callback_mode() =:= handle_event_function
    ]).
 
+
+
 %% Type validation functions
+-compile(
+   {inline,
+    [callback_mode/1, state_enter/1, from/1, event_type/1]}).
+%%
 callback_mode(CallbackMode) ->
     case CallbackMode of
 	state_functions -> true;
 	handle_event_function -> true;
 	_ -> false
+    end.
+%%
+state_enter(StateEnter) ->
+    case StateEnter of
+        state_enter ->
+            true;
+        _ ->
+            false
     end.
 %%
 from({Pid,_}) when is_pid(Pid) -> true;
@@ -350,6 +366,48 @@ event_type(Type) ->
 -define(
    STACKTRACE(),
    try throw(ok) catch _ -> erlang:get_stacktrace() end).
+
+-define(not_sys_debug, []).
+%%
+%% This is a macro to only evaluate arguments if Debug =/= [].
+%% Debug is evaluated multiple times.
+-define(
+   sys_debug(Debug, NameState, Entry),
+   case begin Debug end of
+       ?not_sys_debug ->
+           begin Debug end;
+       _ ->
+           sys_debug(begin Debug end, begin NameState end, begin Entry end)
+    end).
+
+-record(state,
+        {callback_mode = undefined :: callback_mode() | undefined,
+         state_enter = false :: boolean(),
+         module :: atom(),
+         name :: atom(),
+         state :: term(),
+         data :: term(),
+         postponed = [] :: [{event_type(),term()}],
+         %%
+         timer_refs = #{} :: % timer ref => the timer's event type
+           #{reference() => timeout_event_type()},
+         timer_types = #{} ::  % timer's event type => timer ref
+           #{timeout_event_type() => reference()},
+         cancel_timers = 0 :: non_neg_integer(),
+         %% We add a timer to both timer_refs and timer_types
+         %% when we start it.  When we request an asynchronous
+         %% timer cancel we remove it from timer_types.  When
+         %% the timer cancel message arrives we remove it from
+         %% timer_refs.
+         %%
+         hibernate = false :: boolean(),
+         hibernate_after = infinity :: timeout()}).
+
+-record(trans_opts,
+        {hibernate = false,
+         postpone = false,
+         timeouts_r = [],
+         next_events_r = []}).
 
 %%%==========================================================================
 %%% API
@@ -422,6 +480,10 @@ stop(ServerRef, Reason, Timeout) ->
 
 %% Send an event to a state machine that arrives with type 'event'
 -spec cast(ServerRef :: server_ref(), Msg :: term()) -> ok.
+cast(ServerRef, Msg) when is_pid(ServerRef) ->
+    send(ServerRef, wrap_cast(Msg));
+cast(ServerRef, Msg) when is_atom(ServerRef) ->
+    send(ServerRef, wrap_cast(Msg));
 cast({global,Name}, Msg) ->
     try	global:send(Name, wrap_cast(Msg)) of
 	_ -> ok
@@ -435,10 +497,6 @@ cast({via,RegMod,Name}, Msg) ->
 	_:_ -> ok
     end;
 cast({Name,Node} = ServerRef, Msg) when is_atom(Name), is_atom(Node) ->
-    send(ServerRef, wrap_cast(Msg));
-cast(ServerRef, Msg) when is_atom(ServerRef) ->
-    send(ServerRef, wrap_cast(Msg));
-cast(ServerRef, Msg) when is_pid(ServerRef) ->
     send(ServerRef, wrap_cast(Msg)).
 
 %% Call a state machine (synchronous; a reply is expected) that
@@ -455,73 +513,16 @@ call(ServerRef, Request) ->
 	  {'clean_timeout',T :: timeout()} |
 	  {'dirty_timeout',T :: timeout()}) ->
 		  Reply :: term().
+call(ServerRef, Request, infinity = T = Timeout) ->
+    call_dirty(ServerRef, Request, Timeout, T);
+call(ServerRef, Request, {dirty_timeout, T} = Timeout) ->
+    call_dirty(ServerRef, Request, Timeout, T);
+call(ServerRef, Request, {clean_timeout, T} = Timeout) ->
+    call_clean(ServerRef, Request, Timeout, T);
+call(ServerRef, Request, {_, _} = Timeout) ->
+    erlang:error(badarg, [ServerRef,Request,Timeout]);
 call(ServerRef, Request, Timeout) ->
-    case parse_timeout(Timeout) of
-	{dirty_timeout,T} ->
-	    try gen:call(ServerRef, '$gen_call', Request, T) of
-		{ok,Reply} ->
-		    Reply
-	    catch
-		Class:Reason ->
-		    erlang:raise(
-		      Class,
-		      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-		      erlang:get_stacktrace())
-	    end;
-	{clean_timeout,T} ->
-	    %% Call server through proxy process to dodge any late reply
-	    Ref = make_ref(),
-	    Self = self(),
-	    Pid = spawn(
-		    fun () ->
-			    Self !
-				try gen:call(
-				      ServerRef, '$gen_call', Request, T) of
-				    Result ->
-					{Ref,Result}
-				catch Class:Reason ->
-					{Ref,Class,Reason,
-					 erlang:get_stacktrace()}
-				end
-		    end),
-	    Mref = monitor(process, Pid),
-	    receive
-		{Ref,Result} ->
-		    demonitor(Mref, [flush]),
-		    case Result of
-			{ok,Reply} ->
-			    Reply
-		    end;
-		{Ref,Class,Reason,Stacktrace} ->
-		    demonitor(Mref, [flush]),
-		    erlang:raise(
-		      Class,
-		      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-		      Stacktrace);
-		{'DOWN',Mref,_,_,Reason} ->
-		    %% There is a theoretical possibility that the
-		    %% proxy process gets killed between try--of and !
-		    %% so this clause is in case of that
-		    exit(Reason)
-	    end;
-	Error when is_atom(Error) ->
-	    erlang:error(Error, [ServerRef,Request,Timeout])
-    end.
-
-parse_timeout(Timeout) ->
-    case Timeout of
-	{clean_timeout,_} ->
-	    Timeout;
-	{dirty_timeout,_} ->
-	    Timeout;
-	{_,_} ->
-	    %% Be nice and throw a badarg for speling errors
-	    badarg;
-	infinity ->
-	    {dirty_timeout,infinity};
-	T ->
-	    {clean_timeout,T}
-    end.
+    call_clean(ServerRef, Request, Timeout, Timeout).
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.
@@ -530,6 +531,7 @@ reply({reply,From,Reply}) ->
 reply(Replies) when is_list(Replies) ->
     replies(Replies).
 %%
+-compile({inline, [reply/2]}).
 -spec reply(From :: from(), Reply :: term()) -> ok.
 reply({To,Tag}, Reply) when is_pid(To) ->
     Msg = {Tag,Reply},
@@ -579,8 +581,58 @@ enter_loop(Module, Opts, State, Data, Server, Actions) ->
 %%---------------------------------------------------------------------------
 %% API helpers
 
+-compile({inline, [wrap_cast/1]}).
 wrap_cast(Event) ->
     {'$gen_cast',Event}.
+
+call_dirty(ServerRef, Request, Timeout, T) ->
+    try gen:call(ServerRef, '$gen_call', Request, T) of
+        {ok,Reply} ->
+            Reply
+    catch
+        Class:Reason ->
+            erlang:raise(
+              Class,
+              {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
+              erlang:get_stacktrace())
+    end.
+
+call_clean(ServerRef, Request, Timeout, T) ->
+    %% Call server through proxy process to dodge any late reply
+    Ref = make_ref(),
+    Self = self(),
+    Pid = spawn(
+            fun () ->
+                    Self !
+                        try gen:call(
+                              ServerRef, '$gen_call', Request, T) of
+                            Result ->
+                                {Ref,Result}
+                        catch Class:Reason ->
+                                {Ref,Class,Reason,
+                                 erlang:get_stacktrace()}
+                        end
+            end),
+    Mref = monitor(process, Pid),
+    receive
+        {Ref,Result} ->
+            demonitor(Mref, [flush]),
+            case Result of
+                {ok,Reply} ->
+                    Reply
+            end;
+        {Ref,Class,Reason,Stacktrace} ->
+            demonitor(Mref, [flush]),
+            erlang:raise(
+              Class,
+              {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
+              Stacktrace);
+        {'DOWN',Mref,_,_,Reason} ->
+            %% There is a theoretical possibility that the
+            %% proxy process gets killed between try--of and !
+            %% so this clause is in case of that
+            exit(Reason)
+    end.
 
 replies([{reply,From,Reply}|Replies]) ->
     reply(From, Reply),
@@ -606,60 +658,28 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
     %% The values should already have been type checked
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Opts),
-	HibernateAfterTimeout = gen:hibernate_after(Opts),
-	Events = [],
-    P = [],
+    HibernateAfterTimeout = gen:hibernate_after(Opts),
+    Events = [],
     Event = {internal,init_state},
     %% We enforce {postpone,false} to ensure that
     %% our fake Event gets discarded, thought it might get logged
-    NewActions =
-	if
-	    is_list(Actions) ->
-		Actions ++ [{postpone,false}];
-	    true ->
-		[Actions,{postpone,false}]
-	end,
-    TimerRefs = #{},
-    %% Key: timer ref
-    %% Value: the timer type i.e the timer's event type
-    %%
-    TimerTypes = #{},
-    %% Key: timer type i.e the timer's event type
-    %% Value: timer ref
-    %%
-    %% We add a timer to both timer_refs and timer_types
-    %% when we start it.  When we request an asynchronous
-    %% timer cancel we remove it from timer_types.  When
-    %% the timer cancel message arrives we remove it from
-    %% timer_refs.
-    %%
-    Hibernate = false,
-    CancelTimers = 0,
-    S =	#{
-      callback_mode => undefined,
-      state_enter => false,
-      module => Module,
-      name => Name,
-      state => State,
-      data => Data,
-      postponed => P,
-      %%
-      %% The following fields are finally set from to the arguments to
-      %% loop_event_actions/9 when it finally loops back to loop/3
-      %% in loop_event_result/11
-      timer_refs => TimerRefs,
-      timer_types => TimerTypes,
-      hibernate => Hibernate,
-	  hibernate_after => HibernateAfterTimeout,
-      cancel_timers => CancelTimers
-     },
-    NewDebug = sys_debug(Debug, S, State, {enter,Event,State}),
+    NewActions = listify(Actions) ++ [{postpone,false}],
+    S =
+        #state{
+           module = Module,
+           name = Name,
+           state = State,
+           data = Data,
+           hibernate_after = HibernateAfterTimeout},
+    CallEnter = true,
+    NewDebug = ?sys_debug(Debug, {Name,State}, {enter,Event,State}),
     case call_callback_mode(S) of
-	{ok,NewS} ->
+	#state{} = NewS ->
 	    loop_event_actions(
 	      Parent, NewDebug, NewS,
-	      Events, Event, State, Data, NewActions, true);
-	{Class,Reason,Stacktrace} ->
+	      Events, Event, State, Data, #trans_opts{},
+              NewActions, CallEnter);
+	[Class,Reason,Stacktrace] ->
 	    terminate(
 	      Class, Reason, Stacktrace, NewDebug,
 	      S, [Event|Events])
@@ -684,10 +704,8 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
 	      Class, Reason, Stacktrace,
-	      #{name => Name,
-		callback_mode => undefined,
-		state_enter => false},
-	      [], [], undefined),
+	      #state{name = Name},
+	      [], undefined),
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
@@ -717,10 +735,8 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    error_info(
 	      error, Error, ?STACKTRACE(),
-	      #{name => Name,
-		callback_mode => undefined,
-		state_enter => false},
-	      [], [], undefined),
+	      #state{name = Name},
+	      [], undefined),
 	    exit(Error)
     end.
 
@@ -734,9 +750,10 @@ system_terminate(Reason, _Parent, Debug, S) ->
     terminate(exit, Reason, ?STACKTRACE(), Debug, S, []).
 
 system_code_change(
-  #{module := Module,
-    state := State,
-    data := Data} = S,
+  #state{
+     module = Module,
+     state = State,
+     data = Data} = S,
   _Mod, OldVsn, Extra) ->
     case
 	try Module:code_change(OldVsn, State, Data, Extra)
@@ -746,29 +763,31 @@ system_code_change(
     of
 	{ok,NewState,NewData} ->
 	    {ok,
-	     S#{callback_mode := undefined,
-		state := NewState,
-		data := NewData}};
+	     S#state{
+               callback_mode = undefined,
+               state = NewState,
+               data = NewData}};
 	{ok,_} = Error ->
 	    error({case_clause,Error});
 	Error ->
 	    Error
     end.
 
-system_get_state(#{state := State, data := Data}) ->
+system_get_state(#state{state = State, data = Data}) ->
     {ok,{State,Data}}.
 
 system_replace_state(
   StateFun,
-  #{state := State,
-    data := Data} = S) ->
+  #state{
+     state = State,
+     data = Data} = S) ->
     {NewState,NewData} = Result = StateFun({State,Data}),
-    {ok,Result,S#{state := NewState, data := NewData}}.
+    {ok,Result,S#state{state = NewState, data = NewData}}.
 
 format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
-   #{name := Name, postponed := P} = S]) ->
+   #state{name = Name, postponed = P} = S]) ->
     Header = gen:format_status_header("Status for state machine", Name),
     Log = sys:get_debug(log, Debug, []),
     [{header,Header},
@@ -786,6 +805,9 @@ format_status(
 %% Format debug messages.  Print them as the call-back module sees
 %% them, not as the real erlang messages.  Use trace for that.
 %%---------------------------------------------------------------------------
+
+sys_debug(Debug, NameState, Entry) ->
+  sys:handle_debug(Debug, fun print_event/3, NameState, Entry).
 
 print_event(Dev, {in,Event}, {Name,State}) ->
     io:format(
@@ -819,15 +841,6 @@ event_string(Event) ->
 	    io_lib:format("~tw ~tp", [EventType,EventContent])
     end.
 
-sys_debug(Debug, #{name := Name}, State, Entry) ->
-    case Debug of
-	[] ->
-	    Debug;
-	_ ->
-	    sys:handle_debug(
-	      Debug, fun print_event/3, {Name,State}, Entry)
-    end.
-
 %%%==========================================================================
 %%% Internal callbacks
 
@@ -842,14 +855,16 @@ wakeup_from_hibernate(Parent, Debug, S) ->
 %% and detours through sys:handle_system_message/7 and proc_lib:hibernate/3
 
 %% Entry point for system_continue/3
-loop(Parent, Debug, #{hibernate := true, cancel_timers := 0} = S) ->
+loop(Parent, Debug, #state{hibernate = true, cancel_timers = 0} = S) ->
     loop_hibernate(Parent, Debug, S);
 loop(Parent, Debug, S) ->
     loop_receive(Parent, Debug, S).
 
 loop_hibernate(Parent, Debug, S) ->
+    %%
     %% Does not return but restarts process at
     %% wakeup_from_hibernate/3 that jumps to loop_receive/3
+    %%
     proc_lib:hibernate(
       ?MODULE, wakeup_from_hibernate, [Parent,Debug,S]),
     error(
@@ -857,17 +872,18 @@ loop_hibernate(Parent, Debug, S) ->
        {wakeup_from_hibernate,3}}).
 
 %% Entry point for wakeup_from_hibernate/3
-loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
+loop_receive(
+  Parent, Debug, #state{hibernate_after = HibernateAfterTimeout} = S) ->
+    %%
     receive
 	Msg ->
 	    case Msg of
 		{system,Pid,Req} ->
-		    #{hibernate := Hibernate} = S,
 		    %% Does not return but tail recursively calls
 		    %% system_continue/3 that jumps to loop/3
 		    sys:handle_system_msg(
 		      Req, Pid, Parent, ?MODULE, Debug, S,
-		      Hibernate);
+		      S#state.hibernate);
 		{'EXIT',Parent,Reason} = EXIT ->
 		    %% EXIT is not a 2-tuple therefore
 		    %% not an event but this will stand out
@@ -875,9 +891,9 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 		    Q = [EXIT],
 		    terminate(exit, Reason, ?STACKTRACE(), Debug, S, Q);
 		{timeout,TimerRef,TimerMsg} ->
-		    #{timer_refs := TimerRefs,
-		      timer_types := TimerTypes,
-		      hibernate := Hibernate} = S,
+		    #state{
+                       timer_refs = TimerRefs,
+                       timer_types = TimerTypes} = S,
 		    case TimerRefs of
 			#{TimerRef := TimerType} ->
 			    %% We know of this timer; is it a running
@@ -887,7 +903,6 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 				#{TimerType := TimerRef} ->
 				    %% The timer type maps back to this
 				    %% timer ref, so it was a running timer
-				    Event = {TimerType,TimerMsg},
 				    %% Unregister the triggered timeout
 				    NewTimerRefs =
 					maps:remove(TimerRef, TimerRefs),
@@ -895,11 +910,10 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 					maps:remove(TimerType, TimerTypes),
 				    loop_receive_result(
 				      Parent, Debug,
-				      S#{
-					timer_refs := NewTimerRefs,
-					timer_types := NewTimerTypes},
-				      Hibernate,
-				      Event);
+				      S#state{
+					timer_refs = NewTimerRefs,
+					timer_types = NewTimerTypes},
+				      TimerType, TimerMsg);
 				_ ->
 				    %% This was a late timeout message
 				    %% from timer being cancelled, so
@@ -909,14 +923,13 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 			    end;
 			_ ->
 			    %% Not our timer; present it as an event
-			    Event = {info,Msg},
-			    loop_receive_result(
-			      Parent, Debug, S, Hibernate, Event)
+			    loop_receive_result(Parent, Debug, S, info, Msg)
 		    end;
 		{cancel_timer,TimerRef,_} ->
-		    #{timer_refs := TimerRefs,
-		      cancel_timers := CancelTimers,
-		      hibernate := Hibernate} = S,
+		    #state{
+                       timer_refs = TimerRefs,
+                       cancel_timers = CancelTimers,
+                       hibernate = Hibernate} = S,
 		    case TimerRefs of
 			#{TimerRef := _} ->
 			    %% We must have requested a cancel
@@ -926,9 +939,9 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 				maps:remove(TimerRef, TimerRefs),
 			    NewCancelTimers = CancelTimers - 1,
 			    NewS =
-				S#{
-				  timer_refs := NewTimerRefs,
-				  cancel_timers := NewCancelTimers},
+				S#state{
+				  timer_refs = NewTimerRefs,
+				  cancel_timers = NewCancelTimers},
 			    if
 				Hibernate =:= true, NewCancelTimers =:= 0 ->
 				    %% No more cancel_timer msgs to expect;
@@ -940,238 +953,631 @@ loop_receive(Parent, Debug, #{hibernate_after := HibernateAfterTimeout} = S) ->
 			_ ->
 			    %% Not our cancel_timer msg;
 			    %% present it as an event
-			    Event = {info,Msg},
-			    loop_receive_result(
-			      Parent, Debug, S, Hibernate, Event)
+			    loop_receive_result(Parent, Debug, S, info, Msg)
 		    end;
 		_ ->
 		    %% External msg
-		    #{hibernate := Hibernate} = S,
-		    Event =
-			case Msg of
-			    {'$gen_call',From,Request} ->
-				{{call,From},Request};
-			    {'$gen_cast',E} ->
-				{cast,E};
-			    _ ->
-				{info,Msg}
-			end,
-		    loop_receive_result(
-		      Parent, Debug, S, Hibernate, Event)
+                    case Msg of
+                        {'$gen_call',From,Request} ->
+                            loop_receive_result(
+                              Parent, Debug, S, {call,From}, Request);
+                        {'$gen_cast',Cast} ->
+                            loop_receive_result(Parent, Debug, S, cast, Cast);
+                        _ ->
+                            loop_receive_result(Parent, Debug, S, info, Msg)
+                    end
 	    end
     after
 	    HibernateAfterTimeout ->
 		    loop_hibernate(Parent, Debug, S)
     end.
 
-loop_receive_result(
-  Parent, Debug,
-  #{state := State,
-    timer_types := TimerTypes, cancel_timers := CancelTimers} = S,
-  Hibernate, Event) ->
-    %% From now the 'hibernate' field in S is invalid
-    %% and will be restored when looping back
-    %% in loop_event_result/11
-    NewDebug = sys_debug(Debug, S, State, {in,Event}),
+loop_receive_result(Parent, ?not_sys_debug, S, Type, Content) ->
     %% Here is the queue of not yet handled events created
     Events = [],
-    %% Cancel any running event timer
-    case
-	cancel_timer_by_type(timeout, TimerTypes, CancelTimers)
-    of
-	{_,CancelTimers} ->
-	    %% No timer cancelled
-	    loop_event(Parent, NewDebug, S, Events, Event, Hibernate);
-	{NewTimerTypes,NewCancelTimers} ->
-	    %% The timer is removed from NewTimerTypes but
-	    %% remains in TimerRefs until we get
-	    %% the cancel_timer msg
-	    NewS =
-		S#{
-		  timer_types := NewTimerTypes,
-		  cancel_timers := NewCancelTimers},
-	    loop_event(Parent, NewDebug, NewS, Events, Event, Hibernate)
-    end.
+    loop_event(Parent, ?not_sys_debug, S, Events, Type, Content);
+loop_receive_result(
+  Parent, Debug, #state{name = Name, state = State} = S, Type, Content) ->
+    NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+    %% Here is the queue of not yet handled events created
+    Events = [],
+    loop_event(Parent, NewDebug, S, Events, Type, Content).
 
 %% Entry point for handling an event, received or enqueued
 loop_event(
-  Parent, Debug,
-  #{state := State, data := Data} = S,
-  Events, {Type,Content} = Event, Hibernate) ->
+  Parent, Debug, #state{hibernate = Hibernate} = S,
+  Events, Type, Content) ->
     %%
-    %% If (this old) Hibernate is true here it can only be
-    %% because it was set from an event action
-    %% and we did not go into hibernation since there were
-    %% events in queue, so we do what the user
-    %% might rely on i.e collect garbage which
-    %% would have happened if we actually hibernated
-    %% and immediately was awakened
-    Hibernate andalso garbage_collect(),
-    case call_state_function(S, Type, Content, State, Data) of
-	{ok,Result,NewS} ->
-	    {NextState,NewData,Actions,EnterCall} =
-		parse_event_result(
-		  true, Debug, NewS,
-		  Events, Event, State, Data, Result),
-	    loop_event_actions(
-	      Parent, Debug, NewS,
-	      Events, Event, NextState, NewData, Actions, EnterCall);
-	{Class,Reason,Stacktrace} ->
-	    terminate(
-	      Class, Reason, Stacktrace, Debug, S,
-	      [Event|Events])
+    case Hibernate of
+        true ->
+            %%
+            %% If (this old) Hibernate is true here it can only be
+            %% because it was set from an event action
+            %% and we did not go into hibernation since there were
+            %% events in queue, so we do what the user
+            %% might rely on i.e collect garbage which
+            %% would have happened if we actually hibernated
+            %% and immediately was awakened.
+            %%
+            _ = garbage_collect(),
+            loop_event_state_function(
+              Parent, Debug, S, Events, Type, Content);
+        false ->
+            loop_event_state_function(
+              Parent, Debug, S, Events, Type, Content)
     end.
 
-loop_event_actions(
+%% Call the state function
+loop_event_state_function(
   Parent, Debug,
-  #{state := State, state_enter := StateEnter} = S,
-  Events, Event, NextState, NewData,
-  Actions, EnterCall) ->
-    %% Hibernate is reborn here as false being
-    %% the default value from parse_actions/4
-    case parse_actions(Debug, S, State, Actions) of
-	{ok,NewDebug,Hibernate,TimeoutsR,Postpone,NextEventsR} ->
-	    if
-		StateEnter, EnterCall ->
-		    loop_event_enter(
-		      Parent, NewDebug, S,
-		      Events, Event, NextState, NewData,
-		      Hibernate, TimeoutsR, Postpone, NextEventsR);
-		true ->
-		    loop_event_result(
-		      Parent, NewDebug, S,
-		      Events, Event, NextState, NewData,
-		      Hibernate, TimeoutsR, Postpone, NextEventsR)
-	    end;
-	{Class,Reason,Stacktrace} ->
+  #state{state = State, data = Data} = S,
+  Events, Type, Content) ->
+    %%
+    %% The field 'hibernate' in S is now invalid and will be
+    %% restored when looping back to loop/3 or loop_event/6.
+    %%
+    Event = {Type,Content},
+    TransOpts = false,
+    case call_state_function(S, Type, Content, State, Data) of
+        {Result, NewS} ->
+            loop_event_result(
+              Parent, Debug, NewS,
+              Events, Event, State, Data, TransOpts, Result);
+	[Class,Reason,Stacktrace] ->
 	    terminate(
-	      Class, Reason, Stacktrace, Debug, S,
-	      [Event|Events])
+	      Class, Reason, Stacktrace, Debug, S, [Event|Events])
     end.
 
-loop_event_enter(
-  Parent, Debug, #{state := State} = S,
-  Events, Event, NextState, NewData,
-  Hibernate, TimeoutsR, Postpone, NextEventsR) ->
-    case call_state_function(S, enter, State, NextState, NewData) of
-	{ok,Result,NewS} ->
-	    case parse_event_result(
-		   false, Debug, NewS,
-		   Events, Event, NextState, NewData, Result) of
-		{_,NewerData,Actions,EnterCall} ->
-		    loop_event_enter_actions(
-		      Parent, Debug, NewS,
-		      Events, Event, NextState, NewerData,
-		      Hibernate, TimeoutsR, Postpone, NextEventsR,
-		      Actions, EnterCall)
-	    end;
-	{Class,Reason,Stacktrace} ->
+%% Make a state enter call to the state function
+loop_event_state_enter(
+  Parent, Debug, #state{state = PrevState} = S,
+  Events, Event, NextState, NewData, TransOpts) ->
+    %%
+    case call_state_function(S, enter, PrevState, NextState, NewData) of
+        {Result, NewS} ->
+            loop_event_result(
+              Parent, Debug, NewS,
+              Events, Event, NextState, NewData, TransOpts, Result);
+	[Class,Reason,Stacktrace] ->
 	    terminate(
-	      Class, Reason, Stacktrace, Debug,
-	      S#{
-		state := NextState,
-		data := NewData,
-		hibernate := Hibernate},
-	      [Event|Events])
+	      Class, Reason, Stacktrace, Debug, S, [Event|Events])
     end.
 
-loop_event_enter_actions(
-  Parent, Debug, #{state_enter := StateEnter} = S,
-  Events, Event, NextState, NewData,
-  Hibernate, TimeoutsR, Postpone, NextEventsR,
-  Actions, EnterCall) ->
-    case
-	parse_enter_actions(
-	  Debug, S, NextState, Actions, Hibernate, TimeoutsR)
-    of
-	{ok,NewDebug,NewHibernate,NewTimeoutsR,_,_} ->
-	    if
-		StateEnter, EnterCall ->
-		    loop_event_enter(
-		      Parent, NewDebug, S,
-		      Events, Event, NextState, NewData,
-		      NewHibernate, NewTimeoutsR, Postpone, NextEventsR);
-		true ->
-		    loop_event_result(
-		      Parent, NewDebug, S,
-		      Events, Event, NextState, NewData,
-		      NewHibernate, NewTimeoutsR, Postpone, NextEventsR)
-	    end;
-	{Class,Reason,Stacktrace} ->
-	    terminate(
-	      Class, Reason, Stacktrace, Debug,
-	      S#{
-		state := NextState,
-		data := NewData,
-		hibernate := Hibernate},
-	      [Event|Events])
-    end.
-
+%% Process the result from the state function.
+%% When TransOpts =:= false it was a state function call,
+%% otherwise it is an option tuple and it was a state enter call.
+%%
 loop_event_result(
+  Parent, Debug, S,
+  Events, Event, State, Data, TransOpts, Result) ->
+    %%
+    case Result of
+	{next_state,State,NewData} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              [], false);
+	{next_state,NextState,NewData}
+          when TransOpts =:= false ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, NextState, NewData, TransOpts,
+              [], true);
+	{next_state,State,NewData,Actions} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              Actions, false);
+	{next_state,NextState,NewData,Actions}
+          when TransOpts =:= false ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, NextState, NewData, TransOpts,
+              Actions, true);
+        %%
+        {keep_state,NewData} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              [], false);
+        {keep_state,NewData,Actions} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              Actions, false);
+        %%
+        keep_state_and_data ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, Data, TransOpts,
+              [], false);
+        {keep_state_and_data,Actions} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, Data, TransOpts,
+              Actions, false);
+        %%
+        {repeat_state,NewData} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              [], true);
+        {repeat_state,NewData,Actions} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, NewData, TransOpts,
+              Actions, true);
+        %%
+        repeat_state_and_data ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, Data, TransOpts,
+              [], true);
+        {repeat_state_and_data,Actions} ->
+            loop_event_actions(
+              Parent, Debug, S,
+              Events, Event, State, Data, TransOpts,
+              Actions, true);
+        %%
+	stop ->
+            terminate(
+              exit, normal, ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
+	{stop,Reason} ->
+            terminate(
+              exit, Reason, ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
+	{stop,Reason,NewData} ->
+            terminate(
+              exit, Reason, ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = NewData,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
+	%%
+	{stop_and_reply,Reason,Replies} ->
+            reply_then_terminate(
+              exit, Reason, ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events], Replies);
+	{stop_and_reply,Reason,Replies,NewData} ->
+            reply_then_terminate(
+              exit, Reason, ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = NewData,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events], Replies);
+	%%
+	_ ->
+            terminate(
+              error,
+              {bad_return_from_state_function,Result},
+              ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events])
+    end.
+
+-compile({inline, [hibernate_in_trans_opts/1]}).
+hibernate_in_trans_opts(false) ->
+    (#trans_opts{})#trans_opts.hibernate;
+hibernate_in_trans_opts(#trans_opts{hibernate = Hibernate}) ->
+    Hibernate.
+
+%% Ensure that Actions are a list
+loop_event_actions(
+  Parent, Debug, S,
+  Events, Event, NextState, NewerData, TransOpts,
+  Actions, CallEnter) ->
+    loop_event_actions_list(
+      Parent, Debug, S,
+      Events, Event, NextState, NewerData, TransOpts,
+      listify(Actions), CallEnter).
+
+%% Process actions from the state function
+loop_event_actions_list(
+  Parent, Debug, #state{state_enter = StateEnter} = S,
+  Events, Event, NextState, NewerData, TransOpts,
+  Actions, CallEnter) ->
+    %%
+    case parse_actions(TransOpts, Debug, S, Actions) of
+        {NewDebug,NewTransOpts}
+          when StateEnter, CallEnter ->
+            loop_event_state_enter(
+              Parent, NewDebug, S,
+              Events, Event, NextState, NewerData, NewTransOpts);
+        {NewDebug,NewTransOpts} ->
+            loop_event_done(
+              Parent, NewDebug, S,
+              Events, Event, NextState, NewerData, NewTransOpts);
+        [Class,Reason,Stacktrace,NewDebug] ->
+            terminate(
+              Class, Reason, Stacktrace, NewDebug,
+              S#state{
+                state = NextState,
+                data = NewerData,
+                hibernate = TransOpts#trans_opts.hibernate},
+              [Event|Events])
+    end.
+
+parse_actions(false, Debug, S, Actions) ->
+    parse_actions(true, Debug, S, Actions, #trans_opts{});
+parse_actions(TransOpts, Debug, S, Actions) ->
+    parse_actions(false, Debug, S, Actions, TransOpts).
+%%
+parse_actions(_StateCall, Debug, _S, [], TransOpts) ->
+    {Debug,TransOpts};
+parse_actions(StateCall, Debug, S, [Action|Actions], TransOpts) ->
+    case Action of
+	%% Actual actions
+	{reply,From,Reply} ->
+            parse_actions_reply(
+              StateCall, Debug, S, Actions, TransOpts, From, Reply);
+	%%
+	%% Actions that set options
+	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
+            parse_actions(
+              StateCall, Debug, S, Actions,
+              TransOpts#trans_opts{hibernate = NewHibernate});
+	hibernate ->
+            parse_actions(
+              StateCall, Debug, S, Actions,
+              TransOpts#trans_opts{hibernate = true});
+	%%
+	{postpone,NewPostpone} when not NewPostpone orelse StateCall ->
+            parse_actions(
+              StateCall, Debug, S, Actions,
+              TransOpts#trans_opts{postpone = NewPostpone});
+	postpone when StateCall ->
+            parse_actions(
+              StateCall, Debug, S, Actions,
+              TransOpts#trans_opts{postpone = true});
+	%%
+	{next_event,Type,Content} ->
+            parse_actions_next_event(
+              StateCall, Debug, S, Actions, TransOpts, Type, Content);
+	%%
+        _ ->
+            parse_actions_timeout(
+              StateCall, Debug, S, Actions, TransOpts, Action)
+    end.
+
+parse_actions_reply(
+  StateCall, ?not_sys_debug, S, Actions, TransOpts,
+  From, Reply) ->
+    %%
+    case from(From) of
+        true ->
+            reply(From, Reply),
+            parse_actions(StateCall, ?not_sys_debug, S, Actions, TransOpts);
+        false ->
+            [error,
+             {bad_action_from_state_function,{reply,From,Reply}},
+             ?STACKTRACE(),
+             ?not_sys_debug]
+    end;
+parse_actions_reply(
+  StateCall, Debug, #state{name = Name, state = State} = S,
+  Actions, TransOpts, From, Reply) ->
+    %%
+    case from(From) of
+        true ->
+            reply(From, Reply),
+            NewDebug = sys_debug(Debug, {Name,State}, {out,Reply,From}),
+            parse_actions(StateCall, NewDebug, S, Actions, TransOpts);
+        false ->
+            [error,
+             {bad_action_from_state_function,{reply,From,Reply}},
+             ?STACKTRACE(),
+             Debug]
+    end.
+
+parse_actions_next_event(
+  StateCall, ?not_sys_debug, S,
+  Actions, TransOpts, Type, Content) ->
+    case event_type(Type) of
+        true when StateCall ->
+            NextEventsR = TransOpts#trans_opts.next_events_r,
+            parse_actions(
+              StateCall, ?not_sys_debug, S, Actions,
+              TransOpts#trans_opts{
+                next_events_r = [{Type,Content}|NextEventsR]});
+        _ ->
+            [error,
+             {bad_action_from_state_function,{next_events,Type,Content}},
+             ?STACKTRACE(),
+             ?not_sys_debug]
+    end;
+parse_actions_next_event(
+  StateCall, Debug, #state{name = Name, state = State} = S,
+  Actions, TransOpts, Type, Content) ->
+    case event_type(Type) of
+        true when StateCall ->
+            NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+            NextEventsR = TransOpts#trans_opts.next_events_r,
+            parse_actions(
+              StateCall, NewDebug, S, Actions,
+              TransOpts#trans_opts{
+                next_events_r = [{Type,Content}|NextEventsR]});
+        _ ->
+            [error,
+             {bad_action_from_state_function,{next_events,Type,Content}},
+             ?STACKTRACE(),
+             Debug]
+    end.
+
+parse_actions_timeout(
+  StateCall, Debug, S, Actions, TransOpts,
+  {TimerType,Time,TimerMsg,TimerOpts} = AbsoluteTimeout) ->
+    %%
+    case classify_timer(Time, listify(TimerOpts)) of
+        absolute ->
+            parse_actions_timeout_add(
+              StateCall, Debug, S, Actions,
+              TransOpts, AbsoluteTimeout);
+        relative ->
+            RelativeTimeout = {TimerType,Time,TimerMsg},
+            parse_actions_timeout_add(
+              StateCall, Debug, S, Actions,
+              TransOpts, RelativeTimeout);
+        badarg ->
+            [error,
+             {bad_action_from_state_function,AbsoluteTimeout},
+             ?STACKTRACE(),
+             Debug]
+    end;
+parse_actions_timeout(
+  StateCall, Debug, S, Actions, TransOpts,
+  {_,Time,_} = RelativeTimeout) ->
+    case classify_timer(Time, []) of
+        relative ->
+            parse_actions_timeout_add(
+              StateCall, Debug, S, Actions,
+              TransOpts, RelativeTimeout);
+        badarg ->
+            [error,
+             {bad_action_from_state_function,RelativeTimeout},
+             ?STACKTRACE(),
+             Debug]
+    end;
+parse_actions_timeout(
+  StateCall, Debug, S, Actions, TransOpts,
+  Timeout) ->
+    case classify_timer(Timeout, []) of
+        relative ->
+            parse_actions_timeout_add(
+              StateCall, Debug, S, Actions, TransOpts, Timeout);
+        badarg ->
+            [error,
+             {bad_action_from_state_function,Timeout},
+             ?STACKTRACE(),
+             Debug]
+    end.
+
+parse_actions_timeout_add(
+  StateCall, Debug, S, Actions,
+  #trans_opts{timeouts_r = TimeoutsR} = TransOpts, Timeout) ->
+    parse_actions(
+      StateCall, Debug, S, Actions,
+      TransOpts#trans_opts{timeouts_r = [Timeout|TimeoutsR]}).
+
+%% Do the state transition
+loop_event_done(
+  Parent, ?not_sys_debug,
+  #state{postponed = P} = S,
+  Events, Event, NextState, NewData,
+  #trans_opts{
+     postpone = Postpone, hibernate = Hibernate,
+     timeouts_r = [], next_events_r = []}) ->
+    %%
+    %% Optimize the simple cases
+    %% i.e no timer changes, no inserted events and no debug,
+    %% by duplicate stripped down code
+    %%
+    %% Fast path
+    %%
+    case Postpone of
+        true ->
+            loop_event_done_fast(
+              Parent, Hibernate,
+              S,
+              Events, [Event|P], NextState, NewData);
+        false ->
+            loop_event_done_fast(
+              Parent, Hibernate,
+              S,
+              Events, P, NextState, NewData)
+    end;
+loop_event_done(
   Parent, Debug_0,
-  #{state := State, postponed := P_0,
-    timer_refs := TimerRefs_0, timer_types := TimerTypes_0,
-    cancel_timers := CancelTimers_0} = S_0,
+  #state{
+     state = State, postponed = P_0,
+     timer_refs = TimerRefs_0, timer_types = TimerTypes_0,
+     cancel_timers = CancelTimers_0} = S,
   Events_0, Event_0, NextState, NewData,
-  Hibernate, TimeoutsR, Postpone, NextEventsR) ->
+  #trans_opts{
+     hibernate = Hibernate, timeouts_r = TimeoutsR,
+     postpone = Postpone, next_events_r = NextEventsR}) ->
     %%
     %% All options have been collected and next_events are buffered.
     %% Do the actual state transition.
     %%
-    {Debug_1,P_1} = % Move current event to postponed if Postpone
+    %% Full feature path
+    %%
+    [Debug_1|P_1] = % Move current event to postponed if Postpone
 	case Postpone of
 	    true ->
-		{sys_debug(Debug_0, S_0, State, {postpone,Event_0,State}),
-		 [Event_0|P_0]};
+		[?sys_debug(
+                    Debug_0,
+                    {S#state.name,State},
+                    {postpone,Event_0,State}),
+		 Event_0|P_0];
 	    false ->
-		{sys_debug(Debug_0, S_0, State, {consume,Event_0,State}),
-		 P_0}
+		[?sys_debug(
+                    Debug_0,
+                    {S#state.name,State},
+                    {consume,Event_0,State})|P_0]
 	end,
-    {Events_1,P_2,{TimerTypes_1,CancelTimers_1}} =
-	%% Move all postponed events to queue and cancel the
-	%% state timeout if the state changes
+    {Events_2,P_2,Timers_2} =
+	%% Move all postponed events to queue,
+        %% cancel the event timer,
+        %% and cancel the state timeout if the state changes
 	if
 	    NextState =:= State ->
-		{Events_0,P_1,{TimerTypes_0,CancelTimers_0}};
+		{Events_0,P_1,
+                 cancel_timer_by_type(
+                   timeout, {TimerTypes_0,CancelTimers_0})};
 	    true ->
 		{lists:reverse(P_1, Events_0),
 		 [],
 		 cancel_timer_by_type(
-		   state_timeout, TimerTypes_0, CancelTimers_0)}
-		    %% The state timer is removed from TimerTypes_1
-		    %% but remains in TimerRefs_0 until we get
+		   state_timeout,
+                   cancel_timer_by_type(
+                     timeout, {TimerTypes_0,CancelTimers_0}))}
+		    %% The state timer is removed from TimerTypes
+		    %% but remains in TimerRefs until we get
 		    %% the cancel_timer msg
 	end,
-    {TimerRefs_2,TimerTypes_2,CancelTimers_2,TimeoutEvents} =
-	%% Stop and start non-event timers
-	parse_timers(TimerRefs_0, TimerTypes_1, CancelTimers_1, TimeoutsR),
+    {TimerRefs_3,{TimerTypes_3,CancelTimers_3},TimeoutEvents} =
+	%% Stop and start timers
+	parse_timers(TimerRefs_0, Timers_2, TimeoutsR),
     %% Place next events last in reversed queue
-    Events_2R = lists:reverse(Events_1, NextEventsR),
-    %% Enqueue immediate timeout events and start event timer
-    Events_3R =	prepend_timeout_events(TimeoutEvents, Events_2R),
-    S_1 =
-	S_0#{
-	  state := NextState,
-	  data := NewData,
-	  postponed := P_2,
-	  timer_refs := TimerRefs_2,
-	  timer_types := TimerTypes_2,
-	  cancel_timers := CancelTimers_2,
-	  hibernate := Hibernate},
-    case lists:reverse(Events_3R) of
-	[] ->
-	    %% Get a new event
-	    loop(Parent, Debug_1, S_1);
-	[Event|Events] ->
+    Events_3R = lists:reverse(Events_2, NextEventsR),
+    %% Enqueue immediate timeout events
+    Events_4R =	prepend_timeout_events(TimeoutEvents, Events_3R),
+    loop_event_done(
+      Parent, Debug_1,
+      S#state{
+        state = NextState,
+        data = NewData,
+        postponed = P_2,
+        timer_refs = TimerRefs_3,
+        timer_types = TimerTypes_3,
+        cancel_timers = CancelTimers_3,
+        hibernate = Hibernate},
+      lists:reverse(Events_4R)).
+
+%% Fast path
+%%
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{
+     state = NextState,
+     timer_types = #{timeout := _} = TimerTypes,
+     cancel_timers = CancelTimers} = S,
+  Events, P, NextState, NewData) ->
+    %%
+    %% Same state, event timeout active
+    %%
+    loop_event_done_fast(
+      Parent, Hibernate, S,
+      Events, P, NextState, NewData,
+      cancel_timer_by_type(
+        timeout, {TimerTypes,CancelTimers}));
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{state = NextState} = S,
+  Events, P, NextState, NewData) ->
+    %%
+    %% Same state
+    %%
+    loop_event_done(
+      Parent, ?not_sys_debug,
+      S#state{
+        data = NewData,
+        postponed = P,
+        hibernate = Hibernate},
+      Events);
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{
+     timer_types = #{timeout := _} = TimerTypes,
+     cancel_timers = CancelTimers} = S,
+  Events, P, NextState, NewData) ->
+    %%
+    %% State change, event timeout active
+    %%
+    loop_event_done_fast(
+      Parent, Hibernate, S,
+      lists:reverse(P, Events), [], NextState, NewData,
+        cancel_timer_by_type(
+          state_timeout,
+          cancel_timer_by_type(
+            timeout, {TimerTypes,CancelTimers})));
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{
+     timer_types = #{state_timeout := _} = TimerTypes,
+     cancel_timers = CancelTimers} = S,
+  Events, P, NextState, NewData) ->
+    %%
+    %% State change, state timeout active
+    %%
+    loop_event_done_fast(
+      Parent, Hibernate, S,
+      lists:reverse(P, Events), [], NextState, NewData,
+        cancel_timer_by_type(
+          state_timeout,
+          cancel_timer_by_type(
+            timeout, {TimerTypes,CancelTimers})));
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{} = S,
+  Events, P, NextState, NewData) ->
+    %%
+    %% State change, no timeout to automatically cancel
+    %%
+    loop_event_done(
+      Parent, ?not_sys_debug,
+      S#state{
+        state = NextState,
+        data = NewData,
+        postponed = [],
+        hibernate = Hibernate},
+      lists:reverse(P, Events)).
+%%
+%% Fast path
+%%
+loop_event_done_fast(
+  Parent, Hibernate, S,
+  Events, P, NextState, NewData,
+  {TimerTypes,CancelTimers}) ->
+    %%
+    loop_event_done(
+      Parent, ?not_sys_debug,
+      S#state{
+        state = NextState,
+        data = NewData,
+        postponed = P,
+        timer_types = TimerTypes,
+        cancel_timers = CancelTimers,
+        hibernate = Hibernate},
+      Events).
+
+loop_event_done(Parent, Debug, S, Q) ->
+    case Q of
+        [] ->
+            %% Get a new event
+            loop(Parent, Debug, S);
+        [{Type,Content}|Events] ->
 	    %% Loop until out of enqueued events
-	    loop_event(Parent, Debug_1, S_1, Events, Event, Hibernate)
+	    loop_event(Parent, Debug, S, Events, Type, Content)
     end.
 
 
 %%---------------------------------------------------------------------------
 %% Server loop helpers
 
-call_callback_mode(#{module := Module} = S) ->
+call_callback_mode(#state{module = Module} = S) ->
     try Module:callback_mode() of
 	CallbackMode ->
 	    callback_mode_result(S, CallbackMode)
@@ -1179,58 +1585,45 @@ call_callback_mode(#{module := Module} = S) ->
 	CallbackMode ->
 	    callback_mode_result(S, CallbackMode);
 	Class:Reason ->
-	    {Class,Reason,erlang:get_stacktrace()}
+	    [Class,Reason,erlang:get_stacktrace()]
     end.
 
 callback_mode_result(S, CallbackMode) ->
-    case
-	parse_callback_mode(
-	  if
-	      is_atom(CallbackMode) ->
-		  [CallbackMode];
-	      true ->
-		  CallbackMode
-	  end, undefined, false)
-    of
-	{undefined,_} ->
-	    {error,
-	     {bad_return_from_callback_mode,CallbackMode},
-	     ?STACKTRACE()};
-	{CBMode,StateEnter} ->
-	    {ok,
-	     S#{
-	       callback_mode := CBMode,
-	       state_enter := StateEnter}}
-    end.
-
-parse_callback_mode([], CBMode, StateEnter) ->
-    {CBMode,StateEnter};
-parse_callback_mode([H|T], CBMode, StateEnter) ->
+    callback_mode_result(
+      S, CallbackMode, listify(CallbackMode), undefined, false).
+%%
+callback_mode_result(_S, CallbackMode, [], undefined, _StateEnter) ->
+    [error,
+     {bad_return_from_callback_mode,CallbackMode},
+     ?STACKTRACE()];
+callback_mode_result(S, _CallbackMode, [], CBMode, StateEnter) ->
+    S#state{callback_mode = CBMode, state_enter = StateEnter};
+callback_mode_result(S, CallbackMode, [H|T], CBMode, StateEnter) ->
     case callback_mode(H) of
 	true ->
-	    parse_callback_mode(T, H, StateEnter);
+            callback_mode_result(S, CallbackMode, T, H, StateEnter);
 	false ->
-	    case H of
-		state_enter ->
-		    parse_callback_mode(T, CBMode, true);
-		_ ->
-		    {undefined,StateEnter}
+	    case state_enter(H) of
+		true ->
+                    callback_mode_result(S, CallbackMode, T, CBMode, true);
+		false ->
+                    [error,
+                     {bad_return_from_callback_mode,CallbackMode},
+                     ?STACKTRACE()]
 	    end
-    end;
-parse_callback_mode(_, _CBMode, StateEnter) ->
-    {undefined,StateEnter}.
+    end.
 
 
 call_state_function(
-  #{callback_mode := undefined} = S, Type, Content, State, Data) ->
+  #state{callback_mode = undefined} = S, Type, Content, State, Data) ->
     case call_callback_mode(S) of
-	{ok,NewS} ->
+	#state{} = NewS ->
 	    call_state_function(NewS, Type, Content, State, Data);
 	Error ->
 	    Error
     end;
 call_state_function(
-  #{callback_mode := CallbackMode, module := Module} = S,
+  #state{callback_mode = CallbackMode, module = Module} = S,
   Type, Content, State, Data) ->
     try
 	case CallbackMode of
@@ -1241,333 +1634,108 @@ call_state_function(
 	end
     of
 	Result ->
-	    {ok,Result,S}
+	    {Result,S}
     catch
 	Result ->
-	    {ok,Result,S};
+	    {Result,S};
 	Class:Reason ->
-	    {Class,Reason,erlang:get_stacktrace()}
+	    [Class,Reason,erlang:get_stacktrace()]
     end.
 
 
-%% Interpret all callback return variants
-parse_event_result(
-  AllowStateChange, Debug, S,
-  Events, Event, State, Data, Result) ->
-    case Result of
-	stop ->
-	    terminate(
-	      exit, normal, ?STACKTRACE(), Debug,
-	      S#{state := State, data := Data},
-	      [Event|Events]);
-	{stop,Reason} ->
-	    terminate(
-	      exit, Reason, ?STACKTRACE(), Debug,
-	      S#{state := State, data := Data},
-	      [Event|Events]);
-	{stop,Reason,NewData} ->
-	    terminate(
-	      exit, Reason, ?STACKTRACE(), Debug,
-	      S#{state := State, data := NewData},
-	      [Event|Events]);
-	%%
-	{stop_and_reply,Reason,Replies} ->
-	    reply_then_terminate(
-	      exit, Reason, ?STACKTRACE(), Debug,
-	      S#{state := State, data := Data},
-	      [Event|Events], Replies);
-	{stop_and_reply,Reason,Replies,NewData} ->
-	    reply_then_terminate(
-	      exit, Reason, ?STACKTRACE(), Debug,
-	      S#{state := State, data := NewData},
-	      [Event|Events], Replies);
-	%%
-	{next_state,State,NewData} ->
-	    {State,NewData,[],false};
-	{next_state,NextState,NewData} when AllowStateChange ->
-	    {NextState,NewData,[],true};
-	{next_state,State,NewData,Actions} ->
-	    {State,NewData,Actions,false};
-	{next_state,NextState,NewData,Actions} when AllowStateChange ->
-	    {NextState,NewData,Actions,true};
-	%%
-	{keep_state,NewData} ->
-	    {State,NewData,[],false};
-	{keep_state,NewData,Actions} ->
-	    {State,NewData,Actions,false};
-	keep_state_and_data ->
-	    {State,Data,[],false};
-	{keep_state_and_data,Actions} ->
-	    {State,Data,Actions,false};
-	%%
-	{repeat_state,NewData} ->
-	    {State,NewData,[],true};
-	{repeat_state,NewData,Actions} ->
-	    {State,NewData,Actions,true};
-	repeat_state_and_data ->
-	    {State,Data,[],true};
-	{repeat_state_and_data,Actions} ->
-	    {State,Data,Actions,true};
-	%%
-	_ ->
-	    terminate(
-	      error,
-	      {bad_return_from_state_function,Result},
-	      ?STACKTRACE(), Debug,
-	      S#{state := State, data := Data},
-	      [Event|Events])
-    end.
-
-
-parse_enter_actions(Debug, S, State, Actions, Hibernate, TimeoutsR) ->
-    Postpone = forbidden,
-    NextEventsR = forbidden,
-    parse_actions(
-      Debug, S, State, listify(Actions),
-      Hibernate, TimeoutsR, Postpone, NextEventsR).
-
-parse_actions(Debug, S, State, Actions) ->
-    Hibernate = false,
-    TimeoutsR = [infinity], %% Will cancel event timer
-    Postpone = false,
-    NextEventsR = [],
-    parse_actions(
-      Debug, S, State, listify(Actions),
-      Hibernate, TimeoutsR, Postpone, NextEventsR).
+%% -> absolute | relative | badarg
+classify_timer(Time, Opts) ->
+    classify_timer(Time, Opts, false).
 %%
-parse_actions(
-  Debug, _S, _State, [],
-  Hibernate, TimeoutsR, Postpone, NextEventsR) ->
-    {ok,Debug,Hibernate,TimeoutsR,Postpone,NextEventsR};
-parse_actions(
-  Debug, S, State, [Action|Actions],
-  Hibernate, TimeoutsR, Postpone, NextEventsR) ->
-    case Action of
-	%% Actual actions
-	{reply,From,Reply} ->
-	    case from(From) of
-		true ->
-		    NewDebug = do_reply(Debug, S, State, From, Reply),
-		    parse_actions(
-		      NewDebug, S, State, Actions,
-		      Hibernate, TimeoutsR, Postpone, NextEventsR);
-		false ->
-		    {error,
-		     {bad_action_from_state_function,Action},
-		     ?STACKTRACE()}
-	    end;
-	%%
-	%% Actions that set options
-	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      NewHibernate, TimeoutsR, Postpone, NextEventsR);
-	hibernate ->
-	    NewHibernate = true,
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      NewHibernate, TimeoutsR, Postpone, NextEventsR);
-	%%
-	{postpone,NewPostpone}
-	  when is_boolean(NewPostpone), Postpone =/= forbidden ->
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, NewPostpone, NextEventsR);
-	postpone when Postpone =/= forbidden ->
-	    NewPostpone = true,
-	    parse_actions(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, NewPostpone, NextEventsR);
-	%%
-	{next_event,Type,Content} ->
-	    case event_type(Type) of
-		true when NextEventsR =/= forbidden ->
-		    NewDebug =
-			sys_debug(Debug, S, State, {in,{Type,Content}}),
-		    parse_actions(
-		      NewDebug, S, State, Actions,
-		      Hibernate, TimeoutsR, Postpone,
-		      [{Type,Content}|NextEventsR]);
-		_ ->
-		    {error,
-		     {bad_action_from_state_function,Action},
-		     ?STACKTRACE()}
-	    end;
-	%%
-	{{timeout,_},_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{{timeout,_},_,_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{timeout,_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{timeout,_,_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{state_timeout,_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	{state_timeout,_,_,_} = Timeout ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout);
-	Time ->
-	    parse_actions_timeout(
-	      Debug, S, State, Actions,
-	      Hibernate, TimeoutsR, Postpone, NextEventsR, Time)
-    end.
-
-parse_actions_timeout(
-  Debug, S, State, Actions,
-  Hibernate, TimeoutsR, Postpone, NextEventsR, Timeout) ->
-    case Timeout of
-	{TimerType,Time,TimerMsg,TimerOpts} ->
-	    case validate_timer_args(Time, listify(TimerOpts)) of
-		true ->
-		    parse_actions(
-		      Debug, S, State, Actions,
-		      Hibernate, [Timeout|TimeoutsR],
-		      Postpone, NextEventsR);
-		false ->
-		    NewTimeout = {TimerType,Time,TimerMsg},
-		    parse_actions(
-		      Debug, S, State, Actions,
-		      Hibernate, [NewTimeout|TimeoutsR],
-		      Postpone, NextEventsR);
-		error ->
-		    {error,
-		     {bad_action_from_state_function,Timeout},
-		     ?STACKTRACE()}
-	    end;
-	{_,Time,_} ->
-	    case validate_timer_args(Time, []) of
-		false ->
-		    parse_actions(
-		      Debug, S, State, Actions,
-		      Hibernate, [Timeout|TimeoutsR],
-		      Postpone, NextEventsR);
-		error ->
-		    {error,
-		     {bad_action_from_state_function,Timeout},
-		     ?STACKTRACE()}
-	    end;
-	Time ->
-	    case validate_timer_args(Time, []) of
-		false ->
-		    parse_actions(
-		      Debug, S, State, Actions,
-		      Hibernate, [Timeout|TimeoutsR],
-		      Postpone, NextEventsR);
-		error ->
-		    {error,
-		     {bad_action_from_state_function,Timeout},
-		     ?STACKTRACE()}
-	    end
-    end.
-
-validate_timer_args(Time, Opts) ->
-    validate_timer_args(Time, Opts, false).
-%%
-validate_timer_args(Time, [], true) when is_integer(Time) ->
-    true;
-validate_timer_args(Time, [], false) when is_integer(Time), Time >= 0 ->
-    false;
-validate_timer_args(infinity, [], Abs) ->
-    Abs;
-validate_timer_args(Time, [{abs,Abs}|Opts], _) when is_boolean(Abs) ->
-    validate_timer_args(Time, Opts, Abs);
-validate_timer_args(_, [_|_], _) ->
-    error.
+classify_timer(Time, [], Abs) ->
+    case Abs of
+        true when
+              is_integer(Time);
+              Time =:= infinity ->
+            absolute;
+        false when
+              is_integer(Time), 0 =< Time;
+              Time =:= infinity ->
+            relative;
+        _ ->
+            badarg
+    end;
+classify_timer(Time, [{abs,Abs}|Opts], _) when is_boolean(Abs) ->
+    classify_timer(Time, Opts, Abs);
+classify_timer(_, Opts, _) when is_list(Opts) ->
+    badarg.
 
 %% Stop and start timers as well as create timeout zero events
 %% and pending event timer
 %%
 %% Stop and start timers non-event timers
-parse_timers(TimerRefs, TimerTypes, CancelTimers, TimeoutsR) ->
-    parse_timers(TimerRefs, TimerTypes, CancelTimers, TimeoutsR, #{}, []).
+parse_timers(TimerRefs, Timers, TimeoutsR) ->
+    parse_timers(TimerRefs, Timers, TimeoutsR, #{}, []).
 %%
 parse_timers(
-  TimerRefs, TimerTypes, CancelTimers, [], _Seen, TimeoutEvents) ->
-    {TimerRefs,TimerTypes,CancelTimers,TimeoutEvents};
+  TimerRefs, Timers, [], _Seen, TimeoutEvents) ->
+    %%
+    {TimerRefs,Timers,TimeoutEvents};
 parse_timers(
-  TimerRefs, TimerTypes, CancelTimers, [Timeout|TimeoutsR],
-  Seen, TimeoutEvents) ->
+  TimerRefs, Timers, [Timeout|TimeoutsR], Seen, TimeoutEvents) ->
+    %%
     case Timeout of
 	{TimerType,Time,TimerMsg,TimerOpts} ->
 	    %% Absolute timer
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents,
+	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
 	      TimerType, Time, TimerMsg, listify(TimerOpts));
 	%% Relative timers below
 	{TimerType,0,TimerMsg} ->
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents,
+	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
 	      TimerType, zero, TimerMsg, []);
 	{TimerType,Time,TimerMsg} ->
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents,
+	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
 	      TimerType, Time, TimerMsg, []);
 	0 ->
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents,
+	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
 	      timeout, zero, 0, []);
 	Time ->
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents,
+	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
 	      timeout, Time, Time, [])
     end.
 
 parse_timers(
-  TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-  Seen, TimeoutEvents,
+  TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
   TimerType, Time, TimerMsg, TimerOpts) ->
     case Seen of
 	#{TimerType := _} ->
 	    %% Type seen before - ignore
 	    parse_timers(
-	      TimerRefs, TimerTypes, CancelTimers, TimeoutsR,
-	      Seen, TimeoutEvents);
+              TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents);
 	#{} ->
 	    %% Unseen type - handle
 	    NewSeen = Seen#{TimerType => true},
 	    case Time of
 		infinity ->
 		    %% Cancel any running timer
-		    {NewTimerTypes,NewCancelTimers} =
-			cancel_timer_by_type(
-			  TimerType, TimerTypes, CancelTimers),
 		    parse_timers(
-		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
-		      NewSeen, TimeoutEvents);
+		      TimerRefs, cancel_timer_by_type(TimerType, Timers),
+                      TimeoutsR, NewSeen, TimeoutEvents);
 		zero ->
 		    %% Cancel any running timer
-		    {NewTimerTypes,NewCancelTimers} =
-			cancel_timer_by_type(
-			  TimerType, TimerTypes, CancelTimers),
 		    %% Handle zero time timeouts later
-		    TimeoutEvent = {TimerType,TimerMsg},
 		    parse_timers(
-		      TimerRefs, NewTimerTypes, NewCancelTimers, TimeoutsR,
-		      NewSeen, [TimeoutEvent|TimeoutEvents]);
+		      TimerRefs, cancel_timer_by_type(TimerType, Timers),
+                      TimeoutsR, NewSeen,
+                      [{TimerType,TimerMsg}|TimeoutEvents]);
 		_ ->
 		    %% (Re)start the timer
 		    TimerRef =
 			erlang:start_timer(
 			  Time, self(), TimerMsg, TimerOpts),
-		    case TimerTypes of
-			#{TimerType := OldTimerRef} ->
+		    case Timers of
+			{#{TimerType := OldTimerRef} = TimerTypes,
+                         CancelTimers} ->
 			    %% Cancel the running timer
 			    cancel_timer(OldTimerRef),
 			    NewCancelTimers = CancelTimers + 1,
@@ -1575,17 +1743,17 @@ parse_timers(
 			    %% both TimerRefs and TimerTypes
 			    parse_timers(
 			      TimerRefs#{TimerRef => TimerType},
-			      TimerTypes#{TimerType => TimerRef},
-			      NewCancelTimers, TimeoutsR,
-			      NewSeen, TimeoutEvents);
-			#{} ->
+			      {TimerTypes#{TimerType => TimerRef},
+                               NewCancelTimers},
+                              TimeoutsR, NewSeen, TimeoutEvents);
+			{#{} = TimerTypes,CancelTimers} ->
 			    %% Insert the new timer into
 			    %% both TimerRefs and TimerTypes
 			    parse_timers(
 			      TimerRefs#{TimerRef => TimerType},
-			      TimerTypes#{TimerType => TimerRef},
-			      CancelTimers, TimeoutsR,
-			      NewSeen, TimeoutEvents)
+			      {TimerTypes#{TimerType => TimerRef},
+                               CancelTimers},
+                              TimeoutsR, NewSeen, TimeoutEvents)
 		    end
 	    end
     end.
@@ -1607,6 +1775,8 @@ prepend_timeout_events([], EventsR) ->
 prepend_timeout_events([{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
     prepend_timeout_events(TimeoutEvents, [TimeoutEvent]);
 prepend_timeout_events([{timeout,_}|TimeoutEvents], EventsR) ->
+    %% Ignore since there are other events in queue
+    %% so they have cancelled the event timeout 0.
     prepend_timeout_events(TimeoutEvents, EventsR);
 prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
     %% Just prepend all others
@@ -1617,23 +1787,28 @@ prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
 %%---------------------------------------------------------------------------
 %% Server helpers
 
-reply_then_terminate(
-  Class, Reason, Stacktrace, Debug,
-  #{state := State} = S, Q, Replies) ->
+reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, Replies) ->
     do_reply_then_terminate(
-      Class, Reason, Stacktrace, Debug,
-      S, Q, listify(Replies), State).
+      Class, Reason, Stacktrace, Debug, S, Q, listify(Replies)).
 %%
 do_reply_then_terminate(
-  Class, Reason, Stacktrace, Debug, S, Q, [], _State) ->
+  Class, Reason, Stacktrace, Debug, S, Q, []) ->
     terminate(Class, Reason, Stacktrace, Debug, S, Q);
 do_reply_then_terminate(
-  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs], State) ->
+  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
     case R of
 	{reply,{_To,_Tag}=From,Reply} ->
-	    NewDebug = do_reply(Debug, S, State, From, Reply),
+            reply(From, Reply),
+            NewDebug =
+                ?sys_debug(
+                   Debug,
+                   begin
+                       #state{name = Name, state = State} = S,
+                       {Name,State}
+                   end,
+                   {out,Reply,From}),
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs, State);
+	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
 	    terminate(
 	      error,
@@ -1642,14 +1817,9 @@ do_reply_then_terminate(
 	      Debug, S, Q)
     end.
 
-do_reply(Debug, S, State, From, Reply) ->
-    reply(From, Reply),
-    sys_debug(Debug, S, State, {out,Reply,From}).
-
-
 terminate(
   Class, Reason, Stacktrace, Debug,
-  #{module := Module, state := State, data := Data, postponed := P} = S,
+  #state{module = Module, state = State, data = Data} = S,
   Q) ->
     case erlang:function_exported(Module, terminate, 3) of
 	true ->
@@ -1660,7 +1830,7 @@ terminate(
 		C:R ->
 		    ST = erlang:get_stacktrace(),
 		    error_info(
-		      C, R, ST, S, Q, P,
+		      C, R, ST, S, Q,
 		      format_status(terminate, get(), S)),
 		    sys:print_log(Debug),
 		    erlang:raise(C, R, ST)
@@ -1671,14 +1841,14 @@ terminate(
     _ =
 	case Reason of
 	    normal ->
-		sys_debug(Debug, S, State, {terminate,Reason});
+                terminate_sys_debug(Debug, S, State, Reason);
 	    shutdown ->
-		sys_debug(Debug, S, State, {terminate,Reason});
+                terminate_sys_debug(Debug, S, State, Reason);
 	    {shutdown,_} ->
-		sys_debug(Debug, S, State, {terminate,Reason});
+                terminate_sys_debug(Debug, S, State, Reason);
 	    _ ->
 		error_info(
-		  Class, Reason, Stacktrace, S, Q, P,
+		  Class, Reason, Stacktrace, S, Q,
 		  format_status(terminate, get(), S)),
 		sys:print_log(Debug)
 	end,
@@ -1689,12 +1859,18 @@ terminate(
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
+terminate_sys_debug(Debug, S, State, Reason) ->
+    ?sys_debug(Debug, {S#state.name,State}, {terminate,Reason}).
+
+
 error_info(
   Class, Reason, Stacktrace,
-  #{name := Name,
-    callback_mode := CallbackMode,
-    state_enter := StateEnter},
-  Q, P, FmtData) ->
+  #state{
+     name = Name,
+     callback_mode = CallbackMode,
+     state_enter = StateEnter,
+     postponed = P},
+  Q, FmtData) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1775,7 +1951,7 @@ error_info(
 %% Call Module:format_status/2 or return a default value
 format_status(
   Opt, PDict,
-  #{module := Module, state := State, data := Data}) ->
+  #state{module = Module, state = State, data = Data}) ->
     case erlang:function_exported(Module, format_status, 2) of
 	true ->
 	    try Module:format_status(Opt, [PDict,State,Data])
@@ -1800,6 +1976,7 @@ format_status_default(Opt, State, Data) ->
 	    [{data,[{"State",StateData}]}]
     end.
 
+-compile({inline, [listify/1]}).
 listify(Item) when is_list(Item) ->
     Item;
 listify(Item) ->
@@ -1813,14 +1990,16 @@ listify(Item) ->
 %%
 %% Remove the timer from TimerTypes.
 %% When we get the cancel_timer msg we remove it from TimerRefs.
-cancel_timer_by_type(TimerType, TimerTypes, CancelTimers) ->
+-compile({inline, [cancel_timer_by_type/2]}).
+cancel_timer_by_type(TimerType, {TimerTypes,CancelTimers} = TT_CT) ->
     case TimerTypes of
 	#{TimerType := TimerRef} ->
-	    cancel_timer(TimerRef),
+            ok = erlang:cancel_timer(TimerRef, [{async,true}]),
 	    {maps:remove(TimerType, TimerTypes),CancelTimers + 1};
 	#{} ->
-	    {TimerTypes,CancelTimers}
+	    TT_CT
     end.
 
+-compile({inline, [cancel_timer/1]}).
 cancel_timer(TimerRef) ->
     ok = erlang:cancel_timer(TimerRef, [{async,true}]).
