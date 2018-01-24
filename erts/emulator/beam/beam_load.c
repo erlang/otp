@@ -6984,6 +6984,8 @@ int erts_commit_hipe_patch_load(Eterm hipe_magic_bin)
     hipe_stp->new_hipe_refs = NULL;
     hipe_stp->new_hipe_sdesc = NULL;
 
+    hipe_redirect_to_module(modp);
+
     return 1;
 }
 
