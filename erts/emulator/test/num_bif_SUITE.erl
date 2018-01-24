@@ -118,6 +118,7 @@ t_float(Config) when is_list(Config) ->
 %% Tests float_to_list/1, float_to_list/2, float_to_binary/1, float_to_binary/2
 
 t_float_to_string(Config) when is_list(Config) ->
+    rand_seed(),
     test_fts("0.00000000000000000000e+00", 0.0),
     test_fts("2.50000000000000000000e+01", 25.0),
     test_fts("2.50000000000000000000e+00", 2.5),
@@ -167,8 +168,8 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.12300",1.123, [{decimals, 5}]),
     test_fts("1.123",1.123, [{decimals, 5}, compact]),
     test_fts("1.1234",1.1234,[{decimals, 6}, compact]),
-    test_fts("1.01",1.005, [{decimals, 2}]),
-    test_fts("-1.01",-1.005,[{decimals, 2}]),
+    test_fts("1.00",1.005, [{decimals, 2}]),  %% 1.005 is really 1.0049999999...
+    test_fts("-1.00",-1.005,[{decimals, 2}]),
     test_fts("0.999",0.999, [{decimals, 3}]),
     test_fts("-0.999",-0.999,[{decimals, 3}]),
     test_fts("1.0",0.999, [{decimals, 2}, compact]),
@@ -184,6 +185,9 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("123000000000000000000.0",1.23e20, [{decimals,   10}, compact]),
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
+
+    fts_rand_float_decimals(1000),
+
     ok.
 
 test_fts(Expect, Float) ->
@@ -196,6 +200,49 @@ test_fts(Expect, Float, Args) ->
     BinExpect = list_to_binary(Expect),
     BinExpect = float_to_binary(Float,Args).
 
+
+rand_float_reasonable() ->
+    F = rand_float(),
+    case abs(F) > 1.0e238 of
+        true -> rand_float_reasonable();
+        false -> F
+    end.
+
+fts_rand_float_decimals(0) -> ok;
+fts_rand_float_decimals(N) ->
+    [begin
+         F0 = rand_float_reasonable(),
+         L0 = float_to_list(F0, [{decimals, D}]),
+         L1 = case D of
+                  0 -> L0 ++ ".0";
+                  _ -> L0
+              end,
+         F1 = list_to_float(L1),
+         Diff = abs(F0-F1),
+         MaxDiff = max_diff_decimals(F0, D),
+         ok = case Diff =< MaxDiff of
+                  true -> ok;
+                  false ->
+                      io:format("F0 = ~w ~w\n",  [F0, <<F0/float>>]),
+                      io:format("L1 = ~s\n",  [L1]),
+                      io:format("F1 = ~w ~w\n",  [F1, <<F1/float>>]),
+                      io:format("Diff = ~w, MaxDiff = ~w\n", [Diff, MaxDiff]),
+                      error
+              end
+     end
+     || D <- lists:seq(0,15)],
+
+    fts_rand_float_decimals(N-1).
+
+max_diff_decimals(F, D) ->
+    IntBits = floor(math:log2(abs(F))) + 1,
+    FracBits = (52 - IntBits),
+    Log10_2 = 0.3010299956639812,  % math:log10(2)
+    MaxDec = floor(FracBits * Log10_2),
+
+    Resolution = math:pow(2, IntBits - 53),
+
+    (math:pow(10, -min(D,MaxDec)) / 2) + Resolution.
 
 %% Tests list_to_float/1.
 
@@ -331,18 +378,26 @@ t_trunc_and_friends(_Config) ->
     -18446744073709551616 = trunc_and_friends(-float(1 bsl 64)),
 
     %% Random.
+    rand_seed(),
     t_trunc_and_friends_rand(100),
     ok.
+
+rand_seed() ->
+    rand:seed(exrop),
+    io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
+    ok.
+
+rand_float() ->
+    F0 = rand:uniform() * math:pow(10, 50*rand:normal()),
+    case rand:uniform() of
+        U when U < 0.5 -> -F0;
+        _ -> F0
+    end.
 
 t_trunc_and_friends_rand(0) ->
     ok;
 t_trunc_and_friends_rand(N) ->
-    F0 = rand:uniform() * math:pow(10, 50*rand:normal()),
-    F = case rand:uniform() of
-	    U when U < 0.5 -> -F0;
-	    _ -> F0
-	end,
-    _ = trunc_and_friends(F),
+    _ = trunc_and_friends(rand_float()),
     t_trunc_and_friends_rand(N-1).
 
 trunc_and_friends(F) ->
