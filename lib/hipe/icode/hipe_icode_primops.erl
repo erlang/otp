@@ -236,6 +236,7 @@ fails({hipe_bs_primop, {bs_append, _, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_private_append, _, _}}) -> true;
 fails({hipe_bs_primop, bs_init_writable}) -> true;
 fails(build_stacktrace) -> false;
+fails(raw_raise) -> true;
 fails(#mkfun{}) -> false;
 fails(#unsafe_element{}) -> false;
 fails(#unsafe_update_element{}) -> false;
@@ -735,6 +736,8 @@ type(Primop, Args) ->
       erl_types:t_any();
     build_stacktrace ->
       erl_types:t_list();
+    raw_raise ->
+      erl_types:t_atom();
     {M, F, A} ->
       erl_bif_types:type(M, F, A, Args)
   end.
@@ -908,6 +911,8 @@ type(Primop) ->
 %%% -----------------------------------------------------
 %%% Other
     build_stacktrace ->
+      erl_types:t_any();
+    raw_raise ->
       erl_types:t_any();
     #closure_element{} ->
       erl_types:t_any();

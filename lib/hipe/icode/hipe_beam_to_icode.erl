@@ -1164,6 +1164,12 @@ trans_fun([build_stacktrace|Instructions], Env) ->
   Vars = [mk_var({x,0})], %{x,0} is implict arg and dst
   [hipe_icode:mk_primop(Vars,build_stacktrace,Vars),
    trans_fun(Instructions, Env)];
+%%--- raw_raise ---
+trans_fun([raw_raise|Instructions], Env) ->
+  Vars = [mk_var({x,0}),mk_var({x,1}),mk_var({x,2})],
+  Dst = [mk_var({x,0})],
+  [hipe_icode:mk_primop(Dst,raw_raise,Vars) |
+   trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------

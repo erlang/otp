@@ -2507,6 +2507,72 @@ are_all_failing_clauses(Cs) ->
 is_failing_clause(#c_clause{body=B}) ->
     will_fail(B).
 
+%% opt_build_stacktrace(Let) -> Core.
+%%  If the stacktrace is *only* used in a call to erlang:raise/3,
+%%  there is no need to build a cooked stackframe using build_stacktrace/1.
+
+opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
+                            arg=#c_primop{name=#c_literal{val=build_stacktrace},
+                                          args=[RawStk]},
+                            body=Body}=Let) ->
+    case Body of
+        #c_call{module=#c_literal{val=erlang},
+                name=#c_literal{val=raise},
+                args=[Class,Exp,#c_var{name=Cooked}]} ->
+            %% The stacktrace is only used in a call to erlang:raise/3.
+            %% There is no need to build the stacktrace. Replace the
+            %% call to erlang:raise/3 with the the raw_raise/3 instruction,
+            %% which will use a raw stacktrace.
+            #c_primop{name=#c_literal{val=raw_raise},
+                      args=[Class,Exp,RawStk]};
+        #c_let{vars=[#c_var{name=V}],arg=Arg,body=B0} when V =/= Cooked ->
+            case core_lib:is_var_used(Cooked, Arg) of
+                false ->
+                    %% The built stacktrace is not used in the argument,
+                    %% so we can sink the building of the stacktrace into
+                    %% the body of the let.
+                    B = opt_build_stacktrace(Let#c_let{body=B0}),
+                    Body#c_let{body=B};
+                true ->
+                    Let
+            end;
+        #c_seq{arg=Arg,body=B0} ->
+            case core_lib:is_var_used(Cooked, Arg) of
+                false ->
+                    %% The built stacktrace is not used in the argument,
+                    %% so we can sink the building of the stacktrace into
+                    %% the body of the sequence.
+                    B = opt_build_stacktrace(Let#c_let{body=B0}),
+                    Body#c_seq{body=B};
+                true ->
+                    Let
+            end;
+        #c_case{arg=Arg,clauses=Cs0} ->
+            case core_lib:is_var_used(Cooked, Arg) orelse
+                is_used_in_any_guard(Cooked, Cs0) of
+                false ->
+                    %% The built stacktrace is not used in the argument,
+                    %% so we can sink the building of the stacktrace into
+                    %% each arm of the case.
+                    Cs = [begin
+                              B = opt_build_stacktrace(Let#c_let{body=B0}),
+                              C#c_clause{body=B}
+                          end || #c_clause{body=B0}=C <- Cs0],
+                    Body#c_case{clauses=Cs};
+                true ->
+                    Let
+            end;
+        _ ->
+            Let
+    end;
+opt_build_stacktrace(Expr) ->
+    Expr.
+
+is_used_in_any_guard(V, Cs) ->
+    any(fun(#c_clause{guard=G}) ->
+                core_lib:is_var_used(V, G)
+        end, Cs).
+
 %% opt_case_in_let(Let) -> Let'
 %%  Try to avoid building tuples that are immediately matched.
 %%  A common pattern is:
@@ -2712,8 +2778,9 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
 %%  Note that the substitutions and scope in Sub have been cleared
 %%  and should not be used.
 
-post_opt_let(Let, Sub) ->
-    opt_bool_case_in_let(Let, Sub).
+post_opt_let(Let0, Sub) ->
+    Let1 = opt_bool_case_in_let(Let0, Sub),
+    opt_build_stacktrace(Let1).
 
 
 %% remove_first_value(Core0, Sub) -> Core.

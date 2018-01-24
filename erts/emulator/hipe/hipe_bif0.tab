@@ -109,6 +109,7 @@ atom suspend_0
 atom gc_1
 atom hipe_apply
 atom rethrow
+atom raw_raise
 atom find_na_or_make_stub
 atom nonclosure_address
 atom atomic_inc

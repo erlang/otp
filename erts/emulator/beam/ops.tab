@@ -1584,3 +1584,4 @@ i_recv_set
 #
 
 build_stacktrace
+raw_raise
