@@ -331,7 +331,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     char *bufp = sbuf;
     double dexp;
     int exp;
-    size_t max_size = 1;
+    size_t max_size = 2;  /* including possible sign */
     int size;
     int new_fmt = fmt;
     int fpe_was_unmasked;

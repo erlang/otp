@@ -158,59 +158,50 @@ int
 sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
 			 int compact)
 {
-    /* Note that some C compilers don't support "static const" propagation
-     * so we use a defines */
-    #define SYS_DOUBLE_RND_CONST 0.55555555555555555
+    #define SYS_DOUBLE_RND_CONST 0.5
     #define FRAC_SIZE            52
     #define EXP_SIZE             11
-    #define EXP_MASK             ((1ll << EXP_SIZE) - 1)
+    #define EXP_MASK             (((Uint64)1 << EXP_SIZE) - 1)
     #define MAX_DECIMALS         (sizeof(cs_sys_double_pow10) \
 				   / sizeof(cs_sys_double_pow10[0]))
-    #define FRAC_MASK            ((1ll << FRAC_SIZE) - 1)
-    #define FRAC_MASK2           ((1ll << (FRAC_SIZE + 1)) - 1)
-    #define MAX_FLOAT            (1ll << (FRAC_SIZE+1))
+    #define FRAC_MASK            (((Uint64)1 << FRAC_SIZE) - 1)
+    #define FRAC_MASK2           (((Uint64)1 << (FRAC_SIZE + 1)) - 1)
+    #define MAX_FLOAT            ((Uint64)1 << (FRAC_SIZE+1))
 
     static const double cs_sys_double_pow10[] = {
-        SYS_DOUBLE_RND_CONST / 1ll,
-        SYS_DOUBLE_RND_CONST / 10ll,
-        SYS_DOUBLE_RND_CONST / 100ll,
-        SYS_DOUBLE_RND_CONST / 1000ll,
-        SYS_DOUBLE_RND_CONST / 10000ll,
-        SYS_DOUBLE_RND_CONST / 100000ll,
-        SYS_DOUBLE_RND_CONST / 1000000ll,
-        SYS_DOUBLE_RND_CONST / 10000000ll,
-        SYS_DOUBLE_RND_CONST / 100000000ll,
-        SYS_DOUBLE_RND_CONST / 1000000000ll,
-        SYS_DOUBLE_RND_CONST / 10000000000ll,
-        SYS_DOUBLE_RND_CONST / 100000000000ll,
-        SYS_DOUBLE_RND_CONST / 1000000000000ll,
-        SYS_DOUBLE_RND_CONST / 10000000000000ll,
-        SYS_DOUBLE_RND_CONST / 100000000000000ll,
-        SYS_DOUBLE_RND_CONST / 1000000000000000ll,
-        SYS_DOUBLE_RND_CONST / 10000000000000000ll,
-        SYS_DOUBLE_RND_CONST / 100000000000000000ll,
-        SYS_DOUBLE_RND_CONST / 1000000000000000000ll
+        SYS_DOUBLE_RND_CONST / 1e0,
+        SYS_DOUBLE_RND_CONST / 1e1,
+        SYS_DOUBLE_RND_CONST / 1e2,
+        SYS_DOUBLE_RND_CONST / 1e3,
+        SYS_DOUBLE_RND_CONST / 1e4,
+        SYS_DOUBLE_RND_CONST / 1e5,
+        SYS_DOUBLE_RND_CONST / 1e6,
+        SYS_DOUBLE_RND_CONST / 1e7,
+        SYS_DOUBLE_RND_CONST / 1e8,
+        SYS_DOUBLE_RND_CONST / 1e9,
+        SYS_DOUBLE_RND_CONST / 1e10,
+        SYS_DOUBLE_RND_CONST / 1e11,
+        SYS_DOUBLE_RND_CONST / 1e12,
+        SYS_DOUBLE_RND_CONST / 1e13,
+        SYS_DOUBLE_RND_CONST / 1e14,
+        SYS_DOUBLE_RND_CONST / 1e15,
+        SYS_DOUBLE_RND_CONST / 1e16,
+        SYS_DOUBLE_RND_CONST / 1e17,
+        SYS_DOUBLE_RND_CONST / 1e18
     };
 
-    long long mantissa, int_part = 0, frac_part = 0;
-    short exp;
+    Uint64 mantissa, int_part, frac_part;
+    int exp;
+    int fbits;
     int max;
     int neg;
     double fr;
-    union { long long L; double F; } x;
+    union { Uint64 L; double F; } x;
     char *p = buffer;
 
     if (decimals < 0)
         return -1;
 
-    /* Round the number to given decimal places. The number of 5's in the
-     * SYS_DOUBLE_RND_CONST constant is chosen such that adding any more 5's doesn't
-     * change the double precision of the number, i.e.:
-     * 1> term_to_binary(0.55555555555555555, [{minor_version, 1}]).
-     * <<131,70,63,225,199,28,113,199,28,114>>
-     * 2> term_to_binary(0.5555555555555555555, [{minor_version, 1}]).
-     * <<131,70,63,225,199,28,113,199,28,114>>
-     */
     if (f >= 0) {
         neg = 0;
         fr  = decimals < MAX_DECIMALS ? (f + cs_sys_double_pow10[decimals]) : f;
@@ -241,7 +232,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     }
 
     exp      -= EXP_MASK >> 1;
-    mantissa |= (1ll << FRAC_SIZE);
+    mantissa |= ((Uint64)1 << FRAC_SIZE);
 
     /* Don't bother with optimizing too large numbers or too large precision */
     if (x.F > MAX_FLOAT || decimals >= MAX_DECIMALS) {
@@ -256,11 +247,16 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         return p - buffer;
     } else if (exp >= FRAC_SIZE) {
         int_part  = mantissa << (exp - FRAC_SIZE);
+        frac_part = 0;
+        fbits = FRAC_SIZE;  /* not important as frac_part==0 */
     } else if (exp >= 0) {
-        int_part  = mantissa >> (FRAC_SIZE - exp);
-        frac_part = (mantissa << (exp + 1)) & FRAC_MASK2;
+        fbits = FRAC_SIZE - exp;
+        int_part  = mantissa >> fbits;
+        frac_part = mantissa & (((Uint64)1 << fbits) -1);
     } else /* if (exp < 0) */ {
-        frac_part = (mantissa & FRAC_MASK2) >> -(exp + 1);
+        int_part = 0;
+        frac_part = mantissa;
+        fbits = FRAC_SIZE - exp;
     }
 
     if (!int_part) {
@@ -270,9 +266,8 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     } else {
         int ret, i, n;
         while (int_part != 0) {
-            long long j = int_part / 10;
-            *p++ = (char)(int_part - ((j << 3) + (j << 1)) + '0');
-            int_part = j;
+            *p++ = (char)((int_part % 10) + '0');
+            int_part /= 10;
         }
         if (neg)
             *p++ = '-';
@@ -298,11 +293,22 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         max = decimals;
 
         for (i = 0; i < max; i++) {
-            /* frac_part *= 10; */
-            frac_part = (frac_part << 3) + (frac_part << 1);
+            if (frac_part > (ERTS_UINT64_MAX/5)) {
+                frac_part >>= 3;
+                fbits -= 3;
+            }
 
-            *p++ = (char)((frac_part >> (FRAC_SIZE + 1)) + '0');
-            frac_part &= FRAC_MASK2;
+            /* Multiply by 10 (5*2) to extract decimal digit as integer part */
+            frac_part *= 5;
+            fbits--;
+
+            if (fbits >= 64) {
+                *p++ = '0';
+            }
+            else {
+                *p++ = (char)((frac_part >> fbits) + '0');
+                frac_part &= ((Uint64)1 << fbits) - 1;
+            }
         }
 
         /* Delete trailing zeroes */
