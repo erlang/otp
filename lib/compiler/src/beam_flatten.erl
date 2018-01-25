@@ -50,6 +50,9 @@ norm_block([{set,[],[],{alloc,R,Alloc}}|Is], Acc0) ->
 	Acc ->
 	    norm_block(Is, Acc)
     end;
+norm_block([{set,[D1],[S],get_hd},{set,[D2],[S],get_tl}|Is], Acc) ->
+    I = {get_list,S,D1,D2},
+    norm_block(Is, [I|Acc]);
 norm_block([I|Is], Acc) -> norm_block(Is, [norm(I)|Acc]);
 norm_block([], Acc) -> Acc.
     
@@ -64,7 +67,8 @@ norm({set,[D],[],{put_tuple,A}})  -> {put_tuple,A,D};
 norm({set,[],[S],put})            -> {put,S};
 norm({set,[D],[S],{get_tuple_element,I}}) -> {get_tuple_element,S,I,D};
 norm({set,[],[S,D],{set_tuple_element,I}}) -> {set_tuple_element,S,D,I};
-norm({set,[D1,D2],[S],get_list})          -> {get_list,S,D1,D2};
+norm({set,[D],[S],get_hd})        -> {get_hd,S,D};
+norm({set,[D],[S],get_tl})        -> {get_tl,S,D};
 norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
 norm({set,[],[],remove_message})   -> remove_message;

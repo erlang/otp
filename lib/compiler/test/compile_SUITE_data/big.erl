@@ -741,3 +741,7 @@ snmp_access(suite) ->
 debug_support(suite) ->
     [  info, schema, schema, kill, lkill ].
 
+%% Cover translation of get_hd/2 to get_list/3 when option no_get_hd_tl
+%% is given.
+cover_get_hd([Hd|_]) ->
+    Hd.

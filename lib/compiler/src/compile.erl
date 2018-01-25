@@ -219,13 +219,15 @@ expand_opt(report, Os) ->
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(r16, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
 expand_opt(r17, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
 expand_opt(r18, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
 expand_opt(r19, Os) ->
-    [no_record_opt,no_utf8_atoms|Os];
+    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+expand_opt(r20, Os) ->
+    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->

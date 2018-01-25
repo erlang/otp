@@ -591,6 +591,12 @@ valfun_4({get_list,Src,D1,D2}, Vst0) ->
     assert_type(cons, Src, Vst0),
     Vst = set_type_reg(term, D1, Vst0),
     set_type_reg(term, D2, Vst);
+valfun_4({get_hd,Src,Dst}, Vst) ->
+    assert_type(cons, Src, Vst),
+    set_type_reg(term, Dst, Vst);
+valfun_4({get_tl,Src,Dst}, Vst) ->
+    assert_type(cons, Src, Vst),
+    set_type_reg(term, Dst, Vst);
 valfun_4({get_tuple_element,Src,I,Dst}, Vst) ->
     assert_type({tuple_element,I+1}, Src, Vst),
     set_type_reg(term, Dst, Vst);

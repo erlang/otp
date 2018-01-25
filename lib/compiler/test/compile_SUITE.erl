@@ -1455,19 +1455,21 @@ env_compiler_options(_Config) ->
 bc_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    101 = highest_opcode(DataDir, small_float, [no_line_info]),
+    101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
 
     103 = highest_opcode(DataDir, big,
-                         [no_record_opt,no_line_info,no_stack_trimming]),
+                         [no_get_hd_tl,no_record_opt,
+                          no_line_info,no_stack_trimming]),
 
-    125 = highest_opcode(DataDir, small_float, [no_line_info,no_float_opt]),
+    125 = highest_opcode(DataDir, small_float,
+                         [no_get_hd_tl,no_line_info,no_float_opt]),
 
     132 = highest_opcode(DataDir, small,
-                         [no_record_opt,no_float_opt,no_line_info]),
+                         [no_get_hd_tl,no_record_opt,no_float_opt,no_line_info]),
 
-    136 = highest_opcode(DataDir, big, [no_record_opt,no_line_info]),
+    136 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt,no_line_info]),
 
-    153 = highest_opcode(DataDir, big, [no_record_opt]),
+    153 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt]),
     153 = highest_opcode(DataDir, big, [r16]),
     153 = highest_opcode(DataDir, big, [r17]),
     153 = highest_opcode(DataDir, big, [r18]),
@@ -1478,9 +1480,10 @@ bc_options(Config) ->
     158 = highest_opcode(DataDir, small_maps, [r17]),
     158 = highest_opcode(DataDir, small_maps, [r18]),
     158 = highest_opcode(DataDir, small_maps, [r19]),
+    158 = highest_opcode(DataDir, small_maps, [r20]),
     158 = highest_opcode(DataDir, small_maps, []),
 
-    159 = highest_opcode(DataDir, big, []),
+    163 = highest_opcode(DataDir, big, []),
 
     ok.
 

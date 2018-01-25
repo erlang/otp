@@ -605,6 +605,16 @@ trans_fun([{get_list,List,Head,Tail}|Instructions], Env) ->
       ?error_msg("hd and tl regs identical in get_list~n",[]),
       erlang:error(not_handled)
   end;
+%%--- get_hd ---
+trans_fun([{get_hd,List,Head}|Instructions], Env) ->
+  TransList = [trans_arg(List)],
+  I = hipe_icode:mk_primop([mk_var(Head)],unsafe_hd,TransList),
+  [I | trans_fun(Instructions,Env)];
+%%--- get_tl ---
+trans_fun([{get_tl,List,Tail}|Instructions], Env) ->
+  TransList = [trans_arg(List)],
+  I = hipe_icode:mk_primop([mk_var(Tail)],unsafe_tl,TransList),
+  [I | trans_fun(Instructions,Env)];
 %%--- get_tuple_element ---
 trans_fun([{get_tuple_element,Xreg,Index,Dst}|Instructions], Env) ->
   I = hipe_icode:mk_primop([mk_var(Dst)],

@@ -182,6 +182,9 @@ get_list r x y
 get_list r y r
 get_list r x r
 
+get_hd xy xy
+get_tl xy xy
+
 # Old-style catch.
 catch y f
 catch_end y

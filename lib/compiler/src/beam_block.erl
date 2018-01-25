@@ -110,7 +110,8 @@ collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
 collect({put,S})             -> {set,[],[S],put};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
-collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
+collect({get_hd,S,D})  ->       {set,[D],[S],get_hd};
+collect({get_tl,S,D})  ->       {set,[D],[S],get_tl};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
@@ -251,6 +252,16 @@ opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,L}}}=I1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,L}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([I2,I1|Is]);
+opt([{set,Hd0,Cons,get_hd}=GetHd,
+     {set,Tl0,Cons,get_tl}=GetTl|Is0]) ->
+    case {opt_moves(Hd0, [GetTl|Is0]),opt_moves(Tl0, [GetHd|Is0])} of
+        {{Hd0,Is},{Tl0,_}} ->
+            [GetHd|opt(Is)];
+        {{Hd,Is},{Tl0,_}} ->
+            [{set,Hd,Cons,get_hd}|opt(Is)];
+        {{_,_},{Tl,Is}} ->
+            [{set,Tl,Cons,get_tl}|opt(Is)]
+    end;
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
@@ -266,17 +277,6 @@ opt_moves([D0]=Ds, Is0) ->
     case opt_move(D0, Is0) of
 	not_possible -> {Ds,Is0};
 	{D1,Is} -> {[D1],Is}
-    end;
-opt_moves([X0,Y0], Is0) ->
-    {X,Is2} = case opt_move(X0, Is0) of
-		  not_possible -> {X0,Is0};
-		  {Y0,_} -> {X0,Is0};
-		  {_X1,_Is1} = XIs1 -> XIs1
-	      end,
-    case opt_move(Y0, Is2) of
-	not_possible -> {[X,Y0],Is2};
-	{X,_} -> {[X,Y0],Is2};
-	{Y,Is} -> {[X,Y],Is}
     end.
 
 %% opt_move(Dest, [Instruction]) -> {UpdatedDest,[Instruction]} | not_possible
