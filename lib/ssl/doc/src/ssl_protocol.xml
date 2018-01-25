@@ -22,7 +22,7 @@
       
     </legalnotice>
 
-    <title>TLS and its Predecessor, SSL</title>
+    <title>TLS/DTLS and TLS Predecessor, SSL</title>
     <prepared></prepared>
     <responsible></responsible>
     <docno></docno>
@@ -33,7 +33,7 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The Erlang SSL application implements the SSL/TLS protocol
+  <p>The Erlang SSL application implements the SSL/TLS/DTLS protocol
   for the currently supported versions,  see the
   <seealso marker="ssl">ssl(3)</seealso> manual page.
   </p>
@@ -41,20 +41,22 @@
   <p>By default SSL/TLS is run over the TCP/IP protocol even
   though you can plug in any other reliable transport protocol
   with the same Application Programming Interface (API) as the
-  <c>gen_tcp</c> module in Kernel.</p>
+  <c>gen_tcp</c> module in Kernel. DTLS is by default run over UDP/IP,
+  which means that application data has no delivery guarentees. Other 
+  transports, such as SCTP, may be supported in future releases.</p>
   
   <p>If a client and a server wants to use an upgrade mechanism, such as
-  defined by RFC 2817, to upgrade a regular TCP/IP connection to an SSL
+  defined by RFC 2817, to upgrade a regular TCP/IP connection to an TLS
   connection, this is supported by the Erlang SSL application API. This can be 
   useful for, for example, supporting HTTP and HTTPS on the same port and
-  implementing virtual hosting.
+  implementing virtual hosting. Note this is a TLS feature only.
   </p>
 
   <section>
     <title>Security Overview</title>
       
    <p>To achieve authentication and privacy, the client and server
-    perform a TLS handshake procedure before transmitting or receiving
+    perform a TLS/DTLS handshake procedure before transmitting or receiving
     any data. During the handshake, they agree on a protocol version and
     cryptographic algorithms, generate shared secrets using public
     key cryptographies, and optionally authenticate each other with
@@ -73,10 +75,10 @@
     
     <p>The keys for the symmetric encryption are generated uniquely
     for each connection and are based on a secret negotiated
-    in the TLS handshake.</p>
+    in the TLS/DTLS handshake.</p>
     
-    <p>The TLS handshake protocol and data transfer is run on top of
-    the TLS Record Protocol, which uses a keyed-hash Message
+    <p>The TLS/DTLS handshake protocol and data transfer is run on top of
+    the TLS/DTLS Record Protocol, which uses a keyed-hash Message
     Authenticity Code (MAC), or a Hash-based MAC (HMAC),
     to protect the message data
     integrity. From the TLS RFC: "A Message Authentication Code is a
@@ -152,8 +154,8 @@
      from it was saved, for security reasons. The amount of time the 
      session data is to be saved can be configured.</p>
 
-     <p>By default the SSL clients try to reuse an available session and 
-     by default the SSL servers agree to reuse sessions when clients
+     <p>By default the TLS/DTLS clients try to reuse an available session and 
+     by default the TLS/DTLS servers agree to reuse sessions when clients
      ask for it.</p>
 
    </section>
