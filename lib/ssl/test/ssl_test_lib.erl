@@ -1309,6 +1309,32 @@ cipher_restriction(Config0) ->
 	    Config0
     end.
 
+openssl_dsa_support() ->
+    case os:cmd("openssl version") of
+        "LibreSSL 2.6.1" ++ _ ->
+            true;
+        "LibreSSL 2.6.2" ++ _ ->
+            true;
+        "LibreSSL 2.6" ++ _ ->
+            false;
+        "LibreSSL 2.4" ++ _ ->
+            true;
+        "LibreSSL 2.3" ++ _ ->
+            true;
+        "LibreSSL 2.2" ++ _ ->
+            true;
+        "LibreSSL 2.1" ++ _ ->
+            true;
+        "LibreSSL 2.0" ++ _ ->
+            true;
+        "LibreSSL"  ++ _ ->
+            false;
+        "OpenSSL 1.0.1" ++ Rest ->
+            hd(Rest) >= s;
+        _ ->
+            true
+    end.
+
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
