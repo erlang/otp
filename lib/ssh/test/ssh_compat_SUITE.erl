@@ -45,9 +45,8 @@ suite() ->
      {timetrap,{seconds,40}}].
 
 all() ->
-    [check_docker_present
-     | [{group,G} || G <- ssh_image_versions()]
-    ].
+%%    [check_docker_present] ++
+    [{group,G} || G <- ssh_image_versions()].
 
 groups() ->
     [{otp_client, [], [login_otp_is_client,
