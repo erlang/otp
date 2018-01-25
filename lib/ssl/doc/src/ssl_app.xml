@@ -152,7 +152,7 @@
       <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
       <item>
 	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
-	Can be used as a workaround for the PEM-cache bottlneck
+	Can be used as a workaround for the PEM-cache bottleneck
 	before ssl-8.1.1. Defaults to false.
 	</p>
       </item>
