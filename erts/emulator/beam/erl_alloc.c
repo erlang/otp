@@ -1272,22 +1272,32 @@ get_bool_value(char *param_end, char** argv, int* ip)
     return -1;
 }
 
+static Uint kb_to_bytes(Sint kb, Uint *bytes)
+{
+    const Uint max = ((~((Uint) 0))/1024) + 1;
+
+    if (kb < 0 || (Uint)kb > max)
+        return 0;
+    if ((Uint)kb == max)
+        *bytes = ~((Uint) 0);
+    else
+        *bytes = ((Uint) kb)*1024;
+    return 1;
+}
+
 static Uint
 get_kb_value(char *param_end, char** argv, int* ip)
 {
     Sint tmp;
-    Uint max = ((~((Uint) 0))/1024) + 1;
+    Uint bytes = 0;
     char *rest;
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
     errno = 0;
     tmp = (Sint) ErtsStrToSint(value, &rest, 10);
-    if (errno != 0 || rest == value || tmp < 0 || max < ((Uint) tmp))
+    if (errno != 0 || rest == value || !kb_to_bytes(tmp, &bytes))
 	bad_value(param, param_end, value);
-    if (max == (Uint) tmp)
-	return ~((Uint) 0);
-    else
-	return ((Uint) tmp)*1024;
+    return bytes;
 }
 
 static UWord
@@ -3484,6 +3494,65 @@ erts_request_alloc_info(struct process *c_p,
     reply_alloc_info((void *) air);
 
     return 1;
+}
+
+Eterm erts_alloc_set_dyn_param(Process* c_p, Eterm tuple)
+{
+    ErtsAllocatorThrSpec_t *tspec;
+    ErtsAlcType_t ai;
+    Allctr_t* allctr;
+    Eterm* tp;
+    Eterm res;
+
+    if (!is_tuple_arity(tuple, 3))
+        goto badarg;
+
+    tp = tuple_val(tuple);
+
+    /*
+     * Ex: {ets_alloc, sbct, 256000}
+     */
+    if (!is_atom(tp[1]) || !is_atom(tp[2]) || !is_integer(tp[3]))
+        goto badarg;
+
+    for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
+        if (erts_is_atom_str(erts_alc_a2ad[ai], tp[1], 0))
+            break;
+
+    if (ai > ERTS_ALC_A_MAX)
+        goto badarg;
+
+    if (!erts_allctrs_info[ai].enabled ||
+        !erts_allctrs_info[ai].alloc_util) {
+        return am_notsup;
+    }
+
+    if (tp[2] == am_sbct) {
+        Uint sbct;
+        int i, ok;
+
+        if (!term_to_Uint(tp[3], &sbct))
+            goto badarg;
+
+        tspec = &erts_allctr_thr_spec[ai];
+        if (tspec->enabled) {
+            ok = 0;
+            for (i = 0; i < tspec->size; i++) {
+                allctr = tspec->allctr[i];
+                ok |= allctr->try_set_dyn_param(allctr, am_sbct, sbct);
+            }
+        }
+        else {
+            allctr = erts_allctrs_info[ai].extra;
+            ok = allctr->try_set_dyn_param(allctr, am_sbct, sbct);
+        }
+        return ok ? am_ok : am_notsup;
+    }
+    return am_notsup;
+
+badarg:
+    ERTS_BIF_PREP_ERROR(res, c_p, EXC_BADARG);
+    return res;
 }
 
 /* 

@@ -2347,6 +2347,10 @@ subtract(_,_) ->
                                 OldDirtyCPUSchedulersOnline when
       DirtyCPUSchedulersOnline :: pos_integer(),
       OldDirtyCPUSchedulersOnline :: pos_integer();
+                        (erts_alloc, {Alloc, F, V}) -> ok | notsup when
+      Alloc :: atom(),
+      F :: atom(),
+      V :: integer();
                         (fullsweep_after, Number) -> OldNumber when
       Number :: non_neg_integer(),
       OldNumber :: non_neg_integer();

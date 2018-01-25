@@ -227,6 +227,8 @@ void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint 
 void  erts_alcu_literal_32_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #endif
 
+int erts_alcu_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
+
 #endif /* !ERL_ALLOC_UTIL__ */
 
 #if defined(GET_ERL_ALLOC_UTIL_IMPL) && !defined(ERL_ALLOC_UTIL_IMPL__)
@@ -615,6 +617,8 @@ struct Allctr_t_ {
     void*               (*sys_alloc)(Allctr_t *allctr, Uint *size_p, int superalign);
     void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign);
     void                (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
+
+    int                 (*try_set_dyn_param)(Allctr_t*, Eterm param, Uint value);
 
     void		(*init_atoms)		(void);
 

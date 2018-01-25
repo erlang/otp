@@ -31,6 +31,7 @@
 	 mseg_clear_cache/1,
 	 erts_mmap/1,
 	 cpool/1,
+         set_dyn_param/1,
 	 migration/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -41,6 +42,7 @@ suite() ->
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
+     set_dyn_param,
      bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
@@ -143,6 +145,82 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     Result = receive {Ref, Rslt} -> Rslt end,
     stop_node(Node),
     Result.
+
+
+%% Test erlang:system_flag(erts_alloc, ...)
+set_dyn_param(_Config) ->
+    {_, _, _, AlcList} = erlang:system_info(allocator),
+
+    {Enabled, Disabled, Others} =
+        lists:foldl(fun({sys_alloc,_}, {Es, Ds, Os}) ->
+                            {Es, [sys_alloc | Ds], Os};
+
+                       ({AT, Opts}, {Es, Ds, Os}) when is_list(Opts) ->
+                            case lists:keyfind(e, 1, Opts) of
+                                {e, true} ->
+                                    {[AT | Es], Ds, Os};
+                                {e, false} ->
+                                    {Es, [AT | Ds], Os};
+                                false ->
+                                    {Es, Ds, [AT | Os]}
+                            end;
+
+                       (_, Acc) -> Acc
+                    end,
+                    {[], [], []},
+                    AlcList),
+
+    Param = sbct,
+    lists:foreach(fun(AT) -> set_dyn_param_enabled(AT, Param) end,
+                  Enabled),
+
+    lists:foreach(fun(AT) ->
+                          Tpl = {AT, Param, 12345},
+                          io:format("~p\n", [Tpl]),
+                          notsup = erlang:system_flag(erts_alloc, Tpl)
+                  end,
+                  Disabled),
+
+    lists:foreach(fun(AT) ->
+                          Tpl = {AT, Param, 12345},
+                          io:format("~p\n", [Tpl]),
+                          {'EXIT',{badarg,_}} =
+                              (catch erlang:system_flag(erts_alloc, Tpl))
+                  end,
+                  Others),
+    ok.
+
+set_dyn_param_enabled(AT, Param) ->
+    OldVal = get_alc_param(AT, Param),
+
+    Val1 = OldVal div 2,
+    Tuple = {AT, Param, Val1},
+    io:format("~p\n", [Tuple]),
+    ok = erlang:system_flag(erts_alloc, Tuple),
+    Val1 = get_alc_param(AT, Param),
+
+    ok = erlang:system_flag(erts_alloc, {AT, Param, OldVal}),
+    OldVal = get_alc_param(AT, Param),
+    ok.
+
+get_alc_param(AT, Param) ->
+    lists:foldl(fun({instance,_,Istats}, Acc) ->
+                        {options,Opts} = lists:keyfind(options, 1, Istats),
+                        {Param,Val} = lists:keyfind(Param, 1, Opts),
+                        {as,Strategy} = lists:keyfind(as, 1, Opts),
+
+                        case {param_for_strat(Param, Strategy), Acc} of
+                            {false, _} -> Acc;
+                            {true, undefined} -> Val;
+                            {true, _} ->
+                                Val = Acc
+                        end
+                end,
+                undefined,
+                erlang:system_info({allocator, AT})).
+
+param_for_strat(sbct, gf) -> false;
+param_for_strat(_, _) -> true.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

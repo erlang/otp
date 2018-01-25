@@ -560,6 +560,7 @@ atom running_procs
 atom runtime
 atom safe
 atom save_calls
+atom sbct
 atom scheduler 
 atom scheduler_id
 atom schedulers_online

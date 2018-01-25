@@ -4226,7 +4226,6 @@ static struct {
     Eterm e;
     Eterm t;
     Eterm ramv;
-    Eterm sbct;
 #if HAVE_ERTS_MSEG
     Eterm asbcst;
     Eterm rsbcst;
@@ -4318,7 +4317,6 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(e);
 	AM_INIT(t);
 	AM_INIT(ramv);
-	AM_INIT(sbct);
 #if HAVE_ERTS_MSEG
 	AM_INIT(asbcst);
 	AM_INIT(rsbcst);
@@ -5011,7 +5009,7 @@ info_options(Allctr_t *allctr,
 		 bld_uint(hpp, szp, allctr->mseg_opt.abs_shrink_th));
 #endif
 	add_2tup(hpp, szp, &res,
-		 am.sbct,
+		 am_sbct,
 		 bld_uint(hpp, szp, allctr->sbc_threshold));
 	add_2tup(hpp, szp, &res, am.ramv, allctr->ramv ? am_true : am_false);
 	add_2tup(hpp, szp, &res, am.t, (allctr->t ? am_true : am_false));
@@ -5974,6 +5972,37 @@ erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 
 #endif
 
+static Uint adjust_sbct(Allctr_t* allctr, Uint sbct)
+{
+#ifndef ARCH_64
+    if (sbct > 0) {
+	Uint max_mbc_block_sz = UNIT_CEILING(sbct - 1 + ABLK_HDR_SZ);
+	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
+	    || max_mbc_block_sz < sbct) { /* wrap around */
+	    /*
+	     * By limiting sbc_threshold to (hard limit - min_block_size)
+	     * we avoid having to split off free "residue blocks"
+	     * smaller than min_block_size.
+	     */
+	    max_mbc_block_sz = MBC_ABLK_SZ_MASK - UNIT_FLOOR(allctr->min_block_size - 1);
+	    sbct = max_mbc_block_sz - ABLK_HDR_SZ + 1;
+	}
+    }
+#endif
+    return sbct;
+}
+
+int erts_alcu_try_set_dyn_param(Allctr_t* allctr, Eterm param, Uint value)
+{
+    const Uint MIN_DYN_SBCT = 4000;  /* a lame catastrophe prevention */
+
+    if (param == am_sbct && value >= MIN_DYN_SBCT) {
+        allctr->sbc_threshold = adjust_sbct(allctr, value);
+        return 1;
+    }
+    return 0;
+}
+
 /* ------------------------------------------------------------------------- */
 
 int
@@ -6089,22 +6118,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
 #endif
 
-    allctr->sbc_threshold		= init->sbct;
-#ifndef ARCH_64
-    if (allctr->sbc_threshold > 0) {
-	Uint max_mbc_block_sz = UNIT_CEILING(allctr->sbc_threshold - 1 + ABLK_HDR_SZ); 
-	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
-	    || max_mbc_block_sz < allctr->sbc_threshold) { /* wrap around */
-	    /* 
-	     * By limiting sbc_threshold to (hard limit - min_block_size)
-	     * we avoid having to split off free "residue blocks"
-	     * smaller than min_block_size.
-	     */
-	    max_mbc_block_sz = MBC_ABLK_SZ_MASK - UNIT_FLOOR(allctr->min_block_size - 1);
-	    allctr->sbc_threshold = max_mbc_block_sz - ABLK_HDR_SZ + 1;
-	}
-    }
-#endif
+    allctr->sbc_threshold = adjust_sbct(allctr, init->sbct);
 
 #if HAVE_ERTS_MSEG
     if (allctr->mseg_opt.abs_shrink_th > ~((UWord) 0) / 100)
@@ -6167,6 +6181,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->sys_realloc = &erts_alcu_sys_realloc;
         allctr->sys_dealloc = &erts_alcu_sys_dealloc;
     }
+
+    allctr->try_set_dyn_param = &erts_alcu_try_set_dyn_param;
+
 #if HAVE_ERTS_MSEG
     if (init->mseg_alloc) {
         ASSERT(init->mseg_realloc && init->mseg_dealloc);
@@ -6181,6 +6198,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->mseg_realloc = &erts_alcu_mseg_realloc;
         allctr->mseg_dealloc = &erts_alcu_mseg_dealloc;
     }
+
     /* If a custom carrier alloc function is specified, make sure it's used */
     if (init->mseg_alloc && !init->sys_alloc) {
         allctr->crr_set_flgs = CFLG_FORCE_MSEG;

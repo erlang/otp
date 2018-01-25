@@ -173,6 +173,8 @@ __decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
 
+Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
+
 /* --- DO *NOT* USE THESE DEPRECATED FUNCTIONS ---    Instead use:       */
 void *safe_alloc(Uint)               __deprecated; /* erts_alloc()       */
 void *safe_realloc(void *, Uint)     __deprecated; /* erts_realloc()     */
