@@ -80,96 +80,84 @@ simplify(Is0, TypeDb0) ->
 %%  Basic simplification, mostly tuples, no floating point optimizations.
 
 simplify_basic(Is, Ts) ->
-    simplify_basic_1(Is, Ts, []).
-    
-simplify_basic_1([{set,[D],[{integer,Index},Reg],{bif,element,_}}=I0|Is], Ts0, Acc) ->
-    I = case max_tuple_size(Reg, Ts0) of
-	    Sz when 0 < Index, Index =< Sz ->
-		{set,[D],[Reg],{get_tuple_element,Index-1}};
-	    _Other -> I0
-    end,
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is, Ts, [I|Acc]);
-simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) ->
-    case tdb_find(TupleReg, Ts0) of
-	{tuple,_,_,[Contents]} ->
-	    simplify_basic_1([{set,[D],[Contents],move}|Is0], Ts0, Acc);
-	_ ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is0, Ts, [I|Acc])
+    simplify_basic(Is, Ts, []).
+
+simplify_basic([I0|Is], Ts0, Acc) ->
+    case simplify_instr(I0, Ts0) of
+        [] ->
+            simplify_basic(Is, Ts0, Acc);
+        [I] ->
+            Ts = update(I, Ts0),
+            simplify_basic(Is, Ts, [I|Acc])
     end;
-simplify_basic_1([{set,_,_,{try_catch,_,_}}=I|Is], _Ts, Acc) ->
-    simplify_basic_1(Is, tdb_new(), [I|Acc]);
-simplify_basic_1([{test,is_atom,_,[R]}=I|Is], Ts, Acc) ->
+simplify_basic([], Ts, Acc) ->
+    {reverse(Acc),Ts}.
+
+simplify_instr({set,[D],[{integer,Index},Reg],{bif,element,_}}=I, Ts) ->
+    case max_tuple_size(Reg, Ts) of
+        Sz when 0 < Index, Index =< Sz ->
+            [{set,[D],[Reg],{get_tuple_element,Index-1}}];
+        _ -> [I]
+    end;
+simplify_instr({test,is_atom,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	boolean -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        boolean -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_integer,_,[R]}=I|Is], Ts, Acc) ->
+simplify_instr({test,is_integer,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	integer -> simplify_basic_1(Is, Ts, Acc);
-	{integer,_} -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        integer -> [];
+        {integer,_} -> [];
+	_ -> [I]
     end;
-simplify_basic_1([{test,is_tuple,_,[R]}=I|Is], Ts, Acc) ->
+simplify_instr({set,[D],[TupleReg],{get_tuple_element,0}}=I, Ts) ->
+    case tdb_find(TupleReg, Ts) of
+        {tuple,_,_,[Contents]} ->
+            [{set,[D],[Contents],move}];
+        _ ->
+            [I]
+    end;
+simplify_instr({test,is_tuple,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	{tuple,_,_,_} -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        {tuple,_,_,_} -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,exact_size,Arity,_} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,test_arity,_,[R,Arity]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {tuple,exact_size,Arity,_} -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	map -> simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_map,_,[R]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        map -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_nonempty_list,_,[R]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	nonempty_list -> simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_nonempty_list,_,[R]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        nonempty_list -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) ->
-    Acc = case tdb_find(R, Ts0) of
-	      {atom,_}=Atom -> Acc0;
-	      {atom,_} -> [{jump,Fail}|Acc0];
-	      _ -> [I|Acc0]
-	  end,
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is0, Ts, Acc);
-simplify_basic_1([{test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,exact_size,Arity,[Tag]} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {atom,_}=Atom -> [];
+        {atom,_} -> [{jump,Fail}];
+        _ -> [I]
     end;
-simplify_basic_1([{select,select_val,Reg,_,_}=I0|Is], Ts, Acc) ->
-    I = case tdb_find(Reg, Ts) of
-	    {integer,Range} ->
-		simplify_select_val_int(I0, Range);
-	    boolean ->
-		simplify_select_val_bool(I0);
-	    _ ->
-		I0
-	end,
-    simplify_basic_1(Is, tdb_new(), [I|Acc]);
-simplify_basic_1([I|Is], Ts0, Acc) ->
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is, Ts, [I|Acc]);
-simplify_basic_1([], Ts, Acc) ->
-    Is = reverse(Acc),
-    {Is,Ts}.
+simplify_instr({test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {tuple,exact_size,Arity,[Tag]} -> [];
+        _ -> [I]
+    end;
+simplify_instr({select,select_val,Reg,_,_}=I, Ts) ->
+    [case tdb_find(Reg, Ts) of
+         {integer,Range} ->
+             simplify_select_val_int(I, Range);
+         boolean ->
+             simplify_select_val_bool(I);
+         _ ->
+             I
+     end];
+simplify_instr(I, _) -> [I].
 
 simplify_select_val_int({select,select_val,R,_,L0}=I, {Min,Max}) ->
     Vs = sort([V || {integer,V} <- L0]),
