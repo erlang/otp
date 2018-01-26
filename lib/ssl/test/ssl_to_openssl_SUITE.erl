@@ -143,10 +143,15 @@ init_per_suite(Config0) ->
 	    try crypto:start() of
 		ok ->
                     ssl_test_lib:clean_start(),
-                  
-                    Config1 = ssl_test_lib:make_rsa_cert(Config0),
-                    Config2 = ssl_test_lib:make_dsa_cert(Config1),
-                    ssl_test_lib:cipher_restriction(Config2)
+                    Config = 
+                        case ssl_test_lib:openssl_dsa_support() of
+                            true ->
+                                Config1 = ssl_test_lib:make_rsa_cert(Config0),
+                                ssl_test_lib:make_dsa_cert(Config1);
+                            false ->
+                                ssl_test_lib:make_rsa_cert(Config0)
+                        end,
+                    ssl_test_lib:cipher_restriction(Config)
 		catch _:_  ->
 		    {skip, "Crypto did not start"}
 	    end
@@ -199,15 +204,27 @@ init_per_testcase(expired_session, Config) ->
     ssl:start(),
     Config;
 
-init_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs;
-					 TestCase == ciphers_dsa_signed_certs ->
-    ct:timetrap({seconds, 90}),
-    special_init(TestCase, Config);
-
+init_per_testcase(TestCase, Config) when 
+      TestCase == ciphers_dsa_signed_certs;
+      TestCase ==  erlang_client_openssl_server_dsa_cert;
+      TestCase == erlang_server_openssl_client_dsa_cert;
+      TestCase == erlang_client_openssl_server_dsa_cert;
+      TestCase ==  erlang_server_openssl_client_dsa_cert ->
+    case ssl_test_lib:openssl_dsa_support() of
+        true ->
+            special_init(TestCase, Config);
+        false ->
+           {skip, "DSA not supported by OpenSSL"}
+    end; 
 init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 35}),
     special_init(TestCase, Config).
 
+special_init(TestCase, Config) when 
+      TestCase == ciphers_rsa_signed_certs;
+      TestCase == ciphers_dsa_signed_certs->
+    ct:timetrap({seconds, 90}),
+    Config;
 special_init(TestCase, Config)
   when TestCase == erlang_client_openssl_server_renegotiate;
        TestCase == erlang_client_openssl_server_nowrap_seqnum;
