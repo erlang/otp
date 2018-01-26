@@ -604,7 +604,7 @@ static ERTS_INLINE int
 strategy_support_carrier_migration(struct au_init *auip)
 {
     /*
-     * Currently only aoff, aoffcbf and aoffcaobf support carrier
+     * Currently only aoff* and ageff* support carrier
      * migration, i.e, type AOFIRSTFIT.
      */
     return auip->atype == FIRSTFIT;
@@ -1432,6 +1432,21 @@ handle_au_arg(struct au_init *auip,
 		auip->init.aoff.crr_order = FF_AOFF;
 		auip->init.aoff.blk_order = FF_AOBF;
 	    }
+            else if (strcmp("ageffcaoff", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_AOFF;
+            }
+            else if (strcmp("ageffcbf", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_BF;
+            }
+            else if (strcmp("ageffcaobf", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_AOBF;
+            }
 	    else {
 		bad_value(param, sub_param + 1, alg);
 	    }

@@ -29,6 +29,7 @@
 typedef struct AOFFAllctr_t_ AOFFAllctr_t;
 
 enum AOFFSortOrder {
+    FF_AGEFF = 0,
     FF_AOFF  = 1,
     FF_AOBF  = 2,
     FF_BF    = 3

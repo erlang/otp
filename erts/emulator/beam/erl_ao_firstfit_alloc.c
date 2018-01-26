@@ -20,7 +20,7 @@
 
 
 /*
- * Description:	An "address order first fit" allocator
+ * Description:	A family of "first fit" allocator strategies
  *              based on a Red-Black (binary search) Tree. The search,
  *              insert, and delete operations are all O(log n) operations
  *              on a Red-Black Tree.
@@ -40,6 +40,10 @@
  *              sorting order. Blocks within the same carrier are sorted
  *              wrt size instead of address. The 'max_sz' field is maintained
  *              in order to dismiss entire carriers with too small blocks. 
+ * Age Order:
+ *      	Carriers are ordered by creation time instead of address.
+ *      	Oldest carrier with a large enough free block is chosen.
+ *      	No age order supported for blocks.
  *
  * Authors: 	Rickard Green/Sverker Eriksson
  */
@@ -53,10 +57,12 @@
 #include "erl_ao_firstfit_alloc.h"
 
 #ifdef DEBUG
+# define IS_DEBUG 1
 #if 0
 #define HARD_DEBUG
 #endif
 #else
+# define IS_DEBUG 0
 #undef HARD_DEBUG
 #endif
 
@@ -121,6 +127,7 @@ typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
+    Sint64 birth_time;
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
 #define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
@@ -179,11 +186,26 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
     else ASSERT(new_max == old_max);
 }
 
+/* Compare nodes for both carrier and block trees */
 static ERTS_INLINE SWord cmp_blocks(enum AOFFSortOrder order,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
     ASSERT(lhs != rhs);
-    {
+    if (order == FF_AGEFF) {
+	AOFF_Carrier_t* lc = RBT_NODE_TO_MBC(lhs);
+	AOFF_Carrier_t* rc = RBT_NODE_TO_MBC(rhs);
+	Sint64 diff = lc->birth_time - rc->birth_time;
+ #ifdef ARCH_64
+        if (diff)
+            return diff;
+ #else
+        if (diff < 0)
+            return -1;
+        else if (diff > 0)
+            return 1;
+ #endif
+    }
+    else {
 	ASSERT(order == FF_AOFF || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
 	if (order != FF_AOFF) {
 	    SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
@@ -193,9 +215,11 @@ static ERTS_INLINE SWord cmp_blocks(enum AOFFSortOrder order,
     return (char*)lhs - (char*)rhs;
 }
 
+/* Compare candidate block. Only for block tree */
 static ERTS_INLINE SWord cmp_cand_blk(enum AOFFSortOrder order,
 				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
+    ASSERT(order != FF_AGEFF);
     if (order != FF_AOFF) {
 	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
 	    SWord diff = (SWord)MBC_BLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
@@ -232,10 +256,17 @@ static void init_atoms(void);
 
 static int atoms_initialized = 0;
 
+#ifndef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+static erts_atomic64_t birth_time_counter;
+#endif
+
 void
 erts_aoffalc_init(void)
 {
     atoms_initialized = 0;
+#ifndef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    erts_atomic64_init_nob(&birth_time_counter, 0);
+#endif
 }
 
 Allctr_t *
@@ -875,6 +906,15 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     return (Block_t *) blk;
 }
 
+static ERTS_INLINE Sint64 get_birth_time(void)
+{
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+    return (Sint64) erts_os_monotonic_time();
+#else
+    return (Sint64) erts_atomic64_inc_read_nob(&birth_time_counter);
+#endif
+}
+
 static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
@@ -883,9 +923,9 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
 
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 
-    /* Link carrier in address order tree
-     */
     crr->rbt_node.hdr.bhdr = 0;
+    if (alc->crr_order == FF_AGEFF || IS_DEBUG)
+	crr->birth_time = get_birth_time();
     rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
@@ -916,8 +956,6 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
     ASSERT(!IS_CRR_IN_TREE(crr, *root));
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);   
 
-    /* Link carrier in address order tree
-     */
     rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
@@ -958,17 +996,17 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
  * info_options()
  */
 
+static const char* flavor_str[2][3] = {
+    {"ageffcaoff", "ageffcaobf", "ageffcbf"},
+    {      "aoff",  "aoffcaobf",  "aoffcbf"}
+};
+static Eterm flavor_atoms[2][3];
+
 static struct {
     Eterm as;
-    Eterm aoff;
-    Eterm aoffcaobf;
-    Eterm aoffcbf;
-#ifdef DEBUG
-    Eterm end_of_atoms;
-#endif
 } am;
 
-static void ERTS_INLINE atom_init(Eterm *atom, char *name)
+static void ERTS_INLINE atom_init(Eterm *atom, const char *name)
 {
     *atom = am_atom_put(name, strlen(name));
 }
@@ -977,28 +1015,16 @@ static void ERTS_INLINE atom_init(Eterm *atom, char *name)
 static void
 init_atoms(void)
 {
-#ifdef DEBUG
-    Eterm *atom;
-#endif
+    int i, j;
 
     if (atoms_initialized)
 	return;
 
-#ifdef DEBUG
-    for (atom = (Eterm *) &am; atom <= &am.end_of_atoms; atom++) {
-	*atom = THE_NON_VALUE;
-    }
-#endif
     AM_INIT(as);
-    AM_INIT(aoff);
-    AM_INIT(aoffcaobf);
-    AM_INIT(aoffcbf);
 
-#ifdef DEBUG
-    for (atom = (Eterm *) &am; atom < &am.end_of_atoms; atom++) {
-	ASSERT(*atom != THE_NON_VALUE);
-    }
-#endif
+    for (i = 0; i < 2; i++)
+        for (j = 0; j < 3; j++)
+            atom_init(&flavor_atoms[i][j], flavor_str[i][j]);
 
     atoms_initialized = 1;
 }
@@ -1024,15 +1050,16 @@ info_options(Allctr_t *allctr,
 {
     AOFFAllctr_t* alc = (AOFFAllctr_t*) allctr;
     Eterm res = THE_NON_VALUE;
-    const char* flavor_str[3] = {"aoff", "aoffcaobf", "aoffcbf"};
-    Eterm flavor_atom[3] = {am.aoff, am.aoffcaobf, am.aoffcbf};
+
+    ASSERT(alc->crr_order >= 0 && alc->crr_order <= 1);
+    ASSERT(alc->blk_order >= 1 && alc->blk_order <= 3);
 
     if (print_to_p) {
 	erts_print(*print_to_p,
 		   print_to_arg,
 		   "%sas: %s\n",
 		   prefix,
-		   flavor_str[alc->blk_order-1]);
+		   flavor_str[alc->crr_order][alc->blk_order-1]);
     }
 
     if (hpp || szp) {
@@ -1042,7 +1069,8 @@ info_options(Allctr_t *allctr,
 		     __FILE__, __LINE__);;
 
 	res = NIL;
-	add_2tup(hpp, szp, &res, am.as, flavor_atom[alc->blk_order-1]);
+	add_2tup(hpp, szp, &res, am.as,
+                 flavor_atoms[alc->crr_order][alc->blk_order-1]);
     }
 
     return res;

@@ -67,7 +67,8 @@ cpool(Cfg) -> drv_case(Cfg).
 migration(Cfg) ->
     case erlang:system_info(smp_support) of
 	true ->
-	    drv_case(Cfg, concurrent, "+MZe true");
+	    drv_case(Cfg, concurrent, "+MZe true"),
+	    drv_case(Cfg, concurrent, "+MZe true +MZas ageffcbf");
 	false ->
 	    {skipped, "No smp"}
     end.
