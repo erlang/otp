@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
 	 tuple/1,record_float/1,binary_float/1,float_compare/1,
-	 arity_checks/1]).
+	 arity_checks/1,elixir_binaries/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -42,7 +42,8 @@ groups() ->
        record_float,
        binary_float,
        float_compare,
-       arity_checks
+       arity_checks,
+       elixir_binaries
       ]}].
 
 init_per_suite(Config) ->
@@ -198,6 +199,43 @@ do_tuple_arity_check(RGB) when is_tuple(RGB),
         {255, _, _} -> broken;
         _ -> ok
     end.
+
+elixir_binaries(_Config) ->
+    <<"foo blitzky baz">> = elixir_binary_1(<<"blitzky">>),
+    <<"foo * baz">> = elixir_binary_2($*),
+    <<7:4,755:10>> = elixir_bitstring_3(<<755:10>>),
+    ok.
+
+elixir_binary_1(Bar) when is_binary(Bar) ->
+    <<"foo ",
+      case Bar of
+          Rewrite when is_binary(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_binary(Rewrite)
+      end/binary,
+      " baz">>.
+
+elixir_binary_2(Arg) ->
+    Bin = <<Arg>>,
+    <<"foo ",
+      case Bin of
+          Rewrite when is_binary(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_binary:to_string(Rewrite)
+      end/binary,
+      " baz">>.
+
+elixir_bitstring_3(Bar) when is_bitstring(Bar) ->
+    <<7:4,
+      case Bar of
+          Rewrite when is_bitstring(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_bitstring(Rewrite)
+      end/bitstring>>.
+
 
 id(I) ->
     I.

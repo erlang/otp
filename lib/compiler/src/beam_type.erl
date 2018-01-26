@@ -80,96 +80,99 @@ simplify(Is0, TypeDb0) ->
 %%  Basic simplification, mostly tuples, no floating point optimizations.
 
 simplify_basic(Is, Ts) ->
-    simplify_basic_1(Is, Ts, []).
-    
-simplify_basic_1([{set,[D],[{integer,Index},Reg],{bif,element,_}}=I0|Is], Ts0, Acc) ->
-    I = case max_tuple_size(Reg, Ts0) of
-	    Sz when 0 < Index, Index =< Sz ->
-		{set,[D],[Reg],{get_tuple_element,Index-1}};
-	    _Other -> I0
-    end,
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is, Ts, [I|Acc]);
-simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) ->
-    case tdb_find(TupleReg, Ts0) of
-	{tuple,_,_,[Contents]} ->
-	    simplify_basic_1([{set,[D],[Contents],move}|Is0], Ts0, Acc);
-	_ ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is0, Ts, [I|Acc])
+    simplify_basic(Is, Ts, []).
+
+simplify_basic([I0|Is], Ts0, Acc) ->
+    case simplify_instr(I0, Ts0) of
+        [] ->
+            simplify_basic(Is, Ts0, Acc);
+        [I] ->
+            Ts = update(I, Ts0),
+            simplify_basic(Is, Ts, [I|Acc])
     end;
-simplify_basic_1([{set,_,_,{try_catch,_,_}}=I|Is], _Ts, Acc) ->
-    simplify_basic_1(Is, tdb_new(), [I|Acc]);
-simplify_basic_1([{test,is_atom,_,[R]}=I|Is], Ts, Acc) ->
+simplify_basic([], Ts, Acc) ->
+    {reverse(Acc),Ts}.
+
+simplify_instr({set,[D],[{integer,Index},Reg],{bif,element,_}}=I, Ts) ->
+    case max_tuple_size(Reg, Ts) of
+        Sz when 0 < Index, Index =< Sz ->
+            [{set,[D],[Reg],{get_tuple_element,Index-1}}];
+        _ -> [I]
+    end;
+simplify_instr({test,is_atom,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	boolean -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        boolean -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_integer,_,[R]}=I|Is], Ts, Acc) ->
+simplify_instr({test,is_integer,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	integer -> simplify_basic_1(Is, Ts, Acc);
-	{integer,_} -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        integer -> [];
+        {integer,_} -> [];
+	_ -> [I]
     end;
-simplify_basic_1([{test,is_tuple,_,[R]}=I|Is], Ts, Acc) ->
+simplify_instr({set,[D],[TupleReg],{get_tuple_element,0}}=I, Ts) ->
+    case tdb_find(TupleReg, Ts) of
+        {tuple,_,_,[Contents]} ->
+            [{set,[D],[Contents],move}];
+        _ ->
+            [I]
+    end;
+simplify_instr({test,is_tuple,_,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-	{tuple,_,_,_} -> simplify_basic_1(Is, Ts, Acc);
-	_ -> simplify_basic_1(Is, Ts, [I|Acc])
+        {tuple,_,_,_} -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,test_arity,_,[R,Arity]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,exact_size,Arity,_} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,test_arity,_,[R,Arity]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {tuple,exact_size,Arity,_} -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_map,_,[R]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	map -> simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_map,_,[R]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        map -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_nonempty_list,_,[R]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	nonempty_list -> simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_nonempty_list,_,[R]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        nonempty_list -> [];
+        _ -> [I]
     end;
-simplify_basic_1([{test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I|Is0], Ts0, Acc0) ->
-    Acc = case tdb_find(R, Ts0) of
-	      {atom,_}=Atom -> Acc0;
-	      {atom,_} -> [{jump,Fail}|Acc0];
-	      _ -> [I|Acc0]
-	  end,
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is0, Ts, Acc);
-simplify_basic_1([{test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I|Is], Ts0, Acc) ->
-    case tdb_find(R, Ts0) of
-	{tuple,exact_size,Arity,[Tag]} ->
-	    simplify_basic_1(Is, Ts0, Acc);
-	_Other ->
-	    Ts = update(I, Ts0),
-	    simplify_basic_1(Is, Ts, [I|Acc])
+simplify_instr({test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {atom,_}=Atom -> [];
+        {atom,_} -> [{jump,Fail}];
+        _ -> [I]
     end;
-simplify_basic_1([{select,select_val,Reg,_,_}=I0|Is], Ts, Acc) ->
-    I = case tdb_find(Reg, Ts) of
-	    {integer,Range} ->
-		simplify_select_val_int(I0, Range);
-	    boolean ->
-		simplify_select_val_bool(I0);
-	    _ ->
-		I0
-	end,
-    simplify_basic_1(Is, tdb_new(), [I|Acc]);
-simplify_basic_1([I|Is], Ts0, Acc) ->
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is, Ts, [I|Acc]);
-simplify_basic_1([], Ts, Acc) ->
-    Is = reverse(Acc),
-    {Is,Ts}.
+simplify_instr({test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I, Ts) ->
+    case tdb_find(R, Ts) of
+        {tuple,exact_size,Arity,[Tag]} -> [];
+        _ -> [I]
+    end;
+simplify_instr({select,select_val,Reg,_,_}=I, Ts) ->
+    [case tdb_find(Reg, Ts) of
+         {integer,Range} ->
+             simplify_select_val_int(I, Range);
+         boolean ->
+             simplify_select_val_bool(I);
+         _ ->
+             I
+     end];
+simplify_instr({test,bs_test_unit,_,[Src,Unit]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,U} when U rem Unit =:= 0 -> [];
+        _ -> [I]
+    end;
+simplify_instr({test,is_binary,_,[Src]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,U} when U rem 8 =:= 0 -> [];
+        _ -> [I]
+    end;
+simplify_instr({test,is_bitstr,_,[Src]}=I, Ts) ->
+    case tdb_find(Src, Ts) of
+        {binary,_} -> [];
+        _ -> [I]
+    end;
+simplify_instr(I, _) -> [I].
 
 simplify_select_val_int({select,select_val,R,_,L0}=I, {Min,Max}) ->
     Vs = sort([V || {integer,V} <- L0]),
@@ -504,8 +507,12 @@ update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
 update({test,is_record,_Fail,[Src,Tag,{integer,Arity}]}, Ts) ->
     tdb_update([{Src,{tuple,exact_size,Arity,[Tag]}}], Ts);
 
-%% Binary matching
+%% Binaries and binary matching.
 
+update({test,is_binary,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,{binary,8}}], Ts0);
+update({test,is_bitstr,_Fail,[Src]}, Ts0) ->
+    tdb_update([{Src,{binary,1}}], Ts0);
 update({test,bs_get_integer2,_,_,Args,Dst}, Ts) ->
     tdb_update([{Dst,get_bs_integer_type(Args)}], Ts);
 update({test,bs_get_utf8,_,_,_,Dst}, Ts) ->
@@ -514,8 +521,10 @@ update({test,bs_get_utf16,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,?UNICODE_INT}], Ts);
 update({test,bs_get_utf32,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,?UNICODE_INT}], Ts);
+update({bs_init,_,{bs_init2,_,_},_,_,Dst}, Ts) ->
+    tdb_update([{Dst,{binary,8}}], Ts);
 update({bs_init,_,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
+    tdb_update([{Dst,{binary,1}}], Ts);
 update({bs_put,_,_,_}, Ts) ->
     Ts;
 update({bs_save2,_,_}, Ts) ->
@@ -524,12 +533,19 @@ update({bs_restore2,_,_}, Ts) ->
     Ts;
 update({bs_context_to_binary,Dst}, Ts) ->
     tdb_update([{Dst,kill}], Ts);
-update({test,bs_start_match2,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
-update({test,bs_get_binary2,_,_,_,Dst}, Ts) ->
-    tdb_update([{Dst,kill}], Ts);
+update({test,bs_start_match2,_,_,[Src,_],Dst}, Ts) ->
+    Type = case tdb_find(Src, Ts) of
+               {binary,_}=Type0 -> Type0;
+               _ -> {binary,1}
+           end,
+    tdb_update([{Dst,Type}], Ts);
+update({test,bs_get_binary2,_,_,[_,_,Unit,_],Dst}, Ts) ->
+    true = is_integer(Unit),                    %Assertion.
+    tdb_update([{Dst,{binary,Unit}}], Ts);
 update({test,bs_get_float2,_,_,_,Dst}, Ts) ->
     tdb_update([{Dst,float}], Ts);
+update({test,bs_test_unit,_,[Src,Unit]}, Ts) ->
+    tdb_update([{Src,{binary,Unit}}], Ts);
 
 update({test,_Test,_Fail,_Other}, Ts) ->
     Ts;
@@ -566,6 +582,7 @@ update({call_fun, _}, Ts) -> tdb_kill_xregs(Ts);
 update({apply, _}, Ts) -> tdb_kill_xregs(Ts);
 
 update({line,_}, Ts) -> Ts;
+update({'%',_}, Ts) -> Ts;
 
 %% The instruction is unknown.  Kill all information.
 update(_I, _Ts) -> tdb_new().
@@ -804,6 +821,9 @@ checkerror_2(OrigIs) -> [{set,[],[],fcheckerror}|OrigIs].
 %%%
 %%% 'integer' or {integer,{Min,Max}} that the register contains an
 %%% integer.
+%%%
+%%% {binary,Unit} means that the register contains a binary/bitstring aligned
+%%% to unit Unit.
 
 %% tdb_new() -> EmptyDataBase
 %%  Creates a new, empty type database.
@@ -929,11 +949,14 @@ merge_type_info({integer,_}=Int, integer) ->
     Int;
 merge_type_info({integer,{Min1,Max1}}, {integer,{Min2,Max2}}) ->
     {integer,{max(Min1, Min2),min(Max1, Max2)}};
+merge_type_info({binary,U1}, {binary,U2}) ->
+    {binary,max(U1, U2)};
 merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
 verify_type({atom,_}) -> ok;
+verify_type({binary,U}) when is_integer(U) -> ok;
 verify_type(boolean) -> ok;
 verify_type(integer) -> ok;
 verify_type({integer,{Min,Max}})

@@ -294,24 +294,25 @@ backward([{jump,{f,To}}=J|[{gc_bif,_,{f,To},_,_,_Dst}|Is]], D, Acc) ->
     %% register is initialized, and it is therefore no need to test
     %% for liveness of the destination register at label To.
     backward([J|Is], D, Acc);
-backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
-	 [{test,bs_match_string,F,[Ctxt,Bs]},
-	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+backward([{test,bs_start_match2,F,Live,[Src,_]=Args,Ctxt}|Is], D, Acc0) ->
     {f,To0} = F,
-    case beam_utils:is_killed(Ctxt, Acc0, D) of
-	true ->
-	    To = shortcut_bs_context_to_binary(To0, R, D),
-	    Eq = {test,is_eq_exact,{f,To},[R,{literal,Bs}]},
-	    backward(Is, D, [Eq|Acc0]);
-	false ->
-	    To = shortcut_bs_start_match(To0, R, D),
-	    I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
-	    backward(Is, D, [I|Acc])
+    case test_bs_literal(F, Ctxt, D, Acc0) of
+        {none,Acc} ->
+            %% Ctxt killed immediately after bs_start_match2.
+            To = shortcut_bs_context_to_binary(To0, Src, D),
+            I = {test,is_bitstr,{f,To},[Src]},
+            backward(Is, D, [I|Acc]);
+        {Literal,Acc} ->
+            %% Ctxt killed after matching a literal.
+            To = shortcut_bs_context_to_binary(To0, Src, D),
+            Eq = {test,is_eq_exact,{f,To},[Src,{literal,Literal}]},
+            backward(Is, D, [Eq|Acc]);
+        not_killed ->
+            %% Ctxt not killed. Not much to do.
+            To = shortcut_bs_start_match(To0, Src, D),
+            I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
+            backward(Is, D, [I|Acc0])
     end;
-backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
-    To = shortcut_bs_start_match(To0, Src, D),
-    I = {test,bs_start_match2,{f,To},Live,Info,Dst},
-    backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
@@ -510,6 +511,22 @@ remove_from_list(Lit, [Lit,{f,_}|T]) ->
 remove_from_list(Lit, [Val,{f,_}=Fail|T]) ->
     [Val,Fail|remove_from_list(Lit, T)];
 remove_from_list(_, []) -> [].
+
+
+test_bs_literal(F, Ctxt, D,
+                [{test,bs_match_string,F,[Ctxt,Bs]},
+                 {test,bs_test_tail2,F,[Ctxt,0]}|Acc]) ->
+    test_bs_literal_1(Ctxt, Acc, D, Bs);
+test_bs_literal(F, Ctxt, D, [{test,bs_test_tail2,F,[Ctxt,0]}|Acc]) ->
+    test_bs_literal_1(Ctxt, Acc, D, <<>>);
+test_bs_literal(_, Ctxt, D, Acc) ->
+    test_bs_literal_1(Ctxt, Acc, D, none).
+
+test_bs_literal_1(Ctxt, Is, D, Literal) ->
+    case beam_utils:is_killed(Ctxt, Is, D) of
+        true -> {Literal,Is};
+        false -> not_killed
+    end.
 
 %% shortcut_bs_test(TargetLabel, ReversedInstructions, D) -> TargetLabel'
 %%  Try to shortcut the failure label for bit syntax matching.
