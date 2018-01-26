@@ -359,9 +359,7 @@ integer_encoding_1(Config) ->
     io:put_chars(Src, "t(Last) ->[\n"),
     io:put_chars(Data, "[\n"),
 
-    do_integer_encoding(-(id(1) bsl 10000), Src, Data),
-    do_integer_encoding(id(1) bsl 10000, Src, Data),
-    do_integer_encoding(1024, 0, Src, Data),
+    do_integer_encoding(137, 0, Src, Data),
     _ = [begin
 	     B = 1 bsl I,
 	     do_integer_encoding(-B-1, Src, Data),
@@ -370,7 +368,7 @@ integer_encoding_1(Config) ->
 	     do_integer_encoding(B-1, Src, Data),
 	     do_integer_encoding(B, Src, Data),
 	     do_integer_encoding(B+1, Src, Data)
-	 end || I <- lists:seq(1, 128)],
+	 end || I <- lists:seq(1, 130)],
     io:put_chars(Src, "Last].\n\n"),
     ok = file:close(Src),
     io:put_chars(Data, "0].\n\n"),
@@ -384,8 +382,6 @@ integer_encoding_1(Config) ->
     %% Compare lists.
     List = Mod:t(0),
     {ok,[List]} = file:consult(DataFile),
-    OneBsl10000 = id(1) bsl 10000,
-    [-(1 bsl 10000),OneBsl10000|_] = List,
 
     %% Cleanup.
     file:delete(SrcFile),
@@ -404,7 +400,3 @@ do_integer_encoding(I, Src, Data) ->
     Str = integer_to_list(I),
     io:put_chars(Src, [Str,",\n"]),
     io:put_chars(Data, [Str,",\n"]).
-
-    
-id(I) -> I.
-    
