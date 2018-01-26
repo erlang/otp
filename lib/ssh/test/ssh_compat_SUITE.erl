@@ -137,6 +137,8 @@ init_per_group(G, Config0) ->
                                 %% is a bit hard. It is possible with ssh_protocol_SUITE
                                 %% techniques, but it can wait.
                                 case Vssh of
+                                    "dropbear" ++ _ ->
+                                        [password, publickey];
                                     _ ->
                                         [password, 'keyboard-interactive', publickey]
                                 end,
@@ -451,6 +453,9 @@ exec_from_docker(C, DestIP, DestPort, Command, Expects, ExtraSshArg, Config) whe
         lists:concat(
           ["sshpass -p ",?PASSWD," "
            | case proplists:get_value(ssh_version,Config) of
+                 "dropbear" ++ _ ->
+                     ["dbclient -y -y -p ",DestPort," ",ExtraSshArg," ",iptoa(DestIP)," "];
+
                  _ -> %% OpenSSH or compatible
                      ["/buildroot/ssh/bin/ssh -o 'CheckHostIP=no' -o 'StrictHostKeyChecking=no' ",
                       ExtraSshArg," -p ",DestPort," ",iptoa(DestIP)," "]
