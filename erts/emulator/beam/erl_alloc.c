@@ -167,7 +167,7 @@ enum allctr_type {
     GOODFIT,
     BESTFIT,
     AFIT,
-    AOFIRSTFIT
+    FIRSTFIT
 };
 
 struct au_init {
@@ -500,8 +500,9 @@ set_default_test_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= 0; /* Disabled by default */
     ip->thr_spec		= -1 * erts_no_schedulers;
-    ip->atype			= AOFIRSTFIT;
-    ip->init.aoff.flavor        = AOFF_BF;
+    ip->atype			= FIRSTFIT;
+    ip->init.aoff.crr_order     = FF_AOFF;
+    ip->init.aoff.blk_order     = FF_BF;
     ip->init.util.name_prefix	= "test_";
     ip->init.util.alloc_no	= ERTS_ALC_A_TEST;
     ip->init.util.mmbcs 	= 0; /* Main carrier size */
@@ -606,7 +607,7 @@ strategy_support_carrier_migration(struct au_init *auip)
      * Currently only aoff, aoffcbf and aoffcaobf support carrier
      * migration, i.e, type AOFIRSTFIT.
      */
-    return auip->atype == AOFIRSTFIT;
+    return auip->atype == FIRSTFIT;
 }
 
 static ERTS_INLINE void
@@ -622,8 +623,9 @@ adjust_carrier_migration_support(struct au_init *auip)
 	 */
 	if (!strategy_support_carrier_migration(auip)) {
 	    /* Default to aoffcbf */
-	    auip->atype = AOFIRSTFIT;
-	    auip->init.aoff.flavor = AOFF_BF;
+	    auip->atype = FIRSTFIT;
+	    auip->init.aoff.crr_order = FF_AOFF;
+	    auip->init.aoff.blk_order = FF_BF;
 	}
     }
 #else
@@ -1176,7 +1178,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 					   &init->init.af,
 					   &init->init.util);
 	    break;
-    	case AOFIRSTFIT:
+	case FIRSTFIT:
 	    as = erts_aoffalc_start((AOFFAllctr_t *) as0,
 					     &init->init.aoff,
 					     &init->init.util);
@@ -1416,16 +1418,19 @@ handle_au_arg(struct au_init *auip,
 		auip->atype = AFIT;
 	    }
 	    else if (strcmp("aoff", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_AOFF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_AOFF;
 	    }
 	    else if (strcmp("aoffcbf", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_BF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_BF;
 	    }
 	    else if (strcmp("aoffcaobf", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_AOBF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_AOBF;
 	    }
 	    else {
 		bad_value(param, sub_param + 1, alg);
@@ -3634,7 +3639,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 					  &init.init.af,
 					  &init.init.util);
 		break;
-	    case AOFIRSTFIT:
+	    case FIRSTFIT:
 		allctr = erts_aoffalc_start((AOFFAllctr_t *)
 					  erts_alloc(ERTS_ALC_T_UNDEF,
 						     sizeof(AOFFAllctr_t)),

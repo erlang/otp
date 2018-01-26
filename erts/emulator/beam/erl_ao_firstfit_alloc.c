@@ -137,11 +137,11 @@ struct AOFF_Carrier_t_ {
 
 #ifdef HARD_DEBUG
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
-#  define HARD_CHECK_TREE(CRR,FLV,ROOT,SZ) check_tree(CRR, FLV, ROOT, SZ)
-static AOFF_RBTree_t * check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, Uint);
+#  define HARD_CHECK_TREE(CRR,ORDER,ROOT,SZ) check_tree(CRR, ORDER, ROOT, SZ)
+static AOFF_RBTree_t * check_tree(Carrier_t*, enum AOFFSortOrder, AOFF_RBTree_t*, Uint);
 #else
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
-#  define HARD_CHECK_TREE(CRR,FLV,ROOT,SZ)
+#  define HARD_CHECK_TREE(CRR,ORDER,ROOT,SZ)
 #endif
 
 
@@ -179,25 +179,27 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
     else ASSERT(new_max == old_max);
 }
 
-static ERTS_INLINE SWord cmp_blocks(enum AOFF_Flavor flavor,
+static ERTS_INLINE SWord cmp_blocks(enum AOFFSortOrder order,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
     ASSERT(lhs != rhs);
-    ASSERT(flavor == AOFF_AOFF || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
-    if (flavor != AOFF_AOFF) {
-	SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
-	if (diff || flavor == AOFF_BF) return diff;
+    {
+	ASSERT(order == FF_AOFF || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
+	if (order != FF_AOFF) {
+	    SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
+	    if (diff || order == FF_BF) return diff;
+	}
     }
     return (char*)lhs - (char*)rhs;
 }
 
-static ERTS_INLINE SWord cmp_cand_blk(enum AOFF_Flavor flavor,
+static ERTS_INLINE SWord cmp_cand_blk(enum AOFFSortOrder order,
 				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
-    if (flavor != AOFF_AOFF) {
+    if (order != FF_AOFF) {
 	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
 	    SWord diff = (SWord)MBC_BLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
-	    if (diff || flavor == AOFF_BF) return diff;
+	    if (diff || order == FF_BF) return diff;
 	}
     }
     return (char*)cand_blk - (char*)rhs;
@@ -218,7 +220,7 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
 
 /* Generic tree functions used by both carrier and block trees. */
 static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
-static void rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
+static void rbt_insert(enum AOFFSortOrder, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
 static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
 #ifdef HARD_DEBUG
 static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
@@ -254,11 +256,12 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
-    alc->flavor                         = aoffinit->flavor;
+    alc->blk_order                      = aoffinit->blk_order;
+    alc->crr_order                      = aoffinit->crr_order;
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
-    allctr->min_block_size = (aoffinit->flavor == AOFF_BF ?
+    allctr->min_block_size = (aoffinit->blk_order == FF_BF ?
 			      sizeof(AOFF_RBTreeList_t):sizeof(AOFF_RBTree_t));
 
     allctr->vsn_str			= ERTS_ALC_AOFF_ALLOC_VSN_STR;
@@ -487,9 +490,9 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(&del->hdr);
 
     ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
-    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
+    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
 
-    if (alc->flavor == AOFF_BF) {
+    if (alc->blk_order == FF_BF) {
 	ASSERT(del->flags & IS_BF_FLG);
 	if (IS_LIST_ELEM(del)) {
 	    /* Remove from list */
@@ -510,14 +513,14 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
 	    
 	    replace(&crr->root, (AOFF_RBTree_t*)del, LIST_NEXT(del));
 	    
-	    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
+	    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
 	    return;
 	}
     }
 
     rbt_delete(&crr->root, (AOFF_RBTree_t*)del);
 
-    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
+    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
 
     /* Update the carrier tree with a potentially new (lower) max_sz
      */    
@@ -715,9 +718,9 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(&blk_crr->crr));
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
-    HARD_CHECK_TREE(&blk_crr->crr, alc->flavor, blk_crr->root, 0);
+    HARD_CHECK_TREE(&blk_crr->crr, alc->blk_order, blk_crr->root, 0);
 
-    rbt_insert(alc->flavor, &blk_crr->root, blk);
+    rbt_insert(alc->blk_order, &blk_crr->root, blk);
 
     /* Update the carrier tree with a potentially new (larger) max_sz
     */
@@ -731,16 +734,16 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 	    if (!crr_node) break;
 	}
     }
-    HARD_CHECK_TREE(&blk_crr->crr, alc->flavor, blk_crr->root, 0);
+    HARD_CHECK_TREE(&blk_crr->crr, alc->blk_order, blk_crr->root, 0);
 }
 
 static void
-rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
+rbt_insert(enum AOFFSortOrder order, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 {
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
 #ifdef DEBUG
-    blk->flags  = (flavor == AOFF_BF) ? IS_BF_FLG : 0; 
+    blk->flags  = (order == FF_BF) ? IS_BF_FLG : 0;
 #else
     blk->flags  = 0; 
 #endif
@@ -760,7 +763,7 @@ rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 	    if (x->max_sz < blk_sz) {
 		x->max_sz = blk_sz;
 	    }
-	    diff = cmp_blocks(flavor, blk, x);
+	    diff = cmp_blocks(order, blk, x);
 	    if (diff < 0) {
 		if (!x->left) {
 		    blk->parent = x;
@@ -778,7 +781,7 @@ rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 		x = x->right;
 	    }
 	    else {
-		ASSERT(flavor == AOFF_BF);
+		ASSERT(order == FF_BF);
 		ASSERT(blk->flags & IS_BF_FLG);			    
 		ASSERT(x->flags & IS_BF_FLG);			    
 		SET_LIST_ELEM(blk);
@@ -798,7 +801,7 @@ rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 	if (IS_RED(blk->parent))
 	    tree_insert_fixup(root, blk);
     }
-    if (flavor == AOFF_BF) {
+    if (order == FF_BF) {
 	SET_TREE_NODE(blk);
 	LIST_NEXT(blk) = NULL;
     }
@@ -850,7 +853,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     /* Get block within carrier tree
      */
 #ifdef HARD_DEBUG
-    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, size);
+    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, size);
 #endif
 
     blk = rbt_search(crr->root, size);
@@ -863,7 +866,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     if (!blk)
 	return NULL;
 
-    if (cand_blk && cmp_cand_blk(alc->flavor, cand_blk, blk) < 0) {
+    if (cand_blk && cmp_cand_blk(alc->blk_order, cand_blk, blk) < 0) {
 	return NULL; /* cand_blk was better */
     }
 
@@ -878,17 +881,17 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 
     /* Link carrier in address order tree
      */
     crr->rbt_node.hdr.bhdr = 0;
-    rbt_insert(AOFF_AOFF, root, &crr->rbt_node);
+    rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
     crr->root = NULL;
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 }
 
 #define IS_CRR_IN_TREE(CRR,ROOT) \
@@ -911,13 +914,13 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_RBTree_t **root = &alc->mbc_root;
 
     ASSERT(!IS_CRR_IN_TREE(crr, *root));
-    HARD_CHECK_TREE(NULL, 0, *root, 0);   
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);   
 
     /* Link carrier in address order tree
      */
-    rbt_insert(AOFF_AOFF, root, &crr->rbt_node);
+    rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 }
 
 static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
@@ -931,7 +934,7 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
     if (!IS_CRR_IN_TREE(crr,*root))
         return;
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 
     rbt_delete(root, &crr->rbt_node);
     crr->rbt_node.parent = NULL;
@@ -939,7 +942,7 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
     crr->rbt_node.right = NULL;
     crr->rbt_node.max_sz = crr->rbt_node.hdr.bhdr;
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 }
 
 static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
@@ -1029,7 +1032,7 @@ info_options(Allctr_t *allctr,
 		   print_to_arg,
 		   "%sas: %s\n",
 		   prefix,
-		   flavor_str[alc->flavor]);
+		   flavor_str[alc->blk_order-1]);
     }
 
     if (hpp || szp) {
@@ -1039,7 +1042,7 @@ info_options(Allctr_t *allctr,
 		     __FILE__, __LINE__);;
 
 	res = NIL;
-	add_2tup(hpp, szp, &res, am.as, flavor_atom[alc->flavor]);
+	add_2tup(hpp, szp, &res, am.as, flavor_atom[alc->blk_order-1]);
     }
 
     return res;
@@ -1057,7 +1060,7 @@ UWord
 erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x500: return (UWord) ((AOFFAllctr_t *) a1)->flavor == AOFF_AOBF;
+    case 0x500: return (UWord) ((AOFFAllctr_t *) a1)->blk_order == FF_AOBF;
     case 0x501: {
 	AOFF_RBTree_t *node = ((AOFFAllctr_t *) a1)->mbc_root; 
 	Uint size = (Uint) a2;
@@ -1072,7 +1075,7 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
     case 0x507:	return (UWord) IS_TREE_NODE((AOFF_RBTree_t *) a1);
     case 0x508: return (UWord) 0; /* IS_BF_ALGO */
     case 0x509: return (UWord) ((AOFF_RBTree_t *) a1)->max_sz;
-    case 0x50a: return (UWord) ((AOFFAllctr_t *) a1)->flavor == AOFF_BF;
+    case 0x50a: return (UWord) ((AOFFAllctr_t *) a1)->blk_order == FF_BF;
     case 0x50b:	return (UWord) LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
@@ -1132,7 +1135,7 @@ static void print_tree(AOFF_RBTree_t*);
  */
 
 static AOFF_RBTree_t *
-check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, Uint size)
+check_tree(Carrier_t* within_crr, enum AOFFSortOrder order, AOFF_RBTree_t* root, Uint size)
 {
     AOFF_RBTree_t *res = NULL;
     Sint blacks;
@@ -1144,7 +1147,8 @@ check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, 
 #ifdef PRINT_TREE
     print_tree(root);
 #endif
-    ASSERT(within_crr || flavor == AOFF_AOFF);
+    ASSERT((within_crr && order >= FF_AOFF) ||
+           (!within_crr && order <= FF_AOFF));
 
     if (!root)
 	return res;
@@ -1202,7 +1206,7 @@ check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, 
 	    ASSERT(((char*)x + AOFF_BLK_SZ(x)) <= ((char*)crr + CARRIER_SZ(crr)));
 
 	}
-	if (flavor == AOFF_BF) {
+	if (order == FF_BF) {
 	    AOFF_RBTree_t* y = x;
 	    AOFF_RBTree_t* nxt = LIST_NEXT(y);
 	    ASSERT(IS_TREE_NODE(x));
@@ -1225,13 +1229,13 @@ check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, 
 
 	if (x->left) {
 	    ASSERT(x->left->parent == x);
-	    ASSERT(cmp_blocks(flavor, x->left, x) < 0);
+	    ASSERT(cmp_blocks(order, x->left, x) < 0);
 	    ASSERT(x->left->max_sz <= x->max_sz);	    
 	}
 
 	if (x->right) {
 	    ASSERT(x->right->parent == x);
-	    ASSERT(cmp_blocks(flavor, x->right, x) > 0);
+	    ASSERT(cmp_blocks(order, x->right, x) > 0);
 	    ASSERT(x->right->max_sz <= x->max_sz);	    
 	}
 	ASSERT(x->max_sz >= AOFF_BLK_SZ(x));
@@ -1240,7 +1244,7 @@ check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, 
 	       || x->max_sz == (x->right ? x->right->max_sz : 0));
 
 	if (size && AOFF_BLK_SZ(x) >= size) {
-	    if (!res || cmp_blocks(flavor, x, res) < 0) {
+	    if (!res || cmp_blocks(order, x, res) < 0) {
 		res = x;
 	    }
 	}
