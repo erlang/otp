@@ -1425,7 +1425,12 @@ skip_groups1(Suite,Groups,Cmt,Suites0) ->
 	    GrAndCases1 = GrAndCases0 ++ SkipGroups,
 	    insert_in_order({Suite,GrAndCases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipGroups},Suites0,replace)
+	    case Suites0 of
+		[{all,_}=All|Skips]->
+		    [All|Skips++[{Suite,SkipGroups}]];
+                _ ->
+                    insert_in_order({Suite,SkipGroups},Suites0,replace)
+            end
     end.
 
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
