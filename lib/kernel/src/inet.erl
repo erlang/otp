@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
-	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1, ntoa/1]).
+	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1,
+         ntoa/1, ipv4_mapped_ipv6_address/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 -export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
@@ -674,6 +675,14 @@ parse_address(Addr) ->
       IPAddress :: ip_address().
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
+
+-spec ipv4_mapped_ipv6_address(ip_address()) -> ip_address().
+ipv4_mapped_ipv6_address({D1,D2,D3,D4})
+  when (D1 bor D2 bor D3 bor D4) < 256 ->
+    {0,0,0,0,0,16#ffff,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4};
+ipv4_mapped_ipv6_address({D1,D2,D3,D4,D5,D6,D7,D8})
+  when (D1 bor D2 bor D3 bor D4 bor D5 bor D6 bor D7 bor D8) < 65536 ->
+    {D7 bsr 8,D7 band 255,D8 bsr 8,D8 band 255}.
 
 %% Return a list of available options
 options() ->
