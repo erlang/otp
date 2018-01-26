@@ -33,8 +33,8 @@
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
-	 val_dsetel/1]).
-	 
+	 val_dsetel/1,bad_tuples/1]).
+
 -include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
@@ -61,7 +61,8 @@ groups() ->
        freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
-       map_field_lists,cover_bin_opt,val_dsetel]}].
+       map_field_lists,cover_bin_opt,val_dsetel,
+       bad_tuples]}].
 
 init_per_suite(Config) ->
     Config.
@@ -508,6 +509,19 @@ destroy_reg({Tag,N}) ->
 	_ ->
 	    {y,N+1}
     end.
+
+bad_tuples(Config) ->
+    Errors = do_val(bad_tuples, Config),
+    [{{bad_tuples,heap_overflow,1},
+      {{put,{x,0}},8,{heap_overflow,{left,0},{wanted,1}}}},
+     {{bad_tuples,long,2},
+      {{put,{atom,too_long}},8,not_building_a_tuple}},
+     {{bad_tuples,self_referential,1},
+      {{put,{x,1}},7,{tuple_in_progress,{x,1}}}},
+     {{bad_tuples,short,1},
+      {{move,{x,1},{x,0}},7,{tuple_in_progress,{x,1}}}}] = Errors,
+
+    ok.
 
 %%%-------------------------------------------------------------------------
 

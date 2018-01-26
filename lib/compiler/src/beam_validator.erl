@@ -85,8 +85,6 @@ format_error(Error) ->
 %%% Things currently not checked. XXX
 %%%
 %%% - Heap allocation for binaries.
-%%% - That put_tuple is followed by the correct number of
-%%%   put instructions.
 %%%
 
 %% validate(Module, [Function]) -> [] | [Error]
@@ -148,7 +146,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 hf=0,				%Available heap size for floats.
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
-	 setelem=false			%Previous instruction was setelement/3.
+         setelem=false,                 %Previous instruction was setelement/3.
+         puts_left=none                 %put/1 instructions left.
 	}).
 
 -type label()        :: integer().
@@ -340,11 +339,25 @@ valfun_1({put_list,A,B,Dst}, Vst0) ->
     Vst = eat_heap(2, Vst0),
     set_type_reg(cons, Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
+    Vst1 = eat_heap(1, Vst0),
+    Vst = set_type_reg(tuple_in_progress, Dst, Vst1),
+    #vst{current=St0} = Vst,
+    St = St0#st{puts_left={Sz,{Dst,{tuple,Sz}}}},
+    Vst#vst{current=St};
+valfun_1({put,Src}, Vst0) ->
+    assert_term(Src, Vst0),
     Vst = eat_heap(1, Vst0),
-    set_type_reg({tuple,Sz}, Dst, Vst);
-valfun_1({put,Src}, Vst) ->
-    assert_term(Src, Vst),
-    eat_heap(1, Vst);
+    #vst{current=St0} = Vst,
+    case St0 of
+        #st{puts_left=none} ->
+            error(not_building_a_tuple);
+        #st{puts_left={1,{Dst,Type}}} ->
+            St = St0#st{puts_left=none},
+            set_type_reg(Type, Dst, Vst#vst{current=St});
+        #st{puts_left={PutsLeft,Info}} when is_integer(PutsLeft) ->
+            St = St0#st{puts_left={PutsLeft-1,Info}},
+            Vst#vst{current=St}
+    end;
 %% Instructions for optimization of selective receives.
 valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
@@ -1274,6 +1287,7 @@ get_move_term_type(Src, Vst) ->
 	initialized -> error({unassigned,Src});
 	{catchtag,_} -> error({catchtag,Src});
 	{trytag,_} -> error({trytag,Src});
+        tuple_in_progress -> error({tuple_in_progress,Src});
 	Type -> Type
     end.
 
@@ -1282,10 +1296,7 @@ get_move_term_type(Src, Vst) ->
 %%  a standard Erlang type (no catch/try tags or match contexts).
 
 get_term_type(Src, Vst) ->
-    case get_term_type_1(Src, Vst) of
-	initialized -> error({unassigned,Src});
-	{catchtag,_} -> error({catchtag,Src});
-	{trytag,_} -> error({trytag,Src});
+    case get_move_term_type(Src, Vst) of
 	#ms{} -> error({match_context,Src});
 	Type -> Type
     end.
