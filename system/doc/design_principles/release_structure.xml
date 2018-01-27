@@ -208,8 +208,8 @@ releases/ch_rel-1.rel</pre>
       is therefore now instead duplicated in the tar file so no manual
       copying is necessary.</p>
     <p>If a <c>relup</c> file and/or a system configuration file called
-      <c>sys.config</c> is found, these files are also included in
-      the release package. See
+      <c>sys.config</c>, or a <c>sys.config.src</c>, is found, these files
+      are also included in the release package. See
       <seealso marker="release_handling#req">Release Handling</seealso>.</p>
     <p>Options can be set to make the release package include source
       code and the ERTS binary as well.</p>
@@ -240,7 +240,7 @@ $ROOT/lib/App1-AVsn1/ebin
        <item><c>erts-EVsn/bin</c> - Erlang runtime system executables</item>
        <item><c>releases/Vsn</c> - <c>.rel</c> file and boot script
        <c>start.boot</c>; if present in the release package, <c>relup</c>
-       and/or <c>sys.config</c></item>
+       and/or <c>sys.config</c> or <c>sys.config.src</c></item>
        <item><c>bin</c> - Top-level Erlang runtime system executables</item>
      </list>
     <p>Applications are not required to be located under directory

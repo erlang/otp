@@ -263,6 +263,14 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       current directory create not only the file <c>mysystem.rel</c>,
       but also file <c>sys.config</c>, the latter file is tacitly
       put in the appropriate directory.</p>
+    <p>However, it can also be convenient to replace variables in
+       within a <c>sys.config</c> on the target after unpacking but
+       before running the release. If you have a <c>sys.config.src</c>
+       it will be included and is not required to be a valid Erlang term
+       file like <c>sys.config</c>. Before running the release you must
+       have a valid <c>sys.config</c> in the same directory, so using
+       <c>sys.config.src</c> requires having some tool to populate what is
+       needed and write <c>sys.config</c> to disk before booting the release.</p>
   </section>
 
   <section>
