@@ -160,12 +160,12 @@ call(Process, Label, Request, Timeout) ->
 %% Optimize a common case.
 call(Process, Label, Request, Timeout, Expirable)
   when is_pid(Process),
-       Timeout =:= infinity orelse is_integer(Timeout) andalso Timeout >= 0,
-       is_boolean(Expirable) ->
+       ((Timeout =:= infinity andalso not Expirable) orelse
+        (is_integer(Timeout) andalso Timeout >= 0 andalso is_boolean(Expirable))) ->
     do_call(Process, Label, Request, Timeout, Expirable);
 call(Process, Label, Request, Timeout, Expirable)
-  when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0,
-       is_boolean(Expirable) ->
+  when Timeout =:= infinity andalso not Expirable;
+       is_integer(Timeout) andalso Timeout >= 0 andalso is_boolean(Expirable) ->
     Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout, Expirable) end,
     do_for_proc(Process, Fun).
 
@@ -217,8 +217,7 @@ do_call(Process, Label, Request, Timeout, Expirable) ->
 	    end
     end.
 
-send_call(Process, Label, From, Request, Timeout, Expirable)
-  when Timeout =:= infinity; not Expirable ->
+send_call(Process, Label, From, Request, _Timeout, Expirable) when not Expirable ->
     erlang:send(Process, {Label, From, Request}, [noconnect]);
 send_call(Process, Label, From, Request, Timeout, _Expirable) ->
     Node = get_node(Process),
