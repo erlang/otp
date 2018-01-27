@@ -34,6 +34,8 @@
 
 -export([format_status_header/2]).
 
+-export([send_local_expirable_call/5]). % exported for remote spawn
+
 -define(default_timeout, 5000).
 
 %%-----------------------------------------------------------------
@@ -145,19 +147,29 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %%% New call function which uses the new monitor BIF
 %%% call(ServerId, Label, Request)
 
-call(Process, Label, Request) -> 
-    call(Process, Label, Request, ?default_timeout).
+call(Process, Label, Request) ->
+    call(Process, Label, Request, ?default_timeout, false).
+
+call(Process, Label, Request, Options) when is_list(Options) ->
+    Timeout = proplists:get_value(timeout, Options, ?default_timeout),
+    Expirable = proplists:get_value(expirable, Options, false),
+    call(Process, Label, Request, Timeout, Expirable);
+call(Process, Label, Request, Timeout) ->
+    call(Process, Label, Request, Timeout, false).
 
 %% Optimize a common case.
-call(Process, Label, Request, Timeout) when is_pid(Process),
-  Timeout =:= infinity orelse is_integer(Timeout) andalso Timeout >= 0 ->
-    do_call(Process, Label, Request, Timeout);
-call(Process, Label, Request, Timeout)
-  when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
-    Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
+call(Process, Label, Request, Timeout, Expirable)
+  when is_pid(Process),
+       Timeout =:= infinity orelse is_integer(Timeout) andalso Timeout >= 0,
+       is_boolean(Expirable) ->
+    do_call(Process, Label, Request, Timeout, Expirable);
+call(Process, Label, Request, Timeout, Expirable)
+  when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0,
+       is_boolean(Expirable) ->
+    Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout, Expirable) end,
     do_for_proc(Process, Fun).
 
-do_call(Process, Label, Request, Timeout) ->
+do_call(Process, Label, Request, Timeout, Expirable) ->
     try erlang:monitor(process, Process) of
 	Mref ->
 	    %% If the monitor/2 call failed to set up a connection to a
@@ -169,8 +181,8 @@ do_call(Process, Label, Request, Timeout) ->
 	    %% will fail immediately if there is no connection to the
 	    %% remote node.
 
-	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
-		  [noconnect]),
+            From = {self(), Mref},
+            catch send_call(Process, Label, From, Request, Timeout, Expirable),
 	    receive
 		{Mref, Reply} ->
 		    erlang:demonitor(Mref, [flush]),
@@ -204,6 +216,24 @@ do_call(Process, Label, Request, Timeout) ->
 		    wait_resp(Node, Tag, Timeout)
 	    end
     end.
+
+send_call(Process, Label, From, Request, Timeout, Expirable)
+  when Timeout =:= infinity; not Expirable ->
+    erlang:send(Process, {Label, From, Request}, [noconnect]);
+send_call(Process, Label, From, Request, Timeout, _Expirable) ->
+    Node = get_node(Process),
+    case Node =:= node() of
+        true -> send_local_expirable_call(Process, Label, From, Request, Timeout);
+        false -> send_remote_expirable_call(Node, Process, Label, From, Request, Timeout)
+    end.
+
+send_local_expirable_call(Process, Label, From, Request, Timeout) ->
+    Now = erlang:monotonic_time(),
+    Expiration = Now + erlang:convert_time_unit(Timeout, millisecond, native),
+    Process ! {Label, From, Request, Expiration}.
+
+send_remote_expirable_call(Node, Process, Label, From, Request, Timeout) ->
+    spawn(Node, ?MODULE, send_local_expirable_call, [Process, Label, From, Request, Timeout]).
 
 get_node(Process) ->
     %% We trust the arguments to be correct, i.e

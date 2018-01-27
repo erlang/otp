@@ -210,12 +210,12 @@ call(Name, Request) ->
 	    exit({Reason, {?MODULE, call, [Name, Request]}})
     end.
 
-call(Name, Request, Timeout) ->
-    case catch gen:call(Name, '$gen_call', Request, Timeout) of
+call(Name, Request, Options) ->
+    case catch gen:call(Name, '$gen_call', Request, Options) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
-	    exit({Reason, {?MODULE, call, [Name, Request, Timeout]}})
+	    exit({Reason, {?MODULE, call, [Name, Request, Options]}})
     end.
 
 %% -----------------------------------------------------------------
@@ -678,6 +678,14 @@ try_terminate(Mod, Reason, State) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
+handle_msg({'$gen_call', From, Msg, Expiration}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
+    case erlang:monotonic_time() < Expiration of
+        true ->
+            handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout);
+        false ->
+            % drop message
+            loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, [])
+    end;
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of
@@ -703,6 +711,14 @@ handle_msg(Msg, Parent, Name, State, Mod, HibernateAfterTimeout) ->
     Reply = try_dispatch(Msg, Mod, State),
     handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod, HibernateAfterTimeout, State).
 
+handle_msg({'$gen_call', From, Msg, Expiration}, Parent, Name, State, Mod, HibernateAfterTimeout, Debug) ->
+    case erlang:monotonic_time() < Expiration of
+        true ->
+            handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout, Debug);
+        false ->
+            % drop message
+            loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug)
+    end;
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout, Debug) ->
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of

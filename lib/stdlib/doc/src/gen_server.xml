@@ -125,7 +125,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 
     <func>
       <name>call(ServerRef, Request) -> Reply</name>
-      <name>call(ServerRef, Request, Timeout) -> Reply</name>
+      <name>call(ServerRef, Request, Options) -> Reply</name>
       <fsummary>Make a synchronous call to a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -133,6 +133,8 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Node = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Request = term()</v>
+        <v>Options = [Option] | Timeout</v>
+        <v>Option = {timeout, Timeout} | expirable</v>
         <v>Timeout = int()>0 | infinity</v>
         <v>Reply = term()</v>
       </type>
