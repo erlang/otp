@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# ./create-dropbear-ssh
+
+# This way of fetching the tar-file separate from the docker commands makes
+# http-proxy handling way easier. The wget command handles the $https_proxy
+# variable while the docker command must have /etc/docker/something changed
+# and the docker server restarted. That is not possible without root access.
+
+# Make a Dockerfile. This method simplifies env variable handling considerably:
+cat - > TempDockerFile <<EOF
+
+    FROM ubuntubuildbase
+
+    WORKDIR /buildroot
+
+    RUN apt-get -y update
+    RUN apt-get -y upgrade
+    RUN apt-get -y install openssh-sftp-server
+%%    RUN echo 81 | apt-get -y install dropbear
+
+EOF
+
+# Build the image:
+docker build -t ssh_compat_suite-ssh-dropbear -f ./TempDockerFile .
+
+# Cleaning
+rm -fr ./TempDockerFile $TMP
