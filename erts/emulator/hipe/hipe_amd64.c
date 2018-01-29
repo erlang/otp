@@ -39,6 +39,8 @@
 #undef ERL_FUN_SIZE
 #include "hipe_literals.h"
 
+static void patch_trampoline(void *trampoline, void *destAddress);
+
 const Uint sse2_fnegate_mask[2] = {0x8000000000000000,0};
 
 void hipe_patch_load_fe(Uint64 *address, Uint64 value)
@@ -75,13 +77,12 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
     Sint64 destOffset = (Sint64)destAddress - (Sint64)callAddress - 4;
 
     if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L)) {
-        destOffset = ((Sint64)trampoline - 2) - (Sint64)callAddress - 4;
+        destOffset = (Sint64)trampoline - (Sint64)callAddress - 4;
 
         if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L))
             return -1;
 
-        *(void**)trampoline = destAddress;
-        hipe_flush_icache_word(trampoline);
+        patch_trampoline(trampoline, destAddress);
     }
 
     *(Uint32*)callAddress = (Uint32)destOffset;
@@ -139,13 +140,23 @@ static void generate_trampolines(unsigned char *address,
     for(i = 0; i < nrcallees; ++i) {
         trampoline[0] = 0x48;           /* movabsq $..., %rax; */
         trampoline[1] = 0xb8;
-        *((Uint64*)(trampoline+2)) = 0; /* callee's address */
+        *(void**)(trampoline+2) = NULL; /* callee's address */
         trampoline[10] = 0xff;          /* jmpq *%rax */
         trampoline[11] = 0xe0;
-        trampvec[i] = trampoline+2;
+        trampvec[i] = trampoline;
         trampoline += TRAMPOLINE_BYTES;
     }
     hipe_flush_icache_range(address, nrcallees*TRAMPOLINE_BYTES);
+}
+
+static void patch_trampoline(void *trampoline, void *destAddress)
+{
+    unsigned char *tp = (unsigned char*) trampoline;
+
+    ASSERT(tp[0] == 0x48 && tp[1] == 0xb8);
+
+    *(void**)(tp+2) = destAddress; /* callee's address */
+    hipe_flush_icache_word(tp+2);
 }
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)
