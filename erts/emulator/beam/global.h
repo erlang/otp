@@ -1066,7 +1066,7 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
-Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
+Eterm copy_shallow(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 			   Eterm* refs, unsigned nrefs, int literals);

@@ -611,7 +611,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
     Eterm* htop;
     Eterm* hbot;
     Eterm* hp;
-    Eterm* objp;
+    Eterm* ERTS_RESTRICT objp;
     Eterm* tp;
     Eterm  res;
     Eterm  elem;
@@ -1821,7 +1821,8 @@ all_clean:
  *
  * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
+                   ErlOffHeap* off_heap)
 {
     Eterm* tp = ptr;
     Eterm* hp = *hpp;
