@@ -6,6 +6,7 @@
   <xi:include href="../specs/specs_disk_log.xml"/>
   <xi:include href="../specs/specs_erl_boot_server.xml"/>
   <xi:include href="../specs/specs_erl_ddll.xml"/>
+  <xi:include href="../specs/specs_erl_epmd.xml"/>
   <xi:include href="../specs/specs_erl_prim_loader_stub.xml"/>
   <xi:include href="../specs/specs_erlang_stub.xml"/>
   <xi:include href="../specs/specs_error_handler.xml"/>

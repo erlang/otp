@@ -38,6 +38,7 @@
   <xi:include href="disk_log.xml"/>
   <xi:include href="erl_boot_server.xml"/>
   <xi:include href="erl_ddll.xml"/>
+  <xi:include href="erl_epmd.xml"/>
   <xi:include href="erl_prim_loader_stub.xml"/>
   <xi:include href="erlang_stub.xml"/>
   <xi:include href="error_handler.xml"/>

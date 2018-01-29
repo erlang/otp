@@ -73,7 +73,7 @@
          dist_evil_parallel_receiver/0]).
 
 %% epmd_module exports
--export([start_link/0, register_node/2, register_node/3, port_please/2]).
+-export([start_link/0, register_node/2, register_node/3, port_please/2, address_please/3]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -2085,6 +2085,11 @@ port_please(_Name, _Ip) ->
 	    Version = 5,
 	    {port, Port, Version}
     end.
+
+address_please(_Name, _Address, _AddressFamily) ->
+    %% Use localhost.
+    IP = {127,0,0,1},
+    {ok, IP}.
 
 %%% Utilities
 
