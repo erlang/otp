@@ -277,7 +277,7 @@ match_spec_compile(_) ->
     erlang:nif_error(undef).
 
 -spec match_spec_run_r(List, CompiledMatchSpec, list()) -> list() when
-      List :: [tuple()],
+      List :: [term()],
       CompiledMatchSpec :: comp_match_spec().
 
 match_spec_run_r(_, _, _) ->
@@ -517,7 +517,7 @@ update_element(_, _, _) ->
 -opaque comp_match_spec() :: reference().
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
-      List :: [tuple()],
+      List :: [term()],
       CompiledMatchSpec :: comp_match_spec().
 
 match_spec_run(List, CompiledMS) ->
