@@ -76,6 +76,7 @@ safe_primop(bs_allocate) -> true;
 safe_primop(bs_reallocate) -> true;
 safe_primop(bs_utf8_size) -> true;
 safe_primop(bs_get_utf8) -> true;
+safe_primop(bs_put_utf8) -> true;
 safe_primop(bs_utf16_size) -> true;
 safe_primop(bs_get_utf16) -> true;
 safe_primop(bs_validate_unicode_retract) -> true;
