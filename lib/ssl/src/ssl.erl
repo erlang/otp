@@ -1268,8 +1268,18 @@ tuple_to_map({Kex, Cipher, Mac}) ->
 tuple_to_map({Kex, Cipher, Mac, Prf}) ->
     #{key_exchange => Kex,
       cipher => Cipher,
-      mac => Mac,
+      mac => tuple_to_map_mac(Cipher, Mac),
       prf => Prf}.
+
+%% Backwards compatible
+tuple_to_map_mac(aes_128_gcm, _) -> 
+    aead;
+tuple_to_map_mac(aes_256_gcm, _) -> 
+    aead;
+tuple_to_map_mac(chacha20_poly1305, _) ->
+    aead;
+tuple_to_map_mac(_, MAC) ->
+    MAC.
 
 handle_eccs_option(Value, Version) when is_list(Value) ->
     {_Major, Minor} = tls_version(Version),
