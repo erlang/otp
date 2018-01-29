@@ -66,6 +66,15 @@ integers(_Config) ->
 
     college = do_integers_3(),
 
+    zero = do_integers_4(<<0:1>>, 0),
+    one = do_integers_4(<<1:1>>, 0),
+    other = do_integers_4(<<1:1>>, 2),
+
+    zero = do_integers_5(0, 0),
+    one = do_integers_5(0, 1),
+    two = do_integers_5(0, 2),
+    three = do_integers_5(0, 3),
+
     ok.
 
 do_integers_1(B0) ->
@@ -86,6 +95,30 @@ do_integers_3() ->
     case try 0 after [] end of
 	0 -> college;
 	1 -> 0
+    end.
+
+do_integers_4(<<X:1,T/bits>>, C) ->
+    %% Binary matching gives the range 0-1 for X.
+    %% The range for `X bor C` is unknown. It must not be inherited
+    %% from X. (`X bor C` will reuse the register used for X.)
+    case X bor C of
+        0 -> do_integers_4(T, C, zero);
+        1 -> do_integers_4(T, C, one);
+        _ -> do_integers_4(T, C, other)
+    end.
+
+do_integers_4(_, _, Res) ->
+    Res.
+
+do_integers_5(X0, Y0) ->
+    %% X and Y will use the same register.
+    X = X0 band 1,
+    Y = Y0 band 3,
+    case Y of
+        0 -> zero;
+        1 -> one;
+        2 -> two;
+        3 -> three
     end.
 
 coverage(_Config) ->
