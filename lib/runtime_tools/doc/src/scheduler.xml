@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title></title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>scheduler.xml</file>
+  </header>
+  <module>scheduler</module>
+  <modulesummary>Measure scheduler utilization</modulesummary>
+  <description>
+    <p>This module contains utility functions for easier measurement and
+    calculation of scheduler utilization, otherwise obtained from calling the
+    more primitive <seealso marker="erts:erlang#statistics_scheduler_wall_time">
+    <c>statistics(scheduler_wall_time)</c></seealso>.</p>
+    <p>The simplest usage is to call <seealso marker="#utilization-1">
+    <c>scheduler:utilization(Seconds)</c></seealso>.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="sched_sample"/>
+    </datatype>
+    <datatype>
+      <name name="sched_type"/>
+    </datatype>
+    <datatype>
+      <name name="sched_id"/>
+    </datatype>
+    <datatype>
+      <name name="sched_util_result"/>
+      <desc>
+	<p>A list of tuples containing results for individual schedulers
+	as well as aggregated averages. <c>Util</c> is the scheduler utilization
+	as a floating point value between 0.0 and 1.0. <c>Percent</c> is the
+	same utilization as a more human readable string expressed in percent.</p>
+	<taglist>
+	  <tag><c>{normal, SchedulerId, Util, Percent}</c></tag>
+	  <item>Scheduler utilization of a normal scheduler with number
+	    <c>SchedulerId</c>.</item>
+	  <tag><c>{cpu, SchedulerId, Util, Percent}</c></tag>
+	  <item>Scheduler utilization of a dirty-cpu scheduler with number
+	    <c>SchedulerId</c>.</item>
+	  <tag><c>{io, SchedulerId, Util, Percent}</c></tag>
+	  <item>Scheduler utilization of a dirty-io scheduler with number
+	    <c>SchedulerId</c>. This tuple will only exist if both samples were
+	    taken with <seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</item>
+	  <tag><c>{total, Util, Percent}</c></tag>
+	  <item>Total utilization of all normal and dirty-cpu schedulers.</item>
+	  <tag><c>{weighted, Util, Percent}</c></tag>
+	  <item>Total utilization of all normal and dirty-cpu schedulers,
+	  weighted against maximum amount of available CPU time.</item>
+	</taglist>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="sample" arity="0"/>
+      <fsummary>Get scheduler utilization sample.</fsummary>
+      <desc>
+        <p>Return a scheduler utilization sample for normal and dirty-cpu
+	schedulers.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sample_all" arity="0"/>
+      <fsummary>Get scheduler utilization sample.</fsummary>
+      <desc>
+        <p>Return a scheduler utilization sample for all schedulers,
+	including dirty-io schedulers.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="utilization" arity="1" clause_i="1"/>
+      <fsummary>Measure scheduler utilizations during a period of time.</fsummary>
+      <desc>
+        <p>Measure utilization for normal and dirty-cpu schedulers during
+	<c><anno>Seconds</anno></c> seconds, and then return the result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="utilization" arity="1" clause_i="2"/>
+      <fsummary>Measure scheduler utilizations since sample.</fsummary>
+      <desc>
+        <p>Calculate scheduler utilizations for the time interval from when
+	<c><anno>Sample</anno></c> was taken and "now". The same as calling
+	<c>scheduler:utilization(Sample, scheduler:sample_all())</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="utilization" arity="2"/>
+      <fsummary>Measure scheduler utilizations between two samples.</fsummary>
+      <desc>
+	<p>Calculates scheduler utilizations for the time interval between
+	the two samples obtained from calling
+	<seealso marker="#sample-0"><c>sample/0</c></seealso> or
+	<seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</p>
+      </desc>
+    </func>
+
+  </funcs>
+ </erlref>

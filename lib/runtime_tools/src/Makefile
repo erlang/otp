@@ -45,6 +45,7 @@ MODULES= \
 	system_information \
 	observer_backend \
 	ttb_autostart\
+	scheduler\
 	msacc
 
 HRL_FILES= ../include/observer_backend.hrl

@@ -23,6 +23,7 @@
     {modules,      [appmon_info, dbg,observer_backend,runtime_tools,
                     runtime_tools_sup,erts_alloc_config,
 		    ttb_autostart,dyntrace,system_information,
+                    scheduler,
                     msacc]},
     {registered,   [runtime_tools_sup]},
     {applications, [kernel, stdlib]},
