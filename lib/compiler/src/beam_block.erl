@@ -222,6 +222,7 @@ move_allocates_1([I|Is], Acc) ->
     move_allocates_1(Is, [I|Acc]);
 move_allocates_1([], Acc) -> Acc.
 
+alloc_may_pass({set,_,[{fr,_}],fmove}) -> false;
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
