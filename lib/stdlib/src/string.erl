@@ -411,7 +411,6 @@ to_number(_, Number, Rest, _, Tail) ->
 %% Return the remaining string with prefix removed or else nomatch
 -spec prefix(String::unicode:chardata(), Prefix::unicode:chardata()) ->
                     'nomatch' | unicode:chardata().
-prefix(Str, []) -> Str;
 prefix(Str, Prefix0) ->
     Prefix = unicode:characters_to_list(Prefix0),
     case prefix_1(Str, Prefix) of
@@ -1055,6 +1054,7 @@ take_tc(Bin, N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
             end
     end.
 
+prefix_1(Str, []) -> Str;
 prefix_1(Cs0, [GC]) ->
     case unicode_util:gc(Cs0) of
         [GC|Cs] -> Cs;
