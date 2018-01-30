@@ -153,7 +153,51 @@ ok</code>
     </section>
   </section>
 
-   <section>
+  <section>
+    <title>Customizing cipher suits</title>
+
+    <p>Fetch default cipher suite list for an TLS/DTLS version. Change default
+    to all to get all possible cipher suites.</p>
+    <code type="erl">1>  Default = ssl:cipher_suites(default, 'tlsv1.2').
+    [#{cipher => aes_256_gcm,key_exchange => ecdhe_ecdsa,
+    mac => aead,prf => sha384}, ....]
+</code>
+
+    <p>In OTP 20 it is desirable to remove all cipher suites
+    that uses rsa kexchange (removed from default in 21) </p>
+    <code type="erl">2> NoRSA =
+    ssl:filter_cipher_suites(Default,
+                            [{key_exchange, fun(rsa) -> false;
+			                       (_) -> true end}]).
+    [...]
+    </code>
+
+    <p> Pick just a few suites </p>
+    <code type="erl"> 3> Suites =
+    ssl:filter_cipher_suites(Default,
+                            [{key_exchange, fun(ecdh_ecdsa) -> true;
+			                       (_) -> false end},
+                             {cipher, fun(aes_128_cbc) ->true;
+			                  (_) ->false end}]).
+    [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
+     mac => sha256,prf => sha256},
+     #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
+     prf => default_prf}]
+    </code>
+    
+    <p> Make some particular suites the most preferred, or least
+    preferred by changing prepend to append.</p>
+    <code type="erl"> 4>ssl:prepend_cipher_suites(Suites, Default).
+  [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
+     mac => sha256,prf => sha256},
+   #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
+     prf => default_prf},
+   #{cipher => aes_256_cbc,key_exchange => ecdhe_ecdsa,
+     mac => sha384,prf => sha384}, ...]
+    </code>
+  </section>      
+
+  <section>
     <title>Using an Engine Stored Key</title>
     
     <p>Erlang ssl application is able to use private keys provided
