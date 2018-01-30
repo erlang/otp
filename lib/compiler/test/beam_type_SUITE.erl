@@ -122,7 +122,7 @@ do_integers_5(X0, Y0) ->
         3 -> three
     end.
 
-coverage(_Config) ->
+coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
     {'EXIT',{badarith,_}} = (catch id(2.0) bsl 2),
     {'EXIT',{badarith,_}} = (catch a + 0.5),
@@ -133,6 +133,29 @@ coverage(_Config) ->
     id(id(42) band 387439739874298734983787934283479243879),
     id(-1 band id(13)),
 
+    error = if
+                is_map(Config), is_integer(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_map(Config), is_atom(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_map(Config), is_tuple(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_integer(Config), is_bitstring(Config) -> ok;
+                true -> error
+            end,
+
+    ok = case Config of
+             <<_>> when is_binary(Config) ->
+                 impossible;
+             [_|_] ->
+                 ok
+         end,
     ok.
 
 booleans(_Config) ->

@@ -94,22 +94,28 @@ simplify_basic([I0|Is], Ts0, Acc) ->
 simplify_basic([], Ts, Acc) ->
     {reverse(Acc),Ts}.
 
+%% simplify_instr(Instruction, Ts) -> [Instruction].
+
+%%  Simplify a simple instruction using type information. Return an
+%%  empty list if the instruction should be removed, or a list with
+%%  the original or modified instruction.
+
 simplify_instr({set,[D],[{integer,Index},Reg],{bif,element,_}}=I, Ts) ->
     case max_tuple_size(Reg, Ts) of
         Sz when 0 < Index, Index =< Sz ->
             [{set,[D],[Reg],{get_tuple_element,Index-1}}];
         _ -> [I]
     end;
-simplify_instr({test,is_atom,_,[R]}=I, Ts) ->
+simplify_instr({test,Test,Fail,[R]}=I, Ts) ->
     case tdb_find(R, Ts) of
-        boolean -> [];
-        _ -> [I]
-    end;
-simplify_instr({test,is_integer,_,[R]}=I, Ts) ->
-    case tdb_find(R, Ts) of
-        integer -> [];
-        {integer,_} -> [];
-	_ -> [I]
+        any ->
+            [I];
+        Type ->
+            case will_succeed(Test, Type) of
+                yes -> [];
+                no -> [{jump,Fail}];
+                maybe -> [I]
+            end
     end;
 simplify_instr({set,[D],[TupleReg],{get_tuple_element,0}}=I, Ts) ->
     case tdb_find(TupleReg, Ts) of
@@ -118,31 +124,17 @@ simplify_instr({set,[D],[TupleReg],{get_tuple_element,0}}=I, Ts) ->
         _ ->
             [I]
     end;
-simplify_instr({test,is_tuple,_,[R]}=I, Ts) ->
-    case tdb_find(R, Ts) of
-        {tuple,_,_,_} -> [];
-        _ -> [I]
-    end;
 simplify_instr({test,test_arity,_,[R,Arity]}=I, Ts) ->
     case tdb_find(R, Ts) of
         {tuple,exact_size,Arity,_} -> [];
         _ -> [I]
     end;
-simplify_instr({test,is_map,_,[R]}=I, Ts) ->
-    case tdb_find(R, Ts) of
-        map -> [];
-        _ -> [I]
-    end;
-simplify_instr({test,is_nonempty_list,_,[R]}=I, Ts) ->
-    case tdb_find(R, Ts) of
-        nonempty_list -> [];
-        _ -> [I]
-    end;
-simplify_instr({test,is_eq_exact,Fail,[R,{atom,_}=Atom]}=I, Ts) ->
+simplify_instr({test,is_eq_exact,Fail,[R,{atom,A}=Atom]}=I, Ts) ->
     case tdb_find(R, Ts) of
         {atom,_}=Atom -> [];
-        {atom,_} -> [{jump,Fail}];
-        _ -> [I]
+        boolean when is_boolean(A) -> [I];
+        any -> [I];
+        _ -> [{jump,Fail}]
     end;
 simplify_instr({test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I, Ts) ->
     case tdb_find(R, Ts) of
@@ -161,16 +153,6 @@ simplify_instr({select,select_val,Reg,_,_}=I, Ts) ->
 simplify_instr({test,bs_test_unit,_,[Src,Unit]}=I, Ts) ->
     case tdb_find(Src, Ts) of
         {binary,U} when U rem Unit =:= 0 -> [];
-        _ -> [I]
-    end;
-simplify_instr({test,is_binary,_,[Src]}=I, Ts) ->
-    case tdb_find(Src, Ts) of
-        {binary,U} when U rem 8 =:= 0 -> [];
-        _ -> [I]
-    end;
-simplify_instr({test,is_bitstr,_,[Src]}=I, Ts) ->
-    case tdb_find(Src, Ts) of
-        {binary,_} -> [];
         _ -> [I]
     end;
 simplify_instr(I, _) -> [I].
@@ -200,6 +182,53 @@ simplify_select_val_1([V,F|T], Val, R, Acc) ->
 eq_ranges([H], H, H) -> true;
 eq_ranges([H|T], H, Max) -> eq_ranges(T, H+1, Max);
 eq_ranges(_, _, _) -> false.
+
+%% will_succeed(TestOperation, Type) -> yes|no|maybe.
+%%  Test whether TestOperation applied to an argument of type Type
+%%  will succeed.  Return yes, no, or maybe.
+%%
+%%  Type is a type as described in the comment for verified_type/1 at
+%%  the very end of this file, but it will *never* be 'any'.
+
+will_succeed(is_atom, Type) ->
+    case Type of
+        {atom,_} -> yes;
+        boolean -> yes;
+        _ -> no
+    end;
+will_succeed(is_binary, Type) ->
+    case Type of
+        {binary,U} when U rem 8 =:= 0 -> yes;
+        {binary,_} -> maybe;
+        _ -> no
+    end;
+will_succeed(is_bitstr, Type) ->
+    case Type of
+        {binary,_} -> yes;
+        _ -> no
+    end;
+will_succeed(is_integer, Type) ->
+    case Type of
+        integer -> yes;
+        {integer,_} -> yes;
+        _ -> no
+    end;
+will_succeed(is_map, Type) ->
+    case Type of
+        map -> yes;
+        _ -> no
+    end;
+will_succeed(is_nonempty_list, Type) ->
+    case Type of
+        nonempty_list -> yes;
+        _ -> no
+    end;
+will_succeed(is_tuple, Type) ->
+    case Type of
+        {tuple,_,_,_} -> yes;
+        _ -> no
+    end;
+will_succeed(_, _) -> maybe.
 
 %% simplify_float([Instruction], TypeDatabase) ->
 %%                 {[Instruction],TypeDatabase'} | not_possible
