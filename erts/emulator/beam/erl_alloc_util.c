@@ -872,7 +872,7 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 #elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 
 /* For allocators that have their own mmapper (super carrier),
- * like literal_alloc and exec_alloc on amd64
+ * like literal_alloc.
  */
 void*
 erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
@@ -914,10 +914,10 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 }
 #endif /* ARCH_64 && ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
 
-#if defined(ERTS_ALC_A_EXEC) && !defined(ERTS_HAVE_EXEC_MMAPPER)
+#if defined(ERTS_ALC_A_EXEC)
 
 /*
- * For exec_alloc on non-amd64 that just need memory with PROT_EXEC
+ * For exec_alloc that need memory with PROT_EXEC
  */
 void*
 erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
@@ -956,7 +956,7 @@ erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
     ASSERT(r == 0); (void)r;
     erts_alcu_mseg_dealloc(allctr, seg, size, flags);
 }
-#endif /* ERTS_ALC_A_EXEC && !ERTS_HAVE_EXEC_MMAPPER */
+#endif /* ERTS_ALC_A_EXEC */
 
 #endif /* HAVE_ERTS_MSEG */
 
