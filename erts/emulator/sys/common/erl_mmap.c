@@ -1371,32 +1371,6 @@ os_mmap_virtual(char *ptr, UWord size, int exec)
     int flags = ERTS_MMAP_VIRTUAL_FLAGS;
     void* res;
 
-#ifdef ERTS_ALC_A_EXEC
-    if (exec) {
-        ASSERT(!ptr);
-        /* OTP-19.0: Nice hack below cut-and-pasted from hipe_amd64.c */
-
-#  ifdef MAP_32BIT
-        /* If we got MAP_32BIT (Linux), then use that to ask for low memory */
-        flags |= MAP_32BIT;
-#  else
-        /* FreeBSD doesn't have MAP_32BIT, and it doesn't respect
-           a plain map_hint (returns high mappings even though the
-           hint refers to a free area), so we have to use both map_hint
-           and MAP_FIXED to get addresses below the 2GB boundary.
-           This is even worse than the Linux/ppc64 case.
-           Similarly, Solaris 10 doesn't have MAP_32BIT,
-           and it doesn't respect a plain map_hint. */
-        ptr = (char*)(512*1024*1024); /* 0.5GB */
-
-#    if defined(__FreeBSD__) || defined(__sun__)
-        flags |= MAP_FIXED;
-#    endif
-#  endif /* !MAP_32BIT */
-    }
-#else /* !ERTS_ALC_A_EXEC */
-    ASSERT(!exec);
-#endif
     res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_VIRTUAL_PROT,
                flags, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
