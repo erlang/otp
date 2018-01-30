@@ -960,9 +960,9 @@ handle_event(_, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     {next_state, {kexinit,Role,renegotiate}, D, [postpone]};
 
 handle_event(_, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
-    {disconnect, _, {{replies,Replies}, _}} =
+    {disconnect, _, RepliesCon} =
 	ssh_connection:handle_msg(Msg, D0#data.connection_state, role(StateName)),
-    {Actions,D} = send_replies(Replies, D0),
+    {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun(Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
@@ -1159,14 +1159,9 @@ handle_event({call,From}, {info, ChannelPid}, _, D) ->
 	       end, [], cache(D)),
     {keep_state_and_data, [{reply, From, {ok,Result}}]};
 
-handle_event({call,From}, stop, StateName, D0) ->
-    {disconnect, _Reason, {{replies, Replies}, Connection}} =
-	ssh_connection:handle_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-						      description = "User closed down connection"},
-				  D0#data.connection_state,
-				  role(StateName)),
-    {Repls,D} = send_replies(Replies, D0),
-    {stop_and_reply, normal, [{reply,From,ok}|Repls], D#data{connection_state=Connection}};
+handle_event({call,From}, stop, _StateName, D0) ->
+    {Repls,D} = send_replies(ssh_connection:handle_stop(D0#data.connection_state), D0),
+    {stop_and_reply, normal, [{reply,From,ok}|Repls], D};
 
 handle_event({call,_}, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
@@ -1195,9 +1190,8 @@ handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, 
 
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0) 
   when ?CONNECTED(StateName) ->
-    {{replies, Replies}, Connection} =
-	ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From),
-    {Repls,D} = send_replies(Replies, D0#data{connection_state = Connection}),
+    {Repls,D} = send_replies(ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From),
+                             D0),
     start_channel_request_timer(ChannelId, From, Timeout), % FIXME: No message exchange so why?
     {keep_state, D, Repls};
 
@@ -1373,9 +1367,7 @@ handle_event(info, {timeout, {_, From} = Request}, _,
 
 %%% Handle that ssh channels user process goes down
 handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D0) ->
-    {{replies, Replies}, D1} = handle_channel_down(ChannelPid, D0),
-    {Repls, D} = send_replies(Replies, D1),
-    {keep_state, D, Repls};
+    {keep_state, handle_channel_down(ChannelPid, D0)};
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, _, _) ->
@@ -1677,7 +1669,20 @@ handle_connection_msg(Msg, StateName, D0 = #data{starter = User,
     Renegotiation = renegotiation(StateName),
     Role = role(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role) of
-	{{replies, Replies}, Connection} ->
+	{disconnect, Reason0, RepliesConn} ->
+            {Repls, D} = send_replies(RepliesConn, D0),
+            case {Reason0,Role} of
+                {{_, Reason}, client} when ((StateName =/= {connected,client}) and (not Renegotiation)) ->
+		   User ! {self(), not_connected, Reason};
+                _ ->
+                    ok
+            end,
+            {stop_and_reply, {shutdown,normal}, Repls, D};
+
+	{[], Connection} ->
+	    {keep_state, D0#data{connection_state = Connection}};
+
+	{Replies, Connection} when is_list(Replies) ->
 	    {Repls, D} = 
 		case StateName of
 		    {connected,_} ->
@@ -1686,30 +1691,15 @@ handle_connection_msg(Msg, StateName, D0 = #data{starter = User,
 			{ConnReplies, NonConnReplies} = lists:splitwith(fun not_connected_filter/1, Replies),
 			send_replies(NonConnReplies, D0#data{event_queue = Qev0 ++ ConnReplies})
 		end,
-	    {keep_state, D, Repls};
-
-	{noreply, Connection} ->
-	    {keep_state, D0#data{connection_state = Connection}};
-
-	{disconnect, Reason0, {{replies, Replies}, Connection}} ->
-	   {Repls, D} = send_replies(Replies, D0#data{connection_state = Connection}),
-	   case {Reason0,Role} of
-	       {{_, Reason}, client} when ((StateName =/= {connected,client}) and (not Renegotiation)) ->
-		   User ! {self(), not_connected, Reason};
-	       _ ->
-		   ok
-	   end,
-	   {stop_and_reply, {shutdown,normal}, Repls, D#data{connection_state = Connection}}
+	    {keep_state, D, Repls}
 
     catch
-	_:Error ->
-	    {disconnect, _Reason, {{replies, Replies}, Connection}} =
-		ssh_connection:handle_msg(
-		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-				      description = "Internal error"},
-		  Connection0, Role),
-	    {Repls, D} = send_replies(Replies, D0#data{connection_state = Connection}),
-	    {stop_and_reply, {shutdown,Error}, Repls, D#data{connection_state = Connection}}
+	Class:Error ->
+            {Repls, D1} = send_replies(ssh_connection:handle_stop(Connection0), D0),
+            {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
+                                             io_lib:format("Internal error: ~p:~p",[Class,Error]),
+                                             StateName, D1),
+            {stop_and_reply, Shutdown, Repls, D}
     end.
 
 
@@ -1819,15 +1809,16 @@ handle_request(ChannelId, Type, Data, WantReply, From, D) ->
 
 %%%----------------------------------------------------------------
 handle_channel_down(ChannelPid, D) ->
+    Cache = cache(D),
     ssh_channel:cache_foldl(
-	       fun(Channel, Acc) when Channel#channel.user == ChannelPid ->
-		       ssh_channel:cache_delete(cache(D),
-						Channel#channel.local_id),
-		       Acc;
-		  (_,Acc) ->
-		       Acc
-	       end, [], cache(D)),
-    {{replies, []}, cache_check_set_idle_timer(D)}.
+      fun(#channel{user=U,
+                   local_id=Id}, Acc) when U == ChannelPid ->
+              ssh_channel:cache_delete(Cache, Id),
+              Acc;
+         (_,Acc) ->
+              Acc
+      end, [], Cache),
+    cache_check_set_idle_timer(D).
 
 
 update_sys(Cache, Channel, Type, ChannelPid) ->
@@ -1911,10 +1902,11 @@ not_connected_filter({connection_reply, _Data}) -> true;
 not_connected_filter(_) -> false.
 
 %%%----------------------------------------------------------------
+
+send_replies({Repls,C = #connection{}}, D) when is_list(Repls) ->
+    send_replies(Repls, D#data{connection_state=C});
 send_replies(Repls, State) ->
-    lists:foldl(fun get_repl/2,
-		{[],State},
-		Repls).
+    lists:foldl(fun get_repl/2, {[],State}, Repls).
 
 get_repl({connection_reply,Msg}, {CallRepls,S}) ->
     if is_record(Msg, ssh_msg_channel_success) ->
@@ -1935,8 +1927,10 @@ get_repl({flow_control,Cache,Channel,From,Msg}, {CallRepls,S}) ->
     {[{reply,From,Msg}|CallRepls], S};
 get_repl({flow_control,From,Msg}, {CallRepls,S}) ->
     {[{reply,From,Msg}|CallRepls], S};
-get_repl(noreply, Acc) ->
-    Acc;
+%% get_repl(noreply, Acc) ->
+%%     Acc;
+%% get_repl([], Acc) ->
+%%     Acc;
 get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
