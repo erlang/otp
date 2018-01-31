@@ -34,25 +34,27 @@
     <p>This module contains the interface to the Erlang
       <em>code server</em>, which deals with the loading of compiled
       code into a running Erlang runtime system.</p>
-    <p>The runtime system can be started in <em>embedded</em> or
-      <em>interactive</em> mode. Which one is decided by command-line
+    <p>The runtime system can be started in <em>interactive</em> or
+      <em>embedded</em> mode. Which one is decided by the command-line
       flag <c>-mode</c>:</p>
     <pre>
 % <input>erl -mode interactive</input></pre>
     <p>The modes are as follows:</p>
     <list type="bulleted">
       <item>
-        <p>In embedded mode, all code is loaded during system startup
-          according to the boot script. (Code can also be loaded later
-          by explicitly ordering the code server to do so).</p>
-      </item>
-      <item>
         <p>In interactive mode, which is default, only some code is loaded
-	  during system startup, basically the modules needed by the runtime
+          during system startup, basically the modules needed by the runtime
           system. Other code is dynamically loaded when first
           referenced. When a call to a function in a certain module is
           made, and the module is not loaded, the code server searches
           for and tries to load the module.</p>
+      </item>
+      <item>
+        <p>In embedded mode, modules are not auto loaded. Trying to use
+        a module that has not been loaded results in an error. This mode is
+        recommended when the boot script loads all modules, as it is
+        typically done in OTP releases. (Code can still be loaded later
+        by explicitly ordering the code server to do so).</p>
       </item>
     </list>
     <p>To prevent accidentally reloading of modules affecting the Erlang
