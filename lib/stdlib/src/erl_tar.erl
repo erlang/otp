@@ -457,7 +457,7 @@ add(Reader, NameOrBin, NameInArchive, Options)
 
 do_add(#reader{access=write}=Reader, Name, NameInArchive, Options)
   when is_list(NameInArchive), is_list(Options) ->
-    RF = fun(F) -> apply_file_info_opts(Options, file:read_link_info(F, [{time, posix}])) end,
+    RF = apply_file_info_opts_fun(Options),
     Opts = #add_opts{read_info=RF},
     add1(Reader, Name, NameInArchive, add_opts(Options, Options, Opts));
 do_add(#reader{access=read},_,_,_) ->
@@ -466,7 +466,7 @@ do_add(Reader,_,_,_) ->
     {error, {badarg, Reader}}.
 
 add_opts([dereference|T], AllOptions, Opts) ->
-    RF = fun(F) -> apply_file_info_opts(AllOptions, file:read_file_info(F, [{time, posix}])) end,
+    RF = apply_file_info_opts_fun(AllOptions),
     add_opts(T, AllOptions, Opts#add_opts{read_info=RF});
 add_opts([verbose|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{verbose=true});
@@ -506,6 +506,11 @@ do_apply_file_info_opts([_|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo);
 do_apply_file_info_opts([], FileInfo) ->
     FileInfo.
+
+apply_file_info_opts_fun(Options) ->
+   fun(F) ->
+       apply_file_info_opts(Options, file:read_file_info(F, [{time, posix}]))
+   end.
 
 add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
   when is_list(Name) ->

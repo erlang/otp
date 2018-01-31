@@ -22,11 +22,11 @@
 	 read_info,          %% Fun to use for read file/link info.
 	 chunk_size = 0,     %% For file reading when sending to sftp. 0=do not chunk
      verbose = false,    %% Verbose on/off.
-     atime = undefined,
-     mtime = undefined,
-     ctime = undefined,
-     uid = 0,
-     gid = 0}).
+	 atime = undefined,
+	 mtime = undefined,
+	 ctime = undefined,
+	 uid = 0,
+	 gid = 0}).
 -type add_opts() :: #add_opts{}.
 
 %% Options used when reading a tar archive.

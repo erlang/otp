@@ -135,7 +135,9 @@
         <v>NameInArchive = filename()</v>
         <v>Filename = filename()|{NameInArchive,FilenameOrBin}</v>
         <v>Options = [Option]</v>
-        <v>Option = dereference|verbose|{chunks,ChunkSize}|{atime,non_neg_integer()}|{mtime,non_neg_integer()}|{ctime,non_neg_integer()}|{uid,non_neg_integer()}|{gid,non_neg_integer()}</v>
+        <v>Option = dereference|verbose|{chunks,ChunkSize}|{atime,non_neg_integer()}|
+  {mtime,non_neg_integer()}|{ctime,non_neg_integer()}|{uid,non_neg_integer()}|
+  {gid,non_neg_integer()}</v>
         <v>ChunkSize = positive_integer()</v>
         <v>RetValue = ok|{error,{Filename,Reason}}</v>
         <v>Reason = term()</v>
@@ -169,19 +171,25 @@
           </item>
           <tag><c>{atime,non_neg_integer()}</c></tag>
           <item>
-            <p>Sets the last time, as POSIX, when the file was read.
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was read. See also
               <seealso marker="kernel:file#read_file_info/1">
               <c>file:read_file_info/1</c></seealso>.</p>
           </item>
           <tag><c>{mtime,non_neg_integer()}</c></tag>
           <item>
-            <p>Sets the last time, as POSIX, when the file was written.
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was written. See also
               <seealso marker="kernel:file#read_file_info/1">
               <c>file:read_file_info/1</c></seealso>.</p>
           </item>
           <tag><c>{ctime,non_neg_integer()}</c></tag>
           <item>
-            <p>Sets the time, as POSIX, when the file was created.
+            <p>Sets the time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was created. See also
               <seealso marker="kernel:file#read_file_info/1">
               <c>file:read_file_info/1</c></seealso>.</p>
           </item>

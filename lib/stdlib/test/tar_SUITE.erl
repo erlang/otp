@@ -1007,9 +1007,12 @@ apply_file_info_opts(Config) when is_list(Config) ->
     ok = file:make_dir("extracted"),
     erl_tar:extract(TarFile, [{cwd, "extracted"}]),
 
-    {ok, #file_info{mtime=0}} = file:read_file_info("extracted/empty_directory", [{time, posix}]),
-    {ok, #file_info{mtime=0}} = file:read_file_info("extracted/file", [{time, posix}]),
-    {ok, #file_info{mtime=0}} = file:read_file_info("extracted/memory_file", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/empty_directory", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/file", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/memory_file", [{time, posix}]),
 
     ok.
 
