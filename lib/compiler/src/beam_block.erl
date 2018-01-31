@@ -628,7 +628,13 @@ cse_find(Expr, Es) ->
     end.
 
 cse_expr({set,[D],Ss,{bif,N,_}}) ->
-    {ok,D,{{bif,N},Ss}};
+    case D of
+        {fr,_} ->
+            %% There are too many things that can go wrong.
+            none;
+        _ ->
+            {ok,D,{{bif,N},Ss}}
+    end;
 cse_expr({set,[D],Ss,{alloc,_,{gc_bif,N,_}}}) ->
     {ok,D,{{gc_bif,N},Ss}};
 cse_expr({set,[D],Ss,put_list}) ->
