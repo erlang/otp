@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1,
-	 erl_202/1,repro/1,local_cse/1]).
+	 erl_202/1,repro/1,local_cse/1,second_block_pass/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -41,7 +41,8 @@ groups() ->
        move_opt_across_gc_bif,
        erl_202,
        repro,
-       local_cse
+       local_cse,
+       second_block_pass
       ]}].
 
 init_per_suite(Config) ->
@@ -294,6 +295,15 @@ local_cse_4() ->
 
 do_local_cse_4(X, Y, Z) ->
     {X,Y,Z}.
+
+%% Tests previously found bugs when running beam_block the second time.
+
+second_block_pass(_Config) ->
+    [#{dts:=5.0}] = second_1([#{dts => 10.0}], 2.0),
+    ok.
+
+second_1(Fs, TS) ->
+    [F#{dts=>DTS / TS} || #{dts:=DTS} = F <- Fs].
 
 %%%
 %%% Common functions.
