@@ -24,7 +24,7 @@
 -export([module/2]).
 -export([bs_clean_saves/1]).
 -export([clean_labels/1]).
--import(lists, [foldl/3,reverse/1,filter/2]).
+-import(lists, [foldl/3,reverse/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -303,8 +303,21 @@ maybe_remove_lines(Fs, Opts) ->
     end.
 
 remove_lines([{function,N,A,Lbl,Is0}|T]) ->
-    Is = filter(fun({line,_}) -> false;
-		   (_)  -> true
-		end, Is0),
+    Is = remove_lines_fun(Is0),
     [{function,N,A,Lbl,Is}|remove_lines(T)];
 remove_lines([]) -> [].
+
+remove_lines_fun([{line,_}|Is]) ->
+    remove_lines_fun(Is);
+remove_lines_fun([{block,Bl0}|Is]) ->
+    Bl = remove_lines_block(Bl0),
+    [{block,Bl}|remove_lines_fun(Is)];
+remove_lines_fun([I|Is]) ->
+    [I|remove_lines_fun(Is)];
+remove_lines_fun([]) -> [].
+
+remove_lines_block([{set,_,_,{line,_}}|Is]) ->
+    remove_lines_block(Is);
+remove_lines_block([I|Is]) ->
+    [I|remove_lines_block(Is)];
+remove_lines_block([]) -> [].

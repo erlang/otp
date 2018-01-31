@@ -36,13 +36,11 @@ module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
 function({function,Name,Arity,CLabel,Is0}, Blockify) ->
     try
 	%% Collect basic blocks and optimize them.
-        Is2 = case Blockify of
-                  true ->
-                      Is1 = blockify(Is0),
-                      embed_lines(Is1);
-                  false ->
-                      Is0
+        Is1 = case Blockify of
+                  false -> Is0;
+                  true -> blockify(Is0)
               end,
+        Is2 = embed_lines(Is1),
         Is3 = local_cse(Is2),
         Is4 = beam_utils:anno_defs(Is3),
         Is5 = move_allocates(Is4),
@@ -138,6 +136,11 @@ embed_lines([{block,B2},{line,_}=Line,{block,B1}|T], Acc) ->
     embed_lines([B|T], Acc);
 embed_lines([{block,B1},{line,_}=Line|T], Acc) ->
     B = {block,[{set,[],[],Line}|B1]},
+    embed_lines([B|T], Acc);
+embed_lines([{block,B2},{block,B1}|T], Acc) ->
+    %% This can only happen when beam_block is run for
+    %% the second time.
+    B = {block,B1++B2},
     embed_lines([B|T], Acc);
 embed_lines([I|Is], Acc) ->
     embed_lines(Is, [I|Acc]);

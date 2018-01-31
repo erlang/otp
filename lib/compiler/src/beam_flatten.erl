@@ -73,7 +73,8 @@ norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],fclearerror}) -> fclearerror;
-norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}}.
+norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}};
+norm({set,[],[],{line,_}=Line}) -> Line.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
     [{test_heap,Nh,Regs}];
