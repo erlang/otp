@@ -914,10 +914,10 @@ merge_type_info({tuple,Sz1,[]}, {tuple,_Sz2,First}=Tuple2) ->
     merge_type_info({tuple,Sz1,First}, Tuple2);
 merge_type_info({tuple,_Sz1,First}=Tuple1, {tuple,Sz2,_}) ->
     merge_type_info(Tuple1, {tuple,Sz2,First});
-merge_type_info(integer, {integer,_}=Int) ->
-    Int;
-merge_type_info({integer,_}=Int, integer) ->
-    Int;
+merge_type_info(integer, {integer,_}) ->
+    integer;
+merge_type_info({integer,_}, integer) ->
+    integer;
 merge_type_info({integer,{Min1,Max1}}, {integer,{Min2,Max2}}) ->
     {integer,{max(Min1, Min2),min(Max1, Max2)}};
 merge_type_info(NewType, _) ->
