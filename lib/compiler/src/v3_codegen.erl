@@ -1495,28 +1495,34 @@ select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
     {Code, Aft, St}.
 
 
-select_extract_cons(Src, [#k_var{name=Hd}, #k_var{name=Tl}], I, Vdb, Bef, St) ->
-    {Es,Aft} = case {vdb_find(Hd, Vdb), vdb_find(Tl, Vdb)} of
-		   {{_,_,Lhd}, {_,_,Ltl}} when Lhd =< I, Ltl =< I ->
-		       %% Both head and tail are dead.  No need to generate
-		       %% any instruction.
-		       {[], Bef};
-		   _ ->
-		       %% At least one of head and tail will be used,
-		       %% but we must always fetch both.  We will call
-		       %% clear_dead/2 to allow reuse of the register
-		       %% in case only of them is used.
-
-		       Reg0 = put_reg(Tl, put_reg(Hd, Bef#sr.reg)),
-		       Int0 = Bef#sr{reg=Reg0},
-		       Rsrc = fetch_var(Src, Int0),
-		       Rhd = fetch_reg(Hd, Reg0),
-		       Rtl = fetch_reg(Tl, Reg0),
-		       Int1 = clear_dead(Int0, I, Vdb),
-		       {[{get_list,Rsrc,Rhd,Rtl}], Int1}
-	       end,
-    {Es,Aft,St}.
-    
+select_extract_cons(Src, [#k_var{name=Hd},#k_var{name=Tl}], I, Vdb, Bef, St) ->
+    Rsrc = fetch_var(Src, Bef),
+    Int = clear_dead(Bef, I, Vdb),
+    {{_,_,Lhd},{_,_,Ltl}} = {vdb_find(Hd, Vdb),vdb_find(Tl, Vdb)},
+    case {Lhd =< I, Ltl =< I} of
+        {true,true} ->
+            %% Both dead.
+            {[],Bef,St};
+        {true,false} ->
+            %% Head dead.
+            Reg0 = put_reg(Tl, Bef#sr.reg),
+            Aft = Int#sr{reg=Reg0},
+            Rtl = fetch_reg(Tl, Reg0),
+            {[{get_tl,Rsrc,Rtl}],Aft,St};
+        {false,true} ->
+            %% Tail dead.
+            Reg0 = put_reg(Hd, Bef#sr.reg),
+            Aft = Int#sr{reg=Reg0},
+            Rhd = fetch_reg(Hd, Reg0),
+            {[{get_hd,Rsrc,Rhd}],Aft,St};
+        {false,false} ->
+            %% Both used.
+            Reg0 = put_reg(Tl, put_reg(Hd, Bef#sr.reg)),
+            Aft = Bef#sr{reg=Reg0},
+            Rhd = fetch_reg(Hd, Reg0),
+            Rtl = fetch_reg(Tl, Reg0),
+            {[{get_hd,Rsrc,Rhd},{get_tl,Rsrc,Rtl}],Aft,St}
+    end.
 
 guard_clause_cg(#k_guard_clause{anno=#l{vdb=Vdb},guard=G,body=B}, Fail, Bef, St0) ->
     {Gis,Int,St1} = guard_cg(G, Fail, Vdb, Bef, St0),

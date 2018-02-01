@@ -322,6 +322,16 @@ get_list(Src, Hd, Tl) {
     $Tl = tl;
 }
 
+get_hd(Src, Hd) {
+    Eterm* tmp_ptr = list_val($Src);
+    $Hd = CAR(tmp_ptr);
+}
+
+get_tl(Src, Tl) {
+    Eterm* tmp_ptr = list_val($Src);
+    $Tl = CDR(tmp_ptr);
+}
+
 i_get(Src, Dst) {
     $Dst = erts_pd_hash_get(c_p, $Src);
 }

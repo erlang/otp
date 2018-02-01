@@ -564,3 +564,13 @@ BEAM_FORMAT_NUMBER=0
 ##       exception, but store the atom 'badarg' in x(0) and execute the
 ##       next instruction.
 161: raw_raise/0
+
+## @spec get_hd  Source Head
+## @doc  Get the head (or car) part of a list (a cons cell) from Source and
+##       put it into the register Head.
+162: get_hd/2
+
+## @spec get_tl  Source Tail
+## @doc  Get the tail (or cdr) part of a list (a cons cell) from Source and
+##       put it into the register Tail.
+163: get_tl/2

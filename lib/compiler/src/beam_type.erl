@@ -477,8 +477,6 @@ update({set,[D],[S1,S2],{alloc,_,{gc_bif,Op,{f,0}}}}, Ts0) ->
 update({set,[],_Src,_Op}, Ts0) -> Ts0;
 update({set,[D],_Src,_Op}, Ts0) ->
     tdb_update([{D,kill}], Ts0);
-update({set,[D1,D2],_Src,_Op}, Ts0) ->
-    tdb_update([{D1,kill},{D2,kill}], Ts0);
 update({kill,D}, Ts) ->
     tdb_update([{D,kill}], Ts);
 

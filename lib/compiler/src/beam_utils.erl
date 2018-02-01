@@ -602,8 +602,11 @@ check_liveness(R, [{test_heap,N,Live}|Is], St) ->
 check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{zero,N,0,[]}}}]},
     check_liveness(R, [I|Is], St);
-check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
-    I = {block,[{set,[D1,D2],[S],get_list}]},
+check_liveness(R, [{get_hd,S,D}|Is], St) ->
+    I = {block,[{set,[D],[S],get_hd}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{get_tl,S,D}|Is], St) ->
+    I = {block,[{set,[D],[S],get_tl}]},
     check_liveness(R, [I|Is], St);
 check_liveness(R, [remove_message|Is], St) ->
     check_liveness(R, Is, St);
