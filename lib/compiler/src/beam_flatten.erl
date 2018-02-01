@@ -43,13 +43,15 @@ block([{block,Is0}|Is1], Acc) -> block(Is1, norm_block(Is0, Acc));
 block([I|Is], Acc) -> block(Is, [I|Acc]);
 block([], Acc) -> reverse(Acc).
 
-norm_block([{set,[],[],{alloc,R,Alloc}}|Is], Acc0) ->
+norm_block([{set,[],[],{alloc,R,{_,nostack,_,_}=Alloc}}|Is], Acc0) ->
     case insert_alloc_in_bs_init(Acc0, Alloc) of
 	impossible ->
 	    norm_block(Is, reverse(norm_allocate(Alloc, R), Acc0));
 	Acc ->
 	    norm_block(Is, Acc)
     end;
+norm_block([{set,[],[],{alloc,R,Alloc}}|Is], Acc0) ->
+    norm_block(Is, reverse(norm_allocate(Alloc, R), Acc0));
 norm_block([{set,[D1],[S],get_hd},{set,[D2],[S],get_tl}|Is], Acc) ->
     I = {get_list,S,D1,D2},
     norm_block(Is, [I|Acc]);

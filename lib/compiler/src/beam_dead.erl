@@ -325,25 +325,11 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
 	    _ -> {test,Op,{f,To},Ops0}
 	end,
-    case {I,Acc} of
-	{{test,is_atom,Fail,Ops0},[{test,is_boolean,Fail,Ops0}|_]} ->
-	    %% An is_atom test before an is_boolean test (with the
-	    %% same failure label) is redundant.
-	    backward(Is, D, Acc);
-	{{test,is_atom,Fail,[R]},
-	 [{test,is_eq_exact,Fail,[R,{atom,_}]}|_]} ->
-	    %% An is_atom test before a comparison with an atom (with
-	    %% the same failure label) is redundant.
-	    backward(Is, D, Acc);
-	{{test,is_integer,Fail,[R]},
-	 [{test,is_eq_exact,Fail,[R,{integer,_}]}|_]} ->
-	    %% An is_integer test before a comparison with an integer
-	    %% (with the same failure label) is redundant.
-	    backward(Is, D, Acc);
-	{{test,_,_,_},_} ->
+    case I of
+	{test,_,_,_} ->
 	    %% Still a test instruction. Done.
 	    backward(Is, D, [I|Acc]);
-	{_,_} ->
+	_ ->
 	    %% Rewritten to a select_val. Rescan.
 	    backward([I|Is], D, Acc)
     end;

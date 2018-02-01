@@ -193,8 +193,7 @@ bif_to_test('=:=', [C,A], Fail) when ?is_const(C) ->
 bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
 bif_to_test('=/=', [C,A], Fail) when ?is_const(C) ->
     {test,is_ne_exact,Fail,[A,C]};
-bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops};
-bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
+bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops}.
 
 
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.

@@ -17,13 +17,12 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Purpose : Partitions assembly instructions into basic blocks and
-%% optimizes them.
+%% Purpose: Partition BEAM instructions into basic blocks.
 
 -module(beam_block).
 
 -export([module/2]).
--import(lists, [reverse/1]).
+-import(lists, [reverse/1,splitwith/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -34,11 +33,8 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
 
 function({function,Name,Arity,CLabel,Is0}) ->
     try
-	%% Collect basic blocks and optimize them.
         Is1 = blockify(Is0),
         Is = embed_lines(Is1),
-
-        %% Done.
         {function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -69,12 +65,10 @@ collect_block(Is) ->
     collect_block(Is, []).
 
 collect_block([{allocate,N,R}|Is0], Acc) ->
-    {Inits,Is} = lists:splitwith(fun ({init,{y,_}}) -> true;
-                                     (_) -> false
-                                 end, Is0),
+    {Inits,Is} = splitwith(fun ({init,{y,_}}) -> true;
+                               (_) -> false
+                           end, Is0),
     collect_block(Is, [{set,[],[],{alloc,R,{nozero,N,0,Inits}}}|Acc]);
-collect_block([{allocate_zero,Ns,R},{test_heap,Nh,R}|Is], Acc) ->
-    collect_block(Is, [{set,[],[],{alloc,R,{zero,Ns,Nh,[]}}}|Acc]);
 collect_block([I|Is]=Is0, Acc) ->
     case collect(I) of
 	error -> {reverse(Acc),Is0};

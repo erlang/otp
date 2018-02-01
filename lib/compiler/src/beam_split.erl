@@ -44,10 +44,6 @@ split_blocks([I|Is], Acc) ->
     split_blocks(Is, [I|Acc]);
 split_blocks([], Acc) -> reverse(Acc).
 
-split_block([{set,[R],[_,_,_]=As,{bif,is_record,{f,Lbl}}}|Is], Bl, Acc) ->
-    %% is_record/3 must be translated by beam_clean; therefore,
-    %% it must be outside of any block.
-    split_block(Is, [], [{bif,is_record,{f,Lbl},As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],As,{bif,N,{f,Lbl}=Fail}}|Is], Bl, Acc) when Lbl =/= 0 ->
     split_block(Is, [], [{bif,N,Fail,As,R}|make_block(Bl, Acc)]);
 split_block([{set,[],[],{line,_}=Line},

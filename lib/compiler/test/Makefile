@@ -14,6 +14,7 @@ MODULES= \
 	beam_except_SUITE \
 	beam_jump_SUITE \
 	beam_reorder_SUITE \
+	beam_ssa_SUITE \
 	beam_type_SUITE \
 	beam_utils_SUITE \
 	bif_SUITE \
@@ -52,6 +53,7 @@ NO_OPT= \
 	beam_except \
 	beam_jump \
 	beam_reorder \
+	beam_ssa \
 	beam_type \
 	beam_utils \
 	bif \
@@ -75,6 +77,7 @@ INLINE= \
 	andor \
 	apply \
 	beam_block \
+	beam_ssa \
 	beam_utils \
 	bif \
 	bs_bincomp \
@@ -124,7 +127,7 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += +clint +clint0
+ERL_COMPILE_FLAGS += +clint +clint0 +ssalint
 
 EBIN = .
 
@@ -135,7 +138,8 @@ EBIN = .
 make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt \
+	+no_ssa_opt +no_recv_opt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)

@@ -1788,6 +1788,11 @@ t_tuple_size(Config) when is_list(Config) ->
     14 = Mod:t({1,2,3,4}),
     _ = code:delete(Mod),
     _ = code:purge(Mod),
+
+    good_ip({1,2,3,4}),
+    good_ip({1,2,3,4,5,6,7,8}),
+    error = validate_ip({42,11}),
+    error = validate_ip(atom),
     
     ok.
 
@@ -1804,6 +1809,16 @@ ludicrous_tuple_size(T)
 ludicrous_tuple_size(T)
   when tuple_size(T) =:= 16#FFFFFFFFFFFFFFFF -> ok;
 ludicrous_tuple_size(_) -> error.
+
+good_ip(IP) ->
+    IP = validate_ip(IP).
+
+validate_ip(Value) when is_tuple(Value) andalso
+                        ((size(Value) =:= 4) orelse (size(Value) =:= 8)) ->
+    %% size/1 (converted to tuple_size) used more than once.
+    Value;
+validate_ip(_) ->
+    error.
 
 %%
 %% The binary_part/2,3 guard BIFs

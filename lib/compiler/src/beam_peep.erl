@@ -101,23 +101,13 @@ peep([{select,Op,R,F,Vls0}|Is], SeenTests0, Acc0) ->
 	    I = {jump,F},
 	    peep([I|Is], gb_sets:empty(), Acc0);
         [{atom,_}=Value,Lbl] when Op =:= select_val ->
-            %% Single value left. Convert to regular test and pop redundant tests.
+            %% Single value left. Convert to regular test.
             Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
-            case Acc0 of
-                [{test,is_atom,F,[R]}|Acc] ->
-                    peep(Is1, SeenTests0, Acc);
-                _ ->
-                    peep(Is1, SeenTests0, Acc0)
-            end;
+            peep(Is1, SeenTests0, Acc0);
         [{integer,_}=Value,Lbl] when Op =:= select_val ->
-            %% Single value left. Convert to regular test and pop redundant tests.
+            %% Single value left. Convert to regular test.
             Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
-            case Acc0 of
-                [{test,is_integer,F,[R]}|Acc] ->
-                    peep(Is1, SeenTests0, Acc);
-                _ ->
-                    peep(Is1, SeenTests0, Acc0)
-            end;
+            peep(Is1, SeenTests0, Acc0);
         [Arity,Lbl] when Op =:= select_tuple_arity ->
             %% Single value left. Convert to regular test
             Is1 = [{test,test_arity,F,[R,Arity]},{jump,Lbl}|Is],
@@ -125,6 +115,21 @@ peep([{select,Op,R,F,Vls0}|Is], SeenTests0, Acc0) ->
 	[_|_]=Vls ->
 	    I = {select,Op,R,F,Vls},
 	    peep(Is, gb_sets:empty(), [I|Acc0])
+    end;
+peep([{get_map_elements,Fail,Src,List}=I|Is], _SeenTests, Acc0) ->
+    SeenTests = gb_sets:empty(),
+    case simplify_get_map_elements(Fail, Src, List, Acc0) of
+        {ok,Acc} ->
+            peep(Is, SeenTests, Acc);
+        error ->
+            peep(Is, SeenTests, [I|Acc0])
+    end;
+peep([{test,has_map_fields,Fail,Ops}=I|Is], SeenTests, Acc0) ->
+    case simplify_has_map_fields(Fail, Ops, Acc0) of
+        {ok,Acc} ->
+            peep(Is, SeenTests, Acc);
+        error ->
+            peep(Is, SeenTests, [I|Acc0])
     end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of
@@ -176,3 +181,39 @@ prune_redundant_values([_Val,F|Vls], F) ->
 prune_redundant_values([Val,Lbl|Vls], F) ->
     [Val,Lbl|prune_redundant_values(Vls, F)];
 prune_redundant_values([], _) -> [].
+
+simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
+                          [{get_map_elements,Fail,Src,{list,List1}}|Acc]) ->
+    case are_keys_literals([Key]) andalso are_keys_literals(List1) of
+        true ->
+            case member(Key, List1) of
+                true ->
+                    %% The key is already in the other list. That is
+                    %% very unusual, because there are optimizations to get
+                    %% rid of duplicate keys. Therefore, don't try to
+                    %% do anything smart here; just keep the
+                    %% get_map_elements instructions separate.
+                    error;
+                false ->
+                    List = [Key,Dst|List1],
+                    {ok,[{get_map_elements,Fail,Src,{list,List}}|Acc]}
+            end;
+        false ->
+            error
+    end;
+simplify_get_map_elements(_, _, _, _) -> error.
+
+simplify_has_map_fields(Fail, [Src|Keys0],
+                        [{test,has_map_fields,Fail,[Src|Keys1]}|Acc]) ->
+    case are_keys_literals(Keys0) andalso are_keys_literals(Keys1) of
+        true ->
+            Keys = Keys0 ++ Keys1,
+            {ok,[{test,has_map_fields,Fail,[Src|Keys]}|Acc]};
+        false ->
+            error
+    end;
+simplify_has_map_fields(_, _, _) -> error.
+
+are_keys_literals([{x,_}|_]) -> false;
+are_keys_literals([{y,_}|_]) -> false;
+are_keys_literals([_|_]) -> true.

@@ -171,7 +171,7 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
-    %% v3_codegen
+    %% beam_kernel_to_ssa
     BadKernel = {k_mdef,[],?MODULE,
 		 [{foo,0}],
 		 [],
@@ -179,7 +179,31 @@ silly_coverage(Config) when is_list(Config) ->
 		   {k,[],[],[]},
 		   f,0,[],
 		   seriously_bad_body}]},
-    expect_error(fun() -> v3_codegen:module(BadKernel, []) end),
+    expect_error(fun() -> beam_kernel_to_ssa:module(BadKernel, []) end),
+
+    %% beam_ssa_lint
+    %% beam_ssa_recv
+    %% beam_ssa_pre_codegen
+    %% beam_ssa_opt
+    %% beam_ssa_codegen
+    BadSSA = {b_module,#{},a,b,c,
+              [{b_function,#{func_info=>{mod,foo,0}},args,bad_blocks,0}]},
+    expect_error(fun() -> beam_ssa_lint:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_recv:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_pre_codegen:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_opt:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_codegen:module(BadSSA, []) end),
+
+    %% beam_ssa_lint, beam_ssa_pp
+    {error,[{_,Errors}]} = beam_ssa_lint:module(bad_ssa_lint_input(), []),
+    _ = [io:put_chars(Mod:format_error(Reason)) ||
+            {Mod,Reason} <- Errors],
+
+    %% Cover printing of annotations in beam_ssa_pp
+    PPAnno = #{func_info=>{mod,foo,0},other_anno=>value,map_anno=>#{k=>v}},
+    PPBlocks = #{0=>{b_blk,#{},[],{b_ret,#{},{b_literal,42}}}},
+    PP = {b_function,PPAnno,[],PPBlocks,0},
+    io:put_chars(beam_ssa_pp:format_function(PP)),
 
     %% beam_a
     BeamAInput = {?MODULE,[{foo,0}],[],
@@ -267,6 +291,31 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
 
     ok.
+
+bad_ssa_lint_input() ->
+    {b_module,#{},t,
+     [{foobar,1},{module_info,0},{module_info,1}],
+     [],
+     [{b_function,
+       #{func_info => {t,foobar,1},location => {"t.erl",4}},
+       [{b_var,0}],
+       #{0 => {b_blk,#{},[],{b_ret,#{},{b_var,'@undefined_var'}}}},
+       3},
+      {b_function,
+       #{func_info => {t,module_info,0}},
+       [],
+       #{0 =>
+             {b_blk,#{},
+              [{b_set,#{},
+                {b_var,{'@ssa_ret',3}},
+                call,
+                [{b_remote,
+                  {b_literal,erlang},
+                  {b_literal,get_module_info},
+                  1},
+                 {b_var,'@unknown_variable'}]}],
+              {b_ret,#{},{b_var,{'@ssa_ret',3}}}}},
+       4}]}.
 
 expect_error(Fun) ->
     try	Fun() of

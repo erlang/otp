@@ -62,6 +62,15 @@ MODULES =  \
 	beam_opcodes \
 	beam_peep \
 	beam_split \
+	beam_ssa \
+	beam_ssa_codegen \
+	beam_ssa_lint \
+	beam_ssa_opt \
+	beam_ssa_pp \
+	beam_ssa_pre_codegen \
+	beam_ssa_recv \
+	beam_ssa_type \
+	beam_kernel_to_ssa \
 	beam_trim \
 	beam_utils \
 	beam_validator \
@@ -86,7 +95,6 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_pre_attributes \
-	v3_codegen \
 	v3_core \
 	v3_kernel \
 	v3_kernel_pp
@@ -95,6 +103,7 @@ BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
 HRL_FILES= \
 	beam_disasm.hrl \
+	beam_ssa.hrl \
 	core_parse.hrl \
 	v3_kernel.hrl
 
@@ -181,7 +190,16 @@ release_docs_spec:
 # ---------------------------------------------------- 
 
 $(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl
-$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_ssa.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_type.beam: beam_ssa.hrl
 $(EBIN)/cerl.beam: core_parse.hrl
 $(EBIN)/compile.beam: core_parse.hrl ../../stdlib/include/erl_compile.hrl
 $(EBIN)/core_lib.beam: core_parse.hrl

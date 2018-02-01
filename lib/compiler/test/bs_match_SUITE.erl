@@ -248,6 +248,12 @@ bin_tail(Config) when is_list(Config) ->
     ok = bin_tail_e(<<2:2,1:1,1:5,42:64>>),
     error = bin_tail_e(<<3:2,1:1,1:5,42:64>>),
     error = bin_tail_e(<<>>),
+
+    MD5 = erlang:md5(<<42>>),
+    <<"abc">> = bin_tail_f(<<MD5/binary,"abc">>, MD5, 3),
+    error = bin_tail_f(<<MD5/binary,"abc">>, MD5, 999),
+    {'EXIT',{_,_}} = (catch bin_tail_f(<<0:16/unit:8>>, MD5, 0)),
+
     ok.
 
 bin_tail_c(Bin, Offset) ->
@@ -303,6 +309,14 @@ bin_tail_e_var(Bin) ->
 	%% bs_test_tail2 instructions are needed.
 	<<2:2,_:1,1:5,Tail/binary>> -> Tail;
 	_ -> error
+    end.
+
+bin_tail_f(Bin, MD5, Size) ->
+    case Bin of
+        <<MD5:16/binary, Tail:Size/binary>> ->
+            Tail;
+        <<MD5:16/binary, _/binary>> ->
+            error
     end.
 	    
 save_restore(Config) when is_list(Config) ->
@@ -455,6 +469,15 @@ unit(Config) when is_list(Config) ->
     127 = peek7(<<127:7>>),
     100 = peek7(<<100:7,19:7>>),
     fc(peek7, [<<1,2>>], catch peek7(<<1,2>>)),
+
+    1 = unit_opt(1, -1),
+    8 = unit_opt(8, -1),
+
+    <<1:32,"abc">> = unit_opt_2(<<1:32,"abc">>),
+    <<"def">> = unit_opt_2(<<2:32,"def">>),
+    {'EXIT',_} = (catch unit_opt_2(<<1:32,33:7>>)),
+    {'EXIT',_} = (catch unit_opt_2(<<2:32,55:7>>)),
+
     ok.
 
 peek1(<<B:8,_/bitstring>>) -> B.
@@ -464,6 +487,27 @@ peek7(<<B:7,_/binary-unit:7>>) -> B.
 peek8(<<B:8,_/binary>>) -> B.
 
 peek16(<<B:16,_/binary-unit:16>>) -> B.
+
+unit_opt(U, X) ->
+    %% Cover type analysis in beam_ssa_type.
+    Bin = case U of
+              1 -> <<X:7>>;
+              8 -> <<X>>
+          end,
+    %% The type of Bin will be set to {binary,gcd(1, 8)}.
+    case Bin of
+        <<_/binary-unit:8>> -> 8;
+        <<_/binary-unit:1>> -> 1
+    end.
+
+unit_opt_2(<<St:32,KO/binary>> = Bin0) ->
+    Bin = if
+              St =:= 1 ->
+                  Bin0;
+              St =:= 2 ->
+                  <<KO/binary>>
+          end,
+    id(Bin).
 
 shared_sub_bins(Config) when is_list(Config) ->
     {15,[<<>>,<<5>>,<<4,5>>,<<3,4,5>>,<<2,3,4,5>>]} = sum(<<1,2,3,4,5>>, [], 0),

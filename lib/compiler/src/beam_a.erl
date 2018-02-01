@@ -39,8 +39,13 @@ function({function,Name,Arity,CLabel,Is0}) ->
 
 	%% Remove unusued labels for cleanliness and to help
 	%% optimization passes and HiPE.
-	Is = beam_jump:remove_unused_labels(Is1),
-	{function,Name,Arity,CLabel,Is}
+	Is2 = beam_jump:remove_unused_labels(Is1),
+
+        %% Some optimization passes can't handle consecutive labels.
+        %% Coalesce multiple consecutive labels.
+        Is = coalesce_consecutive_labels(Is2, [], []),
+
+        {function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -122,3 +127,11 @@ rename_instr({select_tuple_arity=I,Reg,Fail,{list,List}}) ->
 rename_instr(send) ->
     {call_ext,2,send};
 rename_instr(I) -> I.
+
+coalesce_consecutive_labels([{label,L}=Lbl,{label,Alias}|Is], Replace, Acc) ->
+    coalesce_consecutive_labels([Lbl|Is], [{Alias,L}|Replace], Acc);
+coalesce_consecutive_labels([I|Is], Replace, Acc) ->
+    coalesce_consecutive_labels(Is, Replace, [I|Acc]);
+coalesce_consecutive_labels([], Replace, Acc) ->
+    D = maps:from_list(Replace),
+    beam_utils:replace_labels(Acc, [], D, fun(L) -> L end).

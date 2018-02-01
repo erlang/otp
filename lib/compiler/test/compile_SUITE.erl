@@ -385,6 +385,9 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
     do_listing(Simple, TargetDir, dsetel, ".dsetel"),
     do_listing(Simple, TargetDir, dkern, ".kernel"),
+    do_listing(Simple, TargetDir, dssa, ".ssa"),
+    do_listing(Simple, TargetDir, dssaopt, ".ssaopt"),
+    do_listing(Simple, TargetDir, dprecg, ".precodegen"),
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),
@@ -423,6 +426,9 @@ listings_big(Config) when is_list(Config) ->
     do_listing(Big, TargetDir, 'E'),
     do_listing(Big, TargetDir, 'P'),
     do_listing(Big, TargetDir, dkern, ".kernel"),
+    do_listing(Big, TargetDir, dssa, ".ssa"),
+    do_listing(Big, TargetDir, dssaopt, ".ssaopt"),
+    do_listing(Big, TargetDir, dprecg, ".precodegen"),
     do_listing(Big, TargetDir, to_dis, ".dis"),
 
     TargetNoext = filename:rootname(Target, code:objfile_extension()),
@@ -919,7 +925,7 @@ do_core_pp_1(M, A, Outdir) ->
     ok = file:delete(CoreFile),
 
     %% Compile as usual (including optimizations).
-    compile_forms(M, Core, [clint,from_core,binary]),
+    compile_forms(M, Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
     %% on the Core Erlang optmimization passes.
@@ -928,7 +934,7 @@ do_core_pp_1(M, A, Outdir) ->
     %% records; if sys_core_fold was run it would fix
     %% that; if sys_core_fold was not run v3_kernel would
     %% crash.)
-    compile_forms(M, Core, [clint,from_core,no_copt,binary]),
+    compile_forms(M, Core, [clint,ssalint,from_core,no_copt,binary]),
 
     ok.
 
@@ -1241,21 +1247,14 @@ do_opt_guards_fun([_|Is]) ->
     do_opt_guards_fun(Is);
 do_opt_guards_fun([]) -> [].
 
-is_exception(bs_match_SUITE, {matching_and_andalso_2,2}) -> true;
-is_exception(bs_match_SUITE, {matching_and_andalso_3,2}) -> true;
 is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
 is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
-is_exception(guard_SUITE, {basic_andalso_orelse,1}) -> true;
 is_exception(guard_SUITE, {bad_guards,1}) -> true;
 is_exception(guard_SUITE, {bad_guards_2,2}) -> true;
 is_exception(guard_SUITE, {bad_guards_3,2}) -> true;
-is_exception(guard_SUITE, {cqlc,4}) -> true;
 is_exception(guard_SUITE, {csemi7,3}) -> true;
-is_exception(guard_SUITE, {misc,1}) -> true;
 is_exception(guard_SUITE, {nested_not_2b,4}) -> true;
 is_exception(guard_SUITE, {tricky_1,2}) -> true;
-is_exception(map_SUITE, {map_guard_update,2}) -> true;
-is_exception(map_SUITE, {map_guard_update_variables,3}) -> true;
 is_exception(_, _) -> false.
 
 sys_pre_attributes(Config) ->
@@ -1477,18 +1476,18 @@ bc_options(Config) ->
     101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
 
     103 = highest_opcode(DataDir, big,
-                         [no_get_hd_tl,no_record_opt,
+                         [no_get_hd_tl,no_ssa_opt_record,
                           no_line_info,no_stack_trimming]),
 
     125 = highest_opcode(DataDir, small_float,
-                         [no_get_hd_tl,no_line_info,no_float_opt]),
+                         [no_get_hd_tl,no_line_info,no_ssa_opt_float]),
 
     132 = highest_opcode(DataDir, small,
-                         [no_get_hd_tl,no_record_opt,no_float_opt,no_line_info]),
+                         [no_get_hd_tl,no_ssa_opt_record,no_ssa_opt_float,no_line_info]),
 
-    136 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt,no_line_info]),
+    136 = highest_opcode(DataDir, big, [no_get_hd_tl,no_ssa_opt_record,no_line_info]),
 
-    153 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt]),
+    153 = highest_opcode(DataDir, big, [no_get_hd_tl,no_ssa_opt_record]),
     153 = highest_opcode(DataDir, big, [r16]),
     153 = highest_opcode(DataDir, big, [r17]),
     153 = highest_opcode(DataDir, big, [r18]),
