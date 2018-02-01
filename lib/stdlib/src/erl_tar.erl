@@ -457,25 +457,60 @@ add(Reader, NameOrBin, NameInArchive, Options)
 
 do_add(#reader{access=write}=Reader, Name, NameInArchive, Options)
   when is_list(NameInArchive), is_list(Options) ->
-    RF = fun(F) -> file:read_link_info(F, [{time, posix}]) end,
+    RF = apply_file_info_opts_fun(Options),
     Opts = #add_opts{read_info=RF},
-    add1(Reader, Name, NameInArchive, add_opts(Options, Opts));
+    add1(Reader, Name, NameInArchive, add_opts(Options, Options, Opts));
 do_add(#reader{access=read},_,_,_) ->
     {error, eacces};
 do_add(Reader,_,_,_) ->
     {error, {badarg, Reader}}.
 
-add_opts([dereference|T], Opts) ->
-    RF = fun(F) -> file:read_file_info(F, [{time, posix}]) end,
-    add_opts(T, Opts#add_opts{read_info=RF});
-add_opts([verbose|T], Opts) ->
-    add_opts(T, Opts#add_opts{verbose=true});
-add_opts([{chunks,N}|T], Opts) ->
-    add_opts(T, Opts#add_opts{chunk_size=N});
-add_opts([_|T], Opts) ->
-    add_opts(T, Opts);
-add_opts([], Opts) ->
+add_opts([dereference|T], AllOptions, Opts) ->
+    RF = apply_file_info_opts_fun(AllOptions),
+    add_opts(T, AllOptions, Opts#add_opts{read_info=RF});
+add_opts([verbose|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{verbose=true});
+add_opts([{chunks,N}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{chunk_size=N});
+add_opts([{atime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{atime=Value});
+add_opts([{mtime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{mtime=Value});
+add_opts([{ctime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{ctime=Value});
+add_opts([{uid,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{uid=Value});
+add_opts([{gid,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{gid=Value});
+add_opts([_|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts);
+add_opts([], _AllOptions, Opts) ->
     Opts.
+
+apply_file_info_opts(Opts, {ok, FileInfo}) ->
+    {ok, do_apply_file_info_opts(Opts, FileInfo)};
+apply_file_info_opts(_Opts, Other) ->
+    Other.
+
+do_apply_file_info_opts([{atime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{atime=Value});
+do_apply_file_info_opts([{mtime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{mtime=Value});
+do_apply_file_info_opts([{ctime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{ctime=Value});
+do_apply_file_info_opts([{uid,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{uid=Value});
+do_apply_file_info_opts([{gid,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{gid=Value});
+do_apply_file_info_opts([_|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo);
+do_apply_file_info_opts([], FileInfo) ->
+    FileInfo.
+
+apply_file_info_opts_fun(Options) ->
+   fun(F) ->
+       apply_file_info_opts(Options, file:read_file_info(F, [{time, posix}]))
+   end.
 
 add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
   when is_list(Name) ->
@@ -515,9 +550,11 @@ add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
                 name = NameInArchive,
                 size = byte_size(Bin),
                 typeflag = ?TYPE_REGULAR,
-                atime = Now,
-                mtime = Now,
-                ctime = Now,
+                atime = add_opts_time(Opts#add_opts.atime, Now),
+                mtime = add_opts_time(Opts#add_opts.mtime, Now),
+                ctime = add_opts_time(Opts#add_opts.ctime, Now),
+                uid = Opts#add_opts.uid,
+                gid = Opts#add_opts.gid,
                 mode = 8#100644},
     {ok, Reader2} = add_header(Reader, Header, Opts),
     Padding = skip_padding(byte_size(Bin)),
@@ -526,6 +563,9 @@ add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
         {ok, _Reader3} -> ok;
         {error, Reason} -> {error, {NameInArchive, Reason}}
     end.
+
+add_opts_time(undefined, Now) -> Now;
+add_opts_time(Time, _Now) -> Time.
 
 add_directory(Reader, DirName, NameInArchive, Info, Opts) ->
     case file:list_dir(DirName) of
@@ -1650,8 +1690,12 @@ write_file(Name, Bin) ->
     case file:write_file(Name, Bin) of
         ok -> ok;
         {error,enoent} ->
-            ok = make_dirs(Name, file),
-            write_file(Name, Bin);
+            case make_dirs(Name, file) of
+                ok ->
+                    write_file(Name, Bin);
+                {error,Reason} ->
+                    throw({error, Reason})
+            end;
         {error,Reason} ->
             throw({error, Reason})
     end.
