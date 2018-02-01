@@ -881,10 +881,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns a list of all default or
       all supported cipher suites.</fsummary>
       <type>
-        <v> Supported = default | all </v>
+        <v> Supported = default | all | anonymous </v>
 	<v> Version = protocol_version() </v>
       </type>
-      <desc><p>Returns all default or all supported cipher suites for a
+      <desc><p>Returns all default or all supported (except anonymous), or all anonymous cipher suites for a
       TLS version</p>
     </desc>
     </func>

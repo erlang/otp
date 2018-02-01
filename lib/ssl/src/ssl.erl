@@ -396,7 +396,7 @@ cipher_suites(all) ->
     [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
--spec cipher_suites(default | all, tls_record:tls_version() | dtls_record:dtls_version() |
+-spec cipher_suites(default | all | anonymous, tls_record:tls_version() | dtls_record:dtls_version() |
                     tls_record:tls_atom_version() |  dtls_record:dtls_atom_version()) -> 
                            [ssl_cipher:erl_cipher_suite()].
 %% Description: Returns all default and all supported cipher suites for a
@@ -718,9 +718,10 @@ available_suites(all) ->
 
 supported_suites(default, Version) ->  
     ssl_cipher:suites(Version);
-
 supported_suites(all, Version) ->  
-    ssl_cipher:all_suites(Version).
+    ssl_cipher:all_suites(Version);
+supported_suites(anonymous, Version) -> 
+    ssl_cipher:anonymous_suites(Version).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->
     tls_socket:listen(Transport, Port, Config);
@@ -1239,7 +1240,8 @@ binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher:suite(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:all_suites(tls_version(Version)),
+    All = ssl_cipher:all_suites(Version) ++ 
+        ssl_cipher:anonymous_suites(Version),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
@@ -1258,7 +1260,7 @@ binary_cipher_suites(Version, Ciphers0)  ->
     binary_cipher_suites(Version, Ciphers).
 
 default_binary_suites(Version) ->
-    ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version))).
+    ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
 
 tuple_to_map({Kex, Cipher, Mac}) ->
     #{key_exchange => Kex,
