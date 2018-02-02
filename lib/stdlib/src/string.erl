@@ -412,8 +412,11 @@ to_number(_, Number, Rest, _, Tail) ->
 -spec prefix(String::unicode:chardata(), Prefix::unicode:chardata()) ->
                     'nomatch' | unicode:chardata().
 prefix(Str, Prefix0) ->
-    Prefix = unicode:characters_to_list(Prefix0),
-    case prefix_1(Str, Prefix) of
+    Result = case unicode:characters_to_list(Prefix0) of
+                 [] -> Str;
+                 Prefix -> prefix_1(Str, Prefix)
+             end,
+    case Result of
         [] when is_binary(Str) -> <<>>;
         Res -> Res
     end.
@@ -1054,7 +1057,6 @@ take_tc(Bin, N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
             end
     end.
 
-prefix_1(Str, []) -> Str;
 prefix_1(Cs0, [GC]) ->
     case unicode_util:gc(Cs0) of
         [GC|Cs] -> Cs;
