@@ -110,7 +110,8 @@
       </item>
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
-        <c><![CDATA[length]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
+        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
@@ -190,7 +191,8 @@
       </item>
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
-        <c><![CDATA[length]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
+        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
@@ -867,4 +869,3 @@
       can be useful for testing complicated ETS matches.</p>
   </section>
 </chapter>
-

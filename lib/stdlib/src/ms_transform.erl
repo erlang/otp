@@ -944,6 +944,7 @@ real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;
 real_guard_function(size,1) -> true;
 real_guard_function(map_size,1) -> true;
+real_guard_function(map_get,2) -> true;
 real_guard_function(tl,1) -> true;
 real_guard_function(trunc,1) -> true;
 real_guard_function(self,0) -> true;
@@ -1115,5 +1116,3 @@ normalise_list([H|T]) ->
     [normalise(H)|normalise_list(T)];
 normalise_list([]) ->
     [].
-
-

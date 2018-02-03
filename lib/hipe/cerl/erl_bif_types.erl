@@ -770,6 +770,9 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   type(maps, size, 1, Xs, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, map_get, 2, Xs, Opaques) ->
+  type(maps, get, 2, Xs, Opaques);
 type(erlang, make_fun, 3, Xs, Opaques) ->
   strict(erlang, make_fun, 3, Xs,
          fun ([_, _, Arity]) ->
@@ -2391,6 +2394,9 @@ arg_types(erlang, length, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
+%% Guard bif, needs to be here.
+arg_types(erlang, map_get, 2) ->
+  [t_map(), t_any()];
 arg_types(erlang, make_fun, 3) ->
   [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->

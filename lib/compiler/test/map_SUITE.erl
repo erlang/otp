@@ -36,7 +36,7 @@
         t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
-	t_map_size/1,
+	t_map_size/1, t_map_get/1,
 	t_build_and_match_aliasing/1,
 	t_is_map/1,
 
@@ -89,7 +89,7 @@ all() ->
 	t_guard_receive, t_guard_receive_large,
         t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
-	t_map_size,
+	t_map_size, t_map_get,
 	t_build_and_match_aliasing,
 	t_is_map,
 
@@ -685,6 +685,26 @@ t_map_size(Config) when is_list(Config) ->
 
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
+
+t_map_get(Config) when is_list(Config) ->
+    1 = map_get(a, id(#{a=>1})),
+
+    {'EXIT',{{badkey,a},_}} = (catch map_get(a, #{})),
+    {'EXIT',{{badkey,a},_}} = (catch map_get(a, #{b=>1})),
+
+    M = #{"a"=>1, "b" => 2},
+    true = check_map_value(M, "a", 1),
+    false = check_map_value(M, "b", 1),
+    true = check_map_value(M#{"c"=>2}, "c", 2),
+    false = check_map_value(M#{"a"=>5}, "a", 1),
+
+    {'EXIT',{{badmap,[]},_}} = (catch map_get(a, [])),
+    {'EXIT',{{badmap,<<1,2,3>>},_}} = (catch map_get(a, <<1,2,3>>)),
+    {'EXIT',{{badmap,1},_}} = (catch map_get(a, 1)),
+    ok.
+
+check_map_value(Map, Key, Value) when map_get(Key, Map) =:= Value -> true;
+check_map_value(_, _, _) -> false.
 
 t_is_map(Config) when is_list(Config) ->
     true = is_map(#{}),
