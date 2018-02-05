@@ -1685,9 +1685,8 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
 	    insert_session(Session2, ProfileName);
 	error:badarg ->
 	    {stop, normal};
-	T:E -> 
+	T:E:Stacktrace -> 
 	    %% Unexpected this must be an error!  
-            Stacktrace = erlang:get_stacktrace(),
             error_logger:error_msg("Failed updating session: "
                                    "~n   ProfileName: ~p"
                                    "~n   SessionId:   ~p"
