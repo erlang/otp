@@ -1038,8 +1038,7 @@ do_from_other_process(Fun) ->
 			  Result ->
 			      Parent ! {Ref,Result}
 		      catch
-			  Class:Reason ->
-			      Stacktrace = erlang:get_stacktrace(),
+			  Class:Reason:Stacktrace ->
 			      Parent ! {Ref,Class,Reason,Stacktrace}
 		      end
 	      end),
@@ -1617,8 +1616,7 @@ s_start(Socket, Timeout, Parent) ->
     try
 	s_loop(Socket, Timeout, Parent, Handler, gb_trees:empty())
     catch
-	Class:Reason ->
-	    Stacktrace = erlang:get_stacktrace(),
+	Class:Reason:Stacktrace ->
 	    io:format(?MODULE_STRING":socket exception ~w:~w at~n"
 		      "~p.~n", [Class,Reason,Stacktrace]),
 	    erlang:raise(Class, Reason, Stacktrace)

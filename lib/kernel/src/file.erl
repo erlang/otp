@@ -1382,8 +1382,8 @@ eval_stream2({ok,Form,EndLine}, Fd, H, Last, E, Bs0) ->
     try erl_eval:exprs(Form, Bs0) of
 	{value,V,Bs} ->
 	    eval_stream(Fd, H, EndLine, {V}, E, Bs)
-    catch Class:Reason ->
-            Error = {EndLine,?MODULE,{Class,Reason,erlang:get_stacktrace()}},
+    catch Class:Reason:StackTrace ->
+            Error = {EndLine,?MODULE,{Class,Reason,StackTrace}},
 	    eval_stream(Fd, H, EndLine, Last, [Error|E], Bs0)
     end;
 eval_stream2({error,What,EndLine}, Fd, H, Last, E, Bs) ->

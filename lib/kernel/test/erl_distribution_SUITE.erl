@@ -459,9 +459,9 @@ run_remote_test([FuncStr, TestNodeStr | Args]) ->
 		1
 	end
     catch
-	C:E ->
+	C:E:S ->
 	    io:format("Node ~p got EXCEPTION ~p:~p\nat ~p\n",
-		      [node(), C, E, erlang:get_stacktrace()]),
+		      [node(), C, E, S]),
 	    2
     end,
     io:format("Node ~p doing halt(~p).\n",[node(), Status]),

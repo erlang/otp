@@ -106,8 +106,8 @@ crash(M, F, A) ->
 crash(Tuple) ->
     try erlang:error(undef)
     catch
-	error:undef ->
-	    Stk = [Tuple|tl(erlang:get_stacktrace())],
+	error:undef:Stacktrace ->
+	    Stk = [Tuple|tl(Stacktrace)],
 	    erlang:raise(error, undef, Stk)
     end.
 
