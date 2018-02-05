@@ -326,7 +326,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 {
     int res;
     int fi = 0;
-    char format_str[7];
+    char format_str[8];
     char sbuf[32];
     char *bufp = sbuf;
     double dexp;
