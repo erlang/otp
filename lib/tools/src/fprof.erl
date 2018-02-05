@@ -1242,8 +1242,7 @@ spawn_3step(Spawn, FunPrelude, FunAck, FunBody)
 		    catch Child ! {Parent, Ref, Go},
 		    Result
 	    catch
-		Class:Reason ->
-		    Stacktrace = erlang:get_stacktrace(),
+		Class:Reason:Stacktrace ->
 		    catch exit(Child, kill),
 		    erlang:raise(Class, Reason, Stacktrace)
 	    end;
