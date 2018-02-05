@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2017</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -614,26 +614,58 @@
       <item>
         <p>If C is a catch clause <c>P -> B</c>,
           where <c>P</c> is a pattern and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class
+	  <c>throw</c> and with or without an explicit stacktrace
+	  variable <c>_</c> cannot be distinguished from a catch clause
+	  without an explicit exception class and without an explicit
+	  stacktrace variable.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>X : P -> B</c>,
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class and
+	  with an explicit stacktrace variable <c>_</c> cannot be
+	  distinguished from a catch clause with an explicit exception
+	  class and without an explicit stacktrace variable.</p>
+      </item>
+      <item>
+        <p>If C is a catch clause <c>X : P : S -> B</c>,
+          where <c>X</c> is an atomic literal or a variable pattern,
+          <c>P</c> is a pattern, <c>S</c> is a variable, and <c>B</c>
+	  is a body, then
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],[],Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>P when Gs -> B</c>,
           where <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class
+	  <c>throw</c> and with or without an explicit stacktrace
+	  variable <c>_</c> cannot be distinguished from a catch clause
+	  without an explicit exception class and without an explicit
+	  stacktrace variable.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>X : P when Gs -> B</c>,
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class and
+	  with an explicit stacktrace variable <c>_</c> cannot be
+	  distinguished from a catch clause with an explicit exception
+	  class and without an explicit stacktrace variable.</p>
+      </item>
+      <item>
+        <p>If C is a catch clause <c>X : P : S when Gs -> B</c>,
+          where <c>X</c> is an atomic literal or a variable pattern,
+          <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
+          <c>S</c> is a variable, and <c>B</c> is a body, then
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],Rep(Gs),Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a function clause <c>( Ps ) -> B</c>,
