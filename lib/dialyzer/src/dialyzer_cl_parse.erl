@@ -41,8 +41,8 @@ start() ->
     Ret
   catch
     throw:{dialyzer_cl_parse_error, Msg} -> {error, Msg};
-    _:R ->
-      Msg = io_lib:format("~tp\n~tp\n", [R, erlang:get_stacktrace()]),
+    _:R:S ->
+      Msg = io_lib:format("~tp\n~tp\n", [R, S]),
       {error, lists:flatten(Msg)}
   end.
 

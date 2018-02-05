@@ -1896,9 +1896,8 @@ solver(Solver, SolveFun) ->
       ?debug("Solver ~w returned unexpected result:\n  ~P\n",
              [Solver, _R, 60]),
       throw(error)
-  catch E:R ->
-      io:format("Solver ~w failed: ~w:~p\n ~tp\n",
-                [Solver, E, R, erlang:get_stacktrace()]),
+  catch E:R:S ->
+      io:format("Solver ~w failed: ~w:~p\n ~tp\n", [Solver, E, R, S]),
       throw(error)
   end.
 
