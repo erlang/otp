@@ -2695,10 +2695,10 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
                 Objs ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
                     {true, Objs, mandatory}
-	    catch _:Reason ->
+	    catch _:Reason:Stacktrace ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
 		    mnesia_lib:important("Transform function failed: '~tp' in '~tp'",
-					 [Reason, erlang:get_stacktrace()]),
+					 [Reason, Stacktrace]),
                     exit({"Bad transform function", Tab, Fun, node(), Reason})
             end
     end;

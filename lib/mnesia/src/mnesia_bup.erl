@@ -90,9 +90,9 @@ iterate(Mod, Fun, Opaque, Acc) ->
 	    catch throw:Err ->
 		    close_read(R2),
 		    Err;
-		  _:Reason ->
+		  _:Reason:Stacktrace ->
 		    close_read(R2),
-		    {error, {Reason, erlang:get_stacktrace()}}
+		    {error, {Reason, Stacktrace}}
 	    end
     catch throw:{error,_} = Err ->
 	    Err
@@ -198,9 +198,9 @@ do_read_schema_section(R) ->
     try
 	{R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
 	do_read_schema_section(R3, verify_header(RawSchema), [])
-    catch T:E ->
+    catch T:E:S ->
 	    close_read(R2),
-	    erlang:raise(T,E,erlang:get_stacktrace())
+	    erlang:raise(T,E,S)
     end.
 
 do_read_schema_section(R, {ok, B, C, []}, Acc) ->

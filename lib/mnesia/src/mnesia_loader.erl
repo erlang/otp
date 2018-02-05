@@ -535,7 +535,7 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
     try
 	true = ets:init_table(Tab, Fun),
 	ok
-    catch _:Else -> {Else, erlang:get_stacktrace()}
+    catch _:Else:Stacktrace -> {Else, Stacktrace}
     end.
 
 
@@ -777,9 +777,9 @@ do_send_table(Pid, Tab, Storage, RemoteS) ->
         throw:receiver_died ->
             cleanup_tab_copier(Pid, Storage, Tab),
             ok;
-        error:Reason -> %% Prepare failed
+        error:Reason:Stacktrace -> %% Prepare failed
             cleanup_tab_copier(Pid, Storage, Tab),
-            {error, {tab_copier, Tab, {Reason, erlang:get_stacktrace()}}}
+            {error, {tab_copier, Tab, {Reason, Stacktrace}}}
     after
         unlink(whereis(mnesia_tm))
     end.

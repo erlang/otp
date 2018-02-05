@@ -470,9 +470,9 @@ get_suite(Mod, {group, Suite}) ->
 	{_, _, TCList} = lists:keyfind(Suite, 1, Groups),
 	TCList
     catch
-	_:Reason ->
+	_:Reason:Stacktrace ->
 	    io:format("Not implemented ~p ~p (~p ~p)~n",
-		      [Mod,Suite,Reason, erlang:get_stacktrace()]),
+		      [Mod,Suite,Reason,Stacktrace]),
 	    'NYI'
     end;
 get_suite(Mod, all) ->

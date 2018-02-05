@@ -597,9 +597,9 @@ recover_coordinator(Tid, Etabs) ->
 		false ->  %% When killed before store havn't been copied to
 		    ok    %% to the new nested trans store.
 	    end
-    catch _:Reason ->
+    catch _:Reason:Stacktrace ->
 	    dbg_out("Recovery of coordinator ~p failed: ~tp~n",
-		    [Tid, {Reason, erlang:get_stacktrace()}]),
+		    [Tid, {Reason, Stacktrace}]),
 	    Protocol = asym_trans,
 	    tell_outcome(Tid, Protocol, node(), CheckNodes, TellNodes)
     end,
@@ -825,8 +825,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
     catch throw:Value ->  %% User called throw
 	    Reason = {aborted, {throw, Value}},
 	    return_abort(Fun, Args, Reason);
-	  error:Reason ->
-	    ST = erlang:get_stacktrace(),
+	  error:Reason:ST ->
 	    check_exit(Fun, Args, Factor, Retries, {Reason,ST}, Type);
 	  _:Reason ->
 	    check_exit(Fun, Args, Factor, Retries, Reason, Type)
@@ -1796,14 +1795,13 @@ do_update(Tid, Storage, [Op | Ops], OldRes) ->
     try do_update_op(Tid, Storage, Op) of
 	ok ->     do_update(Tid, Storage, Ops, OldRes);
 	NewRes -> do_update(Tid, Storage, Ops, NewRes)
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    %% This may only happen when we recently have
 	    %% deleted our local replica, changed storage_type
 	    %% or transformed table
 	    %% BUGBUG: Updates may be lost if storage_type is changed.
 	    %%         Determine actual storage type and try again.
 	    %% BUGBUG: Updates may be lost if table is transformed.
-	    ST = erlang:get_stacktrace(),
 	    verbose("do_update in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Op, {Reason, ST}]),
 	    do_update(Tid, Storage, Ops, OldRes)
@@ -1914,11 +1912,10 @@ commit_clear([H|R], Tid, Storage, Tab, K, Obj)
 do_snmp(_, []) ->   ok;
 do_snmp(Tid, [Head|Tail]) ->
     try mnesia_snmp_hook:update(Head)
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    %% This should only happen when we recently have
 	    %% deleted our local replica or recently deattached
 	    %% the snmp table
-	    ST = erlang:get_stacktrace(),
 	    verbose("do_snmp in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Head, {Reason, ST}])
     end,
