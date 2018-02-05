@@ -93,8 +93,8 @@ start_link(Options) ->
 		end,
 		{ok, Pid}
 	    catch
-		error:Reason ->
-		    {error, {'EXIT', Reason, erlang:get_stacktrace()}}
+		error:Reason:Stacktrace ->
+		    {error, {'EXIT', Reason, Stacktrace}}
 	    end;
 	{error, Reason} ->
 	    {error, Reason}
