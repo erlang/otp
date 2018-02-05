@@ -536,7 +536,7 @@ ms_from_string(Str) ->
 	    {error, List} -> throw([[Error, $\n] || {_, Error} <- List])
 	end
     catch error:_Reason ->
-	    %% io:format("Bad term: ~ts~n ~tp in ~tp~n", [Str, _Reason, erlang:get_stacktrace()]),
+	    %% io:format("Bad term: ~ts~n ~tp in ~tp~n", [Str, _Reason, Stacktrace]),
 	    throw("Invalid term")
     end.
 

@@ -86,8 +86,8 @@ init([Notebook, Parent, Config]) ->
                                  secs=maps:get(secs, Config, ?DISP_SECONDS)}
 		       },
 	{Panel, State0}
-    catch _:Err ->
-	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, erlang:get_stacktrace()]),
+    catch _:Err:Stacktrace ->
+	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, Stacktrace]),
 	    {stop, Err}
     end.
 
