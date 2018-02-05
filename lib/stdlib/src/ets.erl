@@ -882,10 +882,10 @@ tab2file(Tab, File, Options) ->
 		_ = disk_log:close(Name),
 		_ = file:delete(File),
 		exit(ExReason);
-	    error:ErReason ->
+	    error:ErReason:StackTrace ->
 		_ = disk_log:close(Name),
 		_ = file:delete(File),
-	        erlang:raise(error,ErReason,erlang:get_stacktrace())
+	        erlang:raise(error,ErReason,StackTrace)
 	end
     catch
 	throw:TReason2 ->
@@ -1060,9 +1060,9 @@ file2tab(File, Opts) ->
 		exit:ExReason ->
 		    ets:delete(Tab),
 		    exit(ExReason);
-		error:ErReason ->
+		error:ErReason:StackTrace ->
 		    ets:delete(Tab),
-		    erlang:raise(error,ErReason,erlang:get_stacktrace())
+		    erlang:raise(error,ErReason,StackTrace)
 	    end
 	after
 	    _ = disk_log:close(Name)

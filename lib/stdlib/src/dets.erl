@@ -1288,8 +1288,8 @@ init(Parent, Server) ->
             catch
                 exit:normal ->
                     exit(normal);
-                _:Bad ->
-                    bug_found(no_name, Op, Bad, From),
+                _:Bad:Stacktrace ->
+                    bug_found(no_name, Op, Bad, Stacktrace, From),
                     exit(Bad) % give up
             end
     end.
@@ -1371,8 +1371,8 @@ do_apply_op(Op, From, Head, N) ->
     catch 
         exit:normal -> 
             exit(normal);
-        _:Bad -> 
-            bug_found(Head#head.name, Op, Bad, From),
+        _:Bad:Stacktrace -> 
+            bug_found(Head#head.name, Op, Bad, Stacktrace, From),
             open_file_loop(Head, N)
     end.
 
@@ -1581,7 +1581,7 @@ apply_op(Op, From, Head, N) ->
 	    ok
     end.
 
-bug_found(Name, Op, Bad, From) ->
+bug_found(Name, Op, Bad, Stacktrace, From) ->
     case dets_utils:debug_mode() of
         true ->
             %% If stream_op/5 found more requests, this is not
@@ -1590,7 +1590,7 @@ bug_found(Name, Op, Bad, From) ->
               ("** dets: Bug was found when accessing table ~tw,~n"
                "** dets: operation was ~tp and reply was ~tw.~n"
                "** dets: Stacktrace: ~tw~n",
-               [Name, Op, Bad, erlang:get_stacktrace()]);
+               [Name, Op, Bad, Stacktrace]);
         false ->
             error_logger:format
               ("** dets: Bug was found when accessing table ~tw~n",

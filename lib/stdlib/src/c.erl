@@ -1034,8 +1034,8 @@ appcall(App, M, F, Args) ->
     try
 	apply(M, F, Args)
     catch
-	error:undef ->
-	    case erlang:get_stacktrace() of
+	error:undef:S ->
+	    case S of
 		[{M,F,Args,_}|_] ->
 		    Arity = length(Args),
 		    io:format("Call to ~w:~w/~w in application ~w failed.\n",

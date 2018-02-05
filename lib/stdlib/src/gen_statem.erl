@@ -365,7 +365,7 @@ event_type(Type) ->
 
 -define(
    STACKTRACE(),
-   try throw(ok) catch _ -> erlang:get_stacktrace() end).
+   element(2, erlang:process_info(self(), current_stacktrace))).
 
 -define(not_sys_debug, []).
 %%
@@ -590,11 +590,11 @@ call_dirty(ServerRef, Request, Timeout, T) ->
         {ok,Reply} ->
             Reply
     catch
-        Class:Reason ->
+        Class:Reason:Stacktrace ->
             erlang:raise(
               Class,
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-              erlang:get_stacktrace())
+              Stacktrace)
     end.
 
 call_clean(ServerRef, Request, Timeout, T) ->
@@ -608,9 +608,8 @@ call_clean(ServerRef, Request, Timeout, T) ->
                               ServerRef, '$gen_call', Request, T) of
                             Result ->
                                 {Ref,Result}
-                        catch Class:Reason ->
-                                {Ref,Class,Reason,
-                                 erlang:get_stacktrace()}
+                        catch Class:Reason:Stacktrace ->
+                                {Ref,Class,Reason,Stacktrace}
                         end
             end),
     Mref = monitor(process, Pid),
@@ -697,8 +696,7 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
     catch
 	Result ->
 	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
-	Class:Reason ->
-	    Stacktrace = erlang:get_stacktrace(),
+	Class:Reason:Stacktrace ->
 	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -1584,8 +1582,8 @@ call_callback_mode(#state{module = Module} = S) ->
     catch
 	CallbackMode ->
 	    callback_mode_result(S, CallbackMode);
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
+	Class:Reason:Stacktrace ->
+	    [Class,Reason,Stacktrace]
     end.
 
 callback_mode_result(S, CallbackMode) ->
@@ -1638,8 +1636,8 @@ call_state_function(
     catch
 	Result ->
 	    {Result,S};
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
+	Class:Reason:Stacktrace ->
+	    [Class,Reason,Stacktrace]
     end.
 
 
@@ -1827,8 +1825,7 @@ terminate(
 		_ -> ok
 	    catch
 		_ -> ok;
-		C:R ->
-		    ST = erlang:get_stacktrace(),
+		C:R:ST ->
 		    error_info(
 		      C, R, ST, S, Q,
 		      format_status(terminate, get(), S)),

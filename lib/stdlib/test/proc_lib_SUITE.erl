@@ -446,8 +446,8 @@ init_dont_hang(Config) when is_list(Config) ->
 	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000),
 	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000, []),
 	ok
-    catch _:Error ->
-	    io:format("Error ~p /= ~p ~n",[erlang:get_stacktrace(), StartLinkRes]),
+    catch _:Error:Stacktrace ->
+	    io:format("Error ~p /= ~p ~n",[Stacktrace, StartLinkRes]),
 	    exit(Error)
     end.
 

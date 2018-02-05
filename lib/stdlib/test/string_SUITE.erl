@@ -877,9 +877,9 @@ test_1(Line, Func, Str, Args, Exp) ->
     catch
         error:Exp ->
             ok;
-        error:Reason ->
+        error:Reason:Stacktrace ->
             io:format("~p:~p: Crash ~p ~p~n",
-                      [?MODULE,Line, Reason, erlang:get_stacktrace()]),
+                      [?MODULE,Line, Reason, Stacktrace]),
             exit({error, Func})
     end.
 
@@ -944,10 +944,10 @@ check_types(Line, Func, [Str|_], Res)  ->
             io:format("Failed: ~p ~p: ~p ~p~n",[Line, Func, T1, T2]),
             io:format("  ~p  => ~p~n", [Str, Res]),
             error;
-          _:Reason ->
-            io:format("Crash: ~p in~n ~p~n",[Reason, erlang:get_stacktrace()]),
+          _:Reason:Stacktrace ->
+            io:format("Crash: ~p in~n ~p~n",[Reason, Stacktrace]),
             io:format("Failed: ~p ~p: ~p => ~p~n", [Line, Func, Str, Res]),
-            exit({Reason, erlang:get_stacktrace()})
+            exit({Reason, Stacktrace})
     end.
 
 check_types_1(T, T) ->

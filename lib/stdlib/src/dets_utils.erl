@@ -377,7 +377,8 @@ corrupt_reason(Head, Reason0) ->
                  no_disk_map -> 
                      Reason0;
                  DM ->
-                    ST = erlang:get_stacktrace(),
+                    {current_stacktrace, ST} =
+                         erlang:process_info(self(), current_stacktrace),
                     PD = get(),
                     {Reason0, ST, PD, DM}
              end,

@@ -109,7 +109,7 @@
 
 -define(
    STACKTRACE(),
-   try throw(ok) catch _ -> erlang:get_stacktrace() end).
+   element(2, erlang:process_info(self(), current_stacktrace))).
 
 %%%=========================================================================
 %%%  API
@@ -369,7 +369,7 @@ init_it(Mod, Args) ->
 	{ok, Mod:init(Args)}
     catch
 	throw:R -> {ok, R};
-	Class:R -> {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:S -> {'EXIT', Class, R, S}
     end.
 
 %%%========================================================================
@@ -634,7 +634,7 @@ try_dispatch(Mod, Func, Msg, State) ->
     catch
 	throw:R ->
 	    {ok, R};
-        error:undef = R when Func == handle_info ->
+        error:undef = R:Stacktrace when Func == handle_info ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
                     error_logger:warning_msg("** Undefined handle_info in ~p~n"
@@ -642,10 +642,10 @@ try_dispatch(Mod, Func, Msg, State) ->
                                              [Mod, Msg]),
                     {ok, {noreply, State}};
                 true ->
-                    {'EXIT', error, R, erlang:get_stacktrace()}
+                    {'EXIT', error, R, Stacktrace}
             end;
-	Class:R ->
-	    {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:Stacktrace ->
+	    {'EXIT', Class, R, Stacktrace}
     end.
 
 try_handle_call(Mod, Msg, From, State) ->
@@ -654,8 +654,8 @@ try_handle_call(Mod, Msg, From, State) ->
     catch
 	throw:R ->
 	    {ok, R};
-	Class:R ->
-	    {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:Stacktrace ->
+	    {'EXIT', Class, R, Stacktrace}
     end.
 
 try_terminate(Mod, Reason, State) ->
@@ -666,8 +666,8 @@ try_terminate(Mod, Reason, State) ->
 	    catch
 		throw:R ->
 		    {ok, R};
-		Class:R ->
-		    {'EXIT', Class, R, erlang:get_stacktrace()}
+		Class:R:Stacktrace ->
+		    {'EXIT', Class, R, Stacktrace}
 	   end;
 	false ->
 	    {ok, ok}
