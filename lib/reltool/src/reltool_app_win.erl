@@ -102,8 +102,8 @@ init(Parent, WxEnv, Xref, C, AppName) ->
     try
 	do_init(Parent, WxEnv, Xref, C, AppName)
     catch
-	error:Reason ->
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    exit({Reason, Stacktrace})
     end.
 
 do_init(Parent, WxEnv, Xref, C, AppName) ->

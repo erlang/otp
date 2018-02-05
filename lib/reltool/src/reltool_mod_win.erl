@@ -107,8 +107,8 @@ init(Parent, WxEnv, Xref, RelPid, C, ModName) ->
     try
 	do_init(Parent, WxEnv, Xref, RelPid, C, ModName)
     catch
-	error:Reason ->
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    exit({Reason, Stacktrace})
     end.
 
 do_init(Parent, WxEnv, Xref, RelPid, C, ModName) ->
