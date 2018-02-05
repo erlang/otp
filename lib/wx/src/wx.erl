@@ -183,7 +183,7 @@ batch(Fun) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try Fun()
     catch
-	error:W -> erlang:exit({W, erlang:get_stacktrace()});
+	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
@@ -196,7 +196,7 @@ foreach(Fun, List) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try lists:foreach(Fun, List)
     catch
-	error:W -> erlang:exit({W, erlang:get_stacktrace()});
+	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
@@ -209,7 +209,7 @@ map(Fun, List) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try lists:map(Fun, List)
     catch
-	error:W -> erlang:exit({W, erlang:get_stacktrace()});
+	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
@@ -222,7 +222,7 @@ foldl(Fun, Acc, List) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try lists:foldl(Fun, Acc, List)
     catch
-	error:W -> erlang:exit({W, erlang:get_stacktrace()});
+	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
@@ -235,7 +235,7 @@ foldr(Fun, Acc, List) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try lists:foldr(Fun, Acc, List)
     catch
-	error:W -> erlang:exit({W, erlang:get_stacktrace()});
+	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
