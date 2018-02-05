@@ -136,7 +136,8 @@ variable.")
       ("New Clause" erlang-generate-new-clause)
       ("Clone Arguments" erlang-clone-arguments)
       nil
-      ("Align Arrows" erlang-align-arrows)))
+      ("Align Arrows" erlang-align-arrows)
+      ("Align Maps" erlang-align-maps)))
     ("Syntax Highlighting"
      (("Level 4" erlang-font-lock-level-4)
       ("Level 3" erlang-font-lock-level-3)
@@ -5850,6 +5851,65 @@ sum([], Sum)    -> Sum."
           (arrow-match-pos (if current-prefix-arg
                                1
                              (1+ erlang-atom-regexp-matches)))
+          ;; accumulator for positions where arrows are found, ordered
+          ;; by buffer position (from greatest to smallest)
+          (arrow-positions '())
+          ;; accumulator for longest distance from start of line to arrow
+          (most-indent 0)
+          ;; marker to track the end of the region we're aligning
+          (end-marker (progn (goto-char end)
+                             (point-marker))))
+      ;; Pass 1: Find the arrow positions, adjust the whitespace
+      ;; before each arrow to one space, and find the greatest
+      ;; indentation level.
+      (goto-char start)
+      (while (re-search-forward re end-marker t)
+        (goto-char (match-beginning arrow-match-pos))
+        (just-one-space)                ; adjust whitespace
+        (setq arrow-positions (cons (point) arrow-positions))
+        (setq most-indent (max most-indent (erlang-column-number))))
+      (set-marker end-marker nil)       ; free the marker
+      ;; Pass 2: Insert extra padding so that all arrow indentation is
+      ;; equal. This is done last-to-first by buffer position, so that
+      ;; inserting spaces before one arrow doesn't change the
+      ;; positions of the next ones.
+      (mapc (lambda (arrow-pos)
+              (goto-char arrow-pos)
+              (let* ((pad (- most-indent (erlang-column-number))))
+                (when (> pad 0)
+                  (insert-char ?\  pad))))
+            arrow-positions))))
+
+(defun erlang-align-maps (start end)
+  "Align maps (\"=>\") from START to END.
+When called interactively, aligns arrows after function clauses inside
+the region.
+
+With a prefix argument, aligns all arrows, not just those in function
+clauses.
+
+Example:
+
+#{
+  foo => true,
+  foobar => [],
+  foobarbee => 1000 * 60 * 5,
+  foobarbeebop => 900
+}.
+
+becomes:
+
+  foo          => true,
+  foobar       => [],
+  foobarbee    => 1000 * 60 * 5,
+  foobarbeebop => 900
+"
+  (interactive "r")
+  (save-excursion
+    (let (;; regexp for matching arrows
+          (re "^.*\\(\\)=>")
+          ;; part of regexp matching directly before the arrow
+          (arrow-match-pos 1)
           ;; accumulator for positions where arrows are found, ordered
           ;; by buffer position (from greatest to smallest)
           (arrow-positions '())
