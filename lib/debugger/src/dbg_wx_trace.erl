@@ -95,9 +95,9 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    catch 
 		_:stop ->
 		    exit(stop);
-		E:R ->
+		E:R:S ->
 		    io:format("TraceWin Crashed ~p~n",[E]),
-		    io:format(" ~p in ~p~n",[R, erlang:get_stacktrace()]),
+		    io:format(" ~p in ~p~n",[R, S]),
 		    exit(R)
 	    end;
 	error ->

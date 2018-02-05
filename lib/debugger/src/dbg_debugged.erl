@@ -84,9 +84,8 @@ msg_loop(Meta, Mref) ->
 handle_command(Command) ->
     try
 	reply(Command)
-    catch Class:Reason ->
-	    Stacktrace = stacktrace_f(erlang:get_stacktrace()),
-	    {exception,{Class,Reason,Stacktrace}}
+    catch Class:Reason:Stacktrace ->
+	    {exception,{Class,Reason,stacktrace_f(Stacktrace)}}
     end.
 
 reply({apply,M,F,As}) ->
