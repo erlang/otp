@@ -442,11 +442,9 @@ script_start2(Opts = #opts{vts = undefined,
                 TestSpecData ->
 		    execute_all_specs(TestSpecData, Opts, Args, [])
             catch
-                throw:{error,Reason} ->
-		    StackTrace = erlang:get_stacktrace(),
+                throw:{error,Reason}:StackTrace ->
 		    {error,{invalid_testspec,{Reason,StackTrace}}};
-                _:Reason ->
-		    StackTrace = erlang:get_stacktrace(),
+                _:Reason:StackTrace ->
 		    {error,{invalid_testspec,{Reason,StackTrace}}}
             end;
 	[] ->
@@ -1211,11 +1209,9 @@ run_spec_file(Relaxed,
 	TestSpecData ->
 	    run_all_specs(TestSpecData, Opts, StartOpts, [])
     catch
-	throw:{error,CTReason} ->
-	    StackTrace = erlang:get_stacktrace(),
+	throw:{error,CTReason}:StackTrace ->
 	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
-	_:CTReason ->
-	    StackTrace = erlang:get_stacktrace(),
+	_:CTReason:StackTrace ->
 	    exit({error,{invalid_testspec,{CTReason,StackTrace}}})
     end.
 

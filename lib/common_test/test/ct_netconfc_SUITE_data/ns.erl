@@ -231,8 +231,7 @@ data_for_channel(CM, Ch, Data, State) ->
 		    {ok, NewState}
 	    end
     catch
-	Class:Reason ->
-	    Stacktrace = erlang:get_stacktrace(),
+	Class:Reason:Stacktrace ->
 	    error_logger:error_report([{?MODULE, data_for_channel},
 				       {request, Data},
 				       {buffer, State#session.buffer},

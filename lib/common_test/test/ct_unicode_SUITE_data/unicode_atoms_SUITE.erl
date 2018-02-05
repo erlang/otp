@@ -77,7 +77,7 @@ all() ->
 
 'fail_αβ_4'(_Config) ->
     ct:log("This is test case ~tw",[?FUNCTION_NAME]),
-    S = try throw(ok) catch throw:ok -> erlang:get_stacktrace() end,
+    S = try throw(ok) catch throw:ok:Stacktrace -> Stacktrace end,
     erlang:raise(error,{error,testcase,?FUNCTION_NAME},S),
     ok.
 
