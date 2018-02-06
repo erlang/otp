@@ -177,10 +177,10 @@ disconnect(Node) ->
 log_decision(D) ->
     cast({log_decision, D}).
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _Reason} ->
-	    mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 
