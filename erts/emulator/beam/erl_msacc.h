@@ -159,12 +159,12 @@ struct erl_msacc_t_ {
 
 #ifdef ERTS_ENABLE_MSACC
 
-extern erts_tsd_key_t erts_msacc_key;
+extern erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 
 #ifdef ERTS_MSACC_ALWAYS_ON
 #define erts_msacc_enabled 1
 #else
-extern int erts_msacc_enabled;
+extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 #endif
 
 #define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
