@@ -248,7 +248,7 @@ format_1(#k_put{arg=A,ret=Rs}, Ctxt) ->
     [format(A, Ctxt),
      format_ret(Rs, ctxt_bump_indent(Ctxt, 1))
     ];
-format_1(#k_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
+format_1(#k_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
     ["try",
      nl_indent(Ctxt1),
@@ -264,7 +264,8 @@ format_1(#k_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
      nl_indent(Ctxt1),
      format(H, Ctxt1),
      nl_indent(Ctxt),
-     "end"
+     "end",
+     format_ret(Rs, Ctxt)
     ];
 format_1(#k_try_enter{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
