@@ -3152,6 +3152,9 @@ tailrecur_ne:
 		    int cmp;
 		    byte* a_ptr;
 		    byte* b_ptr;
+		    if (eq_only && a_size != b_size) {
+		        RETURN_NEQ(a_size - b_size);
+		    }
 		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
 		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
