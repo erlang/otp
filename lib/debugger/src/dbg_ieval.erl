@@ -924,8 +924,7 @@ expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
 	trace(return, {Le,Error}),
 	{value,Error,Bs}
     catch
-	_:_ ->
-	    Stk = erlang:get_stacktrace(),	%Possibly truncated.
+	_:_:Stk ->                              %Possibly truncated.
 	    StkFun = fun(_) -> Stk end,
 	    do_exception(Class, Reason, StkFun, Bs, Ieval)
     end;

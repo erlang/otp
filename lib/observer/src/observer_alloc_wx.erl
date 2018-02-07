@@ -79,8 +79,8 @@ init([Notebook, Parent, Config]) ->
                       max   = #{}
 		     }
 	}
-    catch _:Err ->
-	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, erlang:get_stacktrace()]),
+    catch _:Err:Stacktrace ->
+	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, Stacktrace]),
 	    {stop, Err}
     end.
 

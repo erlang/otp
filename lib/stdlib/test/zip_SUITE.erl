@@ -909,8 +909,7 @@ do_fd_leak(Bad, N) ->
         ok ->
             do_fd_leak(Bad, N + 1)
     catch
-        C:R ->
-            Stk = erlang:get_stacktrace(),
+        C:R:Stk ->
             io:format("Bad error after ~p attempts\n", [N]),
             erlang:raise(C, R, Stk)
     end.

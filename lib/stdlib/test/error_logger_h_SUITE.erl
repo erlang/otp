@@ -257,8 +257,7 @@ match_output([Item|T], Lines0, AtNode, Depth) ->
 	Lines ->
 	    match_output(T, Lines, AtNode, Depth)
     catch
-	C:E ->
-	    Stk = erlang:get_stacktrace(),
+	C:E:Stk ->
 	    io:format("ITEM: ~p", [Item]),
 	    io:format("LINES: ~p", [Lines0]),
 	    erlang:raise(C, E, Stk)

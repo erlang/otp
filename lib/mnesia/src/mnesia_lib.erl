@@ -116,7 +116,7 @@
 	 lock_table/1,
 	 mkcore/1,
 	 not_active_here/1,
-         other_val/1,
+         other_val/2,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -435,8 +435,8 @@ validate_record(Tab, Obj) ->
 %%
 
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> other_val(Var, Stacktrace);
 	_VaLuE_ -> _VaLuE_
     end.
 
@@ -446,9 +446,9 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
-other_val(Var) ->
+other_val(Var, Stacktrace) ->
     case other_val_1(Var) of
-        error -> pr_other(Var);
+        error -> pr_other(Var, Stacktrace);
         Val -> Val
     end.
 
@@ -460,8 +460,8 @@ other_val_1(Var) ->
 	_ -> error
     end.
 
--spec pr_other(_) -> no_return().
-pr_other(Var) ->
+-spec pr_other(_, _) -> no_return().
+pr_other(Var, Stacktrace) ->
     Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
@@ -469,7 +469,7 @@ pr_other(Var) ->
 	end,
     verbose("~p (~tp) val(mnesia_gvar, ~tw) -> ~p ~tp ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Why, erlang:get_stacktrace()]),
+	     Var, Why, Stacktrace]),
     mnesia:abort(Why).
 
 %% Some functions for list valued variables

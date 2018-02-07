@@ -279,7 +279,7 @@ get_table_list(mnesia, Opts) ->
 			     end,
 		       [Tab|Acc]
 		   catch _:_What ->
-			   %% io:format("Skipped ~p: ~p ~p ~n",[Id, _What, erlang:get_stacktrace()]),
+			   %% io:format("Skipped ~p: ~p ~p ~n",[Id, _What, Stacktrace]),
 			   Acc
 		   end
 	   end,

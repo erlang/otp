@@ -457,8 +457,7 @@ do_zip(F, Files, Options) ->
         Out3 = Output({close, F}, Out2),
         {ok, Out3}
     catch
-        C:R ->
-            Stk = erlang:get_stacktrace(),
+        C:R:Stk ->
             zlib:close(Z),
             Output({close, F}, Out0),
             erlang:raise(C, R, Stk)

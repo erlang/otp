@@ -22,8 +22,6 @@
 -ifndef(inets_internal_hrl).
 -define(inets_internal_hrl, true).
 
--define(STACK(), erlang:get_stacktrace()).
-
 %% Various trace macros
 
 -define(report(Severity, Label, Service, Content), 

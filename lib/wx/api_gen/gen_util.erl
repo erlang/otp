@@ -106,8 +106,8 @@ check_diff(Diff) ->
 	throw:_ ->  diff;
 	error:{badmatch,_} ->
 	    diff;
-	_:What ->
-	    io:format("~p:~p: ~p ~p~n", [?MODULE,?LINE, What, erlang:get_stacktrace()]),
+	_:What:Stacktrace ->
+	    io:format("~p:~p: ~p ~p~n", [?MODULE,?LINE, What, Stacktrace]),
 	    diff
     end.
 

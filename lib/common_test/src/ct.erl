@@ -872,8 +872,8 @@ fail(Reason) ->
     try
 	exit({test_case_failed,Reason})
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:S ->
+	    case S of
 		[{?MODULE,fail,1,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -894,8 +894,8 @@ fail(Format, Args) ->
 	    try
 		exit({test_case_failed,lists:flatten(Str)})
 	    catch
-		Class:R ->
-		    case erlang:get_stacktrace() of
+		Class:R:S ->
+		    case S of
 			[{?MODULE,fail,2,_}|Stk] -> ok;
 			Stk -> ok
 		    end,

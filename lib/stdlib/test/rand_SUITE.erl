@@ -82,9 +82,9 @@ test() ->
               try
                   ok = ?MODULE:Test([]),
                   io:format("~p: ok~n", [Test])
-              catch _:Reason ->
+              catch _:Reason:Stacktrace ->
                       io:format("Failed: ~p: ~p ~p~n",
-                                [Test, Reason, erlang:get_stacktrace()])
+                                [Test, Reason, Stacktrace])
               end
       end, Tests).
 
@@ -98,8 +98,8 @@ seed(Config) when is_list(Config) ->
     Algs = algs(),
     Test = fun(Alg) ->
 		   try seed_1(Alg)
-		   catch _:Reason ->
-			   ct:fail({Alg, Reason, erlang:get_stacktrace()})
+		   catch _:Reason:Stacktrace ->
+			   ct:fail({Alg, Reason, Stacktrace})
 		   end
 	   end,
     [Test(Alg) || Alg <- Algs],
@@ -722,12 +722,12 @@ uniform_real_conv_check(M, E, Gen) ->
                [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
             ct:fail({neq, FF, F})
     catch
-        Error:Reason ->
+        Error:Reason:Stacktrace ->
             ct:pal(
               "~w:~p ~s: ~s~n",
               [Error, Reason, rand:float2str(F),
                [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
-            ct:fail({Error, Reason, F, erlang:get_stacktrace()})
+            ct:fail({Error, Reason, F, Stacktrace})
     end.
 
 

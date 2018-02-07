@@ -539,8 +539,8 @@ do_setnode(#hs_data{other_node = Node, socket = Socket,
 			      "no table space left for node ~w ** ~n",
 			      [Node]),
 		    ?shutdown(Node);
-                error:Other ->
-                    exit({Other, erlang:get_stacktrace()})
+                error:Other:Stacktrace ->
+                    exit({Other, Stacktrace})
 	    end;
 	_ ->
 	    error_msg("** Distribution connection error, "

@@ -781,8 +781,8 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
 	    catch
 		exit:Why ->
 		    EH(Why);
-		error:Why ->
-		    EH({Why,erlang:get_stacktrace()});
+		error:Why:Stacktrace ->
+		    EH({Why,Stacktrace});
 		throw:Why ->
 		    EH(Why)
 	    end;

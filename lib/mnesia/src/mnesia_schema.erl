@@ -181,9 +181,10 @@ exit_on_error({error, Reason}) ->
 exit_on_error(GoodRes) ->
     GoodRes.
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 
@@ -2695,10 +2696,10 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
                 Objs ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
                     {true, Objs, mandatory}
-	    catch _:Reason ->
+	    catch _:Reason:Stacktrace ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
 		    mnesia_lib:important("Transform function failed: '~tp' in '~tp'",
-					 [Reason, erlang:get_stacktrace()]),
+					 [Reason, Stacktrace]),
                     exit({"Bad transform function", Tab, Fun, node(), Reason})
             end
     end;

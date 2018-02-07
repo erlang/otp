@@ -931,37 +931,34 @@ purge_stacktrace(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace of
 		      [{?MODULE,_,[a],_},
 		       {code_b_test,call,2,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     try code_b_test:call(nofun, 2)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace2 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace2 of
 		      [{code_b_test,call,[nofun,2],_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     Args = [erlang,error,[badarg]],
     try code_b_test:call(erlang, error, [badarg,Args])
     catch
-	error:badarg ->
+	error:badarg:Stacktrace3 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace3 of
 		      [{code_b_test,call,Args,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     ok.

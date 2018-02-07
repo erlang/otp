@@ -209,11 +209,10 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     catch
-	_:CTHReason ->
+	_:CTHReason:StackTrace ->
 	    ErrorInfo = if is_atom(CTHReason) ->
 				io_lib:format("{~tp,~tp}",
-					      [CTHReason,
-					       erlang:get_stacktrace()]);
+					      [CTHReason, StackTrace]);
 			   true ->
 				CTHReason
 			end,

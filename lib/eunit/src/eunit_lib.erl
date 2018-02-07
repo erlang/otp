@@ -202,13 +202,13 @@ format_exception_test_() ->
         "\nymmud:rorre"++_,
         lists:reverse(lists:flatten(
           format_exception(try erlang:error(dummy)
-                           catch C:R -> {C, R, erlang:get_stacktrace()}
+                           catch C:R:S -> {C, R, S}
                            end)))),
      ?_assertMatch(
         "\nymmud:rorre"++_,
         lists:reverse(lists:flatten(
           format_exception(try erlang:error(dummy, [a])
-                           catch C:R -> {C, R, erlang:get_stacktrace()}
+                           catch C:R:S -> {C, R, S}
                            end))))].
 -endif.
 

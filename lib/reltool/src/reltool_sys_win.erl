@@ -135,9 +135,9 @@ init(Options) ->
     try
 	do_init(Options)
     catch
-	error:Reason ->
-	    io:format("~tp: ~tp~n",[Reason, erlang:get_stacktrace()]),
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    io:format("~tp: ~tp~n",[Reason, Stacktrace]),
+	    exit({Reason, Stacktrace})
     end.
 
 do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->

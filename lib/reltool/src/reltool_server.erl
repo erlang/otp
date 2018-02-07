@@ -135,8 +135,8 @@ init([{parent,Parent}|_] = Options) ->
     catch
 	throw:{error,Reason} ->
 	    proc_lib:init_ack(Parent,{error,Reason});
-        error:Reason ->
-            exit({Reason, erlang:get_stacktrace()})
+        error:Reason:Stacktrace ->
+            exit({Reason, Stacktrace})
     end.
 
 do_init(Options) ->

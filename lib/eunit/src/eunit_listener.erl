@@ -137,8 +137,7 @@ call(F, As, St) when is_atom(F) ->
     try apply(St#state.callback, F, As) of
 	Substate -> St#state{state = Substate}
     catch
-	Class:Term ->
-	    Trace = erlang:get_stacktrace(),
+	Class:Term:Trace ->
 	    if F =/= terminate ->
 		    call(terminate, [{error, {Class, Term, Trace}},
 				     St#state.state], St);

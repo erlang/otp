@@ -119,9 +119,9 @@ init(CallingPid, Mode, SFile) ->
 		init2(CallingPid, Mode, SFile, GS)
 	    catch 
 		exit:stop -> stop;
-		Error:Reason ->
+		Error:Reason:Stacktrace ->
 		    io:format("~p: Crashed {~p,~p} in~n  ~p",
-			      [?MODULE, Error, Reason, erlang:get_stacktrace()])
+			      [?MODULE, Error, Reason, Stacktrace])
 	    end
     end.
 

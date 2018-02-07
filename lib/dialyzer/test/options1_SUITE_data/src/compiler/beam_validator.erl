@@ -174,7 +174,7 @@ validate_error(Error, Name, Ar) ->
 -endif.
 validate_error_1(Error, Name, Ar) ->
     {{'_',Name,Ar},
-     {internal_error,'_',{Error,erlang:get_stacktrace()}}}.
+     {internal_error,'_',{Error,[]}}}.
 
 -record(st,				%Emulation state
 	{x=init_regs(0, term),		%x register info.

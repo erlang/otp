@@ -605,9 +605,9 @@ ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
     catch
-	Thrown ->
+	throw:Thrown:Stacktrace ->
 	    erlang:raise(
-	      error, {Thrown, NotOk}, tl(erlang:get_stacktrace()))
+	      error, {Thrown, NotOk}, tl(Stacktrace))
     end.
 
 get_localaddr() ->

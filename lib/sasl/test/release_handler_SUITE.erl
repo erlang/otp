@@ -2580,15 +2580,15 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GGI = rpc:call(Node, global_group, info, []),
     GI = rpc:call(Node, global, info,[]),
     try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
-    catch _:E when N==0 ->
+    catch _:E:Stacktrace when N==0 ->
 	    ?t:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+		      [Node,{E,Stacktrace},GGI,GI]),
 	    ?t:fail("check_gg_info failed");
-	  _:E ->
+	  _:E:Stacktrace ->
 	    ?t:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+		      [Node,{E,Stacktrace},GGI,GI]),
 	    timer:sleep(1000),
 	    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
     end.

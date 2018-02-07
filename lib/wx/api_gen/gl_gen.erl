@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	What(),
 	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
-    catch Err:Reason ->
+    catch Err:Reason:Stacktrace ->
 	    io:format("Error ~p: ~p:~p~n  ~p~n", 
-		      [get(current_func),Err,Reason,erlang:get_stacktrace()]),
+		      [get(current_func),Err,Reason,Stacktrace]),
 	    (catch gen_util:close()),
 	    timer:sleep(1999),
 	    QuitOnErr andalso gen_util:halt(1)

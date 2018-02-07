@@ -399,11 +399,11 @@ read_write_0(Str, {Func, ReadFun}, Options) ->
 	    io:format("~p:~p: ~p ERROR: ~ts vs~n             ~w~n  - ~p~n",
 		      [?MODULE, Line, Func, Str, ReadBytes, Options]),
 	    exit({error, ?LINE});
-	  error:What ->
+	  error:What:Stacktrace ->
 	    io:format("~p:??: ~p ERROR: ~p from~n  ~w~n  ~p~n",
 		      [?MODULE, Func, What, Str, Options]),
 
-	    io:format("\t~p~n", [erlang:get_stacktrace()]),
+	    io:format("\t~p~n", [Stacktrace]),
 	    exit({error, ?LINE})
     end.
 

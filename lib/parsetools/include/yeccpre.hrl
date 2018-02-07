@@ -56,8 +56,7 @@ return_error(Line, Message) ->
 yeccpars0(Tokens, Tzr, State, States, Vstack) ->
     try yeccpars1(Tokens, Tzr, State, States, Vstack)
     catch 
-        error: Error ->
-            Stacktrace = erlang:get_stacktrace(),
+        error: Error: Stacktrace ->
             try yecc_error_type(Error, Stacktrace) of
                 Desc ->
                     erlang:raise(error, {yecc_bug, ?CODE_VERSION, Desc},

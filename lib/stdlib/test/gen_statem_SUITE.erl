@@ -2040,9 +2040,9 @@ handle_event(Type, Event, State, Data) ->
 	Result ->
 	    wrap_result(Result)
     catch
-	throw:Result ->
+	throw:Result:Stacktrace ->
 	    erlang:raise(
-	      throw, wrap_result(Result), erlang:get_stacktrace())
+	      throw, wrap_result(Result), Stacktrace)
     end.
 
 unwrap_state([State]) ->

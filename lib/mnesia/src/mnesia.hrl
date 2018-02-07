@@ -47,6 +47,10 @@
 -define(catch_val(Var), (try ?ets_lookup_element(mnesia_gvar, Var, 2)
 			 catch error:_ -> {'EXIT', {badarg, []}} end)).
 
+-define(catch_val_and_stack(Var),
+        (try ?ets_lookup_element(mnesia_gvar, Var, 2)
+         catch error:_:_Stacktrace -> {'EXIT', _Stacktrace} end)).
+
 %% It's important that counter is first, since we compare tid's
 
 -record(tid,

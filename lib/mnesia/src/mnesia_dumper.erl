@@ -191,8 +191,7 @@ do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
 	    try insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
 		Version ->
 		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
-	    catch _:R when R =/= fatal ->
-		    ST = erlang:get_stacktrace(),
+	    catch _:R:ST when R =/= fatal ->
 		    Reason = {"Transaction log dump error: ~tp~n", [{R, ST}]},
 		    close_files(InPlace, {error, Reason}, InitBy),
 		    exit(Reason)
@@ -325,8 +324,7 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 	 ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 	 close_files(InPlace, ok, InitBy),
 	 ok
-    catch _:Reason when Reason =/= fatal ->
-	    ST = erlang:get_stacktrace(),
+    catch _:Reason:ST when Reason =/= fatal ->
 	    Error = {error, {"Schema update error", {Reason, ST}}},
 	    close_files(InPlace, Error, InitBy),
             fatal("Schema update error ~tp ~tp", [{Reason,ST}, SchemaOps])
@@ -1471,8 +1469,9 @@ regulate(RegulatorPid) ->
 	{regulated, RegulatorPid} -> ok
     end.
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.

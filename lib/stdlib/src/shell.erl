@@ -645,8 +645,7 @@ eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W) ->
     catch 
         exit:normal ->
             exit(normal);
-        Class:Reason ->
-            Stacktrace = erlang:get_stacktrace(),
+        Class:Reason:Stacktrace ->
             M = {self(),Class,{Reason,Stacktrace}},
             case do_catch(Class, Reason) of
                 true ->
@@ -807,8 +806,8 @@ restrict_handlers(RShMod, Shell, RT) ->
 
 -define(BAD_RETURN(M, F, V),
         try erlang:error(reason)
-        catch _:_ -> erlang:raise(exit, {restricted_shell_bad_return,V}, 
-                                  [{M,F,3} | erlang:get_stacktrace()])
+        catch _:_:S -> erlang:raise(exit, {restricted_shell_bad_return,V}, 
+                                    [{M,F,3} | S])
         end).
 
 local_allowed(F, As, RShMod, Bs, Shell, RT) when is_atom(F) ->

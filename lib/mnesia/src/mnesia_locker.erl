@@ -97,10 +97,11 @@ init(Parent) ->
     end,
     loop(#state{supervisor = Parent}).
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
-	_VaLuE_ -> _VaLuE_
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
+	Value -> Value
     end.
 
 reply(From, R) ->

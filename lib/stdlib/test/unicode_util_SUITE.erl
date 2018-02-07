@@ -136,10 +136,10 @@ verify_gc(Line0, N, Acc) ->
             io:format("Expected: ~p~n", [Res]),
             io:format("Got: ~w~n", [Other]),
             Acc+1;
-          Cl:R ->
+          Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[N, Line, Str]),
             io:format("Expected: ~p~n", [Res]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end.
 
 gc_test_data([[247]|Rest], Str, [First|GCs]) ->
@@ -175,29 +175,29 @@ verify_nfd(Data0, LineNo, _Acc) ->
         C3GC = fetch(C1, fun unicode_util:nfd/1),
         C3GC = fetch(C2, fun unicode_util:nfd/1),
         C3GC = fetch(C3, fun unicode_util:nfd/1)
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R: Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C3GC, C3GC]),
             io:format("Got: ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     C5GC = fetch(C5, fun unicode_util:gc/1),
     try
         C5GC = fetch(C4, fun unicode_util:nfd/1),
         C5GC = fetch(C5, fun unicode_util:nfd/1)
-    catch  _Cl2:{badmatch, Other2} = _R2->
+    catch  _Cl2:{badmatch, Other2} = _R2:Stacktrace2 ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C5GC, C5GC]),
             io:format("Got:      ~ts ~w~n", [Other2, Other2]),
-            erlang:raise(_Cl2,_R2,erlang:get_stacktrace());
-           Cl2:R2 ->
+            erlang:raise(_Cl2,_R2,Stacktrace2);
+           Cl2:R2:Stacktrace2 ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C5]),
-            erlang:raise(Cl2,R2,erlang:get_stacktrace())
+            erlang:raise(Cl2,R2,Stacktrace2)
     end,
     ok.
 
@@ -218,29 +218,29 @@ verify_nfc(Data0, LineNo, _Acc) ->
         C2GC = fetch(C1, fun unicode_util:nfc/1),
         C2GC = fetch(C2, fun unicode_util:nfc/1),
         C2GC = fetch(C3, fun unicode_util:nfc/1)
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C2GC, C2GC]),
             io:format("Got:      ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     C4GC = fetch(C4, fun unicode_util:gc/1),
     try
         C4GC = fetch(C4, fun unicode_util:nfc/1),
         C4GC = fetch(C5, fun unicode_util:nfc/1)
-    catch  _Cl2:{badmatch, Other2} = _R2->
+    catch  _Cl2:{badmatch, Other2} = _R2:Stacktrace2 ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C4GC, C4GC]),
             io:format("Got: ~ts ~w~n", [Other2, Other2]),
-            erlang:raise(_Cl2,_R2,erlang:get_stacktrace());
-           Cl2:R2 ->
+            erlang:raise(_Cl2,_R2,Stacktrace2);
+           Cl2:R2:Stacktrace2 ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C5]),
-            erlang:raise(Cl2,R2,erlang:get_stacktrace())
+            erlang:raise(Cl2,R2,Stacktrace2)
     end,
     ok.
 
@@ -263,15 +263,15 @@ verify_nfkd(Data0, LineNo, _Acc) ->
         C5GC = lists:flatten(fetch(C3, fun unicode_util:nfkd/1)),
         C5GC = lists:flatten(fetch(C4, fun unicode_util:nfkd/1)),
         C5GC = lists:flatten(fetch(C5, fun unicode_util:nfkd/1))
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C5, C5]),
             io:format("Expected: ~ts ~w~n", [C5GC, C5GC]),
             io:format("Got: ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     ok.
 
@@ -296,15 +296,15 @@ verify_nfkc(Data0, LineNo, _Acc) ->
         C4GC = lists:flatten(fetch(C4, fun unicode_util:nfkc/1)),
         C4GC = lists:flatten(fetch(C5, fun unicode_util:nfkc/1))
 
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C4, C4]),
             io:format("Expected: ~ts ~w~n", [C4GC, C4GC]),
             io:format("Got:      ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     ok.
 

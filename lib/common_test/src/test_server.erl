@@ -1340,13 +1340,12 @@ do_init_per_testcase(Mod, Args) ->
 	    {skip,Reason};
 	exit:{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
 	    {skip,Reason};
-	throw:Other ->
-	    set_loc(erlang:get_stacktrace()),
+	throw:Other:Stk ->
+	    set_loc(Stk),
 	    Line = get_loc(),
 	    print_init_conf_result(Line,"thrown",Other),
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
-	_:Reason0 ->
-	    Stk = erlang:get_stacktrace(),
+	_:Reason0:Stk ->
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
@@ -1395,20 +1394,19 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	_ ->
 	    ok
     catch
-	throw:Other ->
+	throw:Other:Stk ->
 	    Comment0 = case read_comment() of
 			   ""  -> "";
 			   Cmt -> Cmt ++ test_server_ctrl:xhtml("<br>",
 								"<br />")
 		       end,
-	    set_loc(erlang:get_stacktrace()),
+	    set_loc(Stk),
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
 	    print_end_tc_warning(EndFunc,Other,"thrown",get_loc()),
 	    {failed,{Mod,end_per_testcase,Other}};
-	  Class:Reason ->
-	    Stk = erlang:get_stacktrace(),
+	  Class:Reason:Stk ->
 	    set_loc(Stk),
 	    Why = case Class of
 		      exit -> {'EXIT',Reason};
@@ -1550,8 +1548,7 @@ ts_tc(M, F, A) ->
 		 throw:{skipped, Reason} -> {skip, Reason};
 		 exit:{skip, Reason} -> {skip, Reason};
 		 exit:{skipped, Reason} -> {skip, Reason};
-		 Type:Reason ->
-		     Stk = erlang:get_stacktrace(),
+		 Type:Reason:Stk ->
 		     set_loc(Stk),
 		     case Type of
 			 throw ->
@@ -1740,8 +1737,8 @@ fail(Reason) ->
     try
 	exit({suite_failed,Reason})
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,1,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -1763,8 +1760,8 @@ fail() ->
     try
 	exit(suite_failed)
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,0,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -2043,15 +2040,15 @@ call_user_timetrap(Func, Sup) when is_function(Func) ->
     try Func() of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end;
 call_user_timetrap({M,F,A}, Sup) ->
     try apply(M,F,A) of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end.
 
 save_user_timetrap(TCPid, UserTTSup, StartTime) ->

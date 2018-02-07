@@ -217,10 +217,10 @@ proxy_start(TC, {NS,P}) ->
 	spawn_link(
 	  fun () ->
 		  try proxy_start(TC, NS, P, Parent, Tag)
-		  catch C:X ->
+		  catch C:X:Stacktrace ->
 			  io:format(
 			    "~w: ~w:~p ~p~n",
-			    [self(),C,X,erlang:get_stacktrace()])
+			    [self(),C,X,Stacktrace])
 		  end
 	  end),
     receive {started,Tag,Port} ->

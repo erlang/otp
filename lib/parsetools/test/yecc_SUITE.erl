@@ -1674,8 +1674,7 @@ format_error(Message) ->
 yeccpars0(Tokens, MFA) ->
     try yeccpars1(Tokens, MFA, 0, [], [])
     catch 
-        error: Error ->
-            Stacktrace = erlang:get_stacktrace(),
+        error: Error : Stacktrace ->
             try yecc_error_type(Error, Stacktrace) of
                 {syntax_error, Token} ->
                     yeccerror(Token);

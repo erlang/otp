@@ -87,8 +87,7 @@ do_init(Config) ->
 	wxAuiManager:update(Manager),
 	process_flag(trap_exit, true),
 	{Panel, #state{parent=Panel, config=Config, aui=Manager}}
-    catch Class:Reason ->
-	    ST = erlang:get_stacktrace(),
+    catch Class:Reason:ST ->
 	    io:format("AUI Crashed ~p ~p~n",[Reason, ST]),
 	    wxAuiManager:unInit(Manager),
 	    wxAuiManager:destroy(Manager),

@@ -141,10 +141,10 @@ t(What) ->
 			  io:format("Test ~p ~n",[T]),
 			  try 
 			      ?MODULE:T([])
-			  catch _E:_R ->
+			  catch _E:_R:_S ->
 				  Line = get(test_server_loc),
 				  io:format("Failed ~p:~p ~p ~p~n   ~p~n", 
-					    [T,Line,_E,_R, erlang:get_stacktrace()])
+					    [T,Line,_E,_R,_S])
 			  end
 		  end, What).
 
@@ -161,8 +161,8 @@ extract_tests() ->
 	       end,
 	[Call(Test) || Test <- Tests],
 	io:format("Tests ~p~n", [Tests])
-    catch _:Err ->
-	    io:format("Error: ~p ~p~n", [Err, erlang:get_stacktrace()])
+    catch _:Err:Stacktrace ->
+	    io:format("Error: ~p ~p~n", [Err, Stacktrace])
     end,
     file:close(In),
     file:close(Out).

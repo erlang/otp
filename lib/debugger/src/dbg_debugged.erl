@@ -31,32 +31,25 @@
 %% Called via the error handler.
 %%--------------------------------------------------------------------
 eval(Mod, Func, Args) ->
-    SaveStacktrace = erlang:get_stacktrace(),
     Meta = dbg_ieval:eval(Mod, Func, Args),
     Mref = erlang:monitor(process, Meta),
-    msg_loop(Meta, Mref, SaveStacktrace).
+    msg_loop(Meta, Mref).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-msg_loop(Meta, Mref, SaveStacktrace) ->
+msg_loop(Meta, Mref) ->
     receive
 
 	%% Evaluated function has returned a value
 	{sys, Meta, {ready, Val}} ->
 	    erlang:demonitor(Mref, [flush]),
-
-	    %% Restore original stacktrace and return the value
-	    try erlang:raise(throw, stack, SaveStacktrace)
-	    catch
-		throw:stack ->
-		    case Val of
-			{dbg_apply,M,F,A} ->
-			    apply(M, F, A);
-			_ ->
-			    Val
-		    end
+            case Val of
+                {dbg_apply,M,F,A} ->
+                    apply(M, F, A);
+                _ ->
+                    Val
 	    end;
 
 	%% Evaluated function raised an (uncaught) exception
@@ -74,32 +67,25 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 		Meta ! {self(), rec_acked},
 		ok
 	    end,
-	    msg_loop(Meta, Mref, SaveStacktrace);
+	    msg_loop(Meta, Mref);
 
 	%% Meta needs something evaluated within context of real process
 	{sys, Meta, {command,Command}} ->
 	    Reply = handle_command(Command),
 	    Meta ! {sys, self(), Reply},
-	    msg_loop(Meta, Mref, SaveStacktrace);
+	    msg_loop(Meta, Mref);
 
 	%% Meta has terminated
 	%% Must be due to int:stop() (or -heaven forbid- a debugger bug)
 	{'DOWN', Mref, _, _, Reason} ->
-
-	    %% Restore original stacktrace and return a dummy value
-	    try erlang:raise(throw, stack, SaveStacktrace)
-	    catch
-		throw:stack ->
-		    {interpreter_terminated, Reason}
-	    end
+            {interpreter_terminated, Reason}
     end.
 
 handle_command(Command) ->
     try
 	reply(Command)
-    catch Class:Reason ->
-	    Stacktrace = stacktrace_f(erlang:get_stacktrace()),
-	    {exception,{Class,Reason,Stacktrace}}
+    catch Class:Reason:Stacktrace ->
+	    {exception,{Class,Reason,stacktrace_f(Stacktrace)}}
     end.
 
 reply({apply,M,F,As}) ->
