@@ -108,16 +108,13 @@
 
 module(#c_module{defs=Ds0}=Mod, Opts) ->
     put(no_inline_list_funcs, not member(inline_list_funcs, Opts)),
-    case get(new_var_num) of
-	undefined -> put(new_var_num, 0);
-	_ -> ok
-    end,
     init_warnings(),
     Ds1 = [function_1(D) || D <- Ds0],
     erase(no_inline_list_funcs),
     {ok,Mod#c_module{defs=Ds1},get_warnings()}.
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
+    put(new_var_num, 0),
     try
 	B = find_fixpoint(fun(Core) ->
 				  %% This must be a fun!
