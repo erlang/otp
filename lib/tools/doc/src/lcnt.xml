@@ -371,7 +371,7 @@
 		<v>Serial = integer()</v>
 	    </type>
 	    <desc>
-		<p>Creates a process id with creation 0. Example:</p>
+		<p>Creates a process id with creation 0.</p>
 	    </desc>
 	</func>
 
