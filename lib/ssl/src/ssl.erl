@@ -39,7 +39,9 @@
 	]).
 %% SSL/TLS protocol handling
 
--export([cipher_suites/0, cipher_suites/1, eccs/0, eccs/1, versions/0, 
+-export([cipher_suites/0, cipher_suites/1, cipher_suites/2, filter_cipher_suites/2,
+         prepend_cipher_suites/2, append_cipher_suites/2,
+         eccs/0, eccs/1, versions/0, 
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
@@ -379,17 +381,91 @@ negotiated_protocol(#sslsocket{pid = Pid}) ->
 cipher_suites() ->
     cipher_suites(erlang).
 %%--------------------------------------------------------------------
--spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:old_erl_cipher_suite() | string()].
+-spec cipher_suites(erlang | openssl | all) -> 
+                           [ssl_cipher:old_erl_cipher_suite() | string()].
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
     [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(default)];
 
 cipher_suites(openssl) ->
-    [ssl_cipher:openssl_suite_name(Suite) || Suite <- available_suites(default)];
+    [ssl_cipher:openssl_suite_name(Suite) ||
+        Suite <- available_suites(default)];
 
 cipher_suites(all) ->
     [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
+
+%%--------------------------------------------------------------------
+-spec cipher_suites(default | all | anonymous, tls_record:tls_version() | dtls_record:dtls_version() |
+                    tls_record:tls_atom_version() |  dtls_record:dtls_atom_version()) -> 
+                           [ssl_cipher:erl_cipher_suite()].
+%% Description: Returns all default and all supported cipher suites for a
+%% TLS/DTLS version
+%%--------------------------------------------------------------------
+cipher_suites(Base, Version) when Version == 'tlsv1.2';
+                                  Version == 'tlsv1.1';
+                                  Version == tlsv1;
+                                  Version == sslv3 ->
+    cipher_suites(Base, tls_record:protocol_version(Version));
+cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
+                                   Version == 'dtlsv1'->
+    cipher_suites(Base, dtls_record:protocol_version(Version));                   
+cipher_suites(Base, Version) ->
+    [ssl_cipher:suite_definition(Suite) || Suite <- supported_suites(Base, Version)].
+
+%%--------------------------------------------------------------------
+-spec filter_cipher_suites([ssl_cipher:erl_cipher_suite()], 
+                           [{key_exchange | cipher | mac | prf, fun()}] | []) -> 
+                                  [ssl_cipher:erl_cipher_suite()].
+%% Description: Removes cipher suites if any of the filter functions returns false
+%% for any part of the cipher suite. This function also calls default filter functions
+%% to make sure the cipher suite are supported by crypto.
+%%--------------------------------------------------------------------
+filter_cipher_suites(Suites, Filters0) ->
+    #{key_exchange_filters := KexF,
+      cipher_filters := CipherF,
+      mac_filters := MacF,
+      prf_filters := PrfF}
+        = ssl_cipher:crypto_support_filters(),
+    Filters = #{key_exchange_filters => add_filter(proplists:get_value(key_exchange, Filters0), KexF),
+                cipher_filters => add_filter(proplists:get_value(cipher, Filters0), CipherF),
+                mac_filters => add_filter(proplists:get_value(mac, Filters0), MacF),
+                prf_filters => add_filter(proplists:get_value(prf, Filters0), PrfF)},
+    ssl_cipher:filter_suites(Suites, Filters).
+%%--------------------------------------------------------------------
+-spec prepend_cipher_suites([ssl_cipher:erl_cipher_suite()] | 
+                            [{key_exchange | cipher | mac | prf, fun()}],
+                            [ssl_cipher:erl_cipher_suite()]) -> 
+                                   [ssl_cipher:erl_cipher_suite()].
+%% Description: Make <Preferred> suites become the most prefered
+%%      suites that is put them at the head of the cipher suite list
+%%      and remove them from <Suites> if present. <Preferred> may be a
+%%      list of cipher suits or a list of filters in which case the
+%%      filters are use on Suites to extract the the preferred
+%%      cipher list.
+%% --------------------------------------------------------------------
+prepend_cipher_suites([First | _] = Preferred, Suites0) when is_map(First) ->
+    Suites = Preferred ++ (Suites0 -- Preferred),
+    Suites;
+prepend_cipher_suites(Filters, Suites) ->
+    Preferred = filter_cipher_suites(Suites, Filters), 
+    Preferred ++ (Suites -- Preferred).
+%%--------------------------------------------------------------------
+-spec append_cipher_suites(Deferred :: [ssl_cipher:erl_cipher_suite()] | 
+                                       [{key_exchange | cipher | mac | prf, fun()}],
+                           [ssl_cipher:erl_cipher_suite()]) -> 
+                                  [ssl_cipher:erl_cipher_suite()].
+%% Description: Make <Deferred> suites suites become the 
+%% least prefered suites that is put them at the end of the cipher suite list
+%% and removed them from <Suites> if present.
+%%
+%%--------------------------------------------------------------------
+append_cipher_suites([First | _] = Deferred, Suites0) when is_map(First)->
+    Suites = (Suites0 -- Deferred) ++ Deferred,
+    Suites;
+append_cipher_suites(Filters, Suites) ->
+    Deferred = filter_cipher_suites(Suites, Filters), 
+    (Suites -- Deferred) ++  Deferred.
 
 %%--------------------------------------------------------------------
 -spec eccs() -> tls_v1:curves().
@@ -636,10 +712,16 @@ tls_version({254, _} = Version) ->
 available_suites(default) ->  
     Version = tls_record:highest_protocol_version([]),			  
     ssl_cipher:filter_suites(ssl_cipher:suites(Version));
-
 available_suites(all) ->  
     Version = tls_record:highest_protocol_version([]),			  
     ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
+
+supported_suites(default, Version) ->  
+    ssl_cipher:suites(Version);
+supported_suites(all, Version) ->  
+    ssl_cipher:all_suites(Version);
+supported_suites(anonymous, Version) -> 
+    ssl_cipher:anonymous_suites(Version).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->
     tls_socket:listen(Transport, Port, Config);
@@ -1150,17 +1232,21 @@ handle_cipher_option(Value, Version)  when is_list(Value) ->
 binary_cipher_suites(Version, []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
-    ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version)));
+    default_binary_suites(Version);
+binary_cipher_suites(Version, [Map|_] = Ciphers0) when is_map(Map) ->
+    Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
+    binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher:suite(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:all_suites(tls_version(Version)),
+    All = ssl_cipher:all_suites(Version) ++ 
+        ssl_cipher:anonymous_suites(Version),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
 	    %% not require explicit configuration
-	    ssl_cipher:filter_suites(ssl_cipher:suites(tls_version(Version)));
+	    default_binary_suites(Version);
 	Ciphers ->
 	    Ciphers
     end;
@@ -1173,6 +1259,9 @@ binary_cipher_suites(Version, Ciphers0)  ->
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
 
+default_binary_suites(Version) ->
+    ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
+
 tuple_to_map({Kex, Cipher, Mac}) ->
     #{key_exchange => Kex,
       cipher => Cipher,
@@ -1181,8 +1270,18 @@ tuple_to_map({Kex, Cipher, Mac}) ->
 tuple_to_map({Kex, Cipher, Mac, Prf}) ->
     #{key_exchange => Kex,
       cipher => Cipher,
-      mac => Mac,
+      mac => tuple_to_map_mac(Cipher, Mac),
       prf => Prf}.
+
+%% Backwards compatible
+tuple_to_map_mac(aes_128_gcm, _) -> 
+    aead;
+tuple_to_map_mac(aes_256_gcm, _) -> 
+    aead;
+tuple_to_map_mac(chacha20_poly1305, _) ->
+    aead;
+tuple_to_map_mac(_, MAC) ->
+    MAC.
 
 handle_eccs_option(Value, Version) when is_list(Value) ->
     {_Major, Minor} = tls_version(Version),
@@ -1462,3 +1561,8 @@ reject_alpn_next_prot_options([Opt| AlpnNextOpts], Opts) ->
         false ->
             reject_alpn_next_prot_options(AlpnNextOpts, Opts)
     end.
+
+add_filter(undefined, Filters) ->
+    Filters;
+add_filter(Filter, Filters) ->
+    [Filter | Filters].
