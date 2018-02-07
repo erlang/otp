@@ -943,7 +943,7 @@ print_state_information(#state{locks = Locks} = State) ->
     print(kv("#tries",          s(Stats#stats.tries))),
     print(kv("#colls",          s(Stats#stats.colls))),
     print(kv("wait time",       s(Stats#stats.time) ++ " us" ++ " ( " ++ s(Stats#stats.time/1000000) ++ " s)")),
-    print(kv("percent of duration", s(Stats#stats.time/State#state.duration*100) ++ " %")),
+    print(kv("percent of duration", s(percent(Stats#stats.time, State#state.duration)) ++ " %")),
     ok.
 
 
