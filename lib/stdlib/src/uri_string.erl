@@ -227,7 +227,7 @@
 %% External API
 %%-------------------------------------------------------------------------
 -export([compose_query/1, compose_query/2,
-         dissect_query/1, normalize/1, parse/1,
+         dissect_query/1, normalize/1, normalize/2, parse/1,
          recompose/1, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
@@ -292,18 +292,36 @@
 %%-------------------------------------------------------------------------
 %% Normalize URIs
 %%-------------------------------------------------------------------------
--spec normalize(URIString) -> NormalizedURI when
-      URIString :: uri_string(),
-      NormalizedURI :: uri_string().
-normalize(URIString) ->
-    %% Percent-encoding normalization and case normalization for
-    %% percent-encoded triplets are achieved by running parse and
-    %% recompose on the input URI string.
-    recompose(
-      normalize_path_segment(
-        normalize_scheme_based(
-          normalize_case(
-            parse(URIString))))).
+-spec normalize(URI) -> NormalizedURI when
+      URI :: uri_string() | uri_map(),
+      NormalizedURI :: uri_string()
+                     | error().
+normalize(URIMap) ->
+    normalize(URIMap, []).
+
+
+-spec normalize(URI, Options) -> NormalizedURI when
+      URI :: uri_string() | uri_map(),
+      Options :: [return_map],
+      NormalizedURI :: uri_string() | uri_map().
+normalize(URIMap, []) when is_map(URIMap) ->
+    recompose(normalize_map(URIMap));
+normalize(URIMap, [return_map]) when is_map(URIMap) ->
+    normalize_map(URIMap);
+normalize(URIString, []) ->
+    case parse(URIString) of
+        Value when is_map(Value) ->
+            recompose(normalize_map(Value));
+        Error ->
+            Error
+    end;
+normalize(URIString, [return_map]) ->
+    case parse(URIString) of
+        Value when is_map(Value) ->
+            normalize_map(Value);
+        Error ->
+            Error
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -393,7 +411,7 @@ transcode(URIString, Options) when is_list(URIString) ->
 %% (application/x-www-form-urlencoded encoding algorithm)
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
-      QueryList :: [{uri_string(), uri_string()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata()}],
       QueryString :: uri_string()
                    | error().
 compose_query(List) ->
@@ -401,7 +419,7 @@ compose_query(List) ->
 
 
 -spec compose_query(QueryList, Options) -> QueryString when
-      QueryList :: [{uri_string(), uri_string()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata()}],
       Options :: [{encoding, atom()}],
       QueryString :: uri_string()
                    | error().
@@ -432,7 +450,7 @@ compose_query([], _Options, IsList, Acc) ->
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{uri_string(), uri_string()}]
+      QueryList :: [{unicode:chardata(), unicode:chardata()}]
                  | error().
 dissect_query(<<>>) ->
     [];
@@ -1902,6 +1920,12 @@ base10_decode_unicode(<<H,_/binary>>, _, _) ->
 %%-------------------------------------------------------------------------
 %% Helper functions for normalize
 %%-------------------------------------------------------------------------
+
+normalize_map(URIMap) ->
+      normalize_path_segment(
+        normalize_scheme_based(
+          normalize_case(URIMap))).
+
 
 %% 6.2.2.1.  Case Normalization
 normalize_case(#{scheme := Scheme, host := Host} = Map) ->
