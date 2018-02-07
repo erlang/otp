@@ -163,7 +163,8 @@ api_tests() ->
      server_name_indication_option,
      accept_pool,
      prf,
-     socket_options
+     socket_options,
+     cipher_suites
     ].
 
 api_tests_tls() ->
@@ -207,7 +208,7 @@ tls_cipher_tests() ->
      rc4_ecdsa_cipher_suites].
 
 cipher_tests() ->
-    [cipher_suites,
+    [old_cipher_suites,
      cipher_suites_mix,
      ciphers_rsa_signed_certs,
      ciphers_rsa_signed_certs_openssl_names,
@@ -704,8 +705,6 @@ secret_connection_info(Config) when is_list(Config) ->
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
-
-    Version = ssl_test_lib:protocol_version(Config),    
 			   
     ssl_test_lib:check_result(Server, true, Client, true),
     
@@ -1130,11 +1129,16 @@ fallback(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 cipher_format() ->
-    [{doc, "Test that cipher conversion from tuples to binarys works"}].
+    [{doc, "Test that cipher conversion from maps | tuples | stings to binarys works"}].
 cipher_format(Config) when is_list(Config) ->
-    {ok, Socket} = ssl:listen(0, [{ciphers, ssl:cipher_suites()}]),
-    ssl:close(Socket).
-
+    {ok, Socket0} = ssl:listen(0, [{ciphers, ssl:cipher_suites(default, 'tlsv1.2')}]),
+    ssl:close(Socket0),
+    %% Legacy
+    {ok, Socket1} = ssl:listen(0, [{ciphers, ssl:cipher_suites()}]),
+    ssl:close(Socket1),
+    {ok, Socket2} = ssl:listen(0, [{ciphers, ssl:cipher_suites(openssl)}]),
+    ssl:close(Socket2).
+   
 %%--------------------------------------------------------------------
 
 peername() ->
@@ -1285,20 +1289,76 @@ sockname_result(S) ->
     ssl:sockname(S).
 
 %%--------------------------------------------------------------------
+
 cipher_suites() ->
-    [{doc,"Test API function cipher_suites/0"}].
+    [{doc,"Test API function cipher_suites/2, filter_cipher_suites/2"
+      " and prepend|append_cipher_suites/2"}].
 
 cipher_suites(Config) when is_list(Config) -> 
-    MandatoryCipherSuiteTLS1_0TLS1_1 = {rsa,'3des_ede_cbc',sha},
-    MandatoryCipherSuiteTLS1_0TLS1_2 = {rsa,'aes_128_cbc',sha} ,
-    [_|_] = Suites = ssl:cipher_suites(), 
-    AllSuites = ssl:cipher_suites(all),
-    %% The mandantory suites will no longer be supported by default
-    %% due to security reasons
-    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, AllSuites),
-    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, AllSuites),
+    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
+                                         cipher => '3des_ede_cbc',
+                                         mac => sha,
+                                         prf => default_prf},
+    MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
+                                         cipher => 'aes_128_cbc',
+                                         mac => sha,
+                                         prf => default_prf}, 
+    Version = ssl_test_lib:protocol_version(Config),
+    All = [_|_] = ssl:cipher_suites(all, Version),
+    Default = [_|_] = ssl:cipher_suites(default, Version),
+    Anonymous = [_|_] = ssl:cipher_suites(anonymous, Version),
+    true = length(Default) < length(All),
+    Filters = [{key_exchange, 
+                fun(dhe_rsa) -> 
+                        true;
+                   (_) -> 
+                        false
+                end
+               }, 
+               {cipher, 
+                fun(aes_256_cbc) ->
+                        true;
+                   (_) -> 
+                        false
+                end
+               },
+               {mac, 
+                fun(sha) ->
+                        true;
+                   (_) -> 
+                        false
+                end
+               }
+              ],
+    Cipher = #{cipher => aes_256_cbc,
+               key_exchange => dhe_rsa,
+               mac => sha,
+               prf => default_prf},
+    [Cipher] = ssl:filter_cipher_suites(All, Filters),    
+    [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
+    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+    true = lists:member(Cipher, Default), 
+    false = lists:member(Cipher, Rest0), 
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+    true = lists:member(Cipher, Default),
+    false = lists:member(Cipher, Rest1),
+    [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
+    [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),        
+    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
+    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All).
+
+%%--------------------------------------------------------------------
+
+old_cipher_suites() ->
+    [{doc,"Test API function cipher_suites/0"}].
+
+old_cipher_suites(Config) when is_list(Config) -> 
+    MandatoryCipherSuite = {rsa, '3des_ede_cbc', sha},
+    [_|_] = Suites = ssl:cipher_suites(),
     Suites = ssl:cipher_suites(erlang),
-    [_|_] =ssl:cipher_suites(openssl).
+    [_|_] = ssl:cipher_suites(openssl),
+    true = lists:member(MandatoryCipherSuite,  ssl:cipher_suites(all)).
 
 %%--------------------------------------------------------------------
 cipher_suites_mix() ->
@@ -3800,9 +3860,23 @@ rizzo() ->
     vunrable to Rizzo/Dungon attack"}].
 
 rizzo(Config) when is_list(Config) ->
-    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(all, NVersion),  
+                                        [{key_exchange, 
+                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
+                                                  true;
+                                             (_) -> 
+                                                  false 
+                                          end},
+                                         {cipher, 
+                                          fun(rc4_128) -> 
+                                                  false;
+                                             (_) -> 
+                                                  true 
+                                          end}]),
+
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
 %%--------------------------------------------------------------------
@@ -3814,8 +3888,13 @@ no_rizzo_rc4(Config) when is_list(Config) ->
     Version = proplists:get_value(name, Prop),
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
     %% Test uses RSA certs
-    Ciphers  = ssl_test_lib:rc4_suites(NVersion) -- [{ecdhe_ecdsa,rc4_128,sha},
-                                                     {ecdh_ecdsa,rc4_128,sha}],
+    Ciphers  = ssl:filter_cipher_suites(ssl_test_lib:rc4_suites(NVersion),  
+                                        [{key_exchange, 
+                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
+                                                  true;
+                                             (_) -> 
+                                                  false 
+                                          end}]),
     run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -3826,10 +3905,21 @@ rizzo_one_n_minus_one(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    AllSuites = ssl_test_lib:available_suites(NVersion),
-    Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
+    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(all, NVersion),
+                                        [{key_exchange, 
+                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
+                                                  true;
+                                             (_) -> 
+                                                  false 
+                                          end}, 
+                                         {cipher, 
+                                          fun(rc4_128) ->
+                                                  false;
+                                             (_) -> 
+                                                  true 
+                                          end}]),
     run_send_recv_rizzo(Ciphers, Config, Version,
-			 {?MODULE, send_recv_result_active_rizzo, []}).
+                        {?MODULE, send_recv_result_active_rizzo, []}).
 
 rizzo_zero_n() ->
     [{doc,"Test that the 0/n-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
@@ -3838,8 +3928,13 @@ rizzo_zero_n(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    AllSuites = ssl_test_lib:available_suites(NVersion),
-    Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
+    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(default, NVersion),
+                                        [{cipher, 
+                                          fun(rc4_128) ->
+                                                  false;
+                                             (_) -> 
+                                                  true 
+                                          end}]),
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -3847,9 +3942,16 @@ rizzo_disabled() ->
     [{doc,"Test that the mitigation of Rizzo/Dungon attack can be explicitly disabled"}].
 
 rizzo_disabled(Config) when is_list(Config) ->
-    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(default, NVersion),
+                                        [{cipher, 
+                                          fun(rc4_128) ->
+                                                  false;
+                                             (_) -> 
+                                                  true 
+                                          end}]),
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -4624,19 +4726,21 @@ rizzo_test(Cipher, Config, Version, Mfa) ->
 	    [{Cipher, Error}]
     end.
 
-client_server_opts({KeyAlgo,_,_}, Config)
+client_server_opts(#{key_exchange := KeyAlgo}, Config)
   when KeyAlgo == rsa orelse
        KeyAlgo == dhe_rsa orelse
-       KeyAlgo == ecdhe_rsa ->
+       KeyAlgo == ecdhe_rsa orelse
+       KeyAlgo == rsa_psk orelse
+       KeyAlgo == srp_rsa ->
     {ssl_test_lib:ssl_options(client_opts, Config),
      ssl_test_lib:ssl_options(server_opts, Config)};
-client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
+client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
     {ssl_test_lib:ssl_options(client_dsa_opts, Config),
      ssl_test_lib:ssl_options(server_dsa_opts, Config)};
-client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_ecdsa orelse KeyAlgo == ecdhe_ecdsa ->
+client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == ecdh_ecdsa orelse KeyAlgo == ecdhe_ecdsa ->
     {ssl_test_lib:ssl_options(client_opts, Config),
      ssl_test_lib:ssl_options(server_ecdsa_opts, Config)};
-client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
+client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == ecdh_rsa ->
     {ssl_test_lib:ssl_options(client_opts, Config),
      ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)}.
 
