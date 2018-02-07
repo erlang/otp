@@ -418,7 +418,11 @@ traverse(Tree, DefinedVars, State) ->
 	match_fail -> throw(error);
 	raise -> throw(error);
 	bs_init_writable -> {State, t_from_term(<<>>)};
-	build_stacktrace -> {State, t_list()};
+	build_stacktrace ->
+          V = mk_var(Tree),
+          Type = erl_bif_types:type(erlang, build_stacktrace, 0),
+          State1 = state__store_conj(V, sub, Type, State),
+          {State1, V};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
     'receive' ->

@@ -585,6 +585,13 @@ type(erlang, float, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, floor, 1, Xs, Opaques) ->
   strict(erlang, floor, 1, Xs, fun (_) -> t_integer() end, Opaques);
+%% Primop, needs to be somewhere.
+type(erlang, build_stacktrace, 0, _, _Opaques) ->
+  t_list(t_tuple([t_module(),
+                  t_atom(),
+                  t_sup([t_arity(),t_list()]),
+                  t_list(t_sup([t_tuple([t_atom('file'),t_string()]),
+                                t_tuple([t_atom('line'),t_pos_integer()])]))]));
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
@@ -2336,6 +2343,9 @@ arg_types(erlang, float, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, floor, 1) ->
   [t_number()];
+%% Primop, needs to be somewhere.
+arg_types(erlang, build_stacktrace, 0) ->
+  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];

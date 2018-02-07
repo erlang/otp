@@ -299,7 +299,7 @@ traverse(Tree, Map, State) ->
 	  match_fail -> t_none();
 	  raise -> t_none();
 	  bs_init_writable -> t_from_term(<<>>);
-          build_stacktrace -> t_list();
+          build_stacktrace -> erl_bif_types:type(erlang, build_stacktrace, 0);
 	  Other -> erlang:error({'Unsupported primop', Other})
 	end,
       {State, Map, Type};
