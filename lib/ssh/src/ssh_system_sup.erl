@@ -63,9 +63,7 @@ init([Address, Port, Profile, Options]) ->
                 [#{id       => id(ssh_acceptor_sup, Address, Port, Profile),
                    start    => {ssh_acceptor_sup, start_link, [Address, Port, Profile, Options]},
                    restart  => transient,
-                   shutdown => infinity,
-                   type     => supervisor,
-                   modules  => [ssh_acceptor_sup]
+                   type     => supervisor
                   }];
             _ ->
                 []
@@ -124,9 +122,8 @@ start_subsystem(SystemSup, Role, Address, Port, Profile, Options) ->
         #{id       => make_ref(),
           start    => {ssh_subsystem_sup, start_link, [Role, Address, Port, Profile, Options]},
           restart  => temporary,
-          shutdown => infinity,
-          type     => supervisor,
-          modules  => [ssh_subsystem_sup]},
+          type     => supervisor
+         },
     supervisor:start_child(SystemSup, SubsystemSpec).
 
 stop_subsystem(SystemSup, SubSys) ->

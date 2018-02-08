@@ -42,7 +42,6 @@ start_child(Sup, Callback, Id, Args, Exec) ->
         #{id       => make_ref(),
           start    => {ssh_channel, start_link, [self(), Id, Callback, Args, Exec]},
           restart  => temporary,
-          shutdown => 3600,
           type     => worker,
           modules  => [ssh_channel]
          },
