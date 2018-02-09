@@ -218,9 +218,11 @@ raw()                -> call(raw).
 set(Option, Value)   -> call({set, Option, Value}).
 set({Option, Value}) -> call({set, Option, Value}).
 save(Filename)       -> call({save, Filename}).
-load(Filename)       -> ok = start_internal(), call({load, Filename}).
+load(Filename)       -> call({load, Filename}).
 
-call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
+call(Msg) ->
+    ok = start_internal(),
+    gen_server:call(?MODULE, Msg, infinity).
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -237,7 +239,6 @@ apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
 
 apply(Fun, As) when is_function(Fun) ->
-    ok = start_internal(),
     Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(Fun, As),
