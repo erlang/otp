@@ -204,10 +204,6 @@
       <name name="abs" arity="1" clause_i="1"/>
       <name name="abs" arity="1" clause_i="2"/>
       <fsummary>Arithmetical absolute value.</fsummary>
-      <type>
-        <v>Float = float()</v>
-        <v>Int = integer()</v>
-      </type>
       <desc>
         <p>Returns an integer or float that is the arithmetical
           absolute value of <c><anno>Float</anno></c> or
