@@ -206,7 +206,7 @@ move_allocates([]) -> [].
 
 move_allocates_1([{'%anno',_}|Is], Acc) ->
     move_allocates_1(Is, Acc);
-move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
+move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info0}}|Acc]=Acc0) ->
     case alloc_may_pass(I) of
         false ->
             move_allocates_1(Is, [I|Acc0]);
@@ -215,6 +215,7 @@ move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
                 not_possible ->
                     move_allocates_1(Is, [I|Acc0]);
                 Live when is_integer(Live) ->
+                    Info = safe_info(Info0),
                     A = {set,[],[],{alloc,Live,Info}},
                     move_allocates_1(Is, [A,I|Acc])
             end
@@ -229,6 +230,13 @@ alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
+
+safe_info({nozero,Stack,Heap,_}) ->
+    %% nozero is not safe if the allocation instruction is moved
+    %% upwards past an instruction that may throw an exception
+    %% (such as element/2).
+    {zero,Stack,Heap,[]};
+safe_info(Info) -> Info.
 
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
