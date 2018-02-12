@@ -990,6 +990,9 @@ ctx_to_bin.execute() {
     Uint hole_size;
     Uint orig = mb->orig;
     ErlSubBin* sb = (ErlSubBin *) boxed_val(context);
+    /* Since we're going to overwrite the match state with the result, an
+     * ErlBinMatchState must be at least as large as an ErlSubBin. */
+    ERTS_CT_ASSERT(sizeof(ErlSubBin) <= sizeof(ErlBinMatchState));
     hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
     sb->thing_word = HEADER_SUB_BIN;
     sb->size = BYTE_OFFSET(size);
