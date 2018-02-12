@@ -223,6 +223,42 @@ static int rand_int(MigrationState* state, int low, int high)
     return low + (x % (high+1-low));
 }
 
+enum Operation
+{
+    ALLOCATE_OP,
+    FREE_OP,
+    REALLOC_OP,
+    CLEANUP_OP
+};
+
+static enum Operation rand_op(MigrationState* state)
+{
+    int r = rand_int(state, 1, 100);
+    switch (state->phase) {
+    case GROWING:
+        FATAL_ASSERT(state->nblocks < state->max_nblocks);
+        if (r > 10 || state->nblocks == 0)
+            return ALLOCATE_OP;
+        else if (r > 5)
+            return FREE_OP;
+        else
+            return REALLOC_OP;
+
+    case SHRINKING:
+        FATAL_ASSERT(state->nblocks > 0);
+        if (r > 10 || state->nblocks == state->max_nblocks)
+            return FREE_OP;
+        else if (r > 5)
+            return ALLOCATE_OP;
+        else
+            return REALLOC_OP;
+
+    case CLEANUP:
+        return CLEANUP_OP;
+    default:
+        FATAL_ASSERT(!"Invalid op phase");
+    }
+}
 
 static void do_cleanup(TestCaseState_t *tcs, MigrationState* state)
 {
@@ -275,53 +311,75 @@ testcase_run(TestCaseState_t *tcs)
 	state->goal_nblocks = rand_int(state, 1, state->max_nblocks);
     }
 
-    switch (state->phase) {
-    case GROWING: {
+    switch (rand_op(state)) {
+    case ALLOCATE_OP: {
 	MyBlock* p;
 	FATAL_ASSERT(!state->blockv[state->nblocks]);
-	p = ALLOC_TEST(rand_int(state, state->block_size/2, state->block_size));
+        p = ALLOC_TEST(rand_int(state, state->block_size/2, state->block_size));
 	FATAL_ASSERT(p);
 	add_block(p, state);
-	state->blockv[state->nblocks] = p;
-	if (++state->nblocks >= state->goal_nblocks) {
-	    /*testcase_printf(tcs, "%d: Grown to %d blocks", tcs->thr_nr, state->nblocks);*/
-	    state->phase = SHRINKING;
-	    state->goal_nblocks = rand_int(state, 0, state->goal_nblocks-1);
-	}
-	else
-	    FATAL_ASSERT(!state->blockv[state->nblocks]);
+	state->blockv[state->nblocks++] = p;
 	break;
     }
-    case SHRINKING: {
+    case FREE_OP: {
 	int ix = rand_int(state, 0, state->nblocks-1);
 	FATAL_ASSERT(state->blockv[ix]);
 	remove_block(state->blockv[ix]);
 	FREE_TEST(state->blockv[ix]);
 	state->blockv[ix] = state->blockv[--state->nblocks];
 	state->blockv[state->nblocks] = NULL;
-
-	if (state->nblocks <= state->goal_nblocks) {
-	    /*testcase_printf(tcs, "%d: Shrunk to %d blocks", tcs->thr_nr, state->nblocks);*/
-	    if (++state->round >= MAX_ROUNDS) {
-		state->phase = CLEANUP;
-	    } else {
-		state->phase = GROWING;
-		state->goal_nblocks = rand_int(state, state->goal_nblocks+1, state->max_nblocks);
-	    }
-	}
 	break;
     }
+    case REALLOC_OP: {
+        int ix = rand_int(state, 0, state->nblocks-1);
+        MyBlock* p;
+        FATAL_ASSERT(state->blockv[ix]);
+        remove_block(state->blockv[ix]);
+        p = REALLOC_TEST(state->blockv[ix], rand_int(state, state->block_size/2, state->block_size));
+        FATAL_ASSERT(p);
+        add_block(p, state);
+        state->blockv[ix] = p;
+        break;
+    }
+    case CLEANUP_OP:
+        do_cleanup(tcs, state);
+        break;
+    default:
+	FATAL_ASSERT(!"Invalid operation");
+    }
+
+    switch (state->phase) {
+    case GROWING: {
+        if (state->nblocks >= state->goal_nblocks) {
+            /*testcase_printf(tcs, "%d: Grown to %d blocks", tcs->thr_nr, state->nblocks);*/
+            state->phase = SHRINKING;
+            state->goal_nblocks = rand_int(state, 0, state->goal_nblocks-1);
+        }
+        else
+            FATAL_ASSERT(!state->blockv[state->nblocks]);
+        break;
+    }
+    case SHRINKING: {
+        if (state->nblocks <= state->goal_nblocks) {
+            /*testcase_printf(tcs, "%d: Shrunk to %d blocks", tcs->thr_nr, state->nblocks);*/
+            if (++state->round >= MAX_ROUNDS) {
+                state->phase = CLEANUP;
+            } else {
+                state->phase = GROWING;
+                state->goal_nblocks = rand_int(state, state->goal_nblocks+1, state->max_nblocks);
+            }
+        }
+        break;
+    }
     case CLEANUP:
-	do_cleanup(tcs, state);
-	break;
+    case DONE:
+        break;
 
     default:
 	FATAL_ASSERT(!"Invalid phase");
     }
 
-    if (state->phase == DONE) {
-    }
-    else {
+    if (state->phase != DONE) {
 	testcase_continue(tcs);
     }
 }
