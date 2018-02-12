@@ -6942,6 +6942,23 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="4"/>
+      <fsummary>Set system flag for erts_alloc.</fsummary>
+      <desc>
+        <p>Sets system flags for
+	<seealso marker="erts:erts_alloc"><c>erts_alloc(3)</c></seealso>.
+        <c><anno>Alloc</anno></c> is the allocator to affect, for example
+	<c>binary_alloc</c>. <c><anno>F</anno></c> is the flag to change and
+	<c><anno>V</anno></c> is the new value.</p>
+	<p>Only a subset of all <c>erts_alloc</c> flags can be changed
+	at run time. This subset is currently only the flag
+	<seealso marker="erts:erts_alloc#M_sbct"><c>sbct</c></seealso>.</p>
+        <p>Returns <c>ok</c> if the flag was set or <c>notsup</c> if not
+	supported by <c>erts_alloc</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_flag" arity="2" clause_i="5"/>
       <fsummary>Set system flag fullsweep_after.</fsummary>
       <desc>
         <p>Sets system flag <c>fullsweep_after</c>.
@@ -6960,7 +6977,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="5"/>
+      <name name="system_flag" arity="2" clause_i="6"/>
       <fsummary>Set system flag microstate_accounting.</fsummary>
       <desc>
         <p><marker id="system_flag_microstate_accounting"></marker>
@@ -6973,7 +6990,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="6"/>
+      <name name="system_flag" arity="2" clause_i="7"/>
       <fsummary>Set system flag min_heap_size.</fsummary>
       <desc>
         <p>Sets the default minimum heap size for processes. The size
@@ -6988,7 +7005,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="7"/>
+      <name name="system_flag" arity="2" clause_i="8"/>
       <fsummary>Set system flag min_bin_vheap_size.</fsummary>
       <desc>
         <p>Sets the default minimum binary virtual heap size for
@@ -7005,7 +7022,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="8"/>
+      <name name="system_flag" arity="2" clause_i="9"/>
       <fsummary>Set system flag max_heap_size.</fsummary>
       <type name="max_heap_size"/>
       <desc>
@@ -7023,7 +7040,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="10"/>
       <fsummary>Set system flag multi_scheduling.</fsummary>
       <desc>
         <p><marker id="system_flag_multi_scheduling"></marker>
@@ -7078,7 +7095,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="10"/>
+      <name name="system_flag" arity="2" clause_i="11"/>
       <fsummary>Set system flag scheduler_bind_type.</fsummary>
       <type name="scheduler_bind_type"/>
       <desc>
@@ -7204,7 +7221,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="11"/>
+      <name name="system_flag" arity="2" clause_i="12"/>
       <fsummary>Set system flag scheduler_wall_time.</fsummary>
       <desc>
         <p><marker id="system_flag_scheduler_wall_time"></marker>
@@ -7216,7 +7233,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="12"/>
+      <name name="system_flag" arity="2" clause_i="13"/>
       <fsummary>Set system flag schedulers_online.</fsummary>
       <desc>
         <p><marker id="system_flag_schedulers_online"></marker>
@@ -7244,7 +7261,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="13"/>
+      <name name="system_flag" arity="2" clause_i="14"/>
       <fsummary>Set system flag trace_control_word.</fsummary>
       <desc>
         <p>Sets the value of the node trace control word to
@@ -7258,7 +7275,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="14"/>
+      <name name="system_flag" arity="2" clause_i="15"/>
       <fsummary>Finalize the time offset.</fsummary>
       <desc>
         <p><marker id="system_flag_time_offset"></marker>
