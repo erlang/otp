@@ -4805,6 +4805,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    "scheduled for removal in Erlang/OTP 18. For more\n"
 	    "information see the erlang:system_flag/2 documentation.\n");
 	return erts_bind_schedulers(BIF_P, BIF_ARG_2);
+    } else if (ERTS_IS_ATOM_STR("erts_alloc", BIF_ARG_1)) {
+        return erts_alloc_set_dyn_param(BIF_P, BIF_ARG_2);
     }
     error:
     BIF_ERROR(BIF_P, BADARG);
