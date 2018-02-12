@@ -170,6 +170,7 @@ static void		unlink_free_block	(Allctr_t *, Block_t *);
 static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
 static Eterm		info_options		(Allctr_t *, char *, fmtfn_t *,
 						 void *, Uint **, Uint *);
+static int        gfalc_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
 static void		init_atoms		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -249,6 +250,8 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     if (!erts_alcu_start(allctr, init))
 	return NULL;
+
+    allctr->try_set_dyn_param = gfalc_try_set_dyn_param;
 
     if (allctr->min_block_size != MIN_BLK_SZ)
 	return NULL;
@@ -582,6 +585,15 @@ info_options(Allctr_t *allctr,
     }
 
     return res;
+}
+
+static int gfalc_try_set_dyn_param(Allctr_t* allctr, Eterm param, Uint value)
+{
+    if (param == am_sbct) {
+        /* Cannot change 'sbct' without rearranging buckets */
+        return 0;
+    }
+    return erts_alcu_try_set_dyn_param(allctr, param, value);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

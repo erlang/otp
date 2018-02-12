@@ -63,7 +63,9 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
-    int acul;
+    UWord acul;
+    UWord acnl;
+    UWord acfml;
 
     void *fix;
     size_t *fix_type_size;
@@ -118,6 +120,8 @@ typedef struct {
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    1000,		/* (amount) acnl:  abandoned carriers number limit */\
+    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -151,6 +155,8 @@ typedef struct {
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     0,			/* (%)      acul:  abandon carrier utilization limit */\
+    1000,		/* (amount) acnl:  abandoned carriers number limit */\
+    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -223,6 +229,8 @@ void  erts_alcu_literal_32_sys_dealloc(Allctr_t*, void *ptr, Uint size, int supe
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_update_allocator_locks(int enable);
 #endif
+
+int erts_alcu_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
 
 #endif /* !ERL_ALLOC_UTIL__ */
 
@@ -304,45 +312,8 @@ void erts_lcnt_update_allocator_locks(int enable);
 
 typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
-#ifdef ERTS_SMP
-
-typedef struct ErtsDoubleLink_t_ {
-    struct ErtsDoubleLink_t_ *next;
-    struct ErtsDoubleLink_t_ *prev;
-}ErtsDoubleLink_t;
-
-typedef struct {
-    erts_atomic_t next;
-    erts_atomic_t prev;
-    Allctr_t *orig_allctr;      /* read-only while carrier is alive */
-    ErtsThrPrgrVal thr_prgr;
-    erts_atomic_t max_size;
-    UWord abandon_limit;
-    UWord blocks;
-    UWord blocks_size;
-    ErtsDoubleLink_t abandoned; /* node in pooled_list or traitor_list */
-} ErtsAlcCPoolData_t;
-
-#endif
-
 typedef struct Carrier_t_ Carrier_t;
-struct Carrier_t_ {
-    UWord chdr;
-    Carrier_t *next;
-    Carrier_t *prev;
-    erts_smp_atomic_t allctr;
-#ifdef ERTS_SMP
-    ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
-#endif
-};
 
-#define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
-  ((Allctr_t *) (erts_smp_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
-
-typedef struct {
-    Carrier_t *first;
-    Carrier_t *last;
-} CarrierList_t;
 
 typedef struct {
     UWord bhdr;
@@ -356,6 +327,22 @@ typedef struct {
 #endif
 } Block_t;
 
+typedef union ErtsAllctrDDBlock_t_ ErtsAllctrDDBlock_t;
+
+union ErtsAllctrDDBlock_t_ {
+    erts_atomic_t atmc_next;
+    ErtsAllctrDDBlock_t *ptr_next;
+};
+
+typedef struct {
+    Block_t blk;
+#if !MBC_ABLK_OFFSET_BITS
+    ErtsAllctrDDBlock_t umem_;
+#endif
+} ErtsFakeDDBlock_t;
+
+
+
 #define THIS_FREE_BLK_HDR_FLG 	(((UWord) 1) << 0)
 #define PREV_FREE_BLK_HDR_FLG 	(((UWord) 1) << 1)
 #define LAST_BLK_HDR_FLG 	(((UWord) 1) << 2)
@@ -364,14 +351,13 @@ typedef struct {
     (THIS_FREE_BLK_HDR_FLG | PREV_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
 
 /*
- * FREE_LAST_MBC_BLK_HDR_FLGS is a special flag combo used for
- * distinguishing empty mbc's from allocated blocks in
- * handle_delayed_dealloc().
+ * HOMECOMING_MBC_BLK_HDR is a special block header combo used for
+ * distinguishing MBC's from allocated blocks in handle_delayed_dealloc().
  */
-#define FREE_LAST_MBC_BLK_HDR_FLGS (THIS_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+#define HOMECOMING_MBC_BLK_HDR (THIS_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
 
 #define IS_FREE_LAST_MBC_BLK(B) \
-    (((B)->bhdr & FLG_MASK) == FREE_LAST_MBC_BLK_HDR_FLGS)
+    (((B)->bhdr & FLG_MASK) == (THIS_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG))
 
 #define IS_SBC_BLK(B) (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
 #define IS_MBC_BLK(B) (!IS_SBC_BLK((B)))
@@ -394,6 +380,64 @@ typedef struct {
 #define MBC_BLK_SZ(B) (IS_FREE_BLK(B) ? MBC_FBLK_SZ(B) : MBC_ABLK_SZ(B))
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
+
+/* This AOFF stuff really belong in erl_ao_firstfit_alloc.h */
+typedef struct AOFF_RBTree_t_ AOFF_RBTree_t;
+struct AOFF_RBTree_t_ {
+    Block_t hdr;
+    AOFF_RBTree_t *parent;
+    AOFF_RBTree_t *left;
+    AOFF_RBTree_t *right;
+    Uint32 flags;
+    Uint32 max_sz;  /* of all blocks in this sub-tree */
+};
+#ifdef ERTS_SMP
+void aoff_add_pooled_mbc(Allctr_t*, Carrier_t*);
+void aoff_remove_pooled_mbc(Allctr_t*, Carrier_t*);
+Carrier_t* aoff_lookup_pooled_mbc(Allctr_t*, Uint size);
+void erts_aoff_larger_max_size(AOFF_RBTree_t *node);
+#endif
+
+#ifdef ERTS_SMP
+
+typedef struct {
+    ErtsFakeDDBlock_t homecoming_dd;
+    erts_atomic_t next;
+    erts_atomic_t prev;
+    Allctr_t *orig_allctr;      /* read-only while carrier is alive */
+    ErtsThrPrgrVal thr_prgr;
+    erts_atomic_t max_size;
+    UWord abandon_limit;
+    UWord blocks;
+    UWord blocks_size;
+    enum {
+        ERTS_MBC_IS_HOME,
+        ERTS_MBC_WAS_POOLED,
+        ERTS_MBC_WAS_TRAITOR
+    } state;
+    AOFF_RBTree_t pooled;  /* node in pooled_tree */
+} ErtsAlcCPoolData_t;
+
+#endif
+
+struct Carrier_t_ {
+    UWord chdr;
+    Carrier_t *next;
+    Carrier_t *prev;
+    erts_smp_atomic_t allctr;
+#ifdef ERTS_SMP
+    ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
+#endif
+};
+
+#define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
+  ((Allctr_t *) (erts_smp_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
+
+typedef struct {
+    Carrier_t *first;
+    Carrier_t *last;
+} CarrierList_t;
+
 
 typedef Uint64 CallCounter_t;
 
@@ -431,13 +475,6 @@ typedef struct {
 #endif
 
 #ifdef ERTS_SMP
-
-typedef union ErtsAllctrDDBlock_t_ ErtsAllctrDDBlock_t;
-
-union ErtsAllctrDDBlock_t_ {
-    erts_atomic_t atmc_next;
-    ErtsAllctrDDBlock_t *ptr_next;
-};
 
 typedef struct {
     ErtsAllctrDDBlock_t marker;
@@ -553,26 +590,38 @@ struct Allctr_t_ {
     UWord               crr_set_flgs;
     UWord               crr_clr_flgs;
 
-    /* Carriers */
+    /* Carriers *employed* by this allocator */
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
 #ifdef ERTS_SMP
     struct {
-	/* pooled_list, traitor list and dc_list contain only
-           carriers _created_ by this allocator */
-	ErtsDoubleLink_t pooled_list;
-	ErtsDoubleLink_t traitor_list;
+	/* pooled_tree and dc_list contain only
+           carriers *created* by this allocator */
+	AOFF_RBTree_t*   pooled_tree;
 	CarrierList_t	 dc_list;
 
 	UWord		abandon_limit;
 	int		disable_abandon;
 	int		check_limit_count;
-	int		util_limit;
+	UWord		util_limit;       /* acul */
+        UWord           in_pool_limit;    /* acnl */
+        UWord           fblk_min_limit;   /* acmfl */
 	struct {
 	    erts_atomic_t	blocks_size;
 	    erts_atomic_t	no_blocks;
 	    erts_atomic_t	carriers_size;
 	    erts_atomic_t	no_carriers;
+            CallCounter_t       fail_pooled;
+            CallCounter_t       fail_shared;
+            CallCounter_t       fail_pend_dealloc;
+            CallCounter_t       fail;
+            CallCounter_t       fetch;
+	    CallCounter_t       skip_size;
+	    CallCounter_t       skip_busy;
+	    CallCounter_t       skip_not_pooled;
+	    CallCounter_t       skip_homecoming;
+	    CallCounter_t       skip_race;
+	    CallCounter_t       entrance_removed;
 	} stat;
     } cpool;
 #endif
@@ -606,6 +655,8 @@ struct Allctr_t_ {
     void*               (*sys_alloc)(Allctr_t *allctr, Uint *size_p, int superalign);
     void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign);
     void                (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
+
+    int                 (*try_set_dyn_param)(Allctr_t*, Eterm param, Uint value);
 
     void		(*init_atoms)		(void);
 
