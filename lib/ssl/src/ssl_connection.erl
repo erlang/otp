@@ -1148,8 +1148,8 @@ handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
 				StateName, State);
 handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} = State, 
 		    _) ->
-    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
-    handle_own_alert(Alert, Version, {StateName, Msg}, State).
+    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, Msg}),
+    handle_own_alert(Alert, Version, StateName, State).
 
 handle_call({application_data, _Data}, _, _, _, _) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
