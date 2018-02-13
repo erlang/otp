@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>os:cmd/2</c> that takes an options map as the
+	    second argument.</p>
+          <p>
+	    Add <c>max_size</c> as an option to <c>os:cmd/2</c> that
+	    control the maximum size of the result that
+	    <c>os:cmd/2</c> will return.</p>
+          <p>
+	    Own Id: OTP-14823</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

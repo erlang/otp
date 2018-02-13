@@ -26,7 +26,8 @@
          null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
-         message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
+         message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
+         perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -39,7 +40,7 @@ all() ->
      space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
-     close_stdin, perf_counter_api].
+     close_stdin, max_size_command, perf_counter_api].
 
 groups() ->
     [].
@@ -322,6 +323,19 @@ close_stdin(Config) ->
 
     "-1" = os:cmd(Fds).
 
+max_size_command(_Config) ->
+
+    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    20 = length(Res20),
+
+    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    0 = length(Res0),
+
+    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    32768 = length(Res32768),
+
+    ResHello = os:cmd("echo hello", #{ max_size => 20 }),
+    6 = length(ResHello).
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->

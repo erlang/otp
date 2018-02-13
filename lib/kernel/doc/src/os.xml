@@ -103,7 +103,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="command_input"/>
+      <name name="os_command"/>
       <desc>
         <p>All characters needs to be valid characters on the
 	specific OS using
@@ -116,19 +116,31 @@
 	</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="os_command_opts"/>
+      <desc>
+        <p>Options for <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso></p>
+        <taglist>
+          <tag><c>max_size</c></tag>
+          <item>
+            <p>The maximum size of the data returned by the <c>os:cmd</c> call.
+            See the <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso>
+            documentation for more details.</p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
   </datatypes>
- 
+
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
+      <name name="cmd" arity="2"/>
       <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
         <p>Executes <c><anno>Command</anno></c> in a command shell of the
-          target OS,
-          captures the standard output of the command, and returns this
-          result as a string. This function is a replacement of
-          the previous function <c>unix:cmd/1</c>; they are equivalent on a
-          Unix platform.</p>
+	  target OS, captures the standard output of the command,
+          and returns this result as a string.</p>
 	  <warning><p>Previous implementation used to allow all characters
 	  as long as they were integer values greater than or equal to zero.
 	  This sometimes lead to unwanted results since null characters
@@ -142,6 +154,21 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           called from another program (for example, <c>os:cmd/1</c>)
           can differ, compared with the standard output of the command
           when called directly from an OS command shell.</p>
+        <p><c>os:cmd/2</c> was added in kernel-5.5 (OTP-20.2.1). It makes it
+          possible to pass an options map as the second argument in order to
+          control the behaviour of <c>os:cmd</c>. The possible options are:
+        </p>
+        <taglist>
+          <tag><c>max_size</c></tag>
+          <item>
+            <p>The maximum size of the data returned by the <c>os:cmd</c> call.
+              This option is a safety feature that should be used when the command
+              executed can return a very large, possibly infinite, result.</p>
+            <code type="none">
+> os:cmd("cat /dev/zero", #{ max_size => 20 }).
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]</code>
+          </item>
+        </taglist>
       </desc>
     </func>
 
