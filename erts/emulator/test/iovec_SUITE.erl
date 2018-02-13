@@ -98,14 +98,7 @@ cons_bomb(Config) when is_list(Config) ->
     BinBase = gen_variations([<<I:8>> || I <- lists:seq(1, 255)]),
     MixBase = gen_variations([<<12, 45, 78>>, lists:seq(1, 255)]),
 
-    Rounds =
-        case system_mem_size() of
-            Mem when Mem >= (16 bsl 30) -> 32;
-            Mem when Mem >= (3 bsl 30) -> 28;
-            _ -> 20
-        end,
-
-    Variations = gen_variations([IntBase, BinBase, MixBase], Rounds),
+    Variations = gen_variations([IntBase, BinBase, MixBase], 16),
     equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 iolist_to_iovec_idempotence(Config) when is_list(Config) ->
@@ -149,7 +142,7 @@ is_iolist_equal(A, B) ->
 %% few times. The lists only differ by their structure, so their reduction to
 %% a simpler format should yield the same result.
 gen_variations(Base) ->
-    gen_variations(Base, 16).
+    gen_variations(Base, 12).
 gen_variations(Base, N) ->
     [gen_flat_list(Base, N),
      gen_nested_list(Base, N),
@@ -169,8 +162,3 @@ gen_nasty_list_1([Head | Base], Result) when is_list(Head) ->
     gen_nasty_list_1(Base, [[Result], [gen_nasty_list_1(Head, [])]]);
 gen_nasty_list_1([Head | Base], Result) ->
     gen_nasty_list_1(Base, [[Result], [Head]]).
-
-system_mem_size() ->
-    application:ensure_all_started(os_mon),
-    {Tot,_Used,_}  = memsup:get_memory_data(),
-    Tot.
