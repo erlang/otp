@@ -32,7 +32,11 @@
   <description>
     <p>This module contains functions for parsing and handling URIs
     (<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>) and
-    form-urlencoded query strings (<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>).
+    form-urlencoded query strings (<url href="https://www.w3.org/TR/html52/">HTML 5.2</url>).
+    </p>
+    <p>
+    Parsing and serializing non-UTF-8 form-urlencoded query strings are also supported
+    (<url href="https://www.w3.org/TR/html50/">HTML 5.0</url>).
     </p>
     <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
     rule named <em>URI</em> in <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.
@@ -152,8 +156,10 @@
         <p>Composes a form-urlencoded <c><anno>QueryString</anno></c> based on a
 	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
         Form-urlencoding is defined in section
-	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	specification.
+	4.10.21.6 of the <url href="https://www.w3.org/TR/html52/">HTML 5.2</url>
+	specification and in section 4.10.22.6 of the
+	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
+	non-UTF-8 encodings.
 	</p>
 	<p>See also the opposite operation <seealso marker="#dissect_query/1">
 	<c>dissect_query/1</c></seealso>.
@@ -210,12 +216,11 @@
         <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
 	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
         Form-urlencoding is defined in section
-	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	specification.
+	4.10.21.6 of the <url href="https://www.w3.org/TR/html52/">HTML 5.2</url>
+	specification and in section 4.10.22.6 of the
+	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
+	non-UTF-8 encodings.
 	</p>
-	<p>It is not as strict for its input as the decoding algorithm defined by
-	<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	and accepts all unicode characters.</p>
 	<p>See also the opposite operation <seealso marker="#compose_query/1">
 	<c>compose_query/1</c></seealso>.
 	</p>

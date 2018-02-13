@@ -403,7 +403,8 @@ transcode(URIString, Options) when is_list(URIString) ->
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
 %% of key/value pairs.
-%% HTML5 - 4.10.22.6 URL-encoded form data
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - non UTF-8
 %%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
@@ -1773,7 +1774,8 @@ get_separator(_L) ->
     <<"&">>.
 
 
-%% HTML5 - 4.10.22.6 URL-encoded form data - encoding
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - encoding (non UTF-8)
 form_urlencode(Cs, [{encoding, latin1}]) when is_list(Cs) ->
     B = convert_to_binary(Cs, utf8, utf8),
     html5_byte_encode(base10_encode(B));
@@ -1868,7 +1870,8 @@ dissect_query_value(<<>>, IsList, Acc, Key, Value) ->
     lists:reverse([{K,V}|Acc]).
 
 
-%% Form-urldecode input based on RFC 1866 [8.2.1]
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - decoding (non UTF-8)
 form_urldecode(true, B) ->
     Result = base10_decode(form_urldecode(B, <<>>)),
     convert_to_list(Result, utf8);
