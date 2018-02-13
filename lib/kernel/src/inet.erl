@@ -1253,9 +1253,7 @@ gethostbyname_string(Name, Type)
 	    inet ->
 		inet_parse:ipv4_address(Name);
 	    inet6 ->
-		%% XXX should we really translate IPv4 addresses here
-		%% even if we do not know if this host can do IPv6?
-		inet_parse:ipv6_address(Name)
+		inet_parse:ipv6strict_address(Name)
 	end of
 	{ok,IP} ->
 	    {ok,make_hostent(Name, [IP], [], Type)};

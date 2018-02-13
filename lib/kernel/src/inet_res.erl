@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -431,28 +431,7 @@ gethostbyname(Name,Family,Timeout) ->
 gethostbyname_tm(Name,inet,Timer) ->
     getbyname_tm(Name,?S_A,Timer);
 gethostbyname_tm(Name,inet6,Timer) ->
-    case getbyname_tm(Name,?S_AAAA,Timer) of
-	{ok,HEnt} -> {ok,HEnt};
-	{error,nxdomain} ->
-	    case getbyname_tm(Name, ?S_A,Timer) of
-		{ok, HEnt} ->
-		    %% rewrite to a ipv4 only ipv6 address
-		    {ok,
-		     HEnt#hostent {
-		       h_addrtype = inet6,
-		       h_length = 16,
-		       h_addr_list = 
-		       lists:map(
-			 fun({A,B,C,D}) ->
-				 {0,0,0,0,0,16#ffff,A*256+B,C*256+D}
-			 end, HEnt#hostent.h_addr_list)
-		      }};
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
-    end;
+    getbyname_tm(Name,?S_AAAA,Timer);
 gethostbyname_tm(_Name, _Family, _Timer) ->
     {error, einval}.
 	    

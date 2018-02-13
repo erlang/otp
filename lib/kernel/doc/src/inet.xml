@@ -277,9 +277,7 @@ fe80::204:acff:fe17:bf38
         <p>Returns a <c>hostent</c> record for the host with the specified
           hostname.</p>
         <p>If resolver option <c>inet6</c> is <c>true</c>,
-          an IPv6 address is looked up. If that fails,
-          the IPv4 address is looked up and returned on
-          IPv6-mapped IPv4 format.</p>
+          an IPv6 address is looked up.</p>
       </desc>
     </func>
 
