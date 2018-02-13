@@ -168,7 +168,7 @@ enum allctr_type {
     GOODFIT,
     BESTFIT,
     AFIT,
-    AOFIRSTFIT
+    FIRSTFIT
 };
 
 struct au_init {
@@ -507,8 +507,9 @@ set_default_test_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= 0; /* Disabled by default */
     ip->thr_spec		= -1 * erts_no_schedulers;
-    ip->atype			= AOFIRSTFIT;
-    ip->init.aoff.flavor        = AOFF_BF;
+    ip->atype			= FIRSTFIT;
+    ip->init.aoff.crr_order     = FF_AOFF;
+    ip->init.aoff.blk_order     = FF_BF;
     ip->init.util.name_prefix	= "test_";
     ip->init.util.alloc_no	= ERTS_ALC_A_TEST;
     ip->init.util.mmbcs 	= 0; /* Main carrier size */
@@ -610,10 +611,10 @@ static ERTS_INLINE int
 strategy_support_carrier_migration(struct au_init *auip)
 {
     /*
-     * Currently only aoff, aoffcbf and aoffcaobf support carrier
+     * Currently only aoff* and ageff* support carrier
      * migration, i.e, type AOFIRSTFIT.
      */
-    return auip->atype == AOFIRSTFIT;
+    return auip->atype == FIRSTFIT;
 }
 
 static ERTS_INLINE void
@@ -629,8 +630,9 @@ adjust_carrier_migration_support(struct au_init *auip)
 	 */
 	if (!strategy_support_carrier_migration(auip)) {
 	    /* Default to aoffcbf */
-	    auip->atype = AOFIRSTFIT;
-	    auip->init.aoff.flavor = AOFF_BF;
+	    auip->atype = FIRSTFIT;
+	    auip->init.aoff.crr_order = FF_AOFF;
+	    auip->init.aoff.blk_order = FF_BF;
 	}
     }
 #else
@@ -1187,7 +1189,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 					   &init->init.af,
 					   &init->init.util);
 	    break;
-    	case AOFIRSTFIT:
+	case FIRSTFIT:
 	    as = erts_aoffalc_start((AOFFAllctr_t *) as0,
 					     &init->init.aoff,
 					     &init->init.util);
@@ -1281,22 +1283,32 @@ get_bool_value(char *param_end, char** argv, int* ip)
     return -1;
 }
 
+static Uint kb_to_bytes(Sint kb, Uint *bytes)
+{
+    const Uint max = ((~((Uint) 0))/1024) + 1;
+
+    if (kb < 0 || (Uint)kb > max)
+        return 0;
+    if ((Uint)kb == max)
+        *bytes = ~((Uint) 0);
+    else
+        *bytes = ((Uint) kb)*1024;
+    return 1;
+}
+
 static Uint
 get_kb_value(char *param_end, char** argv, int* ip)
 {
     Sint tmp;
-    Uint max = ((~((Uint) 0))/1024) + 1;
+    Uint bytes = 0;
     char *rest;
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
     errno = 0;
     tmp = (Sint) ErtsStrToSint(value, &rest, 10);
-    if (errno != 0 || rest == value || tmp < 0 || max < ((Uint) tmp))
+    if (errno != 0 || rest == value || !kb_to_bytes(tmp, &bytes))
 	bad_value(param, param_end, value);
-    if (max == (Uint) tmp)
-	return ~((Uint) 0);
-    else
-	return ((Uint) tmp)*1024;
+    return bytes;
 }
 
 static UWord
@@ -1383,18 +1395,30 @@ handle_au_arg(struct au_init *auip,
 
     switch (sub_param[0]) {
     case 'a':
-	if (has_prefix("acul", sub_param)) {
-	    if (!auip->carrier_migration_allowed) {
-		if (!u_switch)
-		    goto bad_switch;
-		else {
-		    /* ignore */
-		    (void) get_acul_value(auip, sub_param + 4, argv, ip);
-		    break;
-		}
-	    }
-	    auip->init.util.acul = get_acul_value(auip, sub_param + 4, argv, ip);
-	}
+        if (sub_param[1] == 'c') { /* Migration parameters "ac*" */
+            UWord value;
+            UWord* wp;
+            if (!auip->carrier_migration_allowed && !u_switch)
+                goto bad_switch;
+
+            if (has_prefix("acul", sub_param)) {
+                value = get_acul_value(auip, sub_param + 4, argv, ip);
+                wp = &auip->init.util.acul;
+            }
+            else if (has_prefix("acnl", sub_param)) {
+                value = get_amount_value(sub_param + 4, argv, ip);
+                wp = &auip->init.util.acnl;
+            }
+            else if (has_prefix("acfml", sub_param)) {
+                value = get_amount_value(sub_param + 5, argv, ip);
+                wp = &auip->init.util.acfml;
+            }
+            else
+                goto bad_switch;
+
+            if (auip->carrier_migration_allowed)
+                *wp = value;
+        }
 	else if(has_prefix("asbcst", sub_param)) {
 	    auip->init.util.asbcst = get_kb_value(sub_param + 6, argv, ip);
 	}
@@ -1415,17 +1439,35 @@ handle_au_arg(struct au_init *auip,
 		auip->atype = AFIT;
 	    }
 	    else if (strcmp("aoff", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_AOFF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_AOFF;
 	    }
 	    else if (strcmp("aoffcbf", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_BF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_BF;
 	    }
 	    else if (strcmp("aoffcaobf", alg) == 0) {
-		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.flavor = AOFF_AOBF;
+		auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AOFF;
+		auip->init.aoff.blk_order = FF_AOBF;
 	    }
+            else if (strcmp("ageffcaoff", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_AOFF;
+            }
+            else if (strcmp("ageffcbf", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_BF;
+            }
+            else if (strcmp("ageffcaobf", alg) == 0) {
+                auip->atype = FIRSTFIT;
+		auip->init.aoff.crr_order = FF_AGEFF;
+		auip->init.aoff.blk_order = FF_AOBF;
+            }
 	    else {
 		bad_value(param, sub_param + 1, alg);
 	    }
@@ -3464,6 +3506,65 @@ erts_request_alloc_info(struct process *c_p,
     return 1;
 }
 
+Eterm erts_alloc_set_dyn_param(Process* c_p, Eterm tuple)
+{
+    ErtsAllocatorThrSpec_t *tspec;
+    ErtsAlcType_t ai;
+    Allctr_t* allctr;
+    Eterm* tp;
+    Eterm res;
+
+    if (!is_tuple_arity(tuple, 3))
+        goto badarg;
+
+    tp = tuple_val(tuple);
+
+    /*
+     * Ex: {ets_alloc, sbct, 256000}
+     */
+    if (!is_atom(tp[1]) || !is_atom(tp[2]) || !is_integer(tp[3]))
+        goto badarg;
+
+    for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
+        if (erts_is_atom_str(erts_alc_a2ad[ai], tp[1], 0))
+            break;
+
+    if (ai > ERTS_ALC_A_MAX)
+        goto badarg;
+
+    if (!erts_allctrs_info[ai].enabled ||
+        !erts_allctrs_info[ai].alloc_util) {
+        return am_notsup;
+    }
+
+    if (tp[2] == am_sbct) {
+        Uint sbct;
+        int i, ok;
+
+        if (!term_to_Uint(tp[3], &sbct))
+            goto badarg;
+
+        tspec = &erts_allctr_thr_spec[ai];
+        if (tspec->enabled) {
+            ok = 0;
+            for (i = 0; i < tspec->size; i++) {
+                allctr = tspec->allctr[i];
+                ok |= allctr->try_set_dyn_param(allctr, am_sbct, sbct);
+            }
+        }
+        else {
+            allctr = erts_allctrs_info[ai].extra;
+            ok = allctr->try_set_dyn_param(allctr, am_sbct, sbct);
+        }
+        return ok ? am_ok : am_notsup;
+    }
+    return am_notsup;
+
+badarg:
+    ERTS_BIF_PREP_ERROR(res, c_p, EXC_BADARG);
+    return res;
+}
+
 /* 
  * The allocator wrapper prelocking stuff below is about the locking order.
  * It only affects wrappers (erl_mtrace.c and erl_instrument.c) that keep locks
@@ -3610,7 +3711,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 					  &init.init.af,
 					  &init.init.util);
 		break;
-	    case AOFIRSTFIT:
+	    case FIRSTFIT:
 		allctr = erts_aoffalc_start((AOFFAllctr_t *)
 					  erts_alloc(ERTS_ALC_T_UNDEF,
 						     sizeof(AOFFAllctr_t)),
@@ -3710,7 +3811,9 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 
 	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
 
-	case 0xf16: {
+        case 0xf16: return (UWord) erts_realloc(ERTS_ALC_T_TEST, (void*)a1, (Uint)a2);
+
+	case 0xf17: {
             Uint extra_hdr_sz = UNIT_CEILING((Uint)a1);
 	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
 	    Uint offset = ts->allctr[0]->mbc_header_size;
@@ -3737,7 +3840,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    *(void**)a3 = orig_destroying_mbc;
 	    return offset;
 	}
-	case 0xf17: {
+	case 0xf18: {
 	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
 	    return ts->allctr[0]->largest_mbc_size;
 	}
