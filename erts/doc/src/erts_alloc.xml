@@ -225,6 +225,33 @@
           used. The time complexity is proportional to log N, where
           N is the number of free blocks.</p>
       </item>
+      <tag>Age order first fit carrier address order first fit</tag>
+      <item>
+	<p>Strategy: Find the <em>oldest carrier</em> that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "address order first fit" strategy.</p>
+        <p>Implementation: A balanced binary search tree is
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Age order first fit carrier best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>oldest carrier</em> that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Age order first fit carrier address order best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>oldest carrier</em> that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "address order best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
       <tag>Good fit</tag>
       <item>
         <p>Strategy: Try to find the best fit, but settle for the best fit
@@ -467,7 +494,8 @@
             fetched, it will function as an ordinary carrier. This feature has
             special requirements on the
             <seealso marker="#M_as">allocation strategy</seealso> used. Only
-            the strategies <c>aoff</c>, <c>aoffcbf</c>, and <c>aoffcaobf</c>
+            the strategies <c>aoff</c>, <c>aoffcbf</c>, <c>aoffcaobf</c>,
+	    <c>ageffcaoff</c>m, <c>ageffcbf</c> and <c>ageffcaobf</c>
             support abandoned carriers.</p>
           <p>This feature also requires
             <seealso marker="#M_t">multiple thread specific instances</seealso>
@@ -478,8 +506,30 @@
             allocators based on the <c>alloc_util</c> framework, except
             <c>temp_alloc</c> (which would be pointless).</p>
         </item>
+
+	<tag><marker id="M_acfml"/><c><![CDATA[+M<S>acfml <bytes>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier free block min limit. A valid <c><![CDATA[<bytes>]]></c>
+            is a positive integer representing a block size limit. The largest
+	    free block in a carrier must be at least <c>bytes</c> large, for the
+	    carrier to be abandoned. The default is zero but can be changed
+	    in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
+        <tag><marker id="M_acnl"/><c><![CDATA[+M<S>acnl <amount>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier number limit. A valid <c><![CDATA[<amount>]]></c>
+            is a positive integer representing max number of abandoned carriers per
+	    allocator instance. Defaults to 1000 which will practically disable
+	    the limit, but this can be changed in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
         <tag><marker id="M_as"/>
-          <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|gf|af]]></c></tag>
+          <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|ageffcaoff|ageffcbf|ageffcaobf|gf|af]]></c></tag>
         <item>
           <p>Allocation strategy. The following strategies are valid:</p>
           <list type="bulleted">
@@ -489,6 +539,11 @@
             <item><c>aoffcbf</c> (address order first fit carrier best fit)
             </item>
             <item><c>aoffcaobf</c> (address order first fit carrier address
+              order best fit)</item>
+            <item><c>ageffcaoff</c> (age order first fit carrier address order first fit)</item>
+            <item><c>ageffcbf</c> (age order first fit carrier best fit)
+            </item>
+            <item><c>ageffcaobf</c> (age order first fit carrier address
               order best fit)</item>
             <item><c>gf</c> (good fit)</item>
             <item><c>af</c> (a fit)</item>

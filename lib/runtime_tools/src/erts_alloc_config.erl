@@ -265,7 +265,13 @@ strategy_str(aoff) ->
 strategy_str(aoffcbf) ->
     "Address order first fit carrier best fit";
 strategy_str(aoffcaobf) ->
-    "Address order first fit carrier adress order best fit".
+    "Address order first fit carrier adress order best fit";
+strategy_str(ageffcaoff) ->
+    "Age order first fit carrier address order first fit";
+strategy_str(ageffcbf) ->
+    "Age order first fit carrier best fit";
+strategy_str(ageffcaobf) ->
+    "Age order first fit carrier adress order best fit".
 
 default_acul(A, S) ->
     case carrier_migration_support(S) of

@@ -171,6 +171,8 @@ __decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
 
+Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
+
 #undef ERTS_HAVE_IS_IN_LITERAL_RANGE
 #if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 #  define ERTS_HAVE_IS_IN_LITERAL_RANGE
