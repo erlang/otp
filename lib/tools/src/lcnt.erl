@@ -218,9 +218,11 @@ raw()                -> call(raw).
 set(Option, Value)   -> call({set, Option, Value}).
 set({Option, Value}) -> call({set, Option, Value}).
 save(Filename)       -> call({save, Filename}).
-load(Filename)       -> ok = start_internal(), call({load, Filename}).
+load(Filename)       -> call({load, Filename}).
 
-call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
+call(Msg) ->
+    ok = start_internal(),
+    gen_server:call(?MODULE, Msg, infinity).
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -237,7 +239,6 @@ apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
 
 apply(Fun, As) when is_function(Fun) ->
-    ok = start_internal(),
     Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(Fun, As),
@@ -943,7 +944,7 @@ print_state_information(#state{locks = Locks} = State) ->
     print(kv("#tries",          s(Stats#stats.tries))),
     print(kv("#colls",          s(Stats#stats.colls))),
     print(kv("wait time",       s(Stats#stats.time) ++ " us" ++ " ( " ++ s(Stats#stats.time/1000000) ++ " s)")),
-    print(kv("percent of duration", s(Stats#stats.time/State#state.duration*100) ++ " %")),
+    print(kv("percent of duration", s(percent(Stats#stats.time, State#state.duration)) ++ " %")),
     ok.
 
 
