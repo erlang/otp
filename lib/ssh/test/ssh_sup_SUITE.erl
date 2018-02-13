@@ -42,7 +42,9 @@ suite() ->
 
 all() -> 
     [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile,
-     killed_acceptor_restarts].
+     killed_acceptor_restarts,
+     shell_channel_tree
+    ].
 
 groups() -> 
     [].
@@ -245,6 +247,98 @@ killed_acceptor_restarts(Config) ->
     {error,closed} = ssh:connection_info(C1,[client_version]),
     {error,closed} = ssh:connection_info(C2,[client_version]).
     
+%%-------------------------------------------------------------------------
+shell_channel_tree(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    TimeoutShell =
+        fun() ->
+                io:format("TimeoutShell started!~n",[]),
+                timer:sleep(5000),
+                ct:pal("~p TIMEOUT!",[self()])
+        end,
+    {Daemon, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                                {user_dir, UserDir},
+                                                {password, "morot"},
+                                                {shell, fun(_User) ->
+                                                                spawn(TimeoutShell)
+                                                        end
+                                                }
+                                            ]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, true},
+						      {user_dir, UserDir}]),
+
+    [ChannelSup|_] = Sups0 = chk_empty_con_daemon(Daemon),
+    
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef,ChannelId0),
+
+    ?wait_match([{_, GroupPid,worker,[ssh_channel]}],
+		supervisor:which_children(ChannelSup),
+               [GroupPid]),
+    {links,GroupLinks} = erlang:process_info(GroupPid, links),
+    [ShellPid] = GroupLinks--[ChannelSup],
+    ct:pal("GroupPid = ~p, ShellPid = ~p",[GroupPid,ShellPid]),
+
+    receive
+        {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"TimeoutShell started!\r\n">>}} ->
+            receive
+                %%---- wait for the subsystem to terminate
+                {ssh_cm,ConnectionRef,{closed,ChannelId0}} ->
+                    ct:pal("Subsystem terminated",[]),
+                    case {chk_empty_con_daemon(Daemon),
+                          process_info(GroupPid),
+                          process_info(ShellPid)} of
+                        {Sups0, undefined, undefined} ->
+                            %% SUCCESS
+                            ssh:stop_daemon(Daemon);
+                        {Sups0, _, undefined}  ->
+                            ssh:stop_daemon(Daemon),
+                            ct:fail("Group proc lives!");
+                        {Sups0, undefined, _}  ->
+                            ssh:stop_daemon(Daemon),
+                            ct:fail("Shell proc lives!");
+                        _ ->
+                            ssh:stop_daemon(Daemon),
+                            ct:fail("Sup tree changed!")
+                    end
+            after 10000 ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Daemon),
+                    ct:fail("CLI Timeout")
+            end
+    after 10000 ->
+            ssh:close(ConnectionRef),
+            ssh:stop_daemon(Daemon),
+            ct:fail("CLI Timeout")
+    end.
+
+
+chk_empty_con_daemon(Daemon) ->
+    ?wait_match([{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
+		 {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}],
+		supervisor:which_children(Daemon),
+                [SubSysSup,AccSup]),
+    ?wait_match([{{server,ssh_connection_sup, _,_},
+		  ConnectionSup, supervisor,
+		  [ssh_connection_sup]},
+		 {{server,ssh_channel_sup,_ ,_},
+		  ChannelSup,supervisor,
+		  [ssh_channel_sup]}],
+		supervisor:which_children(SubSysSup),
+		[ConnectionSup,ChannelSup]),
+    ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
+		supervisor:which_children(AccSup)),
+    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
+		supervisor:which_children(ConnectionSup)),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+    [ChannelSup, ConnectionSup, SubSysSup, AccSup].
+
 %%-------------------------------------------------------------------------
 %% Help functions
 %%-------------------------------------------------------------------------
