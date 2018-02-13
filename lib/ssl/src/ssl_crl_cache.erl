@@ -92,8 +92,8 @@ delete({der, CRLs}) ->
     ssl_manager:delete_crls({?NO_DIST_POINT, CRLs});
 
 delete(URI) ->
-    case http_uri:parse(URI) of
-	{ok, {http, _, _ , _, Path,_}} -> 
+    case uri_string:normalize(URI, [return_map]) of
+	#{scheme := "http", path := Path} ->
 	    ssl_manager:delete_crls(string:trim(Path, leading, "/"));
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
@@ -103,8 +103,8 @@ delete(URI) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 do_insert(URI, CRLs) ->
-    case http_uri:parse(URI) of
-	{ok, {http, _, _ , _, Path,_}} -> 
+    case uri_string:normalize(URI, [return_map]) of
+	#{scheme := "http", path := Path} ->
 	    ssl_manager:insert_crls(string:trim(Path, leading, "/"), CRLs);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
@@ -161,7 +161,7 @@ http_get(URL, Rest, CRLDbInfo, Timeout) ->
 cache_lookup(_, undefined) ->
     [];
 cache_lookup(URL, {{Cache, _}, _}) ->
-    {ok, {_, _, _ , _, Path,_}} = http_uri:parse(URL), 
+    #{path :=  Path} = uri_string:normalize(URL, [return_map]),
     case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
 	undefined ->
 	    [];
