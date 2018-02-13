@@ -31,6 +31,7 @@
          t_locations/1,
          t_swap_keys/1,
          t_implicit_start/1,
+         t_crash_before_collect/1,
          smoke_lcnt/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -46,7 +47,7 @@ suite() ->
 
 all() ->
     [t_load, t_conflicts, t_locations, t_swap_keys, t_implicit_start,
-     smoke_lcnt].
+     t_crash_before_collect, smoke_lcnt].
 
 %%----------------------------------------------------------------------
 %% Tests
@@ -154,6 +155,10 @@ t_swap_keys_file([File|Files]) ->
 %% been started yet.
 t_implicit_start(Config) when is_list(Config) ->
     ok = lcnt:conflicts().
+
+t_crash_before_collect(Config) when is_list(Config) ->
+    {ok, _} = lcnt:start(),
+    ok = lcnt:information().
 
 %% Simple smoke test of actual lock-counting, if running on
 %% a run-time with lock-counting enabled.
