@@ -25,7 +25,7 @@
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,
          mixed_lists/1, improper_lists/1, illegal_lists/1, cons_bomb/1,
          sub_binary_lists/1, iolist_to_iovec_idempotence/1,
-         iolist_to_iovec_correctness/1]).
+         iolist_to_iovec_correctness/1, unaligned_sub_binaries/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,8 @@ suite() ->
 all() ->
     [integer_lists, binary_lists, empty_lists, empty_binary_lists, mixed_lists,
      sub_binary_lists, illegal_lists, improper_lists, cons_bomb,
-     iolist_to_iovec_idempotence, iolist_to_iovec_correctness].
+     iolist_to_iovec_idempotence, iolist_to_iovec_correctness,
+     unaligned_sub_binaries].
 
 init_per_suite(Config) ->
     Config.
@@ -123,6 +124,15 @@ iolist_to_iovec_correctness(Config) when is_list(Config) ->
     true = is_iolist_equal(Optimized, Variations),
     ok.
 
+unaligned_sub_binaries(Config) when is_list(Config) ->
+    UnalignedBins = [gen_unaligned_binary(I) || I <- lists:seq(32, 4 bsl 10, 512)],
+    UnalignedVariations = gen_variations(UnalignedBins),
+
+    Optimized = erlang:iolist_to_iovec(UnalignedVariations),
+
+    true = is_iolist_equal(Optimized, UnalignedVariations),
+    ok.
+
 illegality_test(Fun, Variations) ->
     [{'EXIT',{badarg, _}} = (catch Fun(Variation)) || Variation <- Variations],
     ok.
@@ -137,6 +147,13 @@ equivalence_test(Fun, [Head | _] = Variations) ->
 
 is_iolist_equal(A, B) ->
     iolist_to_binary(A) =:= iolist_to_binary(B).
+
+gen_unaligned_binary(Size) ->
+    Bin0 = << <<I>> || I <- lists:seq(1, Size) >>,
+    <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
+    Bin.
+
+id(I) -> I.
 
 %% Generates a bunch of lists whose contents will be equal to Base repeated a
 %% few times. The lists only differ by their structure, so their reduction to
