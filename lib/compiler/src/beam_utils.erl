@@ -440,8 +440,11 @@ check_liveness(R, [{bs_init,_,_,Live,Ss,Dst}|Is], St) ->
 	    case member(R, Ss) of
 		true -> {used,St};
 		false ->
+                    %% If the exception is taken, the stack may
+                    %% be scanned. Therefore the register is not
+                    %% guaranteed to be killed.
 		    if
-			R =:= Dst -> {killed,St};
+                        R =:= Dst -> {not_used,St};
 			true -> not_used(check_liveness(R, Is, St))
 		    end
 	    end
@@ -735,8 +738,8 @@ check_liveness_block_1(R, Ss, Ds, Op, Is, St0) ->
 	    end
     end.
 
-check_liveness_block_2(R, {gc_bif,_Op,{f,Lbl}}, _Ss, St) ->
-    check_liveness_block_3(R, Lbl, St);
+check_liveness_block_2(R, {gc_bif,Op,{f,Lbl}}, Ss, St) ->
+    check_liveness_block_3(R, Lbl, {Op,length(Ss)}, St);
 check_liveness_block_2(R, {bif,Op,{f,Lbl}}, Ss, St) ->
     Arity = length(Ss),
     case erl_internal:comp_op(Op, Arity) orelse
@@ -744,16 +747,23 @@ check_liveness_block_2(R, {bif,Op,{f,Lbl}}, Ss, St) ->
 	true ->
 	    {killed,St};
 	false ->
-	    check_liveness_block_3(R, Lbl, St)
+	    check_liveness_block_3(R, Lbl, {Op,length(Ss)}, St)
     end;
 check_liveness_block_2(R, {put_map,_Op,{f,Lbl}}, _Ss, St) ->
-    check_liveness_block_3(R, Lbl, St);
+    check_liveness_block_3(R, Lbl, {unsafe,0}, St);
 check_liveness_block_2(_, _, _, St) ->
     {killed,St}.
 
-check_liveness_block_3(_, 0, St) ->
+check_liveness_block_3({x,_}, 0, _FA, St) ->
     {killed,St};
-check_liveness_block_3(R, Lbl, St0) ->
+check_liveness_block_3({y,_}, 0, {F,A}, St) ->
+    %% If the exception is thrown, the stack may be scanned,
+    %% thus implicitly using the y register.
+    case erl_bifs:is_safe(erlang, F, A) of
+        true -> {killed,St};
+        false -> {used,St}
+    end;
+check_liveness_block_3(R, Lbl, _FA, St0) ->
     check_liveness_at(R, Lbl, St0).
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
