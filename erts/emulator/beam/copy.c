@@ -611,7 +611,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
     Eterm* htop;
     Eterm* hbot;
     Eterm* hp;
-    Eterm* objp;
+    Eterm* ERTS_RESTRICT objp;
     Eterm* tp;
     Eterm  res;
     Eterm  elem;
@@ -1821,7 +1821,8 @@ all_clean:
  *
  * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
+                   ErlOffHeap* off_heap)
 {
     Eterm* tp = ptr;
     Eterm* hp = *hpp;
@@ -1985,7 +1986,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    move_boxed(&ptr, val, &hp, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
 		if (is_ordinary_ref_thing(hdr))
@@ -2002,7 +2003,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    move_cons(&ptr, val, &hp, &dummy_ref);
+	    move_cons(ptr, val, &hp, &dummy_ref);
 	    ptr += 2;
 	}
     }

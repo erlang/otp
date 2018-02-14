@@ -1760,6 +1760,25 @@ if test $ac_cv_sizeof_void_p = 8; then
 fi
 AC_SUBST(BITS64)
 
+AC_MSG_CHECKING([for C compiler 'restrict' support])
+restrict_keyword=""
+for x in restrict __restrict; do
+    AC_TRY_COMPILE([int * $x foo(int * $x arg);
+		    int * $x foo(int * $x arg)
+		        { int * $x var=arg; return var;}
+		   ],[],
+		   [restrict_keyword=$x],[])
+    if test "x$restrict_keyword" != "x"; then
+	break
+    fi
+done
+AC_DEFINE_UNQUOTED(ERTS_RESTRICT,[$restrict_keyword],[Type qualifier restrict])
+if test "x$restrict_keyword" != "x"; then
+   AC_MSG_RESULT(yes)
+else
+   AC_MSG_RESULT(no)
+fi
+
 if test "x$ac_compiler_gnu" = "xyes"; then
 AC_MSG_CHECKING([if we should add -fno-tree-copyrename to CFLAGS for computed gotos to work properly])
 AC_TRY_COMPILE([],[
@@ -1778,8 +1797,6 @@ if test "x$no_tree_copyrename" = "xyes"; then
 else
 	AC_MSG_RESULT(no)
 fi
-
-
 
 AC_MSG_CHECKING([for broken gcc-4.3.0 compiler])
 AC_TRY_RUN([

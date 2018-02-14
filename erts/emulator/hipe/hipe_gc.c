@@ -91,7 +91,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
 		    } else if (!erts_is_literal(gval, ptr)) {
-			move_boxed(&ptr, val, &n_htop, nsp_i);
+			move_boxed(ptr, val, &n_htop, nsp_i);
 		    }
 		} else if (is_list(gval)) {
 		    Eterm *ptr = list_val(gval);
@@ -100,7 +100,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 			*nsp_i = ptr[1];
 		    } else if (!erts_is_literal(gval, ptr)) {
 			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
-			move_cons(&ptr, val, &n_htop, nsp_i);
+			move_cons(ptr, val, &n_htop, nsp_i);
 		    }
 		}
 	    }
@@ -206,10 +206,10 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
 		    } else if (ErtsInArea(ptr, mature, mature_size)) {
-			move_boxed(&ptr, val, &old_htop, nsp_i);
+			move_boxed(ptr, val, &old_htop, nsp_i);
 		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
 			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
-			move_boxed(&ptr, val, &n_htop, nsp_i);
+			move_boxed(ptr, val, &n_htop, nsp_i);
 		    }
 		} else if (is_list(gval)) {
 		    Eterm *ptr = list_val(gval);
@@ -217,10 +217,10 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
 		    } else if (ErtsInArea(ptr, mature, mature_size)) {
-			move_cons(&ptr, val, &old_htop, nsp_i);
+			move_cons(ptr, val, &old_htop, nsp_i);
 		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
 			ASSERT(erts_dbg_within_proc(ptr, p, NULL));
-			move_cons(&ptr, val, &n_htop, nsp_i);
+			move_cons(ptr, val, &n_htop, nsp_i);
 		    }
 		}
 	    }
@@ -278,7 +278,7 @@ Eterm *sweep_literals_nstack(Process *p, Eterm *old_htop, char *area,
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
 		    } else if (ErtsInArea(ptr, area, area_size)) {
-			move_boxed(&ptr, val, &old_htop, nsp_i);
+			move_boxed(ptr, val, &old_htop, nsp_i);
 		    }
 		} else if (is_list(gval)) {
 		    Eterm *ptr = list_val(gval);
@@ -286,7 +286,7 @@ Eterm *sweep_literals_nstack(Process *p, Eterm *old_htop, char *area,
 		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
 		    } else if (ErtsInArea(ptr, area, area_size)) {
-			move_cons(&ptr, val, &old_htop, nsp_i);
+			move_cons(ptr, val, &old_htop, nsp_i);
 		    }
 		}
 	    }
