@@ -1349,7 +1349,12 @@ branch_arities([Sz,{f,L}|T], Tuple, #vst{current=St}=Vst0)
     Vst = branch_state(L, Vst1),
     branch_arities(T, Tuple, Vst#vst{current=St}).
 
-branch_state(0, #vst{}=Vst) -> Vst;
+branch_state(0, #vst{}=Vst) ->
+    %% If the instruction fails, the stack may be scanned
+    %% looking for a catch tag. Therefore the Y registers
+    %% must be initialized at this point.
+    verify_y_init(Vst),
+    Vst;
 branch_state(L, #vst{current=St,branched=B}=Vst) ->
     Vst#vst{
       branched=case gb_trees:is_defined(L, B) of
