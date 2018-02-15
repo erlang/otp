@@ -78,7 +78,7 @@ illegal_lists(Config) when is_list(Config) ->
     BitStrs = gen_variations(["gurka", <<1:1>>, "gaffel"]),
     BadInts = gen_variations(["gurka", 890, "gaffel"]),
     Atoms = gen_variations([gurka, "gaffel"]),
-    BadTails = [["test" | 0], ["gurka", gaffel]],
+    BadTails = [["test" | 0], ["gurka" | gaffel], ["gaffel" | <<1:1>>]],
 
     Variations =
         BitStrs ++ BadInts ++ Atoms ++ BadTails,
