@@ -1236,6 +1236,13 @@ handle_tuple(Tree, Map, State) ->
                           State2 = state__add_warning(State1, ?WARN_OPAQUE,
                                                       Tree, Msg),
                           {State2, Map1, t_none()};
+                        {error, record, ErrorPat, ErrorType, _} ->
+                          Msg = {record_match,
+                                 [format_patterns(ErrorPat),
+                                  format_type(ErrorType, State1)]},
+                          State2 = state__add_warning(State1, ?WARN_MATCHING,
+                                                      Tree, Msg),
+                          {State2, Map1, t_none()};
                         {Map2, ETypes} ->
                           {State1, Map2, t_tuple(ETypes)}
                       end
