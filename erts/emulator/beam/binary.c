@@ -964,7 +964,10 @@ HIPE_WRAPPER_BIF_DISABLE_GC(iolist_to_binary, 1)
 BIF_RETTYPE iolist_to_binary_1(BIF_ALIST_1)
 {
     if (is_binary(BIF_ARG_1)) {
-	BIF_RET(BIF_ARG_1);
+        if (binary_bitsize(BIF_ARG_1) == 0) {
+            BIF_RET(BIF_ARG_1);
+        }
+        BIF_ERROR(BIF_P, BADARG);
     }
     return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, bif_export[BIF_iolist_to_binary_1]);
 }
