@@ -25,7 +25,7 @@
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,
          mixed_lists/1, improper_lists/1, illegal_lists/1, cons_bomb/1,
          sub_binary_lists/1, iolist_to_iovec_idempotence/1,
-         iolist_to_iovec_correctness/1]).
+         iolist_to_iovec_correctness/1, direct_binary_arg/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,8 @@ suite() ->
 all() ->
     [integer_lists, binary_lists, empty_lists, empty_binary_lists, mixed_lists,
      sub_binary_lists, illegal_lists, improper_lists, cons_bomb,
-     iolist_to_iovec_idempotence, iolist_to_iovec_correctness].
+     iolist_to_iovec_idempotence, iolist_to_iovec_correctness,
+     direct_binary_arg].
 
 init_per_suite(Config) ->
     Config.
@@ -128,6 +129,14 @@ iolist_to_iovec_correctness(Config) when is_list(Config) ->
     Optimized = erlang:iolist_to_iovec(Variations),
 
     true = is_iolist_equal(Optimized, Variations),
+    ok.
+
+direct_binary_arg(Config) when is_list(Config) ->
+    {'EXIT',{badarg, _}} = (catch erlang:iolist_to_iovec(<<1:1>>)),
+
+    [<<1>>] = erlang:iolist_to_iovec(<<1>>),
+    [] = erlang:iolist_to_iovec(<<>>),
+
     ok.
 
 illegality_test(Fun, Variations) ->
