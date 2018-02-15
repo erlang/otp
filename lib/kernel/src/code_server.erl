@@ -340,8 +340,7 @@ handle_call(all_loaded, _From, S) ->
     {reply,all_loaded(Db),S};
 
 handle_call({get_object_code,Mod}, _From, St) when is_atom(Mod) ->
-    Path = St#state.path,
-    case mod_to_bin(Path, Mod) of
+    case get_object_code(St, Mod) of
 	{_,Bin,FName} -> {reply,{Mod,Bin,FName},St};
 	Error -> {reply,Error,St}
     end;
@@ -1182,19 +1181,28 @@ load_file(Mod, From, St0) ->
 	     end,
     handle_pending_on_load(Action, Mod, From, St0).
 
-load_file_1(Mod, From, #state{path=Path}=St) ->
-    case mod_to_bin(Path, Mod) of
+load_file_1(Mod, From, St) ->
+    case get_object_code(St, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
 	    try_load_module_1(File, Mod, Binary, From, St)
     end.
 
-mod_to_bin([Dir|Tail], Mod) ->
-    File = filename:append(Dir, atom_to_list(Mod) ++ objfile_extension()),
+get_object_code(#state{path=Path}, Mod) when is_atom(Mod) ->
+    ModStr = atom_to_list(Mod),
+    case erl_prim_loader:is_basename(ModStr) of
+        true ->
+            mod_to_bin(Path, Mod, ModStr ++ objfile_extension());
+        false ->
+            error
+    end.
+
+mod_to_bin([Dir|Tail], Mod, ModFile) ->
+    File = filename:append(Dir, ModFile),
     case erl_prim_loader:get_file(File) of
 	error -> 
-	    mod_to_bin(Tail, Mod);
+	    mod_to_bin(Tail, Mod, ModFile);
 	{ok,Bin,_} ->
 	    case filename:pathtype(File) of
 		absolute ->
@@ -1203,10 +1211,9 @@ mod_to_bin([Dir|Tail], Mod) ->
 		    {Mod,Bin,absname(File)}
 	    end
     end;
-mod_to_bin([], Mod) ->
+mod_to_bin([], Mod, ModFile) ->
     %% At last, try also erl_prim_loader's own method
-    File = to_list(Mod) ++ objfile_extension(),
-    case erl_prim_loader:get_file(File) of
+    case erl_prim_loader:get_file(ModFile) of
 	error -> 
 	    error;     % No more alternatives !
 	{ok,Bin,FName} ->
