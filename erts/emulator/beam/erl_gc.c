@@ -142,7 +142,7 @@ static Eterm* sweep_literal_area(Eterm* n_hp, Eterm* n_htop,
 static Eterm* sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 					 char* src, Uint src_size);
 static Eterm* collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end,
-				      Eterm* heap, Eterm* htop, Eterm* objv, int nobj);
+				      Eterm* htop);
 static int adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
@@ -1508,8 +1508,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 	 * Move heap frags that we know are completely live
 	 * directly into the new young heap generation.
 	 */
-	n_htop = collect_live_heap_frags(p, live_hf_end, n_heap, n_htop,
-					 objv, nobj);
+	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
     }
 
     n = setup_rootset(p, objv, nobj, &rootset);
@@ -1762,8 +1761,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 	 * Move heap frags that we know are completely live
 	 * directly into the heap.
 	 */
-	n_htop = collect_live_heap_frags(p, live_hf_end, n_heap, n_htop,
-					 objv, nobj);
+	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
     }
 
     n_htop = full_sweep_heaps(p, 0, n_heap, n_htop, oh, oh_size, objv, nobj);
@@ -2337,9 +2335,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
  */
 
 static Eterm*
-collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end,
-			Eterm* n_hstart, Eterm* n_htop,
-			Eterm* objv, int nobj)
+collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end, Eterm* n_htop)
 {
     ErlHeapFragment* qb;
     char* frag_begin;
