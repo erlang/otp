@@ -246,4 +246,13 @@
 	    _ -> exit(Reason)
 	end).
 
+
+%% dbg help macros
+-define(wr_record(N,BlackList),
+        wr_record(R=#N{}) ->  ssh_dbg:wr_record(R, record_info(fields,N), BlackList)
+        ).
+
+-define(wr_record(N), ?wr_record(N, [])).
+
+
 -endif. % SSH_HRL defined

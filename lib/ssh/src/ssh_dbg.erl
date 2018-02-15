@@ -20,339 +20,110 @@
 
 %%
 
+%%% Purpose:
+%%%  This module implements support for using the Erlang trace in a simple way for ssh
+%%%  debugging.
+%%%
+%%%  Begin the session with ssh_dbg:start(). This will do a dbg:start() if needed and
+%%%  then dbg:p/2 to set some flags.
+%%%
+%%%  Next select trace points to activate: for example plain text printouts of messages
+%%%  sent or received. This is switched on and off with ssh_dbg:on(TracePoint(s)) and
+%%%  ssh_dbg:off(TracePoint(s)).  For example:
+%%%
+%%%      ssh_dbg:on(messages)         -- switch on printing plain text messages
+%%%      ssh_dbg:on([alg,terminate])  -- switch on printing info about algorithm negotiation
+%%%      ssh_dbg:on()                 -- switch on all ssh debugging
+%%%
+%%%  To switch, use the off/0 or off/1 function in the same way, for example:
+%%%
+%%%      ssh_dbg:off(alg)             -- switch off algorithm negotiation tracing, but keep all other
+%%%      ssh_dbg:off()                -- switch off all ssh debugging
+%%%
+%%%  Present the trace result with some other method than the default io:format/2:
+%%%      ssh_dbg:start(fun(Format,Args) ->
+%%%                        my_special( io_lib:format(Format,Args) )
+%%%                    end)
+%%%
+
 -module(ssh_dbg).
 
--export([messages/0, messages/1, messages/2, messages/3,
-	 auth/0,     auth/1,     auth/2,     auth/3,
-	 algs/0,     algs/1,     algs/2,     algs/3,
-	 hostkey/0,  hostkey/1,  hostkey/2,  hostkey/3,
-	 stop/0
+-export([start/0, start/1, 
+         stop/0,
+         start_server/0,
+         start_tracer/0, start_tracer/1,
+         on/1,  on/0,
+         off/1, off/0,
+         go_on/0
 	]).
 
 -export([shrink_bin/1,
-	 wr_record/3]).
+         reduce_state/1,
+         wr_record/3]).
+
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 
+-behaviour(gen_server).
+-define(SERVER, ?MODULE).
+
 %%%================================================================
-messages() -> start(msg).
-messages(F) -> start(msg,F).
-messages(F,X) -> start(msg,F,X).
-messages(F,M,I) -> start(msg,F,M,I).
 
-auth() -> start(auth).
-auth(F) -> start(auth,F).
-auth(F,X) -> start(auth,F,X).
-auth(F,M,I) -> start(auth,F,M,I).
+-define(ALL_DBG_TYPES, get_all_dbg_types()).
 
-algs() -> start(algs).
-algs(F) -> start(algs,F).
-algs(F,X) -> start(algs,F,X).
-algs(F,M,I) -> start(algs,F,M,I).
+start() -> start(fun io:format/2).
 
-hostkey() -> start(hostkey).
-hostkey(F) -> start(hostkey,F).
-hostkey(F,X) -> start(hostkey,F,X).
-hostkey(F,M,I) -> start(hostkey,F,M,I).
+start(IoFmtFun) when is_function(IoFmtFun,2) ; is_function(IoFmtFun,3) ->
+    start_server(),
+    catch dbg:start(),
+    start_tracer(IoFmtFun),
+    dbg:p(all, get_all_trace_flags()),
+    ?ALL_DBG_TYPES.
 
-stop() -> dbg:stop().
-
-%%%----------------------------------------------------------------
-start(Type) -> start(Type, fun io:format/2).
-
-start(Type, F) when is_function(F,2) -> start(Type, fmt_fun(F));
-start(Type, F) when is_function(F,3) -> start(Type, F, id_fun()).
-
-start(Type, WriteFun, MangleArgFun) when is_function(WriteFun, 3),
-                                         is_function(MangleArgFun, 1) ->
-    start(Type, WriteFun, MangleArgFun, []);
-start(Type, WriteFun, InitValue) ->
-    start(Type, WriteFun, id_fun(), InitValue).
-
-start(Type, WriteFun, MangleArgFun, InitValue) when is_function(WriteFun, 3),
-                                                    is_function(MangleArgFun, 1) ->
-    cond_start(Type, WriteFun, MangleArgFun, InitValue),
-    dbg_ssh(Type).
-
-%%%----------------------------------------------------------------
-fmt_fun(F) -> fun(Fmt,Args,Data) -> F(Fmt,Args), Data end.
-
-id_fun() ->  fun(X) -> X end.
-
-%%%----------------------------------------------------------------
-dbg_ssh(What) ->
-    case [E || E <- lists:flatten(dbg_ssh0(What)),
-               element(1,E) =/= ok] of
-        [] -> ok;
-        Other -> Other
-    end.
-            
-
-dbg_ssh0(auth) ->
-    [dbg:tp(ssh_transport,hello_version_msg,1, x),
-     dbg:tp(ssh_transport,handle_hello_version,1, x),
-     dbg:tp(ssh_message,encode,1, x),
-     dbg:tpl(ssh_transport,select_algorithm,4, x),
-     dbg:tpl(ssh_connection_handler,ext_info,2, x),
-     lists:map(fun(F) -> dbg:tp(ssh_auth, F, x) end,
-               [publickey_msg, password_msg, keyboard_interactive_msg])
-    ];
-
-dbg_ssh0(algs) ->
-    [dbg:tpl(ssh_transport,select_algorithm,4, x),
-     dbg:tpl(ssh_connection_handler,ext_info,2, x)
-    ];
-
-dbg_ssh0(hostkey) ->
-    [dbg:tpl(ssh_transport, verify_host_key, 4, x),
-     dbg:tp(ssh_transport, verify, 4, x),
-     dbg:tpl(ssh_transport, known_host_key, 3, x),
-%%     dbg:tpl(ssh_transport, accepted_host, 4, x),
-     dbg:tpl(ssh_transport, add_host_key, 4, x),
-     dbg:tpl(ssh_transport, is_host_key, 5, x)
-    ];
-
-dbg_ssh0(msg) ->
-    [dbg_ssh0(hostkey),
-     dbg_ssh0(auth),
-     dbg:tp(ssh_message,encode,1, x),
-     dbg:tp(ssh_message,decode,1, x),
-     dbg:tpl(ssh_transport,select_algorithm,4, x),
-     dbg:tp(ssh_transport,hello_version_msg,1, x),
-     dbg:tp(ssh_transport,handle_hello_version,1, x),
-     dbg:tpl(ssh_connection_handler,ext_info,2, x)
-    ].
-   
-   
-%%%================================================================
-cond_start(Type, WriteFun, MangleArgFun, Init) ->
+stop() ->
     try
-        dbg:start(),
-        setup_tracer(Type, WriteFun, MangleArgFun, Init),
-        dbg:p(new,[c,timestamp])
+        dbg:stop_clear(),
+        gen_server:stop(?SERVER)
     catch
         _:_ -> ok
     end.
 
+start_server() ->
+    gen_server:start({local,?SERVER}, ?MODULE, [], []).
 
-msg_formater(msg, {trace_ts,Pid,call,{ssh_message,encode,[Msg]},TS}, D) ->
-    fmt("~n~s SEND ~p ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
-msg_formater(msg, {trace_ts,_Pid,return_from,{ssh_message,encode,1},_Res,_TS}, D) -> 
-    D;
-	
-msg_formater(msg, {trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
-    D;
-msg_formater(msg, {trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
-    Extra =
-        case Msg of
-            #ssh_msg_userauth_info_request{data = D0} ->
-                try ssh_message:decode_keyboard_interactive_prompts(D0, [])
-                of
-                    Acc ->
-                        io_lib:format("  -- decoded data:~n", []) ++
-                        element(1,
-                                lists:mapfoldl(
-                                  fun({Prompt,Echo}, N) ->
-                                          {io_lib:format("     prompt[~p]: \"~s\" (echo=~p)~n",[N,Prompt,Echo]), N+1}
-                                  end, 1, Acc))
-                catch
-                    _:_ ->
-                        ""
-                end;
-            _ ->
-                ""
+
+start_tracer() -> start_tracer(fun io:format/2).
+
+start_tracer(WriteFun) when is_function(WriteFun,2) ->
+    start_tracer(fun(F,A,S) -> WriteFun(F,A), S end);
+start_tracer(WriteFun) when is_function(WriteFun,3) ->
+    start_tracer(WriteFun, undefined).
+
+
+start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
+    Handler = 
+        fun(Arg, Acc0) ->
+                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on),
+                                             Arg, WriteFun,
+                                             Acc0)
         end,
-    fmt("~n~s ~p RECV ~s~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg)),Extra], D);
-
-msg_formater(_auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_failure{authentications=As},TS}, D) -> 
-    fmt("~n~s ~p Client login FAILURE. Try ~s~n", [ts(TS),Pid,As], D);
-	
-msg_formater(_auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_success{},TS}, D) -> 
-    fmt("~n~s ~p Client login SUCCESS~n", [ts(TS),Pid], D);
-
-	
-msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,select_algorithm,_},_TS}, D) ->
-    D;
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_transport,select_algorithm,_},{ok,Alg},TS}, D) ->
-    fmt("~n~s ~p ALGORITHMS~n~s~n", [ts(TS),Pid, wr_record(Alg)], D);
-
-msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,hello_version_msg,_},_TS}, D) ->
-    D;
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_transport,hello_version_msg,1},Hello,TS}, D) -> 
-    fmt("~n~s ~p TCP SEND HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
-
-msg_formater(_, {trace_ts,Pid,call,{ssh_transport,handle_hello_version,[Hello]},TS}, D) ->
-    fmt("~n~s ~p RECV HELLO~n  ~p~n", [ts(TS),Pid,lists:flatten(Hello)], D);
-msg_formater(_, {trace_ts,_Pid,return_from,{ssh_transport,handle_hello_version,1},_,_TS}, D) -> 
-    D;
-
-msg_formater(_, {trace_ts,Pid,call,{ssh_connection_handler,ext_info,[{"server-sig-algs",SigAlgs},State]},TS}, D) ->
-    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
-        false ->
-            D;
-        #ssh{userauth_pubkeys = PKs} ->
-            fmt("~n~s ~p Client got suggestion to use user public key sig-algs~n    ~p~n  and can use~n    ~p~n",
-                [ts(TS),Pid,string:tokens(SigAlgs,","),PKs], D)
-    catch
-        _:_ ->
-            D
-    end;
-
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_connection_handler,ext_info,2},State,TS}, D) ->
-    try lists:keyfind(ssh, 1, tuple_to_list(State)) of
-        false ->
-            D;
-        #ssh{userauth_pubkeys = PKs} ->
-            fmt("~n~s ~p Client will try user public key sig-algs~n  ~p~n", [ts(TS),Pid,PKs], D)
-    catch
-        _:_ ->
-            D
-    end;
-
-msg_formater(_, {trace_ts,Pid,call, {ssh_transport,verify_host_key,[_Ssh,_PK,_Dgst,{AlgStr,_Sign}]},TS}, D) ->
-    fmt("~n~s ~p Client got a ~s hostkey. Will try to verify it~n", [ts(TS),Pid,AlgStr], D);
-msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,verify_host_key,4}, Result, TS}, D) ->
-    case Result of
-        ok -> fmt("~n~s ~p Hostkey verified.~n", [ts(TS),Pid], D);
-        {error,E} ->
-              fmt("~n~s ~p ***** Hostkey NOT verified: ~p ******!~n", [ts(TS),Pid,E], D);
-        _  -> fmt("~n~s ~p ***** Hostkey is NOT verified: ~p ******!~n", [ts(TS),Pid,Result], D)
-    end;
-        
-msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,verify,4}, Result, TS}, D) ->
-    case Result of
-        true -> D;
-        _ -> fmt("~n~s ~p Couldn't verify the signature!~n", [ts(TS),Pid], D)
-    end;
-
-msg_formater(_, {trace_ts,_Pid,call, {ssh_transport,is_host_key,_}, _TS}, D) -> D;
-msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,is_host_key,5}, {CbMod,Result}, TS}, D) ->
-    case Result of
-        true -> fmt("~n~s ~p Hostkey found by ~p.~n", [ts(TS),Pid,CbMod], D);
-        _    -> fmt("~n~s ~p Hostkey NOT found by ~p.~n", [ts(TS),Pid,CbMod], D)
-    end;
-
-msg_formater(_, {trace_ts,_Pid,call, {ssh_transport,add_host_key,_}, _TS}, D) -> D;
-msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,add_host_key,4}, {CbMod,Result}, TS}, D) ->
-    case Result of
-        ok -> fmt("~n~s ~p New hostkey added by ~p.~n", [ts(TS),Pid,CbMod], D);
-        _  -> D
-    end;
-
-msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,known_host_key,_},_TS}, D) -> D;
-msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,known_host_key,3}, Result, TS}, D) ->
-    case Result of
-        ok -> D;
-        {error,E} -> fmt("~n~s ~p Hostkey addition failed: ~p~n", [ts(TS),Pid,E], D);
-        _ -> fmt("~n~s ~p Hostkey addition: ~p~n", [ts(TS),Pid,Result], D)
-    end;
-
-msg_formater(_, {trace_ts,Pid,call,{ssh_auth,publickey_msg,[[SigAlg,#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with method: public key algorithm ~p~n", [ts(TS),Pid,User,SigAlg], D);
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't use that kind of public key~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,publickey_msg,1},_,_TS}, D) -> D;
-
-msg_formater(_, {trace_ts,Pid,call,{ssh_auth,password_msg,[[#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with method: password~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,password_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't use method password as login method~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,password_msg,1},_Result,_TS}, D) -> D;
-
-msg_formater(_, {trace_ts,Pid,call,{ssh_auth,keyboard_interactive_msg,[[#ssh{user=User}]]},TS}, D) ->
-     fmt("~n~s ~p Client will try to login user ~p with method: keyboard-interactive~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,keyboard_interactive_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
-     fmt("~s ~p User ~p can't use method keyboard-interactive as login method~n", [ts(TS),Pid,User], D);
-msg_formater(_, {trace_ts,_Pid,return_from,{ssh_auth,keyboard_interactive_msg,1},_Result,_TS}, D) -> D;
-
-msg_formater(msg, {trace_ts,Pid,send,{tcp,Sock,Bytes},Pid,TS}, D) ->
-    fmt("~n~s ~p TCP SEND on ~p~n ~p~n", [ts(TS),Pid,Sock, shrink_bin(Bytes)], D);
-
-msg_formater(msg, {trace_ts,Pid,send,{tcp,Sock,Bytes},Dest,TS}, D) ->
-    fmt("~n~s ~p TCP SEND from ~p TO ~p~n ~p~n", [ts(TS),Pid,Sock,Dest, shrink_bin(Bytes)], D);
-
-msg_formater(msg, {trace_ts,Pid,send,ErlangMsg,Dest,TS}, D) ->
-    fmt("~n~s ~p ERL MSG SEND TO ~p~n ~p~n", [ts(TS),Pid,Dest, shrink_bin(ErlangMsg)], D);
-
-
-msg_formater(msg, {trace_ts,Pid,'receive',{tcp,Sock,Bytes},TS}, D) ->
-    fmt("~n~s ~p TCP RECEIVE on ~p~n ~p~n", [ts(TS),Pid,Sock,shrink_bin(Bytes)], D);
-
-msg_formater(msg, {trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
-    fmt("~n~s ~p ERL MSG RECEIVE~n ~p~n", [ts(TS),Pid,shrink_bin(ErlangMsg)], D);
-
-
-msg_formater(_, _M, D) ->
-    fmt("~nDBG other ~n~p~n", [shrink_bin(_M)], D),
-    D.
+    dbg:tracer(process, {Handler,InitAcc}).
 
 %%%----------------------------------------------------------------
--record(data, {writer,
-               initialized,
-               acc}).
-
-fmt(Fmt, Args,  D=#data{initialized=false}) ->
-    fmt(Fmt, Args,
-        D#data{acc = (D#data.writer)("~s~n", [initial_info()], D#data.acc),
-               initialized = true}
-       );
-fmt(Fmt, Args,  D=#data{writer=Write, acc=Acc}) ->
-    D#data{acc = Write(Fmt,Args,Acc)}.
-
-ts({_,_,Usec}=Now) ->
-    {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
-    io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
-ts(_) ->
-    "-".
-
-setup_tracer(Type, WriteFun, MangleArgFun, Init) ->
-    Handler = fun(Arg, D) ->
-		      msg_formater(Type, MangleArgFun(Arg), D)
-	      end,
-    InitialData = #data{writer = WriteFun,
-                        initialized = false,
-                        acc = Init},
-    {ok,_} = dbg:tracer(process, {Handler, InitialData}),
-    ok.
+on() -> on(?ALL_DBG_TYPES).
+on(Type) -> switch(on, Type).
 
 
-initial_info() ->
-    Lines =
-        [ts(erlang:timestamp()),
-         "",
-         "SSH:"]
-        ++ as_list_of_lines(case application:get_key(ssh,vsn) of
-                                {ok,Vsn} -> Vsn;
-                                _ -> "(ssh not started)"
-                            end)
-        ++ ["",
-            "Cryptolib:"]
-        ++ as_list_of_lines(crypto:info_lib())
-        ++ ["",
-            "Crypto app:"]
-        ++ as_list_of_lines(crypto:supports()),
-    W = max_len(Lines),
-    append_lines([line_of($*, W+4)]
-                 ++ prepend_lines("* ", Lines)
-                 ++ [line_of($-, W+4)],
-                 io_lib:nl()
-               ).
+off() -> off(?ALL_DBG_TYPES). % A bit overkill...
+off(Type) -> switch(off, Type).
     
-    
-as_list_of_lines(Term) ->
-    prepend_lines("  ",
-                  string:tokens(lists:flatten(io_lib:format("~p",[Term])),
-                                io_lib:nl()  % Get line endings in current OS
-                               )
-                 ).
-
-line_of(Char,W) -> lists:duplicate(W,Char).
-max_len(L) -> lists:max([length(S) || S<-L]).
-append_lines(L, X)  -> [S++X || S<-L].
-prepend_lines(X, L) -> [X++S || S<-L].
+go_on() ->
+    IsOn = gen_server:call(?SERVER, get_on),
+    on(IsOn).
 
 %%%----------------------------------------------------------------
 shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
@@ -365,69 +136,198 @@ shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.
 
+%%%----------------------------------------------------------------    
+%% Replace last element (the state) with "#<state-name>{}"
+reduce_state(T) ->
+    try
+        erlang:setelement(size(T), 
+                          T,
+                          lists:concat(['#',element(1,element(size(T),T)),'{}'])
+                         )
+    catch
+        _:_ ->
+            T
+    end.
+
+%%%================================================================
+-record(data, {
+          types_on = []
+         }).
+
 %%%----------------------------------------------------------------
--define(wr_record(N,BlackList), wr_record(R=#N{}) -> wr_record(R, record_info(fields,N), BlackList)).
+init(_) ->
+    {ok, #data{}}.
 
--define(wr_record(N), ?wr_record(N, [])).
+%%%----------------------------------------------------------------
+handle_call({switch,on,Types}, _From, D) ->
+    NowOn = lists:usort(Types ++ D#data.types_on),
+    call_modules(on, Types, NowOn),
+    {reply, {ok,NowOn}, D#data{types_on = NowOn}};
 
+handle_call({switch,off,Types}, _From, D) ->
+    StillOn = D#data.types_on -- Types,
+    call_modules(off, Types, StillOn),
+    call_modules(on, StillOn, StillOn),
+    {reply, {ok,StillOn}, D#data{types_on = StillOn}};
 
-?wr_record(alg);
+handle_call(get_on, _From, D) ->
+    {reply, D#data.types_on, D};
 
-?wr_record(ssh_msg_disconnect);
-?wr_record(ssh_msg_ignore);
-?wr_record(ssh_msg_unimplemented);
-?wr_record(ssh_msg_debug);
-?wr_record(ssh_msg_service_request);
-?wr_record(ssh_msg_service_accept);
-?wr_record(ssh_msg_kexinit);
-?wr_record(ssh_msg_kexdh_init);
-?wr_record(ssh_msg_kexdh_reply);
-?wr_record(ssh_msg_newkeys);
-?wr_record(ssh_msg_ext_info);
-?wr_record(ssh_msg_kex_dh_gex_request);
-?wr_record(ssh_msg_kex_dh_gex_request_old);
-?wr_record(ssh_msg_kex_dh_gex_group);
-?wr_record(ssh_msg_kex_dh_gex_init);
-?wr_record(ssh_msg_kex_dh_gex_reply);
-?wr_record(ssh_msg_kex_ecdh_init);
-?wr_record(ssh_msg_kex_ecdh_reply);
+handle_call(C, _From, D) ->
+    io:format('*** Unknown call: ~p~n',[C]),
+    {reply, {error,{unknown_call,C}}, D}.
+    
 
-?wr_record(ssh_msg_userauth_request);
-?wr_record(ssh_msg_userauth_failure);
-?wr_record(ssh_msg_userauth_success);
-?wr_record(ssh_msg_userauth_banner);
-?wr_record(ssh_msg_userauth_passwd_changereq);
-?wr_record(ssh_msg_userauth_pk_ok);
-?wr_record(ssh_msg_userauth_info_request);
-?wr_record(ssh_msg_userauth_info_response);
-
-?wr_record(ssh_msg_global_request);
-?wr_record(ssh_msg_request_success);
-?wr_record(ssh_msg_request_failure);
-?wr_record(ssh_msg_channel_open);
-?wr_record(ssh_msg_channel_open_confirmation);
-?wr_record(ssh_msg_channel_open_failure);
-?wr_record(ssh_msg_channel_window_adjust);
-?wr_record(ssh_msg_channel_data);
-?wr_record(ssh_msg_channel_extended_data);
-?wr_record(ssh_msg_channel_eof);
-?wr_record(ssh_msg_channel_close);
-?wr_record(ssh_msg_channel_request);
-?wr_record(ssh_msg_channel_success);
-?wr_record(ssh_msg_channel_failure);
-
-wr_record(R) -> io_lib:format('~p~n',[R]).
+handle_cast(C, D) ->
+    io:format('*** Unknown cast: ~p~n',[C]),
+    {noreply, D}.
+    
+handle_info(C, D) ->
+    io:format('*** Unknown info: ~p~n',[C]),
+    {noreply, D}.
 
 
+%%%================================================================
+
+%%%----------------------------------------------------------------
+ssh_modules_with_trace() ->
+    {ok,AllSshModules} = application:get_key(ssh, modules),
+    [M || M <- AllSshModules,
+          lists:member({dbg_trace,3}, M:module_info(exports))].
+
+%%%----------------------------------------------------------------
+get_all_trace_flags() ->
+    get_all_trace_flags(ssh_modules_with_trace()).
+
+get_all_trace_flags(Modules) ->
+    lists:usort(
+      lists:flatten(
+        lists:foldl(
+          fun(Type, Acc) ->
+                  call_modules(flags, Type, undefined, Acc, Modules)
+          end, [timestamp], ?ALL_DBG_TYPES))).
+
+%%%----------------------------------------------------------------
+get_all_dbg_types() ->
+    lists:usort(
+      lists:flatten(
+        call_modules(points, undefined) )).
+
+%%%----------------------------------------------------------------
+call_modules(Cmnd, Type) ->
+    call_modules(Cmnd, Type, undefined).
+
+call_modules(Cmnd, Type, Arg) ->
+    call_modules(Cmnd, Type, Arg, []).
+
+call_modules(Cmnd, Type, Arg, Acc0) ->
+    call_modules(Cmnd, Type, Arg, Acc0, ssh_modules_with_trace()).
+
+call_modules(Cmnd, Types, Arg, Acc0, Modules) when is_list(Types) ->
+    lists:foldl(
+       fun(Type, Acc) ->
+               call_modules(Cmnd, Type, Arg, Acc, Modules)
+       end, Acc0, Types);
+
+call_modules(Cmnd, Type, Arg, Acc0, Modules) ->
+    lists:foldl(
+      fun(Mod, Acc) ->
+              try Mod:dbg_trace(Cmnd, Type, Arg)
+              of
+                  Result -> [Result|Acc]
+              catch
+                  _:_ -> Acc
+              end
+      end, Acc0, Modules).
+
+%%%----------------------------------------------------------------
+switch(X, Type) when is_atom(Type) ->
+    switch(X, [Type]);
+
+switch(X, Types) when is_list(Types) -> 
+    case whereis(?SERVER) of
+        undefined ->
+            start();
+        _ ->
+            ok
+    end,
+    case lists:usort(Types) -- ?ALL_DBG_TYPES of
+        [] ->
+            gen_server:call(?SERVER, {switch,X,Types});
+        L ->
+            {error, {unknown, L}}
+    end.
+
+%%%----------------------------------------------------------------
+%%% Format of trace messages are described in reference manual for erlang:trace/4
+%%%   {call,MFA}
+%%%   {return_from,{M,F,N},Result}
+%%%   {send,Msg,To}
+%%%   {'receive',Msg}
+
+trace_pid({trace,Pid,_}) -> Pid;
+trace_pid({trace,Pid,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_,_,_}) -> Pid;
+trace_pid({trace_ts,Pid,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_,_,_TS}) -> Pid.
+
+trace_ts({trace_ts,_Pid,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,_,_,TS}) -> ts(TS);
+trace_ts(_) -> "-".
+
+trace_info({trace,_Pid,A}) -> A;
+trace_info({trace,_Pid,A,B}) -> {A,B};
+trace_info({trace,_Pid,A,B,C}) -> {A,B,C};
+trace_info({trace,_Pid,A,B,C,D}) -> {A,B,C,D};
+trace_info({trace,_Pid,A,B,C,D,E}) -> {A,B,C,D,E};
+trace_info({trace_ts,_Pid,A,_TS}) -> A;
+trace_info({trace_ts,_Pid,A,B,_TS}) -> {A,B};
+trace_info({trace_ts,_Pid,A,B,C,_TS}) -> {A,B,C};
+trace_info({trace_ts,_Pid,A,B,C,D,_TS}) -> {A,B,C,D};
+trace_info({trace_ts,_Pid,A,B,C,D,E,_TS}) -> {A,B,C,D,E}.
+
+
+try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
+    SshModules = ssh_modules_with_trace(),
+    TS = trace_ts(Arg),
+    PID = trace_pid(Arg),
+    INFO = trace_info(Arg),
+    lists:foldl(
+      fun(Type, Acc1) ->
+              lists:foldl(
+                fun(SshMod,Acc) ->
+                        try WriteFun("~n~s ~p ~s~n", 
+                                     [lists:flatten(TS), PID, lists:flatten(SshMod:dbg_trace(format,Type,INFO))],
+                                     Acc)
+                        catch
+                            _:_ -> Acc
+                        end
+                end, Acc1, SshModules)
+      end, Acc0, TypesOn).
+
+%%%----------------------------------------------------------------
 wr_record(T, Fs, BL) when is_tuple(T) ->
     wr_record(tuple_to_list(T), Fs, BL);
-wr_record([Name|Values], Fields, BlackL) ->
+wr_record([_Name|Values], Fields, BlackL) ->
     W = case Fields of
 	    [] -> 0;
 	    _ -> lists:max([length(atom_to_list(F)) || F<-Fields])
 	end,
-    [io_lib:format("~p:~n",[string:to_upper(atom_to_list(Name))])
-     | [io_lib:format("  ~*p: ~p~n",[W,Tag,Value]) || {Tag,Value} <- lists:zip(Fields,Values),
-						      not lists:member(Tag,BlackL)
-       ]
+    [io_lib:format("  ~*p: ~p~n",[W,Tag,Value]) || {Tag,Value} <- lists:zip(Fields,Values),
+                                                   not lists:member(Tag,BlackL)
     ].
+
+%%%----------------------------------------------------------------
+ts({_,_,Usec}=Now) when is_integer(Usec) ->
+    {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
+    io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
+ts(_) ->
+    "-".
