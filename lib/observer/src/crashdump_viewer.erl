@@ -1222,6 +1222,18 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"OldHeap unused" ->
 	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_unused=Bytes},WS);
+	"BinVHeap" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap=Bytes},WS);
+	"OldBinVHeap" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap=Bytes},WS);
+	"BinVHeap unused" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap_unused=Bytes},WS);
+	"OldBinVHeap unused" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap_unused=Bytes},WS);
 	"New heap start" ->
 	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
 	"New heap top" ->
