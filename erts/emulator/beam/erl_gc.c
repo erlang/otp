@@ -116,6 +116,7 @@ typedef struct {
 static Uint setup_rootset(Process*, Eterm*, int, Rootset*);
 static void cleanup_rootset(Rootset *rootset);
 static Eterm *full_sweep_heaps(Process *p,
+                               ErlHeapFragment *live_hf_end,
 			       int hibernate,
 			       Eterm *n_heap, Eterm* n_htop,
 			       char *oh, Uint oh_size,
@@ -939,6 +940,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     htop = heap;
 
     htop = full_sweep_heaps(p,
+                            ERTS_INVALID_HFRAG_PTR,
 			    1,
 			    heap,
 			    htop,
@@ -1503,6 +1505,14 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
 
+    n = setup_rootset(p, objv, nobj, &rootset);
+    roots = rootset.roots;
+
+    /*
+     * All allocations done. Start defile heap with move markers.
+     * A crash dump due to allocation failure above will see a healthy heap.
+     */
+
     if (live_hf_end != ERTS_INVALID_HFRAG_PTR) {
 	/*
 	 * Move heap frags that we know are completely live
@@ -1510,9 +1520,6 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 	 */
 	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
     }
-
-    n = setup_rootset(p, objv, nobj, &rootset);
-    roots = rootset.roots;
 
     GENSWEEP_NSTACK(p, old_htop, n_htop);
     while (n--) {
@@ -1756,15 +1763,8 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
 
-    if (live_hf_end != ERTS_INVALID_HFRAG_PTR) {
-	/*
-	 * Move heap frags that we know are completely live
-	 * directly into the heap.
-	 */
-	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
-    }
-
-    n_htop = full_sweep_heaps(p, 0, n_heap, n_htop, oh, oh_size, objv, nobj);
+    n_htop = full_sweep_heaps(p, live_hf_end, 0, n_heap, n_htop, oh, oh_size,
+                              objv, nobj);
 
     /* Move the stack to the end of the heap */
     stk_sz = HEAP_END(p) - p->stop;
@@ -1811,6 +1811,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
 static Eterm *
 full_sweep_heaps(Process *p,
+                 ErlHeapFragment *live_hf_end,
 		 int hibernate,
 		 Eterm *n_heap, Eterm* n_htop,
 		 char *oh, Uint oh_size,
@@ -1826,6 +1827,19 @@ full_sweep_heaps(Process *p,
      */
 
     n = setup_rootset(p, objv, nobj, &rootset);
+
+    /*
+     * All allocations done. Start defile heap with move markers.
+     * A crash dump due to allocation failure above will see a healthy heap.
+     */
+
+    if (live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        /*
+         * Move heap frags that we know are completely live
+         * directly into the heap.
+         */
+        n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
+    }
 
 #ifdef HIPE
     if (hibernate)

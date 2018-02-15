@@ -78,8 +78,17 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	    if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_GC)))
-		dump_process_info(to, to_arg, p);
+	    if (state & ERTS_PSFLG_EXITING)
+                continue;
+            if (state & ERTS_PSFLG_GC) {
+                ErtsSchedulerData *sdp = erts_get_scheduler_data();
+                if (!sdp || p != sdp->current_process)
+                    continue;
+
+                /* We want to dump the garbing process that caused the dump */
+            }
+
+            dump_process_info(to, to_arg, p);
        }
     }
 
