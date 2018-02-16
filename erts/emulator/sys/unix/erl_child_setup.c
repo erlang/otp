@@ -437,6 +437,21 @@ main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Ignore SIGTERM.
+       Some container environments send SIGTERM to all processes
+       when terminating. We don't want erl_child_setup to terminate
+       in these cases as that will prevent beam from properly
+       cleaning up.
+    */
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+
     forker_hash_init();
 
     SET_CLOEXEC(uds_fd);
