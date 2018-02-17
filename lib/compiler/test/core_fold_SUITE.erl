@@ -278,6 +278,8 @@ coverage(Config) when is_list(Config) ->
     a = cover_remove_non_vars_alias({a,b,c}),
     error = cover_will_match_lit_list(),
     {ok,[a]} = cover_is_safe_bool_expr(a),
+    false = cover_is_safe_bool_expr2(a),
+    ok = cover_eval_is_function(fun id/1),
 
     ok = cover_opt_guard_try(#cover_opt_guard_try{list=[a]}),
     error = cover_opt_guard_try(#cover_opt_guard_try{list=[]}),
@@ -341,12 +343,27 @@ cover_is_safe_bool_expr(X) ->
 	    false
     end.
 
+cover_is_safe_bool_expr2(X) ->
+    try
+	V = [X],
+    is_function(V, 1)
+    catch
+	_:_ ->
+	    false
+    end.
+
 cover_opt_guard_try(Msg) ->
     if
 	length(Msg#cover_opt_guard_try.list) =/= 1 ->
 	    error;
 	true ->
 	    ok
+    end.
+
+cover_eval_is_function(X) ->
+    case X of
+        {a,_} -> is_function(X);
+        _ -> ok
     end.
 
 bsm_an_inlined(<<_:8>>, _) -> ok;
