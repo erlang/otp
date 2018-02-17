@@ -24,8 +24,9 @@
 
 %% Currently inlined BIFs:
 %% and, or, xor, not, <, >, >=, =<, ==, /=, =/=, =:=
-%% is_atom, is_boolean, is_binary, is_float, is_function,
-%% is_integer, is_list, is_pid, is_port, is_reference, is_tuple
+%% is_atom, is_boolean, is_binary, is_bitstring, is_float,
+%% is_integer, is_number, is_function, is_list,
+%% is_pid, is_port, is_reference, is_tuple, is_map
 
 -module(hipe_icode_inline_bifs).
 
@@ -118,15 +119,18 @@ is_type_test(Name) ->
   case Name of
     is_integer -> {true, integer};
     is_float -> {true, float};
+    is_number -> {true, number};
     is_tuple -> {true, tuple};
-    is_binary -> {true, binary};	       
+    is_binary -> {true, binary};
+    is_bitsting -> {true, bitstr};
     is_list -> {true, list};
     is_pid -> {true, pid};
     is_atom -> {true, atom};
     is_boolean -> {true, boolean};
-    is_function -> {true, function};	       
+    is_function -> {true, function};
     is_reference -> {true, reference};
     is_port -> {true, port};
+    is_map -> {true, map};
     _ -> false
   end.
  
