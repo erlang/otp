@@ -531,17 +531,19 @@ compute_md5_from_files(Files) ->
   lists:keysort(1, [{F, compute_md5_from_file(F)} || F <- Files]).
 
 compute_md5_from_file(File) ->
-  case filelib:is_regular(File) of
-    false ->
+  case beam_lib:all_chunks(File) of
+    {ok, _, Chunks} ->
+      %% We cannot use beam_lib:md5 because it does not consider
+      %% the debug_info chunk, where typespecs are likely stored.
+      %% So we consider almost all chunks except the useless ones.
+      Filtered = [[ID, Chunk] || {ID, Chunk} <- Chunks, ID =/= "CInf", ID =/= "Docs"],
+      erlang:md5(lists:sort(Filtered));
+    {error, beam_lib, {file_error, _, enoent}} ->
       Msg = io_lib:format("Not a regular file: ~ts\n", [File]),
       throw({dialyzer_error, Msg});
-    true ->
-      case dialyzer_utils:get_core_from_beam(File) of
-	{error, Error} ->
-	  throw({dialyzer_error, Error});
-	{ok, Core} ->
-	  erlang:md5(term_to_binary(Core))
-      end
+    {error, beam_lib, _} ->
+      Msg = io_lib:format("Could not compute MD5 for .beam: ~ts\n", [File]),
+      throw({dialyzer_error, Msg})
   end.
 
 init_diff_list(RemoveFiles, AddFiles) ->
