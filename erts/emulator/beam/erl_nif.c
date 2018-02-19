@@ -3431,6 +3431,7 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
      * and reference that instead. */
 
     if (result->ref_bin == NULL || bit_offset != 0) {
+        ASSERT(copy_buffer->ref_bin != NULL && copy_buffer->data != NULL);
         ASSERT(result->size <= (copy_buffer->size - *copy_offset));
 
         if (bit_offset == 0) {
@@ -3452,8 +3453,8 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
 static int fill_iovec_with_slice(ErlNifEnv *env,
                                  iovec_slice_t *slice,
                                  ErlNifIOVec *iovec) {
+    ErlNifBinary copy_buffer = {0};
     UWord copy_offset, iovec_idx;
-    ErlNifBinary copy_buffer;
     Eterm sublist_iterator;
 
     /* Set up a common refc binary for all on-heap and unaligned binaries. */
@@ -3461,11 +3462,8 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         if (!enif_alloc_binary(slice->copied_size, &copy_buffer)) {
             return 0;
         }
-    } else {
-#ifdef DEBUG
-        copy_buffer.data = NULL;
-        copy_buffer.size = 0;
-#endif
+
+        ASSERT(copy_buffer.ref_bin != NULL);
     }
 
     sublist_iterator = slice->sublist_start;
@@ -3515,9 +3513,11 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         }
     } else {
         if (slice->copied_size > 0) {
-            /* Attach the binary to our environment and let the GC take care of
-             * it after returning. */
-            enif_make_binary(env, &copy_buffer);
+            /* Attach the binary to our environment and let the next minor GC
+             * get rid of it. This is slightly faster than using the tmp object
+             * list since it avoids off-heap allocations. */
+            erts_build_proc_bin(&MSO(env->proc),
+                alloc_heap(env, PROC_BIN_SIZE), copy_buffer.ref_bin);
         }
     }
 
