@@ -1057,9 +1057,7 @@ install_alg(Dir, SSH) ->
 
 alg_setup(snd, SSH) ->
     ALG = SSH#ssh.algorithms,
-    SSH#ssh{kex = ALG#alg.kex,
-	    hkey = ALG#alg.hkey,
-	    encrypt = ALG#alg.encrypt,
+    SSH#ssh{encrypt = ALG#alg.encrypt,
 	    send_mac = ALG#alg.send_mac,
 	    send_mac_size = mac_digest_size(ALG#alg.send_mac),
 	    compress = ALG#alg.compress,
@@ -1071,9 +1069,7 @@ alg_setup(snd, SSH) ->
 
 alg_setup(rcv, SSH) ->
     ALG = SSH#ssh.algorithms,
-    SSH#ssh{kex = ALG#alg.kex,
-	    hkey = ALG#alg.hkey,
-	    decrypt = ALG#alg.decrypt,
+    SSH#ssh{decrypt = ALG#alg.decrypt,
 	    recv_mac = ALG#alg.recv_mac,
 	    recv_mac_size = mac_digest_size(ALG#alg.recv_mac),
 	    decompress = ALG#alg.decompress,
@@ -1810,7 +1806,7 @@ mac('hmac-sha2-512', Key, SeqNum, Data) ->
 hash(_SSH, _Char, 0) ->
     <<>>;
 hash(SSH, Char, N) ->
-    HashAlg = sha(SSH#ssh.kex),
+    HashAlg = sha(SSH#ssh.algorithms#alg.kex),
     K = SSH#ssh.shared_secret,
     H = SSH#ssh.exchanged_hash,
     K1 = crypto:hash(HashAlg, [K, H, Char,  SSH#ssh.session_id]),

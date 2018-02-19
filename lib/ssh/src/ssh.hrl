@@ -151,8 +151,6 @@
 
 	  algorithms,   %% #alg{}
 	  
-	  kex,          %% key exchange algorithm
-	  hkey,         %% host key algorithm
 	  key_cb,       %% Private/Public key callback module
 	  io_cb,        %% Interaction callback module
 
