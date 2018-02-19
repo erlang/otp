@@ -488,6 +488,7 @@ static void cache_env(ErlNifEnv* env)
 	env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
     }
 }
+
 void* enif_priv_data(ErlNifEnv* env)
 {
     return env->mod_nif->priv_data;
@@ -1334,9 +1335,36 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
     if (bin->ref_bin != NULL) {
         Binary* binary = bin->ref_bin;
 
-        bin_term = erts_build_proc_bin(&MSO(env->proc),
-                                       alloc_heap(env, PROC_BIN_SIZE),
-                                       binary);
+        /* If the binary is smaller than the heap binary limit we'll return a
+         * heap binary to reduce the number of small refc binaries in the
+         * system. We can't simply release the refc binary right away however;
+         * the documentation states that the binary should be considered
+         * read-only from this point on, which implies that it should still be
+         * readable.
+         *
+         * We could keep it alive until we return by adding it to the temporary
+         * object list, but that requires an off-heap allocation which is
+         * potentially quite slow, so we create a dummy ProcBin instead and
+         * rely on the next minor GC to get rid of it. */
+        if (bin->size <= ERL_ONHEAP_BIN_LIMIT) {
+            ErlHeapBin* hb;
+
+            hb = (ErlHeapBin*)alloc_heap(env, heap_bin_size(bin->size));
+            hb->thing_word = header_heap_bin(bin->size);
+            hb->size = bin->size;
+
+            sys_memcpy(hb->data, bin->data, bin->size);
+
+            erts_build_proc_bin(&MSO(env->proc),
+                                alloc_heap(env, PROC_BIN_SIZE),
+                                binary);
+
+            bin_term = make_binary(hb);
+        } else {
+            bin_term = erts_build_proc_bin(&MSO(env->proc),
+                                           alloc_heap(env, PROC_BIN_SIZE),
+                                           binary);
+        }
 
         /* Our (possibly shared) ownership has been transferred to the term. */
         bin->ref_bin = NULL;
