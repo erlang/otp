@@ -3396,8 +3396,8 @@ typedef struct {
     Eterm sublist_start;
     Eterm sublist_end;
 
-    UWord offheap_size;
-    UWord onheap_size;
+    UWord referenced_size;
+    UWord copied_size;
 
     UWord iovec_len;
 } iovec_slice_t;
@@ -3407,16 +3407,16 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
 
     result->sublist_start = list;
     result->sublist_length = 0;
-    result->offheap_size = 0;
-    result->onheap_size = 0;
+    result->referenced_size = 0;
+    result->copied_size = 0;
     result->iovec_len = 0;
 
     lookahead = result->sublist_start;
 
     while (is_list(lookahead)) {
-        Eterm *binary_header, binary;
+        UWord byte_size;
+        Eterm binary;
         Eterm *cell;
-        UWord size;
 
         cell = list_val(lookahead);
         binary = CAR(cell);
@@ -3425,35 +3425,36 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
             return 0;
         }
 
-        size = binary_size(binary);
-        binary_header = binary_val(binary);
+        byte_size = binary_size(binary);
 
-        if (size > 0) {
-            /* If we're a sub-binary we'll need to check our underlying binary
-             * to determine whether we're on-heap or not. */
-            if (thing_subtag(*binary_header) == SUB_BINARY_SUBTAG) {
-                ErlSubBin *sb = (ErlSubBin*)binary_header;
+        if (byte_size > 0) {
+            int bit_offset, bit_size;
+            Eterm parent_binary;
+            UWord byte_offset;
 
-                /* Reject bitstrings */
-                if((sb->bitoffs + sb->bitsize) > 0) {
-                    return 0;
-                }
+            int requires_copying;
 
-                ASSERT(size <= binary_size(sb->orig));
-                binary_header = binary_val(sb->orig);
+            ERTS_GET_REAL_BIN(binary, parent_binary, byte_offset,
+                bit_offset, bit_size);
+
+            (void)byte_offset;
+
+            if (bit_size != 0) {
+                return 0;
             }
 
-            if (thing_subtag(*binary_header) == HEAP_BINARY_SUBTAG) {
-                ASSERT(size <= ERL_ONHEAP_BIN_LIMIT);
+            /* If we're unaligned or an on-heap binary we'll need to copy
+             * ourselves over to a temporary buffer. */
+            requires_copying = (bit_offset != 0) ||
+                thing_subtag(*binary_val(parent_binary)) == HEAP_BINARY_SUBTAG;
 
-                result->iovec_len += 1;
-                result->onheap_size += size;
+            if (requires_copying) {
+                result->copied_size += byte_size;
             } else {
-                ASSERT(thing_subtag(*binary_header) == REFC_BINARY_SUBTAG);
-
-                result->iovec_len += 1 + size / MAX_SYSIOVEC_IOVLEN;
-                result->offheap_size += size;
+                result->referenced_size += byte_size;
             }
+
+            result->iovec_len += 1 + byte_size / MAX_SYSIOVEC_IOVLEN;
         }
 
         result->sublist_length += 1;
@@ -3473,7 +3474,9 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
     return 1;
 }
 
-static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
+static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
+        UWord *copy_offset, ErlNifBinary *result) {
+
     Eterm *parent_header;
     Eterm parent_binary;
 
@@ -3483,6 +3486,8 @@ static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
     ASSERT(is_binary(binary));
 
     ERTS_GET_REAL_BIN(binary, parent_binary, byte_offset, bit_offset, bit_size);
+
+    ASSERT(bit_size == 0);
 
     parent_header = binary_val(parent_binary);
 
@@ -3510,24 +3515,50 @@ static void inspect_raw_binary_data(Eterm binary, ErlNifBinary *result) {
         result->data = &((unsigned char*)&hb->data)[byte_offset];
         result->ref_bin = NULL;
     }
+
+    /* If this isn't an *aligned* refc binary, copy its contents to the buffer
+     * and reference that instead. */
+
+    if (result->ref_bin == NULL || bit_offset != 0) {
+        ASSERT(result->size <= (copy_buffer->size - *copy_offset));
+
+        if (bit_offset == 0) {
+            sys_memcpy(&copy_buffer->data[*copy_offset],
+                result->data, result->size);
+        } else {
+            erts_copy_bits(result->data, bit_offset, 1,
+                (byte*)&copy_buffer->data[*copy_offset], 0, 1,
+                result->size * 8);
+        }
+
+        result->data = &copy_buffer->data[*copy_offset];
+        result->ref_bin = copy_buffer->ref_bin;
+
+        *copy_offset += result->size;
+    }
 }
 
 static int fill_iovec_with_slice(ErlNifEnv *env,
                                  iovec_slice_t *slice,
                                  ErlNifIOVec *iovec) {
-    UWord onheap_offset, iovec_idx;
-    ErlNifBinary onheap_data;
+    UWord copy_offset, iovec_idx;
+    ErlNifBinary copy_buffer;
     Eterm sublist_iterator;
 
-    /* Set up a common refc binary for all on-heap binaries. */
-    if (slice->onheap_size > 0) {
-        if (!enif_alloc_binary(slice->onheap_size, &onheap_data)) {
+    /* Set up a common refc binary for all on-heap and unaligned binaries. */
+    if (slice->copied_size > 0) {
+        if (!enif_alloc_binary(slice->copied_size, &copy_buffer)) {
             return 0;
         }
+    } else {
+#ifdef DEBUG
+        copy_buffer.data = NULL;
+        copy_buffer.size = 0;
+#endif
     }
 
     sublist_iterator = slice->sublist_start;
-    onheap_offset = 0;
+    copy_offset = 0;
     iovec_idx = 0;
 
     while (sublist_iterator != slice->sublist_end) {
@@ -3535,20 +3566,7 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         Eterm *cell;
 
         cell = list_val(sublist_iterator);
-        inspect_raw_binary_data(CAR(cell), &raw_data);
-
-        /* If this isn't a refc binary, copy its contents to the onheap buffer
-         * and reference that instead. */
-        if (raw_data.size > 0 && raw_data.ref_bin == NULL) {
-            ASSERT(onheap_offset < onheap_data.size);
-            ASSERT(slice->onheap_size > 0);
-
-            sys_memcpy(&onheap_data.data[onheap_offset],
-                       raw_data.data, raw_data.size);
-
-            raw_data.data = &onheap_data.data[onheap_offset];
-            raw_data.ref_bin = onheap_data.ref_bin;
-        }
+        marshal_iovec_binary(CAR(cell), &copy_buffer, &copy_offset, &raw_data);
 
         while (raw_data.size > 0) {
             UWord chunk_len = MIN(raw_data.size, MAX_SYSIOVEC_IOVLEN);
@@ -3579,16 +3597,16 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
             erts_refc_inc(&refc_binary->intern.refc, 1);
         }
 
-        if (slice->onheap_size > 0) {
+        if (slice->copied_size > 0) {
             /* Transfer ownership to the iovec; we've taken references to it in
              * the above loop. */
-            enif_release_binary(&onheap_data);
+            enif_release_binary(&copy_buffer);
         }
     } else {
-        if (slice->onheap_size > 0) {
+        if (slice->copied_size > 0) {
             /* Attach the binary to our environment and let the GC take care of
              * it after returning. */
-            enif_make_binary(env, &onheap_data);
+            enif_make_binary(env, &copy_buffer);
         }
     }
 
@@ -3635,7 +3653,7 @@ static int create_iovec_from_slice(ErlNifEnv *env,
         iovec->flags = 0;
     }
 
-    iovec->size = slice->offheap_size + slice->onheap_size;
+    iovec->size = slice->referenced_size + slice->copied_size;
     iovec->iovcnt = slice->iovec_len;
 
     if(!fill_iovec_with_slice(env, slice, iovec)) {

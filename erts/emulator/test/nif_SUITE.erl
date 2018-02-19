@@ -2983,8 +2983,24 @@ nif_ioq(Config) ->
          {enqv,   a, 5, iolist_size(nif_ioq_payload(5)) - 1},
          {peek,   a},
 
-         %% Test to enqueue a bunch of refc binaries
+         %% Ensure that enqueued refc binaries are intact after a roundtrip.
+         %%
+         %% This test and the ones immediately following it does not go through
+         %% erlang:iolist_to_iovec/1
          {enqv,   a, [nif_ioq_payload(refcbin) || _ <- lists:seq(1,20)], 0},
+         {peek,   a},
+
+         %% ... heap binaries
+         {enqv,   a, [nif_ioq_payload(heapbin) || _ <- lists:seq(1,20)], 0},
+         {peek,   a},
+
+         %% ... plain sub-binaries
+         {enqv,   a, [nif_ioq_payload(subbin) || _ <- lists:seq(1,20)], 0},
+         {peek,   a},
+
+         %% ... unaligned binaries
+         {enqv,   a, [nif_ioq_payload(unaligned_bin) || _ <- lists:seq(1,20)], 0},
+         {peek,   a},
 
          %% Enq stuff to destroy with data in queue
          {enqv,   a, 2, 100},
@@ -3120,19 +3136,29 @@ nif_ioq_payload(N) when is_integer(N) ->
     Tail = if N > 3 -> nif_ioq_payload(N-3); true -> [] end,
     Head = element(1, lists:split(N,[nif_ioq_payload(subbin),
                                      nif_ioq_payload(heapbin),
-                                     nif_ioq_payload(refcbin) | Tail])),
+                                     nif_ioq_payload(refcbin),
+                                     nif_ioq_payload(unaligned_bin) | Tail])),
     erlang:iolist_to_iovec(Head);
 nif_ioq_payload(subbin) ->
     Bin = nif_ioq_payload(refcbin),
     Sz = size(Bin) - 1,
     <<_:8,SubBin:Sz/binary,_/bits>> = Bin,
     SubBin;
+nif_ioq_payload(unaligned_bin) ->
+    make_unaligned_binary(<< <<I>> || I <- lists:seq(1, 255) >>);
 nif_ioq_payload(heapbin) ->
     <<"a literal heap binary">>;
 nif_ioq_payload(refcbin) ->
     iolist_to_binary([lists:seq(1,255) || _ <- lists:seq(1,255)]);
 nif_ioq_payload(Else) ->
     Else.
+
+make_unaligned_binary(Bin0) ->
+    Size = byte_size(Bin0),
+    <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
+    Bin.
+
+id(I) -> I.
 
 %% The NIFs:
 lib_version() -> undefined.
