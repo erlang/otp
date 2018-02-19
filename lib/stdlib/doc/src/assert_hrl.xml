@@ -93,7 +93,7 @@ erlc -DNOASSERT=true *.erl</code>
     <taglist>
       <tag><c>assert(BoolExpr)</c></tag>
       <item></item>
-      <tag><c>URKAassert(BoolExpr, Comment)</c></tag>
+      <tag><c>assert(BoolExpr, Comment)</c></tag>
       <item>
         <p>Tests that <c>BoolExpr</c> completes normally returning
           <c>true</c>.</p>
