@@ -1095,7 +1095,6 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	u.tmp->dtor = &aligned_binary_dtor;
 	env->tmp_obj_list = u.tmp;
     }
-    bin->bin_term = bin_term;
     bin->size = binary_size(bin_term);
     bin->ref_bin = NULL;
     ADD_READONLY_CHECK(env, bin->data, bin->size);
@@ -1111,7 +1110,6 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     if (is_nil(term)) {
 	bin->data = (unsigned char*) &bin->data; /* dummy non-NULL */
 	bin->size = 0;
-	bin->bin_term = THE_NON_VALUE;
 	bin->ref_bin = NULL;
 	return 1;
     }
@@ -1121,7 +1119,6 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 
     bin->data = alloc_tmp_obj(env, sz, &tmp_alloc_dtor);
     bin->size = sz;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
     erts_iolist_to_buf(term, (char*) bin->data, sz);
     ADD_READONLY_CHECK(env, bin->data, bin->size); 
@@ -1139,7 +1136,6 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = refbin;
     return 1;
 }
@@ -1173,12 +1169,10 @@ void enif_release_binary(ErlNifBinary* bin)
 {
     if (bin->ref_bin != NULL) {
 	Binary* refbin = bin->ref_bin;
-	ASSERT(bin->bin_term == THE_NON_VALUE);
         erts_bin_release(refbin);
     }
 #ifdef DEBUG
     bin->data = NULL;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
 #endif
 }
@@ -1335,29 +1329,24 @@ int enif_get_string(ErlNifEnv *env, ERL_NIF_TERM list, char* buf, unsigned len,
 
 Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 {
-    if (bin->bin_term != THE_NON_VALUE) {
-	return bin->bin_term;
-    }
-    else if (bin->ref_bin != NULL) {
-	Binary* bptr = bin->ref_bin;
-	Eterm bin_term;
-	
+    Eterm bin_term;
+
+    if (bin->ref_bin != NULL) {
+        Binary* binary = bin->ref_bin;
+
         bin_term = erts_build_proc_bin(&MSO(env->proc),
                                        alloc_heap(env, PROC_BIN_SIZE),
-                                       bptr);
-	if (erts_refc_read(&bptr->intern.refc, 1) == 1) {
-	    /* Total ownership transfer */
-	    bin->ref_bin = NULL;
-	    bin->bin_term = bin_term;
-	}
-	return bin_term;
+                                       binary);
+
+        /* Our (possibly shared) ownership has been transferred to the term. */
+        bin->ref_bin = NULL;
+    } else {
+        flush_env(env);
+        bin_term = new_binary(env->proc, bin->data, bin->size);
+        cache_env(env);
     }
-    else {
-	flush_env(env);
-	bin->bin_term = new_binary(env->proc, bin->data, bin->size);
-	cache_env(env);
-	return bin->bin_term;
-    }
+
+    return bin_term;
 }
 
 Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
@@ -3403,7 +3392,6 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
     parent_header = binary_val(parent_binary);
 
     result->size = binary_size(binary);
-    result->bin_term = binary;
 
     if (thing_subtag(*parent_header) == REFC_BINARY_SUBTAG) {
         ProcBin *pb = (ProcBin*)parent_header;
