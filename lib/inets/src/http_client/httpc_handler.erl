@@ -711,9 +711,9 @@ do_handle_info({'EXIT', _, _}, State = #state{request = undefined}) ->
 %% can retry requests in the pipeline.
 do_handle_info({'EXIT', _, _}, State) ->
     {noreply, State#state{status = close}}.
-    
+
 call(Msg, Pid) ->
-    try gen_server:call(Pid, Msg)
+    try gen_server:call(Pid, Msg, infinity)
     catch
  	exit:{noproc, _} ->
  	    {error, closed};
