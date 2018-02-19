@@ -25,7 +25,8 @@
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,
          mixed_lists/1, improper_lists/1, illegal_lists/1, cons_bomb/1,
          sub_binary_lists/1, iolist_to_iovec_idempotence/1,
-         iolist_to_iovec_correctness/1]).
+         iolist_to_iovec_correctness/1, unaligned_sub_binaries/1,
+         direct_binary_arg/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +37,8 @@ suite() ->
 all() ->
     [integer_lists, binary_lists, empty_lists, empty_binary_lists, mixed_lists,
      sub_binary_lists, illegal_lists, improper_lists, cons_bomb,
-     iolist_to_iovec_idempotence, iolist_to_iovec_correctness].
+     iolist_to_iovec_idempotence, iolist_to_iovec_correctness,
+     unaligned_sub_binaries, direct_binary_arg].
 
 init_per_suite(Config) ->
     Config.
@@ -78,7 +80,7 @@ illegal_lists(Config) when is_list(Config) ->
     BitStrs = gen_variations(["gurka", <<1:1>>, "gaffel"]),
     BadInts = gen_variations(["gurka", 890, "gaffel"]),
     Atoms = gen_variations([gurka, "gaffel"]),
-    BadTails = [["test" | 0], ["gurka", gaffel]],
+    BadTails = [["test" | 0], ["gurka" | gaffel], ["gaffel" | <<1:1>>]],
 
     Variations =
         BitStrs ++ BadInts ++ Atoms ++ BadTails,
@@ -98,14 +100,7 @@ cons_bomb(Config) when is_list(Config) ->
     BinBase = gen_variations([<<I:8>> || I <- lists:seq(1, 255)]),
     MixBase = gen_variations([<<12, 45, 78>>, lists:seq(1, 255)]),
 
-    Rounds =
-        case system_mem_size() of
-            Mem when Mem >= (16 bsl 30) -> 32;
-            Mem when Mem >= (3 bsl 30) -> 28;
-            _ -> 20
-        end,
-
-    Variations = gen_variations([IntBase, BinBase, MixBase], Rounds),
+    Variations = gen_variations([IntBase, BinBase, MixBase], 16),
     equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 iolist_to_iovec_idempotence(Config) when is_list(Config) ->
@@ -130,6 +125,21 @@ iolist_to_iovec_correctness(Config) when is_list(Config) ->
     true = is_iolist_equal(Optimized, Variations),
     ok.
 
+unaligned_sub_binaries(Config) when is_list(Config) ->
+    UnalignedBins = [gen_unaligned_binary(I) || I <- lists:seq(32, 4 bsl 10, 512)],
+    UnalignedVariations = gen_variations(UnalignedBins),
+
+    Optimized = erlang:iolist_to_iovec(UnalignedVariations),
+
+    true = is_iolist_equal(Optimized, UnalignedVariations),
+    ok.
+
+direct_binary_arg(Config) when is_list(Config) ->
+    {'EXIT',{badarg, _}} = (catch erlang:iolist_to_iovec(<<1:1>>)),
+    [<<1>>] = erlang:iolist_to_iovec(<<1>>),
+    [] = erlang:iolist_to_iovec(<<>>),
+    ok.
+
 illegality_test(Fun, Variations) ->
     [{'EXIT',{badarg, _}} = (catch Fun(Variation)) || Variation <- Variations],
     ok.
@@ -145,11 +155,18 @@ equivalence_test(Fun, [Head | _] = Variations) ->
 is_iolist_equal(A, B) ->
     iolist_to_binary(A) =:= iolist_to_binary(B).
 
+gen_unaligned_binary(Size) ->
+    Bin0 = << <<I>> || I <- lists:seq(1, Size) >>,
+    <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
+    Bin.
+
+id(I) -> I.
+
 %% Generates a bunch of lists whose contents will be equal to Base repeated a
 %% few times. The lists only differ by their structure, so their reduction to
 %% a simpler format should yield the same result.
 gen_variations(Base) ->
-    gen_variations(Base, 16).
+    gen_variations(Base, 12).
 gen_variations(Base, N) ->
     [gen_flat_list(Base, N),
      gen_nested_list(Base, N),
@@ -169,8 +186,3 @@ gen_nasty_list_1([Head | Base], Result) when is_list(Head) ->
     gen_nasty_list_1(Base, [[Result], [gen_nasty_list_1(Head, [])]]);
 gen_nasty_list_1([Head | Base], Result) ->
     gen_nasty_list_1(Base, [[Result], [Head]]).
-
-system_mem_size() ->
-    application:ensure_all_started(os_mon),
-    {Tot,_Used,_}  = memsup:get_memory_data(),
-    Tot.

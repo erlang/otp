@@ -262,6 +262,7 @@ test_deep_bitstr(List) ->
     {Bin,bitstring_to_list(Bin)}.
 
 bad_list_to_binary(Config) when is_list(Config) ->
+    test_bad_bin(<<1:1>>),
     test_bad_bin(atom),
     test_bad_bin(42),
     test_bad_bin([1|2]),
