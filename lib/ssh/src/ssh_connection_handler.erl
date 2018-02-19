@@ -68,7 +68,7 @@
 -export([init_connection_handler/3,	   % proc_lib:spawn needs this
 	 init_ssh_record/3,		   % Export of this internal function
 					   % intended for low-level protocol test suites
-	 renegotiate/1, renegotiate_data/1 % Export intended for test cases
+	 renegotiate/1, renegotiate_data/1, alg/1 % Export intended for test cases
 	]).
 
 %%====================================================================
@@ -320,6 +320,9 @@ renegotiate(ConnectionHandler) ->
 renegotiate_data(ConnectionHandler) ->
     cast(ConnectionHandler, data_size).
 
+%%--------------------------------------------------------------------
+alg(ConnectionHandler) ->
+    call(ConnectionHandler, get_alg).
 
 %%====================================================================
 %% Internal process state
@@ -1029,6 +1032,10 @@ handle_event(cast, renegotiate, {connected,Role}, D) ->
     timer:apply_after(?REKEY_TIMOUT, gen_statem, cast, [self(), renegotiate]),
     {next_state, {kexinit,Role,renegotiate}, D#data{ssh_params = Ssh,
 						    key_exchange_init_msg = KeyInitMsg}};
+
+handle_event({call,From}, get_alg, _, D) ->
+    #ssh{algorithms=Algs} = D#data.ssh_params,
+    {keep_state_and_data, [{reply,From,Algs}]};
 
 handle_event(cast, renegotiate, _, _) ->
     %% Already in key-exchange so safe to ignore
