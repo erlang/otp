@@ -3543,19 +3543,14 @@ static int create_iovec_from_slice(ErlNifEnv *env,
         alloc_size = binv_offset;
         alloc_size += slice->iovec_len * sizeof(Binary*);
 
-        /* If we have an environment we'll attach the allocated data to it. The
-         * GC will take care of releasing it later on. */
+        /* When the user passes an environment, we attach the iovec to it so
+         * the user won't have to bother managing it (similar to
+         * enif_inspect_binary). It'll disappear once the environment is
+         * cleaned up. */
         if (env != NULL) {
-            ErlNifBinary gc_bin;
-
-            if (!enif_alloc_binary(alloc_size, &gc_bin)) {
-                return 0;
-            }
-
-            alloc_base = (char*)gc_bin.data;
-            enif_make_binary(env, &gc_bin);
+            alloc_base = alloc_tmp_obj(env, alloc_size, &tmp_alloc_dtor);
         } else {
-            alloc_base = enif_alloc(alloc_size);
+            alloc_base = erts_alloc(ERTS_ALC_T_NIF, alloc_size);
         }
 
         iovec = (ErlNifIOVec*)alloc_base;
@@ -3569,7 +3564,7 @@ static int create_iovec_from_slice(ErlNifEnv *env,
 
     if(!fill_iovec_with_slice(env, slice, iovec)) {
         if (env == NULL && !(iovec->flags & ERL_NIF_IOVEC_FLAGS_PREALLOC)) {
-            enif_free(iovec);
+            erts_free(ERTS_ALC_T_NIF, iovec);
         }
 
         return 0;
