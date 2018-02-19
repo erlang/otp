@@ -50,6 +50,7 @@ all() ->
     [
      {group, http},
      {group, sim_http},
+     {group, http_internal},
      {group, https},
      {group, sim_https},
      {group, misc}
@@ -59,6 +60,7 @@ groups() ->
     [
      {http, [], real_requests()},
      {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
+     {http_internal, [], real_requests_esi()},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
      {misc, [], misc()}
@@ -92,6 +94,9 @@ real_requests()->
      invalid_headers,
      invalid_body
     ].
+
+real_requests_esi() ->
+    [slow_connection].
 
 only_simulated() ->
     [
@@ -1204,7 +1209,25 @@ stream_fun_server_close(Config) when is_list(Config) ->
     after 13000 ->
             ct:fail(did_not_receive_close)
     end. 
-                                             
+
+%%--------------------------------------------------------------------
+slow_connection() ->
+    [{doc, "Test that a request on a slow keep-alive connection won't crash the httpc_manager"}].
+slow_connection(Config) when is_list(Config) ->
+    BodyFun = fun(0) -> eof;
+                 (LenLeft) -> timer:sleep(1000),
+                              {ok, lists:duplicate(10, "1"), LenLeft - 10}
+              end,
+    Request  = {url(group_name(Config), "/httpc_SUITE:esi_post", Config),
+                [{"content-length", "100"}],
+                "text/plain",
+                {BodyFun, 100}},
+    {ok, _} = httpc:request(post, Request, [], []),
+    %% Second request causes a crash if gen_server timeout is not set to infinity
+    %% in httpc_handler.
+    {ok, _} = httpc:request(post, Request, [], []).
+
+
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -1298,6 +1321,8 @@ url(https, End, Config) ->
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(sim_http, End, Config) ->
     url(http, End, Config);
+url(http_internal, End, Config) ->
+    url(http, End, Config);
 url(sim_https, End, Config) ->
     url(https, End, Config).
 url(http, UserInfo, End, Config) ->
@@ -1344,13 +1369,26 @@ server_config(http, Config) ->
      {mime_type, "text/plain"},
      {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}}
     ];
-
+server_config(http_internal, Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    [{port, 0},
+     {server_name,"httpc_test"},
+     {server_root, ServerRoot},
+     {document_root, proplists:get_value(doc_root, Config)},
+     {bind_address, any},
+     {ipfamily, inet_version()},
+     {mime_type, "text/plain"},
+     {erl_script_alias, {"", [httpc_SUITE]}}
+    ];
 server_config(https, Config) ->
     [{socket_type, {essl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
     ssl_config(Config);
 server_config(_, _) ->
     [].
+
+esi_post(Sid, _Env, _Input) ->
+    mod_esi:deliver(Sid, ["OK"]).
 
 start_apps(https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
