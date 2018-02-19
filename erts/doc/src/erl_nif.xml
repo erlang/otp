@@ -974,6 +974,10 @@ typedef struct {
           <seealso marker="#enif_make_binary"><c>enif_make_binary</c></seealso>.
           An allocated (and owned) <c>ErlNifBinary</c> can be kept between NIF
           calls.</p>
+        <p>If you do not need to reallocate or keep the data alive across NIF
+          calls, consider using <seealso marker="#enif_make_new_binary">
+          <c>enif_make_new_binary</c></seealso> instead as it will allocate
+          small binaries on the process heap when possible.</p>
         <p>Returns <c>true</c> on success, or <c>false</c> if allocation
           fails.</p>
       </desc>
