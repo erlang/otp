@@ -1203,7 +1203,10 @@ BIF_RETTYPE iolist_to_iovec_1(BIF_ALIST_1) {
     if (is_nil(BIF_ARG_1)) {
         BIF_RET(NIL);
     } else if (is_binary(BIF_ARG_1)) {
-        if (binary_size(BIF_ARG_1) != 0) {
+        if (binary_bitsize(BIF_ARG_1) != 0) {
+            ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+            BIF_ERROR(BIF_P, BADARG);
+        } else if (binary_size(BIF_ARG_1) != 0) {
             Eterm *hp = HAlloc(BIF_P, 2);
 
             BIF_RET(CONS(hp, BIF_ARG_1, NIL));
