@@ -104,7 +104,11 @@
 	 links,
 	 name,
 	 monitors,
-	 controls}).
+	 controls,
+         input,
+         output,
+         queue,
+         port_data}).
 
 -record(sched,
 	{name,

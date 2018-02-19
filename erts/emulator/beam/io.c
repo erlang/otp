@@ -5199,6 +5199,14 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
     } else {
 	erts_print(to, arg, "Port controls linked-in driver: %s\n",p->name);
     }
+    erts_print(to, arg, "Input: %beu\n", p->bytes_in);
+    erts_print(to, arg, "Output: %beu\n", p->bytes_out);
+    erts_print(to, arg, "Queue: %beu\n", erts_ioq_size(&p->ioq));
+    {
+        Eterm port_data = erts_port_data_read(p);
+        if (port_data != am_undefined)
+            erts_print(to, arg, "Port Data: %T\n", port_data);
+    }
 }
 
 void

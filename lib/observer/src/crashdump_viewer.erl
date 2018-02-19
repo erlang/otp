@@ -1683,6 +1683,15 @@ get_portinfo(Fd,Port) ->
 	"Port is UNIX fd not opened by emulator" ->
 	    Str = lists:flatten(["UNIX fd not opened by emulator: "| string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
+        "Input" ->
+	    get_portinfo(Fd,Port#port{input=list_to_integer(bytes(Fd))});
+        "Output" ->
+	    get_portinfo(Fd,Port#port{output=list_to_integer(bytes(Fd))});
+        "Queue" ->
+	    get_portinfo(Fd,Port#port{queue=list_to_integer(bytes(Fd))});
+        "Port Data" ->
+	    get_portinfo(Fd,Port#port{port_data=string(Fd)});
+
 	"=" ++ _next_tag ->
 	    Port;
 	Other ->
