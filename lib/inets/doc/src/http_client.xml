@@ -97,27 +97,32 @@
       7 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
       httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
       [], []).</code>
-
+    <p>This sends an HTTP request over a unix domain socket (experimental):</p>
+    <code type="erl">
+      8 > httpc:set_options([{ipfamily, local},
+      {unix_socket,"/tmp/unix_socket/consul_http.sock"}]).
+      9 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+      httpc:request(put, {"http:///v1/kv/foo", [], [], "hello"}, [], []).</code>
     <p>Start an HTTP client profile:</p>
    
     <code><![CDATA[
-      8 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
+      10 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
       {ok, <0.45.0>}       
       ]]></code>
     
     <p>The new profile has no proxy settings, so the connection is refused:</p>
       <code type="erl">
-      9 > httpc:request("http://www.erlang.org", foo). 
+      11 > httpc:request("http://www.erlang.org", foo).
       {error, econnrefused}</code>
 
     <p>Stop the HTTP client profile:</p>
     <code type="erl">
-      10 > inets:stop(httpc, foo).
+      12 > inets:stop(httpc, foo).
       ok</code>
     
     <p>Alternative way to stop the HTTP client profile:</p>
     <code type="erl">
-      10 > inets:stop(httpc, Pid).
+      13 > inets:stop(httpc, Pid).
       ok</code>
     
   </section>

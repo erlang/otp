@@ -553,7 +553,8 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 ip                    = get_ip(Options, OldOptions),
 		 port                  = get_port(Options, OldOptions),
 		 verbose               = get_verbose(Options, OldOptions),
-		 socket_opts           = get_socket_opts(Options, OldOptions)
+		 socket_opts           = get_socket_opts(Options, OldOptions),
+		 unix_socket           = get_unix_socket_opts(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -963,7 +964,10 @@ get_option(ip, #options{ip = IP}) ->
 get_option(port, #options{port = Port}) ->
     Port;
 get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
-    SocketOpts.
+    SocketOpts;
+get_option(unix_socket, #options{unix_socket = UnixSocket}) ->
+    UnixSocket.
+
 
 get_proxy(Opts, #options{proxy = Default}) ->
     proplists:get_value(proxy, Opts, Default).
@@ -1016,6 +1020,8 @@ get_verbose(Opts, #options{verbose = Default}) ->
 get_socket_opts(Opts, #options{socket_opts = Default}) ->
     proplists:get_value(socket_opts, Opts, Default).
 
+get_unix_socket_opts(Opts, #options{unix_socket = Default}) ->
+    proplists:get_value(unix_socket, Opts, Default).
 
 handle_verbose(debug) ->
     dbg:p(self(), [call]),

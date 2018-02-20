@@ -37,6 +37,10 @@
 -define(TLS_URL_START, "https://").
 -define(NOT_IN_USE_PORT, 8997).
 
+%% Using hardcoded file path to keep it below 107 charaters
+%% (maximum length supported by erlang)
+-define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
+
 -record(sslsocket, {fd = nil, pid = nil}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -51,6 +55,7 @@ all() ->
      {group, http},
      {group, sim_http},
      {group, http_internal},
+     {group, http_unix_socket},
      {group, https},
      {group, sim_https},
      {group, misc}
@@ -61,6 +66,7 @@ groups() ->
      {http, [], real_requests()},
      {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
      {http_internal, [], real_requests_esi()},
+     {http_unix_socket, [], simulated_unix_socket()},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
      {misc, [], misc()}
@@ -97,6 +103,9 @@ real_requests()->
 
 real_requests_esi() ->
     [slow_connection].
+
+simulated_unix_socket() ->
+    [unix_domain_socket].
 
 only_simulated() ->
     [
@@ -155,12 +164,14 @@ init_per_suite(Config) ->
     ServerRoot = filename:join(PrivDir, "server_root"),
     DocRoot = filename:join(ServerRoot, "htdocs"),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
+    file:delete(?UNIX_SOCKET),
     [{server_root, ServerRoot}, {doc_root, DocRoot}  | Config].
 
 end_per_suite(Config) ->
     inets_test_lib:stop_apps([inets]),
     PrivDir = proplists:get_value(priv_dir, Config),
     inets_test_lib:del_dirs(PrivDir),
+    file:delete(?UNIX_SOCKET),
     ok.
 
 %%--------------------------------------------------------------------
@@ -1227,6 +1238,21 @@ slow_connection(Config) when is_list(Config) ->
     %% in httpc_handler.
     {ok, _} = httpc:request(post, Request, [], []).
 
+%%-------------------------------------------------------------------------
+unix_domain_socket() ->
+    [{"doc, Test HTTP requests over unix domain sockets"}].
+unix_domain_socket(Config) when is_list(Config) ->
+
+    URL = "http:///v1/kv/foo",
+
+    {ok,[{unix_socket,?UNIX_SOCKET}]} =
+        httpc:get_options([unix_socket]),
+    {ok, {{_,200,_}, [_ | _], _}}
+	= httpc:request(put, {URL, [], [], ""}, [], []),
+    {ok, {{_,200,_}, [_ | _], _}}
+        = httpc:request(get, {URL, []}, [], []).
+
+
 
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
@@ -1342,19 +1368,28 @@ group_name(Config) ->
 
 server_start(sim_http, _) ->
     Inet = inet_version(),
-    ok = httpc:set_options([{ipfamily, Inet}]),
+    ok = httpc:set_options([{ipfamily, Inet},{unix_socket, undefined}]),
     {_Pid, Port} = http_test_lib:dummy_server(ip_comm, Inet, [{content_cb, ?MODULE}]),
     Port;
 
 server_start(sim_https, SslConfig) ->
     Inet = inet_version(),
-    ok = httpc:set_options([{ipfamily, Inet}]),
+    ok = httpc:set_options([{ipfamily, Inet},{unix_socket, undefined}]),
     {_Pid, Port} = http_test_lib:dummy_server(ssl, Inet, [{ssl, SslConfig}, {content_cb, ?MODULE}]),
+    Port;
+
+server_start(http_unix_socket, Config) ->
+    Inet = local,
+    Socket = proplists:get_value(unix_socket, Config),
+    ok = httpc:set_options([{ipfamily, Inet},{unix_socket, Socket}]),
+    {_Pid, Port} = http_test_lib:dummy_server(unix_socket, Inet, [{content_cb, ?MODULE},
+                                                                  {unix_socket, Socket}]),
     Port;
 
 server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
+    ok = httpc:set_options([{ipfamily, inet_version()},{unix_socket, undefined}]),
     {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
     proplists:get_value(port, Info).
 
@@ -1384,6 +1419,10 @@ server_config(https, Config) ->
     [{socket_type, {essl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
     ssl_config(Config);
+server_config(http_unix_socket, _Config) ->
+    Socket = ?UNIX_SOCKET,
+    [{unix_socket, Socket}];
+
 server_config(_, _) ->
     [].
 
@@ -2102,6 +2141,19 @@ handle_uri(_,"/delay_close.html",_,_,Socket,_) ->
 handle_uri("HEAD",_,_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:0\r\n\r\n";
+handle_uri("PUT","/v1/kv/foo",_,_,_,_) ->
+    "HTTP/1.1 200 OK\r\n" ++
+        "Date: Tue, 20 Feb 2018 14:39:08 GMT\r\n" ++
+        "Content-Length: 5\r\n\r\n" ++
+        "Content-Type: application/json\r\n\r\n" ++
+        "true\n";
+handle_uri("GET","/v1/kv/foo",_,_,_,_) ->
+    "HTTP/1.1 200 OK\r\n" ++
+        "Date: Tue, 20 Feb 2018 14:39:08 GMT\r\n" ++
+        "Content-Length: 24\r\n" ++
+        "Content-Type: application/json\r\n\r\n" ++
+        "[{\"Value\": \"aGVsbG8=\"}]\n";
+
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
 
