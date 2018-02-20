@@ -1868,6 +1868,7 @@ void erts_stack_dump(fmtfn_t to, void *to_arg, Process *);
 void erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *);
 void erts_program_counter_info(fmtfn_t to, void *to_arg, Process *);
 void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 

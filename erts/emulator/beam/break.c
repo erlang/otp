@@ -911,6 +911,23 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
             erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i)),
             erts_cbprintf(to, to_arg, "** crashed **\n"));
     }
+#ifdef ERTS_DIRTY_SCHEDULERS
+    for (i = 0; i < erts_no_dirty_cpu_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_CPU_SCHEDULER_IX(i)),
+            erts_cbprintf(to, to_arg, "** crashed **\n"));
+    }
+    erts_cbprintf(to, to_arg, "=dirty_cpu_run_queue\n");
+    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_CPU_RUNQ);
+
+    for (i = 0; i < erts_no_dirty_io_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_IO_SCHEDULER_IX(i)),
+            erts_cbprintf(to, to_arg, "** crashed **\n"));
+    }
+    erts_cbprintf(to, to_arg, "=dirty_io_run_queue\n");
+    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_IO_RUNQ);
+#endif /* ERTS_DIRTY_SCHEDULERS */
 #endif
 
 #ifdef ERTS_SMP

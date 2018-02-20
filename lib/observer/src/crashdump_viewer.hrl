@@ -112,10 +112,11 @@
 
 -record(sched,
 	{name,
+         type,
 	 process,
 	 port,
 	 run_q=0,
-	 port_q=0,
+	 port_q,
 	 details=#{}
 	}).
 

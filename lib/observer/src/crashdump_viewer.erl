@@ -116,6 +116,10 @@
 -define(allocator,allocator).
 -define(atoms,atoms).
 -define(binary,binary).
+-define(dirty_cpu_scheduler,dirty_cpu_scheduler).
+-define(dirty_cpu_run_queue,dirty_cpu_run_queue).
+-define(dirty_io_scheduler,dirty_io_scheduler).
+-define(dirty_io_run_queue,dirty_io_run_queue).
 -define(ende,ende).
 -define(erl_crash_dump,erl_crash_dump).
 -define(ets,ets).
@@ -2522,22 +2526,49 @@ get_indextableinfo1(Fd,IndexTable) ->
 %%-----------------------------------------------------------------
 %% Page with scheduler table information
 schedulers(File) ->
-    case lookup_index(?scheduler) of
-	[] ->
-	    [];
-	Schedulers ->
-	    Fd = open(File),
-	    R = lists:map(fun({Name,Start}) ->
-				  get_schedulerinfo(Fd,Name,Start)
-			  end,
-			  Schedulers),
-	    close(Fd),
-	    R
-    end.
+    Fd = open(File),
 
-get_schedulerinfo(Fd,Name,Start) ->
+    Schds0 = case lookup_index(?scheduler) of
+                 [] ->
+                     [];
+                 Normals ->
+                     [{Normals, #sched{type=normal}}]
+             end,
+    Schds1 = case lookup_index(?dirty_cpu_scheduler) of
+                 [] ->
+                     Schds0;
+                 DirtyCpus ->
+                     [{DirtyCpus, get_dirty_runqueue(Fd, ?dirty_cpu_run_queue)}
+                      | Schds0]
+             end,
+    Schds2 = case lookup_index(?dirty_io_scheduler) of
+                 [] ->
+                     Schds1;
+                 DirtyIos ->
+                     [{DirtyIos, get_dirty_runqueue(Fd, ?dirty_io_run_queue)}
+                      | Schds1]
+             end,
+
+    R = schedulers1(Fd, Schds2, []),
+    close(Fd),
+    R.
+
+schedulers1(_Fd, [], Acc) ->
+    Acc;
+schedulers1(Fd, [{Scheds,Sched0} | Tail], Acc0) ->
+    Acc1 = lists:foldl(fun({Name,Start}, AccIn) ->
+                               [get_schedulerinfo(Fd,Name,Start,Sched0) | AccIn]
+                       end,
+                       Acc0,
+                       Scheds),
+    schedulers1(Fd, Tail, Acc1).
+
+get_schedulerinfo(Fd,Name,Start,Sched0) ->
     pos_bof(Fd,Start),
-    get_schedulerinfo1(Fd,#sched{name=Name}).
+    get_schedulerinfo1(Fd,Sched0#sched{name=list_to_integer(Name)}).
+
+sched_type(?dirty_cpu_run_queue) -> dirty_cpu;
+sched_type(?dirty_io_run_queue) ->  dirty_io.
 
 get_schedulerinfo1(Fd, Sched) ->
     case get_schedulerinfo2(Fd, Sched) of
@@ -2577,14 +2608,31 @@ get_schedulerinfo2(Fd, Sched=#sched{details=Ds}) ->
 	Other ->
             case Sched#sched.type of
                 normal ->
-                    get_runqueue_info(Fd, Other, Sched);
+                    get_runqueue_info2(Fd, Other, Sched);
                 _ ->
                     unexpected(Fd,Other,"dirty scheduler information"),
                     {done, Sched}
             end
     end.
 
-get_runqueue_info(Fd, LineHead, Sched=#sched{details=Ds}) ->
+get_dirty_runqueue(Fd, Tag) ->
+    case lookup_index(Tag) of
+        [{_, Start}] ->
+            pos_bof(Fd,Start),
+            get_runqueue_info1(Fd,#sched{type=sched_type(Tag)});
+        [] ->
+            #sched{}
+    end.
+
+get_runqueue_info1(Fd, Sched) ->
+    case get_runqueue_info2(Fd, line_head(Fd), Sched) of
+        {more, Sched2} ->
+            get_runqueue_info1(Fd, Sched2);
+        {done, Sched2} ->
+            Sched2
+    end.
+
+get_runqueue_info2(Fd, LineHead, Sched=#sched{details=Ds}) ->
     case LineHead of
 	"Run Queue Max Length" ->
 	    RQMax = list_to_integer(bytes(Fd)),
@@ -3044,6 +3092,10 @@ tag_to_atom("allocated_areas") -> ?allocated_areas;
 tag_to_atom("allocator") -> ?allocator;
 tag_to_atom("atoms") -> ?atoms;
 tag_to_atom("binary") -> ?binary;
+tag_to_atom("dirty_cpu_scheduler") -> ?dirty_cpu_scheduler;
+tag_to_atom("dirty_cpu_run_queue") -> ?dirty_cpu_run_queue;
+tag_to_atom("dirty_io_scheduler") -> ?dirty_io_scheduler;
+tag_to_atom("dirty_io_run_queue") -> ?dirty_io_run_queue;
 tag_to_atom("end") -> ?ende;
 tag_to_atom("erl_crash_dump") -> ?erl_crash_dump;
 tag_to_atom("ets") -> ?ets;
