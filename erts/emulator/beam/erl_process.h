@@ -1546,6 +1546,7 @@ Uint64 erts_step_proc_interval(void);
 ErtsProcList *erts_proclist_create(Process *);
 ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
+void erts_proclist_dump(fmtfn_t to, void *to_arg, ErtsProcList*);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
 ERTS_GLB_INLINE void erts_proclist_store_first(ErtsProcList **, ErtsProcList *);
@@ -1792,6 +1793,7 @@ void erts_stack_dump(fmtfn_t to, void *to_arg, Process *);
 void erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *);
 void erts_program_counter_info(fmtfn_t to, void *to_arg, Process *);
 void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 

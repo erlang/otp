@@ -116,6 +116,10 @@
 -define(allocator,allocator).
 -define(atoms,atoms).
 -define(binary,binary).
+-define(dirty_cpu_scheduler,dirty_cpu_scheduler).
+-define(dirty_cpu_run_queue,dirty_cpu_run_queue).
+-define(dirty_io_scheduler,dirty_io_scheduler).
+-define(dirty_io_run_queue,dirty_io_run_queue).
 -define(ende,ende).
 -define(erl_crash_dump,erl_crash_dump).
 -define(ets,ets).
@@ -1222,6 +1226,18 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	"OldHeap unused" ->
 	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_unused=Bytes},WS);
+	"BinVHeap" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap=Bytes},WS);
+	"OldBinVHeap" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap=Bytes},WS);
+	"BinVHeap unused" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap_unused=Bytes},WS);
+	"OldBinVHeap unused" ->
+	    Bytes = list_to_integer(bytes(Fd))*WS,
+	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap_unused=Bytes},WS);
 	"New heap start" ->
 	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
 	"New heap top" ->
@@ -1632,6 +1648,10 @@ port_to_tuple("#Port<"++Port) ->
 
 get_portinfo(Fd,Port) ->
     case line_head(Fd) of
+        "State" ->
+	    get_portinfo(Fd,Port#port{state=bytes(Fd)});
+        "Task Flags" ->
+	    get_portinfo(Fd,Port#port{task_flags=bytes(Fd)});
 	"Slot" ->
 	    %% stored as integer so we can sort on it
 	    get_portinfo(Fd,Port#port{slot=list_to_integer(bytes(Fd))});
@@ -1656,6 +1676,10 @@ get_portinfo(Fd,Port) ->
 			    {Pid,Pid++" ("++Ref++")"}
 			end || Mon <- Monitors0],
 	    get_portinfo(Fd,Port#port{monitors=Monitors});
+        "Suspended" ->
+	    Pids = split_pid_list_no_space(bytes(Fd)),
+	    Suspended = [{Pid,Pid} || Pid <- Pids],
+	    get_portinfo(Fd,Port#port{suspended=Suspended});
 	"Port controls linked-in driver" ->
 	    Str = lists:flatten(["Linked in driver: " | string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
@@ -1671,6 +1695,15 @@ get_portinfo(Fd,Port) ->
 	"Port is UNIX fd not opened by emulator" ->
 	    Str = lists:flatten(["UNIX fd not opened by emulator: "| string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
+        "Input" ->
+	    get_portinfo(Fd,Port#port{input=list_to_integer(bytes(Fd))});
+        "Output" ->
+	    get_portinfo(Fd,Port#port{output=list_to_integer(bytes(Fd))});
+        "Queue" ->
+	    get_portinfo(Fd,Port#port{queue=list_to_integer(bytes(Fd))});
+        "Port Data" ->
+	    get_portinfo(Fd,Port#port{port_data=string(Fd)});
+
 	"=" ++ _next_tag ->
 	    Port;
 	Other ->
@@ -2503,73 +2536,142 @@ get_indextableinfo1(Fd,IndexTable) ->
 %%-----------------------------------------------------------------
 %% Page with scheduler table information
 schedulers(File) ->
-    case lookup_index(?scheduler) of
-	[] ->
-	    [];
-	Schedulers ->
-	    Fd = open(File),
-	    R = lists:map(fun({Name,Start}) ->
-				  get_schedulerinfo(Fd,Name,Start)
-			  end,
-			  Schedulers),
-	    close(Fd),
-	    R
+    Fd = open(File),
+
+    Schds0 = case lookup_index(?scheduler) of
+                 [] ->
+                     [];
+                 Normals ->
+                     [{Normals, #sched{type=normal}}]
+             end,
+    Schds1 = case lookup_index(?dirty_cpu_scheduler) of
+                 [] ->
+                     Schds0;
+                 DirtyCpus ->
+                     [{DirtyCpus, get_dirty_runqueue(Fd, ?dirty_cpu_run_queue)}
+                      | Schds0]
+             end,
+    Schds2 = case lookup_index(?dirty_io_scheduler) of
+                 [] ->
+                     Schds1;
+                 DirtyIos ->
+                     [{DirtyIos, get_dirty_runqueue(Fd, ?dirty_io_run_queue)}
+                      | Schds1]
+             end,
+
+    R = schedulers1(Fd, Schds2, []),
+    close(Fd),
+    R.
+
+schedulers1(_Fd, [], Acc) ->
+    Acc;
+schedulers1(Fd, [{Scheds,Sched0} | Tail], Acc0) ->
+    Acc1 = lists:foldl(fun({Name,Start}, AccIn) ->
+                               [get_schedulerinfo(Fd,Name,Start,Sched0) | AccIn]
+                       end,
+                       Acc0,
+                       Scheds),
+    schedulers1(Fd, Tail, Acc1).
+
+get_schedulerinfo(Fd,Name,Start,Sched0) ->
+    pos_bof(Fd,Start),
+    get_schedulerinfo1(Fd,Sched0#sched{name=list_to_integer(Name)}).
+
+sched_type(?dirty_cpu_run_queue) -> dirty_cpu;
+sched_type(?dirty_io_run_queue) ->  dirty_io.
+
+get_schedulerinfo1(Fd, Sched) ->
+    case get_schedulerinfo2(Fd, Sched) of
+        {more, Sched2} ->
+            get_schedulerinfo1(Fd, Sched2);
+        {done, Sched2} ->
+            Sched2
     end.
 
-get_schedulerinfo(Fd,Name,Start) ->
-    pos_bof(Fd,Start),
-    get_schedulerinfo1(Fd,#sched{name=Name}).
-
-get_schedulerinfo1(Fd,Sched=#sched{details=Ds}) ->
+get_schedulerinfo2(Fd, Sched=#sched{details=Ds}) ->
     case line_head(Fd) of
 	"Current Process" ->
-	    get_schedulerinfo1(Fd,Sched#sched{process=bytes(Fd, "None")});
+	    {more, Sched#sched{process=bytes(Fd, "None")}};
 	"Current Port" ->
-	    get_schedulerinfo1(Fd,Sched#sched{port=bytes(Fd, "None")});
+	    {more, Sched#sched{port=bytes(Fd, "None")}};
+
+	"Scheduler Sleep Info Flags" ->
+	    {more, Sched#sched{details=Ds#{sleep_info=>bytes(Fd, "None")}}};
+	"Scheduler Sleep Info Aux Work" ->
+	    {more, Sched#sched{details=Ds#{sleep_aux=>bytes(Fd, "None")}}};
+
+	"Current Process State" ->
+	    {more, Sched#sched{details=Ds#{currp_state=>bytes(Fd)}}};
+	"Current Process Internal State" ->
+	    {more, Sched#sched{details=Ds#{currp_int_state=>bytes(Fd)}}};
+	"Current Process Program counter" ->
+	    {more, Sched#sched{details=Ds#{currp_prg_cnt=>string(Fd)}}};
+	"Current Process CP" ->
+	    {more, Sched#sched{details=Ds#{currp_cp=>string(Fd)}}};
+	"Current Process Limited Stack Trace" ->
+	    %% If there shall be last in scheduler information block
+	    {done, Sched#sched{details=get_limited_stack(Fd, 0, Ds)}};
+
+	"=" ++ _next_tag ->
+            {done, Sched};
+
+	Other ->
+            case Sched#sched.type of
+                normal ->
+                    get_runqueue_info2(Fd, Other, Sched);
+                _ ->
+                    unexpected(Fd,Other,"dirty scheduler information"),
+                    {done, Sched}
+            end
+    end.
+
+get_dirty_runqueue(Fd, Tag) ->
+    case lookup_index(Tag) of
+        [{_, Start}] ->
+            pos_bof(Fd,Start),
+            get_runqueue_info1(Fd,#sched{type=sched_type(Tag)});
+        [] ->
+            #sched{}
+    end.
+
+get_runqueue_info1(Fd, Sched) ->
+    case get_runqueue_info2(Fd, line_head(Fd), Sched) of
+        {more, Sched2} ->
+            get_runqueue_info1(Fd, Sched2);
+        {done, Sched2} ->
+            Sched2
+    end.
+
+get_runqueue_info2(Fd, LineHead, Sched=#sched{details=Ds}) ->
+    case LineHead of
 	"Run Queue Max Length" ->
 	    RQMax = list_to_integer(bytes(Fd)),
 	    RQ = RQMax + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}}};
 	"Run Queue High Length" ->
 	    RQHigh = list_to_integer(bytes(Fd)),
 	    RQ = RQHigh + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}}};
 	"Run Queue Normal Length" ->
 	    RQNorm = list_to_integer(bytes(Fd)),
 	    RQ = RQNorm + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}}};
 	"Run Queue Low Length" ->
 	    RQLow = list_to_integer(bytes(Fd)),
 	    RQ = RQLow + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}}};
 	"Run Queue Port Length" ->
 	    RQ = list_to_integer(bytes(Fd)),
-	    get_schedulerinfo1(Fd,Sched#sched{port_q=RQ});
-
-	"Scheduler Sleep Info Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_info=>bytes(Fd, "None")}});
-	"Scheduler Sleep Info Aux Work" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_aux=>bytes(Fd, "None")}});
+	    {more, Sched#sched{port_q=RQ}};
 
 	"Run Queue Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{runq_flags=>bytes(Fd, "None")}});
+	    {more, Sched#sched{details=Ds#{runq_flags=>bytes(Fd, "None")}}};
 
-	"Current Process State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_state=>bytes(Fd)}});
-	"Current Process Internal State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_int_state=>bytes(Fd)}});
-	"Current Process Program counter" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_prg_cnt=>string(Fd)}});
-	"Current Process CP" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_cp=>string(Fd)}});
-	"Current Process Limited Stack Trace" ->
-	    %% If there shall be last in scheduler information block
-	    Sched#sched{details=get_limited_stack(Fd, 0, Ds)};
 	"=" ++ _next_tag ->
-	    Sched;
+            {done, Sched};
 	Other ->
 	    unexpected(Fd,Other,"scheduler information"),
-	    Sched
+	    {done, Sched}
     end.
 
 get_limited_stack(Fd, N, Ds) ->
@@ -3000,6 +3102,10 @@ tag_to_atom("allocated_areas") -> ?allocated_areas;
 tag_to_atom("allocator") -> ?allocator;
 tag_to_atom("atoms") -> ?atoms;
 tag_to_atom("binary") -> ?binary;
+tag_to_atom("dirty_cpu_scheduler") -> ?dirty_cpu_scheduler;
+tag_to_atom("dirty_cpu_run_queue") -> ?dirty_cpu_run_queue;
+tag_to_atom("dirty_io_scheduler") -> ?dirty_io_scheduler;
+tag_to_atom("dirty_io_run_queue") -> ?dirty_io_run_queue;
 tag_to_atom("end") -> ?ende;
 tag_to_atom("erl_crash_dump") -> ?erl_crash_dump;
 tag_to_atom("ets") -> ?ets;

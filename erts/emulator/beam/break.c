@@ -336,6 +336,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
+    erts_print(to, to_arg, "BinVHeap: %b64u\n", p->off_heap.overhead);
+    erts_print(to, to_arg, "OldBinVHeap: %b64u\n", BIN_OLD_VHEAP(p));
+    erts_print(to, to_arg, "BinVHeap unused: %b64u\n",
+               BIN_VHEAP_SZ(p) - p->off_heap.overhead);
+    erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
+               BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
     erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
@@ -891,6 +897,21 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
             erts_print_scheduler_info(to, to_arg, ERTS_SCHEDULER_IX(i)),
             erts_cbprintf(to, to_arg, "** crashed **\n"));
     }
+    for (i = 0; i < erts_no_dirty_cpu_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_CPU_SCHEDULER_IX(i)),
+            erts_cbprintf(to, to_arg, "** crashed **\n"));
+    }
+    erts_cbprintf(to, to_arg, "=dirty_cpu_run_queue\n");
+    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_CPU_RUNQ);
+
+    for (i = 0; i < erts_no_dirty_io_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(to, to_arg, ERTS_DIRTY_IO_SCHEDULER_IX(i)),
+            erts_cbprintf(to, to_arg, "** crashed **\n"));
+    }
+    erts_cbprintf(to, to_arg, "=dirty_io_run_queue\n");
+    erts_print_run_queue_info(to, to_arg, ERTS_DIRTY_IO_RUNQ);
 #endif
 
 

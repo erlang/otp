@@ -31,7 +31,8 @@
 
 %% Columns
 -define(COL_ID,  0).
--define(COL_PROC,  ?COL_ID+1).
+-define(COL_TYPE,  ?COL_ID+1).
+-define(COL_PROC,  ?COL_TYPE+1).
 -define(COL_PORT,  ?COL_PROC+1).
 -define(COL_RQL,   ?COL_PORT+1).
 -define(COL_PQL,   ?COL_RQL+1).
@@ -39,6 +40,7 @@
 %% Callbacks for cdv_virtual_list_wx
 col_to_elem(id) -> col_to_elem(?COL_ID);
 col_to_elem(?COL_ID)  -> #sched.name;
+col_to_elem(?COL_TYPE)  -> #sched.type;
 col_to_elem(?COL_PROC)  -> #sched.process;
 col_to_elem(?COL_PORT)  -> #sched.port;
 col_to_elem(?COL_RQL)   -> #sched.run_q;
@@ -46,6 +48,7 @@ col_to_elem(?COL_PQL)   -> #sched.port_q.
 
 col_spec() ->
     [{"Id",                ?wxLIST_FORMAT_RIGHT,   50},
+     {"Type",              ?wxLIST_FORMAT_CENTER, 100},
      {"Current Process",   ?wxLIST_FORMAT_CENTER, 130},
      {"Current Port",      ?wxLIST_FORMAT_CENTER, 130},
      {"Run Queue Length",  ?wxLIST_FORMAT_RIGHT,  180},
@@ -73,7 +76,8 @@ detail_pages() ->
     [{"Scheduler Information", fun init_gen_page/2}].
 
 init_gen_page(Parent, Info0) ->
-    Fields = info_fields(),
+    Type = proplists:get_value(type, Info0),
+    Fields = info_fields(Type),
     Details = proplists:get_value(details, Info0),
     Info = if is_map(Details) -> Info0 ++ maps:to_list(Details);
 	      true -> Info0
@@ -81,15 +85,16 @@ init_gen_page(Parent, Info0) ->
     cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 %%% Internal
-info_fields() ->
+info_fields(Type) ->
     [{"Scheduler Overview",
       [{"Id",             id},
+       {"Type",           type},
        {"Current Process",process},
        {"Current Port",   port},
        {"Sleep Info Flags", sleep_info},
        {"Sleep Aux Work",   sleep_aux}
       ]},
-     {"Run Queues",
+     {run_queues_header(Type),
       [{"Flags",                   runq_flags},
        {"Priority Max Length",     runq_max},
        {"Priority High Length",    runq_high},
@@ -116,3 +121,8 @@ info_fields() ->
        {"     ",           {currp_stack, 11}}
       ]}
     ].
+
+run_queues_header(normal) ->
+    "Run Queues";
+run_queues_header(DirtyX) ->
+    "Run Queues (common for all '" ++ atom_to_list(DirtyX) ++ "' schedulers)".
