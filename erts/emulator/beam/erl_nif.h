@@ -139,7 +139,7 @@ typedef struct
     /* Internals (avert your eyes) */
     void* ref_bin;
     /* for future additions to be ABI compatible (same struct size) */
-    void* __spare__[1];
+    void* __spare__[2];
 }ErlNifBinary;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
