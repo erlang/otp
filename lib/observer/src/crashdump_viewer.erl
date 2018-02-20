@@ -2539,56 +2539,81 @@ get_schedulerinfo(Fd,Name,Start) ->
     pos_bof(Fd,Start),
     get_schedulerinfo1(Fd,#sched{name=Name}).
 
-get_schedulerinfo1(Fd,Sched=#sched{details=Ds}) ->
+get_schedulerinfo1(Fd, Sched) ->
+    case get_schedulerinfo2(Fd, Sched) of
+        {more, Sched2} ->
+            get_schedulerinfo1(Fd, Sched2);
+        {done, Sched2} ->
+            Sched2
+    end.
+
+get_schedulerinfo2(Fd, Sched=#sched{details=Ds}) ->
     case line_head(Fd) of
 	"Current Process" ->
-	    get_schedulerinfo1(Fd,Sched#sched{process=bytes(Fd, "None")});
+	    {more, Sched#sched{process=bytes(Fd, "None")}};
 	"Current Port" ->
-	    get_schedulerinfo1(Fd,Sched#sched{port=bytes(Fd, "None")});
+	    {more, Sched#sched{port=bytes(Fd, "None")}};
+
+	"Scheduler Sleep Info Flags" ->
+	    {more, Sched#sched{details=Ds#{sleep_info=>bytes(Fd, "None")}}};
+	"Scheduler Sleep Info Aux Work" ->
+	    {more, Sched#sched{details=Ds#{sleep_aux=>bytes(Fd, "None")}}};
+
+	"Current Process State" ->
+	    {more, Sched#sched{details=Ds#{currp_state=>bytes(Fd)}}};
+	"Current Process Internal State" ->
+	    {more, Sched#sched{details=Ds#{currp_int_state=>bytes(Fd)}}};
+	"Current Process Program counter" ->
+	    {more, Sched#sched{details=Ds#{currp_prg_cnt=>string(Fd)}}};
+	"Current Process CP" ->
+	    {more, Sched#sched{details=Ds#{currp_cp=>string(Fd)}}};
+	"Current Process Limited Stack Trace" ->
+	    %% If there shall be last in scheduler information block
+	    {done, Sched#sched{details=get_limited_stack(Fd, 0, Ds)}};
+
+	"=" ++ _next_tag ->
+            {done, Sched};
+
+	Other ->
+            case Sched#sched.type of
+                normal ->
+                    get_runqueue_info(Fd, Other, Sched);
+                _ ->
+                    unexpected(Fd,Other,"dirty scheduler information"),
+                    {done, Sched}
+            end
+    end.
+
+get_runqueue_info(Fd, LineHead, Sched=#sched{details=Ds}) ->
+    case LineHead of
 	"Run Queue Max Length" ->
 	    RQMax = list_to_integer(bytes(Fd)),
 	    RQ = RQMax + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}}};
 	"Run Queue High Length" ->
 	    RQHigh = list_to_integer(bytes(Fd)),
 	    RQ = RQHigh + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}}};
 	"Run Queue Normal Length" ->
 	    RQNorm = list_to_integer(bytes(Fd)),
 	    RQ = RQNorm + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}}};
 	"Run Queue Low Length" ->
 	    RQLow = list_to_integer(bytes(Fd)),
 	    RQ = RQLow + Sched#sched.run_q,
-	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}});
+	    {more, Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}}};
 	"Run Queue Port Length" ->
 	    RQ = list_to_integer(bytes(Fd)),
-	    get_schedulerinfo1(Fd,Sched#sched{port_q=RQ});
-
-	"Scheduler Sleep Info Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_info=>bytes(Fd, "None")}});
-	"Scheduler Sleep Info Aux Work" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_aux=>bytes(Fd, "None")}});
+	    {more, Sched#sched{port_q=RQ}};
 
 	"Run Queue Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{runq_flags=>bytes(Fd, "None")}});
+	    {more, Sched#sched{details=Ds#{runq_flags=>bytes(Fd, "None")}}};
 
-	"Current Process State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_state=>bytes(Fd)}});
-	"Current Process Internal State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_int_state=>bytes(Fd)}});
-	"Current Process Program counter" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_prg_cnt=>string(Fd)}});
-	"Current Process CP" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_cp=>string(Fd)}});
-	"Current Process Limited Stack Trace" ->
-	    %% If there shall be last in scheduler information block
-	    Sched#sched{details=get_limited_stack(Fd, 0, Ds)};
 	"=" ++ _next_tag ->
-	    Sched;
+            {done, Sched};
 	Other ->
 	    unexpected(Fd,Other,"scheduler information"),
-	    Sched
+	    {done, Sched}
     end.
 
 get_limited_stack(Fd, N, Ds) ->
