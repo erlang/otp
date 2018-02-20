@@ -56,7 +56,7 @@
 -export([purge_archive_cache/0]).
 
 %% Used by init and the code server.
--export([get_modules/2,get_modules/3]).
+-export([get_modules/2,get_modules/3, is_basename/1]).
 
 -include_lib("kernel/include/file.hrl").
 
