@@ -488,10 +488,10 @@ to_fd(Fd) ->
             ok = file:write(Fd, io_lib:format(Format, Args))
         end,
 
-    EmitChunk("{system_information_version, ~p}.~n"
+    EmitChunk("{system_information_version, ~w}.~n"
               "{system_information,["
-                  "{init_arguments,~p},"
-                  "{code_paths,~p},",
+                  "{init_arguments,~w},"
+                  "{code_paths,~w},",
         [?REPORT_FILE_VSN,
          init:get_arguments(),
          code:get_path()]),
@@ -499,12 +499,12 @@ to_fd(Fd) ->
     emit_code_info(EmitChunk),
 
     EmitChunk(    ","  %% Note the leading comma!
-                  "{system_info,~p},"
-                  "{erts_compile_info,~p},"
-                  "{beam_dynamic_libraries,~p},"
-                  "{environment_erts,~p},"
-                  "{environment,~p},"
-                  "{sanity_check,~p}"
+                  "{system_info,~w},"
+                  "{erts_compile_info,~w},"
+                  "{beam_dynamic_libraries,~w},"
+                  "{environment_erts,~w},"
+                  "{environment,~w},"
+                  "{sanity_check,~w}"
               "]}.~n",
         [erlang_system_info(),
          erlang:system_info(compile_info),
@@ -533,11 +533,11 @@ emit_application_info(EmitChunk, Path) ->
             Description = proplists:get_value(description, Info, []),
             Version = proplists:get_value(vsn, Info, []),
 
-            EmitChunk("{application, {~p,["
-                          "{description,~p},"
-                          "{vsn,~p},"
-                          "{path,~p},"
-                          "{runtime_dependencies,~p},",
+            EmitChunk("{application, {~w,["
+                          "{description,~w},"
+                          "{vsn,~w},"
+                          "{path,~w},"
+                          "{runtime_dependencies,~w},",
                 [App, Description, Version, Path, RtDeps]),
             emit_module_info_from_path(EmitChunk, Path),
             EmitChunk("]}}", [])
@@ -545,7 +545,7 @@ emit_application_info(EmitChunk, Path) ->
 
 emit_code_path_info(EmitChunk, Path) ->
     EmitChunk("{code, ["
-                  "{path, ~p},", [Path]),
+                  "{path, ~w},", [Path]),
     emit_module_info_from_path(EmitChunk, Path),
     EmitChunk("]}", []).
 
@@ -573,11 +573,11 @@ emit_module_info(EmitChunk, Beam) ->
         _     -> true
     end,
 
-    EmitChunk("{~p,["
-                  "{loaded,~p},"
-                  "{native,~p},"
-                  "{compiler,~p},"
-                  "{md5,~p}"
+    EmitChunk("{~w,["
+                  "{loaded,~w},"
+                  "{native,~w},"
+                  "{compiler,~w},"
+                  "{md5,~w}"
               "]}",
         [Mod, Loaded, Native, CompilerVersion, hexstring(Md5)]).
 
