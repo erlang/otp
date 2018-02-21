@@ -475,7 +475,7 @@ encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
 
--spec encode(non_neg_integer(), pos_integer()) -> iodata().
+-spec encode(non_neg_integer(), integer()) -> iodata().
 
 encode(Tag, N) when N < 0 ->
     encode1(Tag, negative_to_bytes(N));
