@@ -60,10 +60,7 @@ init(_) ->
                 },
     ChildSpecs = [#{id       => undefined, % As simple_one_for_one is used.
                     start    => {ssh_connection_handler, start_link, []},
-                    restart  => temporary,
-                    shutdown => 4000,
-                    type     => worker,
-                    modules  => [ssh_connection_handler]
+                    restart  => temporary % because there is no way to restart a crashed connection
                    }
                  ],
     {ok, {SupFlags,ChildSpecs}}.

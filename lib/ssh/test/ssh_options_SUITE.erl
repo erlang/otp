@@ -219,7 +219,9 @@ end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
 
 end_per_testcase(_Config) ->    
+    ct:log("~p: Before ssh:stop()",[?FUNCTION_NAME]),
     ssh:stop(),
+    ct:log("~p: After ssh:stop()",[?FUNCTION_NAME]),
     ok.
 
 %%--------------------------------------------------------------------
