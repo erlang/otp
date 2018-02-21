@@ -439,6 +439,12 @@ default(client) ->
             class => user_options
            },
 
+      {save_accepted_host, def} =>
+          #{default => true,
+            chk => fun erlang:is_boolean/1,
+            class => user_options
+           },
+
       {pref_public_key_algs, def} =>
           #{default => ssh_transport:default_algorithms(public_key),
             chk => fun check_pref_public_key_algs/1,

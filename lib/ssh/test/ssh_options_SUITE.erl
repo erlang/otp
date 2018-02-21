@@ -70,7 +70,8 @@
 	 hostkey_fingerprint_check_sha256/1,
 	 hostkey_fingerprint_check_sha384/1,
 	 hostkey_fingerprint_check_sha512/1,
-	 hostkey_fingerprint_check_list/1
+	 hostkey_fingerprint_check_list/1,
+         save_accepted_host_option/1
 	]).
 
 %%% Common test callbacks
@@ -124,6 +125,7 @@ all() ->
      id_string_own_string_server,
      id_string_own_string_server_trail_space,
      id_string_random_server,
+     save_accepted_host_option,
      {group, hardening_tests}
     ].
 
@@ -211,7 +213,8 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(TestCase, Config) when TestCase == server_password_option;
 					TestCase == server_userpassword_option;
 					TestCase == server_pwdfun_option;
-					TestCase == server_pwdfun_4_option ->
+					TestCase == server_pwdfun_4_option ;
+                                        TestCase == save_accepted_host_option ->
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
@@ -1314,6 +1317,36 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 		     try_to_connect(Connect, Host, Port, Pid, Tref, N+1)
 	     end
      end.
+
+%%--------------------------------------------------------------------
+save_accepted_host_option(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    KnownHosts = filename:join(UserDir, "known_hosts"),
+    file:make_dir(UserDir),
+    file:delete(KnownHosts),
+    SysDir = proplists:get_value(data_dir, Config),	  
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {user_passwords, [{"vego", "morot"}]}
+                                            ]),
+    {error,enoent} = file:read_file(KnownHosts),
+
+    {ok,_C1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                        {user, "vego"},
+                                        {password, "morot"},
+                                        {user_interaction, false},
+                                        {save_accepted_host, false},
+                                        {user_dir, UserDir}]),
+    {error,enoent} = file:read_file(KnownHosts),
+    
+    {ok,_C2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                        {user, "vego"},
+                                        {password, "morot"},
+                                        {user_interaction, false},
+                                        {user_dir, UserDir}]),
+    {ok,_} = file:read_file(KnownHosts),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
