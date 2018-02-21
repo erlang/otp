@@ -92,7 +92,7 @@ static void pd_hash_erase_all(Process *p);
 static Eterm pd_hash_get_with_hval(Process *p, Eterm bucket, Eterm id);
 static Eterm pd_hash_get_keys(Process *p, Eterm value);
 static Eterm pd_hash_get_all_keys(Process *p, ProcDict *pd);
-static Eterm pd_hash_get_all(Process *p, ProcDict *pd);
+static Eterm pd_hash_get_all(Process *p, ProcDict *pd, int keep_dict);
 static Eterm pd_hash_put(Process *p, Eterm id, Eterm value);
 
 static void shrink(Process *p, Eterm* ret); 
@@ -281,7 +281,7 @@ BIF_RETTYPE get_0(BIF_ALIST_0)
 {
     Eterm ret;
     PD_CHECK(BIF_P->dictionary);
-    ret = pd_hash_get_all(BIF_P, BIF_P->dictionary);
+    ret = pd_hash_get_all(BIF_P, BIF_P->dictionary, 1);
     PD_CHECK(BIF_P->dictionary);
     BIF_RET(ret);
 }
@@ -329,7 +329,7 @@ BIF_RETTYPE erase_0(BIF_ALIST_0)
 {
     Eterm ret;
     PD_CHECK(BIF_P->dictionary);
-    ret = pd_hash_get_all(BIF_P, BIF_P->dictionary);
+    ret = pd_hash_get_all(BIF_P, BIF_P->dictionary, 0);
     pd_hash_erase_all(BIF_P);
     PD_CHECK(BIF_P->dictionary);
     BIF_RET(ret);
@@ -541,29 +541,46 @@ static Eterm pd_hash_get_keys(Process *p, Eterm value)
 	
 
 static Eterm
-pd_hash_get_all(Process *p, ProcDict *pd)
+pd_hash_get_all(Process *p, ProcDict *pd, int keep_dict)
 {
     Eterm* hp;
+    Eterm* tp;
     Eterm res = NIL;
     Eterm tmp, tmp2;
     unsigned int i;
     unsigned int num;
+    Uint need;
 
     if (pd == NULL) {
 	return res;
     }
     num = HASH_RANGE(pd);
-    hp = HAlloc(p, pd->numElements * 2);
-    
+
+    /*
+     * If this is not erase/0, then must copy all key-value tuples
+     * as they may be mutated by put/2.
+     */
+    need = pd->numElements * (keep_dict ? 2+3 : 2);
+    hp = HAlloc(p, need);
+
     for (i = 0; i < num; ++i) {
 	tmp = ARRAY_GET(pd, i);
 	if (is_boxed(tmp)) {
-	    ASSERT(is_tuple(tmp));
+            if (keep_dict) {
+                tp = tuple_val(tmp);
+                tmp = TUPLE2(hp, tp[1], tp[2]);
+                hp += 3;
+            }
 	    res = CONS(hp, tmp, res);
 	    hp += 2;
 	} else if (is_list(tmp)) {
 	    while (tmp != NIL) {
 		tmp2 = TCAR(tmp);
+                if (keep_dict) {
+                    tp = tuple_val(tmp2);
+                    tmp2 = TUPLE2(hp, tp[1], tp[2]);
+                    hp += 3;
+                }
 		res = CONS(hp, tmp2, res);
 		hp += 2;
 		tmp = TCDR(tmp);
@@ -607,6 +624,11 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
         ASSERT(is_tuple(old));
         tp = tuple_val(old);
         if (EQ(tp[1], id)) {
+            if (is_immed(value)) {
+                Eterm old_val = tp[2];
+                tp[2] = value;
+                return old_val;
+            }
             key_at = 1;
         }
         else {
@@ -619,6 +641,11 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	for (tmp = old; tmp != NIL; tmp = TCDR(tmp)) {
             tp = tuple_val(TCAR(tmp));
             if (EQ(tp[1], id)) {
+                if (is_immed(value)) {
+                    Eterm old_val = tp[2];
+                    tp[2] = value;
+                    return old_val;
+                }
                 key_at = i;
                 needed += 2*(key_at-1);
                 break;

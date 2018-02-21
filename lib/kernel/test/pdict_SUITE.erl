@@ -33,6 +33,7 @@
 	 init_per_group/2,end_per_group/2,
 	 mixed/1,
          literals/1,
+         destructive/1,
 	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
@@ -52,6 +53,7 @@ suite() ->
 all() -> 
     [simple, complicated, heavy, simple_all_keys, info,
      literals,
+     destructive,
      mixed].
 
 groups() -> 
@@ -366,6 +368,36 @@ match_keys(All) ->
     Ks = lists:sort(erlang:get_keys()),
     ok.
 
+
+%% Test destructive put optimization of immed values
+%% does not affect get/0 or process_info.
+destructive(_Config) ->
+    Keys = lists:seq(1,100),
+    [put(Key, 17) || Key <- Keys],
+    Get1 = get(),
+    {dictionary,PI1} = process_info(self(), dictionary),
+
+    [begin
+         {Key, 17} = lists:keyfind(Key, 1, Get1),
+         {Key, 17} = lists:keyfind(Key, 1, PI1)
+     end
+     || Key <- Keys],
+
+    [17 = put(Key, 42) || Key <- Keys],   % Mutate
+
+    Get2 = get(),
+    {dictionary,PI2} = process_info(self(), dictionary),
+
+    [begin
+         {Key, 17} = lists:keyfind(Key, 1, Get1),
+         {Key, 17} = lists:keyfind(Key, 1, PI1),
+         {Key, 42} = lists:keyfind(Key, 1, Get2),
+         {Key, 42} = lists:keyfind(Key, 1, PI2)
+
+     end
+     || Key <- Keys],
+
+    ok.
 
 %% Do random mixed put/erase to test grow/shrink
 %% Written for a temporary bug in gc during shrink
