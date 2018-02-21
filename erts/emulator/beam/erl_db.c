@@ -1753,6 +1753,28 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
+/*
+** Retrieves the tid() of a named ets table.
+*/
+BIF_RETTYPE ets_whereis_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    Eterm res;
+
+    if (is_not_atom(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ)) == NULL) {
+        BIF_RET(am_undefined);
+    }
+
+    res = make_tid(BIF_P, tb);
+    db_unlock(tb, LCK_READ);
+
+    BIF_RET(res);
+}
+
 /* 
 ** The lookup BIF 
 */
@@ -3126,7 +3148,8 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     static Eterm fields[] = {am_protection, am_keypos, am_type, am_named_table,
                              am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed,
                              am_write_concurrency,
-                             am_read_concurrency};
+                             am_read_concurrency,
+                             am_id};
     Eterm results[sizeof(fields)/sizeof(Eterm)];
     DbTable* tb;
     Eterm res;
@@ -4016,7 +4039,10 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	ret = is_table_named(tb) ? am_true : am_false;
     } else if (What == am_compressed) {
 	ret = tb->common.compress ? am_true : am_false;
+    } else if (What == am_id) {
+        ret = make_tid(p, tb);
     }
+
     /*
      * For debugging purposes
      */

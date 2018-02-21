@@ -78,6 +78,7 @@
 -export([ets_all/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
+-export([whereis_table/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -137,7 +138,8 @@ all() ->
      otp_9423,
      ets_all,
      massive_ets_all,
-     take].
+     take,
+     whereis_table].
 
 groups() ->
     [{new, [],
@@ -4099,6 +4101,7 @@ info_do(Opts) ->
     {value, {keypos, 2}} = lists:keysearch(keypos, 1, Res),
     {value, {protection, protected}} =
 	lists:keysearch(protection, 1, Res),
+    {value, {id, Tab}} = lists:keysearch(id, 1, Res),
     true = ets:delete(Tab),
     undefined = ets:info(non_existing_table_xxyy),
     undefined = ets:info(non_existing_table_xxyy,type),
@@ -5892,6 +5895,36 @@ take(Config) when is_list(Config) ->
     ets:delete(T3),
     ok.
 
+whereis_table(Config) when is_list(Config) ->
+    %% Do we return 'undefined' when the named table doesn't exist?
+    undefined = ets:whereis(whereis_test),
+
+    %% Does the tid() refer to the same table as the name?
+    whereis_test = ets:new(whereis_test, [named_table]),
+    Tid = ets:whereis(whereis_test),
+
+    ets:insert(whereis_test, [{hello}, {there}]),
+
+    [[{hello}],[{there}]] = ets:match(whereis_test, '$1'),
+    [[{hello}],[{there}]] = ets:match(Tid, '$1'),
+
+    true = ets:delete_all_objects(Tid),
+
+    [] = ets:match(whereis_test, '$1'),
+    [] = ets:match(Tid, '$1'),
+
+    %% Does the name disappear when deleted through the tid()?
+    true = ets:delete(Tid),
+    undefined = ets:info(whereis_test),
+    {'EXIT',{badarg, _}} = (catch ets:match(whereis_test, '$1')),
+
+    %% Is the old tid() broken when the table is re-created with the same
+    %% name?
+    whereis_test = ets:new(whereis_test, [named_table]),
+    [] = ets:match(whereis_test, '$1'),
+    {'EXIT',{badarg, _}} = (catch ets:match(Tid, '$1')),
+
+    ok.
 
 %%
 %% Utility functions:

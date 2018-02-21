@@ -487,6 +487,11 @@ Error: fun containing local Erlang function calls
             <p>The pid of the heir of the table, or <c>none</c> if no heir
               is set.</p>
           </item>
+          <tag><c>{id,</c><seealso marker="#type-tid">
+              <c>tid()</c></seealso><c>}</c></tag>
+          <item>
+            <p>The table identifier.</p>
+          </item>
           <tag><c>{keypos, integer() >= 1}</c></tag>
           <item>
             <p>The key position.</p>
@@ -2035,6 +2040,21 @@ true</pre>
           <item><c><anno>Pos</anno></c> &gt; object arity.</item>
           <item>The element to update is also the key.</item>
         </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="whereis" arity="1"/>
+      <fsummary>Retrieves the tid() of a named table.</fsummary>
+      <desc>
+        <p>This function returns the
+          <seealso marker="#type-tid"><c>tid()</c></seealso> of the named table
+          identified by <c><anno>TableName</anno></c>, or <c>undefined</c> if
+          no such table exists. The <c>tid()</c> can be used in place of the
+          table name in all operations, which is slightly faster since the name
+          does not have to be resolved on each call.</p>
+        <p>If the table is deleted, the <c>tid()</c> will be invalid even if
+          another named table is created with the same name.</p>
       </desc>
     </func>
   </funcs>
