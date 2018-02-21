@@ -577,11 +577,12 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 { 
     unsigned int hval;
     Eterm *hp;
+    Eterm *tp;
     Eterm tpl;
     Eterm old;
     Eterm tmp;
     int needed;
-    int i = 0;
+    int key_at = 0;
 #ifdef DEBUG
     Eterm *hp_limit;
 #endif
@@ -603,21 +604,26 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
      */
     needed = 3;			/* {Key,Value} tuple */
     if (is_boxed(old)) {
-	/*
-	 * We don't want to compare keys twice, so we'll always
-	 * reserve the space for two CONS cells.
-	 */
-	needed += 2+2;
+        ASSERT(is_tuple(old));
+        tp = tuple_val(old);
+        if (EQ(tp[1], id)) {
+            key_at = 1;
+        }
+        else {
+            needed += 2+2;
+        }
     } else if (is_list(old)) {
-	i = 0;
-	for (tmp = old; tmp != NIL && !EQ(tuple_val(TCAR(tmp))[1], id); tmp = TCDR(tmp)) {
-	    ++i;
-	}
-	if (is_nil(tmp)) {
-	    i = -1;
-	    needed += 2;
-	} else {
-	    needed += 2*(i+1);
+        int i = 1;
+
+        needed += 2;
+	for (tmp = old; tmp != NIL; tmp = TCDR(tmp)) {
+            tp = tuple_val(TCAR(tmp));
+            if (EQ(tp[1], id)) {
+                key_at = i;
+                needed += 2*(key_at-1);
+                break;
+            }
+            ++i;
 	}
     }
     if (HeapWordsLeft(p) < needed) {
@@ -648,7 +654,8 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	++(p->dictionary->numElements);
     } else if (is_boxed(old)) {
 	ASSERT(is_tuple(old));
-	if (EQ(tuple_val(old)[1],id)) {
+	if (key_at) {
+            ASSERT(EQ(tuple_val(old)[1],id));
 	    ARRAY_PUT(p->dictionary, hval, tpl);
 	    return tuple_val(old)[2];
 	} else {
@@ -661,7 +668,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	    ASSERT(hp <= hp_limit);
 	}
     } else if (is_list(old)) {
-	if (i == -1) {
+	if (!key_at) {
 	    /*
 	     * New key. Simply prepend the tuple to the beginning of the list.
 	     */
@@ -672,7 +679,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	    ++(p->dictionary->numElements);
 	} else {
 	    /*
-	     * i = Number of CDRs to skip to reach the changed element in the list.
+	     * key_at = Key position in the list.
 	     *
 	     * Replace old value in list. To avoid pointers from the old generation
 	     * to the new, we must rebuild the list from the beginning up to and
@@ -681,17 +688,17 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	    Eterm nlist;
 	    int j;
 
-	    hp = HeapOnlyAlloc(p, (i+1)*2);
+	    hp = HeapOnlyAlloc(p, key_at*2);
 	    
 	    /* Find the list element to change. */
-	    for (j = 0, nlist = old; j < i; j++, nlist = TCDR(nlist)) {
+	    for (j = 1, nlist = old; j < key_at; j++, nlist = TCDR(nlist)) {
 		;
 	    }
 	    ASSERT(EQ(tuple_val(TCAR(nlist))[1], id));
 	    nlist = TCDR(nlist); /* Unchanged part of list. */
 
 	    /* Rebuild list before the updated element. */
-	    for (tmp = old; i-- > 0; tmp = TCDR(tmp)) {
+	    for (tmp = old; --key_at > 0; tmp = TCDR(tmp)) {
 		nlist = CONS(hp, TCAR(tmp), nlist);
 		hp += 2;
 	    }
