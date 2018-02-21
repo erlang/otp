@@ -227,6 +227,18 @@
               </item>
             </list>
 	  </item>
+
+	  <tag><c><![CDATA[{save_accepted_host, boolean()}]]></c></tag>
+	  <item>
+	    <p>If <c>true</c>, the client saves an accepted host key to avoid the
+	    accept question the next time the same host is connected. If the option
+	    <c>key_cb</c> is not present, the key is saved in the file "known_hosts".
+	    </p>
+	    <p>If <c>false</c>, the key is not saved and the key will still be unknown
+	    at the next access of the same host.
+	    </p>
+	  </item>
+
 	  <tag><c><![CDATA[{user_interaction, boolean()}]]></c></tag>
 	  <item>
 	    <p>If <c>false</c>, disables the client to connect to the server
