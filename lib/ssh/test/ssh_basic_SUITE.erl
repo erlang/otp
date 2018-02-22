@@ -1491,7 +1491,7 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
 	    end
     after 30000 ->
-	    ct:log("Meassage queue of ~p:~n~p",
+	    ct:log("Message queue of ~p:~n~p",
 		   [self(), erlang:process_info(self(), messages)]),
 	    case Order of
 		expect -> ct:fail("timeout, expected ~p",[string:strip(Arg)]);
