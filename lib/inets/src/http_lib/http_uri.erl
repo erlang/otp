@@ -61,15 +61,29 @@
 	 scheme_defaults/0, 
 	 encode/1, decode/1]).
 
--export_type([scheme/0, default_scheme_port_number/0]).
+-export_type([uri/0,
+              user_info/0,
+              scheme/0, default_scheme_port_number/0,
+              host/0,
+              path/0,
+              query/0,
+              fragment/0]).
 
+-type uri() :: string() | binary().
+-type user_info() :: string() | binary().
+-type scheme() :: atom().
+-type host() :: string() | binary().
+-type path() :: string() | binary().
+-type query() :: string() | binary().
+-type fragment() :: string() | binary().
+-type port_number() :: inet:port_number().
+-type default_scheme_port_number() :: port_number().
+-type hex_uri() :: string() | binary(). %% Hexadecimal encoded URI.
+-type maybe_hex_uri() :: string() | binary(). %% A possibly hexadecimal encoded URI.
 
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-
--type scheme() :: atom().
--type default_scheme_port_number() :: pos_integer().
 
 -spec scheme_defaults() ->
     [{scheme(), default_scheme_port_number()}].
@@ -82,9 +96,17 @@ scheme_defaults() ->
      {sftp,  22}, 
      {tftp,  69}].
 
+-type parse_result() ::
+        {scheme(), user_info(), host(), port_number(), path(), query()} |
+        {scheme(), user_info(), host(), port_number(), path(), query(),
+         fragment()}.
+
+-spec parse(uri()) -> {ok, parse_result()} | {error, term()}.
 parse(AbsURI) ->
     parse(AbsURI, []).
 
+-spec parse(uri(), [Option]) -> {ok, parse_result()} | {error, term()} when
+      Option :: {atom(), term()}.
 parse(AbsURI, Opts) ->
     case parse_scheme(AbsURI, Opts) of
 	{error, Reason} ->
@@ -105,6 +127,7 @@ reserved() ->
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
+-spec encode(uri()) -> hex_uri().
 encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
@@ -112,6 +135,7 @@ encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
     << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
+-spec decode(maybe_hex_uri()) -> uri().
 decode(String) when is_list(String) ->
     do_decode(String);
 decode(String) when is_binary(String) ->
