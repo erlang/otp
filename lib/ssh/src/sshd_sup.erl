@@ -90,10 +90,8 @@ init(_) ->
 child_spec(Address, Port, Profile, Options) ->
     #{id       => id(Address, Port, Profile),
       start    => {ssh_system_sup, start_link, [Address, Port, Profile, Options]},
-      restart  => temporary,
-      shutdown => infinity,
-      type     => supervisor,
-      modules  => [ssh_system_sup]
+      restart  => temporary, 
+      type     => supervisor
      }.
 
 id(Address, Port, Profile) ->

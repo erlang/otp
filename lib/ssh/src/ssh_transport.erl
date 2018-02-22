@@ -889,10 +889,13 @@ known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}
 	{_,true} ->
 	    ok;
 	{_,false} ->
+            DoAdd = ?GET_OPT(save_accepted_host, Opts),
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
-		true ->
+		true when DoAdd == true ->
 		    {_,R} = add_host_key(KeyCb, PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]),
                     R;
+		true when DoAdd == false ->
+                    ok;
 		false ->
 		    {error, rejected_by_user};
                 {error,E} ->

@@ -30,6 +30,42 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adjusted supervisor timeouts</p>
+          <p>
+	    Own Id: OTP-14907</p>
+        </item>
+        <item>
+          <p>
+	    Remove ERROR messages for slow process exits</p>
+          <p>
+	    Own Id: OTP-14930</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>save_accepted_host</c> to
+	    <c>ssh:connection</c>. This option, if set to false,
+	    inhibits saving host keys to e.g the file
+	    <c>known_hosts</c>.</p>
+          <p>
+	    Own Id: OTP-14935</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

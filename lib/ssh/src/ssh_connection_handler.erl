@@ -1460,11 +1460,10 @@ terminate(shutdown, StateName, State0) ->
 		     State0),
     finalize_termination(StateName, State);
 
-%% terminate({shutdown,Msg}, StateName, State0) when is_record(Msg,ssh_msg_disconnect)->
-%%     State = send_msg(Msg, State0),
-%%     finalize_termination(StateName, Msg, State);
-
 terminate({shutdown,_R}, StateName, State) ->
+    finalize_termination(StateName, State);
+
+terminate(kill, StateName, State) ->
     finalize_termination(StateName, State);
 
 terminate(Reason, StateName, State0) ->
