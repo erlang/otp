@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 	 leap_years/1,
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
-	 iso_week_number/1]).
+	 iso_week_number/1,
+         system_time/1]).
 
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
@@ -40,7 +41,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
-     last_day_of_the_month, local_time_to_universal_time_dst, iso_week_number].
+     last_day_of_the_month, local_time_to_universal_time_dst,
+     iso_week_number, system_time].
 
 groups() -> 
     [].
@@ -156,6 +158,22 @@ local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
 %%  when the date falls on the first week of the next year.
 iso_week_number(Config) when is_list(Config) ->
     check_iso_week_number().
+
+system_time(Config) when is_list(Config) ->
+    EpochDate = {{1970,1,1}, {0,0,0}},
+    Epoch = calendar:datetime_to_gregorian_seconds(EpochDate),
+    Y0 = {{0,1,1},{0,0,0}},
+
+    EpochDate = calendar:system_time_to_universal_time(0, second),
+    0 = calendar:datetime_to_gregorian_seconds(Y0),
+    Y0 = calendar:system_time_to_universal_time(-Epoch, second),
+
+    T = erlang:system_time(second),
+    UDate = calendar:system_time_to_universal_time(T, second),
+    LDate = erlang:universaltime_to_localtime(UDate),
+    LDate = calendar:system_time_to_local_time(T, second),
+
+    ok.
 
 %%
 %% LOCAL FUNCTIONS
