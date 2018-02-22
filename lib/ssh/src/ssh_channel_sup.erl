@@ -26,7 +26,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, start_child/2]).
+-export([start_link/1, start_child/5]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -37,7 +37,14 @@
 start_link(Args) ->
     supervisor:start_link(?MODULE, [Args]).
 
-start_child(Sup, ChildSpec) ->
+start_child(Sup, Callback, Id, Args, Exec) ->
+    ChildSpec =
+        #{id       => make_ref(),
+          start    => {ssh_channel, start_link, [self(), Id, Callback, Args, Exec]},
+          restart  => temporary,
+          type     => worker,
+          modules  => [ssh_channel]
+         },
     supervisor:start_child(Sup, ChildSpec).
 
 %%%=========================================================================

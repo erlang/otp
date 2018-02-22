@@ -812,22 +812,20 @@ start_channel(Cb, Id, Args, SubSysSup, Opts) ->
     start_channel(Cb, Id, Args, SubSysSup, undefined, Opts).
 
 start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
-    ChildSpec = child_spec(Cb, Id, Args, Exec),
     ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
-    assert_limit_num_channels_not_exceeded(ChannelSup, Opts),
-    ssh_channel_sup:start_child(ChannelSup, ChildSpec).
+    case max_num_channels_not_exceeded(ChannelSup, Opts) of
+        true ->
+            ssh_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec);
+        false ->
+	    throw(max_num_channels_exceeded)
+    end.
     
-assert_limit_num_channels_not_exceeded(ChannelSup, Opts) ->
+max_num_channels_not_exceeded(ChannelSup, Opts) ->
     MaxNumChannels = ?GET_OPT(max_channels, Opts),
     NumChannels = length([x || {_,_,worker,[ssh_channel]} <- 
 				   supervisor:which_children(ChannelSup)]),
-    if 
-	%% Note that NumChannels is BEFORE starting a new one
-	NumChannels < MaxNumChannels ->
-	    ok;
-	true ->
-	    throw(max_num_channels_exceeded)
-    end.
+    %% Note that NumChannels is BEFORE starting a new one
+    NumChannels < MaxNumChannels.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -873,14 +871,6 @@ check_subsystem(SsName, Options) ->
 	{_, _} = Value ->
 	    Value
     end.
-
-child_spec(Callback, Id, Args, Exec) ->
-    Name = make_ref(),
-    StartFunc = {ssh_channel, start_link, [self(), Id, Callback, Args, Exec]},
-    Restart = temporary, 
-    Shutdown = 3600,
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, [ssh_channel]}.
 
 start_cli(#connection{cli_spec = no_cli}, _) ->
     {error, cli_disabled};
