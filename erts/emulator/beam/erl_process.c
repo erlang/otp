@@ -1609,6 +1609,20 @@ erts_proclist_destroy(ErtsProcList *plp)
     proclist_destroy(plp);
 }
 
+void
+erts_proclist_dump(fmtfn_t to, void *to_arg, ErtsProcList *plp)
+{
+    ErtsProcList *first = plp;
+
+    while (plp) {
+        erts_print(to, to_arg, "%T", plp->pid);
+        plp = plp->next;
+        if (plp == first)
+            break;
+    }
+    erts_print(to, to_arg, "\n");
+}
+
 void *
 erts_psd_set_init(Process *p, int ix, void *data)
 {

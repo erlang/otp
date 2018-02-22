@@ -106,6 +106,7 @@
 	 links,
 	 name,
 	 monitors,
+         suspended,
 	 controls,
          input,
          output,

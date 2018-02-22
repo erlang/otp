@@ -1614,6 +1614,7 @@ Uint64 erts_step_proc_interval(void);
 ErtsProcList *erts_proclist_create(Process *);
 ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
+void erts_proclist_dump(fmtfn_t to, void *to_arg, ErtsProcList*);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
 ERTS_GLB_INLINE void erts_proclist_store_first(ErtsProcList **, ErtsProcList *);

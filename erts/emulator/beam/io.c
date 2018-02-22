@@ -5271,6 +5271,10 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 	erts_doforall_monitors(ERTS_P_MONITORS(p), &prt_one_monitor, &prtd);
 	erts_print(to, arg, "\n");
     }
+    if (p->suspended) {
+	erts_print(to, arg, "Suspended: ");
+	erts_proclist_dump(to, arg, p->suspended);
+    }
 
     if (p->common.u.alive.reg != NULL)
 	erts_print(to, arg, "Registered as: %T\n", p->common.u.alive.reg->name);

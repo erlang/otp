@@ -110,4 +110,6 @@ info_fields() ->
        {"Port data",        port_data}]},
     {scroll_boxes,
      [{"Links",1,{click,links}},
-       {"Monitors",1,{click,monitors}}]}].
+      {"Monitors",1,{click,monitors}},
+      {"Suspended",1,{click,suspended}}
+     ]}].

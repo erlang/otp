@@ -1676,6 +1676,10 @@ get_portinfo(Fd,Port) ->
 			    {Pid,Pid++" ("++Ref++")"}
 			end || Mon <- Monitors0],
 	    get_portinfo(Fd,Port#port{monitors=Monitors});
+        "Suspended" ->
+	    Pids = split_pid_list_no_space(bytes(Fd)),
+	    Suspended = [{Pid,Pid} || Pid <- Pids],
+	    get_portinfo(Fd,Port#port{suspended=Suspended});
 	"Port controls linked-in driver" ->
 	    Str = lists:flatten(["Linked in driver: " | string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
