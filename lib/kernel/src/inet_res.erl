@@ -349,9 +349,6 @@ gethostbyaddr_tm({A,B,C,D} = IP, Timer) when ?ip(A,B,C,D) ->
 	{ok, HEnt} -> {ok, HEnt};
 	_ -> res_gethostbyaddr(dn_in_addr_arpa(A,B,C,D), IP, Timer)
     end;
-%% ipv4  only ipv6 address
-gethostbyaddr_tm({0,0,0,0,0,16#ffff,G,H},Timer) when is_integer(G+H) ->
-    gethostbyaddr_tm({G div 256, G rem 256, H div 256, H rem 256},Timer);
 gethostbyaddr_tm({A,B,C,D,E,F,G,H} = IP, Timer) when ?ip6(A,B,C,D,E,F,G,H) ->
     inet_db:res_update_conf(),
     case inet_db:gethostbyaddr(IP) of
