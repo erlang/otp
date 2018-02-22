@@ -1079,10 +1079,13 @@ ets:select(Table, MatchSpec),</code>
           </item>
           <tag><c>named_table</c></tag>
           <item>
-            <p>If this option is present, name <c><anno>Name</anno></c> is
-              associated with the table identifier. The name can then
-              be used instead of the table identifier in subsequent
-              operations.</p>
+            <p>If this option is present, the table is registered under its
+              <c><anno>Name</anno></c> which can then be used instead of the
+              table identifier in subsequent operations.</p>
+            <p>The function will also return the <c><anno>Name</anno></c>
+              instead of the table identifier. To get the table identifier of a
+              named table, use
+              <seealso marker="#whereis/1"><c>whereis/1</c></seealso>.</p>
           </item>
           <tag><c>{keypos,<anno>Pos</anno>}</c></tag>
           <item>
