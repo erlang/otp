@@ -1648,6 +1648,10 @@ port_to_tuple("#Port<"++Port) ->
 
 get_portinfo(Fd,Port) ->
     case line_head(Fd) of
+        "State" ->
+	    get_portinfo(Fd,Port#port{state=bytes(Fd)});
+        "Task Flags" ->
+	    get_portinfo(Fd,Port#port{task_flags=bytes(Fd)});
 	"Slot" ->
 	    %% stored as integer so we can sort on it
 	    get_portinfo(Fd,Port#port{slot=list_to_integer(bytes(Fd))});

@@ -99,6 +99,8 @@
 
 -record(port,
 	{id,
+         state,
+         task_flags=0,
 	 slot,
 	 connected,
 	 links,

@@ -99,6 +99,8 @@ format(D) ->
 info_fields() ->
     [{"Overview",
       [{"Name",             name},
+       {"State",            state},
+       {"Task Flags",       task_flags},
        {"Connected",        {click,connected}},
        {"Slot",             slot},
        {"Controls",         controls},
