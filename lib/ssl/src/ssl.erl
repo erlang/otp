@@ -843,7 +843,7 @@ handle_options(Opts0, Role, Host) ->
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
-		    secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
+		    secure_renegotiate = handle_option(secure_renegotiate, Opts, true),
 		    client_renegotiation = handle_option(client_renegotiation, Opts, 
 							 default_option_role(server, true, Role), 
 							 server, Role),

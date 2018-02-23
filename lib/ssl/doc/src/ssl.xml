@@ -264,8 +264,9 @@
       <item><p>Specifies if to reject renegotiation attempt that does
       not live up to 
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>. 
-      By default <c>secure_renegotiate</c> is set to <c>false</c>, 
-      that is, secure renegotiation is used if possible,
+      By default <c>secure_renegotiate</c> is set to <c>true</c>, 
+      that is, secure renegotiation is enforced. If set to <c>false</c> secure renegotiation
+      will still be used if possible,
       but it falls back to insecure renegotiation if the peer
       does not support 
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.</p>
