@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1197,21 +1197,21 @@ skip_else(_Else, From, St, Sis) ->
 %% macro_expansion(Tokens, Anno)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
-macro_pars([{')',_Lp}, {',',Ld}|Ex], Args) ->
-    {ok, {lists:reverse(Args), macro_expansion(Ex, Ld)}};
-macro_pars([{var,_,Name}, {')',_Lp}, {',',Ld}|Ex], Args) ->
+macro_pars([{')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
+    {ok, {lists:reverse(Args), macro_expansion(Ex, Comma)}};
+macro_pars([{var,_,Name}, {')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
     false = lists:member(Name, Args),		%Prolog is nice
-    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Ld)}};
+    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Comma)}};
 macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
     false = lists:member(Name, Args),
     macro_pars(Ts, [Name|Args]).
 
-macro_expansion([{')',_Lp},{dot,_Ld}], _Anno0) -> [];
-macro_expansion([{dot,_}=Dot], _Anno0) ->
+macro_expansion([{')',_Lp},{dot,_Ld}], _T0) -> [];
+macro_expansion([{dot,_}=Dot], _T0) ->
     throw({error,loc(Dot),missing_parenthesis});
-macro_expansion([T|Ts], _Anno0) ->
+macro_expansion([T|Ts], _T0) ->
     [T|macro_expansion(Ts, T)];
-macro_expansion([], Anno0) -> throw({error,loc(Anno0),premature_end}).
+macro_expansion([], T0) -> throw({error,loc(T0),premature_end}).
 
 %% expand_macros(Tokens, St)
 %% expand_macro(Tokens, MacroToken, RestTokens)
