@@ -95,7 +95,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
       expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
-      mac_algorithm = hash_algorithm(Hash),
+      mac_algorithm = mac_algorithm(Hash),
       prf_algorithm = prf_algorithm(PrfHashAlg, Version),
       hash_size = hash_size(Hash)}.
 
@@ -2334,6 +2334,11 @@ prf_algorithm(default_prf, {3, _}) ->
 prf_algorithm(Algo, _) ->
     hash_algorithm(Algo).
 
+mac_algorithm(aead) ->
+    aead;
+mac_algorithm(Algo) ->
+    hash_algorithm(Algo).
+
 hash_algorithm(null)   -> ?NULL;
 hash_algorithm(md5)    -> ?MD5;
 hash_algorithm(sha)   -> ?SHA; %% Only sha always refers to "SHA-1"
@@ -2363,6 +2368,10 @@ sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 4) and (Other =<
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
 
 hash_size(null) ->
+    0;
+%% The AEAD MAC hash size is not used in the context 
+%% of calculating the master secret. See RFC 5246 Section 6.2.3.3.
+hash_size(aead) ->
     0;
 hash_size(md5) ->
     16;
