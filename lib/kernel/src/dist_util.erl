@@ -184,9 +184,7 @@ make_this_flags(RequestType, AddFlags, RemoveFlags, OtherNode) ->
     Flgs0 = ?DFLAGS_THIS_DEFAULT,
     Flgs1 = Flgs0 bor publish_flag(RequestType, OtherNode),
     Flgs2 = Flgs1 bor AddFlags,
-    Flgs3 = Flgs2 band (bnot (?DFLAG_HIDDEN_ATOM_CACHE
-                                  bor ?DFLAG_ATOM_CACHE)),
-    Flgs3 band (bnot RemoveFlags).
+    Flgs2 band (bnot RemoveFlags).
 
 handshake_other_started(#hs_data{request_type=ReqType,
                                  add_flags=AddFlgs0,
