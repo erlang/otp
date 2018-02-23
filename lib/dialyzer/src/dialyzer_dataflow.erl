@@ -3444,19 +3444,19 @@ state__fun_info(Fun, #state{callgraph = CG, fun_tab = FunTab, plt = PLT}) ->
   {Fun, Sig, Contract, LocalRet}.
 
 forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
-  {OldArgTypes, OldOut, Fixpoint} =
+  {NewArgTypes, OldOut, Fixpoint} =
     case dict:find(Fun, FunTab) of
-      {ok, {not_handled, {OldArgTypes0, OldOut0}}} ->
-	{OldArgTypes0, OldOut0, false};
+      {ok, {not_handled, {_OldArgTypesAreNone, OldOut0}}} ->
+	{ArgTypes, OldOut0, false};
       {ok, {OldArgTypes0, OldOut0}} ->
-	{OldArgTypes0, OldOut0,
-	 t_is_subtype(t_product(ArgTypes), t_product(OldArgTypes0))}
+        NewArgTypes0 = [t_sup(X, Y) ||
+                         {X, Y} <- lists:zip(ArgTypes, OldArgTypes0)],
+	{NewArgTypes0, OldOut0,
+         t_is_equal(t_product(NewArgTypes0), t_product(OldArgTypes0))}
     end,
   case Fixpoint of
     true -> State;
     false ->
-      NewArgTypes = [t_sup(X, Y) ||
-                      {X, Y} <- lists:zip(ArgTypes, OldArgTypes)],
       NewWork = add_work(Fun, Work),
       ?debug("~tw: forwarding args ~ts\n",
 	     [state__lookup_name(Fun, State),
