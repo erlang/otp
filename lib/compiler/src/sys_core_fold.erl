@@ -392,7 +392,7 @@ expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=App, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
-    case cerl:is_data(Op1) of
+    case cerl:is_data(Op1) andalso not is_literal_fun(Op1) of
         false ->
 	    App#c_apply{op=Op1,args=As1};
 	true ->
@@ -486,6 +486,9 @@ bitstr_list(Es, Sub) ->
 
 bitstr(#c_bitstr{val=Val,size=Size}=BinSeg, Sub) ->
     BinSeg#c_bitstr{val=expr(Val, Sub),size=expr(Size, value, Sub)}.
+
+is_literal_fun(#c_literal{val=F}) -> is_function(F);
+is_literal_fun(_) -> false.
 
 %% is_safe_simple(Expr, Sub) -> true | false.
 %%  A safe simple cannot fail with badarg and is safe to use

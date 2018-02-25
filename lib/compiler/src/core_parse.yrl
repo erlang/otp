@@ -36,7 +36,7 @@ other_pattern atomic_pattern tuple_pattern cons_pattern tail_pattern
 binary_pattern segment_patterns segment_pattern
 
 expression single_expression
-literal literals atomic_literal tuple_literal cons_literal tail_literal
+literal literals atomic_literal tuple_literal cons_literal tail_literal fun_literal
 nil tuple cons tail
 binary segments segment
 
@@ -267,6 +267,7 @@ single_expression -> cons : '$1'.
 single_expression -> binary : '$1'.
 single_expression -> variable : '$1'.
 single_expression -> function_name : '$1'.
+single_expression -> fun_literal : '$1'.
 single_expression -> fun_expr : '$1'.
 single_expression -> let_expr : '$1'.
 single_expression -> letrec_expr : '$1'.
@@ -302,6 +303,9 @@ cons_literal -> '[' literal tail_literal : c_cons('$2', '$3').
 tail_literal -> ']' : #c_literal{val=[]}.
 tail_literal -> '|' literal ']' : '$2'.
 tail_literal -> ',' literal tail_literal : c_cons('$2', '$3').
+
+fun_literal -> 'fun' atom ':' atom '/' integer :
+	#c_literal{val = erlang:make_fun(tok_val('$2'), tok_val('$4'), tok_val('$6'))}.
 
 tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
