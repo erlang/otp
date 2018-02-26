@@ -116,22 +116,8 @@ dflag2str(_) ->
     "UNKNOWN".
 
 
-remove_flag(Flag, Flags) ->
-    case Flags band Flag of
-	0 ->
-	    Flags;
-	_ ->
-	    Flags - Flag
-    end.
-
-adjust_flags(ThisFlags, OtherFlags, RejectFlags) ->
-    case (?DFLAG_PUBLISHED band ThisFlags) band OtherFlags of
-	0 ->
-	    {remove_flag(?DFLAG_PUBLISHED, ThisFlags),
-	     remove_flag(?DFLAG_PUBLISHED, OtherFlags)};
-	_ ->
-	    {ThisFlags, OtherFlags band (bnot RejectFlags)}
-    end.
+adjust_flags(ThisFlags, OtherFlags) ->
+    ThisFlags band OtherFlags.
 
 publish_flag(hidden, _) ->
     0;
@@ -177,11 +163,9 @@ handshake_other_started(#hs_data{request_type=ReqType,
     {PreOtherFlags,Node,Version} = recv_name(HSData0),
     EDF = erts_internal:get_dflags(),
     PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node, EDF),
-    {ThisFlags, OtherFlags} = adjust_flags(PreThisFlags,
-					   PreOtherFlags,
-                                           RejFlgs),
-    HSData = HSData0#hs_data{this_flags=ThisFlags,
-			     other_flags=OtherFlags,
+    ChosenFlags = adjust_flags(PreThisFlags, PreOtherFlags),
+    HSData = HSData0#hs_data{this_flags=ChosenFlags,
+			     other_flags=ChosenFlags,
 			     other_version=Version,
 			     other_node=Node,
 			     other_started=true,
@@ -397,11 +381,9 @@ handshake_we_started(#hs_data{request_type=ReqType,
     send_name(HSData),
     recv_status(HSData),
     {PreOtherFlags,ChallengeA} = recv_challenge(HSData),
-    {ThisFlags,OtherFlags} = adjust_flags(PreThisFlags,
-                                          PreOtherFlags,
-                                          RejFlgs),
-    NewHSData = HSData#hs_data{this_flags = ThisFlags,
-			       other_flags = OtherFlags, 
+    ChosenFlags = adjust_flags(PreThisFlags, PreOtherFlags),
+    NewHSData = HSData#hs_data{this_flags = ChosenFlags,
+			       other_flags = ChosenFlags,
 			       other_started = false}, 
     check_dflags(NewHSData, EDF),
     MyChallenge = gen_challenge(),
