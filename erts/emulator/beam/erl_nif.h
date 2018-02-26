@@ -137,8 +137,9 @@ typedef struct
     unsigned char* data;
 
     /* Internals (avert your eyes) */
-    ERL_NIF_TERM bin_term;
     void* ref_bin;
+    /* for future additions to be ABI compatible (same struct size) */
+    void* __spare__[2];
 }ErlNifBinary;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))

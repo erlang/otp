@@ -237,9 +237,11 @@ static void cache_env(ErlNifEnv* env);
 static void full_flush_env(ErlNifEnv *env);
 static void flush_env(ErlNifEnv* env);
 
-/* Temporary object header, auto-deallocated when NIF returns
- * or when independent environment is cleared.
- */
+/* Temporary object header, auto-deallocated when NIF returns or when
+ * independent environment is cleared.
+ *
+ * The payload can be accessed with &tmp_obj_ptr[1] but keep in mind that its
+ * first element must not require greater alignment than `next`. */
 struct enif_tmp_obj_t {
     struct enif_tmp_obj_t* next;
     void (*dtor)(struct enif_tmp_obj_t*);
@@ -254,6 +256,46 @@ static ERTS_INLINE void free_tmp_objs(ErlNifEnv* env)
 	env->tmp_obj_list = free_me->next;
 	free_me->dtor(free_me);
     }
+}
+
+/* Whether the given environment is bound to a process and will be cleaned up
+ * when the NIF returns. It's safe to use temp_alloc for objects in
+ * env->tmp_obj_list when this is true. */
+static ERTS_INLINE int is_proc_bound(ErlNifEnv *env)
+{
+    return env->mod_nif != NULL;
+}
+
+/* Allocates and attaches an object to the given environment, running its
+ * destructor when the environment is cleared. To avoid temporary variables the
+ * address of the allocated object is returned instead of the enif_tmp_obj_t.
+ *
+ * The destructor *must* call `erts_free(tmp_obj->allocator, tmp_obj)` to free
+ * the object. If the destructor needs to refer to the allocated object its
+ * address will be &tmp_obj[1]. */
+static ERTS_INLINE void *alloc_tmp_obj(ErlNifEnv *env, size_t size,
+                                       void (*dtor)(struct enif_tmp_obj_t*)) {
+    struct enif_tmp_obj_t *tmp_obj;
+    ErtsAlcType_t allocator;
+
+    allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
+
+    tmp_obj = erts_alloc(allocator, sizeof(struct enif_tmp_obj_t) + MAX(1, size));
+
+    tmp_obj->next = env->tmp_obj_list;
+    tmp_obj->allocator = allocator;
+    tmp_obj->dtor = dtor;
+
+    env->tmp_obj_list = tmp_obj;
+
+    return (void*)&tmp_obj[1];
+}
+
+/* Generic destructor for objects allocated through alloc_tmp_obj that don't
+ * care about their payload. */
+static void tmp_alloc_dtor(struct enif_tmp_obj_t *tmp_obj)
+{
+    erts_free(tmp_obj->allocator, tmp_obj);
 }
 
 void erts_post_nif(ErlNifEnv* env)
@@ -446,6 +488,7 @@ static void cache_env(ErlNifEnv* env)
 	env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
     }
 }
+
 void* enif_priv_data(ErlNifEnv* env)
 {
     return env->mod_nif->priv_data;
@@ -1019,11 +1062,6 @@ int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_number(term);
 }
 
-static ERTS_INLINE int is_proc_bound(ErlNifEnv* env)
-{
-    return env->mod_nif != NULL;
-}
-
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
     erts_free_aligned_binary_bytes_extra((byte*)obj, obj->allocator);
@@ -1058,22 +1096,14 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	u.tmp->dtor = &aligned_binary_dtor;
 	env->tmp_obj_list = u.tmp;
     }
-    bin->bin_term = bin_term;
     bin->size = binary_size(bin_term);
     bin->ref_bin = NULL;
     ADD_READONLY_CHECK(env, bin->data, bin->size);
     return 1;
 }
 
-static void tmp_alloc_dtor(struct enif_tmp_obj_t* obj)
-{
-    erts_free(obj->allocator,  obj);
-}
-
 int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
-    struct enif_tmp_obj_t* tobj;
-    ErtsAlcType_t allocator;
     ErlDrvSizeT sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
@@ -1081,7 +1111,6 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     if (is_nil(term)) {
 	bin->data = (unsigned char*) &bin->data; /* dummy non-NULL */
 	bin->size = 0;
-	bin->bin_term = THE_NON_VALUE;
 	bin->ref_bin = NULL;
 	return 1;
     }
@@ -1089,16 +1118,8 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 	return 0;
     }
 
-    allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
-    tobj = erts_alloc(allocator, sz + sizeof(struct enif_tmp_obj_t));
-    tobj->allocator = allocator;
-    tobj->next = env->tmp_obj_list;
-    tobj->dtor = &tmp_alloc_dtor;
-    env->tmp_obj_list = tobj;
-
-    bin->data = (unsigned char*) &tobj[1]; 
+    bin->data = alloc_tmp_obj(env, sz, &tmp_alloc_dtor);
     bin->size = sz;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
     erts_iolist_to_buf(term, (char*) bin->data, sz);
     ADD_READONLY_CHECK(env, bin->data, bin->size); 
@@ -1116,7 +1137,6 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = refbin;
     return 1;
 }
@@ -1150,12 +1170,10 @@ void enif_release_binary(ErlNifBinary* bin)
 {
     if (bin->ref_bin != NULL) {
 	Binary* refbin = bin->ref_bin;
-	ASSERT(bin->bin_term == THE_NON_VALUE);
         erts_bin_release(refbin);
     }
 #ifdef DEBUG
     bin->data = NULL;
-    bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
 #endif
 }
@@ -1312,29 +1330,51 @@ int enif_get_string(ErlNifEnv *env, ERL_NIF_TERM list, char* buf, unsigned len,
 
 Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 {
-    if (bin->bin_term != THE_NON_VALUE) {
-	return bin->bin_term;
+    Eterm bin_term;
+
+    if (bin->ref_bin != NULL) {
+        Binary* binary = bin->ref_bin;
+
+        /* If the binary is smaller than the heap binary limit we'll return a
+         * heap binary to reduce the number of small refc binaries in the
+         * system. We can't simply release the refc binary right away however;
+         * the documentation states that the binary should be considered
+         * read-only from this point on, which implies that it should still be
+         * readable.
+         *
+         * We could keep it alive until we return by adding it to the temporary
+         * object list, but that requires an off-heap allocation which is
+         * potentially quite slow, so we create a dummy ProcBin instead and
+         * rely on the next minor GC to get rid of it. */
+        if (bin->size <= ERL_ONHEAP_BIN_LIMIT) {
+            ErlHeapBin* hb;
+
+            hb = (ErlHeapBin*)alloc_heap(env, heap_bin_size(bin->size));
+            hb->thing_word = header_heap_bin(bin->size);
+            hb->size = bin->size;
+
+            sys_memcpy(hb->data, bin->data, bin->size);
+
+            erts_build_proc_bin(&MSO(env->proc),
+                                alloc_heap(env, PROC_BIN_SIZE),
+                                binary);
+
+            bin_term = make_binary(hb);
+        } else {
+            bin_term = erts_build_proc_bin(&MSO(env->proc),
+                                           alloc_heap(env, PROC_BIN_SIZE),
+                                           binary);
+        }
+
+        /* Our (possibly shared) ownership has been transferred to the term. */
+        bin->ref_bin = NULL;
+    } else {
+        flush_env(env);
+        bin_term = new_binary(env->proc, bin->data, bin->size);
+        cache_env(env);
     }
-    else if (bin->ref_bin != NULL) {
-	Binary* bptr = bin->ref_bin;
-	Eterm bin_term;
-	
-        bin_term = erts_build_proc_bin(&MSO(env->proc),
-                                       alloc_heap(env, PROC_BIN_SIZE),
-                                       bptr);
-	if (erts_refc_read(&bptr->intern.refc, 1) == 1) {
-	    /* Total ownership transfer */
-	    bin->ref_bin = NULL;
-	    bin->bin_term = bin_term;
-	}
-	return bin_term;
-    }
-    else {
-	flush_env(env);
-	bin->bin_term = new_binary(env->proc, bin->data, bin->size);
-	cache_env(env);
-	return bin->bin_term;
-    }
+
+    return bin_term;
 }
 
 Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
@@ -3380,7 +3420,6 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
     parent_header = binary_val(parent_binary);
 
     result->size = binary_size(binary);
-    result->bin_term = binary;
 
     if (thing_subtag(*parent_header) == REFC_BINARY_SUBTAG) {
         ProcBin *pb = (ProcBin*)parent_header;
@@ -3408,6 +3447,7 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
      * and reference that instead. */
 
     if (result->ref_bin == NULL || bit_offset != 0) {
+        ASSERT(copy_buffer->ref_bin != NULL && copy_buffer->data != NULL);
         ASSERT(result->size <= (copy_buffer->size - *copy_offset));
 
         if (bit_offset == 0) {
@@ -3429,8 +3469,8 @@ static void marshal_iovec_binary(Eterm binary, ErlNifBinary *copy_buffer,
 static int fill_iovec_with_slice(ErlNifEnv *env,
                                  iovec_slice_t *slice,
                                  ErlNifIOVec *iovec) {
+    ErlNifBinary copy_buffer = {0};
     UWord copy_offset, iovec_idx;
-    ErlNifBinary copy_buffer;
     Eterm sublist_iterator;
 
     /* Set up a common refc binary for all on-heap and unaligned binaries. */
@@ -3438,11 +3478,8 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         if (!enif_alloc_binary(slice->copied_size, &copy_buffer)) {
             return 0;
         }
-    } else {
-#ifdef DEBUG
-        copy_buffer.data = NULL;
-        copy_buffer.size = 0;
-#endif
+
+        ASSERT(copy_buffer.ref_bin != NULL);
     }
 
     sublist_iterator = slice->sublist_start;
@@ -3492,9 +3529,11 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         }
     } else {
         if (slice->copied_size > 0) {
-            /* Attach the binary to our environment and let the GC take care of
-             * it after returning. */
-            enif_make_binary(env, &copy_buffer);
+            /* Attach the binary to our environment and let the next minor GC
+             * get rid of it. This is slightly faster than using the tmp object
+             * list since it avoids off-heap allocations. */
+            erts_build_proc_bin(&MSO(env->proc),
+                alloc_heap(env, PROC_BIN_SIZE), copy_buffer.ref_bin);
         }
     }
 
@@ -3520,19 +3559,14 @@ static int create_iovec_from_slice(ErlNifEnv *env,
         alloc_size = binv_offset;
         alloc_size += slice->iovec_len * sizeof(Binary*);
 
-        /* If we have an environment we'll attach the allocated data to it. The
-         * GC will take care of releasing it later on. */
+        /* When the user passes an environment, we attach the iovec to it so
+         * the user won't have to bother managing it (similar to
+         * enif_inspect_binary). It'll disappear once the environment is
+         * cleaned up. */
         if (env != NULL) {
-            ErlNifBinary gc_bin;
-
-            if (!enif_alloc_binary(alloc_size, &gc_bin)) {
-                return 0;
-            }
-
-            alloc_base = (char*)gc_bin.data;
-            enif_make_binary(env, &gc_bin);
+            alloc_base = alloc_tmp_obj(env, alloc_size, &tmp_alloc_dtor);
         } else {
-            alloc_base = enif_alloc(alloc_size);
+            alloc_base = erts_alloc(ERTS_ALC_T_NIF, alloc_size);
         }
 
         iovec = (ErlNifIOVec*)alloc_base;
@@ -3546,7 +3580,7 @@ static int create_iovec_from_slice(ErlNifEnv *env,
 
     if(!fill_iovec_with_slice(env, slice, iovec)) {
         if (env == NULL && !(iovec->flags & ERL_NIF_IOVEC_FLAGS_PREALLOC)) {
-            enif_free(iovec);
+            erts_free(ERTS_ALC_T_NIF, iovec);
         }
 
         return 0;
@@ -4236,34 +4270,31 @@ static unsigned calc_checksum(unsigned char* ptr, unsigned size);
 
 struct readonly_check_t
 {
-    struct enif_tmp_obj_t hdr;
     unsigned char* ptr;
     unsigned size;
     unsigned checksum;
 };
 static void add_readonly_check(ErlNifEnv* env, unsigned char* ptr, unsigned sz)
 {
-    ErtsAlcType_t allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
-    struct readonly_check_t* obj = erts_alloc(allocator, 
-					      sizeof(struct readonly_check_t));
-    obj->hdr.allocator = allocator;
-    obj->hdr.next = env->tmp_obj_list;
-    env->tmp_obj_list = &obj->hdr;
-    obj->hdr.dtor = &readonly_check_dtor;
+    struct readonly_check_t* obj;
+
+    obj = alloc_tmp_obj(env, sizeof(struct readonly_check_t),
+        &readonly_check_dtor);
+
     obj->ptr = ptr;
     obj->size = sz;
-    obj->checksum = calc_checksum(ptr, sz);    
+    obj->checksum = calc_checksum(ptr, sz);
 }
-static void readonly_check_dtor(struct enif_tmp_obj_t* o)
+static void readonly_check_dtor(struct enif_tmp_obj_t* tmp_obj)
 {
-    struct readonly_check_t* obj = (struct readonly_check_t*) o;
-    unsigned chksum = calc_checksum(obj->ptr, obj->size);
-    if (chksum != obj->checksum) { 
+    struct readonly_check_t* ro_check = (struct readonly_check_t*)&tmp_obj[1];
+    unsigned chksum = calc_checksum(ro_check->ptr, ro_check->size);
+    if (chksum != ro_check->checksum) { 
 	fprintf(stderr, "\r\nReadonly data written by NIF, checksums differ"
-		" %x != %x\r\nABORTING\r\n", chksum, obj->checksum);
+		" %x != %x\r\nABORTING\r\n", chksum, ro_check->checksum);
 	abort();
     }
-    erts_free(obj->hdr.allocator,  obj);
+    erts_free(tmp_obj->allocator, tmp_obj);
 }
 static unsigned calc_checksum(unsigned char* ptr, unsigned size)
 {
