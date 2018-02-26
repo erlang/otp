@@ -250,6 +250,7 @@ atom error_handler
 atom error_logger
 atom erts_code_purger
 atom erts_debug
+atom erts_dflags
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'

@@ -40,25 +40,50 @@
 #define DFLAG_UNICODE_IO          0x1000
 #define DFLAG_DIST_HDR_ATOM_CACHE 0x2000
 #define DFLAG_SMALL_ATOM_TAGS     0x4000
-#define DFLAG_INTERNAL_TAGS       0x8000
+#define DFLAG_INTERNAL_TAGS       0x8000   /* used by ETS 'compressed' option */
 #define DFLAG_UTF8_ATOMS          0x10000
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
-#define DFLAG_NO_MAGIC            0x100000
+#define DFLAG_NO_MAGIC            0x100000 /* internal for pending connection */
 
-/* Mandatory flags for distribution (sync with dist_util.erl) */
+/* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
                               | DFLAG_EXTENDED_PIDS_PORTS       \
 			      | DFLAG_UTF8_ATOMS                \
 			      | DFLAG_NEW_FUN_TAGS)
 
-/* Additional optimistic flags when encoding toward pending connection */
-#define DFLAG_DIST_HOPEFULLY (DFLAG_NO_MAGIC                    \
-                              | DFLAG_EXPORT_PTR_TAG            \
+/*
+ * Additional optimistic flags when encoding toward pending connection.
+ * If remote node does not supporting these (erl_interface)
+ * then we will need to transcode all messages enqueued before
+ * connection setup was finished.
+ */
+#define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
                               | DFLAG_BIT_BINARIES              \
                               | DFLAG_DIST_MONITOR              \
                               | DFLAG_DIST_MONITOR_NAME)
+
+/* Our preferred set of flags. Used for connection setup handshake */
+#define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
+                            | DFLAG_FUN_TAGS                  \
+                            | DFLAG_NEW_FLOATS                \
+                            | DFLAG_UNICODE_IO                \
+                            | DFLAG_DIST_HDR_ATOM_CACHE       \
+                            | DFLAG_SMALL_ATOM_TAGS           \
+                            | DFLAG_UTF8_ATOMS                \
+                            | DFLAG_MAP_TAG                   \
+                            | DFLAG_BIG_CREATION              \
+                            | DFLAG_SEND_SENDER)
+
+/* Flags addable by local distr implementations */
+#define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
+
+/* Flags rejectable by local distr implementation */
+#define DFLAG_DIST_REJECTABLE (DFLAG_DIST_HDR_ATOM_CACHE         \
+                               | DFLAG_HIDDEN_ATOM_CACHE         \
+                               | DFLAG_ATOM_CACHE)
+
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\

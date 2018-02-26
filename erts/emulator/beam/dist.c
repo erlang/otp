@@ -641,6 +641,13 @@ trap_function(Eterm func, int arity)
     return erts_export_put(am_erlang, func, arity);
 }
 
+/*
+ * Sync with dist_util.erl:
+ *
+ * -record(erts_dflags, {default, mandatory, addable, rejectable}).
+ */
+static Eterm erts_dflags_record;
+
 void init_dist(void)
 {
     init_nodes_monitors();
@@ -657,6 +664,15 @@ void init_dist(void)
     dist_ctrl_put_data_trap = erts_export_put(am_erts_internal,
                                               am_dist_ctrl_put_data,
                                               2);
+    {
+        Eterm* hp = erts_alloc(ERTS_ALC_T_LITERAL, (1+5)*sizeof(Eterm));
+        erts_dflags_record = TUPLE5(hp, am_erts_dflags,
+                                    make_small(DFLAG_DIST_DEFAULT),
+                                    make_small(DFLAG_DIST_MANDATORY),
+                                    make_small(DFLAG_DIST_ADDABLE),
+                                    make_small(DFLAG_DIST_REJECTABLE));
+        erts_set_literal_tag(&erts_dflags_record, hp, (1+5));
+    }
 }
 
 #define ErtsDistOutputBuf2Binary(OB) \
@@ -3504,6 +3520,11 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
  system_limit:
     ERTS_BIF_PREP_ERROR(ret, BIF_P, SYSTEM_LIMIT);
     goto done;
+}
+
+BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
+{
+    return erts_dflags_record;
 }
 
 BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
