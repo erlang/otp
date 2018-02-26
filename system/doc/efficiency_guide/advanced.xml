@@ -151,7 +151,7 @@
       <row>
         <cell>Processes</cell>
         <cell>The maximum number of simultaneously alive Erlang processes
-	is by default 32,768. This limit can be configured at startup.
+	is by default 262,144. This limit can be configured at startup.
 	For more information, see the
 	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
 	command-line flag in the
