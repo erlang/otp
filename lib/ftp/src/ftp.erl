@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,20 @@
 %% %CopyrightEnd%
 %%
 %%
-%% Description: This module implements an ftp client, RFC 959. 
-%% It also supports ipv6 RFC 2428 and starttls RFC 4217.
 
 -module(ftp).
 
 -behaviour(gen_server).
--behaviour(inets_service).
 
+-export([start/0,
+         start_service/1,
+         stop/0,
+         stop_service/1,
+         services/0,
+         service_info/1
+        ]).
+
+-export([start_link/1, start_link/2]).
 
 %%  API - Client interface
 -export([cd/2, close/1, delete/2, formaterror/1, 
@@ -47,13 +53,6 @@
 -export([init/1, handle_call/3, handle_cast/2, 
 	 handle_info/2, terminate/2, code_change/3]).
 
-%% supervisor callbacks
--export([start_link/1, start_link/2]).
-
-%% Behavior callbacks
--export([start_standalone/1, start_service/1, 
-	 stop_service/1, services/0, service_info/1]).
-
 -include("ftp_internal.hrl").
 
 %% Constants used in internal state definition
@@ -66,6 +65,11 @@
 %% Internal Constants
 -define(FTP_PORT, 21).
 -define(FILE_BUFSIZE, 4096).
+
+
+%%%=========================================================================
+%%%  Data Types
+%%%=========================================================================
 
 %% Internal state
 -record(state, {
@@ -115,6 +119,46 @@
 -define(DBG(F,A), 'n/a').
 %%-define(DBG(F,A), io:format(F,A)).
 %%-define(DBG(F,A), ct:pal("~p:~p " ++ if is_list(F) -> F; is_atom(F) -> atom_to_list(F) end, [?MODULE,?LINE|A])).
+
+
+%%%=========================================================================
+%%%  API
+%%%=========================================================================
+
+start() ->
+    application:start(ftp).
+
+start_service(Options) ->
+    try
+	{ok, StartOptions} = start_options(Options),
+	{ok, OpenOptions}  = open_options(Options), 
+	case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
+	    {ok, Pid} ->
+		call(Pid, {open, ip_comm, OpenOptions}, plain);
+	    Error1 ->
+		Error1
+	end
+    catch 
+	throw:Error2 ->
+	    Error2
+    end.
+
+stop() ->
+    application:stop(ftp).
+
+stop_service(Pid) ->
+    close(Pid).
+
+services() ->
+    [{ftpc, Pid} || {_, Pid, _, _} <- 
+			supervisor:which_children(ftp_sup)].
+service_info(Pid) ->
+    {ok, Info} = call(Pid, info, list),
+    {ok, [proplists:lookup(mode, Info), 
+	  proplists:lookup(local_port, Info),
+	  proplists:lookup(peer, Info),
+	  proplists:lookup(peer_port, Info)]}.
+
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -871,219 +915,6 @@ info(Pid) ->
 
 latest_ctrl_response(Pid) ->
     call(Pid, latest_ctrl_response, string).
-
-%%%========================================================================
-%%% Behavior callbacks
-%%%========================================================================
-start_standalone(Options) ->
-    try
-	{ok, StartOptions} = start_options(Options),
-	{ok, OpenOptions}  = open_options(Options), 
-	case start_link(StartOptions, []) of
-	    {ok, Pid} ->
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
-	    Error1 ->
-		Error1
-	end
-    catch 
-	throw:Error2 ->
-	    Error2
-    end.
-
-start_service(Options) ->
-    try
-	{ok, StartOptions} = start_options(Options),
-	{ok, OpenOptions}  = open_options(Options), 
-	case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
-	    {ok, Pid} ->
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
-	    Error1 ->
-		Error1
-	end
-    catch 
-	throw:Error2 ->
-	    Error2
-    end.
-
-stop_service(Pid) ->
-    close(Pid).
-
-services() ->
-    [{ftpc, Pid} || {_, Pid, _, _} <- 
-			supervisor:which_children(ftp_sup)].
-service_info(Pid) ->
-    {ok, Info} = call(Pid, info, list),
-    {ok, [proplists:lookup(mode, Info), 
-	  proplists:lookup(local_port, Info),
-	  proplists:lookup(peer, Info),
-	  proplists:lookup(peer_port, Info)]}.
-
-
-%% This function extracts the start options from the 
-%% Valid options: 
-%%     debug, 
-%%     verbose 
-%%     ipfamily
-%%     priority
-%%     flags    (for backward compatibillity)
-start_options(Options) ->
-    ?fcrt("start_options", [{options, Options}]), 
-    case lists:keysearch(flags, 1, Options) of
-	{value, {flags, Flags}} ->
-	    Verbose = lists:member(verbose, Flags),
-	    IsTrace = lists:member(trace, Flags), 
-	    IsDebug = lists:member(debug, Flags), 
-	    DebugLevel = 
-		if 
-		    (IsTrace =:= true) ->
-			trace;
-		    IsDebug =:= true ->
-			debug;
-		    true ->
-			disable
-		end,
-	    {ok, [{verbose,  Verbose}, 
-		  {debug,    DebugLevel}, 
-		  {priority, low}]};
-	false ->
-	    ValidateVerbose = 
-		fun(true) -> true;
-		   (false) -> true;
-		   (_) -> false
-		end,
-	    ValidateDebug = 
-		fun(trace) -> true;
-		   (debug) -> true;
-		   (disable) -> true;
-		   (_) -> false
-		end,
-	    ValidatePriority = 
-		fun(low) -> true;
-		   (normal) -> true;
-		   (high) -> true;
-		   (_) -> false
-		end,
-	    ValidOptions = 
-		[{verbose,  ValidateVerbose,  false, false}, 
-		 {debug,    ValidateDebug,    false, disable}, 
-		 {priority, ValidatePriority, false, low}], 
-	    validate_options(Options, ValidOptions, [])
-    end.
-
-
-%% This function extracts and validates the open options from the 
-%% Valid options: 
-%%    mode
-%%    host
-%%    port
-%%    timeout
-%%    dtimeout
-%%    progress
-%%	  ftp_extension
-
-open_options(Options) ->
-    ?fcrt("open_options", [{options, Options}]), 
-    ValidateMode = 
-	fun(active) -> true;
-	   (passive) -> true;
-	   (_) -> false
-	end,
-    ValidateHost = 
-	fun(Host) when is_list(Host) ->
-		true;
-	   (Host) when is_tuple(Host) andalso 
-		       ((size(Host) =:= 4) orelse (size(Host) =:= 8)) ->
-		true;
-	   (_) ->
-		false
-	end,
-    ValidatePort = 
-	fun(Port) when is_integer(Port) andalso (Port > 0) -> true;
-	   (_) -> false
-	end,
-    ValidateIpFamily = 
-	fun(inet) -> true;
-	   (inet6) -> true;
-	   (inet6fb4) -> true;
-	   (_) -> false
-	end,
-    ValidateTimeout = 
-	fun(Timeout) when is_integer(Timeout) andalso (Timeout >= 0) -> true;
-	   (_) -> false
-	end,
-    ValidateDTimeout = 
-	fun(DTimeout) when is_integer(DTimeout) andalso (DTimeout >= 0) -> true;
-	   (infinity) -> true;
-	   (_) -> false
-	end,
-    ValidateProgress = 
-	fun(ignore) -> 
-		true;
-	   ({Mod, Func, _InitProgress}) when is_atom(Mod) andalso 
-					     is_atom(Func) -> 
-		true;
-	   (_) ->
-		false
-	end,
-	ValidateFtpExtension =
-	fun(true) -> true;
-		(false) -> true;
-		(_) -> false
-	end,	
-    ValidOptions = 
-	[{mode,     ValidateMode,     false, ?DEFAULT_MODE}, 
-	 {host,     ValidateHost,     true,  ehost},
-	 {port,     ValidatePort,     false, ?FTP_PORT},
-	 {ipfamily, ValidateIpFamily, false, inet},
-	 {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT}, 
-	 {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT}, 
-	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
-	 {ftp_extension, ValidateFtpExtension, false, ?FTP_EXT_DEFAULT}], 
-    validate_options(Options, ValidOptions, []).
-
-tls_options(Options) ->
-    %% Options will be validated by ssl application
-    proplists:get_value(tls, Options, undefined).
-
-validate_options([], [], Acc) ->
-    ?fcrt("validate_options -> done", [{acc, Acc}]), 
-    {ok, lists:reverse(Acc)};
-validate_options([], ValidOptions, Acc) ->
-    ?fcrt("validate_options -> done", 
-	  [{valid_options, ValidOptions}, {acc, Acc}]), 
-    %% Check if any mandatory options are missing!
-    case [{Key, Reason} || {Key, _, true, Reason} <- ValidOptions] of
-	[] ->
-	    Defaults = 
-		[{Key, Default} || {Key, _, _, Default} <- ValidOptions], 
-	    {ok, lists:reverse(Defaults ++ Acc)};
-	[{_, Reason}|_Missing] ->
-	    throw({error, Reason})
-    end;
-validate_options([{Key, Value}|Options], ValidOptions, Acc) ->
-    ?fcrt("validate_options -> check", 
-	  [{key, Key}, {value, Value}, {acc, Acc}]), 
-    case lists:keysearch(Key, 1, ValidOptions) of
-	{value, {Key, Validate, _, Default}} ->
-	    case (catch Validate(Value)) of
-		true ->
-		    ?fcrt("validate_options -> check - accept", []),
-		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
-		    validate_options(Options, NewValidOptions, 
-				     [{Key, Value} | Acc]);
-		_ ->
-		    ?fcrt("validate_options -> check - reject", 
-			  [{default, Default}]),
-		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
-		    validate_options(Options, NewValidOptions, 
-				     [{Key, Default} | Acc])
-	    end;
-	false ->
-	    validate_options(Options, ValidOptions, Acc)
-    end;
-validate_options([_|Options], ValidOptions, Acc) ->
-    validate_options(Options, ValidOptions, Acc).
-
 
 
 %%%========================================================================
@@ -2594,3 +2425,169 @@ start_chunk(#state{client = From} = State) ->
     State#state{chunk = true, 
 		client = undefined,
 		caller = undefined}.
+
+
+%% This function extracts the start options from the 
+%% Valid options: 
+%%     debug, 
+%%     verbose 
+%%     ipfamily
+%%     priority
+%%     flags    (for backward compatibillity)
+start_options(Options) ->
+    ?fcrt("start_options", [{options, Options}]), 
+    case lists:keysearch(flags, 1, Options) of
+	{value, {flags, Flags}} ->
+	    Verbose = lists:member(verbose, Flags),
+	    IsTrace = lists:member(trace, Flags), 
+	    IsDebug = lists:member(debug, Flags), 
+	    DebugLevel = 
+		if 
+		    (IsTrace =:= true) ->
+			trace;
+		    IsDebug =:= true ->
+			debug;
+		    true ->
+			disable
+		end,
+	    {ok, [{verbose,  Verbose}, 
+		  {debug,    DebugLevel}, 
+		  {priority, low}]};
+	false ->
+	    ValidateVerbose = 
+		fun(true) -> true;
+		   (false) -> true;
+		   (_) -> false
+		end,
+	    ValidateDebug = 
+		fun(trace) -> true;
+		   (debug) -> true;
+		   (disable) -> true;
+		   (_) -> false
+		end,
+	    ValidatePriority = 
+		fun(low) -> true;
+		   (normal) -> true;
+		   (high) -> true;
+		   (_) -> false
+		end,
+	    ValidOptions = 
+		[{verbose,  ValidateVerbose,  false, false}, 
+		 {debug,    ValidateDebug,    false, disable}, 
+		 {priority, ValidatePriority, false, low}], 
+	    validate_options(Options, ValidOptions, [])
+    end.
+
+
+%% This function extracts and validates the open options from the 
+%% Valid options: 
+%%    mode
+%%    host
+%%    port
+%%    timeout
+%%    dtimeout
+%%    progress
+%%	  ftp_extension
+
+open_options(Options) ->
+    ?fcrt("open_options", [{options, Options}]), 
+    ValidateMode = 
+	fun(active) -> true;
+	   (passive) -> true;
+	   (_) -> false
+	end,
+    ValidateHost = 
+	fun(Host) when is_list(Host) ->
+		true;
+	   (Host) when is_tuple(Host) andalso 
+		       ((size(Host) =:= 4) orelse (size(Host) =:= 8)) ->
+		true;
+	   (_) ->
+		false
+	end,
+    ValidatePort = 
+	fun(Port) when is_integer(Port) andalso (Port > 0) -> true;
+	   (_) -> false
+	end,
+    ValidateIpFamily = 
+	fun(inet) -> true;
+	   (inet6) -> true;
+	   (inet6fb4) -> true;
+	   (_) -> false
+	end,
+    ValidateTimeout = 
+	fun(Timeout) when is_integer(Timeout) andalso (Timeout >= 0) -> true;
+	   (_) -> false
+	end,
+    ValidateDTimeout = 
+	fun(DTimeout) when is_integer(DTimeout) andalso (DTimeout >= 0) -> true;
+	   (infinity) -> true;
+	   (_) -> false
+	end,
+    ValidateProgress = 
+	fun(ignore) -> 
+		true;
+	   ({Mod, Func, _InitProgress}) when is_atom(Mod) andalso 
+					     is_atom(Func) -> 
+		true;
+	   (_) ->
+		false
+	end,
+	ValidateFtpExtension =
+	fun(true) -> true;
+		(false) -> true;
+		(_) -> false
+	end,	
+    ValidOptions = 
+	[{mode,     ValidateMode,     false, ?DEFAULT_MODE}, 
+	 {host,     ValidateHost,     true,  ehost},
+	 {port,     ValidatePort,     false, ?FTP_PORT},
+	 {ipfamily, ValidateIpFamily, false, inet},
+	 {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT}, 
+	 {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT}, 
+	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
+	 {ftp_extension, ValidateFtpExtension, false, ?FTP_EXT_DEFAULT}], 
+    validate_options(Options, ValidOptions, []).
+
+tls_options(Options) ->
+    %% Options will be validated by ssl application
+    proplists:get_value(tls, Options, undefined).
+
+validate_options([], [], Acc) ->
+    ?fcrt("validate_options -> done", [{acc, Acc}]), 
+    {ok, lists:reverse(Acc)};
+validate_options([], ValidOptions, Acc) ->
+    ?fcrt("validate_options -> done", 
+	  [{valid_options, ValidOptions}, {acc, Acc}]), 
+    %% Check if any mandatory options are missing!
+    case [{Key, Reason} || {Key, _, true, Reason} <- ValidOptions] of
+	[] ->
+	    Defaults = 
+		[{Key, Default} || {Key, _, _, Default} <- ValidOptions], 
+	    {ok, lists:reverse(Defaults ++ Acc)};
+	[{_, Reason}|_Missing] ->
+	    throw({error, Reason})
+    end;
+validate_options([{Key, Value}|Options], ValidOptions, Acc) ->
+    ?fcrt("validate_options -> check", 
+	  [{key, Key}, {value, Value}, {acc, Acc}]), 
+    case lists:keysearch(Key, 1, ValidOptions) of
+	{value, {Key, Validate, _, Default}} ->
+	    case (catch Validate(Value)) of
+		true ->
+		    ?fcrt("validate_options -> check - accept", []),
+		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
+		    validate_options(Options, NewValidOptions, 
+				     [{Key, Value} | Acc]);
+		_ ->
+		    ?fcrt("validate_options -> check - reject", 
+			  [{default, Default}]),
+		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
+		    validate_options(Options, NewValidOptions, 
+				     [{Key, Default} | Acc])
+	    end;
+	false ->
+	    validate_options(Options, ValidOptions, Acc)
+    end;
+validate_options([_|Options], ValidOptions, Acc) ->
+    validate_options(Options, ValidOptions, Acc).

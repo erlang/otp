@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,14 +22,13 @@
 # make file ../../ssl/test/Makefile.
 #
 include $(ERL_TOP)/make/target.mk
-
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../vsn.mk
-VSN = $(INETS_VSN)
+VSN = $(FTP_VSN)
 
 
 # ----------------------------------------------------
@@ -42,115 +41,74 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 INCLUDES = -I. \
-	-I$(ERL_TOP)/lib/inets/src/inets_app \
-	-I$(ERL_TOP)/lib/inets/src/http_lib \
-	-I$(ERL_TOP)/lib/inets/src/http_client
+	-I$(ERL_TOP)/lib/ftp/src
 
 CP = cp
 
 ifeq ($(TESTROOT_DIR),)
-TESTROOT_DIR = /ldisk/tests/$(USER)/inets
+TESTROOT_DIR = /ldisk/tests/$(USER)/ftp
 endif
 
-ifeq ($(INETS_DATA_DIR),)
-INETS_DATA_DIR = $(TESTROOT_DIR)/data_dir
+ifeq ($(FTP_DATA_DIR),)
+FTP_DATA_DIR = $(TESTROOT_DIR)/data_dir
 endif
 
-ifeq ($(INETS_PRIV_DIR),)
-INETS_PRIV_DIR = $(TESTROOT_DIR)/priv_dir
+ifeq ($(FTP_PRIV_DIR),)
+FTP_PRIV_DIR = $(TESTROOT_DIR)/priv_dir
 endif
 
-INETS_FLAGS = -Dinets_data_dir='"$(INETS_DATA_DIR)"'       \
-              -Dinets_priv_dir='"$(INETS_PRIV_DIR)"'
+FTP_FLAGS = -Dftp__data_dir='"$(FTP_DATA_DIR)"'       \
+              -Dftp_priv_dir='"$(FTP_PRIV_DIR)"'
 
 
 ### 
 ### test suite debug flags
 ### 
-ifeq ($(INETS_DEBUG),)
-  INETS_DEBUG = d
+ifeq ($(FTP_DEBUG_CLIENT),)
+  FTP_DEBUG_CLIENT = y
 endif
 
-ifeq ($(INETS_DEBUG),l)
-  INETS_FLAGS += -Dinets_log
+ifeq ($(FTP_DEBUG_CLIENT),)
+  FTP_FLAGS += -Dftp_debug_client
 endif
 
-ifeq ($(INETS_DEBUG),d)
-  INETS_FLAGS += -Dinets_debug -Dinets_log
+ifeq ($(FTP_TRACE_CLIENT),)
+  FTP_DEBUG_CLIENT = y
+endif
+
+ifeq ($(FTP_TRACE_CLIENT),y)
+  FTP_FLAGS += -Dftp_trace_client
+endif
+
+ifneq ($(FTP_DEBUG),)
+  FTP_DEBUG = s
+endif
+
+ifeq ($(FTP_DEBUG),l)
+  FTP_FLAGS += -Dftp_log
+endif
+
+ifeq ($(FTP_DEBUG),d)
+  FTP_FLAGS += -Dftp_debug -Dftp_log
 endif
 
 
-### 
-### HTTPD verbosity flags
-### 
+FTP_FLAGS += -pa ../ftp/ebin
 
-ifneq ($(MANV),)
-  INETS_FLAGS += -Dhttpd_manager_verbosity=$(MANV)
-else
-  INETS_FLAGS += -Dhttpd_manager_verbosity=trace
-endif
-
-ifneq ($(REQV),)
-  INETS_FLAGS += -Dhttpd_request_handler_verbosity=$(REQV)
-else
-  INETS_FLAGS += -Dhttpd_request_handler_verbosity=trace
-endif
-
-ifneq ($(ACCV),)
-  INETS_FLAGS += -Dhttpd_acceptor_verbosity=$(ACCV)
-else
-  INETS_FLAGS += -Dhttpd_acceptor_verbosity=trace
-endif
-
-ifneq ($(AUTHV),)
-  INETS_FLAGS += -Dhttpd_auth_verbosity=$(AUTHV)
-else
-  INETS_FLAGS += -Dhttpd_auth_verbosity=log
-endif
-
-ifneq ($(SECV),)
-  INETS_FLAGS += -Dhttpd_security_verbosity=$(SECV)
-else
-  INETS_FLAGS += -Dhttpd_security_verbosity=log
-endif
-
-INETS_FLAGS += -pa ../../inets/ebin
-
-INETS_ROOT = ../../inets
+FTP_ROOT = ../ftp
 
 MODULES =                 		\
-	inets_test_lib    		\
 	erl_make_certs                  \
-	make_certs                      \
-	http_format_SUITE 		\
-	httpc_SUITE	  		\
-	httpc_cookie_SUITE		\
-	httpc_proxy_SUITE		\
-	httpd_SUITE       		\
-	httpd_bench_SUITE               \
-	http_test_lib    		\
-	httpd_basic_SUITE		\
-	httpd_mod 	  		\
-	httpd_load        		\
-	httpd_time_test	  		\
-	httpd_1_1         		\
-	httpd_1_0                       \
-	httpd_test_lib    		\
-	inets_sup_SUITE   		\
-	inets_SUITE       		\
-        tftp_test_lib			\
-        tftp_SUITE                      \
-	uri_SUITE                       \
-	inets_socketwrap_SUITE
+	ftp_SUITE 	  		\
+	ftp_format_SUITE                \
+	inets_test_lib
 
 
 EBIN = .
 
-HRL_FILES = inets_test_lib.hrl \
-	    inets_internal.hrl \
-            httpc_internal.hrl \
-            http_internal.hrl \
-            tftp_test_lib.hrl
+HRL_FILES = \
+	ftp_internal.hrl \
+	inets_test_lib.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -158,33 +116,24 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec inets_bench.spec
-COVER_FILE = inets.cover
-INETS_FILES = inets.config $(INETS_SPECS)
-
-# SUB_SUITES = \
-# 	inets_sup_suite \
-# 	inets_httpd_suite \
-# 	inets_httpc_suite \
-# 	inets_tftp_suite
+FTP_SPECS = ftp.spec ftp_bench.spec
+COVER_FILE = ftp.cover
+FTP_FILES = ftp.config $(FTP_SPECS)
 
 
-INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data httpd_bench_SUITE_data
+FTP_DATADIRS   = ftp_SUITE_data  
 
-HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
-
-DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS)
+DATADIRS     = $(FTP_DATADIRS)
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)
-RELTEST_FILES = $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(COVER_FILE) $(FTP_SPECS) $(SOURCE)
 else
 BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(FTP_SPECS) $(SOURCE)
 endif
 
 
@@ -192,7 +141,7 @@ endif
 # Release directory specification
 # ----------------------------------------------------
 
-RELTESTSYSDIR        = "$(RELEASE_PATH)/inets_test"
+RELTESTSYSDIR        = "$(RELEASE_PATH)/ftp_test"
 RELTESTSYSALLDATADIR = $(RELTESTSYSDIR)/all_SUITE_data
 RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 
@@ -204,7 +153,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
-	$(INETS_FLAGS)
+	$(FTP_FLAGS)
 
 # ----------------------------------------------------
 # Targets
@@ -242,7 +191,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR)  "$(RELSYSDIR)/test"
 	$(INSTALL_DATA) $(HRL_FILES)   $(ERL_FILES) "$(RELSYSDIR)/test"
-	$(INSTALL_DATA) $(INETS_FILES) "$(RELSYSDIR)/test"
+	$(INSTALL_DATA) $(FTP_FILES) "$(RELSYSDIR)/test"
 	@for d in $(DATADIRS); do \
             echo "installing data dir $$d"; \
             if test -f $$d/TAR.exclude; then \
@@ -283,8 +232,8 @@ info:
 	@echo "SOURCE            = $(SOURCE)"
 	@echo "TARGET_FILES      = $(TARGET_FILES)"
 	@echo ""
-	@echo "INETS_SPECS       = $(INETS_SPECS)"
-	@echo "INETS_FILES       = $(INETS_FILES)"
+	@echo "FTP_SPECS       = $(FTP_SPECS)"
+	@echo "FTP_FILES       = $(FTP_FILES)"
 	@echo ""
 	@echo "RELEASE_PATH      = "$(RELEASE_PATH)""
 	@echo "RELSYSDIR         = "$(RELSYSDIR)""
@@ -295,14 +244,9 @@ info:
 	@echo "DATADIRS          = $(DATADIRS)"
 	@echo "REL_DATADIRS      = $(REL_DATADIRS)"
 	@echo ""
-	@echo "INETS_DATA_DIR    = $(INETS_DATA_DIR)"
-	@echo "INETS_PRIV_DIR    = $(INETS_PRIV_DIR)"
-	@echo "INETS_ROOT        = $(INETS_ROOT)"
-	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
+	@echo "FTP_DATA_DIR    = $(FTP_DATA_DIR)"
+	@echo "FTP_PRIV_DIR    = $(FTP_PRIV_DIR)"
+	@echo "FTP_ROOT        = $(FTP_ROOT)"
+	@echo "FTP_FLAGS         = $(FTP_FLAGS)"
 
-tftp:
-	erlc $(ERL_COMPILE_FLAGS) tftp_test_lib.erl tftp_SUITE.erl && erl -pa ../../inets/ebin -s tftp_SUITE t -s erlang halt
 
-tftp_work:
-	echo "tftp_test_lib:t([{tftp_SUITE, all}])."
-	erlc $(ERL_COMPILE_FLAGS) tftp_test_lib.erl tftp_SUITE.erl && erl -pa ../../inets/ebin

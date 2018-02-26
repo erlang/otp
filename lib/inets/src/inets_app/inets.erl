@@ -470,8 +470,10 @@ service_module(tftpd) ->
     tftp;
 service_module(tftpc) ->
     tftp;
+%% Obsolete! Kept for backward compatiblity!
+%% FTP application has been moved out from inets
 service_module(ftpc) ->
-    ftp;
+    inets_ftp_wrapper;
 service_module(Service) ->
     Service.
 

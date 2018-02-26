@@ -25,30 +25,12 @@
     <title>Inets Reference Manual</title>
     <prepared>Péter Dimitrov</prepared>
     <docno></docno>
-    <date>2018-02-28</date>
-    <rev>2.1</rev>
+    <date>2018-02-26</date>
+    <rev>1.0</rev>
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p><c>Inets</c> is a container for Internet clients and
-    servers. An HTTP client and server, and
-    a TFTP client and server are incorporated in <c>Inets</c>.</p>
+    <p>An <c>FTP</c> client.</p>
   </description>
-  <xi:include href="inets.xml"/>
-  <xi:include href="tftp.xml"/>
-  <xi:include href="httpc.xml"/>
-  <xi:include href="httpd.xml"/>
-  <xi:include href="httpd_custom_api.xml"/>
-  <xi:include href="httpd_socket.xml"/>
-  <xi:include href="httpd_util.xml"/>
-  <xi:include href="mod_alias.xml"/>
-  <xi:include href="mod_auth.xml"/>
-  <xi:include href="mod_esi.xml"/>
-  <xi:include href="mod_security.xml"/>
-  <xi:include href="http_uri.xml"/>
+  <xi:include href="ftp.xml"/>
 </application>
-
-
-
-
-

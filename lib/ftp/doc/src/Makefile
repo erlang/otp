@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2015. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Application version
 # ----------------------------------------------------
 include ../../vsn.mk
-VSN=$(INETS_VSN)
+VSN=$(FTP_VSN)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -40,24 +40,11 @@ XML_APPLICATION_FILES = ref_man.xml
 
 XML_CHAPTER_FILES = \
 	introduction.xml \
-	inets_services.xml \
-	http_client.xml \
-	http_server.xml \
+	ftp_client.xml \
 	notes.xml
 
 XML_REF3_FILES = \
-	inets.xml \
-	tftp.xml \
-	http_uri.xml\
-	httpc.xml\
-	httpd.xml \
-	httpd_custom_api.xml \
-	httpd_socket.xml \
-	httpd_util.xml \
-	mod_alias.xml \
-	mod_auth.xml \
-	mod_esi.xml \
-	mod_security.xml
+	ftp.xml
 
 XML_PART_FILES = \
 	part.xml

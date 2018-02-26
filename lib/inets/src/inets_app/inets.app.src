@@ -30,10 +30,7 @@
             inets_lib,
 
             %% FTP
-            ftp,
-	    ftp_progress,	
-	    ftp_response,		
-            ftp_sup,
+            inets_ftp_wrapper,
             
             %% HTTP client:
             httpc, 

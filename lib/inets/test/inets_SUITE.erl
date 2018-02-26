@@ -42,7 +42,6 @@ groups() ->
       [start_inets, 
        start_httpc, 
        start_httpd, 
-       start_ftpc,
        start_tftpd
       ]},
      {app_test, [], [app, appup]}].
@@ -295,44 +294,6 @@ start_httpd(Config) when is_list(Config) ->
     {error, {missing_property, port}} = 
 	inets:start(httpd, HttpdConf),
     ok = inets:stop().
-
-%%-------------------------------------------------------------------------
-
-start_ftpc(doc) ->
-    [{doc, "Start/stop of ftpc service"}];
-start_ftpc(Config0) when is_list(Config0) ->
-    process_flag(trap_exit, true),
-    ok = inets:start(),
-    case ftp_SUITE:init_per_suite(Config0) of
-	{skip, _} = Skip ->
-	    Skip;
-	Config ->
-	    FtpdHost = proplists:get_value(ftpd_host,Config),
-	    {ok, Pid0} = inets:start(ftpc, [{host, FtpdHost}]),
-	    Pids0 = [ServicePid || {_, ServicePid} <- 
-				       inets:services()],  
-	    true = lists:member(Pid0, Pids0),
-	    [_|_] = inets:services_info(),	
-	    inets:stop(ftpc, Pid0),
-	    ct:sleep(100),
-	    Pids1 =  [ServicePid || {_, ServicePid} <- 
-					inets:services()], 
-	    false = lists:member(Pid0, Pids1),        
-	    {ok, Pid1} = 
-		inets:start(ftpc, [{host, FtpdHost}], stand_alone),
-		Pids2 =  [ServicePid || {_, ServicePid} <- 
-					    inets:services()], 
-	    false = lists:member(Pid1, Pids2),   
-	    ok = inets:stop(stand_alone, Pid1),
-		receive 
-		    {'EXIT', Pid1, shutdown} ->
-			ok
-		after 100 ->
-			ct:fail(stand_alone_not_shutdown)
-		end,
-	    ok = inets:stop(),
-	    catch ftp_SUITE:end_per_SUITE(Config)  
-    end.
 
 %%-------------------------------------------------------------------------
 
