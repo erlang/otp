@@ -315,7 +315,7 @@ erts_queue_dist_message(Process *rcvr,
 
             dtrace_proc_str(rcvr, receiver_name);
             if (have_seqtrace(token)) {
-                tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+                tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
                 tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
                 tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
             }
@@ -640,7 +640,8 @@ erts_send_message(Process* sender,
 	    seq_trace_update_send(sender);
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND,
 			     receiver->common.id, sender);
-	    seq_trace_size = 6; /* TUPLE5 */
+
+	    seq_trace_size = size_object(stoken);
 	}
 #ifdef USE_VM_PROBES
         if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
@@ -689,7 +690,7 @@ erts_send_message(Process* sender,
 	}
         if (DTRACE_ENABLED(message_send)) {
             if (have_seqtrace(stoken)) {
-		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
+                tok_label = SEQ_TRACE_T_DTRACE_LABEL(stoken);
 		tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
 		tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
 	    }

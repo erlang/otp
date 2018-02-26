@@ -3069,7 +3069,7 @@ handle_message_enqueued_tracing(Process *c_p,
         Eterm seq_trace_token = ERL_MESSAGE_TOKEN(msg);
 
         if (seq_trace_token != NIL && is_tuple(seq_trace_token)) {
-            tok_label = signed_val(SEQ_TRACE_T_LABEL(seq_trace_token));
+            tok_label = SEQ_TRACE_T_DTRACE_LABEL(seq_trace_token);
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(seq_trace_token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(seq_trace_token));
         }

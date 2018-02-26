@@ -1807,9 +1807,6 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 	return old_value;
     }
     else if (arg1 == am_label) {
-	if (! is_small(arg2)) {
-	    return THE_NON_VALUE;
-	}
         new_seq_trace_token(p);
 	if (build_result) {
 	    old_value = SEQ_TRACE_TOKEN_LABEL(p);

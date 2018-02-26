@@ -1250,7 +1250,24 @@ void erts_check_for_holes(Process* p);
 #define SEQ_TRACE_T_SENDER(token)   (*(tuple_val(token) + 4))
 #define SEQ_TRACE_T_LASTCNT(token)  (*(tuple_val(token) + 5))
 
+#ifdef USE_VM_PROBES
+/* The dtrace probe for seq_trace only supports 'int' labels, so we represent
+ * all values that won't fit into a 32-bit signed integer as ERTS_SINT32_MIN
+ * (bigints, tuples, etc). */
+
+#define SEQ_TRACE_T_DTRACE_LABEL(token) \
+    DTRACE_SEQ_TRACE_LABEL__(SEQ_TRACE_T_LABEL(token))
+
+#define DTRACE_SEQ_TRACE_LABEL__(label_term) \
+    (is_small((label_term)) ? \
+        ((signed_val((label_term)) <= ERTS_SINT32_MAX && \
+          signed_val((label_term)) >= ERTS_SINT32_MIN) ? \
+             signed_val((label_term)) : ERTS_SINT32_MIN) \
+        : ERTS_SINT32_MIN)
+#endif
+
 /*
+
  * Possible flags for the flags field in ErlSpawnOpts below.
  */
 

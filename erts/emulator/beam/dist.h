@@ -45,7 +45,8 @@
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
-#define DFLAG_NO_MAGIC            0x100000 /* internal for pending connection */
+#define DFLAG_BIG_SEQTRACE_LABELS 0x100000
+#define DFLAG_NO_MAGIC            0x200000 /* internal for pending connection */
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -73,7 +74,8 @@
                             | DFLAG_UTF8_ATOMS                \
                             | DFLAG_MAP_TAG                   \
                             | DFLAG_BIG_CREATION              \
-                            | DFLAG_SEND_SENDER)
+                            | DFLAG_SEND_SENDER               \
+                            | DFLAG_BIG_SEQTRACE_LABELS)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
