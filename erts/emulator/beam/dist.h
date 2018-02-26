@@ -84,6 +84,8 @@
                                | DFLAG_HIDDEN_ATOM_CACHE         \
                                | DFLAG_ATOM_CACHE)
 
+/* Flags for all features needing strict order delivery */
+#define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\

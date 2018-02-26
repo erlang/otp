@@ -27,6 +27,7 @@
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
+         strict_order_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
 	 shutdown/3, shutdown/4]).
@@ -135,8 +136,14 @@ publish_flag(_, OtherNode) ->
           default,      % flags erts prefers
           mandatory,    % flags erts needs
           addable,      % flags local dist implementation is allowed to add
-          rejectable    % flags local dist implementation is allowed to reject
+          rejectable,   % flags local dist implementation is allowed to reject
+          strict_order  % flags for features needing strict order delivery
 }).
+
+-spec strict_order_flags() -> integer().
+strict_order_flags() ->
+    EDF = erts_internal:get_dflags(),
+    EDF#erts_dflags.strict_order.
 
 make_this_flags(RequestType, AddFlags, RejectFlags, OtherNode,
                 #erts_dflags{}=EDF) ->

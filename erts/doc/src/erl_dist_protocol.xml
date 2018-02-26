@@ -849,10 +849,9 @@ DiB == gen_digest(ChA, ICA)?
         </item>
       </taglist>
       <p>
-	There are also a collection of <c>DFLAG</c>s bitwise or:ed
-	together in the <c>DFLAGS_STRICT_ORDER_DELIVERY</c> macro.
-	These flags corresponds to features that require strict
-	ordering of data over distribution channels.
+	There is also function <c>dist_util:strict_order_flags/0</c>
+	returning all flags (bitwise or:ed together) corresponding to features
+	that require strict ordering of data over distribution channels.
       </p>
     </section>
   </section>

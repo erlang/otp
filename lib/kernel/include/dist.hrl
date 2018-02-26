@@ -42,10 +42,5 @@
 -define(DFLAG_BIG_CREATION, 16#40000).
 -define(DFLAG_SEND_SENDER, 16#80000).
 
-%% DFLAGs that require strict ordering or:ed together...
--define(DFLAGS_STRICT_ORDER_DELIVERY,
-        ?DFLAG_DIST_HDR_ATOM_CACHE).
-
-
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...

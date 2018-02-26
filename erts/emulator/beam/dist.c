@@ -644,7 +644,8 @@ trap_function(Eterm func, int arity)
 /*
  * Sync with dist_util.erl:
  *
- * -record(erts_dflags, {default, mandatory, addable, rejectable}).
+ * -record(erts_dflags,
+ *         {default, mandatory, addable, rejectable, strict_order}).
  */
 static Eterm erts_dflags_record;
 
@@ -665,13 +666,14 @@ void init_dist(void)
                                               am_dist_ctrl_put_data,
                                               2);
     {
-        Eterm* hp = erts_alloc(ERTS_ALC_T_LITERAL, (1+5)*sizeof(Eterm));
-        erts_dflags_record = TUPLE5(hp, am_erts_dflags,
+        Eterm* hp = erts_alloc(ERTS_ALC_T_LITERAL, (1+6)*sizeof(Eterm));
+        erts_dflags_record = TUPLE6(hp, am_erts_dflags,
                                     make_small(DFLAG_DIST_DEFAULT),
                                     make_small(DFLAG_DIST_MANDATORY),
                                     make_small(DFLAG_DIST_ADDABLE),
-                                    make_small(DFLAG_DIST_REJECTABLE));
-        erts_set_literal_tag(&erts_dflags_record, hp, (1+5));
+                                    make_small(DFLAG_DIST_REJECTABLE),
+                                    make_small(DFLAG_DIST_STRICT_ORDER));
+        erts_set_literal_tag(&erts_dflags_record, hp, (1+6));
     }
 }
 

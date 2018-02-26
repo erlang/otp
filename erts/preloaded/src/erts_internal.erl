@@ -511,7 +511,8 @@ dist_ctrl_put_data(DHandle, IoList) ->
     end.
 
 
--spec erts_internal:get_dflags() -> {erts_dflags,integer(),integer(),integer(),integer()}.
+-spec erts_internal:get_dflags() -> {erts_dflags, integer(), integer(),
+                                     integer(), integer(), integer()}.
 get_dflags() ->
     erlang:nif_error(undefined).
 
