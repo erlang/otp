@@ -95,7 +95,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
+init_per_testcase(TC, Config) when TC == hostnames;
+                                   TC == nodenames ->
+    file:make_dir("hostnames_nodedir"),
+    file:write_file("hostnames_nodedir/ignore_core_files",""),
+    Config;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
@@ -251,7 +255,7 @@ test_node(Name, Illigal) ->
         end,
     net_kernel:monitor_nodes(true),
     BinCommand = unicode:characters_to_binary(Command, utf8),
-    Prt = open_port({spawn, BinCommand}, [stream]),
+    Prt = open_port({spawn, BinCommand}, [stream,{cd,"hostnames_nodedir"}]),
     Node = list_to_atom(Name),
     receive
         {nodeup, Node} ->
