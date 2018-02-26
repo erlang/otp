@@ -27,7 +27,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child/1, stop_child/1]).
+-export([start_link/0, start_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -42,13 +42,6 @@ start_link() ->
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-
-stop_child(Client) ->
-    spawn(fun() -> 
-		  ClientSup = whereis(?SSHC_SUP),
-		  supervisor:terminate_child(ClientSup, Client)
-	  end),
-    ok.
 
 %%%=========================================================================
 %%%  Supervisor callback
