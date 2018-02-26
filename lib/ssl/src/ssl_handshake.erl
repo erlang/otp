@@ -189,12 +189,18 @@ certificate_request(CipherSuite, CertDbHandle, CertDbRef, HashSigns, Version) ->
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
 		   binary(), binary(), public_key:private_key()} |
+		   {ecdh, _, _, _, _, _} |
 		   {ecdh, #'ECPrivateKey'{}} |
+		   {psk, _, _, _, _, _} |
 		   {psk, binary()} |
+		   {dhe_psk, _, _, _, _, _, _, _} |
 		   {dhe_psk, binary(), binary()} |
+		   {ecdhe_psk, _, _, _, _, _, _} |
 		   {ecdhe_psk, binary(), #'ECPrivateKey'{}} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), public_key:private_key()}) ->
+                    binary(), binary(), public_key:private_key()} |
+		   {srp, _} |
+                   {psk_premaster_secret, _, _, _}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 
 %%

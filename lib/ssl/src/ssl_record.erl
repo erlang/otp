@@ -326,7 +326,7 @@ cipher_aead(Version, Fragment,
 
 %%--------------------------------------------------------------------
 -spec decipher(ssl_version(), binary(), connection_state(), boolean()) ->
-                      {binary(), binary(), connection_state} | #alert{}.
+                      {binary(), binary(), connection_state()} | #alert{}.
 %%
 %% Description: Payload decryption
 %%--------------------------------------------------------------------
