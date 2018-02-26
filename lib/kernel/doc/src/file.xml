@@ -981,8 +981,7 @@ f.txt:  {person, "kalle", 25}.
           </item>
           <tag><c>eisdir</c></tag>
           <item>
-            <p>The named file is not a regular file. It can be a
-              directory, a FIFO, or a device.</p>
+            <p>The named file is a directory.</p>
           </item>
           <tag><c>enotdir</c></tag>
           <item>
