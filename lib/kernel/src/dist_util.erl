@@ -215,8 +215,7 @@ check_dflags(#hs_data{other_node = Node,
              #erts_dflags{}=EDF) ->
 
     Mandatory = (EDF#erts_dflags.mandatory bor RequiredFlags),
-    Missing = check_mandatory(0, ?DFLAGS_ALL, Mandatory,
-                              OtherFlags, []),
+    Missing = check_mandatory(Mandatory, OtherFlags, []),
     case Missing of
         [] ->
             ok;
@@ -236,21 +235,20 @@ check_dflags(#hs_data{other_node = Node,
 	    ?shutdown2(Node, {check_dflags_failed, Missing})
     end.
 
-check_mandatory(_Bit, 0, _Mandatory, _OtherFlags, Missing) ->
+check_mandatory(0, _OtherFlags, Missing) ->
     Missing;
-check_mandatory(Bit, Left, Mandatory, OtherFlags, Missing) ->
-    DFlag = (1 bsl Bit),
-    NewLeft = Left band (bnot DFlag),
-    NewMissing = case {DFlag band Mandatory,
-                       DFlag band OtherFlags} of
-                     {DFlag, 0} ->
+check_mandatory(Mandatory, OtherFlags, Missing) ->
+    Left = Mandatory band (Mandatory - 1),   % clear lowest set bit
+    DFlag = Mandatory bxor Left,             % only lowest set bit
+    NewMissing = case DFlag band OtherFlags of
+                     0 ->
                          %% Mandatory and missing...
                          [dflag2str(DFlag) | Missing];
                      _ ->
-                         %% Not mandatory or present...
+                         %% Mandatory and present...
                          Missing
                  end,
-    check_mandatory(Bit+1, NewLeft, Mandatory, OtherFlags, NewMissing).
+    check_mandatory(Left, OtherFlags, NewMissing).
                     
 
 %% No nodedown will be sent if we fail before this process has
