@@ -88,11 +88,11 @@ stop_listener(Address, Port, Profile) ->
 
 
 stop_system(SysSup) ->
-    spawn(fun() -> sshd_sup:stop_child(SysSup) end),
+    catch sshd_sup:stop_child(SysSup),
     ok.
 
 stop_system(Address, Port, Profile) ->
-    spawn(fun() -> sshd_sup:stop_child(Address, Port, Profile) end),
+    catch sshd_sup:stop_child(Address, Port, Profile),
     ok.
 
 
