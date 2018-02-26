@@ -3009,24 +3009,28 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
         ASSERT(0);
     }
 
-    /* Only remove tracer on self() and ports */
+    /* Only remove tracer on (self() or ports) AND we are on a normal scheduler */
     if (is_internal_port(t_p->id) || (c_p && c_p->common.id == t_p->id)) {
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
         ErtsProcLocks c_p_xlocks = 0;
-        if (is_internal_pid(t_p->id)) {
-            ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) & ERTS_PROC_LOCK_MAIN);
-            if (c_p_locks != ERTS_PROC_LOCKS_ALL) {
-                c_p_xlocks = ~c_p_locks & ERTS_PROC_LOCKS_ALL;
-                if (erts_smp_proc_trylock(c_p, c_p_xlocks) == EBUSY) {
-                    erts_smp_proc_unlock(c_p, c_p_locks & ~ERTS_PROC_LOCK_MAIN);
-                    erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+        if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+            if (is_internal_pid(t_p->id)) {
+                ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) & ERTS_PROC_LOCK_MAIN);
+                if (c_p_locks != ERTS_PROC_LOCKS_ALL) {
+                    c_p_xlocks = ~c_p_locks & ERTS_PROC_LOCKS_ALL;
+                    if (erts_smp_proc_trylock(c_p, c_p_xlocks) == EBUSY) {
+                        erts_smp_proc_unlock(c_p, c_p_locks & ~ERTS_PROC_LOCK_MAIN);
+                        erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                    }
                 }
             }
-        }
-        erts_tracer_replace(t_p, erts_tracer_nil);
-        t_p->trace_flags &= ~TRACEE_FLAGS;
 
-        if (c_p_xlocks)
-            erts_smp_proc_unlock(c_p, c_p_xlocks);
+            erts_tracer_replace(t_p, erts_tracer_nil);
+            t_p->trace_flags &= ~TRACEE_FLAGS;
+
+            if (c_p_xlocks)
+                erts_smp_proc_unlock(c_p, c_p_xlocks);
+        }
     }
 
     return 0;
