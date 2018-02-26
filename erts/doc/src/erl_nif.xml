@@ -3064,9 +3064,10 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
       </name>
       <fsummary>Get the pid of the calling process.</fsummary>
       <desc>
-        <p>Initializes the pid variable <c>*pid</c> to represent the
-          calling process.</p>
-        <p>Returns <c>pid</c>.</p>
+        <p>Initializes the <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
+	variable at <c>*pid</c> to represent the calling process.</p>
+        <p>Returns <c>pid</c> if successful, or NULL if <c>caller_env</c> is not
+	a <seealso marker="#ErlNifEnv">process-bound environment</seealso>.</p>
       </desc>
     </func>
 
