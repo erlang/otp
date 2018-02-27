@@ -5151,6 +5151,93 @@ static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
     erts_print(prtd->to, prtd->arg, "%T", lnk->pid);
 }
 
+static void dump_port_state(fmtfn_t to, void *arg, erts_aint32_t state)
+{
+    erts_aint32_t rest;
+    int unknown = 0;
+    char delim = ' ';
+
+    erts_print(to, arg, "State:");
+
+    rest = state;
+    while (rest) {
+        erts_aint32_t chk = (rest ^ (rest-1)) & rest;  /* lowest set bit */
+        char* s;
+
+        rest &= ~chk;
+        switch (chk) {
+        case ERTS_PORT_SFLG_CONNECTED:          s = "CONNECTED"; break;
+        case ERTS_PORT_SFLG_EXITING:            s = "EXITING"; break;
+        case ERTS_PORT_SFLG_DISTRIBUTION:       s = "DISTR"; break;
+        case ERTS_PORT_SFLG_BINARY_IO:          s = "BINARY_IO"; break;
+        case ERTS_PORT_SFLG_SOFT_EOF:           s = "SOFT_EOF"; break;
+        case ERTS_PORT_SFLG_CLOSING:            s = "CLOSING"; break;
+        case ERTS_PORT_SFLG_SEND_CLOSED:        s = "SEND_CLOSED"; break;
+        case ERTS_PORT_SFLG_LINEBUF_IO:         s = "LINEBUF_IO"; break;
+        case ERTS_PORT_SFLG_FREE:               s = "FREE"; break;
+        case ERTS_PORT_SFLG_INITIALIZING:       s = "INITIALIZING"; break;
+        case ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK: s = "PORT_LOCK"; break;
+        case ERTS_PORT_SFLG_INVALID:            s = "INVALID"; break;
+        case ERTS_PORT_SFLG_HALT:               s = "HALT"; break;
+#ifdef DEBUG
+        case ERTS_PORT_SFLG_PORT_DEBUG:         s = "DEBUG"; break;
+#endif
+        default:
+            unknown = 1;
+            continue;
+        }
+        erts_print(to, arg, "%c%s", delim, s);
+        delim = '|';
+    }
+    if (unknown || !state)
+        erts_print(to, arg, "%c0x%x\n", delim, state);
+    else
+        erts_print(to, arg, "\n");
+}
+
+static void dump_port_task_flags(fmtfn_t to, void *arg, Port* p)
+{
+    erts_aint32_t flags = erts_smp_atomic32_read_nob(&p->sched.flags);
+    erts_aint32_t unknown = 0;
+    char delim = ' ';
+
+    if (!flags)
+	return;
+
+    erts_print(to, arg, "Task Flags:");
+
+    while (flags) {
+        erts_aint32_t chk = (flags ^ (flags-1)) & flags;  /* lowest set bit */
+        char* s;
+
+        flags &= ~chk;
+        switch (chk) {
+	case ERTS_PTS_FLG_IN_RUNQ:               s = "IN_RUNQ"; break;
+	case ERTS_PTS_FLG_EXEC:                  s = "EXEC"; break;
+	case ERTS_PTS_FLG_HAVE_TASKS:            s = "HAVE_TASKS"; break;
+	case ERTS_PTS_FLG_EXIT:                  s = "EXIT"; break;
+	case ERTS_PTS_FLG_BUSY_PORT:             s = "BUSY_PORT"; break;
+	case ERTS_PTS_FLG_BUSY_PORT_Q:           s = "BUSY_Q"; break;
+	case ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q: s = "CHK_UNSET_BUSY_Q"; break;
+	case ERTS_PTS_FLG_HAVE_BUSY_TASKS:       s = "BUSY_TASKS"; break;
+	case ERTS_PTS_FLG_HAVE_NS_TASKS:         s = "NS_TASKS"; break;
+	case ERTS_PTS_FLG_PARALLELISM:           s = "PARALLELISM"; break;
+	case ERTS_PTS_FLG_FORCE_SCHED:           s = "FORCE_SCHED"; break;
+	case ERTS_PTS_FLG_EXITING:               s = "EXITING"; break;
+	case ERTS_PTS_FLG_EXEC_IMM:              s = "EXEC_IMM"; break;
+        default:
+            unknown |= chk;
+            continue;
+        }
+        erts_print(to, arg, "%c%s", delim, s);
+        delim = '|';
+    }
+    if (unknown)
+        erts_print(to, arg, "%cUNKNOWN(0x%x)\n", delim, unknown);
+    else
+        erts_print(to, arg, "\n");
+}
+
 void
 print_port_info(Port *p, fmtfn_t to, void *arg)
 {
@@ -5160,6 +5247,8 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 	return;
 
     erts_print(to, arg, "=port:%T\n", p->common.id);
+    dump_port_state(to, arg, state);
+    dump_port_task_flags(to, arg, p);
     erts_print(to, arg, "Slot: %d\n", internal_port_index(p->common.id));
     if (state & ERTS_PORT_SFLG_CONNECTED) {
 	erts_print(to, arg, "Connected: %T", ERTS_PORT_GET_CONNECTED(p));
@@ -5182,6 +5271,10 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 	erts_doforall_monitors(ERTS_P_MONITORS(p), &prt_one_monitor, &prtd);
 	erts_print(to, arg, "\n");
     }
+    if (p->suspended) {
+	erts_print(to, arg, "Suspended: ");
+	erts_proclist_dump(to, arg, p->suspended);
+    }
 
     if (p->common.u.alive.reg != NULL)
 	erts_print(to, arg, "Registered as: %T\n", p->common.u.alive.reg->name);
@@ -5198,6 +5291,14 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 #endif
     } else {
 	erts_print(to, arg, "Port controls linked-in driver: %s\n",p->name);
+    }
+    erts_print(to, arg, "Input: %beu\n", p->bytes_in);
+    erts_print(to, arg, "Output: %beu\n", p->bytes_out);
+    erts_print(to, arg, "Queue: %beu\n", erts_ioq_size(&p->ioq));
+    {
+        Eterm port_data = erts_port_data_read(p);
+        if (port_data != am_undefined)
+            erts_print(to, arg, "Port Data: %T\n", port_data);
     }
 }
 

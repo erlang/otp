@@ -1609,6 +1609,20 @@ erts_proclist_destroy(ErtsProcList *plp)
     proclist_destroy(plp);
 }
 
+void
+erts_proclist_dump(fmtfn_t to, void *to_arg, ErtsProcList *plp)
+{
+    ErtsProcList *first = plp;
+
+    while (plp) {
+        erts_print(to, to_arg, "%T", plp->pid);
+        plp = plp->next;
+        if (plp == first)
+            break;
+    }
+    erts_print(to, to_arg, "\n");
+}
+
 void *
 erts_psd_set_init(Process *p, int ix, void *data)
 {
@@ -14259,16 +14273,35 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
     return yreg;
 }
 
+static void print_current_process_info(fmtfn_t, void *to_arg, ErtsSchedulerData*);
+
 /*
  * Print scheduler information
  */
 void
-erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp) {
+erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp)
+{
     int i;
     erts_aint32_t flg;
-    Process *p;
 
-    erts_print(to, to_arg, "=scheduler:%u\n", esdp->no);
+    switch (esdp->type) {
+    case ERTS_SCHED_NORMAL:
+        erts_print(to, to_arg, "=scheduler:%u\n", esdp->no);
+        break;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    case ERTS_SCHED_DIRTY_CPU:
+        erts_print(to, to_arg, "=dirty_cpu_scheduler:%u\n",
+                   (esdp->dirty_no + erts_no_schedulers));
+        break;
+    case ERTS_SCHED_DIRTY_IO:
+        erts_print(to, to_arg, "=dirty_io_scheduler:%u\n",
+                   (esdp->dirty_no + erts_no_schedulers + erts_no_dirty_cpu_schedulers));
+        break;
+#endif
+    default:
+        erts_print(to, to_arg, "=unknown_scheduler_type:%u\n", esdp->type);
+        break;
+    }
 
 #ifdef ERTS_SMP
     flg = erts_smp_atomic32_read_dirty(&esdp->ssi->flags);
@@ -14316,10 +14349,24 @@ erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp) {
     }
     erts_print(to, to_arg, "\n");
 
-    erts_print(to, to_arg, "Current Port: ");
-    if (esdp->current_port)
-        erts_print(to, to_arg, "%T", esdp->current_port->common.id);
-    erts_print(to, to_arg, "\n");
+    if (esdp->type == ERTS_SCHED_NORMAL) {
+        erts_print(to, to_arg, "Current Port: ");
+        if (esdp->current_port)
+            erts_print(to, to_arg, "%T", esdp->current_port->common.id);
+        erts_print(to, to_arg, "\n");
+
+        erts_print_run_queue_info(to, to_arg, esdp->run_queue);
+    }
+
+    /* This *MUST* to be the last information in scheduler block */
+    print_current_process_info(to, to_arg, esdp);
+}
+
+void erts_print_run_queue_info(fmtfn_t to, void *to_arg,
+                               ErtsRunQueue *run_queue)
+{
+    erts_aint32_t flg;
+    int i;
 
     for (i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; i++) {
         erts_print(to, to_arg, "Run Queue ");
@@ -14341,12 +14388,12 @@ erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp) {
             break;
         }
         erts_print(to, to_arg, "Length: %d\n",
-                   erts_smp_atomic32_read_dirty(&esdp->run_queue->procs.prio_info[i].len));
+                   erts_smp_atomic32_read_dirty(&run_queue->procs.prio_info[i].len));
     }
     erts_print(to, to_arg, "Run Queue Port Length: %d\n",
-               erts_smp_atomic32_read_dirty(&esdp->run_queue->ports.info.len));
+               erts_smp_atomic32_read_dirty(&run_queue->ports.info.len));
 
-    flg = erts_smp_atomic32_read_dirty(&esdp->run_queue->flags);
+    flg = erts_smp_atomic32_read_dirty(&run_queue->flags);
     erts_print(to, to_arg, "Run Queue Flags: ");
     for (i = 0; i < ERTS_RUNQ_FLG_MAX && flg; i++) {
         erts_aint32_t chk = (1 << i);
@@ -14413,9 +14460,15 @@ erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp) {
         }
     }
     erts_print(to, to_arg, "\n");
+}
 
-    /* This *MUST* to be the last information in scheduler block */
-    p = esdp->current_process;
+
+static void print_current_process_info(fmtfn_t to, void *to_arg,
+                                       ErtsSchedulerData* esdp)
+{
+    Process *p = esdp->current_process;
+    erts_aint32_t flg;
+
     erts_print(to, to_arg, "Current Process: ");
     if (esdp->current_process && !(ERTS_TRACE_FLAGS(p) & F_SENSITIVE)) {
 	flg = erts_smp_atomic32_read_dirty(&p->state);

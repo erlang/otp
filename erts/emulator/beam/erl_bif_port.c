@@ -647,6 +647,27 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+Eterm erts_port_data_read(Port* prt)
+{
+    Eterm res;
+    erts_aint_t data;
+
+    data = erts_smp_atomic_read_ddrb(&prt->data);
+    if (data == (erts_aint_t)NULL)
+        return am_undefined;  /* Port terminated by racing thread */
+
+    if ((data & 0x3) != 0) {
+	res = (Eterm) (UWord) data;
+	ASSERT(is_immed(res));
+    }
+    else {
+	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
+	res = pdhp->data;
+    }
+    return res;
+}
+
+
 /* 
  * Open a port. Most of the work is not done here but rather in
  * the file io.c.

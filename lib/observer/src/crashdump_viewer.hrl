@@ -80,6 +80,10 @@
 	 old_heap,
 	 heap_unused,
 	 old_heap_unused,
+         bin_vheap,
+         old_bin_vheap,
+         bin_vheap_unused,
+         old_bin_vheap_unused,
 	 new_heap_start,
 	 new_heap_top,
 	 stack_top,
@@ -95,19 +99,27 @@
 
 -record(port,
 	{id,
+         state,
+         task_flags=0,
 	 slot,
 	 connected,
 	 links,
 	 name,
 	 monitors,
-	 controls}).
+         suspended,
+	 controls,
+         input,
+         output,
+         queue,
+         port_data}).
 
 -record(sched,
 	{name,
+         type,
 	 process,
 	 port,
 	 run_q=0,
-	 port_q=0,
+	 port_q,
 	 details=#{}
 	}).
 
