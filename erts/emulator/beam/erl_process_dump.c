@@ -78,8 +78,17 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
 	    erts_aint32_t state = erts_atomic32_read_acqb(&p->state);
-	    if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_GC)))
-		dump_process_info(to, to_arg, p);
+	    if (state & ERTS_PSFLG_EXITING)
+                continue;
+            if (state & ERTS_PSFLG_GC) {
+                ErtsSchedulerData *sdp = erts_get_scheduler_data();
+                if (!sdp || p != sdp->current_process)
+                    continue;
+
+                /* We want to dump the garbing process that caused the dump */
+            }
+
+            dump_process_info(to, to_arg, p);
        }
     }
 
@@ -135,9 +144,12 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
     ErtsMessage* mp;
     int yreg = -1;
 
+    if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE)
+        return;
+
     ERTS_MSGQ_MV_INQ2PRIVQ(p);
 
-    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0 && p->msg.first) {
+    if (p->msg.first) {
 	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);
 	for (mp = p->msg.first; mp != NULL; mp = mp->next) {
 	    Eterm mesg = ERL_MESSAGE_TERM(mp);
@@ -152,38 +164,34 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
 	}
     }
 
-    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
-	if (p->dictionary) {
-	    erts_print(to, to_arg, "=proc_dictionary:%T\n", p->common.id);
-	    erts_deep_dictionary_dump(to, to_arg,
-				      p->dictionary, dump_element_nl);
-	}
+    if (p->dictionary) {
+        erts_print(to, to_arg, "=proc_dictionary:%T\n", p->common.id);
+        erts_deep_dictionary_dump(to, to_arg,
+                                  p->dictionary, dump_element_nl);
     }
 
-    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
-	erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
-	for (sp = p->stop; sp < STACK_START(p); sp++) {
-	    yreg = stack_element_dump(to, to_arg, sp, yreg);
-	}
+    erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
+    for (sp = p->stop; sp < STACK_START(p); sp++) {
+        yreg = stack_element_dump(to, to_arg, sp, yreg);
+    }
 
-	erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
-	for (sp = p->stop; sp < STACK_START(p); sp++) {
-	    Eterm term = *sp;
-	    
-	    if (!is_catch(term) && !is_CP(term)) {
-		heap_dump(to, to_arg, term);
-	    }
-	}
-	for (mp = p->msg.first; mp != NULL; mp = mp->next) {
-	    Eterm mesg = ERL_MESSAGE_TERM(mp);
-	    if (is_value(mesg))
-		heap_dump(to, to_arg, mesg);
-	    mesg = ERL_MESSAGE_TOKEN(mp);
-	    heap_dump(to, to_arg, mesg);
-	}
-	if (p->dictionary) {
-	    erts_deep_dictionary_dump(to, to_arg, p->dictionary, heap_dump);
-	}
+    erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
+    for (sp = p->stop; sp < STACK_START(p); sp++) {
+        Eterm term = *sp;
+
+        if (!is_catch(term) && !is_CP(term)) {
+            heap_dump(to, to_arg, term);
+        }
+    }
+    for (mp = p->msg.first; mp != NULL; mp = mp->next) {
+        Eterm mesg = ERL_MESSAGE_TERM(mp);
+        if (is_value(mesg))
+            heap_dump(to, to_arg, mesg);
+        mesg = ERL_MESSAGE_TOKEN(mp);
+        heap_dump(to, to_arg, mesg);
+    }
+    if (p->dictionary) {
+        erts_deep_dictionary_dump(to, to_arg, p->dictionary, heap_dump);
     }
 }
 

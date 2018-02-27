@@ -180,6 +180,7 @@ void erts_init_port_data(Port *);
 void erts_cleanup_port_data(Port *);
 Uint erts_port_data_size(Port *);
 ErlOffHeap *erts_port_data_offheap(Port *);
+Eterm erts_port_data_read(Port* prt);
 
 #define ERTS_PORT_GET_CONNECTED(PRT) \
     ((Eterm) erts_atomic_read_nob(&(PRT)->connected))
