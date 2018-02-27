@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -217,7 +217,7 @@
         <list type="bulleted">
           <item>A list of the nodes that do not exist</item>
           <item>A list of the nodes where the server does not exist</item>
-          <item>A list of the nodes where the server terminatd before sending
+          <item>A list of the nodes where the server terminated before sending
           any reply.</item>
         </list>
       </desc>
@@ -268,8 +268,9 @@
           on the specified nodes and collects the answers. It returns
           <c>{<anno>ResL</anno>, <anno>BadNodes</anno>}</c>, where
           <c><anno>BadNodes</anno></c> is a list
-          of the nodes that terminated or timed out during computation,
-          and <c><anno>ResL</anno></c> is a list of the return values.
+          of the nodes that do not exist,
+          and <c><anno>ResL</anno></c> is a list of the return values,
+	  or <c>{badrpc, <anno>Reason</anno>}</c> for failing calls.
           <c><anno>Timeout</anno></c> is a time (integer) in milliseconds, or
           <c>infinity</c>.</p>
         <p>The following example is useful when new object code is to
@@ -347,7 +348,7 @@
 
     <func>
       <name name="pmap" arity="3"/>
-      <fsummary>Parallell evaluation of mapping a function over a
+      <fsummary>Parallel evaluation of mapping a function over a
         list.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -498,7 +498,7 @@ start_monitor(Node, Name) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      ResL :: [term()],
+      ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
       BadNodes :: [node()].
 
 multicall(M, F, A) -> 
@@ -509,14 +509,14 @@ multicall(M, F, A) ->
                   Module :: module(),
                   Function :: atom(),
                   Args :: [term()],
-                  ResL :: [term()],
+                  ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
                   BadNodes :: [node()];
                (Module, Function, Args, Timeout) -> {ResL, BadNodes} when
                   Module :: module(),
                   Function :: atom(),
                   Args :: [term()],
                   Timeout :: timeout(),
-                  ResL :: [term()],
+                  ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
                   BadNodes :: [node()].
 
 multicall(Nodes, M, F, A) when is_list(Nodes) ->
@@ -531,7 +531,7 @@ multicall(M, F, A, Timeout) ->
       Function :: atom(),
       Args :: [term()],
       Timeout :: timeout(),
-      ResL :: [term()],
+      ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
       BadNodes :: [node()].
 
 multicall(Nodes, M, F, A, infinity)
