@@ -1083,11 +1083,9 @@ ifaddrs([{If,Opts}|IOs]) ->
     #ifopts{flags=F} = Ifopts = check_ifopts(Opts, #ifopts{name=If}),
     case F of
 	{flags,Flags} ->
-	    case lists:member(up, Flags) of
-		true ->
-		  Ifopts#ifopts.addrs;
-		false ->
-		    []
+	    case lists:member(running, Flags) of
+		true -> Ifopts#ifopts.addrs;
+		false -> []
 	    end ++ ifaddrs(IOs);
 	undefined ->
 	    ifaddrs(IOs)
