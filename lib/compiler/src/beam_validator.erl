@@ -1153,6 +1153,7 @@ set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
 	     {value,_} ->
 		 gb_trees:update(Y, Type, Ys0)
 	 end,
+    check_try_catch_tags(Type, Y, Ys0),
     Vst#vst{current=St#st{y=Ys}};
 set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
 
@@ -1160,6 +1161,29 @@ set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
     Ys = gb_trees:update(Y, initialized, Ys0),
     Vst#vst{current=St#st{y=Ys}}.
 
+check_try_catch_tags(Type, LastY, Ys) ->
+    case is_try_catch_tag(Type) of
+        false ->
+            ok;
+        true ->
+            %% Every catch or try/catch must use a lower Y register
+            %% number than any enclosing catch or try/catch. That will
+            %% ensure that when the stack is scanned when an
+            %% exception occurs, the innermost try/catch tag is found
+            %% first.
+            Bad = [{{y,Y},Tag} || {Y,Tag} <- gb_trees:to_list(Ys),
+                                  Y < LastY, is_try_catch_tag(Tag)],
+            case Bad of
+                [] ->
+                    ok;
+                [_|_] ->
+                    error({bad_try_catch_nesting,{y,LastY},Bad})
+            end
+    end.
+
+is_try_catch_tag({catchtag,_}) -> true;
+is_try_catch_tag({trytag,_}) -> true;
+is_try_catch_tag(_) -> false.
 
 is_reg_defined({x,_}=Reg, Vst) -> is_type_defined_x(Reg, Vst);
 is_reg_defined({y,_}=Reg, Vst) -> is_type_defined_y(Reg, Vst);
