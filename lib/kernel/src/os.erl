@@ -310,16 +310,16 @@ get_data(Port, MonRef, Eot, Sofar, Size, Max) ->
 	    iolist_to_binary(Sofar)
     end.
 
-eot(_Bs, <<>>, _Size, _Max) ->
+eot(Bs, <<>>, Size, Max) when Size + byte_size(Bs) < Max ->
     more;
+eot(Bs, <<>>, Size, Max) ->
+    binary:part(Bs, {0, Max - Size});
 eot(Bs, Eot, Size, Max) ->
     case binary:match(Bs, Eot) of
-        nomatch when Size + byte_size(Bs) < Max ->
-            more;
         {Pos, _} when Size + Pos < Max ->
             binary:part(Bs,{0, Pos});
         _ ->
-            binary:part(Bs,{0, Max - Size})
+            eot(Bs, <<>>, Size, Max)
     end.
 
 %% When port_close returns we know that all the
