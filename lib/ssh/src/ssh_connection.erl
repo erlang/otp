@@ -601,6 +601,7 @@ handle_msg(#ssh_msg_request_failure{},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
     {[{channel_request_reply, From, {failure, <<>>}}],
      Connection#connection{requests = Rest}};
+
 handle_msg(#ssh_msg_request_success{data = Data},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
     {[{channel_request_reply, From, {success, Data}}],

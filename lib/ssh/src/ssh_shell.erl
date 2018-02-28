@@ -22,6 +22,7 @@
 
 -module(ssh_shell).
 
+-include("ssh.hrl").
 -include("ssh_connect.hrl").
 
 %%% As this is an user interactive client it behaves like a daemon
@@ -33,6 +34,8 @@
 
 %% Spawn export
 -export([input_loop/2]).
+
+-export([dbg_trace/3]).
 
 -record(state, 
 	{
@@ -194,3 +197,20 @@ get_ancestors() ->
 	A when is_list(A) -> A;
 	_              -> []
     end.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+dbg_trace(points,         _,  _) -> [terminate];
+
+dbg_trace(flags,  terminate,  _) -> [c];
+dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
+dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
+dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+    ["Shell Terminating:\n",
+     io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
+    ].
+
+?wr_record(state).

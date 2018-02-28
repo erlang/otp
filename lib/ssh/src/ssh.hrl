@@ -137,6 +137,8 @@
                   {inet:hostname(),
                    {inet:ip_address(),inet:port_number()}},         %% string version of peer address 
 
+          local,        %% Local sockname. Need this AFTER a socket is closed by i.e. a crash
+
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}
 
