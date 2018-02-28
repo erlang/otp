@@ -472,8 +472,14 @@ update({set,[D],Args,{bif,N,_}}, Ts) ->
                false -> unary_op_type(N)
            end,
     tdb_store(D, Type, Ts);
-update({set,[D],[S],{get_tuple_element,0}}, Ts) ->
-    tdb_store(D, {tuple_element,S,0}, Ts);
+update({set,[D],[S],{get_tuple_element,0}}, Ts0) ->
+    if
+        D =:= S ->
+            tdb_store(D, any, Ts0);
+        true ->
+            Ts = tdb_store(D, {tuple_element,S,0}, Ts0),
+            tdb_store(S, {tuple,min_size,1,[]}, Ts)
+    end;
 update({set,[D],[S],{alloc,_,{gc_bif,float,{f,0}}}}, Ts0) ->
     %% Make sure we reject non-numeric literal argument.
     case possibly_numeric(S) of
@@ -917,9 +923,45 @@ tdb_copy(Literal, D, Ts) ->
 %%  a description of the possible types.
 
 tdb_store(Reg, any, Ts) ->
-    orddict:erase(Reg, Ts);
+    erase(Reg, Ts);
 tdb_store(Reg, Type, Ts) ->
-    orddict:store(Reg, verified_type(Type), Ts).
+    store(Reg, verified_type(Type), Ts).
+
+store(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    [{Key,New}|Dict];
+store(Key, New, [{K,Val}=E|Dict]) when Key > K ->
+    case Val of
+        {tuple_element,Key,_} -> store(Key, New, Dict);
+        _ -> [E|store(Key, New, Dict)]
+    end;
+store(Key, New, [{_K,Old}|Dict]) ->		%Key == K
+    case Old of
+        {tuple,_,_,_} ->
+            [{Key,New}|erase_tuple_element(Key, Dict)];
+        _ ->
+            [{Key,New}|Dict]
+    end;
+store(Key, New, []) -> [{Key,New}].
+
+erase(Key, [{K,_}=E|Dict]) when Key < K ->
+    [E|Dict];
+erase(Key, [{K,Val}=E|Dict]) when Key > K ->
+    case Val of
+        {tuple_element,Key,_} -> erase(Key, Dict);
+        _ -> [E|erase(Key, Dict)]
+    end;
+erase(Key, [{_K,Val}|Dict]) ->                 %Key == K
+    case Val of
+        {tuple,_,_,_} -> erase_tuple_element(Key, Dict);
+        _ -> Dict
+    end;
+erase(_, []) -> [].
+
+erase_tuple_element(Key, [{_,{tuple_element,Key,_}}|Dict]) ->
+    erase_tuple_element(Key, Dict);
+erase_tuple_element(Key, [E|Dict]) ->
+    [E|erase_tuple_element(Key, Dict)];
+erase_tuple_element(_Key, []) -> [].
 
 %% tdb_meet(Register, Type, Ts0) -> Ts.
 %%  Update information of a register that is used as the source for an
