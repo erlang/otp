@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.4.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Default exec is disabled when a user-defined shell is
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-14881</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.4.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
