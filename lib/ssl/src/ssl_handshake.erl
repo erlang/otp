@@ -775,7 +775,8 @@ decode_suites('3_bytes', Dec) ->
 
 available_suites(UserSuites, Version) ->
     lists:filtermap(fun(Suite) ->
-			    lists:member(Suite, ssl_cipher:all_suites(Version))
+			    lists:member(Suite, ssl_cipher:all_suites(Version) ++
+						ssl_cipher:anonymous_suites(Version))
 		    end, UserSuites).
 
 available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
@@ -1056,7 +1057,9 @@ select_curve(undefined, _, _) ->
 %%
 %% Description: Handles signature_algorithms hello extension (server)
 %%--------------------------------------------------------------------
-select_hashsign(_, undefined, _,  _, _Version) ->
+select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
+                                                   KeyExAlgo == ecdh_anon;
+                                                   KeyExAlgo == srp_anon ->
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
