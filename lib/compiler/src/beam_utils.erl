@@ -1004,47 +1004,52 @@ live_opt([{recv_mark,_}=I|Is], Regs, D, Acc) ->
 
 live_opt([], _, _, Acc) -> Acc.
 
-live_opt_block([{set,Ds,Ss,Op0}|Is], Regs0, D, Acc) ->
-    Regs1 = x_live(Ss, x_dead(Ds, Regs0)),
-    {Op, Regs} = live_opt_block_op(Op0, Regs1, D),
-    I = {set, Ds, Ss, Op},
-
-    case Ds of
-        [{x,X}] ->
-            case (not is_live(X, Regs0)) andalso Op =:= move of
-                true ->
-                    live_opt_block(Is, Regs0, D, Acc);
-                false ->
-                    live_opt_block(Is, Regs, D, [I|Acc])
-            end;
-        _ ->
-            live_opt_block(Is, Regs, D, [I|Acc])
+live_opt_block([{set,[{x,X}]=Ds,Ss,move}=I|Is], Regs0, D, Acc) ->
+    Regs = x_live(Ss, x_dead(Ds, Regs0)),
+    case is_live(X, Regs0) of
+        true ->
+            live_opt_block(Is, Regs, D, [I|Acc]);
+        false ->
+            %% Useless move, will never be used.
+            live_opt_block(Is, Regs, D, Acc)
     end;
-live_opt_block([{'%anno',_}|Is], Regs, D, Acc) ->
-    live_opt_block(Is, Regs, D, Acc);
-live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
-
-live_opt_block_op({alloc,Live0,AllocOp}, Regs0, D) ->
-    Regs =
-        case AllocOp of
-            {Kind, _N, Fail} when Kind =:= gc_bif; Kind =:= put_map ->
-                live_join_label(Fail, D, Regs0);
-            _ ->
-                Regs0
-        end,
+live_opt_block([{set,Ds,Ss,{alloc,Live0,AllocOp}}|Is], Regs0, D, Acc) ->
+    %% Calculate liveness from the point of view of the GC.
+    %% There will never be a GC if the instruction fails, so we should
+    %% ignore the failure branch.
+    GcRegs1 = x_dead(Ds, Regs0),
+    GcRegs = x_live(Ss, GcRegs1),
+    Live = live_regs(GcRegs),
 
     %% The life-time analysis used by the code generator is sometimes too
     %% conservative, so it may be possible to lower the number of live
     %% registers based on the exact liveness information. The main benefit is
     %% that more optimizations that depend on liveness information (such as the
-    %% beam_bool and beam_dead passes) may be applied.
-    Live = live_regs(Regs),
-    true = Live =< Live0,
-    {{alloc,Live,AllocOp}, live_call(Live)};
-live_opt_block_op({bif,_N,Fail} = Op, Regs, D) ->
-    {Op, live_join_label(Fail, D, Regs)};
-live_opt_block_op(Op, Regs, _D) ->
-    {Op, Regs}.
+    %% beam_dead pass) may be applied.
+    true = Live =< Live0,                       %Assertion.
+    I = {set,Ds,Ss,{alloc,Live,AllocOp}},
+
+    %% Calculate liveness from the point of view of the preceding instruction.
+    %% The liveness is the union of live registers in the GC and the live
+    %% registers at the failure label.
+    Regs1 = live_call(Live),
+    Regs = live_join_alloc(AllocOp, D, Regs1),
+    live_opt_block(Is, Regs, D, [I|Acc]);
+live_opt_block([{set,Ds,Ss,{bif,_,Fail}}=I|Is], Regs0, D, Acc) ->
+    Regs1 = x_dead(Ds, Regs0),
+    Regs2 = x_live(Ss, Regs1),
+    Regs = live_join_label(Fail, D, Regs2),
+    live_opt_block(Is, Regs, D, [I|Acc]);
+live_opt_block([{set,Ds,Ss,_}=I|Is], Regs0, D, Acc) ->
+    Regs = x_live(Ss, x_dead(Ds, Regs0)),
+    live_opt_block(Is, Regs, D, [I|Acc]);
+live_opt_block([{'%anno',_}|Is], Regs, D, Acc) ->
+    live_opt_block(Is, Regs, D, Acc);
+live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
+
+live_join_alloc({Kind,_Name,Fail}, D, Regs) when Kind =:= gc_bif; Kind =:= put_map ->
+    live_join_label(Fail, D, Regs);
+live_join_alloc(_, _, Regs) -> Regs.
 
 live_join_labels([{f,L}|T], D, Regs0) when L =/= 0 ->
     Regs = gb_trees:get(L, D) bor Regs0,
