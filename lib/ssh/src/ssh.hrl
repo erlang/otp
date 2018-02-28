@@ -33,6 +33,12 @@
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
+-define(DEFAULT_TRANSPORT,  {tcp, gen_tcp, tcp_closed} ).
+
+-define(DEFAULT_SHELL, {shell, start, []} ).
+
+-define(MAX_RND_PADDING_LEN, 15).
+
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 -define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
