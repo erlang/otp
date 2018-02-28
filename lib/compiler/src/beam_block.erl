@@ -363,10 +363,18 @@ opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
     case eliminate_use_of_from_reg(Is0, S, D) of
 	no ->
 	    no;
-	{yes,Is} ->
+	{yes,Is1} ->
 	    {set,[S],Ss,Op} = I0,
 	    I = {set,[D],Ss,Op},
-	    {yes,reverse(Acc, [I|Is])}
+            case opt_move_rev(S, Acc, [I|Is1]) of
+                not_possible ->
+                    %% Not safe because the move of the
+                    %% get_tuple_element instruction would cause the
+                    %% result of a previous instruction to be ignored.
+                    no;
+                {_,Is} ->
+                    {yes,Is}
+            end
     end;
 opt_tuple_element_1([{set,Ds,Ss,_}=I|Is], MovedI, {S,D}=Regs, Acc) ->
     case member(S, Ds) orelse member(D, Ss) of
