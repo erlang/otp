@@ -47,6 +47,7 @@
 EX1-MIB DEFINITIONS ::= BEGIN
  
           IMPORTS
+                  experimental   FROM RFC1155-SMI
                   RowStatus      FROM STANDARD-MIB
                   DisplayString  FROM RFC1213-MIB
                   OBJECT-TYPE    FROM RFC-1212
@@ -81,7 +82,7 @@ EX1-MIB DEFINITIONS ::= BEGIN
  
           FriendsEntry ::=
               SEQUENCE {
-            fIndex
+                   fIndex
                       INTEGER,
                    fName
                       DisplayString,
@@ -105,6 +106,7 @@ EX1-MIB DEFINITIONS ::= BEGIN
               DESCRIPTION
                       "Name of friend"
               ::= { friendsEntry 2 }
+
           fAddress OBJECT-TYPE
               SYNTAX  DisplayString (SIZE (0..255))
               ACCESS  read-write
@@ -112,6 +114,7 @@ EX1-MIB DEFINITIONS ::= BEGIN
               DESCRIPTION
                       "Address of friend"
               ::= { friendsEntry 3 }
+
            fStatus OBJECT-TYPE
               SYNTAX      RowStatus
               ACCESS      read-write
@@ -119,12 +122,13 @@ EX1-MIB DEFINITIONS ::= BEGIN
               DESCRIPTION
                       "The status of this conceptual row."
               ::= { friendsEntry 4 }
+
           fTrap TRAP-TYPE
               ENTERPRISE  example1
               VARIABLES   { myName, fIndex }
               DESCRIPTION
-                          "This trap is sent when something happens to
-         the friend specified by fIndex."
+                      "This trap is sent when something happens to
+                      the friend specified by fIndex."
               ::= 1
 END
     </code>
