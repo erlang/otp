@@ -118,7 +118,7 @@ is_killed(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{exit_not_used,_} -> true;
+	{exit_not_used,_} -> false;
 	{_,_} -> false
     end.
 
@@ -131,7 +131,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
     St0 = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
-	{exit_not_used,_} -> true;
+	{exit_not_used,_} -> false;
 	{_,_} -> false
     end.
 
@@ -148,7 +148,7 @@ is_not_used(R, Is, D) ->
     St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{used,_} -> false;
-	{exit_not_used,_} -> false;
+	{exit_not_used,_} -> true;
 	{_,_} -> true
     end.
 
