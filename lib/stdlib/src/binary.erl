@@ -47,23 +47,39 @@ at(_, _) ->
 -spec bin_to_list(Subject) -> [byte()] when
       Subject :: binary().
 
-bin_to_list(_) ->
-    erlang:nif_error(undef).
+bin_to_list(Subject) ->
+    binary_to_list(Subject).
 
 -spec bin_to_list(Subject, PosLen) -> [byte()] when
       Subject :: binary(),
       PosLen :: part().
 
-bin_to_list(_, _) ->
-    erlang:nif_error(undef).
+bin_to_list(Subject, {Pos, Len}) ->
+    bin_to_list(Subject, Pos, Len);
+bin_to_list(_Subject, _BadArg) ->
+    erlang:error(badarg).
 
 -spec bin_to_list(Subject, Pos, Len) -> [byte()] when
       Subject :: binary(),
       Pos :: non_neg_integer(),
       Len :: integer().
 
-bin_to_list(_, _, _) ->
-    erlang:nif_error(undef).
+bin_to_list(Subject, Pos, Len) when not is_binary(Subject);
+                                    not is_integer(Pos);
+                                    not is_integer(Len) ->
+    %% binary_to_list/3 allows bitstrings as long as the slice fits, and we
+    %% want to badarg when Pos/Len aren't integers instead of raising badarith
+    %% when adjusting args for binary_to_list/3.
+    erlang:error(badarg);
+bin_to_list(Subject, Pos, 0) when Pos >= 0, Pos =< byte_size(Subject) ->
+    %% binary_to_list/3 doesn't handle this case.
+    [];
+bin_to_list(_Subject, _Pos, 0) ->
+    erlang:error(badarg);
+bin_to_list(Subject, Pos, Len) when Len < 0 ->
+    bin_to_list(Subject, Pos + Len, -Len);
+bin_to_list(Subject, Pos, Len) when Len > 0 ->
+    binary_to_list(Subject, Pos + 1, Pos + Len).
 
 -spec compile_pattern(Pattern) -> cp() when
       Pattern :: binary() | [binary()].

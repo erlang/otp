@@ -551,9 +551,6 @@ bif binary:last/1
 bif binary:at/2
 bif binary:part/2 binary_binary_part_2
 bif binary:part/3 binary_binary_part_3
-bif binary:bin_to_list/1
-bif binary:bin_to_list/2
-bif binary:bin_to_list/3
 bif binary:list_to_bin/1
 bif binary:copy/1
 bif binary:copy/2
