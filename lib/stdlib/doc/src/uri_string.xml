@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2017</year><year>2017</year>
+      <year>2017</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -24,7 +24,7 @@
     <title>uri_string</title>
     <prepared>Péter Dimitrov</prepared>
     <docno>1</docno>
-    <date>2017-10-24</date>
+    <date>2018-02-07</date>
     <rev>A</rev>
   </header>
   <module>uri_string</module>
@@ -32,7 +32,11 @@
   <description>
     <p>This module contains functions for parsing and handling URIs
     (<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>) and
-    form-urlencoded query strings (<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>).
+    form-urlencoded query strings (<url href="https://www.w3.org/TR/html52/">HTML 5.2</url>).
+    </p>
+    <p>
+    Parsing and serializing non-UTF-8 form-urlencoded query strings are also supported
+    (<url href="https://www.w3.org/TR/html50/">HTML 5.0</url>).
     </p>
     <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
     rule named <em>URI</em> in <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.
@@ -70,7 +74,8 @@
       <seealso marker="#transcode/2"><c>transcode/2</c></seealso>
       </item>
       <item>Transforming URIs into a normalized form<br></br>
-      <seealso marker="#normalize/1"><c>normalize/1</c></seealso>
+      <seealso marker="#normalize/1"><c>normalize/1</c></seealso><br></br>
+      <seealso marker="#normalize/2"><c>normalize/2</c></seealso>
       </item>
       <item>Composing form-urlencoded query strings from a list of key-value pairs<br></br>
       <seealso marker="#compose_query/1"><c>compose_query/1</c></seealso><br></br>
@@ -151,8 +156,10 @@
         <p>Composes a form-urlencoded <c><anno>QueryString</anno></c> based on a
 	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
         Form-urlencoding is defined in section
-	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	specification.
+	4.10.21.6 of the <url href="https://www.w3.org/TR/html52/">HTML 5.2</url>
+	specification and in section 4.10.22.6 of the
+	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
+	non-UTF-8 encodings.
 	</p>
 	<p>See also the opposite operation <seealso marker="#dissect_query/1">
 	<c>dissect_query/1</c></seealso>.
@@ -209,12 +216,11 @@
         <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
 	<c><anno>QueryList</anno></c>, a list of non-percent-encoded key-value pairs.
         Form-urlencoding is defined in section
-	4.10.22.6 of the <url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	specification.
+	4.10.21.6 of the <url href="https://www.w3.org/TR/html52/">HTML 5.2</url>
+	specification and in section 4.10.22.6 of the
+	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
+	non-UTF-8 encodings.
 	</p>
-	<p>It is not as strict for its input as the decoding algorithm defined by
-	<url href="https://www.w3.org/TR/html5/forms.html">HTML5</url>
-	and accepts all unicode characters.</p>
 	<p>See also the opposite operation <seealso marker="#compose_query/1">
 	<c>compose_query/1</c></seealso>.
 	</p>
@@ -233,7 +239,7 @@
       <name name="normalize" arity="1"/>
       <fsummary>Syntax-based normalization.</fsummary>
       <desc>
-        <p>Transforms <c><anno>URIString</anno></c> into a normalized form
+        <p>Transforms an <c><anno>URI</anno></c> into a normalized form
 	using Syntax-Based Normalization as defined by
 	<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
 	<p>This function implements case normalization, percent-encoding
@@ -247,6 +253,33 @@
 <![CDATA[<<"mid/6">>]]>
 3> uri_string:normalize("http://localhost:80").
 "https://localhost/"
+4> <input>uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",</input>
+4> host => "localhost-örebro"}).
+"http://localhost-%C3%B6rebro/a/g"
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normalize" arity="2"/>
+      <fsummary>Syntax-based normalization.</fsummary>
+      <desc>
+	<p>Same as <c>normalize/1</c> but with an additional
+	<c><anno>Options</anno></c> parameter, that controls if the normalized URI
+	shall be returned as an uri_map().
+	There is one supported option: <c>return_map</c>.
+	</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:normalize("/a/b/c/./../../g", [return_map]).</input>
+#{path => "/a/g"}
+2> <![CDATA[uri_string:normalize(<<"mid/content=5/../6">>, [return_map]).]]>
+<![CDATA[#{path => <<"mid/6">>}]]>
+3> uri_string:normalize("http://localhost:80", [return_map]).
+#{scheme => "http",path => "/",host => "localhost"}
+4> <input>uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",</input>
+4> host => "localhost-örebro"}, [return_map]).
+#{scheme => "http",path => "/a/g",host => "localhost-örebro"}
 	</pre>
       </desc>
     </func>

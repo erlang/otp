@@ -227,7 +227,7 @@
 %% External API
 %%-------------------------------------------------------------------------
 -export([compose_query/1, compose_query/2,
-         dissect_query/1, normalize/1, parse/1,
+         dissect_query/1, normalize/1, normalize/2, parse/1,
          recompose/1, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
@@ -292,18 +292,36 @@
 %%-------------------------------------------------------------------------
 %% Normalize URIs
 %%-------------------------------------------------------------------------
--spec normalize(URIString) -> NormalizedURI when
-      URIString :: uri_string(),
-      NormalizedURI :: uri_string().
-normalize(URIString) ->
-    %% Percent-encoding normalization and case normalization for
-    %% percent-encoded triplets are achieved by running parse and
-    %% recompose on the input URI string.
-    recompose(
-      normalize_path_segment(
-        normalize_scheme_based(
-          normalize_case(
-            parse(URIString))))).
+-spec normalize(URI) -> NormalizedURI when
+      URI :: uri_string() | uri_map(),
+      NormalizedURI :: uri_string()
+                     | error().
+normalize(URIMap) ->
+    normalize(URIMap, []).
+
+
+-spec normalize(URI, Options) -> NormalizedURI when
+      URI :: uri_string() | uri_map(),
+      Options :: [return_map],
+      NormalizedURI :: uri_string() | uri_map().
+normalize(URIMap, []) when is_map(URIMap) ->
+    recompose(normalize_map(URIMap));
+normalize(URIMap, [return_map]) when is_map(URIMap) ->
+    normalize_map(URIMap);
+normalize(URIString, []) ->
+    case parse(URIString) of
+        Value when is_map(Value) ->
+            recompose(normalize_map(Value));
+        Error ->
+            Error
+    end;
+normalize(URIString, [return_map]) ->
+    case parse(URIString) of
+        Value when is_map(Value) ->
+            normalize_map(Value);
+        Error ->
+            Error
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -385,7 +403,8 @@ transcode(URIString, Options) when is_list(URIString) ->
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
 %% of key/value pairs.
-%% HTML5 - 4.10.22.6 URL-encoded form data
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - non UTF-8
 %%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
@@ -393,7 +412,7 @@ transcode(URIString, Options) when is_list(URIString) ->
 %% (application/x-www-form-urlencoded encoding algorithm)
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
-      QueryList :: [{uri_string(), uri_string()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata()}],
       QueryString :: uri_string()
                    | error().
 compose_query(List) ->
@@ -401,7 +420,7 @@ compose_query(List) ->
 
 
 -spec compose_query(QueryList, Options) -> QueryString when
-      QueryList :: [{uri_string(), uri_string()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata()}],
       Options :: [{encoding, atom()}],
       QueryString :: uri_string()
                    | error().
@@ -432,7 +451,7 @@ compose_query([], _Options, IsList, Acc) ->
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{uri_string(), uri_string()}]
+      QueryList :: [{unicode:chardata(), unicode:chardata()}]
                  | error().
 dissect_query(<<>>) ->
     [];
@@ -1755,7 +1774,8 @@ get_separator(_L) ->
     <<"&">>.
 
 
-%% HTML5 - 4.10.22.6 URL-encoded form data - encoding
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - encoding (non UTF-8)
 form_urlencode(Cs, [{encoding, latin1}]) when is_list(Cs) ->
     B = convert_to_binary(Cs, utf8, utf8),
     html5_byte_encode(base10_encode(B));
@@ -1850,7 +1870,8 @@ dissect_query_value(<<>>, IsList, Acc, Key, Value) ->
     lists:reverse([{K,V}|Acc]).
 
 
-%% Form-urldecode input based on RFC 1866 [8.2.1]
+%% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
+%% HTML 5.0 - 4.10.22.6 URL-encoded form data - decoding (non UTF-8)
 form_urldecode(true, B) ->
     Result = base10_decode(form_urldecode(B, <<>>)),
     convert_to_list(Result, utf8);
@@ -1902,6 +1923,12 @@ base10_decode_unicode(<<H,_/binary>>, _, _) ->
 %%-------------------------------------------------------------------------
 %% Helper functions for normalize
 %%-------------------------------------------------------------------------
+
+normalize_map(URIMap) ->
+      normalize_path_segment(
+        normalize_scheme_based(
+          normalize_case(URIMap))).
+
 
 %% 6.2.2.1.  Case Normalization
 normalize_case(#{scheme := Scheme, host := Host} = Map) ->

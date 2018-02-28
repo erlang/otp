@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,
-         normalize/1,
+         normalize/1, normalize_map/1, normalize_return_map/1, normalize_negative/1,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
          parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
@@ -68,6 +68,9 @@ suite() ->
 all() ->
     [
      normalize,
+     normalize_map,
+     normalize_return_map,
+     normalize_negative,
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_pct_encoded_userinfo,
@@ -911,6 +914,56 @@ normalize(_Config) ->
         uri_string:normalize(<<"sftp://localhost:22">>),
     <<"tftp://localhost">> =
         uri_string:normalize(<<"tftp://localhost:69">>).
+
+normalize_map(_Config) ->
+    "/a/g" = uri_string:normalize(#{path => "/a/b/c/./../../g"}),
+    <<"mid/6">> = uri_string:normalize(#{path => <<"mid/content=5/../6">>}),
+    "http://localhost-%C3%B6rebro/a/g" =
+        uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",
+                               host => "localhost-örebro"}),
+    <<"http://localhost-%C3%B6rebro/a/g">> =
+        uri_string:normalize(#{scheme => <<"http">>,port => 80,
+                               path => <<"/a/b/c/./../../g">>,
+                               host => <<"localhost-örebro"/utf8>>}),
+    <<"https://localhost/">> =
+        uri_string:normalize(#{scheme => <<"https">>,port => 443,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"https://localhost:445/">> =
+        uri_string:normalize(#{scheme => <<"https">>,port => 445,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"ftp://localhost">> =
+        uri_string:normalize(#{scheme => <<"ftp">>,port => 21,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"ssh://localhost">> =
+        uri_string:normalize(#{scheme => <<"ssh">>,port => 22,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"sftp://localhost">> =
+        uri_string:normalize(#{scheme => <<"sftp">>,port => 22,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"tftp://localhost">> =
+        uri_string:normalize(#{scheme => <<"tftp">>,port => 69,path => <<>>,
+                               host => <<"localhost">>}).
+
+normalize_return_map(_Config) ->
+    #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
+        uri_string:normalize("http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g",
+                                   [return_map]),
+    #{scheme := <<"http">>,path := <<"/a/g">>, host := <<"localhost-örebro"/utf8>>} =
+        uri_string:normalize(<<"http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g">>,
+                                   [return_map]),
+    #{scheme := <<"https">>,path := <<"/">>, host := <<"localhost">>} =
+        uri_string:normalize(#{scheme => <<"https">>,port => 443,path => <<>>,
+                               host => <<"localhost">>}, [return_map]).
+
+normalize_negative(_Config) ->
+    {error,invalid_uri,":"} =
+        uri_string:normalize("http://local>host"),
+    {error,invalid_uri,":"} =
+        uri_string:normalize(<<"http://local>host">>),
+    {error,invalid_uri,":"} =
+        uri_string:normalize("http://[192.168.0.1]", [return_map]),
+    {error,invalid_uri,":"} =
+        uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]).
 
 interop_query_utf8(_Config) ->
     Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
