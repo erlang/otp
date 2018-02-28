@@ -894,10 +894,13 @@ match_limit(Config) when is_list(Config) ->
 %% Test that we get sub-binaries if subject is a binary and we capture
 %% binaries.
 sub_binaries(Config) when is_list(Config) ->
-    Bin = list_to_binary(lists:seq(1,255)),
-    {match,[B,C]}=re:run(Bin,"(a)",[{capture,all,binary}]),
-    255 = binary:referenced_byte_size(B),
-    255 = binary:referenced_byte_size(C),
-    {match,[D]}=re:run(Bin,"(a)",[{capture,[1],binary}]),
-    255 = binary:referenced_byte_size(D),
+    %% The GC can auto-convert tiny sub-binaries to heap binaries, so we
+    %% extract large sequences to make the test more stable.
+    Bin = << <<I>> || I <- lists:seq(1, 4096) >>,
+    {match,[B,C]}=re:run(Bin,"a(.+)$",[{capture,all,binary}]),
+    true = byte_size(B) =/= byte_size(C),
+    4096 = binary:referenced_byte_size(B),
+    4096 = binary:referenced_byte_size(C),
+    {match,[D]}=re:run(Bin,"a(.+)$",[{capture,[1],binary}]),
+    4096 = binary:referenced_byte_size(D),
     ok.
