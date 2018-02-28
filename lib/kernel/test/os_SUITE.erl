@@ -324,8 +324,8 @@ max_size_command(_Config) ->
     Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
     32768 = length(Res32768),
 
-    ResHello = os:cmd("echo hello", #{ max_size => 20 }),
-    6 = length(ResHello).
+    ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
+    5 = length(ResHello).
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
