@@ -125,24 +125,11 @@ static int open_file_type_check(const efile_path_t *path, int fd) {
          * immediately in a read within the call, but the new implementation
          * never does that. */
          return 1;
-    } else {
-        /* The old driver tolerated opening /dev/null despite the "no devices"
-         * limitation. It provided no explanation for this but we still need
-         * to match the behavior. We're checking through stat(2) instead of
-         * comparing the name to account for links. */
-        struct stat null_device_info;
-        int is_dev_null;
-
-        is_dev_null = (stat("/dev/null", &null_device_info) == 0);
-        is_dev_null &= (file_info.st_ino == null_device_info.st_ino);
-        is_dev_null &= (file_info.st_dev == null_device_info.st_dev);
-
-        if(is_dev_null) {
-            return 1;
-        }
     }
 
-    if(!S_ISREG(file_info.st_mode)) {
+    /* Allow everything that isn't a directory, and error out on the next call
+     * if it's unsupported. */
+    if(S_ISDIR(file_info.st_mode)) {
         return 0;
     }
 
