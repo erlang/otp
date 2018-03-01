@@ -486,6 +486,10 @@ to_float(_) ->
 prefix(_) ->
     ?TEST("", ["a"], nomatch),
     ?TEST("a", [""], "a"),
+    ?TEST("a", [[[]]], "a"),
+    ?TEST("a", [<<>>], "a"),
+    ?TEST("a", [[<<>>]], "a"),
+    ?TEST("a", [[[<<>>]]], "a"),
     ?TEST("b", ["a"], nomatch),
     ?TEST("a", ["a"], ""),
     ?TEST("å", ["a"], nomatch),
