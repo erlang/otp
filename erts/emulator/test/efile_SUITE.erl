@@ -46,14 +46,14 @@ iter_max_files_1(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
     N = 10,
-    %% Run on a different node in order to set the max ports
+    %% Run on a different node in order to make the test more stable.
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,Node} = test_server:start_node(test_iter_max_files,slave,
-                                       [{args,"+Q 1524 -pa " ++ Dir}]),
+                                       [{args,"-pa " ++ Dir}]),
     L = rpc:call(Node,?MODULE,do_iter_max_files,[N, TestFile]),
     test_server:stop_node(Node),
     io:format("Number of files opened in each test:~n~w\n", [L]),
-    all_equal(L),
+    verify_max_files(L),
     Head = hd(L),
     if  Head >= 2 -> ok;
         true -> ct:fail(too_few_files)
@@ -65,12 +65,15 @@ do_iter_max_files(N, Name) when N > 0 ->
 do_iter_max_files(_, _) ->
     [].
 
-all_equal([E, E| T]) ->
-    all_equal([E| T]);
-all_equal([_]) ->
-    ok;
-all_equal([]) ->
-    ok.
+%% The attempts shouldn't vary too much; we used to require that they were all
+%% exactly equal, but after we reimplemented the file driver as a NIF we
+%% noticed that the only reason it was stable on Darwin was because the port
+%% limit was hit before ulimit.
+verify_max_files(Attempts) ->
+    N = length(Attempts),
+    Mean = lists:sum(Attempts) / N,
+    Variance = lists:sum([(X - Mean) * (X - Mean) || X <- Attempts]) / N,
+    true = math:sqrt(Variance) =< 1 + (Mean / 1000).
 
 max_files(Name) ->
     Fds = open_files(Name),
