@@ -201,7 +201,7 @@ killed_acceptor_restarts(Config) ->
     Port2 = ssh_test_lib:daemon_port(DaemonPid2),
     true = (Port /= Port2),
 
-    ct:pal("~s",[lists:flatten(ssh_info:string())]),
+    ct:log("~s",[lists:flatten(ssh_info:string())]),
 
     {ok,[{AccPid,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
     {ok,[{AccPid2,ListenAddr,Port2}]} = acceptor_pid(DaemonPid2),
@@ -218,11 +218,14 @@ killed_acceptor_restarts(Config) ->
 
     %% Make acceptor restart:
     exit(AccPid, kill),
+    ?wait_match(undefined, process_info(AccPid)),
 
     %% Check it is a new acceptor:
-    {ok,[{AccPid1,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
-    true = (AccPid /= AccPid1),
-    true = (AccPid2 /= AccPid1),
+    ?wait_match({ok,[{AccPid1,ListenAddr,Port}]}, AccPid1=/=AccPid,
+                acceptor_pid(DaemonPid),
+                AccPid1,
+                500, 30),
+    AccPid1 =/= AccPid2,
 
     %% Connect second client and check it is alive:
     {ok,C2} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
@@ -232,21 +235,21 @@ killed_acceptor_restarts(Config) ->
                                               {user_dir, UserDir}]),
     [{client_version,_}] = ssh:connection_info(C2,[client_version]),
     
-    ct:pal("~s",[lists:flatten(ssh_info:string())]),
+    ct:log("~s",[lists:flatten(ssh_info:string())]),
 
     %% Check first client is still alive:
     [{client_version,_}] = ssh:connection_info(C1,[client_version]),
     
     ok = ssh:stop_daemon(DaemonPid2),
-    timer:sleep(15000),
+    ?wait_match(undefined, process_info(DaemonPid2), 1000, 30),
     [{client_version,_}] = ssh:connection_info(C1,[client_version]),
     [{client_version,_}] = ssh:connection_info(C2,[client_version]),
     
     ok = ssh:stop_daemon(DaemonPid),
-    timer:sleep(15000),
+    ?wait_match(undefined, process_info(DaemonPid), 1000, 30),
     {error,closed} = ssh:connection_info(C1,[client_version]),
     {error,closed} = ssh:connection_info(C2,[client_version]).
-    
+
 %%-------------------------------------------------------------------------
 shell_channel_tree(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -257,7 +260,7 @@ shell_channel_tree(Config) ->
         fun() ->
                 io:format("TimeoutShell started!~n",[]),
                 timer:sleep(5000),
-                ct:pal("~p TIMEOUT!",[self()])
+                ct:log("~p TIMEOUT!",[self()])
         end,
     {Daemon, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
                                                 {user_dir, UserDir},
@@ -283,14 +286,14 @@ shell_channel_tree(Config) ->
                [GroupPid]),
     {links,GroupLinks} = erlang:process_info(GroupPid, links),
     [ShellPid] = GroupLinks--[ChannelSup],
-    ct:pal("GroupPid = ~p, ShellPid = ~p",[GroupPid,ShellPid]),
+    ct:log("GroupPid = ~p, ShellPid = ~p",[GroupPid,ShellPid]),
 
     receive
         {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"TimeoutShell started!\r\n">>}} ->
             receive
                 %%---- wait for the subsystem to terminate
                 {ssh_cm,ConnectionRef,{closed,ChannelId0}} ->
-                    ct:pal("Subsystem terminated",[]),
+                    ct:log("Subsystem terminated",[]),
                     case {chk_empty_con_daemon(Daemon),
                           process_info(GroupPid),
                           process_info(ShellPid)} of
