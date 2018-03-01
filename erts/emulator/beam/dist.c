@@ -2000,6 +2000,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
                 break;
             }
             ctx->u.ec.flags = ctx->flags;
+            ctx->u.ec.hopefull_flags = 0;
             ctx->u.ec.level = 0;
             ctx->u.ec.wstack.wstart = NULL;
             ctx->obuf->msg_start = ctx->obuf->ext_endp;
@@ -2023,6 +2024,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 
 	    ctx->data_size = ctx->obuf->ext_endp - ctx->obuf->extp;
 
+            ctx->obuf->hopefull_flags = ctx->u.ec.hopefull_flags;
 	    /*
 	     * Signal encoded; now verify that the connection still exists,
 	     * and if so enqueue the signal and schedule it for send.

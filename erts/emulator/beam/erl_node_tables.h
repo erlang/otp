@@ -86,6 +86,7 @@ struct ErtsDistOutputBuf_ {
     byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;
+    Uint hopefull_flags;
     byte *extp;
     byte *ext_endp;
     byte *msg_start;

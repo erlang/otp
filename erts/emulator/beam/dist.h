@@ -55,9 +55,8 @@
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
- * If remote node does not supporting these (erl_interface)
- * then we will need to transcode all messages enqueued before
- * connection setup was finished.
+ * If remote node (erl_interface) does not supporting these then we may need
+ * to transcode messages enqueued before connection setup was finished.
  */
 #define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
                               | DFLAG_BIT_BINARIES              \
@@ -355,6 +354,7 @@ typedef struct TTBSizeContext_ {
 
 typedef struct TTBEncodeContext_ {
     Uint flags;
+    Uint hopefull_flags;
     int level;
     byte* ep;
     Eterm obj;

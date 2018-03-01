@@ -2873,6 +2873,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep[j] = 0;	/* Zero unused bits at end of binary */
 		    data_dst = ep;
 		    ep += j + 1;
+                    if (ctx)
+                        ctx->hopefull_flags |= DFLAG_BIT_BINARIES;
 		} else {
 		    /*
 		     * Bit-level binary, but the receiver doesn't support it.
@@ -2908,6 +2910,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
 		    ep = enc_term(acmp, make_small(exp->info.mfa.arity),
                                   ep, dflags, off_heap);
+                    if (ctx)
+                        ctx->hopefull_flags |= DFLAG_EXPORT_PTR_TAG;
 		} else {
 		    /* Tag, arity */
 		    *ep++ = SMALL_TUPLE_EXT;
@@ -4729,11 +4733,13 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     struct transcode_context* ctx = dep->transcode_ctx;
 
     if (!ctx) { /* first call for 'ob' */
-
-        if (~dflags & (DFLAG_BIT_BINARIES | DFLAG_EXPORT_PTR_TAG)) {
+	ASSERT(!(ob->hopefull_flags & ~(Uint)(DFLAG_BIT_BINARIES |
+					      DFLAG_EXPORT_PTR_TAG)));
+        if (~dflags & ob->hopefull_flags) {
             /*
-             * Receiver does not support bitstrings and/or export funs.
-             * We need to transcode control and message terms to use tuple fallbacks.
+             * Receiver does not support bitstrings and/or export funs
+             * and output buffer contains such message tags (hopefull_flags).
+             * Must transcode control and message terms to use tuple fallbacks.
              */
             ctx = erts_alloc(ERTS_ALC_T_DIST_TRANSCODE, sizeof(struct transcode_context));
             dep->transcode_ctx = ctx;
@@ -4760,7 +4766,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                 ctx->state = TRANSCODE_ENC_CTL;
             }
         }
-        else {
+        else if (!(dflags & DFLAG_DIST_HDR_ATOM_CACHE)) {
             /*
              * No need for full transcoding, but primitive receiver (erl_/jinterface)
              * expects VERSION_MAGIC before both control and message terms.
@@ -4777,8 +4783,10 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
             *--(ob->extp) = VERSION_MAGIC;
             goto done;
         }
+        else
+            goto done;
     }
-    else {
+    else {  /* continue after yield */
         ASSERT(ctx->dbg_ob == ob);
     }
     ctx->b2t.reds = reds * B2T_BYTES_PER_REDUCTION;
@@ -4831,6 +4839,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         ob->msg_start = ob->ext_endp;
         ctx->ttb.wstack.wstart = NULL;
         ctx->ttb.flags = dflags;
+        ctx->ttb.hopefull_flags = 0;
         ctx->ttb.level = 0;
 
         ctx->state = TRANSCODE_ENC_MSG;
@@ -4843,7 +4852,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         reds /= TERM_TO_BINARY_LOOP_FACTOR;
 
         ASSERT(ob->ext_endp <= ob->alloc_endp);
-
+        ASSERT(!ctx->ttb.hopefull_flags);
     }
     transcode_free_ctx(dep);
 
