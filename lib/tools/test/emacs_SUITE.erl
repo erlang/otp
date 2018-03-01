@@ -23,10 +23,10 @@
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([bif_highlight/1]).
+-export([bif_highlight/1, indent/1]).
 
-all() -> 
-    [bif_highlight].
+all() ->
+    [bif_highlight, indent].
 
 init_per_testcase(_Case, Config) ->
     ErlangEl = filename:join([code:lib_dir(tools),"emacs","erlang.el"]),
@@ -74,4 +74,69 @@ check_bif_highlight(Bin, Tag, Compare) ->
     [] = Compare -- EmacsIntBifs,
     [] = EmacsIntBifs -- Compare.
     
-    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+indent(Config) ->
+    case emacs_version_ok() of
+        false -> {skip, "Old or no emacs found"};
+        true ->
+            Def = filename:dirname(code:which(?MODULE)) ++ "/" ++ ?MODULE_STRING ++ "_data",
+            Dir = proplists:get_value(data_dir, Config, Def),
+            OrigFs = filelib:wildcard(Dir ++ "/*"),
+            io:format("Dir: ~s~nFs: ~p~n", [Dir, OrigFs]),
+            Fs = [{File, unindent(File)} || File <- OrigFs,
+                                            filename:extension(File) =:= ""],
+            Indent = fun emacs/1,
+            [Indent(File) || {_, File} <- Fs],
+            Res = [diff(Orig, File) || {Orig, File} <- Fs],
+            [file:delete(File) || {ok, File} <- Res],       %% Cleanup
+            [] = [Fail || {fail, Fail} <- Res],
+            ok
+    end.
+
+unindent(Input) ->
+    Output = Input ++ ".erl",
+    {ok, Bin} = file:read_file(Input),
+    Lines0 = string:split(Bin, "\n", all),
+    Lines = [string:trim(Line, leading, [$\s,$\t]) || Line <- Lines0],
+    %% io:format("File: ~s lines: ~w~n", [Input, length(Lines0)]),
+    %% [io:format("~s~n", [L]) || L <- Lines],
+    ok = file:write_file(Output, lists:join("\n", Lines)),
+    Output.
+
+diff(Orig, File) ->
+    case os:cmd(["diff ", Orig, " ", File]) of
+        "" -> {ok, File};
+        Diff ->
+            io:format("Fail: ~s vs ~s~n~s~n~n",[Orig, File, Diff]),
+            {fail, File}
+    end.
+
+emacs_version_ok() ->
+    case os:cmd("emacs --version | head -1") of
+        "GNU Emacs " ++ Ver ->
+            case string:to_float(Ver) of
+                {Vsn, _} when Vsn >= 24.1 ->
+                    true;
+                _ ->
+                    io:format("Emacs version fail~n~s~n~n",[Ver]),
+                    false
+            end;
+        Res ->
+            io:format("Emacs version fail~n~s~n~n",[Res]),
+            false
+    end.
+
+emacs(File) ->
+    EmacsErlDir = filename:join([code:lib_dir(tools), "emacs"]),
+    Cmd = ["emacs ",
+           "--batch --quick ",
+           "--directory ", EmacsErlDir, " ",
+           "--eval \"(require 'erlang-start)\" ",
+           File, " ",
+           "--eval '(indent-region (point-min) (point-max) nil)' ",
+           "--eval '(save-buffer 0)'"
+          ],
+    _Res = os:cmd(Cmd),
+    % io:format("cmd ~s:~n=> ~s~n", [Cmd, _Res]),
+    ok.

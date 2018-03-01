@@ -1,0 +1,174 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%%% Function (and funs) indentation
+
+%%% Not everything in these test are set in stone
+%%% better indentation rules can be added but by having
+%%% these tests we can see what changes in new implementations
+%%% and notice when doing unintentional changes
+
+-export([
+         func1/0,
+         func2/0,
+         a_function_with_a_very_very_long_name/0,
+         when1/2
+        ]).
+
+-compile([nowarn_unused_functions,
+          {inline, [
+                    func2/2,
+                    func3/2
+                   ]
+          }
+         ]).
+
+func1() ->
+    basic.
+
+func2(A1,
+      A2) ->
+    ok.
+
+func3(
+  A1,
+  A2
+ ) ->
+    ok.
+
+%% Okeefe style
+func4(A1
+     ,A2
+     ,A3
+     ) ->
+    ok.
+
+func5(
+  A41
+ ,A42) ->
+    ok.
+
+a_function_with_a_very_very_long_name() ->
+    A00 = #record{
+             field1=1,
+             field2=1
+            },
+    A00.
+
+when1(W1, W2)
+  when is_number(W1),
+       is_number(W2) ->
+    ok.
+
+when2(W1,W2,W3) when
+      W1 > W2,
+      W2 > W3 ->
+    ok.
+
+when3(W1,W2,W3) when
+      W1 > W2,
+      W2 > W3
+      ->
+    ok.
+
+when4(W1,W2,W3)
+  when
+      W1 > W2,
+      W2 > W3 ->
+    ok.
+
+match1({[H|T],
+        Other},
+       M1A2) ->
+    ok.
+
+match2(
+  {
+   [H|T],
+   Other
+  },
+  M2A2
+ ) ->
+    ok.
+
+match3({
+        M3A1,
+        [
+         H |
+         T
+        ],
+        Other
+       },
+       M3A2
+      ) ->
+    ok.
+
+match4(<<
+         M4A:8,
+         M4B:16/unsigned-integer,
+         _/binary
+       >>,
+       M4C) ->
+    ok.
+
+match5(M5A,
+       #record{
+          b=M5B,
+          c=M5C
+         }
+      ) ->
+    ok.
+
+match6(M6A,
+       #{key6a := a6,
+         key6b := b6
+        }) ->
+    ok.
+
+funs(1)
+  when
+      X ->
+    %% Changed fun to one indention level
+    %% 'when' and several clause forces a depth of '4'
+    Var = spawn(fun(X, _)
+                      when X == 2;
+                           X > 10 ->
+                        hello,
+                        case Hello() of
+                            true when is_atom(X) ->
+                                foo;
+                            false ->
+                                bar
+                        end;
+                   (Foo) when is_atom(Foo),
+                              is_integer(X) ->
+                        X = 6 * 45,
+                        Y = true andalso
+                            kalle
+                end),
+    Var;
+funs(2) ->
+    %% check EEP37 named funs
+    Fn1 = fun
+              Factory(N) when
+                    N > 0 ->
+                  F = Fact(N-1),
+                  N * F;
+              Factory(0) ->
+                  1
+          end,
+    Fn1;
+funs(3) ->
+    %% check anonymous funs too
+    Fn2 = fun(0) ->
+                  1;
+             (N) ->
+                  N
+          end,
+    ok;
+funs(4) ->
+    X = lists:foldr(fun(M) ->
+                            <<M/binary, " ">>
+                    end, [], Z),
+    A = <<X/binary, 0:8>>,
+    A.
