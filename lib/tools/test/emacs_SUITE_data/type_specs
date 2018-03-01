@@ -1,0 +1,110 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%% Tests how types and specs are indented (also that the editor can parse them)
+%% May need improvements
+
+
+-type ann() :: Var :: integer().
+-type ann2() ::
+        'return'
+      | 'return_white_spaces'
+      | 'return_comments'
+      | 'text' | ann().
+-type paren() ::
+        (ann2()).
+
+-type t6() ::
+        1 | 2 | 3 |
+        'foo'
+      | 'bar'.
+
+-type t8() :: {any(),none(),pid(),port(),
+               reference(),float()}.
+
+-type t14() :: [erl_scan:foo() |
+                %% Should be highlighted
+                term() |
+                boolean() |
+                byte() |
+                char() |
+                non_neg_integer() | nonempty_list() |
+                pos_integer() |
+                neg_integer() |
+                number() |
+                list() |
+                nonempty_improper_list() | nonempty_maybe_improper_list() |
+                maybe_improper_list() | string() | iolist() | byte() |
+                module() |
+                mfa()   |
+                node()  |
+                timeout() |
+                no_return() |
+                %% Should not be highlighted
+                nonempty_() | nonlist() |
+                erl_scan:bar(34, 92) | t13() | m:f(integer() | <<_:_*16>>)].
+
+-type t15() :: {binary(),<<>>,<<_:34>>,<<_:_*42>>,
+                <<_:3,_:_*14>>,<<>>} | [<<>>|<<_:34>>|<<_:16>>|
+                                        <<_:3,_:_*1472>>|<<_:19,_:_*14>>| <<_:34>>|
+                                        <<_:34>>|<<_:34>>|<<_:34>>].
+
+-type t18() ::
+        fun(() -> t17() | t16()).
+-type t19() ::
+        fun((t18()) -> t16()) |
+        fun((nonempty_maybe_improper_list('integer', any())|
+             1|2|3|a|b|<<_:3,_:_*14>>|integer())
+            ->
+                   nonempty_maybe_improper_list('integer', any())|   %% left to col 16?
+                   1|2|3|a|b|<<_:3,_:_*14>>|integer()).              %% left to col 16?
+-type t20() :: [t19(), ...].
+-type t25() :: #rec3{f123 :: [t24() |
+                              1|2|3|4|a|b|c|d|
+                              nonempty_maybe_improper_list(integer, any())]}.
+-type t26() :: #rec4{ a :: integer()
+                    , b :: any()
+                    }.
+
+%% Spec
+
+-spec t1(FooBar :: t99()) -> t99();
+        (t2()) -> t2();
+        (t4()) -> t4() when is_subtype(t4(), t24);
+        (t23()) -> t23() when is_subtype(t23(), atom()),
+                              is_subtype(t23(), t14());
+        (t24()) -> t24() when is_subtype(t24(), atom()),
+                              is_subtype(t24(), t14()),
+                              is_subtype(t24(), t4()).
+
+-spec over(I :: integer()) -> R1 :: foo:typen();
+          (A :: atom()) -> R2 :: foo:atomen();
+          (T :: tuple()) -> R3 :: bar:typen().
+
+-spec mod:t2() -> any().
+
+-spec handle_cast(Cast :: {'exchange', node(), [[name(),...]]}
+                        | {'del_member', name(), pid()},
+                  #state{}) -> {'noreply', #state{}}.
+
+-spec handle_cast(Cast ::
+                    {'exchange', node(), [[name(),...]]}
+                  | {'del_member', name(), pid()},
+                  #state{}) ->
+                         {'noreply', #state{}}. %% left to col 10?
+
+-spec all(fun((T) -> boolean()), List :: [T]) ->
+                 boolean() when is_subtype(T, term()). % (*)
+
+-spec get_closest_pid(term()) ->
+                             Return :: pid()  %% left to col 10?
+                                     | {'error', {'no_process', term()}} %% left to col 10?
+                                     | {'no_such_group', term()}. %% left to col 10?
+
+-spec add( X :: integer()
+         , Y :: integer()
+         ) -> integer().
+
+-opaque attributes_data() ::
+          [{'column', column()} | {'line', info_line()} |
+           {'text', string()}] |  {line(),column()}.
