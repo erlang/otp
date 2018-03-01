@@ -2563,9 +2563,9 @@ tuple_to_list(_Tuple) ->
       Settings :: [{Subsystem :: atom(),
                     [{Parameter :: atom(),
                       Value :: term()}]}];
-         (alloc_util_allocators) -> [Alloc] when
-      Alloc :: atom();
          ({allocator, Alloc}) -> [_] when %% More or less anything
+      Alloc :: atom();
+         (alloc_util_allocators) -> [Alloc] when
       Alloc :: atom();
          ({allocator_sizes, Alloc}) -> [_] when %% More or less anything
       Alloc :: atom();
@@ -2593,6 +2593,7 @@ tuple_to_list(_Tuple) ->
          (driver_version) -> string();
 	 (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
+         (end_time) -> non_neg_integer();
          (elib_malloc) -> false;
          (eager_check_io) -> boolean();
          (ets_limit) -> pos_integer();
@@ -2620,6 +2621,7 @@ tuple_to_list(_Tuple) ->
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
+         (port_parallelism) -> boolean();
          (port_count) -> non_neg_integer();
          (port_limit) -> pos_integer();
          (process_count) -> pos_integer();
@@ -2649,7 +2651,8 @@ tuple_to_list(_Tuple) ->
          (trace_control_word) -> non_neg_integer();
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
-         (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8.
+         (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
+         (overview) -> boolean().
 system_info(_Item) ->
     erlang:nif_error(undefined).
 

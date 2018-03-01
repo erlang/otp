@@ -6753,17 +6753,20 @@ lists:map(
 	be included in the result. That is, all scheduler threads
 	that are expected to handle CPU bound work. If you also
 	want information about dirty I/O schedulers, use
-	<seealso marker="#statistics_scheduler_wall_time_all"><c>statistics(scheduler_wall_time_all)</c></seealso>
+	<seealso marker="#statistics_scheduler_wall_time_all">
+        <c>statistics(scheduler_wall_time_all)</c></seealso>
 	instead.</p>
 	
 	<p>Normal schedulers will have scheduler identifiers in
 	the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
-	</c><seealso marker="#system_info_schedulers"><c>erlang:system_info(schedulers)</c></seealso>.
+	</c><seealso marker="#system_info_schedulers">
+        <c>erlang:system_info(schedulers)</c></seealso>.
 	Dirty CPU schedulers will have scheduler identifiers in
 	the range <c>erlang:system_info(schedulers) &lt;
 	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
 	+
-	</c><seealso marker="#system_info_dirty_cpu_schedulers"><c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>.
+	</c><seealso marker="#system_info_dirty_cpu_schedulers">
+        <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>.
 	</p>
 	<note><p>The different types of schedulers handle
 	specific types of jobs. Every job is assigned to a specific
@@ -6839,13 +6842,16 @@ ok
 	schedulers.</p>
 	<p>Dirty IO schedulers will have scheduler identifiers in
 	the range
-	<seealso marker="#system_info_schedulers"><c>erlang:system_info(schedulers)</c></seealso><c>
+	<seealso marker="#system_info_schedulers">
+          <c>erlang:system_info(schedulers)</c></seealso><c>
 	+
-	</c><seealso marker="#system_info_dirty_cpu_schedulers"><c>erlang:system_info(dirty_cpu_schedulers)</c></seealso><c> &lt;
+	</c><seealso marker="#system_info_dirty_cpu_schedulers">
+        <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso><c> &lt;
 	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
 	+ erlang:system_info(dirty_cpu_schedulers)
 	+
-	</c><seealso marker="#system_info_dirty_io_schedulers"><c>erlang:system_info(dirty_io_schedulers)</c></seealso>.</p>
+	</c><seealso marker="#system_info_dirty_io_schedulers">
+        <c>erlang:system_info(dirty_io_schedulers)</c></seealso>.</p>
 	<note><p>Note that work executing on dirty I/O schedulers
 	are expected to mainly wait for I/O. That is, when you
 	get high scheduler utilization on dirty I/O schedulers,
@@ -7484,11 +7490,144 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="1"/>
-      <name name="system_info" arity="1" clause_i="2"/>
-      <name name="system_info" arity="1" clause_i="3"/>
-      <name name="system_info" arity="1" clause_i="4"/>
-      <name name="system_info" arity="1" clause_i="5"/>
+      <name name="system_info" arity="1" clause_i="75"/>
+      <fsummary>System info overview.</fsummary>
+      <desc>
+        <p>Returns information about the current system.
+        The documentation of this function is broken into the following
+        sections in order to make it easier to navigate.</p>
+        <taglist>
+          <tag><seealso marker="#system_info_allocator">
+          <c>Memory Allocation</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_allocated_areas"><c>allocated_areas</c></seealso>,
+              <seealso marker="#system_info_allocator"><c>allocator</c></seealso>,
+              <seealso marker="#system_info_alloc_util_allocators"><c>alloc_util_allocators</c></seealso>,
+              <seealso marker="#system_info_allocator_sizes"><c>allocator_sizes</c></seealso>,
+              <seealso marker="#system_info_elib_malloc"><c>elib_malloc</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_cpu_topology">
+           <c>CPU Topology</c></seealso></tag>
+           <item>
+             <p>
+               <seealso marker="#system_info_cpu_topology"><c>cpu_topology</c></seealso>,
+               <seealso marker="#system_info_logical_processors"><c>logical_processors</c></seealso>,
+               <seealso marker="#system_info_update_cpu_info"><c>update_cpu_info</c></seealso>
+             </p>
+           </item>
+          <tag><seealso marker="#system_info_process">
+           <c>Process Information</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_fullsweep_after"><c>fullsweep_after</c></seealso>,
+              <seealso marker="#system_info_garbage_collection"><c>garbage_collection</c></seealso>,
+              <seealso marker="#system_info_heap_sizes"><c>heap_sizes</c></seealso>,
+              <seealso marker="#system_info_heap_type"><c>heap_type</c></seealso>,
+              <seealso marker="#system_info_max_heap_size"><c>max_heap_size</c></seealso>,
+              <seealso marker="#system_info_message_queue_data"><c>message_queue_data</c></seealso>,
+              <seealso marker="#system_info_min_heap_size"><c>min_heap_size</c></seealso>,
+              <seealso marker="#system_info_min_bin_vheap_size"><c>min_bin_vheap_size</c></seealso>,
+              <seealso marker="#system_info_procs"><c>procs</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_limits">
+           <c>System Limits</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_atom_count"><c>atom_count</c></seealso>,
+              <seealso marker="#system_info_atom_limit"><c>atom_limit</c></seealso>,
+              <seealso marker="#system_info_ets_limit"><c>ets_limit</c></seealso>,
+              <seealso marker="#system_info_port_count"><c>port_count</c></seealso>,
+              <seealso marker="#system_info_port_limit"><c>port_limit</c></seealso>,
+              <seealso marker="#system_info_process_count"><c>process_count</c></seealso>,
+              <seealso marker="#system_info_process_limit"><c>process_limit</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_time">
+           <c>System Time</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_end_time"><c>end_time</c></seealso>,
+              <seealso marker="#system_info_os_monotonic_time_source"><c>os_monotonic_time_source</c></seealso>,
+              <seealso marker="#system_info_os_system_time_source"><c>os_system_time_source</c></seealso>,
+              <seealso marker="#system_info_start_time"><c>start_time</c></seealso>,
+              <seealso marker="#system_info_time_correction"><c>time_correction</c></seealso>,
+              <seealso marker="#system_info_time_offset"><c>time_offset</c></seealso>,
+              <seealso marker="#system_info_time_warp_mode"><c>time_warp_mode</c></seealso>,
+              <seealso marker="#system_info_tolerant_timeofday"><c>tolerant_timeofday</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_scheduler">
+           <c>Scheduler Information</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online"><c>dirty_cpu_schedulers_online</c></seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers"><c>dirty_io_schedulers</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling"><c>multi_scheduling</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling_blockers"><c>multi_scheduling_blockers</c></seealso>,
+              <seealso marker="#system_info_normal_multi_scheduling_blockers"><c>normal_multi_scheduling_blockers</c></seealso>,
+              <seealso marker="#system_info_scheduler_bind_type"><c>scheduler_bind_type</c></seealso>,
+              <seealso marker="#system_info_scheduler_bindings"><c>scheduler_bindings</c></seealso>,
+              <seealso marker="#system_info_scheduler_id"><c>scheduler_id</c></seealso>,
+              <seealso marker="#system_info_schedulers"><c>schedulers</c></seealso>,
+              <seealso marker="#system_info_smp_support"><c>smp_support</c></seealso>,
+              <seealso marker="#system_info_threads"><c>threads</c></seealso>,
+              <seealso marker="#system_info_thread_pool_size"><c>thread_pool_size</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_dist">
+          <c>Distribution Information</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_creation"><c>creation</c></seealso>,
+              <seealso marker="#system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></seealso>,
+              <seealso marker="#system_info_dist"><c>dist</c></seealso>,
+              <seealso marker="#system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></seealso>,
+              <seealso marker="#system_info_dist_ctrl"><c>dist_ctrl</c></seealso>
+            </p>
+          </item>
+          <tag><seealso marker="#system_info_misc">
+           <c>System Information</c></seealso></tag>
+          <item>
+            <p>
+              <seealso marker="#system_info_build_type"><c>build_type</c></seealso>,
+              <seealso marker="#system_info_c_compiler_used"><c>c_compiler_used</c></seealso>,
+              <seealso marker="#system_info_check_io"><c>check_io</c></seealso>,
+              <seealso marker="#system_info_compat_rel"><c>compat_rel</c></seealso>,
+              <seealso marker="#system_info_debug_compiled"><c>debug_compiled</c></seealso>,
+              <seealso marker="#system_info_driver_version"><c>driver_version</c></seealso>,
+              <seealso marker="#system_info_dynamic_trace"><c>dynamic_trace</c></seealso>,
+              <seealso marker="#system_info_dynamic_trace_probes"><c>dynamic_trace_probes</c></seealso>,
+              <seealso marker="#system_info_info"><c>info</c></seealso>,
+              <seealso marker="#system_info_kernel_poll"><c>kernel_poll</c></seealso>,
+              <seealso marker="#system_info_loaded"><c>loaded</c></seealso>,
+              <seealso marker="#system_info_machine"><c>machine</c></seealso>,
+              <seealso marker="#system_info_modified_timing_level"><c>modified_timing_level</c></seealso>,
+              <seealso marker="#system_info_nif_version"><c>nif_version</c></seealso>,
+              <seealso marker="#system_info_otp_release"><c>otp_release</c></seealso>,
+              <seealso marker="#system_info_port_parallelism"><c>port_parallelism</c></seealso>,
+              <seealso marker="#system_info_system_version"><c>system_version</c></seealso>,
+              <seealso marker="#system_info_system_architecture"><c>system_architecture</c></seealso>,
+              <seealso marker="#system_info_trace_control_word"><c>trace_control_word</c></seealso>,
+              <seealso marker="#system_info_version"><c>version</c></seealso>,
+              <seealso marker="#system_info_wordsize"><c>wordsize</c></seealso>
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_info" arity="1" clause_i="1"
+	    anchor="system_info_allocator"/>   <!-- allocated_areas -->
+      <name name="system_info" arity="1" clause_i="2"/>   <!-- allocator -->
+      <name name="system_info" arity="1" clause_i="3"/>   <!-- {allocator, _} -->
+      <name name="system_info" arity="1" clause_i="4"/>   <!-- alloc_util_allocators -->
+      <name name="system_info" arity="1" clause_i="5"/>   <!-- {allocator_sizes, _} -->
+      <name name="system_info" arity="1" clause_i="27"/>  <!-- elib_malloc -->
       <fsummary>Information about the system allocators.</fsummary>
       <type variable="Allocator" name_i="2"/>
       <type variable="Version" name_i="2"/>
@@ -7497,12 +7636,13 @@ ok
       <type variable="Alloc" name_i="3"/>
       <desc>
         <marker id="system_info_allocator_tags"></marker>
-        <p>Returns various information about the allocators of the
-          current system (emulator) as specified by
+        <p>Returns various information about the memory allocators
+          of the current system (emulator) as specified by
           <c><anno>Item</anno></c>:</p>
         <marker id="system_info_allocated_areas"></marker>
         <taglist>
-          <tag><c>allocated_areas</c></tag>
+          <tag><marker id="system_info_allocated_areas"/>
+            <c>allocated_areas</c></tag>
           <item>
             <p>Returns a list of tuples with information about
               miscellaneous allocated memory areas.</p>
@@ -7524,9 +7664,9 @@ ok
               <seealso marker="#memory/0">
               <c>erlang:memory/0,1</c></seealso>.</p>
           </item>
-          <tag><c>allocator</c></tag>
+          <tag><marker id="system_info_allocator"/>
+            <c>allocator</c></tag>
           <item>
-            <marker id="system_info_allocator"></marker>
             <p>Returns <c>{<anno>Allocator</anno>, <anno>Version</anno>,
               <anno>Features</anno>, <anno>Settings</anno></c>, where:</p>
             <list type="bulleted">
@@ -7559,19 +7699,9 @@ ok
               <seealso marker="erts:erts_alloc#flags">
               <c>erts_alloc(3)</c></seealso>.</p>
           </item>
-          <tag><c>alloc_util_allocators</c></tag>
+          <tag><marker id="system_info_allocator_tuple"></marker>
+            <c>{allocator, <anno>Alloc</anno>}</c></tag>
           <item>
-            <marker id="system_info_alloc_util_allocators"></marker>
-            <p>Returns a list of the names of all allocators using
-              the ERTS internal <c>alloc_util</c> framework
-              as atoms. For more information, see section
-              <seealso marker="erts:erts_alloc#alloc_util">The
-              alloc_util framework</seealso>
-              in <c>erts_alloc(3)</c>.</p>
-          </item>
-          <tag><c>{allocator, <anno>Alloc</anno>}</c></tag>
-          <item>
-            <marker id="system_info_allocator_tuple"></marker>
             <p>Returns information about the specified allocator.
               As from ERTS 5.6.1, the return value is a list
               of <c>{instance, InstanceNo, InstanceInfo}</c> tuples,
@@ -7616,9 +7746,19 @@ ok
               values. The first value is the memory pool size and
               the second value is the used memory size.</p>
           </item>
-          <tag><c>{allocator_sizes, <anno>Alloc</anno>}</c></tag>
+          <tag><marker id="system_info_alloc_util_allocators"/>
+            <c>alloc_util_allocators</c></tag>
           <item>
-            <marker id="system_info_allocator_sizes"></marker>
+            <p>Returns a list of the names of all allocators using
+              the ERTS internal <c>alloc_util</c> framework
+              as atoms. For more information, see section
+              <seealso marker="erts:erts_alloc#alloc_util">The
+              alloc_util framework</seealso>
+              in <c>erts_alloc(3)</c>.</p>
+          </item>
+          <tag><marker id="system_info_allocator_sizes"/>
+            <c>{allocator_sizes, <anno>Alloc</anno>}</c></tag>
+          <item>
             <p>Returns various size information for the specified
               allocator. The information returned is a subset of the
               information returned by
@@ -7626,14 +7766,23 @@ ok
               <c>erlang:system_info({allocator,
               <anno>Alloc</anno>})</c></seealso>.</p>
           </item>
+          <tag><marker id="system_info_elib_malloc"/>
+            <c>elib_malloc</c></tag>
+          <item>
+            <p>This option will be removed in a future release.
+              The return value will always be <c>false</c>, as the
+              <c>elib_malloc</c> allocator has been removed.</p>
+          </item>
         </taglist>
       </desc>
     </func>
 
     <func>
       <name name="system_info" arity="1" clause_i="12"
-	    anchor="system_info_cpu_topology"/>
-      <name name="system_info" arity="1" clause_i="13"/>
+	    anchor="system_info_cpu_topology"/>           <!-- cpu_topology -->
+      <name name="system_info" arity="1" clause_i="13"/>  <!-- {cpu_topology, _} -->
+      <name name="system_info" arity="1" clause_i="37"/>  <!-- logical_processors -->
+      <name name="system_info" arity="1" clause_i="72"/>  <!-- update_cpu_info -->
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -7664,7 +7813,8 @@ ok
           the current system (emulator) as specified by
           <c><anno>Item</anno></c>:</p>
         <taglist>
-          <tag><c>cpu_topology</c></tag>
+          <tag><marker id="system_info_cpu_topology"/>
+            <c>cpu_topology</c></tag>
           <item>
             <p>Returns the <c><anno>CpuTopology</anno></c> currently used by
               the emulator. The CPU topology is used when binding schedulers
@@ -7727,31 +7877,89 @@ ok
               <seealso marker="#system_info_cpu_topology">
               <c>cpu_topology</c></seealso>.</p>
           </item>
+          <tag><marker id="system_info_logical_processors"/>
+            <c>logical_processors</c></tag>
+          <item>
+            <p>Returns the detected number of logical processors configured
+              in the system. The return value is either an integer, or
+              the atom <c>unknown</c> if the emulator cannot
+              detect the configured logical processors.</p>
+          </item>
+          <tag><marker id="system_info_logical_processors_available"/>
+            <c>logical_processors_available</c></tag>
+          <item>
+            <p>Returns the detected number of logical processors available
+              to the Erlang runtime system. The return value is either an
+              integer, or the atom <c>unknown</c> if the emulator
+              cannot detect the available logical processors. The number
+              of available logical processors is less than or equal to
+              the number of <seealso marker="#system_info_logical_processors_online">
+              logical processors online</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_logical_processors_online"/>
+            <c>logical_processors_online</c></tag>
+          <item>
+            <p>Returns the detected number of logical processors online on
+              the system. The return value is either an integer,
+              or the atom <c>unknown</c> if the emulator cannot
+              detect logical processors online. The number of logical
+              processors online is less than or equal to the number of
+              <seealso marker="#system_info_logical_processors">logical processors
+              configured</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_update_cpu_info"/>
+            <c>update_cpu_info</c></tag>
+          <item>
+            <p>The runtime system rereads the CPU information available
+              and updates its internally stored information about the
+              <seealso marker="#system_info_cpu_topology_detected">detected
+              CPU topology</seealso> and the number of logical processors
+              <seealso marker="#system_info_logical_processors">configured</seealso>,
+              <seealso marker="#system_info_logical_processors_online">online</seealso>,
+              and <seealso marker="#system_info_logical_processors_available">
+              available</seealso>.</p>
+            <p>If the CPU information has changed since the last time
+              it was read, the atom <c>changed</c> is returned, otherwise
+              the atom <c>unchanged</c>. If the CPU information has changed,
+              you probably want to
+              <seealso marker="#system_flag_schedulers_online">adjust the
+              number of schedulers online</seealso>. You typically want
+              to have as many schedulers online as
+              <seealso marker="#system_info_logical_processors_available">logical
+              processors available</seealso>.</p>
+          </item>
         </taglist>
       </desc>
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="29"/>
-      <name name="system_info" arity="1" clause_i="30"/>
-      <name name="system_info" arity="1" clause_i="38"/>
-      <name name="system_info" arity="1" clause_i="39"/>
-      <name name="system_info" arity="1" clause_i="40"/>
-      <name name="system_info" arity="1" clause_i="41"/>
+      <name name="system_info" arity="1" clause_i="30"
+	    anchor="system_info_process"/>  <!-- fullsweep_after -->
+      <name name="system_info" arity="1" clause_i="31"/>  <!-- garbage_collection -->
+      <name name="system_info" arity="1" clause_i="32"/>  <!-- heap_sizes -->
+      <name name="system_info" arity="1" clause_i="33"/>  <!-- heap_type -->
+      <name name="system_info" arity="1" clause_i="39"/>  <!-- max_heap_size -->
+      <name name="system_info" arity="1" clause_i="40"/>  <!-- message_queue_data -->
+      <name name="system_info" arity="1" clause_i="41"/>  <!-- min_heap_size -->
+      <name name="system_info" arity="1" clause_i="42"/>  <!-- min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="56"/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
       <desc>
+        <marker id="system_info_process_tags"/>
         <p>Returns information about the default process heap settings:</p>
         <taglist>
-          <tag><c>fullsweep_after</c></tag>
+          <tag><marker id="system_info_fullsweep_after"/>
+            <c>fullsweep_after</c></tag>
           <item>
             <p>Returns <c>{fullsweep_after, integer() >= 0}</c>, which is
               the <c>fullsweep_after</c> garbage collection setting used
               by default. For more information, see
               <c>garbage_collection</c> described below.</p>
           </item>
-          <tag><c>garbage_collection</c></tag>
+          <tag><marker id="system_info_garbage_collection"/>
+            <c>garbage_collection</c></tag>
           <item>
             <p>Returns a list describing the default garbage collection
               settings. A process spawned on the local node by a
@@ -7764,7 +7972,30 @@ ok
               can spawn a process that does not use the default
               settings.</p>
           </item>
-          <tag><c>max_heap_size</c></tag>
+          <tag><marker id="system_info_heap_sizes"/>
+            <c>heap_sizes</c></tag>
+          <item>
+            <p>Returns a list of integers representing valid heap sizes 
+              in words. All Erlang heaps are sized from sizes in this
+              list.</p>
+          </item>
+          <tag><marker id="system_info_heap_type"/>
+            <c>heap_type</c></tag>
+          <item>
+            <p>Returns the heap type used by the current emulator. One
+              heap type exists:</p>
+            <taglist>
+              <tag><c>private</c></tag>
+              <item>
+                Each process has a heap reserved for its use and no
+                references between heaps of different processes are
+                allowed. Messages passed between processes are copied
+                between heaps.
+              </item>
+            </taglist>
+          </item>
+          <tag><marker id="system_info_max_heap_size"/>
+            <c>max_heap_size</c></tag>
           <item>
             <p>Returns <c>{max_heap_size, <anno>MaxHeapSize</anno>}</c>,
               where <c><anno>MaxHeapSize</anno></c> is the current
@@ -7792,322 +8023,67 @@ ok
               <seealso marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seealso>.</p>
           </item>
-          <tag><c>min_heap_size</c></tag>
+          <tag><marker id="system_info_min_heap_size"/>
+            <c>min_heap_size</c></tag>
           <item>
             <p>Returns <c>{min_heap_size, <anno>MinHeapSize</anno>}</c>,
               where <c><anno>MinHeapSize</anno></c> is the current
               system-wide minimum heap size for spawned processes.</p>
           </item>
-          <tag><c>min_bin_vheap_size</c></tag>
+          <tag><marker id="system_info_min_bin_vheap_size"/>
+            <c>min_bin_vheap_size</c></tag>
           <item>
             <p>Returns <c>{min_bin_vheap_size,
               <anno>MinBinVHeapSize</anno>}</c>, where
               <c><anno>MinBinVHeapSize</anno></c> is the current system-wide
               minimum binary virtual heap size for spawned processes.</p>
           </item>
-        </taglist>
-      </desc>
-    </func>
-
-    <func>
-      <name name="system_info" arity="1" clause_i="6"/>
-      <name name="system_info" arity="1" clause_i="7"/>
-      <name name="system_info" arity="1" clause_i="8"/>
-      <name name="system_info" arity="1" clause_i="9"/>
-      <name name="system_info" arity="1" clause_i="10"/>
-      <name name="system_info" arity="1" clause_i="11"/>
-      <name name="system_info" arity="1" clause_i="14"/>
-      <name name="system_info" arity="1" clause_i="15"/>
-      <name name="system_info" arity="1" clause_i="16"/>
-      <name name="system_info" arity="1" clause_i="17"/>
-      <name name="system_info" arity="1" clause_i="18"/>
-      <name name="system_info" arity="1" clause_i="19"/>
-      <name name="system_info" arity="1" clause_i="20"/>
-      <name name="system_info" arity="1" clause_i="21"/>
-      <name name="system_info" arity="1" clause_i="22"/>
-      <name name="system_info" arity="1" clause_i="23"/>
-      <name name="system_info" arity="1" clause_i="24"/>
-      <name name="system_info" arity="1" clause_i="25"/>
-      <name name="system_info" arity="1" clause_i="26"/>
-      <name name="system_info" arity="1" clause_i="27"/>
-      <name name="system_info" arity="1" clause_i="28"/>
-      <name name="system_info" arity="1" clause_i="31"/>
-      <name name="system_info" arity="1" clause_i="32"/>
-      <name name="system_info" arity="1" clause_i="33"/>
-      <name name="system_info" arity="1" clause_i="34"/>
-      <name name="system_info" arity="1" clause_i="35"/>
-      <name name="system_info" arity="1" clause_i="36"/>
-      <name name="system_info" arity="1" clause_i="37"/>
-      <name name="system_info" arity="1" clause_i="42"/>
-      <name name="system_info" arity="1" clause_i="43"/>
-      <name name="system_info" arity="1" clause_i="44"/>
-      <name name="system_info" arity="1" clause_i="45"/>
-      <name name="system_info" arity="1" clause_i="46"/>
-      <name name="system_info" arity="1" clause_i="47"/>
-      <name name="system_info" arity="1" clause_i="48"/>
-      <name name="system_info" arity="1" clause_i="49"/>
-      <name name="system_info" arity="1" clause_i="50"/>
-      <name name="system_info" arity="1" clause_i="51"/>
-      <name name="system_info" arity="1" clause_i="52"/>
-      <name name="system_info" arity="1" clause_i="53"/>
-      <name name="system_info" arity="1" clause_i="54"/>
-      <name name="system_info" arity="1" clause_i="55"/>
-      <name name="system_info" arity="1" clause_i="56"/>
-      <name name="system_info" arity="1" clause_i="57"/>
-      <name name="system_info" arity="1" clause_i="58"/>
-      <name name="system_info" arity="1" clause_i="59"/>
-      <name name="system_info" arity="1" clause_i="60"/>
-      <name name="system_info" arity="1" clause_i="61"/>
-      <name name="system_info" arity="1" clause_i="62"/>
-      <name name="system_info" arity="1" clause_i="63"/>
-      <name name="system_info" arity="1" clause_i="64"/>
-      <name name="system_info" arity="1" clause_i="65"/>
-      <name name="system_info" arity="1" clause_i="66"/>
-      <name name="system_info" arity="1" clause_i="67"/>
-      <name name="system_info" arity="1" clause_i="68"/>
-      <name name="system_info" arity="1" clause_i="69"/>
-      <name name="system_info" arity="1" clause_i="70"/>
-      <name name="system_info" arity="1" clause_i="71"/>
-      <fsummary>Information about the system.</fsummary>
-      <desc>
-        <p>Returns various information about the current system
-          (emulator) as specified by <c><anno>Item</anno></c>:</p>
-        <taglist>
-          <tag><c>atom_count</c></tag>
+          <tag><marker id="system_info_procs"/>
+            <c>procs</c></tag>
           <item>
-            <marker id="system_info_atom_count"></marker>
-            <p>Returns the number of atoms currently existing at the
-              local node. The value is given as an integer.</p>
-          </item>
-          <tag><c>atom_limit</c></tag>
-          <item>
-            <marker id="system_info_atom_limit"></marker>
-            <p>Returns the maximum number of atoms allowed.
-              This limit can be increased at startup by passing
-              command-line flag
-              <seealso marker="erts:erl#+t"><c>+t</c></seealso> to
-              <c>erl(1)</c>.
-            </p>
-          </item>
-          <tag><c>build_type</c></tag>
-          <item>
-            <p>Returns an atom describing the build type of the runtime
-              system. This is normally the atom <c>opt</c> for optimized.
-              Other possible return values are <c>debug</c>, <c>purify</c>,
-              <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
-              <c>gprof</c>, and <c>lcnt</c>. Possible return values
-              can be added or removed at any time without prior notice.</p>
-          </item>
-          <tag><c>c_compiler_used</c></tag>
-          <item>
-            <p>Returns a two-tuple describing the C compiler used when
-              compiling the runtime system. The first element is an
-              atom describing the name of the compiler, or <c>undefined</c>
-              if unknown. The second element is a term describing the
-              version of the compiler, or <c>undefined</c> if unknown.</p>
-          </item>
-          <tag><c>check_io</c></tag>
-          <item>
-            <p>Returns a list containing miscellaneous information
-              about the emulators internal I/O checking. Notice that
-              the content of the returned list can vary between
-              platforms and over time. It is only guaranteed
-              that a list is returned.</p>
-          </item>
-          <tag><c>compat_rel</c></tag>
-          <item>
-            <p>Returns the compatibility mode of the local node as
-              an integer. The integer returned represents the
-              Erlang/OTP release that the current emulator has been
-              set to be backward compatible with. The compatibility
-              mode can be configured at startup by using command-line flag
-              <seealso marker="erts:erl#compat_rel"><c>+R</c></seealso> in
-              <c>erl(1)</c>.</p>
-          </item>
-          <tag><c>cpu_topology</c></tag>
-          <item>
-            <p>See <seealso
-              marker="#system_info_cpu_topology_tags">above</seealso>.</p>
-          </item>
-          <tag><c>creation</c></tag>
-          <item>
-            <p>Returns the creation of the local node as an integer.
-              The creation is changed when a node is restarted. The
-              creation of a node is stored in process identifiers, port
-              identifiers, and references. This makes it (to some
-              extent) possible to distinguish between identifiers from
-              different incarnations of a node. The valid
-              creations are integers in the range 1..3, but this will
-              probably change in a future release. If the node is not
-              alive, <c>0</c> is returned.</p>
-          </item>
-          <tag><c>debug_compiled</c></tag>
-          <item>
-            <p>Returns <c>true</c> if the emulator has been
-              debug-compiled, otherwise <c>false</c>.</p>
-          </item>
-          <tag><c>delayed_node_table_gc</c></tag>
-          <item>
-            <marker id="system_info_delayed_node_table_gc"></marker>
-            <p>Returns the amount of time in seconds garbage collection
-              of an entry in a node table is delayed. This limit can be set
-              on startup by passing command-line flag
-              <seealso marker="erts:erl#+zdntgc"><c>+zdntgc</c></seealso>
-              to <c>erl(1)</c>. For more information, see the documentation of
-              the command-line flag.</p>
-          </item>
-          <tag><c>dirty_cpu_schedulers</c></tag>
-          <item>
-            <marker id="system_info_dirty_cpu_schedulers"></marker>
-            <p>Returns the number of dirty CPU scheduler threads used by
-              the emulator. Dirty CPU schedulers execute CPU-bound
-              native functions, such as NIFs, linked-in driver code,
-              and BIFs that cannot be managed cleanly by the normal
-              emulator schedulers.</p>
-            <p>The number of dirty CPU scheduler threads is determined
-              at emulator boot time and cannot be changed after that.
-              However, the number of dirty CPU scheduler threads online
-              can be changed at any time. The number of dirty CPU
-              schedulers can be set at startup by passing
-              command-line flag
-              <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> or
-              <seealso marker="erts:erl#+SDPcpu"><c>+SDPcpu</c></seealso> in
-              <c>erl(1)</c>.</p>
-            <p>See also
-              <seealso marker="#system_flag_dirty_cpu_schedulers_online">
-              <c>erlang:system_flag(dirty_cpu_schedulers_online,
-              DirtyCPUSchedulersOnline)</c></seealso>,
-              <seealso marker="#system_info_dirty_cpu_schedulers_online">
-              <c>erlang:system_info(dirty_cpu_schedulers_online)</c></seealso>,
-              <seealso marker="#system_info_dirty_io_schedulers">
-              <c>erlang:system_info(dirty_io_schedulers)</c></seealso>,
-              <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>,
-              <seealso marker="#system_info_schedulers_online">
-              <c>erlang:system_info(schedulers_online)</c></seealso>, and
-              <seealso marker="#system_flag_schedulers_online">
-              <c>erlang:system_flag(schedulers_online,
-              SchedulersOnline)</c></seealso>.</p>
-          </item>
-          <tag><c>dirty_cpu_schedulers_online</c></tag>
-          <item>
-            <marker id="system_info_dirty_cpu_schedulers_online"></marker>
-            <p>Returns the number of dirty CPU schedulers online.
-              The return value satisfies
-              <c><![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]></c>,
-              where <c>N</c> is the smallest of the return values of
-              <c>erlang:system_info(dirty_cpu_schedulers)</c> and
-              <c>erlang:system_info(schedulers_online)</c>.</p>
-            <p>The number of dirty CPU schedulers online can be set at
-              startup by passing command-line flag
-              <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> in
-              <c>erl(1)</c>.</p>
-            <p>For more information, see
-              <seealso marker="#system_info_dirty_cpu_schedulers">
-              <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
-              <seealso marker="#system_info_dirty_io_schedulers">
-              <c>erlang:system_info(dirty_io_schedulers)</c></seealso>,
-              <seealso marker="#system_info_schedulers_online">
-              <c>erlang:system_info(schedulers_online)</c></seealso>, and
-              <seealso marker="#system_flag_dirty_cpu_schedulers_online">
-              <c>erlang:system_flag(dirty_cpu_schedulers_online,
-              DirtyCPUSchedulersOnline)</c></seealso>.</p>
-          </item>
-          <tag><c>dirty_io_schedulers</c></tag>
-          <item>
-            <marker id="system_info_dirty_io_schedulers"></marker>
-            <p>Returns the number of dirty I/O schedulers as an integer.
-              Dirty I/O schedulers execute I/O-bound native functions,
-              such as NIFs and linked-in driver code, which cannot be
-              managed cleanly by the normal emulator schedulers.</p>
-            <p>This value can be set at startup by passing command-line
-              argument <seealso marker="erts:erl#+SDio"><c>+SDio</c></seealso>
-              in <c>erl(1)</c>.</p>
-            <p>For more information, see
-              <seealso marker="#system_info_dirty_cpu_schedulers">
-              <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
-              <seealso marker="#system_info_dirty_cpu_schedulers_online">
-              <c>erlang:system_info(dirty_cpu_schedulers_online)</c></seealso>,
-              and <seealso marker="#system_flag_dirty_cpu_schedulers_online">
-              <c>erlang:system_flag(dirty_cpu_schedulers_online,
-              DirtyCPUSchedulersOnline)</c></seealso>.</p>
-          </item>
-          <tag><c>dist</c></tag>
-          <item>
-            <p>Returns a binary containing a string of distribution
+            <p>Returns a binary containing a string of process and port
               information formatted as in Erlang crash dumps. For more
               information, see section <seealso marker="erts:crash_dump">
               How to interpret the Erlang crash dumps</seealso>
               in the User's Guide.</p>
           </item>
-          <tag><c>dist_buf_busy_limit</c></tag>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_info" arity="1" clause_i="6"
+	    anchor="system_info_limits"/>   <!-- atom_count -->
+      <name name="system_info" arity="1" clause_i="7"/>   <!-- atom_limit -->
+      <name name="system_info" arity="1" clause_i="29"/>  <!-- ets_limit -->
+      <name name="system_info" arity="1" clause_i="52"/>  <!-- port_count -->
+      <name name="system_info" arity="1" clause_i="53"/>  <!-- port_limit -->
+      <name name="system_info" arity="1" clause_i="54"/>  <!-- process_count -->
+      <name name="system_info" arity="1" clause_i="55"/>  <!-- process_limit -->
+      <fsummary>Information about various system limits.</fsummary>
+      <desc>
+        <marker id="system_info_limits"/>
+        <p>Returns information about the current system
+        (emulator) limits as specified by <c><anno>Item</anno></c>:</p>
+        <taglist>
+          <tag><marker id="system_info_atom_count"/>
+            <c>atom_count</c></tag>
           <item>
-            <marker id="system_info_dist_buf_busy_limit"></marker>
-            <p>Returns the value of the distribution buffer busy limit
-              in bytes. This limit can be set at startup by passing
-              command-line flag
-              <seealso marker="erts:erl#+zdbbl"><c>+zdbbl</c></seealso>
-              to <c>erl(1)</c>.</p>
+            <p>Returns the number of atoms currently existing at the
+            local node. The value is given as an integer.</p>
           </item>
-          <tag><c>dist_ctrl</c></tag>
+          <tag><marker id="system_info_atom_limit"/>
+            <c>atom_limit</c></tag>
           <item>
-            <p>Returns a list of tuples
-              <c>{<anno>Node</anno>, <anno>ControllingEntity</anno>}</c>,
-              one entry for each connected remote node.
-              <c><anno>Node</anno></c> is the node name
-              and <c><anno>ControllingEntity</anno></c> is the port or process
-              identifier responsible for the communication to that node.
-              More specifically, <c><anno>ControllingEntity</anno></c> for
-              nodes connected through TCP/IP (the normal case) is the socket
-              used in communication with the specific node.</p>
+            <p>Returns the maximum number of atoms allowed.
+            This limit can be increased at startup by passing
+            command-line flag
+            <seealso marker="erts:erl#+t"><c>+t</c></seealso> to
+            <c>erl(1)</c>.
+            </p>
           </item>
-          <tag><c>driver_version</c></tag>
-          <item>
-            <p>Returns a string containing the Erlang driver version
-              used by the runtime system. It has the form
-              <seealso marker="erts:erl_driver#version_management">
-              "&lt;major ver&gt;.&lt;minor ver&gt;"</seealso>.</p>
-          </item>
-          <tag><c>dynamic_trace</c></tag>
-          <item>
-            <p>Returns an atom describing the dynamic trace framework
-              compiled into the virtual machine. It can be
-              <c>dtrace</c>, <c>systemtap</c>, or <c>none</c>. For a
-              commercial or standard build, it is always <c>none</c>.
-              The other return values indicate a custom configuration
-              (for example, <c>./configure --with-dynamic-trace=dtrace</c>).
-              For more information about dynamic tracing, see
-              <seealso marker="runtime_tools:dyntrace">
-              <c>dyntrace(3)</c></seealso> manual page and the
-              <c>README.dtrace</c>/<c>README.systemtap</c> files in the
-              Erlang source code top directory.</p>
-          </item>
-          <tag><c>dynamic_trace_probes</c></tag>
-          <item>
-            <p>Returns a <c>boolean()</c> indicating if dynamic trace
-              probes (<c>dtrace</c> or <c>systemtap</c>) are built into
-              the emulator. This can only be <c>true</c> if the virtual
-              machine was built for dynamic tracing (that is,
-              <c>system_info(dynamic_trace)</c> returns
-              <c>dtrace</c> or <c>systemtap</c>).</p>
-          </item>
-          <tag><marker id="system_info_end_time"/><c>end_time</c></tag>
-          <item>
-            <p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
-              time</seealso> in <c>native</c>
-              <seealso marker="#type_time_unit">time unit</seealso> that
-              can be represented internally in the current Erlang runtime system
-              instance. The time between the
-              <seealso marker="#system_info_start_time">start time</seealso> and
-              the end time is at least a quarter of a millennium.</p>
-          </item>
-          <tag><c>elib_malloc</c></tag>
-          <item>
-            <p>This option will be removed in a future release.
-              The return value will always be <c>false</c>, as the
-              <c>elib_malloc</c> allocator has been removed.</p>
-          </item>
-          <tag><c>ets_limit</c></tag>
+          <tag><marker id="system_info_ets_limit"/>
+            <c>ets_limit</c></tag>
           <item>
             <p>Returns the maximum number of ETS tables allowed. This
               limit can be increased at startup by passing
@@ -8117,194 +8093,67 @@ ok
               <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang
               runtime system.</p>
           </item>
-          <tag><c>heap_sizes</c></tag>
+          <tag><marker id="system_info_port_count"/><c>port_count</c></tag>
           <item>
-            <p>Returns a list of integers representing valid heap sizes 
-              in words. All Erlang heaps are sized from sizes in this
-              list.</p>
+            <p>Returns the number of ports currently existing at the
+              local node. The value is given as an integer. This is
+              the same value as returned by
+              <c>length(erlang:ports())</c>, but more efficient.</p>
           </item>
-          <tag><c>heap_type</c></tag>
+          <tag><marker id="system_info_port_limit"/>
+            <c>port_limit</c></tag>
           <item>
-            <p>Returns the heap type used by the current emulator. One
-              heap type exists:</p>
-            <taglist>
-              <tag><c>private</c></tag>
-              <item>
-                Each process has a heap reserved for its use and no
-                references between heaps of different processes are
-                allowed. Messages passed between processes are copied
-                between heaps.
-              </item>
-            </taglist>
+            <p>Returns the maximum number of simultaneously existing
+            ports at the local node as an integer. This limit can be
+            configured at startup by using command-line flag
+            <seealso marker="erl#+Q"><c>+Q</c></seealso> in <c>erl(1)</c>.</p>
           </item>
-          <tag><c>info</c></tag>
+          <tag><marker id="system_info_process_count"/>
+          <c>process_count</c></tag>
           <item>
-            <p>Returns a binary containing a string of miscellaneous
-              system information formatted as in Erlang crash dumps.
-              For more information, see section
-              <seealso marker="erts:crash_dump">
-              How to interpret the Erlang crash dumps</seealso>
-              in the User's Guide.</p>
+            <p>Returns the number of processes currently existing at the
+            local node. The value is given as an integer. This is
+            the same value as returned by
+            <c>length(processes())</c>, but more efficient.</p>
           </item>
-          <tag><c>kernel_poll</c></tag>
+          <tag><marker id="system_info_process_limit"/>
+            <c>process_limit</c></tag>
           <item>
-            <p>Returns <c>true</c> if the emulator uses some kind of
-              kernel-poll implementation, otherwise <c>false</c>.</p>
+            <p>Returns the maximum number of simultaneously existing
+            processes at the local node. The value is given as an
+            integer. This limit can be configured at startup by using
+            command-line flag <seealso marker="erl#+P"><c>+P</c></seealso>
+            in <c>erl(1)</c>.</p>
           </item>
-          <tag><c>loaded</c></tag>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_info" arity="1" clause_i="26"
+	    anchor="system_info_time"/>  <!-- end_time -->
+      <name name="system_info" arity="1" clause_i="49"/>  <!-- os_monotonic_time_source -->
+      <name name="system_info" arity="1" clause_i="50"/>  <!-- os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="62"/>  <!-- start_time -->
+      <name name="system_info" arity="1" clause_i="67"/>  <!-- time_correction -->
+      <name name="system_info" arity="1" clause_i="68"/>  <!-- time_offset -->
+      <name name="system_info" arity="1" clause_i="69"/>  <!-- time_warp_mode -->
+      <name name="system_info" arity="1" clause_i="70"/>  <!-- tolerant_timeofday -->
+      <fsummary>Information about system time.</fsummary>
+      <desc>
+        <marker id="system_info_time_tags"/>
+        <p>Returns information about the current system
+        (emulator) time as specified by <c><anno>Item</anno></c>:</p>
+        <taglist>
+          <tag><marker id="system_info_end_time"/><c>end_time</c></tag>
           <item>
-            <p>Returns a binary containing a string of loaded module
-              information formatted as in Erlang crash dumps. For more
-              information, see section
-              <seealso marker="erts:crash_dump">How to interpret the Erlang
-              crash dumps</seealso> in the User's Guide.</p>
-          </item>
-          <tag><c>logical_processors</c></tag>
-          <item>
-            <marker id="logical_processors"></marker>
-            <p>Returns the detected number of logical processors configured
-              in the system. The return value is either an integer, or
-              the atom <c>unknown</c> if the emulator cannot
-              detect the configured logical processors.</p>
-          </item>
-          <tag><c>logical_processors_available</c></tag>
-          <item>
-            <marker id="logical_processors_available"></marker>
-            <p>Returns the detected number of logical processors available
-              to the Erlang runtime system. The return value is either an
-              integer, or the atom <c>unknown</c> if the emulator
-              cannot detect the available logical processors. The number
-              of available logical processors is less than or equal to
-              the number of <seealso marker="#logical_processors_online">
-              logical processors online</seealso>.</p>
-          </item>
-          <tag><c>logical_processors_online</c></tag>
-          <item>
-            <marker id="logical_processors_online"></marker>
-            <p>Returns the detected number of logical processors online on
-              the system. The return value is either an integer,
-              or the atom <c>unknown</c> if the emulator cannot
-              detect logical processors online. The number of logical
-              processors online is less than or equal to the number of
-              <seealso marker="#logical_processors">logical processors
-              configured</seealso>.</p>
-          </item>
-          <tag><c>machine</c></tag>
-          <item>
-            <p>Returns a string containing the Erlang machine name.</p>
-          </item>
-          <tag><c>modified_timing_level</c></tag>
-          <item>
-            <p>Returns the modified timing-level (an integer) if
-              modified timing is enabled, otherwise <c>undefined</c>.
-              For more information about modified timing, see
-              command-line flag
-              <seealso marker="erts:erl#+T"><c>+T</c></seealso>
-              in <c>erl(1)</c></p>
-          </item>
-          <tag><c>multi_scheduling</c></tag>
-          <item>
-            <marker id="system_info_multi_scheduling"></marker>
-            <p>Returns one of the following:</p>
-            <taglist>
-              <tag><c>disabled</c></tag>
-              <item>
-                <p>The emulator has been started with only one scheduler thread.</p>
-              </item>
-              <tag><c>blocked</c></tag>
-              <item>
-                <p>The emulator has more than one scheduler thread,
-                  but all scheduler threads except one are blocked.
-                  That is, only one scheduler thread schedules
-                  Erlang processes and executes Erlang code.</p>
-              </item>
-              <tag><c>blocked_normal</c></tag>
-              <item>
-                <p>The emulator has more than one scheduler thread,
-                  but all normal scheduler threads except one are
-                  blocked. Notice that dirty schedulers are not
-                  blocked, and can schedule Erlang processes and
-                  execute native code.</p>
-              </item>
-              <tag><c>enabled</c></tag>
-              <item>
-                <p>The emulator has more than one scheduler thread,
-                  and no scheduler threads are blocked. That is,
-                  all available scheduler threads schedule
-                  Erlang processes and execute Erlang code.</p>
-              </item>
-            </taglist>
-            <p>See also
-              <seealso marker="#system_flag_multi_scheduling">
-              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
-              <seealso marker="#system_info_multi_scheduling_blockers">
-              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>,
-              <seealso marker="#system_info_normal_multi_scheduling_blockers">
-              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>,
-              and <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>.</p>
-          </item>
-          <tag><c>multi_scheduling_blockers</c></tag>
-          <item>
-            <marker id="system_info_multi_scheduling_blockers"></marker>
-            <p>Returns a list of <c><anno>Pid</anno></c>s when
-              multi-scheduling is blocked, otherwise the empty list is
-              returned. The <c><anno>Pid</anno></c>s in the list
-              represent all the processes currently
-              blocking multi-scheduling. A <c><anno>Pid</anno></c> occurs
-              only once in the list, even if the corresponding
-              process has blocked multiple times.</p>
-            <p>See also
-              <seealso marker="#system_flag_multi_scheduling">
-              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
-              <seealso marker="#system_info_multi_scheduling">
-              <c>erlang:system_info(multi_scheduling)</c></seealso>,
-              <seealso marker="#system_info_normal_multi_scheduling_blockers">
-              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>,
-              and <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>.</p>
-          </item>
-          <tag><c>nif_version</c></tag>
-          <item>
-            <p>Returns a string containing the version of the Erlang NIF
-              interface used by the runtime system. It is on the form
-              "&lt;major ver&gt;.&lt;minor ver&gt;".</p>
-          </item>
-          <tag><c>normal_multi_scheduling_blockers</c></tag>
-          <item>
-            <marker id="system_info_normal_multi_scheduling_blockers"></marker>
-            <p>Returns a list of <c><anno>Pid</anno></c>s when
-              normal multi-scheduling is blocked (that is, all normal schedulers
-              but one is blocked), otherwise the empty list is returned.
-              The <c><anno>Pid</anno></c>s in the list represent all the
-              processes currently blocking normal multi-scheduling.
-              A <c><anno>Pid</anno></c> occurs only once in the list, even if
-              the corresponding process has blocked multiple times.</p>
-            <p>See also
-              <seealso marker="#system_flag_multi_scheduling">
-              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
-              <seealso marker="#system_info_multi_scheduling">
-              <c>erlang:system_info(multi_scheduling)</c></seealso>,
-              <seealso marker="#system_info_multi_scheduling_blockers">
-              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>,
-              and <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>.</p>
-          </item>
-          <tag><marker id="system_info_otp_release"/>
-            <c>otp_release</c></tag>
-          <item>
-            <marker id="system_info_otp_release"></marker>
-            <p>Returns a string containing the OTP release number of the
-              OTP release that the currently executing ERTS application
-              is part of.</p>
-            <p>As from Erlang/OTP 17, the OTP release number corresponds to
-              the major OTP version number. No
-              <c>erlang:system_info()</c> argument gives the exact OTP
-              version. This is because the exact OTP version in the general case
-              is difficult to determine. For more information, see the
-              description of versions in
-              <seealso marker="doc/system_principles:versions">
-              System principles</seealso> in System Documentation.</p>
+            <p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
+            time</seealso> in <c>native</c>
+            <seealso marker="#type_time_unit">time unit</seealso> that
+            can be represented internally in the current Erlang runtime system
+            instance. The time between the
+            <seealso marker="#system_info_start_time">start time</seealso> and
+            the end time is at least a quarter of a millennium.</p>
           </item>
           <tag><marker id="system_info_os_monotonic_time_source"/>
             <c>os_monotonic_time_source</c></tag>
@@ -8372,7 +8221,7 @@ ok
             </taglist>
           </item>
           <tag><marker id="system_info_os_system_time_source"/>
-          <c>os_system_time_source</c></tag>
+            <c>os_system_time_source</c></tag>
           <item>
             <p>Returns a list containing information about the source of
               <seealso marker="erts:time_correction#OS_System_Time">OS
@@ -8425,155 +8274,6 @@ ok
               </item>
             </taglist>
           </item>
-          <tag><c>port_parallelism</c></tag>
-          <item>
-            <marker id="system_info_port_parallelism"></marker>
-            <p>Returns the default port parallelism scheduling hint used.
-              For more information, see command-line argument
-              <seealso marker="erl#+spp"><c>+spp</c></seealso>
-              in <c>erl(1)</c>.</p>
-          </item>
-          <tag><marker id="system_info_port_count"/><c>port_count</c></tag>
-          <item>
-            <p>Returns the number of ports currently existing at the
-              local node. The value is given as an integer. This is
-              the same value as returned by
-              <c>length(erlang:ports())</c>, but more efficient.</p>
-          </item>
-          <tag><c>port_limit</c></tag>
-          <item>
-          <marker id="system_info_port_limit"></marker>
-            <p>Returns the maximum number of simultaneously existing
-              ports at the local node as an integer. This limit can be
-              configured at startup by using command-line flag
-              <seealso marker="erl#+Q"><c>+Q</c></seealso> in <c>erl(1)</c>.</p>
-          </item>
-          <tag><marker id="system_info_process_count"/>
-            <c>process_count</c></tag>
-          <item>
-            <p>Returns the number of processes currently existing at the
-              local node. The value is given as an integer. This is
-              the same value as returned by
-              <c>length(processes())</c>, but more efficient.</p>
-          </item>
-          <tag><c>process_limit</c></tag>
-          <item>
-            <marker id="system_info_process_limit"></marker>
-            <p>Returns the maximum number of simultaneously existing
-              processes at the local node. The value is given as an
-              integer. This limit can be configured at startup by using
-              command-line flag <seealso marker="erl#+P"><c>+P</c></seealso>
-              in <c>erl(1)</c>.</p>
-          </item>
-          <tag><c>procs</c></tag>
-          <item>
-            <p>Returns a binary containing a string of process and port
-              information formatted as in Erlang crash dumps. For more
-              information, see section <seealso marker="erts:crash_dump">
-              How to interpret the Erlang crash dumps</seealso>
-              in the User's Guide.</p>
-          </item>
-          <tag><c>scheduler_bind_type</c></tag>
-          <item>
-            <marker id="system_info_scheduler_bind_type"></marker>
-            <p>Returns information about how the user has requested
-              schedulers to be bound or not bound.</p>
-            <p>Notice that although a user has requested
-              schedulers to be bound, they can silently have failed
-              to bind. To inspect the scheduler bindings, call
-              <seealso marker="#system_info_scheduler_bindings">
-              <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
-            <p>For more information, see command-line argument
-              <seealso marker="erts:erl#+sbt"><c>+sbt</c></seealso>
-              in <c>erl(1)</c> and
-              <seealso marker="#system_info_scheduler_bindings">
-              <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
-          </item>
-          <tag><c>scheduler_bindings</c></tag>
-          <item>
-            <marker id="system_info_scheduler_bindings"></marker>
-            <p>Returns information about the currently used scheduler
-              bindings.</p>
-            <p>A tuple of a size equal to
-              <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>
-              is returned. The tuple elements are integers
-              or the atom <c>unbound</c>. Logical processor identifiers
-              are represented as integers. The <c>N</c>th
-              element of the tuple equals the current binding for
-              the scheduler with the scheduler identifier equal to
-              <c>N</c>. For example, if the schedulers are bound,
-              <c>element(erlang:system_info(scheduler_id),
-              erlang:system_info(scheduler_bindings))</c> returns
-              the identifier of the logical processor that the calling
-              process is executing on.</p>
-            <p>Notice that only schedulers online can be bound to logical
-              processors.</p>
-            <p>For more information, see command-line argument
-              <seealso marker="erts:erl#+sbt"><c>+sbt</c></seealso>
-              in <c>erl(1)</c> and
-              <seealso marker="#system_info_schedulers_online">
-              <c>erlang:system_info(schedulers_online)</c></seealso>.</p>
-          </item>
-          <tag><c>scheduler_id</c></tag>
-          <item>
-            <marker id="system_info_scheduler_id"></marker>
-            <p>Returns the scheduler ID (<c>SchedulerId</c>) of the
-              scheduler thread that the calling process is executing
-              on. <c><anno>SchedulerId</anno></c> is a positive integer,
-              where <c><![CDATA[1 <= SchedulerId <=
-              erlang:system_info(schedulers)]]></c>.</p>
-            <p>See also
-              <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso>.</p>
-          </item>
-          <tag><c>schedulers</c></tag>
-          <item>
-            <marker id="system_info_schedulers"></marker>
-            <p>Returns the number of scheduler threads used by
-              the emulator. Scheduler threads online schedules Erlang
-              processes and Erlang ports, and execute Erlang code
-              and Erlang linked-in driver code.</p>
-            <p>The number of scheduler threads is determined at
-              emulator boot time and cannot be changed later.
-              However, the number of schedulers online can
-              be changed at any time.</p>
-            <p>See also
-              <seealso marker="#system_flag_schedulers_online">
-              <c>erlang:system_flag(schedulers_online,
-              SchedulersOnline)</c></seealso>,
-              <seealso marker="#system_info_schedulers_online">
-              <c>erlang:system_info(schedulers_online)</c></seealso>,
-              <seealso marker="#system_info_scheduler_id">
-              <c>erlang:system_info(scheduler_id)</c></seealso>,
-              <seealso marker="#system_flag_multi_scheduling">
-              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
-              <seealso marker="#system_info_multi_scheduling">
-              <c>erlang:system_info(multi_scheduling)</c></seealso>,
-              <seealso marker="#system_info_normal_multi_scheduling_blockers">
-              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>
-              and <seealso marker="#system_info_multi_scheduling_blockers">
-              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>.
-            </p>
-          </item>
-          <tag><c>schedulers_online</c></tag>
-          <item>
-            <marker id="system_info_schedulers_online"></marker>
-            <p>Returns the number of schedulers online. The scheduler
-              identifiers of schedulers online satisfy the relationship
-              <c><![CDATA[1 <= SchedulerId <=
-              erlang:system_info(schedulers_online)]]></c>.</p>
-            <p>For more information, see
-              <seealso marker="#system_info_schedulers">
-              <c>erlang:system_info(schedulers)</c></seealso> and
-              <seealso marker="#system_flag_schedulers_online">
-              <c>erlang:system_flag(schedulers_online,
-              SchedulersOnline)</c></seealso>.</p>
-          </item>
-          <tag><c>smp_support</c></tag>
-          <item>
-            <p>Returns <c>true</c>.</p>
-          </item>
           <tag><marker id="system_info_start_time"/><c>start_time</c></tag>
           <item>
             <p>The <seealso marker="#monotonic_time/0">Erlang monotonic
@@ -8583,39 +8283,16 @@ ok
             <p>See also <seealso marker="#system_info_end_time">
               <c>erlang:system_info(end_time)</c></seealso>.</p>
           </item>
-          <tag><c>system_version</c></tag>
+          <tag><marker id="system_info_time_correction"/>
+            <c>time_correction</c></tag>
           <item>
-            <p>Returns a string containing version number and
-              some important properties, such as the number of schedulers.</p>
-          </item>
-          <tag><c>system_architecture</c></tag>
-          <item>
-            <p>Returns a string containing the processor and OS
-              architecture the emulator is built for.</p>
-          </item>
-          <tag><c>threads</c></tag>
-          <item>
-            <p>Returns <c>true</c>.</p>
-          </item>
-          <tag><c>thread_pool_size</c></tag>
-          <item>
-            <marker id="system_info_thread_pool_size"></marker>
-            <p>Returns the number of async threads in the async thread
-              pool used for asynchronous driver calls
-              (<seealso marker="erts:erl_driver#driver_async">
-              <c>erl_driver:driver_async()</c></seealso>).
-              The value is given as an integer.</p>
-          </item>
-          <tag><c>time_correction</c></tag>
-          <item>
-            <marker id="system_info_time_correction"></marker>
             <p>Returns a boolean value indicating whether
               <seealso marker="time_correction#Time_Correction">
               time correction</seealso> is enabled or not.</p>
           </item>
-          <tag><c>time_offset</c></tag>
+          <tag><marker id="system_info_time_offset"/>
+            <c>time_offset</c></tag>
           <item>
-            <marker id="system_info_time_offset"></marker>
             <p>Returns the state of the time offset:</p>
             <taglist>
               <tag><c>preliminary</c></tag>
@@ -8665,9 +8342,9 @@ ok
               </item>
             </taglist>
           </item>
-          <tag><c>tolerant_timeofday</c></tag>
+          <tag><marker id="system_info_tolerant_timeofday"/>
+            <c>tolerant_timeofday</c></tag>
           <item>
-            <marker id="system_info_tolerant_timeofday"></marker>
             <p>Returns whether a pre ERTS 7.0 backwards compatible
               compensation for sudden changes of system time is <c>enabled</c>
               or <c>disabled</c>. Such compensation is <c>enabled</c> when the
@@ -8676,41 +8353,641 @@ ok
               <seealso marker="#system_info_time_correction">
               time correction</seealso> is enabled.</p>
           </item>
-          <tag><c>trace_control_word</c></tag>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_info" arity="1" clause_i="17"
+	    anchor="system_info_scheduler"/>  <!-- dirty_cpu_schedulers -->
+      <name name="system_info" arity="1" clause_i="18"/>  <!-- dirty_cpu_schedulers_online -->
+      <name name="system_info" arity="1" clause_i="19"/>  <!-- dirty_io_schedulers -->
+      <name name="system_info" arity="1" clause_i="44"/>  <!-- multi_scheduling -->
+      <name name="system_info" arity="1" clause_i="45"/>  <!-- multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="47"/>  <!-- normal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="57"/>  <!-- scheduler_bind_type -->
+      <name name="system_info" arity="1" clause_i="58"/>  <!-- scheduler_bindings -->
+      <name name="system_info" arity="1" clause_i="59"/>  <!-- scheduler_id -->
+      <name name="system_info" arity="1" clause_i="60"/>  <!-- schedulers -->
+      <name name="system_info" arity="1" clause_i="61"/>  <!-- smp_support -->
+      <name name="system_info" arity="1" clause_i="65"/>  <!-- threads -->
+      <name name="system_info" arity="1" clause_i="66"/>  <!-- thread_pool_size -->
+      <fsummary>Information about system schedulers.</fsummary>
+      <desc>
+        <marker id="system_info_scheduler_tags"/>
+        <p>Returns information about schedulers, scheduling and threads in the
+          current system as specified by <c><anno>Item</anno></c>:</p>
+        <taglist>
+          <tag><marker id="system_info_dirty_cpu_schedulers"/>
+            <c>dirty_cpu_schedulers</c></tag>
+          <item>
+            <p>Returns the number of dirty CPU scheduler threads used by
+              the emulator. Dirty CPU schedulers execute CPU-bound
+              native functions, such as NIFs, linked-in driver code,
+              and BIFs that cannot be managed cleanly by the normal
+              emulator schedulers.</p>
+            <p>The number of dirty CPU scheduler threads is determined
+              at emulator boot time and cannot be changed after that.
+              However, the number of dirty CPU scheduler threads online
+              can be changed at any time. The number of dirty CPU
+              schedulers can be set at startup by passing
+              command-line flag
+              <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> or
+              <seealso marker="erts:erl#+SDPcpu"><c>+SDPcpu</c></seealso> in
+              <c>erl(1)</c>.</p>
+            <p>See also
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">
+              <c>erlang:system_flag(dirty_cpu_schedulers_online,
+              DirtyCPUSchedulersOnline)</c></seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">
+              <c>erlang:system_info(dirty_cpu_schedulers_online)</c></seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">
+              <c>erlang:system_info(dirty_io_schedulers)</c></seealso>,
+              <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>,
+              <seealso marker="#system_info_schedulers_online">
+              <c>erlang:system_info(schedulers_online)</c></seealso>, and
+              <seealso marker="#system_flag_schedulers_online">
+              <c>erlang:system_flag(schedulers_online,
+              SchedulersOnline)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_dirty_cpu_schedulers_online"/>
+            <c>dirty_cpu_schedulers_online</c></tag>
+          <item>
+            <p>Returns the number of dirty CPU schedulers online.
+              The return value satisfies
+              <c><![CDATA[1 <= DirtyCPUSchedulersOnline <= N]]></c>,
+              where <c>N</c> is the smallest of the return values of
+              <c>erlang:system_info(dirty_cpu_schedulers)</c> and
+              <c>erlang:system_info(schedulers_online)</c>.</p>
+            <p>The number of dirty CPU schedulers online can be set at
+              startup by passing command-line flag
+              <seealso marker="erts:erl#+SDcpu"><c>+SDcpu</c></seealso> in
+              <c>erl(1)</c>.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">
+              <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
+              <seealso marker="#system_info_dirty_io_schedulers">
+              <c>erlang:system_info(dirty_io_schedulers)</c></seealso>,
+              <seealso marker="#system_info_schedulers_online">
+              <c>erlang:system_info(schedulers_online)</c></seealso>, and
+              <seealso marker="#system_flag_dirty_cpu_schedulers_online">
+              <c>erlang:system_flag(dirty_cpu_schedulers_online,
+              DirtyCPUSchedulersOnline)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_dirty_io_schedulers"/>
+            <c>dirty_io_schedulers</c></tag>
+          <item>
+            <p>Returns the number of dirty I/O schedulers as an integer.
+              Dirty I/O schedulers execute I/O-bound native functions,
+              such as NIFs and linked-in driver code, which cannot be
+              managed cleanly by the normal emulator schedulers.</p>
+            <p>This value can be set at startup by passing command-line
+              argument <seealso marker="erts:erl#+SDio"><c>+SDio</c></seealso>
+              in <c>erl(1)</c>.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_dirty_cpu_schedulers">
+              <c>erlang:system_info(dirty_cpu_schedulers)</c></seealso>,
+              <seealso marker="#system_info_dirty_cpu_schedulers_online">
+              <c>erlang:system_info(dirty_cpu_schedulers_online)</c></seealso>,
+              and <seealso marker="#system_flag_dirty_cpu_schedulers_online">
+              <c>erlang:system_flag(dirty_cpu_schedulers_online,
+              DirtyCPUSchedulersOnline)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_multi_scheduling"/>
+            <c>multi_scheduling</c></tag>
+          <item>
+            <p>Returns one of the following:</p>
+            <taglist>
+              <tag><c>disabled</c></tag>
+              <item>
+                <p>The emulator has been started with only one scheduler thread.</p>
+              </item>
+              <tag><c>blocked</c></tag>
+              <item>
+                <p>The emulator has more than one scheduler thread,
+                  but all scheduler threads except one are blocked.
+                  That is, only one scheduler thread schedules
+                  Erlang processes and executes Erlang code.</p>
+              </item>
+              <tag><c>blocked_normal</c></tag>
+              <item>
+                <p>The emulator has more than one scheduler thread,
+                  but all normal scheduler threads except one are
+                  blocked. Notice that dirty schedulers are not
+                  blocked, and can schedule Erlang processes and
+                  execute native code.</p>
+              </item>
+              <tag><c>enabled</c></tag>
+              <item>
+                <p>The emulator has more than one scheduler thread,
+                  and no scheduler threads are blocked. That is,
+                  all available scheduler threads schedule
+                  Erlang processes and execute Erlang code.</p>
+              </item>
+            </taglist>
+            <p>See also
+              <seealso marker="#system_flag_multi_scheduling">
+              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling_blockers">
+              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>,
+              <seealso marker="#system_info_normal_multi_scheduling_blockers">
+              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>,
+              and <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_multi_scheduling_blockers"/>
+            <c>multi_scheduling_blockers</c></tag>
+          <item>
+            <p>Returns a list of <c><anno>Pid</anno></c>s when
+              multi-scheduling is blocked, otherwise the empty list is
+              returned. The <c><anno>Pid</anno></c>s in the list
+              represent all the processes currently
+              blocking multi-scheduling. A <c><anno>Pid</anno></c> occurs
+              only once in the list, even if the corresponding
+              process has blocked multiple times.</p>
+            <p>See also
+              <seealso marker="#system_flag_multi_scheduling">
+              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling">
+              <c>erlang:system_info(multi_scheduling)</c></seealso>,
+              <seealso marker="#system_info_normal_multi_scheduling_blockers">
+              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>,
+              and <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_normal_multi_scheduling_blockers"/>
+            <c>normal_multi_scheduling_blockers</c></tag>
+          <item>
+            <p>Returns a list of <c><anno>Pid</anno></c>s when
+              normal multi-scheduling is blocked (that is, all normal schedulers
+              but one is blocked), otherwise the empty list is returned.
+              The <c><anno>Pid</anno></c>s in the list represent all the
+              processes currently blocking normal multi-scheduling.
+              A <c><anno>Pid</anno></c> occurs only once in the list, even if
+              the corresponding process has blocked multiple times.</p>
+            <p>See also
+              <seealso marker="#system_flag_multi_scheduling">
+              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling">
+              <c>erlang:system_info(multi_scheduling)</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling_blockers">
+              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>,
+              and <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_scheduler_bind_type"/>
+            <c>scheduler_bind_type</c></tag>
+          <item>
+            <p>Returns information about how the user has requested
+              schedulers to be bound or not bound.</p>
+            <p>Notice that although a user has requested
+              schedulers to be bound, they can silently have failed
+              to bind. To inspect the scheduler bindings, call
+              <seealso marker="#system_info_scheduler_bindings">
+              <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
+            <p>For more information, see command-line argument
+              <seealso marker="erts:erl#+sbt"><c>+sbt</c></seealso>
+              in <c>erl(1)</c> and
+              <seealso marker="#system_info_scheduler_bindings">
+              <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_scheduler_bindings"/>
+            <c>scheduler_bindings</c></tag>
+          <item>
+            <p>Returns information about the currently used scheduler
+              bindings.</p>
+            <p>A tuple of a size equal to
+              <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>
+              is returned. The tuple elements are integers
+              or the atom <c>unbound</c>. Logical processor identifiers
+              are represented as integers. The <c>N</c>th
+              element of the tuple equals the current binding for
+              the scheduler with the scheduler identifier equal to
+              <c>N</c>. For example, if the schedulers are bound,
+              <c>element(erlang:system_info(scheduler_id),
+              erlang:system_info(scheduler_bindings))</c> returns
+              the identifier of the logical processor that the calling
+              process is executing on.</p>
+            <p>Notice that only schedulers online can be bound to logical
+              processors.</p>
+            <p>For more information, see command-line argument
+              <seealso marker="erts:erl#+sbt"><c>+sbt</c></seealso>
+              in <c>erl(1)</c> and
+              <seealso marker="#system_info_schedulers_online">
+              <c>erlang:system_info(schedulers_online)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_scheduler_id"/>
+            <c>scheduler_id</c></tag>
+          <item>
+            <p>Returns the scheduler ID (<c>SchedulerId</c>) of the
+              scheduler thread that the calling process is executing
+              on. <c><anno>SchedulerId</anno></c> is a positive integer,
+              where <c><![CDATA[1 <= SchedulerId <=
+              erlang:system_info(schedulers)]]></c>.</p>
+            <p>See also
+              <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_schedulers"/>
+            <c>schedulers</c></tag>
+          <item>
+            <p>Returns the number of scheduler threads used by
+              the emulator. Scheduler threads online schedules Erlang
+              processes and Erlang ports, and execute Erlang code
+              and Erlang linked-in driver code.</p>
+            <p>The number of scheduler threads is determined at
+              emulator boot time and cannot be changed later.
+              However, the number of schedulers online can
+              be changed at any time.</p>
+            <p>See also
+              <seealso marker="#system_flag_schedulers_online">
+              <c>erlang:system_flag(schedulers_online,
+              SchedulersOnline)</c></seealso>,
+              <seealso marker="#system_info_schedulers_online">
+              <c>erlang:system_info(schedulers_online)</c></seealso>,
+              <seealso marker="#system_info_scheduler_id">
+              <c>erlang:system_info(scheduler_id)</c></seealso>,
+              <seealso marker="#system_flag_multi_scheduling">
+              <c>erlang:system_flag(multi_scheduling, BlockState)</c></seealso>,
+              <seealso marker="#system_info_multi_scheduling">
+              <c>erlang:system_info(multi_scheduling)</c></seealso>,
+              <seealso marker="#system_info_normal_multi_scheduling_blockers">
+              <c>erlang:system_info(normal_multi_scheduling_blockers)</c></seealso>
+              and <seealso marker="#system_info_multi_scheduling_blockers">
+              <c>erlang:system_info(multi_scheduling_blockers)</c></seealso>.
+            </p>
+          </item>
+          <tag><marker id="system_info_schedulers_online"/>
+            <c>schedulers_online</c></tag>
+          <item>
+            <p>Returns the number of schedulers online. The scheduler
+              identifiers of schedulers online satisfy the relationship
+              <c><![CDATA[1 <= SchedulerId <=
+              erlang:system_info(schedulers_online)]]></c>.</p>
+            <p>For more information, see
+              <seealso marker="#system_info_schedulers">
+              <c>erlang:system_info(schedulers)</c></seealso> and
+              <seealso marker="#system_flag_schedulers_online">
+              <c>erlang:system_flag(schedulers_online,
+              SchedulersOnline)</c></seealso>.</p>
+          </item>
+          <tag><marker id="system_info_smp_support"/>
+            <c>smp_support</c></tag>
+          <item>
+            <p>Returns <c>true</c>.</p>
+          </item>
+          <tag><marker id="system_info_threads"/>
+            <c>threads</c></tag>
+          <item>
+            <p>Returns <c>true</c>.</p>
+          </item>
+          <tag><marker id="system_info_thread_pool_size"/>
+            <c>thread_pool_size</c></tag>
+          <item>
+            <marker id="system_info_thread_pool_size"></marker>
+            <p>Returns the number of async threads in the async thread
+              pool used for asynchronous driver calls
+              (<seealso marker="erts:erl_driver#driver_async">
+              <c>erl_driver:driver_async()</c></seealso>).
+              The value is given as an integer.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_info" arity="1" clause_i="14"
+	    anchor="system_info_dist"/>  <!-- creation -->
+      <name name="system_info" arity="1" clause_i="16"/>  <!-- delayed_node_table_gc -->
+      <name name="system_info" arity="1" clause_i="20"/>  <!-- dist -->
+      <name name="system_info" arity="1" clause_i="21"/>  <!-- dist_buf_busy_limit -->
+      <name name="system_info" arity="1" clause_i="22"/>  <!-- dist_ctrl -->
+      <fsummary>Information about erlang distribution.</fsummary>
+      <desc>
+        <marker id="system_info_dist_tags"/>
+        <p>Returns information about Erlang Distribution in the
+        current system as specified by <c><anno>Item</anno></c>:</p>
+        <taglist>
+          <tag><marker id="system_info_creation"/>
+            <c>creation</c></tag>
+          <item>
+            <p>Returns the creation of the local node as an integer.
+              The creation is changed when a node is restarted. The
+              creation of a node is stored in process identifiers, port
+              identifiers, and references. This makes it (to some
+              extent) possible to distinguish between identifiers from
+              different incarnations of a node. The valid
+              creations are integers in the range 1..3, but this will
+              probably change in a future release. If the node is not
+              alive, <c>0</c> is returned.</p>
+          </item>
+          <tag><marker id="system_info_delayed_node_table_gc"/>
+            <c>delayed_node_table_gc</c></tag>
+          <item>
+            <p>Returns the amount of time in seconds garbage collection
+              of an entry in a node table is delayed. This limit can be set
+              on startup by passing command-line flag
+              <seealso marker="erts:erl#+zdntgc"><c>+zdntgc</c></seealso>
+              to <c>erl(1)</c>. For more information, see the documentation of
+              the command-line flag.</p>
+          </item>
+          <tag><marker id="system_info_dist"/>
+            <c>dist</c></tag>
+          <item>
+            <p>Returns a binary containing a string of distribution
+              information formatted as in Erlang crash dumps. For more
+              information, see section <seealso marker="erts:crash_dump">
+              How to interpret the Erlang crash dumps</seealso>
+              in the User's Guide.</p>
+          </item>
+          <tag><marker id="system_info_dist_buf_busy_limit"/>
+            <c>dist_buf_busy_limit</c></tag>
+          <item>
+            <p>Returns the value of the distribution buffer busy limit
+              in bytes. This limit can be set at startup by passing
+              command-line flag
+              <seealso marker="erts:erl#+zdbbl"><c>+zdbbl</c></seealso>
+              to <c>erl(1)</c>.</p>
+          </item>
+          <tag><marker id="system_info_dist_ctrl"/>
+            <c>dist_ctrl</c></tag>
+          <item>
+            <p>Returns a list of tuples
+              <c>{<anno>Node</anno>, <anno>ControllingEntity</anno>}</c>,
+              one entry for each connected remote node.
+              <c><anno>Node</anno></c> is the node name
+              and <c><anno>ControllingEntity</anno></c> is the port or process
+              identifier responsible for the communication to that node.
+              More specifically, <c><anno>ControllingEntity</anno></c> for
+              nodes connected through TCP/IP (the normal case) is the socket
+              used in communication with the specific node.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <!-- <name name="system_info" arity="1" clause_i="1"/>   allocated_areas -->
+      <!-- <name name="system_info" arity="1" clause_i="2"/>   allocated -->
+      <!-- <name name="system_info" arity="1" clause_i="3"/>   {allocator, _} -->
+      <!-- <name name="system_info" arity="1" clause_i="4"/>   alloc_util_allocators -->
+      <!-- <name name="system_info" arity="1" clause_i="5"/>   {allocator_sizes, _} -->
+      <!-- <name name="system_info" arity="1" clause_i="6"/>   atom_count -->
+      <!-- <name name="system_info" arity="1" clause_i="7"/>   atom_limit -->
+      <name name="system_info" arity="1" clause_i="8"
+	    anchor="system_info_misc"/>   <!-- build_type -->
+      <name name="system_info" arity="1" clause_i="9"/>   <!-- c_compiler_used -->
+      <name name="system_info" arity="1" clause_i="10"/>  <!-- check_io -->
+      <name name="system_info" arity="1" clause_i="11"/>  <!-- compat_rel -->
+      <!-- <name name="system_info" arity="1" clause_i="12"/>  cpu_topology -->
+      <!-- <name name="system_info" arity="1" clause_i="13"/>  {cpu_topology, _} -->
+      <!-- <name name="system_info" arity="1" clause_i="14"/>  creation -->
+      <name name="system_info" arity="1" clause_i="15"/>  <!-- debug_compiled -->
+      <!-- <name name="system_info" arity="1" clause_i="16"/>  delayed_node_table_gc -->
+      <!-- <name name="system_info" arity="1" clause_i="17"/>  dirty_cpu_schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="18"/>  dirty_cpu_schedulers_online -->
+      <!-- <name name="system_info" arity="1" clause_i="19"/>  dirty_io_schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="20"/>  dist -->
+      <!-- <name name="system_info" arity="1" clause_i="21"/>  dist_buf_busy_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="22"/>  dist_ctrl -->
+      <name name="system_info" arity="1" clause_i="23"/>  <!-- driver_version -->
+      <name name="system_info" arity="1" clause_i="24"/>  <!-- dynamic_trace -->
+      <name name="system_info" arity="1" clause_i="25"/>  <!-- dynamic_trace_probes -->
+      <!-- <name name="system_info" arity="1" clause_i="26"/>  end_time -->
+      <!-- <name name="system_info" arity="1" clause_i="27"/>  elib_malloc -->
+      <!-- <name name="system_info" arity="1" clause_i="28"/>  eager_check_io, removed -->
+      <!-- <name name="system_info" arity="1" clause_i="29"/>  ets_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="30"/>  fullsweep_after -->
+      <!-- <name name="system_info" arity="1" clause_i="31"/>  garbage_collection -->
+      <!-- <name name="system_info" arity="1" clause_i="32"/>  heap_sizes -->
+      <!-- <name name="system_info" arity="1" clause_i="33"/>  heap_type -->
+      <name name="system_info" arity="1" clause_i="34"/>  <!-- info -->
+      <name name="system_info" arity="1" clause_i="35"/>  <!-- kernel_poll -->
+      <name name="system_info" arity="1" clause_i="36"/>  <!-- loaded -->
+      <!-- <name name="system_info" arity="1" clause_i="37"/>  logical_processors -->
+      <name name="system_info" arity="1" clause_i="38"/>  <!-- machine -->
+      <!-- <name name="system_info" arity="1" clause_i="39"/>  max_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="40"/>  message_queue_data -->
+      <!-- <name name="system_info" arity="1" clause_i="41"/>  min_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="42"/>  min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="43"/>  <!-- modified_timing_level -->
+      <!-- <name name="system_info" arity="1" clause_i="44"/>  multi_scheduling -->
+      <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="46"/>  <!-- nif_version -->
+      <!-- n<name name="system_info" arity="1" clause_i="47"/>  ormal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="48"/>  <!-- otp_release -->
+      <!-- <name name="system_info" arity="1" clause_i="49"/>  os_monotonic_time_source -->
+      <!-- <name name="system_info" arity="1" clause_i="50"/>  os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="51"/>  <!-- port_parallelism -->
+      <!-- <name name="system_info" arity="1" clause_i="52"/>  port_count -->
+      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="54"/>  process_count -->
+      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="56"/>  procs -->
+      <!-- <name name="system_info" arity="1" clause_i="57"/>  scheduler_bind_type -->
+      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bindings -->
+      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_id -->
+      <!-- <name name="system_info" arity="1" clause_i="60"/>  schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="61"/>  smp_support -->
+      <!-- <name name="system_info" arity="1" clause_i="62"/>  start_time -->
+      <name name="system_info" arity="1" clause_i="63"/>  <!-- system_version -->
+      <name name="system_info" arity="1" clause_i="64"/>  <!-- system_architecture -->
+      <!-- <name name="system_info" arity="1" clause_i="65"/>  threads -->
+      <!-- <name name="system_info" arity="1" clause_i="66"/>  thread_pool_size -->
+      <!-- <name name="system_info" arity="1" clause_i="67"/>  time_correction -->
+      <!-- <name name="system_info" arity="1" clause_i="68"/>  time_offset -->
+      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_warp_mode -->
+      <!-- <name name="system_info" arity="1" clause_i="70"/>  tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="71"/>  <!-- trace_control_word -->
+      <!-- <name name="system_info" arity="1" clause_i="72"/>  update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="73"/>  <!-- version -->
+      <name name="system_info" arity="1" clause_i="74"/>  <!-- wordsize -->
+      <!-- <name name="system_info" arity="1" clause_i="75"/>  overview -->
+      <fsummary>Information about the system.</fsummary>
+      <desc>
+        <marker id="system_info_misc_tags"/>
+        <p>Returns various information about the current system
+          (emulator) as specified by <c><anno>Item</anno></c>:</p>
+        <taglist>
+          <tag><marker id="system_info_build_type"/>
+            <c>build_type</c></tag>
+          <item>
+            <p>Returns an atom describing the build type of the runtime
+              system. This is normally the atom <c>opt</c> for optimized.
+              Other possible return values are <c>debug</c>, <c>purify</c>,
+              <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
+              <c>gprof</c>, and <c>lcnt</c>. Possible return values
+              can be added or removed at any time without prior notice.</p>
+          </item>
+          <tag><marker id="system_info_c_compiler_used"/>
+            <c>c_compiler_used</c></tag>
+          <item>
+            <p>Returns a two-tuple describing the C compiler used when
+              compiling the runtime system. The first element is an
+              atom describing the name of the compiler, or <c>undefined</c>
+              if unknown. The second element is a term describing the
+              version of the compiler, or <c>undefined</c> if unknown.</p>
+          </item>
+          <tag><marker id="system_info_check_io"/>
+            <c>check_io</c></tag>
+          <item>
+            <p>Returns a list containing miscellaneous information
+              about the emulators internal I/O checking. Notice that
+              the content of the returned list can vary between
+              platforms and over time. It is only guaranteed
+              that a list is returned.</p>
+          </item>
+          <tag><marker id="system_info_compat_rel"/>
+            <c>compat_rel</c></tag>
+          <item>
+            <p>Returns the compatibility mode of the local node as
+              an integer. The integer returned represents the
+              Erlang/OTP release that the current emulator has been
+              set to be backward compatible with. The compatibility
+              mode can be configured at startup by using command-line flag
+              <seealso marker="erts:erl#compat_rel"><c>+R</c></seealso> in
+              <c>erl(1)</c>.</p>
+          </item>
+          <tag><marker id="system_info_debug_compiled"/>
+            <c>debug_compiled</c></tag>
+          <item>
+            <p>Returns <c>true</c> if the emulator has been
+              debug-compiled, otherwise <c>false</c>.</p>
+          </item>
+          <tag><marker id="system_info_driver_version"/>
+            <c>driver_version</c></tag>
+          <item>
+            <p>Returns a string containing the Erlang driver version
+              used by the runtime system. It has the form
+              <seealso marker="erts:erl_driver#version_management">
+              "&lt;major ver&gt;.&lt;minor ver&gt;"</seealso>.</p>
+          </item>
+          <tag><marker id="system_info_dynamic_trace"/>
+            <c>dynamic_trace</c></tag>
+          <item>
+            <p>Returns an atom describing the dynamic trace framework
+              compiled into the virtual machine. It can be
+              <c>dtrace</c>, <c>systemtap</c>, or <c>none</c>. For a
+              commercial or standard build, it is always <c>none</c>.
+              The other return values indicate a custom configuration
+              (for example, <c>./configure --with-dynamic-trace=dtrace</c>).
+              For more information about dynamic tracing, see
+              <seealso marker="runtime_tools:dyntrace">
+              <c>dyntrace(3)</c></seealso> manual page and the
+              <c>README.dtrace</c>/<c>README.systemtap</c> files in the
+              Erlang source code top directory.</p>
+          </item>
+          <tag><marker id="system_info_dynamic_trace_probes"/>
+            <c>dynamic_trace_probes</c></tag>
+          <item>
+            <p>Returns a <c>boolean()</c> indicating if dynamic trace
+              probes (<c>dtrace</c> or <c>systemtap</c>) are built into
+              the emulator. This can only be <c>true</c> if the virtual
+              machine was built for dynamic tracing (that is,
+              <c>system_info(dynamic_trace)</c> returns
+              <c>dtrace</c> or <c>systemtap</c>).</p>
+          </item>
+          <tag><marker id="system_info_info"/>
+            <c>info</c></tag>
+          <item>
+            <p>Returns a binary containing a string of miscellaneous
+              system information formatted as in Erlang crash dumps.
+              For more information, see section
+              <seealso marker="erts:crash_dump">
+              How to interpret the Erlang crash dumps</seealso>
+              in the User's Guide.</p>
+          </item>
+          <tag><marker id="system_info_kernel_poll"/>
+            <c>kernel_poll</c></tag>
+          <item>
+            <p>Returns <c>true</c> if the emulator uses some kind of
+              kernel-poll implementation, otherwise <c>false</c>.</p>
+          </item>
+          <tag><marker id="system_info_loaded"/>
+            <c>loaded</c></tag>
+          <item>
+            <p>Returns a binary containing a string of loaded module
+              information formatted as in Erlang crash dumps. For more
+              information, see section
+              <seealso marker="erts:crash_dump">How to interpret the Erlang
+              crash dumps</seealso> in the User's Guide.</p>
+          </item>
+          <tag><marker id="system_info_machine"/>
+            <c>machine</c></tag>
+          <item>
+            <p>Returns a string containing the Erlang machine name.</p>
+          </item>
+          <tag><marker id="system_info_modified_timing_level"/>
+            <c>modified_timing_level</c></tag>
+          <item>
+            <p>Returns the modified timing-level (an integer) if
+              modified timing is enabled, otherwise <c>undefined</c>.
+              For more information about modified timing, see
+              command-line flag
+              <seealso marker="erts:erl#+T"><c>+T</c></seealso>
+              in <c>erl(1)</c></p>
+          </item>
+          <tag><marker id="system_info_nif_version"/>
+            <c>nif_version</c></tag>
+          <item>
+            <p>Returns a string containing the version of the Erlang NIF
+              interface used by the runtime system. It is on the form
+              "&lt;major ver&gt;.&lt;minor ver&gt;".</p>
+          </item>
+          <tag><marker id="system_info_otp_release"/>
+            <c>otp_release</c></tag>
+          <item>
+            <marker id="system_info_otp_release"></marker>
+            <p>Returns a string containing the OTP release number of the
+              OTP release that the currently executing ERTS application
+              is part of.</p>
+            <p>As from Erlang/OTP 17, the OTP release number corresponds to
+              the major OTP version number. No
+              <c>erlang:system_info()</c> argument gives the exact OTP
+              version. This is because the exact OTP version in the general case
+              is difficult to determine. For more information, see the
+              description of versions in
+              <seealso marker="doc/system_principles:versions">
+              System principles</seealso> in System Documentation.</p>
+          </item>
+          <tag><marker id="system_info_port_parallelism"/>
+            <c>port_parallelism</c></tag>
+          <item>
+            <p>Returns the default port parallelism scheduling hint used.
+              For more information, see command-line argument
+              <seealso marker="erl#+spp"><c>+spp</c></seealso>
+              in <c>erl(1)</c>.</p>
+          </item>
+          <tag><marker id="system_info_system_version"/>
+            <c>system_version</c></tag>
+          <item>
+            <p>Returns a string containing version number and
+              some important properties, such as the number of schedulers.</p>
+          </item>
+          <tag><marker id="system_info_system_architecture"/>
+            <c>system_architecture</c></tag>
+          <item>
+            <p>Returns a string containing the processor and OS
+              architecture the emulator is built for.</p>
+          </item>
+          <tag><marker id="system_info_trace_control_word"/>
+            <c>trace_control_word</c></tag>
           <item>
             <p>Returns the value of the node trace control word. For
               more information, see function <c>get_tcw</c> in section
               <seealso marker="erts:match_spec#get_tcw">
               Match Specifications in Erlang</seealso> in the User's Guide.</p>
           </item>
-          <tag><c>update_cpu_info</c></tag>
+          <tag><marker id="system_info_version"/>
+            <c>version</c></tag>
           <item>
-            <marker id="update_cpu_info"></marker>
-            <p>The runtime system rereads the CPU information available
-              and updates its internally stored information about the
-              <seealso marker="#system_info_cpu_topology_detected">detected
-              CPU topology</seealso> and the number of logical processors
-              <seealso marker="#logical_processors">configured</seealso>,
-              <seealso marker="#logical_processors_online">online</seealso>,
-              and <seealso marker="#logical_processors_available">
-              available</seealso>.</p>
-            <p>If the CPU information has changed since the last time
-              it was read, the atom <c>changed</c> is returned, otherwise
-              the atom <c>unchanged</c>. If the CPU information has changed,
-              you probably want to
-              <seealso marker="#system_flag_schedulers_online">adjust the
-              number of schedulers online</seealso>. You typically want
-              to have as many schedulers online as
-              <seealso marker="#logical_processors_available">logical
-              processors available</seealso>.</p>
-          </item>
-          <tag><c>version</c></tag>
-          <item>
-            <marker id="system_info_version"></marker>
             <p>Returns a string containing the version number of the
               emulator.</p>
           </item>
-          <tag><c>wordsize</c></tag>
+          <tag><marker id="system_info_wordsize"/>
+            <c>wordsize</c></tag>
           <item>
             <p>Same as <c>{wordsize, internal}</c>.</p>
           </item>
@@ -8732,13 +9009,6 @@ ok
               64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
-        <note>
-          <p>Argument <c>scheduler</c> has changed name to
-            <c>scheduler_id</c> to avoid mix up with argument
-            <c>schedulers</c>. Argument <c>scheduler</c> was
-            introduced in ERTS 5.5 and renamed in
-            ERTS 5.5.1.</p>
-        </note>
       </desc>
     </func>
 
