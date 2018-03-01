@@ -764,11 +764,11 @@ cli(Config) when is_list(Config) ->
     
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh_connection:shell(ConnectionRef, ChannelId),
-    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"q">>),
+    ssh_connection:send(ConnectionRef, ChannelId, <<"q">>),
     receive 
 	{ssh_cm, ConnectionRef,
 	 {data,0,0, <<"\r\nYou are accessing a dummy, type \"q\" to exit\r\n\n">>}} ->
-	    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"q">>)
+	    ssh_connection:send(ConnectionRef, ChannelId, <<"q">>)
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
@@ -1491,7 +1491,7 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 		    ct:fail("*** Expected ~p, but got ~p",[string:strip(ExpStr),RecStr])
 	    end
     after 30000 ->
-	    ct:log("Meassage queue of ~p:~n~p",
+	    ct:log("Message queue of ~p:~n~p",
 		   [self(), erlang:process_info(self(), messages)]),
 	    case Order of
 		expect -> ct:fail("timeout, expected ~p",[string:strip(Arg)]);

@@ -92,6 +92,7 @@ end_per_suite(Config) ->
 %%%    os:cmd("docker rm $(docker ps -aq -f status=exited)"),
     %% Remove dangling images:
 %%%    os:cmd("docker rmi $(docker images -f dangling=true -q)"),
+    catch ssh:stop(),
     Config.
 
 

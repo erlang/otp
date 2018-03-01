@@ -85,6 +85,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(Config).
 
 end_per_suite(Config) ->
+    catch ssh:stop(),
     Config.
 
 %%--------------------------------------------------------------------
@@ -800,6 +801,8 @@ stop_listener(Config) when is_list(Config) ->
 	    ssh:stop_daemon(Pid0),
 	    ssh:stop_daemon(Pid1);
 	Error ->
+	    ssh:close(ConnectionRef0),
+	    ssh:stop_daemon(Pid0),
 	    ct:fail({unexpected, Error})
     end.
 
