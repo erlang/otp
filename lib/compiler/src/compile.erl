@@ -751,16 +751,12 @@ asm_passes() ->
       [{pass,beam_a},
        {iff,da,{listing,"a"}},
        {unless,no_postopt,
-	[{unless,no_reorder,{pass,beam_reorder}},
-	 {iff,dre,{listing,"reorder"}},
-	 {pass,beam_block},
+	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
 	 {iff,dexcept,{listing,"except"}},
 	 {unless,no_bs_opt,{pass,beam_bs}},
 	 {iff,dbs,{listing,"bs"}},
-	 {unless,no_topt,{pass,beam_type}},
-	 {iff,dtype,{listing,"type"}},
 	 {pass,beam_split},
 	 {iff,dsplit,{listing,"split"}},
 	 {unless,no_dead,{pass,beam_dead}},
@@ -773,12 +769,6 @@ asm_passes() ->
 	 {iff,dclean,{listing,"clean"}},
 	 {unless,no_bsm_opt,{pass,beam_bsm}},
 	 {iff,dbsm,{listing,"bsm"}},
-	 {unless,no_recv_opt,{pass,beam_receive}},
-	 {iff,drecv,{listing,"recv"}},
-	 {unless,no_record_opt,{pass,beam_record}},
-	 {iff,drecord,{listing,"record"}},
-         {unless,no_blk2,?pass(block2)},
-	 {iff,dblk2,{listing,"block2"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -1353,10 +1343,6 @@ v3_kernel(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
 	    %% warnings. Ignore any such warnings.
 	    {ok,Code,St}
     end.
-
-block2(Code0, #compile{options=Opts}=St) ->
-    {ok,Code} = beam_block:module(Code0, [no_blockify|Opts]),
-    {ok,Code,St}.
 
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
@@ -1974,12 +1960,8 @@ pre_load() ->
 	 beam_jump,
 	 beam_opcodes,
 	 beam_peep,
-	 beam_receive,
-         beam_record,
-	 beam_reorder,
 	 beam_split,
 	 beam_trim,
-	 beam_type,
 	 beam_utils,
 	 beam_validator,
 	 beam_z,

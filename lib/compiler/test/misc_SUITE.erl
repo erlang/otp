@@ -189,14 +189,6 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_a:module(BeamAInput, []) end),
 
-    %% beam_reorder
-    BlockInput = {?MODULE,[{foo,0}],[],
-		  [{function,foo,0,2,
-		    [{label,1},
-		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_reorder:module(BlockInput, []) end),
-
     %% beam_block
     BlockInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -208,15 +200,6 @@ silly_coverage(Config) when is_list(Config) ->
     %% beam_bs
     BsInput = BlockInput,
     expect_error(fun() -> beam_bs:module(BsInput, []) end),
-
-    %% beam_type
-    TypeInput = {?MODULE,[{foo,0}],[],
-		   [{function,foo,0,2,
-		     [{label,1},
-		      {line,loc},
-		      {func_info,{atom,?MODULE},{atom,foo},0},
-		      {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_type:module(TypeInput, []) end),
 
     %% beam_except
     ExceptInput = {?MODULE,[{foo,0}],[],
@@ -267,33 +250,6 @@ silly_coverage(Config) when is_list(Config) ->
 		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
 		   {block,[a|b]}]}],0},
     expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
-
-    %% beam_receive.
-    ReceiveInput = {?MODULE,[{foo,0}],[],
-		    [{function,foo,0,2,
-		      [{label,1},
-		       {func_info,{atom,?MODULE},{atom,foo},0},
-		       {label,2},
-		       {call_ext,0,{extfunc,erlang,make_ref,0}},
-		       {block,[a|b]}]}],0},
-    expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
-
-    %% beam_record.
-    RecordInput = {?MODULE,[{foo,0}],[],
-		    [{function,foo,1,2,
-		      [{label,1},
-		       {func_info,{atom,?MODULE},{atom,foo},1},
-                       {label,2},
-                       {test,is_tuple,{f,1},[{x,0}]},
-                       {test,test_arity,{f,1},[{x,0},3]},
-                       {block,[{set,[{x,1}],[{x,0}],{get_tuple_element,0}}]},
-                       {test,is_eq_exact,{f,1},[{x,1},{atom,bar}]},
-                       {block,[{set,[{x,2}],[{x,0}],{get_tuple_element,1}}|a]},
-                       {test,is_eq_exact,{f,1},[{x,2},{integer,1}]},
-                       {block,[{set,[{x,0}],[{atom,ok}],move}]},
-                       return]}],0},
-
-    expect_error(fun() -> beam_record:module(RecordInput, []) end),
 
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
