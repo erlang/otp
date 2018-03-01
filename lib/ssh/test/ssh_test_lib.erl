@@ -53,10 +53,12 @@ daemon(Host, Options) ->
 
 
 daemon(Host, Port, Options) ->
-    %% ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
+    ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
 	{ok, Pid} ->
-            {ok,L} = ssh:daemon_info(Pid),
+            R = ssh:daemon_info(Pid),
+            ct:log("~p:~p ssh:daemon_info(~p) ->~n ~p",[?MODULE,?LINE,Pid,R]),
+            {ok,L} = R,
             ListenPort = proplists:get_value(port, L),
             ListenIP = proplists:get_value(ip, L),
 	    {Pid, ListenIP, ListenPort};

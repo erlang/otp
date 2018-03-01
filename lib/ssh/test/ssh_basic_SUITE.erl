@@ -60,7 +60,7 @@
 	 login_bad_pwd_no_retry5/1,
 	 misc_ssh_options/1,
 	 openssh_zlib_basic_test/1,  
-	 packet_size_zero/1, 
+	 packet_size/1, 
 	 pass_phrase/1,
 	 peername_sockname/1, 
 	 send/1,
@@ -111,7 +111,7 @@ all() ->
      double_close,
      daemon_opt_fd,
      multi_daemon_opt_fd,
-     packet_size_zero,
+     packet_size,
      ssh_info_print,
      {group, login_bad_pwd_no_retry},
      shell_exit_status
@@ -1104,7 +1104,7 @@ multi_daemon_opt_fd(Config) ->
      end || {S,Pid,C} <- Tests].
 
 %%--------------------------------------------------------------------
-packet_size_zero(Config) ->
+packet_size(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -1119,21 +1119,31 @@ packet_size_zero(Config) ->
 					  {user_interaction, false},
 					  {user, "vego"},
 					  {password, "morot"}]),
-
-    {ok,Chan} = ssh_connection:session_channel(Conn, 1000, _MaxPacketSize=0, 60000),
-    ok = ssh_connection:shell(Conn, Chan),
+    lists:foreach(
+      fun(MaxPacketSize) ->
+              ct:log("Try max_packet_size=~p",[MaxPacketSize]),
+              {ok,Ch} = ssh_connection:session_channel(Conn, 1000, MaxPacketSize, 60000),
+              ok = ssh_connection:shell(Conn, Ch),
+              rec(Server, Conn, Ch, MaxPacketSize)
+      end, [0, 1, 10, 25]),
 
     ssh:close(Conn),
-    ssh:stop_daemon(Server),
+    ssh:stop_daemon(Server).
 
+rec(Server, Conn, Ch, MaxSz) ->
     receive
-	{ssh_cm,Conn,{data,Chan,_Type,_Msg1}} = M ->
-	    ct:log("Got ~p",[M]),
-	    ct:fail(doesnt_obey_max_packet_size_0)
-    after 5000 ->
-	    ok
-    end.    
-    
+        {ssh_cm,Conn,{data,Ch,_,M}} when size(M) =< MaxSz ->
+            ct:log("~p: ~p",[MaxSz,M]),
+            rec(Server, Conn, Ch, MaxSz);
+        {ssh_cm,Conn,{data,Ch,_,_}} = M ->
+            ct:log("Max pkt size=~p. Got ~p",[MaxSz,M]),
+            ssh:close(Conn),
+            ssh:stop_daemon(Server),
+            ct:fail("Does not obey max_packet_size=~p",[MaxSz])
+    after
+        2000 -> ok
+    end.
+
 %%--------------------------------------------------------------------
 shell_no_unicode(Config) ->
     new_do_shell(proplists:get_value(io,Config),
