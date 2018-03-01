@@ -417,7 +417,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Cconverts an error reason term to a human-readable error message
+        <p>Converts an error reason term to a human-readable error message
           string.</p>
       </desc>
     </func>
