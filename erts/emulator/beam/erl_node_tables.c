@@ -561,10 +561,6 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
         ASSERT(erts_no_of_pending_dist_entries > 0);
         erts_no_of_pending_dist_entries--;
         head = &erts_pending_dist_entries;
-
-        // Todo: Is this really ok? Must be not wait for links and monitors
-        // to be fired before we can allow another connection.
-        dep->state = ERTS_DE_STATE_IDLE;
     }
     else {
         ASSERT(dep->state != ERTS_DE_STATE_IDLE);
@@ -579,7 +575,6 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
             erts_no_of_hidden_dist_entries--;
             head = &erts_hidden_dist_entries;
         }
-        dep->state = ERTS_DE_STATE_EXITING;
     }
 
     if(dep->prev) {
@@ -593,6 +588,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     if(dep->next)
 	dep->next->prev = dep->prev;
 
+    dep->state = ERTS_DE_STATE_EXITING;
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;

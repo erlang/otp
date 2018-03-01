@@ -3630,6 +3630,17 @@ static Sint abort_connection(DistEntry* dep, Uint32 conn_id)
 
 	delete_cache(cache);
 	free_de_out_queues(dep, obuf);
+
+        /*
+         * We wait to make DistEntry idle and accept new connection attempts
+         * until all is cleared and deallocated. This to get some back pressure
+         * against repeated failing connection attempts saturating all CPUs
+         * with cleanup jobs.
+         */
+        erts_de_rwlock(dep);
+        ASSERT(dep->state == ERTS_DE_STATE_EXITING);
+        dep->state = ERTS_DE_STATE_IDLE;
+        erts_de_rwunlock(dep);
         return reds;
     }
     erts_de_rwunlock(dep);
