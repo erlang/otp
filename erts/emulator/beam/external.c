@@ -711,8 +711,8 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
     erts_de_rlock(dep);
 
-    if (dep->status != ERTS_DE_SFLG_CONNECTED &&
-	dep->status != ERTS_DE_SFLG_PENDING) {
+    if (dep->state != ERTS_DE_STATE_CONNECTED &&
+	dep->state != ERTS_DE_STATE_PENDING) {
         erts_de_runlock(dep);
         return ERTS_PREP_DIST_EXT_CLOSED;
     }

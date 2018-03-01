@@ -137,14 +137,6 @@ typedef struct {
     int no_suspend;
 } ErtsDSigData;
 
-#define ERTS_DE_IS_NOT_CONNECTED(DEP) \
-  (ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&(DEP)->rwmtx) \
-		      || erts_lc_rwmtx_is_rwlocked(&(DEP)->rwmtx)), \
-   (is_nil((DEP)->cid) || ((DEP)->status & ERTS_DE_SFLG_EXITING)))
-
-#define ERTS_DE_IS_CONNECTED(DEP) \
-  (!ERTS_DE_IS_NOT_CONNECTED((DEP)))
-
 #define ERTS_DE_BUSY_LIMIT (1024*1024)
 extern int erts_dist_buf_busy_limit;
 extern int erts_is_alive;
@@ -207,18 +199,18 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 retry:
     erts_de_rlock(dep);
 
-    if (ERTS_DE_IS_CONNECTED(dep)) {
+    if (dep->state == ERTS_DE_STATE_CONNECTED) {
 	res = ERTS_DSIG_PREP_CONNECTED;
     }
-    else if (dep->status & ERTS_DE_SFLG_PENDING) {
+    else if (dep->state == ERTS_DE_STATE_PENDING) {
 	res = ERTS_DSIG_PREP_PENDING;
     }
-    else if (dep->status & ERTS_DE_SFLG_EXITING) {
+    else if (dep->state == ERTS_DE_STATE_EXITING) {
 	res = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
     else if (connect) {
-        ASSERT(dep->status == 0);
+        ASSERT(dep->state == ERTS_DE_STATE_IDLE);
         erts_de_runlock(dep);
         if (!erts_auto_connect(dep, proc, proc_locks)) {
             return ERTS_DSIG_PREP_NOT_ALIVE;
@@ -226,7 +218,7 @@ retry:
 	goto retry;
     }
     else {
-        ASSERT(dep->status == 0);
+        ASSERT(dep->state == ERTS_DE_STATE_IDLE);
 	res = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
