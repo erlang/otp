@@ -41,9 +41,11 @@ all() -> [prop_ftp_case].
 
 
 init_per_suite(Config) ->
-    inets:start(),
+    ftp:start(),
     ct_property_test:init_per_suite(Config).
     
+end_per_suite(Config) ->
+    Config.
 
 %%%---- test case
 prop_ftp_case(Config) ->

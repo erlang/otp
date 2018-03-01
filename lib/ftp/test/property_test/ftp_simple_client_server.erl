@@ -92,7 +92,7 @@ prop_ftp(DataDir, PrivDir) ->
 		 % io:format('**** _H=~p~n',[_H]),
 		 % io:format('**** Cmds=~p~n',[Cmds]),
 		 [cmnd_stop_server(X) || X <- S#state.servers],
-		 [inets:stop(ftpc,X) || {ok,X} <- S#state.clients],
+		 [ftp:stop_service(X) || {ok,X} <- S#state.clients],
 		 Result==ok
 	   end)
 	   ).
@@ -263,7 +263,7 @@ cmnd_stop_server({ok,{_Host,Port,_Usr,_Pwd}}) ->
 
 cmnd_start_client({ok,{Host,Port,Usr,Pwd}}) ->
     ?fmt('Call cmnd_start_client(~p)...',[{Host,Port,Usr,Pwd}]),
-    case inets:start(ftpc, [{host,Host},{port,Port}]) of
+    case ftp:start_service([{host,Host},{port,Port}]) of
 	{ok,Client} ->
 	    ?fmt("~p...",[{ok,Client}]),
 	    case ftp:user(Client, Usr, Pwd) of
@@ -272,7 +272,7 @@ cmnd_start_client({ok,{Host,Port,Usr,Pwd}}) ->
 		    {ok,Client};
 		Other -> 
 		    ?fmt("Other1=~p~n",[Other]),
-		    inets:stop(ftpc,Client), Other
+		    ftp:stop_service(Client), Other
 	    end;
 	Other -> 
 	    ?fmt("Other2=~p~n",[Other]),
@@ -281,7 +281,7 @@ cmnd_start_client({ok,{Host,Port,Usr,Pwd}}) ->
 		     
 cmnd_stop_client({ok,Client}) ->
     ?fmt('Call cmnd_stop_client(~p)~n',[Client]),
-    inets:stop(ftpc, Client). %% -> ok | Other
+    ftp:stop_service(Client). %% -> ok | Other
 
 cmnd_delete({ok,Client}, {Name,_ExpectedValue}) ->
     ?fmt('Call cmnd_delete(~p, ~p)~n',[Client,Name]),
