@@ -27,8 +27,9 @@
          service_info/1]).
 
 
-start_standalone(_) ->
-    ok.
+start_standalone(Options) ->
+    ftp:start_standalone(Options).
+
 
 start_service(Options) ->
     application:ensure_started(ftp),

@@ -31,6 +31,10 @@
          service_info/1
         ]).
 
+%% Added for backward compatibility
+%% Called by inets:start()
+-export([start_standalone/1]).
+
 -export([start_link/1, start_link/2]).
 
 %%  API - Client interface
@@ -127,6 +131,21 @@
 
 start() ->
     application:start(ftp).
+
+start_standalone(Options) ->
+    try
+	{ok, StartOptions} = start_options(Options),
+	{ok, OpenOptions}  = open_options(Options),
+	case start_link(StartOptions, []) of
+	    {ok, Pid} ->
+		call(Pid, {open, ip_comm, OpenOptions}, plain);
+	    Error1 ->
+		Error1
+	end
+    catch
+	throw:Error2 ->
+	    Error2
+    end.
 
 start_service(Options) ->
     try
