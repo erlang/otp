@@ -5700,11 +5700,17 @@ true</pre>
       <type name="dst"/>
       <desc>
         <p>Sends a message and returns <c><anno>Msg</anno></c>. This
-          is the same as <c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
+        is the same as using the <seealso marker="doc/reference_manual:expressions#send">
+	send operator</seealso>:
+	<c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
         <p><c><anno>Dest</anno></c> can be a remote or local process identifier,
           a (local) port, a locally registered name, or a tuple
           <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
-          for a registered name at another node.</p>
+        for a registered name at another node.</p>
+	<p>The function fails with a <c>badarg</c> run-time error if
+	<c><anno>Dest</anno></c> is an atom name, but this name is not
+	registered. This is the only case when <c>send</c> fails for an
+	unreachable destination <c><anno>Dest</anno></c> (of correct type).</p>
       </desc>
     </func>
 
