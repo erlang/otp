@@ -59,6 +59,7 @@ all() ->
      {group, ftp_active},
      {group, ftps_passive},
      {group, ftps_active},
+     {group, ftp_sup},
      error_ehost,
      clean_shutdown
     ].
@@ -68,7 +69,8 @@ groups() ->
      {ftp_passive, [], ftp_tests()},
      {ftp_active, [], ftp_tests()},
      {ftps_passive, [], ftp_tests()},
-     {ftps_active, [], ftp_tests()}
+     {ftps_active, [], ftp_tests()},
+     {ftp_sup, [], ftp_sup_tests()}
     ].
 
 ftp_tests()->
@@ -107,6 +109,12 @@ ftp_tests()->
      unexpected_call,
      unexpected_cast,
      unexpected_bang
+    ].
+
+ftp_sup_tests() ->
+    [
+     start_ftp,
+     ftp_worker
     ].
 
 %%--------------------------------------------------------------------
@@ -204,10 +212,21 @@ init_per_group(Group, Config) when Group == ftps_active,
         _:_ ->
             {skip, "Crypto did not start"}
     end;
-
+init_per_group(ftp_sup, Config) ->
+    try ftp:start() of
+        ok ->
+            Config
+    catch
+        _:_ ->
+            {skip, "Ftp did not start"}
+    end;
 init_per_group(_Group, Config) -> 
     Config.
 
+
+end_per_group(ftp_sup, Config) -> 
+    ftp:stop(),
+    Config;
 end_per_group(_Group, Config) -> 
     Config.
 
@@ -229,6 +248,7 @@ init_per_testcase(Case, Config0) ->
 	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
 	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
 	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
+            ftp_sup      -> ftp_start_service(Config0, ACTIVE  ++ ExtraOpts);
 	    undefined    -> Config0
 	end,
     case Case of
@@ -261,7 +281,13 @@ end_per_testcase(_Case, Config) ->
 		_:_ -> ok
 	    end
     end,
-    ftp__close(Config).
+    Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config)),
+    case Group of
+        ftp_sup ->
+            ftp_stop_service(Config);
+        _Else ->
+            ftp__close(Config)
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -834,6 +860,43 @@ clean_shutdown(Config) ->
 	    end
     end.
 
+%%-------------------------------------------------------------------------
+start_ftp() ->
+    [{doc, "Start/stop of ftp service"}].
+start_ftp(Config) ->
+    Pid0 = proplists:get_value(ftp,Config),
+    Pids0 = [ServicePid || {_, ServicePid} <- ftp:services()],
+    true = lists:member(Pid0, Pids0),
+    {ok, [_|_]} = ftp:service_info(Pid0),
+    ftp:stop_service(Pid0),
+    ct:sleep(100),
+    Pids1 =  [ServicePid || {_, ServicePid} <- ftp:services()], 
+    false = lists:member(Pid0, Pids1),
+
+    Host = proplists:get_value(ftpd_host,Config),
+    Port = proplists:get_value(ftpd_port,Config),
+
+    {ok, Pid1} = ftp:start_standalone([{host, Host},{port, Port}]),
+    Pids2 =  [ServicePid || {_, ServicePid} <- ftp:services()],
+    false = lists:member(Pid1, Pids2).
+
+%%-------------------------------------------------------------------------
+ftp_worker() ->
+    [{doc, "Makes sure the ftp worker processes are added and removed "
+      "appropriatly to/from the supervison tree."}].
+ftp_worker(Config) ->
+    Pid = proplists:get_value(ftp,Config),
+    case supervisor:which_children(ftp_sup) of
+        [{_,_, worker, [ftp]}] ->
+            ftp:stop_service(Pid), 
+            ct:sleep(5000),
+            [] = supervisor:which_children(ftp_sup),
+            ok;
+        Children ->
+            ct:fail("Unexpected children: ~p",[Children])
+    end.
+
+
 %%%----------------------------------------------------------------
 %%% Error codes not tested elsewhere
 
@@ -1027,6 +1090,17 @@ ftp__open(Config, Options) ->
 
 ftp__close(Config) ->
     ok = ftp:close(proplists:get_value(ftp,Config)),
+    Config.
+
+ftp_start_service(Config, Options) ->
+    Host = proplists:get_value(ftpd_host,Config),
+    Port = proplists:get_value(ftpd_port,Config),
+    ct:log("Host=~p, Port=~p",[Host,Port]),
+    {ok,Pid} = ftp:start_service([{host, Host},{port,Port} | Options]),
+    [{ftp,Pid}|Config].
+
+ftp_stop_service(Config) ->
+    ok = ftp:stop_service(proplists:get_value(ftp,Config)),
     Config.
 
 split(Cs) -> string:tokens(Cs, "\r\n").
