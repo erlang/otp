@@ -33,7 +33,7 @@
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
-	 val_dsetel/1,bad_tuples/1]).
+	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -62,7 +62,7 @@ groups() ->
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
-       bad_tuples]}].
+       bad_tuples,bad_try_catch_nesting]}].
 
 init_per_suite(Config) ->
     Config.
@@ -521,6 +521,14 @@ bad_tuples(Config) ->
      {{bad_tuples,short,1},
       {{move,{x,1},{x,0}},7,{tuple_in_progress,{x,1}}}}] = Errors,
 
+    ok.
+
+bad_try_catch_nesting(Config) ->
+    Errors = do_val(bad_try_catch_nesting, Config),
+    [{{bad_try_catch_nesting,main,2},
+      {{'try',{y,2},{f,3}},
+       7,
+       {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
 %%%-------------------------------------------------------------------------
