@@ -270,7 +270,7 @@
           <item>
             <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
               <anno>Arguments</anno>)</c> and measures the elapsed real time as 
-              reported by <seealso marker="os:timestamp/0">
+              reported by <seealso marker="kernel:os#timestamp/0">
               <c>os:timestamp/0</c></seealso>.</p>
             <p>Returns <c>{<anno>Time</anno>, <anno>Value</anno>}</c>, where
               <c><anno>Time</anno></c> is the elapsed real time in
