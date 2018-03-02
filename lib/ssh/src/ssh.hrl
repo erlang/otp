@@ -35,6 +35,8 @@
 
 -define(DEFAULT_TRANSPORT,  {tcp, gen_tcp, tcp_closed} ).
 
+-define(DEFAULT_SHELL, {shell, start, []} ).
+
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
