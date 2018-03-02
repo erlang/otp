@@ -307,6 +307,21 @@
     </section>
 </section>
 
+<section><title>SSL 8.1.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix alert handling so that unexpected messages are logged
+	    and alerted correctly</p>
+          <p>
+	    Own Id: OTP-14929</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>SSL 8.1.3.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
