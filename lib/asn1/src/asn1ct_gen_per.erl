@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,14 +47,20 @@ dialyzer_suppressions(#gen{erule=per,aligned=Aligned}) ->
               false -> uper;
               true -> per
           end,
-    case asn1ct_func:is_used({Mod,complete,1}) of
+    suppress({Mod,complete,1}),
+    suppress({per_common,to_bitstring,2}),
+    emit(["    ok.",nl]).
+
+suppress({M,F,A}=MFA) ->
+    case asn1ct_func:is_used(MFA) of
 	false ->
 	    ok;
 	true ->
-	    emit(["    _ = complete(Arg),",nl])
-    end,
-    emit(["    ok.",nl]).
-
+	    Args =
+                [lists:concat(["element(",I,", Arg)"])
+                 || I <- lists:seq(1, A)],
+	    emit(["    ",{call,M,F,Args},com,nl])
+    end.
 
 gen_encode(Erules,Type) when is_record(Type,typedef) ->
     gen_encode_user(Erules,Type).
