@@ -158,8 +158,7 @@ call(Process, Label, Request, Timeout)
     do_for_proc(Process, Fun).
 
 do_call(Process, Label, Request, Timeout) ->
-    try erlang:monitor(process, Process) of
-	Mref ->
+    Mref = erlang:monitor(process, Process),
 	    %% If the monitor/2 call failed to set up a connection to a
 	    %% remote node, we don't want the '!' operator to attempt
 	    %% to set up the connection again. (If the monitor/2 call
@@ -183,27 +182,7 @@ do_call(Process, Label, Request, Timeout) ->
 	    after Timeout ->
 		    erlang:demonitor(Mref, [flush]),
 		    exit(timeout)
-	    end
-    catch
-	error:_ ->
-	    %% Node (C/Java?) is not supporting the monitor.
-	    %% The other possible case -- this node is not distributed
-	    %% -- should have been handled earlier.
-	    %% Do the best possible with monitor_node/2.
-	    %% This code may hang indefinitely if the Process 
-	    %% does not exist. It is only used for featureweak remote nodes.
-	    Node = get_node(Process),
-	    monitor_node(Node, true),
-	    receive
-		{nodedown, Node} -> 
-		    monitor_node(Node, false),
-		    exit({nodedown, Node})
-	    after 0 -> 
-		    Tag = make_ref(),
-		    Process ! {Label, {self(), Tag}, Request},
-		    wait_resp(Node, Tag, Timeout)
-	    end
-    end.
+	    end.
 
 get_node(Process) ->
     %% We trust the arguments to be correct, i.e
@@ -215,19 +194,6 @@ get_node(Process) ->
 	    N;
 	_ when is_pid(Process) ->
 	    node(Process)
-    end.
-
-wait_resp(Node, Tag, Timeout) ->
-    receive
-	{Tag, Reply} ->
-	    monitor_node(Node, false),
-	    {ok, Reply};
-	{nodedown, Node} ->
-	    monitor_node(Node, false),
-	    exit({nodedown, Node})
-    after Timeout ->
-	    monitor_node(Node, false),
-	    exit(timeout)
     end.
 
 %%
