@@ -1746,6 +1746,7 @@ erl_start(int argc, char **argv)
 	    }
             else if (has_prefix("ecio", sub_param)) {
                 /* ignore argument, eager check io no longer used */
+                arg = get_arg(sub_param+4, argv[i+1], &i);
             }
 	    else if (has_prefix("pp", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
