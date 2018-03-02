@@ -275,10 +275,12 @@ default(server) ->
             class => user_options
            },
 
-      {exec, def} =>                 % FIXME: need some archeology....
+      {exec, def} =>
           #{default => undefined,
-            chk => fun({M,F,_}) -> is_atom(M) andalso is_atom(F);
-                      (V) -> is_function(V)
+            chk => fun({direct, V}) ->  check_function1(V) orelse check_function2(V) orelse check_function3(V);
+                      %% Compatibility (undocumented):
+                      ({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
+                      (V) -> check_function1(V) orelse check_function2(V) orelse check_function3(V)
                    end,
             class => user_options
            },
