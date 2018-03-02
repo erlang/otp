@@ -159,30 +159,27 @@ call(Process, Label, Request, Timeout)
 
 do_call(Process, Label, Request, Timeout) ->
     Mref = erlang:monitor(process, Process),
-	    %% If the monitor/2 call failed to set up a connection to a
-	    %% remote node, we don't want the '!' operator to attempt
-	    %% to set up the connection again. (If the monitor/2 call
-	    %% failed due to an expired timeout, '!' too would probably
-	    %% have to wait for the timeout to expire.) Therefore,
-	    %% use erlang:send/3 with the 'noconnect' option so that it
-	    %% will fail immediately if there is no connection to the
-	    %% remote node.
+    %% OTP-21:
+    %% Auto-connect is asynchronous. But we still use 'noconnect' to make sure
+    %% we send on the monitored connection, and not trigger a new auto-connect.
+    try erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect])
+    catch
+        error:_ -> ok
+    end,
 
-	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
-		  [noconnect]),
-	    receive
-		{Mref, Reply} ->
-		    erlang:demonitor(Mref, [flush]),
-		    {ok, Reply};
-		{'DOWN', Mref, _, _, noconnection} ->
-		    Node = get_node(Process),
-		    exit({nodedown, Node});
-		{'DOWN', Mref, _, _, Reason} ->
-		    exit(Reason)
-	    after Timeout ->
-		    erlang:demonitor(Mref, [flush]),
-		    exit(timeout)
-	    end.
+    receive
+        {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {'DOWN', Mref, _, _, noconnection} ->
+            Node = get_node(Process),
+            exit({nodedown, Node});
+        {'DOWN', Mref, _, _, Reason} ->
+            exit(Reason)
+    after Timeout ->
+            erlang:demonitor(Mref, [flush]),
+            exit(timeout)
+    end.
 
 get_node(Process) ->
     %% We trust the arguments to be correct, i.e

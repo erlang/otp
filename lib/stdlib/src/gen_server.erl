@@ -437,12 +437,11 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug, Hi
 %%% Send/receive functions
 %%% ---------------------------------------------------
 do_send(Dest, Msg) ->
-    case catch erlang:send(Dest, Msg, [noconnect]) of
-	noconnect ->
-	    spawn(erlang, send, [Dest,Msg]);
-	Other ->
-	    Other
-    end.
+    try erlang:send(Dest, Msg)
+    catch
+        error:_ -> ok
+    end,
+    ok.
 
 do_multi_call(Nodes, Name, Req, infinity) ->
     Tag = make_ref(),

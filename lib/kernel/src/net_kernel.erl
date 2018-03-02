@@ -1777,16 +1777,16 @@ async_reply({reply, Msg, State}, From) ->
 async_gen_server_reply(From, Msg) ->
     {Pid, Tag} = From,
     M = {Tag, Msg},
-    case catch erlang:send(Pid, M, [nosuspend, noconnect]) of
+    try erlang:send(Pid, M, [nosuspend, noconnect]) of
         ok ->
             ok;
         nosuspend ->
             _ = spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end),
 	    ok;
         noconnect ->
-            ok; % The gen module takes care of this case.
-        {'EXIT', _} ->
-            ok
+            ok % The gen module takes care of this case.
+    catch
+        _:_ -> ok
     end.
 
 call_owner(Owner, Msg) ->

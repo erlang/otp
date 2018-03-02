@@ -418,10 +418,7 @@ abcast(Name, Mess) ->
 
 abcast([Node|Tail], Name, Mess) ->
     Dest = {Name,Node},
-    case catch erlang:send(Dest, Mess, [noconnect]) of
-	noconnect -> spawn(erlang, send, [Dest,Mess]), ok;
-	_ -> ok
-    end,
+    try erlang:send(Dest, Mess) catch error:_ -> ok end,
     abcast(Tail, Name, Mess);
 abcast([], _,_) -> abcast.
 
