@@ -144,6 +144,8 @@
         end).
 
 -define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
+-define(STYLESHEET, "styles.css").
+-define(TOOLS_APP, tools).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -2415,20 +2417,8 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
                     Enc = encoding(ErlFile),
-		    if HTML -> 
-                           Header =
-                               ["<!DOCTYPE HTML PUBLIC "
-                                "\"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-                                "<html>\n"
-                                "<head>\n"
-                                "<meta http-equiv=\"Content-Type\""
-                                " content=\"text/html; charset=",
-                                html_encoding(Enc),"\"/>\n"
-                                "<title>",OutFile,"</title>\n"
-                                "</head>"
-                                "<body style='background-color: white;"
-                                " color: black'>\n"
-                                "<pre>\n"],
+		    if HTML ->
+                            Header = create_header(OutFile, Enc),
                             H1Bin = unicode:characters_to_binary(Header,Enc,Enc),
                             ok = file:write(OutFd,H1Bin);
 		       true -> ok
@@ -2445,14 +2435,19 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                       string:pad(integer_to_list(Mi), 2, leading, $0),
                                       string:pad(integer_to_list(S),  2, leading, $0)]),
 
-                    H2Bin = unicode:characters_to_binary(
-                              ["File generated from ",ErlFile," by COVER ",
-                                Timestamp,"\n\n"
-                                "**************************************"
-                                "**************************************"
-                                "\n\n"],
-                              Enc, Enc),
-                    ok = file:write(OutFd, H2Bin),
+                   OutFileInfo =
+                       if HTML ->
+                            create_footer(ErlFile, Timestamp);
+                          true ->
+                            ["File generated from ",ErlFile," by COVER ",
+                             Timestamp, "\n\n",
+                             "**************************************"
+                             "**************************************"
+                             "\n\n"]
+                          end,
+
+                   H2Bin = unicode:characters_to_binary(OutFileInfo,Enc,Enc),
+                   ok = file:write(OutFd, H2Bin),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
@@ -2462,7 +2457,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
 		    if HTML ->
-                           ok = file:write(OutFd, "</pre>\n</body>\n</html>\n");
+                           ok = file:write(OutFd, close_html());
 		       true -> ok
 		    end,
 
@@ -2497,12 +2492,11 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
                     if N=:=0, HTML=:=true ->
-                           LineNoNL = Line -- "\n",
-                           Str = "     0",
-                           %%Str = string:pad("0", 6, leading, $\s),
-                           RedLine = ["<font color=red>",Str,fill1(),
-                                      LineNoNL,"</font>\n"],
-                           ok = file:write(OutFd, RedLine);
+                           MissedLine = table_row("miss", Line, L, N),
+                           ok = file:write(OutFd, MissedLine);
+                       HTML=:=true ->
+                           HitLine = table_row("hit", Line, L, N),
+                           ok = file:write(OutFd, HitLine);
                        N < 1000000 ->
                            Str = string:pad(integer_to_list(N), 6, leading, $\s),
                            ok = file:write(OutFd, [Str,fill1(),Line]);
@@ -2515,7 +2509,11 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                     end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
 		_ ->                            %Including comment lines
-		    ok = file:write(OutFd, [tab(),Line]),
+        NonCoveredContent =
+                    if HTML -> table_row(Line, L);
+                    true -> [tab(),Line]
+                    end,
+		    ok = file:write(OutFd, NonCoveredContent),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
     end.
@@ -2524,6 +2522,59 @@ tab() ->  "        |  ".
 fill1() ->      "..|  ".
 fill2() ->       ".|  ".
 fill3() ->        "|  ".
+
+%% HTML sections
+create_header(OutFile, Enc) ->
+    ["<!doctype html>\n"
+    "<html>\n"
+    "<head>\n"
+    "<meta charset=\"",html_encoding(Enc),"\">\n"
+    "<title>",OutFile,"</title>\n"
+    "<style>"] ++
+    read_stylesheet() ++
+    ["</style>\n",
+    "</head>\n"
+    "<body>\n"
+    "<h1><code>",OutFile,"</code></h1>\n"].
+
+create_footer(ErlFile, Timestamp) ->
+    ["<footer><p>File generated from <code>",ErlFile,
+    "</code> by <a href=\"http://erlang.org/doc/man/cover.html\">cover</a> at ",
+    Timestamp,"</p></footer>\n<table>\n<tbody>\n"].
+
+close_html() ->
+    ["</tbody>\n",
+     "<thead>\n",
+     "<tr>\n",
+     "<th>Line</th>\n",
+     "<th>Hits</th>\n",
+     "<th>Source</th>\n",
+     "</tr>\n",
+     "</thead>\n",
+     "</table>\n",
+     "</body>\n"
+     "</html>\n"].
+
+table_row(CssClass, Line, L, N) ->
+    ["<tr class=\"",CssClass,"\">\n", table_data(Line, L, N)].
+table_row(Line, L) ->
+    ["<tr>\n", table_data(Line, L, "")].
+
+table_data(Line, L, N) ->
+   LineNoNL = Line -- "\n",
+   ["<td class=\"line\" id=\"L",integer_to_list(L),"\">",
+    integer_to_list(L),
+    "</td>\n",
+   "<td class=\"hits\">",maybe_integer_to_list(N),"</td>\n",
+   "<td class=\"source\"><code>",LineNoNL,"</code></td>\n</tr>\n"].
+
+maybe_integer_to_list(N) when is_integer(N) -> integer_to_list(N);
+maybe_integer_to_list(_) -> "".
+
+read_stylesheet() ->
+    PrivDir = code:priv_dir(?TOOLS_APP),
+    {ok, Css} = file:read_file(filename:join(PrivDir, ?STYLESHEET)),
+    [Css].
 
 %%%--Export--------------------------------------------------------------
 do_export(Module, OutFile, From, State) ->
