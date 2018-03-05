@@ -79,6 +79,8 @@
 /* Array access macro */ 
 #define ARRAY_GET(PDict, Index) (ASSERT((Index) < (PDict)->arraySize), \
 				 (PDict)->data[Index])
+#define ARRAY_GET_PTR(PDict, Index) (ASSERT((Index) < (PDict)->arraySize), \
+				     &(PDict)->data[Index])
 #define ARRAY_PUT(PDict, Index, Val) (ASSERT((Index) < (PDict)->arraySize), \
                                       (PDict)->data[Index] = (Val))
 
@@ -595,11 +597,13 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
     unsigned int hval;
     Eterm *hp;
     Eterm *tp;
+    Eterm *bucket;
     Eterm tpl;
     Eterm old;
+    Eterm old_val = am_undefined;
     Eterm tmp;
     int needed;
-    int key_at = 0;
+    int new_key = 1;
 #ifdef DEBUG
     Eterm *hp_limit;
 #endif
@@ -613,7 +617,8 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
         p->dictionary->numElements = 0;
     }	
     hval = pd_hash_value(p->dictionary, id);
-    old = ARRAY_GET(p->dictionary, hval);
+    bucket = ARRAY_GET_PTR(p->dictionary, hval);
+    old = *bucket;
 
     /*
      * Calculate the number of heap words needed and garbage
@@ -624,44 +629,46 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
         ASSERT(is_tuple(old));
         tp = tuple_val(old);
         if (EQ(tp[1], id)) {
+            old_val = tp[2];
             if (is_immed(value)) {
-                Eterm old_val = tp[2];
-                tp[2] = value;
+                tp[2] = value;     /* DESTRUCTIVE HEAP ASSIGNMENT */
                 return old_val;
             }
-            key_at = 1;
+            new_key = 0;
         }
         else {
             needed += 2+2;
         }
     } else if (is_list(old)) {
-        int i = 1;
+        Eterm* prev_cdr = bucket;
 
         needed += 2;
-	for (tmp = old; tmp != NIL; tmp = TCDR(tmp)) {
+	for (tmp = old; tmp != NIL; prev_cdr = &TCDR(tmp), tmp = *prev_cdr) {
             tp = tuple_val(TCAR(tmp));
             if (EQ(tp[1], id)) {
+                old_val = tp[2];
                 if (is_immed(value)) {
-                    Eterm old_val = tp[2];
-                    tp[2] = value;
+                    tp[2] = value;     /* DESTRUCTIVE HEAP ASSIGNMENT */
                     return old_val;
                 }
-                key_at = i;
-                needed += 2*(key_at-1);
+                new_key = 0;
+                /* Unlink old {Key,Value} from list */
+                *prev_cdr = TCDR(tmp);  /* maybe DESTRUCTIVE HEAP ASSIGNMENT */
                 break;
             }
-            ++i;
 	}
     }
     if (HeapWordsLeft(p) < needed) {
 	Eterm root[3];
 	root[0] = id;
 	root[1] = value;
-	root[2] = old;
+        root[2] = old_val;
 	erts_garbage_collect(p, needed, root, 3);
 	id = root[0];
 	value = root[1];
-	old = root[2];
+        old_val = root[2];
+        ASSERT(bucket == ARRAY_GET_PTR(p->dictionary, hval));
+        old = *bucket;
     }
 #ifdef DEBUG
     hp_limit = p->htop + needed;
@@ -677,67 +684,29 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
      * Update the dictionary.
      */
     if (is_nil(old)) {
-	ARRAY_PUT(p->dictionary, hval, tpl);
-	++(p->dictionary->numElements);
+	*bucket = tpl;
     } else if (is_boxed(old)) {
 	ASSERT(is_tuple(old));
-	if (key_at) {
+	if (!new_key) {
             ASSERT(EQ(tuple_val(old)[1],id));
-	    ARRAY_PUT(p->dictionary, hval, tpl);
-	    return tuple_val(old)[2];
+	    *bucket = tpl;
+	    return old_val;
 	} else {
 	    hp = HeapOnlyAlloc(p, 4);
 	    tmp = CONS(hp, old, NIL);
 	    hp += 2;
-	    ++(p->dictionary->numElements);
-	    ARRAY_PUT(p->dictionary, hval, CONS(hp, tpl, tmp));
+	    *bucket = CONS(hp, tpl, tmp);
 	    hp += 2;
 	    ASSERT(hp <= hp_limit);
 	}
     } else if (is_list(old)) {
-	if (!key_at) {
-	    /*
-	     * New key. Simply prepend the tuple to the beginning of the list.
-	     */
-	    hp = HeapOnlyAlloc(p, 2);
-	    ARRAY_PUT(p->dictionary, hval, CONS(hp, tpl, old));
-	    hp += 2;
-	    ASSERT(hp <= hp_limit);
-	    ++(p->dictionary->numElements);
-	} else {
-	    /*
-	     * key_at = Key position in the list.
-	     *
-	     * Replace old value in list. To avoid pointers from the old generation
-	     * to the new, we must rebuild the list from the beginning up to and
-	     * including the changed element.
-	     */
-	    Eterm nlist;
-	    int j;
-
-	    hp = HeapOnlyAlloc(p, key_at*2);
-	    
-	    /* Find the list element to change. */
-	    for (j = 1, nlist = old; j < key_at; j++, nlist = TCDR(nlist)) {
-		;
-	    }
-	    ASSERT(EQ(tuple_val(TCAR(nlist))[1], id));
-	    nlist = TCDR(nlist); /* Unchanged part of list. */
-
-	    /* Rebuild list before the updated element. */
-	    for (tmp = old; --key_at > 0; tmp = TCDR(tmp)) {
-		nlist = CONS(hp, TCAR(tmp), nlist);
-		hp += 2;
-	    }
-	    ASSERT(EQ(tuple_val(TCAR(tmp))[1], id));
-
-	    /* Put the updated element first in the new list. */
-	    nlist = CONS(hp, tpl, nlist);
-	    hp += 2;
-	    ASSERT(hp <= hp_limit);
-	    ARRAY_PUT(p->dictionary, hval, nlist);
-	    return tuple_val(TCAR(tmp))[2];
-	}
+        /*
+	 * Simply prepend the tuple to the beginning of the list.
+	 */
+	hp = HeapOnlyAlloc(p, 2);
+        *bucket = CONS(hp, tpl, *bucket);
+	hp += 2;
+	ASSERT(hp <= hp_limit);
     } else {
 #ifdef DEBUG
 	erts_fprintf(stderr,
@@ -748,10 +717,13 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 
 	erts_exit(ERTS_ERROR_EXIT, "Damaged process dictionary found during put/2.");
     }
+
+    p->dictionary->numElements += new_key;
+
     if (HASH_RANGE(p->dictionary) <= p->dictionary->numElements) {
 	grow(p);
     }
-    return am_undefined;
+    return old_val;
 }
 
 /*
