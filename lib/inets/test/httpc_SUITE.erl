@@ -164,14 +164,12 @@ init_per_suite(Config) ->
     ServerRoot = filename:join(PrivDir, "server_root"),
     DocRoot = filename:join(ServerRoot, "htdocs"),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
-    file:delete(?UNIX_SOCKET),
     [{server_root, ServerRoot}, {doc_root, DocRoot}  | Config].
 
 end_per_suite(Config) ->
     inets_test_lib:stop_apps([inets]),
     PrivDir = proplists:get_value(priv_dir, Config),
     inets_test_lib:del_dirs(PrivDir),
-    file:delete(?UNIX_SOCKET),
     ok.
 
 %%--------------------------------------------------------------------
@@ -192,15 +190,29 @@ init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
         _:_ ->
             {skip, "Crypto did not start"}
     end;
-
+init_per_group(http_unix_socket = Group, Config0) ->
+    case os:type() of
+        {win32,_} ->
+            {skip, "Unix Domain Sockets are not supported on Windows"};
+        _ ->
+            file:delete(?UNIX_SOCKET),
+            start_apps(Group),
+            Config = proplists:delete(port, Config0),
+            Port = server_start(Group, server_config(Group, Config)),
+            [{port, Port} | Config]
+    end;
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
 
+end_per_group(http_unix_socket,_Config) ->
+    file:delete(?UNIX_SOCKET),
+    ok;
 end_per_group(_, _Config) ->
     ok.
+
 do_init_per_group(Group, Config0) ->
     Config = proplists:delete(port, Config0),
     Port = server_start(Group, server_config(Group, Config)),
