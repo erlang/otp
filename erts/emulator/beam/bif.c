@@ -3171,7 +3171,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
 			char *fbuf, int sizeof_fbuf) {
 
-    const static int arity_two = make_arityval(2);
+    Eterm arity_two = make_arityval(2);
     int decimals = SYS_DEFAULT_FLOAT_DECIMALS;
     int compact = 0;
     enum fmt_type_ {
