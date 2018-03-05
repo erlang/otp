@@ -184,7 +184,6 @@ channel_info(ConnectionRef, ChannelId, Options) ->
 daemon(Port) ->
     daemon(Port, []).
 
-
 daemon(Socket, UserOptions) when is_port(Socket) ->
     try
         #{} = Options = ssh_options:handle_options(server, UserOptions),
@@ -266,8 +265,6 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
 
 daemon(_, _, _) ->
     {error, badarg}.
-
-
 
 %%--------------------------------------------------------------------
 -spec daemon_info(daemon_ref()) -> ok_error( [{atom(), term()}] ).
