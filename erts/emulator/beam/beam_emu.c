@@ -749,7 +749,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
             dtrace_proc_str(c_p, process_buf);
 
             if (ERTS_PROC_IS_EXITING(c_p)) {
-                strcpy(fun_buf, "<exiting>");
+                sys_strcpy(fun_buf, "<exiting>");
             } else {
                 ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
                 if (cmfa) {
@@ -1229,7 +1229,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             dtrace_proc_str(c_p, process_buf);
 
             if (ERTS_PROC_IS_EXITING(c_p)) {
-                strcpy(fun_buf, "<exiting>");
+                sys_strcpy(fun_buf, "<exiting>");
             } else {
                 ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
                 if (cmfa) {

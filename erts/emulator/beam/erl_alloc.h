@@ -434,7 +434,7 @@ NAME##_free(TYPE *p)							\
 
 #ifdef DEBUG
 #define ERTS_PRE_ALLOC_SIZE(SZ) ((SZ) < 1000 ? (SZ)/10 + 10 : 100)
-#define ERTS_PRE_ALLOC_CLOBBER(P, T) memset((void *) (P), 0xfd, sizeof(T))
+#define ERTS_PRE_ALLOC_CLOBBER(P, T) sys_memset((void *) (P), 0xfd, sizeof(T))
 #else
 #define ERTS_PRE_ALLOC_SIZE(SZ) ((SZ) > 1 ? (SZ) : 1)
 #define ERTS_PRE_ALLOC_CLOBBER(P, T)

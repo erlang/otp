@@ -509,7 +509,7 @@ do_break(void)
     /* check if we're in console mode and, if so,
        halt immediately if break is called */
     mode = erts_read_env("ERL_CONSOLE_MODE");
-    if (mode && strcmp(mode, "window") != 0)
+    if (mode && sys_strcmp(mode, "window") != 0)
 	erts_exit(0, "");
     erts_free_read_env(mode);
 #endif /* __WIN32__ */

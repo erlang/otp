@@ -71,7 +71,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
                 BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	} else if (err_type == -2) {
 	    str = erl_errno_id(err_num);
-            res = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
+            res = erts_atom_put((byte *) str, sys_strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
 	} else {
 	    res = am_einval;
 	}
@@ -1145,7 +1145,7 @@ http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,
 		ErlHeapBin* bin = (ErlHeapBin*) *hpp;
 		bin->thing_word = header_heap_bin(len);
 		bin->size = len;
-		memcpy(bin->data, str, len);
+		sys_memcpy(bin->data, str, len);
 		*hpp += size;
 	    }
 	}
@@ -1323,9 +1323,9 @@ int ssl_tls_erl(void* arg, unsigned type, unsigned major, unsigned minor,
     Eterm bin = new_binary(pca->p, NULL, plen+len);
     byte* bin_ptr = binary_bytes(bin);
 
-    memcpy(bin_ptr+plen, buf, len);
+    sys_memcpy(bin_ptr+plen, buf, len);
     if (plen) {
-        memcpy(bin_ptr, prefix, plen);
+        sys_memcpy(bin_ptr, prefix, plen);
     }
 
     /* {ssl_tls,NIL,ContentType,{Major,Minor},Bin} */

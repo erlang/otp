@@ -3466,7 +3466,7 @@ BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
     if (bit_offs)
       erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, size*8);
     else
-      memcpy(buf, bytes, size);
+      sys_memcpy(buf, bytes, size);
     
     buf[size] = '\0';
     
@@ -4200,10 +4200,10 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
     buf[i] = '\0';		/* null terminal */
 
     cp = &buf[0];
-    if (strncmp("#Port<", cp, 6) != 0)
+    if (sys_strncmp("#Port<", cp, 6) != 0)
         goto bad;
 
-    cp += 6; /* strlen("#Port<") */
+    cp += 6; /* sys_strlen("#Port<") */
 
     if (sscanf(cp, "%u.%u>", (unsigned int*)&n, (unsigned int*)&p) < 2)
         goto bad;

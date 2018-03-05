@@ -2533,7 +2533,7 @@ load_tracer_nif(const ErtsTracer tracer)
 
     for(i = 0; i < num_of_funcs; i++) {
         for (j = 0; j < NIF_TRACER_TYPES; j++) {
-            if (strcmp(tracers[j].name, funcs[i].name) == 0 && tracers[j].arity == funcs[i].arity) {
+            if (sys_strcmp(tracers[j].name, funcs[i].name) == 0 && tracers[j].arity == funcs[i].arity) {
                 tracers[j].cb = &(funcs[i]);
                 break;
             }
@@ -3019,7 +3019,7 @@ static void *tracer_alloc_fun(void* tmpl)
     ErtsTracerNif *obj = erts_alloc(ERTS_ALC_T_TRACER_NIF,
                                     sizeof(ErtsTracerNif) +
                                     sizeof(ErtsThrPrgrLaterOp));
-    memcpy(obj, tmpl, sizeof(*obj));
+    sys_memcpy(obj, tmpl, sizeof(*obj));
     return obj;
 }
 

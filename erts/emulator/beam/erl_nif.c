@@ -529,7 +529,7 @@ setup_nif_env(struct enif_msg_environment_t* msg_env,
     msg_env->env.tmp_obj_list = NULL;
     msg_env->env.proc = &msg_env->phony_proc;
     msg_env->env.exception_thrown = 0;
-    memset(&msg_env->phony_proc, 0, sizeof(Process));
+    sys_memset(&msg_env->phony_proc, 0, sizeof(Process));
     HEAP_START(&msg_env->phony_proc) = phony_heap;
     HEAP_TOP(&msg_env->phony_proc) = phony_heap;
     HEAP_LIMIT(&msg_env->phony_proc) = phony_heap;
@@ -4369,7 +4369,7 @@ static void get_string_maybe(ErlNifEnv *env, const ERL_NIF_TERM term,
         str_bin.size > bufsiz) {
         *ptr = NULL;
     } else {
-        memcpy(buf, (char *) str_bin.data, str_bin.size);
+        sys_memcpy(buf, (char *) str_bin.data, str_bin.size);
         buf[str_bin.size] = '\0';
         *ptr = buf;
     }
@@ -4386,7 +4386,7 @@ ERL_NIF_TERM erl_nif_user_trace_s1(ErlNifEnv* env, int argc,
 	    message_bin.size > MESSAGE_BUFSIZ) {
 	    return am_badarg;
 	}
-	memcpy(messagebuf, (char *) message_bin.data, message_bin.size);
+	sys_memcpy(messagebuf, (char *) message_bin.data, message_bin.size);
         messagebuf[message_bin.size] = '\0';
 	DTRACE1(user_trace_s1, messagebuf);
 	return am_true;

@@ -144,7 +144,7 @@ static Eterm make_magic_bin_for_restart(Process *p, RestartContext *rc)
 					   cleanup_restart_context_bin);
     RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
     Eterm *hp;
-    memcpy(restartp,rc,sizeof(RestartContext));
+    sys_memcpy(restartp,rc,sizeof(RestartContext));
     hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
     return erts_mk_magic_ref(&hp, &MSO(p), mbp);
 }
@@ -254,12 +254,12 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	ASSERT(need > 0);
 	ASSERT(from_source > 0);
 	if (size < from_source) {
-	    memcpy(leftover + (*num_leftovers), source, size);
+	    sys_memcpy(leftover + (*num_leftovers), source, size);
 	    *num_leftovers += size;
 	    return 0;
 	}
 	/* leftover has room for four bytes (see bif) */
-	memcpy(leftover + (*num_leftovers),source,from_source);
+	sys_memcpy(leftover + (*num_leftovers),source,from_source);
 	c = copy_utf8_bin(target, leftover, need, NULL, NULL, &tmp_err_pos, characters);
 	if (tmp_err_pos != 0) {
 	    *err_pos = source;
@@ -291,7 +291,7 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	    size -= 2; copied += 2;
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    if (leftover && size < 3) {
-		memcpy(leftover, source, (int) size);
+		sys_memcpy(leftover, source, (int) size);
 		*num_leftovers = (int) size;
 		break;
 	    }
@@ -313,7 +313,7 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	    size -= 3; copied += 3;
 	} else if (((*source) & ((byte) 0xF8)) == 0xF0) {
 	    if (leftover && size < 4) {
-		memcpy(leftover, source, (int) size);
+		sys_memcpy(leftover, source, (int) size);
 		*num_leftovers = (int) size;
 		break;
 	    }
@@ -2108,7 +2108,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	    } else {
 		name_buf = statbuf;
 	    }
-	    memcpy(name_buf,bytes,size);
+	    sys_memcpy(name_buf,bytes,size);
 	    name_buf[size]=0;
 	} else {
             name_buf = erts_convert_filename_to_wchar(bytes, size,

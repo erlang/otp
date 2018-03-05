@@ -365,7 +365,7 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
     acn->d = 0;
     acn->final = 0;
     acn->h = NULL;
-    memset(acn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
+    sys_memset(acn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
 #ifdef HARDDEBUG
     act->idc = 0;
     acn->id = 0;
@@ -388,7 +388,7 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
     init_my_allocator(my, datasize, data);
     bmd = my_alloc(my, sizeof(BMData));
     bmd->x = my_alloc(my,len);
-    memcpy(bmd->x,x,len);
+    sys_memcpy(bmd->x,x,len);
     bmd->len = len;
     bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
     *the_bin = mb;
@@ -433,7 +433,7 @@ static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
 	    nn->d = i+1;
 	    nn->h = act->root;
 	    nn->final = 0;
-	    memset(nn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
+	    sys_memset(nn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
 	    acn->g[x[i]] = nn;
 	    ++i;
 	    acn = nn;
@@ -2264,7 +2264,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 	    if (cd[i].type == CL_TYPE_HEAP_NOALLOC) {
 		unsigned char *tmp = cd[i].buff;
 		cd[i].buff = erts_alloc(ERTS_ALC_T_BINARY_BUFFER, cd[i].bufflen);
-		memcpy(cd[i].buff,tmp,cd[i].bufflen);
+		sys_memcpy(cd[i].buff,tmp,cd[i].bufflen);
 		cd[i].type = CL_TYPE_HEAP;
 	    }
 	}
@@ -2556,7 +2556,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 						    0);
 	    if (!(cbs->temp_alloc)) { /* alignment not needed, need to copy */
 		byte *tmp = erts_alloc(ERTS_ALC_T_BINARY_BUFFER,size);
-		memcpy(tmp,cbs->source,size);
+		sys_memcpy(tmp,cbs->source,size);
 		cbs->source = tmp;
 		cbs->source_type = BC_TYPE_HEAP;
 	    } else {
@@ -2569,7 +2569,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	pos = 0;
 	i = 0;
 	while (pos < reds) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	    ++i;
 	}
@@ -2594,7 +2594,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	}
 	pos = 0;
 	while (pos < target_size) {
-	    memcpy(t+pos,source, size);
+	    sys_memcpy(t+pos,source, size);
 	    pos += size;
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
@@ -2624,7 +2624,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
     if ((n-1) * size >= reds) {
 	Uint i = 0;
 	while ((pos - opos) < reds) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	    ++i;
 	}
@@ -2637,7 +2637,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
         Eterm resbin;
 	Uint target_size = cbs->result->orig_size;
 	while (pos < target_size) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	}
 	save = cbs->result;
@@ -3029,7 +3029,7 @@ static void dump_bm_data(BMData *bm)
 static void dump_ac_node(ACNode *node, int indent, int ch) {
     int i;
     char *spaces = erts_alloc(ERTS_ALC_T_TMP, 10 * indent + 1);
-    memset(spaces,' ',10*indent);
+    sys_memset(spaces,' ',10*indent);
     spaces[10*indent] = '\0';
     erts_printf("%s-> %c\n",spaces,ch);
     erts_printf("%sId: %u\n",spaces,(unsigned) node->id);

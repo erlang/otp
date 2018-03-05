@@ -81,7 +81,7 @@ void erts_msacc_init(void) {
                                         sizeof(Eterm)*ERTS_MSACC_STATE_COUNT);
     for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
         erts_msacc_state_atoms[i] = am_atom_put(erts_msacc_states[i],
-                                                strlen(erts_msacc_states[i]));
+                                                sys_strlen(erts_msacc_states[i]));
     }
 }
 
@@ -191,7 +191,7 @@ Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory) {
     map->keys = key;
     hp[0] = state_map;
     hp[1] = msacc->id;
-    hp[2] = am_atom_put(msacc->type,strlen(msacc->type));
+    hp[2] = am_atom_put(msacc->type,sys_strlen(msacc->type));
 
     return make_flatmap(map);
 }

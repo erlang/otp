@@ -69,7 +69,7 @@
 #  ifdef CHECK_FOR_HOLES
 #    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(HEAP_TOP(p), (sz))
 #  else
-#    define INIT_HEAP_MEM(p,sz) memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
+#    define INIT_HEAP_MEM(p,sz) sys_memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
 #  endif
 #else
 #  define INIT_HEAP_MEM(p,sz) ((void)0)

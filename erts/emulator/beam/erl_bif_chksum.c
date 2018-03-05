@@ -516,7 +516,7 @@ md5_2(BIF_ALIST_2)
     /* No need to check context, this function cannot be called with unaligned
        or badly sized context as it's always trapped to. */
     bytes = binary_bytes(BIF_ARG_1);
-    memcpy(&context,bytes,sizeof(MD5_CTX));
+    sys_memcpy(&context,bytes,sizeof(MD5_CTX));
     rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_2,100,(void *) &context,&res,
 		     &err);
     if (err != 0) {
@@ -564,7 +564,7 @@ md5_update_2(BIF_ALIST_2)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_ERROR(BIF_P, BADARG);
     }
-    memcpy(&context,bytes,sizeof(MD5_CTX));
+    sys_memcpy(&context,bytes,sizeof(MD5_CTX));
     erts_free_aligned_binary_bytes(temp_alloc);
     rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_2,100,(void *) &context,&res,
 		     &err);
@@ -599,7 +599,7 @@ md5_final_1(BIF_ALIST_1)
 	goto error;
     }
     bin = erts_new_heap_binary(BIF_P, (byte *)NULL, 16, &result);
-    memcpy(&ctx_copy, context, sizeof(MD5_CTX));
+    sys_memcpy(&ctx_copy, context, sizeof(MD5_CTX));
     erts_free_aligned_binary_bytes(temp_alloc);
     MD5Final(result, &ctx_copy);
     BIF_RET(bin);

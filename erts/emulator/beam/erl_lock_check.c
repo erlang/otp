@@ -259,7 +259,7 @@ static ERTS_INLINE void lc_free(void *p)
 {
     erts_lc_free_block_t *fb = (erts_lc_free_block_t *) p;
 #ifdef DEBUG
-    memset((void *) p, 0xdf, sizeof(erts_lc_free_block_t));
+    sys_memset((void *) p, 0xdf, sizeof(erts_lc_free_block_t));
 #endif
     lc_lock();
     fb->next = free_blocks;
@@ -289,12 +289,12 @@ static void *lc_core_alloc(void)
     }
     for (i = 1; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
-	memset((void *) &fbs[i], 0xdf, sizeof(erts_lc_free_block_t));
+	sys_memset((void *) &fbs[i], 0xdf, sizeof(erts_lc_free_block_t));
 #endif
 	fbs[i].next = &fbs[i+1];
     }
 #ifdef DEBUG
-    memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
+    sys_memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
 	   0xdf, sizeof(erts_lc_free_block_t));
 #endif
     lc_lock();
@@ -695,7 +695,7 @@ erts_lc_get_lock_order_id(char *name)
 	erts_fprintf(stderr, "Missing lock name\n");
     else {
 	for (i = 0; i < ERTS_LOCK_ORDER_SIZE; i++)
-	    if (strcmp(erts_lock_order[i].name, name) == 0)
+	    if (sys_strcmp(erts_lock_order[i].name, name) == 0)
 		return i;
 	erts_fprintf(stderr,
 		     "Lock name '%s' missing in lock order "
@@ -1322,12 +1322,12 @@ erts_lc_init(void)
     static erts_lc_free_block_t fbs[ERTS_LC_FB_CHUNK_SIZE];
     for (i = 0; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
-	memset((void *) &fbs[i], 0xdf, sizeof(erts_lc_free_block_t));
+	sys_memset((void *) &fbs[i], 0xdf, sizeof(erts_lc_free_block_t));
 #endif
 	fbs[i].next = &fbs[i+1];
     }
 #ifdef DEBUG
-    memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
+    sys_memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
 	   0xdf, sizeof(erts_lc_free_block_t));
 #endif
     fbs[ERTS_LC_FB_CHUNK_SIZE-1].next = NULL;
