@@ -246,8 +246,11 @@ handle_call({add, Uniq, Key}, {Pid, _}, S) ->
 
 handle_call({remove, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
-    ets:delete_object(?TABLE, Rec),
-    {reply, true, notify(remove, Rec, S)};
+    {reply, true, try
+                      notify(remove, Rec, S)
+                  after
+                      ets:delete_object(?TABLE, Rec)
+                  end};
 
 handle_call({wait, Pat}, {Pid, _} = From, S) ->
     NS = add_monitor(Pid, S),
@@ -370,10 +373,12 @@ send({_,_} = From, add, Rec) ->
 
 down(Pid, #state{monitors = Ps} = S) ->
     Recs = match('_', Pid),
-    ets:match_delete(?TABLE, {'_', Pid}),
-    lists:foldl(fun(R,NS) -> notify(remove, R, NS) end,
-                flush(Pid, S#state{monitors = sets:del_element(Pid, Ps)}),
-                Recs).
+    Acc0 = flush(Pid, S#state{monitors = sets:del_element(Pid, Ps)}),
+    try
+        lists:foldl(fun(R,NS) -> notify(remove, R, NS) end, Acc0, Recs)
+    after
+        ets:match_delete(?TABLE, {'_', Pid})
+    end.
 
 %% flush/3
 

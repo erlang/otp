@@ -554,14 +554,24 @@ terminate(Reason, #state{service_name = Name, local = {PeerT, _, _}} = S) ->
     %% wait for watchdog state changes to take care of if. That this
     %% takes place after deleting the state entry ensures that the
     %% resulting failover by request processes accomplishes nothing.
-    ets:foldl(fun(#peer{pid = TPid}, _) ->
-                      diameter_traffic:peer_down(TPid)
-              end,
-              ok,
-              PeerT),
+    ets:foldl(fun peer_down/2, ok, PeerT),
 
     shutdown == Reason  %% application shutdown
         andalso shutdown(application, S).
+
+%% peer_down/1
+%%
+%% Entries with watchdog state SUSPECT are already down: ignore the
+%% expected failure. This assumes the current implementation, but
+%% double the number of lookups (in the typical case) could be the
+%% greater evil if there are many peer connections.
+
+peer_down(#peer{pid = TPid}, _) ->
+    try
+        diameter_traffic:peer_down(TPid)
+    catch
+        error: {badmatch, []} -> ok
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # code_change/3
