@@ -1174,17 +1174,25 @@ handle_event({call,_}, _, StateName, _) when not ?CONNECTED(StateName) ->
 
 handle_event({call,From}, {request, ChannelPid, ChannelId, Type, Data, Timeout}, StateName, D0) 
   when ?CONNECTED(StateName) ->
-    D = handle_request(ChannelPid, ChannelId, Type, Data, true, From, D0),
-    %% Note reply to channel will happen later when reply is recived from peer on the socket
-    start_channel_request_timer(ChannelId, From, Timeout),
-    {keep_state, cache_request_idle_timer_check(D)};
+    case handle_request(ChannelPid, ChannelId, Type, Data, true, From, D0) of
+        {error,Error} ->
+            {keep_state, D0, {reply,From,{error,Error}}};
+        D ->
+            %% Note reply to channel will happen later when reply is recived from peer on the socket
+            start_channel_request_timer(ChannelId, From, Timeout),
+            {keep_state, cache_request_idle_timer_check(D)}
+    end;
 
 handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, D0) 
   when ?CONNECTED(StateName) ->
-    D = handle_request(ChannelId, Type, Data, true, From, D0),
-    %% Note reply to channel will happen later when reply is recived from peer on the socket
-    start_channel_request_timer(ChannelId, From, Timeout),
-    {keep_state, cache_request_idle_timer_check(D)};
+    case handle_request(ChannelId, Type, Data, true, From, D0) of
+        {error,Error} ->
+            {keep_state, D0, {reply,From,{error,Error}}};
+        D ->
+            %% Note reply to channel will happen later when reply is recived from peer on the socket
+            start_channel_request_timer(ChannelId, From, Timeout),
+            {keep_state, cache_request_idle_timer_check(D)}
+    end;
 
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0) 
   when ?CONNECTED(StateName) ->
@@ -1773,21 +1781,31 @@ is_usable_user_pubkey(A, Ssh) ->
 %%%----------------------------------------------------------------
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From, D) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
-	#channel{remote_id = Id} = Channel ->
+	#channel{remote_id = Id,
+                 sent_close = false} = Channel ->
 	    update_sys(cache(D), Channel, Type, ChannelPid),
 	    send_msg(ssh_connection:channel_request_msg(Id, Type, WantReply, Data),
 		     add_request(WantReply, ChannelId, From, D));
-	undefined ->
-	    D
+
+        _ when WantReply==true ->
+            {error,closed};
+
+        _ ->
+            D
     end.
 
 handle_request(ChannelId, Type, Data, WantReply, From, D) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
-	#channel{remote_id = Id} ->
+	#channel{remote_id = Id,
+                 sent_close = false} ->
 	    send_msg(ssh_connection:channel_request_msg(Id, Type, WantReply, Data),
 		     add_request(WantReply, ChannelId, From, D));
-	undefined ->
-	    D
+
+	_ when WantReply==true ->
+            {error,closed};
+        
+        _ ->
+            D
     end.
 
 %%%----------------------------------------------------------------
