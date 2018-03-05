@@ -897,11 +897,22 @@ start_subsystem_on_closed_channel(Config) ->
 						      {user_interaction, false},
 						      {user_dir, UserDir}]),
 
-    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
 
-    ok = ssh_connection:close(ConnectionRef, ChannelId),
+    {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:close(ConnectionRef, ChannelId1),
+    {error, closed} = ssh_connection:ptty_alloc(ConnectionRef, ChannelId1, []),
+    {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", 5000),
+    {error, closed} = ssh_connection:exec(ConnectionRef, ChannelId1, "testing1.\n", 5000),
+    {error, closed} = ssh_connection:send(ConnectionRef, ChannelId1, "exit().\n", 5000),
 
-    {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity),
+    %% Test that there could be a gap between close and an operation (Bugfix OTP-14939):
+    {ok, ChannelId2} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:close(ConnectionRef, ChannelId2),
+    timer:sleep(2000),
+    {error, closed} = ssh_connection:ptty_alloc(ConnectionRef, ChannelId2, []),
+    {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId2, "echo_n", 5000),
+    {error, closed} = ssh_connection:exec(ConnectionRef, ChannelId2, "testing1.\n", 5000),
+    {error, closed} = ssh_connection:send(ConnectionRef, ChannelId2, "exit().\n", 5000),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
