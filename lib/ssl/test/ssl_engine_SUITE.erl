@@ -39,23 +39,28 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-            ssl_test_lib:clean_start(),
-            case crypto:get_test_engine() of
-                 {ok, EngineName} ->
-                    try crypto:engine_load(<<"dynamic">>,
-                                            [{<<"SO_PATH">>, EngineName},
-                                             <<"LOAD">>],
-                                            []) of
-                        {ok, Engine} ->
-                            [{engine, Engine} |Config];
-                        {error, Reason} ->
-                            ct:pal("Reason ~p", [Reason]),
-                            {skip, "No dynamic engine support"}
-                    catch error:notsup ->
-                            {skip, "No engine support in OpenSSL"}    
-                    end;
-                {error, notexist} ->
-                    {skip, "Test engine not found"}
+            case crypto:info_lib() of
+                [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->
+                    {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
+                _ ->
+                    ssl_test_lib:clean_start(),
+                    case crypto:get_test_engine() of
+                         {ok, EngineName} ->
+                            try crypto:engine_load(<<"dynamic">>,
+                                                    [{<<"SO_PATH">>, EngineName},
+                                                     <<"LOAD">>],
+                                                   []) of
+                                {ok, Engine} ->
+                                    [{engine, Engine} |Config];
+                                {error, Reason} ->
+                                    ct:pal("Reason ~p", [Reason]),
+                                    {skip, "No dynamic engine support"}
+                            catch error:notsup ->
+                                    {skip, "No engine support in OpenSSL"}    
+                            end;
+                        {error, notexist} ->
+                            {skip, "Test engine not found"}
+                    end
             end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
