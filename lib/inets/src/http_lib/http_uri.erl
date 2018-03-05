@@ -81,13 +81,15 @@
 -type hex_uri() :: string() | binary(). %% Hexadecimal encoded URI.
 -type maybe_hex_uri() :: string() | binary(). %% A possibly hexadecimal encoded URI.
 
+-type scheme_defaults() :: [{scheme(), default_scheme_port_number()}].
+-type scheme_validation_fun() :: fun((SchemeStr :: string() | binary()) ->
+                                            valid | {error, Reason :: term()}).
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 
--spec scheme_defaults() ->
-    [{scheme(), default_scheme_port_number()}].
-
+-spec scheme_defaults() -> scheme_defaults().
 scheme_defaults() ->
     [{http,  80}, 
      {https, 443}, 
@@ -106,7 +108,10 @@ parse(AbsURI) ->
     parse(AbsURI, []).
 
 -spec parse(uri(), [Option]) -> {ok, parse_result()} | {error, term()} when
-      Option :: {atom(), term()}.
+      Option :: {ipv6_host_with_brackets, boolean()} |
+                {scheme_defaults, scheme_defaults()} |
+                {fragment, boolean()} |
+                {scheme_validation_fun, scheme_validation_fun()}.
 parse(AbsURI, Opts) ->
     case parse_scheme(AbsURI, Opts) of
 	{error, Reason} ->
