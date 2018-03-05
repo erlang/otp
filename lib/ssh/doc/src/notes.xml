@@ -419,6 +419,24 @@
 </section>
 
 
+<section><title>Ssh 4.4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -803,6 +821,78 @@
     </section>
 </section>
 
+
+<section><title>Ssh 4.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The key exchange algorithm
+	    diffie-hellman-group-exchange-sha* has a server-option
+	    <c>{dh_gex_limits,{Min,Max}}</c>. There was a hostkey
+	    signature validation error on the client side if the
+	    option was used and the <c>Min</c> or the <c>Max</c>
+	    differed from the corresponding values obtained from the
+	    client.</p>
+          <p>
+	    This bug is now corrected.</p>
+          <p>
+	    Own Id: OTP-14166</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Key exchange algorithms
+	    diffie-hellman-group-exchange-sha* optimized, up to a
+	    factor of 11 for the slowest ( = biggest and safest) one.</p>
+          <p>
+	    Own Id: OTP-14169 Aux Id: seq-13261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Upgrade of an established client connection could crash
+	    because the ssh client supervisors children had wrong
+	    type. This is fixed now.</p>
+          <p>
+	    Own Id: OTP-13782 Aux Id: seq13158 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Ssh 4.2.2.1</title>
 
