@@ -67,7 +67,7 @@ groups() ->
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
-       invalid_system_files_tar, variable_tar,
+       system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
        otp_9507_path_ebin]},
      {relup, [],
@@ -945,12 +945,47 @@ system_files_tar(Config) ->
 
     ok.
 
+
 system_files_tar(cleanup,Config) ->
     Dir = ?privdir,
     file:delete(filename:join(Dir,"sys.config")),
     file:delete(filename:join(Dir,"relup")),
     ok.
 
+%% make_tar: Check that sys.config.src and not sys.config is included
+system_src_file_tar(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+         fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    %% Add dummy sys.config and sys.config.src
+    ok = file:write_file("sys.config.src","[${SOMETHING}].\n"),
+    ok = file:write_file("sys.config","[].\n"),
+
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config.src"]), LatestName),
+    {error, _} = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname(["releases","LATEST","sys.config.src"]), LatestName),
+    {error, _} = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+
+    ok = file:set_cwd(OldDir),
+
+    ok.
+
+system_src_file_tar(cleanup,Config) ->
+    Dir = ?privdir,
+    file:delete(filename:join(Dir,"sys.config")),
+    file:delete(filename:join(Dir,"sys.config.src")),
+    ok.
 
 %% make_tar: Check that make_tar fails if relup or sys.config exist
 %% but do not have valid content

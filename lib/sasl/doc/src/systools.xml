@@ -349,10 +349,11 @@ myapp-1/ebin/myapp.app
           the release version as specified in <c>Name.rel</c>.</p>
         <p><c>releases/RelVsn</c> contains the boot script
           <c>Name.boot</c> renamed to <c>start.boot</c> and, if found,
-          the files <c>relup</c> and <c>sys.config</c>. These files
+          the files <c>relup</c> and <c>sys.config</c> or <c>sys.config.src</c>. These files
           are searched for in the same directory as <c>Name.rel</c>,
           in the current working directory, and in any directories
-          specified using option <c>path</c>.</p>
+          specified using option <c>path</c>. In the case of <c>sys.config</c>
+          it is not included if <c>sys.config.src</c> is found.</p>
         <p>If the release package is to contain a new Erlang runtime
           system, the <c>bin</c> directory of the specified runtime
           system <c>{erts,Dir}</c> is copied to <c>erts-ErtsVsn/bin</c>.</p>
@@ -397,4 +398,3 @@ myapp-1/ebin/myapp.app
       <seealso marker="script"><c>script(4)</c></seealso></p>
   </section>
 </erlref>
-
