@@ -774,10 +774,8 @@ decode_suites('3_bytes', Dec) ->
 %%====================================================================
 
 available_suites(UserSuites, Version) ->
-    lists:filtermap(fun(Suite) ->
-			    lists:member(Suite, ssl_cipher:all_suites(Version) ++
-						ssl_cipher:anonymous_suites(Version))
-		    end, UserSuites).
+    VersionSuites = ssl_cipher:all_suites(Version) ++ ssl_cipher:anonymous_suites(Version),
+    lists:filtermap(fun(Suite) -> lists:member(Suite, VersionSuites) end, UserSuites).
 
 available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
     ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version))
