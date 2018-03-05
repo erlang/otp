@@ -996,16 +996,36 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#define sys_memcpy(s1,s2,n)  memcpy(s1,s2,n)
-#define sys_memmove(s1,s2,n) memmove(s1,s2,n)
-#define sys_memcmp(s1,s2,n)  memcmp(s1,s2,n)
-#define sys_memset(s,c,n)    memset(s,c,n)
-#define sys_memzero(s, n)    memset(s,'\0',n)
-#define sys_strcmp(s1,s2)    strcmp(s1,s2)
-#define sys_strncmp(s1,s2,n) strncmp(s1,s2,n)
-#define sys_strcpy(s1,s2)    strcpy(s1,s2)
-#define sys_strncpy(s1,s2,n) strncpy(s1,s2,n)
-#define sys_strlen(s)        strlen(s)
+/* Thin wrappers around memcpy and friends, which should always be used in
+ * place of plain memcpy, memset, etc.
+ *
+ * Passing NULL to any of these functions is undefined behavior even though it
+ * may seemingly work when the length (if any) is zero; a compiler can take
+ * this as a hint that the passed operand may *never* be NULL and then optimize
+ * based on that information.
+ *
+ * (The weird casts in the assertions silence an "always evaluates to true"
+ * warning when an operand is the address of an lvalue) */
+#define sys_memcpy(s1,s2,n) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memcpy(s1,s2,n))
+#define sys_memmove(s1,s2,n) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memmove(s1,s2,n))
+#define sys_memcmp(s1,s2,n) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memcmp(s1,s2,n))
+#define sys_memset(s,c,n) \
+    (ASSERT((void*)(s) != NULL), memset(s,c,n))
+#define sys_memzero(s, n) \
+    (ASSERT((void*)(s) != NULL), memset(s,'\0',n))
+#define sys_strcmp(s1,s2) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strcmp(s1,s2))
+#define sys_strncmp(s1,s2,n) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strncmp(s1,s2,n))
+#define sys_strcpy(s1,s2) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strcpy(s1,s2))
+#define sys_strncpy(s1,s2,n) \
+    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strncpy(s1,s2,n))
+#define sys_strlen(s) \
+    (ASSERT((void*)(s) != NULL), strlen(s))
 
 /* define function symbols (needed in sys_drv_api) */
 #define sys_fp_alloc     sys_alloc
