@@ -157,15 +157,14 @@ call(Process, Label, Request, Timeout)
     Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
     do_for_proc(Process, Fun).
 
-do_call(Process, Label, Request, Timeout) ->
+do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
     Mref = erlang:monitor(process, Process),
+
     %% OTP-21:
     %% Auto-connect is asynchronous. But we still use 'noconnect' to make sure
     %% we send on the monitored connection, and not trigger a new auto-connect.
-    try erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect])
-    catch
-        error:_ -> ok
-    end,
+    %%
+    erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect]),
 
     receive
         {Mref, Reply} ->
