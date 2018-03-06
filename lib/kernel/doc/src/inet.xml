@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2017</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -277,9 +277,7 @@ fe80::204:acff:fe17:bf38
         <p>Returns a <c>hostent</c> record for the host with the specified
           hostname.</p>
         <p>If resolver option <c>inet6</c> is <c>true</c>,
-          an IPv6 address is looked up. If that fails,
-          the IPv4 address is looked up and returned on
-          IPv6-mapped IPv4 format.</p>
+          an IPv6 address is looked up.</p>
       </desc>
     </func>
 
@@ -578,6 +576,19 @@ get_tcpi_sacked(Sock) ->
 	<p>Parses an IPv6 address string and returns an
           <seealso marker="#type-ip6_address"><c>ip6_address()</c></seealso>.
           Does <em>not</em> accept IPv4 addresses.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ipv4_mapped_ipv6_address" arity="1" />
+      <fsummary>Convert to and from IPv4-mapped IPv6 address.</fsummary>
+      <desc>
+	<p>
+	  Convert an IPv4 address to an IPv4-mapped IPv6 address
+	  or the reverse.  When converting from an IPv6 address
+	  all but the 2 low words are ignored so this function also
+	  works on some other types of addresses than IPv4-mapped.
+	</p>
       </desc>
     </func>
 
