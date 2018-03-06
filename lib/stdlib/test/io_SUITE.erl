@@ -2384,19 +2384,36 @@ limit_term(_Config) ->
     {_, 2} = limt({a,b,c,[d,e]}, 2),
     {_, 2} = limt({a,b,c,[d,e]}, 3),
     {_, 2} = limt({a,b,c,[d,e]}, 4),
+    T0 = [1|{a,b,c}],
+    {_, 2} = limt(T0, 2),
+    {_, 2} = limt(T0, 3),
+    {_, 2} = limt(T0, 4),
     {_, 1} = limt(<<"foo">>, 18),
+    {_, 2} = limt({"",[1,2]}, 3),
+    {_, 2} = limt({"",{1,2}}, 3),
+    true = limt_pp({"123456789012345678901234567890",{1,2}}, 3),
     ok = blimt(<<"123456789012345678901234567890">>),
+    true = limt_pp(<<"123456789012345678901234567890">>, 3),
+    {_, 2} = limt({<<"kljlkjsl">>,[1,2,3,4]}, 4),
     {_, 1} = limt(<<7:3>>, 2),
     {_, 1} = limt(<<7:21>>, 2),
     {_, 1} = limt([], 2),
     {_, 1} = limt({}, 2),
+    {_, 1} = limt({"", ""}, 4),
     {_, 1} = limt(#{}, 2),
-    {_, 1} = limt(#{[] => {}}, 2),
+    {_, 2} = limt(#{[] => {}}, 1),
+    {_, 2} = limt(#{[] => {}}, 2),
     {_, 1} = limt(#{[] => {}}, 3),
     T = #{[] => {},[a] => [b]},
-    {_, 1} = limt(T, 2),
+    {_, 1} = limt(T, 0),
+    {_, 2} = limt(T, 1),
+    {_, 2} = limt(T, 2),
     {_, 1} = limt(T, 3),
     {_, 1} = limt(T, 4),
+    T2 = #{[] => {},{} => []},
+    {_, 2} = limt(T2, 1),
+    {_, 2} = limt(T2, 2),
+    {_, 1} = limt(T2, 3),
     ok.
 
 blimt(Binary) ->
@@ -2430,3 +2447,12 @@ limt(Term, Depth) when is_integer(Depth) ->
 
 form(Term, Depth) ->
     lists:flatten(io_lib:format("~W", [Term, Depth])).
+
+limt_pp(Term, Depth) when is_integer(Depth) ->
+    T1 = io_lib:limit_term(Term, Depth),
+    S = pp(Term, Depth),
+    S1 = pp(T1, Depth),
+    S1 =:= S.
+
+pp(Term, Depth) ->
+    lists:flatten(io_lib:format("~P", [Term, Depth])).
