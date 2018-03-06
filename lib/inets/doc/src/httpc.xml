@@ -210,7 +210,8 @@
 			   ip | 
 			   port | 
 			   socket_opts | 
-	                   verbose</v>
+	                   verbose |
+	                   unix_socket</v>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can used.</d>
         <v>Values = [{option_item(), term()}]</v>
@@ -297,8 +298,8 @@
                       {full_result,             boolean()} | 
                       {headers_as_is,           boolean() |
                       {socket_opts,             socket_opts()} | 
-                      {receiver,                receiver()},
-	              {ipv6_host_with_brackets, boolean()}}</v>
+                      {receiver,                receiver()} |
+	              {ipv6_host_with_brackets, boolean()}</v>
         <v>stream_to() = none | self | {self, once} | filename()</v>
         <v>socket_opts() = [socket_opt()]</v>
         <v>receiver() = pid() | function()/1 | {Module, Function, Args}</v>
@@ -533,7 +534,8 @@
 	<v>| {ip, IpAddress}</v>
 	<v>| {port, Port}</v>
 	<v>| {socket_opts, socket_opts()}</v>
-	<v>| {verbose, VerboseMode}</v>	    
+	<v>| {verbose, VerboseMode}</v>
+	<v>| {unix_socket, UnixSocket}</v>
         <v>Proxy = {Hostname, Port}</v>
         <v>Hostname = string()</v>
         <d>Example: "localhost" or "foo.bar.se"</d>
@@ -576,7 +578,7 @@
 	If option <c>verify</c> is used, function <c>store_cookies/2</c>
 	has to be called for the cookies to be saved. 
 	Default is <c>disabled</c>.</d>
-	<v>IpFamily = inet | inet6 </v>
+	<v>IpFamily = inet | inet6 | local</v>
 	<d>Default is <c>inet</c>.</d>
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
@@ -601,6 +603,12 @@
 	It is a debug feature.</d>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>UnixSocket = path()</v>
+	<d>
+	  Experimental option for sending HTTP requests over a unix domain socket. The value
+	  of <c>unix_socket</c> shall be the full path to a unix domain socket file with read/write
+	  permissions for the erlang process. Default is <c>undefined</c>.
+	</d>
       </type>
       <desc>
 	<p>Sets options to be used for subsequent requests.</p>

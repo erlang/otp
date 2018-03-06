@@ -754,6 +754,7 @@ connect(SocketType, ToAddress,
         #options{ipfamily    = IpFamily,
                  ip          = FromAddress,
                  port        = FromPort,
+                 unix_socket = UnixSocket,
                  socket_opts = Opts0}, Timeout) ->
     Opts1 = 
         case FromPort of
@@ -789,6 +790,16 @@ connect(SocketType, ToAddress,
                 OK ->
                     OK
             end;
+        local ->
+            Opts3 = [IpFamily | Opts2],
+            SocketAddr = {local, UnixSocket},
+            case http_transport:connect(SocketType, {SocketAddr, 0}, Opts3, Timeout) of
+                {error, Reason} ->
+                    {error, {failed_connect, [{to_address, SocketAddr},
+                                              {IpFamily, Opts3, Reason}]}};
+                Else ->
+                    Else
+            end;
         _ ->
             Opts3 = [IpFamily | Opts2], 
             case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
@@ -800,9 +811,23 @@ connect(SocketType, ToAddress,
             end
     end.
 
-connect_and_send_first_request(Address, Request, #state{options = Options} = State) ->
+handle_unix_socket_options(#request{unix_socket = UnixSocket}, Options)
+  when UnixSocket =:= undefined ->
+    Options;
+
+handle_unix_socket_options(#request{unix_socket = UnixSocket},
+                           Options = #options{ipfamily = IpFamily}) ->
+    case IpFamily of
+        local ->
+            Options#options{unix_socket = UnixSocket};
+        Else ->
+            error({badarg, [{ipfamily, Else}, {unix_socket, UnixSocket}]})
+    end.
+
+connect_and_send_first_request(Address, Request, #state{options = Options0} = State) ->
     SocketType  = socket_type(Request),
     ConnTimeout = (Request#request.settings)#http_options.connect_timeout,
+    Options = handle_unix_socket_options(Request, Options0),
     case connect(SocketType, Address, Options, ConnTimeout) of
         {ok, Socket} ->
             ClientClose =
@@ -841,9 +866,10 @@ connect_and_send_first_request(Address, Request, #state{options = Options} = Sta
             {ok, State#state{request = Request}}
     end.
 
-connect_and_send_upgrade_request(Address, Request, #state{options = Options} = State) ->
+connect_and_send_upgrade_request(Address, Request, #state{options = Options0} = State) ->
     ConnTimeout = (Request#request.settings)#http_options.connect_timeout,
     SocketType = ip_comm,
+    Options = handle_unix_socket_options(Request, Options0),
     case connect(SocketType, Address, Options, ConnTimeout) of
         {ok, Socket} ->
 	    SessionType = httpc_manager:session_type(Options),

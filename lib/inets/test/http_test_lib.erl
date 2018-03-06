@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2015-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,25 @@ dummy_server_init(Caller, ip_comm, Inet, Extra) ->
     dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
 						      {max_header, ?HTTP_MAX_HEADER_SIZE},
 						      {max_version,?HTTP_MAX_VERSION_STRING}, 
+						      {max_method, ?HTTP_MAX_METHOD_STRING},
+						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+						      {customize, httpd_custom}
+						     ]]},
+			     [], ContentCb, Conf, ListenSocket);
+
+dummy_server_init(Caller, unix_socket, Inet, Extra) ->
+    ContentCb = proplists:get_value(content_cb, Extra),
+    UnixSocket = proplists:get_value(unix_socket, Extra),
+    SocketAddr = {local, UnixSocket},
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}, {nodelay, true},
+               {ifaddr, SocketAddr}],
+    Conf = proplists:get_value(conf, Extra),
+    {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
+    {ok, Port} = inet:port(ListenSocket),
+    Caller ! {port, Port},
+    dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
+						      {max_header, ?HTTP_MAX_HEADER_SIZE},
+						      {max_version,?HTTP_MAX_VERSION_STRING},
 						      {max_method, ?HTTP_MAX_METHOD_STRING},
 						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
 						      {customize, httpd_custom}
