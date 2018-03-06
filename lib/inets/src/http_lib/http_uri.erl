@@ -111,7 +111,7 @@ parse(AbsURI) ->
       Option :: {ipv6_host_with_brackets, boolean()} |
                 {scheme_defaults, scheme_defaults()} |
                 {fragment, boolean()} |
-                {scheme_validation_fun, scheme_validation_fun()}.
+                {scheme_validation_fun, scheme_validation_fun() | none}.
 parse(AbsURI, Opts) ->
     case parse_scheme(AbsURI, Opts) of
 	{error, Reason} ->
