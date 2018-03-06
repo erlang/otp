@@ -288,7 +288,7 @@ frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
 frame_size([{deallocate,N}|_], _) -> N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);
-frame_size([_|_], _) -> throw(not_possible).
+frame_size(_, _) -> throw(not_possible).
 
 frame_size_branch(0, Is, Safe) ->
     frame_size(Is, Safe);
