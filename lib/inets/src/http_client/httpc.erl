@@ -171,6 +171,7 @@ request(Method,
 	HTTPOptions, Options, Profile) 
   when (Method =:= options) orelse 
        (Method =:= get) orelse 
+       (Method =:= put) orelse
        (Method =:= head) orelse 
        (Method =:= delete) orelse 
        (Method =:= trace) andalso 
@@ -528,6 +529,7 @@ handle_request(Method, Url,
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
 	    Receiver      = proplists:get_value(receiver, Options),
 	    SocketOpts    = proplists:get_value(socket_opts, Options),
+	    UnixSocket    = proplists:get_value(unix_socket, Options),
 	    BracketedHost = proplists:get_value(ipv6_host_with_brackets, 
 						Options),
 	    MaybeEscPath  = maybe_encode_uri(HTTPOptions, Path),
@@ -549,6 +551,7 @@ handle_request(Method, Url,
 			       headers_as_is = headers_as_is(Headers0, Options),
 			       socket_opts   = SocketOpts, 
 			       started       = Started,
+			       unix_socket   = UnixSocket,
 			       ipv6_host_with_brackets = BracketedHost},
 
 	    case httpc_manager:request(Request, profile_name(Profile)) of
@@ -798,7 +801,7 @@ request_options_defaults() ->
 		error
 	end,
 
-    VerifyBrackets = VerifyBoolean, 
+    VerifyBrackets = VerifyBoolean,
 
     [
      {sync,                    true,      VerifySync}, 
@@ -869,11 +872,36 @@ request_options_sanity_check(Opts) ->
     end,
     ok.
 
-validate_options(Options) ->
-    (catch validate_options(Options, [])).
+validate_ipfamily_unix_socket(Options0) ->
+    IpFamily = proplists:get_value(ipfamily, Options0, inet),
+    UnixSocket = proplists:get_value(unix_socket, Options0, undefined),
+    Options1 = proplists:delete(ipfamily, Options0),
+    Options2 = proplists:delete(ipfamily, Options1),
+    validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options2,
+                                  [{ipfamily, IpFamily}, {unix_socket, UnixSocket}]).
+%%
+validate_ipfamily_unix_socket(local, undefined, _Options, _Acc) ->
+    bad_option(unix_socket, undefined);
+validate_ipfamily_unix_socket(IpFamily, UnixSocket, _Options, _Acc)
+  when IpFamily =/= local, UnixSocket =/= undefined ->
+    bad_option(ipfamily, IpFamily);
+validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options, Acc) ->
+    validate_ipfamily(IpFamily),
+    validate_unix_socket(UnixSocket),
+    {Options, Acc}.
 
-validate_options([], ValidateOptions) ->
-    {ok, lists:reverse(ValidateOptions)};
+
+validate_options(Options0) ->
+    try
+        {Options, Acc} = validate_ipfamily_unix_socket(Options0),
+        validate_options(Options, Acc)
+    catch
+        error:Reason ->
+            {error, Reason}
+    end.
+%%
+validate_options([], ValidOptions) ->
+    {ok, lists:reverse(ValidOptions)};
 
 validate_options([{proxy, Proxy} = Opt| Tail], Acc) ->
     validate_proxy(Proxy),
@@ -931,6 +959,10 @@ validate_options([{socket_opts, Value} = Opt| Tail], Acc) ->
 
 validate_options([{verbose, Value} = Opt| Tail], Acc) ->
     validate_verbose(Value), 
+    validate_options(Tail, [Opt | Acc]);
+
+validate_options([{unix_socket, Value} = Opt| Tail], Acc) ->
+    validate_unix_socket(Value),
     validate_options(Tail, [Opt | Acc]);
 
 validate_options([{_, _} = Opt| _], _Acc) ->
@@ -1001,7 +1033,8 @@ validate_ipv6(BadValue) ->
     bad_option(ipv6, BadValue).
 
 validate_ipfamily(Value) 
-  when (Value =:= inet) orelse (Value =:= inet6) orelse (Value =:= inet6fb4) ->
+  when (Value =:= inet) orelse (Value =:= inet6) orelse
+       (Value =:= inet6fb4) orelse (Value =:= local) ->
     Value;
 validate_ipfamily(BadValue) ->
     bad_option(ipfamily, BadValue).
@@ -1030,6 +1063,15 @@ validate_verbose(Value)
     ok;
 validate_verbose(BadValue) ->
     bad_option(verbose, BadValue).
+
+validate_unix_socket(Value)
+  when (Value =:= undefined) ->
+    Value;
+validate_unix_socket(Value)
+  when is_list(Value) andalso length(Value) > 0 ->
+    Value;
+validate_unix_socket(BadValue) ->
+    bad_option(unix_socket, BadValue).
 
 bad_option(Option, BadValue) ->
     throw({error, {bad_option, Option, BadValue}}).
