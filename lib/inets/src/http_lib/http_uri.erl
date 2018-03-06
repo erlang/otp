@@ -197,7 +197,7 @@ extract_scheme(Str, Opts) ->
 	{value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
 	    case Fun(Str) of
 		valid ->
-		    {ok, list_to_atom(http_util:to_lower(Str))};
+		    {ok, to_atom(http_util:to_lower(Str))};
 		{error, Error} ->
 		    {error, Error}
 	    end;
