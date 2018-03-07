@@ -2292,6 +2292,7 @@ erts_set_runq_proc(Process *p, ErtsRunQueue *rq, int *bndp)
 {
     erts_aint_t rqint = (erts_aint_t) rq;
     ASSERT(bndp);
+    ASSERT(rq);
     if (*bndp)
         rqint |= ERTS_RUNQ_BOUND_FLAG;
     rqint = erts_atomic_xchg_nob(&p->run_queue, rqint);
