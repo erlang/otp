@@ -1236,6 +1236,17 @@ typedef struct {
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_fprintf(FILE *stream, const char *format, ...)</nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Similar to <c>fprintf</c> but this format string also accepts
+          <c>"%T"</c>, which formats Erlang terms.</p>
+	<p>This function was originally intenden for debugging purpose. It is not
+	  recommended to print very large terms with <c>%T</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
       <fsummary>Free dynamic memory.</fsummary>
       <desc>
@@ -3136,6 +3147,8 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
       <desc>
         <p>Similar to <c>snprintf</c> but this format string also accepts
           <c>"%T"</c>, which formats Erlang terms.</p>
+	<p>This function was originally intenden for debugging purpose. It is not
+	  recommended to print very large terms with <c>%T</c>.</p>
       </desc>
     </func>
 
