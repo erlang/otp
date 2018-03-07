@@ -60,12 +60,12 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 APP_FILE= ftp.app
-#APPUP_FILE= ftp.appup
+APPUP_FILE= ftp.appup
 
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(EBIN)/$(APP_FILE)
-#APPUP_SRC= $(APPUP_FILE).src
-#APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 # ----------------------------------------------------
 # FLAGS

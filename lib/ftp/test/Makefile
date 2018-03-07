@@ -101,14 +101,13 @@ MODULES =                 		\
 	erl_make_certs                  \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE                \
-	inets_test_lib
+	ftp_test_lib
 
 
 EBIN = .
 
 HRL_FILES = \
-	ftp_internal.hrl \
-	inets_test_lib.hrl
+	ftp_internal.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 

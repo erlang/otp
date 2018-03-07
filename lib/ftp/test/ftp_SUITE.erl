@@ -18,16 +18,10 @@
 %% %CopyrightEnd%
 %%
 %%
-
-%% 
-%% ct:run("../inets_test", ftp_SUITE).
-%%
-
 -module(ftp_SUITE).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
--include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -189,7 +183,8 @@ init_per_suite(Config) ->
 	{ok,Data} -> 
 	    TstDir = filename:join(proplists:get_value(priv_dir,Config), "test"),
 	    file:make_dir(TstDir),
-	    make_cert_files(dsa, rsa, "server-", proplists:get_value(data_dir,Config)),
+	    %% make_cert_files(dsa, rsa, "server-", proplists:get_value(data_dir,Config)),
+            ftp_test_lib:make_cert_files(proplists:get_value(data_dir,Config)),
 	    start_ftpd([{test_dir,TstDir},
 			{ftpd_data,Data}
 			| Config])
@@ -930,22 +925,6 @@ error_ehost(_Config) ->
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
 
-make_cert_files(Alg1, Alg2, Prefix, Dir) ->
-    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg1}]),
-    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg2},{issuer,CaInfo}]),
-    CaCertFile = filename:join(Dir, Prefix++"cacerts.pem"),
-    CertFile = filename:join(Dir, Prefix++"cert.pem"),
-    KeyFile = filename:join(Dir, Prefix++"key.pem"),
-    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
-    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
-    der_to_pem(KeyFile, [CertKey]),
-    ok.
-
-der_to_pem(File, Entries) ->
-    PemBin = public_key:pem_encode(Entries),
-    file:write_file(File, PemBin).
-
-%%--------------------------------------------------------------------
 chk_file(Path=[C|_], ExpectedContents, Config) when 0<C,C=<255 ->
     chk_file([Path], ExpectedContents, Config);
 
