@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -235,7 +235,7 @@ link_receive_call_correlation(Config) when is_list(Config) ->
     1 = erlang:trace(Receiver, true, ['receive', procs, call, timestamp, scheduler_id]),
     1 = erlang:trace_pattern({?MODULE, receive_msg, '_'}, [], [local]),
 
-    Num = 100000,
+    Num = 100,
 
     (fun F(0) -> [];
          F(N) ->
@@ -255,7 +255,7 @@ link_receive_call_correlation(Config) when is_list(Config) ->
 
     Msgs = (fun F() -> receive M -> [M | F()] after 1 -> [] end end)(),
 
-    case check_consistent(Receiver, Num, Num, Num, Msgs) of
+    case check_consistent(Receiver, Num, Num, Num, Msgs, false, undefined) of
         ok ->
             ok;
         {error, Reason} ->
@@ -265,20 +265,63 @@ link_receive_call_correlation(Config) when is_list(Config) ->
 
 -define(schedid, , _).
 
-check_consistent(_Pid, Recv, Call, _LU, [Msg | _]) when Recv > Call ->
+check_consistent(_Pid, Recv, Call, _LU, [Msg | _], _Received, _LinkedN) when Recv > Call ->
     {error, Msg};
-check_consistent(Pid, Recv, Call, LU, [Msg | Msgs]) ->
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], false, undefined) ->
 
     case Msg of
         {trace, Pid, 'receive', Recv ?schedid} ->
-            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, undefined);
         {trace_ts, Pid, 'receive', Recv ?schedid, _} ->
-            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, undefined);
 
         {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
-            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, false, undefined);
         {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
-            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, false, undefined);
+
+        {trace, Pid, _, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs, false, undefined);
+        {trace_ts, Pid, _, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs, false, undefined);
+
+        Msg ->
+            {error, Msg}
+    end;
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], true, undefined) ->
+
+    case Msg of
+        {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, undefined);
+        {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, undefined);
+
+        {trace, Pid, getting_linked, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, Recv rem 2);
+        {trace_ts, Pid, getting_linked, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, Recv rem 2);
+
+        {trace, Pid, getting_unlinked, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, (Recv+1) rem 2);
+        {trace_ts, Pid, getting_unlinked, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, (Recv+1) rem 2);
+
+        Msg ->
+            {error, Msg}
+    end;
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], true, LinkedN) ->
+    UnlinkedN = (LinkedN + 1) rem 2,
+
+    case Msg of
+        {trace, Pid, 'receive', Recv ?schedid} when Recv == LU ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, LinkedN);
+        {trace_ts, Pid, 'receive', Recv ?schedid, _} when Recv == LU ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, LinkedN);
+
+        {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, LinkedN);
+        {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, LinkedN);
 
         %% We check that for each receive we have gotten a
         %% getting_linked or getting_unlinked message. Also
@@ -286,38 +329,38 @@ check_consistent(Pid, Recv, Call, LU, [Msg | Msgs]) ->
         %% message we expect to receive is an even number
         %% and odd number for getting_unlinked.
         {trace, Pid, getting_linked, _Self ?schedid}
-          when Recv rem 2 == 0, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == LinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
         {trace_ts, Pid, getting_linked, _Self ?schedid, _}
-          when Recv rem 2 == 0, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == LinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
 
         {trace, Pid, getting_unlinked, _Self ?schedid}
-          when Recv rem 2 == 1, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == UnlinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
         {trace_ts, Pid, getting_unlinked, _Self ?schedid, _}
-          when Recv rem 2 == 1, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == UnlinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
 
         {trace,Pid,'receive',Ignore ?schedid}
           when Ignore == stop; Ignore == timeout ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {trace_ts,Pid,'receive',Ignore ?schedid,_}
           when Ignore == stop; Ignore == timeout ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
 
         {trace, Pid, exit, normal ?schedid} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {trace_ts, Pid, exit, normal  ?schedid, _} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {'EXIT', Pid, normal} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         Msg ->
             {error, Msg}
     end;
-check_consistent(_, 0, 0, 0, []) ->
+check_consistent(_, 0, 0, 1, [], true, _) ->
     ok;
-check_consistent(_, Recv, Call, LU, []) ->
+check_consistent(_, Recv, Call, LU, [], _, _) ->
     {error,{Recv, Call, LU}}.
 
 receive_msg(M) ->

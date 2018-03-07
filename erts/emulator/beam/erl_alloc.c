@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
 #include "erl_bits.h"
 #include "erl_instrument.h"
 #include "erl_mseg.h"
-#include "erl_monitors.h"
+#include "erl_monitor_link.h"
 #include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
@@ -643,10 +643,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_PROC)]
 	= sizeof(Process);
-    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MONITOR_SH)]
-	= ERTS_MONITOR_SH_SIZE * sizeof(Uint);
-    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NLINK_SH)]
-	= ERTS_LINK_SH_SIZE * sizeof(Uint);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MONITOR)]
+	= sizeof(ErtsMonitorDataHeap);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_LINK)]
+	= sizeof(ErtsLinkData);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
 	= sizeof(ErtsDrvSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_SEL_D_STATE)]
@@ -2379,7 +2379,6 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	}
 	tmp += erts_ptab_mem_size(&erts_proc);
 	tmp += erts_bif_timer_memory_size();
-	tmp += erts_tot_link_lh_size();
 
 	size.processes = size.processes_used = tmp;
 
@@ -2390,12 +2389,11 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
-		       ERTS_ALC_T_MONITOR_SH);
-
+		       ERTS_ALC_T_MONITOR);
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
-		       ERTS_ALC_T_NLINK_SH);
+		       ERTS_ALC_T_LINK);
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
@@ -2623,11 +2621,6 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "bif_timer";
     values[i].ui[0] = erts_bif_timer_memory_size();
-    i++;
-
-    values[i].arity = 2;
-    values[i].name = "link_lh";
-    values[i].ui[0] = erts_tot_link_lh_size();
     i++;
 
     values[i].arity = 2;

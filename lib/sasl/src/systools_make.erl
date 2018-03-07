@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1500,7 +1500,7 @@ mandatory_modules() ->
 preloaded() ->
     %% Sorted
     [erl_prim_loader,erl_tracer,erlang,
-     erts_code_purger,erts_dirty_process_code_checker,
+     erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
      init,otp_ring0,prim_buffer,prim_eval,prim_file,
      prim_inet,prim_zip,zlib].

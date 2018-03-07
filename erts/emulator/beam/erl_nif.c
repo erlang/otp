@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@
 #include "erl_bif_unique.h"
 #include "erl_utils.h"
 #include "erl_io_queue.h"
+#include "erl_proc_sig_queue.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -658,7 +659,7 @@ int erts_flush_trace_messages(Process *c_p, ErtsProcLocks c_p_locks)
             rp_locks = 0;
             if (rp->common.id == c_p->common.id)
                 rp_locks = c_p_locks;
-            erts_queue_messages(rp, rp_locks, first, last, len, c_p->common.id);
+            erts_queue_messages(rp, rp_locks, first, last, len);
             if (rp->common.id == c_p->common.id)
                 rp_locks &= ~c_p_locks;
             if (rp_locks)
@@ -700,6 +701,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     Process* rp;
     Process* c_p;
     ErtsMessage *mp;
+    Eterm from;
     Eterm receiver = to_pid->pid;
     int scheduler;
 
@@ -778,7 +780,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         msg = copy_struct_litopt(msg, sz, &hp, ohp, &litarea);
     }
 
-    ERL_MESSAGE_TERM(mp) = msg;
+    from = c_p ? c_p->common.id : am_undefined;
 
     if (!env || !env->tracee) {
 
@@ -796,7 +798,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
            tracee */
         ErlTraceMessageQueue *msgq;
         Process *t_p = env->tracee;
-
 
         erts_proc_lock(t_p, ERTS_PROC_LOCK_TRACE);
 
@@ -816,6 +817,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         if (ERTS_FORCE_ENIF_SEND_DELAY() || msgq ||
             rp_locks & ERTS_PROC_LOCK_MSGQ ||
             erts_proc_trylock(rp, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
+
+            ERL_MESSAGE_TERM(mp) = msg;
+            ERL_MESSAGE_FROM(mp) = from;
 
             if (!msgq) {
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
@@ -846,8 +850,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         }
     }
 
-    erts_queue_message(rp, rp_locks, mp, msg,
-                       c_p ? c_p->common.id : am_undefined);
+    erts_queue_message(rp, rp_locks, mp, msg, from);
 
 done:
     if (c_p == rp)
@@ -2206,70 +2209,60 @@ static void rollback_opened_resource_types(void)
     }
 }
 
-struct destroy_monitor_ctx
+#ifdef ARCH_64
+#  define ERTS_RESOURCE_DYING_FLAG (((Uint) 1) << 63)
+#else
+#  define ERTS_RESOURCE_DYING_FLAG (((Uint) 1) << 31)
+#endif
+#define ERTS_RESOURCE_REFC_MASK (~ERTS_RESOURCE_DYING_FLAG)
+
+static ERTS_INLINE void
+rmon_set_dying(ErtsResourceMonitors *rms)
 {
-    ErtsResource* resource;
-    int exiting_procs;
-    int scheduler;
-};
-
-static void destroy_one_monitor(ErtsMonitor* mon, void* context)
-{
-    struct destroy_monitor_ctx* ctx = (struct destroy_monitor_ctx*) context;
-    Process* rp;
-    ErtsMonitor *rmon = NULL;
-    int is_exiting;
-
-    ASSERT(mon->type == MON_ORIGIN);
-    ASSERT(is_internal_pid(mon->u.pid));
-    ASSERT(is_internal_ref(mon->ref));
-
-    if (ctx->scheduler > 0) { /* Normal scheduler */
-        rp = erts_proc_lookup(mon->u.pid);
-    }
-    else {
-        rp = erts_proc_lookup_inc_refc(mon->u.pid);
-    }
-
-    if (!rp) {
-        is_exiting = 1;
-    }
-    if (rp) {
-        erts_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-        if (ERTS_PROC_IS_EXITING(rp)) {
-            is_exiting = 1;
-        } else {
-            rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
-            ASSERT(rmon);
-            is_exiting = 0;
-        }
-        erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-        if (ctx->scheduler <= 0)
-            erts_proc_dec_refc(rp);
-    }
-    if (is_exiting) {
-        ctx->resource->monitors->pending_failed_fire++;
-    }
-
-    /* ToDo: Delay destruction after monitor_locks */
-    if (rmon) {
-        ASSERT(rmon->type == MON_NIF_TARGET);
-        ASSERT(rmon->u.resource == ctx->resource);
-        erts_destroy_monitor(rmon);
-    }
-    erts_destroy_monitor(mon);
+    rms->refc |= ERTS_RESOURCE_DYING_FLAG;
 }
 
-static void destroy_all_monitors(ErtsMonitor* monitors, ErtsResource* resource)
+static ERTS_INLINE int
+rmon_is_dying(ErtsResourceMonitors *rms)
 {
-    struct destroy_monitor_ctx ctx;
-
-    execution_state(NULL, NULL, &ctx.scheduler);
-
-    ctx.resource = resource;
-    erts_sweep_monitors(monitors, &destroy_one_monitor, &ctx);
+    return !!(rms->refc & ERTS_RESOURCE_DYING_FLAG);
 }
 
+static ERTS_INLINE void
+rmon_refc_inc(ErtsResourceMonitors *rms)
+{
+    rms->refc++;
+}
+
+static ERTS_INLINE Uint
+rmon_refc_dec_read(ErtsResourceMonitors *rms)
+{
+    Uint res;
+    ASSERT((rms->refc & ERTS_RESOURCE_REFC_MASK) != 0);
+    res = --rms->refc;
+    return res & ERTS_RESOURCE_REFC_MASK;
+}
+
+static ERTS_INLINE void
+rmon_refc_dec(ErtsResourceMonitors *rms)
+{
+    ASSERT((rms->refc & ERTS_RESOURCE_REFC_MASK) != 0);
+    --rms->refc;
+}
+
+static ERTS_INLINE Uint
+rmon_refc_read(ErtsResourceMonitors *rms)
+{
+    return rms->refc & ERTS_RESOURCE_REFC_MASK;
+}
+
+static void dtor_demonitor(ErtsMonitor* mon, void* context)
+{
+    ASSERT(erts_monitor_is_origin(mon));
+    ASSERT(is_internal_pid(mon->other.item));
+
+    erts_proc_sig_send_demonitor(mon);
+}
 
 #  define NIF_RESOURCE_DTOR &nif_resource_dtor
 
@@ -2281,34 +2274,36 @@ static int nif_resource_dtor(Binary* bin)
 
     if (resource->monitors) {
         ErtsResourceMonitors* rm = resource->monitors;
+        int kill;
+        ErtsMonitor *root;
+        Uint refc;
 
         ASSERT(type->down);
         erts_mtx_lock(&rm->lock);
         ASSERT(erts_refc_read(&bin->intern.refc, 0) == 0);
-        if (rm->root) {
-            ASSERT(!rm->is_dying);
-            destroy_all_monitors(rm->root, resource);
+        kill = !rmon_is_dying(rm);
+        if (kill) {
+            rmon_set_dying(rm);
+            root = rm->root;
             rm->root = NULL;
         }
-        if (rm->pending_failed_fire) {
-            /*
-             * Resource death struggle prolonged to serve exiting process(es).
-             * Destructor will be called again when last exiting process
-             * tries to fire its MON_NIF_TARGET monitor (and fails).
-             *
-             * This resource is doomed. It has no "real" references and
-             * should get not get called upon to do anything except the
-             * final destructor call.
-             *
-             * We keep refc at 0 and use a separate counter for exiting
-             * processes to avoid resource getting revived by "dec_term".
-             */
-            ASSERT(!rm->is_dying);
-            rm->is_dying = 1;
-            erts_mtx_unlock(&rm->lock);
-            return 0;
-        }
+        refc = rmon_refc_read(rm);
         erts_mtx_unlock(&rm->lock);
+
+        if (kill)
+            erts_monitor_tree_foreach_delete(&root,
+                                             dtor_demonitor,
+                                             NULL);
+
+        /*
+         * If resource->monitors->refc != 0 there are
+         * outstanding references to the resource from
+         * monitors that has not been removed yet.
+         * nif_resource_dtor() will be called again this
+         * reference count reach zero.
+         */
+        if (refc != 0)
+            return 0; /* we'll be back... */
         erts_mtx_destroy(&rm->lock);
     }
 
@@ -2338,54 +2333,82 @@ void erts_resource_stop(ErtsResource* resource, ErlNifEvent e,
     post_nif_noproc(&msg_env);
 }
 
-void erts_fire_nif_monitor(ErtsResource* resource, Eterm pid, Eterm ref)
+void erts_nif_demonitored(ErtsResource* resource)
 {
-    ErtsMonitor* rmon;
-    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
-    struct enif_msg_environment_t msg_env;
-    ErlNifPid nif_pid;
-    ErlNifMonitor nif_monitor;
     ErtsResourceMonitors* rmp = resource->monitors;
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+    int free_me;
 
     ASSERT(rmp);
     ASSERT(resource->type->down);
 
     erts_mtx_lock(&rmp->lock);
-    rmon = erts_remove_monitor(&rmp->root, ref);
-    if (!rmon) {
-        int free_me = (--rmp->pending_failed_fire == 0) && rmp->is_dying;
-        ASSERT(rmp->pending_failed_fire >= 0);
-        erts_mtx_unlock(&rmp->lock);
+    free_me = ((rmon_refc_dec_read(rmp) == 0) & !!rmon_is_dying(rmp));
+    erts_mtx_unlock(&rmp->lock);
 
-        if (free_me) {
-            ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) == 0);
-            erts_bin_free(&bin->binary);
-        }
-        return;
+    if (free_me)
+        erts_bin_free(&bin->binary);
+}
+
+void erts_fire_nif_monitor(ErtsMonitor *tmon)
+{
+    ErtsResource* resource;
+    ErtsMonitorData *mdp;
+    ErtsMonitor *omon;
+    ErtsBinary* bin;
+    struct enif_msg_environment_t msg_env;
+    ErlNifPid nif_pid;
+    ErlNifMonitor nif_monitor;
+    ErtsResourceMonitors* rmp;
+    Uint mrefc, brefc;
+    int active, is_dying;
+
+    ASSERT(tmon->type == ERTS_MON_TYPE_RESOURCE);
+    ASSERT(erts_monitor_is_target(tmon));
+
+    resource = tmon->other.ptr;
+    bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
+    rmp = resource->monitors;
+
+    mdp = erts_monitor_to_data(tmon);
+    omon = &mdp->origin;
+
+    ASSERT(rmp);
+    ASSERT(resource->type->down);
+
+    erts_mtx_lock(&rmp->lock);
+
+    mrefc = rmon_refc_dec_read(rmp);
+    is_dying = rmon_is_dying(rmp);
+    active = !is_dying && erts_monitor_is_in_table(omon);
+
+    if (active) {
+        erts_monitor_tree_delete(&rmp->root, omon);
+        brefc = (Uint) erts_refc_inc_unless(&bin->binary.intern.refc, 0, 0);
     }
-    ASSERT(!rmp->is_dying);
-    if (erts_refc_inc_unless(&bin->binary.intern.refc, 0, 0) == 0) {
-        /*
-         * Racing resource destruction. 
-         * To avoid a more complex refc-dance with destructing thread
-         * we avoid calling 'down' and just silently remove the monitor.
-         * This can happen even for non smp as destructor calls may be scheduled.
-         */
-        erts_mtx_unlock(&rmp->lock);
+
+    erts_mtx_unlock(&rmp->lock);
+
+    if (!active) {
+        ASSERT(!is_dying || erts_refc_read(&bin->binary.intern.refc, 0) == 0);
+        if (is_dying && mrefc == 0)
+            erts_bin_free(&bin->binary);
+        erts_monitor_release(tmon);
     }
     else {
-        erts_mtx_unlock(&rmp->lock);
+        if (brefc > 0) {
+            ASSERT(is_internal_pid(omon->other.item));
+            erts_ref_to_driver_monitor(mdp->ref, &nif_monitor);
+            nif_pid.pid = omon->other.item;
+            pre_nif_noproc(&msg_env, resource->type->owner, NULL);
+            resource->type->down(&msg_env.env, resource->data, &nif_pid, &nif_monitor);
+            post_nif_noproc(&msg_env);
 
-        ASSERT(rmon->u.pid == pid);
-        erts_ref_to_driver_monitor(ref, &nif_monitor);
-        nif_pid.pid = pid;
-        pre_nif_noproc(&msg_env, resource->type->owner, NULL);
-        resource->type->down(&msg_env.env, resource->data, &nif_pid, &nif_monitor);
-        post_nif_noproc(&msg_env);
+            erts_bin_release(&bin->binary);
+        }
 
-        erts_bin_release(&bin->binary);
+        erts_monitor_release_both(mdp);
     }
-    erts_destroy_monitor(rmon);
 }
 
 void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
@@ -2422,8 +2445,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
         erts_mtx_init(&resource->monitors->lock, "resource_monitors", NIL,
             ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
         resource->monitors->root = NULL;
-        resource->monitors->pending_failed_fire = 0;
-        resource->monitors->is_dying = 0;
+        resource->monitors->refc = 0;
         resource->monitors->user_data_sz = data_sz;
     }
     else {
@@ -2438,7 +2460,7 @@ void enif_release_resource(void* obj)
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
-    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) != 0);
 #ifdef DEBUG
     erts_refc_dec(&resource->nif_refc, 0);
 #endif
@@ -2451,7 +2473,7 @@ void enif_keep_resource(void* obj)
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
-    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) != 0);
 #ifdef DEBUG
     erts_refc_inc(&resource->nif_refc, 1);
 #endif
@@ -2461,7 +2483,7 @@ void enif_keep_resource(void* obj)
 Eterm erts_bld_resource_ref(Eterm** hpp, ErlOffHeap* oh, ErtsResource* resource)
 {
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
-    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) != 0);
     return erts_mk_magic_ref(hpp, oh, &bin->binary);
 }
 
@@ -2470,7 +2492,7 @@ ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
     ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     Eterm* hp = alloc_heap(env, ERTS_MAGIC_REF_THING_SIZE);
-    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) != 0);
     return erts_mk_magic_ref(&hp, &MSO(env->proc), &bin->binary);
 }
 
@@ -3150,123 +3172,88 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
 int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
                          ErlNifMonitor* monitor)
 {
-    int scheduler;
     ErtsResource* rsrc = DATA_TO_RESOURCE(obj);
-    Process *rp;
     Eterm tmp[ERTS_REF_THING_SIZE];
     Eterm ref;
-    int retval;
+    ErtsResourceMonitors *rm;
+    ErtsMonitorData *mdp;
 
     ASSERT(ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc)->magic_binary.destructor
            == NIF_RESOURCE_DTOR);
-    ASSERT(!(rsrc->monitors && rsrc->monitors->is_dying));
+    ASSERT(erts_refc_read(&ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc)->binary.intern.refc, 0) != 0);
     ASSERT(!rsrc->monitors == !rsrc->type->down);
 
-
-    if (!rsrc->monitors) {
+    rm = rsrc->monitors;
+    if (!rm) {
         ASSERT(!rsrc->type->down);
         return -1;
     }
     ASSERT(rsrc->type->down);
 
-    execution_state(env, NULL, &scheduler);
-
-    if (scheduler > 0) /* Normal scheduler */
-        rp = erts_proc_lookup_raw(target_pid->pid);
-    else
-        rp = erts_proc_lookup_raw_inc_refc(target_pid->pid);
-
-    if (!rp)
-        return 1;
-
     ref = erts_make_ref_in_buffer(tmp);
 
-    erts_mtx_lock(&rsrc->monitors->lock);
-    erts_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-    if (ERTS_PSFLG_FREE & erts_atomic32_read_nob(&rp->state)) {
-        retval = 1;
-    }
-    else {
-        erts_add_monitor(&rsrc->monitors->root, MON_ORIGIN, ref, rp->common.id, NIL);
-        erts_add_monitor(&ERTS_P_MONITORS(rp), MON_NIF_TARGET, ref, (UWord)rsrc, NIL);
-        retval = 0;
-    }
-    erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-    erts_mtx_unlock(&rsrc->monitors->lock);
+    mdp = erts_monitor_create(ERTS_MON_TYPE_RESOURCE, ref,
+                              (Eterm) rsrc, target_pid->pid, NIL);
+    erts_mtx_lock(&rm->lock);
+    ASSERT(!rmon_is_dying(rm));
+    erts_monitor_tree_insert(&rm->root, &mdp->origin);
+    rmon_refc_inc(rm);
+    erts_mtx_unlock(&rm->lock);
 
-    if (scheduler <= 0)
-        erts_proc_dec_refc(rp);
+    if (!erts_proc_sig_send_monitor(&mdp->target, target_pid->pid)) {
+        /* Failed to send monitor signal; cleanup... */
+#ifdef DEBUG
+        ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);
+#endif
+
+        erts_mtx_lock(&rm->lock);
+        ASSERT(!rmon_is_dying(rm));
+        erts_monitor_tree_delete(&rm->root, &mdp->origin);
+        rmon_refc_dec(rm);
+        ASSERT(erts_refc_read(&bin->binary.intern.refc, 1) != 0);
+        erts_mtx_unlock(&rm->lock);
+        erts_monitor_release_both(mdp);
+
+        return 1;
+    }
+
     if (monitor)
         erts_ref_to_driver_monitor(ref,monitor);
 
-    return retval;
+    return 0;
 }
 
 int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monitor)
 {
-    int scheduler;
     ErtsResource* rsrc = DATA_TO_RESOURCE(obj);
 #ifdef DEBUG
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);
 #endif
-    Process *rp;
+    ErtsResourceMonitors *rm;
     ErtsMonitor *mon;
-    ErtsMonitor *rmon = NULL;
     Eterm ref_heap[ERTS_REF_THING_SIZE];
     Eterm ref;
-    int is_exiting;
 
     ASSERT(bin->magic_binary.destructor == NIF_RESOURCE_DTOR);
-    ASSERT(!(rsrc->monitors && rsrc->monitors->is_dying));
-
-    execution_state(env, NULL, &scheduler);
+    ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) != 0);
 
     ref = erts_driver_monitor_to_ref(ref_heap, monitor);
 
-    erts_mtx_lock(&rsrc->monitors->lock);
-    mon = erts_remove_monitor(&rsrc->monitors->root, ref);
+    rm = rsrc->monitors;
+    erts_mtx_lock(&rm->lock);
+    ASSERT(!rmon_is_dying(rm));
+    mon = erts_monitor_tree_lookup(rm->root, ref);
+    if (mon)
+        erts_monitor_tree_delete(&rm->root, mon);
+    erts_mtx_unlock(&rm->lock);
 
-    if (mon == NULL) {
-        erts_mtx_unlock(&rsrc->monitors->lock);
+    if (!mon)
         return 1;
-    }
 
-    ASSERT(mon->type == MON_ORIGIN);
-    ASSERT(is_internal_pid(mon->u.pid));
+    ASSERT(erts_monitor_is_origin(mon));
+    ASSERT(is_internal_pid(mon->other.item));
 
-    if (scheduler > 0) /* Normal scheduler */
-        rp = erts_proc_lookup(mon->u.pid);
-    else
-        rp = erts_proc_lookup_inc_refc(mon->u.pid);
-
-    if (!rp) {
-        is_exiting = 1;
-    }
-    else {
-        erts_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-        if (ERTS_PROC_IS_EXITING(rp)) {
-            is_exiting = 1;
-        } else {
-            rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
-            ASSERT(rmon);
-            is_exiting = 0;
-        }
-        erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-
-        if (scheduler <= 0)
-            erts_proc_dec_refc(rp);
-    }
-    if (is_exiting) {
-        rsrc->monitors->pending_failed_fire++;
-    }
-    erts_mtx_unlock(&rsrc->monitors->lock);
-
-    if (rmon) {
-        ASSERT(rmon->type == MON_NIF_TARGET);
-        ASSERT(rmon->u.resource == rsrc);
-        erts_destroy_monitor(rmon);
-    }
-    erts_destroy_monitor(mon);
+    erts_proc_sig_send_demonitor(mon);
 
     return 0;
 }

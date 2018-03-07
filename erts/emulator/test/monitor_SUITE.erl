@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ case_2(Config) when is_list(Config) ->
     R = erlang:monitor(process, B),
     B ! R,
     receive
-        {'EXIT', _} -> ok;
+        true -> ok;
         Other ->
             ct:fail({rec, Other})
     end,
@@ -98,7 +98,7 @@ case_2a(Config) when is_list(Config) ->
     {B,R} = spawn_monitor(?MODULE, y2, [self()]),
     B ! R,
     receive
-        {'EXIT', _} -> ok;
+        true -> ok;
         Other ->
             ct:fail({rec, Other})
     end,
@@ -182,7 +182,7 @@ demon_e_1(Config) when is_list(Config) ->
            end ),
     receive 
         {P2, ref, R2} -> 
-            demon_error(R2, badarg),
+            true = erlang:demonitor(R2),
             P2 ! {self(), stop};
         Other2 ->
             ct:fail({rec, Other2})
@@ -729,8 +729,8 @@ named_down(Config) when is_list(Config) ->
                            end),
     ?assertEqual(true, register(Name, NamedProc)),
     unlink(NamedProc),
-    exit(NamedProc, bang),
     Mon = erlang:monitor(process, Name),
+    exit(NamedProc, bang),
     receive {'DOWN',Mon, _, _, bang} -> ok
     after 3000 -> ?assert(false) end,
     ?assertEqual(true, register(Name, self())),

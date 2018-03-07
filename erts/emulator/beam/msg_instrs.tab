@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017. All Rights Reserved.
+// Copyright Ericsson AB 2017-2018. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,23 +45,16 @@
 
 i_recv_mark() {
     /*
-     * Save the current position in message buffer.
+     * Save the current end of message queue
      */
-    c_p->msg.saved_last = c_p->msg.last;
+    ERTS_RECV_MARK_SAVE(c_p);
 }
 
 i_recv_set() {
     /*
-     * If c_p->msg.saved_last is non-zero, it points to the first
-     * message that could possibly be matched out.
-     *
-     * If c_p->msg.saved_last is zero, it means that it was invalidated
-     * because another receive was executed before this i_recv_set()
-     * instruction was reached.
+     * If previously saved recv mark, set peek position to it
      */
-    if (c_p->msg.saved_last) {
-        c_p->msg.save = c_p->msg.saved_last;
-    }
+    ERTS_RECV_MARK_SET(c_p);
     SET_I($NEXT_INSTRUCTION);
     goto loop_rec_top__;
     //| -no_next
@@ -79,7 +72,6 @@ i_loop_rec(Dest) {
 
     /* Entry point from recv_set */
  loop_rec_top__:
-    ;
 
     /*
      * We need to disable GC while matching messages
@@ -89,34 +81,59 @@ i_loop_rec(Dest) {
     ASSERT(!(c_p->flags & F_DELAY_GC));
     c_p->flags |= F_DELAY_GC;
 
-    /* Entry point from loop_rec_end */
+    /* Entry point from loop_rec_end (and locally) */
  loop_rec__:
+
+    if (FCALLS <= 0 && FCALLS <= neg_o_reds) {
+        $SET_CP_I_ABS(I);
+        c_p->flags &= ~F_DELAY_GC;
+        SWAPOUT;
+        c_p->arity = 0;
+        c_p->current = NULL;
+        goto do_schedule;
+    }
+
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     msgp = PEEK_MESSAGE(c_p);
 
-    if (!msgp) {
-        erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-        /* Make sure messages wont pass exit signals... */
-        if (ERTS_PROC_PENDING_EXIT(c_p)) {
-            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-            SWAPOUT;
-            c_p->flags &= ~F_DELAY_GC;
-            c_p->arity = 0;
-            goto do_schedule; /* Will be rescheduled for exit */
-        }
-        ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-        msgp = PEEK_MESSAGE(c_p);
-        if (msgp) {
-            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-        } else {
+    if (ERTS_UNLIKELY(msgp == NULL)) {
+        int get_out;
+        SWAPOUT;
+        FCALLS -= erts_proc_sig_receive_helper(c_p, FCALLS, neg_o_reds,
+                                               &msgp, &get_out);
+        SWAPIN;
+        if (ERTS_UNLIKELY(msgp == NULL)) {
+            if (get_out) {
+                if (get_out < 0) {
+                    ASSERT(FCALLS <= 0 && FCALLS <= neg_o_reds);
+                    goto loop_rec__; /* yield */
+                }
+                else {
+                    ASSERT(ERTS_PROC_IS_EXITING(c_p));
+                    goto do_schedule; /* exit */
+                }
+            }
+
+            /*
+             * If there are no more messages in queue
+             * (and we are not yielding or exiting)
+             * erts_proc_sig_receive_helper()
+             * returns with message queue lock locked...
+             */
             c_p->flags &= ~F_DELAY_GC;
             $SET_I_REL($Dest);
             Goto(*I);		/* Jump to a wait or wait_timeout instruction */
         }
     }
-    if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
+
+    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(msgp && ERTS_SIG_IS_MSG(msgp));
+
+    if (ERTS_UNLIKELY(ERTS_SIG_IS_EXTERNAL_MSG(msgp))) {
+        FCALLS -= 10; /* FIXME: bump appropriate amount... */
         SWAPOUT; /* erts_decode_dist_message() may write to heap... */
         if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
             /*
@@ -127,13 +144,16 @@ i_loop_rec(Dest) {
             ASSERT(HTOP == c_p->htop && E == c_p->stop);
             /* TODO: Add DTrace probe for this bad message situation? */
             UNLINK_MESSAGE(c_p, msgp);
-            c_p->msg.saved_last = 0; /* Better safe than sorry. */
             msgp->next = NULL;
             erts_cleanup_messages(msgp);
             goto loop_rec__;
         }
         SWAPIN;
     }
+
+    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(ERTS_SIG_IS_INTERNAL_MSG(msgp));
+
     r(0) = ERL_MESSAGE_TERM(msgp);
 }
 
@@ -252,17 +272,8 @@ loop_rec_end(Dest) {
 
     $SET_I_REL($Dest);
     SAVE_MESSAGE(c_p);
-    if (FCALLS > 0 || FCALLS > neg_o_reds) {
-        FCALLS--;
-        goto loop_rec__;
-    }
-
-    c_p->flags &= ~F_DELAY_GC;
-    $SET_CP_I_ABS(I);
-    SWAPOUT;
-    c_p->arity = 0;
-    c_p->current = NULL;
-    goto do_schedule;
+    FCALLS--;
+    goto loop_rec__;
 }
 
 timeout_locked() {

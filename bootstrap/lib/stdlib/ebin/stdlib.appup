@@ -16,7 +16,7 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"3.4.2",
+{"3.4.3",
  %% Up from - max one major revision back
  [{<<"3\\.4(\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-20.*
  %% Down to - max one major revision back

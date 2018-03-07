@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -202,8 +202,7 @@ ports(_Config) ->
     erlang:port_close(Prt),
 
     [{trace,Prt,closed,normal},
-     {trace,Prt,unregister,port_trace_SUITE},
-     {trace,Prt,unlink,S}] = flush(),
+     {trace,Prt,unregister,port_trace_SUITE}] = flush(),
 
     ok.
 
@@ -475,8 +474,7 @@ failure_test(Failure, Reason) ->
         process_flag(trap_exit, false)
     end,
     [{trace, Prt, 'receive', {S, {command, Failure}}},
-     {trace, Prt, closed, Reason},
-     {trace, Prt, unlink, S}] = flush(),
+     {trace, Prt, closed, Reason}] = flush(),
 
     ok.
 
@@ -599,13 +597,11 @@ close(Prt, Flags) ->
 
     if Recv, Ports ->
             [{trace, Prt, 'receive', {S, close}},
-             {trace, Prt, closed, normal},
-             {trace, Prt, unlink, S}] = flush();
+             {trace, Prt, closed, normal}] = flush();
        Recv ->
             [{trace, Prt, 'receive', {S, close}}] = flush();
        Ports ->
-            [{trace, Prt, closed, normal},
-             {trace, Prt, unlink, S}] = flush();
+            [{trace, Prt, closed, normal}] = flush();
        true ->
             [] = flush()
     end.

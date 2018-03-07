@@ -3649,7 +3649,7 @@ verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
 			  XScheds = count_exit_sched(TP),
 			  io:format("~p XScheds=~p~n",
 				    [TP, XScheds]),
-			  true = XScheds >= 5
+			  true = XScheds >= 3
 		  end,
 		  TPs),
     stop_loopers(LPs),

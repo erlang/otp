@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2017. All Rights Reserved.
+# Copyright Ericsson AB 2003-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -282,6 +282,11 @@ type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
+type	SIG_DATA	SHORT_LIVED	PROCESSES	signal_data
+type	DIST_DEMONITOR	SHORT_LIVED	PROCESSES	dist_demonitor
+type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
+type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
+type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
@@ -326,8 +331,8 @@ type    LCNT_VECTOR SHORT_LIVED SYSTEM lcnt_sample_vector
 type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
-type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
-type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
+type	MONITOR_EXT	STANDARD	PROCESSES	monitor_extended
+type	LINK_EXT	STANDARD	PROCESSES	link_extended
 type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
@@ -340,8 +345,8 @@ type  	LL_TEMP_TERM 	LONG_LIVED	SYSTEM		ll_temp_term
 type	NIF_TRAP_EXPORT	STANDARD	PROCESSES	nif_trap_export_entry
 type	NIF_EXP_TRACE	FIXED_SIZE	PROCESSES	nif_export_trace
 type	EXPORT		LONG_LIVED	CODE		export_entry
-type	MONITOR_SH	FIXED_SIZE	PROCESSES	monitor_sh
-type	NLINK_SH	FIXED_SIZE	PROCESSES	nlink_sh
+type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request

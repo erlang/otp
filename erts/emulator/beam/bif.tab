@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ bif erlang:erase/0
 bif erlang:erase/1
 bif erlang:exit/1
 bif erlang:exit/2
+bif erlang:exit_signal/2
 bif erlang:external_size/1
 bif erlang:external_size/2
 gcbif erlang:float/1
@@ -73,7 +74,8 @@ bif erlang:get/0
 bif erlang:get/1
 bif erlang:get_keys/1
 bif erlang:group_leader/0
-bif erlang:group_leader/2
+bif erts_internal:group_leader/2
+bif erts_internal:group_leader/3
 bif erlang:halt/2
 bif erlang:phash/2
 bif erlang:phash2/1
@@ -186,6 +188,8 @@ bif erts_internal:system_check/1
 bif erts_internal:release_literal_area_switch/0
 
 bif erts_internal:scheduler_wall_time/1
+
+bif erts_internal:dirty_process_handle_signals/1
 
 # inet_db support
 bif erlang:port_set_data/2
@@ -433,13 +437,6 @@ bif erts_debug:instructions/0
 bif erts_debug:dirty_cpu/2
 bif erts_debug:dirty_io/2
 bif erts_debug:dirty/3
-
-#
-# Monitor testing bif's...
-#
-bif erts_debug:dump_monitors/1
-bif erts_debug:dump_links/1
-
 
 #
 # Lock counter bif's

@@ -478,8 +478,7 @@ port(Config) when is_list(Config) ->
         TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
         [{trace,Port,open,S,TraceFileDrv},
          {trace,Port,getting_linked,S},
-         {trace,Port,closed,normal},
-         {trace,Port,unlink,S}] = flush()
+         {trace,Port,closed,normal}] = flush()
     after
         dbg:stop()
     end,

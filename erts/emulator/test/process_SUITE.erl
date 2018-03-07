@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@
 	 process_info_lock_reschedule3/1,
          process_info_garbage_collection/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
-	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
 	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
@@ -80,7 +79,6 @@ all() ->
      process_info_lock_reschedule2,
      process_info_lock_reschedule3,
      process_info_garbage_collection,
-     process_status_exiting,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -841,28 +839,6 @@ process_info_lock_reschedule3(Config) when is_list(Config) ->
 		  ct:fail(BadStatus)
 	  end.
 
-process_status_exiting(Config) when is_list(Config) ->
-    %% Make sure that erts_debug:get_internal_state({process_status,P})
-    %% returns exiting if it is in status P_EXITING.
-    erts_debug:set_internal_state(available_internal_state,true),
-    Prio = process_flag(priority, max),
-    P = spawn_opt(fun () -> receive after infinity -> ok end end,
-			[{priority, normal}]),
-    erlang:yield(),
-    %% The tok_loop processes are here to make it hard for the exiting
-    %% process to be scheduled in for exit...
-    TokLoops = lists:map(fun (_) ->
-		spawn_opt(fun tok_loop/0,
-		    [link,{priority, high}])
-	end, lists:seq(1, erlang:system_info(schedulers_online))),
-    exit(P, boom),
-    wait_until(fun() ->
-		exiting =:= erts_debug:get_internal_state({process_status,P})
-	end),
-    lists:foreach(fun (Tok) -> unlink(Tok), exit(Tok,bang) end, TokLoops),
-    process_flag(priority, Prio),
-    ok.
-
 otp_4725(Config) when is_list(Config) ->
     Tester = self(),
     Ref1 = make_ref(),
@@ -1000,7 +976,7 @@ gv(Key,List) ->
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
     erlang:garbage_collect(),
-    receive after 1 -> ok end,		% Clear reductions.
+    erlang:yield(),		% Clear reductions.
     {reductions,R1} = process_info(self(), reductions),
     true = erlang:bump_reductions(100),
     {reductions,R2} = process_info(self(), reductions),

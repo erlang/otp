@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_hash_slot",				"address"		},
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
-    {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
     {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},

@@ -3275,16 +3275,16 @@ otp_8856(Config) when is_list(Config) ->
     {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
     spawn(fun()-> Me ! {1, dets:insert(Tab, [])} end),
     spawn(fun()-> Me ! {2, dets:insert_new(Tab, [])} end),
-    ok = dets:close(Tab),
     receive {1, ok} -> ok end,
     receive {2, true} -> ok end,
+    ok = dets:close(Tab),
     file:delete(File),
 
     {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
     spawn(fun() -> dets:delete(Tab, 0) end),
     spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
-    ok = dets:close(Tab),
     receive {3, true} -> ok end,
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 

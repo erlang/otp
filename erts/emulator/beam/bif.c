@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,8 +46,10 @@
 #include "erl_bif_unique.h"
 #include "erl_map.h"
 #include "erl_msacc.h"
+#include "erl_proc_sig_queue.h"
 
 Export *erts_await_result;
+static Export await_exit_trap;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_proc_exit_trap = NULL;
@@ -92,83 +94,51 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
 /* Utility to add a new link between processes p and another internal
  * process (rpid). Process p must be the currently executing process.
  */
-static int insert_internal_link(Process* p, Eterm rpid)
-{
-    Process *rp;
-    ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
-
-    ASSERT(is_internal_pid(rpid));
-
-    if (IS_TRACED(p)
-	&& (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))) {
-	rp_locks = ERTS_PROC_LOCKS_ALL;
-    }
-
-    erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-
-    /* get a pointer to the process struct of the linked process */
-    rp = erts_pid2proc_opt(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK,
-			   rpid, rp_locks,
-			   ERTS_P2P_FLG_ALLOW_OTHER_X);
-
-    if (!rp) {
-	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	return 0;
-    }
-
-    if (p != rp) {
-	erts_add_link(&ERTS_P_LINKS(p), LINK_PID, rp->common.id);
-	erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, p->common.id);
-
-	ASSERT(IS_TRACER_VALID(ERTS_TRACER(p)));
-
-	if (IS_TRACED(p)) {
-	    if (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))  {
-		ERTS_TRACE_FLAGS(rp) |= (ERTS_TRACE_FLAGS(p) & TRACEE_FLAGS);
-                erts_tracer_replace(&rp->common, ERTS_TRACER(p));
-		if (ERTS_TRACE_FLAGS(p) & F_TRACE_SOL1) { /* maybe override */
-		    ERTS_TRACE_FLAGS(rp) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-		    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-		}
-	    }
-	}
-    }
-    if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-	trace_proc(p, p == rp ? rp_locks : ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK,
-                   rp, am_getting_linked, p->common.id);
-
-    if (p == rp)
-	erts_proc_unlock(p, rp_locks & ~ERTS_PROC_LOCK_MAIN);
-    else {
-	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	erts_proc_unlock(rp, rp_locks);
-    }
-
-    return 1;
-}
-
 
 /* create a link to the process */
 BIF_RETTYPE link_1(BIF_ALIST_1)
 {
-    DistEntry *dep;
-
     if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
 	trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P, am_link, BIF_ARG_1);
     }
     /* check that the pid or port which is our argument is OK */
 
     if (is_internal_pid(BIF_ARG_1)) {
-	if (insert_internal_link(BIF_P, BIF_ARG_1)) {
-	    BIF_RET(am_true);
-	}
-	else {
-	    goto res_no_proc;
-	}
+        int created;
+        ErtsLinkData *ldp;
+        ErtsLink *lnk;
+
+        if (BIF_P->common.id == BIF_ARG_1)
+            BIF_RET(am_true);
+
+        if (!erts_proc_lookup(BIF_ARG_1))
+            goto res_no_proc;
+
+        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                           &created,
+                                           ERTS_LNK_TYPE_PROC,
+                                           BIF_P->common.id,
+                                           BIF_ARG_1);
+        if (!created)
+            BIF_RET(am_true);
+
+        ldp = erts_link_to_data(lnk);
+        
+
+        if (erts_proc_sig_send_link(BIF_P, BIF_ARG_1, &ldp->b))
+            BIF_RET(am_true);
+
+        erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
+        erts_link_release_both(ldp);
+        goto res_no_proc;
     }
 
     if (is_internal_port(BIF_ARG_1)) {
-	int send_link_signal = 0;
+        int created;
+        ErtsLinkData *ldp;
+        ErtsLink *lnk;
+        Eterm ref;
+        Eterm *refp;
 	Port *prt = erts_port_lookup(BIF_ARG_1,
 				     (erts_port_synchronous_ops
 				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
@@ -177,31 +147,31 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 	    goto res_no_proc;
 	}
 
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
-	
-	if (erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, BIF_ARG_1) >= 0)
-	    send_link_signal = 1;
-	/* else: already linked */
+        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                           &created,
+                                           ERTS_LNK_TYPE_PORT,
+                                           BIF_P->common.id,
+                                           BIF_ARG_1);
+        if (!created)
+            BIF_RET(am_true);
 
-	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+        ldp = erts_link_to_data(lnk);
+        refp = erts_port_synchronous_ops ? &ref : NULL;
 
-	if (send_link_signal) {
-	    Eterm ref;
-	    Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
-
-	    switch (erts_port_link(BIF_P, prt, BIF_P->common.id, refp)) {
-	    case ERTS_PORT_OP_DROPPED:
-	    case ERTS_PORT_OP_BADARG:
-		goto res_no_proc;
-	    case ERTS_PORT_OP_SCHEDULED:
-		if (refp) {
-		    ASSERT(is_internal_ordinary_ref(ref));
-		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
-		}
-	    default:
-		break;
-	    }
-	}
+        switch (erts_port_link(BIF_P, prt, &ldp->b, refp)) {
+        case ERTS_PORT_OP_DROPPED:
+        case ERTS_PORT_OP_BADARG:
+            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
+            erts_link_release_both(ldp);
+            goto res_no_proc;
+        case ERTS_PORT_OP_SCHEDULED:
+            if (refp) {
+                ASSERT(is_internal_ordinary_ref(ref));
+                BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
+            }
+        default:
+            break;
+        }
 	BIF_RET(am_true);
     }
     else if (is_external_port(BIF_ARG_1)
@@ -210,317 +180,203 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
+        ErtsLinkData *ldp;
+        int created;
+        DistEntry *dep;
+        ErtsLink *lnk;
+        int code;
+        ErtsDSigData dsd;
 
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+        dep = external_pid_dist_entry(BIF_ARG_1);
+        if (dep == erts_this_dist_entry)
+            goto res_no_proc;
 
-	/* We may earn time by checking first that we're not linked already */
-	if (erts_lookup_link(ERTS_P_LINKS(BIF_P), BIF_ARG_1) != NULL) {
-	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-	    BIF_RET(am_true);
-	}
-	else {
-	    ErtsLink *lnk;
-	    int code;
-	    ErtsDSigData dsd;
-	    dep = external_pid_dist_entry(BIF_ARG_1);
-	    if (dep == erts_this_dist_entry) {
-		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-		goto res_no_proc;
-	    }
+        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                           &created,
+                                           ERTS_LNK_TYPE_DIST_PROC,
+                                           BIF_P->common.id,
+                                           BIF_ARG_1);
 
-	    code = erts_dsig_prepare(&dsd, dep, BIF_P,
-				     (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
-				     ERTS_DSP_RLOCK, 0, 1);
-	    switch (code) {
-	    case ERTS_DSIG_PREP_NOT_ALIVE:
-	    case ERTS_DSIG_PREP_NOT_CONNECTED: {
-		ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK;
-		erts_aint32_t state;
-		erts_proc_lock(BIF_P, (ERTS_PROC_LOCKS_ALL & ~locks));
-		locks = ERTS_PROC_LOCKS_ALL;
-		erts_send_exit_signal(BIF_P, BIF_ARG_1, BIF_P, &locks,
-				      am_noconnection, NIL, NULL, 0);
-		erts_proc_unlock(BIF_P, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+        if (!created)
+            BIF_RET(am_true); /* Already present... */
 
-		/*
-		 * Copy-paste from old dist_exit_3, not sure if we really
-		 * need erts_handle_pending_exit when exit_2 does not.
-		 */
-		state = erts_atomic32_read_acqb(&BIF_P->state);
-		if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-		    if (state & ERTS_PSFLG_PENDING_EXIT)
-			erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    ERTS_BIF_EXITED(BIF_P);
-		}
-		BIF_RET(am_true);
-	    }
-            case ERTS_DSIG_PREP_PENDING:
-	    case ERTS_DSIG_PREP_CONNECTED:
-                /*
-                 * We have (pending) connection.
-                 * Setup link and enqueue link signal.
-                 */
-		erts_de_links_lock(dep);
+        ldp = erts_link_to_data(lnk);
 
-		erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, BIF_ARG_1);
-		lnk = erts_add_or_lookup_link(&(dep->nlinks),
-					      LINK_PID,
-					      BIF_P->common.id);
-		ASSERT(lnk != NULL);
-		erts_add_link(&ERTS_LINK_ROOT(lnk), LINK_PID, BIF_ARG_1);
+        code = erts_dsig_prepare(&dsd, dep, BIF_P,
+                                 ERTS_PROC_LOCK_MAIN,
+                                 ERTS_DSP_RLOCK, 0, 1);
+        switch (code) {
+        case ERTS_DSIG_PREP_NOT_ALIVE:
+        case ERTS_DSIG_PREP_NOT_CONNECTED:
+            erts_link_set_dead_dist(&ldp->b, dep->sysname);
+            erts_proc_sig_send_link_exit(NULL, BIF_ARG_1, &ldp->b,
+                                         am_noconnection, NIL);
+            BIF_RET(am_true);
 
-		erts_de_links_unlock(dep);
-		erts_de_runlock(dep);
-		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+        case ERTS_DSIG_PREP_PENDING:
+        case ERTS_DSIG_PREP_CONNECTED: {
+            /*
+             * We have (pending) connection.
+             * Setup link and enqueue link signal.
+             */
+#ifdef DEBUG
+            int inserted =
+#endif
+                erts_link_dist_insert(&ldp->b, dep->mld);
+            ASSERT(inserted);
+            erts_de_runlock(dep);
 
-		code = erts_dsig_send_link(&dsd, BIF_P->common.id, BIF_ARG_1);
-		if (code == ERTS_DSIG_SEND_YIELD)
-		    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-		BIF_RET(am_true);
-	    default:
-		ERTS_ASSERT(! "Invalid dsig prepare result");
-	    }
-	}
+            code = erts_dsig_send_link(&dsd, BIF_P->common.id, BIF_ARG_1);
+            if (code == ERTS_DSIG_SEND_YIELD)
+                ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            BIF_RET(am_true);
+            break;
+        }
+        default:
+            ERTS_ASSERT(! "Invalid dsig prepare result");
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
 
-res_no_proc: {
-	erts_aint32_t state = erts_atomic32_read_nob(&BIF_P->state);
-	if (state & ERTS_PSFLG_TRAP_EXIT) {
-	    ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
-	    erts_deliver_exit_message(BIF_ARG_1, BIF_P, &locks, am_noproc, NIL);
-	    erts_proc_unlock(BIF_P, ~ERTS_PROC_LOCK_MAIN & locks);
-	    BIF_RET(am_true);
-	}
-	else
-	    BIF_ERROR(BIF_P, EXC_NOPROC);
+res_no_proc:
+    if (BIF_P->flags & F_TRAP_EXIT) {
+        ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
+        erts_deliver_exit_message(BIF_ARG_1, BIF_P, &locks, am_noproc, NIL);
+        erts_proc_unlock(BIF_P, ~ERTS_PROC_LOCK_MAIN & locks);
+        BIF_RET(am_true);
+    }
+    else {
+        /*
+         * This behaviour is *really* sad but link/1 has
+         * behaved like this for ages (and this behaviour is
+         * actually documented)... :'-(
+         *
+         * The proper behavior would have been to
+         * send calling process an exit signal..
+         */
+        BIF_ERROR(BIF_P, EXC_NOPROC);
     }
 }
 
-/* This function is allowed to return range of values handled by demonitor/1-2
- * Namely: atoms true, false, yield, internal_error, badarg or THE_NON_VALUE
- */
 static Eterm
-remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
+demonitor(Process *c_p, Eterm ref, Eterm *multip)
 {
-    ErtsDSigData dsd;
-    ErtsMonitor *dmon;
-    ErtsMonitor *mon;
-    int code;
-    Eterm res = am_false;
+    ErtsMonitor  *mon;  /* The monitor entry to delete */
 
-    ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK)
-		       == erts_proc_lc_my_proc_locks(c_p));
-
-    code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
-			     ERTS_DSP_RLOCK, 0, 0);
-    switch (code) {
-    case ERTS_DSIG_PREP_NOT_ALIVE:
-    case ERTS_DSIG_PREP_NOT_CONNECTED:
-	/*
-	 * In the smp case this is possible if the node goes
-	 * down just before the call to demonitor.
-	 */
-	if (dep) {
-	    erts_de_links_lock(dep);
-	    dmon = erts_remove_monitor(&dep->monitors, ref);
-	    erts_de_links_unlock(dep);
-	    if (dmon)
-		erts_destroy_monitor(dmon);
-	}
-	mon = erts_remove_monitor(&ERTS_P_MONITORS(c_p), ref);
-	erts_proc_unlock(c_p, ERTS_PROC_LOCK_LINK);
-
-        res = am_true;
-	break;
-
-    case ERTS_DSIG_PREP_PENDING:
-    case ERTS_DSIG_PREP_CONNECTED:
-
-	erts_de_links_lock(dep);
-	mon = erts_remove_monitor(&ERTS_P_MONITORS(c_p), ref);
-	dmon = erts_remove_monitor(&dep->monitors, ref);
-	erts_de_links_unlock(dep);
-	erts_de_runlock(dep);
-	erts_proc_unlock(c_p, ERTS_PROC_LOCK_LINK);
-
-	if (!dmon) {
-	    /*
-	     * This is possible when smp support is enabled.
-	     * 'DOWN' message just arrived.
-	     */
-            res = am_true;
-	}
-	else {
-	    /*
-	     * Soft (no force) send, use ->data in dist slot 
-	     * monitor list since in case of monitor name 
-	     * the atom is stored there. Yield if necessary.
-	     */
-	    code = erts_dsig_send_demonitor(&dsd,
-					    c_p->common.id, 
-					    (mon->name != NIL
-					     ? mon->name
-					     : mon->u.pid), 
-					    ref,
-					    0);
-            res = (code == ERTS_DSIG_SEND_YIELD ? am_yield : am_true);
-	    erts_destroy_monitor(dmon);
-	}
-	break;
-    default:
-	ERTS_ASSERT(! "Invalid dsig prepare result");
-    }
-
-
-    /*
-     * We aren't allowed to destroy 'mon' until now, since 'to'
-     * may refer into 'mon' (external pid).
-     */
-    ASSERT(mon); /* Since link lock wasn't released between
-		    lookup and remove */
-    erts_destroy_monitor(mon);
-
-    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
-    return res;
-}
-
-static ERTS_INLINE void
-demonitor_local_process(Process *c_p, Eterm ref, Eterm to, Eterm *res)
-{
-    Process *rp = erts_pid2proc_opt(c_p,
-                           ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK,
-                           to,
-                           ERTS_PROC_LOCK_LINK,
-                           ERTS_P2P_FLG_ALLOW_OTHER_X);
-    ErtsMonitor *mon = erts_remove_monitor(&ERTS_P_MONITORS(c_p), ref);
-
-    if (!mon)
-        *res = am_false;
-    else
-    {
-        *res = am_true;
-        erts_destroy_monitor(mon);
-    }
-    if (rp) {
-        ErtsMonitor *rmon;
-        rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
-        if (rp != c_p)
-            erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-        if (rmon != NULL)
-            erts_destroy_monitor(rmon);
-    }
-    else {
-        ERTS_ASSERT_IS_NOT_EXITING(c_p);
-    }
-}
-
-static ERTS_INLINE BIF_RETTYPE
-demonitor_local_port(Process *origin, Eterm ref, Eterm target)
-{
-    BIF_RETTYPE res = am_false;
-    Port        *port = erts_port_lookup_raw(target);
-
-    if (!port) {
-        BIF_ERROR(origin, BADARG);
-    }
-    erts_proc_unlock(origin, ERTS_PROC_LOCK_LINK);
-
-    if (port) {
-        Eterm trap_ref;
-        switch (erts_port_demonitor(origin, ERTS_PORT_DEMONITOR_NORMAL,
-                                    port, ref, &trap_ref)) {
-        case ERTS_PORT_OP_DROPPED:
-        case ERTS_PORT_OP_BADARG:
-            break;
-        case ERTS_PORT_OP_SCHEDULED:
-            BIF_TRAP3(await_port_send_result_trap, origin, trap_ref,
-                      am_busy_port, am_true);
-            /* the busy_port atom will never be returned, because it cannot be
-             * returned from erts_port_(de)monitor, but just in case if in future
-             * internal API changes - you may see this atom */
-        default:
-            break;
-        }
-    }
-    else {
-        ERTS_ASSERT_IS_NOT_EXITING(origin);
-    }
-    BIF_RET(res);
-}
-
-/* Can return atom true, false, yield, internal_error, badarg or
- * THE_NON_VALUE if error occurred or trap has been set up
- */
-static
-BIF_RETTYPE demonitor(Process *c_p, Eterm ref, Eterm *multip)
-{
-   ErtsMonitor  *mon = NULL;  /* The monitor entry to delete */
-   Eterm        to = NIL;     /* Monitor link traget */
-   DistEntry    *dep = NULL;  /* Target's distribution entry */
-   BIF_RETTYPE  res = am_false;
-   int          unlock_link = 1;
-
-   erts_proc_lock(c_p, ERTS_PROC_LOCK_LINK);
+   *multip = am_false;
 
    if (is_not_internal_ref(ref)) {
-       res = am_badarg;
-       goto done; /* Cannot be this monitor's ref */
+       if (is_external_ref(ref)
+           && (erts_this_dist_entry
+               == external_ref_dist_entry(ref))) {
+           return am_false;
+       }
+       return am_badarg; /* Not monitored by this monitor's ref */
    }
 
-   mon = erts_lookup_monitor(ERTS_P_MONITORS(c_p), ref);
-   if (!mon) {
-       goto done;
-   }
+   mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), ref);
+   if (!mon)
+       return am_false;
+
+   if (!erts_monitor_is_origin(mon))
+       return am_badarg;
+
+   erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
 
    switch (mon->type) {
-   case MON_TIME_OFFSET:
+
+   case ERTS_MON_TYPE_TIME_OFFSET:
        *multip = am_true;
-       erts_demonitor_time_offset(ref);
-       res = am_true;
-       break;
-   case MON_ORIGIN:
-       to = mon->u.pid;
-       *multip = am_false;
-       if (is_atom(to)) {
+       erts_demonitor_time_offset(mon);
+       return am_true;
+
+   case ERTS_MON_TYPE_PORT: {
+       Port *prt;
+       ASSERT(is_internal_port(mon->other.item));
+       prt = erts_port_lookup(mon->other.item, ERTS_PORT_SFLGS_DEAD);
+       if (!prt || erts_port_demonitor(c_p, prt, mon) == ERTS_PORT_OP_DROPPED)
+           erts_monitor_release(mon);
+       return am_true;
+   }
+
+   case ERTS_MON_TYPE_PROC:
+       erts_proc_sig_send_demonitor(mon);
+       return am_true;
+
+   case ERTS_MON_TYPE_DIST_PROC: {
+       ErtsMonitorData *mdp = erts_monitor_to_data(mon);
+       Eterm to = mon->other.item;
+       DistEntry *dep;
+       int code = ERTS_DSIG_SEND_OK;
+       int deleted;
+       ErtsDSigData dsd;
+
+       ASSERT(is_external_pid(to) || is_node_name_atom(to));
+
+       if (is_external_pid(to))
+           dep = external_pid_dist_entry(to);
+       else {
            /* Monitoring a name at node to */
-           ASSERT(is_node_name_atom(to));
            dep = erts_sysname_to_connected_dist_entry(to);
            ASSERT(dep != erts_this_dist_entry);
-       } else if (is_port(to)) {
-           if (port_dist_entry(to) != erts_this_dist_entry) {
-               goto badarg;
+           if (!dep) {
+               erts_monitor_release(mon);
+               return am_false;
            }
-           res = demonitor_local_port(c_p, ref, to);
-           unlock_link = 0;
-           goto done;
-       } else {
-           ASSERT(is_pid(to));
-           dep = pid_dist_entry(to);
        }
-       if (dep != erts_this_dist_entry) {
-           res = remote_demonitor(c_p, dep, ref, to);
-           /* remote_demonitor() unlocks link lock on c_p */
-           unlock_link = 0;
+
+       code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
+                                ERTS_DSP_RLOCK, 0, 0);
+
+       deleted = erts_monitor_dist_delete(&mdp->target);
+
+       switch (code) {
+       case ERTS_DSIG_PREP_NOT_ALIVE:
+       case ERTS_DSIG_PREP_NOT_CONNECTED:
+           /*
+            * In the smp case this is possible if the node goes
+            * down just before the call to demonitor.
+            */
+           break;
+
+       case ERTS_DSIG_PREP_PENDING:
+       case ERTS_DSIG_PREP_CONNECTED: {
+           Eterm watched;
+
+           erts_de_runlock(dep);
+
+           if (mon->flags & ERTS_ML_FLG_NAME)
+               watched = ((ErtsMonitorDataExtended *) mdp)->u.name;
+           else
+               watched = to;
+
+           /*
+            * Soft (no force) send, use ->data in dist slot 
+            * monitor list since in case of monitor name 
+            * the atom is stored there. Yield if necessary.
+            */
+           code = erts_dsig_send_demonitor(&dsd, c_p->common.id,
+                                           watched, mdp->ref, 0);
+           break;
        }
-       else { /* Local monitor */
-           demonitor_local_process(c_p, ref, to, &res);
+
+       default:
+           ERTS_INTERNAL_ERROR("invalid result from erts_dsig_prepare()");
+           break;
        }
-       break;
-    default /* case */ :
-badarg:
-       res = am_badarg; /* will be converted to error by caller */
-       *multip = am_false;
-       break;
+
+       if (deleted)
+           erts_monitor_release(&mdp->target);
+
+       erts_monitor_release(mon);
+       return code == ERTS_DSIG_SEND_YIELD ? am_yield : am_true;
    }
-done:
 
-   if (unlock_link)
-       erts_proc_unlock(c_p, ERTS_PROC_LOCK_LINK);
-
-   ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
-   BIF_RET(res);
+   default:
+       ERTS_INTERNAL_ERROR("Unexpected monitor type");
+       return am_false;
+   }
 }
 
 BIF_RETTYPE demonitor_1(BIF_ALIST_1)
@@ -528,25 +384,23 @@ BIF_RETTYPE demonitor_1(BIF_ALIST_1)
     Eterm multi;
     switch (demonitor(BIF_P, BIF_ARG_1, &multi)) {
     case am_false:
-    case am_true:       BIF_RET(am_true);
-    case THE_NON_VALUE: BIF_RET(THE_NON_VALUE);
-    case am_yield:      ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-    case am_badarg:     BIF_ERROR(BIF_P, BADARG);
-
-    case am_internal_error:
+    case am_true:
+        BIF_RET(am_true);
+    case am_yield:
+        ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+    case am_badarg:
     default:
-	ASSERT(! "demonitor(): internal error");
-	BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+        BIF_ERROR(BIF_P, BADARG);
     }
 }
 
 BIF_RETTYPE demonitor_2(BIF_ALIST_2)
 {
-    BIF_RETTYPE res = am_true;
-    Eterm       multi = am_false;
-    int         info = 0;
-    int         flush = 0;
-    Eterm       list = BIF_ARG_2;
+    BIF_RETTYPE res;
+    Eterm multi = am_false;
+    int info = 0;
+    int flush = 0;
+    Eterm list = BIF_ARG_2;
 
     while (is_list(list)) {
 	Eterm* consp = list_val(list);
@@ -566,10 +420,9 @@ BIF_RETTYPE demonitor_2(BIF_ALIST_2)
     if (is_not_nil(list))
 	goto badarg;
 
+    res = am_true;
     switch (demonitor(BIF_P, BIF_ARG_1, &multi)) {
-    case THE_NON_VALUE:
-        /* If other error occurred or trap has been set up - pass through */
-        BIF_RET(THE_NON_VALUE);
+
     case am_false:
 	if (info)
 	    res = am_false;
@@ -578,20 +431,29 @@ flush_messages:
 	    BIF_TRAP3(flush_monitor_messages_trap, BIF_P,
 		      BIF_ARG_1, multi, res);
 	}
+        /* Fall through... */
+
     case am_true:
 	if (multi == am_true && flush)
 	    goto flush_messages;
 	BIF_RET(res);
+
     case am_yield:
-	ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+        /* return true after yield... */
+        if (flush) {
+            ERTS_VBUMP_ALL_REDS(BIF_P);
+            goto flush_messages;
+        }
+        ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+
     case am_badarg:
-badarg:
-	BIF_ERROR(BIF_P, BADARG);
-    case am_internal_error:
     default:
-	ASSERT(! "demonitor(): internal error");
-	BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+        break;
+
     }
+
+badarg:
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /* Type must be atomic object! */
@@ -631,292 +493,212 @@ erts_queue_monitor_message(Process *p,
     erts_queue_message(p, *p_locksp, msgp, tup, am_system);
 }
 
-static Eterm
-local_pid_monitor(Process *p, Eterm target, Eterm mon_ref, int boolean)
-{
-    Eterm         ret = mon_ref;
-    Process      *rp;
-    ErtsProcLocks p_locks = ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK;
-
-    if (target == p->common.id) {
-	return ret;
-    }
-
-    erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-    rp = erts_pid2proc_opt(p, p_locks,
-			   target, ERTS_PROC_LOCK_LINK,
-			   ERTS_P2P_FLG_ALLOW_OTHER_X);
-    if (!rp) {
-	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	p_locks &= ~ERTS_PROC_LOCK_LINK;
-	if (boolean)
-	    ret = am_false;
-	else
-	    erts_queue_monitor_message(p, &p_locks,
-				       mon_ref, am_process, target, am_noproc);
-    }
-    else {
-	ASSERT(rp != p);
-
-	if (boolean)
-	    ret = am_true;
-
-	erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, target, NIL);
-	erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, mon_ref, p->common.id, NIL);
-
-	erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-    }
-
-    erts_proc_unlock(p, p_locks & ~ERTS_PROC_LOCK_MAIN);
-
-    return ret;
-}
-
-static BIF_RETTYPE
-local_port_monitor(Process *origin, Eterm target)
-{
-    BIF_RETTYPE ref = erts_make_ref(origin);
-    Port *port = erts_sig_lookup_port(origin, target);
-    ErtsProcLocks p_locks = ERTS_PROC_LOCK_MAIN;
-
-    if (!port) {
-res_no_proc:
-        /* Send the DOWN message immediately. Ref is made on the fly because
-         * caller has never seen it yet. */
-        erts_queue_monitor_message(origin, &p_locks, ref,
-                                   am_port, target, am_noproc);
-    }
-    else {
-        switch (erts_port_monitor(origin, port, target, &ref)) {
-        case ERTS_PORT_OP_DROPPED:
-        case ERTS_PORT_OP_BADARG:
-            goto res_no_proc;
-        case ERTS_PORT_OP_SCHEDULED:
-            BIF_TRAP3(await_port_send_result_trap, origin, ref,
-                      am_busy_port, ref);
-            /* the busy_port atom will never be returned, because it cannot be
-             * returned from erts_port_monitor, but just in case if in future
-             * internal API changes - you may see this atom */
-        default:
-            break;
-        }
-    }
-    erts_proc_unlock(origin, p_locks & ~ERTS_PROC_LOCK_MAIN);
-    BIF_RET(ref);
-}
-
-/* Type = process | port :: atom(), 1st argument passed to erlang:monitor/2
- */
-static BIF_RETTYPE
-local_name_monitor(Process *self, Eterm type, Eterm target_name)
-{
-    BIF_RETTYPE ret = erts_make_ref(self);
-
-    ErtsProcLocks p_locks = ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK;
-    Process     *proc = NULL;
-    Port        *port = NULL;
-
-    erts_proc_lock(self, ERTS_PROC_LOCK_LINK);
-
-    erts_whereis_name(self, p_locks, target_name,
-                      &proc, ERTS_PROC_LOCK_LINK,
-                      ERTS_P2P_FLG_ALLOW_OTHER_X,
-                      &port, 0);
-
-    /* If the name is not registered,
-     * or if we asked for proc and got a port,
-     * or if we asked for port and got a proc,
-     * we just send the 'DOWN' message.
-     */
-    if ((!proc && !port) ||
-        (type == am_process && port) ||
-        (type == am_port && proc)) {
-        DeclareTmpHeap(lhp,3,self);
-	Eterm item;
-        UseTmpHeap(3,self);
-
-        erts_proc_unlock(self, ERTS_PROC_LOCK_LINK);
-	p_locks &= ~ERTS_PROC_LOCK_LINK;
-
-	item = TUPLE2(lhp, target_name, erts_this_dist_entry->sysname);
-        erts_queue_monitor_message(self, &p_locks,
-                                   ret,
-                                   type, /* = process|port :: atom() */
-                                   item, am_noproc);
-        UnUseTmpHeap(3,self);
-    }
-    else if (port) {
-        erts_proc_unlock(self, p_locks & ~ERTS_PROC_LOCK_MAIN);
-        p_locks &= ~ERTS_PROC_LOCK_MAIN;
-
-        switch (erts_port_monitor(self, port, target_name, &ret)) {
-        case ERTS_PORT_OP_DONE:
-            return ret;
-        case ERTS_PORT_OP_SCHEDULED: { /* Scheduled a signal */
-            ASSERT(is_internal_ordinary_ref(ret));
-            BIF_TRAP3(await_port_send_result_trap, self,
-                      ret, am_true, ret);
-            /* bif_trap returns */
-        } break;
-        default:
-            goto badarg;
-        }
-    }
-    else if (proc != self) {
-        erts_add_monitor(&ERTS_P_MONITORS(self), MON_ORIGIN, ret,
-                         proc->common.id, target_name);
-        erts_add_monitor(&ERTS_P_MONITORS(proc), MON_TARGET, ret,
-                         self->common.id, target_name);
-        erts_proc_unlock(proc, ERTS_PROC_LOCK_LINK);
-    }
-
-    if (p_locks) {
-        erts_proc_unlock(self, p_locks & ~ERTS_PROC_LOCK_MAIN);
-    }
-    BIF_RET(ret);
-badarg:
-    if (p_locks) {
-        erts_proc_unlock(self, p_locks & ~ERTS_PROC_LOCK_MAIN);
-    }
-    BIF_ERROR(self, BADARG);
-}
-
-static BIF_RETTYPE
-remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
-	       DistEntry *dep, Eterm target, int byname)
-{
-    ErtsDSigData dsd;
-    BIF_RETTYPE ret;
-    int code;
-
-    ASSERT(dep);
-    erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-    code = erts_dsig_prepare(&dsd, dep,
-			     p, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
-			     ERTS_DSP_RLOCK, 0, 1);
-    switch (code) {
-    case ERTS_DSIG_PREP_NOT_ALIVE:
-    case ERTS_DSIG_PREP_NOT_CONNECTED:
-	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
-	break;
-    case ERTS_DSIG_PREP_PENDING:
-    case ERTS_DSIG_PREP_CONNECTED:
-	{
-	    Eterm p_trgt, p_name, d_name, mon_ref;
-
-	    mon_ref = erts_make_ref(p);
-
-	    if (byname) {
-		p_trgt = dep->sysname;
-		p_name = target;
-		d_name = target;
-	    }
-	    else {
-		p_trgt = target;
-		p_name = NIL;
-		d_name = NIL;
-	    }
-
-	    erts_de_links_lock(dep);
-
-	    erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, p_trgt,
-			     p_name);
-	    erts_add_monitor(&(dep->monitors), MON_TARGET, mon_ref, p->common.id,
-			     d_name);
-
-	    erts_de_links_unlock(dep);
-	    erts_de_runlock(dep);
-	    erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-
-	    code = erts_dsig_send_monitor(&dsd, p->common.id, target, mon_ref);
-	    if (code == ERTS_DSIG_SEND_YIELD)
-		ERTS_BIF_PREP_YIELD_RETURN(ret, p, mon_ref);
-	    else
-		ERTS_BIF_PREP_RET(ret, mon_ref);
-	}
-	break;
-    default:
-	ERTS_ASSERT(! "Invalid dsig prepare result");
-    }
-
-    BIF_RET(ret);
-}
-	
 BIF_RETTYPE monitor_2(BIF_ALIST_2)
 {
     Eterm target = BIF_ARG_2;
-    BIF_RETTYPE ret;
-    DistEntry  *dep = NULL; 
+    Eterm tmp_heap[3];
+    Eterm ref, id, name;
+    ErtsMonitorData *mdp;
 
-    /* Only process monitors are implemented */
-    switch (BIF_ARG_1) {
-    case am_time_offset: {
-	Eterm ref;
-        if (BIF_ARG_2 != am_clock_service) {
+    if (BIF_ARG_1 == am_process) {
+        DistEntry *dep;
+        int byname;
+
+        if (is_internal_pid(target)) {
+            name = NIL;
+            id = target;
+
+        local_process:
+
+            ref = erts_make_ref(BIF_P);
+            if (id != BIF_P->common.id) {
+                mdp = erts_monitor_create(ERTS_MON_TYPE_PROC,
+                                          ref, BIF_P->common.id,
+                                          id, name);
+                erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
+                                         &mdp->origin);
+
+                if (!erts_proc_sig_send_monitor(&mdp->target, id))
+                    erts_proc_sig_send_monitor_down(&mdp->target,
+                                                    am_noproc);
+            }
+            BIF_RET(ref);
+        }
+
+        if (is_atom(target)) {
+        local_named_process:
+            name = target;
+            id = erts_whereis_name_to_id(BIF_P, target);
+            if (is_internal_pid(id))
+                goto local_process;
+            target = TUPLE2(&tmp_heap[0], name,
+                            erts_this_dist_entry->sysname);
+            goto noproc;
+        }
+
+        if (is_external_pid(target)) {
+            ErtsDSigData dsd;
+            int code;
+
+            dep = external_pid_dist_entry(target);
+            if (dep == erts_this_dist_entry)
+                goto noproc;
+
+            id = target;
+            name = NIL;
+            byname = 0;
+
+        remote_process:
+
+            ref = erts_make_ref(BIF_P);
+            mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC, ref,
+                                      BIF_P->common.id, id, name);
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
+
+            code = erts_dsig_prepare(&dsd, dep,
+                                     BIF_P, ERTS_PROC_LOCK_MAIN,
+                                     ERTS_DSP_RLOCK, 0, 1);
+            switch (code) {
+            case ERTS_DSIG_PREP_NOT_ALIVE:
+            case ERTS_DSIG_PREP_NOT_CONNECTED:
+                erts_monitor_set_dead_dist(&mdp->target, dep->sysname);
+                erts_proc_sig_send_monitor_down(&mdp->target, am_noconnection);
+                code = ERTS_DSIG_SEND_OK;
+                break;
+
+            case ERTS_DSIG_PREP_PENDING:
+            case ERTS_DSIG_PREP_CONNECTED: {
+#ifdef DEBUG
+                int inserted =
+#endif
+
+                erts_monitor_dist_insert(&mdp->target, dep->mld);
+                ASSERT(inserted);
+                erts_de_runlock(dep);
+
+                code = erts_dsig_send_monitor(&dsd, BIF_P->common.id, target, ref);
+                break;
+            }
+
+            default:
+                ERTS_ASSERT(! "Invalid dsig prepare result");
+                code = ERTS_DSIG_SEND_OK;
+                break;
+            }
+
+            if (byname)
+                erts_deref_dist_entry(dep);
+
+            if (code == ERTS_DSIG_SEND_YIELD)
+                ERTS_BIF_YIELD_RETURN(BIF_P, ref);
+            BIF_RET(ref);
+        }
+
+        if (is_tuple(target)) {
+            Eterm *tpl = tuple_val(target);
+            if (arityval(tpl[0]) != 2)
+                goto badarg;
+            if (is_not_atom(tpl[1]) || is_not_atom(tpl[2]))
+                goto badarg;
+            if (!erts_is_alive && tpl[2] != am_Noname)
+                goto badarg;
+            target = tpl[1];
+            dep = erts_find_or_insert_dist_entry(tpl[2]);
+            if (dep == erts_this_dist_entry) {
+                erts_deref_dist_entry(dep);
+                goto local_named_process;
+            }
+
+            id = dep->sysname;
+            name = target;
+            byname = 1;
+            goto remote_process;
+        }
+
+        /* badarg... */
+    }
+    else if (BIF_ARG_1 == am_port) {
+
+        if (is_internal_port(target)) {
+            Port *prt;
+            name = NIL;
+            id = target;
+        local_port:
+            ref = erts_make_ref(BIF_P);
+            mdp = erts_monitor_create(ERTS_MON_TYPE_PORT, ref,
+                                      BIF_P->common.id, id, name);
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
+            prt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+            if (!prt || erts_port_monitor(BIF_P, prt, &mdp->target) == ERTS_PORT_OP_DROPPED)
+                erts_proc_sig_send_monitor_down(&mdp->target, am_noproc);
+            BIF_RET(ref);
+        }
+
+        if (is_atom(target)) {
+        local_named_port:
+            name = target;
+            id = erts_whereis_name_to_id(BIF_P, target);
+            if (is_internal_port(id))
+                goto local_port;
+            target = TUPLE2(&tmp_heap[0], name,
+                            erts_this_dist_entry->sysname);
+            goto noproc;
+        }
+
+        if (is_external_port(target)) {
+            if (erts_this_dist_entry == external_port_dist_entry(target))
+                goto noproc;
             goto badarg;
         }
+
+        if (is_tuple(target)) {
+            Eterm *tpl = tuple_val(target);
+            if (arityval(tpl[0]) != 2)
+                goto badarg;
+            if (is_not_atom(tpl[1]) || is_not_atom(tpl[2]))
+                goto badarg;
+            if (tpl[2] == erts_this_dist_entry->sysname) {
+                target = tpl[1];
+                goto local_named_port;
+            }
+        }
+
+        /* badarg... */
+    }
+    else if (BIF_ARG_1 == am_time_offset) {
+
+        if (target != am_clock_service)
+            goto badarg;
 	ref = erts_make_ref(BIF_P);
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
-	erts_add_monitor(&ERTS_P_MONITORS(BIF_P), MON_TIME_OFFSET,
-			 ref, am_clock_service, NIL);
-	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-	erts_monitor_time_offset(BIF_P->common.id, ref);
-	BIF_RET(ref);
-    }
-    case am_process:
-    case am_port:
-	break;
-    default:
-        goto badarg;
+        mdp = erts_monitor_create(ERTS_MON_TYPE_TIME_OFFSET,
+                                  ref, BIF_P->common.id,
+                                  am_clock_service, NIL);
+        erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
+
+	erts_monitor_time_offset(&mdp->target);
+
+        BIF_RET(ref);
     }
 
-    if (is_internal_pid(target) && BIF_ARG_1 == am_process) {
-local_pid:
-        ret = local_pid_monitor(BIF_P, target, erts_make_ref(BIF_P), 0);
-    } else if (is_external_pid(target) && BIF_ARG_1 == am_process) {
-	dep = external_pid_dist_entry(target);
-	if (dep == erts_this_dist_entry)
-	    goto local_pid;
-	ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, target, 0);
-    } else if (is_internal_port(target) && BIF_ARG_1 == am_port) {
-local_port:
-        ret = local_port_monitor(BIF_P, target);
-    } else if (is_external_port(target) && BIF_ARG_1 == am_port) {
-        dep = external_port_dist_entry(target);
-        if (dep == erts_this_dist_entry) {
-            goto local_port;
-        }
-        goto badarg; /* No want remote port */
-    } else if (is_atom(target)) {
-        ret = local_name_monitor(BIF_P, BIF_ARG_1, target);
-    } else if (is_tuple(target)) {
-	Eterm *tp = tuple_val(target);
-	Eterm remote_node;
-	Eterm name;
-        if (arityval(*tp) != 2) {
-            goto badarg;
-        }
-	remote_node = tp[2];
-	name = tp[1];
-	if (!is_atom(remote_node) || !is_atom(name)) {
-            goto badarg;
-	}
-	if (!erts_is_alive && remote_node != am_Noname) {
-            goto badarg; /* Remote monitor from (this) undistributed node */
-	}
-	dep = erts_find_or_insert_dist_entry(remote_node);
-	if (dep == erts_this_dist_entry) {
-            ret = local_name_monitor(BIF_P, BIF_ARG_1, name);
-	} else {
-	    ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, name, 1);
-	}
-	erts_deref_dist_entry(dep);
-    } else {
 badarg:
-	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+
+    BIF_ERROR(BIF_P, BADARG);
+
+noproc: {
+        ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
+
+        ref = erts_make_ref(BIF_P);
+        erts_queue_monitor_message(BIF_P,
+                                   &locks,
+                                   ref,
+                                   BIF_ARG_1,
+                                   target,
+                                   am_noproc);
+        if (locks != ERTS_PROC_LOCK_MAIN)
+            erts_proc_unlock(BIF_P, locks & ~ERTS_PROC_LOCK_MAIN);
+
+        BIF_RET(ref);
     }
-    return ret;
 }
 
 /**********************************************************************/
@@ -1089,91 +871,74 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 /* remove a link from a process */
 BIF_RETTYPE unlink_1(BIF_ALIST_1)
 {
-    Process *rp;
-    DistEntry *dep;
-    ErtsLink *l = NULL, *rl = NULL;
-    ErtsProcLocks cp_locks = ERTS_PROC_LOCK_MAIN;
-
-    /*
-     * SMP specific note concerning incoming exit signals:
-     *   We have to have at least the status lock during removal of
-     *   the link half on current process, and check for and handle
-     *   a present pending exit while the status lock is held. This
-     *   in order to ensure that we wont be exited by a link after
-     *   it has been removed.
-     *
-     *   (We also have to have the link lock, of course, in order to
-     *    be allowed to remove the link...)
-     */
-
     if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
-	trace_proc(BIF_P, cp_locks, BIF_P, am_unlink, BIF_ARG_1);
+        trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN,
+                   BIF_P, am_unlink, BIF_ARG_1);
+    }
+
+    if (is_internal_pid(BIF_ARG_1)) {
+        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
+        if (lnk) {
+            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
+            erts_proc_sig_send_unlink(BIF_P, lnk);
+        }
+        BIF_RET(am_true);
     }
 
     if (is_internal_port(BIF_ARG_1)) {
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-	if (ERTS_PROC_PENDING_EXIT(BIF_P))
-	    goto handle_pending_exit;
+        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
 
-	l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
-
-	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-
-	if (l) {
+	if (lnk) {
+            Eterm ref;
+            Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
+            ErtsPortOpResult res = ERTS_PORT_OP_DROPPED;
 	    Port *prt;
 
-	    erts_destroy_link(l);
+            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
 
 	    /* Send unlink signal */
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
 	    if (prt) {
-		ErtsPortOpResult res;
-		Eterm ref;
-		Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
 #ifdef DEBUG
 		ref = NIL;
 #endif
-		res = erts_port_unlink(BIF_P, prt, BIF_P->common.id, refp);
+		res = erts_port_unlink(BIF_P, prt, lnk, refp);
 
-		if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		    ASSERT(is_internal_ordinary_ref(ref));
-		    BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
-		}
 	    }
+
+            if (res == ERTS_PORT_OP_DROPPED)
+                erts_link_release(lnk);
+            else if (refp && res == ERTS_PORT_OP_SCHEDULED) {
+                ASSERT(is_internal_ordinary_ref(ref));
+                BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
+            }
 	}
 
 	BIF_RET(am_true);
     }
-    else if (is_external_port(BIF_ARG_1)
-	     && external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
-	BIF_RET(am_true);
-    }
-
-    if (is_not_pid(BIF_ARG_1))
-	BIF_ERROR(BIF_P, BADARG);
 
     if (is_external_pid(BIF_ARG_1)) {
-	ErtsDistLinkData dld;
+        ErtsLink *lnk, *dlnk;
+        ErtsLinkData *ldp;
+        DistEntry *dep;
 	int code;
 	ErtsDSigData dsd;
-	/* Blind removal, we might have trapped or anything, this leaves
-	   us in a state where monitors might be inconsistent, but the dist
-	   code should take care of it. */
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-	if (ERTS_PROC_PENDING_EXIT(BIF_P))
-	    goto handle_pending_exit;
-	l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
-
-	erts_proc_unlock(BIF_P,
-			     ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-
-	if (l)
-	    erts_destroy_link(l);
 
 	dep = external_pid_dist_entry(BIF_ARG_1);
-	if (dep == erts_this_dist_entry) {
+	if (dep == erts_this_dist_entry)
 	    BIF_RET(am_true);
-	}
+
+        lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
+        if (!lnk)
+            BIF_RET(am_true);
+
+        erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
+        dlnk = erts_link_to_other(lnk, &ldp);
+
+        if (erts_link_dist_delete(dlnk))
+            erts_link_release_both(ldp);
+        else
+            erts_link_release(lnk);
 
 	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				 ERTS_DSP_NO_LOCK, 0, 0);
@@ -1181,74 +946,27 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
 	    BIF_RET(am_true);
-
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
-	    erts_remove_dist_link(&dld, BIF_P->common.id, BIF_ARG_1, dep);
 	    code = erts_dsig_send_unlink(&dsd, BIF_P->common.id, BIF_ARG_1);
-	    erts_destroy_dist_link(&dld);
 	    if (code == ERTS_DSIG_SEND_YIELD)
 		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-	    BIF_RET(am_true);
-
+            break;
 	default:
 	    ASSERT(! "Invalid dsig prepare result");
 	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	}
+
+        BIF_RET(am_true);
     }
 
-    /* Internal pid... */
-
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-
-    cp_locks |= ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS;
-
-    /* get process struct */
-    rp = erts_pid2proc_opt(BIF_P, cp_locks,
-			   BIF_ARG_1, ERTS_PROC_LOCK_LINK,
-			   ERTS_P2P_FLG_ALLOW_OTHER_X);
-
-    if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
-	if (rp && rp != BIF_P)
-	    erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	goto handle_pending_exit;
+    if (is_external_port(BIF_ARG_1)) {
+        if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
+            BIF_RET(am_true);
+        /* Links to Remote ports not supported... */
     }
 
-    /* unlink and ignore errors */
-    l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
-    if (l != NULL)
-	erts_destroy_link(l);
-
-    if (!rp) {
-	ERTS_ASSERT_IS_NOT_EXITING(BIF_P);
-    }
-    else {
-	rl = erts_remove_link(&ERTS_P_LINKS(rp), BIF_P->common.id);
-	if (rl != NULL)
-	    erts_destroy_link(rl);
-
-	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && rl != NULL) {
-            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
-            cp_locks &= ~ERTS_PROC_LOCK_STATUS;
-	    trace_proc(BIF_P, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
-                       rp, am_getting_unlinked, BIF_P->common.id);
-	}
-
-	if (rp != BIF_P)
-	    erts_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-    }
- 
-    erts_proc_unlock(BIF_P, cp_locks & ~ERTS_PROC_LOCK_MAIN);
-
-    BIF_RET(am_true);
-
- handle_pending_exit:
-    erts_handle_pending_exit(BIF_P, (ERTS_PROC_LOCK_MAIN
-				     | ERTS_PROC_LOCK_LINK
-				     | ERTS_PROC_LOCK_STATUS));
-    ASSERT(ERTS_PROC_IS_EXITING(BIF_P)); 
-    erts_proc_unlock(BIF_P,	ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-    ERTS_BIF_EXITED(BIF_P);
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE hibernate_3(BIF_ALIST_3)
@@ -1493,22 +1211,69 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     return am_badarg;
 }
 
-/**********************************************************************/
-/* send an exit message to another process (if trapping exits) or
-   exit the other process */
-
-BIF_RETTYPE exit_2(BIF_ALIST_2)
+static BIF_RETTYPE
+erts_internal_await_exit_trap(BIF_ALIST_0)
 {
-     Process *rp;
+    /*
+     * We have sent ourselves an exit signal which will
+     * terminate ourselves. Handle all signals until
+     * terminated in order to ensure that signal order
+     * is preserved. Yield if necessary.
+     */
+    erts_aint32_t state;
+    int reds = ERTS_BIF_REDS_LEFT(BIF_P);
+    (void) erts_proc_sig_handle_incoming(BIF_P, &state, &reds,
+                                         reds, !0);
+    BUMP_REDS(BIF_P, reds);
+    if (state & ERTS_PSFLG_EXITING)
+        ERTS_BIF_EXITED(BIF_P);
 
-     /*
-      * If the first argument is not a pid, or a local port it is an error.
-      */
+    ERTS_BIF_YIELD0(&await_exit_trap, BIF_P);
+}
 
-     if (is_internal_port(BIF_ARG_1)) {
+/**********************************************************************/
+/* send an exit signal to another process */
+
+static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, int exit2)
+{
+    BIF_RETTYPE ret_val;
+
+    /*
+     * 'id' not a process id, nor a local port id is a 'badarg' error.
+     */
+
+     if (is_internal_pid(id)) {
+         /*
+          * Preserve the very old and *very strange* behaviour
+          * of erlang:exit/2...
+          *
+          * - terminate ourselves even though exit reason
+          *   is normal (unless we trap exit)
+          * - terminate ourselves before exit/2 return
+          */
+         int exit2_suicide = (exit2
+                              && c_p->common.id == id
+                              && (reason == am_kill
+                                  || !(c_p->flags & F_TRAP_EXIT)));
+         erts_proc_sig_send_exit(c_p, c_p->common.id, id,
+                                 reason, NIL, exit2_suicide);
+         if (!exit2_suicide)
+             ERTS_BIF_PREP_RET(ret_val, am_true);
+         else {
+             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+             erts_proc_sig_fetch(c_p);
+             erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+             ERTS_BIF_PREP_TRAP0(ret_val, &await_exit_trap, c_p);
+         }
+     }
+     else if (is_internal_port(id)) {
 	 Eterm ref, *refp;
 	 Uint32 invalid_flags;
 	 Port *prt;
+         ErtsPortOpResult res = ERTS_PORT_OP_DONE;
+#ifdef DEBUG
+         ref = NIL;
+#endif
 
 	 if (erts_port_synchronous_ops) {
 	     refp = &ref;
@@ -1519,107 +1284,74 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	     invalid_flags = ERTS_PORT_SFLGS_INVALID_LOOKUP;
 	 }
 
-	 prt = erts_port_lookup(BIF_ARG_1, invalid_flags);
+	 prt = erts_port_lookup(id, invalid_flags);
+	 if (prt)
+	     res = erts_port_exit(c_p, 0, prt, c_p->common.id, reason, refp);
 
-	 if (prt) {
-	     ErtsPortOpResult res;
-
-#ifdef DEBUG
-	     ref = NIL;
-#endif
-
-	     res = erts_port_exit(BIF_P, 0, prt, BIF_P->common.id, BIF_ARG_2, refp);
-
-	     ERTS_BIF_CHK_EXITED(BIF_P);
-
-	     if (refp && res == ERTS_PORT_OP_SCHEDULED) {
-		 ASSERT(is_internal_ordinary_ref(ref));
-		 BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
-	     }
-
-	 }
-
-	 BIF_RET(am_true);
+         if (!refp || res != ERTS_PORT_OP_SCHEDULED)
+             ERTS_BIF_PREP_RET(ret_val, am_true);
+         else {
+             ASSERT(is_internal_ordinary_ref(ref));
+             ERTS_BIF_PREP_TRAP3(ret_val, await_port_send_result_trap,
+                                 c_p, ref, am_true, am_true);
+         }
      }
-     else if(is_external_port(BIF_ARG_1)
-	     && external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
-	 BIF_RET(am_true);
-     
-     /*
-      * If it is a remote pid, send a signal to the remote node.
-      */
+     else if (is_external_pid(id)) {
+	 DistEntry *dep = external_pid_dist_entry(id);
+	 if (dep == erts_this_dist_entry)
+             ERTS_BIF_PREP_RET(ret_val, am_true); /* Old incarnation of this node... */
+         else {
+             int code;
+             ErtsDSigData dsd;
 
-     if (is_external_pid(BIF_ARG_1)) {
-	 int code;
-	 ErtsDSigData dsd;
-	 DistEntry *dep;
-
-	 dep = external_pid_dist_entry(BIF_ARG_1);
-	 ERTS_ASSERT(dep);
+             code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
+                                      ERTS_DSP_NO_LOCK, 0, 1);
+             switch (code) {
+             case ERTS_DSIG_PREP_NOT_ALIVE:
+             case ERTS_DSIG_PREP_NOT_CONNECTED:
+                 ERTS_BIF_PREP_RET(ret_val, am_true);
+                 break;
+             case ERTS_DSIG_PREP_PENDING:
+             case ERTS_DSIG_PREP_CONNECTED:
+                 code = erts_dsig_send_exit2(&dsd, c_p->common.id, id, reason);
+                 if (code == ERTS_DSIG_SEND_YIELD)
+                     ERTS_BIF_PREP_YIELD_RETURN(ret_val, c_p, am_true);
+                 else
+                     ERTS_BIF_PREP_RET(ret_val, am_true);
+                 break;
+             default:
+                 ASSERT(! "Invalid dsig prepare result");
+                 ERTS_BIF_PREP_ERROR(ret_val, c_p, EXC_INTERNAL_ERROR);
+                 break;
+             }
+         }
+     }
+     else if (is_external_port(id)) {
+	 DistEntry *dep = external_port_dist_entry(id);
 	 if(dep == erts_this_dist_entry)
-	     BIF_RET(am_true);
-
-	 code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
-				  ERTS_DSP_NO_LOCK, 0, 1);
-	 switch (code) {
-	 case ERTS_DSIG_PREP_NOT_ALIVE:
-	 case ERTS_DSIG_PREP_NOT_CONNECTED:
-	     BIF_RET(am_true);
-	 case ERTS_DSIG_PREP_PENDING:
-	 case ERTS_DSIG_PREP_CONNECTED:
-	     code = erts_dsig_send_exit2(&dsd, BIF_P->common.id, BIF_ARG_1, BIF_ARG_2);
-	     if (code == ERTS_DSIG_SEND_YIELD)
-		 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-	     BIF_RET(am_true);
-	 default:
-	     ERTS_ASSERT(! "Invalid dsig prepare result");
-	 }
-     }
-     else if (is_not_internal_pid(BIF_ARG_1)) {
-       BIF_ERROR(BIF_P, BADARG);
+             ERTS_BIF_PREP_RET(ret_val, am_true); /* Old incarnation of this node... */
+         else
+             ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
      }
      else {
-	 /*
-	  * The pid is internal.  Verify that it refers to an existing process.
-	  */
-	 ErtsProcLocks rp_locks;
+         /* Not an id of a process or a port... */
 
-	 if (BIF_ARG_1 == BIF_P->common.id) {
-	     rp_locks = ERTS_PROC_LOCKS_ALL;
-	     rp = BIF_P;
-	     erts_proc_lock(rp, ERTS_PROC_LOCKS_ALL_MINOR);
-	 }
-	 else {
-	     rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-	     rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
-				BIF_ARG_1, rp_locks);
-	     if (!rp) {
-		 BIF_RET(am_true);
-	     }
-	 }
-
-	 /*
-	  * Send an exit signal.
-	  */
-	 erts_send_exit_signal(BIF_P,
-			       BIF_P->common.id,
-			       rp,
-			       &rp_locks,
-			       BIF_ARG_2,
-			       NIL,
-			       NULL,
-			       BIF_P == rp ? ERTS_XSIG_FLG_NO_IGN_NORMAL : 0);
-	 if (rp == BIF_P)
-	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-	 if (rp_locks)
-	     erts_proc_unlock(rp, rp_locks);
-	 /*
-	  * We may have exited ourselves and may have to take action.
-	  */
-	 ERTS_BIF_CHK_EXITED(BIF_P);
-	 BIF_RET(am_true);
+         ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
      }
+
+     return ret_val;
 }
+
+BIF_RETTYPE exit_2(BIF_ALIST_2)
+{
+    return send_exit_signal_bif(BIF_P, BIF_ARG_1, BIF_ARG_2, !0);
+}
+
+BIF_RETTYPE exit_signal_2(BIF_ALIST_2)
+{
+    return send_exit_signal_bif(BIF_P, BIF_ARG_1, BIF_ARG_2, 0);
+}
+
 
 /**********************************************************************/
 /* this sets some process info- trapping exits or the error handler */
@@ -1709,36 +1441,13 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_trap_exit) {
-       erts_aint32_t state;
-       Uint trap_exit;
-       if (BIF_ARG_2 == am_true) {
-	   trap_exit = 1;
-       } else if (BIF_ARG_2 == am_false) {
-	   trap_exit = 0;
-       } else {
-	   goto error;
-       }
-       /*
-	* NOTE: It is important that we check for pending exit signals
-	*       and handle them before returning if trap_exit is set to
-	*       true. For more info, see implementation of
-	*       erts_send_exit_signal().
-	*/
-       erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_XSIG_SEND);
-       if (trap_exit)
-	   state = erts_atomic32_read_bor_mb(&BIF_P->state,
-						 ERTS_PSFLG_TRAP_EXIT);
+       old_value = (BIF_P->flags & F_TRAP_EXIT) ? am_true : am_false;
+       if (BIF_ARG_2 == am_true)
+           BIF_P->flags |= F_TRAP_EXIT;
+       else if (BIF_ARG_2 == am_false)
+           BIF_P->flags &= ~F_TRAP_EXIT;
        else
-	   state = erts_atomic32_read_band_mb(&BIF_P->state,
-						  ~ERTS_PSFLG_TRAP_EXIT);
-       erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_XSIG_SEND);
-
-       if (state & ERTS_PSFLG_PENDING_EXIT) {
-	   erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-	   ERTS_BIF_EXITED(BIF_P);
-       }
-
-       old_value = (state & ERTS_PSFLG_TRAP_EXIT) ? am_true : am_false;
+	   goto error;
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_scheduler) {
@@ -2142,9 +1851,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
             }
 
 	    switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
-	    case ERTS_PORT_OP_CALLER_EXIT:
-		/* We are exiting... */
-		return SEND_USER_ERROR;
 	    case ERTS_PORT_OP_BUSY:
 		/* Nothing has been sent */
 		if (ctx->suspend)
@@ -4373,14 +4079,88 @@ BIF_RETTYPE group_leader_0(BIF_ALIST_0)
 }
 
 /**********************************************************************/
-/* arg1 == leader, arg2 == new member */
+/* set group leader */
 
-BIF_RETTYPE group_leader_2(BIF_ALIST_2)
+int
+erts_set_group_leader(Process *proc, Eterm new_gl)
 {
-    Process* new_member;
+    
+    erts_aint32_t state;
 
-    if (is_not_pid(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
+    ASSERT(is_pid(new_gl));
+
+    state = erts_atomic32_read_nob(&proc->state);
+
+    if (state & ERTS_PSFLG_EXITING)
+        return 0;
+        
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(proc));
+
+    if (!(state & ERTS_PSFLG_DIRTY_RUNNING))
+        proc->group_leader = STORE_NC_IN_PROC(proc, new_gl);
+    else {
+        ErlHeapFragment *bp;
+        Eterm *hp;
+        /*
+         * Currently executing on a dirty scheduler,
+         * so we are not allowed to write to its heap.
+         * Store group leader pid in heap fragment.
+         */
+        bp = new_message_buffer(NC_HEAP_SIZE(new_gl));
+        hp = bp->mem;
+        proc->group_leader = STORE_NC(&hp,
+                                            &proc->off_heap,
+                                            new_gl);
+        bp->next = proc->mbuf;
+        proc->mbuf = bp;
+        proc->mbuf_sz += bp->used_size;
+    }
+
+    return !0;
+}
+
+BIF_RETTYPE erts_internal_group_leader_3(BIF_ALIST_3)
+{
+    if (is_not_pid(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    if (is_not_internal_pid(BIF_ARG_2))
+        BIF_ERROR(BIF_P, BADARG);
+    if (is_not_internal_ref(BIF_ARG_3))
+        BIF_ERROR(BIF_P, BADARG);
+
+    erts_proc_sig_send_group_leader(BIF_P,
+                                    BIF_ARG_2,
+                                    BIF_ARG_1,
+                                    BIF_ARG_3);
+    BIF_RET(am_ok);
+}
+
+BIF_RETTYPE erts_internal_group_leader_2(BIF_ALIST_2)
+{
+    if (is_not_pid(BIF_ARG_1))
+        BIF_RET(am_badarg);
+
+    if (is_internal_pid(BIF_ARG_2)) {
+        Process *rp;
+        int res;
+
+        if (BIF_ARG_2 == BIF_P->common.id)
+            rp = BIF_P;
+        else {
+            rp = erts_try_lock_sig_free_proc(BIF_ARG_2,
+                                             ERTS_PROC_LOCK_MAIN);
+            if (!rp)
+                BIF_RET(am_badarg);
+            if (rp == ERTS_PROC_LOCK_BUSY)
+                BIF_RET(am_false);
+        }
+
+        res = erts_set_group_leader(rp, BIF_ARG_1);
+
+        if (rp != BIF_P)
+            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+
+        BIF_RET(res ? am_true : am_badarg);
     }
 
     if (is_external_pid(BIF_ARG_2)) {
@@ -4408,74 +4188,8 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	    ERTS_ASSERT(! "Invalid dsig prepare result");
 	}
     }
-    else if (is_internal_pid(BIF_ARG_2)) {
-	int await_x;
-	ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS;
-	new_member = erts_pid2proc_nropt(BIF_P, ERTS_PROC_LOCK_MAIN,
-					 BIF_ARG_2, locks);
-	if (!new_member)
-	    BIF_ERROR(BIF_P, BADARG);
 
-	if (new_member == ERTS_PROC_LOCK_BUSY)
-	    ERTS_BIF_YIELD2(bif_export[BIF_group_leader_2], BIF_P,
-			    BIF_ARG_1, BIF_ARG_2);
-
-	await_x = (new_member != BIF_P
-		   && ERTS_PROC_PENDING_EXIT(new_member));
-	if (!await_x) {
-	    if (is_immed(BIF_ARG_1))
-		new_member->group_leader = BIF_ARG_1;
-	    else {
-		locks &= ~ERTS_PROC_LOCK_STATUS;
-		erts_proc_unlock(new_member, ERTS_PROC_LOCK_STATUS);
-		if (new_member == BIF_P
-		    || !(erts_atomic32_read_nob(&new_member->state)
-			 & ERTS_PSFLG_DIRTY_RUNNING)) {
-		    new_member->group_leader = STORE_NC_IN_PROC(new_member,
-								BIF_ARG_1);
-		}
-		else {
-		    ErlHeapFragment *bp;
-		    Eterm *hp;
-		    /*
-		     * Other process executing on a dirty scheduler,
-		     * so we are not allowed to write to its heap.
-		     * Store in heap fragment.
-		     */
-
-		    bp = new_message_buffer(NC_HEAP_SIZE(BIF_ARG_1));
-		    hp = bp->mem;
-		    new_member->group_leader = STORE_NC(&hp,
-							&new_member->off_heap,
-							BIF_ARG_1);
-		    bp->next = new_member->mbuf;
-		    new_member->mbuf = bp;
-		    new_member->mbuf_sz += bp->used_size;
-		}
-	    }
-	}
-
-	if (new_member == BIF_P)
-	    locks &= ~ERTS_PROC_LOCK_MAIN;
-	if (locks)
-	    erts_proc_unlock(new_member, locks);
-
-	if (await_x) {
-	    /* Wait for new_member to terminate; then badarg */
-	    Eterm args[2] = {BIF_ARG_1, BIF_ARG_2};
-	    ERTS_BIF_AWAIT_X_APPLY_TRAP(BIF_P,
-					BIF_ARG_2,
-					am_erlang,
-					am_group_leader,
-					args,
-					2);
-	}
-
-	BIF_RET(am_true);
-    }
-    else {
-	BIF_ERROR(BIF_P, BADARG);
-    }
+    BIF_RET(am_badarg);
 }
 
 BIF_RETTYPE system_flag_2(BIF_ALIST_2)    
@@ -4662,7 +4376,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         BIF_RET(ret);
     } else if (BIF_ARG_1 == make_small(1)) {
 	int i, max;
-	ErtsMessage* mp;
 	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
 
@@ -4677,16 +4390,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 #endif
 		p->seq_trace_clock = 0;
 		p->seq_trace_lastcnt = 0;
-		ERTS_MSGQ_MV_INQ2PRIVQ(p);
-		mp = p->msg.first;
-		while(mp != NULL) {
-#ifdef USE_VM_PROBES
-		    ERL_MESSAGE_TOKEN(mp) = (ERL_MESSAGE_DT_UTAG(mp) != NIL) ? am_have_dt_utag : NIL;
-#else
-		    ERL_MESSAGE_TOKEN(mp) = NIL;
-#endif
-		    mp = mp->next;
-		}
+
+                erts_proc_sig_clear_seq_trace_tokens(p);
 	    }
 	}
 
@@ -4949,58 +4654,17 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     BIF_RET(res);
 }
 
-/*
- * NOTE: The erts_bif_prep_await_proc_exit_*() functions are
- * tightly coupled with the implementation of erlang:await_proc_exit/3.
- * The erts_bif_prep_await_proc_exit_*() functions can safely call
- * skip_current_msgq() since they know that erlang:await_proc_exit/3
- * unconditionally will do a monitor and then unconditionally will
- * wait for the corresponding 'DOWN' message in a receive, and no other
- * receive is done before this receive. This optimization removes an
- * unnecessary scan of the currently existing message queue (which
- * can be large). If the erlang:await_proc_exit/3 implementation
- * is changed so that the above isn't true, nasty bugs in later
- * receives, etc, may appear.
- */
-
-static ERTS_INLINE int
-skip_current_msgq(Process *c_p)
-{
-    int res;
-#if defined(ERTS_ENABLE_LOCK_CHECK)
-    erts_proc_lc_chk_only_proc_main(c_p);
-#endif
-
-    erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-    if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	KILL_CATCHES(c_p);
-	c_p->freason = EXC_EXIT;
-	res = 0;
-    }
-    else {
-        ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-	c_p->msg.save = c_p->msg.last;
-	res = 1;
-    }
-    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-    return res;
-}
-
 void
 erts_bif_prep_await_proc_exit_data_trap(Process *c_p, Eterm pid, Eterm ret)
 {
-    if (skip_current_msgq(c_p)) {
-	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_data, ret);
-    }
+    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_data, ret);
 }
 
 void
 erts_bif_prep_await_proc_exit_reason_trap(Process *c_p, Eterm pid)
 {
-    if (skip_current_msgq(c_p)) {
-	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p,
-			    pid, am_reason, am_undefined);
-    }
+    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p,
+                               pid, am_reason, am_undefined);
 }
 
 void
@@ -5011,21 +4675,19 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs)
 {
+    Eterm term;
+    Eterm *hp;
+    int i;
     ASSERT(is_atom(module) && is_atom(function));
-    if (skip_current_msgq(c_p)) {
-	Eterm term;
-	Eterm *hp;
-	int i;
 
-	hp = HAlloc(c_p, 4+2*nargs);
-	term = NIL;
-	for (i = nargs-1; i >= 0; i--) {
-	    term = CONS(hp, args[i], term);
-	    hp += 2;
-	}
-	term = TUPLE3(hp, module, function, term);
-	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_apply, term);
+    hp = HAlloc(c_p, 4+2*nargs);
+    term = NIL;
+    for (i = nargs-1; i >= 0; i--) {
+        term = CONS(hp, args[i], term);
+        hp += 2;
     }
+    term = TUPLE3(hp, module, function, term);
+    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_apply, term);
 }
 
 Export bif_return_trap_export;
@@ -5062,6 +4724,9 @@ void erts_init_bif(void)
     erts_init_trap_export(&dsend_continue_trap_export,
 			  am_erts_internal, am_dsend_continue_trap, 1,
 			  dsend_continue_trap_1);
+
+    erts_init_trap_export(&await_exit_trap, am_erts_internal,
+                          am_await_exit, 0, erts_internal_await_exit_trap);
 
     flush_monitor_messages_trap = erts_export_put(am_erts_internal,
 						  am_flush_monitor_messages,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,8 @@
 #include "erl_time.h"
 #include "erl_check_io.h"
 #include "erl_osenv.h"
+#include "erl_proc_sig_queue.h"
+
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
 #include "hipe_signal.h"	/* for hipe_signal_init() */
@@ -125,6 +127,8 @@ const Eterm etp_hole_marker = 0;
 #endif
 
 static int modified_sched_thread_suggested_stack_size = 0;
+
+Eterm erts_init_process_id;
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
@@ -304,8 +308,9 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
+    erts_monitor_link_init();
+    erts_proc_sig_queue_init();
     erts_bif_unique_init();
-    erts_init_monitors();
     erts_init_time(time_correction, time_warp_mode);
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
@@ -413,7 +418,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 }
 
 static Eterm
-erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq)
+erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq, int prio)
 {
     Eterm start_mod;
     Process* parent;
@@ -428,9 +433,16 @@ erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq)
 
     parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
 
-    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
+    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC|SPO_USE_ARGS;
     if (off_heap_msgq)
         so.flags |= SPO_OFF_HEAP_MSGQ;
+    so.min_heap_size    = H_MIN_SIZE;
+    so.min_vheap_size   = BIN_VH_MIN_SIZE;
+    so.max_heap_size    = H_MAX_SIZE;
+    so.max_heap_flags   = H_MAX_FLAGS;
+    so.priority         = prio;
+    so.max_gen_gcs      = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
+    so.scheduler        = 0;
     res = erl_create_process(parent, start_mod, am_start, NIL, &so);
     erts_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
     return res;
@@ -1200,7 +1212,6 @@ erl_start(int argc, char **argv)
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
     ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
-    Eterm otp_ring0_pid;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -2191,8 +2202,8 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    otp_ring0_pid = erl_first_process_otp("otp_ring0", NULL, 0,
-					  boot_argc, boot_argv);
+    erts_init_process_id = erl_first_process_otp("otp_ring0", NULL, 0,
+                                                 boot_argc, boot_argv);
 
     {
 	/*
@@ -2202,14 +2213,18 @@ erl_start(int argc, char **argv)
 	 */
 	Eterm pid;
 
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger", !0);
+	pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_code_purger", !0,
+                                     PRIORITY_NORMAL);
 	erts_code_purger
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
 	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
 	erts_proc_inc_refc(erts_code_purger); 
 
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector", !0);
+	pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_literal_area_collector",
+                                     !0, PRIORITY_NORMAL);
 	erts_literal_area_collector
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
@@ -2217,14 +2232,35 @@ erl_start(int argc, char **argv)
 	       && erts_literal_area_collector->common.id == pid);
 	erts_proc_inc_refc(erts_literal_area_collector);
 
-	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker", !0);
-	erts_dirty_process_code_checker
+	pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_dirty_process_signal_handler",
+                                     !0, PRIORITY_NORMAL);
+        erts_dirty_process_signal_handler
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
-	ASSERT(erts_dirty_process_code_checker
-	       && erts_dirty_process_code_checker->common.id == pid);
-	erts_proc_inc_refc(erts_dirty_process_code_checker);
+	ASSERT(erts_dirty_process_signal_handler
+	       && erts_dirty_process_signal_handler->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_signal_handler);
 
+	pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_dirty_process_signal_handler",
+                                     !0, PRIORITY_HIGH);
+        erts_dirty_process_signal_handler_high
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_dirty_process_signal_handler_high
+	       && erts_dirty_process_signal_handler_high->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_signal_handler_high);
+
+	pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_dirty_process_signal_handler",
+                                     !0, PRIORITY_MAX);
+        erts_dirty_process_signal_handler_max
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_dirty_process_signal_handler_max
+	       && erts_dirty_process_signal_handler_max->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_signal_handler_max);
     }
 
     erts_start_schedulers();

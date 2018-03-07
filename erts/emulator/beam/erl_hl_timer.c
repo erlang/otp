@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2015-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "erl_hl_timer.h"
+#include "erl_proc_sig_queue.h"
 #ifdef ERTS_MAGIC_REF_BIF_TIMERS
 #include "erl_binary.h"
 #endif
@@ -2470,28 +2471,21 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
 	    req->rrefn[1] = rrefn[1];
 	    req->rrefn[2] = rrefn[2];
 
-	    erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-
-	    if (ERTS_PROC_PENDING_EXIT(c_p))
-		ERTS_VBUMP_ALL_REDS(c_p);
-	    else {
-		/*
-		 * Caller needs to wait for a message containing
-		 * the ref that we just created. No such message
-		 * can exist in callers message queue at this time.
-		 * We therefore move the save pointer of the
-		 * callers message queue to the end of the queue.
-		 *
-		 * NOTE: It is of vital importance that the caller
-		 *       immediately do a receive unconditionaly
-		 *       waiting for the message with the reference;
-		 *       otherwise, next receive will *not* work
-		 *       as expected!
-		 */
-		ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-		c_p->msg.save = c_p->msg.last;
-	    }
-	    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+            /*
+             * Caller needs to wait for a message containing
+             * the ref that we just created. No such message
+             * can exist in callers message queue at this time.
+             * We therefore move the save pointer of the
+             * callers message queue to the end of the queue.
+             *
+             * NOTE: It is of vital importance that the caller
+             *       immediately do a receive unconditionaly
+             *       waiting for the message with the reference;
+             *       otherwise, next receive will *not* work
+             *       as expected!
+             */
+            ERTS_RECV_MARK_SAVE(c_p);
+            ERTS_RECV_MARK_SET(c_p);
 
 	    ERTS_BIF_PREP_TRAP1(ret, erts_await_result, c_p, rref);
 	}

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "hipe_native_bif.h"
 #include "hipe_arch.h"
 #include "hipe_stack.h"
+#include "erl_proc_sig_queue.h"
 
 /*
  * These are wrappers for BIFs that may trigger a native
@@ -254,7 +255,7 @@ void hipe_handle_exception(Process *c_p)
     /* Synthesized to avoid having to generate code for it. */
     c_p->def_arg_reg[0] = exception_tag[GET_EXC_CLASS(c_p->freason)];
 
-    c_p->msg.saved_last = 0;  /* No longer safe to use this position */
+    ERTS_RECV_MARK_CLEAR(c_p);  /* No longer safe to use this position */
 
     hipe_find_handler(c_p);
 }
@@ -544,38 +545,57 @@ Eterm hipe_check_get_msg(Process *c_p)
     msgp = PEEK_MESSAGE(c_p);
 
     if (!msgp) {
-	erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	/* Make sure messages wont pass exit signals... */
-	if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	    return THE_NON_VALUE; /* Will be rescheduled for exit */
-	}
-	ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-	msgp = PEEK_MESSAGE(c_p);
-	if (msgp)
-	    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	else {
-	    /* XXX: BEAM doesn't need this */
-	    c_p->hipe_smp.have_receive_locks = 1;
-	    c_p->flags &= ~F_DELAY_GC;
-	    return THE_NON_VALUE;
-	}
+        int get_out;
+        (void) erts_proc_sig_receive_helper(c_p, CONTEXT_REDS, 0,
+                                            &msgp, &get_out);
+        /* FIXME: Need to bump reductions... */
+        if (!msgp) {
+            if (get_out) {
+                if (get_out < 0) {
+                    /*
+                     * FIXME: We should get out yielding
+                     * here...
+                     */
+                    goto next_message;
+                }
+                /* Go exit... */
+                return THE_NON_VALUE;
+            }
+
+            /*
+             * If there are no more messages in queue
+             * (and we are not yielding or exiting)
+             * erts_proc_sig_receive_helper()
+             * returns with message queue lock locked...
+             */
+
+            /* XXX: BEAM doesn't need this */
+            c_p->hipe_smp.have_receive_locks = 1;
+            c_p->flags &= ~F_DELAY_GC;
+            return THE_NON_VALUE;
+        }
     }
 
-    if (is_non_value(ERL_MESSAGE_TERM(msgp))
-	&& !erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
-	/*
-	 * A corrupt distribution message that we weren't able to decode;
-	 * remove it...
-	 */
-	ASSERT(!msgp->data.attached);
-	UNLINK_MESSAGE(c_p, msgp);
-	msgp->next = NULL;
-	erts_cleanup_messages(msgp);
-	goto next_message;
+    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(msgp && ERTS_SIG_IS_MSG(msgp));
+
+    if (ERTS_SIG_IS_EXTERNAL_MSG(msgp)) {
+        /* FIXME: bump appropriate amount... */
+        if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
+            /*
+             * A corrupt distribution message that we weren't able to decode;
+             * remove it...
+             */
+            /* TODO: Add DTrace probe for this bad message situation? */
+            UNLINK_MESSAGE(c_p, msgp);
+            msgp->next = NULL;
+            erts_cleanup_messages(msgp);
+            goto next_message;
+        }
     }
 
-    ASSERT(is_value(ERL_MESSAGE_TERM(msgp)));
+    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(ERTS_SIG_IS_INTERNAL_MSG(msgp));
 
     return ERL_MESSAGE_TERM(msgp);
 }
