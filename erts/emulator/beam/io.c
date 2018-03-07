@@ -298,7 +298,6 @@ static Port *create_port(char *name,
     erts_aint32_t state = ERTS_PORT_SFLG_CONNECTED;
     erts_aint32_t x_pts_flgs = 0;
 
-    ErtsRunQueue *runq;
     if (!driver_lock) {
 	/* Align size for mutex following port struct */
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
@@ -347,11 +346,16 @@ static Port *create_port(char *name,
 	p += sizeof(erts_mtx_t);
 	state |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
-    if (erts_get_scheduler_data())
-        runq = erts_get_runq_current(NULL);
-    else
-        runq = ERTS_RUNQ_IX(0);
-    erts_atomic_set_nob(&prt->run_queue, (erts_aint_t) runq);
+
+    {
+        ErtsRunQueue *runq;
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        if (esdp)
+            runq = erts_get_runq_current(esdp);
+        else
+            runq = ERTS_RUNQ_IX(0);
+        erts_init_runq_port(prt, runq);
+    }
 
     prt->xports = NULL;
     

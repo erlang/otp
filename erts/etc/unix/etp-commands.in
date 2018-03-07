@@ -1693,7 +1693,7 @@ define etp-proc-state-int
     printf "dirty-cpu-proc | "
   end
   if ($arg0 & 0x2000000)
-    printf "on-heap-msgq | "
+    printf "GARBAGE<0x2000000> | "
   end
   if ($arg0 & 0x1000000)
     printf "off-heap-msgq | "
@@ -1717,7 +1717,7 @@ define etp-proc-state-int
     printf "trapping-exit | "
   end
   if ($arg0 & 0x40000)
-    printf "bound | "
+    printf "GARBAGE<0x40000> | "
   end
   if ($arg0 & 0x20000)
     printf "garbage-collecting | "
