@@ -27,7 +27,7 @@
 %% Interface for compiler.
 -export([module/2, format_error/1]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,foreach/2,reverse/1]).
+-import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
 
 %% To be called by the compiler.
 
@@ -413,30 +413,22 @@ valfun_1({trim,N,Remaining}, #vst{current=#st{y=Yregs0,numy=NumY}=St}=Vst) ->
 	    error({trim,N,Remaining,allocated,NumY})
     end;
 %% Catch & try.
-valfun_1({'catch',Dst,{f,Fail}}, Vst0) when Fail /= none ->
-    Vst = #vst{current=#st{ct=Fails}=St} = 
-	set_type_y({catchtag,[Fail]}, Dst, Vst0),
-    Vst#vst{current=St#st{ct=[[Fail]|Fails]}};
-valfun_1({'try',Dst,{f,Fail}}, Vst0) ->
-    Vst = #vst{current=#st{ct=Fails}=St} = 
-	set_type_y({trytag,[Fail]}, Dst, Vst0),
-    Vst#vst{current=St#st{ct=[[Fail]|Fails]}};
+valfun_1({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
+    init_try_catch_branch(catchtag, Dst, Fail, Vst);
+valfun_1({'try',Dst,{f,Fail}}, Vst)  when Fail =/= none ->
+    init_try_catch_branch(trytag, Dst, Fail, Vst);
 valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{catchtag,Fail} ->
 	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
-	    Xs = gb_trees_from_list([{0,term}]),
-	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
+            Xregs = gb_trees:enter(0, term, St#st.x),
+	    Vst#vst{current=St#st{x=Xregs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
-    case get_special_y_type(Reg, Vst0) of
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst) ->
+    case get_special_y_type(Reg, Vst) of
 	{trytag,Fail} ->
-	    Vst = case Fail of
-		      [FailLabel] -> branch_state(FailLabel, Vst0);
-		      _ -> Vst0
-		  end,
 	    St = St0#st{ct=Fails,fls=undefined},
 	    set_catch_end(Reg, Vst#vst{current=St});
 	Type ->
@@ -464,14 +456,34 @@ valfun_1({get_tl,Src,Dst}, Vst) ->
 valfun_1({get_tuple_element,Src,I,Dst}, Vst) ->
     assert_type({tuple_element,I+1}, Src, Vst),
     set_type_reg(term, Src, Dst, Vst);
+valfun_1({jump,{f,Lbl}}, Vst) ->
+    kill_state(branch_state(Lbl, Vst));
 valfun_1(I, Vst) ->
     valfun_2(I, Vst).
+
+init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
+    Vst1 = set_type_y({Tag,[Fail]}, Dst, Vst0),
+    #vst{current=#st{ct=Fails}=St0} = Vst1,
+    CurrentSt = St0#st{ct=[[Fail]|Fails]},
+
+    %% Set the initial state at the try/catch label.
+    %% Assume that Y registers contain terms or try/catch
+    %% tags.
+    Yregs0 = map(fun({Y,uninitialized}) -> {Y,term};
+                    ({Y,initialized}) -> {Y,term};
+                    (E) -> E
+                 end, gb_trees:to_list(CurrentSt#st.y)),
+    Yregs = gb_trees:from_orddict(Yregs0),
+    BranchSt = CurrentSt#st{y=Yregs},
+
+    Vst = branch_state(Fail, Vst1#vst{current=BranchSt}),
+    Vst#vst{current=CurrentSt}.
 
 %% Update branched state if necessary and try next set of instructions.
 valfun_2(I, #vst{current=#st{ct=[]}}=Vst) ->
     valfun_3(I, Vst);
 valfun_2(I, #vst{current=#st{ct=[[Fail]|_]}}=Vst) when is_integer(Fail) ->
-    %% Update branched state
+    %% Update branched state.
     valfun_3(I, branch_state(Fail, Vst));
 valfun_2(_, _) ->
     error(ambiguous_catch_try_state).
@@ -587,8 +599,6 @@ valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     kill_state(Vst);
 valfun_4(return, #vst{current=#st{numy=NumY}}) ->
     error({stack_frame,NumY});
-valfun_4({jump,{f,Lbl}}, Vst) ->
-    kill_state(branch_state(Lbl, Vst));
 valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
     Vst = branch_state(Fail, Vst0),
     %% This term may not be part of the root set until
@@ -885,15 +895,7 @@ val_dsetel(_, #vst{current=#st{setelem=true}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=false}};
 val_dsetel(_, Vst) -> Vst.
 
-kill_state(#vst{current=#st{ct=[[Fail]|_]}}=Vst) when is_integer(Fail) ->
-    %% There is an active catch. Make sure that we merge the state into
-    %% the catch label before clearing it, so that that we can be sure
-    %% that the label gets a state.
-    kill_state_1(branch_state(Fail, Vst));
 kill_state(Vst) ->
-    kill_state_1(Vst).
-
-kill_state_1(Vst) ->
     Vst#vst{current=none}.
 
 %% A "plain" call.
