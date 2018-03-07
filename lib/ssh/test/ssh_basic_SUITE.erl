@@ -1124,11 +1124,14 @@ packet_size(Config) ->
               ct:log("Try max_packet_size=~p",[MaxPacketSize]),
               {ok,Ch} = ssh_connection:session_channel(Conn, 1000, MaxPacketSize, 60000),
               ok = ssh_connection:shell(Conn, Ch),
-              rec(Server, Conn, Ch, MaxPacketSize)
+              rec(Server, Conn, Ch, MaxPacketSize),
+              ssh_connection:close(Conn, Ch)
       end, [0, 1, 10, 25]),
 
     ssh:close(Conn),
-    ssh:stop_daemon(Server).
+    ssh:stop_daemon(Server),
+    ok.
+
 
 rec(Server, Conn, Ch, MaxSz) ->
     receive
@@ -1141,7 +1144,9 @@ rec(Server, Conn, Ch, MaxSz) ->
             ssh:stop_daemon(Server),
             ct:fail("Does not obey max_packet_size=~p",[MaxSz])
     after
-        2000 -> ok
+        2000 -> 
+            ct:log("~p: ok!",[MaxSz]),
+            ok
     end.
 
 %%--------------------------------------------------------------------
