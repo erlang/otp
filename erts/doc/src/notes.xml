@@ -10964,7 +10964,7 @@
 	    <c>update_cpu_info</c> will make the runtime system
 	    reread and update the internally stored CPU information.
 	    For more information see the documentation of <seealso
-	    marker="erlang#update_cpu_info">erlang:system_info(update_cpu_info)</seealso>.</p>
+	    marker="erlang#system_info_update_cpu_info">erlang:system_info(update_cpu_info)</seealso>.</p>
           <p>
 	    The CPU topology is now automatically detected on Windows
 	    systems with less than 33 logical processors. The runtime
