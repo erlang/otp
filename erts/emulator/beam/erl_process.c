@@ -4135,8 +4135,6 @@ evacuate_run_queue(ErtsRunQueue *rq,
     for (prio_q = 0; prio_q < ERTS_NO_PROC_PRIO_QUEUES; prio_q++) {
 	erts_aint32_t state;
 	Process *proc;
-	int notify = 0;
-	to_rq = NULL;
 
         if (!mp->prio[prio_q].runq)
             return;
@@ -4195,6 +4193,12 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		goto handle_next_proc;
 	    }
 
+            prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
+            to_rq = mp->prio[prio].runq;
+
+            if (!to_rq)
+                goto handle_next_proc;
+
 	    if (!erts_try_change_runq_proc(proc, to_rq)) {
 		/* Bound processes get stuck here... */
 		proc->next = NULL;
@@ -4205,15 +4209,13 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		sbpp->last = proc;
 	    }
 	    else {
-		int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
 		erts_runq_unlock(rq);
-
-                to_rq = mp->prio[prio].runq;
 
 		erts_runq_lock(to_rq);
 		enqueue_process(to_rq, prio, proc);
 		erts_runq_unlock(to_rq);
-		notify = 1;
+
+                smp_notify_inc_runq(to_rq);
 
 		erts_runq_lock(rq);
 	    }
@@ -4221,8 +4223,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	handle_next_proc:
 	    proc = dequeue_process(rq, prio_q, &state);
 	}
-	if (notify)
-	    smp_notify_inc_runq(to_rq);
+
     }
 }
 
