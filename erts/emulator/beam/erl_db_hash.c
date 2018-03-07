@@ -646,9 +646,9 @@ int db_create_hash(Process *p, DbTable *tbl)
 	    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
 	if (erts_ets_rwmtx_spin_count >= 0)
 	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-	tb->locks = (DbTableHashFineLocks*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */ 
-							      (DbTable *) tb,
-							      sizeof(DbTableHashFineLocks));	    	    
+	tb->locks = (DbTableHashFineLocks*) erts_db_alloc(ERTS_ALC_T_DB_SEG, /* Other type maybe? */
+                                                          (DbTable *) tb,
+                                                          sizeof(DbTableHashFineLocks));
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
             erts_rwmtx_init_opt(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
