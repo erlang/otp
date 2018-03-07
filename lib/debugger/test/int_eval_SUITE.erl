@@ -29,7 +29,8 @@
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
-	 interpreted_exit/1, otp_8310/1, stacktrace/1, maps/1]).
+	 interpreted_exit/1, otp_8310/1, stacktrace/1, maps/1,
+	 call_inside_binary/1]).
 
 %% Helpers.
 -export([applier/3]).
@@ -45,7 +46,8 @@ all() ->
     [bifs_outside_erlang, spawning, applying,
      catch_and_throw, external_call, test_module_info,
      apply_interpreted_fun, apply_uninterpreted_fun,
-     interpreted_exit, otp_8310, stacktrace, maps].
+     interpreted_exit, otp_8310, stacktrace, maps,
+     call_inside_binary].
 
 groups() -> 
     [].
@@ -275,6 +277,9 @@ maps(Config) when is_list(Config) ->
     [#{hello := 0, price := 0}] = spawn_eval(fun () -> ?IM:update_in_fun() end),
     ok.
 
+call_inside_binary(Config) when is_list(Config) ->
+    <<"1">> = ?IM:call_inside_binary(fun erlang:integer_to_binary/1),
+    ok.
 
 do_eval(Config, Mod) ->
     DataDir = proplists:get_value(data_dir, Config),

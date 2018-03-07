@@ -31,6 +31,7 @@
 -export([f/1, f_try/1, f_catch/1]).
 -export([otp_5837/1, otp_8310/0]).
 -export([empty_map_update/1, update_in_fun/0]).
+-export([call_inside_binary/1]).
 
 %% Internal exports.
 -export([echo/2,my_subtract/2,catch_a_ball/0,throw_a_ball/0]).
@@ -248,3 +249,6 @@ empty_map_update(Map) -> Map#{}.
 
 update_in_fun() ->
     lists:map(fun (X) -> X#{price := 0} end, [#{hello => 0, price => nil}]).
+
+call_inside_binary(Fun) ->
+    <<(Fun(1))/binary>>.
