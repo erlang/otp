@@ -440,7 +440,6 @@ get_dtls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
 					 version = {MajVer, MinVer},
 					 epoch = Epoch, sequence_number = SequenceNumber,
 					 fragment = Data} | Acc]);
-
 get_dtls_records_aux(<<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
 		       ?UINT16(Length), _/binary>>,
 		     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->

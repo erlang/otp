@@ -84,7 +84,6 @@ MODULES= \
 	tls_record \
 	dtls_record \
 	ssl_record \
-	ssl_v2 \
 	ssl_v3 \
 	tls_v1 \
 	dtls_v1

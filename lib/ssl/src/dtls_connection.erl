@@ -970,8 +970,7 @@ unprocessed_events(Events) ->
 update_handshake_history(#hello_verify_request{}, _, Hist) ->
     Hist;
 update_handshake_history(_, Handshake, Hist) ->
-    %% DTLS never needs option "v2_hello_compatible" to be true
-    ssl_handshake:update_handshake_history(Hist, iolist_to_binary(Handshake), false).
+    ssl_handshake:update_handshake_history(Hist, iolist_to_binary(Handshake)).
 prepare_flight(#state{flight_buffer = Flight,
 		      connection_states = ConnectionStates0,
 		      protocol_buffers = 

@@ -39,7 +39,7 @@
 -export([encode_handshake/2]).
 
 %% Handshake decodeing
--export([get_tls_handshake/4, decode_handshake/4]).
+-export([get_tls_handshake/4, decode_handshake/3]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -268,9 +268,9 @@ enc_handshake(HandshakeMsg, Version) ->
 %%--------------------------------------------------------------------
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 				 Body:Length/binary,Rest/binary>>, 
-                      #ssl_options{v2_hello_compatible = V2Hello} = Opts,  Acc) ->
+                      Opts,  Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    try decode_handshake(Version, Type, Body, V2Hello) of
+    try decode_handshake(Version, Type, Body) of
 	Handshake ->
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
@@ -280,29 +280,15 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 get_tls_handshake_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
-decode_handshake(_, ?HELLO_REQUEST, <<>>, _) ->
+decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
     #hello_request{};
-
-decode_handshake(_Version, ?CLIENT_HELLO, Bin, true) ->
-    try decode_hello(Bin) of
-        Hello ->
-            Hello
-    catch
-        _:_ ->
-            decode_v2_hello(Bin)
-    end;
-decode_handshake(_Version, ?CLIENT_HELLO, Bin, false) ->
-    decode_hello(Bin);
-
 decode_handshake(_Version, ?CLIENT_HELLO, 
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                    ?BYTE(SID_length), Session_ID:SID_length/binary,
                    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
                    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
-                   Extensions/binary>>, _) ->
-    
+                   Extensions/binary>>) ->
     DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
-
     #client_hello{
        client_version = {Major,Minor},
        random = Random,
@@ -311,36 +297,7 @@ decode_handshake(_Version, ?CLIENT_HELLO,
        compression_methods = Comp_methods,
        extensions = DecodedExtensions
       };
-decode_handshake(Version, Tag, Msg, _) ->
+decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
 
 
-decode_hello(<<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-               ?BYTE(SID_length), Session_ID:SID_length/binary,
-               ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-               ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
-               Extensions/binary>>) ->
-    DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
-    
-    #client_hello{
-       client_version = {Major,Minor},
-       random = Random,
-       session_id = Session_ID,
-       cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = Comp_methods,
-       extensions = DecodedExtensions
-      }.
-%% The server must be able to receive such messages, from clients that
-%% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
-decode_v2_hello(<<?BYTE(Major), ?BYTE(Minor),
-                  ?UINT16(CSLength), ?UINT16(0),
-                  ?UINT16(CDLength),
-                  CipherSuites:CSLength/binary,
-                  ChallengeData:CDLength/binary>>) ->
-    #client_hello{client_version = {Major, Minor},
-		  random = ssl_v2:client_random(ChallengeData, CDLength),
-		  session_id = 0,
-		  cipher_suites =  ssl_handshake:decode_suites('3_bytes', CipherSuites),
-		  compression_methods = [?NULL],
-		  extensions = #hello_extensions{}
-		 }.

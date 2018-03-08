@@ -394,16 +394,6 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       server_verify_data => undefined
      }.
 
-assert_version(<<1:1, Length0:15, Data0:Length0/binary, _/binary>>, Versions) ->
-    case Data0 of
-        <<?BYTE(?CLIENT_HELLO), ?BYTE(Major), ?BYTE(Minor), _/binary>> ->
-            %% First check v2_hello_compatible mode is active 
-            lists:member({2,0}, Versions) andalso
-            %% andalso we want to negotiate higher version
-                lists:member({Major, Minor}, Versions -- [{2,0}]); 
-        _ ->
-            false
-    end;
 assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) ->
     is_acceptable_version({MajVer, MinVer}, Versions).
                    
@@ -431,32 +421,10 @@ get_tls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
-%% Matches an ssl v2 client hello message.
-%% The server must be able to receive such messages, from clients that
-%% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
-get_tls_records_aux(<<1:1, Length0:15, Data0:Length0/binary, Rest/binary>>,
-		    Acc) ->
-    case Data0 of
-	<<?BYTE(?CLIENT_HELLO), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>> ->
-	    Length = Length0-1,
-	    <<?BYTE(_), Data1:Length/binary>> = Data0,
-	    Data = <<?BYTE(?CLIENT_HELLO), ?UINT24(Length), Data1/binary>>,
-	    get_tls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
-						version = {MajVer, MinVer},
-						fragment = Data} | Acc]);
-	_ ->
-	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
-	    
-    end;
-
 get_tls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
                       ?UINT16(Length), _/binary>>,
                     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-get_tls_records_aux(<<1:1, Length0:15, _/binary>>,_Acc) 
-  when Length0 > ?MAX_CIPHER_TEXT_LENGTH ->
-    ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-
 get_tls_records_aux(Data, Acc) ->
     case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
 	true ->
