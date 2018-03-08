@@ -167,11 +167,11 @@ ok</pre>
             The default padding character is <c>' '</c> (space).</p>
         </item>
         <item>
-          <p><c>Mod</c> is the control sequence modifier. It is either a
-            single character (<c>t</c>, for Unicode
-            translation, and <c>l</c>, for stopping <c>p</c> and
-            <c>P</c> from detecting printable characters)
-            that changes the interpretation of <c>Data</c>.</p>
+          <p><c>Mod</c> is the control sequence modifier. It is a
+            single character that changes the interpretation of
+            <c>Data</c>. This can be <c>t</c>, for Unicode translation,
+            or <c>l</c>, for stopping <c>p</c> and <c>P</c> from
+            detecting printable characters.</p>
         </item>
       </list>
         <p><em>Available control sequences:</em></p>
@@ -277,10 +277,9 @@ ok
               <c>~w</c>, but breaks terms whose printed representation
               is longer than one line into many lines and indents each
               line sensibly. Left-justification is not supported.
-              It also tries to detect lists of
-              printable characters and to output these as strings. The
-              Unicode translation modifier is used for determining
-              what characters are printable, for example:</p>
+              It also tries to detect flat lists of
+              printable characters and output these as strings.
+              For example:</p>
             <pre>
 1> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
 <input>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</input>
@@ -302,7 +301,7 @@ ok
  {mode,implicit}]
 ok</pre>
             <p>The field width specifies the maximum line length.
-              Defaults to 80. The precision specifies the initial
+              It defaults to 80. The precision specifies the initial
               indentation of the term. It defaults to the number of
               characters printed on this line in the <em>same</em> call to
               <seealso marker="#write/1"><c>write/1</c></seealso> or
@@ -332,18 +331,53 @@ ok
 [{a,[97]},
  {b,[98]}]
 ok</pre>
-            <p>Binaries that look like UTF-8 encoded strings are
-              output with the string syntax if the Unicode translation
+            <p>The Unicode translation modifier <c>t</c> specifies how to treat
+              characters outside the Latin-1 range of codepoints, in
+              atoms, strings, and binaries. For example, printing an atom
+              containing a character &gt; 255:</p>
+            <pre>
+8> <input>io:fwrite("~p~n",[list_to_atom([1024])]).</input>
+'\x{400}'
+ok
+9> <input>io:fwrite("~tp~n",[list_to_atom([1024])]).</input>
+'Ѐ'
+ok</pre>
+            <p>By default, Erlang only detects lists of characters
+              in the Latin-1 range as strings, but the <c>+pc unicode</c>
+              flag can be used to change this (see <seealso
+              marker="#printable_range/0">
+              <c>printable_range/0</c></seealso> for details). For example:</p>
+            <pre>
+10> <input>io:fwrite("~p~n",[[214]]).</input>
+"Ö"
+ok
+11> <input>io:fwrite("~p~n",[[1024]]).</input>
+[1024]
+ok
+12> <input>io:fwrite("~tp~n",[[1024]]).</input>
+[1024]
+ok
+</pre>
+            <p>but if Erlang was started with <c>+pc unicode</c>:</p>
+            <pre>
+13> <input>io:fwrite("~p~n",[[1024]]).</input>
+[1024]
+ok
+14> <input>io:fwrite("~tp~n",[[1024]]).</input>
+"Ѐ"
+ok</pre>
+            <p>Similarly, binaries that look like UTF-8 encoded strings
+              are output with the binary string syntax if the <c>t</c>
               modifier is specified:</p>
             <pre>
-9> <input>io:fwrite("~p~n",[[1024]]).</input>
-[1024]
-10> <input>io:fwrite("~tp~n",[[1024]]).</input>
-"\x{400}"
-11> <input>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</input>
+15> <input>io:fwrite("~p~n", [&lt;&lt;208,128&gt;&gt;]).</input>
+&lt;&lt;208,128&gt;&gt;
+ok
+16> <input>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</input>
+&lt;&lt;"Ѐ"/utf8&gt;&gt;
+ok
+17> <input>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</input>
 &lt;&lt;128,128&gt;&gt;
-12> <input>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</input>
-&lt;&lt;"\x{400}"/utf8&gt;&gt;
 ok</pre>
           </item>
           <tag><c>W</c></tag>
