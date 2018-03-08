@@ -67,24 +67,41 @@
     <taglist>
       <tag><c>boolean() =</c></tag>
       <item><p><c>true | false</c></p></item>
+
       <tag><c>string() =</c></tag>
       <item><p><c>[byte()]</c></p></item>
+
       <tag><c>ssh_daemon_ref() =</c></tag>
       <item><p>opaque() -
       as returned by <c>ssh:daemon/[1,2,3]</c></p></item>
+
+      <tag><c>ok_error(OKtype) = </c></tag>
+      <item><p><c>{ok,OKtype} | {error, term()}</c></p></item>
+
+      <tag><c>ok_error() = </c></tag>
+      <item><p><c>ok_error(term())</c></p></item>
+
       <tag><c>ssh_connection_ref() =</c></tag>
       <item><p>opaque() - as returned by <c>ssh:connect/3</c></p></item>
+
       <tag><c>ip_address() =</c></tag>
-      <item><p><c>inet::ip_address</c></p></item>
+      <item><p><c>inet::ip_address()</c></p></item>
+
+      <tag><c>port_number() =</c></tag>
+      <item><p><c>inet::port_number()</c></p></item>
+
       <tag><c>subsystem_spec() =</c></tag>
       <item><p><c>{subsystem_name(),
       {channel_callback(), channel_init_args()}}</c></p></item>
+
       <tag><c>subsystem_name() =</c></tag>
       <item><p><c>string()</c></p></item>
+
       <tag><c>channel_callback() =</c></tag>
       <item><p><c>atom()</c> - Name of the Erlang module
       implementing the subsystem using the <c>ssh_channel</c> behavior, see
       <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
+
       <tag><c>key_cb() =</c></tag>
       <item>
         <p><c>atom() | {atom(), list()}</c></p>
@@ -94,6 +111,7 @@
         case maybe.</p>
         <p><c>list()</c> - List of options that can be passed to the callback module.</p>
       </item>
+
       <tag><c>channel_init_args() =</c></tag>
       <item><p><c>list()</c></p></item>
 
@@ -478,8 +496,8 @@
         <v>Option = client_version | server_version | user | peer | sockname </v>
 	<v>Value = [option_value()] </v>
 	<v>option_value() = {{Major::integer(), Minor::integer()}, VersionString::string()} |
-	User::string() |  Peer::{inet:hostname(), {inet::ip_adress(), inet::port_number()}} |
-	Sockname::{inet::ip_adress(), inet::port_number()}</v>
+	User::string() |  Peer::{inet:hostname(), {ip_address(), port_number()}} |
+	Sockname::{ip_address(), port_number()}</v>
       </type>
       <desc>
         <p>Retrieves information about a connection.</p>
@@ -541,22 +559,83 @@
 	    The option can be set to the empty list if
 	    you do not want the daemon to run any subsystems.</p>
 	  </item>
-	  <tag><c><![CDATA[{shell, {Module, Function, Args} |
+
+	  <tag><marker id="daemon_opt_shell"/>
+	  <c><![CDATA[{shell, {Module, Function, Args} |
 	  fun(string() = User) - > pid() | fun(string() = User,
 	  ip_address() = PeerAddr) -> pid()}]]></c></tag>
 	  <item>
 	    <p>Defines the read-eval-print loop used when a shell is
 	    requested by the client. The default is to use the Erlang shell:
 	    <c><![CDATA[{shell, start, []}]]></c></p>
+	    <p>See the option <seealso marker="#daemon_opt_exec"><c>exec</c></seealso>
+	    for a description of how the daemon execute exec-requests depending on
+	    the shell- and exec-options.</p>
 	  </item>
-	  <tag><c><![CDATA[{ssh_cli, {channel_callback(),
+
+	  <tag><marker id="daemon_opt_exec"/>
+	  <c><![CDATA[{exec, {direct, exec_spec()}}]]></c>
+	  <br/><c>where:</c>
+	  <br/><c>exec_spec() = </c>
+	  <br/><c>  fun(Cmd::string()) -> ok_error()</c>
+	  <br/><c>  | fun(Cmd::string(), User::string()) -> ok_error()</c>
+	  <br/><c>  | fun(Cmd::string(), User::string(), ClientAddr::{ip_address(), port_number()}) -> ok_error()</c>
+	  </tag>
+	  <item>
+	    <p>This option changes how the daemon execute exec-requests from clients. The term in <c>ok_error()</c>
+	    is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case but in the
+	    error case.</p>
+	    <p>Error texts are returned on channel-type 1 which usually are piped to <c>stderr</c> on e.g Linux systems.
+	    Texts from a successful execution will in similar manner be piped to <c>stdout</c>. The exit-status code
+	    is set to 0 for success and -1 for errors. The exact results presented on the client side depends on the
+	    client.
+	    </p>
+	    <p>The option cooperates with the daemon-option <seealso marker="#daemon_opt_shell"><c>shell</c></seealso>
+	    in the following way:</p>
+	    <taglist>
+	      <tag>1. If the exec-option is present (the shell-option may or may not be present):</tag>
+	      <item>
+		<p>The exec-option fun is called with the same number of parameters as the arity of the fun,
+		and the result is returned to the client.
+		</p>
+	      </item>
+	      
+	      <tag>2. If the exec-option is absent, but a shell-option is present with the default Erlang shell:</tag>
+	      <item>
+		<p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	      </item>
+
+	      <tag>3. If the exec-option is absent, but a shell-option is present that is not the default Erlang shell:</tag>
+	      <item>
+		<p>The exec-request is not evaluated and an error message is returned to the client.</p>
+	      </item>
+
+	      <tag>4. If neither the exec-option nor the shell-option is present:</tag>
+	      <item>
+		<p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	      </item>
+	    </taglist>
+	    <p>If a custom CLI is installed (see the option <seealso marker="#daemon_opt_ssh_cli"><c>ssh_cli</c></seealso>)
+	    the rules above are replaced by thoose implied by the custom CLI.
+	    </p>
+	    <note>
+	      <p>The exec-option has existed for a long time but has not previously been documented. The old
+	      definition and behaviour are retained but obey the rules 1-4 above if conflicting.
+	      The old and undocumented style should not be used in new programs.</p>
+	    </note>
+	  </item>
+
+	  <tag><marker id="daemon_opt_ssh_cli"/>
+	  <c><![CDATA[{ssh_cli, {channel_callback(),
 	  channel_init_args()} | no_cli}]]></c></tag>
 	  <item>
 	    <p>Provides your own CLI implementation, that is, a channel callback
 	    module that implements a shell and command execution. The shell
 	    read-eval-print loop can be customized, using the
-	    option <c>shell</c>. This means less work than implementing
-	    an own CLI channel. If set to <c>no_cli</c>, the CLI channels
+	    option <seealso marker="#daemon_opt_shell"><c>shell</c></seealso>. This means less work than implementing
+	    an own CLI channel. If <c>ssh_cli</c> is set to <c>no_cli</c>, the CLI channels
+	    like <seealso marker="#daemon_opt_shell"><c>shell</c></seealso>
+	    and <seealso marker="#daemon_opt_exec"><c>exec</c></seealso>
 	    are disabled and only subsystem channels are allowed.</p>
 	  </item>
 	  <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
