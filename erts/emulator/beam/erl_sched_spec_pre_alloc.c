@@ -47,6 +47,15 @@ erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
     int cix;
     int no_blocks = pa_size;
     int no_blocks_per_chunk;
+    size_t aligned_blk_sz;
+
+#if !defined(ERTS_STRUCTURE_ALIGNED_ALLOC)
+    /* Force 64-bit alignment... */
+    aligned_blk_sz = ((blk_sz - 1) / 8) * 8 + 8;
+#else
+    /* Alignment of structure is enough... */
+    aligned_blk_sz = blk_sz;
+#endif
 
     if (!name) { /* schedulers only variant */
         ASSERT(!nthreads);
@@ -68,7 +77,7 @@ erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
     }
     no_blocks = no_blocks_per_chunk * nthreads;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_chunk_header_t));
-    chunk_mem_size += blk_sz * no_blocks_per_chunk;
+    chunk_mem_size += aligned_blk_sz * no_blocks_per_chunk;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(chunk_mem_size);
     tot_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_data_t));
     tot_size += chunk_mem_size * nthreads;
@@ -115,7 +124,7 @@ erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
 	blk = (erts_sspa_blk_t *) p;
 	for (i = 0; i < no_blocks_per_chunk; i++) {
 	    blk = (erts_sspa_blk_t *) p;
-	    p += blk_sz;
+	    p += aligned_blk_sz;
 	    blk->next_ptr = (erts_sspa_blk_t *) p;
 	}
 

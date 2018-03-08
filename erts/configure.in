@@ -2721,6 +2721,13 @@ LIBS=$saved_libs
 dnl restore CPPFLAGS
 CPPFLAGS=$saved_cppflags
 
+case $ARCH in
+     x86|amd64)
+	AC_DEFINE(ERTS_STRUCTURE_ALIGNED_ALLOC, 1, [Define if structure alignment is enough for allocators. If not defined, 64-bit alignment will be forced.]);;
+     *)
+	;;
+esac
+
 LM_SYS_IPV6
 LM_SYS_MULTICAST
 ERL_TIME_CORRECTION
