@@ -2005,6 +2005,7 @@ writes(N, F1) ->
 
 format_string(_Config) ->
     %% All but padding is tested by fmt/2.
+    "xxxxxxxsss" = fmt("~10..xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
     ok.

@@ -95,7 +95,7 @@ print([]) ->
     [].
 
 print(C, F, Ad, P, Pad, Encoding, Strings) ->
-    [$~] ++ print_field_width(F, Ad) ++ print_precision(P) ++
+    [$~] ++ print_field_width(F, Ad) ++ print_precision(P, Pad) ++
         print_pad_char(Pad) ++ print_encoding(Encoding) ++
         print_strings(Strings) ++ [C].
 
@@ -103,8 +103,9 @@ print_field_width(none, _Ad) -> "";
 print_field_width(F, left) -> integer_to_list(-F);
 print_field_width(F, right) -> integer_to_list(F).
 
-print_precision(none) -> "";
-print_precision(P) -> [$. | integer_to_list(P)].
+print_precision(none, $\s) -> "";
+print_precision(none, _Pad) -> ".";  % pad must be second dot
+print_precision(P, _Pad) -> [$. | integer_to_list(P)].
 
 print_pad_char($\s) -> ""; % default, no need to make explicit
 print_pad_char(Pad) -> [$., Pad].
