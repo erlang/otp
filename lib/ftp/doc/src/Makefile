@@ -59,7 +59,7 @@ XML_FILES = \
 	$(XML_REF3_FILES)    \
 	$(XML_APPLICATION_FILES)
 
-# GIF_FILES = inets.gif
+# GIF_FILES = ftp.gif
 
 
 # ----------------------------------------------------

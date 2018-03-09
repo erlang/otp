@@ -38,20 +38,19 @@
       according to a subset of the File Transfer Protocol (FTP), see
     <url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>.</p>
 
-    <p>As from <c>Inets</c> 4.4.1, the FTP
-      client always tries to use passive FTP mode and only resort
+    <p>The FTP client always tries to use passive FTP mode and only resort
       to active FTP mode if this fails. This default behavior can be 
       changed by start option <seealso marker="#mode">mode</seealso>.</p>
 
     <marker id="two_start"></marker>
 
     <p>An FTP client can be started in two ways. One is using the 
-      <seealso marker="#service_start">Inets service framework</seealso>,
-      the other is to start it directly as a standalone process 
+      <seealso marker="#service_start">service_start</seealso> function,
+      the other is to start it directly as a standalone process
       using function <seealso marker="#open">open</seealso>.</p>
 
     <p>For a simple example of an FTP session, see 
-      <seealso marker="ftp_client">Inets User's Guide</seealso>.</p>
+      <seealso marker="ftp_client">FTP User's Guide</seealso>.</p>
 
     <p>In addition to the ordinary functions for receiving and sending
       files (see <c>recv/2</c>, <c>recv/3</c>, <c>send/2</c>, and
@@ -82,11 +81,9 @@
     <title>FTP CLIENT SERVICE START/STOP</title>
     
     <p>The FTP client can be started and stopped dynamically in runtime by
-      calling the <c>Inets</c> application API 
-      <c>inets:start(ftpc, ServiceConfig)</c>,
-      or <c>inets:start(ftpc, ServiceConfig, How)</c>, and
-      <c>inets:stop(ftpc, Pid)</c>. 
-      For details, see <seealso marker="inets">inets(3)</seealso>.</p>
+      calling the <c>ftp</c> application API
+      <c>ftp:start_service(ServiceConfig)</c> and
+      <c>ftp:stop_service(Pid)</c>.</p>
 
     <p>The available configuration options are as follows:</p>
     
@@ -273,6 +270,7 @@
   </section>
 
   <funcs>
+
     <func>
       <name>account(Pid, Account) -> ok | {error, Reason}</name>
       <fsummary>Specifies which account to use.</fsummary>
@@ -564,7 +562,7 @@
 
       <desc>
 	<p>Starts a standalone FTP client process 
-          (without the <c>Inets</c> service framework) and 
+          (without the <c>ftp</c> service framework) and
           opens a session with the FTP server at <c>Host</c>. </p>
 
 	<p>If option <c>{tls, tls_options()}</c> is present, the FTP session 
@@ -793,6 +791,37 @@
           is closed by the server.</p>
 
        <marker id="type"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>start_service(ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
+      <fsummary>Dynamically starts an <c>FTP</c>
+      session after the <c>ftp</c> application has been started.</fsummary>
+      <type>
+        <v>ServiceConfig = [{Option, Value}]</v>
+	<v>Option = property()</v>
+	<v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Dynamically starts an <c>FTP</c> session after the <c>ftp</c>
+          application has been started.</p>
+        <note>
+          <p>As long as the <c>ftp</c> application is operational,
+	    the FTP sessions are supervised and can be soft code upgraded.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name>stop_service(Reference) -> ok | {error, Reason} </name>
+      <fsummary>Stops an FTP session.</fsummary>
+      <type>
+	<v>Reference = pid() | term() - service-specified reference</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Stops a started FTP session.</p>
       </desc>
     </func>
 

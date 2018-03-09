@@ -32,7 +32,6 @@
         ]).
 
 %% Added for backward compatibility
-%% Called by inets:start()
 -export([start_standalone/1]).
 
 -export([start_link/1, start_link/2]).
@@ -2082,7 +2081,7 @@ setup_ctrl_connection(Host, Port, Timeout, State) ->
 	{ok, IpFam, CSock} ->
 	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},
 	    activate_ctrl_connection(NewState),
-	    case Timeout - inets_lib:millisec_passed(MsTime) of
+	    case Timeout - millisec_passed(MsTime) of
 		Timeout2 when (Timeout2 >= 0) ->
 		    {ok, NewState#state{caller = open}, Timeout2};
 		_ ->
@@ -2588,3 +2587,14 @@ validate_options([{Key, Value}|Options], ValidOptions, Acc) ->
     end;
 validate_options([_|Options], ValidOptions, Acc) ->
     validate_options(Options, ValidOptions, Acc).
+
+%% Help function, elapsed milliseconds since T0
+millisec_passed({_,_,_} = T0 ) ->
+    %% OTP 17 and earlier
+    timer:now_diff(erlang:timestamp(), T0) div 1000;
+
+millisec_passed(T0) ->
+    %% OTP 18
+    erlang:convert_time_unit(erlang:monotonic_time() - T0,
+			     native,
+			     micro_seconds) div 1000.

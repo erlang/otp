@@ -159,7 +159,7 @@ ERL_COMPILE_FLAGS += \
 # erl -sname kalle -pa ../ebin
 # If you intend to run the test suite locally (private), then
 # there is some requirements:
-# 1) INETS_PRIV_DIR must be created
+# 1) FTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
 tests debug opt: $(BUILDTARGET) 
