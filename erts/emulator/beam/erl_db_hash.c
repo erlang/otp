@@ -340,8 +340,8 @@ typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Ete
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
 static void alloc_seg(DbTableHash *tb);
 static int free_seg(DbTableHash *tb, int free_records);
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
-			HashDbTerm *list);
+static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
+			     HashDbTerm *list);
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
 			       HashValue hval, HashDbTerm *list);
 static void shrink(DbTableHash* tb, int nitems);
@@ -672,19 +672,9 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
     erts_rwmtx_t* lck = RLOCK_HASH(tb,ix);
     HashDbTerm* list;
 
-    for (;;) {
-	list = BUCKET(tb,ix);
-	if (list != NULL) {
-	    if (list->hvalue == INVALID_HASH) {
-		list = next(tb,&ix,&lck,list);
-	    }
-	    break;
-	}
-	if ((ix=next_slot(tb,ix,&lck)) == 0) {
-	    list = NULL;
-	    break;
-	}
-    }
+    list = BUCKET(tb,ix);
+    list = next_live(tb, &ix, &lck, list);
+
     if (list != NULL) {
 	*ret = db_copy_key(p, tbl, &list->dbterm);
 	RUNLOCK_HASH(lck);
@@ -721,13 +711,13 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }
     /* Key found */
 
-    b = next(tb, &ix, &lck, b);
+    b = next_live(tb, &ix, &lck, b->next);
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
 	while (b != 0) {
 	    if (!has_live_key(tb, b, key, hval)) {
 		break;
 	    }
-	    b = next(tb, &ix, &lck, b);
+	    b = next_live(tb, &ix, &lck, b->next);
 	}
     }
     if (b == NULL) {
@@ -2905,14 +2895,14 @@ static HashDbTerm* search_list(DbTableHash* tb, Eterm key,
 /* It return the next live object in a table, NULL if no more */
 /* In-bucket: RLOCKED */
 /* Out-bucket: RLOCKED unless NULL */
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
-			HashDbTerm *list)
+static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
+			     HashDbTerm *list)
 {
     int i;
 
     ERTS_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
 
-    for (list = list->next; list != NULL; list = list->next) {
+    for ( ; list != NULL; list = list->next) {
 	if (list->hvalue != INVALID_HASH)
 	    return list;        
     }
