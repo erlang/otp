@@ -931,7 +931,7 @@ limit_term(Term, Depth) ->
 limit(_, 0) -> '...';
 limit([H|T]=L, D) ->
     if
-	D =:= 1 -> '...';
+	D =:= 1 -> ['...'];
 	true ->
             case printable_list(L) of
                 true -> L;
@@ -944,7 +944,7 @@ limit(Term, D) when is_map(Term) ->
 limit({}=T, _D) -> T;
 limit(T, D) when is_tuple(T) ->
     if
-	D =:= 1 -> '...';
+	D =:= 1 -> {'...'};
 	true ->
             list_to_tuple([limit(element(1, T), D-1)|
                            limit_tail(tl(tuple_to_list(T)), D-1)])
@@ -961,32 +961,29 @@ limit_tail(Other, D) ->
 
 %% Cannot limit maps properly since there is no guarantee that
 %% maps:from_list() creates a map with the same internal ordering of
-%% the selected associations as in Map.
+%% the selected associations as in Map. Instead of subtracting one
+%% from the depth as the map associations are traversed (as is done
+%% for tuples and lists), the same depth is applied to each and every
+%% (returned) association.
 limit_map(Map, D) ->
-    limit_map(maps:iterator(Map), D, []).
+    %% Keep one extra association to make sure the final ',...' is included.
+    limit_map_body(maps:iterator(Map), D + 1, D, []).
 
-limit_map(_I, 0, Acc) ->
+limit_map_body(_I, 0, _D0, Acc) ->
     maps:from_list(Acc);
-limit_map(I, D, Acc) ->
+limit_map_body(I, D, D0, Acc) ->
     case maps:next(I) of
         {K, V, NextI} ->
-            limit_map(NextI, D-1, [{K,V} | Acc]);
+            limit_map_body(NextI, D-1, D0, [limit_map_assoc(K, V, D0) | Acc]);
         none ->
             maps:from_list(Acc)
     end.
 
-%%     maps:from_list(limit_map_body(erts_internal:maps_to_list(Map, D), D)).
+limit_map_assoc(K, V, D) ->
+    %% Keep keys as are to avoid creating duplicated keys.
+    {K, limit(V, D - 1)}.
 
-%% limit_map_body(_, 0) -> [{'...', '...'}];
-%% limit_map_body([], _) -> [];
-%% limit_map_body([{K,V}], D) -> [limit_map_assoc(K, V, D)];
-%% limit_map_body([{K,V}|KVs], D) ->
-%%     [limit_map_assoc(K, V, D) | limit_map_body(KVs, D-1)].
-
-%% limit_map_assoc(K, V, D) ->
-%%     {limit(K, D-1), limit(V, D-1)}.
-
-limit_bitstring(B, _D) -> B. %% Keeps all printable binaries.
+limit_bitstring(B, _D) -> B. % Keeps all printable binaries.
 
 test_limit(_, 0) -> throw(limit);
 test_limit([H|T]=L, D) when is_integer(D) ->
@@ -1022,18 +1019,21 @@ test_limit_tuple(T, I, Sz, D) ->
     test_limit(element(I, T), D-1),
     test_limit_tuple(T, I+1, Sz, D-1).
 
-test_limit_map(_Map, _D) -> ok.
-%%     test_limit_map_body(erts_internal:maps_to_list(Map, D), D).
+test_limit_map(Map, D) ->
+    test_limit_map_body(maps:iterator(Map), D).
 
-%% test_limit_map_body(_, 0) -> throw(limit);
-%% test_limit_map_body([], _) -> ok;
-%% test_limit_map_body([{K,V}], D) -> test_limit_map_assoc(K, V, D);
-%% test_limit_map_body([{K,V}|KVs], D) ->
-%%     test_limit_map_assoc(K, V, D),
-%%     test_limit_map_body(KVs, D-1).
+test_limit_map_body(_I, 0) -> throw(limit); % cannot happen
+test_limit_map_body(I, D) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            test_limit_map_assoc(K, V, D),
+            test_limit_map_body(NextI, D-1);
+        none ->
+            ok
+    end.
 
-%% test_limit_map_assoc(K, V, D) ->
-%%     test_limit(K, D-1),
-%%     test_limit(V, D-1).
+test_limit_map_assoc(K, V, D) ->
+    test_limit(K, D - 1),
+    test_limit(V, D - 1).
 
 test_limit_bitstring(_, _) -> ok.
