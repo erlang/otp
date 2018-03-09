@@ -919,7 +919,7 @@ get_input_data(Input,Key)->
     end.
 
 parse(Input) ->
-    httpd:parse_query(Input).
+    uri_string:dissect_query(Input).
 
 vts_integer_to_list(X) when is_atom(X) ->
     atom_to_list(X);

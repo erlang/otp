@@ -148,7 +148,7 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    observer ! {open_link, Href},
 	    {noreply, State};
 	Callback ->
-	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Rest),
+	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = uri_string:dissect_query(Rest),
 	    Id = {obs, {T,{list_to_integer(Key1),
 			   list_to_integer(Key2),
 			   list_to_integer(Key3)}}},

@@ -5739,7 +5739,7 @@ uri_encode_comp([Char|Chars],Encoding) ->
     Reserved = sets:is_element(Char, reserved()),
     case (Char>127 andalso Encoding==latin1) orelse Reserved of
 	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)] ++
+	    [ $% | integer_to_list(Char, 16)] ++
 		uri_encode_comp(Chars,Encoding);
 	false ->
 	    [Char | uri_encode_comp(Chars,Encoding)]

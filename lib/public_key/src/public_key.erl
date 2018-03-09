@@ -1456,7 +1456,7 @@ ascii_to_lower(String) ->
 verify_hostname_extract_fqdn_default({dns_id,S}) ->
     S;
 verify_hostname_extract_fqdn_default({uri_id,URI}) ->
-    {ok,{https,_,Host,_,_,_}} = http_uri:parse(URI),
+    #{scheme := "https", host := Host} = uri_string:normalize(URI, [return_map]),
     Host.
 
 

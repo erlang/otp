@@ -771,7 +771,7 @@ fill_out(Nr)->
 %Controls whether the user selected a tool to start
 %----------------------------------------------------------------------
 get_tools(Input)->
-    case httpd:parse_query(Input) of
+    case uri_string:dissect_query(Input) of
 	[]->
 	    no_tools;
 	 Tools->
