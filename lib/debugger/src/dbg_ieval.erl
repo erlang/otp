@@ -1033,7 +1033,7 @@ expr({send,Line,To0,Msg0}, Bs0, Ieval0) ->
 
 %% Binary
 expr({bin,Line,Fs}, Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
+    Ieval = Ieval0#ieval{line=Line,top=false},
     try
 	eval_bits:expr_grp(Fs, Bs0,
 			   fun (E, B) -> expr(E, B, Ieval) end,
