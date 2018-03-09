@@ -225,22 +225,17 @@ open(Host, Port) when is_integer(Port) ->
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host, Opts) when is_list(Opts) ->
-    ?fcrt("open", [{host, Host}, {opts, Opts}]), 
     try
 	{ok, StartOptions} = start_options(Opts), 
-	?fcrt("open", [{start_options, StartOptions}]), 
 	{ok, OpenOptions}  = open_options([{host, Host}|Opts]), 
-	?fcrt("open", [{open_options, OpenOptions}]), 
 	case start_link(StartOptions, []) of
 	    {ok, Pid} ->
 		do_open(Pid, OpenOptions, tls_options(Opts));
 	    Error1 ->
-		?fcrt("open - error", [{error1, Error1}]), 
 		Error1
 	end
     catch
 	throw:Error2 ->
-	    ?fcrt("open - error", [{error2, Error2}]), 
 	    Error2
     end.
 
@@ -1033,7 +1028,6 @@ handle_call({Pid, _}, _, #state{owner = Owner} = State) when Owner =/= Pid ->
     {reply, {error, not_connection_owner}, State};
 
 handle_call({_, {open, ip_comm, Opts}}, From, State) ->
-    ?fcrd("handle_call(open)", [{opts, Opts}]), 
     case key_search(host, Opts, undefined) of
 	undefined ->
 	    {stop, normal, {error, ehost}, State};
@@ -1053,16 +1047,10 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 				 dtimeout = DTimeout,
 				 ftp_extension = FtpExt}, 
 
-	    ?fcrd("handle_call(open) -> setup ctrl connection with", 
-		  [{host, Host}, {port, Port}, {timeout, Timeout}]), 
 	    case setup_ctrl_connection(Host, Port, Timeout, State2) of
 		{ok, State3, WaitTimeout} ->
-		    ?fcrd("handle_call(open) -> ctrl connection setup done", 
-			  [{waittimeout, WaitTimeout}]), 
 		    {noreply, State3, WaitTimeout};
-		{error, Reason} ->
-		    ?fcrd("handle_call(open) -> ctrl connection setup failed", 
-			  [{reason, Reason}]), 
+		{error, _Reason} ->
 		    gen_server:reply(From, {error, ehost}),
 		    {stop, normal, State2#state{client = undefined}}
 	    end
@@ -2454,7 +2442,6 @@ start_chunk(#state{client = From} = State) ->
 %%     priority
 %%     flags    (for backward compatibillity)
 start_options(Options) ->
-    ?fcrt("start_options", [{options, Options}]), 
     case lists:keysearch(flags, 1, Options) of
 	{value, {flags, Flags}} ->
 	    Verbose = lists:member(verbose, Flags),
@@ -2509,7 +2496,6 @@ start_options(Options) ->
 %%	  ftp_extension
 
 open_options(Options) ->
-    ?fcrt("open_options", [{options, Options}]), 
     ValidateMode = 
 	fun(active) -> true;
 	   (passive) -> true;
@@ -2573,11 +2559,8 @@ tls_options(Options) ->
     proplists:get_value(tls, Options, undefined).
 
 validate_options([], [], Acc) ->
-    ?fcrt("validate_options -> done", [{acc, Acc}]), 
     {ok, lists:reverse(Acc)};
 validate_options([], ValidOptions, Acc) ->
-    ?fcrt("validate_options -> done", 
-	  [{valid_options, ValidOptions}, {acc, Acc}]), 
     %% Check if any mandatory options are missing!
     case [{Key, Reason} || {Key, _, true, Reason} <- ValidOptions] of
 	[] ->
@@ -2588,19 +2571,14 @@ validate_options([], ValidOptions, Acc) ->
 	    throw({error, Reason})
     end;
 validate_options([{Key, Value}|Options], ValidOptions, Acc) ->
-    ?fcrt("validate_options -> check", 
-	  [{key, Key}, {value, Value}, {acc, Acc}]), 
     case lists:keysearch(Key, 1, ValidOptions) of
 	{value, {Key, Validate, _, Default}} ->
 	    case (catch Validate(Value)) of
 		true ->
-		    ?fcrt("validate_options -> check - accept", []),
 		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
 		    validate_options(Options, NewValidOptions, 
 				     [{Key, Value} | Acc]);
 		_ ->
-		    ?fcrt("validate_options -> check - reject", 
-			  [{default, Default}]),
 		    NewValidOptions = lists:keydelete(Key, 1, ValidOptions),
 		    validate_options(Options, NewValidOptions, 
 				     [{Key, Default} | Acc])
