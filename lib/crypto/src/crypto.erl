@@ -42,7 +42,6 @@
 -export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
--export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 -export([privkey_to_pubkey/2]).
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
@@ -1089,27 +1088,6 @@ rsa_generate_key_nif(_Bits, _Exp) -> ?nif_stub.
 
 %% DH Diffie-Hellman functions
 %%
-
-%% Generate (and check) Parameters is not documented because they are implemented
-%% for testing (and offline parameter generation) only.
-%% From the openssl doc:
-%%  DH_generate_parameters() may run for several hours before finding a suitable prime.
-%% Thus dh_generate_parameters may in this implementation block
-%% the emulator for several hours.
-%%
-%% usage: dh_generate_parameters(1024, 2 or 5) ->
-%%    [Prime=mpint(), SharedGenerator=mpint()]
-dh_generate_parameters(PrimeLen, Generator) ->
-    case dh_generate_parameters_nif(PrimeLen, Generator) of
-	error -> erlang:error(generation_failed, [PrimeLen,Generator]);
-	Ret -> Ret
-    end.
-
-dh_generate_parameters_nif(_PrimeLen, _Generator) -> ?nif_stub.
-
-%% Checks that the DHParameters are ok.
-%% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
-dh_check([_Prime,_Gen]) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
 %% PrivKey = mpint()
