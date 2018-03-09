@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer suppression has been added for the generated
+	    ASN.1 helper function to_bitstring/1 that previously
+	    created irrelevant warnings.</p>
+          <p>
+	    Own Id: OTP-13882 Aux Id: ERIERL-144 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

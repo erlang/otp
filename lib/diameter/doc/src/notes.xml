@@ -43,6 +43,32 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix close of diameter_tcp/sctp listening socket at
+	    diameter:remove_transport/2, that was broken in diameter
+	    2.1. A reconfigured transport could not listen on the
+	    same endpoint as a result.</p>
+          <p>
+	    Own Id: OTP-14839</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of SUSPECT connections at service
+	    termination. A connection with this watchdog state caused
+	    diameter_service:terminate/2 to fail.</p>
+          <p>
+	    Own Id: OTP-14947 Aux Id: ERIERL-124 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

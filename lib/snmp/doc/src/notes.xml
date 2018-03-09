@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>SNMP 5.2.9</title>
+  <section><title>SNMP 5.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The example MIB EX1-MIB in the SNMP application has been
+	    corrected to match its example.</p>
+          <p>
+	    Own Id: OTP-14204 Aux Id: PR-1726 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build error caused by removed RSA padding functions
+	    in LibreSSL >= 2.6.1</p>
+          <p>
+	    Own Id: OTP-14873</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.12.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>system_information:to_file/1</c> will now use
+	    slightly less memory.</p>
+          <p>
+	    Own Id: OTP-14816</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.12.4</title>
 
     <section><title>Improvements and New Features</title>
