@@ -5164,7 +5164,7 @@ display_info([Pid|T], R, M) ->
 			   Other
 		   end,
 	    Reds  = fetch(reductions, Info),
-	    LM = length(fetch(messages, Info)),
+	    LM = fetch(message_queue_len, Info),
 	    pformat(io_lib:format("~w", [Pid]),
 		    io_lib:format("~tw", [Call]),
 		    io_lib:format("~tw", [Curr]), Reds, LM),

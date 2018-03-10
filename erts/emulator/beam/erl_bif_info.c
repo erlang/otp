@@ -717,7 +717,6 @@ static Eterm pi_1_keys[] = {
     am_initial_call,
     am_status,
     am_message_queue_len,
-    am_messages,
     am_links,
     am_dictionary,
     am_trap_exit,
