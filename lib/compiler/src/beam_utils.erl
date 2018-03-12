@@ -801,6 +801,10 @@ replace_labels_1([{wait,{f,Lbl}}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{wait,{f,label(Lbl, D, Fb)}}|Acc], D, Fb);
 replace_labels_1([{wait_timeout,{f,Lbl},To}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{wait_timeout,{f,label(Lbl, D, Fb)},To}|Acc], D, Fb);
+replace_labels_1([{recv_mark=Op,{f,Lbl}}|Is], Acc, D, Fb) ->
+    replace_labels_1(Is, [{Op,{f,label(Lbl, D, Fb)}}|Acc], D, Fb);
+replace_labels_1([{recv_set=Op,{f,Lbl}}|Is], Acc, D, Fb) ->
+    replace_labels_1(Is, [{Op,{f,label(Lbl, D, Fb)}}|Acc], D, Fb);
 replace_labels_1([{bif,Name,{f,Lbl},As,R}|Is], Acc, D, Fb) when Lbl =/= 0 ->
     replace_labels_1(Is, [{bif,Name,{f,label(Lbl, D, Fb)},As,R}|Acc], D, Fb);
 replace_labels_1([{gc_bif,Name,{f,Lbl},Live,As,R}|Is], Acc, D, Fb) when Lbl =/= 0 ->
