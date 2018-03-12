@@ -283,6 +283,13 @@ make_tid(Process *c_p, DbTable *tb)
     return erts_mk_magic_ref(&hp, &c_p->off_heap, tb->common.btid);
 }
 
+Eterm
+erts_db_make_tid(Process *c_p, DbTableCommon *tb)
+{
+    return make_tid(c_p, (DbTable*)tb);
+}
+
+
 
 /* 
 ** The meta hash table of all NAMED ets tables

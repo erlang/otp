@@ -55,6 +55,7 @@
 -export([t_repair_continuation/1]).
 -export([t_match_spec_run/1]).
 -export([t_bucket_disappears/1]).
+-export([t_named_select/1]).
 -export([otp_5340/1]).
 -export([otp_6338/1]).
 -export([otp_6842_select_1000/1]).
@@ -124,6 +125,7 @@ all() ->
      t_init_table, t_whitebox, t_delete_all_objects,
      t_insert_list, t_test_ms, t_select_delete, t_select_replace,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
+     t_named_select,
      select_fail, t_insert_new, t_repair_continuation,
      otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
      otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
@@ -204,6 +206,38 @@ t_bucket_disappears_do(Opts) ->
     ets:select(Cont),
     true = ets:delete(abcd),
     verify_etsmem(EtsMem).
+
+%% OTP-21: Test that select/1 fails if named table was deleted and recreated
+%%         and succeeds if table was renamed.
+t_named_select(_Config) ->
+    repeat_for_opts(fun t_named_select_do/1).
+
+t_named_select_do(Opts) ->
+    EtsMem = etsmem(),
+    T = t_name_tid_select,
+    ets_new(T, [named_table | Opts]),
+    ets:insert(T, {1,11}),
+    ets:insert(T, {2,22}),
+    ets:insert(T, {3,33}),
+    MS = [{{'$1', 22}, [], ['$1']}],
+    {[2], Cont1} = ets:select(T, MS, 1),
+    ets:delete(T),
+    {'EXIT',{badarg,_}} = (catch ets:select(Cont1)),
+    ets_new(T, [named_table | Opts]),
+    {'EXIT',{badarg,_}} = (catch ets:select(Cont1)),
+
+    true = ets:insert_new(T, {1,22}),
+    true = ets:insert_new(T, {2,22}),
+    true = ets:insert_new(T, {4,22}),
+    {[A,B], Cont2} = ets:select(T, MS, 2),
+    ets:rename(T, abcd),
+    {[C], '$end_of_table'} = ets:select(Cont2),
+    7 = A + B + C,
+
+    true = ets:delete(abcd),
+    verify_etsmem(EtsMem).
+
+
 
 
 %% Check ets:match_spec_run/2.
@@ -700,7 +734,7 @@ whitebox_2(Opts) ->
     ets:delete(T2),
     ok.
 
-select_bound_chunk(Config) ->
+select_bound_chunk(_Config) ->
     repeat_for_opts(fun select_bound_chunk_do/1, [all_types]).
 
 select_bound_chunk_do(Opts) ->

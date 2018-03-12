@@ -1453,20 +1453,24 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
 
     BUMP_ALL_REDS(p);
     if (IS_USMALL(0, got)) {
-	hp = HAlloc(p,  base_halloc_sz + 5);
+	hp = HAllocX(p,  base_halloc_sz + 5, ERTS_MAGIC_REF_THING_SIZE);
 	egot = make_small(got);
     }
     else {
-	hp = HAlloc(p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 5);
+	hp = HAllocX(p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 5,
+                     ERTS_MAGIC_REF_THING_SIZE);
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
 
     if (is_first_trap) {
+        if (is_atom(tid))
+            tid = erts_db_make_tid(p, &tb->common);
         mpb = erts_db_make_match_prog_ref(p, *mpp, &hp);
         *mpp = NULL; /* otherwise the caller will destroy it */
     }
     else {
+        ASSERT(!is_atom(tid));
         mpb = prev_continuation_tptr[3];
     }
 
@@ -1580,11 +1584,17 @@ static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix
                                              been in 'user space' */
             }
             if (rest != NIL || slot_ix >= 0) { /* Need more calls */
-                sc_context_ptr->hp = HAlloc(sc_context_ptr->p, 3 + 7 + ERTS_MAGIC_REF_THING_SIZE);
+                Eterm tid = sc_context_ptr->tid;
+                sc_context_ptr->hp = HAllocX(sc_context_ptr->p,
+                                             3 + 7 + ERTS_MAGIC_REF_THING_SIZE,
+                                             ERTS_MAGIC_REF_THING_SIZE);
                 mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &sc_context_ptr->hp);
+                if (is_atom(tid))
+                    tid = erts_db_make_tid(sc_context_ptr->p,
+                                           &sc_context_ptr->tb->common);
                 continuation = TUPLE6(
                         sc_context_ptr->hp,
-                        sc_context_ptr->tid,
+                        tid,
                         make_small(slot_ix),
                         make_small(sc_context_ptr->chunk_size),
                         mpb, rest,
@@ -1621,12 +1631,16 @@ static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint
     BUMP_ALL_REDS(sc_context_ptr->p);
 
     if (sc_context_ptr->prev_continuation_tptr == NULL) {
+        Eterm tid = sc_context_ptr->tid;
         /* First time we're trapping */
-        hp = HAlloc(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE);
+        hp = HAllocX(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE,
+                     ERTS_MAGIC_REF_THING_SIZE);
+        if (is_atom(tid))
+            tid = erts_db_make_tid(sc_context_ptr->p, &sc_context_ptr->tb->common);
         mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &hp);
         continuation = TUPLE6(
                 hp,
-                sc_context_ptr->tid,
+                tid,
                 make_small(slot_ix),
                 make_small(sc_context_ptr->chunk_size),
                 mpb,
