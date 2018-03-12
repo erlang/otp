@@ -2378,12 +2378,12 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(os_version_tuple);
     }
     else if (BIF_ARG_1 == am_version) {
-	int n = strlen(ERLANG_VERSION);
+	int n = sys_strlen(ERLANG_VERSION);
 	hp = HAlloc(BIF_P, ((sizeof ERLANG_VERSION)-1) * 2);
 	BIF_RET(buf_to_intlist(&hp, ERLANG_VERSION, n, NIL));
     }
     else if (BIF_ARG_1 == am_machine) {
-	int n = strlen(EMULATOR);
+	int n = sys_strlen(EMULATOR);
 	hp = HAlloc(BIF_P, n*2);
 	BIF_RET(buf_to_intlist(&hp, EMULATOR, n, NIL));
     }
@@ -2409,7 +2409,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    res = erts_bld_cons(hpp, hszp,
 				erts_bld_tuple(hpp, hszp, 2,
 					       erts_atom_put((byte *)opc[i].name,
-							     strlen(opc[i].name),
+							     sys_strlen(opc[i].name),
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
 					       erts_bld_uint(hpp, hszp,
@@ -2805,21 +2805,21 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	Uint  sz;
 	Eterm res = NIL, tup, text;
 	Eterm *hp = HAlloc(BIF_P, 3*(2 + 3) + /* three 2-tuples and three cons */
-		2*(strlen(erts_build_flags_CONFIG_H) +
-		   strlen(erts_build_flags_CFLAGS) +
-		   strlen(erts_build_flags_LDFLAGS)));
+		2*(sys_strlen(erts_build_flags_CONFIG_H) +
+		   sys_strlen(erts_build_flags_CFLAGS) +
+		   sys_strlen(erts_build_flags_LDFLAGS)));
 
-	sz   = strlen(erts_build_flags_CONFIG_H);
+	sz   = sys_strlen(erts_build_flags_CONFIG_H);
 	text = buf_to_intlist(&hp, erts_build_flags_CONFIG_H, sz, NIL);
 	tup  = TUPLE2(hp, am_config_h, text); hp += 3;
 	res  = CONS(hp, tup, res); hp += 2;
 
-	sz   = strlen(erts_build_flags_CFLAGS);
+	sz   = sys_strlen(erts_build_flags_CFLAGS);
 	text = buf_to_intlist(&hp, erts_build_flags_CFLAGS, sz, NIL);
 	tup  = TUPLE2(hp, am_cflags, text); hp += 3;
 	res  = CONS(hp, tup, res); hp += 2;
 
-	sz   = strlen(erts_build_flags_LDFLAGS);
+	sz   = sys_strlen(erts_build_flags_LDFLAGS);
 	text = buf_to_intlist(&hp, erts_build_flags_LDFLAGS, sz, NIL);
 	tup  = TUPLE2(hp, am_ldflags, text); hp += 3;
 	res  = CONS(hp, tup, res); hp += 2;
@@ -3883,7 +3883,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		while (ix >= atom_table_size()) {
 		    char tmp[20];
 		    erts_snprintf(tmp, sizeof(tmp), "am%x", atom_table_size());
-		    erts_atom_put((byte *) tmp, strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
+		    erts_atom_put((byte *) tmp, sys_strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
 		}
 		return make_atom(ix);
 	    }
@@ -4449,7 +4449,7 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
 
     file = stats->file ? stats->file : "undefined";
 
-    af    = erts_atom_put((byte *)file, strlen(file), ERTS_ATOM_ENC_LATIN1, 1);
+    af    = erts_atom_put((byte *)file, sys_strlen(file), ERTS_ATOM_ENC_LATIN1, 1);
     uil   = erts_bld_uint( hpp, szp, stats->line);
     tloc  = erts_bld_tuple(hpp, szp, 2, af, uil);
 
@@ -4495,7 +4495,7 @@ static Eterm lcnt_pretty_print_lock_id(erts_lcnt_lock_info_t *info) {
     } else if(info->flags & ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR) {
         if(is_small(id) && !sys_strcmp(info->name, "alcu_allocator")) {
             const char *name = (const char*)ERTS_ALC_A2AD(signed_val(id));
-            id = erts_atom_put((byte*)name, strlen(name), ERTS_ATOM_ENC_LATIN1, 1);
+            id = erts_atom_put((byte*)name, sys_strlen(name), ERTS_ATOM_ENC_LATIN1, 1);
         }
     }
 
@@ -4515,8 +4515,8 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, lcnt_sample_t *sample,
     
     lock_desc = erts_lock_flags_get_type_name(info->flags);
 
-    type  = erts_atom_put((byte*)lock_desc, strlen(lock_desc), ERTS_ATOM_ENC_LATIN1, 1);
-    name  = erts_atom_put((byte*)info->name, strlen(info->name), ERTS_ATOM_ENC_LATIN1, 1);
+    type  = erts_atom_put((byte*)lock_desc, sys_strlen(lock_desc), ERTS_ATOM_ENC_LATIN1, 1);
+    name  = erts_atom_put((byte*)info->name, sys_strlen(info->name), ERTS_ATOM_ENC_LATIN1, 1);
 
     /* Only attempt to resolve ids when actually emitting the term. This ought
      * to be safe since all immediates are the same size. */
@@ -4552,11 +4552,11 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_time_t *du
     dtns = bld_unstable_uint64(hpp, szp, duration->ns);
     tdt  = erts_bld_tuple(hpp, szp, 2, dts, dtns);
 
-    adur = erts_atom_put((byte *)str_duration, strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
+    adur = erts_atom_put((byte *)str_duration, sys_strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
     tdur = erts_bld_tuple(hpp, szp, 2, adur, tdt);
    
     /* lock tuple */
-    aloc = erts_atom_put((byte *)str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
+    aloc = erts_atom_put((byte *)str_locks, sys_strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
 
     for(i = 0; i < current_locks->size; i++) {
         lloc = lcnt_build_lock_term(hpp, szp, &current_locks->elements[i], lloc);
@@ -4610,7 +4610,7 @@ static Eterm lcnt_build_category_list(Eterm **hpp, Uint *szp, erts_lock_flags_t 
     for(i = 0; lcnt_category_map[i].name != NULL; i++) {
         if(mask & lcnt_category_map[i].flag) {
             Eterm category = erts_atom_put((byte*)lcnt_category_map[i].name,
-                                           strlen(lcnt_category_map[i].name),
+                                           sys_strlen(lcnt_category_map[i].name),
                                            ERTS_ATOM_ENC_UTF8, 0);
 
             res = erts_bld_cons(hpp, szp, category, res);
@@ -4740,14 +4740,14 @@ BIF_RETTYPE erts_debug_lcnt_control_2(BIF_ALIST_2)
 
 static void os_info_init(void)
 {
-    Eterm type = erts_atom_put((byte *) os_type, strlen(os_type), ERTS_ATOM_ENC_LATIN1, 1);
+    Eterm type = erts_atom_put((byte *) os_type, sys_strlen(os_type), ERTS_ATOM_ENC_LATIN1, 1);
     Eterm flav;
     int major, minor, build;
     char* buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
     Eterm* hp;
 
     os_flavor(buf, 1024);
-    flav = erts_atom_put((byte *) buf, strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
+    flav = erts_atom_put((byte *) buf, sys_strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);

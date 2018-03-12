@@ -459,7 +459,7 @@ typedef struct LoaderState {
 
 #ifdef DEBUG
 # define GARBAGE 0xCC
-# define DEBUG_INIT_GENOP(Dst) memset(Dst, GARBAGE, sizeof(GenOp))
+# define DEBUG_INIT_GENOP(Dst) sys_memset(Dst, GARBAGE, sizeof(GenOp))
 #else
 # define DEBUG_INIT_GENOP(Dst)
 #endif
@@ -1422,7 +1422,7 @@ load_atom_table(LoaderState* stp, ErtsAtomEncoding enc)
 	Atom* ap;
 
 	ap = atom_tab(atom_val(stp->atom[1]));
-	memcpy(sbuf, ap->name, ap->len);
+	sys_memcpy(sbuf, ap->name, ap->len);
 	sbuf[ap->len] = '\0';
 	LoadError1(stp, "module name in object code is %s", sbuf);
     }
@@ -2089,7 +2089,7 @@ load_code(LoaderState* stp)
 			    erts_alloc(ERTS_ALC_T_LOADER_TMP,
 				       (arity+last_op->a[arg].val)
 				       *sizeof(GenOpArg));
-			memcpy(last_op->a, last_op->def_args,
+			sys_memcpy(last_op->a, last_op->def_args,
 			       arity*sizeof(GenOpArg));
 			arity += last_op->a[arg].val;
 			break;
@@ -4915,7 +4915,7 @@ freeze_code(LoaderState* stp)
 	line_items[i] = codev + stp->ci - 1;
 
 	line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
-	memcpy(line_tab->fname_ptr, stp->fname, stp->num_fnames*sizeof(Eterm));
+	sys_memcpy(line_tab->fname_ptr, stp->fname, stp->num_fnames*sizeof(Eterm));
 
 	line_tab->loc_size = stp->loc_size;
 	if (stp->loc_size == 2) {
@@ -5498,8 +5498,8 @@ transform_engine(LoaderState* st)
 	case TOP_store_rest_args:
 	    {
 		GENOP_ARITY(instr, instr->arity+num_rest_args);
-		memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
-		memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(GenOpArg));
+		sys_memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
+		sys_memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(GenOpArg));
 		ap += num_rest_args;
 	    }
 	    break;
@@ -6447,7 +6447,7 @@ stub_copy_info(LoaderState* stp,
     Sint decoded_size;
     Uint size = stp->chunks[chunk].size;
     if (size != 0) {
-	memcpy(info, stp->chunks[chunk].start, size);
+	sys_memcpy(info, stp->chunks[chunk].start, size);
 	*ptr_word = info;
 	decoded_size = erts_decode_ext_size(info, size);
 	if (decoded_size < 0) {
@@ -7017,8 +7017,8 @@ void dbg_set_traced_mfa(const char* m, const char* f, Uint a)
 {
     unsigned i = dbg_trace_ix++;
     ASSERT(i < MFA_MAX);
-    dbg_trace_m[i] = am_atom_put(m, strlen(m));
-    dbg_trace_f[i] = am_atom_put(f, strlen(f));
+    dbg_trace_m[i] = am_atom_put(m, sys_strlen(m));
+    dbg_trace_f[i] = am_atom_put(f, sys_strlen(f));
     dbg_trace_a[i] = a;
 }
 

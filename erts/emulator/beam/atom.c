@@ -452,7 +452,7 @@ init_atom_table(void)
     /* Ordinary atoms */
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
-	a.len = strlen(erl_atom_names[i]);
+	a.len = sys_strlen(erl_atom_names[i]);
 	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;

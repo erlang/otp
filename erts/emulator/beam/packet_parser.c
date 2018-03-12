@@ -200,7 +200,7 @@ static int http_init(void)
     for (i = 0; i < HTTP_HDR_HASH_SIZE; i++)
         http_hdr_hash[i] = NULL;
     for (i = 0; http_hdr_strings[i] != NULL; i++) {
-        ASSERT(strlen(http_hdr_strings[i]) <= HTTP_MAX_NAME_LEN);
+        ASSERT(sys_strlen(http_hdr_strings[i]) <= HTTP_MAX_NAME_LEN);
         http_hdr_table[i].index = i;
         http_hash_insert(http_hdr_strings[i], 
                          &http_hdr_table[i], 
@@ -516,7 +516,7 @@ static http_atom_t* http_hash_lookup(const char* name, int len,
 
     while (ap != NULL) {
         if ((ap->h == h) && (ap->len == len) && 
-            (strncmp(ap->name, name, len) == 0))
+            (sys_strncmp(ap->name, name, len) == 0))
             return ap;
         ap = ap->next;
     }
@@ -656,7 +656,7 @@ int packet_parse_http(const char* buf, int len, int* statep,
     if (*statep == 0) {
         /* start-line = Request-Line | Status-Line */
 
-        if (n >= 5 && (strncmp(buf, "HTTP/", 5) == 0)) {
+        if (n >= 5 && (sys_strncmp(buf, "HTTP/", 5) == 0)) {
             int major  = 0;
             int minor  = 0;
             int status = 0;
@@ -750,7 +750,7 @@ int packet_parse_http(const char* buf, int len, int* statep,
             }
             if (n < 8)
                 return -1;
-            if (strncmp(ptr, "HTTP/", 5) != 0)
+            if (sys_strncmp(ptr, "HTTP/", 5) != 0)
                 return -1;
             ptr += 5;
             n   -= 5;

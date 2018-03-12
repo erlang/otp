@@ -91,7 +91,7 @@ do {									\
 	(On).siz *= 2;							\
 	(On).data							\
 	    = (((On).def == (On).data)					\
-	       ? memcpy(erts_alloc(ERTS_ALC_T_DB_MC_STK,		\
+	       ? sys_memcpy(erts_alloc(ERTS_ALC_T_DB_MC_STK,		\
 				   (On).siz*sizeof(*((On).data))),	\
 			(On).def,					\
 			DMC_DEFAULT_SIZE*sizeof(*((On).data)))		\
@@ -1518,7 +1518,7 @@ restart:
 	 context.current_match < num_progs; 
 	 ++context.current_match) { /* This loop is long, 
 				       too long */
-	memset(heap.vars, 0, heap.size * sizeof(*heap.vars));
+	sys_memset(heap.vars, 0, heap.size * sizeof(*heap.vars));
 	t = context.matchexpr[context.current_match];
 	context.stack_used = 0;
 	structure_checked = 0;
@@ -2140,7 +2140,7 @@ restart:
 	case matchEqFloat:
 	    if (!is_float(*ep))
 		FAIL();
-	    if (memcmp(float_val(*ep) + 1, pc, sizeof(double)))
+	    if (sys_memcmp(float_val(*ep) + 1, pc, sizeof(double)))
 		FAIL();
 	    pc += TermWords(2);
 	    ++ep;
@@ -2742,8 +2742,8 @@ Eterm db_format_dmc_err_info(Process *p, DMCErrInfo *ei)
 	if (vnum >= 0)
 	    erts_snprintf(buff,sizeof(buff)+20,tmp->error_string, vnum);
 	else
-	    strcpy(buff,tmp->error_string);
-	sl = strlen(buff);
+	    sys_strcpy(buff,tmp->error_string);
+	sl = sys_strlen(buff);
 	shp = HAlloc(p, sl * 2 + 5);
 	sev = (tmp->severity == dmcWarning) ? 
 	    am_atom_put("warning",7) :
@@ -5044,7 +5044,7 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 	    ASSERT(j < x);
 	    erts_snprintf(buff+1, sizeof(buff) - 1, "%u", (unsigned) j);
 	    /* Yes, writing directly into terms, they ARE off heap */
-	    *p = erts_atom_put((byte *) buff, strlen(buff),
+	    *p = erts_atom_put((byte *) buff, sys_strlen(buff),
 			       ERTS_ATOM_ENC_LATIN1, 1);
 	}
 	++p;
@@ -5505,7 +5505,7 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    {
 		double num;
-		memcpy(&num,t,sizeof(double));
+		sys_memcpy(&num,t,sizeof(double));
 		t += TermWords(2);
 		erts_printf("EqFloat\t%f\n", num);
 	    }

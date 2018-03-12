@@ -1412,7 +1412,7 @@ static Eterm copy_ref(Eterm ref, Eterm *hp)
     ErtsORefThing *ptr;
     ASSERT(is_internal_ordinary_ref(ref));
     ptr = ordinary_ref_thing_ptr(ref);
-    memcpy(hp, ptr, sizeof(ErtsORefThing));
+    sys_memcpy(hp, ptr, sizeof(ErtsORefThing));
     return (make_internal_ref(hp));
 }
 
@@ -1454,9 +1454,9 @@ static void set_driver_reloading(DE_Handle *dh, Process *proc, char *path, char 
     dh->procs = p;
     dh->status = ERL_DE_RELOAD;
     dh->reload_full_path = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(path) + 1);
-    strcpy(dh->reload_full_path,path);
+    sys_strcpy(dh->reload_full_path,path);
     dh->reload_driver_name = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(name) + 1);
-    strcpy(dh->reload_driver_name,name);
+    sys_strcpy(dh->reload_driver_name,name);
     dh->reload_flags = flags;
 }
 
@@ -1501,7 +1501,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	goto error;
     }
 
-    if (strcmp(name, dp->driver_name) != 0) {
+    if (sys_strcmp(name, dp->driver_name) != 0) {
 	res = ERL_DE_LOAD_ERROR_BAD_NAME;
 	goto error;
     }
@@ -1799,7 +1799,7 @@ static char *pick_list_or_atom(Eterm name_term)
 	    goto error;
 	}
 	name = erts_alloc(ERTS_ALC_T_DDLL_TMP_BUF, ap->len + 1);
-	memcpy(name,ap->name,ap->len);
+	sys_memcpy(name,ap->name,ap->len);
 	name[ap->len] = '\0';
     } else {
 	if (erts_iolist_size(name_term, &name_len)) {
@@ -1870,7 +1870,7 @@ static erts_driver_t *lookup_driver(char *name)
 {
     erts_driver_t *drv;
     assert_drv_list_locked();
-    for (drv = driver_list; drv != NULL && strcmp(drv->name, name); drv = drv->next)
+    for (drv = driver_list; drv != NULL && sys_strcmp(drv->name, name); drv = drv->next)
 	;
     return drv;
 }

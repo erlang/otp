@@ -4315,7 +4315,7 @@ static Eterm fix_type_atoms[ERTS_ALC_NO_FIXED_SIZES];
 
 static ERTS_INLINE void atom_init(Eterm *atom, char *name)
 {
-    *atom = am_atom_put(name, strlen(name));
+    *atom = am_atom_put(name, sys_strlen(name));
 }
 #define AM_INIT(AM) atom_init(&am.AM, #AM)
 
@@ -4416,7 +4416,7 @@ init_atoms(Allctr_t *allctr)
 	for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
 	    ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
 	    char *name = (char *) ERTS_ALC_N2TD(n);
-	    size_t len = strlen(name);
+	    size_t len = sys_strlen(name);
 	    fix_type_atoms[ix] = am_atom_put(name, len);
 	}
     }
@@ -4854,20 +4854,20 @@ make_name_atoms(Allctr_t *allctr)
     char realloc[] = "realloc";
     char free[] = "free";
     char buf[MAX_ATOM_CHARACTERS];
-    size_t prefix_len = strlen(allctr->name_prefix);
+    size_t prefix_len = sys_strlen(allctr->name_prefix);
 
     if (prefix_len > MAX_ATOM_CHARACTERS + sizeof(realloc) - 1)
 	erts_exit(ERTS_ERROR_EXIT,"Too long allocator name: %salloc\n",allctr->name_prefix);
 
-    memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);
+    sys_memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);
 
-    memcpy((void *) &buf[prefix_len], (void *) alloc, sizeof(alloc) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) alloc, sizeof(alloc) - 1);
     allctr->name.alloc = am_atom_put(buf, prefix_len + sizeof(alloc) - 1);
 
-    memcpy((void *) &buf[prefix_len], (void *) realloc, sizeof(realloc) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) realloc, sizeof(realloc) - 1);
     allctr->name.realloc = am_atom_put(buf, prefix_len + sizeof(realloc) - 1);
 
-    memcpy((void *) &buf[prefix_len], (void *) free, sizeof(free) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) free, sizeof(free) - 1);
     allctr->name.free = am_atom_put(buf, prefix_len + sizeof(free) - 1);
 
 }

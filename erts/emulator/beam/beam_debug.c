@@ -228,11 +228,11 @@ erts_debug_instructions_0(BIF_ALIST_0)
     Eterm res = NIL;
 
     for (i = 0; i < num_instructions; i++) {
-	needed += 2*strlen(opc[i].name);
+	needed += 2*sys_strlen(opc[i].name);
     }
     hp = HAlloc(BIF_P, needed);
     for (i = num_instructions-1; i >= 0; i--) {
-	Eterm s = erts_bld_string_n(&hp, 0, opc[i].name, strlen(opc[i].name));
+	Eterm s = erts_bld_string_n(&hp, 0, opc[i].name, sys_strlen(opc[i].name));
 	res = erts_bld_cons(&hp, 0, s, res);
     }
     return res;
@@ -431,7 +431,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	 * the packing program backwards and in reverse.
 	 */
 
-	prog = start_prog + strlen(start_prog);
+	prog = start_prog + sys_strlen(start_prog);
 	while (start_prog < prog) {
 	    prog--;
 	    switch (*prog) {

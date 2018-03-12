@@ -368,7 +368,7 @@ do {\
 	UWord _wsz = ESTACK_COUNT(s);\
 	(dst)->start = erts_alloc((s).alloc_type,\
 				  DEF_ESTACK_SIZE * sizeof(Eterm));\
-	memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
+	sys_memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
         (dst)->edefault = NULL;\
@@ -536,7 +536,7 @@ do {\
 	UWord _wsz = WSTACK_COUNT(s);\
 	(dst)->wstart = erts_alloc(s.alloc_type,\
 				  DEF_WSTACK_SIZE * sizeof(UWord));\
-	memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
+	sys_memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
 	(dst)->wsp = (dst)->wstart + _wsz;\
 	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
         (dst)->wdefault = NULL;\

@@ -1953,7 +1953,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	    context_b = erts_create_magic_binary(sizeof(TTBContext),    \
                                                  ttb_context_destructor);   \
 	    context =  ERTS_MAGIC_BIN_DATA(context_b);			\
-	    memcpy(context,&c_buff,sizeof(TTBContext));			\
+	    sys_memcpy(context,&c_buff,sizeof(TTBContext));			\
 	}								\
     } while (0)
 

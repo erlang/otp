@@ -1219,9 +1219,9 @@ get_bool_value(char *param_end, char** argv, int* ip)
 {
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
-    if (strcmp(value, "true") == 0)
+    if (sys_strcmp(value, "true") == 0)
 	return 1;
-    else if (strcmp(value, "false") == 0)
+    else if (sys_strcmp(value, "false") == 0)
 	return 0;
     else
 	bad_value(param, param_end, value);
@@ -1369,46 +1369,46 @@ handle_au_arg(struct au_init *auip,
 	}
 	else if(has_prefix("as", sub_param)) {
 	    char *alg = get_value(sub_param + 2, argv, ip);
-	    if (strcmp("bf", alg) == 0) {
+	    if (sys_strcmp("bf", alg) == 0) {
 		auip->atype = BESTFIT;
 		auip->init.bf.ao = 0;
 	    }
-	    else if (strcmp("aobf", alg) == 0) {
+	    else if (sys_strcmp("aobf", alg) == 0) {
 		auip->atype = BESTFIT;
 		auip->init.bf.ao = 1;
 	    }
-	    else if (strcmp("gf", alg) == 0) {
+	    else if (sys_strcmp("gf", alg) == 0) {
 		auip->atype = GOODFIT;
 	    }
-	    else if (strcmp("af", alg) == 0) {
+	    else if (sys_strcmp("af", alg) == 0) {
 		auip->atype = AFIT;
 	    }
-	    else if (strcmp("aoff", alg) == 0) {
+	    else if (sys_strcmp("aoff", alg) == 0) {
 		auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AOFF;
 		auip->init.aoff.blk_order = FF_AOFF;
 	    }
-	    else if (strcmp("aoffcbf", alg) == 0) {
+	    else if (sys_strcmp("aoffcbf", alg) == 0) {
 		auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AOFF;
 		auip->init.aoff.blk_order = FF_BF;
 	    }
-	    else if (strcmp("aoffcaobf", alg) == 0) {
+	    else if (sys_strcmp("aoffcaobf", alg) == 0) {
 		auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AOFF;
 		auip->init.aoff.blk_order = FF_AOBF;
 	    }
-            else if (strcmp("ageffcaoff", alg) == 0) {
+            else if (sys_strcmp("ageffcaoff", alg) == 0) {
                 auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AGEFF;
 		auip->init.aoff.blk_order = FF_AOFF;
             }
-            else if (strcmp("ageffcbf", alg) == 0) {
+            else if (sys_strcmp("ageffcbf", alg) == 0) {
                 auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AGEFF;
 		auip->init.aoff.blk_order = FF_BF;
             }
-            else if (strcmp("ageffcaobf", alg) == 0) {
+            else if (sys_strcmp("ageffcaobf", alg) == 0) {
                 auip->atype = FIRSTFIT;
 		auip->init.aoff.crr_order = FF_AGEFF;
 		auip->init.aoff.blk_order = FF_AOBF;
@@ -1688,7 +1688,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    }
 		    else if (has_prefix("e", param+2)) {
 			arg = get_value(param+3, argv, &i);
-			if (strcmp("true", arg) != 0)
+			if (sys_strcmp("true", arg) != 0)
 			    bad_value(param, param+3, arg);
 		    }
 		    else
@@ -1700,20 +1700,20 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    case 'a': {
 			int a;
 			arg = get_value(argv[i]+4, argv, &i);
-			if (strcmp("min", arg) == 0) {
+			if (sys_strcmp("min", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 0;
 			}
-			else if (strcmp("max", arg) == 0) {
+			else if (sys_strcmp("max", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 1;
 			}
-			else if (strcmp("config", arg) == 0) {
+			else if (sys_strcmp("config", arg) == 0) {
 			    init->erts_alloc_config = 1;
 			}
-			else if (strcmp("r9c", arg) == 0
-				 || strcmp("r10b", arg) == 0
-				 || strcmp("r11b", arg) == 0) {
+			else if (sys_strcmp("r9c", arg) == 0
+				 || sys_strcmp("r10b", arg) == 0
+				 || sys_strcmp("r11b", arg) == 0) {
 			    set_default_sl_alloc_opts(&init->sl_alloc);
 			    set_default_std_alloc_opts(&init->std_alloc);
 			    set_default_ll_alloc_opts(&init->ll_alloc);
@@ -1725,7 +1725,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			    set_default_driver_alloc_opts(&init->fix_alloc);
 
 			    init->driver_alloc.enable = 0;
-			    if (strcmp("r9c", arg) == 0) {
+			    if (sys_strcmp("r9c", arg) == 0) {
 				init->sl_alloc.enable = 0;
 				init->std_alloc.enable = 0;
 				init->binary_alloc.enable = 0;
@@ -1752,18 +1752,18 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    switch (argv[i][3]) {
 		    case 's':
 			arg = get_value(argv[i]+4, argv, &i);
-			if (strcmp("true", arg) == 0)
+			if (sys_strcmp("true", arg) == 0)
 			    init->instr.stat = 1;
-			else if (strcmp("false", arg) == 0)
+			else if (sys_strcmp("false", arg) == 0)
 			    init->instr.stat = 0;
 			else
 			    bad_value(param, param+3, arg);
 			break;
 		    case 'm':
 			arg = get_value(argv[i]+4, argv, &i);
-			if (strcmp("true", arg) == 0)
+			if (sys_strcmp("true", arg) == 0)
 			    init->instr.map = 1;
-			else if (strcmp("false", arg) == 0)
+			else if (sys_strcmp("false", arg) == 0)
 			    init->instr.map = 0;
 			else
 			    bad_value(param, param+3, arg);
@@ -1778,9 +1778,9 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		case 'l':
 		    if (has_prefix("pm", param+2)) {
 			arg = get_value(argv[i]+5, argv, &i);
-			if (strcmp("all", arg) == 0)
+			if (sys_strcmp("all", arg) == 0)
 			    lock_all_physical_memory = 1;
-			else if (strcmp("no", arg) == 0)
+			else if (sys_strcmp("no", arg) == 0)
 			    lock_all_physical_memory = 0;
 			else
 			    bad_value(param, param+4, arg);
@@ -1830,8 +1830,8 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			/* || init->instr.stat
 			   || init->instr.map */) {
 			while (i < *argc) {
-			    if(strcmp(argv[i], "-sname") == 0
-			       || strcmp(argv[i], "-name") == 0) {
+			    if(sys_strcmp(argv[i], "-sname") == 0
+			       || sys_strcmp(argv[i], "-name") == 0) {
 				if (i + 1 <*argc) {
 				    init->instr.nodename = argv[i+1];
 				    break;
@@ -2692,7 +2692,7 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
 		Eterm atom;
 		if (hpp)
 		    atom = am_atom_put(values[i].name,
-				       (int) strlen(values[i].name));
+				       (int) sys_strlen(values[i].name));
 		else
 		    atom = am_true;
 
@@ -2883,7 +2883,7 @@ erts_allocator_options(void *proc)
     for (a = ERTS_ALC_A_MIN; a <= ERTS_ALC_A_MAX; a++) {
 	Eterm tmp = NIL;
 	atoms[length] = am_atom_put((char *) ERTS_ALC_A2AD(a),
-				    strlen(ERTS_ALC_A2AD(a)));
+				    sys_strlen(ERTS_ALC_A2AD(a)));
 	if (erts_allctrs_info[a].enabled) {
 	    if (erts_allctrs_info[a].alloc_util) {
 		Allctr_t *allctr;
@@ -2977,7 +2977,7 @@ erts_allocator_options(void *proc)
     for (a = ERTS_ALC_A_MIN; a <= ERTS_ALC_A_MAX; a++) {
 	if (erts_allctrs_info[a].enabled) {
 	    terms[length++] = am_atom_put((char *) ERTS_ALC_A2AD(a),
-					  strlen(ERTS_ALC_A2AD(a)));
+					  sys_strlen(ERTS_ALC_A2AD(a)));
 	}
     }
 
@@ -3961,7 +3961,7 @@ set_memory_fence(void *ptr, Uint sz, ErtsAlcType_t n)
 
     *(ui_ptr++) = sz;
     *(ui_ptr++) = pattern;
-    memcpy((void *) (((char *) ui_ptr)+sz), (void *) &pattern, sizeof(UWord));
+    sys_memcpy((void *) (((char *) ui_ptr)+sz), (void *) &pattern, sizeof(UWord));
 
 #ifdef HARD_DEBUG
     *mblkpp = hdbg_alloc((void *) ui_ptr, sz, n);
@@ -4001,7 +4001,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 		     (UWord) ptr);
     }
 
-    memcpy((void *) &post_pattern, (void *) (((char *)ptr)+sz), sizeof(UWord));
+    sys_memcpy((void *) &post_pattern, (void *) (((char *)ptr)+sz), sizeof(UWord));
 
     if (post_pattern != MK_PATTERN(n)
 	|| pre_pattern != post_pattern) {

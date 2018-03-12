@@ -307,7 +307,7 @@ erts_iref_storage_clean(ErtsIRefStorage *iref)
     if (iref->is_magic && erts_refc_dectest(&iref->u.mb->intern.refc, 0) == 0)
 	erts_ref_bin_free(iref->u.mb);
 #ifdef DEBUG
-    memset((void *) iref, 0xf, sizeof(ErtsIRefStorage));
+    sys_memset((void *) iref, 0xf, sizeof(ErtsIRefStorage));
 #endif
 }
 
@@ -342,7 +342,7 @@ erts_iref_storage_make_ref(ErtsIRefStorage *iref,
 
 #ifdef DEBUG
     if (clean_storage)
-	memset((void *) iref, 0xf, sizeof(ErtsIRefStorage));
+	sys_memset((void *) iref, 0xf, sizeof(ErtsIRefStorage));
 #endif
 
     return make_internal_ref(hp);

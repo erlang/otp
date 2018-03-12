@@ -588,7 +588,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	     */
 	    
 	    for (d = driver_list; d; d = d->next) {
-		if (strcmp(d->name, name) == 0 && 
+		if (sys_strcmp(d->name, name) == 0 && 
 		    erts_ddll_driver_ok(d->handle)) {
 		    driver = d;
 		    break;
@@ -638,7 +638,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	trace_port_open(port,
 			pid,
 			erts_atom_put((byte *) port->name,
-				      strlen(port->name),
+				      sys_strlen(port->name),
 				      ERTS_ATOM_ENC_LATIN1,
 				      1));
     }
@@ -2929,7 +2929,7 @@ erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
             break;
         case -2: {
             char *str = erl_errno_id(errno);
-            resp = erts_atom_put((byte *) str, strlen(str),
+            resp = erts_atom_put((byte *) str, sys_strlen(str),
                                  ERTS_ATOM_ENC_LATIN1, 1);
             break;
         }
@@ -7324,7 +7324,7 @@ int driver_failure_atom(ErlDrvPort ix, char* string)
 {
     return driver_failure_term(ix,
 			       erts_atom_put((byte *) string,
-					     strlen(string),
+					     sys_strlen(string),
 					     ERTS_ATOM_ENC_LATIN1,
 					     1),
 			       0);

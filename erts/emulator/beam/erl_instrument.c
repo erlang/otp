@@ -103,7 +103,7 @@ static struct {
 
 static void ERTS_INLINE atom_init(Eterm *atom, const char *name)
 {
-    *atom = am_atom_put((char *) name, strlen(name));
+    *atom = am_atom_put((char *) name, sys_strlen(name));
 }
 #define AM_INIT(AM) atom_init(&am.AM, #AM)
 

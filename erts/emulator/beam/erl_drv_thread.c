@@ -439,7 +439,7 @@ erl_drv_tsd_key_create(char *name, ErlDrvTSDKey *key)
 	name_copy = no_name;
     else {
 	name_copy = erts_alloc_fnf(ERTS_ALC_T_DRV_TSD,
-				   sizeof(char)*(strlen(name) + 1));
+				   sizeof(char)*(sys_strlen(name) + 1));
 	if (!name_copy) {
 	    *key = -1;
 	    return ENOMEM;
@@ -750,7 +750,7 @@ erl_drv_steal_main_thread(char *name,
 			   + (name ? sys_strlen(name) + 1 : 0)));
     if (!dtid)
 	return ENOMEM;
-    memset(dtid,0,sizeof(ErlDrvTid_));
+    sys_memset(dtid,0,sizeof(ErlDrvTid_));
     dtid->tid = (void * ) -1;
     dtid->drv_thr = 1;
     dtid->func = func;
@@ -763,8 +763,8 @@ erl_drv_steal_main_thread(char *name,
     *tid = NULL;
     /* Ignore options and name... */
     
-    memcpy(buff,&func,sizeof(void* (*)(void*)));
-    memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
+    sys_memcpy(buff,&func,sizeof(void* (*)(void*)));
+    sys_memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
     write(erts_darwin_main_thread_pipe[1],buff,buff_sz);
     return 0;
 }

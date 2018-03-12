@@ -91,7 +91,7 @@ Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
 #define erts_bld_tuple5(H,S,E1,E2,E3,E4,E5) erts_bld_tuple(H,S,5,E1,E2,E3,E4,E5)
 Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[]);
 Eterm erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len);
-#define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,strlen(str))
+#define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,sys_strlen(str))
 Eterm erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[]);
 Eterm erts_bld_2tup_list(Uint **hpp, Uint *szp,
 			 Sint length, Eterm terms1[], Uint terms2[]);
