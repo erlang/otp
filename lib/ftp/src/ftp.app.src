@@ -8,9 +8,12 @@
     stdlib
    ]},
   {env,[]},
-  {modules, []},
-
-  {maintainers, []},
-  {licenses, ["Apache 2.0"]},
-  {links, []}
+  {modules, [
+             ftp,
+             ftp_app,
+             ftp_progress,
+             ftp_response,
+             ftp_sup
+            ]},
+  {runtime_dependencies, ["stdlib-3.5","kernel-6.0"]}
  ]}.

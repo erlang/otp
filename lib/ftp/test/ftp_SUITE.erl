@@ -54,6 +54,8 @@ all() ->
      {group, ftps_passive},
      {group, ftps_active},
      {group, ftp_sup},
+     app,
+     app_upp,
      error_ehost,
      clean_shutdown
     ].
@@ -287,6 +289,19 @@ end_per_testcase(_Case, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+app() ->
+    [{doc, "Test that the ftp app file is ok"}].
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(ftp).
+
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the ftp appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(ftp).
+
+%%--------------------------------------------------------------------
+
 user() -> [
 	   {doc, "Open an ftp connection to a host, and logon as anonymous ftp,"
 	    " then logoff"}].
