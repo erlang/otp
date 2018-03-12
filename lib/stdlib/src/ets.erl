@@ -77,7 +77,9 @@
          whereis/1]).
 
 %% internal exports
--export([internal_request_all/0]).
+-export([internal_request_all/0,
+         internal_delete_all/2,
+         internal_select_delete/2]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
@@ -116,7 +118,15 @@ delete(_, _) ->
 -spec delete_all_objects(Tab) -> true when
       Tab :: tab().
 
-delete_all_objects(_) ->
+delete_all_objects(Tab) ->
+    _ = ets:internal_delete_all(Tab, undefined),
+    true.
+
+-spec internal_delete_all(Tab, undefined) -> NumDeleted when
+      Tab :: tab(),
+      NumDeleted :: non_neg_integer().
+
+internal_delete_all(_, _) ->
     erlang:nif_error(undef).
 
 -spec delete_object(Tab, Object) -> true when
@@ -378,7 +388,17 @@ select_count(_, _) ->
       MatchSpec :: match_spec(),
       NumDeleted :: non_neg_integer().
 
-select_delete(_, _) ->
+select_delete(Tab, [{'_',[],[true]}]) ->
+    ets:internal_delete_all(Tab, undefined);
+select_delete(Tab, MatchSpec) ->
+    ets:internal_select_delete(Tab, MatchSpec).
+
+-spec internal_select_delete(Tab, MatchSpec) -> NumDeleted when
+      Tab :: tab(),
+      MatchSpec :: match_spec(),
+      NumDeleted :: non_neg_integer().
+
+internal_select_delete(_, _) ->
     erlang:nif_error(undef).
 
 -spec select_replace(Tab, MatchSpec) -> NumReplaced when

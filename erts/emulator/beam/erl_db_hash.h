@@ -86,9 +86,6 @@ int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
 int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret);
 
-/* not yet in method table */
-int db_mark_all_deleted_hash(DbTable *tbl);
-
 typedef struct {
     float avg_chain_len;
     float std_dev_chain_len;

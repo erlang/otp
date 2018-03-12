@@ -436,7 +436,7 @@ static void db_foreach_offheap_tree(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static int db_delete_all_objects_tree(Process* p, DbTable* tbl);
+static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds);
 
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
@@ -2023,12 +2023,14 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
     return reds;
 }
 
-static int db_delete_all_objects_tree(Process* p, DbTable* tbl)
+static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds)
 {
-    db_free_table_tree(tbl);
+    reds = db_free_table_continue_tree(tbl, reds);
+    if (reds < 0)
+        return reds;
     db_create_tree(p, tbl);
     erts_atomic_set_nob(&tbl->tree.common.nitems, 0);
-    return 0;
+    return reds;
 }
 
 static void do_db_tree_foreach_offheap(TreeDbTerm *,

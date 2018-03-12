@@ -87,6 +87,7 @@
 
 -export([t_select_reverse/1]).
 
+-include_lib("stdlib/include/ms_transform.hrl"). % ets:fun2ms
 -include_lib("common_test/include/ct.hrl").
 
 -define(m(A,B), assert_eq(A,B)).
@@ -173,10 +174,12 @@ groups() ->
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
+    erts_debug:set_internal_state(ets_force_trap, true),
     Config.
 
 end_per_suite(_Config) ->
     stop_spawn_logger(),
+    erts_debug:set_internal_state(ets_force_trap, false),
     catch erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
@@ -812,7 +815,60 @@ t_delete_all_objects_do(Opts) ->
     4000 = ets:info(T,size),
     true = ets:delete_all_objects(T),
     0 = ets:info(T,size),
-    ets:delete(T).
+    ets:delete(T),
+
+    %% Test delete_all_objects is atomic
+    T2 = ets:new(t_delete_all_objects, [public | Opts]),
+    Self = self(),
+    Inserters = [spawn_link(fun() -> inserter(T2, 100*1000, 1, Self) end) || _ <- [1,2,3,4]],
+    [receive {Ipid, running} -> ok end || Ipid <- Inserters],
+    
+    ets:delete_all_objects(T2),
+    erlang:yield(),
+    [Ipid ! stop || Ipid <- Inserters],
+    Result = [receive {Ipid, stopped, Highest} -> {Ipid,Highest} end || Ipid <- Inserters],
+    
+    %% Verify unbroken sequences of objects inserted _after_ ets:delete_all_objects.
+    Sum = lists:foldl(fun({Ipid, Highest}, AccSum) ->
+                              %% ets:fun2ms(fun({{K,Ipid}}) when K =< Highest -> true end),
+                              AliveMS = [{{{'$1',Ipid}},[{'=<','$1',{const,Highest}}],[true]}],
+                              Alive = ets:select_count(T2, AliveMS),
+                              Lowest = Highest - (Alive-1),
+
+                              %% ets:fun2ms(fun({{K,Ipid}}) when K < Lowest -> true end)
+                              DeletedMS = [{{{'$1',Ipid}},[{'<','$1',{const,Lowest}}],[true]}],
+                              0 = ets:select_count(T2, DeletedMS),
+                              AccSum + Alive
+                      end,
+                      0,
+                      Result),
+    ok = case ets:info(T2, size) of
+             Sum -> ok;
+             Size ->
+                 io:format("Sum = ~p\nSize = ~p\n", [Sum, Size]),
+                 {Sum,Size}
+         end,
+
+    ets:delete(T2).
+
+inserter(_, 0, _, _) ->
+    ok;
+inserter(T, N, Next, Papa) ->
+    case Next of
+        10*1000 ->
+            Papa ! {self(), running};
+        _ ->
+            ok
+    end,
+                
+    ets:insert(T, {{Next, self()}}),
+    receive
+        stop ->
+            Papa ! {self(), stopped, Next},
+            ok
+    after 0 ->
+            inserter(T, N-1, Next+1, Papa)
+    end.
 
 
 %% Test ets:delete_object/2.

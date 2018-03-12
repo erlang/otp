@@ -411,7 +411,7 @@ static void db_foreach_offheap_hash(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static int db_delete_all_objects_hash(Process* p, DbTable* tbl);
+static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds);
 #ifdef HARDDEBUG
 static void db_check_table_hash(DbTableHash *tb);
 #endif
@@ -2255,7 +2255,7 @@ void db_initialize_hash(void)
 }
 
 
-int db_mark_all_deleted_hash(DbTable *tbl)
+static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
 {
     DbTableHash *tb = &tbl->hash;
     HashDbTerm* list;
@@ -2270,10 +2270,11 @@ int db_mark_all_deleted_hash(DbTable *tbl)
 		list->hvalue = INVALID_HASH;
 		list = list->next;
 	    }while(list != NULL);
+            reds--;
 	}
     }
     erts_atomic_set_nob(&tb->common.nitems, 0);
-    return DB_ERROR_NONE;
+    return reds < 0 ? 0 : reds;   /* ToDo: Yield! */
 }
 
 
@@ -3073,16 +3074,20 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     return;
 }
 
-static int db_delete_all_objects_hash(Process* p, DbTable* tbl)
+static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
 {
     if (IS_FIXED(tbl)) {
-	db_mark_all_deleted_hash(tbl);
+        /* ToDo: Yield! */
+	reds = db_mark_all_deleted_hash(tbl, reds);
     } else {
-	db_free_table_hash(tbl);
+        reds = db_free_table_continue_hash(tbl, reds);
+        if (reds < 0)
+            return reds;
+
 	db_create_hash(p, tbl);
 	erts_atomic_set_nob(&tbl->hash.common.nitems, 0);
     }
-    return 0;
+    return reds;
 }
 
 void db_foreach_offheap_hash(DbTable *tbl,
