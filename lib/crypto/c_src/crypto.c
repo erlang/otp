@@ -479,8 +479,6 @@ static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -568,8 +566,6 @@ static ErlNifFunc nif_funcs[] = {
     {"pkey_verify_nif", 6, pkey_verify_nif},
     {"pkey_crypt_nif", 6, pkey_crypt_nif},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
-    {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
-    {"dh_check", 1, dh_check},
     {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
     {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif},
@@ -3004,70 +3000,6 @@ static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_schedule_nif(env, "rsa_generate_key",
 			     ERL_NIF_DIRTY_JOB_CPU_BOUND,
 			     rsa_generate_key, argc, argv);
-}
-
-static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrimeLen, Generator) */
-    int prime_len, generator;
-    DH* dh_params = NULL;
-    int p_len, g_len;
-    unsigned char *p_ptr, *g_ptr;
-    ERL_NIF_TERM ret_p, ret_g;
-    const BIGNUM *dh_p, *dh_q, *dh_g;
-
-    if (!enif_get_int(env, argv[0], &prime_len)
-	|| !enif_get_int(env, argv[1], &generator)) {
-
-	return enif_make_badarg(env);
-    }
-
-    if (DH_generate_parameters_ex(dh_params, prime_len, generator, NULL)) {
-	return atom_error;
-    }
-    DH_get0_pqg(dh_params, &dh_p, &dh_q, &dh_g);
-    DH_free(dh_params);
-    p_len = BN_num_bytes(dh_p);
-    g_len = BN_num_bytes(dh_g);
-    p_ptr = enif_make_new_binary(env, p_len, &ret_p);
-    g_ptr = enif_make_new_binary(env, g_len, &ret_g);
-    BN_bn2bin(dh_p, p_ptr);
-    BN_bn2bin(dh_g, g_ptr);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr, p_len);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr, g_len);
-    return enif_make_list2(env, ret_p, ret_g);
-}
-
-static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* ([PrimeLen, Generator]) */
-    DH* dh_params;
-    int i;
-    ERL_NIF_TERM ret, head, tail;
-    BIGNUM *dh_p, *dh_g;
-
-    if (!enif_get_list_cell(env, argv[0], &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_g)
-	|| !enif_is_empty_list(env,tail)) {
-
-	return enif_make_badarg(env);
-    }
-
-    dh_params = DH_new();
-    DH_set0_pqg(dh_params, dh_p, NULL, dh_g);
-    if (DH_check(dh_params, &i)) {
-	if (i == 0) ret = atom_ok;
-	else if (i & DH_CHECK_P_NOT_PRIME) ret = atom_not_prime;
-	else if (i & DH_CHECK_P_NOT_SAFE_PRIME)	ret = atom_not_strong_prime;
-	else if (i & DH_UNABLE_TO_CHECK_GENERATOR) ret = atom_unable_to_check_generator;
-	else if (i & DH_NOT_SUITABLE_GENERATOR)	ret = atom_not_suitable_generator;
-	else ret = enif_make_tuple2(env, atom_unknown, enif_make_uint(env, i));
-    }
-    else { /* Check Failed */
-	ret = enif_make_tuple2(env, atom_error, atom_check_failed);
-    }
-    DH_free(dh_params);
-    return ret;
 }
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
