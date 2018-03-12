@@ -194,10 +194,8 @@
       </row>
       <row>
 	<cell>Elements in a tuple</cell>
-	<cell>The maximum number of elements in a tuple is 67,108,863
-	(26-bit unsigned integer). Clearly, other factors such as the
-	available memory can make it difficult to create a tuple of
-	that size.</cell>
+	<cell>The maximum number of elements in a tuple is 16,777,215
+	(24-bit unsigned integer).</cell>
       </row>
       <row>
 	<cell>Size of binary</cell>
