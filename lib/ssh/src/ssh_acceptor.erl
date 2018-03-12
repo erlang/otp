@@ -86,7 +86,8 @@ acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
                     acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
 
                 {error,_} -> % Not open, a restart
-                    {ok,NewLSock} = listen(Port, Opts),
+                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse:
+                    {ok,NewLSock} = try_listen(Port, Opts, 4),
                     proc_lib:init_ack(Parent, {ok, self()}),
                     Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
                     {_, Callback, _} =  ?GET_OPT(transport, Opts1),
@@ -95,6 +96,19 @@ acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
     catch
         _:_ ->
             {error,use_existing_socket_failed}
+    end.
+
+
+try_listen(Port, Opts, NtriesLeft) ->
+    try_listen(Port, Opts, 1, NtriesLeft).
+
+try_listen(Port, Opts, N, Nmax) ->
+    case listen(Port, Opts) of
+        {error,eaddrinuse} when N<Nmax ->
+            timer:sleep(10*N), % Sleep 10, 20, 30,... ms
+            try_listen(Port, Opts, N+1, Nmax);
+        Other ->
+            Other
     end.
 
 
