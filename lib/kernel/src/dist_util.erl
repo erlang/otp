@@ -554,7 +554,7 @@ con_loop({Kernel, Node, Socket, Type, DHandle, MFTick, MFGetstat,
 	{Kernel, aux_tick} ->
 	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, _, _, PendWrite} ->
-		    send_tick(Socket, PendWrite, MFTick);
+		    send_aux_tick(Type, Socket, PendWrite, MFTick);
 		_ ->
 		    ignore_it
 	    end,
@@ -807,49 +807,56 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 
 %% The detection time interval is thus, by default, 45s < DT < 75s 
 
-%% A HIDDEN node is always (if not a pending write) ticked if 
-%% we haven't read anything as a hidden node only ticks when it receives 
-%% a TICK !! 
+%% A HIDDEN node is always ticked if we haven't read anything
+%% as a (primitive) hidden node only ticks when it receives a TICK !!
 	
 send_tick(DHandle, Socket, Tick, Type, MFTick, MFGetstat) ->
     #tick{tick = T0,
 	  read = Read,
 	  write = Write,
-	  ticked = Ticked} = Tick,
+	  ticked = Ticked0} = Tick,
     T = T0 + 1,
     T1 = T rem 4,
     case getstat(DHandle, Socket, MFGetstat) of
-	{ok, Read, _, _} when  Ticked =:= T ->
+	{ok, Read, _, _} when Ticked0 =:= T ->
 	    {error, not_responding};
-	{ok, Read, W, Pend} when Type =:= hidden ->
-	    send_tick(Socket, Pend, MFTick),
-	    {ok, Tick#tick{write = W + 1,
-			   tick = T1}};
-	{ok, Read, Write, Pend} ->
-	    send_tick(Socket, Pend, MFTick),
-	    {ok, Tick#tick{write = Write + 1,
-			   tick = T1}};
-	{ok, R, Write, Pend} ->
-	    send_tick(Socket, Pend, MFTick),
-	    {ok, Tick#tick{write = Write + 1,
-			   read = R,
-			   tick = T1,
-			   ticked = T}};
-	{ok, Read, W, _} ->
-	    {ok, Tick#tick{write = W,
-			   tick = T1}};
-	{ok, R, W, _} ->
-	    {ok, Tick#tick{write = W,
-			   read = R,
-			   tick = T1,
-			   ticked = T}};
+
+        {ok, R, W1, Pend} ->
+            RDiff = R - Read,
+            W2 = case need_to_tick(Type, RDiff, W1-Write, Pend) of
+                     true ->
+                         MFTick(Socket),
+                         W1 + 1;
+                     false ->
+                         W1
+                 end,
+
+            Ticked1 = case RDiff of
+                          0 -> Ticked0;
+                          _ -> T
+                      end,
+
+            {ok, Tick#tick{write = W2,
+                           tick = T1,
+                           read = R,
+                           ticked = Ticked1}};
+
 	Error ->
 	    Error
     end.
 
-send_tick(_, Pend, _) when Pend /= false, Pend /= 0 ->
+need_to_tick(_, _, 0, 0) ->       % nothing written and empty send queue
+    true;
+need_to_tick(_, _, 0, false) ->   % nothing written and empty send queue
+    true;
+need_to_tick(hidden, 0, _, _) ->  % nothing read from hidden
+    true;
+need_to_tick(_, _, _, _) ->
+    false.
+
+send_aux_tick(normal, _, Pend, _) when Pend /= false, Pend /= 0 ->
     ok; %% Dont send tick if pending write.
-send_tick(Socket, _Pend, MFTick) ->
+send_aux_tick(_Type, Socket, _Pend, MFTick) ->
     MFTick(Socket).
 
 %% ------------------------------------------------------------
