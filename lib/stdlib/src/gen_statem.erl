@@ -641,16 +641,11 @@ replies([]) ->
 
 %% Might actually not send the message in case of caught exception
 send(Proc, Msg) ->
-    try erlang:send(Proc, Msg, [noconnect]) of
-	noconnect ->
-	    _ = spawn(erlang, send, [Proc,Msg]),
-	    ok;
-	ok ->
-	    ok
+    try erlang:send(Proc, Msg)
     catch
-	_:_ ->
-	    ok
-    end.
+        error:_ -> ok
+    end,
+    ok.
 
 %% Here the init_it/6 and enter_loop/5,6,7 functions converge
 enter(Module, Opts, State, Data, Server, Actions, Parent) ->

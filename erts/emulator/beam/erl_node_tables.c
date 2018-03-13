@@ -170,7 +170,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
     dep->connection_id			= 0;
-    dep->status				= 0;
+    dep->state				= ERTS_DE_STATE_IDLE;
     dep->flags				= 0;
     dep->version			= 0;
 
@@ -223,7 +223,7 @@ dist_table_free(void *vdep)
     DistEntry *dep = (DistEntry *) vdep;
 
     ASSERT(de_refc_read(dep, -1) == -1);
-    ASSERT(dep->status == 0);
+    ASSERT(dep->state == ERTS_DE_STATE_IDLE);
     ASSERT(is_nil(dep->cid));
     ASSERT(dep->nlinks == NULL);
     ASSERT(dep->node_links == NULL);
@@ -556,14 +556,14 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 
     ASSERT(dep != erts_this_dist_entry);
 
-    if (dep->status & ERTS_DE_SFLG_PENDING) {
+    if (dep->state == ERTS_DE_STATE_PENDING) {
         ASSERT(is_nil(dep->cid));
         ASSERT(erts_no_of_pending_dist_entries > 0);
         erts_no_of_pending_dist_entries--;
         head = &erts_pending_dist_entries;
     }
     else {
-        ASSERT(dep->status != 0);
+        ASSERT(dep->state != ERTS_DE_STATE_IDLE);
         ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
         if (dep->flags & DFLAG_PUBLISHED) {
             ASSERT(erts_no_of_visible_dist_entries > 0);
@@ -588,7 +588,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    dep->status &= ~(ERTS_DE_SFLG_PENDING | ERTS_DE_SFLG_CONNECTED);
+    dep->state = ERTS_DE_STATE_EXITING;
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -610,7 +610,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
     ASSERT(dep != erts_this_dist_entry);
-    ASSERT(dep->status == 0);
+    ASSERT(dep->state == ERTS_DE_STATE_IDLE);
     ASSERT(is_nil(dep->cid));
 
     if(dep->prev) {
@@ -627,8 +627,8 @@ erts_set_dist_entry_pending(DistEntry *dep)
 
     erts_no_of_not_connected_dist_entries--;
 
-    dep->status = ERTS_DE_SFLG_PENDING;
-    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
+    dep->state = ERTS_DE_STATE_PENDING;
+    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_NO_MAGIC);
     dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
 
     dep->prev = NULL;
@@ -652,7 +652,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 
     ASSERT(dep != erts_this_dist_entry);
     ASSERT(is_nil(dep->cid));
-    ASSERT(dep->status & ERTS_DE_SFLG_PENDING);
+    ASSERT(dep->state == ERTS_DE_STATE_PENDING);
     ASSERT(is_internal_port(cid) || is_internal_pid(cid));
 
     if(dep->prev) {
@@ -670,8 +670,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     ASSERT(erts_no_of_pending_dist_entries > 0);
     erts_no_of_pending_dist_entries--;
 
-    dep->status &= ~ERTS_DE_SFLG_PENDING;
-    dep->status |= ERTS_DE_SFLG_CONNECTED;
+    dep->state = ERTS_DE_STATE_CONNECTED;
     dep->flags = flags & ~DFLAG_NO_MAGIC;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,

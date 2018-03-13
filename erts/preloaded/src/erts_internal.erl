@@ -63,6 +63,7 @@
 
 -export([dist_ctrl_put_data/2]).
 
+-export([get_dflags/0]).
 -export([new_connection/1]).
 -export([abort_connection/2]).
 
@@ -509,6 +510,11 @@ dist_ctrl_put_data(DHandle, IoList) ->
 	    erlang:raise(Class, Reason, StackTrace)
     end.
 
+
+-spec erts_internal:get_dflags() -> {erts_dflags, integer(), integer(),
+                                     integer(), integer(), integer()}.
+get_dflags() ->
+    erlang:nif_error(undefined).
 
 -spec erts_internal:new_connection(Node) -> ConnId when
       Node :: atom(),

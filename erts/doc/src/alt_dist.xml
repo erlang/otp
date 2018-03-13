@@ -782,10 +782,9 @@
 	  <taglist>
 	    <tag><c>DFLAG_DIST_HDR_ATOM_CACHE</c></tag>
 	    <item>Do not use atom cache over this connection.</item>
-	    <tag><c>DFLAGS_STRICT_ORDER_DELIVERY</c></tag>
-	    <item>Do not use any features that require strict
-	    order delivery.</item>
 	  </taglist>
+	  <p>Use function <c>dist_util:strict_order_flags/0</c> to get all flags
+	    for features that require strict order delivery.</p>
 	  <p>
 	    This flag field is optional.
 	  </p>
@@ -819,9 +818,9 @@
       <p>
 	The data delivery order can be relaxed by disabling
 	features that require strict ordering. This is done by
-	passing the <c>?DFLAGS_STRICT_ORDER_DELIVERY</c>
-	<seealso marker="erl_dist_protocol#dflags">distribution
-	flags</seealso> in the
+	passing the
+	<seealso marker="erl_dist_protocol#dflags">distribution	flags</seealso>
+	returned by <c>dist_util:strict_order_flags/0</c> in the
 	<seealso marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seealso>
 	field of the <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
 	record used when setting up the connection. When relaxed

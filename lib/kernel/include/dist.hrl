@@ -42,31 +42,5 @@
 -define(DFLAG_BIG_CREATION, 16#40000).
 -define(DFLAG_SEND_SENDER, 16#80000).
 
-%% DFLAGs that require strict ordering or:ed together...
--define(DFLAGS_STRICT_ORDER_DELIVERY,
-        ?DFLAG_DIST_HDR_ATOM_CACHE).
-
-
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...
-
--define(DFLAGS_ALL,
-        (?DFLAG_PUBLISHED
-             bor ?DFLAG_ATOM_CACHE
-             bor ?DFLAG_EXTENDED_REFERENCES
-             bor ?DFLAG_DIST_MONITOR
-             bor ?DFLAG_FUN_TAGS
-             bor ?DFLAG_DIST_MONITOR_NAME
-             bor ?DFLAG_HIDDEN_ATOM_CACHE
-             bor ?DFLAG_NEW_FUN_TAGS
-             bor ?DFLAG_EXTENDED_PIDS_PORTS
-             bor ?DFLAG_EXPORT_PTR_TAG
-             bor ?DFLAG_BIT_BINARIES
-             bor ?DFLAG_NEW_FLOATS
-             bor ?DFLAG_UNICODE_IO
-             bor ?DFLAG_DIST_HDR_ATOM_CACHE
-             bor ?DFLAG_SMALL_ATOM_TAGS
-             bor ?DFLAG_UTF8_ATOMS
-             bor ?DFLAG_MAP_TAG
-             bor ?DFLAG_BIG_CREATION
-             bor ?DFLAG_SEND_SENDER)).

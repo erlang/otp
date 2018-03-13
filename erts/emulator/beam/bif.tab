@@ -690,6 +690,7 @@ bif erlang:iolist_to_iovec/1
 # New in 21.0
 #
 
+bif erts_internal:get_dflags/0
 bif erts_internal:new_connection/1
 bif erts_internal:abort_connection/2
 bif erts_internal:map_next/3

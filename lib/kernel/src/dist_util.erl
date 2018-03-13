@@ -27,6 +27,7 @@
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
+         strict_order_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
 	 shutdown/3, shutdown/4]).
@@ -116,22 +117,8 @@ dflag2str(_) ->
     "UNKNOWN".
 
 
-remove_flag(Flag, Flags) ->
-    case Flags band Flag of
-	0 ->
-	    Flags;
-	_ ->
-	    Flags - Flag
-    end.
-
-adjust_flags(ThisFlags, OtherFlags, RejectFlags) ->
-    case (?DFLAG_PUBLISHED band ThisFlags) band OtherFlags of
-	0 ->
-	    {remove_flag(?DFLAG_PUBLISHED, ThisFlags),
-	     remove_flag(?DFLAG_PUBLISHED, OtherFlags)};
-	_ ->
-	    {ThisFlags, OtherFlags band (bnot RejectFlags)}
-    end.
+adjust_flags(ThisFlags, OtherFlags) ->
+    ThisFlags band OtherFlags.
 
 publish_flag(hidden, _) ->
     0;
@@ -143,50 +130,35 @@ publish_flag(_, OtherNode) ->
 	    0
     end.
 
--define(DFLAGS_REMOVABLE,
-        (?DFLAG_DIST_HDR_ATOM_CACHE
-             bor ?DFLAG_HIDDEN_ATOM_CACHE
-             bor ?DFLAG_ATOM_CACHE)).
 
--define(DFLAGS_ADDABLE,
-        (?DFLAGS_ALL
-             band (bnot (?DFLAG_PUBLISHED
-                             bor ?DFLAG_HIDDEN_ATOM_CACHE
-                             bor ?DFLAG_ATOM_CACHE)))).
+%% Sync with dist.c
+-record(erts_dflags, {
+          default,      % flags erts prefers
+          mandatory,    % flags erts needs
+          addable,      % flags local dist implementation is allowed to add
+          rejectable,   % flags local dist implementation is allowed to reject
+          strict_order  % flags for features needing strict order delivery
+}).
 
--define(DFLAGS_THIS_DEFAULT,
-        (?DFLAG_EXPORT_PTR_TAG
-             bor ?DFLAG_EXTENDED_PIDS_PORTS
-             bor ?DFLAG_EXTENDED_REFERENCES
-             bor ?DFLAG_DIST_MONITOR
-             bor ?DFLAG_FUN_TAGS
-             bor ?DFLAG_DIST_MONITOR_NAME
-             bor ?DFLAG_NEW_FUN_TAGS
-             bor ?DFLAG_BIT_BINARIES
-             bor ?DFLAG_NEW_FLOATS
-             bor ?DFLAG_UNICODE_IO
-             bor ?DFLAG_DIST_HDR_ATOM_CACHE
-             bor ?DFLAG_SMALL_ATOM_TAGS
-             bor ?DFLAG_UTF8_ATOMS
-             bor ?DFLAG_MAP_TAG
-             bor ?DFLAG_BIG_CREATION
-             bor ?DFLAG_SEND_SENDER)).
+-spec strict_order_flags() -> integer().
+strict_order_flags() ->
+    EDF = erts_internal:get_dflags(),
+    EDF#erts_dflags.strict_order.
 
-make_this_flags(RequestType, AddFlags, RemoveFlags, OtherNode) ->
-    case RemoveFlags band (bnot ?DFLAGS_REMOVABLE) of
+make_this_flags(RequestType, AddFlags, RejectFlags, OtherNode,
+                #erts_dflags{}=EDF) ->
+    case RejectFlags band (bnot EDF#erts_dflags.rejectable) of
         0 -> ok;
         Rerror -> exit({"Rejecting non rejectable flags", Rerror})
     end,
-    case AddFlags band (bnot ?DFLAGS_ADDABLE) of
+    case AddFlags band (bnot EDF#erts_dflags.addable) of
         0 -> ok;
         Aerror -> exit({"Adding non addable flags", Aerror})
     end,
-    Flgs0 = ?DFLAGS_THIS_DEFAULT,
+    Flgs0 = EDF#erts_dflags.default,
     Flgs1 = Flgs0 bor publish_flag(RequestType, OtherNode),
     Flgs2 = Flgs1 bor AddFlags,
-    Flgs3 = Flgs2 band (bnot (?DFLAG_HIDDEN_ATOM_CACHE
-                                  bor ?DFLAG_ATOM_CACHE)),
-    Flgs3 band (bnot RemoveFlags).
+    Flgs2 band (bnot RejectFlags).
 
 handshake_other_started(#hs_data{request_type=ReqType,
                                  add_flags=AddFlgs0,
@@ -196,19 +168,18 @@ handshake_other_started(#hs_data{request_type=ReqType,
     RejFlgs = convert_flags(RejFlgs0),
     ReqFlgs = convert_flags(ReqFlgs0),
     {PreOtherFlags,Node,Version} = recv_name(HSData0),
-    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node),
-    {ThisFlags, OtherFlags} = adjust_flags(PreThisFlags,
-					   PreOtherFlags,
-                                           RejFlgs),
-    HSData = HSData0#hs_data{this_flags=ThisFlags,
-			     other_flags=OtherFlags,
+    EDF = erts_internal:get_dflags(),
+    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node, EDF),
+    ChosenFlags = adjust_flags(PreThisFlags, PreOtherFlags),
+    HSData = HSData0#hs_data{this_flags=ChosenFlags,
+			     other_flags=ChosenFlags,
 			     other_version=Version,
 			     other_node=Node,
 			     other_started=true,
                              add_flags=AddFlgs,
                              reject_flags=RejFlgs,
                              require_flags=ReqFlgs},
-    check_dflags(HSData),
+    check_dflags(HSData, EDF),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
 	    [Node, HSData#hs_data.other_version]}),
@@ -247,14 +218,11 @@ is_allowed(#hs_data{other_node = Node,
 check_dflags(#hs_data{other_node = Node,
                       other_flags = OtherFlags,
                       other_started = OtherStarted,
-                      require_flags = RequiredFlags} = HSData) ->
-    Mandatory = ((?DFLAG_EXTENDED_REFERENCES
-                      bor ?DFLAG_EXTENDED_PIDS_PORTS
-                      bor ?DFLAG_UTF8_ATOMS
-                      bor ?DFLAG_NEW_FUN_TAGS)
-                     bor RequiredFlags),
-    Missing = check_mandatory(0, ?DFLAGS_ALL, Mandatory,
-                              OtherFlags, []),
+                      require_flags = RequiredFlags} = HSData,
+             #erts_dflags{}=EDF) ->
+
+    Mandatory = (EDF#erts_dflags.mandatory bor RequiredFlags),
+    Missing = check_mandatory(Mandatory, OtherFlags, []),
     case Missing of
         [] ->
             ok;
@@ -274,21 +242,20 @@ check_dflags(#hs_data{other_node = Node,
 	    ?shutdown2(Node, {check_dflags_failed, Missing})
     end.
 
-check_mandatory(_Bit, 0, _Mandatory, _OtherFlags, Missing) ->
+check_mandatory(0, _OtherFlags, Missing) ->
     Missing;
-check_mandatory(Bit, Left, Mandatory, OtherFlags, Missing) ->
-    DFlag = (1 bsl Bit),
-    NewLeft = Left band (bnot DFlag),
-    NewMissing = case {DFlag band Mandatory,
-                       DFlag band OtherFlags} of
-                     {DFlag, 0} ->
+check_mandatory(Mandatory, OtherFlags, Missing) ->
+    Left = Mandatory band (Mandatory - 1),   % clear lowest set bit
+    DFlag = Mandatory bxor Left,             % only lowest set bit
+    NewMissing = case DFlag band OtherFlags of
+                     0 ->
                          %% Mandatory and missing...
                          [dflag2str(DFlag) | Missing];
                      _ ->
-                         %% Not mandatory or present...
+                         %% Mandatory and present...
                          Missing
                  end,
-    check_mandatory(Bit+1, NewLeft, Mandatory, OtherFlags, NewMissing).
+    check_mandatory(Left, OtherFlags, NewMissing).
                     
 
 %% No nodedown will be sent if we fail before this process has
@@ -410,7 +377,8 @@ handshake_we_started(#hs_data{request_type=ReqType,
     AddFlgs = convert_flags(AddFlgs0),
     RejFlgs = convert_flags(RejFlgs0),
     ReqFlgs = convert_flags(ReqFlgs0),
-    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node),
+    EDF = erts_internal:get_dflags(),
+    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node, EDF),
     HSData = PreHSData#hs_data{this_flags = PreThisFlags,
                                add_flags = AddFlgs,
                                reject_flags = RejFlgs,
@@ -418,13 +386,11 @@ handshake_we_started(#hs_data{request_type=ReqType,
     send_name(HSData),
     recv_status(HSData),
     {PreOtherFlags,ChallengeA} = recv_challenge(HSData),
-    {ThisFlags,OtherFlags} = adjust_flags(PreThisFlags,
-                                          PreOtherFlags,
-                                          RejFlgs),
-    NewHSData = HSData#hs_data{this_flags = ThisFlags,
-			       other_flags = OtherFlags, 
+    ChosenFlags = adjust_flags(PreThisFlags, PreOtherFlags),
+    NewHSData = HSData#hs_data{this_flags = ChosenFlags,
+			       other_flags = ChosenFlags,
 			       other_started = false}, 
-    check_dflags(NewHSData),
+    check_dflags(NewHSData, EDF),
     MyChallenge = gen_challenge(),
     {MyCookie,HisCookie} = get_cookies(Node),
     send_challenge_reply(NewHSData,MyChallenge,
