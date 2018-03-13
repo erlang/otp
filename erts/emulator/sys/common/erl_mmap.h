@@ -93,11 +93,6 @@ typedef struct {
 #define ERTS_MMAP_INIT_LITERAL_INITER \
     {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
 
-#define ERTS_HIPE_EXEC_VIRTUAL_AREA_SIZE (UWORD_CONSTANT(512)*1024*1024)
-
-#define ERTS_MMAP_INIT_HIPE_EXEC_INITER \
-    {{NULL, NULL}, {NULL, NULL}, ERTS_HIPE_EXEC_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
-
 
 #define ERTS_SUPERALIGNED_SIZE \
     (1 << ERTS_MMAP_SUPERALIGNED_BITS)
@@ -140,7 +135,7 @@ void *erts_mmap(ErtsMemMapper*, Uint32 flags, UWord *sizep);
 void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord size);
 void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
 int erts_mmap_in_supercarrier(ErtsMemMapper*, void *ptr);
-void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*, int executable);
+void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*);
 struct erts_mmap_info_struct
 {
     UWord sizes[6];
@@ -163,15 +158,6 @@ extern ErtsMemMapper erts_dflt_mmapper;
 
 #  if defined(ARCH_64)
 extern ErtsMemMapper erts_literal_mmapper;
-#  endif
-
-#  if defined(ERTS_ALC_A_EXEC) && defined(__x86_64__)
-   /*
-    * On x86_64, exec_alloc employs its own super carrier 'erts_exec_mmaper'
-    * to ensure low memory for HiPE AMD64 small code model.
-    */
-#   define ERTS_HAVE_EXEC_MMAPPER
-extern ErtsMemMapper erts_exec_mmapper;
 #  endif
 
 # endif /* ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */

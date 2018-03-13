@@ -68,8 +68,7 @@
        fixed size data types.</item>
       <tag><c>exec_alloc</c></tag>
       <item>Allocator used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso>
-        application for native executable code on specific architectures
-        (x86_64).</item>
+        application for native executable code.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated through any of
         the other allocators described above.</item>
@@ -718,19 +717,6 @@
             Erlang code on 64-bit architectures. Defaults to <c>1024</c>
             (that is, 1 GB), which is usually sufficient.
             The flag is ignored on 32-bit architectures.</p>
-        </item>
-      </taglist>
-    </section>
-
-    <section>
-      <title>Special Flag for exec_alloc</title>
-      <taglist>
-        <tag><marker id="MXscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
-        <item>
-          <p><c>exec_alloc</c> super carrier size (in MB). The amount of
-            <em>virtual</em> address space reserved for native executable code
-            used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso> application
-            on specific architectures (x86_64). Defaults to <c>512</c>.</p>
         </item>
       </taglist>
     </section>
