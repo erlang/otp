@@ -48,7 +48,7 @@ atom Empty=''
 #
 # Used in the Beam emulator loop. (Smaller literals usually means tighter code.)
 #
-atom fun infinity timeout normal call return
+atom infinity timeout normal call return
 atom throw error exit
 atom undefined
 
@@ -69,11 +69,9 @@ atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
 atom abort
-atom aborted
 atom abs_path
 atom absoluteURI
 atom ac
-atom accessor
 atom active
 atom active_tasks
 atom active_tasks_all
@@ -88,7 +86,6 @@ atom allocated_areas
 atom allocator
 atom allocator_sizes
 atom alloc_util_allocators
-atom allow_gc
 atom allow_passive_connect
 atom already_loaded
 atom amd64
@@ -122,7 +119,6 @@ atom bag
 atom band
 atom big
 atom bif_return_trap
-atom bif_timer_server
 atom binary
 atom binary_copy_trap
 atom binary_find_trap
@@ -178,7 +174,6 @@ atom convert_time_unit
 atom connect
 atom connected
 atom connection_closed
-atom cons
 atom const
 atom context_switches
 atom control
@@ -198,7 +193,6 @@ atom debug_flags
 atom decimals
 atom default
 atom delay_trap
-atom depth
 atom dictionary
 atom dirty_bif_exception
 atom dirty_bif_result
@@ -245,7 +239,6 @@ atom Eqeq='=='
 atom erl_tracer
 atom erlang
 atom erl_signal_server
-atom ERROR='ERROR'
 atom error_handler
 atom error_logger
 atom erts_code_purger
@@ -253,7 +246,6 @@ atom erts_debug
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
-atom event
 atom exact_reductions
 atom exception_from
 atom exception_trace
@@ -280,27 +272,20 @@ atom force
 atom format_cpu_topology
 atom free
 atom fullsweep_after
-atom fullsweep_if_old_binaries
-atom fun
-atom function
 atom functions
 atom function_clause
 atom garbage_collecting
 atom garbage_collection
 atom garbage_collection_info
-atom gc_end
 atom gc_major_end
 atom gc_major_start
 atom gc_max_heap_size
 atom gc_minor_end
 atom gc_minor_start
-atom gc_start
 atom Ge='>='
 atom generational
-atom get_data
 atom get_seq_token
 atom get_tcw
-atom getenv
 atom gather_gc_info_result
 atom gather_io_bytes
 atom gather_microstate_accounting_result
@@ -342,7 +327,6 @@ atom initial_call
 atom input
 atom internal
 atom internal_error
-atom internal_status
 atom instruction_counts
 atom invalid
 atom is_constant
@@ -388,14 +372,12 @@ atom match_spec_result
 atom max
 atom maximum
 atom max_heap_size
-atom max_tables max_processes
 atom mbuf_size
 atom md5
 atom memory
 atom memory_internal
 atom memory_types
 atom message
-atom message_binary
 atom message_queue_data
 atom message_queue_len
 atom messages
@@ -442,21 +424,18 @@ atom new_processes
 atom new_ports
 atom new_uniq
 atom newline
-atom next
 atom no
 atom nomatch
 atom none
 atom no_auto_capture
 atom noconnect
 atom noconnection
-atom nocookie
 atom node
 atom node_type
 atom nodedown
 atom nodedown_reason
 atom nodeup
 atom noeol
-atom nofile
 atom noproc
 atom normal
 atom nosuspend
@@ -478,7 +457,6 @@ atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
-atom objects
 atom off_heap
 atom offset
 atom ok
@@ -548,7 +526,6 @@ atom re_run_trap
 atom read_concurrency
 atom ready_input
 atom ready_output
-atom ready_async
 atom reason
 atom receive
 atom recent_size
@@ -595,7 +572,6 @@ atom sequential_trace_token
 atom serial
 atom set
 atom set_cpu_topology
-atom set_data
 atom set_on_first_link
 atom set_on_first_spawn
 atom set_on_link
@@ -603,8 +579,6 @@ atom set_on_spawn
 atom set_seq_token
 atom set_tcw
 atom set_tcw_fake
-atom separate
-atom shared
 atom sighup
 atom sigterm
 atom sigusr1
@@ -620,7 +594,6 @@ atom sigtstp
 atom sigquit
 atom silent
 atom size
-atom sl_alloc
 atom spawn_executable
 atom spawn_driver
 atom spawned
@@ -628,7 +601,6 @@ atom ssl_tls
 atom stack_size
 atom start
 atom status
-atom static
 atom stderr_to_stdout
 atom stop
 atom stream
@@ -638,14 +610,11 @@ atom sunrm
 atom suspend
 atom suspended
 atom suspending
-atom sys_misc
 atom system
-atom system_error
 atom system_flag_scheduler_wall_time
 atom system_limit
 atom system_version
 atom system_architecture
-atom SYSTEM='SYSTEM'
 atom table
 atom term_to_binary_trap
 atom this
@@ -663,7 +632,7 @@ atom total_heap_size
 atom total_run_queue_lengths
 atom total_run_queue_lengths_all
 atom tpkt
-atom trace trace_ts traced
+atom trace traced
 atom trace_control_word
 atom trace_status
 atom tracer
@@ -672,7 +641,6 @@ atom trim
 atom trim_all
 atom try_clause
 atom true
-atom tuple
 atom type
 atom ucompile
 atom ucp
@@ -689,14 +657,11 @@ atom unblock_normal
 atom uniq
 atom unless_suspending
 atom unloaded
-atom unloading
 atom unloaded_only
 atom unload_cancelled
 atom value
-atom values
 atom version
 atom visible
-atom wait
 atom waiting
 atom wall_clock
 atom warning
