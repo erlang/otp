@@ -1905,29 +1905,61 @@ otp_10836(Suite) when is_list(Suite) ->
 
 %% OTP-10755. The 'l' modifier
 otp_10755(Suite) when is_list(Suite) ->
+    %% printing plain ascii characters
     S = "string",
     "\"string\"" = fmt("~p", [S]),
     "[115,116,114,105,110,103]" = fmt("~lp", [S]),
     "\"string\"" = fmt("~P", [S, 2]),
     "[115|...]" = fmt("~lP", [S, 2]),
-    {'EXIT',{badarg,_}} = (catch fmt("~ltp", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~tlp", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~ltP", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~tlP", [S])),
+    %% printing latin1 chars, with and without modifiers
+    T = {[255],list_to_atom([255]),[a,b,c]},
+    "{\"ÿ\",ÿ,[a,b,c]}" = fmt("~p", [T]),
+    "{\"ÿ\",ÿ,[a,b,c]}" = fmt("~tp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~lp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~ltp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~tlp", [T]),
+    "{\"ÿ\",ÿ,...}" = fmt("~P", [T,3]),
+    "{\"ÿ\",ÿ,...}" = fmt("~tP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~lP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~ltP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~tlP", [T,3]),
+    %% printing unicode chars, with and without modifiers
+    U = {[666],list_to_atom([666]),[a,b,c]},
+    "{[666],'\\x{29A}',[a,b,c]}" = fmt("~p", [U]),
+    case io:printable_range() of
+        unicode ->
+            "{\"ʚ\",'ʚ',[a,b,c]}" = fmt("~tp", [U]),
+            "{\"ʚ\",'ʚ',...}" = fmt("~tP", [U,3]);
+        latin1 ->
+            "{[666],'ʚ',[a,b,c]}" = fmt("~tp", [U]),
+            "{[666],'ʚ',...}" = fmt("~tP", [U,3])
+    end,
+    "{[666],'\\x{29A}',[a,b,c]}" = fmt("~lp", [U]),
+    "{[666],'ʚ',[a,b,c]}" = fmt("~ltp", [U]),
+    "{[666],'ʚ',[a,b,c]}" = fmt("~tlp", [U]),
+    "{[666],'\\x{29A}',...}" = fmt("~P", [U,3]),
+    "{[666],'\\x{29A}',...}" = fmt("~lP", [U,3]),
+    "{[666],'ʚ',...}" = fmt("~ltP", [U,3]),
+    "{[666],'ʚ',...}" = fmt("~tlP", [U,3]),
+    %% the compiler should catch uses of ~l with other than pP
     Text =
         "-module(l_mod).\n"
         "-export([t/0]).\n"
         "t() ->\n"
         "    S = \"string\",\n"
-        "    io:format(\"~ltp\", [S]),\n"
-        "    io:format(\"~tlp\", [S]),\n"
-        "    io:format(\"~ltP\", [S, 1]),\n"
-        "    io:format(\"~tlP\", [S, 1]).\n",
+        "    io:format(\"~lw\", [S]),\n"
+        "    io:format(\"~lW\", [S, 1]),\n"
+        "    io:format(\"~ltw\", [S]),\n"
+        "    io:format(\"~tlw\", [S]),\n"
+        "    io:format(\"~ltW\", [S, 1]),\n"
+        "    io:format(\"~tlW\", [S, 1]).\n",
     {ok,l_mod,[{_File,Ws}]} = compile_file("l_mod.erl", Text, Suite),
-    ["format string invalid (invalid control ~lt)",
-     "format string invalid (invalid control ~tl)",
-     "format string invalid (invalid control ~lt)",
-     "format string invalid (invalid control ~tl)"] =
+    ["format string invalid (invalid control ~lw)",
+     "format string invalid (invalid control ~lW)",
+     "format string invalid (invalid control ~ltw)",
+     "format string invalid (invalid control ~ltw)",
+     "format string invalid (invalid control ~ltW)",
+     "format string invalid (invalid control ~ltW)"] =
         [lists:flatten(M:format_error(E)) || {_L,M,E} <- Ws],
     ok.
 

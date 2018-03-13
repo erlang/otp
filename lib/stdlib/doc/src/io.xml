@@ -137,11 +137,11 @@
 Hello world!
 ok</pre>
         <p>The general format of a control sequence is <c>~F.P.PadModC</c>.</p>
-        <p>Character <c>C</c> determines the type of control sequence
-          to be used, <c>F</c> and <c>P</c> are optional numeric
-          arguments. If <c>F</c>, <c>P</c>, or <c>Pad</c> is <c>*</c>,
-          the next argument in <c>Data</c> is used as the numeric value
-          of <c>F</c> or <c>P</c>.</p>
+        <p>The character <c>C</c> determines the type of control sequence
+          to be used. It is the only required field. All of <c>F</c>,
+          <c>P</c>, <c>Pad</c>, and <c>Mod</c> are optional. For example,
+          to use a <c>#</c> for <c>Pad</c> but use the default values for
+          <c>F</c> and <c>P</c>, you can write <c>~..#C</c>.</p>
         <list type="bulleted">
         <item>
           <p><c>F</c> is the <c>field width</c> of the printed argument. A
@@ -167,13 +167,26 @@ ok</pre>
             The default padding character is <c>' '</c> (space).</p>
         </item>
         <item>
-          <p><c>Mod</c> is the control sequence modifier. It is a
-            single character that changes the interpretation of
-            <c>Data</c>. This can be <c>t</c>, for Unicode translation,
-            or <c>l</c>, for stopping <c>p</c> and <c>P</c> from
-            detecting printable characters.</p>
+          <p><c>Mod</c> is the control sequence modifier. This is
+            one or more characters that change the interpretation of
+            <c>Data</c>. The current modifiers are <c>t</c>, for Unicode
+            translation, and <c>l</c>, for stopping <c>p</c> and <c>P</c>
+            from detecting printable characters.</p>
         </item>
       </list>
+        <p>If <c>F</c>, <c>P</c>, or <c>Pad</c> is a <c>*</c> character,
+        the next argument in <c>Data</c> is used as the value.
+        For example:</p>
+        <pre>
+1> <input>io:fwrite("~*.*.0f~n",[9, 5, 3.14159265]).</input>
+003.14159
+ok</pre>
+        <p>To use a literal <c>*</c> character as <c>Pad</c>, it must be
+          passed as an argument:</p>
+        <pre>
+2> <input>io:fwrite("~*.*.*f~n",[9, 5, $*, 3.14159265]).</input>
+**3.14159
+ok</pre>
         <p><em>Available control sequences:</em></p>
         <taglist>
           <tag><c>~</c></tag>
