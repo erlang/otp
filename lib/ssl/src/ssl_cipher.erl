@@ -239,7 +239,7 @@ decipher(?AES_CBC, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
 
 %%--------------------------------------------------------------------
 -spec decipher_aead(cipher_enum(),  #cipher_state{}, integer(), binary(), binary(), ssl_record:ssl_version()) ->
-			   {binary(), binary(), #cipher_state{}} | #alert{}.
+			   {binary(), #cipher_state{}} | #alert{}.
 %%
 %% Description: Decrypts the data and checks the associated data (AAD) MAC using
 %% cipher described by cipher_enum() and updating the cipher state.

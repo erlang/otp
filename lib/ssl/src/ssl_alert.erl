@@ -48,7 +48,9 @@ decode(Bin) ->
     decode(Bin, [], 0).
 
 %%--------------------------------------------------------------------
--spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
+-spec reason_code(#alert{}, client | server) ->
+                         closed | {tls_alert, unicode:chardata()}.
+%-spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
 %%
 %% Description: Returns the error reason that will be returned to the
 %% user.

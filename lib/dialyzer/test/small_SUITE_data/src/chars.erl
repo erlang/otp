@@ -12,17 +12,25 @@
 -spec t() -> $0-$0..$9-$0| $?.
 
 t() ->
-    c(#r{f = $z - 3}),
+    r(#r{f = $z - 3}),
+    r(#r{f = 97}),
+    c($/),
     c($z - 3),
     c($B).
 
 -spec c(cs()) -> $3-$0..$9-$0.
-
-c($A + 1) -> 2;
+c($A + 1) -> $9-$0;
 c(C) ->
     case C of
-        $z - 3 -> 3;
-        #r{f = $z - 3} -> 7
+        $z - 3 -> $3-$0;
+        _ -> $7-$0
+    end.
+
+-spec r(#r{f :: $a..$z}) -> ok | error.
+r(R) ->
+    case R of
+        #r{f = $z - 3} -> error;
+        _ -> ok
     end.
 
 %% Display contract with character in warning:

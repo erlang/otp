@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -357,7 +357,7 @@ parse_df_take_word_percent(Input) ->
 %% and capacity), skip % sign, (optionally for susv3 can also skip IUsed, IFree
 %% and ICap% fields) then take remaining characters as the mount path
 -spec parse_df(string(), posix | susv3) ->
-    {error, parse_df} | {ok, {integer(), integer(), integer()}, string()}.
+    {error, parse_df} | {ok, {integer(), integer(), list()}, string()}.
 parse_df(Input0, Flavor) ->
     %% Format of Posix/Linux df output looks like Header + Lines
     %% Filesystem     1024-blocks     Used Available Capacity Mounted on

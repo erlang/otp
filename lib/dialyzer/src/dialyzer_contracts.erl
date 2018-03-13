@@ -197,6 +197,10 @@ check_contracts(Contracts, Callgraph, FunTypes, ModOpaques) ->
 		      false ->
 			[{MFA, Contract}|NewContracts]
 		    end;
+                  {error, {extra_range, _, _}} ->
+                    %% do not treat extra range as an error in this check
+                    %% since that prevents discovering other actual errors
+                    [{MFA, Contract}|NewContracts];
 		  {error, _Error} -> NewContracts
 		end;
 	      error -> NewContracts
