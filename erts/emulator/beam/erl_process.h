@@ -1022,7 +1022,6 @@ struct process {
      * Information mainly for post-mortem use (erl crash dump).
      */
     Eterm parent;		/* Pid of process that created this process. */
-    erts_approx_time_t approx_started; /* Time when started. */
 
     Uint32 static_flags;        /* Flags that do *not* change */
 
