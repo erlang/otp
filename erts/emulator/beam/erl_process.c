@@ -10037,6 +10037,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    p->scheduler_data = esdp;
 	}
 	else {
+            if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
+                /* Dirty work completed... */
+		goto sunlock_sched_out_proc;
+            }
 	    if (state & (ERTS_PSFLG_ACTIVE_SYS
 			 | ERTS_PSFLG_PENDING_EXIT
 			 | ERTS_PSFLG_EXITING)) {
@@ -10178,6 +10182,23 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    p->flags |= F_TIMO;
 	    ERTS_PTMR_CLEAR(p);
 	}
+
+#ifdef DEBUG
+        if (is_normal_sched) {
+	    if (state & ERTS_PSFLGS_DIRTY_WORK)
+                ERTS_INTERNAL_ERROR("Executing dirty code on normal scheduler");
+        }
+        else {
+	    if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
+                if (esdp->type == ERTS_SCHED_DIRTY_CPU)
+                    ERTS_INTERNAL_ERROR("Executing normal code on dirty CPU scheduler");
+                else if (esdp->type == ERTS_SCHED_DIRTY_IO)
+                    ERTS_INTERNAL_ERROR("Executing normal code on dirty IO scheduler");
+                else
+                    ERTS_INTERNAL_ERROR("Executing normal code on dirty UNKNOWN scheduler");
+            }
+        }
+#endif
 
 	return p;
     }
