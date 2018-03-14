@@ -428,7 +428,7 @@
     </func>
     
     <func>
-      <name>shell(ConnectionRef, ChannelId) -> ssh_request_status() | {error, closed}
+      <name>shell(ConnectionRef, ChannelId) -> ok | failure | {error, closed}
       </name>
       <fsummary>Requests that the user default shell (typically defined in
       /etc/passwd in Unix systems) is to be executed at the server end.</fsummary>
@@ -440,6 +440,10 @@
 	 <p>Is to be called by a client channel process to request that the user default
 	 shell (typically defined in /etc/passwd in Unix systems) is executed
 	 at the server end.</p>
+	 <p>Note: the return value is <c>ok</c> instead of <c>success</c> unlike in other
+	 functions in this module. This is a fault that was introduced so long ago that
+	 any change would break a large number of existing software.
+	 </p>
        </desc>
     </func>
 
