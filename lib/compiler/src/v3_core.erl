@@ -1152,7 +1152,7 @@ fun_tq(Cs0, L, St0, NameInfo) ->
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.  
 
-lc_tq(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,ceps=Ceps,
 		      acc_pat=AccPat,acc_guard=AccGuard,
                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                       arg={Pre,Arg}}|Qs], Mc, St0) ->
@@ -1162,7 +1162,7 @@ lc_tq(Line, E, [#igen{anno=GAnno,ceps=Ceps,
     F = #c_var{anno=LA,name={Name,1}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
     {Var,St2} = new_var(St1),
-    Fc = function_clause([Var], LA, {Name,1}),
+    Fc = function_clause([Var], GA, {Name,1}),
     TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
     Cs0 = case {AccPat,AccGuard} of
               {SkipPat,[]} ->
@@ -1185,9 +1185,9 @@ lc_tq(Line, E, [#igen{anno=GAnno,ceps=Ceps,
                                   body=Lps ++ [Lc]}|Cs0],
                         St3}
                end,
-    Fun = #ifun{anno=LAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,1},Fun}],
-              body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg]}]},
+    Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
+    {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
+              body=Pre ++ [#iapply{anno=GAnno,op=F,args=[Arg]}]},
      Ceps,St4};
 lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
