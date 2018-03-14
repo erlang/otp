@@ -33,7 +33,37 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.4.5</title>
+  <section><title>Inets 6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpc_manager crashes when a long running request is sent
+	    on a persistent HTTP connection (keep-alive). Fixed
+	    httpc_manager to use proper timeouts on keep-alive
+	    connections.</p>
+          <p>
+	    Own Id: OTP-14908</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for unix domain sockets in the http client.</p>
+          <p>
+	    Own Id: OTP-14854</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

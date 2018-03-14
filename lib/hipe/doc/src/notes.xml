@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.17.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE bug for binary constructs like
+	    <c>&lt;&lt;X/utf8&gt;&gt;</c> which could in rare cases
+	    cause faulty results or VM crash.</p>
+          <p>
+	    This fix affects both the <c>hipe</c> compiler and
+	    <c>erts</c> runtime in an <em>incompatible</em> way. Old
+	    hipe compiled files need to be recompiled to load and run
+	    properly as native.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14850 Aux Id: PR-1664 </p>
+        </item>
+        <item>
+	    <p>The BEAM compiler chooses not to perform tailcall
+	    optimisations for some calls in tail position, for
+	    example to some built-in functions. However, when the
+	    ErLLVM HiPE backend is used, LLVM may choose to perform
+	    tailcall optimisation on these calls, breaking the
+	    expected semantics.</p>
+	    <p>To preserve the precise semantics exhibited by BEAM,
+	    the 'notail' marker, present in LLVM since version 3.8,
+	    is added to call instructions that BEAM has not turned
+	    into tail calls, which inhibits LLVM from performing
+	    tail-call optimisation in turn.</p>
+          <p>
+	    Own Id: OTP-14886</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

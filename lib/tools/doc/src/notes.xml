@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A counting bug is corrected in <c>Cover</c>. The bug
+	    was introduced in Erlang/OTP 18.0. </p>
+          <p>
+	    Own Id: OTP-14817 Aux Id: PR 1641 </p>
+        </item>
+        <item>
+	    <p>The <c>lcnt</c> server will no longer crash if
+	    <c>lcnt:information/0</c> is called before
+	    <c>lcnt:collect/0</c>.</p>
+          <p>
+	    Own Id: OTP-14912</p>
+        </item>
+        <item>
+	    <p><c>lcnt:collect</c> will now implicitly start the
+	    <c>lcnt</c> server, as per the documentation.</p>
+          <p>
+	    Own Id: OTP-14913</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved indentation in emacs and various other updates.</p>
+          <p>
+	    Own Id: OTP-14944</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

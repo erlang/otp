@@ -31,6 +31,133 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a <c>configure</c> test for <c>libz</c> internals
+	    that unintentionally caused various native code in OTP to
+	    link against <c>libz</c>. Under certain circumstances
+	    this caused the build of OTP to fail.</p>
+          <p>
+	    Own Id: OTP-14840 Aux Id: ERL-529 </p>
+        </item>
+        <item>
+          <p>
+	    File names containing unicode codepoints larger than 255
+	    were not correctly encoded in stack traces.</p>
+          <p>
+	    Own Id: OTP-14847 Aux Id: ERL-544 </p>
+        </item>
+        <item>
+          <p>
+	    Fix HiPE bug for binary constructs like
+	    <c>&lt;&lt;X/utf8&gt;&gt;</c> which could in rare cases
+	    cause faulty results or VM crash.</p>
+          <p>
+	    This fix affects both the <c>hipe</c> compiler and
+	    <c>erts</c> runtime in an <em>incompatible</em> way. Old
+	    hipe compiled files need to be recompiled to load and run
+	    properly as native.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14850 Aux Id: PR-1664 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>term_to_binary/2</c> spec for
+	    <c>minor_version</c>.</p>
+          <p>
+	    Own Id: OTP-14876 Aux Id: ERL-548 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in erlang:binary_to_integer/2 where invalid
+	    characters were not detected for bases larger then 10.
+	    e.g. <c>binary_to_integer(&lt;&lt;":"&gt;&gt;, 16)</c>
+	    would return 3 and not badarg as it should.</p>
+          <p>
+	    Own Id: OTP-14879</p>
+        </item>
+        <item>
+	    <p>Fixed bug in <c>float_to_list/2</c> and
+	    <c>float_to_binary/2</c> with option <c>decimals</c> that
+	    caused a faulty rounding up of the last decimal digit for
+	    about 6% of floats with a fraction part.</p>
+	    <p>For example, <c>float_to_list(0.145,
+	    [{decimals,1}])</c> returned <c>"0.2"</c> instead of
+	    <c>"0.1"</c>.</p>
+          <p>
+	    Own Id: OTP-14890</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing slow hipe execution in modules loaded
+	    early during boot or loaded by <c>code:atomic_load</c> or
+	    <c>code:finish_loading</c>.</p>
+          <p>
+	    Own Id: OTP-14891</p>
+        </item>
+        <item>
+	    <p>Fixed a buffer overflow in an internal string
+	    formatting function that could be hit if specifying a
+	    long floating-point format specifier to
+	    <c>erts_sprintf</c> or similar.</p>
+          <p>
+	    Own Id: OTP-14920</p>
+        </item>
+        <item>
+	    <p><c>erlang:iolist_to_iovec/1</c> and
+	    <c>enif_inspect_iovec</c> will no longer fail when
+	    provided with binaries that have been matched-out on a
+	    non-byte boundary.</p>
+          <p>
+	    Own Id: OTP-14921</p>
+        </item>
+        <item>
+	    <p><c>iolist_to_binary/1</c> and
+	    <c>erlang:iolist_to_iovec/1</c> will now badarg if
+	    supplied with a bitstring (without a list).</p>
+          <p>
+	    Own Id: OTP-14926</p>
+        </item>
+        <item>
+          <p>
+	    Reject loading modules with names containing directory
+	    separators ('/' or '\' on Windows).</p>
+          <p>
+	    Own Id: OTP-14933 Aux Id: ERL-564, PR-1716 </p>
+        </item>
+        <item>
+          <p>
+	    Fix potential dead-lock when the tracer process dies
+	    while a the traced process is running on a dirty
+	    scheduler.</p>
+          <p>
+	    Own Id: OTP-14938</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    More crash dump info such as: process binary virtual heap
+	    stats, full info for process causing out-of-mem during
+	    GC, more port related info, and dirty scheduler info.</p>
+          <p>
+	    Own Id: OTP-14820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.2.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -32,6 +32,64 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop.hrl used a relative path to include
+	    observer_backend.hrl, this is now changed to use
+	    include_lib instead. runtime_tools/include is added to
+	    the tertiary bootstrap.</p>
+          <p>
+	    Own Id: OTP-14842 Aux Id: ERL-534 </p>
+        </item>
+        <item>
+          <p>
+	    If a crashdump was truncated in the attributes section
+	    for a module, crashdump_viewer would crash when a module
+	    view was opened from the GUI. This bug was introduced in
+	    OTP-20.2 and is now corrected.</p>
+          <p>
+	    Own Id: OTP-14846 Aux Id: ERL-537 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized ets and mnesia table view tab in observer gui,
+	    listing 10000 tables was previously very slow.</p>
+          <p>
+	    Own Id: OTP-14856 Aux Id: ERIERL-117 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a process has many links and/or monitors, it could
+	    earlier take very long time to display the process
+	    information window. This is now improved by only showing
+	    a few links and monitors, and then an link named
+	    "more..." to expand the rest.</p>
+          <p>
+	    Own Id: OTP-14725</p>
+        </item>
+        <item>
+          <p>
+	    More crash dump info such as: process binary virtual heap
+	    stats, full info for process causing out-of-mem during
+	    GC, more port related info, and dirty scheduler info.</p>
+          <p>
+	    Own Id: OTP-14820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

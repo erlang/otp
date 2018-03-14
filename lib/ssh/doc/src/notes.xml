@@ -30,6 +30,55 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove a blocking risk when a channel is closed and an
+	    operation is tried on that channel after at least a
+	    second's time gap.</p>
+          <p>
+	    Own Id: OTP-14939</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ssh_compat_SUITE.</p>
+          <p>
+	    This suite contains a number of interoperability tests
+	    mainly with OpenSSH. The tests start docker containers
+	    with different OpenSSH and OpenSSL/LibreSSLcryptolib
+	    versions and performs a number of tests of supported
+	    algorithms.</p>
+          <p>
+	    All login methods and all user's public key types are
+	    tested both for the client and the server.</p>
+          <p>
+	    All algorithms for kex, cipher, host key, mac and
+	    compressions are tested with a number of exec and sftp
+	    tests, both for the client and the server.</p>
+          <p>
+	    Own Id: OTP-14194 Aux Id: OTP-12487 </p>
+        </item>
+        <item>
+          <p>
+	    Default exec is disabled when a user-defined shell is
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-14881</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

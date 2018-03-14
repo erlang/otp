@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct <c>filelib:find_source()</c> and
+	    <c>filelib:find_file()</c> to by default also search one
+	    level below <c>src</c>. This is in accordance with the
+	    Design Principles which states that an application can
+	    have Erlang source files one level below the <c>src</c>
+	    directory. </p>
+          <p>
+	    Own Id: OTP-14832 Aux Id: ERL-527 </p>
+        </item>
+        <item>
+	    <p> The contract of <c>erl_tar:table/2</c> is corrected.
+	    </p>
+          <p>
+	    Own Id: OTP-14860 Aux Id: PR 1670 </p>
+        </item>
+        <item>
+	    <p> Correct a few contracts. </p>
+          <p>
+	    Own Id: OTP-14889</p>
+        </item>
+        <item>
+          <p>
+	    Fix string:prefix/2 to handle an empty string as second
+	    argument.</p>
+          <p>
+	    Own Id: OTP-14942 Aux Id: PR-1702 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

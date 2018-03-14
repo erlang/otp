@@ -27,6 +27,88 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Optimization of bad merge conflict resolution causing
+	    dubble decode</p>
+          <p>
+	    Own Id: OTP-14843</p>
+        </item>
+        <item>
+          <p>
+	    Restore error propagation to OTP-19.3 behaviour, in
+	    OTP-20.2 implementation adjustments to gen_statem needed
+	    some further adjustments to avoid a race condition. This
+	    could cause a TLS server to not always report file path
+	    errors correctly.</p>
+          <p>
+	    Own Id: OTP-14852</p>
+        </item>
+        <item>
+          <p>
+	    Corrected RC4 suites listing function to regard TLS
+	    version</p>
+          <p>
+	    Own Id: OTP-14871</p>
+        </item>
+        <item>
+          <p>
+	    Fix alert handling so that unexpected messages are logged
+	    and alerted correctly</p>
+          <p>
+	    Own Id: OTP-14919</p>
+        </item>
+        <item>
+          <p>
+	    Fix alert handling so that unexpected messages are logged
+	    and alerted correctly</p>
+          <p>
+	    Own Id: OTP-14929</p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of anonymous cipher suites</p>
+          <p>
+	    Own Id: OTP-14952</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added new API functions to facilitate cipher suite
+	    handling</p>
+          <p>
+	    Own Id: OTP-14760</p>
+        </item>
+        <item>
+          <p>
+	    Correct TLS_FALLBACK_SCSV handling so that this special
+	    flag suite is always placed last in the cipher suite list
+	    in accordance with the specs. Also make sure this
+	    functionality is used in DTLS.</p>
+          <p>
+	    Own Id: OTP-14828</p>
+        </item>
+        <item>
+          <p>
+	    Add TLS record version sanity check for early as possible
+	    error detection and consistency in ALERT codes generated</p>
+          <p>
+	    Own Id: OTP-14892</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
