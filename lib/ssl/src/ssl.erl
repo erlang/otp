@@ -881,7 +881,6 @@ handle_options(Opts0, Role, Host) ->
 					     client, Role),
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
-		    v2_hello_compatible = handle_option(v2_hello_compatible, Opts, false),
                     max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE)
 		   },
 
@@ -897,7 +896,7 @@ handle_options(Opts0, Role, Host) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation, v2_hello_compatible,
+		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
                   max_handshake_size],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
@@ -1134,8 +1133,6 @@ validate_option(beast_mitigation, Value) when Value == one_n_minus_one orelse
                                               Value == zero_n orelse
                                               Value == disabled ->
   Value;
-validate_option(v2_hello_compatible, Value) when is_boolean(Value)  ->
-    Value;
 validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value =< ?MAX_UNIT24 ->
     Value;
 validate_option(protocol, Value = tls) ->

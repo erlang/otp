@@ -3431,7 +3431,7 @@ tls_ciphersuite_vs_version(Config) when is_list(Config) ->
 		      >>),
     {ok, <<22, RecMajor:8, RecMinor:8, _RecLen:16, 2, HelloLen:24>>} = gen_tcp:recv(Socket, 9, 10000),
     {ok, <<HelloBin:HelloLen/binary>>} = gen_tcp:recv(Socket, HelloLen, 5000),
-    ServerHello = tls_handshake:decode_handshake({RecMajor, RecMinor}, 2, HelloBin, false),
+    ServerHello = tls_handshake:decode_handshake({RecMajor, RecMinor}, 2, HelloBin),
     case ServerHello of
 	#server_hello{server_version = {3,0}, cipher_suite = <<0,57>>} -> 
 	    ok;

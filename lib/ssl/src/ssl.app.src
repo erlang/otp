@@ -9,7 +9,6 @@
 	       tls_socket,
 	       tls_v1,
 	       ssl_v3,
-	       ssl_v2,
 	       tls_connection_sup,
 	       %% DTLS
 	       dtls_connection,

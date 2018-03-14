@@ -1119,8 +1119,7 @@ handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #st
   when StateName =/= connection ->
     {keep_state_and_data};
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{tls_handshake_history = Hs0,
-			   ssl_options = #ssl_options{v2_hello_compatible = V2HComp}} = State0, 
+		    #state{tls_handshake_history = Hs0} = State0,
 		    Connection) ->
    
     PossibleSNI = Connection:select_sni_extension(Handshake),
@@ -1128,7 +1127,7 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
     State = handle_sni_extension(PossibleSNI, State0),
-    HsHist = ssl_handshake:update_handshake_history(Hs0, iolist_to_binary(Raw), V2HComp),
+    HsHist = ssl_handshake:update_handshake_history(Hs0, iolist_to_binary(Raw)),
     {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
      [{next_event, internal, Handshake}]};
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 

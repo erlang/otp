@@ -821,12 +821,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
       client certificate is requested. For more details see the <seealso marker="#client_signature_algs">corresponding client option</seealso>.
       </p> </item>
 
-      <tag><c>{v2_hello_compatible, boolean()}</c></tag>
-      <item>If true, the server accepts clients that send hello messages on SSL-2.0 format but offers 
-      supported SSL/TLS versions. Defaults to false, that is the server will not interoperate with clients that
-      offers SSL-2.0.
-      </item>
-     
     </taglist>
   </section>
   
