@@ -4915,7 +4915,9 @@ freeze_code(LoaderState* stp)
 	line_items[i] = codev + stp->ci - 1;
 
 	line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
-	sys_memcpy(line_tab->fname_ptr, stp->fname, stp->num_fnames*sizeof(Eterm));
+        if (stp->num_fnames)
+            sys_memcpy(line_tab->fname_ptr, stp->fname,
+                       stp->num_fnames*sizeof(Eterm));
 
 	line_tab->loc_size = stp->loc_size;
 	if (stp->loc_size == 2) {
