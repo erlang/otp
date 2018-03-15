@@ -56,6 +56,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #define WANT_NONBLOCKING
 
