@@ -52,6 +52,7 @@ all() ->
      escaped,
      hexed_query,
      scheme_validation,
+     scheme_validation_bin,
      encode_decode
     ].
 
@@ -272,6 +273,26 @@ scheme_validation(Config) when is_list(Config) ->
     {ok, {https,[],"localhost",443,"/",""}} =
 	http_uri:parse("https://localhost#fragment",
 		       [{scheme_validation_fun, none}]).
+
+scheme_validation_bin(Config) when is_list(Config) ->
+    {ok, {http,<<>>,<<"localhost">>,80,<<"/">>,<<>>}} =
+        http_uri:parse(<<"http://localhost#fragment">>),
+
+    ValidationFun =
+        fun(<<"http">>) -> valid;
+           (_) -> {error, bad_scheme}
+        end,
+
+    {ok, {http,<<>>,<<"localhost">>,80,<<"/">>,<<>>}} =
+        http_uri:parse(<<"http://localhost#fragment">>,
+                       [{scheme_validation_fun, ValidationFun}]),
+    {error, bad_scheme} =
+        http_uri:parse(<<"https://localhost#fragment">>,
+                       [{scheme_validation_fun, ValidationFun}]),
+    %% non-fun scheme_validation_fun works as no option passed
+    {ok, {https,<<>>,<<"localhost">>,443,<<"/">>,<<>>}} =
+        http_uri:parse(<<"https://localhost#fragment">>,
+                       [{scheme_validation_fun, none}]).
 
 encode_decode(Config) when is_list(Config) ->
     ?assertEqual("foo%20bar", http_uri:encode("foo bar")),
