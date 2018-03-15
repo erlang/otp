@@ -366,29 +366,11 @@ typedef UWord BeamInstr;
 #    define HAVE_INT64 1
 typedef unsigned long Uint64;
 typedef long          Sint64;
-#    ifdef ULONG_MAX
-#      define ERTS_UINT64_MAX ULONG_MAX
-#    endif
-#    ifdef LONG_MAX
-#      define ERTS_SINT64_MAX LONG_MAX
-#    endif
-#    ifdef LONG_MIN
-#      define ERTS_SINT64_MIN LONG_MIN
-#    endif
 #    define ErtsStrToSint64 strtol
 #  elif SIZEOF_LONG_LONG == 8
 #    define HAVE_INT64 1
 typedef unsigned long long Uint64;
 typedef long long          Sint64;
-#    ifdef ULLONG_MAX
-#      define ERTS_UINT64_MAX ULLONG_MAX
-#    endif
-#    ifdef LLONG_MAX
-#      define ERTS_SINT64_MAX LLONG_MAX
-#    endif
-#    ifdef LLONG_MIN
-#      define ERTS_SINT64_MIN LLONG_MIN
-#    endif
 #    define ErtsStrToSint64 strtoll
 #  else
 #    error "No 64-bit integer type found"
@@ -402,7 +384,7 @@ typedef long long          Sint64;
 #  define ERTS_SINT64_MAX ((Sint64) ((((Uint64) 1) << 63)-1))
 #endif
 #ifndef ERTS_SINT64_MIN
-#  define ERTS_SINT64_MIN (-1*(((Sint64) 1) << 63))
+#  define ERTS_SINT64_MIN ((Sint64) ((((Uint64) 1) << 63)))
 #endif
 
 #if SIZEOF_LONG == 4
@@ -415,6 +397,16 @@ typedef int          Sint32;
 #error Found no appropriate type to use for 'Uint32' and 'Sint32'
 #endif
 
+#ifndef ERTS_UINT32_MAX
+#  define ERTS_UINT32_MAX (~((Uint32) 0))
+#endif
+#ifndef ERTS_SINT32_MAX
+#  define ERTS_SINT32_MAX ((Sint32) ((((Uint32) 1) << 31)-1))
+#endif
+#ifndef ERTS_SINT32_MIN
+#  define ERTS_SINT32_MIN ((Sint32) ((((Uint32) 1) << 31)))
+#endif
+
 #if SIZEOF_INT == 2
 typedef unsigned int Uint16;
 typedef int          Sint16;
@@ -423,6 +415,16 @@ typedef unsigned short Uint16;
 typedef short          Sint16;
 #else
 #error Found no appropriate type to use for 'Uint16' and 'Sint16'
+#endif
+
+#ifndef ERTS_UINT16_MAX
+#  define ERTS_UINT16_MAX (~((Uint16) 0))
+#endif
+#ifndef ERTS_SINT16_MAX
+#  define ERTS_SINT16_MAX ((Sint16) ((((Uint16) 1) << 15)-1))
+#endif
+#ifndef ERTS_SINT16_MIN
+#  define ERTS_SINT16_MIN ((Sint16) ((((Uint16) 1) << 15)))
 #endif
 
 #if CHAR_BIT == 8
