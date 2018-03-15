@@ -1991,15 +1991,20 @@ enif_convert_time_unit(ErlNifTime val,
 						    (int) to);
 }
 
-int enif_fprintf(void* filep, const char* format, ...) 
+int enif_fprintf(FILE* filep, const char* format, ...)
 { 
     int ret;
     va_list arglist;
     va_start(arglist, format);
-    ret = erts_vfprintf((FILE*)filep, format, arglist);
+    ret = erts_vfprintf(filep, format, arglist);
     va_end(arglist);
     return ret;
 }    
+
+int enif_vfprintf(FILE* filep, const char *format, va_list ap)
+{
+    return erts_vfprintf(filep, format, ap);
+}
 
 int enif_snprintf(char *buffer, size_t size, const char* format, ...) 
 { 
@@ -2010,6 +2015,12 @@ int enif_snprintf(char *buffer, size_t size, const char* format, ...)
     va_end(arglist);
     return ret;
 }
+
+int enif_vsnprintf(char* buffer, size_t size, const char *format, va_list ap)
+{
+    return erts_vsnprintf(buffer, size, format, ap);
+}
+
 
 /***********************************************************
  **       Memory managed (GC'ed) "resource" objects       **
