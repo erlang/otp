@@ -405,7 +405,8 @@
             <c><![CDATA[tracer]]></c>.</p>
           <p>If a tracer is specified in both lists, the tracer in the
             enable list takes precedence. If no tracer is specified, the same
-            tracer as the process executing the match specification is used.</p>
+            tracer as the process executing the match specification is used (not the meta tracer).
+            If that process doesn't have tracer either, then trace flags are ignored.</p>
           <p>When using a <seealso marker="erl_tracer">tracer module</seealso>,
             the module must be loaded before the match specification is
             executed. If it is not loaded, the match fails.</p>
