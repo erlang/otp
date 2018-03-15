@@ -1963,6 +1963,12 @@ ErlNifTid enif_thread_self(void) { return erl_drv_thread_self(); }
 int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2) { return erl_drv_equal_tids(tid1,tid2); }
 void enif_thread_exit(void *resp) { erl_drv_thread_exit(resp); }
 int enif_thread_join(ErlNifTid tid, void **respp) { return erl_drv_thread_join(tid,respp); }
+
+char* enif_mutex_name(ErlNifMutex *mtx) {return erl_drv_mutex_name(mtx); }
+char* enif_cond_name(ErlNifCond *cnd) { return erl_drv_cond_name(cnd); }
+char* enif_rwlock_name(ErlNifRWLock* rwlck) { return erl_drv_rwlock_name(rwlck); }
+char* enif_thread_name(ErlNifTid tid) { return erl_drv_thread_name(tid); }
+
 int enif_getenv(const char *key, char *value, size_t *value_size) { return erl_drv_getenv(key, value, value_size); }
 
 ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit)

@@ -1104,6 +1104,16 @@ typedef struct {
     </func>
 
     <func>
+      <name><ret>char*</ret>
+        <nametext>enif_cond_name(ErlNifCond* cnd)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_cond_name">
+          <c>erl_drv_cond_name</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret>
         <nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
@@ -2627,6 +2637,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>char*</ret>
+        <nametext>enif_mutex_name(ErlNifMutex* mtx)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_name">
+          <c>erl_drv_mutex_name</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret>
       <nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
@@ -2867,6 +2887,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">
           <c>erl_drv_rwlock_destroy</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_rwlock_name(ErlNifRWLock* rwlck)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_name">
+          <c>erl_drv_rwlock_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -3208,6 +3238,16 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_thread_join">
           <c>erl_drv_thread_join</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_thread_name(ErlNifTid tid)</nametext></name>
+      <fsummary>Thread name</fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_name">
+          <c>erl_drv_thread_name</c></seealso>.</p>
       </desc>
     </func>
 

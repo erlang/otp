@@ -52,7 +52,7 @@
 ** 2.11: 19.0 enif_snprintf 
 ** 2.12: 20.0 add enif_select, enif_open_resource_type_x
 ** 2.13: 20.1 add enif_ioq
-** 2.14: 21.0 add enif_ioq_peek_head
+** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 14

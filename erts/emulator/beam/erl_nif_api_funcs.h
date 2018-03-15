@@ -200,6 +200,11 @@ ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
 
 ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *head));
 
+ERL_NIF_API_FUNC_DECL(char*,enif_mutex_name,(ErlNifMutex*));
+ERL_NIF_API_FUNC_DECL(char*,enif_cond_name,(ErlNifCond*));
+ERL_NIF_API_FUNC_DECL(char*,enif_rwlock_name,(ErlNifRWLock*));
+ERL_NIF_API_FUNC_DECL(char*,enif_thread_name,(ErlNifTid));
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -375,6 +380,10 @@ ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, 
 #  define enif_inspect_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iovec)
 #  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
 #  define enif_ioq_peek_head ERL_NIF_API_FUNC_MACRO(enif_ioq_peek_head)
+#  define enif_mutex_name ERL_NIF_API_FUNC_MACRO(enif_mutex_name)
+#  define enif_cond_name ERL_NIF_API_FUNC_MACRO(enif_cond_name)
+#  define enif_rwlock_name ERL_NIF_API_FUNC_MACRO(enif_rwlock_name)
+#  define enif_thread_name ERL_NIF_API_FUNC_MACRO(enif_thread_name)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
