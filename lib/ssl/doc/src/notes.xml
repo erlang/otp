@@ -64,13 +64,6 @@
         </item>
         <item>
           <p>
-	    Fix alert handling so that unexpected messages are logged
-	    and alerted correctly</p>
-          <p>
-	    Own Id: OTP-14929</p>
-        </item>
-        <item>
-          <p>
 	    Correct handling of anonymous cipher suites</p>
           <p>
 	    Own Id: OTP-14952</p>
