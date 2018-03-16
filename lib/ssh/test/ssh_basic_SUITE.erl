@@ -124,7 +124,7 @@ groups() ->
      {ecdsa_sha2_nistp384_key, [], basic_tests()},
      {ecdsa_sha2_nistp521_key, [], basic_tests()},
      {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
-     {host_user_key_differs, [], [exec_key_differs1,
+     {host_user_key_differs, [parallel], [exec_key_differs1,
 				  exec_key_differs2,
 				  exec_key_differs3,
 				  exec_key_differs_fail]},
@@ -133,9 +133,9 @@ groups() ->
      {ecdsa_sha2_nistp256_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp384_pass_key, [], [pass_phrase]},
      {ecdsa_sha2_nistp521_pass_key, [], [pass_phrase]},
-     {key_cb, [], [key_callback, key_callback_options]},
+     {key_cb, [parallel], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]},
-     {login_bad_pwd_no_retry, [], [login_bad_pwd_no_retry1,
+     {login_bad_pwd_no_retry, [parallel], [login_bad_pwd_no_retry1,
 				   login_bad_pwd_no_retry2,
 				   login_bad_pwd_no_retry3,
 				   login_bad_pwd_no_retry4,
@@ -145,17 +145,24 @@ groups() ->
 
 
 basic_tests() ->
-    [send, close, peername_sockname,
-     exec, exec_compressed, 
-     shell, shell_no_unicode, shell_unicode_string,
-     cli, known_hosts, 
-     idle_time_client, idle_time_server, openssh_zlib_basic_test, 
-     misc_ssh_options, inet_option, inet6_option].
+    [{group, [parallel], [send, peername_sockname,
+                          exec, exec_compressed, 
+                          shell, shell_no_unicode, shell_unicode_string,
+                          cli,
+                          idle_time_client, idle_time_server, openssh_zlib_basic_test, 
+                          misc_ssh_options, inet_option, inet6_option]},
+     close, 
+     known_hosts
+    ].
+        
 
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ?CHECK_CRYPTO(Config).
+    ?CHECK_CRYPTO(begin
+                      ssh:start(),
+                      Config
+                  end).
 
 end_per_suite(_Config) ->
     ssh:stop().
@@ -414,7 +421,6 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
-    ssh:start(),
     Sftpd = {_Pid, _Host, Port} =       
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
@@ -437,7 +443,6 @@ init_per_testcase(inet6_option, Config) ->
 	    {skip,"No ipv6 interface address"}
     end;
 init_per_testcase(_TestCase, Config) ->
-    ssh:start(),
     Config.
 
 end_per_testcase(TestCase, Config) when TestCase == server_password_option;
@@ -458,7 +463,6 @@ end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
 
 end_per_testcase(_Config) ->
-    ssh:stop(),
     ok.
 
 %%--------------------------------------------------------------------
@@ -480,8 +484,8 @@ misc_ssh_options(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
     
-    CMiscOpt0 = [{connect_timeout, 1000}, {user_dir, UserDir}],
-    CMiscOpt1 = [{connect_timeout, infinity}, {user_dir, UserDir}],
+    CMiscOpt0 = [{connect_timeout, 1000}, {user_dir, UserDir}, {silently_accept_hosts, true}],
+    CMiscOpt1 = [{connect_timeout, infinity}, {user_dir, UserDir}, {silently_accept_hosts, true}],
     SMiscOpt0 =  [{user_dir, UserDir}, {system_dir, SystemDir}],
     SMiscOpt1 =  [{user_dir, UserDir}, {system_dir, SystemDir}],
 
