@@ -3873,6 +3873,11 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
     } else {
         dst->sizeof_ErlNifResourceTypeInit = 0;
     }
+    if (AT_LEAST_VERSION(src, 2, 14)) {
+        dst->min_erts = src->min_erts;
+    } else {
+        dst->min_erts = "erts-?";
+    }
     return lib;
 };
 
@@ -3985,14 +3990,20 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }
+    else if (entry->major > ERL_NIF_MAJOR_VERSION
+             || (entry->major == ERL_NIF_MAJOR_VERSION
+                 && entry->minor > ERL_NIF_MINOR_VERSION)) {
+        char* fmt = "That '%T' NIF library needs %s or newer. Either try to"
+            " recompile the NIF lib or use a newer erts runtime.";
+        ret = load_nif_error(BIF_P, bad_lib, fmt, mod_atom, entry->min_erts);
+    }
     else if (entry->major < ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
-	     || (ERL_NIF_MAJOR_VERSION < entry->major
-		 || (ERL_NIF_MAJOR_VERSION == entry->major
-		     && ERL_NIF_MINOR_VERSION < entry->minor))
 	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
 	
-	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
-			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
+        char* fmt = "That old NIF library (%d.%d) is not compatible with this "
+            "erts runtime (%d.%d). Try recompile the NIF lib.";
+        ret = load_nif_error(BIF_P, bad_lib, fmt, entry->major, entry->minor,
+                             ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
     }   
     else if (AT_LEAST_VERSION(entry, 2, 1)
 	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
