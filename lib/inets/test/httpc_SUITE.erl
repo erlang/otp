@@ -227,7 +227,7 @@ init_per_testcase(pipeline, Config) ->
 init_per_testcase(persistent_connection, Config) ->
     inets:start(httpc, [{profile, persistent}]),
     httpc:set_options([{keep_alive_timeout, 50000},
-		       {max_keep_alive_length, 3}], persistent_connection),
+		       {max_keep_alive_length, 3}], persistent),
 
     Config;
 init_per_testcase(wait_for_whole_response, Config) ->
