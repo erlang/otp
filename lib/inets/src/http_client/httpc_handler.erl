@@ -48,12 +48,10 @@
           queue_timer         :: reference() | 'undefined'
          }).
 
--type session_failed() :: {'connect_failed',term()} | {'send_failed',term()}.
-
 -record(state, 
         {
           request                   :: request() | 'undefined',
-          session                   :: session() | session_failed() | 'undefined',
+          session                   :: session() | 'undefined',
           status_line,               % {Version, StatusCode, ReasonPharse}
           headers                   :: http_response_h() | 'undefined',
           body                      :: binary() | 'undefined',
@@ -294,23 +292,6 @@ handle_info(Info, State) ->
 %% Function: terminate(Reason, State) -> _  (ignored by gen_server)
 %% Description: Shutdown the httpc_handler
 %%--------------------------------------------------------------------
-
-%% Init error there is no socket to be closed.
-terminate(normal, 
-          #state{request = Request, 
-                 session = {send_failed, _} = Reason} = State) ->
-    maybe_send_answer(Request, 
-                      httpc_response:error(Request, Reason), 
-                      State),
-    ok; 
-
-terminate(normal, 
-          #state{request = Request, 
-                 session = {connect_failed, _} = Reason} = State) ->
-    maybe_send_answer(Request, 
-                      httpc_response:error(Request, Reason), 
-                      State),
-    ok; 
 
 terminate(normal, #state{session = undefined}) ->
     ok;  
