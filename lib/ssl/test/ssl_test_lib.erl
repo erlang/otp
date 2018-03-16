@@ -1467,7 +1467,9 @@ supports_ssl_tls_version(sslv2 = Version) ->
             Exe = "openssl",
             Args = ["s_client", VersionFlag],
             Port = ssl_test_lib:portable_open_port(Exe, Args),
-            do_supports_ssl_tls_version(Port, "")
+            Bool = do_supports_ssl_tls_version(Port, ""),
+            consume_port_exit(Port),
+            Bool
     end;
 
 supports_ssl_tls_version(Version) ->
@@ -1584,6 +1586,12 @@ tls_version('dtlsv1.2' = Atom) ->
     dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
 tls_version(Atom) ->
     tls_record:protocol_version(Atom).
+
+consume_port_exit(OpenSSLPort) ->
+    receive    	
+        {'EXIT', OpenSSLPort, _} ->
+            ok
+    end.
 
 hardcode_rsa_key(1) ->
     #'RSAPrivateKey'{
