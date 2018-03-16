@@ -809,7 +809,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
       <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, const ErlNifPid* pid, const ErlNifMonitor* mon);</code>
+typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <seealso marker="#enif_monitor_process">
 	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
