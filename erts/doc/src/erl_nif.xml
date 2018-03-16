@@ -540,7 +540,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
               have to wait for a very long time. Blocking multi-scheduling, that
               is, calling <seealso marker="erlang#system_flag_multi_scheduling">
               <c>erlang:system_flag(multi_scheduling, block)</c></seealso>, can
-              also take a very long time to complete. This becaue all ongoing
+              also take a very long time to complete. This is because all ongoing
               dirty operations on all dirty schedulers must complete before
               the block operation can complete.</p>
             <p>Many operations communicating with a process executing a
@@ -590,7 +590,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           <c>unload</c> is called to release the library. All are
           described individually below.</p>
        <p>The fourth argument <c>NULL</c> is ignored. It
-          was earlier used for the deprectated <c>reload</c> callback
+          was earlier used for the deprecated <c>reload</c> callback
           which is no longer supported since OTP 20.</p>
         <p>If compiling a NIF for static inclusion through
           <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
@@ -2247,7 +2247,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 	      <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>.</p>
 	    </item>
 	    <item>
-	      <p>A resoure term can be serialized with <c>term_to_binary</c> and later
+	      <p>A resource term can be serialized with <c>term_to_binary</c> and later
 	      be fully recreated if the resource object is still alive when
 	      <c>binary_to_term</c> is called. A <em>stale</em> resource term will be
 	      returned from <c>binary_to_term</c> if the resource object has
@@ -2991,7 +2991,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
 	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
 	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
-	  which is described further below. When a read or write event is triggerred,
+	  which is described further below. When a read or write event is triggered,
 	  a notification message like this is sent to the process identified by
 	  <c>pid</c>:</p>
 	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
@@ -3042,7 +3042,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <item>The stop callback was scheduled to run on some other thread
 	    or later by this thread.</item>
 	</taglist>
-	<p>Returns a negative value if the call failed where the follwing bits can be set:</p>
+	<p>Returns a negative value if the call failed where the following bits can be set:</p>
         <taglist>
           <tag><c>ERL_NIF_SELECT_INVALID_EVENT</c></tag>
           <item>Argument <c>event</c> is not a valid OS event object.</item>
@@ -3050,9 +3050,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <item>The system call failed to add the event object to the poll set.</item>
         </taglist>
         <note>
-          <p>Use bitwise AND to test for specific bits in the return vaue.
+          <p>Use bitwise AND to test for specific bits in the return value.
 	  New significant bits may be added in future releases to give more detailed
-	  information for both failed and successful calls. Do NOT use equallity tests
+	  information for both failed and successful calls. Do NOT use equality tests
 	  like <c>==</c>, as that may cause your application to stop working.</p>
 	  <p>Example:</p>
 	  <code type="none">
@@ -3117,7 +3117,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
           <c>enif_free_env</c></seealso> of cleared for reuse with
           <seealso marker="#enif_clear_env"><c>enif_clear_env</c></seealso>.</p>
         <p>If <c>msg_env</c> is set to <c>NULL</c>, the <c>msg</c> term is
-          copied and the original term and its environemt is still valid after
+          copied and the original term and its environment is still valid after
           the call.</p>
         <p>This function is only thread-safe when the emulator with SMP support
           is used. It can only be used in a non-SMP emulator from a NIF-calling
