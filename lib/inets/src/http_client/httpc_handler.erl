@@ -1043,15 +1043,29 @@ handle_response(#state{status = new} = State) ->
     ?hcrd("handle response - status = new", []),
     handle_response(try_to_enable_pipeline_or_keep_alive(State));
 
-handle_response(#state{request      = Request,
-		       status       = Status,
-		       session      = Session, 
-		       status_line  = StatusLine,
-		       headers      = Headers, 
-		       body         = Body,
-		       options      = Options,
-		       profile_name = ProfileName} = State) 
-  when Status =/= new ->
+handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
+    Status =
+        case Status0 of
+            close -> close;
+            _ ->
+                case State0#state.headers of
+                    undefined -> Status0;
+                    _ ->
+                        case httpc_response:is_server_closing(
+                               State0#state.headers) of
+                            true -> close;
+                            false -> Status0
+                        end
+                end
+        end,
+    State = State0#state{status = Status},
+    #state{request      = Request,
+           session      = Session,
+           status_line  = StatusLine,
+           headers      = Headers,
+           body         = Body,
+           options      = Options,
+           profile_name = ProfileName} = State,
     handle_cookies(Headers, Request, Options, ProfileName), 
     case httpc_response:result({StatusLine, Headers, Body}, Request) of
 	%% 100-continue

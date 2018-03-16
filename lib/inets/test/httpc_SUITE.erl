@@ -67,7 +67,7 @@ groups() ->
      %% process_leak_on_keepalive is depending on stream_fun_server_close
      %% and it shall be the last test case in the suite otherwise cookie
      %% will fail.
-     {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
+     {sim_http, [], only_simulated() ++ server_closing_connection() ++ [process_leak_on_keepalive]},
      {http_internal, [], real_requests_esi()},
      {http_unix_socket, [], simulated_unix_socket()},
      {https, [], real_requests()},
@@ -152,6 +152,12 @@ only_simulated() ->
      multipart_chunks,
      get_space,
      stream_fun_server_close
+    ].
+
+server_closing_connection() ->
+    [
+     server_closing_connection_on_first_response,
+     server_closing_connection_on_second_response
     ].
 
 misc() ->
@@ -252,6 +258,24 @@ end_per_testcase(pipeline, _Config) ->
     inets:stop(httpc, pipeline);
 end_per_testcase(persistent_connection, _Config) ->
     inets:stop(httpc, persistent);
+end_per_testcase(Case, Config)
+  when Case == server_closing_connection_on_first_response;
+       Case == server_closing_connection_on_second_response ->
+    %% Test case uses at most one session.  Ensure no leftover
+    %% sessions left behind.
+    {_, Status} = proplists:lookup(tc_status, Config),
+    ShallCleanup = case Status of
+                       ok -> true;
+                       {failed, _} -> true;
+                       {skipped, _} -> false
+                   end,
+    if ShallCleanup ->
+            httpc:request(url(group_name(Config), "/just_close.html", Config)),
+            ok;
+       true ->
+            ct:pal("Not cleaning up because test case status was ~p", [Status]),
+            ok
+    end;
 
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -1275,6 +1299,53 @@ stream_fun_server_close(Config) when is_list(Config) ->
     end. 
 
 %%--------------------------------------------------------------------
+server_closing_connection_on_first_response() ->
+    [{doc, "Client receives \"Connection: close\" on first response."
+      "A client that receives a \"close\" connection option MUST cease sending"
+      "requests on that connection and close the connection after reading"
+      "the response message containing the \"close\""}].
+server_closing_connection_on_first_response(Config) when is_list(Config) ->
+    ReqSrvSendOctFun =
+        fun(V, U, S) ->
+                {ok, {{V, S, _}, Headers0, []}} =
+                    httpc:request(get, {U, []}, [{version, V}], []),
+                {_, SendOctStr} =
+                    proplists:lookup("x-socket-stat-send-oct", Headers0),
+                list_to_integer(SendOctStr)
+        end,
+    V = "HTTP/1.1",
+    Url0 = url(group_name(Config), "/http_1_1_send_oct.html", Config),
+    Url1 = url(group_name(Config), "/http_1_1_send_oct_and_connection_close.html", Config),
+    %% Test case assumes at most one reusable past session.
+    _ = ReqSrvSendOctFun(V, Url1, 204),
+    0 = ReqSrvSendOctFun(V, Url0, 204),
+    ok.
+
+%%--------------------------------------------------------------------
+server_closing_connection_on_second_response() ->
+    [{doc, "Client receives \"Connection: close\" on second response."
+      "A client that receives a \"close\" connection option MUST cease sending"
+      "requests on that connection and close the connection after reading"
+      "the response message containing the \"close\""}].
+server_closing_connection_on_second_response(Config) when is_list(Config) ->
+    ReqSrvSendOctFun =
+        fun(V, U, S) ->
+                {ok, {{V, S, _}, Headers0, []}} =
+                    httpc:request(get, {U, []}, [{version, V}], []),
+                {_, SendOctStr} =
+                    proplists:lookup("x-socket-stat-send-oct", Headers0),
+                list_to_integer(SendOctStr)
+        end,
+    V = "HTTP/1.1",
+    Url0 = url(group_name(Config), "/http_1_1_send_oct.html", Config),
+    Url1 = url(group_name(Config), "/http_1_1_send_oct_and_connection_close.html", Config),
+    %% Test case assumes no reusable past sessions.
+    SendOct0 = 0 = ReqSrvSendOctFun(V, Url0, 204),
+    case ReqSrvSendOctFun(V, Url1, 204) of SendOct1 when SendOct1 > SendOct0 -> ok end,
+    0 = ReqSrvSendOctFun(V, Url0, 204),
+    ok.
+
+%%--------------------------------------------------------------------
 slow_connection() ->
     [{doc, "Test that a request on a slow keep-alive connection won't crash the httpc_manager"}].
 slow_connection(Config) when is_list(Config) ->
@@ -2232,9 +2303,31 @@ handle_uri("GET","/v1/kv/foo",_,_,_,_) ->
         "Content-Length: 24\r\n" ++
         "Content-Type: application/json\r\n\r\n" ++
         "[{\"Value\": \"aGVsbG8=\"}]\n";
+handle_uri(_,"/http_1_1_send_oct.html",_,_,Socket,_) ->
+    "HTTP/1.1 204 No Content\r\n" ++
+        "X-Socket-Stat-Send-Oct: " ++ integer_to_list(get_stat(Socket, send_oct)) ++ "\r\n" ++
+        "\r\n";
+handle_uri(_,"/http_1_1_send_oct_and_connection_close.html",_,_,Socket,_) ->
+    "HTTP/1.1 204 No Content\r\n" ++
+        "X-Socket-Stat-Send-Oct: " ++ integer_to_list(get_stat(Socket, send_oct)) ++ "\r\n" ++
+        "Connection: close\r\n" ++
+        "\r\n";
 
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
+
+get_stat(S, Opt) ->
+    case getstat(S, [Opt]) of
+        {ok, [{Opt, V}]} when is_integer(V) ->
+            V;
+        {error, _} = E ->
+            E
+    end.
+
+getstat(#sslsocket{} = S, Opts) ->
+    ssl:getstat(S, Opts);
+getstat(S, Opts) ->
+    inet:getstat(S, Opts).
 
 url_start(#sslsocket{}) ->
     {ok,Host} = inet:gethostname(),
