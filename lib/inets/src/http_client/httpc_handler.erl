@@ -58,7 +58,7 @@
           mfa,                       % {Module, Function, Args}
           pipeline = queue:new()    :: queue:queue(),
           keep_alive = queue:new()  :: queue:queue(),
-          status,   % undefined | new | pipeline | keep_alive | close | {ssl_tunnel, Request}
+          status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
           canceled = [],             % [RequestId]
           max_header_size = nolimit :: nolimit | integer(),
           max_body_size = nolimit   :: nolimit | integer(),
