@@ -2372,6 +2372,8 @@ is_acceptable_cipher(Cipher, Algos) ->
 
 is_acceptable_hash(null, _Algos) ->
     true;
+is_acceptable_hash(aead, _Algos) ->
+    true;
 is_acceptable_hash(Hash, Algos) ->
     proplists:get_bool(Hash, Algos).
 
