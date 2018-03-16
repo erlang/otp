@@ -630,7 +630,7 @@ is_head(Bin) when is_binary(Bin) ->
 %%          Writes MaxB bytes on each file.  
 %%          Creates a file called Name.idx in the Dir.  This
 %%          file contains the last written FileName as one byte, and
-%%          follwing that, the sizes of each file (size 0 number of items).
+%%          following that, the sizes of each file (size 0 number of items).
 %%          On startup, this file is read, and the next available
 %%          filename is used as first log file.
 %%          Reports can be browsed with Report Browser Tool (rb), or
