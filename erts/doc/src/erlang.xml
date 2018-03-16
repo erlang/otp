@@ -5040,7 +5040,6 @@ RealSystem = system + MissedSystem</code>
           <item><c>initial_call</c></item>
           <item><c>status</c></item>
           <item><c>message_queue_len</c></item>
-          <item><c>messages</c></item>
           <item><c>links</c></item>
           <item><c>dictionary</c></item>
           <item><c>trap_exit</c></item>
