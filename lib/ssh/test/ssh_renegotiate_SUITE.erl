@@ -38,15 +38,19 @@ all() -> [{group,default_algs},
 	  {group,aes_gcm}
 	 ].
 
-groups() -> [{default_algs, [], tests()},
-	     {aes_gcm,      [], tests()}
+groups() -> [{default_algs, [parallel], tests()},
+	     {aes_gcm,      [parallel], tests()}
 	    ].
 
 tests() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ?CHECK_CRYPTO(Config).
+    ?CHECK_CRYPTO(begin
+                      ssh:start(),
+                      Config
+                  end
+                 ).
 
 end_per_suite(_Config) ->
     ssh:stop().
@@ -71,11 +75,9 @@ end_per_group(_, Config) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    ssh:start(),
     Config.
 
 end_per_testcase(_TestCase, _Config) ->
-    ssh:stop(),
     ok.
 
 %%--------------------------------------------------------------------
