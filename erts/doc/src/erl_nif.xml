@@ -1252,7 +1252,8 @@ typedef struct {
         <p>Similar to <c>fprintf</c> but this format string also accepts
           <c>"%T"</c>, which formats Erlang terms.</p>
 	<p>This function was originally intenden for debugging purpose. It is not
-	  recommended to print very large terms with <c>%T</c>.</p>
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
@@ -3178,7 +3179,8 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Similar to <c>snprintf</c> but this format string also accepts
           <c>"%T"</c>, which formats Erlang terms.</p>
 	<p>This function was originally intenden for debugging purpose. It is not
-	  recommended to print very large terms with <c>%T</c>.</p>
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
