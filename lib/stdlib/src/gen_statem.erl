@@ -1056,6 +1056,15 @@ loop_event_result(
               Parent, Debug, S,
               Events, Event, NextState, NewData, TransOpts,
               [], true);
+	{next_state,_NextState,_NewData} ->
+            terminate(
+              error,
+              {bad_state_enter_return_from_state_function,Result},
+              ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
 	{next_state,State,NewData,Actions} ->
             loop_event_actions(
               Parent, Debug, S,
@@ -1067,6 +1076,15 @@ loop_event_result(
               Parent, Debug, S,
               Events, Event, NextState, NewData, TransOpts,
               Actions, true);
+	{next_state,_NextState,_NewData,_Actions} ->
+            terminate(
+              error,
+              {bad_state_enter_return_from_state_function,Result},
+              ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
         %%
         {keep_state,NewData} ->
             loop_event_actions(
@@ -1234,6 +1252,11 @@ parse_actions(StateCall, Debug, S, [Action|Actions], TransOpts) ->
             parse_actions(
               StateCall, Debug, S, Actions,
               TransOpts#trans_opts{postpone = true});
+	postpone ->
+            [error,
+             {bad_state_enter_action_from_state_function,Action},
+             ?STACKTRACE(),
+             Debug];
 	%%
 	{next_event,Type,Content} ->
             parse_actions_next_event(
@@ -1286,7 +1309,8 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_event,Type,Content}},
+             {bad_state_enter_action_from_state_function,
+	      {next_event,Type,Content}},
              ?STACKTRACE(),
              ?not_sys_debug]
     end;
@@ -1303,7 +1327,8 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_event,Type,Content}},
+             {bad_state_enter_action_from_state_function,
+	      {next_event,Type,Content}},
              ?STACKTRACE(),
              Debug]
     end.
