@@ -142,6 +142,15 @@
     </func>
 
     <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Test for empty set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Ordset</anno></c> is an empty set,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="is_set" arity="1"/>
       <fsummary>Test for an <c>Ordset</c>.</fsummary>
       <desc>

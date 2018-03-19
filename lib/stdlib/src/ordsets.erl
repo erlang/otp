@@ -19,7 +19,7 @@
 
 -module(ordsets).
 
--export([new/0,is_set/1,size/1,to_list/1,from_list/1]).
+-export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
@@ -59,6 +59,13 @@ is_set([], _) -> true.
       Ordset :: ordset(_).
 
 size(S) -> length(S).
+
+%% is_empty(OrdSet) -> boolean().
+%%  Return 'true' if OrdSet is an empty set, otherwise 'false'.
+-spec is_empty(Ordset) -> boolean() when
+      Ordset :: ordset(_).
+
+is_empty(S) -> S=:=[].
 
 %% to_list(OrdSet) -> [Elem].
 %%  Return the elements in OrdSet as a list.
