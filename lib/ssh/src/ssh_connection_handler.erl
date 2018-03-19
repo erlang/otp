@@ -1168,7 +1168,6 @@ handle_event({call,From}, stop, StateName, D0) ->
     {Repls,D} = send_replies(Replies, D0),
     {stop_and_reply, normal, [{reply,From,ok}|Repls], D#data{connection_state=Connection}};
 
-
 handle_event({call,_}, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
@@ -1450,37 +1449,43 @@ handle_event(Type, Ev, StateName, D) ->
 -spec terminate(any(),
 		state_name(),
 		#data{}
-	       ) -> finalize_termination_result() .
+	       ) -> term().
 			
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 terminate(normal, StateName, State) ->
-    finalize_termination(StateName, State);
+    stop_subsystem(State),
+    close_transport(State);
 
 terminate({shutdown,{init,Reason}}, StateName, State) ->
     error_logger:info_report(io_lib:format("Erlang ssh in connection handler init: ~p~n",[Reason])),
-    finalize_termination(StateName, State);
+    stop_subsystem(State),
+    close_transport(State);
 
 terminate(shutdown, StateName, State0) ->
     %% Terminated by supervisor
     State = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-					 description = "Application shutdown"},
-		     State0),
-    finalize_termination(StateName, State);
+                                         description = "Application shutdown"},
+                     State0),
+    close_transport(State);
 
 terminate({shutdown,_R}, StateName, State) ->
-    finalize_termination(StateName, State);
+    %% Internal termination
+    stop_subsystem(State),
+    close_transport(State);
 
 terminate(kill, StateName, State) ->
-    finalize_termination(StateName, State);
+    stop_subsystem(State),
+    close_transport(State);
 
 terminate(Reason, StateName, State0) ->
     %% Others, e.g  undef, {badmatch,_}
     log_error(Reason),
     State = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-					   description = "Internal error"},
+                                         description = "Internal error"},
 		     State0),
-    finalize_termination(StateName, State).
+    stop_subsystem(State),
+    close_transport(State).
 
 %%--------------------------------------------------------------------
 
@@ -1555,20 +1560,24 @@ start_the_connection_child(UserPid, Role, Socket, Options0) ->
 
 %%--------------------------------------------------------------------
 %% Stopping
--type finalize_termination_result() :: ok .
 
-finalize_termination(_StateName, #data{transport_cb = Transport,
-				       connection_state = Connection,
-				       socket = Socket}) ->
-    case Connection of
-	#connection{system_supervisor = SysSup,
-		    sub_system_supervisor = SubSysSup} when is_pid(SubSysSup) ->
-	    ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-	_ ->
-	    do_nothing
-    end,
-    (catch Transport:close(Socket)),
+stop_subsystem(#data{connection_state =
+                         #connection{system_supervisor = SysSup,
+                                     sub_system_supervisor = SubSysSup}}) when is_pid(SubSysSup) ->
+    ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
+stop_subsystem(_) ->
     ok.
+
+
+close_transport(#data{transport_cb = Transport,
+                      socket = Socket}) ->
+    try
+        Transport:close(Socket)
+    of
+        _ -> ok
+    catch
+        _:_ -> ok
+    end.
 
 %%--------------------------------------------------------------------
 %% "Invert" the Role
