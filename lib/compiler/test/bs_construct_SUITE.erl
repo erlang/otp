@@ -303,7 +303,14 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch <<42.0/integer>>),
     {'EXIT',{badarg,_}} = (catch <<42/binary>>),
     {'EXIT',{badarg,_}} = (catch <<an_atom/integer>>),
-    
+
+    %% Bad literal sizes
+    Bin = i(<<>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(-1)>>),
+    {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-1)>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(-(1 bsl 100))>>),
+    {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-(1 bsl 100))>>),
+
     ok.
 
 float_bin(Config) when is_list(Config) ->

@@ -496,7 +496,7 @@ make_lit_bin(Acc, [#c_bitstr{val=I0,size=Sz0,unit=U0,type=Type0,flags=F0}|T]) ->
 	    throw(impossible)
     end,
     if
-	Sz =< 8, T =:= [] ->
+	0 =< Sz, Sz =< 8, T =:= [] ->
 	    <<Acc/binary,I:Sz>>;
 	Sz =:= 8 ->
 	    make_lit_bin(<<Acc/binary,I:8>>, T);
