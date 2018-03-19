@@ -201,8 +201,6 @@ killed_acceptor_restarts(Config) ->
     Port2 = ssh_test_lib:daemon_port(DaemonPid2),
     true = (Port /= Port2),
 
-    ct:log("~s",[lists:flatten(ssh_info:string())]),
-
     {ok,[{AccPid,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
     {ok,[{AccPid2,ListenAddr,Port2}]} = acceptor_pid(DaemonPid2),
 
@@ -216,23 +214,34 @@ killed_acceptor_restarts(Config) ->
                                               {user_dir, UserDir}]),
     [{client_version,_}] = ssh:connection_info(C1,[client_version]),
 
+    ct:log("~s",[lists:flatten(ssh_info:string())]),
+
     %% Make acceptor restart:
     exit(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
-    %% Check it is a new acceptor:
+    %% Check it is a new acceptor and wait if it is not:
     ?wait_match({ok,[{AccPid1,ListenAddr,Port}]}, AccPid1=/=AccPid,
                 acceptor_pid(DaemonPid),
                 AccPid1,
                 500, 30),
-    AccPid1 =/= AccPid2,
+
+    true = (AccPid1 =/= AccPid2),
 
     %% Connect second client and check it is alive:
-    {ok,C2} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
-                                              {user_interaction, false},
-                                              {user, ?USER},
-                                              {password, ?PASSWD},
-                                              {user_dir, UserDir}]),
+    C2 =
+        case ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+                                             {user_interaction, false},
+                                             {user, ?USER},
+                                             {password, ?PASSWD},
+                                             {user_dir, UserDir}]) of
+            {ok,_C2} ->
+                _C2;
+            _Other ->
+                ct:log("new connect failed: ~p~n~n~s",[_Other,lists:flatten(ssh_info:string())]),
+                ct:fail("Re-connect failed!", [])
+        end,
+
     [{client_version,_}] = ssh:connection_info(C2,[client_version]),
     
     ct:log("~s",[lists:flatten(ssh_info:string())]),

@@ -34,7 +34,6 @@ VSN=$(GS_VSN)
 MODULES= \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
-	ssh_renegotiate_SUITE \
 	ssh_basic_SUITE \
 	ssh_bench_SUITE \
 	ssh_compat_SUITE \
