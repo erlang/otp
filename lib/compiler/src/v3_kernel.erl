@@ -2377,12 +2377,11 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
 	    {B1,Bu,St3} = ubody(B0, Br, St2),
 	    {H1,Hu,St4} = ubody(H0, Br, St3),
-	    {Rs1,St5} = ensure_return_vars(Rs0, St4),
 	    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 			  subtract(Hu, lit_list_vars(Evs))]),
-	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
-		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
-	     Used,St5}
+	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs0),a=A},
+		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs0},
+	     Used,St4}
     end;
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       return, St0) ->
@@ -2390,13 +2389,11 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
     {A1,Au,St2} = ubody(A0, {break,Avs}, St1),	%Must break to clean up here!
     {B1,Bu,St3} = ubody(B0, return, St2),
     {H1,Hu,St4} = ubody(H0, return, St3),
-    NumNew = 1,
-    {Ns,St5} = new_vars(NumNew, St4),
     Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 		  subtract(Hu, lit_list_vars(Evs))]),
-    {#k_try_enter{anno=#k{us=Used,ns=Ns,a=A},
+    {#k_try_enter{anno=#k{us=Used,ns=[],a=A},
 		  arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1},
-     Used,St5};
+     Used,St4};
 uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     {Rb,St1} = new_var(St0),
     {B1,Bu,St2} = ubody(B0, {break,[Rb]}, St1),
