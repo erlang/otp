@@ -20,28 +20,37 @@
  */
 #include <ic.h>
 
+#include <string.h>
+
+
+#define DIRTY_ATOM_ENC_MAX(LATIN1_CHARS) ((LATIN1_CHARS)*2 + 3)
+
 
 int oe_ei_encode_atom(CORBA_Environment *ev, const char *p) { 
   int size = ev->_iout;
+  size_t len = strlen(p);
 
-  ei_encode_atom(0,&size,p);
+  if (DIRTY_ATOM_ENC_MAX(len) >= ev->_outbufsz) {
 
-  if (size >= ev->_outbufsz) {
-    char *buf = ev->_outbuf;
-    int bufsz = ev->_outbufsz + ev->_memchunk;
-    
-    while (size >= bufsz)
-      bufsz += ev->_memchunk;
-    
-    if ((buf = realloc(buf, bufsz)) == NULL) {
-      CORBA_exc_set(ev, CORBA_SYSTEM_EXCEPTION, NO_MEMORY, "End of heap memory while encoding");
-      return -1;  /* OUT OF MEMORY */ 
-    }
+      ei_encode_atom_len(0,&size,p,len);
 
-    ev->_outbuf = buf;
-    ev->_outbufsz = bufsz;
+      if (size >= ev->_outbufsz) {
+        char *buf = ev->_outbuf;
+        int bufsz = ev->_outbufsz + ev->_memchunk;
+
+        while (size >= bufsz)
+          bufsz += ev->_memchunk;
+
+        if ((buf = realloc(buf, bufsz)) == NULL) {
+          CORBA_exc_set(ev, CORBA_SYSTEM_EXCEPTION, NO_MEMORY, "End of heap memory while encoding");
+          return -1;  /* OUT OF MEMORY */
+        }
+
+        ev->_outbuf = buf;
+        ev->_outbufsz = bufsz;
+      }
   }
 
-  return ei_encode_atom(ev->_outbuf,&ev->_iout,p);
+  return ei_encode_atom_len(ev->_outbuf,&ev->_iout,p,len);
 }
 
