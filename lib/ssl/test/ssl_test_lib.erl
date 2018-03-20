@@ -1181,10 +1181,7 @@ sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
-sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic_SUITE
-				      Group == erlang_server;  %% From ssl_ECC_SUITE
-				      Group == erlang_client;  %% From ssl_ECC_SUITE
-				      Group == erlang ->       %% From ssl_ECC_SUITE
+sufficient_crypto_support(cipher_ec) -> 
     CryptoSupport = crypto:supports(),
     proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
