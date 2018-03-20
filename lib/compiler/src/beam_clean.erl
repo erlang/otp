@@ -254,7 +254,7 @@ bs_restores([_|Is], Dict) ->
 bs_restores([], Dict) -> Dict.
     
 %% Pass 2.
-bs_replace([{test,bs_start_match2,F,Live,[Src,Ctx],CtxR}|T], Dict, Acc) when is_atom(Ctx) ->
+bs_replace([{test,bs_start_match2,F,Live,[Src,{context,Ctx}],CtxR}|T], Dict, Acc) ->
     Slots = case gb_trees:lookup(Ctx, Dict) of
 		{value,Slots0} -> Slots0;
 		none -> 0
