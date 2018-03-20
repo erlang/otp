@@ -157,7 +157,13 @@ include_attribute(_) -> true.
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     %%io:format("~w/~w~n", [F,Arity]),
     try
-	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
+        %% Find a suitable starting value for the variable counter. Note
+        %% that this pass assumes that new_var_name/1 returns a variable
+        %% name distinct from any variable used in the entire body of
+        %% the function. We use integers as variable names to avoid
+        %% filling up the atom table when compiling huge functions.
+        Count = cerl_trees:next_free_variable_name(Body),
+	St1 = St0#kern{func=FA,ff=undefined,vcount=Count,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -167,7 +173,6 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
-
 
 %% body(Cexpr, Sub, State) -> {Kexpr,[PreKepxr],State}.
 %%  Do the main sequence of a body.  A body ends in an atomic value or
@@ -1356,7 +1361,7 @@ new_fun_name(Type, #kern{func={F,Arity},fcount=C}=St) ->
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(#kern{vcount=C}=St) ->
-    {list_to_atom("@k" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
+    {C,St#kern{vcount=C+1}}.
 
 %% new_var(State) -> {#k_var{},State}.
 
