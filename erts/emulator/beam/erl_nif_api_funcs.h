@@ -208,6 +208,8 @@ ERL_NIF_API_FUNC_DECL(char*,enif_thread_name,(ErlNifTid));
 ERL_NIF_API_FUNC_DECL(int,enif_vfprintf,(FILE*, const char *fmt, va_list));
 ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_list));
 
+ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TERM keys[], ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out));
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -389,6 +391,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_lis
 #  define enif_thread_name ERL_NIF_API_FUNC_MACRO(enif_thread_name)
 #  define enif_vfprintf ERL_NIF_API_FUNC_MACRO(enif_vfprintf)
 #  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
+#  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

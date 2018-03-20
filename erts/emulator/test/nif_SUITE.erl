@@ -1170,6 +1170,12 @@ maps(Config) when is_list(Config) ->
     {1, M2} = make_map_remove_nif(M2, "key3"),
     {0, undefined} = make_map_remove_nif(self(), key),
 
+    M1 = maps_from_list_nif(maps:to_list(M1)),
+    M2 = maps_from_list_nif(maps:to_list(M2)),
+    M3 = maps_from_list_nif(maps:to_list(M3)),
+
+    has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
+
     verify_tmpmem(TmpMem),
     ok.
  

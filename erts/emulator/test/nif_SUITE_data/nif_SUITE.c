@@ -2140,24 +2140,45 @@ static ERL_NIF_TERM make_map_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 /* maps */
 static ERL_NIF_TERM maps_from_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM cell = argv[0];
-    ERL_NIF_TERM map  = enif_make_new_map(env);
-    ERL_NIF_TERM tuple;
-    const ERL_NIF_TERM *pair;
-    int arity = -1;
+    ERL_NIF_TERM *keys, *values;
+    ERL_NIF_TERM result, cell;
+    unsigned count;
 
-    if (argc != 1 && !enif_is_list(env, cell)) return enif_make_badarg(env);
-
-    /* assume sorted keys */
-
-    while (!enif_is_empty_list(env,cell)) {
-	if (!enif_get_list_cell(env, cell, &tuple, &cell)) return enif_make_badarg(env);
-	if (enif_get_tuple(env,tuple,&arity,&pair)) {
-	    enif_make_map_put(env, map, pair[0], pair[1], &map);
-	}
+    if (argc != 1 || !enif_get_list_length(env, argv[0], &count)) {
+        return enif_make_badarg(env);
     }
 
-    return map;
+    keys = enif_alloc(sizeof(ERL_NIF_TERM) * count * 2);
+    values = keys + count;
+
+    cell = argv[0];
+    count = 0;
+
+    while (!enif_is_empty_list(env, cell)) {
+        const ERL_NIF_TERM *pair;
+        ERL_NIF_TERM tuple;
+        int arity;
+
+        if (!enif_get_list_cell(env, cell, &tuple, &cell)
+            || !enif_get_tuple(env, tuple, &arity, &pair)
+            || arity != 2) {
+            enif_free(keys);
+            return enif_make_badarg(env);
+        }
+
+        keys[count] = pair[0];
+        values[count] = pair[1];
+
+        count++;
+    }
+
+    if (!enif_make_map_from_arrays(env, keys, values, count, &result)) {
+        result = enif_make_atom(env, "has_duplicate_keys");
+    }
+
+    enif_free(keys);
+
+    return result;
 }
 
 static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {

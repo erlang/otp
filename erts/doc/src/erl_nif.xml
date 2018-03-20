@@ -2185,6 +2185,20 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
+      <name><ret>int</ret>
+        <nametext>enif_make_map_from_arrays(ErlNifEnv* env, ERL_NIF_TERM keys[],
+        ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out)</nametext></name>
+      <fsummary>Make map term from the given keys and values.</fsummary>
+      <desc>
+        <p>Makes a map term from the given keys and values.</p>
+        <p>If successful, this function sets <c>*map_out</c> to the new map and
+          returns <c>true</c>. Returns <c>false</c> there are any duplicate
+          keys.</p>
+        <p>All keys and values must belong to <c>env</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
