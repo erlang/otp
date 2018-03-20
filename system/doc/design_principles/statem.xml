@@ -36,16 +36,6 @@
     manual page in STDLIB, where all interface functions and callback
     functions are described in detail.
   </p>
-  <note>
-    <p>
-      This is a new behavior in Erlang/OTP 19.0.
-      It has been thoroughly reviewed, is stable enough
-      to be used by at least two heavy OTP applications, and is here to stay.
-      Depending on user feedback, we do not expect
-      but can find it necessary to make minor
-      not backward compatible changes into Erlang/OTP 20.0.
-    </p>
-  </note>
 
 <!-- =================================================================== -->
 
@@ -95,59 +85,95 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 <!-- =================================================================== -->
 
   <section>
+    <marker id="Callback Module" />
+    <title>Callback Module</title>
+    <p>
+      The callback module contains functions that implement
+      the state machine.
+      When an event occurs,
+      the <c>gen_statem</c> behaviour engine
+      calls a function in the callback module with the event,
+      current state and server data.
+      This function performs the actions for this event,
+      and returns the new state and server data
+      and also actions to be performed by the behaviour engine.
+    </p>
+    <p>
+      The behaviour engine holds the state machine state,
+      server data, timer references, a queue of posponed messages
+      and other metadata.  It receives all process messages,
+      handles the system messages, and calls the callback module
+      with machine specific events.
+    </p>
+  </section>
+
+<!-- =================================================================== -->
+
+  <section>
     <marker id="Callback Modes" />
     <title>Callback Modes</title>
     <p>
       The <c>gen_statem</c> behavior supports two callback modes:
     </p>
-    <list type="bulleted">
+    <taglist>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-callback_mode">
+	  <c>state_functions</c>
+	</seealso>
+      </tag>
       <item>
         <p>
-          In mode
-	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>,
-          the state transition rules are written as some Erlang
-          functions, which conform to the following convention:
-        </p>
-        <pre>
-StateName(EventType, EventContent, Data) ->
-    ... code for actions here ...
-    {next_state, NewStateName, NewData}.
-	</pre>
-	<p>
-	  This form is used in most examples here for example in section
-	  <seealso marker="#Example">Example</seealso>.
+	  Events are handled by one callback functions per state.
 	</p>
       </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-callback_mode">
+	  <c>handle_event_function</c>
+	  </seealso>
+      </tag>
       <item>
         <p>
-          In mode
-	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>,
-          only one Erlang function provides all state transition rules:
-        </p>
-        <pre>
-handle_event(EventType, EventContent, State, Data) ->
-    ... code for actions here ...
-    {next_state, NewState, NewData}
-	</pre>
-	<p>
-	  See section
-	  <seealso marker="#One Event Handler">One Event Handler</seealso>
-	  for an example.
+	  Events are handled by one single callback function.
 	</p>
       </item>
-    </list>
+    </taglist>
     <p>
-      Both these modes allow other return tuples; see
-      <seealso marker="stdlib:gen_statem#Module:StateName/3"><c>Module:StateName/3</c></seealso>
-      in the <c>gen_statem</c> manual page.
-      These other return tuples can, for example, stop the machine,
-      execute state transition actions on the machine engine itself,
-      and send replies.
+      The callback mode is selected at server start
+      and may be changed with a code upgrade/downgrade.
+    </p>
+    <p>
+      See the section
+      <seealso marker="#Event Handler">Event Handler</seealso>
+      that describes the event handling callback function(s).
+    </p>
+    <p>
+      The callback mode is selected by implementing a callback function
+      <seealso marker="stdlib:gen_statem#Module:callback_mode/0">
+	<c>Module:callback_mode()</c>
+      </seealso>
+      that returns one of the callback modes.
+    </p>
+    <p>
+      The
+      <seealso marker="stdlib:gen_statem#Module:callback_mode/0">
+	<c>Module:callback_mode()</c>
+      </seealso>
+      function may also return a list containing the callback mode
+      and the atom <c>state_enter</c> in which case
+      <seealso marker="#State Enter Calls">state enter calls</seealso>
+      are activated for the callback mode.
     </p>
 
     <section>
       <marker id="Choosing the Callback Mode" />
       <title>Choosing the Callback Mode</title>
+      <p>
+	The short version: choose <c>state_functions</c> -
+	it is the one most like <c>gen_fsm</c>.
+	But if you do not want the restriction that the state
+	must be an atom, or if having to write an event handler function
+	per state is not as you like it; please read on...
+      </p>
       <p>
 	The two
 	<seealso marker="#Callback Modes">callback modes</seealso>
@@ -186,7 +212,9 @@ handle_event(EventType, EventContent, State, Data) ->
 	This mode works equally well when you want to focus on
 	one event at the time or on
 	one state at the time, but function
-	<seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
+	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	  <c>Module:handle_event/4</c>
+	</seealso>
 	quickly grows too large to handle without branching to
 	helper functions.
       </p>
@@ -208,36 +236,166 @@ handle_event(EventType, EventContent, State, Data) ->
 <!-- =================================================================== -->
 
   <section>
-    <marker id="State Enter Calls" />
-    <title>State Enter Calls</title>
+    <marker id="Event Handler" />
+    <title>Event Handler</title>
     <p>
-      The <c>gen_statem</c> behavior can regardless of callback mode
-      automatically
-      <seealso marker="stdlib:gen_statem#type-state_enter">
-	call the state callback
-      </seealso>
-      with special arguments whenever the state changes
-      so you can write state entry actions
-      near the rest of the state transition rules.
-      It typically looks like this:
+      Which callback function that handles an event
+      depends on the callback mode:
     </p>
-    <pre>
-StateName(enter, _OldState, Data) ->
-    ... code for state entry actions here ...
-    {keep_state, NewData};
-StateName(EventType, EventContent, Data) ->
-    ... code for actions here ...
-    {next_state, NewStateName, NewData}.</pre>
+    <taglist>
+      <tag><c>state_functions</c></tag>
+      <item>
+	The event is handled by:<br />
+	<seealso marker="stdlib:gen_statem#Module:StateName/3">
+	  <c>Module:StateName(EventType, EventContent, Data)</c>
+	</seealso>
+	<p>
+	  This form is the one mostly used in the
+	  <seealso marker="#Example">Example</seealso>
+	  section.
+	</p>
+      </item>
+      <tag><c>handle_event_function</c></tag>
+      <item>
+	The event is handled by:<br />
+	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	  <c>Module:handle_event(EventType, EventContent, State, Data)</c>
+	</seealso>
+	<p>
+	  See section
+	  <seealso marker="#One Event Handler">One Event Handler</seealso>
+	  for an example.
+	</p>
+      </item>
+    </taglist>
     <p>
-      Depending on how your state machine is specified,
-      this can be a very useful feature,
-      but it forces you to handle the state enter calls in all states.
-      See also the
-      <seealso marker="#State Entry Actions">
-	State Entry Actions
-      </seealso>
-      chapter.
+      The state is either the name of the function itself or an argument to it.
+      The other arguments are the <c>EventType</c> described in section
+      <seealso marker="#Event Types">Event Types</seealso>,
+      the event dependent <c>EventContent</c>, and the current server <c>Data</c>.
     </p>
+    <p>
+      State enter calls are also handled by the event handler and have
+      slightly different arguments. See the section
+      <seealso marker="#State Enter Calls">State Enter Calls</seealso>.
+    </p>
+    <p>
+      The event handler return values are defined in the description of
+      <seealso marker="stdlib:gen_statem#Module:StateName/3">
+	<c>Module:StateName/3</c>
+      </seealso>
+      in the <c>gen_statem</c> manual page, but here is
+      a more readable list:
+    </p>
+    <taglist>
+      <tag>
+	<c>{next_state, NextState, NewData, Actions}</c><br />
+	<c>{next_state, NextState, NewData}</c>
+      </tag>
+      <item>
+	<p>
+	  Set next state and update the server data.
+	  If the <c>Actions</c> field is used, execute state transition actions.
+	  An empty <c>Actions</c> list is equivalent to not returning the field.
+	</p>
+	<p>
+	  See section
+	  <seealso marker="#Actions">Actions</seealso> for a list of possible
+	  state transition actions.
+	</p>
+	<p>
+	  If <c>NextState =/= State</c> the state machine changes
+	  to a new state.  A
+	  <seealso marker="#State Enter Calls">state enter call</seealso>
+	  is performed if enabled and all
+	  <seealso marker="#Postponing Events">postponed events</seealso>
+	  are retried.
+	</p>
+      </item>
+      <tag>
+	<c>{keep_state, NewData, Actions}</c><br />
+	<c>{keep_state, NewData}</c>
+      </tag>
+      <item>
+	<p>
+	  Same as the <c>next_state</c> values with
+	  <c>NextState =:= State</c>, that is no state change.
+	</p>
+      </item>
+      <tag>
+	<c>{keep_state_and_data, Actions}</c><br />
+	<c>keep_state_and_data</c>
+      </tag>
+      <item>
+	<p>
+	  Same as the <c>keep_state</c> values with
+	  <c>NextData =:= Data</c>, that is no change in server data.
+	</p>
+      </item>
+      <tag>
+	<c>{repeat_state, NewData, Actions}</c><br />
+	<c>{repeat_state, NewData}</c><br />
+	<c>{repeat_state_and_data, Actions}</c><br />
+	<c>repeat_state_and_data</c>
+      </tag>
+      <item>
+	<p>
+	  Same as the <c>keep_state</c> or <c>keep_state_and_data</c> values,
+	  and if <seealso marker="#State Enter Calls">state enter calls</seealso>
+	  are enabled, repeat that call.
+	</p>
+      </item>
+      <tag>
+	<c>{stop, Reason, NewData}</c><br />
+	<c>{stop, Reason}</c>
+      </tag>
+      <item>
+	<p>
+	  Stop the server with reason <c>Reason</c>.
+	  If the <c>NewData</c> field is used, first update the server data.
+	</p>
+      </item>
+      <tag>
+	<c>{stop_and_reply, Reason, NewData, Actions}</c><br />
+	<c>{stop_and_reply, Reason, Actions}</c>
+      </tag>
+      <item>
+	<p>
+	  Same as the <c>stop</c> values, but first execute the given
+	  state transition actions that may only be reply actions.
+	</p>
+      </item>
+    </taglist>
+
+    <section>
+      <marker id="The First State" />
+      <title>The First State</title>
+      <p>
+	To decide the first state the
+	<seealso marker="stdlib:gen_statem#Module:init/1">
+	  <c>Module:init(Args)</c>
+	</seealso>
+	callback function is called before any
+	<seealso marker="#Event Handler">event handler</seealso>
+	is called.  This function behaves exactly as an event handler
+	function, but gets its only argument <c>Args</c> from 
+	the <c>gen_statem</c>
+	<seealso marker="stdlib:gen_statem#start/3">
+	  <c>start/3,4</c>
+	</seealso>
+	or
+	<seealso marker="stdlib:gen_statem#start_link/3">
+	  <c>start_link/3,4</c>
+	</seealso>
+	function, and returns <c>{ok, State, Data}</c>
+	or <c>{ok, State, Data, Actions}</c>.
+	If you use the
+	<seealso marker="#Postponing Events"><c>postpone</c></seealso>
+	action from this function, that action is ignored,
+	since there is no event	to postpone.
+      </p>
+    </section>
+
   </section>
 
 <!-- =================================================================== -->
@@ -246,10 +404,8 @@ StateName(EventType, EventContent, Data) ->
     <marker id="Actions" />
     <title>Actions</title>
     <p>
-      In the first section
-      <seealso marker="#Event-Driven State Machines">
-	Event-Driven State Machines
-      </seealso>
+      In the first
+      <seealso marker="#Event-Driven State Machines">section</seealso>
       actions were mentioned as a part of
       the general state machine model. These general actions
       are implemented with the code that callback module
@@ -264,72 +420,97 @@ StateName(EventType, EventContent, Data) ->
       These are ordered by returning a list of
       <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
       in the
-      <seealso marker="stdlib:gen_statem#type-state_callback_result">return tuple</seealso>
+      <seealso marker="stdlib:gen_statem#type-state_callback_result">
+	return value
+      </seealso>
       from the
       <seealso marker="stdlib:gen_statem#Module:StateName/3">callback function</seealso>.
-      These state transition actions affect the <c>gen_statem</c>
-      engine itself and can do the following:
+      These are the possible state transition actions:
     </p>
-    <list type="bulleted">
-      <item>
+    <taglist>
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-postpone">
-	  Postpone
+	  <c>postpone</c>
 	</seealso>
-	the current event, see section
+	<br />
+	<c>{postpone, Boolean}</c>
+      </tag>
+      <item>
+	If set postpone the current event, see section
 	<seealso marker="#Postponing Events">Postponing Events</seealso>
       </item>
-      <item>
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-hibernate">
-	  Hibernate
+	  <c>hibernate</c>
 	</seealso>
-	the <c>gen_statem</c>, treated in
+	<br />
+	<c>{hibernate, Boolean}</c>
+      </tag>
+      <item>
+	If set hibernate the <c>gen_statem</c>, treated in section
 	<seealso marker="#Hibernation">Hibernation</seealso>
       </item>
-      <item>
-	Start a
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-state_timeout">
-	  state time-out</seealso>,
-	  read more in section
+	  <c>{state_timeout, Time}</c>
+	</seealso>
+	<br />
+	<c>{state_timeout, Time, Opts}</c>
+      </tag>
+      <item>
+	Start a state time-out, read more in section
 	<seealso marker="#State Time-Outs">State Time-Outs</seealso>
       </item>
-      <item>
-	Start a
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-generic_timeout">
-	  generic time-out</seealso>,
-	  read more in section
+	  <c>{{timeout, Name}, Time}</c>
+	</seealso>
+	<br />
+	<c>{{timeout, Name}, Time, Opts}</c>
+      </tag>
+      <item>
+	Start a generic time-out, read more in section
 	<seealso marker="#Generic Time-Outs">Generic Time-Outs</seealso>
       </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-event_timeout">
+	  <c>{timeout, Time}</c>
+	</seealso>
+	<br />
+	<c>{timeout, Time, Opts}</c><br />
+	<c>Time</c>
+      </tag>
       <item>
-	Start an
-	<seealso marker="stdlib:gen_statem#type-event_timeout">event time-out</seealso>,
-	see more in section
+	Start an event time-out, see more in section
 	<seealso marker="#Event Time-Outs">Event Time-Outs</seealso>
       </item>
-      <item>
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-reply_action">
-	  Reply
+	  <c>{reply, From, Reply}</c>
 	</seealso>
-	to a caller, mentioned at the end of section
+      </tag>
+      <item>
+	Reply to a caller, mentioned at the end of section
 	<seealso marker="#All State Events">All State Events</seealso>
       </item>
-      <item>
-	Generate the
+      <tag>
 	<seealso marker="stdlib:gen_statem#type-action">
-	  next event
+	  <c>{next_event, EventType, EventContent}</c>
 	</seealso>
-	to handle, see section 
-	<seealso marker="#Self-Generated Events">Self-Generated Events</seealso>
+      </tag>
+      <item>
+	Generate the next event to handle, see section 
+	<seealso marker="#Inserted Events">Inserted Events</seealso>
       </item>
-    </list>
+    </taglist>
     <p>
-      For details, see the
-      <seealso marker="stdlib:gen_statem#type-action">
-	<c>gen_statem(3)</c>
-      </seealso>
-      manual page.
+      For details, see the <c>gen_statem(3)</c>
+      manual page for type
+      <seealso marker="stdlib:gen_statem#type-action"><c>action()</c></seealso>.
       You can, for example, reply to many callers,
       generate multiple next events,
-      and set time-outs to relative or absolute times.
+      and set a time-out to use absolute instead of relative time
+      (using the <c>Opts</c> field).
     </p>
   </section>
 
@@ -341,8 +522,8 @@ StateName(EventType, EventContent, Data) ->
     <p>
       Events are categorized in different
       <seealso marker="stdlib:gen_statem#type-event_type">event types</seealso>.
-      Events of all types are handled in the same callback function,
-      for a given state, and the function gets
+      Events of all types are for a given state
+      handled in the same callback function, and that function gets
       <c>EventType</c> and <c>EventContent</c> as arguments.
     </p>
     <p>
@@ -350,12 +531,20 @@ StateName(EventType, EventContent, Data) ->
       they come from:
     </p>
     <taglist>
-      <tag><c>cast</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	  <c>cast</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by
 	<seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast</c></seealso>.
       </item>
-      <tag><c>{call,From}</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	  <c>{call,From}</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by
 	<seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call</c></seealso>,
@@ -364,12 +553,20 @@ StateName(EventType, EventContent, Data) ->
 	<c>{reply,From,Msg}</c> or by calling
 	<seealso marker="stdlib:gen_statem#reply/1"><c>gen_statem:reply</c></seealso>.
       </item>
-      <tag><c>info</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	  <c>info</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by any regular process message sent to
 	the <c>gen_statem</c> process.
       </item>
-      <tag><c>state_timeout</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	  <c>state_timeout</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by state transition action
 	<seealso marker="stdlib:gen_statem#type-state_timeout">
@@ -377,7 +574,11 @@ StateName(EventType, EventContent, Data) ->
 	</seealso>
 	state timer timing out.
       </item>
-      <tag><c>{timeout,Name}</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	  <c>{timeout,Name}</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by state transition action
 	<seealso marker="stdlib:gen_statem#type-generic_timeout">
@@ -385,7 +586,11 @@ StateName(EventType, EventContent, Data) ->
 	</seealso>
 	generic timer timing out.
       </item>
-      <tag><c>timeout</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	  <c>timeout</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by state transition action
 	<seealso marker="stdlib:gen_statem#type-event_timeout">
@@ -394,7 +599,11 @@ StateName(EventType, EventContent, Data) ->
 	(or its short form <c>Time</c>)
 	event timer timing out.
       </item>
-      <tag><c>internal</c></tag>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-event_type">
+	  <c>internal</c>
+	</seealso>
+      </tag>
       <item>
 	Generated by state transition
 	<seealso marker="stdlib:gen_statem#type-action">action</seealso>
@@ -403,6 +612,61 @@ StateName(EventType, EventContent, Data) ->
 	<c>{next_event,EventType,EventContent}</c>.
       </item>
     </taglist>
+  </section>
+
+<!-- =================================================================== -->
+
+  <section>
+    <marker id="State Enter Calls" />
+    <title>State Enter Calls</title>
+    <p>
+      The <c>gen_statem</c> behavior can if this is enabled,
+      regardless of callback mode,
+      automatically
+      <seealso marker="stdlib:gen_statem#type-state_enter">
+	call the state callback
+      </seealso>
+      with special arguments whenever the state changes
+      so you can write state enter actions
+      near the rest of the state transition rules.
+      It typically looks like this:
+    </p>
+    <pre>
+StateName(enter, OldState, Data) ->
+    ... code for state enter actions here ...
+    {keep_state, NewData};
+StateName(EventType, EventContent, Data) ->
+    ... code for actions here ...
+    {next_state, NewStateName, NewData}.</pre>
+    <p>
+      Since the state enter call is not an event there are restrictions
+      on the allowed return value and
+      <seealso marker="#Actions">state transition actions</seealso>.
+      You may not change the state,
+      <seealso marker="#Postponing Events">postpone</seealso>
+      this non-event, or
+      <seealso marker="#Inserted Events">insert events</seealso>.
+    </p>
+    <p>
+      The first state that is entered will get a state enter call
+      with <c>OldState</c> equal to the current state.
+    </p>
+    <p>
+      You may repeat the state enter call using the <c>{repeat_state,...}</c>
+      return value from the 
+      <seealso marker="#Event Handler">event handler</seealso>.
+      In this case <c>OldState</c> will also be equal to the current state.
+    </p>
+    <p>
+      Depending on how your state machine is specified,
+      this can be a very useful feature,
+      but it forces you to handle the state enter calls in all states.
+      See also the
+      <seealso marker="#State Enter Actions">
+	State Enter Actions
+      </seealso>
+      chapter.
+    </p>
   </section>
 
 <!-- =================================================================== -->
@@ -1196,14 +1460,14 @@ do_unlock() ->
 <!-- =================================================================== -->
 
   <section>
-    <marker id="State Entry Actions" />
-    <title>State Entry Actions</title>
+    <marker id="State Enter Actions" />
+    <title>State Enter Actions</title>
     <p>
       Say you have a state machine specification
-      that uses state entry actions.
-      Allthough you can code this using self-generated events
+      that uses state enter actions.
+      Allthough you can code this using inserted events
       (described in the next section), especially if just
-      one or a few states has got state entry actions,
+      one or a few states has got state enter actions,
       this is a perfect use case for the built in
       <seealso marker="#State Enter Calls">state enter calls</seealso>.
     </p>
@@ -1244,7 +1508,7 @@ open(state_timeout, lock, Data) ->
 ...
     ]]></code>
     <p>
-      You can repeat the state entry code by returning one of
+      You can repeat the state enter code by returning one of
       <c>{repeat_state, ...}</c>, <c>{repeat_state_and_data,_}</c>
       or <c>repeat_state_and_data</c> that otherwise behaves
       exactly like their <c>keep_state</c> siblings.
@@ -1259,8 +1523,8 @@ open(state_timeout, lock, Data) ->
 <!-- =================================================================== -->
 
   <section>
-    <marker id="Self-Generated Events" />
-    <title>Self-Generated Events</title>
+    <marker id="Inserted Events" />
+    <title>Inserted Events</title>
     <p>
       It can sometimes be beneficial to be able to generate events
       to your own state machine.
@@ -1279,14 +1543,18 @@ open(state_timeout, lock, Data) ->
     <p>
       One example for this is to pre-process incoming data, for example
       decrypting chunks or collecting characters up to a line break.
+    </p>
+    <p>
       Purists may argue that this should be modelled with a separate
       state machine that sends pre-processed events
-      to the main state machine.
-      But to decrease overhead the small pre-processing state machine
+      to the main state machine,
+      but to decrease overhead the small pre-processing state machine
       can be implemented in the common state event handling
       of the main state machine using a few state data variables
       that then sends the pre-processed events as internal events
       to the main state machine.
+      Using internal events also can make it easier
+      to synchronize the state machines.
     </p>
     <p>
       The following example uses an input model where you give the lock
@@ -1800,10 +2068,23 @@ handle_event(
     </p>
     <p>
       Another not uncommon scenario is to use the event time-out
-      to triger hibernation after a certain time of inactivity.
+      to trigger hibernation after a certain time of inactivity.
+      There is also a server start option
+      <seealso marker="stdlib:gen_statem#type-hibernate_after_opt">
+	<c>{hibernate_after, Timeout}</c>
+      </seealso>
+      for
+      <seealso marker="stdlib:gen_statem#start/3">
+	<c>start/3,4</c>
+      </seealso>
+      or
+      <seealso marker="stdlib:gen_statem#start_link/3">
+	<c>start_link/3,4</c>
+      </seealso>
+      that may be used to automatically hibernate the server.
     </p>
     <p>
-      This server probably does not use
+      This particular server probably does not use
       heap memory worth hibernating for.
       To gain anything from hibernation, your server would
       have to produce some garbage during callback execution,

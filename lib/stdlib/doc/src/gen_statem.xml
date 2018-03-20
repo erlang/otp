@@ -32,7 +32,60 @@
   <modulesummary>Generic state machine behavior.</modulesummary>
   <description>
     <p>
-      This behavior module provides a state machine. Two
+      <c>gen_statem</c> provides a generic state machine behaviour
+      and replaces its predecessor
+      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso>
+      since Erlang/OTP 20.0.
+    </p>
+    <p>
+      This reference manual describes types generated from the types
+      in the <c>gen_statem</c> source code, so they are correct.
+      However, the generated descriptions also reflect the type hiearchy,
+      which makes them kind of hard to read.
+    </p>
+    <p>
+      To get an overview of the concepts and operation of <c>gen_statem</c>,
+      do read the
+      <seealso marker="doc/design_principles:statem">User's Guide</seealso>.
+      It frequently links back to this reference manual to avoid containing
+      detailed facts that may rot by age.
+    </p>
+    <note>
+      <p>
+        This behavior appeared in Erlang/OTP 19.0.
+	In OTP 19.1 a backwards incompatible change of
+	the return tuple from
+	<seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+	was made and the mandatory callback function
+	<seealso marker="#Module:callback_mode/0">
+	  <c>Module:callback_mode/0</c>
+	</seealso>
+	was introduced.  In OTP 20.0 the
+        <seealso marker="#type-generic_timeout"><c>generic timeouts</c></seealso>
+	were added.
+      </p>
+    </note>
+    <p>
+      <c>gen_statem</c> has got the same features that
+      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso>
+      had and adds some really useful:
+    </p>
+    <list type="bulleted">
+      <item>Gathered state code.</item>
+      <item>Arbitrary term state.</item>
+      <item>Event postponing.</item>
+      <item>Self-generated events.</item>
+      <item>State time-out.</item>
+      <item>Multiple generic named time-outs.</item>
+      <item>Absolute time-out time.</item>
+      <item>Automatic state enter calls.</item>
+      <item>Reply from other state than the request.</item>
+      <item>Multiple <c>sys</c> traceable replies.</item>
+    </list>
+
+
+    <p>
+      Two
       <seealso marker="#type-callback_mode"><em>callback modes</em></seealso>
       are supported:
     </p>
@@ -49,34 +102,6 @@
           that uses one callback function for all states
         </p>
       </item>
-    </list>
-    <note>
-      <p>
-        This is a new behavior in Erlang/OTP 19.0.
-        It has been thoroughly reviewed, is stable enough
-        to be used by at least two heavy OTP applications,
-	and is here to stay.
-        Depending on user feedback, we do not expect
-        but can find it necessary to make minor
-        not backward compatible changes into Erlang/OTP 20.0.
-      </p>
-    </note>
-    <p>
-      The <c>gen_statem</c> behavior replaces 
-      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso> in Erlang/OTP 20.0.
-      It has the same features and adds some really useful:
-    </p>
-    <list type="bulleted">
-      <item>Gathered state code.</item>
-      <item>Arbitrary term state.</item>
-      <item>Event postponing.</item>
-      <item>Self-generated events.</item>
-      <item>State time-out.</item>
-      <item>Multiple generic named time-outs.</item>
-      <item>Absolute time-out time.</item>
-      <item>Automatic state enter calls.</item>
-      <item>Reply from other state than the request.</item>
-      <item>Multiple <c>sys</c> traceable replies.</item>
     </list>
     <p>
       The callback model(s) for <c>gen_statem</c> differs from
@@ -251,6 +276,16 @@ erlang:'!'            -----> Module:StateName/3
       as hibernation can be too costly
       to use after every event; see
       <seealso marker="erts:erlang#hibernate/3"><c>erlang:hibernate/3</c></seealso>.
+    </p>
+    <p>
+      There is also a server start option
+      <seealso marker="#type-hibernate_after_opt">
+	<c>{hibernate_after, Timeout}</c>
+      </seealso>
+      for
+      <seealso marker="#start/3"><c>start/3,4</c></seealso> or
+      <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
+      that may be used to automatically hibernate the server.
     </p>
   </description>
 
