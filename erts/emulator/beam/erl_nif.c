@@ -3938,10 +3938,14 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(module_p != NULL);
 
     mod_atomp = atom_tab(atom_val(mod_atom));
-    init_func = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
-    if (init_func != NULL)
-      handle = init_func;
-
+    {
+        ErtsStaticNifEntry* sne;
+        sne = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
+        if (sne != NULL) {
+            init_func = sne->nif_init;
+            handle = init_func;
+        }
+    }
     this_mi = &module_p->curr;
     prev_mi = &module_p->old;
     if (in_area(caller, module_p->old.code_hdr, module_p->old.code_length)) {

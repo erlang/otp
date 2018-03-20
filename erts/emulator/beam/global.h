@@ -1178,7 +1178,11 @@ void erts_lcnt_update_port_locks(int enable);
 
 /* driver_tab.c */
 typedef void *(*ErtsStaticNifInitFPtr)(void);
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
+typedef struct ErtsStaticNifEntry_ {
+    const char *nif_name;
+    ErtsStaticNifInitFPtr nif_init;
+} ErtsStaticNifEntry;
+ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);
 void erts_init_static_drivers(void);
 

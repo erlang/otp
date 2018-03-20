@@ -115,15 +115,6 @@ foreach (@static_drivers) {
 
 print "}\n";
 
-print <<EOF;
-
-typedef struct ErtsStaticNifEntry_ {
-    const char *nif_name;
-    ErtsStaticNifInitFPtr nif_init;
-} ErtsStaticNifEntry;
-
-EOF
-
 # prototypes
 foreach (@static_nifs) {
     my $d = ${_};
@@ -137,17 +128,17 @@ print "static ErtsStaticNifEntry static_nif_tab[] =\n{\n";
 foreach (@static_nifs) {
     my $d = ${_};
     $d =~ s/\.debug//; # strip .debug
-    print "{\"${_}\",&".$d."_nif_init},\n";
+    print "    {\"${_}\",&".$d."_nif_init},\n";
 }
 
 print "    {NULL,NULL}\n};\n";
 
 print <<EOF;
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len) {
+ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len) {
     ErtsStaticNifEntry* p;
     for (p = static_nif_tab; p->nif_name != NULL; p++)
         if (strncmp(p->nif_name, name, len) == 0 && p->nif_name[len] == 0)
-            return p->nif_init;
+            return p;
     return NULL;
 }
 
