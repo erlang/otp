@@ -662,7 +662,8 @@ void hipe_inc_nstack(Process *p)
     Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE_STK, new_size*sizeof(Eterm));
     unsigned used_size = p->hipe.nstend - p->hipe.nsp;
 
-    sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
+    if (used_size)
+        sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
     if (p->hipe.nstgraylim)
 	p->hipe.nstgraylim = new_nstack + new_size - (p->hipe.nstend - p->hipe.nstgraylim);
     if (p->hipe.nstblacklim)

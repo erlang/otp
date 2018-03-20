@@ -1004,9 +1004,7 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
  * may seemingly work when the length (if any) is zero; a compiler can take
  * this as a hint that the passed operand may *never* be NULL and then optimize
  * based on that information.
- *
- * (The weird casts in the assertions silence an "always evaluates to true"
- * warning when an operand is the address of an lvalue) */
+ */
 ERTS_GLB_INLINE void *sys_memcpy(void *dest, const void *src, size_t n);
 ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n);
 ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n);
