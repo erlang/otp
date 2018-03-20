@@ -32,8 +32,7 @@ suite() ->
     ].
 
 all() -> 
-    [default_tree, tftpd_worker,
-     httpd_config, httpd_subtree, httpd_subtree_profile,
+    [default_tree, httpd_config, httpd_subtree, httpd_subtree_profile,
      httpc_subtree].
 
 groups() -> 
@@ -147,13 +146,11 @@ default_tree() ->
       "in the default case."}].
 default_tree(Config) when is_list(Config) ->
     TopSupChildren = supervisor:which_children(inets_sup),
-    3 = length(TopSupChildren),
+    2 = length(TopSupChildren),
     {value, {httpd_sup, _, supervisor,[httpd_sup]}} =
 	lists:keysearch(httpd_sup, 1, TopSupChildren),
     {value, {httpc_sup, _,supervisor,[httpc_sup]}} = 
 	lists:keysearch(httpc_sup, 1, TopSupChildren),
-    {value, {tftp_sup,_,supervisor,[tftp_sup]}} = 
-	lists:keysearch(tftp_sup, 1, TopSupChildren),
 
     HttpcSupChildren = supervisor:which_children(httpc_sup),
     {value, {httpc_profile_sup,_, supervisor, [httpc_profile_sup]}} =
@@ -168,24 +165,7 @@ default_tree(Config) when is_list(Config) ->
 	= supervisor:which_children(httpc_profile_sup),
     
     [] = supervisor:which_children(httpc_handler_sup),
-     
-    [] = supervisor:which_children(tftp_sup),
 
-    ok.
-
-tftpd_worker() ->
-    [{doc, "Makes sure the tftp sub tree is correct."}].
-tftpd_worker(Config) when is_list(Config) ->
-    [] = supervisor:which_children(tftp_sup),   
-    {ok, Pid0} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
-				     {port, 0}]),
-    {ok, _Pid1} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
-				      {port, 0}], stand_alone),
-    
-    [{_,Pid0, worker, _}] = supervisor:which_children(tftp_sup),
-    inets:stop(tftpd, Pid0),
-    ct:sleep(5000),
-    [] = supervisor:which_children(tftp_sup),
     ok.
 
 httpd_config() ->

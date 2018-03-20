@@ -28,19 +28,19 @@
 
 -include("tftp_test_lib.hrl").
 
--define(START_DAEMON(PortX, OptionsX),
-        fun(Port, Options) ->
-                {ok, Pid} = ?VERIFY({ok, _Pid}, tftp:start([{port, Port} | Options])),
-                if
-                    Port == 0 ->
-                        {ok, ActualOptions} = ?IGNORE(tftp:info(Pid)),
-                        {value, {port, ActualPort}} =
-                            lists:keysearch(port, 1, ActualOptions),
-                        {ActualPort, Pid};
-                    true ->
-                        {Port, Pid}
-                end
-        end(PortX, OptionsX)).
+-define(START_DAEMON(Port, Options),
+        begin
+            {ok, Pid} = ?VERIFY({ok, _Pid}, tftp:start([{port, Port} | Options])),
+            if
+                Port == 0 ->
+                    {ok, ActualOptions} = ?IGNORE(tftp:info(Pid)),
+                    {value, {port, ActualPort}} =
+                        lists:keysearch(port, 1, ActualOptions),
+                    {ActualPort, Pid};
+                true ->
+                    {Port, Pid}
+            end
+        end).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API
@@ -103,7 +103,7 @@ simple(doc) ->
 simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
-    ?VERIFY(ok, application:start(inets)),
+    ?VERIFY(ok, application:start(tftp)),
 
     {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
 
@@ -128,7 +128,7 @@ simple(Config) when is_list(Config) ->
     exit(DaemonPid, kill),
     ?VERIFY(ok, file:delete(LocalFilename)),
     ?VERIFY(ok, file:delete(RemoteFilename)),
-    ?VERIFY(ok, application:stop(inets)),
+    ?VERIFY(ok, application:stop(tftp)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -910,7 +910,7 @@ large_file(doc) ->
 large_file(suite) ->
     [];
 large_file(Config) when is_list(Config) ->
-    ?VERIFY(ok, application:start(inets)),
+    ?VERIFY(ok, application:start(tftp)),
 
     {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
 
@@ -933,7 +933,7 @@ large_file(Config) when is_list(Config) ->
     exit(DaemonPid, kill),
     ?VERIFY(ok, file:delete(LocalFilename)),
     ?VERIFY(ok, file:delete(RemoteFilename)),
-    ?VERIFY(ok, application:stop(inets)),
+    ?VERIFY(ok, application:stop(tftp)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

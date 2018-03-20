@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,14 +22,13 @@
 # make file ../../ssl/test/Makefile.
 #
 include $(ERL_TOP)/make/target.mk
-
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../vsn.mk
-VSN = $(INETS_VSN)
+VSN = $(TFTP_VSN)
 
 
 # ----------------------------------------------------
@@ -42,112 +41,72 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 INCLUDES = -I. \
-	-I$(ERL_TOP)/lib/inets/src/inets_app \
-	-I$(ERL_TOP)/lib/inets/src/http_lib \
-	-I$(ERL_TOP)/lib/inets/src/http_client
+	-I$(ERL_TOP)/lib/tftp/src
 
 CP = cp
 
 ifeq ($(TESTROOT_DIR),)
-TESTROOT_DIR = /ldisk/tests/$(USER)/inets
+TESTROOT_DIR = /ldisk/tests/$(USER)/tftp
 endif
 
-ifeq ($(INETS_DATA_DIR),)
-INETS_DATA_DIR = $(TESTROOT_DIR)/data_dir
+ifeq ($(TFTP_DATA_DIR),)
+TFTP_DATA_DIR = $(TESTROOT_DIR)/data_dir
 endif
 
-ifeq ($(INETS_PRIV_DIR),)
-INETS_PRIV_DIR = $(TESTROOT_DIR)/priv_dir
+ifeq ($(TFTP_PRIV_DIR),)
+TFTP_PRIV_DIR = $(TESTROOT_DIR)/priv_dir
 endif
 
-INETS_FLAGS = -Dinets_data_dir='"$(INETS_DATA_DIR)"'       \
-              -Dinets_priv_dir='"$(INETS_PRIV_DIR)"'
+TFTP_FLAGS = -Dtftp__data_dir='"$(TFTP_DATA_DIR)"'       \
+              -Dtftp_priv_dir='"$(TFTP_PRIV_DIR)"'
 
 
 ### 
 ### test suite debug flags
 ### 
-ifeq ($(INETS_DEBUG),)
-  INETS_DEBUG = d
+ifeq ($(TFTP_DEBUG_CLIENT),)
+  TFTP_DEBUG_CLIENT = y
 endif
 
-ifeq ($(INETS_DEBUG),l)
-  INETS_FLAGS += -Dinets_log
+ifeq ($(TFTP_DEBUG_CLIENT),)
+  TFTP_FLAGS += -Dtftp_debug_client
 endif
 
-ifeq ($(INETS_DEBUG),d)
-  INETS_FLAGS += -Dinets_debug -Dinets_log
+ifeq ($(TFTP_TRACE_CLIENT),)
+  TFTP_DEBUG_CLIENT = y
+endif
+
+ifeq ($(TFTP_TRACE_CLIENT),y)
+  TFTP_FLAGS += -Dtftp_trace_client
+endif
+
+ifneq ($(TFTP_DEBUG),)
+  TFTP_DEBUG = s
+endif
+
+ifeq ($(TFTP_DEBUG),l)
+  TFTP_FLAGS += -Dtftp_log
+endif
+
+ifeq ($(TFTP_DEBUG),d)
+  TFTP_FLAGS += -Dtftp_debug -Dtftp_log
 endif
 
 
-### 
-### HTTPD verbosity flags
-### 
+TFTP_FLAGS += -pa ../tftp/ebin
 
-ifneq ($(MANV),)
-  INETS_FLAGS += -Dhttpd_manager_verbosity=$(MANV)
-else
-  INETS_FLAGS += -Dhttpd_manager_verbosity=trace
-endif
-
-ifneq ($(REQV),)
-  INETS_FLAGS += -Dhttpd_request_handler_verbosity=$(REQV)
-else
-  INETS_FLAGS += -Dhttpd_request_handler_verbosity=trace
-endif
-
-ifneq ($(ACCV),)
-  INETS_FLAGS += -Dhttpd_acceptor_verbosity=$(ACCV)
-else
-  INETS_FLAGS += -Dhttpd_acceptor_verbosity=trace
-endif
-
-ifneq ($(AUTHV),)
-  INETS_FLAGS += -Dhttpd_auth_verbosity=$(AUTHV)
-else
-  INETS_FLAGS += -Dhttpd_auth_verbosity=log
-endif
-
-ifneq ($(SECV),)
-  INETS_FLAGS += -Dhttpd_security_verbosity=$(SECV)
-else
-  INETS_FLAGS += -Dhttpd_security_verbosity=log
-endif
-
-INETS_FLAGS += -pa ../../inets/ebin
-
-INETS_ROOT = ../../inets
+TFTP_ROOT = ../tftp
 
 MODULES =                 		\
-	inets_test_lib    		\
-	erl_make_certs                  \
-	make_certs                      \
-	http_format_SUITE 		\
-	httpc_SUITE	  		\
-	httpc_cookie_SUITE		\
-	httpc_proxy_SUITE		\
-	httpd_SUITE       		\
-	httpd_bench_SUITE               \
-	http_test_lib    		\
-	httpd_basic_SUITE		\
-	httpd_mod 	  		\
-	httpd_load        		\
-	httpd_time_test	  		\
-	httpd_1_1         		\
-	httpd_1_0                       \
-	httpd_test_lib    		\
-	inets_sup_SUITE   		\
-	inets_SUITE       		\
-	uri_SUITE                       \
-	inets_socketwrap_SUITE
+	tftp_SUITE 	  		\
+	tftp_test_lib
 
 
 EBIN = .
 
-HRL_FILES = inets_test_lib.hrl \
-	    inets_internal.hrl \
-            httpc_internal.hrl \
-            http_internal.hrl
+HRL_FILES = \
+	../src/tftp.hrl \
+	tftp_test_lib.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -155,32 +114,24 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec inets_bench.spec
-COVER_FILE = inets.cover
-INETS_FILES = inets.config $(INETS_SPECS)
-
-# SUB_SUITES = \
-# 	inets_sup_suite \
-# 	inets_httpd_suite \
-# 	inets_httpc_suite
+TFTP_SPECS = tftp.spec tftp_bench.spec
+COVER_FILE = tftp.cover
+TFTP_FILES = tftp.config $(TFTP_SPECS)
 
 
-INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data httpd_bench_SUITE_data
+TFTP_DATADIRS   = tftp_SUITE_data  
 
-HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
-
-DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS)
+DATADIRS     = $(TFTP_DATADIRS)
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)
-RELTEST_FILES = $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(COVER_FILE) $(TFTP_SPECS) $(SOURCE)
 else
 BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(TFTP_SPECS) $(SOURCE)
 endif
 
 
@@ -188,7 +139,7 @@ endif
 # Release directory specification
 # ----------------------------------------------------
 
-RELTESTSYSDIR        = "$(RELEASE_PATH)/inets_test"
+RELTESTSYSDIR        = "$(RELEASE_PATH)/tftp_test"
 RELTESTSYSALLDATADIR = $(RELTESTSYSDIR)/all_SUITE_data
 RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 
@@ -200,14 +151,14 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
-	$(INETS_FLAGS)
+	$(TFTP_FLAGS)
 
 # ----------------------------------------------------
 # Targets
 # erl -sname kalle -pa ../ebin
 # If you intend to run the test suite locally (private), then
 # there is some requirements:
-# 1) INETS_PRIV_DIR must be created
+# 1) TFTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
 tests debug opt: $(BUILDTARGET) 
@@ -238,7 +189,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR)  "$(RELSYSDIR)/test"
 	$(INSTALL_DATA) $(HRL_FILES)   $(ERL_FILES) "$(RELSYSDIR)/test"
-	$(INSTALL_DATA) $(INETS_FILES) "$(RELSYSDIR)/test"
+	$(INSTALL_DATA) $(TFTP_FILES) "$(RELSYSDIR)/test"
 	@for d in $(DATADIRS); do \
             echo "installing data dir $$d"; \
             if test -f $$d/TAR.exclude; then \
@@ -279,8 +230,8 @@ info:
 	@echo "SOURCE            = $(SOURCE)"
 	@echo "TARGET_FILES      = $(TARGET_FILES)"
 	@echo ""
-	@echo "INETS_SPECS       = $(INETS_SPECS)"
-	@echo "INETS_FILES       = $(INETS_FILES)"
+	@echo "TFTP_SPECS       = $(TFTP_SPECS)"
+	@echo "TFTP_FILES       = $(TFTP_FILES)"
 	@echo ""
 	@echo "RELEASE_PATH      = "$(RELEASE_PATH)""
 	@echo "RELSYSDIR         = "$(RELSYSDIR)""
@@ -291,7 +242,9 @@ info:
 	@echo "DATADIRS          = $(DATADIRS)"
 	@echo "REL_DATADIRS      = $(REL_DATADIRS)"
 	@echo ""
-	@echo "INETS_DATA_DIR    = $(INETS_DATA_DIR)"
-	@echo "INETS_PRIV_DIR    = $(INETS_PRIV_DIR)"
-	@echo "INETS_ROOT        = $(INETS_ROOT)"
-	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
+	@echo "TFTP_DATA_DIR    = $(TFTP_DATA_DIR)"
+	@echo "TFTP_PRIV_DIR    = $(TFTP_PRIV_DIR)"
+	@echo "TFTP_ROOT        = $(TFTP_ROOT)"
+	@echo "TFTP_FLAGS       = $(TFTP_FLAGS)"
+
+

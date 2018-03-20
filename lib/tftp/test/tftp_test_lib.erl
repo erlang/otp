@@ -30,11 +30,11 @@
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     io:format("\n ", []),
-    ?IGNORE(application:stop(inets)),   
+    ?IGNORE(application:stop(tftp)),   
     Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    ?IGNORE(application:stop(inets)),   
+    ?IGNORE(application:stop(tftp)),   
     Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

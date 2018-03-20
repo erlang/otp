@@ -213,7 +213,8 @@
 	 start/1,
 	 info/1,
 	 change_config/2,
-	 start/0
+	 start/0,
+         stop/0
 	]).
 
 %% Application local functions
@@ -373,7 +374,17 @@ change_config(Pid, Options) ->
 %%-------------------------------------------------------------------
 
 start() ->
-    application:start(inets).
+    application:start(tftp).
+
+%%-------------------------------------------------------------------
+%% stop() -> ok | {error, Reason}
+%% 
+%% Reason = term()
+%%
+%% Stop the application
+%%-------------------------------------------------------------------
+stop() ->
+    application:stop(tftp).
 
 %%-------------------------------------------------------------------
 %% Inets service behavior

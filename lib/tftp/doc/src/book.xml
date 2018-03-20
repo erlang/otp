@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE application SYSTEM "application.dtd">
+<!DOCTYPE book SYSTEM "book.dtd">
 
-<application xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header>
+<book xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header titlestyle="normal">
     <copyright>
       <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
@@ -19,33 +19,31 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-
+    
     </legalnotice>
 
-    <title>Inets Reference Manual</title>
+    <title>TFTP</title>
     <prepared>Péter Dimitrov</prepared>
     <docno></docno>
-    <date>2018-02-28</date>
-    <rev>2.1</rev>
-    <file>ref_man.xml</file>
+    <date>2018-03-22</date>
+    <rev>1.0</rev>
+    <file>book.sgml</file>
   </header>
-  <description>
-    <p><c>Inets</c> is a container for an HTTP client and server.</p>
-  </description>
-  <xi:include href="inets.xml"/>
-  <xi:include href="httpc.xml"/>
-  <xi:include href="httpd.xml"/>
-  <xi:include href="httpd_custom_api.xml"/>
-  <xi:include href="httpd_socket.xml"/>
-  <xi:include href="httpd_util.xml"/>
-  <xi:include href="mod_alias.xml"/>
-  <xi:include href="mod_auth.xml"/>
-  <xi:include href="mod_esi.xml"/>
-  <xi:include href="mod_security.xml"/>
-  <xi:include href="http_uri.xml"/>
-</application>
-
-
-
-
-
+  <insidecover>
+  </insidecover>
+  <pagetext>TFTP</pagetext>
+  <preamble>
+    <contents level="2"></contents>
+  </preamble>
+  <parts lift="no">
+    <xi:include href="part.xml"/>
+  </parts>
+  <applications>
+    <xi:include href="ref_man.xml"/>
+  </applications>
+  <releasenotes>
+    <xi:include href="notes.xml"/>
+  </releasenotes>
+  <listofterms></listofterms>
+  <index></index>
+</book>

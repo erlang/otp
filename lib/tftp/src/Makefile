@@ -20,30 +20,27 @@
 #
 
 include $(ERL_TOP)/make/target.mk
-EBIN = ../../ebin
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
-include ../../vsn.mk
-
-VSN = $(INETS_VSN)
-
+include ../vsn.mk
+VSN = $(TFTP_VSN)
 
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
-
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-BEHAVIOUR_MODULES= \
-	tftp
+BEHAVIOUR_MODULES=
 
 MODULES = \
+	tftp \
+	tftp_app \
 	tftp_binary \
 	tftp_engine \
 	tftp_file \
@@ -61,17 +58,17 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
+APP_FILE= tftp.app
+APPUP_FILE= tftp.appup
+
+APP_SRC= $(APP_FILE).src
+APP_TARGET= $(EBIN)/$(APP_FILE)
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-
-include ../inets_app/inets.mk
-
-ERL_COMPILE_FLAGS += \
-	$(INETS_FLAGS) \
-        $(INETS_ERL_COMPILE_FLAGS) \
-	-I../../include \
-	-I../inets_app
 
 
 # ----------------------------------------------------
@@ -80,11 +77,17 @@ ERL_COMPILE_FLAGS += \
 
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug opt: $(TARGET_FILES)
+debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
-	rm -f $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES)
+	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES)
 	rm -f core
+
+$(APP_TARGET): $(APP_SRC) ../vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
+
+$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -94,16 +97,14 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR)  "$(RELSYSDIR)/src"
-	$(INSTALL_DIR)  "$(RELSYSDIR)/src/tftp"
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) "$(RELSYSDIR)/src/tftp"
-	$(INSTALL_DIR)  "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(BEHAVIOUR_TARGET_FILES) $(TARGET_FILES) $(APP_TARGET) \
+	$(APPUP_TARGET) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
 
 info:
 	@echo "APPLICATION       = $(APPLICATION)"
-	@echo "INETS_DEBUG       = $(INETS_DEBUG)"
-	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"

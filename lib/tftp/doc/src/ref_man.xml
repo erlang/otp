@@ -22,30 +22,15 @@
 
     </legalnotice>
 
-    <title>Inets Reference Manual</title>
+    <title>TFTP Reference Manual</title>
     <prepared>Péter Dimitrov</prepared>
     <docno></docno>
-    <date>2018-02-28</date>
-    <rev>2.1</rev>
+    <date>2018-03-22</date>
+    <rev>1.0</rev>
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p><c>Inets</c> is a container for an HTTP client and server.</p>
+    <p>The <c>TFTP</c> application.</p>
   </description>
-  <xi:include href="inets.xml"/>
-  <xi:include href="httpc.xml"/>
-  <xi:include href="httpd.xml"/>
-  <xi:include href="httpd_custom_api.xml"/>
-  <xi:include href="httpd_socket.xml"/>
-  <xi:include href="httpd_util.xml"/>
-  <xi:include href="mod_alias.xml"/>
-  <xi:include href="mod_auth.xml"/>
-  <xi:include href="mod_esi.xml"/>
-  <xi:include href="mod_security.xml"/>
-  <xi:include href="http_uri.xml"/>
+  <xi:include href="tftp.xml"/>
 </application>
-
-
-
-
-

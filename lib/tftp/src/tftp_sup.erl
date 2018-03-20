@@ -19,7 +19,7 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The top supervisor for tftp hangs under inets_sup.
+%% Purpose: The top supervisor for tftp
 %%----------------------------------------------------------------------
 
 -module(tftp_sup).

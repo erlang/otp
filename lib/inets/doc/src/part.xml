@@ -33,7 +33,6 @@
     <p>The <c>Inets</c> application provides a set of 
     Internet-related services as follows:</p>
       <list type="bulleted">
-       <item>A TFTP client and server</item>
        <item>An <term id="HTTP"></term> client and server</item>
      </list>
      <p>The HTTP client and server are HTTP 1.1 compliant as
