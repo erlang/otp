@@ -1505,6 +1505,15 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	res = ERL_DE_LOAD_ERROR_BAD_NAME;
 	goto error;
     }
+
+    {
+        Eterm name_atom = erts_atom_put((byte*)name, sys_strlen(name),
+                                        ERTS_ATOM_ENC_LATIN1, 0);
+        if (is_non_value(name_atom))
+            goto error;
+        erts_add_taint(name_atom);
+    }
+
     erts_atomic_init_nob(&(dh->refc), (erts_aint_t) 0);
     erts_atomic32_init_nob(&dh->port_count, 0);
     dh->full_path = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(path) + 1);

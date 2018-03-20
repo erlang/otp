@@ -3726,16 +3726,26 @@ static Eterm mkatom(const char *str)
     return am_atom_put(str, sys_strlen(str));
 }
 
-static struct tainted_module_t
+struct tainted_module_t
 {
     struct tainted_module_t* next;
     Eterm module_atom;
-}*first_tainted_module = NULL;
+};
 
-static void add_taint(Eterm mod_atom)
+erts_atomic_t first_taint; /* struct tainted_module_t* */
+
+void erts_add_taint(Eterm mod_atom)
 {
-    struct tainted_module_t* t;
-    for (t=first_tainted_module ; t!=NULL; t=t->next) {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    extern erts_rwmtx_t erts_driver_list_lock; /* Mutex for driver list */
+#endif
+    struct tainted_module_t *first, *t;
+
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&erts_driver_list_lock)
+                   || erts_thr_progress_is_blocking());
+
+    first = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
+    for (t=first ; t; t=t->next) {
 	if (t->module_atom == mod_atom) {
 	    return;
 	}
@@ -3743,22 +3753,24 @@ static void add_taint(Eterm mod_atom)
     t = erts_alloc_fnf(ERTS_ALC_T_TAINT, sizeof(*t));
     if (t != NULL) {
 	t->module_atom = mod_atom;
-	t->next = first_tainted_module;
-	first_tainted_module = t;
+	t->next = first;
+        erts_atomic_set_nob(&first_taint, (erts_aint_t)t);
     }
 }
 
 Eterm erts_nif_taints(Process* p)
 {
-    struct tainted_module_t* t;
+    struct tainted_module_t *first, *t;
     unsigned cnt = 0;
     Eterm list = NIL;
     Eterm* hp;
-    for (t=first_tainted_module ; t!=NULL; t=t->next) {
+
+    first = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
+    for (t=first ; t!=NULL; t=t->next) {
 	cnt++;
     }
     hp = HAlloc(p,cnt*2);
-    for (t=first_tainted_module ; t!=NULL; t=t->next) {
+    for (t=first ; t!=NULL; t=t->next) {
 	list = CONS(hp, t->module_atom, list);
 	hp += 2;
     }
@@ -3767,9 +3779,11 @@ Eterm erts_nif_taints(Process* p)
 
 void erts_print_nif_taints(fmtfn_t to, void* to_arg)
 {
-    struct tainted_module_t* t;
+    struct tainted_module_t *t;
     const char* delim = "";
-    for (t=first_tainted_module ; t!=NULL; t=t->next) {
+
+    t = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
+    for ( ; t; t = t->next) {
 	const Atom* atom = atom_tab(atom_val(t->module_atom));
 	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
 	delim = ",";
@@ -3964,7 +3978,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			      " function: '%s'", errdesc.str);
 	
     }
-    else if ((add_taint(mod_atom),
+    else if ((erts_add_taint(mod_atom),
 	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }

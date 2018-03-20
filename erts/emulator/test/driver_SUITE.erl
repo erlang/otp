@@ -2589,8 +2589,18 @@ stop_driver(Port, Name) ->
     ok = erl_ddll:stop().
 
 load_driver(Dir, Driver) ->
+    Before = erlang:system_info(taints),
     case erl_ddll:load_driver(Dir, Driver) of
-        ok -> ok;
+        ok ->
+            After = erlang:system_info(taints),
+            case lists:member(Driver, Before) of
+                true ->
+                    After = Before;
+                false ->
+                    true = lists:member(Driver, After),
+                    Before = lists:delete(Driver, After)
+            end,
+            ok;
         {error, Error} = Res ->
             io:format("~s\n", [erl_ddll:format_error(Error)]),
             Res
