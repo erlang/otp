@@ -177,7 +177,7 @@ posix_errno_t efile_set_permissions(const efile_path_t *path, Uint32 permissions
 
 /** @brief On Unix, this will set the owner/group to the given values. It will
  * do nothing on other platforms. */
-posix_errno_t efile_set_owner(const efile_path_t *path, Uint32 owner, Uint32 group);
+posix_errno_t efile_set_owner(const efile_path_t *path, Sint32 owner, Sint32 group);
 
 /** @brief Resolves the final path of the given link. */
 posix_errno_t efile_read_link(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_TERM *result);

@@ -687,7 +687,7 @@ posix_errno_t efile_set_permissions(const efile_path_t *path, Uint32 permissions
     return 0;
 }
 
-posix_errno_t efile_set_owner(const efile_path_t *path, Uint32 owner, Uint32 group) {
+posix_errno_t efile_set_owner(const efile_path_t *path, Sint32 owner, Sint32 group) {
     if(chown((const char*)path->data, owner, group) < 0) {
         return errno;
     }

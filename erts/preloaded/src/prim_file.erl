@@ -618,8 +618,10 @@ write_file_info_1(Filename, Info, TimeType) ->
         error:_ -> {error, badarg}
     end.
 
-set_owner(_EncodedName, undefined, undefined) ->
-    ok;
+set_owner(EncodedName, Uid, undefined) ->
+    set_owner(EncodedName, Uid, -1);
+set_owner(EncodedName, undefined, Gid) ->
+    set_owner(EncodedName, -1, Gid);
 set_owner(EncodedName, Uid, Gid) ->
     set_owner_nif(EncodedName, Uid, Gid).
 set_owner_nif(_Path, _Uid, _Gid) ->

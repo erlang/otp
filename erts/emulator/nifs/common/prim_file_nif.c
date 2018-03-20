@@ -891,10 +891,10 @@ static ERL_NIF_TERM set_owner_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     posix_errno_t posix_errno;
 
     efile_path_t path;
-    Uint32 uid, gid;
+    Sint32 uid, gid;
 
-    if(argc != 3 || !enif_get_uint(env, argv[1], &uid)
-                 || !enif_get_uint(env, argv[2], &gid)) {
+    if(argc != 3 || !enif_get_int(env, argv[1], &uid)
+                 || !enif_get_int(env, argv[2], &gid)) {
         return enif_make_badarg(env);
     }
 
