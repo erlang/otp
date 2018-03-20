@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1, hof/1]).
+	 suffix/1, subtract/1, droplast/1, search/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -121,7 +121,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast]}
+			 hof, droplast, search]}
     ].
 
 init_per_suite(Config) ->
@@ -2613,6 +2613,20 @@ droplast(Config) when is_list(Config) ->
     {'EXIT', {function_clause, _}} = (catch lists:droplast([])),
     {'EXIT', {function_clause, _}} = (catch lists:droplast(x)),
 
+    ok.
+
+%% Test lists:search/2
+search(Config) when is_list(Config) ->
+    F = fun(I) -> I rem 2 =:= 0 end,
+    F2 = fun(A, B) -> A > B end,
+
+    {value, 2} = lists:search(F, [1,2,3,4]),
+    false = lists:search(F, [1,3,5,7]),
+    false = lists:search(F, []),
+
+    %% Error cases.
+    {'EXIT',{function_clause,_}} = (catch lists:search(badfun, [])),
+    {'EXIT',{function_clause,_}} = (catch lists:search(F2, [])),
     ok.
 
 %% Briefly test the common high-order functions to ensure they
