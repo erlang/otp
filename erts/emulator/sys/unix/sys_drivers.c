@@ -50,6 +50,9 @@
 #include <sys/ioctl.h>
 #endif
 
+#include <sys/types.h>
+#include <sys/socket.h>
+
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
 

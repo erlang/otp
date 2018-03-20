@@ -18,6 +18,42 @@
  * %CopyrightEnd%
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
+#if defined(__sun__) && !defined(_XOPEN_SOURCE)
+#define _XOPEN_SOURCE 500
+#endif
+
+#include <limits.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+#ifdef HAVE_SYS_SOCKETIO_H
+#   include <sys/socketio.h>
+#endif
+#ifdef HAVE_SYS_SOCKIO_H
+#   include <sys/sockio.h>
+#endif
+
+#ifdef HAVE_NET_ERRNO_H
+#include <net/errno.h>
+#endif
+
+#ifdef HAVE_DIRENT_H
+#  include <dirent.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+#   include <unistd.h>
+#endif
+
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
 #include "sys_uds.h"
 
 int

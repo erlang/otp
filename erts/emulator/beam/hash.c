@@ -152,7 +152,7 @@ Hash* hash_init(int type, Hash* h, char* name, int size, HashFunctions fun)
 
     h->bucket = (HashBucket**) fun.meta_alloc(h->meta_alloc_type, sz);
 
-    sys_memzero(h->bucket, sz);
+    memzero(h->bucket, sz);
     h->is_allocated = 0;
     h->name = name;
     h->fun = fun;
@@ -224,7 +224,7 @@ static void rehash(Hash* h, int grow)
     sz = h->size*sizeof(HashBucket*);
 
     new_bucket = (HashBucket **) h->fun.meta_alloc(h->meta_alloc_type, sz);
-    sys_memzero(new_bucket, sz);
+    memzero(new_bucket, sz);
 
     for (i = 0; i < old_size; i++) {
 	HashBucket* b = h->bucket[i];

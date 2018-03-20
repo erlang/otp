@@ -994,7 +994,8 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
     return val;
 }
 
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+#endif  /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 
 /* Thin wrappers around memcpy and friends, which should always be used in
  * place of plain memcpy, memset, etc.
@@ -1006,26 +1007,71 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
  *
  * (The weird casts in the assertions silence an "always evaluates to true"
  * warning when an operand is the address of an lvalue) */
-#define sys_memcpy(s1,s2,n) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memcpy(s1,s2,n))
-#define sys_memmove(s1,s2,n) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memmove(s1,s2,n))
-#define sys_memcmp(s1,s2,n) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), memcmp(s1,s2,n))
-#define sys_memset(s,c,n) \
-    (ASSERT((void*)(s) != NULL), memset(s,c,n))
-#define sys_memzero(s, n) \
-    (ASSERT((void*)(s) != NULL), memset(s,'\0',n))
-#define sys_strcmp(s1,s2) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strcmp(s1,s2))
-#define sys_strncmp(s1,s2,n) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strncmp(s1,s2,n))
-#define sys_strcpy(s1,s2) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strcpy(s1,s2))
-#define sys_strncpy(s1,s2,n) \
-    (ASSERT((void*)(s1) != NULL && (void*)(s2) != NULL), strncpy(s1,s2,n))
-#define sys_strlen(s) \
-    (ASSERT((void*)(s) != NULL), strlen(s))
+ERTS_GLB_INLINE void *sys_memcpy(void *dest, const void *src, size_t n);
+ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n);
+ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n);
+ERTS_GLB_INLINE void *sys_memset(void *s, int c, size_t n);
+ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n);
+ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2);
+ERTS_GLB_INLINE int sys_strncmp(const char *s1, const char *s2, size_t n);
+ERTS_GLB_INLINE char *sys_strcpy(char *dest, const char *src);
+ERTS_GLB_INLINE char *sys_strncpy(char *dest, const char *src, size_t n);
+ERTS_GLB_INLINE size_t sys_strlen(const char *s);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void *sys_memcpy(void *dest, const void *src, size_t n)
+{
+    ASSERT(dest != NULL && src != NULL);
+    return memcpy(dest,src,n);
+}
+ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n)
+{
+    ASSERT(dest != NULL && src != NULL);
+    return memmove(dest,src,n);
+}
+ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n)
+{
+    ASSERT(s1 != NULL && s2 != NULL);
+    return memcmp(s1,s2,n);
+}
+ERTS_GLB_INLINE void *sys_memset(void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+    return memset(s,c,n);
+}
+ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n)
+{
+    ASSERT(s != NULL);
+    return memset(s,'\0',n);
+}
+ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2)
+{
+    ASSERT(s1 != NULL && s2 != NULL);
+    return strcmp(s1,s2);
+}
+ERTS_GLB_INLINE int sys_strncmp(const char *s1, const char *s2, size_t n)
+{
+    ASSERT(s1 != NULL && s2 != NULL);
+    return strncmp(s1,s2,n);
+}
+ERTS_GLB_INLINE char *sys_strcpy(char *dest, const char *src)
+{
+    ASSERT(dest != NULL && src != NULL);
+    return strcpy(dest,src);
+
+}
+ERTS_GLB_INLINE char *sys_strncpy(char *dest, const char *src, size_t n)
+{
+    ASSERT(dest != NULL && src != NULL);
+    return strncpy(dest,src,n);
+}
+ERTS_GLB_INLINE size_t sys_strlen(const char *s)
+{
+    ASSERT(s != NULL);
+    return strlen(s);
+}
+#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 /* define function symbols (needed in sys_drv_api) */
 #define sys_fp_alloc     sys_alloc
