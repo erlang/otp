@@ -2301,7 +2301,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% test_server_io:print_buffered/1 to print the data. To help with this,
 %% two variables in the process dictionary are used:
 %% 'test_server_common_io_handler' and 'test_server_queued_io'. The values
-%% are set to as follwing:
+%% are set to as following:
 %%
 %%   Value	Meaning
 %%   -----     -------
