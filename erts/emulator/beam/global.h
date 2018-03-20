@@ -1181,6 +1181,7 @@ typedef void *(*ErtsStaticNifInitFPtr)(void);
 typedef struct ErtsStaticNifEntry_ {
     const char *nif_name;
     ErtsStaticNifInitFPtr nif_init;
+    int taint;
 } ErtsStaticNifEntry;
 ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);

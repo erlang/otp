@@ -3892,6 +3892,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
+    int taint = 1;
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
@@ -3944,6 +3945,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         if (sne != NULL) {
             init_func = sne->nif_init;
             handle = init_func;
+            taint = sne->taint;
         }
     }
     this_mi = &module_p->curr;
@@ -3982,7 +3984,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			      " function: '%s'", errdesc.str);
 	
     }
-    else if ((erts_add_taint(mod_atom),
+    else if ((taint ? erts_add_taint(mod_atom) : 0,
 	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }
