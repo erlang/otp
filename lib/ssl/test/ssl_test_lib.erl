@@ -862,6 +862,163 @@ accepters(Acc, N) ->
 	    accepters([Server| Acc], N-1)
     end.
 
+
+basic_test(COpts, SOpts, Config) ->
+    SType = proplists:get_value(server_type, Config),
+    CType = proplists:get_value(client_type, Config),
+    {Server, Port} = start_server(SType, SOpts, Config),
+    Client = start_client(CType, Port, COpts, Config),
+    gen_check_result(Server, SType, Client, CType),
+    stop(Server, Client).    
+
+ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
+    {Server, Port} = start_server_ecc(erlang, SOpts, Expect, SECCOpts, Config),
+    Client = start_client_ecc(erlang, Port, COpts, Expect, CECCOpts, Config),
+    check_result(Server, ok, Client, ok),
+    stop(Server, Client).
+
+ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
+    {Server, Port} = start_server_ecc_error(erlang, SOpts, SECCOpts, Config),
+    Client = start_client_ecc_error(erlang, Port, COpts, CECCOpts, Config),
+    Error = {error, {tls_alert, "insufficient security"}},
+    check_result(Server, Error, Client, Error).
+
+
+start_client(openssl, Port, ClientOpts, Config) ->
+    Cert = proplists:get_value(certfile, ClientOpts),
+    Key = proplists:get_value(keyfile, ClientOpts),
+    CA = proplists:get_value(cacertfile, ClientOpts),
+    Version = ssl_test_lib:protocol_version(Config),
+    Exe = "openssl",
+    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+	    ssl_test_lib:version_flag(Version),
+	    "-cert", Cert, "-CAfile", CA,
+	    "-key", Key, "-host","localhost", "-msg", "-debug"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
+    true = port_command(OpenSslPort, "Hello world"),
+    OpenSslPort;
+
+start_client(erlang, Port, ClientOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    KeyEx = proplists:get_value(check_keyex, Config, false),
+    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+			       {host, Hostname},
+			       {from, self()},
+			       {mfa, {ssl_test_lib, check_key_exchange_send_active, [KeyEx]}},
+			       {options, [{verify, verify_peer} | ClientOpts]}]).
+
+
+start_client_ecc(erlang, Port, ClientOpts, Expect, ECCOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                               {host, Hostname},
+                               {from, self()},
+                               {mfa, {?MODULE, check_ecc, [client, Expect]}},
+                               {options,
+                                ECCOpts ++
+                                [{verify, verify_peer} | ClientOpts]}]).
+
+start_client_ecc_error(erlang, Port, ClientOpts, ECCOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                     {host, Hostname},
+                                     {from, self()},
+                                     {options,
+                                      ECCOpts ++
+                                      [{verify, verify_peer} | ClientOpts]}]).
+
+
+start_server(openssl, ServerOpts, Config) ->
+    Cert = proplists:get_value(certfile, ServerOpts),
+    Key = proplists:get_value(keyfile, ServerOpts),
+    CA = proplists:get_value(cacertfile, ServerOpts),
+    Port = inet_port(node()),
+    Version = protocol_version(Config),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
+	    "-verify", "2", "-cert", Cert, "-CAfile", CA,
+	    "-key", Key, "-msg", "-debug"],
+    OpenSslPort = portable_open_port(Exe, Args),
+    true = port_command(OpenSslPort, "Hello world"),
+    {OpenSslPort, Port};
+start_server(erlang, ServerOpts, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    KeyEx = proplists:get_value(check_keyex, Config, false),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                           {from, self()},
+                           {mfa, {ssl_test_lib,
+                                  check_key_exchange_send_active,
+                                  [KeyEx]}},
+                           {options, [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_with_raw_key(erlang, ServerOpts, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                           {from, self()},
+                           {mfa, {ssl_test_lib,
+                                  send_recv_result_active,
+                                  []}},
+                           {options,
+                            [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_ecc(erlang, ServerOpts, Expect, ECCOpts, Config) ->
+    {_, ServerNode, _} = run_where(Config),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {?MODULE, check_ecc, [server, Expect]}},
+                                        {options,
+                                         ECCOpts ++
+                                         [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_ecc_error(erlang, ServerOpts, ECCOpts, Config) ->
+    {_, ServerNode, _} = run_where(Config),
+    Server = start_server_error([{node, ServerNode}, {port, 0},
+                                              {from, self()},
+                                              {options,
+                                               ECCOpts ++
+                                               [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+gen_check_result(Server, erlang, Client, erlang) ->
+    check_result(Server, ok, Client, ok);
+gen_check_result(Server, erlang, _, _) ->
+    check_result(Server, ok);
+gen_check_result(_, _, Client, erlang) ->
+    check_result(Client, ok);
+gen_check_result(_,openssl, _, openssl) ->
+    ok.
+
+stop(Port1, Port2) when is_port(Port1), is_port(Port2) ->
+    close_port(Port1),
+    close_port(Port2);
+stop(Port, Pid) when is_port(Port) ->
+    close_port(Port),
+    close(Pid);
+stop(Pid, Port) when is_port(Port) ->
+    close_port(Port),
+    close(Pid);
+stop(Client, Server)  ->
+    close(Server),
+    close(Client).
+
+supported_eccs(Opts) ->
+    ToCheck = proplists:get_value(eccs, Opts, []),
+    Supported = ssl:eccs(),
+    lists:all(fun(Curve) -> lists:member(Curve, Supported) end, ToCheck).
+
+check_ecc(SSL, Role, Expect) ->
+    {ok, Data} = ssl:connection_information(SSL),
+    case lists:keyfind(ecc, 1, Data) of
+        {ecc, {named_curve, Expect}} -> ok;
+        false when Expect == undefined -> ok;
+        false when Expect == secp256r1 andalso Role == client_no_ecc -> ok;
+        Other -> {error, Role, Expect, Other}
+    end.
+
 inet_port(Pid) when is_pid(Pid)->
     receive
 	{Pid, {port, Port}} ->
@@ -1185,10 +1342,7 @@ sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
-sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic_SUITE
-				      Group == erlang_server;  %% From ssl_ECC_SUITE
-				      Group == erlang_client;  %% From ssl_ECC_SUITE
-				      Group == erlang ->       %% From ssl_ECC_SUITE
+sufficient_crypto_support(cipher_ec) -> 
     CryptoSupport = crypto:supports(),
     proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
