@@ -348,12 +348,16 @@ do_tests(Test, ParamSet, Config) ->
     {Parallelism, Message} = bench_params(ParamSet),
     Fun = create_clients(Message, ServerMod, Client, Parallelism),
     {TotalLoops, AllPidTime} = run_test(Fun),
-    PerSecond = ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime),
-    ct_event:notify(
-      #event{
-         name = benchmark_data,
-         data = [{suite,BenchmarkSuite},{value,PerSecond}]}),
-    PerSecond.
+    try ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime) of
+        PerSecond ->
+            ct_event:notify(
+              #event{
+                 name = benchmark_data,
+                 data = [{suite,BenchmarkSuite},{value,PerSecond}]}),
+            PerSecond
+    catch error:badarith ->
+            "Time measurement is not working"
+    end.
 
 -define(COUNTER, n).
 
