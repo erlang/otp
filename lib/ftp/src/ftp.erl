@@ -1078,7 +1078,7 @@ handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
     end;	
 
 handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State) ->
-    send_ctrl_message(State, mk_cmd("AUTH TLS", [])), 
+    _ = send_ctrl_message(State, mk_cmd("AUTH TLS", [])), 
     activate_ctrl_connection(State),
     {noreply, State#state{client = From, caller = open, tls_options = TLSOptions}};
 
@@ -1094,7 +1094,7 @@ handle_call({_, {account, Acc}}, From, State)->
     handle_user_account(Acc, State#state{client = From});
 
 handle_call({_, pwd}, From, #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("PWD", [])), 
+    _ = send_ctrl_message(State, mk_cmd("PWD", [])), 
     activate_ctrl_connection(State),
     {noreply, State#state{client = From, caller = pwd}};
 
@@ -1102,7 +1102,7 @@ handle_call({_, lpwd}, From,  #state{ldir = LDir} = State) ->
     {reply, {ok, LDir}, State#state{client = From}};
 
 handle_call({_, {cd, Dir}}, From,  #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])), 
+    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])), 
     activate_ctrl_connection(State),
     {noreply, State#state{client = From, caller = cd}};
 
@@ -1121,35 +1121,35 @@ handle_call({_, {dir, Len, Dir}}, {_Pid, _} = From,
 				      client = From});
 handle_call({_, {rename, CurrFile, NewFile}}, From,
 	    #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("RNFR ~s", [CurrFile])),
+    _ = send_ctrl_message(State, mk_cmd("RNFR ~s", [CurrFile])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {rename, NewFile}, client = From}};
 
 handle_call({_, {delete, File}}, {_Pid, _} = From, 
 	    #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("DELE ~s", [File])),
+    _ = send_ctrl_message(State, mk_cmd("DELE ~s", [File])),
     activate_ctrl_connection(State),
     {noreply, State#state{client = From}};
 
 handle_call({_, {mkdir, Dir}}, From,  #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("MKD ~s", [Dir])),
+    _ = send_ctrl_message(State, mk_cmd("MKD ~s", [Dir])),
     activate_ctrl_connection(State),
     {noreply, State#state{client = From}};
 
 handle_call({_,{rmdir, Dir}}, From, #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd("RMD ~s", [Dir])),
+    _ = send_ctrl_message(State, mk_cmd("RMD ~s", [Dir])),
     activate_ctrl_connection(State),
     {noreply, State#state{client = From}};
 
 handle_call({_,{type, Type}}, From, #state{chunk = false} = State) ->  
     case Type of
 	ascii ->
-	    send_ctrl_message(State, mk_cmd("TYPE A", [])),
+	    _ = send_ctrl_message(State, mk_cmd("TYPE A", [])),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = type, type = ascii, 
 				  client = From}};
 	binary ->
-	    send_ctrl_message(State, mk_cmd("TYPE I", [])),
+	    _ = send_ctrl_message(State, mk_cmd("TYPE I", [])),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = type, type = binary, 
 				  client = From}};
@@ -1260,7 +1260,7 @@ handle_call({_, chunk_end}, _, #state{chunk = false} = State) ->
     {reply, {error, echunk}, State};
 
 handle_call({_, {quote, Cmd}}, From, #state{chunk = false} = State) ->
-    send_ctrl_message(State, mk_cmd(Cmd, [])),
+    _ = send_ctrl_message(State, mk_cmd(Cmd, [])),
     activate_ctrl_connection(State),
     {noreply, State#state{client = From, caller = quote}};
 
@@ -1284,7 +1284,7 @@ handle_call(Request, _Timeout, State) ->
 %% Description: Handles cast messages.         
 %%-------------------------------------------------------------------------
 handle_cast({Pid, close}, #state{owner = Pid} = State) ->
-    send_ctrl_message(State, mk_cmd("QUIT", [])),
+    _ = send_ctrl_message(State, mk_cmd("QUIT", [])),
     close_ctrl_connection(State),
     close_data_connection(State),
     {stop, normal, State#state{csock = undefined, dsock = undefined}};
@@ -1580,17 +1580,17 @@ start_link(Opts, GenServerOptions) ->
 %%--------------------------------------------------------------------------
 %% User handling 
 handle_user(User, Password, Acc, State) ->
-    send_ctrl_message(State, mk_cmd("USER ~s", [User])),
+    _ = send_ctrl_message(State, mk_cmd("USER ~s", [User])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {handle_user, Password, Acc}}}.
 
 handle_user_passwd(Password, Acc, State) ->
-    send_ctrl_message(State, mk_cmd("PASS ~s", [Password])),
+    _ = send_ctrl_message(State, mk_cmd("PASS ~s", [Password])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {handle_user_passwd, Acc}}}.
 
 handle_user_account(Acc, State) ->
-    send_ctrl_message(State, mk_cmd("ACCT ~s", [Acc])),
+    _ = send_ctrl_message(State, mk_cmd("ACCT ~s", [Acc])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = handle_user_account}}.
 
@@ -1607,7 +1607,7 @@ handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
     case ssl:connect(Socket, TLSOptions, Timeout) of
 	{ok, TLSSocket} ->
 	    State = State0#state{csock = {ssl,TLSSocket}},
-	    send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
+	    _ = send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}} };
 	{error, _} = Error ->
@@ -1618,7 +1618,7 @@ handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
     end;	
 
 handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz}} = State) ->
-    send_ctrl_message(State, mk_cmd("PROT P", [])),
+    _ = send_ctrl_message(State, mk_cmd("PROT P", [])),
     activate_ctrl_connection(State),
     {noreply, State#state{tls_upgrading_data_connection = {true, prot}}};
 
@@ -1812,7 +1812,7 @@ handle_ctrl_result({pos_compl, Lines},
 		   #state{caller = {handle_dir_data, Dir, DirData}} = 
 		   State) ->
     OldDir = pwd_result(Lines),    
-    send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])),
+    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {handle_dir_data_second_phase, OldDir,
 				    DirData}}};
@@ -1828,7 +1828,7 @@ handle_ctrl_result(S={_Status, _},
 handle_ctrl_result({pos_compl, _},
 		   #state{caller = {handle_dir_data_second_phase, OldDir, 
 				    DirData}} = State) ->
-    send_ctrl_message(State, mk_cmd("CWD ~s", [OldDir])),
+    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [OldDir])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {handle_dir_data_third_phase, DirData}}};
 handle_ctrl_result({Status, _}, 
@@ -1850,7 +1850,7 @@ handle_ctrl_result(Status={epath, _}, #state{caller = {dir,_}} = State) ->
 %% File renaming
 handle_ctrl_result({pos_interm, _}, #state{caller = {rename, NewFile}} 
 		   = State) ->
-    send_ctrl_message(State, mk_cmd("RNTO ~s", [NewFile])),
+    _ = send_ctrl_message(State, mk_cmd("RNTO ~s", [NewFile])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = rename_second_phase}}; 
 
@@ -2027,28 +2027,28 @@ handle_caller(#state{caller = {dir, Dir, Len}} = State) ->
 	      short -> "NLST";
 	      long -> "LIST"
 	  end,
-    case Dir of 
-	"" ->
-	    send_ctrl_message(State, mk_cmd(Cmd, ""));
-	_ ->
-	    send_ctrl_message(State, mk_cmd(Cmd ++ " ~s", [Dir]))
-    end,
+    _ = case Dir of
+            "" ->
+                send_ctrl_message(State, mk_cmd(Cmd, ""));
+            _ ->
+                send_ctrl_message(State, mk_cmd(Cmd ++ " ~s", [Dir]))
+        end,
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {dir, Dir}}};
      
 handle_caller(#state{caller = {recv_bin, RemoteFile}} = State) ->
-    send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])),
+    _ = send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = recv_bin}};
 
 handle_caller(#state{caller = {start_chunk_transfer, Cmd, RemoteFile}} = 
 	      State) ->
-    send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = start_chunk_transfer}};
 
 handle_caller(#state{caller = {recv_file, RemoteFile, Fd}} = State) ->
-    send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])), 
+    _ = send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])), 
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {recv_file, Fd}}};
 
@@ -2056,7 +2056,7 @@ handle_caller(#state{caller = {transfer_file, {Cmd, LocalFile, RemoteFile}},
 		     ldir = LocalDir, client = From} = State) ->
     case file_open(filename:absname(LocalFile, LocalDir), read) of
 	{ok, Fd} ->
-	    send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+	    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {transfer_file, Fd}}};
 	{error, _} ->
@@ -2067,7 +2067,7 @@ handle_caller(#state{caller = {transfer_file, {Cmd, LocalFile, RemoteFile}},
 
 handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} = 
 	      State) ->
-    send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {transfer_data, Bin}}}.
 
@@ -2104,7 +2104,7 @@ setup_data_connection(#state{mode   = active,
 	    {ok, {_, Port}} = sockname({tcp,LSock}),
 	    IpAddress = inet_parse:ntoa(IP),
 	    Cmd = mk_cmd("EPRT |2|~s|~p|", [IpAddress, Port]),
-	    send_ctrl_message(State, Cmd),
+	    _ = send_ctrl_message(State, Cmd),
 	    activate_ctrl_connection(State),  
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}};
@@ -2112,18 +2112,18 @@ setup_data_connection(#state{mode   = active,
 	    {ok, LSock} = gen_tcp:listen(0, [{ip, IP}, {active, false},
 					     binary, {packet, 0}]),
 	    {ok, Port} = inet:port(LSock),
-	    case FtpExt of
-	    	false ->
-		    {IP1, IP2, IP3, IP4} = IP,
-		    {Port1, Port2} = {Port div 256, Port rem 256},
-		    send_ctrl_message(State, 
-				      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
-					     [IP1, IP2, IP3, IP4, Port1, Port2]));
-		true ->
-		    IpAddress = inet_parse:ntoa(IP),
-		    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
-		    send_ctrl_message(State, Cmd)
-	    end,	        
+	    _ = case FtpExt of
+                    false ->
+                        {IP1, IP2, IP3, IP4} = IP,
+                        {Port1, Port2} = {Port div 256, Port rem 256},
+                        send_ctrl_message(State,
+                                          mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
+                                                 [IP1, IP2, IP3, IP4, Port1, Port2]));
+                    true ->
+                        IpAddress = inet_parse:ntoa(IP),
+                        Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
+                        send_ctrl_message(State, Cmd)
+                end,
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
@@ -2131,21 +2131,21 @@ setup_data_connection(#state{mode   = active,
 
 setup_data_connection(#state{mode = passive, ipfamily = inet6,
 			     caller = Caller} = State) ->
-    send_ctrl_message(State, mk_cmd("EPSV", [])),
+    _ = send_ctrl_message(State, mk_cmd("EPSV", [])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {setup_data_connection, Caller}}};
 
 setup_data_connection(#state{mode = passive, ipfamily = inet,
 			     caller = Caller,
 			     ftp_extension = false} = State) ->
-    send_ctrl_message(State, mk_cmd("PASV", [])),
+    _ = send_ctrl_message(State, mk_cmd("PASV", [])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {setup_data_connection, Caller}}};    
 
 setup_data_connection(#state{mode = passive, ipfamily = inet,
 			     caller = Caller,
 			     ftp_extension = true} = State) ->
-    send_ctrl_message(State, mk_cmd("EPSV", [])),
+    _ = send_ctrl_message(State, mk_cmd("EPSV", [])),
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {setup_data_connection, Caller}}}.
 
@@ -2589,10 +2589,6 @@ validate_options([_|Options], ValidOptions, Acc) ->
     validate_options(Options, ValidOptions, Acc).
 
 %% Help function, elapsed milliseconds since T0
-millisec_passed({_,_,_} = T0 ) ->
-    %% OTP 17 and earlier
-    timer:now_diff(erlang:timestamp(), T0) div 1000;
-
 millisec_passed(T0) ->
     %% OTP 18
     erlang:convert_time_unit(erlang:monotonic_time() - T0,
