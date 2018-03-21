@@ -25,7 +25,8 @@
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
-         message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
+         message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
+         perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +38,7 @@ all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
-     close_stdin, perf_counter_api].
+     close_stdin, max_size_command, perf_counter_api].
 
 groups() ->
     [].
@@ -312,6 +313,27 @@ close_stdin(Config) ->
 
     "-1" = os:cmd(Fds).
 
+max_size_command(_Config) ->
+
+    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    20 = length(Res20),
+
+    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    0 = length(Res0),
+
+    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    32768 = length(Res32768),
+
+    ResHello = string_trim(os:cmd("echo hello", #{ max_size => 20 })),
+    5 = length(ResHello).
+
+string_trim(S) ->
+    lists:reverse(string_trim_left(lists:reverse(string_trim_left(S)))).
+
+string_trim_left([C | T]) when C =:= $\s; C =:= $\n; C =:= $\t; C =:= $\r ->
+    string_trim_left(T);
+string_trim_left(S) ->
+    S.
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
