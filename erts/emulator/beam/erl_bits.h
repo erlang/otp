@@ -111,7 +111,7 @@ typedef struct erl_bin_match_struct{
 #define copy_binary_to_buffer(DstBuffer, DstBufOffset, SrcBuffer, SrcBufferOffset, NumBits) \
   do {											    \
     if (BIT_OFFSET(DstBufOffset) == 0 && (SrcBufferOffset == 0) &&			    \
-        (BIT_OFFSET(NumBits)==0)) {							    \
+        (BIT_OFFSET(NumBits)==0) && (NumBits != 0)) {					    \
       sys_memcpy(DstBuffer+BYTE_OFFSET(DstBufOffset),					    \
 		 SrcBuffer, NBYTES(NumBits));						    \
     } else {										    \
