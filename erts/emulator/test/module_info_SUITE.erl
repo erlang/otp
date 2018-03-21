@@ -62,7 +62,8 @@ exports(Config) when is_list(Config) ->
     All = lists:sort(?MODULE:module_info(exports)),
     ok.
 
-%% Test that the list of exported functions from this module is correct.
+%% Test that the list of local and exported functions from this module is
+%% correct.
 functions(Config) when is_list(Config) ->
     All = all_functions(),
     All = lists:sort(?MODULE:module_info(functions)),
