@@ -2,9 +2,9 @@
 
 set -e
 
-$ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
-$ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps compiler erts kernel stdlib asn1 crypto dialyzer hipe parsetools public_key runtime_tools sasl tools --statistics
-$ERL_TOP/bin/dialyzer -n --apps common_test debugger edoc inets mnesia observer ssh ssl syntax_tools wx xmerl --statistics
+$ERL_TOP/bin/dialyzer --build_plt --apps asn1 compiler crypto dialyzer edoc erts et ftp hipe inets kernel mnesia observer public_key runtime_tools snmp ssh ssl stdlib syntax_tools wx xmerl --statistics
+$ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps compiler erts ftp kernel stdlib asn1 crypto dialyzer hipe parsetools public_key runtime_tools sasl tools --statistics
+$ERL_TOP/bin/dialyzer -n --apps common_test debugger edoc ftp inets mnesia observer ssh ssl syntax_tools wx xmerl --statistics
 
 # In travis we don't dialyze everything as it takes too much time
 if [ "X$DIALYZE_ALL_APPLICATIONS" = "Xtrue" ]; then
