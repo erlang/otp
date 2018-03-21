@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bad spec in ssh.hrl: <c>double_algs()</c>.</p>
+          <p>
+	    Own Id: OTP-14990</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
