@@ -10501,6 +10501,8 @@ done:
     return st;
 }
 
+
+static void exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state);
 static void save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio);
 static void save_dirty_task(Process *c_p, ErtsProcSysTask *st);
 
@@ -10633,8 +10635,10 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                                                     reds, local_only);
             reds -= sig_reds;
 
-            if (state & ERTS_PSFLG_EXITING)
-                goto perm_elevate_prio;
+            if (state & ERTS_PSFLG_EXITING) {
+                exit_permanent_prio_elevation(c_p, state);
+                break;
+            }
 
             if (sig_res)
                 break;
@@ -10648,37 +10652,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                 st = NULL;
             }
             else {
-                erts_aint32_t a;
-
                 state = erts_atomic32_read_nob(&c_p->state);                         
-
-            perm_elevate_prio:
-
-                /*
-                 * we are about to terminate; permanently elevate
-                 * prio in order to ensure high prio signal
-                 * handling...
-                 */
-
-                a = state;
-                while (1) {
-                    erts_aint32_t aprio, uprio, n, e;
-                    ASSERT(!(a & ERTS_PSFLG_FREE));
-                    aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
-                    uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
-                    if (aprio >= uprio)
-                        break; /* user prio >= actual prio */
-                    /*
-                     * actual prio is higher than user prio; raise
-                     * user prio to actual prio...
-                     */
-                    n = e = a;
-                    n &= ~ERTS_PSFLGS_USR_PRIO_MASK;
-                    n |= aprio << ERTS_PSFLGS_USR_PRIO_OFFSET;
-                    a = erts_atomic32_cmpxchg_mb(&c_p->state, n, e);
-                    if (a == e)
-                        break;
-                }
+                exit_permanent_prio_elevation(c_p, state);
             }
             break;
         }
@@ -10730,12 +10705,15 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	}
 
 	switch (st->type) {
+        case ERTS_PSTT_PRIO_SIG:
+            state = erts_atomic32_read_nob(&c_p->state);                         
+            exit_permanent_prio_elevation(c_p, state);
+            /* fall through... */
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
         case ERTS_PSTT_COHMQ:
         case ERTS_PSTT_ETS_FREE_FIXATION:
-        case ERTS_PSTT_PRIO_SIG:
 	    st_res = am_false;
 	    break;
 	case ERTS_PSTT_CLA:
@@ -10759,6 +10737,36 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
     return reds;
 }
 
+static void
+exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state)
+{
+    erts_aint32_t a;
+    /*
+     * we are about to terminate; permanently elevate
+     * prio in order to ensure high prio signal
+     * handling...
+     */
+    a = state;
+    while (1) {
+        erts_aint32_t aprio, uprio, n, e;
+        ASSERT(a & ERTS_PSFLG_EXITING);
+        ASSERT(!(a & ERTS_PSFLG_FREE));
+        aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
+        uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
+        if (aprio >= uprio)
+            break; /* user prio >= actual prio */
+        /*
+         * actual prio is higher than user prio; raise
+         * user prio to actual prio...
+         */
+        n = e = a;
+        n &= ~ERTS_PSFLGS_USR_PRIO_MASK;
+        n |= aprio << ERTS_PSFLGS_USR_PRIO_OFFSET;
+        a = erts_atomic32_cmpxchg_mb(&c_p->state, n, e);
+        if (a == e)
+            break;
+    }
+}
 
 void
 erts_execute_dirty_system_task(Process *c_p)
@@ -12752,16 +12760,13 @@ erts_continue_exit_process(Process *p)
 
     erts_set_gc_state(p, 1);
     state = erts_atomic32_read_acqb(&p->state);
-    if ((state & ERTS_PSFLG_SYS_TASKS)
-        || p->dirty_sys_tasks
-        ) {
+    if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
 	if (cleanup_sys_tasks(p, state, CONTEXT_REDS) >= CONTEXT_REDS/2)
 	    goto yield;
     }
 
 #ifdef DEBUG
     erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    ASSERT(p->sys_task_qs == NULL);
     ASSERT(ERTS_PROC_GET_DELAYED_GC_TASK_QS(p) == NULL);
     ASSERT(p->dirty_sys_tasks == NULL);
     erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
@@ -12873,7 +12878,30 @@ erts_continue_exit_process(Process *p)
            ? ERTS_PROC_SET_DIST_ENTRY(p, NULL)
            : NULL);
 
-    erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+
+    /*
+     * It might show up signal prio elevation tasks until we
+     * have entered free state. Cleanup such tasks now.
+     */
+    state = erts_atomic32_read_acqb(&p->state);
+    if (!(state & ERTS_PSFLG_SYS_TASKS))
+        erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+    else {
+        erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+
+        do {
+            (void) cleanup_sys_tasks(p, state, CONTEXT_REDS);
+            state = erts_atomic32_read_acqb(&p->state);
+        } while (state & ERTS_PSFLG_SYS_TASKS);
+        
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    }
+
+#ifdef DEBUG
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    ASSERT(p->sys_task_qs == NULL);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+#endif
 
     if (dep) {
         erts_do_net_exits(dep, (reason == am_kill) ? am_killed : reason);
