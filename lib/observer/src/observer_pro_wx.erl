@@ -50,6 +50,7 @@
 -define(ID_TRACE_NEW, 208).
 -define(ID_TRACE_ALL, 209).
 -define(ID_ACCUMULATE, 210).
+-define(ID_GARBAGE_COLLECT, 211).
 
 -define(TRACE_PIDS_STR, "Trace selected process identifiers").
 -define(TRACE_NAMES_STR, "Trace selected processes, "
@@ -147,11 +148,11 @@ create_list_box(Panel, Holder) ->
     ListCtrl = wxListCtrl:new(Panel, [{style, Style},
 				      {onGetItemText,
 				       fun(_, Row, Col) ->
-					       call(Holder, {get_row, self(), Row, Col})
+					       safe_call(Holder, {get_row, self(), Row, Col})
 				       end},
 				      {onGetItemAttr,
 				       fun(_, Item) ->
-					       call(Holder, {get_attr, self(), Item})
+					       safe_call(Holder, {get_attr, self(), Item})
 				       end}
 				     ]),
     Li = wxListItem:new(),
@@ -208,17 +209,26 @@ start_procinfo(Pid, Frame, Opened) ->
 	    Opened
     end.
 
+
+safe_call(Holder, What) ->
+    case call(Holder, What, 2000) of
+        Res when is_atom(Res) -> "";
+        Res -> Res
+    end.
+
 call(Holder, What) ->
+    call(Holder, What, infinity).
+
+call(Holder, What, TMO) ->
     Ref = erlang:monitor(process, Holder),
     Holder ! What,
     receive
-	{'DOWN', Ref, _, _, _} -> "";
+	{'DOWN', Ref, _, _, _} -> holder_dead;
 	{Holder, Res} ->
 	    erlang:demonitor(Ref),
 	    Res
-    after 2000 ->
-	    io:format("Hanging call ~tp~n",[What]),
-	    ""
+    after TMO ->
+	    timeout
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -269,7 +279,10 @@ code_change(_, _, State) ->
 
 handle_call(get_config, _, #state{holder=Holder, timer=Timer}=State) ->
     Conf = observer_lib:timer_config(Timer),
-    Accum = call(Holder, {get_accum, self()}),
+    Accum = case safe_call(Holder, {get_accum, self()}) of
+                Bool when is_boolean(Bool) -> Bool;
+                _ -> false
+            end,
     {reply, Conf#{acc=>Accum}, State};
 
 handle_call(Msg, _From, State) ->
@@ -316,6 +329,9 @@ handle_event(#wx{id=?ID_KILL}, #state{right_clicked_pid=Pid, sel=Sel0}=State) ->
     Sel = rm_selected(Pid,Sel0),
     {noreply, State#state{sel=Sel}};
 
+handle_event(#wx{id=?ID_GARBAGE_COLLECT}, #state{sel={_, Pids}}=State) ->
+    _ = [rpc:call(node(Pid), erlang, garbage_collect, [Pid]) || Pid <- Pids],
+    {noreply, State};
 
 handle_event(#wx{id=?ID_PROC},
 	     #state{panel=Panel, right_clicked_pid=Pid, procinfo_menu_pids=Opened}=State) ->
@@ -370,6 +386,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 		wxMenu:append(Menu, ?ID_TRACE_NAMES,
 			      "Trace selected processes by name (all nodes)",
 			      [{help, ?TRACE_NAMES_STR}]),
+		wxMenu:append(Menu, ?ID_GARBAGE_COLLECT, "Garbage collect processes"),
 		wxMenu:append(Menu, ?ID_KILL, "Kill process " ++ pid_to_list(P)),
 		wxWindow:popupMenu(Panel, Menu),
 		wxMenu:destroy(Menu),
@@ -465,7 +482,7 @@ init_table_holder(Parent, Accum0, Attrs) ->
     Backend = spawn_link(node(), observer_backend, procs_info, [self()]),
     Accum = case Accum0 of
                 true -> true;
-                false -> []
+                _ -> []
             end,
     table_holder(#holder{parent=Parent,
 			 info=array:new(),
