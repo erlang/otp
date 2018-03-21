@@ -365,20 +365,47 @@ sig_enqueue_trace(Process *c_p, ErtsMessage *sig, int op,
 
 #ifdef USE_VM_PROBES
     case ERTS_SIG_Q_OP_EXIT:
-    case ERTS_SIG_Q_OP_EXIT_LINKED: {
-        ErtsExitSignalData *xsigd = get_exit_signal_data(sig);
-        if(DTRACE_ENABLED(process_exit_signal) && is_pid(xsigd->from)) {
-            DTRACE_CHARBUF(sender_str, DTRACE_TERM_BUF_SIZE);
-            DTRACE_CHARBUF(receiver_str, DTRACE_TERM_BUF_SIZE);
-            DTRACE_CHARBUF(reason_buf, DTRACE_TERM_BUF_SIZE);
+    case ERTS_SIG_Q_OP_EXIT_LINKED:
 
-            dtrace_pid_str(from, sender_str);
-            dtrace_proc_str(rp, receiver_str);
-            erts_snprintf(reason_buf, sizeof(DTRACE_CHARBUF_NAME(reason_buf)) - 1, "%T", reason);
-            DTRACE3(process_exit_signal, sender_str, receiver_str, reason_buf);
+        if (DTRACE_ENABLED(process_exit_signal)) {
+            Uint16 type = ERTS_PROC_SIG_TYPE(((ErtsSignal *) sig)->common.tag);
+            Eterm reason, from;
+
+            if (type == ERTS_SIG_Q_TYPE_GEN_EXIT) {
+                ErtsExitSignalData *xsigd = get_exit_signal_data(sig);
+                reason = xsigd->reason;
+                from = xsigd->from;
+            }
+            else {
+                ErtsLink *lnk = (ErtsLink *) sig, *olnk;
+
+                ASSERT(type == ERTS_LNK_TYPE_PROC
+                       || type == ERTS_LNK_TYPE_PORT
+                       || type == ERTS_LNK_TYPE_DIST_PROC);
+
+                olnk = erts_link_to_other(lnk, NULL);
+                reason = lnk->other.item;
+                from = olnk->other.item;
+            }
+
+            if (is_pid(from)) {
+
+                DTRACE_CHARBUF(sender_str, DTRACE_TERM_BUF_SIZE);
+                DTRACE_CHARBUF(receiver_str, DTRACE_TERM_BUF_SIZE);
+                DTRACE_CHARBUF(reason_buf, DTRACE_TERM_BUF_SIZE);
+
+                if (reason == am_kill) {
+                    reason = am_killed;
+                }
+
+                dtrace_pid_str(from, sender_str);
+                dtrace_proc_str(rp, receiver_str);
+                erts_snprintf(reason_buf, sizeof(DTRACE_CHARBUF_NAME(reason_buf)) - 1, "%T", reason);
+                DTRACE3(process_exit_signal, sender_str, receiver_str, reason_buf);
+            }
         }
         break;
-    }
+
 #endif
 
     default:
@@ -808,7 +835,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     s_utag = (is_immed(utag)
               ? utag
               : copy_struct(utag, utag_sz, &hp, ohp));
-    ERL_MESSAGE_DT_UTAG(mp) = utag;
+    ERL_MESSAGE_DT_UTAG(mp) = s_utag;
 #endif
 
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(op,

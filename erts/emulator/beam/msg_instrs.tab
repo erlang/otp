@@ -235,7 +235,7 @@ remove_message() {
         }
         DTRACE6(message_receive,
                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
-                c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
+                c_p->sig_qs.len - 1, tok_label, tok_lastcnt, tok_serial);
     }
 #endif
     UNLINK_MESSAGE(c_p, msgp);

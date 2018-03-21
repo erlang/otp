@@ -323,7 +323,7 @@ erts_queue_dist_message(Process *rcvr,
              * TODO: We don't know the real size of the external message here.
              *       -1 will appear to a D script as 4294967295.
              */
-            DTRACE6(message_queued, receiver_name, -1, rcvr->msg.len + 1,
+            DTRACE6(message_queued, receiver_name, -1, rcvr->sig_qs.len + 1,
                     tok_label, tok_lastcnt, tok_serial);
         }
 #endif
