@@ -572,7 +572,7 @@
       <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
       <item>
         <p>Sets the number of threads in async thread pool. Valid range
-          is 0-1024. Defaults to 10 if thread support is available.</p>
+          is 0-1024. Defaults to 1.</p>
       </item>
       <tag><c><![CDATA[+B [c | d | i]]]></c></tag>
       <item>
