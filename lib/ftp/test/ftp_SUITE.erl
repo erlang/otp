@@ -55,7 +55,7 @@ all() ->
      {group, ftps_active},
      {group, ftp_sup},
      app,
-     app_upp,
+     appup,
      error_ehost,
      clean_shutdown
     ].
@@ -228,9 +228,24 @@ end_per_group(_Group, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
+init_per_testcase(T, Config0) when T =:= app; T =:= appup ->
+    Config0;
 init_per_testcase(Case, Config0) ->
     Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
-    TLS = [{tls,[{reuse_sessions,true}]}],
+
+    %% Workaround for interoperability issues with vsftpd =< 3.0.2:
+    %%
+    %% vsftpd =< 3.0.2 does not support ECDHE ciphers and the ssl application
+    %% removed ciphers with RSA key exchange from its default cipher list.
+    %% To allow interoperability with old versions of vsftpd, cipher suites
+    %% with RSA key exchange are appended to the default cipher list.
+    All = ssl:cipher_suites(all, 'tlsv1.2'),
+    Default = ssl:cipher_suites(default, 'tlsv1.2'),
+    RSASuites =
+        ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
+                                                         (_) -> false end}]),
+    Suites = ssl:append_cipher_suites(RSASuites, Default),
+    TLS = [{tls,[{reuse_sessions,true},{ciphers, Suites}]}],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
@@ -261,7 +276,7 @@ init_per_testcase(Case, Config0) ->
 	    Config
     end.
 
-    
+end_per_testcase(T, _Config) when  T =:= app; T =:= appup -> ok;
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
 end_per_testcase(error_elogin, _Config) -> ok;

@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 {"%VSN%",
  [
-  {<<"*">>,[{restart_application, ftp}]}
+  {<<".*">>,[{restart_application, ftp}]}
  ],
  [
-  {<<"*">>,[{restart_application, ftp}]}
+  {<<".*">>,[{restart_application, ftp}]}
  ]
 }.
