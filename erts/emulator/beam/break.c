@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 #include "erl_instrument.h"
 #include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
+#include "erl_proc_sig_queue.h"
 
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
@@ -107,36 +108,11 @@ process_killer(void)
 		if ((j = sys_get_key(0)) <= 0)
 		    erts_exit(0, "");
 		switch(j) {
-		case 'k': {
-		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-		    erts_aint32_t state;
-		    erts_proc_inc_refc(rp);
-		    erts_proc_lock(rp, rp_locks);
-		    state = erts_atomic32_read_acqb(&rp->state);
-		    if (state & (ERTS_PSFLG_FREE
-				 | ERTS_PSFLG_EXITING
-				 | ERTS_PSFLG_ACTIVE
-				 | ERTS_PSFLG_ACTIVE_SYS
-				 | ERTS_PSFLG_IN_RUNQ
-				 | ERTS_PSFLG_RUNNING
-				 | ERTS_PSFLG_RUNNING_SYS
-				 | ERTS_PSFLG_DIRTY_RUNNING
-				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
-			erts_printf("Can only kill WAITING processes this way\n");
-		    }
-		    else {
-			(void) erts_send_exit_signal(NULL,
-						     NIL,
-						     rp,
-						     &rp_locks,
-						     am_kill,
-						     NIL,
-						     NULL,
-						     0);
-		    }
-		    erts_proc_unlock(rp, rp_locks);
-		    erts_proc_dec_refc(rp);
-		}
+		case 'k':
+                    /* Send a 'kill' exit signal from init process */
+                    erts_proc_sig_send_exit(NULL, erts_init_process_id,
+                                            rp->common.id, am_kill, NIL,
+                                            0);
 		case 'n': br = 1; break;
 		case 'r': return;
 		default: return;
@@ -161,47 +137,64 @@ static void doit_print_link(ErtsLink *lnk, void *vpcontext)
 
     if (pcontext->is_first) {
 	pcontext->is_first = 0;
-	erts_print(to, to_arg, "%T", lnk->pid);
+	erts_print(to, to_arg, "%T", lnk->other.item);
     } else {
-	erts_print(to, to_arg, ", %T", lnk->pid);
+	erts_print(to, to_arg, ", %T", lnk->other.item);
     }
 }
     
 
 static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 {
+    ErtsMonitorData *mdp;
     PrintMonitorContext *pcontext = vpcontext;
     fmtfn_t to = pcontext->to;
     void *to_arg = pcontext->to_arg;
     char *prefix = ", ";
  
-    if (pcontext->is_first) {
-	pcontext->is_first = 0;
-	prefix = "";
-    }
-
+    mdp = erts_monitor_to_data(mon);
     switch (mon->type) {
-    case MON_ORIGIN:
-	if (is_atom(mon->u.pid)) { /* dist by name */
-	    ASSERT(is_node_name_atom(mon->u.pid));
-	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
-		       mon->u.pid, mon->ref);
-	} else if (is_atom(mon->name)){ /* local by name */
-	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
-		       erts_this_dist_entry->sysname, mon->ref);
-	} else { /* local and distributed by pid */
-	    erts_print(to, to_arg, "%s{to,%T,%T}", prefix, mon->u.pid, mon->ref);
-	}
-	break;
-    case MON_TARGET:
-	erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->u.pid, mon->ref);
-	break;
-    case MON_NIF_TARGET: {
-        ErtsResource* rsrc = mon->u.resource;
-        erts_print(to, to_arg, "%s{from,{%T,%T},%T}", prefix, rsrc->type->module,
-                   rsrc->type->name, mon->ref);
-	break;
-    }
+    case ERTS_MON_TYPE_PROC:
+    case ERTS_MON_TYPE_PORT:
+    case ERTS_MON_TYPE_TIME_OFFSET:
+    case ERTS_MON_TYPE_DIST_PROC:
+    case ERTS_MON_TYPE_RESOURCE:
+    case ERTS_MON_TYPE_NODE:
+
+        if (pcontext->is_first) {
+            pcontext->is_first = 0;
+            prefix = "";
+        }
+
+        if (erts_monitor_is_target(mon)) {
+            if (mon->type != ERTS_MON_TYPE_RESOURCE)
+                erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->other.item, mdp->ref);
+            else {
+                ErtsResource* rsrc = mon->other.ptr;
+                erts_print(to, to_arg, "%s{from,{%T,%T},%T}", prefix, rsrc->type->module,
+                           rsrc->type->name, mdp->ref);
+            }
+        }
+        else {
+            if (!(mon->flags & ERTS_ML_FLG_NAME))
+                erts_print(to, to_arg, "%s{to,%T,%T}", prefix, mon->other.item, mdp->ref);
+            else {
+                ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+                Eterm node;
+                if (mdep->dist)
+                    node = mdep->dist->nodename;
+                else
+                    node = erts_this_dist_entry->sysname;
+                erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mdep->u.name,
+                           node, mdp->ref);
+            }
+        }
+
+        break;
+
+    default:
+        /* ignore other monitors... */
+        break;
     }
 }
 			       
@@ -257,15 +250,22 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
-    ERTS_MSGQ_MV_INQ2PRIVQ(p);
-    erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
+
+    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_fetch(p);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    erts_print(to, to_arg, "Message queue length: %d\n", p->sig_qs.len);
 
     /* display the message queue only if there is anything in it */
-    if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
-	ErtsMessage* mp;
+    if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing) {
 	erts_print(to, to_arg, "Message queue: [");
-	for (mp = p->msg.first; mp; mp = mp->next)
-	    erts_print(to, to_arg, mp->next ? "%T," : "%T", ERL_MESSAGE_TERM(mp));
+        ERTS_FOREACH_SIG_PRIVQS(
+            p, mp,
+            {
+                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                    erts_print(to, to_arg, mp->next ? "%T," : "%T",
+                               ERL_MESSAGE_TERM(mp));
+            });
 	erts_print(to, to_arg, "]\n");
     }
 
@@ -306,11 +306,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     }
 
     /* display the links only if there are any*/
-    if (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p)) {
+    if (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p) || ERTS_P_LT_MONITORS(p)) {
 	PrintMonitorContext context = {1, to, to_arg};
 	erts_print(to, to_arg,"Link list: [");
-	erts_doforall_links(ERTS_P_LINKS(p), &doit_print_link, &context);	
-	erts_doforall_monitors(ERTS_P_MONITORS(p), &doit_print_monitor, &context);
+	erts_link_tree_foreach(ERTS_P_LINKS(p), doit_print_link, &context);	
+	erts_monitor_tree_foreach(ERTS_P_MONITORS(p), doit_print_monitor, &context);
+	erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p), doit_print_monitor, &context);
 	erts_print(to, to_arg,"]\n");
     }
 

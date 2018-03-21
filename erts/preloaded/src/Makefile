@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ PRE_LOADED_ERL_MODULES = \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
-	erts_dirty_process_code_checker
+	erts_dirty_process_signal_handler
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval

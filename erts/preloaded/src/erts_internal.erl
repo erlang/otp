@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,6 +45,8 @@
 -export([check_process_code/3]).
 -export([check_dirty_process_code/2]).
 -export([is_process_executing_dirty/1]).
+-export([dirty_process_handle_signals/1]).
+
 -export([release_literal_area_switch/0]).
 -export([purge_module/2]).
 
@@ -70,6 +72,8 @@
 -export([scheduler_wall_time/1, system_flag_scheduler_wall_time/1,
          gather_sched_wall_time_result/1,
 	 await_sched_wall_time_modifications/2]).
+
+-export([group_leader/2, group_leader/3]).
 
 %% Auto import name clash
 -export([check_process_code/1]).
@@ -304,6 +308,13 @@ check_dirty_process_code(_Pid,_Module) ->
 -spec is_process_executing_dirty(Pid) -> 'true' | 'false' when
       Pid :: pid().
 is_process_executing_dirty(_Pid) ->
+    erlang:nif_error(undefined).
+
+-spec dirty_process_handle_signals(Pid) -> Res when
+      Pid :: pid(),
+      Res :: 'false' | 'true' | 'noproc' | 'normal' | 'more' | 'ok'.
+
+dirty_process_handle_signals(_Pid) ->
     erlang:nif_error(undefined).
 
 -spec release_literal_area_switch() -> 'true' | 'false'.
@@ -574,3 +585,18 @@ sched_wall_time(Ref, N, Acc) ->
 	{Ref, SWTL} when erlang:is_list(SWTL) -> sched_wall_time(Ref, N-1, Acc ++ SWTL);
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
+
+-spec erts_internal:group_leader(GL, Pid) -> true | false | badarg when
+      GL :: pid(),
+      Pid :: pid().
+
+group_leader(_GL, _Pid) ->
+    erlang:nif_error(undefined).
+
+-spec erts_internal:group_leader(GL, Pid, Ref) -> ok when
+      GL :: pid(),
+      Pid :: pid(),
+      Ref :: reference().
+
+group_leader(_GL, _Pid, _Ref) ->
+    erlang:nif_error(undefined).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
+#include "erl_proc_sig_queue.h"
 #ifdef HIPE
 #  include "hipe_bif0.h"
 #  define IF_HIPE(X) (X)
@@ -65,7 +66,6 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-Process *erts_dirty_process_code_checker;
 erts_atomic_t erts_copy_literal_area__;
 #define ERTS_SET_COPY_LITERAL_AREA(LA)			\
     erts_atomic_set_nob(&erts_copy_literal_area__,	\
@@ -607,7 +607,9 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     int reds = 0;
     Eterm res;
 
-    if (BIF_P != erts_dirty_process_code_checker)
+    if (BIF_P != erts_dirty_process_signal_handler
+        && BIF_P != erts_dirty_process_signal_handler_high
+        && BIF_P != erts_dirty_process_signal_handler_max)
 	BIF_ERROR(BIF_P, EXC_NOTSUP);
 
     if (is_not_internal_pid(BIF_ARG_1))
@@ -901,15 +903,59 @@ static void hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
                                Eterm *start, Eterm *end,
                                char *lit_start, Uint lit_size);
 
+static ERTS_INLINE void
+msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
+                      char *literals, Uint lit_bsize)
+{
+    ErlHeapFragment *hfrag, *hf;
+    Uint lit_sz = 0;
+
+    *redsp += 1;
+
+    if (!ERTS_SIG_IS_INTERNAL_MSG(msgp) || !msgp->data.attached)
+        return;
+
+    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+        hfrag = &msgp->hfrag;
+    else
+        hfrag = msgp->data.heap_frag;
+
+    for (hf = hfrag; hf; hf = hf->next) {
+        lit_sz += hfrag_literal_size(&hf->mem[0],
+                                     &hf->mem[hf->used_size],
+                                     literals, lit_bsize);
+        *redsp += 1;
+    }
+
+    *redsp += lit_sz / 16; /* Better value needed... */
+    if (lit_sz > 0) {
+        ErlHeapFragment *bp = new_message_buffer(lit_sz);
+        Eterm *hp = bp->mem;
+
+        for (hf = hfrag; hf; hf = hf->next) {
+            hfrag_literal_copy(&hp, &bp->off_heap,
+                               &hf->mem[0],
+                               &hf->mem[hf->used_size],
+                               literals, lit_bsize);
+            hfrag = hf;
+        }
+
+        /* link new hfrag last */
+        ASSERT(hfrag->next == NULL);
+        hfrag->next = bp;
+        bp->next = NULL;
+    }
+}
+
 Eterm
 erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed)
 {
     ErtsLiteralArea *la;
-    ErtsMessage *msgp;
     struct erl_off_heap_header* oh;
     char *literals;
     Uint lit_bsize;
     ErlHeapFragment *hfrag;
+    ErtsMessage *mfp;
 
     la = ERTS_COPY_LITERAL_AREA();
     if (!la)
@@ -927,46 +973,13 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
      */
 
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-    ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
+    erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
-    for (msgp = c_p->msg.first; msgp; msgp = msgp->next) {
-	ErlHeapFragment *hf;
-	Uint lit_sz = 0;
-
-	*redsp += 1;
-
-	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    hfrag = &msgp->hfrag;
-	else if (is_value(ERL_MESSAGE_TERM(msgp)) && msgp->data.heap_frag)
-	    hfrag = msgp->data.heap_frag;
-	else
-	    continue; /* Content on heap or in external term format... */
-
-	for (hf = hfrag; hf; hf = hf->next) {
-	    lit_sz += hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
-					literals, lit_bsize);
-	    *redsp += 1;
-	}
-
-	*redsp += lit_sz / 16; /* Better value needed... */
-	if (lit_sz > 0) {
-	    ErlHeapFragment *bp = new_message_buffer(lit_sz);
-	    Eterm *hp = bp->mem;
-
-	    for (hf = hfrag; hf; hf = hf->next) {
-		hfrag_literal_copy(&hp, &bp->off_heap,
-				   &hf->mem[0], &hf->mem[hf->used_size],
-				   literals, lit_bsize);
-		hfrag = hf;
-	    }
-
-	    /* link new hfrag last */
-	    ASSERT(hfrag->next == NULL);
-	    hfrag->next = bp;
-	    bp->next = NULL;
-        }
-    }
+    ERTS_FOREACH_SIG_PRIVQS(c_p, msgp, msg_copy_literal_area(msgp,
+                                                             redsp,
+                                                             literals,
+                                                             lit_bsize));
 
     if (gc_allowed) {
 	/*
@@ -1041,8 +1054,8 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
      *    process off heap structure.
      *  - Check for literals
      */
-    for (msgp = c_p->msg_frag; msgp; msgp = msgp->next) {
-	hfrag = erts_message_to_heap_frag(msgp);
+    for (mfp = c_p->msg_frag; mfp; mfp = mfp->next) {
+	hfrag = erts_message_to_heap_frag(mfp);
 	for (; hfrag; hfrag = hfrag->next) {
 	    Eterm *hp, *hp_end;
 

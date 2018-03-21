@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc.h"
-#include "erl_monitors.h"
+#include "erl_monitor_link.h"
 
 #define ERTS_TRACER(P)          ((P)->common.tracer)
 #define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
@@ -44,6 +44,7 @@
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
+#define ERTS_P_LT_MONITORS(P)	((P)->common.u.alive.lt_monitors)
 
 #define IS_TRACED(p) \
     (ERTS_TRACER(p) != NIL)
@@ -68,6 +69,7 @@ typedef struct {
 	    struct reg_proc *reg;
 	    ErtsLink *links;
 	    ErtsMonitor *monitors;
+            ErtsMonitor *lt_monitors;
 	} alive;
 
 	/* --- While being released --- */

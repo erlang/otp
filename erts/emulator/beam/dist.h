@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,7 +120,6 @@
 
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
-extern Export* dmonitor_p_trap;
 
 typedef enum {
     ERTS_DSP_NO_LOCK,
@@ -274,57 +273,12 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 
 #endif
 
-typedef struct {
-    ErtsLink *d_lnk;
-    ErtsLink *d_sub_lnk;
-} ErtsDistLinkData;
-
-ERTS_GLB_INLINE void erts_remove_dist_link(ErtsDistLinkData *,
-					   Eterm,
-					   Eterm,
-					   DistEntry *);
-ERTS_GLB_INLINE int erts_was_dist_link_removed(ErtsDistLinkData *);
-ERTS_GLB_INLINE void erts_destroy_dist_link(ErtsDistLinkData *);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_remove_dist_link(ErtsDistLinkData *dldp,
-		      Eterm lid,
-		      Eterm rid,
-		      DistEntry *dep)
-{
-    erts_de_links_lock(dep);
-    dldp->d_lnk = erts_lookup_link(dep->nlinks, lid);
-    if (!dldp->d_lnk)
-	dldp->d_sub_lnk = NULL;
-    else {
-	dldp->d_sub_lnk = erts_remove_link(&ERTS_LINK_ROOT(dldp->d_lnk), rid);
-	dldp->d_lnk = (ERTS_LINK_ROOT(dldp->d_lnk)
-		       ? NULL
-		       : erts_remove_link(&dep->nlinks, lid));
-    }
-    erts_de_links_unlock(dep);
-}
-
-ERTS_GLB_INLINE int
-erts_was_dist_link_removed(ErtsDistLinkData *dldp)
-{
-    return dldp->d_sub_lnk != NULL;
-}
-
-ERTS_GLB_INLINE void
-erts_destroy_dist_link(ErtsDistLinkData *dldp)
-{
-    if (dldp->d_lnk)
-	erts_destroy_link(dldp->d_lnk);
-    if (dldp->d_sub_lnk)
-	erts_destroy_link(dldp->d_sub_lnk);	
-}
-
+#ifdef DEBUG
+#define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
+    erts_dbg_chk_no_dist_proc_link((D), (R), (L))
+#else
+#define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L)
 #endif
-
-
 
 /* Define for testing */
 /* #define EXTREME_TTB_TRAPPING 1 */

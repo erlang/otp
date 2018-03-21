@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -222,8 +222,7 @@ get_net_ticktime() ->
       Error :: error | {error, term()}.
 monitor_nodes(Flag) ->
     case catch process_flag(monitor_nodes, Flag) of
-	true -> ok;
-	false -> ok;
+	N when is_integer(N) -> ok;
 	_ -> mk_monitor_nodes_error(Flag, [])
     end.
 
@@ -236,8 +235,7 @@ monitor_nodes(Flag) ->
       Error :: error | {error, term()}.
 monitor_nodes(Flag, Opts) ->
     case catch process_flag({monitor_nodes, Opts}, Flag) of
-	true -> ok;
-	false -> ok;
+	N when is_integer(N) -> ok;
 	_ -> mk_monitor_nodes_error(Flag, Opts)
     end.
 

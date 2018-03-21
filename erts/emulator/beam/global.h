@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,9 +87,7 @@ typedef struct
 {
     erts_mtx_t lock;
     ErtsMonitor* root;
-    int pending_failed_fire;
-    int is_dying;
-
+    Uint refc;
     size_t user_data_sz;
 } ErtsResourceMonitors;
 
@@ -116,7 +114,8 @@ extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
 extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
-void erts_fire_nif_monitor(ErtsResource*, Eterm pid, Eterm ref);
+void erts_fire_nif_monitor(ErtsMonitor *tmon);
+void erts_nif_demonitored(ErtsResource* resource);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -886,6 +885,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(Process*, Eterm*, BeamInstr*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
+int erts_set_group_leader(Process *proc, Eterm new_gl);
 
 /* erl_bif_op.c */
 
@@ -908,7 +908,6 @@ extern erts_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
     ((ErtsLiteralArea *) erts_atomic_read_nob(&erts_copy_literal_area__))
 extern Process *erts_literal_area_collector;
-extern Process *erts_dirty_process_code_checker;
 
 extern Process *erts_code_purger;
 
@@ -1072,7 +1071,7 @@ void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 			   Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
-extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
+void erts_monitor_nodes_delete(ErtsMonitor *);
 extern Eterm erts_monitor_nodes(Process *, Eterm, Eterm);
 extern Eterm erts_processes_monitoring_nodes(Process *);
 extern int erts_do_net_exits(DistEntry*, Eterm);

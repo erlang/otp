@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -885,7 +885,7 @@ enif_select(ErlNifEnv* env,
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 
-    ASSERT(!(resource->monitors && resource->monitors->is_dying));
+    ASSERT(!resource->monitors);
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if (!grow_drv_ev_state(fd)) {

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
+#include "erl_proc_sig_queue.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
 static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs);
@@ -53,10 +54,13 @@ char *erts_default_arg0 = "default";
 
 BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
 {
+    BIF_RETTYPE ret;
     Port *port;
     Eterm res;
     char *str;
     int err_type, err_num;
+    ErtsLinkData *ldp;
+    ErtsLink *lnk;
 
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
     if (!port) {
@@ -78,6 +82,16 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         BIF_RET(res);
     }
 
+    ldp = erts_link_create(ERTS_LNK_TYPE_PORT, BIF_P->common.id, port->common.id);
+    ASSERT(ldp->a.other.item == port->common.id);
+    ASSERT(ldp->b.other.item == BIF_P->common.id);
+    /*
+     * This link should not already be present, but can potentially
+     * due to id wrapping...
+     */
+    lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(BIF_P), &ldp->a);
+    erts_link_tree_insert(&ERTS_P_LINKS(port), &ldp->b);
+
     if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
 
         /* Copied from erl_port_task.c */
@@ -86,39 +100,30 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         erts_make_ref_in_array(port->async_open_port->ref);
         port->async_open_port->to = BIF_P->common.id;
 
-        erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
-        if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
-	    /* need to exit caller instead */
-	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
-	    KILL_CATCHES(BIF_P);
-	    BIF_P->freason = EXC_EXIT;
-            erts_port_release(port);
-            BIF_RET(am_badarg);
-	}
-
-	ERTS_MSGQ_MV_INQ2PRIVQ(BIF_P);
-	BIF_P->msg.save = BIF_P->msg.last;
-
-	erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE);
+        /*
+         * We unconditionaly *must* do a receive on a message
+         * containing the reference after this...
+         */
+        ERTS_RECV_MARK_SAVE(BIF_P);
+        ERTS_RECV_MARK_SET(BIF_P);
 
         res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
     } else {
         res = port->common.id;
-        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
     }
 
-    erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
-    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port->common.id);
-
     if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS))
-        trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK, BIF_P,
+        trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P,
                    am_link, port->common.id);
 
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+    ERTS_BIF_PREP_RET(ret, res);
 
     erts_port_release(port);
 
-    BIF_RET(res);
+    if (lnk)
+        erts_link_release(lnk);
+
+    return ret;
 }
 
 static ERTS_INLINE Port *
@@ -195,7 +200,6 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 #endif
 
     switch (erts_port_output(BIF_P, flags, prt, prt->common.id, BIF_ARG_2, &ref)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
  	ERTS_BIF_PREP_RET(res, am_badarg);
@@ -254,7 +258,6 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
     op = (unsigned int) uint_op;
 
     switch (erts_port_call(BIF_P, prt, op, BIF_ARG_3, &retval)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_DROPPED:
     case ERTS_PORT_OP_BADARG:
 	retval = am_badarg;
@@ -272,11 +275,8 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
     }
 
     state = erts_atomic32_read_acqb(&BIF_P->state);
-    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-	if (state & ERTS_PSFLG_PENDING_EXIT)
-	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+    if (state & ERTS_PSFLG_EXITING)
 	ERTS_BIF_EXITED(BIF_P);
-    }
 
     BIF_RET(retval);
 }
@@ -302,7 +302,6 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
     op = (unsigned int) uint_op;
 
     switch (erts_port_control(BIF_P, prt, op, BIF_ARG_3, &retval)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
 	retval = am_badarg;
@@ -320,11 +319,8 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
     }
 
     state = erts_atomic32_read_acqb(&BIF_P->state);
-    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-	if (state & ERTS_PSFLG_PENDING_EXIT)
-	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+    if (state & ERTS_PSFLG_EXITING)
 	ERTS_BIF_EXITED(BIF_P);
-    }
 
     BIF_RET(retval);
 }
@@ -347,7 +343,6 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
 	BIF_RET(am_badarg);
 
     switch (erts_port_exit(BIF_P, 0, prt, BIF_P->common.id, am_normal, &ref)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
 	BIF_RET(am_badarg);
@@ -380,7 +375,6 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
 #endif
 
     switch (erts_port_connect(BIF_P, 0, prt, BIF_P->common.id, BIF_ARG_2, &ref)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
 	BIF_RET(am_badarg);
@@ -418,7 +412,6 @@ BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
     }
 
     switch (erts_port_info(BIF_P, prt, THE_NON_VALUE, &retval)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
 	BIF_RET(am_badarg);
     case ERTS_PORT_OP_DROPPED:
@@ -457,7 +450,6 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
     }
 
     switch (erts_port_info(BIF_P, prt, BIF_ARG_2, &retval)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
 	BIF_RET(am_badarg);
     case ERTS_PORT_OP_DROPPED:

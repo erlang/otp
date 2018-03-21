@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,10 @@
 #ifndef ERL_EXTERNAL_H__
 #define ERL_EXTERNAL_H__
 
+#define ERL_NODE_TABLES_BASIC_ONLY
 #include "erl_node_tables.h"
+#undef ERL_NODE_TABLES_BASIC_ONLY
+#include "erl_alloc.h"
 
 #define ERTS_ATOM_CACHE_SIZE 2048
 

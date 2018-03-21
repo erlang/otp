@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2007-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 
 #endif
 
-#define ERTS_PROC_LOCK_MAX_BIT 5
+#define ERTS_PROC_LOCK_MAX_BIT 4
 
 typedef erts_aint32_t ErtsProcLocks;
 
@@ -82,19 +82,17 @@ typedef struct erts_proc_lock_t_ {
     /* Each erts_mtx_t has its own lock counter ^ */
 
     #define ERTS_LCNT_PROCLOCK_IDX_MAIN 0
-    #define ERTS_LCNT_PROCLOCK_IDX_LINK 1
-    #define ERTS_LCNT_PROCLOCK_IDX_MSGQ 2
-    #define ERTS_LCNT_PROCLOCK_IDX_BTM 3
-    #define ERTS_LCNT_PROCLOCK_IDX_STATUS 4
-    #define ERTS_LCNT_PROCLOCK_IDX_TRACE 5
+    #define ERTS_LCNT_PROCLOCK_IDX_MSGQ 1
+    #define ERTS_LCNT_PROCLOCK_IDX_BTM 2
+    #define ERTS_LCNT_PROCLOCK_IDX_STATUS 3
+    #define ERTS_LCNT_PROCLOCK_IDX_TRACE 4
 
-    #define ERTS_LCNT_PROCLOCK_COUNT 6
+    #define ERTS_LCNT_PROCLOCK_COUNT 5
 
     erts_lcnt_ref_t lcnt_carrier;
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_mtx_t main;
-    erts_mtx_t link;
     erts_mtx_t msgq;
     erts_mtx_t btm;
     erts_mtx_t status;
@@ -118,27 +116,18 @@ typedef struct erts_proc_lock_t_ {
 #define ERTS_PROC_LOCK_MAIN		(((ErtsProcLocks) 1) << 0)
 
 /*
- * Link lock:
- *   Protects the following fields in the process structure:
- *   * nlinks
- *   * monitors
- *   * suspend_monitors
- */
-#define ERTS_PROC_LOCK_LINK		(((ErtsProcLocks) 1) << 1)
-
-/*
  * Message queue lock:
  *   Protects the following fields in the process structure:
  *   * msg_inq
  */
-#define ERTS_PROC_LOCK_MSGQ		(((ErtsProcLocks) 1) << 2)
+#define ERTS_PROC_LOCK_MSGQ		(((ErtsProcLocks) 1) << 1)
 
 /*
  * Bif timer lock:
  *   Protects the following fields in the process structure:
  *   * bif_timers
  */
-#define ERTS_PROC_LOCK_BTM		(((ErtsProcLocks) 1) << 3)
+#define ERTS_PROC_LOCK_BTM		(((ErtsProcLocks) 1) << 2)
 
 /*
  * Status lock:
@@ -148,7 +137,7 @@ typedef struct erts_proc_lock_t_ {
  *   * sys_tasks
  *   * ...
  */
-#define ERTS_PROC_LOCK_STATUS		(((ErtsProcLocks) 1) << 4)
+#define ERTS_PROC_LOCK_STATUS		(((ErtsProcLocks) 1) << 3)
 
 /*
  * Trace message lock:
@@ -277,9 +266,6 @@ void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
         if (locks & ERTS_PROC_LOCK_MAIN) {
             erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
         }
-        if (locks & ERTS_PROC_LOCK_LINK) {
-            erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
-        }
         if (locks & ERTS_PROC_LOCK_MSGQ) {
             erts_lcnt_lock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
         }
@@ -307,9 +293,6 @@ void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
         if (locks & ERTS_PROC_LOCK_MAIN) {
             erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN, file, line);
         }
-        if (locks & ERTS_PROC_LOCK_LINK) {
-            erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK, file, line);
-        }
         if (locks & ERTS_PROC_LOCK_MSGQ) {
             erts_lcnt_lock_post_x_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ, file, line);
         }
@@ -335,9 +318,6 @@ void erts_lcnt_proc_lock_unacquire(erts_proc_lock_t *lock, ErtsProcLocks locks) 
     if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
         if (locks & ERTS_PROC_LOCK_MAIN) {
             erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
-        }
-        if (locks & ERTS_PROC_LOCK_LINK) {
-            erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
         }
         if (locks & ERTS_PROC_LOCK_MSGQ) {
             erts_lcnt_lock_unacquire_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
@@ -365,9 +345,6 @@ void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
         if (locks & ERTS_PROC_LOCK_MAIN) {
             erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN);
         }
-        if (locks & ERTS_PROC_LOCK_LINK) {
-            erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK);
-        }
         if (locks & ERTS_PROC_LOCK_MSGQ) {
             erts_lcnt_unlock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ);
         }
@@ -393,9 +370,6 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
     if(erts_lcnt_open_ref(&lock->lcnt_carrier, &handle, &carrier)) {
         if (locks & ERTS_PROC_LOCK_MAIN) {
             erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MAIN, res);
-        }
-        if (locks & ERTS_PROC_LOCK_LINK) {
-            erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_LINK, res);
         }
         if (locks & ERTS_PROC_LOCK_MSGQ) {
             erts_lcnt_trylock_idx(carrier, ERTS_LCNT_PROCLOCK_IDX_MSGQ, res);
@@ -640,9 +614,6 @@ erts_proc_raw_trylock__(Process *p, ErtsProcLocks locks)
     if (locks & ERTS_PROC_LOCK_MAIN)
 	if (erts_mtx_trylock(&p->lock.main) == EBUSY)
 	    goto busy_main;
-    if (locks & ERTS_PROC_LOCK_LINK)
-	if (erts_mtx_trylock(&p->lock.link) == EBUSY)
-	    goto busy_link;
     if (locks & ERTS_PROC_LOCK_MSGQ)
 	if (erts_mtx_trylock(&p->lock.msgq) == EBUSY)
 	    goto busy_msgq;
@@ -668,9 +639,6 @@ busy_btm:
     if (locks & ERTS_PROC_LOCK_MSGQ)
 	erts_mtx_unlock(&p->lock.msgq);
 busy_msgq:
-    if (locks & ERTS_PROC_LOCK_LINK)
-	erts_mtx_unlock(&p->lock.link);
-busy_link:
     if (locks & ERTS_PROC_LOCK_MAIN)
 	erts_mtx_unlock(&p->lock.main);
 busy_main:
@@ -741,8 +709,6 @@ erts_proc_lock__(Process *p,
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     if (locks & ERTS_PROC_LOCK_MAIN)
 	erts_mtx_lock(&p->lock.main);
-    if (locks & ERTS_PROC_LOCK_LINK)
-	erts_mtx_lock(&p->lock.link);
     if (locks & ERTS_PROC_LOCK_MSGQ)
 	erts_mtx_lock(&p->lock.msgq);
     if (locks & ERTS_PROC_LOCK_BTM)
@@ -844,8 +810,6 @@ erts_proc_unlock__(Process *p,
 	erts_mtx_unlock(&p->lock.btm);
     if (locks & ERTS_PROC_LOCK_MSGQ)
 	erts_mtx_unlock(&p->lock.msgq);
-    if (locks & ERTS_PROC_LOCK_LINK)
-	erts_mtx_unlock(&p->lock.link);
     if (locks & ERTS_PROC_LOCK_MAIN)
 	erts_mtx_unlock(&p->lock.main);
 #endif

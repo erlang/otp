@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -645,7 +645,7 @@ PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
@@ -844,7 +844,7 @@ RUN_OBJS += \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
 	$(OBJDIR)/erl_debug.o		$(OBJDIR)/erl_md5.o \
-	$(OBJDIR)/erl_message.o		 \
+	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_proc_sig_queue.o \
 	$(OBJDIR)/erl_process_dict.o	$(OBJDIR)/erl_process_lock.o \
 	$(OBJDIR)/erl_port_task.o	$(OBJDIR)/erl_arith.o \
 	$(OBJDIR)/time.o		$(OBJDIR)/erl_time_sup.o  \
@@ -858,11 +858,11 @@ RUN_OBJS += \
 	$(OBJDIR)/register.o		$(OBJDIR)/break.o \
 	$(OBJDIR)/erl_async.o		$(OBJDIR)/erl_lock_check.o \
 	$(OBJDIR)/erl_gc.o 		$(OBJDIR)/erl_lock_count.o \
-	$(OBJDIR)/erl_posix_str.o \
+	$(OBJDIR)/erl_posix_str.o	 \
 	$(OBJDIR)/erl_bits.o 		$(OBJDIR)/erl_math.o \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
-	$(OBJDIR)/erl_monitors.o	$(OBJDIR)/erl_process_dump.o \
+	$(OBJDIR)/erl_monitor_link.o	$(OBJDIR)/erl_process_dump.o \
 	$(OBJDIR)/erl_hl_timer.o	$(OBJDIR)/erl_cpu_topology.o \
 	$(OBJDIR)/erl_drv_thread.o      $(OBJDIR)/erl_bif_chksum.o \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \

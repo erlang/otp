@@ -318,5 +318,3 @@ extern ErtsPTab erts_port;
 #define is_not_ref(x)			(!is_ref(x))
 
 #endif
-
-

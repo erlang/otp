@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -181,6 +181,8 @@ void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
+void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
+                        ErlHeapFragment *bp, Eterm *refs, int nrefs);
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
 #endif

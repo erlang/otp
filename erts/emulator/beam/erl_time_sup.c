@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "erl_time.h"
 #include "erl_driver.h"
 #include "erl_nif.h"
+#include "erl_proc_sig_queue.h"
  
 static erts_mtx_t erts_get_time_mtx;
 
@@ -1870,36 +1871,33 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec) {
 #include "big.h"
 
 void
-erts_monitor_time_offset(Eterm id, Eterm ref)
+erts_monitor_time_offset(ErtsMonitor *mon)
 {
     erts_mtx_lock(&erts_get_time_mtx);
-    erts_add_monitor(&time_offset_monitors, MON_TIME_OFFSET, ref, id, NIL);
+    erts_monitor_list_insert(&time_offset_monitors, mon);
     no_time_offset_monitors++;
     erts_mtx_unlock(&erts_get_time_mtx);
 }
 
-int
-erts_demonitor_time_offset(Eterm ref)
+void
+erts_demonitor_time_offset(ErtsMonitor *mon)
 {
-    int res;
-    ErtsMonitor *mon;
-    ASSERT(is_internal_ref(ref));
+    ErtsMonitorData *mdp = erts_monitor_to_data(mon);
+    ASSERT(erts_monitor_is_origin(mon));
+    ASSERT(mon->type == ERTS_MON_TYPE_TIME_OFFSET);
+
     erts_mtx_lock(&erts_get_time_mtx);
-    if (is_internal_ordinary_ref(ref))
-        mon = erts_remove_monitor(&time_offset_monitors, ref);
-    else
-        mon = NULL;
-    if (!mon)
-	res = 0;
-    else {
-	ASSERT(no_time_offset_monitors > 0);
-	no_time_offset_monitors--;
-	res = 1;
-    }
+
+    ASSERT(erts_monitor_is_in_table(&mdp->target));
+
+    erts_monitor_list_delete(&time_offset_monitors, &mdp->target);
+
+    ASSERT(no_time_offset_monitors > 0);
+    no_time_offset_monitors--;
+
     erts_mtx_unlock(&erts_get_time_mtx);
-    if (res)
-	erts_destroy_monitor(mon);
-    return res;
+
+    erts_monitor_release_both(mdp);
 }
 
 typedef struct {
@@ -1917,17 +1915,19 @@ static void
 save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
 {
     ErtsTimeOffsetMonitorContext *cntxt;
+    ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     Eterm *from_hp, *to_hp;
     Uint mix;
     int hix;
 
     cntxt = (ErtsTimeOffsetMonitorContext *) vcntxt;
     mix = (cntxt->ix)++;
-    cntxt->to_mon_info[mix].pid = mon->u.pid;
+    ASSERT(is_internal_pid(mon->other.item));
+    cntxt->to_mon_info[mix].pid = mon->other.item;
     to_hp = &cntxt->to_mon_info[mix].heap[0];
 
-    ASSERT(is_internal_ordinary_ref(mon->ref));
-    from_hp = internal_ref_val(mon->ref);
+    ASSERT(is_internal_ordinary_ref(mdp->ref));
+    from_hp = internal_ref_val(mdp->ref);
     ASSERT(thing_arityval(*from_hp) + 1 == ERTS_REF_THING_SIZE);
 
     for (hix = 0; hix < ERTS_REF_THING_SIZE; hix++)
@@ -1972,9 +1972,9 @@ send_time_offset_changed_notifications(void *new_offsetp)
 	cntxt.ix = 0;
 	cntxt.to_mon_info = to_mon_info;
 
-	erts_doforall_monitors(time_offset_monitors,
-			       save_time_offset_monitor,
-			       &cntxt);
+        erts_monitor_list_foreach(time_offset_monitors,
+                                  save_time_offset_monitor,
+                                  &cntxt);
 
 	ASSERT(cntxt.ix == no_monitors);
     }
@@ -2008,26 +2008,14 @@ send_time_offset_changed_notifications(void *new_offsetp)
 	ASSERT(*patch_refp == THE_NON_VALUE);
 
 	for (mix = 0; mix < no_monitors; mix++) {
-	    Process *rp = erts_proc_lookup(to_mon_info[mix].pid);
-	    if (rp) {
-		Eterm ref = to_mon_info[mix].ref;
-		ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
-		erts_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-		if (erts_lookup_monitor(ERTS_P_MONITORS(rp), ref)) {
-		    ErtsMessage *mp;
-		    ErlOffHeap *ohp;
-		    Eterm message;
-
-		    mp = erts_alloc_message_heap(rp, &rp_locks,
-						 hsz, &hp, &ohp);
-		    *patch_refp = ref;
-		    ASSERT(hsz == size_object(message_template));
-		    message = copy_struct(message_template, hsz, &hp, ohp);
-		    erts_queue_message(rp, rp_locks, mp, message, am_clock_service);
-		}
-		erts_proc_unlock(rp, rp_locks);
-	    }
-	}
+            *patch_refp = to_mon_info[mix].ref;
+            erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_TIME_OFFSET,
+                                                      *patch_refp,
+                                                      am_clock_service,
+                                                      to_mon_info[mix].pid,
+                                                      message_template,
+                                                      hsz);
+        }
 
 	erts_free(ERTS_ALC_T_TMP, tmp);
     }

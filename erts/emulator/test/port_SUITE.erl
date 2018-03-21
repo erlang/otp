@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,6 @@
     mon_port_pid_demonitor/1,
     mon_port_remote_on_remote/1,
     mon_port_driver_die/1,
-    mon_port_driver_die_demonitor/1,
     mul_basic/1,
     mul_slow_writes/1,
     name1/1,
@@ -180,8 +179,7 @@ all() ->
      mon_port_bad_named,
      mon_port_pid_demonitor,
      mon_port_name_demonitor,
-     mon_port_driver_die,
-     mon_port_driver_die_demonitor
+     mon_port_driver_die
     ].
 
 groups() ->
@@ -2783,7 +2781,7 @@ mon_port_driver_die(Config) ->
     end,
     ok.
 
-
+-ifdef(DISABLED_TESTCASE).
 %% 1. Spawn a port which will sleep 3 seconds
 %% 2. Monitor port
 %% 3. Port driver and dies horribly (via C driver_failure call). This should
@@ -2819,6 +2817,7 @@ mon_port_driver_die_demonitor(Config) ->
     after 5000 -> ?assert(false)
     end,
     ok.
+-endif.
 
 %% @doc Makes a controllable port for testing. Underlying mechanism of this
 %% port is not important, only important is our ability to close/kill it or

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,17 @@
  * %CopyrightEnd%
  */
 
-#ifndef ERL_NODE_TABLES_H__
+#ifndef ERL_NODE_TABLES_BASIC__
+#define ERL_NODE_TABLES_BASIC__
+
+typedef struct dist_entry_ DistEntry;
+typedef struct ErtsDistOutputBuf_ ErtsDistOutputBuf;
+void erts_ref_dist_entry(DistEntry *dep);
+void erts_deref_dist_entry(DistEntry *dep);
+
+#endif
+
+#if !defined(ERL_NODE_TABLES_BASIC_ONLY) && !defined(ERL_NODE_TABLES_H__)
 #define ERL_NODE_TABLES_H__
 
 /*
@@ -42,14 +52,14 @@
 #include "sys.h"
 #include "hash.h"
 #include "erl_alloc.h"
-#include "erl_process.h"
-#include "erl_monitors.h"
 #define ERTS_PORT_TASK_ONLY_BASIC_TYPES__
 #include "erl_port_task.h"
 #undef ERTS_PORT_TASK_ONLY_BASIC_TYPES__
+#include "erl_process.h"
 #define ERTS_BINARY_TYPES_ONLY__
 #include "erl_binary.h"
 #undef ERTS_BINARY_TYPES_ONLY__
+#include "erl_monitor_link.h"
 
 #define ERTS_NODE_TAB_DELAY_GC_DEFAULT (60)
 #define ERTS_NODE_TAB_DELAY_GC_MAX (100*1000*1000)
@@ -82,7 +92,6 @@ enum dist_entry_state {
 #define ERTS_DIST_OUTPUT_BUF_DBG_PATTERN ((Uint) 0xf713f713)
 #endif
 
-typedef struct ErtsDistOutputBuf_ ErtsDistOutputBuf;
 struct ErtsDistOutputBuf_ {
 #ifdef DEBUG
     Uint dbg_pattern;
@@ -113,7 +122,7 @@ struct ErtsProcList_;
  *   unlock mutexes with higher numbers before mutexes with higher numbers.
  */
 
-typedef struct dist_entry_ {
+struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
     struct dist_entry_ *next;	/* Next entry in dist_table (not sorted) */
     struct dist_entry_ *prev;	/* Previous entry in dist_table (not sorted) */
@@ -130,18 +139,7 @@ typedef struct dist_entry_ {
 				   atom cache etc. */
     unsigned long version;	/* Protocol version */
 
-
-    erts_mtx_t lnk_mtx;         /* Protects node_links, nlinks, and
-				   monitors. */
-    ErtsLink *node_links;       /* In a dist entry, node links are kept 
-				   in a separate tree, while they are 
-				   colocted with the ordinary link tree
-				   for processes. It's not due to confusion,
-				   it's because the link tree for the dist 
-				   entry is in two levels, see erl_monitors.h 
-				*/
-    ErtsLink *nlinks;           /* Link tree with subtrees */
-    ErtsMonitor *monitors;      /* Monitor tree */
+    ErtsMonLnkDist *mld;        /* Monitors and links */
 
     erts_mtx_t qlock;           /* Protects qflgs and out_queue */
     erts_atomic32_t qflgs;
@@ -163,7 +161,7 @@ typedef struct dist_entry_ {
     ErtsThrPrgrLaterOp later_op;
 
     struct transcode_context* transcode_ctx;
-} DistEntry;
+};
 
 typedef struct erl_node_ {
   HashBucket hash_bucket;	/* Hash bucket */
@@ -219,16 +217,12 @@ int erts_dist_entry_destructor(Binary *bin);
 DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle);
 Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*);
 Eterm erts_make_dhandle(Process *c_p, DistEntry *dep);
-void erts_ref_dist_entry(DistEntry *dep);
-void erts_deref_dist_entry(DistEntry *dep);
 
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
 ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_runlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwunlock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_de_links_lock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_de_links_unlock(DistEntry *dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -262,18 +256,6 @@ ERTS_GLB_INLINE void
 erts_de_rwunlock(DistEntry *dep)
 {
     erts_rwmtx_rwunlock(&dep->rwmtx);
-}
-
-ERTS_GLB_INLINE void
-erts_de_links_lock(DistEntry *dep)
-{
-    erts_mtx_lock(&dep->lnk_mtx);
-}
-
-ERTS_GLB_INLINE void
-erts_de_links_unlock(DistEntry *dep)
-{
-    erts_mtx_unlock(&dep->lnk_mtx);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

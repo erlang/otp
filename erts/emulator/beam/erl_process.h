@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ typedef struct process Process;
 #include "erl_process_dict.h"
 #include "erl_node_container_utils.h"
 #include "erl_node_tables.h"
-#include "erl_monitors.h"
+#include "erl_monitor_link.h"
 #include "erl_hl_timer.h"
 #include "erl_time.h"
 #include "erl_atom_table.h"
@@ -74,8 +74,6 @@ typedef struct process Process;
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
-
-struct ErtsNodesMonitor_;
 
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT	0
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
@@ -311,7 +309,6 @@ typedef enum {
     ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN_IX,
     ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX,
     ERTS_SSI_AUX_WORK_MISC_IX,
-    ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX,
     ERTS_SSI_AUX_WORK_SET_TMO_IX,
     ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
     ERTS_SSI_AUX_WORK_YIELD_IX,
@@ -345,8 +342,6 @@ typedef enum {
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX)
 #define ERTS_SSI_AUX_WORK_MISC \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_IX)
-#define ERTS_SSI_AUX_WORK_PENDING_EXITERS \
-    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX)
 #define ERTS_SSI_AUX_WORK_SET_TMO \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
@@ -491,7 +486,6 @@ struct ErtsRunQueue_ {
     int wakeup_other_reds;
 
     struct {
-	ErtsProcList *pending_exiters;
 	Uint context_switches;
 	Uint reductions;
 
@@ -986,14 +980,10 @@ struct process {
 
     Process *next;		/* Pointer to next process in run queue */
 
-    struct ErtsNodesMonitor_ *nodes_monitors;
+    ErtsMonitor *suspend_monitors; /* Processes suspended by this process via
+                                      erlang:suspend_process/1 */
 
-    ErtsSuspendMonitor *suspend_monitors; /* Processes suspended by
-					     this process via
-					     erlang:suspend_process/1 */
-
-    ErlMessageQueue msg;	/* Message queue */
-
+    ErtsSignalPrivQueues sig_qs; /* Signal queues */
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
 
     ProcDict  *dictionary;       /* Process dictionary, may be NULL */
@@ -1052,9 +1042,8 @@ struct process {
     erts_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
     erts_atomic32_t dirty_state; /* Process dirty state flags (see ERTS_PDSFLG_*) */
 
-    ErlMessageInQueue msg_inq;
+    ErtsSignalInQueue sig_inq;
     ErlTraceMessageQueue *trace_msg_q;
-    ErtsPendExit pending_exit;
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
     Eterm suspendee;
@@ -1088,6 +1077,7 @@ struct process {
 #endif
 };
 
+extern Eterm erts_init_process_id; /* pid of init process */
 extern const Process erts_invalid_process;
 
 #ifdef CHECK_FOR_HOLES
@@ -1164,20 +1154,20 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_IN_PRQ_LOW 		ERTS_PSFLG_BIT(3)
 #define ERTS_PSFLG_FREE			ERTS_PSFLG_BIT(4)
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
-#define ERTS_PSFLG_PENDING_EXIT		ERTS_PSFLG_BIT(6)
+#define ERTS_PSFLG_UNUSED		ERTS_PSFLG_BIT(6)
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
 #define ERTS_PSFLG_IN_RUNQ		ERTS_PSFLG_BIT(8)
 #define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(9)
 #define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(10)
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
-/* #define ERTS_PSFLG_		        ERTS_PSFLG_BIT(12) */
-#define ERTS_PSFLG_TRAP_EXIT		ERTS_PSFLG_BIT(13)
+#define ERTS_PSFLG_SYS_TASKS		ERTS_PSFLG_BIT(12)
+#define ERTS_PSFLG_SIG_IN_Q		ERTS_PSFLG_BIT(13)
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
 #define ERTS_PSFLG_OFF_HEAP_MSGQ	ERTS_PSFLG_BIT(18)
-/* #define ERTS_PSFLG_			ERTS_PSFLG_BIT(19) */
+#define ERTS_PSFLG_SIG_Q		ERTS_PSFLG_BIT(19)
 #define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(20)
 #define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(21)
 #define ERTS_PSFLG_DIRTY_ACTIVE_SYS	ERTS_PSFLG_BIT(22)
@@ -1196,7 +1186,6 @@ void erts_check_for_holes(Process* p);
 					 | ERTS_PSFLG_IN_PRQ_LOW)
 
 #define ERTS_PSFLGS_VOLATILE_HEAP	(ERTS_PSFLG_EXITING		\
-					 | ERTS_PSFLG_PENDING_EXIT	\
 					 | ERTS_PSFLG_DIRTY_RUNNING	\
 					 | ERTS_PSFLG_DIRTY_RUNNING_SYS)
 
@@ -1379,6 +1368,9 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
 #define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
 #define F_HIBERNATED         (1 << 25) /* Hibernated */
+#define F_LOCAL_SIGS_ONLY    (1 << 26)
+#define F_TRAP_EXIT          (1 << 27) /* Trapping exit */
+#define F_DEFERRED_SAVED_LAST (1 << 28)
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1444,7 +1436,7 @@ extern int erts_system_profile_ts_type;
 		     | F_TRACE_ARITY_ONLY | F_TRACE_RETURN_TO \
                      | F_TRACE_SILENT | F_TRACE_SCHED_PROCS | F_TRACE_PORTS \
 		     | F_TRACE_SCHED_PORTS | F_TRACE_SCHED_NO \
-		     | F_TRACE_SCHED_EXIT)
+		     | F_TRACE_SCHED_EXIT )
 
 
 #define ERTS_TRACEE_MODIFIER_FLAGS \
@@ -1456,6 +1448,14 @@ extern int erts_system_profile_ts_type;
     ((TRACEE_FLAGS & ~ERTS_PORT_TRACEE_FLAGS) | ERTS_TRACEE_MODIFIER_FLAGS)
 
 #define SEQ_TRACE_FLAG(N)        (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
+
+#define ERTS_SIG_ENABLE_TRACE_FLAGS \
+    ( F_TRACE_RECEIVE | F_TRACE_PROCS)
+
+/*
+ * F_TRACE_RECEIVE is always enabled/disable via signaling.
+ * F_TRACE_PROCS enable/disable F_TRACE_PROCS_SIG via signaling.
+ */
 
 /* Sequential trace flags */
 
@@ -1482,10 +1482,6 @@ extern int erts_system_profile_ts_type;
 #define DT_UTAG(P) ((P)->dt_utag)
 #define DT_UTAG_FLAGS(P)  ((P)->dt_utag_flags) 
 #endif
-
-/* Option flags to erts_send_exit_signal() */
-#define ERTS_XSIG_FLG_IGN_KILL		(((Uint32) 1) << 0)
-#define ERTS_XSIG_FLG_NO_IGN_NORMAL	(((Uint32) 1) << 1)
 
 #define CANCEL_TIMER(P)					\
     do {						\
@@ -1733,6 +1729,7 @@ struct db_fixation;
 void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
+int erts_sig_prio(Eterm pid, int prio);
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);
@@ -1781,8 +1778,10 @@ ErtsRunQueue *erts_schedid2runq(Uint);
 Process *erts_schedule(ErtsSchedulerData *, Process*, int);
 void erts_schedule_misc_op(void (*)(void *), void *);
 Eterm erl_create_process(Process*, Eterm, Eterm, Eterm, ErlSpawnOpts*);
+void erts_set_self_exiting(Process *, Eterm);
 void erts_do_exit_process(Process*, Eterm);
 void erts_continue_exit_process(Process *);
+void erts_proc_exit_link(Process *, ErtsLink *, Uint16, Eterm, Eterm);
 /* Begin System profile */
 Uint erts_runnable_process_count(void);
 /* End System profile */
@@ -1799,7 +1798,14 @@ void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 
-Eterm erts_get_process_priority(Process *p);
+typedef struct {
+    Process *c_p;
+    Eterm reason;
+} ErtsProcExitContext;
+void erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt);
+void erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt);
+
+Eterm erts_get_process_priority(erts_aint32_t state);
 Eterm erts_set_process_priority(Process *p, Eterm prio);
 
 Uint erts_get_total_context_switches(void);
@@ -1816,18 +1822,6 @@ void erts_free_proc(Process *);
 void erts_suspend(Process*, ErtsProcLocks, Port*);
 void erts_resume(Process*, ErtsProcLocks);
 int erts_resume_processes(ErtsProcList *);
-
-int erts_send_exit_signal(Process *,
-			  Eterm,
-			  Process *,
-			  ErtsProcLocks *,
-			  Eterm,
-			  Eterm,
-			  Process *,
-			  Uint32);
-void erts_handle_pending_exit(Process *, ErtsProcLocks);
-#define ERTS_PROC_PENDING_EXIT(P) \
-    (ERTS_PSFLG_PENDING_EXIT & erts_atomic32_read_acqb(&(P)->state))
 
 void erts_deep_process_dump(fmtfn_t, void *);
 
@@ -1860,6 +1854,8 @@ do {										\
 ErtsSchedulerData *erts_get_scheduler_data(void);
 
 void erts_schedule_process(Process *, erts_aint32_t, ErtsProcLocks);
+erts_aint32_t erts_proc_sys_schedule(Process *p, erts_aint32_t state,
+                                     erts_aint32_t enable_flag);
 
 ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
 ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
@@ -1891,8 +1887,7 @@ erts_schedule_dirty_sys_execution(Process *c_p)
     /* Don't set dirty-active-sys if we are about to exit... */
 
     while (!(a & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
-                  | ERTS_PSFLG_EXITING
-                  | ERTS_PSFLG_PENDING_EXIT))) {
+                  | ERTS_PSFLG_EXITING))) {
         e = a;
         n = a | ERTS_PSFLG_DIRTY_ACTIVE_SYS;
         a = erts_atomic32_cmpxchg_mb(&c_p->state, n, e);
@@ -2313,6 +2308,8 @@ erts_try_change_runq_proc(Process *p, ErtsRunQueue *rq)
 {
     erts_aint_t old_rqint, new_rqint;
 
+    ASSERT(rq);
+
     new_rqint = (erts_aint_t) rq;
     old_rqint = (erts_aint_t) erts_atomic_read_nob(&p->run_queue);
     while (1) {
@@ -2577,6 +2574,8 @@ ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
 }
 #endif
 
+Process *erts_try_lock_sig_free_proc(Eterm pid,
+                                     ErtsProcLocks locks);
 
 Process *erts_pid2proc_not_running(Process *,
 				   ErtsProcLocks,

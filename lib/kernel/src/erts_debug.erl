@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,7 @@
 %%% BIFs
 
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
-         dump_monitors/1, dump_links/1, flat_size/1,
-         get_internal_state/1, instructions/0,
+         flat_size/1, get_internal_state/1, instructions/0,
          map_info/1, same/2, set_internal_state/2,
          size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0]).
@@ -68,18 +67,6 @@ display(_) ->
       Binary :: binary().
 
 dist_ext_to_term(_, _) ->
-    erlang:nif_error(undef).
-
--spec dump_monitors(Id) -> true when
-      Id :: pid() | atom().
-
-dump_monitors(_) ->
-    erlang:nif_error(undef).
-
--spec dump_links(Id) -> true when
-      Id :: pid() | port() | atom().
-
-dump_links(_) ->
     erlang:nif_error(undef).
 
 -spec flat_size(Term) -> non_neg_integer() when

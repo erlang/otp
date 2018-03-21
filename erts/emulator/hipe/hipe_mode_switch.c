@@ -496,8 +496,10 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      erts_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
-	  erts_atomic32_read_band_relb(&p->state,
-					   ~ERTS_PSFLG_ACTIVE);
+          if (erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+              ASSERT(erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_ACTIVE);
+          else
+              erts_atomic32_read_band_relb(&p->state, ~ERTS_PSFLG_ACTIVE);
 	  erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1144,17 +1144,16 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     TestMonNodeState = monitor_node_state(),
     %% io:format("~p~n", [TestMonNodeState]),
     TestMonNodeState =
-	MonNodeState
+	case TestType of
+	    nodedown -> [];
+	    nodeup -> [{self(), []}]
+	end
+	++ lists:map(fun (_) -> {MN, []} end, Seq)
 	++ case TestType of
 	       nodedown -> [{self(), []}];
 	       nodeup -> []
 	   end
-	++ lists:map(fun (_) -> {MN, []} end, Seq)
-	++ case TestType of
-	       nodedown -> [];
-	       nodeup -> [{self(), []}]
-	   end,
-
+	++ MonNodeState,
 
     {ok, Node} = start_node(Name, "", this),
     receive {nodeup, Node} -> ok end,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,15 +112,12 @@ static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {
     ERL_NIF_TERM result;
     ErlNifPid pid;
-    ErlNifEnv* menv;
     int res;
 
     if (!enif_get_local_pid(env, argv[0], &pid))
 	return enif_make_badarg(env);
     result = enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_pid(env, &pid));
-    menv = enif_alloc_env();
-    res = enif_send(env, &pid, menv, result);
-    enif_free_env(menv);
+    res = enif_send(env, &pid, NULL, result);
     if (!res)
 	return enif_make_badarg(env);
     else
@@ -131,15 +128,12 @@ static ERL_NIF_TERM send_wait_from_dirty_nif(ErlNifEnv* env, int argc, const ERL
 {
     ERL_NIF_TERM result;
     ErlNifPid pid;
-    ErlNifEnv* menv;
     int res;
 
     if (!enif_get_local_pid(env, argv[0], &pid))
 	return enif_make_badarg(env);
     result = enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_pid(env, &pid));
-    menv = enif_alloc_env();
-    res = enif_send(env, &pid, menv, result);
-    enif_free_env(menv);
+    res = enif_send(env, &pid, NULL, result);
 
 #ifdef __WIN32__
     Sleep(2000);
@@ -211,10 +205,8 @@ dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /* If we get a pid argument, it indicates a process involved in the
        test wants a message from us. Prior to the sleep we send a 'ready'
        message, and then after the sleep, send a 'done' message. */
-    if (argc == 1 && enif_get_local_pid(env, argv[0], &pid)) {
-        msg_env = enif_alloc_env();
-        enif_send(env, &pid, msg_env, enif_make_atom(msg_env, "ready"));
-    }
+    if (argc == 1 && enif_get_local_pid(env, argv[0], &pid))
+        enif_send(env, &pid, NULL, enif_make_atom(env, "ready"));
 
 #ifdef __WIN32__
     Sleep(2000);
@@ -222,11 +214,8 @@ dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     sleep(2);
 #endif
 
-    if (argc == 1) {
-        assert(msg_env != NULL);
-        enif_send(env, &pid, msg_env, enif_make_atom(msg_env, "done"));
-        enif_free_env(msg_env);
-    }
+    if (argc == 1)
+        enif_send(env, &pid, NULL, enif_make_atom(env, "done"));
 
     return enif_make_atom(env, "ok");
 }
@@ -247,8 +236,8 @@ static ERL_NIF_TERM dirty_call_while_terminated_nif(ErlNifEnv* env, int argc, co
 
     self_term = enif_make_pid(env, &self);
 
-    result = enif_make_tuple2(env, enif_make_atom(env, "dirty_alive"), self_term);
     menv = enif_alloc_env();
+    result = enif_make_tuple2(menv, enif_make_atom(menv, "dirty_alive"), self_term);
     res = enif_send(env, &to, menv, result);
     enif_free_env(menv);
     if (!res)
@@ -259,9 +248,7 @@ static ERL_NIF_TERM dirty_call_while_terminated_nif(ErlNifEnv* env, int argc, co
 	;
 
     result = enif_make_tuple2(env, enif_make_atom(env, "dirty_dead"), self_term);
-    menv = enif_alloc_env();
-    res = enif_send(env, &to, menv, result);
-    enif_free_env(menv);
+    res = enif_send(env, &to, NULL, result);
 
 #ifdef __WIN32__
     Sleep(1000);

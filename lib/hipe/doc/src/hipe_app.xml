@@ -99,6 +99,41 @@
       each mode.</p>
       </item>
 
+      <tag>Optimization for <c>receive</c> with unique references</tag>
+      <item>
+	<p>
+	  The BEAM compiler can do an optimization when a receive
+	  statement is only waiting for messages containing a reference
+	  created before the receive. All messages that existed in the
+	  queue when the reference was created will be bypassed, as they
+	  cannot possibly contain the reference. HiPE currently has an
+	  optimization similar this, but it is not guaranteed to
+	  bypass all messages. In the worst case scenario it, cannot
+	  bypass any messages at all.
+	</p>
+	<p>
+	  An example of this is when <c>gen_server:call()</c> waits for
+	  the reply message.
+	</p>
+      </item>
+
+    </taglist>
+  </section>
+  <section>
+    <title>Stability Issues</title>
+    <taglist>
+      <tag>Not yielding in <c>receive</c> statements</tag>
+      <item>
+	<p>HiPE will not yield in <c>receive</c> statements where
+	appropriate. If a process have lots of signals in its signal
+	queue and execute a HiPE compiled <c>receive</c> statement,
+	the scheduler thread performing the execution may be stuck
+	in the <c>receive</c> statement for a very long time. This
+	can in turn cause various severe issues such as for example
+	prevent the runtime system from being able to release
+	memory.
+	</p>
+      </item>
     </taglist>
   </section>
   <section>

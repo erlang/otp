@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,8 @@
 	 atom_to_binary/1,min_max/1, erlang_halt/1,
          erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
-	 error_stacktrace_during_call_trace/1]).
+	 error_stacktrace_during_call_trace/1,
+         group_leader_prio/1, group_leader_prio_dirty/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -46,7 +47,8 @@ all() ->
      display, display_string, list_to_utf8_atom,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
-     error_stacktrace, error_stacktrace_during_call_trace].
+     error_stacktrace, error_stacktrace_during_call_trace,
+     group_leader_prio, group_leader_prio_dirty].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -825,7 +827,6 @@ error_stacktrace_during_call_trace(Config) when is_list(Config) ->
 	end
     end,
     ok.
-    
 
 error_stacktrace_test() ->
     Types = [apply_const_last, apply_const, apply_last,
@@ -963,9 +964,119 @@ do_error_1(call) ->
     erlang:error(id(oops)).
 
 
+group_leader_prio(Config) when is_list(Config) ->
+    group_leader_prio_test(false).
 
+group_leader_prio_dirty(Config) when is_list(Config) ->
+    group_leader_prio_test(true).
 
-%% Helpers
+group_leader_prio_test(Dirty) ->
+    %%
+    %% Unfortunately back in the days node local group_leader/2 was not
+    %% implemented as sending an asynchronous signal to the process to change
+    %% group leader for. Instead it has always been synchronously changed, and
+    %% nothing in the documentation have hinted otherwise... Therefore I do not
+    %% dare the change this.
+    %%
+    %% In order to prevent priority inversion, the priority of the receiver of
+    %% the group leader signal is elevated while handling incoming signals if
+    %% the sender has a higher priority than the receiver. This test tests that
+    %% the priority elevation actually works...
+    %%
+    Tester = self(),
+    Init = erlang:whereis(init),
+    GL = erlang:group_leader(),
+    process_flag(priority, max),
+    {TestProcFun, NTestProcs}
+        = case Dirty of
+              false ->
+                  %% These processes will handle all incoming signals
+                  %% by them selves...
+                  {fun () ->
+                           Tester ! {alive, self()},
+                           receive after infinity -> ok end
+                   end,
+                   100};
+              true ->
+                  %% These processes wont handle incoming signals by
+                  %% them selves since they are stuck on dirty schedulers
+                  %% when we try to change group leader. A dirty process
+                  %% signal handler process (system process) will be notified
+                  %% of the need to handle incoming signals for these processes,
+                  %% and will instead handle the signal for these processes...
+                  {fun () ->
+                           %% The following sends the message '{alive, self()}'
+                           %% to Tester once on a dirty io scheduler, then wait
+                           %% there until the process terminates...
+                           erts_debug:dirty_io(alive_waitexiting, Tester)
+                   end,
+                   erlang:system_info(dirty_io_schedulers)}
+          end,
+    TPs = lists:map(fun (_) ->
+                            spawn_opt(TestProcFun,
+                                      [link, {priority, normal}])
+                    end, lists:seq(1, NTestProcs)),
+    lists:foreach(fun (TP) -> receive {alive, TP} -> ok end end, TPs),
+    TLs = lists:map(fun (_) ->
+                            spawn_opt(fun () -> tok_loop() end,
+                                      [link, {priority, high}])
+                    end,
+                    lists:seq(1, 2*erlang:system_info(schedulers))),
+    %% Wait to ensure distribution of high prio processes over schedulers...
+    receive after 1000 -> ok end,
+    %%
+    %% Test that we can get group-leader signals through to normal prio
+    %% processes from a max prio process even though all schedulers are filled
+    %% with executing high prio processes.
+    %%
+    lists:foreach(fun (_) ->
+                          lists:foreach(fun (TP) ->
+                                                erlang:yield(),
+                                                %% whitebox -- Enqueue some signals on it
+                                                %% preventing us from hogging its main lock
+                                                %% and set group-leader directly....
+                                                erlang:demonitor(erlang:monitor(process, TP)),
+                                                true = erlang:group_leader(Init, TP),
+                                                {group_leader, Init} = process_info(TP, group_leader),
+                                                erlang:demonitor(erlang:monitor(process, TP)),
+                                                true = erlang:group_leader(GL, TP),
+                                                {group_leader, GL} = process_info(TP, group_leader)
+                                        end,
+                                        TPs)
+                  end,
+                  lists:seq(1,100)),
+    %%
+    %% Also test when it is exiting...
+    %%
+    lists:foreach(fun (TP) ->
+                          erlang:yield(),
+                          M = erlang:monitor(process, TP),
+                          unlink(TP),
+                          exit(TP, bang),
+                          badarg = try
+                                       true = erlang:group_leader(Init, TP)
+                                   catch
+                                       error : What -> What
+                                   end,
+                          receive
+                              {'DOWN', M, process, TP, Reason} ->
+                                  bang = Reason
+                          end
+                  end,
+                  TPs),
+    lists:foreach(fun (TL) ->
+                          M = erlang:monitor(process, TL),
+                          unlink(TL),
+                          exit(TL, bang),
+                          receive
+                              {'DOWN', M, process, TL, Reason} ->
+                                  bang = Reason
+                          end
+                  end,
+                  TLs),
+    ok.
+
+%% helpers
     
 id(I) -> I.
 
@@ -1005,3 +1116,11 @@ hostname([$@ | Hostname]) ->
     list_to_atom(Hostname);
 hostname([_C | Cs]) ->
     hostname(Cs).
+
+tok_loop() ->
+    tok_loop(hej).
+
+tok_loop(hej) ->
+    tok_loop(hopp);
+tok_loop(hopp) ->
+    tok_loop(hej).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -306,7 +306,7 @@ do {							\
     (Proc)->freason = TRAP;				\
 } while (0)
 
-#define BIF_TRAP0(p, Trap_) do {		\
+#define BIF_TRAP0(Trap_, p) do {                  \
       (p)->arity = 0;				\
       (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]);	\
       (p)->freason = TRAP;			\
@@ -404,7 +404,7 @@ do {									\
 #define ERTS_BIF_YIELD0(TRP, P)						\
 do {									\
     ERTS_VBUMP_ALL_REDS((P));						\
-    BIF_TRAP0((TRP), (P));						\
+    BIF_TRAP0((TRP), (P));                                              \
 } while (0)
 
 #define ERTS_BIF_YIELD1(TRP, P, A0)					\
@@ -428,7 +428,7 @@ do {									\
 #define ERTS_BIF_EXITED(PROC)		\
 do {					\
     KILL_CATCHES((PROC));		\
-    BIF_ERROR((PROC), EXC_EXIT);	\
+    BIF_ERROR((PROC), EXTAG_EXIT);	\
 } while (0)
 
 #define ERTS_BIF_CHK_EXITED(PROC)	\

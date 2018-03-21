@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 #include "hipe_bif1.h"
 #endif
 #include "dtrace-wrapper.h"
+#include "erl_proc_sig_queue.h"
 
 /* #define HARDDEBUG 1 */
 
@@ -1454,7 +1455,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
 	    c_p->cp = 0;	/* To avoid keeping stale references. */
-            c_p->msg.saved_last = 0;  /* No longer safe to use this position */
+            ERTS_RECV_MARK_CLEAR(c_p); /* No longer safe to use this position */
 	    return new_pc;
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
@@ -2419,8 +2420,8 @@ erts_hibernate(Process* c_p, Eterm* reg)
      * shrink the heap. 
      */
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-    if (!c_p->msg.len) {
+    erts_proc_sig_fetch(c_p);
+    if (!c_p->sig_qs.len) {
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2428,8 +2429,8 @@ erts_hibernate(Process* c_p, Eterm* reg)
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-        ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
-	if (!c_p->msg.len)
+        erts_proc_sig_fetch(c_p);
+	if (!c_p->sig_qs.len)
 	    erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
