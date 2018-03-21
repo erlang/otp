@@ -74,8 +74,8 @@ open(FilterFun, FilterAcc, F) when is_function(FilterFun, 2) ->
 	    throw(Reason);
 	throw:InternalReason ->
 	    {error, InternalReason};
-	Class:Reason ->
-	    erlang:error(erlang:raise(Class, Reason, erlang:get_stacktrace()))
+	Class:Reason:Stk ->
+	    erlang:error(erlang:raise(Class, Reason, Stk))
     end;
 open(_, _, _) ->
     {error, einval}.
@@ -89,9 +89,9 @@ do_open(FilterFun, FilterAcc, F) ->
 	{PrimZip2, FilterAcc2} = get_central_dir(PrimZip, FilterFun, FilterAcc),
 	{ok, PrimZip2, FilterAcc2}
     catch
-	Class:Reason ->
+	Class:Reason:Stk ->
 	    _ = close(PrimZip),
-	    erlang:error(erlang:raise(Class, Reason, erlang:get_stacktrace()))
+	    erlang:error(erlang:raise(Class, Reason, Stk))
     end.
 
 %% iterate over all files in a zip archive
@@ -106,8 +106,8 @@ foldl(FilterFun, FilterAcc, #primzip{files = Files} = PrimZip)
 	    throw(Reason);
 	throw:InternalReason ->
 	    {error, InternalReason};
-	Class:Reason ->
-	    erlang:error(erlang:raise(Class, Reason, erlang:get_stacktrace()))
+	Class:Reason:Stk ->
+	    erlang:error(erlang:raise(Class, Reason, Stk))
     end;
 foldl(_, _, _) ->
     {error, einval}.
