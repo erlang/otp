@@ -1306,7 +1306,7 @@ e_delete(Config) when is_list(Config) ->
 	       Base, #file_info {mode=0}),
 	    {error, eacces} = ?PRIM_FILE:delete(Afile),
 	    ?PRIM_FILE:write_file_info(
-	       Base, #file_info {mode=8#600})
+	       Base, #file_info {mode=8#700})
     end,
 
     ok.
@@ -1442,7 +1442,7 @@ e_make_dir(Config) when is_list(Config) ->
 	    ?PRIM_FILE:write_file_info(Base, #file_info {mode=0}),
 	    {error, eacces} =
 		?PRIM_FILE:make_dir(filename:join(Base, "xxxx")),
-	    ?PRIM_FILE:write_file_info(Base, #file_info {mode=8#600})
+	    ?PRIM_FILE:write_file_info(Base, #file_info {mode=8#700})
     end,
     ok.
 
@@ -1492,7 +1492,7 @@ e_del_dir(Config) when is_list(Config) ->
 	    ?PRIM_FILE:write_file_info(Base, #file_info {mode=0}),
 	    {error, eacces} = ?PRIM_FILE:del_dir(ADirectory),
 	    ?PRIM_FILE:write_file_info(
-	       Base, #file_info {mode=8#600})
+	       Base, #file_info {mode=8#700})
     end,
     ok.
 

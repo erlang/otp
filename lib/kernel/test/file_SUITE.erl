@@ -2212,7 +2212,7 @@ e_delete(Config) when is_list(Config) ->
 	       Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:delete(Afile),
 	    ?FILE_MODULE:write_file_info(
-	       Base, #file_info {mode=8#600})
+	       Base, #file_info {mode=8#700})
     end,
 
     [] = flush(),
@@ -2343,7 +2343,7 @@ e_make_dir(Config) when is_list(Config) ->
 	    ?FILE_MODULE:write_file_info(Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:make_dir(filename:join(Base, "xxxx")),
 	    ?FILE_MODULE:write_file_info(
-	       Base, #file_info {mode=8#600})
+	       Base, #file_info {mode=8#700})
     end,
     ok.
 
@@ -2389,7 +2389,7 @@ e_del_dir(Config) when is_list(Config) ->
 	    ok = ?FILE_MODULE:make_dir(ADirectory),
 	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=0}),
 	    {error, eacces} = ?FILE_MODULE:del_dir(ADirectory),
-	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600})
+	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#700})
     end,
     [] = flush(),
     ok.
