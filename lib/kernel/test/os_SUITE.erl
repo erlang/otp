@@ -324,8 +324,16 @@ max_size_command(_Config) ->
     Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
     32768 = length(Res32768),
 
-    ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
+    ResHello = string_trim(os:cmd("echo hello", #{ max_size => 20 })),
     5 = length(ResHello).
+
+string_trim(S) ->
+    lists:reverse(string_trim_left(lists:reverse(string_trim_left(S)))).
+
+string_trim_left([C | T]) when C =:= $\s; C =:= $\n; C =:= $\t; C =:= $\r ->
+    string_trim_left(T);
+string_trim_left(S) ->
+    S.
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
