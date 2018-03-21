@@ -44,7 +44,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES = cerl_cconv cerl_closurean cerl_hipeify cerl_lib \
-	  cerl_messagean cerl_pmatch cerl_prettypr cerl_to_icode \
+	  cerl_pmatch cerl_prettypr cerl_to_icode \
 	  cerl_typean erl_bif_types erl_types 
 
 HRL_FILES= cerl_hipe_primops.hrl
