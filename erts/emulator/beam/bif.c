@@ -52,7 +52,6 @@ Export *erts_await_result;
 static Export await_exit_trap;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
-static Export* await_proc_exit_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
 static Export dsend_continue_trap_export;
@@ -4654,42 +4653,6 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     BIF_RET(res);
 }
 
-void
-erts_bif_prep_await_proc_exit_data_trap(Process *c_p, Eterm pid, Eterm ret)
-{
-    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_data, ret);
-}
-
-void
-erts_bif_prep_await_proc_exit_reason_trap(Process *c_p, Eterm pid)
-{
-    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p,
-                               pid, am_reason, am_undefined);
-}
-
-void
-erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
-					 Eterm pid,
-					 Eterm module,
-					 Eterm function,
-					 Eterm args[],
-					 int nargs)
-{
-    Eterm term;
-    Eterm *hp;
-    int i;
-    ASSERT(is_atom(module) && is_atom(function));
-
-    hp = HAlloc(c_p, 4+2*nargs);
-    term = NIL;
-    for (i = nargs-1; i >= 0; i--) {
-        term = CONS(hp, args[i], term);
-        hp += 2;
-    }
-    term = TUPLE3(hp, module, function, term);
-    ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_apply, term);
-}
-
 Export bif_return_trap_export;
 
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
@@ -4742,7 +4705,6 @@ void erts_init_bif(void)
     erts_format_cpu_topology_trap = erts_export_put(am_erlang,
 						    am_format_cpu_topology,
 						    1);
-    await_proc_exit_trap = erts_export_put(am_erlang,am_await_proc_exit,3);
     await_port_send_result_trap
 	= erts_export_put(am_erts_internal, am_await_port_send_result, 3);
     system_flag_scheduler_wall_time_trap

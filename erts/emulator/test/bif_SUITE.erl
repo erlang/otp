@@ -34,7 +34,8 @@
          erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
-         group_leader_prio/1, group_leader_prio_dirty/1]).
+         group_leader_prio/1, group_leader_prio_dirty/1,
+         is_process_alive/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,7 +49,8 @@ all() ->
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
-     group_leader_prio, group_leader_prio_dirty].
+     group_leader_prio, group_leader_prio_dirty,
+     is_process_alive].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -1074,6 +1076,27 @@ group_leader_prio_test(Dirty) ->
                           end
                   end,
                   TLs),
+    ok.
+
+is_process_alive(Config) when is_list(Config) ->
+    process_flag(priority, max),
+    Ps = lists:map(fun (_) ->
+                           spawn_opt(fun () -> tok_loop() end,
+                                     [{priority, high}, link])
+                   end,
+                   lists:seq(1, 2*erlang:system_info(schedulers))),
+    receive after 1000 -> ok end, %% Wait for load to spread
+    lists:foreach(fun (P) ->
+                          %% Ensure that signal order is preserved
+                          %% and that we are not starved due to
+                          %% priority inversion
+                          true = erlang:is_process_alive(P),
+                          unlink(P),
+                          true = erlang:is_process_alive(P),
+                          exit(P, kill),
+                          false = erlang:is_process_alive(P)
+                  end,
+                  Ps),
     ok.
 
 %% helpers

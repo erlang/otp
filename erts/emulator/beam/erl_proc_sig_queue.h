@@ -31,6 +31,7 @@
  *              - Link
  *              - Unlink
  *              - Group leader
+ *              - Is process alive
  *              - Trace change
  *
  *              The signal queue consists of three parts:
@@ -425,6 +426,30 @@ erts_proc_sig_send_trace_change(Eterm to, Uint on, Uint off,
 void
 erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl,
                                 Eterm ref);
+
+/**
+ *
+ * @brief Send an 'is process alive' signal to a process.
+ *
+ * A response message '{Ref, Result}' is sent to the
+ * sender when performed where Ref is the reference passed
+ * as 'ref' argument, and Result is either 'true' or 'false'.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *                              NULL if signal arrived via
+ *                              distribution.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     ref           Reference to use in response
+ *                              message to the sending
+ *                              process (i.e., c_p).
+ *
+ */
+void
+erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
+                                    Eterm ref);
 
 /*
  * End of send operations of currently supported process signals.

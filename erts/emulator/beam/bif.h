@@ -437,67 +437,6 @@ do {					\
 	ERTS_BIF_EXITED((PROC));	\
 } while (0)
 
-/*
- * The ERTS_BIF_*_AWAIT_X_*_TRAP makros either exits the caller, or
- * sets up a trap to erlang:await_proc_exit/3.
- *
- * The caller is acquired to hold the 'main' lock on C_P. No other locks
- * are allowed to be held.
- */
-
-#define ERTS_BIF_PREP_AWAIT_X_DATA_TRAP(RET, C_P, PID, DATA)		\
-do {									\
-    erts_bif_prep_await_proc_exit_data_trap((C_P), (PID), (DATA));	\
-    (RET) = THE_NON_VALUE;						\
-} while (0)
-
-#define ERTS_BIF_PREP_AWAIT_X_REASON_TRAP(RET, C_P, PID)		\
-do {									\
-    erts_bif_prep_await_proc_exit_reason_trap((C_P), (PID));		\
-    (RET) = THE_NON_VALUE;						\
-} while (0)
-
-#define ERTS_BIF_PREP_AWAIT_X_APPLY_TRAP(RET, C_P, PID, M, F, A, AN)	\
-do {									\
-    erts_bif_prep_await_proc_exit_apply_trap((C_P), (PID),		\
-					     (M), (F), (A), (AN));	\
-    (RET) = THE_NON_VALUE;						\
-} while (0)
-
-#define ERTS_BIF_AWAIT_X_DATA_TRAP(C_P, PID, DATA)			\
-do {									\
-    erts_bif_prep_await_proc_exit_data_trap((C_P), (PID), (DATA));	\
-    return THE_NON_VALUE;						\
-} while (0)
-
-#define ERTS_BIF_AWAIT_X_REASON_TRAP(C_P, PID)				\
-do {									\
-    erts_bif_prep_await_proc_exit_reason_trap((C_P), (PID));		\
-    return THE_NON_VALUE;						\
-} while (0)
-
-#define ERTS_BIF_AWAIT_X_APPLY_TRAP(C_P, PID, M, F, A, AN)		\
-do {									\
-    erts_bif_prep_await_proc_exit_apply_trap((C_P), (PID),		\
-					     (M), (F), (A), (AN));	\
-    return THE_NON_VALUE;						\
-} while (0)
-
-void
-erts_bif_prep_await_proc_exit_data_trap(Process *c_p,
-					Eterm pid,
-					Eterm data);
-void
-erts_bif_prep_await_proc_exit_reason_trap(Process *c_p,
-					  Eterm pid);
-void
-erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
-					 Eterm pid,
-					 Eterm module,
-					 Eterm function,
-					 Eterm args[],
-					 int nargs);
-
 int erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);
 

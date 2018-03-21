@@ -39,7 +39,6 @@
 -export([integer_to_list/2]).
 -export([integer_to_binary/2]).
 -export([set_cpu_topology/1, format_cpu_topology/1]).
--export([await_proc_exit/3]).
 -export([memory/0, memory/1]).
 -export([alloc_info/1, alloc_sizes/1]).
 
@@ -3529,33 +3528,6 @@ rvrs(Xs) -> rvrs(Xs, []).
 
 rvrs([],Ys) -> Ys;
 rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
-
-%% erlang:await_proc_exit/3 is for internal use only!
-%%
-%% BIFs that need to await a specific process exit before
-%% returning traps to erlang:await_proc_exit/3.
-%%
-%% NOTE: This function is tightly coupled to
-%%       the implementation of the
-%%       erts_bif_prep_await_proc_exit_*()
-%%       functions in bif.c. Do not make
-%%       any changes to it without reading
-%%       the comment about them in bif.c!
--spec erlang:await_proc_exit(dst(), 'apply' | 'data' | 'reason', term()) -> term().
-await_proc_exit(Proc, Op, Data) ->
-    Mon = erlang:monitor(process, Proc),
-    receive
-	{'DOWN', Mon, process, _Proc, Reason} ->
-	    case Op of
-		apply ->
-		    {M, F, A} = Data,
-		    erlang:apply(M, F, A);
-		data ->
-		    Data;
-		reason ->
-		    Reason
-	    end
-    end.
 
 -spec min(Term1, Term2) -> Minimum when
       Term1 :: term(),
