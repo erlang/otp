@@ -1904,7 +1904,7 @@ element(_N, _Tuple) ->
 
 %% Not documented
 -type module_info_key() :: attributes | compile | exports | functions | md5
-                         | module | native | native_addresses.
+                         | module | native | native_addresses | nifs.
 -spec erlang:get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
       Item :: module_info_key(),

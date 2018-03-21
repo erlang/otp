@@ -307,6 +307,12 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  all functions in the module.</p>
 	  </item>
 
+        <tag><c>nifs</c></tag>
+	  <item>
+	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
+	  all NIF functions in the module.</p>
+	  </item>
+
         <tag><c>native</c></tag>
 	  <item>
 	  <p>Return <c>true</c> if the module has native compiled code.

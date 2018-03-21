@@ -554,6 +554,7 @@ static Eterm get_module_info(Process* p, ErtsCodeIndex code_ix,
 static Eterm exported_from_module(Process* p, ErtsCodeIndex code_ix,
                                   Eterm mod);
 static Eterm functions_in_module(Process* p, BeamCodeHeader*);
+static Eterm nifs_in_module(Process* p, Eterm module);
 static Eterm attributes_for_module(Process* p, BeamCodeHeader*);
 static Eterm compilation_info_for_module(Process* p, BeamCodeHeader*);
 static Eterm md5_of_module(Process* p, BeamCodeHeader*);
@@ -5954,6 +5955,8 @@ get_module_info(Process* p, ErtsCodeIndex code_ix, BeamCodeHeader* code_hdr,
 	return exported_from_module(p, code_ix, module);
     } else if (what == am_functions) {
 	return functions_in_module(p, code_hdr);
+    } else if (what == am_nifs) {
+	return nifs_in_module(p, module);
     } else if (what == am_attributes) {
 	return attributes_for_module(p, code_hdr);
     } else if (what == am_compile) {
@@ -6004,6 +6007,46 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     }
     HRelease(p, hp_end, hp);
     return result;
+}
+
+/*
+ * Builds a list of all NIFs in the given module:
+ *     [{Name, Arity},...]
+ */
+Eterm
+nifs_in_module(Process* p, Eterm module)
+{
+    Eterm nif_list, *hp;
+    Module *mod;
+
+    mod = erts_get_module(module, erts_active_code_ix());
+    nif_list = NIL;
+
+    if (mod->curr.nif != NULL) {
+        int func_count, func_ix;
+        ErlNifFunc *funcs;
+
+        func_count = erts_nif_get_funcs(mod->curr.nif, &funcs);
+        hp = HAlloc(p, func_count * 5);
+
+        for (func_ix = func_count - 1; func_ix >= 0; func_ix--) {
+            Eterm name, arity, pair;
+            ErlNifFunc *func;
+
+            func = &funcs[func_ix];
+
+            name = am_atom_put(func->name, sys_strlen(func->name));
+            arity = make_small(func->arity);
+
+            pair = TUPLE2(hp, name, arity);
+            hp += 3;
+
+            nif_list = CONS(hp, pair, nif_list);
+            hp += 2;
+        }
+    }
+
+    return nif_list;
 }
 
 /*
