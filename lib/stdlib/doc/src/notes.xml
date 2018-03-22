@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>Module:init/1</c> function in <c>gen_statem</c>
+	    may return an actions list containing any action, but an
+	    erroneous check only allowed state enter actions so e.g
+	    <c>{next_event,internal,event}</c> caused a server crash.
+	    This bug has been fixed.</p>
+          <p>
+	    Own Id: OTP-13995</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

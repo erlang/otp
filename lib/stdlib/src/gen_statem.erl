@@ -669,9 +669,9 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
     NewDebug = ?sys_debug(Debug, {Name,State}, {enter,Event,State}),
     case call_callback_mode(S) of
 	#state{} = NewS ->
-	    loop_event_actions(
+	    loop_event_actions_list(
 	      Parent, NewDebug, NewS,
-	      Events, Event, State, Data, #trans_opts{},
+	      Events, Event, State, Data, false,
               NewActions, CallEnter);
 	[Class,Reason,Stacktrace] ->
 	    terminate(
@@ -1286,7 +1286,7 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_events,Type,Content}},
+             {bad_action_from_state_function,{next_event,Type,Content}},
              ?STACKTRACE(),
              ?not_sys_debug]
     end;
@@ -1303,7 +1303,7 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_events,Type,Content}},
+             {bad_action_from_state_function,{next_event,Type,Content}},
              ?STACKTRACE(),
              Debug]
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -832,9 +832,14 @@ event_types(_Config) ->
 	%% Abusing the internal format of From...
 	#{init =>
 	      fun () ->
-		      {ok, start, undefined}
+		      {ok, start1, undefined,
+		       [{next_event,internal,0}]}
 	      end,
-	  start =>
+	  start1 =>
+	      fun (internal, 0, undefined) ->
+		      {next_state, start2, undefined}
+	      end,
+	  start2 =>
 	      fun ({call,_} = Call, Req, undefined) ->
 		      {next_state, state1, undefined,
 		       [{next_event,internal,1},
