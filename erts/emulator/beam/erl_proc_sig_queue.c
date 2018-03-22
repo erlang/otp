@@ -1560,8 +1560,8 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
 {
     ErtsMessage *conv_msg = NULL;
     ErtsExitSignalData *xsigd = NULL;
-    ErtsLinkData *ldp;
-    ErtsLink *dlnk;
+    ErtsLinkData *ldp = NULL; /* Avoid erroneous warning... */
+    ErtsLink *dlnk = NULL; /* Avoid erroneous warning... */
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
     Uint16 type = ERTS_PROC_SIG_TYPE(tag);
     int op = ERTS_PROC_SIG_OP(tag);
@@ -1585,8 +1585,6 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
                 /* Link no longer active; ignore... */
                 ignore = !0;
                 destroy = !0;
-                ldp = NULL; /* Avoid erroneous warning... */
-                dlnk = NULL; /* Avoid erroneous warning... */
             }
             else {
                 ignore = 0;
