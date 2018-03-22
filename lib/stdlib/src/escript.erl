@@ -257,7 +257,7 @@ script_name() ->
 -spec get_argument(atom(), [string()]) -> {ok, [[string()]]} | error.
 get_argument( Flag, Arguments ) -> argument_return( argument(Flag, Arguments) ).
 
--spec get_arguments([string()]) -> [string()].
+-spec get_arguments([string()]) -> [{atom(), [string()]}].
 get_arguments( Arguments ) ->
 	Skip_until_flags = lists:dropwhile( fun(X) -> not is_flag(X) end, Arguments ),
 	lists:reverse( lists:foldl(fun arguments_foldl/2, [], Skip_until_flags) ).
