@@ -609,52 +609,6 @@ obsolete_1(filename, find_src, 2) ->
 obsolete_1(erlang, hash, 2) ->
     {removed, {erlang, phash2, 2}, "20.0"};
 
-%% Added in OTP-21
-obsolete_1(string, len, 1) ->
-    {deprecated, "deprecated; use string:length/3 instead"};
-obsolete_1(string, concat, 2) ->
-    {deprecated, "deprecated; use [Str1,Str2] instead"};
-obsolete_1(string, str, 2) ->
-    {deprecated, "deprecated; use string:find/2 instead"};
-obsolete_1(string, rstr, 2) ->
-    {deprecated, "deprecated; use string:find/3 instead"};
-obsolete_1(string, chr, 2) ->
-    {deprecated, "deprecated; use string:find/2 instead"};
-obsolete_1(string, rchr, 2) ->
-    {deprecated, "deprecated; use string:find/3 instead"};
-obsolete_1(string, span, 2) ->
-    {deprecated, "deprecated; use string:take/2 instead"};
-obsolete_1(string, cspan, 2) ->
-    {deprecated, "deprecated; use string:take/3 instead"};
-obsolete_1(string, substr, _) ->
-    {deprecated, "deprecated; use string:slice/3 instead"};
-obsolete_1(string, tokens, 2) ->
-    {deprecated, "deprecated; use string:lexemes/2 instead"};
-obsolete_1(string, chars, _) ->
-    {deprecated, "deprecated; use lists:duplicate/2 instead"};
-obsolete_1(string, copies, _) ->
-    {deprecated, "deprecated; use lists:duplicate/2 instead"};
-obsolete_1(string, words, _) ->
-    {deprecated, "deprecated; use string:lexemes/2 instead"};
-obsolete_1(string, strip, _) ->
-    {deprecated, "deprecated; use string:trim/3 instead"};
-obsolete_1(string, sub_word, _) ->
-    {deprecated, "deprecated; use string:nth_lexeme/3 instead"};
-obsolete_1(string, sub_string, _) ->
-    {deprecated, "deprecated; use string:slice/3 instead"};
-obsolete_1(string, left, _) ->
-    {deprecated, "deprecated; use string:pad/3 instead"};
-obsolete_1(string, right, _) ->
-    {deprecated, "deprecated; use string:pad/3 instead"};
-obsolete_1(string, centre, _) ->
-    {deprecated, "deprecated; use string:pad/3 instead"};
-obsolete_1(string, join, _) ->
-    {deprecated, "deprecated; use lists:join/2 instead"};
-obsolete_1(string, to_upper, _) ->
-    {deprecated, "deprecated; use string:uppercase/1 or string:titlecase/1 instead"};
-obsolete_1(string, to_lower, _) ->
-    {deprecated, "deprecated; use string:lowercase/1 or string:casefold/1 instead"};
-
 %% not obsolete
 
 obsolete_1(_, _, _) ->
