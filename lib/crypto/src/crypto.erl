@@ -847,8 +847,13 @@ on_load() ->
     case Status of
 	ok -> ok;
 	{error, {E, Str}} ->
-	    error_logger:error_msg("Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n"
-				   "OpenSSL might not be installed on this system.~n",[E,Str]),
+            Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
+            Extra = case E of
+                        load_failed ->
+                            "OpenSSL might not be installed on this system.\n";
+                        _ -> ""
+                    end,
+	    error_logger:error_msg(Fmt, [E,Str,Extra]),
 	    Status
     end.
 

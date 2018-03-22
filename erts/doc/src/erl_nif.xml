@@ -809,7 +809,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
       <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, const ErlNifPid* pid, const ErlNifMonitor* mon);</code>
+typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <seealso marker="#enif_monitor_process">
 	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
@@ -875,7 +875,7 @@ typedef enum {
       <item>
         <p>An enumeration of the properties that can be requested from
           <seealso marker="#enif_make_unique_integer">
-          <c>enif_unique_integer</c></seealso>.
+          <c>enif_make_unique_integer</c></seealso>.
           For default properties, use value <c>0</c>.</p>
         <taglist>
           <tag><c>ERL_NIF_UNIQUE_POSITIVE</c></tag>
@@ -1104,6 +1104,16 @@ typedef struct {
     </func>
 
     <func>
+      <name><ret>char*</ret>
+        <nametext>enif_cond_name(ErlNifCond* cnd)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_cond_name">
+          <c>erl_drv_cond_name</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret>
         <nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
@@ -1242,7 +1252,8 @@ typedef struct {
         <p>Similar to <c>fprintf</c> but this format string also accepts
           <c>"%T"</c>, which formats Erlang terms.</p>
 	<p>This function was originally intenden for debugging purpose. It is not
-	  recommended to print very large terms with <c>%T</c>.</p>
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
@@ -2627,6 +2638,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>char*</ret>
+        <nametext>enif_mutex_name(ErlNifMutex* mtx)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_name">
+          <c>erl_drv_mutex_name</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret>
       <nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
@@ -2867,6 +2888,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">
           <c>erl_drv_rwlock_destroy</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_rwlock_name(ErlNifRWLock* rwlck)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_name">
+          <c>erl_drv_rwlock_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -3148,7 +3179,8 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Similar to <c>snprintf</c> but this format string also accepts
           <c>"%T"</c>, which formats Erlang terms.</p>
 	<p>This function was originally intenden for debugging purpose. It is not
-	  recommended to print very large terms with <c>%T</c>.</p>
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
@@ -3208,6 +3240,16 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_thread_join">
           <c>erl_drv_thread_join</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_thread_name(ErlNifTid tid)</nametext></name>
+      <fsummary>Thread name</fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_name">
+          <c>erl_drv_thread_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -3324,6 +3366,30 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">
           <c>erl_drv_tsd_set</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_vfprintf(FILE *stream, const char *format, va_list ap)
+      </nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Equivalent to <seealso marker="#enif_fprintf"><c>enif_fprintf</c></seealso>
+	except that its called with a <c>va_list</c> instead of a variable number of
+	arguments.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_vsnprintf(char *str, size_t size, const char *format, va_list ap)
+      </nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Equivalent to <seealso marker="#enif_snprintf"><c>enif_snprintf</c></seealso>
+	except that its called with a <c>va_list</c> instead of a variable number of
+	arguments.</p>
       </desc>
     </func>
 

@@ -52,10 +52,12 @@
 ** 2.11: 19.0 enif_snprintf 
 ** 2.12: 20.0 add enif_select, enif_open_resource_type_x
 ** 2.13: 20.1 add enif_ioq
-** 2.14: 21.0 add enif_ioq_peek_head
+** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
+**                enif_vfprintf, enif_vsnprintf
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 14
+#define ERL_NIF_MIN_ERTS_VERSION "erts-10.0 (OTP-21)"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -70,6 +72,8 @@
 #define ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,6 +132,9 @@ typedef struct enif_entry_t
 
     /* Added in 2.12 */
     size_t sizeof_ErlNifResourceTypeInit;
+
+    /* Added in 2.14 */
+    const char* min_erts;
 }ErlNifEntry;
 
 
@@ -350,7 +357,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
 	ERL_NIF_VM_VARIANT,		\
         1,                              \
-        sizeof(ErlNifResourceTypeInit)  \
+        sizeof(ErlNifResourceTypeInit), \
+        ERL_NIF_MIN_ERTS_VERSION        \
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\

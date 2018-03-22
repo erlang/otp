@@ -92,7 +92,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_thread_join,(ErlNifTid, void **respp));
 
 ERL_NIF_API_FUNC_DECL(void*,enif_realloc,(void* ptr, size_t size));
 ERL_NIF_API_FUNC_DECL(void,enif_system_info,(ErlNifSysInfo *sip, size_t si_size));
-ERL_NIF_API_FUNC_DECL(int,enif_fprintf,(void/* FILE* */ *filep, const char *format, ...));
+ERL_NIF_API_FUNC_DECL(int,enif_fprintf,(FILE* filep, const char *format, ...));
 ERL_NIF_API_FUNC_DECL(int,enif_inspect_iolist_as_binary,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifBinary* bin));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_sub_binary,(ErlNifEnv*, ERL_NIF_TERM bin_term, size_t pos, size_t size));
 ERL_NIF_API_FUNC_DECL(int,enif_get_string,(ErlNifEnv*, ERL_NIF_TERM list, char* buf, unsigned len, ErlNifCharEncoding));
@@ -199,6 +199,14 @@ ERL_NIF_API_FUNC_DECL(int,enif_inspect_iovec,(ErlNifEnv *env, size_t max_length,
 ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
 
 ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *head));
+
+ERL_NIF_API_FUNC_DECL(char*,enif_mutex_name,(ErlNifMutex*));
+ERL_NIF_API_FUNC_DECL(char*,enif_cond_name,(ErlNifCond*));
+ERL_NIF_API_FUNC_DECL(char*,enif_rwlock_name,(ErlNifRWLock*));
+ERL_NIF_API_FUNC_DECL(char*,enif_thread_name,(ErlNifTid));
+
+ERL_NIF_API_FUNC_DECL(int,enif_vfprintf,(FILE*, const char *fmt, va_list));
+ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_list));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -375,6 +383,12 @@ ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, 
 #  define enif_inspect_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iovec)
 #  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
 #  define enif_ioq_peek_head ERL_NIF_API_FUNC_MACRO(enif_ioq_peek_head)
+#  define enif_mutex_name ERL_NIF_API_FUNC_MACRO(enif_mutex_name)
+#  define enif_cond_name ERL_NIF_API_FUNC_MACRO(enif_cond_name)
+#  define enif_rwlock_name ERL_NIF_API_FUNC_MACRO(enif_rwlock_name)
+#  define enif_thread_name ERL_NIF_API_FUNC_MACRO(enif_thread_name)
+#  define enif_vfprintf ERL_NIF_API_FUNC_MACRO(enif_vfprintf)
+#  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

@@ -1966,6 +1966,12 @@ ErlNifTid enif_thread_self(void) { return erl_drv_thread_self(); }
 int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2) { return erl_drv_equal_tids(tid1,tid2); }
 void enif_thread_exit(void *resp) { erl_drv_thread_exit(resp); }
 int enif_thread_join(ErlNifTid tid, void **respp) { return erl_drv_thread_join(tid,respp); }
+
+char* enif_mutex_name(ErlNifMutex *mtx) {return erl_drv_mutex_name(mtx); }
+char* enif_cond_name(ErlNifCond *cnd) { return erl_drv_cond_name(cnd); }
+char* enif_rwlock_name(ErlNifRWLock* rwlck) { return erl_drv_rwlock_name(rwlck); }
+char* enif_thread_name(ErlNifTid tid) { return erl_drv_thread_name(tid); }
+
 int enif_getenv(const char *key, char *value, size_t *value_size) { return erl_drv_getenv(key, value, value_size); }
 
 ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit)
@@ -1988,15 +1994,20 @@ enif_convert_time_unit(ErlNifTime val,
 						    (int) to);
 }
 
-int enif_fprintf(void* filep, const char* format, ...) 
+int enif_fprintf(FILE* filep, const char* format, ...)
 { 
     int ret;
     va_list arglist;
     va_start(arglist, format);
-    ret = erts_vfprintf((FILE*)filep, format, arglist);
+    ret = erts_vfprintf(filep, format, arglist);
     va_end(arglist);
     return ret;
 }    
+
+int enif_vfprintf(FILE* filep, const char *format, va_list ap)
+{
+    return erts_vfprintf(filep, format, ap);
+}
 
 int enif_snprintf(char *buffer, size_t size, const char* format, ...) 
 { 
@@ -2007,6 +2018,12 @@ int enif_snprintf(char *buffer, size_t size, const char* format, ...)
     va_end(arglist);
     return ret;
 }
+
+int enif_vsnprintf(char* buffer, size_t size, const char *format, va_list ap)
+{
+    return erts_vsnprintf(buffer, size, format, ap);
+}
+
 
 /***********************************************************
  **       Memory managed (GC'ed) "resource" objects       **
@@ -3843,6 +3860,11 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
     } else {
         dst->sizeof_ErlNifResourceTypeInit = 0;
     }
+    if (AT_LEAST_VERSION(src, 2, 14)) {
+        dst->min_erts = src->min_erts;
+    } else {
+        dst->min_erts = "erts-?";
+    }
     return lib;
 };
 
@@ -3955,14 +3977,20 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library init-call unsuccessful");
     }
+    else if (entry->major > ERL_NIF_MAJOR_VERSION
+             || (entry->major == ERL_NIF_MAJOR_VERSION
+                 && entry->minor > ERL_NIF_MINOR_VERSION)) {
+        char* fmt = "That '%T' NIF library needs %s or newer. Either try to"
+            " recompile the NIF lib or use a newer erts runtime.";
+        ret = load_nif_error(BIF_P, bad_lib, fmt, mod_atom, entry->min_erts);
+    }
     else if (entry->major < ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
-	     || (ERL_NIF_MAJOR_VERSION < entry->major
-		 || (ERL_NIF_MAJOR_VERSION == entry->major
-		     && ERL_NIF_MINOR_VERSION < entry->minor))
 	     || (entry->major==2 && entry->minor == 5)) { /* experimental maps */
 	
-	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
-			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
+        char* fmt = "That old NIF library (%d.%d) is not compatible with this "
+            "erts runtime (%d.%d). Try recompile the NIF lib.";
+        ret = load_nif_error(BIF_P, bad_lib, fmt, entry->major, entry->minor,
+                             ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
     }   
     else if (AT_LEAST_VERSION(entry, 2, 1)
 	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
