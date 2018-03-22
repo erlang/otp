@@ -20,7 +20,7 @@
 -module(escript).
 
 %% Useful functions that can be called from scripts.
--export([script_name/0, create/2, extract/2]).
+-export([script_name/0, create/2, extract/2, get_argument/2, get_plain_arguments/1, get_arguments/1]).
 
 %% Internal API.
 -export([start/0, start/1, parse_file/1]).
@@ -253,6 +253,45 @@ normalize_section(Name, Chars) ->
 script_name() ->
     [ScriptName|_] = init:get_plain_arguments(),
     ScriptName.
+
+-spec get_argument(atom(), [string()]) -> {ok, [[string()]]} | error.
+get_argument( Flag, Arguments ) -> argument_return( argument(Flag, Arguments) ).
+
+-spec get_arguments([string()]) -> [string()].
+get_arguments( Arguments ) ->
+	Skip_until_flags = lists:dropwhile( fun(X) -> not is_flag(X) end, Arguments ),
+	lists:reverse( lists:foldl(fun arguments_foldl/2, [], Skip_until_flags) ).
+
+-spec get_plain_arguments([string()]) -> [string()].
+get_plain_arguments( Arguments ) ->
+	plain_arguments_until_flag( Arguments )
+	++ plain_arguments( lists:splitwith(fun is_not_plain_split/1, Arguments) ).
+
+argument( Flag, Arguments ) -> [X || {F, X} <- get_arguments( Arguments ), F =:= Flag].
+
+arguments_foldl( Argument, Acc ) ->
+	arguments_foldl_acc( is_flag(Argument), Argument, Acc ).
+arguments_foldl_acc( true, Argument, Acc ) -> [{flag_to_atom(Argument), []} | Acc];
+arguments_foldl_acc( false, Argument, [{Flag, Flag_arguments} | Acc] ) ->
+	[{Flag, Flag_arguments ++ [Argument]} | Acc].
+
+argument_return( [] ) -> error;
+argument_return( Result ) -> {ok, Result}.
+
+flag_to_atom( "-" ++ Flag ) -> erlang:list_to_atom( Flag ).
+
+is_flag( "-" ++ _T ) -> true;
+is_flag( _Argument ) -> false.
+
+is_not_plain_split( "--" ) -> false;
+is_not_plain_split( _Else ) -> true.
+
+plain_arguments( {_Before, []} ) -> [];
+plain_arguments( {_Before, ["--" | Rest]} ) ->
+	plain_arguments_until_flag( Rest )
+	++ plain_arguments( lists:splitwith(fun is_not_plain_split/1, Rest) ).
+
+plain_arguments_until_flag( Arguments ) -> lists:takewhile( fun(X) -> not is_flag(X) end, Arguments ).
 
 %%
 %% Internal API.

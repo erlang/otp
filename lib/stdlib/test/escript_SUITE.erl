@@ -38,7 +38,10 @@
 	 foldl/1,
 	 overflow/1,
 	 verify_sections/3,
-         unicode/1
+         unicode/1,
+         get_arguments/1,
+         get_plain_arguments/1,
+         get_argument/1
 	]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -53,7 +56,8 @@ all() ->
      emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access, unicode].
+     archive_script_file_access, unicode,
+     get_argument, get_arguments, get_plain_arguments].
 
 groups() -> 
     [].
@@ -188,7 +192,7 @@ module_script(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
-    [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
+    [Shebang, Mode, Flags | Source] = string:lexemes(binary_to_list(OrigBin), "\n"),
     {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
@@ -198,7 +202,7 @@ module_script(Config) when is_list(Config) ->
     ErlFile = filename:join([Priv, Base ++ ".erl"]),
     ErlCode = ["\n-module(", Base, ").\n",
 	       "-export([main/1]).\n\n",
-	       string:join(Source, "\n"),
+	       lists:join( "\n", Source ),
 	       "\n"],
     ok = file:write_file(ErlFile, ErlCode),
 
@@ -290,7 +294,7 @@ beam_script(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
-    [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
+    [Shebang, Mode, Flags | Source] = string:lexemes(binary_to_list(OrigBin), "\n"),
     {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
@@ -301,7 +305,7 @@ beam_script(Config) when is_list(Config) ->
     ok = file:write_file(ErlFile,
 			 ["\n-module(", Base, ").\n",
 			  "-export([main/1]).\n\n",
-			  string:join(Source, "\n"),
+			  lists:join( "\n", Source ),
 			  "\n"]),
 
     %% Compile the code
@@ -416,7 +420,7 @@ archive_script(Config) when is_list(Config) ->
     OrigFile = filename:join([DataDir, "emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
     [Shebang, Mode, _Flags | _Source] =
-	string:tokens(binary_to_list(OrigBin), "\n"),
+	string:lexemes(binary_to_list(OrigBin), "\n"),
     Flags = "%%! -archive_script_dict foo bar"
 	" -archive_script_dict foo"
 	" -archive_script_dummy bar",
@@ -935,6 +939,43 @@ unicode(Config) when is_list(Config) ->
     run(Dir, "unicode4", [<<"ExitCode:0">>]),
     run(Dir, "unicode5", [<<"ExitCode:0">>]),
     run(Dir, "unicode6", [<<"ExitCode:0">>]),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+get_argument(Config) when is_list(Config) ->
+    error = escript:get_argument( a, [] ),
+    {ok,[[]]} = escript:get_argument( a, ["-a"] ),
+    {ok,[["1"]]} = escript:get_argument( a, ["-a", "1"] ),
+    {ok,[["1","2"],["3"]]} = escript:get_argument( a, ["-a", "1", "2", "-a", "3"] ),
+    {ok,[["1","2"],["4"]]} = escript:get_argument( a, ["-a",  "1", "2", "-b", "3", "-a", "4"] ),
+    {ok,[["2"], ["3"]]} = escript:get_argument( a, ["b", "c", "-b", "1", "-a", "2", "--", "-c", "-a", "3"] ),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+get_arguments(Config) when is_list(Config) ->
+    [] = escript:get_arguments( [] ),
+    [] = escript:get_arguments( ["a", "b", "c"] ),
+    [{a, []}] = escript:get_arguments( ["-a"] ),
+    [{a, []}, {b, []}] = escript:get_arguments( ["-a", "-b"] ),
+    [{b, []}] = escript:get_arguments( ["a", "-b"] ),
+    [{a, ["1"]}] = escript:get_arguments( ["-a", "1"] ),
+    [{a, ["1", "2"]}] = escript:get_arguments( ["-a", "1", "2"] ),
+    [{a, []}, {a, []}] = escript:get_arguments( ["-a", "-a"] ),
+    [{a, []}, {b, []}, {a, []}] = escript:get_arguments( ["-a", "-b", "-a"] ),
+    [{a, ["1", "2"]}, {a, ["3", "4"]}] = escript:get_arguments( ["-a", "1", "2", "-a", "3", "4"] ),
+    [{a, ["1", "2"]}, {b, ["3"]}, {a, ["4", "5"]}] = escript:get_arguments( ["-a", "1", "2", "-b", "3", "-a", "4", "5"] ),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+get_plain_arguments(Config) when is_list(Config) ->
+    [] = escript:get_plain_arguments( [] ),
+    [] = escript:get_plain_arguments( ["-a",  "1", "2"] ),
+    ["b"] = escript:get_plain_arguments( ["b","-a",  "1", "2"] ),
+    ["b", "1", "2"] = escript:get_plain_arguments( ["b","-a",  "--", "1", "2"] ),
+    ["b", "1", "2"] = escript:get_plain_arguments( ["b","-a",  "--", "1", "2",  "-b", "3", "4"] ),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

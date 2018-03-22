@@ -409,6 +409,60 @@ ok
           of an escript, the behavior is undefined.</p>
       </desc>
     </func>
+
+    <func>
+      <name>escript:get_argument(Flag, Args) -> {ok, Values} | error</name>
+      <fsummary>Get the values associated with a command-line flag in Args.</fsummary>
+      <type>
+        <v>Flag = atom()</v>
+        <v>Args = [string()]</v>
+        <v>Values = [] | [[string()]]</v>
+      </type>
+      <desc>
+        <p>Returns all values in Args (eg main( Args )) associated with the command-line flag
+          <c>Flag</c>. If <c>Flag</c> is provided several times, each <c>Values</c> is returned in
+          preserved order. Example:</p>
+        <pre>
+1> <input>escript:get_argument(a, ["-a"]).</input>
+{ok,[[]]}</pre>
+        <pre>
+2> <input>escript:get_argument(a, ["-a","b","c","-a","d"]).</input>
+{ok,[["b","c"],["d"]]}</pre>
+        <p>Returns <c>error</c> if <c>Flag</c> is not present.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>escript:get_arguments(Args) -> KVs</name>
+      <fsummary>Get all command-line flags and their values, in Args.</fsummary>
+      <type>
+        <v>Args = [string()]</v>
+        <v>KVs = [] | [{atom(), [string()]}]</v>
+      </type>
+       <desc>
+        <p>Returns all command-line flags and their values. Example:</p>
+        <pre>
+1> <input>escript:get_arguments(["a", "-b","c"]).</input>
+[{b, ["c"]}]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name>escript:get_plain_arguments(Args) -> Plains</name>
+      <fsummary>Get all non-flag command-line arguments in Args.</fsummary>
+      <type>
+        <v>Args = [string()]</v>
+        <v>Plains = [] | [string()]</v>
+      </type>
+      <desc>
+        <p>Returns any plain command-line arguments as a list of strings
+          (possibly empty). Example:</p>
+        <pre>
+1> <input>escript:get_plain_arguments(["a", "-b","c"]).</input>
+["a"]</pre>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
