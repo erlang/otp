@@ -202,6 +202,7 @@ boot(BootArgs) ->
 
     %% Load the static nifs
     zlib:on_load(),
+    socket:on_load(),
     erl_tracer:on_load(),
     prim_buffer:on_load(),
     prim_file:on_load(),

@@ -640,6 +640,7 @@ PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
@@ -881,6 +882,7 @@ NIF_OBJS = \
 	   $(OBJDIR)/erl_tracer_nif.o \
 	   $(OBJDIR)/prim_buffer_nif.o \
 	   $(OBJDIR)/prim_file_nif.o \
+	   $(OBJDIR)/socket_nif.o \
 	   $(OBJDIR)/zlib_nif.o
 
 ifeq ($(TARGET),win32)

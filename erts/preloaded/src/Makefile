@@ -39,6 +39,7 @@ PRE_LOADED_ERL_MODULES = \
 	prim_buffer \
 	prim_file \
 	prim_inet \
+	socket \
 	zlib \
 	prim_zip \
 	otp_ring0 \
