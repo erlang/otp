@@ -509,10 +509,10 @@ dist_ctrl_put_data(DHandle, IoList) ->
             %% erlang:dist_ctrl_put_data/2 ...
             RootST = try erlang:error(Reason)
                      catch
-                         error:Reason ->
-                             case erlang:get_stacktrace() of
+                         error:Reason:ST ->
+                             case ST of
                                  [] -> [];
-                                 ST -> tl(ST)
+                                 [_|T] -> T
                              end
                      end,
 	    StackTrace = [{erlang, dist_ctrl_put_data,
