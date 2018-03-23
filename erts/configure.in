@@ -2871,8 +2871,11 @@ AC_CHECK_PROG(M4, m4, m4)
 if test X${enable_hipe} != Xno; then
     if test X$ac_cv_sizeof_void_p != X4 && test X$ARCH = Xamd64; then
         dnl HiPE cannot run on x86_64 without MAP_FIXED and MAP_NORESERVE
+        dnl - but don't require MAP_NORESERVE on FreeBSD,
+        dnl see emulator/sys/common/erl_mmap.h
 	AC_CHECK_DECLS([MAP_FIXED, MAP_NORESERVE], [], [], [#include <sys/mman.h>])
-	if test X$ac_cv_have_decl_MAP_FIXED != Xyes || test X$ac_cv_have_decl_MAP_NORESERVE != Xyes; then
+	if test X$ac_cv_have_decl_MAP_FIXED != Xyes || \
+            (test X$ac_cv_have_decl_MAP_NORESERVE != Xyes && $OPSYS != freebsd); then
 	    if test X${enable_hipe} = Xyes; then
 	        AC_MSG_ERROR([HiPE on x86_64 needs MAP_FIXED and MAP_NORESERVE flags for mmap()])
 	    else

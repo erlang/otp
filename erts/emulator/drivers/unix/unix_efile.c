@@ -23,7 +23,11 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#if defined(HAVE_POSIX_FALLOCATE) && !defined(__sun) && !defined(__sun__)
+#if defined(HAVE_POSIX_FALLOCATE) && !defined(__sun) && !defined(__sun__) && !defined(__FreeBSD__)
+/*
+ * On FreeBSD, we must leave _XOPEN_SOURCE undefined in order for the prototype
+ * of finite() (potentially used in sys/unix/erl_unix_sys.h) to be included.
+ */
 #define _XOPEN_SOURCE 600
 #endif
 #if !defined(_GNU_SOURCE) && defined(HAVE_LINUX_FALLOC_H)
