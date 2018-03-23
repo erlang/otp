@@ -32,7 +32,7 @@ new(Mod, Eq) ->
 	(from_list, L) -> Mod:from_list(L);
 	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
 	(intersection, Ss) -> intersection(Mod, Eq, Ss);
-	(is_empty, S) -> is_empty(Mod, S);
+	(is_empty, S) -> Mod:is_empty(S);
 	(is_set, S) -> Mod:is_set(S);
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
         (iterator, S) -> Mod:iterator(S);
@@ -56,7 +56,7 @@ singleton(Mod, E) ->
 add_element(Mod, El, S0) ->
     S = Mod:add_element(El, S0),
     true = Mod:is_element(El, S),
-    false = is_empty(Mod, S),
+    false = Mod:is_empty(S),
     true = Mod:is_set(S),
     S.
 
@@ -66,17 +66,10 @@ del_element(Mod, El, S0) ->
     true = Mod:is_set(S),
     S.
 
-is_empty(Mod, S) ->
-    true = Mod:is_set(S),
-    case erlang:function_exported(Mod, is_empty, 1) of
-	true -> Mod:is_empty(S);
-	false -> Mod:size(S) == 0
-    end.
-
 intersection(Mod, Equal, S1, S2) ->
     S = Mod:intersection(S1, S2),
     true = Equal(S, Mod:intersection(S2, S1)),
-    Disjoint = is_empty(Mod, S),
+    Disjoint = Mod:is_empty(S),
     Disjoint = Mod:is_disjoint(S1, S2),
     Disjoint = Mod:is_disjoint(S2, S1),
     S.
