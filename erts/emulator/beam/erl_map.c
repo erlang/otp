@@ -490,7 +490,9 @@ Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0, 
         sys_memcpy(ks, ks0, n * sizeof(Eterm));
         sys_memcpy(vs, vs0, n * sizeof(Eterm));
 
-        erts_validate_and_sort_flatmap(mp);
+        if (!erts_validate_and_sort_flatmap(mp)) {
+            return THE_NON_VALUE;
+        }
 
         return make_flatmap(mp);
     } else {

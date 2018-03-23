@@ -2934,6 +2934,44 @@ ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
     return make_flatmap(mp);
 }
 
+int enif_make_map_from_arrays(ErlNifEnv *env,
+                              ERL_NIF_TERM keys[],
+                              ERL_NIF_TERM values[],
+                              size_t cnt,
+                              ERL_NIF_TERM *map_out)
+{
+    ErtsHeapFactory factory;
+    int succeeded;
+
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    size_t index = 0;
+
+    while (index < cnt) {
+        ASSERT_IN_ENV(env, keys[index], index, "key");
+        ASSERT_IN_ENV(env, values[index], index, "value");
+        index++;
+    }
+#endif
+
+    flush_env(env);
+
+    erts_factory_proc_prealloc_init(&factory, env->proc,
+        cnt * 2 + MAP_HEADER_FLATMAP_SZ + 1);
+
+    (*map_out) = erts_map_from_ks_and_vs(&factory, keys, values, cnt);
+    succeeded = (*map_out) != THE_NON_VALUE;
+
+    if (!succeeded) {
+        erts_factory_undo(&factory);
+    }
+
+    erts_factory_close(&factory);
+
+    cache_env(env);
+
+    return succeeded;
+}
+
 int enif_make_map_put(ErlNifEnv* env,
 	              Eterm map_in,
 		      Eterm key,
