@@ -400,9 +400,12 @@ typedef struct {
 } ErtsRunPrioQueue;
 
 typedef enum {
-    ERTS_SCHED_NORMAL,
-    ERTS_SCHED_DIRTY_CPU,
-    ERTS_SCHED_DIRTY_IO
+    ERTS_SCHED_NORMAL = 0,
+    ERTS_SCHED_DIRTY_CPU = 1,
+    ERTS_SCHED_DIRTY_IO = 2,
+
+    ERTS_SCHED_TYPE_FIRST = ERTS_SCHED_NORMAL,
+    ERTS_SCHED_TYPE_LAST = ERTS_SCHED_DIRTY_IO
 } ErtsSchedType;
 
 typedef struct ErtsSchedulerData_ ErtsSchedulerData;
@@ -1712,9 +1715,9 @@ ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *list,
 
 #endif
 
-int erts_sched_set_wakeup_other_thresold(char *str);
-int erts_sched_set_wakeup_other_type(char *str);
-int erts_sched_set_busy_wait_threshold(char *str);
+int erts_sched_set_wakeup_other_threshold(ErtsSchedType sched_type, char *str);
+int erts_sched_set_wakeup_other_type(ErtsSchedType sched_type, char *str);
+int erts_sched_set_busy_wait_threshold(ErtsSchedType sched_type, char *str);
 int erts_sched_set_wake_cleanup_threshold(char *);
 
 void erts_schedule_thr_prgr_later_op(void (*)(void *),

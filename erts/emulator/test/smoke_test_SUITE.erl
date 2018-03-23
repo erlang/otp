@@ -70,6 +70,20 @@ boot_combo(Config) when is_list(Config) ->
 	chk_boot(Config, "+Ktrue", NOOP),
 	chk_boot(Config, "+A42", A42),
 	chk_boot(Config, "+Ktrue +A42", A42),
+
+        WBTArgs = ["very_short", "short", "medium", "long", "very_long"],
+        WTArgs = ["very_low", "low", "medium", "high", "very_high"],
+        [chk_boot(Config,
+                 " +sbwt " ++ WBT ++
+                 " +sbwtdcpu " ++ WBT ++
+                 " +sbwtdio " ++ WBT ++
+                 " +swt " ++ WT ++
+                 " +swtdcpu " ++ WT ++
+                 " +swtdio " ++ WT, NOOP) || WBT <- WBTArgs,  WT <- WTArgs],
+
+        WSArgs = ["legacy", "default"],
+        [chk_boot(Config, " +sws " ++ WS, NOOP) || WS <- WSArgs],
+
 	%% A lot more combos could be implemented...
 	ok
     after
