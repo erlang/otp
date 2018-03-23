@@ -312,7 +312,7 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
             define what a system event is and how it is to be
             represented. Typically at least incoming and outgoing
             messages are considered system events and represented by
-            the tuples <c>{in,Msg[,From]}</c> and <c>{out,Msg,To}</c>,
+            the tuples <c>{in,Msg[,From]}</c> and <c>{out,Msg,To[,State]}</c>,
             respectively.</item>
       </list>
       <p><c>handle_debug</c> returns an updated debug structure

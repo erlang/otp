@@ -44,6 +44,7 @@
 -type system_event() :: {'in', Msg :: _}
                       | {'in', Msg :: _, From :: _}
                       | {'out', Msg :: _, To :: _}
+                      | {'out', Msg :: _, To :: _, State :: _}
                         | term().
 -opaque dbg_opt()    :: {'trace', 'true'}
                       | {'log',
@@ -573,6 +574,7 @@ get_stat(_) ->
 stat({in, _Msg}, {Time, Reds, In, Out}) -> {Time, Reds, In+1, Out};
 stat({in, _Msg, _From}, {Time, Reds, In, Out}) -> {Time, Reds, In+1, Out};
 stat({out, _Msg, _To}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
+stat({out, _Msg, _To, _State}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat(_, StatData) -> StatData.
 
 trim(N, LogData) ->

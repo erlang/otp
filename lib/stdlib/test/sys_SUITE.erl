@@ -84,7 +84,7 @@ stats(Config) when is_list(Config) ->
     {ok,-44} = public_call(44),
     {ok,Stats} = sys:statistics(?server,get),
     true = lists:member({messages_in,1}, Stats),
-    true = lists:member({messages_out,0}, Stats),
+    true = lists:member({messages_out,1}, Stats),
     ok = sys:statistics(?server,false),
     {status,_Pid,{module,_Mod},[_PDict,running,Self,_,_]} =
 	sys:get_status(?server),

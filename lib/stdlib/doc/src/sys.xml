@@ -102,7 +102,7 @@
       then treated in the debug function. For example, <c>trace</c>
       formats the system events to the terminal.
       </p>
-    <p>Three predefined system events are used when a
+    <p>Four predefined system events are used when a
       process receives or sends a message. The process can also define its
       own system events. It is always up to the process itself
       to format these events.</p>
