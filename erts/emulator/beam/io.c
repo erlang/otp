@@ -2361,6 +2361,21 @@ set_port_connected(int bang_op,
                 trace_port(prt, am_getting_linked, connect);
         }
 
+#ifdef USE_VM_PROBES
+	if (DTRACE_ENABLED(port_connect)) {
+            Eterm old_connected = ERTS_PORT_GET_CONNECTED(prt);
+            DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
+
+            dtrace_pid_str(old_connected, process_str);
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                          "%T", prt->common.id);
+            dtrace_pid_str(connect, newprocess_str);
+            DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
+	}
+#endif
+
 	ERTS_PORT_SET_CONNECTED(prt, connect);
 
         if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
@@ -2370,18 +2385,6 @@ set_port_connected(int bang_op,
             trace_port_send(prt, from, TUPLE2(hp, prt->common.id, am_connected), 1);
         }
 
-#ifdef USE_VM_PROBES
-	if (DTRACE_ENABLED(port_connect)) {
-	    DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
-	    DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
-	    DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
-
-	    dtrace_pid_str(connect, process_str);
-	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
-	    dtrace_proc_str(rp, newprocess_str);
-	    DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
-	}
-#endif
     }
 
     return ERTS_PORT_OP_DONE;

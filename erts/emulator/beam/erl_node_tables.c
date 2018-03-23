@@ -1051,14 +1051,16 @@ static void erts_lcnt_enable_dist_lock_count(void *dep_raw, void *enable) {
     if(enable) {
         erts_lcnt_install_new_lock_info(&dep->rwmtx.lcnt, "dist_entry", dep->sysname, 
             ERTS_LOCK_TYPE_RWMUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
-        erts_lcnt_install_new_lock_info(&dep->lnk_mtx.lcnt, "dist_entry_links", dep->sysname,
-            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
         erts_lcnt_install_new_lock_info(&dep->qlock.lcnt, "dist_entry_out_queue", dep->sysname,
             ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+        if (dep->mld)
+            erts_lcnt_install_new_lock_info(&dep->mld->mtx.lcnt, "dist_entry_links", dep->sysname,
+                                            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     } else {
         erts_lcnt_uninstall(&dep->rwmtx.lcnt);
-        erts_lcnt_uninstall(&dep->lnk_mtx.lcnt);
         erts_lcnt_uninstall(&dep->qlock.lcnt);
+        if (dep->mld)
+            erts_lcnt_uninstall(&dep->mld->mtx.lcnt);
     }
 }
 

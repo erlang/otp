@@ -266,6 +266,7 @@ bif erlang:demonitor/1
 bif erlang:demonitor/2
 
 bif erlang:is_process_alive/1
+bif erts_internal:is_process_alive/2
 
 bif erlang:error/1		error_1
 bif erlang:error/2		error_2

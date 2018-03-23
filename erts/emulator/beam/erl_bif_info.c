@@ -73,6 +73,9 @@ static Export *gather_msacc_res_trap;
 static Export *gather_gc_info_res_trap;
 static Export *gather_system_check_res_trap;
 
+static Export *is_process_alive_trap;
+
+
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 static char otp_version[] = ERLANG_OTP_VERSION;
@@ -3501,34 +3504,53 @@ fun_info_mfa_1(BIF_ALIST_1)
     BIF_ERROR(p, BADARG);
 }
 
+BIF_RETTYPE erts_internal_is_process_alive_2(BIF_ALIST_2)
+{
+    if (!is_internal_pid(BIF_ARG_1) || !is_internal_ordinary_ref(BIF_ARG_2))
+        BIF_ERROR(BIF_P, BADARG);
+    erts_proc_sig_send_is_alive_request(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    BIF_RET(am_ok);
+}
+
 BIF_RETTYPE is_process_alive_1(BIF_ALIST_1) 
 {
-   if(is_internal_pid(BIF_ARG_1)) {
-       Process *rp;
+    if (is_internal_pid(BIF_ARG_1)) {
+        erts_aint32_t state;
+        Process *rp;
 
-       if (BIF_ARG_1 == BIF_P->common.id)
-	   BIF_RET(am_true);
+        if (BIF_ARG_1 == BIF_P->common.id)
+            BIF_RET(am_true);
 
-       rp = erts_proc_lookup_raw(BIF_ARG_1);
-       if (!rp) {
-	   BIF_RET(am_false);
-       }
-       else {
-	   if (erts_atomic32_read_acqb(&rp->state) & ERTS_PSFLG_EXITING)
-	       ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_false);
-	   else
-	       BIF_RET(am_true);
-       }
-   }
-   else if(is_external_pid(BIF_ARG_1)) {
-       if(external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
+        rp = erts_proc_lookup_raw(BIF_ARG_1);
+        if (!rp)
+            BIF_RET(am_false);
+
+        state = erts_atomic32_read_acqb(&rp->state);
+        if (state & (ERTS_PSFLG_EXITING
+                     | ERTS_PSFLG_SIG_Q
+                     | ERTS_PSFLG_SIG_IN_Q)) {
+            /*
+             * If in exiting state, trap out and send 'is alive'
+             * request and wait for it to complete termination.
+             *
+             * If process has signals enqueued, we need to
+             * send it an 'is alive' request via its signal
+             * queue in order to ensure that signal order is
+             * preserved (we may earlier have sent it an
+             * exit signal that has not been processed yet).
+             */
+            BIF_TRAP1(is_process_alive_trap, BIF_P, BIF_ARG_1);
+        }
+
+        BIF_RET(am_true);
+    }
+
+   if (is_external_pid(BIF_ARG_1)) {
+       if (external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
 	   BIF_RET(am_false); /* A pid from an old incarnation of this node */
-       else
-	   BIF_ERROR(BIF_P, BADARG);
    }
-   else {
-      BIF_ERROR(BIF_P, BADARG);
-   }
+
+   BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE process_display_2(BIF_ALIST_2)
@@ -5007,6 +5029,10 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erts_internal, am_gather_microstate_accounting_result, 2);
     gather_system_check_res_trap
 	= erts_export_put(am_erts_internal, am_gather_system_check_result, 1);
+
+    is_process_alive_trap = erts_export_put(am_erts_internal, am_is_process_alive, 1);
+
+
     process_info_init();
     os_info_init();
 }
