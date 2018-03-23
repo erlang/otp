@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,20 @@
 	{local, binary()} |
 	{unspec, <<>>} |
 	{undefined, any()}.
--type posix() :: exbadport | exbadseq | file:posix().
+-type posix() ::
+        'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
+        'econnaborted' | 'econnrefused' | 'econnreset' |
+        'edestaddrreq' |
+        'ehostdown' | 'ehostunreach' |
+        'einprogress' | 'eisconn' |
+        'emsgsize' |
+        'enetdown' | 'enetunreach' |
+        'enopkg' | 'enoprotoopt' | 'enotconn' | 'enotty' | 'enotsock' |
+        'eproto' | 'eprotonosupport' | 'eprototype' |
+        'esocktnosupport' |
+        'etimedout' |
+        'ewouldblock' |
+        'exbadport' | 'exbadseq' | file:posix().
 -type socket() :: port().
 
 -type socket_setopt() ::

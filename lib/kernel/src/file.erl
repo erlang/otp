@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,14 +101,25 @@
 -type deep_list() :: [char() | atom() | deep_list()].
 -type name()      :: string() | atom() | deep_list().
 -type name_all()  :: string() | atom() | deep_list() | (RawFilename :: binary()).
--type posix()     :: 'eacces'  | 'eagain'  | 'ebadf'   | 'ebusy'  | 'edquot'
-		   | 'eexist'  | 'efault'  | 'efbig'   | 'eintr'  | 'einval'
-		   | 'eio'     | 'eisdir'  | 'eloop'   | 'emfile' | 'emlink'
-		   | 'enametoolong'
-		   | 'enfile'  | 'enodev'  | 'enoent'  | 'enomem' | 'enospc'
-		   | 'enotblk' | 'enotdir' | 'enotsup' | 'enxio'  | 'eperm'
-		   | 'epipe'   | 'erofs'   | 'espipe'  | 'esrch'  | 'estale'
-		   | 'exdev'.
+-type posix() ::
+        'eacces' | 'eagain' |
+        'ebadf' | 'ebadmsg' | 'ebusy' |
+        'edeadlk' | 'edeadlock' | 'edquot' |
+        'eexist' |
+        'efault' | 'efbig' | 'eftype' |
+        'eintr' | 'einval' | 'eio' | 'eisdir' |
+        'eloop' |
+        'emfile' | 'emlink' | 'emultihop' |
+        'enametoolong' | 'enfile' |
+        'enobufs' | 'enodev' | 'enolck' | 'enolink' | 'enoent' |
+        'enomem' | 'enospc' | 'enosr' | 'enostr' | 'enosys' |
+        'enotblk' | 'enotdir' | 'enotsup' | 'enxio' |
+        'eopnotsupp' | 'eoverflow' |
+        'eperm' | 'epipe' |
+        'erange' | 'erofs' |
+        'espipe'  | 'esrch'  | 'estale' |
+        'etxtbsy' |
+        'exdev'.
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
