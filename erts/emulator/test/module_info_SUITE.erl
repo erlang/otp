@@ -23,7 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-	 exports/1,functions/1,deleted/1,native/1,info/1]).
+	 exports/1,functions/1,deleted/1,native/1,info/1,nifs/1]).
 
 %%-compile(native).
 
@@ -38,7 +38,7 @@ all() ->
     modules().
 
 modules() ->
-    [exports, functions, deleted, native, info].
+    [exports, functions, deleted, native, info, nifs].
 
 %% Should return all functions exported from this module. (local)
 all_exported() ->
@@ -62,10 +62,22 @@ exports(Config) when is_list(Config) ->
     All = lists:sort(?MODULE:module_info(exports)),
     ok.
 
-%% Test that the list of exported functions from this module is correct.
+%% Test that the list of local and exported functions from this module is
+%% correct.
 functions(Config) when is_list(Config) ->
     All = all_functions(),
     All = lists:sort(?MODULE:module_info(functions)),
+    ok.
+
+nifs(Config) when is_list(Config) ->
+    [] = ?MODULE:module_info(nifs),
+
+    %% erl_tracer is guaranteed to be present and contain these NIFs
+    TraceNIFs = erl_tracer:module_info(nifs),
+    true = lists:member({enabled, 3}, TraceNIFs),
+    true = lists:member({trace, 5}, TraceNIFs),
+    2 = length(TraceNIFs),
+
     ok.
 
 %% Test that deleted modules cause badarg
