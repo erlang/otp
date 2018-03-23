@@ -203,19 +203,19 @@ daemon_loop(#daemon_state{config = DaemonConfig,
             Fun = fun(#server_info{pid = Pid}, Acc) -> [{server, Pid} | Acc] end,
             ServerInfo = ets:foldl(Fun, [], ServerTab),
             Info = internal_info(DaemonConfig, daemon) ++ [{n_conn, N}] ++ ServerInfo,
-            reply({ok, Info}, Ref, FromPid),
+            _ = reply({ok, Info}, Ref, FromPid),
             ?MODULE:daemon_loop(State);
         {{change_config, Options}, Ref, FromPid} when is_pid(FromPid) ->
             case catch tftp_lib:parse_config(Options, DaemonConfig) of
                 {'EXIT', Reason} ->
-                    reply({error, Reason}, Ref, FromPid),
+                    _ = reply({error, Reason}, Ref, FromPid),
                     ?MODULE:daemon_loop(State);
                 DaemonConfig2 when is_record(DaemonConfig2, config) ->
-                    reply(ok, Ref, FromPid),
+                    _ = reply(ok, Ref, FromPid),
                     ?MODULE:daemon_loop(State#daemon_state{config = DaemonConfig2})
             end;
         {udp, Socket, RemoteHost, RemotePort, Bin} when is_binary(Bin) ->
-            inet:setopts(Socket, [{active, once}]),
+            _ = inet:setopts(Socket, [{active, once}]),
             ServerConfig = DaemonConfig#config{parent_pid = self(),
                                                udp_host   = RemoteHost,
                                                udp_port   = RemotePort},
@@ -449,14 +449,14 @@ client_prepare(Config, Callback, Req) when is_record(Req, tftp_msg_req) ->
                                 transfer(Config2, Callback2, Req2, Req2, LocalAccess, BlockNo, #prepared{}),
                             client_open(Config3, Callback3, Req2, BlockNo, TransferRes);
                         {error, {Code, Text}} ->
-                            callback({abort, {Code, Text}}, Config, Callback2, Req),
+                            _ = callback({abort, {Code, Text}}, Config, Callback2, Req),
                             terminate(Config, Req, ?ERROR(post_verify_options, Code, Text, Req#tftp_msg_req.filename))
                     end;
                 {undefined, #tftp_msg_error{code = Code, text = Text}} ->
                     terminate(Config, Req, ?ERROR(client_prepare, Code, Text, Req#tftp_msg_req.filename))
             end;
         {error, {Code, Text}} ->
-            callback({abort, {Code, Text}}, Config, Callback, Req),
+            _ = callback({abort, {Code, Text}}, Config, Callback, Req),
             terminate(Config, Req, ?ERROR(pre_verify_options, Code, Text, Req#tftp_msg_req.filename))
     end.
 
@@ -500,10 +500,10 @@ client_open(Config, Callback, Req, BlockNo, #transfer_res{status = Status, decod
                 %%     Req2 = Req#tftp_msg_req{options = []},
                 %%     client_prepare(Config, Callback, Req2);
                 #tftp_msg_error{code = Code, text = Text} ->
-                    callback({abort, {Code, Text}}, Config, Callback, Req),
+                    _ = callback({abort, {Code, Text}}, Config, Callback, Req),
                     terminate(Config, Req, ?ERROR(client_open, Code, Text, Req#tftp_msg_req.filename));
                 {'EXIT', #tftp_msg_error{code = Code, text = Text}} ->
-                    callback({abort, {Code, Text}}, Config, Callback, Req),
+                    _ = callback({abort, {Code, Text}}, Config, Callback, Req),
                     terminate(Config, Req, ?ERROR(client_open, Code, Text, Req#tftp_msg_req.filename));
                 Msg when is_tuple(Msg) ->
                     Code = badop,
@@ -516,7 +516,7 @@ client_open(Config, Callback, Req, BlockNo, #transfer_res{status = Status, decod
             end;
         error when is_record(Prepared, tftp_msg_error) ->
             #tftp_msg_error{code = Code, text = Text} = Prepared,
-            callback({abort, {Code, Text}}, Config, Callback, Req),
+            _ = callback({abort, {Code, Text}}, Config, Callback, Req),
             terminate(Config, Req, ?ERROR(client_open, Code, Text, Req#tftp_msg_req.filename))
     end.
 
@@ -568,10 +568,10 @@ common_loop(Config, Callback, Req, #transfer_res{status = Status, decoded_msg = 
                 #tftp_msg_data{block_no = ActualBlockNo, data = Data} when LocalAccess =:= write ->
                     common_write(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Data, Prepared);
                 #tftp_msg_error{code = Code, text = Text} ->
-                    callback({abort, {Code, Text}}, Config, Callback, Req),
+                    _ = callback({abort, {Code, Text}}, Config, Callback, Req),
                     terminate(Config, Req, ?ERROR(common_loop, Code, Text, Req#tftp_msg_req.filename));
                 {'EXIT', #tftp_msg_error{code = Code, text = Text} = Error} ->
-                    callback({abort, {Code, Text}}, Config, Callback, Req),
+                    _ = callback({abort, {Code, Text}}, Config, Callback, Req),
                     send_msg(Config, Req, Error),
                     terminate(Config, Req, ?ERROR(common_loop, Code, Text, Req#tftp_msg_req.filename));
                 Msg when is_tuple(Msg) ->
@@ -918,7 +918,7 @@ wait_for_msg(Config, Callback, Req) ->
         {udp, Socket, RemoteHost, RemotePort, Bin}
         when is_binary(Bin), Callback#callback.block_no =:= undefined ->
             %% Client prepare
-            inet:setopts(Socket, [{active, once}]),
+            _ = inet:setopts(Socket, [{active, once}]),
             Config2 = Config#config{udp_host = RemoteHost,
                                     udp_port = RemotePort},
             DecodedMsg = (catch tftp_lib:decode_msg(Bin)),
@@ -927,7 +927,7 @@ wait_for_msg(Config, Callback, Req) ->
         {udp, Socket, Host, Port, Bin} when is_binary(Bin),
                                             Config#config.udp_host =:= Host,
                                             Config#config.udp_port =:= Port ->
-            inet:setopts(Socket, [{active, once}]),
+            _ = inet:setopts(Socket, [{active, once}]),
             DecodedMsg = (catch tftp_lib:decode_msg(Bin)),
             print_debug_info(Config, Req, recv, DecodedMsg),
             {Config, DecodedMsg};
@@ -938,15 +938,15 @@ wait_for_msg(Config, Callback, Req) ->
                     false -> server
                 end,
             Info = internal_info(Config, Type),
-            reply({ok, Info}, Ref, FromPid),
+            _ = reply({ok, Info}, Ref, FromPid),
             wait_for_msg(Config, Callback, Req);
         {{change_config, Options}, Ref, FromPid} when is_pid(FromPid) ->
             case catch tftp_lib:parse_config(Options, Config) of
                 {'EXIT', Reason} ->
-                    reply({error, Reason}, Ref, FromPid),
+                    _ = reply({error, Reason}, Ref, FromPid),
                     wait_for_msg(Config, Callback, Req);
                 Config2 when is_record(Config2, config) ->
-                    reply(ok, Ref, FromPid),
+                    _ = reply(ok, Ref, FromPid),
                     wait_for_msg(Config2, Callback, Req)
             end;
         {system, From, Msg} ->
@@ -1076,7 +1076,7 @@ do_callback({open, Type}, Config, Callback, Req)
             Req#tftp_msg_req.options,
             Callback#callback.state],
     PeerInfo = peer_info(Config),
-    fast_ensure_loaded(Mod),
+    _ = fast_ensure_loaded(Mod),
     Args2 =
         case erlang:function_exported(Mod, Fun, length(Args)) of
             true  -> Args;
@@ -1295,7 +1295,7 @@ info_msg(#config{logger = Logger}, F, A) ->
     safe_apply(Logger, info_msg, [F, A]).
 
 safe_apply(Mod, Fun, Args) ->
-    fast_ensure_loaded(Mod),
+    _ = fast_ensure_loaded(Mod),
     apply(Mod, Fun, Args).
 
 fast_ensure_loaded(Mod) ->

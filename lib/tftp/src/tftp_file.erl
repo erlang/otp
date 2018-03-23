@@ -215,13 +215,13 @@ read(#state{access = read} = State) ->
 	    Count = State#state.count + size(Bin),
 	    {more, Bin, State#state{count = Count}};
 	{ok, Bin} when is_binary(Bin), size(Bin) < BlkSize ->
-	    file:close(State#state.fd),
+	    _ = file:close(State#state.fd),
 	    Count = State#state.count + size(Bin),
 	    {last, Bin, Count};
 	eof ->
 	    {last, <<>>, State#state.count};
 	{error, Reason} ->
-	    file:close(State#state.fd),
+	    _ = file:close(State#state.fd),
 	    {error, file_error(Reason)}
     end;
 read(State) ->
@@ -255,12 +255,12 @@ write(Bin, #state{access = write} = State) when is_binary(Bin) ->
 	    Count = State#state.count + Size,
 	    {more, State#state{count = Count}};
 	ok when Size < BlkSize->
-	    file:close(State#state.fd),
+	    _ = file:close(State#state.fd),
 	    Count = State#state.count + Size,
 	    {last, Count};
 	{error, Reason}  ->
-	    file:close(State#state.fd),
-	    file:delete(State#state.filename),
+	    _ = file:close(State#state.fd),
+	    _ = file:delete(State#state.filename),
 	    {error, file_error(Reason)}
     end;
 write(Bin, State) ->
@@ -281,7 +281,7 @@ write(Bin, State) ->
 %%-------------------------------------------------------------------
 
 abort(_Code, _Text, #state{fd = Fd, access = Access} = State) ->
-    file:close(Fd),
+    _ = file:close(Fd),
     case Access of
 	write ->
 	    ok = file:delete(State#state.filename);
