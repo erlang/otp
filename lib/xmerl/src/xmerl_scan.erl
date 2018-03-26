@@ -293,7 +293,10 @@ string(Str, Options) ->
     {Res,Tail}.
 
 int_string(Str, Options,FileName) ->
-    {ok,  XMLBase} = file:get_cwd(),
+    {ok, XMLBase}=case lists:keysearch(xmlbase,1,Options) of
+      {value,{_,Val}} -> {ok, Val}
+      false -> file:get_cwd()
+    end
     int_string(Str, Options, XMLBase, FileName).
 
 int_string(Str, Options, XMLBase, FileName) ->
