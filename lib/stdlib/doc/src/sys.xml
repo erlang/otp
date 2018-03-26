@@ -265,8 +265,8 @@
     </func>
 
     <func>
-      <name name="install" arity="2"/>
-      <name name="install" arity="3"/>
+      <name name="install" arity="4"/>
+      <name name="install" arity="5"/>
       <fsummary>Install a debug function in the process.</fsummary>
       <desc>
         <p>Enables installation of alternative debug functions. An example of
@@ -330,7 +330,7 @@
       <fsummary>Remove a debug function from the process.</fsummary>
       <desc>
         <p>Removes an installed debug function from the
-          process. <c><anno>Func</anno></c> must be the same as previously
+          process. <c><anno>FuncId</anno></c> must be the same as previously
           installed.</p>
       </desc>
     </func>

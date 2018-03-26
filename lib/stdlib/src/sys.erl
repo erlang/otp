@@ -363,16 +363,12 @@ mfa(Name, Req, Timeout) ->
 
 %%--------------------------------------------------------------------------------------------------
 %% Func: handle_system_msg/6
-%% Purpose: Used by a process module that wishes to take care of
-%%          system messages.  The process receives a {system, From,
-%%          Msg} message, and passes the Msg to this function.
-%% Returns: This function *never* returns! It calls the function
-%%          Module:system_continue(Parent, NDebug, Misc)
-%%          there the process continues the execution or
-%%          Module:system_terminate(Reason, Parent, Debug, Misc) if
-%%          the process should terminate.
-%%          The Module must export system_continue/3, system_terminate/4
-%%          and format_status/2 for status information.
+%% Purpose: Used by a process module that wishes to take care of system messages.  The process
+%%          receives a {system, From, Msg} message, and passes the Msg to this function.
+%% Returns: This function *never* returns! It calls the function Module:system_continue(Parent,
+%%          NDebug, Misc) there the process continues the execution or Module:system_terminate(
+%%          Reason, Parent, Debug, Misc) if the process should terminate. The Module must export
+%%          system_continue/3, system_terminate/4 and format_status/2 for status information.
 %%--------------------------------------------------------------------------------------------------
 -spec handle_system_msg(Msg, From, Parent, Module, Debug, Misc) -> no_return() when
     Msg    :: term(),
@@ -402,8 +398,8 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 
 %%--------------------------------------------------------------------------------------------------
 %% Func: handle_debug/4
-%% Purpose: Called by a process that wishes to debug an event.
-%%          Func is a formatting function, called as Func(Device, Event).
+%% Purpose: Called by a process that wishes to debug an event. Func is a formatting function, called
+%%          as Func(Device, Event).
 %% Returns: [debug_opts()]
 %%--------------------------------------------------------------------------------------------------
 -spec handle_debug(Debug, FormFunc, Extra, Event) -> [dbg_opt()] when
@@ -436,8 +432,7 @@ handle_debug([], _FormFunc, _State, _Event) ->
     [].
 
 %%--------------------------------------------------------------------------------------------------
-%% When a process is suspended, it can only respond to system
-%% messages.
+%% When a process is suspended, it can only respond to system messages.
 %%--------------------------------------------------------------------------------------------------
 suspend_loop(SysState, Parent, Mod, Debug, Misc, Hib) ->
     case Hib of
@@ -534,10 +529,13 @@ get_status(SysState, Parent, Mod, Debug, Misc) ->
 
 %%--------------------------------------------------------------------------------------------------
 %% These are the system debug commands.
-%% {trace,       true|false} -> io:format
-%% {log,         true|false|get|print} -> keeps the 10 last debug messages
-%% {log_to_file, FileName | false} -> io:format to file.
-%% {statistics,  true|false|get}   -> keeps track of messages in/out + reds.
+%% {trace,       true|false}                  -> io:format
+%% {log,         true|false|get|print}        -> keeps the 10 last debug messages
+%% {log_to_file, FileName | false}            -> io:format to file.
+%% {statistics,  true|false|get}              -> keeps track of messages in/out + reds.
+%% no_debug                                   -> Removes all debug commands.
+%% {install,     {FuncId, {Func, FuncState}}} -> Installs debug function.
+%% {remove,      FuncId}                      -> removes debug function.
 %%--------------------------------------------------------------------------------------------------
 debug_cmd({trace, true}, Debug) ->
     {ok, install_debug(trace, true, Debug)};
@@ -681,9 +679,8 @@ close_log_file(Debug) ->
 
 %%--------------------------------------------------------------------------------------------------
 %% Func: debug_options/1
-%% Purpose: Initiate a debug structure.  Called by a process that
-%%          wishes to initiate the debug structure without the
-%%          system messages.
+%% Purpose: Initiate a debug structure.  Called by a process that wishes to initiate the debug
+%%          structure without the system messages.
 %% Returns: [debug_opts()]
 %%--------------------------------------------------------------------------------------------------
 
