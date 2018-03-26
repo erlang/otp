@@ -22,7 +22,8 @@
 -module(cerl_trees).
 
 -export([depth/1, fold/3, free_variables/1, get_label/1, label/1, label/2, 
-	 map/2, mapfold/3, mapfold/4, size/1, variables/1]).
+	 map/2, mapfold/3, mapfold/4, next_free_variable_name/1,
+         size/1, variables/1]).
 
 -import(cerl, [alias_pat/1, alias_var/1, ann_c_alias/3, ann_c_apply/3,
 	       ann_c_binary/2, ann_c_bitstr/6, ann_c_call/4,
@@ -507,6 +508,7 @@ mapfold_pairs(_, _, S, []) ->
 %% well-formed Core Erlang syntax tree.
 %%
 %% @see free_variables/1
+%% @see next_free_variable_name/1
 
 -spec variables(cerl:cerl()) -> [cerl:var_name()].
 
@@ -519,6 +521,7 @@ variables(T) ->
 %% @doc Like <code>variables/1</code>, but only includes variables
 %% that are free in the tree.
 %%
+%% @see next_free_variable_name/1
 %% @see variables/1
 
 -spec free_variables(cerl:cerl()) -> [cerl:var_name()].
@@ -678,6 +681,110 @@ var_list_names([V | Vs], A) ->
 var_list_names([], A) ->
     A.
 
+%% ---------------------------------------------------------------------
+
+%% @spec next_free_variable_name(Tree::cerl()) -> var_name()
+%%
+%%	    var_name() = integer()
+%%
+%% @doc Returns a integer variable name higher than any other integer
+%% variable name in the syntax tree. An exception is thrown if
+%% <code>Tree</code> does not represent a well-formed Core Erlang
+%% syntax tree.
+%%
+%% @see variables/1
+%% @see free_variables/1
+
+-spec next_free_variable_name(cerl:cerl()) -> integer().
+
+next_free_variable_name(T) ->
+    1 + next_free(T, -1).
+
+next_free(T, Max) ->
+    case type(T) of
+        literal ->
+            Max;
+        var ->
+            case var_name(T) of
+                Int when is_integer(Int) ->
+                    max(Int, Max);
+                _ ->
+                    Max
+            end;
+        values ->
+            next_free_in_list(values_es(T), Max);
+        cons ->
+            next_free(cons_hd(T), next_free(cons_tl(T), Max));
+        tuple ->
+            next_free_in_list(tuple_es(T), Max);
+        map ->
+            next_free_in_list([map_arg(T)|map_es(T)], Max);
+        map_pair ->
+            next_free_in_list([map_pair_op(T),map_pair_key(T),
+                               map_pair_val(T)], Max);
+        'let' ->
+            Max1 = next_free(let_body(T), Max),
+            Max2 = next_free_in_list(let_vars(T), Max1),
+            next_free(let_arg(T), Max2);
+        seq ->
+            next_free(seq_arg(T),
+                      next_free(seq_body(T), Max));
+        apply ->
+            next_free(apply_op(T),
+                      next_free_in_list(apply_args(T), Max));
+        call ->
+            next_free(call_module(T),
+                      next_free(call_name(T),
+                                next_free_in_list(
+                                  call_args(T), Max)));
+        primop ->
+            next_free_in_list(primop_args(T), Max);
+        'case' ->
+            next_free(case_arg(T),
+                      next_free_in_list(case_clauses(T), Max));
+        clause ->
+            Max1 = next_free(clause_guard(T),
+                             next_free(clause_body(T), Max)),
+            next_free_in_list(clause_pats(T), Max1);
+        alias ->
+            next_free(alias_var(T),
+                      next_free(alias_pat(T), Max));
+        'fun' ->
+            next_free(fun_body(T),
+                      next_free_in_list(fun_vars(T), Max));
+        'receive' ->
+            Max1 = next_free_in_list(receive_clauses(T),
+                                     next_free(receive_timeout(T), Max)),
+            next_free(receive_action(T), Max1);
+        'try' ->
+            Max1 = next_free(try_body(T), Max),
+            Max2 = next_free_in_list(try_vars(T), Max1),
+            Max3 = next_free(try_handler(T), Max2),
+            Max4 = next_free_in_list(try_evars(T), Max3),
+            next_free(try_arg(T), Max4);
+        'catch' ->
+            next_free(catch_body(T), Max);
+        binary ->
+            next_free_in_list(binary_segments(T), Max);
+        bitstr ->
+            next_free(bitstr_val(T), next_free(bitstr_size(T), Max));
+        letrec ->
+            Max1 = next_free_in_defs(letrec_defs(T), Max),
+            Max2 = next_free(letrec_body(T), Max1),
+            next_free_in_list(letrec_vars(T), Max2);
+        module ->
+            next_free_in_defs(module_defs(T), Max)
+    end.
+
+next_free_in_list([H | T], Max) ->
+    next_free_in_list(T, next_free(H, Max));
+next_free_in_list([], Max) ->
+    Max.
+
+next_free_in_defs([{_, Post} | Ds], Max) ->
+    next_free_in_defs(Ds, next_free(Post, Max));
+next_free_in_defs([], Max) ->
+    Max.
 
 %% ---------------------------------------------------------------------
 

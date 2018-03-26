@@ -1822,6 +1822,14 @@ new_var(Env) ->
     Name = env__new_vname(Env),
     c_var(Name).
 
+%% The way a template variable is used makes it necessary
+%% to make sure that it is unique in the entire function.
+%% Therefore, template variables are atoms with the prefix "@i".
+
+new_template_var(Env) ->
+    Name = env__new_tname(Env),
+    c_var(Name).
+
 residualize_var(R, S) ->
     S1 = count_size(weight(var), S),
     {ref_to_var(R), st__set_var_referenced(R#ref.loc, S1)}.
@@ -2183,7 +2191,7 @@ make_template(E, Vs0, Env0) ->
 	    T = make_data_skel(data_type(E), Ts),
 	    E1 = update_data(E, data_type(E),
 			     [hd(get_ann(T)) || T <- Ts]),
-	    V = new_var(Env1),
+	    V = new_template_var(Env1),
 	    Env2 = env__bind(var_name(V), E1, Env1),
 	    {set_ann(T, [V]), [V | Vs1], Env2};
 	false ->
@@ -2198,7 +2206,7 @@ make_template(E, Vs0, Env0) ->
 		    Env2 = env__bind(V, E1, Env1),
 		    {T, Vs1, Env2};
 		_ ->
-		    V = new_var(Env0),
+		    V = new_template_var(Env0),
 		    Env1 = env__bind(var_name(V), E, Env0),
 		    {set_ann(V, [V]), [V | Vs0], Env1}
 	    end
@@ -2563,6 +2571,11 @@ env__is_defined(Key, Env) ->
 
 env__new_vname(Env) ->
     rec_env:new_key(Env).
+
+env__new_tname(Env) ->
+    rec_env:new_key(fun(I) ->
+                            list_to_atom("@i"++integer_to_list(I))
+                    end, Env).
 
 env__new_fname(A, N, Env) ->
     rec_env:new_key(fun (X) ->

@@ -108,17 +108,29 @@
 
 module(#c_module{defs=Ds0}=Mod, Opts) ->
     put(no_inline_list_funcs, not member(inline_list_funcs, Opts)),
-    case get(new_var_num) of
-	undefined -> put(new_var_num, 0);
-	_ -> ok
-    end,
     init_warnings(),
     Ds1 = [function_1(D) || D <- Ds0],
+    erase(new_var_num),
     erase(no_inline_list_funcs),
     {ok,Mod#c_module{defs=Ds1},get_warnings()}.
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
+    %% Find a suitable starting value for the variable counter. Note
+    %% that this pass assumes that new_var_name/1 returns a variable
+    %% name distinct from any variable used in the entire body of
+    %% the function. We use integers as variable names to avoid
+    %% filling up the atom table when compiling huge functions.
+    Count = cerl_trees:next_free_variable_name(B0),
+    put(new_var_num, Count),
     try
+        %% Find a suitable starting value for the variable
+        %% counter. Note that this pass assumes that new_var_name/1
+        %% returns a variable name distinct from any variable used in
+        %% the entire body of the function. We use integers as
+        %% variable names to avoid filling up the atom table when
+        %% compiling huge functions.
+        Count = cerl_trees:next_free_variable_name(B0),
+        put(new_var_num, Count),
 	B = find_fixpoint(fun(Core) ->
 				  %% This must be a fun!
 				  expr(Core, value, sub_new())
@@ -2154,7 +2166,7 @@ make_var(A) ->
 make_var_name() ->
     N = get(new_var_num),
     put(new_var_num, N+1),
-    list_to_atom("@f"++integer_to_list(N)).
+    N.
 
 letify(Bs, Body) ->
     Ann = cerl:get_ann(Body),

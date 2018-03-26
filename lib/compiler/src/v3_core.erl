@@ -2005,7 +2005,7 @@ new_fun_name(Type, #core{fcount=C}=St) ->
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(#core{vcount=C}=St) ->
-    {list_to_atom("@c" ++ integer_to_list(C)),St#core{vcount=C + 1}}.
+    {C,St#core{vcount=C + 1}}.
 
 %% new_var(State) -> {{var,Name},State}.
 %% new_var(LineAnno, State) -> {{var,Name},State}.
