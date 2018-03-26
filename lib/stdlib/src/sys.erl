@@ -44,8 +44,8 @@
         ,log_to_file/3
         ,no_debug/1
         ,no_debug/2
-        ,install/2
-        ,install/3
+        ,install/4
+        ,install/5
         ,remove/2
         ,remove/3]).
 
@@ -79,7 +79,7 @@
                                        ,MessagesIn :: non_neg_integer()
                                        ,MessagesOut :: non_neg_integer()}}
                       | {'log_to_file', file:io_device()}
-                      | {Func :: dbg_fun(), FuncState :: term()}.
+                      | {FuncId :: term(), {Func :: dbg_fun(), FuncState :: term()}}.
 -type dbg_fun()      :: fun((FuncState :: _, Event :: system_event(), ProcState :: _) ->
                         'done' | (NewFuncState :: _)).
 
@@ -298,35 +298,35 @@ no_debug(Name) ->
 no_debug(Name, Timeout) ->
     send_system_msg(Name, {debug, no_debug}, Timeout).
 
--spec install(Name, FuncSpec) -> 'ok' when
+-spec install(Name, FuncId, Func, FuncState) -> 'ok' | {'error', 'already_exists'} when
     Name      :: name(),
-    FuncSpec  :: {Func, FuncState},
+    FuncId    :: term(),
     Func      :: dbg_fun(),
     FuncState :: term().
-install(Name, {Func, FuncState}) ->
-    send_system_msg(Name, {debug, {install, {Func, FuncState}}}).
+install(Name, FuncId, Func, FuncState) ->
+    send_system_msg(Name, {debug, {install, {FuncId, {Func, FuncState}}}}).
 
--spec install(Name, FuncSpec, Timeout) -> 'ok' when
+-spec install(Name, FuncId, Func, FuncState, Timeout) -> {'error', 'already_exists'} when
     Name      :: name(),
-    FuncSpec  :: {Func, FuncState},
+    FuncId    :: term(),
     Func      :: dbg_fun(),
     FuncState :: term(),
     Timeout   :: timeout().
-install(Name, {Func, FuncState}, Timeout) ->
-    send_system_msg(Name, {debug, {install, {Func, FuncState}}}, Timeout).
+install(Name, FuncId, Func, FuncState, Timeout) ->
+    send_system_msg(Name, {debug, {install, {FuncId, {Func, FuncState}}}}, Timeout).
 
--spec remove(Name, Func) -> 'ok' when
-    Name :: name(),
-    Func :: dbg_fun().
-remove(Name, Func) ->
-    send_system_msg(Name, {debug, {remove, Func}}).
+-spec remove(Name, FuncId) -> 'ok' | {'error', 'not_found'} when
+    Name   :: name(),
+    FuncId :: term().
+remove(Name, FuncId) ->
+    send_system_msg(Name, {debug, {remove, FuncId}}).
 
--spec remove(Name, Func, Timeout) -> 'ok' when
+-spec remove(Name, FuncId, Timeout) -> 'ok' | {'error', 'not_found'} when
     Name    :: name(),
-    Func    :: dbg_fun(),
+    FuncId  :: term(),
     Timeout :: timeout().
-remove(Name, Func, Timeout) ->
-    send_system_msg(Name, {debug, {remove, Func}}, Timeout).
+remove(Name, FuncId, Timeout) ->
+    send_system_msg(Name, {debug, {remove, FuncId}}, Timeout).
 
 %%--------------------------------------------------------------------------------------------------
 %% All system messages sent are on the form {system, From, Msg}
@@ -423,14 +423,14 @@ handle_debug([{log_to_file, Fd} | T], FormFunc, State, Event) ->
 handle_debug([{statistics, StatData} | T], FormFunc, State, Event) ->
     NStatData = stat(Event, StatData),
     [{statistics, NStatData} | handle_debug(T, FormFunc, State, Event)];
-handle_debug([{Func, FuncState} | T], FormFunc, State, Event) ->
+handle_debug([{FuncId, {Func, FuncState}} | T], FormFunc, State, Event) ->
     case catch Func(FuncState, Event, State) of
         done ->
             handle_debug(T, FormFunc, State, Event);
         {'EXIT', _} ->
             handle_debug(T, FormFunc, State, Event);
         NFuncState ->
-            [{Func, NFuncState} | handle_debug(T, FormFunc, State, Event)]
+            [{FuncId, {Func, NFuncState}} | handle_debug(T, FormFunc, State, Event)]
     end;
 handle_debug([], _FormFunc, _State, _Event) ->
     [].
@@ -577,10 +577,20 @@ debug_cmd({statistics, get}, Debug) ->
 debug_cmd(no_debug, Debug) ->
     close_log_file(Debug),
     {ok, []};
-debug_cmd({install, {Func, FuncState}}, Debug) ->
-    {ok, install_debug(Func, FuncState, Debug)};
-debug_cmd({remove, Func}, Debug) ->
-    {ok, remove_debug(Func, Debug)};
+debug_cmd({install, {FuncId, {_, _}=Func_FuncState}}, Debug) ->
+    case install_debug(FuncId, Func_FuncState, Debug) of
+        Debug -> % Debug =:= Debug
+            {{error, already_exists}, Debug};
+        NDebug ->
+            {ok, NDebug}
+    end;
+debug_cmd({remove, FuncId}, Debug) ->
+    case remove_debug(FuncId, Debug) of
+        Debug -> % Debug =:= Debug
+            {{error, not_found}, Debug};
+        NDebug ->
+            {ok, NDebug}
+    end;
 debug_cmd(_Unknown, Debug) ->
     {unknown_debug, Debug}.
 
