@@ -815,7 +815,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>HandlerSpec = {HandlerFun, InitialData}</v>
         <v>HandlerFun = fun() (two arguments)</v>
         <v>ModuleSpec = fun() (no arguments) | {TracerModule, TracerState}</v>
-        <v>ModuleModule = atom()</v>
+        <v>TracerModule = atom()</v>
         <v>InitialData = TracerState = term()</v>
       </type>
       <desc>
