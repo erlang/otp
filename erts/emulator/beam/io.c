@@ -7613,7 +7613,8 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 }
 
 #define IS_DRIVER_VERSION_GE(DE,MAJOR,MINOR) \
-    ((DE)->major_version >= (MAJOR) && (DE)->minor_version >= (MINOR))
+    ((DE)->major_version > (MAJOR) ||        \
+     ((DE)->major_version == (MAJOR) && (DE)->minor_version >= (MINOR)))
 
 static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
