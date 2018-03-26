@@ -40,6 +40,7 @@
 #include "erl_gc.h"
 #include "bif.h"
 #include "erl_proc_sig_queue.h"
+#include "dtrace-wrapper.h"
 
 #define ERTS_SIG_REDS_CNT_FACTOR 4
 #define ERTS_PROC_SIG_TRACE_COUNT_LIMIT 200
@@ -751,13 +752,14 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
         seq_trace_update_send(c_p);
 
 #ifdef USE_VM_PROBES
+    utag_sz = 0;
+    utag = NIL;
     if (c_p && token != NIL && (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING)) {
         utag_sz = size_object(DT_UTAG(c_p));
         utag = DT_UTAG(c_p);
     }
     else if (token == am_have_dt_utag) {
-        utag_sz = 0;
-        utag = token = NIL;
+        token = NIL;
     }
     hsz += utag_sz;
 #endif
