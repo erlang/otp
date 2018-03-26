@@ -83,6 +83,8 @@
       </item>
       <item><seealso marker="#is_element/2"><c>is_element/2</c></seealso>
       </item>
+      <item><seealso marker="#is_empty/1"><c>is_empty/1</c></seealso>
+      </item>
       <item><seealso marker="#is_set/1"><c>is_set/1</c></seealso>
       </item>
       <item><seealso marker="#is_subset/2"><c>is_subset/2</c></seealso>

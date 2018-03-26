@@ -37,7 +37,7 @@
 -module(sets).
 
 %% Standard interface.
--export([new/0,is_set/1,size/1,to_list/1,from_list/1]).
+-export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
@@ -95,6 +95,12 @@ is_set(_) -> false.
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
 size(S) -> S#set.size. 
+
+%% is_empty(Set) -> boolean().
+%%  Return 'true' if Set is an empty set, otherwise 'false'.
+-spec is_empty(Set) -> boolean() when
+      Set :: set().
+is_empty(S) -> S#set.size=:=0.
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.

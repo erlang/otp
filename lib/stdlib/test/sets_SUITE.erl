@@ -28,7 +28,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
-	 is_set/1,fold/1,filter/1,
+	 is_set/1,is_empty/1,fold/1,filter/1,
 	 take_smallest/1,take_largest/1, iterate/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -48,7 +48,7 @@ suite() ->
 all() -> 
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest, iterate].
+     take_smallest, take_largest, iterate, is_empty].
 
 groups() -> 
     [].
@@ -343,6 +343,17 @@ is_set_1(M) ->
     false = M(is_set, 42),
     false = M(is_set, math:pi()),
     false = M(is_set, {}),
+    M(empty, []).
+
+is_empty(Config) when is_list(Config) ->
+    test_all(fun is_empty_1/1).
+
+is_empty_1(M) ->
+    S = M(from_list, [blurf]),
+    Empty = M(empty, []),
+
+    true = M(is_empty, Empty),
+    false = M(is_empty, S),
     M(empty, []).
 
 fold(Config) when is_list(Config) ->
