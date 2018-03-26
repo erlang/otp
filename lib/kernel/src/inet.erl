@@ -105,7 +105,20 @@
 	{local, binary()} |
 	{unspec, <<>>} |
 	{undefined, any()}.
--type posix() :: exbadport | exbadseq | file:posix().
+-type posix() ::
+        'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
+        'econnaborted' | 'econnrefused' | 'econnreset' |
+        'edestaddrreq' |
+        'ehostdown' | 'ehostunreach' |
+        'einprogress' | 'eisconn' |
+        'emsgsize' |
+        'enetdown' | 'enetunreach' |
+        'enopkg' | 'enoprotoopt' | 'enotconn' | 'enotty' | 'enotsock' |
+        'eproto' | 'eprotonosupport' | 'eprototype' |
+        'esocktnosupport' |
+        'etimedout' |
+        'ewouldblock' |
+        'exbadport' | 'exbadseq' | file:posix().
 -type socket() :: port().
 
 -type socket_setopt() ::
