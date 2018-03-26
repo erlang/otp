@@ -95,22 +95,22 @@ foreach (@static_drivers) {
 }
 
 # The array itself
-print "\nErlDrvEntry *driver_tab[] =\n{\n";
+print "\nErtsStaticDriver driver_tab[] =\n{\n";
 
 foreach (@emu_drivers) {
-    print "    &${_}driver_entry,\n";
+    print "    {&${_}driver_entry, 0},\n";
 }
 
 foreach (@static_drivers) {
-    print "    NULL, /* ${_} */\n";
+    print "    {NULL, 1}, /* ${_} */\n";
 }
-print "    NULL\n};\n";
+print "    {NULL}\n};\n";
 
 print "void erts_init_static_drivers() {\n";
 
 my $index = 0;
 foreach (@static_drivers) {
-    print "    driver_tab[".(scalar @emu_drivers+$index)."] = ${_}_driver_init();\n";
+    print "    driver_tab[".(scalar @emu_drivers+$index)."].de = ${_}_driver_init();\n";
     $index++;
 }
 
