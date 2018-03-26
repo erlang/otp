@@ -472,6 +472,8 @@ service_module(tftpd) ->
     inets_tftp_wrapper;
 service_module(tftpc) ->
     inets_tftp_wrapper;
+service_module(tftp) ->
+    inets_tftp_wrapper;
 %% Obsolete! Kept for backward compatiblity!
 %% FTP application has been moved out from inets
 service_module(ftpc) ->
