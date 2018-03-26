@@ -139,29 +139,39 @@ suspend(Config) when is_list(Config) ->
     ok.
 
 install(Config) when is_list(Config) ->
+    FuncId = foo,
     {ok,_Server} = start(),
     Master = self(),
     SpyFun =
-	fun(func_state,Event,ProcState) ->
-		case Event of
-		    {in,{'$gen_call',_From,{req,Arg}}} ->
-			io:format("Trigged\n"),
-			Master ! {spy_got,{request,Arg},ProcState};
-		    Other ->
-			io:format("Trigged other=~p\n",[Other])
-		end
-	end,
-    sys:install(?server,{SpyFun,func_state}),
+        fun(func_state,Event,ProcState) ->
+            case Event of
+                {in,{'$gen_call',_From,{req,Arg}}} ->
+                    io:format("Trigged\n"),
+                    Master ! {spy_got,{request,Arg},ProcState};
+                Other ->
+                    io:format("Trigged other=~p\n",[Other])
+            end
+        end,
+    ok = sys:install(?server, FuncId, SpyFun, func_state),
     {ok,-1} = (catch public_call(1)),
     sys:no_debug(?server),
     {ok,-2} = (catch public_call(2)),
-    sys:install(?server,{SpyFun,func_state}),
-    sys:install(?server,{SpyFun,func_state}),
+    ok = sys:install(?server, FuncId, SpyFun, func_state),
+    {error, already_exists} = sys:install(?server, FuncId, SpyFun, func_state),
     {ok,-3} = (catch public_call(3)),
-    sys:remove(?server,SpyFun),
+    sys:remove(?server, FuncId),
     {ok,-4} = (catch public_call(4)),
-    [{spy_got,{request,1},sys_SUITE_server},
-     {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+    [{spy_got, {request,1}, sys_SUITE_server}
+    ,{spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+    FuncIds = lists:seq(1, 10),
+    [begin ok = sys:install(?server, FuncId_, SpyFun, func_state) end || FuncId_ <- FuncIds],
+    {ok,-1} = (catch public_call(1)),
+    Msgs = [{spy_got,{request,1},sys_SUITE_server} || _ <- FuncIds],
+    Msgs = get_messages(),
+    sys:no_debug(?server),
+    {ok,-2} = (catch public_call(2)),
+    [] = get_messages(),
+
     stop(),
     ok.
 
