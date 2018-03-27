@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc FTP client module (based on the FTP support of the INETS application).
+%%% @doc FTP client module (based on the FTP application).
 %%%
 %%% @type connection() = handle() | ct:target_name()
 %%% @type handle() = ct_gen_conn:handle(). Handle for a specific
@@ -292,8 +292,8 @@ init(KeyOrName,{IP,Port},{Username,Password}) ->
     end.
 	    
 ftp_connect(IP,Port,Username,Password) ->
-    _ = inets:start(),
-    case inets:start(ftpc,[{host,IP},{port,Port}]) of
+    _ = ftp:start(),
+    case ftp:start_service([{host,IP},{port,Port}]) of
 	{ok,FtpPid} ->
 	    case ftp:user(FtpPid,Username,Password) of
 		ok ->
@@ -341,7 +341,7 @@ reconnect(_Addr,_State) ->
 terminate(FtpPid,State) ->
     log(heading(terminate,State#state.target_name),
 	"Closing FTP connection.\nHandle: ~p\n",[FtpPid]),
-    inets:stop(ftpc,FtpPid).
+    ftp:stop_service(FtpPid).
 
 
 %%%=================================================================
