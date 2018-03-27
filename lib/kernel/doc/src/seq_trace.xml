@@ -80,13 +80,18 @@ seq_trace:set_token(OldToken), % activate the trace token again
         <p>Sets the individual <c><anno>Component</anno></c> of the trace token to
           <c><anno>Val</anno></c>. Returns the previous value of the component.</p>
         <taglist>
-          <tag><c>set_token(label, <anno>Integer</anno>)</c></tag>
+          <tag><c>set_token(label, <anno>Label</anno>)</c></tag>
           <item>
-            <p>The <c>label</c> component is an integer which
+            <p>The <c>label</c> component is a term which
               identifies all events belonging to the same sequential
               trace. If several sequential traces can be active
               simultaneously, <c>label</c> is used to identify
               the separate traces. Default is 0.</p>
+            <warning>
+              <p>Labels were restricted to small signed integers (28 bits)
+                prior to OTP 21. The trace token will be silenty dropped if it
+                crosses over to a node that does not support the label.</p>
+            </warning>
           </item>
           <tag><c>set_token(serial, SerialValue)</c></tag>
           <item>

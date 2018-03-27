@@ -113,6 +113,8 @@ dflag2str(?DFLAG_BIG_CREATION) ->
     "BIG_CREATION";
 dflag2str(?DFLAG_SEND_SENDER) ->
     "SEND_SENDER";
+dflag2str(?DFLAG_BIG_SEQTRACE_LABELS) ->
+    "BIG_SEQTRACE_LABELS";
 dflag2str(_) ->
     "UNKNOWN".
 

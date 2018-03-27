@@ -55,7 +55,8 @@ provider erlang {
      * @param sender the PID (string form) of the sender
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -73,7 +74,8 @@ provider erlang {
      * @param node_name the Erlang node name (string form) of the receiver
      * @param receiver the PID/name (string form) of the receiver
      * @param size the size of the message being delivered (words)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -98,7 +100,8 @@ provider erlang {
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
      * @param queue_len length of the queue of the receiving process
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -122,7 +125,8 @@ provider erlang {
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
      * @param queue_len length of the queue of the receiving process
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -273,7 +277,8 @@ provider erlang {
      * @param node_name the Erlang node name (string form) of the receiver
      * @param receiver the PID (string form) of the process receiving EXIT signal
      * @param reason the reason for the exit (may be truncated)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */

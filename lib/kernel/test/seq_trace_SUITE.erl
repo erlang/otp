@@ -25,7 +25,7 @@
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
-	 match_set_seq_token/1, gc_seq_token/1]).
+	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1]).
 
 %% internal exports
 -export([simple_tracer/2, one_time_receiver/0, one_time_receiver/1,
@@ -47,7 +47,7 @@ all() ->
     [token_set_get, tracer_set_get, print, send,
      distributed_send, recv, distributed_recv, trace_exit,
      distributed_exit, call, port, match_set_seq_token,
-     gc_seq_token].
+     gc_seq_token, label_capability_mismatch].
 
 groups() -> 
     [].
@@ -90,8 +90,8 @@ do_token_set_get(TsType) ->
     %% Test that initial seq_trace is disabled
     [] = seq_trace:get_token(),
     %% Test setting and reading the different fields
-    0 = seq_trace:set_token(label,17),
-    {label,17} = seq_trace:get_token(label),
+    0 = seq_trace:set_token(label,{my_label,1}),
+    {label,{my_label,1}} = seq_trace:get_token(label),
     false = seq_trace:set_token(print,true),
     {print,true} = seq_trace:get_token(print),
     false = seq_trace:set_token(send,true),
@@ -101,12 +101,12 @@ do_token_set_get(TsType) ->
     false = seq_trace:set_token(TsType,true),
     {TsType,true} = seq_trace:get_token(TsType),
     %% Check the whole token
-    {Flags,17,0,Self,0} = seq_trace:get_token(), % all flags are set
+    {Flags,{my_label,1},0,Self,0} = seq_trace:get_token(), % all flags are set
     %% Test setting and reading the 'serial' field
     {0,0} = seq_trace:set_token(serial,{3,5}),
     {serial,{3,5}} = seq_trace:get_token(serial),
     %% Check the whole token, test that a whole token can be set and get
-    {Flags,17,5,Self,3} = seq_trace:get_token(),
+    {Flags,{my_label,1},5,Self,3} = seq_trace:get_token(),
     seq_trace:set_token({Flags,19,7,Self,5}),
     {Flags,19,7,Self,5} = seq_trace:get_token(),
     %% Check that receive timeout does not reset token
@@ -166,11 +166,13 @@ do_send(TsType) ->
     seq_trace:reset_trace(),
     start_tracer(),
     Receiver = spawn(?MODULE,one_time_receiver,[]),
+    Label = make_ref(),
+    seq_trace:set_token(label,Label),
     set_token_flags([send, TsType]),
     Receiver ! send,
     Self = self(),
     seq_trace:reset_trace(),
-    [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    [{Label,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
 
 distributed_send(Config) when is_list(Config) ->
@@ -184,14 +186,19 @@ do_distributed_send(TsType) ->
     seq_trace:reset_trace(),
     start_tracer(),
     Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+
+    %% Make sure complex labels survive the trip.
+    Label = make_ref(),
+    seq_trace:set_token(label,Label),
     set_token_flags([send,TsType]),
+
     Receiver ! send,
     Self = self(),
     seq_trace:reset_trace(),
     stop_node(Node),
-    [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    [{Label,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
-    
+
 
 recv(Config) when is_list(Config) ->
     lists:foreach(fun do_recv/1, ?TIMESTAMP_MODES).
@@ -220,7 +227,12 @@ do_distributed_recv(TsType) ->
     seq_trace:reset_trace(),
     rpc:call(Node,?MODULE,start_tracer,[]),
     Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+
+    %% Make sure complex labels survive the trip.
+    Label = make_ref(),
+    seq_trace:set_token(label,Label),
     set_token_flags(['receive',TsType]),
+
     Receiver ! 'receive',
     %% let the other process receive the message:
     receive after 1 -> ok end,
@@ -229,7 +241,7 @@ do_distributed_recv(TsType) ->
     Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
     stop_node(Node),
     ok = io:format("~p~n",[Result]),
-    [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
+    [{Label,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
     check_ts(TsType, Ts).
 
 trace_exit(Config) when is_list(Config) ->
@@ -240,7 +252,12 @@ do_trace_exit(TsType) ->
     start_tracer(),
     Receiver = spawn_link(?MODULE, one_time_receiver, [exit]),
     process_flag(trap_exit, true),
+
+    %% Make sure complex labels survive the trip.
+    Label = make_ref(),
+    seq_trace:set_token(label,Label),
     set_token_flags([send, TsType]),
+
     Receiver ! {before, exit},
     %% let the other process receive the message:
     receive
@@ -254,8 +271,8 @@ do_trace_exit(TsType) ->
     Result = stop_tracer(2),
     seq_trace:reset_trace(),
     ok = io:format("~p~n", [Result]),
-    [{0, {send, {0,1}, Self, Receiver, {before, exit}}, Ts0},
-	   {0, {send, {1,2}, Receiver, Self,
+    [{Label, {send, {0,1}, Self, Receiver, {before, exit}}, Ts0},
+	   {Label, {send, {1,2}, Receiver, Self,
 	       {'EXIT', Receiver, {exit, {before, exit}}}}, Ts1}] = Result,
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
@@ -290,6 +307,74 @@ do_distributed_exit(TsType) ->
     [{0, {send, {1, 2}, Receiver, Self,
 		{'EXIT', Receiver, {exit, {before, exit}}}}, Ts}] = Result,
     check_ts(TsType, Ts).
+
+label_capability_mismatch(Config) when is_list(Config) ->
+    Releases = ["20_latest"],
+    Available = [Rel || Rel <- Releases, test_server:is_release_available(Rel)],
+    case Available of
+        [] -> {skipped, "No incompatible releases available"};
+        _ ->
+            lists:foreach(fun do_incompatible_labels/1, Available),
+            lists:foreach(fun do_compatible_labels/1, Available),
+            ok
+    end.
+
+do_incompatible_labels(Rel) ->
+    Cookie = atom_to_list(erlang:get_cookie()),
+    {ok, Node} = test_server:start_node(
+        list_to_atom(atom_to_list(?MODULE)++"_"++Rel), peer,
+        [{args, " -setcookie "++Cookie}, {erl, [{release, Rel}]}]),
+
+    {_,Dir} = code:is_loaded(?MODULE),
+    Mdir = filename:dirname(Dir),
+    true = rpc:call(Node,code,add_patha,[Mdir]),
+    seq_trace:reset_trace(),
+    rpc:call(Node,?MODULE,start_tracer,[]),
+    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+
+    %% This node does not support arbitrary labels, so it must fail with a
+    %% timeout as the token is dropped silently.
+    seq_trace:set_token(label,make_ref()),
+    seq_trace:set_token('receive',true),
+
+    Receiver ! 'receive',
+    %% let the other process receive the message:
+    receive after 10 -> ok end,
+    seq_trace:reset_trace(),
+
+    {error,timeout} = rpc:call(Node,?MODULE,stop_tracer,[1]),
+    stop_node(Node),
+    ok.
+
+do_compatible_labels(Rel) ->
+    Cookie = atom_to_list(erlang:get_cookie()),
+    {ok, Node} = test_server:start_node(
+        list_to_atom(atom_to_list(?MODULE)++"_"++Rel), peer,
+        [{args, " -setcookie "++Cookie}, {erl, [{release, Rel}]}]),
+
+    {_,Dir} = code:is_loaded(?MODULE),
+    Mdir = filename:dirname(Dir),
+    true = rpc:call(Node,code,add_patha,[Mdir]),
+    seq_trace:reset_trace(),
+    rpc:call(Node,?MODULE,start_tracer,[]),
+    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+
+    %% This node does not support arbitrary labels, but small integers should
+    %% still work.
+    Label = 1234,
+    seq_trace:set_token(label,Label),
+    seq_trace:set_token('receive',true),
+
+    Receiver ! 'receive',
+    %% let the other process receive the message:
+    receive after 10 -> ok end,
+    Self = self(),
+    seq_trace:reset_trace(),
+    Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
+    stop_node(Node),
+    ok = io:format("~p~n",[Result]),
+    [{Label,{'receive',_,Self,Receiver,'receive'}, _}] = Result,
+    ok.
 
 call(doc) -> 
     "Tests special forms {is_seq_trace} and {get_seq_token} "

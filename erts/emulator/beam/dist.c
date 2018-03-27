@@ -937,6 +937,24 @@ erts_dsig_send_demonitor(ErtsDSigData *dsdp, Eterm watcher,
     return res;
 }
 
+static int can_send_seqtrace_token(ErtsSendContext* ctx, Eterm token) {
+    Eterm label;
+
+    if (ctx->dep->flags & DFLAG_BIG_SEQTRACE_LABELS) {
+        /* The other end is capable of handling arbitrary seq_trace labels. */
+        return 1;
+    }
+
+    /* The other end only tolerates smalls, but since we could potentially be
+     * talking to an old 32-bit emulator from a 64-bit one, we have to check
+     * whether the label is small on any emulator. */
+    label = SEQ_TRACE_T_LABEL(token);
+
+    return is_small(label) &&
+        signed_val(label) <= (ERTS_SINT32_MAX >> _TAG_IMMED1_SIZE) &&
+        signed_val(label) >= (ERTS_SINT32_MIN >> _TAG_IMMED1_SIZE);
+}
+
 int
 erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
 {
@@ -970,37 +988,38 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
                       "%T", remote);
         msize = size_object(message);
         if (have_seqtrace(token)) {
-            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
     }
 #endif
 
-    if (token != NIL) {
-        Eterm el1, el2;
+    {
+        Eterm dist_op, sender_id;
+        int send_token;
+
+        send_token = (token != NIL && can_send_seqtrace_token(ctx, token));
+
         if (ctx->dep->flags & DFLAG_SEND_SENDER) {
-            el1 = make_small(DOP_SEND_SENDER_TT);
-            el2 = sender->common.id;
+            dist_op = make_small(send_token ?
+                                 DOP_SEND_SENDER_TT :
+                                 DOP_SEND_SENDER);
+            sender_id = sender->common.id;
+        } else {
+            dist_op = make_small(send_token ?
+                                 DOP_SEND_TT :
+                                 DOP_SEND);
+            sender_id = am_Empty;
         }
-        else {
-            el1 = make_small(DOP_SEND_TT);
-            el2 = am_Empty;
+
+        if (send_token) {
+            ctl = TUPLE4(&ctx->ctl_heap[0], dist_op, sender_id, remote, token);
+        } else {
+            ctl = TUPLE3(&ctx->ctl_heap[0], dist_op, sender_id, remote);
         }
-	ctl = TUPLE4(&ctx->ctl_heap[0], el1, el2, remote, token);
     }
-    else {
-        Eterm el1, el2;
-        if (ctx->dep->flags & DFLAG_SEND_SENDER) {
-            el1 = make_small(DOP_SEND_SENDER);
-            el2 = sender->common.id;
-        }
-        else {
-            el1 = make_small(DOP_SEND);
-            el2 = am_Empty;
-        }
-	ctl = TUPLE3(&ctx->ctl_heap[0], el1, el2, remote);
-    }
+
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -1046,19 +1065,20 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
         if (have_seqtrace(token)) {
-            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
     }
 #endif
 
-    if (token != NIL)
+    if (token != NIL && can_send_seqtrace_token(ctx, token))
 	ctl = TUPLE5(&ctx->ctl_heap[0], make_small(DOP_REG_SEND_TT),
 		     sender->common.id, am_Empty, remote_name, token);
     else
 	ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_REG_SEND),
 		     sender->common.id, am_Empty, remote_name);
+
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -1110,7 +1130,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
         erts_snprintf(reason_str, sizeof(DTRACE_CHARBUF_NAME(reason_str)),
                       "%T", reason);
         if (have_seqtrace(token)) {
-            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
