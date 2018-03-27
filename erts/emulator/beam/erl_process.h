@@ -593,6 +593,7 @@ typedef struct {
 	ErtsDelayedAuxWorkWakeupJob *job;
     } delayed_wakeup;
     struct {
+        ErtsAlcuBlockscanYieldData alcu_blockscan;
         ErtsEtsAllYieldData ets_all;
         /* Other yielding operations... */
     } yield;

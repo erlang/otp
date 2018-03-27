@@ -38,7 +38,7 @@
 #include "erl_message.h"
 #include "erl_binary.h"
 #include "erl_db.h"
-#include "erl_instrument.h"
+#include "erl_mtrace.h"
 #include "dist.h"
 #include "erl_gc.h"
 #include "erl_cpu_topology.h"
@@ -51,6 +51,7 @@
 #include "erl_ptab.h"
 #include "erl_time.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_alloc_util.h"
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
@@ -2151,45 +2152,6 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    return make_small(sizeof(UWord));
 	}
 	goto badarg;
-    } else if (sel == am_allocated) {
-	if (arity == 2) {
-	    Eterm res = THE_NON_VALUE;
-	    char *buf;
-	    Sint len = is_string(*tp);
-	    if (len <= 0)
-		return res;
-	    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
-	    if (intlist_to_buf(*tp, buf, len) != len)
-		erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
-	    buf[len] = '\0';
-	    res = erts_instr_dump_memory_map(buf) ? am_true : am_false;
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	    if (is_non_value(res))
-		goto badarg;
-	    return res;
-	}
-	else if (arity == 3 && tp[0] == am_status) {
-	    if (is_atom(tp[1]))
-		return erts_instr_get_stat(BIF_P, tp[1], 1);
-	    else {
-		Eterm res = THE_NON_VALUE;
-		char *buf;
-		Sint len = is_string(tp[1]);
-		if (len <= 0)
-		    return res;
-		buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
-		if (intlist_to_buf(tp[1], buf, len) != len)
-		    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
-		buf[len] = '\0';
-		res = erts_instr_dump_stat(buf, 1) ? am_true : am_false;
-		erts_free(ERTS_ALC_T_TMP, (void *) buf);
-		if (is_non_value(res))
-		    goto badarg;
-		return res;
-	    }
-	}
-	else
-	    goto badarg;
     } else if (sel == am_allocator) {
 	switch (arity) {
 	case 2:
@@ -2557,8 +2519,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (BIF_ARG_1 == am_allocated_areas) {
 	res = erts_allocated_areas(NULL, NULL, BIF_P);
 	BIF_RET(res);
-    } else if (BIF_ARG_1 == am_allocated) {
-	BIF_RET(erts_instr_get_memory_map(BIF_P));
     } else if (BIF_ARG_1 == am_hipe_architecture) {
 #if defined(HIPE)
 	BIF_RET(hipe_arch_name);
@@ -2699,9 +2659,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 			       sizeof(ERLANG_ARCHITECTURE)-1,
 			       NIL));
     } 
-    else if (BIF_ARG_1 == am_memory_types) {
-	return erts_instr_get_type_info(BIF_P);
-    }
     else if (BIF_ARG_1 == am_os_type) {
 	BIF_RET(os_type_tuple);
     }
@@ -4726,6 +4683,55 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
     }
 
     BIF_ERROR(BIF_P, BADARG);
+}
+
+static BIF_RETTYPE
+gather_histograms_helper(Process * c_p, Eterm arg_tuple,
+                         int gather(Process *, int, int, int, UWord, Eterm))
+{
+    SWord hist_start, hist_width, sched_id;
+    int msg_count, alloc_num;
+    Eterm *args;
+
+    /* This is an internal BIF, so the error checking is mostly left to erlang
+     * code. */
+
+    ASSERT(is_tuple_arity(arg_tuple, 5));
+    args = tuple_val(arg_tuple);
+
+    for (alloc_num = ERTS_ALC_A_MIN; alloc_num <= ERTS_ALC_A_MAX; alloc_num++) {
+        if(erts_is_atom_str(ERTS_ALC_A2AD(alloc_num), args[1], 0)) {
+            break;
+        }
+    }
+
+    if (alloc_num > ERTS_ALC_A_MAX) {
+        BIF_ERROR(c_p, BADARG);
+    }
+
+    sched_id = signed_val(args[2]);
+    hist_width = signed_val(args[3]);
+    hist_start = signed_val(args[4]);
+
+    if (sched_id < 0 || sched_id > erts_no_schedulers) {
+        BIF_ERROR(c_p, BADARG);
+    }
+
+    msg_count = gather(c_p, alloc_num, sched_id, hist_width, hist_start, args[5]);
+
+    BIF_RET(make_small(msg_count));
+}
+
+BIF_RETTYPE erts_internal_gather_alloc_histograms_1(BIF_ALIST_1)
+{
+    return gather_histograms_helper(BIF_P, BIF_ARG_1,
+                                    erts_alcu_gather_alloc_histograms);
+}
+
+BIF_RETTYPE erts_internal_gather_carrier_info_1(BIF_ALIST_1)
+{
+    return gather_histograms_helper(BIF_P, BIF_ARG_1,
+                                    erts_alcu_gather_carrier_info);
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT

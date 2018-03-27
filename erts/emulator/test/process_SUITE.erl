@@ -2217,36 +2217,44 @@ handle_event(Event, Pid) ->
 
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),
-    as_expected = processes_term_proc_list_test(false),
-    {ok, Node} = start_node(Config, "+Mis true"),
-    RT = spawn_link(Node, fun () ->
-		receive after 1000 -> ok end,
-		processes_term_proc_list_test(false),
-		Tester ! {it_worked, self()}
-	end),
-    receive {it_worked, RT} -> ok end,
-    stop_node(Node),
+
+    Run = fun(Args) ->
+              {ok, Node} = start_node(Config, Args),
+              RT = spawn_link(Node, fun () ->
+                              receive after 1000 -> ok end,
+                              as_expected = processes_term_proc_list_test(false),
+                              Tester ! {it_worked, self()}
+                      end),
+              receive {it_worked, RT} -> ok end,
+              stop_node(Node)
+          end,
+
+    %% We have to run this test case with +S1 since instrument:allocations()
+    %% will report a free()'d block as present until it's actually deallocated
+    %% by its employer.
+    Run("+MSe true +MSatags false +S1"),
+    Run("+MSe true +MSatags true +S1"),
+
     ok.
-    
+
 -define(CHK_TERM_PROC_LIST(MC, XB),
 	chk_term_proc_list(?LINE, MC, XB)).
 
 chk_term_proc_list(Line, MustChk, ExpectBlks) ->
-    case {MustChk, instrument:memory_status(types)} of
-	{false, false} ->
+    Allocs = instrument:allocations(#{ allocator_types => [sl_alloc] }),
+    case {MustChk, Allocs} of
+	{false, {error, not_enabled}} ->
 	    not_enabled;
-	{_, MS} ->
-	    {value,
-	     {ptab_list_deleted_el,
-	      DL}} = lists:keysearch(ptab_list_deleted_el, 1, MS),
-	    case lists:keysearch(blocks, 1, DL) of
-		{value, {blocks, ExpectBlks, _, _}} ->
-		    ok;
-		{value, {blocks, Blks, _, _}} ->
-		    exit({line, Line,
-			  mismatch, expected, ExpectBlks, actual, Blks});
-		Unexpected ->
-		    exit(Unexpected)
+	{_, {ok, {_Shift, _Unscanned, ByOrigin}}} ->
+            ByType = maps:get(system, ByOrigin, #{}),
+            Hist = maps:get(ptab_list_deleted_el, ByType, {}),
+	    case lists:sum(tuple_to_list(Hist)) of
+		ExpectBlks ->
+                    ok;
+		Blks ->
+                    exit({line, Line, mismatch,
+                          expected, ExpectBlks,
+                          actual, Blks})
 	    end
     end,
     ok.

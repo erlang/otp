@@ -674,7 +674,7 @@ do_create_dumps(DataDir,Rel) ->
 	end,
     case Rel of
 	current ->
-	    CD3 = dump_with_args(DataDir,Rel,"instr","+Mim true"),
+	    CD3 = dump_with_args(DataDir,Rel,"instr","+Muatags true"),
 	    CD4 = dump_with_strange_module_name(DataDir,Rel,"strangemodname"),
             CD5 = dump_with_size_limit_reached(DataDir,Rel,"trunc_bytes"),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),

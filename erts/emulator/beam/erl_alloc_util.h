@@ -50,6 +50,7 @@ typedef struct {
     int tspec;
     int tpref;
     int ramv;
+    int atags;
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -106,6 +107,7 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
+    0,			/* (bool)   atags:  tagged allocations           */\
     512*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -142,6 +144,7 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
+    0,			/* (bool)   atags:  tagged allocations           */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -223,6 +226,36 @@ void erts_lcnt_update_allocator_locks(int enable);
 #endif
 
 int erts_alcu_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
+
+/* Gathers per-tag allocation histograms from the given allocator number
+ * (ERTS_ALC_A_*) and scheduler id. An id of 0 means the global instance will
+ * be used.
+ *
+ * The results are sent to `p`, and it returns the number of messages to wait
+ * for. */
+int erts_alcu_gather_alloc_histograms(struct process *p, int allocator_num,
+                                      int sched_id, int hist_width,
+                                      UWord hist_start, Eterm ref);
+
+/* Gathers per-carrier info from the given allocator number (ERTS_ALC_A_*) and
+ * scheduler id. An id of 0 means the global instance will be used.
+ *
+ * The results are sent to `p`, and it returns the number of messages to wait
+ * for. */
+int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
+                                  int sched_id, int hist_width,
+                                  UWord hist_start, Eterm ref);
+
+struct alcu_blockscan;
+
+typedef struct {
+    struct alcu_blockscan *current;
+    struct alcu_blockscan *last;
+} ErtsAlcuBlockscanYieldData;
+
+int erts_handle_yielded_alcu_blockscan(struct ErtsSchedulerData_ *esdp,
+                                       ErtsAlcuBlockscanYieldData *yield);
+void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 
 #endif /* !ERL_ALLOC_UTIL__ */
 
@@ -548,6 +581,7 @@ struct Allctr_t_ {
     /* Options */
     int			t;
     int			ramv;
+    int                 atags;
     Uint		sbc_threshold;
     Uint		sbc_move_threshold;
     Uint		mbc_move_threshold;
@@ -683,6 +717,7 @@ struct Allctr_t_ {
     } debug;
 #endif
 };
+
 
 int	erts_alcu_start(Allctr_t *, AllctrInit_t *);
 void	erts_alcu_stop(Allctr_t *);

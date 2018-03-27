@@ -832,7 +832,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
-	$(OBJDIR)/erl_instrument.o	$(OBJDIR)/erl_init.o \
+	$(OBJDIR)/erl_init.o \
 	$(OBJDIR)/erl_atom_table.o	$(OBJDIR)/erl_bif_table.o \
 	$(OBJDIR)/erl_bif_ddll.o  	$(OBJDIR)/erl_bif_guard.o \
 	$(OBJDIR)/erl_bif_info.o	$(OBJDIR)/erl_bif_op.o \
