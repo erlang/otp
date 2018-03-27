@@ -309,25 +309,6 @@ erts_queue_dist_message(Process *rcvr,
     }
     else {
 
-#ifdef USE_VM_PROBES
-        if (DTRACE_ENABLED(message_queued)) {
-            DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-
-            dtrace_proc_str(rcvr, receiver_name);
-            if (have_seqtrace(token)) {
-                tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
-                tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
-                tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
-            }
-            /*
-             * TODO: We don't know the real size of the external message here.
-             *       -1 will appear to a D script as 4294967295.
-             */
-            DTRACE6(message_queued, receiver_name, -1, rcvr->sig_qs.len + 1,
-                    tok_label, tok_lastcnt, tok_serial);
-        }
-#endif
-
 	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
 
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
@@ -346,7 +327,6 @@ queue_messages(Process* receiver,
                ErtsMessage** last,
                Uint len)
 {
-    Sint res;
     int locked_msgq = 0;
     erts_aint32_t state;
 
@@ -394,31 +374,14 @@ queue_messages(Process* receiver,
 	return 0;
     }
 
-    res = receiver->sig_qs.len;
-    if (receiver_locks & ERTS_PROC_LOCK_MAIN) {
-	/*
-	 * We move 'in queue' to 'private queue' and place
-	 * message at the end of 'private queue' in order
-	 * to ensure that the 'in queue' doesn't contain
-	 * references into the heap. By ensuring this,
-	 * we don't need to include the 'in queue' in
-	 * the root set when garbage collecting.
-	 */
-	res += receiver->sig_inq.len;
-        erts_proc_sig_fetch(receiver);
-        LINK_MESSAGE_PRIVQ(receiver, first, last, len);
-    }
-    else
-    {
-	LINK_MESSAGE(receiver, first, last, len);
-    }
+    LINK_MESSAGE(receiver, first, last, len);
 
     if (locked_msgq) {
 	erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
     }
 
     erts_proc_notify_new_message(receiver, receiver_locks);
-    return res;
+    return 0;
 }
 
 static Sint
@@ -869,7 +832,7 @@ erts_move_messages_off_heap(Process *c_p)
      * it...
      */
 
-    reds += c_p->sig_qs.len / 10;
+    reds += erts_proc_sig_privqs_len(c_p) / 10;
 
     ASSERT(erts_atomic32_read_nob(&c_p->state)
 	   & ERTS_PSFLG_OFF_HEAP_MSGQ);
@@ -1360,32 +1323,18 @@ void erts_factory_dummy_init(ErtsHeapFactory* factory)
     factory->mode = FACTORY_CLOSED;
 }
 
-static void reserve_heap(ErtsHeapFactory*, Uint need, Uint xtra);
-
-Eterm* erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
-{
-    Eterm* res;
-
-    ASSERT((unsigned int)factory->mode > (unsigned int)FACTORY_CLOSED);
-    if (factory->hp + need > factory->hp_end) {
-	reserve_heap(factory, need, xtra);
-    }
-    res = factory->hp;
-    factory->hp += need;
-    return res;
-}
-
 Eterm* erts_reserve_heap(ErtsHeapFactory* factory, Uint need)
 {
     ASSERT((unsigned int)factory->mode > (unsigned int)FACTORY_CLOSED);
     if (factory->hp + need > factory->hp_end) {
-	reserve_heap(factory, need, 200);
+	erts_reserve_heap__(factory, need, 200);
     }
     return factory->hp;
 }
 
-static void reserve_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
+void erts_reserve_heap__(ErtsHeapFactory* factory, Uint need, Uint xtra)
 {
+    /* internal... */
     ErlHeapFragment* bp;
 
     switch (factory->mode) {
@@ -1395,7 +1344,9 @@ static void reserve_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
 	factory->hp_end = factory->hp + need;
 	return;
 
-    case FACTORY_MESSAGE:
+    case FACTORY_MESSAGE: {
+        int replace_oh;
+        int replace_msg_hfrag;
 	if (!factory->heap_frags) {
 	    ASSERT(factory->message->data.attached == ERTS_MSG_COMBINED_HFRAG);
 	    bp = &factory->message->hfrag;
@@ -1407,25 +1358,45 @@ static void reserve_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
 	    bp = factory->heap_frags;
 	}
 
+        replace_oh = 0;
+        replace_msg_hfrag = 0;
+
         if (bp) {
-	    ASSERT(factory->hp > bp->mem);
+	    ASSERT(factory->hp >= bp->mem);
 	    ASSERT(factory->hp <= factory->hp_end);
 	    ASSERT(factory->hp_end == bp->mem + bp->alloc_size);
 
 	    bp->used_size = factory->hp - bp->mem;
+            if (!bp->used_size && factory->heap_frags) {
+                factory->heap_frags = bp->next;
+                bp->next = NULL;
+                ASSERT(!bp->off_heap.first);
+                if (factory->off_heap == &bp->off_heap)
+                    replace_oh = !0;
+                if (factory->message && factory->message->data.heap_frag == bp)
+                    replace_msg_hfrag = !0;
+                free_message_buffer(bp);
+            }
         }
 	bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(factory->alloc_type,
 						ERTS_HEAP_FRAG_SIZE(need+xtra));
 	bp->next = factory->heap_frags;
 	factory->heap_frags = bp;
 	bp->alloc_size = need + xtra;
-	bp->used_size = need;
+	bp->used_size = need + xtra;
 	bp->off_heap.first = NULL;
 	bp->off_heap.overhead = 0;
-
+        if (replace_oh) {
+            factory->off_heap = &bp->off_heap;
+            factory->off_heap_saved.first = factory->off_heap->first;
+            factory->off_heap_saved.overhead = factory->off_heap->overhead;
+        }
+        if (replace_msg_hfrag)
+            factory->message->data.heap_frag = bp;
 	factory->hp     = bp->mem;
 	factory->hp_end = bp->mem + bp->alloc_size;
 	return;
+    }
 
     case FACTORY_STATIC:
     case FACTORY_CLOSED:
@@ -1508,9 +1479,11 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
         if (bp->next == NULL) {
             Uint used_sz = factory->hp - bp->mem;
             ASSERT(used_sz <= bp->alloc_size);
-	    if (used_sz > 0)
-		bp = erts_resize_message_buffer(bp, used_sz,
-						brefs, brefs_size);
+	    if (used_sz > 0) {
+                if (used_sz != bp->alloc_size)
+                    bp = erts_resize_message_buffer(bp, used_sz,
+                                                    brefs, brefs_size);
+            }
 	    else {
 		free_message_buffer(bp);
 		bp = NULL;

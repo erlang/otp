@@ -109,56 +109,77 @@ link_size(ErtsMonitor *lnk, void *vsize)
     *((Uint *) vsize) += erts_link_size(lnk);
 }
 
-Uint erts_process_memory(Process *p, int incl_msg_inq) {
-  Uint size = 0;
-  struct saved_calls *scb;
-  size += sizeof(Process);
+Uint erts_process_memory(Process *p, int include_sigs_in_transit)
+{
+    Uint size = 0;
+    struct saved_calls *scb;
 
-  if (incl_msg_inq) {
-      erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
-      erts_proc_sig_fetch(p);
-      erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
-  }
+    size += sizeof(Process);
 
-  erts_link_tree_foreach(ERTS_P_LINKS(p),
-                         link_size, (void *) &size);
-  erts_monitor_tree_foreach(ERTS_P_MONITORS(p),
-                            monitor_size, (void *) &size);
-  erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p),
-                            monitor_size, (void *) &size);
-  size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
-  if (p->abandoned_heap)
-      size += (p->hend - p->heap) * sizeof(Eterm);
-  if (p->old_hend && p->old_heap)
-    size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+    erts_link_tree_foreach(ERTS_P_LINKS(p),
+                           link_size, (void *) &size);
+    erts_monitor_tree_foreach(ERTS_P_MONITORS(p),
+                              monitor_size, (void *) &size);
+    erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p),
+                              monitor_size, (void *) &size);
+    size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
+    if (p->abandoned_heap)
+        size += (p->hend - p->heap) * sizeof(Eterm);
+    if (p->old_hend && p->old_heap)
+        size += (p->old_hend - p->old_heap) * sizeof(Eterm);
 
+    if (!include_sigs_in_transit) {
+        /*
+         * Size of message queue!
+         *
+         * Note that this assumes that any part of message
+         * queue located in middle queue have been moved
+         * into the inner queue prior to this call.
+         * process_info() management ensures this is done-
+         */
+        ErtsMessage *mp;
+        for (mp = p->sig_qs.first; mp; mp = mp->next) {
+            ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
+            size += sizeof(ErtsMessage);
+            if (mp->data.attached)
+                size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+        }
+    }
+    else {
+        /*
+         * Size of message queue plus size of all signals
+         * in transit to the process!
+         */
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
 
-  size += p->sig_qs.len * sizeof(ErtsMessage);
+        ERTS_FOREACH_SIG_PRIVQS(
+            p, mp,
+            {
+                size += sizeof(ErtsMessage);
+                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                    size += erts_proc_sig_signal_size((ErtsSignal *) mp);
+                else if (mp->data.attached)
+                    size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+            });
+    }
 
-  ERTS_FOREACH_SIG_PRIVQS(
-      p, mp,
-      {
-          if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
-              size += erts_proc_sig_signal_size((ErtsSignal *) mp);
-          else if (mp->data.attached)
-              size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
-      });
+    if (p->arg_reg != p->def_arg_reg) {
+        size += p->arity * sizeof(p->arg_reg[0]);
+    }
 
-  if (p->arg_reg != p->def_arg_reg) {
-    size += p->arity * sizeof(p->arg_reg[0]);
-  }
+    if (erts_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
+        size += sizeof(ErtsPSD);
 
-  if (erts_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
-    size += sizeof(ErtsPSD);
+    scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
+    if (scb) {
+        size += (sizeof(struct saved_calls)
+                 + (scb->len-1) * sizeof(scb->ct[0]));
+    }
 
-  scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
-  if (scb) {
-    size += (sizeof(struct saved_calls)
-	     + (scb->len-1) * sizeof(scb->ct[0]));
-  }
-
-  size += erts_dicts_mem_size(p);
-  return size;
+    size += erts_dicts_mem_size(p);
+    return size;
 }
 
 static ERTS_INLINE void

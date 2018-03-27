@@ -35,7 +35,8 @@
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
-         is_process_alive/1]).
+         is_process_alive/1,
+         process_info_blast/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -50,7 +51,7 @@ all() ->
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
-     is_process_alive].
+     is_process_alive, process_info_blast].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -1099,6 +1100,76 @@ is_process_alive(Config) when is_list(Config) ->
                   Ps),
     ok.
 
+process_info_blast(Config) when is_list(Config) ->
+    Tester = self(),
+    NoAttackers = 1000,
+    NoAL = lists:seq(1, NoAttackers),
+    Consume = make_ref(),
+    Victim = spawn_link(fun () ->
+                                receive
+                                    Consume ->
+                                        ok
+                                end,
+                                consume_msgs()
+                        end),
+    AFun = fun () ->
+                   Victim ! hej,
+                   Res = process_info(Victim, message_queue_len),
+                   Tester ! {self(), Res}
+           end,
+    Attackers0 = lists:map(fun (_) ->
+                                   spawn_link(AFun)
+                           end,
+                           NoAL),
+    lists:foreach(fun (A) ->
+                          receive
+                              {A, Res} ->
+                                  case Res of
+                                      {message_queue_len, Len} when Len > 0, Len =< NoAttackers ->
+                                          Len;
+                                      Error ->
+                                          exit({unexpected, Error})
+                                  end
+                          end
+                  end,
+                  Attackers0),
+    Attackers1 = lists:map(fun (_) ->
+                                   spawn_link(AFun)
+                           end,
+                           NoAL),
+    Victim ! Consume,
+    lists:foreach(fun (A) ->
+                          receive
+                              {A, Res} ->
+                                  case Res of
+                                      {message_queue_len, Len} when Len >= 0, Len =< 2*NoAttackers+1 ->
+                                          ok;
+                                      undefined ->
+                                          ok;
+                                      Error ->
+                                          exit({unexpected, Error})
+                                  end
+                          end
+                  end,
+                  Attackers1),
+    KillFun = fun (P) ->
+                      unlink(P),
+                      exit(P, kill),
+                      false = erlang:is_process_alive(P)
+              end,
+    lists:foreach(fun (A) -> KillFun(A) end, Attackers0),
+    lists:foreach(fun (A) -> KillFun(A) end, Attackers1),
+    KillFun(Victim),
+    ok.
+
+consume_msgs() ->
+    receive
+        _ ->
+            consume_msgs()
+    after 0 ->
+              ok
+    end.
+                              
 %% helpers
     
 id(I) -> I.

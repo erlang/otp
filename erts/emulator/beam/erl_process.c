@@ -10750,7 +10750,6 @@ exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state)
     while (1) {
         erts_aint32_t aprio, uprio, n, e;
         ASSERT(a & ERTS_PSFLG_EXITING);
-        ASSERT(!(a & ERTS_PSFLG_FREE));
         aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
         uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
         if (aprio >= uprio)
@@ -10796,8 +10795,7 @@ erts_execute_dirty_system_task(Process *c_p)
 
     if (c_p->flags & F_DIRTY_GC_HIBERNATE) {
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-	erts_proc_sig_fetch(c_p);
-	if (c_p->sig_qs.len)
+	if (erts_proc_sig_fetch(c_p))
             c_p->flags &= ~F_DIRTY_GC_HIBERNATE; /* operation aborted... */
         else {
 	    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
@@ -12377,12 +12375,14 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
         case ERTS_MON_TYPE_PORT: {
 	    Port *prt;
             ASSERT(is_internal_port(mon->other.item));
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
             prt = erts_id2port(mon->other.item);
 	    if (prt) {
                 erts_fire_port_monitor(prt, mon);
                 erts_port_release(prt);
                 mon = NULL;
             }
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
             break;
         }
         case ERTS_MON_TYPE_RESOURCE:
@@ -12461,10 +12461,8 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
             ASSERT(is_internal_port(mon->other.item));
             prt = erts_port_lookup_raw(mon->other.item);
             if (prt) {
-                erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
                 if (erts_port_demonitor(c_p, prt, mon) != ERTS_PORT_OP_DROPPED)
                     mon = NULL;
-                erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
             }
             break;
         }
@@ -12567,7 +12565,6 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt)
         if (!erts_link_dist_delete(dlnk))
             ldp = NULL;
 
-        erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
         code = erts_dsig_prepare(&dsd, dep, c_p, 0, ERTS_DSP_NO_LOCK, 0, 0);
         switch (code) {
         case ERTS_DSIG_PREP_CONNECTED:
@@ -12581,7 +12578,6 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt)
                 ASSERT(code == ERTS_DSIG_SEND_OK);
             }
         }
-        erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
         break;
     }
     default:
@@ -12642,8 +12638,6 @@ erts_do_exit_process(Process* p, Eterm reason)
     set_self_exiting(p, reason, NULL, NULL, NULL);
 
     cancel_suspend_of_suspendee(p, ERTS_PROC_LOCKS_ALL); 
-
-    erts_proc_sig_fetch(p);
 
     if (IS_TRACED(p)) {
 	if (IS_TRACED_FL(p, F_TRACE_CALLS))
@@ -12911,6 +12905,12 @@ erts_continue_exit_process(Process *p)
     pectxt.c_p = p;
     pectxt.reason = reason;
 
+    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_MSGQ);
+
+    erts_proc_sig_fetch(p);
+
+    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+
     if (links) {
         erts_link_tree_foreach_delete(&links,
                                       erts_proc_exit_handle_link,
@@ -12932,7 +12932,6 @@ erts_continue_exit_process(Process *p)
         ASSERT(!lt_monitors);
     }
 
-    erts_proc_sig_fetch(p);
     /*
      * erts_proc_sig_handle_exit() implements yielding.
      * However, this function cannot handle it yet... loop
@@ -12944,7 +12943,6 @@ erts_continue_exit_process(Process *p)
             break;
     }
 
-    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
     erts_flush_trace_messages(p, ERTS_PROC_LOCK_MAIN);
@@ -12981,27 +12979,41 @@ erts_continue_exit_process(Process *p)
 }
 
 Process *
-erts_try_lock_sig_free_proc(Eterm pid, ErtsProcLocks locks)
+erts_try_lock_sig_free_proc(Eterm pid, ErtsProcLocks locks,
+                            erts_aint32_t *statep)
 {
     Process *rp = erts_proc_lookup_raw(pid);
     erts_aint32_t state;
 
-    if (!rp)
+    if (!rp) {
+        if (statep)
+            *statep = ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE;
         return NULL;
+    }
 
     ERTS_LC_ASSERT(!erts_proc_lc_my_proc_locks(rp));
 
     state = erts_atomic32_read_nob(&rp->state);
-    if (state & ERTS_PSFLG_EXITING)
+    if (statep)
+        *statep = state;
+
+    if (state & ERTS_PSFLG_FREE)
         return NULL;
 
     if (state & (ERTS_PSFLG_SIG_IN_Q|ERTS_PSFLG_SIG_Q))
         return ERTS_PROC_LOCK_BUSY;
+
+    if (!locks)
+        return rp;
+
     if (erts_proc_trylock(rp, locks) == EBUSY)
         return ERTS_PROC_LOCK_BUSY;
 
     state = erts_atomic32_read_nob(&rp->state);
-    if (state & ERTS_PSFLG_EXITING) {
+    if (statep)
+        *statep = state;
+
+    if (state & ERTS_PSFLG_FREE) {
         erts_proc_unlock(rp, locks);
         return NULL;
     }

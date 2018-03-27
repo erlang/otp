@@ -59,6 +59,7 @@
 #endif
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
+#include "erl_proc_sig_queue.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD

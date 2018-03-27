@@ -32,6 +32,7 @@
  *              - Unlink
  *              - Group leader
  *              - Is process alive
+ *              - Process info request
  *              - Trace change
  *
  *              The signal queue consists of three parts:
@@ -78,6 +79,9 @@
 #if 0
 #  define ERTS_PROC_SIG_HARD_DEBUG
 #endif
+#if 0
+#  define ERTS_PROC_SIG_HARD_DEBUG_SIGQ_MSG_LEN
+#endif
 
 struct erl_mesg;
 
@@ -95,28 +99,79 @@ typedef struct {
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)       \
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((P), "")
-#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P) \
-    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((P), "")
+#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P, QL) \
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((P), (QL), "")
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, What)   \
     erts_proc_sig_hdbg_check_in_queue((P), (What), __FILE__, __LINE__)
-#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, What)   \
-    erts_proc_sig_hdbg_check_priv_queue((P), (What), __FILE__, __LINE__)
+#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, QL, What)              \
+    erts_proc_sig_hdbg_check_priv_queue((P), (QL), (What), __FILE__, __LINE__)
 struct process;
-void erts_proc_sig_hdbg_check_priv_queue(struct process *c_p, char *what,
-                                         char *file, int line);
+void erts_proc_sig_hdbg_check_priv_queue(struct process *c_p, int qlock,
+                                         char *what, char *file, int line);
 void erts_proc_sig_hdbg_check_in_queue(struct process *c_p, char *what,
                                        char *file, int line);
 #else
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)
-#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P)
+#  define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(P, QL)
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__(P, What)
-#define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, What)
+#define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, QL, What)
 #endif
 
 #endif
 
 #if !defined(ERTS_PROC_SIG_QUEUE_H__) && !defined(ERTS_PROC_SIG_QUEUE_TYPE_ONLY)
 #define ERTS_PROC_SIG_QUEUE_H__
+
+#define ERTS_SIG_Q_OP_BITS      8                      
+#define ERTS_SIG_Q_OP_SHIFT     0
+#define ERTS_SIG_Q_OP_MASK      ((1 << ERTS_SIG_Q_OP_BITS) - 1)
+
+#define ERTS_SIG_Q_TYPE_BITS    8
+#define ERTS_SIG_Q_TYPE_SHIFT   ERTS_SIG_Q_OP_BITS
+#define ERTS_SIG_Q_TYPE_MASK    ((1 << ERTS_SIG_Q_TYPE_BITS) - 1)
+
+#define ERTS_SIG_Q_NON_X_BITS__ (_HEADER_ARITY_OFFS \
+                                 + ERTS_SIG_Q_OP_BITS \
+                                 + ERTS_SIG_Q_TYPE_BITS)
+
+#define ERTS_SIG_Q_XTRA_BITS    (32 - ERTS_SIG_Q_NON_X_BITS__)
+#define ERTS_SIG_Q_XTRA_SHIFT   (ERTS_SIG_Q_OP_BITS \
+                                 + ERTS_SIG_Q_TYPE_BITS)
+#define ERTS_SIG_Q_XTRA_MASK    ((1 << ERTS_SIG_Q_XTRA_BITS) - 1)
+
+
+#define ERTS_PROC_SIG_OP(Tag) \
+    ((int) (_unchecked_thing_arityval((Tag)) \
+            >> ERTS_SIG_Q_OP_SHIFT) & ERTS_SIG_Q_OP_MASK)
+
+#define ERTS_PROC_SIG_TYPE(Tag) \
+    ((Uint16) (_unchecked_thing_arityval((Tag)) \
+               >> ERTS_SIG_Q_TYPE_SHIFT) & ERTS_SIG_Q_TYPE_MASK)
+
+#define ERTS_PROC_SIG_XTRA(Tag) \
+    ((Uint32) (_unchecked_thing_arityval((Tag)) \
+               >> ERTS_SIG_Q_XTRA_SHIFT) & ERTS_SIG_Q_XTRA_MASK)
+
+#define ERTS_PROC_SIG_MAKE_TAG(Op, Type, Xtra)                  \
+    (ASSERT(0 <= (Xtra) && (Xtra) <= ERTS_SIG_Q_XTRA_MASK),     \
+     _make_header((((Type) & ERTS_SIG_Q_TYPE_MASK)              \
+                   << ERTS_SIG_Q_TYPE_SHIFT)                    \
+                  | (((Op) & ERTS_SIG_Q_OP_MASK)                \
+                     << ERTS_SIG_Q_OP_SHIFT)                    \
+                  | (((Xtra) & ERTS_SIG_Q_XTRA_MASK)            \
+                     << ERTS_SIG_Q_XTRA_SHIFT),                 \
+                  _TAG_HEADER_EXTERNAL_PID))
+
+
+/*
+ * ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK is not an actual
+ * operation. We keep it at the top of the OP range,
+ * larger than ERTS_SIG_Q_OP_MAX.
+ */
+#define ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK ERTS_SIG_Q_OP_MASK
+
+#define ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK \
+    ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK,0,0)
 
 struct dist_entry_;
 
@@ -451,6 +506,58 @@ void
 erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
                                     Eterm ref);
 
+/**
+ *
+ * @brief Send a 'process info request' signal to a process.
+ *
+ * A response message '{Ref, Result}' is sent to the
+ * sender when performed where Ref is the reference passed
+ * as 'ref' argument, and Result corresponds to return result
+ * from erlang:process_info/[1,2].
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *                              NULL if signal arrived via
+ *                              distribution.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     item_ix       Info index array to pass to
+ *                              erts_process_info()
+ *
+ * @param[in]     len           Lenght of info index array
+ *
+ * @param[in]     need_msgq_len Non-zero if message queue
+ *                              length is needed; otherwise,
+ *                              zero. If non-zero, sig_qs.len
+ *                              will be set to correspond
+ *                              to the message queue length
+ *                              before call to
+ *                              erts_process_info()
+ *
+ * @param[in]     flags         Flags to pass to
+ *                              erts_process_info()
+ *
+ * @param[in]     reserve_size  Heap size that is known to
+ *                              be needed. May not be correct
+ *                              though.
+ *
+ * @param[in]     ref           Reference to use in response
+ *                              message to the sending
+ *                              process (i.e., c_p).
+ *
+ */
+int
+erts_proc_sig_send_process_info_request(Process *c_p,
+                                        Eterm to,
+                                        int *item_ix,
+                                        int len,
+                                        int need_msgq_len,
+                                        int flags,
+                                        Uint reserve_size,
+                                        Eterm ref);
+
+
 /*
  * End of send operations of currently supported process signals.
  */
@@ -601,9 +708,30 @@ erts_proc_sig_receive_helper(Process *c_p, int fcalls,
  *
  * @param[in]   c_p             Pointer to process struct of
  *                              currently executing process.
- *
+ * @returns                     Amount of message signals in
+ *                              inner plus middle signal
+ *                              queues after fetch completed
+ *                              (NOT the message queue
+ *                              length).
  */
-void erts_proc_sig_fetch(Process *p);
+ERTS_GLB_INLINE Sint erts_proc_sig_fetch(Process *p);
+
+/**
+ *
+ * @brief Get amount of messages in private queues
+ *
+ * @param[in]   c_p             Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @returns                     Amount of message signals in
+ *                              inner plus middle signal
+ *                              queues after fetch completed
+ *                              (NOT the message queue
+ *                              length).
+ */
+Sint
+erts_proc_sig_privqs_len(Process *c_p);
+
 
 typedef struct {
     Uint size;
@@ -623,16 +751,18 @@ typedef struct {
  *
  * @param[in]   rp_locks        Process locks held on 'rp'.
  *
+ * @param[in]   info_on_self    Integer set to non-zero value
+ *                              if caller is inspecting itself;
+ *                              otherwise, zero.
+ *
  * @param[in]   mip             Pointer to array of
  *                              ErtsMessageInfo structures.
- *                              
  */
-
 Uint erts_proc_sig_prep_msgq_for_inspection(Process *c_p,
                                             Process *rp,
                                             ErtsProcLocks rp_locks,
+                                            int info_on_self,
                                             ErtsMessageInfo *mip);
-
 
 /**
  *
@@ -686,5 +816,57 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
 extern Process *erts_dirty_process_signal_handler;
 extern Process *erts_dirty_process_signal_handler_high;
 extern Process *erts_dirty_process_signal_handler_max;
+
+void erts_proc_sig_fetch__(Process *proc);
+Sint erts_proc_sig_fetch_msgq_len_offs__(Process *proc);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Sint
+erts_proc_sig_fetch(Process *proc)
+{
+    Sint res = 0;
+    ErtsSignal *sig;
+
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking()
+                   || ERTS_PROC_IS_EXITING(proc)
+                   || ((erts_proc_lc_my_proc_locks(proc)
+                        & (ERTS_PROC_LOCK_MAIN
+                           | ERTS_PROC_LOCK_MSGQ))
+                       == (ERTS_PROC_LOCK_MAIN
+                           | ERTS_PROC_LOCK_MSGQ)));
+
+    ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
+
+    sig = (ErtsSignal *) proc->sig_inq.first;
+    if (sig) {
+        if (ERTS_LIKELY(sig->common.tag != ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK))
+            erts_proc_sig_fetch__(proc);
+        else
+            res = erts_proc_sig_fetch_msgq_len_offs__(proc);
+    }
+
+    res += proc->sig_qs.len;
+
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
+
+#ifdef ERTS_PROC_SIG_HARD_DEBUG_SIGQ_MSG_LEN
+    {
+        Sint len = 0;
+        ERTS_FOREACH_SIG_PRIVQS(
+            proc, mp,
+            {
+                if (ERTS_SIG_IS_MSG(mp))
+                    len++;
+            });
+        ERTS_ASSERT(res == len);
+    }
+#endif
+
+    return res;
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* ERTS_PROC_SIG_QUEUE_H__ */

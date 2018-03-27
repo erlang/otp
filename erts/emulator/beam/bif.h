@@ -425,6 +425,12 @@ do {									\
     BIF_TRAP3((TRP), (P), (A0), (A1), (A2));				\
 } while (0)
 
+#define ERTS_BIF_PREP_EXITED(RET, PROC)	                                \
+do {                                                                    \
+    KILL_CATCHES((PROC));                                               \
+    ERTS_BIF_PREP_ERROR((RET), (PROC), EXTAG_EXIT);                     \
+} while (0)
+
 #define ERTS_BIF_EXITED(PROC)		\
 do {					\
     KILL_CATCHES((PROC));		\
