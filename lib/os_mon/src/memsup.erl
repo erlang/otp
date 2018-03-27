@@ -705,7 +705,7 @@ get_os_wordsize_with_uname() ->
 	_         -> 32
     end.
 
-clean_string(String) -> lists:flatten(string:lexemes(String,"\r\n\t ")).
+clean_string(String) -> lists:flatten(string:lexemes(String,[[$\r,$\n]|"\n\t "])).
     
 
 %%--Replying to pending clients-----------------------------------------

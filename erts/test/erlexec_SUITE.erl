@@ -400,7 +400,7 @@ emu_args(CmdLineArgs) ->
     {ok,[[Erl]]} = init:get_argument(progname),
     EmuCL = os:cmd(Erl ++ " -emu_args_exit " ++ CmdLineArgs),
     io:format("EmuCL = ~ts", [EmuCL]),
-    split_emu_clt(string:lexemes(EmuCL, [$ ,$\t,$\n,$\r])).
+    split_emu_clt(string:lexemes(EmuCL, [$ ,$\t,$\n,[$\r,$\n]])).
 
 split_emu_clt(EmuCLT) ->
     split_emu_clt(EmuCLT, [], [], [], emu).

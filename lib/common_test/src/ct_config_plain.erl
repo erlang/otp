@@ -106,7 +106,7 @@ read_config_terms1({done,{eof,EL},_}, L, _, _) ->
 read_config_terms1({done,{error,Info,EL},_}, L, _, _) ->
     {error,{Info,{L,EL}}};
 read_config_terms1({more,_}, L, Terms, Rest) ->
-    case string:lexemes(Rest, [$\n,$\r,$\t]) of
+    case string:lexemes(Rest, [$\n,[$\r,$\n],$\t]) of
 	[] ->
 	    lists:reverse(Terms);
 	_ ->
