@@ -26,6 +26,7 @@
 %% Includes and defines
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-include_lib("common_test/include/ct.hrl").
 -include("tftp_test_lib.hrl").
 
 -define(START_DAEMON(Port, Options),
@@ -74,9 +75,18 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [simple, extra, reuse_connection, resend_client,
-     resend_server, large_file].
+all() ->
+    [
+     simple,
+     extra,
+     reuse_connection,
+     resend_client,
+     resend_server,
+     large_file,
+     app,
+     appup,
+     start_tftpd
+    ].
 
 groups() -> 
     [].
@@ -92,6 +102,48 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+app() ->
+    [{doc, "Test that the tftp app file is ok"}].
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(tftp).
+
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the tftp appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(tftp).
+
+start_tftpd() ->
+    [{doc, "Start/stop of tfpd service"}].
+start_tftpd(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ok = tftp:start(),
+    {ok, Pid0} = tftp:start_service([{host, "localhost"}, {port, 0}]),
+    Pids0 =  [ServicePid || {_, ServicePid} <- tftp:services()],
+    true = lists:member(Pid0, Pids0),
+    {ok, [_|_]} = tftp:service_info(Pid0),
+    tftp:stop_service(Pid0),
+    ct:sleep(100),
+    Pids1 =  [ServicePid || {_, ServicePid} <- tftp:services()],
+    false = lists:member(Pid0, Pids1),
+
+    {ok, Pid1} =
+	tftp:start_standalone([{host, "localhost"}, {port, 0}]),
+    Pids2 =  [ServicePid || {_, ServicePid} <- tftp:services()],
+    false = lists:member(Pid1, Pids2),
+    %% Standalone service is not supervised
+    {error,not_found} = tftp:stop_service(Pid1),
+    ok = tftp:stop(),
+
+    application:load(tftp),
+    application:set_env(tftp, services, [{tftpd, [{host, "localhost"},
+                                                  {port, 0}]}]),
+    ok = tftp:start(),
+    1 = length(tftp:services()),
+    application:unset_env(tftp, services),
+    ok = tftp:stop().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

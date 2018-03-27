@@ -36,7 +36,8 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    tftp_sup:start_link([]).
+    Config = get_configuration(),
+    tftp_sup:start_link(Config).
 
 %%--------------------------------------------------------------------
 stop(_State) ->
@@ -45,3 +46,11 @@ stop(_State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+get_configuration() ->
+    case (catch application:get_env(tftp, services)) of
+	{ok, Services} ->
+	    Services;
+	_ ->
+	    []
+    end.
