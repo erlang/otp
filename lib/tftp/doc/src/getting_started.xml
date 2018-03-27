@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Getting Started</title>
+    <prepared></prepared>
+    <docno></docno>
+    <approved></approved>
+    <date></date>
+    <rev></rev>
+    <file>getting_started.xml</file>
+  </header>
+
+  <section>
+    <title>General Information</title>
+    <p>The <seealso marker="tftp#start/1">start/1</seealso> function starts
+      a daemon process listening for UDP packets on a port. When it
+      receives a request for read or write, it spawns a temporary server
+      process handling the transfer.</p>
+    <p>On the client side,
+      function <seealso marker="tftp#read_file/3">read_file/3</seealso>
+      and <seealso marker="tftp#write_file/3">write_file/3</seealso>
+      spawn a temporary client process establishing
+      contact with a TFTP daemon and perform the file transfer.</p>
+    <p><c>tftp</c> uses a callback module to handle the file
+      transfer. Two such callback modules are provided,
+      <c>tftp_binary</c> and <c>tftp_file</c>. See
+      <seealso marker="tftp#read_file/3">read_file/3</seealso> and
+      <seealso marker="tftp#write_file/3">write_file/3</seealso> for details.
+      You can also implement your own callback modules, see
+      <seealso marker="tftp#tftp_callback">CALLBACK FUNCTIONS</seealso>.
+      A callback module provided by
+      the user is registered using option <c>callback</c>, see
+    <seealso marker="tftp#options">DATA TYPES</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Using the TFTP client and server</title>
+    <p>This is a simple example of starting the TFTP server and reading the content
+    of a sample file using the TFTP client.</p>
+
+    <p><em>Step 1.</em> Create a sample file to be used for the transfer:</p>
+    <code>
+      $ echo "Erlang/OTP 21" > file.txt
+    </code>
+
+    <p><em>Step 2.</em> Start the TFTP server:</p>
+    <code type="erl" >
+      1> {ok, Pid} = tftp:start([{port, 19999}]).
+      <![CDATA[{ok,<0.65.0>}]]>
+    </code>
+
+    <p><em>Step 3.</em> Start the TFTP client (in another shell):</p>
+    <code type="erl" >
+      1> tftp:read_file("file.txt", binary, [{port, 19999}]).
+      <![CDATA[{ok,<<"Erlang/OTP 21\n">>}]]>
+    </code>
+  </section>
+
+</chapter>

@@ -31,53 +31,9 @@
   <module>tftp</module>
   <modulesummary>Trivial FTP.</modulesummary>
   <description>
-    <p>This is a complete implementation of the following IETF standards:</p>
-    <list type="bulleted">
-      <item>RFC 1350, The TFTP Protocol (revision 2)</item>
-      <item>RFC 2347, TFTP Option Extension</item>
-      <item>RFC 2348, TFTP Blocksize Option</item>
-      <item>RFC 2349, TFTP Timeout Interval and Transfer Size Options</item>
-    </list>
-    <p>The only feature that not is implemented is
-      the "netascii" transfer mode.</p>
-    <p>The <seealso marker="#start/1">start/1</seealso> function starts
-      a daemon process listening for UDP packets on a port. When it
-      receives a request for read or write, it spawns a temporary server
-      process handling the transfer.</p>
-    <p>On the client side,
-      function <seealso marker="#read_file/3">read_file/3</seealso>
-      and <seealso marker="#write_file/3">write_file/3</seealso>
-      spawn a temporary client process establishing
-      contact with a TFTP daemon and perform the file transfer.</p>
-    <p><c>tftp</c> uses a callback module to handle the file
-      transfer. Two such callback modules are provided,
-      <c>tftp_binary</c> and <c>tftp_file</c>. See
-      <seealso marker="#read_file/3">read_file/3</seealso> and
-      <seealso marker="#write_file/3">write_file/3</seealso> for details.
-      You can also implement your own callback modules, see 
-      <seealso marker="#tftp_callback">CALLBACK FUNCTIONS</seealso>. 
-      A callback module provided by
-      the user is registered using option <c>callback</c>, see
-      <seealso marker="#options">DATA TYPES</seealso>.</p>
+    <p>Interface module for the <c>tftp</c> application.</p>
   </description>
-  
- <section>
-    <title>TFTP SERVER SERVICE START/STOP</title>
-    
-    <p>A TFTP server can be started dynamically
-      (when <c>tftp</c> is already started) by calling the <c>tftp</c> application 
-      API <c>tftp:start(ServiceConfig)</c>.
-      The <c>ServiceConfig</c> for TFTP is described in
-      the <seealso marker="#options">DATA TYPES</seealso>
-      section.</p>
-    
-    <p>The TFTP server can be stopped using <c>tftp:stop_service(Pid)</c>.</p>
 
-    <p>The TPFT client is of such a temporary nature that it is not
-      handled as a service in the <c>tftp</c> service framework.</p>
-    
-  </section>
-  
   <section>
     <marker id="options"></marker>
     <title>DATA TYPES</title>

@@ -33,4 +33,5 @@
     <p>The <c>TFTP</c> application provides a TFTP client and server.</p>
   </description>
   <xi:include href="introduction.xml"/>
+  <xi:include href="getting_started.xml"/>
 </part>

@@ -40,13 +40,14 @@ XML_APPLICATION_FILES = ref_man.xml
 
 XML_CHAPTER_FILES = \
 	introduction.xml \
+	getting_started.xml \
 	notes.xml
 
 XML_REF3_FILES = \
 	tftp.xml
 
 XML_PART_FILES = \
-	part.xml
+	usersguide.xml
 
 BOOK_FILES = book.xml
 
