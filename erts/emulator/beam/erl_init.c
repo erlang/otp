@@ -605,6 +605,10 @@ void erts_usage(void)
     erts_fprintf(stderr, "-stbt type     u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
     erts_fprintf(stderr, "-sbwt val      set scheduler busy wait threshold, valid values are:\n");
     erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
+    erts_fprintf(stderr, "-sbwtdcpu val  set dirty CPU scheduler busy wait threshold, valid values are:\n");
+    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
+    erts_fprintf(stderr, "-sbwtdio val   set dirty IO scheduler busy wait threshold, valid values are:\n");
+    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
     erts_fprintf(stderr, "-scl bool      enable/disable compaction of scheduler load,\n");
     erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput      set cpu topology,\n");
@@ -622,6 +626,10 @@ void erts_usage(void)
     erts_fprintf(stderr, "-swct val      set scheduler wake cleanup threshold, valid values are:\n");
     erts_fprintf(stderr, "               very_lazy|lazy|medium|eager|very_eager.\n");
     erts_fprintf(stderr, "-swt val       set scheduler wakeup threshold, valid values are:\n");
+    erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
+    erts_fprintf(stderr, "-swtdcpu val   set dirty CPU scheduler wakeup threshold, valid values are:\n");
+    erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
+    erts_fprintf(stderr, "-swtdio val    set dirty IO scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size      suggested stack size in kilo words for scheduler threads,\n");
     erts_fprintf(stderr, "               valid range is [%d-%d] (default %d)\n",
@@ -1687,15 +1695,41 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
+	    else if (has_prefix("bwtdcpu", sub_param)) {
+                arg = get_arg(sub_param + 7, argv[i+1], &i);
+
+		if (erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_CPU, arg) != 0) {
+		    erts_fprintf(stderr, "bad dirty CPU scheduler busy wait threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+
+		VERBOSE(DEBUG_SYSTEM,
+			("dirty CPU scheduler wakeup threshold: %s\n", arg));
+	    }
+	    else if (has_prefix("bwtdio", sub_param)) {
+                arg = get_arg(sub_param + 6, argv[i+1], &i);
+
+		if (erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_IO, arg) != 0) {
+		    erts_fprintf(stderr, "bad dirty IO scheduler busy wait threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+
+		VERBOSE(DEBUG_SYSTEM,
+			("dirty IO scheduler wakeup threshold: %s\n", arg));
+	    }
 	    else if (has_prefix("bwt", sub_param)) {
-		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if (erts_sched_set_busy_wait_threshold(arg) != 0) {
+                arg = get_arg(sub_param + 3, argv[i+1], &i);
+
+		if (erts_sched_set_busy_wait_threshold(ERTS_SCHED_NORMAL, arg) != 0) {
 		    erts_fprintf(stderr, "bad scheduler busy wait threshold: %s\n",
 				 arg);
 		    erts_usage();
 		}
+
 		VERBOSE(DEBUG_SYSTEM,
-			("scheduler wakup threshold: %s\n", arg));
+			("scheduler wakeup threshold: %s\n", arg));
 	    }
 	    else if (has_prefix("cl", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
@@ -1812,9 +1846,29 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wake cleanup threshold: %s\n", arg));
 	    }
+	    else if (has_prefix("wtdcpu", sub_param)) {
+		arg = get_arg(sub_param+6, argv[i+1], &i);
+		if (erts_sched_set_wakeup_other_threshold(ERTS_SCHED_DIRTY_CPU, arg) != 0) {
+		    erts_fprintf(stderr, "dirty CPU scheduler wakeup threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("dirty CPU scheduler wakeup threshold: %s\n", arg));
+	    }
+	    else if (has_prefix("wtdio", sub_param)) {
+		arg = get_arg(sub_param+5, argv[i+1], &i);
+		if (erts_sched_set_wakeup_other_threshold(ERTS_SCHED_DIRTY_IO, arg) != 0) {
+		    erts_fprintf(stderr, "dirty IO scheduler wakeup threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("dirty IO scheduler wakeup threshold: %s\n", arg));
+	    }
 	    else if (has_prefix("wt", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
-		if (erts_sched_set_wakeup_other_thresold(arg) != 0) {
+		if (erts_sched_set_wakeup_other_threshold(ERTS_SCHED_NORMAL, arg) != 0) {
 		    erts_fprintf(stderr, "scheduler wakeup threshold: %s\n",
 				 arg);
 		    erts_usage();
@@ -1824,7 +1878,7 @@ erl_start(int argc, char **argv)
 	    }
 	    else if (has_prefix("ws", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
-		if (erts_sched_set_wakeup_other_type(arg) != 0) {
+		if (erts_sched_set_wakeup_other_type(ERTS_SCHED_NORMAL, arg) != 0) {
 		    erts_fprintf(stderr, "scheduler wakeup strategy: %s\n",
 				 arg);
 		    erts_usage();

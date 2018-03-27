@@ -172,11 +172,19 @@ int erts_dio_sched_thread_suggested_stack_size = -1;
 ErtsLcPSDLocks erts_psd_required_locks[ERTS_PSD_SIZE];
 #endif
 
-static struct ErtsSchedBusyWait_ {
+typedef struct {
     int aux_work;
     int tse;
     int sys_schedule;
-} sched_busy_wait;
+} ErtsBusyWaitParams;
+
+static ErtsBusyWaitParams sched_busy_wait_params[ERTS_SCHED_TYPE_LAST + 1];
+
+static ERTS_INLINE ErtsBusyWaitParams *
+sched_get_busy_wait_params(ErtsSchedulerData *esdp)
+{
+    return &sched_busy_wait_params[esdp->type];
+}
 
 int erts_disable_proc_not_running_opt;
 
@@ -3262,7 +3270,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
     erts_runq_unlock(rq);
 
-    spincount = sched_busy_wait.tse;
+    spincount = sched_get_busy_wait_params(esdp)->tse;
 
     if (ERTS_SCHEDULER_IS_DIRTY(esdp))
         dirty_sched_wall_time_change(esdp, working = 0);
@@ -3364,7 +3372,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
         }
 
         flgs = sched_prep_cont_spin_wait(ssi);
-        spincount = sched_busy_wait.aux_work;
+        spincount = sched_get_busy_wait_params(esdp)->aux_work;
 
         if (!(flgs & ERTS_SSI_FLG_WAITING)) {
             ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
@@ -5250,24 +5258,35 @@ typedef enum {
 #define ERTS_WAKEUP_OTHER_FIXED_INC_LEGACY (CONTEXT_REDS/10)
 
 
-static struct {
+typedef struct {
     ErtsSchedWakeupOtherThreshold threshold;
     ErtsSchedWakeupOtherType type;
     int limit;
     int dec_shift;
     int dec_mask;
     void (*check)(ErtsRunQueue *rq, Uint32 flags);
-} wakeup_other;
+} ErtsWakeupOtherParams;
+
+static ErtsWakeupOtherParams sched_wakeup_other_params[ERTS_SCHED_TYPE_LAST + 1];
+
+static ERTS_INLINE ErtsWakeupOtherParams *
+runq_get_wakeup_other_params(ErtsRunQueue *rq)
+{
+    ErtsSchedulerData *esdp = rq->scheduler;
+    return &sched_wakeup_other_params[esdp->type];
+}
 
 static void
 wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 {
+    ErtsWakeupOtherParams *wo_params = runq_get_wakeup_other_params(rq);
     int wo_reds = rq->wakeup_other_reds;
+
     if (wo_reds) {
 	int left_len = erts_atomic32_read_dirty(&rq->len) - 1;
 	if (left_len < 1) {
-	    int wo_reduce = wo_reds << wakeup_other.dec_shift;
-	    wo_reduce &= wakeup_other.dec_mask;
+	    int wo_reduce = wo_reds << wo_params->dec_shift;
+	    wo_reduce &= wo_params->dec_mask;
 	    rq->wakeup_other -= wo_reduce;
 	    if (rq->wakeup_other < 0)
 		rq->wakeup_other = 0;
@@ -5275,7 +5294,7 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 	else {
 	    rq->wakeup_other += (left_len*wo_reds
 				 + ERTS_WAKEUP_OTHER_FIXED_INC);
-	    if (rq->wakeup_other > wakeup_other.limit) {
+	    if (rq->wakeup_other > wo_params->limit) {
 		if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
 		    if (rq->waiting) {
 			wake_dirty_scheduler(rq);
@@ -5297,42 +5316,44 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 }
 
 static void
-wakeup_other_set_limit(void)
+wakeup_other_set_limit(ErtsWakeupOtherParams *params)
 {
-    switch (wakeup_other.threshold) {
+    switch (params->threshold) {
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_HIGH:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH;
-	wakeup_other.dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_VERY_HIGH;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH;
+	params->dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_VERY_HIGH;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_HIGH:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_HIGH;
-	wakeup_other.dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_HIGH;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_HIGH;
+	params->dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_HIGH;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM;
-	wakeup_other.dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_MEDIUM;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM;
+	params->dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_MEDIUM;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_LOW:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_LOW;
-	wakeup_other.dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_LOW;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_LOW;
+	params->dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_LOW;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_LOW:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW;
-	wakeup_other.dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_VERY_LOW;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW;
+	params->dec_shift = ERTS_WAKEUP_OTHER_DEC_SHIFT_VERY_LOW;
 	break;
     }
-    if (wakeup_other.dec_shift < 0)
-	wakeup_other.dec_mask = (1 << (sizeof(wakeup_other.dec_mask)*8
-				       + wakeup_other.dec_shift)) - 1;
+
+    if (params->dec_shift < 0)
+	params->dec_mask = (1 << (sizeof(params->dec_mask)*8
+				  + params->dec_shift)) - 1;
     else {
-	wakeup_other.dec_mask = 0;
-	wakeup_other.dec_mask = ~wakeup_other.dec_mask;
+	params->dec_mask = 0;
+	params->dec_mask = ~params->dec_mask;
     }
 }
 
 static void
 wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 {
+    ErtsWakeupOtherParams *wo_params = runq_get_wakeup_other_params(rq);
     int wo_reds = rq->wakeup_other_reds;
     if (wo_reds) {
 	erts_aint32_t len = erts_atomic32_read_dirty(&rq->len);
@@ -5341,7 +5362,7 @@ wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 	    if (rq->wakeup_other < 0)
 		rq->wakeup_other = 0;
 	}
-	else if (rq->wakeup_other < wakeup_other.limit)
+	else if (rq->wakeup_other < wo_params->limit)
 	    rq->wakeup_other += len*wo_reds + ERTS_WAKEUP_OTHER_FIXED_INC_LEGACY;
 	else {
 	    if (flags & ERTS_RUNQ_FLG_PROTECTED)
@@ -5357,23 +5378,23 @@ wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 }
 
 static void
-wakeup_other_set_limit_legacy(void)
+wakeup_other_set_limit_legacy(ErtsWakeupOtherParams *params)
 {
-    switch (wakeup_other.threshold) {
+    switch (params->threshold) {
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_HIGH:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH_LEGACY;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH_LEGACY;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_HIGH:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_HIGH_LEGACY;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_HIGH_LEGACY;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM_LEGACY;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM_LEGACY;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_LOW:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_LOW_LEGACY;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_LOW_LEGACY;
 	break;
     case ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_LOW:
-	wakeup_other.limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW_LEGACY;
+	params->limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW_LEGACY;
 	break;
     }
 }
@@ -5381,15 +5402,21 @@ wakeup_other_set_limit_legacy(void)
 static void
 set_wakeup_other_data(void)
 {
-    switch (wakeup_other.type) {
-    case ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT:
-	wakeup_other.check = wakeup_other_check;
-	wakeup_other_set_limit();
-	break;
-    case ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY:
-	wakeup_other.check = wakeup_other_check_legacy;
-	wakeup_other_set_limit_legacy();
-	break;
+    ErtsSchedType type;
+
+    for (type = ERTS_SCHED_TYPE_FIRST; type <= ERTS_SCHED_TYPE_LAST; type++) {
+        ErtsWakeupOtherParams *params = &sched_wakeup_other_params[type];
+
+        switch (params->type) {
+        case ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT:
+            params->check = wakeup_other_check;
+            wakeup_other_set_limit(params);
+            break;
+        case ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY:
+            params->check = wakeup_other_check_legacy;
+            wakeup_other_set_limit_legacy(params);
+            break;
+        }
     }
 }
 
@@ -5444,56 +5471,64 @@ runq_supervisor(void *unused)
 void
 erts_early_init_scheduling(int no_schedulers)
 {
+    ErtsSchedType type;
+
     aux_work_timeout_early_init(no_schedulers);
-    wakeup_other.threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
-    wakeup_other.type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
-    sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
-    sched_busy_wait.tse = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
-			   * ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT);
-    sched_busy_wait.aux_work = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
-				* ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM);
+
+    for (type = ERTS_SCHED_TYPE_FIRST; type <= ERTS_SCHED_TYPE_LAST; type++) {
+        erts_sched_set_wakeup_other_threshold(type, "medium");
+        erts_sched_set_wakeup_other_type(type, "default");
+
+        erts_sched_set_busy_wait_threshold(type, "medium");
+    }
+
+    erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_CPU, "short");
+    erts_sched_set_busy_wait_threshold(ERTS_SCHED_DIRTY_IO, "short");
 }
 
 int
-erts_sched_set_wakeup_other_thresold(char *str)
+erts_sched_set_wakeup_other_threshold(ErtsSchedType sched_type, char *str)
 {
-    ErtsSchedWakeupOtherThreshold threshold;
-    if (sys_strcmp(str, "very_high") == 0)
-	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_HIGH;
-    else if (sys_strcmp(str, "high") == 0)
-	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_HIGH;
-    else if (sys_strcmp(str, "medium") == 0)
-	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
-    else if (sys_strcmp(str, "low") == 0)
-	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_LOW;
-    else if (sys_strcmp(str, "very_low") == 0)
-	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_LOW;
-    else
-	return EINVAL;
-    wakeup_other.threshold = threshold;
-    set_wakeup_other_data();
+    ErtsWakeupOtherParams *params = &sched_wakeup_other_params[sched_type];
+
+    if (sys_strcmp(str, "very_high") == 0) {
+        params->threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_HIGH;
+    } else if (sys_strcmp(str, "high") == 0) {
+        params->threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_HIGH;
+    } else if (sys_strcmp(str, "medium") == 0) {
+        params->threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
+    } else if (sys_strcmp(str, "low") == 0) {
+        params->threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_LOW;
+    } else if (sys_strcmp(str, "very_low") == 0) {
+        params->threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_LOW;
+    } else {
+        return EINVAL;
+    }
+
     return 0;
 }
 
 int
-erts_sched_set_wakeup_other_type(char *str)
+erts_sched_set_wakeup_other_type(ErtsSchedType sched_type, char *str)
 {
-    ErtsSchedWakeupOtherType type;
-    if (sys_strcmp(str, "default") == 0)
-	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
-    else if (sys_strcmp(str, "legacy") == 0)
-	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
-    else
-	return EINVAL;
-    wakeup_other.type = type;
+    ErtsWakeupOtherParams *params = &sched_wakeup_other_params[sched_type];
+
+    if (sys_strcmp(str, "default") == 0) {
+        params->type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
+    } else if (sys_strcmp(str, "legacy") == 0) {
+        params->type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
+    } else {
+        return EINVAL;
+    }
+
     return 0;
 }
 
 int
-erts_sched_set_busy_wait_threshold(char *str)
+erts_sched_set_busy_wait_threshold(ErtsSchedType sched_type, char *str)
 {
-    int sys_sched;
-    int aux_work_fact;
+    ErtsBusyWaitParams *params = &sched_busy_wait_params[sched_type];
+    int aux_work_fact, sys_sched;
 
     if (sys_strcmp(str, "very_long") == 0) {
 	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_LONG;
@@ -5523,9 +5558,9 @@ erts_sched_set_busy_wait_threshold(char *str)
 	return EINVAL;
     }
 
-    sched_busy_wait.sys_schedule = sys_sched;
-    sched_busy_wait.tse = sys_sched*ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
-    sched_busy_wait.aux_work = sys_sched*aux_work_fact;
+    params->sys_schedule = sys_sched;
+    params->tse = sys_sched * ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
+    params->aux_work = sys_sched * aux_work_fact;
 
     return 0;
 }
@@ -9894,7 +9929,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (flags & ERTS_RUNQ_FLG_MISC_OP)
 	    exec_misc_ops(rq);
 
-	wakeup_other.check(rq, flags);
+        runq_get_wakeup_other_params(rq)->check(rq, flags);
 
 	/*
 	 * Find a new port to run.
