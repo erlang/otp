@@ -109,8 +109,10 @@
     <p>This module has been reworked in Erlang/OTP 20 to
     handle <seealso marker="unicode#type-chardata">
     <c>unicode:chardata()</c></seealso> and operate on grapheme
-    clusters. The <c>old functions</c> that only work on Latin-1 lists as input
-    are kept for backwards compatibility reasons but should not be used.
+    clusters. The <seealso marker="#oldapi"> <c>old
+    functions</c></seealso> that only work on Latin-1 lists as input
+    are still available but should not be used, they will be
+    deprecated in a future release.
     </p>
   </description>
 
@@ -629,5 +631,393 @@ ÖÄÅ</pre>
     </func>
 
   </funcs>
+
+  <section>
+    <marker id="oldapi"/>
+    <title>Obsolete API functions</title>
+    <p>Here follows the function of the old API.
+    These functions only work on a list of Latin-1 characters.
+    </p>
+    <note><p>
+      The functions are kept for backward compatibility, but are
+      not recommended.
+      They will be deprecated in Erlang/OTP 21.
+    </p>
+    <p>Any undocumented functions in <c>string</c> are not to be used.</p>
+    </note>
+  </section>
+
+  <funcs>
+    <func>
+      <name name="centre" arity="2"/>
+      <name name="centre" arity="3"/>
+      <fsummary>Center a string.</fsummary>
+      <desc>
+        <p>Returns a string, where <c><anno>String</anno></c> is centered in the
+          string and surrounded by blanks or <c><anno>Character</anno></c>.
+	  The resulting string has length <c><anno>Number</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="chars" arity="2"/>
+      <name name="chars" arity="3"/>
+      <fsummary>Return a string consisting of numbers of characters.</fsummary>
+      <desc>
+        <p>Returns a string consisting of <c><anno>Number</anno></c> characters
+          <c><anno>Character</anno></c>. Optionally, the string can end with
+          string <c><anno>Tail</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="chr" arity="2"/>
+      <fsummary>Return the index of the first occurrence of
+        a character in a string.</fsummary>
+      <desc>
+        <p>Returns the index of the first occurrence of
+          <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
+          <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="concat" arity="2"/>
+      <fsummary>Concatenate two strings.</fsummary>
+      <desc>
+        <p>Concatenates <c><anno>String1</anno></c> and
+          <c><anno>String2</anno></c> to form a new string
+          <c><anno>String3</anno></c>, which is returned.</p>
+	<p>
+	  This function is <seealso marker="#oldapi">obsolete</seealso>.
+	  Use <c>[<anno>String1</anno>, <anno>String2</anno>]</c> as
+	  <c>Data</c> argument, and call
+	  <seealso marker="unicode#characters_to_list/2">
+	  <c>unicode:characters_to_list/2</c></seealso> or
+	  <seealso marker="unicode#characters_to_binary/2">
+	  <c>unicode:characters_to_binary/2</c></seealso>
+	  to flatten the output.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="copies" arity="2"/>
+      <fsummary>Copy a string.</fsummary>
+      <desc>
+        <p>Returns a string containing <c><anno>String</anno></c> repeated
+          <c><anno>Number</anno></c> times.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cspan" arity="2"/>
+      <fsummary>Span characters at start of a string.</fsummary>
+      <desc>
+        <p>Returns the length of the maximum initial segment of
+          <c><anno>String</anno></c>, which consists entirely of characters
+          not from <c><anno>Chars</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#take/3"><c>take/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:cspan("\t    abcdef", " \t").
+0</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="join" arity="2"/>
+      <fsummary>Join a list of strings with separator.</fsummary>
+      <desc>
+        <p>Returns a string with the elements of <c><anno>StringList</anno></c>
+          separated by the string in <c><anno>Separator</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="lists#join/2"><c>lists:join/2</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> join(["one", "two", "three"], ", ").
+"one, two, three"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="left" arity="2"/>
+      <name name="left" arity="3"/>
+      <fsummary>Adjust left end of a string.</fsummary>
+      <desc>
+        <p>Returns <c><anno>String</anno></c> with the length adjusted in
+          accordance with <c><anno>Number</anno></c>. The left margin is
+          fixed. If <c>length(<anno>String</anno>)</c> &lt;
+          <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
+          with blanks or <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/2"><c>pad/2</c></seealso> or
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:left("Hello",10,$.).
+"Hello....."</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="len" arity="1"/>
+      <fsummary>Return the length of a string.</fsummary>
+      <desc>
+        <p>Returns the number of characters in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#length/1"><c>length/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rchr" arity="2"/>
+      <fsummary>Return the index of the last occurrence of
+        a character in a string.</fsummary>
+      <desc>
+        <p>Returns the index of the last occurrence of
+          <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
+          <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="right" arity="2"/>
+      <name name="right" arity="3"/>
+      <fsummary>Adjust right end of a string.</fsummary>
+      <desc>
+        <p>Returns <c><anno>String</anno></c> with the length adjusted in
+          accordance with <c><anno>Number</anno></c>. The right margin is
+          fixed. If the length of <c>(<anno>String</anno>)</c> &lt;
+          <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
+          with blanks or <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:right("Hello", 10, $.).
+".....Hello"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rstr" arity="2"/>
+      <fsummary>Find the index of a substring.</fsummary>
+      <desc>
+        <p>Returns the position where the last occurrence of
+          <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
+          Returns <c>0</c> if <c><anno>SubString</anno></c>
+          does not exist in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:rstr(" Hello Hello World World ", "Hello World").
+8</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="span" arity="2"/>
+      <fsummary>Span characters at start of a string.</fsummary>
+      <desc>
+        <p>Returns the length of the maximum initial segment of
+          <c><anno>String</anno></c>, which consists entirely of characters
+          from <c><anno>Chars</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#take/2"><c>take/2</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:span("\t    abcdef", " \t").
+5</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="str" arity="2"/>
+      <fsummary>Find the index of a substring.</fsummary>
+      <desc>
+        <p>Returns the position where the first occurrence of
+          <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
+          Returns <c>0</c> if <c><anno>SubString</anno></c>
+          does not exist in <c><anno>String</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:str(" Hello Hello World World ", "Hello World").
+8</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strip" arity="1"/>
+      <name name="strip" arity="2"/>
+      <name name="strip" arity="3"/>
+      <fsummary>Strip leading or trailing characters.</fsummary>
+      <desc>
+        <p>Returns a string, where leading or trailing, or both, blanks or a
+          number of <c><anno>Character</anno></c> have been removed.
+          <c><anno>Direction</anno></c>, which can be <c>left</c>, <c>right</c>,
+          or <c>both</c>, indicates from which direction blanks are to be
+          removed. <c>strip/1</c> is equivalent to
+          <c>strip(String, both)</c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#trim/3"><c>trim/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:strip("...Hello.....", both, $.).
+"Hello"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub_string" arity="2"/>
+      <name name="sub_string" arity="3"/>
+      <fsummary>Extract a substring.</fsummary>
+      <desc>
+        <p>Returns a substring of <c><anno>String</anno></c>, starting at
+          position <c><anno>Start</anno></c> to the end of the string, or to
+          and including position <c><anno>Stop</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+sub_string("Hello World", 4, 8).
+"lo Wo"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="substr" arity="2"/>
+      <name name="substr" arity="3"/>
+      <fsummary>Return a substring of a string.</fsummary>
+      <desc>
+        <p>Returns a substring of <c><anno>String</anno></c>, starting at
+          position <c><anno>Start</anno></c>, and ending at the end of the
+          string or at length <c><anno>Length</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> substr("Hello World", 4, 5).
+"lo Wo"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub_word" arity="2"/>
+      <name name="sub_word" arity="3"/>
+      <fsummary>Extract subword.</fsummary>
+      <desc>
+        <p>Returns the word in position <c><anno>Number</anno></c> of
+          <c><anno>String</anno></c>. Words are separated by blanks or
+          <c><anno>Character</anno></c>s.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> string:sub_word(" Hello old boy !",3,$o).
+"ld b"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_lower" arity="1" clause_i="1"/>
+      <name name="to_lower" arity="1" clause_i="2"/>
+      <name name="to_upper" arity="1" clause_i="1"/>
+      <name name="to_upper" arity="1" clause_i="2"/>
+      <fsummary>Convert case of string (ISO/IEC 8859-1).</fsummary>
+      <type variable="String" name_i="1"/>
+      <type variable="Result" name_i="1"/>
+      <type variable="Char"/>
+      <type variable="CharResult"/>
+      <desc>
+        <p>The specified string or character is case-converted. Notice that
+          the supported character set is ISO/IEC 8859-1 (also called Latin 1);
+          all values outside this set are unchanged</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso> use
+	<seealso marker="#lowercase/1"><c>lowercase/1</c></seealso>,
+	<seealso marker="#uppercase/1"><c>uppercase/1</c></seealso>,
+	<seealso marker="#titlecase/1"><c>titlecase/1</c></seealso> or
+	<seealso marker="#casefold/1"><c>casefold/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tokens" arity="2"/>
+      <fsummary>Split string into tokens.</fsummary>
+      <desc>
+        <p>Returns a list of tokens in <c><anno>String</anno></c>, separated
+          by the characters in <c><anno>SeparatorList</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> tokens("abc defxxghix jkl", "x ").
+["abc", "def", "ghi", "jkl"]</code>
+        <p>Notice that, as shown in this example, two or more
+          adjacent separator characters in <c><anno>String</anno></c>
+          are treated as one. That is, there are no empty
+          strings in the resulting list of tokens.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="words" arity="1"/>
+      <name name="words" arity="2"/>
+      <fsummary>Count blank separated words.</fsummary>
+      <desc>
+        <p>Returns the number of words in <c><anno>String</anno></c>, separated
+          by blanks or <c><anno>Character</anno></c>.</p>
+	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	Use
+	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> words(" Hello old boy!", $o).
+4</code>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes</title>
+    <p>Some of the general string functions can seem to overlap each
+      other. The reason is that this string package is the
+      combination of two earlier packages and all functions of
+      both packages have been retained.</p>
+  </section>
+
 </erlref>
 

@@ -88,16 +88,6 @@
 %%% May be removed
 -export([list_to_float/1, list_to_integer/1]).
 
--deprecated([{len,1},{concat,2},
-             {str,2},{chr,2},{rchr,2},{rstr,2},
-             {span,2},{cspan,2},{substr,'_'},{tokens,2},
-             {chars,'_'},
-             {copies,2},{words,'_'},{strip,'_'},
-             {sub_word,'_'},{left,'_'},{right,'_'},
-             {sub_string,'_'},{centre,'_'},{join,2},
-             {to_upper,1}, {to_lower,1}
-            ]).
-
 %% Uses bifs: string:list_to_float/1 and string:list_to_integer/1
 -spec list_to_float(String) -> {Float, Rest} | {'error', Reason} when
       String :: string(),
