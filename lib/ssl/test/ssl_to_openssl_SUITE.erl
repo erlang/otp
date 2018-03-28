@@ -167,7 +167,15 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(basic, Config0) ->
-    ssl_test_lib:clean_tls_version(Config0);
+    case ssl_test_lib:supports_ssl_tls_version('tlsv1.2')
+        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1.1')
+        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1')
+    of
+        true ->
+            ssl_test_lib:clean_tls_version(Config0);
+        false ->
+            {skip, "only sslv3 supported by OpenSSL"}
+    end;
 
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
@@ -381,7 +389,7 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     
     Exe = "openssl",
     Args = ["s_client", "-connect", hostname_format(Hostname) ++
-                ":" ++ integer_to_list(Port) ++ no_v2_flag() | workaround_openssl_s_clinent()],
+                ":" ++ integer_to_list(Port) ++ no_low_flag() | workaround_openssl_s_clinent()],
     
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, Data),
@@ -1963,10 +1971,10 @@ hostname_format(Hostname) ->
             "localhost"   
     end.
 
-no_v2_flag() ->
+no_low_flag() ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
         true ->
-            " -no_ssl2 ";
+            " -no_ssl2 -no_ssl3";
         false ->
-            ""
+            " -no_ssl3"
     end.
