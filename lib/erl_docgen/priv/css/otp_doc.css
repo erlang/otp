@@ -242,7 +242,7 @@ th {
  font-size: small;
 }
 
-h3>a{
+h3>a, h4>a{
  color: #1a1a1a !important;
 }
 

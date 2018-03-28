@@ -42,7 +42,8 @@
 <!ELEMENT email               (#PCDATA) >
 <!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
                                warning|note|dont|do|section)*) >
-<!ELEMENT datatypes           (datatype)+ >
+<!ELEMENT datatypes           (datatype_title?,datatype)+ >
+<!ELEMENT datatype_title      (#PCDATA) >
 <!ELEMENT datatype            (name+,desc?) >
 <!ELEMENT type_desc           (#PCDATA|anno|c|seealso)* >
 <!ATTLIST type_desc            variable CDATA #IMPLIED

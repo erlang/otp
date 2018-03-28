@@ -271,6 +271,12 @@
     <xsl:apply-templates/>
   </xsl:template>
 
+  <!-- Datatype Title-->
+  <xsl:template match="datatype_title">
+    <xsl:text>&#10;.SS </xsl:text>
+    <xsl:apply-templates/>
+  </xsl:template>
+
   <!-- Datatype -->
   <xsl:template match="datatype">
     <xsl:apply-templates/>
