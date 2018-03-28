@@ -116,6 +116,7 @@ extern void erts_post_nif(struct enif_environment_t* env);
 extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
 void erts_fire_nif_monitor(ErtsMonitor *tmon);
 void erts_nif_demonitored(ErtsResource* resource);
+extern void erts_add_taint(Eterm mod_atom);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -1150,7 +1151,7 @@ typedef struct {
 #define ERTS_SPAWN_DRIVER 1
 #define ERTS_SPAWN_EXECUTABLE 2
 #define ERTS_SPAWN_ANY (ERTS_SPAWN_DRIVER | ERTS_SPAWN_EXECUTABLE)
-int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
+int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked, int taint);
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
 Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
@@ -1175,8 +1176,17 @@ void erts_lcnt_update_port_locks(int enable);
 #endif
 
 /* driver_tab.c */
+typedef struct {
+    ErlDrvEntry* de;
+    int taint;
+} ErtsStaticDriver;
 typedef void *(*ErtsStaticNifInitFPtr)(void);
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
+typedef struct ErtsStaticNifEntry_ {
+    const char *nif_name;
+    ErtsStaticNifInitFPtr nif_init;
+    int taint;
+} ErtsStaticNifEntry;
+ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);
 void erts_init_static_drivers(void);
 

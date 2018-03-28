@@ -61,7 +61,7 @@ extern ErlDrvEntry spawn_driver_entry;
 #ifndef __WIN32__
 extern ErlDrvEntry forker_driver_entry;
 #endif
-extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
+extern ErtsStaticDriver driver_tab[]; /* table of static drivers, only used during initialization */
 
 erts_driver_t *driver_list; /* List of all drivers, static and dynamic. */
 erts_rwmtx_t erts_driver_list_lock; /* Mutex for driver list */
@@ -2835,7 +2835,7 @@ void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files,
 		  int legacy_port_tab)
 {
-    ErlDrvEntry** dp;
+    ErtsStaticDriver* dp;
     UWord common_element_size;
     erts_rwmtx_opt_t drv_list_rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
     drv_list_rwmtx_opts.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
@@ -2894,8 +2894,8 @@ void erts_init_io(int port_tab_size,
     init_driver(&forker_driver, &forker_driver_entry, NULL);
 #endif
     erts_init_static_drivers();
-    for (dp = driver_tab; *dp != NULL; dp++)
-	erts_add_driver_entry(*dp, NULL, 1);
+    for (dp = driver_tab; dp->de != NULL; dp++)
+	erts_add_driver_entry(dp->de, NULL, 1, dp->taint);
 
     erts_tsd_set(driver_list_lock_status_key, NULL);
     erts_rwmtx_rwunlock(&erts_driver_list_lock);
@@ -7351,7 +7351,8 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 }
 
 #define IS_DRIVER_VERSION_GE(DE,MAJOR,MINOR) \
-    ((DE)->major_version >= (MAJOR) && (DE)->minor_version >= (MINOR))
+    ((DE)->major_version > (MAJOR) ||        \
+     ((DE)->major_version == (MAJOR) && (DE)->minor_version >= (MINOR)))
 
 static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
@@ -7434,13 +7435,14 @@ void add_driver_entry(ErlDrvEntry *drv){
      * Ignore result of erts_add_driver_entry, the init is not
      * allowed to fail when drivers are added by drivers.
      */
-    erts_add_driver_entry(drv, NULL, rec_lock != NULL); 
+    erts_add_driver_entry(drv, NULL, rec_lock != NULL, 0);
 }
 
-int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_locked)
+int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle,
+                          int driver_list_locked, int taint)
 {
     erts_driver_t *dp = erts_alloc(ERTS_ALC_T_DRIVER, sizeof(erts_driver_t));
-    int res;
+    int err = 0;
 
     if (!driver_list_locked) {
 	erts_rwmtx_rwlock(&erts_driver_list_lock);
@@ -7457,9 +7459,21 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
 	erts_tsd_set(driver_list_lock_status_key, (void *) 1);
     }
 
-    res = init_driver(dp, de, handle);
+    if (taint) {
+        Eterm name_atom = erts_atom_put((byte*)de->driver_name,
+                                        sys_strlen(de->driver_name),
+                                        ERTS_ATOM_ENC_LATIN1, 0);
+        if (is_atom(name_atom))
+            erts_add_taint(name_atom);
+        else
+            err = 1;
+    }
 
-    if (res != 0) {
+    if (!err) {
+        err = init_driver(dp, de, handle);
+    }
+
+    if (err) {
 	/* 
 	 * Remove it all again...
 	 */
@@ -7474,7 +7488,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
 	erts_tsd_set(driver_list_lock_status_key, NULL);
 	erts_rwmtx_rwunlock(&erts_driver_list_lock);
     }
-    return res;
+    return err;
 }
 
 /* Not allowed for dynamic drivers */

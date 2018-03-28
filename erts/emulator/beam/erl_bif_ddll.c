@@ -1505,6 +1505,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	res = ERL_DE_LOAD_ERROR_BAD_NAME;
 	goto error;
     }
+
     erts_atomic_init_nob(&(dh->refc), (erts_aint_t) 0);
     erts_atomic32_init_nob(&dh->port_count, 0);
     dh->full_path = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(path) + 1);
@@ -1512,7 +1513,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
     dh->flags = 0;
     dh->status = ERL_DE_OK;
 
-    if (erts_add_driver_entry(dp, dh, 1) != 0 /* io.c */) { 
+    if (erts_add_driver_entry(dp, dh, 1, 1) != 0 /* io.c */) {
 	/*
 	 * The init in the driver struct did not return 0 
 	 */
