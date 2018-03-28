@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2017. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -139,6 +139,7 @@
   <xsl:attribute-set name="image">
     <xsl:attribute name="space-after">0.5em</xsl:attribute>
     <xsl:attribute name="space-before">0.5em</xsl:attribute>
+    <xsl:attribute name="text-align">center</xsl:attribute>
   </xsl:attribute-set>
 
   <xsl:attribute-set name="listblock">
