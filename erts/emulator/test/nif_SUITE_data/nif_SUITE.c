@@ -2838,7 +2838,7 @@ unsigned rand_bits(struct frenzy_rand_bits* rnd, unsigned int nbits)
 
 struct frenzy_monitor {
     ErlNifMutex* lock;
-    enum { 
+    volatile enum {
         MON_FREE, MON_FREE_DOWN, MON_FREE_DEMONITOR,
         MON_TRYING, MON_ACTIVE, MON_PENDING
     } state;
@@ -3200,13 +3200,24 @@ static void frenzy_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
     DBG_TRACE3("DOWN pid=%T, r=%p rix=%u\n", pid->pid, r, r->rix);
 
     for (mix = 0; mix < FRENZY_MONITORS_MAX; mix++) {
-        if (r->monv[mix].pid.pid == pid->pid && r->monv[mix].state >= MON_TRYING) {
+        int state1 = r->monv[mix].state;
+        /* First do dirty access of pid and state without the lock */
+        if (r->monv[mix].pid.pid == pid->pid && state1 >= MON_TRYING) {
+            int state2;
             enif_mutex_lock(r->monv[mix].lock);
-            if (enif_compare_monitors(mon, &r->monv[mix].mon) == 0) {
-                assert(r->monv[mix].state >= MON_ACTIVE);
-                r->monv[mix].state = MON_FREE_DOWN;
-                enif_mutex_unlock(r->monv[mix].lock);
-                return;
+            state2 = r->monv[mix].state;
+            if (state2 >= MON_ACTIVE) {
+                if (enif_compare_monitors(mon, &r->monv[mix].mon) == 0) {
+                    r->monv[mix].state = MON_FREE_DOWN;
+                    enif_mutex_unlock(r->monv[mix].lock);
+                    return;
+                }
+            }
+            else {
+                assert(state2 != MON_TRYING);
+                assert(state1 == MON_TRYING ||  /* racing monitor failed */
+                       state2 == MON_FREE_DEMONITOR || /* racing demonitor */
+                       state2 == MON_FREE_DOWN);       /* racing down */
             }
             enif_mutex_unlock(r->monv[mix].lock);
         }
