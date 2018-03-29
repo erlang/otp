@@ -30,7 +30,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_httpd_fd, start_tftpd_fd].
+    [start_httpd_fd].
 
 init_per_suite(Config) ->
     case os:type() of
@@ -90,37 +90,7 @@ start_httpd_fd(Config) when is_list(Config) ->
 		    ct:fail(open_port_failed)
 	    end
     end.
-%%-------------------------------------------------------------------------
-start_tftpd_fd() ->
-    [{doc, "Start/stop of tfpd service with socket wrapper"}].
-start_tftpd_fd(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    case setup_node_info(node()) of
-	{skip, _}  = Skip ->
-	    Skip;
-	{Node, NodeArg} ->
-	    InetPort = inets_test_lib:inet_port(node()),
-	    ct:pal("Node: ~p~n", [Node]),
-      	    Wrapper = filename:join(DataDir, "setuid_socket_wrap"),
-	    Cmd = Wrapper ++  
-		" -s -tftpd_69,0:" ++ integer_to_list(InetPort)
-		++ " -p " ++ os:find_executable("erl") ++
-		" -- " ++ NodeArg, 
-	    ct:pal("cmd: ~p~n", [Cmd]),
-	    case open_port({spawn, Cmd}, [stderr_to_stdout]) of 
-	    	Port when is_port(Port) ->
-		    wait_node_up(Node, 10),
-		    ct:pal("~p", [rpc:call(Node, init, get_argument, [tftpd_69])]),
-		    ok = rpc:call(Node, inets, start, []),
-		    {ok, Pid} = rpc:call(Node, inets, start, 
-					 [tftpd,[{host, "localhost"}]]),
-		    {ok, Info} = rpc:call(Node, tftp, info, [Pid]),
-		    {value,{port, InetPort}} = lists:keysearch(port, 1, Info),
-		    rpc:call(Node, erlang, halt, []);
-		_  ->
-		    ct:fail(open_port_failed)
-	    end
-    end.
+
 %%-------------------------------------------------------------------------
 %% Internal functions
 %%-------------------------------------------------------------------------

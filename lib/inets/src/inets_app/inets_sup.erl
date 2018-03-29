@@ -61,19 +61,7 @@ children() ->
     Services = get_services(),
     HttpdServices = [Service || Service <- Services, is_httpd(Service)],
     HttpcServices =  [Service || Service <- Services, is_httpc(Service)],
-    TftpdServices =  [Service || Service <- Services, is_tftpd(Service)],
-    [ftp_child_spec(), httpc_child_spec(HttpcServices), 
-     httpd_child_spec(HttpdServices), tftpd_child_spec(TftpdServices)].
-
-ftp_child_spec() ->
-    Name = ftp_sup,
-    StartFunc = {ftp_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [ftp_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    [httpc_child_spec(HttpcServices), httpd_child_spec(HttpdServices)].
 
 httpc_child_spec(HttpcServices0) ->
     HttpcServices = default_profile(HttpcServices0, []),
@@ -94,15 +82,6 @@ httpd_child_spec(HttpdServices) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-tftpd_child_spec(TftpServices) ->
-    Name = tftp_sup,
-    StartFunc = {tftp_sup, start_link, [TftpServices]},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [tftp_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
 is_httpd({httpd, _}) ->
     true;
 is_httpd({httpd, _, _}) ->
@@ -113,11 +92,6 @@ is_httpd(_) ->
 is_httpc({httpc, _}) ->
     true;
 is_httpc(_) ->
-    false.
-
-is_tftpd({tftpd, _}) ->
-    true;
-is_tftpd(_) ->
     false.
 
 default_profile([], Acc) ->

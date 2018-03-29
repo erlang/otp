@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1997</year><year>2015</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -23,20 +23,16 @@
     </legalnotice>
 
     <title>Inets Reference Manual</title>
-    <prepared>Joakim Greben&ouml;</prepared>
+    <prepared>Péter Dimitrov</prepared>
     <docno></docno>
-    <date>1997-07-16</date>
+    <date>2018-02-28</date>
     <rev>2.1</rev>
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p><c>Inets</c> is a container for Internet clients and
-    servers. An FTP client, an HTTP client and server, and
-    a TFTP client and server are incorporated in <c>Inets</c>.</p>
+    <p><c>Inets</c> is a container for an HTTP client and server.</p>
   </description>
   <xi:include href="inets.xml"/>
-  <xi:include href="ftp.xml"/>
-  <xi:include href="tftp.xml"/>
   <xi:include href="httpc.xml"/>
   <xi:include href="httpd.xml"/>
   <xi:include href="httpd_custom_api.xml"/>

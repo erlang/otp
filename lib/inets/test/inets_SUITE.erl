@@ -41,9 +41,7 @@ groups() ->
     [{services_test, [],
       [start_inets, 
        start_httpc, 
-       start_httpd, 
-       start_ftpc,
-       start_tftpd
+       start_httpd
       ]},
      {app_test, [], [app, appup]}].
 
@@ -294,79 +292,6 @@ start_httpd(Config) when is_list(Config) ->
 			    {bind_address, "localhost"}]),
     {error, {missing_property, port}} = 
 	inets:start(httpd, HttpdConf),
-    ok = inets:stop().
-
-%%-------------------------------------------------------------------------
-
-start_ftpc(doc) ->
-    [{doc, "Start/stop of ftpc service"}];
-start_ftpc(Config0) when is_list(Config0) ->
-    process_flag(trap_exit, true),
-    ok = inets:start(),
-    case ftp_SUITE:init_per_suite(Config0) of
-	{skip, _} = Skip ->
-	    Skip;
-	Config ->
-	    FtpdHost = proplists:get_value(ftpd_host,Config),
-	    {ok, Pid0} = inets:start(ftpc, [{host, FtpdHost}]),
-	    Pids0 = [ServicePid || {_, ServicePid} <- 
-				       inets:services()],  
-	    true = lists:member(Pid0, Pids0),
-	    [_|_] = inets:services_info(),	
-	    inets:stop(ftpc, Pid0),
-	    ct:sleep(100),
-	    Pids1 =  [ServicePid || {_, ServicePid} <- 
-					inets:services()], 
-	    false = lists:member(Pid0, Pids1),        
-	    {ok, Pid1} = 
-		inets:start(ftpc, [{host, FtpdHost}], stand_alone),
-		Pids2 =  [ServicePid || {_, ServicePid} <- 
-					    inets:services()], 
-	    false = lists:member(Pid1, Pids2),   
-	    ok = inets:stop(stand_alone, Pid1),
-		receive 
-		    {'EXIT', Pid1, shutdown} ->
-			ok
-		after 100 ->
-			ct:fail(stand_alone_not_shutdown)
-		end,
-	    ok = inets:stop(),
-	    catch ftp_SUITE:end_per_SUITE(Config)  
-    end.
-
-%%-------------------------------------------------------------------------
-
-start_tftpd() ->
-    [{doc, "Start/stop of tfpd service"}].
-start_tftpd(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    ok = inets:start(),
-    {ok, Pid0} = inets:start(tftpd, [{host, "localhost"}, {port, 0}]),
-    Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
-    true = lists:member(Pid0, Pids0),
-    [_|_] = inets:services_info(),	
-    inets:stop(tftpd, Pid0),
-    ct:sleep(100),
-    Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
-    false = lists:member(Pid0, Pids1),        
-    {ok, Pid1} = 
-	inets:start(tftpd, [{host, "localhost"}, {port, 0}], stand_alone),
-    Pids2 =  [ServicePid || {_, ServicePid} <- inets:services()], 
-    false = lists:member(Pid1, Pids2),   
-    ok = inets:stop(stand_alone, Pid1),
-    receive 
-	{'EXIT', Pid1, shutdown} ->
-	    ok
-    after 100 ->
-	    ct:fail(stand_alone_not_shutdown)
-    end,
-    ok = inets:stop(),
-    application:load(inets),
-    application:set_env(inets, services, [{tftpd,[{host, "localhost"}, 
-						  {port, 0}]}]),
-    ok = inets:start(),
-    (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
-    application:unset_env(inets, services),
     ok = inets:stop().
 
 %%-------------------------------------------------------------------------

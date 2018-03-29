@@ -30,10 +30,7 @@
             inets_lib,
 
             %% FTP
-            ftp,
-	    ftp_progress,	
-	    ftp_response,		
-            ftp_sup,
+            inets_ftp_wrapper,
             
             %% HTTP client:
             httpc, 
@@ -101,13 +98,7 @@
             mod_trace,
             
             %% TFTP
-            tftp,
-            tftp_binary,
-            tftp_engine,
-            tftp_file,
-            tftp_lib,
-            tftp_logger,
-            tftp_sup
+            inets_tftp_wrapper
         ]},
   {registered,[inets_sup, httpc_manager]},
   %% If the "new" ssl is used then 'crypto' must be started before inets.

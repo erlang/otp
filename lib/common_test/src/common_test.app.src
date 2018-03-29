@@ -85,6 +85,7 @@
     "crypto-3.6",
     "debugger-4.1",
     "erts-7.0",
+    "ftp-1.0.0",
     "inets-6.0",
     "kernel-4.0",
     "observer-2.1",

@@ -43,13 +43,10 @@ XML_CHAPTER_FILES = \
 	inets_services.xml \
 	http_client.xml \
 	http_server.xml \
-	ftp_client.xml \
 	notes.xml
 
 XML_REF3_FILES = \
 	inets.xml \
-	ftp.xml \
-	tftp.xml \
 	http_uri.xml\
 	httpc.xml\
 	httpd.xml \

@@ -188,10 +188,9 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="ftp">ftp(3)</seealso>,
-      <seealso marker="httpc">httpc(3)</seealso>,
-      <seealso marker="httpd">httpd(3)</seealso>,
-      <seealso marker="tftp">tftp(3)</seealso></p>
+    <p><seealso marker="httpc">httpc(3)</seealso>,
+    <seealso marker="httpd">httpd(3)</seealso>
+    </p>
   </section>
   
 </erlref>

@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -23,9 +23,9 @@
     </legalnotice>
 
     <title>Inets User's Guide</title>
-    <prepared>Ingela Anderton Andin</prepared>
+    <prepared>Péter Dimitrov</prepared>
     <docno></docno>
-    <date>2002-09-17</date>
+    <date>2018-02-28</date>
     <rev>A</rev>
     <file>part.sgml</file>
   </header>
@@ -33,8 +33,6 @@
     <p>The <c>Inets</c> application provides a set of 
     Internet-related services as follows:</p>
       <list type="bulleted">
-       <item>An FTP client</item>
-       <item>A TFTP client and server</item>
        <item>An <term id="HTTP"></term> client and server</item>
      </list>
      <p>The HTTP client and server are HTTP 1.1 compliant as
@@ -43,7 +41,6 @@
   </description>
   <xi:include href="introduction.xml"/>
   <xi:include href="inets_services.xml"/>
-  <xi:include href="ftp_client.xml"/>
   <xi:include href="http_client.xml"/>
   <xi:include href="http_server.xml"/>
 </part>

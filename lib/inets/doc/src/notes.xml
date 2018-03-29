@@ -1766,7 +1766,7 @@
       <list>
         <item>
           <p>[ftpc] Add a config option to specify a 
-	  <seealso marker="ftp#dtimeout">data connect timeout</seealso>.
+	  <seealso marker="ftp:ftp#dtimeout">data connect timeout</seealso>.
 	  That is how long the ftp client will wait for the server to connect
 	  to the data socket. If this timeout occurs, an error will be 
 	  returned to the caller and the ftp client process will be 
@@ -2649,10 +2649,10 @@
 		<item>
 		  <p>It is now also possible to start a standalone FTP client 
 		    process using the re-introduced  
-                    <seealso marker="ftp#open">ftp:open</seealso> 
+                    <seealso marker="ftp:ftp#open">ftp:open</seealso> 
                     function. </p>
                   <p>This is an alternative to starting the client using the 
-		    <seealso marker="ftp#service_start">inets service framework</seealso>. </p>
+		    <seealso marker="ftp:ftp#service_start">inets service framework</seealso>. </p>
 		  <p>The old <c>ftp:open/1</c>, undocumented, function, 
                     caused the client to be hooken into the inets service
                     supervision framework. This is <em>no</em> longer the
@@ -2665,10 +2665,10 @@
                     flag), and only used IPv4 if this did not work. 
                     This has now been <em>changed</em>. </p>
                   <p>A new option, 
-                    <seealso marker="ftp#ipfamily">ipfamily</seealso>, 
+                    <seealso marker="ftp:ftp#ipfamily">ipfamily</seealso>, 
                     has been introduced, with the default value 
                     <c>inet</c> (IPv4). </p>
-                  <p>See <seealso marker="ftp#open">ftp:open</seealso> 
+                  <p>See <seealso marker="ftp:ftp#open">ftp:open</seealso> 
                     for more info.</p>
                   <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 		</item>
@@ -2702,9 +2702,9 @@
 
         <item>
 	  <p>[ftpc] - The 
-            <seealso marker="ftp#ls2">ls/2</seealso> function (LIST command) 
+            <seealso marker="ftp:ftp#ls2">ls/2</seealso> function (LIST command) 
             and the 
-            <seealso marker="ftp#nlist2">nlist/2</seealso> function 
+            <seealso marker="ftp:ftp#nlist2">nlist/2</seealso> function 
             (NLST command) 
             with wildcards did 
             not work properly. </p>

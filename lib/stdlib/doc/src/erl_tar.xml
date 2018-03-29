@@ -90,8 +90,8 @@
 
   <section>
     <title>Other Storage Media</title>
-    <p>The <seealso marker="inets:ftp"><c>ftp</c></seealso>
-      module (Inets) normally accesses the tar file on disk using
+    <p>The <seealso marker="ftp:ftp"><c>ftp</c></seealso>
+      module normally accesses the tar file on disk using
       the <seealso marker="kernel:file"><c>file</c></seealso> module.
       When other needs arise, you can define your own low-level Erlang
       functions to perform the writing and reading on the storage media;

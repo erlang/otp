@@ -32,8 +32,7 @@ suite() ->
     ].
 
 all() -> 
-    [default_tree, ftpc_worker, tftpd_worker, 
-     httpd_config, httpd_subtree, httpd_subtree_profile,
+    [default_tree, httpd_config, httpd_subtree, httpd_subtree_profile,
      httpc_subtree].
 
 groups() -> 
@@ -147,15 +146,11 @@ default_tree() ->
       "in the default case."}].
 default_tree(Config) when is_list(Config) ->
     TopSupChildren = supervisor:which_children(inets_sup),
-    4 = length(TopSupChildren),
+    2 = length(TopSupChildren),
     {value, {httpd_sup, _, supervisor,[httpd_sup]}} =
 	lists:keysearch(httpd_sup, 1, TopSupChildren),
     {value, {httpc_sup, _,supervisor,[httpc_sup]}} = 
 	lists:keysearch(httpc_sup, 1, TopSupChildren),
-    {value, {ftp_sup,_,supervisor,[ftp_sup]}} = 
-	lists:keysearch(ftp_sup, 1, TopSupChildren),
-    {value, {tftp_sup,_,supervisor,[tftp_sup]}} = 
-	lists:keysearch(tftp_sup, 1, TopSupChildren),
 
     HttpcSupChildren = supervisor:which_children(httpc_sup),
     {value, {httpc_profile_sup,_, supervisor, [httpc_profile_sup]}} =
@@ -163,8 +158,6 @@ default_tree(Config) when is_list(Config) ->
     {value, {httpc_handler_sup,_, supervisor, [httpc_handler_sup]}} =
 	lists:keysearch(httpc_handler_sup, 1, HttpcSupChildren),
     
-    [] = supervisor:which_children(ftp_sup),
-
     [] = supervisor:which_children(httpd_sup),
  
     %% Default profile
@@ -172,48 +165,7 @@ default_tree(Config) when is_list(Config) ->
 	= supervisor:which_children(httpc_profile_sup),
     
     [] = supervisor:which_children(httpc_handler_sup),
-     
-    [] = supervisor:which_children(tftp_sup),
 
-    ok.
-
-ftpc_worker() ->
-    [{doc, "Makes sure the ftp worker processes are added and removed "
-      "appropriatly to/from the supervison tree."}].
-ftpc_worker(Config0) when is_list(Config0) ->
-    [] = supervisor:which_children(ftp_sup),
-    case ftp_SUITE:init_per_suite(Config0) of
-	{skip, _} = Skip ->
-	    Skip;
-	Config ->
-	    FtpdHost = proplists:get_value(ftpd_host,Config),
-	    {ok, Pid} = inets:start(ftpc, [{host, FtpdHost}]),
-	    case supervisor:which_children(ftp_sup) of
-		[{_,_, worker, [ftp]}] ->
-		    inets:stop(ftpc, Pid), 
-		    ct:sleep(5000),
-		    [] = supervisor:which_children(ftp_sup),
-		    catch ftp_SUITE:end_per_SUITE(Config),  
-		    ok;
-		Children ->
-		    catch ftp_SUITE:end_per_SUITE(Config),  
-		    exit({unexpected_children, Children})
-	    end
-    end.
-
-tftpd_worker() ->
-    [{doc, "Makes sure the tftp sub tree is correct."}].
-tftpd_worker(Config) when is_list(Config) ->
-    [] = supervisor:which_children(tftp_sup),   
-    {ok, Pid0} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
-				     {port, 0}]),
-    {ok, _Pid1} = inets:start(tftpd, [{host, inets_test_lib:hostname()}, 
-				      {port, 0}], stand_alone),
-    
-    [{_,Pid0, worker, _}] = supervisor:which_children(tftp_sup),
-    inets:stop(tftpd, Pid0),
-    ct:sleep(5000),
-    [] = supervisor:which_children(tftp_sup),
     ok.
 
 httpd_config() ->
