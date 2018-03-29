@@ -406,15 +406,23 @@
     <h3>
         <a name="data-types" href="#data-types"><xsl:text>Data Types</xsl:text></a>
     </h3>
-    <div class="data-types-body">
-        <xsl:apply-templates/>
-    </div>
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <!-- Datatype Title-->
+  <xsl:template match="datatype_title">
+     <xsl:variable name="title" select="."/>
+     <h4>
+        <a name="{$title}" href="#{$title}"><xsl:apply-templates/></a>
+    </h4>
   </xsl:template>
 
   <!-- Datatype -->
   <xsl:template match="datatype">
-    <div class="data-type-name"><xsl:apply-templates select="name"/></div>
-    <div class="data-type-desc"><xsl:apply-templates select="desc"/></div>
+    <div class="data-types-body">
+      <div class="data-type-name"><xsl:apply-templates select="name"/></div>
+      <div class="data-type-desc"><xsl:apply-templates select="desc"/></div>
+    </div>
   </xsl:template>
 
   <!-- The "mode" attribute of apply has been used to separate the case

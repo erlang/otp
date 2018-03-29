@@ -299,6 +299,13 @@
     <xsl:apply-templates/>
   </xsl:template>
 
+  <!-- Datatype Title-->
+  <xsl:template match="datatype_title">
+     <fo:block  xsl:use-attribute-sets="h4">
+       <xsl:apply-templates/>
+    </fo:block>
+  </xsl:template>
+
   <!-- Datatype -->
   <xsl:template match="datatype">
     <fo:block xsl:use-attribute-sets="function-name">
