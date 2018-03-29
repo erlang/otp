@@ -9930,6 +9930,12 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	set_busy_port(desc->inet.port, 0);
 	inet_reply_error_am(INETP(desc), am_closed);
 	DEBUGF(("tcp_recv_closed(%ld): busy reply 'closed'\r\n", port));
+    } else {
+        /* No blocking send op to reply to right now.
+         * If next op is a send, make sure it returns {error,closed}
+         * rather than {error,enotconn}.
+         */
+        desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_SEND;
     }
     if (!desc->inet.active) {
 	/* We must cancel any timer here ! */
