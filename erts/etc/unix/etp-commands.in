@@ -1997,7 +1997,7 @@ define etp-process-info
     printf "  Msgq len: %d\n", $etp_proc->sig_qs.len
   end
   printf "  Parent: "
-  etp-1 $etp_proc->parent
+  etp-1 ((Eterm)($etp_proc->parent))
   printf "\n  Pointer: (Process *) %p\n", $etp_proc
   end
 end
@@ -2017,15 +2017,17 @@ define etp-processes
     set $proc_ix = 0
     set $proc_max_ix = erts_proc.r.o.max
     set $proc_tab = erts_proc.r.o.tab
+    set $proc_cnt = erts_proc.vola.tile.count.counter
     set $invalid_proc = &erts_invalid_process
     set $proc_decentile = $proc_max_ix / 10
     set $proc_printile = $proc_decentile
-    while $proc_ix < $proc_max_ix
+    while $proc_ix < $proc_max_ix && $proc_cnt > 0
       set $proc = (Process *) *((UWord *) ($proc_tab + $proc_ix))
       if ($proc != ((Process *) 0) && $proc != $invalid_proc)
         printf "---\n"
         printf "  Pix: %d\n", $proc_ix
         etp-process-info $proc
+        set $proc_cnt--
       end
       if $proc_ix == $proc_printile
         printf "--- %d%% (%d / %d) searched\n", $proc_printile / $proc_decentile * 10, $proc_ix, $proc_max_ix
@@ -2363,10 +2365,11 @@ define etp-ports
     set $port_ix = 0
     set $port_max_ix = erts_port.r.o.max
     set $port_tab = erts_port.r.o.tab
+    set $port_cnt = erts_proc.vola.tile.count.counter
     set $invalid_port = &erts_invalid_port
     set $port_decentile = $port_max_ix / 10
     set $port_printile = $port_decentile
-    while $port_ix < $port_max_ix
+    while $port_ix < $port_max_ix && $port_cnt > 0
       set $port = (Port *) *((UWord *) ($port_tab + $port_ix))
       if ($port != ((Port *) 0) && $port != $invalid_port)
         if (*(((Uint32 *) &(((Port *) $port)->state))) & 0x100) == 0
@@ -2374,6 +2377,7 @@ define etp-ports
           printf "---\n"
           printf "  Pix: %d\n", $port_ix
           etp-port-info $port
+          set $port_cnt--
         end
       end
       if $port_ix == $port_printile
