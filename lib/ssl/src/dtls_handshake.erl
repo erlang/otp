@@ -174,7 +174,9 @@ handle_client_hello(Version,
                                                         signature_algs = ClientHashSigns} 
                                   = HelloExt},
 		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns} = SslOpts,
+				 signature_algs = SupportedHashSigns,
+                                 eccs = SupportedECCs,
+				 honor_ecc_order = ECCOrder} = SslOpts,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, 
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
@@ -182,7 +184,7 @@ handle_client_hello(Version,
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert,TLSVersion),
-	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(TLSVersion)),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,

@@ -291,6 +291,7 @@ init_per_group(GroupName, Config) when GroupName == basic_tls;
                                        ->
     ssl_test_lib:clean_tls_version(Config);                          
 init_per_group(GroupName, Config) ->
+    ssl_test_lib:clean_tls_version(Config),                          
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
 	true ->
 	    ssl_test_lib:init_tls_version(GroupName, Config);
