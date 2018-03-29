@@ -40,15 +40,12 @@
 %%--------------------------------------------------------------------
 %%%----------------------------------------------------------------
 userauth_request_msg(#ssh{userauth_methods = ServerMethods,
-			  userauth_supported_methods = UserPrefMethods, % Note: this is not documented as supported for clients
+			  userauth_supported_methods = UserPrefMethods,
 			  userauth_preference = ClientMethods0
 			 } = Ssh0) ->
     case sort_select_mthds(ClientMethods0, UserPrefMethods, ServerMethods) of
 	[] ->
-	    Msg = #ssh_msg_disconnect{code = ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
-				      description = "Unable to connect using the available authentication methods",
-				      language = "en"},
-	    {disconnect, Msg, ssh_transport:ssh_packet(Msg, Ssh0)};
+            {send_disconnect, ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE, Ssh0};
 	
 	[{Pref,Module,Function,Args} | Prefs] ->
 	    Ssh = case Pref of
@@ -196,11 +193,8 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
     %% Client side
     case ?GET_OPT(user, Opts) of
 	undefined ->
-	    ErrStr = "Could not determine the users name",
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
-				  description = ErrStr});
-        
+	    ?DISCONNECT(?SSH_DISCONNECT_ILLEGAL_USER_NAME,
+                        "Could not determine the users name");
 	User ->
             ssh_transport:ssh_packet(
               #ssh_msg_userauth_request{user = User,
@@ -451,11 +445,8 @@ handle_userauth_info_response({extra,#ssh_msg_userauth_info_response{}},
 
 handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      _Auth) ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			  description = "Server does not support keyboard-interactive"
-			 }).
-
+    ?DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+                "Server does not support keyboard-interactive").
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -492,10 +483,8 @@ check_password(User, Password, Opts, Ssh) ->
 		{false,NewState} ->
 		    {false, Ssh#ssh{pwdfun_user_state=NewState}};
 		disconnect ->
-		    ssh_connection_handler:disconnect(
-		      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-					  description = "Unable to connect using the available authentication methods"
-					 })
+		    ?DISCONNECT(?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
+                                "")
 	    end
     end.
 
@@ -591,16 +580,12 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
     case KbdInteractFun(Name, Instr, Prompts) of
 	Rs when length(Rs) == NumPrompts ->
 	    Rs;
-	Rs ->
-	    throw({mismatching_number_of_responses,
-		   {got,Rs},
-		   {expected, NumPrompts},
-		   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-				       description = "User interaction failed",
-				       language = "en"}})
+	_Rs ->
+            nok
     end.
 
 
 key_alg('rsa-sha2-256') -> 'ssh-rsa';
 key_alg('rsa-sha2-512') -> 'ssh-rsa';
 key_alg(Alg) -> Alg.
+

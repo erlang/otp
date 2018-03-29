@@ -53,6 +53,8 @@
          valid_key_sha_alg/2,
 	 sha/1, sign/3, verify/5]).
 
+-export([dbg_trace/3]).
+
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
 -export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
@@ -319,10 +321,11 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	    key_exchange_first_msg(Algos#alg.kex, 
 				   Ssh#ssh{algorithms = Algos})
     catch
-        _:_ ->
-            ssh_connection_handler:disconnect(
-              #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                  description = "Selection of key exchange algorithm failed"})
+        Class:Error ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexinit failed in client: ~p:~p",
+                                      [Class,Error])
+                       )
     end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
@@ -335,10 +338,11 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	Algos ->
             {ok, Ssh#ssh{algorithms = Algos}}
     catch
-        _:_ ->
-            ssh_connection_handler:disconnect(
-              #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                  description = "Selection of key exchange algorithm failed"})
+        Class:Error ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexinit failed in server: ~p:~p",
+                                      [Class,Error])
+                       )
     end.
 
 
@@ -439,12 +443,10 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 				     session_id = sid(Ssh1, H)}};
 
 	true ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed, 'e' out of bounds"},
-	      {error,bad_e_from_peer}
-	     )
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexdh init failed, received 'e' out of bounds~n  E=~p~n  P=~p",
+                                      [E,P])
+                       )
     end.
 
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
@@ -464,20 +466,16 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
                                                              exchanged_hash = H,
                                                              session_id = sid(Ssh, H)})};
 		Error ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed"},
-	      Error)
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("Kexdh init failed. Verify host key: ~p",[Error])
+                               )
 	    end;
 
 	true ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed, 'f' out of bounds"},
-	      bad_f_from_peer
-	     )
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexdh init failed, received 'f' out of bounds~n  F=~p~n  P=~p",
+                                      [F,P])
+                       )
     end.
 
 
@@ -501,11 +499,9 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		     keyex_info = {Min0, Max0, NBits}
 		    }};
 	{error,_} ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		 description = "No possible diffie-hellman-group-exchange group found"
-		})
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("No possible diffie-hellman-group-exchange group found",[])
+                       )
     end;
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 
@@ -535,20 +531,14 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 		     keyex_info = {-1, -1, NBits} % flag for kex_hash calc
 		    }};
 	{error,_} ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		 description = "No possible diffie-hellman-group-exchange group found"
-		})
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("No possible diffie-hellman-group-exchange group found",[])
+                       )
     end;
 
 handle_kex_dh_gex_request(_, _) ->
-    ssh_connection_handler:disconnect(
-	 #ssh_msg_disconnect{
-	    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request"},
-      bad_ssh_msg_kex_dh_gex_request).
-
+    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request").
 
 adjust_gex_min_max(Min0, Max0, Opts) ->
     {Min1, Max1} = ?GET_OPT(dh_gex_limits, Opts),
@@ -558,11 +548,8 @@ adjust_gex_min_max(Min0, Max0, Opts) ->
         Min2 =< Max2 ->
             {Min2, Max2};
         Max2 < Min2 ->
-            ssh_connection_handler:disconnect(
-              #ssh_msg_disconnect{
-                 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-                 description = "No possible diffie-hellman-group-exchange group possible"
-                })
+            ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                        "No possible diffie-hellman-group-exchange group possible")
     end.
 		    
 
@@ -600,18 +587,15 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 					    session_id = sid(Ssh, H)
 					   }};
 		true ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed, 'K' out of bounds"},
-	      bad_K)
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                "Kexdh init failed, received 'k' out of bounds"
+                               )
 	    end;
 	true ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed, 'e' out of bounds"},
-	      bad_e_from_peer)
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexdh gex init failed, received 'e' out of bounds~n  E=~p~n  P=~p",
+                                      [E,P])
+                       )
     end.
 
 handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostKey, 
@@ -634,28 +618,22 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 			    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
                                                                      exchanged_hash = H,
                                                                      session_id = sid(Ssh, H)})};
-			_Error ->
-			    ssh_connection_handler:disconnect(
-			      #ssh_msg_disconnect{
-				 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-				 description = "Key exchange failed"
-				})
+                        Error ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Kexdh gex reply failed. Verify host key: ~p",[Error])
+                                       )
 		    end;
 
 		true ->
-		    ssh_connection_handler:disconnect(
-		      #ssh_msg_disconnect{
-			 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			 description = "Key exchange failed, 'K' out of bounds"},
-		      bad_K)
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                "Kexdh gex init failed, 'K' out of bounds"
+                               )
 	    end;
 	true ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Key exchange failed, 'f' out of bounds"},
-	      bad_f_from_peer
-	     )
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Kexdh gex init failed, received 'f' out of bounds~n  F=~p~n  P=~p",
+                                      [F,P])
+                       )
     end.
 
 %%%----------------------------------------------------------------
@@ -686,12 +664,11 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 				     exchanged_hash = H,
 				     session_id = sid(Ssh1, H)}}
     catch
-	_:_ ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Peer ECDH public key is invalid"},
-	      invalid_peer_public_key)
+        Class:Error ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("ECDH compute key failed in server: ~p:~p",
+                                      [Class,Error])
+                       )
     end.
 
 handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
@@ -713,19 +690,16 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
                                                              exchanged_hash = H,
                                                              session_id = sid(Ssh, H)})};
 		Error ->
-		    ssh_connection_handler:disconnect(
-		       #ssh_msg_disconnect{
-			  code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			  description = "Key exchange failed"},
-		       Error)
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("ECDH reply failed. Verify host key: ~p",[Error])
+                               )
 	    end
     catch
-	_:_ ->
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{
-		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		 description = "Peer ECDH public key is invalid"},
-	      invalid_peer_public_key)
+        Class:Error ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("Peer ECDH public key seem invalid: ~p:~p",
+                                      [Class,Error])
+                       )
     end.
 
 
@@ -735,11 +709,11 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
 	#ssh{} = Ssh ->
 	    {ok, Ssh}
     catch 
-	_C:_Error -> %% TODO: Throw earlier ....
-	    ssh_connection_handler:disconnect(
-	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				  description = "Install alg failed"
-				 })
+        Class:Error -> %% TODO: Throw earlier ...
+            ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                        io_lib:format("Install alg failed: ~p:~p",
+                                      [Class,Error])
+                       )
     end. 
 
 
@@ -1057,9 +1031,7 @@ install_alg(Dir, SSH) ->
 
 alg_setup(snd, SSH) ->
     ALG = SSH#ssh.algorithms,
-    SSH#ssh{kex = ALG#alg.kex,
-	    hkey = ALG#alg.hkey,
-	    encrypt = ALG#alg.encrypt,
+    SSH#ssh{encrypt = ALG#alg.encrypt,
 	    send_mac = ALG#alg.send_mac,
 	    send_mac_size = mac_digest_size(ALG#alg.send_mac),
 	    compress = ALG#alg.compress,
@@ -1071,9 +1043,7 @@ alg_setup(snd, SSH) ->
 
 alg_setup(rcv, SSH) ->
     ALG = SSH#ssh.algorithms,
-    SSH#ssh{kex = ALG#alg.kex,
-	    hkey = ALG#alg.hkey,
-	    decrypt = ALG#alg.decrypt,
+    SSH#ssh{decrypt = ALG#alg.decrypt,
 	    recv_mac = ALG#alg.recv_mac,
 	    recv_mac_size = mac_digest_size(ALG#alg.recv_mac),
 	    decompress = ALG#alg.decompress,
@@ -1115,10 +1085,9 @@ select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
     %% algorithms used by client and server (client pref)
     lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
 select_all(CL, SL) ->
-    Err = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-			  description = Err}).
+    Error = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
+    ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                Error).
 
 
 select([], []) ->
@@ -1810,7 +1779,7 @@ mac('hmac-sha2-512', Key, SeqNum, Data) ->
 hash(_SSH, _Char, 0) ->
     <<>>;
 hash(SSH, Char, N) ->
-    HashAlg = sha(SSH#ssh.kex),
+    HashAlg = sha(SSH#ssh.algorithms#alg.kex),
     K = SSH#ssh.shared_secret,
     H = SSH#ssh.exchanged_hash,
     K1 = crypto:hash(HashAlg, [K, H, Char,  SSH#ssh.session_id]),
@@ -2041,3 +2010,40 @@ trim_tail(Str) ->
     lists:takewhile(fun(C) -> 
 			    C=/=$\r andalso C=/=$\n
 		    end, Str).
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+dbg_trace(points,    _, _) -> [alg, ssh_messages, raw_messages, hello];
+
+dbg_trace(flags, hello, _) -> [c];
+dbg_trace(on,    hello, _) -> dbg:tp(?MODULE,hello_version_msg,1,x),
+                              dbg:tp(?MODULE,handle_hello_version,1,x);
+dbg_trace(off,   hello, _) -> dbg:ctpg(?MODULE,hello_version_msg,1),
+                              dbg:ctpg(?MODULE,handle_hello_version,1);
+
+dbg_trace(C, raw_messages, A) -> dbg_trace(C, hello, A);
+dbg_trace(C, ssh_messages, A) -> dbg_trace(C, hello, A);
+
+dbg_trace(flags, alg,   _) -> [c];
+dbg_trace(on,    alg,   _) -> dbg:tpl(?MODULE,select_algorithm,4,x);
+dbg_trace(off,   alg,   _) -> dbg:ctpl(?MODULE,select_algorithm,4);
+
+
+dbg_trace(format, hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
+    ["Going to send hello message:\n",
+     Hello
+    ];
+dbg_trace(format, hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
+    ["Received hello message:\n",
+     Hello
+    ];
+
+dbg_trace(format, alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
+    ["Negotiated algorithms:\n",
+     wr_record(Alg)
+    ].
+
+?wr_record(alg).

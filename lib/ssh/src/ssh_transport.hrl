@@ -220,6 +220,9 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-define(DISCONNECT(Code, DetailedText),
+        ssh_connection_handler:disconnect(Code, DetailedText, ?MODULE, ?LINE)).
+
 -define(SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT,   1).
 -define(SSH_DISCONNECT_PROTOCOL_ERROR,   2).
 -define(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,   3).

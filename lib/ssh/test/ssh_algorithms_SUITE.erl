@@ -257,8 +257,7 @@ try_exec_simple_group(Group, Config) ->
     of
 	_ -> ct:fail("Exec though no group available")
     catch
-	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} -> ok;
-	error:{badmatch,{error,"Connection closed"}} -> ok
+        error:{badmatch,{error,"Key exchange failed"}} -> ok
     end.
 
 %%--------------------------------------------------------------------

@@ -22,6 +22,7 @@
 
 -module(ssh_channel).
 
+-include("ssh.hrl").
 -include("ssh_connect.hrl").
 
 -callback init(Args :: term()) ->
@@ -70,6 +71,8 @@
 	 cache_delete/1, cache_delete/2,  cache_foldl/3,
 	 cache_info/2,  cache_find/2,
 	 get_print_info/1]).
+
+-export([dbg_trace/3]).
 
 -record(state, {
 	  cm,
@@ -159,14 +162,7 @@ init([Options]) ->
     ConnectionManager =  proplists:get_value(cm, Options),
     ChannelId = proplists:get_value(channel_id, Options),
     process_flag(trap_exit, true),
-    InitArgs =
-	case proplists:get_value(exec, Options) of
-	    undefined ->
-		proplists:get_value(init_args, Options);
-	    Exec ->
-		proplists:get_value(init_args, Options) ++ [Exec]
-	end,
-    try Cb:init(InitArgs) of
+    try Cb:init(channel_cb_init_args(Options)) of
 	{ok, ChannelState} ->
 	    State = #state{cm = ConnectionManager, 
 			   channel_cb = Cb,
@@ -186,6 +182,14 @@ init([Options]) ->
     catch 
 	_:Reason ->
 	    {stop, Reason}
+    end.
+
+channel_cb_init_args(Options) ->
+    case proplists:get_value(exec, Options) of
+        undefined ->
+            proplists:get_value(init_args, Options);
+        Exec ->
+            proplists:get_value(init_args, Options) ++ [Exec]
     end.
 
 %%--------------------------------------------------------------------
@@ -376,4 +380,77 @@ adjust_window({ssh_cm, ConnectionManager,
 adjust_window(_) ->
     ok.
     
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+dbg_trace(points,         _,  _) -> [terminate, channels, channel_events];
+
+
+dbg_trace(flags,  channels,  A) -> [c] ++ dbg_trace(flags, terminate, A);
+dbg_trace(on,     channels,  A) -> dbg:tp(?MODULE,  init, 1, x),
+                                   dbg_trace(on, terminate, A);
+dbg_trace(off,    channels,  A) -> dbg:ctpg(?MODULE, init, 1),
+                                   dbg_trace(off, terminate, A);
+dbg_trace(format, channels, {call, {?MODULE,init, [[KVs]]}}) ->
+    ["Server Channel Starting:\n",
+     io_lib:format("Connection: ~p, ChannelId: ~p, CallBack: ~p\nCallBack init args = ~p", 
+                   [proplists:get_value(K,KVs) || K <- [cm, channel_id, channel_cb]]
+                   ++ [channel_cb_init_args(KVs)])
+    ];
+dbg_trace(format, channels, {return_from, {?MODULE,init,1}, {stop,Reason}}) ->
+    ["Server Channel Start FAILED!\n",
+     io_lib:format("Reason = ~p", [Reason])
+    ];
+dbg_trace(format, channels, F) ->
+    dbg_trace(format, terminate, F);
+
+
+dbg_trace(flags,  terminate,  _) -> [c];
+dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
+dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
+dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+    ["Server Channel Terminating:\n",
+     io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
+    ];
+
+dbg_trace(flags,  channel_events,  _) -> [c];
+dbg_trace(on,     channel_events,  _) -> dbg:tp(?MODULE,  handle_call, 3, x),
+                                         dbg:tp(?MODULE,  handle_cast, 2, x),
+                                         dbg:tp(?MODULE,  handle_info, 2, x);
+dbg_trace(off,    channel_events,  _) -> dbg:ctpg(?MODULE,  handle_call, 3),
+                                         dbg:ctpg(?MODULE,  handle_cast, 2),
+                                         dbg:ctpg(?MODULE,  handle_info, 2);
+dbg_trace(format, channel_events, {call, {?MODULE,handle_call, [Call,From,State]}}) ->
+    [hdr("is called", State),
+     io_lib:format("From: ~p~nCall: ~p~n", [From, Call])
+    ];
+dbg_trace(format, channel_events, {return_from, {?MODULE,handle_call,3}, Ret}) ->
+    ["Server Channel call returned:\n",
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+    ];
+dbg_trace(format, channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
+    [hdr("got cast", State),
+     io_lib:format("Cast: ~p~n", [Cast])
+    ];
+dbg_trace(format, channel_events, {return_from, {?MODULE,handle_cast,2}, Ret}) ->
+    ["Server Channel cast returned:\n",
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+    ];
+dbg_trace(format, channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
+    [hdr("got info", State),
+     io_lib:format("Info: ~p~n", [Info])
+    ];
+dbg_trace(format, channel_events, {return_from, {?MODULE,handle_info,2}, Ret}) ->
+    ["Server Channel info returned:\n",
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+    ].
+
+hdr(Title, S) ->
+    io_lib:format("Server Channel (Id=~p, CB=~p) ~s:\n", [S#state.channel_id, S#state.channel_cb, Title]).
+
+?wr_record(state).
+
 

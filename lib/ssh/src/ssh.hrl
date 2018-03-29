@@ -137,6 +137,8 @@
                   {inet:hostname(),
                    {inet:ip_address(),inet:port_number()}},         %% string version of peer address 
 
+          local,        %% Local sockname. Need this AFTER a socket is closed by i.e. a crash
+
 	  c_vsn,        %% client version {Major,Minor}
 	  s_vsn,        %% server version {Major,Minor}
 
@@ -151,8 +153,6 @@
 
 	  algorithms,   %% #alg{}
 	  
-	  kex,          %% key exchange algorithm
-	  hkey,         %% host key algorithm
 	  key_cb,       %% Private/Public key callback module
 	  io_cb,        %% Interaction callback module
 
@@ -247,5 +247,14 @@
 	    true -> ok;
 	    _ -> exit(Reason)
 	end).
+
+
+%% dbg help macros
+-define(wr_record(N,BlackList),
+        wr_record(R=#N{}) ->  ssh_dbg:wr_record(R, record_info(fields,N), BlackList)
+        ).
+
+-define(wr_record(N), ?wr_record(N, [])).
+
 
 -endif. % SSH_HRL defined

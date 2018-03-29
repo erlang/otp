@@ -33,6 +33,8 @@
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
 
+-export([dbg_trace/3]).
+
 -define(SLEEP_TIME, 200).
 
 %%====================================================================
@@ -195,3 +197,33 @@ handle_error(Reason) ->
     error_logger:error_report(String),
     exit({accept_failed, String}).    
 
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+dbg_trace(points,         _,  _) -> [connections];
+
+dbg_trace(flags,  connections,  _) -> [c];
+dbg_trace(on,     connections,  _) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
+                                      dbg:tpl(?MODULE, handle_connection, 5, x);
+dbg_trace(off,    connections,  _) -> dbg:ctp(?MODULE, acceptor_init, 5),
+                                      dbg:ctp(?MODULE, handle_connection, 5);
+dbg_trace(format, connections, {call, {?MODULE,acceptor_init,
+                                       [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
+    [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
+    ];
+dbg_trace(format, connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
+    ["Starting connection to server failed:\n",
+     io_lib:format("Error = ~p", [Error])
+    ].
+
+
+
+ntoa(A) ->
+    try inet:ntoa(A)
+    catch
+        _:_ when is_list(A) -> A;
+        _:_ -> io_lib:format('~p',[A])
+    end.
+            
