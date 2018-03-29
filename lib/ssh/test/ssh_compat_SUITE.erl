@@ -41,8 +41,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [%%{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+    [{timetrap,{seconds,60}}].
 
 all() ->
 %%    [check_docker_present] ++

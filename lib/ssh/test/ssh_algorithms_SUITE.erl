@@ -35,7 +35,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,round(1.5*?TIMEOUT/1000)}}].
+     {timetrap,{seconds,60}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -264,7 +264,7 @@ try_exec_simple_group(Group, Config) ->
 %% Testing all default groups
 
 simple_exec_groups() ->
-    [{timetrap,{seconds,120}}].
+    [{timetrap,{seconds,180}}].
     
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
