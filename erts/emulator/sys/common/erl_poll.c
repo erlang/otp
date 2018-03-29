@@ -782,10 +782,14 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
     struct kevent evts[2];
     struct timespec ts = {0, 0};
 
-#ifdef EV_DISPATCH
-    /* If we have EV_DISPATCH we use it. The kevent descriptions for both
-       read and write are added on OP_ADD and removed on OP_DEL. And then
-       after than only EV_ENABLE|EV_DISPATCH are used.
+#if defined(EV_DISPATCH) && !defined(__OpenBSD__)
+    /* If we have EV_DISPATCH we use it, unless we are on OpenBSD as the
+       behavior of EV_EOF seems to be edge triggered there and we need it
+       to be level triggered.
+
+       The kevent descriptions for both read and write are added on OP_ADD
+       and removed on OP_DEL. And then after than only EV_ENABLE|EV_DISPATCH
+       are used.
 
        It could be possible to not modify the pollset when disabling and/or
        deleting events, but that may cause the poll threads to be awoken
