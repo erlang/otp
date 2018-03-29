@@ -38,7 +38,10 @@
 
 %%--------------------------------------------------------------------------
 
--export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
+-export_type([child/0, child_id/0, mfargs/0, modules/0, restart/0, shutdown/0,
+              worker/0, sup_name/0, sup_ref/0, child_spec/0, strategy/0,
+              sup_flags/0, startlink_err/0, startlink_ret/0, startchild_err/0,
+              startchild_ret/0]).
 
 %%--------------------------------------------------------------------------
 
