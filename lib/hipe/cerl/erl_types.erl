@@ -108,13 +108,14 @@
 	 t_is_bitstr/1, t_is_bitstr/2,
 	 t_is_bitwidth/1,
 	 t_is_boolean/1, t_is_boolean/2,
-	 %% t_is_byte/1,
-	 %% t_is_char/1,
+         t_is_byte/1,
+         t_is_char/1,
 	 t_is_cons/1, t_is_cons/2,
 	 t_is_equal/2,
 	 t_is_fixnum/1,
 	 t_is_float/1, t_is_float/2,
 	 t_is_fun/1, t_is_fun/2,
+         t_is_identifier/1,
 	 t_is_instance/2,
 	 t_is_integer/1, t_is_integer/2,
 	 t_is_list/1,
@@ -216,18 +217,7 @@
 	 cache__new/0
 	]).
 
-%%-define(DO_ERL_TYPES_TEST, true).
 -compile({no_auto_import,[min/2,max/2,map_get/2]}).
-
--ifdef(DO_ERL_TYPES_TEST).
--export([test/0]).
--else.
--define(NO_UNUSED, true).
--endif.
-
--ifndef(NO_UNUSED).
--export([t_is_identifier/1]).
--endif.
 
 -export_type([erl_type/0, opaques/0, type_table/0,
               var_table/0, cache/0]).
@@ -1190,12 +1180,10 @@ is_fun(_) -> false.
 t_identifier() ->
   ?identifier(?any).
 
--ifdef(DO_ERL_TYPES_TEST).
--spec t_is_identifier(erl_type()) -> erl_type().
+-spec t_is_identifier(erl_type()) -> boolean().
 
 t_is_identifier(?identifier(_)) -> true;
 t_is_identifier(_) -> false.
--endif.
 
 %%------------------------------------
 
@@ -1366,7 +1354,6 @@ is_integer1(_) -> false.
 t_byte() ->
   ?byte.
 
--ifdef(DO_ERL_TYPES_TEST).
 -spec t_is_byte(erl_type()) -> boolean().
 
 t_is_byte(?int_range(neg_inf, _)) -> false;
@@ -1376,7 +1363,6 @@ t_is_byte(?int_range(From, To))
 t_is_byte(?int_set(Set)) -> 
   (set_min(Set) >= 0) andalso (set_max(Set) =< ?MAX_BYTE);
 t_is_byte(_) -> false.
--endif.
 
 %%------------------------------------
 
@@ -5693,173 +5679,3 @@ family(L) ->
 
 var_table__new() ->
   maps:new().
-
-%%=============================================================================
-%% Consistency-testing function(s) below
-%%=============================================================================
-
--ifdef(DO_ERL_TYPES_TEST).		  
-
-test() ->
-  Atom1  = t_atom(),
-  Atom2  = t_atom(foo),
-  Atom3  = t_atom(bar),
-  true   = t_is_atom(Atom2),
-
-  True   = t_atom(true),
-  False  = t_atom(false),
-  Bool   = t_boolean(),
-  true   = t_is_boolean(True),
-  true   = t_is_boolean(Bool),
-  false  = t_is_boolean(Atom1),
-
-  Binary = t_binary(),
-  true   = t_is_binary(Binary),
-
-  Bitstr = t_bitstr(),
-  true   = t_is_bitstr(Bitstr),
-  
-  Bitstr1 = t_bitstr(7, 3),
-  true   = t_is_bitstr(Bitstr1),
-  false  = t_is_binary(Bitstr1),
-
-  Bitstr2 = t_bitstr(16, 8),
-  true   = t_is_bitstr(Bitstr2),
-  true   = t_is_binary(Bitstr2),
-  
-  ?bitstr(8, 16) = t_subtract(t_bitstr(4, 12), t_bitstr(8, 12)),
-  ?bitstr(8, 16) = t_subtract(t_bitstr(4, 12), t_bitstr(8, 12)),
-
-  Int1   = t_integer(),
-  Int2   = t_integer(1),
-  Int3   = t_integer(16#ffffffff),
-  true   = t_is_integer(Int2),
-  true   = t_is_byte(Int2),
-  false  = t_is_byte(Int3),
-  false  = t_is_byte(t_from_range(-1, 1)),
-  true   = t_is_byte(t_from_range(1, ?MAX_BYTE)),
-  
-  Tuple1 = t_tuple(),
-  Tuple2 = t_tuple(3),
-  Tuple3 = t_tuple([Atom1, Int1]),
-  Tuple4 = t_tuple([Tuple1, Tuple2]),
-  Tuple5 = t_tuple([Tuple3, Tuple4]),
-  Tuple6 = t_limit(Tuple5, 2),
-  Tuple7 = t_limit(Tuple5, 3),
-  true   = t_is_tuple(Tuple1),  
-  
-  Port   = t_port(),
-  Pid    = t_pid(),
-  Ref    = t_reference(),
-  Identifier = t_identifier(),
-  false  = t_is_reference(Port),
-  true   = t_is_identifier(Port),
-
-  Function1 = t_fun(),
-  Function2 = t_fun(Pid),
-  Function3 = t_fun([], Pid),
-  Function4 = t_fun([Port, Pid], Pid),
-  Function5 = t_fun([Pid, Atom1], Int2),
-  true      = t_is_fun(Function3),  
-
-  List1 = t_list(),
-  List2 = t_list(t_boolean()),
-  List3 = t_cons(t_boolean(), List2),
-  List4 = t_cons(t_boolean(), t_atom()),
-  List5 = t_cons(t_boolean(), t_nil()),
-  List6 = t_cons_tl(List5),
-  List7 = t_sup(List4, List5),
-  List8 = t_inf(List7, t_list()),
-  List9 = t_cons(),
-  List10 = t_cons_tl(List9),
-  true  = t_is_boolean(t_cons_hd(List5)),
-  true  = t_is_list(List5),
-  false = t_is_list(List4),
-
-  Product1 = t_product([Atom1, Atom2]),
-  Product2 = t_product([Atom3, Atom1]),
-  Product3 = t_product([Atom3, Atom2]),
-
-  Union1 = t_sup(Atom2, Atom3),
-  Union2 = t_sup(Tuple2, Tuple3),
-  Union3 = t_sup(Int2, Atom3),
-  Union4 = t_sup(Port, Pid),
-  Union5 = t_sup(Union4, Int1),
-  Union6 = t_sup(Function1, Function2),
-  Union7 = t_sup(Function4, Function5),
-  Union8 = t_sup(True, False),
-  true   = t_is_boolean(Union8),
-  Union9 = t_sup(Int2, t_integer(2)),
-  true   = t_is_byte(Union9),
-  Union10 = t_sup(t_tuple([t_atom(true), ?any]), 
-		  t_tuple([t_atom(false), ?any])),
-  
-  ?any   = t_sup(Product3, Function5),
-
-  Atom3  = t_inf(Union3, Atom1),
-  Union2 = t_inf(Union2, Tuple1),
-  Int2   = t_inf(Int1, Union3),
-  Union4 = t_inf(Union4, Identifier),
-  Port   = t_inf(Union5, Port),
-  Function4 = t_inf(Union7, Function4),
-  ?none  = t_inf(Product2, Atom1),
-  Product3 = t_inf(Product1, Product2),
-  Function5 = t_inf(Union7, Function5),
-  true   = t_is_byte(t_inf(Union9, t_number())),
-  true   = t_is_char(t_inf(Union9, t_number())),
-
-  io:format("3? ~p ~n", [?int_set([3])]),
-
-  RecDict = dict:store({foo, 2}, [bar, baz], dict:new()),
-  Record1 = t_from_term({foo, [1,2], {1,2,3}}),
-  
-  Types = [
-	   Atom1,
-	   Atom2,
-	   Atom3,
-	   Binary,
-	   Int1,
-	   Int2,
-	   Tuple1,
-	   Tuple2,
-	   Tuple3,
-	   Tuple4,
-	   Tuple5,
-	   Tuple6,
-	   Tuple7,
-	   Ref,
-	   Port,
-	   Pid,
-	   Identifier,
-	   List1,
-	   List2,
-	   List3,
-	   List4,
-	   List5,
-	   List6,
-	   List7,
-	   List8,
-	   List9,
-	   List10,
-	   Function1,
-	   Function2,
-	   Function3,
-	   Function4,
-	   Function5,
-	   Product1,
-	   Product2,
-	   Record1,
-	   Union1,
-	   Union2,
-	   Union3,
-	   Union4,
-	   Union5,
-	   Union6,
-	   Union7,
-	   Union8,
-	   Union10,
-	   t_inf(Union10, t_tuple([t_atom(true), t_integer()]))
-	  ],
-  io:format("~p\n", [[t_to_string(X, RecDict) || X <- Types]]).
-       
--endif.
