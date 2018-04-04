@@ -25,7 +25,7 @@
 	 is_not_killed/1,is_not_used_at/1,
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
          y_registers/1,user_predef/1,scan_f/1,cafu/1,
-         receive_label/1,read_size_file_version/1]).
+         receive_label/1,read_size_file_version/1,not_used/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -51,7 +51,8 @@ groups() ->
        user_predef,
        scan_f,
        cafu,
-       read_size_file_version
+       read_size_file_version,
+       not_used
       ]}].
 
 init_per_suite(Config) ->
@@ -505,6 +506,25 @@ do_read_size_file_version(E) ->
             ok;
 	{ok,<<MaxFiles:32>>} ->
             {ok,MaxFiles}
+    end.
+
+-record(s, { a, b }).
+-record(k, { v }).
+
+not_used(_Config) ->
+    [] = not_used_p(any, #s{b=true}, #k{}, ignored),
+    #k{v=42} = not_used_p(any, #s{b=false}, #k{v=42}, ignored),
+    #k{v=42} = not_used_p(any, #s{b=bad}, #k{v=42}, ignored),
+    ok.
+
+not_used_p(_C, S, K, L) when is_record(K, k) ->
+    if ((S#s.b) and
+         (S#s.b)) ->
+            [];
+       true ->
+            id(L),
+            id(K#k.v),
+            id(K)
     end.
 
 %% The identity function.

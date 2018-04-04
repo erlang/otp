@@ -655,9 +655,8 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 	    {Res,St#live{res=gb_trees:insert(Lbl, Res, St#live.res)}}
     end.
 
-not_used({exit_not_used,St}) -> {not_used,St};
-not_used({killed,St}) -> {not_used,St};
-not_used({_,_}=Res) -> Res.
+not_used({used,_}=Res) -> Res;
+not_used({_,St}) -> {not_used,St}.
 
 check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
