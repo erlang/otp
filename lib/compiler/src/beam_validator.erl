@@ -29,7 +29,7 @@
 
 -include("beam_disasm.hrl").
 
--import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
+-import(lists, [any/2,dropwhile/2,foldl/3,foreach/2,reverse/1]).
 
 %% To be called by the compiler.
 
@@ -365,7 +365,9 @@ valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
 %% Misc.
 valfun_1(remove_message, Vst) ->
-    Vst;
+    %% The message term is no longer fragile. It can be used
+    %% without restrictions.
+    remove_fragility(Vst);
 valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
@@ -533,7 +535,7 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     Vst1 = branch_state(Fail, Vst0),
     TupleType = upgrade_tuple_type({tuple,[get_tuple_size(PosType)]}, TupleType0),
     Vst = set_type(TupleType, Tuple, Vst1),
-    set_type_reg(term, Dst, Vst);
+    set_type_reg(term, Tuple, Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
@@ -542,7 +544,8 @@ valfun_4(raw_raise=I, Vst) ->
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
-    Type = bif_type(Op, Src, Vst),
+    Type0 = bif_type(Op, Src, Vst),
+    Type = propagate_fragility(Type0, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     verify_live(Live, Vst0),
@@ -552,7 +555,8 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
     validate_src(Src, Vst),
-    Type = bif_type(Op, Src, Vst),
+    Type0 = bif_type(Op, Src, Vst),
+    Type = propagate_fragility(Type0, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     assert_term({x,0}, Vst),
@@ -563,13 +567,20 @@ valfun_4({jump,{f,Lbl}}, Vst) ->
     kill_state(branch_state(Lbl, Vst));
 valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
     Vst = branch_state(Fail, Vst0),
-    set_type_reg(term, Dst, Vst);
+    %% This term may not be part of the root set until
+    %% remove_message/0 is executed. If control transfers
+    %% to the loop_rec_end/1 instruction, no part of this
+    %% this term must be stored in a Y register.
+    set_type_reg({fragile,term}, Dst, Vst);
 valfun_4({wait,_}, Vst) ->
+    verify_y_init(Vst),
     kill_state(Vst);
 valfun_4({wait_timeout,_,Src}, Vst) ->
     assert_term(Src, Vst),
+    verify_y_init(Vst),
     Vst;
 valfun_4({loop_rec_end,_}, Vst) ->
+    verify_y_init(Vst),
     kill_state(Vst);
 valfun_4(timeout, #vst{current=St}=Vst) ->
     Vst#vst{current=St#st{x=init_regs(0, term)}};
@@ -589,17 +600,17 @@ valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     kill_state(branch_arities(Choices, Tuple, branch_state(Fail, Vst)));
 valfun_4({get_list,Src,D1,D2}, Vst0) ->
     assert_type(cons, Src, Vst0),
-    Vst = set_type_reg(term, D1, Vst0),
-    set_type_reg(term, D2, Vst);
+    Vst = set_type_reg(term, Src, D1, Vst0),
+    set_type_reg(term, Src, D2, Vst);
 valfun_4({get_hd,Src,Dst}, Vst) ->
     assert_type(cons, Src, Vst),
-    set_type_reg(term, Dst, Vst);
+    set_type_reg(term, Src, Dst, Vst);
 valfun_4({get_tl,Src,Dst}, Vst) ->
     assert_type(cons, Src, Vst),
-    set_type_reg(term, Dst, Vst);
+    set_type_reg(term, Src, Dst, Vst);
 valfun_4({get_tuple_element,Src,I,Dst}, Vst) ->
     assert_type({tuple_element,I+1}, Src, Vst),
-    set_type_reg(term, Dst, Vst);
+    set_type_reg(term, Src, Dst, Vst);
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
@@ -625,7 +636,7 @@ valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst0) ->
     verify_live(Live, Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    set_type_reg(bsm_match_state(Slots), Dst, Vst);
+    set_type_reg(bsm_match_state(Slots), Src, Dst, Vst);
 valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
     branch_state(Fail, Vst);
@@ -650,7 +661,8 @@ valfun_4({test,bs_get_integer2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
 valfun_4({test,bs_get_float2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
     validate_bs_get(Fail, Ctx, Live, {float, []}, Dst, Vst);
 valfun_4({test,bs_get_binary2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, term, Dst, Vst);
+    Type = propagate_fragility(term, [Ctx], Vst),
+    validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst);
 valfun_4({test,bs_get_utf8,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf16,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
@@ -790,7 +802,7 @@ verify_get_map(Fail, Src, List, Vst0) ->
     Vst2 = branch_state(Fail, Vst1),
     Keys = extract_map_keys(List),
     assert_unique_map_keys(Keys),
-    verify_get_map_pair(List,Vst0,Vst2).
+    verify_get_map_pair(List, Src, Vst0, Vst2).
 
 extract_map_vals([_Key,Val|T]) ->
     [Val|extract_map_vals(T)];
@@ -800,10 +812,11 @@ extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
 extract_map_keys([]) -> [].
 
-verify_get_map_pair([],_,Vst) -> Vst;
-verify_get_map_pair([Src,Dst|Vs],Vst0,Vsti) ->
+verify_get_map_pair([Src,Dst|Vs], Map, Vst0, Vsti0) ->
     assert_term(Src, Vst0),
-    verify_get_map_pair(Vs,Vst0,set_type_reg(term,Dst,Vsti)).
+    Vsti = set_type_reg(term, Map, Dst, Vsti0),
+    verify_get_map_pair(Vs, Map, Vst0, Vsti);
+verify_get_map_pair([], _Map, _Vst0, Vst) -> Vst.
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
@@ -1093,10 +1106,11 @@ bsm_validate_context(Reg, Vst) ->
 bsm_get_context({x,X}=Reg, #vst{current=#st{x=Xs}}=_Vst) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
 	{value,#ms{}=Ctx} -> Ctx;
+	{value,{fragile,#ms{}=Ctx}} -> Ctx;
 	_ -> error({no_bsm_context,Reg})
     end;
 bsm_get_context(Reg, _) -> error({bad_source,Reg}).
-    
+
 bsm_save(Reg, {atom,start}, Vst) ->
     %% Save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
@@ -1133,12 +1147,33 @@ set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
 set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
 
-set_type_reg(Type, {x,X}=Reg, #vst{current=#st{x=Xs}=St}=Vst)
-  when is_integer(X), 0 =< X ->
-    check_limit(Reg),
-    Vst#vst{current=St#st{x=gb_trees:enter(X, Type, Xs)}};
+set_type_reg(Type, Src, Dst, Vst) ->
+    case get_term_type_1(Src, Vst) of
+        {fragile,_} ->
+            set_type_reg(make_fragile(Type), Dst, Vst);
+        _ ->
+            set_type_reg(Type, Dst, Vst)
+    end.
+
+set_type_reg(Type, {x,_}=Reg, Vst) ->
+    set_type_x(Type, Reg, Vst);
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
+
+set_type_x(Type, {x,X}=Reg, #vst{current=#st{x=Xs0}=St}=Vst)
+  when is_integer(X), 0 =< X ->
+    check_limit(Reg),
+    Xs = case gb_trees:lookup(X, Xs0) of
+             none ->
+                 gb_trees:insert(X, Type, Xs0);
+             {value,{fragile,_}} ->
+                 gb_trees:update(X, make_fragile(Type), Xs0);
+             {value,_} ->
+                 gb_trees:update(X, Type, Xs0)
+         end,
+    Vst#vst{current=St#st{x=Xs}};
+set_type_x(Type, Reg, #vst{}) ->
+    error({invalid_store,Reg,Type}).
 
 set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
@@ -1156,6 +1191,9 @@ set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
     check_try_catch_tags(Type, Y, Ys0),
     Vst#vst{current=St#st{y=Ys}};
 set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
+
+make_fragile({fragile,_}=Type) -> Type;
+make_fragile(Type) -> {fragile,Type}.
 
 set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
     Ys = gb_trees:update(Y, initialized, Ys0),
@@ -1257,9 +1295,26 @@ assert_term(Src, Vst) ->
 %%
 %% map			Map.
 %%
+%%
+%%
+%% FRAGILITY
+%% ---------
+%%
+%% The loop_rec/2 instruction may return a reference to a term that is
+%% not part of the root set. That term or any part of it must not be
+%% included in a garbage collection. Therefore, the term (or any part
+%% of it) must not be stored in an Y register.
+%%
+%% Such terms are wrapped in a {fragile,Type} tuple, where Type is one
+%% of the types described above.
 
 assert_type(WantedType, Term, Vst) ->
-    assert_type(WantedType, get_term_type(Term, Vst)).
+    case get_term_type(Term, Vst) of
+        {fragile,Type} ->
+            assert_type(WantedType, Type);
+        Type ->
+            assert_type(WantedType, Type)
+    end.
 
 assert_type(Correct, Correct) -> ok;
 assert_type(float, {float,_}) -> ok;
@@ -1285,14 +1340,19 @@ assert_type(Needed, Actual) ->
 %%  is inconsistent, and we know that some instructions will never
 %%  be executed at run-time.
 
-upgrade_tuple_type({tuple,[Sz]}, {tuple,[OldSz]}=T) when Sz < OldSz ->
+upgrade_tuple_type(NewType, {fragile,OldType}) ->
+    make_fragile(upgrade_tuple_type_1(NewType, OldType));
+upgrade_tuple_type(NewType, OldType) ->
+    upgrade_tuple_type_1(NewType, OldType).
+
+upgrade_tuple_type_1({tuple,[Sz]}, {tuple,[OldSz]}=T) when Sz < OldSz ->
     %% The old type has a higher value for the least tuple size.
     T;
-upgrade_tuple_type({tuple,[Sz]}, {tuple,OldSz}=T) 
+upgrade_tuple_type_1({tuple,[Sz]}, {tuple,OldSz}=T)
   when is_integer(Sz), is_integer(OldSz), Sz =< OldSz ->
     %% The old size is exact, and the new size is smaller than the old size.
     T;
-upgrade_tuple_type({tuple,_}=T, _) ->
+upgrade_tuple_type_1({tuple,_}=T, _) ->
     %% The new type information is exact or has a higher value for
     %% the least tuple size.
     %%     Note that inconsistencies are also handled in this
@@ -1459,6 +1519,14 @@ merge_y_regs_1(_, _, Regs) -> Regs.
 %% merge_types(Type1, Type2) -> Type
 %%  Return the most specific type possible.
 %%  Note: Type1 must NOT be the same as Type2.
+merge_types({fragile,Same}=Type, Same) ->
+    Type;
+merge_types({fragile,T1}, T2) ->
+    make_fragile(merge_types(T1, T2));
+merge_types(Same, {fragile,Same}=Type) ->
+    Type;
+merge_types(T1, {fragile,T2}) ->
+    make_fragile(merge_types(T1, T2));
 merge_types(uninitialized=I, _) -> I;
 merge_types(_, uninitialized=I) -> I;
 merge_types(initialized=I, _) -> I;
@@ -1509,6 +1577,10 @@ verify_y_init(#vst{current=#st{y=Ys}}) ->
 verify_y_init_1([]) -> ok;
 verify_y_init_1([{Y,uninitialized}|_]) ->
     error({uninitialized_reg,{y,Y}});
+verify_y_init_1([{Y,{fragile,_}}|_]) ->
+    %% Unsafe. This term may be outside any heap belonging
+    %% to the process and would be corrupted by a GC.
+    error({fragile_message_reference,{y,Y}});
 verify_y_init_1([{_,_}|Ys]) ->
     verify_y_init_1(Ys).
 
@@ -1552,6 +1624,27 @@ eat_heap_float(#vst{current=#st{hf=HeapFloats0}=St}=Vst) ->
 	    error({heap_overflow,{left,{HeapFloats0,floats}},{wanted,{1,floats}}});
 	HeapFloats ->
 	    Vst#vst{current=St#st{hf=HeapFloats}}
+    end.
+
+remove_fragility(#vst{current=#st{x=Xs0,y=Ys0}=St0}=Vst) ->
+    F = fun(_, {fragile,Type}) -> Type;
+           (_, Type) -> Type
+        end,
+    Xs = gb_trees:map(F, Xs0),
+    Ys = gb_trees:map(F, Ys0),
+    St = St0#st{x=Xs,y=Ys},
+    Vst#vst{current=St}.
+
+propagate_fragility(Type, Ss, Vst) ->
+    F = fun(S) ->
+                case get_term_type_1(S, Vst) of
+                    {fragile,_} -> true;
+                    _ -> false
+                end
+        end,
+    case any(F, Ss) of
+        true -> make_fragile(Type);
+        false -> Type
     end.
 
 bif_type('-', Src, Vst) ->
