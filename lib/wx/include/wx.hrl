@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -373,6 +373,21 @@
 -define(wxDefaultPosition, {-1,-1}).
 
 %% Global Variables
+-define('WX_GL_CORE_PROFILE',  wxe_util:get_const('WX_GL_CORE_PROFILE')).
+-define('WX_GL_DEBUG',  wxe_util:get_const('WX_GL_DEBUG')).
+-define('WX_GL_ES2',  wxe_util:get_const('WX_GL_ES2')).
+-define('WX_GL_FORWARD_COMPAT',  wxe_util:get_const('WX_GL_FORWARD_COMPAT')).
+-define('WX_GL_FRAMEBUFFER_SRGB',  wxe_util:get_const('WX_GL_FRAMEBUFFER_SRGB')).
+-define('WX_GL_LOSE_ON_RESET',  wxe_util:get_const('WX_GL_LOSE_ON_RESET')).
+-define('WX_GL_MAJOR_VERSION',  wxe_util:get_const('WX_GL_MAJOR_VERSION')).
+-define('WX_GL_MINOR_VERSION',  wxe_util:get_const('WX_GL_MINOR_VERSION')).
+-define('WX_GL_NO_RESET_NOTIFY',  wxe_util:get_const('WX_GL_NO_RESET_NOTIFY')).
+-define('WX_GL_RELEASE_FLUSH',  wxe_util:get_const('WX_GL_RELEASE_FLUSH')).
+-define('WX_GL_RELEASE_NONE',  wxe_util:get_const('WX_GL_RELEASE_NONE')).
+-define('WX_GL_RESET_ISOLATION',  wxe_util:get_const('WX_GL_RESET_ISOLATION')).
+-define('WX_GL_ROBUST_ACCESS',  wxe_util:get_const('WX_GL_ROBUST_ACCESS')).
+-define('WX_GL_SAMPLES',  wxe_util:get_const('WX_GL_SAMPLES')).
+-define('WX_GL_SAMPLE_BUFFERS',  wxe_util:get_const('WX_GL_SAMPLE_BUFFERS')).
 -define(wxBLACK,  wxe_util:get_const(wxBLACK)).
 -define(wxBLACK_BRUSH,  wxe_util:get_const(wxBLACK_BRUSH)).
 -define(wxBLACK_DASHED_PEN,  wxe_util:get_const(wxBLACK_DASHED_PEN)).
@@ -414,6 +429,7 @@
 -define(wxWHITE,  wxe_util:get_const(wxWHITE)).
 -define(wxWHITE_BRUSH,  wxe_util:get_const(wxWHITE_BRUSH)).
 -define(wxWHITE_PEN,  wxe_util:get_const(wxWHITE_PEN)).
+-define(wx_GL_COMPAT_PROFILE,  wxe_util:get_const(wx_GL_COMPAT_PROFILE)).
 
 %% Enum and defines
 % From class wxAuiManager

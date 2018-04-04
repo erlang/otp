@@ -1127,6 +1127,15 @@ build_gvar({Name, {address,Class}, _Id}, Cnt) ->
     w("   rt.addAtom(\"~s\"); rt.addRef(getRef((void *)&~s,memenv), \"~s\");~n",[Name,Name,Class]),
     w("   rt.addTupleCount(2);~n"),
     Cnt+1;
+build_gvar({Name, {test_if,Test}, _Id}, Cnt) ->
+    w("#if ~s~n", [Test]),
+    w(" rt.addAtom(\"~s\"); rt.addInt(~s);~n", [Name, Name]),
+    w(" rt.addTupleCount(2);~n"),
+    w("#else~n", []),
+    w(" rt.addAtom(\"~s\"); rt.addAtom(\"undefined\");~n", [Name]),
+    w(" rt.addTupleCount(2);~n"),
+    w("#endif~n", []),
+    Cnt+1;
 build_gvar({Name, Class, _Id}, Cnt) ->
     w("   rt.addAtom(\"~s\"); rt.addRef(getRef((void *)~s,memenv),\"~s\");~n",[Name,Name,Class]),
     w("   rt.addTupleCount(2);~n"),
