@@ -433,6 +433,8 @@ is_literal_term(T) when is_tuple(T) ->
 is_literal_term(B) when is_bitstring(B) -> true;
 is_literal_term(M) when is_map(M) ->
     is_literal_term_list(maps:to_list(M));
+is_literal_term(F) when is_function(F) ->
+    erlang:fun_info(F, type) =:= {type,external};
 is_literal_term(_) ->
     false.
 

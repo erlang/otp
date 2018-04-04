@@ -248,35 +248,58 @@ literal_type_tests(Config) when is_list(Config) ->
     ok.
 
 make_test([{is_function=T,L}|Ts]) ->
-    [test(T, L),test(T, 0, L)|make_test(Ts)];
+    [guard_test(T, L),guard_test(T, 0, L),body_test(T, L),body_test(T, 0, L)|make_test(Ts)];
 make_test([{T,L}|Ts]) ->
-    [test(T, L)|make_test(Ts)];
+    [guard_test(T, L),body_test(T, L)|make_test(Ts)];
 make_test([]) -> [].
 
-test(T, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L])),
-    {ok,Toks,_Line} = erl_scan:string(S),
-    {ok,E} = erl_parse:parse_exprs(Toks),
-    {value,Val,_Bs} = erl_eval:exprs(E, []),
+guard_test(_, L) when is_function(L) ->
+    %% Skip guard tests with exports - they are not literals
+    {atom,erl_anno:new(0),true};
+guard_test(T, L) ->
+    S = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L]),
+    {Val,Expr} = eval_string(S),
     Anno = erl_anno:new(0),
-    {match,Anno,{atom,Anno,Val},hd(E)}.
+    {match,Anno,{atom,Anno,Val},Expr}.
 
-test(T, A, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
-				    [T,L,A,T,L,A])),
-    {ok,Toks,_Line} = erl_scan:string(S),
+guard_test(_, _, L) when is_function(L) ->
+    %% Skip guard tests with exports - they are not literals
+    {atom,erl_anno:new(0),true};
+guard_test(T, A, L) ->
+    S = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L,A,T,L,A]),
+    {Val,Expr} = eval_string(S),
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},Expr}.
+
+body_test(T, L) ->
+    S = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), ~w(~w) end. ", [T,L,T,L]),
+    {Val,Expr} = eval_string(S),
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},Expr}.
+
+body_test(T, A, L) ->
+    S = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), ~w(~w,~w) end. ", [T,L,A,T,L,A]),
+    {Val,Expr} = eval_string(S),
+    Anno = erl_anno:new(0),
+    {match,Anno,{atom,Anno,Val},Expr}.
+
+eval_string(S) ->
+    {ok,Toks,_Line} = erl_scan:string(lists:flatten(S)),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
-    Anno = erl_anno:new(0),
-    {match,Anno,{atom,Anno,Val},hd(E)}.
-    
+    {Val,hd(E)}.
+
 literals() ->
     [42,
      3.14,
      -3,
      32982724987789283473473838474,
      [],
-     xxxx].
+     "abc",
+     <<"abc">>,
+     {},
+     xxxx,
+     fun erlang:erase/0].
 
 type_tests() ->
     [is_boolean,

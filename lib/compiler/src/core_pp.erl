@@ -136,6 +136,11 @@ format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
 			  key=#c_literal{val=K},
 			  val=#c_literal{val=V}} || {K,V} <- Pairs],
     format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
+format_1(#c_literal{val=F},_Ctxt) when is_function(F) ->
+    {module,M} = erlang:fun_info(F, module),
+    {name,N} = erlang:fun_info(F, name),
+    {arity,A} = erlang:fun_info(F, arity),
+    ["fun ",core_atom(M),$:,core_atom(N),$/,integer_to_list(A)];
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
 format_1(#c_var{name=V}, _) ->
@@ -541,4 +546,3 @@ segs_from_bitstring(Bitstring) ->
 	      unit=#c_literal{val=1},
 	      type=#c_literal{val=integer},
 	      flags=#c_literal{val=[unsigned,big]}}].
-

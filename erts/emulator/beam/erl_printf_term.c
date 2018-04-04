@@ -532,14 +532,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		Atom* module = atom_tab(atom_val(ep->info.mfa.module));
 		Atom* name = atom_tab(atom_val(ep->info.mfa.function));
 
-		PRINT_STRING(res, fn, arg, "#Fun<");
+		PRINT_STRING(res, fn, arg, "fun ");
 		PRINT_BUF(res, fn, arg, module->name, module->len);
-		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_CHAR(res, fn, arg, ':');
 		PRINT_BUF(res, fn, arg, name->name, name->len);
-		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_CHAR(res, fn, arg, '/');
 		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
 			    (ErlPfSWord) ep->info.mfa.arity);
-		PRINT_CHAR(res, fn, arg, '>');
 	    }
 	    break;
 	case FUN_DEF:

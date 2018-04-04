@@ -1377,6 +1377,8 @@ normalise({map,_,Pairs}=M) ->
 		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
 		(_) -> erlang:error({badarg,M})
 	    end, Pairs));
+normalise({'fun',_,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}) ->
+    fun M:F/A;
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;

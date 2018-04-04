@@ -4522,6 +4522,19 @@ is_empty_map(LoaderState* stp, GenOpArg Lit)
 }
 
 /*
+ * Predicate to test whether the given literal is an export.
+ */
+static int
+literal_is_export(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = stp->literals[Lit.val].term;
+    return is_export(term);
+}
+
+/*
  * Pseudo predicate map_key_sort that will sort the Rest operand for
  * map instructions as a side effect.
  */
