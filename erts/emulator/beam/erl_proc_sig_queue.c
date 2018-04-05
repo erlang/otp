@@ -723,7 +723,7 @@ erts_proc_sig_fetch(Process *proc)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc);
 }
 
-void do_seq_trace_output(Eterm to, Eterm token, Eterm msg);
+static void do_seq_trace_output(Eterm to, Eterm token, Eterm msg);
 
 static void
 send_gen_exit_signal(Process *c_p, Eterm from_tag,
@@ -869,7 +869,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     }
 }
 
-void
+static void
 do_seq_trace_output(Eterm to, Eterm token, Eterm msg)
 {
     /*
@@ -887,15 +887,17 @@ do_seq_trace_output(Eterm to, Eterm token, Eterm msg)
     else
         rp = erts_proc_lookup_raw_inc_refc(to);
 
-    erts_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
+    if (rp) {
+        erts_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
 
-    if (!ERTS_PROC_IS_EXITING(rp))
-        seq_trace_output(token, msg, SEQ_TRACE_SEND, to, rp);
+        if (!ERTS_PROC_IS_EXITING(rp))
+            seq_trace_output(token, msg, SEQ_TRACE_SEND, to, rp);
 
-    erts_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
-    if (!is_normal_sched)
-        erts_proc_dec_refc(rp);
+        if (!is_normal_sched)
+            erts_proc_dec_refc(rp);
+    }
 }
 
 void
