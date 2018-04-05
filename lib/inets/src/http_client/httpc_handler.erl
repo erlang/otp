@@ -253,8 +253,7 @@ handle_call(Request, From, State) ->
 	Result ->
 	    Result
     catch
-	Class:Reason ->
-            ST = erlang:get_stacktrace(),
+	Class:Reason:ST ->
 	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
@@ -270,8 +269,7 @@ handle_cast(Msg, State) ->
 	Result ->
 	    Result
     catch
-	Class:Reason ->
-            ST = erlang:get_stacktrace(),
+	Class:Reason:ST ->
 	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
@@ -286,8 +284,7 @@ handle_info(Info, State) ->
 	Result ->
 	    Result
     catch
-	Class:Reason ->
-            ST = erlang:get_stacktrace(),
+	Class:Reason:ST ->
 	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
@@ -572,8 +569,7 @@ do_handle_info({Proto, _Socket, Data},
 	    activate_once(Session),
 	    {noreply, State#state{mfa = NewMFA}}
     catch
-	Class:Reason ->
-            ST = erlang:get_stacktrace(),
+	Class:Reason:ST ->
 	    ClientReason = {could_not_parse_as_http, Data}, 
 	    ClientErrMsg = httpc_response:error(Request, ClientReason),
 	    NewState     = answer_request(Request, ClientErrMsg, State),
