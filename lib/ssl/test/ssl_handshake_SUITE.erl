@@ -40,7 +40,8 @@ all() -> [decode_hello_handshake,
 	  decode_single_hello_sni_extension_correctly,
 	  decode_empty_server_sni_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign,
-	  ignore_hassign_extension_pre_tls_1_2].
+	  ignore_hassign_extension_pre_tls_1_2,
+	  ignore_certificate_request_without_client_cert].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -172,6 +173,13 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     %%% Ignore
     {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
     {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
+
+
+ignore_certificate_request_without_client_cert(_Config) ->
+    {undefined, undefined} = ssl_handshake:select_hashsign(#certificate_request{}, undefined, tls_v1:default_signature_algs({3,3}), {3,3}),
+    {undefined, undefined} = ssl_handshake:select_hashsign(#certificate_request{}, undefined, tls_v1:default_signature_algs({3,2}), {3,2}),
+    {undefined, undefined} = ssl_handshake:select_hashsign(#certificate_request{}, undefined, tls_v1:default_signature_algs({3,0}), {3,0}).
+
 
 is_supported(Hash) ->
     Algos = crypto:supports(),
