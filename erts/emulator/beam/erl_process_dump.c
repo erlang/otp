@@ -942,6 +942,9 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     }
                     erts_putc(to, to_arg, '\n');
                 }
+            } else if (is_export_header(w)) {
+                dump_externally(to, to_arg, term);
+                erts_putc(to, to_arg, '\n');
             }
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
