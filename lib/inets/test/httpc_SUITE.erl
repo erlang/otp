@@ -151,6 +151,7 @@ only_simulated() ->
      relaxed,
      multipart_chunks,
      get_space,
+     delete_no_body,
      stream_fun_server_close
     ].
 
@@ -1304,7 +1305,16 @@ unix_domain_socket(Config) when is_list(Config) ->
 	= httpc:request(put, {URL, [], [], ""}, [], []),
     {ok, {{_,200,_}, [_ | _], _}}
         = httpc:request(get, {URL, []}, [], []).
-
+%%-------------------------------------------------------------------------
+delete_no_body(doc) ->
+    ["Test that a DELETE request without Body does not send a Content-Type header - Solves ERL-536"];
+delete_no_body(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/delete_no_body.html", Config),
+    %% Simulated server replies 500 if 'Content-Type' header is present
+    {ok, {{_,200,_}, _, _}} =
+        httpc:request(delete, {URL, []}, [], []),
+    {ok, {{_,500,_}, _, _}} =
+        httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], []).
 
 
 %%--------------------------------------------------------------------
@@ -1811,6 +1821,13 @@ auth_header([{"authorization", Value} | _]) ->
 auth_header([_ | Tail]) ->
     auth_header(Tail).
 
+content_type_header([]) ->
+    not_found;
+content_type_header([{"content-type", Value}|_]) ->
+    {ok, string:strip(Value)};
+content_type_header([_|T]) ->
+    content_type_header(T).
+
 handle_auth("Basic " ++ UserInfo, Challange, DefaultResponse) ->
     case string:tokens(base64:decode_to_string(UserInfo), ":") of
 	["alladin", "sesame"] = Auth ->
@@ -2232,7 +2249,15 @@ handle_uri("GET","/v1/kv/foo",_,_,_,_) ->
         "Content-Length: 24\r\n" ++
         "Content-Type: application/json\r\n\r\n" ++
         "[{\"Value\": \"aGVsbG8=\"}]\n";
-
+handle_uri(_,"/delete_no_body.html", _,Headers,_, DefaultResponse) ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+	"Content-Length:0\r\n\r\n",
+    case content_type_header(Headers) of
+	{ok, _} ->
+	    Error;
+	not_found ->
+	    DefaultResponse
+    end;
 handle_uri(_,_,_,_,_,DefaultResponse) ->
     DefaultResponse.
 

@@ -190,35 +190,11 @@ is_client_closing(Headers) ->
 %%%========================================================================
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
     when (Method =:= post)
-    orelse (Method =:= put)
-    orelse (Method =:= patch)
-    orelse (Method =:= delete) ->
-
-    NewBody = case Headers#http_request_h.expect of
-          "100-continue" ->
-              "";
-          _ ->
-              Body
-          end,
-
-    NewHeaders = case HeadersAsIs of
-        [] ->
-            Headers#http_request_h{
-                'content-type' = ContentType,
-                'content-length' = case body_length(Body) of
-                    undefined ->
-                        % on upload streaming the caller must give a
-                        % value to the Content-Length header
-                        % (or use chunked Transfer-Encoding)
-                        Headers#http_request_h.'content-length';
-                    Len when is_list(Len) ->
-                        Len
-                    end
-            };
-        _ ->
-            HeadersAsIs
-    end,
-
+         orelse (Method =:= put)
+         orelse (Method =:= patch)
+         orelse (Method =:= delete) ->
+    NewBody = update_body(Headers, Body),
+    NewHeaders = update_headers(Headers, ContentType, Body, HeadersAsIs),
     {NewHeaders, NewBody};
 
 post_data(_, Headers, _, []) ->
@@ -226,14 +202,39 @@ post_data(_, Headers, _, []) ->
 post_data(_, _, _, HeadersAsIs = [_|_]) ->
     {HeadersAsIs, ""}.
 
+update_body(Headers, Body) ->
+    case Headers#http_request_h.expect of
+        "100-continue" ->
+            "";
+        _ ->
+            Body
+    end.
+
+update_headers(Headers, ContentType, Body, []) ->
+    case Body of
+        [] ->
+            Headers#http_request_h{'content-length' = "0"};
+        <<>> ->
+            Headers#http_request_h{'content-length' = "0"};
+        {Fun, _Acc} when is_function(Fun, 1) ->
+            %% A client MUST NOT generate a 100-continue expectation in a request
+            %% that does not include a message body. This implies that either the
+            %% Content-Length or the Transfer-Encoding header MUST be present.
+            %% DO NOT send content-type when Body is empty.
+            Headers#http_request_h{'content-type' = ContentType};
+        _ ->
+            Headers#http_request_h{
+              'content-length' = body_length(Body),
+              'content-type' = ContentType}
+    end;
+update_headers(_, _, _, HeadersAsIs) ->
+    HeadersAsIs.
+
 body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
 
 body_length(Body) when is_list(Body) ->
-  integer_to_list(length(Body));
-
-body_length({DataFun, _Acc}) when is_function(DataFun, 1) ->
-  undefined.
+  integer_to_list(length(Body)).
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).
