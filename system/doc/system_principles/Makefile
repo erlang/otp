@@ -28,6 +28,7 @@ include $(ERL_TOP)/erts/vsn.mk
 #VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/system_principles
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -51,6 +52,8 @@ GIF_FILES =
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) 
+
+XML_GEN_FILES = $(SYSTEM_PRINCIPLES_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 
@@ -81,6 +84,9 @@ clean clean_docs:
 	rm -rf $(HTMLDIR)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
+
+$(XMLDIR)/%.xml: %.xmlsrc
+	 $(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
 
 # ----------------------------------------------------
 # Release Target

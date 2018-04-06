@@ -1,47 +1,9 @@
-# common test
-
-/common_test/doc/src/ct.xml
-/common_test/doc/src/ct_cover.xml
-/common_test/doc/src/ct_ftp.xml
-/common_test/doc/src/ct_master.xml
-/common_test/doc/src/ct_rpc.xml
-/common_test/doc/src/ct_snmp.xml
-/common_test/doc/src/ct_ssh.xml
-/common_test/doc/src/ct_netconfc.xml
-/common_test/doc/src/ct_telnet.xml
-/common_test/doc/src/unix_telnet.xml
-
-# edoc
-
-/edoc/doc/src/chapter.xml
-/edoc/doc/src/edoc.xml
-/edoc/doc/src/edoc_doclet.xml
-/edoc/doc/src/edoc_extract.xml
-/edoc/doc/src/edoc_layout.xml
-/edoc/doc/src/edoc_lib.xml
-/edoc/doc/src/edoc_run.xml
-
-# eunit
-
-/eunit/doc/src/chapter.xml
-/eunit/doc/src/eunit.xml
-/eunit/doc/src/eunit_surefire.xml
-
 # erl_interface
 
 /erl_interface/bin
 /erl_interface/obj.mt
 /erl_interface/obj.st
 /erl_interface/obj
-
-# gs
-
-/gs/doc/src/gs_chapter2.xml
-/gs/doc/src/gs_chapter4.xml
-/gs/doc/src/gs_chapter5.xml
-/gs/doc/src/gs_chapter6.xml
-/gs/doc/src/gs_chapter7.xml
-/gs/doc/src/gs_chapter8.xml
 
 # megaco
 
@@ -129,19 +91,6 @@
 /megaco/src/text/megaco_text_parser_v1.erl
 /megaco/src/text/megaco_text_parser_v2.erl
 /megaco/src/text/megaco_text_parser_v3.erl
-/megaco/doc/html/mstone1.jpg
-
-# mnesia
-
-/mnesia/doc/src/Mnesia_App_A.xml
-/mnesia/doc/src/Mnesia_App_B.xml
-/mnesia/doc/src/Mnesia_App_C.xml
-/mnesia/doc/src/Mnesia_App_D.xml
-/mnesia/doc/src/Mnesia_chap2.xml
-/mnesia/doc/src/Mnesia_chap3.xml
-/mnesia/doc/src/Mnesia_chap4.xml
-/mnesia/doc/src/Mnesia_chap5.xml
-/mnesia/doc/src/Mnesia_chap7.xml
 
 # orber & cos* applications
 
@@ -525,39 +474,3 @@
 /orber/src/oe_OrberIFR.hrl
 /orber/src/oe_erlang.erl
 /orber/src/oe_erlang.hrl
-
-# snmp
-
-snmp/doc/intex.html
-
-# syntax_tools
-
-/syntax_tools/doc/src/chapter.xml
-/syntax_tools/doc/src/epp_dodger.xml
-/syntax_tools/doc/src/erl_comment_scan.xml
-/syntax_tools/doc/src/erl_prettypr.xml
-/syntax_tools/doc/src/erl_recomment.xml
-/syntax_tools/doc/src/erl_syntax.xml
-/syntax_tools/doc/src/erl_syntax_lib.xml
-/syntax_tools/doc/src/erl_tidy.xml
-/syntax_tools/doc/src/merl.xml
-/syntax_tools/doc/src/merl_transform.xml
-/syntax_tools/doc/src/igor.xml
-/syntax_tools/doc/src/prettypr.xml
-
-# wx
-
-/wx/doc/src/chapter.xml
-/wx/doc/src/gl.xml
-/wx/doc/src/glu.xml
-/wx/doc/src/ref_man.xml
-
-# xmerl
-
-/xmerl/doc/src/xmerl.xml
-/xmerl/doc/src/xmerl_eventp.xml
-/xmerl/doc/src/xmerl_scan.xml
-/xmerl/doc/src/xmerl_ug.xml
-/xmerl/doc/src/xmerl_xpath.xml
-/xmerl/doc/src/xmerl_xs.xml
-/xmerl/doc/src/xmerl_xsd.xml

@@ -28,6 +28,7 @@
 %% Records 
 %%======================================================================
 -record(args, {suffix=".xml",
+               dir=".",
 	       layout=docgen_edoc_xml_cb,
 	       def=[],
 	       includes=[],
@@ -85,7 +86,7 @@ module(File, Args) ->
 		    
 		    {app_default, "OTPROOT"},
 		    {file_suffix, Args#args.suffix},
-		    {dir,         "."},
+		    {dir,         Args#args.dir},
 		    {layout,      Args#args.layout}],
 	    edoc:file(File, Opts);
 	false ->
@@ -118,7 +119,7 @@ users_guide(File, Args) ->
 	    Text = edoc_lib:run_layout(F, Opts),
 	    
 	    OutFile = "chapter" ++ Args#args.suffix,
-	    edoc_lib:write_file(Text, ".", OutFile, Encoding);
+	    edoc_lib:write_file(Text, Args#args.dir, OutFile, Encoding);
 	false ->
 	    io:format("~s: not a regular file\n", [File]),
 	    usage()
@@ -139,6 +140,8 @@ parse(["-def", Key, Val |RawOpts], Type, Args) ->
 parse(["-i", Dir |RawOpts], Type, Args) ->
     Args2 = Args#args{includes=Args#args.includes++[Dir]},
     parse(RawOpts, Type, Args2);
+parse(["-dir", Dir |RawOpts], Type, Args) ->
+    parse(RawOpts, Type, Args#args{dir=Dir});
 parse(["-preprocess", Bool |RawOpts], Type, Args) when Bool == "true";
 						       Bool == "false" ->
     parse(RawOpts, Type, Args#args{preprocess=list_to_atom(Bool)});

@@ -222,6 +222,7 @@ MAN9DIR = $(DOCDIR)/man9
 TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
+XMLDIR = $(DOCDIR)/xml
 
 ifeq ($(CSS_FILE),)
 CSS_FILE = otp_doc.css
@@ -276,55 +277,35 @@ endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
+MANXSLTARGS=--stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities -path .
 
-$(MAN1DIR)/%.1: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN2DIR)/%.2: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN1DIR)/%.1 $(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
 ifneq ($(wildcard $(SPECDIR)),)
-$(MAN3DIR)/%.3: %.xml $(SPECDIR)/specs_%.xml
-	date=`date +"%B %e, %Y"`; \
+$(MAN3DIR)/%.3: $(XMLDIR)/%.xml $(SPECDIR)/specs_%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	specs_file=`pwd`/$(SPECDIR)/specs_$*.xml; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --stringparam specs_file "$$specs_file" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+	xsltproc --output "$@" $(MANXSLTARGS) --stringparam specs_file "$$specs_file" $(DOCGEN)/priv/xsl/db_man.xsl $<
 else
-$(MAN3DIR)/%.3: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN3DIR)/%.3: $(XMLDIR)/%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 endif
 
 # left for compatibility
-$(MAN4DIR)/%.4: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN4DIR)/%.5: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-# left for compatibility
-$(MAN6DIR)/%.6: %_app.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN6DIR)/%.7: %_app.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN9DIR)/%.9: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN6DIR)/%.6 $(MAN6DIR)/%.7: $(XMLDIR)/%_app.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
 
-.xmlsrc.xml:
-	 escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
+$(XMLDIR)/%.xml: %.xmlsrc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
 
 .fo.pdf:
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@

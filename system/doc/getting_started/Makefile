@@ -28,6 +28,7 @@ include $(ERL_TOP)/erts/vsn.mk
 #VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/getting_started
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------

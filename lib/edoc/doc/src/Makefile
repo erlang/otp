@@ -54,9 +54,10 @@ XML_NOTES_FILES = notes.xml
 BOOK_FILES = book.xml
 
 XML_FILES=\
-	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES) \
-	$(XML_NOTES_FILES)
+	$(BOOK_FILES) $(XML_APPLICATION_FILES) \
+	$(XML_PART_FILES) $(XML_NOTES_FILES)
+
+XML_GEN_FILES=$(XML_REF3_FILES:%=$(XMLDIR)/%) $(XML_CHAPTER_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 INFO_FILE = ../../info
@@ -101,11 +102,11 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES)
 
-$(XML_REF3_FILES):
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -i $(ERL_TOP)/lib/edoc/include $(SRC_DIR)/$(@:%.xml=%.erl)
+$(XML_REF3_FILES:%=$(XMLDIR)/%):
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -i $(ERL_TOP)/lib/edoc/include -dir $(XMLDIR) $(SRC_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
 
-$(XML_CHAPTER_FILES): ../overview.edoc
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -chapter ../overview.edoc
+$(XML_CHAPTER_FILES:%=$(XMLDIR)/%): ../overview.edoc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -chapter -dir $(XMLDIR) $<
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 

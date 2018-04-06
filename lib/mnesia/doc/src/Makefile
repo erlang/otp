@@ -49,22 +49,26 @@ XML_PART_FILES = \
 XML_CHAPTER_FILES = \
 	Mnesia_chap1.xml \
 	Mnesia_overview.xml \
+	Mnesia_chap8.xml \
+	notes.xml
+
+XML_CHAPTER_GEN_FILES = \
 	Mnesia_chap2.xml \
 	Mnesia_chap3.xml \
 	Mnesia_chap4.xml \
 	Mnesia_chap5.xml \
 	Mnesia_chap7.xml \
-	Mnesia_chap8.xml \
 	Mnesia_App_A.xml \
 	Mnesia_App_B.xml \
-	Mnesia_App_C.xml \
-	notes.xml
+	Mnesia_App_C.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+
+XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 GIF_FILES = \
 	company.gif
