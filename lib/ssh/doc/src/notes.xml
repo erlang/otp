@@ -468,6 +468,20 @@
 </section>
 
 
+<section><title>Ssh 4.4.2.3</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ssh_sftp server (running version 6) could fail if it
+	    is told to remove a file which in fact is a directory.</p>
+          <p>
+	    Own Id: OTP-15004</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>Ssh 4.4.2.2</title>
     <section><title>Improvements and New Features</title>
     <list>
