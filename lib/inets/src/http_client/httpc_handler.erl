@@ -1040,21 +1040,7 @@ handle_response(#state{status = new} = State) ->
     handle_response(try_to_enable_pipeline_or_keep_alive(State));
 
 handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
-    Status =
-        case Status0 of
-            close -> close;
-            _ ->
-                case State0#state.headers of
-                    undefined -> Status0;
-                    _ ->
-                        case httpc_response:is_server_closing(
-                               State0#state.headers) of
-                            true -> close;
-                            false -> Status0
-                        end
-                end
-        end,
-    State = State0#state{status = Status},
+    State = handle_server_closing(State0),
     #state{request      = Request,
            session      = Session,
            status_line  = StatusLine,
@@ -1323,6 +1309,14 @@ try_to_enable_pipeline_or_keep_alive(
 	    end;
 	false ->
 	    State#state{status = close}
+    end.
+
+handle_server_closing(State = #state{status = close}) -> State;
+handle_server_closing(State = #state{headers = undefined}) -> State;
+handle_server_closing(State = #state{headers = Headers}) ->
+    case httpc_response:is_server_closing(Headers) of
+        true -> State#state{status = close};
+        false -> State
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
