@@ -1292,7 +1292,7 @@ typedef struct {
 ErlNifIOVec *iovec = NULL;
 size_t max_elements = 128;
 ERL_NIF_TERM tail;
-if (!enif_inspect_iovec(NULL, max_elements, term, &tail, iovec))
+if (!enif_inspect_iovec(NULL, max_elements, term, &tail, &iovec))
   return 0;
 
 // Do things with the iovec
