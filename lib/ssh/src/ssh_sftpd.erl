@@ -362,10 +362,12 @@ handle_op(?SSH_FXP_REMOVE, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>,
     case IsDir of %% This version 6 we still have ver 5
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"); 
+				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"),
+            State0;
 	true ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-				    ?SSH_FX_FAILURE, "File is a directory"); 
+				    ?SSH_FX_FAILURE, "File is a directory"),
+            State0;
 	false ->
 	    {Status, FS1} = FileMod:delete(Path, FS0),
 	    State1 = State0#state{file_state = FS1},
