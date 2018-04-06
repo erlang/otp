@@ -107,7 +107,7 @@
         <p><c>atom() | {atom(), list()}</c></p>
         <p><c>atom()</c> - Name of the erlang module implementing the behaviours
         <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> or
-        <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> as the
+        <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso> as the
         case maybe.</p>
         <p><c>list()</c> - List of options that can be passed to the callback module.</p>
       </item>
