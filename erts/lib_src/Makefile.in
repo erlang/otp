@@ -334,7 +334,10 @@ ETHREAD_LIB=
 
 endif
 
+ifneq ($(CREATE_DIRS),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
+
 #
 # Everything to build
 #
