@@ -33,7 +33,8 @@
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
-	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1]).
+	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
+         receive_stacked/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -62,7 +63,8 @@ groups() ->
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
-       bad_tuples,bad_try_catch_nesting]}].
+       bad_tuples,bad_try_catch_nesting,
+       receive_stacked]}].
 
 init_per_suite(Config) ->
     Config.
@@ -529,6 +531,52 @@ bad_try_catch_nesting(Config) ->
       {{'try',{y,2},{f,3}},
        7,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
+    ok.
+
+receive_stacked(Config) ->
+    Mod = ?FUNCTION_NAME,
+    Errors = do_val(Mod, Config),
+    [{{receive_stacked,f1,0},
+      {{loop_rec_end,{f,3}},
+       17,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f2,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f3,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f4,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f5,0},
+      {{loop_rec_end,{f,23}},
+       23,
+       {fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f6,0},
+      {{gc_bif,byte_size,{f,29},0,[{y,0}],{x,0}},
+       12,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f7,0},
+      {{loop_rec_end,{f,33}},
+       20,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f8,0},
+      {{loop_rec_end,{f,38}},
+       20,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,m1,0},
+      {{loop_rec_end,{f,43}},
+       19,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,m2,0},
+      {{loop_rec_end,{f,48}},
+       33,
+       {fragile_message_reference,{y,0}}}}] = Errors,
+
+    %% Compile the original source code as a smoke test.
+    Data = proplists:get_value(data_dir, Config),
+    Base = atom_to_list(Mod),
+    File = filename:join(Data, Base),
+    {ok,Mod,_} = compile:file(File, [binary]),
+
     ok.
 
 %%%-------------------------------------------------------------------------
