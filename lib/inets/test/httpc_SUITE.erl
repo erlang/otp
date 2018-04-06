@@ -269,7 +269,7 @@ end_per_testcase(Case, Config)
                        {failed, _} -> true;
                        {skipped, _} -> false
                    end,
-    if ShallCleanup ->
+    if ShallCleanup =:= true ->
             httpc:request(url(group_name(Config), "/just_close.html", Config)),
             ok;
        true ->
