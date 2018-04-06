@@ -53,14 +53,14 @@
 
   <datatypes>
     <datatype>
-      <name>ext_binary()</name>
+      <name name="ext_binary"/>
       <desc>
         <p>A binary data object, structured according to
           the Erlang external term format.</p>
       </desc>
     </datatype>
     <datatype>
-      <name>iovec()</name>
+      <name name="iovec"/>
       <desc>
         <p>A list of binaries. This datatype is useful to use
           together with <seealso marker="erl_nif#enif_inspect_iovec">
