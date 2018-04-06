@@ -303,9 +303,8 @@ $(MAN6DIR)/%.6 $(MAN6DIR)/%.7: $(XMLDIR)/%_app.xml
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
-
-$(XMLDIR)/%.xml: %.xmlsrc
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
+$(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $(shell pwd) $< $@
 
 .fo.pdf:
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@

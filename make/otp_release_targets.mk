@@ -40,7 +40,11 @@ _create_xml_dirs := $(shell mkdir -p $(XMLDIR))
 
 XML_GEN_FILES+=$(patsubst %.xml,$(XMLDIR)/%.xml,$(XML_FILES))
 $(XMLDIR)/%.xml: %.xml
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/github_link.escript $^ \
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/github_link.escript $< \
+	"$(subst $(ERL_TOP)/,,$(CURDIR)/$^)" "$(shell git rev-parse HEAD)" $@
+
+$(XMLDIR)/%.xmlsrc: %.xmlsrc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/github_link.escript $< \
 	"$(subst $(ERL_TOP)/,,$(CURDIR)/$^)" "$(shell git rev-parse HEAD)" $@
 
 ifeq ($(TOPDOC),)

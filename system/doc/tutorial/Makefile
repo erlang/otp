@@ -113,9 +113,6 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 
-$(XMLDIR)/%.xml: %.xmlsrc
-	 $(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
-
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
