@@ -618,10 +618,23 @@ print_length_tuple(Tuple, 1, _T, RF, Enc, Str) ->
     More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, 1+Dd, T1, RF, Enc, Str) end,
     {"{...}", 5, 3, More};
 print_length_tuple(Tuple, D, T, RF, Enc, Str) ->
-    L = print_length_list1(tuple_to_list(Tuple), D, tsub(T, 2), RF, Enc, Str),
+    L = print_length_tuple1(Tuple, 1, D, tsub(T, 2), RF, Enc, Str),
     IsTagged = is_atom(element(1, Tuple)) and (tuple_size(Tuple) > 1),
     {Len, Dots} = list_length(L, 2, 0),
     {{tuple,IsTagged,L}, Len, Dots, no_more}.
+
+print_length_tuple1(Tuple, I, _D, _T, _RF, _Enc, _Str)
+             when I > tuple_size(Tuple) ->
+    [];
+print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, I, D+Dd, T1, RF, Enc, Str) end,
+    {dots, 3, 3, More};
+print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) ->
+    E = element(I, Tuple),
+    T1 = tsub(T, 1),
+    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
+    T2 = tsub(T1, Len1),
+    [Elem1 | print_length_tuple1(Tuple, I + 1, D - 1, T2, RF, Enc, Str)].
 
 print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str) ->
     More = fun(T1, Dd) ->
@@ -631,24 +644,28 @@ print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str) ->
 print_length_record(Tuple, D, T, RF, RDefs, Enc, Str) ->
     Name = [$# | write_atom(element(1, Tuple), Enc)],
     NameL = string:length(Name),
-    Elements = tl(tuple_to_list(Tuple)),
     T1 = tsub(T, NameL+2),
-    L = print_length_fields(RDefs, D - 1, T1, Elements, RF, Enc, Str),
+    L = print_length_fields(RDefs, D - 1, T1, Tuple, 2, RF, Enc, Str),
     {Len, Dots} = list_length(L, NameL + 2, 0),
     {{record, [{Name,NameL} | L]}, Len, Dots, no_more}.
 
-print_length_fields([], _D, _T, [], _RF, _Enc, _Str) ->
+print_length_fields([], _D, _T, Tuple, I, _RF, _Enc, _Str)
+                when I > tuple_size(Tuple) ->
     [];
-print_length_fields(Term, D, T, Es, RF, Enc, Str) when D =:= 1; T =:= 0 ->
+print_length_fields(Term, D, T, Tuple, I, RF, Enc, Str)
+                when D =:= 1; T =:= 0 ->
     More = fun(T1, Dd) ->
-                   ?FUNCTION_NAME(Term, D+Dd, T1, Es, RF, Enc, Str)
+                   ?FUNCTION_NAME(Term, D+Dd, T1, Tuple, I, RF, Enc, Str)
            end,
     {dots, 3, 3, More};
-print_length_fields([Def | Defs], D, T, [E | Es], RF, Enc, Str) ->
-    Field1 = print_length_field(Def, D - 1, tsub(T, 1), E, RF, Enc, Str),
+print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str) ->
+    E = element(I, Tuple),
+    T1 = tsub(T, 1),
+    Field1 = print_length_field(Def, D - 1, T1, E, RF, Enc, Str),
     {_, Len1, _, _} = Field1,
+    T2 = tsub(T1, Len1),
     [Field1 |
-     print_length_fields(Defs, D - 1, tsub(T, Len1 + 1), Es, RF, Enc, Str)].
+     print_length_fields(Defs, D - 1, T2, Tuple, I + 1, RF, Enc, Str)].
 
 print_length_field(Def, D, T, E, RF, Enc, Str) ->
     Name = write_atom(Def, Enc),

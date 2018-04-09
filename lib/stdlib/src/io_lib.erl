@@ -300,7 +300,7 @@ write1([H|T], D, E) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E, $|)],$]]
+	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E)],$]]
     end;
 write1(F, _D, _E) when is_function(F) ->
     erlang:fun_to_list(F);
@@ -311,20 +311,24 @@ write1(T, D, E) when is_tuple(T) ->
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write1(element(1, T), D-1, E)|
-              write_tail(tl(tuple_to_list(T)), D-1, E, $,)],
+	     [write1(element(1, T), D-1, E)|write_tuple(T, 2, D-1, E)],
 	     $}]
     end.
 
-%% write_tail(List, Depth, CharacterBeforeDots)
+%% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _E, _S) -> "";
-write_tail(_, 1, _E, S) -> [S | "..."];
-write_tail([H|T], D, E, S) ->
-    [$,,write1(H, D-1, E)|write_tail(T, D-1, E, S)];
-write_tail(Other, D, E, S) ->
-    [S,write1(Other, D-1, E)].
+write_tail([], _D, _E) -> "";
+write_tail(_, 1, _E) -> [$| | "..."];
+write_tail([H|T], D, E) ->
+    [$,,write1(H, D-1, E)|write_tail(T, D-1, E)];
+write_tail(Other, D, E) ->
+    [$|,write1(Other, D-1, E)].
+
+write_tuple(T, I, _D, _E) when I > tuple_size(T) -> "";
+write_tuple(_, _I, 1, _E) -> [$, | "..."];
+write_tuple(T, I, D, E) ->
+    [$,,write1(element(I, T), D-1, E)|write_tuple(T, I+1, D-1, E)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -947,7 +951,7 @@ limit(T, D) when is_tuple(T) ->
 	D =:= 1 -> {'...'};
 	true ->
             list_to_tuple([limit(element(1, T), D-1)|
-                           limit_tail(tl(tuple_to_list(T)), D-1)])
+                           limit_tuple(T, 2, D-1)])
     end;
 limit(<<_/bitstring>>=Term, D) -> limit_bitstring(Term, D);
 limit(Term, _D) -> Term.
@@ -958,6 +962,11 @@ limit_tail([H|T], D) ->
     [limit(H, D-1)|limit_tail(T, D-1)];
 limit_tail(Other, D) ->
     limit(Other, D-1).
+
+limit_tuple(T, I, _D) when I > tuple_size(T) -> [];
+limit_tuple(_, _I, 1) -> ['...'];
+limit_tuple(T, I, D) ->
+    [limit(element(I, T), D-1)|limit_tuple(T, I+1, D-1)].
 
 %% Cannot limit maps properly since there is no guarantee that
 %% maps:from_list() creates a map with the same internal ordering of
