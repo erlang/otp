@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "5.4.2"},
+  {vsn, "5.4.3"},
   {modules, [application,
 	     application_controller,
 	     application_master,
