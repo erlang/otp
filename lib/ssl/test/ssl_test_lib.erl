@@ -1567,12 +1567,60 @@ openssl_dsa_support() ->
             true
     end.
 
+%% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
+openssl_sane_dtls() -> 
+    case os:cmd("openssl version") of
+        "OpenSSL 0." ++ _ ->
+            false;
+        "OpenSSL 1.0.1s-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2k-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2d" ++ _ ->
+            false;
+        "OpenSSL 1.0.2n" ++ _ ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false;
+        "OpenSSL" ++ _ ->
+            true;
+        "LibreSSL 2.7" ++ _ ->
+            true;
+        _ ->
+            false
+        end.
+openssl_sane_client_cert() -> 
+    case os:cmd("openssl version") of
+        "LibreSSL 2.5.2" ++ _ ->
+            true;
+        "LibreSSL 2.4" ++ _ ->
+            false;
+        "LibreSSL 2.3" ++ _ ->
+            false; 
+         "LibreSSL 2.1" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+        "OpenSSL 1.0.1s-freebsd" ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false; 
+        _ ->
+            true
+    end.
+
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
 	    case {Version, os:cmd("openssl version")} of
                 {'sslv3', "OpenSSL 1.0.2" ++ _} ->
                     false;
+                {'dtlsv1', _} ->
+		    not is_fips(openssl);
+		{'dtlsv1.2', _} ->
+		    not is_fips(openssl);
 		{_, "OpenSSL 1.0.2" ++ _} ->
 		    true;
 		{_, "OpenSSL 1.0.1" ++ _} ->
@@ -1581,7 +1629,7 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'tlsv1.1', "OpenSSL 1.0.0" ++ _} ->
 		    false;
-                {'dtlsv1.2', "OpenSSL 1.0.0" ++ _} ->
+                {'dtlsv1.2', "OpenSSL 1.0.2" ++ _} ->
 		    false;
 		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
 		    false;

@@ -89,7 +89,7 @@ client_ecdhe_ecdsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
 
 %% ECDH_ECDSA
 client_ecdh_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
-    Ext = x509_test:extensions([{key_usage, [keyEncipherment]}]),
+    Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, 
                                                         [[], [], [{extensions, Ext}]]},
                                                        {client_chain,
@@ -99,7 +99,7 @@ client_ecdh_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
                ssl_test_lib:ssl_options(SOpts, Config),
                [{check_keyex, ecdh_ecdsa} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_rsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
-     Ext = x509_test:extensions([{key_usage, [keyEncipherment]}]),
+     Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
      {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, 
                                                          [[], [], [{extensions, Ext}]]},
                                                         {client_chain,
@@ -110,7 +110,7 @@ client_ecdhe_rsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
                [{check_keyex, ecdh_ecdsa} | proplists:delete(check_keyex, Config)]).
 
 client_ecdhe_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
-    Ext = x509_test:extensions([{key_usage, [keyEncipherment]}]),
+    Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, 
                                                         [[], [], [{extensions, Ext}]]},
                                                        {client_chain,
