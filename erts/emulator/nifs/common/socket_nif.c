@@ -322,6 +322,7 @@ typedef unsigned long long llu_t;
 #define sock_getopt(s,t,n,v,l)     getsockopt((s),(t),(n),(v),(l))
 #define sock_htons(x)              htons((x))
 #define sock_htonl(x)              htonl((x))
+#define sock_listen(s, b)          listen((s), (b))
 #define sock_name(s, addr, len)    getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)                             \
     make_noninheritable_handle(socket((domain), (type), (proto)))
@@ -341,6 +342,7 @@ static unsigned long one_value  = 1;
 #define sock_getopt(s,t,n,v,l)          getsockopt((s),(t),(n),(v),(l))
 #define sock_htons(x)                   htons((x))
 #define sock_htonl(x)                   htonl((x))
+#define sock_listen(s, b)               listen((s), (b))
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 
@@ -551,6 +553,9 @@ static ERL_NIF_TERM nconnect(ErlNifEnv*          env,
                              SocketDescriptor*   descP,
                              const ERL_NIF_TERM* addr,
                              int                 port);
+static ERL_NIF_TERM nlisten(ErlNifEnv*        env,
+                            SocketDescriptor* descP,
+                            int               backlog);
 static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
                                          SocketDescriptor* descP);
 
@@ -1606,6 +1611,59 @@ BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err)
     *err = 0;
 
     return TRUE;
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_listen
+ *
+ * Description:
+ * Listen for connections on a socket.
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * Backlog      - The maximum length to which the queue of pending
+ *                connections for socket may grow.
+ */
+static
+ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
+                        int                argc,
+                        const ERL_NIF_TERM argv[])
+{
+    SocketDescriptor* descP;
+    int               backlog;
+
+    /* Extract arguments and perform preliminary validation */
+
+    if ((argc != 2) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !GET_INT(env, argv[1], &backlog)) {
+        return enif_make_badarg(env);
+    }
+
+    return nlisten(env, descP, backlog);
+}
+
+
+
+static
+ERL_NIF_TERM nlisten(ErlNifEnv*        env,
+                     SocketDescriptor* descP,
+                     int               backlog)
+{
+    if (descP->state == SOCKET_STATE_CLOSED)
+        return make_error(env, atom_exbadstate);
+
+    if (!IS_OPEN(descP))
+        return make_error(env, atom_exbadstate);
+
+    if (IS_SOCKET_ERROR(sock_listen(descP->sock, backlog)))
+        return make_error2(env, sock_errno());
+
+    descP->state = SOCKET_STATE_LISTENING;
+
+    return atom_ok;
 }
 
 

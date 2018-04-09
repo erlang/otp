@@ -213,7 +213,10 @@ info() ->
 %%
 %% ===========================================================================
 
+%% ===========================================================================
+%%
 %% open - create an endpoint for communication
+%%
 
 open(Domain, Type) ->
     open(Domain, Type, null).
@@ -272,7 +275,10 @@ default_protocol(null, Type)      -> throw({error, {no_default_protocol, Type}})
 default_protocol(Protocol, _)     -> Protocol.
 
 
+%% ===========================================================================
+%%
 %% bind - bind a name to a socket
+%%
 
 -spec bind(Socket, FileOrAddr) -> ok | {error, Reason} when
       Socket     :: socket(),
@@ -318,7 +324,11 @@ bind({socket, _, SockRef}, Addr, Port)
     nif_bind(SockRef, {Addr, Port}).
 
 
+
+%% ===========================================================================
+%%
 %% connect - initiate a connection on a socket
+%%
 
 -spec connect(Socket, Addr, Port) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -364,7 +374,11 @@ connect({socket, _, SockRef}, Addr, Port, Timeout)
     end.
 
 
+
+%% ===========================================================================
+%%
 %% listen - listen for connections on a socket
+%%
 
 -spec listen(Socket, Backlog) -> ok | {error, Reason} when
       Socket  :: socket(),
@@ -375,13 +389,15 @@ listen(Socket) ->
     listen(Socket, ?SOCKET_LISTEN_BACKLOG_DEFAULT).
 
 listen({socket, _, SockRef}, Backlog)
-  when (is_integer(Backlog) andalso (Backlog >= 0)) orelse is_boolean(Backlog) ->
-    EBacklog = enc_backlog(Backlog),
-    nif_listen(SockRef, EBacklog).
+  when (is_integer(Backlog) andalso (Backlog >= 0)) ->
+    nif_listen(SockRef, Backlog).
 
 
 
+%% ===========================================================================
+%%
 %% accept, accept4 - accept a connection on a socket
+%%
 
 -spec accept(LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
       LSocket :: socket(),
@@ -681,16 +697,6 @@ enc_protocol(dgram,     udp)  -> ?SOCKET_PROTOCOL_UDP;
 enc_protocol(seqpacket, sctp) -> ?SOCKET_PROTOCOL_SCTP;
 enc_protocol(Type, Proto)     -> throw({error, {invalid_protocol, {Type, Proto}}}).
 
-
--spec enc_backlog(Backlog) -> non_neg_integer() when
-      Backlog :: non_neg_integer() | boolean().
-
-enc_backlog(true) ->
-    ?SOCKET_LISTEN_BACKLOG_DEFAULT;
-enc_backlog(false) ->
-    0;
-enc_backlog(Backlog) when is_integer(Backlog) andalso (Backlog >= 0) ->
-    Backlog.
 
 -spec enc_accept_flags(Flags) -> non_neg_integer() when
       Flags :: accept_flags().
