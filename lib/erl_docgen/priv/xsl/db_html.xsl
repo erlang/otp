@@ -67,6 +67,11 @@
     <func:result select="$result"/>
   </func:function>
 
+  <func:function name="erl:to-link">
+    <xsl:param name="text"/>
+    <func:result select="translate(erl:lower-case($text),': /()&quot;&#10;','-------')"/>
+  </func:function>
+
   <!-- Used from template menu.funcs to sort a module's functions for the lefthand index list,
        from the module's .xml file. Returns a value on which to sort the entity in question
        (a <name> element).
@@ -951,7 +956,6 @@
 	<xsl:call-template name="marker-before-title"/>
       </xsl:for-each>
       <xsl:call-template name="title_link">
-        <xsl:with-param name="link" select="generate-id(title)"/>
         <xsl:with-param name="title">
           <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
           <xsl:value-of select="title"/>
@@ -1397,7 +1401,7 @@
     <xsl:param name="chapter_file"/>
     <xsl:for-each select="$entries">
       <li title="{title}">
-        <a href="{$chapter_file}.html#{generate-id(title)}">
+        <a href="{$chapter_file}.html#{erl:to-link(title)}">
           <xsl:value-of select="title"/>
         </a>
       </li>
@@ -2202,14 +2206,14 @@
     <h3>
       <xsl:call-template name="title_link">
         <xsl:with-param name="title" select="$title"/>
-        <xsl:with-param name="link" select="translate(erl:lower-case($title),' ','-')"/>
+        <xsl:with-param name="link" select="erl:to-link($title)"/>
       </xsl:call-template>
     </h3>
   </xsl:template>
 
   <xsl:template name="title_link">
     <xsl:param name="title"/>
-    <xsl:param name="link" select="generate-id(title)"/>
+    <xsl:param name="link" select="erl:to-link(title)"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
     <span onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
