@@ -226,6 +226,7 @@ typedef unsigned long long llu_t;
 #define MALLOC(SZ)    enif_alloc(SZ)
 #define FREE(P)       enif_free(P)
 #define MKA(E,S)      enif_make_atom(E, S)
+#define MKREF(E)      enif_make_ref(E)
 #define MKT2(E,E1,E2) enif_make_tuple2(E, E1, E2)
 #define MCREATE(N)    enif_mutex_create(N)
 
@@ -317,11 +318,13 @@ typedef unsigned long long llu_t;
 /* *** Windown macros *** */
 
 #define sock_bind(s, addr, len)    bind((s), (addr), (len))
+#define sock_connect(s, addr, len) connect((s), (addr), (len))
+#define sock_getopt(s,t,n,v,l)     getsockopt((s),(t),(n),(v),(l))
+#define sock_htons(x)              htons((x))
+#define sock_htonl(x)              htonl((x))
 #define sock_name(s, addr, len)    getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)                             \
     make_noninheritable_handle(socket((domain), (type), (proto)))
-#define sock_htons(x)              htons((x))
-#define sock_htonl(x)              htonl((x))
 
 #define sock_errno()               WSAGetLastError()
 #define sock_create_event(s)       WSACreateEvent()
@@ -334,10 +337,12 @@ static unsigned long one_value  = 1;
 #else /* !__WIN32__ */
 
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
-#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
-#define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#define sock_connect(s, addr, len)      connect((s), (addr), (len))
+#define sock_getopt(s,t,n,v,l)          getsockopt((s),(t),(n),(v),(l))
 #define sock_htons(x)                   htons((x))
 #define sock_htonl(x)                   htonl((x))
+#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
+#define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 
 #define sock_errno()                errno
 #define sock_create_event(s)        (s) /* return file descriptor */
@@ -502,6 +507,9 @@ static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
+                                            int                argc,
+                                            const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
@@ -543,6 +551,10 @@ static ERL_NIF_TERM nconnect(ErlNifEnv*          env,
                              SocketDescriptor*   descP,
                              const ERL_NIF_TERM* addr,
                              int                 port);
+static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
+                                         SocketDescriptor* descP);
+
+static BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err);
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
@@ -617,6 +629,7 @@ static char str_eagain[]         = "eagain";
 static char str_eafnosupport[]   = "eafnosupport";
 static char str_einval[]         = "einval";
 static char str_eisconn[]        = "eisconn";
+static char str_eisnconn[]       = "eisnconn";
 static char str_exbadstate[]     = "exbadstate";
 static char str_exmon[]          = "exmonitor";  // failed monitor
 static char str_exself[]         = "exself";     // failed self
@@ -633,6 +646,7 @@ static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_eafnosupport;
 static ERL_NIF_TERM atom_einval;
 static ERL_NIF_TERM atom_eisconn;
+static ERL_NIF_TERM atom_eisnconn;
 static ERL_NIF_TERM atom_exbadstate;
 static ERL_NIF_TERM atom_exmon;
 static ERL_NIF_TERM atom_exself;
@@ -1273,8 +1287,8 @@ char* decode_address_tuple(ErlNifEnv*          env,
                     return str_einval;
                 laddr[a] = v;
             }
-            sys_memcpy(&localP->u.sai.sin_addr, &laddr, sizeof(laddr));
-            addrP->len              = sizeof(struct sockaddr_in);
+            sys_memcpy(&addrP->u.sai.sin_addr, &laddr, sizeof(laddr));
+            addrP->len = sizeof(struct sockaddr_in);
             return NULL;
         }
         break;
@@ -1301,8 +1315,8 @@ char* decode_address_tuple(ErlNifEnv*          env,
                 laddr[a*2  ] = ((v >> 8) & 0xFF);
                 laddr[a*2+1] = (v & 0xFF);
             }
-            sys_memcpy(&localP->u.sai6.sin6_addr, &laddr, sizeof(laddr));
-            addrP->len                  = sizeof(struct sockaddr_in6);
+            sys_memcpy(&addrP->u.sai6.sin6_addr, &laddr, sizeof(laddr));
+            addrP->len = sizeof(struct sockaddr_in6);
             return NULL;
         }
         break;
@@ -1449,6 +1463,9 @@ ERL_NIF_TERM nconnect(ErlNifEnv*          env,
                       const ERL_NIF_TERM* addr,
                       int                 port)
 {
+    int   code;
+    char* xerr;
+
     /* Verify that we are where in the proper state */
 
     if (!IS_OPEN(descP))
@@ -1472,7 +1489,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*          env,
         ((sock_errno() == ERRNO_BLOCK) ||   /* Winsock2            */
          (sock_errno() == EINPROGRESS))) {  /* Unix & OSE!!        */
         ERL_NIF_TERM ref = MKREF(env);
-        descP->state = INET_STATE_CONNECTING;
+        descP->state = SOCKET_STATE_CONNECTING;
         enif_select(env,
                     descP->sock,
                     (ERL_NIF_SELECT_WRITE),
@@ -1514,26 +1531,81 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    return nfinalize_connection(descP);
+    return nfinalize_connection(env, descP);
 
 }
 
 
+/* *** nfinalize_connection ***
+ * Perform the final check to verify a connection.
+ */
 static
 ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
                                   SocketDescriptor* descP)
 {
     int error;
 
-    if (descP->state != INET_STATE_CONNECTING)
-        return make_error(env, atom_exisnconn);
+    if (descP->state != SOCKET_STATE_CONNECTING)
+        return make_error(env, atom_eisnconn);
 
-    if (!is_connected(descP, &error))
+    if (!verify_is_connected(descP, &error)) {
+        descP->state = SOCKET_STATE_OPEN;  /* restore state */
         return make_error2(env, error);
+    }
 
-    descP->state = INET_STATE_CONNECTED;
+    descP->state = SOCKET_STATE_CONNECTED;
 
-    return make_ok1(env);
+    return atom_ok;
+}
+
+
+/* *** verify_is_connected ***
+ * Check if a connection has been established.
+ */
+static
+BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err)
+{
+    /*
+     * *** This is strange ***
+     *
+     * This *should* work on Windows NT too, but doesn't.
+     * An bug in Winsock 2.0 for Windows NT?
+     *
+     * See "Unix Netwok Programming", W.R.Stevens, p 412 for a
+     * discussion about Unix portability and non blocking connect.
+     */
+
+#ifndef SO_ERROR
+    int sz, code;
+
+    sz = sizeof(descP->inet.remote);
+    sys_memzero((char *) &descP->inet.remote, sz);
+    code = sock_peer(desc->sock,
+                     (struct sockaddr*) &descP->remote, &sz);
+
+    if (IS_SOCKET_ERROR(code)) {
+        *err = sock_errno();
+        return FALSE;
+    }
+
+#else
+
+    int          error = 0;             /* Has to be initiated, we check it */
+    unsigned int sz    = sizeof(error); /* even if we get -1                */
+    int          code  = sock_getopt(descP->sock,
+                                     SOL_SOCKET, SO_ERROR,
+                                     (void *)&error, &sz);
+
+    if ((code < 0) || error) {
+        *err = error;
+        return FALSE;
+    }
+
+#endif /* SO_ERROR */
+
+    *err = 0;
+
+    return TRUE;
 }
 
 
@@ -1811,10 +1883,10 @@ ErlNifFunc socket_funcs[] =
   {"nif_getopt",              2, nif_getopt},
 
   /* "Extra" functions to "complete" the socket interface.
-   * For instance, the function nif_finalyze_connection
-   * is called after the connect select has "completed".
+   * For instance, the function nif_finalize_connection
+   * is called after the connect *select* has "completed".
    */
-  {"nif_finalize_connection", 1, nif_finalyze_connection},
+  {"nif_finalize_connection", 1, nif_finalize_connection},
   {"nif_cancel",              2, nif_cancel},
 };
 
@@ -1902,13 +1974,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_eafnosupport = MKA(env, str_eafnosupport);
     atom_einval       = MKA(env, str_einval);
     atom_eisconn      = MKA(env, str_eisconn);
+    atom_eisnconn     = MKA(env, str_eisnconn);
     // atom_exalloc      = MKA(env, str_exalloc);
     atom_exbadstate   = MKA(env, str_exbadstate);
     // atom_exnotopen    = MKA(env, str_exnotopen);
     atom_exmon        = MKA(env, str_exmon);
     atom_exself       = MKA(env, str_exself);
     // atom_exsend       = MKA(env, str_exsend);
-    // atom_exisnconning = MKA(env, str_exisnconning);
 
     // For storing "global" things...
     // socketData.env       = enif_alloc_env(); // We should really check
