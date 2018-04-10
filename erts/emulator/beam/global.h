@@ -200,6 +200,7 @@ typedef struct {
 struct erts_driver_t_ {
     erts_driver_t *next;
     erts_driver_t *prev;
+    Eterm name_atom;
     char *name;
     struct {
 	int major;

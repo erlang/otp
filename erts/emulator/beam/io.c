@@ -2912,11 +2912,8 @@ static void lcnt_enable_driver_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
         if (enable) {
-            Eterm name_as_atom = erts_atom_put((byte*)dp->name, sys_strlen(dp->name),
-                                                ERTS_ATOM_ENC_LATIN1, 1);
-
-            erts_lcnt_install_new_lock_info(&dp->lock->lcnt, "driver_lock", name_as_atom,
-                ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+            erts_lcnt_install_new_lock_info(&dp->lock->lcnt, "driver_lock",
+                dp->name_atom, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
         } else {
             erts_lcnt_uninstall(&dp->lock->lcnt);
         }
@@ -7363,7 +7360,11 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 {
+    drv->name_atom = erts_atom_put((byte*)de->driver_name,
+                                   sys_strlen(de->driver_name),
+                                   ERTS_ATOM_ENC_LATIN1, 1);
     drv->name = de->driver_name;
+
     ASSERT(de->extended_marker == ERL_DRV_EXTENDED_MARKER);
     ASSERT(de->major_version >= 2);
     drv->version.major = de->major_version;
@@ -7373,13 +7374,10 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     if (drv->flags & ERL_DRV_FLAG_USE_PORT_LOCKING) {
         drv->lock = NULL;
     } else {
-        Eterm driver_id = erts_atom_put((byte *) drv->name,
-                                        sys_strlen(drv->name),
-                                        ERTS_ATOM_ENC_LATIN1, 1);
-
         drv->lock = erts_alloc(ERTS_ALC_T_DRIVER_LOCK, sizeof(erts_mtx_t));
 
-        erts_mtx_init(drv->lock, "driver_lock", driver_id, ERTS_LOCK_FLAGS_CATEGORY_IO);
+        erts_mtx_init(drv->lock, "driver_lock", drv->name_atom,
+                      ERTS_LOCK_FLAGS_CATEGORY_IO);
     }
     drv->entry = de;
 
@@ -7465,18 +7463,12 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle,
 	erts_tsd_set(driver_list_lock_status_key, (void *) 1);
     }
 
-    if (taint) {
-        Eterm name_atom = erts_atom_put((byte*)de->driver_name,
-                                        sys_strlen(de->driver_name),
-                                        ERTS_ATOM_ENC_LATIN1, 0);
-        if (is_atom(name_atom))
-            erts_add_taint(name_atom);
-        else
-            err = 1;
-    }
-
     if (!err) {
         err = init_driver(dp, de, handle);
+
+        if (taint) {
+            erts_add_taint(dp->name_atom);
+        }
     }
 
     if (err) {
