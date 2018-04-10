@@ -618,6 +618,7 @@ valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
     %% is OK as input.
     CtxType = get_move_term_type(Ctx, Vst0),
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     BranchVst = case CtxType of
 		    #ms{} ->
@@ -634,6 +635,7 @@ valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst0) ->
     assert_term(Src, Vst0),
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
     set_type_reg(bsm_match_state(Slots), Src, Dst, Vst);
@@ -836,6 +838,7 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
 validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
     bsm_validate_context(Ctx, Vst0),
     verify_live(Live, Vst0),
+    verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
     set_type_reg(Type, Dst, Vst).
@@ -845,6 +848,7 @@ validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
 %%
 validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
     bsm_validate_context(Ctx, Vst0),
+    verify_y_init(Vst0),
     verify_live(Live, Vst0),
     Vst = prune_x_regs(Live, Vst0),
     branch_state(Fail, Vst).
