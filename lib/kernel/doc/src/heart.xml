@@ -59,8 +59,9 @@
     <pre>
 % <input>erl -heart -env HEART_BEAT_TIMEOUT 30 ...</input></pre>
     <p>The value (in seconds) must be in the range 10 &lt; X &lt;= 65535.</p>
-    <p>Notice that if the system clock is adjusted with
-      more than <c>HEART_BEAT_TIMEOUT</c> seconds, <c>heart</c>
+    <p>When running on OSs lacking support for monotonic time,
+      <c>heart</c> is susceptible to system clock adjustments of more than
+      <c>HEART_BEAT_TIMEOUT</c> seconds. When  this happens, <c>heart</c>
       times out and tries to reboot the system. This can occur, for
       example, if the system clock is adjusted automatically by use of the
       Network Time Protocol (NTP).</p>
