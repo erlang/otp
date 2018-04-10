@@ -432,9 +432,17 @@ nif_bif.call_nif() {
         live_hf_end = c_p->mbuf;
         ERTS_CHK_MBUF_SZ(c_p);
         erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
+
+        ASSERT((c_p->scheduler_data)->current_nif == NULL);
+        (c_p->scheduler_data)->current_nif = &env;
+
         nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
         if (env.exception_thrown)
             nif_bif_result = THE_NON_VALUE;
+
+        ASSERT((c_p->scheduler_data)->current_nif == &env);
+        (c_p->scheduler_data)->current_nif = NULL;
+
         erts_post_nif(&env);
         ERTS_CHK_MBUF_SZ(c_p);
 

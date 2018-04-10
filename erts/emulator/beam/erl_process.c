@@ -5698,6 +5698,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->ssi = ssi;
     esdp->current_process = NULL;
     esdp->current_port = NULL;
+    esdp->current_nif = NULL;
 
     esdp->virtual_reds = 0;
     esdp->cpu_id = -1;

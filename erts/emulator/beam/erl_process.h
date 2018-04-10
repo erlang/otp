@@ -637,6 +637,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
     Uint dirty_no;  /* Scheduler number for dirty schedulers */
+    struct enif_environment_t *current_nif;
     Process *dirty_shadow_process;
     Port *current_port;
     ErtsRunQueue *run_queue;
