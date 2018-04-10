@@ -107,7 +107,7 @@ get_cookie() ->
 get_cookie(_Node) when node() =:= nonode@nohost ->
     nocookie;
 get_cookie(Node) ->
-    gen_server:call(auth, {get_cookie, Node}).
+    gen_server:call(auth, {get_cookie, Node}, infinity).
 
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
 
@@ -119,12 +119,12 @@ set_cookie(Cookie) ->
 set_cookie(_Node, _Cookie) when node() =:= nonode@nohost ->
     erlang:error(distribution_not_started);
 set_cookie(Node, Cookie) ->
-    gen_server:call(auth, {set_cookie, Node, Cookie}).
+    gen_server:call(auth, {set_cookie, Node, Cookie}, infinity).
 
 -spec sync_cookie() -> any().
 
 sync_cookie() ->
-    gen_server:call(auth, sync_cookie).
+    gen_server:call(auth, sync_cookie, infinity).
 
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 
