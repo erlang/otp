@@ -67,8 +67,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <p>
       As <c>A</c> and <c>S'</c> depend only on
       <c>S</c> and <c>E</c>, the kind of state machine described
-      here is a Mealy Machine
-      (see, for example, the corresponding Wikipedia article).
+      here is a Mealy machine
+      (see, for example, the Wikipedia article "Mealy machine").
     </p>
     <p>
       Like most <c>gen_</c> behaviors, <c>gen_statem</c> keeps
@@ -78,7 +78,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       or on the number of distinct input events,
       a state machine implemented with this behavior
       is in fact Turing complete.
-      But it feels mostly like an Event-Driven Mealy Machine.
+      But it feels mostly like an Event-Driven Mealy machine.
     </p>
   </section>
 
@@ -300,7 +300,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	</p>
 	<p>
 	  See section
-	  <seealso marker="#Actions">Actions</seealso> for a list of possible
+	  <seealso marker="#State Transition Actions">
+	    State Transition Actions
+	  </seealso>
+	  for a list of possible
 	  state transition actions.
 	</p>
 	<p>
@@ -401,8 +404,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 <!-- =================================================================== -->
 
   <section>
-    <marker id="Actions" />
-    <title>Actions</title>
+    <marker id="State Transition Actions" />
+    <title>State Transition Actions</title>
     <p>
       In the first
       <seealso marker="#Event-Driven State Machines">section</seealso>
@@ -415,9 +418,9 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     </p>
     <p>
       There are more specific state-transition actions
-      that a callback function can order the <c>gen_statem</c>
+      that a callback function can command the <c>gen_statem</c>
       engine to do after the callback function return.
-      These are ordered by returning a list of
+      These are commanded by returning a list of
       <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
       in the
       <seealso marker="stdlib:gen_statem#type-state_callback_result">
@@ -641,7 +644,7 @@ StateName(EventType, EventContent, Data) ->
     <p>
       Since the state enter call is not an event there are restrictions
       on the allowed return value and
-      <seealso marker="#Actions">state transition actions</seealso>.
+      <seealso marker="#State Transition Actions">state transition actions</seealso>.
       You may not change the state,
       <seealso marker="#Postponing Events">postpone</seealso>
       this non-event, or
@@ -742,7 +745,8 @@ open(state_timeout, lock,  Data) ->
     {next_state, locked, Data};
 open(cast, {button,_}, Data) ->
     {next_state, open, Data}.
-
+    ]]></code>
+    <code type="erl"><![CDATA[
 do_lock() ->
     io:format("Lock~n", []).
 do_unlock() ->
@@ -925,7 +929,7 @@ locked(
     <p>
       In state <c>locked</c>, when a button is pressed,
       it is collected with the last pressed buttons
-      up to the length of the correct dode,
+      up to the length of the correct code,
       and compared with the correct code.
       Depending on the result, the door is either unlocked
       and the <c>gen_statem</c> goes to state <c>open</c>,
@@ -960,7 +964,7 @@ open(cast, {button,_}, Data) ->
     <code type="erl"><![CDATA[
 {next_state, open, Data#{buttons := []},
  [{state_timeout,10000,lock}]};
-    ]]></code>
+ ]]></code>
     <p>
       10,000 is a time-out value in milliseconds.
       After this time (10 seconds), a time-out occurs.
@@ -1024,7 +1028,7 @@ handle_common({call,From}, code_length, #{code := Code} = Data) ->
 
     <p>
       Another way to do it is through a convenience macro
-      <c>?HANDLE_COMMON/3</c>:
+      <c>?HANDLE_COMMON/0</c>:
     </p>
     <code type="erl"><![CDATA[
 ...
@@ -1034,8 +1038,8 @@ handle_common({call,From}, code_length, #{code := Code} = Data) ->
 code_length() ->
     gen_statem:call(?NAME, code_length).
 
--define(HANDLE_COMMON(T, C, D),
-    ?FUNCTION_NAME(T, C, D) -> handle_common((T), (C), (D))).
+-define(HANDLE_COMMON,
+    ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
 %%
 handle_common({call,From}, code_length, #{code := Code} = Data) ->
     {keep_state, Data, [{reply,From,length(Code)}]}.
@@ -1047,7 +1051,7 @@ locked(...) -> ... ;
 ...
 open(...) -> ... ;
 ?HANDLE_COMMON.
-    ]]></code>
+]]></code>
 
     <p>
       This example uses
@@ -1059,6 +1063,14 @@ open(...) -> ... ;
       when you want to stay in the current state but do not know or
       care about what it is.
     </p>
+    <p>
+      If the common event handler needs to know the current state
+      a function <c>handle_common/4</c> can be used instead:
+    </p>
+    <code type="erl"><![CDATA[
+-define(HANDLE_COMMON,
+    ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, ?FUNCTION_NAME, D)).
+    ]]></code>
   </section>
 
 <!-- =================================================================== -->
@@ -1109,7 +1121,7 @@ handle_event(state_timeout, lock, open, Data) ->
     {next_state, locked, Data}.
 
 ...
-    ]]></code>
+]]></code>
   </section>
 
 <!-- =================================================================== -->
@@ -1141,7 +1153,7 @@ init(Args) ->
     process_flag(trap_exit, true),
     do_lock(),
     ...
-      ]]></code>
+    ]]></code>
       <p>
 	When ordered to shut down, the <c>gen_statem</c> then calls
 	callback function <c>terminate(shutdown, State, Data)</c>.
@@ -1155,7 +1167,7 @@ init(Args) ->
 terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
-      ]]></code>
+    ]]></code>
     </section>
 
     <section>
@@ -1174,7 +1186,7 @@ terminate(_Reason, State, _Data) ->
 ...
 stop() ->
     gen_statem:stop(?NAME).
-      ]]></code>
+    ]]></code>
       <p>
 	This makes the <c>gen_statem</c> call callback function
 	<c>terminate/3</c> just like for a supervised server
@@ -1197,12 +1209,12 @@ stop() ->
     </p>
     <p>
       It is ordered by the state transition action
-      <c>{timeout,Time,EventContent}</c>, or just <c>Time</c>,
-      or even just <c>Time</c> instead of an action list
+      <c>{timeout,Time,EventContent}</c>, or just an integer <c>Time</c>,
+      even without the enclosing actions list
       (the latter is a form inherited from <c>gen_fsm</c>.
     </p>
     <p>
-      This type of time-out is useful to for example act on inactivity.
+      This type of time-out is useful for example to act on inactivity.
       Let us restart the code sequence
       if no button is pressed for say 30 seconds:
     </p>
@@ -1219,7 +1231,7 @@ locked(
             {next_state, locked, Data#{buttons := NewButtons},
              30000}
 ...
-     ]]></code>
+]]></code>
     <p>
       Whenever we receive a button event we start an event time-out
       of 30 seconds, and if we get an event type <c>timeout</c>
@@ -1266,7 +1278,7 @@ locked(
     <p>
       Here is how to accomplish the state time-out
       in the previous example by instead using a generic time-out
-      named <c>open_tm</c>:
+      named for example <c>open</c>:
     </p>
     <code type="erl"><![CDATA[
 ...
@@ -1278,26 +1290,31 @@ locked(
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
             {next_state, open, Data#{buttons := []},
-             [{{timeout,open_tm},10000,lock}]};
+             [{{timeout,open},10000,lock}]};
 ...
 
-open({timeout,open_tm}, lock, Data) ->
+open({timeout,open}, lock, Data) ->
     do_lock(),
     {next_state,locked,Data};
 open(cast, {button,_}, Data) ->
     {keep_state,Data};
 ...
-    ]]></code>
+]]></code>
     <p>
-      Just as
-      <seealso marker="#State Time-Outs">state time-outs</seealso>
-      you can restart or cancel a specific generic time-out
+      An specific generic time-out can just as a
+      <seealso marker="#State Time-Outs">state time-out</seealso>
+      be restarted or cancelled
       by setting it to a new time or <c>infinity</c>.
     </p>
     <p>
-      Another way to handle a late time-out can be to not cancel it,
-      but to ignore it if it arrives in a state
-      where it is known to be late.
+      In this particular case we do not need to cancel the timeout
+      since the timeout event is the only possible reason to
+      change the state from <c>open</c> to <c>locked</c>.
+    </p>
+    <p>
+      Instead of bothering with when to cancel a time-out,
+      a late time-out event can be handled by ignoring it
+      if it arrives in a state where it is known to be late.
     </p>
   </section>
 
@@ -1309,7 +1326,7 @@ open(cast, {button,_}, Data) ->
     <p>
       The most versatile way to handle time-outs is to use
       Erlang Timers; see
-      <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer3,4</c></seealso>.
+      <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/3,4</c></seealso>.
       Most time-out tasks can be performed with the
       time-out features in <c>gen_statem</c>,
       but an example of one that can not is if you should need
@@ -1339,7 +1356,7 @@ open(info, {timeout,Tref,lock}, #{timer := Tref} = Data) ->
 open(cast, {button,_}, Data) ->
     {keep_state,Data};
 ...
-    ]]></code>
+]]></code>
     <p>
       Removing the <c>timer</c> key from the map when we
       change to state <c>locked</c> is not strictly
@@ -1379,7 +1396,9 @@ open(cast, {button,_}, Data) ->
     </p>
     <p>
       Postponing is ordered by the state transition
-      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
+      <seealso marker="#State Transition Actions">
+	state transition action
+      </seealso>
       <c>postpone</c>.
     </p>
     <p>
@@ -1392,14 +1411,17 @@ open(cast, {button,_}, Data) ->
 open(cast, {button,_}, Data) ->
     {keep_state,Data,[postpone]};
 ...
-    ]]></code>
+]]></code>
     <p>
       Since a postponed event is only retried after a state change,
       you have to think about where to keep a state data item.
       You can keep it in the server <c>Data</c>
       or in the <c>State</c> itself,
       for example by having two more or less identical states
-      to keep a boolean value, or by using a complex state with
+      to keep a boolean value, or by using a complex state
+      (see section
+      <seealso marker="#Complex State">Complex State</seealso>)
+      with
       <seealso marker="#Callback Modes">callback mode</seealso>
       <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>.
       If a change in the value changes the set of events that is handled,
@@ -1504,8 +1526,10 @@ do_unlock() ->
       passing non-system messages to the callback module.
     </p>
     <p>
-      The state transition
-      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
+      The
+      <seealso marker="#State Transition Action">
+	state transition action
+      </seealso>
       <c>postpone</c> is designed to model
       selective receives. A selective receive implicitly postpones
       any not received events, but the <c>postpone</c>
@@ -1569,7 +1593,7 @@ open(enter, _OldState, _Data) ->
 open(state_timeout, lock, Data) ->
     {next_state, locked, Data};
 ...
-    ]]></code>
+]]></code>
     <p>
       You can repeat the state enter code by returning one of
       <c>{repeat_state, ...}</c>, <c>{repeat_state_and_data,_}</c>
@@ -1591,8 +1615,10 @@ open(state_timeout, lock, Data) ->
     <p>
       It can sometimes be beneficial to be able to generate events
       to your own state machine.
-      This can be done with the state transition
-      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
+      This can be done with the
+      <seealso marker="#State Transition Action">
+	state transition action
+      </seealso>
       <c>{next_event,EventType,EventContent}</c>.
     </p>
     <p>
@@ -1643,10 +1669,10 @@ locked(
   internal, {button,Digit},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
-    ]]></code>
+]]></code>
     <code type="erl"><![CDATA[
 handle_common(cast, {down,Button}, Data) ->
-    {keep_state, Data#{button := Button};
+    {keep_state, Data#{button := Button}};
 handle_common(cast, {up,Button}, Data) ->
     case Data of
         #{button := Button} ->
@@ -1660,7 +1686,7 @@ handle_common(cast, {up,Button}, Data) ->
 open(internal, {button,_}, Data) ->
     {keep_state,Data,[postpone]};
 ...
-    ]]></code>
+]]></code>
     <p>
       If you start this program with <c>code_lock:start([17])</c>
       you can unlock with <c>code_lock:down(17), code_lock:up(17).</c>
@@ -1685,8 +1711,8 @@ open(internal, {button,_}, Data) ->
     <p>
       Notice that this state diagram does not specify how to handle
       a button event in the state <c>open</c>. So, you need to
-      read here that unspecified events
-      must be ignored as in not consumed but handled in some other state.
+      read in some side notes, that is, here: that unspecified events
+      shall be postponed (handled in some later state).
       Also, the state diagram does not show that the <c>code_length/0</c>
       call must be handled in every state.
     </p>
@@ -1719,17 +1745,17 @@ up(Digit) ->
 code_length() ->
     gen_statem:call(?NAME, code_length).
     ]]></code>
-    <code type="erl"><![CDATA[
+      <code type="erl"><![CDATA[
 init(Code) ->
     process_flag(trap_exit, true),
-    Data = #{code => Code, length => Length, buttons => []},
+    Data = #{code => Code, length => length(Code), buttons => []},
     {ok, locked, Data}.
 
 callback_mode() ->
     [state_functions,state_enter].
 
 -define(HANDLE_COMMON,
-    ?FUNCTION_NAME(T, C, D) -> handle_common((T), (C), (D))).
+    ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
 %%
 handle_common(cast, {down,Button}, Data) ->
     {keep_state, Data#{button => Button}};
@@ -1763,14 +1789,13 @@ locked(
     if
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
-            {next_state, open, Data,
-             [{state_timeout,10000,lock}]};
+            {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
              [{state_timeout,30000,button}]}
     end;
 ?HANDLE_COMMON.
-    ]]></code>
+]]></code>
     <code type="erl"><![CDATA[
 open(enter, _OldState, _Data) ->
     do_unlock(),
@@ -1789,7 +1814,7 @@ do_unlock() ->
 terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
-      ]]></code>
+    ]]></code>
     </section>
 
     <section>
@@ -1803,13 +1828,14 @@ terminate(_Reason, State, _Data) ->
         so this example first branches depending on state:
       </p>
       <code type="erl"><![CDATA[
-...
 -export([handle_event/4]).
-
-...
+]]></code>
+      <code type="erl"><![CDATA[
 callback_mode() ->
     [handle_event_function,state_enter].
-
+    ]]></code>
+      <code type="erl"><![CDATA[
+%%
 %% State: locked
 handle_event(enter, _OldState, locked, Data) ->
     do_lock(),
@@ -1829,14 +1855,13 @@ handle_event(
     if
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
-            {next_state, open, Data,
-             [{state_timeout,10000,lock}]};
+            {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
              [{state_timeout,30000,button}]}
     end;
     ]]></code>
-    <code type="erl"><![CDATA[
+      <code type="erl"><![CDATA[
 %%
 %% State: open
 handle_event(enter, _OldState, open, _Data) ->
@@ -1844,12 +1869,11 @@ handle_event(enter, _OldState, open, _Data) ->
     {keep_state_and_data, [{state_timeout,10000,lock}]};
 handle_event(state_timeout, lock, open, Data) ->
     {next_state, locked, Data};
-handle_event(cast, {button,_}, open, _) ->
+handle_event(internal, {button,_}, open, _) ->
     {keep_state_and_data,[postpone]};
     ]]></code>
-    <code type="erl"><![CDATA[
-%%
-%% Any state
+      <code type="erl"><![CDATA[
+%% Common events
 handle_event(cast, {down,Button}, _State, Data) ->
     {keep_state, Data#{button => Button}};
 handle_event(cast, {up,Button}, _State, Data) ->
@@ -1862,13 +1886,11 @@ handle_event(cast, {up,Button}, _State, Data) ->
     end;
 handle_event({call,From}, code_length, _State, #{length := Length}) ->
     {keep_state_and_data, [{reply,From,Length}]}.
-
-...
-      ]]></code>
+    ]]></code>
     </section>
     <p>
-      Notice that postponing buttons from the <c>locked</c> state
-      to the <c>open</c> state feels like a strange thing to do
+      Notice that postponing buttons from the <c>open</c> state
+      to the <c>locked</c> state feels like a strange thing to do
       for a code lock, but it at least illustrates event postponing.
     </p>
   </section>
@@ -1951,7 +1973,7 @@ format_status(Opt, [_PDict,State,Data]) ->
       <seealso marker="#State Time-Outs">state time-out</seealso>,
       or one that affects the event handling
       in combination with postponing events.
-      We will complicate the previous example
+      We will go for the latter and complicate the previous example
       by introducing a configurable lock button
       (this is the state item in question),
       which in the <c>open</c> state immediately locks the door,
@@ -1960,33 +1982,33 @@ format_status(Opt, [_PDict,State,Data]) ->
     <p>
       Suppose now that we call <c>set_lock_button</c>
       while the door is open,
-      and have already postponed a button event
-      that until now was not the lock button.
-      The sensible thing can be to say that
-      the button was pressed too early so it is
-      not to be recognized as the lock button.
-      However, then it can be surprising that a button event
-      that now is the lock button event arrives (as retried postponed)
-      immediately after the state transits to <c>locked</c>.
+      and we have already postponed a button event
+      that was the new lock button:
     </p>
+    <code type="erl"><![CDATA[
+1> code_lock:start_link([a,b,c], x).
+{ok,<0.666.0>}
+2> code_lock:button(a).
+ok
+3> code_lock:button(b).
+ok
+4> code_lock:button(c).
+ok
+Open
+5> code_lock:button(y).
+ok
+6> code_lock:set_lock_button(y).
+x
+% What should happen here?  Immediate lock or nothing?
+]]></code>
     <p>
-      So we make the <c>button/1</c> function synchronous
-      by using
-      <seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call</c></seealso>
-      and still postpone its events in the <c>open</c> state.
-      Then a call to <c>button/1</c> during the <c>open</c>
-      state does not return until the state transits to <c>locked</c>,
-      as it is there the event is handled and the reply is sent.
-    </p>
-    <p>
-      If a process now calls <c>set_lock_button/1</c>
-      to change the lock button while another process
-      hangs in <c>button/1</c> with the new lock button,
-      it can be expected that the hanging lock button call
-      immediately takes effect and locks the lock.
-      Therefore, we make the current lock button a part of the state,
-      so that when we change the lock button, the state changes
-      and all postponed events are retried.
+      We could say that the button was pressed too early
+      so it is not to be recognized as the lock button.
+      Or we can make the lock button part of the state so
+      when we then change the lock button in the locked state,
+      the change becomes a state change
+      and all postponed events are retried,
+      therefore the lock is immediately locked!
     </p>
     <p>
       We define the state as <c>{StateName,LockButton}</c>,
@@ -1999,8 +2021,8 @@ format_status(Opt, [_PDict,State,Data]) ->
 -define(NAME, code_lock_3).
 
 -export([start_link/2,stop/0]).
--export([button/1,code_length/0,set_lock_button/1]).
--export([init/1,callback_mode/0,terminate/3,format_status/2]).
+-export([button/1,set_lock_button/1]).
+-export([init/1,callback_mode/0,terminate/3]).
 -export([handle_event/4]).
 
 start_link(Code, LockButton) ->
@@ -2009,10 +2031,8 @@ start_link(Code, LockButton) ->
 stop() ->
     gen_statem:stop(?NAME).
 
-button(Digit) ->
-    gen_statem:call(?NAME, {button,Digit}).
-code_length() ->
-    gen_statem:call(?NAME, code_length).
+button(Button) ->
+    gen_statem:cast(?NAME, {button,Button}).
 set_lock_button(LockButton) ->
     gen_statem:call(?NAME, {set_lock_button,LockButton}).
     ]]></code>
@@ -2025,70 +2045,53 @@ init({Code,LockButton}) ->
 callback_mode() ->
     [handle_event_function,state_enter].
 
-handle_event(
-  {call,From}, {set_lock_button,NewLockButton},
-  {StateName,OldLockButton}, Data) ->
-    {next_state, {StateName,NewLockButton}, Data,
-     [{reply,From,OldLockButton}]};
-handle_event(
-  {call,From}, code_length,
-  {_StateName,_LockButton}, #{length := Length}) ->
-    {keep_state_and_data,
-     [{reply,From,Length}]};
-    ]]></code>
-    <code type="erl"><![CDATA[
-%%
 %% State: locked
-handle_event(EventType, EventContent, {locked,LockButton}, Data) ->
-    case {EventType, EventContent} of
-	{enter, _OldState} ->
-	    do_lock(),
-	    {keep_state, Data#{buttons := []}};
-        {state_timeout, button} ->
-            {keep_state, Data#{buttons := []}};
-	{{call,From}, {button,Digit}} ->
-            #{length := Length, buttons := Buttons} = Data,
-            NewButtons =
-                if
-                    length(Buttons) < Length ->
-                        Buttons;
-                    true ->
-                        tl(Buttons)
-                end ++ [Button],
-            case Data of
-                #{code := NewButtons} ->
-		    {next_state, {open,LockButton}, Data,
-		     [{reply,From,ok}]};
-                #{} ->
-		    {keep_state, Data#{buttons := NewButtons},
-		     [{reply,From,ok},
-                      {state_timeout,30000,button}]}
-            end
+handle_event(enter, _OldState, {locked,_}, Data) ->
+    do_lock(),
+    {keep_state, Data#{buttons := []}};
+handle_event(state_timeout, button, {locked,_}, Data) ->
+    {keep_state, Data#{buttons := []}};
+handle_event(
+  cast, {button,Digit}, {locked,LockButton},
+  #{code := Code, length := Length, buttons := Buttons} = Data) ->
+    NewButtons =
+        if
+            length(Buttons) < Length ->
+                Buttons;
+            true ->
+                tl(Buttons)
+        end ++ [Button],
+    if
+        NewButtons =:= Code -> % Correct
+	    do_unlock(),
+            {next_state, {open,LockButton}, Data};
+	true -> % Incomplete | Incorrect
+            {keep_state, Data#{buttons := NewButtons},
+             [{state_timeout,30000,button}]}
     end;
     ]]></code>
     <code type="erl"><![CDATA[
 %%
 %% State: open
+handle_event(enter, _OldState, {open,_}, _Data) ->
+    do_unlock(),
+    {keep_state_and_data,
+     [{state_timeout,10000,lock}]};
+handle_event(state_timeout, lock, {open,_}, Data) ->
+    {next_state, locked, Data};
+handle_event(cast, {button,LockButton}, {open,LockButton}, Data) ->
+    {next_state, {locked,LockButton}, Data};
+handle_event(cast, {button,_}, {open,_}, Data) ->
+    {keep_state_and_data,[postpone]};
+    ]]></code>
+    <code type="erl"><![CDATA[
+%%
+%% Common events
 handle_event(
-  EventType, EventContent,
-  {open,LockButton}, Data) ->
-    case {EventType, EventContent} of
-	{enter, _OldState} ->
-	    do_unlock(),
-	    {keep_state_and_data,
-             [{state_timeout,10000,lock}]};
-	{state_timeout, lock} ->
-	    {next_state, {locked,LockButton}, Data};
-	{{call,From}, {button,Digit}} ->
-	    if
-		Digit =:= LockButton ->
-		    {next_state, {locked,LockButton}, Data,
-		     [{reply,From,locked}]};
-		true ->
-		    {keep_state_and_data,
-		     [postpone]}
-	    end
-    end.
+  {call,From}, {set_lock_button,NewLockButton},
+  {StateName,OldLockButton}, Data) ->
+    {next_state, {StateName,NewLockButton}, Data,
+     [{reply,From,OldLockButton}]}.
     ]]></code>
     <code type="erl"><![CDATA[
 do_lock() ->
@@ -2099,27 +2102,7 @@ do_unlock() ->
 terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
-format_status(Opt, [_PDict,State,Data]) ->
-    StateData =
-	{State,
-	 maps:filter(
-	   fun (code, _) -> false;
-	       (remaining, _) -> false;
-	       (_, _) -> true
-	   end,
-	   Data)},
-    case Opt of
-	terminate ->
-	    StateData;
-	normal ->
-	    [{data,[{"State",StateData}]}]
-    end.
     ]]></code>
-    <p>
-      It can be an ill-fitting model for a physical code lock
-      that the <c>button/1</c> call can hang until the lock
-      is locked. But for an API in general it is not that strange.
-    </p>
   </section>
 
 <!-- =================================================================== -->
@@ -2151,18 +2134,15 @@ format_status(Opt, [_PDict,State,Data]) ->
     </p>
     <code type="erl"><![CDATA[
 ...
+%%
 %% State: open
-handle_event(
-  EventType, EventContent,
-  {open,LockButton}, Data) ->
-    case {EventType, EventContent} of
-        {enter, _OldState} ->
-            do_unlock(),
-            {keep_state_and_data,
-             [{state_timeout,10000,lock},
-              hibernate]};
+handle_event(enter, _OldState, {open,_}, _Data) ->
+    do_unlock(),
+    {keep_state_and_data,
+     [{state_timeout,10000,lock},
+      hibernate]};
 ...
-    ]]></code>
+]]></code>
     <p>
       The atom
       <seealso marker="stdlib:gen_statem#type-hibernate"><c>hibernate</c></seealso>
@@ -2175,9 +2155,8 @@ handle_event(
     <p>
       To change that we would need to insert
       action <c>hibernate</c> in more places.
-      For example, for the state-independent <c>set_lock_button</c>
-      and <c>code_length</c> operations that then would have to
-      be aware of using <c>hibernate</c> while in the
+      For example, the state-independent <c>set_lock_button</c>
+      operation would have to use <c>hibernate</c> but only in the
       <c>{open,_}</c> state, which would clutter the code.
     </p>
     <p>
@@ -2201,7 +2180,8 @@ handle_event(
       This particular server probably does not use
       heap memory worth hibernating for.
       To gain anything from hibernation, your server would
-      have to produce some garbage during callback execution,
+      have to produce non-insignificant garbage
+      during callback execution,
       for which this example server can serve as a bad example.
     </p>
   </section>

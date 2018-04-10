@@ -60,7 +60,8 @@ tcs(start) ->
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
 tcs(abnormal) ->
-    [abnormal1, abnormal1clean, abnormal1dirty, abnormal2];
+    [abnormal1, abnormal1clean, abnormal1dirty,
+     abnormal2, abnormal3, abnormal4];
 tcs(sys) ->
     [sys1, call_format_status,
      error_format_status, terminate_crash_format,
@@ -517,6 +518,43 @@ abnormal2(Config) ->
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
 	{'EXIT',Pid,{{bad_return_from_state_function,badreturn},_}} -> ok
+    after 5000 ->
+	    ct:fail(gen_statem_did_not_die)
+    end,
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% Check that bad return actions makes the stm crash. Note that we must
+%% trap exit since we must link to get the real bad_return_ error
+abnormal3(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+
+    %% bad return value in the gen_statem loop
+    {{{bad_action_from_state_function,badaction},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, badaction), Reason),
+    receive
+	{'EXIT',Pid,{{bad_action_from_state_function,badaction},_}} -> ok
+    after 5000 ->
+	    ct:fail(gen_statem_did_not_die)
+    end,
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% Check that bad timeout actions makes the stm crash. Note that we must
+%% trap exit since we must link to get the real bad_return_ error
+abnormal4(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+
+    %% bad return value in the gen_statem loop
+    BadTimeout = {badtimeout,4711,ouch},
+    {{{bad_action_from_state_function,BadTimeout},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, BadTimeout), Reason),
+    receive
+	{'EXIT',Pid,{{bad_action_from_state_function,BadTimeout},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -1806,10 +1844,12 @@ idle(cast, {connect,Pid}, Data) ->
 idle({call,From}, connect, Data) ->
     gen_statem:reply(From, accept),
     {next_state,wfor_conf,Data,infinity}; % NoOp timeout just to test API
-idle(cast, badreturn, _Data) ->
-    badreturn;
 idle({call,_From}, badreturn, _Data) ->
     badreturn;
+idle({call,_From}, badaction, Data) ->
+    {keep_state, Data, [badaction]};
+idle({call,_From}, {badtimeout,_,_} = BadTimeout, Data) ->
+    {keep_state, Data, BadTimeout};
 idle({call,From}, {delayed_answer,T}, Data) ->
     receive
     after T ->

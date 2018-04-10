@@ -71,16 +71,18 @@
       had and adds some really useful:
     </p>
     <list type="bulleted">
-      <item>Gathered state code.</item>
-      <item>Arbitrary term state.</item>
-      <item>Event postponing.</item>
-      <item>Self-generated events.</item>
-      <item>State time-out.</item>
-      <item>Multiple generic named time-outs.</item>
-      <item>Absolute time-out time.</item>
-      <item>Automatic state enter calls.</item>
-      <item>Reply from other state than the request.</item>
-      <item>Multiple <c>sys</c> traceable replies.</item>
+      <item>Gathered state code</item>
+      <item>Arbitrary term state</item>
+      <item>Event postponing</item>
+      <item>Self-generated events</item>
+      <item>State time-out</item>
+      <item>Multiple generic named time-outs</item>
+      <item>Absolute time-out time</item>
+      <item>Automatic state enter calls</item>
+      <item>
+	Reply from other state than the request, <c>sys</c> traceable
+      </item>
+      <item>Multiple <c>sys</c> traceable replies</item>
     </list>
 
 
@@ -232,8 +234,10 @@ erlang:'!'            -----> Module:StateName/3
       whenever a new state is entered; see 
       <seealso marker="#type-state_enter"><c>state_enter()</c></seealso>.
       This is for writing code common to all state entries.
-      Another way to do it is to insert events at state transitions,
-      but you have to do so everywhere it is needed.
+      Another way to do it is to insert an event at the state transition,
+      and/or to use a dedicated state transition function,
+      but that is something you will have to remember
+      at every state transition to the state(s) that need it.
     </p>
     <note>
       <p>If you in <c>gen_statem</c>, for example, postpone
@@ -703,9 +707,9 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If 
 	  <seealso marker="#Module:code_change/4"><c>Module:code_change/4</c></seealso>
-	  should transform the state to a state with a different
-	  name it is still regarded as the same state so this
-	  does not cause a state enter call.
+	  should transform the state,
+	  it is regarded as a state rename and not a state change,
+	  which will not cause a state enter call.
 	</p>
 	<p>
 	  Note that a state enter call <em>will</em> be done
@@ -723,12 +727,19 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  Transition options can be set by
 	  <seealso marker="#type-action">actions</seealso>
-	  and they modify how the state transition is done:
+	  and modify the state transition.
+	  Here are the sequence of steps for a state transition:
 	</p>
 	<list type="ordered">
 	  <item>
             <p>
-	      If the state changes, is the initial state,
+	      If
+	      <seealso marker="#type-state_enter">
+		<em>state enter calls</em>
+	      </seealso>
+	      are used, and either:
+	      the state changes, it is the initial state,
+	      or one of the callback results
 	      <seealso marker="#type-state_callback_result">
 		<c>repeat_state</c>
 	      </seealso>
@@ -736,16 +747,21 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-state_callback_result">
 		<c>repeat_state_and_data</c>
 	      </seealso>
-	      is used, and also
-	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>
-	      are used, the <c>gen_statem</c> calls
+	      is used; the <c>gen_statem</c> calls
 	      the new state callback with arguments
 	      <seealso marker="#type-state_enter">(enter, OldState, Data)</seealso>.
+	    </p>
+	    <p>
 	      Any 
 	      <seealso marker="#type-enter_action"><c>actions</c></seealso>
 	      returned from this call are handled as if they were
-	      appended to the actions 
-	      returned by the state callback that changed states.
+	      appended to the actions
+	      returned by the state callback that caused the state entry.
+	    </p>
+	    <p>
+	      Should this state enter call return any of
+	      the mentioned <c>repeat_*</c> callback results
+	      it is repeated again, with the updated <c>Data</c>.
             </p>
 	  </item>
 	  <item>
@@ -774,7 +790,7 @@ handle_event(_, _, State, Data) ->
 	      All events stored with
 	      <seealso marker="#type-action"><c>action()</c></seealso>
 	      <c>next_event</c>
-	      are inserted to be processed before the other queued events.
+	      are inserted to be processed before previously queued events.
             </p>
 	  </item>
 	  <item>
@@ -788,7 +804,9 @@ handle_event(_, _, State, Data) ->
 	      delivered to the state machine before any external
 	      not yet received event so if there is such a time-out requested,
 	      the corresponding time-out zero event is enqueued as
-	      the newest event.
+	      the newest received event;
+	      that is after already queued events
+	      such as inserted and postponed events.
 	    </p>
 	    <p>
 	      Any event cancels an
@@ -826,7 +844,7 @@ handle_event(_, _, State, Data) ->
 	      When a new message arrives the 
 	      <seealso marker="#state callback">state callback</seealso>
 	      is called with the corresponding event,
-	      and we start again from the top of this list.
+	      and we start again from the top of this sequence.
 	    </p>
 	  </item>
 	</list>
@@ -851,13 +869,19 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>
 	  before going into <c>receive</c>
 	  to wait for a new external event.
-	  If there are enqueued events,
-	  to prevent receiving any new event, an
-	  <seealso marker="erts:erlang#garbage_collect/0"><c>erlang:garbage_collect/0</c></seealso>
-	  is done instead to simulate
-	  that the <c>gen_statem</c> entered hibernation
-	  and immediately got awakened by the oldest enqueued event.
 	</p>
+	<note>
+	  <p>
+	    If there are enqueued events to process
+	    when hibrnation is requested,
+	    this is optimized by not hibernating but instead calling
+	    <seealso marker="erts:erlang#garbage_collect/0">
+	      <c>erlang:garbage_collect/0</c>
+	    </seealso>
+	    to simulate that the <c>gen_statem</c> entered hibernation
+	    and immediately got awakened by an enqueued event.
+	  </p>
+	</note>
       </desc>
     </datatype>
     <datatype>
@@ -892,7 +916,7 @@ handle_event(_, _, State, Data) ->
 	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
-	  received external event.
+	  received external event, but after already queued events.
 	</p>
 	<p>
 	  Note that it is not possible nor needed to cancel this time-out,
@@ -978,7 +1002,9 @@ handle_event(_, _, State, Data) ->
 	  If <c>Abs</c> is <c>true</c> an absolute timer is started,
 	  and if it is <c>false</c> a relative, which is the default.
 	  See
-	  <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>
+	  <seealso marker="erts:erlang#start_timer/4">
+	    <c>erlang:start_timer/4</c>
+	  </seealso>
 	  for details.
 	</p>
 	<p>
@@ -1004,7 +1030,9 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  Actions that set
-	  <seealso marker="#type-transition_option">transition options</seealso>
+	  <seealso marker="#type-transition_option">
+	    transition options
+	  </seealso>
 	  override any previous of the same type,
 	  so the last in the containing list wins.
 	  For example, the last
@@ -1016,7 +1044,9 @@ handle_event(_, _, State, Data) ->
 	  <item>
 	    <p>
 	      Sets the
-	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
+	      <seealso marker="#type-transition_option">
+		<c>transition_option()</c>
+	      </seealso>
 	      <seealso marker="#type-postpone"><c>postpone()</c></seealso>
 	      for this state transition.
 	      This action is ignored when returned from
@@ -1029,7 +1059,11 @@ handle_event(_, _, State, Data) ->
 	  <tag><c>next_event</c></tag>
 	  <item>
 	    <p>
-	      Stores the specified <c><anno>EventType</anno></c>
+	      This action does not set any
+	      <seealso marker="#type-transition_option">
+		<c>transition_option()</c>
+	      </seealso>
+	      but instead stores the specified <c><anno>EventType</anno></c>
 	      and <c><anno>EventContent</anno></c> for insertion after all
 	      actions have been executed.
 	    </p>
@@ -1101,15 +1135,15 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-transition_option">transition options</seealso>.
 	</p>
 	<taglist>
-	  <tag><c>Timeout</c></tag>
+	  <tag><c>Time</c></tag>
 	  <item>
 	    <p>
-	      Short for <c>{timeout,Timeout,Timeout}</c>, that is,
+	      Short for <c>{timeout,Time,Time}</c>, that is,
 	      the time-out message is the time-out time.
 	      This form exists to make the
 	      <seealso marker="#state callback">state callback</seealso>
-	      return value <c>{next_state,NextState,NewData,Timeout}</c>
-	      allowed like for <c>gen_fsm</c>'s
+	      return value <c>{next_state,NextState,NewData,Time}</c>
+	      allowed like for <c>gen_fsm</c>.
 	    </p>
 	  </item>
 	  <tag><c>timeout</c></tag>
@@ -1161,7 +1195,11 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#enter_loop/5"><c>enter_loop/5,6</c></seealso>.
 	</p>
 	<p>
-	  It replies to a caller waiting for a reply in
+	  It does not set any
+	  <seealso marker="#type-transition_option">
+	    <c>transition_option()</c>
+	  </seealso>
+	  but instead replies to a caller waiting for a reply in
 	  <seealso marker="#call/2"><c>call/2</c></seealso>.
 	  <c><anno>From</anno></c> must be the term from argument
 	  <seealso marker="#type-event_type"><c>{call,<anno>From</anno>}</c></seealso>
@@ -2144,16 +2182,20 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	  You may also not change states from this call.
 	  Should you return <c>{next_state,NextState, ...}</c>
 	  with <c>NextState =/= State</c> the <c>gen_statem</c> crashes.
-	  It is possible to use <c>{repeat_state, ...}</c>,
-	  <c>{repeat_state_and_data,_}</c> or
-	  <c>repeat_state_and_data</c> but all of them makes little
+	  Note that it is actually allowed to use
+	  <c>{repeat_state, NewData, ...}</c> although it makes little
 	  sense since you immediately will be called again with a new
 	  <em>state enter call</em> making this just a weird way
 	  of looping, and there are better ways to loop in Erlang.
+	  If you do not update <c>NewData</c> and have some
+	  loop termination condition, or if you use
+	  <c>{repeat_state_and_data, _}</c> or
+	  <c>repeat_state_and_data</c> you have an infinite loop!
 	  You are advised to use <c>{keep_state,...}</c>,
 	  <c>{keep_state_and_data,_}</c> or
-	  <c>keep_state_and_data</c> since you can not change states
-	  from a <em>state enter call</em> anyway.
+	  <c>keep_state_and_data</c>
+	  since changing states from a <em>state enter call</em>
+	  is not possible anyway.
 	</p>
 	<p>
 	  Note the fact that you can use
