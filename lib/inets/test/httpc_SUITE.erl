@@ -53,6 +53,7 @@ suite() ->
 all() ->
     [
      {group, http},
+     {group, http_ipv6},
      {group, sim_http},
      {group, http_internal},
      {group, http_unix_socket},
@@ -64,6 +65,10 @@ all() ->
 groups() ->
     [
      {http, [], real_requests()},
+     {http_ipv6, [], [request_options]},
+     %% process_leak_on_keepalive is depending on stream_fun_server_close
+     %% and it shall be the last test case in the suite otherwise cookie
+     %% will fail.
      {sim_http, [], only_simulated() ++ [process_leak_on_keepalive]},
      {http_internal, [], real_requests_esi()},
      {http_unix_socket, [], simulated_unix_socket()},
@@ -201,6 +206,16 @@ init_per_group(http_unix_socket = Group, Config0) ->
             Port = server_start(Group, server_config(Group, Config)),
             [{port, Port} | Config]
     end;
+init_per_group(http_ipv6 = Group, Config0) ->
+    case is_ipv6_supported() of
+        true ->
+            start_apps(Group),
+            Config = proplists:delete(port, Config0),
+            Port = server_start(Group, server_config(Group, Config)),
+            [{port, Port} | Config];
+        false ->
+            {skip, "Host does not support IPv6"}
+     end;
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -249,6 +264,16 @@ end_per_testcase(persistent_connection, _Config) ->
 
 end_per_testcase(_Case, _Config) ->
     ok.
+
+is_ipv6_supported() ->
+    case gen_udp:open(0, [inet6]) of
+        {ok, Socket} ->
+            gen_udp:close(Socket),
+            true;
+        _ ->
+            false
+    end.
+
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -1264,6 +1289,15 @@ unix_domain_socket(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], _}}
         = httpc:request(get, {URL, []}, [], []).
 
+%%--------------------------------------------------------------------
+request_options() ->
+    [{doc, "Test http get request with socket options against local server (IPv6)"}].
+request_options(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/dummy.html", Config), []},
+    {ok, {{_,200,_}, [_ | _], _ = [_ | _]}} = httpc:request(get, Request, [],
+                                                            [{socket_opts,[{ipfamily, inet6}]}]),
+    {error,{failed_connect,_ }} = httpc:request(get, Request, [], []).
+
 
 
 %%--------------------------------------------------------------------
@@ -1353,6 +1387,9 @@ url(http, End, Config) ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
+url(http_ipv6, End, Config) ->
+    Port = proplists:get_value(port, Config),
+    ?URL_START ++ "[::1]" ++ ":" ++ integer_to_list(Port) ++ End;
 url(https, End, Config) ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
@@ -1397,7 +1434,11 @@ server_start(http_unix_socket, Config) ->
     {_Pid, Port} = http_test_lib:dummy_server(unix_socket, Inet, [{content_cb, ?MODULE},
                                                                   {unix_socket, Socket}]),
     Port;
-
+server_start(http_ipv6, HttpdConfig) ->
+    {ok, Pid} = inets:start(httpd, HttpdConfig),
+    Serv = inets:services_info(),
+    {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
+    proplists:get_value(port, Info);
 server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
@@ -1413,6 +1454,17 @@ server_config(http, Config) ->
      {document_root, proplists:get_value(doc_root, Config)},
      {bind_address, any},
      {ipfamily, inet_version()},
+     {mime_type, "text/plain"},
+     {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}}
+    ];
+server_config(http_ipv6, Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    [{port, 0},
+     {server_name,"httpc_test"},
+     {server_root, ServerRoot},
+     {document_root, proplists:get_value(doc_root, Config)},
+     {bind_address, {0,0,0,0,0,0,0,1}},
+     {ipfamily, inet6},
      {mime_type, "text/plain"},
      {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}}
     ];

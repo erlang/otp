@@ -450,17 +450,22 @@
 
           <tag><c><![CDATA[socket_opts]]></c></tag>
           <item>
-            <p>Socket options to be used for this and subsequent 
-	    requests.</p>
+            <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
 	    <seealso marker="#set_options-1">set_options</seealso>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
-            them if they are not correct. Note that the current
-            implementation assumes the requests to the same host, port
-            combination will use the same socket options.
+            them if they are not correct.
 	    </p>
+	    <note>
+	      <p>
+		Persistent connections are not supported when setting the
+		<c>socket_opts</c> option. When <c>socket_opts</c> is not
+		set the current implementation assumes the requests to the
+		same host, port combination will use the same socket options.
+	      </p>
+	    </note>
 	    
             <p>By default the socket options set by function
 	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
@@ -633,8 +638,11 @@
 	  to complete. The HTTP/1.1 specification suggests a
 	  limit of two persistent connections per server, which is the
 	  default value of option <c>max_sessions</c>.</p>
+	  <p>
+            The current implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	  </p>
 	</note>
-
         <marker id="get_options"></marker>
       </desc>
     </func>
