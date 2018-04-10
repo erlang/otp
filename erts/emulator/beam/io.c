@@ -956,6 +956,9 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
 	reds_left_in = ERTS_BIF_REDS_LEFT(c_p);
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+
+        ASSERT((c_p->scheduler_data)->current_port == NULL);
+        (c_p->scheduler_data)->current_port = prt;
     }
 
     ASSERT(0 <= reds_left_in && reds_left_in <= CONTEXT_REDS);
@@ -1017,6 +1020,9 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
     erts_port_release(prt);
 
     if (c_p) {
+        ASSERT((c_p->scheduler_data)->current_port == prt);
+        (c_p->scheduler_data)->current_port = NULL;
+
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
 	if (reds != (CONTEXT_REDS - sp->reds_left_in)) {
