@@ -213,7 +213,7 @@ fts_rand_float_decimals(N) ->
     [begin
          F0 = rand_float_reasonable(),
          L0 = float_to_list(F0, [{decimals, D}]),
-         case conform_with_io_lib_format(F0,D) of
+         case conform_with_io_lib_format_os(F0,D) of
              false -> ok;
              true ->
                  IOL = lists:flatten(io_lib:format("~.*f", [D, F0])),
@@ -247,6 +247,15 @@ fts_rand_float_decimals(N) ->
      || D <- lists:seq(0,15)],
 
     fts_rand_float_decimals(N-1).
+
+conform_with_io_lib_format_os(F, D) ->
+    case os:type() of
+        {win32,_} ->
+            %% io_lib:format("~.*f") buggy on windows? OTP-15010
+            false;
+        _ ->
+            conform_with_io_lib_format(F, D)
+    end.
 
 conform_with_io_lib_format(_, 0) ->
     %% io_lib:format("~.*f") does not support zero decimals
