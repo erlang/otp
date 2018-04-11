@@ -1,0 +1,620 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+-mode(compile).
+
+main(Args0) ->
+    {Args,Opts} = opts(Args0, #{format=>asm,no_compile=>false}),
+    case Args of
+	[OutDir] ->
+	    do_compile(OutDir, Opts);
+	_ ->
+            usage(),
+	    halt(1)
+    end.
+
+usage() ->
+    S = "usage: otp-diffable-asm [OPTION] DIRECTORY\n\n"
+        "Options:\n"
+        "  --asm          Output to .S files (default)\n"
+        "  --dis          Output to .dis files\n"
+        "  --no-compile   Disassemble from BEAM files (use with --dis)\n"
+        "\n"
+        "DESCRIPTION\n"
+        "\n"
+        "Compile some applications from OTP (more than 700 modules) to either\n"
+        ".S files or .dis files. The files are massaged to make them diff-friendly.\n"
+        "\n"
+        "EXAMPLES\n"
+        "\n"
+        "This example shows how the effectiveness of a compiler \n"
+        "optimization can be verified (alternatively, that pure code\n"
+        "refactoring has no effect on the generated code):\n"
+        "\n"
+        "$ scripts/diffable old\n"
+        "# Hack the compiler.\n"
+        "$ scripts/diffable new\n"
+        "$ diff -u old new\n"
+        "\n"
+        "This example shows how the effectiveness of loader hacks\n"
+        "can be verified:\n"
+        "\n"
+        "$ scripts/diffable --dis --no-compile old\n"
+        "# Hack ops.tab and/or one of the *instr.tab files.\n"
+        "$ scripts/diffable --dis --no-compile new\n"
+        "$ diff -u old new\n",
+    io:put_chars(S).
+
+opts(["--asm"|Args], Opts) ->
+    opts(Args, Opts#{format:=asm});
+opts(["--dis"|Args], Opts) ->
+    opts(Args, Opts#{format:=dis});
+opts(["--no-compile"|Args], Opts) ->
+    opts(Args, Opts#{format:=dis,no_compile:=true});
+opts(Args, Opts) ->
+    {Args,Opts}.
+
+do_compile(OutDir, Opts0) ->
+    Opts1 = Opts0#{outdir=>OutDir},
+    _ = filelib:ensure_dir(filename:join(OutDir, "dummy")),
+    Apps = ["preloaded",
+            "asn1",
+            "stdlib",
+	    "kernel",
+	    "reltool",
+	    "runtime_tools",
+	    "xmerl",
+	    "common_test",
+	    "compiler",
+	    "diameter",
+	    "mnesia",
+	    "inets",
+	    "syntax_tools",
+	    "parsetools",
+	    "dialyzer",
+	    "ssl",
+            "wx"],
+    {Files,Opts} = get_files(Apps, Opts1),
+    CF = choose_format(Opts),
+    p_run(fun(File) ->
+                  compile_file(CF, File)
+          end, Files).
+
+choose_format(#{format:=Format}=Opts) ->
+    case Format of
+        asm ->
+            compile_to_asm_fun(Opts);
+        dis ->
+            compile_to_dis_fun(Opts)
+    end.
+
+compile_file(CF, File) ->
+    try
+        CF(File)
+    catch
+	Class:Error:Stk ->
+	    io:format("~s: ~p ~p\n~p\n",
+		      [File,Class,Error,Stk]),
+	    error
+    end.
+
+%%%
+%%% Get names of files (either .erl files or BEAM files).
+%%%
+
+get_files(Apps, #{format:=dis,no_compile:=true}=Opts) ->
+    Files = get_beams(Apps),
+    {Files,Opts};
+get_files(Apps, #{}=Opts) ->
+    Inc = make_includes(),
+    CompilerOpts = [{d,epmd_dist_high,42},
+                    {d,epmd_dist_low,37},
+                    {d,'VSN',1},
+                    {d,'COMPILER_VSN',1},
+                    {d,erlang_daemon_port,1337}|Inc],
+    Files0 = get_src(Apps),
+    Files = add_opts(Files0, CompilerOpts),
+    {Files,Opts}.
+
+add_opts([F|Fs], Opts0) ->
+    Opts = case filename:basename(F) of
+               "group_history.erl" ->
+                   Opts0 -- [{d,'VSN',1}];
+               _ ->
+                   Opts0
+           end,
+    [{F,Opts}|add_opts(Fs, Opts0)];
+add_opts([], _Opts) ->
+    [].
+
+get_src(["preloaded"|Apps]) ->
+    WC = filename:join(code:root_dir(), "erts/preloaded/src/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps);
+get_src(["inets"|Apps]) ->
+    LibDir = code:lib_dir(inets),
+    WC = filename:join(LibDir, "src/*/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps);
+get_src(["syntax_tools"|Apps]) ->
+    LibDir = code:lib_dir(syntax_tools),
+    WC = filename:join(LibDir, "src/*.erl"),
+    Files0 = filelib:wildcard(WC),
+    Files = [F || F <- Files0,
+                  filename:basename(F) =/= "merl_tests.erl"],
+    Files ++ get_src(Apps);
+get_src(["wx"|Apps]) ->
+    LibDir = code:lib_dir(wx),
+    WC1 = filename:join(LibDir, "src/gen/*.erl"),
+    WC2 = filename:join(LibDir, "src/*.erl"),
+    filelib:wildcard(WC1) ++ filelib:wildcard(WC2) ++ get_src(Apps);
+get_src([App|Apps]) ->
+    WC = filename:join(code:lib_dir(App), "src/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps);
+get_src([]) -> [].
+
+make_includes() ->
+    Is = [{common_test,"include"},
+          {inets,"include"},
+          {inets,"src/http_client"},
+          {inets,"src/http_lib"},
+          {inets,"src/http_server"},
+          {inets,"src/inets_app"},
+          {kernel,"include"},
+          {kernel,"src"},
+          {public_key,"include"},
+          {runtime_tools,"include"},
+          {ssh,"include"},
+          {snmp,"include"},
+          {stdlib,"include"},
+          {syntax_tools,"include"},
+          {wx,"src"},
+          {wx,"include"},
+          {xmerl,"include"}],
+    [{i,filename:join(code:lib_dir(App), Path)} || {App,Path} <- Is].
+
+get_beams(["preloaded"|Apps]) ->
+    WC = filename:join(code:root_dir(), "erts/preloaded/ebin/*.beam"),
+    filelib:wildcard(WC) ++ get_beams(Apps);
+get_beams([App|Apps]) ->
+    WC = filename:join(code:lib_dir(App), "ebin/*.beam"),
+    filelib:wildcard(WC) ++ get_beams(Apps);
+get_beams([]) -> [].
+
+
+%%%
+%%% Generate renumbered .S files.
+%%%
+
+compile_to_asm_fun(#{outdir:=OutDir}) ->
+    fun(File) ->
+            compile_to_asm(File, OutDir)
+    end.
+
+compile_to_asm({File,Opts}, OutDir) ->
+    case compile:file(File, [to_asm,binary,report_errors|Opts]) of
+        error ->
+            error;
+        {ok,Mod,Asm0} ->
+            {ok,Asm1} = beam_a:module(Asm0, []),
+            Asm2 = renumber_asm(Asm1),
+            {ok,Asm} = beam_z:module(Asm2, []),
+            print_asm(Mod, OutDir, Asm)
+    end.
+
+print_asm(Mod, OutDir, Asm) ->
+    S = atom_to_list(Mod) ++ ".S",
+    Name = filename:join(OutDir, S),
+    {ok,Fd} = file:open(Name, [write,raw,delayed_write]),
+    ok = beam_listing(Fd, Asm),
+    ok = file:close(Fd).
+
+renumber_asm({Mod,Exp,Attr,Fs0,NumLabels}) ->
+    EntryLabels = maps:from_list(entry_labels(Fs0)),
+    Fs = [fix_func(F, EntryLabels) || F <- Fs0],
+    {Mod,Exp,Attr,Fs,NumLabels}.
+
+entry_labels(Fs) ->
+    [{Entry,{Name,Arity}} || {function,Name,Arity,Entry,_} <- Fs].
+
+fix_func({function,Name,Arity,Entry0,Is0}, LabelMap0) ->
+    Entry = maps:get(Entry0, LabelMap0),
+    LabelMap = label_map(Is0, 1, LabelMap0),
+    Is = replace(Is0, [], LabelMap),
+    {function,Name,Arity,Entry,Is}.
+
+label_map([{label,Old}|Is], New, Map) ->
+    case maps:is_key(Old, Map) of
+        false ->
+            label_map(Is, New+1, Map#{Old=>New});
+        true ->
+            label_map(Is, New, Map)
+    end;
+label_map([_|Is], New, Map) ->
+    label_map(Is, New, Map);
+label_map([], _New, Map) ->
+    Map.
+
+replace([{label,Lbl}|Is], Acc, D) ->
+    replace(Is, [{label,label(Lbl, D)}|Acc], D);
+replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
+    replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
+replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
+    replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
+replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
+    Vls = lists:map(fun ({f,L}) -> {f,label(L, D)};
+			(Other) -> Other
+		    end, Vls0),
+    Fail = label(Fail0, D),
+    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D);
+replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
+replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{'catch',R,{f,label(Lbl, D)}}|Acc], D);
+replace([{jump,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{jump,{f,label(Lbl, D)}}|Acc], D);
+replace([{loop_rec,{f,Lbl},R}|Is], Acc, D) ->
+    replace(Is, [{loop_rec,{f,label(Lbl, D)},R}|Acc], D);
+replace([{loop_rec_end,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{loop_rec_end,{f,label(Lbl, D)}}|Acc], D);
+replace([{wait,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{wait,{f,label(Lbl, D)}}|Acc], D);
+replace([{wait_timeout,{f,Lbl},To}|Is], Acc, D) ->
+    replace(Is, [{wait_timeout,{f,label(Lbl, D)},To}|Acc], D);
+replace([{bif,Name,{f,Lbl},As,R}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bif,Name,{f,label(Lbl, D)},As,R}|Acc], D);
+replace([{gc_bif,Name,{f,Lbl},Live,As,R}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{gc_bif,Name,{f,label(Lbl, D)},Live,As,R}|Acc], D);
+replace([{call,Ar,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{call,Ar,{f,label(Lbl,D)}}|Acc], D);
+replace([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D) ->
+    replace(Is, [{make_fun2,{f,label(Lbl, D)},U1,U2,U3}|Acc], D);
+replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
+replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
+replace([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D)
+  when Lbl =/= 0 ->
+    replace(Is, [{I,{f,label(Lbl, D)},Op,Src,Dst,Live,List}|Acc], D);
+replace([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{I,{f,label(Lbl, D)},Src,List}|Acc], D);
+replace([{recv_mark=I,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{I,{f,label(Lbl, D)}}|Acc], D);
+replace([{recv_set=I,{f,Lbl}}|Is], Acc, D) ->
+    replace(Is, [{I,{f,label(Lbl, D)}}|Acc], D);
+replace([I|Is], Acc, D) ->
+    replace(Is, [I|Acc], D);
+replace([], Acc, _) ->
+    lists:reverse(Acc).
+
+label(Old, D) when is_integer(Old) ->
+    maps:get(Old, D).
+
+%%%
+%%% Compile and disassemble the loaded code.
+%%%
+
+compile_to_dis_fun(#{outdir:=OutDir,no_compile:=false}) ->
+    fun(File) ->
+            compile_to_dis(File, OutDir)
+    end;
+compile_to_dis_fun(#{outdir:=OutDir,no_compile:=true}) ->
+    fun(File) ->
+            dis_only(File, OutDir)
+    end.
+
+compile_to_dis({File,Opts}, OutDir) ->
+    case compile:file(File, [to_asm,binary,report_errors|Opts]) of
+        error ->
+            error;
+        {ok,Mod,Asm0} ->
+            NewMod = list_to_atom("--"++atom_to_list(Mod)++"--"),
+            Asm = rename_mod_in_asm(Asm0, Mod, NewMod),
+            AsmOpts = [from_asm,report,no_postopt,binary],
+            {ok,NewMod,Beam} = compile:forms(Asm, AsmOpts),
+            Dis0 = disasm(NewMod, Beam),
+            Dis1 = renumber_disasm(Dis0, Mod, NewMod),
+            Dis = format_disasm(Dis1),
+            OutFile = filename:join(OutDir, atom_to_list(Mod)++".dis"),
+            ok = file:write_file(OutFile, Dis)
+    end.
+
+dis_only(File, OutDir) ->
+    Mod0 = filename:rootname(filename:basename(File)),
+    Mod = list_to_atom(Mod0),
+    Dis0 = disasm(Mod),
+    Dis1 = renumber_disasm(Dis0, Mod, Mod),
+    Dis = format_disasm(Dis1),
+    OutFile = filename:join(OutDir, atom_to_list(Mod)++".dis"),
+    ok = file:write_file(OutFile, Dis).
+
+%%% Loading system modules can cause any number of problems.
+%%% Therefore, we rename all modules to a dummy name before
+%%% loading and disassembling them.
+
+rename_mod_in_asm({OldMod,Exp,_Attr,Fs0,NumLabels}, OldMod, NewMod) ->
+    Fs = [fix_func_info(F, {atom,OldMod}, {atom,NewMod}) || F <- Fs0],
+    {NewMod,Exp,[],Fs,NumLabels}.
+
+fix_func_info({function,Name,Arity,Entry,Is0}, OldMod, NewMod) ->
+    Is1 = [begin
+               case I of
+                   {func_info,_,F,A} ->
+                       {func_info,NewMod,F,A};
+                   _ ->
+                       I
+               end
+           end || I <- Is0],
+    Is = case {Name,Arity} of
+             {module_info,0} -> fix_module_info(Is1, OldMod, NewMod);
+             {module_info,1} -> fix_module_info(Is1, OldMod, NewMod);
+             {_,_} -> Is1
+         end,
+    {function,Name,Arity,Entry,Is}.
+
+fix_module_info([{move,OldMod,Dst}|Is], OldMod, NewMod) ->
+    [{move,NewMod,Dst}|fix_module_info(Is, OldMod, NewMod)];
+fix_module_info([I|Is], OldMod, NewMod) ->
+    [I|fix_module_info(Is, OldMod, NewMod)];
+fix_module_info([], _, _) ->
+    [].
+
+
+%%% Disassemble the module.
+
+disasm(Mod, Beam) ->
+    {module,Mod} = code:load_binary(Mod, "", Beam),
+    disasm(Mod).
+
+disasm(Mod) ->
+    disasm_1(Mod:module_info(functions), Mod).
+
+disasm_1([{Name,Arity}|Fs], Mod) ->
+    MFA = {Mod,Name,Arity},
+    Dis = disasm_func({MFA,<<>>,MFA}, MFA),
+    [{Name,Arity,Dis}|disasm_1(Fs, Mod)];
+disasm_1([], _) ->
+    [].
+
+disasm_func({Next,_,MFA}, MFA) ->
+    case erts_debug:disassemble(Next) of
+        {_,Line,MFA}=Cont ->
+            [Line|disasm_func(Cont, MFA)];
+        {_,_,_} ->
+            [];
+        false ->
+            []
+    end.
+
+%%% Renumber the disassembled module to use labels instead of
+%%% absolute addresses. Also do other translations so that the
+%%% output will be the same each time (for the same BEAM file
+%%% runtime system).
+
+renumber_disasm(Fs0, OldMod, NewMod) ->
+    Fs1 = split_dis_lines(Fs0),
+    renumber_disasm_fs(Fs1, OldMod, NewMod).
+
+renumber_disasm_fs([{Name,Arity,Is0}|Fs], OldMod, NewMod) ->
+    Labels = find_labels(Is0, Name, Arity),
+    Is1 = rename_mod(Is0, OldMod, NewMod),
+    Is = renumber_disasm_func(Is1, Labels),
+    [{Name,Arity,Is}|renumber_disasm_fs(Fs, OldMod, NewMod)];
+renumber_disasm_fs([], _OldMod, _NewMod) ->
+    [].
+
+renumber_disasm_func([[A,OpCode|Ops0]|Is], Labels) ->
+    Spaces = "    ",
+    Left = case maps:find(A, Labels) of
+               {ok,Lbl} ->
+                   case byte_size(Lbl) of
+                       LblSize when LblSize < length(Spaces) ->
+                           [$\n,Lbl,":",lists:nth(LblSize, Spaces)];
+                       _ ->
+                           [Lbl,":\n"|Spaces]
+                   end;
+               error ->
+                   Spaces
+           end,
+    Ops1 = [replace_label(Op, Labels) || Op <- Ops0],
+    Ops = handle_special_instrs(OpCode, Ops1),
+    [[Left,OpCode|Ops]|renumber_disasm_func(Is, Labels)];
+renumber_disasm_func([], _) ->
+    [].
+
+handle_special_instrs(<<"i_get_hash_cId">>, [Key,_Hash,Dst]) ->
+    [Key,hash_value(),Dst];
+handle_special_instrs(<<"i_get_map_element_",_/binary>>,
+                      [Fail,Src,Key,_Hash,Dst]) ->
+    [Fail,Src,Key,hash_value(),Dst];
+handle_special_instrs(<<"i_get_map_elements_",_/binary>>,
+                      [Fail,Src,N,Space|List0]) ->
+    List1 = rejoin_atoms(List0),
+    List = fix_hash_value(List1),
+    [Fail,Src,N,Space|List];
+handle_special_instrs(<<"i_select_val_bins_",_/binary>>,
+                      [Src,Fail,Num|List0]) ->
+    %% Atoms are sorted in atom-number order, which is
+    %% different every time the runtime system is restarted.
+    %% Resort the values in ASCII order.
+    List1 = rejoin_atoms(List0),
+    {Values0,Labels0} = lists:split(length(List1) div 2, List1),
+    Zipped0 = lists:zip(Values0, Labels0),
+    Zipped = lists:sort(Zipped0),
+    {Values,Labels} = lists:unzip(Zipped),
+    [Src,Fail,Num|Values++Labels];
+handle_special_instrs(<<"i_select_val_lins_",_/binary>>,
+                      [Src,Fail,Num|List0]) ->
+    List1 = rejoin_atoms(List0),
+    {Values0,Labels0} = lists:split(length(List1) div 2, List1),
+    Values1 = lists:droplast(Values0),
+    Labels1 = lists:droplast(Labels0),
+    Vlast = lists:last(Values0),
+    Llast = lists:last(Labels0),
+    Zipped0 = lists:zip(Values1, Labels1),
+    Zipped = lists:sort(Zipped0),
+    {Values,Labels} = lists:unzip(Zipped),
+    [Src,Fail,Num|Values++[Vlast]++Labels++[Llast]];
+handle_special_instrs(_, Ops) ->
+    Ops.
+
+fix_hash_value([Val,Dst,_Hash|T]) ->
+    [Val,Dst,hash_value()|fix_hash_value(T)];
+fix_hash_value([]) ->
+    [].
+
+hash_value() ->
+    <<"--hash-value--">>.
+
+replace_label(<<"f(",T/binary>>, Labels) ->
+    replace_label_1("f(", T, Labels);
+replace_label(<<"j(",T/binary>>, Labels) ->
+    replace_label_1("j(", T, Labels);
+replace_label(Op, _Labels) ->
+    Op.
+
+replace_label_1(Prefix, Lbl0, Labels) ->
+    Sz = byte_size(Lbl0)-1,
+    Lbl = case Lbl0 of
+              <<"0)">> ->
+                  Lbl0;
+              <<Lbl1:Sz/bytes,")">> ->
+                  [maps:get(Lbl1, Labels),")"];
+              _ ->
+                  Lbl0
+          end,
+    iolist_to_binary([Prefix,Lbl]).
+
+split_dis_lines(Fs) ->
+    {ok,RE} = re:compile(<<"\\s*\\n$">>),
+    Colon = binary:compile_pattern(<<": ">>),
+    Space = binary:compile_pattern(<<" ">>),
+    [split_dis_func(F, RE, Colon, Space) || F <- Fs].
+
+split_dis_func({Name,Arity,Lines0}, RE, Colon, Space) ->
+    Lines1 = [re:replace(L, RE, <<>>, [{return,binary}]) || L <- Lines0],
+    Lines2 = [begin
+                  [A,I] = binary:split(L, Colon),
+                  Ops = binary:split(I, Space, [global]),
+                  [A|Ops]
+              end|| L <- Lines1],
+    {Name,Arity,Lines2}.
+
+rejoin_atoms([<<"'",Tail/binary>> = Bin0,Next|Ops]) ->
+    Sz = byte_size(Tail) - 1,
+    case Tail of
+        <<_:Sz/bytes,"'">> ->
+            [Bin0|rejoin_atoms([Next|Ops])];
+        <<>> ->
+            Bin = <<Bin0/binary,$\s,Next/binary>>,
+            rejoin_atoms([Bin|Ops]);
+        _ ->
+            Bin = <<Bin0/binary,$\s,Next/binary>>,
+            rejoin_atoms([Bin|Ops])
+    end;
+rejoin_atoms(Ops) ->
+    Ops.
+
+find_labels(Is, Name, Arity) ->
+    [_,[Entry|_]|_] = Is,
+    EntryLabel = iolist_to_binary(io_lib:format("~p/~p", [Name,Arity])),
+    {ok,RE} = re:compile(<<"^[fj]\\(([0-9A-F]{8,16})\\)$">>),
+    Ls0 = [find_labels_1(Ops, RE) || [_Addr,_OpCode|Ops] <- Is],
+    Ls1 = lists:flatten(Ls0),
+    Ls2 = lists:usort(Ls1),
+    Ls3 = number(Ls2, 1),
+    Ls = [{Entry,EntryLabel}|Ls3],
+    maps:from_list(Ls).
+
+find_labels_1([Op|Ops], RE) ->
+    case re:run(Op, RE, [{capture,all_but_first,binary}]) of
+        nomatch ->
+            find_labels_1(Ops, RE);
+        {match,[M]} ->
+            [M|find_labels_1(Ops, RE)]
+    end;
+find_labels_1([], _) ->
+    [].
+
+number([H|T], N) ->
+    S = iolist_to_binary(["L",integer_to_list(N)]),
+    [{H,S}|number(T, N+1)];
+number([], _) ->
+    [].
+
+format_disasm([{_,_,Is}|Fs]) ->
+    L = [lists:join(" ", I) || I <- Is],
+    [lists:join("\n", L),"\n\n"|format_disasm(Fs)];
+format_disasm([]) ->
+    [].
+
+rename_mod(Is, OldMod0, NewMod) ->
+    OldMod = atom_to_binary(OldMod0, utf8),
+    Pattern = <<"'",(atom_to_binary(NewMod, utf8))/binary,"'">>,
+    [rename_mod_1(I, Pattern, OldMod) || I <- Is].
+
+rename_mod_1([A,OpCode|Ops], Pat, Replacement) ->
+    [A,OpCode|[rename_mod_2(Op, Pat, Replacement) || Op <- Ops]].
+
+rename_mod_2(Subject, Pat, Replacement) ->
+    Sz = byte_size(Pat),
+    case Subject of
+        <<Pat:Sz/bytes,Tail/binary>> ->
+            <<Replacement/binary,Tail/binary>>;
+        _ ->
+            Subject
+    end.
+
+%%%
+%%% Run tasks in parallel.
+%%%
+
+p_run(Test, List) ->
+    N = erlang:system_info(schedulers) * 2,
+    p_run_loop(Test, List, N, [], 0).
+
+p_run_loop(_, [], _, [], Errors) ->
+    io:put_chars("\r \n"),
+    case Errors of
+	0 ->
+            ok;
+	N ->
+	    io:format("~p errors\n", [N]),
+            halt(1)
+    end;
+p_run_loop(Test, [H|T], N, Refs, Errors) when length(Refs) < N ->
+    {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
+    p_run_loop(Test, T, N, [Ref|Refs], Errors);
+p_run_loop(Test, List, N, Refs0, Errors0) ->
+    io:format("\r~p ", [length(List)+length(Refs0)]),
+    receive
+	{'DOWN',Ref,process,_,Res} ->
+	    Errors = case Res of
+                         ok -> Errors0;
+                         error -> Errors0 + 1
+                     end,
+	    Refs = Refs0 -- [Ref],
+	    p_run_loop(Test, List, N, Refs, Errors)
+    end.
+
+%%%
+%%% Borrowed from beam_listing and tweaked.
+%%%
+
+beam_listing(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
+    Head = ["%% -*- encoding:latin-1 -*-\n",
+            io_lib:format("{module, ~p}.  %% version = ~w\n",
+                          [Mod, beam_opcodes:format_number()]),
+            io_lib:format("\n{exports, ~p}.\n", [Exp]),
+            io_lib:format("\n{attributes, ~p}.\n", [Attr]),
+            io_lib:format("\n{labels, ~p}.\n", [NumLabels])],
+    ok = file:write(Stream, Head),
+    lists:foreach(
+      fun ({function,Name,Arity,Entry,Asm}) ->
+              S = [io_lib:format("\n\n{function, ~w, ~w, ~w}.\n",
+                                 [Name,Arity,Entry])|format_asm(Asm)],
+              ok = file:write(Stream, S)
+      end, Code).
+
+format_asm([{label,_}=I|Is]) ->
+    [io_lib:format("  ~p", [I]),".\n"|format_asm(Is)];
+format_asm([I|Is]) ->
+    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
+format_asm([]) -> [].
