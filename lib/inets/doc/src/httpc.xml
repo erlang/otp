@@ -312,8 +312,7 @@
         <v>Body = string() | binary()</v>
         <v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-        <v>Reason = {connect_failed, term()} | 
-                    {send_failed, term()} | term()</v>
+        <v>Reason = term()</v>
       </type>
 
       <desc>

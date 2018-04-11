@@ -83,7 +83,6 @@ whole_body(Body, Length) ->
 %% result(Response, Request) ->
 %%   Response - {StatusLine, Headers, Body}
 %%   Request - #request{}
-%%   Session - #tcp_session{}
 %%                                   
 %% Description: Checks the status code ...
 %%-------------------------------------------------------------------------

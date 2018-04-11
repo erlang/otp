@@ -48,19 +48,17 @@
           queue_timer         :: reference() | 'undefined'
          }).
 
--type session_failed() :: {'connect_failed',term()} | {'send_failed',term()}.
-
 -record(state, 
         {
           request                   :: request() | 'undefined',
-          session                   :: session() | session_failed() | 'undefined',
+          session                   :: session() | 'undefined',
           status_line,               % {Version, StatusCode, ReasonPharse}
           headers                   :: http_response_h() | 'undefined',
           body                      :: binary() | 'undefined',
           mfa,                       % {Module, Function, Args}
           pipeline = queue:new()    :: queue:queue(),
           keep_alive = queue:new()  :: queue:queue(),
-          status,   % undefined | new | pipeline | keep_alive | close | {ssl_tunnel, Request}
+          status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
           canceled = [],             % [RequestId]
           max_header_size = nolimit :: nolimit | integer(),
           max_body_size = nolimit   :: nolimit | integer(),
@@ -255,8 +253,8 @@ handle_call(Request, From, State) ->
 	Result ->
 	    Result
     catch
-	_:Reason ->
-	    {stop, {shutdown, Reason} , State}
+	Class:Reason:ST ->
+	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
 
@@ -271,8 +269,8 @@ handle_cast(Msg, State) ->
 	Result ->
 	    Result
     catch
-	_:Reason ->
-	    {stop, {shutdown, Reason} , State}
+	Class:Reason:ST ->
+	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
 %%--------------------------------------------------------------------
@@ -286,31 +284,14 @@ handle_info(Info, State) ->
 	Result ->
 	    Result
     catch
-	_:Reason ->
-	    {stop, {shutdown, Reason} , State}
+	Class:Reason:ST ->
+	    {stop, {shutdown, {{Class, Reason}, ST}}, State}
     end.		
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> _  (ignored by gen_server)
 %% Description: Shutdown the httpc_handler
 %%--------------------------------------------------------------------
-
-%% Init error there is no socket to be closed.
-terminate(normal, 
-          #state{request = Request, 
-                 session = {send_failed, _} = Reason} = State) ->
-    maybe_send_answer(Request, 
-                      httpc_response:error(Request, Reason), 
-                      State),
-    ok; 
-
-terminate(normal, 
-          #state{request = Request, 
-                 session = {connect_failed, _} = Reason} = State) ->
-    maybe_send_answer(Request, 
-                      httpc_response:error(Request, Reason), 
-                      State),
-    ok; 
 
 terminate(normal, #state{session = undefined}) ->
     ok;  
@@ -588,11 +569,11 @@ do_handle_info({Proto, _Socket, Data},
 	    activate_once(Session),
 	    {noreply, State#state{mfa = NewMFA}}
     catch
-	_:Reason ->
+	Class:Reason:ST ->
 	    ClientReason = {could_not_parse_as_http, Data}, 
 	    ClientErrMsg = httpc_response:error(Request, ClientReason),
 	    NewState     = answer_request(Request, ClientErrMsg, State),
-	    {stop, {shutdown, Reason}, NewState}
+	    {stop, {shutdown, {{Class, Reason}, ST}}, NewState}
     end;
 
 do_handle_info({Proto, Socket, Data}, 
@@ -1058,15 +1039,15 @@ handle_response(#state{status = new} = State) ->
     ?hcrd("handle response - status = new", []),
     handle_response(try_to_enable_pipeline_or_keep_alive(State));
 
-handle_response(#state{request      = Request,
-		       status       = Status,
-		       session      = Session, 
-		       status_line  = StatusLine,
-		       headers      = Headers, 
-		       body         = Body,
-		       options      = Options,
-		       profile_name = ProfileName} = State) 
-  when Status =/= new ->
+handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
+    State = handle_server_closing(State0),
+    #state{request      = Request,
+           session      = Session,
+           status_line  = StatusLine,
+           headers      = Headers,
+           body         = Body,
+           options      = Options,
+           profile_name = ProfileName} = State,
     handle_cookies(Headers, Request, Options, ProfileName), 
     case httpc_response:result({StatusLine, Headers, Body}, Request) of
 	%% 100-continue
@@ -1328,6 +1309,14 @@ try_to_enable_pipeline_or_keep_alive(
 	    end;
 	false ->
 	    State#state{status = close}
+    end.
+
+handle_server_closing(State = #state{status = close}) -> State;
+handle_server_closing(State = #state{headers = undefined}) -> State;
+handle_server_closing(State = #state{headers = Headers}) ->
+    case httpc_response:is_server_closing(Headers) of
+        true -> State#state{status = close};
+        false -> State
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
