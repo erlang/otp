@@ -31,7 +31,7 @@
 %%% erlang:error(function_clause, Args)  => jump FuncInfoLabel
 %%%
 
--import(lists, [reverse/1]).
+-import(lists, [reverse/1,seq/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -138,23 +138,46 @@ fix_block(Is, Words) ->
     reverse(fix_block_1(Is, Words)).
 
 fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words) ->
-    Needed = Needed0 - Words,
-    true = Needed >= 0,				%Assertion.
-    [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is];
+    case Needed0 - Words of
+        0 ->
+            Is;
+        Needed ->
+            true = Needed >= 0,				%Assertion.
+            [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is]
+    end;
 fix_block_1([I|Is], Words) ->
     [I|fix_block_1(Is, Words)].
 
 dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
-    case dig_out_fc(Bl, Live-1, nil) of
-	no ->
-	    no;
-	yes ->
-	    {yes,{function_clause,Live}}
-    end;
+    Regs = maps:from_list([{{x,X},{arg,X}} || X <- seq(0, Live-1)]),
+    dig_out_fc(Bl, Regs);
 dig_out_block_fc(_) -> no.
 
-dig_out_fc([{set,[Dst],[{x,Reg},Dst0],put_list}|Is], Reg, Dst0) ->
-    dig_out_fc(Is, Reg-1, Dst);
-dig_out_fc([{set,[{x,0}],[{atom,function_clause}],move}], -1, {x,1}) ->
-    yes;
-dig_out_fc(_, _, _) -> no.
+dig_out_fc([{set,[Dst],[Hd,Tl],put_list}|Is], Regs0) ->
+    Regs = Regs0#{Dst=>{cons,get_reg(Hd, Regs0),get_reg(Tl, Regs0)}},
+    dig_out_fc(Is, Regs);
+dig_out_fc([{set,[Dst],[Src],move}|Is], Regs0) ->
+    Regs = Regs0#{Dst=>get_reg(Src, Regs0)},
+    dig_out_fc(Is, Regs);
+dig_out_fc([{set,_,_,_}|_], _Regs) ->
+    %% Unknown instruction. It is not a function_clause error.
+    no;
+dig_out_fc([], Regs) ->
+    case Regs of
+        #{{x,0}:={atom,function_clause},{x,1}:=Args} ->
+            dig_out_fc_1(Args, 0);
+        #{} ->
+            no
+    end.
+
+dig_out_fc_1({cons,{arg,I},T}, I) ->
+    dig_out_fc_1(T, I+1);
+dig_out_fc_1(nil, I) ->
+    {yes,{function_clause,I}};
+dig_out_fc_1(_, _) -> no.
+
+get_reg(R, Regs) ->
+    case Regs of
+        #{R:=Val} -> Val;
+        #{} -> R
+    end.
