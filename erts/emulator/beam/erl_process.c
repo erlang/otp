@@ -10785,7 +10785,6 @@ exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state)
     while (1) {
         erts_aint32_t aprio, uprio, n, e;
         ASSERT(a & ERTS_PSFLG_EXITING);
-        ASSERT(!(a & ERTS_PSFLG_FREE));
         aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
         uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
         if (aprio >= uprio)
