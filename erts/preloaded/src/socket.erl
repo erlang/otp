@@ -32,7 +32,6 @@
          connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
-         accept4/1, accept4/2, accept4/3,
 
          send/2, send/3, sendto/5,
          recv/1, recv/2, recvfrom/1, recvfrom/2,
@@ -53,6 +52,7 @@
               ip_address/0,
               ip4_address/0,
               ip6_address/0,
+              in6_sockaddr/0,
               port_number/0,
 
               accept_flags/0,
@@ -76,6 +76,10 @@
 
 -type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
 
+-type uint32()        :: 0..16#FFFFFFFF.
+-type ip6_flow_info() :: uint32().
+-type ip6_scope_id()  :: uint32().
+
 -type ip6_address() ::
            {0..65535,
             0..65535,
@@ -85,6 +89,11 @@
             0..65535,
             0..65535,
             0..65535}.
+%% We need to polish this further...
+-record(in6_sockaddr, {addr         :: ip6_address(),
+                       flowinfo = 0 :: ip6_flow_info(),
+                       scope_id     :: ip6_scope_id()}).
+-type in6_sockaddr() :: #in6_sockaddr{}.
 
 -type port_number() :: 0..65535.
 
@@ -394,6 +403,7 @@ listen({socket, _, SockRef}, Backlog)
 
 
 
+
 %% ===========================================================================
 %%
 %% accept, accept4 - accept a connection on a socket
@@ -411,25 +421,27 @@ accept(Socket) ->
 %% Do we really need this optimization?
 accept(_, Timeout) when is_integer(Timeout) andalso (Timeout < 0) ->
     {error, timeout};
-accept({socket, _, LSockRef}, Timeout)
+accept({socket, SI, LSockRef}, Timeout)
   when is_integer(Timeout) orelse (Timeout =:= infinity) ->
     Ref = make_ref(),
-    do_accept(LSockRef, Ref, Timeout).
+    do_accept(LSockRef, SI, Ref, Timeout).
 
-do_accept(_, _Ref, Timeout) when is_integer(Timeout) andalso (Timeout < 0) ->
+do_accept(_, _, _Ref, Timeout) when is_integer(Timeout) andalso (Timeout < 0) ->
     {error, timeout};
-do_accept(LSockRef, Ref, Timeout) ->
+do_accept(LSockRef, SI, Ref, Timeout) ->
     TS = timestamp(Timeout),
     case nif_accept(LSockRef, Ref) of
         {ok, SockRef} ->
-            Socket = {socket, foo, SockRef},
+            SocketInfo = #{domain    => maps:get(domain,   SI),
+                           type      => maps:get(type,     SI),
+                           protocol  => maps:get(protocol, SI)},
+            Socket = {socket, SocketInfo, SockRef},
             {ok, Socket};
         {error, eagain} ->
             receive
                 {select, LSockRef, Ref, ready_input} ->
-                    do_accept(LSockRef, make_ref(), next_timeout(TS, Timeout))
+                    do_accept(LSockRef, SI, make_ref(), next_timeout(TS, Timeout))
             after Timeout ->
-                    %% Shall we cancel the select? How?
                     nif_cancel(LSockRef, Ref),
                     flush_select_msgs(LSockRef, Ref),
                     {error, timeout}
@@ -445,56 +457,10 @@ flush_select_msgs(LSRef, Ref) ->
     end.
 
 
--spec accept4(LSocket, Flags, Timeout) -> {ok, Socket} | {error, Reason} when
-      LSocket :: socket(),
-      Flags   :: accept_flags(),
-      Timeout :: timeout(),
-      Socket  :: socket(),
-      Reason  :: term().
-
-accept4(LSocket) ->
-    accept4(LSocket, ?SOCKET_ACCEPT_FLAGS_DEFAULT).
-
-accept4(LSocket, Flags) when is_list(Flags) ->
-    accept4(LSocket, Flags, infinity);
-accept4(LSocket, Timeout) ->
-    accept4(LSocket, ?SOCKET_ACCEPT_FLAGS_DEFAULT, Timeout).
-
-%% Do we really need this optimization?
-accept4(_LSocket, _Flags, Timeout) when is_integer(Timeout) andalso (Timeout < 0) ->
-    {error, timeout};
-accept4({socket, _, LSockRef}, Flags, Timeout)
-  when is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
-    EFlags = enc_accept_flags(Flags),
-    Ref    = make_ref(),
-    do_accept4(LSockRef, EFlags, Ref, Timeout).
-
-do_accept4(_, _EFlags, _Ref, Timeout)
-  when is_integer(Timeout) andalso (Timeout < 0) ->
-    {error, timeout};
-do_accept4(LSockRef, EFlags, Ref, Timeout) ->
-    TS = timestamp(Timeout),
-    case nif_accept4(LSockRef, EFlags, Ref) of
-        {ok, SockRef} ->
-            Socket = {socket, foo, SockRef},
-            {ok, Socket};
-        {error, eagain} ->
-            receive
-                {select, LSockRef, Ref, ready_input} ->
-                    do_accept4(LSockRef, EFlags, make_ref(),
-                              next_timeout(TS, Timeout))
-            after Timeout ->
-                    %% Shall we cancel the select? How?
-                    nif_cancel(LSockRef, Ref),
-                    flush_select_msgs(LSockRef, Ref),
-                    {error, timeout}
-            end
-    end.
-
-
-
+%% ===========================================================================
+%%
 %% send, sendto, sendmsg - send a message on a socket
+%%
 
 -spec send(Socket, Data, Flags) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -510,6 +476,8 @@ send({socket, _, SockRef}, Data, Flags)
     EFlags = enc_send_flags(Flags),
     nif_send(SockRef, Data, EFlags).
 
+
+%% ---------------------------------------------------------------------------
 
 -spec sendto(Socket, Data, Flags, DestAddr, Port) -> ok | {error, Reason} when
       Socket   :: socket(),
@@ -529,6 +497,8 @@ sendto({socket, _, SockRef}, Data, Flags, DestAddr, DestPort)
     EFlags = enc_send_flags(Flags),
     nif_sendto(SockRef, Data, EFlags, DestAddr, DestPort).
 
+
+%% ---------------------------------------------------------------------------
 
 %% -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
 %%       Socket   :: socket(),
@@ -698,15 +668,6 @@ enc_protocol(seqpacket, sctp) -> ?SOCKET_PROTOCOL_SCTP;
 enc_protocol(Type, Proto)     -> throw({error, {invalid_protocol, {Type, Proto}}}).
 
 
--spec enc_accept_flags(Flags) -> non_neg_integer() when
-      Flags :: accept_flags().
-
-enc_accept_flags(Flags) ->
-    EFlags = [{nonblock, ?SOCKET_ACCEPT_FLAG_NONBLOCK},
-              {cloexec,  ?SOCKET_ACCEPT_FLAG_CLOEXEC}],
-    enc_flags(Flags, EFlags).
-
-
 -spec enc_send_flags(Flags) -> non_neg_integer() when
       Flags :: send_flags().
 
@@ -854,9 +815,6 @@ nif_listen(_SRef, _Backlog) ->
     erlang:error(badarg).
 
 nif_accept(_SRef, _Ref) ->
-    erlang:error(badarg).
-
-nif_accept4(_SRef, _Flags, _Ref) ->
     erlang:error(badarg).
 
 nif_send(_SRef, _Data, _Flags) ->
