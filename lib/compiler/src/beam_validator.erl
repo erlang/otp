@@ -27,8 +27,6 @@
 %% Interface for compiler.
 -export([module/2, format_error/1]).
 
--include("beam_disasm.hrl").
-
 -import(lists, [any/2,dropwhile/2,foldl/3,foreach/2,reverse/1]).
 
 %% To be called by the compiler.
