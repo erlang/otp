@@ -567,7 +567,7 @@ valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
     Vst = branch_state(Fail, Vst0),
     %% This term may not be part of the root set until
     %% remove_message/0 is executed. If control transfers
-    %% to the loop_rec_end/1 instruction, no part of this
+    %% to the loop_rec_end/1 instruction, no part of
     %% this term must be stored in a Y register.
     set_type_reg({fragile,term}, Dst, Vst);
 valfun_4({wait,_}, Vst) ->
