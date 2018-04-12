@@ -491,8 +491,10 @@ pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
 pattern(#c_map{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
-pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
-    pattern_list([K,V],Def,Ps,St);
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V}, Def, Ps, St) ->
+    %% The key is an input.
+    pat_map_expr(K, Def, St),
+    pattern_list([V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
@@ -554,6 +556,10 @@ pat_bit_expr(#c_binary{}, _, _Def, St) ->
     St;
 pat_bit_expr(_, _, _, St) ->
     add_error({illegal_expr,St#lint.func}, St).
+
+pat_map_expr(#c_var{name=N}, Def, St) -> expr_var(N, Def, St);
+pat_map_expr(#c_literal{}, _Def, St) -> St;
+pat_map_expr(_, _, St) -> add_error({illegal_expr,St#lint.func}, St).
 
 %% pattern_list([Var], Defined, State) -> {[PatVar],State}.
 %% pattern_list([Var], Defined, [PatVar], State) -> {[PatVar],State}.

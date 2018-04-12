@@ -1111,9 +1111,29 @@ remove_compiler_gen(M) ->
 remove_compiler_gen_1(Pair) ->
     Op0 = cerl:map_pair_op(Pair),
     Op = cerl:set_ann(Op0, []),
-    K = cerl:map_pair_key(Pair),
-    V = cerl:map_pair_val(Pair),
+    K = map_var(cerl:map_pair_key(Pair)),
+    V = map_var(cerl:map_pair_val(Pair)),
     cerl:update_c_map_pair(Pair, Op, K, V).
+
+map_var(Var) ->
+    case cerl:is_c_var(Var) of
+        true ->
+            case cerl:var_name(Var) of
+                Name when is_atom(Name) ->
+                    L = atom_to_list(Name),
+                    try list_to_integer(L) of
+                        Int ->
+                            cerl:update_c_var(Var, Int)
+                    catch
+                        error:_ ->
+                            Var
+                    end;
+                _ ->
+                    Var
+            end;
+        false ->
+            Var
+    end.
 
 %% Compile to Beam assembly language (.S) and then try to
 %% run .S through the compiler again.
