@@ -198,6 +198,12 @@ typedef struct {
     lc_locked_lock_t *last;
 } lc_locked_lock_list_t;
 
+typedef union lc_free_block_t_ lc_free_block_t;
+union lc_free_block_t_ {
+    lc_free_block_t *next;
+    lc_locked_lock_t lock;
+};
+
 typedef struct {
     /*
      * m[X][Y] & 1 if we locked X directly after Y was locked.
@@ -220,20 +226,15 @@ struct lc_thread_t_ {
     lc_thread_t *prev;
     lc_locked_lock_list_t locked;
     lc_locked_lock_list_t required;
+    lc_free_block_t *free_blocks;
     lc_matrix_t matrix;
-};
-
-typedef union lc_free_block_t_ lc_free_block_t;
-union lc_free_block_t_ {
-    lc_free_block_t *next;
-    lc_locked_lock_t lock;
 };
 
 static ethr_tsd_key locks_key;
 
 static lc_thread_t *lc_threads = NULL;
+static ethr_spinlock_t lc_threads_lock;
 
-static lc_free_block_t *free_blocks = NULL;
 
 #ifdef ERTS_LC_STATIC_ALLOC
 #define ERTS_LC_FB_CHUNK_SIZE 10000
@@ -241,47 +242,33 @@ static lc_free_block_t *free_blocks = NULL;
 #define ERTS_LC_FB_CHUNK_SIZE 10
 #endif
 
-static ethr_spinlock_t free_blocks_lock;
 
 static ERTS_INLINE void
-lc_lock(void)
+lc_lock_threads(void)
 {
-    ethr_spin_lock(&free_blocks_lock);
+    ethr_spin_lock(&lc_threads_lock);
 }
 
 static ERTS_INLINE void
-lc_unlock(void)
+lc_unlock_threads(void)
 {
-    ethr_spin_unlock(&free_blocks_lock);
+    ethr_spin_unlock(&lc_threads_lock);
 }
 
-static ERTS_INLINE void lc_free(void *p)
+static ERTS_INLINE void lc_free(lc_thread_t* thr, lc_locked_lock_t *p)
 {
     lc_free_block_t *fb = (lc_free_block_t *) p;
 #ifdef DEBUG
     sys_memset((void *) p, 0xdf, sizeof(lc_free_block_t));
 #endif
-    lc_lock();
-    fb->next = free_blocks;
-    free_blocks = fb;
-    lc_unlock();   
+    fb->next = thr->free_blocks;
+    thr->free_blocks = fb;
 }
 
-#ifdef ERTS_LC_STATIC_ALLOC
-
-static void *lc_core_alloc(void)
-{
-    lc_unlock();
-    ERTS_INTERNAL_ERROR("Lock checker out of memory!\n");
-}
-
-#else
-
-static void *lc_core_alloc(void)
+static lc_locked_lock_t *lc_core_alloc(lc_thread_t* thr)
 {
     int i;
     lc_free_block_t *fbs;
-    lc_unlock();
     fbs = (lc_free_block_t *) malloc(sizeof(lc_free_block_t)
 					  * ERTS_LC_FB_CHUNK_SIZE);
     if (!fbs) {
@@ -297,25 +284,20 @@ static void *lc_core_alloc(void)
     sys_memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
 	   0xdf, sizeof(lc_free_block_t));
 #endif
-    lc_lock();
-    fbs[ERTS_LC_FB_CHUNK_SIZE-1].next = free_blocks;
-    free_blocks = &fbs[1];
-    return (void *) &fbs[0];
+    fbs[ERTS_LC_FB_CHUNK_SIZE-1].next = thr->free_blocks;
+    thr->free_blocks = &fbs[1];
+    return &fbs[0].lock;
 }
 
-#endif
-
-static ERTS_INLINE void *lc_alloc(void)
+static ERTS_INLINE lc_locked_lock_t *lc_alloc(lc_thread_t* thr)
 {
-    void *res;
-    lc_lock();
-    if (!free_blocks)
-	res = lc_core_alloc();
+    lc_locked_lock_t *res;
+    if (!thr->free_blocks)
+	res = lc_core_alloc(thr);
     else {
-	res = (void *) free_blocks;
-	free_blocks = free_blocks->next;
+	res = &thr->free_blocks->lock;
+	thr->free_blocks = thr->free_blocks->next;
     }
-    lc_unlock();
     return res;
 }
 
@@ -338,14 +320,15 @@ create_thread_data(char *thread_name)
     thr->locked.first = NULL;
     thr->locked.last = NULL;
     thr->prev = NULL;
+    thr->free_blocks = NULL;
     sys_memzero(&thr->matrix, sizeof(thr->matrix));
 
-    lc_lock();
+    lc_lock_threads();
     thr->next = lc_threads;
     if (lc_threads)
 	lc_threads->prev = thr;
     lc_threads = thr;
-    lc_unlock();
+    lc_unlock_threads();
     erts_tsd_set(locks_key, (void *) thr);
     return thr;
 }
@@ -362,7 +345,7 @@ destroy_locked_locks(lc_thread_t *thr)
     ASSERT(thr->locked.first == NULL);
     ASSERT(thr->locked.last == NULL);
 
-    lc_lock();
+    lc_lock_threads();
     if (thr->prev)
 	thr->prev->next = thr->next;
     else {
@@ -374,7 +357,7 @@ destroy_locked_locks(lc_thread_t *thr)
 
     collect_matrix(&thr->matrix);
 
-    lc_unlock();
+    lc_unlock_threads();
 
     free((void *) thr);
 
@@ -397,10 +380,11 @@ make_my_locked_locks(void)
 }
 
 static ERTS_INLINE lc_locked_lock_t *
-new_locked_lock(erts_lc_lock_t *lck, erts_lock_options_t options,
+new_locked_lock(lc_thread_t* thr,
+                erts_lc_lock_t *lck, erts_lock_options_t options,
 		char *file, unsigned int line)
 {
-    lc_locked_lock_t *ll = (lc_locked_lock_t *) lc_alloc();
+    lc_locked_lock_t *ll = lc_alloc(thr);
     ll->next = NULL;
     ll->prev = NULL;
     ll->id = lck->id;
@@ -1032,7 +1016,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 	return;
 
     thr = make_my_locked_locks();
-    ll = locked ? new_locked_lock(lck, options, file, line) : NULL;
+    ll = locked ? new_locked_lock(thr, lck, options, file, line) : NULL;
 
     if (!thr->locked.last) {
 	ASSERT(!thr->locked.first);
@@ -1080,7 +1064,7 @@ void erts_lc_require_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options,
     lc_locked_lock_t *ll = thr->locked.first;
     if (!find_lock(&ll, lck))
 	required_not_locked(thr, lck);
-    ll = new_locked_lock(lck, options, file, line);
+    ll = new_locked_lock(thr, lck, options, file, line);
     if (!thr->required.last) {
 	ASSERT(!thr->required.first);
 	ll->next = ll->prev = NULL;
@@ -1145,7 +1129,7 @@ void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options
 	ASSERT(thr->required.last == ll);
 	thr->required.last = ll->prev;
     }
-    lc_free((void *) ll);
+    lc_free(thr, ll);
 }
 
 void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
@@ -1161,7 +1145,7 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	return;
 
     thr = make_my_locked_locks();
-    new_ll = new_locked_lock(lck, options, file, line);
+    new_ll = new_locked_lock(thr, lck, options, file, line);
 
     if (!thr->locked.last) {
 	ASSERT(!thr->locked.first);
@@ -1226,7 +1210,7 @@ void erts_lc_unlock_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 		ll->next->prev = ll->prev;
 	    else
 		thr->locked.last = ll->prev;
-	    lc_free((void *) ll);
+	    lc_free(thr, ll);
 	    return;
 	}
     }
@@ -1336,26 +1320,7 @@ erts_lc_destroy_lock(erts_lc_lock_t *lck)
 void
 erts_lc_init(void)
 {
-#ifdef ERTS_LC_STATIC_ALLOC
-    int i;
-    static lc_free_block_t fbs[ERTS_LC_FB_CHUNK_SIZE];
-    for (i = 0; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
-#ifdef DEBUG
-	sys_memset((void *) &fbs[i], 0xdf, sizeof(lc_free_block_t));
-#endif
-	fbs[i].next = &fbs[i+1];
-    }
-#ifdef DEBUG
-    sys_memset((void *) &fbs[ERTS_LC_FB_CHUNK_SIZE-1],
-	   0xdf, sizeof(lc_free_block_t));
-#endif
-    fbs[ERTS_LC_FB_CHUNK_SIZE-1].next = NULL;
-    free_blocks = &fbs[0]; 
-#else /* #ifdef ERTS_LC_STATIC_ALLOC */
-    free_blocks = NULL;
-#endif /* #ifdef ERTS_LC_STATIC_ALLOC */
-
-    if (ethr_spinlock_init(&free_blocks_lock) != 0)
+    if (ethr_spinlock_init(&lc_threads_lock) != 0)
 	ERTS_INTERNAL_ERROR("spinlock_init failed");
 
     erts_tsd_key_create(&locks_key,"erts_lock_check_key");
@@ -1402,11 +1367,11 @@ erts_lc_dump_graph(void)
     int i, j, name_max = 0;
     FILE* ff;
 
-    lc_lock();
+    lc_lock_threads();
     for (thr = lc_threads; thr; thr = thr->next) {
         collect_matrix(&thr->matrix);
     }
-    lc_unlock();
+    lc_unlock_threads();
 
     sys_strcpy(filename, basename);
     sys_get_pid(filename + strlen(basename),
