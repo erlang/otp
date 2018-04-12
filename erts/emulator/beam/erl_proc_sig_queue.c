@@ -612,11 +612,6 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
 void
 erts_proc_sig_fetch__(Process *proc)
 {
-#ifdef ERTS_PROC_SIG_HARD_DEBUG
-    ErtsSignalPrivQueues sig_qs = proc->sig_qs;
-    ErtsSignalInQueue sig_inq = proc->sig_inq;
-#endif
-
     ASSERT(proc->sig_inq.first);
 
     if (!proc->sig_inq.nmsigs.next) {
@@ -634,9 +629,7 @@ erts_proc_sig_fetch__(Process *proc)
         }
     }
     else {
-#ifdef DEBUG
         erts_aint32_t s;
-#endif
         ASSERT(proc->sig_inq.nmsigs.last);
          if (!proc->sig_qs.nmsigs.last) {
             ASSERT(!proc->sig_qs.nmsigs.next);
@@ -645,16 +638,13 @@ erts_proc_sig_fetch__(Process *proc)
             else
                 proc->sig_qs.nmsigs.next = proc->sig_inq.nmsigs.next;
 
-#ifdef DEBUG
-            s =
-#endif
-                erts_atomic32_read_bset_nob(&proc->state,
+            s = erts_atomic32_read_bset_nob(&proc->state,
                                             (ERTS_PSFLG_SIG_Q
                                              | ERTS_PSFLG_SIG_IN_Q),
                                             ERTS_PSFLG_SIG_Q);
 
             ASSERT((s & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
-                   == ERTS_PSFLG_SIG_IN_Q);
+                   == ERTS_PSFLG_SIG_IN_Q); (void)s;
         }
         else {
             ErtsSignal *sig;
@@ -667,14 +657,11 @@ erts_proc_sig_fetch__(Process *proc)
             else
                 sig->common.specific.next = proc->sig_inq.nmsigs.next;
 
-#ifdef DEBUG
-            s =
-#endif
-                erts_atomic32_read_band_nob(&proc->state,
+            s = erts_atomic32_read_band_nob(&proc->state,
                                             ~ERTS_PSFLG_SIG_IN_Q);
 
             ASSERT((s & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
-                   == (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q));
+                   == (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)); (void)s;
         }
         if (proc->sig_inq.nmsigs.last == &proc->sig_inq.first)
             proc->sig_qs.nmsigs.last = proc->sig_qs.cont_last;
@@ -4273,7 +4260,7 @@ erts_proc_sig_hdbg_check_in_queue(Process *p, char *what, char *file, int line)
                                     NULL,
                                     NULL,
                                     ERTS_PSFLG_SIG_IN_Q);
-    ASSERT(p->sig_inq.len == len);
+    ASSERT(p->sig_inq.len == len); (void)len;
 }
 
-#endif
+#endif /* ERTS_PROC_SIG_HARD_DEBUG */

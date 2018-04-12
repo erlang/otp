@@ -1471,22 +1471,16 @@ int erts_net_message(Port *prt,
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
                                       ref, watcher, pid, name);
 
-#ifdef DEBUG
-            code =
-#endif
-                erts_monitor_dist_insert(&mdp->origin, dep->mld);
-            ASSERT(code);
+            code = erts_monitor_dist_insert(&mdp->origin, dep->mld);
+            ASSERT(code); (void)code;
 
             if (erts_proc_sig_send_monitor(&mdp->target, pid))
                 break; /* done */
 
             /* Failed to send to local proc; cleanup reply noproc... */
 
-#ifdef DEBUG
-            code =
-#endif
-                erts_monitor_dist_delete(&mdp->origin);
-            ASSERT(code);
+            code = erts_monitor_dist_delete(&mdp->origin);
+            ASSERT(code); (void)code;
             erts_monitor_release_both(mdp);
 
         }
