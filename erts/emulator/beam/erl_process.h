@@ -1061,9 +1061,6 @@ struct process {
     Eterm suspendee;
     ErtsPendingSuspend *pending_suspenders;
     erts_atomic_t run_queue;
-#ifdef HIPE
-    struct hipe_process_state_smp hipe_smp;
-#endif
 
 #ifdef CHECK_FOR_HOLES
     Eterm* last_htop;		/* No need to scan the heap below this point. */
@@ -1397,10 +1394,12 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
 #define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
 #define F_HIBERNATED         (1 << 25) /* Hibernated */
-#define F_LOCAL_SIGS_ONLY    (1 << 26)
+#define F_LOCAL_SIGS_ONLY    (1 << 26) /* Handle privq sigs only */
 #define F_TRAP_EXIT          (1 << 27) /* Trapping exit */
-#define F_DEFERRED_SAVED_LAST (1 << 28)
-#define F_DELAYED_PSIGQS_LEN (1 << 29)
+#define F_DEFERRED_SAVED_LAST (1 << 28) /* Deferred sig_qs.saved_last */
+#define F_DELAYED_PSIGQS_LEN (1 << 29) /* Delayed update of sig_qs.len */
+#define F_HIPE_RECV_LOCKED   (1 << 30) /* HiPE message queue locked */
+#define F_HIPE_RECV_YIELD    (1 << 31) /* HiPE receive yield */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent

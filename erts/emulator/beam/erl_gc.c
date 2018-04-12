@@ -413,20 +413,19 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 {
     int cost;
 
-    if (p->flags & F_HIBERNATE_SCHED) {
+    if (p->flags & (F_HIBERNATE_SCHED|F_HIPE_RECV_LOCKED)) {
 	/*
 	 * We just hibernated. We do *not* want to mess
 	 * up the hibernation by an ordinary GC...
+         *
+         * OR
+         *
+         * We left a receive in HiPE with message
+         * queue lock locked, and we do not want to
+         * do a GC with message queue locked...
 	 */
 	return result;
     }
-
-#ifdef HIPE
-    if (p->hipe_smp.have_receive_locks) {
-        /* Do not want to GC with message queue locked... */
-        return result;
-    }    
-#endif
 
     if (!p->mbuf) {
 	/* Must have GC:d in BIF call... invalidate live_hf_end */

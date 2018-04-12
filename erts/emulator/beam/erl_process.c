@@ -11844,7 +11844,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
 #ifdef HIPE
     hipe_init_process(&p->hipe);
-    hipe_init_process_smp(&p->hipe_smp);
 #endif
     p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     p->old_hend = p->old_htop = p->old_heap = NULL;
@@ -12169,7 +12168,6 @@ void erts_init_empty_process(Process *p)
 
 #ifdef HIPE
     hipe_init_process(&p->hipe);
-    hipe_init_process_smp(&p->hipe_smp);
 #endif
 
     INIT_HOLE_CHECK(p);

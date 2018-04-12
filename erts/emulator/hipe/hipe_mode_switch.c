@@ -490,16 +490,21 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* same semantics, different debug trace messages */
 	  /* XXX: BEAM has different entries for the locked and unlocked
 	     cases. HiPE doesn't, so we must check dynamically. */
-	  if (p->hipe_smp.have_receive_locks)
-	      p->hipe_smp.have_receive_locks = 0;
+	  if (p->flags & F_HIPE_RECV_LOCKED)
+	      p->flags &= ~F_HIPE_RECV_LOCKED;
 	  else
 	      erts_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
           if (erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
               ASSERT(erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_ACTIVE);
-          else
+          else if (!(p->flags & F_HIPE_RECV_YIELD))
               erts_atomic32_read_band_relb(&p->state, ~ERTS_PSFLG_ACTIVE);
+          else {
+              /* Yielded from receive */
+              ERTS_VBUMP_ALL_REDS(p);
+              p->flags &= ~F_HIPE_RECV_YIELD;
+          }
 	  erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {
@@ -522,7 +527,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p = erts_schedule(NULL, p, reds_in - p->fcalls);
 	      ERTS_REQ_PROC_MAIN_LOCK(p);
 	      ASSERT(!(p->flags & F_HIPE_MODE));
-	      p->hipe_smp.have_receive_locks = 0;
+	      p->flags &= ~F_HIPE_RECV_LOCKED;
 	      reg = p->scheduler_data->x_reg_array;
 	  }
 	  {
