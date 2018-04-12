@@ -94,8 +94,6 @@ lib/os_mon/priv/obj/win32/
 lib/runtime_tools/c_src/win32/
 lib/runtime_tools/priv/lib/
 lib/runtime_tools/priv/obj/
-lib/runtime_tools/doc/src/DTRACE.xml
-lib/runtime_tools/doc/src/SYSTEMTAP.xml
 lib/tools/bin/win32/
 lib/tools/c_src/win32/
 lib/tools/obj/win32/
@@ -178,7 +176,7 @@ JAVADOC-GENERATED
 /lib/*/doc/man[0-9]/*.[0-9]
 /lib/*/doc/pdf/*.fo
 /lib/*/doc/pdf/*.pdf
-
+/lib/*/doc/xml/*.xml
 
 /lib/configure
 /lib/config.log
@@ -206,6 +204,7 @@ JAVADOC-GENERATED
 /lib/erl_interface/src/auxdir/config.guess
 /lib/erl_interface/src/auxdir/config.sub
 /lib/erl_interface/src/auxdir/install-sh
+/lib/erl_interface/config.h.in
 /lib/megaco/aclocal.m4
 /lib/odbc/aclocal.m4
 /lib/common_test/test_server/config.guess
@@ -232,15 +231,12 @@ JAVADOC-GENERATED
 
 # asn1
 
-/lib/asn1/doc/src/asn1_spec.xml
 /lib/asn1/test/asn1_SUITE.erl
 /lib/asn1/test/asn1_bin_SUITE.erl
 /lib/asn1/test/asn1_bin_v2_SUITE.erl
 
 # common_test
 
-/lib/common_test/doc/src/ct_property_test.xml
-/lib/common_test/doc/src/ct_slave.xml
 /lib/common_test/priv/install.sh
 
 # compiler
@@ -274,15 +270,13 @@ JAVADOC-GENERATED
 /erts/doc/html/*.eix
 /erts/doc/pdf/*.fo
 /erts/doc/pdf/*.pdf
+/erts/doc/xml/*.xml
 /erts/doc/man[0-9]/*.[0-9]
 /erts/doc/CONF_INFO
 
 # et
 
 /lib/et/doc/html/*.png
-/lib/et/doc/src/et_desc.xml
-/lib/et/doc/src/et_examples.xml
-/lib/et/doc/src/et_tutorial.xml
 
 # gs
 
@@ -366,27 +360,15 @@ JAVADOC-GENERATED
 /lib/snmp/priv/mibs/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.hrl
+/lib/snmp/doc/intex.html
 
 # system
 
 /system/doc/pdf
 /system/doc/html
+/system/doc/xml
 /system/doc/top/PR.template
 /system/doc/top/erlresolvelinks.js
-/system/doc/programming_examples/funs.xml
-/system/doc/system_principles/create_target.xml
-/system/doc/tutorial/c_port.xml
-/system/doc/tutorial/c_portdriver.xml
-/system/doc/tutorial/cnode.xml
-/system/doc/tutorial/erl_interface.xml
-/system/doc/tutorial/example.xml
-/system/doc/tutorial/nif.xml
-/system/doc/html/installation_guide
-/system/doc/installation_guide/INSTALL.xml
-/system/doc/installation_guide/INSTALL-CROSS.xml
-/system/doc/installation_guide/INSTALL-WIN32.xml
-/system/doc/installation_guide/OTP-PATCH-APPLY.xml
-/system/doc/installation_guide/MARKDOWN.xml
 
 # test_server
 
@@ -406,7 +388,7 @@ JAVADOC-GENERATED
 /lib/wx/api_gen/*_generated
 /lib/wx/wx-*.ez
 /lib/wx/CONF_INFO
-/lib/wx/doc/src/wx*.xml
+/lib/wx/doc/src/ref_man.xml
 /lib/wx/priv/wxe_driver.*
 /lib/wx/priv/erl_gl.*
 
@@ -416,4 +398,3 @@ JAVADOC-GENERATED
 /lib/xmerl/src/xmerl_b64Bin.erl
 /lib/xmerl/src/xmerl_xpath_parse.erl
 /lib/xmerl/test/xmerl_test.erl
-/lib/erl_interface/config.h.in

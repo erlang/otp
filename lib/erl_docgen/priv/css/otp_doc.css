@@ -242,8 +242,25 @@ th {
  font-size: small;
 }
 
-h3>a, h4>a{
- color: #1a1a1a !important;
+.title_link {
+    color: #1a1a1a !important;
+    outline: none;
+}
+
+.ghlink {
+    margin-left: -2.7em; /* .pencil.font-size + .pencil.padding.left + .pencil.padding.right = 2.7 */
+    visibility: hidden;
+}
+
+.pencil:before {
+    transform: rotateZ(90deg);
+    content: "\270E";
+    color: #1a1a1a !important;
+    font-weight: bold;
+    font-size: 1.5em;
+    padding: .3em .6em .6em;
+    line-height: 1em;
+    font-family: mono;
 }
 
 hr{

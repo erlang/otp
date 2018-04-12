@@ -19,6 +19,8 @@
 #
 PROG_EX_CHAPTER_FILES = \
 	bit_syntax.xml \
-	funs.xml \
 	list_comprehensions.xml \
 	records.xml
+
+PROG_EX_CHAPTER_GEN_FILES = \
+	funs.xml

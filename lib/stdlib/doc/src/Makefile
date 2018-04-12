@@ -163,7 +163,7 @@ clean clean_docs:
 	rm -f errs core *~
 
 $(SPECDIR)/specs_erl_id_trans.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module erl_id_trans
 
 # ----------------------------------------------------

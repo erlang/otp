@@ -18,7 +18,9 @@
 # %CopyrightEnd%
 #
 INST_GUIDE_CHAPTER_FILES = \
-	install-binary.xml \
+	install-binary.xml
+
+INST_GUIDE_CHAPTER_GEN_FILES = \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
 	INSTALL-WIN32.xml \

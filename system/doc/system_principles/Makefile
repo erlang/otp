@@ -28,6 +28,7 @@ include $(ERL_TOP)/erts/vsn.mk
 #VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/system_principles
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -51,6 +52,8 @@ GIF_FILES =
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) 
+
+XML_GEN_FILES = $(SYSTEM_PRINCIPLES_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 

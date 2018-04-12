@@ -31,10 +31,13 @@ XML_PART_FILES = \
 
 XML_CHAPTER_FILES = \
 	et_intro.xml \
+	notes.xml
+
+GEN_XML = \
 	et_tutorial.xml \
 	et_desc.xml \
-	et_examples.xml \
-	notes.xml
+	et_examples.xml
+
 
 BOOK_FILES = book.xml
 

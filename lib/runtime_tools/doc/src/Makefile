@@ -60,8 +60,9 @@ BOOK_FILES = book.xml
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) \
-	$(XML_REF6_FILES) $(XML_APPLICATION_FILES) \
-	$(GENERATED_XML_FILES)
+	$(XML_REF6_FILES) $(XML_APPLICATION_FILES)
+
+XML_GEN_FILES = $(GENERATED_XML_FILES:%=$(XMLDIR)/%)
 
 GIF_FILES =
 
@@ -97,7 +98,7 @@ SPECS_FLAGS = -I../../include -I../../../kernel/src
 # Targets
 # ----------------------------------------------------
 
-%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
+$(XMLDIR)/%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
 $(HTMLDIR)/%.gif: %.gif

@@ -27,6 +27,7 @@ include $(ERL_TOP)/erts/vsn.mk
 #VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/oam
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------

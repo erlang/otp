@@ -20,6 +20,8 @@
 SYSTEM_PRINCIPLES_CHAPTER_FILES = \
 	system_principles.xml \
 	error_logging.xml \
-	create_target.xml \
 	upgrade.xml \
 	versions.xml
+
+SYSTEM_PRINCIPLES_CHAPTER_GEN_FILES = \
+	create_target.xml

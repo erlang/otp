@@ -36,16 +36,16 @@
     <contents level="2"></contents>
   </preamble>
   <parts lift="no">
-    <xi:include href="../installation_guide/part.xml"/>
-    <xi:include href="../system_principles/part.xml"/>
-    <xi:include href="../embedded/part.xml"/>
-    <xi:include href="../getting_started/part.xml"/>
-    <xi:include href="../reference_manual/part.xml"/>
-    <xi:include href="../programming_examples/part.xml"/>
-    <xi:include href="../efficiency_guide/part.xml"/>
-    <xi:include href="../tutorial/part.xml"/>
-    <xi:include href="../design_principles/part.xml"/>
-    <xi:include href="../oam/part.xml"/>
+    <xi:include href="../xml/installation_guide/part.xml"/>
+    <xi:include href="../xml/system_principles/part.xml"/>
+    <xi:include href="../xml/embedded/part.xml"/>
+    <xi:include href="../xml/getting_started/part.xml"/>
+    <xi:include href="../xml/reference_manual/part.xml"/>
+    <xi:include href="../xml/programming_examples/part.xml"/>
+    <xi:include href="../xml/efficiency_guide/part.xml"/>
+    <xi:include href="../xml/tutorial/part.xml"/>
+    <xi:include href="../xml/design_principles/part.xml"/>
+    <xi:include href="../xml/oam/part.xml"/>
   </parts>
   <listofterms></listofterms>
   <index></index>

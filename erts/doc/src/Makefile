@@ -155,7 +155,7 @@ clean:
 	rm -f errs core *~
 
 $(SPECDIR)/specs_%.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module $(patsubst $(SPECDIR)/specs_%.xml,%,$@)
 
 # ----------------------------------------------------

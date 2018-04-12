@@ -45,8 +45,11 @@ include files.mk
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
+XML_GEN_FILES = $(GEN_XML:%=$(XMLDIR)/%)
+
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
+	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html) \
+	$(GEN_XML:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
 

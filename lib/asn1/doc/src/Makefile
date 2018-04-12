@@ -51,13 +51,14 @@ XML_CHAPTER_FILES = \
 	asn1_introduction.xml \
 	asn1_getting_started.xml \
 	asn1_overview.xml \
-	asn1_spec.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(GEN_XML) $(XML_PART_FILES) $(XML_CHAPTER_FILES)
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
+
+XML_GEN_FILES = $(GEN_XML:%=$(XMLDIR)/%)
 
 GIF_FILES = \
 	exclusive_Win_But.gif \
@@ -75,7 +76,8 @@ EXTRA_FILES = \
 	$(DEFAULT_HTML_FILES) \
 	$(ASN1_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
+	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html) \
+	$(GEN_XML:%.xml=$(HTMLDIR)/%.html) \
 
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 

@@ -30,7 +30,7 @@
 %% Function: main/1
 %% Description:
 %%----------------------------------------------------------------------
-main([InFile, OutFile]) ->
+main([CPath, InFile, OutFile]) ->
     InDev = 
 	case file:open(InFile, [read]) of
 	    {ok,ID} ->
@@ -38,7 +38,6 @@ main([InFile, OutFile]) ->
 	    _ ->
 		halt(5)
 	end,
-    CPath=filename:dirname(InFile),
     OutDev = 
 	case file:open(OutFile, [write]) of
 	    {ok,OD} ->

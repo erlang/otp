@@ -18,6 +18,7 @@
 # %CopyrightEnd%
 #
 #
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -27,6 +28,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/erts/vsn.mk
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/design_principles
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------

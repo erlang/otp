@@ -28,6 +28,7 @@ include $(ERL_TOP)/erts/vsn.mk
 #VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/programming_examples
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -52,7 +53,9 @@ PS_FILES =
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) 
+	$(XML_PART_FILES)
+
+XML_GEN_FILES = $(PROG_EX_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 # ----------------------------------------------------
 
 HTML_FILES = \

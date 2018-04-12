@@ -747,7 +747,7 @@ header(#state{ofile = {File, _}} = S0, Title) ->
 		    integer_to_list(Day),
 		    "</date>", nl(),
 		    "<rev>1</rev>", nl(),
-		    "<file>",File,"</file>", nl(),
+		    "<file>",filename:basename(File),"</file>", nl(),
 		    "</header>", nl()]),
     put_delayed(S3, ?DELAYED_TOC_IX).
 
