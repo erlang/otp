@@ -545,6 +545,8 @@ stop(Reason,State) ->
     do_stop(Reason,State1).
 
 do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
+    %% Make sure we don't have any outstanding messages before doing the restart.
+    flush(),
     boot(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();
@@ -559,6 +561,13 @@ clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
     shutdown_pids(Heart,BootPid,State),
     unload(Heart).
+
+flush() ->
+    receive
+        _M -> flush()
+    after 0 ->
+            ok
+    end.
 
 stop_heart(State) ->
     case get_heart(State#state.kernel) of
