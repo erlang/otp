@@ -213,6 +213,20 @@ fts_rand_float_decimals(N) ->
     [begin
          F0 = rand_float_reasonable(),
          L0 = float_to_list(F0, [{decimals, D}]),
+         case conform_with_io_lib_format_os(F0,D) of
+             false -> ok;
+             true ->
+                 IOL = lists:flatten(io_lib:format("~.*f", [D, F0])),
+                 true = case L0 =:= IOL of
+                            true -> true;
+                            false ->
+                                io:format("F0 = ~w ~w\n",  [F0, <<F0/float>>]),
+                                io:format("decimals = ~w\n",  [D]),
+                                io:format("float_to_list = ~s\n",  [L0]),
+                                io:format("io_lib:format = ~s\n",  [IOL]),
+                                false
+                        end
+         end,
          L1 = case D of
                   0 -> L0 ++ ".0";
                   _ -> L0
@@ -233,6 +247,26 @@ fts_rand_float_decimals(N) ->
      || D <- lists:seq(0,15)],
 
     fts_rand_float_decimals(N-1).
+
+conform_with_io_lib_format_os(F, D) ->
+    case os:type() of
+        {win32,_} ->
+            %% io_lib:format("~.*f") buggy on windows? OTP-15010
+            false;
+        _ ->
+            conform_with_io_lib_format(F, D)
+    end.
+
+conform_with_io_lib_format(_, 0) ->
+    %% io_lib:format("~.*f") does not support zero decimals
+    false;
+conform_with_io_lib_format(_, D) when D > 10 ->
+    %% Seems float_to_list gets it slightly wrong sometimes for many decimals
+    false;
+conform_with_io_lib_format(F, D) ->
+    %% io_lib:format prints '0' for input bits beyond mantissa precision
+    %% float_to_list treats those unknown input bits as if they were zeros.
+    math:log2(abs(F) * math:pow(10,D)) < 54.
 
 max_diff_decimals(F, D) ->
     IntBits = floor(math:log2(abs(F))) + 1,
