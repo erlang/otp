@@ -582,8 +582,8 @@ trim(N, LogData) ->
 %% Debug structure manipulating functions
 %%-----------------------------------------------------------------
 install_debug(Item, Data, Debug) ->
-    case get_debug2(Item, Debug, undefined) of
-	undefined -> [{Item, Data} | Debug];
+    case lists:keysearch(Item, 1, Debug) of
+	false -> [{Item, Data} | Debug];
 	_ -> Debug
     end.
 remove_debug(Item, Debug) -> lists:keydelete(Item, 1, Debug).
