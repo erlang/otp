@@ -276,7 +276,9 @@
         <p><c><anno>Func</anno></c> is called whenever a system event is
           generated. This function is to return <c>done</c>, or a new
           <c>Func</c> state. In the first case, the function is removed. It is 
-          also removed if the function fails.</p>
+          also removed if the function fails. If one debug function should be 
+          installed more times, a unique id <c><anno>FuncId</anno></c> should 
+          be specified for every installation.</p>
       </desc>
     </func>
 
@@ -330,8 +332,8 @@
       <fsummary>Remove a debug function from the process.</fsummary>
       <desc>
         <p>Removes an installed debug function from the
-          process. <c><anno>Func</anno></c> must be the same as previously
-          installed.</p>
+          process. <c><anno>Func</anno></c> or <c><anno>FuncId</anno></c> must be 
+          the same as previously installed.</p>
       </desc>
     </func>
 
