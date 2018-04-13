@@ -145,7 +145,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
          setelem=false,                 %Previous instruction was setelement/3.
-         puts_left=none                 %put/1 instructions left.
+         puts_left=none,                %put/1 instructions left.
+         defs=#{}                       %Defining expression for each register.
 	}).
 
 -type label()        :: integer().
@@ -332,7 +333,7 @@ valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
 	    %% catch state).
 	    validate_src(Src, Vst),
 	    Type = bif_type(Op, Src, Vst),
-	    set_type_reg(Type, Dst, Vst)
+	    set_type_reg_expr(Type, I, Dst, Vst)
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
@@ -553,12 +554,12 @@ valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
 valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
-valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}, Vst0) ->
+valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
     TupleType0 = get_term_type(Tuple, Vst0),
     Vst1 = branch_state(Fail, Vst0),
     TupleType = upgrade_tuple_type({tuple,[0]}, TupleType0),
     Vst = set_type(TupleType, Tuple, Vst1),
-    set_type_reg({integer,[]}, Dst, Vst);
+    set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     TupleType0 = get_term_type(Tuple, Vst0),
     PosType = get_term_type(Pos, Vst0),
@@ -625,10 +626,10 @@ valfun_4({set_tuple_element,Src,Tuple,I}, Vst) ->
     assert_type({tuple_element,I+1}, Tuple, Vst),
     Vst;
 %% Match instructions.
-valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
-    assert_term(Src, Vst),
-    Lbls = [L || {f,L} <- Choices]++[Fail],
-    kill_state(foldl(fun(L, S) -> branch_state(L, S) end, Vst, Lbls));
+valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst = branch_state(Fail, Vst0),
+    kill_state(select_val_branches(Src, Choices, Vst));
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     assert_type(tuple, Tuple, Vst),
     kill_state(branch_arities(Choices, Tuple, branch_state(Fail, Vst)));
@@ -727,6 +728,20 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
 	    Vst;
 	_ ->
 	    kill_state(Vst)
+    end;
+valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
+    validate_src(Ss, Vst0),
+    Infer = infer_types(Src, Vst0),
+    Vst1 = Infer(Val, Vst0),
+    Vst = branch_state(Lbl, Vst1),
+    case Val of
+        {literal,Tuple} when is_tuple(Tuple) ->
+            Type0 = get_term_type(Val, Vst),
+            Type = upgrade_tuple_type({tuple,tuple_size(Tuple)},
+                                      Type0),
+            set_type(Type, Src, Vst);
+        _ ->
+            Vst
     end;
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
@@ -1022,10 +1037,14 @@ heap_alloc_2([{floats,Floats}|T], St0) ->
     heap_alloc_2(T, St);
 heap_alloc_2([], St) -> St.
     
-prune_x_regs(Live, #vst{current=#st{x=Xs0}=St0}=Vst) when is_integer(Live) ->
+prune_x_regs(Live, #vst{current=#st{x=Xs0,defs=Defs0}=St0}=Vst)
+  when is_integer(Live) ->
     Xs1 = gb_trees:to_list(Xs0),
     Xs = [P || {R,_}=P <- Xs1, R < Live],
-    St = St0#st{x=gb_trees:from_orddict(Xs)},
+    Defs = maps:filter(fun({x,X}, _) -> X < Live;
+                          ({y,_}, _) -> true
+                       end, Defs0),
+    St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs},
     Vst#vst{current=St}.
 
 %%%
@@ -1156,6 +1175,38 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	_ -> error({illegal_restore,SavePoint,range})
     end.
 
+select_val_branches(Src, Choices, Vst) ->
+    Infer = infer_types(Src, Vst),
+    select_val_branches_1(Choices, Infer, Vst).
+
+select_val_branches_1([Val,{f,L}|T], Infer, Vst0) ->
+    Vst = branch_state(L, Infer(Val, Vst0)),
+    select_val_branches_1(T, Infer, Vst);
+select_val_branches_1([], _, Vst) -> Vst.
+
+infer_types(Src, Vst) ->
+    case get_def(Src, Vst) of
+        {bif,is_map,{f,_},[Map],_} ->
+            fun({atom,true}, S) -> set_type_reg(map, Map, S);
+               (_, S) -> S
+            end;
+        {bif,tuple_size,{f,_},[Tuple],_} ->
+            fun({integer,Arity}, S) ->
+                    Type0 = get_term_type(Tuple, S),
+                    Type = upgrade_tuple_type({tuple,Arity}, Type0),
+                    set_type(Type, Tuple, S);
+               (_, S) -> S
+            end;
+        {bif,'=:=',{f,_},[ArityReg,{integer,_}=Val],_} when ArityReg =/= Src ->
+            fun({atom,true}, S) ->
+                    Infer = infer_types(ArityReg, S),
+                    Infer(Val, S);
+               (_, S) -> S
+            end;
+        _ ->
+            fun(_, S) -> S end
+    end.
+
 %%%
 %%% Keeping track of types.
 %%%
@@ -1172,12 +1223,18 @@ set_type_reg(Type, Src, Dst, Vst) ->
             set_type_reg(Type, Dst, Vst)
     end.
 
-set_type_reg(Type, {x,_}=Reg, Vst) ->
-    set_type_x(Type, Reg, Vst);
 set_type_reg(Type, Reg, Vst) ->
-    set_type_y(Type, Reg, Vst).
+    set_type_reg_expr(Type, none, Reg, Vst).
 
-set_type_x(Type, {x,X}=Reg, #vst{current=#st{x=Xs0}=St}=Vst)
+set_type_reg_expr(Type, Expr, {x,_}=Reg, Vst) ->
+    set_type_x(Type, Expr, Reg, Vst);
+set_type_reg_expr(Type, Expr, Reg, Vst) ->
+    set_type_y(Type, Expr, Reg, Vst).
+
+set_type_y(Type, Reg, Vst) ->
+    set_type_y(Type, none, Reg, Vst).
+
+set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St}=Vst)
   when is_integer(X), 0 =< X ->
     check_limit(Reg),
     Xs = case gb_trees:lookup(X, Xs0) of
@@ -1188,11 +1245,12 @@ set_type_x(Type, {x,X}=Reg, #vst{current=#st{x=Xs0}=St}=Vst)
              {value,_} ->
                  gb_trees:update(X, Type, Xs0)
          end,
-    Vst#vst{current=St#st{x=Xs}};
-set_type_x(Type, Reg, #vst{}) ->
+    Defs = Defs0#{Reg=>Expr},
+    Vst#vst{current=St#st{x=Xs,defs=Defs}};
+set_type_x(Type, _Expr, Reg, #vst{}) ->
     error({invalid_store,Reg,Type}).
 
-set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
+set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
     check_limit(Reg),
     Ys = case gb_trees:lookup(Y, Ys0) of
@@ -1206,8 +1264,10 @@ set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
 		 gb_trees:update(Y, Type, Ys0)
 	 end,
     check_try_catch_tags(Type, Y, Ys0),
-    Vst#vst{current=St#st{y=Ys}};
-set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
+    Defs = Defs0#{Reg=>Expr},
+    Vst#vst{current=St#st{y=Ys,defs=Defs}};
+set_type_y(Type, _Expr, Reg, #vst{}) ->
+    error({invalid_store,Reg,Type}).
 
 make_fragile({fragile,_}=Type) -> Type;
 make_fragile(Type) -> {fragile,Type}.
@@ -1419,6 +1479,8 @@ get_term_type_1({atom,A}=T, _) when is_atom(A) -> T;
 get_term_type_1({float,F}=T, _) when is_float(F) -> T;
 get_term_type_1({integer,I}=T, _) when is_integer(I) -> T;
 get_term_type_1({literal,Map}, _) when is_map(Map) -> map;
+get_term_type_1({literal,Tuple}, _) when is_tuple(Tuple) ->
+    {tuple,tuple_size(Tuple)};
 get_term_type_1({literal,_}=T, _) -> T;
 get_term_type_1({x,X}=Reg, #vst{current=#st{x=Xs}}) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
@@ -1433,6 +1495,11 @@ get_term_type_1({y,Y}=Reg, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
     end;
 get_term_type_1(Src, _) -> error({bad_source,Src}).
 
+get_def(Src, #vst{current=#st{defs=Defs}}) ->
+    case Defs of
+        #{Src:=Def} -> Def;
+        #{} -> none
+    end.
 
 %% get_literal(Src) -> literal_value().
 get_literal(nil) -> [];
