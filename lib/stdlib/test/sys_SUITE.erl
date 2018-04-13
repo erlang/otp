@@ -18,10 +18,26 @@
 %% %CopyrightEnd%
 %%
 -module(sys_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,log/1,log_to_file/1,
-	 stats/1,trace/1,suspend/1,install/1,special_process/1]).
--export([handle_call/3,terminate/2,init/1]).
+
+-export([all/0
+        ,suite/0
+        ,groups/0
+        ,init_per_suite/1
+        ,end_per_suite/1
+        ,init_per_group/2
+        ,end_per_group/2
+        ,log/1
+        ,log_to_file/1
+        ,stats/1
+        ,trace/1
+        ,suspend/1
+        ,install/1
+        ,special_process/1]).
+
+-export([handle_call/3
+        ,terminate/2
+        ,init/1]).
+
 -include_lib("common_test/include/ct.hrl").
 
 -define(server,sys_SUITE_server).
@@ -51,7 +67,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 log(Config) when is_list(Config) ->
     {ok,_Server} = start(),
@@ -123,36 +139,48 @@ suspend(Config) when is_list(Config) ->
     ok.
 
 install(Config) when is_list(Config) ->
+    FuncId = foo,
     {ok,_Server} = start(),
     Master = self(),
     SpyFun =
-	fun(func_state,Event,ProcState) ->
-		case Event of
-		    {in,{'$gen_call',_From,{req,Arg}}} ->
-			io:format("Trigged\n"),
-			Master ! {spy_got,{request,Arg},ProcState};
-		    Other ->
-			io:format("Trigged other=~p\n",[Other])
-		end
-	end,
-    sys:install(?server,{SpyFun,func_state}),
+        fun(func_state,Event,ProcState) ->
+            case Event of
+                {in,{'$gen_call',_From,{req,Arg}}} ->
+                    io:format("Trigged\n"),
+                    Master ! {spy_got,{request,Arg},ProcState};
+                Other ->
+                    io:format("Trigged other=~p\n",[Other])
+            end
+        end,
+    ok = sys:install(?server, FuncId, SpyFun, func_state),
     {ok,-1} = (catch public_call(1)),
     sys:no_debug(?server),
     {ok,-2} = (catch public_call(2)),
-    sys:install(?server,{SpyFun,func_state}),
-    sys:install(?server,{SpyFun,func_state}),
+    ok = sys:install(?server, FuncId, SpyFun, func_state),
+    {error, already_exists} = sys:install(?server, FuncId, SpyFun, func_state),
     {ok,-3} = (catch public_call(3)),
-    sys:remove(?server,SpyFun),
+    sys:remove(?server, FuncId),
     {ok,-4} = (catch public_call(4)),
-    [{spy_got,{request,1},sys_SUITE_server},
-     {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+    [{spy_got, {request,1}, sys_SUITE_server}
+    ,{spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+    FuncIds = lists:seq(1, 10),
+    [begin ok = sys:install(?server, FuncId_, SpyFun, func_state) end || FuncId_ <- FuncIds],
+    {ok,-1} = (catch public_call(1)),
+    Msgs = [{spy_got,{request,1},sys_SUITE_server} || _ <- FuncIds],
+    Msgs = get_messages(),
+    sys:no_debug(?server),
+    {ok,-2} = (catch public_call(2)),
+    [] = get_messages(),
+
     stop(),
     ok.
 
 get_messages() ->
     receive
-	Msg -> [Msg|get_messages()]
-    after 1 -> []
+        Msg ->
+            [Msg|get_messages()]
+    after 1 ->
+        []
     end.
 
 special_process(Config) when is_list(Config) ->
@@ -165,66 +193,74 @@ spec_proc(Mod) ->
     ok = sys:trace(Mod,true),
     1 = Ch = Mod:alloc(),
     Free = lists:seq(2,100),
-    Replace = case sys:get_state(Mod) of
-		  {[Ch],Free} ->
-		      fun({A,F}) ->
-			      Free = F,
-			      {A,[2,3,4]}
-		      end;
-		  {state,[Ch],Free} ->
-		      fun({state,A,F}) ->
-			      Free = F,
-			      {state,A,[2,3,4]}
-		      end
-	      end,
+    Replace =
+        case sys:get_state(Mod) of
+            {[Ch],Free} ->
+                fun({A,F}) ->
+                    Free = F,
+                    {A,[2,3,4]}
+                end;
+            {state,[Ch],Free} ->
+                fun({state,A,F}) ->
+                    Free = F,
+                    {state,A,[2,3,4]}
+                end
+        end,
     case sys:replace_state(Mod, Replace) of
-	{[Ch],[2,3,4]} -> ok;
-	{state,[Ch],[2,3,4]} -> ok
+        {[Ch],[2,3,4]} ->
+            ok;
+        {state,[Ch],[2,3,4]} ->
+            ok
     end,
     ok = Mod:free(Ch),
     case sys:get_state(Mod) of
-	{[],[1,2,3,4]} -> ok;
-	{state,[],[1,2,3,4]} -> ok
+        {[],[1,2,3,4]} ->
+            ok;
+        {state,[],[1,2,3,4]} ->
+            ok
     end,
-    {ok,[{start_time,_},
-	 {current_time,_},
-	 {reductions,_},
-	 {messages_in,2},
-	 {messages_out,1}]} = sys:statistics(Mod,get),
+    {ok,[{start_time,_}
+        ,{current_time,_}
+        ,{reductions,_}
+        ,{messages_in,2}
+        ,{messages_out,1}]} = sys:statistics(Mod,get),
     ok = sys:statistics(Mod,false),
     [] = sys:replace_state(Mod, fun(_) -> [] end),
     process_flag(trap_exit,true),
-    ok = case catch sys:get_state(Mod) of
-	     [] ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_get_state},{throw,fail}},_}} ->
-		 ok
-	 end,
+    ok =
+        case catch sys:get_state(Mod) of
+            [] ->
+                ok;
+            {'EXIT',{{callback_failed,
+                {Mod,system_get_state},{throw,fail}},_}} ->
+                ok
+        end,
     ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
-    ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
-	     {} ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_replace_state},{throw,fail}},_}} ->
-		 ok
-	 end,
+    ok =
+        case catch sys:replace_state(Mod, fun(_) -> {} end) of
+            {} ->
+                ok;
+            {'EXIT',{{callback_failed,
+                {Mod,system_replace_state},{throw,fail}},_}} ->
+                ok
+        end,
     ok = sys:terminate(Mod, normal),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
-    ok = case catch sys:replace_state(Mod, StateFun) of
-	     {} ->
-		 ok;
-	     {'EXIT',{{callback_failed,
-		       {Mod,system_replace_state},{error,fail}},_}} ->
-		 ok;
-	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
-		 ok
-	 end,
+    ok =
+        case catch sys:replace_state(Mod, StateFun) of
+            {} ->
+                ok;
+            {'EXIT',{{callback_failed,
+                {Mod,system_replace_state},{error,fail}},_}} ->
+                ok;
+            {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
+                ok
+        end,
     ok = sys:terminate(Mod, normal).
 
-%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dummy server
 
 public_call(Arg) ->
@@ -247,5 +283,3 @@ handle_call(stop,_From,State) ->
 
 terminate(_Reason, _State) ->
     ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
