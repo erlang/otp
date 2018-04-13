@@ -4147,7 +4147,8 @@ BIF_RETTYPE erts_internal_group_leader_2(BIF_ALIST_2)
             rp = BIF_P;
         else {
             rp = erts_try_lock_sig_free_proc(BIF_ARG_2,
-                                             ERTS_PROC_LOCK_MAIN);
+                                             ERTS_PROC_LOCK_MAIN,
+                                             NULL);
             if (!rp)
                 BIF_RET(am_badarg);
             if (rp == ERTS_PROC_LOCK_BUSY)

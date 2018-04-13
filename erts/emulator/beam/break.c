@@ -204,6 +204,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
     int garbing = 0;
     int running = 0;
+    Sint len;
     struct saved_calls *scb;
     erts_aint32_t state;
 
@@ -252,9 +253,9 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
 
     erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
-    erts_proc_sig_fetch(p);
+    len = erts_proc_sig_fetch(p);
     erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
-    erts_print(to, to_arg, "Message queue length: %d\n", p->sig_qs.len);
+    erts_print(to, to_arg, "Message queue length: %d\n", len);
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing) {

@@ -239,39 +239,70 @@ erts_erase_dicts(Process *p)
 /* 
  * Called from process_info/1,2.
  */
-Eterm erts_dictionary_copy(Process *p, ProcDict *pd) 
+Eterm erts_dictionary_copy(ErtsHeapFactory *hfact, ProcDict *pd, Uint reserve_size) 
 {
-    Eterm* hp;
-    Eterm* heap_start;
-    Eterm res = NIL;
-    Eterm tmp, tmp2;
+    Eterm res;
     unsigned int i, num;
+    Uint *sz;
+    Uint szi, rsz = reserve_size;
 
-    if (pd == NULL) {
-	return res;
-    }
+    if (pd == NULL)
+	return NIL;
 
     PD_CHECK(pd);
     num = HASH_RANGE(pd);
-    heap_start = hp = (Eterm *) erts_alloc(ERTS_ALC_T_TMP,
-					   sizeof(Eterm) * pd->numElements * 2);
-    for (i = 0; i < num; ++i) {
-	tmp = ARRAY_GET(pd, i);
+    sz = (Uint *) erts_alloc(ERTS_ALC_T_TMP, sizeof(Uint) * pd->numElements);
+
+    for (i = 0, szi = 0; i < num; ++i) {
+	Eterm tmp = ARRAY_GET(pd, i);
 	if (is_boxed(tmp)) {
+            Uint size;
 	    ASSERT(is_tuple(tmp));
-	    res = CONS(hp, tmp, res);
-	    hp += 2;
-	} else if (is_list(tmp)) {
+            size = size_object(tmp) + 2;
+            sz[szi++] = size;
+            rsz += size;
+	}
+        else if (is_list(tmp)) {
 	    while (tmp != NIL) {
-		tmp2 = TCAR(tmp);
-		res = CONS(hp, tmp2, res);
-		hp += 2;
+                Uint size = size_object(TCAR(tmp)) + 2;
+                sz[szi++] = size;
+                rsz += size;
+    		tmp = TCDR(tmp);
+	    }
+	}
+    }
+
+    res = NIL;
+
+    for (i = 0, szi = 0; i < num; ++i) {
+	Eterm tmp = ARRAY_GET(pd, i);
+	if (is_boxed(tmp)) {
+            Uint size;
+            Eterm el, *hp;
+	    ASSERT(is_tuple(tmp));
+            size = sz[szi++];
+            rsz -= size;
+            hp = erts_produce_heap(hfact, size, rsz);
+            el = copy_struct(tmp, size-2, &hp, hfact->off_heap);
+	    res = CONS(hp, el, res);
+	}
+        else if (is_list(tmp)) {
+	    while (tmp != NIL) {
+                Uint size = sz[szi++];
+                Eterm el, *hp;
+                rsz -= size;
+                hp = erts_produce_heap(hfact, size, rsz);
+                el = copy_struct(TCAR(tmp), size-2, &hp, hfact->off_heap);
+		res = CONS(hp, el, res);
 		tmp = TCDR(tmp);
 	    }
 	}
     }
-    res = copy_object(res, p);
-    erts_free(ERTS_ALC_T_TMP, (void *) heap_start);
+
+    ASSERT(rsz == reserve_size);
+
+    erts_free(ERTS_ALC_T_TMP, sz);
+
     return res;
 }
 

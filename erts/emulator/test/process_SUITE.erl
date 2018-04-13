@@ -42,6 +42,8 @@
 	 process_info_lock_reschedule2/1,
 	 process_info_lock_reschedule3/1,
          process_info_garbage_collection/1,
+         process_info_smoke_all/1,
+         process_info_status_handled_signal/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
 	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
@@ -79,6 +81,8 @@ all() ->
      process_info_lock_reschedule2,
      process_info_lock_reschedule3,
      process_info_garbage_collection,
+     process_info_smoke_all,
+     process_info_status_handled_signal,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -510,14 +514,20 @@ pio_current_location(N, Pid, Pi, Looper) ->
     case Where of
 	{erlang,process_info,2,[]} ->
 	    pio_current_location(N-1, Pid, Pi+1, Looper);
+	{erts_internal,await_result,1, Loc} when is_list(Loc) ->
+	    pio_current_location(N-1, Pid, Pi+1, Looper);
 	{?MODULE,process_info_looper,1,Loc} when is_list(Loc) ->
-	    pio_current_location(N-1, Pid, Pi, Looper+1)
+	    pio_current_location(N-1, Pid, Pi, Looper+1);
+	_ ->
+	    exit({unexpected_location, Where})
     end.
 
 pio_current_stacktrace() ->
     L = [begin
-	     {current_stacktrace,Stk} = process_info(P, current_stacktrace),
-	     {P,Stk}
+	     case process_info(P, current_stacktrace) of
+                 {current_stacktrace, Stk} -> {P,Stk};
+                 undefined -> {P, []}
+             end
 	 end || P <- processes()],
     [erlang:garbage_collect(P) || {P,_} <- L],
     erlang:garbage_collect(),
@@ -972,6 +982,106 @@ process_info_garbage_collection(_Config) ->
 
 gv(Key,List) ->
     proplists:get_value(Key,List).
+
+process_info_smoke_all_tester() ->
+    register(process_info_smoke_all_tester, self()),
+    put(ets_ref, ets:new(blupp, [])),
+    put(binary, [list_to_binary(lists:duplicate(1000, 1)),
+                 list_to_binary(lists:duplicate(1000, 2))]),
+    process_info_smoke_all_tester_loop().
+
+process_info_smoke_all_tester_loop() ->
+    receive
+        {other_process, Pid} ->
+            case get(procs) of
+                undefined -> put(procs, [Pid]);
+                Procs -> put(procs, [Pid|Procs])
+            end,
+            erlang:monitor(process, Pid),
+            link(Pid),
+            process_info_smoke_all_tester_loop()
+    end.
+
+process_info_smoke_all(Config) when is_list(Config) ->
+    AllPIOptions = [registered_name,
+                    current_function,
+                    initial_call,
+                    messages,
+                    message_queue_len,
+                    links,
+                    monitors,
+                    monitored_by,
+                    dictionary,
+                    trap_exit,
+                    error_handler,
+                    heap_size,
+                    stack_size,
+                    memory,
+                    garbage_collection,
+                    group_leader,
+                    reductions,
+                    priority,
+                    trace,
+                    binary,
+                    sequential_trace_token,
+                    catchlevel,
+                    backtrace,
+                    last_calls,
+                    total_heap_size,
+                    suspending,
+                    min_heap_size,
+                    min_bin_vheap_size,
+                    max_heap_size,
+                    current_location,
+                    current_stacktrace,
+                    message_queue_data,
+                    garbage_collection_info,
+                    magic_ref,
+                    fullsweep_after],
+
+    {ok, Node} = start_node(Config, ""),
+    RP = spawn_link(Node, fun process_info_smoke_all_tester/0),
+    LP = spawn_link(fun process_info_smoke_all_tester/0),
+    RP ! {other_process, LP},
+    LP ! {other_process, RP},
+    LP ! {other_process, self()},
+    LP ! ets:new(blapp, []),
+    LP ! ets:new(blipp, []),
+    LP ! list_to_binary(lists:duplicate(1000, 3)),
+    receive after 1000 -> ok end,
+    _MLP = erlang:monitor(process, LP),
+    true = is_process_alive(LP),
+    PI = process_info(LP, AllPIOptions),
+    io:format("~p~n", [PI]),
+    garbage_collect(),
+    unlink(RP),
+    unlink(LP),
+    exit(RP, kill),
+    exit(LP, kill),
+    false = is_process_alive(LP),
+    stop_node(Node),
+    ok.
+
+process_info_status_handled_signal(Config) when is_list(Config) ->
+    P = spawn_link(fun () ->
+                           receive after infinity -> ok end
+                   end),
+    wait_until(fun () ->
+                       process_info(P, status) == {status, waiting}
+               end),
+    %%
+    %% The 'messages' option will force a process-info-request
+    %% signal to be scheduled on the process. Ensure that status
+    %% 'waiting' is reported even though it is actually running
+    %% when handling the request. We want it to report the status
+    %% it would have had if it had not been handling the
+    %% process-info-request...
+    %%
+    [{status, waiting}, {messages, []}] = process_info(P, [status, messages]),
+    unlink(P),
+    exit(P, kill),
+    false = erlang:is_process_alive(P),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->

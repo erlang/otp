@@ -860,6 +860,8 @@ void erts_emasculate_writable_binary(ProcBin* pb);
 Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
 Eterm erts_new_mso_binary(Process*, byte*, Uint);
 Eterm new_binary(Process*, byte*, Uint);
+Eterm erts_heap_factory_new_binary(ErtsHeapFactory *hfact, byte *buf,
+                                   Uint len, Uint reserve_size);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
 Eterm erts_build_proc_bin(ErlOffHeap*, Eterm*, Binary*);
 

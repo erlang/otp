@@ -225,6 +225,7 @@ remove_message() {
         Sint tok_label = 0;
         Sint tok_lastcnt = 0;
         Sint tok_serial = 0;
+        Sint len = erts_proc_sig_privqs_len(c_p);
 
         dtrace_proc_str(c_p, receiver_name);
         token2 = SEQ_TRACE_TOKEN(c_p);
@@ -235,7 +236,8 @@ remove_message() {
         }
         DTRACE6(message_receive,
                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
-                c_p->sig_qs.len - 1, tok_label, tok_lastcnt, tok_serial);
+                len, /* This is NOT message queue len, but its something... */
+                tok_label, tok_lastcnt, tok_serial);
     }
 #endif
     UNLINK_MESSAGE(c_p, msgp);

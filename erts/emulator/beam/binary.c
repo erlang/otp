@@ -113,6 +113,40 @@ new_binary(Process *p, byte *buf, Uint len)
     return build_proc_bin(&MSO(p), HAlloc(p, PROC_BIN_SIZE), bptr);
 }
 
+Eterm
+erts_heap_factory_new_binary(ErtsHeapFactory *hfact, byte *buf, Uint len,
+                             Uint reserve_size)
+{
+    Eterm *hp;
+    Binary* bptr;
+
+    if (len <= ERL_ONHEAP_BIN_LIMIT) {
+	ErlHeapBin* hb;
+        hp = erts_produce_heap(hfact, heap_bin_size(len), reserve_size);
+        hb = (ErlHeapBin *) hp;
+	hb->thing_word = header_heap_bin(len);
+	hb->size = len;
+	if (buf != NULL) {
+	    sys_memcpy(hb->data, buf, len);
+	}
+	return make_binary(hb);
+    }
+
+    /*
+     * Allocate the binary struct itself.
+     */
+    bptr = erts_bin_nrml_alloc(len);
+    if (buf != NULL) {
+	sys_memcpy(bptr->orig_bytes, buf, len);
+    }
+
+    hp = erts_produce_heap(hfact, PROC_BIN_SIZE, reserve_size);
+
+    return build_proc_bin(hfact->off_heap, hp, bptr);
+}
+
+
+
 /* 
  * When heap binary is not desired...
  */

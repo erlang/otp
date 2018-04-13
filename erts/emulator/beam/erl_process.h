@@ -1391,6 +1391,7 @@ extern int erts_system_profile_ts_type;
 #define F_LOCAL_SIGS_ONLY    (1 << 26)
 #define F_TRAP_EXIT          (1 << 27) /* Trapping exit */
 #define F_DEFERRED_SAVED_LAST (1 << 28)
+#define F_DELAYED_PSIGQS_LEN (1 << 29)
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1817,6 +1818,10 @@ void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
+                        Process *rp, ErtsProcLocks rp_locks,
+                        int *item_ix, int item_ix_len,
+                        int flags, Uint reserve_size, Uint *reds);
 
 typedef struct {
     Process *c_p;
@@ -1855,7 +1860,7 @@ Uint erts_debug_nbalance(void);
 
 int erts_debug_wait_completed(Process *c_p, int flags);
 
-Uint erts_process_memory(Process *c_p, int incl_msg_inq);
+Uint erts_process_memory(Process *c_p, int include_sigs_in_transit);
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
 #  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(P)					\
@@ -2595,7 +2600,8 @@ ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
 #endif
 
 Process *erts_try_lock_sig_free_proc(Eterm pid,
-                                     ErtsProcLocks locks);
+                                     ErtsProcLocks locks,
+                                     erts_aint32_t *statep);
 
 Process *erts_pid2proc_not_running(Process *,
 				   ErtsProcLocks,

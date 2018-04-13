@@ -89,11 +89,32 @@ void erts_factory_static_init(ErtsHeapFactory*, Eterm* hp, Uint size, ErlOffHeap
 void erts_factory_tmp_init(ErtsHeapFactory*, Eterm* hp, Uint size, Uint32 atype);
 void erts_factory_dummy_init(ErtsHeapFactory*);
 
-Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
+ERTS_GLB_INLINE Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
+
 Eterm* erts_reserve_heap(ErtsHeapFactory*, Uint need);
 void erts_factory_close(ErtsHeapFactory*);
 void erts_factory_trim_and_close(ErtsHeapFactory*,Eterm *brefs, Uint brefs_size);
 void erts_factory_undo(ErtsHeapFactory*);
+
+void erts_reserve_heap__(ErtsHeapFactory*, Uint need, Uint xtra); /* internal */
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Eterm *
+erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
+{
+    Eterm* res;
+
+    ASSERT((unsigned int)factory->mode > (unsigned int)FACTORY_CLOSED);
+    if (factory->hp + need > factory->hp_end) {
+	erts_reserve_heap__(factory, need, xtra);
+    }
+    res = factory->hp;
+    factory->hp += need;
+    return res;
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #ifdef CHECK_FOR_HOLES
 # define ERTS_FACTORY_HOLE_CHECK(f) do {    \
@@ -215,6 +236,48 @@ typedef struct {
 #define ERL_MESSAGE_BUF_SZ 500
 
 typedef struct {
+    /*
+     * ** The signal queues private to a process. **
+     *
+     * These are:
+     * - an inner queue which only consists of
+     *   message signals
+     * - a middle queue which contains a mixture
+     *   of message and non-message signals
+     *
+     * When the process isn't processing signals in
+     * erts_proc_sig_handle_incoming():
+     * - the message queue corresponds to the inner
+     *   queue. Messages in the middle queue (and
+     *   in the outer queue) are in transit and
+     *   have NOT been received yet!
+     *
+     * When the process is processing signals in
+     * erts_proc_sig_handle_incoming():
+     * - the message queue corresponds to the inner
+     *   queue plus the head of the middle queue up
+     *   to the signal currently being processed.
+     *   Any messages further back in the middle queue
+     *   (and in the outer queue) are still in transit
+     *   and have NOT been received yet!
+     *
+     * In the general case the 'len' field of this
+     * structure does NOT correspond to the message
+     * queue length. When the process is inspected
+     * via process info it does however correspond
+     * to the message queue length, but this is a
+     * special case!
+     *
+     * When no process-info request is in transit to
+     * the process the 'len' field corresponds to
+     * the total amount of messages in inner and
+     * middle queues (which does NOT correspond to
+     * the message queue length). When process-info
+     * requests are in transit to the process, the
+     * usage of the 'len' field changes and is used
+     * as an offset which even might be negative.
+     */
+
     /* inner queue */
     ErtsMessage *first;
     ErtsMessage **last;  /* point to the last next pointer */
@@ -227,7 +290,7 @@ typedef struct {
 
     /* Common for inner and middle queue */
     ErtsMessage **saved_last;	/* saved last pointer */
-    Sint len; /* message queue length (inner+middle) */
+    Sint len; /* NOT message queue length (see above) */
 } ErtsSignalPrivQueues;
 
 typedef struct {
@@ -248,8 +311,7 @@ typedef struct erl_trace_message_queue__ {
 #define ERTS_RECV_MARK_SAVE(P)                                          \
     do {                                                                \
         erts_proc_lock((P), ERTS_PROC_LOCK_MSGQ);                       \
-        if ((P)->sig_inq.first)                                         \
-            erts_proc_sig_fetch((P));                                   \
+        erts_proc_sig_fetch((P));                                       \
         erts_proc_unlock((P), ERTS_PROC_LOCK_MSGQ);                     \
         if ((P)->sig_qs.cont) {                                         \
             (P)->sig_qs.saved_last = (P)->sig_qs.cont_last;             \
@@ -302,23 +364,6 @@ typedef struct erl_trace_message_queue__ {
 
 #endif
 
-
-/* Add message last in private message queue */
-#define LINK_MESSAGE_PRIVQ(p, first_msg, last_msg, num_msgs)            \
-    do {                                                                \
-        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), "before");             \
-        if ((p)->sig_qs.cont || ERTS_MSG_RECV_TRACED((p))) {            \
-            *(p)->sig_qs.cont_last = (first_msg);                       \
-            (p)->sig_qs.cont_last = (last_msg);                         \
-        }                                                               \
-        else {                                                          \
-            *(p)->sig_qs.last = (first_msg);                            \
-            (p)->sig_qs.last = (last_msg);                              \
-        }                                                               \
-        (p)->sig_qs.len += (num_msgs);                                  \
-        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), "after");              \
-    } while (0)
-
 /* Add message last_msg in message queue */
 #define LINK_MESSAGE(p, first_msg, last_msg, num_msgs) \
     do {                                                                \
@@ -333,12 +378,12 @@ typedef struct erl_trace_message_queue__ {
 #define UNLINK_MESSAGE(p,msgp)                                          \
     do {                                                                \
         ErtsMessage *mp__ = (msgp)->next;                               \
-        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), "before");             \
+        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), 0, "before");          \
         *(p)->sig_qs.save = mp__;                                       \
         (p)->sig_qs.len--;                                              \
         if (mp__ == NULL)                                               \
             (p)->sig_qs.last = (p)->sig_qs.save;                        \
-        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), "after");              \
+        ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__((p), 0, "after");           \
     } while(0)
 
 /*
