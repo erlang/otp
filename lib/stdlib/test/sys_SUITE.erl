@@ -146,6 +146,20 @@ install(Config) when is_list(Config) ->
     {ok,-4} = (catch public_call(4)),
     [{spy_got,{request,1},sys_SUITE_server},
      {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+
+    sys:install(?server,{id1, SpyFun, func_state}),
+    sys:install(?server,{id1, SpyFun, func_state}), %% should not be installed
+    sys:install(?server,{id2, SpyFun, func_state}),    
+    {ok,-1} = (catch public_call(1)),
+    %% We have two SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server},
+     {spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:remove(?server, id1),
+    {ok,-1} = (catch public_call(1)),
+    %% We have one SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:no_debug(?server),
+    [] = get_messages(),
     stop(),
     ok.
 
