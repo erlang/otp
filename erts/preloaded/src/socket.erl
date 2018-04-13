@@ -135,6 +135,26 @@
 -type setopt_key() :: foo.
 -type getopt_key() :: foo.
 
+-record(msg_hdr,
+        {
+          %% Optional address
+          %% On an unconnected socket this is used to specify the target
+          %% address for a datagram.
+          %% For a connected socket, this field should be specified [].
+          name       :: list(),
+
+          %% Scatter/gather array
+          iov        :: [binary()], % iovec(),
+
+          %% Ancillary (control) data
+          ctrl       :: binary(),
+
+          %% Unused
+          flags = [] :: list()
+        }).
+-type msg_hdr() :: #msg_hdr{}.
+
+
 -define(SOCKET_DOMAIN_LOCAL, 1).
 -define(SOCKET_DOMAIN_UNIX,  ?SOCKET_DOMAIN_LOCAL).
 -define(SOCKET_DOMAIN_INET,  2).
@@ -542,25 +562,75 @@ do_send(SockRef, SendRef, Data, EFlags, Timeout) ->
 %% Do we need a timeout argument here also?
 %%
 
--spec sendto(Socket, Data, Flags, DestAddr, Port) -> ok | {error, Reason} when
+sendto(Socket, Data, Flags, DestAddr, DestPort) ->
+    sendto(Socket, Data, Flags, DestAddr, DestPort, infinity).
+
+-spec sendto(Socket, Data, Flags, DestAddr, DestPort, Timeout) ->
+                    ok | {error, Reason} when
       Socket   :: socket(),
       Data     :: binary(),
       Flags    :: send_flags(),
       DestAddr :: null | ip_address(),
-      Port     :: port_number(),
+      DestPort :: port_number(),
+      Timeout  :: timeout(),
       Reason   :: term().
 
-sendto({socket, _, SockRef}, Data, Flags, DestAddr, DestPort)
+sendto(Socket, Data, Flags, DestAddr, DestPort, Timeout) when is_list(Data) ->
+    Bin = erlang:list_to_binary(Data),
+    sendto(Socket, Bin, Flags, DestAddr, DestPort, Timeout);
+sendto(Socket, Data, Flags, DestAddr, DestPort, Timeout)
   when is_binary(Data) andalso
        is_list(Flags) andalso
-       ((is_tuple(DestAddr) andalso
-         ((size(DestAddr) =:= 4) orelse
-          (size(DestAddr) =:= 8))) orelse
-        (DestAddr =:= null)) andalso
-       (is_integer(DestPort) andalso (DestPort >= 0)) ->
-    %% We may need something like send/4 above?
+       (is_tuple(DestAddr) orelse (DestAddr =:= null)) andalso
+       is_integer(DestPort) andalso
+       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
     EFlags = enc_send_flags(Flags),
-    nif_sendto(SockRef, make_ref(), Data, EFlags, DestAddr, DestPort).
+    do_sendto(Socket, make_ref(), Data, EFlags, DestAddr, DestPort, Timeout).
+
+do_sendto(SockRef, SendRef, Data, _EFlags, _DestAddr, _DestPort, Timeout)
+  when (Timeout =< 0) ->
+    nif_cancel(SockRef, SendRef),
+    flush_select_msgs(SockRef, SendRef),
+    {error, {timeout, size(Data)}};
+do_sendto(SockRef, SendRef, Data, EFlags, DestAddr, DestPort, Timeout) ->
+    TS = timestamp(Timeout),
+    case nif_sendto(SockRef, SendRef, Data, DestAddr, DestPort, EFlags) of
+        ok ->
+            {ok, next_timeout(TS, Timeout)};
+        {ok, Written} ->
+	    %% We are partially done, wait for continuation
+            receive
+                {select, SockRef, SendRef, ready_output} when (Written > 0) ->
+                    <<_:Written/binary, Rest/binary>> = Data,
+                    do_sendto(SockRef, make_ref(), Rest, EFlags,
+                              DestAddr, DestPort,
+                              next_timeout(TS, Timeout));
+                {select, SockRef, SendRef, ready_output} ->
+                    do_sendto(SockRef, make_ref(), Data, EFlags,
+                              DestAddr, DestPort,
+                              next_timeout(TS, Timeout))
+            after Timeout ->
+                    nif_cancel(SockRef, SendRef),
+                    flush_select_msgs(SockRef, SendRef),
+                    {error, timeout}
+            end;
+        {error, eagain} ->
+            %% Is this what we can expect?
+            %% If we have to wait because there is another ongoing write??
+            receive
+                {select, SockRef, SendRef, ready_output} ->
+                    do_sendto(SockRef, SendRef, Data, EFlags,
+                              DestAddr, DestPort,
+                              next_timeout(TS, Timeout))
+            after Timeout ->
+                    nif_cancel(SockRef, SendRef),
+                    flush_select_msgs(SockRef, SendRef),
+                    {error, timeout}
+            end;
+
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 
 
