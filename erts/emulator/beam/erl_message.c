@@ -264,11 +264,6 @@ erts_queue_dist_message(Process *rcvr,
                         Eterm from)
 {
     ErtsMessage* mp;
-#ifdef USE_VM_PROBES
-    Sint tok_label = 0;
-    Sint tok_lastcnt = 0;
-    Sint tok_serial = 0;
-#endif
     erts_aint_t state;
 
     ERTS_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
@@ -308,25 +303,6 @@ erts_queue_dist_message(Process *rcvr,
 	erts_cleanup_messages(mp);
     }
     else {
-
-#ifdef USE_VM_PROBES
-        if (DTRACE_ENABLED(message_queued)) {
-            DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-
-            dtrace_proc_str(rcvr, receiver_name);
-            if (have_seqtrace(token)) {
-                tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
-                tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
-                tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
-            }
-            /*
-             * TODO: We don't know the real size of the external message here.
-             *       -1 will appear to a D script as 4294967295.
-             */
-            DTRACE6(message_queued, receiver_name, -1, rcvr->sig_qs.len + 1,
-                    tok_label, tok_lastcnt, tok_serial);
-        }
-#endif
 
 	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
 
