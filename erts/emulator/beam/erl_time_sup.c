@@ -2204,6 +2204,8 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
 	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
 	break;
 #endif
+    case am_perf_counter:
+	goto trap_to_erlang_code;
     default: {
 	Eterm value, native_res;
 #ifndef ARCH_64
