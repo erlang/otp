@@ -1052,8 +1052,8 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
     ToVsn = ToRelease#release.vsn,
     TmpVsn = ?tmp_vsn(CurrentVsn),
     case get_base_libs(ToRelease#release.libs) of
-	{ok,{Kernel,Stdlib,Sasl}=BaseLibs,_} ->
-	    case get_base_libs(ToRelease#release.libs) of
+	{ok,{Kernel,Stdlib,Sasl},_} ->
+	    case get_base_libs(CurrentRelease#release.libs) of
 		{ok,_,RestLibs} ->
 		    TmpErtsVsn = ToRelease#release.erts_vsn,
 		    TmpLibs = [Kernel,Stdlib,Sasl|RestLibs],
@@ -1062,7 +1062,7 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
 							libs = TmpLibs,
 							status = unpacked},
 		    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,
-						  BaseLibs,RelDir,Opts,Masters),
+						  RelDir,Opts,Masters),
 		    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,
 						    RelDir,Masters),
 		    {TmpVsn,TmpRelease};
@@ -1095,7 +1095,7 @@ get_base_libs([],_Kernel,_Stdlib,undefined,_Rest) ->
 get_base_libs([],Kernel,Stdlib,Sasl,Rest) ->
     {ok,{Kernel,Stdlib,Sasl},lists:reverse(Rest)}.
 
-new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
+new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,RelDir,Opts,Masters) ->
     FromBootFile = filename:join([RelDir,CurrentVsn,"start.boot"]),
     ToBootFile = filename:join([RelDir,ToVsn,"start.boot"]),
     TmpBootFile = filename:join([RelDir,TmpVsn,"start.boot"]),
@@ -1103,11 +1103,7 @@ new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     Args = [ToVsn,Opts],
     {ok,FromBoot} = read_file(FromBootFile,Masters),
     {ok,ToBoot} = read_file(ToBootFile,Masters),
-    {{_,_,KernelPath},{_,_,StdlibPath},{_,_,SaslPath}} = BaseLibs,
-    Paths = {filename:join(KernelPath,"ebin"),
-	     filename:join(StdlibPath,"ebin"),
-	     filename:join(SaslPath,"ebin")},
-    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Paths,Args) of
+    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Args) of
 	{ok,TmpBoot} ->
 	    write_file(TmpBootFile,TmpBoot,Masters);
 	{error,Reason} ->
