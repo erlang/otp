@@ -630,7 +630,9 @@ erts_monitor_tree_lookup_create(ErtsMonitor **root, int *created, Uint16 type,
     ErtsMonitor *res;
     ErtsMonitorCreateCtxt cctxt = {type, origin};
 
-    ERTS_ML_ASSERT(type == ERTS_MON_TYPE_NODE || type == ERTS_MON_TYPE_NODES);
+    ERTS_ML_ASSERT(type == ERTS_MON_TYPE_NODE
+                   || type == ERTS_MON_TYPE_NODES
+                   || type == ERTS_MON_TYPE_SUSPEND);
 
     res = (ErtsMonitor *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
                                                target, create_monitor,
@@ -760,11 +762,13 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
     switch (type) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
-    case ERTS_MON_TYPE_TIME_OFFSET:
         if (is_nil(name)) {
             ErtsMonitorDataHeap *mdhp;
             ErtsORefThing *ortp;
 
+        case ERTS_MON_TYPE_TIME_OFFSET:
+
+            ERTS_ML_ASSERT(is_nil(name));
             ERTS_ML_ASSERT(is_immed(orgn) && is_immed(trgt));
             ERTS_ML_ASSERT(is_internal_ordinary_ref(ref));
         
@@ -860,10 +864,38 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         mdep->dist = NULL;
         break;
     }
-    case ERTS_MON_TYPE_SUSPEND:
-        ERTS_INTERNAL_ERROR("Use erts_monitor_suspend_create() instead...");
-        mdp = NULL;
+    case ERTS_MON_TYPE_SUSPEND: {
+        ErtsMonitorSuspend *msp;
+
+        ERTS_ML_ASSERT(is_nil(name));
+        ERTS_ML_ASSERT(is_nil(ref));
+        ERTS_ML_ASSERT(is_internal_pid(orgn) && is_internal_pid(trgt));
+
+        msp = erts_alloc(ERTS_ALC_T_MONITOR_SUSPEND,
+                         sizeof(ErtsMonitorSuspend));
+        mdp = &msp->md;
+        ERTS_ML_ASSERT(((void *) mdp) == ((void *) msp));
+
+        mdp->ref = NIL;
+
+        mdp->origin.other.item = trgt;
+        mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
+        mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
+        ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
+        mdp->origin.flags = (Uint16) ERTS_ML_FLG_EXTENDED;
+        mdp->origin.type = type;
+
+        mdp->target.other.item = orgn;
+        mdp->target.offset = (Uint16) offsetof(ErtsMonitorData, target);
+        mdp->target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
+        mdp->target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED;
+        mdp->target.type = type;
+
+        msp->next = NULL;
+        erts_atomic_init_relb(&msp->state, 0);
+
         break;
+    }
     default:
         ERTS_INTERNAL_ERROR("Invalid monitor type");
         mdp = NULL;
@@ -887,10 +919,11 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
     ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT((mdp->origin.flags & ERTS_ML_FLGS_SAME)
                    == (mdp->target.flags & ERTS_ML_FLGS_SAME));
-    ERTS_ML_ASSERT(mdp->origin.type != ERTS_MON_TYPE_SUSPEND);
 
     if (!(mdp->origin.flags & ERTS_ML_FLG_EXTENDED))
         erts_free(ERTS_ALC_T_MONITOR, mdp);
+    else if (mdp->origin.type == ERTS_MON_TYPE_SUSPEND)
+        erts_free(ERTS_ALC_T_MONITOR_SUSPEND, mdp);
     else {
         ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
         ErlOffHeap oh;
@@ -927,10 +960,10 @@ erts_monitor_size(ErtsMonitor *mon)
     Uint size, refc;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
 
-    ERTS_ML_ASSERT(mon->type != ERTS_MON_TYPE_SUSPEND);
-
     if (!(mon->flags & ERTS_ML_FLG_EXTENDED))
         size = sizeof(ErtsMonitorDataHeap);
+    else if (mon->type == ERTS_MON_TYPE_SUSPEND)
+        size = sizeof(ErtsMonitorSuspend);
     else {
         ErtsMonitorDataExtended *mdep;
         Uint hsz = 0;
@@ -955,54 +988,6 @@ erts_monitor_size(ErtsMonitor *mon)
     ASSERT(refc > 0);
 
     return size / refc;
-}
-
-
-/* suspend monitors... */
-
-ErtsMonitorSuspend *
-erts_monitor_suspend_create(Eterm pid)
-{
-    ErtsMonitorSuspend *msp;
-
-    ERTS_ML_ASSERT(is_internal_pid(pid));
-
-    msp = erts_alloc(ERTS_ALC_T_SUSPEND_MON,
-                     sizeof(ErtsMonitorSuspend));
-    msp->mon.offset = (Uint16) offsetof(ErtsMonitorSuspend, mon);
-    msp->mon.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
-    msp->mon.other.item = pid;
-    msp->mon.flags = 0;
-    msp->mon.type = ERTS_MON_TYPE_SUSPEND;
-    msp->pending = 0;
-    msp->active = 0;
-    return msp;
-}
-
-static ErtsMonLnkNode *
-create_monitor_suspend(Eterm pid, void *unused)
-{
-    ErtsMonitorSuspend *msp = erts_monitor_suspend_create(pid);
-    return (ErtsMonLnkNode *) &msp->mon;
-}
-
-ErtsMonitorSuspend *
-erts_monitor_suspend_tree_lookup_create(ErtsMonitor **root, int *created,
-                                        Eterm pid)
-{
-    ErtsMonitor *mon;
-    mon = (ErtsMonitor *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
-                                               pid, create_monitor_suspend,
-                                               NULL,
-                                               created);
-    return erts_monitor_suspend(mon);
-}
-
-void
-erts_monitor_suspend_destroy(ErtsMonitorSuspend *msp)
-{
-    ERTS_ML_ASSERT(!(msp->mon.flags & ERTS_ML_FLG_IN_TABLE));
-    erts_free(ERTS_ALC_T_SUSPEND_MON, msp);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

@@ -185,8 +185,6 @@ sched_get_busy_wait_params(ErtsSchedulerData *esdp)
     return &sched_busy_wait_params[esdp->type];
 }
 
-int erts_disable_proc_not_running_opt;
-
 static ErtsAuxWorkData *aux_thread_aux_work_data;
 static ErtsAuxWorkData *poll_thread_aux_work_data;
 
@@ -730,6 +728,11 @@ erts_pre_init_process(void)
         = ERTS_PSD_DIST_ENTRY_GET_LOCKS;
     erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].set_locks
         = ERTS_PSD_DIST_ENTRY_SET_LOCKS;
+
+    erts_psd_required_locks[ERTS_PSD_PENDING_SUSPEND].get_locks
+        = ERTS_PSD_PENDING_SUSPEND_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_PENDING_SUSPEND].set_locks
+        = ERTS_PSD_PENDING_SUSPEND_SET_LOCKS;
 #endif
 }
 
@@ -744,7 +747,6 @@ void
 erts_init_process(int ncpu, int proc_tab_size, int legacy_proc_tab)
 {
 
-    erts_disable_proc_not_running_opt = 0;
     erts_init_proc_lock(ncpu);
 
     init_proclist_alloc();
@@ -8553,427 +8555,22 @@ erts_start_schedulers(void)
     }
 }
 
-
-
-static void
-add_pend_suspend(Process *suspendee,
-		 Eterm originator_pid,
-		 void (*handle_func)(Process *,
-				     ErtsProcLocks,
-				     int,
-				     Eterm))
-{
-    ErtsPendingSuspend *psp = erts_alloc(ERTS_ALC_T_PEND_SUSPEND,
-					 sizeof(ErtsPendingSuspend));
-    psp->next = NULL;
-#ifdef DEBUG
-#if defined(ARCH_64)
-    psp->end = (ErtsPendingSuspend *) 0xdeaddeaddeaddead;
-#else
-    psp->end = (ErtsPendingSuspend *) 0xdeaddead;
-#endif
-#endif
-    psp->pid = originator_pid;
-    psp->handle_func = handle_func;
-
-    if (suspendee->pending_suspenders)
-	suspendee->pending_suspenders->end->next = psp;
-    else
-	suspendee->pending_suspenders = psp;
-    suspendee->pending_suspenders->end = psp;
-}
-
-static void
-handle_pending_suspend(Process *p, ErtsProcLocks p_locks)
-{
-    ErtsPendingSuspend *psp;
-    int is_alive = !ERTS_PROC_IS_EXITING(p);
-
-    ERTS_LC_ASSERT(p_locks & ERTS_PROC_LOCK_STATUS);
-
-    /*
-     * New pending suspenders might appear while we are processing
-     * (since we may release the status lock on p while processing).
-     */
-    while (p->pending_suspenders) {
-	psp = p->pending_suspenders;
-	p->pending_suspenders = NULL;
-	while (psp) {
-	    ErtsPendingSuspend *free_psp;
-	    (*psp->handle_func)(p, p_locks, is_alive, psp->pid);
-	    free_psp = psp;
-	    psp = psp->next;
-	    erts_free(ERTS_ALC_T_PEND_SUSPEND, (void *) free_psp);
-	}
-    }
-    
-}
-
-static ERTS_INLINE void
-cancel_suspend_of_suspendee(Process *p, ErtsProcLocks p_locks)
-{
-    if (is_not_nil(p->suspendee)) {
-        ErtsMonitor *mon;
-        Eterm suspendee = p->suspendee;
-	Process *rp;
-	if (!(p_locks & ERTS_PROC_LOCK_STATUS))
-	    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-	rp = erts_pid2proc(p, p_locks|ERTS_PROC_LOCK_STATUS,
-			   suspendee, ERTS_PROC_LOCK_STATUS);
-	if (rp) {
-	    erts_resume(rp, ERTS_PROC_LOCK_STATUS);
-	    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-	}
-	if (!(p_locks & ERTS_PROC_LOCK_STATUS))
-	    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-	p->suspendee = NIL;
-
-        mon = erts_monitor_tree_lookup(p->suspend_monitors,
-                                       suspendee);
-        if (mon) {
-            erts_monitor_tree_delete(&p->suspend_monitors,
-                                     mon);
-            erts_monitor_suspend_destroy(erts_monitor_suspend(mon));
-        }
-    }
-}
-
-static void
-handle_pend_sync_suspend(Process *suspendee,
-			 ErtsProcLocks suspendee_locks,
-			 int suspendee_alive,
-			 Eterm suspender_pid)
-{
-    Process *suspender;
-
-    ERTS_LC_ASSERT(suspendee_locks & ERTS_PROC_LOCK_STATUS);
-
-    suspender = erts_pid2proc(suspendee,
-			      suspendee_locks,
-			      suspender_pid,
-			      ERTS_PROC_LOCK_STATUS);
-    if (suspender) {
-	ASSERT(is_nil(suspender->suspendee));
-	if (suspendee_alive) {
-	    erts_suspend(suspendee, suspendee_locks, NULL);
-	    suspender->suspendee = suspendee->common.id;
-	}
-	/* suspender is suspended waiting for suspendee to suspend;
-	   resume suspender */
-	ASSERT(suspendee != suspender);
-	resume_process(suspender, ERTS_PROC_LOCK_STATUS);
-	erts_proc_unlock(suspender, ERTS_PROC_LOCK_STATUS);
-    }
-}
-
-static Process *
-pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
-		     Eterm pid, ErtsProcLocks pid_locks, int suspend)
-{
-    Process *rp;
-    int unlock_c_p_status;
-
-    ERTS_LC_ASSERT(c_p_locks == erts_proc_lc_my_proc_locks(c_p));
-
-    ERTS_LC_ASSERT(c_p_locks & ERTS_PROC_LOCK_MAIN);
-    ERTS_LC_ASSERT(pid_locks & (ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS));
-
-    if (c_p->common.id == pid)
-	return erts_pid2proc(c_p, c_p_locks, pid, pid_locks);
-
-    if (c_p_locks & ERTS_PROC_LOCK_STATUS)
-	unlock_c_p_status = 0;
-    else {
-	unlock_c_p_status = 1;
-	erts_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
-    }
-
-    if (c_p->suspendee == pid) {
-	/* Process previously suspended by c_p (below)... */
-	ErtsProcLocks rp_locks = pid_locks|ERTS_PROC_LOCK_STATUS;
-	rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS, pid, rp_locks);
-	c_p->suspendee = NIL;
-	ASSERT(c_p->flags & F_P2PNR_RESCHED);
-	c_p->flags &= ~F_P2PNR_RESCHED;
-	if (!suspend && rp)
-	    resume_process(rp, rp_locks);
-    }
-    else {
-	rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
-			   pid, ERTS_PROC_LOCK_STATUS);
-
-	if (!rp) {
-	    c_p->flags &= ~F_P2PNR_RESCHED;
-	    goto done;
-	}
-
-	ASSERT(!(c_p->flags & F_P2PNR_RESCHED));
-
-	/*
-	 * Suspend the other process in order to prevent
-	 * it from being selected for normal execution.
-	 * This will however not prevent it from being
-	 * selected for execution of a system task. If
-	 * it is selected for execution of a system task
-	 * we might be blocked for quite a while if the
-	 * try-lock below fails. That is, there is room
-	 * for improvement here...
-	 */
-
-	if (!suspend_process(c_p, rp)) {
-	    /* Other process running */
-
-	    ASSERT((ERTS_PSFLG_RUNNING | ERTS_PSFLG_DIRTY_RUNNING)
-		   & erts_atomic32_read_nob(&rp->state));
-
-	    if (!suspend
-		&& (erts_atomic32_read_nob(&rp->state)
-		    & ERTS_PSFLG_DIRTY_RUNNING)) {
-		ErtsProcLocks need_locks = pid_locks & ~ERTS_PROC_LOCK_STATUS;
-		if (need_locks && erts_proc_trylock(rp, need_locks) == EBUSY) {
-		    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-		    rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
-				       pid, pid_locks|ERTS_PROC_LOCK_STATUS);
-		}
-		goto done;
-	    }
-
-	running:
-
-	    /*
-	     * If we got pending suspenders and suspend ourselves waiting
-	     * to suspend another process we might deadlock.
-	     * In this case we have to yield, be suspended by
-	     * someone else and then do it all over again.
-	     */
-	    if (!c_p->pending_suspenders) {
-		/* Mark rp pending for suspend by c_p */
-		add_pend_suspend(rp, c_p->common.id, handle_pend_sync_suspend);
-		ASSERT(is_nil(c_p->suspendee));
-
-		/* Suspend c_p; when rp is suspended c_p will be resumed. */
-		suspend_process(c_p, c_p);
-		c_p->flags |= F_P2PNR_RESCHED;
-	    }
-	    /* Yield (caller is assumed to yield immediately in bif). */
-	    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-	    rp = ERTS_PROC_LOCK_BUSY;
-	}
-	else {
-	    ErtsProcLocks need_locks = pid_locks & ~ERTS_PROC_LOCK_STATUS;
-	    if (need_locks && erts_proc_trylock(rp, need_locks) == EBUSY) {
-		if ((ERTS_PSFLG_RUNNING_SYS|ERTS_PSFLG_DIRTY_RUNNING_SYS)
-		    & erts_atomic32_read_nob(&rp->state)) {
-		    /* Executing system task... */
-		    resume_process(rp, ERTS_PROC_LOCK_STATUS);
-		    goto running;
-		}
-		erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-		/*
-		 * If we are unlucky, the process just got selected for
-		 * execution of a system task. In this case we may be
-		 * blocked here for quite a while... Execution of system
-		 * tasks are fortunately quite rare events. We try to
-		 * avoid this by checking if it is in a state executing
-		 * system tasks (above), but it will not prevent all
-		 * scenarios for a long block here...
-		 */
-		rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
-				   pid, pid_locks|ERTS_PROC_LOCK_STATUS);
-		if (!rp)
-		    goto done;
-	    }
-
-	    /*
-	     * The previous suspend has prevented the process
-	     * from being selected for normal execution regardless
-	     * of locks held or not held on it...
-	     */
-#ifdef DEBUG
-	    {
-		erts_aint32_t state;
-		state = erts_atomic32_read_nob(&rp->state);
-		ASSERT(!(state & ERTS_PSFLG_RUNNING));
-	    }
-#endif
-
-	    if (!suspend)
-		resume_process(rp, pid_locks|ERTS_PROC_LOCK_STATUS);
-	}
-    }
-
- done:
-	
-    if (rp && rp != ERTS_PROC_LOCK_BUSY && !(pid_locks & ERTS_PROC_LOCK_STATUS))
-	erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-    if (unlock_c_p_status)
-	erts_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
-    return rp;
-}
-
-
-/*
- * Like erts_pid2proc() but:
- *
- * * At least ERTS_PROC_LOCK_MAIN have to be held on c_p.
- * * At least ERTS_PROC_LOCK_MAIN have to be taken on pid.
- * * It also waits for proc to be in a state != running and garbing.
- * * If ERTS_PROC_LOCK_BUSY is returned, the calling process has to
- *   yield (ERTS_BIF_YIELD[0-3]()). c_p might in this case have been
- *   suspended.
- */
-Process *
-erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
-			  Eterm pid, ErtsProcLocks pid_locks)
-{
-    return pid2proc_not_running(c_p, c_p_locks, pid, pid_locks, 0);
-}
-
-/*
- * erts_pid2proc_nropt() is normally the same as
- * erts_pid2proc_not_running(). However it is only
- * to be used when 'not running' is a pure optimization,
- * not a requirement.
- */
-
-Process *
-erts_pid2proc_nropt(Process *c_p, ErtsProcLocks c_p_locks,
-		    Eterm pid, ErtsProcLocks pid_locks)
-{
-    if (erts_disable_proc_not_running_opt)
-	return erts_pid2proc(c_p, c_p_locks, pid, pid_locks);
-    else
-	return erts_pid2proc_not_running(c_p, c_p_locks, pid, pid_locks);
-}
-
-static ERTS_INLINE int
-do_bif_suspend_process(Process *c_p,
-		       ErtsMonitorSuspend *smon,
-		       Process *suspendee)
-{
-    ASSERT(suspendee);
-    ASSERT(!ERTS_PROC_IS_EXITING(suspendee));
-    ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS
-		       & erts_proc_lc_my_proc_locks(suspendee));
-    if (smon) {
-	if (!smon->active) {
-	    if (!suspend_process(c_p, suspendee))
-		return 0;
-	}
-	smon->active += smon->pending;
-	ASSERT(smon->active);
-	smon->pending = 0;
-	return 1;
-    }
-    return 0;
-}
-
-static void
-handle_pend_bif_sync_suspend(Process *suspendee,
-			     ErtsProcLocks suspendee_locks,
-			     int suspendee_alive,
-			     Eterm suspender_pid)
-{
-    Process *suspender;
-
-    ERTS_LC_ASSERT(suspendee_locks & ERTS_PROC_LOCK_STATUS);
-
-    suspender = erts_pid2proc(suspendee,
-			      suspendee_locks,
-			      suspender_pid,
-			      ERTS_PROC_LOCK_STATUS);
-    if (suspender) {
-        ErtsMonitorSuspend *smon;
-        ErtsMonitor *mon;
-        mon = erts_monitor_tree_lookup(suspender->suspend_monitors,
-                                       suspendee->common.id);
-        smon = erts_monitor_suspend(mon);
-
-	ASSERT(is_nil(suspender->suspendee));
-	if (!suspendee_alive) {
-            if (mon) {
-                erts_monitor_tree_delete(&suspender->suspend_monitors,
-                                         mon);
-                erts_monitor_suspend_destroy(smon);
-            }
-        }
-	else {
-#ifdef DEBUG
-	    int res =
-#endif
-		do_bif_suspend_process(suspendee, smon, suspendee);
-	    ASSERT(!smon || res != 0);
-	    suspender->suspendee = suspendee->common.id;
-	}
-	/* suspender is suspended waiting for suspendee to suspend;
-	   resume suspender */
-	ASSERT(suspender != suspendee);
-	resume_process(suspender, ERTS_PROC_LOCK_STATUS);
-	erts_proc_unlock(suspender, ERTS_PROC_LOCK_STATUS);
-    }
-}
-
-static void
-handle_pend_bif_async_suspend(Process *suspendee,
-			      ErtsProcLocks suspendee_locks,
-			      int suspendee_alive,
-			      Eterm suspender_pid)
-{
-
-    Process *suspender;
-
-    ERTS_LC_ASSERT(suspendee_locks & ERTS_PROC_LOCK_STATUS);
-
-    suspender = erts_pid2proc(suspendee,
-			      suspendee_locks,
-			      suspender_pid,
-			      ERTS_PROC_LOCK_STATUS);
-    if (suspender) {
-        ErtsMonitorSuspend *smon;
-        ErtsMonitor *mon;
-        mon = erts_monitor_tree_lookup(suspender->suspend_monitors,
-                                       suspendee->common.id);
-        smon = erts_monitor_suspend(mon);
-	ASSERT(is_nil(suspender->suspendee));
-	if (!suspendee_alive) {
-            if (mon) {
-                erts_monitor_tree_delete(&suspender->suspend_monitors,
-                                         mon);
-                erts_monitor_suspend_destroy(smon);
-            }
-        }
-	else {
-#ifdef DEBUG
-	    int res =
-#endif
-                do_bif_suspend_process(suspendee, smon, suspendee);
-	    ASSERT(!smon || res != 0);
-	}
-	erts_proc_unlock(suspender, ERTS_PROC_LOCK_STATUS);
-    }
-}
-
-
-/*
- * The erlang:suspend_process/2 BIF
- */
-
 BIF_RETTYPE
-suspend_process_2(BIF_ALIST_2)
+erts_internal_suspend_process_2(BIF_ALIST_2)
 {
     Eterm res;
-    Process* suspendee = NULL;
-    ErtsMonitorSuspend *smon;
-    ErtsProcLocks xlocks = (ErtsProcLocks) 0;
-    int created;
-
-    /* Options and default values: */
-    int asynchronous = 0;
+    Eterm reply_tag = THE_NON_VALUE;
+    Eterm reply_res = THE_NON_VALUE;
+    int suspend;
+    int sync = 0;
+    int async = 0;
     int unless_suspending = 0;
-
+    erts_aint_t mstate;
+    ErtsMonitorSuspend *msp;
+    ErtsMonitorData *mdp;
 
     if (BIF_P->common.id == BIF_ARG_1)
-	goto badarg; /* We are not allowed to suspend ourselves */
+	BIF_RET(am_badarg); /* We are not allowed to suspend ourselves */
 
     if (is_not_nil(BIF_ARG_2)) {
 	/* Parse option list */
@@ -8987,191 +8584,129 @@ suspend_process_2(BIF_ALIST_2)
 		unless_suspending = 1;
 		break;
 	    case am_asynchronous:
-		asynchronous = 1;
+		async = 1;
 		break;
-	    default:
-		goto badarg;
+	    default: {
+                if (is_tuple_arity(arg, 2)) {
+                    Eterm *tp = tuple_val(arg);
+                    if (tp[1] == am_asynchronous) {
+                        async = 1;
+                        reply_tag = tp[2];
+                        break;
+                    }
+                }
+                BIF_RET(am_badarg);
 	    }
+            }
 	    arg = CDR(lp);
-	}
+        }
 	if (is_not_nil(arg))
-	    goto badarg;
+            BIF_RET(am_badarg);
     }
 
-    xlocks = ERTS_PROC_LOCK_STATUS;
-
-    erts_proc_lock(BIF_P, xlocks);
-
-    suspendee = erts_pid2proc(BIF_P,
-			      ERTS_PROC_LOCK_MAIN|xlocks,
-			      BIF_ARG_1,
-			      ERTS_PROC_LOCK_STATUS);
-    if (!suspendee)
-	goto no_suspendee;
-
-    smon = erts_monitor_suspend_tree_lookup_create(&BIF_P->suspend_monitors,
-                                                   &created,
-                                                   BIF_ARG_1);
-
-    if (asynchronous) {
-	/* --- Asynchronous suspend begin ---------------------------------- */
-
-	ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS
-			   & erts_proc_lc_my_proc_locks(BIF_P));
-	ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS
-			   == erts_proc_lc_my_proc_locks(suspendee));
-
-	if (smon->active) {
-	    smon->active += smon->pending;
-	    smon->pending = 0;
-	    if (unless_suspending)
-		res = am_false;
-	    else if (smon->active == INT_MAX)
-		goto system_limit;
-	    else {
-		smon->active++;
-		res = am_true;
-	    }
-	    /* done */
-	}
-	else {
-	    /* We havn't got any active suspends on the suspendee */
-	    if (smon->pending && unless_suspending)
-		res = am_false;
-	    else {
-		if (smon->pending == INT_MAX)
-		    goto system_limit;
-
-		smon->pending++;
-
-		if (!do_bif_suspend_process(BIF_P, smon, suspendee))
-		    add_pend_suspend(suspendee,
-				     BIF_P->common.id,
-				     handle_pend_bif_async_suspend);
-
-		res = am_true;
-	    }
-	    /* done */
-	}
-	/* --- Asynchronous suspend end ------------------------------------ */
-    }
-    else /* if (!asynchronous) */ {
-	/* --- Synchronous suspend begin ----------------------------------- */
-
-	ERTS_LC_ASSERT(((ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_STATUS)
-			    & erts_proc_lc_my_proc_locks(BIF_P))
-			   == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_STATUS));
-	ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS
-			   == erts_proc_lc_my_proc_locks(suspendee));
-
-	if (BIF_P->suspendee == BIF_ARG_1) {
-	    /* We are back after a yield and the suspendee
-	       has been suspended on behalf of us. */
-	    ASSERT(smon->active >= 1);
-	    BIF_P->suspendee = NIL;
-	    res = (!unless_suspending || smon->active == 1
-		   ? am_true
-		   : am_false);
-	    /* done */
-	}
-	else if (smon->active) {
-	    if (unless_suspending)
-		res = am_false;
-	    else {
-		smon->active++;
-		res = am_true;
-	    }
-	    /* done */
-	}
-	else {
-	    /* We haven't got any active suspends on the suspendee */
-
-	    /*
-	     * If we have pending suspenders and suspend ourselves waiting
-	     * to suspend another process, or suspend another process
-	     * we might deadlock. In this case we have to yield,
-	     * be suspended by someone else, and then do it all over again.
-	     */
-	    if (BIF_P->pending_suspenders)
-		goto yield;
-
-	    if (!unless_suspending && smon->pending == INT_MAX)
-		goto system_limit;
-	    if (!unless_suspending || smon->pending == 0)
-		smon->pending++;
-
-	    if (do_bif_suspend_process(BIF_P, smon, suspendee)) {
-		res = (!unless_suspending || smon->active == 1
-		       ? am_true
-		       : am_false);
-		/* done */
-	    }
-	    else {
-		/* Mark suspendee pending for suspend by BIF_P */
-		add_pend_suspend(suspendee,
-				 BIF_P->common.id,
-				 handle_pend_bif_sync_suspend);
-
-		ASSERT(is_nil(BIF_P->suspendee));
-
-		/*
-		 * Suspend BIF_P; when suspendee is suspended, BIF_P
-		 * will be resumed and this BIF will be called again.
-		 * This time with BIF_P->suspendee == BIF_ARG_1 (see
-		 * above).
-		 */
-		suspend_process(BIF_P, BIF_P);
-		goto yield;
-	    }
-	}
-	/* --- Synchronous suspend end ------------------------------------- */
-    }
-
-#ifdef DEBUG
-    {
-	erts_aint32_t state = erts_atomic32_read_acqb(&suspendee->state);
-	ASSERT((state & ERTS_PSFLG_SUSPENDED)
-	       || (asynchronous && smon->pending));
-	ASSERT((state & ERTS_PSFLG_SUSPENDED)
-	       || !smon->active);
-    }
-#endif
-
-    erts_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
-    erts_proc_unlock(BIF_P, xlocks);
-    BIF_RET(res);
-
- system_limit:
-    ERTS_BIF_PREP_ERROR(res, BIF_P, SYSTEM_LIMIT);
-    goto do_return;
-
- no_suspendee: {
+    if (!unless_suspending) {
         ErtsMonitor *mon;
-        BIF_P->suspendee = NIL;
-        mon = erts_monitor_tree_lookup(BIF_P->suspend_monitors, BIF_ARG_1);
+        mon = erts_monitor_tree_lookup_create(&ERTS_P_MONITORS(BIF_P),
+                                              &suspend,
+                                              ERTS_MON_TYPE_SUSPEND,
+                                              BIF_P->common.id,
+                                              BIF_ARG_1);
+        ASSERT(mon->other.item == BIF_ARG_1);
+
+        mdp = erts_monitor_to_data(mon);
+        msp = (ErtsMonitorSuspend *) mdp;
+
+        mstate = erts_atomic_inc_read_relb(&msp->state);
+        ASSERT(suspend || (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 1);
+        sync = !async & !suspend & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+        suspend = !!suspend; /* ensure 0|1 */
+        res = am_true;
+    }
+    else {
+        ErtsMonitor *mon;
+        mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P),
+                                       BIF_ARG_1);
         if (mon) {
-            erts_monitor_tree_delete(&BIF_P->suspend_monitors, mon);
-            erts_monitor_suspend_destroy(erts_monitor_suspend(mon));
+            ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+            mdp = erts_monitor_to_data(mon);
+            msp = (ErtsMonitorSuspend *) mdp;
+            mstate = erts_atomic_read_nob(&msp->state);
+            ASSERT((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 0);
+            mdp = NULL;
+            sync = !async & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+            suspend = 0;
+            res = am_false;
+        }
+        else {
+            mdp = erts_monitor_create(ERTS_MON_TYPE_SUSPEND, NIL,
+                                      BIF_P->common.id,
+                                      BIF_ARG_1, NIL);
+            mon = &mdp->origin;
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), mon);
+            msp = (ErtsMonitorSuspend *) mdp;
+            mstate = erts_atomic_inc_read_relb(&msp->state);
+            ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE));
+            suspend = !0;
+            res = am_true;
         }
     }
 
- badarg:
-    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
-    goto do_return;
+    if (suspend) {
+        erts_aint32_t state;
+        Process *rp;
+        int send_sig = 0;
 
- yield:
-    ERTS_BIF_PREP_YIELD2(res, bif_export[BIF_suspend_process_2],
-			 BIF_P, BIF_ARG_1, BIF_ARG_2);
+        rp = erts_try_lock_sig_free_proc(BIF_ARG_1,
+                                         ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
+                                         &state);
+        if (!rp)
+            goto noproc;
+        if (rp == ERTS_PROC_LOCK_BUSY)
+            send_sig = !0;
+        else if (state & (ERTS_PSFLG_EXITING
+                          | ERTS_PSFLG_RUNNING
+                          | ERTS_PSFLG_RUNNING_SYS
+                          | ERTS_PSFLG_DIRTY_RUNNING
+                          | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+            send_sig = !0;
+        }
 
- do_return:
-    if (suspendee)
-	erts_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
-    if (xlocks)
-	erts_proc_unlock(BIF_P, xlocks);
-    return res;
+        if (!send_sig && rp) {
+            send_sig = !suspend_process(BIF_P, rp);
+            if (!send_sig) {
+                erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->target);
+                erts_atomic_read_bor_relb(&msp->state,
+                                          ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+            }
+            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+        }
+        if (send_sig) {
+            if (erts_proc_sig_send_monitor(&mdp->target, BIF_ARG_1))
+                sync = !async;
+            else {
+            noproc:
+                erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
+                erts_monitor_release_both(mdp);
+                if (!async)
+                    res = am_badarg;
+            }
+        }
+    }
 
+    if (sync) {
+        ASSERT(is_non_value(reply_tag));
+        reply_res = res;
+        reply_tag = res = erts_make_ref(BIF_P);
+        ERTS_RECV_MARK_SAVE(BIF_P);
+        ERTS_RECV_MARK_SET(BIF_P);
+    }
+
+    if (is_value(reply_tag))
+        erts_proc_sig_send_sync_suspend(BIF_P, BIF_ARG_1, reply_tag, reply_res);
+
+    BIF_RET(res);
 }
-
 
 /*
  * The erlang:resume_process/1 BIF
@@ -9181,90 +8716,32 @@ BIF_RETTYPE
 resume_process_1(BIF_ALIST_1)
 {
     ErtsMonitor *mon;
-    ErtsMonitorSuspend *smon;
-    Process *suspendee;
-    int is_active;
+    ErtsMonitorSuspend *msp;
+    erts_aint_t mstate;
  
     if (BIF_P->common.id == BIF_ARG_1)
 	BIF_ERROR(BIF_P, BADARG);
 
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_STATUS);
-    mon = erts_monitor_tree_lookup(BIF_P->suspend_monitors, BIF_ARG_1);
-    smon = erts_monitor_suspend(mon);
-
-    if (!smon) {
+    mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P),
+                                   BIF_ARG_1);
+    if (!mon) {
 	/* No previous suspend or dead suspendee */
-	goto error;
-    }
-    else if (smon->pending) {
-	smon->pending--;
-	ASSERT(smon->pending >= 0);
-	if (smon->active) {
-	    smon->active += smon->pending;
-	    smon->pending = 0;
-	}
-	is_active = smon->active;
-    }
-    else if (smon->active) {
-	smon->active--;
-	ASSERT(smon->pending == 0);
-	is_active = 1;
-    }
-    else {
-	/* No previous suspend or dead suspendee */
-	goto no_suspendee;
+        BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (smon->active || smon->pending || !is_active) {
-	/* Leave the suspendee as it is; just verify that it is still alive */
-	suspendee = erts_proc_lookup(BIF_ARG_1);
-	if (!suspendee)
-	    goto no_suspendee;
+    ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+    msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
 
+    mstate = erts_atomic_dec_read_relb(&msp->state);
+
+    ASSERT((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) >= 0);
+
+    if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == 0) {
+        erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);
+        erts_proc_sig_send_demonitor(mon);
     }
-    else {
-	/* Resume */
-	suspendee = erts_pid2proc(BIF_P,
-				  ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
-				  BIF_ARG_1,
-				  ERTS_PROC_LOCK_STATUS);
-	if (!suspendee) {
-            mon = erts_monitor_tree_lookup(BIF_P->suspend_monitors, BIF_ARG_1);
-            smon = erts_monitor_suspend(mon);
-            if (!mon)
-                goto error;
-	    goto no_suspendee;
-        }
-
-        ASSERT(mon == erts_monitor_tree_lookup(BIF_P->suspend_monitors, BIF_ARG_1));
-
-	ASSERT(ERTS_PSFLG_SUSPENDED
-	       & erts_atomic32_read_nob(&suspendee->state));
-	ASSERT(BIF_P != suspendee);
-	resume_process(suspendee, ERTS_PROC_LOCK_STATUS);
-
-	erts_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
-    }
-
-    if (!smon->active && !smon->pending) {
-        ASSERT(mon);
-        erts_monitor_tree_delete(&BIF_P->suspend_monitors, mon);
-        erts_monitor_suspend_destroy(smon);
-    }
-
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
 
     BIF_RET(am_true);
-
- no_suspendee:
-    /* cleanup */
-    ASSERT(mon);
-    erts_monitor_tree_delete(&BIF_P->suspend_monitors, mon);
-    erts_monitor_suspend_destroy(smon);
-
- error:
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE
@@ -9694,11 +9171,12 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	ASSERT(esdp->current_process == p
 	       || esdp->free_process == p);
 
-    sched_out_proc:
-
-	ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
 	reds = actual_reds = calls - esdp->virtual_reds;
+
+    internal_sched_out_proc:
+
+	ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
 	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
@@ -9740,11 +9218,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
         /* have to re-read state after taking lock */
         state = erts_atomic32_read_nob(&p->state);
-
-	if (p->pending_suspenders) 
-	    handle_pending_suspend(p, (ERTS_PROC_LOCK_MAIN
-				       | ERTS_PROC_LOCK_TRACE
-				       | ERTS_PROC_LOCK_STATUS));
 
 	esdp->reductions += reds;
 
@@ -10195,8 +9668,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (is_normal_sched) {
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
-                    int local_only = !!(p->flags & F_LOCAL_SIGS_ONLY);
-                    if (!local_only || (state & ERTS_PSFLG_SIG_Q)) {
+                    int local_only = (!!(p->flags & F_LOCAL_SIGS_ONLY)
+                                      & !(state & ERTS_PSFLG_SUSPENDED));
+                    if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
                         int sig_reds;
                         /*
                          * If we have dirty work scheduled we allow
@@ -10282,7 +9756,17 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	}
 
 	p->fcalls = reds;
-	    
+        if (reds != context_reds) {
+            actual_reds = context_reds - reds - esdp->virtual_reds;
+            ASSERT(actual_reds >= 0);
+            esdp->virtual_reds = 0;
+            p->reds += actual_reds;
+            ERTS_PROC_REDUCTIONS_EXECUTED(esdp, rq,
+                                          (int) ERTS_PSFLGS_GET_USR_PRIO(state),
+                                          reds,
+                                          actual_reds);
+        }
+
 	ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
 	ASSERT(erts_proc_read_refc(p) > 0);
@@ -10332,6 +9816,14 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 #endif
 
 	return p;
+
+    sched_out_proc:
+        actual_reds = context_reds;
+        actual_reds -= reds;
+        actual_reds -= esdp->virtual_reds;
+        reds = actual_reds;
+        goto internal_sched_out_proc;
+
     }
 }
 
@@ -11892,7 +11384,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     ERTS_P_LINKS(p) = NULL;
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LT_MONITORS(p) = NULL;
-    p->suspend_monitors = NULL;
 
     ASSERT(is_pid(parent->group_leader));
 
@@ -11949,8 +11440,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->trace_msg_q = NULL;
     p->scheduler_data = NULL;
-    p->suspendee = NIL;
-    p->pending_suspenders = NULL;
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     p->fp_exception = 0;
@@ -12117,7 +11606,6 @@ void erts_init_empty_process(Process *p)
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LT_MONITORS(p) = NULL;
     ERTS_P_LINKS(p) = NULL;         /* List of links */
-    p->suspend_monitors = NULL;
     p->sig_qs.first = NULL;
     p->sig_qs.last = &p->sig_qs.first;
     p->sig_qs.cont = NULL;
@@ -12180,8 +11668,6 @@ void erts_init_empty_process(Process *p)
     erts_atomic32_init_nob(&p->state, (erts_aint32_t) PRIORITY_NORMAL);
 
     p->scheduler_data = NULL;
-    p->suspendee = NIL;
-    p->pending_suspenders = NULL;
     erts_proc_lock_init(p);
     erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
     erts_init_runq_proc(p, ERTS_RUNQ_IX(0), 0);
@@ -12219,7 +11705,6 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(ERTS_P_MONITORS(p) == NULL);
     ASSERT(ERTS_P_LT_MONITORS(p) == NULL);
     ASSERT(ERTS_P_LINKS(p) == NULL);
-    ASSERT(p->suspend_monitors == NULL);
     ASSERT(p->sig_qs.first == NULL);
     ASSERT(p->sig_qs.len == 0);
     ASSERT(p->bif_timers == NULL);
@@ -12233,8 +11718,6 @@ erts_debug_verify_clean_empty_process(Process* p)
 
     ASSERT(p->sig_inq.first == NULL);
     ASSERT(p->sig_inq.len == 0);
-    ASSERT(p->suspendee == NIL);
-    ASSERT(p->pending_suspenders == NULL);
 
     /* Thing that erts_cleanup_empty_process() cleans up */
 
@@ -12340,8 +11823,6 @@ delete_process(Process* p)
     erts_cleanup_messages(p->sig_qs.cont);
     p->sig_qs.cont = NULL;
 
-    ASSERT(!p->suspend_monitors);
-
     p->fvalue = NIL;
 }
 
@@ -12421,6 +11902,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
     if (erts_monitor_is_target(mon)) {
         /* We are being watched... */
         switch (mon->type) {
+        case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
             erts_proc_sig_send_monitor_down(mon, reason);
             mon = NULL;
@@ -12492,6 +11974,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
     else { /* Origin monitor */
         /* We are watching someone else... */
         switch (mon->type) {
+        case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
             erts_proc_sig_send_demonitor(mon);
             mon = NULL;
@@ -12644,21 +12127,6 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt)
         erts_link_release(lnk);
 }
 
-static void
-resume_suspend_monitor(ErtsMonitor *mon, void *vc_p)
-{
-    ErtsMonitorSuspend *smon = erts_monitor_suspend(mon);
-    Process *suspendee = erts_pid2proc((Process *) vc_p, ERTS_PROC_LOCK_MAIN,
-				       smon->mon.other.item, ERTS_PROC_LOCK_STATUS);
-    if (suspendee) {
-	ASSERT(suspendee != vc_p);
-	if (smon->active)
-	    resume_process(suspendee, ERTS_PROC_LOCK_STATUS);
-	erts_proc_unlock(suspendee, ERTS_PROC_LOCK_STATUS);
-    }
-    erts_monitor_suspend_destroy(smon);
-}
-
 /* this function fishishes a process and propagates exit messages - called
    by process_main when a process dies */
 void 
@@ -12689,8 +12157,6 @@ erts_do_exit_process(Process* p, Eterm reason)
     erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 
     set_self_exiting(p, reason, NULL, NULL, NULL);
-
-    cancel_suspend_of_suspendee(p, ERTS_PROC_LOCKS_ALL); 
 
     if (IS_TRACED(p)) {
 	if (IS_TRACED_FL(p, F_TRACE_CALLS))
@@ -12823,11 +12289,6 @@ erts_continue_exit_process(Process *p)
 	erts_ddll_proc_dead(p, ERTS_PROC_LOCK_MAIN);
 	p->flags &= ~F_USING_DDLL;
     }
-
-    if (p->suspend_monitors)
-        erts_monitor_tree_foreach_delete(&p->suspend_monitors,
-                                         resume_suspend_monitor,
-                                         p);
 
     /*
      * The registered name *should* be the last "erlang resource" to

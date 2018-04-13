@@ -82,6 +82,12 @@
 
 -export([gather_alloc_histograms/1, gather_carrier_info/1]).
 
+-export([suspend_process/2]).
+
+-export([process_display/2]).
+
+-export([process_flag/3]).
+
 %%
 %% Await result of send to port
 %%
@@ -303,7 +309,8 @@ get_cpc_opts([{allow_gc, AllowGC} | Options], Async) when AllowGC == true;
 get_cpc_opts([], Async) ->
     Async.
 
--spec check_dirty_process_code(Pid,Module) -> 'true' | 'false' when
+-spec check_dirty_process_code(Pid, Module) -> Result when
+      Result :: boolean() | 'normal' | 'busy',
       Pid :: pid(),
       Module :: module().
 check_dirty_process_code(_Pid,_Module) ->
@@ -644,3 +651,29 @@ gather_alloc_histograms(_) ->
 
 gather_carrier_info(_) ->
     erlang:nif_error(undef).
+
+-spec suspend_process(Suspendee, OptList) -> Result when
+      Result :: boolean() | 'badarg' | reference(),
+      Suspendee :: pid(),
+      OptList :: [Opt],
+      Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
+
+suspend_process(_Suspendee, _OptList) ->
+    erlang:nif_error(undefined).
+
+%% process_display/2
+-spec process_display(Pid, Type) -> 'true' | 'badarg' | reference() when
+      Pid :: pid(),
+      Type :: backtrace.
+process_display(_Pid, _Type) ->
+    erlang:nif_error(undefined).
+
+%% process_flag/3
+-spec process_flag(Pid, Flag, Value) -> OldValue | 'badarg' | reference() when
+      Pid :: pid(),
+      Flag :: save_calls,
+      Value :: non_neg_integer(),
+      OldValue :: non_neg_integer().
+process_flag(_Pid, _Flag, _Value) ->
+    erlang:nif_error(undefined).
+

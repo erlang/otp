@@ -617,17 +617,13 @@ static void collect_one_target_monitor(ErtsMonitor *mon, void *vmicp)
 }
 
 typedef struct {
-    Process *c_p;
-    ErtsProcLocks c_p_locks;
     ErtsMonitorSuspend **smi;
     Uint smi_i;
     Uint smi_max;
-    int sz;
+    Uint sz;
 } ErtsSuspendMonitorInfoCollection;
 
-#define ERTS_INIT_SUSPEND_MONITOR_INFOS(SMIC, CP, CPL) do {		\
-    (SMIC).c_p = (CP);							\
-    (SMIC).c_p_locks = (CPL);						\
+#define ERTS_INIT_SUSPEND_MONITOR_INFOS(SMIC) do {		        \
     (SMIC).smi = NULL;							\
     (SMIC).smi_i = (SMIC).smi_max = 0;					\
     (SMIC).sz = 0;                               			\
@@ -660,34 +656,26 @@ do {									\
 static void
 collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp)
 {
-    ErtsMonitorSuspend *smon = erts_monitor_suspend(mon);
-    ErtsSuspendMonitorInfoCollection *smicp = vsmicp;
-    Process *suspendee = erts_pid2proc(smicp->c_p,
-				       smicp->c_p_locks,
-				       mon->other.item,
-				       0);
-    if (suspendee) { /* suspendee is alive */
-	Sint a, p;
-	if (smon->active) {
-	    smon->active += smon->pending;
-	    smon->pending = 0;
-	}
+    if (mon->type == ERTS_MON_TYPE_SUSPEND) {
+        Sint count;
+        erts_aint_t mstate;
+        ErtsMonitorSuspend *msp;
+        ErtsSuspendMonitorInfoCollection *smicp;
 
-	ASSERT((smon->active && !smon->pending)
-	       || (smon->pending && !smon->active));
+        msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
+        smicp = vsmicp;
 
 	ERTS_EXTEND_SUSPEND_MONITOR_INFOS(smicp);
 
-	smicp->smi[smicp->smi_i] = smon;
+	smicp->smi[smicp->smi_i] = msp;
 	smicp->sz += 2 /* cons */ + 4 /* 3-tuple */;
 
-	a = (Sint) smon->active;	/* quiet compiler warnings */
-	p = (Sint) smon->pending;	/* on 64-bit machines      */
+        mstate = erts_atomic_read_nob(&msp->state);
 
-	if (!IS_SSMALL(a))
+        count = (Sint) (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK);
+	if (!IS_SSMALL(count))
 	    smicp->sz += BIG_UINT_HEAP_SIZE;
-	if (!IS_SSMALL(p))
-	    smicp->sz += BIG_UINT_HEAP_SIZE;
+
 	smicp->smi_i++;
     }
 }
@@ -1075,8 +1063,10 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
     if (c_p->common.id == pid) {
         int local_only = c_p->flags & F_LOCAL_SIGS_ONLY;
-        int sreds = ERTS_BIF_REDS_LEFT(c_p);
-        int sres;
+        int sres, sreds, reds_left;
+
+        reds_left = ERTS_BIF_REDS_LEFT(c_p);
+        sreds = reds_left;
 
         if (!local_only) {
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
@@ -1085,15 +1075,19 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         }
 
         sres = erts_proc_sig_handle_incoming(c_p, &state, &sreds, sreds, !0);
+
+        BUMP_REDS(c_p, (int) sreds);
+        reds_left -= sreds;
+
         if (state & ERTS_PSFLG_EXITING) {
             c_p->flags &= ~F_LOCAL_SIGS_ONLY;
             goto exited;
         }
-        if (!sres) {
+        if (!sres | (reds_left <= 0)) {
             /*
-             * More signals to handle; need to yield and continue.
-             * Prevent fetching of more signals by setting
-             * local-sigs-only flag.
+             * More signals to handle or out of reds; need
+             * to yield and continue. Prevent fetching of
+             * more signals by setting local-sigs-only flag.
              */
             c_p->flags |= F_LOCAL_SIGS_ONLY;
             goto yield;
@@ -1627,55 +1621,55 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_SUSPENDING: {
 	ErtsSuspendMonitorInfoCollection smic;
 	int i;
-	Eterm item;
 
-        erts_proc_lock(rp, ERTS_PROC_LOCK_STATUS);
+	ERTS_INIT_SUSPEND_MONITOR_INFOS(smic);
 
-	ERTS_INIT_SUSPEND_MONITOR_INFOS(smic,
-					c_p,
-					(c_p == rp
-					 ? ERTS_PROC_LOCK_MAIN
-					 : 0) | ERTS_PROC_LOCK_STATUS);
-
-	erts_monitor_tree_foreach(rp->suspend_monitors,
-                                  &collect_one_suspend_monitor,
-                                  &smic);
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(rp),
+                                  collect_one_suspend_monitor,
+                                  (void *) &smic);
 
         reserve_size += smic.sz;
 
 	res = NIL;
 	for (i = 0; i < smic.smi_i; i++) {
-	    Sint a = (Sint) smic.smi[i]->active;  /* quiet compiler warnings */
-	    Sint p = (Sint) smic.smi[i]->pending; /* on 64-bit machines...   */
-	    Eterm active;
-	    Eterm pending;
+            ErtsMonitorSuspend *msp;
+            erts_aint_t mstate;
+	    Sint ci;
+            Eterm ct, active, pending, item;
             Uint sz = 4 + 2;
-            if (!IS_SSMALL(a))
-		sz += BIG_UINT_HEAP_SIZE;
-            if (!IS_SSMALL(p))
-		sz += BIG_UINT_HEAP_SIZE;
+
+            msp = smic.smi[i];
+            mstate = erts_atomic_read_nob(&msp->state);
+
+            ci = (Sint) (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK);
+            if (!IS_SSMALL(ci))
+                sz += BIG_UINT_HEAP_SIZE;
 
             ERTS_PI_UNRESERVE(reserve_size, sz);
             hp = erts_produce_heap(hfact, sz, reserve_size);
 
-	    if (IS_SSMALL(a))
-		active = make_small(a);
-	    else {
-		active = small_to_big(a, hp);
-		hp += BIG_UINT_HEAP_SIZE;
-	    }
-	    if (IS_SSMALL(p))
-		pending = make_small(p);
-	    else {
-		pending = small_to_big(p, hp);
-		hp += BIG_UINT_HEAP_SIZE;
-	    }
-	    item = TUPLE3(hp, smic.smi[i]->mon.other.item, active, pending);
+            if (IS_SSMALL(ci))
+                ct = make_small(ci);
+            else {
+                ct = small_to_big(ci, hp);
+                hp += BIG_UINT_HEAP_SIZE;
+            }
+
+            if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE) {
+                active = ct;
+                pending = make_small(0);
+            }
+            else {
+                active = make_small(0);
+                pending = ct;
+            }
+
+            ASSERT(is_internal_pid(msp->md.origin.other.item));
+
+	    item = TUPLE3(hp, msp->md.origin.other.item, active, pending);
 	    hp += 4;
 	    res = CONS(hp, item, res);
 	}
-
-        erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
 
         *reds += (Uint) smic.smi_i / 4;
 
@@ -3637,26 +3631,46 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
    BIF_ERROR(BIF_P, BADARG);
 }
 
-BIF_RETTYPE process_display_2(BIF_ALIST_2)
+static Eterm
+process_display(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
 {
-   Process *rp;
+    if (redsp)
+        *redsp = 1;
 
-   if (BIF_ARG_2 != am_backtrace)
-       BIF_ERROR(BIF_P, BADARG);
+    if (ERTS_PROC_IS_EXITING(c_p))
+        return am_badarg;
 
-   rp = erts_pid2proc_nropt(BIF_P, ERTS_PROC_LOCK_MAIN,
-			    BIF_ARG_1, ERTS_PROC_LOCKS_ALL);
-   if(!rp) {
-       BIF_ERROR(BIF_P, BADARG);
-   }
-   if (rp == ERTS_PROC_LOCK_BUSY)
-       ERTS_BIF_YIELD2(bif_export[BIF_process_display_2], BIF_P,
-		       BIF_ARG_1, BIF_ARG_2);
-   erts_stack_dump(ERTS_PRINT_STDERR, NULL, rp);
-   erts_proc_unlock(rp, (BIF_P == rp
-			     ? ERTS_PROC_LOCKS_ALL_MINOR
-			     : ERTS_PROC_LOCKS_ALL));
-   BIF_RET(am_true);
+    erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+    erts_stack_dump(ERTS_PRINT_STDERR, NULL, c_p);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+
+    return am_true;
+}
+
+
+BIF_RETTYPE erts_internal_process_display_2(BIF_ALIST_2)
+{
+    Eterm res;
+
+    if (BIF_ARG_2 != am_backtrace)
+        BIF_RET(am_badarg);
+
+    if (BIF_P->common.id == BIF_ARG_1) {
+        res = process_display(BIF_P, NULL, NULL, NULL);
+        BIF_RET(res);
+    }
+
+    if (is_not_internal_pid(BIF_ARG_1))
+        BIF_RET(am_badarg);
+
+    res = erts_proc_sig_send_rpc_request(BIF_P, BIF_ARG_1,
+                                         !0,
+                                         process_display,
+                                         NULL);
+    if (is_non_value(res))
+        BIF_RET(am_badarg);
+
+    BIF_RET(res);
 }
 
 /* this is a general call which return some possibly useful information */
@@ -4596,27 +4610,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		erts_kill_dist_connection(dep, con_id);
 		BIF_RET(am_true);
 	    }
-	}
-	else if (ERTS_IS_ATOM_STR("not_running_optimization", BIF_ARG_1)) {
-	    int old_use_opt, use_opt;
-	    switch (BIF_ARG_2) {
-	    case am_true:
-		use_opt = 1;
-		break;
-	    case am_false:
-		use_opt = 0;
-		break;
-	    default:
-		BIF_ERROR(BIF_P, BADARG);
-	    }
-
-	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erts_thr_progress_block();
-	    old_use_opt = !erts_disable_proc_not_running_opt;
-	    erts_disable_proc_not_running_opt = !use_opt;
-	    erts_thr_progress_unblock();
-	    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    BIF_RET(old_use_opt ? am_true : am_false);
 	}
 	else if (ERTS_IS_ATOM_STR("wait", BIF_ARG_1)) {
 	    if (ERTS_IS_ATOM_STR("deallocations", BIF_ARG_2)) {

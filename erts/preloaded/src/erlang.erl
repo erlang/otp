@@ -1521,8 +1521,21 @@ pre_loaded() ->
 -spec erlang:process_display(Pid, Type) -> true when
       Pid :: pid(),
       Type :: backtrace.
-process_display(_Pid, _Type) ->
-    erlang:nif_error(undefined).
+process_display(Pid, Type) ->
+    case case erts_internal:process_display(Pid, Type) of
+             Ref when erlang:is_reference(Ref) ->
+                 receive
+                     {Ref, Res} ->
+                         Res
+                 end;
+             Res ->
+                 Res
+         end of
+        badarg ->
+            erlang:error(badarg, [Pid, Type]);
+        Result ->
+            Result
+    end.
 
 %% process_flag/3
 -spec process_flag(Pid, Flag, Value) -> OldValue when
@@ -1530,8 +1543,15 @@ process_display(_Pid, _Type) ->
       Flag :: save_calls,
       Value :: non_neg_integer(),
       OldValue :: non_neg_integer().
-process_flag(_Pid, _Flag, _Value) ->
-    erlang:nif_error(undefined).
+process_flag(Pid, Flag, Value) ->
+    case case erts_internal:process_flag(Pid, Flag, Value) of
+             Ref when erlang:is_reference(Ref) ->
+                 receive {Ref, Res} -> Res end;
+             Res -> Res
+         end of
+        badarg -> erlang:error(badarg, [Pid, Flag, Value]);
+        Result -> Result
+    end.
 
 %% process_info/1
 -spec process_info(Pid) -> Info when
@@ -1749,9 +1769,32 @@ start_timer(_Time, _Dest, _Msg, _Options) ->
 -spec erlang:suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
       OptList :: [Opt],
-      Opt :: unless_suspending | asynchronous.
-suspend_process(_Suspendee, _OptList) ->
-    erlang:nif_error(undefined).
+      Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
+suspend_process(Suspendee, OptList) ->
+    case case erts_internal:suspend_process(Suspendee, OptList) of
+	     Ref when erlang:is_reference(Ref) ->
+                 receive {Ref, Res} -> Res end;
+             Res ->
+                 Res
+         end of
+	true -> true;
+	false -> false;
+	Error -> erlang:error(Error, [Suspendee, OptList])
+    end.
+
+-spec erlang:suspend_process(Suspendee) -> 'true' when
+      Suspendee :: pid().
+suspend_process(Suspendee) ->
+    case case erts_internal:suspend_process(Suspendee, []) of
+	     Ref when erlang:is_reference(Ref) ->
+                 receive {Ref, Res} -> Res end;
+             Res ->
+                 Res
+	 end of
+	true -> true;
+        false -> erlang:error(internal_error, [Suspendee]);
+	Error -> erlang:error(Error, [Suspendee])
+    end.
 
 %% system_monitor/0
 -spec erlang:system_monitor() -> MonSettings when
@@ -3044,15 +3087,6 @@ send_nosuspend(Pid, Msg, Opts) ->
       Universaltime :: calendar:datetime().
 localtime_to_universaltime(Localtime) ->
     erlang:localtime_to_universaltime(Localtime, undefined).
-
--spec erlang:suspend_process(Suspendee) -> 'true' when
-      Suspendee :: pid().
-suspend_process(P) ->
-    case catch erlang:suspend_process(P, []) of
-	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
-	{'EXIT', Reason} -> erlang:error(Reason, [P]);
-	Res -> Res
-    end.
 
 %%
 %% Port BIFs

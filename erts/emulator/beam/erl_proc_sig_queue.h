@@ -33,6 +33,11 @@
  *              - Group leader
  *              - Is process alive
  *              - Process info request
+ *              - Suspend request (monitor of suspend type)
+ *              - Resume request (demonitor of suspend type)
+ *              - Suspend cleanup (monitor down of suspend type)
+ *              - Sync suspend
+ *              - RPC request
  *              - Trace change
  *
  *              The signal queue consists of three parts:
@@ -557,6 +562,102 @@ erts_proc_sig_send_process_info_request(Process *c_p,
                                         Uint reserve_size,
                                         Eterm ref);
 
+/**
+ *
+ * @brief Send a 'sync suspend' signal to a process.
+ *
+ * A response message '{Tag, Reply}' is sent to the
+ * sender when performed where Tag is the term passed
+ * as 'tag' argument. Reply is either 'suspended',
+ * 'not_suspended', 'exited' if the operation is
+ * asynchronous; otherwise, the 'reply' argument or
+ * 'badarg' if process terminated.
+ *
+ * This signal does *not* change the suspend state, only
+ * reads and reply the state. This signal is typically
+ * sent after a suspend request (monitor of suspend type)
+ * signal has been sent to the process in order to get a
+ * response when the suspend monitor has been processed.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     tag           Tag to use in response
+ *                              message to the sending
+ *                              process (i.e., c_p).
+ *
+ * @param[in]     reply         Reply to send if this
+ *                              is a synchronous operation;
+ *                              otherwise, THE_NON_VALUE.
+ */
+void
+erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to,
+                                Eterm tag, Eterm reply);
+
+/**
+ *
+ * @brief Send an 'rpc' signal to a process.
+ *
+ * The function 'func' will be executed in the
+ * context of the receiving process. A response
+ * message '{Ref, Result}' is sent to the sender
+ * when 'func' has been called. 'Ref' is the reference
+ * returned by this function and 'Result' is the
+ * term returned by 'func'. If the return value of
+ * 'func' is not an immediate term, 'func' has to
+ * allocate a heap fragment where the result is stored
+ * and update the the heap fragment pointer pointer
+ * passed as third argument to point to it.
+ *
+ * If this function returns a reference, 'func' will
+ * be called in the context of the receiver. However,
+ * note that this might happen when the receiver is in
+ * an exiting state. The caller of this function
+ * *unconditionally* has to enter a receive that match
+ * on the returned reference in all clauses as next
+ * receive; otherwise, bad things will happen!
+ *
+ * If THE_NON_VALUE is returned, the receiver did not
+ * exist. The signal was not sent, and no specific
+ * receive has to be entered by the caller.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver process.
+ *
+ * @param[in]     reply         Non-zero if a reply is wanted.
+ *
+ * @param[in]     func          Function to execute in the
+ *                              context of the receiver.
+ *                              First argument will be a
+ *                              pointer to the process struct
+ *                              of the receiver process.
+ *                              Second argument will be 'arg'
+ *                              (see below). Third argument
+ *                              will be a pointer to a pointer
+ *                              to a heap fragment for storage
+ *                              of result returned from 'func'
+ *                              (i.e. an 'out' parameter).
+ *
+ * @param[in]     arg           Void pointer to argument
+ *                              to pass as second argument
+ *                              in call of 'func'.
+ *
+ * @returns                     If the request was sent,
+ *                              an internal ordinary
+ *                              reference; otherwise,
+ *                              THE_NON_VALUE (non-existing
+ *                              receiver).
+ */
+Eterm
+erts_proc_sig_send_rpc_request(Process *c_p,
+                               Eterm to,
+                               int reply,
+                               Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
+                               void *arg);
 
 /*
  * End of send operations of currently supported process signals.
@@ -811,6 +912,21 @@ Uint erts_proc_sig_signal_size(ErtsSignal *sig);
  */
 void
 erts_proc_sig_clear_seq_trace_tokens(Process *c_p);
+
+/**
+ *
+ * @brief Handle pending suspend requests
+ *
+ * Should be called by processes when they stop
+ * execution on a dirty scheduler if they have
+ * pending suspend requests (i.e. when
+ * ERTS_PROC_GET_PENDING_SUSPEND(c_p) != NULL).
+ *
+ * @param[in]   c_p             Pointer to executing
+ *                              process
+ */
+void
+erts_proc_sig_handle_pending_suspend(Process *c_p);
 
 /**
  * @brief Initialize this functionality

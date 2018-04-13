@@ -3229,8 +3229,8 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
         }
         else {
             proc_unlock = ERTS_PROC_LOCK_MAIN;
-            proc = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-                                             BIF_ARG_2, proc_unlock);
+            proc = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
+                                 BIF_ARG_2, proc_unlock);
         }
         erts_de_rwlock(dep);
 

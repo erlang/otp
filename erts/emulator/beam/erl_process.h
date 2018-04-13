@@ -805,14 +805,15 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	9 /* keep last... */
+#define ERTS_PSD_PENDING_SUSPEND                9
+#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	10 /* keep last... */
 
-#define ERTS_PSD_SIZE				10
+#define ERTS_PSD_SIZE				11
 
 #if !defined(HIPE)
 #  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
 #  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_SIZE 9
+#  define ERTS_PSD_SIZE 10
 #endif
 
 typedef struct {
@@ -849,6 +850,9 @@ typedef struct {
 #define ERTS_PSD_DIST_ENTRY_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DIST_ENTRY_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
+#define ERTS_PSD_PENDING_SUSPEND_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_PENDING_SUSPEND_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
 typedef struct {
     ErtsProcLocks get_locks;
     ErtsProcLocks set_locks;
@@ -883,20 +887,6 @@ typedef struct {
 
 typedef struct ErtsProcSysTask_ ErtsProcSysTask;
 typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
-
-
-typedef struct ErtsPendingSuspend_ ErtsPendingSuspend;
-struct ErtsPendingSuspend_ {
-    ErtsPendingSuspend *next;
-    ErtsPendingSuspend *end;
-    Eterm pid;
-    void (*handle_func)(Process *suspendee,
-			ErtsProcLocks suspendee_locks,
-			int suspendee_alive,
-			Eterm pid);
-};
-
-
 
 /* Defines to ease the change of memory architecture */
 #  define HEAP_START(p)     (p)->heap
@@ -992,9 +982,6 @@ struct process {
 
     Process *next;		/* Pointer to next process in run queue */
 
-    ErtsMonitor *suspend_monitors; /* Processes suspended by this process via
-                                      erlang:suspend_process/1 */
-
     ErtsSignalPrivQueues sig_qs; /* Signal queues */
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
 
@@ -1058,8 +1045,6 @@ struct process {
     ErlTraceMessageQueue *trace_msg_q;
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
-    Eterm suspendee;
-    ErtsPendingSuspend *pending_suspenders;
     erts_atomic_t run_queue;
 
 #ifdef CHECK_FOR_HOLES
@@ -1377,7 +1362,7 @@ extern int erts_system_profile_ts_type;
 #define F_DISTRIBUTION       (1 <<  6) /* Process used in distribution */
 #define F_USING_DDLL         (1 <<  7) /* Process has used the DDLL interface */
 #define F_HAVE_BLCKD_MSCHED  (1 <<  8) /* Process has blocked multi-scheduling */
-#define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
+#define F_UNUSED             (1 <<  9)
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
 #define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
@@ -2047,6 +2032,11 @@ erts_psd_set(Process *p, int ix, void *data)
 #define ERTS_PROC_SET_DIST_ENTRY(P, DE) \
     ((DistEntry *) erts_psd_set((P), ERTS_PSD_DIST_ENTRY, (void *) (DE)))
 
+#define ERTS_PROC_GET_PENDING_SUSPEND(P) \
+    ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
+#define ERTS_PROC_SET_PENDING_SUSPEND(P, PS) \
+    ((void *) erts_psd_set((P), ERTS_PSD_PENDING_SUSPEND, (void *) (PS)))
+
 #ifdef HIPE
 #define ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(P) \
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF))
@@ -2610,16 +2600,6 @@ ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
 Process *erts_try_lock_sig_free_proc(Eterm pid,
                                      ErtsProcLocks locks,
                                      erts_aint32_t *statep);
-
-Process *erts_pid2proc_not_running(Process *,
-				   ErtsProcLocks,
-				   Eterm,
-				   ErtsProcLocks);
-Process *erts_pid2proc_nropt(Process *c_p,
-			     ErtsProcLocks c_p_locks,
-			     Eterm pid,
-			     ErtsProcLocks pid_locks);
-extern int erts_disable_proc_not_running_opt;
 
 #ifdef DEBUG
 #define ERTS_ASSERT_IS_NOT_EXITING(P) \

@@ -198,6 +198,8 @@ int erts_is_tracer_proc_enabled_send(Process* c_p, ErtsProcLocks c_p_locks,
                                      ErtsPTabElementCommon *t_p);
 int erts_is_tracer_enabled(const ErtsTracer tracer, ErtsPTabElementCommon *t_p);
 Eterm erts_tracer_to_term(Process *p, ErtsTracer tracer);
+Eterm erts_build_tracer_to_term(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, ErtsTracer tracer);
+
 ErtsTracer erts_term_to_tracer(Eterm prefix, Eterm term);
 void erts_tracer_replace(ErtsPTabElementCommon *t_p,
                          const ErtsTracer new_tracer);

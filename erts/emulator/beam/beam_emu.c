@@ -1166,6 +1166,9 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	    reds_used = treds > INT_MAX ? INT_MAX : (int) treds;
 	}
 
+        if (c_p && ERTS_PROC_GET_PENDING_SUSPEND(c_p))
+            erts_proc_sig_handle_pending_suspend(c_p);
+
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);

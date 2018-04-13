@@ -7005,9 +7005,46 @@ ok
               from other events in the system. It is only guaranteed that
               <c><anno>Suspendee</anno></c> <em>eventually</em> suspends
               (unless it
-              is resumed). If option <c>asynchronous</c> has <em>not</em>
+              is resumed). If no <c>asynchronous</c> options has
               been passed, the caller of <c>erlang:suspend_process/2</c> is
               blocked until <c><anno>Suspendee</anno></c> has suspended.</p>
+          </item>
+          <tag><c>{asynchronous, ReplyTag}</c></tag>
+          <item>
+            <p>A suspend request is sent to the process identified by
+              <c><anno>Suspendee</anno></c>. When the suspend request
+	      has been processed, a reply message is sent to the caller
+	      of this function. The reply is on the form <c>{ReplyTag,
+	      State}</c> where <c>State</c> is either:</p>
+	      <taglist>
+		<tag><c>exited</c></tag>
+		<item>
+		  <p>
+		    <c><anno>Suspendee</anno></c> has exited.
+		  </p>
+		</item>
+		<tag><c>suspended</c></tag>
+		<item>
+		  <p>
+		    <c><anno>Suspendee</anno></c> is now suspended.
+		  </p>
+		</item>
+		<tag><c>not_suspended</c></tag>
+		<item>
+		  <p>
+		    <c><anno>Suspendee</anno></c> is not suspended.
+		    This can only happen when the process that
+		    issued this request, have called
+		    <c>resume_process(<anno>Suspendee</anno>)</c>
+		    before getting the reply.
+		  </p>
+		</item>
+	      </taglist>
+	      <p>
+		Appart from the reply message, the <c>{asynchronous,
+		ReplyTag}</c> option behaves exactly the same as the
+		<c>asynchronous</c> option without reply tag.
+	      </p>
           </item>
           <tag><c>unless_suspending</c></tag>
           <item>
@@ -7032,6 +7069,13 @@ ok
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>
+	<warning>
+	  <p>You can easily create deadlocks if processes suspends
+	  each other (directly or in circles). In ERTS versions prior
+	  to ERTS version 10.0, the runtime system prevented such
+	  deadlocks, but this prevention has now been removed due
+	  to performance reasons.</p>
+	</warning>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>

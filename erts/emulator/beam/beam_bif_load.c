@@ -603,8 +603,9 @@ badarg:
 
 BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
 {
+    erts_aint32_t state;
     Process *rp;
-    int reds = 0;
+    int dirty, busy, reds = 0;
     Eterm res;
 
     if (BIF_P != erts_dirty_process_signal_handler
@@ -618,20 +619,29 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     if (is_not_atom(BIF_ARG_2))
 	BIF_ERROR(BIF_P, BADARG);
 
-    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-    if (rp == ERTS_PROC_LOCK_BUSY)
-	ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_check_dirty_process_code_2],
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (BIF_ARG_1 == BIF_P->common.id)
+        BIF_RET(am_normal);
+
+    rp = erts_proc_lookup_raw(BIF_ARG_1);
     if (!rp)
-	BIF_RET(am_false);
-	
+        BIF_RET(am_false);
+
+    state = erts_atomic32_read_nob(&rp->state);
+    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
+                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    if (!dirty)
+        BIF_RET(am_normal);
+
+    busy = erts_proc_trylock(rp, ERTS_PROC_LOCK_MAIN) == EBUSY;
+
+    if (busy)
+        BIF_RET(am_busy);
+
     res = erts_check_process_code(rp, BIF_ARG_2, &reds, BIF_P->fcalls);
 
-    if (BIF_P != rp)
-	erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
-    ASSERT(is_value(res));
+    ASSERT(res == am_true || res == am_false);
 
     BIF_RET2(res, reds);
 }

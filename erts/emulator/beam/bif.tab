@@ -125,7 +125,7 @@ bif erlang:pid_to_list/1
 bif erlang:ports/0
 bif erlang:pre_loaded/0
 bif erlang:process_flag/2
-bif erlang:process_flag/3
+bif erts_internal:process_flag/3
 bif erlang:process_info/1
 bif erlang:process_info/2
 bif erlang:processes/0
@@ -204,9 +204,9 @@ bif erlang:seq_trace/2
 bif erlang:seq_trace_info/1
 bif erlang:seq_trace_print/1
 bif erlang:seq_trace_print/2
-bif erlang:suspend_process/2
+bif erts_internal:suspend_process/2
 bif erlang:resume_process/1
-bif erlang:process_display/2
+bif erts_internal:process_display/2
 
 bif erlang:bump_reductions/1
 

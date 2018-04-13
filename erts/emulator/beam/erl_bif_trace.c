@@ -809,7 +809,126 @@ Eterm trace_info_2(BIF_ALIST_2)
 	BIF_ERROR(p, BADARG);
     }
     erts_release_code_write_permission();
+
+    if (is_internal_ref(res))
+        BIF_TRAP1(erts_await_result, BIF_P, res);
+
     BIF_RET(res);
+}
+
+static Eterm
+build_trace_flags_term(Eterm **hpp, Uint *szp, Uint trace_flags)
+{
+
+#define ERTS_TFLAG__(F, FN)                             \
+    if (trace_flags & F) {                              \
+        if (szp)                                        \
+            sz += 2;                                    \
+        if (hp) {                                       \
+            res = CONS(hp, FN, res);                    \
+            hp += 2;                                    \
+        }                                               \
+    }
+
+    Eterm res;
+    Uint sz = 0;
+    Eterm *hp;
+
+    if (hpp) {
+        hp = *hpp;
+        res = NIL;
+    }
+    else {
+        hp = NULL;
+        res = THE_NON_VALUE;
+    }
+
+    ERTS_TFLAG__(F_NOW_TS, am_timestamp);
+    ERTS_TFLAG__(F_STRICT_MON_TS, am_strict_monotonic_timestamp);
+    ERTS_TFLAG__(F_MON_TS, am_monotonic_timestamp);
+    ERTS_TFLAG__(F_TRACE_SEND, am_send);
+    ERTS_TFLAG__(F_TRACE_RECEIVE, am_receive);
+    ERTS_TFLAG__(F_TRACE_SOS, am_set_on_spawn);
+    ERTS_TFLAG__(F_TRACE_CALLS, am_call);
+    ERTS_TFLAG__(F_TRACE_PROCS, am_procs);
+    ERTS_TFLAG__(F_TRACE_SOS1, am_set_on_first_spawn);
+    ERTS_TFLAG__(F_TRACE_SOL, am_set_on_link);
+    ERTS_TFLAG__(F_TRACE_SOL1, am_set_on_first_link);
+    ERTS_TFLAG__(F_TRACE_SCHED, am_running);
+    ERTS_TFLAG__(F_TRACE_SCHED_EXIT, am_exiting);
+    ERTS_TFLAG__(F_TRACE_GC, am_garbage_collection);
+    ERTS_TFLAG__(F_TRACE_ARITY_ONLY, am_arity);
+    ERTS_TFLAG__(F_TRACE_RETURN_TO, am_return_to);
+    ERTS_TFLAG__(F_TRACE_SILENT, am_silent);
+    ERTS_TFLAG__(F_TRACE_SCHED_NO, am_scheduler_id);
+    ERTS_TFLAG__(F_TRACE_PORTS, am_ports);
+    ERTS_TFLAG__(F_TRACE_SCHED_PORTS, am_running_ports);
+    ERTS_TFLAG__(F_TRACE_SCHED_PROCS, am_running_procs);
+
+    if (szp)
+        *szp += sz;
+
+    if (hpp)
+        *hpp = hp;
+
+    return res;
+
+#undef ERTS_TFLAG__
+}
+
+static Eterm
+trace_info_tracee(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
+{
+    ErlHeapFragment *bp;
+    Eterm *hp, res, key;
+    Uint sz;
+
+    *redsp = 1;
+
+    if (ERTS_PROC_IS_EXITING(c_p))
+        return am_undefined;
+
+    key = (Eterm) arg;
+    sz = 3;
+
+    if (!ERTS_TRACER_IS_NIL(ERTS_TRACER(c_p)))
+        erts_is_tracer_proc_enabled(c_p, ERTS_PROC_LOCK_MAIN,
+                                    &c_p->common);
+
+    switch (key) {
+    case am_tracer:
+
+        erts_build_tracer_to_term(NULL, NULL, &sz, ERTS_TRACER(c_p));
+        bp = new_message_buffer(sz);
+        hp = bp->mem;
+        res = erts_build_tracer_to_term(&hp, &bp->off_heap,
+                                        NULL, ERTS_TRACER(c_p));
+        if (res == am_false)
+            res = NIL;
+        break;
+
+    case am_flags:
+
+        build_trace_flags_term(NULL, &sz, ERTS_TRACE_FLAGS(c_p));
+        bp = new_message_buffer(sz);
+        hp = bp->mem;
+        res = build_trace_flags_term(&hp, NULL, ERTS_TRACE_FLAGS(c_p));
+        break;
+
+    default:
+
+        ERTS_INTERNAL_ERROR("Key not supported");
+        res = NIL;
+        bp = NULL;
+        hp = NULL;
+        break;
+    }
+
+    *redsp += 2;
+
+    res = TUPLE2(hp, key, res);
+    *bpp = bp;
+    return res;
 }
 
 static Eterm
@@ -846,24 +965,19 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
         erts_port_release(tracee);
 
     } else if (is_internal_pid(pid_spec)) {
-	Process *tracee = erts_pid2proc_not_running(p, ERTS_PROC_LOCK_MAIN,
-                                                    pid_spec, ERTS_PROC_LOCK_MAIN);
+        Eterm ref;
 
-        if (tracee == ERTS_PROC_LOCK_BUSY)
-            ERTS_BIF_YIELD2(bif_export[BIF_trace_info_2], p, pid_spec, key);
+        if (key != am_flags && key != am_tracer)
+            goto error;
 
-	if (!tracee)
-	    return am_undefined;
+        ref = erts_proc_sig_send_rpc_request(p, pid_spec, !0,
+                                             trace_info_tracee,
+                                             (void *) key);
 
-        if (!ERTS_TRACER_IS_NIL(ERTS_TRACER(tracee)))
-            erts_is_tracer_proc_enabled(tracee, ERTS_PROC_LOCK_MAIN,
-                                        &tracee->common);
+        if (is_non_value(ref))
+            return am_undefined;
 
-        tracer = erts_tracer_to_term(p, ERTS_TRACER(tracee));
-        trace_flags = ERTS_TRACE_FLAGS(tracee);
-
-	if (tracee != p)
-	    erts_proc_unlock(tracee, ERTS_PROC_LOCK_MAIN);
+        return ref;
     } else if (is_external_pid(pid_spec)
 	       && external_pid_dist_entry(pid_spec) == erts_this_dist_entry) {
 	    return am_undefined;
@@ -873,48 +987,16 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
     }
 
     if (key == am_flags) {
-	int num_flags = 21;	/* MAXIMUM number of flags. */
-	Uint needed = 3+2*num_flags;
-	Eterm flag_list = NIL;
-	Eterm* limit;
+	Eterm flag_list;
+        Uint sz = 3;
+        Eterm *hp;
 
-#define FLAG0(flag_mask,flag) \
-  if (trace_flags & (flag_mask)) { flag_list = CONS(hp, flag, flag_list); hp += 2; } else {}
+        build_trace_flags_term(NULL, &sz, trace_flags);
 
-#if defined(DEBUG)
-    /*
-     * Check num_flags if this assertion fires.
-     */
-#  define FLAG ASSERT(num_flags-- > 0); FLAG0
-#else
-#  define FLAG FLAG0
-#endif
-        hp = HAlloc(p, needed);
-	limit = hp+needed;
-	FLAG(F_NOW_TS, am_timestamp);
-	FLAG(F_STRICT_MON_TS, am_strict_monotonic_timestamp);
-	FLAG(F_MON_TS, am_monotonic_timestamp);
-	FLAG(F_TRACE_SEND, am_send);
-	FLAG(F_TRACE_RECEIVE, am_receive);
-	FLAG(F_TRACE_SOS, am_set_on_spawn);
-	FLAG(F_TRACE_CALLS, am_call);
-	FLAG(F_TRACE_PROCS, am_procs);
-	FLAG(F_TRACE_SOS1, am_set_on_first_spawn);
-	FLAG(F_TRACE_SOL, am_set_on_link);
-	FLAG(F_TRACE_SOL1, am_set_on_first_link);
-	FLAG(F_TRACE_SCHED, am_running);
-	FLAG(F_TRACE_SCHED_EXIT, am_exiting);
-	FLAG(F_TRACE_GC, am_garbage_collection);
-	FLAG(F_TRACE_ARITY_ONLY, am_arity);
-	FLAG(F_TRACE_RETURN_TO, am_return_to);
-	FLAG(F_TRACE_SILENT, am_silent);
-	FLAG(F_TRACE_SCHED_NO, am_scheduler_id);
-	FLAG(F_TRACE_PORTS, am_ports);
-	FLAG(F_TRACE_SCHED_PORTS, am_running_ports);
-	FLAG(F_TRACE_SCHED_PROCS, am_running_procs);
-#undef FLAG0
-#undef FLAG
-	HRelease(p,limit,hp+3);
+        hp = HAlloc(p, sz);
+
+        flag_list = build_trace_flags_term(&hp, NULL, trace_flags);
+
 	return TUPLE2(hp, key, flag_list);
     } else if (key == am_tracer) {
         if (tracer == am_false)

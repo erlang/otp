@@ -287,6 +287,7 @@ type	DIST_DEMONITOR	SHORT_LIVED	PROCESSES	dist_demonitor
 type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
+type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
@@ -346,6 +347,7 @@ type	NIF_TRAP_EXPORT	STANDARD	PROCESSES	nif_trap_export_entry
 type	NIF_EXP_TRACE	FIXED_SIZE	PROCESSES	nif_export_trace
 type	EXPORT		LONG_LIVED	CODE		export_entry
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
 type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request

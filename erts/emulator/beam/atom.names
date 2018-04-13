@@ -142,6 +142,7 @@ atom bsr
 atom bsr_anycrlf
 atom bsr_unicode
 atom build_type
+atom busy
 atom busy_dist_port
 atom busy_port
 atom call
@@ -252,6 +253,7 @@ atom exception_from
 atom exception_trace
 atom exclusive
 atom exit_status
+atom exited
 atom existing
 atom existing_processes
 atom existing_ports
@@ -445,6 +447,7 @@ atom no_float
 atom no_integer
 atom no_network
 atom no_start_optimize
+atom not_suspended
 atom not
 atom not_a_list
 atom not_loaded

@@ -2629,6 +2629,38 @@ erts_tracer_to_term(Process *p, ErtsTracer tracer)
     }
 }
 
+Eterm
+erts_build_tracer_to_term(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, ErtsTracer tracer)
+{
+    Eterm res;
+    Eterm state;
+    Uint sz;
+
+    if (ERTS_TRACER_IS_NIL(tracer))
+        return am_false;
+
+    state = ERTS_TRACER_STATE(tracer);
+    sz = is_immed(state) ? 0 : size_object(state);
+
+    if (szp)
+        *szp += sz;
+
+    if (hpp)
+        res = is_immed(state) ? state : copy_struct(state, sz, hpp, ohp);
+    else
+        res = THE_NON_VALUE;
+
+    if (ERTS_TRACER_MODULE(tracer) != am_erl_tracer) {
+        if (szp)
+            *szp += 3;
+        if (hpp) {
+            res = TUPLE2(*hpp, ERTS_TRACER_MODULE(tracer), res);
+            *hpp += 3;
+        }
+    }
+
+    return res;
+}
 
 static ERTS_INLINE int
 send_to_tracer_nif_raw(Process *c_p, Process *tracee,
