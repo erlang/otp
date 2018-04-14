@@ -1087,8 +1087,20 @@ handle_info({'DOWN', _Ref, process, ChannelPid, _Reason}, Statename, State0) ->
     {next_state, Statename, next_packet(State)};
 
 %%% So that terminate will be run when supervisor is shutdown
-handle_info({'EXIT', _Sup, Reason}, _StateName, State) ->
-    {stop, {shutdown, Reason}, State};
+handle_info({'EXIT',_Sup,Reason}, StateName, State)  ->
+    if
+	State#state.role == client ->
+	    %% OTP-8111 tells this function clause fixes a problem in
+	    %% clients, but there were no check for that role.
+	    {stop, {shutdown,Reason}, State};
+
+	Reason == normal ->
+	    %% An exit normal should not cause a server to crash. This has happend...
+	    {next_state, StateName, next_packet(State)};
+
+	true ->
+	    {stop, {shutdown,Reason}, State}
+    end;
 
 handle_info({check_cache, _ , _},
 	    StateName, #state{connection_state =
