@@ -1420,8 +1420,21 @@ handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D0) ->
     {keep_state, handle_channel_down(ChannelPid, D0)};
 
 %%% So that terminate will be run when supervisor is shutdown
-handle_event(info, {'EXIT', _Sup, Reason}, _, _) ->
-    {stop, {shutdown, Reason}};
+handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
+    Role = role(StateName),
+    if
+	Role == client ->
+	    %% OTP-8111 tells this function clause fixes a problem in
+	    %% clients, but there were no check for that role.
+	    {stop, {shutdown, Reason}};
+
+	Reason == normal ->
+	    %% An exit normal should not cause a server to crash. This has happend...
+	    keep_state_and_data;
+
+	true ->
+	    {stop, {shutdown, Reason}}
+    end;
 
 handle_event(info, check_cache, _, D) ->
     {keep_state, cache_check_set_idle_timer(D)};
