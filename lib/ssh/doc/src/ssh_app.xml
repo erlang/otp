@@ -330,10 +330,10 @@
       <p/>
       </item>
 
-      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-rsa-sha2">Draft-ietf-curdle-rsa-sha2 (work in progress)</url>, Use of RSA Keys with SHA-2 256 and 512 in Secure Shell (SSH).
+      <item><url href="https://tools.ietf.org/html/rfc8332">RFC 8332</url>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol.
       </item>
       
-      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url>, Extension Negotiation in Secure Shell (SSH).
+      <item><url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
       <p>Implemented are:</p>
       <list type="bulleted">
 	<item>The Extension Negotiation Mechanism</item>
