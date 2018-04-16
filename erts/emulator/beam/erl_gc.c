@@ -438,6 +438,13 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	return result;
     }
 
+#ifdef HIPE
+    if (p->hipe_smp.have_receive_locks) {
+        /* Do not want to GC with message queue locked... */
+        return result;
+    }    
+#endif
+
     if (!p->mbuf) {
 	/* Must have GC:d in BIF call... invalidate live_hf_end */
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
