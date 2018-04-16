@@ -71,7 +71,7 @@
       had and adds some really useful:
     </p>
     <list type="bulleted">
-      <item>Gathered state code</item>
+      <item>Co-located state code</item>
       <item>Arbitrary term state</item>
       <item>Event postponing</item>
       <item>Self-generated events</item>
@@ -175,7 +175,7 @@ erlang:'!'            -----> Module:StateName/3
       is <c>state_functions</c>, the state must be an atom and
       is used as the state callback name; see
       <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>.
-      This gathers all code for a specific state
+      This co-locates all code for a specific state
       in one function as the <c>gen_statem</c> engine
       branches depending on state name.
       Note the fact that the callback function

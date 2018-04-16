@@ -93,10 +93,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     </p>
     <list type="bulleted">
       <item>
-	Gathered callback code for each state,
+	Co-located callback code for each state,
 	regardless of
-	<seealso marker="#Event Types">Event Types</seealso>.
-	(such as <em>calls</em>, <em>casts</em> and <em>infos</em>)
+	<seealso marker="#Event Types">Event Type</seealso>
+	(such as <em>call</em>, <em>cast</em> and <em>info</em>)
       </item>
       <item>
 	<seealso marker="#Postponing Events">
@@ -114,15 +114,14 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<seealso marker="#State Enter Calls">
 	  State Enter Calls
 	</seealso>
-	(callback on state entry gathered with the rest
+	(callback on state entry co-located with the rest
 	of the state callback code)
       </item>
       <item>
-	Higher level timeouts
-	(
-	<seealso marker="#State Time-Outs">State Time-Outs</seealso>,
+	Easy-to-use timeouts
+	(<seealso marker="#State Time-Outs">State Time-Outs</seealso>,
 	<seealso marker="#Event Time-Outs">Event Time-Outs</seealso>
-	or
+	and
 	<seealso marker="#Generic Time-Outs">Generic Time-outs</seealso>
 	(named time-outs))
       </item>
@@ -133,14 +132,14 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>.
     </p>
     <p>
-      For simple state machines not needing these fetures
+      For simple state machines not needing these features
       <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>
       works just fine.
       It also has got smaller call overhead,
       but we are talking about something like 2 vs 3.3 microseconds
       call roundtrip time here, so if the server callback
       does just a little bit more than just replying,
-      or if the callback is not extremely frequent,
+      or if the call is not extremely frequent,
       that difference will be hard to notice.
     </p>
   </section>
@@ -256,7 +255,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	With <c>state_functions</c>, you are restricted to use
 	atom-only states, and the <c>gen_statem</c> engine
 	branches depending on state name for you.
-	This encourages the callback module to gather
+	This encourages the callback module to co-locate
 	the implementation of all event actions particular
 	to one state in the same place in the code,
 	hence to focus on one state at the time.
@@ -1686,7 +1685,7 @@ open(state_timeout, lock, Data) ->
       It can sometimes be beneficial to be able to generate events
       to your own state machine.
       This can be done with the
-      <seealso marker="#State Transition Action">
+      <seealso marker="#State Transition Actions">
 	State Transition Action
       </seealso>
       <c>{next_event,EventType,EventContent}</c>.
