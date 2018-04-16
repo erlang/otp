@@ -669,8 +669,8 @@ run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
 	    {Icode, WholeModule} = IcodeFun(Code, Opts),
 	    CompRes = compile_finish(Icode, WholeModule, Opts),
 	    compiler_return(CompRes, Parent)
-	  catch error:Error ->
-	      print_crash_message(Name, Error),
+	  catch error:Error:StackTrace ->
+	      print_crash_message(Name, Error, StackTrace),
 	      exit(Error)
 	  end
       end),
@@ -757,8 +757,8 @@ finalize(OrigList, Mod, Exports, WholeModule, Opts) ->
 	  TargetArch = get(hipe_target_arch),
 	  {ok, {TargetArch,Bin}}
       catch
-	error:Error ->
-	  {error,Error,erlang:get_stacktrace()}
+	error:Error:StackTrace ->
+	  {error,Error,StackTrace}
       end
   end.
 
@@ -843,16 +843,16 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
     {llvm_binary, Binary} ->
       {MFA, Binary}
   catch
-    error:Error ->
+    error:Error:StackTrace ->
       ?when_option(verbose, Opts, ?debug_untagged_msg("\n", [])),
-      print_crash_message(MFA, Error),
+      print_crash_message(MFA, Error, StackTrace),
       exit(Error)
   end.
 
-print_crash_message(What, Error) ->
+print_crash_message(What, Error, StackTrace) ->
   StackFun = fun(_,_,_) -> false end,
   FormatFun = fun (Term, _) -> io_lib:format("~p", [Term]) end,
-  StackTrace = lib:format_stacktrace(1, erlang:get_stacktrace(),
+  StackTrace = lib:format_stacktrace(1, StackTrace,
 				     StackFun, FormatFun),
   WhatS = case What of
 	    {M,F,A} -> io_lib:format("~w:~w/~w", [M,F,A]);
