@@ -604,6 +604,9 @@ obsolete_1(filename, find_src, 1) ->
 obsolete_1(filename, find_src, 2) ->
     {deprecated, "deprecated; use filelib:find_source/3 instead"};
 
+obsolete_1(erlang, get_stacktrace, 0) ->
+    {deprecated, "deprecated; use the new try/catch syntax for retrieving the stack backtrace"};
+
 %% Removed in OTP 20.
 
 obsolete_1(erlang, hash, 2) ->
