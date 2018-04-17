@@ -233,7 +233,7 @@ os_process_size() ->
 	    0
     end.
 
-nonl([10]) -> [];
+nonl([$\n]) -> [];
 nonl([]) -> [];
 nonl([H|T]) -> [H|nonl(T)].
 

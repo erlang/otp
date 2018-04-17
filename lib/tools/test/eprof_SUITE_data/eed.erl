@@ -66,7 +66,7 @@ loop(St0) ->
 	    loop(St2)
     end.
 
-nonl([10]) -> [];
+nonl([$\n]) -> [];
 nonl([]) -> [];
 nonl([H|T]) -> [H|nonl(T)].
 
