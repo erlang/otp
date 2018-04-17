@@ -1343,16 +1343,33 @@ sufficient_crypto_support(_) ->
 check_key_exchange_send_active(Socket, false) ->
     send_recv_result_active(Socket);
 check_key_exchange_send_active(Socket, KeyEx) ->
-    {ok, [{cipher_suite, Suite}]} = ssl:connection_information(Socket, [cipher_suite]),
-    true = check_key_exchange(Suite, KeyEx), 
+    {ok, Info} =
+        ssl:connection_information(Socket, [cipher_suite, protocol]),
+    Suite = proplists:get_value(cipher_suite, Info),
+    Version = proplists:get_value(protocol, Info),
+    true = check_key_exchange(Suite, KeyEx, Version), 
     send_recv_result_active(Socket).
 
-check_key_exchange({KeyEx,_, _}, KeyEx) ->
+check_key_exchange({KeyEx,_, _}, KeyEx, _) ->
     true;
-check_key_exchange({KeyEx,_,_,_}, KeyEx) ->
+check_key_exchange({KeyEx,_,_,_}, KeyEx, _) ->
     true;
-check_key_exchange(KeyEx1, KeyEx2) ->
-    ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+check_key_exchange(KeyEx1, KeyEx2, Version) ->
+    case Version of
+        'tlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        'dtlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        _ ->       
+            ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+            false
+    end.
+
+v_1_2_check(ecdh_ecdsa, ecdh_rsa) ->
+    true;
+v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
+    true;
+v_1_2_check(_, _) ->
     false.
 
 send_recv_result_active(Socket) ->

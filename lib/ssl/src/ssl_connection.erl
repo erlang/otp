@@ -1244,7 +1244,7 @@ connection_info(#state{sni_hostname = SNIHostname,
     RecordCB = record_cb(Connection),
     CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher:suite_definition(CipherSuite),
     IsNamedCurveSuite = lists:member(KexAlg,
-                                     [ecdh_ecdsa, ecdhe_ecdsa, ecdh_anon]),
+                                     [ecdh_ecdsa, ecdhe_ecdsa, ecdh_rsa, ecdh_anon]),
     CurveInfo = case ECCCurve of
 		    {namedCurve, Curve} when IsNamedCurveSuite ->
 			[{ecc, {named_curve, pubkey_cert_records:namedCurves(Curve)}}];
@@ -1344,11 +1344,14 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 handle_peer_cert_key(client, _,
 		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey,
 		      PublicKeyParams},
-		     KeyAlg, State)  when KeyAlg == ecdh_rsa;
-					  KeyAlg == ecdh_ecdsa ->
+		     KeyAlg, #state{session = Session} = State)  when KeyAlg == ecdh_rsa;
+                                                                      KeyAlg == ecdh_ecdsa ->
     ECDHKey = public_key:generate_key(PublicKeyParams),
+    {namedCurve, Oid} = PublicKeyParams,
+    Curve = pubkey_cert_records:namedCurves(Oid), %% Need API function
     PremasterSecret = ssl_handshake:premaster_secret(PublicKey, ECDHKey),
-    master_secret(PremasterSecret, State#state{diffie_hellman_keys = ECDHKey});
+    master_secret(PremasterSecret, State#state{diffie_hellman_keys = ECDHKey,
+                                               session = Session#session{ecc = {named_curve, Curve}}});
 %% We do currently not support cipher suites that use fixed DH.
 %% If we want to implement that the following clause can be used
 %% to extract DH parameters form cert.
