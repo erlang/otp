@@ -19,7 +19,7 @@
 %%
 -module(lib).
 
--export([flush_receive/0, error_message/2, progname/0, nonl/1, send/2,
+-export([flush_receive/0, error_message/2, progname/0, send/2,
 	 sendw/2, eval_str/1]).
 
 -export([extended_parse_exprs/1, extended_parse_term/1,
@@ -61,14 +61,6 @@ progname() ->
 	_Other ->
 	    no_prog_name
     end.
-
--spec nonl(String1) -> String2 when
-      String1 :: string(),
-      String2 :: string().
-
-nonl([10]) -> [];
-nonl([]) -> [];
-nonl([H|T]) -> [H|nonl(T)].
 
 -spec send(To, Msg) -> Msg when
       To :: pid() | atom() | {atom(), node()},

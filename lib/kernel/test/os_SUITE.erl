@@ -388,7 +388,7 @@ comp(Expected, Got) ->
 	    ct:fail(failed)
     end.
 
-%% Like lib:nonl/1, but strips \r as well as \n.
+%% strips \n and \r\n from end of string
 
 strip_nl([$\r, $\n]) -> [];
 strip_nl([$\n])      -> [];

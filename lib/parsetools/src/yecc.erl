@@ -455,10 +455,14 @@ os_process_size() ->
     case os:type() of
         {unix, sunos} ->
             Size = os:cmd("ps -o vsz -p " ++ os:getpid() ++ " | tail -1"),
-            list_to_integer(lib:nonl(Size));
+            list_to_integer(nonl(Size));
         _ ->
             0
-    end.            
+    end.
+
+nonl([10]) -> [];
+nonl([]) -> [];
+nonl([H|T]) -> [H|nonl(T)].
 
 timeit(Name, Fun, St0) ->
     Time = runtime,

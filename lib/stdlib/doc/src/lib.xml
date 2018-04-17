@@ -57,15 +57,6 @@
     </func>
 
     <func>
-      <name name="nonl" arity="1"/>
-      <fsummary>Remove last newline.</fsummary>
-      <desc>
-        <p>Removes the last newline character, if any, in
-          <c><anno>String1</anno></c>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="progname" arity="0"/>
       <fsummary>Return name of Erlang start script.</fsummary>
       <desc>
