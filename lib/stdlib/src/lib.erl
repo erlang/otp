@@ -19,7 +19,7 @@
 %%
 -module(lib).
 
--export([progname/0, eval_str/1]).
+-export([eval_str/1]).
 
 -export([extended_parse_exprs/1, extended_parse_term/1,
          subst_values_for_vars/2]).
@@ -27,18 +27,6 @@
 -export([format_exception/6, format_exception/7,
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
-
-%% Return the name of the script that starts (this) erlang 
-%%
--spec progname() -> atom().
-
-progname() ->
-    case init:get_argument(progname) of
-	{ok, [[Prog]]} ->
-	    list_to_atom(Prog);
-	_Other ->
-	    no_prog_name
-    end.
 
 %% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
 %%   InStr must represent a body

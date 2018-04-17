@@ -38,14 +38,6 @@
   </description>
 
   <funcs>
-    <func>
-      <name name="progname" arity="0"/>
-      <fsummary>Return name of Erlang start script.</fsummary>
-      <desc>
-        <p>Returns the name of the script that started the current
-          Erlang session.</p>
-      </desc>
-    </func>
 
   </funcs>
 </erlref>
