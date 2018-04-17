@@ -750,8 +750,26 @@ handle_request(#request{settings =
     start_handler(NewRequest#request{headers = NewHeaders}, State),
     {reply, {ok, NewRequest#request.id}, State};
 
-handle_request(Request, State = #state{options = Options}) ->
+%% Simple socket options handling (ERL-441).
+%%
+%% TODO: Refactor httpc to enable sending socket options in requests
+%%       using persistent connections. This workaround opens a new
+%%       connection for each request with non-empty socket_opts.
+handle_request(Request0 = #request{socket_opts = SocketOpts},
+               State0 = #state{options = Options0})
+  when is_list(SocketOpts) andalso length(SocketOpts) > 0 ->
+    Request = handle_cookies(generate_request_id(Request0), State0),
+    Options = convert_options(SocketOpts, Options0),
+    State = State0#state{options = Options},
+    Headers =
+	(Request#request.headers)#http_request_h{connection
+						    = "close"},
+    %% Reset socket_opts to avoid setopts failure.
+    start_handler(Request#request{headers = Headers, socket_opts = []}, State),
+    %% Do not change the state
+    {reply, {ok, Request#request.id}, State0};
 
+handle_request(Request, State = #state{options = Options}) ->
     NewRequest = handle_cookies(generate_request_id(Request), State),
     SessionType = session_type(Options),
     case select_session(Request#request.method,
@@ -774,6 +792,18 @@ handle_request(Request, State = #state{options = Options}) ->
     end,
     {reply, {ok, NewRequest#request.id}, State}.
 
+
+%% Convert Request options to State options
+convert_options([], Options) ->
+    Options;
+convert_options([{ipfamily, Value}|T], Options) ->
+    convert_options(T, Options#options{ipfamily = Value});
+convert_options([{ip, Value}|T], Options) ->
+    convert_options(T, Options#options{ip = Value});
+convert_options([{port, Value}|T], Options) ->
+    convert_options(T, Options#options{port = Value});
+convert_options([Option|T], Options = #options{socket_opts = SocketOpts}) ->
+    convert_options(T, Options#options{socket_opts = SocketOpts ++ [Option]}).
 
 start_handler(#request{id   = Id, 
 		       from = From} = Request, 
