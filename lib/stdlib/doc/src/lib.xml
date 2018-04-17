@@ -65,30 +65,6 @@
       </desc>
     </func>
 
-    <func>
-      <name name="send" arity="2"/>
-      <fsummary>Send a message.</fsummary>
-      <desc>
-        <p>Makes it possible to send a message using the <c>apply/3</c> BIF.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="sendw" arity="2"/>
-      <fsummary>Send a message and wait for an answer.</fsummary>
-      <desc>
-        <p>As <seealso marker="#send/2"><c>send/2</c></seealso>,
-          but waits for an answer. It is implemented as follows:</p>
-        <code type="none">
-sendw(To, Msg) ->
-    To ! {self(),Msg},
-    receive
-        Reply -> Reply
-    end.</code>
-        <p>The returned message is not necessarily a reply to the sent
-          message.</p>
-      </desc>
-    </func>
   </funcs>
 </erlref>
 

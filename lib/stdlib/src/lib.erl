@@ -19,8 +19,7 @@
 %%
 -module(lib).
 
--export([flush_receive/0, error_message/2, progname/0, send/2,
-	 sendw/2, eval_str/1]).
+-export([flush_receive/0, error_message/2, progname/0, eval_str/1]).
 
 -export([extended_parse_exprs/1, extended_parse_term/1,
          subst_values_for_vars/2]).
@@ -60,22 +59,6 @@ progname() ->
 	    list_to_atom(Prog);
 	_Other ->
 	    no_prog_name
-    end.
-
--spec send(To, Msg) -> Msg when
-      To :: pid() | atom() | {atom(), node()},
-      Msg :: term().
-
-send(To, Msg) -> To ! Msg.
-
--spec sendw(To, Msg) -> term() when
-      To :: pid() | atom() | {atom(), node()},
-      Msg :: term().
-
-sendw(To, Msg) ->
-    To ! {self(), Msg},
-    receive 
-	Reply -> Reply
     end.
 
 %% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
