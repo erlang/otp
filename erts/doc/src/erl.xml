@@ -464,7 +464,7 @@
       </item>
       <tag><c><![CDATA[-rsh Program]]></c></tag>
       <item>
-        <p>Specifies an alternative to <c><![CDATA[rsh]]></c> for starting a
+        <p>Specifies an alternative to <c><![CDATA[ssh]]></c> for starting a
           slave node on a remote host; see
           <seealso marker="stdlib:slave"><c>slave(3)</c></seealso>.</p>
       </item>

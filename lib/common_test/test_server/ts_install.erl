@@ -268,7 +268,7 @@ add_vars(Vars0, Opts0) ->
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
-	    {rsh_name, os:getenv("ERL_RSH", "rsh")},
+	    {rsh_name, os:getenv("ERL_RSH", "ssh")},
 	    {platform_label, PlatformLabel},
 	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
