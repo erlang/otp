@@ -1808,7 +1808,7 @@ rpc_call_max(Node, M, F, Args) ->
 
 %% Make sure that a bad specification for a printable range is rejected.
 bad_printable_range(Config) when is_list(Config) ->
-    Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
+    Cmd = ct:get_progname() ++ " +pcunnnnnicode -run erlang halt",
     P = open_port({spawn, Cmd}, [stderr_to_stdout, {line, 200}]),
     ok = receive
              {P, {data, {eol , "bad range of printable characters" ++ _}}} ->

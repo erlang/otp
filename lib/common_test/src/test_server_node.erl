@@ -591,7 +591,7 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 %%%  this
 %%%
 pick_erl_program(default) ->
-    cast_to_list(lib:progname());
+    ct:get_progname();
 pick_erl_program(L) ->
     P = random_element(L),
     case P of
@@ -600,7 +600,7 @@ pick_erl_program(L) ->
 	{release, S} ->
 	    find_release(S);
 	this ->
-	    cast_to_list(lib:progname())
+	    ct:get_progname()
     end.
 
 %% This is an attempt to distinguish between spaces in the program
@@ -611,8 +611,8 @@ pick_erl_program(L) ->
 %% ({prog,String}) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same
-%% emulator and flags as the test node. The return from lib:progname()
-%% could then typically be '/<full_path_to>/cerl -gcov').
+%% emulator and flags as the test node. The return from ct:get_progname()
+%% could then typically be "/<full_path_to>/cerl -gcov").
 quote_progname(Progname) ->
     do_quote_progname(string:lexemes(Progname," ")).
 

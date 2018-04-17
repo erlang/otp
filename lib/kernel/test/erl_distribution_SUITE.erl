@@ -244,7 +244,7 @@ illegal(Name) ->
 test_node(Name) ->
     test_node(Name, false).
 test_node(Name, Illigal) ->
-    ProgName = atom_to_list(lib:progname()),
+    ProgName = ct:get_progname(),
     Command = ProgName ++ " -noinput " ++ long_or_short() ++ Name ++
         " -eval \"net_adm:ping('" ++ atom_to_list(node()) ++ "')\"" ++
         case Illigal of

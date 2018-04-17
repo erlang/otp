@@ -227,8 +227,8 @@ find_executable(Config) when is_list(Config) ->
 	    DataDir = proplists:get_value(data_dir, Config),
 
 	    %% Smoke test.
-	    case lib:progname() of
-		erl ->
+	    case ct:get_progname() of
+		"erl" ->
 		    ErlPath = os:find_executable("erl"),
 		    true = is_list(ErlPath),
 		    true = filelib:is_regular(ErlPath);

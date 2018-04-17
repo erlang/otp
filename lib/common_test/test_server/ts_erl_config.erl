@@ -358,7 +358,7 @@ link_library(_LibName,_Other) ->
 %% Returns emulator specific variables.
 emu_vars(Vars) ->
     [{is_source_build, is_source_build()},
-     {erl_name, atom_to_list(lib:progname())}|Vars].
+     {erl_name, ct:get_progname()}|Vars].
 
 is_source_build() ->
     string:find(erlang:system_info(system_version), "source") =/= nomatch.

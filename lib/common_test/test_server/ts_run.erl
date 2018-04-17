@@ -199,7 +199,7 @@ make_command(Vars, Spec, State) ->
     TestPath = filename:nativename(TestDir),
     Erl = case os:getenv("TS_RUN_VALGRIND") of
 	      false ->
-		  atom_to_list(lib:progname());
+		  ct:get_progname();
 	      _ ->
 		  case State#state.file of
 		      Dir when is_list(Dir) ->

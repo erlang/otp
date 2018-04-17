@@ -87,6 +87,7 @@
 	 decrypt_config_file/2, decrypt_config_file/3]).
 
 -export([get_target_name/1]).
+-export([get_progname/0]).
 -export([parse_table/1, listenv/1]).
 
 -export([remaining_test_procs/0]).
@@ -975,7 +976,20 @@ make_priv_dir() ->
 %%% belongs to.
 get_target_name(Handle) ->
     ct_util:get_target_name(Handle).
-    
+
+%%%-----------------------------------------------------------------
+%%% @doc Return the command used to start (this) erlang
+
+-spec get_progname() -> string().
+
+get_progname() ->
+    case init:get_argument(progname) of
+	{ok, [[Prog]]} ->
+	    Prog;
+	_Other ->
+	    "no_prog_name"
+    end.
+
 %%%-----------------------------------------------------------------
 %%% @spec parse_table(Data) -> {Heading,Table}
 %%%       Data = [string()]
@@ -1005,7 +1019,6 @@ parse_table(Data) ->
 %%% and returns the result as a list of Key-Value pairs.
 listenv(Telnet) ->
     ct_util:listenv(Telnet).
-
 
 %%%-----------------------------------------------------------------
 %%% @spec testcases(TestDir, Suite) -> Testcases | {error,Reason}

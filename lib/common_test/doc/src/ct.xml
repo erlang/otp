@@ -572,6 +572,16 @@
     </func>
 
     <func>
+      <name>get_progname() -&gt; string()</name>
+      <fsummary>Returns the command used to start this Erlang instance.</fsummary>
+      <desc><marker id="get_progname-0"/>
+        <p>Returns the command used to start this Erlang instance.
+           If this information could not be found, the string
+           <c>"no_prog_name"</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
       <fsummary>Returns status of ongoing test.</fsummary>
       <type>
