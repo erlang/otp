@@ -19,58 +19,12 @@
 %%
 -module(lib).
 
--export([eval_str/1]).
-
 -export([extended_parse_exprs/1, extended_parse_term/1,
          subst_values_for_vars/2]).
 
 -export([format_exception/6, format_exception/7,
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
-
-%% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
-%%   InStr must represent a body
-%%   Note: If InStr is a binary it has to be a Latin-1 string.
-%%   If you have a UTF-8 encoded binary you have to call
-%%   unicode:characters_to_list/1 before the call to eval_str().
-
--define(result(F,D), lists:flatten(io_lib:format(F, D))).
-
--spec eval_str(string() | unicode:latin1_binary()) ->
-                      {'ok', string()} | {'error', string()}.
-
-eval_str(Str) when is_list(Str) ->
-    case erl_scan:tokens([], Str, 0) of
-	{more, _} ->
-	    {error, "Incomplete form (missing .<cr>)??"};
-	{done, {ok, Toks, _}, Rest} ->
-	    case all_white(Rest) of
-		true ->
-		    case erl_parse:parse_exprs(Toks) of
-			{ok, Exprs} ->
-			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
-				{value, Val, _} ->
-				    {ok, Val};
-				Other ->
-				    {error, ?result("*** eval: ~p", [Other])}
-			    end;
-			{error, {_Line, Mod, Args}} ->
-                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
-                            {error, Msg}
-		    end;
-		false ->
-		    {error, ?result("Non-white space found after "
-				    "end-of-form :~ts", [Rest])}
-		end
-    end;
-eval_str(Bin) when is_binary(Bin) ->
-    eval_str(binary_to_list(Bin)).
-
-all_white([$\s|T]) -> all_white(T);
-all_white([$\n|T]) -> all_white(T);
-all_white([$\t|T]) -> all_white(T);
-all_white([])      -> true;
-all_white(_)       -> false.
 
 %% `Tokens' is assumed to have been scanned with the 'text' option.
 %% The annotations of the returned expressions are locations.
