@@ -65,6 +65,7 @@
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
+-export([write_binary/2]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
@@ -259,7 +260,8 @@ add_modifier(_, C) ->
 -spec write(Term) -> chars() when
       Term :: term().
 
-write(Term) -> write(Term, -1).
+write(Term) ->
+    write1(Term, -1, latin1).
 
 -spec write(term(), depth(), boolean()) -> chars().
 
@@ -281,9 +283,19 @@ write(Term, D, false) ->
 write(Term, Options) when is_list(Options) ->
     Depth = get_option(depth, Options, -1),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
-    write1(Term, Depth, Encoding);
+    CharsLimit = get_option(chars_limit, Options, -1),
+    RecDefFun = no_fun,
+    case Depth of
+        0 -> "...";
+        _ when CharsLimit < 0 ->
+            write1(Term, Depth, Encoding);
+        _ when CharsLimit >= 0 ->
+            If = io_lib_pretty:intermediate
+                   (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
+            io_lib_pretty:write(If)
+    end;
 write(Term, Depth) ->
-    write1(Term, Depth, latin1).
+    write(Term, [{depth, Depth}, {encoding, latin1}]).
 
 write1(_Term, 0, _E) -> "...";
 write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
@@ -339,14 +351,14 @@ write_ref(Ref) ->
 write_map(Map, D, E) when is_integer(D) ->
     [$#,${,write_map_body(maps:to_list(Map), D, E),$}].
 
-write_map_body(_, 0, _E) -> "...";
+write_map_body(_, 1, _E) -> "...";
 write_map_body([], _, _E) -> [];
 write_map_body([{K,V}], D, E) -> write_map_assoc(K, V, D, E);
 write_map_body([{K,V}|KVs], D, E) ->
     [write_map_assoc(K, V, D, E),$, | write_map_body(KVs, D-1, E)].
 
 write_map_assoc(K, V, D, E) ->
-    [write1(K, D - 1, E),"=>",write1(V, D-1, E)].
+    [write1(K, D - 1, E)," => ",write1(V, D-1, E)].
 
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].

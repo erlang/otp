@@ -26,6 +26,9 @@
 
 -export([print/1,print/2,print/3,print/4,print/5,print/6]).
 
+%% To be used by io_lib only.
+-export([intermediate/6, write/1]).
+
 %%%
 %%% Exported functions
 %%%
@@ -573,10 +576,10 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
                    end,
             {[$<,$<,S|"/utf8...>>"], 12 + length(S), 3, More};
         false when byte_size(Bin) < D ->
-            S = io_lib:write(Bin, D),
+            S = io_lib:write_binary(Bin, D),
             {{bin, S}, iolist_size(S), 0, no_more};
         false ->
-            S = io_lib:write(Bin, D),
+            S = io_lib:write_binary(Bin, D),
             More = fun(T1, Dd) ->
                            ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
                    end,
