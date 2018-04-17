@@ -589,7 +589,7 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
     PF = fun(Term, I1) -> pp(Term, I1, RT) end,
     SF = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     Enc = encoding(),
-    Str = lib:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
+    Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
     io:requests([{put_chars, latin1, Tag},
                  {put_chars, unicode, Str},
                  nl]).

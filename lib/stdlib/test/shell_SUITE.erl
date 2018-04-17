@@ -2780,7 +2780,7 @@ otp_10302(Config) when is_list(Config) ->
     rpc:call(Node,shell, prompt_func, [default]),
     _ = shell:prompt_func(default),
 
-    %% Test lib:format_exception() (cf. OTP-6554)
+    %% Test erl_error:format_exception() (cf. OTP-6554)
     Test6 =
         <<"begin
                A = <<\"\\xaa\">>,

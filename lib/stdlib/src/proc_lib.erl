@@ -841,8 +841,8 @@ format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     %% EI = "    exception: ",
     EI = "    ",
-    [EI, lib:format_exception(1+length(EI), Class, Reason,
-                              StackTrace, StackFun, PF, Enc), "\n"].
+    [EI, erl_error:format_exception(1+length(EI), Class, Reason,
+                                    StackTrace, StackFun, PF, Enc), "\n"].
 
 to_string(A, latin1) ->
     io_lib:write_atom_as_latin1(A);

@@ -71,7 +71,6 @@ XML_REF3_FILES = \
 	gen_statem.xml \
 	io.xml \
 	io_lib.xml \
-	lib.xml \
 	lists.xml \
 	log_mf_h.xml \
 	maps.xml \

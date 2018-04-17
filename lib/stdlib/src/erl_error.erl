@@ -17,7 +17,7 @@
 %% 
 %% %CopyrightEnd%
 %%
--module(lib).
+-module(erl_error).
 
 -export([format_exception/6, format_exception/7,
          format_stacktrace/4, format_stacktrace/5,
