@@ -682,7 +682,7 @@ parse_string(Str) ->
 		     {error, {_SLine, SMod, SError}, _} ->
 			 throw(io_lib:format("~ts", [SMod:format_error(SError)]))
 		 end,
-	case lib:extended_parse_term(Tokens) of
+	case erl_eval:extended_parse_term(Tokens) of
 	    {error, {_PLine, PMod, PError}} ->
 		throw(io_lib:format("~ts", [PMod:format_error(PError)]));
 	    Res -> Res

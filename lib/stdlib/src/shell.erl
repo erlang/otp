@@ -230,7 +230,7 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
     case Res of 
 	{ok,Es0,XBs} ->
-            Es1 = lib:subst_values_for_vars(Es0, XBs),
+            Es1 = erl_eval:subst_values_for_vars(Es0, XBs),
             case expand_hist(Es1, N) of
                 {ok,Es} ->
                     {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
@@ -280,7 +280,7 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
                       io:scan_erl_exprs(group_leader(), Prompt, 1, [text])
                   of
                       {ok,Toks,_EndPos} ->
-                          lib:extended_parse_exprs(Toks);
+                          erl_eval:extended_parse_exprs(Toks);
                       {eof,_EndPos} ->
                           eof;
                       {error,ErrorInfo,_EndPos} ->

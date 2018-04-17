@@ -638,7 +638,7 @@ string_to_handle(Str, Options, Bindings) when is_list(Str) ->
             case erl_scan:string(Str, 1, [text]) of
                 {ok, Tokens, _} ->
                     ScanRes =
-                        case lib:extended_parse_exprs(Tokens) of
+                        case erl_eval:extended_parse_exprs(Tokens) of
                             {ok, [Expr0], SBs} ->
                                 {ok, Expr0, SBs};
                             {ok, _ExprList, _SBs} ->
@@ -1196,8 +1196,8 @@ abstract1({table, TableDesc}, _NElements, _Depth, _A) ->
             {ok, Tokens, _} =
                 erl_scan:string(lists:flatten(TableDesc++"."), 1, [text]),
             {ok, Es, Bs} =
-                lib:extended_parse_exprs(Tokens),
-            [Expr] = lib:subst_values_for_vars(Es, Bs),
+                erl_eval:extended_parse_exprs(Tokens),
+            [Expr] = erl_eval:subst_values_for_vars(Es, Bs),
             special(Expr);
         false -> % abstract expression
             TableDesc

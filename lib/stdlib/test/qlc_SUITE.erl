@@ -7468,7 +7468,7 @@ strip_qlc_call(H) ->
 strip_qlc_call2(H) ->
     S = qlc:info(H, {flat, false}),
     {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
-    {ok, [Expr], Bs} = lib:extended_parse_exprs(Tokens),
+    {ok, [Expr], Bs} = erl_eval:extended_parse_exprs(Tokens),
     {case Expr of
          {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
              {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
@@ -7489,7 +7489,7 @@ strip_qlc_call2(H) ->
 join_info_count(H) ->
     S = qlc:info(H, {flat, false}),    
     {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
-    {ok, [Expr], _Bs} = lib:extended_parse_exprs(Tokens),
+    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
     #ji{nmerge = Nmerge, nlookup = Nlookup, 
         nkeysort = NKeysort, nnested_loop = Nnested_loop} = 
         ji(Expr, #ji{}),
@@ -7533,7 +7533,7 @@ lookup_keys({generate,_,Q}, L) ->
     lookup_keys(Q, L);
 lookup_keys({table,Chars}, L) when is_list(Chars) ->
     {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++"."), 1, [text]),
-    {ok, [Expr], _Bs} = lib:extended_parse_exprs(Tokens),
+    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
     case Expr of
         {call,_,_,[_fun,AKs]} ->
             case erl_parse:normalise(AKs) of
