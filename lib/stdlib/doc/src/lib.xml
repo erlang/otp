@@ -49,14 +49,6 @@
     </func>
 
     <func>
-      <name name="flush_receive" arity="0"/>
-      <fsummary>Flush messages.</fsummary>
-      <desc>
-        <p>Flushes the message buffer of the current process.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="progname" arity="0"/>
       <fsummary>Return name of Erlang start script.</fsummary>
       <desc>
