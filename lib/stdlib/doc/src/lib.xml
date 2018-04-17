@@ -39,16 +39,6 @@
 
   <funcs>
     <func>
-      <name name="error_message" arity="2"/>
-      <fsummary>Print error message.</fsummary>
-      <desc>
-        <p>Prints error message <c><anno>Args</anno></c> in accordance with
-          <c><anno>Format</anno></c>. Similar to
-          <seealso marker="io#format/1"><c>io:format/2</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="progname" arity="0"/>
       <fsummary>Return name of Erlang start script.</fsummary>
       <desc>

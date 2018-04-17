@@ -19,7 +19,7 @@
 %%
 -module(lib).
 
--export([error_message/2, progname/0, eval_str/1]).
+-export([progname/0, eval_str/1]).
 
 -export([extended_parse_exprs/1, extended_parse_term/1,
          subst_values_for_vars/2]).
@@ -27,16 +27,6 @@
 -export([format_exception/6, format_exception/7,
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
-
-%%
-%% Functions for doing standard system format i/o.
-%%
--spec error_message(Format, Args) -> 'ok' when
-      Format :: io:format(),
-      Args :: [term()].
-
-error_message(Format, Args) ->
-    io:format(<<"** ~ts **\n">>, [io_lib:format(Format, Args)]).
 
 %% Return the name of the script that starts (this) erlang 
 %%
