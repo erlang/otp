@@ -33,7 +33,7 @@
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1]).
 
--export([pretty/2]).
+-export([pretty/2, trf/3]).
 
 %%-define(debug, true).
 
@@ -2491,77 +2491,127 @@ pp(Term, Depth) ->
     lists:flatten(io_lib:format("~P", [Term, Depth])).
 
 otp_14983(_Config) ->
-    trunc_depth(-1),
-    trunc_depth(10),
+    trunc_depth(-1, fun trp/3),
+    trunc_depth(10, fun trp/3),
+    trunc_depth(-1, fun trw/3),
+    trunc_depth(10, fun trw/3),
     trunc_depth_p(-1),
     trunc_depth_p(10),
+    trunc_string(),
     ok.
 
-trunc_depth(D) ->
-    "..." = trp("", D, 0),
-    "[]" = trp("", D, 1),
+trunc_string() ->
+    "str " = trf("str ", [], 10),
+    "str ..." = trf("str ~s", ["str"], 6),
+    "str str" = trf("str ~s", ["str"], 7),
+    "str ..." = trf("str ~8s", ["str"], 6),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
+					 [{args, " +pc unicode -pa " ++ Pa}]),
+    U = "кирилли́ческий атом",
+    UFun = fun(Format, Args, CharsLimit) ->
+                   rpc:call(UNode,
+                            ?MODULE, trf, [Format, Args, CharsLimit])
+           end,
+    "str кир" = UFun("str ~3ts", [U], 7),
+    "str ..." = UFun("str ~3ts", [U], 6),
+    "str ..." = UFun("str ~30ts", [U], 6),
+    "str кир..." = UFun("str ~30ts", [U], 10),
+    "str кирилл..." = UFun("str ~30ts", [U], 13),
+    "str кирилли́..." = UFun("str ~30ts", [U], 14),
+    "str кирилли́ч..." = UFun("str ~30ts", [U], 15),
+    "\"кирилли́ческ\"..." = UFun("~tp", [U], 13),
+    BU = <<"кирилли́ческий атом"/utf8>>,
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 20),
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 21),
+    "<<\"кирилли́ческ\"/utf8...>>" = UFun("~tp", [BU], 22),
+    test_server:stop_node(UNode).
 
-    "#{}" = trp(#{}, D, 1),
-    "#{a => 1}" = trp(#{a => 1}, D, 7),
-    "#{...}" = trp(#{a => 1}, D, 5),
-    "#{a => 1}" = trp(#{a => 1}, D, 6),
+trunc_depth(D, Fun) ->
+    "..." = Fun("", D, 0),
+    "[]" = Fun("", D, 1),
+
+    "#{}" = Fun(#{}, D, 1),
+    "#{a => 1}" = Fun(#{a => 1}, D, 7),
+    "#{...}" = Fun(#{a => 1}, D, 5),
+    "#{a => 1}" = Fun(#{a => 1}, D, 6),
     A = lists:seq(1, 1000),
     M = #{A => A, {A,A} => {A,A}},
-    "#{...}" = trp(M, D, 6),
-    "#{{...} => {...},...}" = trp(M, D, 7),
-    "#{{[...],...} => {[...],...},...}" = trp(M, D, 22),
-    "#{{[...],...} => {[...],...},[...] => [...]}" = trp(M, D, 31),
-    "#{{[...],...} => {[...],...},[...] => [...]}" = trp(M, D, 33),
+    "#{...}" = Fun(M, D, 6),
+    "#{{...} => {...},...}" = Fun(M, D, 7),
+    "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
     "#{{[1|...],[...]} => {[1|...],[...]},[1|...] => [...]}" =
-        trp(M, D, 50),
+        Fun(M, D, 50),
 
-    "..." = trp({c, 1, 2}, D, 0),
-    "{...}" = trp({c, 1, 2}, D, 1),
+    "..." = Fun({c, 1, 2}, D, 0),
+    "{...}" = Fun({c, 1, 2}, D, 1),
+
+    "..." = Fun({}, D, 0),
+    "{}" = Fun({}, D, 1),
+    T = {A, A, A},
+    "{...}" = Fun(T, D, 5),
+    "{[...],...}" = Fun(T, D, 6),
+    "{[1|...],[...],...}" = Fun(T, D, 12),
+    "{[1,2|...],[1|...],...}" = Fun(T, D, 20),
+    "{[1,2|...],[1|...],[...]}" = Fun(T, D, 21),
+    "{[1,2,3|...],[1,2|...],[1|...]}" = Fun(T, D, 28),
+
+    "{[1],[1,2|...]}" = Fun({[1],[1,2,3,4]}, D, 14).
+
+trunc_depth_p(D) ->
+    UOpts = [{record_print_fun, fun rfd/2},
+             {encoding, unicode}],
+    LOpts = [{record_print_fun, fun rfd/2},
+             {encoding, latin1}],
+    trunc_depth_p(D, UOpts),
+    trunc_depth_p(D, LOpts).
+
+trunc_depth_p(D, Opts) ->
+    "[...]" = trp("abcdefg", D, 4, Opts),
+    "\"abc\"..." = trp("abcdefg", D, 5, Opts),
+    "\"abcdef\"..." = trp("abcdefg", D, 8, Opts),
+    "\"abcdefg\"" = trp("abcdefg", D, 9, Opts),
+    "\"abcdefghijkl\"" = trp("abcdefghijkl", D, -1, Opts),
+    AZ = lists:seq($A, $Z),
+    AZb = list_to_binary(AZ),
+    AZbS = "<<\"" ++ AZ ++ "\">>",
+    AZbS = trp(AZb, D, -1),
+    "<<\"ABCDEFGH\"...>>" = trp(AZb, D, 17, Opts), % 4 chars even if D = -1...
+    "<<\"ABCDEFGHIJKL\"...>>" = trp(AZb, D, 18, Opts),
+    B1 = <<"abcdef",0:8>>,
+    "<<\"ab\"...>>" = trp(B1, D, 8, Opts),
+    "<<\"abcdef\"...>>" = trp(B1, D, 14, Opts),
+    "<<97,98,99,100,...>>" = trp(B1, D, 16, Opts),
+    "<<97,98,99,100,101,102,0>>" = trp(B1, D, -1, Opts),
+    B2 = <<AZb/binary,0:8>>,
+    "<<\"AB\"...>>" = trp(B2, D, 8, Opts),
+    "<<\"ABCDEFGH\"...>>" = trp(B2, D, 14, Opts),
+    "<<65,66,67,68,69,70,71,72,0>>" = trp(<<"ABCDEFGH",0:8>>, D, -1, Opts),
+    "<<97,0,107,108,...>>" = trp(<<"a",0:8,"kllkjlksdjfsj">>, D, 20, Opts),
+
+    A = lists:seq(1, 1000),
     "#c{...}" = trp({c, 1, 2}, D, 6),
     "#c{...}" = trp({c, 1, 2}, D, 7),
     "#c{f1 = [...],...}" = trp({c, A, A}, D, 18),
     "#c{f1 = [1|...],f2 = [...]}" = trp({c, A, A}, D, 19),
     "#c{f1 = [1,2|...],f2 = [1|...]}" = trp({c, A, A}, D, 31),
-    "#c{f1 = [1,2,3|...],f2 = [1,2|...]}" = trp({c, A, A}, D, 32),
-
-    "..." = trp({}, D, 0),
-    "{}" = trp({}, D, 1),
-    T = {A, A, A},
-    "{...}" = trp(T, D, 5),
-    "{[...],...}" = trp(T, D, 6),
-    "{[1|...],[...],...}" = trp(T, D, 12),
-    "{[1,2|...],[1|...],...}" = trp(T, D, 20),
-    "{[1,2|...],[1|...],[...]}" = trp(T, D, 21),
-    "{[1,2,3|...],[1,2|...],[1|...]}" = trp(T, D, 28),
-
-    "{[1],[1,2|...]}" = trp({[1],[1,2,3,4]}, D, 14).
-
-trunc_depth_p(D) ->
-    "[...]" = trp("abcdefg", D, 4),
-    "\"abc\"..." = trp("abcdefg", D, 5),
-    "\"abcdef\"..." = trp("abcdefg", D, 8),
-    "\"abcdefg\"" = trp("abcdefg", D, 9),
-    "\"abcdefghijkl\"" = trp("abcdefghijkl", D, -1),
-    AZ = lists:seq($A, $Z),
-    AZb = list_to_binary(AZ),
-    AZbS = "<<\"" ++ AZ ++ "\">>",
-    AZbS = trp(AZb, D, -1),
-    "<<\"ABCDEFGH\"...>>" = trp(AZb, D, 17), % 4 chars even if D = -1...
-    "<<\"ABCDEFGHIJKL\"...>>" = trp(AZb, D, 18),
-    B1 = <<"abcdef",0:8>>,
-    "<<\"ab\"...>>" = trp(B1, D, 8),
-    "<<\"abcdef\"...>>" = trp(B1, D, 14),
-    "<<97,98,99,100,101,102,0>>" = trp(B1, D, -1),
-    B2 = <<AZb/binary,0:8>>,
-    "<<\"AB\"...>>" = trp(B2, D, 8),
-    "<<\"ABCDEFGH\"...>>" = trp(B2, D, 14),
-    "<<65,66,67,68,69,70,71,72,0>>" = trp(<<"ABCDEFGH",0:8>>, D, -1).
+    "#c{f1 = [1,2,3|...],f2 = [1,2|...]}" = trp({c, A, A}, D, 32).
 
 trp(Term, D, T) ->
-    trp(Term, D, T, fun rfd/2).
+    trp(Term, D, T, [{record_print_fun, fun rfd/2}]).
 
-trp(Term, D, T, RF) ->
+trp(Term, D, T, Opts) ->
     R = io_lib_pretty:print(Term, [{depth, D},
-                                   {record_print_fun, RF},
-                                   {chars_limit, T}]),
+                                   {chars_limit, T}|Opts]),
     lists:flatten(io_lib:format("~s", [R])).
+
+trw(Term, D, T) ->
+    lists:flatten(io_lib:format("~W", [Term, D], [{chars_limit, T}])).
+
+trf(Format, Args, T) ->
+    trf(Format, Args, T, [{record_print_fun, fun rfd/2}]).
+
+trf(Format, Args, T, Opts) ->
+    lists:flatten(io_lib:format(Format, Args, [{chars_limit, T}|Opts])).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 %% Formatting functions of io library.
 
--export([fwrite/2,fwrite_g/1,indentation/2,scan/2,unscan/1,build/1]).
+-export([fwrite/2,fwrite/3,fwrite_g/1,indentation/2,scan/2,unscan/1,
+         build/1, build/2]).
 
 %%  Format the arguments in Args after string Format. Just generate
 %%  an error if there is an error in the arguments.
@@ -45,14 +46,42 @@
 fwrite(Format, Args) ->
     build(scan(Format, Args)).
 
+-spec fwrite(Format, Data, Options) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char() | io_lib:format_spec()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: io_lib:chars_limit().
+
+fwrite(Format, Args, Options) ->
+    build(scan(Format, Args), Options).
+
 %% Build the output text for a pre-parsed format list.
 
 -spec build(FormatList) -> io_lib:chars() when
       FormatList :: [char() | io_lib:format_spec()].
 
 build(Cs) ->
-    Pc = pcount(Cs),
-    build(Cs, Pc, 0).
+    build(Cs, []).
+
+-spec build(FormatList, Options) -> io_lib:chars() when
+      FormatList :: [char() | io_lib:format_spec()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: io_lib:chars_limit().
+
+build(Cs, Options) ->
+    CharsLimit = get_option(chars_limit, Options, -1),
+    Res1 = build_small(Cs),
+    {P, S, W, Other} = count_small(Res1),
+    case P + S + W of
+        0 ->
+            Res1;
+        NumOfLimited ->
+            RemainingChars = sub(CharsLimit, Other),
+            build_limited(Res1, P, NumOfLimited, RemainingChars, 0)
+    end.
 
 %% Parse all control sequences in the format string.
 
@@ -202,39 +231,76 @@ collect_cc([$~|Fmt], Args) when is_list(Args) -> {$~,[],Fmt,Args};
 collect_cc([$n|Fmt], Args) when is_list(Args) -> {$n,[],Fmt,Args};
 collect_cc([$i|Fmt], [A|Args]) -> {$i,[A],Fmt,Args}.
 
-%% pcount([ControlC]) -> Count.
-%%  Count the number of print requests.
+%% count_small([ControlC]) -> Count.
+%%  Count the number of big (pPwWsS) print requests and
+%%  number of characters of other print (small) requests.
 
-pcount(Cs) -> pcount(Cs, 0).
+count_small(Cs) ->
+    count_small(Cs, #{p => 0, s => 0, w => 0, other => 0}).
 
-pcount([#{control_char := $p}|Cs], Acc) -> pcount(Cs, Acc+1);
-pcount([#{control_char := $P}|Cs], Acc) -> pcount(Cs, Acc+1);
-pcount([_|Cs], Acc) -> pcount(Cs, Acc);
-pcount([], Acc) -> Acc.
+count_small([#{control_char := $p}|Cs], #{p := P} = Cnts) ->
+    count_small(Cs, Cnts#{p := P + 1});
+count_small([#{control_char := $P}|Cs], #{p := P} = Cnts) ->
+    count_small(Cs, Cnts#{p := P + 1});
+count_small([#{control_char := $w}|Cs], #{w := W} = Cnts) ->
+    count_small(Cs, Cnts#{w := W + 1});
+count_small([#{control_char := $W}|Cs], #{w := W} = Cnts) ->
+    count_small(Cs, Cnts#{w := W + 1});
+count_small([#{control_char := $s}|Cs], #{w := W} = Cnts) ->
+    count_small(Cs, Cnts#{w := W + 1});
+count_small([S|Cs], #{other := Other} = Cnts) when is_list(S) ->
+    count_small(Cs, Cnts#{other := Other + string:length(S)});
+count_small([C|Cs], #{other := Other} = Cnts) when is_integer(C) ->
+    count_small(Cs, Cnts#{other := Other + 1});
+count_small([], #{p := P, s := S, w := W, other := Other}) ->
+    {P, S, W, Other}.
 
-%% build([Control], Pc, Indentation) -> io_lib:chars().
+%% build_small([Control]) -> io_lib:chars().
+%%  Interpret the control structures, but only the small ones.
+%%  The big ones are saved for later.
+%% build_limited([Control], NumberOfPps, NumberOfLimited,
+%%               CharsLimit, Indentation)
 %%  Interpret the control structures. Count the number of print
 %%  remaining and only calculate indentation when necessary. Must also
 %%  be smart when calculating indentation for characters in format.
 
-build([#{control_char := C, args := As, width := F, adjust := Ad,
-         precision := P, pad_char := Pad, encoding := Enc,
-         strings := Str} | Cs], Pc0, I) ->
-    S = control(C, As, F, Ad, P, Pad, Enc, Str, I),
-    Pc1 = decr_pc(C, Pc0),
-    if
-	Pc1 > 0 -> [S|build(Cs, Pc1, indentation(S, I))];
-	true -> [S|build(Cs, Pc1, I)]
+build_small([#{control_char := C, args := As, width := F, adjust := Ad,
+               precision := P, pad_char := Pad, encoding := Enc}=CC | Cs]) ->
+    case control_small(C, As, F, Ad, P, Pad, Enc) of
+        not_small -> [CC | build_small(Cs)];
+        S -> lists:flatten(S) ++ build_small(Cs)
     end;
-build([$\n|Cs], Pc, _I) -> [$\n|build(Cs, Pc, 0)];
-build([$\t|Cs], Pc, I) -> [$\t|build(Cs, Pc, ((I + 8) div 8) * 8)];
-build([C|Cs], Pc, I) -> [C|build(Cs, Pc, I+1)];
-build([], _Pc, _I) -> [].
+build_small([C|Cs]) -> [C|build_small(Cs)];
+build_small([]) -> [].
+
+build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
+                 precision := P, pad_char := Pad, encoding := Enc,
+                 strings := Str} | Cs], NumOfPs0, Count0, MaxLen0, I) ->
+    MaxChars = if
+                   MaxLen0 < 0 -> MaxLen0;
+                   true -> MaxLen0 div Count0
+               end,
+    S = control_limited(C, As, F, Ad, P, Pad, Enc, Str, MaxChars, I),
+    Len = string:length(S),
+    NumOfPs = decr_pc(C, NumOfPs0),
+    Count = Count0 - 1,
+    MaxLen = sub(MaxLen0, Len),
+    if
+	NumOfPs > 0 -> [S|build_limited(Cs, NumOfPs, Count,
+                                        MaxLen, indentation(S, I))];
+	true -> [S|build_limited(Cs, NumOfPs, Count, MaxLen, I)]
+    end;
+build_limited([$\n|Cs], NumOfPs, Count, MaxLen, _I) ->
+    [$\n|build_limited(Cs, NumOfPs, Count, MaxLen, 0)];
+build_limited([$\t|Cs], NumOfPs, Count, MaxLen, I) ->
+    [$\t|build_limited(Cs, NumOfPs, Count, MaxLen, ((I + 8) div 8) * 8)];
+build_limited([C|Cs], NumOfPs, Count, MaxLen, I) ->
+    [C|build_limited(Cs, NumOfPs, Count, MaxLen, I+1)];
+build_limited([], _, _, _, _) -> [].
 
 decr_pc($p, Pc) -> Pc - 1;
 decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
-
 
 %%  Calculate the indentation of the end of a string given its start
 %%  indentation. We assume tabs at 8 cols.
@@ -251,67 +317,74 @@ indentation([C|Cs], I) ->
     indentation(Cs, indentation(C, I));
 indentation([], I) -> I.
 
-%% control(FormatChar, [Argument], FieldWidth, Adjust, Precision, PadChar,
-%%	   Encoding, Indentation) -> String
-%%  This is the main dispatch function for the various formatting commands.
-%%  Field widths and precisions have already been calculated.
+%% control_small(FormatChar, [Argument], FieldWidth, Adjust, Precision,
+%%               PadChar, Encoding) -> String
+%% control_limited(FormatChar, [Argument], FieldWidth, Adjust, Precision,
+%%                 PadChar, Encoding, StringP, ChrsLim, Indentation) -> String
+%%  These are the dispatch functions for the various formatting controls.
 
-control($w, [A], F, Adj, P, Pad, Enc, _Str, _I) ->
-    term(io_lib:write(A, [{depth,-1}, {encoding, Enc}]), F, Adj, P, Pad);
-control($p, [A], F, Adj, P, Pad, Enc, Str, I) ->
-    print(A, -1, F, Adj, P, Pad, Enc, Str, I);
-control($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, _I) when is_integer(Depth) ->
-    term(io_lib:write(A, [{depth,Depth}, {encoding, Enc}]), F, Adj, P, Pad);
-control($P, [A,Depth], F, Adj, P, Pad, Enc, Str, I) when is_integer(Depth) ->
-    print(A, Depth, F, Adj, P, Pad, Enc, Str, I);
-control($s, [A], F, Adj, P, Pad, latin1, _Str, _I) when is_atom(A) ->
+control_small($s, [A], F, Adj, P, Pad, latin1) when is_atom(A) ->
     L = iolist_to_chars(atom_to_list(A)),
     string(L, F, Adj, P, Pad);
-control($s, [A], F, Adj, P, Pad, unicode, _Str, _I) when is_atom(A) ->
+control_small($s, [A], F, Adj, P, Pad, unicode) when is_atom(A) ->
     string(atom_to_list(A), F, Adj, P, Pad);
-control($s, [L0], F, Adj, P, Pad, latin1, _Str, _I) ->
-    L = iolist_to_chars(L0),
-    string(L, F, Adj, P, Pad);
-control($s, [L0], F, Adj, P, Pad, unicode, _Str, _I) ->
-    L = cdata_to_chars(L0),
-    uniconv(string(L, F, Adj, P, Pad));
-control($e, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_float(A) ->
+control_small($e, [A], F, Adj, P, Pad, _Enc) when is_float(A) ->
     fwrite_e(A, F, Adj, P, Pad);
-control($f, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_float(A) ->
+control_small($f, [A], F, Adj, P, Pad, _Enc) when is_float(A) ->
     fwrite_f(A, F, Adj, P, Pad);
-control($g, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_float(A) ->
+control_small($g, [A], F, Adj, P, Pad, _Enc) when is_float(A) ->
     fwrite_g(A, F, Adj, P, Pad);
-control($b, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($b, [A], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     unprefixed_integer(A, F, Adj, base(P), Pad, true);
-control($B, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($B, [A], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     unprefixed_integer(A, F, Adj, base(P), Pad, false);
-control($x, [A,Prefix], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A),
-                                                 is_atom(Prefix) ->
+control_small($x, [A,Prefix], F, Adj, P, Pad, _Enc) when is_integer(A),
+                                                         is_atom(Prefix) ->
     prefixed_integer(A, F, Adj, base(P), Pad, atom_to_list(Prefix), true);
-control($x, [A,Prefix], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($x, [A,Prefix], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     true = io_lib:deep_char_list(Prefix), %Check if Prefix a character list
     prefixed_integer(A, F, Adj, base(P), Pad, Prefix, true);
-control($X, [A,Prefix], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A),
-                                                 is_atom(Prefix) ->
+control_small($X, [A,Prefix], F, Adj, P, Pad, _Enc) when is_integer(A),
+                                                         is_atom(Prefix) ->
     prefixed_integer(A, F, Adj, base(P), Pad, atom_to_list(Prefix), false);
-control($X, [A,Prefix], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($X, [A,Prefix], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     true = io_lib:deep_char_list(Prefix), %Check if Prefix a character list
     prefixed_integer(A, F, Adj, base(P), Pad, Prefix, false);
-control($+, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($+, [A], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     Base = base(P),
     Prefix = [integer_to_list(Base), $#],
     prefixed_integer(A, F, Adj, Base, Pad, Prefix, true);
-control($#, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($#, [A], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     Base = base(P),
     Prefix = [integer_to_list(Base), $#],
     prefixed_integer(A, F, Adj, Base, Pad, Prefix, false);
-control($c, [A], F, Adj, P, Pad, unicode, _Str, _I) when is_integer(A) ->
+control_small($c, [A], F, Adj, P, Pad, unicode) when is_integer(A) ->
     char(A, F, Adj, P, Pad);
-control($c, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(A) ->
+control_small($c, [A], F, Adj, P, Pad, _Enc) when is_integer(A) ->
     char(A band 255, F, Adj, P, Pad);
-control($~, [], F, Adj, P, Pad, _Enc, _Str, _I) -> char($~, F, Adj, P, Pad);
-control($n, [], F, Adj, P, Pad, _Enc, _Str, _I) -> newline(F, Adj, P, Pad);
-control($i, [_A], _F, _Adj, _P, _Pad, _Enc, _Str, _I) -> [].
+control_small($~, [], F, Adj, P, Pad, _Enc) -> char($~, F, Adj, P, Pad);
+control_small($n, [], F, Adj, P, Pad, _Enc) -> newline(F, Adj, P, Pad);
+control_small($i, [_A], _F, _Adj, _P, _Pad, _Enc) -> [];
+control_small(_C, _As, _F, _Adj, _P, _Pad, _Enc) -> not_small.
+
+control_limited($s, [L0], F, Adj, P, Pad, latin1, _Str, CL, _I) ->
+    L = iolist_to_chars(L0),
+    string(limit_string(L, F, CL), limit_field(F, CL), Adj, P, Pad);
+control_limited($s, [L0], F, Adj, P, Pad, unicode, _Str, CL, _I) ->
+    L = cdata_to_chars(L0),
+    uniconv(string(limit_string(L, F, CL), limit_field(F, CL), Adj, P, Pad));
+control_limited($w, [A], F, Adj, P, Pad, Enc, _Str, CL, _I) ->
+    Chars = io_lib:write(A, [{depth, -1}, {encoding, Enc}, {chars_limit, CL}]),
+    term(Chars, F, Adj, P, Pad);
+control_limited($p, [A], F, Adj, P, Pad, Enc, Str, CL, I) ->
+    print(A, -1, F, Adj, P, Pad, Enc, Str, CL, I);
+control_limited($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, CL, _I)
+           when is_integer(Depth) ->
+    Chars = io_lib:write(A, [{depth, Depth}, {encoding, Enc}, {chars_limit, CL}]),
+    term(Chars, F, Adj, P, Pad);
+control_limited($P, [A,Depth], F, Adj, P, Pad, Enc, Str, CL, I)
+           when is_integer(Depth) ->
+    print(A, Depth, F, Adj, P, Pad, Enc, Str, CL, I).
 
 -ifdef(UNICODE_AS_BINARIES).
 uniconv(C) ->
@@ -348,12 +421,13 @@ term(T, F, Adj, P0, Pad) ->
 %% Print a term. Field width sets maximum line length, Precision sets
 %% initial indentation.
 
-print(T, D, none, Adj, P, Pad, E, Str, I) ->
-    print(T, D, 80, Adj, P, Pad, E, Str, I);
-print(T, D, F, Adj, none, Pad, E, Str, I) ->
-    print(T, D, F, Adj, I+1, Pad, E, Str, I);
-print(T, D, F, right, P, _Pad, Enc, Str, _I) ->
-    Options = [{column, P},
+print(T, D, none, Adj, P, Pad, E, Str, ChLim, I) ->
+    print(T, D, 80, Adj, P, Pad, E, Str, ChLim, I);
+print(T, D, F, Adj, none, Pad, E, Str, ChLim, I) ->
+    print(T, D, F, Adj, I+1, Pad, E, Str, ChLim, I);
+print(T, D, F, right, P, _Pad, Enc, Str, ChLim, _I) ->
+    Options = [{chars_limit, ChLim},
+               {column, P},
                {line_length, F},
                {depth, D},
                {encoding, Enc},
@@ -670,6 +744,18 @@ cdata_to_chars(B) when is_binary(B) ->
         _ -> binary_to_list(B)
     end.
 
+limit_string(S, F, CharsLimit) when CharsLimit < 0; CharsLimit >= F -> S;
+limit_string(S, _F, CharsLimit) ->
+    case string:length(S) =< CharsLimit of
+        true -> S;
+        false -> [string:slice(S, 0, sub(CharsLimit, 3)), "..."]
+    end.
+
+limit_field(F, CharsLimit) when CharsLimit < 0; F =:= none ->
+    F;
+limit_field(F, CharsLimit) ->
+    max(3, min(F, CharsLimit)).
+
 %% string(String, Field, Adjust, Precision, PadChar)
 
 string(S, none, _Adj, none, _Pad) -> S;
@@ -783,3 +869,15 @@ lowercase([H|T]) ->
     [H|lowercase(T)];
 lowercase([]) ->
     [].
+
+%% Make sure T does change sign.
+sub(T, _) when T < 0 -> T;
+sub(T, E) when T >= E -> T - E;
+sub(_, _) -> 0.
+
+get_option(Key, TupleList, Default) ->
+    case lists:keyfind(Key, 1, TupleList) of
+	false -> Default;
+	{Key, Value} -> Value;
+	_ -> Default
+    end.

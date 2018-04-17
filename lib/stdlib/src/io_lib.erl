@@ -60,12 +60,12 @@
 
 -module(io_lib).
 
--export([fwrite/2,fread/2,fread/3,format/2]).
--export([scan_format/2,unscan_format/1,build_text/1]).
+-export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
+-export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
--export([write_binary/2]).
+-export([write_binary/3]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
@@ -88,7 +88,7 @@
 -export([limit_term/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
-              fread_error/0, fread_item/0, format_spec/0]).
+              fread_error/0, fread_item/0, format_spec/0, chars_limit/0]).
 
 %%----------------------------------------------------------------------
 
@@ -136,6 +136,18 @@
 fwrite(Format, Args) ->
     format(Format, Args).
 
+-type chars_limit() :: integer().
+
+-spec fwrite(Format, Data, Options) -> chars() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+fwrite(Format, Args, Options) ->
+    format(Format, Args, Options).
+
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
@@ -173,6 +185,21 @@ format(Format, Args) ->
 	    Other
     end.
 
+-spec format(Format, Data, Options) -> chars() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+format(Format, Args, Options) ->
+    case catch io_lib_format:fwrite(Format, Args, Options) of
+	{'EXIT',_} ->
+	    erlang:error(badarg, [Format, Args, Options]);
+	Other ->
+	    Other
+    end.
+
 -spec scan_format(Format, Data) -> FormatList when
       Format :: io:format(),
       Data :: [term()],
@@ -197,6 +224,15 @@ unscan_format(FormatList) ->
 
 build_text(FormatList) ->
     io_lib_format:build(FormatList).
+
+-spec build_text(FormatList, Options) -> chars() when
+      FormatList :: [char() | format_spec()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+build_text(FormatList, Options) ->
+    io_lib_format:build(FormatList, Options).
 
 -spec print(Term) -> chars() when
       Term :: term().
@@ -276,22 +312,25 @@ write(Term, D, false) ->
            (Term, Options) -> chars() when
       Term :: term(),
       Options :: [Option],
-      Option :: {'depth', Depth}
+      Option :: {'chars_limit', CharsLimit}
+              | {'depth', Depth}
               | {'encoding', 'latin1' | 'utf8' | 'unicode'},
+      CharsLimit :: chars_limit(),
       Depth :: depth().
 
 write(Term, Options) when is_list(Options) ->
     Depth = get_option(depth, Options, -1),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
     CharsLimit = get_option(chars_limit, Options, -1),
-    RecDefFun = no_fun,
-    case Depth of
-        0 -> "...";
-        _ when CharsLimit < 0 ->
+    if
+        Depth =:= 0; CharsLimit =:= 0 ->
+            "...";
+        CharsLimit < 0 ->
             write1(Term, Depth, Encoding);
-        _ when CharsLimit >= 0 ->
+        CharsLimit > 0 ->
+            RecDefFun = fun(_, _) -> no end,
             If = io_lib_pretty:intermediate
-                   (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
+                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
             io_lib_pretty:write(If)
     end;
 write(Term, Depth) ->
@@ -361,20 +400,31 @@ write_map_assoc(K, V, D, E) ->
     [write1(K, D - 1, E)," => ",write1(V, D-1, E)].
 
 write_binary(B, D) when is_integer(D) ->
-    [$<,$<,write_binary_body(B, D),$>,$>].
+    {S, _} = write_binary(B, D, -1),
+    S.
 
-write_binary_body(<<>>, _D) ->
-    "";
-write_binary_body(_B, 1) ->
-    "...";
-write_binary_body(<<X:8>>, _D) ->
-    [integer_to_list(X)];
-write_binary_body(<<X:8,Rest/bitstring>>, D) ->
-    [integer_to_list(X),$,|write_binary_body(Rest, D-1)];
-write_binary_body(B, _D) ->
+write_binary(B, D, T) ->
+    {S, Rest} = write_binary_body(B, D, tsub(T, 4), []),
+    {[$<,$<,lists:reverse(S),$>,$>], Rest}.
+
+write_binary_body(<<>> = B, _D, _T, Acc) ->
+    {Acc, B};
+write_binary_body(B, D, T, Acc) when D =:= 1; T =:= 0->
+    {["..."|Acc], B};
+write_binary_body(<<X:8>>, _D, _T, Acc) ->
+    {[integer_to_list(X)|Acc], <<>>};
+write_binary_body(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    S = integer_to_list(X),
+    write_binary_body(Rest, D-1, tsub(T, length(S) + 1), [$,,S|Acc]);
+write_binary_body(B, _D, _T, Acc) ->
     L = bit_size(B),
     <<X:L>> = B,
-    [integer_to_list(X),$:,integer_to_list(L)].
+    {[integer_to_list(L),$:,integer_to_list(X)|Acc], <<>>}.
+
+%% Make sure T does not change sign.
+tsub(T, _) when T < 0 -> T;
+tsub(T, E) when T >= E -> T - E;
+tsub(_, _) -> 0.
 
 get_option(Key, TupleList, Default) ->
     case lists:keyfind(Key, 1, TupleList) of

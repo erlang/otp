@@ -437,10 +437,10 @@ write_tail(E, S) ->
          More :: more() | 'no_more'
         }.
 
--spec intermediate(term(), depth(), chars_limit(), rec_print_fun(),
+-spec intermediate(term(), depth(), pos_integer(), rec_print_fun(),
                    encoding(), boolean()) -> intermediate_format().
 
-intermediate(Term, D, T, RF, Enc, Str) when T >= 0 ->
+intermediate(Term, D, T, RF, Enc, Str) when T > 0 ->
     D0 = 1,
     If = print_length(Term, D0, T, RF, Enc, Str),
     case If of
@@ -512,13 +512,13 @@ print_length(List, D, T, RF, Enc, Str) when is_list(List) ->
         true ->
             %% print as string, escaping double-quotes in the list
             S = write_string(List, Enc),
-            {S, length(S), 0, no_more};
+            {S, string:length(S), 0, no_more};
         {true, Prefix} ->
             %% Truncated lists when T < 0 could break some existing code.
             S = write_string(Prefix, Enc),
             %% NumOfDots = 0 to avoid looping--increasing the depth
             %% does not make Prefix longer.
-            {[S | "..."], 3 + length(S), 0, no_more};
+            {[S | "..."], 3 + string:length(S), 0, no_more};
         false ->
             case print_length_list(List, D, T, RF, Enc, Str) of
                 {What, Len, Dots, _More} when Dots > 0 ->
@@ -562,7 +562,7 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
             {[$<,$<,S,$>,$>], 4 + length(S), 0, no_more};
         {false, List} when is_list(List) ->
             S = io_lib:write_string(List, $"), %"
-            {[$<,$<,S,"/utf8>>"], 9 + length(S), 0, no_more};
+            {[$<,$<,S,"/utf8>>"], 9 + string:length(S), 0, no_more};
         {true, true, Prefix} ->
             S = io_lib:write_string(Prefix, $"), %"
             More = fun(T1, Dd) ->
@@ -574,16 +574,17 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
             More = fun(T1, Dd) ->
                            ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
                    end,
-            {[$<,$<,S|"/utf8...>>"], 12 + length(S), 3, More};
-        false when byte_size(Bin) < D ->
-            S = io_lib:write_binary(Bin, D),
-            {{bin, S}, iolist_size(S), 0, no_more};
+            {[$<,$<,S|"/utf8...>>"], 12 + string:length(S), 3, More};
         false ->
-            S = io_lib:write_binary(Bin, D),
-            More = fun(T1, Dd) ->
-                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
-                   end,
-            {{bin, S}, iolist_size(S), 3, More}
+            case io_lib:write_binary(Bin, D, T) of
+                {S, <<>>} ->
+                    {{bin, S}, iolist_size(S), 0, no_more};
+                {S, _Rest} ->
+                    More = fun(T1, Dd) ->
+                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
+                           end,
+                    {{bin, S}, iolist_size(S), 3, More}
+            end
     end;    
 print_length(Term, _D, _T, _RF, _Enc, _Str) ->
     S = io_lib:write(Term),
@@ -716,7 +717,7 @@ printable_list(_L, 1, _T, _Enc) ->
 printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
 printable_list(L, _D, T, Enc) when T >= 0 ->
-    case split(L, tsub(T, 2)) of
+    case slice(L, tsub(T, 2)) of
         {prefix, ""} ->
             false;
         {prefix, Prefix} when Enc =:= latin1 ->
@@ -732,18 +733,18 @@ printable_list(L, _D, T, Enc) when T >= 0 ->
 printable_list(L, _D, T, _Uni) when T < 0->
     io_lib:printable_list(L).
 
-split(L, N) ->
-    try lists:split(N, L) of
-        {_, []} ->
+slice(L, N) ->
+    case string:length(L) =< N of
+        true ->
             all;
-        {Prefix, _} ->
-            {prefix, Prefix}
-    catch _:_ -> all
+        false ->
+            {prefix, string:slice(L, 0, N)}
     end.
 
 printable_bin0(Bin, D, T, Enc) ->
     Len = case D >= 0 of
               true ->
+                  %% Use byte_size() also if Enc =/= latin1.
                   DChars = erlang:min(?CHARS * D, byte_size(Bin)),
                   case T >= 0 of
                       true ->
@@ -753,7 +754,7 @@ printable_bin0(Bin, D, T, Enc) ->
                   end;
               false when T < 0 ->
                   byte_size(Bin);
-              false when T >= 0 ->
+              false when T >= 0 -> % cannot happen
                   T
           end,
     printable_bin(Bin, Len, D, Enc).
