@@ -112,7 +112,8 @@ groups() ->
 		   non_disturbing_0_9,
 		   disturbing_1_1,
 		   disturbing_1_0, 
-		   disturbing_0_9
+		   disturbing_0_9,
+		   reload_config_file
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
@@ -168,6 +169,7 @@ init_per_suite(Config) ->
     ServerRoot = filename:join(PrivDir, "server_root"),
     inets_test_lib:del_dirs(ServerRoot),
     DocRoot = filename:join(ServerRoot, "htdocs"),
+    setup_tmp_dir(PrivDir),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
     {ok, Hostname0} = inet:gethostname(),
     Inet = 
@@ -1536,6 +1538,45 @@ non_disturbing(Config) when is_list(Config)->
     end,
     inets_test_lib:close(Type, Socket),
     [{server_name, "httpd_non_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
+%%-------------------------------------------------------------------------
+reload_config_file(Config) when is_list(Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    HttpdConf = filename:join(get_tmp_dir(Config), "inets_httpd_server.conf"),
+    ServerConfig =
+        "[\n" ++
+        "{bind_address, \"localhost\"}," ++
+        "{port,0}," ++
+        "{server_name,\"httpd_test\"}," ++
+        "{server_root,\"" ++ ServerRoot ++  "\"}," ++
+        "{document_root,\"" ++ proplists:get_value(doc_root, Config) ++ "\"}" ++
+        "].",
+    ok = file:write_file(HttpdConf, ServerConfig),
+    {ok, Server} = inets:start(httpd, [{proplist_file, HttpdConf}]),
+    Port = proplists:get_value(port, httpd:info(Server)),
+    NewConfig =
+        "[\n" ++
+        "{bind_address, \"localhost\"}," ++
+        "{port," ++ integer_to_list(Port) ++ "}," ++
+        "{server_name,\"httpd_test_new\"}," ++
+        "{server_root,\"" ++ ServerRoot ++  "\"}," ++
+        "{document_root,\"" ++ proplists:get_value(doc_root, Config) ++ "\"}" ++
+        "].",
+    NewConfigApache =
+        "BindAddress localhost\n" ++
+        "Port " ++ integer_to_list(Port) ++ "\n" ++
+        "ServerName httpd_test_new_apache\n" ++
+        "ServerRoot " ++ ServerRoot ++ "\n" ++
+        "DocumentRoot " ++ proplists:get_value(doc_root, Config) ++ "\n",
+
+    %% Test Erlang term format
+    ok = file:write_file(HttpdConf, NewConfig),
+    ok = httpd:reload_config(HttpdConf, non_disturbing),
+    "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)),
+
+    %% Test Apache format
+    ok = file:write_file(HttpdConf, NewConfigApache),
+    ok = httpd:reload_config(HttpdConf, non_disturbing),
+    "httpd_test_new_apache" = proplists:get_value(server_name, httpd:info(Server)).
 
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
@@ -1728,7 +1769,15 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     {ok, FileInfo1} = file:read_file_info(EnvCGI),
     ok = file:write_file_info(EnvCGI, 
 			      FileInfo1#file_info{mode = 8#00755}).
-    
+
+setup_tmp_dir(PrivDir) ->
+    TmpDir =  filename:join(PrivDir, "tmp"),
+    ok = file:make_dir(TmpDir).
+
+get_tmp_dir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    filename:join(PrivDir, "tmp").
+
 start_apps(Group) when  Group == https_basic;
 			Group == https_limit;
 			Group == https_custom;

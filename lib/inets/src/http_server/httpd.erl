@@ -36,7 +36,13 @@
 	]).
 
 %% API
--export([parse_query/1, reload_config/2, info/1, info/2, info/3]).
+-export([
+         parse_query/1,
+         reload_config/2,
+         info/1,
+         info/2,
+         info/3
+        ]).
 
 %%%========================================================================
 %%% API
@@ -49,12 +55,23 @@ parse_query(String) ->
 reload_config(Config = [Value| _], Mode) when is_tuple(Value) ->
     do_reload_config(Config, Mode);
 reload_config(ConfigFile, Mode) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, ConfigList} ->
-	    do_reload_config(ConfigList, Mode);
-	Error ->
-	    Error
+    try file:consult(ConfigFile) of
+        {ok, [PropList]} ->
+            %% Erlang terms format
+            do_reload_config(PropList, Mode);
+        {error, _ } ->
+            %% Apache format
+            case httpd_conf:load(ConfigFile) of
+                {ok, ConfigList} ->
+                    do_reload_config(ConfigList, Mode);
+                Error ->
+                    Error
+            end
+    catch
+        exit:_ ->
+            throw({error, {could_not_consult_proplist_file, ConfigFile}})
     end.
+
 
 info(Pid) when is_pid(Pid) ->
     info(Pid, []).
