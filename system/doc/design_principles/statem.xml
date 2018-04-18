@@ -62,7 +62,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <p>These relations are interpreted as follows:
       if we are in state <c>S</c> and event <c>E</c> occurs, we
       are to perform actions <c>A</c> and make a transition to
-      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>.
+      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>
+      and that <c>A</c> can be empty.
     </p>
     <p>
       As <c>A</c> and <c>S'</c> depend only on
@@ -108,6 +109,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<seealso marker="#Inserted Events">
 	  Inserted Events
 	</seealso>
+	that is: events from the state machine to itself
 	(in particular purely internal events)
       </item>
       <item>
@@ -115,7 +117,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	  State Enter Calls
 	</seealso>
 	(callback on state entry co-located with the rest
-	of the state callback code)
+	of each state's callback code)
       </item>
       <item>
 	Easy-to-use timeouts
@@ -185,7 +187,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       </tag>
       <item>
         <p>
-	  Events are handled by one callback functions per state.
+	  Events are handled by one callback function per state.
 	</p>
       </item>
       <tag>
@@ -209,7 +211,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       that describes the event handling callback function(s).
     </p>
     <p>
-      The callback mode is selected by implementing a callback function
+      The callback mode is selected by implementing
+      a mandatory callback function
       <seealso marker="stdlib:gen_statem#Module:callback_mode/0">
 	<c>Module:callback_mode()</c>
       </seealso>
@@ -233,16 +236,15 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	The short version: choose <c>state_functions</c> -
 	it is the one most like <c>gen_fsm</c>.
 	But if you do not want the restriction that the state
-	must be an atom, or if having to write an event handler function
-	per state is not as you like it; please read on...
+	must be an atom, or if you do not want to write
+	one event handler function per state; please read on...
       </p>
       <p>
 	The two
 	<seealso marker="#Callback Modes">Callback Modes</seealso>
-	give different possibilities
-	and restrictions, but one goal remains:
-	you want to handle all possible combinations of
-	events and states.
+	give different possibilities and restrictions,
+	with one common goal:
+	to handle all possible combinations of events and states.
       </p>
       <p>
 	This can be done, for example, by focusing on one state at the time
@@ -386,7 +388,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <item>
 	<p>
 	  Same as the <c>next_state</c> values with
-	  <c>NextState =:= State</c>, that is no state change.
+	  <c>NextState =:= State</c>, that is, no state change.
 	</p>
       </item>
       <tag>
@@ -396,7 +398,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <item>
 	<p>
 	  Same as the <c>keep_state</c> values with
-	  <c>NextData =:= Data</c>, that is no change in server data.
+	  <c>NextData =:= Data</c>, that is, no change in server data.
 	</p>
       </item>
       <tag>
@@ -412,7 +414,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	  <seealso marker="#State Enter Calls">
 	    State Enter Calls
 	  </seealso>
-	  are enabled, repeat that call.
+	  are enabled, repeat the state enter call
+	  as if this state was entered again.
 	</p>
       </item>
       <tag>
@@ -752,7 +755,7 @@ StateName(EventType, EventContent, Data) ->
       an event is generated.
       The pressed buttons are collected, up to the number of buttons
       in the correct code.
-      If correct, the door is unlocked for 10 seconds (10,000 milliseconds).
+      If correct, the door is unlocked for 10 seconds.
       If not correct, we wait for a new button to be pressed.
     </p>
     <!-- The image is edited with dia in a .dia file,
@@ -803,7 +806,7 @@ locked(
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
             {next_state, open, Data#{buttons := []},
-             [{state_timeout,10000,lock}]};
+             [{state_timeout,10000,lock}]}; % Time in milliseconds
 	true -> % Incomplete | Incorrect
             {next_state, locked, Data#{buttons := NewButtons}}
     end.
@@ -990,7 +993,7 @@ locked(
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
             {next_state, open, Data#{buttons := []},
-             [{state_timeout,10000,lock}]};
+             [{state_timeout,10000,lock}]}; % Time in milliseconds
 	true -> % Incomplete | Incorrect
             {next_state, locked, Data#{buttons := NewButtons}}
     end.
@@ -1032,7 +1035,7 @@ open(cast, {button,_}, Data) ->
     </p>
     <code type="erl"><![CDATA[
 {next_state, open, Data#{buttons := []},
- [{state_timeout,10000,lock}]};
+ [{state_timeout,10000,lock}]}; % Time in milliseconds
  ]]></code>
     <p>
       10,000 is a time-out value in milliseconds.
@@ -1068,8 +1071,7 @@ open(state_timeout, lock,  Data) ->
     </p>
     <p>
       Consider a <c>code_length/0</c> function that returns
-      the length of the correct code
-      (that should not be too sensitive to reveal).
+      the length of the correct code.
       We dispatch all events that are not state-specific
       to the common function <c>handle_common/3</c>:
     </p>
@@ -1092,7 +1094,8 @@ open(EventType, EventContent, Data) ->
     handle_common(EventType, EventContent, Data).
 
 handle_common({call,From}, code_length, #{code := Code} = Data) ->
-    {keep_state, Data, [{reply,From,length(Code)}]}.
+    {keep_state, Data,
+     [{reply,From,length(Code)}]}.
     ]]></code>
 
     <p>
@@ -1111,7 +1114,8 @@ code_length() ->
     ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
 %%
 handle_common({call,From}, code_length, #{code := Code} = Data) ->
-    {keep_state, Data, [{reply,From,length(Code)}]}.
+    {keep_state, Data,
+     [{reply,From,length(Code)}]}.
 
 ...
 locked(...) -> ... ;
@@ -1148,7 +1152,11 @@ open(...) -> ... ;
     <marker id="One Event Handler" />
     <title>One Event Handler</title>
     <p>
-      If mode <c>handle_event_function</c> is used,
+      If
+      <seealso marker="#Callback Modes">
+	Callback Mode
+      </seealso>
+      <c>handle_event_function</c> is used,
       all events are handled in
       <seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
       and we can (but do not have to) use an event-centered approach
@@ -1178,7 +1186,7 @@ handle_event(cast, {button,Digit}, State, #{code := Code} = Data) ->
                 NewButtons =:= Code -> % Correct
                     do_unlock(),
                     {next_state, open, Data#{buttons := []},
-                     [{state_timeout,10000,lock}]};
+                     [{state_timeout,10000,lock}]}; % Time in milliseconds
                 true -> % Incomplete | Incorrect
                     {keep_state, Data#{buttons := NewButtons}}
             end;
@@ -1187,7 +1195,11 @@ handle_event(cast, {button,Digit}, State, #{code := Code} = Data) ->
     end;
 handle_event(state_timeout, lock, open, Data) ->
     do_lock(),
-    {next_state, locked, Data}.
+    {next_state, locked, Data};
+handle_event(
+  {call,From}, code_length, _State, #{code := Code} = Data) ->
+    {keep_state, Data,
+     [{reply,From,length(Code)}]}.
 
 ...
 ]]></code>
@@ -1298,7 +1310,7 @@ locked(
 ...
 	true -> % Incomplete | Incorrect
             {next_state, locked, Data#{buttons := NewButtons},
-             30000}
+             30000} % Time in milliseconds
 ...
 ]]></code>
     <p>
@@ -1359,7 +1371,7 @@ locked(
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
             {next_state, open, Data#{buttons := []},
-             [{{timeout,open},10000,lock}]};
+             [{{timeout,open},10000,lock}]}; % Time in milliseconds
 ...
 
 open({timeout,open}, lock, Data) ->
@@ -1415,7 +1427,9 @@ locked(
     if
         NewButtons =:= Code -> % Correct
 	    do_unlock(),
-	    Tref = erlang:start_timer(10000, self(), lock),
+	    Tref =
+                 erlang:start_timer(
+                     10000, self(), lock), % Time in milliseconds
             {next_state, open, Data#{buttons := [], timer => Tref}};
 ...
 
@@ -1570,7 +1584,7 @@ locked(Code, Length, Buttons) ->
     <code type="erl"><![CDATA[
 open(Code, Length) ->
     receive
-    after 10000 ->
+    after 10000 -> % Time in milliseconds
 	    do_lock(),
 	    locked(Code, Length, [])
     end.
@@ -1658,7 +1672,8 @@ locked(
 
 open(enter, _OldState, _Data) ->
     do_unlock(),
-    {keep_state_and_data, [{state_timeout,10000,lock}]};
+    {keep_state_and_data,
+     [{state_timeout,10000,lock}]}; % Time in milliseconds
 open(state_timeout, lock, Data) ->
     {next_state, locked, Data};
 ...
@@ -1715,18 +1730,29 @@ open(state_timeout, lock, Data) ->
       to synchronize the state machines.
     </p>
     <p>
-      The following example uses an input model where the buttons
-      generate up/down events and the lock responds to an up
-      event after the corresponding down event.
+      A variant of this is to use a
+      <seealso marker="#Complex State">
+	Complex State
+      </seealso>
+      with
+      <seealso marker="#One Event Handler">One Event Handler</seealso>.
+      The state is then modeled with for example a tuple
+      <c>{MainFSMState,SubFSMState}</c>.
+    </p>
+    <p>
+      To illustrate this we make up an example where the buttons
+      instead generate down and up (press and release) events,
+      and the lock responds to an up event only after
+      the corresponding down event.
     </p>
     <code type="erl"><![CDATA[
 ...
 -export(down/1, up/1).
 ...
-down(button) ->
+down(Button) ->
     gen_statem:cast(?NAME, {down,Button}).
 
-up(button) ->
+up(Button) ->
     gen_statem:cast(?NAME, {up,Button}).
 
 ...
@@ -1832,12 +1858,13 @@ handle_common(cast, {up,Button}, Data) ->
     case Data of
         #{button := Button} ->
             {keep_state, maps:remove(button, Data),
-             [{next_event,internal,{button,Data}}]};
+             [{next_event,internal,{button,Button}}]};
         #{} ->
             keep_state_and_data
     end;
 handle_common({call,From}, code_length, #{code := Code}) ->
-    {keep_state_and_data, [{reply,From,length(Code)}]}.
+    {keep_state_and_data,
+     [{reply,From,length(Code)}]}.
     ]]></code>
     <code type="erl"><![CDATA[
 locked(enter, _OldState, Data) ->
@@ -1861,14 +1888,15 @@ locked(
             {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
-             [{state_timeout,30000,button}]}
+             [{state_timeout,30000,button}]} % Time in milliseconds
     end;
 ?HANDLE_COMMON.
 ]]></code>
     <code type="erl"><![CDATA[
 open(enter, _OldState, _Data) ->
     do_unlock(),
-    {keep_state_and_data, [{state_timeout,10000,lock}]};
+    {keep_state_and_data,
+     [{state_timeout,10000,lock}]}; % Time in milliseconds
 open(state_timeout, lock, Data) ->
     {next_state, locked, Data};
 open(internal, {button,_}, _) ->
@@ -1927,7 +1955,7 @@ handle_event(
             {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
-             [{state_timeout,30000,button}]}
+             [{state_timeout,30000,button}]} % Time in milliseconds
     end;
     ]]></code>
       <code type="erl"><![CDATA[
@@ -1935,7 +1963,8 @@ handle_event(
 %% State: open
 handle_event(enter, _OldState, open, _Data) ->
     do_unlock(),
-    {keep_state_and_data, [{state_timeout,10000,lock}]};
+    {keep_state_and_data,
+     [{state_timeout,10000,lock}]}; % Time in milliseconds
 handle_event(state_timeout, lock, open, Data) ->
     {next_state, locked, Data};
 handle_event(internal, {button,_}, open, _) ->
@@ -1949,12 +1978,14 @@ handle_event(cast, {up,Button}, _State, Data) ->
     case Data of
         #{button := Button} ->
             {keep_state, maps:remove(button, Data),
-             [{state_timeout,30000,button}]};
+             [{next_event,internal,{button,Button}},
+              {state_timeout,30000,button}]}; % Time in milliseconds
         #{} ->
             keep_state_and_data
     end;
 handle_event({call,From}, code_length, _State, #{length := Length}) ->
-    {keep_state_and_data, [{reply,From,Length}]}.
+    {keep_state_and_data,
+     [{reply,From,Length}]}.
     ]]></code>
     </section>
     <p>
@@ -2136,7 +2167,7 @@ handle_event(
             {next_state, {open,LockButton}, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
-             [{state_timeout,30000,button}]}
+             [{state_timeout,30000,button}]} % Time in milliseconds
     end;
     ]]></code>
     <code type="erl"><![CDATA[
@@ -2145,7 +2176,7 @@ handle_event(
 handle_event(enter, _OldState, {open,_}, _Data) ->
     do_unlock(),
     {keep_state_and_data,
-     [{state_timeout,10000,lock}]};
+     [{state_timeout,10000,lock}]}; % Time in milliseconds
 handle_event(state_timeout, lock, {open,_}, Data) ->
     {next_state, locked, Data};
 handle_event(cast, {button,LockButton}, {open,LockButton}, Data) ->
@@ -2208,7 +2239,7 @@ terminate(_Reason, State, _Data) ->
 handle_event(enter, _OldState, {open,_}, _Data) ->
     do_unlock(),
     {keep_state_and_data,
-     [{state_timeout,10000,lock},
+     [{state_timeout,10000,lock}, % Time in milliseconds
       hibernate]};
 ...
 ]]></code>
