@@ -4055,6 +4055,15 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             BIF_RET(am_false);
 #endif
         }
+        else if (ERTS_IS_ATOM_STR("lc_graph", BIF_ARG_1)) {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+            Eterm res = erts_lc_dump_graph();
+            BIF_RET(res);
+#else
+            BIF_RET(am_notsup);
+#endif
+        }
+
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

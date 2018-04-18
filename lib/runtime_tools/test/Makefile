@@ -10,7 +10,8 @@ MODULES =  \
 	dbg_SUITE \
 	erts_alloc_config_SUITE \
 	scheduler_SUITE \
-	msacc_SUITE
+	msacc_SUITE \
+	zzz_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

@@ -80,7 +80,8 @@ MODULES= \
 	loose_node \
 	sendfile_SUITE \
 	standard_error_SUITE \
-	multi_load_SUITE
+	multi_load_SUITE \
+	zzz_SUITE
 
 APP_FILES = \
 	appinc.app \

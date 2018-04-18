@@ -37,6 +37,7 @@
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
 	 check_io_debug/1, get_check_io_info/0,
+         lc_graph/1,
          leaked_processes/1]).
 
 suite() ->
@@ -46,6 +47,7 @@ suite() ->
 all() -> 
     [schedulers_alive, node_container_refc_check,
      long_timers, pollset_size, check_io_debug,
+     lc_graph,
      %% Make sure that the leaked_processes/1 is always
      %% run last.
      leaked_processes].
@@ -288,6 +290,12 @@ has_gethost([P|T]) ->
     end;
 has_gethost([]) ->
     false.
+
+lc_graph(Config) when is_list(Config) ->
+    %% Create "lc_graph" file in current working dir
+    %% if lock checker is enabled
+    erts_debug:lc_graph(),
+    ok.
 
 leaked_processes(Config) when is_list(Config) ->
     %% Replace the defualt timetrap with a timetrap with
