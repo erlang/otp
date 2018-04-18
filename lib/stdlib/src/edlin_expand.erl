@@ -49,8 +49,8 @@ expand_module_name(Prefix) ->
 expand_function_name(ModStr, FuncPrefix) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
-	    case erlang:module_loaded(Mod) of
-		true ->
+	    case code:ensure_loaded(Mod) of
+		{module, Mod} ->
 		    L = Mod:module_info(),
 		    case lists:keyfind(exports, 1, L) of
 			{_, Exports} ->
@@ -58,7 +58,7 @@ expand_function_name(ModStr, FuncPrefix) ->
 			_ ->
 			    {no, [], []}
 		    end;
-		false ->
+		{error, _What} ->
 		    {no, [], []}
 	    end;
 	error ->
