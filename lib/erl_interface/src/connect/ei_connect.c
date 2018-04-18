@@ -583,6 +583,54 @@ static int cnct(uint16 port, struct in_addr *ip_addr, int addr_len, unsigned ms)
     return s;
 } /* cnct */
 
+
+/*
+ * Same as ei_gethostbyname_r, but also handles ERANGE error
+ * and may allocate larger buffer with malloc.
+ */
+static
+struct hostent *dyn_gethostbyname_r(const char *name,
+                                    struct hostent *hostp,
+                                    char **buffer_p,
+				    int buflen,
+				    int *h_errnop)
+{
+    char* buf = *buffer_p;
+    struct hostent *hp;
+
+    while (1) {
+        hp = ei_gethostbyname_r(name, hostp, buf, buflen, h_errnop);
+        if (hp) {
+            *buffer_p = buf;
+            break;
+        }
+
+        if (*h_errnop != ERANGE) {
+            if (buf != *buffer_p)
+                free(buf);
+            break;
+        }
+
+        buflen *= 2;
+        if (buf == *buffer_p)
+            buf = malloc(buflen);
+        else {
+            char* buf2 = realloc(buf, buflen);
+            if (buf2)
+                buf = buf2;
+            else {
+                free(buf);
+                buf = NULL;
+            }
+        }
+        if (!buf) {
+            *h_errnop = ENOMEM;
+            break;
+        }
+    }
+    return hp;
+}
+
   /* 
   * Set up a connection to a given Node, and 
   * interchange hand shake messages with it.
@@ -597,8 +645,10 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     /* these are needed for the call to gethostbyname_r */
     struct hostent host;
     char buffer[1024];
+    char *buf = buffer;
     int ei_h_errno;
 #endif /* !win32 */
+    int res;
     
     /* extract the host and alive parts from nodename */
     if (!(hostname = strchr(nodename,'@'))) {
@@ -611,7 +661,7 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     }
     
 #ifndef __WIN32__
-    hp = ei_gethostbyname_r(hostname,&host,buffer,1024,&ei_h_errno);
+    hp = dyn_gethostbyname_r(hostname,&host,&buf,sizeof(buffer),&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
         /* gethostname requies len to be max(hostname) + 1*/
@@ -627,7 +677,7 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 	}
 	if (strcmp(hostname,thishostname) == 0)
 	    /* Both nodes on same standalone host, use loopback */
-	    hp = ei_gethostbyname_r("localhost",&host,buffer,1024,&ei_h_errno);
+	    hp = dyn_gethostbyname_r("localhost",&host,&buf,sizeof(buffer),&ei_h_errno);
 	if (hp == NULL) {
 	    EI_TRACE_ERR2("ei_connect",
 			  "Can't find host for %s: %d\n",nodename,ei_h_errno);
@@ -663,7 +713,14 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 	}
     }
 #endif /* win32 */
-    return ei_xconnect_tmo(ec, (Erl_IpAddr) *hp->h_addr_list, alivename, ms);
+
+    res = ei_xconnect_tmo(ec, (Erl_IpAddr) *hp->h_addr_list, alivename, ms);
+
+#ifndef __WIN32__
+    if (buf != buffer)
+        free(buf);
+#endif
+    return res;
 } /* ei_connect */
 
 int ei_connect(ei_cnode* ec, char *nodename)
