@@ -5805,7 +5805,7 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
     erts_mtx_lock(&allctr->mutex);
     res = do_erts_alcu_alloc(type, extra, size);
     if (!res)
-	res = erts_alcu_realloc_ts(type, extra, p, size);
+        res = do_erts_alcu_realloc(type, extra, p, size, 0, NULL);
     else {
 	Block_t *blk;
 	size_t cpy_size;
