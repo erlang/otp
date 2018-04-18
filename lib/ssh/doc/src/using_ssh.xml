@@ -298,6 +298,7 @@ ok = erl_tar:close(HandleRead),
   </section>
 
   <section>
+    <marker id="usersguide_creating_a_subsystem"/>
     <title>Creating a Subsystem</title>
 
     <p>A small <c>ssh</c> subsystem that echoes N bytes can be implemented as shown

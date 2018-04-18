@@ -117,6 +117,7 @@
       <p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p>
       <p>There is an important command to list the actual algorithms and their ordering:
       <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.</p>
+      <marker id="example_default_algorithms"/>
       <code type="erl">
 0> ssh:default_algorithms().
 [{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
@@ -156,7 +157,7 @@
       
   <section>
     <title>Replacing the default set: preferred_algorithms</title>
-    <p>See the <seealso marker="ssh#option_preferred_algorithms">Reference Manual</seealso> for details</p>
+    <p>See the <seealso marker="ssh#type-preferred_algorithms_common_option">Reference Manual</seealso> for details</p>
     
     <p>Here follows a series of examples ranging from simple to more complex.</p>
 
@@ -301,7 +302,7 @@
     First one has to list them with <c>ssh:default_algorithms()</c> and then do changes in the lists.</p>
 
     <p>To facilitate addition or removal of algorithms the option <c>modify_algorithms</c> is available.
-    See the <seealso marker="ssh#option_modify_algorithms">Reference Manual</seealso> for details.</p>
+    See the <seealso marker="ssh#type-modify_algorithms_common_option">Reference Manual</seealso> for details.</p>
  
     <p>The option takes a list with instructions to append, prepend or remove algorithms:</p>
     <code type="erl">

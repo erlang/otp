@@ -46,6 +46,7 @@
     the <c>ssh</c> applications supervisor tree.
     </p>
 
+    <marker id="ssh_daemon_channel"/>
     <note><p>When implementing an <c>ssh</c> subsystem, use
     <c>-behaviour(ssh_daemon_channel)</c> instead of <c>-behaviour(ssh_channel)</c>.
     The reason is that the only relevant callback functions for subsystems are
@@ -55,33 +56,6 @@
     </p></note>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-
-    <p>Type definitions that are used more than once in this module,
-    or abstractions to indicate the intended use of the data
-    type, or both:</p>
-    
-    <taglist>
-      <tag><c>boolean() =</c></tag>
-      <item><p><c>true | false</c></p></item>
-      <tag><c>string() =</c></tag>
-      <item><p>list of ASCII characters</p></item>
-      <tag><c>timeout() =</c></tag>
-      <item><p><c>infinity | integer()</c> in milliseconds</p></item>
-      <tag><c>ssh_connection_ref() =</c></tag>
-      <item><p>opaque() -as returned by
-      <c>ssh:connect/3</c> or sent to an SSH channel process</p></item>
-      <tag><c>ssh_channel_id() =</c></tag>
-      <item><p><c>integer()</c></p></item>
-      <tag><c>ssh_data_type_code() =</c></tag>
-      <item><p><c>1</c> ("stderr") | <c>0</c> ("normal") are
-      the valid values,
-      see <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url>
-      Section 5.2</p></item>
-    </taglist>
-  </section>
-
   <funcs>
     <func>
       <name>call(ChannelRef, Msg) -></name>
@@ -89,7 +63,7 @@
       <fsummary>Makes a synchronous call to a channel.</fsummary>
       <type>
 	<v>ChannelRef = pid() </v>
-	<d>As returned by <seealso marker = "#start_link-4">ssh_channel:start_link/4</seealso></d>
+	<d>As returned by <seealso marker = "#start_link-4">start_link/4</seealso></d>
 	<v>Msg = term()</v>
 	<v>Timeout = timeout()</v>
 	<v>Reply = term()</v>
@@ -113,7 +87,7 @@
 	ChannelRef and returns ok.</fsummary>
       <type>
 	<v>ChannelRef = pid()</v>
-	<d>As returned by <seealso marker = "#start_link-4">ssh_channel:start_link/4</seealso></d>
+	<d>As returned by <seealso marker = "#start_link-4">start_link/4</seealso></d>
 	<v>Msg = term()</v>
       </type>
       <desc>
@@ -131,7 +105,7 @@
       <fsummary>Makes an existing process an ssh_channel process.</fsummary>
       <type>
 	<v>State = term()</v>
-	<d>as returned by <seealso marker = "#init-1">ssh_channel:init/1</seealso></d>
+	<d>as returned by <seealso marker = "#init-1">init/1</seealso></d>
       </type>
       <desc>
 	<p>Makes an existing process an <c>ssh_channel</c>
@@ -141,7 +115,7 @@
 	one of the start functions in <c>proc_lib</c>, see the <seealso
 	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in STDLIB.
 	The user is responsible for any initialization of the process
-	and must call <seealso marker = "#init-1">ssh_channel:init/1</seealso>.
+	and must call <seealso marker = "#init-1">init/1</seealso>.
 	</p>
       </desc>
     </func>
@@ -160,18 +134,21 @@
 	  The following options must be present:
 	</p>
 	  <taglist>
-	  <tag><c><![CDATA[{channel_cb, atom()}]]></c></tag>
+	  <tag><c>{channel_cb, atom()}</c></tag>
 	  <item><p>The module that implements the channel behaviour.</p></item>
 	  
-	  <tag><c><![CDATA[{init_args(), list()}]]></c></tag>
+	  <tag><c>{init_args(), list()}</c></tag>
 	  <item><p>The list of arguments to the <c>init</c> function of the callback module.</p></item>
 
-	  <tag><c><![CDATA[{cm, connection_ref()}]]></c></tag>
-	  <item><p>Reference to the <c>ssh</c> connection as returned by <seealso
-	  marker="ssh#connect-3">ssh:connect/3</seealso></p></item>
+	  <tag><c>{cm, ssh:connection_ref()}</c></tag>
+	  <item><p>Reference to the <c>ssh</c> connection as returned by
+	  <seealso marker="ssh#connect-3">ssh:connect/3</seealso>.
+	  </p></item>
 	  
-	  <tag><c><![CDATA[{channel_id, channel_id()}]]></c></tag>
-	  <item><p>Id of the <c>ssh</c> channel.</p></item>
+	  <tag><c>{channel_id, ssh:channel_id()}</c></tag>
+	  <item><p>Id of the <c>ssh</c> channel as returned by
+	  <seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
+	  </p></item>
 	  
 	  </taglist>
 
@@ -179,8 +156,8 @@
 	  user. The user only needs to call if the
 	  channel process needs to be started with help of
 	  <c>proc_lib</c> instead of calling
-	  <c>ssh_channel:start/4</c> or
-	  <c>ssh_channel:start_link/4</c>.</p>
+	  <c>start/4</c> or
+	  <c>start_link/4</c>.</p>
 	  </note>
       </desc>
     </func>
@@ -201,26 +178,31 @@
           the callback function <c>handle_call/3</c>.
 	  <c>Reply</c> is an arbitrary term,
 	  which is given back to the client as the return value of
-          <seealso marker="#call-2">ssh_channel:call/[2,3].</seealso></p>
+          <seealso marker="#call-2">call/[2,3].</seealso></p>
       </desc>
     </func>
-    
+
     <func>
       <name>start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> </name>
       <name>start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
       {ok, ChannelRef} | {error, Reason}</name>
       <fsummary>Starts a process that handles an SSH channel.</fsummary>
       <type>
-	<v>SshConnection = ssh_connection_ref()</v>
-	<v>ChannelId = ssh_channel_id()</v>
+	<v>SshConnection = ssh:connection_ref()</v>
+	<d>As returned by <seealso marker="ssh#connect-3">ssh:connect/3</seealso></d>
+
+	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
 	<d>As returned by
 	<seealso marker ="ssh_connection#session_channel/2">
 	ssh_connection:session_channel/[2,4]</seealso>.</d>
+
 	<v>ChannelCb = atom()</v>
 	<d>Name of the module implementing the service-specific parts
 	of the channel.</d>
+
 	<v>CbInitArgs = [term()]</v>
 	<d>Argument list for the <c>init</c> function in the callback module.</d>
+
 	<v>ChannelRef = pid()</v>
       </type>
       <desc>
@@ -295,7 +277,7 @@
       initial channel state if the initializations succeed.</fsummary>
       <type>
 	<v>Args = term()</v>
-	<d>Last argument to <c>ssh_channel:start_link/4</c>.</d>
+	<d>Last argument to <c>start_link/4</c>.</d>
 	<v>State = term()</v>
 	<v>Reason = term()</v>
       </type>
@@ -311,24 +293,24 @@
     <func>
       <name>Module:handle_call(Msg, From, State) -> Result</name>
       <fsummary>Handles messages sent by calling
-      <c>ssh_channel:call/[2,3]</c>.</fsummary>
+      <c>call/[2,3]</c>.</fsummary>
       <type>
 	<v>Msg = term()</v>
 	<v>From = opaque()</v>
 	<d>Is to be used as argument to
-	<seealso marker="#reply-2">ssh_channel:reply/2</seealso></d>
+	<seealso marker="#reply-2">reply/2</seealso></d>
 	<v>State = term()</v>
 	<v>Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()}
 	| {noreply, NewState} | {noreply , NewState, timeout()}
 	| {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </v>
 	<v>Reply = term()</v>
-	<d>Will be the return value of <seealso marker="#call-2">ssh_channel:call/[2,3]</seealso></d>
+	<d>Will be the return value of <seealso marker="#call-2">call/[2,3]</seealso></d>
 	<v>NewState = term()</v>
 	<v>Reason = term()</v>
       </type>
       <desc>
 	<p>Handles messages sent by calling
-	<seealso marker="#call-2">ssh_channel:call/[2,3]</seealso>
+	<seealso marker="#call-2">call/[2,3]</seealso>
 	</p>
 	<p>For more detailed information on time-outs,, see Section
 	<seealso marker="#cb_timeouts">CALLBACK TIME-OUTS</seealso>.</p>
@@ -338,7 +320,7 @@
     <func>
       <name>Module:handle_cast(Msg, State) -> Result</name>
       <fsummary>Handles messages sent by calling
-      <c>ssh_channel:cact/2</c>.</fsummary>
+      <c>cast/2</c>.</fsummary>
       <type>
 	<v>Msg = term()</v>
 	<v>State = term()</v>
@@ -349,7 +331,7 @@
       </type>
       <desc>
 	<p>Handles messages sent by calling
-	<c>ssh_channel:cast/2</c>.
+	<c>cast/2</c>.
 	</p>
 	<p>For more detailed information on time-outs, see Section
 	<seealso marker="#cb_timeouts">CALLBACK TIME-OUTS</seealso>.</p>
@@ -364,7 +346,7 @@
       call, or cast messages sent to the channel.</fsummary>
       <type>
 	<v>Msg = timeout | term()</v>
-	<v>ChannelId = ssh_channel_id()</v>
+	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
 	<v>State = term() </v>
       </type>
       <desc>
@@ -376,11 +358,10 @@
 	function and all channels are to handle the following message.</p>
 	
 	<taglist>
-	  <tag><c><![CDATA[{ssh_channel_up, ssh_channel_id(), 
-	  ssh_connection_ref()}]]></c></tag>
+	  <tag><c>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</c></tag>
 	  <item><p>This is the first message that the channel receives.
 	  It is sent just before the <seealso
-	  marker="#init-1">ssh_channel:init/1</seealso> function
+	  marker="#init-1">init/1</seealso> function
 	  returns successfully. This is especially useful if the
 	  server wants to send a message to the client without first
 	  receiving a message from it. If the message is not
@@ -397,7 +378,7 @@
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
 	<v>Msg = ssh_connection:event()</v>
-	<v>ChannelId = ssh_channel_id()</v>
+	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
 	<v>State = term()</v>
       </type>
       <desc>
@@ -410,7 +391,7 @@
 	<c>ssh_channel</c> behavior.</p>
 	
 	<taglist>
-	  <tag><c><![CDATA[{closed, ssh_channel_id()}]]></c></tag>
+	  <tag><c>{closed, ssh:channel_id()}</c></tag>
 	  <item><p>The channel behavior sends a close message to the
 	  other side, if such a message has not already been sent.
 	  Then it terminates the channel with reason <c>normal</c>.</p></item>
