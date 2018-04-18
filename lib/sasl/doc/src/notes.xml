@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When upgrading with instruction 'restart_new_emulator',
+	    the generated temporary boot file used 'kernelProcess'
+	    statements from the old release instead of the new
+	    release. This is now corrected.</p>
+          <p>
+	    This correction is needed for upgrade to OTP-21.</p>
+          <p>
+	    Own Id: OTP-15017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
