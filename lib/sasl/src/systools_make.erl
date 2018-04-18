@@ -32,7 +32,7 @@
 
 -export([read_application/4]).
 
--export([make_hybrid_boot/5]).
+-export([make_hybrid_boot/4]).
 
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
@@ -178,94 +178,153 @@ return({error,Mod,Error},_,Flags) ->
 %% and sasl.
 %%
 %% TmpVsn = string(),
-%% Paths = {KernelPath,StdlibPath,SaslPath}
 %% Returns {ok,Boot} | {error,Reason}
 %% Boot1 = Boot2 = Boot = binary()
 %% Reason = {app_not_found,App} | {app_not_replaced,App}
-%% App = kernel | stdlib | sasl
-make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
-    catch do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args).
-do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
-    {script,{_RelName1,_RelVsn1},Script1} = binary_to_term(Boot1),
-    {script,{RelName2,_RelVsn2},Script2} = binary_to_term(Boot2),
-    MatchPaths = get_regexp_path(Paths),
-    NewScript1 = replace_paths(Script1,MatchPaths),
-    {Kernel,Stdlib,Sasl} = get_apps(Script2,undefined,undefined,undefined),
-    NewScript2 = replace_apps(NewScript1,Kernel,Stdlib,Sasl),
-    NewScript3 = add_apply_upgrade(NewScript2,Args),
-    Boot = term_to_binary({script,{RelName2,TmpVsn},NewScript3}),
+%% App = stdlib | sasl
+make_hybrid_boot(TmpVsn, Boot1, Boot2, Args) ->
+    catch do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Args).
+do_make_hybrid_boot(TmpVsn, OldBoot, NewBoot, Args) ->
+    {script,{_RelName1,_RelVsn1},OldScript} = binary_to_term(OldBoot),
+    {script,{NewRelName,_RelVsn2},NewScript} = binary_to_term(NewBoot),
+
+    %% Everyting upto kernel_load_completed must come from the new script
+    Fun1 = fun({progress,kernel_load_completed}) -> false;
+              (_) -> true
+           end,
+    {_OldKernelLoad,OldRest1} = lists:splitwith(Fun1,OldScript),
+    {NewKernelLoad,NewRest1} = lists:splitwith(Fun1,NewScript),
+
+    Fun2 = fun({progress,modules_loaded}) -> false;
+              (_) -> true
+           end,
+    {OldModLoad,OldRest2} = lists:splitwith(Fun2,OldRest1),
+    {NewModLoad,NewRest2} = lists:splitwith(Fun2,NewRest1),
+
+    Fun3 = fun({kernelProcess,_,_}) -> false;
+              (_) -> true
+           end,
+    {OldPaths,OldRest3} = lists:splitwith(Fun3,OldRest2),
+    {NewPaths,NewRest3} = lists:splitwith(Fun3,NewRest2),
+
+    Fun4 = fun({progress,init_kernel_started}) -> false;
+              (_) -> true
+           end,
+    {_OldKernelProcs,OldApps} = lists:splitwith(Fun4,OldRest3),
+    {NewKernelProcs,NewApps} = lists:splitwith(Fun4,NewRest3),
+
+    %% Then comes all module load, which for each app consist of:
+    %% {path,[AppPath]},
+    %% {primLoad,ModuleList}
+    %% Replace kernel, stdlib and sasl here
+    MatchPaths = get_regexp_path(),
+    ModLoad = replace_module_load(OldModLoad,NewModLoad,MatchPaths),
+    Paths = replace_paths(OldPaths,NewPaths,MatchPaths),
+
+    {Stdlib,Sasl} = get_apps(NewApps,undefined,undefined),
+    Apps0 = replace_apps(OldApps,Stdlib,Sasl),
+    Apps = add_apply_upgrade(Apps0,Args),
+
+    Script = NewKernelLoad++ModLoad++Paths++NewKernelProcs++Apps,
+    Boot = term_to_binary({script,{NewRelName,TmpVsn},Script}),
     {ok,Boot}.
 
 %% For each app, compile a regexp that can be used for finding its path
-get_regexp_path({KernelPath,StdlibPath,SaslPath}) ->
+get_regexp_path() ->
     {ok,KernelMP} = re:compile("kernel-[0-9\.]+",[unicode]),
     {ok,StdlibMP} = re:compile("stdlib-[0-9\.]+",[unicode]),
     {ok,SaslMP} = re:compile("sasl-[0-9\.]+",[unicode]),
-    [{KernelMP,KernelPath},{StdlibMP,StdlibPath},{SaslMP,SaslPath}].
+    [KernelMP,StdlibMP,SaslMP].
 
-%% For each path in the script, check if it matches any of the MPs
-%% found above, and if so replace it with the correct new path.
-replace_paths([{path,Path}|Script],MatchPaths) ->
-    [{path,replace_path(Path,MatchPaths)}|replace_paths(Script,MatchPaths)];
-replace_paths([Stuff|Script],MatchPaths) ->
-    [Stuff|replace_paths(Script,MatchPaths)];
-replace_paths([],_) ->
-    [].
+replace_module_load(Old,New,[MP|MatchPaths]) ->
+    replace_module_load(do_replace_module_load(Old,New,MP),New,MatchPaths);
+replace_module_load(Script,_,[]) ->
+    Script.
 
-replace_path([Path|Paths],MatchPaths) ->
-    [do_replace_path(Path,MatchPaths)|replace_path(Paths,MatchPaths)];
-replace_path([],_) ->
-    [].
-
-do_replace_path(Path,[{MP,ReplacePath}|MatchPaths]) ->
-    case re:run(Path,MP,[{capture,none}]) of
-	nomatch -> do_replace_path(Path,MatchPaths);
-	match -> ReplacePath
+do_replace_module_load([{path,[OldAppPath]},{primLoad,OldMods}|OldRest],New,MP) ->
+    case re:run(OldAppPath,MP,[{capture,none}]) of
+        nomatch ->
+            [{path,[OldAppPath]},{primLoad,OldMods}|
+             do_replace_module_load(OldRest,New,MP)];
+        match ->
+            get_module_load(New,MP) ++ OldRest
     end;
-do_replace_path(Path,[]) ->
-    Path.
+do_replace_module_load([Other|Rest],New,MP) ->
+    [Other|do_replace_module_load(Rest,New,MP)];
+do_replace_module_load([],_,_) ->
+    [].
 
-%% Return the entries for loading the three base applications
-get_apps([{kernelProcess,application_controller,
-	   {application_controller,start,[{application,kernel,_}]}}=Kernel|
-	  Script],_,Stdlib,Sasl) ->
-    get_apps(Script,Kernel,Stdlib,Sasl);
+get_module_load([{path,[AppPath]},{primLoad,Mods}|Rest],MP) ->
+    case re:run(AppPath,MP,[{capture,none}]) of
+        nomatch ->
+            get_module_load(Rest,MP);
+        match ->
+            [{path,[AppPath]},{primLoad,Mods}]
+    end;
+get_module_load([_|Rest],MP) ->
+    get_module_load(Rest,MP);
+get_module_load([],_) ->
+    [].
+
+replace_paths([{path,OldPaths}|Old],New,MatchPaths) ->
+    {path,NewPath} = lists:keyfind(path,1,New),
+    [{path,do_replace_paths(OldPaths,NewPath,MatchPaths)}|Old];
+replace_paths([Other|Old],New,MatchPaths) ->
+    [Other|replace_paths(Old,New,MatchPaths)].
+
+do_replace_paths(Old,New,[MP|MatchPaths]) ->
+    do_replace_paths(do_replace_paths1(Old,New,MP),New,MatchPaths);
+do_replace_paths(Paths,_,[]) ->
+    Paths.
+
+do_replace_paths1([P|Ps],New,MP) ->
+    case re:run(P,MP,[{capture,none}]) of
+        nomatch ->
+            [P|do_replace_paths1(Ps,New,MP)];
+        match ->
+            get_path(New,MP) ++ Ps
+    end;
+do_replace_paths1([],_,_) ->
+    [].
+
+get_path([P|Ps],MP) ->
+    case re:run(P,MP,[{capture,none}]) of
+        nomatch ->
+            get_path(Ps,MP);
+        match ->
+            [P]
+    end;
+get_path([],_) ->
+    [].
+
+
+%% Return the entries for loading stdlib and sasl
 get_apps([{apply,{application,load,[{application,stdlib,_}]}}=Stdlib|Script],
-	 Kernel,_,Sasl) ->
-    get_apps(Script,Kernel,Stdlib,Sasl);
+	 _,Sasl) ->
+    get_apps(Script,Stdlib,Sasl);
 get_apps([{apply,{application,load,[{application,sasl,_}]}}=Sasl|_Script],
-	 Kernel,Stdlib,_) ->
-    {Kernel,Stdlib,Sasl};
-get_apps([_|Script],Kernel,Stdlib,Sasl) ->
-    get_apps(Script,Kernel,Stdlib,Sasl);
-get_apps([],undefined,_,_) ->
-    throw({error,{app_not_found,kernel}});
-get_apps([],_,undefined,_) ->
+	 Stdlib,_) ->
+    {Stdlib,Sasl};
+get_apps([_|Script],Stdlib,Sasl) ->
+    get_apps(Script,Stdlib,Sasl);
+get_apps([],undefined,_) ->
     throw({error,{app_not_found,stdlib}});
-get_apps([],_,_,undefined) ->
+get_apps([],_,undefined) ->
     throw({error,{app_not_found,sasl}}).
 
-
-%% Replace the entries for loading the base applications
-replace_apps([{kernelProcess,application_controller,
-	       {application_controller,start,[{application,kernel,_}]}}|
-	      Script],Kernel,Stdlib,Sasl) ->
-    [Kernel|replace_apps(Script,undefined,Stdlib,Sasl)];
+%% Replace the entries for loading the stdlib and sasl
 replace_apps([{apply,{application,load,[{application,stdlib,_}]}}|Script],
-	     Kernel,Stdlib,Sasl) ->
-    [Stdlib|replace_apps(Script,Kernel,undefined,Sasl)];
+	     Stdlib,Sasl) ->
+    [Stdlib|replace_apps(Script,undefined,Sasl)];
 replace_apps([{apply,{application,load,[{application,sasl,_}]}}|Script],
-	     _Kernel,_Stdlib,Sasl) ->
+	     _Stdlib,Sasl) ->
     [Sasl|Script];
-replace_apps([Stuff|Script],Kernel,Stdlib,Sasl) ->
-    [Stuff|replace_apps(Script,Kernel,Stdlib,Sasl)];
-replace_apps([],undefined,undefined,_) ->
+replace_apps([Stuff|Script],Stdlib,Sasl) ->
+    [Stuff|replace_apps(Script,Stdlib,Sasl)];
+replace_apps([],undefined,_) ->
     throw({error,{app_not_replaced,sasl}});
-replace_apps([],undefined,_,_) ->
-    throw({error,{app_not_replaced,stdlib}});
-replace_apps([],_,_,_) ->
-    throw({error,{app_not_replaced,kernel}}).
-
+replace_apps([],_,_) ->
+    throw({error,{app_not_replaced,stdlib}}).
 
 %% Finally add an apply of release_handler:new_emulator_upgrade - which will
 %% complete the execution of the upgrade script (relup).
@@ -274,8 +333,6 @@ add_apply_upgrade(Script,Args) ->
     lists:reverse([{progress,started},
 		   {apply,{release_handler,new_emulator_upgrade,Args}} |
 		   RevScript]).
-
-
 
 %%-----------------------------------------------------------------
 %% Create a release package from a release file.
