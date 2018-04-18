@@ -237,7 +237,7 @@ der_decode(Asn1Type, Der) when (Asn1Type == 'PrivateKeyInfo') or
 			       andalso is_binary(Der) ->
     try
 	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
-	Decoded
+	der_priv_key_decode(Decoded)
     catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
@@ -274,6 +274,24 @@ der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     catch	    
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
+    end.
+
+der_priv_key_decode({'PrivateKeyInfo', v1, PKAlgo, PrivKey, _} = PKCS8Key) ->
+    % do actual decoding
+    {'PrivateKeyInfo_privateKeyAlgorithm', Algorithm, {asn1_OPENTYPE, Parameters}} = PKAlgo,
+    case Algorithm of
+	?'id-ecPublicKey' ->
+	    EcpkParameters = public_key:der_decode('EcpkParameters', Parameters),
+	    EcPrivKey = public_key:der_decode('ECPrivateKey', PrivKey),
+	    EcPrivKey#'ECPrivateKey'{parameters = EcpkParameters};
+	?'rsaEncryption' ->
+	    public_key:der_decode('RSAPrivateKey', PrivKey);
+	?'id-dsa' ->
+	    {params, #'Dss-Parms'{p=P, q=Q, g=G}} = public_key:der_decode('DSAParams', Parameters),
+	    X = public_key:der_decode('Prime-p', PrivKey),
+	    #'DSAPrivateKey'{p=P, q=Q, g=G, x=X};
+	_ ->
+	    PKCS8Key
     end.
 
 %%--------------------------------------------------------------------
