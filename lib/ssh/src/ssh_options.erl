@@ -32,7 +32,7 @@
          handle_options/2
         ]).
 
--export_type([options/0
+-export_type([private_options/0
              ]).
 
 %%%================================================================
@@ -47,16 +47,23 @@
                                 default => any()
                                }.
 
+-type option_key() :: atom().
+
 -type option_declarations() :: #{ {option_key(),def} := option_declaration() }.
 
 -type error() :: {error,{eoptions,any()}} .
+
+-type private_options() :: #{socket_options   := socket_options(),
+                             internal_options := internal_options(),
+                             option_key()     => any()
+                            }.
 
 %%%================================================================
 %%%
 %%% Get an option
 %%%
 
--spec get_value(option_class(), option_key(), options(),
+-spec get_value(option_class(), option_key(), private_options(),
                 atom(), non_neg_integer()) -> any() | no_return().
 
 get_value(Class, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
@@ -69,7 +76,7 @@ get_value(Class, Key, Opts, _CallerMod, _CallerLine) ->
     error({bad_options,Class, Key, Opts, _CallerMod, _CallerLine}).
 
 
--spec get_value(option_class(), option_key(), options(), fun(() -> any()),
+-spec get_value(option_class(), option_key(), private_options(), fun(() -> any()),
                 atom(), non_neg_integer()) -> any() | no_return().
 
 get_value(socket_options, Key, Opts, DefFun, _CallerMod, _CallerLine) when is_map(Opts) ->
@@ -91,8 +98,8 @@ get_value(Class, Key, Opts, _DefFun, _CallerMod, _CallerLine) ->
 %%% Put an option
 %%%
 
--spec put_value(option_class(), option_in(), options(),
-                atom(), non_neg_integer()) -> options().
+-spec put_value(option_class(), option_in(), private_options(),
+                atom(), non_neg_integer()) -> private_options().
 
 put_value(user_options, KeyVal, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
     put_user_value(KeyVal, Opts);
@@ -131,8 +138,8 @@ put_socket_value(A, SockOpts) when is_atom(A) ->
 %%% Delete an option
 %%%
 
--spec delete_key(option_class(), option_key(), options(),
-                 atom(), non_neg_integer()) -> options().
+-spec delete_key(option_class(), option_key(), private_options(),
+                 atom(), non_neg_integer()) -> private_options().
 
 delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
     InternalOpts = maps:get(internal_options,Opts),
@@ -144,9 +151,7 @@ delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opt
 %%% Initialize the options
 %%%
 
--spec handle_options(role(), proplists:proplist()) -> options() | error() .
-
--spec handle_options(role(), proplists:proplist(), options()) -> options() | error() .
+-spec handle_options(role(), client_options()|daemon_options()) -> private_options() | error() .
 
 handle_options(Role, PropList0) ->
     handle_options(Role, PropList0, #{socket_options   => [],
@@ -155,7 +160,7 @@ handle_options(Role, PropList0) ->
                                      }).
 
 handle_options(Role, PropList0, Opts0) when is_map(Opts0),
-                                             is_list(PropList0) ->
+                                            is_list(PropList0) ->
     PropList1 = proplists:unfold(PropList0), 
     try
         OptionDefinitions = default(Role),

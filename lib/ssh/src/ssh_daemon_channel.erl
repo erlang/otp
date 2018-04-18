@@ -36,10 +36,10 @@
     term().
 
 -callback handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
--callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
+    {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
+-callback handle_ssh_msg({ssh_cm, ConnectionRef::ssh:connection_ref(), SshMsg::term()},
 			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
+					   {stop, ChannelId::ssh:channel_id(),
 					    State::term()}.
 
 %%% API
@@ -48,6 +48,7 @@
 %% gen_server callbacks
 -export([init/1, terminate/2]).
 
+-spec start(ssh:connection_ref(), ssh:channel_id(), atom(), term()) -> term().
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     ssh_channel:start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 

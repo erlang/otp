@@ -58,21 +58,7 @@
 %%====================================================================
 %% API
 %%====================================================================
--spec init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore.
-
--spec terminate(Reason :: (normal | shutdown | {shutdown, term()} |
-                               term()),
-                    State :: term()) ->
-    term().
-
--spec handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
--spec handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
-			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
-					    State::term()}.
+-spec subsystem_spec(list()) -> subsystem_spec().
 
 subsystem_spec(Options) ->
     {"sftp", {?MODULE, Options}}.

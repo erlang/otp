@@ -59,10 +59,10 @@
     term().
 
 -spec handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
+    {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
 -spec handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
 			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
+					   {stop, ChannelId::ssh:channel_id(),
 					    State::term()}.
 
 %%--------------------------------------------------------------------

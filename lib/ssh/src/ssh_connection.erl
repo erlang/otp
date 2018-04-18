@@ -64,29 +64,32 @@
 	 bound_channel/3, encode_ip/1
         ]).
 
+-type connection_ref() :: ssh:connection_ref().
+-type channel_id()     :: ssh:channel_id().
+
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec session_channel(connection_ref(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
--spec session_channel(connection_ref(), integer(), integer(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
-
 %% Description: Opens a channel for a ssh session. A session is a
 %% remote execution of a program. The program may be a shell, an
 %% application, a system command, or some built-in subsystem.
 %% --------------------------------------------------------------------
 
-session_channel(ConnectionHandler, Timeout) ->
-    session_channel(ConnectionHandler,
- 		    ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE,
- 		    Timeout).
+-spec session_channel(connection_ref(), timeout()) ->
+                             {ok, channel_id()} | {error, timeout | closed}.
 
-session_channel(ConnectionHandler, InitialWindowSize,
- 		MaxPacketSize, Timeout) ->
+session_channel(ConnectionHandler, Timeout) ->
+    session_channel(ConnectionHandler, ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
+
+-spec session_channel(connection_ref(), integer(), integer(), timeout()) ->
+                             {ok, channel_id()} | {error, timeout | closed}.
+
+session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
     case ssh_connection_handler:open_channel(ConnectionHandler, "session", <<>>,
-					InitialWindowSize,
-					MaxPacketSize, Timeout) of
+                                             InitialWindowSize,
+                                             MaxPacketSize, Timeout) of
 	{open, Channel} ->
 	    {ok, Channel};
 	Error ->
@@ -125,24 +128,30 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 				    ChannelId, "subsystem", 
 				    true, [?string(SubSystem)], TimeOut).
 %%--------------------------------------------------------------------
--spec send(connection_ref(), channel_id(), iodata()) ->
-		  ok | {error, closed}.
--spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
-		  ok | {error, timeout} | {error, closed}.
--spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
-		  ok | {error, timeout} | {error, closed}.
-%%
-%%
 %% Description: Sends channel data.
 %%--------------------------------------------------------------------
+-spec send(connection_ref(), channel_id(), iodata()) ->
+		  ok | {error, closed}.
 send(ConnectionHandler, ChannelId, Data) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity).
+
+
+-spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
+		  ok | {error, timeout} | {error, closed}.
+
 send(ConnectionHandler, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
     send(ConnectionHandler, ChannelId, 0, Data, TimeOut);
+
 send(ConnectionHandler, ChannelId, Data, infinity) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity);
+
 send(ConnectionHandler, ChannelId, Type, Data) ->
     send(ConnectionHandler, ChannelId, Type, Data, infinity).
+
+
+-spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
+		  ok | {error, timeout} | {error, closed}.
+
 send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
     ssh_connection_handler:send(ConnectionHandler, ChannelId,
 				Type, Data, TimeOut).
@@ -156,7 +165,7 @@ send_eof(ConnectionHandler, Channel) ->
     ssh_connection_handler:send_eof(ConnectionHandler, Channel).
 
 %%--------------------------------------------------------------------
--spec adjust_window(connection_ref(), channel_id(), integer()) -> ok |  {error, closed}.
+-spec adjust_window(connection_ref(), channel_id(), integer()) -> ok.
 %%
 %%
 %% Description: Adjusts the ssh flowcontrol window.
@@ -198,17 +207,18 @@ reply_request(_,false, _, _) ->
     ok.
 
 %%--------------------------------------------------------------------
+%% Description: Sends a ssh connection protocol pty_req.
+%%--------------------------------------------------------------------
 -spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist()) -> 
 			success | failiure | {error, closed}.
+
+ptty_alloc(ConnectionHandler, Channel, Options) ->
+    ptty_alloc(ConnectionHandler, Channel, Options, infinity).
+
+
 -spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist(), timeout()) -> 
 			success | failiure | {error, timeout} | {error, closed}.
 
-%%
-%%
-%% Description: Sends a ssh connection protocol pty_req.
-%%--------------------------------------------------------------------
-ptty_alloc(ConnectionHandler, Channel, Options) ->
-    ptty_alloc(ConnectionHandler, Channel, Options, infinity).
 ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
     TermData = backwards_compatible(Options0, []), % FIXME
     {Width, PixWidth} = pty_default_dimensions(width, TermData),

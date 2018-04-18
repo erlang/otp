@@ -41,34 +41,50 @@
 	 shell/1, shell/2, shell/3
 	]).
 
-%%% Type exports
--export_type([ssh_daemon_ref/0,
-              ssh_connection_ref/0,
-	      ssh_channel_id/0,
-              role/0,
-              subsystem_spec/0,
-              subsystem_name/0,
-              channel_callback/0,
-              channel_init_args/0,
-              algs_list/0,
-              alg_entry/0,
-              simple_algs/0,
-              double_algs/0
-	     ]).
-
--opaque ssh_daemon_ref()     :: daemon_ref() .
--opaque ssh_connection_ref() :: connection_ref() .
+%%% "Deprecated" types export:
+-export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
+-opaque ssh_daemon_ref()     :: daemon_ref().
+-opaque ssh_connection_ref() :: connection_ref().
 -opaque ssh_channel_id()     :: channel_id().
 
+
+%%% Type exports
+-export_type([daemon_ref/0,
+              connection_ref/0,
+	      channel_id/0,
+              client_options/0, client_option/0,
+              daemon_options/0, daemon_option/0,
+              common_options/0,
+              role/0,
+              subsystem_spec/0,
+              algs_list/0,
+              double_algs/1,
+              modify_algs_list/0,
+              alg_entry/0,
+              kex_alg/0,
+              pubkey_alg/0,
+              cipher_alg/0,
+              mac_alg/0,
+              compression_alg/0,
+              ip_port/0
+	     ]).
+
+
+-opaque daemon_ref()         :: pid() .
+-opaque channel_id()     :: non_neg_integer().
+-type connection_ref()       :: pid().  % should be -opaque, but that gives problems
+
 %%--------------------------------------------------------------------
--spec start() -> ok | {error, term()}.
--spec start(permanent | transient | temporary) -> ok | {error, term()}.
-%%
 %% Description: Starts the ssh application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
+-spec start() -> ok | {error, term()}.
+
 start() ->
     start(temporary).
+
+-spec start(Type) -> ok | {error, term()} when
+      Type :: permanent | transient | temporary .
 
 start(Type) ->
     case application:ensure_all_started(ssh, Type) of
@@ -79,30 +95,32 @@ start(Type) ->
     end.
 
 %%--------------------------------------------------------------------
--spec stop() -> ok | {error, term()}.
-%%
 %% Description: Stops the ssh application.
 %%--------------------------------------------------------------------
+-spec stop() -> ok | {error, term()}.
+
 stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(inet:socket(), proplists:proplist()) -> ok_error(connection_ref()).
-
--spec connect(inet:socket(), proplists:proplist(), timeout()) -> ok_error(connection_ref())
-           ; (string(), inet:port_number(), proplists:proplist()) -> ok_error(connection_ref()).
-
--spec connect(string(), inet:port_number(), proplists:proplist(), timeout()) -> ok_error(connection_ref()).
-
-%%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
-connect(Socket, UserOptions) when is_port(Socket),
-                                  is_list(UserOptions) ->
-    connect(Socket, UserOptions, infinity).
+-spec connect(OpenTcpSocket, Options) -> {ok,connection_ref()} | {error,term()} when
+      OpenTcpSocket :: open_socket(),
+      Options :: client_options().
 
-connect(Socket, UserOptions, Timeout) when is_port(Socket),
-                                           is_list(UserOptions) ->
+connect(OpenTcpSocket, Options) when is_port(OpenTcpSocket),
+                                     is_list(Options) ->
+    connect(OpenTcpSocket, Options, infinity).
+
+
+-spec connect(open_socket(), client_options(), timeout()) ->
+                     {ok,connection_ref()} | {error,term()}
+           ; (host(), inet:port_number(), client_options()) ->
+                     {ok,connection_ref()} | {error,term()}.
+
+connect(Socket, UserOptions, NegotiationTimeout) when is_port(Socket),
+                                                      is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, Error} ->
 	    {error, Error};
@@ -111,16 +129,23 @@ connect(Socket, UserOptions, Timeout) when is_port(Socket),
 		ok ->
 		    {ok, {Host,_Port}} = inet:sockname(Socket),
 		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
-		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+		    ssh_connection_handler:start_connection(client, Socket, Opts, NegotiationTimeout);
 		{error,SockError} ->
 		    {error,SockError}
 	    end
     end;
 
-connect(Host, Port, UserOptions) when is_integer(Port),
-                                      Port>0,
-                                      is_list(UserOptions) ->
-    connect(Host, Port, UserOptions, infinity).
+connect(Host, Port, Options) when is_integer(Port),
+                                  Port>0,
+                                  is_list(Options) ->
+    connect(Host, Port, Options, infinity).
+
+
+-spec connect(Host, Port, Options, NegotiationTimeout) -> {ok,connection_ref()} | {error,term()} when
+      Host :: host(),
+      Port :: inet:port_number(),
+      Options :: client_options(),
+      NegotiationTimeout :: timeout().
 
 connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
                                                Port>0,
@@ -148,7 +173,8 @@ connect(Host0, Port, UserOptions, Timeout) when is_integer(Port),
     end.
 
 %%--------------------------------------------------------------------
--spec close(pid()) -> ok.
+-spec close(ConnectionRef) -> ok | {error,term()} when
+      ConnectionRef :: connection_ref() .
 %%
 %% Description: Closes an ssh connection.
 %%--------------------------------------------------------------------
@@ -156,15 +182,25 @@ close(ConnectionRef) ->
     ssh_connection_handler:stop(ConnectionRef).
 
 %%--------------------------------------------------------------------
--spec connection_info(pid(), [atom()]) -> [{atom(), term()}].
-%%
 %% Description: Retrieves information about a connection.
 %%--------------------------------------------------------------------
-connection_info(ConnectionRef, Options) ->
-    ssh_connection_handler:connection_info(ConnectionRef, Options).
+-spec connection_info(ConnectionRef, Keys) ->  ConnectionInfo when
+      ConnectionRef :: connection_ref(),
+      Keys :: [client_version | server_version | user | peer | sockname],
+      ConnectionInfo :: [{client_version, Version}
+                         | {server_version, Version}
+                         | {user,string()}
+                         | {peer, {inet:hostname(), ip_port()}}
+                         | {sockname, ip_port()}
+                        ],
+      Version :: {ProtocolVersion, VersionString::string()},
+      ProtocolVersion :: {Major::pos_integer(), Minor::non_neg_integer()} .
+
+connection_info(Connection, Options) ->
+    ssh_connection_handler:connection_info(Connection, Options).
 
 %%--------------------------------------------------------------------
--spec channel_info(pid(), channel_id(), [atom()]) -> [{atom(), term()}].
+-spec channel_info(connection_ref(), channel_id(), [atom()]) -> proplists:proplist().
 %%
 %% Description: Retrieves information about a connection.
 %%--------------------------------------------------------------------
@@ -172,17 +208,16 @@ channel_info(ConnectionRef, ChannelId, Options) ->
     ssh_connection_handler:channel_info(ConnectionRef, ChannelId, Options).
 
 %%--------------------------------------------------------------------
--spec daemon(inet:port_number()) ->  ok_error(daemon_ref()).
--spec daemon(inet:port_number()|inet:socket(), proplists:proplist()) -> ok_error(daemon_ref()).
--spec daemon(any | inet:ip_address(), inet:port_number(), proplists:proplist()) -> ok_error(daemon_ref())
-           ;(socket, inet:socket(), proplists:proplist()) -> ok_error(daemon_ref())
-            .
-
 %% Description: Starts a server listening for SSH connections
 %% on the given port.
 %%--------------------------------------------------------------------
+-spec daemon(inet:port_number()) ->  {ok,daemon_ref()} | {error,term()}.
+
 daemon(Port) ->
     daemon(Port, []).
+
+
+-spec daemon(inet:port_number()|open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}.
 
 daemon(Socket, UserOptions) when is_port(Socket) ->
     try
@@ -226,6 +261,10 @@ daemon(Port, UserOptions) when 0 =< Port, Port =< 65535 ->
     daemon(any, Port, UserOptions).
 
 
+-spec daemon(any | inet:ip_address(), inet:port_number(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
+           ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
+            .
+
 daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
                                         Host0 == any ; Host0 == loopback ; is_tuple(Host0) ->
     try
@@ -267,7 +306,12 @@ daemon(_, _, _) ->
     {error, badarg}.
 
 %%--------------------------------------------------------------------
--spec daemon_info(daemon_ref()) -> ok_error( [{atom(), term()}] ).
+-spec daemon_info(Daemon) -> {ok, DaemonInfo} | {error,term()} when
+      Daemon :: daemon_ref(),
+      DaemonInfo :: [  {ip, inet:ip_address()}
+                       | {port, inet:port_number()}
+                       | {profile, term()}
+                    ].
 
 daemon_info(Pid) ->
     case catch ssh_system_sup:acceptor_supervisor(Pid) of
@@ -290,16 +334,23 @@ daemon_info(Pid) ->
     end.
 
 %%--------------------------------------------------------------------
--spec stop_listener(daemon_ref()) -> ok.
--spec stop_listener(inet:ip_address(), inet:port_number()) -> ok.
-%%
 %% Description: Stops the listener, but leaves
 %% existing connections started by the listener up and running.
 %%--------------------------------------------------------------------
+-spec stop_listener(daemon_ref()) -> ok.
+
 stop_listener(SysSup) ->
     ssh_system_sup:stop_listener(SysSup).
+
+
+-spec stop_listener(inet:ip_address(), inet:port_number()) -> ok.
+
 stop_listener(Address, Port) ->
     stop_listener(Address, Port, ?DEFAULT_PROFILE).
+
+
+-spec stop_listener(any|inet:ip_address(), inet:port_number(), term()) -> ok.
+
 stop_listener(any, Port, Profile) ->
     map_ip(fun(IP) ->
                    ssh_system_sup:stop_listener(IP, Port, Profile) 
@@ -310,17 +361,23 @@ stop_listener(Address, Port, Profile) ->
            end, {address,Address}).
 
 %%--------------------------------------------------------------------
--spec stop_daemon(daemon_ref()) -> ok.
--spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
--spec stop_daemon(inet:ip_address(), inet:port_number(), atom()) -> ok.
-%%
 %% Description: Stops the listener and all connections started by
 %% the listener.
 %%--------------------------------------------------------------------
+-spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
+
 stop_daemon(SysSup) ->
     ssh_system_sup:stop_system(SysSup).
+
+
+-spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
+
 stop_daemon(Address, Port) ->
     stop_daemon(Address, Port, ?DEFAULT_PROFILE).
+
+
+-spec stop_daemon(any|inet:ip_address(), inet:port_number(), atom()) -> ok.
+
 stop_daemon(any, Port, Profile) ->
     map_ip(fun(IP) ->
                    ssh_system_sup:stop_system(IP, Port, Profile) 
@@ -331,31 +388,35 @@ stop_daemon(Address, Port, Profile) ->
            end, {address,Address}).
 
 %%--------------------------------------------------------------------
--spec shell(inet:socket() | string()) ->  _.
--spec shell(inet:socket() | string(), proplists:proplist()) ->  _.
--spec shell(string(), inet:port_number(), proplists:proplist()) ->  _.
-
-%%   Host = string()
-%%   Port = integer()
-%%   Options = [{Option, Value}]
-%%
 %% Description: Starts an interactive shell to an SSH server on the
 %% given <Host>. The function waits for user input,
 %% and will not return until the remote shell is ended.(e.g. on
 %% exit from the shell)
 %%--------------------------------------------------------------------
+-spec shell(open_socket() | host()) ->  _.
+
 shell(Socket) when is_port(Socket) ->
     shell(Socket, []);
 shell(Host) ->
     shell(Host, ?SSH_DEFAULT_PORT, []).
+
+
+-spec shell(open_socket() | host(), client_options()) ->  _.
 
 shell(Socket, Options) when is_port(Socket) ->
     start_shell( connect(Socket, Options) );
 shell(Host, Options) ->
     shell(Host, ?SSH_DEFAULT_PORT, Options).
 
+
+-spec shell(Host, Port, Options) -> _ when
+      Host :: host(),
+      Port :: inet:port_number(),
+      Options :: client_options() .
+
 shell(Host, Port, Options) ->
     start_shell( connect(Host, Port, Options) ).
+
 
 
 start_shell({ok, ConnectionRef}) ->
@@ -366,10 +427,16 @@ start_shell({ok, ConnectionRef}) ->
 		    {init_args,[ConnectionRef, ChannelId]},
 		    {cm, ConnectionRef}, {channel_id, ChannelId}],
 	    {ok, State} = ssh_channel:init([Args]),
-	    ssh_channel:enter_loop(State);
+            try
+                ssh_channel:enter_loop(State)
+            catch
+                exit:normal ->
+                    ok
+            end;
 	Error ->
 	    Error
     end;
+
 start_shell(Error) ->
     Error.
 
@@ -380,7 +447,7 @@ default_algorithms() ->
     ssh_transport:default_algorithms().
 
 %%--------------------------------------------------------------------
--spec chk_algos_opts(list(any())) -> algs_list() .
+-spec chk_algos_opts(client_options()|daemon_options()) -> internal_options() | {error,term()}.
 %%--------------------------------------------------------------------
 chk_algos_opts(Opts) ->
     case lists:foldl(
