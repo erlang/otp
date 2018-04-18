@@ -34,7 +34,7 @@
     <p>
       <c>gen_statem</c> provides a generic state machine behaviour
       and replaces its predecessor
-      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso>
+      <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>
       since Erlang/OTP 20.0.
     </p>
     <p>
@@ -46,9 +46,15 @@
     <p>
       To get an overview of the concepts and operation of <c>gen_statem</c>,
       do read the
-      <seealso marker="doc/design_principles:statem">User's Guide</seealso>.
-      It frequently links back to this reference manual to avoid containing
-      detailed facts that may rot by age.
+      <seealso marker="doc/design_principles:statem">
+	<c>gen_statem</c>&nbsp;Behaviour
+      </seealso>
+      in
+      <seealso marker="doc/design_principles:users_guide">
+	OTP Design Principles
+      </seealso>
+      which frequently links back to this reference manual to avoid
+      containing detailed facts that may rot by age.
     </p>
     <note>
       <p>
@@ -67,7 +73,7 @@
     </note>
     <p>
       <c>gen_statem</c> has got the same features that
-      <seealso marker="gen_fsm"><c>gen_fsm</c> </seealso>
+      <seealso marker="gen_fsm"><c>gen_fsm</c></seealso>
       had and adds some really useful:
     </p>
     <list type="bulleted">
@@ -749,11 +755,11 @@ handle_event(_, _, State, Data) ->
 	      </seealso>
 	      is used; the <c>gen_statem</c> calls
 	      the new state callback with arguments
-	      <seealso marker="#type-state_enter">(enter, OldState, Data)</seealso>.
+	      <seealso marker="#type-state_enter"><c>(enter, OldState, Data)</c></seealso>.
 	    </p>
 	    <p>
 	      Any 
-	      <seealso marker="#type-enter_action"><c>actions</c></seealso>
+	      <seealso marker="#type-enter_action">actions</seealso>
 	      returned from this call are handled as if they were
 	      appended to the actions
 	      returned by the state callback that caused the state entry.
