@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -7010,13 +7010,41 @@ case wxGraphicsRenderer_CreateContext_1_0: { // wxGraphicsRenderer::CreateContex
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
  break;
 }
-case wxGraphicsRenderer_CreatePen: { // wxGraphicsRenderer::CreatePen
+
+case wxGraphicsRenderer_CreatePen: { // wxGraphicsRenderer::CreatePen taylormade
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  wxPen *pen = (wxPen *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,4, memenv);;
+#if !wxCHECK_VERSION(3,1,1)
+ wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,4, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
  break;
+#else
+ wxGraphicsPenInfo info = wxGraphicsPenInfo()
+   .Colour(pen->GetColour())
+   .Width(pen->GetWidth())
+   .Style(pen->GetStyle())
+   .Join(pen->GetJoin())
+   .Cap(pen->GetCap())
+   ;
+
+ if ( info.GetStyle() == wxPENSTYLE_USER_DASH )
+ {
+   wxDash *dashes;
+   if ( int nb_dashes = pen->GetDashes(&dashes) )
+     info.Dashes(nb_dashes, dashes);
+ }
+
+ if ( info.GetStyle() == wxPENSTYLE_STIPPLE )
+ {
+   if ( wxBitmap* const stipple = pen->GetStipple() )
+     info.Stipple(*stipple);
+ }
+ wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(info));
+ newPtr((void *) Result,4, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
+ break;
+#endif
 }
 case wxGraphicsRenderer_CreateBrush: { // wxGraphicsRenderer::CreateBrush
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
