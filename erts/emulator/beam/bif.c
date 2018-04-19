@@ -1150,6 +1150,13 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     /* Create stacktrace and store */
     if (erts_backtrace_depth < depth) {
 	depth = erts_backtrace_depth;
+        if (depth == 0) {
+            /*
+             * For consistency with stacktraces generated
+             * automatically, always include one element.
+             */
+            depth = 1;
+        }
 	must_copy = 1;
     }
     if (must_copy) {

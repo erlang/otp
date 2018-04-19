@@ -23,7 +23,8 @@
 -export([all/0, suite/0,
          badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
-         exception_with_heap_frag/1, line_numbers/1]).
+         exception_with_heap_frag/1, backtrace_depth/1,
+         line_numbers/1]).
 
 -export([bad_guy/2]).
 -export([crash/1]).
@@ -42,7 +43,7 @@ suite() ->
 all() -> 
     [badmatch, pending_errors, nil_arith, top_of_stacktrace,
      stacktrace, nested_stacktrace, raise, gunilla, per,
-     exception_with_heap_frag, line_numbers].
+     exception_with_heap_frag, backtrace_depth, line_numbers].
 
 -define(try_match(E),
         catch ?MODULE:bar(),
@@ -571,6 +572,57 @@ do_exception_with_heap_frag(Bin, [Sz|Sizes]) ->
           end),
     do_exception_with_heap_frag(Bin, Sizes);
 do_exception_with_heap_frag(_, []) -> ok.
+
+backtrace_depth(Config) when is_list(Config) ->
+    _ = [do_backtrace_depth(D) || D <- lists:seq(0, 8)],
+    ok.
+
+do_backtrace_depth(D) ->
+    Old = erlang:system_flag(backtrace_depth, D),
+    try
+        Expected = max(1, D),
+        do_backtrace_depth_1(Expected)
+    after
+        _ = erlang:system_flag(backtrace_depth, Old)
+    end.
+
+do_backtrace_depth_1(D) ->
+    Exit = fun() ->
+                   error(reason)
+           end,
+    HandCrafted = fun() ->
+                          {'EXIT',{_,Stk0}} = (catch error(get_stacktrace)),
+                          %% Fool the compiler to force a hand-crafted
+                          %% stacktrace.
+                          Stk = [hd(Stk0)|tl(Stk0)],
+                          erlang:raise(error, reason, Stk)
+                  end,
+    PassedOn = fun() ->
+                       try error(get_stacktrace)
+                       catch error:_:Stk ->
+                               %% Just pass on the given stacktrace.
+                               erlang:raise(error, reason, Stk)
+                       end
+               end,
+    do_backtrace_depth_2(D, Exit),
+    do_backtrace_depth_2(D, HandCrafted),
+    do_backtrace_depth_2(D, PassedOn),
+    ok.
+
+do_backtrace_depth_2(D, Exc) ->
+    try
+        Exc()
+    catch
+        error:reason:Stk ->
+            if
+                length(Stk) =/= D ->
+                    io:format("Expected depth: ~p\n", [D]),
+                    io:format("~p\n", [Stk]),
+                    error(bad_depth);
+                true ->
+                    ok
+            end
+    end.
 
 line_numbers(Config) when is_list(Config) ->
     {'EXIT',{{case_clause,bad_tag},
