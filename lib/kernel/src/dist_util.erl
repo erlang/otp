@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
          strict_order_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
+         is_allowed/2,
 	 shutdown/3, shutdown/4]).
 
 -import(error_logger,[error_msg/2]).
@@ -182,7 +183,6 @@ handshake_other_started(#hs_data{request_type=ReqType,
                              reject_flags=RejFlgs,
                              require_flags=ReqFlgs},
     check_dflags(HSData, EDF),
-    is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
 	    [Node, HSData#hs_data.other_version]}),
     mark_pending(HSData),
@@ -198,21 +198,6 @@ handshake_other_started(#hs_data{request_type=ReqType,
 handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_other_started(convert_old_hsdata(OldHsData)).
 
-
-%%
-%% check if connecting node is allowed to connect
-%% with allow-node-scheme
-%%
-is_allowed(#hs_data{other_node = Node, 
-		    allowed = Allowed} = HSData) ->
-    case lists:member(Node, Allowed) of
-	false when Allowed =/= [] ->
-	    send_status(HSData, not_allowed),
-	    error_msg("** Connection attempt from "
-		      "disallowed node ~w ** ~n", [Node]),
-	    ?shutdown2(Node, {is_allowed, not_allowed});
-	_ -> true
-    end.
 
 %%
 %% Check mandatory flags...
@@ -642,24 +627,58 @@ send_challenge_ack(#hs_data{socket = Socket, f_send = FSend},
 %% tcp_drv.c which used it to detect simultaneous connection
 %% attempts).
 %%
-recv_name(#hs_data{socket = Socket, f_recv = Recv}) ->
+recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
     case Recv(Socket, 0, infinity) of
-	{ok,Data} ->
-	    get_name(Data);
+        {ok,
+         [$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4
+          | OtherNode] = Data} ->
+            case is_valid_name(OtherNode) of
+                true ->
+                    Flags = ?u32(Flag1, Flag2, Flag3, Flag4),
+                    Version = ?u16(VersionA,VersionB),
+                    is_allowed(HSData, Flags, OtherNode, Version);
+                false ->
+                    ?shutdown(Data)
+            end;
 	_ ->
 	    ?shutdown(no_node)
     end.
 
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode] = Data) ->
-    case is_valid_name(OtherNode) of
+%%
+%% check if connecting node is allowed to connect
+%% with allow-node-scheme
+%%
+is_allowed(#hs_data{allowed = []}, Flags, Node, Version) ->
+    {Flags,list_to_atom(Node),Version};
+is_allowed(#hs_data{allowed = Allowed} = HSData, Flags, Node, Version) ->
+    case is_allowed(Node, Allowed) of
         true ->
-            {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
-             ?u16(VersionA,VersionB)};
+            {Flags,list_to_atom(Node),Version};
         false ->
-            ?shutdown(Data)
-    end;
-get_name(Data) ->
-    ?shutdown(Data).
+	    send_status(HSData#hs_data{other_node = Node}, not_allowed),
+	    error_msg("** Connection attempt from "
+		      "disallowed node ~s ** ~n", [Node]),
+	    ?shutdown2(Node, {is_allowed, not_allowed})
+    end.
+
+is_allowed(_Node, []) ->
+    false;
+is_allowed(Node, [AllowedNode|Allowed]) ->
+    case is_nodename_equal(Node, AllowedNode) of
+        true ->
+            true;
+        false ->
+            is_allowed(Node, Allowed)
+    end.
+
+is_nodename_equal(A, B) when is_atom(A), is_atom(B) ->
+    A =:= B;
+is_nodename_equal(A, B) when is_atom(A) ->
+    is_nodename_equal(atom_to_list(A), B);
+is_nodename_equal(A, B) when is_atom(B) ->
+    is_nodename_equal(A, atom_to_list(B));
+is_nodename_equal(A, B) when is_list(A), is_list(B) ->
+    A =:= B.
 
 is_valid_name(OtherNodeName) ->
     case string:lexemes(OtherNodeName,"@") of
