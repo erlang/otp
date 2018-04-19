@@ -67,8 +67,10 @@
 
 	%% errors in 18
         t_register_corruption/1,
-	t_bad_update/1
+	t_bad_update/1,
 
+        %% new in OTP 21
+        t_reused_key_variable/1
     ]).
 
 suite() -> [].
@@ -120,7 +122,10 @@ all() ->
 
 	%% errors in 18
         t_register_corruption,
-        t_bad_update
+        t_bad_update,
+
+        %% new in OTP 21
+        t_reused_key_variable
     ].
 
 groups() -> [].
@@ -1980,6 +1985,16 @@ properly(Item) ->
 increase(Allows) ->
     catch fun() -> Allows end#{[] => +Allows, "warranty" => fun id/1}.
 
+t_reused_key_variable(Config) when is_list(Config) ->
+    Key = id(key),
+    Map1 = id(#{Key=>Config}),
+    Map2 = id(#{Key=>Config}),
+    case {Map1,Map2} of
+        %% core_lint treated Key as pattern variables, not input variables,
+        %% and complained about the variable being duplicated.
+        {#{Key:=Same},#{Key:=Same}} ->
+            ok
+    end.
 
 %% aux
 
