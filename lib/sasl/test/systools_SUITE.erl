@@ -1795,27 +1795,28 @@ normal_hybrid(Config) ->
 
     ok = file:set_cwd(OldDir),
 
-    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
     {ok,Hybrid} = systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
-						 BasePaths, [dummy,args]),
+                                                 [dummy,args]),
 
     {script,{"Test release","tmp_vsn"},Script} = binary_to_term(Hybrid),
     ct:log("~p.~n",[Script]),
 
     %% Check that all paths to base apps are replaced by paths from BaseLib
     Boot1Str = io_lib:format("~p~n",[binary_to_term(Boot1)]),
+    Boot2Str = io_lib:format("~p~n",[binary_to_term(Boot2)]),
     HybridStr = io_lib:format("~p~n",[binary_to_term(Hybrid)]),
     ReOpts = [global,{capture,first,list},unicode],
     {match,OldKernelMatch} = re:run(Boot1Str,"kernel-[0-9\.]+",ReOpts),
     {match,OldStdlibMatch} = re:run(Boot1Str,"stdlib-[0-9\.]+",ReOpts),
     {match,OldSaslMatch} = re:run(Boot1Str,"sasl-[0-9\.]+",ReOpts),
 
-    nomatch = re:run(HybridStr,"kernel-[0-9\.]+",ReOpts),
-    nomatch = re:run(HybridStr,"stdlib-[0-9\.]+",ReOpts),
-    nomatch = re:run(HybridStr,"sasl-[0-9\.]+",ReOpts),
-    {match,NewKernelMatch} = re:run(HybridStr,"testkernelpath",ReOpts),
-    {match,NewStdlibMatch} = re:run(HybridStr,"teststdlibpath",ReOpts),
-    {match,NewSaslMatch} = re:run(HybridStr,"testsaslpath",ReOpts),
+    {match,NewKernelMatch} = re:run(Boot2Str,"kernel-[0-9\.]+",ReOpts),
+    {match,NewStdlibMatch} = re:run(Boot2Str,"stdlib-[0-9\.]+",ReOpts),
+    {match,NewSaslMatch} = re:run(Boot2Str,"sasl-[0-9\.]+",ReOpts),
+
+    {match,NewKernelMatch} = re:run(HybridStr,"kernel-[0-9\.]+",ReOpts),
+    {match,NewStdlibMatch} = re:run(HybridStr,"stdlib-[0-9\.]+",ReOpts),
+    {match,NewSaslMatch} = re:run(HybridStr,"sasl-[0-9\.]+",ReOpts),
 
     NewKernelN = length(NewKernelMatch),
     NewKernelN = length(OldKernelMatch),
@@ -1823,6 +1824,11 @@ normal_hybrid(Config) ->
     NewStdlibN = length(OldStdlibMatch),
     NewSaslN = length(NewSaslMatch),
     NewSaslN = length(OldSaslMatch),
+
+    %% Check that kernelProcesses are taken from new boot script
+    {script,_,Script2} = binary_to_term(Boot2),
+    NewKernelProcs = [KP || KP={kernelProcess,_,_} <- Script2],
+    NewKernelProcs = [KP || KP={kernelProcess,_,_} <- Script],
 
     %% Check that application load instruction has correct versions
     Apps = application:loaded_applications(),
@@ -1894,10 +1900,8 @@ hybrid_no_old_sasl(Config) ->
     {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
     {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
 
-    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
     {error,{app_not_replaced,sasl}} =
-	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
-				       BasePaths,[dummy,args]),
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,[dummy,args]),
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -1927,10 +1931,8 @@ hybrid_no_new_sasl(Config) ->
     {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
     {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
 
-    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
     {error,{app_not_found,sasl}} =
-	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
-				       BasePaths,[dummy,args]),
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,[dummy,args]),
 
     ok = file:set_cwd(OldDir),
     ok.
