@@ -223,18 +223,19 @@ typedef unsigned long long llu_t;
 
 
 /* *** Misc macros and defines *** */
-#define MALLOC(SZ)    enif_alloc(SZ)
-#define FREE(P)       enif_free(P)
-#define MKA(E,S)      enif_make_atom(E, S)
-#define MKREF(E)      enif_make_ref(E)
-#define MKT2(E,E1,E2) enif_make_tuple2(E, E1, E2)
-#define MCREATE(N)    enif_mutex_create(N)
-#define MLOCK(M)      enif_mutex_lock(M)
-#define MUNLOCK(M)    enif_mutex_unlock(M)
+#define MALLOC(SZ)       enif_alloc(SZ)
+#define FREE(P)          enif_free(P)
+#define MKA(E,S)         enif_make_atom(E, S)
+#define MKBIN(E,B)       enif_make_binary(E, B)
+#define MKREF(E)         enif_make_ref(E)
+#define MKT2(E,E1,E2)    enif_make_tuple2(E, E1, E2)
+#define MKT3(E,E1,E2,E3) enif_make_tuple3(E, E1, E2, E3)
+#define MCREATE(N)       enif_mutex_create(N)
+#define MLOCK(M)         enif_mutex_lock(M)
+#define MUNLOCK(M)       enif_mutex_unlock(M)
 #define SELECT(E,FD,M,O,P,R) \
     if (enif_select((E), (FD), (M), (O), (P), (R)) < 0) \
         return enif_make_badarg((E));
-
 
 /* *** Socket state defs *** */
 
@@ -274,6 +275,18 @@ typedef unsigned long long llu_t;
 #define SOCKET_SEND_FLAG_OOB        6
 #define SOCKET_SEND_FLAG_LOW        SOCKET_SEND_FLAG_CONFIRM
 #define SOCKET_SEND_FLAG_HIGH       SOCKET_SEND_FLAG_OOB
+
+#define SOCKET_RECV_FLAG_CMSG_CLOEXEC 0
+#define SOCKET_RECV_FLAG_DONTWAIT     1
+#define SOCKET_RECV_FLAG_ERRQUEUE     2
+#define SOCKET_RECV_FLAG_OOB          3
+#define SOCKET_RECV_FLAG_PEEK         4
+#define SOCKET_RECV_FLAG_TRUNC        5
+#define SOCKET_RECV_FLAG_WAITALL      6
+#define SOCKET_RECV_FLAG_LOW          SOCKET_RECV_FLAG_CMSG_CLOEXEC
+#define SOCKET_RECV_FLAG_HIGH         SOCKET_RECV_FLAG_WAITALL
+
+#define SOCKET_RECV_BUFFER_SIZE_DEFAULT 2048
 
 typedef union {
     struct {
@@ -343,6 +356,8 @@ typedef union {
 #define GET_UINT(E, TE, IP)       enif_get_uint((E), (TE), (IP))
 #define GET_TUPLE(E, TE, TSZ, TA) enif_get_tuple((E), (TE), (TSZ), (TA))
 
+#define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
+
 
 /* =================================================================== *
  *                                                                     *
@@ -366,6 +381,7 @@ typedef union {
 #define sock_name(s, addr, len)    getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)                             \
     make_noninheritable_handle(socket((domain), (type), (proto)))
+#define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
 #define sock_send(s,buf,len,flag)  send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
 	    sendto((s),(buf),(blen),(flag),(addr),(alen))
@@ -395,6 +411,7 @@ static unsigned long one_value  = 1;
 #define sock_listen(s, b)               listen((s), (b))
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
                 sendto((s),(buf),(blen),(flag),(addr),(alen))
@@ -437,17 +454,28 @@ typedef struct {
 
 
 typedef struct {
-    ErlNifPid     pid; // PID of the acceptor
-    ErlNifMonitor mon; // Monitor for the acceptor
-    ERL_NIF_TERM  ref; // The (unique) reference of the (accept) request
-} SocketAcceptor;
+    ErlNifPid     pid; // PID of the requesting process
+    ErlNifMonitor mon; // Monitor to the requesting process
+    ERL_NIF_TERM  ref; // The (unique) reference (ID) of the request
+} SocketRequestor;
+
+typedef struct socket_request_queue_element {
+    struct socket_request_queue_element* next;
+    SocketRequestor                      data;
+} SocketRequestQueueElement;
 
 typedef struct {
-    // The actual socket
+    SocketRequestQueueElement* first;
+    SocketRequestQueueElement* last;
+} SocketRequestQueue;
+
+
+typedef struct {
+    /* +++ The actual socket +++ */
     SOCKET         sock;
     HANDLE         event;
 
-    /* "Stuff" about the socket */
+    /* +++ Stuff "about" the socket +++ */
     int            domain;
     int            type;
     int            protocol;
@@ -456,51 +484,45 @@ typedef struct {
     SocketAddress  remote;
 
 
-    // Controller (owner) process
+    /* +++ Controller (owner) process +++ */
     ErlNifPid      ctrlPid;
     ErlNifMonitor  ctrlMon;
 
-    // Write
-    ErlNifMutex*   writeMtx;
-    BOOLEAN_T      isWritable;
-    uint32_t       writePkgCnt;
-    uint32_t       writeByteCnt;
-    uint32_t       writeTries;
-    uint32_t       writeWaits;
-    uint32_t       writeFails;
+    /* +++ Write stuff +++ */
+    ErlNifMutex*       writeMtx;
+    SocketRequestor    currentWriter;
+    SocketRequestor*   currentWriterP; // NULL or points to currentWriter
+    SocketRequestQueue writersQ;
+    BOOLEAN_T          isWritable;
+    uint32_t           writePkgCnt;
+    uint32_t           writeByteCnt;
+    uint32_t           writeTries;
+    uint32_t           writeWaits;
+    uint32_t           writeFails;
 
-    // Read
-    ErlNifMutex*   readMtx;
-    BOOLEAN_T      isReadable;
-    ErlNifBinary   rbuffer;
-    uint32_t       readCapacity;
-    uint32_t       readPkgCnt;
-    uint32_t       readByteCnt;
-    uint32_t       readTries;
-    uint32_t       readWaits;
+    /* +++ Read stuff +++ */
+    ErlNifMutex*       readMtx;
+    SocketRequestor    currentReader;
+    SocketRequestor*   currentReaderP; // NULL or points to currentReader
+    SocketRequestQueue readersQ;
+    BOOLEAN_T          isReadable;
+    ErlNifBinary       rbuffer;      // DO WE NEED THIS
+    uint32_t           readCapacity; // DO WE NEED THIS
+    uint32_t           readPkgCnt;
+    uint32_t           readByteCnt;
+    uint32_t           readTries;
+    uint32_t           readWaits;
 
-    /* Accept
-     * We also need a queue for waiting acceptors...
-     * Lets see if this can be a common "request" queue...
-     */
-    ErlNifMutex*   accMtx;
-    SocketAcceptor acceptor;
+    /* +++ Accept stuff +++ */
+    ErlNifMutex*       accMtx;
+    SocketRequestor    currentAcceptor;
+    SocketRequestor*   currentAcceptorP; // NULL or points to currentReader
+    SocketRequestQueue acceptorsQ;
 
-
-    /* We need to keep track of the "request(s)" we have pending.
-     * If for instance an accept takes to long, the issuer may
-     * decide to "cancel" the accept (actually the select). This
-     * is done by calling the *nif_cancel* function with the request
-     * ref as argument.
-     * We also need to keep track of requests so that if a new
-     * request is issued before the current has completed, we
-     * reply with e.g. ebusy (or something to that effect).
-     * Or do we? Can the caller actually do that?
-     */
-
-
-    /* Misc stuff */
+    /* +++ Misc stuff +++ */
+    BOOLEAN_T      iow; // Inform On Wrap
     BOOLEAN_T      dbg;
+
 } SocketDescriptor;
 
 
@@ -514,39 +536,6 @@ typedef struct {
   BOOLEAN_T    dbg;
 } SocketData;
 
-
-/* typedef struct socket_queue_element { */
-/*     struct socket_queue_element* next; */
-/*     /\* */
-/*     unsigned int tag; */
-/*     union { */
-/*         SocketAcceptor acceptor; */
-/*     } u; */
-/*     *\/ */
-/*     SocketAcceptor acceptor; */
-/* } SocketQueueElement; */
-
-/* typedef struct socket_queue { */
-/*     SocketQueueElement* first; */
-/*     SocketQueueElement* last; */
-/* } SocketQueue; */
-
-/* Macros for defining the various queues (accept, send receive) */
-#define SOCKET_QUEUE_ELEMENT(QE,QEP)              \
-    typedef struct socket_queue_element_##QEP { \
-        struct socket_queue_element_##QEP* next; \
-        QE elem; \
-    } QE##Element;
-
-#define SOCKET_QUEUE(QE,Q) \
-    typedef struct {       \
-        QE* first;         \
-        QE* last;          \
-    } Q;
-
-/* The Acceptor Queue types */
-SOCKET_QUEUE_ELEMENT(SocketAcceptor, acceptor);
-SOCKET_QUEUE(SocketAcceptorElement, SocketAcceptQueue);
 
 /* ----------------------------------------------------------------------
  *  F o r w a r d s
@@ -600,12 +589,12 @@ static ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_close(ErlNifEnv*         env,
                               int                argc,
                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_setsockopt(ErlNifEnv*         env,
+                                   int                argc,
+                                   const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_getsockopt(ErlNifEnv*         env,
+                                   int                argc,
+                                   const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                             int                argc,
                                             const ERL_NIF_TERM argv[]);
@@ -649,12 +638,23 @@ static ERL_NIF_TERM nsendto(ErlNifEnv*        env,
                             ErlNifBinary*     dataP,
                             int               flags,
                             SocketAddress*    toAddrP);
+static ERL_NIF_TERM nrecv(ErlNifEnv*        env,
+                          SocketDescriptor* descP,
+                          ERL_NIF_TERM      recvRef,
+                          int               len,
+                          int               flags);
 
 static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
                                       ssize_t           written,
                                       ssize_t           dataSize,
                                       ERL_NIF_TERM      sendRef);
+static ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
+                                      SocketDescriptor* descP,
+                                      int               read,
+                                      int               toRead,
+                                      ErlNifBinary*     bufP,
+                                      ERL_NIF_TERM      recvRef);
 
 static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
                                          SocketDescriptor* descP);
@@ -707,6 +707,7 @@ static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
 static BOOLEAN_T eproto2proto(int eproto, int* proto);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
+static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
 #ifdef HAVE_SETNS
 static BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns);
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
@@ -725,7 +726,8 @@ static void socket_down(ErlNifEnv*           env,
 			const ErlNifPid*     pid,
 			const ErlNifMonitor* mon);
 
-static ERL_NIF_TERM make_ok(ErlNifEnv* env, ERL_NIF_TERM any);
+static ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM val);
+static ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2);
 static ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 static ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason);
 static ERL_NIF_TERM make_error2(ErlNifEnv* env, int err);
@@ -767,8 +769,9 @@ static const struct in6_addr in6addr_loopback =
 
 
 /* *** String constants *** */
-static char str_false[]       = "false";
+static char str_closed[]      = "closed";
 static char str_error[]       = "error";
+static char str_false[]       = "false";
 static char str_ok[]          = "ok";
 static char str_true[]        = "true";
 static char str_undefined[]   = "undefined";
@@ -779,6 +782,7 @@ static char str_eafnosupport[]   = "eafnosupport";
 static char str_einval[]         = "einval";
 static char str_eisconn[]        = "eisconn";
 static char str_enotconn[]       = "enotconn";
+static char str_exalloc[]        = "exalloc";
 static char str_exbadstate[]     = "exbadstate";
 static char str_exbusy[]         = "exbusy";
 static char str_exmon[]          = "exmonitor";  // failed monitor
@@ -786,8 +790,9 @@ static char str_exself[]         = "exself";     // failed self
 
 
 /* *** Atoms *** */
-static ERL_NIF_TERM atom_false;
+static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_error;
+static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_undefined;
@@ -797,6 +802,7 @@ static ERL_NIF_TERM atom_eafnosupport;
 static ERL_NIF_TERM atom_einval;
 static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_enotconn;
+static ERL_NIF_TERM atom_exalloc;
 static ERL_NIF_TERM atom_exbadstate;
 static ERL_NIF_TERM atom_exbusy;
 static ERL_NIF_TERM atom_exmon;
@@ -832,16 +838,16 @@ static SocketData socketData;
  * nif_connect(Sock, Addr, Port)
  * nif_listen(Sock, Backlog)
  * nif_accept(LSock, Ref)
- * nif_send(Sock, Data, Flags)
- * nif_sendto(Sock, Data, Flags, DstAddr, DstPort)
- * nif_recv(Sock, Flags)
+ * nif_send(Sock, SendRef, Data, Flags)
+ * nif_sendto(Sock, SendRef, Data, Flags, DstAddr, DstPort)
+ * nif_recv(Sock, RecvRef, Length, Flags)
  * nif_recvfrom(Sock, Flags)
  * nif_close(Sock)
  *
  * And some functions to manipulate and retrieve socket options:
  * -------------------------------------------------------------
- * nif_setopt/3
- * nif_getopt/2
+ * nif_setsockopt/3
+ * nif_getsockopt/2
  *
  * And some socket admin functions:
  * -------------------------------------------------------------
@@ -1033,7 +1039,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 #endif
 
 
-    return make_ok(env, res);
+    return make_ok2(env, res);
 }
 
 
@@ -1213,7 +1219,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
         port = 0;
     }
 
-    return make_ok(env, enif_make_int(env, port));
+    return make_ok2(env, enif_make_int(env, port));
 
 }
 
@@ -1482,7 +1488,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*          env,
                descP->sock,
                (ERL_NIF_SELECT_WRITE),
                descP, NULL, ref);
-        return make_ok(env, ref);
+        return make_ok2(env, ref);
     } else if (code == 0) {                 /* ok we are connected */
         descP->state = SOCKET_STATE_CONNECTED;
         /* Do we need to do somthing for "active" mode?
@@ -1738,13 +1744,13 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
 
             /* *** Try again later *** */
 
-            descP->acceptor.pid = caller;
+            descP->currentAcceptor.pid = caller;
             if (enif_monitor_process(env, descP,
-                                     &descP->acceptor.pid,
-                                     &descP->acceptor.mon) > 0)
+                                     &descP->currentAcceptor.pid,
+                                     &descP->currentAcceptor.mon) > 0)
                 return make_error(env, atom_exmon);
 
-            descP->acceptor.ref = ref;
+            descP->currentAcceptor.ref = ref;
 
             SELECT(env,
                    descP->sock,
@@ -1830,7 +1836,7 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
 
         accDescP->state = SOCKET_STATE_CONNECTED;
 
-        return make_ok(env, accRef);
+        return make_ok2(env, accRef);
     }
 }
 
@@ -1854,7 +1860,7 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
     if (enif_self(env, &caller) == NULL)
         return make_error(env, atom_exself);
 
-    if (compare_pids(env, &descP->acceptor.pid, &caller) != 0) {
+    if (compare_pids(env, &descP->currentAcceptor.pid, &caller) != 0) {
         /* This will have to do until we implement the queue.
          * When we have the queue, we should simply push this request,
          * and instead return with eagain (the caller will then wait
@@ -1938,7 +1944,7 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
          */
         descP->state = SOCKET_STATE_LISTENING;
 
-        return make_ok(env, accRef);
+        return make_ok2(env, accRef);
     }
 }
 
@@ -2200,6 +2206,101 @@ ERL_NIF_TERM nwritev(ErlNifEnv*        env,
 
 
 
+/* ----------------------------------------------------------------------
+ * nif_recv
+ *
+ * Description:
+ * Receive a message on a socket.
+ * Normally used only on a connected socket!
+ * If we are trying to read > 0 bytes, then that is what we do.
+ * But if we have specified 0 bytes, then we want to read
+ * whatever is in the buffers (everything it got).
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * RecvRef      - A unique id for this (send) request.
+ * Length       - The number of bytes to receive.
+ * Flags        - Receive flags.
+ */
+
+static
+ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
+                      int                argc,
+                      const ERL_NIF_TERM argv[])
+{
+    SocketDescriptor* descP;
+    ERL_NIF_TERM      recvRef;
+    int               len;
+    unsigned int      eflags;
+    int               flags;
+    ERL_NIF_TERM      res;
+
+    if ((argc != 4) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !GET_INT(env, argv[2], &len) ||
+        !GET_UINT(env, argv[3], &eflags)) {
+        return enif_make_badarg(env);
+    }
+    recvRef  = argv[1];
+
+    if (!IS_CONNECTED(descP))
+        return make_error(env, atom_enotconn);
+
+    if (!erecvflags2recvflags(eflags, &flags))
+        return enif_make_badarg(env);
+
+    MLOCK(descP->readMtx);
+
+    /* We need to handle the case when another process tries
+     * to receive at the same time.
+     * If the current recv could not read its entire package
+     * this time (resulting in an select). The read of the
+     * other process must be made to wait until current
+     * is done!
+     * Basically, we need a read queue!
+     *
+     * A 'reading' field (boolean), which is set if we did
+     * not manage to read the entire message and reset every
+     * time we do.
+     */
+
+    res = nrecv(env, descP, recvRef, len, flags);
+
+    MUNLOCK(descP->readMtx);
+
+    return res;
+
+}
+
+
+static
+ERL_NIF_TERM nrecv(ErlNifEnv*        env,
+                   SocketDescriptor* descP,
+                   ERL_NIF_TERM      recvRef,
+                   int               len,
+                   int               flags)
+{
+    ssize_t      read;
+    ErlNifBinary buf;
+
+    if (!descP->isReadable)
+        return enif_make_badarg(env);
+
+    if (!ALLOC_BIN((len ? len : SOCKET_RECV_BUFFER_SIZE_DEFAULT), &buf))
+        return make_error(env, atom_exalloc);
+
+    /* We ignore the wrap for the moment.
+     * Maybe we should issue a wrap-message to controlling process...
+     */
+    cnt_inc(&descP->readTries, 1);
+
+    read = sock_recv(descP->sock, buf.data, buf.size, flags);
+
+    return recv_check_result(env, descP,
+                             read, len,
+                             &buf,
+                             recvRef);
+}
 
 
 
@@ -2237,7 +2338,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
             /* Ok, try again later */
 
-            written = 0;
+            written = 0; // SHOULD RESULT IN {error, eagain}!!!!
 
         }
     }
@@ -2252,12 +2353,109 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
     SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE),
            descP, NULL, sendRef);
 
-    return make_ok(env, enif_make_int(env, written));
+    return make_ok2(env, enif_make_int(env, written));
 
 }
 
 
-/* The rather odd thing about the 'toAddrP' (the **) is
+static
+ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
+                               SocketDescriptor* descP,
+                               int               read,
+                               int               toRead,
+                               ErlNifBinary*     bufP,
+                               ERL_NIF_TERM      recvRef)
+{
+    /* There is a special case: If the provided 'to read' value is
+     * zero (0). That means that if we filled the (default size)
+     * buffer, we need to continue to read (since there *may* be
+     * more data), but we cannot loop here. Instead we inform the
+     * caller that it must call again.
+     */
+
+    if (bufP->size == read) {
+
+        /* +++ We filled the buffer +++ */
+
+        if (toRead == 0) {
+
+            /* +++ Give us everything you have got => needs to continue +++ */
+
+            /* How do we do this?
+             * Either:
+             * 1) Send up each chunk of data for each of the read
+             *    and let the erlang code assemble it: {ok, false, Bin}
+             *    (when complete it should return {ok, true, Bin}).
+             *    We need to read atleast one more time to be sure if its
+             *    done...
+             * 2) Or put it in a buffer here, and then let the erlang code
+             *    know that it should call again (special return value)
+             *    (continuous binary realloc "here").
+             *
+             * => We choose alt 1 for now.
+             */
+
+            return make_ok3(env, atom_false, MKBIN(env, bufP));
+
+        } else {
+
+            /* +++ We got exactly as much as we requested +++ */
+
+            /* <KOLLA>
+             * WE NEED TO INFORM ANY WAITING READERS
+             * </KOLLA>
+             */
+
+            return make_ok3(env, atom_true, MKBIN(env, bufP));
+
+        }
+
+    } else if (read < 0) {
+
+        /* +++ Error handling +++ */
+
+        int save_errno = sock_errno();
+
+        if (save_errno == ECONNRESET)  {
+
+            /* +++ Oups - closed +++ */
+
+            /* <KOLLA>
+             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
+             * PROCESS, WE NEED TO INFORM IT!!!
+             *
+             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
+             *
+             * </KOLLA>
+             */
+
+            SELECT(env,
+                   descP->sock,
+                   (ERL_NIF_SELECT_STOP),
+                   descP, NULL, recvRef);
+
+            return make_error(env, atom_closed);
+
+        } else if ((save_errno == ERRNO_BLOCK) ||
+                   (save_errno == EAGAIN)) {
+            return make_error(env, atom_eagain);
+        } else {
+            return make_error2(env, save_errno);
+        }
+
+    } else {
+
+        /* +++ We got only a part of what was expected - receive more later +++ */
+
+        return make_ok3(env, atom_false, MKBIN(env, bufP));
+
+    }
+}
+
+
+/* *** decode_send_addr ***
+ *
+ * The rather odd thing about the 'toAddrP' (the **) is
  * because we need to be able to return a NULL pointer,
  * in the case of the dest address is the atom 'null'.
  * Its possible to call the sendto function with the
@@ -2507,14 +2705,24 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         char buf[64]; /* Buffer used for building the mutex name */
 
         sprintf(buf, "socket[w,%d]", sock);
-        descP->writeMtx = MCREATE(buf);
+        descP->writeMtx       = MCREATE(buf);
+        descP->currentWriterP = NULL; // currentWriter not used
+        descP->writersQ.first = NULL;
+        descP->writersQ.last  = NULL;
 
         sprintf(buf, "socket[r,%d]", sock);
-        descP->readMtx  = MCREATE(buf);
+        descP->readMtx        = MCREATE(buf);
+        descP->currentReaderP = NULL; // currentReader not used
+        descP->readersQ.first = NULL;
+        descP->readersQ.last  = NULL;
 
         sprintf(buf, "socket[acc,%d]", sock);
-        descP->accMtx   = MCREATE(buf);
+        descP->accMtx           = MCREATE(buf);
+        descP->currentAcceptorP = NULL; // currentAcceptor not used
+        descP->acceptorsQ.first = NULL;
+        descP->acceptorsQ.last  = NULL;
 
+        descP->iow          = FALSE;
         descP->dbg          = SOCKET_DEBUG_DEFAULT;
         descP->isWritable   = TRUE;
         descP->isReadable   = TRUE;
@@ -2756,14 +2964,78 @@ BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags)
 
 
 
+/* erecvflags2recvflags - convert internal (erlang) send flags to (proper)
+ * send flags.
+ */
+static
+BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags)
+{
+    unsigned int ef;
+    int          tmp = 0;
+
+    for (ef = SOCKET_RECV_FLAG_LOW; ef <= SOCKET_RECV_FLAG_HIGH; ef++) {
+        switch (ef) {
+        case SOCKET_RECV_FLAG_CMSG_CLOEXEC:
+            tmp |= MSG_CMSG_CLOEXEC;
+            break;
+
+        case SOCKET_RECV_FLAG_DONTWAIT:
+            tmp |= MSG_DONTWAIT;
+            break;
+
+        case SOCKET_RECV_FLAG_ERRQUEUE:
+            tmp |= MSG_ERRQUEUE;
+            break;
+
+        case SOCKET_RECV_FLAG_OOB:
+            tmp |= MSG_OOB;
+            break;
+
+        case SOCKET_RECV_FLAG_PEEK:
+            tmp |= MSG_PEEK;
+            break;
+
+        case SOCKET_RECV_FLAG_TRUNC:
+            tmp |= MSG_TRUNC;
+            break;
+
+        case SOCKET_RECV_FLAG_WAITALL:
+            tmp |= MSG_WAITALL;
+            break;
+
+        default:
+            return FALSE;
+        }
+
+    }
+
+    *recvflags = tmp;
+
+    return TRUE;
+}
+
+
+
 /* Create an ok two (2) tuple in the form: {ok, Any}.
  * The second element (Any) is already in the form of an
  * ERL_NIF_TERM so all we have to do is create the tuple.
  */
 static
-ERL_NIF_TERM make_ok(ErlNifEnv* env, ERL_NIF_TERM any)
+ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 {
     return MKT2(env, atom_ok, any);
+}
+
+
+/* Create an ok three (3) tuple in the form: {ok, Val1, Val2}.
+ * The second (Val1) and third (Val2) elements are already in
+ * the form of an ERL_NIF_TERM so all we have to do is create
+ * the tuple.
+ */
+static
+ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2)
+{
+  return MKT3(env, atom_ok, val1, val2);
 }
 
 
@@ -2885,13 +3157,13 @@ ErlNifFunc socket_funcs[] =
   {"nif_connect",             3, nif_connect},
   {"nif_listen",              2, nif_listen},
   {"nif_accept",              2, nif_accept},
-  {"nif_send",                3, nif_send},
-  {"nif_sendto",              5, nif_sendto},
-  {"nif_recv",                2, nif_recv},
+  {"nif_send",                4, nif_send},
+  {"nif_sendto",              6, nif_sendto},
+  {"nif_recv",                4, nif_recv},
   {"nif_recvfrom",            2, nif_recvfrom},
   {"nif_close",               1, nif_close},
-  {"nif_setopt",              3, nif_setopt},
-  {"nif_getopt",              2, nif_getopt},
+  {"nif_setsockopt",          3, nif_setsockopt},
+  {"nif_getsockopt",          2, nif_getsockopt},
 
   /* "Extra" functions to "complete" the socket interface.
    * For instance, the function nif_finalize_connection
@@ -2966,7 +3238,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     // atom_active_once  = MKA(env, str_active_once);
     // atom_binary       = MKA(env, str_binary);
     // atom_buildDate    = MKA(env, str_buildDate);
-    // atom_closed       = MKA(env, str_closed);
+    atom_closed       = MKA(env, str_closed);
     atom_error        = MKA(env, str_error);
     atom_false        = MKA(env, str_false);
     // atom_list         = MKA(env, str_list);
@@ -2986,7 +3258,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_einval       = MKA(env, str_einval);
     atom_eisconn      = MKA(env, str_eisconn);
     atom_enotconn     = MKA(env, str_enotconn);
-    // atom_exalloc      = MKA(env, str_exalloc);
+    atom_exalloc      = MKA(env, str_exalloc);
     atom_exbadstate   = MKA(env, str_exbadstate);
     atom_exbusy       = MKA(env, str_exbusy);
     // atom_exnotopen    = MKA(env, str_exnotopen);
