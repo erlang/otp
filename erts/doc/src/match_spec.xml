@@ -169,10 +169,9 @@
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
         <c><![CDATA[is_map]]></c> | <c><![CDATA[is_binary]]></c> |
         <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> |
-        <c><![CDATA[is_seq_trace]]></c> | <c><![CDATA['and']]></c> |
-        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
-        <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
-        <c><![CDATA['orelse']]></c>
+        <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
+        <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
+        <c><![CDATA['andalso']]></c> | <c><![CDATA['orelse']]></c>
       </item>
       <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
         { GuardFunction, ConditionExpression, ... } | TermConstruct
@@ -202,8 +201,7 @@
         <c><![CDATA['>=']]></c> | <c><![CDATA['<']]></c> |
         <c><![CDATA['=<']]></c> | <c><![CDATA['=:=']]></c> |
         <c><![CDATA['==']]></c> | <c><![CDATA['=/=']]></c> |
-        <c><![CDATA['/=']]></c> | <c><![CDATA[self]]></c> |
-        <c><![CDATA[get_tcw]]></c>
+        <c><![CDATA['/=']]></c> | <c><![CDATA[self]]></c>
       </item>
       <item>MatchBody ::= [ ConditionExpression, ... ]
       </item>
