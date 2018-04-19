@@ -1106,7 +1106,7 @@ gen_enums_ints() ->
     w("-define(wxDefaultSize, {-1,-1}).~n", []),
     w("-define(wxDefaultPosition, {-1,-1}).~n", []),
     w("~n%% Global Variables~n", []),
-    [w("-define(~s,  wxe_util:get_const(~s)).~n", [Gvar, Gvar]) ||
+    [w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]) ||
 	{Gvar,_,_Id} <- get(gvars)],
     w("~n%% Enum and defines~n", []),
     foldl(fun(Enum= #enum{vals=Vals}, Done) when Vals =/= [] ->
@@ -1114,6 +1114,11 @@ gen_enums_ints() ->
 	     (_,Done) -> Done
 	  end, gb_sets:empty(), lists:sort(Enums)),
     close().
+
+qoute_atom([Char|_]=Str) when Char < $a ->
+    "'" ++ Str ++ "'";
+qoute_atom(Str) ->
+    Str.
 
 build_enum_ints(#enum{from=From, vals=Vals},Done) ->
     case From of

@@ -93,9 +93,10 @@ mangle_info(E={not_const,List}) ->
     put(not_const,  [atom_to_list(M) || M <- List]),
     E;
 mangle_info(E={gvars,List}) ->
-    A2L = fun({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
+    A2L = fun({N,{test_if,C}}) -> {atom_to_list(N), {test_if,C}};
+             ({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
 	     ({N,C}) ->     {atom_to_list(N), atom_to_list(C)}
-	  end,    
+	  end,
     put(gvars, map(A2L,List)),
     E;
 mangle_info({class,CN,P,O,FL}) ->
