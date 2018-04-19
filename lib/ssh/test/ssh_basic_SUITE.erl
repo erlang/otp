@@ -106,12 +106,12 @@ groups() ->
                                           ]},
      
      {basic, [], [{group,p_basic},
+                  shell, shell_no_unicode, shell_unicode_string,
                   close, 
                   known_hosts
                  ]},
      {p_basic, [parallel], [send, peername_sockname,
                             exec, exec_compressed, 
-                            shell, shell_no_unicode, shell_unicode_string,
                             cli,
                             idle_time_client, idle_time_server, openssh_zlib_basic_test, 
                             misc_ssh_options, inet_option, inet6_option]}
