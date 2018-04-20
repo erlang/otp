@@ -596,21 +596,23 @@ print_length_map(Map, 1, _T, RF, Enc, Str) ->
     {"#{...}", 6, 3, More};
 print_length_map(Map, D, T, RF, Enc, Str) when is_map(Map) ->
     Next = maps:next(maps:iterator(Map)),
-    PairsS = print_length_map_pairs(Next, D, tsub(T, 3), RF, Enc, Str),
+    PairsS = print_length_map_pairs(Next, D, D - 1, tsub(T, 3), RF, Enc, Str),
     {Len, Dots} = list_length(PairsS, 3, 0),
     {{map, PairsS}, Len, Dots, no_more}.
 
-print_length_map_pairs(none, _D, _T, _RF, _Enc, _Str) ->
+print_length_map_pairs(none, _D, _D0, _T, _RF, _Enc, _Str) ->
     [];
-print_length_map_pairs(Term, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Term, D+Dd, T1, RF, Enc, Str) end,
+print_length_map_pairs(Term, D, D0, T, RF, Enc, Str) when D =:= 1; T =:= 0->
+    More = fun(T1, Dd) ->
+                   ?FUNCTION_NAME(Term, D+Dd, D0, T1, RF, Enc, Str)
+           end,
     {dots, 3, 3, More};
-print_length_map_pairs({K, V, Iter}, D, T, RF, Enc, Str) ->
-    Pair1 = print_length_map_pair(K, V, D - 1, tsub(T, 1), RF, Enc, Str),
+print_length_map_pairs({K, V, Iter}, D, D0, T, RF, Enc, Str) ->
+    Pair1 = print_length_map_pair(K, V, D0, tsub(T, 1), RF, Enc, Str),
     {_, Len1, _, _} = Pair1,
     Next = maps:next(Iter),
     [Pair1 |
-     print_length_map_pairs(Next, D - 1, tsub(T, Len1+1), RF, Enc, Str)].
+     print_length_map_pairs(Next, D - 1, D0, tsub(T, Len1+1), RF, Enc, Str)].
 
 print_length_map_pair(K, V, D, T, RF, Enc, Str) ->
     {_, KL, KD, _} = P1 = print_length(K, D, T, RF, Enc, Str),

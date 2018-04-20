@@ -388,16 +388,16 @@ write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
 write_map(Map, D, E) when is_integer(D) ->
-    [$#,${,write_map_body(maps:to_list(Map), D, E),$}].
+    [$#,${,write_map_body(maps:to_list(Map), D, D - 1, E),$}].
 
-write_map_body(_, 1, _E) -> "...";
-write_map_body([], _, _E) -> [];
-write_map_body([{K,V}], D, E) -> write_map_assoc(K, V, D, E);
-write_map_body([{K,V}|KVs], D, E) ->
-    [write_map_assoc(K, V, D, E),$, | write_map_body(KVs, D-1, E)].
+write_map_body(_, 1, _D0, _E) -> "...";
+write_map_body([], _, _D0, _E) -> [];
+write_map_body([{K,V}], _D, D0, E) -> write_map_assoc(K, V, D0, E);
+write_map_body([{K,V}|KVs], D, D0, E) ->
+    [write_map_assoc(K, V, D0, E),$, | write_map_body(KVs, D - 1, D0, E)].
 
 write_map_assoc(K, V, D, E) ->
-    [write1(K, D - 1, E)," => ",write1(V, D-1, E)].
+    [write1(K, D, E)," => ",write1(V, D, E)].
 
 write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
