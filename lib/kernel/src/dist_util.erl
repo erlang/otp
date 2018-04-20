@@ -30,7 +30,7 @@
          strict_order_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
-         is_allowed/2,
+         is_node_name/1, split_node/1, is_allowed/2,
 	 shutdown/3, shutdown/4]).
 
 -import(error_logger,[error_msg/2]).
@@ -632,7 +632,7 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
         {ok,
          [$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4
           | OtherNode] = Data} ->
-            case is_valid_name(OtherNode) of
+            case is_node_name(OtherNode) of
                 true ->
                     Flags = ?u32(Flag1, Flag2, Flag3, Flag4),
                     Version = ?u16(VersionA,VersionB),
@@ -642,6 +642,31 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
             end;
 	_ ->
 	    ?shutdown(no_node)
+    end.
+
+is_node_name(OtherNodeName) ->
+    case string:split(OtherNodeName, "@") of
+        [Name,Host] ->
+            (not string:is_empty(Name))
+                andalso (not string:is_empty(Host));
+        _ ->
+            false
+    end.
+
+split_node(Node) ->
+    case string:split(listify_node(Node), "@") of
+        [Name,Host] = Split ->
+            case
+                (not string:is_empty(Name))
+                andalso (not string:is_empty(Host))
+            of
+                true ->
+                    {Name,Host};
+                false ->
+                    Split
+            end;
+        Split ->
+            Split
     end.
 
 %%
@@ -661,32 +686,44 @@ is_allowed(#hs_data{allowed = Allowed} = HSData, Flags, Node, Version) ->
 	    ?shutdown2(Node, {is_allowed, not_allowed})
     end.
 
+%% Allow Node on Allowed node list, and also if host part
+%% of Node matches Allowed list item.  The Allowed list
+%% contains node names or host names.
+%%
 is_allowed(_Node, []) ->
     false;
+is_allowed(Node, [Node|_Allowed]) when is_atom(Node) ->
+    true;
 is_allowed(Node, [AllowedNode|Allowed]) ->
-    case is_nodename_equal(Node, AllowedNode) of
-        true ->
-            true;
-        false ->
+    case split_node(AllowedNode) of
+        {AllowedName,AllowedHost} ->
+            %% Allowed node name
+            case split_node(Node) of
+                {AllowedName,AllowedHost} ->
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        [AllowedHost] ->
+            %% Allowed host name
+            case split_node(Node) of
+                {_,AllowedHost} ->
+                    %% Matching Host part
+                    true;
+                [AllowedHost] ->
+                    %% Host matches Host
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        _ ->
             is_allowed(Node, Allowed)
     end.
 
-is_nodename_equal(A, B) when is_atom(A), is_atom(B) ->
-    A =:= B;
-is_nodename_equal(A, B) when is_atom(A) ->
-    is_nodename_equal(atom_to_list(A), B);
-is_nodename_equal(A, B) when is_atom(B) ->
-    is_nodename_equal(A, atom_to_list(B));
-is_nodename_equal(A, B) when is_list(A), is_list(B) ->
-    A =:= B.
-
-is_valid_name(OtherNodeName) ->
-    case string:lexemes(OtherNodeName,"@") of
-        [_OtherNodeName,_OtherNodeHost] ->
-            true;
-        _else ->
-            false
-    end.
+listify_node(Atom) when is_atom(Atom) ->
+    atom_to_list(Atom);
+listify_node(Node) when is_list(Node) ->
+    Node.
 
 publish_type(Flags) ->
     case Flags band ?DFLAG_PUBLISHED of

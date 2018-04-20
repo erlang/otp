@@ -29,7 +29,7 @@
 -export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2]).
 
--export([split_node/1, nodelay/0]).
+-export([nodelay/0]).
 
 -export([verify_client/3, verify_server/3, cert_nodes/1]).
 
@@ -52,25 +52,20 @@ select(Node) ->
     gen_select(inet_tcp, Node).
 
 gen_select(Driver, Node) ->
-    case split_node(Node) of
-        false ->
-            false;
-        Host ->
+    case dist_util:split_node(Node) of
+        {_,Host} ->
 	    case Driver:getaddr(Host) of
 		{ok, _} -> true;
 		_ -> false
-	    end
+	    end;
+        _ ->
+            false
     end.
 
 %% -------------------------------------------------------------------------
 
 is_node_name(Node) ->
-    case split_node(Node) of
-        false ->
-            false;
-        _Host ->
-            true
-    end.
+    dist_util:is_node_name(Node).
 
 %% -------------------------------------------------------------------------
 
@@ -145,13 +140,13 @@ f_getll(DistCtrl) ->
 f_address(SslSocket, Node) ->
     case ssl:peername(SslSocket) of
         {ok, Address} ->
-            case split_node(Node) of
-                false ->
-                    {error, no_node};
-                Host ->
+            case dist_util:split_node(Node) of
+                {_,Host} ->
                     #net_address{
                        address=Address, host=Host,
-                       protocol=tls, family=inet}
+                       protocol=tls, family=inet};
+                _ ->
+                    {error, no_node}
             end
     end.
 
@@ -429,7 +424,7 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
         [link, {priority, max}])).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
+    {Name, Address} = split_node(Driver, Node, LongOrShortNames),
     case Driver:getaddr(Address) of
 	{ok, Ip} ->
             Timer = trace(dist_util:start_timer(SetupTime)),
@@ -654,9 +649,9 @@ parse_rdn([_|Rdn]) ->
 
 
 %% If Node is illegal terminate the connection setup!!
-splitnode(Driver, Node, LongOrShortNames) ->
-    case string:split(atom_to_list(Node), "@") of
-	[Name, Host] when Host =/= [] ->
+split_node(Driver, Node, LongOrShortNames) ->
+    case dist_util:split_node(Node) of
+        {Name, Host} ->
 	    check_node(Driver, Name, Node, Host, LongOrShortNames);
 	[_] ->
 	    error_logger:error_msg(
@@ -671,10 +666,10 @@ splitnode(Driver, Node, LongOrShortNames) ->
 
 check_node(Driver, Name, Node, Host, LongOrShortNames) ->
     case string:split(Host, ".") of
-	[_] when LongOrShortNames == longnames ->
+	[_] when LongOrShortNames =:= longnames ->
 	    case Driver:parse_address(Host) of
 		{ok, _} ->
-		    [Name, Host];
+		    {Name, Host};
 		_ ->
 		    error_logger:error_msg(
                       "** System running to use "
@@ -683,7 +678,7 @@ check_node(Driver, Name, Node, Host, LongOrShortNames) ->
                       [Host]),
 		    ?shutdown2(Node, trace({not_longnames, Host}))
 	    end;
-	[_, _] when LongOrShortNames == shortnames ->
+	[_,_|_] when LongOrShortNames =:= shortnames ->
 	    error_logger:error_msg(
               "** System NOT running to use "
               "fully qualified hostnames **~n"
@@ -691,18 +686,8 @@ check_node(Driver, Name, Node, Host, LongOrShortNames) ->
               [Host]),
 	    ?shutdown2(Node, trace({not_shortnames, Host}));
 	_ ->
-	    [Name, Host]
+	    {Name, Host}
     end.
-
-split_node(Node) when is_atom(Node) ->
-    case string:split(atom_to_list(Node), "@") of
-        [Name, Host] when Name =/= [], Host =/= [] ->
-            Host;
-        _ ->
-            false
-    end;
-split_node(_) ->
-    false.
 
 %% -------------------------------------------------------------------------
 
