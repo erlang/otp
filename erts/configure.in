@@ -2661,18 +2661,6 @@ AC_CHECK_PROG(M4, m4, m4)
 
 
 if test X${enable_hipe} != Xno; then
-    if test X$ac_cv_sizeof_void_p != X4 && test X$ARCH = Xamd64; then
-        dnl HiPE cannot run on x86_64 without MAP_FIXED and MAP_NORESERVE
-	AC_CHECK_DECLS([MAP_FIXED, MAP_NORESERVE], [], [], [#include <sys/mman.h>])
-	if test X$ac_cv_have_decl_MAP_FIXED != Xyes || test X$ac_cv_have_decl_MAP_NORESERVE != Xyes; then
-	    if test X${enable_hipe} = Xyes; then
-	        AC_MSG_ERROR([HiPE on x86_64 needs MAP_FIXED and MAP_NORESERVE flags for mmap()])
-	    else
-	        enable_hipe=no
-	        AC_MSG_WARN([Disable HiPE due to lack of MAP_FIXED and MAP_NORESERVE flags for mmap()])
-	    fi
-        fi
-    else
         dnl HiPE cannot run without mprotect()
         if test X$ac_cv_func_mprotect != Xyes; then
             if test X${enable_hipe} = Xyes; then
@@ -2682,7 +2670,6 @@ if test X${enable_hipe} != Xno; then
 	        AC_MSG_WARN([Disable HiPE due to lack of mprotect()])
             fi
         fi
-    fi
 fi
 
 dnl check to auto-enable hipe here...
