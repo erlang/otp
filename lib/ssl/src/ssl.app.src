@@ -17,8 +17,8 @@
 	       dtls_socket,
 	       dtls_v1,
 	       dtls_connection_sup,
-	       dtls_udp_listener,
-	       dtls_udp_sup,
+	       dtls_packet_demux,
+	       dtls_listener_sup,
 	       %% API
 	       ssl,  %% Main API		  
 	       tls,  %% TLS specific

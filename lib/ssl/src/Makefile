@@ -54,8 +54,8 @@ MODULES= \
         ssl_connection_sup \
         ssl_listen_tracker_sup\
 	dtls_connection_sup \
-	dtls_udp_listener\
-	dtls_udp_sup \
+	dtls_packet_demux \
+	dtls_listener_sup \
 	ssl_dist_sup\
         ssl_dist_admin_sup\
         ssl_dist_connection_sup\

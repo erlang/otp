@@ -19,15 +19,15 @@
 
 %%
 
--module(dtls_udp_listener).
+-module(dtls_packet_demux).
 
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").
 
 %% API
--export([start_link/4, active_once/3, accept/2, sockname/1, close/1,
-        get_all_opts/1, get_sock_opts/2, set_sock_opts/2]).
+-export([start_link/5, active_once/3, accept/2, sockname/1, close/1,
+         get_all_opts/1, get_sock_opts/2, set_sock_opts/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -36,6 +36,7 @@
 -record(state, 
 	{port, 
 	 listener,
+         transport,
 	 dtls_options,
 	 emulated_options,
 	 dtls_msq_queues = kv_new(),
@@ -50,35 +51,36 @@
 %%% API
 %%%===================================================================
 
-start_link(Port, EmOpts, InetOptions, DTLSOptions) ->
-    gen_server:start_link(?MODULE, [Port, EmOpts, InetOptions, DTLSOptions], []).
+start_link(Port, TransportInfo, EmOpts, InetOptions, DTLSOptions) ->
+    gen_server:start_link(?MODULE, [Port, TransportInfo, EmOpts, InetOptions, DTLSOptions], []).
 
-active_once(UDPConnection, Client, Pid) ->
-    gen_server:cast(UDPConnection, {active_once, Client, Pid}).
+active_once(PacketSocket, Client, Pid) ->
+    gen_server:cast(PacketSocket, {active_once, Client, Pid}).
 
-accept(UDPConnection, Accepter) ->
-    call(UDPConnection, {accept, Accepter}).
+accept(PacketSocket, Accepter) ->
+    call(PacketSocket, {accept, Accepter}).
 
-sockname(UDPConnection) ->
-    call(UDPConnection, sockname).
-close(UDPConnection) ->
-    call(UDPConnection, close).
-get_sock_opts(UDPConnection, SplitSockOpts) ->
-    call(UDPConnection,  {get_sock_opts, SplitSockOpts}).
-get_all_opts(UDPConnection) ->
-    call(UDPConnection, get_all_opts).
-set_sock_opts(UDPConnection, Opts) ->
-     call(UDPConnection, {set_sock_opts, Opts}).
+sockname(PacketSocket) ->
+    call(PacketSocket, sockname).
+close(PacketSocket) ->
+    call(PacketSocket, close).
+get_sock_opts(PacketSocket, SplitSockOpts) ->
+    call(PacketSocket,  {get_sock_opts, SplitSockOpts}).
+get_all_opts(PacketSocket) ->
+    call(PacketSocket, get_all_opts).
+set_sock_opts(PacketSocket, Opts) ->
+     call(PacketSocket, {set_sock_opts, Opts}).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port, EmOpts, InetOptions, DTLSOptions]) ->
+init([Port, {TransportModule, _,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
     try 
-	{ok, Socket} = gen_udp:open(Port, InetOptions),
+	{ok, Socket} = TransportModule:open(Port, InetOptions),
 	{ok, #state{port = Port,
 		    first = true,
+                    transport = TransportInfo,
 		    dtls_options = DTLSOptions,
 		    emulated_options = EmOpts,
 		    listener = Socket,
@@ -134,20 +136,20 @@ handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
     {noreply, State}.
 
-handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket} = State0) ->
+handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket, transport = {_,Transport,_,_}} = State0) ->
     State = handle_datagram({IP, InPortNo}, Msg, State0),
     next_datagram(Socket),
     {noreply, State};
 
 %% UDP socket does not have a connection and should not receive an econnreset
-%% This does however happens on on some windows versions. Just ignoring it
+%% This does however happens on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
-handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket} = State) ->
+handle_info({Error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State};
-handle_info({udp_error, Socket, Error}, #state{listener = Socket} = State) ->
-    Report = io_lib:format("SSL UDP Listener shutdown: Socket error: ~p ~n", [Error]),
+handle_info({Error, Socket, Error}, #state{listener = Socket, transport = {_,_,_, Error}} = State) ->
+    Report = io_lib:format("SSL Packet muliplxer shutdown: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State#state{close=true}};
 
@@ -231,7 +233,7 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 						     listener = Socket,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, udp_listener}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts, EmOpts, dtls_listener}, User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),

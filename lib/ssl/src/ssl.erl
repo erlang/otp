@@ -234,7 +234,7 @@ handshake(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
 handshake(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
-        {ok, EmOpts, _} = dtls_udp_listener:get_all_opts(Pid),
+        {ok, EmOpts, _} = dtls_packet_demux:get_all_opts(Pid),
 	ssl_connection:handshake(Socket, {SslOpts,  
                                           tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
@@ -283,8 +283,8 @@ handshake_cancel(Socket) ->
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
-close(#sslsocket{pid = {udp, #config{udp_handler = {Pid, _}}}}) ->
-   dtls_udp_listener:close(Pid);
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
+   dtls_packet_demux:close(Pid);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
     Transport:close(ListenSocket).
 
@@ -311,10 +311,10 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}
 %%--------------------------------------------------------------------
 send(#sslsocket{pid = Pid}, Data) when is_pid(Pid) ->
     ssl_connection:send(Pid, Data);
-send(#sslsocket{pid = {_, #config{transport_info={gen_udp, _, _, _}}}}, _) ->
+send(#sslsocket{pid = {_, #config{transport_info={_, udp, _, _}}}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
-send(#sslsocket{pid = {udp,_}}, _) ->
-    {error,enotconn};
+send(#sslsocket{pid = {dtls,_}}, _) ->
+    {error,enotconn};  %% Emulate connection behaviour
 send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}}}}, Data) ->
     Transport:send(ListenSocket, Data). %% {error,enotconn}
 
@@ -329,7 +329,7 @@ recv(Socket, Length) ->
 recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
-recv(#sslsocket{pid = {udp,_}}, _, _) ->
+recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
@@ -343,7 +343,7 @@ recv(#sslsocket{pid = {Listen,
 %%--------------------------------------------------------------------
 controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid), is_pid(NewOwner) ->
     ssl_connection:new_user(Pid, NewOwner);
-controlling_process(#sslsocket{pid = {udp, _}},
+controlling_process(#sslsocket{pid = {dtls, _}},
 		    NewOwner) when is_pid(NewOwner) ->
     ok; %% Meaningless but let it be allowed to conform with TLS 
 controlling_process(#sslsocket{pid = {Listen,
@@ -368,7 +368,7 @@ connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     end;
 connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> 
     {error, enotconn};
-connection_information(#sslsocket{pid = {udp,_}}) ->
+connection_information(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}. 
 
 %%--------------------------------------------------------------------
@@ -394,13 +394,11 @@ peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid)->
     dtls_socket:peername(Transport, Socket);
 peername(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)->
     tls_socket:peername(Transport, Socket);
-peername(#sslsocket{pid = {udp = Transport, #config{udp_handler = {_Pid, _}}}}) ->
-    dtls_socket:peername(Transport, undefined);
-peername(#sslsocket{pid = Pid, fd = {gen_udp= Transport, Socket, _, _}}) when is_pid(Pid) ->
-    dtls_socket:peername(Transport, Socket);
+peername(#sslsocket{pid = {dtls, #config{dtls_handler = {_Pid, _}}}}) ->
+    dtls_socket:peername(dtls, undefined);
 peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}}) ->
     tls_socket:peername(Transport, ListenSocket); %% Will return {error, enotconn}
-peername(#sslsocket{pid = {udp,_}}) ->
+peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
 
 %%--------------------------------------------------------------------
@@ -415,7 +413,7 @@ peercert(#sslsocket{pid = Pid}) when is_pid(Pid) ->
         Result ->
 	    Result
     end;
-peercert(#sslsocket{pid = {udp, _}}) ->
+peercert(#sslsocket{pid = {dtls, _}}) ->
     {error, enotconn};
 peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
@@ -565,7 +563,7 @@ eccs_filter_supported(Curves) ->
 %%--------------------------------------------------------------------
 getopts(#sslsocket{pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
     ssl_connection:get_opts(Pid, OptionTags);
-getopts(#sslsocket{pid = {udp, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, OptionTags) when is_list(OptionTags) ->
+getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, OptionTags) when is_list(OptionTags) ->
     try dtls_socket:getopts(Transport, ListenSocket, OptionTags) of
         {ok, _} = Result ->
             Result;
@@ -603,7 +601,7 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{pid = {udp, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
+setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try dtls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -660,7 +658,7 @@ getstat(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}, Options) when is_
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = {Transport,_, _, _}}}},
 	 How) when is_port(Listen) ->
     Transport:shutdown(Listen, How);
-shutdown(#sslsocket{pid = {udp,_}},_) ->
+shutdown(#sslsocket{pid = {dtls,_}},_) ->
     {error, enotconn};
 shutdown(#sslsocket{pid = Pid}, How) ->
     ssl_connection:shutdown(Pid, How).
@@ -672,8 +670,8 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 %%--------------------------------------------------------------------
 sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when is_port(Listen) ->
     tls_socket:sockname(Transport, Listen);
-sockname(#sslsocket{pid = {udp, #config{udp_handler = {Pid, _}}}}) ->
-    dtls_udp_listener:sockname(Pid);
+sockname(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
+    dtls_packet_demux:sockname(Pid);
 sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _}}) when is_pid(Pid) ->
     dtls_socket:sockname(Transport, Socket);
 sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
@@ -707,7 +705,7 @@ versions() ->
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:renegotiation(Pid);
-renegotiate(#sslsocket{pid = {udp,_}}) ->
+renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
@@ -722,7 +720,7 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 prf(#sslsocket{pid = Pid},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
     ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
-prf(#sslsocket{pid = {udp,_}}, _,_,_,_) ->
+prf(#sslsocket{pid = {dtls,_}}, _,_,_,_) ->
     {error, enotconn};
 prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
     {error, enotconn}.
@@ -795,8 +793,8 @@ supported_suites(anonymous, Version) ->
 do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->
     tls_socket:listen(Transport, Port, Config);
 
-do_listen(Port,  #config{transport_info = {Transport, _, _, _}} = Config, dtls_connection) ->
-    dtls_socket:listen(Transport, Port, Config).
+do_listen(Port,  Config, dtls_connection) ->
+    dtls_socket:listen(Port, Config).
 	
 %% Handle extra ssl options given to ssl_accept
 -spec handle_options([any()], #ssl_options{}) -> #ssl_options{}
