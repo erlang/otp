@@ -217,14 +217,16 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         }
 
         do {
+            Uint64 n;
             if (!frac_part) {
                 do {
                     *p++ = '0';
                 } while (--decimals);
                 break;
             }
-            *p++ = (char)((frac_part % 10) + '0');
-            frac_part /= 10;
+            n = frac_part / 10;
+            *p++ = (char)((frac_part - n*10) + '0');
+            frac_part = n;
         } while (--decimals);
 
         *p++ = '.';
@@ -236,9 +238,10 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
         *p++ = '0';
     } else {
         do {
-            *p++ = (char)((int_part % 10) + '0');
-            int_part /= 10;
-        }while (int_part);
+            Uint64 n = int_part / 10;
+            *p++ = (char)((int_part - n*10) + '0');
+            int_part = n;
+        } while (int_part);
     }
     if (neg)
         *p++ = '-';
