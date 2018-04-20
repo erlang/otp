@@ -815,8 +815,7 @@ result_line_1(Items) ->
 
 try_catch() ->
     ["  catch",nl,
-     "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
-     "      Stk = erlang:get_stacktrace(),",nl,
+     "    Class:Exception:Stk when Class =:= error; Class =:= exit ->",nl,
      "      case Exception of",nl,
      "        {error,{asn1,Reason}} ->",nl,
      "          {error,{asn1,{Reason,Stk}}};",nl,

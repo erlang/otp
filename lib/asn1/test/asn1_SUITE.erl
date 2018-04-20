@@ -227,10 +227,9 @@ test(Config, TestF, Rules) ->
                   try
                       TestF(C, R, O)
                   catch
-                      Class:Reason ->
+                      Class:Reason:Stk ->
                           NewReason = {Reason, [{rule, R}, {options, O}]},
-                          erlang:raise(Class, NewReason,
-                                       erlang:get_stacktrace())
+                          erlang:raise(Class, NewReason, Stk)
                   end
           end,
     Result = [run_case(Config, Fun, rule(Rule), opts(Rule)) || Rule <- Rules],

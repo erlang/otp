@@ -93,13 +93,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
          }).
 
 
-%% Are we outside or inside a catch or try/catch?
--type catch_scope() :: 'none'
-                     | 'after_old_catch'
-                     | 'after_try'
-                     | 'wrong_part_of_try'
-                     | 'try_catch'.
-
 %% Define the lint state record.
 %% 'called' and 'exports' contain {Line, {Function, Arity}},
 %% the other function collections contain {Function, Arity}.
@@ -144,9 +137,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: dict:dict(ta(), #typeinfo{}),
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
-               in_try_head=false :: boolean(),  %In a try head.
-               catch_scope = none               %Inside/outside try or catch
-                   :: catch_scope()
+               in_try_head=false :: boolean()  %In a try head.
               }).
 
 -type lint_state() :: #lint{}.
@@ -233,15 +224,6 @@ format_error({redefine_old_bif_import,{F,A}}) ->
 format_error({redefine_bif_import,{F,A}}) ->
     io_lib:format("import directive overrides auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
-format_error({get_stacktrace,wrong_part_of_try}) ->
-    "erlang:get_stacktrace/0 used in the wrong part of 'try' expression. "
-        "(Use it in the block between 'catch' and 'end'.)";
-format_error({get_stacktrace,after_old_catch}) ->
-    "erlang:get_stacktrace/0 used following an old-style 'catch' "
-        "may stop working in a future release. (Use it inside 'try'.)";
-format_error({get_stacktrace,after_try}) ->
-    "erlang:get_stacktrace/0 used following a 'try' expression "
-        "may stop working in a future release. (Use it inside 'try'.)";
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
 		  [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
@@ -591,10 +573,7 @@ start(File, Opts) ->
 		      false, Opts)},
 	 {missing_spec_all,
 	  bool_option(warn_missing_spec_all, nowarn_missing_spec_all,
-		      false, Opts)},
-         {get_stacktrace,
-          bool_option(warn_get_stacktrace, nowarn_get_stacktrace,
-                      true, Opts)}
+		      false, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -1426,7 +1405,7 @@ call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func,file=File}=St) 
 %% function(Line, Name, Arity, Clauses, State) -> State.
 
 function(Line, Name, Arity, Cs, St0) ->
-    St1 = St0#lint{func={Name,Arity},catch_scope=none},
+    St1 = St0#lint{func={Name,Arity}},
     St2 = define_function(Line, Name, Arity, St1),
     clauses(Cs, St2).
 
@@ -2367,7 +2346,7 @@ expr({call,Line,F,As}, Vt, St0) ->
 expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
     %% Currently, we don't allow any exports because later
     %% passes cannot handle exports in combination with 'after'.
-    {Evt0,St1} = exprs(Es, Vt, St0#lint{catch_scope=wrong_part_of_try}),
+    {Evt0,St1} = exprs(Es, Vt, St0),
     TryLine = {'try',Line},
     Uvt = vtunsafe(TryLine, Evt0, Vt),
     Evt1 = vtupdate(Uvt, Evt0),
@@ -2379,12 +2358,11 @@ expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
     {Avt0,St} = exprs(As, vtupdate(Evt2, Vt), St2),
     Avt1 = vtupdate(vtunsafe(TryLine, Avt0, Vt), Avt0),
     Avt = vtmerge(Evt2, Avt1),
-    {Avt,St#lint{catch_scope=after_try}};
+    {Avt,St};
 expr({'catch',Line,E}, Vt, St0) ->
     %% No new variables added, flag new variables as unsafe.
     {Evt,St} = expr(E, Vt, St0),
-    {vtupdate(vtunsafe({'catch',Line}, Evt, Vt), Evt),
-     St#lint{catch_scope=after_old_catch}};
+    {vtupdate(vtunsafe({'catch',Line}, Evt, Vt), Evt),St};
 expr({match,_Line,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Bvt,St2} = pattern(P, vtupdate(Evt, Vt), St1),
@@ -3223,7 +3201,7 @@ is_module_dialyzer_option(Option) ->
 
 try_clauses(Scs, Ccs, In, Vt, St0) ->
     {Csvt0,St1} = icrt_clauses(Scs, Vt, St0),
-    St2 = St1#lint{catch_scope=try_catch,in_try_head=true},
+    St2 = St1#lint{in_try_head=true},
     {Csvt1,St3} = icrt_clauses(Ccs, Vt, St2),
     Csvt = Csvt0 ++ Csvt1,
     UpdVt = icrt_export(Csvt, Vt, In, St3),
@@ -3243,7 +3221,7 @@ icrt_clauses(Cs, In, Vt, St0) ->
 icrt_clauses(Cs, Vt, St) ->
     mapfoldl(fun (C, St0) -> icrt_clause(C, Vt, St0) end, St, Cs).
 
-icrt_clause({clause,_Line,H,G,B}, Vt0, #lint{catch_scope=Scope}=St0) ->
+icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
     Vt1 = taint_stack_var(Vt0, H, St0),
     {Hvt,Binvt,St1} = head(H, Vt1, St0),
     Vt2 = vtupdate(Hvt, Binvt),
@@ -3251,7 +3229,7 @@ icrt_clause({clause,_Line,H,G,B}, Vt0, #lint{catch_scope=Scope}=St0) ->
     {Gvt,St2} = guard(G, vtupdate(Vt3, Vt0), St1#lint{in_try_head=false}),
     Vt4 = vtupdate(Gvt, Vt2),
     {Bvt,St3} = exprs(B, vtupdate(Vt4, Vt0), St2),
-    {vtupdate(Bvt, Vt4),St3#lint{catch_scope=Scope}}.
+    {vtupdate(Bvt, Vt4),St3}.
 
 taint_stack_var(Vt, Pat, #lint{in_try_head=true}) ->
     [{tuple,_,[_,_,{var,_,Stk}]}] = Pat,
@@ -3736,8 +3714,7 @@ has_wildcard_field([]) -> false.
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
     St2 = check_qlc_hrl(Line, M, F, As, St1),
-    St3 = check_get_stacktrace(Line, M, F, As, St2),
-    format_function(Line, M, F, As, St3).
+    format_function(Line, M, F, As, St2).
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not
@@ -3785,23 +3762,6 @@ deprecated_function(Line, M, F, As, St) ->
         no ->
 	    St
     end.
-
-check_get_stacktrace(Line, erlang, get_stacktrace, [], St) ->
-    case St of
-        #lint{catch_scope=none} ->
-            St;
-        #lint{catch_scope=try_catch} ->
-            St;
-        #lint{catch_scope=Scope} ->
-            case is_warn_enabled(get_stacktrace, St) of
-                false ->
-                    St;
-                true ->
-                    add_warning(Line, {get_stacktrace,Scope}, St)
-            end
-    end;
-check_get_stacktrace(_, _, _, _, St) ->
-    St.
 
 -dialyzer({no_match, deprecated_type/5}).
 

@@ -66,7 +66,7 @@
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
-         get_stacktrace/1, stacktrace_syntax/1,
+         stacktrace_syntax/1,
          otp_14285/1, otp_14378/1]).
 
 suite() ->
@@ -88,7 +88,7 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     get_stacktrace, stacktrace_syntax, otp_14285, otp_14378].
+     stacktrace_syntax, otp_14285, otp_14378].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4053,82 +4053,6 @@ otp_14323(Config) ->
            [],
            {errors,[{1,erl_parse,"bad type variable"}],[]}}],
     [] = run(Config, Ts),
-    ok.
-
-get_stacktrace(Config) ->
-    Ts = [{old_catch,
-           <<"t1() ->
-                  catch error(foo),
-                  erlang:get_stacktrace().
-           ">>,
-           [],
-           {warnings,[{3,erl_lint,{get_stacktrace,after_old_catch}}]}},
-          {nowarn_get_stacktrace,
-           <<"t1() ->
-                  catch error(foo),
-                  erlang:get_stacktrace().
-           ">>,
-           [nowarn_get_stacktrace],
-           []},
-          {try_catch,
-           <<"t1(X) ->
-                  try abs(X) of
-                    _ ->
-                      erlang:get_stacktrace()
-                  catch
-                      _:_ -> ok
-                  end.
-
-              t2() ->
-                  try error(foo)
-                  catch _:_ -> ok
-                  end,
-                  erlang:get_stacktrace().
-
-              t3() ->
-                  try error(foo)
-                  catch _:_ ->
-                    try error(bar)
-                    catch _:_ ->
-                      ok
-                    end,
-                    erlang:get_stacktrace()
-                  end.
-
-              no_warning(X) ->
-                  try
-                     abs(X)
-                  catch
-                     _:_ ->
-                       erlang:get_stacktrace()
-                  end.
-           ">>,
-           [],
-           {warnings,[{4,erl_lint,{get_stacktrace,wrong_part_of_try}},
-                      {13,erl_lint,{get_stacktrace,after_try}},
-                      {22,erl_lint,{get_stacktrace,after_try}}]}},
-          {multiple_catch_clauses,
-           <<"maybe_error(Arg) ->
-                try 5 / Arg
-                catch
-                    error:badarith ->
-                        _Stacktrace = erlang:get_stacktrace(),
-                        try io:nl()
-                        catch
-                            error:_ -> io:format('internal error')
-                        end;
-                    error:badarg ->
-                        _Stacktrace = erlang:get_stacktrace(),
-                        try io:format(qwe)
-                        catch
-                            error:_ -> io:format('internal error')
-                        end
-                end.
-             ">>,
-           [],
-           []}],
-
-    run(Config, Ts),
     ok.
 
 stacktrace_syntax(Config) ->

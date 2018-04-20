@@ -30,8 +30,7 @@ seq_roundtrip(I, D0) ->
         asn1_test_lib:map_roundtrip(M, 'Seq', Enc),
 	{ok,{'Seq',I,D}} = M:decode('Seq', Enc),
 	D
-    catch C:E ->
-	    Stk = erlang:get_stacktrace(),
+    catch C:E:Stk ->
 	    io:format("FAILED: ~p ~p\n", [I,D0]),
 	    erlang:raise(C, E, Stk)
     end.

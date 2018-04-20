@@ -50,7 +50,7 @@
          dist_ctrl_get_data_notification/1,
          dist_get_stat/1]).
 
--deprecated([now/0]).
+-deprecated([get_stacktrace/0,now/0]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
