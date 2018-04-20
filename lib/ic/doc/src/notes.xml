@@ -31,7 +31,22 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.4.3</title>
+   <section><title>IC 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Optimize encoding/decoding for pure 7-bit ascii atoms.</p>
+          <p>
+	    Own Id: OTP-15023 Aux Id: ERIERL-150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

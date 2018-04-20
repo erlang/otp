@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>ei_connect</c> functions that may cause
+	    failure due to insufficient buffer space for
+	    gethostbyname_r.</p>
+          <p>
+	    Own Id: OTP-15022 Aux Id: ERIERL-163 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize encoding/decoding for pure 7-bit ascii atoms.</p>
+          <p>
+	    Own Id: OTP-15023 Aux Id: ERIERL-150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

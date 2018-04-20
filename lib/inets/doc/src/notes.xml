@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.5</title>
+  <section><title>Inets 6.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken options handling in httpc (ERL-441).</p>
+          <p>
+	    Own Id: OTP-15007</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
