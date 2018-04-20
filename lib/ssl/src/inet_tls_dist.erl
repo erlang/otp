@@ -31,7 +31,7 @@
 
 -export([split_node/1, nodelay/0]).
 
--export([verify_client/3, verify_server/3]).
+-export([verify_client/3, verify_server/3, cert_nodes/1]).
 
 -export([dbg/0]). % Debug
 
@@ -228,7 +228,7 @@ accept_loop(Driver, Listen, Kernel) ->
     case Driver:accept(Listen) of
         {ok, Socket} ->
             Opts = get_ssl_options(server),
-            VerifyClient = is_verify_client(Opts),
+            CertNodesFun = verify_client_cert_nodes_fun(Opts),
             wait_for_code_server(),
             case
                 ssl:ssl_accept(
@@ -245,7 +245,7 @@ accept_loop(Driver, Listen, Kernel) ->
                         {Kernel, controller, Pid} ->
                             ok = ssl:controlling_process(SslSocket, Pid),
                             trace(
-                              Pid ! {self(), controller, VerifyClient});
+                              Pid ! {self(), controller, CertNodesFun});
                         {Kernel, unsupported_protocol} ->
                             exit(trace(unsupported_protocol))
                     end,
@@ -270,30 +270,34 @@ accept_loop(Driver, Listen, Kernel) ->
 %% as a marker that the peer certificate shall be parsed
 %% for node names after succesful connection
 %%
-is_verify_client([]) ->
-    false;
-is_verify_client([Opt|Opts]) ->
+verify_client_cert_nodes_fun([]) ->
+    undefined;
+verify_client_cert_nodes_fun([Opt|Opts]) ->
     case Opt of
-        {verify_fun,{Fun,_}} ->
+        {verify_fun,{Fun,CertNodesFun}} ->
             case Fun =:= fun ?MODULE:verify_client/3 of
+                true when not is_function(CertNodesFun, 1) ->
+                    exit(
+                      trace(
+                        {verify_client_bad_argument,CertNodesFun}));
                 true ->
-                    true;
+                    CertNodesFun;
                 false ->
-                    is_verify_client(Opts)
+                    verify_client_cert_nodes_fun(Opts)
             end;
         _ ->
-            is_verify_client(Opts)
+            verify_client_cert_nodes_fun(Opts)
     end.
 
 %% Same as verify_peer - approves all valid certificates
 verify_client(_, {bad_cert,_} = Reason, _) ->
     {fail,Reason};
-verify_client(_, {extension,_}, S) ->
-    {unknown,S};
-verify_client(_, valid, S) ->
-    {valid,S};
-verify_client(_, valid_peer, S) ->
-    {valid_peer,S}.
+verify_client(_, {extension,_}, F) ->
+    {unknown,F};
+verify_client(_, valid, F) ->
+    {valid,F};
+verify_client(_, valid_peer, F) ->
+    {valid_peer,F}.
 
 
 wait_for_code_server() ->
@@ -346,23 +350,12 @@ gen_accept_connection(
 do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     SslSocket = ssl_connection:get_sslsocket(DistCtrl),
     receive
-	{AcceptPid, controller, VerifyClient} ->
+	{AcceptPid, controller, CertNodesFun} ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case check_ip(Driver, SslSocket) of
 		true ->
                     NewAllowed =
-                        case VerifyClient of
-                            true ->
-                                %%
-                                %% Parse out all node names from the peer's
-                                %% certificate and use them to create
-                                %% a list of allowed node names
-                                %% for the distribution handshake
-                                %%
-                                allowed(cert_nodes(SslSocket), Allowed);
-                            false ->
-                                Allowed
-                        end,
+                        allowed_nodes(CertNodesFun, SslSocket, Allowed),
                     HSData0 = hs_data_common(SslSocket),
                     HSData =
                         HSData0#hs_data{
@@ -382,19 +375,20 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
 	    end
     end.
 
-%% Parse out all node names from the peer's certificate
-%%
-cert_nodes(SslSocket) ->
+allowed_nodes(undefined, _SslSocket, Allowed) ->
+    Allowed;
+allowed_nodes(CertNodesFun, SslSocket, Allowed) ->
     case ssl:peercert(SslSocket) of
-        {ok,PeerCert} ->
-            case
-                parse_node_names(
-                  public_key:pkix_decode_cert(PeerCert, otp))
-            of
+        {ok,PeerCertDER} ->
+            PeerCert = public_key:pkix_decode_cert(PeerCertDER, otp),
+            %%
+            %% Parse out all node names from the peer's certificate
+            %%
+            case CertNodesFun(PeerCert) of
                 [] ->
                     ?shutdown(cert_missing_node_name);
                 CertNodes ->
-                    CertNodes
+                    allowed(CertNodes, Allowed)
             end;
         Error ->
             ?shutdown2(no_peer_cert, trace(Error))
@@ -515,10 +509,14 @@ setup_verify_server([], _Node, _) ->
     [];
 setup_verify_server([Opt|Opts], Node, Once) ->
     case Opt of
-        {verify_fun,{Fun,_}} ->
+        {verify_fun,{Fun,CertNodesFun}} ->
             case Fun =:= fun ?MODULE:verify_server/3 of
+                true when not is_function(CertNodesFun, 1) ->
+                    ?shutdown2(
+                       Node,
+                       {verify_server_bad_argument,CertNodesFun});
                 true when Once ->
-                    [{verify_fun,{Fun,Node}}
+                    [{verify_fun,{Fun,{CertNodesFun,Node}}}
                      |setup_verify_server(Opts, Node, false)];
                 true ->
                     setup_verify_server(Opts, Node, Once);
@@ -531,18 +529,21 @@ setup_verify_server([Opt|Opts], Node, Once) ->
 
 verify_server(_, {bad_cert,_} = Reason, _) ->
     {fail,Reason};
-verify_server(_, {extension,_}, Node) ->
-    {unknown,Node};
-verify_server(_, valid, Node) ->
-    {valid,Node};
-verify_server(PeerCert, valid_peer, Node) ->
-    case parse_node_names(PeerCert) of
+verify_server(_, {extension,_}, S) ->
+    {unknown,S};
+verify_server(_, valid, S) ->
+    {valid,S};
+verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
+    %%
+    %% Parse out all node names from the peer's certificate
+    %%
+    case CertNodesFun(PeerCert) of
         [] ->
             {fail,cert_missing_node_name};
         CertNodes ->
             case dist_util:is_allowed(Node, CertNodes) of
                 true ->
-                    {valid,Node};
+                    {valid,S};
                 false ->
                     {fail,wrong_nodes_in_cert}
             end
@@ -591,11 +592,12 @@ get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
 %% Look in Extensions, in all subjectAltName:s
 %% to find node names in this certificate
 %%
-parse_node_names(
+cert_nodes(
   #'OTPCertificate'{
      tbsCertificate = #'OTPTBSCertificate'{extensions = Extensions}}) ->
     parse_extensions(Extensions).
-%%
+
+
 parse_extensions(Extensions) when is_list(Extensions) ->
     parse_extensions(Extensions, []);
 parse_extensions(asn1_NOVALUE) ->

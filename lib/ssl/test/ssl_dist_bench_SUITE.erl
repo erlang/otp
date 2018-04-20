@@ -121,11 +121,13 @@ init_per_suite(Config) ->
                  {ciphers, [TLSCipher]}],
             ServerConf =
                 [{verify_fun,
-                  {fun inet_tls_dist:verify_client/3, undefined}}
+                  {fun inet_tls_dist:verify_client/3,
+                   fun inet_tls_dist:cert_nodes/1}}
                  | SSLConf],
             ClientConf =
                 [{verify_fun,
-                  {fun inet_tls_dist:verify_server/3, node}}
+                  {fun inet_tls_dist:verify_server/3,
+                   fun inet_tls_dist:cert_nodes/1}}
                  | SSLConf],
             %%
             write_node_conf(
