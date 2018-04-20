@@ -231,6 +231,8 @@ ApplicationVersion = string()</code>
 	  applications are expected to be correct in OTP 18.</p></warning>
       </item>
     </taglist>
+    <p>In addition to the ones speficied above, application resource files
+      are allowed to include custom keys in the property list.</p>
   </section>
 
   <section>
