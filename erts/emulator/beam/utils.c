@@ -140,7 +140,7 @@ Eterm*
 erts_set_hole_marker(Eterm* ptr, Uint sz)
 {
     Eterm* p = ptr;
-    int i;
+    Uint i;
 
     for (i = 0; i < sz; i++) {
 	*p++ = ERTS_HOLE_MARKER;
@@ -1990,7 +1990,7 @@ static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *
    {notify,{info_msg,gleader,{emulator,format,[args]}}} |
    {notify,{error,gleader,{emulator,format,[args]}}} |
    {notify,{warning_msg,gleader,{emulator,format,[args}]}} */
-static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
+static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, size_t len)
 {
     Uint sz;
     Eterm gl;
@@ -2003,7 +2003,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 
     ASSERT(is_atom(tag));
 
-    if (len <= 0) {
+    if (len == 0) {
 	return -1;
     }
 
@@ -2036,7 +2036,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 }
 
 static int do_send_term_to_logger(Eterm tag, Eterm gleader,
-				  char *buf, int len, Eterm args)
+				  char *buf, size_t len, Eterm args)
 {
     Uint sz;
     Eterm gl;
@@ -2077,13 +2077,13 @@ static int do_send_term_to_logger(Eterm tag, Eterm gleader,
 }
 
 static ERTS_INLINE int
-send_info_to_logger(Eterm gleader, char *buf, int len)
+send_info_to_logger(Eterm gleader, char *buf, size_t len)
 {
     return do_send_to_logger(am_info_msg, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_warning_to_logger(Eterm gleader, char *buf, int len)
+send_warning_to_logger(Eterm gleader, char *buf, size_t len)
 {
     Eterm tag;
     switch (erts_error_logger_warnings) {
@@ -2095,13 +2095,13 @@ send_warning_to_logger(Eterm gleader, char *buf, int len)
 }
 
 static ERTS_INLINE int
-send_error_to_logger(Eterm gleader, char *buf, int len)
+send_error_to_logger(Eterm gleader, char *buf, size_t len)
 {
     return do_send_to_logger(am_error, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_error_term_to_logger(Eterm gleader, char *buf, int len, Eterm args)
+send_error_term_to_logger(Eterm gleader, char *buf, size_t len, Eterm args)
 {
     return do_send_term_to_logger(am_error, gleader, buf, len, args);
 }
