@@ -107,7 +107,7 @@ static int init_cmp_num_class_p=1; /* initialize array, the first time */
 void erl_init_marshal(void)
 {
   if (init_cmp_array_p) {
-    memset(cmp_array, 0, CMP_ARRAY_SIZE);
+    memset(cmp_array, 0, sizeof cmp_array);
     cmp_array[ERL_SMALL_INTEGER_EXT] = ERL_NUM_CMP;
     cmp_array[ERL_INTEGER_EXT]       = ERL_NUM_CMP;
     cmp_array[ERL_FLOAT_EXT]         = ERL_NUM_CMP;
