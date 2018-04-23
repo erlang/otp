@@ -340,8 +340,8 @@ typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Ete
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
 static void alloc_seg(DbTableHash *tb);
 static int free_seg(DbTableHash *tb, int free_records);
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
-			HashDbTerm *list);
+static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
+			     HashDbTerm *list);
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
 			       HashValue hval, HashDbTerm *list);
 static void shrink(DbTableHash* tb, int nitems);
@@ -646,9 +646,9 @@ int db_create_hash(Process *p, DbTable *tbl)
 	    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
 	if (erts_ets_rwmtx_spin_count >= 0)
 	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-	tb->locks = (DbTableHashFineLocks*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */ 
-							      (DbTable *) tb,
-							      sizeof(DbTableHashFineLocks));	    	    
+	tb->locks = (DbTableHashFineLocks*) erts_db_alloc(ERTS_ALC_T_DB_SEG, /* Other type maybe? */
+                                                          (DbTable *) tb,
+                                                          sizeof(DbTableHashFineLocks));
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
             erts_rwmtx_init_opt(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
@@ -672,19 +672,9 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
     erts_rwmtx_t* lck = RLOCK_HASH(tb,ix);
     HashDbTerm* list;
 
-    for (;;) {
-	list = BUCKET(tb,ix);
-	if (list != NULL) {
-	    if (list->hvalue == INVALID_HASH) {
-		list = next(tb,&ix,&lck,list);
-	    }
-	    break;
-	}
-	if ((ix=next_slot(tb,ix,&lck)) == 0) {
-	    list = NULL;
-	    break;
-	}
-    }
+    list = BUCKET(tb,ix);
+    list = next_live(tb, &ix, &lck, list);
+
     if (list != NULL) {
 	*ret = db_copy_key(p, tbl, &list->dbterm);
 	RUNLOCK_HASH(lck);
@@ -721,13 +711,13 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }
     /* Key found */
 
-    b = next(tb, &ix, &lck, b);
+    b = next_live(tb, &ix, &lck, b->next);
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
 	while (b != 0) {
 	    if (!has_live_key(tb, b, key, hval)) {
 		break;
 	    }
-	    b = next(tb, &ix, &lck, b);
+	    b = next_live(tb, &ix, &lck, b->next);
 	}
     }
     if (b == NULL) {
@@ -1463,20 +1453,24 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
 
     BUMP_ALL_REDS(p);
     if (IS_USMALL(0, got)) {
-	hp = HAlloc(p,  base_halloc_sz + 5);
+	hp = HAllocX(p,  base_halloc_sz + 5, ERTS_MAGIC_REF_THING_SIZE);
 	egot = make_small(got);
     }
     else {
-	hp = HAlloc(p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 5);
+	hp = HAllocX(p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 5,
+                     ERTS_MAGIC_REF_THING_SIZE);
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
     }
 
     if (is_first_trap) {
+        if (is_atom(tid))
+            tid = erts_db_make_tid(p, &tb->common);
         mpb = erts_db_make_match_prog_ref(p, *mpp, &hp);
         *mpp = NULL; /* otherwise the caller will destroy it */
     }
     else {
+        ASSERT(!is_atom(tid));
         mpb = prev_continuation_tptr[3];
     }
 
@@ -1590,11 +1584,17 @@ static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix
                                              been in 'user space' */
             }
             if (rest != NIL || slot_ix >= 0) { /* Need more calls */
-                sc_context_ptr->hp = HAlloc(sc_context_ptr->p, 3 + 7 + ERTS_MAGIC_REF_THING_SIZE);
+                Eterm tid = sc_context_ptr->tid;
+                sc_context_ptr->hp = HAllocX(sc_context_ptr->p,
+                                             3 + 7 + ERTS_MAGIC_REF_THING_SIZE,
+                                             ERTS_MAGIC_REF_THING_SIZE);
                 mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &sc_context_ptr->hp);
+                if (is_atom(tid))
+                    tid = erts_db_make_tid(sc_context_ptr->p,
+                                           &sc_context_ptr->tb->common);
                 continuation = TUPLE6(
                         sc_context_ptr->hp,
-                        sc_context_ptr->tid,
+                        tid,
                         make_small(slot_ix),
                         make_small(sc_context_ptr->chunk_size),
                         mpb, rest,
@@ -1631,12 +1631,16 @@ static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint
     BUMP_ALL_REDS(sc_context_ptr->p);
 
     if (sc_context_ptr->prev_continuation_tptr == NULL) {
+        Eterm tid = sc_context_ptr->tid;
         /* First time we're trapping */
-        hp = HAlloc(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE);
+        hp = HAllocX(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE,
+                     ERTS_MAGIC_REF_THING_SIZE);
+        if (is_atom(tid))
+            tid = erts_db_make_tid(sc_context_ptr->p, &sc_context_ptr->tb->common);
         mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &hp);
         continuation = TUPLE6(
                 hp,
-                sc_context_ptr->tid,
+                tid,
                 make_small(slot_ix),
                 make_small(sc_context_ptr->chunk_size),
                 mpb,
@@ -2905,14 +2909,14 @@ static HashDbTerm* search_list(DbTableHash* tb, Eterm key,
 /* It return the next live object in a table, NULL if no more */
 /* In-bucket: RLOCKED */
 /* Out-bucket: RLOCKED unless NULL */
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
-			HashDbTerm *list)
+static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
+			     HashDbTerm *list)
 {
     int i;
 
     ERTS_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
 
-    for (list = list->next; list != NULL; list = list->next) {
+    for ( ; list != NULL; list = list->next) {
 	if (list->hvalue != INVALID_HASH)
 	    return list;        
     }
