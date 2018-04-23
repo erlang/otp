@@ -2389,8 +2389,9 @@ destroy_process_info_request(Process *c_p, ErtsProcessInfoSig *pisig)
 }
 
 static int
-handle_process_info(Process *c_p, ErtsMessage *sig,
-                    ErtsMessage ***next_nm_sig, int is_alive)
+handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
+                    ErtsMessage *sig, ErtsMessage ***next_nm_sig,
+                    int is_alive)
 {
     ErtsProcessInfoSig *pisig = (ErtsProcessInfoSig *) sig;
     Uint reds = 0;
@@ -2414,7 +2415,11 @@ handle_process_info(Process *c_p, ErtsMessage *sig,
              * Move messages part of message queue into inner
              * signal queue...
              */
+            ASSERT(tracing);
+
             if (*next_nm_sig != &c_p->sig_qs.cont) {
+                if (*next_nm_sig == tracing->messages.next)
+                    tracing->messages.next = &c_p->sig_qs.cont;
                 *c_p->sig_qs.last = c_p->sig_qs.cont;
                 c_p->sig_qs.last = *next_nm_sig;
 
@@ -2875,7 +2880,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
         case ERTS_SIG_Q_OP_PROCESS_INFO:
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
-            handle_process_info(c_p, sig, next_nm_sig, !0);
+            handle_process_info(c_p, &tracing, sig, next_nm_sig, !0);
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
 
@@ -3196,7 +3201,7 @@ erts_proc_sig_handle_exit(Process *c_p, int *redsp)
             break;
 
         case ERTS_SIG_Q_OP_PROCESS_INFO:
-            handle_process_info(c_p, sig, next_nm_sig, 0);
+            handle_process_info(c_p, NULL, sig, next_nm_sig, 0);
             break;
 
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
