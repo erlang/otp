@@ -6093,7 +6093,7 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	proxy = prev_proxy;
 	ASSERT(erts_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
 	erts_atomic32_set_nob(&proxy->state, state);
-        (void) erts_set_runq_proc(proc, rq, &bound);
+        (void) erts_set_runq_proc(proxy, rq, &bound);
     }
     else {
 	proxy = erts_alloc(ERTS_ALC_T_PROC, sizeof(Process));
@@ -6106,7 +6106,7 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	}
 #endif
 	erts_atomic32_init_nob(&proxy->state, state);
-        erts_init_runq_proc(proc, rq, bound);
+        erts_init_runq_proc(proxy, rq, bound);
     }
 
     proxy->common.id = proc->common.id;
