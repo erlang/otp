@@ -1158,7 +1158,7 @@
           <tag><marker id="+sbwtdcpu"/>
             <c>+sbwtdcpu none|very_short|short|medium|long|very_long</c></tag>
           <item>
-            <p>As <seealso marker="+sbwt"><c>+sbwt</c></seealso> but affects
+            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
               dirty CPU schedulers. Defaults to <c>short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1168,7 +1168,7 @@
           <tag><marker id="+sbwtdio"/>
             <c>+sbwtdio none|very_short|short|medium|long|very_long</c></tag>
           <item>
-            <p>As <seealso marker="+sbwt"><c>+sbwt</c></seealso> but affects
+            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
               dirty IO schedulers. Defaults to <c>short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1443,7 +1443,7 @@
           <tag><marker id="+swtdcpu"/>
             <c>+swtdcpu very_low|low|medium|high|very_high</c></tag>
           <item>
-            <p>As <seealso marker="+swt"><c>+swt</c></seealso> but
+            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but
               affects dirty CPU schedulers. Defaults to <c>medium</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1453,7 +1453,7 @@
           <tag><marker id="+swtdio"/>
             <c>+swtdio very_low|low|medium|high|very_high</c></tag>
           <item>
-            <p>As <seealso marker="+swt"><c>+swt</c></seealso> but affects
+            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but affects
               dirty IO schedulers. Defaults to <c>medium</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
