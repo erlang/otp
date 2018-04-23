@@ -269,7 +269,7 @@ no_debug(Name, Timeout) -> send_system_msg(Name, {debug, no_debug}, Timeout).
 -spec install(Name, FuncSpec) -> 'ok' when
       Name :: name(),
       FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
-      FuncId :: _,
+      FuncId :: term(),
       Func :: dbg_fun(),
       FuncState :: term().
 install(Name, {Func, FuncState}) ->
