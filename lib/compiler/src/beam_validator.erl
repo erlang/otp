@@ -632,7 +632,12 @@ valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     kill_state(select_val_branches(Src, Choices, Vst));
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     assert_type(tuple, Tuple, Vst),
-    kill_state(branch_arities(Choices, Tuple, branch_state(Fail, Vst)));
+    TupleType = case get_term_type(Tuple, Vst) of
+                    {fragile,TupleType0} -> TupleType0;
+                    TupleType0 -> TupleType0
+                end,
+    kill_state(branch_arities(Choices, Tuple, TupleType,
+                              branch_state(Fail, Vst)));
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
@@ -1509,13 +1514,20 @@ get_literal({integer,I}) when is_integer(I) -> I;
 get_literal({literal,L}) -> L;
 get_literal(T) -> error({not_literal,T}).
 
-
-branch_arities([], _, #vst{}=Vst) -> Vst;
-branch_arities([Sz,{f,L}|T], Tuple, #vst{current=St}=Vst0) 
-  when is_integer(Sz) ->
+branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_]}=Type0, Vst0) when is_integer(Sz) ->
     Vst1 = set_type_reg({tuple,Sz}, Tuple, Vst0),
     Vst = branch_state(L, Vst1),
-    branch_arities(T, Tuple, Vst#vst{current=St}).
+    branch_arities(T, Tuple, Type0, Vst);
+branch_arities([Sz,{f,L}|T], Tuple, {tuple,Sz}=Type, Vst0) when is_integer(Sz) ->
+    %% The type is already correct. (This test is redundant.)
+    Vst = branch_state(L, Vst0),
+    branch_arities(T, Tuple, Type, Vst);
+branch_arities([Sz0,{f,_}|T], Tuple, {tuple,Sz}=Type, Vst)
+  when is_integer(Sz), Sz0 =/= Sz ->
+    %% We already have an established different exact size for the tuple.
+    %% This label can't possibly be reached.
+    branch_arities(T, Tuple, Type, Vst);
+branch_arities([], _, _, #vst{}=Vst) -> Vst.
 
 branch_state(0, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned
