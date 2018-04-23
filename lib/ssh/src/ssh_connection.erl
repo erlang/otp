@@ -97,32 +97,34 @@ session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec exec(connection_ref(), channel_id(), string(), timeout()) -> 
-		  success | failure | {error, timeout | closed}.
-
 %% Description: Will request that the server start the
 %% execution of the given command. 
 %%--------------------------------------------------------------------
+-spec exec(connection_ref(), channel_id(), string(), timeout()) -> 
+		  success | failure | {error, timeout | closed}.
+
 exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId, "exec",
 				   true, [?string(Command)], TimeOut).
 
 %%--------------------------------------------------------------------
--spec shell(connection_ref(), channel_id()) -> _.
-
 %% Description: Will request that the user's default shell (typically
 %% defined in /etc/passwd in UNIX systems) be started at the other
 %% end.
 %%--------------------------------------------------------------------
+-spec shell(connection_ref(), channel_id()) -> 
+                   ok | success | failure | {error, timeout}.
+
 shell(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId,
  				   "shell", false, <<>>, 0).
 %%--------------------------------------------------------------------
--spec subsystem(connection_ref(), channel_id(), string(), timeout()) -> 
-		       success | failure | {error, timeout | closed}.
 %%
 %% Description: Executes a predefined subsystem.
 %%--------------------------------------------------------------------
+-spec subsystem(connection_ref(), channel_id(), string(), timeout()) -> 
+		       success | failure | {error, timeout | closed}.
+
 subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
      ssh_connection_handler:request(ConnectionHandler, self(),
 				    ChannelId, "subsystem", 
@@ -131,13 +133,13 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 %% Description: Sends channel data.
 %%--------------------------------------------------------------------
 -spec send(connection_ref(), channel_id(), iodata()) ->
-		  ok | {error, closed}.
+		  ok | {error, timeout | closed}.
 send(ConnectionHandler, ChannelId, Data) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity).
 
 
 -spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
-		  ok | {error, timeout} | {error, closed}.
+		  ok | {error, timeout | closed}.
 
 send(ConnectionHandler, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
     send(ConnectionHandler, ChannelId, 0, Data, TimeOut);
@@ -150,7 +152,7 @@ send(ConnectionHandler, ChannelId, Type, Data) ->
 
 
 -spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
-		  ok | {error, timeout} | {error, closed}.
+		  ok | {error, timeout | closed}.
 
 send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
     ssh_connection_handler:send(ConnectionHandler, ChannelId,
@@ -210,14 +212,14 @@ reply_request(_,false, _, _) ->
 %% Description: Sends a ssh connection protocol pty_req.
 %%--------------------------------------------------------------------
 -spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist()) -> 
-			success | failiure | {error, closed}.
+			success | failure | {error, timeout}.
 
 ptty_alloc(ConnectionHandler, Channel, Options) ->
     ptty_alloc(ConnectionHandler, Channel, Options, infinity).
 
 
 -spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist(), timeout()) -> 
-			success | failiure | {error, timeout} | {error, closed}.
+			success | failure | {error, timeout | closed}.
 
 ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
     TermData = backwards_compatible(Options0, []), % FIXME
