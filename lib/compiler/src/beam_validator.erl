@@ -909,6 +909,8 @@ val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
     Vst;
+val_dsetel({get_tuple_element,_,_,_}, Vst) ->
+    Vst;
 val_dsetel({line,_}, Vst) ->
     Vst;
 val_dsetel(_, #vst{current=#st{setelem=true}=St}=Vst) ->
