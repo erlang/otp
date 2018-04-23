@@ -69,7 +69,7 @@
 
   <func:function name="erl:to-link">
     <xsl:param name="text"/>
-    <func:result select="translate(erl:lower-case($text),': /()&quot;&#10;','-------')"/>
+    <func:result select="translate(erl:lower-case($text),'?: /()&quot;&#10;','--------')"/>
   </func:function>
 
   <!-- Used from template menu.funcs to sort a module's functions for the lefthand index list,
