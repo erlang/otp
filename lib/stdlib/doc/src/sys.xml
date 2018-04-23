@@ -277,8 +277,8 @@
           generated. This function is to return <c>done</c>, or a new
           <c>Func</c> state. In the first case, the function is removed. It is 
           also removed if the function fails. If one debug function should be 
-          installed more times, a unique id <c><anno>FuncId</anno></c> should 
-          be specified for every installation.</p>
+          installed more times, a unique <c><anno>FuncId</anno></c> must be 
+          specified for each installation.</p>
       </desc>
     </func>
 
