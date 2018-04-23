@@ -2593,7 +2593,7 @@ erts_term_to_tracer(Eterm prefix, Eterm t)
                     state = tp[3];
                 }
             } else {
-                if (arityval(tp[0]) == 2 && is_atom(tp[2])) {
+                if (arityval(tp[0]) == 2 && is_atom(tp[1])) {
                     module = tp[1];
                     state = tp[2];
                 }
