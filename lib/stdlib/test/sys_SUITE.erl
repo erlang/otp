@@ -159,6 +159,7 @@ install(Config) when is_list(Config) ->
     %% We have one SpyFun installed:
     [{spy_got,{request,1},sys_SUITE_server}] = get_messages(),
     sys:no_debug(?server),
+    {ok,-1} = (catch public_call(1)),
     [] = get_messages(),
     stop(),
     ok.
