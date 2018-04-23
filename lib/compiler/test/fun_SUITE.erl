@@ -194,6 +194,17 @@ external(Config) when is_list(Config) ->
     ?APPLY2(ListsMod, ListsMap, 2),
     ?APPLY2(ListsMod, ListsMap, ListsArity),
 
+    42 = (fun erlang:abs/1)(-42),
+    42 = (id(fun erlang:abs/1))(-42),
+    42 = apply(fun erlang:abs/1, [-42]),
+    42 = apply(id(fun erlang:abs/1), [-42]),
+    6 = (fun lists:sum/1)([1,2,3]),
+    6 = (id(fun lists:sum/1))([1,2,3]),
+
+    {'EXIT',{{badarity,_},_}} = (catch (fun lists:sum/1)(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
+
     ok.
 
 call_me(I) ->

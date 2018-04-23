@@ -401,14 +401,15 @@ expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
     T1 = expr(T0, value, Sub),
     A1 = body(A0, Ctxt, Sub),
     Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
-expr(#c_apply{anno=Anno,op=Op0,args=As0}=App, _, Sub) ->
+expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
     case cerl:is_data(Op1) andalso not is_literal_fun(Op1) of
         false ->
-	    App#c_apply{op=Op1,args=As1};
+            Apply = Apply0#c_apply{op=Op1,args=As1},
+            fold_apply(Apply, Op1, As1);
 	true ->
-	    add_warning(App, invalid_call),
+	    add_warning(Apply0, invalid_call),
 	    Err = #c_call{anno=Anno,
 			  module=#c_literal{val=erlang},
 			  name=#c_literal{val=error},
@@ -766,6 +767,25 @@ make_effect_seq([H|T], Sub) ->
     end;
 make_effect_seq([], _) -> void().
 
+%% fold_apply(Apply, LiteraFun, Args) -> Apply.
+%%  Replace an apply of a literal external fun with a call.
+
+fold_apply(Apply, #c_literal{val=Fun}, Args) when is_function(Fun) ->
+    {module,Mod} = erlang:fun_info(Fun, module),
+    {name,Name} = erlang:fun_info(Fun, name),
+    {arity,Arity} = erlang:fun_info(Fun, arity),
+    if
+        Arity =:= length(Args) ->
+            #c_call{anno=Apply#c_apply.anno,
+                    module=#c_literal{val=Mod},
+                    name=#c_literal{val=Name},
+                    args=Args};
+        true ->
+            Apply
+    end;
+fold_apply(Apply, _, _) -> Apply.
+
+
 %% Handling remote calls. The module/name fields have been processed.
 
 call(#c_call{args=As}=Call, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
@@ -803,6 +823,8 @@ fold_call(Call, #c_literal{val=M}, #c_literal{val=F}, Args, Sub) ->
     fold_call_1(Call, M, F, Args, Sub);
 fold_call(Call, _M, _N, _Args, _Sub) -> Call.
 
+fold_call_1(Call, erlang, apply, [Fun,Args], _) ->
+    simplify_fun_apply(Call, Fun, Args);
 fold_call_1(Call, erlang, apply, [Mod,Func,Args], _) ->
     simplify_apply(Call, Mod, Func, Args);
 fold_call_1(Call, Mod, Name, Args, Sub) ->
@@ -1111,23 +1133,37 @@ eval_failure(Call, Reason) ->
 %%  Simplify an apply/3 to a call if the number of arguments
 %%  are known at compile time.
 
-simplify_apply(Call, Mod, Func, Args) ->
+simplify_apply(Call, Mod, Func, Args0) ->
     case is_atom_or_var(Mod) andalso is_atom_or_var(Func) of
-	true -> simplify_apply_1(Args, Call, Mod, Func, []);
-	false -> Call
+	true ->
+            case get_fixed_args(Args0, []) of
+                error ->
+                    Call;
+                {ok,Args} ->
+                    Call#c_call{module=Mod,name=Func,args=Args}
+            end;
+	false ->
+            Call
     end.
-
-simplify_apply_1(#c_literal{val=MoreArgs0}, Call, Mod, Func, Args)
-  when length(MoreArgs0) >= 0 ->
-    MoreArgs = [#c_literal{val=Arg} || Arg <- MoreArgs0],
-    Call#c_call{module=Mod,name=Func,args=reverse(Args, MoreArgs)};
-simplify_apply_1(#c_cons{hd=Arg,tl=T}, Call, Mod, Func, Args) ->
-    simplify_apply_1(T, Call, Mod, Func, [Arg|Args]);
-simplify_apply_1(_, Call, _, _, _) -> Call.
-
 is_atom_or_var(#c_literal{val=Atom}) when is_atom(Atom) -> true;
 is_atom_or_var(#c_var{}) -> true;
 is_atom_or_var(_) -> false.
+
+simplify_fun_apply(#c_call{anno=Anno}=Call, Fun, Args0) ->
+    case get_fixed_args(Args0, []) of
+        error ->
+            Call;
+        {ok,Args} ->
+            #c_apply{anno=Anno,op=Fun,args=Args}
+    end.
+
+get_fixed_args(#c_literal{val=MoreArgs0}, Args)
+  when length(MoreArgs0) >= 0 ->
+    MoreArgs = [#c_literal{val=Arg} || Arg <- MoreArgs0],
+    {ok,reverse(Args, MoreArgs)};
+get_fixed_args(#c_cons{hd=Arg,tl=T}, Args) ->
+    get_fixed_args(T, [Arg|Args]);
+get_fixed_args(_, _) -> error.
 
 %% clause(Clause, Cepxr, Context, Sub) -> Clause.
 
