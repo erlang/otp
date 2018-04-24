@@ -36,7 +36,6 @@
 #include "hash.h"
 #include "atom.h"
 #include "beam_load.h"
-#include "erl_instrument.h"
 #include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 #include "erl_proc_sig_queue.h"
@@ -954,20 +953,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_deep_process_dump(to, to_arg);
     erts_cbprintf(to, to_arg, "=atoms\n");
     dump_atoms(to, to_arg);
-
-    /* Keep the instrumentation data at the end of the dump */
-    if (erts_instr_memory_map || erts_instr_stat) {
-	erts_cbprintf(to, to_arg, "=instr_data\n");
-
-	if (erts_instr_stat) {
-	    erts_cbprintf(to, to_arg, "=memory_status\n");
-	    erts_instr_dump_stat_to(to, to_arg, 0);
-	}
-	if (erts_instr_memory_map) {
-	    erts_cbprintf(to, to_arg, "=memory_map\n");
-	    erts_instr_dump_memory_map_to(to, to_arg);
-	}
-    }
 
     erts_cbprintf(to, to_arg, "=end\n");
     if (fp) {

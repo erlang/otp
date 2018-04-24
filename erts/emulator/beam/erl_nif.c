@@ -388,11 +388,17 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     erts_atomic32_read_band_mb(&c_p->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
 						   | ERTS_PSFLG_DIRTY_IO_PROC));
 
+    ASSERT(esdp->current_nif == NULL);
+    esdp->current_nif = &env;
+
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 
     result = (*dirty_nif)(&env, codemfa->arity, argv); /* Call dirty NIF */
 
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+
+    ASSERT(esdp->current_nif == &env);
+    esdp->current_nif = NULL;
 
     ASSERT(env.proc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
     ASSERT(env.proc->next == c_p);
@@ -4256,6 +4262,10 @@ int erts_nif_get_funcs(struct erl_module_nif* mod,
 {
     *funcs = mod->entry.funcs;
     return mod->entry.num_of_funcs;
+}
+
+Module *erts_nif_get_module(struct erl_module_nif *nif_mod) {
+    return nif_mod->mod;
 }
 
 Eterm erts_nif_call_function(Process *p, Process *tracee,

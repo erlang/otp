@@ -80,6 +80,8 @@
 
 -export([is_process_alive/1, is_process_alive/2]).
 
+-export([gather_alloc_histograms/1, gather_carrier_info/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -621,3 +623,24 @@ is_process_alive(Pid) ->
             Res
     end.
 
+-spec gather_alloc_histograms({Type, SchedId, HistWidth, HistStart, Ref}) -> MsgCount when
+    Type :: atom(),
+    SchedId :: non_neg_integer(),
+    HistWidth :: non_neg_integer(),
+    HistStart :: non_neg_integer(),
+    Ref :: reference(),
+    MsgCount :: non_neg_integer().
+
+gather_alloc_histograms(_) ->
+    erlang:nif_error(undef).
+
+-spec gather_carrier_info({Type, SchedId, HistWidth, HistStart, Ref}) -> MsgCount when
+    Type :: atom(),
+    SchedId :: non_neg_integer(),
+    HistWidth :: non_neg_integer(),
+    HistStart :: non_neg_integer(),
+    Ref :: reference(),
+    MsgCount :: non_neg_integer().
+
+gather_carrier_info(_) ->
+    erlang:nif_error(undef).

@@ -37,7 +37,7 @@
 #include "erl_mseg.h"
 #include "erl_threads.h"
 #include "erl_hl_timer.h"
-#include "erl_instrument.h"
+#include "erl_mtrace.h"
 #include "erl_printf_term.h"
 #include "erl_misc_utils.h"
 #include "packet_parser.h"

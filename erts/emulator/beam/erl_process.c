@@ -36,7 +36,6 @@
 #include "erl_db.h"
 #include "dist.h"
 #include "beam_catches.h"
-#include "erl_instrument.h"
 #include "erl_threads.h"
 #include "erl_binary.h"
 #include "beam_bp.h"
@@ -2508,6 +2507,8 @@ handle_yield(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 
     yield |= erts_handle_yielded_ets_all_request(awdp->esdp,
                                                  &awdp->yield.ets_all);
+    yield |= erts_handle_yielded_alcu_blockscan(awdp->esdp,
+                                                &awdp->yield.alcu_blockscan);
 
     /*
      * Other yielding operations...
@@ -5698,6 +5699,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->ssi = ssi;
     esdp->current_process = NULL;
     esdp->current_port = NULL;
+    esdp->current_nif = NULL;
 
     esdp->virtual_reds = 0;
     esdp->cpu_id = -1;
@@ -8333,6 +8335,7 @@ sched_thread_func(void *vesdp)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
 #endif
 
+    erts_alcu_sched_spec_data_init(esdp);
     erts_ets_sched_spec_data_init(esdp);
 
     process_main(esdp->x_reg_array, esdp->f_reg_array);

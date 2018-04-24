@@ -559,6 +559,20 @@
             than this threshold, otherwise the carrier is shrunk.
             See also <seealso marker="#M_rsbcst"><c>rsbcst</c></seealso>.</p>
         </item>
+        <tag><marker id="M_atags"/><c><![CDATA[+M<S>atags true|false]]></c></tag>
+        <item>
+          <p>Adds a small tag to each allocated block that contains basic
+            information about what it is and who allocated it. Use the
+            <seealso marker="tools:instrument"><c>instrument</c></seealso>
+            module to inspect this information.</p>
+
+          <p>The runtime overhead is one word per allocation when enabled. This
+            may change at any time in the future.</p>
+
+          <p>The default is <c>true</c> for <c>binary_alloc</c> and
+            <c>driver_alloc</c>, and <c>false</c> for the other allocator
+            types.</p>
+        </item>
         <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
         <item>
           <p>Enables allocator <c><![CDATA[<S>]]></c>.</p>
@@ -724,22 +738,12 @@
     <section>
       <title>Instrumentation Flags</title>
       <taglist>
-        <tag><marker id="Mim"/><c>+Mim true|false</c></tag>
+        <tag><c>+M&lt;S&gt;atags</c></tag>
         <item>
-          <p>A map over current allocations is kept by the emulator.
-            The allocation map can be retrieved through module
-            <seealso marker="tools:instrument">
-            <c>instrument(3)</c></seealso>. <c>+Mim true</c>
-            implies <c>+Mis true</c>. <c>+Mim true</c> is the same as flag
-            <seealso marker="erl#instr"><c>-instr</c></seealso> in 
-            <c>erl(1)</c>.</p>
-        </item>
-        <tag><marker id="Mis"/><c>+Mis true|false</c></tag>
-        <item>
-          <p>Status over allocated memory is kept by the emulator.
-            The allocation status can be retrieved through module
-            <seealso marker="tools:instrument">
-            <c>instrument(3)</c></seealso>.</p>
+          <p>Adds a small tag to each allocated block that contains basic
+            information about what it is and who allocated it. See
+            <seealso marker="#M_atags"><c>+M&lt;S&gt;atags</c></seealso> for a
+            more complete description.</p>
         </item>
         <tag><marker id="Mit"/><c>+Mit X</c></tag>
         <item>

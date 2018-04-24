@@ -3552,11 +3552,9 @@ max(A, _) -> A.
 %%
 
 -type memory_type() :: 'total' | 'processes' | 'processes_used' | 'system'
-                     | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets'
-                     | 'low' | 'maximum'.
+                     | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets'.
 
 -define(CARRIER_ALLOCS, [mseg_alloc]).
--define(LOW_ALLOCS, [ll_low_alloc, std_low_alloc]).
 -define(ALL_NEEDED_ALLOCS, (erlang:system_info(alloc_util_allocators)
 			    -- ?CARRIER_ALLOCS)).
 
@@ -3568,9 +3566,7 @@ max(A, _) -> A.
 		 atom_used = 0,
 		 binary = 0,
 		 code = 0,
-		 ets = 0,
-		 low = 0,
-		 maximum = 0}).
+		 ets = 0}).
 
 -spec erlang:memory() -> [{Type, Size}] when
       Type :: memory_type(),
@@ -3580,14 +3576,6 @@ memory() ->
 	notsup ->
 	    erlang:error(notsup);
 	Mem ->
-	    InstrTail = case Mem#memory.maximum of
-			    0 -> [];
-			    _ -> [{maximum, Mem#memory.maximum}]
-			end,
-	    Tail = case Mem#memory.low of
-		       0 -> InstrTail;
-		       _ -> [{low, Mem#memory.low} | InstrTail]
-		   end,
 	    [{total, Mem#memory.total},
 	     {processes, Mem#memory.processes},
 	     {processes_used, Mem#memory.processes_used},
@@ -3596,7 +3584,7 @@ memory() ->
 	     {atom_used, Mem#memory.atom_used},
 	     {binary, Mem#memory.binary},
 	     {code, Mem#memory.code},
-	     {ets, Mem#memory.ets} | Tail]
+	     {ets, Mem#memory.ets}]
     end.
 
 -spec erlang:memory(Type :: memory_type()) -> non_neg_integer();
@@ -3684,16 +3672,6 @@ need_mem_info(binary) ->
     {false, [binary_alloc], true, false};
 need_mem_info(ets) ->
     {true, [ets_alloc], true, false};
-need_mem_info(low) ->
-    LowAllocs = ?LOW_ALLOCS -- ?CARRIER_ALLOCS,
-    {_, _, FeatureList, _} = erlang:system_info(allocator),
-    AlcUAllocs = case LowAllocs -- FeatureList of
-		     [] -> LowAllocs;
-		     _ -> []
-		 end,
-    {false, AlcUAllocs, true, true};
-need_mem_info(maximum) ->
-    {true, [], true, true};
 need_mem_info(_) ->
     {false, [], false, true}.
 
@@ -3706,8 +3684,6 @@ get_memval(atom_used, #memory{atom_used = V}) -> V;
 get_memval(binary, #memory{binary = V}) -> V;
 get_memval(code, #memory{code = V}) -> V;
 get_memval(ets, #memory{ets = V}) -> V;
-get_memval(low, #memory{low = V}) -> V;
-get_memval(maximum, #memory{maximum = V}) -> V;
 get_memval(_, #memory{}) -> 0.
 
 memory_is_supported() ->
@@ -3762,16 +3738,6 @@ fix_proc([_ | Rest], Acc) ->
 fix_proc([], Acc) ->
     Acc.
 
-is_low_alloc(_A, []) ->
-    false;
-is_low_alloc(A, [A|_As]) ->
-    true;
-is_low_alloc(A, [_A|As]) ->
-    is_low_alloc(A, As).
-
-is_low_alloc(A) ->
-    is_low_alloc(A, ?LOW_ALLOCS).
-
 au_mem_data(notsup, _) ->
     notsup;
 au_mem_data(_, [{_, false} | _]) ->
@@ -3824,16 +3790,11 @@ au_mem_data(#memory{total = Tot,
 			Rest)
     end;
 au_mem_data(#memory{total = Tot,
-		    system = Sys,
-		    low = Low} = Mem,
-	    [{A, _, Data} | Rest]) ->
+		    system = Sys} = Mem,
+	    [{_, _, Data} | Rest]) ->
     Sz = blocks_size(Data, 0),
     au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz,
-			   low = case is_low_alloc(A) of
-				     true -> Low+Sz;
-				     false -> Low
-				 end},
+			   system = Sys+Sz},
 		Rest);
 au_mem_data(EMD, []) ->
     EMD.
@@ -3854,10 +3815,6 @@ receive_emd(Ref, EMD, N) ->
 receive_emd(Ref) ->
     receive_emd(Ref, #memory{}, erlang:system_info(schedulers)).
 
-aa_mem_data(#memory{} = Mem,
-	    [{maximum, Max} | Rest]) ->
-    aa_mem_data(Mem#memory{maximum = Max},
-		Rest);
 aa_mem_data(#memory{} = Mem,
 	    [{total, Tot} | Rest]) ->
     aa_mem_data(Mem#memory{total = Tot,

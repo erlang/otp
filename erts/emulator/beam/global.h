@@ -123,6 +123,7 @@ void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
                               struct enif_func_t **funcs);
+extern Module *erts_nif_get_module(struct erl_module_nif*);
 extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
@@ -200,6 +201,7 @@ typedef struct {
 struct erts_driver_t_ {
     erts_driver_t *next;
     erts_driver_t *prev;
+    Eterm name_atom;
     char *name;
     struct {
 	int major;
