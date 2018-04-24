@@ -31,7 +31,6 @@
   </header>
 
 <section><title>Ssh 4.6.8</title>
-
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -82,8 +81,6 @@
         </item>
       </list>
     </section>
-
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -907,6 +904,21 @@
     </section>
 
 </section>
+
+<section><title>Ssh 4.2.2.6</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    <c>{'EXIT',_,normal}</c> messages.</p>
+          <p>
+	    Own Id: OTP-15018</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 
 <section><title>Ssh 4.2.2.5</title>
     <section><title>Improvements and New Features</title>
