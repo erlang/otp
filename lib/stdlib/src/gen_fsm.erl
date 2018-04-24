@@ -105,6 +105,8 @@
 %%%
 %%% ---------------------------------------------------
 
+-include("logger.hrl").
+
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
@@ -123,6 +125,9 @@
 	 system_get_state/1,
 	 system_replace_state/2,
 	 format_status/2]).
+
+%% logger callback
+-export([format_log/1]).
 
 -deprecated({start, 3, next_major_release}).
 -deprecated({start, 4, next_major_release}).
@@ -143,8 +148,6 @@
 -deprecated({enter_loop, 4, next_major_release}).
 -deprecated({enter_loop, 5, next_major_release}).
 -deprecated({enter_loop, 6, next_major_release}).
-
--import(error_logger, [format/2]).
 
 %%% ---------------------------------------------------
 %%% Interface functions.
@@ -499,8 +502,12 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	    reply(From, Reply),
 	    exit(R);
         {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
-            error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                     "** Unhandled message: ~tp~n", [Mod, Msg]),
+            ?LOG_WARNING(#{label=>{gen_fsm,no_handle_info},
+                           module=>Mod,
+                           message=>Msg},
+                         #{domain=>[beam,erlang,otp],
+                           report_cb=>fun gen_fsm:format_log/1,
+                           error_logger=>#{tag=>warning_msg}}),
             loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
@@ -603,6 +610,24 @@ terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
     end.
 
 error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
+    ?LOG_ERROR(#{label=>{gen_fsm,terminate},
+                 name=>Name,
+                 last_message=>Msg,
+                 state_name=>StateName,
+                 state_data=>StateData,
+                 reason=>Reason},
+               #{domain=>[beam,erlang,otp],
+                 report_cb=>fun gen_fsm:format_log/1,
+                 error_logger=>#{tag=>error}}),
+    sys:print_log(Debug),
+    ok.
+
+format_log(#{label:={gen_fsm,terminate},
+             name:=Name,
+             last_message:=Msg,
+             state_name:=StateName,
+             state_data:=StateData,
+             reason:=Reason}) ->
     Reason1 = 
 	case Reason of
 	    {undef,[{M,F,A,L}|MFAs]} ->
@@ -620,14 +645,18 @@ error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
 	    _ ->
 		Reason
 	end,
-    Str = "** State machine ~tp terminating \n" ++
-	get_msg_str(Msg) ++
-	"** When State == ~tp~n"
-        "**      Data  == ~tp~n"
-        "** Reason for termination = ~n** ~tp~n",
-    format(Str, [Name, get_msg(Msg), StateName, StateData, Reason1]),
-    sys:print_log(Debug),
-    ok.
+    {"** State machine ~tp terminating \n" ++
+         get_msg_str(Msg) ++
+     "** When State == ~tp~n"
+     "**      Data  == ~tp~n"
+     "** Reason for termination = ~n** ~tp~n",
+     [Name, get_msg(Msg), StateName, StateData, Reason1]};
+format_log(#{label:={gen_fsm,no_handle_info},
+             module:=Mod,
+             message:=Msg}) ->
+    {"** Undefined handle_info in ~p~n"
+     "** Unhandled message: ~tp~n",
+     [Mod, Msg]}.
 
 get_msg_str({'$gen_event', _Event}) ->
     "** Last event in was ~tp~n";
