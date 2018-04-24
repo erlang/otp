@@ -77,6 +77,7 @@ init_per_suite(Config) ->
     try
         Node =/= nonode@nohost orelse
             throw({skipped,"Node not distributed"}),
+        verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
@@ -179,9 +180,28 @@ end_per_testcase(_Func, _Conf) ->
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers
 
+verify_node_src_addr() ->
+    Msg = "Hello, world!",
+    {ok,Host} = inet:gethostname(),
+    {ok,DstAddr} = inet:getaddr(Host, inet),
+    {ok,Socket} = gen_udp:open(0, [{active,false}]),
+    {ok,Port} = inet:port(Socket),
+    ok = gen_udp:send(Socket, DstAddr, Port, Msg),
+    case gen_udp:recv(Socket, length(Msg) + 1, 1000) of
+        {ok,{DstAddr,Port,Msg}} ->
+            ok;
+        {ok,{SrcAddr,Port,Msg}} ->
+            throw({skipped,
+                   "Src and dst address mismatch: " ++
+                       term_to_string(SrcAddr) ++ " =:= " ++
+                       term_to_string(DstAddr)});
+        Weird ->
+            error(Weird)
+    end.
+
 write_node_conf(
   ConfFile, Node, ServerConf, ClientConf, CertOptions, RootCert) ->
-    [_Name,Host] = string:split(atom_to_list(Node), "@"),
+    [Name,Host] = split_node(Node),
     Conf =
         public_key:pkix_test_data(
           #{root => RootCert,
@@ -190,21 +210,21 @@ write_node_conf(
                   [#'Extension'{
                       extnID = ?'id-ce-subjectAltName',
                       extnValue = [{dNSName, Host}],
-                      critical = true}%,
-                   %% #'Extension'{
-                   %%    extnID = ?'id-ce-subjectAltName',
-                   %%    extnValue =
-                   %%        [{directoryName,
-                   %%          {rdnSequence,
-                   %%           [[#'AttributeTypeAndValue'{
-                   %%                type = ?'id-at-commonName',
-                   %%                value =
-                   %%                    {utf8String,
-                   %%                     unicode:characters_to_binary(
-                   %%                       Name, utf8)
-                   %%                    }
-                   %%               }]]}}],
-                   %%    critical = true}
+                      critical = true},
+                   #'Extension'{
+                      extnID = ?'id-ce-subjectAltName',
+                      extnValue =
+                          [{directoryName,
+                            {rdnSequence,
+                             [[#'AttributeTypeAndValue'{
+                                  type = ?'id-at-commonName',
+                                  value =
+                                      {utf8String,
+                                       unicode:characters_to_binary(
+                                         Name, utf8)
+                                      }
+                                 }]]}}],
+                      critical = true}
                   ]} | CertOptions]}),
     NodeConf =
         [{server, ServerConf ++ Conf}, {client, ClientConf ++ Conf}],

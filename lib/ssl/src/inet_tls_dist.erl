@@ -222,8 +222,9 @@ gen_accept(Driver, Listen) ->
 accept_loop(Driver, Listen, Kernel) ->
     case Driver:accept(Listen) of
         {ok, Socket} ->
-            Opts = get_ssl_options(server),
-            CertNodesFun = verify_client_cert_nodes_fun(Opts),
+            {Opts,CertNodesFun} =
+                setup_verify_client(
+                  Driver, Socket, get_ssl_options(server)),
             wait_for_code_server(),
             case
                 ssl:ssl_accept(
@@ -262,37 +263,94 @@ accept_loop(Driver, Listen, Kernel) ->
     end.
 
 %% {verify_fun,{fun ?MODULE:verify_client/3,_}} is used
-%% as a marker that the peer certificate shall be parsed
-%% for node names after succesful connection
+%% as a configuration marker that verify_client/3 shall be used.
 %%
-verify_client_cert_nodes_fun([]) ->
-    undefined;
-verify_client_cert_nodes_fun([Opt|Opts]) ->
+%% Replace the State in the first occurence of
+%% {verify_fun,{fun ?MODULE:verify_client/3,State}} and remove the rest.
+%% The inserted state is not accesible from a configuration file
+%% since it is dynamic and connection dependent.
+%%
+setup_verify_client(Driver, Socket, Opts) ->
+    setup_verify_client(Driver, Socket, Opts, undefined, []).
+%%
+setup_verify_client(_Driver, _Socket, [], CertNodesFun, OptsR) ->
+    {lists:reverse(OptsR),CertNodesFun};
+setup_verify_client(Driver, Socket, [Opt|Opts], CertNodesFun, OptsR) ->
     case Opt of
-        {verify_fun,{Fun,CertNodesFun}} ->
+        {verify_fun,{Fun,NewCertNodesFun}} ->
             case Fun =:= fun ?MODULE:verify_client/3 of
-                true when not is_function(CertNodesFun, 1) ->
+                true when is_function(NewCertNodesFun, 1) ->
+                    if
+                        CertNodesFun =:= undefined ->
+                            case inet:peername(Socket) of
+                                {ok,{PeerIP,_Port}} ->
+                                    setup_verify_client(
+                                      Driver, Socket, Opts, NewCertNodesFun,
+                                      [{verify_fun,
+                                        {Fun,
+                                         {NewCertNodesFun,Driver,PeerIP}}}
+                                       |OptsR]);
+                                {error,Reason} ->
+                                    exit(trace({no_peername,Reason}))
+                            end;
+                        true ->
+                            setup_verify_client(
+                              Driver, Socket, Opts, CertNodesFun, OptsR)
+                    end;
+                true ->
                     exit(
                       trace(
                         {verify_client_bad_argument,CertNodesFun}));
-                true ->
-                    CertNodesFun;
                 false ->
-                    verify_client_cert_nodes_fun(Opts)
+                    setup_verify_client(
+                      Driver, Socket, Opts, CertNodesFun, [Opt|OptsR])
             end;
         _ ->
-            verify_client_cert_nodes_fun(Opts)
+            setup_verify_client(
+              Driver, Socket, Opts, CertNodesFun, [Opt|OptsR])
     end.
 
-%% Same as verify_peer - approves all valid certificates
+%% Same as verify_peer but check cert host names for
+%% peer IP address
 verify_client(_, {bad_cert,_} = Reason, _) ->
     {fail,Reason};
-verify_client(_, {extension,_}, F) ->
-    {unknown,F};
-verify_client(_, valid, F) ->
-    {valid,F};
-verify_client(_, valid_peer, F) ->
-    {valid_peer,F}.
+verify_client(_, {extension,_}, S) ->
+    {unknown,S};
+verify_client(_, valid, S) ->
+    {valid,S};
+verify_client(PeerCert, valid_peer, {CertNodesFun,Driver,PeerIP} = S) ->
+    %%
+    %% Parse out all node names from the peer's certificate
+    %%
+    case CertNodesFun(PeerCert) of
+        [] ->
+            {fail,cert_missing_node_name};
+        CertNodes ->
+            case filter_nodes_by_ip(CertNodes, Driver, PeerIP) of
+                [] ->
+                    {fail,cert_no_host_with_peer_ip};
+                _ ->
+                    {valid,S}
+            end
+    end.
+
+filter_nodes_by_ip(Nodes, Driver, IP) ->
+    [Node ||
+        Node <- Nodes,
+        case dist_util:split_node(Node) of
+            {_,Host} ->
+                filter_host_by_ip(Host, Driver, IP);
+            [Host] ->
+                filter_host_by_ip(Host, Driver, IP)
+        end].
+
+filter_host_by_ip(Host, Driver, IP) ->
+    case Driver:getaddr(Host) of
+        {ok,IP} ->
+            true;
+        _ ->
+            false
+    end.
 
 
 wait_for_code_server() ->
@@ -350,7 +408,8 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
 	    case check_ip(Driver, SslSocket) of
 		true ->
                     NewAllowed =
-                        allowed_nodes(CertNodesFun, SslSocket, Allowed),
+                        allowed_nodes(
+                          Driver, CertNodesFun, SslSocket, Allowed),
                     HSData0 = hs_data_common(SslSocket),
                     HSData =
                         HSData0#hs_data{
@@ -370,23 +429,31 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
 	    end
     end.
 
-allowed_nodes(undefined, _SslSocket, Allowed) ->
+allowed_nodes(_Driver, undefined, _SslSocket, Allowed) ->
     Allowed;
-allowed_nodes(CertNodesFun, SslSocket, Allowed) ->
+allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
     case ssl:peercert(SslSocket) of
         {ok,PeerCertDER} ->
-            PeerCert = public_key:pkix_decode_cert(PeerCertDER, otp),
-            %%
-            %% Parse out all node names from the peer's certificate
-            %%
-            case CertNodesFun(PeerCert) of
-                [] ->
-                    ?shutdown(cert_missing_node_name);
-                CertNodes ->
-                    allowed(CertNodes, Allowed)
+            case ssl:peername(SslSocket) of
+                {ok,{PeerIP,_Port}} ->
+                    PeerCert = public_key:pkix_decode_cert(PeerCertDER, otp),
+                    %%
+                    %% Parse out all node names from the peer's certificate
+                    %%
+                    case CertNodesFun(PeerCert) of
+                        [] ->
+                            ?shutdown(cert_missing_node_name);
+                        CertNodes ->
+                            allowed(
+                              filter_nodes_by_ip(
+                                CertNodes, Driver, PeerIP),
+                              Allowed)
+                    end;
+                Error1 ->
+                    ?shutdown2(no_peer_ip, trace(Error1))
             end;
-        Error ->
-            ?shutdown2(no_peer_cert, trace(Error))
+        Error2 ->
+            ?shutdown2(no_peer_cert, trace(Error2))
     end.
 
 allowed(CertNodes, []) ->
@@ -492,10 +559,9 @@ gen_close(Driver, Socket) ->
 %% as a configuration marker that verify_server/3 shall be used.
 %%
 %% Replace the State in the first occurence of
-%% {verify_fun,{fun ?MODULE:verify_server/3,State}}
-%% with Node and remove the rest.  Node can not be used
-%% from a configuration file since it is dynamic
-%% and connection dependent.
+%% {verify_fun,{fun ?MODULE:verify_server/3,State}} and remove the rest.
+%% The inserted state is not accesible from a configuration file
+%% since it is dynamic and connection dependent.
 %%
 setup_verify_server(Opts, Node) ->
     setup_verify_server(Opts, Node, true).
@@ -618,7 +684,7 @@ parse_extensions(
             parse_extensions(Extensions, [Host|Hosts], Name);
         {name,NewName} when Name =:= none ->
             parse_extensions(Extensions, Hosts, NewName);
-        {Name,_} ->
+        {name,_NewName} ->
             parse_extensions(Extensions, Hosts, Name)
     end;
 parse_extensions([_|Extensions], Hosts, Name) ->
