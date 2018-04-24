@@ -847,11 +847,8 @@ write_message(fd, mp)
   int   fd;
   struct msg *mp;
 {
-  int   len;
-  char* tmp;
+  int len = ntohs(mp->len);
 
-  tmp = (char*) &(mp->len);
-  len = (*tmp * 256) + *(tmp+1); 
   if ((len == 0) || (len > MSG_BODY_SIZE)) {
     return MSG_HDR_SIZE;
   }				/* cc68k wants (char *) */

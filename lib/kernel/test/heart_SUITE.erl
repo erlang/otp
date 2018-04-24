@@ -352,9 +352,16 @@ clear_cmd(Config) when is_list(Config) ->
 get_cmd(suite) -> [];
 get_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
-    Cmd = "test",
-    ok  = rpc:call(Node, heart, set_cmd, [Cmd]),
-    {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
+
+    ShortCmd = "test",
+    ok  = rpc:call(Node, heart, set_cmd, [ShortCmd]),
+    {ok, ShortCmd} = rpc:call(Node, heart, get_cmd, []),
+
+    %% This would hang prior to OTP-15024 being fixed.
+    LongCmd = [$a || _ <- lists:seq(1, 160)],
+    ok  = rpc:call(Node, heart, set_cmd, [LongCmd]),
+    {ok, LongCmd} = rpc:call(Node, heart, get_cmd, []),
+
     stop_node(Node),
     ok.
 
