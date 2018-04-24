@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2095,6 +2095,10 @@ is_gexpr({cons,_L,H,T}, Info) -> is_gexpr_list([H,T], Info);
 is_gexpr({tuple,_L,Es}, Info) -> is_gexpr_list(Es, Info);
 %%is_gexpr({struct,_L,_Tag,Es}, Info) ->
 %%    is_gexpr_list(Es, Info);
+is_gexpr({map,_L,Es}, Info) ->
+    is_map_fields(Es, Info);
+is_gexpr({map,_L,Src,Es}, Info) ->
+    is_gexpr(Src, Info) andalso is_map_fields(Es, Info);
 is_gexpr({record_index,_L,_Name,Field}, Info) ->
     is_gexpr(Field, Info);
 is_gexpr({record_field,_L,Rec,_Name,Field}, Info) ->
@@ -2136,6 +2140,14 @@ is_gexpr_op(Op, A) ->
     end.
 
 is_gexpr_list(Es, Info) -> all(fun (E) -> is_gexpr(E, Info) end, Es).
+
+is_map_fields([{Tag,_,K,V}|Fs], Info) when Tag =:= map_field_assoc;
+                                           Tag =:= map_field_exact ->
+    is_gexpr(K, Info) andalso
+    is_gexpr(V, Info) andalso
+    is_map_fields(Fs, Info);
+is_map_fields([], _Info) -> true;
+is_map_fields(_T, _Info) -> false.
 
 is_gexpr_fields(Fs, L, Name, {RDs,_}=Info) ->
     IFs = case dict:find(Name, RDs) of
