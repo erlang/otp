@@ -42,10 +42,10 @@
 %%====================================================================
 
 install() ->
-    gen_event:add_handler(error_logger, ?MODULE, []).
+    error_logger:add_report_handler(?MODULE, []).
 
 restore() ->
-    gen_event:delete_handler(error_logger, ?MODULE, []).
+    error_logger:delete_report_handler(?MODULE).
 
 got_dgawd_report() ->
     gen_event:call(error_logger, ?MODULE, got_dgawd_report, 10*60*1000).

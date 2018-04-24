@@ -53,13 +53,17 @@ gen_server_crash_unicode(Config) ->
     gen_server_crash(Config, unicode).
 
 gen_server_crash(Config, Encoding) ->
+    StopFilter = {fun(_,_) -> stop end, ok},
+    logger:add_handler_filter(logger_std_h,stop_all,StopFilter),
+    logger:add_handler_filter(cth_log_redirect,stop_all,StopFilter),
     try
 	do_gen_server_crash(Config, Encoding)
     after
-	error_logger:tty(true),
+        ok = application:unset_env(kernel, logger_sasl_compatible),
 	ok = application:unset_env(sasl, sasl_error_logger),
 	ok = application:unset_env(kernel, error_logger_format_depth),
-	error_logger:add_report_handler(cth_log_redirect)
+        logger:remove_handler_filter(logger_std_h,stop_all),
+        logger:remove_handler_filter(cth_log_redirect,stop_all)
     end,
     ok.
 
@@ -70,26 +74,26 @@ do_gen_server_crash(Config, Encoding) ->
     SaslLog = filename:join(LogDir, "sasl.log"),
     ok = filelib:ensure_dir(SaslLog),
 
-    error_logger:delete_report_handler(cth_log_redirect),
-    error_logger:tty(false),
     application:stop(sasl),
     Modes = [write, {encoding, Encoding}],
+    ok = application:set_env(kernel, logger_sasl_compatible, true),
     ok = application:set_env(sasl, sasl_error_logger, {file,SaslLog,Modes},
 			     [{persistent,true}]),
     application:set_env(kernel, error_logger_format_depth, 30),
     error_logger:logfile({open,KernelLog}),
     application:start(sasl),
-    io:format("~p\n", [gen_event:which_handlers(error_logger)]),
+    logger:i(print),
 
     crash_me(),
 
     error_logger:logfile(close),
+    application:stop(sasl),
 
     check_file(KernelLog, utf8, 70000, 150000),
     check_file(SaslLog, Encoding, 70000, 150000),
 
-    %% ok = file:delete(KernelLog),
-    %% ok = file:delete(SaslLog),
+    ok = file:delete(KernelLog),
+    ok = file:delete(SaslLog),
     ok.
 
 check_file(File, Encoding, Min, Max) ->

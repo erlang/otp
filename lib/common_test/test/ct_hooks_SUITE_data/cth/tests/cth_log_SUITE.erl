@@ -124,6 +124,6 @@ gen() ->
 gen_loop(N) ->
     ct:log("Logger iteration: ~p", [N]),
     error_logger:error_report(N),
-    error_logger:info_report(progress, N),
+    error_logger:info_report(N),
     ct:sleep(150),
     gen_loop(N+1).

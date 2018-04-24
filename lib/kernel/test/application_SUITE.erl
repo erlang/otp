@@ -1568,7 +1568,8 @@ loop5606(Pid) ->
 	    
 %% Tests get_env/* functions.
 get_env(Conf) when is_list(Conf) ->
-    {ok, _}   = application:get_env(kernel, error_logger),
+    ok = application:set_env(kernel, new_var, new_val),
+    {ok, new_val} = application:get_env(kernel, new_var),
     undefined = application:get_env(undefined_app, a),
     undefined = application:get_env(kernel, error_logger_xyz),
     default   = application:get_env(kernel, error_logger_xyz, default),

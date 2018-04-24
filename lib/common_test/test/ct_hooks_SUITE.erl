@@ -258,15 +258,20 @@ cth_log(Config) when is_list(Config) ->
       fun(UnexpIoLog) ->
 	      {ok,Bin} = file:read_file(UnexpIoLog),
 	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun([$=,$E,$R,$R,$O,$R|_],  N) ->
-					    N+1;
-				       ([$L,$o,$g,$g,$e,$r|_],  N) ->
-					    N+1;
+	      Matches = lists:foldl(fun([$=,$E,$R,$R,$O,$R|_],  {E,I,L}) ->
+					    {E+1,I,L};
+				       ([$=,$I,$N,$F,$O|_],  {E,I,L}) ->
+					    {E,I+1,L};
+				       ([$L,$o,$g,$g,$e,$r|_],  {E,I,L}) ->
+					    {E,I,L+1};
 				       (_, N) -> N
-				    end, 0, Ts),
-	      ct:pal("~p matches in ~tp", [Matches,UnexpIoLog]),
-	      if Matches > 10 -> ok;
-		 true -> exit({no_unexpected_io_found,UnexpIoLog})
+				    end, {0,0,0}, Ts),
+	      ct:pal("~p ({Error,Info,Log}) matches in ~tp",
+                     [Matches,UnexpIoLog]),
+              MatchList = tuple_to_list(Matches),
+              case [N || N <- MatchList, N<3] of
+                  [] -> ok;
+                  _ -> exit({missing_unexpected_io,UnexpIoLog})
 	      end
       end, UnexpIoLogs),
     ok.

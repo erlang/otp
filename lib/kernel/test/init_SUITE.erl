@@ -299,7 +299,7 @@ many_restarts() ->
 
 many_restarts(Config) when is_list(Config) ->
     {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
-    loop_restart(50,Node,rpc:call(Node,erlang,whereis,[error_logger])),
+    loop_restart(50,Node,rpc:call(Node,erlang,whereis,[logger])),
     loose_node:stop(Node),
     ok.
 
@@ -316,13 +316,13 @@ loop_restart(N,Node,EHPid) ->
 	    ct:fail(not_stopping)
     end,
     ok = wait_for(30, Node, EHPid),
-    loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[error_logger])).
+    loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[logger])).
 
 wait_for(0,Node,_) ->
     loose_node:stop(Node),    
     error;
 wait_for(N,Node,EHPid) ->
-    case rpc:call(Node, erlang, whereis, [error_logger]) of
+    case rpc:call(Node, erlang, whereis, [logger]) of
 	Pid when is_pid(Pid), Pid =/= EHPid ->
 	    %% erlang:display(ok),
 	    ok;
