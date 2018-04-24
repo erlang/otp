@@ -40,8 +40,7 @@
 	      ]},
     {registered, [sasl_sup, alarm_handler, release_handler]},
     {applications, [kernel, stdlib]},
-    {env, [{sasl_error_logger, tty},
-           {errlog_type, all}]},
+    {env, []},
     {mod, {sasl, []}},
     {runtime_dependencies, ["tools-2.6.14","stdlib-3.4","kernel-5.3",
 			    "erts-9.0"]}]}.

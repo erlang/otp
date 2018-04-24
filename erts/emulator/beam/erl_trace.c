@@ -2044,7 +2044,7 @@ enqueue_sys_msg(enum ErtsSysMsgType type,
 void
 erts_queue_error_logger_message(Eterm from, Eterm msg, ErlHeapFragment *bp)
 {
-    enqueue_sys_msg(SYS_MSG_TYPE_ERRLGR, from, am_error_logger, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_ERRLGR, from, am_logger, msg, bp);
 }
 
 void
@@ -2110,13 +2110,13 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	erts_thr_progress_unblock();
 	break;
     case SYS_MSG_TYPE_ERRLGR: {
-	char *no_elgger = "(no error logger present)";
+	char *no_elgger = "(no logger present)";
 	Eterm *tp;
 	Eterm tag;
 	if (is_not_tuple(smqp->msg)) {
 	unexpected_elmsg:
 	    erts_fprintf(stderr,
-			 "%s unexpected error logger message: %T\n",
+			 "%s unexpected logger message: %T\n",
 			 no_elgger,
 			 smqp->msg);
 	}
@@ -2284,7 +2284,7 @@ sys_msg_dispatcher_func(void *unused)
 		}
 		break;
 	    case SYS_MSG_TYPE_ERRLGR:
-		receiver = am_error_logger;
+		receiver = am_logger;
 		break;
 	    default:
 		receiver = NIL;
@@ -2313,7 +2313,7 @@ sys_msg_dispatcher_func(void *unused)
 		    erts_proc_unlock(proc, proc_locks);
 		}
 	    }
-	    else if (receiver == am_error_logger) {
+	    else if (receiver == am_logger) {
 		proc = erts_whereis_process(NULL,0,receiver,proc_locks,0);
 		if (!proc)
 		    goto failure;
@@ -2379,7 +2379,7 @@ erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 	    to = erts_get_system_profile();
 	    break;
 	case SYS_MSG_TYPE_ERRLGR:
-	    to = am_error_logger;
+	    to = am_logger;
 	    break;
 	default:
 	    to = NIL;

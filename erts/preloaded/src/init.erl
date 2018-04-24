@@ -485,7 +485,12 @@ do_handle_msg(Msg,State) ->
 	X ->
 	    case whereis(user) of
 		undefined ->
-		    catch error_logger ! {info, self(), {self(), X, []}};
+		    Time = erlang:monotonic_time(microsecond),
+                    catch logger ! {log, info, "init got unexpected: ~p", [X],
+                                    #{pid=>self(),
+                                      gl=>self(),
+                                      time=>Time,
+                                      error_logger=>#{tag=>info_msg}}};
 		User ->
 		    User ! X,
 		    ok

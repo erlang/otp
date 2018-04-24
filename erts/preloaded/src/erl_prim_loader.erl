@@ -299,8 +299,12 @@ check_file_result(Func, Target, {error,Reason}) ->
                 end,
             %% this is equal to calling error_logger:error_report/1 which
             %% we don't want to do from code_server during system boot
-            error_logger ! {notify,{error_report,group_leader(),
-                                    {self(),std_error,Report}}},
+            logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
+                      #{pid=>self(),
+                        gl=>group_leader(),
+                        time=>erlang:monotonic_time(microsecond),
+                        error_logger=>#{tag=>error_report,
+                                        type=>std_error}}},
             error
     end;
 check_file_result(_, _, Other) ->

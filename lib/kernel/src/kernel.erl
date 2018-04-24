@@ -40,8 +40,7 @@ start(_, []) ->
                     ok = gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
             end,
             %% add error handler
-	    Type = get_error_logger_type(),
-            case error_logger:swap_handler(Type) of
+            case logger:setup_standard_handler() of
                 ok -> {ok, Pid, []};
                 Error ->
                     %% Not necessary since the node will crash anyway:
@@ -61,16 +60,6 @@ config_change(Changed, New, Removed) ->
     do_distribution_change(Changed, New, Removed),
     do_global_groups_change(Changed, New, Removed),
     ok.
-
-get_error_logger_type() ->
-    case application:get_env(kernel, error_logger) of
-	{ok, tty} -> tty;
-	{ok, {file, File}} when is_list(File) -> {logfile, File};
-	{ok, false} -> false;
-	{ok, silent} -> silent;
-	undefined -> tty; % default value
-	{ok, Bad} -> exit({bad_config, {kernel, {error_logger, Bad}}})
-    end.
 
 %%%-----------------------------------------------------------------
 %%% The process structure in kernel is as shown in the figure.
@@ -153,9 +142,18 @@ init([]) ->
                 type => supervisor,
                 modules => [?MODULE]},
 
+
+    LoggerSup = #{id => logger_sup,
+                  start => {logger_sup, start_link, []},
+                  restart => permanent,
+                  shutdown => infinity,
+                  type => supervisor,
+                  modules => [logger_sup]},
+
     case init:get_argument(mode) of
         {ok, [["minimal"]]} ->
-            {ok, {SupFlags, [Code, File, StdError, User, Config, RefC, SafeSup]}};
+            {ok, {SupFlags,
+                  [Code, File, StdError, User, Config, RefC, SafeSup, LoggerSup]}};
         _ ->
             Rpc = #{id => rex,
                     start => {rpc, start_link, []},
@@ -206,7 +204,7 @@ init([]) ->
             {ok, {SupFlags,
                   [Code, Rpc, Global, InetDb | DistAC] ++
                   [NetSup, GlGroup, File, SigSrv,
-                   StdError, User, Config, RefC, SafeSup] ++ Timer}}
+                   StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
     end;
 init(safe) ->
     SupFlags = #{strategy => one_for_one,

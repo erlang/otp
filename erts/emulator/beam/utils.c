@@ -1924,145 +1924,155 @@ make_internal_hash(Eterm term, Uint32 salt)
 #undef HCONST
 #undef MIX
 
+/* error_logger !
+   {log, Level, format, [args], #{ gl, pid, time, error_logger => #{tag, emulator => true} }}
+*/
 static Eterm
-do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
-			   ErlHeapFragment **bp, Process **p, Uint sz)
+do_allocate_logger_message(Eterm gleader, ErtsMonotonicTime *ts, Eterm *pid,
+                           Eterm **hp, ErlOffHeap **ohp,
+			   ErlHeapFragment **bp, Uint sz)
 {
     Uint gl_sz;
     gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
-    sz = sz + gl_sz;
+    sz = sz + gl_sz + 6 /*outer 5-tuple*/
+        + MAP2_SZ /* error_logger map */;
+
+    *pid = erts_get_current_pid();
+
+    if (is_nil(gleader) && is_non_value(*pid)) {
+        sz += MAP2_SZ /* metadata map no gl, no pid */;
+    } else if (is_nil(gleader) || is_non_value(*pid))
+        sz += MAP3_SZ /* metadata map no gl or no pid*/;
+    else
+        sz += MAP4_SZ /* metadata map w gl w pid*/;
+
+    *ts = ERTS_MONOTONIC_TO_USEC(erts_get_monotonic_time(NULL)) + ERTS_MONOTONIC_OFFSET_USEC;
+    erts_bld_sint64(NULL, &sz, *ts);
 
     *bp = new_message_buffer(sz);
     *ohp = &(*bp)->off_heap;
     *hp = (*bp)->mem;
 
-    return (is_nil(gleader)
-	  ? am_noproc
-	  : (IS_CONST(gleader)
-	     ? gleader
-	     : copy_struct(gleader,gl_sz,hp,*ohp)));
+    return copy_struct(gleader,gl_sz,hp,*ohp);
 }
 
-static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *bp,
-				   Process *p, Eterm message)
+static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args,
+                                   ErtsMonotonicTime ts, Eterm pid,
+                                   Eterm *hp, ErlHeapFragment *bp)
 {
-#ifdef HARDDEBUG
-    erts_fprintf(stderr, "%T\n", message);
-#endif
-    {
-	Eterm from = erts_get_current_pid();
-	if (is_not_internal_pid(from))
-	    from = NIL;
-	erts_queue_error_logger_message(from, message, bp);
+    Eterm message, md, el_tag = tag;
+    Eterm time = erts_bld_sint64(&hp, NULL, ts);
+
+    /* This mapping is needed for the backwards compatible error_logger */
+    switch (tag) {
+    case am_info: el_tag = am_info_msg; break;
+    case am_warning: el_tag = am_warning_msg; break;
+    default:
+        ASSERT(am_error);
+        break;
     }
+
+    md = MAP2(hp, am_emulator, am_true,
+              am_atom_put("tag", 3), el_tag);
+    hp += MAP2_SZ;
+
+    if (is_nil(gl) && is_non_value(pid)) {
+        /* no gl and no pid, probably from a port */
+        md = MAP2(hp,
+                  am_error_logger, md,
+                  am_time, time);
+        hp += MAP2_SZ;
+        pid = NIL;
+    } else if (is_nil(gl)) {
+        /* no gl */
+        md = MAP3(hp,
+                  am_error_logger, md,
+                  am_pid, pid,
+                  am_time, time);
+        hp += MAP3_SZ;
+    } else if (is_non_value(pid)) {
+        /* no gl */
+        md = MAP3(hp,
+                  am_error_logger, md,
+                  am_atom_put("gl", 2), gl,
+                  am_time, time);
+        hp += MAP3_SZ;
+        pid = NIL;
+    } else {
+        md = MAP4(hp,
+                  am_error_logger, md,
+                  am_atom_put("gl", 2), gl,
+                  am_pid, pid,
+                  am_time, time);
+        hp += MAP4_SZ;
+    }
+
+    message = TUPLE5(hp, am_log, tag, format, args, md);
+    erts_queue_error_logger_message(pid, message, bp);
 }
 
-/* error_logger !
-   {notify,{info_msg,gleader,{emulator,format,[args]}}} |
-   {notify,{error,gleader,{emulator,format,[args]}}} |
-   {notify,{warning_msg,gleader,{emulator,format,[args}]}} */
-static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, size_t len)
+static int do_send_to_logger(Eterm tag, Eterm gl, char *buf, size_t len)
 {
     Uint sz;
-    Eterm gl;
-    Eterm list,args,format,tuple1,tuple2,tuple3;
+    Eterm list, args, format, pid;
+    ErtsMonotonicTime ts;
 
     Eterm *hp = NULL;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
-    Process *p = NULL;
-
-    ASSERT(is_atom(tag));
-
-    if (len == 0) {
-	return -1;
-    }
 
     sz = len * 2 /* message list */ + 2 /* cons surrounding message list */
-	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */
 	+ 8 /* "~s~n" */;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
-
-    if(is_nil(gl)) {
-       /* buf *always* points to a null terminated string */
-       erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
-                    tag, buf);
-       return 0;
-    }
+    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
 
     list = buf_to_intlist(&hp, buf, len, NIL);
     args = CONS(hp,list,NIL);
     hp += 2;
     format = buf_to_intlist(&hp, "~s~n", 4, NIL);
-    tuple1 = TUPLE3(hp, am_emulator, format, args);
-    hp += 4;
-    tuple2 = TUPLE3(hp, tag, gl, tuple1);
-    hp += 4;
-    tuple3 = TUPLE2(hp, am_notify, tuple2);
 
-    do_send_logger_message(hp, ohp, bp, p, tuple3);
+    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
     return 0;
 }
 
-static int do_send_term_to_logger(Eterm tag, Eterm gleader,
+static int do_send_term_to_logger(Eterm tag, Eterm gl,
 				  char *buf, size_t len, Eterm args)
 {
     Uint sz;
-    Eterm gl;
     Uint args_sz;
-    Eterm format,tuple1,tuple2,tuple3;
+    Eterm format, pid;
+    ErtsMonotonicTime ts;
 
     Eterm *hp = NULL;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
-    Process *p = NULL;
 
-    ASSERT(is_atom(tag));
+    ASSERT(len > 0);
 
     args_sz = size_object(args);
-    sz = len * 2 /* format */ + args_sz
-	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */;
+    sz = len * 2 /* format */ + args_sz;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
-
-    if(is_nil(gl)) {
-       /* buf *always* points to a null terminated string */
-       erts_fprintf(stderr, "(no error logger present) %T: \"%s\" %T\n",
-                    tag, buf, args);
-       return 0;
-    }
+    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
 
     format = buf_to_intlist(&hp, buf, len, NIL);
     args = copy_struct(args, args_sz, &hp, ohp);
-    tuple1 = TUPLE3(hp, am_emulator, format, args);
-    hp += 4;
-    tuple2 = TUPLE3(hp, tag, gl, tuple1);
-    hp += 4;
-    tuple3 = TUPLE2(hp, am_notify, tuple2);
 
-    do_send_logger_message(hp, ohp, bp, p, tuple3);
+    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
     return 0;
 }
 
 static ERTS_INLINE int
 send_info_to_logger(Eterm gleader, char *buf, size_t len)
 {
-    return do_send_to_logger(am_info_msg, gleader, buf, len);
+    return do_send_to_logger(am_info, gleader, buf, len);
 }
 
 static ERTS_INLINE int
 send_warning_to_logger(Eterm gleader, char *buf, size_t len)
 {
-    Eterm tag;
-    switch (erts_error_logger_warnings) {
-    case am_info:	tag = am_info_msg;	break;
-    case am_warning:	tag = am_warning_msg;	break;
-    default:		tag = am_error;		break;
-    }
-    return do_send_to_logger(tag, gleader, buf, len);
+    return do_send_to_logger(erts_error_logger_warnings, gleader, buf, len);
 }
 
 static ERTS_INLINE int

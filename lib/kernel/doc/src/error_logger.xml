@@ -31,6 +31,16 @@
   <module>error_logger</module>
   <modulesummary>Erlang error logger.</modulesummary>
   <description>
+
+    <note>
+      <p>In OTP-21, a new API for logging was added to Erlang/OTP. The
+	old <c>error_logger</c> module can still be used by legacy
+	code, but new code should use the new API instead.</p>
+      <p>See  <seealso marker="logger"><c>logger(3)</c></seealso> and
+	the <seealso marker="logger_chapter">Logging</seealso> chapter
+	in the user's guide for more information.</p>
+    </note>
+
     <p>The Erlang <em>error logger</em> is an event manager (see
       <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
       <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>),
@@ -171,14 +181,17 @@ ok</pre>
     <func>
       <name name="get_format_depth" arity="0"/>
       <fsummary>Get the value of the Kernel application variable
-                <c>error_logger_format_depth</c>.</fsummary>
+                <c>logger_format_depth</c>.</fsummary>
       <desc>
 	<p>Returns <c>max(10, Depth)</c>, where <c>Depth</c> is the
 	value of
-	<seealso marker="kernel:kernel_app#error_logger_format_depth">
-	error_logger_format_depth</seealso>
+	<seealso marker="kernel_app#logger_format_depth">
+	logger_format_depth</seealso>
 	in the Kernel application, if Depth is an integer. Otherwise,
 	<c>unlimited</c> is returned.</p>
+	<p>For backwards compatibility, the value
+	  of <c>error_logger_format_depth</c> is used
+	  if <c>logger_format_depth</c> is not set.</p>
       </desc>
     </func>
     <func>

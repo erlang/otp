@@ -19,21 +19,22 @@
 %%
 -module(error_logger).
 
--export([start/0,start_link/0,format/2,error_msg/1,error_msg/2,error_report/1,
+-include("logger_internal.hrl").
+
+-export([start/0,start_link/0,stop/0,
+         format/2,error_msg/1,error_msg/2,error_report/1,
 	 error_report/2,info_report/1,info_report/2,warning_report/1,
 	 warning_report/2,error_info/1,
 	 info_msg/1,info_msg/2,warning_msg/1,warning_msg/2, 
-	 logfile/1,tty/1,swap_handler/1,
+	 logfile/1,tty/1,
 	 add_report_handler/1,add_report_handler/2,
-	 delete_report_handler/1]).
+         delete_report_handler/1,
+         which_report_handlers/0]).
 
--export([init/1,
-	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2]).
+%% logger callbacks
+-export([adding_handler/2, removing_handler/1, log/2]).
 
 -export([get_format_depth/0, limit_term/1]).
-
--define(buffer_size, 10).
 
 %%-----------------------------------------------------------------
 %% Types used in this file
@@ -42,8 +43,6 @@
 -type msg_tag() :: 'error' | 'error_report'
 		 | 'info' | 'info_msg' | 'info_report'
 		 | 'warning_msg' | 'warning_report'.
-
--type state()   :: {non_neg_integer(), non_neg_integer(), [term()]}.
 
 %%% BIF
 
@@ -59,25 +58,136 @@ warning_map() ->
 
 %%-----------------------------------------------------------------
 
--spec start() -> {'ok', pid()} | {'error', any()}.
+%%%-----------------------------------------------------------------
+%%% Start the event manager process under logger_sup, which is part of
+%%% the kernel application's supervision tree.
+-spec start() -> 'ok' | {'error', any()}.
 
 start() ->
-    case gen_event:start({local, error_logger}) of
-	{ok, Pid} ->
-	    simple_logger(?buffer_size),
-	    {ok, Pid};
-	Error -> Error
+    case whereis(?MODULE) of
+        undefined ->
+            ErrorLogger =
+                #{id => ?MODULE,
+                  start => {?MODULE, start_link, []},
+                  restart => transient,
+                  shutdown => 2000,
+                  type => worker,
+                  modules => dynamic},
+            case supervisor:start_child(logger_sup, ErrorLogger) of
+                {ok,_} ->
+                    ok;
+                Error ->
+                    Error
+            end;
+        _ ->
+            ok
     end.
 
+%%%-----------------------------------------------------------------
+%%% Start callback specified in child specification to supervisor, see start/0
 -spec start_link() -> {'ok', pid()} | {'error', any()}.
 
 start_link() ->
-    case gen_event:start_link({local, error_logger}) of
-	{ok, Pid} ->
-	    simple_logger(?buffer_size),
-	    {ok, Pid};
-	Error -> Error
+    gen_event:start_link({local, ?MODULE},
+                         [{spawn_opt,[{message_queue_data, off_heap}]}]).
+
+%%%-----------------------------------------------------------------
+%%% Stop the event manager
+-spec stop() -> ok.
+stop() ->
+    _ = supervisor:terminate_child(logger_sup,?MODULE),
+    _ = supervisor:delete_child(logger_sup,?MODULE),
+    ok.
+
+%%%-----------------------------------------------------------------
+%%% Callbacks for logger
+-spec adding_handler(logger:handler_id(),logger:config()) ->
+                            {ok,logger:config()} | {error,term()}.
+adding_handler(?MODULE,Config) ->
+    case start() of
+        ok ->
+            {ok,Config};
+        Error ->
+            Error
     end.
+
+-spec removing_handler(logger:handler_id()) -> ok.
+removing_handler(?MODULE) ->
+    stop(),
+    ok.
+
+-spec log(logger:log(),logger:config()) -> ok.
+log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
+    do_log(Level,Msg,Meta).
+
+do_log(Level,{report,Msg},#{?MODULE:=#{tag:=Tag,type:=Type}}=Meta) ->
+    %% From error_logger:*_report/1,2, or logger call which added
+    %% error_logger data to obtain backwards compatibility with
+    %% error_logger:*_report/1,2
+    Report =
+        case Msg of
+            #{label:=_,report:=R} -> R;
+            _ -> Msg
+        end,
+    notify(Level,Tag,Type,Report,Meta);
+do_log(Level,{report,Msg},#{?MODULE:=#{tag:=Tag}}=Meta) ->
+    {Format,Args} =
+        case Msg of
+            #{label:=_,format:=F,args:=A} ->
+                %% From error_logger:*_msg/1,2.
+                %% In order to be backwards compatible with handling
+                %% of faulty parameters to error_logger:*_msg/1,2,
+                %% don't use report_cb here.
+                {F,A};
+            _ ->
+                %% From logger call which added error_logger data to
+                %% obtain backwards compatibility with error_logger:*_msg/1,2
+                RCBFun=maps:get(report_cb,Meta,fun logger:format_report/1),
+                try RCBFun(Msg) of
+                    {F,A} when is_list(F), is_list(A) ->
+                        {F,A};
+                    Other ->
+                        {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
+                catch C:R ->
+                        {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                end
+        end,
+    notify(Level,Tag,Format,Args,Meta);
+do_log(Level,{Format,Args},#{?MODULE:=#{tag:=Tag}}=Meta)
+  when is_list(Format), is_list(Args) ->
+    %% From logger call which added error_logger data to obtain
+    %% backwards compatibility with error_logger:*_msg/1,2
+    notify(Level,Tag,Format,Args,Meta);
+do_log(_Level,_Msg,_Meta) ->
+    %% Ignore the rest - i.e. to get backwards compatibility with
+    %% error_logger, you must use the error_logger API for logging.
+    %% Some modules within OTP go around this by adding an
+    %% error_logger field to its metadata. This is done only to allow
+    %% complete backwards compatibility for log events originating
+    %% from within OTP, while still using the new logger interface.
+    ok.
+
+-spec notify(logger:level(), msg_tag(), any(), any(), map()) -> 'ok'.
+notify(Level,Tag0,FormatOrType0,ArgsOrReport,#{pid:=Pid0,gl:=GL,?MODULE:=My}) ->
+    Tag = fix_warning_tag(Level,Tag0),
+    Pid = case maps:get(emulator,My,false) of
+              true -> emulator;
+              _ -> Pid0
+          end,
+    FormatOrType = fix_warning_type(Level,FormatOrType0),
+    gen_event:notify(?MODULE,{Tag,GL,{Pid,FormatOrType,ArgsOrReport}}).
+
+%% This is to fix the case when the client has explicitly added the
+%% error logger tag and type in metadata, and not checked the warning map.
+fix_warning_tag(error,warning_msg) -> error;
+fix_warning_tag(error,warning_report) -> error_report;
+fix_warning_tag(info,warning_msg) -> info_msg;
+fix_warning_tag(info,warning_report) -> info_report;
+fix_warning_tag(_,Tag) -> Tag.
+
+fix_warning_type(error,std_warning) -> std_error;
+fix_warning_type(info,std_warning) -> std_info;
+fix_warning_type(_,Type) -> Type.
 
 %%-----------------------------------------------------------------
 %% These two simple old functions generate events tagged 'error'
@@ -95,14 +205,18 @@ error_msg(Format) ->
       Data :: list().
 
 error_msg(Format, Args) ->
-    notify({error, group_leader(), {self(), Format, Args}}).
+    logger:log(error,
+               #{label=>{?MODULE,error_msg},
+                 format=>Format,
+                 args=>Args},
+               meta(error)).
 
 -spec format(Format, Data) -> 'ok' when
       Format :: string(),
       Data :: list().
 
 format(Format, Args) ->
-    notify({error, group_leader(), {self(), Format, Args}}).
+    error_msg(Format, Args).
 
 %%-----------------------------------------------------------------
 %% This functions should be used for error reports.  Events
@@ -124,7 +238,10 @@ error_report(Report) ->
       Report :: report().
 
 error_report(Type, Report) ->
-    notify({error_report, group_leader(), {self(), Type, Report}}).
+    logger:log(error,
+               #{label=>{?MODULE,error_report},
+                 report=>Report},
+               meta(error_report,Type)).
 
 %%-----------------------------------------------------------------
 %% This function should be used for warning reports.  
@@ -146,7 +263,8 @@ warning_report(Report) ->
       Report :: report().
 
 warning_report(Type, Report) ->
-    {Tag, NType} = case error_logger:warning_map() of
+    Level = error_logger:warning_map(),
+    {Tag, NType} = case Level of
 		       info ->
 			   if 
 			       Type =:= std_warning ->
@@ -164,7 +282,10 @@ warning_report(Type, Report) ->
 				   {error_report, Type}
 			   end
 		   end,
-    notify({Tag, group_leader(), {self(), NType, Report}}).
+    logger:log(Level,
+               #{label=>{?MODULE,warning_report},
+                 report=>Report},
+               meta(Tag,NType)).
 
 %%-----------------------------------------------------------------
 %% This function provides similar functions as error_msg for
@@ -183,7 +304,8 @@ warning_msg(Format) ->
       Data :: list().
 
 warning_msg(Format, Args) ->
-    Tag = case error_logger:warning_map() of
+    Level = error_logger:warning_map(),
+    Tag = case Level of
 	      warning ->
 		  warning_msg;
 	      info ->
@@ -191,7 +313,11 @@ warning_msg(Format, Args) ->
 	      error ->
 		  error
 	  end,
-    notify({Tag, group_leader(), {self(), Format, Args}}).
+    logger:log(Level,
+               #{label=>{?MODULE,warning_msg},
+                 format=>Format,
+                 args=>Args},
+               meta(Tag)).
 
 %%-----------------------------------------------------------------
 %% This function should be used for information reports.  Events
@@ -210,7 +336,10 @@ info_report(Report) ->
       Report :: report().
 
 info_report(Type, Report) ->
-    notify({info_report, group_leader(), {self(), Type, Report}}).
+    logger:log(info,
+               #{label=>{?MODULE,info_report},
+                 report=>Report},
+               meta(info_report,Type)).
 
 %%-----------------------------------------------------------------
 %% This function provides similar functions as error_msg for
@@ -228,7 +357,11 @@ info_msg(Format) ->
       Data :: list().
 
 info_msg(Format, Args) ->
-    notify({info_msg, group_leader(), {self(), Format, Args}}).
+    logger:log(info,
+               #{label=>{?MODULE,info_msg},
+                 format=>Format,
+                 args=>Args},
+               meta(info_msg)).
 
 %%-----------------------------------------------------------------
 %% Used by the init process.  Events are tagged 'info'.
@@ -236,38 +369,75 @@ info_msg(Format, Args) ->
 
 -spec error_info(Error :: any()) -> 'ok'.
 
+%% unused?
 error_info(Error) ->
-    notify({info, group_leader(), {self(), Error, []}}).
+    {Format,Args} =
+        case string_p(Error) of
+            true -> {Error,[]};
+            false -> {"~p",[Error]}
+        end,
+    MyMeta = #{tag=>info,type=>Error},
+    logger:log(info, Format, Args, #{?MODULE=>MyMeta,domain=>[Error]}).
 
--spec notify({msg_tag(), pid(), {pid(), any(), any()}}) -> 'ok'.
+%%-----------------------------------------------------------------
+%% Create metadata
+meta(Tag) ->
+    meta(Tag,undefined).
+meta(Tag,Type) ->
+    meta(Tag,Type,#{report_cb=>fun report_to_format/1}).
+meta(Tag,undefined,Meta0) ->
+    Meta0#{?MODULE=>#{tag=>Tag}};
+meta(Tag,Type,Meta0) ->
+    maybe_add_domain(Tag,Type,Meta0#{?MODULE=>#{tag=>Tag,type=>Type}}).
 
-notify(Msg) ->
-    gen_event:notify(error_logger, Msg).
+%% This is to prevent events of non standard type from being printed
+%% with the standard logger. Similar to how error_logger_tty_h
+%% discards events of non standard type.
+maybe_add_domain(error_report,std_error,Meta) -> Meta;
+maybe_add_domain(info_report,std_info,Meta) -> Meta;
+maybe_add_domain(warning_report,std_warning,Meta) -> Meta;
+maybe_add_domain(_,Type,Meta) -> Meta#{domain=>[Type]}.
 
--type swap_handler_type() :: 'false' | 'silent' | 'tty' | {'logfile', string()}.
--spec swap_handler(Type :: swap_handler_type()) -> any().
+%% -----------------------------------------------------------------
+%% Report formatting - i.e. Term => {Format,Args}
+%% This was earlier done in the event handler (error_logger_tty_h, etc)
+%% -----------------------------------------------------------------
+report_to_format(#{label:={?MODULE,_},
+                   report:=Report}) when is_map(Report) ->
+    %% logger:format_otp_report does maps:to_list, and for backwards
+    %% compatibility reasons we don't want that.
+    {"~tp\n",[Report]};
+report_to_format(#{label:={?MODULE,_},
+                   format:=Format,
+                   args:=Args}) ->
+    %% This is not efficient, but needed for backwards compatibility
+    %% in giving faulty arguments to the *_msg functions.
+    try io_lib:scan_format(Format,Args) of
+        _ -> {Format,Args}
+    catch _:_ ->
+            {"ERROR: ~tp - ~tp",[Format,Args]}
+    end;
+report_to_format(Term) ->
+    logger:format_otp_report(Term).
 
-swap_handler(tty) ->
-    R = gen_event:swap_handler(error_logger, {error_logger, swap},
-                               {error_logger_tty_h, []}),
-    ok = simple_logger(),
-    R;
-swap_handler({logfile, File}) ->
-    R = gen_event:swap_handler(error_logger, {error_logger, swap},
-                               {error_logger_file_h, File}),
-    ok = simple_logger(),
-    R;
-swap_handler(silent) ->
-    _ = gen_event:delete_handler(error_logger, error_logger, delete),
-    ok = simple_logger();
-swap_handler(false) ->
-    ok. % keep primitive event handler as-is
+string_p(List) when is_list(List) ->
+    string_p1(lists:flatten(List));
+string_p(_) ->
+    false.
 
+string_p1([]) ->
+    false;
+string_p1(FlatList) ->
+    io_lib:printable_list(FlatList).
+
+%% -----------------------------------------------------------------
+%% Stuff directly related to the event manager
+%% -----------------------------------------------------------------
 -spec add_report_handler(Handler) -> any() when
       Handler :: module().
 
 add_report_handler(Module) when is_atom(Module) ->
-    gen_event:add_handler(error_logger, Module, []).
+    add_report_handler(Module, []).
 
 -spec add_report_handler(Handler, Args) -> Result when
       Handler :: module(),
@@ -275,24 +445,37 @@ add_report_handler(Module) when is_atom(Module) ->
       Result :: gen_event:add_handler_ret().
 
 add_report_handler(Module, Args) when is_atom(Module) ->
-    gen_event:add_handler(error_logger, Module, Args).
+    _ = logger:add_handler(?MODULE,?MODULE,#{level=>info,filter_default=>log}),
+    gen_event:add_handler(?MODULE, Module, Args).
 
 -spec delete_report_handler(Handler) -> Result when
       Handler :: module(),
       Result :: gen_event:del_handler_ret().
 
 delete_report_handler(Module) when is_atom(Module) ->
-    gen_event:delete_handler(error_logger, Module, []).
+    case whereis(?MODULE) of
+        Pid when is_pid(Pid) ->
+            Return = gen_event:delete_handler(?MODULE, Module, []),
+            case gen_event:which_handlers(?MODULE) of
+                [] ->
+                    %% Don't want a lot of logs here if it's not needed
+                    _ = logger:remove_handler(?MODULE),
+                    ok;
+                _ ->
+                    ok
+            end,
+            Return;
+        _ ->
+            ok
+    end.
 
-%% Start the lowest level error_logger handler with Buffer.
-
-simple_logger(Buffer_size) when is_integer(Buffer_size) ->
-    gen_event:add_handler(error_logger, error_logger, Buffer_size).
-
-%% Start the lowest level error_logger handler without Buffer.
-
-simple_logger() -> 
-    gen_event:add_handler(error_logger, error_logger, []).
+which_report_handlers() ->
+    case whereis(?MODULE) of
+        Pid when is_pid(Pid) ->
+            gen_event:which_handlers(?MODULE);
+        undefined ->
+            []
+    end.
 
 %% Log all errors to File for all eternity
 
@@ -308,26 +491,35 @@ simple_logger() ->
                   FilenameReason :: no_log_file.
 
 logfile({open, File}) ->
-    case lists:member(error_logger_file_h,
-		      gen_event:which_handlers(error_logger)) of
+    case lists:member(error_logger_file_h,which_report_handlers()) of
 	true ->
 	    {error, allready_have_logfile};
 	_ ->
-	    gen_event:add_handler(error_logger, error_logger_file_h, File)
+            add_report_handler(error_logger_file_h, File)
     end;
 logfile(close) ->
-    case gen_event:delete_handler(error_logger, error_logger_file_h, normal) of
-	{error,Reason} ->
-	    {error,Reason};
-	_ ->
-	    ok
+    case whereis(?MODULE) of
+        Pid when is_pid(Pid) ->
+            case gen_event:delete_handler(?MODULE, error_logger_file_h, normal) of
+                {error,Reason} ->
+                    {error,Reason};
+                _ ->
+                    ok
+            end;
+        _ ->
+            {error,module_not_found}
     end;
 logfile(filename) ->
-    case gen_event:call(error_logger, error_logger_file_h, filename) of
-	{error,_} ->
-	    {error, no_log_file};
-	Val ->
-	    Val
+    case whereis(?MODULE) of
+        Pid when is_pid(Pid) ->
+            case gen_event:call(?MODULE, error_logger_file_h, filename) of
+                {error,_} ->
+                    {error, no_log_file};
+                Val ->
+                    Val
+            end;
+        _ ->
+            {error, no_log_file}
     end.
 
 %% Possibly turn off all tty printouts, maybe we only want the errors
@@ -337,193 +529,17 @@ logfile(filename) ->
       Flag :: boolean().
 
 tty(true) ->
-    Hs = gen_event:which_handlers(error_logger),
-    case lists:member(error_logger_tty_h, Hs) of
+    case lists:member(error_logger_tty_h, which_report_handlers()) of
 	false ->
-	    gen_event:add_handler(error_logger, error_logger_tty_h, []);
-	true -> 
+	    add_report_handler(error_logger_tty_h, []);
+	true ->
 	    ignore
     end,
     ok;
 tty(false) ->
-    gen_event:delete_handler(error_logger, error_logger_tty_h, []),
-    ok.
+    delete_report_handler(error_logger_tty_h).
 
-
-%%% ---------------------------------------------------
-%%% This is the default error_logger handler.
-%%% ---------------------------------------------------
-
--spec init(term()) -> {'ok', state() | []}.
-
-init(Max) when is_integer(Max) ->
-    {ok, {Max, 0, []}};
-%% This one is called if someone took over from us, and now wants to
-%% go back.
-init({go_back, _PostState}) ->  
-    {ok, {?buffer_size, 0, []}};
-init(_) ->
-    %% The error logger process may receive a huge amount of
-    %% messages. Make sure that they are stored off heap to
-    %% avoid exessive GCs.
-    process_flag(message_queue_data, off_heap),
-    {ok, []}.
-
--spec handle_event(term(), state()) -> {'ok', state()}.
-
-handle_event({Type, GL, Msg}, State) when node(GL) =/= node() ->
-    gen_event:notify({error_logger, node(GL)},{Type, GL, Msg}),
-    %% handle_event2({Type, GL, Msg}, State);  %% Shall we do something
-    {ok, State};                               %% at this node too ???
-handle_event({info_report, _, {_, Type, _}}, State) when Type =/= std_info ->
-    {ok, State};   %% Ignore other info reports here
-handle_event(Event, State) ->
-    handle_event2(Event, State).
-
--spec handle_info(term(), state()) -> {'ok', state()}.
-
-handle_info({emulator, GL, Chars}, State) when node(GL) =/= node() ->
-    {error_logger, node(GL)} ! {emulator, GL, add_node(Chars,self())},
-    {ok, State};
-handle_info({emulator, GL, Chars}, State) ->
-    handle_event2({emulator, GL, Chars}, State);
-handle_info(_, State) ->
-    {ok, State}.
-
--spec handle_call(term(), state()) -> {'ok', {'error', 'bad_query'}, state()}.
-
-handle_call(_Query, State) -> {ok, {error, bad_query}, State}.
-
--spec terminate(term(), state()) -> {'error_logger', [term()]}.
-
-terminate(swap, {_, 0, Buff}) ->
-    {error_logger, Buff};
-terminate(swap, {_, Lost, Buff}) ->
-    Myevent = {info, group_leader(), {self(), {lost_messages, Lost}, []}},
-    {error_logger, [tag_event(Myevent)|Buff]};
-terminate(_, _) ->
-    {error_logger, []}.
-
-handle_event2(Event, {1, Lost, Buff}) ->
-    display(tag_event(Event)),
-    {ok, {1, Lost+1, Buff}};
-handle_event2(Event, {N, Lost, Buff}) ->
-    Tagged = tag_event(Event),
-    display(Tagged),
-    {ok, {N-1, Lost, [Tagged|Buff]}};
-handle_event2(_, State) ->
-    {ok, State}.
-
-tag_event(Event) ->    
-    {erlang:localtime(), Event}.
-
-display({Tag,{error,_,{_,Format,Args}}}) ->
-    display2(Tag,Format,Args);
-display({Tag,{error_report,_,{_,Type,Report}}}) ->
-    display2(Tag,Type,Report);
-display({Tag,{info_report,_,{_,Type,Report}}}) ->
-    display2(Tag,Type,Report);
-display({Tag,{info,_,{_,Error,_}}}) ->
-    display2(Tag,Error,[]);
-display({Tag,{info_msg,_,{_,Format,Args}}}) ->
-    display2(Tag,Format,Args);
-display({Tag,{warning_report,_,{_,Type,Report}}}) ->
-    display2(Tag,Type,Report);
-display({Tag,{warning_msg,_,{_,Format,Args}}}) ->
-    display2(Tag,Format,Args);
-display({Tag,{emulator,_,Chars}}) ->
-    display2(Tag,Chars,[]).
-
-add_node(X, Pid) when is_atom(X) ->
-    add_node(atom_to_list(X), Pid);
-add_node(X, Pid) ->
-    lists:concat([X,"** at node ",node(Pid)," **~n"]).
-
-%% Can't do io_lib:format
-
-display2({{_Y,_Mo,_D},{_H,_Mi,_S}} = Date, F, A) ->
-    display_date(Date),
-    display3(string_p(F), F, A).
-
-display_date({{Y,Mo,D},{H,Mi,S}}) ->
-    erlang:display_string(
-      integer_to_list(Y) ++ "-" ++
-	  two_digits(Mo) ++ "-" ++
-	  two_digits(D)  ++ " " ++
-	  two_digits(H)  ++ ":" ++
-	  two_digits(Mi) ++ ":" ++
-	  two_digits(S)  ++ " ").
-
-two_digits(N) when 0 =< N, N =< 9 ->
-    [$0, $0 + N];
-two_digits(N) ->
-    integer_to_list(N).
-
-display3(true, F, A) ->
-    %% Format string with arguments
-    erlang:display_string(F ++ "\n"),
-    [begin
-	 erlang:display_string("\t"),
-	 erlang:display(Arg)
-     end || Arg <- A],
-    ok;
-display3(false, Atom, A) when is_atom(Atom) ->
-    %% The widest atom seems to be 'supervisor_report' at 17.
-    ColumnWidth = 20,
-    AtomString = atom_to_list(Atom),
-    AtomLength = length(AtomString),
-    Padding = lists:duplicate(ColumnWidth - AtomLength, $\s),
-    erlang:display_string(AtomString ++ Padding),
-    display4(A);
-display3(_, F, A) ->
-    erlang:display({F, A}).
-
-display4([A, []]) ->
-    %% Not sure why crash reports look like this.
-    display4(A);
-display4(A = [_|_]) ->
-    case lists:all(fun({Key,_Value}) -> is_atom(Key); (_) -> false end, A) of
-	true ->
-	    erlang:display_string("\n"),
-	    lists:foreach(
-	      fun({Key, Value}) ->
-		      erlang:display_string(
-			"    " ++
-			    atom_to_list(Key) ++
-			    ": "),
-		      erlang:display(Value)
-	      end, A);
-	false ->
-	    erlang:display(A)
-    end;
-display4(A) ->
-    erlang:display(A).
-
-string_p([]) ->
-    false;
-string_p(Term) ->
-    string_p1(Term).
-
-string_p1([H|T]) when is_integer(H), H >= $\040, H =< $\176 ->
-    string_p1(T);
-string_p1([H|T]) when is_integer(H), H >= 16#A0, H < 16#D800;
-                      is_integer(H), H > 16#DFFF, H < 16#FFFE;
-                      is_integer(H), H > 16#FFFF, H =< 16#10FFFF ->
-    string_p1(T);
-string_p1([$\n|T]) -> string_p1(T);
-string_p1([$\r|T]) -> string_p1(T);
-string_p1([$\t|T]) -> string_p1(T);
-string_p1([$\v|T]) -> string_p1(T);
-string_p1([$\b|T]) -> string_p1(T);
-string_p1([$\f|T]) -> string_p1(T);
-string_p1([$\e|T]) -> string_p1(T);
-string_p1([H|T]) when is_list(H) ->
-    case string_p1(H) of
-	true -> string_p1(T);
-	_    -> false
-    end;
-string_p1([]) -> true;
-string_p1(_) ->  false.
+%%%-----------------------------------------------------------------
 
 -spec limit_term(term()) -> term().
 
@@ -536,9 +552,4 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
-	    max(10, Depth);
-	undefined ->
-	    unlimited
-    end.
+    logger:get_format_depth().

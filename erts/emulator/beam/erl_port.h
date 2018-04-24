@@ -485,6 +485,8 @@ ERTS_GLB_INLINE Uint32 erts_portid2status(Eterm);
 ERTS_GLB_INLINE int erts_is_port_alive(Eterm);
 ERTS_GLB_INLINE int erts_is_valid_tracer_port(Eterm);
 ERTS_GLB_INLINE int erts_port_driver_callback_epilogue(Port *, erts_aint32_t *);
+ERTS_GLB_INLINE Port *erts_get_current_port(void);
+ERTS_GLB_INLINE Eterm erts_get_current_port_id(void);
 
 #define erts_drvport2port(Prt) erts_drvport2port_state((Prt), NULL)
 
@@ -810,6 +812,20 @@ erts_port_driver_callback_epilogue(Port *prt, erts_aint32_t *statep)
 	*statep = state;
 
     return reds;
+}
+
+ERTS_GLB_INLINE
+Port *erts_get_current_port(void)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    return esdp ? esdp->current_port : NULL;
+}
+
+ERTS_GLB_INLINE
+Eterm erts_get_current_port_id(void)
+{
+    Port *port = erts_get_current_port();
+    return port ? port->common.id : THE_NON_VALUE;
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

@@ -358,6 +358,7 @@ atom loaded
 atom load_cancelled
 atom load_failure
 atom local
+atom logger
 atom long_gc
 atom long_schedule
 atom low

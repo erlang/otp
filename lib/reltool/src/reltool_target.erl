@@ -55,7 +55,7 @@ mandatory_modules() ->
 kernel_processes(KernelApp) ->
     [
      {kernelProcess, heart, {heart, start, []}},
-     {kernelProcess, error_logger , {error_logger, start_link, []}},
+     {kernelProcess, logger , {logger_server, start_link, []}},
      {kernelProcess,
       application_controller,
       {application_controller, start, [KernelApp]}}
