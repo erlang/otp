@@ -45,10 +45,8 @@
 
          close/1,
 
-         setopt/3,
-         getopt/2,
-         %% ?????
-         formated_timestamp/0
+         setopt/4,
+         getopt/3
         ]).
 
 -export_type([
@@ -104,6 +102,14 @@
 -type in6_sockaddr() :: #in6_sockaddr{}.
 
 -type port_number() :: 0..65535.
+
+%% otp    - The option is internal to our (OTP) imeplementation.
+%% socket - The socket layer (SOL_SOCKET).
+%% ip     - The ip layer (SOL_IP).
+%% tcp    - The TCP (Transport Control Protocol) layer (IPPROTO_TCP).
+%% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
+%% Int    - Raw level, sent down and used "as is".
+-type option_level() :: otp | socket | ip | tcp | udp | non_neg_integer().
 
 -type socket_info() :: map().
 -record(socket, {info :: socket_info(),
@@ -200,6 +206,14 @@
 
 -define(SOCKET_RECV_FLAGS_DEFAULT,   []).
 -define(SOCKET_RECV_TIMEOUT_DEFAULT, infinity).
+
+-define(SOCKET_SETOPT_LEVEL_ENCODED,   0).
+-define(SOCKET_SETOPT_LEVEL_RAW,       1).
+-define(SOCKET_SETOPT_LEVEL_OTP,       0).
+-define(SOCKET_SETOPT_LEVEL_SOCKET,    1).
+-define(SOCKET_SETOPT_LEVEL_IP,        2).
+-define(SOCKET_SETOPT_LEVEL_TCP,       3).
+-define(SOCKET_SETOPT_LEVEL_UDP,       4).
 
 -define(SOCKET_SETOPT_KEY_DEBUG,       0).
 
@@ -935,16 +949,37 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 %% ===========================================================================
 %%
 %% close - close a file descriptor
+%%
 
 -spec close(Socket) -> ok | {error, Reason} when
       Socket :: socket(),
       Reason :: term().
 
-close({socket, _, SockRef}) ->
-    nif_close(SockRef).
+close(#socket{ref = SockRef}) ->
+    case nif_close(SockRef) of
+        ok ->
+            nif_finalize_close(SockRef);
+        {ok, CloseRef} ->
+            %% We must wait
+            receive
+		{close, CloseRef} ->
+                    %% <KOLLA>
+                    %%
+                    %% WHAT HAPPENS IF THIS PROCESS IS KILLED
+                    %% BEFORE WE CAN EXECUTE THE FINAL CLOSE???
+                    %%
+                    %% </KOLLA>
+                    nif_finalize_close(SockRef)
+            end;
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 
 
+
+%% ===========================================================================
+%%
 %% setopt - manipulate individual properties of a socket
 %%
 %% What properties are valid depend on what kind of socket it is
@@ -952,22 +987,30 @@ close({socket, _, SockRef}) ->
 %% If its an "invalid" option (or value), we should not crash but return some
 %% useful error...
 %%
+%% <KOLLA>
+%%
+%% WE NEED TOP MAKE SURE THAT THE USER DOES NOT MAKE US BLOCKING
+%% AS MUCH OF THE CODE EXPECTS TO BE NON-BLOCKING!!
+%%
+%% </KOLLA>
 
--spec setopt(Socket, Key, Value) -> ok | {error, Reason} when
+-spec setopt(Socket, Level, Key, Value) -> ok | {error, Reason} when
       Socket :: socket(),
+      Level  :: option_level(),
       Key    :: setopt_key(),
       Value  :: term(),
       Reason :: term().
 
-setopt({socket, Info, SockRef}, Key, Value) ->
+setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
     try
         begin
             Domain   = maps:get(domain, Info),
             Type     = maps:get(type, Info),
             Protocol = maps:get(protocol, Info),
-            EKey     = enc_setopt_key(Key, Domain, Type, Protocol),
-            EVal     = enc_setopt_value(Key, Value, Domain, Type, Protocol),
-            nif_setopt(SockRef, EKey, EVal)
+            ELevel   = enc_setopt_level(Level),
+            EKey     = enc_setopt_key(Level, Key, Domain, Type, Protocol),
+            EVal     = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
+            nif_setopt(SockRef, ELevel, EKey, EVal)
         end
     catch
         throw:T ->
@@ -985,24 +1028,26 @@ setopt({socket, Info, SockRef}, Key, Value) ->
 %% useful error...
 %%
 
--spec getopt(Socket, Key) -> {ok, Value} | {error, Reason} when
+-spec getopt(Socket, Level, Key) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
+      Level  :: option_level(),
       Key    :: getopt_key(),
       Value  :: term(),
       Reason :: term().
 
-getopt({socket, Info, SockRef}, Key) ->
+getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
     try
         begin
             Domain   = maps:get(domain, Info),
             Type     = maps:get(type, Info),
             Protocol = maps:get(protocol, Info),
-            EKey     = enc_getopt_key(Key, Domain, Type, Protocol),
+            ELevel   = enc_getopt_level(Level),
+            EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
             %% We may need to decode the value (for the same reason
             %% we needed to encode the value for setopt).
-            case nif_getopt(SockRef, EKey) of
+            case nif_getopt(SockRef, ELevel, EKey) of
                 {ok, EVal} ->
-                    Val = dec_getopt_value(Key, EVal, Domain, Type, Protocol),
+                    Val = dec_getopt_value(Level, Key, EVal, Domain, Type, Protocol),
                     {ok, Val};
                 {error, _} = ERROR ->
                     ERROR
@@ -1090,21 +1135,52 @@ enc_flags(Flags, EFlags) ->
         end,
     lists:foldl(F, 0, Flags).
 
+enc_setopt_level(otp) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_OTP};
+enc_setopt_level(socket) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_SOCKET};
+enc_setopt_level(ip) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_IP};
+enc_setopt_level(tcp) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_TCP};
+enc_setopt_level(udp) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_UDP};
+%% Any option that is of an raw level must be provided as a binary
+%% already fully encoded!
+enc_setopt_level(L) when is_integer(L) ->
+    {?SOCKET_SETOPT_LEVEL_RAW, L}.
+
+
 %% We should ...really... do something with the domain, type and protocol args...
-enc_setopt_key(debug, _, _, _) ->
+%% Also, any option which has an integer level (raw) must also be provided
+%% in a raw mode, that is, as an integer.
+enc_setopt_key(L, K, _, _, _) when is_integer(L) andalso is_integer(K) ->
+    K;
+enc_setopt_key(otp, debug, _, _, _) ->
     ?SOCKET_SETOPT_KEY_DEBUG.
 
 %% We should ...really... do something with the domain, type and protocol args...
-enc_setopt_value(debug, V, _, _, _) when is_boolean(V) ->
+enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
+    V;
+enc_setopt_value(socket, linger, abort, D, T, P) ->
+    enc_setopt_value(socket, linger, {true, 0}, D, T, P);
+enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
+  when is_boolean(OnOff) andalso is_integer(Secs) andalso (Secs >= 0) ->
+    V;
+enc_setopt_value(L, _, V, _, _, _) when is_integer(L) andalso is_binary(V) ->
     V.
 
 
+
+enc_getopt_level(Level) ->
+    enc_setopt_level(Level).
+
 %% We should ...really... do something with the domain, type and protocol args...
-enc_getopt_key(debug, _, _, _) ->
+enc_getopt_key(otp, debug, _, _, _) ->
     ?SOCKET_GETOPT_KEY_DEBUG.
 
 %% We should ...really... do something with the domain, type and protocol args...
-dec_getopt_value(debug, B, _, _, _) when is_boolean(B) ->
+dec_getopt_value(otp, debug, B, _, _, _) when is_boolean(B) ->
     B.
 
 
@@ -1226,8 +1302,11 @@ nif_cancel(_SRef, _Op, _Ref) ->
 nif_close(_SRef) ->
     erlang:error(badarg).
 
-nif_setopt(_Ref, _Key, _Val) ->
+nif_finalize_close(_SRef) ->
     erlang:error(badarg).
 
-nif_getopt(_Ref, _Key) ->
+nif_setopt(_Ref, _Lev, _Key, _Val) ->
+    erlang:error(badarg).
+
+nif_getopt(_Ref, _Lev, _Key) ->
     erlang:error(badarg).
