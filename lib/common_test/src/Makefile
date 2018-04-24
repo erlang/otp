@@ -165,3 +165,5 @@ release_tests_spec: opt
 
 release_docs_spec: docs
 
+# Include dependencies -- list below added by Kostis Sagonas
+$(EBIN)/cth_log_redirect.beam: ../../kernel/include/logger.hrl

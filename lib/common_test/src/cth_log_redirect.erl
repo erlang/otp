@@ -33,17 +33,19 @@
 	 pre_init_per_testcase/4, post_init_per_testcase/5,
 	 pre_end_per_testcase/4, post_end_per_testcase/5]).
 
-%% Event handler Callbacks
--export([init/1,
-	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/1, terminate/2, code_change/3]).
+%% Logger handler and gen_server callbacks
+-export([log/2,
+         init/1,
+	 handle_cast/2, handle_call/3,
+	 terminate/1, terminate/2]).
 
 %% Other
 -export([handle_remote_events/1]).
 
 -include("ct.hrl").
+-include("../../kernel/src/logger_internal.hrl").
 
--behaviour(gen_event).
+-behaviour(gen_server).
 
 -record(eh_state, {log_func,
 		   curr_suite,
@@ -57,7 +59,7 @@ id(_Opts) ->
 
 init(?MODULE, _Opts) ->
     ct_util:mark_process(),
-    error_logger:add_report_handler(?MODULE),
+    ok = start_log_handler(),
     tc_log_async.
 
 pre_init_per_suite(Suite, Config, State) ->
@@ -100,7 +102,7 @@ pre_end_per_testcase(_Suite, _TC, Config, State) ->
 post_end_per_testcase(_Suite, _TC, _Config, Result, State) ->
     %% Make sure that the event queue is flushed
     %% before ending this test case.
-    gen_event:call(error_logger, ?MODULE, flush, 300000),
+    gen_server:call(?MODULE, flush, 300000),
     {Result, State}.
 
 pre_end_per_group(_Suite, Group, Config, {tc_log, Group}) ->
@@ -114,127 +116,155 @@ post_end_per_group(_Suite, _Group, Config, Return, State) ->
     set_curr_func({group,undefined}, Config),
     {Return, State}.
 
-%% Copied and modified from sasl_report_tty_h.erl
-init(_Type) ->
+start_log_handler() ->
+    case whereis(?MODULE) of
+        undefined ->
+            ChildSpec =
+                #{id=>?MODULE,
+                  start=>{gen_server,start_link,[{local,?MODULE},?MODULE,[],[]]},
+                  restart=>transient,
+                  shutdown=>2000,
+                  type=>worker,
+                  modules=>[?MODULE]},
+            {ok,_} = supervisor:start_child(logger_sup,ChildSpec);
+        _Pid ->
+            ok
+    end,
+    ok = logger:add_handler(?MODULE,?MODULE,
+                            #{level=>info,
+                              formatter=>{?DEFAULT_FORMATTER,
+                                          ?DEFAULT_FORMAT_CONFIG}}).
+
+init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.
 
-handle_event({_Type,GL,_Msg}, #eh_state{handle_remote_events = false} = State)
-  when node(GL) /= node() ->
-    {ok, State};
-handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
+log(#{msg:={report,Msg},meta:=#{domain:=[beam,erlang,otp,sasl]}}=Log,Config) ->
     case whereis(sasl_sup) of
 	undefined ->
-	    sasl_not_started;
+	    ok; % sasl application is not started
 	_Else ->
-	    {ok, ErrLogType} = application:get_env(sasl, errlog_type),
-	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
-						tag_event(Event, local)),
-	    if is_list(SReport) ->
-		    SaslHeader = format_header(State),
-		    case LogFunc of
-			tc_log ->
-			    ct_logs:tc_log(sasl, ?STD_IMPORTANCE,
-					   SaslHeader, SReport, [], []);
-			tc_log_async ->
-			    ct_logs:tc_log_async(sasl, ?STD_IMPORTANCE,
-						 SaslHeader, SReport, [])
-		    end;
-	       true -> %% Report is an atom if no logging is to be done
-		    ignore
-	    end
-    end,
-    %% note that error_logger (unlike sasl) expects UTC time
-    EReport = error_logger_tty_h:write_event(
-		tag_event(Event, utc), io_lib),
-    if is_list(EReport) ->
-	    ErrHeader = format_header(State),
-	    case LogFunc of
-		tc_log ->
-		    ct_logs:tc_log(error_logger, ?STD_IMPORTANCE,
-				   ErrHeader, EReport, [], []);
-		tc_log_async ->
-		    ct_logs:tc_log_async(error_logger, ?STD_IMPORTANCE,
-					 ErrHeader, EReport, [])
-	    end;
-       true -> %% Report is an atom if no logging is to be done
-	    ignore
-    end,
-    {ok, State}.
-
-handle_info({'EXIT',User,killed}, State) ->
-    case whereis(user) of
-	%% init:stop/1/2 has been called, let's finish!
-	undefined ->
-	    remove_handler;
-	User ->
-	    remove_handler;
-	_ ->
-	    {ok,State}
+            Level =
+                case application:get_env(sasl, errlog_type) of
+                    {ok,error} ->
+                        error;
+                    {ok,_} ->
+                        info;
+                    undefined ->
+                        info
+                end,
+            case Level of
+                error ->
+                    case Msg of
+                        #{label:={_,progress}} ->
+                            ok;
+                        _ ->
+                            do_log(add_log_category(Log,sasl),Config)
+                    end;
+                _ ->
+                    do_log(add_log_category(Log,sasl),Config)
+            end
     end;
+log(#{meta:=#{domain:=[beam,erlang,otp]}}=Log,Config) ->
+    do_log(add_log_category(Log,error_logger),Config);
+log(#{meta:=#{domain:=_}},_) ->
+    ok;
+log(Log,Config) ->
+    do_log(add_log_category(Log,error_logger),Config).
 
-handle_info(_, State) -> 
-    {ok,State}.
+add_log_category(#{meta:=Meta}=Log,Category) ->
+    Log#{meta=>Meta#{?MODULE=>#{category=>Category}}}.
 
-handle_call(flush,State) ->
-    {ok, ok, State};
+do_log(Log,Config) ->
+    gen_server:call(?MODULE,{log,Log,Config}).
 
-handle_call({set_curr_func,{group,Group,Conf},Config},
-	    State) when is_list(Config) ->
+handle_cast(_, State) ->
+    {noreply,State}.
+
+handle_call({log,#{meta:=#{gl:=GL}},_}, _From,
+            #eh_state{handle_remote_events=false}=State)
+  when node(GL) /= node() ->
+    {reply, ok, State};
+
+handle_call({log,
+             #{msg:=Msg0,
+               meta:=#{?MODULE:=#{category:=Category}}=Meta}=Log,
+             #{formatter:={Formatter,FConfig}}},
+            _From,
+            #eh_state{log_func=LogFunc}=State) ->
+    Header = format_header(State),
+    Msg =
+        case Msg0 of
+            {report,R} ->
+                Fun=maps:get(report_cb,Meta,fun logger:format_report/1),
+                Fun(R);
+            _ ->
+                Msg0
+        end,
+    String = Formatter:format(Log#{msg=>Msg},FConfig),
+    case LogFunc of
+        tc_log ->
+            ct_logs:tc_log(Category, ?STD_IMPORTANCE,
+                           Header, String, [], []);
+        tc_log_async ->
+            ct_logs:tc_log_async(sasl, ?STD_IMPORTANCE,
+                                 Header, String, [])
+    end,
+    {reply,ok,State};
+
+handle_call(flush,_From,State) ->
+    {reply, ok, State};
+
+handle_call({set_curr_func,{group,Group,Conf},Config},_From,State)
+  when is_list(Config) ->
     Parallel = case proplists:get_value(tc_group_properties, Config) of
 		   undefined -> false;
 		   Props -> lists:member(parallel, Props)
 	       end,
-    {ok, ok, State#eh_state{curr_group = Group,
-			    curr_func = Conf,
-			    parallel_tcs = Parallel}};
-handle_call({set_curr_func,{group,Group,Conf},_SkipOrFail}, State) ->
-    {ok, ok, State#eh_state{curr_group = Group,
-			    curr_func = Conf,
-			    parallel_tcs = false}};
-handle_call({set_curr_func,{group,undefined},_Config}, State) ->
-    {ok, ok, State#eh_state{curr_group = undefined,
-			    curr_func = undefined,
-			    parallel_tcs = false}};
-handle_call({set_curr_func,{Suite,Conf},_Config}, State) ->
-    {ok, ok, State#eh_state{curr_suite = Suite,
-			    curr_func = Conf,
-			    parallel_tcs = false}};
-handle_call({set_curr_func,undefined,_Config}, State) ->
-    {ok, ok, State#eh_state{curr_suite = undefined,
-			    curr_func = undefined,
-			    parallel_tcs = false}};
-handle_call({set_curr_func,TC,_Config}, State) ->
-    {ok, ok, State#eh_state{curr_func = TC}};
+    {reply, ok, State#eh_state{curr_group = Group,
+                               curr_func = Conf,
+                               parallel_tcs = Parallel}};
+handle_call({set_curr_func,{group,Group,Conf},_SkipOrFail}, _From, State) ->
+    {reply, ok, State#eh_state{curr_group = Group,
+                               curr_func = Conf,
+                               parallel_tcs = false}};
+handle_call({set_curr_func,{group,undefined},_Config}, _From, State) ->
+    {reply, ok, State#eh_state{curr_group = undefined,
+                               curr_func = undefined,
+                               parallel_tcs = false}};
+handle_call({set_curr_func,{Suite,Conf},_Config}, _From, State) ->
+    {reply, ok, State#eh_state{curr_suite = Suite,
+                               curr_func = Conf,
+                               parallel_tcs = false}};
+handle_call({set_curr_func,undefined,_Config}, _From, State) ->
+    {reply, ok, State#eh_state{curr_suite = undefined,
+                               curr_func = undefined,
+                               parallel_tcs = false}};
+handle_call({set_curr_func,TC,_Config}, _From, State) ->
+    {reply, ok, State#eh_state{curr_func = TC}};
 
-handle_call({set_logfunc,NewLogFunc}, State) ->
-    {ok, NewLogFunc, State#eh_state{log_func = NewLogFunc}};
+handle_call({set_logfunc,NewLogFunc}, _From, State) ->
+    {reply, NewLogFunc, State#eh_state{log_func = NewLogFunc}};
 
-handle_call({handle_remote_events,Bool}, State) ->
-    {ok, ok, State#eh_state{handle_remote_events = Bool}};
-
-handle_call(_Query, _State) ->
-    {error, bad_query}.
+handle_call({handle_remote_events,Bool}, _From, State) ->
+    {reply, ok, State#eh_state{handle_remote_events = Bool}}.
 
 terminate(_) ->
-    error_logger:delete_report_handler(?MODULE),
-    [].
+    _ = logger:remove_handler(?MODULE),
+    _ = supervisor:terminate_child(logger_sup,?MODULE),
+    _ = supervisor:delete_child(logger_sup,?MODULE),
+    ok.
 
 terminate(_Arg, _State) ->
     ok.
 
-tag_event(Event, utc) ->
-    {calendar:universal_time(), Event};
-tag_event(Event, _) ->
-    {calendar:local_time(), Event}.
-
 set_curr_func(CurrFunc, Config) ->
-    gen_event:call(error_logger, ?MODULE, {set_curr_func, CurrFunc, Config}).
+    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}).
 
 set_log_func(Func) ->
-    gen_event:call(error_logger, ?MODULE, {set_logfunc, Func}).
+    gen_server:call(?MODULE, {set_logfunc, Func}).
 
 handle_remote_events(Bool) ->
-    gen_event:call(error_logger, ?MODULE, {handle_remote_events, Bool}).
+    gen_server:call(?MODULE, {handle_remote_events, Bool}).
 
 %%%-----------------------------------------------------------------
 
@@ -272,6 +302,3 @@ format_header(#eh_state{curr_suite = Suite,
 			curr_func = TC}) ->
     io_lib:format("System report during ~w:~tw/1 in ~tw",
 		  [Suite,TC,Group]).
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
