@@ -1580,9 +1580,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
-#ifdef DEBUG
     int cret;
-#endif
     DbTableMethod* meth;
 
     if (is_not_atom(BIF_ARG_1)) {
@@ -1721,11 +1719,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.fixing_procs = NULL;
     tb->common.compress = is_compressed;
 
-#ifdef DEBUG
-    cret = 
-#endif
-	meth->db_create(BIF_P, tb);
-    ASSERT(cret == DB_ERROR_NONE);
+    cret = meth->db_create(BIF_P, tb);
+    ASSERT(cret == DB_ERROR_NONE); (void)cret;
 
     make_btid(tb);
 
@@ -1941,7 +1936,8 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     reds -= free_fixations_locked(BIF_P, tb);
     db_unlock(tb, LCK_WRITE);
 
-    if (free_table_continue(BIF_P, tb, reds) < 0) {
+    reds = free_table_continue(BIF_P, tb, reds);
+    if (reds < 0) {
 	/*
 	 * Package the DbTable* pointer into a bignum so that it can be safely
 	 * passed through a trap. We used to pass the DbTable* pointer directly
@@ -3940,7 +3936,8 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
 
     ASSERT(*ptr == make_pos_bignum_header(1));
 
-    if (free_table_continue(BIF_P, tb, reds) < 0) {
+    reds = free_table_continue(BIF_P, tb, reds);
+    if (reds < 0) {
         BUMP_ALL_REDS(BIF_P);
         BIF_TRAP1(&ets_delete_continue_exp, BIF_P, cont);
     }
