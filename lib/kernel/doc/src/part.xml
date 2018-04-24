@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,28 +22,19 @@
     
     </legalnotice>
 
-    <title>Kernel</title>
-    <prepared></prepared>
+    <title>Logger User's Guide</title>
+    <prepared>OTP Team</prepared>
     <docno></docno>
-    <date></date>
-    <rev></rev>
+    <date>2017-12-01</date>
+    <rev>0.1</rev>
+    <file>part.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>Kernel</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts lift="yes">
-    <xi:include href="part.xml"/>
-  </parts>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
+  <description>
+    <p>The System Architecture Support Libraries SASL application
+      provides support for alarm handling, release handling, and
+      related functions.</p>
+  </description>
+  <xi:include href="introduction_chapter.xml"/>
+  <xi:include href="logger_chapter.xml"/>
+</part>
 

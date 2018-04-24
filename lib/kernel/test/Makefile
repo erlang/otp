@@ -70,6 +70,15 @@ MODULES= \
 	interactive_shell_SUITE \
 	init_SUITE \
 	kernel_config_SUITE \
+	logger_SUITE \
+	logger_bench_SUITE \
+	logger_disk_log_h_SUITE \
+	logger_env_var_SUITE \
+	logger_filters_SUITE \
+	logger_formatter_SUITE \
+	logger_legacy_SUITE \
+	logger_simple_SUITE \
+	logger_std_h_SUITE \
 	os_SUITE \
 	pg2_SUITE \
 	seq_trace_SUITE \
@@ -102,7 +111,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover
+COVERFILE=kernel.cover logger.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -149,7 +158,8 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) kernel.spec kernel_smoke.spec kernel_bench.spec \
+	$(INSTALL_DATA) \
+		kernel.spec kernel_smoke.spec kernel_bench.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

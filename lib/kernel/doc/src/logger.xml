@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger.xml</file>
+  </header>
+  <module>logger</module>
+  <modulesummary>API module for the logger application.</modulesummary>
+
+  <description>
+
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="level"/>
+      <desc>
+	<p>The severity level for the message to be logged.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="log"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="report"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="msg_fun"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="metadata"/>
+      <desc>
+	<p>Metadata associated with the message to be logged.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="config"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="handler_id"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="filter_id"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="filter"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="filter_return"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <section>
+    <title>Macros</title>
+    <p>The following macros are defined:</p>
+
+    <list>
+      <item><c>?LOG_EMERGENCY(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_EMERGENCY(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_ALERT(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_ALERT(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_CRITICAL(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_CRITICAL(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_ERROR(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_ERROR(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_WARNING(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_WARNING(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_NOTICE(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_NOTICE(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_INFO(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_INFO(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG_DEBUG(StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG_DEBUG(FunOrFormat,Args[,Metadata])</c></item>
+    </list>
+
+    <p>All macros expand to a call to logger, where <c>Level</c> is
+      taken from the macro name, and the following metadata is added,
+      or merged with the given <c>Metadata</c>:</p>
+
+    <code>
+#{mfa=>{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY},
+        file=>?FILE,
+        line=>?LINE}
+    </code>
+
+    <p>The call is wrapped in a case statement and will be evaluated
+      only if <c>Level</c> is equal to or below the configured log
+      level.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name>emergency(StringOrReport[,Metadata])</name>
+      <name>emergency(Format,Args[,Metadata])</name>
+      <name>emergency(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>emergency</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(emergency,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>alert(StringOrReport[,Metadata])</name>
+      <name>alert(Format,Args[,Metadata])</name>
+      <name>alert(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>alert</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(alert,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>critical(StringOrReport[,Metadata])</name>
+      <name>critical(Format,Args[,Metadata])</name>
+      <name>critical(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>critical</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(critical,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>error(StringOrReport[,Metadata])</name>
+      <name>error(Format,Args[,Metadata])</name>
+      <name>error(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>error</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(error,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>warning(StringOrReport[,Metadata])</name>
+      <name>warning(Format,Args[,Metadata])</name>
+      <name>warning(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>warning</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(warning,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>notice(StringOrReport[,Metadata])</name>
+      <name>notice(Format,Args[,Metadata])</name>
+      <name>notice(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>notice</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(notice,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>info(StringOrReport[,Metadata])</name>
+      <name>info(Format,Args[,Metadata])</name>
+      <name>info(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>info</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(info,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>debug(StringOrReport[,Metadata])</name>
+      <name>debug(Format,Args[,Metadata])</name>
+      <name>debug(Fun,FunArgs[,Metadata])</name>
+      <fsummary>Logs the given message as level <c>debug</c>.</fsummary>
+      <desc>
+        <p>Equivalent to
+	<seealso marker="#log-2"><c>log(debug,...)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="log" arity="2"/>
+      <name name="log" arity="3" clause_i="1"/>
+      <name name="log" arity="3" clause_i="2"/>
+      <name name="log" arity="3" clause_i="3"/>
+      <name name="log" arity="4" clause_i="1"/>
+      <name name="log" arity="4" clause_i="2"/>
+      <fsummary>Logs the given message.</fsummary>
+      <type variable="Level"/>
+      <type variable="StringOrReport" name_i="1"/>
+      <type variable="Format" name_i="3"/>
+      <type variable="Args" name_i="3"/>
+      <type variable="Fun" name_i="4"/>
+      <type variable="FunArgs" name_i="4"/>
+      <type variable="Metadata"/>
+      <desc>
+        <p>Log the given message.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_logger_config" arity="0"/>
+      <fsummary>Lookup the current configuration for logger.</fsummary>
+      <desc>
+        <p>Lookup the current configuration for logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_handler_config" arity="1"/>
+      <fsummary>Lookup the current configuration for the given handler.</fsummary>
+      <desc>
+        <p>Lookup the current configuration for the given handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="0"/>
+      <fsummary>Get information about all logger configurations</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#i/1"><c>logger:i(term)</c></seealso></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" clause_i="1"/>
+      <name name="i" arity="1" clause_i="2"/>
+      <name name="i" arity="1" clause_i="3"/>
+      <fsummary>Get information about all logger configurations</fsummary>
+      <desc>
+        <p>The <c>logger:i/1</c> function can be used to get all
+          current logger configuration.  The way that the information
+          is returned depends on the <c><anno>Action</anno></c></p>
+        <taglist>
+          <tag>string</tag>
+          <item>Return the pretty printed current logger configuration
+            as iodata.</item>
+          <tag>term</tag>
+          <item>Return the current logger configuration as a term. The
+            format of this term may change inbetween releases. For a
+            stable format use <seealso marker="#get_handler_config/1">
+	      <c>logger:get_handler_config/1</c></seealso>
+            and <seealso marker="#get_logger_config/0">
+	      <c>logger:get_logger_config/0</c></seealso>.
+            The same as calling <c>logger:i()</c>.</item>
+	  <tag>print</tag>
+          <item>Pretty print all the current logger configuration to
+            standard out. Example:
+            <code><![CDATA[1> logger:i().
+Current logger configuration:
+  Level: info
+  FilterDefault: log
+  Filters:
+  Handlers:
+    Id: logger_std_h
+      Module:    logger_std_h
+      Level:     info
+      Formatter:
+        Module: logger_formatter
+        Config: #{template => [{logger_formatter,header},"\n",msg,"\n"],
+                  legacy_header => true}
+      Filter Default: stop
+      Filters:
+        Id: stop_progress
+          Fun:    fun logger_filters:progress/2
+          Config: stop
+        Id: remote_gl
+          Fun:    fun logger_filters:remote_gl/2
+          Config: stop
+        Id: domain
+          Fun:    fun logger_filters:domain/2
+          Config: {log,prefix_of,[beam,erlang,otp,sasl]}
+        Id: no_domain
+          Fun:    fun logger_filters:domain/2
+          Config: {log,no_domain,[]}
+      Handler Config:
+        logger_std_h: #{type => standard_io}
+  Level set per module:
+    Module: my_module
+      Level:    debug]]></code>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_logger_filter" arity="2"/>
+      <fsummary>Add a filter to the logger.</fsummary>
+      <desc>
+        <p>Add a filter to the logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_handler_filter" arity="3"/>
+      <fsummary>Add a filter to the specified handler.</fsummary>
+      <desc>
+        <p>Add a filter to the specified handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remove_logger_filter" arity="1"/>
+      <fsummary>Remove a filter from the logger.</fsummary>
+      <desc>
+        <p>Remove the filter with the specified identity from the logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remove_handler_filter" arity="2"/>
+      <fsummary>Remove a filter from the specified handler.</fsummary>
+      <desc>
+        <p>Remove the filter with the specified identity from the given handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_handler" arity="3"/>
+      <fsummary>Add a handler with the given configuration.</fsummary>
+      <desc>
+        <p>Add a handler with the given configuration.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="remove_handler" arity="1"/>
+      <fsummary>Remove the handler with the specified identity.</fsummary>
+      <desc>
+        <p>Remove the handler with the specified identity.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_module_level" arity="2"/>
+      <fsummary>Set the log level for the specified module.</fsummary>
+      <desc>
+        <p>Set the log level for the specified module.</p>
+        <p>To change the logging level globally, use
+        <seealso marker="#set_logger_config/2"><c>logger:set_logger_config(level, Level)</c></seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reset_module_level" arity="1"/>
+      <fsummary>Remove a module specific log setting.</fsummary>
+      <desc>
+        <p>Remove a module specific log setting. After this, the
+          global log level is used for the specified module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_logger_config" arity="1"/>
+      <name name="set_logger_config" arity="2"/>
+      <fsummary>Add or update configuration data for the logger.</fsummary>
+      <desc>
+        <p>Add or update configuration data for the logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_handler_config" arity="2"/>
+      <name name="set_handler_config" arity="3"/>
+      <fsummary>Add or update configuration data for the specified
+        handler.</fsummary>
+      <desc>
+        <p>Add or update configuration data for the specified
+          handler.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="compare_levels" arity="2"/>
+      <fsummary>Compare the severity of two log levels.</fsummary>
+      <desc>
+        <p>Compare the severity of two log levels. Returns <c>gt</c>
+          if <c>Level1</c> is more severe than
+          <c>Level2</c>, <c>lt</c> if <c>Level1</c> is less severe,
+          and <c>eq</c> if the levels are equal.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_process_metadata" arity="1"/>
+      <fsummary>Set metadata to use when logging from current process.</fsummary>
+      <desc>
+        <p>Set metadata which <c>logger</c> automatically inserts it
+          in all log events produced on the current
+          process. Subsequent calls will overwrite previous data set
+          by this function.</p>
+	<p>When logging, location data produced by the log macros,
+	  and/or metadata given as argument to the log call (API
+	  function or macro), will be merged with the process
+	  metadata. If the same keys occur, values from the metadata
+	  argument to the log call will overwrite values in the
+	  process metadata, which in turn will overwrite values from
+	  the location data.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_process_metadata" arity="0"/>
+      <fsummary>Retrieve data set with set_process_metadata/1.</fsummary>
+      <desc>
+        <p>Retrieve data set
+          with <seealso marker="#set_process_metadata-1">
+	    <c>set_process_metadata/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unset_process_metadata" arity="0"/>
+      <fsummary>Delete data set with set_process_metadata/1.</fsummary>
+      <desc>
+        <p>Delete data set
+          with <seealso marker="#set_process_metadata-1">
+	    <c>set_process_metadata/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+
+

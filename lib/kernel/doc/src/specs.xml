@@ -20,6 +20,10 @@
   <xi:include href="../specs/specs_inet.xml"/>
   <xi:include href="../specs/specs_inet_res.xml"/>
   <xi:include href="../specs/specs_init_stub.xml"/>
+  <xi:include href="../specs/specs_logger.xml"/>
+  <xi:include href="../specs/specs_logger_filters.xml"/>
+  <xi:include href="../specs/specs_logger_formatter.xml"/>
+  <xi:include href="../specs/specs_logger_std_h.xml"/>
   <xi:include href="../specs/specs_net_adm.xml"/>
   <xi:include href="../specs/specs_net_kernel.xml"/>
   <xi:include href="../specs/specs_os.xml"/>
