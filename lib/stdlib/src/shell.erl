@@ -1416,7 +1416,7 @@ pp(V, I, D, RT) ->
                 true
         end,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
-                             {depth, D}, {max_chars, ?CHAR_MAX},
+                             {depth, D}, {line_max_chars, ?CHAR_MAX},
                              {strings, Strings},
                              {record_print_fun, record_print_fun(RT)}]
                             ++ enc())).

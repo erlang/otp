@@ -31,7 +31,7 @@
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
-         otp_14285/1, limit_term/1]).
+         otp_14285/1, limit_term/1, otp_14983/1]).
 
 -export([pretty/2]).
 
@@ -63,7 +63,7 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term].
+     otp_14285, limit_term, otp_14983].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -1750,7 +1750,7 @@ printable_range(Suite) when is_list(Suite) ->
     PrettyOptions = [{column,1},
 		     {line_length,109},
 		     {depth,30},
-		     {max_chars,60},
+		     {line_max_chars,60},
 		     {record_print_fun,
 		      fun(_,_) -> no end},
 		     {encoding,unicode}],
@@ -1886,7 +1886,7 @@ otp_10302(Suite) when is_list(Suite) ->
 
 pretty(Term, Depth) when is_integer(Depth) ->
     Opts = [{column, 1}, {line_length, 20},
-            {depth, Depth}, {max_chars, 60},
+            {depth, Depth}, {line_max_chars, 60},
             {record_print_fun, fun rfd/2},
             {encoding, unicode}],
     pretty(Term, Opts);
@@ -2489,3 +2489,81 @@ limt_pp(Term, Depth) when is_integer(Depth) ->
 
 pp(Term, Depth) ->
     lists:flatten(io_lib:format("~P", [Term, Depth])).
+
+otp_14983(_Config) ->
+    trunc_depth(-1),
+    trunc_depth(10),
+    ok.
+
+trunc_depth(D) ->
+    "..." = tp("", D, 0),
+    "[]" = tp("", D, 1),
+
+    "#{}" = tp(#{}, D, 1),
+    "#{a => 1}" = tp(#{a => 1}, D, 7),
+    "#{...}" = tp(#{a => 1}, D, 5),
+    "#{a => 1}" = tp(#{a => 1}, D, 6),
+    A = lists:seq(1, 1000),
+    M = #{A => A, {A,A} => {A,A}},
+    "#{...}" = tp(M, D, 6),
+    "#{{...} => {...},...}" = tp(M, D, 7),
+    "#{{[...],...} => {[...],...},...}" = tp(M, D, 22),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = tp(M, D, 31),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = tp(M, D, 33),
+    "#{{[1|...],[...]} => {[1|...],[...]},[1|...] => [...]}" =
+        tp(M, D, 50),
+
+    "..." = trp({c, 1, 2}, D, 0),
+    "{...}" = trp({c, 1, 2}, D, 1),
+    "#c{...}" = trp({c, 1, 2}, D, 6),
+    "#c{...}" = trp({c, 1, 2}, D, 7),
+    "#c{f1 = [...],...}" = trp({c, A, A}, D, 18),
+    "#c{f1 = [1|...],f2 = [...]}" = trp({c, A, A}, D, 19),
+    "#c{f1 = [1,2|...],f2 = [1|...]}" = trp({c, A, A}, D, 31),
+    "#c{f1 = [1,2,3|...],f2 = [1,2|...]}" = trp({c, A, A}, D, 32),
+
+    "..." = tp({}, D, 0),
+    "{}" = tp({}, D, 1),
+    T = {A, A, A},
+    "{...}" = tp(T, D, 5),
+    "{[...],...}" = tp(T, D, 6),
+    "{[1|...],[...],...}" = tp(T, D, 12),
+    "{[1,2|...],[1|...],...}" = tp(T, D, 20),
+    "{[1,2|...],[1|...],[...]}" = tp(T, D, 21),
+    "{[1,2,3|...],[1,2|...],[1|...]}" = tp(T, D, 28),
+
+    "{[1],[1,2|...]}" = tp({[1],[1,2,3,4]}, D, 14),
+    "[...]" = tp("abcdefg", D, 4),
+    "\"abc\"..." = tp("abcdefg", D, 5),
+    "\"abcdef\"..." = tp("abcdefg", D, 8),
+    "\"abcdefg\"" = tp("abcdefg", D, 9),
+    "\"abcdefghijkl\"" = tp("abcdefghijkl", D, -1),
+
+    AZ = lists:seq($A, $Z),
+    AZb = list_to_binary(AZ),
+    AZbS = "<<\"" ++ AZ ++ "\">>",
+    AZbS = tp(AZb, D, -1),
+    "<<\"ABCDEFGH\"...>>" = tp(AZb, D, 17), % 4 chars even if D = -1...
+    "<<\"ABCDEFGHIJKL\"...>>" = tp(AZb, D, 18),
+    B1 = <<"abcdef",0:8>>,
+    "<<\"ab\"...>>" = tp(B1, D, 8),
+    "<<\"abcdef\"...>>" = tp(B1, D, 14),
+    %% Tricky. Much more than 15 characters:
+    "<<97,98,99,100,101,102,0>>" = tp(B1, D, 15),
+    "<<97,98,99,100,101,102,0>>" = tp(B1, D, -1),
+    B2 = <<AZb/binary,0:8>>,
+    "<<\"AB\"...>>" = tp(B2, D, 8),
+    "<<\"ABCDEFGH\"...>>" = tp(B2, D, 14),
+    "<<65,66,67,68,69,70,71,72,0>>" = tp(<<"ABCDEFGH",0:8>>, D, -1).
+
+tp(Term, D, T) ->
+    trp(Term, D, T, fun(_, _) -> no end).
+
+trp(Term, D, T) ->
+    trp(Term, D, T, fun rfd/2).
+
+trp(Term, D, T, RF) ->
+    R = io_lib_pretty:print(Term, [{depth, D},
+                                   {record_print_fun, RF},
+                                   {chars_limit, T}]),
+    lists:flatten(io_lib:format("~s", [R])).

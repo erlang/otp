@@ -240,7 +240,7 @@ format_prompt(Prompt, Encoding) ->
     do_format_prompt(add_modifier(Encoding, "p"), [Prompt]).
 
 do_format_prompt(Format, Args) ->
-    case catch io_lib:format(Format, Args) of
+    case catch format(Format, Args) of
 	{'EXIT',_} -> "???";
 	List -> List
     end.
