@@ -653,7 +653,7 @@ select_steal(Config) when is_list(Config) ->
 
     check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref)),
     ?assertMatch([{fd_resource_stop, RPtr, _}], flush()),
-    {1, {RPtr, 1}} = last_fd_stop_call(),
+    {1, {RPtr, _DirectCall}} = last_fd_stop_call(),
 
     ?assert(is_closed_nif(WFd)),
 

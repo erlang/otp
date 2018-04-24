@@ -1736,7 +1736,7 @@ erts_check_io(ErtsPollThread *psi)
 	    }
         }
         if (resource) {
-            erts_resource_stop(resource, (ErlNifEvent)fd, 1);
+            erts_resource_stop(resource, (ErlNifEvent)fd, 0);
             enif_release_resource(resource->data);
         }
         if (free_select)
