@@ -585,7 +585,10 @@ get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
 
 
 %% Look in Extensions, in all subjectAltName:s
-%% to find node names in this certificate
+%% to find node names in this certificate.
+%% Host names are picked up as a subjectAltName containing
+%% a dNSName, and the first subjectAltName containing
+%% a commonName is the node name.
 %%
 cert_nodes(
   #'OTPCertificate'{
@@ -594,48 +597,52 @@ cert_nodes(
 
 
 parse_extensions(Extensions) when is_list(Extensions) ->
-    parse_extensions(Extensions, []);
+    parse_extensions(Extensions, [], none);
 parse_extensions(asn1_NOVALUE) ->
     [].
 %%
-parse_extensions([], CertNodes) ->
-    CertNodes;
-%%
-%% XXX Why are all extnValue:s sequences?
-%% Should we parse all members?
-%%
+parse_extensions([], Hosts, none) ->
+    lists:reverse(Hosts);
+parse_extensions([], Hosts, Name) ->
+    [Name ++ "@" ++ Host || Host <- lists:reverse(Hosts)];
 parse_extensions(
   [#'Extension'{
       extnID = ?'id-ce-subjectAltName',
-      extnValue = [{dNSName,OtherNode}|_]}
+      extnValue = AltNames}
    |Extensions],
-  CertNodes) ->
-    parse_extensions(Extensions, [OtherNode|CertNodes]);
-parse_extensions(
-  [#'Extension'{
-      extnID = ?'id-ce-subjectAltName',
-      extnValue = [{rfc822Name,OtherNode}|_]}
-   |Extensions],
-  CertNodes) ->
-    parse_extensions(Extensions, [OtherNode|CertNodes]);
-parse_extensions(
-  [#'Extension'{
-      extnID = ?'id-ce-subjectAltName',
-      extnValue = [{directoryName,{rdnSequence,[Rdn|_]}}|_]}
-   |Extensions],
-  CertNodes) ->
+  Hosts, Name) ->
+    case parse_subject_altname(AltNames) of
+        none ->
+            parse_extensions(Extensions, Hosts, Name);
+        {host,Host} ->
+            parse_extensions(Extensions, [Host|Hosts], Name);
+        {name,NewName} when Name =:= none ->
+            parse_extensions(Extensions, Hosts, NewName);
+        {Name,_} ->
+            parse_extensions(Extensions, Hosts, Name)
+    end;
+parse_extensions([_|Extensions], Hosts, Name) ->
+    parse_extensions(Extensions, Hosts, Name).
+
+parse_subject_altname([]) ->
+    none;
+parse_subject_altname([{dNSName,Host}|_AltNames]) ->
+    {host,Host};
+parse_subject_altname(
+  [{directoryName,{rdnSequence,[Rdn|_]}}|AltNames]) ->
     %%
     %% XXX Why is rdnSequence a sequence?
     %% Should we parse all members?
     %%
     case parse_rdn(Rdn) of
         none ->
-            parse_extensions(Extensions, CertNodes);
-        OtherNode ->
-            parse_extensions(Extensions, [OtherNode|CertNodes])
+            parse_subject_altname(AltNames);
+        Name ->
+            {name,Name}
     end;
-parse_extensions([_|Extensions], CertNodes) ->
-    parse_extensions(Extensions, CertNodes).
+parse_subject_altname([_|AltNames]) ->
+    parse_subject_altname(AltNames).
+
 
 parse_rdn([]) ->
     none;

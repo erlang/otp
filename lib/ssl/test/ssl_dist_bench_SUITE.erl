@@ -181,6 +181,7 @@ end_per_testcase(_Func, _Conf) ->
 
 write_node_conf(
   ConfFile, Node, ServerConf, ClientConf, CertOptions, RootCert) ->
+    [_Name,Host] = string:split(atom_to_list(Node), "@"),
     Conf =
         public_key:pkix_test_data(
           #{root => RootCert,
@@ -188,17 +189,23 @@ write_node_conf(
                 [{extensions,
                   [#'Extension'{
                       extnID = ?'id-ce-subjectAltName',
-                      %% extnValue = [{dNSName, atom_to_list(Node)}],
-                      %% extnValue = [{rfc822Name, atom_to_list(Node)}],
-                      extnValue =
-                          [{directoryName,
-                            {rdnSequence,
-                             [[#'AttributeTypeAndValue'{
-                                 type = ?'id-at-commonName',
-                                  value =
-                                      {utf8String,
-                                       atom_to_binary(Node, utf8)}}]]}}],
-                      critical = true}]} | CertOptions]}),
+                      extnValue = [{dNSName, Host}],
+                      critical = true}%,
+                   %% #'Extension'{
+                   %%    extnID = ?'id-ce-subjectAltName',
+                   %%    extnValue =
+                   %%        [{directoryName,
+                   %%          {rdnSequence,
+                   %%           [[#'AttributeTypeAndValue'{
+                   %%                type = ?'id-at-commonName',
+                   %%                value =
+                   %%                    {utf8String,
+                   %%                     unicode:characters_to_binary(
+                   %%                       Name, utf8)
+                   %%                    }
+                   %%               }]]}}],
+                   %%    critical = true}
+                  ]} | CertOptions]}),
     NodeConf =
         [{server, ServerConf ++ Conf}, {client, ClientConf ++ Conf}],
     {ok, Fd} = file:open(ConfFile, [write]),
