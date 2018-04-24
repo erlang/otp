@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,11 +60,11 @@ GIF_FILES = \
 	sup5.gif \
 	sup6.gif
 
-PNG_FILES = \
-	code_lock.png \
-	code_lock_2.png
+SVG_FILES = \
+	code_lock.svg \
+	code_lock_2.svg
 
-IMAGE_FILES = $(GIF_FILES) $(PNG_FILES)
+IMAGE_FILES = $(GIF_FILES) $(SVG_FILES)
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
@@ -93,7 +93,7 @@ _create_dirs := $(shell mkdir -p $(HTMLDIR))
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-$(HTMLDIR)/%.png: %.png
+$(HTMLDIR)/%.svg: %.svg
 	$(INSTALL_DATA) $< $@
 
 docs: html

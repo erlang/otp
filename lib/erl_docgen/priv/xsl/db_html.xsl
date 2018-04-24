@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2017. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -1264,7 +1264,14 @@
     </xsl:variable>
 
     <div class="doc-image-wrapper">
-      <img alt="IMAGE MISSING" src="{@file}" class="doc-image"/>
+      <xsl:choose>
+	<xsl:when test="@width">
+	  <img alt="IMAGE MISSING" width="{@width}" src="{@file}" class="doc-image"/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <img alt="IMAGE MISSING" src="{@file}" class="doc-image"/>
+	</xsl:otherwise>
+      </xsl:choose>
 
       <xsl:apply-templates>
         <xsl:with-param name="chapnum" select="$chapnum"/>

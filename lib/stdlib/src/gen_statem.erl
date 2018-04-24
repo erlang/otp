@@ -143,7 +143,7 @@
         timeout_action() |
 	reply_action().
 -type timeout_action() ::
-	(Timeout :: event_timeout()) | % {timeout,Timeout}
+	(Time :: event_timeout()) | % {timeout,Time,Time}
 	{'timeout', % Set the event_timeout option
 	 Time :: event_timeout(), EventContent :: term()} |
 	{'timeout', % Set the event_timeout option
@@ -327,7 +327,8 @@
 %% Type validation functions
 -compile(
    {inline,
-    [callback_mode/1, state_enter/1, from/1, event_type/1]}).
+    [callback_mode/1, state_enter/1,
+     event_type/1, from/1, timeout_event_type/1]}).
 %%
 callback_mode(CallbackMode) ->
     case CallbackMode of
@@ -344,23 +345,26 @@ state_enter(StateEnter) ->
             false
     end.
 %%
-from({Pid,_}) when is_pid(Pid) -> true;
-from(_) -> false.
-%%
-event_type({call,From}) ->
-    from(From);
 event_type(Type) ->
     case Type of
 	{call,From} -> from(From);
+        %%
 	cast -> true;
 	info -> true;
-	timeout -> true;
-	state_timeout -> true;
 	internal -> true;
-	{timeout,_} -> true;
-	_ -> false
+        _ -> timeout_event_type(Type)
     end.
-
+%%
+from({Pid,_}) when is_pid(Pid) -> true;
+from(_) -> false.
+%%
+timeout_event_type(Type) ->
+    case Type of
+        timeout -> true;
+        state_timeout -> true;
+        {timeout,_Name} -> true;
+        _ -> false
+    end.
 
 
 -define(
@@ -1056,6 +1060,15 @@ loop_event_result(
               Parent, Debug, S,
               Events, Event, NextState, NewData, TransOpts,
               [], true);
+	{next_state,_NextState,_NewData} ->
+            terminate(
+              error,
+              {bad_state_enter_return_from_state_function,Result},
+              ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
 	{next_state,State,NewData,Actions} ->
             loop_event_actions(
               Parent, Debug, S,
@@ -1067,6 +1080,15 @@ loop_event_result(
               Parent, Debug, S,
               Events, Event, NextState, NewData, TransOpts,
               Actions, true);
+	{next_state,_NextState,_NewData,_Actions} ->
+            terminate(
+              error,
+              {bad_state_enter_return_from_state_function,Result},
+              ?STACKTRACE(), Debug,
+              S#state{
+                state = State, data = Data,
+                hibernate = hibernate_in_trans_opts(TransOpts)},
+              [Event|Events]);
         %%
         {keep_state,NewData} ->
             loop_event_actions(
@@ -1160,12 +1182,6 @@ loop_event_result(
               [Event|Events])
     end.
 
--compile({inline, [hibernate_in_trans_opts/1]}).
-hibernate_in_trans_opts(false) ->
-    (#trans_opts{})#trans_opts.hibernate;
-hibernate_in_trans_opts(#trans_opts{hibernate = Hibernate}) ->
-    Hibernate.
-
 %% Ensure that Actions are a list
 loop_event_actions(
   Parent, Debug, S,
@@ -1198,9 +1214,15 @@ loop_event_actions_list(
               S#state{
                 state = NextState,
                 data = NewerData,
-                hibernate = TransOpts#trans_opts.hibernate},
+                hibernate = hibernate_in_trans_opts(TransOpts)},
               [Event|Events])
     end.
+
+-compile({inline, [hibernate_in_trans_opts/1]}).
+hibernate_in_trans_opts(false) ->
+    (#trans_opts{})#trans_opts.hibernate;
+hibernate_in_trans_opts(#trans_opts{hibernate = Hibernate}) ->
+    Hibernate.
 
 parse_actions(false, Debug, S, Actions) ->
     parse_actions(true, Debug, S, Actions, #trans_opts{});
@@ -1234,6 +1256,11 @@ parse_actions(StateCall, Debug, S, [Action|Actions], TransOpts) ->
             parse_actions(
               StateCall, Debug, S, Actions,
               TransOpts#trans_opts{postpone = true});
+	postpone ->
+            [error,
+             {bad_state_enter_action_from_state_function,Action},
+             ?STACKTRACE(),
+             Debug];
 	%%
 	{next_event,Type,Content} ->
             parse_actions_next_event(
@@ -1286,7 +1313,8 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_event,Type,Content}},
+             {bad_state_enter_action_from_state_function,
+	      {next_event,Type,Content}},
              ?STACKTRACE(),
              ?not_sys_debug]
     end;
@@ -1303,22 +1331,23 @@ parse_actions_next_event(
                 next_events_r = [{Type,Content}|NextEventsR]});
         _ ->
             [error,
-             {bad_action_from_state_function,{next_event,Type,Content}},
+             {bad_state_enter_action_from_state_function,
+	      {next_event,Type,Content}},
              ?STACKTRACE(),
              Debug]
     end.
 
 parse_actions_timeout(
   StateCall, Debug, S, Actions, TransOpts,
-  {TimerType,Time,TimerMsg,TimerOpts} = AbsoluteTimeout) ->
+  {TimeoutType,Time,TimerMsg,TimerOpts} = AbsoluteTimeout) ->
     %%
-    case classify_timer(Time, listify(TimerOpts)) of
+    case classify_timeout(TimeoutType, Time, listify(TimerOpts)) of
         absolute ->
             parse_actions_timeout_add(
               StateCall, Debug, S, Actions,
               TransOpts, AbsoluteTimeout);
         relative ->
-            RelativeTimeout = {TimerType,Time,TimerMsg},
+            RelativeTimeout = {TimeoutType,Time,TimerMsg},
             parse_actions_timeout_add(
               StateCall, Debug, S, Actions,
               TransOpts, RelativeTimeout);
@@ -1330,8 +1359,8 @@ parse_actions_timeout(
     end;
 parse_actions_timeout(
   StateCall, Debug, S, Actions, TransOpts,
-  {_,Time,_} = RelativeTimeout) ->
-    case classify_timer(Time, []) of
+  {TimeoutType,Time,_} = RelativeTimeout) ->
+    case classify_timeout(TimeoutType, Time, []) of
         relative ->
             parse_actions_timeout_add(
               StateCall, Debug, S, Actions,
@@ -1344,14 +1373,16 @@ parse_actions_timeout(
     end;
 parse_actions_timeout(
   StateCall, Debug, S, Actions, TransOpts,
-  Timeout) ->
-    case classify_timer(Timeout, []) of
+  Time) ->
+    case classify_timeout(timeout, Time, []) of
         relative ->
+            RelativeTimeout = {timeout,Time,Time},
             parse_actions_timeout_add(
-              StateCall, Debug, S, Actions, TransOpts, Timeout);
+              StateCall, Debug, S, Actions,
+              TransOpts, RelativeTimeout);
         badarg ->
             [error,
-             {bad_action_from_state_function,Timeout},
+             {bad_action_from_state_function,Time},
              ?STACKTRACE(),
              Debug]
     end.
@@ -1637,10 +1668,15 @@ call_state_function(
 
 
 %% -> absolute | relative | badarg
-classify_timer(Time, Opts) ->
-    classify_timer(Time, Opts, false).
-%%
-classify_timer(Time, [], Abs) ->
+classify_timeout(TimeoutType, Time, Opts) ->
+    case timeout_event_type(TimeoutType) of
+        true ->
+            classify_time(false, Time, Opts);
+        false ->
+            badarg
+    end.
+
+classify_time(Abs, Time, []) ->
     case Abs of
         true when
               is_integer(Time);
@@ -1653,9 +1689,9 @@ classify_timer(Time, [], Abs) ->
         _ ->
             badarg
     end;
-classify_timer(Time, [{abs,Abs}|Opts], _) when is_boolean(Abs) ->
-    classify_timer(Time, Opts, Abs);
-classify_timer(_, Opts, _) when is_list(Opts) ->
+classify_time(_, Time, [{abs,Abs}|Opts]) when is_boolean(Abs) ->
+    classify_time(Abs, Time, Opts);
+classify_time(_, _, Opts) when is_list(Opts) ->
     badarg.
 
 %% Stop and start timers as well as create timeout zero events
@@ -1686,15 +1722,7 @@ parse_timers(
 	{TimerType,Time,TimerMsg} ->
 	    parse_timers(
 	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
-	      TimerType, Time, TimerMsg, []);
-	0 ->
-	    parse_timers(
-	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
-	      timeout, zero, 0, []);
-	Time ->
-	    parse_timers(
-	      TimerRefs, Timers, TimeoutsR, Seen, TimeoutEvents,
-	      timeout, Time, Time, [])
+	      TimerType, Time, TimerMsg, [])
     end.
 
 parse_timers(

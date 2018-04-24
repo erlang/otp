@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -1656,8 +1656,14 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="image">
-      <fo:external-graphic content-width="scale-down-to-fit" inline-progression-dimension.maximum="100%" src="{@file}"/>
-
+      <xsl:choose>
+	<xsl:when test="@width">
+	  <fo:external-graphic content-width="scale-to-fit" width="{@width}" inline-progression-dimension.maximum="100%" src="{@file}"/>
+	</xsl:when>
+	<xsl:otherwise>
+	   <fo:external-graphic content-width="scale-down-to-fit" inline-progression-dimension.maximum="100%" src="{@file}"/>
+	</xsl:otherwise>
+      </xsl:choose>
       <xsl:apply-templates>
         <xsl:with-param name="chapnum" select="$chapnum"/>
         <xsl:with-param name="fignum" select="$fignum"/>
