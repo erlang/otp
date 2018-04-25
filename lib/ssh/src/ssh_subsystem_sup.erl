@@ -48,7 +48,7 @@ connection_supervisor(SupPid) ->
 
 channel_supervisor(SupPid) ->    
     Children = supervisor:which_children(SupPid),
-    ssh_channel_sup(Children).
+    ssh_daemon_channel_sup(Children).
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -78,8 +78,8 @@ ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
      }.
 
 ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
-    #{id       => id(Role, ssh_channel_sup, Address, Port),
-      start    => {ssh_channel_sup, start_link, [Options]},
+    #{id       => id(Role, ssh_daemon_channel_sup, Address, Port),
+      start    => {ssh_daemon_channel_sup, start_link, [Options]},
       restart  => temporary,
       type     => supervisor
      }.
@@ -92,10 +92,10 @@ ssh_connection_sup([{_, Child, _, [ssh_connection_sup]} | _]) ->
 ssh_connection_sup([_ | Rest]) ->
     ssh_connection_sup(Rest).
 
-ssh_channel_sup([{_, Child, _, [ssh_channel_sup]} | _]) ->
+ssh_daemon_channel_sup([{_, Child, _, [ssh_daemon_channel_sup]} | _]) ->
     Child;
-ssh_channel_sup([_ | Rest]) ->
-    ssh_channel_sup(Rest).
+ssh_daemon_channel_sup([_ | Rest]) ->
+    ssh_daemon_channel_sup(Rest).
 
 
 

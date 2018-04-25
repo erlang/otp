@@ -30,7 +30,7 @@
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
-%% ssh_channel callbacks
+%% ssh_daemon_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
 -export([dbg_trace/3]).
@@ -47,7 +47,7 @@
 	 }).
 
 %%====================================================================
-%% ssh_channel callbacks
+%% ssh_daemon_channel callbacks
 %%====================================================================
 
 %%--------------------------------------------------------------------

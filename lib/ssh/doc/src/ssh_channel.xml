@@ -225,8 +225,8 @@
       The following functions are to be exported from a
       <c>ssh_daemon_channel</c> callback module.
     </p>
+    <marker id="cb_timeouts"></marker>
     <section>
-      <marker id="cb_timeouts"></marker>
       <title>Callback timeouts</title>
       <p>The timeout values that can be returned by the callback functions
       have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.

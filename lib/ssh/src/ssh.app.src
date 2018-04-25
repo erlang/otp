@@ -14,7 +14,7 @@
 	     ssh_cli,
              ssh_client_key_api,
 	     ssh_channel,
-	     ssh_channel_sup,
+	     ssh_daemon_channel_sup,
 	     ssh_connection,
 	     ssh_connection_handler,
 	     ssh_connection_sup,

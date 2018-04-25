@@ -822,14 +822,14 @@ start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
     ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
     case max_num_channels_not_exceeded(ChannelSup, Opts) of
         true ->
-            ssh_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec);
+            ssh_daemon_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec);
         false ->
 	    throw(max_num_channels_exceeded)
     end.
     
 max_num_channels_not_exceeded(ChannelSup, Opts) ->
     MaxNumChannels = ?GET_OPT(max_channels, Opts),
-    NumChannels = length([x || {_,_,worker,[ssh_channel]} <- 
+    NumChannels = length([x || {_,_,worker,[ssh_daemon_channel]} <- 
 				   supervisor:which_children(ChannelSup)]),
     %% Note that NumChannels is BEFORE starting a new one
     NumChannels < MaxNumChannels.

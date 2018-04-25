@@ -29,7 +29,7 @@
 %%% channel inspite of it being a client. 
 -behaviour(ssh_daemon_channel).
 
-%% ssh_channel callbacks
+%% ssh_daemon_channel callbacks
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 
 %% Spawn export
@@ -46,7 +46,7 @@
        ).
 
 %%====================================================================
-%% ssh_channel callbacks
+%% ssh_daemon_channel callbacks
 %%====================================================================
 
 %%--------------------------------------------------------------------

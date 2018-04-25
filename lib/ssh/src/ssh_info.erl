@@ -140,15 +140,15 @@ print_system_sup({{ssh_acceptor_sup,_LocalHost,_LocalPort,_Profile}, Pid, superv
 
 
 
-print_channels({{server,ssh_channel_sup,_,_},Pid,supervisor,[ssh_channel_sup]}) when is_pid(Pid) ->
+print_channels({{server,ssh_daemon_channel_sup,_,_},Pid,supervisor,[ssh_daemon_channel_sup]}) when is_pid(Pid) ->
     Children =  supervisor:which_children(Pid),
-    ChannelPids = [P || {R,P,worker,[ssh_channel]} <- Children,
+    ChannelPids = [P || {R,P,worker,[ssh_daemon_channel]} <- Children,
 			is_pid(P),
 			is_reference(R)],
     case ChannelPids of
 	[] -> io_lib:format(?INDENT?INDENT"No channels~n",[]);
 	[Ch1Pid|_] ->
-	    {{ConnManager,_}, _Str} = ssh_channel:get_print_info(Ch1Pid),
+	    {{ConnManager,_}, _Str} = ssh_daemon_channel:get_print_info(Ch1Pid),
 	    {{_,Remote},_} = ssh_connection_handler:get_print_info(ConnManager),
 	    [io_lib:format(?INDENT?INDENT"Remote: ~s ConnectionRef = ~p~n",[fmt_host_port(Remote),ConnManager]),
 	     lists:map(fun print_ch/1, ChannelPids)
@@ -159,7 +159,7 @@ print_channels({{server,ssh_connection_sup,_,_},Pid,supervisor,[ssh_connection_s
 
 print_ch(Pid) ->
     try
-	{{ConnManager,ChannelID}, Str} = ssh_channel:get_print_info(Pid),
+	{{ConnManager,ChannelID}, Str} = ssh_daemon_channel:get_print_info(Pid),
 	{_LocalRemote,StrM} = ssh_connection_handler:get_print_info(ConnManager),
 	io_lib:format(?INDENT?INDENT?INDENT"ch ~p ~p: ~s ~s~n",[ChannelID, Pid, StrM, Str])
     catch

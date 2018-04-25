@@ -59,7 +59,7 @@ MODULES= \
 	ssh_shell \
 	ssh_system_sup \
 	ssh_subsystem_sup \
-	ssh_channel_sup \
+	ssh_daemon_channel_sup \
 	ssh_acceptor_sup \
 	ssh_acceptor \
 	ssh_app \
@@ -169,7 +169,7 @@ $(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
 $(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
 $(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
 $(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
-$(EBIN)/ssh_channel_sup.$(EMULATOR): ssh_channel_sup.erl
+$(EBIN)/ssh_daemon_channel_sup.$(EMULATOR): ssh_daemon_channel_sup.erl
 $(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
 $(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl

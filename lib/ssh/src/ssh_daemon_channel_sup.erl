@@ -22,7 +22,7 @@
 %%----------------------------------------------------------------------
 %% Purpose: Ssh channel supervisor.
 %%----------------------------------------------------------------------
--module(ssh_channel_sup).
+-module(ssh_daemon_channel_sup).
 
 -behaviour(supervisor).
 
@@ -40,10 +40,10 @@ start_link(Args) ->
 start_child(Sup, Callback, Id, Args, Exec) ->
     ChildSpec =
         #{id       => make_ref(),
-          start    => {ssh_channel, start_link, [self(), Id, Callback, Args, Exec]},
+          start    => {ssh_daemon_channel, start_link, [self(), Id, Callback, Args, Exec]},
           restart  => temporary,
           type     => worker,
-          modules  => [ssh_channel]
+          modules  => [ssh_daemon_channel]
          },
     supervisor:start_child(Sup, ChildSpec).
 
