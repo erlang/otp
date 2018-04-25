@@ -58,6 +58,7 @@ XML_REF3_FILES = application.xml \
 	init_stub.xml \
         logger.xml \
         logger_std_h.xml \
+        logger_disk_log_h.xml \
         logger_filters.xml \
         logger_formatter.xml \
 	net_adm.xml \

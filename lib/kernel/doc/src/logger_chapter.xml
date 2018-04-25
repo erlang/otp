@@ -296,6 +296,7 @@
     </section>
 
     <section>
+      <marker id="handler_configuration"/>
       <title>Handler configuration</title>
       <taglist>
 	<tag><c>level</c></tag>
@@ -577,8 +578,8 @@ log(#{msg:={F,A}},#{myhandler_fd:=Fd}) ->
     <p>For examples of overload protection, please refer to the
       implementation
       of <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
-      and <!--<seealso marker="logger_disk_log_h"--><c>logger_disk_log_h</c>
-      <!--/seealso-->.</p>
+      and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
+      </seealso>.</p>
 
     <p>Below is a simpler example of a handler which logs through one
       single process, and uses the default formatter to gain a common
@@ -632,6 +633,179 @@ my_report_cb(R) ->
     </code>
   </section>
 
+  <section>
+    <marker id="overload_protection"/>
+    <title>Protecting the handler from overload</title>
+    <p>In order for the built-in handlers to survive, and stay responsive,
+    during periods of high load (i.e. when huge numbers of incoming
+    log requests must be handled), a mechanism for overload protection
+    has been implemented in the
+    <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
+    and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
+    </seealso> handler. The mechanism, used by both handlers, works
+    as follows:</p>
+    
+    <section>
+      <title>Message queue length</title>
+      <p>The handler process keeps track of the length of its message
+      queue and reacts in different ways depending on the current status.
+      The purpose is to keep the handler in, or (as quickly as possible),
+      get the handler into, a state where it can keep up with the pace
+      of incoming log requests. The memory usage of the handler must never
+      keep growing larger and larger, since that would eventually cause the
+      handler to crash. Three thresholds with associated actions have been
+      defined:</p>
+      
+      <taglist>
+	<tag><c>toggle_sync_qlen</c></tag>
+	<item>
+	  <p>The default value of this level is <c>10</c> messages,
+	  and as long as the length of the message queue is lower, all log
+	  requests are handled asynchronously. This simply means that the
+	  process sending the log request (by calling a log function in the
+	  logger API) does not wait for a response from the handler but
+	  continues executing immediately after the request (i.e. it will not
+	  be affected by the time it takes the handler to print to the log
+	  device). If the message queue grows larger than this value, however,
+	  the handler starts handling the log requests synchronously instead,
+	  meaning the process sending the request will have to wait for a
+	  response. When the handler manages to reduce the message queue to a
+	  level below the <c>toggle_sync_qlen</c> threshold, asynchronous
+	  operation is resumed. The switch from asynchronous to synchronous
+	  mode will force the logging tempo of few busy senders to slow down,
+	  but can not protect the handler sufficiently in situations of many
+	  concurrent senders.</p>
+	</item>
+	<tag><c>drop_new_reqs_qlen</c></tag>
+	<item>
+	  <p>When the message queue has grown larger than this threshold, which
+	  defaults to <c>200</c> messages, the handler switches to a mode in
+	  which it drops any new requests being made. Dropping a message in
+	  this state means that the log function never actually sends a message
+	  to the handler. The log call simply returns without an action. When
+	  the length of the message queue has been reduced to a level below this
+	  threshold, synchronous or asynchronous request handling mode is
+	  resumed.</p>
+	</item>
+	<tag><c>flush_reqs_qlen</c></tag>
+	<item>
+	  <p>Above this threshold, which defaults to <c>1000</c> messages, a
+	  flush operation takes place, in which all messages buffered in the
+	  process mailbox get deleted without any logging actually taking
+	  place. (Processes waiting for a response from a synchronous log request
+	  will receive a reply indicating that the request has been dropped).</p>
+	</item>
+      </taglist>
+
+      <p>For the overload protection algorithm to work properly, it is a
+      requirement that:</p>
+
+      <p><c>toggle_sync_qlen &lt; drop_new_reqs_qlen &lt; flush_reqs_qlen</c></p>
+
+      <p>During high load scenarios, the length of the handler message queue
+      rarely grows in a linear and predictable way. Instead, whenever the
+      handler process gets scheduled in, it can have an almost arbitrary number
+      of messages waiting in the mailbox. It's for this reason that the overload
+      protection mechanism is focused on acting quickly and quite drastically
+      (such as immediately dropping or flushing messages) as soon as a large
+      queue length is detected. </p>
+
+      <p>The thresholds listed above may be modified by the user if, e.g, a handler
+      shouldn't drop or flush messages unless the message queue length grows
+      extremely large. (The handler must be allowed to use large amounts of memory
+      under such circumstances however). Another example of when the user might want
+      to change the settings is if, for performance reasons, the logging processes must
+      never get blocked by synchronous log requests, while dropping or flushing requests
+      is perfectly acceptable (since it doesn't affect the performance of the
+      loggers).</p>
+
+      <p>A configuration example:</p>
+      <code type="none">
+logger:add_handler(my_standard_h, logger_std_h,
+                   #{logger_std_h =>
+                              #{type => {file,"./system_info.log"},
+                                toggle_sync_qlen => 100,
+                                drop_new_reqs_qlen => 1000,
+                                flush_reqs_qlen => 2000}}).
+    </code>
+    </section>
+
+    <section>
+      <title>Controlling bursts of log requests</title>
+      <p>A potential problem with large bursts of log requests, is that log files
+      may get full or wrapped too quickly (in the latter case overwriting
+      previously logged data that could be of great importance). For this reason,
+      both built-in handlers offer the possibility to set a maximum level of how
+      many requests to process with a certain time frame. With this burst control
+      feature enabled, the handler will take care of bursts of log requests
+      without choking log files, or the console, with massive amounts of
+      printouts. These are the configuration parameters:</p>
+      
+      <taglist>
+	<tag><c>enable_burst_limit</c></tag>
+	<item>
+	  <p>This is set to <c>true</c> by default. The value <c>false</c>
+	  disables the burst control feature.</p>
+	</item>
+	<tag><c>burst_limit_size</c></tag>
+	<item>
+	  <p>This is how many requests should be processed within the
+	  <c>burst_window_time</c> time frame. After this maximum has been
+	  reached, successive requests will be dropped until the end of the
+	  time frame. The default value is <c>500</c> messages.</p>
+	</item>
+	<tag><c>burst_window_time</c></tag>
+	<item>
+	  <p>The default window is <c>1000</c> milliseconds long.</p>
+	</item>
+      </taglist>
+
+      <p>A configuration example:</p>
+      <code type="none">
+logger:add_handler(my_disk_log_h, logger_disk_log_h,
+                   #{disk_log_opts =>
+                              #{file => "./my_disk_log"},
+                     logger_disk_log_h =>
+                              #{burst_limit_size => 10,
+                                burst_window_time => 500}}).
+    </code>
+    </section>
+
+    <section>
+      <title>Terminating a large handler</title>
+      <p>A handler process may grow large even if it can manage peaks of high load
+      without crashing. The overload protection mechanism includes user configurable
+      levels for a maximum allowed message queue length and maximum allowed memory
+      usage. This feature is disabled by default, but can be switched on by means
+      of the following configuration parameters:</p>
+      
+      <taglist>
+	<tag><c>enable_kill_overloaded</c></tag>
+	<item>
+	  <p>This is set to <c>false</c> by default. The value <c>true</c>
+	  enables the feature.</p>
+	</item>
+	<tag><c>handler_overloaded_qlen</c></tag>
+	<item>
+	  <p>This is the maximum allowed queue length. If the mailbox grows larger
+	  than this, the handler process gets terminated.</p>
+	</item>
+	<tag><c>handler_overloaded_mem</c></tag>
+	<item>
+	  <p>This is the maximum allowed memory usage of the handler process. If
+	  the handler grows any larger, the process gets terminated.</p>
+	</item>
+	<tag><c>handler_restart_after</c></tag>
+	<item>
+	  <p>If the handler gets terminated because of its queue length or
+	  memory usage, it can get automatically restarted again after a
+	  configurable delay time. The time is specified in milliseconds
+	  and <c>5000</c> is the default value. The value <c>never</c> can
+	  also be set, which prevents a restart.</p>
+	</item>
+      </taglist>
+    </section>
+  </section>
 
   <section>
     <title>See Also</title>

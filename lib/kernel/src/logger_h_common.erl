@@ -133,10 +133,6 @@ call_cast_or_drop(Name, Bin) ->
                 dropped -> ok
             catch
                 _:{timeout,_} ->
-                    %%! --- Tue Mar  6 23:10:48 2018 --- peppe was here!
-                    erlang:display('CLIENT_TIMEOUT'),
-                    %% exit('CLIENT_TIMEOUT'),
-
                     ?observe(Name,{dropped,1})
             end;
         drop -> ?observe(Name,{dropped,1})
