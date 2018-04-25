@@ -1535,7 +1535,6 @@ terminate(shutdown, _StateName, D0) ->
     D = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
                                      description = "Terminated (shutdown) by supervisor"},
                  D0),
-    stop_subsystem(D),
     close_transport(D);
 
 terminate(kill, _StateName, D) ->
