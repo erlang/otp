@@ -407,9 +407,8 @@
       </item>
       <item>
         <p>If E is a map creation <c>#{A_1, ..., A_k}</c>,
-          where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>
-          or <c>E_i_1 := E_i_2</c>, then Rep(E) =
-          <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>,
+	  then Rep(E) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
@@ -731,9 +730,8 @@
       </item>
       <item>
         <p>If Gt is a map creation <c>#{A_1, ..., A_k}</c>,
-          where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>
-          or <c>Gt_i_1 := Gt_i_2</c>, then Rep(Gt) =
-          <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>,
+	  then Rep(Gt) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see above.</p>
       </item>
       <item>
