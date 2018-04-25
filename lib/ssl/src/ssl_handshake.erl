@@ -53,7 +53,7 @@
 -export([certify/7, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
-         select_version/3
+         select_version/3, extension_value/1
 	]).
 
 %% Encode
@@ -139,8 +139,8 @@ certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	{ok, _, Chain} ->
 	    #certificate{asn1_certificates = Chain};
-	{error, _} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, server_has_no_suitable_certificates)
+	{error, Error} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
     end.
 
 %%--------------------------------------------------------------------
@@ -1165,6 +1165,25 @@ srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
     #srp{username = UserName};
 srp_user(_) ->
     undefined.
+
+extension_value(undefined) ->
+    undefined;
+extension_value(#sni{hostname = HostName}) ->
+    HostName;
+extension_value(#ec_point_formats{ec_point_format_list = List}) ->
+    List;
+extension_value(#elliptic_curves{elliptic_curve_list = List}) ->
+    List;
+extension_value(#hash_sign_algos{hash_sign_algos = Algos}) ->
+    Algos;
+extension_value(#alpn{extension_data = Data}) ->
+    Data;
+extension_value(#next_protocol_negotiation{extension_data = Data}) ->
+    Data;
+extension_value(#srp{username = Name}) ->
+    Name;
+extension_value(#renegotiation_info{renegotiated_connection = Data}) ->
+    Data.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

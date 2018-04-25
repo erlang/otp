@@ -164,7 +164,10 @@ api_tests() ->
      accept_pool,
      prf,
      socket_options,
-     cipher_suites
+     cipher_suites,
+     handshake_continue,
+     hello_client_cancel,
+     hello_server_cancel
     ].
 
 api_tests_tls() ->
@@ -630,6 +633,84 @@ new_options_in_accept(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+handshake_continue() ->
+    [{doc, "Test API function ssl:handshake_continue/3"}].
+handshake_continue(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true}, {handshake, hello}], 
+                                                                           Config)},
+                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}
+                                       ]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()}, 
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{handshake, hello}], 
+                                                                           Config)},
+                                        {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+     
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+hello_client_cancel() ->
+    [{doc, "Test API function ssl:handshake_cancel/1 on the client side"}].
+hello_client_cancel(Config) when is_list(Config) -> 
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
+                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% That is ssl:handshake_cancel returns ok
+    {connect_failed, ok} = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                                      {host, Hostname},
+                                                      {from, self()}, 
+                                                      {options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
+                                                      {continue_options, cancel}]),
+    
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "user canceled"}}).
+%%--------------------------------------------------------------------
+
+hello_server_cancel() ->
+    [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
+hello_server_cancel(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
+                                        {continue_options, cancel}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+
+    {connect_failed, _} = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                                     {host, Hostname},
+                                                     {from, self()}, 
+                                                     {options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
+                                                     {continue_options, proplists:delete(reuseaddr, ClientOpts)}]),
+    
+    ssl_test_lib:check_result(Server, ok).
+
 %%--------------------------------------------------------------------
 prf() ->
     [{doc,"Test that ssl:prf/5 uses the negotiated PRF."}].
@@ -963,7 +1044,7 @@ controller_dies(Config) when is_list(Config) ->
 					    {mfa, {?MODULE, 
 						   controller_dies_result, [self(),
 									    ClientMsg]}},
-					    {options, [{reuseaddr,true}|ClientOpts]}]),
+					    {options, ClientOpts}]),
     ct:sleep(?SLEEP), %% so that they are connected
     
     exit(Server, killed),
@@ -988,7 +1069,7 @@ tls_client_closes_socket(Config) when is_list(Config) ->
 
     Connect = fun() ->
 		      {ok, _Socket} = rpc:call(ClientNode, gen_tcp, connect, 
-					      [Hostname, Port, TcpOpts]),	      
+					      [Hostname, Port, [binary]]),	      
 		      %% Make sure that ssl_accept is called before 
 		      %% client process ends and closes socket.
 		      ct:sleep(?SLEEP)
@@ -1812,7 +1893,7 @@ tls_send_close(Config) when is_list(Config) ->
 				   {options,  [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, TcpS} = rpc:call(ClientNode, gen_tcp, connect, 
-			  [Hostname,Port,[binary, {active, false}, {reuseaddr, true}]]),
+			  [Hostname,Port,[binary, {active, false}]]),
     {ok, SslS} = rpc:call(ClientNode, ssl, connect, 
 			  [TcpS,[{active, false}|ClientOpts]]),
     
@@ -1956,7 +2037,7 @@ tls_upgrade(Config) when is_list(Config) ->
 				   {host, Hostname},
 				   {from, self()}, 
 				   {mfa, {?MODULE, upgrade_result, []}},
-				   {tcp_options, TcpOpts},
+				   {tcp_options, [binary]},
 				   {ssl_options, ClientOpts}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",

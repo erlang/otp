@@ -79,17 +79,21 @@ run_server(ListenSocket, Opts, N) ->
     Pid ! {accepter, N, Server},
     run_server(ListenSocket, Opts, N-1).
 
-do_run_server(_, {error, timeout} = Result, Opts)  ->
+do_run_server(_, {error, _} = Result, Opts)  ->
+    ct:log("Server error result ~p~n", [Result]),
     Pid = proplists:get_value(from, Opts),
     Pid ! {self(), Result};
-
+do_run_server(_, ok = Result, Opts) ->
+    ct:log("Server cancel result ~p~n", [Result]),
+    Pid = proplists:get_value(from, Opts),
+    Pid ! {self(), Result};
 do_run_server(ListenSocket, AcceptSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport = proplists:get_value(transport, Opts, ssl),
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
     ct:log("~p:~p~nServer: apply(~p,~p,~p)~n",
-		       [?MODULE,?LINE, Module, Function, [AcceptSocket | Args]]),
+           [?MODULE,?LINE, Module, Function, [AcceptSocket | Args]]),
     case rpc:call(Node, Module, Function, [AcceptSocket | Args]) of
 	no_result_msg ->
 	    ok;
@@ -117,7 +121,8 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
     Timeout = proplists:get_value(timeout, Opts, infinity),
     SslOpts = proplists:get_value(ssl_extra_opts, Opts, []),
-    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout, SslOpts),
+    ContOpts = proplists:get_value(continue_options, Opts, []),
+    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout, SslOpts, ContOpts),
     case ReconnectTimes of
 	0 ->
 	    AcceptSocket;
@@ -132,10 +137,45 @@ connect(ListenSocket, Opts) ->
 				  [ListenSocket]),
     AcceptSocket.
 
-connect(_, _, 0, AcceptSocket, _, _) ->
+connect(_, _, 0, AcceptSocket, _, _, _) ->
     AcceptSocket;
+connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
+    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
+				  [ListenSocket]),    
+    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
 
-connect(ListenSocket, Node, N, _, Timeout, []) ->
+    case rpc:call(Node, ssl, handshake, [AcceptSocket, SslOpts, Timeout]) of
+	{ok, Socket0, Ext} ->
+            ct:log("Ext ~p:~n", [Ext]),            
+            ct:log("~p:~p~nssl:handshake_cancel(~p)~n", [?MODULE,?LINE, Socket0]),            
+            rpc:call(Node, ssl, handshake_cancel, [Socket0]);
+        Result ->
+	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    Result
+    end;
+connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts) ->
+    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
+				  [ListenSocket]),    
+    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
+
+    case rpc:call(Node, ssl, handshake, [AcceptSocket, SslOpts, Timeout]) of
+	{ok, Socket0, Ext} ->
+            ct:log("Ext ~p:~n", [Ext]),            
+            ct:log("~p:~p~nssl:handshake_continue(~p,~p,~p)~n", [?MODULE,?LINE, Socket0, ContOpts,Timeout]),            
+            case rpc:call(Node, ssl, handshake_continue, [Socket0, ContOpts, Timeout]) of
+                {ok, Socket} ->
+                    connect(ListenSocket, Node, N-1, Socket, Timeout, SslOpts, ContOpts);
+                Error ->
+                    ct:log("~p:~p~nssl:handshake_continue@~p ret ~p",[?MODULE,?LINE, Node,Error]),
+                    Error
+            end;
+	Result ->
+	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    Result
+    end;
+connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
 				  [ListenSocket]),    
@@ -143,12 +183,12 @@ connect(ListenSocket, Node, N, _, Timeout, []) ->
 
     case rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Timeout]) of
 	ok ->
-	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout, []);
+	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout, [], ContOpts);
 	Result ->
 	    ct:log("~p:~p~nssl:ssl_accept@~p ret ~p",[?MODULE,?LINE, Node,Result]),
 	    Result
     end;
-connect(ListenSocket, Node, _, _, Timeout, Opts) ->
+connect(ListenSocket, Node, _, _, Timeout, Opts, _) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
 				  [ListenSocket]),    
@@ -187,8 +227,17 @@ run_client(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
+    ContOpts = proplists:get_value(continue_options, Opts, []),
     ct:log("~p:~p~n~p:connect(~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
     ct:log("SSLOpts: ~p", [Options]),
+    case ContOpts of
+        [] ->
+            client_loop(Node, Host, Port, Pid, Transport, Options, Opts);
+        _ ->
+            client_cont_loop(Node, Host, Port, Pid, Transport, Options, ContOpts, Opts)
+    end.
+
+client_loop(Node, Host, Port, Pid, Transport, Options, Opts) ->
     case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
 	    Pid ! {connected, Socket},
@@ -245,6 +294,40 @@ run_client(Opts) ->
             Pid ! {connect_failed, {badrpc,BadRPC}}
     end.
 
+client_cont_loop(Node, Host, Port, Pid, Transport, Options, cancel, _Opts) ->
+    case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
+        {ok, Socket, _} ->
+           Result = rpc:call(Node, Transport, handshake_cancel, [Socket]),
+            ct:log("~p:~p~nClient: Cancel: ~p ~n", [?MODULE,?LINE, Result]),
+            Pid ! {connect_failed, Result};
+        {error, Reason} ->
+	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+	    Pid ! {connect_failed, Reason}
+    end;
+
+client_cont_loop(Node, Host, Port, Pid, Transport, Options, ContOpts, Opts) ->
+    case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
+        {ok, Socket0, _} ->
+            ct:log("~p:~p~nClient: handshake_continue(~p, ~p, infinity) ~n", [?MODULE, ?LINE, Socket0, ContOpts]),
+            case rpc:call(Node, Transport, handshake_continue, [Socket0, ContOpts, infinity]) of
+                {ok, Socket} ->
+                    Pid ! {connected, Socket},
+                    {Module, Function, Args} = proplists:get_value(mfa, Opts),
+                    ct:log("~p:~p~nClient: apply(~p,~p,~p)~n",
+                           [?MODULE,?LINE, Module, Function, [Socket | Args]]),
+                    case rpc:call(Node, Module, Function, [Socket | Args]) of
+                        no_result_msg ->
+                            ok;
+                        Msg ->
+                            ct:log("~p:~p~nClient Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+                            Pid ! {self(), Msg}
+                    end
+	    end;
+        {error, Reason} ->
+            ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+            Pid ! {connect_failed, Reason}
+    end.
+            
 close(Pid) ->
     ct:log("~p:~p~nClose ~p ~n", [?MODULE,?LINE, Pid]),
     Monitor = erlang:monitor(process, Pid),

@@ -37,7 +37,9 @@
 -include_lib("public_key/include/public_key.hrl").
 
 %% Setup
--export([connect/8, ssl_accept/7, handshake/2, handshake/3,
+
+-export([connect/8, handshake/7, handshake/2, handshake/3,
+         handshake_continue/3, handshake_cancel/1,
 	 socket_control/4, socket_control/5, start_or_recv_cancel_timer/2]).
 
 %% User Events 
@@ -57,11 +59,11 @@
 
 %% Help functions for tls|dtls_connection.erl
 -export([handle_session/7, ssl_config/3,
-	 prepare_connection/2, hibernate_after/3]).
+	 prepare_connection/2, hibernate_after/3, map_extensions/1]).
 
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
--export([init/4, error/4, hello/4, abbreviated/4, certify/4, cipher/4,
+-export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, cipher/4,
          connection/4, death_row/4, downgrade/4]).
 
 %% gen_statem callbacks
@@ -93,7 +95,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
--spec ssl_accept(tls_connection | dtls_connection,
+-spec handshake(tls_connection | dtls_connection,
 		 inet:port_number(), port(),
 		 {#ssl_options{}, #socket_options{}, undefined | pid()},
 		 pid(), tuple(), timeout()) ->
@@ -102,7 +104,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
-ssl_accept(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
+handshake(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
     try Connection:start_fsm(server, "localhost", Port, Socket, Opts, User, 
 		  CbInfo, Timeout)
     catch
@@ -111,32 +113,60 @@ ssl_accept(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
     end.	
 
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}, timeout()) ->  ok | {error, reason()}.
+-spec handshake(#sslsocket{}, timeout()) ->  {ok, #sslsocket{}} |
+                                                 {ok,  #sslsocket{}, map()}| {error, reason()}.
 %%
 %% Description: Starts ssl handshake. 
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = Pid}, Timeout) ->  
+handshake(#sslsocket{pid = Pid} = Socket, Timeout) ->  
     case call(Pid, {start, Timeout}) of
 	connected ->
-	    ok;
+	    {ok, Socket};
+        {ok, Ext} ->
+            {ok, Socket, Ext};
  	Error ->
 	    Error
     end.
 
 %%--------------------------------------------------------------------
 -spec handshake(#sslsocket{}, {#ssl_options{},#socket_options{}},
-		timeout()) ->  ok | {error, reason()}.
+		timeout()) ->   {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Starts ssl handshake with some new options 
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = Pid}, SslOptions, Timeout) ->  
+handshake(#sslsocket{pid = Pid} = Socket, SslOptions, Timeout) ->  
     case call(Pid, {start, SslOptions, Timeout}) of
 	connected ->
-	    ok;
+	    {ok, Socket};
  	Error ->
 	    Error
     end.
 
+%%--------------------------------------------------------------------
+-spec handshake_continue(#sslsocket{}, [ssl_option()],
+                         timeout()) ->  {ok,  #sslsocket{}}| {error, reason()}.
+%%
+%% Description: Continues handshake with new options
+%%--------------------------------------------------------------------
+handshake_continue(#sslsocket{pid = Pid} = Socket, SslOptions, Timeout) ->  
+    case call(Pid, {handshake_continue, SslOptions, Timeout}) of
+	connected ->
+	    {ok, Socket};
+ 	Error ->
+	    Error
+    end.
+%%--------------------------------------------------------------------
+-spec handshake_cancel(#sslsocket{}) ->  ok | {error, reason()}.
+%%
+%% Description: Cancels connection
+%%--------------------------------------------------------------------
+handshake_cancel(#sslsocket{pid = Pid}) ->  
+    case call(Pid, cancel) of
+	closed ->
+            ok;
+        Error ->
+	    Error
+    end.
 %--------------------------------------------------------------------
 -spec socket_control(tls_connection | dtls_connection, port(), pid(), atom()) -> 
     {ok, #sslsocket{}} | {error, reason()}.  
@@ -527,6 +557,9 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 -spec ssl_config(#ssl_options{}, client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, State) ->
+    ssl_config(Opts, Role, State, new).
+
+ssl_config(Opts, Role, State0, Type) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
            fileref_db_handle := FileRefHandle, 
@@ -536,20 +569,26 @@ ssl_config(Opts, Role, State) ->
            dh_params := DHParams,
            own_certificate := OwnCert}} =
 	ssl_config:init(Opts, Role), 
-    Handshake = ssl_handshake:init_handshake_history(),
     TimeStamp = erlang:monotonic_time(),
-    Session = State#state.session,
-    State#state{tls_handshake_history = Handshake,
-		session = Session#session{own_certificate = OwnCert,
-					  time_stamp = TimeStamp},
-		file_ref_db = FileRefHandle,
-		cert_db_ref = Ref,
-		cert_db = CertDbHandle,
-		crl_db = CRLDbHandle,
-		session_cache = CacheHandle,
-		private_key = Key,
-		diffie_hellman_params = DHParams,
-		ssl_options = Opts}.
+    Session = State0#state.session,
+    State = State0#state{session = Session#session{own_certificate = OwnCert,
+                                                   time_stamp = TimeStamp},
+                         file_ref_db = FileRefHandle,
+                         cert_db_ref = Ref,
+                         cert_db = CertDbHandle,
+                         crl_db = CRLDbHandle,
+                         session_cache = CacheHandle,
+                         private_key = Key,
+                         diffie_hellman_params = DHParams,
+                         ssl_options = Opts},
+    case Type of
+        new ->
+            Handshake = ssl_handshake:init_handshake_history(),
+            State#state{tls_handshake_history = Handshake};
+        continue ->
+            State
+    end.
+
 
 %%====================================================================
 %% gen_statem general state functions with connection cb argument
@@ -579,7 +618,8 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
         end,
 	State = ssl_config(SslOpts, Role, State0),
 	init({call, From}, {start, Timeout}, 
-	     State#state{ssl_options = SslOpts, socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
+	     State#state{ssl_options = SslOpts, 
+                         socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
 	    stop_and_reply(normal, {reply, From, {error, Error}}, State0)
     end;
@@ -611,6 +651,23 @@ hello(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 hello(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
+
+user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _) ->
+    gen_statem:reply(From, ok),
+    handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
+                     Version, ?FUNCTION_NAME, State);
+user_hello({call, From}, {handshake_continue, NewOptions, Timeout}, #state{hello = Hello,
+                                                                           role = Role,
+                                                                           start_or_recv_from = RecvFrom,
+                                                                           ssl_options = Options0} = State0, _Connection) ->
+    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
+    Options = ssl:handle_options(NewOptions, Options0#ssl_options{handshake = full}),
+    State = ssl_config(Options, Role, State0, continue),
+    {next_state, hello, State#state{start_or_recv_from = From,
+                                    timer = Timer}, 
+     [{next_event, internal, Hello}]};
+user_hello(_, _, _, _) ->
+    {keep_state_and_data, [postpone]}.
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(),
@@ -2285,7 +2342,24 @@ hibernate_after(connection = StateName,
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
- 
+
+map_extensions(#hello_extensions{renegotiation_info = RenegotiationInfo,
+                                 signature_algs = SigAlg,          
+                                 alpn = Alpn,
+                                 next_protocol_negotiation = Next, 
+                                 srp = SRP,
+                                 ec_point_formats = ECPointFmt,
+                                 elliptic_curves = ECCCurves,
+                                 sni = SNI}) ->
+    #{renegotiation_info => ssl_handshake:extension_value(RenegotiationInfo),
+      signature_algs =>  ssl_handshake:extension_value(SigAlg),
+      alpn =>  ssl_handshake:extension_value(Alpn),
+      srp  => ssl_handshake:extension_value(SRP),
+      next_protocol => ssl_handshake:extension_value(Next),
+      ec_point_formats  => ssl_handshake:extension_value(ECPointFmt),
+      elliptic_curves => ssl_handshake:extension_value(ECCCurves),
+      sni => ssl_handshake:extension_value(SNI)}.
+
 terminate_alert(normal, Version, ConnectionStates, Connection)  ->
     Connection:encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 		     Version, ConnectionStates);

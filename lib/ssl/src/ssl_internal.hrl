@@ -144,7 +144,8 @@
 	  signature_algs,
 	  eccs,
 	  honor_ecc_order            :: boolean(),
-          max_handshake_size         :: integer()
+          max_handshake_size         :: integer(),
+          handshake
          }).
 
 -record(socket_options,

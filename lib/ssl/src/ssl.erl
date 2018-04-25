@@ -32,7 +32,9 @@
 %% Socket handling
 -export([connect/3, connect/2, connect/4,
 	 listen/2, transport_accept/1, transport_accept/2,
-	 ssl_accept/1, ssl_accept/2, ssl_accept/3,
+	 handshake/1, handshake/2, handshake/3, 
+         handshake_continue/3, handshake_cancel/1,
+         ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
 	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2,
 	 getopts/2, setopts/2, getstat/1, getstat/2
@@ -45,7 +47,7 @@
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2, tls_version/1]).
+-export([handle_options/2, tls_version/1, new_ssl_options/3]).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -170,23 +172,54 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 			ok | {ok, #sslsocket{}} | {error, reason()}.
 
 -spec ssl_accept(#sslsocket{} | port(), [ssl_option()] | [ssl_option()| transport_option()], timeout()) ->
-			{ok, #sslsocket{}} | {error, reason()}.
+			ok | {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
 ssl_accept(ListenSocket) ->
-    ssl_accept(ListenSocket, infinity).
+    ssl_accept(ListenSocket, [], infinity).
+ssl_accept(Socket, Timeout)  when  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+    ssl_accept(Socket, [], Timeout);
+ssl_accept(ListenSocket, SslOptions) when is_port(ListenSocket) ->
+    ssl_accept(ListenSocket, SslOptions, infinity);
+ssl_accept(Socket, Timeout) ->
+    ssl_accept(Socket, [], Timeout).
+ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
+    handshake(Socket, SslOptions, Timeout);
+ssl_accept(Socket, SslOptions, Timeout) ->
+     case handshake(Socket, SslOptions, Timeout) of
+        {ok, _} ->
+            ok;
+        Error ->
+            Error
+     end.
+%%--------------------------------------------------------------------
+-spec handshake(#sslsocket{}) -> {ok, #sslsocket{}} | {error, reason()}.
+-spec handshake(#sslsocket{} | port(), timeout()| [ssl_option()
+						    | transport_option()]) ->
+                       {ok, #sslsocket{}} | {error, reason()}.
 
-ssl_accept(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+-spec handshake(#sslsocket{} | port(), [ssl_option()] | [ssl_option()| transport_option()], timeout()) ->
+			{ok, #sslsocket{}} | {error, reason()}.
+%%
+%% Description: Performs accept on an ssl listen socket. e.i. performs
+%%              ssl handshake.
+%%--------------------------------------------------------------------
+handshake(ListenSocket) ->
+    handshake(ListenSocket, infinity).
+
+handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout >= 0) or 
+                                                (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
 
-ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
-    ssl_accept(ListenSocket, SslOptions, infinity).
+handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
+    handshake(ListenSocket, SslOptions, infinity).
 
-ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
-    ssl_accept(Socket, Timeout);
-ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
+handshake(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or 
+                                                    (Timeout == infinity)->
+    handshake(Socket, Timeout);
+handshake(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
 	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
@@ -195,7 +228,7 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) when
+handshake(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
         {ok, EmOpts, _} = dtls_udp_listener:get_all_opts(Pid),
@@ -204,8 +237,8 @@ ssl_accept(#sslsocket{pid = Pid, fd = {_, _, _}} = Socket, SslOpts, Timeout) whe
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
-					     (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+handshake(Socket, SslOptions, Timeout) when is_port(Socket),
+                                            (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = tls_socket:emulated_options(),
@@ -215,13 +248,31 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
 	    ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
-	    ssl_connection:ssl_accept(ConnetionCb, Port, Socket,
-				      {SslOpts, 
-				       tls_socket:emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				      self(), CbInfo, Timeout)
+	    ssl_connection:handshake(ConnetionCb, Port, Socket,
+                                     {SslOpts, 
+                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                     self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end.
+
+%%--------------------------------------------------------------------
+-spec handshake_continue(#sslsocket{}, [ssl_option()], timeout()) -> 
+                                {ok, #sslsocket{}} | {error, reason()}.
+%%
+%%
+%% Description: Continues the handshke possible with newly supplied options.
+%%--------------------------------------------------------------------
+handshake_continue(Socket, SSLOptions, Timeout) ->
+    ssl_connection:handshake_continue(Socket, SSLOptions, Timeout).
+%%--------------------------------------------------------------------
+-spec  handshake_cancel(#sslsocket{}) -> term().
+%%
+%% Description: Cancels the handshakes sending a close alert.
+%%--------------------------------------------------------------------
+handshake_cancel(Socket) ->
+    ssl_connection:handshake_cancel(Socket).
+
 %%--------------------------------------------------------------------
 -spec  close(#sslsocket{}) -> term().
 %%
@@ -885,7 +936,8 @@ handle_options(Opts0, Role, Host) ->
 					     client, Role),
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
-                    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE)
+                    max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE),
+                    handshake = handle_option(handshake, Opts, full)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
@@ -901,8 +953,7 @@ handle_options(Opts0, Role, Host) ->
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
-                  max_handshake_size],
-
+                  max_handshake_size, handshake],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -913,8 +964,6 @@ handle_options(Opts0, Role, Host) ->
     {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = Sock,
 		 inet_user = Sock, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
-
-
 
 handle_option(OptionName, Opts, Default, Role, Role) ->
     handle_option(OptionName, Opts, Default);
@@ -1142,6 +1191,10 @@ validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value
 validate_option(protocol, Value = tls) ->
     Value;
 validate_option(protocol, Value = dtls) ->
+    Value;
+validate_option(handshake, hello = Value) ->
+    Value;
+validate_option(handshake, full = Value) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
