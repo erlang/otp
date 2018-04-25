@@ -23,7 +23,6 @@
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
 -define(STANDARD_HANDLER, logger_std_h).
--define(DEFAULT_LOGGER_CALL_TIMEOUT, 10000).
 -define(DEFAULT_HANDLER_FILTERS,
         ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
@@ -40,9 +39,12 @@
 -define(DEFAULT_FORMAT_TEMPLATE,
         [time," ",level,":\n",msg,"\n"]).
 
+-define(DEFAULT_LOGGER_CALL_TIMEOUT, infinity).
+
 -define(LOG_INTERNAL(Level,Report),
         case logger:allow(Level,?MODULE) of
             true ->
+                %% Spawn this to avoid deadlocks
                 _ = spawn(logger,macro_log,[?LOCATION,Level,Report,
                                             logger:add_default_metadata(#{})]),
                 ok;

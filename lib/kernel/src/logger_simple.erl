@@ -161,8 +161,6 @@ do_log(#{msg:={report,Report},
     display_date(T),
     display_report(Type,Report);
 do_log(#{msg:=Msg,meta:=#{time:=T}}) ->
-    %% Maybe buffer event - if next handler shall be able to
-    %%  re-display it
     display_date(T),
     display(Msg).
 

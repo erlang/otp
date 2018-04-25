@@ -195,7 +195,7 @@
   -define(file_datasync(DEVICE), file:datasync(DEVICE)).
   -define(disk_log_blog(LOG, DATA), disk_log:blog(LOG, DATA)).
   -define(disk_log_sync(LOG), disk_log:sync(LOG)).
-  -define(DEFAULT_CALL_TIMEOUT, ?DEFAULT_LOGGER_CALL_TIMEOUT-2000).
+  -define(DEFAULT_CALL_TIMEOUT, 10000).
 -endif.
 
 %%%-----------------------------------------------------------------
