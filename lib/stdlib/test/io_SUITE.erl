@@ -31,9 +31,9 @@
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
-         otp_14285/1, limit_term/1]).
+         otp_14285/1, limit_term/1, otp_14983/1]).
 
--export([pretty/2]).
+-export([pretty/2, trf/3]).
 
 %%-define(debug, true).
 
@@ -63,7 +63,7 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term].
+     otp_14285, limit_term, otp_14983].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -1750,7 +1750,7 @@ printable_range(Suite) when is_list(Suite) ->
     PrettyOptions = [{column,1},
 		     {line_length,109},
 		     {depth,30},
-		     {max_chars,60},
+		     {line_max_chars,60},
 		     {record_print_fun,
 		      fun(_,_) -> no end},
 		     {encoding,unicode}],
@@ -1886,7 +1886,7 @@ otp_10302(Suite) when is_list(Suite) ->
 
 pretty(Term, Depth) when is_integer(Depth) ->
     Opts = [{column, 1}, {line_length, 20},
-            {depth, Depth}, {max_chars, 60},
+            {depth, Depth}, {line_max_chars, 60},
             {record_print_fun, fun rfd/2},
             {encoding, unicode}],
     pretty(Term, Opts);
@@ -2053,19 +2053,19 @@ maps(_Config) ->
     %% in a map with more than one element.
 
     "#{}" = fmt("~w", [#{}]),
-    "#{a=>b}" = fmt("~w", [#{a=>b}]),
-    re_fmt(<<"#\\{(a=>b|c=>d),[.][.][.]=>[.][.][.]\\}">>,
-	     "~W", [#{a=>b,c=>d},2]),
-    re_fmt(<<"#\\{(a=>b|c=>d|e=>f),[.][.][.]=>[.][.][.],[.][.][.]\\}">>,
-	   "~W", [#{a=>b,c=>d,e=>f},2]),
+    "#{a => b}" = fmt("~w", [#{a=>b}]),
+    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+	     "~W", [#{a => b,c => d},2]),
+    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+	   "~W", [#{a => b,c => d,e => f},2]),
 
     "#{}" = fmt("~p", [#{}]),
-    "#{a => b}" = fmt("~p", [#{a=>b}]),
-    "#{...}" = fmt("~P", [#{a=>b},1]),
+    "#{a => b}" = fmt("~p", [#{a => b}]),
+    "#{...}" = fmt("~P", [#{a => b},1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	   "~P", [#{a=>b,c=>d},2]),
+	   "~P", [#{a => b,c => d},2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~P", [#{a=>b,c=>d,e=>f},2]),
+	   "~P", [#{a => b,c => d,e => f},2]),
 
     List = [{I,I*I} || I <- lists:seq(1, 20)],
     Map = maps:from_list(List),
@@ -2441,7 +2441,7 @@ limit_term(_Config) ->
     {_, 1} = limt(T, 0),
     {_, 2} = limt(T, 1),
     {_, 2} = limt(T, 2),
-    {_, 1} = limt(T, 3),
+    {_, 2} = limt(T, 3),
     {_, 1} = limt(T, 4),
     T2 = #{[] => {},{} => []},
     {_, 2} = limt(T2, 1),
@@ -2489,3 +2489,129 @@ limt_pp(Term, Depth) when is_integer(Depth) ->
 
 pp(Term, Depth) ->
     lists:flatten(io_lib:format("~P", [Term, Depth])).
+
+otp_14983(_Config) ->
+    trunc_depth(-1, fun trp/3),
+    trunc_depth(10, fun trp/3),
+    trunc_depth(-1, fun trw/3),
+    trunc_depth(10, fun trw/3),
+    trunc_depth_p(-1),
+    trunc_depth_p(10),
+    trunc_string(),
+    ok.
+
+trunc_string() ->
+    "str " = trf("str ", [], 10),
+    "str ..." = trf("str ~s", ["str"], 6),
+    "str str" = trf("str ~s", ["str"], 7),
+    "str ..." = trf("str ~8s", ["str"], 6),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
+					 [{args, " +pc unicode -pa " ++ Pa}]),
+    U = "кирилли́ческий атом",
+    UFun = fun(Format, Args, CharsLimit) ->
+                   rpc:call(UNode,
+                            ?MODULE, trf, [Format, Args, CharsLimit])
+           end,
+    "str кир" = UFun("str ~3ts", [U], 7),
+    "str ..." = UFun("str ~3ts", [U], 6),
+    "str ..." = UFun("str ~30ts", [U], 6),
+    "str кир..." = UFun("str ~30ts", [U], 10),
+    "str кирилл..." = UFun("str ~30ts", [U], 13),
+    "str кирилли́..." = UFun("str ~30ts", [U], 14),
+    "str кирилли́ч..." = UFun("str ~30ts", [U], 15),
+    "\"кирилли́ческ\"..." = UFun("~tp", [U], 13),
+    BU = <<"кирилли́ческий атом"/utf8>>,
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 20),
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 21),
+    "<<\"кирилли́ческ\"/utf8...>>" = UFun("~tp", [BU], 22),
+    test_server:stop_node(UNode).
+
+trunc_depth(D, Fun) ->
+    "..." = Fun("", D, 0),
+    "[]" = Fun("", D, 1),
+
+    "#{}" = Fun(#{}, D, 1),
+    "#{a => 1}" = Fun(#{a => 1}, D, 7),
+    "#{...}" = Fun(#{a => 1}, D, 5),
+    "#{a => 1}" = Fun(#{a => 1}, D, 6),
+    A = lists:seq(1, 1000),
+    M = #{A => A, {A,A} => {A,A}},
+    "#{...}" = Fun(M, D, 6),
+    "#{{...} => {...},...}" = Fun(M, D, 7),
+    "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
+    "#{{[1|...],[...]} => {[1|...],[...]},[1,2|...] => [...]}" =
+        Fun(M, D, 50),
+
+    "..." = Fun({c, 1, 2}, D, 0),
+    "{...}" = Fun({c, 1, 2}, D, 1),
+
+    "..." = Fun({}, D, 0),
+    "{}" = Fun({}, D, 1),
+    T = {A, A, A},
+    "{...}" = Fun(T, D, 5),
+    "{[...],...}" = Fun(T, D, 6),
+    "{[1|...],[...],...}" = Fun(T, D, 12),
+    "{[1,2|...],[1|...],...}" = Fun(T, D, 20),
+    "{[1,2|...],[1|...],[...]}" = Fun(T, D, 21),
+    "{[1,2,3|...],[1,2|...],[1|...]}" = Fun(T, D, 28),
+
+    "{[1],[1,2|...]}" = Fun({[1],[1,2,3,4]}, D, 14).
+
+trunc_depth_p(D) ->
+    UOpts = [{record_print_fun, fun rfd/2},
+             {encoding, unicode}],
+    LOpts = [{record_print_fun, fun rfd/2},
+             {encoding, latin1}],
+    trunc_depth_p(D, UOpts),
+    trunc_depth_p(D, LOpts).
+
+trunc_depth_p(D, Opts) ->
+    "[...]" = trp("abcdefg", D, 4, Opts),
+    "\"abc\"..." = trp("abcdefg", D, 5, Opts),
+    "\"abcdef\"..." = trp("abcdefg", D, 8, Opts),
+    "\"abcdefg\"" = trp("abcdefg", D, 9, Opts),
+    "\"abcdefghijkl\"" = trp("abcdefghijkl", D, -1, Opts),
+    AZ = lists:seq($A, $Z),
+    AZb = list_to_binary(AZ),
+    AZbS = "<<\"" ++ AZ ++ "\">>",
+    AZbS = trp(AZb, D, -1),
+    "<<\"ABCDEFGH\"...>>" = trp(AZb, D, 17, Opts), % 4 chars even if D = -1...
+    "<<\"ABCDEFGHIJKL\"...>>" = trp(AZb, D, 18, Opts),
+    B1 = <<"abcdef",0:8>>,
+    "<<\"ab\"...>>" = trp(B1, D, 8, Opts),
+    "<<\"abcdef\"...>>" = trp(B1, D, 14, Opts),
+    "<<97,98,99,100,...>>" = trp(B1, D, 16, Opts),
+    "<<97,98,99,100,101,102,0>>" = trp(B1, D, -1, Opts),
+    B2 = <<AZb/binary,0:8>>,
+    "<<\"AB\"...>>" = trp(B2, D, 8, Opts),
+    "<<\"ABCDEFGH\"...>>" = trp(B2, D, 14, Opts),
+    "<<65,66,67,68,69,70,71,72,0>>" = trp(<<"ABCDEFGH",0:8>>, D, -1, Opts),
+    "<<97,0,107,108,...>>" = trp(<<"a",0:8,"kllkjlksdjfsj">>, D, 20, Opts),
+
+    A = lists:seq(1, 1000),
+    "#c{...}" = trp({c, 1, 2}, D, 6),
+    "#c{...}" = trp({c, 1, 2}, D, 7),
+    "#c{f1 = [...],...}" = trp({c, A, A}, D, 18),
+    "#c{f1 = [1|...],f2 = [...]}" = trp({c, A, A}, D, 19),
+    "#c{f1 = [1,2|...],f2 = [1|...]}" = trp({c, A, A}, D, 31),
+    "#c{f1 = [1,2,3|...],f2 = [1,2|...]}" = trp({c, A, A}, D, 32).
+
+trp(Term, D, T) ->
+    trp(Term, D, T, [{record_print_fun, fun rfd/2}]).
+
+trp(Term, D, T, Opts) ->
+    R = io_lib_pretty:print(Term, [{depth, D},
+                                   {chars_limit, T}|Opts]),
+    lists:flatten(io_lib:format("~s", [R])).
+
+trw(Term, D, T) ->
+    lists:flatten(io_lib:format("~W", [Term, D], [{chars_limit, T}])).
+
+trf(Format, Args, T) ->
+    trf(Format, Args, T, [{record_print_fun, fun rfd/2}]).
+
+trf(Format, Args, T, Opts) ->
+    lists:flatten(io_lib:format(Format, Args, [{chars_limit, T}|Opts])).

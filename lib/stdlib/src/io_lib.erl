@@ -60,11 +60,12 @@
 
 -module(io_lib).
 
--export([fwrite/2,fread/2,fread/3,format/2]).
--export([scan_format/2,unscan_format/1,build_text/1]).
+-export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
+-export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
+-export([write_binary/3]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
@@ -87,7 +88,7 @@
 -export([limit_term/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
-              fread_error/0, fread_item/0, format_spec/0]).
+              fread_error/0, fread_item/0, format_spec/0, chars_limit/0]).
 
 %%----------------------------------------------------------------------
 
@@ -135,6 +136,18 @@
 fwrite(Format, Args) ->
     format(Format, Args).
 
+-type chars_limit() :: integer().
+
+-spec fwrite(Format, Data, Options) -> chars() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+fwrite(Format, Args, Options) ->
+    format(Format, Args, Options).
+
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
@@ -172,6 +185,21 @@ format(Format, Args) ->
 	    Other
     end.
 
+-spec format(Format, Data, Options) -> chars() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+format(Format, Args, Options) ->
+    case catch io_lib_format:fwrite(Format, Args, Options) of
+	{'EXIT',_} ->
+	    erlang:error(badarg, [Format, Args, Options]);
+	Other ->
+	    Other
+    end.
+
 -spec scan_format(Format, Data) -> FormatList when
       Format :: io:format(),
       Data :: [term()],
@@ -196,6 +224,15 @@ unscan_format(FormatList) ->
 
 build_text(FormatList) ->
     io_lib_format:build(FormatList).
+
+-spec build_text(FormatList, Options) -> chars() when
+      FormatList :: [char() | format_spec()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+build_text(FormatList, Options) ->
+    io_lib_format:build(FormatList, Options).
 
 -spec print(Term) -> chars() when
       Term :: term().
@@ -240,7 +277,7 @@ format_prompt(Prompt, Encoding) ->
     do_format_prompt(add_modifier(Encoding, "p"), [Prompt]).
 
 do_format_prompt(Format, Args) ->
-    case catch io_lib:format(Format, Args) of
+    case catch format(Format, Args) of
 	{'EXIT',_} -> "???";
 	List -> List
     end.
@@ -259,7 +296,8 @@ add_modifier(_, C) ->
 -spec write(Term) -> chars() when
       Term :: term().
 
-write(Term) -> write(Term, -1).
+write(Term) ->
+    write1(Term, -1, latin1).
 
 -spec write(term(), depth(), boolean()) -> chars().
 
@@ -274,16 +312,29 @@ write(Term, D, false) ->
            (Term, Options) -> chars() when
       Term :: term(),
       Options :: [Option],
-      Option :: {'depth', Depth}
+      Option :: {'chars_limit', CharsLimit}
+              | {'depth', Depth}
               | {'encoding', 'latin1' | 'utf8' | 'unicode'},
+      CharsLimit :: chars_limit(),
       Depth :: depth().
 
 write(Term, Options) when is_list(Options) ->
     Depth = get_option(depth, Options, -1),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
-    write1(Term, Depth, Encoding);
+    CharsLimit = get_option(chars_limit, Options, -1),
+    if
+        Depth =:= 0; CharsLimit =:= 0 ->
+            "...";
+        CharsLimit < 0 ->
+            write1(Term, Depth, Encoding);
+        CharsLimit > 0 ->
+            RecDefFun = fun(_, _) -> no end,
+            If = io_lib_pretty:intermediate
+                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
+            io_lib_pretty:write(If)
+    end;
 write(Term, Depth) ->
-    write1(Term, Depth, latin1).
+    write(Term, [{depth, Depth}, {encoding, latin1}]).
 
 write1(_Term, 0, _E) -> "...";
 write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
@@ -300,7 +351,7 @@ write1([H|T], D, E) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E, $|)],$]]
+	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E)],$]]
     end;
 write1(F, _D, _E) when is_function(F) ->
     erlang:fun_to_list(F);
@@ -311,20 +362,24 @@ write1(T, D, E) when is_tuple(T) ->
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write1(element(1, T), D-1, E)|
-              write_tail(tl(tuple_to_list(T)), D-1, E, $,)],
+	     [write1(element(1, T), D-1, E)|write_tuple(T, 2, D-1, E)],
 	     $}]
     end.
 
-%% write_tail(List, Depth, CharacterBeforeDots)
+%% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _E, _S) -> "";
-write_tail(_, 1, _E, S) -> [S | "..."];
-write_tail([H|T], D, E, S) ->
-    [$,,write1(H, D-1, E)|write_tail(T, D-1, E, S)];
-write_tail(Other, D, E, S) ->
-    [S,write1(Other, D-1, E)].
+write_tail([], _D, _E) -> "";
+write_tail(_, 1, _E) -> [$| | "..."];
+write_tail([H|T], D, E) ->
+    [$,,write1(H, D-1, E)|write_tail(T, D-1, E)];
+write_tail(Other, D, E) ->
+    [$|,write1(Other, D-1, E)].
+
+write_tuple(T, I, _D, _E) when I > tuple_size(T) -> "";
+write_tuple(_, _I, 1, _E) -> [$, | "..."];
+write_tuple(T, I, D, E) ->
+    [$,,write1(element(I, T), D-1, E)|write_tuple(T, I+1, D-1, E)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -333,32 +388,43 @@ write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
 write_map(Map, D, E) when is_integer(D) ->
-    [$#,${,write_map_body(maps:to_list(Map), D, E),$}].
+    [$#,${,write_map_body(maps:to_list(Map), D, D - 1, E),$}].
 
-write_map_body(_, 0, _E) -> "...";
-write_map_body([], _, _E) -> [];
-write_map_body([{K,V}], D, E) -> write_map_assoc(K, V, D, E);
-write_map_body([{K,V}|KVs], D, E) ->
-    [write_map_assoc(K, V, D, E),$, | write_map_body(KVs, D-1, E)].
+write_map_body(_, 1, _D0, _E) -> "...";
+write_map_body([], _, _D0, _E) -> [];
+write_map_body([{K,V}], _D, D0, E) -> write_map_assoc(K, V, D0, E);
+write_map_body([{K,V}|KVs], D, D0, E) ->
+    [write_map_assoc(K, V, D0, E),$, | write_map_body(KVs, D - 1, D0, E)].
 
 write_map_assoc(K, V, D, E) ->
-    [write1(K, D - 1, E),"=>",write1(V, D-1, E)].
+    [write1(K, D, E)," => ",write1(V, D, E)].
 
 write_binary(B, D) when is_integer(D) ->
-    [$<,$<,write_binary_body(B, D),$>,$>].
+    {S, _} = write_binary(B, D, -1),
+    S.
 
-write_binary_body(<<>>, _D) ->
-    "";
-write_binary_body(_B, 1) ->
-    "...";
-write_binary_body(<<X:8>>, _D) ->
-    [integer_to_list(X)];
-write_binary_body(<<X:8,Rest/bitstring>>, D) ->
-    [integer_to_list(X),$,|write_binary_body(Rest, D-1)];
-write_binary_body(B, _D) ->
+write_binary(B, D, T) ->
+    {S, Rest} = write_binary_body(B, D, tsub(T, 4), []),
+    {[$<,$<,lists:reverse(S),$>,$>], Rest}.
+
+write_binary_body(<<>> = B, _D, _T, Acc) ->
+    {Acc, B};
+write_binary_body(B, D, T, Acc) when D =:= 1; T =:= 0->
+    {["..."|Acc], B};
+write_binary_body(<<X:8>>, _D, _T, Acc) ->
+    {[integer_to_list(X)|Acc], <<>>};
+write_binary_body(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    S = integer_to_list(X),
+    write_binary_body(Rest, D-1, tsub(T, length(S) + 1), [$,,S|Acc]);
+write_binary_body(B, _D, _T, Acc) ->
     L = bit_size(B),
     <<X:L>> = B,
-    [integer_to_list(X),$:,integer_to_list(L)].
+    {[integer_to_list(L),$:,integer_to_list(X)|Acc], <<>>}.
+
+%% Make sure T does not change sign.
+tsub(T, _) when T < 0 -> T;
+tsub(T, E) when T >= E -> T - E;
+tsub(_, _) -> 0.
 
 get_option(Key, TupleList, Default) ->
     case lists:keyfind(Key, 1, TupleList) of
@@ -947,7 +1013,7 @@ limit(T, D) when is_tuple(T) ->
 	D =:= 1 -> {'...'};
 	true ->
             list_to_tuple([limit(element(1, T), D-1)|
-                           limit_tail(tl(tuple_to_list(T)), D-1)])
+                           limit_tuple(T, 2, D-1)])
     end;
 limit(<<_/bitstring>>=Term, D) -> limit_bitstring(Term, D);
 limit(Term, _D) -> Term.
@@ -958,6 +1024,11 @@ limit_tail([H|T], D) ->
     [limit(H, D-1)|limit_tail(T, D-1)];
 limit_tail(Other, D) ->
     limit(Other, D-1).
+
+limit_tuple(T, I, _D) when I > tuple_size(T) -> [];
+limit_tuple(_, _I, 1) -> ['...'];
+limit_tuple(T, I, D) ->
+    [limit(element(I, T), D-1)|limit_tuple(T, I+1, D-1)].
 
 %% Cannot limit maps properly since there is no guarantee that
 %% maps:from_list() creates a map with the same internal ordering of
