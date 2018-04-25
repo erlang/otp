@@ -50,8 +50,6 @@ start_child(Sup, Callback, Id, Args, Exec) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
 init(_Args) ->
     RestartStrategy = one_for_one,
     MaxR = 10,

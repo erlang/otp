@@ -22,10 +22,6 @@
 
 %%% Description : SSH connection protocol 
 
--type channel_id()         :: pos_integer().
--type connection_ref()     :: pid().
-
-
 -define(DEFAULT_PACKET_SIZE, 65536).
 -define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
 

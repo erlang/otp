@@ -45,27 +45,6 @@
 
 %%% API
 
-%%% client
--spec add_host_key(string(),
-		   public_key:public_key(),
-		   proplists:proplist()) -> ok | {error,term()}.
-
--spec is_host_key(public_key:public_key(),
-		  string(),
-		  ssh_client_key_api:algorithm(),
-		  proplists:proplist()) -> boolean().
-
--spec user_key(ssh_client_key_api:algorithm(),
-	       proplists:proplist()) -> {ok, public_key:private_key()} | {error,term()}.
-
-%%% server
--spec host_key(ssh_server_key_api:algorithm(),
-	       proplists:proplist()) ->  {ok, public_key:private_key()} | {error,term()}.
-
--spec is_auth_key(public_key:public_key(),
-		  string(), proplists:proplist()) -> boolean().
-
-
 %% Used by server
 host_key(Algorithm, Opts) ->
     File = file_name(system, file_base_name(Algorithm), Opts),

@@ -98,35 +98,267 @@
 
 
 %% Types
--type role()                :: client | server .
--type ok_error(SuccessType) :: {ok, SuccessType} | {error, any()} .
--type daemon_ref()          :: pid() .
+-type role()                  :: client | server .
 
--type subsystem_spec()      :: {subsystem_name(), {channel_callback(), channel_init_args()}} .
--type subsystem_name()      :: string() .
--type channel_callback()    :: atom() .
--type channel_init_args()   :: list() .
+-type host()                  :: string() | inet:ip_address() | loopback .
+-type open_socket()           :: gen_tcp:socket().
 
--type algs_list()           :: list( alg_entry() ).
--type alg_entry()           :: {kex, simple_algs()} 
-                             | {public_key, simple_algs()}
-                             | {cipher, double_algs()}
-                             | {mac, double_algs()}
-                             | {compression, double_algs()} .
--type simple_algs()         :: list( atom() ) .
--type double_algs()         :: list( {client2server,simple_algs()} | {server2client,simple_algs()} )
-                             | simple_algs() .
+-type subsystem_spec()        :: {Name::string(), mod_args()} .
+                              
+-type algs_list()             :: list( alg_entry() ).
+-type alg_entry()             :: {kex, [kex_alg()]} 
+                               | {public_key, [pubkey_alg()]}
+                               | {cipher, double_algs(cipher_alg())}
+                               | {mac, double_algs(mac_alg())}
+                               | {compression, double_algs(compression_alg())} .
 
--type options() :: #{socket_options   := socket_options(),
-                     internal_options := internal_options(),
-                     option_key()     => any()
-                    }.
+-type kex_alg()          :: 'diffie-hellman-group-exchange-sha1' |
+                            'diffie-hellman-group-exchange-sha256' |
+                            'diffie-hellman-group1-sha1' |
+                            'diffie-hellman-group14-sha1' |
+                            'diffie-hellman-group14-sha256' |
+                            'diffie-hellman-group16-sha512' |
+                            'diffie-hellman-group18-sha512' |
+                            'ecdh-sha2-nistp256' |
+                            'ecdh-sha2-nistp384' |
+                            'ecdh-sha2-nistp521'
+                            .
 
--type socket_options()   :: proplists:proplist().
--type internal_options() :: #{option_key() => any()}.
+-type pubkey_alg()       :: 'ecdsa-sha2-nistp256' |
+                            'ecdsa-sha2-nistp384' |
+                            'ecdsa-sha2-nistp521' |
+                            'rsa-sha2-256' |
+                            'rsa-sha2-512' |
+                            'ssh-dss' |
+                            'ssh-rsa'
+                            .
 
--type option_key() :: atom().
+-type cipher_alg()       :: '3des-cbc' |
+                            'AEAD_AES_128_GCM' |
+                            'AEAD_AES_256_GCM' |
+                            'aes128-cbc' |
+                            'aes128-ctr' |
+                            'aes128-gcm@openssh.com' |
+                            'aes192-ctr' |
+                            'aes256-ctr' |
+                            'aes256-gcm@openssh.com'
+                            .
 
+-type mac_alg()          :: 'AEAD_AES_128_GCM' |
+                            'AEAD_AES_256_GCM' |
+                            'hmac-sha1' |
+                            'hmac-sha2-256' |
+                            'hmac-sha2-512'
+                            .
+
+-type compression_alg()  :: 'none' |
+                            'zlib' |
+                            'zlib@openssh.com'
+                            .
+
+-type double_algs(AlgType)  :: list( {client2server,[AlgType]} | {server2client,[AlgType]} )
+                             | [AlgType].
+
+-type modify_algs_list()      :: list( {append,algs_list()} | {prepend,algs_list()} | {rm,algs_list()} ) .
+
+-type internal_options()      :: ssh_options:private_options().
+-type socket_options()        :: [gen_tcp:connect_option() | gen_tcp:listen_option()].
+                              
+-type client_options()        :: [ client_option() ] .
+-type daemon_options()        :: [ daemon_option() ].
+                              
+
+-type common_options() :: [ common_option() ].
+-type common_option() :: 
+        user_dir_common_option()
+      | profile_common_option()
+      | max_idle_time_common_option()
+      | key_cb_common_option()
+      | disconnectfun_common_option()
+      | unexpectedfun_common_option()
+      | ssh_msg_debug_fun_common_option()
+      | rekey_limit_common_option()
+      | id_string_common_option()
+      | preferred_algorithms_common_option()
+      | modify_algorithms_common_option()
+      | auth_methods_common_option()
+      | inet_common_option()
+      | fd_common_option()
+        .
+
+-define(COMMON_OPTION, common_option()).
+
+
+-type user_dir_common_option()      :: {user_dir,  false | string()}.
+-type profile_common_option()       :: {profile,   atom() }.
+-type max_idle_time_common_option() :: {idle_time, timeout()}.
+-type rekey_limit_common_option()   :: {rekey_limit, non_neg_integer() }.
+
+-type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
+-type disconnectfun_common_option()     ::
+        {disconnectfun, fun((Reason::term()) -> void | any()) }.
+-type unexpectedfun_common_option()     ::
+        {unexpectedfun, fun((Message::term(),{Host::term(),Port::term()}) -> report | skip ) }.
+-type ssh_msg_debug_fun_common_option() ::
+        {ssh_msg_debug_fun, fun((ssh:connection_ref(),AlwaysDisplay::boolean(),Msg::binary(),LanguageTag::binary()) -> any()) } .
+
+-type id_string_common_option()           :: {id_string,  string() | random | {random,Nmin::pos_integer(),Nmax::pos_integer()} }.
+-type preferred_algorithms_common_option():: {preferred_algorithms, algs_list()}.
+-type modify_algorithms_common_option()   :: {modify_algorithms,    modify_algs_list()}.
+-type auth_methods_common_option()        :: {auth_methods,         string() }.
+
+-type inet_common_option() :: {inet, inet | inet6} .
+-type fd_common_option() :: {fd, gen_tcp:socket()} .
+
+
+-type opaque_common_options() ::
+        {transport, {atom(),atom(),atom()} }
+      | {vsn, {non_neg_integer(),non_neg_integer()} }
+      | {tstflg, list(term())}
+      | {user_dir_fun, fun()}
+      | {max_random_length_padding, non_neg_integer()} .
+
+
+
+-type client_option()         ::
+        pref_public_key_algs_client_option()
+      | pubkey_passphrase_client_options()
+      | host_accepting_client_options()
+      | authentication_client_options()
+      | diffie_hellman_group_exchange_client_option()
+      | connect_timeout_client_option()
+      | recv_ext_info_client_option()
+      | opaque_client_options()
+      | gen_tcp:connect_option()
+      | ?COMMON_OPTION .
+
+-type opaque_client_options() ::
+        {keyboard_interact_fun, fun((term(),term(),term()) -> term())}
+        | opaque_common_options().
+
+-type pref_public_key_algs_client_option() :: {pref_public_key_algs, [pubkey_alg()] } .
+
+-type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
+                                            | {rsa_pass_phrase,      string()}
+                                            | {ecdsa_pass_phrase,    string()} .
+
+-type host_accepting_client_options() ::
+        {silently_accept_hosts, accept_hosts()}
+      | {user_interaction,     boolean()}
+      | {save_accepted_host,   boolean()}
+      | {quiet_mode,           boolean()} .
+
+-type accept_hosts() :: boolean() 
+                      | accept_callback()
+                      | {HashAlgoSpec::fp_digest_alg(), accept_callback()}.
+
+-type fp_digest_alg() :: 'md5' |
+                        'sha' |
+                        'sha224' |
+                        'sha256' |
+                        'sha384' |
+                        'sha512'
+                        .
+
+-type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) .
+-type fingerprint() :: string() | [string()].
+
+-type authentication_client_options() ::
+        {user,                 string()}
+      | {password,             string()} .
+
+-type diffie_hellman_group_exchange_client_option() ::
+        {dh_gex_limits,        {Min::pos_integer(), I::pos_integer(), Max::pos_integer()} } .
+
+-type connect_timeout_client_option() :: {connect_timeout, timeout()} .
+
+-type recv_ext_info_client_option() :: {recv_ext_info, boolean()} .
+
+
+
+-type daemon_option()         ::
+        subsystem_daemon_option()
+      | shell_daemon_option()
+      | exec_daemon_option()
+      | ssh_cli_daemon_option()
+      | authentication_daemon_options()
+      | diffie_hellman_group_exchange_daemon_option()
+      | negotiation_timeout_daemon_option()
+      | hardening_daemon_options()
+      | callbacks_daemon_options()
+      | send_ext_info_daemon_option()
+      | opaque_daemon_options()
+      | gen_tcp:listen_option()
+      | ?COMMON_OPTION .
+
+-type subsystem_daemon_option() :: {subsystems, subsystem_spec()}.
+
+-type shell_daemon_option()     :: {shell, mod_fun_args() | 'shell_fun/1'()  | 'shell_fun/2'() }.
+-type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
+-type 'shell_fun/2'() :: fun((User::string(),  PeerAddr::inet:ip_address()) -> pid()).
+
+-type exec_daemon_option()      :: {exec, 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'() }.
+
+-type 'exec_fun/1'() :: fun((Cmd::string()) -> exec_result()) .
+-type 'exec_fun/2'() :: fun((Cmd::string(), User::string()) -> exec_result()) .
+-type 'exec_fun/3'() :: fun((Cmd::string(), User::string(), ClientAddr::ip_port()) -> exec_result()) .
+-type exec_result()  :: {ok,Result::term()} | {error,Reason::term()} .
+
+-type ssh_cli_daemon_option()   :: {ssh_cli, mod_args() | no_cli }.
+
+-type send_ext_info_daemon_option() :: {send_ext_info, boolean()} .
+
+-type authentication_daemon_options() ::
+        {system_dir, string()}
+      | {auth_method_kb_interactive_data, prompt_texts() }
+      | {user_passwords, [{UserName::string(),Pwd::string()}]}
+      | {password, string()}
+      | {pwdfun, pwdfun_2() | pwdfun_4()} .
+
+-type prompt_texts() ::
+        kb_int_tuple()
+      | kb_int_fun_3()
+      .
+
+-type kb_int_fun_3() :: fun((Peer::ip_port(), User::string(), Service::string()) -> kb_int_tuple()).
+-type kb_int_tuple() :: {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}.
+
+-type pwdfun_2() :: fun((User::string(), Password::string()) -> boolean()) .
+-type pwdfun_4() :: fun((User::string(),
+                         Password::string(),
+                         PeerAddress::ip_port(),
+                         State::any()) ->
+                               boolean() | disconnect | {boolean(),NewState::any()}
+                       ) .
+
+-type diffie_hellman_group_exchange_daemon_option() ::
+        {dh_gex_groups, [explicit_group()] | explicit_group_file() | ssh_moduli_file()}
+      | {dh_gex_limits, {Min::pos_integer(), Max::pos_integer()} } .
+
+-type explicit_group() :: {Size::pos_integer(),G::pos_integer(),P::pos_integer()} .
+-type explicit_group_file() :: {file,string()} .
+-type ssh_moduli_file() :: {ssh_moduli_file,string()}.
+
+-type negotiation_timeout_daemon_option() :: {negotiation_timeout, timeout()} .
+
+-type hardening_daemon_options() ::
+        {max_sessions, pos_integer()}
+      | {max_channels, pos_integer()}
+      | {parallel_login, boolean()}
+      | {minimal_remote_max_packet_size, pos_integer()}.
+
+-type callbacks_daemon_options() ::
+        {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
+      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
+
+-type opaque_daemon_options()  ::
+        {infofun, fun()}
+      | opaque_common_options().
+
+-type ip_port() :: {inet:ip_address(), inet:port_number()} .
+
+-type mod_args() :: {Module::atom(), Args::list()} .
+-type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
 
 
 %% Records
@@ -134,8 +366,7 @@
 	{
 	  role :: client | role(),
 	  peer :: undefined | 
-                  {inet:hostname(),
-                   {inet:ip_address(),inet:port_number()}},         %% string version of peer address 
+                  {inet:hostname(),ip_port()},         %% string version of peer address 
 
           local,        %% Local sockname. Need this AFTER a socket is closed by i.e. a crash
 

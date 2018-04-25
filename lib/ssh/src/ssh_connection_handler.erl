@@ -60,6 +60,9 @@
 	 get_print_info/1
 	]).
 
+-type connection_ref() :: ssh:connection_ref().
+-type channel_id()     :: ssh:channel_id().
+
 %%% Behaviour callbacks
 -export([init/1, callback_mode/0, handle_event/4, terminate/3,
 	 format_status/2, code_change/4]).
@@ -88,8 +91,8 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec start_link(role(),
-		 inet:socket(),
-                 ssh_options:options()
+		 gen_tcp:socket(),
+                 internal_options()
 		) -> {ok, pid()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_link(Role, Socket, Options) ->
@@ -118,8 +121,8 @@ stop(ConnectionHandler)->
 
 %%--------------------------------------------------------------------
 -spec start_connection(role(),
-		       inet:socket(),
-                       ssh_options:options(),
+		       gen_tcp:socket(),
+                       internal_options(),
 		       timeout()
 		      ) -> {ok, connection_ref()} | {error, term()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -359,7 +362,7 @@ alg(ConnectionHandler) ->
                                                  | undefined,	% ex: tcp_closed
 	  ssh_params                            :: #ssh{}
                                                  | undefined,
-	  socket                                :: inet:socket()
+	  socket                                :: gen_tcp:socket()
                                                  | undefined,
 	  decrypted_data_buffer     = <<>>      :: binary()
                                                  | undefined,
@@ -370,7 +373,6 @@ alg(ConnectionHandler) ->
 						 | undefined,
 	  last_size_rekey           = 0         :: non_neg_integer(),
 	  event_queue               = []        :: list(),
-%	  opts                                  :: ssh_options:options(),
 	  inet_initial_recbuf_size              :: pos_integer()
 						 | undefined
 	 }).
@@ -380,8 +382,8 @@ alg(ConnectionHandler) ->
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec init_connection_handler(role(),
-			      inet:socket(),
-			      ssh_options:options()
+			      gen_tcp:socket(),
+			      internal_options()
 			     ) -> no_return().
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 init_connection_handler(Role, Socket, Opts) ->

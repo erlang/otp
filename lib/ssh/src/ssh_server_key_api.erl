@@ -23,16 +23,18 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--export_type([algorithm/0]).
+-export_type([daemon_key_cb_options/0]).
 
--type algorithm()  :: ssh_client_key_api:algorithm().
+-type daemon_key_cb_options() :: [{key_cb_private,term()} | ssh:daemon_option()].
 
 
--callback host_key(Algorithm :: algorithm(),
-		   DaemonOptions :: proplists:proplist()) ->
+-callback host_key(Algorithm :: ssh:pubkey_alg(),
+		   DaemonOptions :: daemon_key_cb_options()
+                  ) ->
     {ok, PrivateKey :: public_key:private_key()} | {error, term()}.
 
 -callback is_auth_key(PublicKey :: public_key:public_key(),
 		      User :: string(),
-		      DaemonOptions :: proplists:proplist()) ->
+		      DaemonOptions :: daemon_key_cb_options()
+                     ) ->
     boolean().

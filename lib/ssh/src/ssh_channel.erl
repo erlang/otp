@@ -50,11 +50,11 @@
     {ok, NewState :: term()} | {error, Reason :: term()}.
 
 -callback handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
+    {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
 
--callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()}, 
+-callback handle_ssh_msg({ssh_cm, ConnectionRef::ssh:connection_ref(), SshMsg::term()}, 
  			 State::term()) -> {ok, State::term()} | 
- 					   {stop, ChannelId::integer(), 
+ 					   {stop, ChannelId::ssh:channel_id(), 
  					    State::term()}.
 -behaviour(gen_server).
 
