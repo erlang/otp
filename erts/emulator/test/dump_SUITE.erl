@@ -96,12 +96,12 @@ get_dump_when_done(Dump) ->
         {ok, #file_info{ size = Sz }} ->
             get_dump_when_done(Dump, Sz);
         {error, enoent} ->
-            timer:sleep(100),
+            timer:sleep(1000),
             get_dump_when_done(Dump)
     end.
 
 get_dump_when_done(Dump, Sz) ->
-    timer:sleep(100),
+    timer:sleep(1000),
     case file:read_file_info(Dump) of
         {ok, #file_info{ size = Sz }} ->
             file:read_file(Dump);
