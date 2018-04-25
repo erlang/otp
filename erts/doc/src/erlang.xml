@@ -2965,6 +2965,25 @@ os_prompt%</pre>
     </func>
 
     <func>
+      <name name="map_get" arity="2" />
+      <fsummary>Extract a value from a map</fsummary>
+      <desc>
+        <p>Returns value <c><anno>Value</anno></c> associated with
+          <c><anno>Key</anno></c> if <c><anno>Map</anno></c> contains
+          <c><anno>Key</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map, or with a <c>{badkey,Key}</c>
+          exception if no value is associated with <c><anno>Key</anno></c>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Key = 1337,
+  Map = #{42 => value_two,1337 => "value one","a" => 1},
+  map_get(Key,Map).
+"value one"</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="map_size" arity="1"/>
       <fsummary>Return the size of a map.</fsummary>
       <desc>
@@ -10999,4 +11018,3 @@ true</pre>
     </func>
   </funcs>
 </erlref>
-

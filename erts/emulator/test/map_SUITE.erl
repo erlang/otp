@@ -36,6 +36,7 @@
          t_map_equal/1,
          t_map_compare/1,
          t_map_size/1,
+         t_map_get/1,
          t_is_map/1,
 
          %% Specific Map BIFs
@@ -124,7 +125,7 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           %% erlang
           t_erlang_hash, t_map_encode_decode,
           t_gc_rare_map_overflow,
-          t_map_size, t_is_map,
+          t_map_size, t_map_get, t_is_map,
 
           %% non specific BIF related
           t_bif_build_and_check,
@@ -678,6 +679,48 @@ t_map_size(Config) when is_list(Config) ->
                     {'EXIT',{{badmap,T},_}} =
                       (catch map_size(T))
               end),
+    ok.
+
+t_map_get(Config) when is_list(Config) ->
+    %% small map
+    1    = map_get(a, id(#{a=>1})),
+    2    = map_get(b, id(#{a=>1, b=>2})),
+    "hi" = map_get("hello", id(#{a=>1, "hello"=>"hi"})),
+    "tuple hi" = map_get({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0    = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    "v4" = map_get(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    1    = map_get(a, M1),
+    2    = map_get(b, M1),
+    "hi" = map_get("hello", M1),
+    "tuple hi" = map_get({1,1.0}, M1),
+    "v3" = map_get(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,map_get,_,_}|_]}} =
+			  (catch map_get(a, T))
+	      end),
+
+    {'EXIT',{{badkey,{1,1}},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get({1,1}, id(#{{1,1.0}=>"tuple"}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} = (catch map_get(a, id(#{}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get(a, id(#{b=>1, c=>2}))),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if map_get(a, M2) =:= 1 -> true; true -> false end,
+    false = if map_get(x, M2) =:= 1 -> true; true -> false end,
+    do_badmap(fun
+        (T) when map_get(T, x) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
     ok.
 
 build_and_check_size([K|Ks],N,M0) ->

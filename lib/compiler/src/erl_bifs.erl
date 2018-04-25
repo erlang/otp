@@ -110,6 +110,7 @@ is_pure(erlang, list_to_pid, 1) -> true;
 is_pure(erlang, list_to_tuple, 1) -> true;
 is_pure(erlang, max, 2) -> true;
 is_pure(erlang, make_fun, 3) -> true;
+is_pure(erlang, map_get, 2) -> true;
 is_pure(erlang, min, 2) -> true;
 is_pure(erlang, phash, 2) -> false;
 is_pure(erlang, pid_to_list, 1) -> true;

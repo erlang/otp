@@ -588,6 +588,7 @@ is_gc_bif(node, 1) -> false;
 is_gc_bif(element, 2) -> false;
 is_gc_bif(get, 1) -> false;
 is_gc_bif(tuple_size, 1) -> false;
+is_gc_bif(map_get, 2) -> false;
 is_gc_bif(Bif, Arity) ->
     not (erl_internal:bool_op(Bif, Arity) orelse
 	 erl_internal:new_type_test(Bif, Arity) orelse

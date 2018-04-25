@@ -217,7 +217,7 @@
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
--compile({no_auto_import,[min/2,max/2]}).
+-compile({no_auto_import,[min/2,max/2,map_get/2]}).
 
 -ifdef(DO_ERL_TYPES_TEST).
 -export([test/0]).

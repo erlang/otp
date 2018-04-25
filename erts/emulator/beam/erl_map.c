@@ -44,6 +44,7 @@
  * DONE:
  * - erlang:is_map/1
  * - erlang:map_size/1
+ * - erlang:map_get/2
  *
  * - maps:find/2
  * - maps:from_list/1
@@ -202,7 +203,7 @@ BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADMAP);
 }
 
-/* maps:get/2
+/* maps:get/2 and erlang:map_get/2
  * return value if key *matches* a key in the map
  * exception badkey if none matches
  */
@@ -221,6 +222,10 @@ BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
     }
     BIF_P->fvalue = BIF_ARG_2;
     BIF_ERROR(BIF_P, BADMAP);
+}
+
+BIF_RETTYPE map_get_2(BIF_ALIST_2) {
+    BIF_RET(maps_get_2(BIF_CALL_ARGS));
 }
 
 /* maps:from_list/1

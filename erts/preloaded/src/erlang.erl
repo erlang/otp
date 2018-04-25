@@ -141,7 +141,7 @@
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
--export([map_size/1, match_spec_test/3, md5/1, md5_final/1]).
+-export([map_size/1, map_get/2, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
 -export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2]).
 -export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
@@ -1228,6 +1228,14 @@ make_ref() ->
 -spec map_size(Map) -> non_neg_integer() when
       Map :: map().
 map_size(_Map) ->
+    erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:map_get/2
+-spec map_get(Key, Map) -> Value when
+      Map :: map(),
+      Key :: any(),
+      Value :: any().
+map_get(_Key, _Map) ->
     erlang:nif_error(undefined).
 
 %% match_spec_test/3
@@ -3938,4 +3946,3 @@ gc_info(Ref, N, {OrigColls,OrigRecl}) ->
 	{Ref, {_,Colls, Recl}} -> 
 	    gc_info(Ref, N-1, {Colls+OrigColls,Recl+OrigRecl})
     end.
-

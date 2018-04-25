@@ -695,3 +695,4 @@ bif erts_internal:map_next/3
 bif ets:whereis/1
 bif erts_internal:gather_alloc_histograms/1
 bif erts_internal:gather_carrier_info/1
+ubif erlang:map_get/2

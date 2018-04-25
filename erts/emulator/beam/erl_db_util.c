@@ -638,6 +638,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+        am_map_get,
+        &map_get_2,
+        2,
+        DBIF_ALL
+    },
+    {
 	am_bit_size,
 	&bit_size_1,
 	1,
@@ -5737,5 +5743,3 @@ void db_match_dis(Binary *bp)
 }
 
 #endif /* DMC_DEBUG */
-
-
