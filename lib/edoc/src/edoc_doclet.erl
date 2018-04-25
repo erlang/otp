@@ -255,7 +255,7 @@ modules_frame(Dir, Ms, Title, CSS) ->
 	    ?NL,
 	    {table, [{width, "100%"}, {border, 0},
 		     {summary, "list of modules"}],
-	     lists:concat(
+	     lists:append(
 	       [[?NL,
 		 {tr, [{td, [],
 			[{a, [{href, module_ref(M)},
@@ -448,7 +448,7 @@ application_frame(Dir, Apps, Title, CSS) ->
 	    {h2, ["Applications"]},
 	    ?NL,
 	    {table, [{width, "100%"}, {border, 0}],
-	     lists:concat(
+	     lists:append(
 	       [[{tr, [{td, [], [{a, [{href,app_ref(Path,App)},
 				      {target,"_top"}],
 				  [App]}]}]}]
