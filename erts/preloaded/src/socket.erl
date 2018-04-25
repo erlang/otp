@@ -105,11 +105,12 @@
 
 %% otp    - The option is internal to our (OTP) imeplementation.
 %% socket - The socket layer (SOL_SOCKET).
-%% ip     - The ip layer (SOL_IP).
+%% ip     - The IP layer (SOL_IP).
+%% ipv6   - The IPv6 layer (SOL_IPV6).
 %% tcp    - The TCP (Transport Control Protocol) layer (IPPROTO_TCP).
 %% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
 %% Int    - Raw level, sent down and used "as is".
--type option_level() :: otp | socket | ip | tcp | udp | non_neg_integer().
+-type option_level() :: otp | socket | ip | ipv6 | tcp | udp | non_neg_integer().
 
 -type socket_info() :: map().
 -record(socket, {info :: socket_info(),
@@ -212,8 +213,9 @@
 -define(SOCKET_SETOPT_LEVEL_OTP,       0).
 -define(SOCKET_SETOPT_LEVEL_SOCKET,    1).
 -define(SOCKET_SETOPT_LEVEL_IP,        2).
--define(SOCKET_SETOPT_LEVEL_TCP,       3).
--define(SOCKET_SETOPT_LEVEL_UDP,       4).
+-define(SOCKET_SETOPT_LEVEL_IPV6,      3).
+-define(SOCKET_SETOPT_LEVEL_TCP,       4).
+-define(SOCKET_SETOPT_LEVEL_UDP,       5).
 
 -define(SOCKET_SETOPT_KEY_DEBUG,       0).
 
@@ -485,7 +487,11 @@ do_accept(LSockRef, SI, Timeout) ->
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, LSockRef, AccRef, ready_input} ->
-                    do_accept(LSockRef, SI, next_timeout(TS, Timeout))
+                    do_accept(LSockRef, SI, next_timeout(TS, Timeout));
+
+                {nif_abort, AccRef, Reason} ->
+                    {error, Reason}
+
             after NewTimeout ->
                     nif_cancel(LSockRef, accept, AccRef),
                     flush_select_msgs(LSockRef, AccRef),
@@ -539,7 +545,11 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                             next_timeout(TS, Timeout));
                 {select, SockRef, SendRef, ready_output} ->
                     do_send(SockRef, Data, EFlags,
-                            next_timeout(TS, Timeout))
+                            next_timeout(TS, Timeout));
+
+                {nif_abort, SendRef, Reason} ->
+                    {error, Reason}
+
             after NewTimeout ->
                     nif_cancel(SockRef, send, SendRef),
                     flush_select_msgs(SockRef, SendRef),
@@ -549,7 +559,11 @@ do_send(SockRef, Data, EFlags, Timeout) ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
                     do_send(SockRef, Data, EFlags,
-                            next_timeout(TS, Timeout))
+                            next_timeout(TS, Timeout));
+
+                {nif_abort, SendRef, Reason} ->
+                    {error, Reason}
+
             after Timeout ->
                     nif_cancel(SockRef, send, SendRef),
                     flush_select_msgs(SockRef, SendRef),
@@ -608,7 +622,11 @@ do_sendto(SockRef, Data, EFlags, DestAddr, DestPort, Timeout) ->
                               next_timeout(TS, Timeout));
                 {select, SockRef, SendRef, ready_output} ->
                     do_sendto(SockRef, Data, EFlags, DestAddr, DestPort,
-                              next_timeout(TS, Timeout))
+                              next_timeout(TS, Timeout));
+
+                {nif_abort, SendRef, Reason} ->
+                    {error, Reason}
+
             after Timeout ->
                     nif_cancel(SockRef, sendto, SendRef),
                     flush_select_msgs(SockRef, SendRef),
@@ -789,7 +807,12 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     do_recv(SockRef, RecvRef,
                             Length-size(Bin), EFlags,
                             Bin,
-                            next_timeout(TS, Timeout))
+                            next_timeout(TS, Timeout));
+
+                {nif_abort, RecvRef, Reason} ->
+                    {error, Reason}
+
+
             after NewTimeout ->
                     nif_cancel(SockRef, recv, RecvRef),
                     flush_select_msgs(SockRef, RecvRef),
@@ -804,7 +827,12 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     do_recv(SockRef, RecvRef,
                             Length-size(Bin), EFlags,
                             <<Acc/binary, Bin/binary>>,
-                            next_timeout(TS, Timeout))
+                            next_timeout(TS, Timeout));
+
+                {nif_abort, RecvRef, Reason} ->
+                    {error, Reason}
+
+
             after NewTimeout ->
                     nif_cancel(SockRef, recv, RecvRef),
                     flush_select_msgs(SockRef, RecvRef),
@@ -824,7 +852,11 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     do_recv(SockRef, RecvRef,
                             Length, EFlags,
                             Acc,
-                            next_timeout(TS, Timeout))
+                            next_timeout(TS, Timeout));
+
+                {nif_abort, RecvRef, Reason} ->
+                    {error, Reason}
+
             after NewTimeout ->
                     nif_cancel(SockRef, recv, RecvRef),
                     flush_select_msgs(SockRef, RecvRef),
@@ -913,7 +945,11 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
             receive
                 {select, SockRef, RecvRef, ready_input} ->
                     do_recvfrom(SockRef, BufSz, EFlags,
-                                next_timeout(TS, Timeout))
+                                next_timeout(TS, Timeout));
+
+                {nif_abort, RecvRef, Reason} ->
+                    {error, Reason}
+
             after NewTimeout ->
                     nif_cancel(SockRef, recvfrom, RecvRef),
                     flush_select_msgs(SockRef, RecvRef),
@@ -1141,6 +1177,8 @@ enc_setopt_level(socket) ->
     {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_SOCKET};
 enc_setopt_level(ip) ->
     {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_IP};
+enc_setopt_level(ipv6) ->
+    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_IPV6};
 enc_setopt_level(tcp) ->
     {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_TCP};
 enc_setopt_level(udp) ->
