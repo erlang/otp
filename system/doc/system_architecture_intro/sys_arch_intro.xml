@@ -98,20 +98,6 @@
           </list>
         </item>
         <item>
-          <p>CORBA services and IDL compiler.</p>
-          <list type="bulleted">
-            <item><em>cosEvent</em> Orber OMG Event Service.</item>
-            <item><em>cosNotification</em> Orber OMG Notification 
-             Service.</item>
-            <item><em>cosTime</em> Orber OMG Timer and TimerEvent 
-             Services.</item>
-            <item><em>cosTransactions</em> Orber OMG Transaction 
-             Service.</item>
-            <item><em>IC</em> IDL compiler</item>
-            <item><em>Orber</em> A CORBA object request broker.</item>
-          </list>
-        </item>
-        <item>
           <p>Tools.</p>
           <list type="bulleted">
             <item><em>Appmon</em> A utility used to view OTP applications.</item>
