@@ -222,45 +222,57 @@ gen_accept(Driver, Listen) ->
 accept_loop(Driver, Listen, Kernel) ->
     case Driver:accept(Listen) of
         {ok, Socket} ->
-            {Opts,CertNodesFun} =
-                setup_verify_client(
-                  Driver, Socket, get_ssl_options(server)),
-            wait_for_code_server(),
-            case
-                ssl:ssl_accept(
-                  Socket,
-                  trace([{active, false},{packet, 4}|Opts]),
-                  net_kernel:connecttime())
-            of
-                {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
-                    trace(
-                      Kernel !
-                          {accept, self(), DistCtrl,
-                           Driver:family(), tls}),
-                    receive
-                        {Kernel, controller, Pid} ->
-                            ok = ssl:controlling_process(SslSocket, Pid),
-                            trace(
-                              Pid ! {self(), controller, CertNodesFun});
-                        {Kernel, unsupported_protocol} ->
-                            exit(trace(unsupported_protocol))
-                    end,
-                    accept_loop(Driver, Listen, Kernel);
-		{error, {options, _}} = Error ->
-		    %% Bad options: that's probably our fault.
-                    %% Let's log that.
+	    case check_ip(Driver, Socket) of
+                true ->
+                    accept_loop(Driver, Listen, Kernel, Socket);
+                {false,IP} ->
 		    error_logger:error_msg(
-                      "Cannot accept TLS distribution connection: ~s~n",
-                      [ssl:format_error(Error)]),
-                    gen_tcp:close(Socket),
-                    exit(trace(Error));
-		Other ->
-                    gen_tcp:close(Socket),
-                    exit(trace(Other))
+                      "** Connection attempt from "
+                      "disallowed IP ~w ** ~n", [IP]),
+		    ?shutdown2(no_node, trace({disallowed, IP}))
 	    end;
 	Error ->
 	    exit(trace(Error))
     end.
+
+accept_loop(Driver, Listen, Kernel, Socket) ->
+    {Opts,CertNodesFun} =
+        setup_verify_client(
+          Driver, Socket, get_ssl_options(server)),
+    wait_for_code_server(),
+    case
+        ssl:ssl_accept(
+          Socket,
+          trace([{active, false},{packet, 4}|Opts]),
+          net_kernel:connecttime())
+    of
+        {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+            trace(
+              Kernel !
+                  {accept, self(), DistCtrl,
+                   Driver:family(), tls}),
+            receive
+                {Kernel, controller, Pid} ->
+                    ok = ssl:controlling_process(SslSocket, Pid),
+                    trace(
+                      Pid ! {self(), controller, CertNodesFun});
+                {Kernel, unsupported_protocol} ->
+                    exit(trace(unsupported_protocol))
+            end,
+            accept_loop(Driver, Listen, Kernel);
+        {error, {options, _}} = Error ->
+            %% Bad options: that's probably our fault.
+            %% Let's log that.
+            error_logger:error_msg(
+              "Cannot accept TLS distribution connection: ~s~n",
+              [ssl:format_error(Error)]),
+            gen_tcp:close(Socket),
+            exit(trace(Error));
+        Other ->
+            gen_tcp:close(Socket),
+            exit(trace(Other))
+    end.
+
 
 %% {verify_fun,{fun ?MODULE:verify_client/3,_}} is used
 %% as a configuration marker that verify_client/3 shall be used.
@@ -326,6 +338,8 @@ verify_client(PeerCert, valid_peer, {CertNodesFun,Driver,PeerIP} = S) ->
         [] ->
             {fail,cert_missing_node_name};
         CertNodes ->
+            %% Check if the IP address of one of the nodes
+            %% in the peer certificate has the peer's IP address
             case filter_nodes_by_ip(CertNodes, Driver, PeerIP) of
                 [] ->
                     {fail,cert_no_host_with_peer_ip};
@@ -334,6 +348,8 @@ verify_client(PeerCert, valid_peer, {CertNodesFun,Driver,PeerIP} = S) ->
             end
     end.
 
+%% Filter out the nodes that has got the given IP address
+%%
 filter_nodes_by_ip(Nodes, Driver, IP) ->
     [Node ||
         Node <- Nodes,
@@ -405,30 +421,25 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     receive
 	{AcceptPid, controller, CertNodesFun} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case check_ip(Driver, SslSocket) of
-		true ->
-                    NewAllowed =
-                        allowed_nodes(
-                          Driver, CertNodesFun, SslSocket, Allowed),
-                    HSData0 = hs_data_common(SslSocket),
-                    HSData =
-                        HSData0#hs_data{
-                          kernel_pid = Kernel,
-                          this_node = MyNode,
-                          socket = DistCtrl,
-                          timer = Timer,
-                          this_flags = 0,
-                          allowed = NewAllowed},
-                    link(DistCtrl),
-		    dist_util:handshake_other_started(trace(HSData));
-		{false,IP} ->
-		    error_logger:error_msg(
-                      "** Connection attempt from "
-                      "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown2(no_node, trace({disallowed, IP}))
-	    end
+            NewAllowed =
+                allowed_nodes(
+                  Driver, CertNodesFun, SslSocket, Allowed),
+            HSData0 = hs_data_common(SslSocket),
+            HSData =
+                HSData0#hs_data{
+                  kernel_pid = Kernel,
+                  this_node = MyNode,
+                  socket = DistCtrl,
+                  timer = Timer,
+                  this_flags = 0,
+                  allowed = NewAllowed},
+            link(DistCtrl),
+            dist_util:handshake_other_started(trace(HSData))
     end.
 
+%% Return a list of allowed nodes according to
+%% the given Allowed list that matches the peer certificate
+%%
 allowed_nodes(_Driver, undefined, _SslSocket, Allowed) ->
     Allowed;
 allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
@@ -444,6 +455,10 @@ allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
                         [] ->
                             ?shutdown(cert_missing_node_name);
                         CertNodes ->
+                            %% Filter out all nodes in the
+                            %% allowed list that is in peer
+                            %% certificate and that has got
+                            %% the same IP address as the peer
                             allowed(
                               filter_nodes_by_ip(
                                 CertNodes, Driver, PeerIP),
@@ -457,7 +472,8 @@ allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
     end.
 
 allowed(CertNodes, []) ->
-    %% All allowed -> allow only certificate nodes
+    %% Empty allowed list means all allowed
+    %% -> allow only certificate nodes
     CertNodes;
 allowed(CertNodes, Allowed) ->
     %% Find the intersection of the allowed list and certificate nodes
@@ -602,6 +618,8 @@ verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
         [] ->
             {fail,cert_missing_node_name};
         CertNodes ->
+            %% Check that the node we are connecting to
+            %% is in the peer certificate
             case dist_util:is_allowed(Node, CertNodes) of
                 true ->
                     {valid,S};
@@ -615,15 +633,15 @@ verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
 %% Do only accept new connection attempts from nodes at our
 %% own LAN, if the check_ip environment parameter is true.
 %% ------------------------------------------------------------
-check_ip(Driver, SslSocket) ->
+check_ip(Driver, Socket) ->
     case application:get_env(check_ip) of
 	{ok, true} ->
-	    case get_ifs(SslSocket) of
+	    case get_ifs(Socket) of
 		{ok, IFs, IP} ->
 		    check_ip(Driver, IFs, IP);
 		Other ->
 		    ?shutdown2(
-                       no_node, trace({check_ip_failed, SslSocket, Other}))
+                       no_node, trace({check_ip_failed, Socket, Other}))
 	    end;
 	_ ->
 	    true
@@ -637,7 +655,7 @@ check_ip(Driver, [{OwnIP, _, Netmask}|IFs], PeerIP) ->
 check_ip(_Driver, [], PeerIP) ->
     {false, PeerIP}.
 
-get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
+get_ifs(Socket) ->
     case inet:peername(Socket) of
 	{ok, {IP, _}} ->
             %% XXX this is seriously broken for IPv6

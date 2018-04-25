@@ -246,7 +246,7 @@ setup(Config) ->
     run_nodepair_test(fun setup/5, Config).
 
 setup(A, B, Prefix, HA, HB) ->
-    Rounds = 10,
+    Rounds = 50,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     {SetupTime, CycleTime} =
@@ -276,10 +276,7 @@ setup_loop(A, B, T, N) ->
     receive
         {'DOWN',Mref,process,_,_} ->
             [] = erlang:nodes(),
-            receive
-            after 500 ->
-                    setup_loop(A, B, Time + T, N - 1)
-            end
+            setup_loop(A, B, Time + T, N - 1)
     end.
 
 
