@@ -1227,7 +1227,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% Now try one more than alowed:
-	    ct:log("Info Report might come here...",[]),
+	    ct:pal("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->
@@ -1235,8 +1235,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    {fail,"Too many connections accepted"}
 	    catch
 		error:{badmatch,{error,"Connection closed"}} ->
-		    %% Step 2 ok: could not set up max_sessions+1 connections
-		    %% This is expected
+                    ct:log("Step 2 ok: could not set up too many connections. Good.",[]),
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
 		    try_to_connect(Connect, Host, Port, Pid)
@@ -1249,16 +1248,15 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 
 
 try_to_connect(Connect, Host, Port, Pid) ->
-    {ok,Tref} = timer:send_after(3000, timeout_no_connection), % give the supervisors some time...
+    {ok,Tref} = timer:send_after(30000, timeout_no_connection), % give the supervisors some time...
     try_to_connect(Connect, Host, Port, Pid, Tref, 1). % will take max 3300 ms after 11 tries
 
 try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
      try Connect(Host,Port)
      of
 	 _ConnectionRef1 ->
-	     %% Step 3 ok: could set up one more connection after killing one
-	     %% Thats good.
 	     timer:cancel(Tref),
+             ct:log("Step 3 ok: could set up one more connection after killing one. Thats good.",[]),
 	     ssh:stop_daemon(Pid),
 	     receive % flush. 
 		 timeout_no_connection -> ok
