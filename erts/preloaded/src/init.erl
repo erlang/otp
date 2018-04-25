@@ -564,8 +564,11 @@ do_stop({stop,Status},State) ->
 
 clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
-    shutdown_pids(Heart,BootPid,State),
-    unload(Heart).
+    Logger = get_logger(State#state.kernel),
+    shutdown_pids(Heart,Logger,BootPid,State),
+    unload(Heart),
+    kill_em([Logger]),
+    do_unload([logger_server]).
 
 flush() ->
     receive
@@ -585,19 +588,26 @@ stop_heart(State) ->
 	    shutdown_kernel_pid(Pid, BootPid, self(), State) 
     end.
 
-shutdown_pids(Heart,BootPid,State) ->
+shutdown_pids(Heart,Logger,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
-    kill_all_pids(Heart), % Even the shutdown timer.
-    kill_all_ports(Heart),
+    kill_all_pids(Heart,Logger), % Even the shutdown timer.
+    kill_all_ports(Heart), % Logger has no ports
     flush_timout(Timer).
 
-get_heart([{heart,Pid}|_Kernel]) -> Pid;
-get_heart([_|Kernel])           -> get_heart(Kernel);
-get_heart(_)                    -> false.
+get_heart(Kernel) ->
+    get_kernelpid(heart,Kernel).
+
+get_logger(Kernel) ->
+    get_kernelpid(logger,Kernel).
+
+get_kernelpid(Name,[{Name,Pid}|_Kernel]) -> Pid;
+get_kernelpid(Name,[_|Kernel])           -> get_kernelpid(Name,Kernel);
+get_kernelpid(_,_)                    -> false.
 
 
-shutdown([{heart,_Pid}|Kernel],BootPid,Timer,State) ->
+shutdown([{Except,_Pid}|Kernel],BootPid,Timer,State)
+  when Except==heart; Except==logger ->
     shutdown(Kernel, BootPid, Timer, State);
 shutdown([{_Name,Pid}|Kernel],BootPid,Timer,State) ->
     shutdown_kernel_pid(Pid, BootPid, Timer, State),
@@ -649,24 +659,25 @@ resend(_) ->
 
 %%
 %% Kill all existing pids in the system (except init and heart).
-kill_all_pids(Heart) ->
-    case get_pids(Heart) of
+kill_all_pids(Heart,Logger) ->
+    case get_pids(Heart,Logger) of
 	[] ->
 	    ok;
 	Pids ->
 	    kill_em(Pids),
-	    kill_all_pids(Heart)  % Continue until all are really killed.
+	    kill_all_pids(Heart,Logger)  % Continue until all are really killed.
     end.
     
 %% All except system processes.
-get_pids(Heart) ->
+get_pids(Heart,Logger) ->
     Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
-    delete(Heart,self(),Pids).
+    delete(Heart,Logger,self(),Pids).
 
-delete(Heart,Init,[Heart|Pids]) -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Init|Pids])  -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Pid|Pids])   -> [Pid|delete(Heart,Init,Pids)];
-delete(_,_,[])                  -> [].
+delete(Heart,Logger,Init,[Heart|Pids]) -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Logger|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Init|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Pid|Pids])   -> [Pid|delete(Heart,Logger,Init,Pids)];
+delete(_,_,_,[])                  -> [].
     
 kill_em([Pid|Pids]) ->
     exit(Pid,kill),
@@ -696,9 +707,9 @@ kill_all_ports(_,_) ->
     ok.
 
 unload(false) ->
-    do_unload(sub(erlang:pre_loaded(),erlang:loaded()));
+    do_unload(sub([logger_server|erlang:pre_loaded()],erlang:loaded()));
 unload(_) ->
-    do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
+    do_unload(sub([heart,logger_server|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
