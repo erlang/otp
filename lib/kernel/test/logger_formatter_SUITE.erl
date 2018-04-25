@@ -62,6 +62,7 @@ all() ->
      report_cb,
      max_size,
      depth,
+     chars_limit,
      format_mfa,
      format_time,
      level_or_msg_in_meta,
@@ -307,12 +308,19 @@ max_size(_Config) ->
                 []},
                #{},
                #{template=>Template}),
-    "1234567..." =
+    "123456789012..." =
         format(info,{"12345678901234567890",[]},#{},#{template=>Template,
-                                                      max_size=>10}),
+                                                      max_size=>15}),
     "12345678901234567890" =
         format(info,{"12345678901234567890",[]},#{},#{template=>Template,
                                                       max_size=>unlimited}),
+    %% Check that one newline at the end of the line is kept (if it exists)
+    "12345678901...\n" =
+        format(info,{"12345678901234567890\n",[]},#{},#{template=>Template,
+                                                        max_size=>15}),
+    "12345678901...\n" =
+        format(info,{"12345678901234567890",[]},#{},#{template=>[msg,"\n"],
+                                                      max_size=>15}),
     ok.
 max_size(cleanup,_Config) ->
     application:unset_env(kernel,logger_max_size),
@@ -352,6 +360,55 @@ depth(_Config) ->
     ok.
 depth(cleanup,_Config) ->
     application:unset_env(kernel,logger_format_depth),
+    ok.
+
+chars_limit(_Config) ->
+    FA = {"LoL: ~p~nL: ~p~nMap: ~p~n",
+                [lists:duplicate(10,lists:seq(1,100)),
+                 lists:seq(1,100),
+                 maps:from_list(lists:zip(lists:seq(1,100),
+                                          lists:duplicate(100,value)))]},
+    Meta = #{time=>"2018-04-26  9:15:40.449879"},
+    Template = [time," - ", msg, "\n"],
+    FC = #{template=>Template,
+           depth=>unlimited,
+           max_size=>unlimited,
+           chars_limit=>unlimited,
+           single_line=>true},
+    CL1 = 80,
+    String1 = format(info,FA,Meta,FC#{chars_limit=>CL1}),
+    L1 = string:length(String1),
+    ct:log("String1: ~p~nLength1: ~p~n",[lists:flatten(String1),L1]),
+    true = L1 > CL1,
+    true = L1 < CL1 + 10,
+
+    String2 = format(info,FA,Meta,FC#{chars_limit=>CL1,depth=>10}),
+    L2 = string:length(String2),
+    ct:log("String2: ~p~nLength2: ~p~n",[lists:flatten(String2),L2]),
+    String2 = String1,
+
+    CL3 = 200,
+    String3 = format(info,FA,Meta,FC#{chars_limit=>CL3}),
+    L3 = string:length(String3),
+    ct:log("String3: ~p~nLength3: ~p~n",[lists:flatten(String3),L3]),
+    true = L3 > CL3,
+    true = L3 < CL3 + 10,
+
+    String4 = format(info,FA,Meta,FC#{chars_limit=>CL3,depth=>10}),
+    L4 = string:length(String4),
+    ct:log("String4: ~p~nLength4: ~p~n",[lists:flatten(String4),L4]),
+    true = L4 > CL3,
+    true = L4 < CL3 + 10,
+
+    %% Test that max_size truncates the string which is limited by
+    %% depth and chars_limit
+    MS5 = 150,
+    String5 = format(info,FA,Meta,FC#{chars_limit=>CL3,depth=>10,max_size=>MS5}),
+    L5 = string:length(String5),
+    ct:log("String5: ~p~nLength5: ~p~n",[String5,L5]),
+    L5 = MS5,
+    true = lists:prefix(lists:sublist(String5,L5-4),String4),
+
     ok.
 
 format_mfa(_Config) ->
@@ -443,7 +500,7 @@ faulty_config(_Config) ->
 faulty_msg(_Config) ->
     {error,
      function_clause,
-     {logger_formatter,_,[_,_],_}} =
+     {logger_formatter,_,_,_}} =
         ?TRY(logger_formatter:format(#{level=>info,
                                        msg=>term,
                                        meta=>#{time=>timestamp()}},

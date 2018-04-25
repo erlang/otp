@@ -77,13 +77,21 @@
 	  rewritten. The format controls ~p and ~w are replaced with
 	  ~P and ~W, respectively, and the value is used as the depth
 	  parameter. For details, see
-	  <seealso marker="stdlib:io#format-2">io:format/2</seealso>
+	  <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
 	  in STDLIB.</p>
+
+	<p><c>chars_limit</c> is a positive integer representing the
+	  value of the option with the same name to be used when calling
+	  <seealso marker="stdlib:io#format-3">io:format/3</seealso>. This
+	  value limits the total number of characters printed bu the
+	  formatter. Notes that this is a soft limit. For a hard
+	  truncation limit, see option <c>max_size</c>.</p>
 
 	<p><c>max_size</c> is a positive integer representing the
 	  maximum size a string returned from this formatter can
-	  have. If the formatted string is longer, it will be
-	  truncated.</p>
+	  have. If the formatted string is longer, after possibly
+	  being limited by <c>depth</c> and/or <c>chars_limit</c>, it
+	  will be truncated.</p>
 
 	<p><c>utc</c> is a boolean. If set to true, all dates are
 	  displayed in Universal Coordinated Time. Default

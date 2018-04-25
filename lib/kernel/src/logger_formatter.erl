@@ -34,6 +34,7 @@
       Config :: #{single_line=>boolean(),
                   legacy_header=>boolean(),
                   report_cb=>fun((logger:report()) -> {io:format(),[term()]}),
+                  chars_limit=>pos_integer()| unlimited,
                   max_size=>pos_integer() | unlimited,
                   depth=>pos_integer() | unlimited,
                   template=>template(),
@@ -43,19 +44,43 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
   when is_map(Config0) ->
     Config = add_default_config(Config0),
     Meta1 = maybe_add_legacy_header(Level,Meta,Config),
-    MsgStr0 = format_msg(Msg0,Meta1,Config),
-    MsgStr =
-        case maps:get(single_line,Config) of
-            true ->
-                %% Trim leading and trailing whitespaces, and replace
-                %% newlines with ", "
-                re:replace(string:trim(MsgStr0),",?\r?\n\s*",", ",
-                           [{return,list},global]);
-            _false2 ->
-                MsgStr0
+    Template = maps:get(template,Config),
+    {BT,AT0} = lists:splitwith(fun(msg) -> false; (_) -> true end, Template),
+    {DoMsg,AT} =
+        case AT0 of
+            [msg|Rest] -> {true,Rest};
+            _ ->{false,AT0}
         end,
-    String = do_format(Level,MsgStr,Meta1,maps:get(template,Config),Config),
-    truncate(String,maps:get(max_size,Config)).
+    B = do_format(Level,"",Meta1,BT,Config),
+    A = do_format(Level,"",Meta1,AT,Config),
+    MsgStr =
+        if DoMsg ->
+                Config1 =
+                    case maps:get(chars_limit,Config) of
+                        unlimited ->
+                            Config;
+                        Size0 ->
+                            Size =
+                                case Size0 - string:length([B,A]) of
+                                    S when S>=0 -> S;
+                                    _ -> 0
+                                end,
+                            Config#{chars_limit=>Size}
+                    end,
+                MsgStr0 = format_msg(Msg0,Meta1,Config1),
+                case maps:get(single_line,Config) of
+                    true ->
+                        %% Trim leading and trailing whitespaces, and replace
+                        %% newlines with ", "
+                        re:replace(string:trim(MsgStr0),",?\r?\n\s*",", ",
+                                   [{return,list},global]);
+                    _false ->
+                        MsgStr0
+                end;
+           true ->
+                ""
+        end,
+    truncate(B ++ MsgStr ++ A,maps:get(max_size,Config)).
 
 do_format(Level,Msg,Data,[level|Format],Config) ->
     [to_string(level,Level,Config)|do_format(Level,Msg,Data,Format,Config)];
@@ -124,24 +149,25 @@ format_msg({report,Report},Meta,Config) ->
     format_msg({report,Report},
                Meta#{report_cb=>fun logger:format_report/1},
                Config);
-format_msg(Msg,_Meta,Config) ->
-    limit_depth(Msg, maps:get(depth,Config)).
+format_msg(Msg,_Meta,#{depth:=Depth,chars_limit:=CharsLimit}) ->
+    limit_size(Msg, Depth, CharsLimit).
 
-limit_depth(Msg,false) ->
-    Depth = logger:get_format_depth(),
-    limit_depth(Msg,Depth);
-limit_depth({Format,Args},unlimited) ->
-    try io_lib:format(Format,Args)
+limit_size(Msg,Depth,unlimited) ->
+    limit_size(Msg,Depth,[]);
+limit_size(Msg,Depth,CharsLimit) when is_integer(CharsLimit) ->
+    limit_size(Msg,Depth,[{chars_limit,CharsLimit}]);
+limit_size({Format,Args},unlimited,Opts) when is_list(Opts) ->
+    try io_lib:format(Format,Args,Opts)
     catch _:_ ->
-            io_lib:format("FORMAT ERROR: ~tp - ~tp",[Format,Args])
+            io_lib:format("FORMAT ERROR: ~tp - ~tp",[Format,Args],Opts)
     end;
-limit_depth({Format0,Args},Depth) ->
+limit_size({Format0,Args},Depth,Opts) when is_integer(Depth) ->
     try
         Format1 = io_lib:scan_format(Format0, Args),
         Format = limit_format(Format1, Depth),
-        io_lib:build_text(Format)
+        io_lib:build_text(Format,Opts)
     catch _:_ ->
-            limit_depth({"FORMAT ERROR: ~tp - ~tp",[Format0,Args]},Depth)
+            limit_size({"FORMAT ERROR: ~tp - ~tp",[Format0,Args]},Depth,Opts)
     end.
 
 limit_format([#{control_char:=C0}=M0|T], Depth) when C0 =:= $p;
@@ -157,13 +183,15 @@ limit_format([], _) ->
 
 truncate(String,unlimited) ->
     String;
-truncate(String,false) ->
-    Size = logger:get_max_size(),
-    truncate(String,Size);
 truncate(String,Size) ->
     Length = string:length(String),
     if Length>Size ->
-            string:slice(String,0,Size-3)++"...";
+            case lists:reverse(lists:flatten(String)) of
+                [$\n|_] ->
+                    string:slice(String,0,Size-4)++"...\n";
+                _ ->
+                    string:slice(String,0,Size-3)++"..."
+            end;
        true ->
             String
     end.
@@ -232,13 +260,15 @@ month(12) -> "Dec".
 utcstr(#{utc:=true}) -> "UTC ";
 utcstr(_) -> "".
 
-add_default_config(#{utc:=_}=Config) ->
+add_default_config(#{utc:=_}=Config0) ->
     Default =
         #{legacy_header=>false,
           single_line=>false,
-          max_size=>false,
-          depth=>false},
-    add_default_template(maps:merge(Default,Config));
+          chars_limit=>unlimited},
+    MaxSize = get_max_size(maps:get(max_size,Config0,false)),
+    Depth = get_depth(maps:get(depth,Config0,false)),
+    add_default_template(maps:merge(Default,Config0#{max_size=>MaxSize,
+                                                     depth=>Depth}));
 add_default_config(Config) ->
     add_default_config(Config#{utc=>logger:get_utc_config()}).
 
@@ -253,3 +283,13 @@ default_template(#{single_line:=true}) ->
     ?DEFAULT_FORMAT_TEMPLATE_SINGLE;
 default_template(_) ->
     ?DEFAULT_FORMAT_TEMPLATE.
+
+get_max_size(false) ->
+    logger:get_max_size();
+get_max_size(S) ->
+    max(10,S).
+
+get_depth(false) ->
+    logger:get_format_depth();
+get_depth(S) ->
+    max(5,S).
