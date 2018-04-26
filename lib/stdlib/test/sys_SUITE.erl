@@ -133,7 +133,8 @@ install(Config) when is_list(Config) ->
 			Master ! {spy_got,{request,Arg},ProcState};
 		    Other ->
 			io:format("Trigged other=~p\n",[Other])
-		end
+		end,
+                func_state
 	end,
     sys:install(?server,{SpyFun,func_state}),
     {ok,-1} = (catch public_call(1)),
@@ -142,10 +143,27 @@ install(Config) when is_list(Config) ->
     sys:install(?server,{SpyFun,func_state}),
     sys:install(?server,{SpyFun,func_state}),
     {ok,-3} = (catch public_call(3)),
-    sys:remove(?server,SpyFun),
     {ok,-4} = (catch public_call(4)),
+    sys:remove(?server,SpyFun),
+    {ok,-5} = (catch public_call(5)),
     [{spy_got,{request,1},sys_SUITE_server},
-     {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+     {spy_got,{request,3},sys_SUITE_server},
+     {spy_got,{request,4},sys_SUITE_server}] = get_messages(),
+
+    sys:install(?server,{id1, SpyFun, func_state}),
+    sys:install(?server,{id1, SpyFun, func_state}), %% should not be installed
+    sys:install(?server,{id2, SpyFun, func_state}),    
+    {ok,-1} = (catch public_call(1)),
+    %% We have two SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server},
+     {spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:remove(?server, id1),
+    {ok,-1} = (catch public_call(1)),
+    %% We have one SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:no_debug(?server),
+    {ok,-1} = (catch public_call(1)),
+    [] = get_messages(),
     stop(),
     ok.
 
