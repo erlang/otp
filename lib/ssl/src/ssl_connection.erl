@@ -827,6 +827,14 @@ certify(internal, #certificate_request{},
        Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
                      Version, ?FUNCTION_NAME, State);
+certify(internal, #certificate_request{},
+	#state{session = #session{own_certificate = undefined},
+	       role = client} = State0, Connection) ->
+    %% The client does not have a certificate and will send an empty reply, the server may fail 
+    %% or accept the connection by its own preference. No signature algorihms needed as there is
+    %% no certificate to verify.
+    {Record, State} = Connection:next_record(State0),
+    Connection:next_event(?FUNCTION_NAME, Record, State#state{client_certificate_requested = true});
 certify(internal, #certificate_request{} = CertRequest,
 	#state{session = #session{own_certificate = Cert},
 	       role = client,

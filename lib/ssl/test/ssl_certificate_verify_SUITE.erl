@@ -40,14 +40,22 @@
 %%--------------------------------------------------------------------
 all() ->
     [
-     {group, tls},
-     {group, dtls}
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'sslv3'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
     [
-     {tls, [], all_protocol_groups()},
-     {dtls, [], all_protocol_groups()},
+     {'tlsv1.2', [], all_protocol_groups()},
+     {'tlsv1.1', [], all_protocol_groups()},
+     {'tlsv1', [], all_protocol_groups()},
+     {'sslv3', [], all_protocol_groups()},
+     {'dtlsv1.2', [], all_protocol_groups()},
+     {'dtlsv1', [], all_protocol_groups()},
      {active, [], tests()},
      {active_once, [], tests()},
      {passive, [], tests()},
@@ -65,6 +73,7 @@ tests() ->
      verify_none,
      server_require_peer_cert_ok,
      server_require_peer_cert_fail,
+     server_require_peer_cert_empty_ok,
      server_require_peer_cert_partial_chain,
      server_require_peer_cert_allow_partial_chain,
      server_require_peer_cert_do_not_allow_partial_chain,
@@ -104,24 +113,6 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(tls, Config0) ->
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, protocol_version, Version),
-    ssl:start(),
-    Config = ssl_test_lib:init_tls_version(Version, Config0),
-    [{version, tls_record:protocol_version(Version)} | Config];
-
-init_per_group(dtls, Config0) ->
-    Version = dtls_record:protocol_version(dtls_record:highest_protocol_version([])),
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, protocol_version, Version),
-    ssl:start(),
-    Config = ssl_test_lib:init_tls_version(Version, Config0),
-    [{version, dtls_record:protocol_version(Version)} | Config];
-
 init_per_group(active, Config) ->
     [{active, true}, {receive_function, send_recv_result_active} | Config];
 init_per_group(active_once, Config) ->
@@ -130,15 +121,24 @@ init_per_group(passive, Config) ->
     [{active, false}, {receive_function, send_recv_result} | Config];
 init_per_group(error_handling, Config) ->
     [{active, false}, {receive_function, send_recv_result} | Config];
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_tls_version(GroupName) of
+	true ->
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    [{version, GroupName} | ssl_test_lib:init_tls_version(GroupName, Config)];
+		false ->
+		    {skip, "Missing crypto support"}
+	    end
+    end.
 
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(GroupName, Config) when GroupName == tls;
-                                      GroupName == dtls ->
-    ssl_test_lib:clean_tls_version(Config);
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config) ->
+       case ssl_test_lib:is_tls_version(GroupName) of
+        true ->
+            ssl_test_lib:clean_tls_version(Config);
+        false ->
+            Config
+    end.
 
 init_per_testcase(_TestCase, Config) ->
     ssl:stop(),
@@ -304,6 +304,35 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 		    ok
 	    end
     end.
+
+%%--------------------------------------------------------------------
+server_require_peer_cert_empty_ok() ->
+    [{doc,"Test server option fail_if_no_peer_cert when peer sends cert"}].
+
+server_require_peer_cert_empty_ok(Config) when is_list(Config) ->
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, false}
+		  | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    Active = proplists:get_value(active, Config),
+    ReceiveFunction =  proplists:get_value(receive_function, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    ClientOpts = proplists:delete(keyfile, proplists:delete(certfile, ClientOpts0)),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {ssl_test_lib, ReceiveFunction, []}},
+			   {options, [{active, Active} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, ReceiveFunction, []}},
+			   {options, [{active, Active} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 
@@ -930,6 +959,7 @@ client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
                                                                  Config, "_sign_only_extensions"),
     ClientOpts =  ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts =  ssl_test_lib:ssl_options(ServerOpts0, Config),
+    TLSVersion = ssl_test_lib:protocol_version(Config, tuple),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -938,7 +968,7 @@ client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
 					       send_recv_result_active, []}},
 					{options, [{active, true},
 						   {ciphers, 
-						    ssl_test_lib:rsa_non_signed_suites(proplists:get_value(version, Config))}
+						    ssl_test_lib:rsa_non_signed_suites(TLSVersion)}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},

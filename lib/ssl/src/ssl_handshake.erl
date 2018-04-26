@@ -1091,12 +1091,6 @@ select_hashsign(_, Cert, _, _, Version) ->
 %%
 %% Description: Handles signature algorithms selection for certificate requests (client) 
 %%--------------------------------------------------------------------
-select_hashsign(#certificate_request{}, undefined, _, {Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    %% There client does not have a certificate and will send an empty reply, the server may fail 
-    %% or accept the connection by its own preference. No signature algorihms needed as there is
-    %% no certificate to verify.
-    {undefined, undefined}; 
- 
 select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSigns}, 
 				     certificate_types = Types}, Cert, SupportedHashSigns, 
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
