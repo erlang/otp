@@ -310,6 +310,13 @@ scheduler_wall_time_all(Config) when is_list(Config) ->
     scheduler_wall_time_test(scheduler_wall_time_all).
 
 scheduler_wall_time_test(Type) ->
+    case string:find(erlang:system_info(system_version),
+                     "dirty-schedulers-TEST") == nomatch of
+        true -> run_scheduler_wall_time_test(Type);
+        false -> {skip, "Cannot be run with dirty-schedulers-TEST build"}
+    end.
+
+run_scheduler_wall_time_test(Type) ->
     %% Should return undefined if system_flag is not turned on yet
     undefined = statistics(Type),
     %% Turn on statistics
