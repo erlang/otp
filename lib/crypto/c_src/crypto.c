@@ -3004,16 +3004,21 @@ static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
-    DH* dh_params;
+    DH* dh_params = NULL;
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
     ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
     int mpint; /* 0 or 4 */
-    BIGNUM *priv_key = NULL;
+    BIGNUM *priv_key_in = NULL;
     BIGNUM *dh_p = NULL, *dh_g = NULL;
     unsigned long len = 0;
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *dhkey = NULL,
+             *params = NULL;
+#endif
 
-    if (!(get_bn_from_bin(env, argv[0], &priv_key)
+    if (!(get_bn_from_bin(env, argv[0], &priv_key_in)
 	  || argv[0] == atom_undefined)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_p)
@@ -3021,40 +3026,63 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 	|| !get_bn_from_bin(env, head, &dh_g)
 	|| !enif_is_empty_list(env, tail)
 	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)
-	|| !enif_get_ulong(env, argv[3], &len)  ) {
+	|| !enif_get_ulong(env, argv[3], &len) 
 
-        if (priv_key) BN_free(priv_key);
+        /* Load dh_params with values to use by the generator.
+           Mem mgmnt transfered from dh_p etc to dh_params */
+        || !(dh_params = DH_new())
+        || (priv_key_in && !DH_set0_key(dh_params, NULL, priv_key_in))
+        || !DH_set0_pqg(dh_params, dh_p, NULL, dh_g)
+        ) {
+        if (priv_key_in) BN_free(priv_key_in);
 	if (dh_p) BN_free(dh_p);
 	if (dh_g) BN_free(dh_g);
+        if (dh_params) DH_free(dh_params);
 	return enif_make_badarg(env);
     }
-
-    dh_params = DH_new();
-    DH_set0_key(dh_params, NULL, priv_key);
-    DH_set0_pqg(dh_params, dh_p, NULL, dh_g);
 
     if (len) {
         if (len < BN_num_bits(dh_p))
             DH_set_length(dh_params, len);
         else {
-            DH_free(dh_params);
+            if (priv_key_in) BN_free(priv_key_in);
+            if (dh_p) BN_free(dh_p);
+            if (dh_g) BN_free(dh_g);
+            if (dh_params) DH_free(dh_params);
             return enif_make_badarg(env);
         }
     }
 
+#ifdef HAS_EVP_PKEY_CTX
+    if ((dhkey  = EVP_PKEY_new())
+        && (params = EVP_PKEY_new())
+        && EVP_PKEY_set1_DH(params, dh_params)   /* set the key referenced by params to dh_params.
+                                                    dh_params (and params) must be freed by us*/
+        && (ctx = EVP_PKEY_CTX_new(params, NULL))
+        && EVP_PKEY_keygen_init(ctx)
+        && EVP_PKEY_keygen(ctx, &dhkey)
+        && (dh_params = EVP_PKEY_get1_DH(dhkey)) /* return the referenced key. dh_params and dhkey must be freed */
+        ) {
+#else
     if (DH_generate_key(dh_params)) {
-	const BIGNUM *pub_key, *priv_key;
-	DH_get0_key(dh_params, &pub_key, &priv_key);
-	pub_len = BN_num_bytes(pub_key);
-	prv_len = BN_num_bytes(priv_key);
+#endif   
+        const BIGNUM *pub_key_gen, *priv_key_gen;
+        
+	DH_get0_key(dh_params,
+                    &pub_key_gen, &priv_key_gen); /* Get pub_key_gen and priv_key_gen. 
+                                                     "The values point to the internal representation of 
+                                                     the public key and private key values. This memory 
+                                                     should not be freed directly." says man */
+	pub_len = BN_num_bytes(pub_key_gen);
+	prv_len = BN_num_bytes(priv_key_gen);
 	pub_ptr = enif_make_new_binary(env, pub_len+mpint, &ret_pub);
 	prv_ptr = enif_make_new_binary(env, prv_len+mpint, &ret_prv);
 	if (mpint) {
 	    put_int32(pub_ptr, pub_len); pub_ptr += 4;
 	    put_int32(prv_ptr, prv_len); prv_ptr += 4;
 	}
-	BN_bn2bin(pub_key, pub_ptr);
-	BN_bn2bin(priv_key, prv_ptr);
+	BN_bn2bin(pub_key_gen, pub_ptr);
+	BN_bn2bin(priv_key_gen, prv_ptr);
 	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
 	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
 	ret = enif_make_tuple2(env, ret_pub, ret_prv);
@@ -3062,21 +3090,33 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     else {
 	ret = atom_error;
     }
+
     DH_free(dh_params);
+#ifdef HAS_EVP_PKEY_CTX
+    if (ctx)    EVP_PKEY_CTX_free(ctx);
+    /* if (dhkey)  EVP_PKEY_free(dhkey); */
+    /* if (params) EVP_PKEY_free(params); */
+#endif
     return ret;
 }
 
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (OthersPublicKey, MyPrivateKey, DHParams=[P,G]) */
-    DH* dh_params;
-    BIGNUM *dummy_pub_key = NULL, *priv_key = NULL;
-    BIGNUM *other_pub_key;
-    BIGNUM *dh_p = NULL, *dh_g = NULL;
-    int i;
+    BIGNUM *dummy_pub_key = NULL,
+        *priv_key = NULL,
+        *other_pub_key = NULL,
+        *dh_p = NULL,
+        *dh_g = NULL;
     ErlNifBinary ret_bin;
     ERL_NIF_TERM ret, head, tail;
-
-    dh_params = DH_new();
+    DH *dh_priv = DH_new(), *dh_pub = DH_new();
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *my_priv_key = NULL,  *peer_pub_key = NULL;
+    size_t skeylen;
+#else
+    int i;
+#endif
 
     if (!get_bn_from_bin(env, argv[0], &other_pub_key)
 	|| !get_bn_from_bin(env, argv[1], &priv_key)
@@ -3084,35 +3124,78 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	|| !get_bn_from_bin(env, head, &dh_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_bin(env, head, &dh_g)
-	|| !enif_is_empty_list(env, tail)) {
+	|| !enif_is_empty_list(env, tail)
+
+        /* Note: DH_set0_key() does not allow setting only the
+         * private key, although DH_compute_key() does not use the
+         * public key. Work around this limitation by setting
+         * the public key to a copy of the private key.
+         */
+        || !(dummy_pub_key = BN_dup(priv_key))
+        || !DH_set0_key(dh_priv, dummy_pub_key, priv_key)
+        || !DH_set0_pqg(dh_priv, dh_p, NULL, dh_g)
+        ) {
 	if (dh_p) BN_free(dh_p);
 	if (dh_g) BN_free(dh_g);
-	ret = enif_make_badarg(env);
+        if (other_pub_key) BN_free(other_pub_key);
+        if (dummy_pub_key) BN_free(dummy_pub_key);
+        if (priv_key) BN_free(priv_key);
+	return enif_make_badarg(env);
+    }
+
+#ifdef HAS_EVP_PKEY_CTX 
+    if (!(my_priv_key = EVP_PKEY_new())
+        || !EVP_PKEY_set1_DH(my_priv_key,  dh_priv) /* set the key referenced by my_priv_key to dh_priv.
+                                                       dh_priv (and my_priv_key) must be freed by us*/
+        
+        || !(peer_pub_key = EVP_PKEY_new())
+        || !DH_set0_key(dh_pub, other_pub_key, NULL)
+        || !DH_set0_pqg(dh_pub, dh_p, NULL, dh_g)
+        || !EVP_PKEY_set1_DH(peer_pub_key, dh_pub)
+        
+        || !(ctx = EVP_PKEY_CTX_new(my_priv_key, NULL))
+        || (EVP_PKEY_derive_init(ctx) <= 0)
+        || (EVP_PKEY_derive_set_peer(ctx, peer_pub_key) <= 0)
+        || (EVP_PKEY_derive(ctx, NULL, &skeylen) <= 0)) {
+
+        ret = atom_error;
     }
     else {
-	/* Note: DH_set0_key() does not allow setting only the
-	 * private key, although DH_compute_key() does not use the
-	 * public key. Work around this limitation by setting
-	 * the public key to a copy of the private key.
-	 */
-        dummy_pub_key = BN_dup(priv_key);
-	DH_set0_key(dh_params, dummy_pub_key, priv_key);
-	DH_set0_pqg(dh_params, dh_p, NULL, dh_g);
-	enif_alloc_binary(DH_size(dh_params), &ret_bin);
-	i = DH_compute_key(ret_bin.data, other_pub_key, dh_params);
-	if (i > 0) {
-	    if (i != ret_bin.size) {
-		enif_realloc_binary(&ret_bin, i);
-	    }
-	    ret = enif_make_binary(env, &ret_bin);
-	}
-	else {
+        enif_alloc_binary(skeylen, &ret_bin);
+    
+        if ((EVP_PKEY_derive(ctx, ret_bin.data,  &skeylen) > 0)
+            && (ret_bin.size >= skeylen)) {
+            /* Derivation succeded */
+            if (ret_bin.size > skeylen)  enif_realloc_binary(&ret_bin, skeylen);
+            ret = enif_make_binary(env, &ret_bin);
+        }
+        else {
             enif_release_binary(&ret_bin);
-	    ret = atom_error;
-	}
+            ret = atom_error;
+        }
     }
+
+#else
+    enif_alloc_binary(DH_size(dh_priv), &ret_bin);
+    i = DH_compute_key(ret_bin.data, other_pub_key, dh_priv);
+    if (i > 0) {
+        if (i != ret_bin.size) enif_realloc_binary(&ret_bin, i);
+        ret = enif_make_binary(env, &ret_bin);
+    }
+    else {
+        enif_release_binary(&ret_bin);
+        ret = atom_error;
+    }
+#endif
+
     if (other_pub_key) BN_free(other_pub_key);
-    DH_free(dh_params);
+    if (dh_priv)       DH_free(dh_priv);
+    if (dh_pub)        DH_free(dh_pub);
+#ifdef HAS_EVP_PKEY_CTX
+    if (ctx)           EVP_PKEY_CTX_free(ctx);
+    /* if (my_priv_key)   EVP_PKEY_free(my_priv_key); */
+    /* if (peer_pub_key)  EVP_PKEY_free(peer_pub_key); */
+#endif
     return ret;
 }
 
