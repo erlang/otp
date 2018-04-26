@@ -351,10 +351,9 @@ mapfold(F, S0, T) ->
   mapfold(fun(T0, A) -> {T0, A} end, F, S0, T).
 
 
-%% @spec mapfold(Pre, Post, Initial::term(), Tree::cerl()) ->
-%%           {cerl(), term()}
-%%
-%%    Pre = Post = (cerl(), term()) -> {cerl(), term()}
+%% @spec mapfold(Pre, Post, Initial::term(), Tree::cerl()) -> {cerl(), term()}
+%%       Pre  = (cerl(), term()) -> {cerl(), term()}
+%%       Post = (cerl(), term()) -> {cerl(), term()}
 %%
 %% @doc Does a combined map/fold operation on the nodes of the
 %% tree. It begins by calling <code>Pre</code> on the tree, using the

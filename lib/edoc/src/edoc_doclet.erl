@@ -40,7 +40,7 @@
 
 -import(edoc_report, [report/2, warning/2]).
 
-%% @headerfile "edoc_doclet.hrl"
+%% @headerfile "../include/edoc_doclet.hrl"
 -include("../include/edoc_doclet.hrl").
 
 -define(EDOC_APP, edoc).
