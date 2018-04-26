@@ -839,7 +839,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options0} = St
                     self() ! {init_error, error_sending,
                               httpc_response:error(Request, Reason)},
                     {ok, State#state{request = Request,
-                                     session = #session{socket = Socket}}}
+                                     session = Session}}
             end;
         {error, Reason} ->
             self() ! {init_error, error_connecting,
