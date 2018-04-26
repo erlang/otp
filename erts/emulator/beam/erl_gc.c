@@ -61,7 +61,7 @@
 #  define ERTS_GC_ASSERT(B) ((void) 1)
 #endif
 
-#if defined(DEBUG) && 1
+#if defined(DEBUG) && 0
 #  define HARDDEBUG 1
 #endif
 
@@ -222,23 +222,6 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(gcireq,
                                  ErtsGCInfoReq,
                                  5,
                                  ERTS_ALC_T_GC_INFO_REQ)
-
-static ERTS_INLINE void
-ensure_sigq_roots_available(Process *p)
-{
-    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(p));
-    switch (p->flags & (F_OFF_HEAP_MSGQ|F_OFF_HEAP_MSGQ_CHNG)) {
-    case F_OFF_HEAP_MSGQ_CHNG:
-    case 0:
-        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
-        erts_proc_sig_fetch(p);
-        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
-        break;
-    default:
-        break;
-    }
-}
-
 
 /*
  * Initialize GC global data.
@@ -449,8 +432,6 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	/* Must have GC:d in BIF call... invalidate live_hf_end */
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
-
-    ensure_sigq_roots_available(p);
 
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
@@ -895,11 +876,8 @@ do_major_collection:
 int
 erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fcalls)
 {
-    int reds; 
-    int reds_left;
-    ensure_sigq_roots_available(p);
-    reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, fcalls, 0);
-    reds_left = ERTS_REDS_LEFT(p, fcalls);
+    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, fcalls, 0);
+    int reds_left = ERTS_REDS_LEFT(p, fcalls);
     if (reds > reds_left)
 	reds = reds_left;
     ASSERT(CONTEXT_REDS - (reds_left - reds) >= erts_proc_sched_data(p)->virtual_reds);
@@ -909,9 +887,7 @@ erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fca
 void
 erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
-    int reds;
-    ensure_sigq_roots_available(p);
-    reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls, 0);
+    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls, 0);
     BUMP_REDS(p, reds);
     ASSERT(CONTEXT_REDS - ERTS_BIF_REDS_LEFT(p)
 	   >= erts_proc_sched_data(p)->virtual_reds);
@@ -1136,8 +1112,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * First an ordinary major collection...
      */
-
-    ensure_sigq_roots_available(p);
 
     p->flags |= F_NEED_FULLSWEEP;
 

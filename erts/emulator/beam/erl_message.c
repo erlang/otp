@@ -306,6 +306,9 @@ erts_queue_dist_message(Process *rcvr,
 
 	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
 
+        if (rcvr_locks & ERTS_PROC_LOCK_MAIN)
+            erts_proc_sig_fetch(rcvr);
+
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
@@ -370,6 +373,9 @@ queue_messages(Process* receiver,
     }
 
     LINK_MESSAGE(receiver, first, last, len);
+
+    if (receiver_locks & ERTS_PROC_LOCK_MAIN)
+        erts_proc_sig_fetch(receiver);
 
     if (locked_msgq) {
 	erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
