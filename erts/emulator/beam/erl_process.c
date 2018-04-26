@@ -5715,6 +5715,12 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->io.out = (Uint64) 0;
     esdp->io.in = (Uint64) 0;
 
+    esdp->pending_signal.sig = NULL;
+    esdp->pending_signal.to = THE_NON_VALUE;
+#ifdef DEBUG
+    esdp->pending_signal.dbg_from = NULL;
+#endif
+
     if (daww_ptr) {
 	init_aux_work_data(&esdp->aux_work_data, esdp, *daww_ptr);
 	*daww_ptr += daww_sz;
@@ -9674,8 +9680,13 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     } else {
 	is_normal_sched = !esdp;
 	if (is_normal_sched) {
-	    esdp = p->scheduler_data;
+            esdp = p->scheduler_data;
 	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+
+            if (esdp->pending_signal.sig) {
+                ASSERT(esdp->pending_signal.dbg_from == p);
+                erts_proc_sig_send_pending(esdp);
+            }
 	}
 	else {
 	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
@@ -10375,7 +10386,7 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st,
 	ASSERT(hp_start + hsz == hp);
 #endif
 
-	erts_queue_message(rp, rp_locks, mp, msg, c_p->common.id);
+	erts_queue_proc_message(c_p, rp, rp_locks, mp, msg);
 
 	if (c_p == rp)
 	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -10937,7 +10948,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     msg = copy_struct(operation, osz, &hp, ohp);
     msg = TUPLE4(hp, st->requester, target, prio, msg);
 
-    erts_queue_message(rp, rp_locks, mp, msg, st->requester);
+    erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (rp_locks)
 	erts_proc_unlock(rp, rp_locks);
@@ -11912,6 +11923,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
+#ifdef ERTS_PROC_SIG_HARD_DEBUG
+    p->sig_inq.may_contain_heap_terms = 0;
+#endif
     p->bif_timers = NULL;
     p->mbuf = NULL;
     p->msg_frag = NULL;
@@ -12119,6 +12133,9 @@ void erts_init_empty_process(Process *p)
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
+#ifdef ERTS_PROC_SIG_HARD_DEBUG
+    p->sig_inq.may_contain_heap_terms = 0;
+#endif
     p->bif_timers = NULL;
     p->dictionary = NULL;
     p->seq_trace_clock = 0;

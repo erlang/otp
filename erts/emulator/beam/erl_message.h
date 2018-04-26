@@ -229,7 +229,7 @@ typedef union {
 typedef struct {
     /* pointers to next pointers pointing to... */
     ErtsMessage **next; /* ... next (non-message) signal */
-    ErtsMessage **last; /* ... next (non-message) signal */
+    ErtsMessage **last; /* ... last (non-message) signal */
 } ErtsMsgQNMSigs;
 
 /* Size of default message buffer (erl_message.c) */
@@ -296,8 +296,11 @@ typedef struct {
 typedef struct {
     ErtsMessage* first;
     ErtsMessage** last;  /* point to the last next pointer */
-    Sint len;            /* queue length */
+    Sint len;            /* number of messages in queue */
     ErtsMsgQNMSigs nmsigs;
+#ifdef ERTS_PROC_SIG_HARD_DEBUG
+    int may_contain_heap_terms;
+#endif
 } ErtsSignalInQueue;
 
 typedef struct erl_trace_message_queue__ {
@@ -364,13 +367,14 @@ typedef struct erl_trace_message_queue__ {
 
 #endif
 
-/* Add message last_msg in message queue */
-#define LINK_MESSAGE(p, first_msg, last_msg, num_msgs) \
+/* Add one message last in message queue */
+#define LINK_MESSAGE(p, msg) \
     do {                                                                \
+        ASSERT(ERTS_SIG_IS_MSG(msg));                                   \
         ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "before");               \
-        *(p)->sig_inq.last = (first_msg);                               \
-        (p)->sig_inq.last = (last_msg);                                 \
-        (p)->sig_inq.len += (num_msgs);                                 \
+        *(p)->sig_inq.last = (msg);                                     \
+        (p)->sig_inq.last = &(msg)->next;                               \
+        (p)->sig_inq.len++;                                             \
         ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE__((p), "before");               \
     } while(0)
 
@@ -437,11 +441,12 @@ ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks, ErtsDistExternal *, Eterm, Eterm);
-Sint erts_queue_message(Process*, ErtsProcLocks,ErtsMessage*, Eterm, Eterm);
-Sint erts_queue_messages(Process*, ErtsProcLocks,
-                         ErtsMessage*, ErtsMessage**, Uint);
+void erts_queue_message(Process*, ErtsProcLocks,ErtsMessage*, Eterm, Eterm);
+void erts_queue_proc_message(Process* from,Process* to, ErtsProcLocks,ErtsMessage*, Eterm);
+void erts_queue_proc_messages(Process* from, Process* to, ErtsProcLocks,
+                              ErtsMessage*, ErtsMessage**, Uint);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
-Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
+void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 Uint erts_msg_attached_data_size_aux(ErtsMessage *msg);

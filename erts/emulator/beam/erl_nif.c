@@ -665,7 +665,7 @@ int erts_flush_trace_messages(Process *c_p, ErtsProcLocks c_p_locks)
             rp_locks = 0;
             if (rp->common.id == c_p->common.id)
                 rp_locks = c_p_locks;
-            erts_queue_messages(rp, rp_locks, first, last, len);
+            erts_queue_proc_messages(c_p, rp, rp_locks, first, last, len);
             if (rp->common.id == c_p->common.id)
                 rp_locks &= ~c_p_locks;
             if (rp_locks)
@@ -856,7 +856,10 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         }
     }
 
-    erts_queue_message(rp, rp_locks, mp, msg, from);
+    if (c_p)
+        erts_queue_proc_message(c_p, rp, rp_locks, mp, msg);
+    else
+        erts_queue_message(rp, rp_locks, mp, msg, from);
 
 done:
     if (c_p == rp)

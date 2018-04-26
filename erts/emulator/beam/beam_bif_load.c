@@ -1757,11 +1757,11 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		release_literal_areas.last = ref;
 	    }
 	    erts_mtx_unlock(&release_literal_areas.mtx);
-	    erts_queue_message(erts_literal_area_collector,
+	    erts_queue_proc_message(BIF_P,
+                               erts_literal_area_collector,
 			       0,
 			       erts_alloc_message(0, NULL),
-			       am_copy_literals,
-			       BIF_P->common.id);
+			       am_copy_literals);
 	}
 
 	return ret;

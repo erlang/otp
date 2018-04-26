@@ -3587,7 +3587,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         dhandle = erts_build_dhandle(&hp, ohp, dep);
         msg = TUPLE4(hp, am_auto_connect, dep->sysname, make_small(conn_id),
                      dhandle);
-        erts_queue_message(net_kernel, nk_locks, mp, msg, proc->common.id);
+        erts_queue_proc_message(proc, net_kernel, nk_locks, mp, msg);
         erts_proc_unlock(net_kernel, nk_locks);
     }
 
