@@ -44,6 +44,7 @@
          %% readv/3,
 
          close/1,
+         shutdown/2,
 
          setopt/4,
          getopt/3
@@ -65,7 +66,9 @@
               accept_flag/0,
 
               send_flags/0,
-              send_flag/0
+              send_flag/0,
+
+              shutdown_how/0
              ]).
 
 
@@ -148,6 +151,8 @@
 -type setopt_key() :: foo.
 -type getopt_key() :: foo.
 
+-type shutdown_how() :: read | write | read_write.
+
 -record(msg_hdr,
         {
           %% Optional address
@@ -221,6 +226,9 @@
 
 -define(SOCKET_GETOPT_KEY_DEBUG,       ?SOCKET_SETOPT_KEY_DEBUG).
 
+-define(SOCKET_SHUTDOWN_HOW_READ,       0).
+-define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
+-define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
 %% ===========================================================================
@@ -1016,6 +1024,32 @@ close(#socket{ref = SockRef}) ->
 
 %% ===========================================================================
 %%
+%% shutdown - shut down part of a full-duplex connection
+%%
+
+-spec shutdown(Socket, How) -> ok | {error, Reason} when
+      Socket :: socket(),
+      How    :: shutdown_how(),
+      Reason :: term().
+
+shutdown(#socket{ref = SockRef}, How) ->
+    try
+        begin
+            EHow = enc_shutdown_how(How),
+            nif_shutdown(SockRef, EHow)
+        end
+    catch
+        throw:T ->
+            T;
+        error:Reason ->
+            {error, Reason}
+    end.
+
+
+
+
+%% ===========================================================================
+%%
 %% setopt - manipulate individual properties of a socket
 %%
 %% What properties are valid depend on what kind of socket it is
@@ -1223,6 +1257,16 @@ dec_getopt_value(otp, debug, B, _, _, _) when is_boolean(B) ->
 
 
 
+enc_shutdown_how(read) ->
+    ?SOCKET_SHUTDOWN_HOW_READ;
+enc_shutdown_how(write) ->
+    ?SOCKET_SHUTDOWN_HOW_WRITE;
+enc_shutdown_how(read_write) ->
+    ?SOCKET_SHUTDOWN_HOW_READ_WRITE.
+
+
+
+
 %% ===========================================================================
 %%
 %% Misc utility functions
@@ -1338,6 +1382,9 @@ nif_cancel(_SRef, _Op, _Ref) ->
     erlang:error(badarg).
 
 nif_close(_SRef) ->
+    erlang:error(badarg).
+
+nif_shutdown(_SRef, _How) ->
     erlang:error(badarg).
 
 nif_finalize_close(_SRef) ->

@@ -193,6 +193,10 @@ typedef unsigned int BOOLEAN_T;
 #define SOCKET_NIF_DEBUG_DEFAULT TRUE
 #define SOCKET_DEBUG_DEFAULT     TRUE
 
+/* Counters and stuff (Don't know where to sent this stuff anyway) */
+#define SOCKET_NIF_IOW_DEFAULT FALSE
+
+
 /* Used in debug printouts */
 #ifdef __WIN32__
 #define LLU "%I64u"
@@ -328,6 +332,11 @@ typedef union {
 #define SOCKET_PROTOCOL_UDP       3
 #define SOCKET_PROTOCOL_SCTP      4
 
+/* shutdown how */
+#define SOCKET_SHUTDOWN_HOW_RD    0
+#define SOCKET_SHUTDOWN_HOW_WR    1
+#define SOCKET_SHUTDOWN_HOW_RDWR  2
+
 
 /* =================================================================== *
  *                                                                     *
@@ -412,6 +421,7 @@ typedef union {
 #define sock_send(s,buf,len,flag)  send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_shutdown(s, how)      shutdown((s), (how))
 
 
 #define SET_BLOCKING(s)            ioctlsocket(s, FIONBIO, &zero_value)
@@ -448,6 +458,7 @@ static unsigned long one_value  = 1;
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
                 sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_shutdown(s, how)           shutdown((s), (how))
 
 #endif /* !__WIN32__ */
 
@@ -563,10 +574,24 @@ typedef struct {
  * these things?)
  */
 typedef struct {
-  /* These are for debugging, testing and the like */
-  ERL_NIF_TERM version;
-  ERL_NIF_TERM buildDate;
-  BOOLEAN_T    dbg;
+    /* These are for debugging, testing and the like */
+    ERL_NIF_TERM version;
+    ERL_NIF_TERM buildDate;
+    BOOLEAN_T    dbg;
+
+    ErlNifMutex* cntMtx;
+    BOOLEAN_T    iow;
+    uint32_t     numSockets;
+    uint32_t     numTypeDGrams;
+    uint32_t     numTypeStreams;
+    uint32_t     numTypeSeqPkg;
+    uint32_t     numDomainLocal;
+    uint32_t     numDomainInet;
+    uint32_t     numDomainInet6;
+    uint32_t     numProtoIP;
+    uint32_t     numProtoTCP;
+    uint32_t     numProtoUDP;
+    uint32_t     numProtoSCTP;
 } SocketData;
 
 
@@ -622,6 +647,9 @@ static ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_close(ErlNifEnv*         env,
                               int                argc,
                               const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
+                                 int                argc,
+                                 const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_setsockopt(ErlNifEnv*         env,
                                    int                argc,
                                    const ERL_NIF_TERM argv[]);
@@ -687,6 +715,9 @@ static ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
                               int               flags);
 static ERL_NIF_TERM nclose(ErlNifEnv*        env,
                            SocketDescriptor* descP);
+static ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              int               how);
 
 static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
@@ -778,6 +809,7 @@ static int compare_pids(ErlNifEnv*       env,
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
 static BOOLEAN_T eproto2proto(int eproto, int* proto);
+static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
 #ifdef HAVE_SETNS
@@ -834,6 +866,9 @@ static BOOLEAN_T extract_item_on_load(ErlNifEnv*    env,
 static BOOLEAN_T extract_debug_on_load(ErlNifEnv*   env,
                                        ERL_NIF_TERM map,
                                        BOOLEAN_T    def);
+static BOOLEAN_T extract_iow_on_load(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     BOOLEAN_T    def);
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
@@ -950,6 +985,7 @@ static SocketData socketData;
  * nif_recv(Sock, RecvRef, Length, Flags)
  * nif_recvfrom(Sock, Flags)
  * nif_close(Sock)
+ * nif_shutdown(Sock, How)
  *
  * And some functions to manipulate and retrieve socket options:
  * -------------------------------------------------------------
@@ -2731,6 +2767,69 @@ ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
 
 
 /* ----------------------------------------------------------------------
+ * nif_shutdown
+ *
+ * Description:
+ * Disable sends and/or receives on a socket.
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * How          - What will be shutdown.
+ */
+
+static
+ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    SocketDescriptor* descP;
+    unsigned int      ehow;
+    int               how;
+
+    if ((argc != 2) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !GET_UINT(env, argv[1], &ehow)) {
+        return enif_make_badarg(env);
+    }
+
+    if (!ehow2how(ehow, &how))
+        return enif_make_badarg(env);
+
+    return nshutdown(env, descP, how);
+}
+
+
+
+static
+ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
+                       SocketDescriptor* descP,
+                       int               how)
+{
+    ERL_NIF_TERM reply;
+
+    if (sock_shutdown(descP->sock, how) == 0) {
+        switch (how) {
+        case SHUT_RD:
+            descP->isReadable = FALSE;
+            break;
+        case SHUT_WR:
+            descP->isWritable = FALSE;
+            break;
+        case SHUT_RDWR:
+            descP->isReadable = FALSE;
+            descP->isWritable = FALSE;
+            break;
+        }
+        reply = atom_ok;
+    } else {
+        reply = make_error2(env, sock_errno());
+    }
+
+    return reply;
+}
+
+
+/* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
@@ -3533,8 +3632,8 @@ BOOLEAN_T eproto2proto(int eproto, int* proto)
         return FALSE;
     }
 
-    return TRUE;
-}
+        return TRUE;
+    }
 
 
 #ifdef HAVE_SETNS
@@ -3683,6 +3782,35 @@ BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags)
 
     return TRUE;
 }
+
+
+
+/* eproto2proto - convert internal (erlang) protocol to (proper) protocol
+ *
+ * Note that only a subset is supported.
+ */
+static
+BOOLEAN_T ehow2how(unsigned int ehow, int* how)
+{
+     switch (ehow) {
+     case SOCKET_SHUTDOWN_HOW_RD:
+         *how = SHUT_RD;
+         break;
+
+     case SOCKET_SHUTDOWN_HOW_WR:
+         *how = SHUT_WR;
+         break;
+
+     case SOCKET_SHUTDOWN_HOW_RDWR:
+         *how = SHUT_RDWR;
+         break;
+
+     default:
+         return FALSE;
+     }
+
+     return TRUE;
+ }
 
 
 #if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
@@ -3896,9 +4024,14 @@ void socket_dtor(ErlNifEnv* env, void* obj)
  * and a writer).
  *
  * <KOLLA>
+ *
  * We do not handle linger-issues yet! So anything in the out
  * buffers will be left for the OS to solve...
  * Do we need a special "close"-thread? Dirty scheduler?
+ *
+ * What happens if we are "stopped" for another reason then 'close'?
+ * For instance, down?
+ *
  * </KOLLA>
  */
 static
@@ -3985,6 +4118,11 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
            *
            *           {close, CloseRef}
            *
+           * <KOLLA>
+           *
+           * WHAT HAPPENS IF THE RECEIVER HAS DIED IN THE MEANTIME????
+           *
+           * </KOLLA>
            */
 
           send_msg(env, MKT2(env, atom_close, descP->closeRef), &descP->closerPid);
@@ -4093,6 +4231,7 @@ ErlNifFunc socket_funcs[] =
     {"nif_recv",                4, nif_recv, 0},
     {"nif_recvfrom",            2, nif_recvfrom, 0},
     {"nif_close",               1, nif_close, 0},
+    {"nif_shutdown",            2, nif_shutdown, 0},
     {"nif_setsockopt",          3, nif_setsockopt, 0},
     {"nif_getsockopt",          2, nif_getsockopt, 0},
 
@@ -4121,38 +4260,74 @@ BOOLEAN_T extract_item_on_load(ErlNifEnv*    env,
     return TRUE;
 }
 
+ static
+     BOOLEAN_T extract_debug_on_load(ErlNifEnv* env, ERL_NIF_TERM map, BOOLEAN_T def)
+ {
+     ERL_NIF_TERM dbgKey = enif_make_atom(env, "debug");
+     ERL_NIF_TERM dbgVal;
+     unsigned int len;
+     char         d[16]; // Just in case...
+
+     /* Extra the value of the debug property */
+     if (!extract_item_on_load(env, map, dbgKey, &dbgVal))
+         return def;
+
+     /* Verify that the value is actually an atom */
+     if (!enif_is_atom(env, dbgVal))
+         return def;
+
+     /* Verify that the value is of acceptable length */
+     if (!(GET_ATOM_LEN(env, dbgVal, &len) &&
+           (len > 0) &&
+           (len <= sizeof("false"))))
+         return def;
+
+     /* And finally try to extract the value */
+     if (!GET_ATOM(env, dbgVal, d, sizeof(d)))
+         return def;
+
+     if (strncmp(d, "true", len) == 0)
+         return TRUE;
+     else
+         return FALSE;
+
+ }
+
+
 static
-BOOLEAN_T extract_debug_on_load(ErlNifEnv* env, ERL_NIF_TERM map, BOOLEAN_T def)
+BOOLEAN_T extract_iow_on_load(ErlNifEnv* env, ERL_NIF_TERM map, BOOLEAN_T def)
 {
-    ERL_NIF_TERM dbgKey = enif_make_atom(env, "debug");
-    ERL_NIF_TERM dbgVal;
-    unsigned int len;
-    char         d[16]; // Just in case...
+     ERL_NIF_TERM iowKey = enif_make_atom(env, "iow");
+     ERL_NIF_TERM iowVal;
+     unsigned int len;
+     char         b[16]; // Just in case...
 
-    /* Extra the value of the debug property */
-    if (!extract_item_on_load(env, map, dbgKey, &dbgVal))
-        return def;
+     /* Extra the value of the debug property */
+     if (!extract_item_on_load(env, map, iowKey, &iowVal))
+         return def;
 
-    /* Verify that the value is actually an atom */
-    if (!enif_is_atom(env, dbgVal))
-        return def;
+     /* Verify that the value is actually an atom */
+     if (!enif_is_atom(env, iowVal))
+         return def;
 
-    /* Verify that the value is of acceptable length */
-    if (!(GET_ATOM_LEN(env, dbgVal, &len) &&
-          (len > 0) &&
-          (len <= sizeof("false"))))
-        return def;
+     /* Verify that the value is of acceptable length */
+     if (!(GET_ATOM_LEN(env, iowVal, &len) &&
+           (len > 0) &&
+           (len <= sizeof("false"))))
+         return def;
 
-    /* And finally try to extract the value */
-    if (!GET_ATOM(env, dbgVal, d, sizeof(d)))
-        return def;
+     /* And finally try to extract the value */
+     if (!GET_ATOM(env, iowVal, b, sizeof(b)))
+         return def;
 
-    if (strncmp(d, "true", len) == 0)
-        return TRUE;
-    else
-        return FALSE;
+     if (strncmp(b, "true", len) == 0)
+         return TRUE;
+     else
+         return FALSE;
 
-}
+ }
+
+
 
 /* =======================================================================
  * load_info - A map of misc info (e.g global debug)
@@ -4164,7 +4339,24 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     socketData.dbg = extract_debug_on_load(env, load_info,
                                            SOCKET_NIF_DEBUG_DEFAULT);
 
-    /* Misc atoms */
+    /* +++ Global Counters +++ */
+    socketData.cntMtx         = MCREATE("socket[gcnt]");
+    socketData.iow            = extract_iow_on_load(env,
+                                                    load_info,
+                                                    SOCKET_NIF_IOW_DEFAULT);
+    socketData.numSockets     = 0;
+    socketData.numTypeDGrams  = 0;
+    socketData.numTypeStreams = 0;
+    socketData.numTypeSeqPkg  = 0;
+    socketData.numDomainLocal = 0;
+    socketData.numDomainInet  = 0;
+    socketData.numDomainInet6 = 0;
+    socketData.numProtoIP     = 0;
+    socketData.numProtoTCP    = 0;
+    socketData.numProtoUDP    = 0;
+    socketData.numProtoSCTP   = 0;
+
+    /* +++ Misc atoms +++ */
     // atom_active       = MKA(env, str_active);
     // atom_active_n     = MKA(env, str_active_n);
     // atom_active_once  = MKA(env, str_active_once);
