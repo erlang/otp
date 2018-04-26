@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -335,6 +335,22 @@
         <p>Computes the time from the specified number of seconds.
           <c><anno>Seconds</anno></c> must be less than the number of
           seconds per day (86400).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_local_time" arity="2"/>
+      <fsummary>Convert system time to local date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into local date and time.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_universal_time" arity="2"/>
+      <fsummary>Convert system time to universal date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into universal date and time.</p>
       </desc>
     </func>
 
