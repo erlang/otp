@@ -303,8 +303,7 @@ erts_queue_dist_message(Process *rcvr,
 	erts_cleanup_messages(mp);
     }
     else {
-
-	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
+	LINK_MESSAGE(rcvr, mp);
 
         if (rcvr_locks & ERTS_PROC_LOCK_MAIN)
             erts_proc_sig_fetch(rcvr);
@@ -317,9 +316,8 @@ erts_queue_dist_message(Process *rcvr,
 }
 
 /* Add messages last in message queue */
-static Sint
+static void
 queue_messages(Process* receiver,
-               erts_aint32_t *receiver_state,
                ErtsProcLocks receiver_locks,
                ErtsMessage* first,
                ErtsMessage** last,
@@ -328,51 +326,51 @@ queue_messages(Process* receiver,
     int locked_msgq = 0;
     erts_aint32_t state;
 
-    ASSERT(is_value(ERL_MESSAGE_TERM(first)));
-    ASSERT(is_value(ERL_MESSAGE_FROM(first)));
-    ASSERT(ERL_MESSAGE_TOKEN(first) == am_undefined ||
-           ERL_MESSAGE_TOKEN(first) == NIL ||
-           is_tuple(ERL_MESSAGE_TOKEN(first)));
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(receiver) < ERTS_PROC_LOCK_MSGQ ||
-                       receiver_locks == erts_proc_lc_my_proc_locks(receiver));
+#ifdef DEBUG
+    {
+        ErtsMessage* fmsg = ERTS_SIG_IS_MSG(first) ? first : first->next;
+        ASSERT(fmsg);
+        ASSERT(is_value(ERL_MESSAGE_TERM(fmsg)));
+        ASSERT(is_value(ERL_MESSAGE_FROM(fmsg)));
+        ASSERT(ERL_MESSAGE_TOKEN(fmsg) == am_undefined ||
+               ERL_MESSAGE_TOKEN(fmsg) == NIL ||
+               is_tuple(ERL_MESSAGE_TOKEN(fmsg)));
+    }
 #endif
 
+    ERTS_LC_ASSERT((erts_proc_lc_my_proc_locks(receiver) & ERTS_PROC_LOCK_MSGQ)
+                   == (receiver_locks & ERTS_PROC_LOCK_MSGQ));
+
     if (!(receiver_locks & ERTS_PROC_LOCK_MSGQ)) {
-	if (erts_proc_trylock(receiver, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
-            ErtsProcLocks need_locks;
-
-	    if (receiver_state)
-		state = *receiver_state;
-	    else
-		state = erts_atomic32_read_nob(&receiver->state);
-	    if (state & ERTS_PSFLG_EXITING)
-		goto exiting;
-
-            need_locks = receiver_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
-	    if (need_locks) {
-		erts_proc_unlock(receiver, need_locks);
-	    }
-            need_locks |= ERTS_PROC_LOCK_MSGQ;
-	    erts_proc_lock(receiver, need_locks);
-	}
+        erts_proc_lock(receiver, ERTS_PROC_LOCK_MSGQ);
 	locked_msgq = 1;
     }
-
 
     state = erts_atomic32_read_nob(&receiver->state);
 
     if (state & ERTS_PSFLG_EXITING) {
-    exiting:
 	/* Drop message if receiver is exiting or has a pending exit... */
 	if (locked_msgq)
-	    erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+        if (ERTS_SIG_IS_NON_MSG(first)) {
+            ErtsSchedulerData* esdp = erts_get_scheduler_data();
+            ASSERT(esdp);
+            ASSERT(!esdp->pending_signal.sig);
+            esdp->pending_signal.sig = (ErtsSignal*) first;
+            esdp->pending_signal.to = receiver->common.id;
+            first = first->next;
+        }
 	erts_cleanup_messages(first);
-	return 0;
+        return;
     }
 
-    LINK_MESSAGE(receiver, first, last, len);
+    if (last == &first->next) {
+        ASSERT(len == 1);
+        LINK_MESSAGE(receiver, first);
+    }
+    else {
+        erts_enqueue_signals(receiver, first, last, NULL, len, state);
+    }
 
     if (receiver_locks & ERTS_PROC_LOCK_MAIN)
         erts_proc_sig_fetch(receiver);
@@ -382,35 +380,67 @@ queue_messages(Process* receiver,
     }
 
     erts_proc_notify_new_message(receiver, receiver_locks);
-    return 0;
 }
 
-static Sint
-queue_message(Process* receiver,
-              erts_aint32_t *receiver_state,
-              ErtsProcLocks receiver_locks,
-              ErtsMessage* mp, Eterm msg, Eterm from)
+static ERTS_INLINE
+ErtsMessage* prepend_pending_sig_maybe(Process* sender, Process* receiver,
+                                       ErtsMessage* mp)
 {
-    ERL_MESSAGE_TERM(mp) = msg;
-    ERL_MESSAGE_FROM(mp) = from;
-    return queue_messages(receiver, receiver_state, receiver_locks,
-                          mp, &mp->next, 1);
+    ErtsSchedulerData* esdp = sender->scheduler_data;
+    ErtsSignal* pend_sig;
+
+    if (!esdp || esdp->pending_signal.to != receiver->common.id)
+        return mp;
+   
+     pend_sig = esdp->pending_signal.sig;
+
+     ASSERT(esdp->pending_signal.dbg_from == sender);
+     esdp->pending_signal.sig = NULL;
+     esdp->pending_signal.to = THE_NON_VALUE;
+     pend_sig->common.next = mp;
+     pend_sig->common.specific.next = NULL;
+     return (ErtsMessage*) pend_sig;
 }
 
-Sint
+/**
+ *
+ * @brief Send one message from *NOT* a local process.
+ *
+ */
+void
 erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
                    ErtsMessage* mp, Eterm msg, Eterm from)
 {
-    return queue_message(receiver, NULL, receiver_locks, mp, msg, from);
+    ASSERT(is_not_internal_pid(from));
+    ERL_MESSAGE_TERM(mp) = msg;
+    ERL_MESSAGE_FROM(mp) = from;
+    queue_messages(receiver, receiver_locks, mp, &mp->next, 1);
+}
+
+/**
+ * @brief Send one message from a local process.
+ */
+void
+erts_queue_proc_message(Process* sender,
+                        Process* receiver, ErtsProcLocks receiver_locks,
+                        ErtsMessage* mp, Eterm msg)
+{
+    ERL_MESSAGE_TERM(mp) = msg;
+    ERL_MESSAGE_FROM(mp) = sender->common.id;
+    queue_messages(receiver, receiver_locks,
+                   prepend_pending_sig_maybe(sender, receiver, mp),
+                   &mp->next, 1);
 }
 
 
-Sint
-erts_queue_messages(Process* receiver, ErtsProcLocks receiver_locks,
-                    ErtsMessage* first, ErtsMessage** last, Uint len)
+void
+erts_queue_proc_messages(Process* sender,
+                         Process* receiver, ErtsProcLocks receiver_locks,
+                         ErtsMessage* first, ErtsMessage** last, Uint len)
 {
-    return queue_messages(receiver, NULL, receiver_locks,
-                          first, last, len);
+    queue_messages(receiver, receiver_locks,
+                   prepend_pending_sig_maybe(sender, receiver, first),
+                   last, len);
 }
 
 void
@@ -547,7 +577,7 @@ erts_try_alloc_message_on_heap(Process *pp,
  * Send a local message when sender & receiver processes are known.
  */
 
-Sint
+void
 erts_send_message(Process* sender,
 		  Process* receiver,
 		  ErtsProcLocks *receiver_locks,
@@ -558,7 +588,6 @@ erts_send_message(Process* sender,
     ErtsMessage* mp;
     ErlOffHeap *ohp;
     Eterm token = NIL;
-    Sint res = 0;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 64);
@@ -701,13 +730,8 @@ erts_send_message(Process* sender,
 #ifdef USE_VM_PROBES
     ERL_MESSAGE_DT_UTAG(mp) = utag;
 #endif
-    res = queue_message(receiver,
-			&receiver_state,
-			*receiver_locks,
-			mp, message,
-                        sender->common.id);
 
-    return res;
+    erts_queue_proc_message(sender, receiver, *receiver_locks, mp, message);
 }
 
 

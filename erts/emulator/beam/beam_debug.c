@@ -1191,7 +1191,7 @@ dirty_send_message(Process *c_p, Eterm to, Eterm tag)
     mp = erts_alloc_message_heap(rp, &rp_locks, 3, &hp, &ohp);
 
     msg = TUPLE2(hp, tag, c_p->common.id);
-    erts_queue_message(rp, rp_locks, mp, msg, c_p->common.id);
+    erts_queue_proc_message(c_p, rp, rp_locks, mp, msg);
 
     if (rp == real_c_p)
 	rp_locks &= ~c_p_locks;
