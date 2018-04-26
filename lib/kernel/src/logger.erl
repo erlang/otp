@@ -621,9 +621,13 @@ get_type_config(Type) ->
 -spec limit_term(term()) -> term().
 
 limit_term(Term) ->
-    case get_format_depth() of
+    try get_format_depth() of
         unlimited -> Term;
         D -> io_lib:limit_term(Term, D)
+    catch error:badarg ->
+            %% This could happen during system termination, after
+            %% application_controller process is dead.
+            unlimited
     end.
 
 -spec get_format_depth() -> 'unlimited' | pos_integer().
