@@ -75,7 +75,7 @@ first.</p>
       <list>
         <item>
           <p>
-	    Fix documentation typo: peer_down/3 was written where
+	    Fix documentation typo: peer_up/3 was written where
 	    peer_down/3 was intended.</p>
           <p>
 	    Own Id: OTP-14805</p>
