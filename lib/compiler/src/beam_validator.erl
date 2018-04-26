@@ -576,7 +576,7 @@ valfun_4({wait,_}, Vst) ->
 valfun_4({wait_timeout,_,Src}, Vst) ->
     assert_term(Src, Vst),
     verify_y_init(Vst),
-    Vst;
+    prune_x_regs(0, Vst);
 valfun_4({loop_rec_end,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);

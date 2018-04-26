@@ -27,7 +27,8 @@
 	 multiple_aliases/1,redundant_boolean_clauses/1,
 	 mixed_matching_clauses/1,unnecessary_building/1,
 	 no_no_file/1,configuration/1,supplies/1,
-         redundant_stack_frame/1,export_from_case/1]).
+         redundant_stack_frame/1,export_from_case/1,
+         empty_values/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -47,7 +48,8 @@ groups() ->
        multiple_aliases,redundant_boolean_clauses,
        mixed_matching_clauses,unnecessary_building,
        no_no_file,configuration,supplies,
-       redundant_stack_frame,export_from_case]}].
+       redundant_stack_frame,export_from_case,
+       empty_values]}].
 
 
 init_per_suite(Config) ->
@@ -583,6 +585,18 @@ export_from_case_2(Bool, Rec) ->
             Result = Rec#export_from_case{val=42}
     end,
     {ok,Result}.
+
+empty_values(_Config) ->
+    case ?MODULE of
+        core_fold_inline_SUITE ->
+            {'EXIT',_} = (catch do_empty_values());
+        _ ->
+            {'EXIT',{function_clause,_}} = (catch do_empty_values())
+    end,
+    ok.
+
+do_empty_values() when (#{})#{} ->
+    c.
 
 
 id(I) -> I.

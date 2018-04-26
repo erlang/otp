@@ -214,6 +214,8 @@ opt_guard_try(#c_case{clauses=Cs}=Term) ->
     Term#c_case{clauses=opt_guard_try_list(Cs)};
 opt_guard_try(#c_clause{body=B0}=Term) ->
     Term#c_clause{body=opt_guard_try(B0)};
+opt_guard_try(#c_let{vars=[],arg=#c_values{es=[]},body=B}) ->
+    B;
 opt_guard_try(#c_let{arg=Arg,body=B0}=Term) ->
     case opt_guard_try(B0) of
 	#c_literal{}=B ->
