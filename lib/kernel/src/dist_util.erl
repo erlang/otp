@@ -645,7 +645,7 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
     end.
 
 is_node_name(OtherNodeName) ->
-    case string:split(OtherNodeName, "@") of
+    case string:split(OtherNodeName, "@", all) of
         [Name,Host] ->
             (not string:is_empty(Name))
                 andalso (not string:is_empty(Host));
@@ -654,24 +654,32 @@ is_node_name(OtherNodeName) ->
     end.
 
 split_node(Node) ->
-    case string:split(listify_node(Node), "@") of
-        [Name,Host] = Split ->
-            case
-                (not string:is_empty(Name))
-                andalso (not string:is_empty(Host))
-            of
+    Split = string:split(listify(Node), "@", all),
+    case Split of
+        [Name,Host] ->
+            case string:is_empty(Name) of
                 true ->
-                    {Name,Host};
+                    Split;
                 false ->
-                    Split
+                    case string:is_empty(Host) of
+                        true ->
+                            {name,Name};
+                        false ->
+                            {node,Name,Host}
+                    end
             end;
-        Split ->
-            Split
+        [Host] ->
+            case string:is_empty(Host) of
+                true ->
+                    Split;
+                false ->
+                    {host,Host}
+            end
     end.
 
-%%
-%% check if connecting node is allowed to connect
-%% with allow-node-scheme
+%% Check if connecting node is allowed to connect
+%% with allow-node-scheme.  An empty allowed list
+%% allows all nodes.
 %%
 is_allowed(#hs_data{allowed = []}, Flags, Node, Version) ->
     {Flags,list_to_atom(Node),Version};
@@ -686,32 +694,50 @@ is_allowed(#hs_data{allowed = Allowed} = HSData, Flags, Node, Version) ->
 	    ?shutdown2(Node, {is_allowed, not_allowed})
     end.
 
-%% Allow Node on Allowed node list, and also if host part
-%% of Node matches Allowed list item.  The Allowed list
-%% contains node names or host names.
+%% The allowed list can contain node names, host names
+%% or names before '@', in atom or list form:
+%% [node@host.example.org, "host.example.org", "node@"].
+%% An empty allowed list allows no nodes.
+%%
+%% Allow a node that matches any entry in the allowed list.
+%% Also allow allowed entries as node to match, not from
+%% this module; here the node has to be a valid name.
 %%
 is_allowed(_Node, []) ->
     false;
-is_allowed(Node, [Node|_Allowed]) when is_atom(Node) ->
+is_allowed(Node, [Node|_Allowed]) ->
+    %% Just an optimization
     true;
 is_allowed(Node, [AllowedNode|Allowed]) ->
     case split_node(AllowedNode) of
-        {AllowedName,AllowedHost} ->
+        {node,AllowedName,AllowedHost} ->
             %% Allowed node name
             case split_node(Node) of
-                {AllowedName,AllowedHost} ->
+                {node,AllowedName,AllowedHost} ->
                     true;
                 _ ->
                     is_allowed(Node, Allowed)
             end;
-        [AllowedHost] ->
+        {host,AllowedHost} ->
             %% Allowed host name
             case split_node(Node) of
-                {_,AllowedHost} ->
+                {node,_,AllowedHost} ->
                     %% Matching Host part
                     true;
-                [AllowedHost] ->
+                {host,AllowedHost} ->
                     %% Host matches Host
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        {name,AllowedName} ->
+            %% Allowed name before '@'
+            case split_node(Node) of
+                {node,AllowedName,_} ->
+                    %% Matching Name part
+                    true;
+                {name,AllowedName} ->
+                    %% Name matches Name
                     true;
                 _ ->
                     is_allowed(Node, Allowed)
@@ -720,9 +746,9 @@ is_allowed(Node, [AllowedNode|Allowed]) ->
             is_allowed(Node, Allowed)
     end.
 
-listify_node(Atom) when is_atom(Atom) ->
+listify(Atom) when is_atom(Atom) ->
     atom_to_list(Atom);
-listify_node(Node) when is_list(Node) ->
+listify(Node) when is_list(Node) ->
     Node.
 
 publish_type(Flags) ->

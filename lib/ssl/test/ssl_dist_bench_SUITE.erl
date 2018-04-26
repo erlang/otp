@@ -207,7 +207,8 @@ write_node_conf(
           #{root => RootCert,
             peer =>
                 [{extensions,
-                  [#'Extension'{
+                  [
+                   #'Extension'{
                       extnID = ?'id-ce-subjectAltName',
                       extnValue = [{dNSName, Host}],
                       critical = true},

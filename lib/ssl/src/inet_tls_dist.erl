@@ -53,7 +53,7 @@ select(Node) ->
 
 gen_select(Driver, Node) ->
     case dist_util:split_node(Node) of
-        {_,Host} ->
+        {node,_,Host} ->
 	    case Driver:getaddr(Host) of
 		{ok, _} -> true;
 		_ -> false
@@ -141,7 +141,7 @@ f_address(SslSocket, Node) ->
     case ssl:peername(SslSocket) of
         {ok, Address} ->
             case dist_util:split_node(Node) of
-                {_,Host} ->
+                {node,_,Host} ->
                     #net_address{
                        address=Address, host=Host,
                        protocol=tls, family=inet};
@@ -335,7 +335,11 @@ verify_client(PeerCert, valid_peer, {CertNodesFun,Driver,PeerIP} = S) ->
     %% Parse out all node names from the peer's certificate
     %%
     case CertNodesFun(PeerCert) of
+        undefined ->
+            %% Certificate allows all nodes
+            {valid,S};
         [] ->
+            %% Certificate allows no nodes
             {fail,cert_missing_node_name};
         CertNodes ->
             %% Check if the IP address of one of the nodes
@@ -354,10 +358,12 @@ filter_nodes_by_ip(Nodes, Driver, IP) ->
     [Node ||
         Node <- Nodes,
         case dist_util:split_node(Node) of
-            {_,Host} ->
+            {node,_,Host} ->
                 filter_host_by_ip(Host, Driver, IP);
-            [Host] ->
-                filter_host_by_ip(Host, Driver, IP)
+            {host,Host} ->
+                filter_host_by_ip(Host, Driver, IP);
+            {name,_Name} ->
+                true
         end].
 
 filter_host_by_ip(Host, Driver, IP) ->
@@ -452,7 +458,11 @@ allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
                     %% Parse out all node names from the peer's certificate
                     %%
                     case CertNodesFun(PeerCert) of
+                        undefined ->
+                            %% Certificate allows all nodes
+                            Allowed;
                         [] ->
+                            %% Certificate allows no nodes
                             ?shutdown(cert_missing_node_name);
                         CertNodes ->
                             %% Filter out all nodes in the
@@ -615,7 +625,11 @@ verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
     %% Parse out all node names from the peer's certificate
     %%
     case CertNodesFun(PeerCert) of
+        undefined ->
+            %% Certificate allows all nodes
+            {valid,S};
         [] ->
+            %% Certificate allows no nodes
             {fail,cert_missing_node_name};
         CertNodes ->
             %% Check that the node we are connecting to
@@ -681,32 +695,36 @@ cert_nodes(
 
 
 parse_extensions(Extensions) when is_list(Extensions) ->
-    parse_extensions(Extensions, [], none);
+    parse_extensions(Extensions, [], []);
 parse_extensions(asn1_NOVALUE) ->
-    [].
+    undefined. % Allow all nodes
 %%
-parse_extensions([], Hosts, none) ->
+parse_extensions([], [], []) ->
+    undefined; % Allow all nodes
+parse_extensions([], Hosts, []) ->
     lists:reverse(Hosts);
-parse_extensions([], Hosts, Name) ->
-    [Name ++ "@" ++ Host || Host <- lists:reverse(Hosts)];
+parse_extensions([], [], Names) ->
+    [Name ++ "@" || Name <- lists:reverse(Names)];
+parse_extensions([], Hosts, Names) ->
+    [Name ++ "@" ++ Host ||
+        Host <- lists:reverse(Hosts),
+        Name <- lists:reverse(Names)];
 parse_extensions(
   [#'Extension'{
       extnID = ?'id-ce-subjectAltName',
       extnValue = AltNames}
    |Extensions],
-  Hosts, Name) ->
+  Hosts, Names) ->
     case parse_subject_altname(AltNames) of
         none ->
-            parse_extensions(Extensions, Hosts, Name);
+            parse_extensions(Extensions, Hosts, Names);
         {host,Host} ->
-            parse_extensions(Extensions, [Host|Hosts], Name);
-        {name,NewName} when Name =:= none ->
-            parse_extensions(Extensions, Hosts, NewName);
-        {name,_NewName} ->
-            parse_extensions(Extensions, Hosts, Name)
+            parse_extensions(Extensions, [Host|Hosts], Names);
+        {name,Name} ->
+            parse_extensions(Extensions, Hosts, [Name|Names])
     end;
-parse_extensions([_|Extensions], Hosts, Name) ->
-    parse_extensions(Extensions, Hosts, Name).
+parse_extensions([_|Extensions], Hosts, Names) ->
+    parse_extensions(Extensions, Hosts, Names).
 
 parse_subject_altname([]) ->
     none;
@@ -742,9 +760,9 @@ parse_rdn([_|Rdn]) ->
 %% If Node is illegal terminate the connection setup!!
 split_node(Driver, Node, LongOrShortNames) ->
     case dist_util:split_node(Node) of
-        {Name, Host} ->
-	    check_node(Driver, Name, Node, Host, LongOrShortNames);
-	[_] ->
+        {node, Name, Host} ->
+	    check_node(Driver, Node, Name, Host, LongOrShortNames);
+	{host, _} ->
 	    error_logger:error_msg(
               "** Nodename ~p illegal, no '@' character **~n",
               [Node]),
@@ -755,8 +773,8 @@ split_node(Driver, Node, LongOrShortNames) ->
 	    ?shutdown2(Node, trace({illegal_node_name, Node}))
     end.
 
-check_node(Driver, Name, Node, Host, LongOrShortNames) ->
-    case string:split(Host, ".") of
+check_node(Driver, Node, Name, Host, LongOrShortNames) ->
+    case string:split(Host, ".", all) of
 	[_] when LongOrShortNames =:= longnames ->
 	    case Driver:parse_address(Host) of
 		{ok, _} ->
@@ -824,70 +842,50 @@ get_ssl_dist_arguments(Type) ->
 	    [{erl_dist, true}]
     end.
 
-ssl_options(_,[]) ->
+
+ssl_options(_Type, []) ->
     [];
-ssl_options(server, ["client_" ++ _, _Value |T]) ->
-    ssl_options(server,T);
-ssl_options(client, ["server_" ++ _, _Value|T]) ->
-    ssl_options(client,T);
-ssl_options(server, ["server_certfile", Value|T]) ->
-    [{certfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_certfile", Value | T]) ->
-    [{certfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_cacertfile", Value|T]) ->
-    [{cacertfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_cacertfile", Value|T]) ->
-    [{cacertfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_keyfile", Value|T]) ->
-    [{keyfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_keyfile", Value|T]) ->
-    [{keyfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_password", Value|T]) ->
-    [{password, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_password", Value|T]) ->
-    [{password, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_verify", Value|T]) ->
-    [{verify, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_verify", Value|T]) ->
-    [{verify, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_verify_fun", Value|T]) ->
-    [{verify_fun, verify_fun(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_verify_fun", Value|T]) ->
-    [{verify_fun, verify_fun(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_crl_check", Value|T]) ->
-    [{crl_check, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_crl_check", Value|T]) ->
-    [{crl_check, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_crl_cache", Value|T]) ->
-    [{crl_cache, termify(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_crl_cache", Value|T]) ->
-    [{crl_cache, termify(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_reuse_sessions", Value|T]) ->
-    [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_reuse_sessions", Value|T]) ->
-    [{reuse_sessions, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_secure_renegotiate", Value|T]) ->
-    [{secure_renegotiate, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_secure_renegotiate", Value|T]) ->
-    [{secure_renegotiate, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_depth", Value|T]) ->
-    [{depth, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_depth", Value|T]) ->
-    [{depth, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_hibernate_after", Value|T]) ->
-    [{hibernate_after, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_hibernate_after", Value|T]) ->
-    [{hibernate_after, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_ciphers", Value|T]) ->
-    [{ciphers, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_ciphers", Value|T]) ->
-    [{ciphers, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_dhfile", Value|T]) ->
-    [{dhfile, Value} | ssl_options(server,T)];
-ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
-    [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
-ssl_options(Type, Opts) ->
-    error(malformed_ssl_dist_opt, [Type, Opts]).
+ssl_options(client, ["client_" ++ Opt, Value | T] = Opts) ->
+    ssl_options(client, T, Opts, Opt, Value);
+ssl_options(server, ["server_" ++ Opt, Value | T] = Opts) ->
+    ssl_options(server, T, Opts, Opt, Value);
+ssl_options(Type, [_Opt, _Value | T]) ->
+    ssl_options(Type, T).
+%%
+ssl_options(Type, T, Opts, Opt, Value) ->
+    case ssl_option(Type, Opt) of
+        error ->
+            error(malformed_ssl_dist_opt, [Type, Opts]);
+        Fun ->
+            [{list_to_atom(Opt), Fun(Value)}|ssl_options(Type, T)]
+    end.
+
+ssl_option(server, Opt) ->
+    case Opt of
+        "dhfile" -> fun listify/1;
+        "fail_if_no_peer_cert" -> fun atomize/1;
+        _ -> ssl_option(client, Opt)
+    end;
+ssl_option(client, Opt) ->
+    case Opt of
+        "certfile" -> fun listify/1;
+        "cacertfile" -> fun listify/1;
+        "keyfile" -> fun listify/1;
+        "password" -> fun listify/1;
+        "verify" -> fun atomize/1;
+        "verify_fun" -> fun verify_fun/1;
+        "crl_check" -> fun atomize/1;
+        "crl_cache" -> fun termify/1;
+        "reuse_sessions" -> fun atomize/1;
+        "secure_renegotiate" -> fun atomize/1;
+        "depth" -> fun erlang:list_to_integer/1;
+        "hibernate_after" -> fun erlang:list_to_integer/1;
+        "ciphers" -> fun listify/1;
+        _ -> error
+    end.
+
+listify(List) when is_list(List) ->
+    List.
 
 atomize(List) when is_list(List) ->
     list_to_atom(List);
