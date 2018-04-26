@@ -157,8 +157,8 @@ call_last(Config) when is_list(Config) ->
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,handle_call,2},
-      {{call_ext,2,{extfunc,debug,filter,2}},
-       22,
+      {{call_ext,1,{extfunc,erlang,exit,1}},
+       10,
        {uninitialized_reg,{y,0}}}}] = Errors,
     ok.
 
