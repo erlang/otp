@@ -546,6 +546,9 @@ Eterm hipe_check_get_msg(Process *c_p)
 
     if (!msgp) {
         int get_out;
+        c_p->i = NULL;
+        c_p->arity = 0;
+        c_p->current = NULL;
         (void) erts_proc_sig_receive_helper(c_p, CONTEXT_REDS, 0,
                                             &msgp, &get_out);
         /* FIXME: Need to bump reductions... */
