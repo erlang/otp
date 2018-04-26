@@ -40,42 +40,43 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 # Behaviour (api) modules are first so they are compiled when
 # the compiler reaches a callback module using them.
 BEHAVIOUR_MODULES= \
-	ssh_sftpd_file_api \
-        ssh_channel \
-	ssh_daemon_channel \
 	ssh_client_key_api \
-	ssh_server_key_api
+	ssh_daemon_channel \
+	ssh_server_channel \
+	ssh_server_key_api \
+	ssh_sftpd_file_api \
+        ssh_channel
 
 MODULES= \
 	ssh \
-	ssh_sup \
-	sshc_sup \
-	sshd_sup \
-	ssh_options \
-	ssh_connection_sup \
-	ssh_connection \
-	ssh_connection_handler \
-	ssh_dbg \
-	ssh_shell \
-	ssh_system_sup \
-	ssh_subsystem_sup \
-	ssh_daemon_channel_sup \
-	ssh_acceptor_sup \
 	ssh_acceptor \
+	ssh_acceptor_sup \
 	ssh_app \
 	ssh_auth\
 	ssh_bits \
 	ssh_cli \
+	ssh_connection \
+	ssh_connection_handler \
+	ssh_connection_sup \
+	ssh_dbg \
 	ssh_file \
-	ssh_io \
 	ssh_info \
+	ssh_io \
 	ssh_message \
 	ssh_no_io \
+	ssh_options \
+	ssh_server_channel_sup \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
+	ssh_shell \
+	ssh_subsystem_sup \
+	ssh_sup \
+	ssh_system_sup \
 	ssh_transport \
-	ssh_xfer
+	ssh_xfer \
+	sshc_sup \
+	sshd_sup
 
 HRL_FILES =
 
@@ -169,7 +170,7 @@ $(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
 $(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
 $(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
 $(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
-$(EBIN)/ssh_daemon_channel_sup.$(EMULATOR): ssh_daemon_channel_sup.erl
+$(EBIN)/ssh_server_channel_sup.$(EMULATOR): ssh_server_channel_sup.erl
 $(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
 $(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl
@@ -210,6 +211,7 @@ $(EBIN)/ssh_xfer.$(EMULATOR): ssh_xfer.erl ssh.hrl ssh_xfer.hrl
 $(EBIN)/ssh_sftpd_file_api.$(EMULATOR): ssh_sftpd_file_api.erl
 $(EBIN)/ssh_channel.$(EMULATOR): ssh_channel.erl ssh_connect.hrl
 $(EBIN)/ssh_daemon_channel.$(EMULATOR): ssh_daemon_channel.erl
+$(EBIN)/ssh_server_channel.$(EMULATOR): ssh_server_channel.erl
 $(EBIN)/ssh_client_key_api.$(EMULATOR): ssh_client_key_api.erl \
   ../../public_key/include/public_key.hrl \
   ../../public_key/include/OTP-PUB-KEY.hrl \

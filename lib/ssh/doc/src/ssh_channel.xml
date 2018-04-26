@@ -47,7 +47,8 @@
     </p>
 
     <note><p>When implementing a <c>ssh</c> subsystem for daemons, use
-    <seealso marker="ssh_daemon_channel">-behaviour(ssh_daemon_channel)</seealso> instead.
+    <seealso marker="ssh_server_channel">-behaviour(ssh_server_channel)</seealso> (Replaces ssh_daemon_channel)
+    instead.
     </p>
     </note>
 
@@ -223,7 +224,7 @@
     <title>Callback Functions</title>
     <p>
       The following functions are to be exported from a
-      <c>ssh_daemon_channel</c> callback module.
+      <c>ssh_channel</c> callback module.
     </p>
     <marker id="cb_timeouts"></marker>
     <section>

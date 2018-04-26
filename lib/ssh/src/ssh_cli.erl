@@ -25,12 +25,12 @@
 
 -module(ssh_cli).
 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
-%% ssh_daemon_channel callbacks
+%% ssh_server_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
 -export([dbg_trace/3]).
@@ -47,7 +47,7 @@
 	 }).
 
 %%====================================================================
-%% ssh_daemon_channel callbacks
+%% ssh_server_channel callbacks
 %%====================================================================
 
 %%--------------------------------------------------------------------

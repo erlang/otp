@@ -68,8 +68,8 @@
     <seealso marker="ssh_sftp#start_channel/1">ssh_sftp:start_channel/1,2,3</seealso>.
     </p>
     <p>To write your own client channel handler, use the behaviour 
-    <seealso marker="ssh_channel">ssh_channel</seealso>. and server channel handlers use 
-    <seealso marker="ssh_daemon_channel">ssh_daemon_channel</seealso> behaviour.
+    <seealso marker="ssh_channel">ssh_channel</seealso>. For server channel handlers use 
+    <seealso marker="ssh_server_channel">ssh_server_channel</seealso> behaviour (replaces ssh_daemon_channel).
     </p>
     <p>Both clients and daemons accepts options that controls the exact behaviour. Some options are common to both.
     The three sets are called 
@@ -379,7 +379,7 @@
 	<seealso marker="ssh_connection#subsystem/4">ssh_connection:subsystem/4</seealso>.
 	</p>
 	<p>The <c>channel_callback</c> is the module that implements the
-	<seealso marker="ssh_daemon_channel">ssh_daemon_channel</seealso>
+	<seealso marker="ssh_server_channel">ssh_server_channel</seealso> (replaces ssh_daemon_channel)
 	behaviour in the daemon. See the section 
 	<seealso marker="using_ssh#usersguide_creating_a_subsystem">Creating a Subsystem</seealso>
 	in the User's Guide for more information and an example.

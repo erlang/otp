@@ -22,7 +22,7 @@
 
 %%% Description: Example ssh server
 -module(ssh_echo_server).
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 -record(state, {
 	  n,
 	  id,

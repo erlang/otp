@@ -23,7 +23,7 @@
 %% terminal (using the group module) for a CLI
 %% over SSH
 
--module(ssh_daemon_channel).
+-module(ssh_server_channel).
 
 %% API to server side channel that can be pluged into the erlang ssh daemeon
 -callback init(Args :: term()) ->
@@ -48,8 +48,8 @@
         ]).
 
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
-    ssh_server_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
+    ssh_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
 
 
 get_print_info(Pid) ->
-    ssh_server_channel:get_print_info(Pid).
+    ssh_channel:get_print_info(Pid).

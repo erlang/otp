@@ -24,7 +24,7 @@
 
 -module(ssh_sftpd).
 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 
 -include_lib("kernel/include/file.hrl").
 
