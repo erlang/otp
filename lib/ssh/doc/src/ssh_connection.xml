@@ -44,9 +44,9 @@
     If the receiving channel is an Erlang process, the
     messages have the format
     <c><![CDATA[{ssh_cm, connection_ref(), ssh_event_msg()}]]></c>.
-    If the <seealso marker="ssh_channel">ssh_channel</seealso> behavior is used to
+    If the <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior is used to
     implement the channel process, these messages are handled by
-    <seealso marker="ssh_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2</seealso>.</p>
+    <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2</seealso>.</p>
   </description>
 
   <section>
@@ -131,7 +131,7 @@
 	<item><p>This event is sent as a result of calling
 	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso>.
 	Both the handling of this event and sending it are taken care of by the
-	<seealso marker="ssh_channel">ssh_channel</seealso> behavior.</p></item>
+	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p></item>
 
       </taglist>
      </item>
@@ -212,10 +212,10 @@
 	<p>Adjusts the SSH flow control window. This is to be done by both the
 	client- and server-side channel processes.</p>
 	
-	<note><p>Channels implemented with the <seealso marker="ssh_channel"> ssh_channel</seealso>
+	<note><p>Channels implemented with the <seealso marker="ssh_client_channel"> ssh_client_channel</seealso>
 	behavior do not normally need to call this function as flow control
 	is handled by the behavior. The behavior adjusts the window every time
-	the callback <seealso marker="ssh_channel#Module:handle_ssh_msg-2">
+	the callback <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">
 	handle_ssh_msg/2</seealso> returns after processing channel data.</p></note>
       </desc>
    </func>
@@ -232,9 +232,9 @@
        sending a close event.
        </p>
 
-       <note><p>This function is called by the <c>ssh_channel</c>
+       <note><p>This function is called by the <c>ssh_client_channel</c>
        behavior when the channel is terminated, see <seealso
-       marker="ssh_channel"> ssh_channel(3)</seealso>. Thus, channels implemented
+       marker="ssh_client_channel"> ssh_client_channel(3)</seealso>. Thus, channels implemented
        with the behavior are not to call this function explicitly.</p></note>
      </desc>
    </func>
@@ -277,7 +277,7 @@
 
 	  <tag><c>1 x {ssh_cm, connection_ref(),
 	  {closed, channel_id()}}</c></tag>
-	  <item><p>Indicates that the <c>ssh_channel</c> started for the
+	  <item><p>Indicates that the <c>ssh_client_channel</c> started for the
 	  execution of the command has now been shut down.</p></item>
        </taglist>
      </desc>

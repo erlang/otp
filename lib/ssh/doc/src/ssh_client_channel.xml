@@ -23,16 +23,22 @@
 
       The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
-    <title>ssh_channel</title>
+    <title>ssh_client_channel</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_channel</module>
-  <modulesummary>-behaviour(ssh_channel).
+  <module>ssh_client_channel</module>
+  <modulesummary>-behaviour(ssh_client_channel). (Replaces ssh_channel)
   </modulesummary>
   <description>
+    <note>
+      <p>This module replaces ssh_channel.</p>
+      <p>The old module is still available for compatibility, but should not be used for new programs.
+      The old module will not be maintained except for some error corrections
+      </p>
+    </note>
     <p>SSH services (clients and servers) are implemented as channels
     that are multiplexed over an SSH connection and communicates over
     the <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH
@@ -106,16 +112,16 @@
 
     <func>
       <name>enter_loop(State) -> _ </name>
-      <fsummary>Makes an existing process an ssh_channel process.</fsummary>
+      <fsummary>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</fsummary>
       <type>
 	<v>State = term()</v>
 	<d>as returned by <seealso marker = "#init-1">init/1</seealso></d>
       </type>
       <desc>
-	<p>Makes an existing process an <c>ssh_channel</c>
+	<p>Makes an existing process an <c>ssh_client_channel</c> (replaces ssh_channel)
 	process. Does not return, instead the calling process
-	enters the <c>ssh_channel</c> process receive loop and become an
-	<c>ssh_channel process</c>. The process must have been started using
+	enters the <c>ssh_client_channel</c> (replaces ssh_channel) process receive loop and become an
+	<c>ssh_client_channel</c> process. The process must have been started using
 	one of the start functions in <c>proc_lib</c>, see the <seealso
 	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in STDLIB.
 	The user is responsible for any initialization of the process
@@ -126,7 +132,7 @@
     
     <func>
       <name>init(Options) -> {ok, State} |  {ok, State, Timeout} | {stop, Reason} </name>
-      <fsummary>Initiates an <c>ssh_channel</c> process.</fsummary>
+      <fsummary>Initiates an <c>ssh_client_channel</c> process.</fsummary>
       <type>
 	<v>Options = [{Option, Value}]</v>
 	<v>State = term()</v>
@@ -224,7 +230,7 @@
     <title>Callback Functions</title>
     <p>
       The following functions are to be exported from a
-      <c>ssh_channel</c> callback module.
+      <c>ssh_client_channel</c> callback module.
     </p>
     <marker id="cb_timeouts"></marker>
     <section>
@@ -398,7 +404,7 @@
 	</p>
 	
 	<p>The following message is taken care of by the
-	<c>ssh_channel</c> behavior.</p>
+	<c>ssh_client_channel</c> behavior.</p>
 	
 	<taglist>
 	  <tag><c>{closed, ssh:channel_id()}</c></tag>

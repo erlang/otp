@@ -54,7 +54,7 @@
     </p>
 
     <note><p>When implementing a client subsystem handler, use
-    <seealso marker="ssh_channel">-behaviour(ssh_channel)</seealso> instead.
+    <seealso marker="ssh_client_channel">-behaviour(ssh_client_channel)</seealso> instead.
     </p>
     </note>
 

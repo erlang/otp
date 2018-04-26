@@ -414,7 +414,7 @@ init([Role,Socket,Opts]) ->
     case inet:peername(Socket) of
         {ok, PeerAddr} ->
             {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
-            C = #connection{channel_cache = ssh_channel:cache_create(),
+            C = #connection{channel_cache = ssh_client_channel:cache_create(),
                             channel_id_seed = 0,
                             port_bindings = [],
                             requests = [],
@@ -1109,13 +1109,13 @@ handle_event(cast, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
 handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTED(StateName) ->
-    case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{recv_window_size = WinSize,
 		 recv_window_pending = Pending,
 		 recv_packet_size = PktSize} = Channel
 	  when (WinSize-Bytes) >= 2*PktSize ->
 	    %% The peer can send at least two more *full* packet, no hurry.
-	    ssh_channel:cache_update(cache(D),
+	    ssh_client_channel:cache_update(cache(D),
 				     Channel#channel{recv_window_pending = Pending + Bytes}),
 	    keep_state_and_data;
 
@@ -1123,7 +1123,7 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTE
 		 recv_window_pending = Pending,
 		 remote_id = Id} = Channel ->
 	    %% Now we have to update the window - we can't receive so many more pkts
-	    ssh_channel:cache_update(cache(D),
+	    ssh_client_channel:cache_update(cache(D),
 				     Channel#channel{recv_window_size =
 							 WinSize + Bytes + Pending,
 						     recv_window_pending = 0}),
@@ -1135,7 +1135,7 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTE
     end;
 
 handle_event(cast, {reply_request,success,ChannelId}, StateName, D) when ?CONNECTED(StateName) ->
-    case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{remote_id = RemoteId} ->
 	    Msg = ssh_connection:channel_success_msg(RemoteId),
 	    update_inet_buffers(D#data.socket),
@@ -1178,7 +1178,7 @@ handle_event({call,From}, {connection_info, Options}, _, D) ->
     {keep_state_and_data, [{reply,From,Info}]};
 
 handle_event({call,From}, {channel_info,ChannelId,Options}, _, D) ->
-    case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{} = Channel ->
 	    Info = fold_keys(Options, fun chann_info/2, Channel),
 	    {keep_state_and_data, [{reply,From,Info}]};
@@ -1188,14 +1188,14 @@ handle_event({call,From}, {channel_info,ChannelId,Options}, _, D) ->
 
 
 handle_event({call,From}, {info, all}, _, D) ->
-    Result = ssh_channel:cache_foldl(fun(Channel, Acc) ->
+    Result = ssh_client_channel:cache_foldl(fun(Channel, Acc) ->
 					     [Channel | Acc]
 				     end,
 				     [], cache(D)),
     {keep_state_and_data, [{reply, From, {ok,Result}}]};
     
 handle_event({call,From}, {info, ChannelPid}, _, D) ->
-    Result = ssh_channel:cache_foldl(
+    Result = ssh_client_channel:cache_foldl(
 	       fun(Channel, Acc) when Channel#channel.user == ChannelPid ->
 		       [Channel | Acc];
 		  (_, Acc) ->
@@ -1241,7 +1241,7 @@ handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, StateName, D0)
 
 handle_event({call,From}, {eof, ChannelId}, StateName, D0) 
   when ?CONNECTED(StateName) ->
-    case ssh_channel:cache_lookup(cache(D0), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D0), ChannelId) of
 	#channel{remote_id = Id, sent_close = false} ->
 	    D = send_msg(ssh_connection:channel_eof_msg(Id), D0),
 	    {keep_state, D, [{reply,From,ok}]};
@@ -1259,7 +1259,7 @@ handle_event({call,From},
 						  InitialWindowSize,
 						  MaxPacketSize, Data),
 		  D1),
-    ssh_channel:cache_update(cache(D2), 
+    ssh_client_channel:cache_update(cache(D2), 
 			     #channel{type = Type,
 				      sys = "none",
 				      user = ChannelPid,
@@ -1274,7 +1274,7 @@ handle_event({call,From},
 
 handle_event({call,From}, {send_window, ChannelId}, StateName, D) 
   when ?CONNECTED(StateName) ->
-    Reply = case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    Reply = case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 		#channel{send_window_size = WinSize,
 			 send_packet_size = Packsize} ->
 		    {ok, {WinSize, Packsize}};
@@ -1285,7 +1285,7 @@ handle_event({call,From}, {send_window, ChannelId}, StateName, D)
 
 handle_event({call,From}, {recv_window, ChannelId}, StateName, D) 
   when ?CONNECTED(StateName) ->
-    Reply = case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    Reply = case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 		#channel{recv_window_size = WinSize,
 			 recv_packet_size = Packsize} ->
 		    {ok, {WinSize, Packsize}};
@@ -1296,10 +1296,10 @@ handle_event({call,From}, {recv_window, ChannelId}, StateName, D)
 
 handle_event({call,From}, {close, ChannelId}, StateName, D0) 
   when ?CONNECTED(StateName) ->
-    case ssh_channel:cache_lookup(cache(D0), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D0), ChannelId) of
 	#channel{remote_id = Id} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
-	    ssh_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
+	    ssh_client_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
 	    {keep_state, cache_request_idle_timer_check(D1), [{reply,From,ok}]};
 	undefined ->
 	    {keep_state_and_data, [{reply,From,ok}]}
@@ -1859,7 +1859,7 @@ is_usable_user_pubkey(A, Ssh) ->
 
 %%%----------------------------------------------------------------
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From, D) ->
-    case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{remote_id = Id,
                  sent_close = false} = Channel ->
 	    update_sys(cache(D), Channel, Type, ChannelPid),
@@ -1874,7 +1874,7 @@ handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From, D) ->
     end.
 
 handle_request(ChannelId, Type, Data, WantReply, From, D) ->
-    case ssh_channel:cache_lookup(cache(D), ChannelId) of
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{remote_id = Id,
                  sent_close = false} ->
 	    send_msg(ssh_connection:channel_request_msg(Id, Type, WantReply, Data),
@@ -1890,10 +1890,10 @@ handle_request(ChannelId, Type, Data, WantReply, From, D) ->
 %%%----------------------------------------------------------------
 handle_channel_down(ChannelPid, D) ->
     Cache = cache(D),
-    ssh_channel:cache_foldl(
+    ssh_client_channel:cache_foldl(
       fun(#channel{user=U,
                    local_id=Id}, Acc) when U == ChannelPid ->
-              ssh_channel:cache_delete(Cache, Id),
+              ssh_client_channel:cache_delete(Cache, Id),
               Acc;
          (_,Acc) ->
               Acc
@@ -1902,7 +1902,7 @@ handle_channel_down(ChannelPid, D) ->
 
 
 update_sys(Cache, Channel, Type, ChannelPid) ->
-    ssh_channel:cache_update(Cache,
+    ssh_client_channel:cache_update(Cache,
 			     Channel#channel{sys = Type, user = ChannelPid}).
 
 add_request(false, _ChannelId, _From, State) ->
@@ -1979,7 +1979,7 @@ conn_info(sockname,       #data{ssh_params=S}) -> S#ssh.local;
 %% dbg options ( = not documented):
 conn_info(socket, D) -> D#data.socket;
 conn_info(chan_ids, D) -> 
-    ssh_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
+    ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
 				    [Id | Acc]
 			    end, [], cache(D)).
 
@@ -2070,7 +2070,7 @@ get_repl({channel_data,Pid,Data}, Acc) ->
 get_repl({channel_request_reply,From,Data}, {CallRepls,S}) ->
     {[{reply,From,Data}|CallRepls], S};
 get_repl({flow_control,Cache,Channel,From,Msg}, {CallRepls,S}) ->
-    ssh_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
+    ssh_client_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
     {[{reply,From,Msg}|CallRepls], S};
 get_repl({flow_control,From,Msg}, {CallRepls,S}) ->
     {[{reply,From,Msg}|CallRepls], S};
@@ -2146,7 +2146,7 @@ cache_init_idle_timer(D) ->
 cache_check_set_idle_timer(D = #data{idle_timer_ref = undefined,
 				     idle_timer_value = IdleTime}) ->
     %% No timer set - shall we set one?
-    case ssh_channel:cache_info(num_entries, cache(D)) of
+    case ssh_client_channel:cache_info(num_entries, cache(D)) of
 	0 when IdleTime == infinity ->
 	    %% No. Meaningless to set a timer that fires in an infinite time...
 	    D;

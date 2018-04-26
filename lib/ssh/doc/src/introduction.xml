@@ -145,7 +145,7 @@
       data that can be sent to the channel peer without adjusting the
       window. Typically, an SSH client opens a channel, sends data (commands),
       receives data (control information), and then closes the channel.
-      The <seealso marker="ssh_channel">ssh_channel</seealso> behaviour
+      The <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behaviour
       handles generic parts of SSH channel management. This makes it easy
       to write your own SSH client/server processes that use flow-control
       and thus opens for more focus on the application logic.

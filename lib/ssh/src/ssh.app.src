@@ -12,6 +12,7 @@
 	     ssh_message,
 	     ssh_bits,
 	     ssh_cli,
+	     ssh_client_channel,
              ssh_client_key_api,
 	     ssh_channel,
 	     ssh_connection,

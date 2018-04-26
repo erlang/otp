@@ -271,7 +271,7 @@ channel_data(ChannelId, DataType, Data, Connection, From) when is_list(Data)->
 channel_data(ChannelId, DataType, Data, 
 	     #connection{channel_cache = Cache} = Connection,
 	     From) ->
-    case ssh_channel:cache_lookup(Cache, ChannelId) of
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} =
 		update_send_window(Channel0#channel{flow_control = From}, DataType,
@@ -303,9 +303,9 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 	   #connection{channel_cache = Cache} = Connection0, _) ->
     
     #channel{remote_id = undefined} = Channel =
-	ssh_channel:cache_lookup(Cache, ChannelId), 
+	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
-    ssh_channel:cache_update(Cache, Channel#channel{
+    ssh_client_channel:cache_update(Cache, Channel#channel{
 				     remote_id = RemoteId,
 				     recv_packet_size = max(32768, % rfc4254/5.2
 							    min(PacketSz, Channel#channel.recv_packet_size)
@@ -319,8 +319,8 @@ handle_msg(#ssh_msg_channel_open_failure{recipient_channel = ChannelId,
 					 description = Descr,
 					 lang = Lang},  
 	   #connection{channel_cache = Cache} = Connection0, _) ->
-    Channel = ssh_channel:cache_lookup(Cache, ChannelId), 
-    ssh_channel:cache_delete(Cache, ChannelId),
+    Channel = ssh_client_channel:cache_lookup(Cache, ChannelId), 
+    ssh_client_channel:cache_delete(Cache, ChannelId),
     reply_msg(Channel, Connection0, {open_error, Reason, Descr, Lang});
 
 handle_msg(#ssh_msg_channel_success{recipient_channel = ChannelId}, Connection, _) ->
@@ -335,10 +335,10 @@ handle_msg(#ssh_msg_channel_eof{recipient_channel = ChannelId}, Connection, _) -
 handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},   
 	   #connection{channel_cache = Cache} = Connection0, _) ->
 
-	case ssh_channel:cache_lookup(Cache, ChannelId) of
+	case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 		#channel{sent_close = Closed, remote_id = RemoteId,
 			 flow_control = FlowControl} = Channel ->
-		ssh_channel:cache_delete(Cache, ChannelId),
+		ssh_client_channel:cache_delete(Cache, ChannelId),
 		{CloseMsg, Connection} = 
 		    reply_msg(Channel, Connection0, {closed, ChannelId}),
 		ConnReplyMsgs =
@@ -379,7 +379,7 @@ handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
 					  bytes_to_add = Add}, 
 	   #connection{channel_cache = Cache} = Connection, _) ->
     #channel{send_window_size = Size, remote_id = RemoteId} = 
-	Channel0 = ssh_channel:cache_lookup(Cache, ChannelId), 
+	Channel0 = ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
     {SendList, Channel} =  %% TODO: Datatype 0 ?
 	update_send_window(Channel0#channel{send_window_size = Size + Add},
@@ -455,7 +455,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
       ?BOOLEAN(_Core), 
       ?DEC_BIN(Err, _ErrLen),
       ?DEC_BIN(Lang, _LangLen)>> = Data,
-    Channel = ssh_channel:cache_lookup(Cache, ChannelId),
+    Channel = ssh_client_channel:cache_lookup(Cache, ChannelId),
     RemoteId =  Channel#channel.remote_id,
     {Reply, Connection} =  reply_msg(Channel, Connection0, 
 				     {exit_signal, ChannelId,
@@ -500,7 +500,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     <<?DEC_BIN(SsName,_SsLen)>> = Data,
     
     #channel{remote_id = RemoteId} = Channel0 = 
-	ssh_channel:cache_lookup(Cache, ChannelId), 
+	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
     ReplyMsg =  {subsystem, ChannelId, WantReply, binary_to_list(SsName)},
     
@@ -508,7 +508,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 	{ok, Pid} = start_subsystem(SsName, Connection, Channel0, ReplyMsg),
 	erlang:monitor(process, Pid),
 	Channel = Channel0#channel{user = Pid},
-	ssh_channel:cache_update(Cache, Channel),
+	ssh_client_channel:cache_update(Cache, Channel),
 	Reply = {connection_reply,
 		 channel_success_msg(RemoteId)},
 	{[Reply], Connection}
@@ -588,7 +588,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    want_reply = WantReply},
 	   #connection{channel_cache = Cache} = Connection, _) ->
     if WantReply == true ->
-		case ssh_channel:cache_lookup(Cache, ChannelId) of
+		case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 		    #channel{remote_id = RemoteId}  -> 
 			FailMsg = channel_failure_msg(RemoteId),
 			{[{connection_reply, FailMsg}], Connection};
@@ -631,14 +631,14 @@ handle_msg(#ssh_msg_disconnect{code = Code,
 %%%
 handle_stop(#connection{channel_cache = Cache} = Connection0) ->
     {Connection, Replies} = 
-	ssh_channel:cache_foldl(
+	ssh_client_channel:cache_foldl(
           fun(Channel, {Connection1, Acc}) ->
                   {Reply, Connection2} =
                       reply_msg(Channel, Connection1,
                                 {closed, Channel#channel.local_id}),
                   {Connection2, Reply ++ Acc}
           end, {Connection0, []}, Cache),
-    ssh_channel:cache_delete(Cache),
+    ssh_client_channel:cache_delete(Cache),
     {Replies, Connection}.
 
 %%%----------------------------------------------------------------
@@ -779,7 +779,7 @@ setup_session(#connection{channel_cache = Cache,
                  send_buf = queue:new(),
                  remote_id = RemoteId
                 },
-    ssh_channel:cache_update(Cache, Channel),
+    ssh_client_channel:cache_update(Cache, Channel),
     OpenConfMsg = channel_open_confirmation_msg(RemoteId, NewChannelID,
 						?DEFAULT_WINDOW_SIZE, 
 						?DEFAULT_PACKET_SIZE),
@@ -868,7 +868,7 @@ update_send_window(#channel{send_buf = SendBuffer} = Channel, DataType, Data,
 
 do_update_send_window(Channel0, Cache) ->
     {SendMsgs, Channel} = get_window(Channel0, []),
-    ssh_channel:cache_update(Cache, Channel), 
+    ssh_client_channel:cache_update(Cache, Channel), 
     {SendMsgs, Channel}.
 
 get_window(#channel{send_window_size = 0
@@ -919,13 +919,13 @@ flow_control(Channel, Cache) ->
     flow_control([window_adjusted], Channel, Cache).
 
 flow_control([], Channel, Cache) ->
-    ssh_channel:cache_update(Cache, Channel),
+    ssh_client_channel:cache_update(Cache, Channel),
     [];
 flow_control([_|_], #channel{flow_control = From,
 			     send_buf = Buffer} = Channel, Cache) when From =/= undefined ->
     case queue:is_empty(Buffer) of
 	true ->
-	    ssh_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
+	    ssh_client_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
 	    [{flow_control, Cache, Channel, From, ok}];
 	false ->
 	    []
@@ -1169,14 +1169,14 @@ backwards_compatible([Value| Rest], Acc) ->
 
 handle_cli_msg(C0, ChId, Reply0) ->
     Cache = C0#connection.channel_cache,
-    Ch0 = ssh_channel:cache_lookup(Cache, ChId),
+    Ch0 = ssh_client_channel:cache_lookup(Cache, ChId),
     case Ch0#channel.user of
         undefined ->
             case (catch start_cli(C0, ChId)) of
                 {ok, Pid} ->
                     erlang:monitor(process, Pid),
                     Ch = Ch0#channel{user = Pid},
-                    ssh_channel:cache_update(Cache, Ch),
+                    ssh_client_channel:cache_update(Cache, Ch),
                     reply_msg(Ch, C0, Reply0);
                 _Other ->
                     Reply = {connection_reply, channel_failure_msg(Ch0#channel.remote_id)},
@@ -1194,10 +1194,10 @@ handle_cli_msg(C0, ChId, Reply0) ->
 %%% 
 
 channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
-    case ssh_channel:cache_lookup(Connection#connection.channel_cache, ChannelId) of
+    case ssh_client_channel:cache_lookup(Connection#connection.channel_cache, ChannelId) of
 	#channel{recv_window_size = Size} = Channel ->
 	    WantedSize = Size - size(Data),
-	    ssh_channel:cache_update(Connection#connection.channel_cache, 
+	    ssh_client_channel:cache_update(Connection#connection.channel_cache, 
                                      Channel#channel{recv_window_size = WantedSize}),
             reply_msg(Channel, Connection, {data, ChannelId, DataType, Data});
 	undefined ->
@@ -1206,7 +1206,7 @@ channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
 
 
 reply_msg(ChId, C, Reply) when is_integer(ChId) ->
-    reply_msg(ssh_channel:cache_lookup(C#connection.channel_cache, ChId), C, Reply);
+    reply_msg(ssh_client_channel:cache_lookup(C#connection.channel_cache, ChId), C, Reply);
 
 reply_msg(Channel, Connection, {open, _} = Reply) ->
     request_reply_or_data(Channel, Connection, Reply);

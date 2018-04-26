@@ -48,8 +48,8 @@
         ]).
 
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
-    ssh_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
+    ssh_client_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
 
 
 get_print_info(Pid) ->
-    ssh_channel:get_print_info(Pid).
+    ssh_client_channel:get_print_info(Pid).

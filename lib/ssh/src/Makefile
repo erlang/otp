@@ -45,7 +45,8 @@ BEHAVIOUR_MODULES= \
 	ssh_server_channel \
 	ssh_server_key_api \
 	ssh_sftpd_file_api \
-        ssh_channel
+        ssh_channel        \
+        ssh_client_channel
 
 MODULES= \
 	ssh \
@@ -209,6 +210,7 @@ $(EBIN)/ssh_transport.$(EMULATOR): ssh_transport.erl \
   ssh_transport.hrl ssh.hrl
 $(EBIN)/ssh_xfer.$(EMULATOR): ssh_xfer.erl ssh.hrl ssh_xfer.hrl
 $(EBIN)/ssh_sftpd_file_api.$(EMULATOR): ssh_sftpd_file_api.erl
+$(EBIN)/ssh_client_channel.$(EMULATOR): ssh_client_channel.erl ssh_connect.hrl
 $(EBIN)/ssh_channel.$(EMULATOR): ssh_channel.erl ssh_connect.hrl
 $(EBIN)/ssh_daemon_channel.$(EMULATOR): ssh_daemon_channel.erl
 $(EBIN)/ssh_server_channel.$(EMULATOR): ssh_server_channel.erl

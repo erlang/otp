@@ -40,10 +40,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = \
 	ssh.xml \
-	ssh_channel.xml \
+	ssh_client_channel.xml \
 	ssh_client_key_api.xml \
 	ssh_connection.xml \
-	ssh_daemon_channel.xml \
 	ssh_server_channel.xml \
 	ssh_server_key_api.xml \
 	ssh_sftp.xml \
