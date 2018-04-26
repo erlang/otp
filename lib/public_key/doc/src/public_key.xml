@@ -95,10 +95,12 @@
       <p><c>| {#'PBEParameter{}, digest_type()} | #'PBES2-params'{}}</c></p>
       </item>
       
-      <tag><c>public_key() =</c></tag>
+      <tag><marker id="type-public_key"/>
+      <c>public_key() =</c></tag>
       <item><p><c>rsa_public_key() | dsa_public_key() | ec_public_key()</c></p></item>
       
-      <tag><c>private_key() =</c></tag>
+      <tag><marker id="type-private_key"/>
+      <c>private_key() =</c></tag>
       <item><p><c>rsa_private_key() | dsa_private_key() | ec_private_key()</c></p></item>
 
       <tag><c>rsa_public_key() =</c></tag>

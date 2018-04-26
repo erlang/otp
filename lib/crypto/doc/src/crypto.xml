@@ -136,6 +136,7 @@
     See also <seealso marker="#supports-0">crypto:supports/0</seealso>
     </p>
 
+    <marker id="type-engine_key_ref"/>
     <marker id="engine_key_ref_type"/>
     <code>engine_key_ref() = #{engine   := engine_ref(),
                                key_id   := key_id(),

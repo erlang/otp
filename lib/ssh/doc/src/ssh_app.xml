@@ -333,7 +333,8 @@
       <item><url href="https://tools.ietf.org/html/rfc8332">RFC 8332</url>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol.
       </item>
       
-      <item><url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
+      <item><marker id="supported-ext-info"/>
+      <url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
       <p>Implemented are:</p>
       <list type="bulleted">
 	<item>The Extension Negotiation Mechanism</item>

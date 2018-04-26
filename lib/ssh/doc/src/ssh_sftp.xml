@@ -59,7 +59,7 @@
 	</p>
       </item>
 
-      <tag><c>ssh_connection_ref() =</c></tag>
+      <tag><c>connection_ref() =</c></tag>
       <item><p><c>opaque()</c> - as returned by 
       <seealso marker="ssh#connect-3"><c>ssh:connect/3</c></seealso></p></item>
 
@@ -546,7 +546,7 @@
       <fsummary>Starts an SFTP client.</fsummary>
       <type>
         <v>Host = string()</v>
-        <v>ConnectionRef = ssh_connection_ref()</v>
+        <v>ConnectionRef = connection_ref()</v>
         <v>Port = integer()</v>
 	<v>TcpSocket = port()</v>
 	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
