@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@
 	 now_to_universal_time/1,
 	 seconds_to_daystime/1,
 	 seconds_to_time/1,
+         system_time_to_local_time/2,
+         system_time_to_universal_time/2,
 	 time_difference/2,
 	 time_to_seconds/1,
 	 universal_time/0,
@@ -59,6 +61,7 @@
 -define(DAYS_PER_100YEARS, 36524).
 -define(DAYS_PER_400YEARS, 146097).
 -define(DAYS_FROM_0_TO_1970, 719528).
+-define(SECONDS_FROM_0_TO_1970, (?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY)).
 
 %%----------------------------------------------------------------------
 %% Types
@@ -309,7 +312,7 @@ local_time_to_universal_time_dst(DateTime) ->
 -spec now_to_datetime(Now) -> datetime1970() when
       Now :: erlang:timestamp().
 now_to_datetime({MSec, Sec, _uSec}) ->
-    Sec0 = MSec*1000000 + Sec + ?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY,
+    Sec0 = MSec*1000000 + Sec + ?SECONDS_FROM_0_TO_1970,
     gregorian_seconds_to_datetime(Sec0).
 
 -spec now_to_universal_time(Now) -> datetime1970() when
@@ -362,6 +365,22 @@ seconds_to_time(Secs) when Secs >= 0, Secs < ?SECONDS_PER_DAY ->
     Minute =  Secs1 div ?SECONDS_PER_MINUTE,
     Second =  Secs1 rem ?SECONDS_PER_MINUTE,
     {Hour, Minute, Second}.
+
+-spec system_time_to_local_time(Time, TimeUnit) -> datetime() when
+      Time :: integer(),
+      TimeUnit :: erlang:time_unit().
+
+system_time_to_local_time(Time, TimeUnit) ->
+    UniversalDate = system_time_to_universal_time(Time, TimeUnit),
+    erlang:universaltime_to_localtime(UniversalDate).
+
+-spec system_time_to_universal_time(Time, TimeUnit) -> datetime() when
+      Time :: integer(),
+      TimeUnit :: erlang:time_unit().
+
+system_time_to_universal_time(Time, TimeUnit) ->
+    Secs = erlang:convert_time_unit(Time, TimeUnit, second),
+    gregorian_seconds_to_datetime(Secs + ?SECONDS_FROM_0_TO_1970).
 
 %% time_difference(T1, T2) = Tdiff
 %%
