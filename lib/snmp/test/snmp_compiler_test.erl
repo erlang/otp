@@ -234,14 +234,14 @@ agent_capabilities(Config) when is_list(Config) ->
     AcMib = join(Dir,"AC-TEST-MIB.mib"),
     ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
 						 version,
-						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
     ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
     ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
 						 version,
 						 agent_capabilities,
-						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
@@ -290,7 +290,7 @@ module_compliance(Config) when is_list(Config) ->
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is somthing...
-    io:format("agent_capabilities -> "
+    io:format("module_compliance -> "
 	      "~n   MEDiff: ~p"
 	      "~n   Mib1:   ~p"
 	      "~n   Mib2:   ~p"
