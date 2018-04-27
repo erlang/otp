@@ -217,6 +217,14 @@ typedef struct {
 
 static lc_matrix_t tot_lc_matrix;
 
+#define ERTS_LC_FB_CHUNK_SIZE 10
+
+typedef struct lc_alloc_chunk_t_ lc_alloc_chunk_t;
+struct lc_alloc_chunk_t_ {
+    lc_alloc_chunk_t* next;
+    lc_free_block_t array[ERTS_LC_FB_CHUNK_SIZE];
+};
+
 typedef struct lc_thread_t_ lc_thread_t;
 struct lc_thread_t_ {
     char *thread_name;
@@ -227,6 +235,7 @@ struct lc_thread_t_ {
     lc_locked_lock_list_t locked;
     lc_locked_lock_list_t required;
     lc_free_block_t *free_blocks;
+    lc_alloc_chunk_t *chunks;
     lc_matrix_t matrix;
 };
 
@@ -234,14 +243,6 @@ static ethr_tsd_key locks_key;
 
 static lc_thread_t *lc_threads = NULL;
 static ethr_spinlock_t lc_threads_lock;
-
-
-#ifdef ERTS_LC_STATIC_ALLOC
-#define ERTS_LC_FB_CHUNK_SIZE 10000
-#else
-#define ERTS_LC_FB_CHUNK_SIZE 10
-#endif
-
 
 static ERTS_INLINE void
 lc_lock_threads(void)
@@ -268,12 +269,16 @@ static ERTS_INLINE void lc_free(lc_thread_t* thr, lc_locked_lock_t *p)
 static lc_locked_lock_t *lc_core_alloc(lc_thread_t* thr)
 {
     int i;
-    lc_free_block_t *fbs;
-    fbs = (lc_free_block_t *) malloc(sizeof(lc_free_block_t)
-					  * ERTS_LC_FB_CHUNK_SIZE);
-    if (!fbs) {
+    lc_alloc_chunk_t* chunk;
+    lc_free_block_t* fbs;
+    chunk = (lc_alloc_chunk_t*) malloc(sizeof(lc_alloc_chunk_t));
+    if (!chunk) {
         ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
     }
+    chunk->next = thr->chunks;
+    thr->chunks = chunk;
+
+    fbs = chunk->array;
     for (i = 1; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
 	sys_memset((void *) &fbs[i], 0xdf, sizeof(lc_free_block_t));
@@ -321,6 +326,7 @@ create_thread_data(char *thread_name)
     thr->locked.last = NULL;
     thr->prev = NULL;
     thr->free_blocks = NULL;
+    thr->chunks = NULL;
     sys_memzero(&thr->matrix, sizeof(thr->matrix));
 
     lc_lock_threads();
@@ -336,7 +342,7 @@ create_thread_data(char *thread_name)
 static void collect_matrix(lc_matrix_t*);
 
 static void
-destroy_locked_locks(lc_thread_t *thr)
+destroy_thread_data(lc_thread_t *thr)
 {
     ASSERT(thr->thread_name);
     free((void *) thr->thread_name);
@@ -359,8 +365,13 @@ destroy_locked_locks(lc_thread_t *thr)
 
     lc_unlock_threads();
 
-    free((void *) thr);
+    while (thr->chunks) {
+        lc_alloc_chunk_t* free_me = thr->chunks;
+        thr->chunks = thr->chunks->next;
+        free(free_me);
+    }
 
+    free((void *) thr);
 }
 
 static ERTS_INLINE lc_thread_t *
@@ -615,7 +626,7 @@ thread_exit_handler(void)
 	    print_curr_locks(thr);
 	    lc_abort();
 	}
-	destroy_locked_locks(thr);
+	destroy_thread_data(thr);
 	/* erts_tsd_set(locks_key, NULL); */
     }
 }
