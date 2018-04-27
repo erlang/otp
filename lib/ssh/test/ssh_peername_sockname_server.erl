@@ -26,7 +26,7 @@
 %% ssh connection.
 
 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 -record(state, {}).
 
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).

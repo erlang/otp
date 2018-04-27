@@ -290,7 +290,7 @@ shell_channel_tree(Config) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
 
-    ?wait_match([{_, GroupPid,worker,[ssh_channel]}],
+    ?wait_match([{_, GroupPid,worker,[ssh_server_channel]}],
 		supervisor:which_children(ChannelSup),
                [GroupPid]),
     {links,GroupLinks} = erlang:process_info(GroupPid, links),
@@ -339,9 +339,9 @@ chk_empty_con_daemon(Daemon) ->
     ?wait_match([{{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
-		 {{server,ssh_channel_sup,_ ,_},
+		 {{server,ssh_server_channel_sup,_ ,_},
 		  ChannelSup,supervisor,
-		  [ssh_channel_sup]}],
+		  [ssh_server_channel_sup]}],
 		supervisor:which_children(SubSysSup),
 		[ConnectionSup,ChannelSup]),
     ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
@@ -372,9 +372,9 @@ check_sshd_system_tree(Daemon, Config) ->
     ?wait_match([{{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
-		 {{server,ssh_channel_sup,_ ,_},
+		 {{server,ssh_server_channel_sup,_ ,_},
 		  ChannelSup,supervisor,
-		  [ssh_channel_sup]}],
+		  [ssh_server_channel_sup]}],
 		supervisor:which_children(SubSysSup),
 		[ConnectionSup,ChannelSup]),
     
@@ -388,7 +388,7 @@ check_sshd_system_tree(Daemon, Config) ->
     
     ssh_sftp:start_channel(Client),
 
-    ?wait_match([{_, _,worker,[ssh_channel]}],
+    ?wait_match([{_, _,worker,[ssh_server_channel]}],
 		supervisor:which_children(ChannelSup)),
     ssh:close(Client).
 

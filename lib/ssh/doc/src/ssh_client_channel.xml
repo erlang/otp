@@ -23,21 +23,27 @@
 
       The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
-    <title>ssh_channel</title>
+    <title>ssh_client_channel</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_channel</module>
-  <modulesummary>-behaviour(ssh_channel).
+  <module>ssh_client_channel</module>
+  <modulesummary>-behaviour(ssh_client_channel). (Replaces ssh_channel)
   </modulesummary>
   <description>
+    <note>
+      <p>This module replaces ssh_channel.</p>
+      <p>The old module is still available for compatibility, but should not be used for new programs.
+      The old module will not be maintained except for some error corrections
+      </p>
+    </note>
     <p>SSH services (clients and servers) are implemented as channels
     that are multiplexed over an SSH connection and communicates over
     the <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH
     Connection Protocol</url>. This module provides a callback API
-    that takes care of generic channel aspects, such as flow control
+    that takes care of generic channel aspects for clients, such as flow control
     and close messages. It lets the callback functions take care of
     the service (application) specific parts. This behavior also ensures
     that the channel process honors the principal of an OTP-process so
@@ -46,14 +52,18 @@
     the <c>ssh</c> applications supervisor tree.
     </p>
 
-    <marker id="ssh_daemon_channel"/>
-    <note><p>When implementing an <c>ssh</c> subsystem, use
-    <c>-behaviour(ssh_daemon_channel)</c> instead of <c>-behaviour(ssh_channel)</c>.
-    The reason is that the only relevant callback functions for subsystems are
-    <c>init/1</c>, <c>handle_ssh_msg/2</c>, <c>handle_msg/2</c>, and <c>terminate/2</c>.
-    So, the <c>ssh_daemon_channel</c> behaviour is a limited version of the
-    <c>ssh_channel</c> behaviour.
-    </p></note>
+    <note><p>When implementing a <c>ssh</c> subsystem for daemons, use
+    <seealso marker="ssh_server_channel">-behaviour(ssh_server_channel)</seealso> (Replaces ssh_daemon_channel)
+    instead.
+    </p>
+    </note>
+
+    <dont>
+      <p>Functions in this module are not supposed to be called outside a module implementing this
+      behaviour!
+      </p>
+    </dont>
+
   </description>
 
   <funcs>
@@ -100,18 +110,18 @@
       </desc>
     </func>
 
-       <func>
+    <func>
       <name>enter_loop(State) -> _ </name>
-      <fsummary>Makes an existing process an ssh_channel process.</fsummary>
+      <fsummary>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</fsummary>
       <type>
 	<v>State = term()</v>
 	<d>as returned by <seealso marker = "#init-1">init/1</seealso></d>
       </type>
       <desc>
-	<p>Makes an existing process an <c>ssh_channel</c>
+	<p>Makes an existing process an <c>ssh_client_channel</c> (replaces ssh_channel)
 	process. Does not return, instead the calling process
-	enters the <c>ssh_channel</c> process receive loop and become an
-	<c>ssh_channel process</c>. The process must have been started using
+	enters the <c>ssh_client_channel</c> (replaces ssh_channel) process receive loop and become an
+	<c>ssh_client_channel</c> process. The process must have been started using
 	one of the start functions in <c>proc_lib</c>, see the <seealso
 	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in STDLIB.
 	The user is responsible for any initialization of the process
@@ -122,7 +132,7 @@
     
     <func>
       <name>init(Options) -> {ok, State} |  {ok, State, Timeout} | {stop, Reason} </name>
-      <fsummary>Initiates an <c>ssh_channel</c> process.</fsummary>
+      <fsummary>Initiates an <c>ssh_client_channel</c> process.</fsummary>
       <type>
 	<v>Options = [{Option, Value}]</v>
 	<v>State = term()</v>
@@ -217,13 +227,19 @@
   </funcs>
   
   <section>
+    <title>Callback Functions</title>
+    <p>
+      The following functions are to be exported from a
+      <c>ssh_client_channel</c> callback module.
+    </p>
     <marker id="cb_timeouts"></marker>
-    <title>CALLBACK TIME-OUTS</title>
-
-    <p>The time-out values that can be returned by the callback functions
-    have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
-    If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
-    is called as <c>handle_msg(timeout, State)</c>.</p>
+    <section>
+      <title>Callback timeouts</title>
+      <p>The timeout values that can be returned by the callback functions
+      have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
+      If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
+      is called as <c>handle_msg(timeout, State)</c>.</p>
+    </section>
   </section>
 
   <funcs>
@@ -286,7 +302,7 @@
 	state if the initializations succeed.
 	</p>
 	<p>For more detailed information on time-outs, see Section
-	<seealso marker="#cb_timeouts">CALLBACK TIME-OUTS</seealso>. </p>
+	<seealso marker="#cb_timeouts">Callback timeouts</seealso>. </p>
       </desc>
     </func>
    
@@ -313,7 +329,7 @@
 	<seealso marker="#call-2">call/[2,3]</seealso>
 	</p>
 	<p>For more detailed information on time-outs,, see Section
-	<seealso marker="#cb_timeouts">CALLBACK TIME-OUTS</seealso>.</p>
+	<seealso marker="#cb_timeouts">Callback timeouts</seealso>.</p>
       </desc>
     </func>
 
@@ -334,7 +350,7 @@
 	<c>cast/2</c>.
 	</p>
 	<p>For more detailed information on time-outs, see Section
-	<seealso marker="#cb_timeouts">CALLBACK TIME-OUTS</seealso>.</p>
+	<seealso marker="#cb_timeouts">Callback timeouts</seealso>.</p>
       </desc>
     </func>
  
@@ -388,7 +404,7 @@
 	</p>
 	
 	<p>The following message is taken care of by the
-	<c>ssh_channel</c> behavior.</p>
+	<c>ssh_client_channel</c> behavior.</p>
 	
 	<taglist>
 	  <tag><c>{closed, ssh:channel_id()}</c></tag>

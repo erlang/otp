@@ -426,9 +426,9 @@ start_shell({ok, ConnectionRef}) ->
 	    Args = [{channel_cb, ssh_shell},
 		    {init_args,[ConnectionRef, ChannelId]},
 		    {cm, ConnectionRef}, {channel_id, ChannelId}],
-	    {ok, State} = ssh_channel:init([Args]),
+	    {ok, State} = ssh_client_channel:init([Args]),
             try
-                ssh_channel:enter_loop(State)
+                ssh_client_channel:enter_loop(State)
             catch
                 exit:normal ->
                     ok

@@ -306,7 +306,7 @@ ok = erl_tar:close(HandleRead),
 
     <code type="erl" >
 -module(ssh_echo_server).
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel). % replaces ssh_daemon_channel
 -record(state, {
 	  n,
 	  id,
@@ -384,7 +384,7 @@ terminate(_Reason, _State) ->
    {ssh_msg, &lt;0.57.0>, {closed, 0}}
    7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
  </code>
-<p>See also <seealso marker="ssh_channel"> ssh_channel(3)</seealso>.</p>
+<p>See also <seealso marker="ssh_client_channel">ssh_client_channel(3)</seealso> (replaces ssh_channel(3)).</p>
 
 </section>
 

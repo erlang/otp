@@ -24,7 +24,7 @@
 
 -module(ssh_sftp).
 
--behaviour(ssh_channel).
+-behaviour(ssh_client_channel).
 
 -include_lib("kernel/include/file.hrl").
 -include("ssh.hrl").
@@ -47,7 +47,7 @@
 	 recv_window/1, list_dir/2, read_file/2, write_file/3,
 	 recv_window/2, list_dir/3, read_file/3, write_file/4]).
 
-%% ssh_channel callbacks
+%% ssh_client_channel callbacks
 -export([init/1, handle_call/3, handle_cast/2, code_change/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 %% TODO: Should be placed elsewhere ssh_sftpd should not call functions in ssh_sftp!
 -export([info_to_attr/1, attr_to_info/1]).
@@ -123,7 +123,7 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     case ssh_xfer:attach(Cm, [], ChanOpts) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_channel:start(Cm, ChannelId,
+	    case ssh_client_channel:start(Cm, ChannelId,
 				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
@@ -151,7 +151,7 @@ start_channel(Host, Port, UserOptions) ->
                             proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
+	    case ssh_client_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -825,7 +825,7 @@ handle_msg({ssh_channel_up, _, _}, #state{opts = Options, xf = Xf} = State) ->
 %% Version negotiation timed out
 handle_msg({timeout, undefined, From},
 	   #state{xf = #ssh_xfer{channel = ChannelId}} = State) ->
-    ssh_channel:reply(From, {error, timeout}),
+    ssh_client_channel:reply(From, {error, timeout}),
     {stop, ChannelId, State};
 
 handle_msg({timeout, Id, From}, #state{req_list = ReqList0} = State) ->
@@ -834,7 +834,7 @@ handle_msg({timeout, Id, From}, #state{req_list = ReqList0} = State) ->
 	    {ok, State};
 	_ ->
 	    ReqList = lists:keydelete(Id, 1, ReqList0),
-	    ssh_channel:reply(From, {error, timeout}),
+	    ssh_client_channel:reply(From, {error, timeout}),
 	    {ok, State#state{req_list = ReqList}}
     end;
 
@@ -882,7 +882,7 @@ handle_options([Opt|Rest], Sftp, Chan, Ssh) ->
     handle_options(Rest, Sftp, Chan, [Opt|Ssh]).
 
 call(Pid, Msg, TimeOut) ->
-    ssh_channel:call(Pid, {{timeout, TimeOut}, Msg}, infinity).
+    ssh_client_channel:call(Pid, {{timeout, TimeOut}, Msg}, infinity).
 
 handle_reply(State, <<?UINT32(Len),Reply:Len/binary,Rest/binary>>) ->
     do_handle_reply(State, Reply, Rest);
@@ -901,7 +901,7 @@ do_handle_reply(#state{xf = Xf} = State,
 	       true ->
 		    ok
 	    end,
-	    ssh_channel:reply(From, ok)
+	    ssh_client_channel:reply(From, ok)
     end,
     State#state{xf = Xf#ssh_xfer{vsn = Version, ext = Ext}, rep_buf = Rest};
 
@@ -949,7 +949,7 @@ async_reply(ReqID, Reply, _From={To,_}, State) ->
     State.
 
 sync_reply(Reply, From, State) ->
-    catch (ssh_channel:reply(From, Reply)),
+    catch (ssh_client_channel:reply(From, Reply)),
     State.
 
 open2(OrigReqID,FileName,Handle,Mode,Async,From,State) ->
