@@ -1421,9 +1421,17 @@ handle_event(info, {timeout, {_, From} = Request}, _,
     end;
 
 %%% Handle that ssh channels user process goes down
-handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D0) ->
-    {keep_state, handle_channel_down(ChannelPid, D0)};
-
+handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
+    Cache = cache(D),
+    ssh_client_channel:cache_foldl(
+      fun(#channel{user=U,
+                   local_id=Id}, Acc) when U == ChannelPid ->
+              ssh_client_channel:cache_delete(Cache, Id),
+              Acc;
+         (_,Acc) ->
+              Acc
+      end, [], Cache),
+    {keep_state, cache_check_set_idle_timer(D)};
 
 handle_event(info, idle_timer_timeout, StateName, _) ->
     {stop, {shutdown, "Timeout"}};
@@ -1895,19 +1903,6 @@ handle_request(ChannelId, Type, Data, WantReply, From, D) ->
     end.
 
 %%%----------------------------------------------------------------
-handle_channel_down(ChannelPid, D) ->
-    Cache = cache(D),
-    ssh_client_channel:cache_foldl(
-      fun(#channel{user=U,
-                   local_id=Id}, Acc) when U == ChannelPid ->
-              ssh_client_channel:cache_delete(Cache, Id),
-              Acc;
-         (_,Acc) ->
-              Acc
-      end, [], Cache),
-    cache_check_set_idle_timer(D).
-
-
 update_sys(Cache, Channel, Type, ChannelPid) ->
     ssh_client_channel:cache_update(Cache,
 			     Channel#channel{sys = Type, user = ChannelPid}).
