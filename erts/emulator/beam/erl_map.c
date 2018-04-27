@@ -43,6 +43,7 @@
  *
  * DONE:
  * - erlang:is_map/1
+ * - erlang:is_map_key/2
  * - erlang:map_size/1
  * - erlang:map_get/2
  *
@@ -919,7 +920,7 @@ static int hxnodecmp(hxnode_t *a, hxnode_t *b) {
 	return -1;
 }
 
-/* maps:is_key/2 */
+/* maps:is_key/2 and erlang:is_map_key/2 */
 
 BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
@@ -927,6 +928,10 @@ BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
     }
     BIF_P->fvalue = BIF_ARG_2;
     BIF_ERROR(BIF_P, BADMAP);
+}
+
+BIF_RETTYPE is_map_key_2(BIF_ALIST_2) {
+    BIF_RET(maps_is_key_2(BIF_CALL_ARGS));
 }
 
 /* maps:keys/1 */

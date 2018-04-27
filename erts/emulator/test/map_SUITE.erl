@@ -38,6 +38,7 @@
          t_map_size/1,
          t_map_get/1,
          t_is_map/1,
+         t_is_map_key/1,
 
          %% Specific Map BIFs
          t_bif_map_get/1,
@@ -718,7 +719,47 @@ t_map_get(Config) when is_list(Config) ->
     true = if map_get(a, M2) =:= 1 -> true; true -> false end,
     false = if map_get(x, M2) =:= 1 -> true; true -> false end,
     do_badmap(fun
-        (T) when map_get(T, x) =:= 1 -> ok;
+        (T) when map_get(x, T) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
+    ok.
+
+t_is_map_key(Config) when is_list(Config) ->
+    %% small map
+    true = is_map_key(a, id(#{a=>1})),
+    true = is_map_key(b, id(#{a=>1, b=>2})),
+    true = is_map_key("hello", id(#{a=>1, "hello"=>"hi"})),
+    true = is_map_key({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0   = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    true = is_map_key(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    true = is_map_key(a, M1),
+    true = is_map_key(b, M1),
+    true = is_map_key("hello", M1),
+    true = is_map_key({1,1.0}, M1),
+    true = is_map_key(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,is_map_key,_,_}|_]}} =
+			  (catch is_map_key(a, T))
+	      end),
+
+    false = is_map_key({1,1}, id(#{{1,1.0}=>"tuple"})),
+    false = is_map_key(a, id(#{})),
+    false = is_map_key(a, id(#{b=>1, c=>2})),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if is_map_key(a, M2) -> true; true -> false end,
+    false = if is_map_key(x, M2) -> true; true -> false end,
+    do_badmap(fun
+        (T) when is_map_key(T, x) =:= 1 -> ok;
         (T) -> false = is_map(T)
     end),
     ok.

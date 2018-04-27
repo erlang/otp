@@ -665,6 +665,8 @@ type(erlang, is_map, 1, Xs, Opaques) ->
 	    check_guard(X, fun (Y) -> t_is_map(Y, Opaques) end,
 	    t_map(), Opaques) end,
   strict(erlang, is_map, 1, Xs, Fun, Opaques);
+type(erlang, is_map_key, 2, Xs, Opaques) ->
+  type(maps, is_key, 2, Xs, Opaques);
 type(erlang, is_number, 1, Xs, Opaques) ->
   Fun = fun (X) ->
 	    check_guard(X, fun (Y) -> t_is_number(Y, Opaques) end,
@@ -2374,6 +2376,8 @@ arg_types(erlang, is_list, 1) ->
   [t_any()];
 arg_types(erlang, is_map, 1) ->
   [t_any()];
+arg_types(erlang, is_map_key, 2) ->
+  [t_any(), t_map()];
 arg_types(erlang, is_number, 1) ->
   [t_any()];
 arg_types(erlang, is_pid, 1) ->
@@ -2396,7 +2400,7 @@ arg_types(erlang, map_size, 1) ->
   [t_map()];
 %% Guard bif, needs to be here.
 arg_types(erlang, map_get, 2) ->
-  [t_map(), t_any()];
+  [t_any(), t_map()];
 arg_types(erlang, make_fun, 3) ->
   [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->

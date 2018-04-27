@@ -77,6 +77,12 @@ peep([{bif,tuple_size,_,[_]=Ops,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests1),
     peep(Is, SeenTests, [I|Acc]);
+peep([{bif,map_get,_,[Key,Map],Dst}=I|Is], SeenTests0, Acc) ->
+    %% Pretend that we have seen {test,has_map_fields,_,[Map,Key]}
+    SeenTests1 = gb_sets:add({has_map_fields,[Map,Key]}, SeenTests0),
+    %% Kill all remembered tests that depend on the destination register.
+    SeenTests = kill_seen(Dst, SeenTests1),
+    peep(Is, SeenTests, [I|Acc]);
 peep([{bif,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests0),

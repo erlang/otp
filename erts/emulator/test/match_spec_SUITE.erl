@@ -898,6 +898,13 @@ maps(Config) when is_list(Config) ->
     {ok,false,[],[]} = erlang:match_spec_test(not_a_map, [{'$1',[{map_get,b,'$1'}],['$_']}], table),
     {ok,true,[],[]} = erlang:match_spec_test(#{a => true}, [{'$1',[{map_get,a,'$1'}],[true]}], table),
 
+    {ok,true,[],[]} = erlang:match_spec_test(#{a => 1}, [{'$1',[],[{is_map_key,a,'$1'}]}], table),
+    {ok,false,[],[]} = erlang:match_spec_test(#{a => 1}, [{'$1',[],[{is_map_key,b,'$1'}]}], table),
+    {ok,'EXIT',[],[]} = erlang:match_spec_test(not_a_map, [{'$1',[],[{is_map_key,a,'$1'}]}], table),
+    {ok,false,[],[]} = erlang:match_spec_test(#{a => 1}, [{'$1',[{is_map_key,b,'$1'}],['$_']}], table),
+    {ok,false,[],[]} = erlang:match_spec_test(not_a_map, [{'$1',[{is_map_key,b,'$1'}],['$_']}], table),
+    {ok,true,[],[]} = erlang:match_spec_test(#{a => true}, [{'$1',[{is_map_key,a,'$1'}],[true]}], table),
+
     %% large maps
 
     Ls0 = [{I,<<I:32>>}||I <- lists:seq(1,415)],

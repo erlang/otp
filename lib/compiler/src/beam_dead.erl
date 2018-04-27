@@ -392,6 +392,26 @@ backward([{bif,'or',{f,To0},[Dst,{atom,false}],Dst}=I|Is], D,
 	_ ->
 	    backward(Is, D, [I|Acc])
     end;
+backward([{bif,map_get,{f,FF},[Key,Map],_}=I0,
+          {test,has_map_fields,{f,FT}=F,[Map|Keys0]}=I1|Is], D, Acc) when FF =/= 0 ->
+    case shortcut_label(FF, D) of
+        FT ->
+            case lists:delete(Key, Keys0) of
+                [] ->
+                    backward([I0|Is], D, Acc);
+                Keys ->
+                    Test = {test,has_map_fields,F,[Map|Keys]},
+                    backward([Test|Is], D, [I0|Acc])
+            end;
+        _ ->
+            backward([I1|Is], D, [I0|Acc])
+    end;
+backward([{bif,map_get,{f,FF},[_,Map],_}=I0,
+          {test,is_map,{f,FT},[Map]}=I1|Is], D, Acc) when FF =/= 0 ->
+    case shortcut_label(FF, D) of
+        FT -> backward([I0|Is], D, Acc);
+        _ -> backward([I1|Is], D, [I0|Acc])
+    end;
 backward([I|Is], D, Acc) ->
     backward(Is, D, [I|Acc]);
 backward([], _D, Acc) -> Acc.
