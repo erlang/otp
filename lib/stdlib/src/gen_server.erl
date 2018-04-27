@@ -166,7 +166,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%%    Name ::= {local, atom()} | {global, term()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' server
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{timeout, Timeout} | {debug, [Flag]}]
