@@ -580,6 +580,12 @@ hello(internal, {handshake, {#client_hello{cookie = <<>>} = Handshake, _}}, Stat
 hello(internal, {handshake, {#hello_verify_request{} = Handshake, _}}, State) ->
     %% hello_verify should not be in handshake history
     {next_state, ?FUNCTION_NAME, State, [{next_event, internal, Handshake}]};
+hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
+    {State1, Actions0} = send_handshake_flight(State0, retransmit_epoch(?FUNCTION_NAME, State0)),
+    {Record, State2} = next_record(State1),
+    {next_state, ?FUNCTION_NAME, State, Actions} = next_event(?FUNCTION_NAME, Record, State2, Actions0),
+    %% This will reset the retransmission timer by repeating the enter state event
+    {repeat_state, State, Actions};
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 hello(state_timeout, Event, State) ->
