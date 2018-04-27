@@ -70,19 +70,21 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    try crypto:start() of
-	ok ->
-            case crypto:info_lib() of
-                [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->
-                    {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
-                _ ->
+    case crypto:info_lib() of
+        [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->
+            {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
+        Res ->
+            ct:log("crypto:info_lib() -> ~p\n", [Res]),
+            try crypto:start() of
+                ok ->
+                    Config;
+                {error,{already_started,crypto}} ->
                     Config
-            end;
-        {error,{already_started,crypto}} ->
-            Config
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
+            catch _:_ ->
+                    {skip, "Crypto did not start"}
+            end
     end.
+
 end_per_suite(_Config) ->
     ok.
 
