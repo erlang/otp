@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ init_per_suite(Config) ->
     try
         Node =/= nonode@nohost orelse
             throw({skipped,"Node not distributed"}),
+        verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
@@ -95,14 +96,14 @@ init_per_suite(Config) ->
         _ ->
             PrivDir = proplists:get_value(priv_dir, Config),
             %%
-            [_, HostA] = string:split(atom_to_list(Node), "@"),
+            [_, HostA] = split_node(Node),
             NodeAName = ?MODULE_STRING ++ "_node_a",
             NodeAString = NodeAName ++ "@" ++ HostA,
             NodeAConfFile = filename:join(PrivDir, NodeAString ++ ".conf"),
             NodeA = list_to_atom(NodeAString),
             %%
             ServerNode = ssl_bench_test_lib:setup(dist_server),
-            [_, HostB] = string:split(atom_to_list(ServerNode), "@"),
+            [_, HostB] = split_node(ServerNode),
             NodeBName = ?MODULE_STRING ++ "_node_b",
             NodeBString = NodeBName ++ "@" ++ HostB,
             NodeBConfFile = filename:join(PrivDir, NodeBString ++ ".conf"),
@@ -116,16 +117,25 @@ init_per_suite(Config) ->
                   ?MODULE_STRING ++ " ROOT CA", CertOptions),
             SSLConf =
                 [{verify, verify_peer},
+                 {fail_if_no_peer_cert, true},
                  {versions, [TLSVersion]},
                  {ciphers, [TLSCipher]}],
+            ServerConf =
+                [{verify_fun,
+                  {fun inet_tls_dist:verify_client/3,
+                   fun inet_tls_dist:cert_nodes/1}}
+                 | SSLConf],
+            ClientConf =
+                [{verify_fun,
+                  {fun inet_tls_dist:verify_server/3,
+                   fun inet_tls_dist:cert_nodes/1}}
+                 | SSLConf],
             %%
             write_node_conf(
-              NodeAConfFile, NodeA,
-              [{fail_if_no_peer_cert, true} | SSLConf], SSLConf,
+              NodeAConfFile, NodeA, ServerConf, ClientConf,
               CertOptions, RootCert),
             write_node_conf(
-              NodeBConfFile, NodeB,
-              [{fail_if_no_peer_cert, true} | SSLConf], SSLConf,
+              NodeBConfFile, NodeB, ServerConf, ClientConf,
               CertOptions, RootCert),
             %%
             [{node_a_name, NodeAName},
@@ -170,17 +180,53 @@ end_per_testcase(_Func, _Conf) ->
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers
 
+verify_node_src_addr() ->
+    Msg = "Hello, world!",
+    {ok,Host} = inet:gethostname(),
+    {ok,DstAddr} = inet:getaddr(Host, inet),
+    {ok,Socket} = gen_udp:open(0, [{active,false}]),
+    {ok,Port} = inet:port(Socket),
+    ok = gen_udp:send(Socket, DstAddr, Port, Msg),
+    case gen_udp:recv(Socket, length(Msg) + 1, 1000) of
+        {ok,{DstAddr,Port,Msg}} ->
+            ok;
+        {ok,{SrcAddr,Port,Msg}} ->
+            throw({skipped,
+                   "Src and dst address mismatch: " ++
+                       term_to_string(SrcAddr) ++ " =:= " ++
+                       term_to_string(DstAddr)});
+        Weird ->
+            error(Weird)
+    end.
+
 write_node_conf(
   ConfFile, Node, ServerConf, ClientConf, CertOptions, RootCert) ->
+    [Name,Host] = split_node(Node),
     Conf =
         public_key:pkix_test_data(
           #{root => RootCert,
             peer =>
                 [{extensions,
-                  [#'Extension'{
+                  [
+                   #'Extension'{
                       extnID = ?'id-ce-subjectAltName',
-                      extnValue = [{dNSName, atom_to_list(Node)}],
-                      critical = false}]} | CertOptions]}),
+                      extnValue = [{dNSName, Host}],
+                      critical = true},
+                   #'Extension'{
+                      extnID = ?'id-ce-subjectAltName',
+                      extnValue =
+                          [{directoryName,
+                            {rdnSequence,
+                             [[#'AttributeTypeAndValue'{
+                                  type = ?'id-at-commonName',
+                                  value =
+                                      {utf8String,
+                                       unicode:characters_to_binary(
+                                         Name, utf8)
+                                      }
+                                 }]]}}],
+                      critical = true}
+                  ]} | CertOptions]}),
     NodeConf =
         [{server, ServerConf ++ Conf}, {client, ClientConf ++ Conf}],
     {ok, Fd} = file:open(ConfFile, [write]),
@@ -188,6 +234,8 @@ write_node_conf(
     io:format(Fd, "~p.~n", [NodeConf]),
     ok = file:close(Fd).
 
+split_node(Node) ->
+    string:split(atom_to_list(Node), "@").
 
 %%%-------------------------------------------------------------------
 %%% Test cases
@@ -199,7 +247,7 @@ setup(Config) ->
     run_nodepair_test(fun setup/5, Config).
 
 setup(A, B, Prefix, HA, HB) ->
-    Rounds = 10,
+    Rounds = 50,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     {SetupTime, CycleTime} =
@@ -221,9 +269,9 @@ setup_loop(_A, _B, T, 0) ->
     T;
 setup_loop(A, B, T, N) ->
     StartTime = start_time(),
-    [A] = rpc:block_call(B, erlang, nodes, []),
+    [N,A] = [N|rpc:block_call(B, erlang, nodes, [])],
     Time = elapsed_time(StartTime),
-    [B] = erlang:nodes(),
+    [N,B] = [N|erlang:nodes()],
     Mref = erlang:monitor(process, {rex,B}),
     true = net_kernel:disconnect(B),
     receive

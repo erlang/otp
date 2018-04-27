@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +29,16 @@
 -export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2]).
 
--export([split_node/1, nodelay/0]).
+-export([nodelay/0]).
+
+-export([verify_client/3, verify_server/3, cert_nodes/1]).
 
 -export([dbg/0]). % Debug
 
 -include_lib("kernel/include/net_address.hrl").
 -include_lib("kernel/include/dist.hrl").
 -include_lib("kernel/include/dist_util.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
 
@@ -49,25 +52,20 @@ select(Node) ->
     gen_select(inet_tcp, Node).
 
 gen_select(Driver, Node) ->
-    case split_node(Node) of
-        false ->
-            false;
-        Host ->
+    case dist_util:split_node(Node) of
+        {node,_,Host} ->
 	    case Driver:getaddr(Host) of
 		{ok, _} -> true;
 		_ -> false
-	    end
+	    end;
+        _ ->
+            false
     end.
 
 %% -------------------------------------------------------------------------
 
 is_node_name(Node) ->
-    case split_node(Node) of
-        false ->
-            false;
-        _Host ->
-            true
-    end.
+    dist_util:is_node_name(Node).
 
 %% -------------------------------------------------------------------------
 
@@ -142,13 +140,13 @@ f_getll(DistCtrl) ->
 f_address(SslSocket, Node) ->
     case ssl:peername(SslSocket) of
         {ok, Address} ->
-            case split_node(Node) of
-                false ->
-                    {error, no_node};
-                Host ->
+            case dist_util:split_node(Node) of
+                {node,_,Host} ->
                     #net_address{
                        address=Address, host=Host,
-                       protocol=tls, family=inet}
+                       protocol=tls, family=inet};
+                _ ->
+                    {error, no_node}
             end
     end.
 
@@ -224,42 +222,158 @@ gen_accept(Driver, Listen) ->
 accept_loop(Driver, Listen, Kernel) ->
     case Driver:accept(Listen) of
         {ok, Socket} ->
-            Opts = get_ssl_options(server),
-            wait_for_code_server(),
-            case ssl:ssl_accept(
-                   Socket, [{active, false}, {packet, 4}] ++ Opts,
-                   net_kernel:connecttime()) of
-                {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
-                    monitor_pid(DistCtrl),
-                    trace(
-                      Kernel !
-                          {accept, self(), DistCtrl,
-                           Driver:family(), tls}),
-                    receive
-                        {Kernel, controller, Pid} ->
-                            ok = ssl:controlling_process(SslSocket, Pid),
-                            trace(
-                              Pid ! {self(), controller});
-                        {Kernel, unsupported_protocol} ->
-                            exit(trace(unsupported_protocol))
-                    end,
-                    accept_loop(Driver, Listen, Kernel);
-		{error, {options, _}} = Error ->
-		    %% Bad options: that's probably our fault.
-                    %% Let's log that.
+	    case check_ip(Driver, Socket) of
+                true ->
+                    accept_loop(Driver, Listen, Kernel, Socket);
+                {false,IP} ->
 		    error_logger:error_msg(
-                      "Cannot accept TLS distribution connection: ~s~n",
-                      [ssl:format_error(Error)]),
-                    _ = trace(Error),
-                    gen_tcp:close(Socket);
-		Other ->
-                    _ = trace(Other),
-                    gen_tcp:close(Socket)
+                      "** Connection attempt from "
+                      "disallowed IP ~w ** ~n", [IP]),
+		    ?shutdown2(no_node, trace({disallowed, IP}))
 	    end;
 	Error ->
 	    exit(trace(Error))
-    end,
-    accept_loop(Driver, Listen, Kernel).
+    end.
+
+accept_loop(Driver, Listen, Kernel, Socket) ->
+    {Opts,CertNodesFun} =
+        setup_verify_client(
+          Driver, Socket, get_ssl_options(server)),
+    wait_for_code_server(),
+    case
+        ssl:ssl_accept(
+          Socket,
+          trace([{active, false},{packet, 4}|Opts]),
+          net_kernel:connecttime())
+    of
+        {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+            trace(
+              Kernel !
+                  {accept, self(), DistCtrl,
+                   Driver:family(), tls}),
+            receive
+                {Kernel, controller, Pid} ->
+                    ok = ssl:controlling_process(SslSocket, Pid),
+                    trace(
+                      Pid ! {self(), controller, CertNodesFun});
+                {Kernel, unsupported_protocol} ->
+                    exit(trace(unsupported_protocol))
+            end,
+            accept_loop(Driver, Listen, Kernel);
+        {error, {options, _}} = Error ->
+            %% Bad options: that's probably our fault.
+            %% Let's log that.
+            error_logger:error_msg(
+              "Cannot accept TLS distribution connection: ~s~n",
+              [ssl:format_error(Error)]),
+            gen_tcp:close(Socket),
+            exit(trace(Error));
+        Other ->
+            gen_tcp:close(Socket),
+            exit(trace(Other))
+    end.
+
+
+%% {verify_fun,{fun ?MODULE:verify_client/3,_}} is used
+%% as a configuration marker that verify_client/3 shall be used.
+%%
+%% Replace the State in the first occurence of
+%% {verify_fun,{fun ?MODULE:verify_client/3,State}} and remove the rest.
+%% The inserted state is not accesible from a configuration file
+%% since it is dynamic and connection dependent.
+%%
+setup_verify_client(Driver, Socket, Opts) ->
+    setup_verify_client(Driver, Socket, Opts, undefined, []).
+%%
+setup_verify_client(_Driver, _Socket, [], CertNodesFun, OptsR) ->
+    {lists:reverse(OptsR),CertNodesFun};
+setup_verify_client(Driver, Socket, [Opt|Opts], CertNodesFun, OptsR) ->
+    case Opt of
+        {verify_fun,{Fun,NewCertNodesFun}} ->
+            case Fun =:= fun ?MODULE:verify_client/3 of
+                true when is_function(NewCertNodesFun, 1) ->
+                    if
+                        CertNodesFun =:= undefined ->
+                            case inet:peername(Socket) of
+                                {ok,{PeerIP,_Port}} ->
+                                    setup_verify_client(
+                                      Driver, Socket, Opts, NewCertNodesFun,
+                                      [{verify_fun,
+                                        {Fun,
+                                         {NewCertNodesFun,Driver,PeerIP}}}
+                                       |OptsR]);
+                                {error,Reason} ->
+                                    exit(trace({no_peername,Reason}))
+                            end;
+                        true ->
+                            setup_verify_client(
+                              Driver, Socket, Opts, CertNodesFun, OptsR)
+                    end;
+                true ->
+                    exit(
+                      trace(
+                        {verify_client_bad_argument,CertNodesFun}));
+                false ->
+                    setup_verify_client(
+                      Driver, Socket, Opts, CertNodesFun, [Opt|OptsR])
+            end;
+        _ ->
+            setup_verify_client(
+              Driver, Socket, Opts, CertNodesFun, [Opt|OptsR])
+    end.
+
+%% Same as verify_peer but check cert host names for
+%% peer IP address
+verify_client(_, {bad_cert,_} = Reason, _) ->
+    {fail,Reason};
+verify_client(_, {extension,_}, S) ->
+    {unknown,S};
+verify_client(_, valid, S) ->
+    {valid,S};
+verify_client(PeerCert, valid_peer, {CertNodesFun,Driver,PeerIP} = S) ->
+    %%
+    %% Parse out all node names from the peer's certificate
+    %%
+    case CertNodesFun(PeerCert) of
+        undefined ->
+            %% Certificate allows all nodes
+            {valid,S};
+        [] ->
+            %% Certificate allows no nodes
+            {fail,cert_missing_node_name};
+        CertNodes ->
+            %% Check if the IP address of one of the nodes
+            %% in the peer certificate has the peer's IP address
+            case filter_nodes_by_ip(CertNodes, Driver, PeerIP) of
+                [] ->
+                    {fail,cert_no_host_with_peer_ip};
+                _ ->
+                    {valid,S}
+            end
+    end.
+
+%% Filter out the nodes that has got the given IP address
+%%
+filter_nodes_by_ip(Nodes, Driver, IP) ->
+    [Node ||
+        Node <- Nodes,
+        case dist_util:split_node(Node) of
+            {node,_,Host} ->
+                filter_host_by_ip(Host, Driver, IP);
+            {host,Host} ->
+                filter_host_by_ip(Host, Driver, IP);
+            {name,_Name} ->
+                true
+        end].
+
+filter_host_by_ip(Host, Driver, IP) ->
+    case Driver:getaddr(Host) of
+        {ok,IP} ->
+            true;
+        _ ->
+            false
+    end.
+
 
 wait_for_code_server() ->
     %% This is an ugly hack.  Upgrading a socket to TLS requires the
@@ -311,29 +425,81 @@ gen_accept_connection(
 do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     SslSocket = ssl_connection:get_sslsocket(DistCtrl),
     receive
-	{AcceptPid, controller} ->
+	{AcceptPid, controller, CertNodesFun} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case check_ip(Driver, SslSocket) of
-		true ->
-                    HSData0 = hs_data_common(SslSocket),
-                    HSData =
-                        HSData0#hs_data{
-                          kernel_pid = Kernel,
-                          this_node = MyNode,
-                          socket = DistCtrl,
-                          timer = Timer,
-                          this_flags = 0,
-                          allowed = Allowed},
-                    link(DistCtrl),
-		    dist_util:handshake_other_started(trace(HSData));
-		{false,IP} ->
-		    error_logger:error_msg(
-                      "** Connection attempt from "
-                      "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown2(no_node, trace({disallowed, IP}))
-	    end
+            NewAllowed =
+                allowed_nodes(
+                  Driver, CertNodesFun, SslSocket, Allowed),
+            HSData0 = hs_data_common(SslSocket),
+            HSData =
+                HSData0#hs_data{
+                  kernel_pid = Kernel,
+                  this_node = MyNode,
+                  socket = DistCtrl,
+                  timer = Timer,
+                  this_flags = 0,
+                  allowed = NewAllowed},
+            link(DistCtrl),
+            dist_util:handshake_other_started(trace(HSData))
     end.
 
+%% Return a list of allowed nodes according to
+%% the given Allowed list that matches the peer certificate
+%%
+allowed_nodes(_Driver, undefined, _SslSocket, Allowed) ->
+    Allowed;
+allowed_nodes(Driver, CertNodesFun, SslSocket, Allowed) ->
+    case ssl:peercert(SslSocket) of
+        {ok,PeerCertDER} ->
+            case ssl:peername(SslSocket) of
+                {ok,{PeerIP,_Port}} ->
+                    PeerCert = public_key:pkix_decode_cert(PeerCertDER, otp),
+                    %%
+                    %% Parse out all node names from the peer's certificate
+                    %%
+                    case CertNodesFun(PeerCert) of
+                        undefined ->
+                            %% Certificate allows all nodes
+                            Allowed;
+                        [] ->
+                            %% Certificate allows no nodes
+                            ?shutdown(cert_missing_node_name);
+                        CertNodes ->
+                            %% Filter out all nodes in the
+                            %% allowed list that is in peer
+                            %% certificate and that has got
+                            %% the same IP address as the peer
+                            allowed(
+                              filter_nodes_by_ip(
+                                CertNodes, Driver, PeerIP),
+                              Allowed)
+                    end;
+                Error1 ->
+                    ?shutdown2(no_peer_ip, trace(Error1))
+            end;
+        Error2 ->
+            ?shutdown2(no_peer_cert, trace(Error2))
+    end.
+
+allowed(CertNodes, []) ->
+    %% Empty allowed list means all allowed
+    %% -> allow only certificate nodes
+    CertNodes;
+allowed(CertNodes, Allowed) ->
+    %% Find the intersection of the allowed list and certificate nodes
+    case
+        [CertNode ||
+            CertNode <- CertNodes,
+            dist_util:is_allowed(CertNode, Allowed)]
+    of
+        [] ->
+            error_logger:error_msg(
+              "** Connection attempt from "
+              "disallowed node(s) ~p ** ~n", [CertNodes]),
+            ?shutdown2(CertNodes, trace({is_allowed, not_allowed}));
+        NewAllowed ->
+            NewAllowed
+    end.
 
 
 setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
@@ -351,7 +517,7 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
         [link, {priority, max}])).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
+    {Name, Address} = split_node(Driver, Node, LongOrShortNames),
     case Driver:getaddr(Address) of
 	{ok, Ip} ->
             Timer = trace(dist_util:start_timer(SetupTime)),
@@ -361,8 +527,12 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                     Opts =
                         trace(
                           connect_options(
-                            [{server_name_indication, atom_to_list(Node)}
-                             |get_ssl_options(client)])),
+                            %%
+                            %% Use verify_server/3 to verify that
+                            %% the server's certificate is for Node
+                            %%
+                            setup_verify_server(
+                              get_ssl_options(client), Node))),
 		    dist_util:reset_timer(Timer),
                     case ssl:connect(
                            Address, TcpPort,
@@ -370,7 +540,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                             Driver:family(), nodelay()] ++ Opts,
                            net_kernel:connecttime()) of
 			{ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
-                            monitor_pid(DistCtrl),
+                            _ = monitor_pid(DistCtrl),
                             ok = ssl:controlling_process(SslSocket, self()),
                             HSData0 = hs_data_common(SslSocket),
 			    HSData =
@@ -411,19 +581,81 @@ close(Socket) ->
 gen_close(Driver, Socket) ->
     trace(Driver:close(Socket)).
 
+%% {verify_fun,{fun ?MODULE:verify_server/3,_}} is used
+%% as a configuration marker that verify_server/3 shall be used.
+%%
+%% Replace the State in the first occurence of
+%% {verify_fun,{fun ?MODULE:verify_server/3,State}} and remove the rest.
+%% The inserted state is not accesible from a configuration file
+%% since it is dynamic and connection dependent.
+%%
+setup_verify_server(Opts, Node) ->
+    setup_verify_server(Opts, Node, true).
+%%
+setup_verify_server([], _Node, _) ->
+    [];
+setup_verify_server([Opt|Opts], Node, Once) ->
+    case Opt of
+        {verify_fun,{Fun,CertNodesFun}} ->
+            case Fun =:= fun ?MODULE:verify_server/3 of
+                true when not is_function(CertNodesFun, 1) ->
+                    ?shutdown2(
+                       Node,
+                       {verify_server_bad_argument,CertNodesFun});
+                true when Once ->
+                    [{verify_fun,{Fun,{CertNodesFun,Node}}}
+                     |setup_verify_server(Opts, Node, false)];
+                true ->
+                    setup_verify_server(Opts, Node, Once);
+                false ->
+                    [Opt|setup_verify_server(Opts, Node, Once)]
+            end;
+        _ ->
+            [Opt|setup_verify_server(Opts, Node, Once)]
+    end.
+
+verify_server(_, {bad_cert,_} = Reason, _) ->
+    {fail,Reason};
+verify_server(_, {extension,_}, S) ->
+    {unknown,S};
+verify_server(_, valid, S) ->
+    {valid,S};
+verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
+    %%
+    %% Parse out all node names from the peer's certificate
+    %%
+    case CertNodesFun(PeerCert) of
+        undefined ->
+            %% Certificate allows all nodes
+            {valid,S};
+        [] ->
+            %% Certificate allows no nodes
+            {fail,cert_missing_node_name};
+        CertNodes ->
+            %% Check that the node we are connecting to
+            %% is in the peer certificate
+            case dist_util:is_allowed(Node, CertNodes) of
+                true ->
+                    {valid,S};
+                false ->
+                    {fail,wrong_nodes_in_cert}
+            end
+    end.
+
+
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our
 %% own LAN, if the check_ip environment parameter is true.
 %% ------------------------------------------------------------
-check_ip(Driver, SslSocket) ->
+check_ip(Driver, Socket) ->
     case application:get_env(check_ip) of
 	{ok, true} ->
-	    case get_ifs(SslSocket) of
+	    case get_ifs(Socket) of
 		{ok, IFs, IP} ->
 		    check_ip(Driver, IFs, IP);
 		Other ->
 		    ?shutdown2(
-                       no_node, trace({check_ip_failed, SslSocket, Other}))
+                       no_node, trace({check_ip_failed, Socket, Other}))
 	    end;
 	_ ->
 	    true
@@ -437,7 +669,7 @@ check_ip(Driver, [{OwnIP, _, Netmask}|IFs], PeerIP) ->
 check_ip(_Driver, [], PeerIP) ->
     {false, PeerIP}.
 
-get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
+get_ifs(Socket) ->
     case inet:peername(Socket) of
 	{ok, {IP, _}} ->
             %% XXX this is seriously broken for IPv6
@@ -450,12 +682,87 @@ get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
     end.
 
 
+%% Look in Extensions, in all subjectAltName:s
+%% to find node names in this certificate.
+%% Host names are picked up as a subjectAltName containing
+%% a dNSName, and the first subjectAltName containing
+%% a commonName is the node name.
+%%
+cert_nodes(
+  #'OTPCertificate'{
+     tbsCertificate = #'OTPTBSCertificate'{extensions = Extensions}}) ->
+    parse_extensions(Extensions).
+
+
+parse_extensions(Extensions) when is_list(Extensions) ->
+    parse_extensions(Extensions, [], []);
+parse_extensions(asn1_NOVALUE) ->
+    undefined. % Allow all nodes
+%%
+parse_extensions([], [], []) ->
+    undefined; % Allow all nodes
+parse_extensions([], Hosts, []) ->
+    lists:reverse(Hosts);
+parse_extensions([], [], Names) ->
+    [Name ++ "@" || Name <- lists:reverse(Names)];
+parse_extensions([], Hosts, Names) ->
+    [Name ++ "@" ++ Host ||
+        Host <- lists:reverse(Hosts),
+        Name <- lists:reverse(Names)];
+parse_extensions(
+  [#'Extension'{
+      extnID = ?'id-ce-subjectAltName',
+      extnValue = AltNames}
+   |Extensions],
+  Hosts, Names) ->
+    case parse_subject_altname(AltNames) of
+        none ->
+            parse_extensions(Extensions, Hosts, Names);
+        {host,Host} ->
+            parse_extensions(Extensions, [Host|Hosts], Names);
+        {name,Name} ->
+            parse_extensions(Extensions, Hosts, [Name|Names])
+    end;
+parse_extensions([_|Extensions], Hosts, Names) ->
+    parse_extensions(Extensions, Hosts, Names).
+
+parse_subject_altname([]) ->
+    none;
+parse_subject_altname([{dNSName,Host}|_AltNames]) ->
+    {host,Host};
+parse_subject_altname(
+  [{directoryName,{rdnSequence,[Rdn|_]}}|AltNames]) ->
+    %%
+    %% XXX Why is rdnSequence a sequence?
+    %% Should we parse all members?
+    %%
+    case parse_rdn(Rdn) of
+        none ->
+            parse_subject_altname(AltNames);
+        Name ->
+            {name,Name}
+    end;
+parse_subject_altname([_|AltNames]) ->
+    parse_subject_altname(AltNames).
+
+
+parse_rdn([]) ->
+    none;
+parse_rdn(
+  [#'AttributeTypeAndValue'{
+     type = ?'id-at-commonName',
+     value = {utf8String,CommonName}}|_]) ->
+    unicode:characters_to_list(CommonName);
+parse_rdn([_|Rdn]) ->
+    parse_rdn(Rdn).
+
+
 %% If Node is illegal terminate the connection setup!!
-splitnode(Driver, Node, LongOrShortNames) ->
-    case string:split(atom_to_list(Node), "@") of
-	[Name, Host] when Host =/= [] ->
-	    check_node(Driver, Name, Node, Host, LongOrShortNames);
-	[_] ->
+split_node(Driver, Node, LongOrShortNames) ->
+    case dist_util:split_node(Node) of
+        {node, Name, Host} ->
+	    check_node(Driver, Node, Name, Host, LongOrShortNames);
+	{host, _} ->
 	    error_logger:error_msg(
               "** Nodename ~p illegal, no '@' character **~n",
               [Node]),
@@ -466,12 +773,12 @@ splitnode(Driver, Node, LongOrShortNames) ->
 	    ?shutdown2(Node, trace({illegal_node_name, Node}))
     end.
 
-check_node(Driver, Name, Node, Host, LongOrShortNames) ->
-    case string:split(Host, ".") of
-	[_] when LongOrShortNames == longnames ->
+check_node(Driver, Node, Name, Host, LongOrShortNames) ->
+    case string:split(Host, ".", all) of
+	[_] when LongOrShortNames =:= longnames ->
 	    case Driver:parse_address(Host) of
 		{ok, _} ->
-		    [Name, Host];
+		    {Name, Host};
 		_ ->
 		    error_logger:error_msg(
                       "** System running to use "
@@ -480,7 +787,7 @@ check_node(Driver, Name, Node, Host, LongOrShortNames) ->
                       [Host]),
 		    ?shutdown2(Node, trace({not_longnames, Host}))
 	    end;
-	[_, _] when LongOrShortNames == shortnames ->
+	[_,_|_] when LongOrShortNames =:= shortnames ->
 	    error_logger:error_msg(
               "** System NOT running to use "
               "fully qualified hostnames **~n"
@@ -488,18 +795,8 @@ check_node(Driver, Name, Node, Host, LongOrShortNames) ->
               [Host]),
 	    ?shutdown2(Node, trace({not_shortnames, Host}));
 	_ ->
-	    [Name, Host]
+	    {Name, Host}
     end.
-
-split_node(Node) when is_atom(Node) ->
-    case string:split(atom_to_list(Node), "@") of
-        [Name, Host] when Name =/= [], Host =/= [] ->
-            Host;
-        _ ->
-            false
-    end;
-split_node(_) ->
-    false.
 
 %% -------------------------------------------------------------------------
 
@@ -545,70 +842,50 @@ get_ssl_dist_arguments(Type) ->
 	    [{erl_dist, true}]
     end.
 
-ssl_options(_,[]) ->
+
+ssl_options(_Type, []) ->
     [];
-ssl_options(server, ["client_" ++ _, _Value |T]) ->
-    ssl_options(server,T);
-ssl_options(client, ["server_" ++ _, _Value|T]) ->
-    ssl_options(client,T);
-ssl_options(server, ["server_certfile", Value|T]) ->
-    [{certfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_certfile", Value | T]) ->
-    [{certfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_cacertfile", Value|T]) ->
-    [{cacertfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_cacertfile", Value|T]) ->
-    [{cacertfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_keyfile", Value|T]) ->
-    [{keyfile, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_keyfile", Value|T]) ->
-    [{keyfile, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_password", Value|T]) ->
-    [{password, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_password", Value|T]) ->
-    [{password, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_verify", Value|T]) ->
-    [{verify, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_verify", Value|T]) ->
-    [{verify, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_verify_fun", Value|T]) ->
-    [{verify_fun, verify_fun(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_verify_fun", Value|T]) ->
-    [{verify_fun, verify_fun(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_crl_check", Value|T]) ->
-    [{crl_check, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_crl_check", Value|T]) ->
-    [{crl_check, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_crl_cache", Value|T]) ->
-    [{crl_cache, termify(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_crl_cache", Value|T]) ->
-    [{crl_cache, termify(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_reuse_sessions", Value|T]) ->
-    [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_reuse_sessions", Value|T]) ->
-    [{reuse_sessions, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_secure_renegotiate", Value|T]) ->
-    [{secure_renegotiate, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_secure_renegotiate", Value|T]) ->
-    [{secure_renegotiate, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_depth", Value|T]) ->
-    [{depth, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_depth", Value|T]) ->
-    [{depth, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_hibernate_after", Value|T]) ->
-    [{hibernate_after, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, ["client_hibernate_after", Value|T]) ->
-    [{hibernate_after, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, ["server_ciphers", Value|T]) ->
-    [{ciphers, Value} | ssl_options(server,T)];
-ssl_options(client, ["client_ciphers", Value|T]) ->
-    [{ciphers, Value} | ssl_options(client,T)];
-ssl_options(server, ["server_dhfile", Value|T]) ->
-    [{dhfile, Value} | ssl_options(server,T)];
-ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
-    [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
-ssl_options(Type, Opts) ->
-    error(malformed_ssl_dist_opt, [Type, Opts]).
+ssl_options(client, ["client_" ++ Opt, Value | T] = Opts) ->
+    ssl_options(client, T, Opts, Opt, Value);
+ssl_options(server, ["server_" ++ Opt, Value | T] = Opts) ->
+    ssl_options(server, T, Opts, Opt, Value);
+ssl_options(Type, [_Opt, _Value | T]) ->
+    ssl_options(Type, T).
+%%
+ssl_options(Type, T, Opts, Opt, Value) ->
+    case ssl_option(Type, Opt) of
+        error ->
+            error(malformed_ssl_dist_opt, [Type, Opts]);
+        Fun ->
+            [{list_to_atom(Opt), Fun(Value)}|ssl_options(Type, T)]
+    end.
+
+ssl_option(server, Opt) ->
+    case Opt of
+        "dhfile" -> fun listify/1;
+        "fail_if_no_peer_cert" -> fun atomize/1;
+        _ -> ssl_option(client, Opt)
+    end;
+ssl_option(client, Opt) ->
+    case Opt of
+        "certfile" -> fun listify/1;
+        "cacertfile" -> fun listify/1;
+        "keyfile" -> fun listify/1;
+        "password" -> fun listify/1;
+        "verify" -> fun atomize/1;
+        "verify_fun" -> fun verify_fun/1;
+        "crl_check" -> fun atomize/1;
+        "crl_cache" -> fun termify/1;
+        "reuse_sessions" -> fun atomize/1;
+        "secure_renegotiate" -> fun atomize/1;
+        "depth" -> fun erlang:list_to_integer/1;
+        "hibernate_after" -> fun erlang:list_to_integer/1;
+        "ciphers" -> fun listify/1;
+        _ -> error
+    end.
+
+listify(List) when is_list(List) ->
+    List.
 
 atomize(List) when is_list(List) ->
     list_to_atom(List);

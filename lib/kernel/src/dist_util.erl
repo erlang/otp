@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
          strict_order_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
+         is_node_name/1, split_node/1, is_allowed/2,
 	 shutdown/3, shutdown/4]).
 
 -import(error_logger,[error_msg/2]).
@@ -182,7 +183,6 @@ handshake_other_started(#hs_data{request_type=ReqType,
                              reject_flags=RejFlgs,
                              require_flags=ReqFlgs},
     check_dflags(HSData, EDF),
-    is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
 	    [Node, HSData#hs_data.other_version]}),
     mark_pending(HSData),
@@ -198,21 +198,6 @@ handshake_other_started(#hs_data{request_type=ReqType,
 handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_other_started(convert_old_hsdata(OldHsData)).
 
-
-%%
-%% check if connecting node is allowed to connect
-%% with allow-node-scheme
-%%
-is_allowed(#hs_data{other_node = Node, 
-		    allowed = Allowed} = HSData) ->
-    case lists:member(Node, Allowed) of
-	false when Allowed =/= [] ->
-	    send_status(HSData, not_allowed),
-	    error_msg("** Connection attempt from "
-		      "disallowed node ~w ** ~n", [Node]),
-	    ?shutdown2(Node, {is_allowed, not_allowed});
-	_ -> true
-    end.
 
 %%
 %% Check mandatory flags...
@@ -642,32 +627,129 @@ send_challenge_ack(#hs_data{socket = Socket, f_send = FSend},
 %% tcp_drv.c which used it to detect simultaneous connection
 %% attempts).
 %%
-recv_name(#hs_data{socket = Socket, f_recv = Recv}) ->
+recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
     case Recv(Socket, 0, infinity) of
-	{ok,Data} ->
-	    get_name(Data);
+        {ok,
+         [$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4
+          | OtherNode] = Data} ->
+            case is_node_name(OtherNode) of
+                true ->
+                    Flags = ?u32(Flag1, Flag2, Flag3, Flag4),
+                    Version = ?u16(VersionA,VersionB),
+                    is_allowed(HSData, Flags, OtherNode, Version);
+                false ->
+                    ?shutdown(Data)
+            end;
 	_ ->
 	    ?shutdown(no_node)
     end.
 
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode] = Data) ->
-    case is_valid_name(OtherNode) of
-        true ->
-            {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
-             ?u16(VersionA,VersionB)};
-        false ->
-            ?shutdown(Data)
-    end;
-get_name(Data) ->
-    ?shutdown(Data).
-
-is_valid_name(OtherNodeName) ->
-    case string:lexemes(OtherNodeName,"@") of
-        [_OtherNodeName,_OtherNodeHost] ->
-            true;
-        _else ->
+is_node_name(OtherNodeName) ->
+    case string:split(OtherNodeName, "@", all) of
+        [Name,Host] ->
+            (not string:is_empty(Name))
+                andalso (not string:is_empty(Host));
+        _ ->
             false
     end.
+
+split_node(Node) ->
+    Split = string:split(listify(Node), "@", all),
+    case Split of
+        [Name,Host] ->
+            case string:is_empty(Name) of
+                true ->
+                    Split;
+                false ->
+                    case string:is_empty(Host) of
+                        true ->
+                            {name,Name};
+                        false ->
+                            {node,Name,Host}
+                    end
+            end;
+        [Host] ->
+            case string:is_empty(Host) of
+                true ->
+                    Split;
+                false ->
+                    {host,Host}
+            end
+    end.
+
+%% Check if connecting node is allowed to connect
+%% with allow-node-scheme.  An empty allowed list
+%% allows all nodes.
+%%
+is_allowed(#hs_data{allowed = []}, Flags, Node, Version) ->
+    {Flags,list_to_atom(Node),Version};
+is_allowed(#hs_data{allowed = Allowed} = HSData, Flags, Node, Version) ->
+    case is_allowed(Node, Allowed) of
+        true ->
+            {Flags,list_to_atom(Node),Version};
+        false ->
+	    send_status(HSData#hs_data{other_node = Node}, not_allowed),
+	    error_msg("** Connection attempt from "
+		      "disallowed node ~s ** ~n", [Node]),
+	    ?shutdown2(Node, {is_allowed, not_allowed})
+    end.
+
+%% The allowed list can contain node names, host names
+%% or names before '@', in atom or list form:
+%% [node@host.example.org, "host.example.org", "node@"].
+%% An empty allowed list allows no nodes.
+%%
+%% Allow a node that matches any entry in the allowed list.
+%% Also allow allowed entries as node to match, not from
+%% this module; here the node has to be a valid name.
+%%
+is_allowed(_Node, []) ->
+    false;
+is_allowed(Node, [Node|_Allowed]) ->
+    %% Just an optimization
+    true;
+is_allowed(Node, [AllowedNode|Allowed]) ->
+    case split_node(AllowedNode) of
+        {node,AllowedName,AllowedHost} ->
+            %% Allowed node name
+            case split_node(Node) of
+                {node,AllowedName,AllowedHost} ->
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        {host,AllowedHost} ->
+            %% Allowed host name
+            case split_node(Node) of
+                {node,_,AllowedHost} ->
+                    %% Matching Host part
+                    true;
+                {host,AllowedHost} ->
+                    %% Host matches Host
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        {name,AllowedName} ->
+            %% Allowed name before '@'
+            case split_node(Node) of
+                {node,AllowedName,_} ->
+                    %% Matching Name part
+                    true;
+                {name,AllowedName} ->
+                    %% Name matches Name
+                    true;
+                _ ->
+                    is_allowed(Node, Allowed)
+            end;
+        _ ->
+            is_allowed(Node, Allowed)
+    end.
+
+listify(Atom) when is_atom(Atom) ->
+    atom_to_list(Atom);
+listify(Node) when is_list(Node) ->
+    Node.
 
 publish_type(Flags) ->
     case Flags band ?DFLAG_PUBLISHED of
