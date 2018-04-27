@@ -80,14 +80,10 @@ lib/erl_interface/obj.mdd/
 lib/erl_interface/src/win32/
 lib/gs/priv/tcl/
 lib/gs/tcl/binaries/
-lib/ic/c_src/win32/
-lib/ic/priv/lib/win32/
-lib/ic/priv/obj/win32/
 lib/megaco/src/flex/win32/
 lib/odbc/c_src/win32/
 lib/odbc/priv/bin/odbcserver.exe
 lib/odbc/priv/obj/win32/odbcserver.o
-lib/orber/c_src/win32/
 lib/os_mon/c_src/win32/
 lib/os_mon/priv/bin/win32/
 lib/os_mon/priv/obj/win32/
@@ -107,9 +103,6 @@ make/otp_doc_built
 # OSE
 *.d
 
-# Used by ic & orber & cos* applications.
-IDL-GENERATED
-
 # Used by applications that run javadoc (e.g. ic).
 JAVADOC-GENERATED
 
@@ -127,8 +120,6 @@ JAVADOC-GENERATED
 /bootstrap/lib/edoc
 /bootstrap/lib/erl_docgen
 /bootstrap/lib/hipe
-/bootstrap/lib/ic
-/bootstrap/lib/orber
 /bootstrap/lib/parsetools
 /bootstrap/lib/runtime_tools
 /bootstrap/lib/sasl

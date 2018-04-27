@@ -72,7 +72,7 @@ also find the utilities needed for building the documentation.
     as the binary command program `openssl`. At least version 0.9.8 of OpenSSL is required.
     Read more and download from <http://www.openssl.org>.
 *   Oracle Java SE JDK -- The Java Development Kit (Standard Edition).
-    Required for building the application `jinterface` and parts of `ic` and `orber`.
+    Required for building the application `jinterface`.
     At least version 1.6.0 of the JDK is required.
 
     Download from <http://www.oracle.com/technetwork/java/javase/downloads>.

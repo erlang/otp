@@ -1,2 +1,0 @@
-{topcase, {dir, "../ic_test"}}.
-{skip,{ic_pp_SUITE,"Uses gcc"}}.

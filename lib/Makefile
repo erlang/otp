@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,10 +31,9 @@ ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
 		  asn1 jinterface \
 	          wx debugger reltool \
-	          ic mnesia crypto orber os_mon syntax_tools \
+	          mnesia crypto os_mon syntax_tools \
 	          public_key ssl observer odbc diameter \
-	          cosTransactions cosEvent cosTime cosNotification \
-	          cosProperty cosFileTransfer cosEventDomain et megaco \
+	          et megaco \
 		  eunit ssh eldap dialyzer hipe ftp tftp
 
 ifdef BUILD_ALL

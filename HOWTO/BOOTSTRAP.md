@@ -14,8 +14,7 @@ Primary bootstrap
 
 The two types of version controlled code are fundamentally
 different. The primary bootstrap is code compiled from source files in
-the lib/{kernel,stdlib,compiler} (and header files from
-lib/orber/include. They are checked in in the version control system
+the lib/{kernel,stdlib,compiler} (They are checked in in the version control system
 to make it possible to build directly from the code base tree without
 the need for an earlier version of the compiler. When a new version of
 OTP is released, these files are updated manually (or rather, by using
