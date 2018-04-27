@@ -1424,6 +1424,10 @@ handle_event(info, {timeout, {_, From} = Request}, _,
 handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D0) ->
     {keep_state, handle_channel_down(ChannelPid, D0)};
 
+
+handle_event(info, idle_timer_timeout, StateName, _) ->
+    {stop, {shutdown, "Timeout"}};
+
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
     Role = role(StateName),
@@ -2157,7 +2161,7 @@ cache_check_set_idle_timer(D = #data{idle_timer_ref = undefined,
 	    %% Yes, we'll set one since the cache is empty and it should not
 	    %% be that for a specified time
 	    D#data{idle_timer_ref =
-		       erlang:send_after(IdleTime, self(), {'EXIT',[],"Timeout"})};
+		       erlang:send_after(IdleTime, self(), idle_timer_timeout)};
 	_ ->
 	    %% No - there are entries in the cache
 	    D
