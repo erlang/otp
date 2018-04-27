@@ -239,9 +239,36 @@ end_per_group(_, _Config) ->
     ok.
 
 do_init_per_group(Group, Config0) ->
-    Config = proplists:delete(port, Config0),
+    Config1 =
+        case Group of
+            https ->
+                init_ssl(Config0);
+            sim_https ->
+                init_ssl(Config0);
+            _ ->
+                Config0
+        end,
+    Config = proplists:delete(port, Config1),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
+
+init_ssl(Config) ->
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
+    GenCertData =
+        public_key:pkix_test_data(#{server_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
+                                                  ]},
+                                    client_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+
+    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+    [{ssl_conf, Conf} | Config].
+
 %%--------------------------------------------------------------------
 init_per_testcase(pipeline, Config) ->
     inets:start(httpc, [{profile, pipeline}]),
@@ -1622,10 +1649,8 @@ start_apps(_) ->
     ok.
 
 ssl_config(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    [{certfile, filename:join(DataDir, "ssl_server_cert.pem")},
-     {verify, verify_none}
-    ].
+    SSLConf = proplists:get_value(ssl_conf, Config),
+    proplists:get_value(server_config, SSLConf).
 
 setup_server_dirs(ServerRoot, DocRoot, DataDir) ->   
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),

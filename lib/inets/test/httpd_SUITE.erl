@@ -1819,32 +1819,23 @@ server_start(_, HttpdConfig) ->
     {Pid, proplists:get_value(port, Info)}.
 
 init_ssl(Group, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CaKey = {_Trusted,_} = 
-	erl_make_certs:make_cert([{key, dsa},
-				  {subject, 
-				   [{name, "Public Key"},
-				    {?'id-at-name', 
-				     {printableString, "public_key"}},
-				    {?'id-at-pseudonym', 
-				     {printableString, "pubkey"}},
-				    {city, "Stockholm"},
-				    {country, "SE"},
-				    {org, "erlang"},
-				    {org_unit, "testing dep"}
-				   ]}
-				 ]),
-    ok = erl_make_certs:write_pem(PrivDir, "public_key_cacert", CaKey),
-    
-    CertK1 = {_Cert1, _} = erl_make_certs:make_cert([{issuer, CaKey}]),
-    CertK2 = {_Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
-						   {digest, md5}, 
-						   {extensions, false}]),
-    ok = erl_make_certs:write_pem(PrivDir, "public_key_cert", CertK2),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
+    GenCertData =
+        public_key:pkix_test_data(#{server_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
+                                                  ]},
+                                    client_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
 
+    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),                               
     case start_apps(Group) of
 	ok ->
-	    init_httpd(Group, [{type, ssl} | Config]);
+	    init_httpd(Group, [{type, ssl}, {ssl_conf, Conf} | Config]);
 	_ ->
 	    {skip, "Could not start https apps"}
     end.
@@ -1956,16 +1947,11 @@ server_config(http_rel_path_script_alias, Config) ->
      {eval_script_alias, {"/eval", [httpd_example, io]}}
     ];
 server_config(https, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
+    SSLConf = proplists:get_value(ssl_conf, Config),
+    ServerConf = proplists:get_value(server_config, SSLConf),
     [{socket_type, {essl,
-		    [{nodelay, true},
-		     {cacertfile, 
-		      filename:join(PrivDir, "public_key_cacert.pem")},
-		     {certfile, 
-		      filename:join(PrivDir, "public_key_cert.pem")},
-		     {keyfile,
-		      filename:join(PrivDir, "public_key_cert_key.pem")}
-		    ]}}] ++ proplists:delete(socket_type, server_config(http, Config)).
+		    [{nodelay, true} | ServerConf]}}]
+        ++ proplists:delete(socket_type, server_config(http, Config)).
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),
@@ -2220,9 +2206,9 @@ cleanup_mnesia() ->
     ok.
 
 transport_opts(ssl, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    [proplists:get_value(ipfamily, Config),
-     {cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
+    SSLConf = proplists:get_value(ssl_conf, Config),
+    ClientConf = proplists:get_value(client_config, SSLConf),
+    [proplists:get_value(ipfamily, Config) | ClientConf];
 transport_opts(_, Config) ->
     [proplists:get_value(ipfamily, Config)].
 
