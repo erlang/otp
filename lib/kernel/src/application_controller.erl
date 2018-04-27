@@ -44,6 +44,7 @@
 		keyfind/3, keydelete/3, keyreplace/4]).
 
 -include("application_master.hrl").
+-include("logger.hrl").
 
 -define(AC, ?MODULE). % Name of process
 
@@ -1546,9 +1547,8 @@ do_change_apps(Applications, Config, OldAppls) ->
     %% Report errors, but do not terminate
     %% (backwards compatible behaviour)
     lists:foreach(fun({error, {SysFName, Line, Str}}) ->
-			  Str2 = lists:flatten(io_lib:format("~tp: ~w: ~ts~n",
-							     [SysFName, Line, Str])),
-			  error_logger:format(Str2, [])
+			  ?LOG_ERROR("~tp: ~w: ~ts~n",[SysFName, Line, Str],
+                                     #{error_logger=>#{tag=>error}})
 		  end,
 		  Errors),
 
@@ -1631,8 +1631,9 @@ make_term(Str) ->
     end.
 
 handle_make_term_error(Mod, Reason, Str) ->
-    error_logger:format("application_controller: ~ts: ~ts~n",
-        [Mod:format_error(Reason), Str]),
+    ?LOG_ERROR("application_controller: ~ts: ~ts~n",
+               [Mod:format_error(Reason), Str],
+               #{error_logger=>#{tag=>error}}),
     throw({error, {bad_environment_value, Str}}).
 
 get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
@@ -1913,19 +1914,25 @@ config_error() ->
       "configuration file must contain ONE list ended by <dot>"}}.
 
 %%-----------------------------------------------------------------
-%% Info messages sent to error_logger
+%% Info messages sent to logger
 %%-----------------------------------------------------------------
 info_started(Name, Node) ->
-    Rep = [{application, Name},
-	   {started_at, Node}],
-    error_logger:info_report(progress, Rep).
+    ?LOG_INFO(#{label=>{application_controller,progress},
+                report=>[{application, Name},
+                         {started_at, Node}]},
+              #{domain=>[beam,erlang,otp,sasl],
+                report_cb=>fun logger:format_otp_report/1,
+                logger_formatter=>#{title=>"PROGRESS REPORT"},
+                error_logger=>#{tag=>info_report,type=>progress}}).
 
 info_exited(Name, Reason, Type) ->
-    Rep = [{application, Name},
-	   {exited, Reason},
-	   {type, Type}],
-    error_logger:info_report(Rep).
-
+    ?LOG_INFO(#{label=>{application_controller,exit},
+                report=>[{application, Name},
+                         {exited, Reason},
+                         {type, Type}]},
+              #{domain=>[beam,erlang,otp],
+                report_cb=>fun logger:format_otp_report/1,
+                error_logger=>#{tag=>info_report,type=>std_info}}).
 
 %%-----------------------------------------------------------------
 %% Reply to all processes waiting this application to be started.  

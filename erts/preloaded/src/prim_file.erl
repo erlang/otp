@@ -557,8 +557,13 @@ list_dir_convert([RawName | Rest], SkipInvalid, Result) ->
         {error, ignore} ->
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, warning} ->
-            error_logger:warning_msg(
-                "Non-unicode filename ~p ignored\n", [RawName]),
+            %% this is equal to calling error_logger:warning_msg/2 which
+            %% we don't want to do from code_server during system boot
+            logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
+                      #{pid=>self(),
+                        gl=>group_leader(),
+                        time=>erlang:monotonic_time(microsecond),
+                        error_logger=>#{tag=>warning_msg}}},
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, _} ->
             {error, {no_translation, RawName}}

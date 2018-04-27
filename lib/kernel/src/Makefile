@@ -109,6 +109,17 @@ MODULES = \
 	kernel_refc \
 	local_udp \
 	local_tcp \
+        logger \
+        logger_backend \
+        logger_config \
+        logger_std_h \
+	logger_disk_log_h \
+	logger_h_common \
+	logger_filters \
+        logger_formatter \
+        logger_server \
+        logger_simple \
+        logger_sup \
 	net \
 	net_adm \
 	net_kernel \
@@ -132,13 +143,14 @@ MODULES = \
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/dist.hrl ../include/dist_util.hrl \
-	../include/net_address.hrl 
+	../include/net_address.hrl ../include/logger.hrl
 
 INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
         erl_epmd.hrl hipe_ext_format.hrl \
         inet_dns.hrl inet_res.hrl \
         inet_boot.hrl inet_config.hrl inet_int.hrl \
-	inet_dns_record_adts.hrl
+	inet_dns_record_adts.hrl \
+	logger_internal.hrl logger_h_common.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -223,7 +235,7 @@ release_docs_spec:
 
 
 # Include dependencies -- list below added by Kostis Sagonas
-$(EBIN)/application_controller.beam: application_master.hrl
+$(EBIN)/application_controller.beam: application_master.hrl ../include/logger.hrl
 $(EBIN)/application_master.beam: application_master.hrl
 $(EBIN)/auth.beam: ../include/file.hrl
 $(EBIN)/code.beam: ../include/file.hrl
@@ -234,6 +246,7 @@ $(EBIN)/disk_log_server.beam: disk_log.hrl
 $(EBIN)/dist_util.beam: ../include/dist_util.hrl ../include/dist.hrl
 $(EBIN)/erl_boot_server.beam: inet_boot.hrl
 $(EBIN)/erl_epmd.beam: inet_int.hrl erl_epmd.hrl
+$(EBIN)/error_logger.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/file.beam: ../include/file.hrl file_int.hrl
 $(EBIN)/file_io_server.beam: ../include/file.hrl file_int.hrl
 $(EBIN)/gen_tcp.beam: inet_int.hrl
@@ -259,6 +272,16 @@ $(EBIN)/inet_udp.beam: inet_int.hrl
 $(EBIN)/inet_sctp.beam: inet_int.hrl ../include/inet_sctp.hrl
 $(EBIN)/local_udp.beam: inet_int.hrl
 $(EBIN)/local_tcp.beam: inet_int.hrl
+$(EBIN)/logger.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_backend.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
+$(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_simple.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
+$(EBIN)/logger_h_common.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl
 $(EBIN)/net_kernel.beam: ../include/net_address.hrl
 $(EBIN)/os.beam: ../include/file.hrl
 $(EBIN)/ram_file.beam: ../include/file.hrl

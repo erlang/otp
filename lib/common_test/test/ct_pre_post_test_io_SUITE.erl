@@ -241,7 +241,7 @@ try_loop(_Fun, 0) ->
     gave_up;
 try_loop(Fun, N) ->
     try Fun() of
-	{error,_} ->
+	{Error,_} when Error==error; Error==badrpc ->
 	    timer:sleep(10),
 	    try_loop(Fun, N-1);
 	Result ->
@@ -257,7 +257,7 @@ try_loop(M, F, _A, 0) ->
     gave_up;
 try_loop(M, F, A, N) ->
     try apply(M, F, A) of
-	{error,_} ->
+	{Error,_Reason} when Error==error; Error==badrpc ->
 	    timer:sleep(10),
 	    try_loop(M, F, A, N-1);
 	Result ->

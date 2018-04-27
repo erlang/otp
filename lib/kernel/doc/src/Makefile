@@ -56,6 +56,11 @@ XML_REF3_FILES = application.xml \
 	inet.xml \
 	inet_res.xml \
 	init_stub.xml \
+        logger.xml \
+        logger_std_h.xml \
+        logger_disk_log_h.xml \
+        logger_filters.xml \
+        logger_formatter.xml \
 	net_adm.xml \
 	net_kernel.xml \
 	os.xml \
@@ -70,10 +75,16 @@ XML_REF4_FILES = app.xml config.xml
 
 XML_REF6_FILES = kernel_app.xml
 
-XML_PART_FILES =
-XML_CHAPTER_FILES = notes.xml
+XML_PART_FILES = part.xml
+XML_CHAPTER_FILES = \
+        notes.xml \
+        introduction_chapter.xml \
+	logger_chapter.xml
 
 BOOK_FILES = book.xml
+
+IMAGE_FILES = \
+	logger_arch.png
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
@@ -111,7 +122,7 @@ SPECS_FLAGS = -I../../include
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
+$(HTMLDIR)/%: %
 	$(INSTALL_DATA) $< $@
 
 docs: man pdf html
@@ -120,11 +131,12 @@ $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: gifs $(HTML_REF_MAN_FILE)
+html: images $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
 
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
+images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
+
 debug opt:
 
 clean clean_docs:

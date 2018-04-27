@@ -238,6 +238,13 @@ $(EBIN)/erl_tar.beam: ../../kernel/include/file.hrl erl_tar.hrl
 $(EBIN)/file_sorter.beam: ../../kernel/include/file.hrl
 $(EBIN)/filelib.beam: ../../kernel/include/file.hrl
 $(EBIN)/filename.beam: ../../kernel/include/file.hrl
+$(EBIN)/gen_event.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_fsm.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_server.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_statem.beam: ../../kernel/include/logger.hrl
+$(EBIN)/proc_lib.beam: ../../kernel/include/logger.hrl
 $(EBIN)/qlc_pt.beam: ../include/ms_transform.hrl
 $(EBIN)/shell.beam: ../../kernel/include/file.hrl
+$(EBIN)/supervisor.beam: ../../kernel/include/logger.hrl
+$(EBIN)/supervisor_bridge.beam: ../../kernel/include/logger.hrl
 $(EBIN)/zip.beam: ../include/zip.hrl ../../kernel/include/file.hrl

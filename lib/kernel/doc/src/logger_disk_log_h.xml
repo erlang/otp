@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger_disk_log_h</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger_disk_log_h.xml</file>
+  </header>
+  <module>logger_disk_log_h</module>
+  <modulesummary>A disk_log based handler for the Logger
+  application.</modulesummary>
+
+  <description>
+    <p>This is a handler for the Logger application that offers circular
+    (wrapped) logs by using the disk_log application. Multiple instances
+    of this handler can be added to logger, and each instance will print to
+    its own disk_log file, created with the name and settings specified in
+    the handler configuration.</p>
+    <p>The default standard handler,
+    <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>, can be
+    replaced by a disk_log handler at startup of the kernel application.
+    See an example of this below.</p>
+    <p>The handler has an overload protection mechanism that will keep the handler
+    process and the kernel application alive during a high load of log 
+    requests. How this feature works, and how to modify the configuration,
+    is described in the
+    <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
+    </seealso>.</p>
+    <p>To add a new instance of the disk_log handler, use
+    <seealso marker="logger#add_handler-3"><c>logger:add_handler/3</c>
+    </seealso>. The handler configuration argument is a map which may contain
+    general configuration parameters, as documented in the
+    <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
+    </seealso>, as well as handler specific parameters.</p>
+    <p>The settings for the disk_log log file should be specified with the
+    key <c>disk_log_opts</c>. These settings are a subset of the disk_log
+    datatype
+    <seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>.</p>
+    <p>Parameters in the <c>disk_log_opts</c> map:</p>
+    <taglist>
+      <tag><c>file</c></tag>
+      <item>This is the full name of the disk_log log file.</item>
+      <tag><c>type</c></tag>
+      <item>This is the disk_log type, <c>wrap</c> or <c>halt</c>. The
+      default value is <c>wrap</c>.</item>
+      <tag><c>max_no_files</c></tag>
+      <item>This is the maximum number of files that disk_log will use
+      for its circular logging. The default value is <c>10</c>. (The setting
+      has no effect on a halt log).</item>
+      <tag><c>max_no_bytes</c></tag>
+      <item>This is the maximum number of bytes that will be written to
+      a log file before disk_log proceeds with the next file in order (or
+      generates an error in case of a full halt log). The default value for
+      a wrap log is <c>1048576</c> bytes, and <c>infinity</c> for a halt
+      log.</item>
+    </taglist>
+    <p>Specific configuration for the handler (represented as a sub map)
+    is specified with the key <c>logger_disk_log_h</c>. It may contain the
+    following parameter:</p>
+    <taglist>
+      <tag><c>filesync_repeat_interval</c></tag>
+      <item>
+	<p>This value (in milliseconds) specifies how often the handler will
+	do a disk_log sync operation in order to make sure that buffered data
+	gets written to disk. The handler will repeatedly attempt this
+	operation, but only perform it if something has actually been logged
+	since the last sync. The default value is <c>5000</c> milliseconds.
+	If <c>no_repeat</c> is set as value, the repeated sync operation is
+	disabled. The user can also call the
+	<seealso marker="logger_disk_log_h#disk_log_sync-1"><c>disk_log_sync/1</c>
+	</seealso> function to perform a disk_log sync.</p></item>
+    </taglist>
+    <p>There are a number of other configuration parameters available, that are
+    to be used for customizing the overload protection behaviour. The same
+    parameters are used both in the standard handler and the disk_log handler,
+    and are documented in the
+    <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
+    </seealso>.</p>
+    <p>Note that when changing the configuration of the handler in runtime, by
+    calling
+    <seealso marker="logger#set_handler_config-2"><c>logger:set_handler_config/2
+    or logger:set_handler_config/3</c></seealso>, the <c>disk_log_opts</c>
+    settings may not be modified.</p>
+    <p>Example of adding a disk_log handler:</p>
+    <code type="none">
+logger:add_handler(my_disk_log_h, logger_disk_log_h,
+                   #{level => error,
+                     filter_default => log,
+                     disk_log_opts =>
+                              #{file => "./my_disk_log",
+                                type => wrap,
+                                max_no_files => 4,
+                                max_no_bytes => 10000},
+                     logger_disk_log_h =>
+                              #{filesync_repeat_interval => 1000}}).
+    </code>
+    <p>In order to use the disk_log handler instead of the default standard
+    handler when starting en Erlang node, use the kernel configuration parameter
+    <seealso marker="kernel_app#configuration"><c>logger_dest</c></seealso> with
+    value <c>{disk_log,FileName}</c>. Example:</p>
+    <code type="none">
+erl -kernel logger_dest '{disk_log,"./system_disk_log"}'
+    </code>
+  </description>
+
+  <funcs>
+
+    <func>
+      <name name="disk_log_sync" arity="1" clause_i="1"/>
+      <fsummary>Writes buffered data to disk.</fsummary>
+      <desc>
+        <p>Write buffered data to disk.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+
+

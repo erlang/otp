@@ -542,16 +542,17 @@ system_terminate(Reason,_Parent,_Deb,_State) ->
 
 
 t_format(_Config) ->
-    error_logger:tty(false),
+    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
+    error_logger:add_report_handler(?MODULE, self()),
     try
 	t_format()
     after
-	error_logger:tty(true)
+        error_logger:delete_report_handler(?MODULE),
+        logger:remove_handler_filter(logger_std_h,stop_all)
     end,
     ok.
 
 t_format() ->
-    error_logger:add_report_handler(?MODULE, self()),
     Pid = proc_lib:spawn(fun '\x{aaa}t_format_looper'/0),
     HugeData = gb_sets:from_list(lists:seq(1, 100)),
     SomeData1 = list_to_atom([246]),
@@ -584,11 +585,11 @@ t_format() ->
     ok.
 
 t_format_arbitrary(_Config) ->
-    error_logger:tty(false),
+    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
     try
         t_format_arbitrary()
     after
-        error_logger:tty(true)
+        logger:remove_handler_filter(logger_std_h,stop_all)
     end,
     ok.
 

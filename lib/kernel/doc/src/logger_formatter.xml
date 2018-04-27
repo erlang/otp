@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger_formatter</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger_formatter.xml</file>
+  </header>
+  <module>logger_formatter</module>
+  <modulesummary>Default formatter for the Logger application.</modulesummary>
+
+  <description>
+    <p>Default formatter for the Logger application.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="template"/>
+      <desc>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="format" arity="2"/>
+      <fsummary>Formats the given message.</fsummary>
+      <desc>
+        <p>Formats the given message.</p>
+	<p>The template is a list of atoms, tuples and strings. Atoms
+	  can be <c>level</c> or <c>msg</c>, which are placeholders
+	  for the severity level and the log message,
+	  repectively. Tuples are interpreted as placeholders for
+	  metadata. Each element in the tuple must be an atom which
+	  matches a key in the nested metadata map, e.g. the
+	  tuple <c>{key1,key2}</c> will be replaced by the value of
+	  the key2 field in this nested map (the value vill be
+	  converted to a string):</p>
+
+<code>
+#{key1=>#{key2=>my_value,
+          ...},
+  ...}</code>
+
+
+        <p> Strings are printed literally.</p>
+
+	<p><c>depth</c> is a positive integer representing the maximum
+	  depth to which terms shall be printed by this
+	  formatter. Format strings passed to this formatter are
+	  rewritten. The format controls ~p and ~w are replaced with
+	  ~P and ~W, respectively, and the value is used as the depth
+	  parameter. For details, see
+	  <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
+	  in STDLIB.</p>
+
+	<p><c>chars_limit</c> is a positive integer representing the
+	  value of the option with the same name to be used when calling
+	  <seealso marker="stdlib:io#format-3">io:format/3</seealso>. This
+	  value limits the total number of characters printed bu the
+	  formatter. Notes that this is a soft limit. For a hard
+	  truncation limit, see option <c>max_size</c>.</p>
+
+	<p><c>max_size</c> is a positive integer representing the
+	  maximum size a string returned from this formatter can
+	  have. If the formatted string is longer, after possibly
+	  being limited by <c>depth</c> and/or <c>chars_limit</c>, it
+	  will be truncated.</p>
+
+	<p><c>utc</c> is a boolean. If set to true, all dates are
+	  displayed in Universal Coordinated Time. Default
+	  is <c>false</c>.</p>
+
+	<p><c>report_cb</c> must be a function with arity 1,
+	  returning <c>{Format,Args}</c>. This function will replace
+	  any <c>report_cb</c> found in metadata.</p>
+
+	<p>If <c>single_line=true</c>, all newlines in the message are
+	  replaced with <c>", "</c>, and whitespaces following directly
+	  after newlines are removed. Note that newlines added by the
+	  formatter template are not replaced.</p>
+
+	<p>If <c>legacy_header=true</c> a header field is added to
+	  logger_formatter's part of <c>Metadata</c>. The value of
+	  this field is a string similar to the header created by the
+	  old <c>error_logger</c> event handlers. It can be included
+	  in the log event by adding the
+	  tuple <c>{logger_formatter,header}</c> to the template.</p>
+
+	<p>The default template when <c>legacy_header=true</c> is</p>
+
+	<code>[{logger_formatter,header},"\n",msg,"\n"]</code>
+
+	<p>which will cause log entries like this:</p>
+
+	<code>=ERROR REPORT==== 29-Dec-2017::13:30:51.245123 ===
+    process: &lt;0.74.0&gt;
+    exit_reason: "Something went wrong"</code>
+
+	<p>Note that all eight levels might occur here, not
+	  only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c>. And also
+	  that micro seconds are added at the end of the
+	  timestamp.</p>
+
+	<p>The default template when <c>single_line=true</c> is</p>
+
+	<code>[time," ",level,": ",msg,"\n"]</code>
+
+	<p>which will cause log entries like this:</p>
+
+	<code>2017-12-29 13:31:49.640317 error: process: &lt;0.74.0&gt;, exit_reason: "Something went wrong"</code>
+
+	<p>The default template when both <c>legacy_header</c> and
+	  <c>single_line</c> are set to false is:</p>
+
+	<code>[time," ",level,":\n",msg,"\n"]</code>
+
+	<p>which will cause log entries like this:</p>
+
+	<code>2017-12-29 13:32:25.191925 error:
+    process: &lt;0.74.0&gt;
+    exit_reason: "Something went wrong"</code>
+
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+
+

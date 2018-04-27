@@ -35,6 +35,20 @@
 %% For release_handler only
 -export([get_callback_module/1]).
 
+-include("logger.hrl").
+
+-define(report_error(Error, Reason, Child, SupName),
+        ?LOG_ERROR(#{label=>{supervisor,Error},
+                     report=>[{supervisor,SupName},
+                              {errorContext,Error},
+                              {reason,Reason},
+                              {offender,extract_child(Child)}]},
+                   #{domain=>[beam,erlang,otp,sasl],
+                     report_cb=>fun logger:format_otp_report/1,
+                     logger_formatter=>#{title=>"SUPERVISOR REPORT"},
+                     error_logger=>#{tag=>error_report,
+                                     type=>supervisor_report}})).
+
 %%--------------------------------------------------------------------------
 
 -export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
@@ -340,7 +354,7 @@ start_children(Children, SupName) ->
                     {ok, Pid, _Extra} ->
                         {update,Child#child{pid = Pid}};
                     {error, Reason} ->
-                        report_error(start_error, Reason, Child, SupName),
+                        ?report_error(start_error, Reason, Child, SupName),
                         {abort,{failed_to_start_child,Id,Reason}}
                 end
         end,
@@ -565,8 +579,9 @@ handle_info({'EXIT', Pid, Reason}, State) ->
     end;
 
 handle_info(Msg, State) ->
-    error_logger:error_msg("Supervisor received unexpected message: ~tp~n",
-			   [Msg]),
+    ?LOG_ERROR("Supervisor received unexpected message: ~tp~n",[Msg],
+               #{domain=>[beam,erlang,otp],
+                 error_logger=>#{tag=>error}}),
     {noreply, State}.
 
 %%
@@ -683,7 +698,7 @@ restart_child(Pid, Reason, State) ->
     end.
 
 do_restart(Reason, Child, State) when ?is_permanent(Child) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
+    ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(normal, Child, State) ->
     NState = del_child(Child, State),
@@ -695,10 +710,10 @@ do_restart({shutdown, _Term}, Child, State) ->
     NState = del_child(Child, State),
     {ok, NState};
 do_restart(Reason, Child, State) when ?is_transient(Child) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
+    ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(Reason, Child, State) when ?is_temporary(Child) ->
-    report_error(child_terminated, Reason, Child, State#state.name),
+    ?report_error(child_terminated, Reason, Child, State#state.name),
     NState = del_child(Child, State),
     {ok, NState}.
 
@@ -718,7 +733,7 @@ restart(Child, State) ->
 		    Other
 	    end;
 	{terminate, NState} ->
-	    report_error(shutdown, reached_max_restart_intensity,
+	    ?report_error(shutdown, reached_max_restart_intensity,
 			 Child, State#state.name),
 	    {shutdown, del_child(Child, NState)}
     end.
@@ -745,7 +760,7 @@ restart(simple_one_for_one, Child, State0) ->
 	    NRestarts = State2#state.dynamic_restarts + 1,
 	    State3 = State2#state{dynamic_restarts = NRestarts},
             NState = dyn_store(ROldPid, A, State3),
-	    report_error(start_error, Error, Child, NState#state.name),
+	    ?report_error(start_error, Error, Child, NState#state.name),
 	    {{try_again, ROldPid}, NState}
     end;
 restart(one_for_one, #child{id=Id} = Child, State) ->
@@ -759,7 +774,7 @@ restart(one_for_one, #child{id=Id} = Child, State) ->
 	    {ok, NState};
 	{error, Reason} ->
 	    NState = set_pid(restarting(OldPid), Id, State),
-	    report_error(start_error, Reason, Child, State#state.name),
+	    ?report_error(start_error, Reason, Child, State#state.name),
 	    {{try_again,Id}, NState}
     end;
 restart(rest_for_one, #child{id=Id} = Child, #state{name=SupName} = State) ->
@@ -820,7 +835,7 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
         {error, normal} when not (?is_permanent(Child)) ->
             ok;
         {error, OtherReason} ->
-            report_error(shutdown_error, OtherReason, Child, SupName)
+            ?report_error(shutdown_error, OtherReason, Child, SupName)
     end,
     ok;
 do_terminate(_Child, _SupName) ->
@@ -924,7 +939,7 @@ terminate_dynamic_children(State) ->
              end,
     %% Unroll stacked errors and report them
     dict:fold(fun(Reason, Ls, _) ->
-                      report_error(shutdown_error, Reason,
+                      ?report_error(shutdown_error, Reason,
                                    Child#child{pid=Ls}, State#state.name)
               end, ok, EStack).
 
@@ -1385,14 +1400,6 @@ inPeriod(Then, Now, Period) ->
 %%% ------------------------------------------------------
 %%% Error and progress reporting.
 %%% ------------------------------------------------------
-
-report_error(Error, Reason, Child, SupName) ->
-    ErrorMsg = [{supervisor, SupName},
-		{errorContext, Error},
-		{reason, Reason},
-		{offender, extract_child(Child)}],
-    error_logger:error_report(supervisor_report, ErrorMsg).
-
 extract_child(Child) when is_list(Child#child.pid) ->
     [{nb_children, length(Child#child.pid)},
      {id, Child#child.id},
@@ -1409,9 +1416,13 @@ extract_child(Child) ->
      {child_type, Child#child.child_type}].
 
 report_progress(Child, SupName) ->
-    Progress = [{supervisor, SupName},
-		{started, extract_child(Child)}],
-    error_logger:info_report(progress, Progress).
+    ?LOG_INFO(#{label=>{supervisor,progress},
+                report=>[{supervisor,SupName},
+                         {started,extract_child(Child)}]},
+              #{domain=>[beam,erlang,otp,sasl],
+                report_cb=>fun logger:format_otp_report/1,
+                logger_formatter=>#{title=>"PROGRESS REPORT"},
+                error_logger=>#{tag=>info_report,type=>progress}}).
 
 format_status(terminate, [_PDict, State]) ->
     State;

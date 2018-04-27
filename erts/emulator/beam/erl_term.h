@@ -1184,6 +1184,54 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
 #define is_not_map(x)          (!is_map(x))
 
+#define MAP_HEADER(hp, sz, keys)                \
+    ((hp)[0] = MAP_HEADER_FLATMAP,              \
+     (hp)[1] = sz,                              \
+     (hp)[2] = keys)
+
+#define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
+
+#define MAP0_SZ MAP_SZ(0)
+#define MAP1_SZ MAP_SZ(1)
+#define MAP2_SZ MAP_SZ(2)
+#define MAP3_SZ MAP_SZ(3)
+#define MAP4_SZ MAP_SZ(4)
+#define MAP5_SZ MAP_SZ(5)
+#define MAP0(hp)                                                \
+    (MAP_HEADER(hp, 0, TUPLE0(hp+MAP_HEADER_FLATMAP_SZ)),       \
+     make_flatmap(hp))
+#define MAP1(hp, k1, v1)                                                \
+    (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     make_flatmap(hp))
+#define MAP2(hp, k1, v1, k2, v2)                                        \
+    (MAP_HEADER(hp, 2, TUPLE2(hp+2+MAP_HEADER_FLATMAP_SZ, k1, k2)),     \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     make_flatmap(hp))
+#define MAP3(hp, k1, v1, k2, v2, k3, v3)                \
+    (MAP_HEADER(hp, 3, TUPLE3(hp+3+MAP_HEADER_FLATMAP_SZ, k1, k2, k3)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     make_flatmap(hp))
+#define MAP4(hp, k1, v1, k2, v2, k3, v3, k4, v4)                \
+    (MAP_HEADER(hp, 4, TUPLE4(hp+4+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
+     make_flatmap(hp))
+#define MAP5(hp, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5)                \
+    (MAP_HEADER(hp, 5, TUPLE5(hp+5+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4, k5)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+4] = v5,                                \
+     make_flatmap(hp))
+
+
 /* number tests */
 
 #define is_integer(x)		(is_small(x) || is_big(x))

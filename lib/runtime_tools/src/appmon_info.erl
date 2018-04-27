@@ -690,7 +690,7 @@ find_avoid() ->
 			       [P|Accu];
 			   _ -> Accu end end,
 		[undefined],
-		[application_controller, init, error_logger, gs, 
+		[application_controller, init, gs,
 		 node_serv, appmon, appmon_a, appmon_info]).
 
 

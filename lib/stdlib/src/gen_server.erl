@@ -104,8 +104,13 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+%% logger callback
+-export([format_log/1]).
+
 %% Internal exports
 -export([init_it/6]).
+
+-include("logger.hrl").
 
 -define(
    STACKTRACE(),
@@ -636,9 +641,13 @@ try_dispatch(Mod, Func, Msg, State) ->
         error:undef = R:Stacktrace when Func == handle_info ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
-                    error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                             "** Unhandled message: ~tp~n",
-                                             [Mod, Msg]),
+                    ?LOG_WARNING(
+                       #{label=>{gen_server,no_handle_info},
+                         module=>Mod,
+                         message=>Msg},
+                       #{domain=>[beam,erlang,otp],
+                         report_cb=>fun gen_server:format_log/1,
+                         error_logger=>#{tag=>warning_msg}}),
                     {ok, {noreply, State}};
                 true ->
                     {'EXIT', error, R, Stacktrace}
@@ -849,8 +858,7 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
     Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
-	    FmtState = format_status(terminate, Mod, get(), State),
-	    error_info({R, S}, Name, From, Msg, FmtState, Debug),
+	    error_info({R, S}, Name, From, Msg, Mod, State, Debug),
 	    erlang:raise(C, R, S);
 	_ ->
 	    case {Class, Reason} of
@@ -858,8 +866,7 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 		{exit, shutdown} -> ok;
 		{exit, {shutdown,_}} -> ok;
 		_ ->
-		    FmtState = format_status(terminate, Mod, get(), State),
-		    error_info(ReportReason, Name, From, Msg, FmtState, Debug)
+		    error_info(ReportReason, Name, From, Msg, Mod, State, Debug)
 	    end
     end,
     case Stacktrace of
@@ -872,12 +879,46 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
 terminate_reason(exit, Reason, _Stacktrace) -> Reason.
 
-error_info(_Reason, application_controller, _From, _Msg, _State, _Debug) ->
+error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(Reason, Name, From, Msg, State, Debug) ->
+error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+    ?LOG_ERROR(#{label=>{gen_server,terminate},
+                 name=>Name,
+                 last_message=>Msg,
+                 state=>format_status(terminate, Mod, get(), State),
+                 reason=>Reason,
+                 client_info=>client_stacktrace(From)},
+               #{domain=>[beam,erlang,otp],
+                 report_cb=>fun gen_server:format_log/1,
+                 error_logger=>#{tag=>error}}),
+    sys:print_log(Debug),
+    ok.
+
+client_stacktrace(undefined) ->
+    undefined;
+client_stacktrace({From,_Tag}) ->
+    client_stacktrace(From);
+client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
+    case process_info(From, [current_stacktrace, registered_name]) of
+        undefined ->
+            {From,dead};
+        [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
+            {From,{From,Stacktrace}};
+        [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
+            {From,{Name,Stacktrace}}
+    end;
+client_stacktrace(From) when is_pid(From) ->
+    {From,remote}.
+
+format_log(#{label:={gen_server,terminate},
+             name:=Name,
+             last_message:=Msg,
+             state:=State,
+             reason:=Reason,
+             client_info:=Client}) ->
     Reason1 = 
 	case Reason of
 	    {undef,[{M,F,A,L}|MFAs]} ->
@@ -893,36 +934,31 @@ error_info(Reason, Name, From, Msg, State, Debug) ->
 			end
 		end;
 	    _ ->
-		error_logger:limit_term(Reason)
+		logger:limit_term(Reason)
 	end,    
-    {ClientFmt, ClientArgs} = client_stacktrace(From),
-    LimitedState = error_logger:limit_term(State),
-    error_logger:format("** Generic server ~tp terminating \n"
-                        "** Last message in was ~tp~n"
-                        "** When Server state == ~tp~n"
-                        "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
-                        [Name, Msg, LimitedState, Reason1] ++ ClientArgs),
-    sys:print_log(Debug),
-    ok.
-client_stacktrace(undefined) ->
+    {ClientFmt,ClientArgs} = format_client_log(Client),
+    {"** Generic server ~tp terminating \n"
+     "** Last message in was ~tp~n"
+     "** When Server state == ~tp~n"
+     "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
+     [Name, Msg, logger:limit_term(State), Reason1] ++ ClientArgs};
+format_log(#{label:={gen_server,no_handle_info},
+             module:=Mod,
+             message:=Msg}) ->
+    {"** Undefined handle_info in ~p~n"
+     "** Unhandled message: ~tp~n",
+     [Mod, Msg]}.
+
+format_client_log(undefined) ->
     {"", []};
-client_stacktrace({From, _Tag}) ->
-    client_stacktrace(From);
-client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
-    case process_info(From, [current_stacktrace, registered_name]) of
-        undefined ->
-            {"** Client ~p is dead~n", [From]};
-        [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
-            {"** Client ~p stacktrace~n"
-             "** ~tp~n",
-             [From, Stacktrace]};
-        [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
-            {"** Client ~tp stacktrace~n"
-             "** ~tp~n",
-             [Name, Stacktrace]}
-    end;
-client_stacktrace(From) when is_pid(From) ->
-    {"** Client ~p is remote on node ~p~n", [From, node(From)]}.
+format_client_log({From,dead}) ->
+    {"** Client ~p is dead~n", [From]};
+format_client_log({From,remote}) ->
+    {"** Client ~p is remote on node ~p~n", [From, node(From)]};
+format_client_log({_From,{Name,Stacktrace}}) ->
+    {"** Client ~tp stacktrace~n"
+     "** ~tp~n",
+     [Name, Stacktrace]}.
 
 %%-----------------------------------------------------------------
 %% Status information

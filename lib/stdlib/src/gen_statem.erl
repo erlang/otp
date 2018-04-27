@@ -19,6 +19,8 @@
 %%
 -module(gen_statem).
 
+-include("logger.hrl").
+
 %% API
 -export(
    [start/3,start/4,start_link/3,start_link/4,
@@ -43,6 +45,9 @@
 %% Internal callbacks
 -export(
    [wakeup_from_hibernate/3]).
+
+%% logger callback
+-export([format_log/1]).
 
 %% Type exports for templates and callback modules
 -export_type(
@@ -702,7 +707,7 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 	    error_info(
 	      Class, Reason, Stacktrace,
 	      #state{name = Name},
-	      [], undefined),
+	      []),
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
@@ -733,7 +738,7 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    error_info(
 	      error, Error, ?STACKTRACE(),
 	      #state{name = Name},
-	      [], undefined),
+	      []),
 	    exit(Error)
     end.
 
@@ -1849,9 +1854,7 @@ terminate(
 	    catch
 		_ -> ok;
 		C:R:ST ->
-		    error_info(
-		      C, R, ST, S, Q,
-		      format_status(terminate, get(), S)),
+		    error_info(C, R, ST, S, Q),
 		    sys:print_log(Debug),
 		    erlang:raise(C, R, ST)
 	    end;
@@ -1867,9 +1870,7 @@ terminate(
 	    {shutdown,_} ->
                 terminate_sys_debug(Debug, S, State, Reason);
 	    _ ->
-		error_info(
-		  Class, Reason, Stacktrace, S, Q,
-		  format_status(terminate, get(), S)),
+		error_info(Class, Reason, Stacktrace, S, Q),
 		sys:print_log(Debug)
 	end,
     case Stacktrace of
@@ -1889,8 +1890,28 @@ error_info(
      name = Name,
      callback_mode = CallbackMode,
      state_enter = StateEnter,
-     postponed = P},
-  Q, FmtData) ->
+     postponed = P} = S,
+  Q) ->
+    ?LOG_ERROR(#{label=>{gen_statem,terminate},
+                 name=>Name,
+                 queue=>Q,
+                 postponed=>P,
+                 callback_mode=>CallbackMode,
+                 state_enter=>StateEnter,
+                 state=>format_status(terminate, get(), S),
+                 reason=>{Class,Reason,Stacktrace}},
+               #{domain=>[beam,erlang,otp],
+                 report_cb=>fun gen_statem:format_log/1,
+                 error_logger=>#{tag=>error}}).
+
+format_log(#{label:={gen_statem,terminate},
+             name:=Name,
+             queue:=Q,
+             postponed:=P,
+             callback_mode:=CallbackMode,
+             state_enter:=StateEnter,
+             state:=FmtData,
+             reason:={Class,Reason,Stacktrace}}) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1917,7 +1938,7 @@ error_info(
 	    _ -> {Reason,Stacktrace}
 	end,
     [LimitedP, LimitedFmtData, LimitedFixedReason] =
-        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
+        [logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -1925,48 +1946,46 @@ error_info(
 	     false ->
 		 CallbackMode
 	 end,
-    error_logger:format(
-      "** State machine ~tp terminating~n" ++
-	  case Q of
-	      [] -> "";
-	      _ -> "** Last event = ~tp~n"
-	  end ++
-	  "** When server state  = ~tp~n" ++
-	  "** Reason for termination = ~w:~tp~n" ++
-	  "** Callback mode = ~p~n" ++
-	  case Q of
-	      [_,_|_] -> "** Queued = ~tp~n";
-	      _ -> ""
-	  end ++
-	  case P of
-	      [] -> "";
-	      _ -> "** Postponed = ~tp~n"
-	  end ++
-	  case FixedStacktrace of
-	      [] -> "";
-	      _ -> "** Stacktrace =~n**  ~tp~n"
-	  end,
-      [Name |
-       case Q of
-	   [] -> [];
-	   [Event|_] -> [Event]
-       end] ++
-	  [LimitedFmtData,
-	   Class,LimitedFixedReason,
-	   CBMode] ++
-	  case Q of
-	      [_|[_|_] = Events] -> [Events];
-	      _ -> []
-	  end ++
-	  case P of
-	      [] -> [];
-	      _ -> [LimitedP]
-	  end ++
-	  case FixedStacktrace of
-	      [] -> [];
-	      _ -> [FixedStacktrace]
-	  end).
-
+    {"** State machine ~tp terminating~n" ++
+         case Q of
+             [] -> "";
+             _ -> "** Last event = ~tp~n"
+         end ++
+         "** When server state  = ~tp~n" ++
+         "** Reason for termination = ~w:~tp~n" ++
+         "** Callback mode = ~p~n" ++
+         case Q of
+             [_,_|_] -> "** Queued = ~tp~n";
+             _ -> ""
+         end ++
+         case P of
+             [] -> "";
+             _ -> "** Postponed = ~tp~n"
+         end ++
+         case FixedStacktrace of
+             [] -> "";
+             _ -> "** Stacktrace =~n**  ~tp~n"
+         end,
+     [Name |
+      case Q of
+          [] -> [];
+          [Event|_] -> [Event]
+      end] ++
+         [LimitedFmtData,
+          Class,LimitedFixedReason,
+          CBMode] ++
+         case Q of
+             [_|[_|_] = Events] -> [Events];
+             _ -> []
+         end ++
+         case P of
+             [] -> [];
+             _ -> [LimitedP]
+         end ++
+         case FixedStacktrace of
+             [] -> [];
+             _ -> [FixedStacktrace]
+         end}.
 
 %% Call Module:format_status/2 or return a default value
 format_status(

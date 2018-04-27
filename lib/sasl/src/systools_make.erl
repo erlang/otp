@@ -1546,6 +1546,12 @@ mandatory_modules() ->
      gen_server,
      heart,
      kernel,
+     logger,
+     logger_filters,
+     logger_server,
+     logger_backend,
+     logger_config,
+     logger_simple,
      lists,
      proc_lib,
      supervisor
@@ -1570,7 +1576,7 @@ preloaded() ->
 
 kernel_processes() ->
     [{heart, heart, start, []},
-     {error_logger, error_logger, start_link, []},
+     {logger, logger_server, start_link, []},
      {application_controller, application_controller, start,
       fun(Appls) ->
               [{_,App}] = filter(fun({{kernel,_},_App}) -> true;

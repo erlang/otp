@@ -47,15 +47,18 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+%% logger callback
+-export([format_log/1]).
+
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0]).
-
--import(error_logger, [error_msg/2]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
 		  state,
 		  supervised = false :: 'false' | pid()}).
+
+-include("logger.hrl").
 
 %%%=========================================================================
 %%%  API
@@ -583,9 +586,13 @@ server_update(Handler1, Func, Event, SName) ->
 			 remove, SName, normal),
 	    no;
         {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
-            error_logger:warning_msg("** Undefined handle_info in ~tp~n"
-                                     "** Unhandled message: ~tp~n", [Mod1, Event]),
-           {ok, Handler1};
+            ?LOG_WARNING(#{label=>{gen_event,no_handle_info},
+                           module=>Mod1,
+                           message=>Event},
+                         #{domain=>[beam,erlang,otp],
+                           report_cb=>fun gen_event:format_log/1,
+                           error_logger=>#{tag=>warning_msg}}), % warningmap??
+            {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
 			 Event, SName, crash),
@@ -737,6 +744,23 @@ report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
 report_error(Handler, Reason, State, LastIn, SName) ->
+    ?LOG_ERROR(#{label=>{gen_event,terminate},
+                 handler=>handler(Handler),
+                 name=>SName,
+                 last_message=>LastIn,
+                 state=>format_status(terminate,Handler#handler.module,
+                                      get(),State),
+                 reason=>Reason},
+               #{domain=>[beam,erlang,otp],
+                 report_cb=>fun gen_event:format_log/1,
+                 error_logger=>#{tag=>error}}).
+
+format_log(#{label:={gen_event,terminate},
+             handler:=Handler,
+             name:=SName,
+             last_message:=LastIn,
+             state:=State,
+             reason:=Reason}) ->
     Reason1 =
 	case Reason of
 	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
@@ -756,23 +780,18 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 	    _ ->
 		Reason
 	end,
-    Mod = Handler#handler.module,
-    FmtState = case erlang:function_exported(Mod, format_status, 2) of
-		   true ->
-		       Args = [get(), State],
-		       case catch Mod:format_status(terminate, Args) of
-			   {'EXIT', _} -> State;
-			   Else -> Else
-		       end;
-		   _ ->
-		       State
-	       end,
-    error_msg("** gen_event handler ~p crashed.~n"
-	      "** Was installed in ~tp~n"
-	      "** Last event was: ~tp~n"
-	      "** When handler state == ~tp~n"
-	      "** Reason == ~tp~n",
-	      [handler(Handler),SName,LastIn,FmtState,Reason1]).
+    {"** gen_event handler ~p crashed.~n"
+     "** Was installed in ~tp~n"
+     "** Last event was: ~tp~n"
+     "** When handler state == ~tp~n"
+     "** Reason == ~tp~n",
+     [Handler,SName,LastIn,State,Reason1]};
+format_log(#{label:={gen_event,no_handle_info},
+             module:=Mod,
+             message:=Msg}) ->
+    {"** Undefined handle_info in ~tp~n"
+     "** Unhandled message: ~tp~n",
+     [Mod, Msg]}.
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;
@@ -805,17 +824,21 @@ format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
     Header = gen:format_status_header("Status for event handler",
                                       ServerName),
-    FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
-		  true ->
-		      Args = [PDict, State],
-		      case catch Mod:format_status(Opt, Args) of
-			  {'EXIT', _} -> MSL;
-			  Else -> MS#handler{state = Else}
-		      end;
-		  _ ->
-		      MS
-	      end || #handler{module = Mod, state = State} = MS <- MSL],
+    FmtMSL = [MS#handler{state=format_status(Opt, Mod, PDict, State)}
+              || #handler{module = Mod, state = State} = MS <- MSL],
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
+
+format_status(Opt, Mod, PDict, State) ->
+    case erlang:function_exported(Mod, format_status, 2) of
+        true ->
+            Args = [PDict, State],
+            case catch Mod:format_status(Opt, Args) of
+                {'EXIT', _} -> State;
+                Else -> Else
+            end;
+        false ->
+            State
+    end.
