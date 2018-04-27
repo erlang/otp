@@ -255,7 +255,7 @@ Another list-valued representation allows a message to be specified
 as a list whose head is a &header; and whose tail is an &avp; list.
 This representation is used by diameter itself when relaying requests
 as directed by the return value of a &app_handle_request; callback.
-It differs from the other other two in that it bypasses the checks for
+It differs from the other two in that it bypasses the checks for
 messages that do not agree with their definitions in the dictionary in
 question: messages are sent exactly as specified.</p>
 

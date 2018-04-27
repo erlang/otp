@@ -135,7 +135,7 @@ along with any
 extra arguments to be appended to those documented.
 Note that extra arguments specific to an outgoing request can be
 specified to &call;, in which case
-those are are appended to any module-specific extra arguments.</p>
+those are appended to any module-specific extra arguments.</p>
 
 <p>
 Specifying a <c>#diameter_callback{}</c> record allows individual
@@ -150,7 +150,7 @@ See <c>diameter_callback.erl</c> for details.</p>
 
 <p>
 Options defining a Diameter application.
-Has one the following types.</p>
+Has one of the following types.</p>
 
 <taglist>
 
@@ -2221,7 +2221,7 @@ Stop a diameter service.</p>
 <p>
 Stopping a service causes all associated transport connections to be
 broken.
-A DPR message with be sent as in the case of &remove_transport;.</p>
+A DPR message will be sent as in the case of &remove_transport;.</p>
 
 <note>
 <p>
