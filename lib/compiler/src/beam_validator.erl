@@ -267,13 +267,17 @@ valfun_1(_I, #vst{current=none}=Vst) ->
     Vst;
 valfun_1({badmatch,Src}, Vst) ->
     assert_term(Src, Vst),
+    verify_y_init(Vst),
     kill_state(Vst);
 valfun_1({case_end,Src}, Vst) ->
     assert_term(Src, Vst),
+    verify_y_init(Vst),
     kill_state(Vst);
 valfun_1(if_end, Vst) ->
+    verify_y_init(Vst),
     kill_state(Vst);
 valfun_1({try_case_end,Src}, Vst) ->
+    verify_y_init(Vst),
     assert_term(Src, Vst),
     kill_state(Vst);
 %% Instructions that can not cause exceptions
@@ -375,6 +379,9 @@ valfun_1({call_ext,Live,Func}=I, Vst) ->
     case return_type(Func, Vst) of
 	exception ->
 	    verify_live(Live, Vst),
+            %% The stack will be scanned, so Y registers
+            %% must be initialized.
+            verify_y_init(Vst),
 	    kill_state(Vst);
 	_ ->
 	    valfun_2(I, Vst)

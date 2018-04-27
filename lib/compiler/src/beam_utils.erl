@@ -377,7 +377,7 @@ check_liveness(R, [{test,_,{f,Fail},As}|Is], St0) ->
 		{killed,St1} ->
 		    check_liveness(R, Is, St1);
 		{exit_not_used,St1} ->
-		    check_liveness(R, Is, St1);
+		    not_used(check_liveness(R, Is, St1));
 		{not_used,St1} ->
 		    not_used(check_liveness(R, Is, St1));
 		{used,_}=Used ->
@@ -395,14 +395,14 @@ check_liveness(R, [{select,_,_,Fail,Branches}|_], St) ->
     check_liveness_everywhere(R, [Fail|Branches], St);
 check_liveness(R, [{jump,{f,F}}|_], St) ->
     check_liveness_at(R, F, St);
-check_liveness(R, [{case_end,Used}|_], St) -> 
-    check_liveness_ret(R, Used, St);
+check_liveness(R, [{case_end,Used}|_], St) ->
+    check_liveness_exit(R, Used, St);
 check_liveness(R, [{try_case_end,Used}|_], St) ->
-    check_liveness_ret(R, Used, St);
+    check_liveness_exit(R, Used, St);
 check_liveness(R, [{badmatch,Used}|_], St) ->
-    check_liveness_ret(R, Used, St);
-check_liveness(_, [if_end|_], St) ->
-    {killed,St};
+    check_liveness_exit(R, Used, St);
+check_liveness(R, [if_end|_], St) ->
+    check_liveness_exit(R, ignore, St);
 check_liveness(R, [{func_info,_,_,Ar}|_], St) ->
     case R of
 	{x,X} when X < Ar -> {used,St};
@@ -658,8 +658,9 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 not_used({used,_}=Res) -> Res;
 not_used({_,St}) -> {not_used,St}.
 
-check_liveness_ret(R, R, St) -> {used,St};
-check_liveness_ret(_, _, St) -> {killed,St}.
+check_liveness_exit(R, R, St) -> {used,St};
+check_liveness_exit({x,_}, _, St) -> {killed,St};
+check_liveness_exit({y,_}, _, St) -> {exit_not_used,St}.
 
 %% check_liveness_block(Reg, [Instruction], State) ->
 %%     {killed | not_used | used | alloc_used | transparent,State'}
