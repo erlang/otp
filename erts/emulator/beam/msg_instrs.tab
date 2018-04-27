@@ -102,6 +102,9 @@ i_loop_rec(Dest) {
     if (ERTS_UNLIKELY(msgp == NULL)) {
         int get_out;
         SWAPOUT;
+        $SET_CP_I_ABS(I);
+        c_p->arity = 0;
+        c_p->current = NULL;
         FCALLS -= erts_proc_sig_receive_helper(c_p, FCALLS, neg_o_reds,
                                                &msgp, &get_out);
         SWAPIN;

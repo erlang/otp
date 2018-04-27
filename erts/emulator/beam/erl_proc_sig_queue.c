@@ -2558,18 +2558,6 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
                 *c_p->sig_qs.last = NULL;
             }
 
-            if (!pisig->common.specific.next) {
-                /*
-                 * No more signals in middle queue...
-                 *
-                 * Process-info 'status' needs sig-q
-                 * process flag to be updated in order
-                 * to show accurate result...
-                 */
-                erts_atomic32_read_band_nob(&c_p->state,
-                                            ~ERTS_PSFLG_SIG_Q);
-            }
-
 #ifdef ERTS_PROC_SIG_HARD_DEBUG_SIGQ_MSG_LEN
             {
                 Sint len;
@@ -2583,8 +2571,20 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
 #endif
         }
     }
-    if (is_alive)
+    if (is_alive) {
+        if (!pisig->common.specific.next) {
+            /*
+             * No more signals in middle queue...
+             *
+             * Process-info 'status' needs sig-q
+             * process flag to be updated in order
+             * to show accurate result...
+             */
+            erts_atomic32_read_band_nob(&c_p->state,
+                                        ~ERTS_PSFLG_SIG_Q);
+        }
         remove_nm_sig(c_p, sig, next_nm_sig);
+    }
 
     rp = erts_proc_lookup(pisig->requester);
     ASSERT(c_p != rp);
