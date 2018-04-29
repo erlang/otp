@@ -796,6 +796,7 @@ static void compute_goodshifts(BMData *bmd)
 }
 
 #define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
+#define MC_LOOP_FACTOR 8
 
 static void bm_init_find_first_match(BinaryFindContext *ctx)
 {
@@ -819,13 +820,38 @@ static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
     Sint i;
     Sint j = state->pos;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read = len - needle_last - j;
 
-    while (j <= len - blen) {
+    if (mem_read <= 0) {
+	return BF_NOT_FOUND;
+    }
+    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+    ASSERT(mem_read > 0);
+
+    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+    if (pos_pointer == NULL) {
+	reds -= mem_read / MC_LOOP_FACTOR;
+	j += mem_read;
+    } else {
+	reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+	j = pos_pointer - haystack - needle_last;
+    }
+
+    // Ensure we have at least one reduction before entering the loop
+    ++reds;
+
+    for(;;) {
+	if (j > len - blen) {
+	    *reductions = reds;
+	    return BF_NOT_FOUND;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
 	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    *reductions = reds;
@@ -835,8 +861,6 @@ static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
 	}
 	j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
     }
-    *reductions = reds;
-    return BF_NOT_FOUND;
 }
 
 static void bm_init_find_all(BinaryFindContext *ctx)
@@ -875,14 +899,38 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
     Sint *gs = bmd->goodshift;
     Sint *bs = bmd->badshift;
     byte *needle = bmd->x;
-    Sint i;
+    Sint i = -1; /* Use memchr on start and on every match */
     Sint j = state->pos;
     Uint m = state->m;
     Uint allocated = state->allocated;
     FindallData *out = state->out;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read;
 
-    while (j <= len - blen) {
+    for(;;) {
+	if (i < 0) {
+	    mem_read = len - needle_last - j;
+	    if(mem_read <= 0) {
+		goto done;
+	    }
+	    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+	    ASSERT(mem_read > 0);
+	    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+	    if (pos_pointer == NULL) {
+		reds -= mem_read / MC_LOOP_FACTOR;
+		j += mem_read;
+	    } else {
+		reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+		j = pos_pointer - haystack - needle_last;
+	    }
+	    // Ensure we have at least one reduction when resuming the loop
+	    ++reds;
+	}
+	if (j > len - blen) {
+	    goto done;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
 	    state->m = m;
@@ -890,7 +938,7 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 	    state->out = out;
 	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    if (m >= allocated) {
@@ -912,6 +960,7 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 	    j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
 	}
     }
+ done:
     state->m = m;
     state->out = out;
     *reductions = reds;
@@ -931,6 +980,7 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     Eterm t, b, comp_term = NIL;
     Uint characters;
     Uint words;
+    Uint size;
 
     characters = 0;
     words = 0;
@@ -946,11 +996,12 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    if (binary_bitsize(b) != 0) {
 		goto badarg;
 	    }
-	    if (binary_size(b) == 0) {
+	    size = binary_size(b);
+	    if (size == 0) {
 		goto badarg;
 	    }
 	    ++words;
-	    characters += binary_size(b);
+	    characters += size;
 	}
 	if (is_not_nil(t)) {
 	    goto badarg;

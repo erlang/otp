@@ -29,7 +29,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 all() ->
-    [{group,unicode},{group,base64},
+    [{group,unicode},{group,base64},{group,binary},
      {group,gen_server},{group,gen_statem},
      {group,gen_server_comparison},{group,gen_statem_comparison}].
 
@@ -38,6 +38,11 @@ groups() ->
       [norm_nfc_list, norm_nfc_deep_l, norm_nfc_binary,
        string_lexemes_list, string_lexemes_binary
       ]},
+     {binary, [{repeat, 5}],
+      [match_single_pattern_no_match,
+       matches_single_pattern_no_match,
+       matches_single_pattern_eventual_match,
+       matches_single_pattern_frequent_match]},
      {base64,[{repeat,5}],
       [decode_binary, decode_binary_to_string,
        decode_list, decode_list_to_string,
@@ -157,41 +162,59 @@ norm_data(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+match_single_pattern_no_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
+    comment(test(binary, match, [Binary, <<"o">>])).
+
+matches_single_pattern_no_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
+    comment(test(binary, matches, [Binary, <<"o">>])).
+
+matches_single_pattern_eventual_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsal\n">>, 1000000),
+    comment(test(binary, matches, [Binary, <<"\n">>])).
+
+matches_single_pattern_frequent_match(_Config) ->
+    Binary = binary:copy(<<"abc\n">>, 1000000),
+    comment(test(binary, matches, [Binary, <<"abc">>])).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 decode_binary(_Config) ->
-    comment(test(decode, encoded_binary())).
+    comment(test(base64, decode, [encoded_binary()])).
 
 decode_binary_to_string(_Config) ->
-    comment(test(decode_to_string, encoded_binary())).
+    comment(test(base64, decode_to_string, [encoded_binary()])).
 
 decode_list(_Config) ->
-    comment(test(decode, encoded_list())).
+    comment(test(base64, decode, [encoded_list()])).
 
 decode_list_to_string(_Config) ->
-    comment(test(decode_to_string, encoded_list())).
+    comment(test(base64, decode_to_string, [encoded_list()])).
 
 encode_binary(_Config) ->
-    comment(test(encode, binary())).
+    comment(test(base64, encode, [binary()])).
 
 encode_binary_to_string(_Config) ->
-    comment(test(encode_to_string, binary())).
+    comment(test(base64, encode_to_string, [binary()])).
 
 encode_list(_Config) ->
-    comment(test(encode, list())).
+    comment(test(base64, encode, [list()])).
 
 encode_list_to_string(_Config) ->
-    comment(test(encode_to_string, list())).
+    comment(test(base64, encode_to_string, [list()])).
 
 mime_binary_decode(_Config) ->
-    comment(test(mime_decode, encoded_binary())).
+    comment(test(base64, mime_decode, [encoded_binary()])).
 
 mime_binary_decode_to_string(_Config) ->
-    comment(test(mime_decode_to_string, encoded_binary())).
+    comment(test(base64, mime_decode_to_string, [encoded_binary()])).
 
 mime_list_decode(_Config) ->
-    comment(test(mime_decode, encoded_list())).
+    comment(test(base64, mime_decode, [encoded_list()])).
 
 mime_list_decode_to_string(_Config) ->
-    comment(test(mime_decode_to_string, encoded_list())).
+    comment(test(base64, mime_decode_to_string, [encoded_list()])).
 
 -define(SIZE, 10000).
 -define(N, 1000).
@@ -209,15 +232,15 @@ binary() ->
 list() ->
     random_byte_list(?SIZE).
 
-test(Func, Data) ->
-    F = fun() -> loop(?N, Func, Data) end,
+test(Mod, Fun, Args) ->
+    F = fun() -> loop(?N, Mod, Fun, Args) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
-    report_base64(Time).
+    report_mfa(Time, Mod).
 
-loop(0, _F, _D) -> garbage_collect(), ok;
-loop(N, F, D) ->
-    _ = base64:F(D),
-    loop(N - 1, F, D).
+loop(0, _M, _F, _A) -> garbage_collect(), ok;
+loop(N, M, F, A) ->
+    _ = apply(M, F, A),
+    loop(N - 1, M, F, A).
 
 lspawn(Fun) ->
     {Pid, Ref} = spawn_monitor(fun() -> exit(Fun()) end),
@@ -225,10 +248,10 @@ lspawn(Fun) ->
         {'DOWN', Ref, process, Pid, Rep} -> Rep
     end.
 
-report_base64(Time) ->
+report_mfa(Time, Mod) ->
     Tps = round((?N*1000000)/Time),
     ct_event:notify(#event{name = benchmark_data,
-                           data = [{suite, "stdlib_base64"},
+                           data = [{suite, "stdlib_" ++ atom_to_list(Mod)},
                                    {value, Tps}]}),
     Tps.
 
