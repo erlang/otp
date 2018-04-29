@@ -85,11 +85,6 @@ move_move_into_block([], Acc) -> reverse(Acc).
 %%%
 %%% or in:
 %%%
-%%%           test is_nil SomeLabel Dst
-%%%           move nil Dst
-%%%
-%%% or in:
-%%%
 %%%           select_val Register FailLabel [... Literal => L1...]
 %%%                      .
 %%%                      .
@@ -140,12 +135,7 @@ forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
     forward([I,{block,Bl}|Is], D, Lc, Acc);
-forward([{test,is_nil,_,[Dst]}=I,
-	 {block,[{set,[Dst],[nil],move}|Bl]}|Is], D, Lc, Acc) ->
-    forward([I,{block,Bl}|Is], D, Lc, Acc);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
-    forward([I|Is], D, Lc, Acc);
-forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
     %% Help the second, backward pass to by inserting labels after
@@ -900,8 +890,6 @@ normalize_op({test,is_eq_exact,{f,Fail},Ops}) ->
     normalize_op_1('=:=', Ops, Fail);
 normalize_op({test,is_ne_exact,{f,Fail},Ops}) ->
     normalize_op_1('=/=', Ops, Fail);
-normalize_op({test,is_nil,{f,Fail},[R]}) ->
-    normalize_op_1('=:=', [R,nil], Fail);
 normalize_op({test,Op,{f,Fail},[R]}) ->
     case erl_internal:new_type_test(Op, 1) of
 	true -> {{Op,R},Fail};

@@ -110,6 +110,8 @@ undo_rename({test,has_map_fields,Fail,[Src|List]}) ->
     {test,has_map_fields,Fail,Src,{list,List}};
 undo_rename({get_map_elements,Fail,Src,{list,List}}) ->
     {get_map_elements,Fail,Src,{list,List}};
+undo_rename({test,is_eq_exact,Fail,[Src,nil]}) ->
+    {test,is_nil,Fail,[Src]};
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.

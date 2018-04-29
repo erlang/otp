@@ -224,16 +224,12 @@ bif_to_test('=<', [A,B], Fail) -> {test,is_ge,Fail,[B,A]};
 bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
 bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
 bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
-bif_to_test('==', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
-bif_to_test('==', [nil,A], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('==', [C,A], Fail) when ?is_const(C) ->
     {test,is_eq,Fail,[A,C]};
 bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
 bif_to_test('/=', [C,A], Fail) when ?is_const(C) ->
     {test,is_ne,Fail,[A,C]};
 bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
-bif_to_test('=:=', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
-bif_to_test('=:=', [nil,A], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('=:=', [C,A], Fail) when ?is_const(C) ->
     {test,is_eq_exact,Fail,[A,C]};
 bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
@@ -256,7 +252,6 @@ is_pure_test({test,is_eq_exact,_,[_,_]}) -> true;
 is_pure_test({test,is_ne_exact,_,[_,_]}) -> true;
 is_pure_test({test,is_ge,_,[_,_]}) -> true;
 is_pure_test({test,is_lt,_,[_,_]}) -> true;
-is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,is_tagged_tuple,_,[_,_,_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
