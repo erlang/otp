@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed two undocumented and erroneous functions
+	    (<c>crypto:dh_generate_parameters/2</c> and
+	    <c>crypto:dh_check/1</c>).</p>
+          <p>
+	    Own Id: OTP-14956 Aux Id: ERL-579 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new <c>rand</c> plugin algorithm has been implemented
+	    in <c>crypto</c>, that is: <c>crypto_cache</c>. It uses
+	    strong random bytes as randomness source and caches them
+	    to get good speed. See <c>crypto:rand_seed_alg/1</c>.</p>
+          <p>
+	    Own Id: OTP-13370 Aux Id: PR-1573 </p>
+        </item>
+        <item>
+          <p>
+	    Diffie-Hellman key functions are re-written with the
+	    EVP_PKEY api.</p>
+          <p>
+	    Own Id: OTP-14864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,51 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new logging API is added to OTP. This is implemented in
+	    the Kernel application, module logger.</p>
+          <p>
+	    Legacy calls to error_logger will be automatically
+	    redirected to the new API.</p>
+          <p>
+	    See the reference manual for module logger, and the
+	    User's Guide for the Kernel application for more
+	    information.</p>
+          <p>
+	    Own Id: OTP-13295</p>
+        </item>
+        <item>
+          <p>
+	    The old and out-dated "Status Inspection" tool (modules
+	    <c>si</c> and <c>si_sasl_sup</c>) is removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14469</p>
+        </item>
+        <item>
+          <p>
+	    When creating the release tar file, systools now includes
+	    sys.config.src if it exists in the
+	    $ROOT/releases/&lt;vsn&gt;/ directory. This is to allow
+	    adjustments, e.g. resolving environment variables, after
+	    unpacking the release, but before installing it. This
+	    functionality requires a custom tool which uses
+	    sys.config.src as input and creates a correct sys.config
+	    file.</p>
+          <p>
+	    Own Id: OTP-14950 Aux Id: PR-1560 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
