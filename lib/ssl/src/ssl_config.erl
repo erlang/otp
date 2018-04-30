@@ -132,7 +132,13 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
 			     privateKey = Key}) ->
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
-
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                                                        parameters =  {asn1_OPENTYPE, Parameters}},
+                              privateKey = Key}) ->
+    ECKey = public_key:der_decode('ECPrivateKey',  iolist_to_binary(Key)),
+    ECParameters = public_key:der_decode('EcpkParameters', Parameters),
+    ECKey#'ECPrivateKey'{parameters = ECParameters};
 private_key(Key) ->
     Key.
 

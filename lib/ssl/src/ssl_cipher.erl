@@ -37,10 +37,10 @@
 	 erl_suite_definition/1,
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1,  crypto_support_filters/0,
-	 ec_keyed_suites/0, chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
+	 chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
          srp_suites/0, srp_suites_anon/0,
 	 rc4_suites/1, des_suites/1, rsa_suites/1, openssl_suite/1, openssl_suite_name/1, 
-         filter/2, filter_suites/1, filter_suites/2,
+         filter/3, filter_suites/1, filter_suites/2,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1]).
@@ -2212,39 +2212,25 @@ openssl_suite_name(Cipher) ->
     suite_definition(Cipher).
 
 %%--------------------------------------------------------------------
--spec filter(undefined | binary(), [cipher_suite()]) -> [cipher_suite()].
+-spec filter(undefined | binary(), [cipher_suite()], ssl_record:ssl_version()) -> [cipher_suite()].
 %%
 %% Description: Select the cipher suites that can be used together with the 
 %% supplied certificate. (Server side functionality)  
 %%-------------------------------------------------------------------
-filter(undefined, Ciphers) -> 
+filter(undefined, Ciphers, _) -> 
     Ciphers;
-filter(DerCert, Ciphers) ->
+filter(DerCert, Ciphers0, Version) ->
     OtpCert = public_key:pkix_decode_cert(DerCert, otp),
     SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
     PubKeyInfo = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PubKeyAlg = PubKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
 
-    Ciphers1 =
-	case ssl_certificate:public_key_type(PubKeyAlg#'PublicKeyAlgorithm'.algorithm) of
-	    rsa ->
-		filter_keyuse(OtpCert, ((Ciphers -- dsa_signed_suites()) -- ec_keyed_suites()) -- ecdh_suites(),
-			      rsa_suites(), dhe_rsa_suites() ++ ecdhe_rsa_suites());
-	    dsa ->
-		(Ciphers -- rsa_keyed_suites()) -- ec_keyed_suites();
-	    ec ->
-		filter_keyuse(OtpCert, (Ciphers -- rsa_keyed_suites()) -- dsa_signed_suites(),
-			      [], ecdhe_ecdsa_suites())
-	end,
-
-    case public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm) of
-	{_, rsa} ->
-	    Ciphers1 -- ecdsa_signed_suites();
-	{_, dsa} ->
-	    Ciphers1;
-	{_, ecdsa} ->
-	    Ciphers1 -- rsa_signed_suites()
-    end.
+    Ciphers = filter_suites_pubkey(
+                ssl_certificate:public_key_type(PubKeyAlg#'PublicKeyAlgorithm'.algorithm),
+                Ciphers0, Version, OtpCert),
+    {_, Sign} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm),
+    filter_suites_signature(Sign, Ciphers, Version).
+ 
 %%--------------------------------------------------------------------
 -spec filter_suites([erl_cipher_suite()] | [cipher_suite()], map()) ->
                            [erl_cipher_suite()] |  [cipher_suite()].
@@ -2676,141 +2662,184 @@ next_iv(Bin, IV) ->
     <<_:FirstPart/binary, NextIV:IVSz/binary>> = Bin,
     NextIV.
 
-rsa_signed_suites() ->
-    dhe_rsa_suites() ++ rsa_suites() ++
-	psk_rsa_suites() ++ srp_rsa_suites() ++
-	ecdh_rsa_suites() ++ ecdhe_rsa_suites().
 
-rsa_keyed_suites() ->
-    dhe_rsa_suites() ++ rsa_suites() ++
-	psk_rsa_suites() ++ srp_rsa_suites() ++
-	ecdhe_rsa_suites().
+filter_suites_pubkey(rsa, CiphersSuites0, Version, OtpCert) ->
+    KeyUses = key_uses(OtpCert),
+    CiphersSuites = filter_keyuse_suites(keyEncipherment, KeyUses,
+                                         (CiphersSuites0 -- ec_keyed_suites(CiphersSuites0)) 
+                                         -- dss_keyed_suites(CiphersSuites0),
+                                         rsa_suites_encipher(CiphersSuites0)),
+    filter_keyuse_suites(digitalSignature, KeyUses, CiphersSuites,
+                         rsa_signed_suites(CiphersSuites, Version));
+filter_suites_pubkey(dsa, Ciphers, _, _OtpCert) ->  
+    (Ciphers -- rsa_keyed_suites(Ciphers)) -- ec_keyed_suites(Ciphers);
+filter_suites_pubkey(ec, Ciphers, _, OtpCert) ->
+    Uses = key_uses(OtpCert),  
+    filter_keyuse_suites(digitalSignature, Uses,
+                         (Ciphers -- rsa_keyed_suites(Ciphers)) -- dss_keyed_suites(Ciphers),
+                         ecdsa_sign_suites(Ciphers)).
 
-dhe_rsa_suites() ->
-    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-    ].
+filter_suites_signature(rsa, Ciphers, Version) ->
+    Ciphers -- ecdsa_signed_suites(Ciphers, Version) -- dsa_signed_suites(Ciphers, Version);
+filter_suites_signature(dsa, Ciphers, Version) ->
+    Ciphers -- ecdsa_signed_suites(Ciphers, Version) -- rsa_signed_suites(Ciphers, Version);
+filter_suites_signature(ecdsa, Ciphers, Version) ->
+    Ciphers -- rsa_signed_suites(Ciphers, Version) -- dsa_signed_suites(Ciphers, Version).
 
-psk_rsa_suites() ->
-    [?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
-     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
-     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
-     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_RC4_128_SHA].
 
-srp_rsa_suites() ->
-    [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA].
+%% From RFC 5246 - Section  7.4.2.  Server Certificate
+%% If the client provided a "signature_algorithms" extension, then all
+%% certificates provided by the server MUST be signed by a
+%% hash/signature algorithm pair that appears in that extension.  Note
+%% that this implies that a certificate containing a key for one
+%% signature algorithm MAY be signed using a different signature
+%% algorithm (for instance, an RSA key signed with a DSA key).  This is
+%% a departure from TLS 1.1, which required that the algorithms be the
+%% same. 
+%% Note that this also implies that the DH_DSS, DH_RSA,
+%% ECDH_ECDSA, and ECDH_RSA key exchange algorithms do not restrict the
+%% algorithm used to sign the certificate.  Fixed DH certificates MAY be
+%% signed with any hash/signature algorithm pair appearing in the
+%% extension.  The names DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are
+%% historical.
+%% Note: DH_DSS and DH_RSA is not supported
+rsa_signed({3,N}) when N >= 3 ->
+    fun(rsa) -> true;
+       (dhe_rsa) -> true;
+       (ecdhe_rsa) -> true;
+       (rsa_psk) -> true;
+       (srp_rsa) -> true;
+       (_) -> false
+    end;
+rsa_signed(_) ->
+    fun(rsa) -> true;
+       (dhe_rsa) -> true;
+       (ecdhe_rsa) -> true;
+       (ecdh_rsa) -> true;
+       (rsa_psk) -> true;
+       (srp_rsa) -> true;
+       (_) -> false
+    end.
+%% Cert should be signed by RSA
+rsa_signed_suites(Ciphers, Version) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [rsa_signed(Version)],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
+ecdsa_signed({3,N}) when N >= 3 ->
+    fun(ecdhe_ecdsa) -> true;
+       (_) -> false
+    end;
+ecdsa_signed(_) ->
+    fun(ecdhe_ecdsa) -> true;
+       (ecdh_ecdsa) -> true;
+       (_) -> false
+    end. 
 
-rsa_suites() ->
-    [?TLS_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_RSA_WITH_RC4_128_SHA,
-     ?TLS_RSA_WITH_RC4_128_MD5,
-     ?TLS_RSA_WITH_DES_CBC_SHA,
-     ?TLS_RSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_RSA_WITH_AES_256_GCM_SHA384].
+%% Cert should be signed by ECDSA
+ecdsa_signed_suites(Ciphers, Version) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [ecdsa_signed(Version)],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-ecdh_rsa_suites() ->
-    [?TLS_ECDH_RSA_WITH_NULL_SHA,
-     ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
-     ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384].
+rsa_keyed(dhe_rsa) -> 
+    true;
+rsa_keyed(rsa) -> 
+    true;
+rsa_keyed(rsa_psk) -> 
+    true;
+rsa_keyed(srp_rsa) -> 
+    true;
+rsa_keyed(ecdhe_rsa) -> 
+    true;
+rsa_keyed(_) -> 
+    false.
 
-ecdhe_rsa_suites() ->
-    [?TLS_ECDHE_RSA_WITH_NULL_SHA,
-     ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-     ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256].
+%% Certs key is an RSA key
+rsa_keyed_suites(Ciphers) ->
+   filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> rsa_keyed(Kex) end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-dsa_signed_suites() ->
-    dhe_dss_suites() ++ srp_dss_suites().
+%% RSA Certs key can be used for encipherment
+rsa_suites_encipher(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(rsa) -> true; 
+                                                         (rsa_psk) -> true; 
+                                                         (_) -> false
+                                                      end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-dhe_dss_suites()  ->
-    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384].
+dss_keyed(dhe_dss) ->
+    true;
+dss_keyed(spr_dss) -> 
+    true;
+dss_keyed(_) -> 
+    false. 
 
-srp_dss_suites() ->
-    [?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA,
-     ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
+%% Cert should be have DSS key (DSA)
+dss_keyed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> dss_keyed(Kex) end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-ec_keyed_suites() ->
-    ecdh_ecdsa_suites() ++ ecdhe_ecdsa_suites()
-	++ ecdh_rsa_suites().
+%% Cert should be signed by DSS (DSA)
+dsa_signed_suites(Ciphers, Version) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed(Version)],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-ecdsa_signed_suites() ->
-    ecdh_ecdsa_suites() ++ ecdhe_ecdsa_suites().
+dsa_signed({3,N}) when N >= 3 ->
+    fun(dhe_dss) -> true;
+       (ecdhe_dss) -> true;
+       (_) -> false
+    end;
+dsa_signed(_) ->
+    fun(dhe_dss) -> true;
+       (ecdh_dss) -> true;
+       (ecdhe_dss) -> true;
+       (_) -> false
+    end.
 
-ecdh_suites() ->
-    ecdh_rsa_suites() ++ ecdh_ecdsa_suites().
+ec_keyed(ecdh_ecdsa) ->
+    true;
+ec_keyed(ecdhe_ecdsa) -> 
+    true;
+ec_keyed(ecdh_rsa) -> 
+    true;
+ec_keyed(_) -> 
+    false.
 
-ecdh_ecdsa_suites() ->
-    [?TLS_ECDH_ECDSA_WITH_NULL_SHA,
-     ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
-     ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384].
+%% Certs key is an ECC key
+ec_keyed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(Kex) -> ec_keyed(Kex) end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-ecdhe_ecdsa_suites() ->
-    [?TLS_ECDHE_ECDSA_WITH_NULL_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256].
+%% EC Certs key can be used for signing
+ecdsa_sign_suites(Ciphers)->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(ecdhe_ecdsa) -> true;
+                                                         (_) -> false
+                                                      end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
 
-filter_keyuse(OtpCert, Ciphers, Suites, SignSuites) ->
+key_uses(OtpCert) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
     TBSExtensions = TBSCert#'OTPTBSCertificate'.extensions,
     Extensions = ssl_certificate:extensions_list(TBSExtensions),
     case ssl_certificate:select_extension(?'id-ce-keyUsage', Extensions) of
 	undefined ->
-	    Ciphers;
-	#'Extension'{extnValue = KeyUse} ->
-	    Result = filter_keyuse_suites(keyEncipherment,
-					  KeyUse, Ciphers, Suites),
-	    filter_keyuse_suites(digitalSignature,
-				 KeyUse, Result, SignSuites)
+	    undefined;
+	#'Extension'{extnValue = KeyUses} ->
+            KeyUses
     end.
 
 filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->

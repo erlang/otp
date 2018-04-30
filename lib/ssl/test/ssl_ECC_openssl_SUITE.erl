@@ -33,39 +33,57 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    [
-     {group, 'tlsv1.2'},
-     {group, 'tlsv1.1'},
-     {group, 'tlsv1'},
-     {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
-    ].
+    case test_cases() of
+        [_|_] ->
+            all_groups();
+        [] ->
+            [skip]
+    end.
+
+all_groups() ->
+    case ssl_test_lib:openssl_sane_dtls() of 
+        true ->
+            [{group, 'tlsv1.2'},
+             {group, 'tlsv1.1'},
+             {group, 'tlsv1'},
+             {group, 'dtlsv1.2'},
+             {group, 'dtlsv1'}];
+        false ->
+            [{group, 'tlsv1.2'},
+             {group, 'tlsv1.1'},
+             {group, 'tlsv1'}]
+    end.
 
 groups() ->
-    [
-     {'tlsv1.2', [], test_cases()},
-     {'tlsv1.1', [], test_cases()},
-     {'tlsv1', [], test_cases()},
-     {'dtlsv1.2', [], test_cases()},
-     {'dtlsv1', [], test_cases()}     
-    ].
+    case ssl_test_lib:openssl_sane_dtls() of 
+        true ->
+            [{'tlsv1.2', [], test_cases()},
+             {'tlsv1.1', [], test_cases()},
+             {'tlsv1', [], test_cases()},
+             {'dtlsv1.2', [], test_cases()},
+             {'dtlsv1', [], test_cases()}];
+        false ->
+            [{'tlsv1.2', [], test_cases()},
+             {'tlsv1.1', [], test_cases()},
+             {'tlsv1', [], test_cases()}]
+    end.
 
 test_cases()->
-   %% cert_combinations().
-    server_ecdh_rsa(). 
+   cert_combinations().
+  
 cert_combinations() ->
-     lists:append(lists:filtermap(fun({Name, Suites}) -> 
-                             case ssl_test_lib:openssl_filter(Name) of
-                                [] ->
-                                     false;
-                                [_|_] ->
-                                     {true, Suites}
-                             end
-                    end, [{"ECDH-RSA", server_ecdh_rsa()},
-                           {"ECDHE-RSA", server_ecdhe_rsa()},
-                          {"ECDH-ECDSA", server_ecdh_ecdsa()},
-                          {"ECDHE-ECDSA", server_ecdhe_ecdsa()}
-                         ])).
+    lists:append(lists:map(fun({Name, Suites}) -> 
+                                   case ssl_test_lib:openssl_filter(Name) of
+                                       [] ->
+                                           [];
+                                       [_|_] ->
+                                           Suites
+                                   end
+                           end, [{"ECDH-ECDSA", server_ecdh_ecdsa()},
+                                 {"ECDH-RSA", server_ecdh_rsa()},
+                                 {"ECDHE-RSA", server_ecdhe_rsa()},
+                                 {"ECDHE-ECDSA", server_ecdhe_ecdsa()}
+                                ])).
 server_ecdh_rsa() ->
     [client_ecdh_rsa_server_ecdh_rsa,
      client_ecdhe_rsa_server_ecdh_rsa,     
@@ -91,11 +109,11 @@ init_per_suite(Config0) ->
     end_per_suite(Config0),
     try crypto:start() of
 	ok ->
-            case ssl_test_lib:sufficient_crypto_support(cipher_ec) of
+            case  ssl_test_lib:sufficient_crypto_support(cipher_ec) of
                 true ->
                     Config0;
                 false ->
-                    {skip, "Crypto does not support ECC"}
+                    {skip, "Openssl does not support ECC"}
             end
     catch _:_ ->
             {skip, "Crypto did not start"}
@@ -131,7 +149,8 @@ end_per_group(GroupName, Config0) ->
   end.
 
 %%--------------------------------------------------------------------
-
+init_per_testcase(skip, Config) ->
+    Config;
 init_per_testcase(TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Version = proplists:get_value(tls_version, Config),
@@ -148,6 +167,9 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+
+skip(Config) when is_list(Config) ->
+    {skip, openssl_does_not_support_ECC}.
 
 %% Test diffrent certificate chain types, note that it is the servers
 %% chain that affect what cipher suit that will be choosen

@@ -37,26 +37,43 @@
 %%--------------------------------------------------------------------
 
 all() -> 
-    [
-     {group, basic},
-     {group, 'tlsv1.2'},
-     {group, 'tlsv1.1'},
-     {group, 'tlsv1'},
-     {group, 'sslv3'},
-     {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
-    ].
+    case ssl_test_lib:openssl_sane_dtls() of 
+        true ->
+            [{group, basic},
+             {group, 'tlsv1.2'},
+             {group, 'tlsv1.1'},
+             {group, 'tlsv1'},
+             {group, 'sslv3'},
+             {group, 'dtlsv1.2'},
+             {group, 'dtlsv1'}];
+        false ->
+            [{group, basic},
+             {group, 'tlsv1.2'},
+             {group, 'tlsv1.1'},
+             {group, 'tlsv1'},
+             {group, 'sslv3'}]
+    end.
 
 groups() ->
-    [{basic, [], basic_tests()},
-     {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
-     {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
-      {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
-      {'sslv3', [], all_versions_tests()},
-      {'dtlsv1.2', [], dtls_all_versions_tests()},
-      {'dtlsv1', [], dtls_all_versions_tests()}
-     ].
-
+     case ssl_test_lib:openssl_sane_dtls() of 
+         true ->
+             [{basic, [], basic_tests()},
+              {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'sslv3', [], all_versions_tests()},
+              {'dtlsv1.2', [], dtls_all_versions_tests()},
+              {'dtlsv1', [], dtls_all_versions_tests()}
+             ];
+        false ->
+             [{basic, [], basic_tests()},
+              {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+              {'sslv3', [], all_versions_tests()}
+           ]
+     end.
+  
 basic_tests() ->
     [basic_erlang_client_openssl_server,
      basic_erlang_server_openssl_client,
@@ -85,9 +102,20 @@ all_versions_tests() ->
      expired_session,
      ssl2_erlang_server_openssl_client
     ].
+
 dtls_all_versions_tests() ->
-    [
-     erlang_client_openssl_server,
+   case ssl_test_lib:openssl_sane_client_cert() of
+       true ->
+           [erlang_server_openssl_client_client_cert,
+            erlang_client_openssl_server_no_server_ca_cert,
+            erlang_client_openssl_server_client_cert
+            | dtls_all_versions_tests_2()];
+       false ->
+          dtls_all_versions_tests_2()
+   end. 
+  
+dtls_all_versions_tests_2() ->
+    [erlang_client_openssl_server,
      erlang_server_openssl_client,
      erlang_client_openssl_server_dsa_cert,
      erlang_server_openssl_client_dsa_cert,
@@ -98,12 +126,8 @@ dtls_all_versions_tests() ->
      erlang_client_openssl_server_renegotiate,
      erlang_client_openssl_server_nowrap_seqnum,
      erlang_server_openssl_client_nowrap_seqnum,
-     erlang_client_openssl_server_no_server_ca_cert,
-     erlang_client_openssl_server_client_cert,
-     erlang_server_openssl_client_client_cert,
      ciphers_rsa_signed_certs,
      ciphers_dsa_signed_certs
-     %%erlang_client_bad_openssl_server,
      %%expired_session
     ].
 
@@ -167,7 +191,15 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(basic, Config0) ->
-    ssl_test_lib:clean_tls_version(Config0);
+    case ssl_test_lib:supports_ssl_tls_version('tlsv1.2')
+        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1.1')
+        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1')
+    of
+        true ->
+            ssl_test_lib:clean_tls_version(Config0);
+        false ->
+            {skip, "only sslv3 supported by OpenSSL"}
+    end;
 
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
@@ -381,7 +413,7 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     
     Exe = "openssl",
     Args = ["s_client", "-connect", hostname_format(Hostname) ++
-                ":" ++ integer_to_list(Port) ++ no_v2_flag() | workaround_openssl_s_clinent()],
+                ":" ++ integer_to_list(Port) ++ no_low_flag() | workaround_openssl_s_clinent()],
     
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, Data),
@@ -1963,10 +1995,10 @@ hostname_format(Hostname) ->
             "localhost"   
     end.
 
-no_v2_flag() ->
+no_low_flag() ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
         true ->
-            " -no_ssl2 ";
+            " -no_ssl2 -no_ssl3";
         false ->
-            ""
+            " -no_ssl3"
     end.

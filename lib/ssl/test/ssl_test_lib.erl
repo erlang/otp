@@ -1434,16 +1434,33 @@ sufficient_crypto_support(_) ->
 check_key_exchange_send_active(Socket, false) ->
     send_recv_result_active(Socket);
 check_key_exchange_send_active(Socket, KeyEx) ->
-    {ok, [{cipher_suite, Suite}]} = ssl:connection_information(Socket, [cipher_suite]),
-    true = check_key_exchange(Suite, KeyEx), 
+    {ok, Info} =
+        ssl:connection_information(Socket, [cipher_suite, protocol]),
+    Suite = proplists:get_value(cipher_suite, Info),
+    Version = proplists:get_value(protocol, Info),
+    true = check_key_exchange(Suite, KeyEx, Version), 
     send_recv_result_active(Socket).
 
-check_key_exchange({KeyEx,_, _}, KeyEx) ->
+check_key_exchange({KeyEx,_, _}, KeyEx, _) ->
     true;
-check_key_exchange({KeyEx,_,_,_}, KeyEx) ->
+check_key_exchange({KeyEx,_,_,_}, KeyEx, _) ->
     true;
-check_key_exchange(KeyEx1, KeyEx2) ->
-    ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+check_key_exchange(KeyEx1, KeyEx2, Version) ->
+    case Version of
+        'tlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        'dtlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        _ ->       
+            ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+            false
+    end.
+
+v_1_2_check(ecdh_ecdsa, ecdh_rsa) ->
+    true;
+v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
+    true;
+v_1_2_check(_, _) ->
     false.
 
 send_recv_result_active(Socket) ->
@@ -1567,12 +1584,60 @@ openssl_dsa_support() ->
             true
     end.
 
+%% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
+openssl_sane_dtls() -> 
+    case os:cmd("openssl version") of
+        "OpenSSL 0." ++ _ ->
+            false;
+        "OpenSSL 1.0.1s-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2k-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2d" ++ _ ->
+            false;
+        "OpenSSL 1.0.2n" ++ _ ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false;
+        "OpenSSL" ++ _ ->
+            true;
+        "LibreSSL 2.7" ++ _ ->
+            true;
+        _ ->
+            false
+        end.
+openssl_sane_client_cert() -> 
+    case os:cmd("openssl version") of
+        "LibreSSL 2.5.2" ++ _ ->
+            true;
+        "LibreSSL 2.4" ++ _ ->
+            false;
+        "LibreSSL 2.3" ++ _ ->
+            false; 
+         "LibreSSL 2.1" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+        "OpenSSL 1.0.1s-freebsd" ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false; 
+        _ ->
+            true
+    end.
+
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
 	    case {Version, os:cmd("openssl version")} of
                 {'sslv3', "OpenSSL 1.0.2" ++ _} ->
                     false;
+                {'dtlsv1', _} ->
+		    not is_fips(openssl);
+		{'dtlsv1.2', _} ->
+		    not is_fips(openssl);
 		{_, "OpenSSL 1.0.2" ++ _} ->
 		    true;
 		{_, "OpenSSL 1.0.1" ++ _} ->
@@ -1581,7 +1646,7 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'tlsv1.1', "OpenSSL 1.0.0" ++ _} ->
 		    false;
-                {'dtlsv1.2', "OpenSSL 1.0.0" ++ _} ->
+                {'dtlsv1.2', "OpenSSL 1.0.2" ++ _} ->
 		    false;
 		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
 		    false;
