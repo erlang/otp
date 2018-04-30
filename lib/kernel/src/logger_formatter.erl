@@ -263,7 +263,7 @@ utcstr(_) -> "".
 add_default_config(#{utc:=_}=Config0) ->
     Default =
         #{legacy_header=>false,
-          single_line=>false,
+          single_line=>true,
           chars_limit=>unlimited},
     MaxSize = get_max_size(maps:get(max_size,Config0,false)),
     Depth = get_depth(maps:get(depth,Config0,false)),
