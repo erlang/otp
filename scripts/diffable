@@ -60,6 +60,7 @@ do_compile(OutDir, Opts0) ->
             "asn1",
             "stdlib",
 	    "kernel",
+            "hipe",
 	    "reltool",
 	    "runtime_tools",
 	    "xmerl",
@@ -128,6 +129,10 @@ add_opts([], _Opts) ->
 
 get_src(["preloaded"|Apps]) ->
     WC = filename:join(code:root_dir(), "erts/preloaded/src/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps);
+get_src(["hipe"|Apps]) ->
+    LibDir = code:lib_dir(hipe),
+    WC = filename:join(LibDir, "*/*.erl"),
     filelib:wildcard(WC) ++ get_src(Apps);
 get_src(["inets"|Apps]) ->
     LibDir = code:lib_dir(inets),
