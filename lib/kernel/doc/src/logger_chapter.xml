@@ -157,7 +157,7 @@
 	  <p>A formatter is defined as a module exporting the following
 	    function:</p>
 
-	  <code>format(Log,Extra) -> string()</code>
+	  <code>format(Log,Extra) -> unicode:chardata()</code>
 
 	  <p>The formatter plugin is called by each handler, and the
 	    returned string can be printed to the handler's destination
@@ -322,19 +322,6 @@
 	    return <c>ignore</c>.</p>
 	  <p>Default is <c>log</c>.</p>
 	</item>
-        <tag><c>depth = pos_integer() | unlimited</c></tag>
-	<item>
-	  <p>Specifies if the depth of terms in the log events shall
-	    be limited by using control characters <c>~P</c>
-	    and <c>~W</c> instead of <c>~p</c> and <c>~w</c>,
-	    respectively. See
-	    <seealso marker="stdlib:io#format-1"><c>io:format</c></seealso>.</p>
-	</item>
-        <tag><c>max_size = pos_integer() | unlimited</c></tag>
-	<item>
-	  <p>Specifies if the size of a log event shall be limited by
-	    truncating the formatted string.</p>
-	</item>
 	<tag><c>formatter = {Module::module(),Extra::term()}</c></tag>
 	<item>
 	  <p>See <seealso marker="#Formatter">Formatter</seealso> for more
@@ -347,10 +334,9 @@
 
       <p>Note that <c>level</c> and <c>filters</c> are obeyed by
 	Logger itself before forwarding the log events to each
-	handler, while <c>depth</c>, <c>max_size</c>
-	and <c>formatter</c> are left to the handler
-	implementation. All Logger's built-in handlers do apply these
-	configuration parameters before printing.</p>
+	handler, while <c>formatter</c> is left to the handler
+	implementation. All Logger's built-in handlers will call the
+	given formatter before printing.</p>
     </section>
 
   </section>
