@@ -286,6 +286,16 @@ static ERTS_INLINE void free_term(DbTableHash *tb, HashDbTerm* p)
     db_free_term((DbTable*)tb, p, offsetof(HashDbTerm, dbterm));
 }
 
+static ERTS_INLINE void free_term_list(DbTableHash *tb, HashDbTerm* p)
+{
+    while (p) {
+        HashDbTerm* next = p->next;
+        free_term(tb, p);
+        p = next;
+    }
+}
+
+
 /*
  * Local types 
  */
@@ -587,6 +597,7 @@ restart:
 	int ix = fx->slot;
 	HashDbTerm **bp;
 	HashDbTerm *b;
+        HashDbTerm *free_us = NULL;
 	erts_rwmtx_t* lck = WLOCK_HASH(tb,ix);
 
 	if (IS_FIXED(tb)) { /* interrupted by fixer */
@@ -603,10 +614,11 @@ restart:
 	    
 	    while (b != NULL) {
 		if (is_pseudo_deleted(b)) {
-		    *bp = b->next;
-		    free_term(tb, b);
+                    HashDbTerm* nxt = b->next;
+                    b->next = free_us;
+                    free_us = b;
 		    work++;
-		    b = *bp;
+		    b = *bp = nxt;
 		} else {
 		    bp = &b->next;
 		    b = b->next;
@@ -615,6 +627,7 @@ restart:
 	}
 	/* else slot has been joined and purged by shrink() */
 	WUNLOCK_HASH(lck);
+        free_term_list(tb, free_us);
 	fixdel = fx->next;
 	erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
 		     (DbTable *) tb,
@@ -988,6 +1001,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
+    HashDbTerm* free_us = NULL;
     erts_rwmtx_t* lck;
     int nitems_diff = 0;
 
@@ -1005,9 +1019,10 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 		/* Pseudo remove (no need to keep several of same key) */
 		b->pseudo_deleted = 1;
 	    } else {
-		*bp = b->next;
-		free_term(tb, b);
-		b = *bp;
+		HashDbTerm* next = b->next;
+                b->next = free_us;
+		free_us = b;
+		b = *bp = next;
 		continue;
 	    }
 	}
@@ -1023,6 +1038,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     *ret = am_true;
     return DB_ERROR_NONE;
 }    
@@ -1037,6 +1053,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
+    HashDbTerm* free_us = NULL;
     erts_rwmtx_t* lck;
     int nitems_diff = 0;
     int nkeys = 0;
@@ -1059,9 +1076,10 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 		    bp = &b->next;
 		    b = b->next;
 		} else {
-		    *bp = b->next;
-		    free_term(tb, b);
-		    b = *bp;
+                    HashDbTerm* next = b->next;
+		    b->next = free_us;
+                    free_us = b;
+		    b = *bp = next;
 		}
 		if (tb->common.status & (DB_DUPLICATE_BAG)) {
 		    continue;
@@ -1081,6 +1099,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     *ret = am_true;
     return DB_ERROR_NONE;
 }    
@@ -1950,6 +1969,7 @@ typedef struct {
     Eterm* prev_continuation_tptr;
     erts_aint_t fixated_by_me;
     Uint last_pseudo_delete;
+    HashDbTerm* free_us;
 } mtraversal_select_delete_context_t;
 
 static int mtraversal_select_delete_on_nothing_can_match(void* context_ptr, Eterm* ret) {
@@ -1979,7 +1999,8 @@ static int mtraversal_select_delete_on_match_res(void* context_ptr, Sint slot_ix
     do_erase:
         del = *current_ptr;
         *current_ptr = (*current_ptr)->next; // replace pointer to term using next
-        free_term(sd_context_ptr->tb, del);
+        del->next = sd_context_ptr->free_us;
+        sd_context_ptr->free_us = del;
     }
     erts_atomic_dec_nob(&sd_context_ptr->tb->common.nitems);
 
@@ -1990,6 +2011,8 @@ static int mtraversal_select_delete_on_loop_ended(void* context_ptr, Sint slot_i
                                                   Sint iterations_left, Binary** mpp, Eterm* ret)
 {
     mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
+    free_term_list(sd_context_ptr->tb, sd_context_ptr->free_us);
+    sd_context_ptr->free_us = NULL;
     ASSERT(iterations_left <= MAX_SELECT_DELETE_ITERATIONS);
     BUMP_REDS(sd_context_ptr->p, MAX_SELECT_DELETE_ITERATIONS - iterations_left);
     if (got) {
@@ -2003,6 +2026,8 @@ static int mtraversal_select_delete_on_trap(void* context_ptr, Sint slot_ix, Sin
                                             Binary** mpp, Eterm* ret)
 {
     mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
+    free_term_list(sd_context_ptr->tb, sd_context_ptr->free_us);
+    sd_context_ptr->free_us = NULL;
     return on_mtraversal_simple_trap(
             &ets_select_delete_continue_exp,
             sd_context_ptr->p,
@@ -2013,7 +2038,7 @@ static int mtraversal_select_delete_on_trap(void* context_ptr, Sint slot_ix, Sin
 }
 
 static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret) {
-    mtraversal_select_delete_context_t sd_context = {0};
+    mtraversal_select_delete_context_t sd_context;
     Sint chunk_size = 0;
 
     sd_context.p = p;
@@ -2023,6 +2048,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
     sd_context.prev_continuation_tptr = NULL;
     sd_context.fixated_by_me = sd_context.tb->common.is_thread_safe ? 0 : 1; /* TODO: something nicer */
     sd_context.last_pseudo_delete = (Uint) -1;
+    sd_context.free_us = NULL;
 
     return match_traverse(
             sd_context.p, sd_context.tb,
@@ -2040,7 +2066,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
  * This is called when select_delete traps
  */
 static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
-    mtraversal_select_delete_context_t sd_context = {0};
+    mtraversal_select_delete_context_t sd_context;
     Eterm* tptr;
     Eterm tid;
     Binary* mp;
@@ -2060,6 +2086,7 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm contin
     sd_context.prev_continuation_tptr = tptr;
     sd_context.fixated_by_me = ONLY_WRITER(p, sd_context.tb) ? 0 : 1; /* TODO: something nicer */
     sd_context.last_pseudo_delete = (Uint) -1;
+    sd_context.free_us = NULL;
 
     return match_traverse_continue(
             sd_context.p, sd_context.tb, chunk_size,
@@ -2220,6 +2247,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp, *b;
+    HashDbTerm *free_us = NULL;
     HashValue hval = MAKE_HASH(key);
     erts_rwmtx_t *lck = WLOCK_HASH(tb, hval);
     int ix = hash_to_ix(tb, hval);
@@ -2240,9 +2268,10 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
                     b->pseudo_deleted = 1;
                     b = b->next;
                 } else {
-                    *bp = b->next;
-                    free_term(tb, b);
-                    b = *bp;
+                    HashDbTerm* next = b->next;
+                    b->next = free_us;
+                    free_us = b;
+                    b = *bp = next;
                 }
             }
             break;
@@ -2253,6 +2282,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
         erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
         try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     return DB_ERROR_NONE;
 }
 
