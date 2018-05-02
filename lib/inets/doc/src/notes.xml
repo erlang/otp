@@ -33,67 +33,7 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Fixed HTTP content injection bug in httpc (ERL-456).</p>
-          <p>
-	    Own Id: OTP-14726</p>
-        </item>
-        <item>
-          <p>
-	    Fixed support for URI-references in HTTP 'Location'
-	    header (ERL-333).</p>
-          <p>
-	    Own Id: OTP-14729</p>
-        </item>
-        <item>
-          <p>
-	    Fix broken 'Content-Type' handling in httpc (ERL-536).</p>
-          <p>
-	    Own Id: OTP-15006</p>
-        </item>
-        <item>
-          <p>
-	    Fix handling of relative paths in the script_alias
-	    property of httpd (ERL-574).</p>
-          <p>
-	    Own Id: OTP-15021</p>
-        </item>
-        <item>
-          <p>
-	    Fix httpd:reload_config/2 with path() as the first
-	    argument (ERL-578).</p>
-          <p>
-	    Own Id: OTP-15025</p>
-        </item>
-        <item>
-          <p>
-	    Improved gracefulness.</p>
-          <p>
-	    Own Id: OTP-15042</p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Split inets and create separate ftp and tftp apps.</p>
-          <p>
-	    Own Id: OTP-14113</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Inets 6.5.1</title>
+  <section><title>Inets 6.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

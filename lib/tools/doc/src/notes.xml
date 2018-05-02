@@ -31,27 +31,6 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
-<section><title>Tools 3.0</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p>Added <c>instrument:allocations</c> and
-	    <c>instrument:carriers</c> for retrieving information
-	    about memory utilization and fragmentation.</p>
-	    <p>The old <c>instrument</c> interface has been removed,
-	    as have the related options <c>+Mim</c> and
-	    <c>+Mis</c>.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-14961</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Tools 2.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

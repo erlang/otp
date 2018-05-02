@@ -38,22 +38,7 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7.6</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
-	    </p>
-          <p>
-	    Own Id: OTP-14861</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Reltool 0.7.5</title>
+  <section><title>Reltool 0.7.5</title>
 
     <section><title>Improvements and New Features</title>
       <list>
