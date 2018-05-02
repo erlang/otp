@@ -21,6 +21,7 @@
 /*
 ** Implementation of unordered ETS tables.
 ** The tables are implemented as linear dynamic hash tables.
+** https://en.wikipedia.org/wiki/Linear_hashing
 */
 
 /* SMP:
@@ -148,7 +149,7 @@ static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
     return ix;
 }
 
-/* Remember a slot containing a pseudo-deleted item (INVALID_HASH)
+/* Remember a slot containing a pseudo-deleted item
  * Return false if we got raced by unfixing thread
  * and the object should be deleted for real.
  */
@@ -179,13 +180,17 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
 }
 
 
-#define MAX_HASH 0xEFFFFFFFUL
-#define INVALID_HASH 0xFFFFFFFFUL
+
+static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
+{
+    return p->pseudo_deleted;
+}
+
 
 /* optimised version of make_hash (normal case? atomic key) */
 #define MAKE_HASH(term) \
     ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
-      make_internal_hash(term, 0)) % MAX_HASH)
+      make_internal_hash(term, 0)) & MAX_HASH_MASK)
 
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
 #  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
@@ -436,7 +441,8 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb)
 static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
 				    Eterm key, HashValue hval)
 {
-    if (b->hvalue != hval) return 0;
+    if (b->hvalue != hval || is_pseudo_deleted(b))
+        return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
@@ -449,7 +455,8 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
 static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
 			       Eterm key, HashValue hval)
 {
-    if (b->hvalue != hval && b->hvalue != INVALID_HASH) return 0;
+    if (b->hvalue != hval)
+        return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
@@ -595,7 +602,7 @@ restart:
 	    b = *bp;
 	    
 	    while (b != NULL) {
-		if (b->hvalue == INVALID_HASH) {
+		if (is_pseudo_deleted(b)) {
 		    *bp = b->next;
 		    free_term(tb, b);
 		    work++;
@@ -764,8 +771,9 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     */
     if (tb->common.status & DB_SET) {
 	HashDbTerm* bnext = b->next;
-	if (b->hvalue == INVALID_HASH) {
+	if (is_pseudo_deleted(b)) {
 	    erts_atomic_inc_nob(&tb->common.nitems);
+            b->pseudo_deleted = 0;
 	}
 	else if (key_clash_fail) {
 	    ret = DB_ERROR_BADKEY;
@@ -773,14 +781,14 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	}
 	q = replace_dbterm(tb, b, obj);
 	q->next = bnext;
-	q->hvalue = hval; /* In case of INVALID_HASH */
+	ASSERT(q->hvalue == hval);
 	*bp = q;
 	goto Ldone;
     }
     else if (key_clash_fail) { /* && (DB_BAG || DB_DUPLICATE_BAG) */
 	q = b;
 	do {
-	    if (q->hvalue != INVALID_HASH) {
+	    if (!is_pseudo_deleted(q)) {
 		ret = DB_ERROR_BADKEY;
 		goto Ldone;
 	    }
@@ -792,9 +800,10 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	q = b;
 	do {
 	    if (db_eq(&tb->common,obj,&q->dbterm)) {
-		if (q->hvalue == INVALID_HASH) {
+		if (is_pseudo_deleted(q)) {
 		    erts_atomic_inc_nob(&tb->common.nitems);
-		    q->hvalue = hval;
+                    q->pseudo_deleted = 0;
+		    ASSERT(q->hvalue == hval);
 		    if (q != b) { /* must move to preserve key insertion order */
 			*qp = q->next;
 			q->next = b;
@@ -812,6 +821,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 Lnew:
     q = new_dbterm(tb, obj);
     q->hvalue = hval;
+    q->pseudo_deleted = 0;
     q->next = b;
     *bp = q;
     nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
@@ -839,7 +849,7 @@ get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
 
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
         while (b2 && has_key(tb, b2, key, hval)) {
-	    if (b2->hvalue != INVALID_HASH)
+	    if (!is_pseudo_deleted(b2))
 		sz += b2->dbterm.size + 2;
 
             b2 = b2->next;
@@ -935,7 +945,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 
 		while(b2 != NULL && has_key(tb,b2,key,hval)) {
 		    if (ndex > arityval(b2->dbterm.tpl[0])
-			&& b2->hvalue != INVALID_HASH) {
+			&& !is_pseudo_deleted(b2)) {
 			retval = DB_ERROR_BADITEM;
 			goto done;
 		    }
@@ -943,7 +953,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 		}
 		b = b1;
 		while(b != b2) {
-		    if (b->hvalue != INVALID_HASH) {
+		    if (!is_pseudo_deleted(b)) {
 			Eterm *hp;
 			Eterm copy = db_copy_element_from_ets(&tb->common, p,
 							      &b->dbterm, ndex, &hp, 2);
@@ -993,7 +1003,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	    if (nitems_diff == -1 && IS_FIXED(tb)
                 && add_fixed_deletion(tb, ix, 0)) {
 		/* Pseudo remove (no need to keep several of same key) */
-		b->hvalue = INVALID_HASH;
+		b->pseudo_deleted = 1;
 	    } else {
 		*bp = b->next;
 		free_term(tb, b);
@@ -1002,7 +1012,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	    }
 	}
 	else {
-	    if (nitems_diff && b->hvalue != INVALID_HASH)
+	    if (nitems_diff && !is_pseudo_deleted(b))
 		break;
 	}
 	bp = &b->next;
@@ -1045,7 +1055,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	    if (db_eq(&tb->common,object, &b->dbterm)) {
 		--nitems_diff;
 		if (nkeys==1 && IS_FIXED(tb) && add_fixed_deletion(tb,ix,0)) {
-		    b->hvalue = INVALID_HASH;        /* Pseudo remove */
+		    b->pseudo_deleted = 1;
 		    bp = &b->next;
 		    b = b->next;
 		} else {
@@ -1060,7 +1070,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 		}
 	    }
 	}
-	else if (nitems_diff && b->hvalue != INVALID_HASH) {
+	else if (nitems_diff && !is_pseudo_deleted(b)) {
 	    break;
 	}
 	bp = &b->next;
@@ -1253,7 +1263,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
      */
     for(;;) {
         if (*current_ptr != NULL) {
-            if ((*current_ptr)->hvalue != INVALID_HASH) {
+            if (!is_pseudo_deleted(*current_ptr)) {
                 match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
@@ -1380,7 +1390,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     current_ptr = &BUCKET(tb,slot_ix);
     for(;;) {
         if (*current_ptr != NULL) {
-            if ((*current_ptr)->hvalue != INVALID_HASH) {
+            if (!is_pseudo_deleted(*current_ptr)) {
                 match_res = db_match_dbterm(&tb->common, p, *mpp, all_objects,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
@@ -1963,7 +1973,7 @@ static int mtraversal_select_delete_on_match_res(void* context_ptr, Sint slot_ix
                 goto do_erase;
             sd_context_ptr->last_pseudo_delete = slot_ix;
         }
-        (*current_ptr)->hvalue = INVALID_HASH;
+        (*current_ptr)->pseudo_deleted = 1;
     }
     else {
     do_erase:
@@ -2106,6 +2116,7 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
         new = new_dbterm(tb, match_res);
         new->next = next;
         new->hvalue = hval;
+        new->pseudo_deleted = 0;
         free_term(tb, **current_ptr_ptr);
         **current_ptr_ptr = new; /* replace 'next' pointer in previous object */
         *current_ptr_ptr = &((**current_ptr_ptr)->next); /* advance to next object */
@@ -2226,7 +2237,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
                     && add_fixed_deletion(tb, ix, 0)) {
                     /* Pseudo remove (no need to keep several of same key) */
                     bp = &b->next;
-                    b->hvalue = INVALID_HASH;
+                    b->pseudo_deleted = 1;
                     b = b->next;
                 } else {
                     *bp = b->next;
@@ -2267,7 +2278,7 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
 	if ((list = BUCKET(tb,i)) != NULL) {
 	    add_fixed_deletion(tb, i, 0);
 	    do {
-		list->hvalue = INVALID_HASH;
+		list->pseudo_deleted = 1;
 		list = list->next;
 	    }while(list != NULL);
             reds--;
@@ -2317,7 +2328,7 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 		continue;
 	    erts_print(to, to_arg, "%d: [", i);
 	    while(list != 0) {
-		if (list->hvalue == INVALID_HASH)
+		if (is_pseudo_deleted(list))
 		    erts_print(to, to_arg, "*");
 		if (tb->common.compress) {
 		    Eterm key = GETKEY(tb, list->dbterm.tpl);
@@ -2683,7 +2694,7 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
     if (!sz) {
 	ptr = ptr1;
 	while(ptr != ptr2) {
-	    if (ptr->hvalue != INVALID_HASH)
+	    if (!is_pseudo_deleted(ptr))
 		sz += ptr->dbterm.size + 2;
 	    ptr = ptr->next;
 	}
@@ -2694,7 +2705,7 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 
     ptr = ptr1;
     while(ptr != ptr2) {
-	if (ptr->hvalue != INVALID_HASH) {
+	if (!is_pseudo_deleted(ptr)) {
 	    copy = db_copy_object_from_ets(&tb->common, &ptr->dbterm, &hp, &MSO(p));
 	    list = CONS(hp, copy, list);
 	    hp  += 2;
@@ -2787,7 +2798,7 @@ static void grow(DbTableHash* tb, int nitems)
         p = *pnext;
         to_pnext = &BUCKET(tb, to_ix);
         while (p != NULL) {
-            if (p->hvalue == INVALID_HASH) { /* rare but possible with fine locking */
+            if (is_pseudo_deleted(p)) { /* rare but possible with fine locking */
                 *pnext = p->next;
                 free_term(tb, p);
                 p = *pnext;
@@ -2860,7 +2871,7 @@ static void shrink(DbTableHash* tb, int nitems)
          * as we must step through "src" anyway to purge pseudo deleted.
          */
         while(*bp != NULL) {
-            if ((*bp)->hvalue == INVALID_HASH) {
+            if (is_pseudo_deleted(*bp)) {
                 HashDbTerm* deleted = *bp;
                 *bp = deleted->next;
                 free_term(tb, deleted);
@@ -2918,7 +2929,7 @@ static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr
     ERTS_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
 
     for ( ; list != NULL; list = list->next) {
-	if (list->hvalue != INVALID_HASH)
+	if (!is_pseudo_deleted(list))
 	    return list;        
     }
 
@@ -2927,7 +2938,7 @@ static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr
 
 	list = BUCKET(tb,i);
 	while (list != NULL) {
-	    if (list->hvalue != INVALID_HASH) {
+	    if (!is_pseudo_deleted(list)) {
 		*iptr = i;
 		return list;        
 	    }
@@ -2960,7 +2971,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             break;
         }
         if (has_key(tb, b, key, hval)) {
-            if (b->hvalue != INVALID_HASH) {
+            if (!is_pseudo_deleted(b)) {
                 goto Ldone;
             }
             break;
@@ -2990,16 +3001,18 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             HashDbTerm *q = new_dbterm(tb, obj);
 
             q->hvalue = hval;
+            q->pseudo_deleted = 0;
             q->next = NULL;
             *bp = b = q;
             flags |= DB_INC_TRY_GROW;
         } else {
             HashDbTerm *q, *next = b->next;
 
-            ASSERT(b->hvalue == INVALID_HASH);
+            ASSERT(is_pseudo_deleted(b));
             q = replace_dbterm(tb, b, obj);
             q->next = next;
-            q->hvalue = hval;
+            ASSERT(q->hvalue == hval);
+            q->pseudo_deleted = 0;
             *bp = b = q;
             erts_atomic_inc_nob(&tb->common.nitems);
         }
@@ -3037,7 +3050,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
         if (IS_FIXED(tb) && add_fixed_deletion(tb, hash_to_ix(tb, b->hvalue),
                                                0)) {
-            b->hvalue = INVALID_HASH;
+            b->pseudo_deleted = 1;
         } else {
             *bp = b->next;
             free_me = b;
@@ -3130,7 +3143,7 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 	len = 0;
 	for (b = BUCKET(tb,ix); b!=NULL; b=b->next) {
 	    len++;
-            if (b->hvalue == INVALID_HASH)
+            if (is_pseudo_deleted(b))
                 ++kept_items;
 	}
 	sum += len;

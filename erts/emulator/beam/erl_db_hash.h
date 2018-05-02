@@ -28,9 +28,20 @@ typedef struct fixed_deletion {
     struct fixed_deletion *next;
 } FixedDeletion;
 
+
+typedef Uint32 HashVal;
+
 typedef struct hash_db_term {
     struct  hash_db_term* next;  /* next bucket */
-    HashValue  hvalue;        /* stored hash value */
+#if SIZEOF_VOID_P == 4
+    Uint32 hvalue : 31;     /* stored hash value */
+    Uint32 pseudo_deleted : 1;
+# define MAX_HASH_MASK (((Uint32)1 << 31)-1)
+#elif SIZEOF_VOID_P == 8
+    Uint32 hvalue;
+    Uint32 pseudo_deleted;
+# define MAX_HASH_MASK ((Uint32)(Sint32)-1)
+#endif
     DbTerm dbterm;         /* The actual term */
 } HashDbTerm;
 
