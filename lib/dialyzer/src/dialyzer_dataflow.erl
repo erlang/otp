@@ -102,6 +102,8 @@
                                       | 'undefined', % race
                 fun_homes            :: dict:dict(label(), mfa())
                                       | 'undefined', % race
+                reachable_funs       :: sets:set(label())
+                                      | 'undefined', % race
 		plt		     :: dialyzer_plt:plt()
                                       | 'undefined', % race
 		opaques              :: [type()]
@@ -269,9 +271,11 @@ traverse(Tree, Map, State) ->
       case state__warning_mode(State) of
         true -> {State, Map, Type};
         false ->
-          State2 = state__add_work(get_label(Tree), State),
+          FunLbl = get_label(Tree),
+          State2 = state__add_work(FunLbl, State),
           State3 = state__update_fun_env(Tree, Map, State2),
-          {State3, Map, Type}
+          State4 = state__add_reachable(FunLbl, State3),
+          {State4, Map, Type}
       end;
     'let' ->
       handle_let(Tree, Map, State);
@@ -3039,25 +3043,35 @@ state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
   {TreeMap, FunHomes} = build_tree_map(Tree, Callgraph),
   Funs = dict:fetch_keys(TreeMap),
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt),
-  ExportedFuns =
-    [Fun || Fun <- Funs--[top], dialyzer_callgraph:is_escaping(Fun, Callgraph)],
-  Work = init_work(ExportedFuns),
+  ExportedFunctions =
+    [Fun ||
+      Fun <- Funs--[top],
+      dialyzer_callgraph:is_escaping(Fun, Callgraph),
+      dialyzer_callgraph:lookup_name(Fun, Callgraph) =/= error
+    ],
+  Work = init_work(ExportedFunctions),
   Env = lists:foldl(fun(Fun, Env) -> dict:store(Fun, map__new(), Env) end,
 		    dict:new(), Funs),
   #state{callgraph = Callgraph, codeserver = Codeserver,
          envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
-	 module = Module}.
+	 module = Module, reachable_funs = sets:new()}.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
 
 state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
-                               races = Races} = State) ->
+                               races = Races, callgraph = Callgraph,
+                               reachable_funs = ReachableFuns} = State) ->
   ?debug("==========\nStarting warning pass\n==========\n", []),
   Funs = dict:fetch_keys(TreeMap),
-  State#state{work = init_work([top|Funs--[top]]),
+  Work =
+    [Fun ||
+      Fun <- Funs--[top],
+      dialyzer_callgraph:lookup_name(Fun, Callgraph) =/= error orelse
+        sets:is_element(Fun, ReachableFuns)],
+  State#state{work = init_work(Work),
 	      fun_tab = FunTab, warning_mode = true,
               races = dialyzer_races:put_race_analysis(true, Races)}.
 
@@ -3149,7 +3163,8 @@ state__get_race_warnings(#state{races = Races} = State) ->
   State1#state{races = Races1}.
 
 state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
-			   callgraph = Callgraph, plt = Plt} = State) ->
+			   callgraph = Callgraph, plt = Plt,
+                           reachable_funs = ReachableFuns} = State) ->
   FoldFun =
     fun({top, _}, AccState) -> AccState;
        ({FunLbl, Fun}, AccState) ->
@@ -3184,7 +3199,12 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		      GenRet = dialyzer_contracts:get_contract_return(C),
 		      not t_is_unit(GenRet)
 		  end,
-		case Warn of
+                %% Do not output warnings for unreachable funs.
+		case
+                  Warn andalso
+                  (dialyzer_callgraph:lookup_name(FunLbl, Callgraph) =/= error
+                   orelse sets:is_element(FunLbl, ReachableFuns))
+                of
 		  true ->
 		    case classify_returns(Fun) of
 		      no_match ->
@@ -3254,6 +3274,10 @@ state__get_args_and_status(Tree, #state{fun_tab = FunTab}) ->
     {ok, {not_handled, {ArgTypes, _}}} -> {ArgTypes, false};
     {ok, {ArgTypes, _}} -> {ArgTypes, true}
   end.
+
+state__add_reachable(FunLbl, #state{reachable_funs = ReachableFuns}=State) ->
+  NewReachableFuns = sets:add_element(FunLbl, ReachableFuns),
+  State#state{reachable_funs = NewReachableFuns}.
 
 build_tree_map(Tree, Callgraph) ->
   Fun =

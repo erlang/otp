@@ -1,0 +1,5 @@
+
+unused_funs.erl:10: The pattern 'error' can never match the type 'other_error'
+unused_funs.erl:15: Function not_used/0 will never be called
+unused_funs.erl:19: Function foo/1 will never be called
+unused_funs.erl:7: Function test/0 has no local return
