@@ -471,10 +471,9 @@ Current logger configuration:
       <name name="set_process_metadata" arity="1"/>
       <fsummary>Set metadata to use when logging from current process.</fsummary>
       <desc>
-        <p>Set metadata which <c>logger</c> automatically inserts it
-          in all log events produced on the current
-          process. Subsequent calls will overwrite previous data set
-          by this function.</p>
+        <p>Set metadata which <c>logger</c> automatically inserts in
+          all log events produced on the current process. Subsequent
+          calls will overwrite previous data set by this function.</p>
 	<p>When logging, location data produced by the log macros,
 	  and/or metadata given as argument to the log call (API
 	  function or macro), will be merged with the process
@@ -482,6 +481,21 @@ Current logger configuration:
 	  argument to the log call will overwrite values in the
 	  process metadata, which in turn will overwrite values from
 	  the location data.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_process_metadata" arity="1"/>
+      <fsummary>Update metadata to use when logging from current process.</fsummary>
+      <desc>
+	<p>Update metadata to use when logging from current process</p>
+	<p>This function behaves as if it was implemented as follows:</p>
+	<code type="erl">
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta))
+	</code>
+	<p>If no process metadata exists, the function behaves as
+	  <seealso marker="#set_process_metadata-1"><c>set_process_metadata/1</c>
+	  </seealso>.</p>
       </desc>
     </func>
 
