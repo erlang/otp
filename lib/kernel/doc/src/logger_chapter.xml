@@ -488,8 +488,9 @@ error_logger:add_report_handler/1,2.
   level => debug}
 2> <input>logger:add_handler(debug_handler,logger_std_h,Config).</input>
 ok</pre>
-    <p>By default, the handler receives all events, so we need to add a filter
-      to stop all non-debug events:</p>
+    <p>By default, the handler receives all events
+      (<c>filter_defalt=log</c>), so we need to add a filter to stop
+      all non-debug events:</p>
     <pre>
 3> <input>Fun = fun(#{level:=debug}=Log,_) -> Log; (_,_) -> stop end.</input>
 #Fun&lt;erl_eval.12.98642416>

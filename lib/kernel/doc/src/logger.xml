@@ -131,8 +131,8 @@
 
     <code>
 #{mfa=>{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY},
-        file=>?FILE,
-        line=>?LINE}
+  file=>?FILE,
+  line=>?LINE}
     </code>
 
     <p>The call is wrapped in a case statement and will be evaluated
@@ -297,7 +297,7 @@
 	  <tag>print</tag>
           <item>Pretty print all the current logger configuration to
             standard out. Example:
-            <code><![CDATA[1> logger:i().
+            <code><![CDATA[1> logger:i(print).
 Current logger configuration:
   Level: info
   FilterDefault: log

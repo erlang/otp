@@ -226,7 +226,7 @@
 	  <p>This configuration parameter is used both for the global
 	    logger level, and for the standard handler started by
 	    the Kernel application (see <c>logger_dest</c> variable above).</p>
-	  <p>The default value is <c>info</c></p>
+	  <p>The default value is <c>info</c>.</p>
       </item>
       <tag><marker id="disk_log_vars"/>
 	<c>logger_disk_log_type = halt | wrap</c></tag>
@@ -251,14 +251,14 @@ logger_disk_log_maxbytes = 1048576</code>
       <item>
 	<p>If this parameter is set to true, then the logger handler
 	  started by kernel will not log any progress-, crash-, or
-	  supervisor reports. If the SASL application is starated,
+	  supervisor reports. If the SASL application is started,
 	  these log events will be sent to a second handler instance
-	  named sasl_h, according to values of the SASL environment
-	  variables <c>sasl_error_logger</c>
+	  named <c>sasl_h</c>, according to values of the SASL
+	  environment variables <c>sasl_error_logger</c>
 	  and <c>sasl_errlog_type</c>, see
 	  <seealso marker="sasl:sasl_app#configuration">SASL(6)
 	</seealso></p>
-	<p>The default value is <c>false</c></p>
+	<p>The default value is <c>false</c>.</p>
 	<p>See chapter <seealso marker="logger_chapter#compatibility">Backwards
 	  compatibility with error_logger</seealso> for more
 	  information about handling of the so called SASL reports.</p>
@@ -271,7 +271,7 @@ logger_disk_log_maxbytes = 1048576</code>
 	  reports from <c>supervisor</c>
 	  and <c>application_controller</c> shall be logged or
 	  not.</p>
-	<p>If <c>logger_sasl_compatible = false</c>,
+	<p>If <c>logger_sasl_compatible = true</c>,
 	  then <c>logger_log_progress</c> is ignored.</p>
       </item>
       <tag><marker id="logger_format_depth"/>
@@ -279,14 +279,6 @@ logger_disk_log_maxbytes = 1048576</code>
       <item>
 	<p>Can be used to limit the size of the
 	formatted output from the logger handlers.</p>
-
-	<note><p>This configuration parameter was introduced in OTP 18.1
-	and is experimental. Based on user feedback, it
-	can be changed or improved in future releases, for example,
-	to gain better control over how to limit the size of the
-	formatted output. We have no plans to remove this
-	new feature entirely, unless it turns out to be
-	useless.</p></note>
 
         <p><c>Depth</c> is a positive integer representing the maximum
         depth to which terms are printed by the logger
@@ -312,11 +304,11 @@ logger_disk_log_maxbytes = 1048576</code>
       </item>
       <tag><c>logger_max_size = integer() | unlimited</c></tag>
       <item>
-	<p>This parameter specifies the maximum size (bytes) each
-	  log event can have when printed by the standard logger
-	  handler. If the resulting string after formatting an event
-	  is bigger than this, it will be truncated before printed
-	  to the handler's destination.</p>
+	<p>This parameter specifies a hard maximum size limit (number
+	  of characters) each log event can have when printed by the
+	  default logger formatter. If the resulting string after
+	  formatting an event is bigger than this, it will be
+	  truncated before printed to the handler's destination.</p>
       </item>
       <tag><c>logger_utc = boolean()</c></tag>
       <item>
