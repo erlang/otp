@@ -780,6 +780,9 @@ ntoa2({0,0,0,0,0,0,A,B}, false) when (A band B band (bnot 16#ffff)) =:= 0 ->
 %% IPV4 non ipv6 host address
 ntoa2({0,0,0,0,0,16#ffff,A,B}, false) when (A band B band (bnot 16#ffff)) =:= 0 ->
     "::ffff:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+ntoa2({A,B,C,D,E,F,G,H}, true) ->
+    %% Tail-f: Don't want the  "scope id in second element" hack (for now)
+    ntoa([A,B,C,D,E,F,G,H], []);
 ntoa2({A,B,C,D,E,F,G,H}, _Strict)
   when (A band B band C band D band E band F band G band H band
             (bnot 16#ffff)) =:= 0 ->
