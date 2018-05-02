@@ -539,12 +539,8 @@ changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logg
 -module(myhandler).
 -export([log/2]).
 
-log(#{msg:={report,R}},_) ->
-    io:format("~p~n",[R]);
-log(#{msg:={string,S}},_) ->
-    io:put_chars(S);
-log(#{msg:={F,A}},_) ->
-    io:format(F,A).
+log(Log,#{formatter:={FModule,FConfig}) ->
+    io:put_chars(FModule:format(Log,FConfig)).
     </code>
 
     <p>A simple handler which prints to file could be implemented like
@@ -562,18 +558,13 @@ removing_handler(Id,#{myhandler_fd:=Fd}) ->
     _ = file:close(Fd),
     ok.
 
-log(#{msg:={report,R}},#{myhandler_fd:=Fd}) ->
-    io:format(Fd,"~p~n",[R]);
-log(#{msg:={string,S}},#{myhandler_fd:=Fd}) ->
-    io:put_chars(Fd,S);
-log(#{msg:={F,A}},#{myhandler_fd:=Fd}) ->
-    io:format(Fd,F,A).
+log(Log,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
+    io:put_chars(Fd,FModule:format(Log,FConfig)).
     </code>
 
-    <p>Note that none of the above handlers have any overload
+    <note><p>The above handlers do not have any overload
       protection, and all log events are printed directly from the
-      client process. Neither do the handlers use the formatter or
-      in any way add time or other metadata to the printed events.</p>
+      client process.</p></note>
 
     <p>For examples of overload protection, please refer to the
       implementation
@@ -582,14 +573,7 @@ log(#{msg:={F,A}},#{myhandler_fd:=Fd}) ->
       </seealso>.</p>
 
     <p>Below is a simpler example of a handler which logs through one
-      single process, and uses the default formatter to gain a common
-      look of the log events.</p>
-    <p>It also uses the metadata field <c>report_cb</c>, if it exists,
-      to print reports in the way the event issuer suggests. The
-      formatter will normally do this, but if the handler either has
-      an own default (as in this example) or if the
-      given <c>report_cb</c> should not be used at all, then the
-      handler must take care of this itself.</p>
+      single process.</p>
     <code>
 -module(myhandler).
 -export([adding_handler/2, removing_handler/1, log/2]).
@@ -620,16 +604,9 @@ terminate(Reason,#{fd:=Fd}) ->
     _ = file:close(Fd),
     ok.
 
-do_log(Fd,#{msg:={report,R}} = Log, Config) ->
-    Fun = maps:get(report_cb,Config,fun my_report_cb/1,
-    {F,A} = Fun(R),
-    do_log(Fd,Log#{msg=>{F,A},Config);
 do_log(Fd,Log,#{formatter:={FModule,FConfig}}) ->
     String = FModule:format(Log,FConfig),
     io:put_chars(Fd,String).
-
-my_report_cb(R) ->
-    {"~p",[R]}.
     </code>
   </section>
 
