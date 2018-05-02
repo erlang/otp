@@ -1597,6 +1597,8 @@ openssl_sane_dtls() ->
             false;
         "OpenSSL 1.0.2n" ++ _ ->
             false;
+        "OpenSSL 1.0.2m" ++ _ ->
+            false;
         "OpenSSL 1.0.0" ++ _ ->
             false;
         "OpenSSL" ++ _ ->
