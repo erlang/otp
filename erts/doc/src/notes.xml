@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a crash in <c>heart:get_cmd/0</c> when the
+	    stored command was too long.</p>
+          <p>
+	    Own Id: OTP-15034</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -61,7 +61,7 @@
           client_certificate_requested = false :: boolean(),
 	  key_algorithm         :: ssl_cipher:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
-	  cert_hashsign_algorithm,
+	  cert_hashsign_algorithm = {undefined, undefined},
           public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
           private_key          :: public_key:private_key() | secret_printout() | 'undefined',
 	  diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
