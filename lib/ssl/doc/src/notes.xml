@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Proper handling of clients that choose to send an empty
+	    answer to a certificate request</p>
+          <p>
+	    Own Id: OTP-15050</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
