@@ -429,9 +429,6 @@ init([Role,Socket,Opts]) ->
               },
             D = case Role of
                     client ->
-                        %% Start the renegotiation timers
-                        timer:apply_after(?REKEY_TIMOUT,      gen_statem, cast, [self(), renegotiate]),
-                        timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
                         cache_init_idle_timer(D0);
                     server ->
                         Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
@@ -444,6 +441,10 @@ init([Role,Socket,Opts]) ->
                                                    connection_supervisor = proplists:get_value(connection_sup, Sups)
                                                   }})
                 end,
+            %% Start the renegotiation timers
+            {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+            timer:apply_after(RekeyTimeout,       gen_statem, cast, [self(), renegotiate]),
+            timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
             {ok, {hello,Role}, D};
         
         {error,Error} ->
@@ -1066,7 +1067,8 @@ handle_event(internal, Msg=#ssh_msg_channel_failure{},           StateName, D) -
 handle_event(cast, renegotiate, {connected,Role}, D) ->
     {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(D#data.ssh_params),
     send_bytes(SshPacket, D),
-    timer:apply_after(?REKEY_TIMOUT, gen_statem, cast, [self(), renegotiate]),
+    {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, Ssh#ssh.opts),
+    timer:apply_after(RekeyTimeout, gen_statem, cast, [self(), renegotiate]),
     {next_state, {kexinit,Role,renegotiate}, D#data{ssh_params = Ssh,
 						    key_exchange_init_msg = KeyInitMsg}};
 
@@ -1074,9 +1076,10 @@ handle_event({call,From}, get_alg, _, D) ->
     #ssh{algorithms=Algs} = D#data.ssh_params,
     {keep_state_and_data, [{reply,From,Algs}]};
 
-handle_event(cast, renegotiate, _, _) ->
+handle_event(cast, renegotiate, _, D) ->
     %% Already in key-exchange so safe to ignore
-    timer:apply_after(?REKEY_TIMOUT, gen_statem, cast, [self(), renegotiate]), % FIXME: not here in original
+    {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+    timer:apply_after(RekeyTimeout, gen_statem, cast, [self(), renegotiate]),
     keep_state_and_data;
 
 
@@ -1084,7 +1087,7 @@ handle_event(cast, renegotiate, _, _) ->
 handle_event(cast, data_size, {connected,Role}, D) ->
     {ok, [{send_oct,Sent0}]} = inet:getstat(D#data.socket, [send_oct]),
     Sent = Sent0 - D#data.last_size_rekey,
-    MaxSent = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+    {_RekeyTimeout,MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
     timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
     case Sent >= MaxSent of
 	true ->

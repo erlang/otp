@@ -29,7 +29,6 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
--define(REKEY_TIMOUT, 3600000).
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
@@ -192,7 +191,9 @@
 -type user_dir_common_option()      :: {user_dir,  false | string()}.
 -type profile_common_option()       :: {profile,   atom() }.
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
--type rekey_limit_common_option()   :: {rekey_limit, non_neg_integer() }.
+-type rekey_limit_common_option()   :: {rekey_limit, Bytes::non_neg_integer() |
+                                                     {Minutes::non_neg_integer(), Bytes::non_neg_integer()}
+                                       }.
 
 -type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
 -type disconnectfun_common_option()     ::
