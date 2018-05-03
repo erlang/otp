@@ -32,13 +32,7 @@
 start(_, []) ->
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
-            %% add signal handler
-            case whereis(erl_signal_server) of
-                %% in case of minimal mode
-                undefined -> ok;
-                _ ->
-                    ok = gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
-            end,
+            ok = erl_signal_handler:start(),
             %% add error handler
             case logger:setup_standard_handler() of
                 ok -> {ok, Pid, []};
