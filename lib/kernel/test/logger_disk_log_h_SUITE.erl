@@ -66,7 +66,19 @@ end_per_testcase(Case, Config) ->
     ok.
 
 groups() ->
-    [].
+    [
+     {retry_op_switch_to_sync,
+      [{repeat_until_all_ok,10}],
+      [op_switch_to_sync]},
+
+     {retry_op_switch_to_drop,
+      [{repeat_until_all_ok,10}],
+      [op_switch_to_drop]},
+
+     {retry_op_switch_to_flush,
+      [{repeat_until_all_ok,10}],
+      [op_switch_to_flush]}
+    ].
 
 all() -> 
     [start_stop_handler,
@@ -87,9 +99,9 @@ all() ->
      disk_log_events,
      write_failure,
      sync_failure,
-     op_switch_to_sync,
-     op_switch_to_drop,
-     op_switch_to_flush,
+     {group,retry_op_switch_to_sync},
+     {group,retry_op_switch_to_drop},
+     {group,retry_op_switch_to_flush},
      limit_burst_disabled,
      limit_burst_enabled_one,
      limit_burst_enabled_period,
@@ -369,10 +381,18 @@ config_fail(_Config) ->
                            #{logger_disk_log_h => #{bad => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
-    {error,{handler_not_added,{invalid_levels,{42,42,_}}}} =
+
+    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
-                           #{logger_disk_log_h => #{toggle_sync_qlen=>42,
+                           #{logger_disk_log_h => #{drop_new_reqs_qlen=>1}}),
+    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+        logger:add_handler(?MODULE,logger_disk_log_h,
+                           #{logger_disk_log_h => #{toggle_sync_qlen=>43,
                                                     drop_new_reqs_qlen=>42}}),
+    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+        logger:add_handler(?MODULE,logger_disk_log_h,
+                           #{logger_disk_log_h => #{drop_new_reqs_qlen=>43,
+                                                    flush_reqs_qlen=>42}}),
 
     ok = logger:add_handler(?MODULE,logger_disk_log_h,
                             #{filter_default=>log,
@@ -852,13 +872,13 @@ internal_log(Type, Term) ->
 
 op_switch_to_sync(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    NumOfReqs = 500,
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 3,
-                                                 drop_new_reqs_qlen => 501,
-                                                 flush_reqs_qlen => 2000,
+        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 2,
+                                                 drop_new_reqs_qlen => NumOfReqs+1,
+                                                 flush_reqs_qlen => 2*NumOfReqs,
                                                  enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 500,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     NumOfReqs = count_lines(Log),
     ok = file:delete(Log).
@@ -867,19 +887,20 @@ op_switch_to_sync(cleanup, _Config) ->
 
 op_switch_to_drop(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-
+    NumOfReqs = 300,
+    Procs = 2,
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 2,
-                                                 drop_new_reqs_qlen => 3,
-                                                 flush_reqs_qlen => 600,
+        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 1,
+                                                 drop_new_reqs_qlen => 2,
+                                                 flush_reqs_qlen => Procs*NumOfReqs+1,
                                                  enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 500,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
     Logged = count_lines(Log),
     ct:pal("Number of messages dropped = ~w (~w)",
-           [NumOfReqs-Logged,NumOfReqs]),
-    true = (Logged < NumOfReqs),
+           [Procs*NumOfReqs-Logged,Procs*NumOfReqs]),
+    true = (Logged < (Procs*NumOfReqs)),
+    true = (Logged > 0),
     ok = file:delete(Log).
 op_switch_to_drop(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -894,17 +915,19 @@ op_switch_to_flush(Config) ->
     
     NewHConfig =
         HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 2,
-                                                 drop_new_reqs_qlen => 99,
-                                                 flush_reqs_qlen => 100,
+                                                 %% disable drop mode
+                                                 drop_new_reqs_qlen => 500,
+                                                 flush_reqs_qlen => 500,
                                                  enable_burst_limit => false}},    
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 1000,
-    Procs = 500,
+    Procs = 200,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
     Logged = count_lines(Log),
     ct:pal("Number of messages flushed/dropped = ~w (~w)",
            [(NumOfReqs*Procs)-Logged,NumOfReqs*Procs]),
     true = (Logged < (NumOfReqs*Procs)),
+    true = (Logged > 0),
     ok = file:delete(Log).
 op_switch_to_flush(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
