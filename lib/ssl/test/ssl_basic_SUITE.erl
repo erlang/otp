@@ -273,7 +273,8 @@ init_per_suite(Config0) ->
 				     proplists:get_value(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config2 = ssl_test_lib:make_ecdsa_cert(Config1),
-	    Config = ssl_test_lib:make_ecdh_rsa_cert(Config2),
+            Config3 = ssl_test_lib:make_rsa_cert(Config2),
+	    Config = ssl_test_lib:make_ecdh_rsa_cert(Config3),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -3180,10 +3181,10 @@ der_input(Config) when is_list(Config) ->
 
     Size = ets:info(CADb, size),
 
-    SeverVerifyOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
 								       SeverVerifyOpts]),
-    ClientVerifyOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ClientVerifyOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     {ClientCert, ClientKey, ClientCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
 								       ClientVerifyOpts]),
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},

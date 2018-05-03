@@ -1597,6 +1597,8 @@ openssl_sane_dtls() ->
             false;
         "OpenSSL 1.0.2n" ++ _ ->
             false;
+        "OpenSSL 1.0.2m" ++ _ ->
+            false;
         "OpenSSL 1.0.0" ++ _ ->
             false;
         "OpenSSL" ++ _ ->
@@ -1768,9 +1770,12 @@ supports_ssl_tls_version(sslv2 = Version) ->
             VersionFlag = version_flag(Version),
             Exe = "openssl",
             Args = ["s_client", VersionFlag],
+            [{trap_exit, Trap}] = process_info(self(), [trap_exit]),
+            process_flag(trap_exit, true),
             Port = ssl_test_lib:portable_open_port(Exe, Args),
             Bool = do_supports_ssl_tls_version(Port, ""),
             consume_port_exit(Port),
+            process_flag(trap_exit, Trap),
             Bool
     end;
 
