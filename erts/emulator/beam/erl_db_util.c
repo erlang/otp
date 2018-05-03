@@ -5321,7 +5321,7 @@ void db_free_tmp_uncompressed(DbTerm* obj)
 }
 
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
+                      DbTerm* obj, Eterm** hpp, Uint extra)
 {
     enum erts_pam_run_flags flags;
     Uint32 dummy;

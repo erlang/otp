@@ -471,7 +471,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
+		      DbTerm* obj, Eterm** hpp, Uint extra);
 
 Eterm db_prog_match(Process *p, Process *self,
                     Binary *prog, Eterm term,

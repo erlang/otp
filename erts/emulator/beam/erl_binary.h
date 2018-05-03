@@ -146,9 +146,7 @@ typedef union {
 
 /* A "magic" binary flag */
 #define BIN_FLAG_MAGIC      1
-#define BIN_FLAG_USR1       2 /* Reserved for use by different modules too mark */
-#define BIN_FLAG_USR2       4 /*  certain binaries as special (used by ets) */
-#define BIN_FLAG_DRV        8
+#define BIN_FLAG_DRV        2
 
 #endif /* ERL_BINARY_H__TYPES__ */
 

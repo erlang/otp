@@ -275,11 +275,6 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 }
 
 
-/*
- * Some special binary flags
- */
-#define BIN_FLAG_ALL_OBJECTS         BIN_FLAG_USR1
-
 
 static ERTS_INLINE void free_term(DbTableHash *tb, HashDbTerm* p)
 {
@@ -305,9 +300,6 @@ struct mp_prefound {
 };
 
 struct mp_info {
-    int all_objects;		/* True if complete objects are always
-				 * returned from the match_spec (can use 
-				 * copy_shallow on the return value) */
     int something_can_match;	/* The match_spec is not "impossible" */
     int key_given;
     struct mp_prefound dlists[10];  /* Default list of "pre-found" buckets */
@@ -1135,18 +1127,6 @@ static int db_slot_hash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
 
 
 /*
- * This is just here so I can take care of the return value 
- * that is to be sent during a trap (the BIF_TRAP macros explicitly returns)
- */
-static BIF_RETTYPE bif_trap1(Export *bif,
-			      Process *p, 
-			      Eterm p1) 
-{
-    BIF_TRAP1(bif, p, p1);
-}
-
-
-/*
  * Match traversal callbacks
  */
 
@@ -1245,10 +1225,6 @@ static int match_traverse(Process* p, DbTableHash* tb,
         goto done;
     }
 
-    if (mpi.all_objects) {
-        mpi.mp->intern.flags |= BIN_FLAG_ALL_OBJECTS;
-    }
-
     /*
      * Look for initial slot / bucket
      */
@@ -1283,7 +1259,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
     for(;;) {
         if (*current_ptr != NULL) {
             if (!is_pseudo_deleted(*current_ptr)) {
-                match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
+                match_res = db_match_dbterm(&tb->common, p, mpi.mp,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
                 if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
@@ -1367,7 +1343,6 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                                    void* context_ptr, /* For callbacks */
                                    Eterm* ret)
 {
-    int all_objects = (*mpp)->intern.flags & BIN_FLAG_ALL_OBJECTS;
     HashDbTerm** current_ptr;  /* Refers to either the bucket pointer or
                                        * the 'next' pointer in the previous term
                                        */
@@ -1410,7 +1385,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     for(;;) {
         if (*current_ptr != NULL) {
             if (!is_pseudo_deleted(*current_ptr)) {
-                match_res = db_match_dbterm(&tb->common, p, *mpp, all_objects,
+                match_res = db_match_dbterm(&tb->common, p, *mpp,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
                 if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
@@ -1509,7 +1484,7 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
             make_small(slot_ix),
             mpb,
             egot);
-    *ret = bif_trap1(trap_function, p, continuation);
+    ERTS_BIF_PREP_TRAP1(*ret, trap_function, p, continuation);
     return DB_ERROR_NONE;
 }
 
@@ -1689,7 +1664,8 @@ static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint
                 sc_context_ptr->match_list,
                 make_small(got));
     }
-    *ret = bif_trap1(&ets_select_continue_exp, sc_context_ptr->p, continuation);
+    ERTS_BIF_PREP_TRAP1(*ret, &ets_select_continue_exp, sc_context_ptr->p,
+                        continuation);
     return DB_ERROR_NONE;
 }
 
@@ -2457,7 +2433,6 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     mpi->num_lists = 0;
     mpi->key_given = 1;
     mpi->something_can_match = 0;
-    mpi->all_objects = 1;
     mpi->mp = NULL;
 
     for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
@@ -2510,7 +2485,6 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 
 	if (!is_list(body) || CDR(list_val(body)) != NIL ||
 	    CAR(list_val(body)) != am_DollarUnderscore) {
-	    mpi->all_objects = 0;
 	}
 	++i;
 	if (!(mpi->key_given)) {

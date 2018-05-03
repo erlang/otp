@@ -378,7 +378,7 @@ static SWord free_fixations_locked(Process* p, DbTable *tb);
 static void delete_all_objects_continue(Process* p, DbTable* tb);
 static SWord free_table_continue(Process *p, DbTable *tb, SWord reds);
 static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb);
-static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
+static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
@@ -2273,7 +2273,7 @@ BIF_RETTYPE ets_delete_object_2(BIF_ALIST_2)
 /*
 ** This is for trapping, cannot be called directly.
 */
-static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1)
+static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1)
 {
     Process *p = BIF_P;
     Eterm a1 = BIF_ARG_1;
@@ -3506,7 +3506,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_delete_continue_exp,
 			  am_ets, am_atom_put("delete_trap",11), 1,
-			  &ets_select_delete_1);
+			  &ets_select_delete_trap_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_count_continue_exp,
