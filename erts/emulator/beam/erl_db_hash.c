@@ -149,20 +149,14 @@ static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
     return ix;
 }
 
-/* Remember a slot containing a pseudo-deleted item
- * Return false if we got raced by unfixing thread
- * and the object should be deleted for real.
- */
-static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
-                                          erts_aint_t fixated_by_me)
+
+static ERTS_INLINE int link_fixdel(DbTableHash* tb,
+                                   FixedDeletion* fixd,
+                                   erts_aint_t fixated_by_me)
 {
     erts_aint_t was_next;
     erts_aint_t exp_next;
-    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-							 (DbTable *) tb,
-							 sizeof(FixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
-    fixd->slot = ix;
+
     was_next = erts_atomic_read_acqb(&tb->fixdel);
     do { /* Lockless atomic insertion in linked list: */
         if (NFIXED(tb) <= fixated_by_me) {
@@ -179,6 +173,21 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
     return 1;
 }
 
+/* Remember a slot containing a pseudo-deleted item
+ * Return false if we got raced by unfixing thread
+ * and the object should be deleted for real.
+ */
+static int add_fixed_deletion(DbTableHash* tb, int ix,
+                              erts_aint_t fixated_by_me)
+{
+    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+							 (DbTable *) tb,
+							 sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    fixd->slot = ix;
+    fixd->all = 0;
+    return link_fixdel(tb, fixd, fixated_by_me);
+}
 
 
 static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
@@ -579,54 +588,61 @@ SWord db_unfix_table_hash(DbTableHash *tb)
     SWord work = 0;
 
     ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
-		       || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
-			   && !tb->common.is_thread_safe));
+                   || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
+                       && !tb->common.is_thread_safe));
 restart:
     fixdel = (FixedDeletion*) erts_atomic_xchg_mb(&tb->fixdel,
-                                                      (erts_aint_t) NULL);
-    while (fixdel != NULL) {
-	FixedDeletion *fx = fixdel;
-	int ix = fx->slot;
-	HashDbTerm **bp;
-	HashDbTerm *b;
-        HashDbTerm *free_us = NULL;
-	erts_rwmtx_t* lck = WLOCK_HASH(tb,ix);
+                                                  (erts_aint_t) NULL);
+    while (fixdel) {
+        FixedDeletion *free_me;
 
-	if (IS_FIXED(tb)) { /* interrupted by fixer */
-	    WUNLOCK_HASH(lck);
-	    restore_fixdel(tb,fixdel);
-	    if (!IS_FIXED(tb)) {
-		goto restart; /* unfixed again! */
-	    }
-	    return work;
-	}
-	if (ix < NACTIVE(tb)) {
-	    bp = &BUCKET(tb, ix);
-	    b = *bp;
-	    
-	    while (b != NULL) {
-		if (is_pseudo_deleted(b)) {
-                    HashDbTerm* nxt = b->next;
-                    b->next = free_us;
-                    free_us = b;
-		    work++;
-		    b = *bp = nxt;
-		} else {
-		    bp = &b->next;
-		    b = b->next;
-		}
-	    }
-	}
-	/* else slot has been joined and purged by shrink() */
-	WUNLOCK_HASH(lck);
-        free_term_list(tb, free_us);
-	fixdel = fx->next;
-	erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-		     (DbTable *) tb,
-		     (void *) fx,
-		     sizeof(FixedDeletion));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
-	work++;
+        do {
+            HashDbTerm **bp;
+            HashDbTerm *b;
+            HashDbTerm *free_us = NULL;
+            erts_rwmtx_t* lck;
+
+            lck = WLOCK_HASH(tb, fixdel->slot);
+
+            if (IS_FIXED(tb)) { /* interrupted by fixer */
+                WUNLOCK_HASH(lck);
+                restore_fixdel(tb,fixdel);
+                if (!IS_FIXED(tb)) {
+                    goto restart; /* unfixed again! */
+                }
+                return work;
+            }
+            if (fixdel->slot < NACTIVE(tb)) {
+                bp = &BUCKET(tb, fixdel->slot);
+                b = *bp;
+
+                while (b != NULL) {
+                    if (is_pseudo_deleted(b)) {
+                        HashDbTerm* nxt = b->next;
+                        b->next = free_us;
+                        free_us = b;
+                        work++;
+                        b = *bp = nxt;
+                    } else {
+                        bp = &b->next;
+                        b = b->next;
+                    }
+                }
+            }
+            /* else slot has been joined and purged by shrink() */
+            WUNLOCK_HASH(lck);
+            free_term_list(tb, free_us);
+
+        }while (fixdel->all && fixdel->slot-- > 0);
+
+        free_me = fixdel;
+        fixdel = fixdel->next;
+        erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
+                     (DbTable *) tb,
+                     (void *) free_me,
+                     sizeof(FixedDeletion));
+        ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        work++;
     }
 
     /* ToDo: Maybe try grow/shrink the table as well */
@@ -2306,20 +2322,24 @@ void db_initialize_hash(void)
 static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
 {
     DbTableHash *tb = &tbl->hash;
-    HashDbTerm* list;
+    FixedDeletion* fixdel;
     int i;
 
     ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb));
 
+    fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+                           (DbTable *) tb,
+                           sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    fixdel->slot = NACTIVE(tb) - 1;
+    fixdel->all = 1;
+    link_fixdel(tb, fixdel, 0);
+
     for (i = 0; i < NACTIVE(tb); i++) {
-	if ((list = BUCKET(tb,i)) != NULL) {
-	    add_fixed_deletion(tb, i, 0);
-	    do {
-		list->pseudo_deleted = 1;
-		list = list->next;
-	    }while(list != NULL);
-            reds--;
-	}
+        HashDbTerm* b;
+	for (b = BUCKET(tb,i); b; b = b->next)
+            b->pseudo_deleted = 1;
+        --reds;
     }
     erts_atomic_set_nob(&tb->common.nitems, 0);
     return reds < 0 ? 0 : reds;   /* ToDo: Yield! */
