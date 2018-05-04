@@ -158,7 +158,7 @@ handle_call({remove_handler,HandlerId}, _From, #state{tid=Tid}=State) ->
                 Handlers0 = maps:get(handlers,Config,[]),
                 Handlers = lists:delete(HandlerId,Handlers0),
                 %% inform the handler
-                _ = call_h(Module,removing_handler,[HandlerId],ok),
+                _ = call_h(Module,removing_handler,[HandlerId,Config],ok),
                 do_set_config(Tid,logger,Config#{handlers=>Handlers}),
                 logger_config:delete(Tid,HandlerId),
                 ok;

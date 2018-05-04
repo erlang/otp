@@ -723,7 +723,7 @@ check_maps(Expected,Got,What) ->
 adding_handler(_Id,Config) ->
     maybe_send(add),
     {ok,Config}.
-removing_handler(_Id) ->
+removing_handler(_Id,_Config) ->
     maybe_send(remove),
     ok.
 changing_config(_Id,_Old,#{call:=Fun}) ->

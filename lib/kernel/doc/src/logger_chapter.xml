@@ -503,7 +503,7 @@ ok</pre>
     <p>It may also implement the following callbacks:</p>
     <code>
 adding_handler(logger:handler_id(),logger:config()) -> {ok,logger:config()} | {error,term()}
-removing_handler(logger:handler_id()) -> ok
+removing_handler(logger:handler_id(),logger:config()) -> ok
 changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logger:config()} | {error,term()}
     </code>
     <p>When logger:add_handler(Id,Module,Config) is called, logger
@@ -513,7 +513,7 @@ changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logg
       events as calls to Module:log/2.</p>
     <p>A handler can be removed by calling
       logger:remove_handler(Id). logger will call
-      Module:removing_handler(Id), and then remove the handler's
+      Module:removing_handler(Id,Config), and then remove the handler's
       configuration from the configuration database.</p>
     <p>When logger:set_handler_config is called, logger calls
       Module:changing_config(Id,OldConfig,NewConfig). If this function
@@ -534,7 +534,7 @@ log(Log,#{formatter:={FModule,FConfig}) ->
       this:</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 adding_handler(Id,Config) ->
@@ -563,7 +563,7 @@ log(Log,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
       single process.</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 adding_handler(Id,Config) ->
