@@ -599,9 +599,19 @@ default(common) ->
              class => user_options
             },
 
-      {rekey_limit, def} =>                     % FIXME: Why not common?
-          #{default => 1024000000,
-            chk => fun check_non_neg_integer/1,
+      {rekey_limit, def} =>
+          #{default => {3600000, 1024000000}, % {1 hour, 1 GB}
+            chk => fun({TimeMins, SizBytes}) when is_integer(TimeMins) andalso TimeMins>=0,
+                                                  is_integer(SizBytes) andalso SizBytes>=0 ->
+                           %% New (>= 21) format
+                           {true, {TimeMins * 60*1000, % To ms
+                                   SizBytes}};
+                      (SizBytes) when is_integer(SizBytes) andalso SizBytes>=0 ->
+                           %% Old (< 21) format
+                           {true, {3600000, SizBytes}};
+                      (_) ->
+                           false
+                   end,
             class => user_options
            },
 
