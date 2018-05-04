@@ -2230,7 +2230,7 @@ filter(DerCert, Ciphers0, Version) ->
                 Ciphers0, Version, OtpCert),
     {_, Sign} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm),
     filter_suites_signature(Sign, Ciphers, Version).
- 
+
 %%--------------------------------------------------------------------
 -spec filter_suites([erl_cipher_suite()] | [cipher_suite()], map()) ->
                            [erl_cipher_suite()] |  [cipher_suite()].
@@ -2662,29 +2662,33 @@ next_iv(Bin, IV) ->
     <<_:FirstPart/binary, NextIV:IVSz/binary>> = Bin,
     NextIV.
 
-
-filter_suites_pubkey(rsa, CiphersSuites0, Version, OtpCert) ->
+filter_suites_pubkey(rsa, CiphersSuites0, _Version, OtpCert) ->
     KeyUses = key_uses(OtpCert),
+    NotECDSAKeyed = (CiphersSuites0 -- ec_keyed_suites(CiphersSuites0)) 
+        -- dss_keyed_suites(CiphersSuites0),
     CiphersSuites = filter_keyuse_suites(keyEncipherment, KeyUses,
-                                         (CiphersSuites0 -- ec_keyed_suites(CiphersSuites0)) 
-                                         -- dss_keyed_suites(CiphersSuites0),
+                                         NotECDSAKeyed,
                                          rsa_suites_encipher(CiphersSuites0)),
     filter_keyuse_suites(digitalSignature, KeyUses, CiphersSuites,
-                         rsa_signed_suites(CiphersSuites, Version));
-filter_suites_pubkey(dsa, Ciphers, _, _OtpCert) ->  
-    (Ciphers -- rsa_keyed_suites(Ciphers)) -- ec_keyed_suites(Ciphers);
+                         rsa_ecdhe_dhe_suites(CiphersSuites));
+filter_suites_pubkey(dsa, Ciphers, _, OtpCert) ->  
+    KeyUses = key_uses(OtpCert),
+    NotECRSAKeyed =  (Ciphers -- rsa_keyed_suites(Ciphers)) -- ec_keyed_suites(Ciphers),
+    filter_keyuse_suites(digitalSignature, KeyUses, NotECRSAKeyed,
+                         dss_dhe_suites(Ciphers));
 filter_suites_pubkey(ec, Ciphers, _, OtpCert) ->
-    Uses = key_uses(OtpCert),  
-    filter_keyuse_suites(digitalSignature, Uses,
-                         (Ciphers -- rsa_keyed_suites(Ciphers)) -- dss_keyed_suites(Ciphers),
-                         ecdsa_sign_suites(Ciphers)).
+    Uses = key_uses(OtpCert),
+    NotRSADSAKeyed = (Ciphers -- rsa_keyed_suites(Ciphers)) -- dss_keyed_suites(Ciphers),
+    CiphersSuites = filter_keyuse_suites(digitalSignature, Uses, NotRSADSAKeyed,
+                                   ec_ecdhe_suites(Ciphers)),
+    filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
 filter_suites_signature(rsa, Ciphers, Version) ->
-    Ciphers -- ecdsa_signed_suites(Ciphers, Version) -- dsa_signed_suites(Ciphers, Version);
+    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version);
 filter_suites_signature(dsa, Ciphers, Version) ->
-    Ciphers -- ecdsa_signed_suites(Ciphers, Version) -- rsa_signed_suites(Ciphers, Version);
+    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- rsa_signed_suites(Ciphers, Version);
 filter_suites_signature(ecdsa, Ciphers, Version) ->
-    Ciphers -- rsa_signed_suites(Ciphers, Version) -- dsa_signed_suites(Ciphers, Version).
+    (Ciphers -- rsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version).
 
 
 %% From RFC 5246 - Section  7.4.2.  Server Certificate
@@ -2751,8 +2755,6 @@ rsa_keyed(rsa_psk) ->
     true;
 rsa_keyed(srp_rsa) -> 
     true;
-rsa_keyed(ecdhe_rsa) -> 
-    true;
 rsa_keyed(_) -> 
     false.
 
@@ -2793,24 +2795,22 @@ dsa_signed_suites(Ciphers, Version) ->
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-
-dsa_signed({3,N}) when N >= 3 ->
-    fun(dhe_dss) -> true;
-       (ecdhe_dss) -> true;
-       (_) -> false
-    end;
 dsa_signed(_) ->
     fun(dhe_dss) -> true;
-       (ecdh_dss) -> true;
-       (ecdhe_dss) -> true;
        (_) -> false
     end.
 
+dss_dhe_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(dhe_dss) -> true;
+                                                         (_) -> false
+                                                      end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
+
 ec_keyed(ecdh_ecdsa) ->
     true;
-ec_keyed(ecdhe_ecdsa) -> 
-    true;
-ec_keyed(ecdh_rsa) -> 
+ec_keyed(ecdh_rsa) ->
     true;
 ec_keyed(_) -> 
     false.
@@ -2822,9 +2822,28 @@ ec_keyed_suites(Ciphers) ->
                              mac_filters => [],
                              prf_filters => []}).
 
-%% EC Certs key can be used for signing
-ecdsa_sign_suites(Ciphers)->
+%% EC Certs key usage keyAgreement
+ec_ecdh_suites(Ciphers)->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(ecdh_ecdsa) -> true;
+                                                         (_) -> false
+                                                      end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
+
+%% EC Certs key usage digitalSignature
+ec_ecdhe_suites(Ciphers) ->
     filter_suites(Ciphers, #{key_exchange_filters => [fun(ecdhe_ecdsa) -> true;
+                                                         (ecdhe_rsa) -> true;
+                                                         (_) -> false
+                                                      end],
+                             cipher_filters => [],
+                             mac_filters => [],
+                             prf_filters => []}).
+%% RSA Certs key usage digitalSignature
+rsa_ecdhe_dhe_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [fun(dhe_rsa) -> true;
+                                                         (ecdhe_rsa) -> true;
                                                          (_) -> false
                                                       end],
                              cipher_filters => [],
@@ -2837,11 +2856,14 @@ key_uses(OtpCert) ->
     Extensions = ssl_certificate:extensions_list(TBSExtensions),
     case ssl_certificate:select_extension(?'id-ce-keyUsage', Extensions) of
 	undefined ->
-	    undefined;
+	    [];
 	#'Extension'{extnValue = KeyUses} ->
             KeyUses
     end.
 
+%% If no key-usage extension is defined all key-usages are allowed
+filter_keyuse_suites(_, [], CiphersSuites, _) ->
+    CiphersSuites;
 filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->
     case ssl_certificate:is_valid_key_usage(KeyUse, Use) of
 	true ->

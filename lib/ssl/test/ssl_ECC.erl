@@ -34,53 +34,65 @@
 
 %% ECDH_RSA 
 client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
     Suites = all_rsa_suites(Config),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}],
                                                       ecdh_rsa, ecdh_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config),
                [{check_keyex, ecdh_rsa}, {ciphers, Suites} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_rsa_server_ecdh_rsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
     Suites = all_rsa_suites(Config),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}], 
                                                       ecdhe_rsa, ecdh_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config),  
                [{check_keyex, ecdh_rsa}, {ciphers, Suites} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_ecdsa_server_ecdh_rsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [keyAgreement]}]),
     Suites = all_rsa_suites(Config),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}],
                                                       ecdhe_ecdsa, ecdh_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
-               ssl_test_lib:ssl_options(SOpts, Config),
-               [{check_keyex, ecdh_rsa}, {ciphers, Suites} | proplists:delete(check_keyex, Config)]).
+                            ssl_test_lib:ssl_options(SOpts, Config),
+                            [{check_keyex, ecdh_rsa}, {ciphers, Suites} | proplists:delete(check_keyex, Config)]).
 
 %% ECDHE_RSA    
 client_ecdh_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}], 
                                                       ecdh_rsa, ecdhe_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config), 
                [{check_keyex, ecdhe_rsa} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}], 
                                                       ecdhe_rsa, ecdhe_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
-               ssl_test_lib:ssl_options(SOpts, Config),  
+                            ssl_test_lib:ssl_options(SOpts, Config),
                [{check_keyex, ecdhe_rsa} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_ecdsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}],
                                                       ecdh_ecdsa, ecdhe_rsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
@@ -122,24 +134,30 @@ client_ecdhe_ecdsa_server_ecdh_ecdsa(Config)  when is_list(Config) ->
 
 %% ECDHE_ECDSA
 client_ecdh_rsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
-     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}], 
                                                       ecdh_rsa, ecdhe_ecdsa, Config), 
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config), 
                [{check_keyex, ecdhe_ecdsa} | proplists:delete(check_keyex, Config)]).
 client_ecdh_ecdsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Default = ssl_test_lib:default_cert_chain_conf(),
-    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+    {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                        [[], [], [{extensions, Ext}]]},
                                                        {client_chain, Default}], 
                                                       ecdh_ecdsa, ecdhe_ecdsa, Config), 
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config),
                [{check_keyex, ecdhe_ecdsa} | proplists:delete(check_keyex, Config)]).
 client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Default = ssl_test_lib:default_cert_chain_conf(),
-     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+     {COpts, SOpts} = ssl_test_lib:make_ec_cert_chains([{server_chain,
+                                                         [[], [], [{extensions, Ext}]]},
                                                         {client_chain, Default}], 
                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 

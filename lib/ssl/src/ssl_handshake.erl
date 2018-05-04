@@ -2233,13 +2233,12 @@ sign_algo(Alg) ->
 is_acceptable_hash_sign(Algos, _, _, KeyExAlgo, SupportedHashSigns) when 
       KeyExAlgo == dh_dss;
       KeyExAlgo == dh_rsa;
-      KeyExAlgo == ecdh_ecdsa;
       KeyExAlgo == ecdh_rsa;
       KeyExAlgo == ecdh_ecdsa
       ->
     %% *dh_* could be called only *dh in TLS-1.2
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdh_rsa, SupportedHashSigns) ->
+is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdhe_rsa, SupportedHashSigns) ->
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
 is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, dhe_rsa, SupportedHashSigns) ->
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
@@ -2270,7 +2269,7 @@ is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when
       KeyExAlgo == ecdhe_anon     
       ->
     true; 
-is_acceptable_hash_sign(_,_, _,_,_) ->
+is_acceptable_hash_sign(_,_,_,_,_) ->
     false.					
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
