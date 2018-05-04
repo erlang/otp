@@ -633,28 +633,33 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    Depth =
-        case application:get_env(kernel, logger_format_depth) of
-            {ok, D} when is_integer(D) ->
-                D;
-            undefined ->
-                case application:get_env(kernel, error_logger_format_depth) of
-                    {ok, D} when is_integer(D) ->
-                        D;
-                    undefined ->
-                        unlimited
-                end
-        end,
-    max(10, Depth).
+    DepthMin = 10,
+    case application:get_env(kernel, logger_format_depth) of
+        {ok, D} when is_integer(D) ->
+            max(DepthMin, D);
+        {ok, unlimited} ->
+            unlimited;
+        undefined ->
+            case application:get_env(kernel, error_logger_format_depth) of
+                {ok, D} when is_integer(D) ->
+                    max(DepthMin, D);
+                {ok, unlimited} ->
+                    unlimited;
+                undefined ->
+                    unlimited
+            end
+    end.
 
 -spec get_max_size() -> 'unlimited' | pos_integer().
 
 get_max_size() ->
     case application:get_env(kernel, logger_max_size) of
-	{ok, Size} when is_integer(Size) ->
-	    max(50, Size);
-	undefined ->
-	    unlimited
+        {ok, Size} when is_integer(Size) ->
+            max(50, Size);
+        {ok, unlimited} ->
+            unlimited;
+        undefined ->
+            unlimited
     end.
 
 -spec get_utc_config() -> boolean().
