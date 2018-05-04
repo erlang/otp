@@ -3121,6 +3121,18 @@ ERL_NIF_TERM nsetopt_gen(ErlNifEnv*        env,
         }
         break;
 
+    case SOCKET_OPT_VALUE_LINGER:
+        {
+            optLen = sizeof(valP->u.lingerVal);
+            res    = socket_setopt(descP->sock, level, opt,
+                                   &valP->u.lingerVal, optLen);
+            if (res != 0)
+                result = make_error2(env, res);
+            else
+                result = atom_ok;
+        }
+        break;
+
     default:
         result = make_error(env, atom_einval);
     }
