@@ -20,6 +20,8 @@
 
 -module(socket).
 
+-compile({no_auto_import,[error/1]}).
+
 %% Administrative and "global" utility functions
 -export([
 	 on_load/0, on_load/1, on_load/2,
@@ -68,7 +70,18 @@
               send_flags/0,
               send_flag/0,
 
-              shutdown_how/0
+              shutdown_how/0,
+
+              sockopt_level/0,
+              otp_socket_option/0,
+              socket_option/0,
+              ip_socket_option/0,
+              ipv6_socket_option/0,
+              tcp_socket_option/0,
+              udp_socket_option/0,
+              sctp_socket_option/0,
+
+              ip_tos_flag/0
              ]).
 
 
@@ -108,12 +121,189 @@
 
 %% otp    - The option is internal to our (OTP) imeplementation.
 %% socket - The socket layer (SOL_SOCKET).
-%% ip     - The IP layer (SOL_IP).
+%% ip     - The IP layer (SOL_IP or is it IPPROTO_IP?).
 %% ipv6   - The IPv6 layer (SOL_IPV6).
 %% tcp    - The TCP (Transport Control Protocol) layer (IPPROTO_TCP).
 %% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
+%% sctp   - The SCTP (Stream Control Transmission Protocol) layer (IPPROTO_SCTP).
 %% Int    - Raw level, sent down and used "as is".
--type option_level() :: otp | socket | ip | ipv6 | tcp | udp | non_neg_integer().
+-type sockopt_level() :: otp |
+                         socket |
+                         ip | ipv6 | tcp | udp | sctp |
+                         non_neg_integer().
+
+%% There are some options that are 'read-only'.
+%% Should those be included here or in a special list?
+%% Should we just document it and leave it to the user?
+%% Or catch it in the encode functions?
+%% A setopt for a readonly option leads to einval?
+
+-type otp_socket_option() :: debug |
+                             iow |
+                             rcvbuf |
+                             sndbuf.
+%% Shall we have special treatment of linger??
+%% read-only options:
+%% domain | protocol | type.
+%% FreeBSD (only?): acceptfilter
+-type socket_option() :: acceptconn |
+                         acceptfilter |
+                         bindtodevice |
+                         broadcast |
+                         busy_poll |
+                         debug |
+                         dontroute |
+                         error |
+                         keepalive |
+                         linger |
+                         mark |
+                         oobinline |
+                         passcred |
+                         peek_off |
+                         peek_cred |
+                         priority |
+                         rcvbuf |
+                         rcvbufforce |
+                         rcvlowat | sndlowat |
+                         rcvtimeo | sndtimeo |
+                         reuseaddr |
+                         reuseport |
+                         rxq_ovfl |
+                         setfib |
+                         sndbuf |
+                         sndbufforce |
+                         timestamp |
+                         type.
+%% Read-only options:
+%% mtu
+%%
+%% Options only valid for RAW sockets:
+%% nodefrag
+-type ip_socket_option() :: add_membership |
+                            add_source_membership |
+                            block_source |
+                            dont_frag |
+                            drop_membership |
+                            drop_source_membership |
+                            freebind |
+                            hdrincl |
+                            minttl |
+                            msfilter |
+                            mtu |
+                            mtu_discover |
+                            multicast_all |
+                            multicast_if |
+                            multicast_loop |
+                            multicast_ttl |
+                            nodefrag |
+                            options |
+                            pktinfo |
+                            recverr |
+                            recvif |
+                            recvdstaddr |
+                            recvopts |
+                            recvorigdstaddr |
+                            recvtos |
+                            recvttl |
+                            retopts |
+                            router_alert |
+                            sndsrcaddr |
+                            tos |
+                            transparent |
+                            ttl |
+                            unblock_source.
+-type ipv6_socket_option() ::
+        addform |
+        add_membership | drop_membership |
+        authhdr |
+        auth_level |
+        checksum |
+        dstopts |
+        esp_trans_level |
+        esp_network_level |
+        faith |
+        flowinfo |
+        hoplimit |
+        hopopts |
+        ipcomp_level |
+        join_group |
+        leave_group |
+        mtu |
+        mtu_discover |
+        multicast_hops |
+        multicast_if |
+        multicast_loop |
+        portrange |
+        pktinfo |
+        pktoptions |
+        recverr |
+        recvpktinfo |
+        recvtclass |
+        router_alert |
+        rthdr |
+        tclass |
+        unicast_hops |
+        use_min_mtu |
+        v6only.
+
+-type tcp_socket_option()  :: congestion |
+                              maxseg |
+                              nodelay |
+                              user_timeout.
+
+-type udp_socket_option() :: checksum |
+                             maxdgram |
+                             recvspace.
+-type sctp_socket_option() ::
+        adaption_layer |
+        associnfo |
+        auth_active_key |
+        auth_asconf |
+        auth_chunk |
+        auth_key |
+        auth_delete_key |
+        autoclose |
+        context |
+        default_send_params |
+        delayed_ack_time |
+        disable_fragments |
+        hmac_ident |
+        events |
+        explicit_eor |
+        fragment_interleave |
+        get_peer_addr_info |
+        initmsg |
+        i_want_mapped_v4_addr |
+        local_auth_chunks |
+        maxseg |
+        maxburst |
+        nodelay |
+        partial_delivery_point |
+        peer_addr_params |
+        peer_auth_chunks |
+        primary_addr |
+        reset_streams |
+        rtoinfo |
+        set_peer_primary_addr |
+        status |
+        use_ext_recvinfo.
+
+%% -type plain_socket_options()  :: integer().
+%% -type sockopts() :: otp_socket_options() |
+%%                     socket_options() |
+%%                     ip_socket_options() |
+%%                     ipv6_socket_options() |
+%%                     tcp_socket_options() |
+%%                     udp_socket_options() |
+%%                     sctp_socket_options() |
+%%                     plain_socket_options().
+
+%% If the integer value is used its up to the caller to ensure its valid!
+-type ip_tos_flag() :: lowdeley |
+                       throughput |
+                       reliability |
+                       mincost |
+                       integer().
 
 -type socket_info() :: map().
 -record(socket, {info :: socket_info(),
@@ -147,9 +337,6 @@
                       oob |
                       peek |
                       trunc.
-
--type setopt_key() :: foo.
--type getopt_key() :: foo.
 
 -type shutdown_how() :: read | write | read_write.
 
@@ -213,22 +400,33 @@
 -define(SOCKET_RECV_FLAGS_DEFAULT,   []).
 -define(SOCKET_RECV_TIMEOUT_DEFAULT, infinity).
 
--define(SOCKET_SETOPT_LEVEL_ENCODED,   0).
--define(SOCKET_SETOPT_LEVEL_RAW,       1).
--define(SOCKET_SETOPT_LEVEL_OTP,       0).
--define(SOCKET_SETOPT_LEVEL_SOCKET,    1).
--define(SOCKET_SETOPT_LEVEL_IP,        2).
--define(SOCKET_SETOPT_LEVEL_IPV6,      3).
--define(SOCKET_SETOPT_LEVEL_TCP,       4).
--define(SOCKET_SETOPT_LEVEL_UDP,       5).
+-define(SOCKET_OPT_LEVEL_OTP,       0).
+-define(SOCKET_OPT_LEVEL_SOCKET,    1).
+-define(SOCKET_OPT_LEVEL_IP,        2).
+-define(SOCKET_OPT_LEVEL_IPV6,      3).
+-define(SOCKET_OPT_LEVEL_TCP,       4).
+-define(SOCKET_OPT_LEVEL_UDP,       5).
+-define(SOCKET_OPT_LEVEL_SCTP,      6).
 
--define(SOCKET_SETOPT_KEY_DEBUG,       0).
+-define(SOCKET_OPT_OTP_DEBUG,           0).
+-define(SOCKET_OPT_OTP_IOW,             1).
 
--define(SOCKET_GETOPT_KEY_DEBUG,       ?SOCKET_SETOPT_KEY_DEBUG).
+-define(SOCKET_OPT_SOCK_KEEPALIVE,      0).
+-define(SOCKET_OPT_SOCK_LINGER,         1).
+
+-define(SOCKET_OPT_IP_RECVTOS,          0).
+-define(SOCKET_OPT_IP_ROUTER_ALERT,     1).
+-define(SOCKET_OPT_IP_TOS,              2).
+-define(SOCKET_OPT_IP_TTL,              3).
+
+-define(SOCKET_OPT_IPV6_HOPLIMIT,       0).
+
+-define(SOCKET_OPT_TCP_MAXSEG,          0).
 
 -define(SOCKET_SHUTDOWN_HOW_READ,       0).
 -define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
 -define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
+
 
 
 %% ===========================================================================
@@ -1059,28 +1257,64 @@ shutdown(#socket{ref = SockRef}, How) ->
 %%
 %% <KOLLA>
 %%
-%% WE NEED TOP MAKE SURE THAT THE USER DOES NOT MAKE US BLOCKING
+%% WE NEED TO MAKE SURE THAT THE USER DOES NOT MAKE US BLOCKING
 %% AS MUCH OF THE CODE EXPECTS TO BE NON-BLOCKING!!
 %%
 %% </KOLLA>
 
--spec setopt(Socket, Level, Key, Value) -> ok | {error, Reason} when
+-spec setopt(Socket, Level, Opt, Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: option_level(),
-      Key    :: setopt_key(),
+      Level  :: otp,
+      Opt    :: otp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: socket,
+      Opt    :: socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: ip,
+      Opt    :: ip_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: ipv6,
+      Opt    :: ipv6_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: tcp,
+      Opt    :: tcp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: udp,
+      Opt    :: udp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: sctp,
+      Opt    :: sctp_socket_option(),
       Value  :: term(),
       Reason :: term().
 
 setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
     try
         begin
-            Domain   = maps:get(domain, Info),
-            Type     = maps:get(type, Info),
-            Protocol = maps:get(protocol, Info),
-            ELevel   = enc_setopt_level(Level),
-            EKey     = enc_setopt_key(Level, Key, Domain, Type, Protocol),
-            EVal     = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
-            nif_setopt(SockRef, ELevel, EKey, EVal)
+            Domain               = maps:get(domain, Info),
+            Type                 = maps:get(type, Info),
+            Protocol             = maps:get(protocol, Info),
+            {EIsEncoded, ELevel} = enc_setopt_level(Level),
+            EKey = enc_setopt_key(Level, Key, Domain, Type, Protocol),
+            EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
+            nif_setopt(SockRef, EIsEncoded, ELevel, EKey, EVal)
         end
     catch
         throw:T ->
@@ -1090,6 +1324,9 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
     end.
 
 
+
+%% ===========================================================================
+%%
 %% getopt - retrieve individual properties of a socket
 %%
 %% What properties are valid depend on what kind of socket it is
@@ -1100,8 +1337,44 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
 
 -spec getopt(Socket, Level, Key) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: option_level(),
-      Key    :: getopt_key(),
+      Level  :: otp,
+      Key    :: otp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: socket,
+      Key    :: socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: ip,
+      Key    :: ip_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: ipv6,
+      Key    :: ipv6_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: tcp,
+      Key    :: tcp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: udp,
+      Key    :: udp_socket_option(),
+      Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+      Socket :: socket(),
+      Level  :: sctp,
+      Key    :: sctp_socket_option(),
       Value  :: term(),
       Reason :: term().
 
@@ -1111,13 +1384,14 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
             Domain   = maps:get(domain, Info),
             Type     = maps:get(type, Info),
             Protocol = maps:get(protocol, Info),
-            ELevel   = enc_getopt_level(Level),
+            {EIsEncoded, ELevel} = enc_getopt_level(Level),
             EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
             %% We may need to decode the value (for the same reason
             %% we needed to encode the value for setopt).
-            case nif_getopt(SockRef, ELevel, EKey) of
+            case nif_getopt(SockRef, EIsEncoded, ELevel, EKey) of
                 {ok, EVal} ->
-                    Val = dec_getopt_value(Level, Key, EVal, Domain, Type, Protocol),
+                    Val = dec_getopt_value(Level, Key, EVal,
+                                           Domain, Type, Protocol),
                     {ok, Val};
                 {error, _} = ERROR ->
                     ERROR
@@ -1205,55 +1479,381 @@ enc_flags(Flags, EFlags) ->
         end,
     lists:foldl(F, 0, Flags).
 
+
+%% +++ Encode setopt level +++
+
+-spec enc_setopt_level(Level) -> {IsEncoded, EncodedLevel} when
+      Level        :: sockopt_level(),
+      IsEncoded    :: boolean(),
+      EncodedLevel :: integer().
+
 enc_setopt_level(otp) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_OTP};
+    {true, ?SOCKET_OPT_LEVEL_OTP};
 enc_setopt_level(socket) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_SOCKET};
+    {true, ?SOCKET_OPT_LEVEL_SOCKET};
 enc_setopt_level(ip) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_IP};
+    {true, ?SOCKET_OPT_LEVEL_IP};
 enc_setopt_level(ipv6) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_IPV6};
+    {true, ?SOCKET_OPT_LEVEL_IPV6};
 enc_setopt_level(tcp) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_TCP};
+    {true, ?SOCKET_OPT_LEVEL_TCP};
 enc_setopt_level(udp) ->
-    {?SOCKET_SETOPT_LEVEL_ENCODED, ?SOCKET_SETOPT_LEVEL_UDP};
-%% Any option that is of an raw level must be provided as a binary
+    {true, ?SOCKET_OPT_LEVEL_UDP};
+%% Any option that is of an plain level must be provided as a binary
 %% already fully encoded!
 enc_setopt_level(L) when is_integer(L) ->
-    {?SOCKET_SETOPT_LEVEL_RAW, L}.
+    {false, L}.
 
 
-%% We should ...really... do something with the domain, type and protocol args...
-%% Also, any option which has an integer level (raw) must also be provided
-%% in a raw mode, that is, as an integer.
-enc_setopt_key(L, K, _, _, _) when is_integer(L) andalso is_integer(K) ->
-    K;
-enc_setopt_key(otp, debug, _, _, _) ->
-    ?SOCKET_SETOPT_KEY_DEBUG.
+%% +++ Encode setopt key +++
 
 %% We should ...really... do something with the domain, type and protocol args...
+%% Also, any option (key) which has an integer level (plain) must also be provided
+%% in a plain mode, that is, as an integer.
+%% Also, not all options are available on all platforms. That is something we
+%% don't check here, but in the nif-code.
+
+enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
+    enc_sockopt_key(Level, Opt, set, Domain, Type, Protocol).
+
+
+%% +++ Encode setopt value +++
+%%
+%% For the most part this function does *not* do an actually encode,
+%% it simply validates the value type. But in some cases it actually
+%% encodes the value into an more manageable type.
+
 enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
+    V;
+enc_setopt_value(otp, iow, V, _, _, _) when is_boolean(V) ->
+    V;
+enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
+
+enc_setopt_value(socket, keepalive, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, linger, abort, D, T, P) ->
     enc_setopt_value(socket, linger, {true, 0}, D, T, P);
 enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
   when is_boolean(OnOff) andalso is_integer(Secs) andalso (Secs >= 0) ->
     V;
-enc_setopt_value(L, _, V, _, _, _) when is_integer(L) andalso is_binary(V) ->
+enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
+
+enc_setopt_value(ip, recvtos, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
+enc_setopt_value(ip, router_alert, V, _D, _T, _P)
+  when is_integer(V) ->
+    V;
+enc_setopt_value(ip, tos, V, _D, _T, _P)
+  when (V =:= lowdelay) orelse
+       (V =:= throughput) orelse
+       (V =:= reliability) orelse
+       (V =:= mincost) orelse
+       is_integer(V) ->
+    V;
+enc_setopt_value(ip, ttl, V, _D, _T, _P)
+  when is_integer(V) ->
+    V;
+enc_setopt_value(ip = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
+
+enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
+enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
+
+enc_setopt_value(tcp, maxseg, V, _D, T, P)
+  when is_integer(V) andalso
+       (T =:= stream) andalso
+       (P =:= tcp) ->
+    V;
+enc_setopt_value(tcp = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
+
+enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
+    not_supported({L, Opt});
+
+enc_setopt_value(L, Opt, V, _, _, _)
+  when is_integer(L) andalso is_integer(Opt) andalso is_binary(V) ->
     V.
 
 
 
+
+%% +++ Encode getopt value +++
+
 enc_getopt_level(Level) ->
     enc_setopt_level(Level).
 
-%% We should ...really... do something with the domain, type and protocol args...
-enc_getopt_key(otp, debug, _, _, _) ->
-    ?SOCKET_GETOPT_KEY_DEBUG.
+
+%% +++ Encode getopt key +++
+
+enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
+    enc_sockopt_key(Level, Opt, get, Domain, Type, Protocol).
+
+
+%% +++ Decode getopt value +++
 
 %% We should ...really... do something with the domain, type and protocol args...
 dec_getopt_value(otp, debug, B, _, _, _) when is_boolean(B) ->
     B.
+
+
+
+%% +++ Encode socket option key +++
+
+%% Most options are usable both for set and get, but some are
+%% are only available for e.g. get.
+-spec enc_sockopt_key(Level, Opt,
+                      Direction,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: otp,
+      Opt       :: otp_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: socket,
+      Opt       :: socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: ip,
+      Opt       :: ip_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: ipv6,
+      Opt       :: ipv6_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: tcp,
+      Opt       :: tcp_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: udp,
+      Opt       :: udp_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: sctp,
+      Opt       :: sctp_socket_option(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: integer(),
+      Opt       :: integer(),
+      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol().
+
+
+%% +++ OTP socket options +++
+enc_sockopt_key(otp, debug, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_DEBUG;
+enc_sockopt_key(otp, iow, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_IOW;
+
+%% +++ SOCKET socket options +++
+enc_sockopt_key(socket, acceptconn = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, acceptfilter = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% Before linux 3.8, this socket option could be set.
+%% Size of buffer for name: IFNAMSZ
+%% So, we let the implementation decide.
+enc_sockopt_key(socket, bindtodevide = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, broadcast = Opt, _Dir, _D, dgram = _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, busy_poll = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, debug = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, dontroute = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, error = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% This is only for connection-oriented sockets, but who are those?
+%% Type = stream or Protocol = tcp?
+%% For now, we just let is pass and it will fail later if not ok...
+enc_sockopt_key(socket, keepalive = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_KEEPALIVE;
+enc_sockopt_key(socket, linger = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_LINGER;
+enc_sockopt_key(socket, mark = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, oobinline = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, passcred = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, peek_off = Opt, _Dir, local = _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, priority = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, rcvbuf = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% May not work on linux.
+enc_sockopt_key(socket, rcvlowat = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, rcvtimeo = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, reuseaddr = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, reuseport = Opt, _Dir, D, _T, _P)
+  when ((D =:= inet) orelse (D =:= inet6)) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, setfib = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, sndbuf = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, sndbufforce = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% Not changeable on linux.
+enc_sockopt_key(socket, sndlowat = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, sndtimeo = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, timestamp = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(socket, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% +++ IP socket options +++
+enc_sockopt_key(ip, add_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, add_source_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, block_source = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% FreeBSD only?
+%% Only respected on udp and raw ip (unless the hdrincl option has been set).
+enc_sockopt_key(ip, dontfrag = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, drop_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, drop_source_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% Linux only?
+enc_sockopt_key(ip, free_bind = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported(Opt);
+%% FreeBSD only?
+enc_sockopt_key(ip, minttl = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, msfilter = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, mtu = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, mtu_discover = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, multicast_all = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, multicast_if = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, multicast_loop = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, multicast_ttl = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, nodefrag = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, options = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, pktinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+%% This require special code for accessing the errors.
+%% via calling the recvmsg with the MSG_ERRQUEUE flag set,
+enc_sockopt_key(ip, recverr = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, recvif = Opt, _Dir, _D, dgram = _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, recvdstaddr = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, recvopts = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, recvorigdstaddr = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, recvtos = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_RECVTOS;
+enc_sockopt_key(ip, recvttl = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, retopts = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, router_alert = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported(Opt);
+%% On FreeBSD it specifies that this option is only valid
+%% for stream, dgram and "some" raw sockets...
+%% No such condition on linux (in the man page)...
+enc_sockopt_key(ip, tos = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_TOS;
+enc_sockopt_key(ip, transparent = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, ttl = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_TTL;
+enc_sockopt_key(ip, unblock_source = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported(Opt);
+enc_sockopt_key(ip, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% IPv6 socket options
+enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
+  when (T =:= dgram) orelse (T =:= raw) ->
+    ?SOCKET_OPT_IPV6_HOPLIMIT;
+enc_sockopt_key(ipv6, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% TCP socket options
+enc_sockopt_key(tcp, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% UDP socket options
+enc_sockopt_key(udp, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% SCTP socket options
+enc_sockopt_key(sctp, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown(UnknownOpt);
+
+%% +++ Plain socket options +++
+enc_sockopt_key(Level, Opt, _Dir, _D, _T, _P)
+  when is_integer(Level) andalso is_integer(Opt) ->
+    Opt;
+
+enc_sockopt_key(Level, Opt, _Dir, _Domain, _Type, _Protocol) ->
+    unknown({Level, Opt}).
 
 
 
@@ -1336,6 +1936,21 @@ tdiff(T1, T2) ->
 
 
 
+%% ===========================================================================
+%%
+%% Error functions
+%%
+%% ===========================================================================
+
+not_supported(What) ->
+    error({not_supported, What}).
+
+unknown(What) ->
+    error({unknown, What}).
+
+error(Reason) ->
+    throw({error, Reason}).
+
 
 %% ===========================================================================
 %%
@@ -1390,8 +2005,8 @@ nif_shutdown(_SRef, _How) ->
 nif_finalize_close(_SRef) ->
     erlang:error(badarg).
 
-nif_setopt(_Ref, _Lev, _Key, _Val) ->
+nif_setopt(_Ref, _IsEnc, _Lev, _Key, _Val) ->
     erlang:error(badarg).
 
-nif_getopt(_Ref, _Lev, _Key) ->
+nif_getopt(_Ref, _IsEnc, _Lev, _Key) ->
     erlang:error(badarg).
