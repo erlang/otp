@@ -697,8 +697,8 @@ my_report_cb(R) ->
 	</item>
       </taglist>
 
-      <p>For the overload protection algorithm to work properly, it is a
-      requirement that:</p>
+      <p>For the overload protection algorithm to work properly, it is
+      required that:</p>
 
       <p><c>toggle_sync_qlen =&lt; drop_new_reqs_qlen =&lt; flush_reqs_qlen</c></p>
 

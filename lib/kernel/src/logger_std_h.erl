@@ -257,10 +257,11 @@ init([Name, Config,
                                          file_ctrl_sync => FileCtrlSyncInt,
                                          last_qlen => 0,
                                          last_log_ts => T0,
+                                         last_op => sync,
                                          burst_win_ts => T0,
                                          burst_msg_count => 0}),
             proc_lib:init_ack({ok,self()}),
-            gen_server:cast(self(), {repeated_filesync,T0}),
+            gen_server:cast(self(), repeated_filesync),
             enter_loop(Config, State1);
         Error ->
             logger_h_common:error_notify({init_handler,Name,Error}),
@@ -310,12 +311,11 @@ handle_call(filesync, _From, State = #{type := Type,
     if is_atom(Type) ->
             {reply, ok, State};
        true ->
-            {reply, file_ctrl_filesync_sync(FileCtrlPid), State}
+            {reply, file_ctrl_filesync_sync(FileCtrlPid), State#{last_op=>sync}}
     end;
 
 handle_call({change_config,_OldConfig,NewConfig}, _From,
-            State = #{filesync_repeat_interval := FSyncInt0,
-                      last_log_ts := LastLogTS}) ->
+            State = #{filesync_repeat_interval := FSyncInt0}) ->
     HConfig = maps:get(?MODULE, NewConfig, #{}),
     State1 = maps:merge(State, HConfig),
     case logger_h_common:overload_levels_ok(State1) of
@@ -334,8 +334,7 @@ handle_call({change_config,_OldConfig,NewConfig}, _From,
                         _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref,
                                                                   State,
                                                                   undefined)),
-                        gen_server:cast(self(), {repeated_filesync,
-                                                 LastLogTS})
+                        gen_server:cast(self(), repeated_filesync)
                 end,
             {reply, ok, State1};
         false ->
@@ -365,24 +364,24 @@ handle_cast({log, Bin}, State) ->
 %% clause gets called repeatedly by the handler. In order to
 %% guarantee that a filesync *always* happens after the last log
 %% request, the repeat operation must be active!
-handle_cast({repeated_filesync,LastLogTS0},
+handle_cast(repeated_filesync,
             State = #{type := Type,
                       file_ctrl_pid := FileCtrlPid,
                       filesync_repeat_interval := FSyncInt,
-                      last_log_ts := LastLogTS1}) ->
+                      last_op := LastOp}) ->
     State1 =
         if not is_atom(Type), is_integer(FSyncInt) ->
                 %% only do filesync if something has been
                 %% written since last time we checked
-                if LastLogTS1 == LastLogTS0 ->
+                if LastOp == sync ->
                         ok;
                    true ->
                         file_ctrl_filesync_async(FileCtrlPid)
                 end,
                 {ok,TRef} =
                     timer:apply_after(FSyncInt, gen_server,cast,
-                                      [self(),{repeated_filesync,LastLogTS1}]),
-                State#{rep_sync_tref => TRef};
+                                      [self(),repeated_filesync]),
+                State#{rep_sync_tref => TRef, last_op => sync};
            true ->
                 State
         end,
@@ -600,6 +599,7 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                          State1#{mode => Mode1,
                                  last_qlen := LastQLen1,
                                  last_log_ts => T1,
+                                 last_op => write,
                                  burst_win_ts => BurstWinT,
                                  burst_msg_count => BurstMsgCount1,
                                  file_ctrl_sync =>

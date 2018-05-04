@@ -278,10 +278,11 @@ init([Name, Config = #{disk_log_opts := LogOpts},
                                          last_log_ts => T0,
                                          burst_win_ts => T0,
                                          burst_msg_count => 0,
+                                         last_op => sync,
                                          prev_log_result => ok,
                                          prev_sync_result => ok,
                                          prev_disk_log_info => undefined}),
-            gen_server:cast(self(), {repeated_disk_log_sync,T0}),
+            gen_server:cast(self(), repeated_disk_log_sync),
             enter_loop(Config, State1);
         Error ->
             logger_h_common:error_notify({open_disk_log,Name,Error}),
@@ -316,8 +317,7 @@ handle_call(disk_log_sync, _From, State = #{id := Name}) ->
     {reply, Result, State1};
 
 handle_call({change_config,_OldConfig,NewConfig}, _From,
-            State = #{filesync_repeat_interval := FSyncInt0,
-                      last_log_ts := LastLogTS}) ->
+            State = #{filesync_repeat_interval := FSyncInt0}) ->
     HConfig = maps:get(?MODULE, NewConfig, #{}),
     State1 = #{toggle_sync_qlen   := TSQL,
                drop_new_reqs_qlen := DNRQL,
@@ -338,9 +338,8 @@ handle_call({change_config,_OldConfig,NewConfig}, _From,
                         _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref,
                                                                   State,
                                                                   undefined)),
-                        _ = gen_server:cast(self(), {repeated_disk_log_sync,
-                                                     LastLogTS})
-                end,            
+                        _ = gen_server:cast(self(), repeated_disk_log_sync)
+                end,
             {reply, ok, State1};
         false ->
             {reply, {error,{invalid_levels,{TSQL,DNRQL,FRQL}}}, State}
@@ -370,24 +369,23 @@ handle_cast({log, Bin}, State) ->
 %% clause gets called repeatedly by the handler. In order to
 %% guarantee that a filesync *always* happens after the last log
 %% request, the repeat operation must be active!
-handle_cast({repeated_disk_log_sync,LastLogTS0},
+handle_cast(repeated_disk_log_sync,
             State = #{id := Name,
                       filesync_repeat_interval := FSyncInt,
-                      last_log_ts := LastLogTS1}) ->
+                      last_op := LastOp}) ->
     State1 =
         if is_integer(FSyncInt) ->
                 %% only do filesync if something has been
                 %% written since last time we checked
-                NewState = if LastLogTS1 == LastLogTS0 ->
+                NewState = if LastOp == sync ->
                                    State;
                               true ->
                                    disk_log_sync(Name, State)
                            end,
                 {ok,TRef} =
                     timer:apply_after(FSyncInt, gen_server,cast,
-                                      [self(),
-                                       {repeated_disk_log_sync,LastLogTS1}]),
-                NewState#{rep_sync_tref => TRef};
+                                      [self(),repeated_disk_log_sync]),
+                NewState#{rep_sync_tref => TRef, last_op => sync};
            true ->
                 State
         end,
@@ -649,10 +647,9 @@ close_disk_log(Name, _) ->
     ok.
 
 disk_log_write(Name, Bin, State) ->
-    Result =
         case ?disk_log_blog(Name, Bin) of
             ok ->
-                ok;
+                State#{prev_log_result => ok, last_op => write};
             LogError ->
                 _ = case maps:get(prev_log_result, State) of
                         LogError ->
@@ -664,29 +661,26 @@ disk_log_write(Name, Bin, State) ->
                                                           LogOpts,
                                                           LogError})
                     end,
-                LogError
-        end,
-    State#{prev_log_result => Result}.
+                State#{prev_log_result => LogError}
+        end.
 
 disk_log_sync(Name, State) ->
-    Result =
-        case ?disk_log_sync(Name) of
-            ok ->
-                ok;
-            SyncError ->
-                _ = case maps:get(prev_sync_result, State) of
-                        SyncError ->
-                            %% don't report same error twice
-                            ok;
-                        _ ->
-                            LogOpts = maps:get(log_opts, State),
-                            logger_h_common:error_notify({Name,sync,
-                                                          LogOpts,
-                                                          SyncError})
-                    end,
-                SyncError
-        end,
-    State#{prev_sync_result => Result}. 
+    case ?disk_log_sync(Name) of
+        ok ->
+            State#{prev_sync_result => ok, last_op => sync};
+        SyncError ->
+            _ = case maps:get(prev_sync_result, State) of
+                    SyncError ->
+                        %% don't report same error twice
+                        ok;
+                    _ ->
+                        LogOpts = maps:get(log_opts, State),
+                        logger_h_common:error_notify({Name,sync,
+                                                      LogOpts,
+                                                      SyncError})
+                end,
+            State#{prev_sync_result => SyncError}
+    end.
 
 error_notify_new(Info,Info, _Term) ->
     ok;
