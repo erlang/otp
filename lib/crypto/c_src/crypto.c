@@ -60,7 +60,6 @@
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
-#include <openssl/engine.h>
 #include <openssl/err.h>
 
 /* Helper macro to construct a OPENSSL_VERSION_NUMBER.
@@ -121,10 +120,6 @@
 #include <openssl/modes.h>
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'h')
-#define HAS_ENGINE_SUPPORT
-#endif
-
 #include "crypto_callback.h"
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(0,9,8)	\
@@ -183,6 +178,19 @@
 #if defined(HAS_LIBRESSL)                                             \
     && LIBRESSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(2,6,1)
 # undef HAVE_RSA_SSLV23_PADDING
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'h') \
+    && defined(HAVE_EC)
+/* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
+   So if EC is disabled, you can't use Engine either....
+*/
+# define HAS_ENGINE_SUPPORT
+#endif
+
+
+#if defined(HAS_ENGINE_SUPPORT)
+# include <openssl/engine.h>
 #endif
 
 #if defined(HAVE_CMAC)
