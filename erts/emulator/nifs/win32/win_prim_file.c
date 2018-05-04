@@ -24,6 +24,7 @@
 
 #include "prim_file_nif.h"
 
+#include <winioctl.h>
 #include <windows.h>
 #include <strsafe.h>
 #include <wchar.h>
@@ -671,11 +672,48 @@ static int is_executable_file(const efile_path_t *path) {
     return 0;
 }
 
+/* Returns whether the path refers to a link-like object, e.g. a junction
+ * point, symbolic link, or mounted folder. */
+static int is_name_surrogate(const efile_path_t *path) {
+    HANDLE handle;
+    int result;
+
+    handle = CreateFileW((const WCHAR*)path->data, GENERIC_READ,
+                         FILE_SHARE_FLAGS, NULL, OPEN_EXISTING,
+                         FILE_FLAG_OPEN_REPARSE_POINT |
+                         FILE_FLAG_BACKUP_SEMANTICS,
+                         NULL);
+    result = 0;
+
+    if(handle != INVALID_HANDLE_VALUE) {
+        REPARSE_GUID_DATA_BUFFER reparse_buffer;
+        LPDWORD unused_length;
+        BOOL success;
+
+        success = DeviceIoControl(handle,
+                                  FSCTL_GET_REPARSE_POINT, NULL, 0,
+                                  &reparse_buffer, sizeof(reparse_buffer),
+                                  &unused_length, NULL);
+
+        /* ERROR_MORE_DATA is tolerated since we're guaranteed to have filled
+         * the field we want. */
+        if(success || GetLastError() == ERROR_MORE_DATA) {
+            result = IsReparseTagNameSurrogate(reparse_buffer.ReparseTag);
+        }
+
+        CloseHandle(handle);
+     }
+
+     return result;
+}
+
 posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_fileinfo_t *result) {
     BY_HANDLE_FILE_INFORMATION native_file_info;
     DWORD attributes;
+    int is_link;
 
     sys_memset(&native_file_info, 0, sizeof(native_file_info));
+    is_link = 0;
 
     attributes = GetFileAttributesW((WCHAR*)path->data);
 
@@ -696,7 +734,11 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
     } else {
         HANDLE handle;
 
-        if(follow_links && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        if(attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+            is_link = is_name_surrogate(path);
+        }
+
+        if(follow_links && is_link) {
             posix_errno_t posix_errno;
             efile_path_t resolved_path;
 
@@ -737,7 +779,7 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
         }
     }
 
-    if(attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    if(is_link) {
         result->type = EFILE_FILETYPE_SYMLINK;
         /* This should be _S_IFLNK, but the old driver always set
          * non-directories to _S_IFREG. */
@@ -914,6 +956,10 @@ posix_errno_t efile_read_link(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_
     if(attributes == INVALID_FILE_ATTRIBUTES) {
         return windows_to_posix_errno(GetLastError());
     } else if(!(attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        return EINVAL;
+    }
+
+    if(!is_name_surrogate(path)) {
         return EINVAL;
     }
 
