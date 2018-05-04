@@ -1272,9 +1272,7 @@ load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
     NewEnv = merge_app_env(ApplEnv, ConfEnv),
     CmdLineEnv = get_cmd_env(Name),
     NewEnv2 = merge_app_env(NewEnv, CmdLineEnv),
-    NewEnv3 = keyreplaceadd(included_applications, 1, NewEnv2,
-			    {included_applications, IncApps}),
-    add_env(Name, NewEnv3),
+    add_env(Name, NewEnv2),
     Appl = #appl{name = Name, descr = Descr, id = Id, vsn = Vsn, 
 		 appl_data = ApplData, inc_apps = IncApps, apps = Apps},
     ets:insert(ac_tab, {{loaded, Name}, Appl}),
@@ -1292,7 +1290,7 @@ load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
     {ok, NewS}.
 
 unload(AppName, S) ->
-    {ok, IncApps} = get_env(AppName, included_applications),
+    {ok, IncApps} = get_key(AppName, included_applications),
     del_env(AppName),
     ets:delete(ac_tab, {loaded, AppName}),
     foldl(fun(App, S1) ->
@@ -1583,13 +1581,9 @@ do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
     CmdLineEnv = get_cmd_env(AppName),
     NewEnv2 = merge_app_env(NewEnv1, CmdLineEnv),
 
-    %% included_apps is made into an env parameter as well
-    NewEnv3 = keyreplaceadd(included_applications, 1, NewEnv2,
-			    {included_applications, IncApps}),
-
     %% Update ets table with new application env
     del_env(AppName),
-    add_env(AppName, NewEnv3),
+    add_env(AppName, NewEnv2),
 
     OldAppl#appl{appl_data=ApplData,
 		 descr=Descr,

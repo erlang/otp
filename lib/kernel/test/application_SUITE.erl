@@ -1603,8 +1603,7 @@ get_key(Conf) when is_list(Conf) ->
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
 	rpc:call(Cp1, application, get_key, [appinc, start_phases]),
     {ok, Env} = rpc:call(Cp1, application, get_key, [appinc ,env]),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     {ok, []} = rpc:call(Cp1, application, get_key, [appinc, modules]),
     {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
 	rpc:call(Cp1, application, get_key, [appinc, mod]),
@@ -1625,8 +1624,7 @@ get_key(Conf) when is_list(Conf) ->
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
 		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
 	rpc:call(Cp1, application, get_all_key, [appinc]),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
 
     {ok, "Test of new app file, including appnew"} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, description}),
@@ -1643,8 +1641,7 @@ get_key(Conf) when is_list(Conf) ->
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, start_phases}),
     {ok, Env} = gen_server:call({global, {ch,41}}, {get_pid_key, env}),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     {ok, []} = 
 	gen_server:call({global, {ch,41}}, {get_pid_key, modules}),
     {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
@@ -1671,8 +1668,7 @@ get_key(Conf) when is_list(Conf) ->
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
 		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
 	gen_server:call({global, {ch,41}}, get_pid_all_key),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     
     stop_node_nice(Cp1),
     ok.
