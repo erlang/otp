@@ -36,8 +36,8 @@
       in this module. Some of the BIFs are viewed more
       or less as part of the Erlang programming language and are
       <em>auto-imported</em>. Thus, it is not necessary to specify the
-      module name. For example, the calls <c>atom_to_list(Erlang)</c>
-      and <c>erlang:atom_to_list(Erlang)</c> are identical.</p>
+      module name. For example, the calls <c>atom_to_list(erlang)</c>
+      and <c>erlang:atom_to_list(erlang)</c> are identical.</p>
 
     <p>Auto-imported BIFs are listed without module prefix.
       BIFs listed with module prefix are not auto-imported.</p>
