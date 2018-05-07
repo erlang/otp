@@ -2321,28 +2321,50 @@ void db_initialize_hash(void)
 
 static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
 {
+    const int LOOPS_PER_REDUCTION  = 8;
     DbTableHash *tb = &tbl->hash;
     FixedDeletion* fixdel;
+    SWord loops = reds * LOOPS_PER_REDUCTION;
     int i;
 
     ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb));
 
-    fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-                           (DbTable *) tb,
-                           sizeof(FixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
-    fixdel->slot = NACTIVE(tb) - 1;
-    fixdel->all = 1;
-    link_fixdel(tb, fixdel, 0);
+    fixdel = (FixedDeletion*) erts_atomic_read_nob(&tb->fixdel);
+    if (fixdel && fixdel->trap) {
+        /* Continue after trap */
+        ASSERT(fixdel->all);
+        ASSERT(fixdel->slot < NACTIVE(tb));
+        i = fixdel->slot;
+    }
+    else {
+        /* First call */
+        fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+                               (DbTable *) tb,
+                               sizeof(FixedDeletion));
+        ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+        link_fixdel(tb, fixdel, 0);
+        i = 0;
+    }
 
-    for (i = 0; i < NACTIVE(tb); i++) {
+    do {
         HashDbTerm* b;
 	for (b = BUCKET(tb,i); b; b = b->next)
             b->pseudo_deleted = 1;
-        --reds;
+    } while (++i < NACTIVE(tb) && --loops > 0);
+
+    if (i < NACTIVE(tb)) {
+         /* Yield */
+        fixdel->slot = i;
+        fixdel->all = 0;
+        fixdel->trap = 1;
+        return -1;
     }
+
+    fixdel->slot = NACTIVE(tb) - 1;
+    fixdel->all = 1;
+    fixdel->trap = 0;
     erts_atomic_set_nob(&tb->common.nitems, 0);
-    return reds < 0 ? 0 : reds;   /* ToDo: Yield! */
+    return loops < 0 ? 0 : loops / LOOPS_PER_REDUCTION;
 }
 
 
@@ -3145,7 +3167,6 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
 static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
 {
     if (IS_FIXED(tbl)) {
-        /* ToDo: Yield! */
 	reds = db_mark_all_deleted_hash(tbl, reds);
     } else {
         reds = db_free_table_continue_hash(tbl, reds);

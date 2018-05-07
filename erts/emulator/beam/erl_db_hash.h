@@ -24,8 +24,9 @@
 #include "erl_db_util.h" /* DbTerm & DbTableCommon */
 
 typedef struct fixed_deletion {
-    UWord slot : sizeof(UWord)*8 - 1;
+    UWord slot : sizeof(UWord)*8 - 2;
     UWord all : 1;
+    UWord trap : 1;
     struct fixed_deletion *next;
 } FixedDeletion;
 
