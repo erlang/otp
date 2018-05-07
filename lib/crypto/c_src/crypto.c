@@ -102,8 +102,10 @@
 #  undef FIPS_SUPPORT
 # endif
 
+# if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
+# endif
 #endif
 
 
@@ -112,8 +114,10 @@
 #endif
 
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-# define HAS_EVP_PKEY_CTX
+#ifndef HAS_LIBRESSL
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#  define HAS_EVP_PKEY_CTX
+# endif
 #endif
 
 
@@ -502,7 +506,6 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
 static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -530,6 +533,7 @@ static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn);
 
 #ifdef HAS_ENGINE_SUPPORT
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
 static int zero_terminate(ErlNifBinary bin, char **buf);
 #endif
 
@@ -5392,9 +5396,9 @@ static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 #endif
 }
 
+#ifdef HAS_ENGINE_SUPPORT
 static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i)
 {
-#ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM head, tail;
     const ERL_NIF_TERM *tmp_tuple;
     ErlNifBinary tmpbin;
@@ -5439,10 +5443,8 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
         cmds[i] = NULL;
         return 0;
     }
-#else
-    return atom_notsup;
-#endif
 }
+#endif
 
 static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
