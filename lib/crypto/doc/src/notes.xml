@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If OPENSSL_NO_EC was set, the compilation of the crypto
+	    nifs failed.</p>
+          <p>
+	    Own Id: OTP-15073</p>
+        </item>
+        <item>
+          <p>
+	    C-compile errors for LibreSSL 2.7.0 - 2.7.2 fixed</p>
+          <p>
+	    Own Id: OTP-15074 Aux Id: ERL-618 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
