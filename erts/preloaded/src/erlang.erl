@@ -135,7 +135,7 @@
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
--export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
+-export([is_alive/0, is_builtin/3, is_map_key/2, is_process_alive/1, length/1, link/1]).
 -export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
@@ -1120,6 +1120,13 @@ is_alive() ->
       Arity :: arity().
 is_builtin(_Module, _Function, _Arity) ->
     erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:is_map_key/2
+-spec is_map_key(Key, Map) -> boolean() when
+    Key :: term(),
+    Map :: map().
+is_map_key(_,_) ->
+    erlang:nif_error(undef).
 
 %% is_process_alive/1
 -spec is_process_alive(Pid) -> boolean() when

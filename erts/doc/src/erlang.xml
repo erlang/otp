@@ -2432,6 +2432,26 @@ os_prompt%</pre>
     </func>
 
     <func>
+      <name name="is_map_key" arity="2"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns <c>true</c> if map <c><anno>Map</anno></c> contains
+          <c><anno>Key</anno></c> and returns <c>false</c> if it does not
+          contain the <c><anno>Key</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map = #{"42" => value}.
+#{"42" => value}
+> is_map_key("42",Map).
+true
+> is_map_key(value,Map).
+false</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="is_number" arity="1"/>
       <fsummary>Check whether a term is a number.</fsummary>
       <desc>

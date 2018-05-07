@@ -1203,12 +1203,18 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_empty_2(),
     true   = map_guard_head(#{a=>1}),
     false  = map_guard_head([]),
+    true   = map_get_head(#{a=>1}),
+    false  = map_get_head([]),
+    true   = map_is_key_head(#{a=>1}),
+    false  = map_is_key_head(#{}),
     true   = map_guard_body(#{a=>1}),
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
     false  = map_guard_pattern("list"),
     true   = map_guard_tautology(),
     true   = map_guard_ill_map_size(),
+    true   = map_field_check_sequence(#{a=>1}),
+    false  = map_field_check_sequence(#{}),
     ok.
 
 map_guard_empty() when is_map(#{}); false -> true.
@@ -1218,6 +1224,12 @@ map_guard_empty_2() when true; #{} andalso false -> true.
 map_guard_head(M) when is_map(M) -> true;
 map_guard_head(_) -> false.
 
+map_get_head(M) when map_get(a, M) =:= 1 -> true;
+map_get_head(_) -> false.
+
+map_is_key_head(M) when is_map_key(a, M) -> true;
+map_is_key_head(M) -> false.
+
 map_guard_body(M) -> is_map(M).
 
 map_guard_pattern(#{}) -> true;
@@ -1226,6 +1238,12 @@ map_guard_pattern(_)   -> false.
 map_guard_tautology() when #{} =:= #{}; true -> true.
 
 map_guard_ill_map_size() when true; map_size(0) -> true.
+
+map_field_check_sequence(M)
+  when is_map(M) andalso is_map_key(a, M) andalso (map_get(a, M) == 1) ->
+    true;
+map_field_check_sequence(_) ->
+    false.
 
 t_guard_sequence(Config) when is_list(Config) ->
 	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),

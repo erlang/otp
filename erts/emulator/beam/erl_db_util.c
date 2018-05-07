@@ -644,6 +644,12 @@ static DMCGuardBif guard_tab[] =
         DBIF_ALL
     },
     {
+        am_is_map_key,
+        &is_map_key_2,
+        2,
+        DBIF_ALL
+    },
+    {
 	am_bit_size,
 	&bit_size_1,
 	1,
