@@ -154,7 +154,6 @@ bif erlang:unregister/1
 bif erlang:whereis/1
 bif erlang:spawn_opt/1
 bif erlang:setnode/2
-bif erlang:setnode/3
 bif erlang:dist_get_stat/1
 bif erlang:dist_ctrl_input_handler/2
 bif erlang:dist_ctrl_put_data/2
@@ -190,6 +189,8 @@ bif erts_internal:release_literal_area_switch/0
 bif erts_internal:scheduler_wall_time/1
 
 bif erts_internal:dirty_process_handle_signals/1
+
+bif erts_internal:create_dist_channel/4
 
 # inet_db support
 bif erlang:port_set_data/2

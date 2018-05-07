@@ -1705,12 +1705,26 @@ setnode(_P1, _P2) ->
     erlang:nif_error(undefined).
 
 %% setnode/3
--spec erlang:setnode(P1, P2, P3) -> dist_handle() when
-      P1 :: atom(),
-      P2 :: port(),
-      P3 :: {term(), term(), term(), term()}.
-setnode(_P1, _P2, _P3) ->
-    erlang:nif_error(undefined).
+-spec erlang:setnode(Node, DistCtrlr, Opts) -> dist_handle() when
+      Node :: atom(),
+      DistCtrlr :: port() | pid(),
+      Opts :: {integer(), integer(), atom(), atom()}.
+setnode(Node, DistCtrlr, {Flags, Ver, IC, OC} = Opts) when erlang:is_atom(IC),
+                                                           erlang:is_atom(OC) ->
+    case case erts_internal:create_dist_channel(Node, DistCtrlr,
+                                                Flags, Ver) of
+             {ok, DH} -> DH;
+             {message, Ref} -> receive {Ref, Res} -> Res end;
+             Err -> Err
+         end of
+        Error when erlang:is_atom(Error) ->
+            erlang:error(Error, [Node, DistCtrlr, Opts]);
+        DHandle ->
+            DHandle
+    end;
+setnode(Node, DistCtrlr, Opts) ->
+    erlang:error(badarg, [Node, DistCtrlr, Opts]).
+
 
 %% size/1
 %% Shadowed by erl_bif_types: erlang:size/1

@@ -288,6 +288,7 @@ type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
+type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 

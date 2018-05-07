@@ -295,6 +295,19 @@ do {								\
     (Ret) = THE_NON_VALUE;					\
 } while (0)
 
+#define ERTS_BIF_PREP_TRAP4(Ret, Trap, Proc, A0, A1, A2, A3)	\
+do {								\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    (Proc)->arity = 4;						\
+    reg[0] = (Eterm) (A0);					\
+    reg[1] = (Eterm) (A1);					\
+    reg[2] = (Eterm) (A2);					\
+    reg[3] = (Eterm) (A3);					\
+    (Proc)->i = (BeamInstr*) ((Trap)->addressv[erts_active_code_ix()]); \
+    (Proc)->freason = TRAP;					\
+    (Ret) = THE_NON_VALUE;					\
+} while (0)
+
 #define ERTS_BIF_PREP_TRAP3_NO_RET(Trap, Proc, A0, A1, A2)\
 do {							\
     Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
@@ -338,6 +351,18 @@ do {							\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
       reg[2] = (A2);						\
+      (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]); \
+      (p)->freason = TRAP;					\
+      return THE_NON_VALUE;					\
+ } while(0)
+
+#define BIF_TRAP4(Trap_, p, A0, A1, A2, A3) do {		\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
+      (p)->arity = 4;						\
+      reg[0] = (A0);						\
+      reg[1] = (A1);						\
+      reg[2] = (A2);						\
+      reg[3] = (A3);						\
       (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]); \
       (p)->freason = TRAP;					\
       return THE_NON_VALUE;					\
@@ -401,6 +426,12 @@ do {									\
     ERTS_BIF_PREP_TRAP3(RET, (TRP), (P), (A0), (A1), (A2));		\
 } while (0)
 
+#define ERTS_BIF_PREP_YIELD4(RET, TRP, P, A0, A1, A2, A3)		\
+do {									\
+    ERTS_VBUMP_ALL_REDS((P));						\
+    ERTS_BIF_PREP_TRAP4(RET, (TRP), (P), (A0), (A1), (A2), (A3));       \
+} while (0)
+
 #define ERTS_BIF_YIELD0(TRP, P)						\
 do {									\
     ERTS_VBUMP_ALL_REDS((P));						\
@@ -423,6 +454,12 @@ do {									\
 do {									\
     ERTS_VBUMP_ALL_REDS((P));						\
     BIF_TRAP3((TRP), (P), (A0), (A1), (A2));				\
+} while (0)
+
+#define ERTS_BIF_YIELD4(TRP, P, A0, A1, A2, A3)				\
+do {									\
+    ERTS_VBUMP_ALL_REDS((P));						\
+    BIF_TRAP4((TRP), (P), (A0), (A1), (A2), (A3));                      \
 } while (0)
 
 #define ERTS_BIF_PREP_EXITED(RET, PROC)	                                \

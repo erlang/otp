@@ -88,6 +88,8 @@
 
 -export([process_flag/3]).
 
+-export([create_dist_channel/4]).
+
 %%
 %% Await result of send to port
 %%
@@ -677,3 +679,15 @@ process_display(_Pid, _Type) ->
 process_flag(_Pid, _Flag, _Value) ->
     erlang:nif_error(undefined).
 
+-spec create_dist_channel(Node, DistCtrlr, Flags, Ver) -> Result when
+      Node :: atom(),
+      DistCtrlr :: port() | pid(),
+      Flags :: integer(),
+      Ver :: integer(),
+      Result :: {'ok', erlang:dist_handle()}
+              | {'message', reference()}
+              | 'badarg'
+              | 'system_limit'.
+                                 
+create_dist_channel(_Node, _DistCtrlr, _Flags, _Ver) ->
+    erlang:nif_error(undefined).
