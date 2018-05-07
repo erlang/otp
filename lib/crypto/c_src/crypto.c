@@ -3071,10 +3071,11 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     if ((dhkey  = EVP_PKEY_new())
         && (params = EVP_PKEY_new())
         && EVP_PKEY_set1_DH(params, dh_params)   /* set the key referenced by params to dh_params.
-                                                    dh_params (and params) must be freed by us*/
+                                                    dh_params (and params) must be freed */
         && (ctx = EVP_PKEY_CTX_new(params, NULL))
         && EVP_PKEY_keygen_init(ctx)
-        && EVP_PKEY_keygen(ctx, &dhkey)
+        && EVP_PKEY_keygen(ctx, &dhkey)          /* "performs a key generation operation, the 
+                                                    generated key is written to ppkey." (=last arg) */
         && (dh_params = EVP_PKEY_get1_DH(dhkey)) /* return the referenced key. dh_params and dhkey must be freed */
         ) {
 #else
@@ -3108,8 +3109,8 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     DH_free(dh_params);
 #ifdef HAS_EVP_PKEY_CTX
     if (ctx)    EVP_PKEY_CTX_free(ctx);
-    /* if (dhkey)  EVP_PKEY_free(dhkey); */
-    /* if (params) EVP_PKEY_free(params); */
+    if (dhkey)  EVP_PKEY_free(dhkey);
+    if (params) EVP_PKEY_free(params);
 #endif
     return ret;
 }
@@ -3207,7 +3208,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     if (dh_pub)        DH_free(dh_pub);
 #ifdef HAS_EVP_PKEY_CTX
     if (ctx)           EVP_PKEY_CTX_free(ctx);
-    /* if (my_priv_key)   EVP_PKEY_free(my_priv_key); */
+    if (my_priv_key)   EVP_PKEY_free(my_priv_key);
     /* if (peer_pub_key)  EVP_PKEY_free(peer_pub_key); */
 #endif
     return ret;
