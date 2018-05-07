@@ -313,6 +313,13 @@ max_size(_Config) ->
                 []},
                #{},
                Cfg),
+    application:set_env(kernel,logger_max_size,unlimited),
+    "123456789012345678901234567890123456789012345678901234567890" =
+        format(info,
+               {"123456789012345678901234567890123456789012345678901234567890",
+                []},
+               #{},
+               Cfg),
     "123456789012..." =
         format(info,{"12345678901234567890",[]},#{},Cfg#{max_size=>15}),
     "12345678901234567890" =
@@ -343,6 +350,12 @@ depth(_Config) ->
                #{template=>Template}),
     application:set_env(kernel,logger_format_depth,12),
     "[1,2,3,4,5,6,7,8,9,0,1|...]" =
+        format(info,
+               {"~p",[[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]]},
+               #{},
+               #{template=>Template}),
+    application:set_env(kernel,logger_format_depth,unlimited),
+    "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]" =
         format(info,
                {"~p",[[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]]},
                #{},
