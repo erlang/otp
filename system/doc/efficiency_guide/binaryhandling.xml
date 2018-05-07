@@ -357,25 +357,8 @@ all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
   <c>Buffer</c> from a match context to a sub binary (or do nothing if
   <c>Buffer</c> is a binary already).</p>
 
-  <p>Before you begin to think that the compiler can optimize any binary
-  patterns, the following function cannot be optimized by the compiler
-  (currently, at least):</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-  <p>It was mentioned earlier that the compiler can only delay creation of
-  sub binaries if it knows that the binary will not be shared. In this case,
-  the compiler cannot know.</p>
-
-  <p>Soon it is shown how to rewrite <c>non_opt_eq/2</c> so that the delayed
-  sub binary optimization can be applied, and more importantly, it is shown
-  how you can find out whether your code can be optimized.</p>
+  <p>But in more complicated code, how can one know whether the
+  optimization is applied or not?</p>
 
   <section>
     <marker id="bin_opt_info"></marker>
@@ -422,67 +405,6 @@ after_zero(<<>>) ->
     binary cannot be delayed, because it will be returned.
     The warning for the second clause says that a sub binary will not be
     created (yet).</p>
-
-    <p>Let us revisit the earlier example of the code that could not
-    be optimized and find out why:</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-        %% NOT OPTIMIZED: called function non_opt_eq/2 does not
-	%%    begin with a suitable binary matching instruction
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-    <p>The compiler emitted two warnings. The <c>INFO</c> warning refers
-    to the function <c>non_opt_eq/2</c> as a callee, indicating that any
-    function that call <c>non_opt_eq/2</c> cannot make delayed sub binary
-    optimization. There is also a suggestion to change argument order.
-    The second warning (that happens to refer to the same line) refers to
-    the construction of the sub binary itself.</p>
-    
-    <p>Soon another example will show the difference between the
-    <c>INFO</c> and <c>NOT OPTIMIZED</c> warnings somewhat clearer, but
-    let us first follow the suggestion to change argument order:</p>
-
-  <code type="erl"><![CDATA[
-opt_eq(<<H,T1/binary>>, [H|T2]) ->
-        %% OPTIMIZED: creation of sub binary delayed
-    opt_eq(T1, T2);
-opt_eq(<<_,_/binary>>, [_|_]) ->
-    false;
-opt_eq(<<>>, []) ->
-    true.]]></code>
-
-    <p>The compiler gives a warning for the following code fragment:</p>
-
-  <code type="erl"><![CDATA[
-match_body([0|_], <<H,_/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-    done;
-...]]></code>
-
-    <p>The warning means that <em>if</em> there is a call to <c>match_body/2</c>
-    (from another clause in <c>match_body/2</c> or another function), the
-    delayed sub binary optimization will not be possible. More warnings will
-    occur for any place where a sub binary is matched out at the end of and
-    passed as the second argument to <c>match_body/2</c>, for example:</p>
-
-  <code type="erl"><![CDATA[
-match_head(List, <<_:10,Data/binary>>) ->
-        %% NOT OPTIMIZED: called function match_body/2 does not
-	%%     begin with a suitable binary matching instruction
-    match_body(List, Data).]]></code>
-
   </section>
 
   <section>
