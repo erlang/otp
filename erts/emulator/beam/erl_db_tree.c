@@ -417,7 +417,7 @@ static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show, DbTable *tbl);
-static int db_free_table_tree(DbTable *tbl);
+static int db_free_empty_table_tree(DbTable *tbl);
 
 static SWord db_free_table_continue_tree(DbTable *tbl, SWord);
 
@@ -470,7 +470,7 @@ DbTableMethod db_tree =
     db_select_replace_continue_tree,
     db_take_tree,
     db_delete_all_objects_tree,
-    db_free_table_tree,
+    db_free_empty_table_tree,
     db_free_table_continue_tree,
     db_print_tree,
     db_foreach_offheap_tree,
@@ -1969,8 +1969,9 @@ static void db_print_tree(fmtfn_t to, void *to_arg,
 }
 
 /* release all memory occupied by a single table */
-static int db_free_table_tree(DbTable *tbl)
+static int db_free_empty_table_tree(DbTable *tbl)
 {
+    ASSERT(tbl->tree.root == NULL);
     while (db_free_table_continue_tree(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 1;

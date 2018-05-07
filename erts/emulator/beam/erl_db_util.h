@@ -183,7 +183,7 @@ typedef struct db_table_method
 
     SWord (*db_delete_all_objects)(Process* p, DbTable* db, SWord reds);
 
-    int (*db_free_table)(DbTable* db /* [in out] */ );
+    int (*db_free_empty_table)(DbTable* db);
     SWord (*db_free_table_continue)(DbTable* db, SWord reds);
     
     void (*db_print)(fmtfn_t to,

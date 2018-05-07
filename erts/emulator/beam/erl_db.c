@@ -1782,7 +1782,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
 	db_lock(tb,LCK_WRITE);
 	free_heir_data(tb);
-	tb->common.meth->db_free_table(tb);
+	tb->common.meth->db_free_empty_table(tb);
 	db_unlock(tb,LCK_WRITE);
         table_dec_refc(tb, 0);
 	BIF_ERROR(BIF_P, BADARG);

@@ -418,7 +418,7 @@ static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
 			  int show,
 			  DbTable *tbl);
-static int db_free_table_hash(DbTable *tbl);
+static int db_free_empty_table_hash(DbTable *tbl);
 
 static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds);
 
@@ -531,7 +531,7 @@ DbTableMethod db_hash =
     db_select_replace_continue_hash,
     db_take_hash,
     db_delete_all_objects_hash,
-    db_free_table_hash,
+    db_free_empty_table_hash,
     db_free_table_continue_hash,
     db_print_hash,
     db_foreach_offheap_hash,
@@ -2426,9 +2426,9 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
     }
 }
 
-/* release all memory occupied by a single table */
-static int db_free_table_hash(DbTable *tbl)
+static int db_free_empty_table_hash(DbTable *tbl)
 {
+    ASSERT(NITEMS(tbl) == 0);
     while (db_free_table_continue_hash(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 0;
