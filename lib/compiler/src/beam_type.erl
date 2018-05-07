@@ -462,6 +462,9 @@ update({set,[D],[Index,Reg],{bif,element,_}}, Ts0) ->
               end,
     Ts = tdb_meet(Reg, {tuple,min_size,MinSize,[]}, Ts0),
     tdb_store(D, any, Ts);
+update({set,[D],[_Key,Map],{bif,map_get,_}}, Ts0) ->
+    Ts = tdb_meet(Map, map, Ts0),
+    tdb_store(D, any, Ts);
 update({set,[D],Args,{bif,N,_}}, Ts) ->
     Ar = length(Args),
     BoolOp = erl_internal:new_type_test(N, Ar) orelse

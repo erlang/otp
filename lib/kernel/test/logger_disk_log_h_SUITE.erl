@@ -497,24 +497,19 @@ disk_log_sync(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
 
-    start_tracer([{?MODULE,format,2},
-                  {disk_log,blog,2},
+    start_tracer([{disk_log,blog,2},
                   {disk_log,sync,1}],
-                 [{formatter,"first"},
-                  {disk_log,blog},
+                 [{disk_log,blog,<<"first\n">>},
                   {disk_log,sync}]),
 
     logger:info("first", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
-    start_tracer([{?MODULE,format,2},
-                  {disk_log,blog,2},
+    start_tracer([{disk_log,blog,2},
                   {disk_log,sync,1}],
-                 [{formatter,"second"},
-                  {formatter,"third"},
-                  {disk_log,blog},
-                  {disk_log,blog},
+                 [{disk_log,blog,<<"second\n">>},
+                  {disk_log,blog,<<"third\n">>},
                   {disk_log,sync}]),
     %% two log requests in fast succession will make the handler skip
     %% an automatic disk log sync
@@ -531,13 +526,10 @@ disk_log_sync(Config) ->
     no_repeat = maps:get(filesync_repeat_interval,
                          logger_disk_log_h:info(?MODULE)),
 
-    start_tracer([{?MODULE,format,2},
-                  {disk_log,blog,2},
+    start_tracer([{disk_log,blog,2},
                   {disk_log,sync,1}],
-                 [{formatter,"fourth"},
-                  {disk_log,blog},
-                  {formatter,"fifth"},
-                  {disk_log,blog},
+                 [{disk_log,blog,<<"fourth\n">>},
+                  {disk_log,blog,<<"fifth\n">>},
                   {disk_log,sync}]),
 
     logger:info("fourth", ?domain),
@@ -566,6 +558,7 @@ disk_log_sync(Config) ->
     check_tracer(100),
     ok.
 disk_log_sync(cleanup,_Config) ->
+    dbg:stop_clear(),
     logger:remove_handler(?MODULE).
 
 disk_log_wrap(Config) ->
@@ -623,6 +616,7 @@ disk_log_wrap(Config) ->
     ok.
 
 disk_log_wrap(cleanup,_Config) ->
+    dbg:stop_clear(),
     logger:remove_handler(?MODULE).
 
 disk_log_full(Config) ->
@@ -668,6 +662,7 @@ disk_log_full(Config) ->
      {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
+    dbg:stop_clear(),
     logger:remove_handler(?MODULE).    
 
 disk_log_events(Config) ->
@@ -713,6 +708,7 @@ disk_log_events(Config) ->
                   end, Received),
     ok.
 disk_log_events(cleanup, _Config) ->
+    dbg:stop_clear(),
     logger:remove_handler(?MODULE).    
 
 write_failure(Config) ->
@@ -763,7 +759,7 @@ sync_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     FileName = lists:concat([?MODULE,"_",?FUNCTION_NAME]),
     File = filename:join(Dir, FileName),
-    Log = lists:concat([File,".1"]),
+
 
     Node = start_h_on_new_node(Config, ?FUNCTION_NAME, File),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
@@ -832,10 +828,10 @@ log_on_remote_node(Node,Msg) ->
     ok.
 
 %% functions for test hook macros to be called by rpc
-set_internal_log(Mod, Func) ->
-    ?set_internal_log({Mod,Func}).
-set_result(Op, Result) ->
-    ?set_result(Op, Result).
+set_internal_log(_Mod, _Func) ->
+    ?set_internal_log({_Mod,_Func}).
+set_result(_Op, _Result) ->
+    ?set_result(_Op, _Result).
 set_defaults() ->
     ?set_defaults().
 
@@ -885,7 +881,7 @@ op_switch_to_drop(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 op_switch_to_flush() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{minutes,3}}].
 op_switch_to_flush(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     
@@ -988,7 +984,7 @@ kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
-    {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(?MODULE),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = 2000,
@@ -1025,7 +1021,7 @@ qlen_kill_new(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 mem_kill_new(Config) ->
-    {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(?MODULE),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = 2000,
@@ -1111,7 +1107,7 @@ restart_after(cleanup, _Config) ->
 %% during high load to verify that sync, dropping and flushing is
 %% handled correctly.
 handler_requests_under_load() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{minutes,3}}].
 handler_requests_under_load(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig =
@@ -1140,7 +1136,7 @@ handler_requests_under_load(Config) ->
     NoOfReqs = lists:foldl(fun({_,Res}, N) -> N + length(Res) end, 0, ReqResult),
     ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file:delete(Log).
-handler_requests_under_load(cleanup, Config) ->
+handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
@@ -1369,7 +1365,6 @@ start_tracer(Trace,Expected) ->
     Pid = self(),
     dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
     dbg:p(whereis(?MODULE),[c]),
-    dbg:p(Pid,[c]),
     tpl(Trace),
     ok.
 
@@ -1387,13 +1382,14 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{?MODULE,format,[#{msg:={string,Msg}}|_]}}, {Pid,[{formatter,Msg}|Expected]}) ->
-    maybe_tracer_done(Pid,Expected,{formatter,Msg});
 tracer({trace,_,call,{logger_disk_log_h,handle_cast,[{Op,_}|_]}}, {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op});
+tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]}}, {Pid,[{Mod,Func,Data}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
 tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func});
 tracer({trace,_,call,Call}, {Pid,Expected}) ->
+    ct:log("Tracer got unexpected: ~p~nExpected: ~p~n",[Call,Expected]),
     Pid ! {tracer_got_unexpected,Call,Expected},
     {Pid,Expected}.
 
@@ -1413,5 +1409,6 @@ check_tracer(T) ->
             dbg:stop_clear(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
+            dbg:stop_clear(),
             ct:fail({timeout,tracer})
     end.

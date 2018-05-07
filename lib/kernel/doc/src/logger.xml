@@ -131,8 +131,8 @@
 
     <code>
 #{mfa=>{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY},
-        file=>?FILE,
-        line=>?LINE}
+  file=>?FILE,
+  line=>?LINE}
     </code>
 
     <p>The call is wrapped in a case statement and will be evaluated
@@ -297,7 +297,7 @@
 	  <tag>print</tag>
           <item>Pretty print all the current logger configuration to
             standard out. Example:
-            <code><![CDATA[1> logger:i().
+            <code><![CDATA[1> logger:i(print).
 Current logger configuration:
   Level: info
   FilterDefault: log
@@ -404,21 +404,55 @@ Current logger configuration:
 
     <func>
       <name name="set_logger_config" arity="1"/>
+      <fsummary>Set configuration data for the logger.</fsummary>
+      <desc>
+        <p>Set configuration data for the logger. This overwrites the
+          current logger configuration.</p>
+	<p>To modify the existing configuration,
+	  use <seealso marker="#set_logger_config-2"><c>set_logger_config/2</c>
+	  </seealso>, or read the current configuration
+	  with <seealso marker="#get_logger_config-0"><c>get_logger_config/0</c>
+	  </seealso>, then merge in your added or updated
+	  associations before writing it back.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_logger_config" arity="2"/>
       <fsummary>Add or update configuration data for the logger.</fsummary>
       <desc>
-        <p>Add or update configuration data for the logger.</p>
+        <p>Add or update configuration data for the logger. If the
+          given <c><anno>Key</anno></c> already exists, its associated
+          value will be set to <c><anno>Value</anno></c>. If it
+          doesn't exist, it will be added.</p>
       </desc>
     </func>
 
     <func>
       <name name="set_handler_config" arity="2"/>
+      <fsummary>Set configuration data for the specified handler.</fsummary>
+      <desc>
+        <p>Set configuration data for the specified handler. This
+          overwrites the current handler configuration.</p>
+	<p>To modify the existing configuration,
+	  use <seealso marker="#set_handler_config-3"><c>set_handler_config/3</c>
+	  </seealso>, or read the current configuration
+	  with <seealso marker="#get_handler_config-1"><c>get_handler_config/1</c>
+	  </seealso>, then merge in your added or updated
+	  associations before writing it back.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_handler_config" arity="3"/>
       <fsummary>Add or update configuration data for the specified
         handler.</fsummary>
       <desc>
         <p>Add or update configuration data for the specified
-          handler.</p>
+          handler. If the
+          given <c><anno>Key</anno></c> already exists, its associated
+          value will be set to <c><anno>Value</anno></c>. If it
+          doesn't exist, it will be added.</p>
       </desc>
     </func>
 
@@ -437,10 +471,9 @@ Current logger configuration:
       <name name="set_process_metadata" arity="1"/>
       <fsummary>Set metadata to use when logging from current process.</fsummary>
       <desc>
-        <p>Set metadata which <c>logger</c> automatically inserts it
-          in all log events produced on the current
-          process. Subsequent calls will overwrite previous data set
-          by this function.</p>
+        <p>Set metadata which <c>logger</c> automatically inserts in
+          all log events produced on the current process. Subsequent
+          calls will overwrite previous data set by this function.</p>
 	<p>When logging, location data produced by the log macros,
 	  and/or metadata given as argument to the log call (API
 	  function or macro), will be merged with the process
@@ -448,6 +481,21 @@ Current logger configuration:
 	  argument to the log call will overwrite values in the
 	  process metadata, which in turn will overwrite values from
 	  the location data.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_process_metadata" arity="1"/>
+      <fsummary>Update metadata to use when logging from current process.</fsummary>
+      <desc>
+	<p>Update metadata to use when logging from current process</p>
+	<p>This function behaves as if it was implemented as follows:</p>
+	<code type="erl">
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta))
+	</code>
+	<p>If no process metadata exists, the function behaves as
+	  <seealso marker="#set_process_metadata-1"><c>set_process_metadata/1</c>
+	  </seealso>.</p>
       </desc>
     </func>
 

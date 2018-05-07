@@ -929,6 +929,7 @@ bool_test(is_port,1) -> true;
 bool_test(is_reference,1) -> true;
 bool_test(is_tuple,1) -> true;
 bool_test(is_map,1) -> true;
+bool_test(is_map_key, 2) -> true;
 bool_test(is_binary,1) -> true;
 bool_test(is_function,1) -> true;
 bool_test(is_record,2) -> true;

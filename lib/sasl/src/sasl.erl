@@ -130,6 +130,7 @@ add_sasl_logger(undefined, _Level) -> ok;
 add_sasl_logger(std, undefined) -> ok;
 add_sasl_logger(Dest, Level) ->
     FC0 = #{legacy_header=>true,
+            single_line=>false,
             template=>[{logger_formatter,header},"\n",msg,"\n"]},
     FC = case application:get_env(sasl,utc_log) of
              {ok,Bool} when is_boolean(Bool) ->

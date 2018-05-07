@@ -763,8 +763,16 @@
     <datatype>
       <name name="rekey_limit_common_option"/>
       <desc>
-	<p>Sets a limit, in bytes, when rekeying is to be initiated. 
-	Defaults to once per each GB and once per hour.</p>
+	<p>Sets the limit when rekeying is to be initiated. Both the max time and max amount of data
+	could be configured:
+	</p>
+	<list>
+	  <item><c>{Minutes, Bytes}</c> initiate rekeying when any of the limits are reached.</item>
+	  <item><c>Bytes</c> initiate rekeying when <c>Bytes</c> number of bytes are transferred,
+	  or at latest after one hour.</item>
+	</list>
+	<p>When a rekeying is done, both the timer and the byte counter are restarted.
+	Defaults to one hour and one GByte.</p>
       </desc>
     </datatype>
 

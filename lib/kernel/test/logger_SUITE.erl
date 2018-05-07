@@ -666,6 +666,9 @@ process_metadata(_Config) ->
     check_logged(info,S3,#{time=>Time,line=>0,custom=>func}),
 
     ProcMeta = logger:get_process_metadata(),
+    ok = logger:update_process_metadata(#{custom=>changed,custom2=>added}),
+    Expected = ProcMeta#{custom:=changed,custom2=>added},
+    Expected = logger:get_process_metadata(),
     ok = logger:unset_process_metadata(),
     undefined = logger:get_process_metadata(),
 
@@ -720,7 +723,7 @@ check_maps(Expected,Got,What) ->
 adding_handler(_Id,Config) ->
     maybe_send(add),
     {ok,Config}.
-removing_handler(_Id) ->
+removing_handler(_Id,_Config) ->
     maybe_send(remove),
     ok.
 changing_config(_Id,_Old,#{call:=Fun}) ->

@@ -86,12 +86,12 @@
         <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
-        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_binary]]></c> |
-        <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> |
-        <c><![CDATA[is_seq_trace]]></c> | <c><![CDATA['and']]></c> |
-        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
-        <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
-        <c><![CDATA['orelse']]></c>
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_map_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
+        <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
+        <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
+        <c><![CDATA['andalso']]></c> | <c><![CDATA['orelse']]></c>
       </item>
       <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
         { GuardFunction, ConditionExpression, ... } | TermConstruct
@@ -168,11 +168,12 @@
         <c><![CDATA[is_list]]></c> | <c><![CDATA[is_number]]></c> |
         <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
         <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> |
-        <c><![CDATA[is_map]]></c> | <c><![CDATA[is_binary]]></c> |
-        <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> |
-        <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> |
-        <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
-        <c><![CDATA['andalso']]></c> | <c><![CDATA['orelse']]></c>
+        <c><![CDATA[is_map]]></c> | <c><![CDATA[map_is_key]]></c> |
+        <c><![CDATA[is_binary]]></c> | <c><![CDATA[is_function]]></c> |
+        <c><![CDATA[is_record]]></c> | <c><![CDATA['and']]></c> |
+        <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> |
+        <c><![CDATA['xor']]></c> | <c><![CDATA['andalso']]></c> |
+        <c><![CDATA['orelse']]></c>
       </item>
       <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
         { GuardFunction, ConditionExpression, ... } | TermConstruct

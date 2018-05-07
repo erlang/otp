@@ -589,6 +589,7 @@ is_gc_bif(element, 2) -> false;
 is_gc_bif(get, 1) -> false;
 is_gc_bif(tuple_size, 1) -> false;
 is_gc_bif(map_get, 2) -> false;
+is_gc_bif(is_map_key, 2) -> false;
 is_gc_bif(Bif, Arity) ->
     not (erl_internal:bool_op(Bif, Arity) orelse
 	 erl_internal:new_type_test(Bif, Arity) orelse
@@ -1620,6 +1621,11 @@ test_cg(is_boolean, [#k_atom{val=Val}], Fail, I, Vdb, Bef, St) ->
 	     false -> [{jump,{f,Fail}}]
 	 end,
     {Is,Aft,St};
+test_cg(is_map_key, As, Fail, I, Vdb, Bef, St) ->
+    [Key,Map] = cg_reg_args(As, Bef),
+    Aft = clear_dead(Bef, I, Vdb),
+    F = {f,Fail},
+    {[{test,is_map,F,[Map]},{test,has_map_fields,F,Map,{list,[Key]}}],Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),

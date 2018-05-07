@@ -73,18 +73,19 @@ all() ->
 default(_Config) ->
     String1 = format(info,{"~p",[term]},#{},#{}),
     ct:log(String1),
-    [_Date,_Time,"info:\nterm\n"] = string:lexemes(String1," "),
+    [_Date,_Time,"info:","term\n"] = string:lexemes(String1," "),
 
     Time = timestamp(),
     ExpectedTimestamp = default_time_format(Time),
     String2 = format(info,{"~p",[term]},#{time=>Time},#{}),
     ct:log(String2),
-    " info:\nterm\n" = string:prefix(String2,ExpectedTimestamp), 
+    " info: term\n" = string:prefix(String2,ExpectedTimestamp),
     ok.
 
 legacy_header(_Config) ->
     Time = timestamp(),
-    String1 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>true}),
+    String1 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>true,
+                                                        single_line=>false}),
     ct:log(String1),
     "=INFO REPORT==== "++Rest = String1,
     [Timestamp,"\nterm\n"] = string:lexemes(Rest," ="),
@@ -98,12 +99,14 @@ legacy_header(_Config) ->
     true = lists:member(M,["Jan","Feb","Mar","Apr","May","Jun",
                            "Jul","Aug","Sep","Oct","Nov","Dec"]),
 
-    String2 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>false}),
+    String2 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>false,
+                                                        single_line=>false}),
     ct:log(String2),
     ExpectedTimestamp = default_time_format(Time),
     " info:\nterm\n" = string:prefix(String2,ExpectedTimestamp), 
     
-    String3 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>bad}),
+    String3 = format(info,{"~p",[term]},#{time=>Time},#{legacy_header=>bad,
+                                                        single_line=>false}),
     ct:log(String3),
     String3 = String2,
 
@@ -114,7 +117,8 @@ legacy_header(_Config) ->
     String4 = String1,
 
     String5 = format(info,{"~p",[term]},#{}, % <--- no time
-                     #{legacy_header=>true}),
+                     #{legacy_header=>true,
+                       single_line=>false}),
     ct:log(String5),
     "=INFO REPORT==== "++_ = String5,
     ok.
@@ -289,45 +293,43 @@ report_cb(_Config) ->
     ok.
 
 max_size(_Config) ->
-    Template = [msg],
+    Cfg = #{template=>[msg],
+            single_line=>false},
     "12345678901234567890" =
-        format(info,{"12345678901234567890",[]},#{},#{template=>Template}),
+        format(info,{"12345678901234567890",[]},#{},Cfg),
     application:set_env(kernel,logger_max_size,11),
     "12345678901234567890" = % min value is 50, so this is not limited
-        format(info,{"12345678901234567890",[]},#{},#{template=>Template}),
+        format(info,{"12345678901234567890",[]},#{},Cfg),
     "12345678901234567890123456789012345678901234567..." = % 50
         format(info,
                {"123456789012345678901234567890123456789012345678901234567890",
                 []},
                #{},
-               #{template=>Template}),
+               Cfg),
     application:set_env(kernel,logger_max_size,53),
     "12345678901234567890123456789012345678901234567890..." = %53
         format(info,
                {"123456789012345678901234567890123456789012345678901234567890",
                 []},
                #{},
-               #{template=>Template}),
+               Cfg),
     application:set_env(kernel,logger_max_size,unlimited),
     "123456789012345678901234567890123456789012345678901234567890" =
         format(info,
                {"123456789012345678901234567890123456789012345678901234567890",
                 []},
                #{},
-               #{template=>Template}),
+               Cfg),
     "123456789012..." =
-        format(info,{"12345678901234567890",[]},#{},#{template=>Template,
-                                                      max_size=>15}),
+        format(info,{"12345678901234567890",[]},#{},Cfg#{max_size=>15}),
     "12345678901234567890" =
-        format(info,{"12345678901234567890",[]},#{},#{template=>Template,
-                                                      max_size=>unlimited}),
+        format(info,{"12345678901234567890",[]},#{},Cfg#{max_size=>unlimited}),
     %% Check that one newline at the end of the line is kept (if it exists)
     "12345678901...\n" =
-        format(info,{"12345678901234567890\n",[]},#{},#{template=>Template,
-                                                        max_size=>15}),
+        format(info,{"12345678901234567890\n",[]},#{},Cfg#{max_size=>15}),
     "12345678901...\n" =
-        format(info,{"12345678901234567890",[]},#{},#{template=>[msg,"\n"],
-                                                      max_size=>15}),
+        format(info,{"12345678901234567890",[]},#{},Cfg#{template=>[msg,"\n"],
+                                                         max_size=>15}),
     ok.
 max_size(cleanup,_Config) ->
     application:unset_env(kernel,logger_max_size),
@@ -454,20 +456,20 @@ format_time(_Config) ->
     ExpectedTimestamp1 = default_time_format(Time1),
     String1 = format(info,{"~p",[term]},#{time=>Time1},#{}),
     ct:log(String1),
-    " info:\nterm\n" = string:prefix(String1,ExpectedTimestamp1),
+    " info: term\n" = string:prefix(String1,ExpectedTimestamp1),
 
     Time2 = timestamp(),
     ExpectedTimestamp2 = default_time_format(Time2,true),
     String2 = format(info,{"~p",[term]},#{time=>Time2},#{utc=>true}),
     ct:log(String2),
-    " info:\nterm\n" = string:prefix(String2,ExpectedTimestamp2),
+    " info: term\n" = string:prefix(String2,ExpectedTimestamp2),
 
     application:set_env(kernel,logger_utc,true),
     Time3 = timestamp(),
     ExpectedTimestamp3 = default_time_format(Time3,true),
     String3 = format(info,{"~p",[term]},#{time=>Time3},#{}),
     ct:log(String3),
-    " info:\nterm\n" = string:prefix(String3,ExpectedTimestamp3),
+    " info: term\n" = string:prefix(String3,ExpectedTimestamp3),
 
     ok.
 
