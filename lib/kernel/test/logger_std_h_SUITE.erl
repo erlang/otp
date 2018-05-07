@@ -499,86 +499,79 @@ filesync(Config) ->
                             #{logger_std_h => #{type => Type},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
-                              formatter=>{?MODULE,self()}}),
-    Tester = self(),
-    TraceFun = fun({trace,_,call,{Mod,Func,Details}}, Pid) ->
-                       Pid ! {trace,Mod,Func,Details},
-                       Pid;
-                  ({trace,TPid,'receive',Received}, Pid) ->
-                       Pid ! {trace,TPid,Received},
-                       Pid
-               end,
-    {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
-    FileCtrlPid = maps:get(file_ctrl_pid , logger_std_h:info(?MODULE)),
-    {ok,_} = dbg:p(FileCtrlPid, [c]),
-    {ok,_} = dbg:tpl(logger_std_h, write_to_dev, 5, []),
-    {ok,_} = dbg:tpl(logger_std_h, sync_dev, 4, []),
-    {ok,_} = dbg:tp(file, datasync, 1, []),
+                              formatter=>{?MODULE,nl}}),
+
+    %% check repeated filesync happens
+    start_tracer([{logger_std_h, write_to_dev, 5},
+                  {logger_std_h, sync_dev, 4},
+                  {file, datasync, 1}],
+                 [{logger_std_h, write_to_dev, <<"first\n">>},
+                  {logger_std_h, sync_dev},
+                  {file,datasync}]),
 
     logger:info("first", ?domain),
     %% wait for automatic filesync
-    timer:sleep(?FILESYNC_REP_INT),
-    Expected1 = [{log,"first"}, {trace,logger_std_h,write_to_dev},
-                 {trace,logger_std_h,sync_dev}, {trace,file,datasync}],
-    
+    check_tracer(?FILESYNC_REP_INT*2),
+
+    %% check that explicit filesync is only done once
+    start_tracer([{logger_std_h, write_to_dev, 5},
+                  {logger_std_h, sync_dev, 4},
+                  {file, datasync, 1}],
+                 [{logger_std_h, write_to_dev, <<"second\n">>},
+                  {logger_std_h, sync_dev},
+                  {file,datasync},
+                  {no_more,500}
+                 ]),
     logger:info("second", ?domain),
     %% do explicit filesync
     logger_std_h:filesync(?MODULE),
     %% a second filesync should be ignored
     logger_std_h:filesync(?MODULE),
-    Expected2 =  [{log,"second"}, {trace,logger_std_h,write_to_dev},
-                  {trace,logger_std_h,sync_dev}, {trace,file,datasync}],
+    check_tracer(100),
 
     %% check that if there's no repeated filesync active,
     %% a filesync is still performed when handler goes idle
     logger:set_handler_config(?MODULE, logger_std_h,
                               #{filesync_repeat_interval => no_repeat}),
     no_repeat = maps:get(filesync_repeat_interval, logger_std_h:info(?MODULE)),
+    %% The following timer is to make sure the time from last log
+    %% ("second") to next ("third") is long enough, so the a flush is
+    %% triggered by the idle timeout between "thrid" and "fourth".
+    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
+    start_tracer([{logger_std_h, write_to_dev, 5},
+                  {logger_std_h, sync_dev, 4},
+                  {file, datasync, 1}],
+                 [{logger_std_h, write_to_dev, <<"third\n">>},
+                  {logger_std_h, sync_dev},
+                  {file,datasync},
+                  {logger_std_h, write_to_dev, <<"fourth\n">>},
+                  {logger_std_h, sync_dev},
+                  {file,datasync}]),
     logger:info("third", ?domain),
+    %% wait for automatic filesync
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
     logger:info("fourth", ?domain),
     %% wait for automatic filesync
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
-    Expected3 = [{log,"third"}, {trace,logger_std_h,write_to_dev},
-                 {log,"fourth"}, {trace,logger_std_h,write_to_dev},
-                 {trace,logger_std_h,sync_dev}, {trace,file,datasync}],
-
-    dbg:stop_clear(),
-
-    %% verify that filesync has been performed as expected
-    Received1 = lists:map(fun({trace,M,F,_}) -> {trace,M,F};
-                             (Other) -> Other
-                          end, test_server:messages_get()),
-    ct:pal("Trace #1 =~n~p", [Received1]),
-    Received1 = Expected1 ++ Expected2 ++ Expected3,
-
-    try_read_file(Log, {ok,<<"first\nsecond\nthird\nfourth\n">>}, 1000),
-    
-    {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
-    {ok,_} = dbg:p(whereis(?MODULE), [c]),
-    {ok,_} = dbg:tpl(logger_std_h, handle_cast, 2, []),
+    check_tracer(?IDLE_DETECT_TIME_MSEC*2),
 
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
+    OneSync = {logger_std_h,handle_cast,repeated_filesync},
+    %% receive 1 initial repeated_filesync, then 1 per sec
+    start_tracer([{logger_std_h,handle_cast,2}],
+                 [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+
     logger:set_handler_config(?MODULE, logger_std_h,
                               #{filesync_repeat_interval => SyncInt}),
     SyncInt = maps:get(filesync_repeat_interval, logger_std_h:info(?MODULE)),
     timer:sleep(WaitT),
     logger:set_handler_config(?MODULE, logger_std_h,
-                              #{filesync_repeat_interval => no_repeat}),    
-    dbg:stop_clear(),
-
-    Received2 = lists:map(fun({trace,_M,handle_cast,[{Op,_},_]}) -> {trace,Op};
-                             (Other) -> Other
-                          end, test_server:messages_get()),
-    ct:pal("Trace #2 =~n~p", [Received2]),
-    OneSync = [{trace,repeated_filesync}],
-    %% receive 1 initial repeated_filesync, then 1 per sec
-    Received2 =
-        lists:flatten([OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+                              #{filesync_repeat_interval => no_repeat}),
+    check_tracer(100),
     ok.
 filesync(cleanup, _Config) ->
+    dbg:stop_clear(),
     logger:remove_handler(?MODULE).
 
 write_failure(Config) ->
@@ -785,7 +778,7 @@ op_switch_to_drop_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 op_switch_to_flush_file() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{minutes,3}}].
 op_switch_to_flush_file(Config) ->
     {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
 
@@ -1052,7 +1045,7 @@ restart_after(cleanup, _Config) ->
 %% during high load to verify that sync, dropping and flushing is
 %% handled correctly.
 handler_requests_under_load() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{minutes,3}}].
 handler_requests_under_load(Config) ->
     {Log,HConfig,StdHConfig} =
         start_handler(?MODULE, ?FUNCTION_NAME, Config),
@@ -1393,4 +1386,68 @@ analyse(Msgs) ->
         {test,From,TestFun} ->
             From ! {result,self(),TestFun(Msgs)},
             analyse(Msgs)
+    end.
+
+start_tracer(Trace,Expected) ->
+    Pid = self(),
+    FileCtrlPid = maps:get(file_ctrl_pid, logger_std_h:info(?MODULE)),
+    dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
+    dbg:p(whereis(?MODULE),[c]),
+    dbg:p(FileCtrlPid,[c]),
+    tpl(Trace),
+    ok.
+
+tpl([{M,F,A}|Trace]) ->
+    {ok,Match} = dbg:tpl(M,F,A,[]),
+    case lists:keyfind(matched,1,Match) of
+        {_,_,1} ->
+            ok;
+        _ ->
+            dbg:stop_clear(),
+            throw({skip,"Can't trace "++atom_to_list(M)++":"++
+                       atom_to_list(F)++"/"++integer_to_list(A)})
+    end,
+    tpl(Trace);
+tpl([]) ->
+    ok.
+
+tracer({trace,_,call,{logger_std_h,handle_cast,[{Op,_}|_]}},
+       {Pid,[{Mod,Func,Op}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func,Op});
+tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[_,Data,_,_,_]}},
+       {Pid,[{Mod,Func,Data}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
+tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func});
+tracer({trace,_,call,Call}, {Pid,Expected}) ->
+    ct:log("Tracer got unexpected: ~p~nExpected: ~p~n",[Call,Expected]),
+    Pid ! {tracer_got_unexpected,Call,Expected},
+    {Pid,Expected}.
+
+maybe_tracer_done(Pid,[]=Expected,Got) ->
+    ct:log("Tracer got: ~p~n",[Got]),
+    Pid ! {tracer_done,0},
+    {Pid,Expected};
+maybe_tracer_done(Pid,[{no_more,T}]=Expected,Got) ->
+    ct:log("Tracer got: ~p~n",[Got]),
+    Pid ! {tracer_done,T},
+    {Pid,Expected};
+maybe_tracer_done(Pid,Expected,Got) ->
+    ct:log("Tracer got: ~p~n",[Got]),
+    {Pid,Expected}.
+
+check_tracer(T) ->
+    check_tracer(T,fun() -> ct:fail({timeout,tracer}) end).
+check_tracer(T,TimeoutFun) ->
+    receive
+        {tracer_done,Delay} ->
+            %% Possibly wait Delay ms to check that no unexpected
+            %% traces are received
+            check_tracer(Delay,fun() -> ok end);
+        {tracer_got_unexpected,Got,Expected} ->
+            dbg:stop_clear(),
+            ct:fail({tracer_got_unexpected,Got,Expected})
+    after T ->
+            dbg:stop_clear(),
+            TimeoutFun()
     end.

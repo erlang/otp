@@ -37,7 +37,141 @@
 
   <description>
     <p>Default formatter for the Logger application.</p>
+
   </description>
+
+  <section>
+    <title>Configuration</title>
+    <p>The following configuration parameters can be set
+      for <c>logger_formatter</c>:</p>
+    <taglist>
+      <tag><c>single_line = boolean()</c></tag>
+      <item>
+	<p>If set to <c>true</c>, all newlines in the message are
+	  replaced with <c>", "</c>, and whitespaces following
+	  directly after newlines are removed. Note that newlines
+	  added by the formatter template are not replaced.</p>
+	<p>Default is <c>true</c>.</p>
+      </item>
+      <tag><c>legacy_header = boolen()</c></tag>
+      <item>
+	<p>If set to <c>true</c> a header field is added to
+	  logger_formatter's part of <c>Metadata</c>. The value of
+	  this field is a string similar to the header created by the
+	  old <c>error_logger</c> event handlers. It can be included
+	  in the log event by adding the
+	  tuple <c>{logger_formatter,header}</c> to the
+	  template. See <seealso marker="#default_templates">Default
+	  Templates</seealso> for more information</p>
+	<p>Default is <c>false</c>.</p>
+      </item>
+      <tag><c>report_cb = fun((logger:report()) -> {io:format(),[term()]})</c></tag>
+      <item>
+	<p>A function with arity 1,
+	  returning <c>{Format,Args}</c>. This function will replace
+	  any <c>report_cb</c> found in metadata.</p>
+      </item>
+      <tag><c>depth = pos_integer() | unlimited</c></tag>
+      <item>
+	<p>A positive integer representing the maximum depth to
+	  which terms shall be printed by this formatter. Format
+	  strings passed to this formatter are rewritten. The format
+	  controls ~p and ~w are replaced with ~P and ~W,
+	  respectively, and the value is used as the depth
+	  parameter. For details, see
+	  <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
+	  in STDLIB.</p>
+	<p>Default is <c>unlimited</c>.</p>
+      </item>
+      <tag><c>chars_limit = pos_integer() | unlimited</c></tag>
+      <item>
+	<p>A positive integer representing the value of the option
+	  with the same name to be used when calling
+	  <seealso marker="stdlib:io_lib#format-3">io_lib:format/3</seealso>.
+	  This value limits the total number of characters printed
+	  for each log event. Note that this is a soft limit. For a
+	  hard truncation limit, see option <c>max_size</c>.</p>
+	<p>Default is <c>unlimited</c>.</p>
+      </item>
+      <tag><c>max_size = pos_integer() | unlimited</c></tag>
+      <item>
+	<p>A positive integer representing the absolute maximum size
+	  a string returned from this formatter can have. If the
+	  formatted string is longer, after possibly being limited
+	  by <c>depth</c> and/or <c>chars_limit</c>, it will be
+	  truncated.</p>
+	<p>Default is <c>unlimited</c>.</p>
+      </item>
+      <tag><c>template = </c><seealso marker="#type-template"><c>template()</c></seealso></tag>
+      <item>
+	<p>The template is a list of atoms, tuples and strings. The
+	  atoms <c>level</c> or <c>msg</c>, are treated as
+	  placeholders for the severity level and the log message,
+	  repectively. Other atoms or tuples are interpreted as
+	  placeholders for metadata, where atoms are expected to
+	  match top level keys, and tuples represent paths to sub
+	  keys in a nested map. For example the
+	  tuple <c>{key1,key2}</c> will be replaced by the value of
+	  the <c>key2</c> field in the nested map below. The
+	  atom <c>key1</c> on its own would be replaced by the
+	  complete value of the <c>key1</c> field. The values are
+	  converted to strings.</p>
+
+<code>
+#{key1=>#{key2=>my_value,
+          ...}
+  ...}</code>
+
+        <p>Strings are printed literally.</p>
+	<p>The default template differs depending on the values
+	  of <c>legacy_header</c>
+	  and <c>single_line</c>. See <seealso marker="#default_templates">Default
+	  Templates</seealso> for more information</p>
+      </item>
+      <tag><c>utc = boolean()</c></tag>
+      <item>
+	<p>If set to <c>true</c>, all dates are displayed in Universal
+	  Coordinated Time. Default is <c>false</c>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="default_templates"/>
+    <title>Default templates</title>
+    <p>The default template when <c>legacy_header=true</c> is</p>
+
+    <code>[{logger_formatter,header},"\n",msg,"\n"]</code>
+
+    <p>which will cause log entries like this:</p>
+
+    <code>=ERROR REPORT==== 29-Dec-2017::13:30:51.245123 ===
+    process: &lt;0.74.0&gt;
+    exit_reason: "Something went wrong"</code>
+
+    <p>Note that all eight levels might occur here, not
+      only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c>. And also that
+      micro seconds are added at the end of the timestamp.</p>
+
+    <p>The default template when <c>single_line=true</c> is</p>
+
+    <code>[time," ",level,": ",msg,"\n"]</code>
+
+    <p>which will cause log entries like this:</p>
+
+    <code>2017-12-29 13:31:49.640317 error: process: &lt;0.74.0&gt;, exit_reason: "Something went wrong"</code>
+
+    <p>The default template when both <c>legacy_header</c> and
+      <c>single_line</c> are set to false is:</p>
+
+    <code>[time," ",level,":\n",msg,"\n"]</code>
+
+    <p>which will cause log entries like this:</p>
+
+    <code>2017-12-29 13:32:25.191925 error:
+    process: &lt;0.74.0&gt;
+    exit_reason: "Something went wrong"</code>
+  </section>
 
   <datatypes>
     <datatype>
@@ -52,101 +186,8 @@
       <name name="format" arity="2"/>
       <fsummary>Formats the given message.</fsummary>
       <desc>
-        <p>Formats the given message.</p>
-	<p>The template is a list of atoms, tuples and strings. Atoms
-	  can be <c>level</c> or <c>msg</c>, which are placeholders
-	  for the severity level and the log message,
-	  repectively. Tuples are interpreted as placeholders for
-	  metadata. Each element in the tuple must be an atom which
-	  matches a key in the nested metadata map, e.g. the
-	  tuple <c>{key1,key2}</c> will be replaced by the value of
-	  the key2 field in this nested map (the value vill be
-	  converted to a string):</p>
-
-<code>
-#{key1=>#{key2=>my_value,
-          ...},
-  ...}</code>
-
-
-        <p> Strings are printed literally.</p>
-
-	<p><c>depth</c> is a positive integer representing the maximum
-	  depth to which terms shall be printed by this
-	  formatter. Format strings passed to this formatter are
-	  rewritten. The format controls ~p and ~w are replaced with
-	  ~P and ~W, respectively, and the value is used as the depth
-	  parameter. For details, see
-	  <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
-	  in STDLIB.</p>
-
-	<p><c>chars_limit</c> is a positive integer representing the
-	  value of the option with the same name to be used when calling
-	  <seealso marker="stdlib:io#format-3">io:format/3</seealso>. This
-	  value limits the total number of characters printed bu the
-	  formatter. Notes that this is a soft limit. For a hard
-	  truncation limit, see option <c>max_size</c>.</p>
-
-	<p><c>max_size</c> is a positive integer representing the
-	  maximum size a string returned from this formatter can
-	  have. If the formatted string is longer, after possibly
-	  being limited by <c>depth</c> and/or <c>chars_limit</c>, it
-	  will be truncated.</p>
-
-	<p><c>utc</c> is a boolean. If set to true, all dates are
-	  displayed in Universal Coordinated Time. Default
-	  is <c>false</c>.</p>
-
-	<p><c>report_cb</c> must be a function with arity 1,
-	  returning <c>{Format,Args}</c>. This function will replace
-	  any <c>report_cb</c> found in metadata.</p>
-
-	<p>If <c>single_line=true</c>, all newlines in the message are
-	  replaced with <c>", "</c>, and whitespaces following directly
-	  after newlines are removed. Note that newlines added by the
-	  formatter template are not replaced.</p>
-
-	<p>If <c>legacy_header=true</c> a header field is added to
-	  logger_formatter's part of <c>Metadata</c>. The value of
-	  this field is a string similar to the header created by the
-	  old <c>error_logger</c> event handlers. It can be included
-	  in the log event by adding the
-	  tuple <c>{logger_formatter,header}</c> to the template.</p>
-
-	<p>The default template when <c>legacy_header=true</c> is</p>
-
-	<code>[{logger_formatter,header},"\n",msg,"\n"]</code>
-
-	<p>which will cause log entries like this:</p>
-
-	<code>=ERROR REPORT==== 29-Dec-2017::13:30:51.245123 ===
-    process: &lt;0.74.0&gt;
-    exit_reason: "Something went wrong"</code>
-
-	<p>Note that all eight levels might occur here, not
-	  only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c>. And also
-	  that micro seconds are added at the end of the
-	  timestamp.</p>
-
-	<p>The default template when <c>single_line=true</c> is</p>
-
-	<code>[time," ",level,": ",msg,"\n"]</code>
-
-	<p>which will cause log entries like this:</p>
-
-	<code>2017-12-29 13:31:49.640317 error: process: &lt;0.74.0&gt;, exit_reason: "Something went wrong"</code>
-
-	<p>The default template when both <c>legacy_header</c> and
-	  <c>single_line</c> are set to false is:</p>
-
-	<code>[time," ",level,":\n",msg,"\n"]</code>
-
-	<p>which will cause log entries like this:</p>
-
-	<code>2017-12-29 13:32:25.191925 error:
-    process: &lt;0.74.0&gt;
-    exit_reason: "Something went wrong"</code>
-
+	<p>This the callback function to be called from handlers. It
+	  formats the given messages.</p>
       </desc>
     </func>
 

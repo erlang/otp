@@ -157,7 +157,7 @@
 	  <p>A formatter is defined as a module exporting the following
 	    function:</p>
 
-	  <code>format(Log,Extra) -> string()</code>
+	  <code>format(Log,Extra) -> unicode:chardata()</code>
 
 	  <p>The formatter plugin is called by each handler, and the
 	    returned string can be printed to the handler's destination
@@ -322,19 +322,6 @@
 	    return <c>ignore</c>.</p>
 	  <p>Default is <c>log</c>.</p>
 	</item>
-        <tag><c>depth = pos_integer() | unlimited</c></tag>
-	<item>
-	  <p>Specifies if the depth of terms in the log events shall
-	    be limited by using control characters <c>~P</c>
-	    and <c>~W</c> instead of <c>~p</c> and <c>~w</c>,
-	    respectively. See
-	    <seealso marker="stdlib:io#format-1"><c>io:format</c></seealso>.</p>
-	</item>
-        <tag><c>max_size = pos_integer() | unlimited</c></tag>
-	<item>
-	  <p>Specifies if the size of a log event shall be limited by
-	    truncating the formatted string.</p>
-	</item>
 	<tag><c>formatter = {Module::module(),Extra::term()}</c></tag>
 	<item>
 	  <p>See <seealso marker="#Formatter">Formatter</seealso> for more
@@ -347,10 +334,9 @@
 
       <p>Note that <c>level</c> and <c>filters</c> are obeyed by
 	Logger itself before forwarding the log events to each
-	handler, while <c>depth</c>, <c>max_size</c>
-	and <c>formatter</c> are left to the handler
-	implementation. All Logger's built-in handlers do apply these
-	configuration parameters before printing.</p>
+	handler, while <c>formatter</c> is left to the handler
+	implementation. All Logger's built-in handlers will call the
+	given formatter before printing.</p>
     </section>
 
   </section>
@@ -488,8 +474,9 @@ error_logger:add_report_handler/1,2.
   level => debug}
 2> <input>logger:add_handler(debug_handler,logger_std_h,Config).</input>
 ok</pre>
-    <p>By default, the handler receives all events, so we need to add a filter
-      to stop all non-debug events:</p>
+    <p>By default, the handler receives all events
+      (<c>filter_defalt=log</c>), so we need to add a filter to stop
+      all non-debug events:</p>
     <pre>
 3> <input>Fun = fun(#{level:=debug}=Log,_) -> Log; (_,_) -> stop end.</input>
 #Fun&lt;erl_eval.12.98642416>
@@ -516,7 +503,7 @@ ok</pre>
     <p>It may also implement the following callbacks:</p>
     <code>
 adding_handler(logger:handler_id(),logger:config()) -> {ok,logger:config()} | {error,term()}
-removing_handler(logger:handler_id()) -> ok
+removing_handler(logger:handler_id(),logger:config()) -> ok
 changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logger:config()} | {error,term()}
     </code>
     <p>When logger:add_handler(Id,Module,Config) is called, logger
@@ -526,7 +513,7 @@ changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logg
       events as calls to Module:log/2.</p>
     <p>A handler can be removed by calling
       logger:remove_handler(Id). logger will call
-      Module:removing_handler(Id), and then remove the handler's
+      Module:removing_handler(Id,Config), and then remove the handler's
       configuration from the configuration database.</p>
     <p>When logger:set_handler_config is called, logger calls
       Module:changing_config(Id,OldConfig,NewConfig). If this function
@@ -547,7 +534,7 @@ log(Log,#{formatter:={FModule,FConfig}) ->
       this:</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 adding_handler(Id,Config) ->
@@ -576,7 +563,7 @@ log(Log,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
       single process.</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 adding_handler(Id,Config) ->

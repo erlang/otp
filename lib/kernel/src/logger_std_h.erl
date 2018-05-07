@@ -35,7 +35,7 @@
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/2, removing_handler/1,
+-export([log/2, adding_handler/2, removing_handler/2,
          changing_config/3, swap_buffer/2]).
 
 %%%===================================================================
@@ -207,7 +207,7 @@ check_my_config([]) ->
 
 %%%-----------------------------------------------------------------
 %%% Handler being removed
-removing_handler(Name) ->
+removing_handler(Name,_Config) ->
     stop(Name).
 
 %%%-----------------------------------------------------------------

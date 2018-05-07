@@ -29,7 +29,7 @@
 
 %%%-----------------------------------------------------------------
 %%% API
--spec format(Log,Config) -> String when
+-spec format(Log,Config) -> unicode:chardata() when
       Log :: logger:log(),
       Config :: #{single_line=>boolean(),
                   legacy_header=>boolean(),
@@ -38,8 +38,7 @@
                   max_size=>pos_integer() | unlimited,
                   depth=>pos_integer() | unlimited,
                   template=>template(),
-                  utc=>boolean()},
-      String :: string().
+                  utc=>boolean()}.
 format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
   when is_map(Config0) ->
     Config = add_default_config(Config0),
@@ -263,7 +262,7 @@ utcstr(_) -> "".
 add_default_config(#{utc:=_}=Config0) ->
     Default =
         #{legacy_header=>false,
-          single_line=>false,
+          single_line=>true,
           chars_limit=>unlimited},
     MaxSize = get_max_size(maps:get(max_size,Config0,false)),
     Depth = get_depth(maps:get(depth,Config0,false)),

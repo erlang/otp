@@ -158,7 +158,7 @@ handle_call({remove_handler,HandlerId}, _From, #state{tid=Tid}=State) ->
                 Handlers0 = maps:get(handlers,Config,[]),
                 Handlers = lists:delete(HandlerId,Handlers0),
                 %% inform the handler
-                _ = call_h(Module,removing_handler,[HandlerId],ok),
+                _ = call_h(Module,removing_handler,[HandlerId,Config],ok),
                 do_set_config(Tid,logger,Config#{handlers=>Handlers}),
                 logger_config:delete(Tid,HandlerId),
                 ok;
@@ -234,7 +234,13 @@ handle_info({log,Level,Report,Meta}, State) ->
     {noreply, State};
 handle_info({Ref,_Reply},State) when is_reference(Ref) ->
     %% Assuming this is a timed-out gen_server reply - ignoring
-    {noreply, State}.
+    {noreply, State};
+handle_info(Unexpected,State) ->
+    ?LOG_INTERNAL(debug,
+                  [{logger,got_unexpected_message},
+                   {process,?SERVER},
+                   {message,Unexpected}]),
+    {noreply,State}.
 
 terminate(_Reason, _State) ->
     ok.

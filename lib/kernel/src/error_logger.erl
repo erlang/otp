@@ -32,7 +32,7 @@
          which_report_handlers/0]).
 
 %% logger callbacks
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 
 -export([get_format_depth/0, limit_term/1]).
 
@@ -111,8 +111,8 @@ adding_handler(?MODULE,Config) ->
             Error
     end.
 
--spec removing_handler(logger:handler_id()) -> ok.
-removing_handler(?MODULE) ->
+-spec removing_handler(logger:handler_id(),logger:config()) -> ok.
+removing_handler(?MODULE,_Config) ->
     stop(),
     ok.
 

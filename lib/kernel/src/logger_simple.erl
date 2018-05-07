@@ -19,7 +19,7 @@
 %%
 -module(logger_simple).
 
--export([adding_handler/2, removing_handler/1, log/2]).
+-export([adding_handler/2, removing_handler/2, log/2]).
 -export([get_buffer/0]).
 
 %% This module implements a simple handler for logger. It is the
@@ -63,7 +63,7 @@ adding_handler(?MODULE,Config) ->
             {error,{handler_process_name_already_exists,?MODULE}}
     end.
 
-removing_handler(?MODULE) ->
+removing_handler(?MODULE,_Config) ->
     case whereis(?MODULE) of
         undefined ->
             ok;

@@ -44,8 +44,8 @@
 
 %% Misc
 -export([compare_levels/2]).
--export([set_process_metadata/1, unset_process_metadata/0,
-         get_process_metadata/0]).
+-export([set_process_metadata/1, update_process_metadata/1,
+         unset_process_metadata/0, get_process_metadata/0]).
 -export([i/0, i/1]).
 -export([setup_standard_handler/0, replace_simple_handler/3]).
 -export([limit_term/1, get_format_depth/0, get_max_size/0, get_utc_config/0]).
@@ -388,6 +388,19 @@ set_process_metadata(Meta) when is_map(Meta) ->
     _ = put(?LOGGER_META_KEY,Meta),
     ok;
 set_process_metadata(Meta) ->
+    erlang:error(badarg,[Meta]).
+
+-spec update_process_metadata(Meta) -> ok when
+      Meta :: metadata().
+update_process_metadata(Meta) when is_map(Meta) ->
+    case get_process_metadata() of
+        undefined ->
+            set_process_metadata(Meta);
+        Meta0 when is_map(Meta0) ->
+            set_process_metadata(maps:merge(Meta0,Meta)),
+            ok
+    end;
+update_process_metadata(Meta) ->
     erlang:error(badarg,[Meta]).
 
 -spec get_process_metadata() -> Meta | undefined when
