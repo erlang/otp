@@ -1808,9 +1808,10 @@ kex_alg_dependent({E, F, K}) ->
     %% diffie-hellman and ec diffie-hellman (with E = Q_c, F = Q_s)
     <<?Empint(E), ?Empint(F), ?Empint(K)>>;
 
-kex_alg_dependent({-1, _, -1, _, _, E, F, K}) ->
+kex_alg_dependent({-1, NBits, -1, Prime, Gen, E, F, K}) ->
     %% ssh_msg_kex_dh_gex_request_old
-    <<?Empint(E), ?Empint(F), ?Empint(K)>>;
+    <<?Euint32(NBits),
+      ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>;
 
 kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
     %% diffie-hellman group exchange
