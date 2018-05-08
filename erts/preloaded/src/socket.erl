@@ -49,7 +49,12 @@
          shutdown/2,
 
          setopt/4,
-         getopt/3
+         getopt/3,
+
+         %% Some IPv6 utility functions
+         link_if2idx/1,
+         link_idx2if/1,
+         link_ifs/0
         ]).
 
 -export_type([
@@ -61,6 +66,8 @@
               ip_address/0,
               ip4_address/0,
               ip6_address/0,
+              in_sockaddr/0,
+              in4_sockaddr/0,
               in6_sockaddr/0,
               port_number/0,
 
@@ -98,9 +105,10 @@
 
 -type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
 
+-type uint20()        :: 0..16#FFFFF.
 -type uint32()        :: 0..16#FFFFFFFF.
--type ip6_flow_info() :: uint32().
--type ip6_scope_id()  :: uint32().
+-type in6_flow_info() :: uint20().
+-type in6_scope_id()  :: uint32().
 
 -type ip6_address() ::
            {0..65535,
@@ -111,11 +119,22 @@
             0..65535,
             0..65535,
             0..65535}.
-%% We need to polish this further...
--record(in6_sockaddr, {addr         :: ip6_address(),
-                       flowinfo = 0 :: ip6_flow_info(),
-                       scope_id     :: ip6_scope_id()}).
+
+%% <KOLLA>
+%% Should we do these as maps instead?
+%% If we do we may need to include the family (domain) in the
+%% map (as the native type do. See struct sockaddr_in6).
+%% </KOLLA>
+-record(in4_sockaddr, {port = 0   :: port_number(),
+                       addr = any :: any | loopback | ip4_address()}).
+-type in4_sockaddr() :: #in4_sockaddr{}.
+-record(in6_sockaddr, {port     = 0   :: port_number(),
+                       addr     = any :: any | loopback | ip6_address(),
+                       flowinfo = 0   :: in6_flow_info(),
+                       scope_id = 0   :: in6_scope_id()}).
 -type in6_sockaddr() :: #in6_sockaddr{}.
+
+-type in_sockaddr() :: in4_sockaddr() | in6_sockaddr().
 
 -type port_number() :: 0..65535.
 
@@ -1408,6 +1427,55 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
 
 %% ===========================================================================
 %%
+%% link_if2idx - Mappings between network interface names and indexes: if -> idx
+%%
+%%
+
+-spec link_if2idx(If) -> {ok, Idx} | {error, Reason} when
+      If     :: string(),
+      Idx    :: non_neg_integer(),
+      Reason :: term().
+
+link_if2idx(If) when is_list(If) ->
+    nif_link_if2idx(If).
+
+
+
+%% ===========================================================================
+%%
+%% link_idx2if - Mappings between network interface names and indexes: idx -> if
+%%
+%%
+
+-spec link_idx2if(Idx) -> {ok, If} | {error, Reason} when
+      Idx    :: non_neg_integer(),
+      If     :: string(),
+      Reason :: term().
+
+link_idx2if(Idx) when is_integer(Idx) ->
+    nif_link_idx2if(Idx).
+
+
+
+%% ===========================================================================
+%%
+%% link_ifs - get network interface names and indexes
+%%
+%%
+
+-spec link_ifs() -> Names | {error, Reason} when
+      Names  :: [{Idx, If}],
+      Idx    :: non_neg_integer(),
+      If     :: string(),
+      Reason :: term().
+
+link_ifs() ->
+    nif_link_ifs().
+
+
+
+%% ===========================================================================
+%%
 %% Encode / decode
 %%
 %% ===========================================================================
@@ -2009,4 +2077,13 @@ nif_setopt(_Ref, _IsEnc, _Lev, _Key, _Val) ->
     erlang:error(badarg).
 
 nif_getopt(_Ref, _IsEnc, _Lev, _Key) ->
+    erlang:error(badarg).
+
+nif_link_if2idx(_Name) ->
+    erlang:error(badarg).
+
+nif_link_idx2if(_Id) ->
+    erlang:error(badarg).
+
+nif_link_ifs() ->
     erlang:error(badarg).

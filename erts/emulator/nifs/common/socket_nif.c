@@ -371,6 +371,7 @@ typedef union {
 #define MKA(E,S)            enif_make_atom((E), (S))
 #define MKBIN(E,B)          enif_make_binary((E), (B))
 #define MKI(E,I)            enif_make_int((E), (I))
+#define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
 #define MKREF(E)            enif_make_ref((E))
 #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1)
 #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1)
@@ -404,6 +405,8 @@ typedef union {
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
 #define GET_BIN(E, TE, BP)        enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)        enif_get_int((E), (TE), (IP))
+#define GET_STR(E, L, B, SZ)      \
+    enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, IP)       enif_get_uint((E), (TE), (IP))
 #define GET_TUPLE(E, TE, TSZ, TA) enif_get_tuple((E), (TE), (TSZ), (TA))
 
@@ -700,6 +703,15 @@ static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_link_if2idx(ErlNifEnv*         env,
+                                    int                argc,
+                                    const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_link_idx2if(ErlNifEnv*         env,
+                                    int                argc,
+                                    const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_link_ifs(ErlNifEnv*         env,
+                                 int                argc,
+                                 const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                             int                argc,
                                             const ERL_NIF_TERM argv[]);
@@ -778,6 +790,12 @@ static ERL_NIF_TERM nsetopt_gen(ErlNifEnv*        env,
                                 int               level,
                                 int               opt,
                                 SocketOptValue*   valP);
+static ERL_NIF_TERM nlink_if2idx(ErlNifEnv* env,
+                                 char*      ifn);
+static ERL_NIF_TERM nlink_idx2if(ErlNifEnv*   env,
+                                 unsigned int id);
+static ERL_NIF_TERM nlink_ifs(ErlNifEnv* env);
+static unsigned int nlink_ifs_length(struct if_nameindex* p);
 
 static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
@@ -1122,6 +1140,12 @@ static SocketData socketData;
  * -------------------------------------------------------------
  * nif_setopt/3
  * nif_getopt/2
+ *
+ * And some utility functions:
+ * -------------------------------------------------------------
+ * nif_link_if2idx/1
+ * nif_link_idx2if/1
+ * nif_link_ifs/0
  *
  * And some socket admin functions:
  * -------------------------------------------------------------
@@ -3663,6 +3687,186 @@ int socket_setopt(int sock, int level, int opt,
 }
 
 
+
+/* ----------------------------------------------------------------------
+ * nif_link_if2idx
+ *
+ * Description:
+ * Perform a Interface Name to Interface Index translation.
+ *
+ * Arguments:
+ * Ifn - Interface name to be translated.
+ */
+
+static
+ERL_NIF_TERM nif_link_if2idx(ErlNifEnv*         env,
+                             int                argc,
+                             const ERL_NIF_TERM argv[])
+{
+     ERL_NIF_TERM eifn;
+     char         ifn[IF_NAMESIZE+1];
+
+     if (argc != 1) {
+         return enif_make_badarg(env);
+     }
+     eifn = argv[0];
+
+     if (0 >= GET_STR(env, eifn, ifn, sizeof(ifn)))
+         return make_error2(env, atom_einval);
+
+     return nlink_if2idx(env, ifn);
+}
+
+
+
+static
+ERL_NIF_TERM nlink_if2idx(ErlNifEnv* env,
+                          char*      ifn)
+{
+     unsigned int idx = if_nametoindex(ifn);
+
+     if (idx == 0)
+         return make_error2(env, sock_errno());
+     else
+         return make_ok2(env, idx);
+
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_link_idx2if
+ *
+ * Description:
+ * Perform a Interface Index to Interface Name translation.
+ *
+ * Arguments:
+ * Idx - Interface index to be translated.
+ */
+
+static
+ERL_NIF_TERM nif_link_idx2if(ErlNifEnv*         env,
+                             int                argc,
+                             const ERL_NIF_TERM argv[])
+{
+    unsigned int idx;
+
+    if ((argc != 1) ||
+        !GET_UINT(env, argv[0], &idx)) {
+        return enif_make_badarg(env);
+    }
+
+    return nlink_idx2if(env, idx);
+}
+
+
+
+static
+ERL_NIF_TERM nlink_idx2if(ErlNifEnv*   env,
+                          unsigned int idx)
+{
+    ERL_NIF_TERM result;
+    char*        ifn = MALLOC(IF_NAMESIZE+1);
+
+    if (ifn == NULL)
+        return enif_make_badarg(env); // PLACEHOLDER
+
+    if (NULL == if_indextoname(idx, ifn)) {
+        result = make_ok2(env, MKS(env, ifn));
+    } else {
+        result = make_error2(env, sock_errno());
+    }
+
+    FREE(ifn); // <KOLL> OR IS THIS AUTOMATIC? </KOLLA>
+
+    return result;
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_link_idx2if
+ *
+ * Description:
+ * Get network interface names and indexes.
+ *
+ */
+
+static
+ERL_NIF_TERM nif_link_ifs(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    if (argc != 0) {
+        return enif_make_badarg(env);
+    }
+
+    return nlink_ifs(env);
+}
+
+
+
+static
+ERL_NIF_TERM nlink_ifs(ErlNifEnv* env)
+{
+    ERL_NIF_TERM         result;
+    struct if_nameindex* ifs = if_nameindex();
+
+    if (ifs == NULL) {
+        result = make_error2(env, sock_errno());
+    } else {
+        /*
+         * We got some interfaces:
+         * 1) Calculate how many - the only way is to iterate through the list
+         *    until its end (which is indicated by an entry with index = zero
+         *    and if_name = NULL).
+         * 2) Allocate an ERL_NIF_TERM array of the calculated length.
+         * 3) Iterate through the array of interfaces and for each create
+         *    a two tuple: {Idx, If}
+         *
+         * Or shall we instead build a list in reverse order and then when
+         * its done, reverse that? Check
+         */
+        unsigned int len = nlink_ifs_length(ifs);
+
+        if (len > 0) {
+            ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
+            unsigned int  i;
+
+            for (i = 0; i < len; i++) {
+                array[i] = MKT2(env,
+                                MKI(env, ifs[i].if_index),
+                                MKS(env, ifs[i].if_name));
+            }
+
+            result = make_ok2(env, MKLA(env, array, len));
+            FREE(array);
+        } else {
+            result = make_ok2(env, enif_make_list(env, 0));
+        }
+    }
+
+    if (ifs != NULL)
+        if_freenameindex(ifs);
+
+    return result;
+}
+
+
+static
+unsigned int nlink_ifs_length(struct if_nameindex* p)
+{
+    unsigned int len = 0;
+
+    while ((p[len].if_index == 0) && (p[len].if_name == NULL)) {
+        len++;
+    }
+
+    return len;
+}
+
+
+
 /* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
  * ----------------------------------------------------------------------
@@ -5201,6 +5405,11 @@ ErlNifFunc socket_funcs[] =
     {"nif_shutdown",            2, nif_shutdown, 0},
     {"nif_setopt",              3, nif_setopt, 0},
     {"nif_getopt",              2, nif_getopt, 0},
+
+    /* Misc utility functions */
+    {"nif_link_if2idx",         1, nif_link_if2idx, 0},
+    {"nif_link_idx2if",         1, nif_link_idx2if, 0},
+    {"nif_link_ifs",            0, nif_link_ifs,    0},
 
     /* "Extra" functions to "complete" the socket interface.
      * For instance, the function nif_finalize_connection
