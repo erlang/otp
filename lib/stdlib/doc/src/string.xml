@@ -641,7 +641,7 @@ ÖÄÅ</pre>
     <note><p>
       The functions are kept for backward compatibility, but are
       not recommended.
-      They will be deprecated in Erlang/OTP 21.
+      They will be deprecated in a future release.
     </p>
     <p>Any undocumented functions in <c>string</c> are not to be used.</p>
     </note>
