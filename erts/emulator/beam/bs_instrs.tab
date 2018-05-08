@@ -102,6 +102,7 @@ i_bs_get_binary_all2(Fail, Ms, Live, Unit, Dst) {
         LIGHT_SWAPIN;
         HEAP_SPACE_VERIFIED(0);
         ASSERT(is_value(_result));
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     } else {
 	HEAP_SPACE_VERIFIED(0);
@@ -123,6 +124,7 @@ i_bs_get_binary2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -139,6 +141,7 @@ i_bs_get_binary_imm2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -161,6 +164,7 @@ i_bs_get_float2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -731,18 +735,19 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         Uint actual_slots = HEADER_NUM_SLOTS(header);
         ms->save_offset[0] = ms->mb.offset;
         if (actual_slots < slots) {
-            ErlBinMatchState* dst;
+            ErlBinMatchState* expanded;
             Uint live = $Live;
             Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
 
             $GC_TEST_PRESERVE(wordsneeded, live, context);
             ms = (ErlBinMatchState *) boxed_val(context);
-            dst = (ErlBinMatchState *) HTOP;
-            *dst = *ms;
+            expanded = (ErlBinMatchState *) HTOP;
+            *expanded = *ms;
             *HTOP = HEADER_BIN_MATCHSTATE(slots);
             HTOP += wordsneeded;
             HEAP_SPACE_VERIFIED(0);
-            $Dst = make_matchstate(dst);
+            $REFRESH_GEN_DEST();
+            $Dst = make_matchstate(expanded);
         }
     } else if (is_binary_header(header)) {
         Eterm result;
@@ -758,6 +763,7 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         if (is_non_value(result)) {
             $FAIL($Fail);
         }
+        $REFRESH_GEN_DEST();
         $Dst = result;
     } else {
         $FAIL($Fail);
@@ -906,6 +912,7 @@ i_bs_get_integer(Fail, Live, FlagsAndUnit, Ms, Sz, Dst) {
         }
         wordsneeded = 1+WSIZE(NBYTES((Uint) size));
         $GC_TEST_PRESERVE(wordsneeded, $Live, ms);
+        $REFRESH_GEN_DEST();
     }
     mb = ms_matchbuffer(ms);
     LIGHT_SWAPOUT;
@@ -939,6 +946,7 @@ i_bs_get_utf8(Ctx, Fail, Dst) {
     if (is_non_value(result)) {
         $FAIL($Fail);
     }
+    $REFRESH_GEN_DEST();
     $Dst = result;
 }
 
@@ -949,6 +957,7 @@ i_bs_get_utf16(Ctx, Fail, Flags, Dst) {
     if (is_non_value(result)) {
         $FAIL($Fail);
     }
+    $REFRESH_GEN_DEST();
     $Dst = result;
 }
 
