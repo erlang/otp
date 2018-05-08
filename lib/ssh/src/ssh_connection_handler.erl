@@ -522,7 +522,7 @@ role({_,Role}) -> Role;
 role({_,Role,_}) -> Role.
 
 -spec renegotiation(state_name()) -> boolean().
-renegotiation({_,_,ReNeg}) -> ReNeg == renegotiation;
+renegotiation({_,_,ReNeg}) -> ReNeg == renegotiate;
 renegotiation(_) -> false.
 
 

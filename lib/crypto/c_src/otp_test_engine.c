@@ -24,10 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <openssl/engine.h>
 #include <openssl/md5.h>
 #include <openssl/rsa.h>
-#include <openssl/pem.h>
 
 #define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)	\
     ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
@@ -39,6 +37,21 @@
     || defined(LIBRESSL_VERSION_NUMBER)
 #define OLD
 #endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
+	&& !defined(OPENSSL_NO_EC) \
+	&& !defined(OPENSSL_NO_ECDH) \
+	&& !defined(OPENSSL_NO_ECDSA)
+# define HAVE_EC
+#endif
+
+#if defined(HAVE_EC)
+/* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
+   So if EC is disabled, you can't use Engine either....
+*/
+#include <openssl/engine.h>
+#include <openssl/pem.h>
+
 
 static const char *test_engine_id = "MD5";
 static const char *test_engine_name = "MD5 test engine";
@@ -262,3 +275,5 @@ int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
         return 0;
     }
 }
+
+#endif
