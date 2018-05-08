@@ -359,6 +359,7 @@ typedef union {
 #define SOCKET_OPT_OTP_DEBUG        0
 #define SOCKET_OPT_OTP_IOW          1
 
+#define SOCKET_OPT_SOCK_BROADCAST   4
 #define SOCKET_OPT_SOCK_DONTROUTE   7
 #define SOCKET_OPT_SOCK_KEEPALIVE   9
 #define SOCKET_OPT_SOCK_LINGER     10
@@ -3398,6 +3399,25 @@ BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
                                 SocketOptValue* valP)
 {
     switch (eOpt) {
+#if defined(SO_BROADCAST)
+    case SOCKET_OPT_SOCK_BROADCAST:
+        {
+            BOOLEAN_T val;
+
+            if (decode_bool(env, eVal, &val)) {
+                *opt           = SO_BROADCAST;
+                valP->tag      = SOCKET_OPT_VALUE_INT;
+                valP->u.intVal = (val) ? 1 : 0;
+                return TRUE;
+            } else {
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
+            }
+        }
+        break;
+#endif
+
 #if defined(SO_DONTROUTE)
     case SOCKET_OPT_SOCK_DONTROUTE:
         {

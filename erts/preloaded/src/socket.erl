@@ -432,6 +432,7 @@
 -define(SOCKET_OPT_OTP_DEBUG,           0).
 -define(SOCKET_OPT_OTP_IOW,             1).
 
+-define(SOCKET_OPT_SOCK_BROADCAST,       4).
 -define(SOCKET_OPT_SOCK_DONTROUTE,       7).
 -define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
 -define(SOCKET_OPT_SOCK_LINGER,         10).
@@ -1610,6 +1611,8 @@ enc_setopt_value(otp, iow, V, _, _, _) when is_boolean(V) ->
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(socket, broadcast, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket, keepalive, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, linger, abort, D, T, P) ->
@@ -1798,8 +1801,8 @@ enc_sockopt_key(socket, acceptfilter = Opt, _Dir, _D, _T, _P) ->
 %% So, we let the implementation decide.
 enc_sockopt_key(socket, bindtodevide = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, broadcast = Opt, _Dir, _D, dgram = _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, broadcast = _Opt, _Dir, _D, dgram = _T, _P) ->
+    ?SOCKET_OPT_SOCK_BROADCAST;
 enc_sockopt_key(socket, busy_poll = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, debug = Opt, _Dir, _D, _T, _P) ->
