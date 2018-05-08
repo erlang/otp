@@ -60,27 +60,41 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
--type log() :: #{level=>level(),
-                 msg=>{io:format(),[term()]} |
+-type log() :: #{level:=level(),
+                 msg:={io:format(),[term()]} |
                       {report,report()} |
                       {string,unicode:chardata()},
-                 meta=>metadata()}.
+                 meta:=metadata()}.
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type report() :: map() | [{atom(),term()}].
 -type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
                                    report() |
                                    unicode:chardata()).
--type metadata() :: map().
-
+-type metadata() :: #{pid    => pid(),
+                      gl     => pid(),
+                      time   => timestamp(),
+                      mfa    => {module(),atom(),non_neg_integer()},
+                      file   => file:filename(),
+                      line   => non_neg_integer(),
+                      term() => term()}.
+-type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
+                      file := file:filename(),
+                      line := non_neg_integer()}.
 -type handler_id() :: atom().
 -type filter_id() :: atom().
--type filter() :: {fun((log(),term()) -> filter_return()),term()}.
+-type filter() :: {fun((log(),filter_arg()) -> filter_return()),filter_arg()}.
+-type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log().
--type config() :: map().
+-type config() :: #{level => level(),
+                    filter_default => log | stop,
+                    filters => [{filter_id(),filter()}],
+                    formatter => {module(),term()},
+                    term() => term()}.
+-type timestamp() :: integer().
 
 -export_type([log/0,level/0,report/0,msg_fun/0,metadata/0,config/0,handler_id/0,
-              filter_id/0,filter/0,filter_return/0]).
+              filter_id/0,filter/0,filter_arg/0,filter_return/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -185,24 +199,24 @@ allow(Level,Module) when ?IS_LEVEL(Level), is_atom(Module) ->
 
 
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       StringOrReport :: unicode:chardata() | report().
 macro_log(Location,Level,StringOrReport) ->
     log_allowed(Location,Level,StringOrReport,#{}).
 
 -spec macro_log(Location,Level,StringOrReport,Meta)  -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       StringOrReport :: unicode:chardata() | report(),
       Meta :: metadata();
                (Location,Level,Format,Args) -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       Format :: io:format(),
       Args ::[term()];
                (Location,Level,Fun,FunArgs) -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       Fun :: msg_fun(),
       FunArgs :: term().
@@ -213,13 +227,13 @@ macro_log(Location,Level,FunOrFormat,Args) ->
     log_allowed(Location,Level,{FunOrFormat,Args},#{}).
 
 -spec macro_log(Location,Level,Format,Args,Meta)  -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       Format :: io:format(),
       Args ::[term()],
       Meta :: metadata();
                (Location,Level,Fun,FunArgs,Meta) -> ok when
-      Location :: map(),
+      Location :: location(),
       Level :: level(),
       Fun :: msg_fun(),
       FunArgs :: term(),
@@ -712,7 +726,7 @@ do_log_1(Level,Msg,Meta) ->
     end.
 
 -spec log_allowed(Location,Level,Msg,Meta)  -> ok when
-      Location :: map(),
+      Location :: location() | #{},
       Level :: level(),
       Msg :: {msg_fun(),term()} |
              {io:format(),[term()]} |
