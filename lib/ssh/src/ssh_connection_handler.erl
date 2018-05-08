@@ -1488,7 +1488,7 @@ role({_,Role,_}) -> Role.
 
 %%--------------------------------------------------------------------
 %% Check the StateName to see if we are in the renegotiation phase
-renegotiation({_,_,ReNeg}) -> ReNeg == renegotiation;
+renegotiation({_,_,ReNeg}) -> ReNeg == renegotiate;
 renegotiation(_) -> false.
 
 %%--------------------------------------------------------------------
