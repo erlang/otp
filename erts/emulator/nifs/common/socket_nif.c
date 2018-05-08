@@ -361,6 +361,7 @@ typedef union {
 
 #define SOCKET_OPT_SOCK_KEEPALIVE   9
 #define SOCKET_OPT_SOCK_LINGER     10
+#define SOCKET_OPT_SOCK_PRIORITY   16
 #define SOCKET_OPT_SOCK_REUSEADDR  21
 
 #define SOCKET_OPT_IP_RECVTOS      0
@@ -3427,6 +3428,20 @@ BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
                 valP->tag = SOCKET_OPT_VALUE_UNDEF;
                 return FALSE;
             }
+        }
+        break;
+#endif
+
+#if defined(SO_PRIORITY)
+    case SOCKET_OPT_SOCK_PRIORITY:
+        if (GET_INT(env, eVal, &valP->u.intVal)) {
+            valP->tag = SOCKET_OPT_VALUE_INT;
+            *opt      = SO_PRIORITY;
+            return TRUE;
+        } else {
+            *opt      = -1;
+            valP->tag = SOCKET_OPT_VALUE_UNDEF;
+            return FALSE;
         }
         break;
 #endif

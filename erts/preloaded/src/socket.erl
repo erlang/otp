@@ -434,6 +434,7 @@
 
 -define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
 -define(SOCKET_OPT_SOCK_LINGER,         10).
+-define(SOCKET_OPT_SOCK_PRIORITY,       16).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      21).
 
 -define(SOCKET_OPT_IP_RECVTOS,          0).
@@ -1615,6 +1616,8 @@ enc_setopt_value(socket, linger, abort, D, T, P) ->
 enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
   when is_boolean(OnOff) andalso is_integer(Secs) andalso (Secs >= 0) ->
     V;
+enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
@@ -1821,8 +1824,8 @@ enc_sockopt_key(socket, peek_off = Opt, _Dir, local = _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, priority = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_PRIORITY;
 enc_sockopt_key(socket, rcvbuf = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
