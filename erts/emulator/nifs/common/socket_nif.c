@@ -348,36 +348,37 @@ typedef union {
 #define SOCKET_SHUTDOWN_HOW_RDWR  2
 
 
-#define SOCKET_OPT_LEVEL_OTP      0
-#define SOCKET_OPT_LEVEL_SOCKET   1
-#define SOCKET_OPT_LEVEL_IP       2
-#define SOCKET_OPT_LEVEL_IPV6     3
-#define SOCKET_OPT_LEVEL_TCP      4
-#define SOCKET_OPT_LEVEL_UDP      5
-#define SOCKET_OPT_LEVEL_SCTP     6
+#define SOCKET_OPT_LEVEL_OTP        0
+#define SOCKET_OPT_LEVEL_SOCKET     1
+#define SOCKET_OPT_LEVEL_IP         2
+#define SOCKET_OPT_LEVEL_IPV6       3
+#define SOCKET_OPT_LEVEL_TCP        4
+#define SOCKET_OPT_LEVEL_UDP        5
+#define SOCKET_OPT_LEVEL_SCTP       6
 
-#define SOCKET_OPT_OTP_DEBUG       0
-#define SOCKET_OPT_OTP_IOW         1
+#define SOCKET_OPT_OTP_DEBUG        0
+#define SOCKET_OPT_OTP_IOW          1
 
+#define SOCKET_OPT_SOCK_DONTROUTE   7
 #define SOCKET_OPT_SOCK_KEEPALIVE   9
 #define SOCKET_OPT_SOCK_LINGER     10
 #define SOCKET_OPT_SOCK_PRIORITY   16
 #define SOCKET_OPT_SOCK_REUSEADDR  21
 
-#define SOCKET_OPT_IP_RECVTOS      0
-#define SOCKET_OPT_IP_ROUTER_ALERT 1
-#define SOCKET_OPT_IP_TOS          2
-#define SOCKET_OPT_IP_TTL          3
+#define SOCKET_OPT_IP_RECVTOS      25
+#define SOCKET_OPT_IP_ROUTER_ALERT 28
+#define SOCKET_OPT_IP_TOS          30
+#define SOCKET_OPT_IP_TTL          32
 
 #define SOCKET_OPT_IPV6_HOPLIMIT   12
 
-#define SOCKET_OPT_TCP_CONGESTION  0
-#define SOCKET_OPT_TCP_MAXSEG      1
-#define SOCKET_OPT_TCP_NODELAY     2
+#define SOCKET_OPT_TCP_CONGESTION   0
+#define SOCKET_OPT_TCP_MAXSEG       1
+#define SOCKET_OPT_TCP_NODELAY      2
 
-#define SOCKET_OPT_UDP_CORK        0
+#define SOCKET_OPT_UDP_CORK         0
 
-#define SOCKET_OPT_SCTP_AUTOCLOSE  7
+#define SOCKET_OPT_SCTP_AUTOCLOSE   7
 #define SOCKET_OPT_SCTP_NODELAY    22
 
 
@@ -3397,6 +3398,25 @@ BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
                                 SocketOptValue* valP)
 {
     switch (eOpt) {
+#if defined(SO_DONTROUTE)
+    case SOCKET_OPT_SOCK_DONTROUTE:
+        {
+            BOOLEAN_T val;
+
+            if (decode_bool(env, eVal, &val)) {
+                *opt           = SO_DONTROUTE;
+                valP->tag      = SOCKET_OPT_VALUE_INT;
+                valP->u.intVal = (val) ? 1 : 0;
+                return TRUE;
+            } else {
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
+            }
+        }
+        break;
+#endif
+
 #if defined(SO_KEEPALIVE)
     case SOCKET_OPT_SOCK_KEEPALIVE:
         {

@@ -432,15 +432,16 @@
 -define(SOCKET_OPT_OTP_DEBUG,           0).
 -define(SOCKET_OPT_OTP_IOW,             1).
 
+-define(SOCKET_OPT_SOCK_DONTROUTE,       7).
 -define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
 -define(SOCKET_OPT_SOCK_LINGER,         10).
 -define(SOCKET_OPT_SOCK_PRIORITY,       16).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      21).
 
--define(SOCKET_OPT_IP_RECVTOS,          0).
--define(SOCKET_OPT_IP_ROUTER_ALERT,     1).
--define(SOCKET_OPT_IP_TOS,              2).
--define(SOCKET_OPT_IP_TTL,              3).
+-define(SOCKET_OPT_IP_RECVTOS,          25).
+-define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
+-define(SOCKET_OPT_IP_TOS,              30).
+-define(SOCKET_OPT_IP_TTL,              32).
 
 -define(SOCKET_OPT_IPV6_HOPLIMIT,       12).
 
@@ -1803,8 +1804,8 @@ enc_sockopt_key(socket, busy_poll = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, debug = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, dontroute = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, dontroute = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_DONTROUTE;
 enc_sockopt_key(socket, error = Opt, get = _Dir, _D, _T, _P) ->
     not_supported(Opt);
 %% This is only for connection-oriented sockets, but who are those?
