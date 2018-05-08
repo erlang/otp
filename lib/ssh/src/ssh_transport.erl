@@ -1663,13 +1663,13 @@ kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = if Min==-1; Max==-1 ->
-		%% flag from 'ssh_msg_kex_dh_gex_request_old'
-		%% It was like this before that message was supported,
-		%% why?
+		%% ssh_msg_kex_dh_gex_request_old
 		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
 		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
-		  ?Empint(E), ?Empint(F), ?Empint(K)>>;
+                  ?Euint32(NBits),
+                  ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>;
 	   true ->
+                %% ssh_msg_kex_dh_gex_request
 		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
 		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
 		  ?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
