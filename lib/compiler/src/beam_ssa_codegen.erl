@@ -108,7 +108,8 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 -type ssa_register() :: xreg() | yreg() | {'fr',reg_num()} | {'z',reg_num()}.
 
 functions(Forms, AtomMod) ->
-    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end, #cg{lcount=1}, Forms).
+    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
+             #cg{lcount=1}, Forms).
 
 function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
     #{func_info:={_,Name,Arity}} = Anno,
@@ -125,8 +126,9 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
                      ultimate_fail=Ult},
         {Body,St} = cg_fun(Blocks, St5),
         Asm = [{label,Fi},line(Anno),
-               {func_info,AtomMod,{atom,Name},Arity}] ++ Body ++
-            [{label,Ult},if_end],
+               {func_info,AtomMod,{atom,Name},Arity}] ++
+               add_parameter_annos(Body, Anno) ++
+               [{label,Ult},if_end],
         Func = {function,Name,Arity,Entry,Asm},
         {Func,St}
     catch
@@ -149,6 +151,17 @@ assert_badarg_block(Blocks) ->
             %% ?BADARG_BLOCK has been removed because it was never used.
             ok
     end.
+
+add_parameter_annos([{label, _}=Entry | Body], Anno) ->
+    ParamInfo = maps:get(parameter_type_info, Anno, #{}),
+    Annos = maps:fold(
+        fun(K, V, Acc) when is_map_key(K, ParamInfo) ->
+                TypeInfo = maps:get(K, ParamInfo),
+                [{'%', {type_info, V, TypeInfo}} | Acc];
+           (_K, _V, Acc) ->
+                Acc
+        end, [], maps:get(registers, Anno)),
+    [Entry | Annos] ++ Body.
 
 cg_fun(Blocks, St0) ->
     Linear0 = linearize(Blocks),
@@ -315,12 +328,15 @@ classify_heap_need(Name, _Args) ->
 
 classify_heap_need(bs_add) -> gc;
 classify_heap_need(bs_get) -> gc;
+classify_heap_need(bs_get_tail) -> gc;
 classify_heap_need(bs_init) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
 classify_heap_need(bs_match_string) -> gc;
 classify_heap_need(bs_put) -> neutral;
 classify_heap_need(bs_restore) -> neutral;
 classify_heap_need(bs_save) -> neutral;
+classify_heap_need(bs_get_position) -> gc;
+classify_heap_need(bs_set_position) -> neutral;
 classify_heap_need(bs_skip) -> gc;
 classify_heap_need(bs_start_match) -> neutral;
 classify_heap_need(bs_test_tail) -> neutral;
@@ -695,6 +711,8 @@ need_live_anno(Op) ->
         {bif,_} -> true;
         bs_get -> true;
         bs_init -> true;
+        bs_get_position -> true;
+        bs_get_tail -> true;
         bs_start_match -> true;
         bs_skip -> true;
         call -> true;
@@ -794,6 +812,8 @@ def_successors([], _, DefMap) -> DefMap.
 
 need_y_init(#cg_set{anno=#{clobbers:=Clobbers}}) -> Clobbers;
 need_y_init(#cg_set{op=bs_get}) -> true;
+need_y_init(#cg_set{op=bs_get_position}) -> true;
+need_y_init(#cg_set{op=bs_get_tail}) -> true;
 need_y_init(#cg_set{op=bs_init}) -> true;
 need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
     case Type of
@@ -1042,12 +1062,18 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
     end;
 cg_block([#cg_set{anno=Anno,op=bs_start_match,dst=Ctx0,args=[Bin0]}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
-    #{num_slots:=Slots} = Anno,
     [Dst,Bin1] = beam_args([Ctx0,Bin0], St),
     {Bin,Pre} = force_reg(Bin1, Dst),
     Live = get_live(I),
-    Is = Pre ++ [{test,bs_start_match2,Fail,Live,[Bin,Slots],Dst}],
-    {Is,St};
+    %% num_slots is only set when using the old instructions.
+    case maps:find(num_slots, Anno) of
+        {ok, Slots} ->
+            Is = Pre ++ [{test,bs_start_match2,Fail,Live,[Bin,Slots],Dst}],
+            {Is,St};
+        error ->
+            Is = Pre ++ [{test,bs_start_match3,Fail,Live,[Bin],Dst}],
+            {Is,St}
+    end;
 cg_block([#cg_set{op=bs_get}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {cg_bs_get(Fail, Set, St),St};
@@ -1344,6 +1370,12 @@ build_apply(Arity, none, Dst) ->
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
+cg_instr(bs_get_tail, [Src], Dst, Set) ->
+    Live = get_live(Set),
+    [{bs_get_tail,Src,Dst,Live}];
+cg_instr(bs_get_position, [Ctx], Dst, Set) ->
+    Live = get_live(Set),
+    [{bs_get_position,Ctx,Dst,Live}];
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
@@ -1359,6 +1391,8 @@ cg_instr(bs_restore, [Ctx,Slot], _Dst) ->
 cg_instr(bs_save, [Ctx,Slot], _Dst) ->
     {integer,N} = Slot,
     [{bs_save2,Ctx,N}];
+cg_instr(bs_set_position, [Ctx,Pos], _Dst) ->
+    [{bs_set_position,Ctx,Pos}];
 cg_instr(build_stacktrace, Args, Dst) ->
     setup_args(Args) ++ [build_stacktrace|copy({x,0}, Dst)];
 cg_instr(context_to_binary, [Src], _Dst) ->

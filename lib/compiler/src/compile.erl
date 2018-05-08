@@ -248,6 +248,9 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
+expand_opt(no_bsm3, Os) ->
+    %% The new bsm pass requires bsm3 instructions.
+    [no_bsm3,no_bsm_opt|Os];
 expand_opt(r16, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r17, Os) ->
@@ -259,13 +262,14 @@ expand_opt(r19, Os) ->
 expand_opt(r20, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r21, Os) ->
-    [no_put_tuple2|Os];
+    [no_put_tuple2 | expand_opt(no_bsm3, Os)];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
-    [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,no_utf8_atoms|Os].
+    [no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
+     no_utf8_atoms | expand_opt(no_bsm3, Os)].
 
 %% format_error(ErrorDescriptor) -> string()
 
@@ -816,6 +820,9 @@ kernel_passes() ->
      {pass,beam_kernel_to_ssa},
      {iff,dssa,{listing,"ssa"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
+     {unless,no_bsm_opt,{pass,beam_ssa_bsm}},
+     {iff,dssabsm,{listing,"ssabsm"}},
+     {iff,ssalint,{pass,beam_ssa_lint}},
      {unless,no_ssa_opt,{pass,beam_ssa_opt}},
      {iff,dssaopt,{listing,"ssaopt"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
@@ -847,8 +854,6 @@ asm_passes() ->
 	 {iff,dpeep,{listing,"peep"}},
 	 {pass,beam_clean},
 	 {iff,dclean,{listing,"clean"}},
-	 {unless,no_bsm_opt,{pass,beam_bsm}},
-	 {iff,dbsm,{listing,"bsm"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -2030,7 +2035,6 @@ pre_load() ->
 	 beam_asm,
 	 beam_block,
 	 beam_bs,
-	 beam_bsm,
 	 beam_clean,
 	 beam_dict,
 	 beam_except,
@@ -2040,6 +2044,7 @@ pre_load() ->
 	 beam_opcodes,
 	 beam_peep,
 	 beam_ssa,
+	 beam_ssa_bsm,
 	 beam_ssa_codegen,
 	 beam_ssa_dead,
 	 beam_ssa_opt,

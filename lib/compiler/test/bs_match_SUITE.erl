@@ -40,7 +40,9 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,erl_689/1]).
+         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,
+         expression_before_match/1,erl_689/1,restore_on_call/1,
+         restore_after_catch/1,matches_on_parameter/1,big_positions/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -56,7 +58,7 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    [{p,[parallel],
+    [{p,[],
       [size_shadow,int_float,otp_5269,null_fields,wiger,
        bin_tail,save_restore,
        partitioned_bs_match,function_clause,unit,
@@ -72,7 +74,9 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       beam_bsm,guard,is_ascii,non_opt_eq,erl_689]}].
+       beam_bsm,guard,is_ascii,non_opt_eq,
+       expression_before_match,erl_689,restore_on_call,
+       matches_on_parameter,big_positions]}].
 
 
 init_per_suite(Config) ->
@@ -1763,5 +1767,94 @@ do_erl_689_2(_, <<Length, Data/binary>>) ->
 
 check(F, R) ->
     R = F().
+
+%% Make sure that an expression that comes between function start and a match
+%% expression passes validation.
+expression_before_match(Config) when is_list(Config) ->
+    <<_,R/binary>> = id(<<0,1,2,3>>),
+    {1, <<2,3>>} = expression_before_match_1(R),
+    ok.
+
+expression_before_match_1(R) ->
+    A = id(1),
+    case R of
+        <<1,Bar/binary>> -> {A, Bar};
+        <<>> -> {A, baz}
+    end.
+
+%% Make sure that context positions are updated on calls.
+restore_on_call(Config) when is_list(Config) ->
+    ok = restore_on_call_1(<<0, 1, 2>>).
+
+restore_on_call_1(<<0, Rest/binary>>) ->
+    <<2>> = restore_on_call_2(Rest),
+    <<2>> = restore_on_call_2(Rest), %% {badmatch, <<>>} on missing restore.
+    ok.
+
+restore_on_call_2(<<1, Rest/binary>>) -> Rest;
+restore_on_call_2(Other) -> Other.
+
+%% 'catch' must invalidate positions.
+restore_after_catch(Config) when is_list(Config) ->
+    <<0, 1>> = restore_after_catch_1(<<0, 1>>),
+    ok.
+
+restore_after_catch_1(<<A/binary>>) ->
+    try throw_after_byte(A) of
+        _ -> impossible
+    catch
+        throw:_Any ->
+            %% Will equal <<1>> if the bug is present.
+            A
+    end.
+
+throw_after_byte(<<_,_/binary>>) ->
+    throw(away).
+
+matches_on_parameter(Config) when is_list(Config) ->
+    %% This improves coverage for matching on "naked" parameters.
+    {<<"urka">>, <<"a">>} = matches_on_parameter_1(<<"gurka">>),
+    ok = (catch matches_on_parameter_2(<<"10001110101">>, 0)).
+
+matches_on_parameter_1(Bin) ->
+    <<"g", A/binary>> = Bin,
+    <<_,_,"rk", B/binary>> = Bin,
+    {A, B}.
+
+matches_on_parameter_2(Bin, Offset) ->
+    <<_:Offset, Bit:1, Rest/bits>> = Bin,
+    case bit_size(Rest) of
+        0 -> throw(ok);
+        _ -> [Bit | matches_on_parameter_2(Bin, Offset + 1)]
+    end.
+
+big_positions(Config) when is_list(Config) ->
+    %% This provides coverage for when match context positions no longer fit
+    %% into an immediate on 32-bit platforms.
+
+    A = <<0:((1 bsl 27) - 8), $A, 1:1, "gurka", $A>>,
+    B = <<0:((1 bsl 27) - 8), $B, "hello", $B>>,
+
+    {a,$A} = bp_start_match(A),
+    {b,$B} = bp_start_match(B),
+    {a,$A} = bp_getpos(A),
+    {b,$B} = bp_getpos(B),
+
+    ok.
+
+%% After the first iteration the context's position will no longer fit into an
+%% immediate. To improve performance the bs_start_match3 instruction will
+%% return a new context with an updated base position so that we won't have to
+%% resort to using bigints.
+bp_start_match(<<_:(1 bsl 27),T/bits>>) -> bp_start_match(T);
+bp_start_match(<<1:1,"gurka",A>>) -> {a,A};
+bp_start_match(<<"hello",B>>) -> {b,B}.
+
+%% This is a corner case where the above didn't work perfectly; if the position
+%% was _just_ small enough to fit into an immediate when bs_start_match3 was
+%% hit, but too large at bs_get_position, then it must be saved as a bigint.
+bp_getpos(<<_:((1 bsl 27) - 8),T/bits>>) -> bp_getpos(T);
+bp_getpos(<<A,1:1,"gurka",A>>) -> {a,A};
+bp_getpos(<<B,"hello",B>>) -> {b,B}.
 
 id(I) -> I.

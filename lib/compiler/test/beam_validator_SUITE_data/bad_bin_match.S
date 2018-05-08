@@ -11,5 +11,5 @@
   {label,1}.
     {func_info,{atom,t},{atom,t},1}.
   {label,2}.
-    {test,bs_start_match2,{f,1},1,[{x,0},0],{x,0}}.
+    {test,bs_start_match3,{f,1},1,[{x,0}],{x,0}}.
     return.

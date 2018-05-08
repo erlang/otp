@@ -79,15 +79,14 @@
                     {'ok',beam_ssa:b_module()}.
 
 module(#b_module{body=Fs0}=Module, Opts) ->
-    FixTuples = proplists:get_bool(no_put_tuple2, Opts),
-    ExtraAnnos = proplists:get_bool(dprecg, Opts),
-    Ps = passes(FixTuples, ExtraAnnos),
-    Fs = functions(Fs0, Ps),
+    UseBSM3 = not proplists:get_bool(no_bsm3, Opts),
+    Ps = passes(Opts),
+    Fs = functions(Fs0, Ps, UseBSM3),
     {ok,Module#b_module{body=Fs}}.
 
-functions([F|Fs], Ps) ->
-    [function(F, Ps)|functions(Fs, Ps)];
-functions([], _Ps) -> [].
+functions([F|Fs], Ps, UseBSM3) ->
+    [function(F, Ps, UseBSM3)|functions(Fs, Ps, UseBSM3)];
+functions([], _Ps, _UseBSM3) -> [].
 
 -type b_var() :: beam_ssa:b_var().
 -type var_name() :: beam_ssa:var_name().
@@ -105,6 +104,7 @@ functions([], _Ps) -> [].
 -record(st, {ssa :: beam_ssa:block_map(),
              args :: [b_var()],
              cnt :: beam_ssa:label(),
+             use_bsm3 :: boolean(),
              frames=[] :: [beam_ssa:label()],
              intervals=[] :: [{b_var(),[range()]}],
              aliases=[] :: [{b_var(),b_var()}],
@@ -114,7 +114,9 @@ functions([], _Ps) -> [].
             }).
 -define(PASS(N), {N,fun N/1}).
 
-passes(FixTuples, ExtraAnnos) ->
+passes(Opts) ->
+    AddPrecgAnnos = proplists:get_bool(dprecg, Opts),
+    FixTuples = proplists:get_bool(no_put_tuple2, Opts),
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
@@ -145,7 +147,7 @@ passes(FixTuples, ExtraAnnos) ->
 
           %% If needed for a .precg file, save the live intervals
           %% so they can be included in an annotation.
-          case ExtraAnnos of
+          case AddPrecgAnnos of
               false -> ignore;
               true -> ?PASS(save_live_intervals)
           end,
@@ -157,9 +159,10 @@ passes(FixTuples, ExtraAnnos) ->
           ?PASS(turn_yregs)],
     [P || P <- Ps, P =/= ignore].
 
-function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0, Ps) ->
+function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0,
+         Ps, UseBSM3) ->
     try
-        St0 = #st{ssa=Blocks0,args=Args,cnt=Count0},
+        St0 = #st{ssa=Blocks0,args=Args,use_bsm3=UseBSM3,cnt=Count0},
         St = compile:run_sub_passes(Ps, St0),
         #st{ssa=Blocks,cnt=Count,regs=Regs,extra_annos=ExtraAnnos} = St,
         F1 = add_extra_annos(F0, ExtraAnnos),
@@ -215,7 +218,7 @@ assert_no_ces(_, _, Blocks) -> Blocks.
 %%    * Combine bs_match and bs_extract instructions to bs_get
 %%      instructions.
 
-fix_bs(#st{ssa=Blocks,cnt=Count0}=St) ->
+fix_bs(#st{ssa=Blocks,cnt=Count0,use_bsm3=UseBSM3}=St) ->
     F = fun(#b_set{op=bs_start_match,dst=Dst}, A) ->
                 %% Mark the root of the match context list.
                 [{Dst,{context,Dst}}|A];
@@ -233,8 +236,13 @@ fix_bs(#st{ssa=Blocks,cnt=Count0}=St) ->
             CtxChain = maps:from_list(M),
             Linear0 = beam_ssa:linearize(Blocks),
 
-            %% Insert bs_save / bs_restore instructions where needed.
-            {Linear1,Count} = bs_save_restore(Linear0, CtxChain, Count0),
+            %% Insert position instructions where needed.
+            {Linear1,Count} = case UseBSM3 of
+                                  true ->
+                                      bs_pos_bsm3(Linear0, CtxChain, Count0);
+                                  false ->
+                                      bs_pos_bsm2(Linear0, CtxChain, Count0)
+                              end,
 
             %% Rename instructions.
             Linear = bs_instrs(Linear1, CtxChain, []),
@@ -242,10 +250,54 @@ fix_bs(#st{ssa=Blocks,cnt=Count0}=St) ->
             St#st{ssa=maps:from_list(Linear),cnt=Count}
     end.
 
+%% Insert bs_get_position and bs_set_position instructions as needed.
+bs_pos_bsm3(Linear0, CtxChain, Count0) ->
+    Rs0 = bs_restores(Linear0, CtxChain, #{}, #{}),
+    Rs = maps:values(Rs0),
+    S0 = sofs:relation(Rs, [{context,save_point}]),
+    S1 = sofs:relation_to_family(S0),
+    S = sofs:to_external(S1),
 
-%% Insert bs_save and bs_restore instructions as needed.
+    {SavePoints,Count1} = make_bs_pos_dict(S, Count0, []),
+    {Gets,Count2} = make_bs_setpos_map(Rs, SavePoints, Count1, []),
+    {Sets,Count} = make_bs_getpos_map(maps:to_list(Rs0), SavePoints, Count2, []),
 
-bs_save_restore(Linear0, CtxChain, Count0) ->
+    %% Now insert all saves and restores.
+    {bs_insert_bsm3(Linear0, Gets, Sets, SavePoints),Count}.
+
+make_bs_setpos_map([{Ctx,Save}=Ps|T], SavePoints, Count, Acc) ->
+    SavePoint = get_savepoint(Ps, SavePoints),
+    I = #b_set{op=bs_get_position,dst=SavePoint,args=[Ctx]},
+    make_bs_setpos_map(T, SavePoints, Count+1, [{Save,I}|Acc]);
+make_bs_setpos_map([], _, Count, Acc) ->
+    {maps:from_list(Acc),Count}.
+
+make_bs_getpos_map([{Bef,{Ctx,_}=Ps}|T], SavePoints, Count, Acc) ->
+    Ignored = #b_var{name={'@ssa_ignored',Count}},
+    Args = [Ctx, get_savepoint(Ps, SavePoints)],
+    I = #b_set{op=bs_set_position,dst=Ignored,args=Args},
+    make_bs_getpos_map(T, SavePoints, Count+1, [{Bef,I}|Acc]);
+make_bs_getpos_map([], _, Count, Acc) ->
+    {maps:from_list(Acc),Count}.
+
+get_savepoint({_,_}=Ps, SavePoints) ->
+    Name = {'@ssa_bs_position', maps:get(Ps, SavePoints)},
+    #b_var{name=Name}.
+
+make_bs_pos_dict([{Ctx,Pts}|T], Count0, Acc0) ->
+    {Acc, Count} = make_bs_pos_dict_1(Pts, Ctx, Count0, Acc0),
+    make_bs_pos_dict(T, Count, Acc);
+make_bs_pos_dict([], Count, Acc) ->
+    {maps:from_list(Acc), Count}.
+
+make_bs_pos_dict_1([H|T], Ctx, I, Acc) ->
+    make_bs_pos_dict_1(T, Ctx, I+1, [{{Ctx,H},I}|Acc]);
+make_bs_pos_dict_1([], Ctx, I, Acc) ->
+    {[{Ctx,I}|Acc], I}.
+
+%% As bs_position but without OTP-22 instructions. This is only used when
+%% cross-compiling to older versions.
+bs_pos_bsm2(Linear0, CtxChain, Count0) ->
     Rs0 = bs_restores(Linear0, CtxChain, #{}, #{}),
     Rs = maps:values(Rs0),
     S0 = sofs:relation(Rs, [{context,save_point}]),
@@ -256,7 +308,7 @@ bs_save_restore(Linear0, CtxChain, Count0) ->
     {Restores,Count} = make_restore_map(maps:to_list(Rs0), Slots, Count1, []),
 
     %% Now insert all saves and restores.
-    {bs_insert(Linear0, Saves, Restores, Slots),Count}.
+    {bs_insert_bsm2(Linear0, Saves, Restores, Slots),Count}.
 
 make_save_map([{Ctx,Save}=Ps|T], Slots, Count, Acc) ->
     Ignored = #b_var{name={'@ssa_ignored',Count}},
@@ -309,8 +361,7 @@ bs_restores([], _, _, Rs) -> Rs.
 
 bs_update_successors(#b_br{succ=Succ,fail=Fail}, SPos, FPos, D) ->
     join_positions([{Succ,SPos},{Fail,FPos}], D);
-bs_update_successors(#b_switch{fail=Fail,list=List}, SPos, FPos, D) ->
-    SPos = FPos,                                %Assertion.
+bs_update_successors(#b_switch{fail=Fail,list=List}, SPos, _FPos, D) ->
     Update = [{L,SPos} || {_,L} <- List] ++ [{Fail,SPos}],
     join_positions(Update, D);
 bs_update_successors(#b_ret{}, _, _, D) -> D.
@@ -389,17 +440,25 @@ bs_restores_is([#b_set{op=bs_extract,args=[FromPos|_]}|Is],
     Start = bs_subst_ctx(FromPos, CtxChain),
     #{Start:=FromPos} = PosMap,                 %Assertion.
     bs_restores_is(Is, CtxChain, PosMap, Rs);
+bs_restores_is([#b_set{op=call,dst=Dst,args=Args}|Is],
+               CtxChain, PosMap0, Rs0) ->
+    {Rs,PosMap1} = bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0),
+    PosMap = bs_invalidate_pos(Args, PosMap1, CtxChain),
+    bs_restores_is(Is, CtxChain, PosMap, Rs);
+bs_restores_is([#b_set{op=landingpad}|Is], CtxChain, PosMap0, Rs) ->
+    %% We can land here from any point, so all positions are invalid.
+    PosMap = maps:map(fun(_Start,_Pos) -> unknown end, PosMap0),
+    bs_restores_is(Is, CtxChain, PosMap, Rs);
 bs_restores_is([#b_set{op=Op,dst=Dst,args=Args}|Is],
                CtxChain, PosMap0, Rs0)
   when Op =:= bs_test_tail;
-       Op =:= call ->
+       Op =:= bs_get_tail ->
     {Rs,PosMap} = bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0),
     bs_restores_is(Is, CtxChain, PosMap, Rs);
 bs_restores_is([_|Is], CtxChain, PosMap, Rs) ->
     bs_restores_is(Is, CtxChain, PosMap, Rs);
 bs_restores_is([], _CtxChain, PosMap, Rs) ->
     {PosMap,Rs}.
-
 
 bs_match_type(#b_set{args=[#b_literal{val=skip},_Ctx,
                              #b_literal{val=binary},_Flags,
@@ -410,6 +469,23 @@ bs_match_type(#b_set{args=[#b_literal{val=skip},_Ctx,
     end;
 bs_match_type(_) ->
     plain.
+
+%% Call instructions leave the match position in an undefined state,
+%% requiring us to invalidate each affected argument.
+bs_invalidate_pos([#b_var{}=Arg|Args], PosMap0, CtxChain) ->
+    Start = bs_subst_ctx(Arg, CtxChain),
+    case PosMap0 of
+        #{Start:=_} ->
+            PosMap = PosMap0#{Start:=unknown},
+            bs_invalidate_pos(Args, PosMap, CtxChain);
+        #{} ->
+            %% Not a match context.
+            bs_invalidate_pos(Args, PosMap0, CtxChain)
+    end;
+bs_invalidate_pos([_|Args], PosMap, CtxChain) ->
+    bs_invalidate_pos(Args, PosMap, CtxChain);
+bs_invalidate_pos([], PosMap, _CtxChain) ->
+    PosMap.
 
 bs_restore_args([#b_var{}=Arg|Args], PosMap0, CtxChain, Dst, Rs0) ->
     Start = bs_subst_ctx(Arg, CtxChain),
@@ -433,33 +509,45 @@ bs_restore_args([], PosMap, _CtxChain, _Dst, Rs) ->
 
 %% Insert all bs_save and bs_restore instructions.
 
-bs_insert([{L,#b_blk{is=Is0}=Blk}|Bs0], Saves, Restores, Slots) ->
-    Is = bs_insert_is_1(Is0, Restores, Slots),
-    Bs = bs_insert_saves(Is, Bs0, Saves),
-    [{L,Blk#b_blk{is=Is}}|bs_insert(Bs, Saves, Restores, Slots)];
-bs_insert([], _, _, _) -> [].
+bs_insert_bsm3(Blocks, Saves, Restores, SavePoints) ->
+    bs_insert_1(Blocks, Saves, Restores, SavePoints, fun(I) -> I end).
 
-bs_insert_is_1([#b_set{op=Op,dst=Dst}=I0|Is], Restores, Slots) ->
+bs_insert_bsm2(Blocks, Saves, Restores, SavePoints) ->
+    %% The old instructions require bs_start_match to be annotated with the
+    %% number of position slots it needs.
+    bs_insert_1(Blocks, Saves, Restores, SavePoints,
+                fun(#b_set{op=bs_start_match,dst=Dst}=I0) ->
+                        NumSlots = case SavePoints of
+                                       #{Dst:=NumSlots0} -> NumSlots0;
+                                       #{} -> 0
+                                   end,
+                        beam_ssa:add_anno(num_slots, NumSlots, I0);
+                   (I) ->
+                        I
+                end).
+
+bs_insert_1([{L,#b_blk{is=Is0}=Blk}|Bs0], Saves, Restores, Slots, XFrm) ->
+    Is = bs_insert_is_1(Is0, Restores, Slots, XFrm),
+    Bs = bs_insert_saves(Is, Bs0, Saves),
+    [{L,Blk#b_blk{is=Is}}|bs_insert_1(Bs, Saves, Restores, Slots, XFrm)];
+bs_insert_1([], _, _, _, _) -> [].
+
+bs_insert_is_1([#b_set{op=Op,dst=Dst}=I0|Is], Restores, SavePoints, XFrm) ->
+    I = XFrm(I0),
     if
         Op =:= bs_test_tail;
+        Op =:= bs_get_tail;
         Op =:= bs_match;
         Op =:= call ->
             Rs = case Restores of
                      #{Dst:=R} -> [R];
                      #{} -> []
                  end,
-            Rs ++ [I0|bs_insert_is_1(Is, Restores, Slots)];
-        Op =:= bs_start_match ->
-            NumSlots = case Slots of
-                           #{Dst:=NumSlots0} -> NumSlots0;
-                           #{} -> 0
-                       end,
-            I = beam_ssa:add_anno(num_slots, NumSlots, I0),
-            [I|bs_insert_is_1(Is, Restores, Slots)];
+            Rs ++ [I|bs_insert_is_1(Is, Restores, SavePoints, XFrm)];
         true ->
-            [I0|bs_insert_is_1(Is, Restores, Slots)]
+            [I|bs_insert_is_1(Is, Restores, SavePoints, XFrm)]
     end;
-bs_insert_is_1([], _, _) -> [].
+bs_insert_is_1([], _, _, _) -> [].
 
 bs_insert_saves([#b_set{dst=Dst}|Is], Bs, Saves) ->
     case Saves of
@@ -505,6 +593,8 @@ bs_instrs_is([#b_set{op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
                 I1#b_set{op=bs_skip,args=[Type,Ctx|As]};
             {bs_match,[#b_literal{val=string},Ctx|As]} ->
                 I1#b_set{op=bs_match_string,args=[Ctx|As]};
+            {bs_get_tail,[Ctx|As]} ->
+                I1#b_set{op=bs_get_tail,args=[Ctx|As]};
             {_,_} ->
                 I1
         end,
@@ -1579,17 +1669,10 @@ live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is],
     Acc = [{Dst,{def,FirstNumber}}|Acc0],
     live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
 live_interval_blk_1([#b_set{op=bs_start_match}=I|Is], FirstNumber,
-                    Aliases0, Acc0) ->
+                    Aliases, Acc0) ->
     N = beam_ssa:get_anno(n, I),
     #b_set{dst=Dst} = I,
     Acc1 = [{Dst,{def,N}}|Acc0],
-    Aliases = case beam_ssa:get_anno(reuse_for_context, I) of
-                  true ->
-                      #b_set{args=[Src]} = I,
-                      [{Dst,Src}|Aliases0];
-                  false ->
-                      Aliases0
-              end,
     Acc = [{V,{use,N}} || V <- beam_ssa:used(I)] ++ Acc1,
     live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
 live_interval_blk_1([I|Is], FirstNumber, Aliases, Acc0) ->
@@ -1866,10 +1949,10 @@ reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
     reserve_zreg_1(Dst, ShortLived, A);
 reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A0) ->
     IsZReg = case Op of
-                 context_to_binary -> true;
                  bs_match_string -> true;
-                 bs_restore -> true;
                  bs_save -> true;
+                 bs_restore -> true;
+                 bs_set_position -> true;
                  {float,clearerror} -> true;
                  kill_try_tag -> true;
                  landingpad -> true;

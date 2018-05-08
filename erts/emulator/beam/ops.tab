@@ -1167,6 +1167,38 @@ bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
 
 bs_context_to_binary x
 
+# Gets a bitstring from the tail of a context.
+bs_get_tail xy d t
+
+# New bs_start_match variant for contexts with external position storage.
+#
+# bs_get/set_position is used to save positions into registers instead of
+# "slots" in the context itself, which lets us continue matching even after
+# we've passed it off to another function.
+
+%if ARCH_64
+bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
+    i_bs_start_match3_gp Bin Live Fail Ctx Pos
+i_bs_start_match3_gp xy t f d x
+%endif
+
+bs_start_match3 Fail=f ica Live Dst => jump Fail
+bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
+
+i_bs_start_match3 xy t f d
+
+# Match context position instructions. 64-bit assumes that all positions can
+# fit into an unsigned small.
+
+%if ARCH_64
+    bs_get_position Src Dst Live => i_bs_get_position Src Dst
+    i_bs_get_position xy xy
+    bs_set_position xy xy
+%else
+    bs_get_position xy d t?
+    bs_set_position xy xy
+%endif
+
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #

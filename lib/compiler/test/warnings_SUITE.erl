@@ -522,25 +522,43 @@ bin_opt_info(Config) when is_list(Config) ->
 	         <<>> -> ok
              end.
 
+             %% We use a tail in a BIF instruction, remote call, function
+             %% return, and an optimizable tail call for better coverage.
+             t2(<<A,B,T/bytes>>) ->
+                 if
+                     A > B -> t2(T);
+                     A =< B -> T
+                 end;
+             t2(<<_,T/bytes>>) when byte_size(T) < 4 ->
+                 foo;
              t2(<<_,T/bytes>>) ->
-               split_binary(T, 4).
+                 split_binary(T, 4).
            ">>,
-    Ts1 = [{bsm1,
-	    Code,
-	    [bin_opt_info],
-	    {warnings,
-	     [{4,sys_core_bsm,orig_bin_var_used_in_guard},
-	      {5,beam_bsm,{no_bin_opt,{{t1,1},no_suitable_bs_start_match}}},
-	      {9,beam_bsm,{no_bin_opt,
-			   {binary_used_in,{extfunc,erlang,split_binary,2}}}} ]}}],
-    [] = run(Config, Ts1),
+
+    Ws = (catch run_test(Config, Code, [bin_opt_info])),
+
+    %% This is an inexact match since the pass reports exact instructions as
+    %% part of the warnings, which may include annotations that vary from run
+    %% to run.
+    {warnings,
+     [{5,beam_ssa_bsm,{unsuitable_call,
+                        {{b_local,{b_literal,t1},1},
+                         {used_before_match,
+                            {b_set,_,_,{bif,byte_size},[_]}}}}},
+      {5,beam_ssa_bsm,{binary_created,_,_}},
+      {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
+      {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
+      {16,beam_ssa_bsm,{binary_created,_,_}}, %% when byte_size(T) < 4 ->
+      {19,beam_ssa_bsm,{remote_call,
+                         {b_remote,
+                          {b_literal,erlang},
+                           {b_literal,split_binary},2}}},
+      {19,beam_ssa_bsm,{binary_created,_,_}}  %% split_binary(T, 4)
+     ]} = Ws,
 
     %% For coverage: don't give the bin_opt_info option.
-    Ts2 = [{bsm2,
-	    Code,
-	    [],
-	    []}],
-    [] = run(Config, Ts2),
+    [] = (catch run_test(Config, Code, [])),
+
     ok.
 
 bin_construction(Config) when is_list(Config) ->
@@ -746,7 +764,7 @@ maps_bin_opt_info(Config) when is_list(Config) ->
                  M.
            ">>,
            [bin_opt_info],
-           {warnings,[{2,beam_bsm,bin_opt}]}}],
+           {warnings,[{3,beam_ssa_bsm,context_reused}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -968,7 +986,6 @@ run(Config, Tests) ->
                 end
         end,
     lists:foldl(F, [], Tests).
-
 
 %% Compiles a test module and returns the list of errors and warnings.
 

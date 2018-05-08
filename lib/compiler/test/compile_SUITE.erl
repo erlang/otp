@@ -1481,7 +1481,10 @@ bc_options(Config) ->
 
     132 = highest_opcode(DataDir, small,
                          [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                          no_ssa_opt_float,no_line_info]),
+                          no_ssa_opt_float,no_line_info,no_bsm3]),
+
+    153 = highest_opcode(DataDir, small, [r20]),
+    153 = highest_opcode(DataDir, small, [r21]),
 
     136 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
                                         no_ssa_opt_record,no_line_info]),

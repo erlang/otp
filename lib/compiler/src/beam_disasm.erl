@@ -1105,6 +1105,16 @@ resolve_inst({get_hd,[Src,Dst]},_,_,_) ->
 resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
     {get_tl,Src,Dst};
 
+%% OTP 22
+resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
+    {bs_start_match3,Fail,Bin,Live,Dst};
+resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
+    {bs_get_tail,Src,Dst,Live};
+resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
+    {bs_get_position,Src,Dst,Live};
+resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
+    {bs_set_position,Src,Dst};
+
 %%
 %% OTP 22.
 %%

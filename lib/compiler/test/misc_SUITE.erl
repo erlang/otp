@@ -254,17 +254,6 @@ silly_coverage(Config) when is_list(Config) ->
 		 2},
     expect_error(fun() -> beam_peep:module(PeepInput, []) end),
 
-    %% beam_bsm. This is tricky. Our function must be sane enough to not crash
-    %% btb_index/1, but must crash the main optimization pass.
-    BsmInput = {?MODULE,[{foo,0}],[],
-		[{function,foo,0,2,
-		  [{label,1},
-		   {func_info,{atom,?MODULE},{atom,foo},0},
-		   {label,2},
-		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
-		   {block,[a|b]}]}],0},
-    expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
-
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
 		    [{label,1},

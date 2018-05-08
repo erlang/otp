@@ -90,33 +90,30 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 validate(Module, Fs) ->
-    Ft = index_bs_start_match(Fs, []),
+    Ft = index_parameter_types(Fs, []),
     validate_0(Module, Fs, Ft).
 
-index_bs_start_match([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
 			(_) -> true
 		     end, Code0),
     case Code of
 	[{label,Entry}|Is] ->
-	    Acc = index_bs_start_match_1(Is, Entry, Acc0),
-	    index_bs_start_match(Fs, Acc);
+	    Acc = index_parameter_types_1(Is, Entry, Acc0),
+	    index_parameter_types(Fs, Acc);
 	_ ->
 	    %% Something serious is wrong. Ignore it for now.
 	    %% It will be detected and diagnosed later.
-	    index_bs_start_match(Fs, Acc0)
+	    index_parameter_types(Fs, Acc0)
     end;
-index_bs_start_match([], Acc) ->
+index_parameter_types([], Acc) ->
     gb_trees:from_orddict(lists:sort(Acc)).
 
-index_bs_start_match_1([{test,bs_start_match2,_,_,_,_}=I|_], Entry, Acc) ->
-    [{Entry,[I]}|Acc];
-index_bs_start_match_1([{test,_,{f,F},_},{bs_context_to_binary,_}|Is0], Entry, Acc) ->
-    [{label,F}|Is] = dropwhile(fun({label,L}) when L =:= F -> false;
-				  (_)  -> true
-			       end, Is0),
-    index_bs_start_match_1(Is, Entry, Acc);
-index_bs_start_match_1(_, _, Acc) -> Acc.
+index_parameter_types_1([{'%', {type_info, Reg, Type}} | Is], Entry, Acc) ->
+    Key = {Entry, Reg},
+    index_parameter_types_1(Is, Entry, [{Key, Type} | Acc]);
+index_parameter_types_1(_, _, Acc) ->
+    Acc.
 
 validate_0(_Module, [], _) -> [];
 validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
@@ -300,6 +297,21 @@ valfun_1({bs_context_to_binary,Ctx}, #vst{current=#st{x=Xs}}=Vst) ->
 	_ ->
 	    error({bad_source,Ctx})
     end;
+valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    #vst{current=#st{x=Xs,y=Ys}} = Vst,
+    {Reg, Tree} = case Ctx of
+                      {x,X} -> {X, Xs};
+                      {y,Y} -> {Y, Ys};
+                      _ -> error({bad_source,Ctx})
+                  end,
+    Type = case gb_trees:lookup(Reg, Tree) of
+               {value,#ms{}} -> propagate_fragility(term, [Ctx], Vst);
+               _ -> error({bad_context,Reg})
+           end,
+    set_type_reg(Type, Dst, Vst);
 valfun_1(bs_init_writable=I, Vst) ->
     call(I, 1, Vst);
 valfun_1(build_stacktrace=I, Vst) ->
@@ -385,6 +397,25 @@ valfun_1(remove_message, Vst) ->
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
+valfun_1({'%', {type_info, Reg, Info0}}, Vst0) ->
+    %% Explicit type information inserted by optimization passes to indicate
+    %% that Reg has a certain type, so that we can accept cross-function type
+    %% optimizations.
+    %%
+    %% At the moment we only allow this when narrowing from 'term' which is
+    %% what to expect with function parameters, but in theory any narrowing
+    %% conversion should be legal.
+    case get_move_term_type(Reg, Vst0) of
+        term ->
+            Type0 = case Info0 of
+                        match_context -> #ms{};
+                        _ -> Info0
+                    end,
+            Type = propagate_fragility(Type0, [Reg], Vst0),
+            set_type_reg(Type, Reg, Vst0);
+        _ ->
+            error(bad_type_info)
+    end;
 valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
@@ -676,32 +707,44 @@ valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
                               branch_state(Fail, Vst)));
 
 %% New bit syntax matching instructions.
-valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
-    %% If source and destination registers are the same, match state
-    %% is OK as input.
-    CtxType = get_move_term_type(Ctx, Vst0),
+valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst0) ->
+    %% Match states are always okay as input.
+    SrcType = get_move_term_type(Src, Vst0),
+    DstType = propagate_fragility(bsm_match_state(), [Src], Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
-    BranchVst = case CtxType of
-		    #ms{} ->
-			%% The failure branch will never be taken when Ctx
-			%% is a match context. Therefore, the type for Ctx
-			%% at the failure label must not be match_context
-			%% (or we could reject legal code).
-			set_type_reg(term, Ctx, Vst1);
-		    _ ->
-			Vst1
-		end,
+    BranchVst = case SrcType of
+                    #ms{} ->
+                        %% The failure branch will never be taken when Src is a
+                        %% match context. Therefore, the type for Src at the
+                        %% failure label must not be match_context (or we could
+                        %% reject legal code).
+                        set_type_reg(term, Src, Vst1);
+                    _ ->
+                        Vst1
+                end,
     Vst = branch_state(Fail, BranchVst),
-    set_type_reg(bsm_match_state(NeedSlots), Ctx, Vst);
+    set_type_reg(DstType, Dst, Vst);
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst0) ->
-    assert_term(Src, Vst0),
+    %% Match states are always okay as input.
+    SrcType = get_move_term_type(Src, Vst0),
+    DstType = propagate_fragility(bsm_match_state(Slots), [Src], Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
-    Vst = branch_state(Fail, Vst1),
-    set_type_reg(bsm_match_state(Slots), Src, Dst, Vst);
+    BranchVst = case SrcType of
+                    #ms{} ->
+                        %% The failure branch will never be taken when Src is a
+                        %% match context. Therefore, the type for Src at the
+                        %% failure label must not be match_context (or we could
+                        %% reject legal code).
+                        set_type_reg(term, Src, Vst1);
+                    _ ->
+                        Vst1
+                end,
+    Vst = branch_state(Fail, BranchVst),
+    set_type_reg(DstType, Dst, Vst);
 valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
     branch_state(Fail, Vst);
@@ -738,6 +781,16 @@ valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
     bsm_restore(Ctx, SavePoint, Vst);
+valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
+    bsm_validate_context(Ctx, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    set_type_reg(bs_position, Dst, Vst);
+valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    assert_type(bs_position, Pos, Vst),
+    Vst;
 
 %% Other test instructions.
 valfun_4({test,is_float,{f,Lbl},[Float]}, Vst) ->
@@ -999,26 +1052,12 @@ verify_call_args_1(N, Vst) ->
     verify_call_args_1(X, Vst).
 
 verify_local_call(Lbl, Live, Vst) ->
-    case all_ms_in_x_regs(Live, Vst) of
-	[{R,Ctx}] ->
-	    %% Verify that there is a suitable bs_start_match2 instruction.
-	    verify_call_match_context(Lbl, R, Vst),
-
-	    %% Since the callee has consumed the match context,
-	    %% there must be no additional copies in Y registers.
-	    #ms{id=Id} = Ctx,
-	    case ms_in_y_regs(Id, Vst) of
-		[] ->
-		    ok;
-		[_|_]=Ys ->
-		    error({multiple_match_contexts,[R|Ys]})
-	    end;
-	[_,_|_]=Xs0 ->
-	    Xs = [R || {R,_} <- Xs0],
-	    error({multiple_match_contexts,Xs});
-	[] ->
-	    ok
-    end.
+    F = fun({R, _Ctx}) ->
+                verify_call_match_context(Lbl, R, Vst)
+          end,
+    MsRegs = all_ms_in_x_regs(Live, Vst),
+    verify_no_ms_aliases(MsRegs),
+    foreach(F, MsRegs).
 
 all_ms_in_x_regs(0, _Vst) ->
     [];
@@ -1026,24 +1065,26 @@ all_ms_in_x_regs(Live0, Vst) ->
     Live = Live0 - 1,
     R = {x,Live},
     case get_move_term_type(R, Vst) of
-	#ms{}=M ->
-	    [{R,M}|all_ms_in_x_regs(Live, Vst)];
-	_ ->
-	    all_ms_in_x_regs(Live, Vst)
+        #ms{}=M -> [{R,M} | all_ms_in_x_regs(Live, Vst)];
+        _ -> all_ms_in_x_regs(Live, Vst)
     end.
 
-ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
-    Ys = gb_trees:to_list(Ys0),
-    [{y,Y} || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+%% Verifies that the same match context isn't present twice.
+verify_no_ms_aliases(MsRegs) ->
+    CtxIds = [Id || {_, #ms{id=Id}} <- MsRegs],
+    UniqueCtxIds = ordsets:from_list(CtxIds),
+    if
+        length(UniqueCtxIds) < length(CtxIds) ->
+            error({multiple_match_contexts, MsRegs});
+        length(UniqueCtxIds) =:= length(CtxIds) ->
+            ok
+    end.
 
+%% Verifies that the target label accepts match contexts in the given register.
 verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
-    case gb_trees:lookup(Lbl, Ft) of
-	none ->
-	    error(no_bs_start_match2);
-	{value,[{test,bs_start_match2,_,_,[Ctx,_],Ctx}|_]} ->
-	    ok;
-	{value,[{test,bs_start_match2,_,_,_,_}=I|_]} ->
-	    error({unsuitable_bs_start_match2,I})
+    case gb_trees:lookup({Lbl, Ctx}, Ft) of
+        {value, match_context} -> ok;
+        none -> error(no_bs_start_match2)
     end.
 
 allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
@@ -1212,6 +1253,8 @@ assert_unique_map_keys([_,_|_]=Ls) ->
 %%% New binary matching instructions.
 %%%
 
+bsm_match_state() ->
+    #ms{}.
 bsm_match_state(Slots) ->
     #ms{slots=Slots}.
 
@@ -1221,6 +1264,12 @@ bsm_validate_context(Reg, Vst) ->
 
 bsm_get_context({x,X}=Reg, #vst{current=#st{x=Xs}}=_Vst) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
+	{value,#ms{}=Ctx} -> Ctx;
+	{value,{fragile,#ms{}=Ctx}} -> Ctx;
+	_ -> error({no_bsm_context,Reg})
+    end;
+bsm_get_context({y,Y}=Reg, #vst{current=#st{y=Ys}}=_Vst) when is_integer(Y) ->
+    case gb_trees:lookup(Y, Ys) of
 	{value,#ms{}=Ctx} -> Ctx;
 	{value,{fragile,#ms{}=Ctx}} -> Ctx;
 	_ -> error({no_bsm_context,Reg})
@@ -1254,6 +1303,7 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	    end;
 	_ -> error({illegal_restore,SavePoint,range})
     end.
+
 
 select_val_branches(Src, Choices, Vst) ->
     Infer = infer_types(Src, Vst),

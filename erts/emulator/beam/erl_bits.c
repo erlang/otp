@@ -144,6 +144,42 @@ erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
     return make_matchstate(ms);
 }
 
+ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Binary)
+{
+    Eterm Orig;
+    Uint offs;
+    Uint* hp;
+    Uint NeededSize;
+    ErlBinMatchState *ms;
+    Uint bitoffs;
+    Uint bitsize;
+    Uint total_bin_size;
+    ProcBin* pb;
+
+    ASSERT(is_binary(Binary));
+    total_bin_size = binary_size(Binary);
+    if ((total_bin_size >> (8*sizeof(Uint)-3)) != 0) {
+        return NULL;
+    }
+
+    NeededSize = ERL_BIN_MATCHSTATE_SIZE(0);
+    hp = HeapOnlyAlloc(p, NeededSize);
+    ms = (ErlBinMatchState *) hp;
+    ERTS_GET_REAL_BIN(Binary, Orig, offs, bitoffs, bitsize);
+    pb = (ProcBin *) boxed_val(Orig);
+    if (pb->thing_word == HEADER_PROC_BIN && pb->flags != 0) {
+        erts_emasculate_writable_binary(pb);
+    }
+
+    ms->thing_word = HEADER_BIN_MATCHSTATE(0);
+    (ms->mb).orig = Orig;
+    (ms->mb).base = binary_bytes(Orig);
+    (ms->mb).offset = 8 * offs + bitoffs;
+    (ms->mb).size = total_bin_size * 8 + (ms->mb).offset + bitsize;
+
+    return ms;
+}
+
 #ifdef DEBUG
 # define CHECK_MATCH_BUFFER(MB) check_match_buffer(MB)
 
