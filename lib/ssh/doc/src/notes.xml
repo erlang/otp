@@ -30,6 +30,35 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.4.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    <c>{'EXIT',_,normal}</c> messages.</p>
+          <p>
+	    Own Id: OTP-15018</p>
+        </item>
+        <item>
+          <p>
+	    Host key hash erroneously calculated for clients
+	    following draft-00 of RFC 4419, for example PuTTY</p>
+          <p>
+	    Own Id: OTP-15064</p>
+        </item>
+        <item>
+          <p>
+	    Renegotiation could fail in some states</p>
+          <p>
+	    Own Id: OTP-15066</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.4.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
