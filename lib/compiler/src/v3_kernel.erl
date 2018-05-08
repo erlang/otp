@@ -82,8 +82,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keymember/3,keyfind/3,partition/2,droplast/1,last/1,sort/1,
-                reverse/1]).
+		keyfind/3,partition/2,droplast/1,last/1,sort/1,reverse/1]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 -import(cerl, [c_tuple/1]).
 
@@ -2337,8 +2336,7 @@ uexpr(#k_bif{anno=A,op=Op,args=As}=Bif, {break,Rs}, St0) ->
     {Brs,St1} = bif_returns(Op, Rs, St0),
     {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Brs),a=A},ret=Brs},
      Used,St1};
-uexpr(#k_match{anno=A,vars=Vs0,body=B0}, Br, St0) ->
-    Vs = handle_reuse_annos(Vs0, St0),
+uexpr(#k_match{anno=A,vars=Vs,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
     case is_in_guard(St1) of
@@ -2441,33 +2439,6 @@ make_fdef(Anno, Name, Arity, Vs, Body) ->
                      vars=Vs,body=Body,ret=[]},
     #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Match}.
 
-
-%% handle_reuse_annos([#k_var{}], State) -> State.
-%%  In general, it is only safe to reuse a variable for a match context
-%%  if the original value of the variable will no longer be needed.
-%%
-%%  If a variable has been bound in an outer letrec and is therefore
-%%  free in the current function, the variable may still be used.
-%%  We don't bother to check whether the variable is actually used,
-%%  but simply clears the 'reuse_for_context' annotation for any variable
-%%  that is free.
-handle_reuse_annos(Vs, St) ->
-    [handle_reuse_anno(V, St) || V <- Vs].
-
-handle_reuse_anno(#k_var{anno=A}=V, St) ->
-    case member(reuse_for_context, A) of
-	false -> V;
-	true -> handle_reuse_anno_1(V, St)
-    end.
-
-handle_reuse_anno_1(#k_var{anno=Anno,name=Vname}=V, #kern{ff={F,A}}=St) ->
-    FreeVs = get_free(F, A, St),
-    case keymember(Vname, #k_var.name, FreeVs) of
-	true -> V#k_var{anno=Anno--[reuse_for_context]};
-	false -> V
-    end;
-handle_reuse_anno_1(V, _St) -> V.
-
 %% get_free(Name, Arity, State) -> [Free].
 %% store_free(Name, Arity, [Free], State) -> State.
 
@@ -2511,8 +2482,7 @@ umatch(#k_alt{anno=A,first=F0,then=T0}, Br, St0) ->
     Used = union(Fu, Tu),
     {#k_alt{anno=#k{us=Used,ns=[],a=A},first=F1,then=T1},
      Used,St2};
-umatch(#k_select{anno=A,var=V0,types=Ts0}, Br, St0) ->
-    V = handle_reuse_anno(V0, St0),
+umatch(#k_select{anno=A,var=V,types=Ts0}, Br, St0) ->
     {Ts1,Tus,St1} = umatch_list(Ts0, Br, St0),
     Used = case member(no_usage, get_kanno(V)) of
 	       true -> Tus;
