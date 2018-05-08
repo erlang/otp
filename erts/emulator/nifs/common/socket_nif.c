@@ -236,6 +236,14 @@ typedef unsigned long long llu_t;
 
 /* *** Misc macros and defines *** */
 
+#if defined(TCP_CA_NAME_MAX)
+#define SOCKET_OPT_TCP_CONGESTION_NAME_MAX TCP_CA_NAME_MAX
+#else
+/* This is really excessive, but just in case... */
+#define SOCKET_OPT_TCP_CONGESTION_NAME_MAX 256
+#endif
+
+
 /* *** Socket state defs *** */
 
 #define SOCKET_FLAG_OPEN         0x0001
@@ -349,14 +357,19 @@ typedef union {
 
 #define SOCKET_OPT_OTP_DEBUG       0
 #define SOCKET_OPT_OTP_IOW         1
+
 #define SOCKET_OPT_SOCK_KEEPALIVE  0
 #define SOCKET_OPT_SOCK_LINGER     1
+
 #define SOCKET_OPT_IP_RECVTOS      0
 #define SOCKET_OPT_IP_ROUTER_ALERT 1
 #define SOCKET_OPT_IP_TOS          2
 #define SOCKET_OPT_IP_TTL          3
+
 #define SOCKET_OPT_IPV6_HOPLIMIT   0
-#define SOCKET_OPT_TCP_MAXSEG      0
+
+#define SOCKET_OPT_TCP_CONGESTION  0
+#define SOCKET_OPT_TCP_MAXSEG      1
 
 
 /* =================================================================== *
@@ -601,6 +614,7 @@ typedef struct {
 #define SOCKET_OPT_VALUE_INT    2
 #define SOCKET_OPT_VALUE_LINGER 3
 #define SOCKET_OPT_VALUE_BIN    4
+#define SOCKET_OPT_VALUE_STR    5
 
 typedef struct {
     unsigned int tag;
@@ -609,6 +623,10 @@ typedef struct {
         int           intVal;
         struct linger lingerVal;
         ErlNifBinary  binVal;
+        struct {
+            unsigned int len;
+            char*        str;
+        } strVal;
     } u;
     /*
     void*     optValP;   // Points to the actual data (above)
@@ -3157,6 +3175,18 @@ ERL_NIF_TERM nsetopt_gen(ErlNifEnv*        env,
         }
         break;
 
+    case SOCKET_OPT_VALUE_STR:
+        {
+            optLen = valP->u.strVal.len;
+            res    = socket_setopt(descP->sock, level, opt,
+                                   valP->u.strVal.str, optLen);
+            if (res != 0)
+                result = make_error2(env, res);
+            else
+                result = atom_ok;
+        }
+        break;
+
     default:
         result = make_error(env, atom_einval);
     }
@@ -3531,6 +3561,26 @@ BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
                              SocketOptValue* valP)
 {
     switch (eOpt) {
+#if defined(TCP_CONGESTION)
+    case SOCKET_OPT_TCP_CONGESTION:
+        {
+            valP->u.strVal.len = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
+            valP->u.strVal.str = MALLOC(valP->u.strVal.len);
+
+            if (GET_STR(env, eVal, valP->u.strVal.str, valP->u.strVal.len) > 0) {
+                valP->tag = SOCKET_OPT_VALUE_STR;
+                *opt      = TCP_CONGESTION;
+                return TRUE;
+            } else {
+                FREE(valP->u.strVal.str);
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
+            }
+        }
+        break;
+#endif
+
 #if defined(TCP_MAXSEG)
     case SOCKET_OPT_TCP_MAXSEG:
         if (!GET_INT(env, eVal, &valP->u.intVal)) {
@@ -3538,6 +3588,8 @@ BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
             *opt      = TCP_MAXSEG;
             return TRUE;
         } else {
+            *opt      = -1;
+            valP->tag = SOCKET_OPT_VALUE_UNDEF;
             return FALSE;
         }
         break;

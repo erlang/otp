@@ -267,8 +267,7 @@
 
 -type tcp_socket_option()  :: congestion |
                               maxseg |
-                              nodelay |
-                              user_timeout.
+                              nodelay.
 
 -type udp_socket_option() :: checksum |
                              maxdgram |
@@ -440,7 +439,8 @@
 
 -define(SOCKET_OPT_IPV6_HOPLIMIT,       0).
 
--define(SOCKET_OPT_TCP_MAXSEG,          0).
+-define(SOCKET_OPT_TCP_CONGESTION,      0).
+-define(SOCKET_OPT_TCP_MAXSEG,          1).
 
 -define(SOCKET_SHUTDOWN_HOW_READ,       0).
 -define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
@@ -1633,8 +1633,18 @@ enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(tcp, congetsion, V, _D, T, P)
+  when is_list(V) andalso
+       (T =:= stream) andalso
+       (P =:= tcp) ->
+    V;
 enc_setopt_value(tcp, maxseg, V, _D, T, P)
   when is_integer(V) andalso
+       (T =:= stream) andalso
+       (P =:= tcp) ->
+    V;
+enc_setopt_value(tcp, nodelay, V, _D, T, P)
+  when is_boolean(V) andalso
        (T =:= stream) andalso
        (P =:= tcp) ->
     V;
@@ -1880,8 +1890,8 @@ enc_sockopt_key(ip, recvttl = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
     not_supported(Opt);
 enc_sockopt_key(ip, retopts = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(ip, router_alert = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
+    ?SOCKET_OPT_IP_ROUTER_ALERT;
 %% On FreeBSD it specifies that this option is only valid
 %% for stream, dgram and "some" raw sockets...
 %% No such condition on linux (in the man page)...
@@ -1904,6 +1914,14 @@ enc_sockopt_key(ipv6, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
 %% TCP socket options
+%% There are other options that would be useful; info,
+%% but they are difficult to get portable...
+enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_TCP_CONGESTION;
+enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_TCP_MAXSEG;
+enc_sockopt_key(tcp, nodelay = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
 enc_sockopt_key(tcp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
