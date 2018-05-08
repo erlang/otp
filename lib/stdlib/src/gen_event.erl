@@ -122,7 +122,7 @@
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
--type emgr_name() :: {'local', atom()} | {'global', atom()}
+-type emgr_name() :: {'local', atom()} | {'global', term()}
                    | {'via', atom(), term()}.
 -type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
                     | {'logfile', string()}.
@@ -130,7 +130,7 @@
                 | {'debug', [debug_flag()]}
                 | {'spawn_opt', [proc_lib:spawn_option()]}
                 | {'hibernate_after', timeout()}.
--type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()}
+-type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 
@@ -146,7 +146,7 @@
 %% start_link()
 %% start_link(MgrName | Options)
 %% start_link(MgrName, Options)
-%%    MgrName ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%    MgrName ::= {local, atom()} | {global, term()} | {via, atom(), term()}
 %%    Options ::= [{timeout, Timeout} | {debug, [Flag]} | {spawn_opt,SOpts}]
 %%       Flag ::= trace | log | {logfile, File} | statistics | debug
 %%          (debug == log && statistics)
