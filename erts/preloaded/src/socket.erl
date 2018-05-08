@@ -233,10 +233,11 @@
                             unblock_source.
 -type ipv6_socket_option() ::
         addform |
-        add_membership | drop_membership |
+        add_membership |
         authhdr |
         auth_level |
         checksum |
+        drop_membership |
         dstopts |
         esp_trans_level |
         esp_network_level |
@@ -437,10 +438,14 @@
 -define(SOCKET_OPT_IP_TOS,              2).
 -define(SOCKET_OPT_IP_TTL,              3).
 
--define(SOCKET_OPT_IPV6_HOPLIMIT,       0).
+-define(SOCKET_OPT_IPV6_HOPLIMIT,       12).
 
 -define(SOCKET_OPT_TCP_CONGESTION,      0).
 -define(SOCKET_OPT_TCP_MAXSEG,          1).
+-define(SOCKET_OPT_TCP_NODELAY,         2).
+
+-define(SOCKET_OPT_SCTP_AUTOCLOSE,      7).
+-define(SOCKET_OPT_SCTP_NODELAY,        22).
 
 -define(SOCKET_SHUTDOWN_HOW_READ,       0).
 -define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
@@ -1654,6 +1659,15 @@ enc_setopt_value(tcp = L, Opt, V, _D, _T, _P) ->
 enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
     not_supported({L, Opt});
 
+enc_setopt_value(sctp, autoclose, V, _D, _T, P)
+  when is_integer(V) andalso
+       (P =:= sctp) ->
+    V;
+enc_setopt_value(sctp, nodelay, V, _D, _T, P)
+  when is_boolean(V) andalso
+       (P =:= sctp) ->
+    V;
+
 enc_setopt_value(L, Opt, V, _, _, _)
   when is_integer(L) andalso is_integer(Opt) andalso is_binary(V) ->
     V.
@@ -1920,8 +1934,8 @@ enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
 enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_MAXSEG;
-enc_sockopt_key(tcp, nodelay = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(tcp, nodelay = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_TCP_NODELAY;
 enc_sockopt_key(tcp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
@@ -1930,6 +1944,10 @@ enc_sockopt_key(udp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
 %% SCTP socket options
+enc_sockopt_key(sctp, autoclose = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_AUTOCLOSE;
+enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_NODELAY;
 enc_sockopt_key(sctp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 

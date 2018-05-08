@@ -366,10 +366,14 @@ typedef union {
 #define SOCKET_OPT_IP_TOS          2
 #define SOCKET_OPT_IP_TTL          3
 
-#define SOCKET_OPT_IPV6_HOPLIMIT   0
+#define SOCKET_OPT_IPV6_HOPLIMIT   12
 
 #define SOCKET_OPT_TCP_CONGESTION  0
 #define SOCKET_OPT_TCP_MAXSEG      1
+#define SOCKET_OPT_TCP_NODELAY     2
+
+#define SOCKET_OPT_SCTP_AUTOCLOSE  7
+#define SOCKET_OPT_SCTP_NODELAY    22
 
 
 /* =================================================================== *
@@ -3344,11 +3348,13 @@ BOOLEAN_T eoptval2optval_otp(ErlNifEnv*      env,
             {
                 if (decode_bool(env, eVal, &valP->u.boolVal)) {
                     valP->tag = SOCKET_OPT_VALUE_BOOL;
-                    result = TRUE;
+                    *opt      = eOpt;
+                    result    = TRUE;
                 } else {
-                    result = FALSE;
+                    valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                    *opt      = -1;
+                    result    = FALSE;
                 }
-                *opt = eOpt;
             }
             break;
 
@@ -3582,14 +3588,28 @@ BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
 #endif
 
 #if defined(TCP_MAXSEG)
-    case SOCKET_OPT_TCP_MAXSEG:
-        if (!GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = TCP_MAXSEG;
+        case SOCKET_OPT_TCP_MAXSEG:
+            if (!GET_INT(env, eVal, &valP->u.intVal)) {
+                valP->tag = SOCKET_OPT_VALUE_INT;
+                *opt      = TCP_MAXSEG;
+                return TRUE;
+            } else {
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
+            }
+            break;
+#endif
+
+#if defined(TCP_NODELAY)
+    case SOCKET_OPT_TCP_NODELAY:
+        if (decode_bool(env, eVal, &valP->u.boolVal)) {
+            valP->tag = SOCKET_OPT_VALUE_BOOL;
+            *opt      = TCP_NODELAY;
             return TRUE;
         } else {
-            *opt      = -1;
             valP->tag = SOCKET_OPT_VALUE_UNDEF;
+            *opt      = -1;
             return FALSE;
         }
         break;
@@ -3636,11 +3656,29 @@ BOOLEAN_T eoptval2optval_sctp(ErlNifEnv*      env,
     switch (eOpt) {
 #if defined(SCTP_AUTOCLOSE)
     case SOCKET_OPT_SCTP_AUTOCLOSE:
-        if (!GET_INT(env, eVal, &valP->u.intVal))
+        if (GET_INT(env, eVal, &valP->u.intVal)) {
+            valP->tag = SOCKET_OPT_VALUE_INT;
+            *opt      = SCTP_AUTOCLOSE;
+            return TRUE;
+        } else {
+            valP->tag = SOCKET_OPT_VALUE_UNDEF;
+            *opt      = -1;
             return FALSE; // PLACEHOLDER - We should really be more informative
-        valP->tag = SOCKET_OPT_VALUE_INT;
-        *opt      = SCTP_AUTOCLOSE;
-        return TRUE;
+        }
+        break;
+#endif
+
+#if defined(SCTP_NODELAY)
+    case SOCKET_OPT_SCTP_NODELAY:
+        if (decode_bool(env, eVal, &valP->u.boolVal)) {
+            valP->tag = SOCKET_OPT_VALUE_BOOL;
+            *opt      = SCTP_NODELAY;
+            return TRUE;
+        } else {
+            valP->tag = SOCKET_OPT_VALUE_UNDEF;
+            *opt      = -1;
+            return FALSE;
+        }
         break;
 #endif
 
