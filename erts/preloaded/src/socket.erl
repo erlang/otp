@@ -199,12 +199,14 @@
 %% Read-only options:
 %% mtu
 %%
+%% Options only valid on FreeBSD?:
+%% dontfrag
 %% Options only valid for RAW sockets:
-%% nodefrag
+%% nodefrag (linux only?)
 -type ip_socket_option() :: add_membership |
                             add_source_membership |
                             block_source |
-                            dont_frag |
+                            dontfrag |
                             drop_membership |
                             drop_source_membership |
                             freebind |
@@ -437,7 +439,9 @@
 -define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
 -define(SOCKET_OPT_SOCK_LINGER,         10).
 -define(SOCKET_OPT_SOCK_PRIORITY,       16).
+-define(SOCKET_OPT_SOCK_RCVBUF,         17).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      21).
+-define(SOCKET_OPT_SOCK_SNDBUF,         27).
 
 -define(SOCKET_OPT_IP_RECVTOS,          25).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
@@ -1600,9 +1604,10 @@ enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
 
 %% +++ Encode setopt value +++
 %%
-%% For the most part this function does *not* do an actually encode,
-%% it simply validates the value type. But in some cases it actually
-%% encodes the value into an more manageable type.
+%% For the most part this function does *not* do an actual encode,
+%% it simply validates the value type. But in some cases it will
+%% encode the value into an more "manageable" type.
+%% It also handles "aliases" (see linger).
 
 enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
     V;
@@ -1622,7 +1627,11 @@ enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
     V;
 enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
     V;
+enc_setopt_value(socket, rcvbuf, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
+    V;
+enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
@@ -1830,8 +1839,8 @@ enc_sockopt_key(socket, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;
-enc_sockopt_key(socket, rcvbuf = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, rcvbuf = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_RCVBUF;
 enc_sockopt_key(socket, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 %% May not work on linux.
@@ -1848,8 +1857,8 @@ enc_sockopt_key(socket, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, setfib = Opt, set = _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, sndbuf = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, sndbuf = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_SNDBUF;
 enc_sockopt_key(socket, sndbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 %% Not changeable on linux.
