@@ -926,7 +926,7 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end;
 
 	false ->
-	    ct:log("Not in 'connected' state: ~p",[State]),
+	    ct:log("~p:~p Not in 'connected' state: ~p",[?MODULE,?LINE,State]),
 	    receive
 		{reneg_timeout,Ref} -> 
 		    ct:log("S = ~p", [S]),
