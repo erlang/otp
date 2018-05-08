@@ -133,6 +133,7 @@
 #endif
 
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <arpa/inet.h>
 
 #include <sys/param.h>
@@ -371,6 +372,8 @@ typedef union {
 #define SOCKET_OPT_TCP_CONGESTION  0
 #define SOCKET_OPT_TCP_MAXSEG      1
 #define SOCKET_OPT_TCP_NODELAY     2
+
+#define SOCKET_OPT_UDP_CORK        0
 
 #define SOCKET_OPT_SCTP_AUTOCLOSE  7
 #define SOCKET_OPT_SCTP_NODELAY    22
@@ -3625,8 +3628,8 @@ BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
 
 
 /* +++ decode UDP socket options +++
- * Currently there are no such options, so this function
- * is just a placeholder!
+ * Currently there are only one option, cork, and that may only
+ * work on linux...
  */
 static
 BOOLEAN_T eoptval2optval_udp(ErlNifEnv*      env,
@@ -3636,6 +3639,20 @@ BOOLEAN_T eoptval2optval_udp(ErlNifEnv*      env,
                              SocketOptValue* valP)
 {
     switch (eOpt) {
+#if defined(UDP_CORK)
+    case SOCKET_OPT_UDP_CORK:
+        if (decode_bool(env, eVal, &valP->u.boolVal)) {
+            valP->tag = SOCKET_OPT_VALUE_BOOL;
+            *opt      = UDP_CORK;
+            return TRUE;
+        } else {
+            valP->tag = SOCKET_OPT_VALUE_UNDEF;
+            *opt      = -1;
+            return FALSE;
+        }
+        break;
+#endif
+
     default:
         *opt      = -1;
         valP->tag = SOCKET_OPT_VALUE_UNDEF;

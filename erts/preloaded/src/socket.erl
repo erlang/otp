@@ -270,9 +270,8 @@
                               maxseg |
                               nodelay.
 
--type udp_socket_option() :: checksum |
-                             maxdgram |
-                             recvspace.
+-type udp_socket_option() :: cork.
+
 -type sctp_socket_option() ::
         adaption_layer |
         associnfo |
@@ -443,6 +442,8 @@
 -define(SOCKET_OPT_TCP_CONGESTION,      0).
 -define(SOCKET_OPT_TCP_MAXSEG,          1).
 -define(SOCKET_OPT_TCP_NODELAY,         2).
+
+-define(SOCKET_OPT_UDP_CORK,            1).
 
 -define(SOCKET_OPT_SCTP_AUTOCLOSE,      7).
 -define(SOCKET_OPT_SCTP_NODELAY,        22).
@@ -1638,7 +1639,7 @@ enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
-enc_setopt_value(tcp, congetsion, V, _D, T, P)
+enc_setopt_value(tcp, congestion, V, _D, T, P)
   when is_list(V) andalso
        (T =:= stream) andalso
        (P =:= tcp) ->
@@ -1656,6 +1657,11 @@ enc_setopt_value(tcp, nodelay, V, _D, T, P)
 enc_setopt_value(tcp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(udp, cork, V, _D, T, P)
+  when is_boolean(V) andalso
+       (T =:= dgram) andalso
+       (P =:= udp) ->
+    V;
 enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
     not_supported({L, Opt});
 
@@ -1940,6 +1946,8 @@ enc_sockopt_key(tcp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
 %% UDP socket options
+enc_sockopt_key(udp, cork = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_UDP_CORK;
 enc_sockopt_key(udp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
