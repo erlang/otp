@@ -33,10 +33,49 @@
     <file>logger.xml</file>
   </header>
   <module>logger</module>
-  <modulesummary>API module for the logger application.</modulesummary>
+  <modulesummary>API module for the logger.</modulesummary>
 
   <description>
-
+    <p>
+      This module is the main logger API. It contains functions that allow
+      application to use a single log API and the system to manage those log
+      events independently. To log events the logger
+      <seealso marker="#macros">macros</seealso> should be used. For instance,
+      to log a new error log event:</p>
+      <code>
+?LOG_ERROR("error happened because: ~p",[Reason]). %% With macro
+logger:error("error happened because: ~p",[Reason]). %% Without macro
+      </code>
+      <p>This log event will then be sent to the configured log handlers which
+      by default means that it will be printed to the console. If you want
+      your systems logs to be printed to a file instead of the console you
+      have to configure the default handler to do so. The simplest way is
+      to include the following in your <seealso marker="config"><c>sys.config</c></seealso>.</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler,default,logger_std_h,
+      #{logger_std_h=>#{type=>{file,"path/to/file.log"}}}}]}]}].
+      </code>
+    <p>
+      For more information about:
+    </p>
+    <list type="bulleted">
+      <item>how to use the API,
+        see <seealso marker="logger_chapter">the User's Guide</seealso>.</item>
+      <item>how to configure logger,
+        see the <seealso marker="logger_chapter#configuration">Configuration</seealso>
+        section in the User's Guide.</item>
+      <item>the convinience macros in logger.hrl,
+        see <seealso marker="#macros">the macro section</seealso>.</item>
+      <item>what the builtin formatter can do,
+        see <seealso marker="logger_formatter">logger_formatter</seealso>.</item>
+      <item>what the builtin handlers can do,
+        see <seealso marker="logger_std_h">logger_std_h</seealso> and
+        <seealso marker="logger_disk_log_h">logger_disk_log_h</seealso>.</item>
+      <item>what builtin filters are available,
+      see <seealso marker="logger_filters">logger_filters</seealso>.</item>
+    </list>
   </description>
 
   <datatypes>
@@ -348,16 +387,16 @@
             <code><![CDATA[1> logger:i(print).
 Current logger configuration:
   Level: info
-  FilterDefault: log
+  Filter Default: log
   Filters:
   Handlers:
-    Id: logger_std_h
+    Id: default
       Module:    logger_std_h
       Level:     info
       Formatter:
         Module: logger_formatter
-        Config: #{template => [{logger_formatter,header},"\n",msg,"\n"],
-                  legacy_header => true}
+        Config: #{legacy_header => true,single_line => false,
+                  template => [{logger_formatter,header},"\n",msg,"\n"]}
       Filter Default: stop
       Filters:
         Id: stop_progress
@@ -550,6 +589,56 @@ Current logger configuration:
     </func>
 
     <func>
+      <name name="add_handlers" arity="1" clause_i="1"/>
+      <fsummary>Setup logger handlers from the applications configuration parameters.</fsummary>
+      <desc>
+        <p>Reads the application configuration parameter <c>logger</c> and
+          calls <c>logger:add_handlers/1</c> with it contents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_handlers" arity="1" clause_i="2"/>
+      <fsummary>Setup logger handlers.</fsummary>
+      <type name="config_handler"/>
+      <desc>
+        <p>This function should be used by custom logger handlers to make
+        configuration consistent no matter which handler the system uses.
+        Normal usage to to add a call to <c>logger:add_handlers/1</c>
+        just after the processes that the handler needs are started
+        and pass the applications logger config as an argument. Eg.</p>
+        <code>
+-behaviour(application).
+start(_, []) ->
+    case supervisor:start_link({local, my_sup}, my_sup, []) of
+        {ok, Pid} ->
+            ok = logger:add_handlers(my_app),
+            {ok, Pid, []};
+        Error -> Error
+     end.</code>
+       <p>This will read the <c>logger</c> configuration parameter from
+         the handler application and start the configured handlers. The contents
+         of the configuration use the same rules as the
+         <seealso marker="logger_chapter#handler-configuration">logger handler configuration</seealso>.
+       </p>
+       <p>If the handler is meant to replace the default handler the kernels
+         default handlers have to be disabled before the new handler is added.
+         A <c>sys.config</c> file that disables the kernel handler and adds
+         a custom handler could looks like this:</p>
+         <code>
+[{kernel,
+  [{logger,
+    %% Disable the default kernel handler
+    [{handler,default,undefined}]}]},
+ {my_app,
+  [{logger,
+    %% Enable this handler as the default
+    [{handler,default,my_handler,#{}}]}]}].
+         </code>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_logger_config" arity="1"/>
       <fsummary>Set configuration data for the logger.</fsummary>
       <desc>
@@ -650,7 +739,7 @@ Current logger configuration:
 	<p>If process metadata exists for the current process, this
 	  function behaves as if it was implemented as follows:</p>
 	<code type="erl">
-logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta))
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	</code>
 	<p>If no process metadata exists, the function behaves as
 	  <seealso marker="#set_process_metadata-1">

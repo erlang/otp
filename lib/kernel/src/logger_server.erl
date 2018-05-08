@@ -122,8 +122,7 @@ init([]) ->
     logger_config:create(Tid,logger,LoggerConfig),
     SimpleConfig0 = maps:merge(default_config(logger_simple),
                                #{filter_default=>stop,
-                                 filters=>?DEFAULT_HANDLER_FILTERS,
-                                 logger_simple=>#{buffer=>true}}),
+                                 filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
     {ok,SimpleConfig} =
         logger_simple:adding_handler(logger_simple,SimpleConfig0),
@@ -139,12 +138,21 @@ handle_call({add_handler,Id,Module,HConfig}, _From, #state{tid=Tid}=State) ->
                 %% inform the handler
                 case call_h(Module,adding_handler,[Id,HConfig],{ok,HConfig}) of
                     {ok,HConfig1} ->
-                        logger_config:create(Tid,Id,Module,HConfig1),
-                        {ok,Config} = do_get_config(Tid,logger),
-                        Handlers = maps:get(handlers,Config,[]),
-                        do_set_config(Tid,logger,
-                                      Config#{handlers=>[Id|Handlers]}),
-                        ok;
+                        %% We know that the call_h would have loaded the module
+                        %% if it existed, so it is safe here to call function_exported
+                        %% to find out if this is a valid handler
+                        case erlang:function_exported(Module, log, 2) of
+                            true ->
+                                logger_config:create(Tid,Id,Module,HConfig1),
+                                {ok,Config} = do_get_config(Tid,logger),
+                                Handlers = maps:get(handlers,Config,[]),
+                                do_set_config(Tid,logger,
+                                              Config#{handlers=>[Id|Handlers]});
+                            false ->
+                                {error,{invalid_handler,
+                                        {function_not_exported,
+                                         {Module,log,2}}}}
+                        end;
                     {error,HReason} ->
                         {error,{handler_not_added,HReason}}
                 end

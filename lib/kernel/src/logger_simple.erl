@@ -20,28 +20,9 @@
 -module(logger_simple).
 
 -export([adding_handler/2, removing_handler/2, log/2]).
--export([get_buffer/0]).
 
 %% This module implements a simple handler for logger. It is the
 %% default used during system start.
-
-%%%-----------------------------------------------------------------
-%%% API
-get_buffer() ->
-    case whereis(?MODULE) of
-        undefined ->
-            {error,noproc};
-        Pid ->
-            Ref = erlang:monitor(process,Pid),
-            Pid ! {get_buffer,self()},
-            receive
-                {buffer,Buffer} ->
-                    erlang:demonitor(Ref,[flush]),
-                    {ok,Buffer};
-                {'DOWN',Ref,process,Pid,Reason} ->
-                    {error,Reason}
-            end
-    end.
 
 %%%-----------------------------------------------------------------
 %%% Logger callback
@@ -50,7 +31,7 @@ adding_handler(?MODULE,Config) ->
     Me = self(),
     case whereis(?MODULE) of
         undefined ->
-            {Pid,Ref} = spawn_opt(fun() -> init(Me,Config) end,
+            {Pid,Ref} = spawn_opt(fun() -> init(Me) end,
                                   [link,monitor,{message_queue_data,off_heap}]),
             receive
                 {'DOWN',Ref,process,Pid,Reason} ->
@@ -102,47 +83,43 @@ log(_,_) ->
 
 %%%-----------------------------------------------------------------
 %%% Process
-init(Starter,Config) ->
+init(Starter) ->
     register(?MODULE,self()),
     Starter ! {self(),started},
-    BufferSize =
-        case Config of
-            #{?MODULE:=#{buffer:=true}} ->
-                10;
-            _ ->
-                infinity
-        end,
-    loop(#{buffer_size=>BufferSize,dropped=>0,buffer=>[]},infinity).
+    loop(#{buffer_size=>10,dropped=>0,buffer=>[]}).
 
-loop(Buffer,Timeout) ->
+loop(Buffer) ->
     receive
         stop ->
-            ok;
-        {get_buffer,From} ->
-            loop(Buffer#{send_to=>From},0);
+            %% We replay the logger messages of there is
+            %% a default handler when the simple handler
+            %% is removed.
+            case logger:get_handler_config(default) of
+                {ok, _} ->
+                    replay_buffer(Buffer);
+                _ ->
+                    ok
+            end;
         {log,#{msg:=_,meta:=#{time:=_}}=Log} ->
             do_log(Log),
-            loop(update_buffer(Buffer,Log),Timeout);
+            loop(update_buffer(Buffer,Log));
         _ ->
             %% Unexpected message - flush it!
-            loop(Buffer,Timeout)
-    after Timeout ->
-            #{dropped:=D,buffer:=B,send_to:=Pid} = Buffer,
-            LogList = lists:reverse(B) ++ drop_msg(D),
-            Pid ! {buffer,LogList},
-            loop(Buffer#{buffer_size=>infinity,
-                         dropped=>0,
-                         buffer=>[],
-                         send_to=>false},
-                 infinity)
+            loop(Buffer)
     end.
 
-update_buffer(#{buffer_size:=infinity}=Buffer,_Log) ->
-    Buffer;
 update_buffer(#{buffer_size:=0,dropped:=D}=Buffer,_Log) ->
     Buffer#{dropped=>D+1};
 update_buffer(#{buffer_size:=S,buffer:=B}=Buffer,Log) ->
     Buffer#{buffer_size=>S-1,buffer=>[Log|B]}.
+
+replay_buffer(#{ dropped := D, buffer := Buffer }) ->
+    lists:foreach(
+      fun F(#{msg := {Tag, Msg}} = L) when Tag =:= string; Tag =:= report ->
+              F(L#{ msg := Msg });
+          F(#{ level := Level, msg := Msg, meta := MD}) ->
+              logger:log(Level, Msg, MD)
+      end, lists:reverse(Buffer, drop_msg(D))).
 
 drop_msg(0) ->
     [];

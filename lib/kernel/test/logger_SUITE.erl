@@ -40,18 +40,18 @@ suite() ->
     [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
-    case logger:get_handler_config(logger_std_h) of
+    case logger:get_handler_config(?STANDARD_HANDLER) of
         {ok,StdH} ->
-            ok = logger:remove_handler(logger_std_h),
-            [{logger_std_h,StdH}|Config];
+            ok = logger:remove_handler(?STANDARD_HANDLER),
+            [{default_handler,StdH}|Config];
         _ ->
             Config
     end.
 
 end_per_suite(Config) ->
-    case ?config(logger_std_h,Config) of
+    case ?config(default_handler,Config) of
         {HMod,HConfig} ->
-            ok = logger:add_handler(logger_std_h,HMod,HConfig);
+            ok = logger:add_handler(?STANDARD_HANDLER,HMod,HConfig);
         _ ->
             ok
     end.
@@ -434,7 +434,7 @@ handler_failed(_Config) ->
         logger:add_handler(h1,?MODULE,#{filter_default=>true}),
     {error,{invalid_formatter,[]}} =
         logger:add_handler(h1,?MODULE,#{formatter=>[]}),
-    ok = logger:add_handler(h1,nomodule,#{filter_default=>log}),
+    {error,{invalid_handler,_}} = logger:add_handler(h1,nomodule,#{filter_default=>log}),
     logger:info(?map_rep),
     check_no_log(),
     #{logger:=#{handlers:=Ids1},

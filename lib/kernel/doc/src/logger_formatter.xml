@@ -66,7 +66,7 @@
 	    be truncated by the <c>max_size</c> parameter.</p>
 	</note>
       </item>
-      <tag><c>depth = pos_integer() | unlimited</c></tag>
+      <tag><marker id="depth"/><c>depth = pos_integer() | unlimited</c></tag>
       <item>
 	<p>A positive integer representing the maximum depth to
 	  which terms shall be printed by this formatter. Format

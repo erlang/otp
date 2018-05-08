@@ -248,11 +248,97 @@
   <section>
     <title>Configuration</title>
 
+    <p>Logger can be configured either when the system starts through
+      <seealso marker="config">configuration parameters</seealso>,
+      or at run-time by using the <seealso marker="logger">logger</seealso>
+      API. The recommended approach is to do the initial configuration in
+      the <c>sys.config</c> file and then use the API when some configuration
+      has to be changed at run-time, such as the logging level.</p>
+
     <section>
-      <title>Application environment variables</title>
-      <p>See <seealso marker="kernel_app#configuration">Kernel(6)</seealso> for
-	information about the application environment variables that can
-	be used for configuring logger.</p>
+      <title>Application configuration parameters</title>
+      <p>Logger is best configured by using the configuration parameters
+      of kernel. There are three possible configuration parameters:
+      <seealso marker="#logger"><c>logger</c></seealso>,
+      <seealso marker="kernel_app#logger_level"><c>logger_level</c></seealso>,
+      <seealso marker="kernel_app#logger_sasl_compatible"><c>logger_sasl_compatible</c></seealso> and
+      <seealso marker="kernel_app#logger_log_progress"><c>logger_log_progress</c></seealso>.
+      logger_level, logger_sasl_compatible and logger_log_progress are described in the
+      <seealso marker="kernel_app#configuration">Kernel Configuration</seealso>,
+      while <c>logger</c> is described below.</p>
+      <section>
+        <marker id="logger"/>
+        <title>logger</title>
+        <p>The <c>logger</c> application configuration parameter is used to configure
+          three different logger aspects; handlers, logger filters and module levels.
+          The configuration is a list containing tagged tuples that look like this:</p>
+        <taglist>
+          <tag><c>DisableHandler = {handler,default,undefined}</c></tag>
+          <item>Disable the default handler. This will allow another application
+            to add its own default handler. See <seealso marker="logger#add_handlers/1">
+            <c>logger:add_handlers/1</c></seealso> for more details.</item>
+          <tag><c>AddHandler = {handler,HandlerId,Module,HandlerConfig}</c></tag>
+          <item>Add a handler as if <seealso marker="logger:add_handler/3">
+            <c>logger:add_handler(HandlerId,Module,HandlerConfig)</c></seealso> had been
+            called.</item>
+          <tag><c>Filters = {filters, FilterDefault, [Filter]}</c><br/>
+          <c>FilterDefault = log | stop</c><br/>
+          <c>Filter = {FilterId, {FilterFun, FilterConfig}}</c></tag>
+          <item>Add the specified <seealso marker="logger#add_logger_filter/2">
+          logger filters</seealso>. Only one entry is allowed of this option.</item>
+          <tag><c>ModuleLevel</c></tag>
+          <item><c>{module_level, Level, [Module]}</c>,
+            this option configures the <seealso marker="logger#set_module_level/2">
+            module log level</seealso> to be used. It is possible to have multiple
+            <c>module_level</c> entries.</item>
+        </taglist>
+        <p>Examples:</p>
+        <list>
+          <item>
+          <p>Output logs into a the file &quot;logs/erlang.log&quot;</p>
+            <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ logger_std_h => #{ type => {file,"log/erlang.log"}}}}]}]}].
+            </code>
+          </item>
+          <item>
+          <p>Output logs in single line format</p>
+            <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ formatter => { logger_formatter,#{ single_line => true}}}}]}]}].
+            </code>
+          </item>
+          <item>
+          <p>Add the pid to each log event</p>
+            <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ formatter => { logger_formatter,
+                        #{ template => [time," ",pid," ",msg,"\n"]}}
+       }}]}]}].
+            </code>
+          </item>
+          <item>
+          <p>Use a different file for debug logging</p>
+            <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ level => error,
+         logger_std_h => #{ type => {file, "log/erlang.log"}}}},
+     {handler, info, logger_std_h,
+      #{ level => debug,
+         logger_std_h => #{ type => {file, "log/debug.log"}}}}
+     ]}]}].
+            </code>
+          </item>
+        </list>
+      </section>
     </section>
 
     <section>
@@ -330,6 +416,13 @@
 	      <c>logger_formatter</c></seealso>, and <c>Extra</c> is
 	      it's configuration map.</p>
 	</item>
+        <tag>HandlerConfig, <c>term() = term()</c></tag>
+        <item>
+          Any keys not listed above are considered to be handler specific
+          configuration. The configuration of the Kernel handlers can be found in
+          <seealso marker="logger_std_h"><c>logger_std_h</c></seealso> and
+          <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>.
+        </item>
       </taglist>
 
       <p>Note that <c>level</c> and <c>filters</c> are obeyed by

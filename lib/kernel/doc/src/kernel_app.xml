@@ -165,78 +165,34 @@
         <p>Permissions are described in
 	  <seealso marker="application#permit/2"><c>application:permit/2</c></seealso>.</p>
       </item>
-      <tag><c>logger_dest = Value</c></tag>
+      <tag><marker id="logger"/><c>logger = [Config]</c></tag>
       <item>
-        <p><c>Value</c> is one of:</p>
-        <taglist>
-          <tag><c>tty</c></tag>
-          <item><p>Installs the standard handler, <seealso marker="logger_std_h">
-	   <c>logger_std_h(3)</c></seealso>, with <c>type</c> set
-           to <c>standard_io</c>. This is the default
-           option.</p></item>
-          <tag><c>{file, FileName}</c></tag>
-          <item><p>Installs the standard handler, <seealso marker="logger_std_h">
-	   <c>logger_std_h(3)</c></seealso>, with <c>type</c> set
-           to <c>{file, FileName}</c>, where <c>FileName</c>
-           is a string. The file is opened with encoding UTF-8.</p></item>
-          <tag><c>{disk_log, FileName}</c></tag>
-          <item><p>Installs the disk_log handler, <seealso marker="logger_disk_log_h">
-	   <c>logger_disk_log_h(3)</c></seealso>, with <c>file</c> set
-           to <c>FileName</c> (a string), and possibly other disk_log
-           parameters set by the environment variables
-	   <c>logger_disk_log_type</c>, <c>logger_disk_log_maxfiles</c> and
-	   <c>logger_disk_log_maxbytes</c>,
-           see <seealso marker="#disk_log_vars">below</seealso>. The
-           file is opened with encoding UTF-8.</p></item>
-          <tag><c>false</c></tag>
-          <item>
-            <p>No standard handler is installed, but
-              the initial, primitive handler is kept, printing
-              raw event messages to <c>tty</c>.</p>
-          </item>
-          <tag><c>silent</c></tag>
-          <item>
-            <p>No standard handler is started, and the initial,
-              primitive handler is removed.</p>
-          </item>
-        </taglist>
+        <p>Specifies how <seealso marker="logger"><c>logger</c></seealso> should be
+          configured.</p>
+        <p>For more details and examples, see the <seealso marker="logger_chapter#logger">
+          Configuration</seealso> section in the <seealso marker="logger_chapter">
+          Logger User's Guide</seealso>.
+        </p>
       </item>
-      <tag><c>logger_level = Level</c></tag>
+      <tag><marker id="logger_level"/><c>logger_level = Level</c></tag>
       <item>
-        <p><c>Value = emergency | alert | critical | error | warning |
+        <p><c>Level = emergency | alert | critical | error | warning |
 	    notice | info | debug</c></p>
 	  <p>This parameter specifies which log levels to log. The
 	    specified level, and all levels that are more severe, will
 	    be logged.</p>
-	  <p>This configuration parameter is used both for the global
-	    logger level, and for the standard handler started by
-	    the Kernel application (see <c>logger_dest</c> variable above).</p>
+	    <p>It is possible to change this variable at run-time
+            using <seealso marker="logger:set_logger_config/1">
+            <c>logger:set_logger_config(#{ level => error })</c></seealso>.
+            .</p>
 	  <p>The default value is <c>info</c>.</p>
-      </item>
-      <tag><marker id="disk_log_vars"/>
-	<c>logger_disk_log_type = halt | wrap</c></tag>
-      <item/>
-      <tag><c>logger_disk_log_maxfiles = integer()</c></tag>
-      <item/>
-      <tag><c>logger_disk_log_maxbytes = integer()</c></tag>
-      <item>
-	<p>If <c>logger_dest</c> is set to {disk_log,File}, then these
-	  parameters specify the configuration to use when opening the
-	  disk log file. They specify the type of disk log, the
-	  maximum number of files (if the type is wrap) and the
-	  maximum size of each file, respectively.</p>
-	<p>The default values are:</p>
-	<code>
-logger_disk_log_type = wrap
-logger_disk_log_maxfiles = 10
-logger_disk_log_maxbytes = 1048576</code>
       </item>
       <tag><marker id="logger_sasl_compatible"/>
 	<c>logger_sasl_compatible = boolean()</c></tag>
       <item>
-	<p>If this parameter is set to true, then the logger handler
-	  started by kernel will not log any progress-, crash-, or
-	  supervisor reports. If the SASL application is started,
+	<p>If this parameter is set to true, then the <c>default</c> logger handler
+	  will not log any progress-, crash-, or supervisor reports.
+          If the SASL application is started,
 	  these log events will be sent to a second handler instance
 	  named <c>sasl_h</c>, according to values of the SASL
 	  environment variables <c>sasl_error_logger</c>
@@ -247,6 +203,8 @@ logger_disk_log_maxbytes = 1048576</code>
 	<p>See chapter <seealso marker="logger_chapter#compatibility">Backwards
 	  compatibility with error_logger</seealso> for more
 	  information about handling of the so called SASL reports.</p>
+        <note><p>This configuration option only effects the <c>default</c>
+          and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
       </item>
       <tag><marker id="logger_log_progress"/>
 	<c>logger_log_progress = boolean()</c></tag>
@@ -254,51 +212,13 @@ logger_disk_log_maxbytes = 1048576</code>
 	<p>If <c>logger_sasl_compatible = false</c>,
 	  then <c>logger_log_progress</c> specifies if progress
 	  reports from <c>supervisor</c>
-	  and <c>application_controller</c> shall be logged or
-	  not.</p>
+	  and <c>application_controller</c> shall be logged by the
+          default logger.</p>
 	<p>If <c>logger_sasl_compatible = true</c>,
 	  then <c>logger_log_progress</c> is ignored.</p>
-      </item>
-      <tag><marker id="logger_format_depth"/>
-	<c>logger_format_depth = Depth</c></tag>
-      <item>
-	<p>Can be used to limit the size of the
-	formatted output from the logger handlers.</p>
-
-        <p><c>Depth</c> is a positive integer representing the maximum
-        depth to which terms are printed by the logger
-        handlers included in OTP. This
-        configuration parameter is used by the default formatter,
-	<seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>,
-	unless the formatter's <c>depth</c> parameter is explicitly set.
-	(If you have implemented your own formatter, this configuration
-	parameter has no effect on that.)</p>
-
-	<p><c>Depth</c> is used as follows: Format strings
-	received by the formatter are rewritten.
-	The format controls <c>~p</c> and <c>~w</c> are replaced with
-	<c>~P</c> and <c>~W</c>, respectively, and <c>Depth</c> is
-	used as the depth parameter. For details, see
-	<seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
-	in STDLIB.</p>
-
-	<note><p>A reasonable starting value for <c>Depth</c> is
-	<c>30</c>. We recommend to test crashing various processes in your
-	application, examine the logs from the crashes, and then
-	increase or decrease the value.</p></note>
-      </item>
-      <tag><c>logger_max_size = integer() | unlimited</c></tag>
-      <item>
-	<p>This parameter specifies a hard maximum size limit (number
-	  of characters) each log event can have when printed by the
-	  default logger formatter. If the resulting string after
-	  formatting an event is bigger than this, it will be
-	  truncated before printed to the handler's destination.</p>
-      </item>
-      <tag><c>logger_utc = boolean()</c></tag>
-      <item>
-	<p>If set to <c>true</c>, the default formatter will display
-	  all dates in Universal Coordinated Time.</p>
+        <p>The default value is <c>false</c></p>
+        <note><p>This configuration option only effects the <c>default</c>
+          and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
       </item>
       <tag><c>global_groups = [GroupTuple]</c></tag>
       <item>
@@ -572,9 +492,20 @@ MaxT = TickTime + TickTime / 4</code>
       variables are not set.</p>
     <taglist>
       <tag><c>error_logger</c></tag>
-      <item>Replaced by <c>logger_dest</c></item>
+      <item>Replaced by setting the type of the default
+      <seealso marker="logger_std_h#type"><c>logger_std_h</c></seealso>
+      to the same value. Example:
+      <code type="none">
+erl -kernel logger '[{handler,default,logger_std_h,#{logger_std_h=>#{type=>{file,"/tmp/erlang.log"}}}}]'
+      </code>
+      </item>
       <tag><c>error_logger_format_depth</c></tag>
-      <item>Replaced by <c>logger_format_depth</c></item>
+      <item>Replaced by setting the <seealso marker="logger_formatter#depth"><c>depth</c></seealso>
+      parameter of the default handlers formatter. Example:
+      <code type="none">
+erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatter,#{legacy_header=>true,template=>[{logger_formatter,header},"\n",msg,"\n"],depth=>10}}}]'
+      </code>
+      </item>
     </taglist>
     <p>See <seealso marker="logger_chapter#compatibility">Backwards
 	compatibility with error_logger</seealso> for more

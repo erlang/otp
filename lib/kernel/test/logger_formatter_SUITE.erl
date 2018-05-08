@@ -341,7 +341,7 @@ depth(_Config) ->
                {"~p",[[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]]},
                #{},
                #{template=>Template}),
-    application:set_env(kernel,logger_format_depth,12),
+    application:set_env(kernel,error_logger_format_depth,12),
     "[1,2,3,4,5,6,7,8,9,0,1|...]" =
         format(info,
                {"~p",[[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]]},
@@ -361,7 +361,7 @@ depth(_Config) ->
                  depth=>unlimited}),
     ok.
 depth(cleanup,_Config) ->
-    application:unset_env(kernel,logger_format_depth),
+    application:unset_env(kernel,error_logger_format_depth),
     ok.
 
 chars_limit(_Config) ->

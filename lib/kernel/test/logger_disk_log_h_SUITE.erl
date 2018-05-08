@@ -31,7 +31,8 @@
                       end).
 
 suite() ->
-    [{timetrap,{seconds,30}}].
+    [{timetrap,{seconds,30}},
+     {ct_hooks,[logger_test_lib]}].
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report
@@ -725,7 +726,7 @@ write_failure(Config) ->
     Log = lists:concat([File,".1"]),
     ct:pal("Log = ~p", [Log]),
 
-    Node = start_h_on_new_node(Config, ?FUNCTION_NAME, File),
+    Node = start_h_on_new_node(Config, File),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -769,7 +770,7 @@ sync_failure(Config) ->
     File = filename:join(Dir, FileName),
 
 
-    Node = start_h_on_new_node(Config, ?FUNCTION_NAME, File),
+    Node = start_h_on_new_node(Config, File),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -809,21 +810,12 @@ sync_failure(cleanup, _Config) ->
     Nodes = nodes(),
     [test_server:stop_node(Node) || Node <- Nodes].
 
-start_h_on_new_node(_Config, Func, File) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Dest =
-        case os:type() of
-            {win32,_} ->
-                lists:concat([" {disk_log,\\\"",File,"\\\"}"]);
-            _ ->
-                lists:concat([" \'{disk_log,\"",File,"\"}\'"])
-        end,
-    Args = lists:concat([" -kernel ",logger_dest,Dest," -pa ",Pa]),
-    NodeName = lists:concat([?MODULE,"_",Func]),
-    ct:pal("Starting ~s with ~tp", [NodeName,Args]),
-    {ok,Node} = test_server:start_node(NodeName, peer, [{args, Args}]),
-    Pid = rpc:call(Node,erlang,whereis,[?STANDARD_HANDLER]),
-    true = is_pid(Pid),
+start_h_on_new_node(Config, File) ->
+    {ok,_,Node} =
+        logger_test_lib:setup(
+          Config,
+          [{logger,[{handler,default,logger_disk_log_h,
+                     #{ disk_log_opts => #{ file => File }}}]}]),
     ok = rpc:call(Node,logger,set_handler_config,[?STANDARD_HANDLER,formatter,
                                                   {?MODULE,nl}]),
     Node.

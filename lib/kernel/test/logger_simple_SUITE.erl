@@ -25,6 +25,8 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
 
+-import(logger_test_lib, [setup/2, log/3, sync_and_read/3]).
+
 -define(check_no_log,[] = test_server:messages_get()).
 -define(check(Expected),
         receive {log,Expected} ->
@@ -42,15 +44,15 @@
 -define(keyval_rep,[{function,?FUNCTION_NAME}, {line,?LINE}]).
 
 suite() ->
-    [{timetrap,{seconds,30}}].
+    [{timetrap,{seconds,30}},
+     {ct_hooks, [logger_test_lib]}].
 
 init_per_suite(Config) ->
     #{handlers:=Hs0} = logger:i(),
     Hs = lists:keydelete(cth_log_redirect,1,Hs0),
     [ok = logger:remove_handler(Id) || {Id,_,_} <- Hs],
     Env = [{App,Key,application:get_env(App,Key)} ||
-              {App,Key} <- [{kernel,logger_dest},
-                            {kernel,logger_level}]],
+              {App,Key} <- [{kernel,logger_level}]],
     [{env,Env},{logger,Hs}|Config].
 
 end_per_suite(Config) ->
@@ -79,7 +81,7 @@ groups() ->
 
 all() -> 
     [start_stop,
-     get_buffer,
+     replace_default,
      replace_file,
      replace_disk_log
     ].
@@ -100,99 +102,46 @@ start_stop(_Config) ->
 start_stop(cleanup,_Config) ->
     logger:remove_handler(logger_simple).
 
-get_buffer(_Config) ->
-    %% Start simple without buffer
-    ok = logger:add_handler(logger_simple,logger_simple,
-                            #{filter_default=>log}), 
-    logger:emergency(?str),
-    logger:alert(?str,[]),
-    logger:error(?map_rep),
-    logger:info(?keyval_rep),
-    {ok,[]} = logger_simple:get_buffer(), % no buffer
-    ok = logger:remove_handler(logger_simple),
+%% This testcase just tests that it does not crash, the default handler prints
+%% to stdout which we cannot read from in a detached slave.
+replace_default(Config) ->
 
-    %% Start with buffer
-    ok = logger:add_handler(logger_simple,logger_simple,
-                            #{filter_default=>log,
-                              logger_simple=>#{buffer=>true}}),
-    logger:emergency(M1=?str),
-    logger:alert(M2=?str,[]),
-    logger:error(M3=?map_rep),
-    logger:info(M4=?keyval_rep),
-    logger:info(M41=?keyval_rep++[not_key_val]),
-    error_logger:error_report(some_type,M5=?map_rep),
-    error_logger:warning_report("some_type",M6=?map_rep),
-    logger:critical(M7=?str,[A7=?keyval_rep]),
-    logger:notice(M8=["fake",string,"line:",?LINE]),
-    {ok,Buffered1} = logger_simple:get_buffer(),
-    [#{level:=emergency,msg:={string,M1}},
-     #{level:=alert,msg:={M2,[]}},
-     #{level:=error,msg:={report,M3}},
-     #{level:=info,msg:={report,M4}},
-     #{level:=info,msg:={report,M41}},
-     #{level:=error,msg:={report,#{label:={error_logger,error_report},
-                                   report:=M5}}},
-     #{level:=warning,msg:={report,#{label:={error_logger,warning_report},
-                                   report:=M6}}},
-     #{level:=critical,msg:={M7,[A7]}},
-     #{level:=notice,msg:={string,M8}}] = Buffered1,
+    {ok, _, Node} = logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
+    log(Node, emergency, [M1=?str]),
+    log(Node, alert, [M2=?str,[]]),
+    log(Node, error, [M3=?map_rep]),
+    log(Node, info, [M4=?keyval_rep]),
+    log(Node, info, [M41=?keyval_rep++[not_key_val]]),
+    rpc:call(Node, error_logger, error_report, [some_type,M5=?map_rep]),
+    rpc:call(Node, error_logger, warning_report, ["some_type",M6=?map_rep]),
+    log(Node, critical, [M7=?str,[A7=?keyval_rep]]),
+    log(Node, notice, [M8=["fake",string,"line:",?LINE]]),
 
-    %% Keep logging - should not buffer any more
-    logger:emergency(?str),
-    logger:alert(?str,[]),
-    logger:error(?map_rep),
-    logger:info(?keyval_rep),
-    {ok,[]} = logger_simple:get_buffer(),
-    ok = logger:remove_handler(logger_simple),
+    Env = rpc:call(Node, application, get_env, [kernel, logger, []]),
+    ok = rpc:call(Node, logger, add_handlers, [Env]),
 
-    %% Fill buffer and drop
-    ok = logger:add_handler(logger_simple,logger_simple,
-                            #{filter_default=>log,
-                              logger_simple=>#{buffer=>true}}),
-    logger:emergency(M9=?str),
-    M10=?str,
-    [logger:info(M10) || _ <- lists:seq(1,8)],
-    logger:error(M11=?str),
-    logger:error(?str),
-    logger:error(?str),
-    {ok,Buffered3} = logger_simple:get_buffer(),
-    11 = length(Buffered3),
-    [#{level:=emergency,msg:={string,M9}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=info,msg:={string,M10}},
-     #{level:=error,msg:={string,M11}},
-     #{level:=info,msg:={"Simple handler buffer full, dropped ~w messages",[2]}}]
-        = Buffered3,
     ok.
-get_buffer(cleanup,_Config) ->
-    logger:remove_handler(logger_simple).
 
 replace_file(Config) ->
-    ok = logger:add_handler(logger_simple,logger_simple,
-                            #{filter_default=>log,
-                              logger_simple=>#{buffer=>true}}),
-    logger:emergency(M1=?str),
-    logger:alert(M2=?str,[]),
-    logger:error(?map_rep),
-    logger:info(?keyval_rep),
-    undefined = whereis(?STANDARD_HANDLER),
-    PrivDir = ?config(priv_dir,Config),
-    File = filename:join(PrivDir,atom_to_list(?FUNCTION_NAME)++".log"),
 
-    application:set_env(kernel,logger_dest,{file,File}),
-    application:set_env(kernel,logger_level,info),
+    {ok, _, Node} = logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
+    log(Node, emergency, [M1=?str]),
+    log(Node, alert, [M2=?str,[]]),
+    log(Node, error, [M3=?map_rep]),
+    log(Node, info, [M4=?keyval_rep]),
+    log(Node, info, [M41=?keyval_rep++[not_key_val]]),
+    log(Node, critical, [M7=?str,[A7=?keyval_rep]]),
+    log(Node, notice, [M8=["fake",string,"line:",?LINE]]),
 
-    ok = logger:setup_standard_handler(),
-    true = is_pid(whereis(?STANDARD_HANDLER)),
-    ok = logger_std_h:filesync(?STANDARD_HANDLER),
-    {ok,Bin} = file:read_file(File),
-    Lines = [unicode:characters_to_list(L) || 
+    File = filename:join(proplists:get_value(priv_dir,Config),
+                         atom_to_list(?FUNCTION_NAME)++".log"),
+
+    ok = rpc:call(Node, logger, add_handlers,
+                  [[{handler, default, logger_std_h,
+                     #{ logger_std_h => #{ type => {file, File} }}}]]),
+
+    {ok,Bin} = sync_and_read(Node, file, File),
+    Lines = [unicode:characters_to_list(L) ||
                 L <- binary:split(Bin,<<"\n">>,[global,trim])],
     ["=EMERGENCY REPORT===="++_,
      M1,
@@ -203,32 +152,38 @@ replace_file(Config) ->
      _,
      "=INFO REPORT===="++_,
      _,
-     _] = Lines,
+     _,
+     "=INFO REPORT===="++_,
+     _,
+     _,
+     _,
+     "=CRITICAL REPORT===="++_,
+     _,
+     _,
+     "=NOTICE REPORT===="++_,
+     _
+    ] = Lines,
     ok.
-replace_file(cleanup,_Config) ->
-    logger:remove_handler(?STANDARD_HANDLER),
-    logger:remove_handler(logger_simple).
-    
+
 replace_disk_log(Config) ->
-    ok = logger:add_handler(logger_simple,logger_simple,
-                            #{filter_default=>log,
-                              logger_simple=>#{buffer=>true}}),
-    logger:emergency(M1=?str),
-    logger:alert(M2=?str,[]),
-    logger:error(?map_rep),
-    logger:info(?keyval_rep),
-    undefined = whereis(?STANDARD_HANDLER),
-    PrivDir = ?config(priv_dir,Config),
-    File = filename:join(PrivDir,atom_to_list(?FUNCTION_NAME)),
 
-    application:set_env(kernel,logger_dest,{disk_log,File}),
-    application:set_env(kernel,logger_level,info),
+    {ok, _, Node} = logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
+    log(Node, emergency, [M1=?str]),
+    log(Node, alert, [M2=?str,[]]),
+    log(Node, error, [M3=?map_rep]),
+    log(Node, info, [M4=?keyval_rep]),
+    log(Node, info, [M41=?keyval_rep++[not_key_val]]),
+    log(Node, critical, [M7=?str,[A7=?keyval_rep]]),
+    log(Node, notice, [M8=["fake",string,"line:",?LINE]]),
 
-    ok = logger:setup_standard_handler(),
-    true = is_pid(whereis(?STANDARD_HANDLER)),
-    ok = logger_disk_log_h:disk_log_sync(?STANDARD_HANDLER),
-    {ok,Bin} = file:read_file(File++".1"),
-    Lines = [unicode:characters_to_list(L) || 
+    File = filename:join(proplists:get_value(priv_dir,Config),
+                         atom_to_list(?FUNCTION_NAME)++".log"),
+
+    ok = rpc:call(Node, logger, add_handlers,
+                  [[{handler, default, logger_disk_log_h,
+                     #{ disk_log_opts => #{ file => File }}}]]),
+    {ok,Bin} = sync_and_read(Node, disk_log, File),
+    Lines = [unicode:characters_to_list(L) ||
                 L <- binary:split(Bin,<<"\n">>,[global,trim])],
     ["=EMERGENCY REPORT===="++_,
      M1,
@@ -239,9 +194,15 @@ replace_disk_log(Config) ->
      _,
      "=INFO REPORT===="++_,
      _,
-     _|_] = Lines, % the tail might be an info report about opening the disk log
+     _,
+     "=INFO REPORT===="++_,
+     _,
+     _,
+     _,
+     "=CRITICAL REPORT===="++_,
+     _,
+     _,
+     "=NOTICE REPORT===="++_,
+     _
+    ] = Lines,
     ok.
-replace_disk_log(cleanup,_Config) ->
-    logger:remove_handler(?STANDARD_HANDLER),
-    logger:remove_handler(logger_simple).
-

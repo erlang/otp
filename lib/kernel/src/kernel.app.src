@@ -140,7 +140,10 @@
                 inet_db,
                 pg2]},
   {applications, []},
-  {env, []},
+  {env, [{logger_level, info},
+         {logger_sasl_compatible, false},
+         {logger_log_progress, false}
+        ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-10.0", "stdlib-3.5", "sasl-3.0"]}
  ]
