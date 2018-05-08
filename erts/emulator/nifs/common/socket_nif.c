@@ -359,8 +359,9 @@ typedef union {
 #define SOCKET_OPT_OTP_DEBUG       0
 #define SOCKET_OPT_OTP_IOW         1
 
-#define SOCKET_OPT_SOCK_KEEPALIVE  0
-#define SOCKET_OPT_SOCK_LINGER     1
+#define SOCKET_OPT_SOCK_KEEPALIVE   9
+#define SOCKET_OPT_SOCK_LINGER     10
+#define SOCKET_OPT_SOCK_REUSEADDR  21
 
 #define SOCKET_OPT_IP_RECVTOS      0
 #define SOCKET_OPT_IP_ROUTER_ALERT 1
@@ -3396,22 +3397,22 @@ BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
 {
     switch (eOpt) {
 #if defined(SO_KEEPALIVE)
-        case SOCKET_OPT_SOCK_KEEPALIVE:
-            {
-                BOOLEAN_T val;
+    case SOCKET_OPT_SOCK_KEEPALIVE:
+        {
+            BOOLEAN_T val;
 
-                if (decode_bool(env, eVal, &val)) {
-                    *opt           = SO_KEEPALIVE;
-                    valP->tag      = SOCKET_OPT_VALUE_INT;
-                    valP->u.intVal = (val) ? 1 : 0;
-                    return TRUE;
-                } else {
-                    *opt      = -1;
-                    valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                    return FALSE;
-                }
+            if (decode_bool(env, eVal, &val)) {
+                *opt           = SO_KEEPALIVE;
+                valP->tag      = SOCKET_OPT_VALUE_INT;
+                valP->u.intVal = (val) ? 1 : 0;
+                return TRUE;
+            } else {
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
             }
-            break;
+        }
+        break;
 #endif
 
 #if defined(SO_LINGER)
@@ -3420,6 +3421,25 @@ BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
             if (decode_sock_linger(env, eVal, &valP->u.lingerVal)) {
                 *opt      = SO_LINGER;
                 valP->tag = SOCKET_OPT_VALUE_LINGER;
+                return TRUE;
+            } else {
+                *opt      = -1;
+                valP->tag = SOCKET_OPT_VALUE_UNDEF;
+                return FALSE;
+            }
+        }
+        break;
+#endif
+
+#if defined(SO_REUSEADDR)
+    case SOCKET_OPT_SOCK_REUSEADDR:
+        {
+            BOOLEAN_T val;
+
+            if (decode_bool(env, eVal, &val)) {
+                *opt           = SO_REUSEADDR;
+                valP->tag      = SOCKET_OPT_VALUE_INT;
+                valP->u.intVal = (val) ? 1 : 0;
                 return TRUE;
             } else {
                 *opt      = -1;

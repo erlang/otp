@@ -183,16 +183,19 @@
                          priority |
                          rcvbuf |
                          rcvbufforce |
-                         rcvlowat | sndlowat |
-                         rcvtimeo | sndtimeo |
+                         rcvlowat |
+                         rcvtimeo |
                          reuseaddr |
                          reuseport |
                          rxq_ovfl |
+                         sndlowat |
+                         sndtimeo |
                          setfib |
                          sndbuf |
                          sndbufforce |
                          timestamp |
                          type.
+
 %% Read-only options:
 %% mtu
 %%
@@ -429,8 +432,9 @@
 -define(SOCKET_OPT_OTP_DEBUG,           0).
 -define(SOCKET_OPT_OTP_IOW,             1).
 
--define(SOCKET_OPT_SOCK_KEEPALIVE,      0).
--define(SOCKET_OPT_SOCK_LINGER,         1).
+-define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
+-define(SOCKET_OPT_SOCK_LINGER,         10).
+-define(SOCKET_OPT_SOCK_REUSEADDR,      21).
 
 -define(SOCKET_OPT_IP_RECVTOS,          0).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     1).
@@ -1611,6 +1615,8 @@ enc_setopt_value(socket, linger, abort, D, T, P) ->
 enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
   when is_boolean(OnOff) andalso is_integer(Secs) andalso (Secs >= 0) ->
     V;
+enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
@@ -1826,8 +1832,8 @@ enc_sockopt_key(socket, rcvlowat = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, rcvtimeo = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, reuseaddr = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_REUSEADDR;
 enc_sockopt_key(socket, reuseport = Opt, _Dir, D, _T, _P)
   when ((D =:= inet) orelse (D =:= inet6)) ->
     not_supported(Opt);
