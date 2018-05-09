@@ -22,7 +22,6 @@
 -module(beam_clean).
 
 -export([module/2]).
--export([bs_clean_saves/1]).
 -export([clean_labels/1]).
 -import(lists, [foldl/3,reverse/1]).
 
@@ -40,15 +39,6 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Fs3 = bs_fix(Fs2),
     Fs = maybe_remove_lines(Fs3, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
-
-%% Remove all bs_save2/2 instructions not referenced by a bs_restore2/2.
-
--spec bs_clean_saves([beam_utils:instruction()]) ->
-                            [beam_utils:instruction()].
-
-bs_clean_saves(Is) ->
-    Needed = bs_restores(Is, []),
-    bs_clean_saves_1(Is, gb_sets:from_list(Needed), []).
 
 %% Determine the rootset, i.e. exported functions and
 %% the on_load function (if any).
@@ -282,15 +272,6 @@ bs_replace([{bs_restore2,CtxR,{_,_}=SavePoint}|T], Dict, Acc) ->
 bs_replace([I|Is], Dict, Acc) ->
     bs_replace(Is, Dict, [I|Acc]);
 bs_replace([], _, Acc) -> reverse(Acc).
-
-bs_clean_saves_1([{bs_save2,_,{_,_}=SavePoint}=I|Is], Needed, Acc) ->
-    case gb_sets:is_member(SavePoint, Needed) of
-	false -> bs_clean_saves_1(Is, Needed, Acc);
-	true -> bs_clean_saves_1(Is, Needed, [I|Acc])
-    end;
-bs_clean_saves_1([I|Is], Needed, Acc) ->
-    bs_clean_saves_1(Is, Needed, [I|Acc]);
-bs_clean_saves_1([], _, Acc) -> reverse(Acc).
 
 %%%
 %%% Remove line instructions if requested.
