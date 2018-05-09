@@ -67,6 +67,26 @@
         <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
         <p>Jump function: equivalent to 2^512 calls</p>
       </item>
+      <tag><c>exro928ss</c></tag>
+      <item>
+        <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+	<p>
+	  This is a 58 bit version of Xoroshiro1024**,
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	  that on a 64 bit Erlang system executes only about 30% slower than
+	  the default <c>exrop</c> algorithm but with much longer period
+	  and better statistical properties, and on the flip side
+	  a larger state.
+	</p>
+	<p>
+	  Many thanks to Sebastiano Vigna for his help with
+	  the 58 bit adaption.
+	</p>
+      </item>
       <tag><c>exsp</c></tag>
       <item>
         <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
@@ -195,8 +215,8 @@ SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
     </note>
 
     <p>
-      For all these generators the lowest bit(s) has got
-      a slightly less random behaviour than all other bits.
+      For all these generators except <c>exro928ss</c> the lowest bit(s)
+      has got a slightly less random behaviour than all other bits.
       1 bit for <c>exrop</c> (and <c>exsp</c>),
       and 3 bits for <c>exs1024s</c>.
       See for example the explanation in the
@@ -254,11 +274,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       </desc>
     </datatype>
     <datatype>
-      <name name="exs64_state"/>
-      <desc><p>Algorithm specific internal state</p></desc>
-    </datatype>
-    <datatype>
-      <name name="exsplus_state"/>
+      <name name="exrop_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
@@ -266,7 +282,15 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
-      <name name="exrop_state"/>
+      <name name="exro928_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exsplus_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exs64_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
   </datatypes>
