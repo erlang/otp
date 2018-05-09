@@ -19,7 +19,8 @@
 %%
 
 -module(literals).
--export([a/0,b/0,huge_bignum/0,binary/0,unused_binaries/0,bits/0]).
+-export([a/0,b/0,huge_bignum/0,funs/0,
+         binary/0,unused_binaries/0,bits/0]).
 -export([msg1/0,msg2/0,msg3/0,msg4/0,msg5/0]).
 
 a() ->
@@ -108,3 +109,8 @@ msg2() -> {"hello","world"}.
 msg3() -> <<"halloj">>.
 msg4() -> #{ 1=> "hello", b => "world"}.
 msg5() -> {1,2,3,4,5,6}.
+
+funs() ->
+    %% Literal funs (in a non-literal list).
+    [fun ?MODULE:a/0,
+     fun() -> ok end].                          %No environment.

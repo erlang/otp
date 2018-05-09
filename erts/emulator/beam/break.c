@@ -108,6 +108,7 @@ process_killer(void)
 		    erts_exit(0, "");
 		switch(j) {
 		case 'k':
+                    ASSERT(erts_init_process_id != ERTS_INVALID_PID);
                     /* Send a 'kill' exit signal from init process */
                     erts_proc_sig_send_exit(NULL, erts_init_process_id,
                                             rp->common.id, am_kill, NIL,
