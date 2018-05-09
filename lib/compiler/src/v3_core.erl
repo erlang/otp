@@ -228,7 +228,8 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
 
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
-    {Args,St1} = new_vars(Anno, Arity, St0),
+    {Args0,St1} = new_vars(Anno, Arity, St0),
+    Args = reverse(Args0),                      %Nicer order
     case clauses(Cs0, St1) of
 	{Cs1,[],St2} ->
 	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
