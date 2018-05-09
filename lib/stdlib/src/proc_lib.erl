@@ -553,10 +553,10 @@ get_ancestors(Pid) ->
 %% assumed that all report handlers call proc_lib:format().
 get_messages(Pid) ->
     Messages = get_process_messages(Pid),
-    {messages, logger:limit_term(Messages)}.
+    {messages, error_logger:limit_term(Messages)}.
 
 get_process_messages(Pid) ->
-    Depth = logger:get_format_depth(),
+    Depth = error_logger:get_format_depth(),
     case Pid =/= self() orelse Depth =:= unlimited of
         true ->
             {messages, Messages} = get_process_info(Pid, messages),
@@ -586,7 +586,7 @@ get_cleaned_dictionary(Pid) ->
 
 cleaned_dict(Dict) ->
     CleanDict = clean_dict(Dict),
-    logger:limit_term(CleanDict).
+    error_logger:limit_term(CleanDict).
 
 clean_dict([{'$ancestors',_}|Dict]) ->
     clean_dict(Dict);
@@ -756,7 +756,7 @@ check(Res)               -> Res.
       Args :: [term()].
 report_cb(#{label:={proc_lib,crash},
             report:=CrashReport}) ->
-    Depth = logger:get_format_depth(),
+    Depth = error_logger:get_format_depth(),
     get_format_and_args(CrashReport, utf8, Depth).
 
 -spec format(CrashReport) -> string() when

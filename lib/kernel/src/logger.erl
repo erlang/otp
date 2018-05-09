@@ -51,7 +51,6 @@
 -export([set_process_metadata/1, update_process_metadata/1,
          unset_process_metadata/0, get_process_metadata/0]).
 -export([i/0, i/1]).
--export([limit_term/1, get_format_depth/0, get_max_size/0, get_utc_config/0]).
 
 %% Basic report formatting
 -export([format_report/1, format_otp_report/1]).
@@ -704,65 +703,6 @@ get_default_handler_filters() ->
 
 get_logger_env() ->
     application:get_env(kernel, logger, []).
-
-%%%-----------------------------------------------------------------
--spec limit_term(term()) -> term().
-
-limit_term(Term) ->
-    try get_format_depth() of
-        unlimited -> Term;
-        D -> io_lib:limit_term(Term, D)
-    catch error:badarg ->
-            %% This could happen during system termination, after
-            %% application_controller process is dead.
-            unlimited
-    end.
-
--spec get_format_depth() -> 'unlimited' | pos_integer().
-
-get_format_depth() ->
-    Depth =
-        case application:get_env(kernel, logger_format_depth) of
-            {ok, D} when is_integer(D) ->
-                D;
-            undefined ->
-                case application:get_env(kernel, error_logger_format_depth) of
-                    {ok, D} when is_integer(D) ->
-                        D;
-                    undefined ->
-                        unlimited
-                end
-        end,
-    max(10, Depth).
-
--spec get_max_size() -> 'unlimited' | pos_integer().
-
-get_max_size() ->
-    case application:get_env(kernel, logger_max_size) of
-	{ok, Size} when is_integer(Size) ->
-	    max(50, Size);
-	undefined ->
-	    unlimited
-    end.
-
--spec get_utc_config() -> boolean().
-
-get_utc_config() ->
-    %% Kernel's logger_utc configuration overrides SASL utc_log, which
-    %% in turn overrides stdlib config - in order to have uniform
-    %% timestamps in log messages
-    case application:get_env(kernel, logger_utc) of
-        {ok, Val} -> Val;
-        undefined ->
-            case application:get_env(sasl, utc_log) of
-                {ok, Val} -> Val;
-                undefined ->
-                    case application:get_env(stdlib, utc_log) of
-                        {ok, Val} -> Val;
-                        undefined -> false
-                    end
-            end
-    end.
 
 %%%-----------------------------------------------------------------
 %%% Internal

@@ -540,7 +540,6 @@ tty(false) ->
     delete_report_handler(error_logger_tty_h).
 
 %%%-----------------------------------------------------------------
-
 -spec limit_term(term()) -> term().
 
 limit_term(Term) ->
@@ -552,4 +551,9 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    logger:get_format_depth().
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.

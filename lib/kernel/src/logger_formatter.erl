@@ -259,17 +259,17 @@ month(12) -> "Dec".
 utcstr(#{utc:=true}) -> "UTC ";
 utcstr(_) -> "".
 
-add_default_config(#{utc:=_}=Config0) ->
+add_default_config(Config0) ->
     Default =
         #{legacy_header=>false,
           single_line=>true,
           chars_limit=>unlimited},
     MaxSize = get_max_size(maps:get(max_size,Config0,false)),
     Depth = get_depth(maps:get(depth,Config0,false)),
+    Utc = get_utc(maps:get(utc,Config0,false)),
     add_default_template(maps:merge(Default,Config0#{max_size=>MaxSize,
-                                                     depth=>Depth}));
-add_default_config(Config) ->
-    add_default_config(Config#{utc=>logger:get_utc_config()}).
+                                                     depth=>Depth,
+                                                     utc=>Utc})).
 
 add_default_template(#{template:=_}=Config) ->
     Config;
@@ -284,11 +284,28 @@ default_template(_) ->
     ?DEFAULT_FORMAT_TEMPLATE.
 
 get_max_size(false) ->
-    logger:get_max_size();
+    unlimited;
 get_max_size(S) ->
     max(10,S).
 
 get_depth(false) ->
-    logger:get_format_depth();
+    error_logger:get_format_depth();
 get_depth(S) ->
     max(5,S).
+
+get_utc(false) ->
+    get_utc_config();
+get_utc(U) ->
+    U.
+
+get_utc_config() ->
+    %% SASL utc_log overrides stdlib config - in order to have uniform
+    %% timestamps in log messages
+    case application:get_env(sasl, utc_log) of
+        {ok, Val} -> Val;
+        undefined ->
+            case application:get_env(stdlib, utc_log) of
+                {ok, Val} -> Val;
+                undefined -> false
+            end
+    end.
