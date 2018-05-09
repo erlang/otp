@@ -33,16 +33,20 @@
     <file>logger_filters.xml</file>
   </header>
   <module>logger_filters</module>
-  <modulesummary>Filters to use with logger.</modulesummary>
+  <modulesummary>Filters to use with Logger.</modulesummary>
 
   <description>
-    <p>Filters to use with logger. All functions exported from this
-      module can be used as logger or handler
+    <p>All functions exported from this module can be used as logger
+      or handler
       filters. See <seealso marker="logger#add_logger_filter-2">
 	<c>logger:add_logger_filter/2</c></seealso>
       and <seealso marker="logger#add_handler_filter-3">
-	<c>logger:add_handler_filter/3</c></seealso>
-      for more information about how filters are added.</p>
+	<c>logger:add_handler_filter/3</c></seealso> for more information
+      about how filters are added.</p>
+    <p>Filters are removed with <seealso marker="logger#remove_logger_filter-1">
+	<c>logger:remove_logger_filter/1</c></seealso>
+      and <seealso marker="logger#remove_handler_filter-2">
+	<c>logger:remove_handler_filter/2</c></seealso>.</p>
   </description>
 
   <funcs>
