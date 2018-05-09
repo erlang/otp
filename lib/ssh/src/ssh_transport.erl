@@ -1881,9 +1881,6 @@ public_algo({#'ECPoint'{},{namedCurve,OID}}) ->
     Curve = public_key:oid2ssh_curvename(OID),
     list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
 
-
-
-
 sha('ssh-rsa') -> sha;
 sha('rsa-sha2-256') -> sha256;
 sha('rsa-sha2-384') -> sha384;
