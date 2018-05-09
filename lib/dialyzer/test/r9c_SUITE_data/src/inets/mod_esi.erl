@@ -352,9 +352,7 @@ eval_str(Str) when is_list(Str) ->
 		    {error, ?result("Non-white space found after "
 				    "end-of-form :~ts", [Rest])}
 		end
-    end;
-eval_str(Bin) when is_binary(Bin) ->
-    eval_str(binary_to_list(Bin)).
+    end.
 
 all_white([$\s|T]) -> all_white(T);
 all_white([$\n|T]) -> all_white(T);

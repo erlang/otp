@@ -28,7 +28,7 @@ cerl_inline.erl:2750: The pattern <{[], L, D}, Vs> can never match the type <[1.
 cerl_inline.erl:2752: The pattern <{[], _L, D}, Vs> can never match the type <[1..255,...],[any()]>
 cerl_inline.erl:2754: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
 cerl_inline.erl:2756: The pattern <{F, _L, D}, Vs> can never match the type <[1..255,...],[any()]>
-compile.erl:788: The pattern {'error', Es} can never match the type {'ok',<<_:64,_:_*8>>}
+compile.erl:792: The pattern {'error', Es} can never match the type {'ok',<<_:64,_:_*8>>}
 core_lint.erl:473: The pattern <{'c_atom', _, 'all'}, 'binary', _Def, St> can never match the type <_,#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::{_,_} | {_,_,_} | {_,_,_,_},tl::{_,_} | {_,_,_} | {_,_,_,_}},tl::#c_nil{} | {'c_atom' | 'c_char' | 'c_float' | 'c_int' | 'c_string' | 'c_tuple',_,_} | #c_cons{hd::{_,_} | {_,_,_} | {_,_,_,_},tl::{_,_} | {_,_,_} | {_,_,_,_}}},[any()],_>
 core_lint.erl:505: The pattern <_Req, 'unknown', St> can never match the type <non_neg_integer(),non_neg_integer(),_>
 sys_pre_expand.erl:625: Call to missing or unexported function erlang:hash/2
