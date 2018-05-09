@@ -36,6 +36,7 @@ MODULES= \
 	ssh_options_SUITE \
 	ssh_basic_SUITE \
 	ssh_bench_SUITE \
+	ssh_chan_behaviours_SUITE \
 	ssh_compat_SUITE \
 	ssh_connection_SUITE \
 	ssh_dbg_SUITE \
@@ -53,6 +54,8 @@ MODULES= \
 	ssh_key_cb_options \
 	ssh_key_cb_engine_keys \
 	ssh_trpt_test_lib \
+	ssh_chan_behaviours_client \
+	ssh_chan_behaviours_server \
 	ssh_echo_server \
 	ssh_bench_dev_null \
 	ssh_peername_sockname_server \
