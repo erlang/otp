@@ -181,11 +181,10 @@
 	  <p>This parameter specifies which log levels to log. The
 	    specified level, and all levels that are more severe, will
 	    be logged.</p>
-	    <p>It is possible to change this variable at run-time
-            using <seealso marker="logger:set_logger_config/1">
-            <c>logger:set_logger_config(#{ level => error })</c></seealso>.
-            .</p>
 	  <p>The default value is <c>info</c>.</p>
+	  <p>To change the global log level at run-time, use
+            <seealso marker="logger#set_logger_config/2">
+            <c>logger:set_logger_config(level, error)</c></seealso>.</p>
       </item>
       <tag><marker id="logger_sasl_compatible"/>
 	<c>logger_sasl_compatible = boolean()</c></tag>

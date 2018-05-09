@@ -181,17 +181,21 @@ ok</pre>
     <func>
       <name name="get_format_depth" arity="0"/>
       <fsummary>Get the value of the Kernel application variable
-                <c>logger_format_depth</c>.</fsummary>
+                <c>error_logger_format_depth</c>.</fsummary>
       <desc>
 	<p>Returns <c>max(10, Depth)</c>, where <c>Depth</c> is the
-	value of
-	<seealso marker="kernel_app#logger_format_depth">
-	logger_format_depth</seealso>
+	value of <c>error_logger_format_depth</c>
 	in the Kernel application, if Depth is an integer. Otherwise,
 	<c>unlimited</c> is returned.</p>
-	<p>For backwards compatibility, the value
-	  of <c>error_logger_format_depth</c> is used
-	  if <c>logger_format_depth</c> is not set.</p>
+	<note>
+	  <p>The <c>error_logger_format_depth</c> variable
+	    is <seealso marker="kernel_app#deprecated-configuration-parameters">
+	    deprecated</seealso> since
+	    the <seealso marker="logger">Logger API</seealso> was
+	    introduced in OTP-21. The variable, and this function, are
+	    kept for backwards compatibility since they still might be
+	    used by legacy report handlers.</p>
+	</note>
       </desc>
     </func>
     <func>

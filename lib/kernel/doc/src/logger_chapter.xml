@@ -136,7 +136,7 @@
 	<item>
 	  <p>Filters can be set on the logger or on a handler. Logger
 	    filters are applied first, and if passed, the handler filters
-	    for each handler are applied. The handler plugin is only
+	    for each handler are applied. The handler callback is only
 	    called if all handler filters for the handler in question also
 	    pass.</p>
 
@@ -159,7 +159,7 @@
 
 	  <code>format(Log,Extra) -> unicode:chardata()</code>
 
-	  <p>The formatter plugin is called by each handler, and the
+	  <p>The formatter callback is called by each handler, and the
 	    returned string can be printed to the handler's destination
 	    (stdout, file, ...).</p>
 	</item>
@@ -214,8 +214,8 @@
 	<tag><c>logger_filters:level/2</c></tag>
 	<item>
 	  <p>This filter provides a way of filtering log events based
-	    on the log level. See <seealso marker="logger_filters#domain-2">
-	    <c>logger_filters:domain/2</c></seealso></p>
+	    on the log level. See <seealso marker="logger_filters#level-2">
+	    <c>logger_filters:level/2</c></seealso></p>
 	</item>
 
 	<tag><c>logger_filters:progress/2</c></tag>
@@ -518,7 +518,7 @@ error_logger:add_report_handler/1,2.
 	  handler named <c>sasl_h</c>.</p>
 	<p>All SASL reports have a metadata
 	  field <c>domain=>[beam,erlang,otp,sasl]</c>, which can be
-	  used, for example, by filters to to stop or allow the
+	  used, for example, by filters to stop or allow the
 	  events.</p>
       </item>
     </taglist>

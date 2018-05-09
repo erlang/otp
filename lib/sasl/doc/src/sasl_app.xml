@@ -119,22 +119,18 @@
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         reports</em>, and <em>progress reports</em> to <c>stdio</c>.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit how much detail is printed
-	in crash and supervisor reports. If <c>logger_format_depth</c>
-	is not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	in crash and supervisor reports.</p>
       </item>
       <tag><c>sasl_report_file_h</c></tag>
       <item>
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         report</em>, and <em>progress report</em> to a single file.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit the details printed in
-	crash and supervisor reports. If <c>logger_format_depth</c> is
-	not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	crash and supervisor reports.</p>
       </item>
     </taglist>
     <p>A similar behaviour, but still using the new logger API, can be
