@@ -76,7 +76,11 @@ groups() ->
                             shell_exit_status
                            ]},
 
-     {ssh_renegotiate_SUITE, [parallel], [rekey,
+     {ssh_renegotiate_SUITE, [parallel], [rekey0,
+                                          rekey1,
+                                          rekey2,
+                                          rekey3,
+                                          rekey4,
                                           rekey_limit_client,
                                           rekey_limit_daemon,
                                           rekey_time_limit_client,
@@ -1330,28 +1334,36 @@ shell_exit_status(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 
+%%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey() -> [{timetrap,{seconds,90}}].
+rekey0() -> [{timetrap,{seconds,90}}].
+rekey1() -> [{timetrap,{seconds,90}}].
+rekey2() -> [{timetrap,{seconds,90}}].
+rekey3() -> [{timetrap,{seconds,90}}].
+rekey4() -> [{timetrap,{seconds,90}}].
     
-rekey(Config) ->
-    {Pid, Host, Port} = 
-	ssh_test_lib:std_daemon(Config,
-				[{rekey_limit, 0}]),
-    ConnectionRef =
-	ssh_test_lib:std_connect(Config, Host, Port, 
-				 [{rekey_limit, 0}]),
+rekey0(Config) -> rekey_chk(Config, 0,                   0).
+rekey1(Config) -> rekey_chk(Config, infinity,            0).
+rekey2(Config) -> rekey_chk(Config, {infinity,infinity}, 0).
+rekey3(Config) -> rekey_chk(Config, 0,                   infinity).
+rekey4(Config) -> rekey_chk(Config, 0,                   {infinity,infinity}).
+
+rekey_chk(Config, RLdaemon, RLclient) ->
+    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,	[{rekey_limit, RLdaemon}]),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, RLclient}]),
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-    receive
-    after ?REKEY_DATA_TMO ->
-	    %%By this time rekeying would have been done
-	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
-	    false = (Kex2 == Kex1),
-	    ssh:close(ConnectionRef),
-	    ssh:stop_daemon(Pid)
-    end.
+
+    %% Make both sides send something:
+    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
+
+    %% Check rekeying
+    timer:sleep(?REKEY_DATA_TMO),
+    ?wait_match(false, Kex1==ssh_test_lib:get_kex_init(ConnectionRef), [], 2000, 10),
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-
 %%% Test rekeying by data volume
 
 rekey_limit_client() -> [{timetrap,{seconds,400}}].
