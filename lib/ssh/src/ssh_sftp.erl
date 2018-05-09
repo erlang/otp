@@ -171,21 +171,16 @@ start_channel(Host, Port, UserOptions) ->
 stop_channel(Pid) ->
     case is_process_alive(Pid) of
 	true ->
-	    OldValue = process_flag(trap_exit, true),
-	    link(Pid),
-	    exit(Pid, ssh_sftp_stop_channel),
-	    receive
-		{'EXIT', Pid, normal} ->
-		    ok
-	    after 5000 ->
-		    exit(Pid, kill),
-		    receive
-			{'EXIT', Pid, killed} ->
-			    ok
-		    end
-	    end,
-	    process_flag(trap_exit, OldValue),
-	    ok;
+            MonRef = erlang:monitor(process, Pid),
+            unlink(Pid),
+            exit(Pid, ssh_sftp_stop_channel),
+            receive {'DOWN',MonRef,_,_,_} -> ok
+            after
+                1000 ->
+                    exit(Pid, kill),
+                    erlang:demonitor(MonRef, [flush]),
+                    ok
+            end;
 	false ->
 	    ok
     end.
