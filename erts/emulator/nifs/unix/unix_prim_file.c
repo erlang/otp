@@ -512,8 +512,8 @@ int efile_sync(efile_data_t *d, int data_only) {
 }
 
 int efile_advise(efile_data_t *d, Sint64 offset, Sint64 length, enum efile_advise_t advise) {
-    efile_unix_t *u = (efile_unix_t*)d;
 #ifdef HAVE_POSIX_FADVISE
+    efile_unix_t *u = (efile_unix_t*)d;
     int p_advise;
 
     switch(advise) {
