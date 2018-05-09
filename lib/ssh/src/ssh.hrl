@@ -191,9 +191,12 @@
 -type user_dir_common_option()      :: {user_dir,  false | string()}.
 -type profile_common_option()       :: {profile,   atom() }.
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
--type rekey_limit_common_option()   :: {rekey_limit, Bytes::non_neg_integer() |
-                                                     {Minutes::non_neg_integer(), Bytes::non_neg_integer()}
+-type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
+                                                     {Minutes::limit_time(), Bytes::limit_bytes()}
                                        }.
+
+-type limit_bytes() :: non_neg_integer() | infinity .  % non_neg_integer due to compatibility
+-type limit_time()  :: pos_integer() | infinity .
 
 -type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
 -type disconnectfun_common_option()     ::
