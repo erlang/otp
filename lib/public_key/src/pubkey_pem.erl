@@ -209,6 +209,8 @@ pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
     <<"-----BEGIN DH PARAMETERS-----">>;
+pem_start('PrivateKeyInfo') ->
+    <<"-----BEGIN PRIVATE KEY-----">>;
 pem_start('EncryptedPrivateKeyInfo') ->
     <<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>;
 pem_start('CertificationRequest') ->

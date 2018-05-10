@@ -183,14 +183,17 @@ dsa_pem(Config) when is_list(Config) ->
     DSAPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
 
 dsa_priv_pkcs8() ->
-    [{doc, "DSA PKCS8 private key decode"}].
+    [{doc, "DSA PKCS8 private key decode/encode"}].
 dsa_priv_pkcs8(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
-    [{'PrivateKeyInfo', DerDSAKey, not_encrypted} = Entry0 ] =
-        erl_make_certs:pem_to_der(filename:join(Datadir, "dsa_key_pkcs8.pem")),
+    {ok, DsaPem} = file:read_file(filename:join(Datadir, "dsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', DerDSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(DsaPem),
     DSAKey = public_key:der_decode('PrivateKeyInfo', DerDSAKey),
     DSAKey = public_key:pem_entry_decode(Entry0),
-    true = check_entry_type(DSAKey, 'DSAPrivateKey').
+    true = check_entry_type(DSAKey, 'DSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', DSAKey),
+    DSAPemNoEndNewLines = strip_superfluous_newlines(DsaPem),
+    DSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 %%--------------------------------------------------------------------
 
@@ -228,14 +231,17 @@ rsa_pem(Config) when is_list(Config) ->
     RSARawPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry1])).
 
 rsa_priv_pkcs8() ->
-    [{doc, "RSA PKCS8 private key decode"}].
+    [{doc, "RSA PKCS8 private key decode/encode"}].
 rsa_priv_pkcs8(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
-    [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] =
-        erl_make_certs:pem_to_der(filename:join(Datadir, "rsa_key_pkcs8.pem")),
+    {ok, RsaPem} = file:read_file(filename:join(Datadir, "rsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(RsaPem),
     RSAKey = public_key:der_decode('PrivateKeyInfo', DerRSAKey),
     RSAKey = public_key:pem_entry_decode(Entry0),
-    true = check_entry_type(RSAKey, 'RSAPrivateKey').
+    true = check_entry_type(RSAKey, 'RSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', RSAKey),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 %%--------------------------------------------------------------------
 
@@ -284,14 +290,17 @@ ec_pem2(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
 
 ec_priv_pkcs8() ->
-    [{doc, "EC PKCS8 private key decode"}].
+    [{doc, "EC PKCS8 private key decode/encode"}].
 ec_priv_pkcs8(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "ec_key_pkcs8.pem")),
     [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(ECPrivPem),
     ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
-    true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters').
+    true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 init_ec_pem_encode_generated(Config) ->
     case catch true = lists:member('secp384r1', crypto:ec_curves()) of
