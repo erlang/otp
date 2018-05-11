@@ -8656,6 +8656,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         Process *rp;
         int send_sig = 0;
 
+        /* fail state... */
+        state = (ERTS_PSFLG_EXITING
+                 | ERTS_PSFLG_RUNNING
+                 | ERTS_PSFLG_RUNNING_SYS
+                 | ERTS_PSFLG_DIRTY_RUNNING
+                 | ERTS_PSFLG_DIRTY_RUNNING_SYS);
+
         rp = erts_try_lock_sig_free_proc(BIF_ARG_1,
                                          ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
                                          &state);
@@ -8663,16 +8670,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             goto noproc;
         if (rp == ERTS_PROC_LOCK_BUSY)
             send_sig = !0;
-        else if (state & (ERTS_PSFLG_EXITING
-                          | ERTS_PSFLG_RUNNING
-                          | ERTS_PSFLG_RUNNING_SYS
-                          | ERTS_PSFLG_DIRTY_RUNNING
-                          | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
-            erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
-            send_sig = !0;
-        }
-
-        if (!send_sig && rp) {
+        else {
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->target);
@@ -12497,7 +12495,13 @@ erts_try_lock_sig_free_proc(Eterm pid, ErtsProcLocks locks,
                             erts_aint32_t *statep)
 {
     Process *rp = erts_proc_lookup_raw(pid);
+    erts_aint32_t fail_state = ERTS_PSFLG_SIG_IN_Q|ERTS_PSFLG_SIG_Q;
     erts_aint32_t state;
+    ErtsProcLocks tmp_locks = ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_MSGQ;
+
+    tmp_locks |= locks;
+    if (statep)
+        fail_state |= *statep;
 
     if (!rp) {
         if (statep)
@@ -12514,28 +12518,28 @@ erts_try_lock_sig_free_proc(Eterm pid, ErtsProcLocks locks,
     if (state & ERTS_PSFLG_FREE)
         return NULL;
 
-    if (state & (ERTS_PSFLG_SIG_IN_Q|ERTS_PSFLG_SIG_Q))
+    if (state & fail_state)
         return ERTS_PROC_LOCK_BUSY;
 
-    if (!locks)
-        return rp;
-
-    if (erts_proc_trylock(rp, locks) == EBUSY)
+    if (erts_proc_trylock(rp, tmp_locks) == EBUSY)
         return ERTS_PROC_LOCK_BUSY;
 
     state = erts_atomic32_read_nob(&rp->state);
     if (statep)
         *statep = state;
 
-    if (state & ERTS_PSFLG_FREE) {
-        erts_proc_unlock(rp, locks);
-        return NULL;
+    if ((state & fail_state)
+        || rp->sig_inq.first
+        || rp->sig_qs.cont) {
+        erts_proc_unlock(rp, tmp_locks);
+        if (state & ERTS_PSFLG_FREE)
+            return NULL;
+        else
+            return ERTS_PROC_LOCK_BUSY;
     }
 
-    if (state & (ERTS_PSFLG_SIG_IN_Q|ERTS_PSFLG_SIG_Q)) {
-        erts_proc_unlock(rp, locks);
-        return ERTS_PROC_LOCK_BUSY;
-    }
+    if (tmp_locks != locks)
+        erts_proc_unlock(rp, tmp_locks & ~locks);
 
     return rp;
 }

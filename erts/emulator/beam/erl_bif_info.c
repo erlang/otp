@@ -1160,6 +1160,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     else {
         if (flags & ERTS_PI_FLAG_FORCE_SIG_SEND)
             goto send_signal;
+        state = ERTS_PSFLG_RUNNING; /* fail state... */
         rp = erts_try_lock_sig_free_proc(pid, locks, &state);
         if (!rp)
             goto undefined;
