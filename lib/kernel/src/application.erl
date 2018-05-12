@@ -31,7 +31,7 @@
 -export([get_application/0, get_application/1, info/0, prim_consult/1]).
 -export([start_type/0]).
 
--export_type([start_type/0]).
+-export_type([start_type/0, restart_type/0]).
 
 %%%-----------------------------------------------------------------
 
