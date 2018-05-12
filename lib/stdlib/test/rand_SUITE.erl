@@ -262,17 +262,18 @@ reference(Config) when is_list(Config) ->
     ok.
 
 reference_1(Alg) ->
-    Refval  = reference_val(Alg),
-    Testval = gen(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false when Refval =:= not_implemented ->
-            exit({not_implemented,Alg});
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    exit(wrong_value)
+    Refval = reference_val(Alg),
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen(Alg) of
+		Refval -> ok;
+		Testval ->
+		    io:format("Failed: ~p~n",[Alg]),
+		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+		    exit(wrong_value)
+	    end
     end.
 
 gen(Algo) ->
@@ -1141,104 +1142,110 @@ reference_jump_state(Config) when is_list(Config) ->
     ok.
 
 reference_jump_1(Alg) ->
-    Refval  = reference_jump_val(Alg),
-    Testval = gen_jump_1(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    io:format("Vals ~p ~p~n",[Refval, Testval]),
-	    exit(wrong_value)
+    Refval = reference_jump_val(Alg),
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen_jump_1(Alg) of
+		Refval -> ok;
+		Testval ->
+		    io:format(
+		      "Failed: ~p~n",[Alg]),
+		    io:format(
+		      "Length ~p ~p~n",
+		      [length(Refval), length(Testval)]),
+		    io:format(
+		      "Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+		    io:format(
+		      "Vals ~p ~p~n",[Refval, Testval]),
+		    exit(wrong_value)
+	    end
     end.
 
 gen_jump_1(Algo) ->
-    State =
-        case Algo of
-            exs64 -> %% Test exception of not_implemented notice
-                try rand:jump(rand:seed_s(exs64))
-                catch
-                    error:not_implemented -> not_implemented
-                end;
-            _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
-                %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, [12345678|12345678]});
-            _ when Algo =:= exs1024; Algo =:= exs1024s ->
-                %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
-            _ -> % unimplemented
-                not_implemented
-        end,
-    case State of
-        not_implemented -> [not_implemented];
-        _ ->
-            Max = range(State),
-            gen_jump_1(?LOOP_JUMP, State, Max, [])
+    case Algo of
+	exs64 -> %% Test exception of not_implemented notice
+	    try rand:jump(rand:seed_s(exs64))
+	    catch
+		error:not_implemented -> [error_not_implemented]
+	    end;
+	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_2(
+	      rand:seed_s({Algo, [12345678|12345678]}));
+	_ when Algo =:= exs1024; Algo =:= exs1024s ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_2(
+	      rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}}))
     end.
 
-gen_jump_1(N, State0, Max, Acc) when N > 0 ->
+gen_jump_2(State) ->
+    Max = range(State),
+    gen_jump_3(?LOOP_JUMP, State, Max, []).
+
+gen_jump_3(N, State0, Max, Acc) when N > 0 ->
     {_, State1} = rand:uniform_s(Max, State0),
     {Random, State2} = rand:uniform_s(Max, rand:jump(State1)),
     case N rem (?LOOP_JUMP div 100) of
-	0 -> gen_jump_1(N-1, State2, Max, [Random|Acc]);
-	_ -> gen_jump_1(N-1, State2, Max, Acc)
+	0 -> gen_jump_3(N-1, State2, Max, [Random|Acc]);
+	_ -> gen_jump_3(N-1, State2, Max, Acc)
     end;
-gen_jump_1(_, _, _, Acc) -> lists:reverse(Acc).
+gen_jump_3(_, _, _, Acc) -> lists:reverse(Acc).
 
 
 %% Check if each algorithm generates the proper jump sequence
 %% with the internal state in the process dictionary.
 reference_jump_procdict(Config) when is_list(Config) ->
-    [reference_jump_0(Alg) || Alg <- algs()],
+    [reference_jump_p1(Alg) || Alg <- algs()],
     ok.
 
-reference_jump_0(Alg) ->
+reference_jump_p1(Alg) ->
     Refval  = reference_jump_val(Alg),
-    Testval = gen_jump_0(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    exit(wrong_value)
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen_jump_p1(Alg) of
+		Refval -> ok;
+		Testval ->
+		    io:format("Failed: ~p~n",[Alg]),
+		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+		    exit(wrong_value)
+	    end
     end.
 
-gen_jump_0(Algo) ->
-    Seed = case Algo of
-	       exs64 -> %% Test exception of not_implemented notice
-                   try
-                       _ = rand:seed(exs64),
-                       rand:jump()
-                   catch
-                       error:not_implemented -> not_implemented
-                   end;
-	       _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
-                   %% Printed with orig 'C' code and this seed
-		   rand:seed({Algo, [12345678|12345678]});
-	       _ when Algo =:= exs1024; Algo =:= exs1024s ->
-                   %% Printed with orig 'C' code and this seed
-		   rand:seed({Algo, {lists:duplicate(16, 12345678), []}});
-	       _ -> % unimplemented
-		   not_implemented
-	   end,
-    case Seed of
-        not_implemented -> [not_implemented];
-        _ ->
-            Max = range(Seed),
-            gen_jump_0(?LOOP_JUMP, Max, [])
+gen_jump_p1(Algo) ->
+    case Algo of
+	exs64 -> %% Test exception of not_implemented notice
+	    try
+		_ = rand:seed(exs64),
+		rand:jump()
+	    catch
+		error:not_implemented -> [error_not_implemented]
+	    end;
+	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_p2(
+	      rand:seed({Algo, [12345678|12345678]}));
+	_ when Algo =:= exs1024; Algo =:= exs1024s ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_p2(
+	      rand:seed({Algo, {lists:duplicate(16, 12345678), []}}))
     end.
 
-gen_jump_0(N, Max, Acc) when N > 0 ->
+gen_jump_p2(Seed) ->
+    Max = range(Seed),
+    gen_jump_p3(?LOOP_JUMP, Max, []).
+
+gen_jump_p3(N, Max, Acc) when N > 0 ->
     _ = rand:uniform(Max),
     _ = rand:jump(),
     Random = rand:uniform(Max),
     case N rem (?LOOP_JUMP div 100) of
-	0 -> gen_jump_0(N-1, Max, [Random|Acc]);
-	_ -> gen_jump_0(N-1, Max, Acc)
+	0 -> gen_jump_p3(N-1, Max, [Random|Acc]);
+	_ -> gen_jump_p3(N-1, Max, Acc)
     end;
-gen_jump_0(_, _, Acc) -> lists:reverse(Acc).
+gen_jump_p3(_, _, Acc) -> lists:reverse(Acc).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data
@@ -1389,7 +1396,10 @@ reference_val(exrop) ->
      250789092615679985,78848633178610658,72059442721196128,
      98223942961505519,191144652663779840,
      102425686803727694,89058927716079076,80721467542933080,
-     8462479817391645,2774921106204163].
+     8462479817391645,2774921106204163];
+reference_val(_) ->
+    not_implemented.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1451,7 +1461,7 @@ reference_jump_val(exsp) ->
     reference_jump_val(exsplus);
 reference_jump_val(exs1024s) ->
     reference_jump_val(exs1024);
-reference_jump_val(exs64) -> [not_implemented];
+reference_jump_val(exs64) -> [error_not_implemented];
 reference_jump_val(exrop) ->
 %% #include <stdint.h>
 %% #include <stdio.h>
@@ -1516,7 +1526,10 @@ reference_jump_val(exrop) ->
      250227633882474729,171181147785250210,55437891969696407,
      241227318715885854,77323084015890802,
      1663590009695191,234064400749487599,222983191707424780,
-     254956809144783896,203898972156838252].
+     254956809144783896,203898972156838252];
+reference_jump_val(_) ->
+    not_implemented.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
