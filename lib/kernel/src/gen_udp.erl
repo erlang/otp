@@ -97,6 +97,8 @@ open(Port) ->
               | {ifaddr, inet:socket_address()}
               | inet:address_family()
               | {port, inet:port_number()}
+              | {netns, file:filename_all()}
+              | {bind_to_device, binary()}
               | option(),
       Socket :: socket(),
       Reason :: inet:posix().

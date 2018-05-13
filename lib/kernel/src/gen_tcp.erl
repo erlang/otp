@@ -102,6 +102,8 @@
         inet:address_family() |
         {port, inet:port_number()} |
         {tcp_module, module()} |
+        {netns, file:filename_all()} |
+        {bind_to_device, binary()} |
         option().
 -type listen_option() ::
         {ip, inet:socket_address()} |
@@ -111,6 +113,8 @@
         {port, inet:port_number()} |
         {backlog, B :: non_neg_integer()} |
         {tcp_module, module()} |
+        {netns, file:filename_all()} |
+        {bind_to_device, binary()} |
         option().
 -type socket() :: port().
 

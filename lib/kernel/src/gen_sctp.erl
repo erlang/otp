@@ -118,6 +118,8 @@ open() ->
                    | inet:address_family()
                    | {port,Port}
 		   | {type,SockType}
+                   | {netns, file:filename_all()}
+                   | {bind_to_device, binary()}
                    | option(),
               IP :: inet:ip_address() | any | loopback,
               Port :: inet:port_number(),
