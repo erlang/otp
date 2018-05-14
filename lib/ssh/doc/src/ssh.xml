@@ -762,6 +762,8 @@
 
     <datatype>
       <name name="rekey_limit_common_option"/>
+      <name name="limit_bytes"/>
+      <name name="limit_time"/>
       <desc>
 	<p>Sets the limit when rekeying is to be initiated. Both the max time and max amount of data
 	could be configured:
@@ -773,6 +775,10 @@
 	</list>
 	<p>When a rekeying is done, both the timer and the byte counter are restarted.
 	Defaults to one hour and one GByte.</p>
+	<p>If <c>Minutes</c> is set to <c>infinity</c>, no rekeying will ever occur due to that max time has passed.
+	Setting <c>Bytes</c> to <c>infinity</c> will inhibit rekeying after a certain amount of data has been transferred.
+	If the option value is set to <c>{infinity, infinity}</c>, no rekeying will be initiated. Note that rekeying initiated
+	by the peer will still be performed.</p>
       </desc>
     </datatype>
 

@@ -601,14 +601,19 @@ default(common) ->
 
       {rekey_limit, def} =>
           #{default => {3600000, 1024000000}, % {1 hour, 1 GB}
-            chk => fun({TimeMins, SizBytes}) when is_integer(TimeMins) andalso TimeMins>=0,
-                                                  is_integer(SizBytes) andalso SizBytes>=0 ->
-                           %% New (>= 21) format
-                           {true, {TimeMins * 60*1000, % To ms
-                                   SizBytes}};
-                      (SizBytes) when is_integer(SizBytes) andalso SizBytes>=0 ->
-                           %% Old (< 21) format
-                           {true, {3600000, SizBytes}};
+            chk => fun({infinity, infinity}) ->
+                           true;
+                      ({Mins, infinity}) when is_integer(Mins), Mins>0 ->
+                           {true, {Mins*60*1000, infinity}};
+                      ({infinity, Bytes}) when is_integer(Bytes), Bytes>=0 ->
+                           true;
+                      ({Mins, Bytes}) when is_integer(Mins), Mins>0,
+                                           is_integer(Bytes), Bytes>=0 ->
+                           {true, {Mins*60*1000, Bytes}};
+                      (infinity) ->
+                           {true, {3600000, infinity}};
+                      (Bytes) when is_integer(Bytes), Bytes>=0 ->
+                           {true, {3600000, Bytes}};
                       (_) ->
                            false
                    end,
