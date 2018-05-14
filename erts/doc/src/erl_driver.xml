@@ -429,7 +429,7 @@
     <taglist>
       <tag>Return types for driver callbacks</tag>
       <item>
-	<p>Rrewrite driver callback
+	<p>Rewrite driver callback
 	  <seealso marker="driver_entry#control"><c>control</c></seealso>
 	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.</p>
 	<p>Rewrite driver callback
@@ -841,7 +841,7 @@ int suggested_stack_size;</code>
         <p>Thread options structure passed to
 	  <seealso marker="#erl_drv_thread_create">
             <c>erl_drv_thread_create</c></seealso>.
-	    The following fields exists:</p>
+	    The following field exists:</p>
         <taglist>
           <tag><c>suggested_stack_size</c></tag>
           <item>A suggestion, in kilowords, on how large a stack to use.
@@ -3220,6 +3220,6 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
       <seealso marker="erlang"><c>erlang(3)</c></seealso>,
       <seealso marker="kernel:erl_ddll"><c>erl_ddll(3)</c></seealso>,
       section <seealso marker="alt_dist">How to Implement an Alternative
-      Carrier for the Erlang Distribution></seealso> in the User's Guide</p>
+      Carrier for the Erlang Distribution</seealso> in the User's Guide</p>
   </section>
 </cref>
