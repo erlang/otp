@@ -58,7 +58,8 @@ groups() ->
                  logger_disk_log_formatter,
                  logger_undefined,
                  logger_many_handlers_default_first,
-                 logger_many_handlers_default_last
+                 logger_many_handlers_default_last,
+                 logger_many_handlers_default_last_broken_filter
                 ]},
      {bad,[],[bad_error_logger,
               bad_level,
@@ -470,6 +471,8 @@ logger_undefined(Config) ->
     false = lists:keymember(sasl_h,1,Hs),
     ok.
 
+
+%% Test that we can add multiple handlers with the default first
 logger_many_handlers_default_first(Config) ->
     LogErr = file(Config,logger_many_handlers_default_first_error),
     LogInfo = file(Config,logger_many_handlers_default_first_info),
@@ -498,6 +501,28 @@ logger_many_handlers_default_last(Config) ->
                [{handler,info,logger_std_h,
                  #{level=>info,
                    filters=>[{level,{fun logger_filters:level/2,{stop,gteq,error}}}],
+                   logger_std_h=>#{type=>{file,LogInfo}}}
+                },
+                {handler,?STANDARD_HANDLER,logger_std_h,
+                 #{level=>error,
+                   filters=>[],
+                   formatter=>{logger_formatter,#{}},
+                   logger_std_h=>#{type=>{file,LogErr}}}
+                }
+               ]}], LogErr, LogInfo, 7).
+
+%% Check that we can handle that an added logger has a broken filter
+%% This used to cause a deadlock.
+logger_many_handlers_default_last_broken_filter(Config) ->
+    LogErr = file(Config,logger_many_handlers_default_first_broken_filter_error),
+    LogInfo = file(Config,logger_many_handlers_default_first_broken_filter_info),
+
+    logger_many_handlers(
+      Config,[{logger,
+               [{handler,info,logger_std_h,
+                 #{level=>info,
+                   filters=>[{broken,{fun logger_filters:level/2,broken_state}},
+                             {level,{fun logger_filters:level/2,{stop,gteq,error}}}],
                    logger_std_h=>#{type=>{file,LogInfo}}}
                 },
                 {handler,?STANDARD_HANDLER,logger_std_h,

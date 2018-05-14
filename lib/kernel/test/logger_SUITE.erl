@@ -218,14 +218,17 @@ change_config(_Config) ->
     {ok,{?MODULE,#{level:=info,filter_default:=stop}=C2}} =
         logger:get_handler_config(h1),
     false = maps:is_key(custom,C2),
-    {error,fail} = logger:set_handler_config(h1,#{fail=>true}),
+    {error,fail} = logger:set_handler_config(h1,#{conf_call=>fun() -> {error,fail} end}),
     {error,{attempting_syncronous_call_to_self,_}} =
         logger:set_handler_config(
-          h1,#{call=>fun() -> logger:set_module_level(?MODULE,debug) end}),
+          h1,#{conf_call=>fun() -> logger:set_handler_config(?MODULE,#{}) end}),
+    ok =
+        logger:set_handler_config(
+          h1,#{conf_call=>fun() -> logger:set_module_level(?MODULE,debug) end}),
     {ok,{?MODULE,C2}} = logger:get_handler_config(h1),
 
     %% Change one key only
-    {error,fail} = logger:set_handler_config(h1,fail,true),
+    {error,fail} = logger:set_handler_config(h1,conf_call,fun() -> {error,fail} end),
     ok = logger:set_handler_config(h1,custom,custom),
     [changing_config] = test_server:messages_get(),
     {ok,{?MODULE,#{custom:=custom}=C3}} = logger:get_handler_config(h1),
@@ -425,6 +428,7 @@ filter_failed(cleanup,_Config) ->
     ok.
 
 handler_failed(_Config) ->
+    register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
     {error,{invalid_handler_config,bad}} = logger:add_handler(h1,?MODULE,bad),
@@ -443,16 +447,57 @@ handler_failed(_Config) ->
     false = lists:keymember(h1,1,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
-    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,crash=>true}),
+    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,log_call=>fun() -> a = b end}),
     {error,{already_exist,h2}} = logger:add_handler(h2,othermodule,#{}),
+    [add] = test_server:messages_get(),
 
     logger:info(?map_rep),
-    check_no_log(),
+    [remove] = test_server:messages_get(),
+
     #{logger:=#{handlers:=Ids2},
       handlers:=H2} = logger:i(),
     false = lists:member(h2,Ids2),
     false = lists:keymember(h2,1,H2),
     {error,{not_found,h2}} = logger:remove_handler(h2),
+
+    CallAddHandler = fun() -> logger:add_handler(h2,?MODULE,#{}) end,
+    CrashHandler = fun() -> a = b end,
+    KillHandler = fun() -> exit(self(), die) end,
+
+    {error,{handler_not_added,{attempting_syncronous_call_to_self,_}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>CallAddHandler}),
+    {error,{handler_not_added,{callback_crashed,_}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>CrashHandler}),
+    {error,{handler_not_added,{logger_process_exited,_,die}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>KillHandler}),
+
+    check_no_log(),
+    ok = logger:add_handler(h1,?MODULE,#{}),
+    {error,{attempting_syncronous_call_to_self,_}} =
+        logger:set_handler_config(h1,#{conf_call=>CallAddHandler}),
+    {error,{callback_crashed,_}} =
+        logger:set_handler_config(h1,#{conf_call=>CrashHandler}),
+    {error,{logger_process_exited,_,die}} =
+        logger:set_handler_config(h1,#{conf_call=>KillHandler}),
+
+    {error,{attempting_syncronous_call_to_self,_}} =
+        logger:set_handler_config(h1,conf_call,CallAddHandler),
+    {error,{callback_crashed,_}} =
+        logger:set_handler_config(h1,conf_call,CrashHandler),
+    {error,{logger_process_exited,_,die}} =
+        logger:set_handler_config(h1,conf_call,KillHandler),
+
+    ok = logger:remove_handler(h1),
+    [add,remove] = test_server:messages_get(),
+
+    check_no_log(),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>CallAddHandler}),
+    ok = logger:remove_handler(h1),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>CrashHandler}),
+    ok = logger:remove_handler(h1),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>KillHandler}),
+    ok = logger:remove_handler(h1),
+    [add,add,add] = test_server:messages_get(),
 
     ok.
 
@@ -720,16 +765,19 @@ check_maps(Expected,Got,What) ->
     end.
 
 %% Handler
+adding_handler(_Id,#{add_call:=Fun}) ->
+    Fun();
 adding_handler(_Id,Config) ->
     maybe_send(add),
     {ok,Config}.
+
+removing_handler(_Id,#{rem_call:=Fun}) ->
+    Fun();
 removing_handler(_Id,_Config) ->
     maybe_send(remove),
     ok.
-changing_config(_Id,_Old,#{call:=Fun}) ->
+changing_config(_Id,_Old,#{conf_call:=Fun}) ->
     Fun();
-changing_config(_Id,_Old,#{fail:=true}) ->
-    {error,fail};
 changing_config(_Id,_Old,Config) ->
     maybe_send(changing_config),
     {ok,Config}.
@@ -740,8 +788,8 @@ maybe_send(Msg) ->
         Pid -> Pid ! Msg
     end.
 
-log(_Log,#{crash:=true}) ->
-    a=b;
+log(_Log,#{log_call:=Fun}) ->
+    Fun();
 log(Log,Config) ->
     TcProc  = maps:get(tc_proc,Config,self()),
     TcProc ! {Log,Config},

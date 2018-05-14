@@ -36,8 +36,9 @@
 -include("logger_internal.hrl").
 
 -define(SERVER, logger).
+-define(LOGGER_SERVER_TAG, '$logger_cb_process').
 
--record(state, {tid}).
+-record(state, {tid, async_req, async_req_queue}).
 
 %%%===================================================================
 %%% API
@@ -127,96 +128,93 @@ init([]) ->
     {ok,SimpleConfig} =
         logger_simple:adding_handler(logger_simple,SimpleConfig0),
     logger_config:create(Tid,logger_simple,logger_simple,SimpleConfig),
-    {ok, #state{tid=Tid}}.
+    {ok, #state{tid=Tid, async_req_queue = queue:new()}}.
 
-handle_call({add_handler,Id,Module,HConfig}, _From, #state{tid=Tid}=State) ->
-    Reply =
-        case logger_config:exist(Tid,Id) of
-            true ->
-                {error,{already_exist,Id}};
-            false ->
-                %% inform the handler
-                case call_h(Module,adding_handler,[Id,HConfig],{ok,HConfig}) of
-                    {ok,HConfig1} ->
-                        %% We know that the call_h would have loaded the module
-                        %% if it existed, so it is safe here to call function_exported
-                        %% to find out if this is a valid handler
-                        case erlang:function_exported(Module, log, 2) of
-                            true ->
-                                logger_config:create(Tid,Id,Module,HConfig1),
-                                {ok,Config} = do_get_config(Tid,logger),
-                                Handlers = maps:get(handlers,Config,[]),
-                                do_set_config(Tid,logger,
-                                              Config#{handlers=>[Id|Handlers]});
-                            false ->
-                                {error,{invalid_handler,
-                                        {function_not_exported,
-                                         {Module,log,2}}}}
-                        end;
-                    {error,HReason} ->
-                        {error,{handler_not_added,HReason}}
-                end
-        end,
-    {reply,Reply,State};
-handle_call({remove_handler,HandlerId}, _From, #state{tid=Tid}=State) ->
-    Reply =
-        case logger_config:get(Tid,HandlerId) of
-            {ok,{Module,_}} ->
-                {ok,Config} = do_get_config(Tid,logger),
-                Handlers0 = maps:get(handlers,Config,[]),
-                Handlers = lists:delete(HandlerId,Handlers0),
-                %% inform the handler
-                _ = call_h(Module,removing_handler,[HandlerId,Config],ok),
-                do_set_config(Tid,logger,Config#{handlers=>Handlers}),
-                logger_config:delete(Tid,HandlerId),
-                ok;
-            _ ->
-                {error,{not_found,HandlerId}}
-        end,
-    {reply,Reply,State};
+handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
+    case logger_config:exist(Tid,Id) of
+        true ->
+            {reply,{error,{already_exist,Id}},State};
+        false ->
+            call_h_async(
+              fun() ->
+                      %% inform the handler
+                      call_h(Module,adding_handler,[Id,HConfig],{ok,HConfig})
+              end,
+              fun({ok,HConfig1}) ->
+                      %% We know that the call_h would have loaded the module
+                      %% if it existed, so it is safe here to call function_exported
+                      %% to find out if this is a valid handler
+                      case erlang:function_exported(Module, log, 2) of
+                          true ->
+                              logger_config:create(Tid,Id,Module,HConfig1),
+                              {ok,Config} = do_get_config(Tid,logger),
+                              Handlers = maps:get(handlers,Config,[]),
+                              do_set_config(Tid,logger,
+                                            Config#{handlers=>[Id|Handlers]});
+                          false ->
+                              {error,{invalid_handler,
+                                      {function_not_exported,
+                                       {Module,log,2}}}}
+                      end;
+                 ({error,HReason}) ->
+                      {error,{handler_not_added,HReason}}
+              end,From,State)
+    end;
+handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
+    case logger_config:get(Tid,HandlerId) of
+        {ok,{Module,HConfig}} ->
+            {ok,Config} = do_get_config(Tid,logger),
+            Handlers0 = maps:get(handlers,Config,[]),
+            Handlers = lists:delete(HandlerId,Handlers0),
+            call_h_async(
+              fun() ->
+                      %% inform the handler
+                      call_h(Module,removing_handler,[HandlerId,HConfig],ok)
+              end,
+              fun(_Res) ->
+                      do_set_config(Tid,logger,Config#{handlers=>Handlers}),
+                      logger_config:delete(Tid,HandlerId),
+                      ok
+              end,From,State);
+        _ ->
+            {reply,{error,{not_found,HandlerId}},State}
+    end;
 handle_call({add_filter,Id,Filter}, _From,#state{tid=Tid}=State) ->
     Reply = do_add_filter(Tid,Id,Filter),
     {reply,Reply,State};
 handle_call({remove_filter,Id,FilterId}, _From, #state{tid=Tid}=State) ->
     Reply = do_remove_filter(Tid,Id,FilterId),
     {reply,Reply,State};
-handle_call({update_config,Id,NewConfig}, _From, #state{tid=Tid}=State) ->
-    Reply =
-        case logger_config:get(Tid,Id) of
-            {ok,{Module,OldConfig}} ->
-                Config = maps:merge(OldConfig,NewConfig),
-                case call_h(Module,changing_config,[Id,OldConfig,Config],
-                            {ok,Config}) of
-                    {ok,Config1} ->
-                        do_set_config(Tid,Id,Config1);
-                    Error ->
-                        Error
-                end;
-            {ok,OldConfig} ->
-                Config = maps:merge(OldConfig,NewConfig),
-                do_set_config(Tid,Id,Config);
-            Error ->
-                Error
-        end,
-    {reply,Reply,State};
+handle_call({update_config,Id,NewConfig}, From, #state{tid=Tid}=State) ->
+    case logger_config:get(Tid,Id) of
+        {ok,{_Module,OldConfig}} ->
+            Config = maps:merge(OldConfig,NewConfig),
+            handle_call({set_config,Id,Config}, From, State);
+        {ok,OldConfig} ->
+            Config = maps:merge(OldConfig,NewConfig),
+            {reply,do_set_config(Tid,Id,Config),State};
+        Error ->
+            {reply,Error,State}
+    end;
 handle_call({set_config,logger,Config}, _From, #state{tid=Tid}=State) ->
     Reply = do_set_config(Tid,logger,Config),
     {reply,Reply,State};
-handle_call({set_config,HandlerId,Config}, _From, #state{tid=Tid}=State) ->
-    Reply =
-        case logger_config:get(Tid,HandlerId) of
-            {ok,{Module,OldConfig}} ->
-                case call_h(Module,changing_config,[HandlerId,OldConfig,Config],
-                            {ok,Config}) of
-                    {ok,Config1} ->
-                        do_set_config(Tid,HandlerId,Config1);
-                    Error ->
-                        Error
-                end;
-            _ ->
-                {error,{not_found,HandlerId}}
-        end,
-    {reply,Reply,State};
+handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
+    case logger_config:get(Tid,HandlerId) of
+        {ok,{Module,OldConfig}} ->
+            call_h_async(
+              fun() ->
+                      call_h(Module,changing_config,[HandlerId,OldConfig,Config],
+                             {ok,Config})
+              end,
+              fun({ok,Config1}) ->
+                      do_set_config(Tid,HandlerId,Config1);
+                 (Error) ->
+                      Error
+              end,From,State);
+        _ ->
+            {reply,{error,{not_found,HandlerId}},State}
+    end;
 handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:set_module_level(Tid,Module,Level),
     {reply,Reply,State};
@@ -224,6 +222,8 @@ handle_call({reset_module_level,Module}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:reset_module_level(Tid,Module),
     {reply,Reply,State}.
 
+handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
+    call_h_reply(Reply,State);
 handle_cast({cache_module_level,Module}, #state{tid=Tid}=State) ->
     logger_config:cache_module_level(Tid,Module),
     {noreply, State}.
@@ -243,8 +243,18 @@ handle_info({log,Level,Report,Meta}, State) ->
 handle_info({Ref,_Reply},State) when is_reference(Ref) ->
     %% Assuming this is a timed-out gen_server reply - ignoring
     {noreply, State};
-handle_info(Unexpected,State) ->
+handle_info({'DOWN',_Ref,_Proc,_Pid,_Reason} = Down,State) ->
+    call_h_reply(Down,State);
+handle_info(Unexpected,State) when element(1,Unexpected) == 'EXIT' ->
+    %% The simple logger will send an 'EXIT' message when it is replaced
+    %% We may as well ignore all 'EXIT' messages that we get
     ?LOG_INTERNAL(debug,
+                  [{logger,got_unexpected_message},
+                   {process,?SERVER},
+                   {message,Unexpected}]),
+    {noreply,State};
+handle_info(Unexpected,State) ->
+    ?LOG_INTERNAL(info,
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
@@ -257,8 +267,11 @@ terminate(_Reason, _State) ->
 %%% Internal functions
 %%%===================================================================
 call(Request) ->
-    case whereis(?SERVER) of
-        Pid when Pid==self() ->
+    Action = element(1,Request),
+    case get(?LOGGER_SERVER_TAG) of
+        true when
+              Action == add_handler; Action == remove_handler;
+              Action == update_config; Action == set_config ->
             {error,{attempting_syncronous_call_to_self,Request}};
         _ ->
             gen_server:call(?SERVER,Request,?DEFAULT_LOGGER_CALL_TIMEOUT)
@@ -448,7 +461,59 @@ call_h(Module, Function, Args, DefRet) ->
                 {error,undef,[{Module,Function,Args,_}|_]} ->
                     DefRet;
                 _ ->
-                    {error,{callback_crashed,
-                            {C,R,logger:filter_stacktrace(?MODULE,S)}}}
+                    ST = logger:filter_stacktrace(?MODULE,S),
+                    ?LOG_INTERNAL(error,
+                                  [{logger,callback_crashed},
+                                   {process,?SERVER},
+                                   {reason,{C,R,ST}}]),
+                    {error,{callback_crashed,{C,R,ST}}}
             end
     end.
+
+%% There are all sort of API functions that can cause deadlocks if called
+%% from the handler callbacks. So we spawn a process that does the request
+%% for the logger_server. There are still APIs that will cause problems,
+%% namely logger:add_handler
+call_h_async(AsyncFun,PostFun,From,#state{ async_req = undefined } = State) ->
+    Parent = self(),
+    {Pid, Ref} = spawn_monitor(
+                    fun() ->
+                            put(?LOGGER_SERVER_TAG,true),
+                            receive Ref -> Ref end,
+                            gen_server:cast(Parent, {async_req_reply, Ref, AsyncFun()})
+                    end),
+    Pid ! Ref,
+    {noreply,State#state{ async_req = {Ref,PostFun,From} }};
+call_h_async(AsyncFun,PostFun,From,#state{ async_req_queue = Q } = State) ->
+    {noreply,State#state{ async_req_queue = queue:in({AsyncFun,PostFun,From},Q) }}.
+
+call_h_reply({async_req_reply,Ref,Reply},
+              #state{ async_req = {Ref,PostFun,From}, async_req_queue = Q} = State) ->
+    erlang:demonitor(Ref,[flush]),
+    _ = gen_server:reply(From, PostFun(Reply)),
+    {Value,NewQ} = queue:out(Q),
+    NewState = State#state{ async_req = undefined,
+                            async_req_queue = NewQ },
+    case Value of
+        {value,{AsyncFun,NPostFun,NFrom}} ->
+            call_h_async(AsyncFun,NPostFun,NFrom,NewState);
+        empty ->
+            {noreply,NewState}
+    end;
+call_h_reply({'DOWN',Ref,_Proc,Pid,Reason}, #state{ async_req = {Ref,_PostFun,_From}} = State) ->
+    %% This clause should only be triggered if someone explicitly sends an exit signal
+    %% to the spawned process. It is only here to make sure that the logger_server does
+    %% not deadlock if that happens.
+    ?LOG_INTERNAL(error,
+                  [{logger,process_exited},
+                   {process,Pid},
+                   {reason,Reason}]),
+    call_h_reply(
+      {async_req_reply,Ref,{error,{logger_process_exited,Pid,Reason}}},
+      State);
+call_h_reply(Unexpected,State) ->
+    ?LOG_INTERNAL(info,
+                  [{logger,got_unexpected_message},
+                   {process,?SERVER},
+                   {message,Unexpected}]),
+    {noreply,State}.
