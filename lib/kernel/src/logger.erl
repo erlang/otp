@@ -364,7 +364,8 @@ set_handler_config(HandlerId,Config) ->
 -spec get_logger_config() -> {ok,Config} when
       Config :: config().
 get_logger_config() ->
-    logger_config:get(?LOGGER_TABLE,logger).
+    {ok,Config} = logger_config:get(?LOGGER_TABLE,logger),
+    {ok,maps:remove(handlers,Config)}.
 
 -spec get_handler_config(HandlerId) -> {ok,{Module,Config}} | {error,term()} when
       HandlerId :: handler_id(),
@@ -445,8 +446,9 @@ i() ->
 i(_Action = print) ->
     io:put_chars(i(string));
 i(_Action = string) ->
-    #{logger := #{level := Level, handlers := Handlers,
-                  filters := Filters, filter_default := FilterDefault},
+    #{logger := #{level := Level,
+                  filters := Filters,
+                  filter_default := FilterDefault},
       handlers := HandlerConfigs,
       module_levels := Modules} = i(term),
     [io_lib:format("Current logger configuration:~n", []),
@@ -455,16 +457,15 @@ i(_Action = string) ->
      io_lib:format("  Filters: ~n", []),
      print_filters(4, Filters),
      io_lib:format("  Handlers: ~n", []),
-     print_handlers([C || {Id, _, _} = C <- HandlerConfigs,
-                          lists:member(Id, Handlers)]),
+     print_handlers(HandlerConfigs),
      io_lib:format("  Level set per module: ~n", []),
      print_module_levels(Modules)
     ];
 i(_Action = term) ->
     {Logger, Handlers, Modules} = logger_config:get(tid()),
-    #{logger=>Logger,
-      handlers=>Handlers,
-      module_levels=>Modules}.
+    #{logger=>maps:remove(handlers,Logger),
+      handlers=>lists:keysort(1,Handlers),
+      module_levels=>lists:keysort(1,Modules)}.
 
 print_filters(Indent, {Id, {Fun, Config}}) ->
     io_lib:format("~sId: ~p~n"

@@ -48,23 +48,18 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 add_handler(Id,Module,Config0) ->
-    case sanity_check(logger,handlers,[Id]) of
-        ok ->
-            try check_mod(Module) of
+    try {check_id(Id),check_mod(Module)} of
+        {ok,ok} ->
+            case sanity_check(Id,Config0) of
                 ok ->
-                    case sanity_check(Id,Config0) of
-                        ok ->
-                            Default = default_config(Id),
-                            Config = maps:merge(Default,Config0),
-                            call({add_handler,Id,Module,Config});
-                        Error ->
-                            Error
-                    end
-            catch throw:Error ->
-                    {error,Error}
-            end;
-        Error ->
-            Error
+                    Default = default_config(Id),
+                    Config = maps:merge(Default,Config0),
+                    call({add_handler,Id,Module,Config});
+                Error ->
+                    Error
+            end
+    catch throw:Error ->
+            {error,Error}
     end.
 
 remove_handler(HandlerId) ->
@@ -197,7 +192,8 @@ handle_call({update_config,Id,NewConfig}, From, #state{tid=Tid}=State) ->
             {reply,Error,State}
     end;
 handle_call({set_config,logger,Config}, _From, #state{tid=Tid}=State) ->
-    Reply = do_set_config(Tid,logger,Config),
+    {ok,#{handlers:=Handlers}} = logger_config:get(Tid,logger),
+    Reply = do_set_config(Tid,logger,Config#{handlers=>Handlers}),
     {reply,Reply,State};
 handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
@@ -322,8 +318,7 @@ do_set_config(Tid,Id,Config) ->
 default_config(logger) ->
     #{level=>info,
       filters=>[],
-      filter_default=>log,
-      handlers=>[]};
+      filter_default=>log};
 default_config(_) ->
     #{level=>info,
       filters=>[],
@@ -354,9 +349,6 @@ get_type(Id) ->
 check_config(Owner,[{level,Level}|Config]) ->
     check_level(Level),
     check_config(Owner,Config);
-check_config(logger,[{handlers,Handlers}|Config]) ->
-    check_handlers(Handlers),
-    check_config(logger,Config);
 check_config(Owner,[{filters,Filters}|Config]) ->
     check_filters(Filters),
     check_config(Owner,Config);
@@ -393,14 +385,6 @@ check_level(Level) ->
         false ->
             throw({invalid_level,Level})
     end.
-
-check_handlers([Id|Handlers]) ->
-    check_id(Id),
-    check_handlers(Handlers);
-check_handlers([]) ->
-    ok;
-check_handlers(Handlers) ->
-    throw({invalid_handlers,Handlers}).
 
 check_filters([{Id,{Fun,_Args}}|Filters]) when is_atom(Id), is_function(Fun,2) ->
     check_filters(Filters);

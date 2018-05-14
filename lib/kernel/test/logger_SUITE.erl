@@ -105,12 +105,12 @@ start_stop(_Config) ->
 
 add_remove_handler(_Config) ->
     register(callback_receiver,self()),
-    {ok,#{handlers:=Hs0}} = logger:get_logger_config(),
+    #{handlers:=Hs0} = logger:i(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     ok = logger:add_handler(h1,?MODULE,#{}),
     [add] = test_server:messages_get(),
-    {ok,#{handlers:=Hs}} = logger:get_logger_config(),
-    [h1|Hs0] = Hs,
+    #{handlers:=Hs} = logger:i(),
+    {value,_,Hs0} = lists:keytake(h1,1,Hs),
     {ok,{?MODULE,#{level:=info,filters:=[],filter_default:=log}}} = % defaults
         logger:get_handler_config(h1),
     ok = logger:set_handler_config(h1,filter_default,stop),
@@ -124,7 +124,7 @@ add_remove_handler(_Config) ->
     ok = check_logged(info,"hello",[],?MY_LOC(1)),
     ok = logger:remove_handler(h1),
     [remove] = test_server:messages_get(),
-    {ok,#{handlers:=Hs0}} = logger:get_logger_config(),
+    #{handlers:=Hs0} = logger:i(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
     logger:info("hello",[]),
@@ -237,13 +237,18 @@ change_config(_Config) ->
     %% Overwrite logger config - check that defaults are added
     {ok,LConfig} = logger:get_logger_config(),
     ok = logger:set_logger_config(#{filter_default=>stop}),
-    {ok,#{level:=info,filters:=[],handlers:=[],filter_default:=stop}=LC1} =
+    {ok,#{level:=info,filters:=[],filter_default:=stop}=LC1} =
         logger:get_logger_config(),
-    4 = maps:size(LC1),
+    3 = maps:size(LC1),
+    %% Check that internal 'handlers' field has not been changed
+    #{handlers:=HCs} = logger:i(),
+    HIds1 = [Id || {Id,_,_} <- HCs],
+    {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,logger),
+    HIds1 = lists:sort(HIds2),
 
     %% Change one key only
-    ok = logger:set_logger_config(handlers,[h1]),
-    {ok,#{level:=info,filters:=[],handlers:=[h1],filter_default:=stop}} =
+    ok = logger:set_logger_config(level,warning),
+    {ok,#{level:=warning,filters:=[],filter_default:=stop}} =
         logger:get_logger_config(),
 
     %% Cleanup
@@ -441,9 +446,7 @@ handler_failed(_Config) ->
     {error,{invalid_handler,_}} = logger:add_handler(h1,nomodule,#{filter_default=>log}),
     logger:info(?map_rep),
     check_no_log(),
-    #{logger:=#{handlers:=Ids1},
-      handlers:=H1} = logger:i(),
-    false = lists:member(h1,Ids1),
+    #{handlers:=H1} = logger:i(),
     false = lists:keymember(h1,1,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
@@ -453,10 +456,7 @@ handler_failed(_Config) ->
 
     logger:info(?map_rep),
     [remove] = test_server:messages_get(),
-
-    #{logger:=#{handlers:=Ids2},
-      handlers:=H2} = logger:i(),
-    false = lists:member(h2,Ids2),
+    #{handlers:=H2} = logger:i(),
     false = lists:keymember(h2,1,H2),
     {error,{not_found,h2}} = logger:remove_handler(h2),
 
@@ -511,10 +511,6 @@ config_sanity_check(_Config) ->
     {error,{invalid_filter_default,bad}} =
         logger:set_logger_config(filter_default,bad),
     {error,{invalid_level,bad}} = logger:set_logger_config(level,bad),
-    {error,{invalid_handlers,bad}} = logger:set_logger_config(handlers,bad),
-    {error,{invalid_id,{bad,bad}}} =
-        logger:set_logger_config(handlers,[{bad,bad}]),
-    {error,{invalid_id,"bad"}} = logger:set_logger_config(handlers,["bad"]),
     {error,{invalid_filters,bad}} = logger:set_logger_config(filters,bad),
     {error,{invalid_filter,bad}} = logger:set_logger_config(filters,[bad]),
     {error,{invalid_filter,{_,_}}} =

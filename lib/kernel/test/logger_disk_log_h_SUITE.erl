@@ -328,7 +328,8 @@ formatter_fail(Config) ->
     logger:add_handler(Name, logger_disk_log_h, HConfig),
     Pid = whereis(Name),
     true = is_pid(Pid),
-    {ok,#{handlers:=H}} = logger:get_logger_config(),
+    #{handlers:=HC1} = logger:i(),
+    H = [Id || {Id,_,_} <- HC1],
     true = lists:member(Name,H),
 
     %% Formatter is added automatically
@@ -357,7 +358,8 @@ formatter_fail(Config) ->
 
     %% Check that handler is still alive and was never dead
     Pid = whereis(Name),
-    {ok,#{handlers:=H}} = logger:get_logger_config(),
+    #{handlers:=HC2} = logger:i(),
+    H = [Id || {Id,_,_} <- HC2],
     ok.
 
 formatter_fail(cleanup,_Config) ->
