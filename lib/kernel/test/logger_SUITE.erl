@@ -227,15 +227,31 @@ change_config(_Config) ->
           h1,#{conf_call=>fun() -> logger:set_module_level(?MODULE,debug) end}),
     {ok,{?MODULE,C2}} = logger:get_handler_config(h1),
 
-    %% Change one key only
+    %% Change handler config: Single key
     {error,fail} = logger:set_handler_config(h1,conf_call,fun() -> {error,fail} end),
     ok = logger:set_handler_config(h1,custom,custom),
     [changing_config] = test_server:messages_get(),
     {ok,{?MODULE,#{custom:=custom}=C3}} = logger:get_handler_config(h1),
     C2 = maps:remove(custom,C3),
 
+    %% Change handler config: Map
+    ok = logger:update_handler_config(h1,#{custom=>new_custom}),
+    [changing_config] = test_server:messages_get(),
+    {ok,{_,C4}} = logger:get_handler_config(h1),
+    C4 = C3#{custom:=new_custom},
+
+    %% Change logger config: Single key
+    {ok,LConfig0} = logger:get_logger_config(),
+    ok = logger:set_logger_config(level,warning),
+    {ok,LConfig1} = logger:get_logger_config(),
+    LConfig1 = LConfig0#{level:=warning},
+
+    %% Change logger config: Map
+    ok = logger:update_logger_config(#{level=>error}),
+    {ok,LConfig2} = logger:get_logger_config(),
+    LConfig2 = LConfig1#{level:=error},
+
     %% Overwrite logger config - check that defaults are added
-    {ok,LConfig} = logger:get_logger_config(),
     ok = logger:set_logger_config(#{filter_default=>stop}),
     {ok,#{level:=info,filters:=[],filter_default:=stop}=LC1} =
         logger:get_logger_config(),
@@ -246,13 +262,8 @@ change_config(_Config) ->
     {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,logger),
     HIds1 = lists:sort(HIds2),
 
-    %% Change one key only
-    ok = logger:set_logger_config(level,warning),
-    {ok,#{level:=warning,filters:=[],filter_default:=stop}} =
-        logger:get_logger_config(),
-
     %% Cleanup
-    ok = logger:set_logger_config(LConfig),
+    ok = logger:set_logger_config(LConfig0),
     [] = test_server:messages_get(),
 
     ok.

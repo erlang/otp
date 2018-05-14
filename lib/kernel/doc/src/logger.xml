@@ -645,11 +645,12 @@ start(_, []) ->
         <p>Set configuration data for the logger. This overwrites the
           current logger configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#set_logger_config-2"><c>set_logger_config/2</c>
-	  </seealso>, or read the current configuration
+	  use <seealso marker="#update_logger_config-1">
+	    <c>update_logger_config/1</c></seealso>, or, if a more
+	  complex merge is needed, read the current configuration
 	  with <seealso marker="#get_logger_config-0"><c>get_logger_config/0</c>
-	  </seealso>, then merge in your added or updated
-	  associations before writing it back.</p>
+	  </seealso>, then do the merge before writing the new
+	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
 	  the default value is used.</p>
       </desc>
@@ -662,7 +663,23 @@ start(_, []) ->
         <p>Add or update configuration data for the logger. If the
           given <c><anno>Key</anno></c> already exists, its associated
           value will be changed to <c><anno>Value</anno></c>. If it
-          doesn't exist, it will be added.</p>
+          does not exist, it will be added.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_logger_config" arity="1"/>
+      <fsummary>Update configuration data for the logger.</fsummary>
+      <desc>
+        <p>Update configuration data for the logger. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+{ok,Old} = logger:get_logger_config(),
+logger:set_logger_config(maps:merge(Old,Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_logger_config-1"><c>set_logger_config/1</c>
+	  </seealso>.</p>
       </desc>
     </func>
 
@@ -673,11 +690,12 @@ start(_, []) ->
         <p>Set configuration data for the specified handler. This
           overwrites the current handler configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#set_handler_config-3"><c>set_handler_config/3</c>
-	  </seealso>, or read the current configuration
+	  use <seealso marker="#update_handler_config-2">
+	    <c>update_handler_config/2</c></seealso>, or, if a more
+	  complex merge is needed, read the current configuration
 	  with <seealso marker="#get_handler_config-1"><c>get_handler_config/1</c>
-	  </seealso>, then merge in your added or updated
-	  associations before writing it back.</p>
+	  </seealso>, then do the merge before writing the new
+	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
 	  and the key is know by Logger, the default value is used. If
 	  it is a custom key, then it is up to the handler
@@ -694,8 +712,24 @@ start(_, []) ->
         <p>Add or update configuration data for the specified
           handler. If the given <c><anno>Key</anno></c> already
           exists, its associated value will be changed
-          to <c><anno>Value</anno></c>. If it doesn't exist, it will
+          to <c><anno>Value</anno></c>. If it does not exist, it will
           be added.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_handler_config" arity="2"/>
+      <fsummary>Update configuration data for the specified handler.</fsummary>
+      <desc>
+        <p>Update configuration data for the specified handler. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+{ok,{_,Old}} = logger:get_handler_config(HandlerId),
+logger:set_handler_config(HandlerId,maps:merge(Old,Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_handler_config-2"><c>set_handler_config/2</c>
+	  </seealso>.</p>
       </desc>
     </func>
 

@@ -27,7 +27,7 @@
          add_filter/2, remove_filter/2,
          set_module_level/2, reset_module_level/1,
          cache_module_level/1,
-         set_config/2, set_config/3]).
+         set_config/2, set_config/3, update_config/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -92,16 +92,21 @@ cache_module_level(Module) ->
 
 
 set_config(Owner,Key,Value) ->
-    case sanity_check(Owner,Key,Value) of
-        ok -> call({update_config,Owner,#{Key=>Value}});
-        Error -> Error
-    end.
+    update_config(Owner,#{Key=>Value}).
 
 set_config(Owner,Config0) ->
     case sanity_check(Owner,Config0) of
         ok ->
             Config = maps:merge(default_config(Owner),Config0),
             call({set_config,Owner,Config});
+        Error ->
+            Error
+    end.
+
+update_config(Owner, Config) ->
+    case sanity_check(Owner,Config) of
+        ok ->
+            call({update_config,Owner,Config});
         Error ->
             Error
     end.

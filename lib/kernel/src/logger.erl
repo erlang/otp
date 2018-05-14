@@ -40,6 +40,7 @@
          set_module_level/2, reset_module_level/1,
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
+         update_logger_config/1, update_handler_config/2,
          get_logger_config/0, get_handler_config/1,
          add_handlers/1]).
 
@@ -360,6 +361,17 @@ set_handler_config(HandlerId,Key,Value) ->
       Config :: config().
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
+
+-spec update_logger_config(Config) -> ok | {error,term()} when
+      Config :: config().
+update_logger_config(Config) ->
+    logger_server:update_config(logger,Config).
+
+-spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
+      HandlerId :: handler_id(),
+      Config :: config().
+update_handler_config(HandlerId,Config) ->
+    logger_server:update_config(HandlerId,Config).
 
 -spec get_logger_config() -> {ok,Config} when
       Config :: config().
