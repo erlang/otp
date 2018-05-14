@@ -20,6 +20,7 @@
 -module(logger_formatter).
 
 -export([format/2]).
+-export([check_config/1]).
 
 -include("logger_internal.hrl").
 
@@ -309,3 +310,47 @@ get_utc_config() ->
                 undefined -> false
             end
     end.
+
+check_config(Config) when is_map(Config) ->
+    do_check_config(maps:to_list(Config));
+check_config(Config) ->
+    {error,{invalid_formatter_config,?MODULE,Config}}.
+
+do_check_config([{Type,L}|Config]) when Type == chars_limit;
+                                        Type == depth;
+                                        Type == max_size ->
+    case check_limit(L) of
+        ok -> do_check_config(Config);
+        error -> {error,{invalid_formatter_config,?MODULE,{Type,L}}}
+    end;
+do_check_config([{single_line,SL}|Config]) when is_boolean(SL) ->
+    do_check_config(Config);
+do_check_config([{legacy_header,LH}|Config]) when is_boolean(LH) ->
+    do_check_config(Config);
+do_check_config([{report_cb,RCB}|Config]) when is_function(RCB,1) ->
+    do_check_config(Config);
+do_check_config([{template,T}|Config]) when is_list(T) ->
+    case lists:all(fun(X) when is_atom(X) -> true;
+                      (X) when is_tuple(X), is_atom(element(1,X)) -> true;
+                      (X) when is_list(X) -> io_lib:printable_unicode_list(X);
+                      (_) -> false
+                   end,
+                   T) of
+        true ->
+            do_check_config(Config);
+        false ->
+            {error,{invalid_formatter_template,?MODULE,T}}
+    end;
+do_check_config([{utc,Utc}|Config]) when is_boolean(Utc) ->
+    do_check_config(Config);
+do_check_config([C|_]) ->
+    {error,{invalid_formatter_config,?MODULE,C}};
+do_check_config([]) ->
+    ok.
+
+check_limit(L) when is_integer(L), L>0 ->
+    ok;
+check_limit(unlimited) ->
+    ok;
+check_limit(_) ->
+    error.

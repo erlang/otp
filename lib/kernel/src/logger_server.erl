@@ -416,39 +416,23 @@ check_filter_default(FD) when FD==stop; FD==log ->
 check_filter_default(FD) ->
     throw({invalid_filter_default,FD}).
 
-check_formatter({logger_formatter,Config}) when is_map(Config) ->
-    check_logger_formatter_config(maps:to_list(Config));
-check_formatter({logger_formatter,Config}) ->
-    throw({invalid_formatter_config,Config});
-check_formatter({Mod,_}) ->
-    %% no knowledge of other formatters
-    check_mod(Mod);
+check_formatter({Mod,Config}) ->
+    check_mod(Mod),
+    try Mod:check_config(Config) of
+        ok -> ok;
+        {error,Error} -> throw(Error)
+    catch
+        C:R:S ->
+            case {C,R,S} of
+                {error,undef,[{Mod,check_config,[Config],_}|_]} ->
+                    ok;
+                _ ->
+                    throw({callback_crashed,
+                           {C,R,logger:filter_stacktrace(?MODULE,S)}})
+            end
+    end;
 check_formatter(Formatter) ->
     throw({invalid_formatter,Formatter}).
-
-
-check_logger_formatter_config([{template,T}|Config]) when is_list(T) ->
-    case lists:all(fun(X) when is_atom(X) -> true;
-                      (X) when is_tuple(X), is_atom(element(1,X)) -> true;
-                      (X) when is_list(X) -> io_lib:printable_unicode_list(X);
-                      (_) -> false
-                   end,
-                   T) of
-        true ->
-            check_logger_formatter_config(Config);
-        false ->
-            throw({invalid_formatter_template,T})
-    end;
-check_logger_formatter_config([{legacy_header,LH}|Config]) when is_boolean(LH) ->
-    check_logger_formatter_config(Config);
-check_logger_formatter_config([{single_line,SL}|Config]) when is_boolean(SL) ->
-    check_logger_formatter_config(Config);
-check_logger_formatter_config([{utc,Utc}|Config]) when is_boolean(Utc) ->
-    check_logger_formatter_config(Config);
-check_logger_formatter_config([C|_]) ->
-    throw({invalid_formatter_config,C});
-check_logger_formatter_config([]) ->
-    ok.
 
 call_h(Module, Function, Args, DefRet) ->
     %% Not calling code:ensure_loaded + erlang:function_exported here,

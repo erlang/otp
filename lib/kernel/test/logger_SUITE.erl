@@ -544,28 +544,64 @@ config_sanity_check(_Config) ->
         logger:set_handler_config(h1,formatter,bad),
     {error,{invalid_module,{bad}}} =
         logger:set_handler_config(h1,formatter,{{bad},cfg}),
-    {error,{invalid_formatter_config,bad}} =
+    {error,{invalid_formatter_config,logger_formatter,bad}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,bad}),
-    {error,{invalid_formatter_config,{bad,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{bad,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,#{bad=>bad}}),
-    {error,{invalid_formatter_config,{template,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{template,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{template=>bad}}),
-    {error,{invalid_formatter_template,[1]}} =
+    {error,{invalid_formatter_template,logger_formatter,[1]}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{template=>[1]}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{template=>[]}}),
-    {error,{invalid_formatter_config,{single_line,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{single_line,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{single_line=>bad}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{single_line=>true}}),
-    {error,{invalid_formatter_config,{legacy_header,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{legacy_header,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{legacy_header=>bad}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{legacy_header=>true}}),
+    {error,{invalid_formatter_config,logger_formatter,{report_cb,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{report_cb=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{report_cb=>fun(R) ->
+                                                                      {"~p",[R]}
+                                                              end}}),
+    {error,{invalid_formatter_config,logger_formatter,{utc,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{utc=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{utc=>true}}),
+    {error,{invalid_formatter_config,logger_formatter,{chars_limit,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{chars_limit=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{chars_limit=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{chars_limit=>4}}),
+    {error,{invalid_formatter_config,logger_formatter,{depth,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{depth=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{depth=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{depth=>4}}),
+    {error,{invalid_formatter_config,logger_formatter,{max_size,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{max_size=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{max_size=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{max_size=>4}}),
+    ok = logger:set_handler_config(h1,formatter,{module,config}),
+    {error,{callback_crashed,{error,{badmatch,3},[{?MODULE,check_config,1,_}]}}} =
+        logger:set_handler_config(h1,formatter,{?MODULE,crash}),
     ok = logger:set_handler_config(h1,custom,custom),
     ok.
 
@@ -877,3 +913,8 @@ test_macros(emergency=Level) ->
 %%% Called by macro ?TRY(X)
 my_try(Fun) ->
     try Fun() catch C:R -> {C,R} end.
+
+check_config(crash) ->
+    erlang:error({badmatch,3});
+check_config(_) ->
+    ok.
