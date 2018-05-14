@@ -32,7 +32,7 @@
 
 -define(NEWLINE, <<"\r\n">>).
 
--define(REKEY_DATA_TMO, 65000).
+-define(REKEY_DATA_TMO, 1 * 60000). % Should be multiples of 60000
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -44,7 +44,6 @@ suite() ->
 
 all() -> 
     [{group, all_tests}].
-
 
 groups() ->
     [{all_tests, [parallel], [{group, ssh_renegotiate_SUITE},
@@ -1371,7 +1370,7 @@ rekey_limit_client(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey.data"),
-
+    Data = lists:duplicate(Limit+10,1),
     Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							{preferred_algorithms,Algs}]),
@@ -1380,31 +1379,33 @@ rekey_limit_client(Config) ->
 								  {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
+    %% Check that it doesn't rekey without data transfer
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
     timer:sleep(?REKEY_DATA_TMO),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
-    Data = lists:duplicate(Limit+10,1),
+    %% Check that datatransfer triggers rekeying
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
-
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
 
-    false = (Kex2 == Kex1),
-
+    %% Check that datatransfer continues to trigger rekeying
+    ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
 
+    %% Check that it doesn't rekey without data transfer
+    timer:sleep(?REKEY_DATA_TMO),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
+
+    %% Check that it doesn't rekey on a small datatransfer
     ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
-
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
-    false = (Kex2 == Kex1),
-
+    %% Check that it doesn't rekey without data transfer
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
@@ -1428,32 +1429,40 @@ rekey_limit_daemon(Config) ->
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
+    %% Check that it doesn't rekey without data transfer
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     timer:sleep(?REKEY_DATA_TMO),
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
+    %% Check that datatransfer triggers rekeying
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
-
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
-    false = (Kex2 == Kex1),
+    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
 
+    %% Check that datatransfer continues to trigger rekeying
+    {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
 
+    %% Check that it doesn't rekey without data transfer
+    timer:sleep(?REKEY_DATA_TMO),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
+
+    %% Check that it doesn't rekey on a small datatransfer
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile2),
-
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
+    %% Check that it doesn't rekey without data transfer
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
 
+%%--------------------------------------------------------------------
 %% Check that datatransfer in the other direction does not trigger re-keying
 norekey_limit_client() -> [{timetrap,{seconds,400}}].
 norekey_limit_client(Config) ->
@@ -1472,13 +1481,12 @@ norekey_limit_client(Config) ->
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
     
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
     
-    Kex1 = Kex2,
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -1500,13 +1508,12 @@ norekey_limit_daemon(Config) ->
 
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
     
     ok = ssh_sftp:write_file(SftpPid, DataFile, lists:duplicate(Limit+10,1)),
     timer:sleep(?REKEY_DATA_TMO),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
     
-    Kex1 = Kex2,
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -1516,39 +1523,41 @@ norekey_limit_daemon(Config) ->
 
 rekey_time_limit_client() -> [{timetrap,{seconds,400}}].
 rekey_time_limit_client(Config) ->
-    Minutes = 1,
+    Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
     Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							{preferred_algorithms,Algs}]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, {Minutes, GB}},
                                                                   {max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-    rekey_time_limit(Pid, Minutes, ConnectionRef, SftpPid).
+    rekey_time_limit(Pid, ConnectionRef).
 
 rekey_time_limit_daemon() -> [{timetrap,{seconds,400}}].
 rekey_time_limit_daemon(Config) ->
-    Minutes = 1,
+    Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
     Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, {Minutes, GB}},
                                                         {max_random_length_padding,0},
 							{preferred_algorithms,Algs}]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
+    rekey_time_limit(Pid, ConnectionRef).
+
+
+rekey_time_limit(Pid, ConnectionRef) ->
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-    rekey_time_limit(Pid, Minutes, ConnectionRef, SftpPid).
-
-
-rekey_time_limit(Pid, Minutes, ConnectionRef, SftpPid) ->
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     timer:sleep(5000),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
 
-    timer:sleep((Minutes*60 + 30) * 1000),
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+    %% Check that it rekeys when the max time + 30s has passed
+    timer:sleep(?REKEY_DATA_TMO + 30*1000),
+    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
 
-    false = (Kex2 == Kex1),
+    %% Check that it does not rekey when nothing is transferred
+    timer:sleep(?REKEY_DATA_TMO + 30*1000),
+    ?wait_match(false, Kex2==ssh_test_lib:get_kex_init(ConnectionRef), [], 2000, 10),
 
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
@@ -1556,7 +1565,7 @@ rekey_time_limit(Pid, Minutes, ConnectionRef, SftpPid) ->
 
 %%--------------------------------------------------------------------
 
-%%% Test rekeying with simulataneous send request
+%%% Test rekeying with simultaneous send request
 
 renegotiate1(Config) ->
     UserDir = proplists:get_value(priv_dir, Config),
