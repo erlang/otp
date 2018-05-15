@@ -625,20 +625,6 @@ erts_get_system_profile(void) {
     return profile;
 }
 
-
-#ifdef HAVE_ERTS_NOW_CPU
-#  define GET_NOW(m, s, u) \
-do { \
-    if (erts_cpu_timestamp) \
-	erts_get_now_cpu(m, s, u); \
-    else \
-	get_now(m, s, u); \
-} while (0)
-#else
-#  define GET_NOW(m, s, u) do {get_now(m, s, u);} while (0)
-#endif
-
-
 static void
 write_sys_msg_to_port(Eterm unused_to,
 		      Port* trace_port,

@@ -2645,7 +2645,7 @@ case $erl_gethrvtime in
 	dnl Check if clock_gettime (linux) is working
 	dnl
 
-	AC_MSG_CHECKING([if clock_gettime can be used to get process CPU time])
+	AC_MSG_CHECKING([if clock_gettime can be used to get thread CPU time])
 	save_libs=$LIBS
 	LIBS="-lrt"
 	AC_TRY_RUN([
@@ -2659,11 +2659,11 @@ case $erl_gethrvtime in
 	    int i;
 	    struct timespec tp;
 
-	    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tp) < 0)
+	    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp) < 0)
 	      exit(1);
 	    start = ((long long)tp.tv_sec * 1000000000LL) + (long long)tp.tv_nsec;
 	    for (i = 0; i < 100; i++)
-	      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tp);
+	      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
 	    stop = ((long long)tp.tv_sec * 1000000000LL) + (long long)tp.tv_nsec;
 	    if (start == 0)
 	      exit(4);
@@ -2686,7 +2686,7 @@ case $erl_gethrvtime in
 	case $erl_clock_gettime_cpu_time in
 		yes)
 			AC_DEFINE(HAVE_CLOCK_GETTIME_CPU_TIME,[],
-				  [define if clock_gettime() works for getting process time])
+				  [define if clock_gettime() works for getting thread time])
 			LIBRT=-lrt
 			;;
 		cross)
