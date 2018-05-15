@@ -122,21 +122,6 @@
       application. For more information about configuration parameters,
     see file <seealso marker="app"><c>app(4)</c></seealso>.</p>
     <taglist>
-      <tag><c>browser_cmd = string() | {M,F,A}</c></tag>
-      <item>
-        <p>When pressing the <em>Help</em> button in a tool such as Debugger,
-          the help text (an HTML file <c>File</c>) is by default
-          displayed in a Netscape browser, which is required to be
-          operational. This parameter can be used to change the command for
-          how to display the help text if another browser than Netscape
-          is preferred, or if another platform than Unix or Windows is
-          used.</p>
-        <p>If set to a string <c>Command</c>, the command
-          <c>"Command File"</c> is evaluated using
-	<seealso marker="os#cmd/1"><c>os:cmd/1</c></seealso>.</p>
-        <p>If set to a module-function-args tuple, <c>{M,F,A}</c>,
-          the call <c>apply(M,F,[File|A])</c> is evaluated.</p>
-      </item>
       <tag><c>distributed = [Distrib]</c></tag>
       <item>
         <p>Specifies which applications that are distributed and on which

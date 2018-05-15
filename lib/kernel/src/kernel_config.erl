@@ -30,11 +30,8 @@
 %%%-----------------------------------------------------------------
 %%% This module implements a process that configures the kernel
 %%% application.
-%%% Its purpose is that in the init phase add an error_logger
-%%% and when it dies (when the kernel application dies) deleting the
-%%% previously installed error_logger.
-%%% Also, this process waits for other nodes at startup, if
-%%% specified.
+%%% Its purpose is that in the init phase waits for other nodes at startup,
+%%% if specified.
 %%%-----------------------------------------------------------------
 start_link() -> gen_server:start_link(kernel_config, [], []).
 

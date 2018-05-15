@@ -264,7 +264,7 @@ erts_os_monotonic_time(void)
 ERTS_GLB_INLINE void
 erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 {
-    return (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
+    (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
 }
 
 #endif /* ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ */

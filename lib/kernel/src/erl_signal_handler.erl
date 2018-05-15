@@ -19,11 +19,20 @@
 
 -module(erl_signal_handler).
 -behaviour(gen_event).
--export([init/1, format_status/2,
+-export([start/0, init/1, format_status/2,
          handle_event/2, handle_call/2, handle_info/2,
          terminate/2, code_change/3]).
 
 -record(state,{}).
+
+start() ->
+    %% add signal handler
+    case whereis(erl_signal_server) of
+        %% in case of minimal mode
+        undefined -> ok;
+        _ ->
+            gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
+    end.
 
 init(_Args) ->
     {ok, #state{}}.
