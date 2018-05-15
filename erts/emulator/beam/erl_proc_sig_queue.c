@@ -680,15 +680,7 @@ first_last_done:
         sig_enqueue_trace_cleanup(first, sig, last);
     }
 
-    if (!(state & (ERTS_PSFLG_EXITING
-                   | ERTS_PSFLG_ACTIVE_SYS
-                   | ERTS_PSFLG_SIG_IN_Q))) {
-        /* Schedule process... */
-        state = erts_proc_sys_schedule(rp, state, 0);
-    }
-
-    if (state & (ERTS_PSFLG_DIRTY_RUNNING | ERTS_PSFLG_DIRTY_RUNNING_SYS))
-        erts_make_dirty_proc_handled(rp->common.id, state, -1);
+    erts_proc_notify_new_sig(rp, state, 0);
 
     if (!is_normal_sched)
         erts_proc_dec_refc(rp);

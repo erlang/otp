@@ -379,7 +379,10 @@ queue_messages(Process* receiver,
 	erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
     }
 
-    erts_proc_notify_new_message(receiver, receiver_locks);
+    if (last == &first->next)
+        erts_proc_notify_new_message(receiver, receiver_locks);
+    else
+        erts_proc_notify_new_sig(receiver, state, ERTS_PSFLG_ACTIVE);
 }
 
 static ERTS_INLINE
