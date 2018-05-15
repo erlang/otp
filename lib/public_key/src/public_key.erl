@@ -613,7 +613,7 @@ pkix_sign_types(?'id-dsaWithSHA1') ->
     {sha, dsa};
 pkix_sign_types(?'id-dsa-with-sha224') ->
     {sha224, dsa};
-pkix_sign_types(?'id-dsa-with-sha256') ->
+pkix_sign_types(?'id-dsa-with-sha256OTP-PKIX') ->
     {sha256, dsa};
 pkix_sign_types(?'ecdsa-with-SHA1') ->
     {sha, ecdsa};

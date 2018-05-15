@@ -87,6 +87,12 @@ id-sha512  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
         nistalgorithm(4) hashalgs(2) 3 }
 
 
+-- Tail-f: This probably doesn't belong here, but is needed for DHE-DSS suites
+id-dsa-with-sha256  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) sigAlgs(3) 2 }
+
+
 RSAPublicKey ::= SEQUENCE {
     modulus           INTEGER,  -- n
     publicExponent    INTEGER   -- e
