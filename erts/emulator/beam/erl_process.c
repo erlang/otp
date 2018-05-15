@@ -9610,6 +9610,17 @@ scheduler_gc_proc(Process *c_p, int reds_left)
     return reds;
 }
 
+static void
+unlock_lock_rq(int pre_free, void *vrq)
+{
+    ErtsRunQueue *rq = vrq;
+    if (pre_free)
+        erts_runq_unlock(rq);
+    else
+        erts_runq_lock(rq);
+}
+
+
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
  * (hipe_mode_switch()) when the current process is to be
@@ -9782,7 +9793,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             }
 
             if (dec_refc)
-                erts_proc_dec_refc(p);
+                erts_proc_dec_refc_free_func(p,
+                                             unlock_lock_rq,
+                                             (void *) rq);
         }
 
 	ASSERT(!esdp->free_process);
