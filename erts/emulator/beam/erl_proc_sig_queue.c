@@ -519,40 +519,41 @@ erts_aint32_t erts_enqueue_signals(Process *rp, ErtsMessage *first,
     return enqueue_signals(rp, first, last, last_next, num_msgs, in_state);
 }
 
-static ERTS_INLINE void
-ensure_dirty_proc_handled(Eterm pid,
-                          erts_aint32_t state,
-                          erts_aint32_t prio)
+void
+erts_make_dirty_proc_handled(Eterm pid,
+                             erts_aint32_t state,
+                             erts_aint32_t prio)
 {
-    if (state & (ERTS_PSFLG_DIRTY_RUNNING
-                 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
-        Eterm *hp;
-        ErtsMessage *mp;
-        Process *sig_handler;
+    Eterm *hp;
+    ErtsMessage *mp;
+    Process *sig_handler;
 
-        if (prio < 0)
-            prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
+    ASSERT(state & (ERTS_PSFLG_DIRTY_RUNNING |
+                    ERTS_PSFLG_DIRTY_RUNNING_SYS));
 
-        switch (prio) {
-        case PRIORITY_MAX:
-            sig_handler = erts_dirty_process_signal_handler_max;
-            break;
-        case PRIORITY_HIGH:
-            sig_handler = erts_dirty_process_signal_handler_high;
-            break;
-        default:
-            sig_handler = erts_dirty_process_signal_handler;
-            break;
-        }
+    if (prio < 0)
+        prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
 
-        /* Make sure signals are handled... */
-        mp = erts_alloc_message(0, &hp);
-        erts_queue_message(sig_handler, 0, mp, pid, am_system);
+    switch (prio) {
+    case PRIORITY_MAX:
+        sig_handler = erts_dirty_process_signal_handler_max;
+        break;
+    case PRIORITY_HIGH:
+        sig_handler = erts_dirty_process_signal_handler_high;
+        break;
+    default:
+        sig_handler = erts_dirty_process_signal_handler;
+        break;
     }
+
+    /* Make sure signals are handled... */
+    mp = erts_alloc_message(0, &hp);
+    erts_queue_message(sig_handler, 0, mp, pid, am_system);
 }
 
 static void
 check_push_msgq_len_offs_marker(Process *rp, ErtsSignal *sig);
+
 
 static int
 proc_queue_signal(Process *c_p, Eterm pid, ErtsSignal *sig, int op)
@@ -686,7 +687,8 @@ first_last_done:
         state = erts_proc_sys_schedule(rp, state, 0);
     }
 
-    ensure_dirty_proc_handled(rp->common.id, state, -1);
+    if (state & (ERTS_PSFLG_DIRTY_RUNNING | ERTS_PSFLG_DIRTY_RUNNING_SYS))
+        erts_make_dirty_proc_handled(rp->common.id, state, -1);
 
     if (!is_normal_sched)
         erts_proc_dec_refc(rp);
@@ -742,7 +744,10 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
-                ensure_dirty_proc_handled(other, state, my_prio);
+                if (state & (ERTS_PSFLG_DIRTY_RUNNING
+                             | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+                    erts_make_dirty_proc_handled(other, state, my_prio);
+                }
             }
         }
     }

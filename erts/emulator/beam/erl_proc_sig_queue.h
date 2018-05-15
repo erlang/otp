@@ -744,6 +744,9 @@ erts_enqueue_signals(Process *rp, ErtsMessage *first,
 void
 erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
 
+void erts_make_dirty_proc_handled(Eterm pid, erts_aint32_t state,
+                                  erts_aint32_t prio);
+
 
 typedef struct {
     Uint size;
