@@ -214,7 +214,7 @@ pem_entry_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
     pem_entry_encode('PrivateKeyInfo',
 	{'PrivateKeyInfo', v1,
 	    {'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption',
-	    {asn1_OPENTYPE, <<5, 0>>}},
+	    {asn1_OPENTYPE, ?DER_NULL}},
 	der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
 pem_entry_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     pem_entry_encode('PrivateKeyInfo',
