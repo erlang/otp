@@ -25,6 +25,7 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+-define(VSN, "8.2.6").
 -define(SECRET_PRINTOUT, "***").
 
 -type reason()            :: term().
