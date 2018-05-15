@@ -1,0 +1,47 @@
+OTP14196-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, snmpModules, mib-2
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    ;
+
+otp14196MIB MODULE-IDENTITY
+    LAST-UPDATED "1004210000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib for OTP-14196"
+    ::= { snmpModules 1 }
+
+testCompliances OBJECT IDENTIFIER ::= { otp14196MIB 1 }
+test   OBJECT IDENTIFIER ::= { mib-2 15 }
+
+typeA OBJECT-TYPE
+    SYNTAX TypeAType
+    MAX-ACCESS  accessible-for-notify
+    STATUS current
+    DESCRIPTION
+	"Test type for OTP-14196"
+    ::= { test 4711 }
+
+TypeAType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+	""
+    SYNTAX INTEGER
+
+testGroups OBJECT IDENTIFIER ::= { testCompliances 1 }
+
+testGroupA OBJECT-GROUP
+    OBJECTS { typeA }
+    STATUS current
+    DESCRIPTION
+	""
+    ::= { testGroups 17 }
+
+END
