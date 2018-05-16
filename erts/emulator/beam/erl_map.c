@@ -3133,7 +3133,6 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
              * as this is how the list as a whole is constructed.
              */
             hp = HAlloc(BIF_P, (2 + 3) * elems);
-            res = BIF_ARG_3;
         }
 
         orig_elems = elems;
@@ -3157,12 +3156,15 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
             if (is_list(ptr[PATH_ELEM(curr_path)])) {
                 Eterm *lst = list_val(ptr[PATH_ELEM(curr_path)]);
                 if (type == iterator) {
-                    res = TUPLE3(hp, CAR(lst), CDR(lst), make_tuple(hp+4));
+                    res = make_tuple(hp);
+                    hp[0] = make_arityval(3);
+                    hp[1] = CAR(lst);
+                    hp[2] = CDR(lst);
+                    patch_ptr = &hp[3];
                     hp += 4;
-                    patch_ptr = hp-1;
                 } else {
                     Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
-                    res = CONS(hp, tup, res); hp += 2;
+                    res = CONS(hp, tup, BIF_ARG_3); hp += 2;
                 }
                 elems--;
                 break;
@@ -3196,8 +3198,12 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
             while (idx < sz && elems != 0 && is_list(ptr[idx])) {
                 Eterm *lst = list_val(ptr[idx]);
                 if (type == iterator) {
-                    (void) TUPLE3(hp, CAR(lst), CDR(lst), make_tuple(hp+4)); hp += 4;
-                    patch_ptr = hp-1;
+                    *patch_ptr = make_tuple(hp);
+                    hp[0] = make_arityval(3);
+                    hp[1] = CAR(lst);
+                    hp[2] = CDR(lst);
+                    patch_ptr = &hp[3];
+                    hp += 4;
                 } else {
                     Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
                     res = CONS(hp, tup, res); hp += 2;
