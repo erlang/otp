@@ -580,11 +580,6 @@ config_sanity_check(_Config) ->
                                                  #{report_cb=>fun(R) ->
                                                                       {"~p",[R]}
                                                               end}}),
-    {error,{invalid_formatter_config,logger_formatter,{utc,bad}}} =
-        logger:set_handler_config(h1,formatter,{logger_formatter,
-                                                #{utc=>bad}}),
-    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
-                                                 #{utc=>true}}),
     {error,{invalid_formatter_config,logger_formatter,{chars_limit,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{chars_limit=>bad}}),
@@ -610,6 +605,42 @@ config_sanity_check(_Config) ->
     {error,{callback_crashed,{error,{badmatch,3},[{?MODULE,check_config,1,_}]}}} =
         logger:set_handler_config(h1,formatter,{?MODULE,crash}),
     ok = logger:set_handler_config(h1,custom,custom),
+
+    %% Old utc parameter is no longer allowed (replaced by time_offset)
+    {error,{invalid_formatter_config,logger_formatter,{utc,true}}} =
+         logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{utc=>true}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_offset,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_offset=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>0}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>""}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"Z"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"z"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"-0:0"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"+10:13"}}),
+
+    {error,{invalid_formatter_config,logger_formatter,{time_offset,"+0"}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_offset=>"+0"}}),
+
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>bad}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,"s"}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>"s"}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,0}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>0}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_designator=>$\s}}),
     ok.
 
 config_sanity_check(cleanup,_Config) ->

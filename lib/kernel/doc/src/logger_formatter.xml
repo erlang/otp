@@ -155,11 +155,40 @@
 	  and <c>single_line</c>. See <seealso marker="#default_templates">Default
 	  Templates</seealso> for more information</p>
       </item>
-      <tag><c>utc = boolean()</c></tag>
+      <tag><c>time_designator = byte()</c></tag>
       <item>
-	<p>If set to <c>true</c>, all dates are displayed in Universal
-	  Coordinated Time.</p>
-	<p>Default is <c>false</c>.</p>
+	<p>Timestamps are formatted according to RFC3339, and the time
+	  designator is the character used as date and time
+	  separator.</p>
+	<p>Default is <c>$T</c>.</p>
+	<p>The value of this parameter is used as
+	  the <c>time_designator</c> option
+	  to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+	    <c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
+      </item>
+      <tag><c>time_offset = integer() | [byte()]</c></tag>
+      <item>
+	<p>The time offset, either a string or an integer, to be
+	  used when formatting the timestamp.</p>
+	<p>An empty string is interpreted as local time. The
+	  values <c>"Z"</c>, <c>"z"</c> or <c>0</c> are interpreted as
+	  Universal Coordinated Time (UTC).</p>
+	<p>Strings, other than <c>"Z"</c>, <c>"z"</c>, or <c>""</c>,
+	  must be on the form <c>±[hh]:[mm]</c>, for
+	  example <c>"-02:00"</c> or <c>"+00:00"</c>.</p>
+	<p>Integers must be in microseconds, meaning that the
+	  offset <c>7200000000</c> is equivalent
+	  to <c>"+02:00"</c>.</p>
+	<p>The default value is an empty string, meaning that
+	  timestamps are displayed in local time. However, for
+	  backwards compatibility, if the SASL environment
+	  variable <seealso marker="sasl:sasl_app#utc_log">
+	    <c>utc_log</c></seealso><c>=true</c>, the default is
+	  changed to <c>"Z"</c>, meaning that timestamps are displayed
+	  in UTC.</p>
+	<p>The value of this parameter is used as the <c>offset</c>
+	  option to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+	    <c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
       </item>
     </taglist>
   </section>
@@ -174,7 +203,7 @@
 
     <p>The log event used in the examples is:</p>
     <code>
-?LOG_ERROR("name: ~p~nexit_reason: ~p",[my_reg_name,"It crashed"])</code>
+?LOG_ERROR("name: ~p~nexit_reason: ~p",[my_name,"It crashed"])</code>
 
     <taglist>
       <tag><c>legacy_header=true</c></tag>
@@ -182,9 +211,9 @@
 	<p>Default template: <c>[{logger_formatter,header},"\n",msg,"\n"]</c></p>
 
 	<p>Example log entry:</p>
-	<code>
-=ERROR REPORT==== 29-Dec-2017::13:30:51.245123 ===
-name: my_reg_name
+	<code type="none">
+2018-05-16T11:55:50.448382+02:00 error:
+name: my_name
 exit_reason: "It crashed"</code>
 
 	<p>Notice that all eight levels might occur in the heading,
@@ -198,7 +227,7 @@ exit_reason: "It crashed"</code>
 	<p>Default template: <c>[time," ",level,": ",msg,"\n"]</c></p>
 
 	<p>Example log entry:</p>
-	<code>2017-12-29 13:31:49.640317 error: name: my_reg_name, exit_reason: "It crashed"</code>
+	<code type="none">2018-05-16T11:55:50.448382+02:00 error: name: my_name, exit_reason: "It crashed"</code>
       </item>
 
       <tag><c>legacy_header=false, single_line=false</c></tag>
@@ -206,9 +235,9 @@ exit_reason: "It crashed"</code>
 	<p>Default template: <c>[time," ",level,":\n",msg,"\n"]</c></p>
 
 	<p>Example log entry:</p>
-	<code>
-2017-12-29 13:32:25.191925 error:
-name: my_reg_name
+	<code type="none">
+2018-05-16T11:55:50.448382+02:00 error:
+name: my_name
 exit_reason: "It crashed"</code>
       </item>
     </taglist>

@@ -73,7 +73,7 @@ all() ->
 default(_Config) ->
     String1 = format(info,{"~p",[term]},#{},#{}),
     ct:log(String1),
-    [_Date,_Time,"info:","term\n"] = string:lexemes(String1," "),
+    [_DateTime,"info:","term\n"] = string:lexemes(String1," "),
 
     Time = timestamp(),
     ExpectedTimestamp = default_time_format(Time),
@@ -364,7 +364,7 @@ chars_limit(_Config) ->
                  lists:seq(1,100),
                  maps:from_list(lists:zip(lists:seq(1,100),
                                           lists:duplicate(100,value)))]},
-    Meta = #{time=>"2018-04-26  9:15:40.449879"},
+    Meta = #{time=>timestamp()},
     Template = [time," - ", msg, "\n"],
     FC = #{template=>Template,
            depth=>unlimited,
@@ -376,7 +376,7 @@ chars_limit(_Config) ->
     L1 = string:length(String1),
     ct:log("String1: ~p~nLength1: ~p~n",[lists:flatten(String1),L1]),
     true = L1 > CL1,
-    true = L1 < CL1 + 10,
+    true = L1 < CL1 + 15,
 
     String2 = format(info,FA,Meta,FC#{chars_limit=>CL1,depth=>10}),
     L2 = string:length(String2),
@@ -388,13 +388,13 @@ chars_limit(_Config) ->
     L3 = string:length(String3),
     ct:log("String3: ~p~nLength3: ~p~n",[lists:flatten(String3),L3]),
     true = L3 > CL3,
-    true = L3 < CL3 + 10,
+    true = L3 < CL3 + 15,
 
     String4 = format(info,FA,Meta,FC#{chars_limit=>CL3,depth=>10}),
     L4 = string:length(String4),
     ct:log("String4: ~p~nLength4: ~p~n",[lists:flatten(String4),L4]),
     true = L4 > CL3,
-    true = L4 < CL3 + 10,
+    true = L4 < CL3 + 15,
 
     %% Test that max_size truncates the string which is limited by
     %% depth and chars_limit
@@ -433,29 +433,58 @@ format_mfa(_Config) ->
     ok.
     
 format_time(_Config) ->
-    Time1 = timestamp(),
-    ExpectedTimestamp1 = default_time_format(Time1),
-    String1 = format(info,{"~p",[term]},#{time=>Time1},#{}),
-    ct:log(String1),
-    " info: term\n" = string:prefix(String1,ExpectedTimestamp1),
+    Time = timestamp(),
+    Meta = #{time=>Time},
+    FC = #{template=>[time]},
+    Msg = {string,""},
+    ExpectedLocal = default_time_format(Time,false),
+    ExpectedUtc = default_time_format(Time,true),
 
-    Time2 = timestamp(),
-    ExpectedTimestamp2 = default_time_format(Time2,true),
-    String2 = format(info,{"~p",[term]},#{time=>Time2},#{utc=>true}),
-    ct:log(String2),
-    " info: term\n" = string:prefix(String2,ExpectedTimestamp2),
+    %% default - local time
+    ExpectedLocal = format(info,Msg,Meta,FC),
 
-    %% application:set_env(kernel,logger_utc,true),
-    %% Time3 = timestamp(),
-    %% ExpectedTimestamp3 = default_time_format(Time3,true),
-    %% String3 = format(info,{"~p",[term]},#{time=>Time3},#{}),
-    %% ct:log(String3),
-    %% " info: term\n" = string:prefix(String3,ExpectedTimestamp3),
+    %% time_offset config parameter to formatter
+    ExpectedLocal = format(info,Msg,Meta,FC#{time_offset=>""}),
+    ExpectedUtc = format(info,Msg,Meta,FC#{time_offset=>"Z"}),
+
+    %% stdlib utc_log works when time_offset parameter is not set
+    application:set_env(stdlib,utc_log,true),
+    ExpectedUtc = format(info,Msg,Meta,FC),
+
+    %% sasl utc_log overwrites stdlib utc_log
+    application:set_env(sasl,utc_log,false),
+    ExpectedLocal = format(info,Msg,Meta,FC),
+
+    %% sasl utc_log overwrites stdlib utc_log
+    application:set_env(sasl,utc_log,true),
+    application:set_env(stdlib,utc_log,false),
+    ExpectedUtc = format(info,Msg,Meta,FC),
+
+    %% time_offset config parameter to formatter
+    %% overwrites sasl and stdlib utc_log
+    application:set_env(sasl,utc_log,false),
+    ExpectedUtc = format(info,Msg,Meta,FC#{time_offset=>"Z"}),
+
+    %% time_offset config parameter to formatter
+    %% overwrites sasl and stdlib utc_log
+    application:set_env(sasl,utc_log,true),
+    application:set_env(stdlib,utc_log,true),
+    ExpectedLocal = format(info,Msg,Meta,FC#{time_offset=>""}),
+
+    %% time_designator config parameter to formatter
+    ExpectedLocalS = default_time_format(Time,false,$\s),
+    ExpectedUtcS = default_time_format(Time,true,$\s),
+
+    ExpectedLocalS = format(info,Msg,Meta,FC#{time_offset=>"",
+                                              time_designator=>$\s}),
+    ExpectedUtcS = format(info,Msg,Meta,FC#{time_offset=>"Z",
+                                            time_designator=>$\s}),
 
     ok.
 
 format_time(cleanup,_Config) ->
-    application:unset_env(kernel,logger_utc),
+    application:unset_env(sasl,utc_log),
+    application:unset_env(stdlib,utc_log),
     ok.
 
 level_or_msg_in_meta(_Config) ->
@@ -514,22 +543,17 @@ format(Log,Config) ->
 default_time_format(Timestamp) ->
     default_time_format(Timestamp,false).
 
-default_time_format(Timestamp0,Utc) when is_integer(Timestamp0) ->
-    Timestamp=Timestamp0+erlang:time_offset(microsecond),
-    %% calendar:system_time_to_rfc3339(Time,[{unit,microsecond}]).
-    Micro = Timestamp rem 1000000,
-    Sec = Timestamp div 1000000,
-    UniversalTime =  erlang:posixtime_to_universaltime(Sec),
-    {Date,Time} =
-        if Utc -> UniversalTime;
-           true -> erlang:universaltime_to_localtime(UniversalTime)
-        end,
-    default_time_format(Date,Time,Micro).
+default_time_format(Timestamp,Utc) ->
+    default_time_format(Timestamp,Utc,$T).
 
-default_time_format({Y,M,D},{H,Min,S},Micro) ->
-    lists:flatten(
-      io_lib:format("~4w-~2..0w-~2..0w ~2w:~2..0w:~2..0w.~6..0w",
-                    [Y,M,D,H,Min,S,Micro])).
+default_time_format(Timestamp0,Utc,Sep) ->
+    Timestamp=Timestamp0+erlang:time_offset(microsecond),
+    Offset = if Utc -> "Z";
+                true -> ""
+             end,
+    calendar:system_time_to_rfc3339(Timestamp,[{unit,microsecond},
+                                               {time_designator,Sep},
+                                               {offset,Offset}]).
 
 integer(Str) ->
     is_integer(list_to_integer(Str)).

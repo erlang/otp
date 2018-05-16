@@ -39,7 +39,8 @@
                   max_size=>pos_integer() | unlimited,
                   depth=>pos_integer() | unlimited,
                   template=>template(),
-                  utc=>boolean()}.
+                  time_designator=>byte(),
+                  time_offset=>integer()|[byte()]}.
 format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
   when is_map(Config0) ->
     Config = add_default_config(Config0),
@@ -196,16 +197,12 @@ truncate(String,Size) ->
             String
     end.
 
-format_time(Timestamp,Config) when is_integer(Timestamp) ->
-    {Date,Time,Micro} = timestamp_to_datetimemicro(Timestamp,Config),
-    format_time(Date,Time,Micro);
-format_time(Other,_Config) ->
-    %% E.g. a string
-    to_string(Other).
-
-format_time({Y,M,D},{H,Min,S},Micro) ->
-    io_lib:format("~4w-~2..0w-~2..0w ~2w:~2..0w:~2..0w.~6..0w",
-                  [Y,M,D,H,Min,S,Micro]).
+format_time(Timestamp,#{time_offset:=Offset,time_designator:=Des})
+  when is_integer(Timestamp) ->
+    SysTime = Timestamp + erlang:time_offset(microsecond),
+    calendar:system_time_to_rfc3339(SysTime,[{unit,microsecond},
+                                             {offset,Offset},
+                                             {time_designator,Des}]).
 
 %% Assuming this is monotonic time in microseconds
 timestamp_to_datetimemicro(Timestamp,Config) when is_integer(Timestamp) ->
@@ -213,12 +210,12 @@ timestamp_to_datetimemicro(Timestamp,Config) when is_integer(Timestamp) ->
     Micro = SysTime rem 1000000,
     Sec = SysTime div 1000000,
     UniversalTime =  erlang:posixtime_to_universaltime(Sec),
-    {Date,Time} =
-        case Config of
-            #{utc:=true} -> UniversalTime;
-            _ -> erlang:universaltime_to_localtime(UniversalTime)
+    {{Date,Time},UtcStr} =
+        case offset_to_utc(maps:get(time_offset,Config)) of
+            true -> {UniversalTime,"UTC "};
+            _ -> {erlang:universaltime_to_localtime(UniversalTime),""}
         end,
-    {Date,Time,Micro}.
+    {Date,Time,Micro,UtcStr}.
 
 format_mfa({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) ->
     atom_to_list(M)++":"++atom_to_list(F)++"/"++integer_to_list(A);
@@ -231,9 +228,11 @@ maybe_add_legacy_header(Level,
                         #{time:=Timestamp}=Meta,
                         #{legacy_header:=true}=Config) ->
     #{title:=Title}=MyMeta = add_legacy_title(Level,maps:get(?MODULE,Meta,#{})),
-    {{Y,Mo,D},{H,Mi,S},Micro} = timestamp_to_datetimemicro(Timestamp,Config),
-    Header = io_lib:format("=~ts==== ~w-~s-~4w::~2..0w:~2..0w:~2..0w.~6..0w ~s===",
-                           [Title,D,month(Mo),Y,H,Mi,S,Micro,utcstr(Config)]),
+    {{Y,Mo,D},{H,Mi,S},Micro,UtcStr} =
+        timestamp_to_datetimemicro(Timestamp,Config),
+    Header =
+        io_lib:format("=~ts==== ~w-~s-~4w::~2..0w:~2..0w:~2..0w.~6..0w ~s===",
+                      [Title,D,month(Mo),Y,H,Mi,S,Micro,UtcStr]),
     Meta#{?MODULE=>MyMeta#{header=>Header}};
 maybe_add_legacy_header(_,Meta,_) ->
     Meta.
@@ -257,20 +256,20 @@ month(10) -> "Oct";
 month(11) -> "Nov";
 month(12) -> "Dec".
 
-utcstr(#{utc:=true}) -> "UTC ";
-utcstr(_) -> "".
-
+%% Ensure that all valid configuration parameters exist in the final
+%% configuration map
 add_default_config(Config0) ->
     Default =
         #{legacy_header=>false,
           single_line=>true,
-          chars_limit=>unlimited},
-    MaxSize = get_max_size(maps:get(max_size,Config0,false)),
-    Depth = get_depth(maps:get(depth,Config0,false)),
-    Utc = get_utc(maps:get(utc,Config0,false)),
+          chars_limit=>unlimited,
+          time_designator=>$T},
+    MaxSize = get_max_size(maps:get(max_size,Config0,undefined)),
+    Depth = get_depth(maps:get(depth,Config0,undefined)),
+    Offset = get_offset(maps:get(time_offset,Config0,undefined)),
     add_default_template(maps:merge(Default,Config0#{max_size=>MaxSize,
                                                      depth=>Depth,
-                                                     utc=>Utc})).
+                                                     time_offset=>Offset})).
 
 add_default_template(#{template:=_}=Config) ->
     Config;
@@ -284,32 +283,49 @@ default_template(#{single_line:=true}) ->
 default_template(_) ->
     ?DEFAULT_FORMAT_TEMPLATE.
 
-get_max_size(false) ->
+get_max_size(undefined) ->
     unlimited;
 get_max_size(S) ->
     max(10,S).
 
-get_depth(false) ->
+get_depth(undefined) ->
     error_logger:get_format_depth();
 get_depth(S) ->
     max(5,S).
 
-get_utc(false) ->
-    get_utc_config();
-get_utc(U) ->
-    U.
+get_offset(undefined) ->
+    utc_to_offset(get_utc_config());
+get_offset(Offset) ->
+    Offset.
+
+utc_to_offset(true) ->
+    "Z";
+utc_to_offset(false) ->
+    "".
 
 get_utc_config() ->
     %% SASL utc_log overrides stdlib config - in order to have uniform
     %% timestamps in log messages
     case application:get_env(sasl, utc_log) of
-        {ok, Val} -> Val;
-        undefined ->
+        {ok, Val} when is_boolean(Val) -> Val;
+        _ ->
             case application:get_env(stdlib, utc_log) of
-                {ok, Val} -> Val;
-                undefined -> false
+                {ok, Val} when is_boolean(Val) -> Val;
+                _ -> false
             end
     end.
+
+offset_to_utc(Z) when Z=:=0; Z=:="z"; Z=:="Z" ->
+    true;
+offset_to_utc([$+|Tz]) ->
+    case io_lib:fread("~d:~d", Tz) of
+        {ok, [0, 0], []} ->
+            true;
+        _ ->
+            false
+    end;
+offset_to_utc(_) ->
+    false.
 
 check_config(Config) when is_map(Config) ->
     do_check_config(maps:to_list(Config));
@@ -341,8 +357,20 @@ do_check_config([{template,T}|Config]) when is_list(T) ->
         false ->
             {error,{invalid_formatter_template,?MODULE,T}}
     end;
-do_check_config([{utc,Utc}|Config]) when is_boolean(Utc) ->
-    do_check_config(Config);
+do_check_config([{time_offset,Offset}|Config]) ->
+    case check_offset(Offset) of
+        ok ->
+            do_check_config(Config);
+        error ->
+            {error,{invalid_formatter_config,?MODULE,{time_offset,Offset}}}
+    end;
+do_check_config([{time_designator,Char}|Config]) when Char>=0, Char=<255 ->
+    case io_lib:printable_latin1_list([Char]) of
+        true ->
+            do_check_config(Config);
+        false ->
+            {error,{invalid_formatter_config,?MODULE,{time_designator,Char}}}
+    end;
 do_check_config([C|_]) ->
     {error,{invalid_formatter_config,?MODULE,C}};
 do_check_config([]) ->
@@ -354,3 +382,22 @@ check_limit(unlimited) ->
     ok;
 check_limit(_) ->
     error.
+
+check_offset(I) when is_integer(I) ->
+    ok;
+check_offset(Tz) when Tz=:=""; Tz=:="Z"; Tz=:="z" ->
+    ok;
+check_offset([Sign|Tz]) when Sign=:=$+; Sign=:=$- ->
+    check_timezone(Tz);
+check_offset(_) ->
+    error.
+
+check_timezone(Tz) ->
+    try io_lib:fread("~d:~d", Tz) of
+        {ok, [_, _], []} ->
+            ok;
+        _ ->
+            error
+    catch _:_ ->
+            error
+    end.

@@ -86,12 +86,6 @@
           <c>RELDIR</c> is used. By default, this is
           <c>$OTP_ROOT/releases</c>.</p>
       </item>
-      <tag><c><![CDATA[utc_log = true | false ]]></c></tag>
-      <item>
-        <p>If set to <c>true</c>, all dates in textual log outputs are
-          displayed in Universal Coordinated Time with the string
-          <c>UTC</c> appended.</p>
-      </item>
     </taglist>
   </section>
 
@@ -174,6 +168,12 @@
         <p>Restricts the error logging performed by the specified
           <c>sasl_error_logger</c> to error reports or progress reports,
           or both. Default is <c>all</c>.</p>
+      </item>
+      <tag><marker id="utc_log"/><c><![CDATA[utc_log = true | false ]]></c></tag>
+      <item>
+        <p>If set to <c>true</c>, all dates in textual log outputs are
+          displayed in Universal Coordinated Time with the string
+          <c>UTC</c> appended.</p>
       </item>
     </taglist>
 
