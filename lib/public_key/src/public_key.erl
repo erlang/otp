@@ -49,6 +49,7 @@
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
 	 pkix_verify_hostname/2, pkix_verify_hostname/3,
+         pkix_verify_hostname_match_fun/1,
 	 ssh_decode/2, ssh_encode/2,
 	 ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2,
 	 ssh_curvename2oid/1, oid2ssh_curvename/1,
@@ -883,12 +884,23 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 		       Options, pubkey_crl:init_revokation_state()).
 
 %--------------------------------------------------------------------
--spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
-			   ReferenceIDs :: [{uri_id | dns_id | ip | srv_id | oid(),  string()}]) -> boolean().
+-spec pkix_verify_hostname(#'OTPCertificate'{} | binary(),
+			   referenceIDs()
+                          ) -> boolean().
 
--spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
-			   ReferenceIDs :: [{uri_id | dns_id | ip | srv_id | oid(),  string()}],
-			   Options :: proplists:proplist()) -> boolean().
+-spec pkix_verify_hostname(#'OTPCertificate'{} | binary(),
+			   referenceIDs(),
+			   proplists:proplist()) -> boolean().
+
+-type referenceIDs() :: [referenceID()] .
+-type referenceID() :: {uri_id | dns_id | ip | srv_id | oid(),  string()} .
+
+-spec pkix_verify_hostname_match_fun(high_level_alg()) -> match_fun() .
+
+-type high_level_alg() :: https .
+-type match_fun() ::  fun((ReferenceID::referenceID() | string(),
+                           PresentedID::{atom()|oid(),string()}) -> match_fun_result() ) .
+-type match_fun_result() :: boolean() | default .
 
 %% Description: Validates a hostname to RFC 6125
 %%--------------------------------------------------------------------
@@ -951,6 +963,11 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 		true ->
 		    true
 	    end
+    end.
+
+pkix_verify_hostname_match_fun(https) ->
+    fun({dns_id,FQDN=[_|_]}, {dNSName,Name=[_|_]}) -> verify_hostname_match_wildcard(FQDN, Name);
+       (_, _) -> default
     end.
 
 %%--------------------------------------------------------------------
@@ -1516,9 +1533,7 @@ verify_hostname_match_default(Ref, Pres) ->
 verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) -> 
     not lists:member($*, FQDN);
 verify_hostname_match_default0(FQDN=[_|_], {cn,Name=[_|_]}) -> 
-    [F1|Fs] = string:tokens(FQDN, "."),
-    [N1|Ns] = string:tokens(Name, "."),
-    match_wild(F1,N1) andalso Fs==Ns;
+    verify_hostname_match_wildcard(FQDN, Name);
 verify_hostname_match_default0({dns_id,R}, {dNSName,P}) ->
     R==P;
 verify_hostname_match_default0({uri_id,R}, {uniformResourceIdentifier,P}) ->
@@ -1552,6 +1567,13 @@ verify_hostname_match_default0({srv_id,R}, {?srvName_OID,P}) ->
     R==P;
 verify_hostname_match_default0(_, _) ->
     false.
+
+
+verify_hostname_match_wildcard(FQDN, Name) ->
+    [F1|Fs] = string:tokens(FQDN, "."),
+    [N1|Ns] = string:tokens(Name, "."),
+    match_wild(F1,N1) andalso Fs==Ns.
+
 
 ok({ok,X}) -> X.
 
