@@ -38,6 +38,7 @@ domain(#{meta:=Meta}=Log,{Action,Compare,MatchDomain})
        (Compare==prefix_of orelse
         Compare==starts_with orelse
         Compare==equals orelse
+        Compare==differs orelse
         Compare==no_domain) andalso
        is_list(MatchDomain) ->
     filter_domain(Compare,Meta,MatchDomain,on_match(Action,Log));
@@ -87,9 +88,12 @@ filter_domain(starts_with,#{domain:=Domain},MatchDomain,OnMatch) ->
     is_prefix(MatchDomain,Domain,OnMatch);
 filter_domain(equals,#{domain:=Domain},Domain,OnMatch) ->
     OnMatch;
+filter_domain(differs,#{domain:=Domain},MatchDomain,OnMatch)
+  when Domain=/=MatchDomain ->
+    OnMatch;
 filter_domain(Action,Meta,_,OnMatch) ->
     case maps:is_key(domain,Meta) of
-        false when Action==no_domain -> OnMatch;
+        false when Action==no_domain; Action==differs -> OnMatch;
         _ -> ignore
     end.
 
