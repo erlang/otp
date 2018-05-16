@@ -744,6 +744,13 @@ erts_enqueue_signals(Process *rp, ErtsMessage *first,
 void
 erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
 
+/* SVERK Doc me up! */
+ERTS_GLB_INLINE void erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
+                                              erts_aint32_t enable_flag);
+
+void erts_make_dirty_proc_handled(Eterm pid, erts_aint32_t state,
+                                  erts_aint32_t prio);
+
 
 typedef struct {
     Uint size;
@@ -877,6 +884,24 @@ erts_proc_sig_fetch(Process *proc)
 #endif
 
     return res;
+}
+
+ERTS_GLB_INLINE void
+erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
+                         erts_aint32_t enable_flag)
+{
+    if (~(state & (ERTS_PSFLG_EXITING
+                   | ERTS_PSFLG_ACTIVE_SYS
+                   | ERTS_PSFLG_SIG_IN_Q))
+        | (~state & enable_flag)) {
+        /* Schedule process... */
+        state = erts_proc_sys_schedule(rp, state, enable_flag);
+    }
+
+    if (state & (ERTS_PSFLG_DIRTY_RUNNING
+                 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+        erts_make_dirty_proc_handled(rp->common.id, state, -1);
+    }
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
