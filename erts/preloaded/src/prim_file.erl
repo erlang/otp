@@ -562,7 +562,7 @@ list_dir_convert([RawName | Rest], SkipInvalid, Result) ->
             logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:monotonic_time(microsecond),
+                        time=>erlang:system_time(microsecond),
                         error_logger=>#{tag=>warning_msg}}},
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, _} ->

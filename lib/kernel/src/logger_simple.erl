@@ -70,7 +70,7 @@ log(#{msg:=_,meta:=#{time:=_}}=Log,_Config) ->
                 do_log(
                   #{level=>error,
                     msg=>{report,{error,simple_handler_process_dead}},
-                    meta=>#{time=>erlang:monotonic_time(microsecond)}}),
+                    meta=>#{time=>erlang:system_time(microsecond)}}),
                 do_log(Log);
             _ ->
                 ?MODULE ! {log,Log}
@@ -126,7 +126,7 @@ drop_msg(0) ->
 drop_msg(N) ->
     [#{level=>info,
        msg=>{"Simple handler buffer full, dropped ~w messages",[N]},
-       meta=>#{time=>erlang:monotonic_time(microsecond)}}].
+       meta=>#{time=>erlang:system_time(microsecond)}}].
 
 %%%-----------------------------------------------------------------
 %%% Internal
@@ -141,8 +141,7 @@ do_log(#{msg:=Msg,meta:=#{time:=T}}) ->
     display_date(T),
     display(Msg).
 
-display_date(Timestamp0) when is_integer(Timestamp0) ->
-    Timestamp = Timestamp0 + erlang:time_offset(microsecond),
+display_date(Timestamp) when is_integer(Timestamp) ->
     Micro = Timestamp rem 1000000,
     Sec = Timestamp div 1000000,
     {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime_to_localtime(

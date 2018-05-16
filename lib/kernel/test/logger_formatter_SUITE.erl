@@ -546,8 +546,7 @@ default_time_format(Timestamp) ->
 default_time_format(Timestamp,Utc) ->
     default_time_format(Timestamp,Utc,$T).
 
-default_time_format(Timestamp0,Utc,Sep) ->
-    Timestamp=Timestamp0+erlang:time_offset(microsecond),
+default_time_format(Timestamp,Utc,Sep) ->
     Offset = if Utc -> "Z";
                 true -> ""
              end,
@@ -569,7 +568,7 @@ my_try(Fun) ->
     try Fun() catch C:R:S -> {C,R,hd(S)} end.
 
 timestamp() ->
-    erlang:monotonic_time(microsecond).
+    erlang:system_time(microsecond).
 
 %% necessary?
 add_time(#{time:=_}=Meta) ->

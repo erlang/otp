@@ -833,7 +833,7 @@ proc_meta() ->
 
 default(pid) -> self();
 default(gl) -> group_leader();
-default(time) -> erlang:monotonic_time(microsecond).
+default(time) -> erlang:system_time(microsecond).
 
 %% Remove everything upto and including this module from the stacktrace
 filter_stacktrace(Module,[{Module,_,_,_}|_]) ->

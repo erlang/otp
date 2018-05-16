@@ -197,16 +197,15 @@ truncate(String,Size) ->
             String
     end.
 
-format_time(Timestamp,#{time_offset:=Offset,time_designator:=Des})
-  when is_integer(Timestamp) ->
-    SysTime = Timestamp + erlang:time_offset(microsecond),
+%% SysTime is the system time in microseconds
+format_time(SysTime,#{time_offset:=Offset,time_designator:=Des})
+  when is_integer(SysTime) ->
     calendar:system_time_to_rfc3339(SysTime,[{unit,microsecond},
                                              {offset,Offset},
                                              {time_designator,Des}]).
 
-%% Assuming this is monotonic time in microseconds
-timestamp_to_datetimemicro(Timestamp,Config) when is_integer(Timestamp) ->
-    SysTime = Timestamp + erlang:time_offset(microsecond),
+%% SysTime is the system time in microseconds
+timestamp_to_datetimemicro(SysTime,Config) when is_integer(SysTime) ->
     Micro = SysTime rem 1000000,
     Sec = SysTime div 1000000,
     UniversalTime =  erlang:posixtime_to_universaltime(Sec),

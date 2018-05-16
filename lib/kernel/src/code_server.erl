@@ -1437,7 +1437,7 @@ error_msg(Format, Args) ->
     logger ! {log,error,Format,Args,
               #{pid=>self(),
                 gl=>group_leader(),
-                time=>erlang:monotonic_time(microsecond),
+                time=>erlang:system_time(microsecond),
                 error_logger=>#{tag=>error}}},
     ok.
 
@@ -1446,7 +1446,7 @@ info_msg(Format, Args) ->
     logger ! {log,info,Format,Args,
               #{pid=>self(),
                 gl=>group_leader(),
-                time=>erlang:monotonic_time(microsecond),
+                time=>erlang:system_time(microsecond),
                 error_logger=>#{tag=>info_msg}}},
     ok.
 
