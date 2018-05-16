@@ -76,7 +76,7 @@ sync(Conf) when is_list(Conf) ->
     %% Reset wall_clock
     {T1,_} = erlang:statistics(wall_clock),
     io:format("~p~n", [{t1, T1}]),
-    Command = lists:concat([lib:progname(),
+    Command = lists:append([ct:get_progname(),
 			    " -detached -sname cp1 ",
 			    "-config ", Config,
 			    " -env ERL_CRASH_DUMP erl_crash_dump.cp1"]),

@@ -957,7 +957,7 @@ erl_544(Config) when is_list(Config) ->
                 StackFun = fun(_, _, _) -> false end,
                 FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
                 Formated =
-                    lib:format_stacktrace(1, Stack, StackFun, FormatFun),
+                    erl_error:format_stacktrace(1, Stack, StackFun, FormatFun),
                 true = is_list(Formated),
                 ok
             after

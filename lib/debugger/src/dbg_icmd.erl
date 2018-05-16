@@ -467,7 +467,7 @@ mark_break(Cm, LineNo, Le) ->
 
 parse_cmd(Cmd, LineNo) ->
     {ok,Tokens,_} = erl_scan:string(Cmd, LineNo, [text]),
-    {ok,Forms,Bs} = lib:extended_parse_exprs(Tokens),
+    {ok,Forms,Bs} = erl_eval:extended_parse_exprs(Tokens),
     {Forms, Bs}.
 
 %%====================================================================

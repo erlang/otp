@@ -413,7 +413,7 @@ my_process_info(Pid, Tag) ->
 
 t_process_display(Config) when is_list(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    Cmd = atom_to_list(lib:progname()) ++ " -noinput -pa " ++ Dir ++
+    Cmd = ct:get_progname() ++ " -noinput -pa " ++ Dir ++
     " -run " ++ ?MODULE_STRING ++ " remote_process_display",
     io:put_chars(Cmd),
     P = open_port({spawn,Cmd}, [in,stderr_to_stdout,eof]),

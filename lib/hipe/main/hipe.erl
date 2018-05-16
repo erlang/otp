@@ -852,8 +852,8 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
 print_crash_message(What, Error, StackTrace) ->
   StackFun = fun(_,_,_) -> false end,
   FormatFun = fun (Term, _) -> io_lib:format("~p", [Term]) end,
-  StackTrace = lib:format_stacktrace(1, StackTrace,
-				     StackFun, FormatFun),
+  StackTrace = erl_error:format_stacktrace(1, StackTrace,
+                                           StackFun, FormatFun),
   WhatS = case What of
 	    {M,F,A} -> io_lib:format("~w:~w/~w", [M,F,A]);
 	    Mod -> io_lib:format("~w", [Mod])

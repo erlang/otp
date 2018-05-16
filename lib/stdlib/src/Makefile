@@ -62,6 +62,7 @@ MODULES= \
 	erl_anno \
 	erl_bits \
 	erl_compile \
+	erl_error \
 	erl_eval \
 	erl_expand_records \
 	erl_internal \
@@ -91,7 +92,6 @@ MODULES= \
 	io_lib_format \
 	io_lib_fread \
 	io_lib_pretty \
-	lib \
 	lists \
 	log_mf_h \
 	maps \
@@ -176,6 +176,7 @@ docs:
 primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_anno.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_error.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \

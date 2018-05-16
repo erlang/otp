@@ -2780,7 +2780,7 @@ otp_10302(Config) when is_list(Config) ->
     rpc:call(Node,shell, prompt_func, [default]),
     _ = shell:prompt_func(default),
 
-    %% Test lib:format_exception() (cf. OTP-6554)
+    %% Test erl_error:format_exception() (cf. OTP-6554)
     Test6 =
         <<"begin
                A = <<\"\\xaa\">>,
@@ -2967,10 +2967,10 @@ otp_14296(Config) when is_list(Config) ->
             R = t(S)
     end(),
 
-    %% Test lib:extended_parse_term/1
+    %% Test erl_eval:extended_parse_term/1
     TF = fun(S) ->
                  {ok, Ts, _} = erl_scan:string(S++".", 1, [text]),
-                 case lib:extended_parse_term(Ts) of
+                 case erl_eval:extended_parse_term(Ts) of
                      {ok, Term} -> Term;
                      {error, _}=Error -> Error
                  end

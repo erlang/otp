@@ -882,7 +882,7 @@ format_exception(Class, Reason, StackTrace) ->
                  io_lib:format("~." ++ integer_to_list(I) ++ P, [Term, 50])
          end,
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
-    lib:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
+    erl_error:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
 
 encoding() ->
     [{encoding, Encoding}] = enc(),

@@ -965,7 +965,7 @@ env_slave(File, Env) ->
 
 env_slave(File, Env, Body) ->
     file:write_file(File, term_to_binary(Body)),
-    Program = atom_to_list(lib:progname()),
+    Program = ct:get_progname(),
     Dir = filename:dirname(code:which(?MODULE)),
     Cmd = Program ++ " -pz " ++ Dir ++
     " -noinput -run " ++ ?MODULE_STRING ++ " env_slave_main " ++
@@ -1129,7 +1129,7 @@ try_bad_args(Args) ->
 cd(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
 
-    Program = atom_to_list(lib:progname()),
+    Program = ct:get_progname(),
     DataDir = proplists:get_value(data_dir, Config),
     TestDir = filename:join(DataDir, "dir"),
     Cmd = Program ++ " -pz " ++ DataDir ++
@@ -1191,7 +1191,7 @@ cd(Config)  when is_list(Config) ->
 %% be relative the new cwd and not the original
 cd_relative(Config) ->
 
-    Program = atom_to_list(lib:progname()),
+    Program = ct:get_progname(),
     DataDir = proplists:get_value(data_dir, Config),
     TestDir = filename:join(DataDir, "dir"),
 
@@ -1214,7 +1214,7 @@ cd_relative(Config) ->
 
 relative_cd() ->
 
-    Program = atom_to_list(lib:progname()),
+    Program = ct:get_progname(),
     ok = file:set_cwd(".."),
     {ok, Cwd} = file:get_cwd(),
 

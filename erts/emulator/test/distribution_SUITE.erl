@@ -797,7 +797,7 @@ show_term(Term) ->
 
 %% Tests behaviour after net_kernel:stop (OTP-2586).
 stop_dist(Config) when is_list(Config) ->
-    Str = os:cmd(atom_to_list(lib:progname())
+    Str = os:cmd(ct:get_progname()
                  ++ " -noshell -pa "
                  ++ proplists:get_value(data_dir, Config)
                  ++ " -s run"),
@@ -974,9 +974,9 @@ dist_auto_connect_start(Name, Value) when is_list(Name), is_atom(Value) ->
     ModuleDir = filename:dirname(code:which(?MODULE)),
     ValueStr = atom_to_list(Value),
     Cookie = atom_to_list(erlang:get_cookie()),
-    Cmd = lists:concat(
+    Cmd = lists:append(
             [%"xterm -e ",
-             atom_to_list(lib:progname()),
+             ct:get_progname(),
              %	     " -noinput ",
              " -detached ",
              long_or_short(), " ", Name,

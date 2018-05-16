@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
              erl_anno,
 	     erl_bits,
 	     erl_compile,
+	     erl_error,
 	     erl_eval,
              erl_expand_records,
 	     erl_internal,
@@ -71,7 +72,6 @@
 	     io_lib_format,
 	     io_lib_fread,
 	     io_lib_pretty,
-	     lib,
 	     lists,
 	     log_mf_h,
 	     maps,

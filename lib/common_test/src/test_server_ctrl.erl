@@ -4382,7 +4382,7 @@ do_format_exception(Reason={Error,Stack}) ->
     PF = fun(Term, I) ->
 		 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
 	 end,
-    case catch lib:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
+    case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
 	{'EXIT',_R} ->
 	    {"~tp",Reason};
 	Formatted  ->
