@@ -810,17 +810,169 @@ static ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
                             BOOLEAN_T         isEncoded,
                             BOOLEAN_T         isOTP,
                             int               level,
-                            int               opt,
-                            SocketOptValue*   valP);
+                            int               eOpt,
+                            ERL_NIF_TERM      eVal);
 static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
                                 SocketDescriptor* descP,
-                                int               opt,
-                                SocketOptValue*   valP);
-static ERL_NIF_TERM nsetopt_gen(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                int               level,
-                                int               opt,
-                                SocketOptValue*   valP);
+                                int               eOpt,
+                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
+                                      SocketDescriptor* descP,
+                                      ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
+                                   SocketDescriptor* descP,
+                                   int               level,
+                                   int               eOpt,
+                                   ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
+                                  SocketDescriptor* descP,
+                                  int               level,
+                                  int               eOpt,
+                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       int               eOpt,
+                                       ERL_NIF_TERM      eVal);
+#if defined(SO_BROADCAST)
+static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_DONTROUTE)
+static ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_KEEPALIVE)
+static ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_LINGER)
+static ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_PRIORITY)
+static ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_RCVBUF)
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_REUSEADDR)
+static ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_SNDBUF)
+static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
+static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
+                                   SocketDescriptor* descP,
+                                   int               eOpt,
+                                   ERL_NIF_TERM      eVal);
+#if defined(IP_RECVTOS)
+static ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_ROUTER_ALERT)
+static ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_TOS)
+static ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_TTL)
+static ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal);
+#endif
+#if defined(SOL_IPV6)
+static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     int               eOpt,
+                                     ERL_NIF_TERM      eVal);
+#if defined(IPV6_HOPLIMIT)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
+#endif // defined(SOL_IPV6)
+static ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    int               eOpt,
+                                    ERL_NIF_TERM      eVal);
+#if defined(TCP_CONGESTION)
+static ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(TCP_MAXSEG)
+static ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
+#endif
+#if defined(TCP_NODELAY)
+static ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
+static ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    int               eOpt,
+                                    ERL_NIF_TERM      eVal);
+#if defined(UDP_CORK)
+static ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal);
+#endif
+#if defined(HAVE_SCTP)
+static ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     int               eOpt,
+                                     ERL_NIF_TERM      eVal);
+#if defined(SCTP_AUTOCLOSE)
+static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
+#if defined(SCTP_NODELAY)
+static ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
+                                             SocketDescriptor* descP,
+                                             ERL_NIF_TERM      eVal);
+#endif
+#endif // defined(HAVE_SCTP)
+
+static ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    int               level,
+                                    int               opt,
+                                    int               max,
+                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     int               level,
+                                     int               opt,
+                                     ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    int               level,
+                                    int               opt,
+                                    ERL_NIF_TERM      eVal);
+
 static ERL_NIF_TERM nlink_if2idx(ErlNifEnv* env,
                                  char*      ifn);
 static ERL_NIF_TERM nlink_idx2if(ErlNifEnv*   env,
@@ -940,58 +1092,6 @@ static BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
                               int        eLevel,
                               BOOLEAN_T* isOTP,
                               int*       level);
-static BOOLEAN_T eoptval2optval(ErlNifEnv*      env,
-                                BOOLEAN_T       isEncoded,
-                                BOOLEAN_T       isOTP,
-                                int             level,
-                                int             eOpt,
-                                ERL_NIF_TERM    eVal,
-                                int*            opt,
-                                SocketOptValue* val);
-static BOOLEAN_T eoptval2optval_otp(ErlNifEnv*      env,
-                                    int             eOpt,
-                                    ERL_NIF_TERM    eVal,
-                                    int*            opt,
-                                    SocketOptValue* valP);
-static BOOLEAN_T eoptval2optval_plain(ErlNifEnv*      env,
-                                      int             eOpt,
-                                      ERL_NIF_TERM    eVal,
-                                      int*            opt,
-                                      SocketOptValue* valP);
-static BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
-                                       int             eOpt,
-                                       ERL_NIF_TERM    eVal,
-                                       int*            opt,
-                                       SocketOptValue* valP);
-static BOOLEAN_T eoptval2optval_ip(ErlNifEnv*      env,
-                                   int             eOpt,
-                                   ERL_NIF_TERM    eVal,
-                                   int*            opt,
-                                   SocketOptValue* valP);
-#if defined(SOL_IPV6)
-static BOOLEAN_T eoptval2optval_ipv6(ErlNifEnv*      env,
-                                     int             eOpt,
-                                     ERL_NIF_TERM    eVal,
-                                     int*            opt,
-                                     SocketOptValue* valP);
-#endif
-static BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
-                                    int             eOpt,
-                                    ERL_NIF_TERM    eVal,
-                                    int*            opt,
-                                    SocketOptValue* valP);
-static BOOLEAN_T eoptval2optval_udp(ErlNifEnv*      env,
-                                    int             eOpt,
-                                    ERL_NIF_TERM    eVal,
-                                    int*            opt,
-                                    SocketOptValue* valP);
-#ifdef HAVE_SCTP
-static BOOLEAN_T eoptval2optval_sctp(ErlNifEnv*      env,
-                                     int             eOpt,
-                                     ERL_NIF_TERM    eVal,
-                                     int*            opt,
-                                     SocketOptValue* valP);
-#endif
 #ifdef HAVE_SETNS
 static BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns);
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
@@ -3041,31 +3141,28 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
     SocketDescriptor* descP;
-    unsigned int      eIsEncoded;
-    BOOLEAN_T         isEncoded, isOTP;
     int               eLevel, level = -1;
-    int               eOpt, opt = -1;
+    int               eOpt;
+    ERL_NIF_TERM      eIsEncoded;
     ERL_NIF_TERM      eVal;
-    SocketOptValue    val;
+    BOOLEAN_T         isEncoded, isOTP;
 
     if ((argc != 5) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
-        !GET_UINT(env, argv[1], &eIsEncoded) ||
         !GET_INT(env, argv[2], &eLevel) ||
         !GET_INT(env, argv[3], &eOpt)) {
         return enif_make_badarg(env);
     }
-    eVal = argv[4];
+    eIsEncoded = argv[1];
+    eVal       = argv[4];
 
-    isEncoded = ((eIsEncoded == 0) ? FALSE : TRUE);
+    if (!decode_bool(env, eIsEncoded, &isEncoded))
+        return make_error(env, atom_einval);
 
     if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
         return make_error(env, atom_einval);
 
-    if (!eoptval2optval(env, isEncoded, isOTP, level, eOpt, eVal, &opt, &val))
-        return make_error(env, atom_einval);
-
-    return nsetopt(env, descP, isEncoded, isOTP, level, opt, &val);
+    return nsetopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
 }
 
 
@@ -3075,61 +3172,166 @@ ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
                      BOOLEAN_T         isEncoded,
                      BOOLEAN_T         isOTP,
                      int               level,
-                     int               opt,
-                     SocketOptValue*   valP)
+                     int               eOpt,
+                     ERL_NIF_TERM      eVal)
 {
     ERL_NIF_TERM result;
-    int          res;
 
-    if (!isEncoded) {
-        res = socket_setopt(descP->sock, level, opt,
-                            valP->u.binVal.data, valP->u.binVal.size);
+    if (isOTP) {
+        /* These are not actual socket options,
+         * but options for our implementation.
+         */
+        result = nsetopt_otp(env, descP, eOpt, eVal);
+    } else if (!isEncoded) {
+        result = nsetopt_native(env, descP, level, eOpt, eVal);
+    } else {
+        result = nsetopt_level(env, descP, level, eOpt, eVal);
+    }
+
+    return result;
+}
+
+
+
+/* nsetopt_otp - Handle OTP (level) options
+ */
+static
+ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
+                         SocketDescriptor* descP,
+                         int               eOpt,
+                         ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+    case SOCKET_OPT_OTP_DEBUG:
+        result = nsetopt_otp_debug(env, descP, eVal);
+        break;
+
+    case SOCKET_OPT_OTP_IOW:
+        result = nsetopt_otp_iow(env, descP, eVal);
+        break;
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+/* nsetopt_otp_debug - Handle the OTP (level) debug options
+ */
+static
+ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
+                               SocketDescriptor* descP,
+                               ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    if (decode_bool(env, eVal, &descP->dbg)) {
+        result = atom_ok;
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    return result;
+}
+
+
+/* nsetopt_otp_iow - Handle the OTP (level) iow options
+ */
+static
+ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    if (decode_bool(env, eVal, &descP->iow)) {
+        result = atom_ok;
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    return result;
+}
+
+
+
+/* The option has *not* been encoded. Instead it has been provided
+ * in "native mode" (option is provided as is and value as a binary).
+ */
+static
+ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
+                            SocketDescriptor* descP,
+                            int               level,
+                            int               opt,
+                            ERL_NIF_TERM      eVal)
+{
+    ErlNifBinary val;
+    ERL_NIF_TERM result;
+
+    if (GET_BIN(env, eVal, &val)) {
+        int res = socket_setopt(descP->sock, level, opt,
+                                val.data, val.size);
         if (res != 0)
             result = make_error2(env, res);
         else
             result = atom_ok;
     } else {
-        if (isOTP) {
-            /* These are not actual socket options,
-             * but options for our implementation.
-             */
-            result = nsetopt_otp(env, descP, opt, valP);
-        } else {
-            /* Basically, call setsockopt(...)
-             * <KOLLA>
-             * How do we know what type each option have? tag in value type?
-             * </KOLLA>
-             */
-            result = nsetopt_gen(env, descP, level, opt, valP);
-        }
+        result = make_error(env, atom_einval);
     }
 
     return result;
 }
 
 
+
+/* nsetopt_level - A "proper" level (option) has been specified
+ */
 static
-ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
-                         SocketDescriptor* descP,
-                         int               opt,
-                         SocketOptValue*   valP)
+ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
+                           SocketDescriptor* descP,
+                           int               level,
+                           int               eOpt,
+                           ERL_NIF_TERM      eVal)
 {
     ERL_NIF_TERM result;
 
-    /* Make an idiot check just to be on the safe side... */
-    if (valP->tag == SOCKET_OPT_VALUE_UNDEF)
-        return make_error(env, atom_einval);
-
-    switch (opt) {
-    case SOCKET_OPT_OTP_DEBUG:
-        descP->dbg = valP->u.boolVal;
-        result = atom_ok;
+    switch (level) {
+    case SOL_SOCKET:
+        result = nsetopt_lvl_socket(env, descP, eOpt, eVal);
         break;
 
-    case SOCKET_OPT_OTP_IOW:
-        descP->iow = valP->u.boolVal;
-        result = atom_ok;
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        result = nsetopt_lvl_ip(env, descP, eOpt, eVal);
         break;
+
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        result = nsetopt_lvl_ipv6(env, descP, eOpt, eVal);
+        break;
+#endif
+
+    case IPPROTO_TCP:
+        result = nsetopt_lvl_tcp(env, descP, eOpt, eVal);
+        break;
+
+    case IPPROTO_UDP:
+        result = nsetopt_lvl_udp(env, descP, eOpt, eVal);
+        break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        result = nsetopt_lvl_sctp(env, descP, eOpt, eVal);
+        break;
+#endif
 
     default:
         result = make_error(env, atom_einval);
@@ -3140,73 +3342,629 @@ ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
 }
 
 
+
+/* nsetopt_lvl_socket - Level *SOCKET* option
+ */
 static
-ERL_NIF_TERM nsetopt_gen(ErlNifEnv*        env,
-                         SocketDescriptor* descP,
-                         int               level,
-                         int               opt,
-                         SocketOptValue*   valP)
+ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
+                                SocketDescriptor* descP,
+                                int               eOpt,
+                                ERL_NIF_TERM      eVal)
 {
-    socklen_t    optLen;
-    int          res;
     ERL_NIF_TERM result;
 
-    switch (valP->tag) {
-    case SOCKET_OPT_VALUE_INT:
-        {
-            optLen = sizeof(valP->u.intVal);
-            res    = socket_setopt(descP->sock, level, opt,
-                                   (void*) &valP->u.intVal, optLen);
-            if (res != 0)
-                result = make_error2(env, res);
-            else
-                result = atom_ok;
-        }
+    switch (eOpt) {
+#if defined(SO_BROADCAST)
+    case SOCKET_OPT_SOCK_BROADCAST:
+        result = nsetopt_lvl_sock_broadcast(env, descP, eVal);
         break;
+#endif
 
-    case SOCKET_OPT_VALUE_BIN:
-        {
-            optLen = valP->u.binVal.size;
-            res    = socket_setopt(descP->sock, level, opt,
-                                   &valP->u.binVal.data, optLen);
-            if (res != 0)
-                result = make_error2(env, res);
-            else
-                result = atom_ok;
-        }
+#if defined(SO_DONTROUTE)
+    case SOCKET_OPT_SOCK_DONTROUTE:
+        result = nsetopt_lvl_sock_dontroute(env, descP, eVal);
         break;
+#endif
 
-    case SOCKET_OPT_VALUE_LINGER:
-        {
-            optLen = sizeof(valP->u.lingerVal);
-            res    = socket_setopt(descP->sock, level, opt,
-                                   &valP->u.lingerVal, optLen);
-            if (res != 0)
-                result = make_error2(env, res);
-            else
-                result = atom_ok;
-        }
+#if defined(SO_KEEPALIVE)
+    case SOCKET_OPT_SOCK_KEEPALIVE:
+        result = nsetopt_lvl_sock_keepalive(env, descP, eVal);
         break;
+#endif
 
-    case SOCKET_OPT_VALUE_STR:
-        {
-            optLen = valP->u.strVal.len;
-            res    = socket_setopt(descP->sock, level, opt,
-                                   valP->u.strVal.str, optLen);
-            if (res != 0)
-                result = make_error2(env, res);
-            else
-                result = atom_ok;
-        }
+#if defined(SO_LINGER)
+    case SOCKET_OPT_SOCK_LINGER:
+        result = nsetopt_lvl_sock_linger(env, descP, eVal);
         break;
+#endif
+
+#if defined(SO_PRIORITY)
+    case SOCKET_OPT_SOCK_PRIORITY:
+        result = nsetopt_lvl_sock_priority(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SO_RCVBUF)
+    case SOCKET_OPT_SOCK_RCVBUF:
+        result = nsetopt_lvl_sock_rcvbuf(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SO_REUSEADDR)
+    case SOCKET_OPT_SOCK_REUSEADDR:
+        result = nsetopt_lvl_sock_reuseaddr(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SO_SNDBUF)
+    case SOCKET_OPT_SOCK_SNDBUF:
+        result = nsetopt_lvl_sock_sndbuf(env, descP, eVal);
+        break;
+#endif
 
     default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+#if defined(SO_BROADCAST)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST, eVal);
+}
+#endif
+
+
+#if defined(SO_DONTROUTE)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_DONTROUTE, eVal);
+}
+#endif
+
+
+#if defined(SO_KEEPALIVE)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_KEEPALIVE, eVal);
+}
+#endif
+
+
+#if defined(SO_LINGER)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM  result;
+    struct linger val;
+
+    if (decode_sock_linger(env, eVal, &val)) {
+        int optLen = sizeof(val);
+        int res    = socket_setopt(descP->sock, SOL_SOCKET, SO_LINGER,
+                                   (void*) &val, optLen);
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    return result;
+}
+#endif
+
+
+#if defined(SO_PRIORITY)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY, eVal);
+}
+#endif
+
+
+#if defined(SO_RCVBUF)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVBUF, eVal);
+}
+#endif
+
+
+#if defined(SO_REUSEADDR)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEADDR, eVal);
+}
+#endif
+
+
+#if defined(SO_SNDBUF)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF, eVal);
+}
+#endif
+
+
+
+/* nsetopt_lvl_ip - Level *IP* option(s)
+ */
+static
+ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
+                            SocketDescriptor* descP,
+                            int               eOpt,
+                            ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+#if defined(IP_RECVTOS)
+    case SOCKET_OPT_IP_RECVTOS:
+        result = nsetopt_lvl_ip_recvtos(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_ROUTER_ALERT)
+    case SOCKET_OPT_IP_ROUTER_ALERT:
+        result = nsetopt_lvl_ip_router_alert(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_TOS)
+    case SOCKET_OPT_IP_TOS:
+        result = nsetopt_lvl_ip_tos(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_TTL)
+    case SOCKET_OPT_IP_TTL:
+        result = nsetopt_lvl_ip_ttl(env, descP, eVal);
+        break;
+#endif
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+/* nsetopt_lvl_ip_recvtos - Level IP RECVTOS option
+ */
+#if defined(IP_RECVTOS)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_RECVTOS, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_router_alert - Level IP ROUTER_ALERT option
+ */
+#if defined(IP_ROUTER_ALERT)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IP_ROUTER_ALERT, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_tos - Level IP TOS option
+ */
+#if defined(IP_TOS)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
+                                SocketDescriptor* descP,
+                                ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int          level = SOL_IP;
+#else
+    int          level = IPPROTO_IP;
+#endif
+    ERL_NIF_TERM result;
+    int          val;
+
+    if (decode_ip_tos(env, eVal, &val)) {
+        int res = socket_setopt(descP->sock, level, IP_TOS, &val, sizeof(val));
+
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    return result;
+}
+#endif
+
+
+/* nsetopt_lvl_ip_ttl - Level IP TTL option
+ */
+#if defined(IP_TTL)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
+                                SocketDescriptor* descP,
+                                ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IP_TTL, eVal);
+}
+#endif
+
+
+
+/* nsetopt_lvl_ipv6 - Level *IPv6* option(s)
+ */
+#if defined(SOL_IPV6)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              int               eOpt,
+                              ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+#if defined(IPV6_HOPLIMIT)
+    case SOCKET_OPT_IPV6_HOPLIMIT:
+        result = nsetopt_lvl_ipv6_hoplimit(env, descP, eVal);
+        break;
+#endif
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+#if defined(IPV6_HOPLIMIT)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT, eVal);
+}
+#endif
+
+
+#endif // defined(SOL_IPV6)
+
+
+
+/* nsetopt_lvl_tcp - Level *TCP* option(s)
+ */
+static
+ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               eOpt,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+#if defined(TCP_CONGESTION)
+    case SOCKET_OPT_TCP_CONGESTION:
+        result = nsetopt_lvl_tcp_congestion(env, descP, eVal);
+        break;
+#endif
+
+#if defined(TCP_MAXSEG)
+        case SOCKET_OPT_TCP_MAXSEG:
+            result = nsetopt_lvl_tcp_maxseg(env, descP, eVal);
+            break;
+#endif
+
+#if defined(TCP_NODELAY)
+    case SOCKET_OPT_TCP_NODELAY:
+        result = nsetopt_lvl_tcp_nodelay(env, descP, eVal);
+        break;
+#endif
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+/* nsetopt_lvl_tcp_congestion - Level TCP CONGESTION option
+ */
+#if defined(TCP_CONGESTION)
+static
+ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    int max = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
+
+    return nsetopt_str_opt(env, descP, IPPROTO_TCP, TCP_CONGESTION, max, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_tcp_maxseg - Level TCP MAXSEG option
+ */
+#if defined(TCP_MAXSEG)
+static
+ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, IPPROTO_TCP, TCP_MAXSEG, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_tcp_nodelay - Level TCP NODELAY option
+ */
+#if defined(TCP_NODELAY)
+static
+ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, IPPROTO_TCP, TCP_NODELAY, eVal);
+}
+#endif
+
+
+
+/* nsetopt_lvl_udp - Level *UDP* option(s)
+ */
+static
+ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               eOpt,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+#if defined(UDP_CORK)
+    case SOCKET_OPT_UDP_CORK:
+        result = nsetopt_lvl_udp_cork(env, descP, eVal);
+        break;
+#endif
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+/* nsetopt_lvl_udp_cork - Level UDP CORK option
+ */
+#if defined(UDP_CORK)
+static
+ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*        env,
+                                  SocketDescriptor* descP,
+                                  ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, IPPROTO_UDP, UDP_CORK, eVal);
+}
+#endif
+
+
+
+
+/* nsetopt_lvl_sctp - Level *SCTP* option(s)
+ */
+#if defined(HAVE_SCTP)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              int               eOpt,
+                              ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    switch (eOpt) {
+#if defined(SCTP_AUTOCLOSE)
+    case SOCKET_OPT_SCTP_AUTOCLOSE:
+        result = nsetopt_lvl_sctp_autoclose(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SCTP_NODELAY)
+    case SOCKET_OPT_SCTP_NODELAY:
+        result = nsetopt_lvl_sctp_nodelay(env, descP, eVal);
+        break;
+#endif
+
+    default:
+        result = make_error(env, atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+/* nsetopt_lvl_sctp_autoclose - Level SCTP AUTOCLOSE option
+ */
+#if defined(SCTP_AUTOCLOSE)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_sctp_nodelay - Level SCTP NODELAY option
+ */
+#if defined(SCTP_NODELAY)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
+                                      SocketDescriptor* descP,
+                                      ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_NODELAY, eVal);
+}
+#endif
+
+
+
+#endif // defined(HAVE_SCTP)
+
+
+
+
+/* nsetopt_str_opt - set an option that has an string value
+ */
+static
+ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               level,
+                             int               opt,
+                             int               max,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+    char*        val = MALLOC(max);
+
+    if (GET_STR(env, eVal, val, max) > 0) {
+        int optLen = strlen(val);
+        int res    = socket_setopt(descP->sock, level, opt, &val, optLen);
+
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    FREE(val);
+
+    return result;
+}
+
+
+/* nsetopt_bool_opt - set an option that has an (integer) bool value
+ */
+static
+ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              int               level,
+                              int               opt,
+                              ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+    BOOLEAN_T    val;
+
+    if (decode_bool(env, eVal, &val)) {
+        int ival = (val) ? 1 : 0;
+        int res  = socket_setopt(descP->sock, level, opt, &ival, sizeof(ival));
+
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+
+    } else {
         result = make_error(env, atom_einval);
     }
 
     return result;
 }
 
+
+/* nsetopt_int_opt - set an option that has an integer value
+ */
+static
+ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               level,
+                             int               opt,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+    int          val;
+
+    if (GET_INT(env, eVal, &val)) {
+        int res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
+
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+
+    } else {
+        result = make_error(env, atom_einval);
+    }
+
+    return result;
+}
 
 
 static
@@ -3283,534 +4041,6 @@ BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
 
     return result;
 }
-
-
-static
-BOOLEAN_T eoptval2optval(ErlNifEnv*      env,
-                         BOOLEAN_T       isEncoded,
-                         BOOLEAN_T       isOTP,
-                         int             level,
-                         int             eOpt,
-                         ERL_NIF_TERM    eVal,
-                         int*            opt,
-                         SocketOptValue* valP)
-{
-    if (isOTP) {
-        return eoptval2optval_otp(env, eOpt, eVal, opt, valP);
-    } else if (!isEncoded) {
-        return eoptval2optval_plain(env, eOpt, eVal, opt, valP);
-    } else {
-        switch (level) {
-        case SOL_SOCKET:
-            return eoptval2optval_socket(env, eOpt, eVal, opt, valP);
-            break;
-
-#if defined(SOL_IP)
-        case SOL_IP:
-#else
-        case IPPROTO_IP:
-#endif
-            return eoptval2optval_ip(env, eOpt, eVal, opt, valP);
-            break;
-
-#if defined(SOL_IPV6)
-        case SOL_IPV6:
-            return eoptval2optval_ipv6(env, eOpt, eVal, opt, valP);
-            break;
-#endif
-
-        case IPPROTO_TCP:
-            return eoptval2optval_tcp(env, eOpt, eVal, opt, valP);
-            break;
-
-        case IPPROTO_UDP:
-            return eoptval2optval_udp(env, eOpt, eVal, opt, valP);
-            break;
-
-#ifdef HAVE_SCTP
-        case IPPROTO_SCTP:
-            return eoptval2optval_sctp(env, eOpt, eVal, opt, valP);
-            break;
-#endif
-
-        default:
-            *opt = -1;
-            return FALSE;
-        }
-    }
-}
-
-
-
-static
-BOOLEAN_T eoptval2optval_otp(ErlNifEnv*      env,
-                             int             eOpt,
-                             ERL_NIF_TERM    eVal,
-                             int*            opt,
-                             SocketOptValue* valP)
-{
-    BOOLEAN_T result = FALSE;
-
-    switch (eOpt) {
-        case SOCKET_OPT_OTP_IOW:
-        case SOCKET_OPT_OTP_DEBUG:
-            {
-                if (decode_bool(env, eVal, &valP->u.boolVal)) {
-                    valP->tag = SOCKET_OPT_VALUE_BOOL;
-                    *opt      = eOpt;
-                    result    = TRUE;
-                } else {
-                    valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                    *opt      = -1;
-                    result    = FALSE;
-                }
-            }
-            break;
-
-    default:
-        *opt = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-    }
-
-    return result;
-}
-
-
-static
-BOOLEAN_T eoptval2optval_plain(ErlNifEnv*      env,
-                               int             eOpt,
-                               ERL_NIF_TERM    eVal,
-                               int*            opt,
-                               SocketOptValue* valP)
-{
-    if (!GET_BIN(env, eVal, &valP->u.binVal))
-        return FALSE;
-    valP->tag = SOCKET_OPT_VALUE_BIN;
-    *opt      = eOpt;
-
-    return TRUE;
-}
-
-
-
-static
-BOOLEAN_T eoptval2optval_socket(ErlNifEnv*      env,
-                                int             eOpt,
-                                ERL_NIF_TERM    eVal,
-                                int*            opt,
-                                SocketOptValue* valP)
-{
-    switch (eOpt) {
-#if defined(SO_BROADCAST)
-    case SOCKET_OPT_SOCK_BROADCAST:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                *opt           = SO_BROADCAST;
-                valP->tag      = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(SO_DONTROUTE)
-    case SOCKET_OPT_SOCK_DONTROUTE:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                *opt           = SO_DONTROUTE;
-                valP->tag      = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(SO_KEEPALIVE)
-    case SOCKET_OPT_SOCK_KEEPALIVE:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                *opt           = SO_KEEPALIVE;
-                valP->tag      = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(SO_LINGER)
-    case SOCKET_OPT_SOCK_LINGER:
-        {
-            if (decode_sock_linger(env, eVal, &valP->u.lingerVal)) {
-                *opt      = SO_LINGER;
-                valP->tag = SOCKET_OPT_VALUE_LINGER;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(SO_PRIORITY)
-    case SOCKET_OPT_SOCK_PRIORITY:
-        if (GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = SO_PRIORITY;
-            return TRUE;
-        } else {
-            *opt      = -1;
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            return FALSE;
-        }
-        break;
-#endif
-
-#if defined(SO_RCVBUF)
-    case SOCKET_OPT_SOCK_RCVBUF:
-        if (GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = SO_RCVBUF;
-            return TRUE;
-        } else {
-            *opt      = -1;
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            return FALSE;
-        }
-        break;
-#endif
-
-#if defined(SO_REUSEADDR)
-    case SOCKET_OPT_SOCK_REUSEADDR:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                *opt           = SO_REUSEADDR;
-                valP->tag      = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(SO_SNDBUF)
-    case SOCKET_OPT_SOCK_SNDBUF:
-        if (GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = SO_SNDBUF;
-            return TRUE;
-        } else {
-            *opt      = -1;
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            return FALSE;
-        }
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        return FALSE;
-    }
-}
-
-
-
-static
-BOOLEAN_T eoptval2optval_ip(ErlNifEnv*      env,
-                            int             eOpt,
-                            ERL_NIF_TERM    eVal,
-                            int*            opt,
-                            SocketOptValue* valP)
-{
-    switch (eOpt) {
-#if defined(IP_RECVTOS)
-    case SOCKET_OPT_IP_RECVTOS:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                *opt           = IP_RECVTOS;
-                valP->tag      = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return TRUE;
-            }
-        }
-        break;
-#endif
-
-#if defined(IP_ROUTER_ALERT)
-    case SOCKET_OPT_IP_ROUTER_ALERT:
-        if (GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = IP_ROUTER_ALERT;
-            return TRUE;
-        } else {
-            *opt      = -1;
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            return FALSE;
-        }
-        break;
-#endif
-
-#if defined(IP_TOS)
-    case SOCKET_OPT_IP_TOS:
-        {
-            if (decode_ip_tos(env, eVal, &valP->u.intVal)) {
-                valP->tag = SOCKET_OPT_VALUE_INT;
-                *opt      = IP_TOS;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(IP_TTL)
-    case SOCKET_OPT_IP_TTL:
-        /* <KOLLA>
-         * Should we care about the value? That is, if it is valid?
-         * And what is the valid range anyway for ttl? 0 - 255?
-         * </KOLLA>
-         */
-        if (!GET_INT(env, eVal, &valP->u.intVal))
-            return FALSE; // PLACEHOLDER - We should really be more informative
-        valP->tag = SOCKET_OPT_VALUE_INT;
-        *opt      = IP_TTL;
-        return TRUE;
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        return FALSE;
-    }
-
-}
-
-
-
-#if defined(SOL_IPV6)
-static
-BOOLEAN_T eoptval2optval_ipv6(ErlNifEnv*      env,
-                              int             eOpt,
-                              ERL_NIF_TERM    eVal,
-                              int*            opt,
-                              SocketOptValue* valP)
-{
-    BOOLEAN_T result = FALSE;
-
-    switch (eOpt) {
-#if defined(IPV6_HOPLIMIT)
-    case SOCKET_OPT_IPV6_HOPLIMIT:
-        {
-            BOOLEAN_T val;
-
-            if (decode_bool(env, eVal, &val)) {
-                valP->tag = SOCKET_OPT_VALUE_INT;
-                valP->u.intVal = (val) ? 1 : 0;
-                *opt   = IPV6_HOPLIMIT;
-                result = TRUE;
-            } else {
-                *opt   = -1;
-                result = FALSE;
-            }
-        }
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        result    = FALSE;
-        break;
-    }
-
-    return result;
-}
-#endif
-
-
-
-static
-BOOLEAN_T eoptval2optval_tcp(ErlNifEnv*      env,
-                             int             eOpt,
-                             ERL_NIF_TERM    eVal,
-                             int*            opt,
-                             SocketOptValue* valP)
-{
-    switch (eOpt) {
-#if defined(TCP_CONGESTION)
-    case SOCKET_OPT_TCP_CONGESTION:
-        {
-            valP->u.strVal.len = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
-            valP->u.strVal.str = MALLOC(valP->u.strVal.len);
-
-            if (GET_STR(env, eVal, valP->u.strVal.str, valP->u.strVal.len) > 0) {
-                valP->tag = SOCKET_OPT_VALUE_STR;
-                *opt      = TCP_CONGESTION;
-                return TRUE;
-            } else {
-                FREE(valP->u.strVal.str);
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-        }
-        break;
-#endif
-
-#if defined(TCP_MAXSEG)
-        case SOCKET_OPT_TCP_MAXSEG:
-            if (!GET_INT(env, eVal, &valP->u.intVal)) {
-                valP->tag = SOCKET_OPT_VALUE_INT;
-                *opt      = TCP_MAXSEG;
-                return TRUE;
-            } else {
-                *opt      = -1;
-                valP->tag = SOCKET_OPT_VALUE_UNDEF;
-                return FALSE;
-            }
-            break;
-#endif
-
-#if defined(TCP_NODELAY)
-    case SOCKET_OPT_TCP_NODELAY:
-        if (decode_bool(env, eVal, &valP->u.boolVal)) {
-            valP->tag = SOCKET_OPT_VALUE_BOOL;
-            *opt      = TCP_NODELAY;
-            return TRUE;
-        } else {
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            *opt      = -1;
-            return FALSE;
-        }
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        return FALSE;
-    }
-}
-
-
-
-/* +++ decode UDP socket options +++
- * Currently there are only one option, cork, and that may only
- * work on linux...
- */
-static
-BOOLEAN_T eoptval2optval_udp(ErlNifEnv*      env,
-                             int             eOpt,
-                             ERL_NIF_TERM    eVal,
-                             int*            opt,
-                             SocketOptValue* valP)
-{
-    switch (eOpt) {
-#if defined(UDP_CORK)
-    case SOCKET_OPT_UDP_CORK:
-        if (decode_bool(env, eVal, &valP->u.boolVal)) {
-            valP->tag = SOCKET_OPT_VALUE_BOOL;
-            *opt      = UDP_CORK;
-            return TRUE;
-        } else {
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            *opt      = -1;
-            return FALSE;
-        }
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        return FALSE;
-    }
-}
-
-
-
-#ifdef HAVE_SCTP
-static
-BOOLEAN_T eoptval2optval_sctp(ErlNifEnv*      env,
-                              int             eOpt,
-                              ERL_NIF_TERM    eVal,
-                              int*            opt,
-                              SocketOptValue* valP)
-{
-    switch (eOpt) {
-#if defined(SCTP_AUTOCLOSE)
-    case SOCKET_OPT_SCTP_AUTOCLOSE:
-        if (GET_INT(env, eVal, &valP->u.intVal)) {
-            valP->tag = SOCKET_OPT_VALUE_INT;
-            *opt      = SCTP_AUTOCLOSE;
-            return TRUE;
-        } else {
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            *opt      = -1;
-            return FALSE; // PLACEHOLDER - We should really be more informative
-        }
-        break;
-#endif
-
-#if defined(SCTP_NODELAY)
-    case SOCKET_OPT_SCTP_NODELAY:
-        if (decode_bool(env, eVal, &valP->u.boolVal)) {
-            valP->tag = SOCKET_OPT_VALUE_BOOL;
-            *opt      = SCTP_NODELAY;
-            return TRUE;
-        } else {
-            valP->tag = SOCKET_OPT_VALUE_UNDEF;
-            *opt      = -1;
-            return FALSE;
-        }
-        break;
-#endif
-
-    default:
-        *opt      = -1;
-        valP->tag = SOCKET_OPT_VALUE_UNDEF;
-        return FALSE;
-    }
-}
-#endif
 
 
 
