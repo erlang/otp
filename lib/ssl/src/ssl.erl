@@ -87,6 +87,7 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
+
 -spec connect(host() | port(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
 -spec connect(host() | port(), [connect_option()] | inet:port_number(),
