@@ -32,6 +32,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
+-include_lib("kernel/include/logger.hrl").
 
 %% Internal application API
 
@@ -1125,7 +1126,7 @@ is_ignore_alert(_) ->
 
 log_ignore_alert(true, StateName, Alert, Role) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:format("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n", 
-                        [Role, StateName, Txt]);
+    ?LOG_ERROR("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n",
+                 [Role, StateName, Txt]);
 log_ignore_alert(false, _, _,_) ->
     ok.

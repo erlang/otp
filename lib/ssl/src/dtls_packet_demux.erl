@@ -24,6 +24,7 @@
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 -export([start_link/5, active_once/3, accept/2, sockname/1, close/1,
@@ -146,11 +147,11 @@ handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket
 %% appears to make things work as expected! 
 handle_info({Error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
-    error_logger:info_report(Report),
+    ?LOG_NOTICE(Report),
     {noreply, State};
 handle_info({Error, Socket, Error}, #state{listener = Socket, transport = {_,_,_, Error}} = State) ->
     Report = io_lib:format("SSL Packet muliplxer shutdown: Socket error: ~p ~n", [Error]),
-    error_logger:info_report(Report),
+    ?LOG_NOTICE(Report),
     {noreply, State#state{close=true}};
 
 handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,

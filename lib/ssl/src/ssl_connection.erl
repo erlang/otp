@@ -35,6 +35,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Setup
 
@@ -1339,7 +1340,7 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
 							  error_tag = ErrorTag} = State)  ->
     Report = io_lib:format("SSL: Socket error: ~p ~n", [Reason]),
-    error_logger:error_report(Report),
+    ?LOG_ERROR(Report),
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     stop(normal, State);
 
@@ -1388,7 +1389,7 @@ handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
 
 handle_info(Msg, StateName, #state{socket = Socket, error_tag = Tag} = State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [{Msg, Tag, Socket}]),
-    error_logger:info_report(Report),
+    ?LOG_NOTICE(Report),
     {next_state, StateName, State}.
 
 %%====================================================================
@@ -2741,10 +2742,10 @@ alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Connectio
 
 log_alert(true, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
     Txt = ssl_alert:own_alert_txt(Alert),
-    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+    ?LOG_NOTICE(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
 log_alert(true, Role, ProtocolName, StateName, Alert) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+    ?LOG_NOTICE(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
 log_alert(false, _, _, _, _) ->
     ok.
 
