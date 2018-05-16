@@ -570,7 +570,7 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
-		-DNO_FPE_SIGNALS=$(if $filter(unreliable,$(FPE)),1,0) \
+		-DNO_FPE_SIGNALS=$(if $(filter unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
