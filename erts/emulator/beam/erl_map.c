@@ -3058,7 +3058,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         Uint path_length = 0;
         Uint *path_rest = NULL;
         int i, elems, orig_elems;
-        Eterm node = map, res, *path_ptr = NULL, *hp;
+        Eterm node = map, res, *patch_ptr = NULL, *hp;
 
         /* A stack WSTACK is used when traversing the hashmap.
          * It contains: node, idx, sz, ptr
@@ -3117,13 +3117,21 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         }
 
         if (type == iterator) {
-            /* iterator uses the format {K, V, {K, V, {K, V, [Path | Map]}}},
-             * so each element is 4 words large */
+            /*
+             * Iterator uses the format {K1, V1, {K2, V2, {K3, V3, [Path | Map]}}},
+             * so each element is 4 words large.
+             * To make iteration order independent of input reductions
+             * the KV-pairs are here built in DESTRUCTIVE non-reverse order.
+             */
             hp = HAlloc(BIF_P, 4 * elems);
-            res = am_none;
         } else {
-            /* list used the format [Path, Map, {K,V}, {K,V} | BIF_ARG_3],
-             * so each element is 2+3 words large */
+            /*
+             * List used the format [Path, Map, {K3,V3}, {K2,V2}, {K1,V1} | BIF_ARG_3],
+             * so each element is 2+3 words large.
+             * To make list order independent of input reductions
+             * the KV-pairs are here built in FUNCTIONAL reverse order
+             * as this is how the list as a whole is constructed.
+             */
             hp = HAlloc(BIF_P, (2 + 3) * elems);
             res = BIF_ARG_3;
         }
@@ -3149,9 +3157,9 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
             if (is_list(ptr[PATH_ELEM(curr_path)])) {
                 Eterm *lst = list_val(ptr[PATH_ELEM(curr_path)]);
                 if (type == iterator) {
-                    res = TUPLE3(hp, CAR(lst), CDR(lst), res); hp += 4;
-                    /* Note where we should patch the Iterator is needed */
-                    path_ptr = hp-1;
+                    res = TUPLE3(hp, CAR(lst), CDR(lst), make_tuple(hp+4));
+                    hp += 4;
+                    patch_ptr = hp-1;
                 } else {
                     Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
                     res = CONS(hp, tup, res); hp += 2;
@@ -3188,7 +3196,8 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
             while (idx < sz && elems != 0 && is_list(ptr[idx])) {
                 Eterm *lst = list_val(ptr[idx]);
                 if (type == iterator) {
-                    res = TUPLE3(hp, CAR(lst), CDR(lst), res); hp += 4;
+                    (void) TUPLE3(hp, CAR(lst), CDR(lst), make_tuple(hp+4)); hp += 4;
+                    patch_ptr = hp-1;
                 } else {
                     Eterm tup = TUPLE2(hp, CAR(lst), CDR(lst)); hp += 3;
                     res = CONS(hp, tup, res); hp += 2;
@@ -3286,7 +3295,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
             if (type == iterator) {
                 hp = HAlloc(BIF_P, 2);
-                *path_ptr = CONS(hp, path, map); hp += 2;
+                *patch_ptr = CONS(hp, path, map); hp += 2;
             } else {
                 hp = HAlloc(BIF_P, 4);
                 res = CONS(hp, map, res); hp += 2;
@@ -3294,6 +3303,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
             }
         } else {
             if (type == iterator) {
+                *patch_ptr = am_none;
                 HRelease(BIF_P, hp + 4 * elems, hp);
             } else {
                 HRelease(BIF_P, hp + (2+3) * elems, hp);
