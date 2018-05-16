@@ -246,15 +246,28 @@
  *
  *              --- ERTS_MON_TYPE_SUSPEND -------------------------------------
  *
- *              Suspend monitor.
+ *              Suspend monitor. A local process (origin) suspends another
+ *              local process (target).
  *
- *              Other Item:         Suspendee process identifier
- *              Key:                Suspendee process identifier
+ *              Origin:
+ *                      Other Item:     Process identifier of suspendee
+ *                                      (target)
+ *                      Key:            Process identifier of suspendee
+ *                                      (target)
+ *              Target:
+ *                      Other Item:     Process identifier of suspender
+ *                                      (origin)
+ *                      Key:            Process identifier of suspender
+ *                                      (origin)
+ *              Shared:
+ *                      Next:           Pointer to another suspend monitor
+ *                      State:          Number of suspends and a flag
+ *                                      indicating if the suspend is
+ *                                      active or not.
  *
- *              Valid keys are only ordinary internal references.
- *
- *              This type of monitor is a bit strange and the whole process
- *              suspend functionality should be improved...
+ *              Origin part of the monitor is stored in the monitor tree of
+ *              origin process and target part of the monitor is stored in
+ *              monitor list for local targets on the target process.
  *
  *
  *
@@ -638,11 +651,15 @@ struct ErtsMonitorDataExtended__ {
     Eterm heap[1]; /* heap start... */
 };
 
-typedef struct {
-    ErtsMonitor mon;
-    int pending;
-    int active;
-} ErtsMonitorSuspend;
+typedef struct ErtsMonitorSuspend__ ErtsMonitorSuspend;
+
+struct ErtsMonitorSuspend__ {
+    ErtsMonitorData md; /* origin = suspender; target = suspendee */
+    ErtsMonitorSuspend *next;
+    erts_atomic_t state;
+};
+#define ERTS_MSUSPEND_STATE_FLG_ACTIVE ((erts_aint_t) (((Uint) 1) << (sizeof(Uint)*8 - 1)))
+#define ERTS_MSUSPEND_STATE_COUNTER_MASK (~ERTS_MSUSPEND_STATE_FLG_ACTIVE)
 
 /* 
  * --- Monitor tree operations ---
@@ -1094,30 +1111,35 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  *
  * @brief Create a monitor
  *
- * Can create all types of monitors exept for suspend monitors
+ * Can create all types of monitors
  *
  * When the funcion is called it is assumed that:
  * - 'ref' is an internal ordinary reference if type is ERTS_MON_TYPE_PROC,
  *   ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
- * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE or ERTS_MON_TYPE_NODES
+ * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE, ERTS_MON_TYPE_NODES, or
+ *   ERTS_MON_TYPE_SUSPEND
  * - 'ref' is and ordinary internal reference or an external reference if
  *   type is ERTS_MON_TYPE_DIST_PROC
  * - 'name' is an atom or NIL if type is ERTS_MON_TYPE_PROC,
  *   ERTS_MON_TYPE_PORT, or ERTS_MON_TYPE_DIST_PROC
  * - 'name is NIL if type is ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_RESOURCE,
- *   ERTS_MON_TYPE_NODE, or ERTS_MON_TYPE_NODES
+ *   ERTS_MON_TYPE_NODE, ERTS_MON_TYPE_NODES, or ERTS_MON_TYPE_SUSPEND
  * If the above is not true, bad things will happen.
  *
  * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
  *                              ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_DIST_PROC,
  *                              ERTS_MON_TYPE_RESOURCE, ERTS_MON_TYPE_NODE,
- *                              or ERTS_MON_TYPE_NODES
+ *                              ERTS_MON_TYPE_NODES, or ERTS_MON_TYPE_SUSPEND
  *
  * @param[in]     ref           A reference or NIL depending on type
  *
  * @param[in]     origin        The key of the origin
  *
  * @param[in]     target        The key of the target
+ *
+ * @param[in]     name          An atom (the name) or NIL depending on type
+ *
+ * @returns                     A pointer to monitor data structure
  *
  */
 ErtsMonitorData *erts_monitor_create(Uint16 type, Eterm ref, Eterm origin,
@@ -1347,7 +1369,8 @@ erts_monitor_to_data(ErtsMonitor *mon)
     ERTS_ML_ASSERT(erts_monitor_origin_offset == (size_t) mdp->origin.offset);
     ERTS_ML_ASSERT(!!(mdp->target.flags & ERTS_ML_FLG_TARGET));
     ERTS_ML_ASSERT(erts_monitor_target_offset == (size_t) mdp->target.offset);
-    if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES) {
+    if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES
+        || mon->type == ERTS_MON_TYPE_SUSPEND) {
         ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->origin.key_offset);
         ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->target.key_offset);
     }

@@ -1232,6 +1232,142 @@ end
 # Commands for special term bunches.
 #
 
+define etp-sig-int
+  set $etp_sig_is_message = 0
+  set $etp_sig_tag = ($arg0)->m[0]
+  if ($etp_sig_tag & 0x3) != 0 || $etp_sig_tag == etp_the_non_value
+    set $etp_sig_is_message = !0
+    # A message
+    if $etp_sig_tag != etp_the_non_value
+      etp-1 $etp_sig_tag 0
+    else
+      print "!ENCODED-DIST-MSG"
+    end
+    if ($arg0)->m[1] != $etp_nil
+      printf " @token= "
+      etp-1 ($arg0)->m[1] 0
+    end
+    printf " @from= "
+    etp-1 ($arg0)->m[2] 0
+  else
+    if ($etp_sig_tag & 0x3f) != 0x30
+      print "!INVALID-SIGNAL"
+    else
+      set $etp_sig_op = (($etp_sig_tag >> 6) & 0xff)
+      set $etp_sig_type = (($etp_sig_tag >> 14) & 0xff)
+      if $etp_sig_op == 0
+	printf "!EXIT[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 1
+	printf "!EXIT-LINKED[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 2
+	printf "!MONITOR-DOWN[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 3
+	printf "!MONITOR[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 4
+	printf "!DEMONITOR[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 5
+	printf "!LINK[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 6
+	printf "!UNLINK[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 7
+	printf "!GROUP-LEADER[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 8
+	printf "!TRACE-CHANGE-STATE[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 9
+	printf "!PERSISTENT-MONITOR-MESSAGE[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 10
+	printf "!IS-ALIVE[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 11
+	printf "!PROCESS-INFO[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 12
+	printf "!SYNC-SUSPEND[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 13
+	printf "!RPC[%d]", $etp_sig_type
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+      end
+    end
+  end
+end
+
+
+define etp-sigq-int
+# Args: ErlMessageQueue*
+#
+# Non-reentrant
+#
+  set $etp_sig = ($arg0)
+  set $etp_sig_save = ($arg1)
+  set $etp_sig_save_last = ($arg2)
+  set $etp_sigq_msig_len = 0
+  set $etp_sigq_nmsig_len = 0
+
+  printf "    ["
+  while $etp_sig != (void *) 0
+    set $etp_sig_next = $etp_sig->next
+    if $etp_sig != ($arg0)
+      printf "     "
+    end
+    etp-sig-int $etp_sig
+    if $etp_sig_is_message
+      set $etp_sigq_msig_len++
+    else
+      set $etp_sigq_nmsig_len++
+    end
+    if $etp_sig_next
+      printf ","
+    end
+    if $etp_sig_save && *$etp_sig_save == $etp_sig
+      printf " %% <== SAVE"
+    else
+      if $etp_sig_save_last && *$etp_sig_save_last == $etp_sig
+	printf " %% <== SAVED_LAST"
+      else
+      end
+    end
+    if $etp_sig_next
+      printf "\n"
+    end
+    set $etp_sig = $etp_sig_next
+  end
+  printf "]\n\n"
+  printf "    Message signals: %d\n", $etp_sigq_msig_len
+  printf "    Non-message signals: %d\n\n", $etp_sigq_nmsig_len
+end
+
+define etp-sigqs
+  printf "  --- Inner signal queue (message queue) ---\n"
+  etp-sigq-int ($arg0)->sig_qs.first ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+  printf "  --- Middle signal queue ---\n"
+  etp-sigq-int ($arg0)->sig_qs.cont ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+  printf "  --- Outer queue ---\n"
+  etp-sigq-int ($arg0)->sig_inq.first ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+end
+
 define etp-msgq
 # Args: ErlMessageQueue*
 #
@@ -1937,7 +2073,7 @@ document etp-proc-flags
 %---------------------------------------------------------------------------
 end
 
-define etp-process-info
+define etp-process-info-int
 # Args: Process*
 #
   printf "  Pid: "
@@ -2000,6 +2136,17 @@ define etp-process-info
   etp-1 ((Eterm)($etp_proc->parent))
   printf "\n  Pointer: (Process *) %p\n", $etp_proc
   end
+  if ($arg1)
+    etp-sigqs $etp_proc
+  end
+end
+
+define etp-process-info
+  etp-process-info-int ($arg0) 0
+end
+
+define etp-process-info-x
+  etp-process-info-int ($arg0) !0
 end
 
 document etp-process-info
@@ -2010,7 +2157,7 @@ document etp-process-info
 %---------------------------------------------------------------------------
 end
 
-define etp-processes
+define etp-processes-int
   if (!erts_initialized)
     printf "No processes, since system isn't initialized!\n"
   else
@@ -2026,7 +2173,7 @@ define etp-processes
       if ($proc != ((Process *) 0) && $proc != $invalid_proc)
         printf "---\n"
         printf "  Pix: %d\n", $proc_ix
-        etp-process-info $proc
+        etp-process-info-int $proc ($arg0)
         set $proc_cnt--
       end
       if $proc_ix == $proc_printile
@@ -2037,6 +2184,14 @@ define etp-processes
     end
     printf "---\n",
   end
+end
+
+define etp-processes
+  etp-processes-int 0
+end
+
+define etp-processes-x
+  etp-processes-int !0
 end
 
 document etp-processes

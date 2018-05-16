@@ -623,7 +623,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
 
     Expect(Pid1, State1, Opts),
     receive M11 -> ct:fail({unexpected, M11}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [TraceFlag]} = erlang:trace_info(Pid1, flags),
             {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1, tracer),
             erlang:trace(Pid1, false, [TraceFlag]);
@@ -640,7 +640,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     Expect(Pid1T, State1, Opts#{ scheduler_id => number,
                                  timestamp => timestamp}),
     receive M11T -> ct:fail({unexpected, M11T}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [scheduler_id, TraceFlag, timestamp]}
                 = erlang:trace_info(Pid1T, flags),
             {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1T, tracer),
@@ -655,7 +655,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     Tc(Pid2),
     ok = trace_delivered(Pid2),
     receive M2 -> ct:fail({unexpected, M2}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [TraceFlag]} = erlang:trace_info(Pid2, flags),
             {tracer, {tracer_test, State2}} = erlang:trace_info(Pid2, tracer),
             erlang:trace(Pid2, false, [TraceFlag]);

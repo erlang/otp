@@ -144,8 +144,8 @@ BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1)
     else {
 	int tres = erts_set_proc_timer_term(p, timeout_value);
 	if (tres != 0) { /* Wrong time */
-	    if (p->hipe_smp.have_receive_locks) {
-		p->hipe_smp.have_receive_locks = 0;
+	    if (p->flags & F_HIPE_RECV_LOCKED) {
+                p->flags &= ~F_HIPE_RECV_LOCKED;
 		erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    }
 	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
@@ -549,19 +549,14 @@ Eterm hipe_check_get_msg(Process *c_p)
         c_p->i = NULL;
         c_p->arity = 0;
         c_p->current = NULL;
-        (void) erts_proc_sig_receive_helper(c_p, CONTEXT_REDS, 0,
+        (void) erts_proc_sig_receive_helper(c_p, CONTEXT_REDS/4, 0,
                                             &msgp, &get_out);
         /* FIXME: Need to bump reductions... */
         if (!msgp) {
             if (get_out) {
-                if (get_out < 0) {
-                    /*
-                     * FIXME: We should get out yielding
-                     * here...
-                     */
-                    goto next_message;
-                }
-                /* Go exit... */
+                if (get_out < 0)
+                    c_p->flags |= F_HIPE_RECV_YIELD; /* yield... */
+                /* else: go exit... */
                 return THE_NON_VALUE;
             }
 
@@ -573,7 +568,7 @@ Eterm hipe_check_get_msg(Process *c_p)
              */
 
             /* XXX: BEAM doesn't need this */
-            c_p->hipe_smp.have_receive_locks = 1;
+            c_p->flags |= F_HIPE_RECV_LOCKED;
             c_p->flags &= ~F_DELAY_GC;
             return THE_NON_VALUE;
         }
@@ -618,8 +613,8 @@ void hipe_clear_timeout(Process *c_p)
      */
     /* XXX: BEAM has different entries for the locked and unlocked
        cases. HiPE doesn't, so we must check dynamically. */
-    if (c_p->hipe_smp.have_receive_locks) {
-	c_p->hipe_smp.have_receive_locks = 0;
+    if (c_p->flags & F_HIPE_RECV_LOCKED) {
+	c_p->flags &= ~F_HIPE_RECV_LOCKED;
 	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
     }
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {

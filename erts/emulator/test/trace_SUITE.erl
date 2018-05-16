@@ -29,7 +29,7 @@
          receive_trace/1, link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
-	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
+	 suspend/1, suspend_exit/1, suspender_exit/1,
 	 suspend_system_limit/1, suspend_opts/1, suspend_waiting/1,
 	 new_clear/1, existing_clear/1, tracer_die/1,
 	 set_on_spawn/1, set_on_first_spawn/1, cpu_timestamp/1,
@@ -53,7 +53,7 @@ all() ->
     [cpu_timestamp, receive_trace, link_receive_call_correlation,
      self_send, timeout_trace,
      send_trace, procs_trace, dist_procs_trace, suspend,
-     mutual_suspend, suspend_exit, suspender_exit,
+     suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
      new_clear, existing_clear, tracer_die, set_on_spawn,
      set_on_first_spawn, set_on_link, set_on_first_link,
@@ -1234,55 +1234,6 @@ do_suspend(Pid, N) ->
     erlang:yield(),
     do_suspend(Pid, N-1).
 
-
-
-mutual_suspend(Config) when is_list(Config) ->
-    TimeoutSecs = 5*60,
-    ct:timetrap({seconds, TimeoutSecs}),
-    Parent = self(),
-    Fun = fun () ->
-                  receive
-                      {go, Pid} ->
-                          do_mutual_suspend(Pid, 100000)
-                  end,
-                  Parent ! {done, self()},
-                  receive after infinity -> ok end
-          end,
-    P1 = spawn_link(Fun),
-    P2 = spawn_link(Fun),
-    T1 = erlang:start_timer((TimeoutSecs - 5)*1000, self(), oops),
-    T2 = erlang:start_timer((TimeoutSecs - 5)*1000, self(), oops),
-    P1 ! {go, P2},
-    P2 ! {go, P1},
-    Res1 = receive
-               {done, P1} -> done;
-               {timeout,T1,_} -> timeout
-           end,
-    Res2 = receive
-               {done, P2} -> done;
-               {timeout,T2,_} -> timeout
-           end,
-    P1S = process_info(P1, status),
-    P2S = process_info(P2, status),
-    io:format("P1S=~p P2S=~p", [P1S, P2S]),
-    false = {status, suspended} == P1S,
-    false = {status, suspended} == P2S,
-    unlink(P1), exit(P1, bang),
-    unlink(P2), exit(P2, bang),
-    done = Res1,
-    done = Res2,
-    ok.
-
-do_mutual_suspend(_Pid, 0) ->
-    ok;
-do_mutual_suspend(Pid, N) ->
-    %% Suspend a process and test that it is suspended.
-    true = erlang:suspend_process(Pid),
-    {status, suspended} = process_info(Pid, status),
-    %% Unsuspend the process.
-    true = erlang:resume_process(Pid),
-    do_mutual_suspend(Pid, N-1).		
-
 suspend_exit(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     rand:seed(exsplus, {4711,17,4711}),
@@ -1513,7 +1464,8 @@ suspend_opts(Config) when is_list(Config) ->
                              dbl_async = AA,
                              synced = S,
                              async_once = AO} = Acc) ->
-                 erlang:suspend_process(Tok, [asynchronous]),
+                 Tag = {make_ref(), self()},
+                 erlang:suspend_process(Tok, [{asynchronous, Tag}]),
                  Res = case {suspend_count(Tok), N rem 4} of
                            {0, 2} ->
                                erlang:suspend_process(Tok,
@@ -1549,7 +1501,11 @@ suspend_opts(Config) when is_list(Config) ->
                            _ ->
                                Acc
                        end,
-                 erlang:resume_process(Tok),
+                 receive
+                     {Tag, Result} ->
+                         suspended = Result,
+                         erlang:resume_process(Tok)
+                 end,
                  erlang:yield(),
                  Res
          end,

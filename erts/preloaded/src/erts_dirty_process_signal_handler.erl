@@ -50,10 +50,12 @@ handle_request(Pid) when is_pid(Pid) ->
     handle_incoming_signals(Pid, 0);
 handle_request({Requester, Target, Prio,
                 {SysTaskOp, ReqId, Arg} = Op} = Request) ->
-    case handle_sys_task(Requester, Target, SysTaskOp, ReqId, Arg) of
-        true ->
+    case handle_sys_task(Requester, Target, SysTaskOp, ReqId, Arg, 0) of
+        done ->
             ok;
-        false ->
+        busy ->
+            self() ! Request;
+        normal ->
             %% Target has stopped executing dirty since the
             %% initial request was made. Dispatch the
             %% request to target and let it handle it itself...
@@ -83,15 +85,19 @@ handle_incoming_signals(Pid, N) ->
         _Res -> ok
     end.
 
-handle_sys_task(Requester, Target, check_process_code, ReqId, Module) ->
-    case erts_internal:is_process_executing_dirty(Target) of
-        false ->
-            false;
-        true ->
-            _ = check_process(Requester, Target, ReqId, Module),
-            true
+handle_sys_task(Requester, Target, check_process_code, ReqId, Module, N) ->
+    case erts_internal:check_dirty_process_code(Target, Module) of
+        Bool when Bool == true; Bool == false ->
+            Requester ! {check_process_code, ReqId, Bool},
+            done;
+        busy ->
+            case N > 5 of
+                true ->
+                    busy;
+                false ->
+                    handle_sys_task(Requester, Target, check_process_code,
+                                    ReqId, Module, N+1)
+            end;
+        Res ->
+            Res
     end.
-
-check_process(Requester, Target, ReqId, Module) ->
-    Result = erts_internal:check_dirty_process_code(Target, Module),
-    Requester ! {check_process_code, ReqId, Result}.

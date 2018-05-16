@@ -1364,13 +1364,14 @@ BIF_RETTYPE exit_signal_2(BIF_ALIST_2)
 
 
 /* Handle flags common to both process_flag_2 and process_flag_3. */
-static BIF_RETTYPE process_flag_aux(Process *BIF_P,
-				    Process *rp,
-				    Eterm flag,
-				    Eterm val)
+static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
 {
    Eterm old_value = NIL;	/* shut up warning about use before set */
    Sint i;
+
+   if (redsp)
+       *redsp = 1;
+
    if (flag == am_save_calls) {
        struct saved_calls *scb;
        if (!is_small(val))
@@ -1390,30 +1391,89 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
        }
 
 #ifdef HIPE
-       if (rp->flags & F_HIPE_MODE) {
-	   ASSERT(!ERTS_PROC_GET_SAVED_CALLS_BUF(rp));
-	   scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(rp, scb);
+       if (c_p->flags & F_HIPE_MODE) {
+	   ASSERT(!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p));
+	   scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(c_p, scb);
        }
        else
 #endif
        {
 #ifdef HIPE
-	   ASSERT(!ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(rp));
+	   ASSERT(!ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(c_p));
 #endif
-	   scb = ERTS_PROC_SET_SAVED_CALLS_BUF(rp, scb);
-	   if (rp == BIF_P && ((scb && i == 0) || (!scb && i != 0))) {
-	       /* Adjust fcalls to match save calls setting... */
-	       if (i == 0)
-		   BIF_P->fcalls += CONTEXT_REDS; /* disabled it */
-	       else
-		   BIF_P->fcalls -= CONTEXT_REDS; /* enabled it */
+	   scb = ERTS_PROC_SET_SAVED_CALLS_BUF(c_p, scb);
 
-	       /*
-		* Make sure we reschedule immediately so the
-		* change take effect at once.
-		*/
-	       ERTS_VBUMP_ALL_REDS(BIF_P);
-	   }
+	   if (((scb && i == 0) || (!scb && i != 0))) {
+
+               /*
+                * Make sure we reschedule immediately so the
+                * change take effect at once.
+                */
+               if (!redsp) {
+                   /* Executed via BIF call.. */
+               via_bif:
+
+                   /* Adjust fcalls to match save calls setting... */
+                   if (i == 0)
+                       c_p->fcalls += CONTEXT_REDS; /* disabled it */
+                   else
+                       c_p->fcalls -= CONTEXT_REDS; /* enabled it */
+
+                   ERTS_VBUMP_ALL_REDS(c_p);
+               }
+               else {
+                   erts_aint32_t state;
+                   /*
+                    * Executed via signal handler. Try to figure
+                    * out in what context we are executing...
+                    */
+
+                   state = erts_atomic32_read_nob(&c_p->state);
+                   if (state & (ERTS_PSFLG_RUNNING_SYS
+                                | ERTS_PSFLG_DIRTY_RUNNING_SYS
+                                | ERTS_PSFLG_DIRTY_RUNNING)) {
+                       /*
+                        * We are either processing signals before
+                        * being executed or executing dirty. That
+                        * is, no need to adjust anything...
+                        */
+                       *redsp = 1;
+                   }
+                   else {
+                       ErtsSchedulerData *esdp;
+                       ASSERT(state & ERTS_PSFLG_RUNNING);
+
+                       /*
+                        * F_DELAY_GC is currently only set when
+                        * we handle signals in state running via
+                        * receive helper...
+                        */
+
+                       if (!(c_p->flags & F_DELAY_GC)) {
+                           *redsp = 1;
+                           goto via_bif;
+                       }
+
+                       /*
+                        * Executing via receive helper...
+                        *
+                        * We utilize the virtual reds counter
+                        * in order to get correct calculation
+                        * of reductions consumed when scheduling
+                        * out the process...
+                        */
+
+                       esdp = erts_get_scheduler_data();
+
+                       if (i == 0)
+                           esdp->virtual_reds += CONTEXT_REDS; /* disabled it */
+                       else
+                           esdp->virtual_reds -= CONTEXT_REDS; /* enabled it */
+
+                       *redsp = -1;
+                   }
+               }
+           }
        }
 
        if (!scb)
@@ -1423,11 +1483,12 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
 	   erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
        }
 
-       BIF_RET(old_value);
+       ASSERT(is_immed(old_value));
+       return old_value;
    }
 
  error:
-   BIF_ERROR(BIF_P, BADARG);
+   return am_badarg;
 }
 
 BIF_RETTYPE process_flag_2(BIF_ALIST_2)
@@ -1596,29 +1657,73 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        /* Fall through and try process_flag_aux() ... */
    }
 
-   BIF_RET(process_flag_aux(BIF_P, BIF_P, BIF_ARG_1, BIF_ARG_2));
+   old_value = process_flag_aux(BIF_P, NULL, BIF_ARG_1, BIF_ARG_2);
+   if (old_value != am_badarg)
+       BIF_RET(old_value);
  error:
    BIF_ERROR(BIF_P, BADARG);
 }
 
-BIF_RETTYPE process_flag_3(BIF_ALIST_3)
+typedef struct {
+    Eterm flag;
+    Eterm value;
+    ErlOffHeap oh;
+    Eterm heap[1];
+} ErtsProcessFlag3Args;
+
+static Eterm
+exec_process_flag_3(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
 {
-   Process *rp;
-   Eterm res;
+    ErtsProcessFlag3Args *pf3a = arg;
+    Eterm res;
 
-   rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-				  BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-   if (rp == ERTS_PROC_LOCK_BUSY)
-       ERTS_BIF_YIELD3(bif_export[BIF_process_flag_3], BIF_P,
-		       BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    if (ERTS_PROC_IS_EXITING(c_p))
+        res = am_badarg;
+    else
+        res = process_flag_aux(c_p, redsp, pf3a->flag, pf3a->value);
+    erts_cleanup_offheap(&pf3a->oh);
+    erts_free(ERTS_ALC_T_PF3_ARGS, arg);
+    return res;
+}
 
-   if (!rp)
-       BIF_ERROR(BIF_P, BADARG);
 
-   res = process_flag_aux(BIF_P, rp, BIF_ARG_2, BIF_ARG_3);
+BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
+{
+   Eterm res, *hp;
+   ErlOffHeap *ohp;
+   ErtsProcessFlag3Args *pf3a;
+   Uint flag_sz, value_sz;
 
-   if (rp != BIF_P)
-       erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+   if (BIF_P->common.id == BIF_ARG_1) {
+       res = process_flag_aux(BIF_P, NULL, BIF_ARG_2, BIF_ARG_3);
+       BIF_RET(res);
+   }
+
+   if (is_not_internal_pid(BIF_ARG_1))
+       BIF_RET(am_badarg);
+
+   flag_sz = is_immed(BIF_ARG_2) ? 0 : size_object(BIF_ARG_2);
+   value_sz = is_immed(BIF_ARG_3) ? 0 : size_object(BIF_ARG_3);
+
+   pf3a = erts_alloc(ERTS_ALC_T_PF3_ARGS,
+                     sizeof(ErtsProcessFlag3Args)
+                     + sizeof(Eterm)*(flag_sz+value_sz-1));
+
+   ohp = &pf3a->oh;
+   ERTS_INIT_OFF_HEAP(&pf3a->oh);
+
+   hp = &pf3a->heap[0];
+
+   pf3a->flag = copy_struct(BIF_ARG_2, flag_sz, &hp, ohp);
+   pf3a->value = copy_struct(BIF_ARG_3, value_sz, &hp, ohp);
+
+   res = erts_proc_sig_send_rpc_request(BIF_P, BIF_ARG_1,
+                                        !0,
+                                        exec_process_flag_3,
+                                        (void *) pf3a);
+
+   if (is_non_value(res))
+       BIF_RET(am_badarg);
 
    return res;
 }
