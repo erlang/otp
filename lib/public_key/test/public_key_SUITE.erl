@@ -310,7 +310,7 @@ init_ec_pem_encode_generated(Config) ->
 
 ec_pem_encode_generated() ->
     [{doc, "PEM-encode generated EC key"}].
-ec_pem_encode_generated(Config) ->
+ec_pem_encode_generated(_Config) ->
 
     Key1 = public_key:generate_key({namedCurve, 'secp384r1'}),
     public_key:pem_entry_encode('ECPrivateKey', Key1),
@@ -965,7 +965,7 @@ pkix_verify_hostname_cn(Config) ->
 %% openssl req -x509 -nodes -newkey rsa:1024 -keyout /dev/null -extensions SAN -config  public_key_SUITE_data/verify_hostname.conf 2>/dev/null > public_key_SUITE_data/pkix_verify_hostname_subjAltName.pem
 %%
 %% Subject: C=SE, CN=example.com
-%% Subject Alternative Name: DNS:kb.example.org, URI:http://www.example.org, URI:https://wws.example.org
+%% Subject Alternative Name: DNS:kb.example.org, DNS:*.example.org, URI:http://www.example.org, URI:https://wws.example.org
 
 pkix_verify_hostname_subjAltName(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -984,7 +984,16 @@ pkix_verify_hostname_subjAltName(Config) ->
 						   {dns_id,"wws.example.org"}]),
 
     %% Check that a dns_id matches a DNS subjAltName:
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]).
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
+
+    %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
+    false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
+
+    %% Check that a dns_id does nmatches a DNS subjAltName wiht wildcard with matchfun
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}],
+                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+                                            ]
+                                             ).
 
 %%--------------------------------------------------------------------
 %% Uses the pem-file for pkix_verify_hostname_cn
@@ -1351,7 +1360,7 @@ do_gen_ec_param(File) ->
             ct:fail({key_gen_fail, File})
     end.
 
-init_per_testcase_gen_ec_param(TC, Curve, Config) ->
+init_per_testcase_gen_ec_param(_TC, Curve, Config) ->
     case crypto:ec_curves() of
         [] ->
             {skip, missing_ec_support};
@@ -1367,7 +1376,7 @@ init_per_testcase_gen_ec_param(TC, Curve, Config) ->
     end.
 
 
-crypto_supported_curve(Curve, Curves) ->
+crypto_supported_curve(Curve, _Curves) ->
     try crypto:generate_key(ecdh, Curve) of
         {error,_} -> false; % Just in case crypto is changed in the future...
         _-> true
