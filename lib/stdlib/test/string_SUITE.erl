@@ -810,6 +810,18 @@ do_measure(DataDir) ->
     Do2(slice, repeat(fun() -> string:slice(S0, 20, 15) end), list),
     Do2(slice, repeat(fun() -> string:slice(S0B, 20, 15) end), binary),
 
+    LCase  = "areaa reare rerar earea reare reare",
+    LCaseB = unicode:characters_to_binary(LCase),
+    UCase  = string:uppercase(LCase),
+    UCaseB = unicode:characters_to_binary(UCase),
+
+    Do2(to_upper_0, repeat(fun() -> string:to_upper(UCase) end), list),
+    Do2(uppercase_0, repeat(fun() -> string:uppercase(UCase) end), list),
+    Do2(uppercase_0, repeat(fun() -> string:uppercase(UCaseB) end), binary),
+    Do2(to_upper_a, repeat(fun() -> string:to_upper(LCase) end), list),
+    Do2(uppercase_a, repeat(fun() -> string:uppercase(LCase) end), list),
+    Do2(uppercase_a, repeat(fun() -> string:uppercase(LCaseB) end), binary),
+
     io:format("--~n",[]),
     NthTokens = {nth_lexemes, fun(Str) -> string:nth_lexeme(Str, 18000, [$\n,$\r]) end},
     [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- [list, binary]],
