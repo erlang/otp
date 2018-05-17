@@ -272,6 +272,7 @@
         v6only.
 
 -type tcp_socket_option()  :: congestion |
+                              cork |
                               maxseg |
                               nodelay.
 
@@ -451,10 +452,11 @@
 -define(SOCKET_OPT_IPV6_HOPLIMIT,       12).
 
 -define(SOCKET_OPT_TCP_CONGESTION,      0).
--define(SOCKET_OPT_TCP_MAXSEG,          1).
--define(SOCKET_OPT_TCP_NODELAY,         2).
+-define(SOCKET_OPT_TCP_CORK,            2).
+-define(SOCKET_OPT_TCP_MAXSEG,          3).
+-define(SOCKET_OPT_TCP_NODELAY,         4).
 
--define(SOCKET_OPT_UDP_CORK,            1).
+-define(SOCKET_OPT_UDP_CORK,            0).
 
 -define(SOCKET_OPT_SCTP_AUTOCLOSE,      7).
 -define(SOCKET_OPT_SCTP_NODELAY,        22).
@@ -1370,6 +1372,10 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
 %% If its an "invalid" option, we should not crash but return some
 %% useful error...
 %%
+%% When specifying level as an integer, and therefor using "native mode",
+%% we should make it possible to specify common types instead of the
+%% value size. Example: int | bool | {string, pos_integer()} | non_neg_integer()
+%%
 
 -spec getopt(Socket, Level, Key) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
@@ -1412,7 +1418,15 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
       Level  :: sctp,
       Key    :: sctp_socket_option(),
       Value  :: term(),
-      Reason :: term().
+      Reason :: term()
+                ; (Socket, Level, Key) -> ok | {ok, Value} | {error, Reason} when
+      Socket    :: socket(),
+      Level     :: integer(),
+      Key       :: {NativeOpt, ValueSize},
+      NativeOpt :: integer(),
+      ValueSize :: non_neg_integer(),
+      Value     :: term(),
+      Reason    :: term().
 
 getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
     try
@@ -1425,6 +1439,8 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
             %% We may need to decode the value (for the same reason
             %% we needed to encode the value for setopt).
             case nif_getopt(SockRef, EIsEncoded, ELevel, EKey) of
+                ok ->
+                    ok;
                 {ok, EVal} ->
                     Val = dec_getopt_value(Level, Key, EVal,
                                            Domain, Type, Protocol),
@@ -1716,10 +1732,14 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 
 
 %% +++ Decode getopt value +++
+%%
+%% For the most part, we simply let the value pass through, but for some
+%% values we do an actual decode.
+%%
 
-%% We should ...really... do something with the domain, type and protocol args...
-dec_getopt_value(otp, debug, B, _, _, _) when is_boolean(B) ->
-    B.
+%% Let the user deal with this...
+dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
+    V.
 
 
 
@@ -1731,64 +1751,74 @@ dec_getopt_value(otp, debug, B, _, _, _) when is_boolean(B) ->
                       Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: otp,
-      Opt       :: otp_socket_option(),
       Direction :: set | get,
+      Opt       :: otp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: socket,
-      Opt       :: socket_option(),
       Direction :: set | get,
+      Opt       :: socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ip,
-      Opt       :: ip_socket_option(),
       Direction :: set | get,
+      Opt       :: ip_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ipv6,
-      Opt       :: ipv6_socket_option(),
       Direction :: set | get,
+      Opt       :: ipv6_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: tcp,
-      Opt       :: tcp_socket_option(),
       Direction :: set | get,
+      Opt       :: tcp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: udp,
-      Opt       :: udp_socket_option(),
       Direction :: set | get,
+      Opt       :: udp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: sctp,
-      Opt       :: sctp_socket_option(),
       Direction :: set | get,
+      Opt       :: sctp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol()
                    ; (Level, Direction, Opt,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: integer(),
+      Direction :: set,
       Opt       :: integer(),
-      Direction :: set | get,
+      Domain    :: domain(),
+      Type      :: type(),
+      Protocol  :: protocol()
+                   ; (Level, Direction, Opt,
+                      Domain, Type, Protocol) -> non_neg_integer() when
+      Level     :: integer(),
+      Direction :: get,
+      Opt       :: {NativeOpt, ValueSize},
+      NativeOpt :: integer(),
+      ValueSize :: non_neg_integer(),
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol().
@@ -1960,6 +1990,8 @@ enc_sockopt_key(ipv6, UnknownOpt, _Dir, _D, _T, _P) ->
 %% but they are difficult to get portable...
 enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
+enc_sockopt_key(tcp, cork = Opt, _Dir, _D, _T, _P) ->
+    not_supported(Opt);
 enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_MAXSEG;
 enc_sockopt_key(tcp, nodelay = _Opt, _Dir, _D, _T, _P) ->
@@ -1981,9 +2013,14 @@ enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown(UnknownOpt);
 
-%% +++ Plain socket options +++
-enc_sockopt_key(Level, Opt, _Dir, _D, _T, _P)
+%% +++ "Native" socket options +++
+enc_sockopt_key(Level, Opt, set = _Dir, _D, _T, _P)
   when is_integer(Level) andalso is_integer(Opt) ->
+    Opt;
+enc_sockopt_key(Level, {NativeOpt, ValueSize} = Opt, get = _Dir, _D, _T, _P)
+  when is_integer(Level) andalso
+       is_integer(NativeOpt) andalso
+       is_integer(ValueSize) andalso (ValueSize >= 0) ->
     Opt;
 
 enc_sockopt_key(Level, Opt, _Dir, _Domain, _Type, _Protocol) ->
