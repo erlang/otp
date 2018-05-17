@@ -518,51 +518,16 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     {Name, Address} = split_node(Driver, Node, LongOrShortNames),
-    case Driver:getaddr(Address) of
+    ErlEpmd = net_kernel:epmd_module(),
+    {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
+    Timer = trace(dist_util:start_timer(SetupTime)),
+    case ARMod:ARFun(Address) of
+    {ok, Ip, TcpPort, Version} ->
+        do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
 	{ok, Ip} ->
-            Timer = trace(dist_util:start_timer(SetupTime)),
-	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-                    Opts =
-                        trace(
-                          connect_options(
-                            %%
-                            %% Use verify_server/3 to verify that
-                            %% the server's certificate is for Node
-                            %%
-                            setup_verify_server(
-                              get_ssl_options(client), Node))),
-		    dist_util:reset_timer(Timer),
-                    case ssl:connect(
-                           Address, TcpPort,
-                           [binary, {active, false}, {packet, 4},
-                            Driver:family(), nodelay()] ++ Opts,
-                           net_kernel:connecttime()) of
-			{ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
-                            _ = monitor_pid(DistCtrl),
-                            ok = ssl:controlling_process(SslSocket, self()),
-                            HSData0 = hs_data_common(SslSocket),
-			    HSData =
-                                HSData0#hs_data{
-                                  kernel_pid = Kernel,
-                                  other_node = Node,
-                                  this_node = MyNode,
-                                  socket = DistCtrl,
-                                  timer = Timer,
-                                  this_flags = 0,
-                                  other_version = Version,
-                                  request_type = Type},
-                            link(DistCtrl),
-			    dist_util:handshake_we_started(trace(HSData));
-			Other ->
-			    %% Other Node may have closed since 
-			    %% port_please !
-			    ?shutdown2(
-                               Node,
-                               trace(
-                                 {ssl_connect_failed, Ip, TcpPort, Other}))
-		    end;
+                do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
 		Other ->
 		    ?shutdown2(
                        Node,
@@ -573,6 +538,47 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 	    ?shutdown2(
                Node,
                trace({getaddr_failed, Driver, Address, Other}))
+    end.
+
+do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
+    Opts =
+        trace(
+            connect_options(
+            %%
+            %% Use verify_server/3 to verify that
+            %% the server's certificate is for Node
+            %%
+            setup_verify_server(
+                get_ssl_options(client), Node))),
+    dist_util:reset_timer(Timer),
+    case ssl:connect(
+        Address, TcpPort,
+        [binary, {active, false}, {packet, 4},
+            Driver:family(), nodelay()] ++ Opts,
+        net_kernel:connecttime()) of
+    {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+            _ = monitor_pid(DistCtrl),
+            ok = ssl:controlling_process(SslSocket, self()),
+            HSData0 = hs_data_common(SslSocket),
+        HSData =
+                HSData0#hs_data{
+                kernel_pid = Kernel,
+                other_node = Node,
+                this_node = MyNode,
+                socket = DistCtrl,
+                timer = Timer,
+                this_flags = 0,
+                other_version = Version,
+                request_type = Type},
+            link(DistCtrl),
+    dist_util:handshake_we_started(trace(HSData));
+    Other ->
+    %% Other Node may have closed since
+    %% port_please !
+    ?shutdown2(
+            Node,
+            trace(
+                {ssl_connect_failed, Ip, TcpPort, Other}))
     end.
 
 close(Socket) ->
@@ -642,6 +648,16 @@ verify_server(PeerCert, valid_peer, {CertNodesFun,Node} = S) ->
             end
     end.
 
+
+%% ------------------------------------------------------------
+%% Determine if EPMD module supports address resolving. Default
+%% is to use inet_tcp:getaddr/2.
+%% ------------------------------------------------------------
+get_address_resolver(EpmdModule, Driver) ->
+    case erlang:function_exported(EpmdModule, address_please, 3) of
+        true -> {EpmdModule, address_please};
+        _    -> {Driver, getaddr}
+    end.
 
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our

@@ -42,6 +42,7 @@ XML_REF3_FILES = application.xml \
 	disk_log.xml \
 	erl_boot_server.xml \
 	erl_ddll.xml \
+	erl_epmd.xml \
 	erl_prim_loader_stub.xml \
 	erlang_stub.xml \
 	error_handler.xml \

@@ -74,6 +74,7 @@ XML_CHAPTER_FILES = \
 	match_spec.xml \
 	crash_dump.xml \
 	alt_dist.xml \
+	alt_disco.xml \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
