@@ -1424,7 +1424,7 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
       Level     :: integer(),
       Key       :: {NativeOpt, ValueSize},
       NativeOpt :: integer(),
-      ValueSize :: non_neg_integer(),
+      ValueSize :: int | bool | non_neg_integer(),
       Value     :: term(),
       Reason    :: term().
 
@@ -1437,7 +1437,7 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
             {EIsEncoded, ELevel} = enc_getopt_level(Level),
             EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
             %% We may need to decode the value (for the same reason
-            %% we needed to encode the value for setopt).
+            %% we (may have) needed to encode the value for setopt).
             case nif_getopt(SockRef, EIsEncoded, ELevel, EKey) of
                 ok ->
                     ok;
@@ -2020,7 +2020,8 @@ enc_sockopt_key(Level, Opt, set = _Dir, _D, _T, _P)
 enc_sockopt_key(Level, {NativeOpt, ValueSize} = Opt, get = _Dir, _D, _T, _P)
   when is_integer(Level) andalso
        is_integer(NativeOpt) andalso
-       is_integer(ValueSize) andalso (ValueSize >= 0) ->
+       ((is_integer(ValueSize) andalso (ValueSize >= 0)) orelse
+        ((ValueSize =:= int) orelse (ValueSize =:= bool))) ->
     Opt;
 
 enc_sockopt_key(Level, Opt, _Dir, _Domain, _Type, _Protocol) ->
