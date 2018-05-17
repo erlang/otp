@@ -295,6 +295,10 @@ typedef unsigned long long llu_t;
 
 #define SOCKET_RECV_BUFFER_SIZE_DEFAULT 2048
 
+#define SOCKET_OPT_VALLUE_TYPE_UNSPEC 0
+#define SOCKET_OPT_VALLUE_TYPE_INT    1
+#define SOCKET_OPT_VALLUE_TYPE_BOOL   2
+
 typedef union {
     struct {
         unsigned int open:1;
@@ -981,6 +985,11 @@ static ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
                                    int               eOpt);
+static ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
+                                          SocketDescriptor* descP,
+                                          int               level,
+                                          int               opt,
+                                          SOCKOPTLEN_T      valueSz);
 static ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
                                   SocketDescriptor* descP,
                                   int               level,
@@ -1204,6 +1213,7 @@ static BOOLEAN_T decode_bool(ErlNifEnv*   env,
 static BOOLEAN_T decode_native_get_opt(ErlNifEnv*   env,
                                        ERL_NIF_TERM eVal,
                                        int*         opt,
+                                       uint16_t*    valueType,
                                        int*         valueSz);
 static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
@@ -4429,6 +4439,7 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result = enif_make_badarg(env);
     int          opt;
+    uint16_t     valueType;
     SOCKOPTLEN_T valueSz;
 
     /* <KOLLA>
@@ -4437,42 +4448,69 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
      * </KOLLA>
      */
 
-    if (decode_native_get_opt(env, eOpt, &opt, (int*) &valueSz)) {
-        int res;
-
-        if (valueSz == 0) {
-            res = sock_getopt(descP->sock, level, opt, NULL, NULL);
-            if (res != 0)
-                result = make_error2(env, res);
-            else
-                result = atom_ok;
-        } else {
-            ErlNifBinary val;
-
-            if (ALLOC_BIN(valueSz, &val)) {
-                res = sock_getopt(descP->sock, level, opt, val.data, &valueSz);
-                if (res != 0) {
-                    result = make_error2(env, res);
-                } else {
-                    if (valueSz < val.size) {
-                        if (REALLOC_BIN(&val, valueSz)) {
-                            result = make_ok2(env, MKBIN(env, &val));
-                        } else {
-                            result = enif_make_badarg(env);
-                        }
-                    }
-                }
-            } else {
-                result = enif_make_badarg(env);
-            }
+    if (decode_native_get_opt(env, eOpt, &opt, &valueType, (int*) &valueSz)) {
+        switch (valueType) {
+        case SOCKET_OPT_VALLUE_TYPE_UNSPEC:
+            result = ngetopt_native_unspec(env, descP, level, opt, valueSz);
+            break;
+        case SOCKET_OPT_VALLUE_TYPE_INT:
+            result = ngetopt_int_opt(env, descP, level, opt);
+            break;
+        case SOCKET_OPT_VALLUE_TYPE_BOOL:
+            result = ngetopt_bool_opt(env, descP, level, opt);
+            break;
+        default:
+            result = make_error(env, atom_einval);
+            break;
         }
-
     } else {
         result = make_error(env, atom_einval);
     }
 
     return result;
 }
+
+
+static
+ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
+                                   SocketDescriptor* descP,
+                                   int               level,
+                                   int               opt,
+                                   SOCKOPTLEN_T      valueSz)
+{
+    ERL_NIF_TERM result = enif_make_badarg(env);
+    int          res;
+
+    if (valueSz == 0) {
+        res = sock_getopt(descP->sock, level, opt, NULL, NULL);
+        if (res != 0)
+            result = make_error2(env, res);
+        else
+            result = atom_ok;
+    } else {
+        ErlNifBinary val;
+
+        if (ALLOC_BIN(valueSz, &val)) {
+            res = sock_getopt(descP->sock, level, opt, val.data, &valueSz);
+            if (res != 0) {
+                result = make_error2(env, res);
+            } else {
+                if (valueSz < val.size) {
+                    if (REALLOC_BIN(&val, valueSz)) {
+                        result = make_ok2(env, MKBIN(env, &val));
+                    } else {
+                        result = enif_make_badarg(env);
+                    }
+                }
+            }
+        } else {
+            result = enif_make_badarg(env);
+        }
+    }
+
+    return result;
+}
+
 
 
 /* ngetopt_level - A "proper" level (option) has been specified
@@ -6077,12 +6115,12 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
  *           {NativeOpt, ValueSize}
  *
  * NativeOpt :: integer()
- * ValueSize :: non_neg_integer()
+ * ValueSize :: int | bool | non_neg_integer()
  *
  */
 static
 BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
-                                int* opt, int* valueSz)
+                                int* opt, uint16_t* valueType, int* valueSz)
 {
     const ERL_NIF_TERM* nativeOptT;
     int                 nativeOptTSz;
@@ -6095,13 +6133,50 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
     if (nativeOptTSz != 2)
         return FALSE;
 
-    /* So far so good. Both elements should be integers */
+    /* So far so good.
+     * First element is an integer.
+     * Second element is an atom or an integer.
+     * The only "types" that we support at the moment are:
+     *
+     *            bool - Which is actually a integer
+     *                   (but will be *returned* as a boolean())
+     *            int  - Just short for integer
+     */
 
     if (!GET_INT(env, nativeOptT[0], opt))
         return FALSE;
 
-    if (!GET_INT(env, nativeOptT[1], valueSz))
+    if (IS_ATOM(env, nativeOptT[1])) {
+        unsigned int len;
+        char         t[16]; // Just in case
+
+        if (!(GET_ATOM_LEN(env, nativeOptT[1], &len) &&
+              (len > 0) &&
+              (len <= (sizeof("bool")))))
+            return FALSE;
+
+        if (!GET_ATOM(env, nativeOptT[1], t, sizeof(t)))
+            return FALSE;
+
+        if (strncmp(t, "bool", len) == 0) {
+            *valueType = SOCKET_OPT_VALLUE_TYPE_BOOL;
+            *valueSz   = sizeof(int); // Just to be sure
+        } else if (strncmp(t, "int", len) == 0) {
+            *valueType = SOCKET_OPT_VALLUE_TYPE_INT;
+            *valueSz   = sizeof(int); // Just to be sure
+        } else {
+            return FALSE;
+        }
+
+    } else if (IS_NUM(env, nativeOptT[1])) {
+        if (GET_INT(env, nativeOptT[1], valueSz)) {
+            *valueType = SOCKET_OPT_VALLUE_TYPE_UNSPEC;
+        } else {
+            return FALSE;
+        }
+    } else {
         return FALSE;
+    }
 
     return TRUE;
 }
