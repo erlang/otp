@@ -528,6 +528,7 @@ static int zero_terminate(ErlNifBinary bin, char **buf);
 #endif
 
 static int library_refc = 0; /* number of users of this dynamic library */
+static int library_initialized = 0;
 
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib},
@@ -991,7 +992,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 #endif
 
-    if (library_refc > 0) {
+    if (library_initialized) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
 	 */
@@ -1101,10 +1102,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_password = enif_make_atom(env,"password");
 #endif
 
-    init_digest_types(env);
-    init_cipher_types(env);
-    init_algorithms_types(env);
-
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
@@ -1150,6 +1147,11 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 #endif /* OPENSSL_THREADS */
 
+    init_digest_types(env);
+    init_cipher_types(env);
+    init_algorithms_types(env);
+
+    library_initialized = 1;
     return 0;
 }
 
