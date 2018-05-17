@@ -521,7 +521,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ErlEpmd = net_kernel:epmd_module(),
     {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
     Timer = trace(dist_util:start_timer(SetupTime)),
-    case ARMod:ARFun(Address) of
+    case ARMod:ARFun(Name,Address,Driver:family()) of
     {ok, Ip, TcpPort, Version} ->
         do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
 	{ok, Ip} ->
