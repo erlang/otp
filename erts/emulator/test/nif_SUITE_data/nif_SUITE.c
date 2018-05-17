@@ -2405,7 +2405,7 @@ static ERL_NIF_TERM term_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary bin;
-    ERL_NIF_TERM term, ret_term;
+    ERL_NIF_TERM term, dummy, ret_term;
     ErlNifPid pid;
     ErlNifEnv *msg_env = env;
     unsigned int opts;
@@ -2418,6 +2418,9 @@ static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	|| !enif_get_uint(env, argv[2], &opts))
         return enif_make_badarg(env);
 
+    /* build dummy heap term first to provoke OTP-15080 */
+    dummy = enif_make_list_cell(msg_env, atom_true, atom_false);
+
     ret = enif_binary_to_term(msg_env, bin.data, bin.size, &term,
 			      (ErlNifBinaryToTerm)opts);
     if (!ret)
@@ -2425,11 +2428,12 @@ static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     ret_term = enif_make_uint64(env, ret);
     if (msg_env != env) {
-        enif_send(env, &pid, msg_env, term);
+        enif_send(env, &pid, msg_env,
+                  enif_make_tuple2(msg_env, term, dummy));
         enif_free_env(msg_env);
         return ret_term;
     } else {
-        return enif_make_tuple2(env, ret_term, term);
+        return enif_make_tuple3(env, ret_term, term, dummy);
     }
 }
 
