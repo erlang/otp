@@ -412,8 +412,16 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     
     Exe = "openssl",
-    Args = ["s_client", "-connect", hostname_format(Hostname) ++
-                ":" ++ integer_to_list(Port) ++ no_low_flag() | workaround_openssl_s_clinent()],
+    Args = case no_low_flag("-no_ssl2") of
+               [] ->
+                   ["s_client", "-connect", hostname_format(Hostname) ++
+                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3")
+                    | workaround_openssl_s_clinent()];
+               Flag ->
+                   ["s_client", "-connect", hostname_format(Hostname) ++
+                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3"), Flag
+                    | workaround_openssl_s_clinent()]
+           end, 
     
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, Data),
@@ -1995,10 +2003,12 @@ hostname_format(Hostname) ->
             "localhost"   
     end.
 
-no_low_flag() ->
+no_low_flag("-no_ssl2" = Flag) ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
         true ->
-            " -no_ssl2 -no_ssl3";
+            Flag;
         false ->
-            " -no_ssl3"
-    end.
+            ""
+    end;
+no_low_flag(Flag) ->
+    Flag.
