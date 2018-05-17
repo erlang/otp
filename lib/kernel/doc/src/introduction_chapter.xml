@@ -46,7 +46,6 @@
       <item>Start, stop, supervision, configuration, and distribution of applications</item>
       <item>Code loading</item>
       <item>Logging</item>
-      <item>Error logging</item>
       <item>Global name service</item>
       <item>Supervision of Erlang/OTP</item>
       <item>Communication with sockets</item>

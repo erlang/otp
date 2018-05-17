@@ -42,7 +42,6 @@
       <item>Start, stop, supervision, configuration, and distribution of applications</item>
       <item>Code loading</item>
       <item>Logging</item>
-      <item>Error logging</item>
       <item>Global name service</item>
       <item>Supervision of Erlang/OTP</item>
       <item>Communication with sockets</item>
@@ -194,9 +193,9 @@
           If the SASL application is started,
 	  these log events will be sent to a second handler instance
 	  named <c>sasl_h</c>, according to values of the SASL
-	  environment variables <c>sasl_error_logger</c>
+	  configuration parameter <c>sasl_error_logger</c>
 	  and <c>sasl_errlog_type</c>, see
-	  <seealso marker="sasl:sasl_app#configuration">SASL(6)
+	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">sasl(6)
 	</seealso></p>
 	<p>The default value is <c>false</c>.</p>
 	<p>See chapter <seealso marker="logger_chapter#compatibility">Backwards
@@ -271,7 +270,7 @@
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
         <p>If set, no
-          <c>error_logger</c> messages are generated when erroneous
+          <c>logger</c> messages are generated when erroneous
           lines are found and skipped in the various Inet configuration
           files.</p>
       </item>
@@ -486,7 +485,7 @@ MaxT = TickTime + TickTime / 4</code>
       old <c>error_logger</c> event manager, and event handlers
       running on this manager, will still work, but they are not used
       by default.</p>
-    <p>The following application environment variables can still be
+    <p>The following application configuration parameters can still be
       set, but they will only be used if the corresponding new logger
       variables are not set.</p>
     <taglist>
@@ -519,12 +518,12 @@ erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatte
       <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
       <seealso marker="erl_boot_server"><c>erl_boot_server(3)</c></seealso>,
       <seealso marker="erl_ddll"><c>erl_ddll(3)</c></seealso>,
-      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
       <seealso marker="file"><c>file(3)</c></seealso>,
       <seealso marker="global"><c>global(3)</c></seealso>,
       <seealso marker="global_group"><c>global_group(3)</c></seealso>,
       <seealso marker="heart"><c>heart(3)</c></seealso>,
       <seealso marker="inet"><c>inet(3)</c></seealso>,
+      <seealso marker="logger"><c>logger(3)</c></seealso>,
       <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>,
       <seealso marker="os"><c>os(3)</c></seealso>,
       <seealso marker="pg2"><c>pg2(3)</c></seealso>,

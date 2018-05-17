@@ -39,7 +39,8 @@
     <p>Each log handler has a configured formatter specified as a
       module and a configuration term. The purpose of the formatter is
       to translate the log events to a final printable string
-      (<c>unicode:chardata()</c>) which can be written to the output
+      (<seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c>
+      </seealso>) which can be written to the output
       device of the handler.</p>
     <p><c>logger_formatter</c> is the default formatter used by
       Logger.</p>
@@ -47,7 +48,8 @@
 
   <section>
     <title>Configuration</title>
-    <p>The configuration term for <c>logger_formatter</c> is a map,
+    <p>The configuration term for <c>logger_formatter</c> is a
+      <seealso marker="stdlib:maps">map</seealso>,
       and the following keys can be set as configuration
       parameters:</p>
     <taglist>
@@ -55,7 +57,7 @@
       <item>
 	<p>A positive integer representing the value of the option
 	  with the same name to be used when calling
-	  <seealso marker="stdlib:io_lib#format-3">io_lib:format/3</seealso>.
+	  <seealso marker="stdlib:io_lib#format-3"><c>io_lib:format/3</c></seealso>.
 	  This value limits the total number of characters printed
 	  for each log event. Notice that this is a soft limit. For a
 	  hard truncation limit, see option <c>max_size</c>.</p>
@@ -99,7 +101,7 @@
 	  added by the <c>template</c> parameter are not replaced.</p>
 	<p>Default is <c>true</c>.</p>
       </item>
-      <tag><c>legacy_header = boolen()</c></tag>
+      <tag><c>legacy_header = boolean()</c></tag>
       <item>
 	<p>If set to <c>true</c> a header field is added to
 	  logger_formatter's part of <c>Metadata</c>. The value of
@@ -181,8 +183,8 @@
 	  to <c>"+02:00"</c>.</p>
 	<p>The default value is an empty string, meaning that
 	  timestamps are displayed in local time. However, for
-	  backwards compatibility, if the SASL environment
-	  variable <seealso marker="sasl:sasl_app#utc_log">
+	  backwards compatibility, if the SASL configuration
+	  parameter <seealso marker="sasl:sasl_app#utc_log">
 	    <c>utc_log</c></seealso><c>=true</c>, the default is
 	  changed to <c>"Z"</c>, meaning that timestamps are displayed
 	  in UTC.</p>
@@ -206,28 +208,42 @@
 ?LOG_ERROR("name: ~p~nexit_reason: ~p",[my_name,"It crashed"])</code>
 
     <taglist>
-      <tag><c>legacy_header=true</c></tag>
+      <tag><c>legacy_header=true, single_line=false</c></tag>
       <item>
 	<p>Default template: <c>[{logger_formatter,header},"\n",msg,"\n"]</c></p>
 
 	<p>Example log entry:</p>
 	<code type="none">
-2018-05-16T11:55:50.448382+02:00 error:
+=ERROR REPORT==== 17-May-2018::18:30:19.453447 ===
 name: my_name
 exit_reason: "It crashed"</code>
 
-	<p>Notice that all eight levels might occur in the heading,
+	<p>Notice that all eight levels can occur in the heading,
 	  not only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c> as the
 	  old <c>error_logger</c> produced. And microseconds are
 	  added at the end of the timestamp.</p>
       </item>
 
-      <tag><c>single_line=true</c></tag>
+      <tag><c>legacy_header=true, single_line=true</c></tag>
+      <item>
+	<p>Default template: <c>[{logger_formatter,header},"\n",msg,"\n"]</c></p>
+
+	<p>Notice that the template is here the same as
+	  for <c>single_line=false</c>, but the resulting log entry
+	  differs in that there is only one line after the
+	  heading:</p>
+	<code type="none">
+=ERROR REPORT==== 17-May-2018::18:31:06.952665 ===
+name: my_name, exit_reason: "It crashed"</code>
+      </item>
+
+      <tag><c>legacy_header=false, single_line=true</c></tag>
       <item>
 	<p>Default template: <c>[time," ",level,": ",msg,"\n"]</c></p>
 
 	<p>Example log entry:</p>
-	<code type="none">2018-05-16T11:55:50.448382+02:00 error: name: my_name, exit_reason: "It crashed"</code>
+	<code type="none">
+2018-05-17T18:31:31.152864+02:00 error: name: my_name, exit_reason: "It crashed"</code>
       </item>
 
       <tag><c>legacy_header=false, single_line=false</c></tag>
@@ -236,7 +252,7 @@ exit_reason: "It crashed"</code>
 
 	<p>Example log entry:</p>
 	<code type="none">
-2018-05-16T11:55:50.448382+02:00 error:
+2018-05-17T18:32:20.105422+02:00 error:
 name: my_name
 exit_reason: "It crashed"</code>
       </item>

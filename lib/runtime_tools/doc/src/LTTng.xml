@@ -111,7 +111,7 @@ $ make </code>
         <p><em>process_register</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
-            <item><c>name : string</c> :: Registered name. Ex. <c>"error_logger"</c></item>
+            <item><c>name : string</c> :: Registered name. Ex. <c>"logger"</c></item>
             <item><c>type : string</c> :: <c>"register" | "unregister"</c></item>
         </list>
         <p>Example:</p>

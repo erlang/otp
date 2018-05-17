@@ -36,41 +36,31 @@
       <p>In OTP-21, a new API for logging was added to Erlang/OTP. The
 	old <c>error_logger</c> module can still be used by legacy
 	code, but new code should use the new API instead.</p>
+      <p><c>error_logger</c> is no longer started by default, but is
+	automatically started when an event handler is added
+	with <c>error_logger:add_report_handler/1,2</c>. The <c>error_logger</c>
+	module is then also added as a handler to the new logger.</p>
       <p>See  <seealso marker="logger"><c>logger(3)</c></seealso> and
 	the <seealso marker="logger_chapter">Logging</seealso> chapter
-	in the user's guide for more information.</p>
+	in the User's Guide for more information.</p>
     </note>
 
     <p>The Erlang <em>error logger</em> is an event manager (see
       <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
       <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>),
-      registered as <c>error_logger</c>. Errors, warnings, and info events
-      are sent to the error logger from the Erlang runtime system and
-      the different Erlang/OTP applications. The events are, by default,
-      logged to the terminal. Notice that an event from a process <c>P</c> is
-      logged at the node of the group leader of <c>P</c>. This means
-      that log output is directed to the node from which a process was
-      created, which not necessarily is the same node as where it is
-      executing.</p>
-    <p>Initially, <c>error_logger</c> has only a primitive event
-      handler, which buffers and prints the raw event messages. During
-      system startup, the Kernel application replaces this with a
-      <em>standard event handler</em>, by default one that writes
-      nicely formatted output to the terminal. Kernel can also be
-      configured so that events are logged to a file instead, or not logged at all,
-      see <seealso marker="kernel_app"><c>kernel(6)</c></seealso>.</p>
-    <p>Also the SASL application, if started, adds its own event
-      handler, which by default writes supervisor, crash, and progress
-      reports to the terminal. See
-      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso>.</p>
-    <p>It is recommended that user-defined applications report
-      errors through the error logger to get uniform reports.
-      User-defined event handlers can be added to handle application-specific
-      events, see
-      <seealso marker="#add_report_handler/1"><c>add_report_handler/1,2</c></seealso>.
-      Also, a useful event handler is provided in STDLIB for multi-file
-      logging of events, see
-      <seealso marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seealso>.</p>
+      registered as <c>error_logger</c>.</p>
+    <p>Error logger is no longer started by default, but is
+      automatically started when an event handler is added
+      with <seealso marker="#add_report_handler/1">
+	<c>add_report_handler/1,2</c></seealso>. The <c>error_logger</c>
+      module is then also added as a handler to the new logger,
+      causing log events to be forwarded from logger to error logger,
+      and consequently to all installed error logger event
+      handlers.</p>
+    <p>User-defined event handlers can be added to handle application-specific
+      events.</p>
+    <p>Existing event handlers provided by STDLIB and SASL are still
+      available, but are no longer used by OTP.</p>
     <p>Warning events were introduced in Erlang/OTP R9C and are enabled
       by default as from Erlang/OTP 18.0. To retain backwards compatibility
       with existing user-defined event handlers, the warning events can be
@@ -191,7 +181,7 @@ ok</pre>
 	  <p>The <c>error_logger_format_depth</c> variable
 	    is <seealso marker="kernel_app#deprecated-configuration-parameters">
 	    deprecated</seealso> since
-	    the <seealso marker="logger">Logger API</seealso> was
+	    the <seealso marker="logger">logging API</seealso> was
 	    introduced in OTP-21. The variable, and this function, are
 	    kept for backwards compatibility since they still might be
 	    used by legacy report handlers.</p>

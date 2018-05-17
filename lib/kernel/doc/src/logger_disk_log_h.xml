@@ -33,21 +33,21 @@
     <file>logger_disk_log_h.xml</file>
   </header>
   <module>logger_disk_log_h</module>
-  <modulesummary>A disk_log based handler for the Logger
-  application.</modulesummary>
+  <modulesummary>A disk_log based handler for the Logger.</modulesummary>
 
   <description>
-    <p>This is a handler for the Logger application that offers circular
-    (wrapped) logs by using the disk_log application. Multiple instances
-    of this handler can be added to logger, and each instance will print to
+    <p>This is a handler for Logger that offers circular
+    (wrapped) logs by using <seealso marker="disk_log"><c>disk_log</c></seealso>. 
+    Multiple instances
+    of this handler can be added to Logger, and each instance prints to
     its own disk_log file, created with the name and settings specified in
     the handler configuration.</p>
     <p>The default standard handler,
     <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>, can be
-    replaced by a disk_log handler at startup of the kernel application.
+    replaced by a disk_log handler at startup of the Kernel application.
     See an example of this below.</p>
     <p>The handler has an overload protection mechanism that will keep the handler
-    process and the kernel application alive during a high load of log 
+    process and the Kernel application alive during a high load of log 
     requests. How this feature works, and how to modify the configuration,
     is described in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
@@ -121,7 +121,7 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
                               #{filesync_repeat_interval => 1000}}).
     </code>
     <p>In order to use the disk_log handler instead of the default standard
-    handler when starting en Erlang node, change the Kernel default logger to
+    handler when starting an Erlang node, change the Kernel default logger to
     use disk_log. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_disk_log_h,
@@ -141,6 +141,12 @@ erl -kernel logger '[{handler,default,logger_disk_log_h,
 
   </funcs>
 
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="logger"><c>logger(3)</c></seealso></p>
+    <p><seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso></p>
+    <p><seealso marker="disk_log"><c>disk_log(3)</c></seealso></p>
+  </section>
 </erlref>
 
 
