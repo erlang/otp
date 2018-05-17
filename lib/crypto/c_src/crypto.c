@@ -989,6 +989,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
         return __LINE__;
     }
+#endif
 
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
@@ -996,7 +997,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	 */
 	return 0;
     }
-#endif 
 
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
