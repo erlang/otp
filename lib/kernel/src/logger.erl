@@ -561,10 +561,10 @@ internal_init_logger() ->
               end || Module <- Modules]
              || {module_level, Level, Modules} <- get_logger_env()],
 
-        case logger:set_handler_config(logger_simple,filters,
+        case logger:set_handler_config(simple,filters,
                                        get_default_handler_filters()) of
             ok -> ok;
-            {error,{not_found,logger_simple}} -> ok
+            {error,{not_found,simple}} -> ok
         end,
 
         init_kernel_handlers()
@@ -580,7 +580,7 @@ init_kernel_handlers() ->
     try
         case get_logger_type() of
             {ok,silent} ->
-                ok = logger:remove_handler(logger_simple);
+                ok = logger:remove_handler(simple);
             {ok,false} ->
                 ok;
             {ok,Type} ->
@@ -621,9 +621,9 @@ add_handlers(HandlerConfig) ->
         %% If a default handler was added we try to remove the simple_logger
         %% If the simple logger exists it will replay its log events
         %% to the handler(s) added in the fold above.
-        _ = [case logger:remove_handler(logger_simple) of
+        _ = [case logger:remove_handler(simple) of
                  ok -> ok;
-                 {error,{not_found,logger_simple}} -> ok
+                 {error,{not_found,simple}} -> ok
              end || DefaultAdded],
         ok
     catch throw:Reason ->

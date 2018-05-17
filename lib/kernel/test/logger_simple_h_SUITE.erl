@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(logger_simple_SUITE).
+-module(logger_simple_h_SUITE).
 
 -compile(export_all).
 
@@ -87,20 +87,20 @@ all() ->
     ].
 
 start_stop(_Config) ->
-    undefined = whereis(logger_simple),
-    register(logger_simple,self()),
-    {error,_} = logger:add_handler(logger_simple,
-                                   logger_simple,
+    undefined = whereis(logger_simple_h),
+    register(logger_simple_h,self()),
+    {error,_} = logger:add_handler(simple,
+                                   logger_simple_h,
                                    #{filter_default=>log}),    
-    unregister(logger_simple),
-    ok = logger:add_handler(logger_simple,logger_simple,#{filter_default=>log}),
-    Pid = whereis(logger_simple),
+    unregister(logger_simple_h),
+    ok = logger:add_handler(simple,logger_simple_h,#{filter_default=>log}),
+    Pid = whereis(logger_simple_h),
     true = is_pid(Pid),
-    ok = logger:remove_handler(logger_simple),
-    false = is_pid(whereis(logger_simple)),
+    ok = logger:remove_handler(simple),
+    false = is_pid(whereis(logger_simple_h)),
     ok.
 start_stop(cleanup,_Config) ->
-    logger:remove_handler(logger_simple).
+    logger:remove_handler(simple).
 
 %% This testcase just tests that it does not crash, the default handler prints
 %% to stdout which we cannot read from in a detached slave.

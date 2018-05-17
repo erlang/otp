@@ -68,7 +68,7 @@
              logger_formatter,
              logger_h_common,
              logger_server,
-             logger_simple,
+             logger_simple_h,
              logger_std_h,
              logger_sup,
 	     net,

@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(logger_simple).
+-module(logger_simple_h).
 
 -export([adding_handler/1, removing_handler/1, log/2]).
 
@@ -27,7 +27,7 @@
 %%%-----------------------------------------------------------------
 %%% Logger callback
 
-adding_handler(#{id:=?MODULE}=Config) ->
+adding_handler(#{id:=simple}=Config) ->
     Me = self(),
     case whereis(?MODULE) of
         undefined ->
@@ -44,7 +44,7 @@ adding_handler(#{id:=?MODULE}=Config) ->
             {error,{handler_process_name_already_exists,?MODULE}}
     end.
 
-removing_handler(#{id:=?MODULE}) ->
+removing_handler(#{id:=simple}) ->
     case whereis(?MODULE) of
         undefined ->
             ok;

@@ -127,15 +127,14 @@ init([]) ->
     process_flag(trap_exit, true),
     Tid = logger_config:new(?LOGGER_TABLE),
     LoggerConfig = maps:merge(default_config(logger),
-                              #{handlers=>[logger_simple]}),
+                              #{handlers=>[simple]}),
     logger_config:create(Tid,logger,LoggerConfig),
-    SimpleConfig0 = maps:merge(default_config(logger_simple),
+    SimpleConfig0 = maps:merge(default_config(simple),
                                #{filter_default=>stop,
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
-    {ok,SimpleConfig} =
-        logger_simple:adding_handler(SimpleConfig0),
-    logger_config:create(Tid,logger_simple,logger_simple,SimpleConfig),
+    {ok,SimpleConfig} = logger_simple_h:adding_handler(SimpleConfig0),
+    logger_config:create(Tid,simple,logger_simple_h,SimpleConfig),
     {ok, #state{tid=Tid, async_req_queue = queue:new()}}.
 
 handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->

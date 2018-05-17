@@ -118,7 +118,7 @@ MODULES = \
 	logger_filters \
         logger_formatter \
         logger_server \
-        logger_simple \
+        logger_simple_h \
         logger_sup \
 	net \
 	net_adm \
@@ -279,7 +279,7 @@ $(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../inclu
 $(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_simple.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_simple_h.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_h_common.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl
 $(EBIN)/net_kernel.beam: ../include/net_address.hrl
