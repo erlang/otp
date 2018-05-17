@@ -686,11 +686,16 @@ hello_client_cancel(Config) when is_list(Config) ->
                                                       {host, Hostname},
                                                       {from, self()}, 
                                                       {options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
-                                                      {continue_options, cancel}]),
-    
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "user canceled"}}).
-%%--------------------------------------------------------------------
+                                                      {continue_options, cancel}]),    
+      receive
+          {Server, {error, {tls_alert, "user canceled"}}} ->
+              ok;
+          {Server, {error, closed}} ->
+              ct:pal("Did not receive the ALERT"),
+              ok
+      end.
 
+%%--------------------------------------------------------------------
 hello_server_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
 hello_server_cancel(Config) when is_list(Config) -> 
@@ -5046,8 +5051,14 @@ tls_downgrade_result(Socket) ->
 
 tls_close(Socket) ->
     ok = ssl_test_lib:send_recv_result(Socket),
-    ok = ssl:close(Socket, 5000).
-    
+    case ssl:close(Socket, 5000) of
+        ok ->
+            ok;
+        {error, closed} ->
+            ok;
+        Other ->
+            ct:fail(Other)
+    end.
 
  %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 treashold(N, {3,0}) ->
