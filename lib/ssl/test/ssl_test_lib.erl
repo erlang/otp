@@ -1177,8 +1177,16 @@ string_regex_filter(Str, Search) when is_list(Str) ->
 string_regex_filter(_Str, _Search) ->
     false.
 
-anonymous_suites(Version) ->
-    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],[]).
+ecdh_dh_anonymous_suites(Version) ->
+    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],
+                             [{key_exchange, 
+                               fun(dh_anon) -> 
+                                       true;
+                                  (ecdh_anon) -> 
+                                       true;
+                                  (_) -> 
+                                       false 
+                               end}]).
 psk_suites(Version) ->
     ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:psk_suites(Version)], []).
 

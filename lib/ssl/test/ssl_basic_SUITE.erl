@@ -2427,7 +2427,7 @@ anonymous_cipher_suites()->
     [{doc,"Test the anonymous ciphersuites"}].
 anonymous_cipher_suites(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(NVersion),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(NVersion),
     run_suites(Ciphers, Config, anonymous).
 %%-------------------------------------------------------------------
 psk_cipher_suites() ->
@@ -2522,7 +2522,7 @@ default_reject_anonymous(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     TLSVersion = ssl_test_lib:tls_version(Version),
     
-   [CipherSuite | _] = ssl_test_lib:anonymous_suites(TLSVersion),
+   [CipherSuite | _] = ssl_test_lib:ecdh_dh_anonymous_suites(TLSVersion),
     
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
