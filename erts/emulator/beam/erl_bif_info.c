@@ -4682,7 +4682,14 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                                             refbin));
             }
         }
-
+        else if (ERTS_IS_ATOM_STR("ets_force_trap", BIF_ARG_1)) {
+#ifdef ETS_DBG_FORCE_TRAP
+            erts_ets_dbg_force_trap = (BIF_ARG_2 == am_true) ? 1 : 0;
+            BIF_RET(am_ok);
+#else
+            BIF_RET(am_notsup);
+#endif
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);

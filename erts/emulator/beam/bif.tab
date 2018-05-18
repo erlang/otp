@@ -342,7 +342,6 @@ bif ets:internal_request_all/0
 bif ets:new/2
 bif ets:delete/1
 bif ets:delete/2
-bif ets:delete_all_objects/1
 bif ets:delete_object/2
 bif ets:first/1
 bif ets:is_compiled_ms/1
@@ -373,7 +372,6 @@ bif ets:select_count/2
 bif ets:select_reverse/1
 bif ets:select_reverse/2
 bif ets:select_reverse/3
-bif ets:select_delete/2
 bif ets:select_replace/2
 bif ets:match_spec_compile/1
 bif ets:match_spec_run_r/3
@@ -698,3 +696,5 @@ bif erts_internal:gather_alloc_histograms/1
 bif erts_internal:gather_carrier_info/1
 ubif erlang:map_get/2
 ubif erlang:is_map_key/2
+bif ets:internal_delete_all/2
+bif ets:internal_select_delete/2

@@ -21,6 +21,7 @@
 /*
 ** Implementation of unordered ETS tables.
 ** The tables are implemented as linear dynamic hash tables.
+** https://en.wikipedia.org/wiki/Linear_hashing
 */
 
 /* SMP:
@@ -148,20 +149,14 @@ static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
     return ix;
 }
 
-/* Remember a slot containing a pseudo-deleted item (INVALID_HASH)
- * Return false if we got raced by unfixing thread
- * and the object should be deleted for real.
- */
-static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
-                                          erts_aint_t fixated_by_me)
+
+static ERTS_INLINE int link_fixdel(DbTableHash* tb,
+                                   FixedDeletion* fixd,
+                                   erts_aint_t fixated_by_me)
 {
     erts_aint_t was_next;
     erts_aint_t exp_next;
-    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-							 (DbTable *) tb,
-							 sizeof(FixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
-    fixd->slot = ix;
+
     was_next = erts_atomic_read_acqb(&tb->fixdel);
     do { /* Lockless atomic insertion in linked list: */
         if (NFIXED(tb) <= fixated_by_me) {
@@ -178,14 +173,33 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
     return 1;
 }
 
+/* Remember a slot containing a pseudo-deleted item
+ * Return false if we got raced by unfixing thread
+ * and the object should be deleted for real.
+ */
+static int add_fixed_deletion(DbTableHash* tb, int ix,
+                              erts_aint_t fixated_by_me)
+{
+    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+							 (DbTable *) tb,
+							 sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    fixd->slot = ix;
+    fixd->all = 0;
+    return link_fixdel(tb, fixd, fixated_by_me);
+}
 
-#define MAX_HASH 0xEFFFFFFFUL
-#define INVALID_HASH 0xFFFFFFFFUL
+
+static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
+{
+    return p->pseudo_deleted;
+}
+
 
 /* optimised version of make_hash (normal case? atomic key) */
 #define MAKE_HASH(term) \
     ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
-      make_internal_hash(term, 0)) % MAX_HASH)
+      make_internal_hash(term, 0)) & MAX_HASH_MASK)
 
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
 #  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
@@ -270,16 +284,21 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 }
 
 
-/*
- * Some special binary flags
- */
-#define BIN_FLAG_ALL_OBJECTS         BIN_FLAG_USR1
-
 
 static ERTS_INLINE void free_term(DbTableHash *tb, HashDbTerm* p)
 {
     db_free_term((DbTable*)tb, p, offsetof(HashDbTerm, dbterm));
 }
+
+static ERTS_INLINE void free_term_list(DbTableHash *tb, HashDbTerm* p)
+{
+    while (p) {
+        HashDbTerm* next = p->next;
+        free_term(tb, p);
+        p = next;
+    }
+}
+
 
 /*
  * Local types 
@@ -290,9 +309,6 @@ struct mp_prefound {
 };
 
 struct mp_info {
-    int all_objects;		/* True if complete objects are always
-				 * returned from the match_spec (can use 
-				 * copy_shallow on the return value) */
     int something_can_match;	/* The match_spec is not "impossible" */
     int key_given;
     struct mp_prefound dlists[10];  /* Default list of "pre-found" buckets */
@@ -402,7 +418,7 @@ static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
 			  int show,
 			  DbTable *tbl);
-static int db_free_table_hash(DbTable *tbl);
+static int db_free_empty_table_hash(DbTable *tbl);
 
 static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds);
 
@@ -411,7 +427,7 @@ static void db_foreach_offheap_hash(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static int db_delete_all_objects_hash(Process* p, DbTable* tbl);
+static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds);
 #ifdef HARDDEBUG
 static void db_check_table_hash(DbTableHash *tb);
 #endif
@@ -436,7 +452,8 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb)
 static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
 				    Eterm key, HashValue hval)
 {
-    if (b->hvalue != hval) return 0;
+    if (b->hvalue != hval || is_pseudo_deleted(b))
+        return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
@@ -449,7 +466,8 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
 static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
 			       Eterm key, HashValue hval)
 {
-    if (b->hvalue != hval && b->hvalue != INVALID_HASH) return 0;
+    if (b->hvalue != hval)
+        return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
@@ -513,7 +531,7 @@ DbTableMethod db_hash =
     db_select_replace_continue_hash,
     db_take_hash,
     db_delete_all_objects_hash,
-    db_free_table_hash,
+    db_free_empty_table_hash,
     db_free_table_continue_hash,
     db_print_hash,
     db_foreach_offheap_hash,
@@ -570,51 +588,61 @@ SWord db_unfix_table_hash(DbTableHash *tb)
     SWord work = 0;
 
     ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
-		       || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
-			   && !tb->common.is_thread_safe));
+                   || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
+                       && !tb->common.is_thread_safe));
 restart:
     fixdel = (FixedDeletion*) erts_atomic_xchg_mb(&tb->fixdel,
-                                                      (erts_aint_t) NULL);
-    while (fixdel != NULL) {
-	FixedDeletion *fx = fixdel;
-	int ix = fx->slot;
-	HashDbTerm **bp;
-	HashDbTerm *b;
-	erts_rwmtx_t* lck = WLOCK_HASH(tb,ix);
+                                                  (erts_aint_t) NULL);
+    while (fixdel) {
+        FixedDeletion *free_me;
 
-	if (IS_FIXED(tb)) { /* interrupted by fixer */
-	    WUNLOCK_HASH(lck);
-	    restore_fixdel(tb,fixdel);
-	    if (!IS_FIXED(tb)) {
-		goto restart; /* unfixed again! */
-	    }
-	    return work;
-	}
-	if (ix < NACTIVE(tb)) {
-	    bp = &BUCKET(tb, ix);
-	    b = *bp;
-	    
-	    while (b != NULL) {
-		if (b->hvalue == INVALID_HASH) {
-		    *bp = b->next;
-		    free_term(tb, b);
-		    work++;
-		    b = *bp;
-		} else {
-		    bp = &b->next;
-		    b = b->next;
-		}
-	    }
-	}
-	/* else slot has been joined and purged by shrink() */
-	WUNLOCK_HASH(lck);
-	fixdel = fx->next;
-	erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-		     (DbTable *) tb,
-		     (void *) fx,
-		     sizeof(FixedDeletion));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
-	work++;
+        do {
+            HashDbTerm **bp;
+            HashDbTerm *b;
+            HashDbTerm *free_us = NULL;
+            erts_rwmtx_t* lck;
+
+            lck = WLOCK_HASH(tb, fixdel->slot);
+
+            if (IS_FIXED(tb)) { /* interrupted by fixer */
+                WUNLOCK_HASH(lck);
+                restore_fixdel(tb,fixdel);
+                if (!IS_FIXED(tb)) {
+                    goto restart; /* unfixed again! */
+                }
+                return work;
+            }
+            if (fixdel->slot < NACTIVE(tb)) {
+                bp = &BUCKET(tb, fixdel->slot);
+                b = *bp;
+
+                while (b != NULL) {
+                    if (is_pseudo_deleted(b)) {
+                        HashDbTerm* nxt = b->next;
+                        b->next = free_us;
+                        free_us = b;
+                        work++;
+                        b = *bp = nxt;
+                    } else {
+                        bp = &b->next;
+                        b = b->next;
+                    }
+                }
+            }
+            /* else slot has been joined and purged by shrink() */
+            WUNLOCK_HASH(lck);
+            free_term_list(tb, free_us);
+
+        }while (fixdel->all && fixdel->slot-- > 0);
+
+        free_me = fixdel;
+        fixdel = fixdel->next;
+        erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
+                     (DbTable *) tb,
+                     (void *) free_me,
+                     sizeof(FixedDeletion));
+        ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        work++;
     }
 
     /* ToDo: Maybe try grow/shrink the table as well */
@@ -764,8 +792,9 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     */
     if (tb->common.status & DB_SET) {
 	HashDbTerm* bnext = b->next;
-	if (b->hvalue == INVALID_HASH) {
+	if (is_pseudo_deleted(b)) {
 	    erts_atomic_inc_nob(&tb->common.nitems);
+            b->pseudo_deleted = 0;
 	}
 	else if (key_clash_fail) {
 	    ret = DB_ERROR_BADKEY;
@@ -773,14 +802,14 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	}
 	q = replace_dbterm(tb, b, obj);
 	q->next = bnext;
-	q->hvalue = hval; /* In case of INVALID_HASH */
+	ASSERT(q->hvalue == hval);
 	*bp = q;
 	goto Ldone;
     }
     else if (key_clash_fail) { /* && (DB_BAG || DB_DUPLICATE_BAG) */
 	q = b;
 	do {
-	    if (q->hvalue != INVALID_HASH) {
+	    if (!is_pseudo_deleted(q)) {
 		ret = DB_ERROR_BADKEY;
 		goto Ldone;
 	    }
@@ -792,9 +821,10 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	q = b;
 	do {
 	    if (db_eq(&tb->common,obj,&q->dbterm)) {
-		if (q->hvalue == INVALID_HASH) {
+		if (is_pseudo_deleted(q)) {
 		    erts_atomic_inc_nob(&tb->common.nitems);
-		    q->hvalue = hval;
+                    q->pseudo_deleted = 0;
+		    ASSERT(q->hvalue == hval);
 		    if (q != b) { /* must move to preserve key insertion order */
 			*qp = q->next;
 			q->next = b;
@@ -812,6 +842,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 Lnew:
     q = new_dbterm(tb, obj);
     q->hvalue = hval;
+    q->pseudo_deleted = 0;
     q->next = b;
     *bp = q;
     nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
@@ -839,7 +870,7 @@ get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
 
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
         while (b2 && has_key(tb, b2, key, hval)) {
-	    if (b2->hvalue != INVALID_HASH)
+	    if (!is_pseudo_deleted(b2))
 		sz += b2->dbterm.size + 2;
 
             b2 = b2->next;
@@ -935,7 +966,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 
 		while(b2 != NULL && has_key(tb,b2,key,hval)) {
 		    if (ndex > arityval(b2->dbterm.tpl[0])
-			&& b2->hvalue != INVALID_HASH) {
+			&& !is_pseudo_deleted(b2)) {
 			retval = DB_ERROR_BADITEM;
 			goto done;
 		    }
@@ -943,7 +974,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 		}
 		b = b1;
 		while(b != b2) {
-		    if (b->hvalue != INVALID_HASH) {
+		    if (!is_pseudo_deleted(b)) {
 			Eterm *hp;
 			Eterm copy = db_copy_element_from_ets(&tb->common, p,
 							      &b->dbterm, ndex, &hp, 2);
@@ -978,6 +1009,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
+    HashDbTerm* free_us = NULL;
     erts_rwmtx_t* lck;
     int nitems_diff = 0;
 
@@ -993,16 +1025,17 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	    if (nitems_diff == -1 && IS_FIXED(tb)
                 && add_fixed_deletion(tb, ix, 0)) {
 		/* Pseudo remove (no need to keep several of same key) */
-		b->hvalue = INVALID_HASH;
+		b->pseudo_deleted = 1;
 	    } else {
-		*bp = b->next;
-		free_term(tb, b);
-		b = *bp;
+		HashDbTerm* next = b->next;
+                b->next = free_us;
+		free_us = b;
+		b = *bp = next;
 		continue;
 	    }
 	}
 	else {
-	    if (nitems_diff && b->hvalue != INVALID_HASH)
+	    if (nitems_diff && !is_pseudo_deleted(b))
 		break;
 	}
 	bp = &b->next;
@@ -1013,6 +1046,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     *ret = am_true;
     return DB_ERROR_NONE;
 }    
@@ -1027,6 +1061,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
+    HashDbTerm* free_us = NULL;
     erts_rwmtx_t* lck;
     int nitems_diff = 0;
     int nkeys = 0;
@@ -1045,13 +1080,14 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	    if (db_eq(&tb->common,object, &b->dbterm)) {
 		--nitems_diff;
 		if (nkeys==1 && IS_FIXED(tb) && add_fixed_deletion(tb,ix,0)) {
-		    b->hvalue = INVALID_HASH;        /* Pseudo remove */
+		    b->pseudo_deleted = 1;
 		    bp = &b->next;
 		    b = b->next;
 		} else {
-		    *bp = b->next;
-		    free_term(tb, b);
-		    b = *bp;
+                    HashDbTerm* next = b->next;
+		    b->next = free_us;
+                    free_us = b;
+		    b = *bp = next;
 		}
 		if (tb->common.status & (DB_DUPLICATE_BAG)) {
 		    continue;
@@ -1060,7 +1096,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 		}
 	    }
 	}
-	else if (nitems_diff && b->hvalue != INVALID_HASH) {
+	else if (nitems_diff && !is_pseudo_deleted(b)) {
 	    break;
 	}
 	bp = &b->next;
@@ -1071,6 +1107,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     *ret = am_true;
     return DB_ERROR_NONE;
 }    
@@ -1106,28 +1143,19 @@ static int db_slot_hash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
 
 
 /*
- * This is just here so I can take care of the return value 
- * that is to be sent during a trap (the BIF_TRAP macros explicitly returns)
- */
-static BIF_RETTYPE bif_trap1(Export *bif,
-			      Process *p, 
-			      Eterm p1) 
-{
-    BIF_TRAP1(bif, p, p1);
-}
-
-
-/*
  * Match traversal callbacks
  */
 
+typedef struct match_callbacks_t_ match_callbacks_t;
+struct match_callbacks_t_
+{
 /* Called when no match is possible.
  *      context_ptr: Pointer to context
  *      ret: Pointer to traversal function term return.
  *
  * Both the direct return value and 'ret' are used as the traversal function return values.
  */
-typedef int (*mtraversal_on_nothing_can_match_t)(void* context_ptr, Eterm* ret);
+    int (*on_nothing_can_match)(match_callbacks_t* ctx, Eterm* ret);
 
 /* Called for each match result.
  *      context_ptr: Pointer to context
@@ -1138,8 +1166,8 @@ typedef int (*mtraversal_on_nothing_can_match_t)(void* context_ptr, Eterm* ret);
  *
  * Should return 1 for successful match, 0 otherwise.
  */
-typedef int (*mtraversal_on_match_res_t)(void* context_ptr, Sint slot_ix, HashDbTerm*** current_ptr_ptr,
-                                         Eterm match_res);
+    int (*on_match_res)(match_callbacks_t* ctx, Sint slot_ix,
+                        HashDbTerm*** current_ptr_ptr, Eterm match_res);
 
 /* Called when either we've matched enough elements in this cycle or EOT was reached.
  *      context_ptr: Pointer to context
@@ -1152,8 +1180,8 @@ typedef int (*mtraversal_on_match_res_t)(void* context_ptr, Sint slot_ix, HashDb
  * Both the direct return value and 'ret' are used as the traversal function return values.
  * If *mpp is set to NULL, it won't be deallocated (useful for trapping.)
  */
-typedef int (*mtraversal_on_loop_ended_t)(void* context_ptr, Sint slot_ix, Sint got,
-                                          Sint iterations_left, Binary** mpp, Eterm* ret);
+    int (*on_loop_ended)(match_callbacks_t* ctx, Sint slot_ix, Sint got,
+                         Sint iterations_left, Binary** mpp, Eterm* ret);
 
 /* Called when it's time to trap
  *      context_ptr: Pointer to context
@@ -1165,7 +1193,11 @@ typedef int (*mtraversal_on_loop_ended_t)(void* context_ptr, Sint slot_ix, Sint 
  * Both the direct return value and 'ret' are used as the traversal function return values.
  * If *mpp is set to NULL, it won't be deallocated (useful for trapping.)
  */
-typedef int (*mtraversal_on_trap_t)(void* context_ptr, Sint slot_ix, Sint got, Binary** mpp, Eterm* ret);
+    int (*on_trap)(match_callbacks_t* ctx, Sint slot_ix, Sint got, Binary** mpp,
+                   Eterm* ret);
+
+};
+
 
 /*
  * Begin hash table match traversal
@@ -1178,11 +1210,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
                           Eterm** hpp,          /* Heap */
                           int lock_for_write,   /* Set to 1 if we're going to delete or
                                                    modify existing terms */
-                          mtraversal_on_nothing_can_match_t on_nothing_can_match,
-                          mtraversal_on_match_res_t on_match_res,
-                          mtraversal_on_loop_ended_t on_loop_ended,
-                          mtraversal_on_trap_t on_trap,
-                          void* context_ptr, /* State for callbacks above */
+                          match_callbacks_t* ctx,
                           Eterm* ret)
 {
     Sint slot_ix;                  /* Slot index */
@@ -1212,12 +1240,8 @@ static int match_traverse(Process* p, DbTableHash* tb,
 
     if (!mpi.something_can_match) {
         /* Can't possibly match anything */
-        ret_value = on_nothing_can_match(context_ptr, ret);
+        ret_value = ctx->on_nothing_can_match(ctx, ret);
         goto done;
-    }
-
-    if (mpi.all_objects) {
-        mpi.mp->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     }
 
     /*
@@ -1235,7 +1259,8 @@ static int match_traverse(Process* p, DbTableHash* tb,
             }
             slot_ix = next_slot_function(tb,slot_ix,&lck);
             if (slot_ix == 0) {
-                ret_value = on_loop_ended(context_ptr, slot_ix, got, iterations_left, &mpi.mp, ret);
+                ret_value = ctx->on_loop_ended(ctx, slot_ix, got, iterations_left,
+                                               &mpi.mp, ret);
                 goto done;
             }
         }
@@ -1253,11 +1278,11 @@ static int match_traverse(Process* p, DbTableHash* tb,
      */
     for(;;) {
         if (*current_ptr != NULL) {
-            if ((*current_ptr)->hvalue != INVALID_HASH) {
-                match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
+            if (!is_pseudo_deleted(*current_ptr)) {
+                match_res = db_match_dbterm(&tb->common, p, mpi.mp,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
-                if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
+                if (ctx->on_match_res(ctx, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
                 --iterations_left;
@@ -1271,7 +1296,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
         else if (mpi.key_given) {  /* Key is bound */
             unlock_hash_function(lck);
             if (current_list_pos == mpi.num_lists) {
-                ret_value = on_loop_ended(context_ptr, -1, got, iterations_left, &mpi.mp, ret);
+                ret_value = ctx->on_loop_ended(ctx, -1, got, iterations_left, &mpi.mp, ret);
                 goto done;
             } else {
                 slot_ix = mpi.lists[current_list_pos].ix;
@@ -1296,18 +1321,18 @@ static int match_traverse(Process* p, DbTableHash* tb,
                  * Since many heap fragments will make the GC slower, trap and GC now.
                  */
                 unlock_hash_function(lck);
-                ret_value = on_trap(context_ptr, slot_ix, got, &mpi.mp, ret);
+                ret_value = ctx->on_trap(ctx, slot_ix, got, &mpi.mp, ret);
                 goto done;
             }
             current_ptr = &BUCKET(tb,slot_ix);
         }
     }
 
-    ret_value = on_loop_ended(context_ptr, slot_ix, got, iterations_left, &mpi.mp, ret);
+    ret_value = ctx->on_loop_ended(ctx, slot_ix, got, iterations_left, &mpi.mp, ret);
 
 done:
     /* We should only jump directly to this label if
-     * we've already called on_nothing_can_match / on_loop_ended / on_trap
+     * we've already called ctx->nothing_can_match / loop_ended / trap
      */
     if (mpi.mp != NULL) {
         erts_bin_free(mpi.mp);
@@ -1332,13 +1357,9 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                                    Binary** mpp,         /* Existing match program */
                                    int lock_for_write,   /* Set to 1 if we're going to delete or
                                                             modify existing terms */
-                                   mtraversal_on_match_res_t on_match_res,
-                                   mtraversal_on_loop_ended_t on_loop_ended,
-                                   mtraversal_on_trap_t on_trap,
-                                   void* context_ptr, /* For callbacks */
+                                   match_callbacks_t* ctx,
                                    Eterm* ret)
 {
-    int all_objects = (*mpp)->intern.flags & BIN_FLAG_ALL_OBJECTS;
     HashDbTerm** current_ptr;  /* Refers to either the bucket pointer or
                                        * the 'next' pointer in the previous term
                                        */
@@ -1362,7 +1383,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
        || (chunk_size && got >= chunk_size))
     {
         /* Already got all or enough in the match_list */
-        ret_value = on_loop_ended(context_ptr, slot_ix, got, iterations_left, mpp, ret);
+        ret_value = ctx->on_loop_ended(ctx, slot_ix, got, iterations_left, mpp, ret);
         goto done;
     }
 
@@ -1380,11 +1401,11 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     current_ptr = &BUCKET(tb,slot_ix);
     for(;;) {
         if (*current_ptr != NULL) {
-            if ((*current_ptr)->hvalue != INVALID_HASH) {
-                match_res = db_match_dbterm(&tb->common, p, *mpp, all_objects,
+            if (!is_pseudo_deleted(*current_ptr)) {
+                match_res = db_match_dbterm(&tb->common, p, *mpp,
                                             &(*current_ptr)->dbterm, hpp, 2);
                 saved_current = *current_ptr;
-                if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
+                if (ctx->on_match_res(ctx, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
                 --iterations_left;
@@ -1410,14 +1431,14 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                  * Since many heap fragments will make the GC slower, trap and GC now.
                  */
                 unlock_hash_function(lck);
-                ret_value = on_trap(context_ptr, slot_ix, got, mpp, ret);
+                ret_value = ctx->on_trap(ctx, slot_ix, got, mpp, ret);
                 goto done;
             }
             current_ptr = &BUCKET(tb,slot_ix);
         }
     }
 
-    ret_value = on_loop_ended(context_ptr, slot_ix, got, iterations_left, mpp, ret);
+    ret_value = ctx->on_loop_ended(ctx, slot_ix, got, iterations_left, mpp, ret);
 
 done:
     /* We should only jump directly to this label if
@@ -1434,7 +1455,7 @@ done:
  * as well as their continuation-handling counterparts.
  */
 
-static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
+static ERTS_INLINE int on_simple_trap(Export* trap_function,
                                                  Process* p,
                                                  DbTableHash* tb,
                                                  Eterm tid,
@@ -1480,16 +1501,16 @@ static ERTS_INLINE int on_mtraversal_simple_trap(Export* trap_function,
             make_small(slot_ix),
             mpb,
             egot);
-    *ret = bif_trap1(trap_function, p, continuation);
+    ERTS_BIF_PREP_TRAP1(*ret, trap_function, p, continuation);
     return DB_ERROR_NONE;
 }
 
-static ERTS_INLINE int unpack_simple_mtraversal_continuation(Eterm continuation,
-                                                             Eterm** tptr_ptr,
-                                                             Eterm* tid_ptr,
-                                                             Sint* slot_ix_p,
-                                                             Binary** mpp,
-                                                             Sint* got_p)
+static ERTS_INLINE int unpack_simple_continuation(Eterm continuation,
+                                                  Eterm** tptr_ptr,
+                                                  Eterm* tid_ptr,
+                                                  Sint* slot_ix_p,
+                                                  Binary** mpp,
+                                                  Sint* got_p)
 {
     Eterm* tptr;
     ASSERT(is_tuple(continuation));
@@ -1524,6 +1545,7 @@ static ERTS_INLINE int unpack_simple_mtraversal_continuation(Eterm continuation,
 #define MAX_SELECT_CHUNK_ITERATIONS 1000
 
 typedef struct {
+    match_callbacks_t base;
     Process* p;
     DbTableHash* tb;
     Eterm tid;
@@ -1531,83 +1553,86 @@ typedef struct {
     Sint chunk_size;
     Eterm match_list;
     Eterm* prev_continuation_tptr;
-} mtraversal_select_chunk_context_t;
+} select_chunk_context_t;
 
-static int mtraversal_select_chunk_on_nothing_can_match(void* context_ptr, Eterm* ret) {
-    mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
-    *ret = (sc_context_ptr->chunk_size > 0 ? am_EOT : NIL);
+static int select_chunk_on_nothing_can_match(match_callbacks_t* ctx_base, Eterm* ret)
+{
+    select_chunk_context_t* ctx = (select_chunk_context_t*) ctx_base;
+    *ret = (ctx->chunk_size > 0 ? am_EOT : NIL);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_chunk_on_match_res(void* context_ptr, Sint slot_ix,
-                                                HashDbTerm*** current_ptr_ptr,
-                                                Eterm match_res)
+static int select_chunk_on_match_res(match_callbacks_t* ctx_base, Sint slot_ix,
+                                     HashDbTerm*** current_ptr_ptr,
+                                     Eterm match_res)
 {
-    mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
+    select_chunk_context_t* ctx = (select_chunk_context_t*) ctx_base;
     if (is_value(match_res)) {
-        sc_context_ptr->match_list = CONS(sc_context_ptr->hp, match_res, sc_context_ptr->match_list);
+        ctx->match_list = CONS(ctx->hp, match_res, ctx->match_list);
         return 1;
     }
     return 0;
 }
 
-static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix, Sint got,
-                                                 Sint iterations_left, Binary** mpp, Eterm* ret)
+static int select_chunk_on_loop_ended(match_callbacks_t* ctx_base,
+                                      Sint slot_ix, Sint got,
+                                      Sint iterations_left, Binary** mpp,
+                                      Eterm* ret)
 {
-    mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
+    select_chunk_context_t* ctx = (select_chunk_context_t*) ctx_base;
     Eterm mpb;
 
     if (iterations_left == MAX_SELECT_CHUNK_ITERATIONS) {
         /* We didn't get to iterate a single time, which means EOT */
-        ASSERT(sc_context_ptr->match_list == NIL);
-        *ret = (sc_context_ptr->chunk_size > 0 ? am_EOT : NIL);
+        ASSERT(ctx->match_list == NIL);
+        *ret = (ctx->chunk_size > 0 ? am_EOT : NIL);
         return DB_ERROR_NONE;
     }
     else {
         ASSERT(iterations_left < MAX_SELECT_CHUNK_ITERATIONS);
-        BUMP_REDS(sc_context_ptr->p, MAX_SELECT_CHUNK_ITERATIONS - iterations_left);
-        if (sc_context_ptr->chunk_size) {
+        BUMP_REDS(ctx->p, MAX_SELECT_CHUNK_ITERATIONS - iterations_left);
+        if (ctx->chunk_size) {
             Eterm continuation;
             Eterm rest = NIL;
             Sint rest_size = 0;
 
-            if (got > sc_context_ptr->chunk_size) { /* Split list in return value and 'rest' */
-                Eterm tmp = sc_context_ptr->match_list;
-                rest = sc_context_ptr->match_list;
-                while (got-- > sc_context_ptr->chunk_size + 1) {
+            if (got > ctx->chunk_size) { /* Split list in return value and 'rest' */
+                Eterm tmp = ctx->match_list;
+                rest = ctx->match_list;
+                while (got-- > ctx->chunk_size + 1) {
                     tmp = CDR(list_val(tmp));
                     ++rest_size;
                 }
                 ++rest_size;
-                sc_context_ptr->match_list = CDR(list_val(tmp));
+                ctx->match_list = CDR(list_val(tmp));
                 CDR(list_val(tmp)) = NIL; /* Destructive, the list has never
                                              been in 'user space' */
             }
             if (rest != NIL || slot_ix >= 0) { /* Need more calls */
-                Eterm tid = sc_context_ptr->tid;
-                sc_context_ptr->hp = HAllocX(sc_context_ptr->p,
-                                             3 + 7 + ERTS_MAGIC_REF_THING_SIZE,
-                                             ERTS_MAGIC_REF_THING_SIZE);
-                mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &sc_context_ptr->hp);
+                Eterm tid = ctx->tid;
+                ctx->hp = HAllocX(ctx->p,
+                                  3 + 7 + ERTS_MAGIC_REF_THING_SIZE,
+                                  ERTS_MAGIC_REF_THING_SIZE);
+                mpb = erts_db_make_match_prog_ref(ctx->p, *mpp, &ctx->hp);
                 if (is_atom(tid))
-                    tid = erts_db_make_tid(sc_context_ptr->p,
-                                           &sc_context_ptr->tb->common);
+                    tid = erts_db_make_tid(ctx->p,
+                                           &ctx->tb->common);
                 continuation = TUPLE6(
-                        sc_context_ptr->hp,
+                        ctx->hp,
                         tid,
                         make_small(slot_ix),
-                        make_small(sc_context_ptr->chunk_size),
+                        make_small(ctx->chunk_size),
                         mpb, rest,
                         make_small(rest_size));
                 *mpp = NULL; /* Otherwise the caller will destroy it */
-                sc_context_ptr->hp += 7;
-                *ret = TUPLE2(sc_context_ptr->hp, sc_context_ptr->match_list, continuation);
+                ctx->hp += 7;
+                *ret = TUPLE2(ctx->hp, ctx->match_list, continuation);
                 return DB_ERROR_NONE;
             } else { /* All data is exhausted */
-                if (sc_context_ptr->match_list != NIL) { /* No more data to search but still a
+                if (ctx->match_list != NIL) { /* No more data to search but still a
                                                             result to return to the caller */
-                    sc_context_ptr->hp = HAlloc(sc_context_ptr->p, 3);
-                    *ret = TUPLE2(sc_context_ptr->hp, sc_context_ptr->match_list, am_EOT);
+                    ctx->hp = HAlloc(ctx->p, 3);
+                    *ret = TUPLE2(ctx->hp, ctx->match_list, am_EOT);
                     return DB_ERROR_NONE;
                 } else { /* Reached the end of the ttable with no data to return */
                     *ret = am_EOT;
@@ -1615,82 +1640,88 @@ static int mtraversal_select_chunk_on_loop_ended(void* context_ptr, Sint slot_ix
                 }
             }
         }
-        *ret = sc_context_ptr->match_list;
+        *ret = ctx->match_list;
         return DB_ERROR_NONE;
     }
 }
 
-static int mtraversal_select_chunk_on_trap(void* context_ptr, Sint slot_ix, Sint got,
-                                           Binary** mpp, Eterm* ret)
+static int select_chunk_on_trap(match_callbacks_t* ctx_base,
+                                Sint slot_ix, Sint got,
+                                Binary** mpp, Eterm* ret)
 {
-    mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
+    select_chunk_context_t* ctx = (select_chunk_context_t*) ctx_base;
     Eterm mpb;
     Eterm continuation;
     Eterm* hp;
 
-    BUMP_ALL_REDS(sc_context_ptr->p);
+    BUMP_ALL_REDS(ctx->p);
 
-    if (sc_context_ptr->prev_continuation_tptr == NULL) {
-        Eterm tid = sc_context_ptr->tid;
+    if (ctx->prev_continuation_tptr == NULL) {
+        Eterm tid = ctx->tid;
         /* First time we're trapping */
-        hp = HAllocX(sc_context_ptr->p, 7 + ERTS_MAGIC_REF_THING_SIZE,
+        hp = HAllocX(ctx->p, 7 + ERTS_MAGIC_REF_THING_SIZE,
                      ERTS_MAGIC_REF_THING_SIZE);
         if (is_atom(tid))
-            tid = erts_db_make_tid(sc_context_ptr->p, &sc_context_ptr->tb->common);
-        mpb = erts_db_make_match_prog_ref(sc_context_ptr->p, *mpp, &hp);
+            tid = erts_db_make_tid(ctx->p, &ctx->tb->common);
+        mpb = erts_db_make_match_prog_ref(ctx->p, *mpp, &hp);
         continuation = TUPLE6(
                 hp,
                 tid,
                 make_small(slot_ix),
-                make_small(sc_context_ptr->chunk_size),
+                make_small(ctx->chunk_size),
                 mpb,
-                sc_context_ptr->match_list,
+                ctx->match_list,
                 make_small(got));
         *mpp = NULL; /* otherwise the caller will destroy it */
     }
     else {
         /* Not the first time we're trapping; reuse continuation terms */
-        hp = HAlloc(sc_context_ptr->p, 7);
+        hp = HAlloc(ctx->p, 7);
         continuation = TUPLE6(
                 hp,
-                sc_context_ptr->prev_continuation_tptr[1],
+                ctx->prev_continuation_tptr[1],
                 make_small(slot_ix),
-                sc_context_ptr->prev_continuation_tptr[3],
-                sc_context_ptr->prev_continuation_tptr[4],
-                sc_context_ptr->match_list,
+                ctx->prev_continuation_tptr[3],
+                ctx->prev_continuation_tptr[4],
+                ctx->match_list,
                 make_small(got));
     }
-    *ret = bif_trap1(&ets_select_continue_exp, sc_context_ptr->p, continuation);
+    ERTS_BIF_PREP_TRAP1(*ret, &ets_select_continue_exp, ctx->p,
+                        continuation);
     return DB_ERROR_NONE;
 }
 
-static int db_select_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, int reverse, Eterm *ret) {
+static int db_select_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern,
+                          int reverse, Eterm *ret)
+{
     return db_select_chunk_hash(p, tbl, tid, pattern, 0, reverse, ret);
 }
 
-static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Sint chunk_size,
+static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
+                                Eterm pattern, Sint chunk_size,
                                 int reverse, Eterm *ret)
 {
-    mtraversal_select_chunk_context_t sc_context;
-    sc_context.p = p;
-    sc_context.tb = &tbl->hash;
-    sc_context.tid = tid;
-    sc_context.hp = NULL;
-    sc_context.chunk_size = chunk_size;
-    sc_context.match_list = NIL;
-    sc_context.prev_continuation_tptr = NULL;
+    select_chunk_context_t ctx;
+
+    ctx.base.on_nothing_can_match = select_chunk_on_nothing_can_match;
+    ctx.base.on_match_res         = select_chunk_on_match_res;
+    ctx.base.on_loop_ended        = select_chunk_on_loop_ended;
+    ctx.base.on_trap              = select_chunk_on_trap,
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.hp = NULL;
+    ctx.chunk_size = chunk_size;
+    ctx.match_list = NIL;
+    ctx.prev_continuation_tptr = NULL;
 
     return match_traverse(
-            sc_context.p, sc_context.tb,
+            ctx.p, ctx.tb,
             pattern, NULL,
-            sc_context.chunk_size,
+            ctx.chunk_size,
             MAX_SELECT_CHUNK_ITERATIONS,
-            &sc_context.hp, 0,
-            mtraversal_select_chunk_on_nothing_can_match,
-            mtraversal_select_chunk_on_match_res,
-            mtraversal_select_chunk_on_loop_ended,
-            mtraversal_select_chunk_on_trap,
-            &sc_context, ret);
+            &ctx.hp, 0,
+            &ctx.base, ret);
 }
 
 /*
@@ -1699,47 +1730,50 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patte
  *
  */
 
-static int mtraversal_select_chunk_continue_on_loop_ended(void* context_ptr, Sint slot_ix, Sint got,
-                                                          Sint iterations_left, Binary** mpp, Eterm* ret)
+static
+int select_chunk_continue_on_loop_ended(match_callbacks_t* ctx_base,
+                                        Sint slot_ix, Sint got,
+                                        Sint iterations_left, Binary** mpp,
+                                        Eterm* ret)
 {
-    mtraversal_select_chunk_context_t* sc_context_ptr = (mtraversal_select_chunk_context_t*) context_ptr;
+    select_chunk_context_t* ctx = (select_chunk_context_t*) ctx_base;
     Eterm continuation;
     Eterm rest = NIL;
     Eterm* hp;
 
     ASSERT(iterations_left <= MAX_SELECT_CHUNK_ITERATIONS);
-    BUMP_REDS(sc_context_ptr->p, MAX_SELECT_CHUNK_ITERATIONS - iterations_left);
-    if (sc_context_ptr->chunk_size) {
+    BUMP_REDS(ctx->p, MAX_SELECT_CHUNK_ITERATIONS - iterations_left);
+    if (ctx->chunk_size) {
         Sint rest_size = 0;
-        if (got > sc_context_ptr->chunk_size) {
+        if (got > ctx->chunk_size) {
             /* Cannot write destructively here,
                the list may have
                been in user space */
-            hp = HAlloc(sc_context_ptr->p, (got - sc_context_ptr->chunk_size) * 2);
-            while (got-- > sc_context_ptr->chunk_size) {
-                rest = CONS(hp, CAR(list_val(sc_context_ptr->match_list)), rest);
+            hp = HAlloc(ctx->p, (got - ctx->chunk_size) * 2);
+            while (got-- > ctx->chunk_size) {
+                rest = CONS(hp, CAR(list_val(ctx->match_list)), rest);
                 hp += 2;
-                sc_context_ptr->match_list = CDR(list_val(sc_context_ptr->match_list));
+                ctx->match_list = CDR(list_val(ctx->match_list));
                 ++rest_size;
             }
         }
         if (rest != NIL || slot_ix >= 0) {
-            hp = HAlloc(sc_context_ptr->p, 3 + 7);
+            hp = HAlloc(ctx->p, 3 + 7);
             continuation = TUPLE6(
                     hp,
-                    sc_context_ptr->prev_continuation_tptr[1],
+                    ctx->prev_continuation_tptr[1],
                     make_small(slot_ix),
-                    sc_context_ptr->prev_continuation_tptr[3],
-                    sc_context_ptr->prev_continuation_tptr[4],
+                    ctx->prev_continuation_tptr[3],
+                    ctx->prev_continuation_tptr[4],
                     rest,
                     make_small(rest_size));
             hp += 7;
-            *ret = TUPLE2(hp, sc_context_ptr->match_list, continuation);
+            *ret = TUPLE2(hp, ctx->match_list, continuation);
             return DB_ERROR_NONE;
         } else {
-            if (sc_context_ptr->match_list != NIL) {
-                hp = HAlloc(sc_context_ptr->p, 3);
-                *ret = TUPLE2(hp, sc_context_ptr->match_list, am_EOT);
+            if (ctx->match_list != NIL) {
+                hp = HAlloc(ctx->p, 3);
+                *ret = TUPLE2(hp, ctx->match_list, am_EOT);
                 return DB_ERROR_NONE;
             } else {
                 *ret = am_EOT;
@@ -1747,15 +1781,17 @@ static int mtraversal_select_chunk_continue_on_loop_ended(void* context_ptr, Sin
             }
         }
     }
-    *ret = sc_context_ptr->match_list;
+    *ret = ctx->match_list;
     return DB_ERROR_NONE;
 }
 
 /*
  * This is called when select traps
  */
-static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
-    mtraversal_select_chunk_context_t sc_context = {0};
+static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
+                                   Eterm* ret)
+{
+    select_chunk_context_t ctx;
     Eterm* tptr;
     Eterm tid;
     Binary* mp;
@@ -1790,21 +1826,21 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     match_list = tptr[5];
 
     /* Proceed */
-    sc_context.p = p;
-    sc_context.tb = &tbl->hash;
-    sc_context.tid = tid;
-    sc_context.hp = NULL;
-    sc_context.chunk_size = chunk_size;
-    sc_context.match_list = match_list;
-    sc_context.prev_continuation_tptr = tptr;
+    ctx.base.on_match_res  = select_chunk_on_match_res;
+    ctx.base.on_loop_ended = select_chunk_continue_on_loop_ended;
+    ctx.base.on_trap       = select_chunk_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.hp = NULL;
+    ctx.chunk_size = chunk_size;
+    ctx.match_list = match_list;
+    ctx.prev_continuation_tptr = tptr;
 
     return match_traverse_continue(
-            sc_context.p, sc_context.tb, sc_context.chunk_size,
-            iterations_left, &sc_context.hp, slot_ix, got, &mp, 0,
-            mtraversal_select_chunk_on_match_res, /* Reuse callback */
-            mtraversal_select_chunk_continue_on_loop_ended,
-            mtraversal_select_chunk_on_trap,      /* Reuse callback */
-            &sc_context, ret);
+            ctx.p, ctx.tb, ctx.chunk_size,
+            iterations_left, &ctx.hp, slot_ix, got, &mp, 0,
+            &ctx.base, ret);
 
 badparam:
     *ret = NIL;
@@ -1823,75 +1859,83 @@ badparam:
 #define MAX_SELECT_COUNT_ITERATIONS 1000
 
 typedef struct {
+    match_callbacks_t base;
     Process* p;
     DbTableHash* tb;
     Eterm tid;
-    Eterm* hp;
     Eterm* prev_continuation_tptr;
-} mtraversal_select_count_context_t;
+} select_count_context_t;
 
-static int mtraversal_select_count_on_nothing_can_match(void* context_ptr, Eterm* ret) {
+static int select_count_on_nothing_can_match(match_callbacks_t* ctx_base,
+                                             Eterm* ret)
+{
     *ret = make_small(0);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_count_on_match_res(void* context_ptr, Sint slot_ix,
-                                                HashDbTerm*** current_ptr_ptr,
-                                                Eterm match_res)
+static int select_count_on_match_res(match_callbacks_t* ctx_base, Sint slot_ix,
+                                     HashDbTerm*** current_ptr_ptr,
+                                     Eterm match_res)
 {
     return (match_res == am_true);
 }
 
-static int mtraversal_select_count_on_loop_ended(void* context_ptr, Sint slot_ix, Sint got,
-                                                 Sint iterations_left, Binary** mpp, Eterm* ret)
+static int select_count_on_loop_ended(match_callbacks_t* ctx_base,
+                                      Sint slot_ix, Sint got,
+                                      Sint iterations_left, Binary** mpp,
+                                      Eterm* ret)
 {
-    mtraversal_select_count_context_t* scnt_context_ptr = (mtraversal_select_count_context_t*) context_ptr;
+    select_count_context_t* ctx = (select_count_context_t*) ctx_base;
     ASSERT(iterations_left <= MAX_SELECT_COUNT_ITERATIONS);
-    BUMP_REDS(scnt_context_ptr->p, MAX_SELECT_COUNT_ITERATIONS - iterations_left);
-    *ret = erts_make_integer(got, scnt_context_ptr->p);
+    BUMP_REDS(ctx->p, MAX_SELECT_COUNT_ITERATIONS - iterations_left);
+    *ret = erts_make_integer(got, ctx->p);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_count_on_trap(void* context_ptr, Sint slot_ix, Sint got,
-                                           Binary** mpp, Eterm* ret)
+static int select_count_on_trap(match_callbacks_t* ctx_base,
+                                Sint slot_ix, Sint got,
+                                Binary** mpp, Eterm* ret)
 {
-    mtraversal_select_count_context_t* scnt_context_ptr = (mtraversal_select_count_context_t*) context_ptr;
-    return on_mtraversal_simple_trap(
+    select_count_context_t* ctx = (select_count_context_t*) ctx_base;
+    return on_simple_trap(
             &ets_select_count_continue_exp,
-            scnt_context_ptr->p,
-            scnt_context_ptr->tb,
-            scnt_context_ptr->tid,
-            scnt_context_ptr->prev_continuation_tptr,
+            ctx->p,
+            ctx->tb,
+            ctx->tid,
+            ctx->prev_continuation_tptr,
             slot_ix, got, mpp, ret);
 }
 
-static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret) {
-    mtraversal_select_count_context_t scnt_context = {0};
+static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
+                                Eterm pattern, Eterm *ret)
+{
+    select_count_context_t ctx;
     Sint iterations_left = MAX_SELECT_COUNT_ITERATIONS;
     Sint chunk_size = 0;
 
-    scnt_context.p = p;
-    scnt_context.tb = &tbl->hash;
-    scnt_context.tid = tid;
-    scnt_context.hp = NULL;
-    scnt_context.prev_continuation_tptr = NULL;
+    ctx.base.on_nothing_can_match = select_count_on_nothing_can_match;
+    ctx.base.on_match_res         = select_count_on_match_res;
+    ctx.base.on_loop_ended        = select_count_on_loop_ended;
+    ctx.base.on_trap              = select_count_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = NULL;
 
     return match_traverse(
-            scnt_context.p, scnt_context.tb,
+            ctx.p, ctx.tb,
             pattern, NULL,
             chunk_size, iterations_left, NULL, 0,
-            mtraversal_select_count_on_nothing_can_match,
-            mtraversal_select_count_on_match_res,
-            mtraversal_select_count_on_loop_ended,
-            mtraversal_select_count_on_trap,
-            &scnt_context, ret);
+            &ctx.base, ret);
 }
 
 /*
  * This is called when select_count traps
  */
-static int db_select_count_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
-    mtraversal_select_count_context_t scnt_context = {0};
+static int db_select_count_continue_hash(Process* p, DbTable* tbl,
+                                         Eterm continuation, Eterm* ret)
+{
+    select_count_context_t ctx;
     Eterm* tptr;
     Eterm tid;
     Binary* mp;
@@ -1900,25 +1944,24 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl, Eterm continu
     Sint chunk_size = 0;
     *ret = NIL;
 
-    if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
-    scnt_context.p = p;
-    scnt_context.tb = &tbl->hash;
-    scnt_context.tid = tid;
-    scnt_context.hp = NULL;
-    scnt_context.prev_continuation_tptr = tptr;
+    ctx.base.on_match_res  = select_count_on_match_res;
+    ctx.base.on_loop_ended = select_count_on_loop_ended;
+    ctx.base.on_trap       = select_count_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = tptr;
 
     return match_traverse_continue(
-            scnt_context.p, scnt_context.tb, chunk_size,
+            ctx.p, ctx.tb, chunk_size,
             MAX_SELECT_COUNT_ITERATIONS,
             NULL, slot_ix, got, &mp, 0,
-            mtraversal_select_count_on_match_res,  /* Reuse callback */
-            mtraversal_select_count_on_loop_ended, /* Reuse callback */
-            mtraversal_select_count_on_trap,       /* Reuse callback */
-            &scnt_context, ret);
+            &ctx.base, ret);
 }
 
 #undef MAX_SELECT_COUNT_ITERATIONS
@@ -1933,104 +1976,119 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl, Eterm continu
 #define MAX_SELECT_DELETE_ITERATIONS 1000
 
 typedef struct {
+    match_callbacks_t base;
     Process* p;
     DbTableHash* tb;
     Eterm tid;
-    Eterm* hp;
     Eterm* prev_continuation_tptr;
     erts_aint_t fixated_by_me;
     Uint last_pseudo_delete;
-} mtraversal_select_delete_context_t;
+    HashDbTerm* free_us;
+} select_delete_context_t;
 
-static int mtraversal_select_delete_on_nothing_can_match(void* context_ptr, Eterm* ret) {
+static int select_delete_on_nothing_can_match(match_callbacks_t* ctx_base,
+                                              Eterm* ret)
+{
     *ret = make_small(0);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_delete_on_match_res(void* context_ptr, Sint slot_ix,
-                                                 HashDbTerm*** current_ptr_ptr,
-                                                 Eterm match_res)
+static int select_delete_on_match_res(match_callbacks_t* ctx_base, Sint slot_ix,
+                                      HashDbTerm*** current_ptr_ptr,
+                                      Eterm match_res)
 {
     HashDbTerm** current_ptr = *current_ptr_ptr;
-    mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
+    select_delete_context_t* ctx = (select_delete_context_t*) ctx_base;
     HashDbTerm* del;
     if (match_res != am_true)
         return 0;
 
-    if (NFIXED(sd_context_ptr->tb) > sd_context_ptr->fixated_by_me) { /* fixated by others? */
-        if (slot_ix != sd_context_ptr->last_pseudo_delete) {
-            if (!add_fixed_deletion(sd_context_ptr->tb, slot_ix, sd_context_ptr->fixated_by_me))
+    if (NFIXED(ctx->tb) > ctx->fixated_by_me) { /* fixated by others? */
+        if (slot_ix != ctx->last_pseudo_delete) {
+            if (!add_fixed_deletion(ctx->tb, slot_ix, ctx->fixated_by_me))
                 goto do_erase;
-            sd_context_ptr->last_pseudo_delete = slot_ix;
+            ctx->last_pseudo_delete = slot_ix;
         }
-        (*current_ptr)->hvalue = INVALID_HASH;
+        (*current_ptr)->pseudo_deleted = 1;
     }
     else {
     do_erase:
         del = *current_ptr;
         *current_ptr = (*current_ptr)->next; // replace pointer to term using next
-        free_term(sd_context_ptr->tb, del);
+        del->next = ctx->free_us;
+        ctx->free_us = del;
     }
-    erts_atomic_dec_nob(&sd_context_ptr->tb->common.nitems);
+    erts_atomic_dec_nob(&ctx->tb->common.nitems);
 
     return 1;
 }
 
-static int mtraversal_select_delete_on_loop_ended(void* context_ptr, Sint slot_ix, Sint got,
-                                                  Sint iterations_left, Binary** mpp, Eterm* ret)
+static int select_delete_on_loop_ended(match_callbacks_t* ctx_base,
+                                       Sint slot_ix, Sint got,
+                                       Sint iterations_left, Binary** mpp,
+                                       Eterm* ret)
 {
-    mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
+    select_delete_context_t* ctx = (select_delete_context_t*) ctx_base;
+    free_term_list(ctx->tb, ctx->free_us);
+    ctx->free_us = NULL;
     ASSERT(iterations_left <= MAX_SELECT_DELETE_ITERATIONS);
-    BUMP_REDS(sd_context_ptr->p, MAX_SELECT_DELETE_ITERATIONS - iterations_left);
+    BUMP_REDS(ctx->p, MAX_SELECT_DELETE_ITERATIONS - iterations_left);
     if (got) {
-	try_shrink(sd_context_ptr->tb);
+	try_shrink(ctx->tb);
     }
-    *ret = erts_make_integer(got, sd_context_ptr->p);
+    *ret = erts_make_integer(got, ctx->p);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_delete_on_trap(void* context_ptr, Sint slot_ix, Sint got,
-                                            Binary** mpp, Eterm* ret)
+static int select_delete_on_trap(match_callbacks_t* ctx_base,
+                                 Sint slot_ix, Sint got,
+                                 Binary** mpp, Eterm* ret)
 {
-    mtraversal_select_delete_context_t* sd_context_ptr = (mtraversal_select_delete_context_t*) context_ptr;
-    return on_mtraversal_simple_trap(
+    select_delete_context_t* ctx = (select_delete_context_t*) ctx_base;
+    free_term_list(ctx->tb, ctx->free_us);
+    ctx->free_us = NULL;
+    return on_simple_trap(
             &ets_select_delete_continue_exp,
-            sd_context_ptr->p,
-            sd_context_ptr->tb,
-            sd_context_ptr->tid,
-            sd_context_ptr->prev_continuation_tptr,
+            ctx->p,
+            ctx->tb,
+            ctx->tid,
+            ctx->prev_continuation_tptr,
             slot_ix, got, mpp, ret);
 }
 
-static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret) {
-    mtraversal_select_delete_context_t sd_context = {0};
+static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
+                                 Eterm pattern, Eterm *ret)
+{
+    select_delete_context_t ctx;
     Sint chunk_size = 0;
 
-    sd_context.p = p;
-    sd_context.tb = &tbl->hash;
-    sd_context.tid = tid;
-    sd_context.hp = NULL;
-    sd_context.prev_continuation_tptr = NULL;
-    sd_context.fixated_by_me = sd_context.tb->common.is_thread_safe ? 0 : 1; /* TODO: something nicer */
-    sd_context.last_pseudo_delete = (Uint) -1;
+    ctx.base.on_nothing_can_match = select_delete_on_nothing_can_match;
+    ctx.base.on_match_res         = select_delete_on_match_res;
+    ctx.base.on_loop_ended        = select_delete_on_loop_ended;
+    ctx.base.on_trap              = select_delete_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = NULL;
+    ctx.fixated_by_me = ctx.tb->common.is_thread_safe ? 0 : 1; /* TODO: something nicer */
+    ctx.last_pseudo_delete = (Uint) -1;
+    ctx.free_us = NULL;
 
     return match_traverse(
-            sd_context.p, sd_context.tb,
+            ctx.p, ctx.tb,
             pattern, NULL,
             chunk_size,
             MAX_SELECT_DELETE_ITERATIONS, NULL, 1,
-            mtraversal_select_delete_on_nothing_can_match,
-            mtraversal_select_delete_on_match_res,
-            mtraversal_select_delete_on_loop_ended,
-            mtraversal_select_delete_on_trap,
-            &sd_context, ret);
+            &ctx.base, ret);
 }
 
 /*
  * This is called when select_delete traps
  */
-static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret) {
-    mtraversal_select_delete_context_t sd_context = {0};
+static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
+                                          Eterm continuation, Eterm* ret)
+{
+    select_delete_context_t ctx;
     Eterm* tptr;
     Eterm tid;
     Binary* mp;
@@ -2038,27 +2096,27 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm contin
     Sint slot_ix;
     Sint chunk_size = 0;
 
-    if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
-    sd_context.p = p;
-    sd_context.tb = &tbl->hash;
-    sd_context.tid = tid;
-    sd_context.hp = NULL;
-    sd_context.prev_continuation_tptr = tptr;
-    sd_context.fixated_by_me = ONLY_WRITER(p, sd_context.tb) ? 0 : 1; /* TODO: something nicer */
-    sd_context.last_pseudo_delete = (Uint) -1;
+    ctx.base.on_match_res  = select_delete_on_match_res;
+    ctx.base.on_loop_ended = select_delete_on_loop_ended;
+    ctx.base.on_trap       = select_delete_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = tptr;
+    ctx.fixated_by_me = ONLY_WRITER(p, ctx.tb) ? 0 : 1; /* TODO: something nicer */
+    ctx.last_pseudo_delete = (Uint) -1;
+    ctx.free_us = NULL;
 
     return match_traverse_continue(
-            sd_context.p, sd_context.tb, chunk_size,
+            ctx.p, ctx.tb, chunk_size,
             MAX_SELECT_DELETE_ITERATIONS,
             NULL, slot_ix, got, &mp, 1,
-            mtraversal_select_delete_on_match_res,  /* Reuse callback */
-            mtraversal_select_delete_on_loop_ended, /* Reuse callback */
-            mtraversal_select_delete_on_trap,       /* Reuse callback */
-            &sd_context, ret);
+            &ctx.base, ret);
 }
 
 #undef MAX_SELECT_DELETE_ITERATIONS
@@ -2073,24 +2131,26 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl, Eterm contin
 #define MAX_SELECT_REPLACE_ITERATIONS 1000
 
 typedef struct {
+    match_callbacks_t base;
     Process* p;
     DbTableHash* tb;
     Eterm tid;
-    Eterm* hp;
     Eterm* prev_continuation_tptr;
-} mtraversal_select_replace_context_t;
+} select_replace_context_t;
 
-static int mtraversal_select_replace_on_nothing_can_match(void* context_ptr, Eterm* ret) {
+static int select_replace_on_nothing_can_match(match_callbacks_t* ctx_base,
+                                               Eterm* ret)
+{
     *ret = make_small(0);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_ix,
-                                                  HashDbTerm*** current_ptr_ptr,
-                                                  Eterm match_res)
+static int select_replace_on_match_res(match_callbacks_t* ctx_base, Sint slot_ix,
+                                       HashDbTerm*** current_ptr_ptr,
+                                       Eterm match_res)
 {
-    mtraversal_select_replace_context_t* sr_context_ptr = (mtraversal_select_replace_context_t*) context_ptr;
-    DbTableHash* tb = sr_context_ptr->tb;
+    select_replace_context_t* ctx = (select_replace_context_t*) ctx_base;
+    DbTableHash* tb = ctx->tb;
     HashDbTerm* new;
     HashDbTerm* next;
     HashValue hval;
@@ -2106,6 +2166,7 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
         new = new_dbterm(tb, match_res);
         new->next = next;
         new->hvalue = hval;
+        new->pseudo_deleted = 0;
         free_term(tb, **current_ptr_ptr);
         **current_ptr_ptr = new; /* replace 'next' pointer in previous object */
         *current_ptr_ptr = &((**current_ptr_ptr)->next); /* advance to next object */
@@ -2114,35 +2175,37 @@ static int mtraversal_select_replace_on_match_res(void* context_ptr, Sint slot_i
     return 0;
 }
 
-static int mtraversal_select_replace_on_loop_ended(void* context_ptr, Sint slot_ix, Sint got,
-                                                   Sint iterations_left, Binary** mpp, Eterm* ret)
+static int select_replace_on_loop_ended(match_callbacks_t* ctx_base, Sint slot_ix,
+                                        Sint got, Sint iterations_left,
+                                        Binary** mpp, Eterm* ret)
 {
-    mtraversal_select_replace_context_t* sr_context_ptr = (mtraversal_select_replace_context_t*) context_ptr;
+    select_replace_context_t* ctx = (select_replace_context_t*) ctx_base;
     ASSERT(iterations_left <= MAX_SELECT_REPLACE_ITERATIONS);
     /* the more objects we've replaced, the more reductions we've consumed */
-    BUMP_REDS(sr_context_ptr->p,
+    BUMP_REDS(ctx->p,
               MIN(MAX_SELECT_REPLACE_ITERATIONS * 2,
                   (MAX_SELECT_REPLACE_ITERATIONS - iterations_left) + (int)got));
-    *ret = erts_make_integer(got, sr_context_ptr->p);
+    *ret = erts_make_integer(got, ctx->p);
     return DB_ERROR_NONE;
 }
 
-static int mtraversal_select_replace_on_trap(void* context_ptr, Sint slot_ix, Sint got,
-                                             Binary** mpp, Eterm* ret)
+static int select_replace_on_trap(match_callbacks_t* ctx_base,
+                                  Sint slot_ix, Sint got,
+                                  Binary** mpp, Eterm* ret)
 {
-    mtraversal_select_replace_context_t* sr_context_ptr = (mtraversal_select_replace_context_t*) context_ptr;
-    return on_mtraversal_simple_trap(
+    select_replace_context_t* ctx = (select_replace_context_t*) ctx_base;
+    return on_simple_trap(
             &ets_select_replace_continue_exp,
-            sr_context_ptr->p,
-            sr_context_ptr->tb,
-            sr_context_ptr->tid,
-            sr_context_ptr->prev_continuation_tptr,
+            ctx->p,
+            ctx->tb,
+            ctx->tid,
+            ctx->prev_continuation_tptr,
             slot_ix, got, mpp, ret);
 }
 
 static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret)
 {
-    mtraversal_select_replace_context_t sr_context = {0};
+    select_replace_context_t ctx;
     Sint chunk_size = 0;
 
     /* Bag implementation presented both semantic consistency and performance issues,
@@ -2150,22 +2213,21 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pat
      */
     ASSERT(!(tbl->hash.common.status & DB_BAG));
 
-    sr_context.p = p;
-    sr_context.tb = &tbl->hash;
-    sr_context.tid = tid;
-    sr_context.hp = NULL;
-    sr_context.prev_continuation_tptr = NULL;
+    ctx.base.on_nothing_can_match = select_replace_on_nothing_can_match;
+    ctx.base.on_match_res         = select_replace_on_match_res;
+    ctx.base.on_loop_ended        = select_replace_on_loop_ended;
+    ctx.base.on_trap              = select_replace_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = NULL;
 
     return match_traverse(
-            sr_context.p, sr_context.tb,
+            ctx.p, ctx.tb,
             pattern, db_match_keeps_key,
             chunk_size,
             MAX_SELECT_REPLACE_ITERATIONS, NULL, 1,
-            mtraversal_select_replace_on_nothing_can_match,
-            mtraversal_select_replace_on_match_res,
-            mtraversal_select_replace_on_loop_ended,
-            mtraversal_select_replace_on_trap,
-            &sr_context, ret);
+            &ctx.base, ret);
 }
 
 /*
@@ -2173,7 +2235,7 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pat
  */
 static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret)
 {
-    mtraversal_select_replace_context_t sr_context = {0};
+    select_replace_context_t ctx;
     Eterm* tptr;
     Eterm tid ;
     Binary* mp;
@@ -2182,26 +2244,25 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm conti
     Sint chunk_size = 0;
     *ret = NIL;
 
-    if (unpack_simple_mtraversal_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
 
     /* Proceed */
-    sr_context.p = p;
-    sr_context.tb = &tbl->hash;
-    sr_context.tid = tid;
-    sr_context.hp = NULL;
-    sr_context.prev_continuation_tptr = tptr;
+    ctx.base.on_match_res  = select_replace_on_match_res;
+    ctx.base.on_loop_ended = select_replace_on_loop_ended;
+    ctx.base.on_trap       = select_replace_on_trap;
+    ctx.p = p;
+    ctx.tb = &tbl->hash;
+    ctx.tid = tid;
+    ctx.prev_continuation_tptr = tptr;
 
     return match_traverse_continue(
-            sr_context.p, sr_context.tb, chunk_size,
+            ctx.p, ctx.tb, chunk_size,
             MAX_SELECT_REPLACE_ITERATIONS,
             NULL, slot_ix, got, &mp, 1,
-            mtraversal_select_replace_on_match_res,  /* Reuse callback */
-            mtraversal_select_replace_on_loop_ended, /* Reuse callback */
-            mtraversal_select_replace_on_trap,       /* Reuse callback */
-            &sr_context, ret);
+            &ctx.base, ret);
 }
 
 
@@ -2209,6 +2270,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp, *b;
+    HashDbTerm *free_us = NULL;
     HashValue hval = MAKE_HASH(key);
     erts_rwmtx_t *lck = WLOCK_HASH(tb, hval);
     int ix = hash_to_ix(tb, hval);
@@ -2226,12 +2288,13 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
                     && add_fixed_deletion(tb, ix, 0)) {
                     /* Pseudo remove (no need to keep several of same key) */
                     bp = &b->next;
-                    b->hvalue = INVALID_HASH;
+                    b->pseudo_deleted = 1;
                     b = b->next;
                 } else {
-                    *bp = b->next;
-                    free_term(tb, b);
-                    b = *bp;
+                    HashDbTerm* next = b->next;
+                    b->next = free_us;
+                    free_us = b;
+                    b = *bp = next;
                 }
             }
             break;
@@ -2242,6 +2305,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
         erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
         try_shrink(tb);
     }
+    free_term_list(tb, free_us);
     return DB_ERROR_NONE;
 }
 
@@ -2255,25 +2319,52 @@ void db_initialize_hash(void)
 }
 
 
-int db_mark_all_deleted_hash(DbTable *tbl)
+static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
 {
+    const int LOOPS_PER_REDUCTION  = 8;
     DbTableHash *tb = &tbl->hash;
-    HashDbTerm* list;
+    FixedDeletion* fixdel;
+    SWord loops = reds * LOOPS_PER_REDUCTION;
     int i;
 
     ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb));
 
-    for (i = 0; i < NACTIVE(tb); i++) {
-	if ((list = BUCKET(tb,i)) != NULL) {
-	    add_fixed_deletion(tb, i, 0);
-	    do {
-		list->hvalue = INVALID_HASH;
-		list = list->next;
-	    }while(list != NULL);
-	}
+    fixdel = (FixedDeletion*) erts_atomic_read_nob(&tb->fixdel);
+    if (fixdel && fixdel->trap) {
+        /* Continue after trap */
+        ASSERT(fixdel->all);
+        ASSERT(fixdel->slot < NACTIVE(tb));
+        i = fixdel->slot;
     }
+    else {
+        /* First call */
+        fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+                               (DbTable *) tb,
+                               sizeof(FixedDeletion));
+        ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+        link_fixdel(tb, fixdel, 0);
+        i = 0;
+    }
+
+    do {
+        HashDbTerm* b;
+	for (b = BUCKET(tb,i); b; b = b->next)
+            b->pseudo_deleted = 1;
+    } while (++i < NACTIVE(tb) && --loops > 0);
+
+    if (i < NACTIVE(tb)) {
+         /* Yield */
+        fixdel->slot = i;
+        fixdel->all = 0;
+        fixdel->trap = 1;
+        return -1;
+    }
+
+    fixdel->slot = NACTIVE(tb) - 1;
+    fixdel->all = 1;
+    fixdel->trap = 0;
     erts_atomic_set_nob(&tb->common.nitems, 0);
-    return DB_ERROR_NONE;
+    return loops < 0 ? 0 : loops / LOOPS_PER_REDUCTION;
 }
 
 
@@ -2316,7 +2407,7 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 		continue;
 	    erts_print(to, to_arg, "%d: [", i);
 	    while(list != 0) {
-		if (list->hvalue == INVALID_HASH)
+		if (is_pseudo_deleted(list))
 		    erts_print(to, to_arg, "*");
 		if (tb->common.compress) {
 		    Eterm key = GETKEY(tb, list->dbterm.tpl);
@@ -2335,9 +2426,9 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
     }
 }
 
-/* release all memory occupied by a single table */
-static int db_free_table_hash(DbTable *tbl)
+static int db_free_empty_table_hash(DbTable *tbl)
 {
+    ASSERT(NITEMS(tbl) == 0);
     while (db_free_table_continue_hash(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 0;
@@ -2415,7 +2506,6 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     mpi->num_lists = 0;
     mpi->key_given = 1;
     mpi->something_can_match = 0;
-    mpi->all_objects = 1;
     mpi->mp = NULL;
 
     for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
@@ -2468,7 +2558,6 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 
 	if (!is_list(body) || CDR(list_val(body)) != NIL ||
 	    CAR(list_val(body)) != am_DollarUnderscore) {
-	    mpi->all_objects = 0;
 	}
 	++i;
 	if (!(mpi->key_given)) {
@@ -2682,7 +2771,7 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
     if (!sz) {
 	ptr = ptr1;
 	while(ptr != ptr2) {
-	    if (ptr->hvalue != INVALID_HASH)
+	    if (!is_pseudo_deleted(ptr))
 		sz += ptr->dbterm.size + 2;
 	    ptr = ptr->next;
 	}
@@ -2693,7 +2782,7 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 
     ptr = ptr1;
     while(ptr != ptr2) {
-	if (ptr->hvalue != INVALID_HASH) {
+	if (!is_pseudo_deleted(ptr)) {
 	    copy = db_copy_object_from_ets(&tb->common, &ptr->dbterm, &hp, &MSO(p));
 	    list = CONS(hp, copy, list);
 	    hp  += 2;
@@ -2786,7 +2875,7 @@ static void grow(DbTableHash* tb, int nitems)
         p = *pnext;
         to_pnext = &BUCKET(tb, to_ix);
         while (p != NULL) {
-            if (p->hvalue == INVALID_HASH) { /* rare but possible with fine locking */
+            if (is_pseudo_deleted(p)) { /* rare but possible with fine locking */
                 *pnext = p->next;
                 free_term(tb, p);
                 p = *pnext;
@@ -2859,7 +2948,7 @@ static void shrink(DbTableHash* tb, int nitems)
          * as we must step through "src" anyway to purge pseudo deleted.
          */
         while(*bp != NULL) {
-            if ((*bp)->hvalue == INVALID_HASH) {
+            if (is_pseudo_deleted(*bp)) {
                 HashDbTerm* deleted = *bp;
                 *bp = deleted->next;
                 free_term(tb, deleted);
@@ -2917,7 +3006,7 @@ static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr
     ERTS_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
 
     for ( ; list != NULL; list = list->next) {
-	if (list->hvalue != INVALID_HASH)
+	if (!is_pseudo_deleted(list))
 	    return list;        
     }
 
@@ -2926,7 +3015,7 @@ static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr
 
 	list = BUCKET(tb,i);
 	while (list != NULL) {
-	    if (list->hvalue != INVALID_HASH) {
+	    if (!is_pseudo_deleted(list)) {
 		*iptr = i;
 		return list;        
 	    }
@@ -2959,7 +3048,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             break;
         }
         if (has_key(tb, b, key, hval)) {
-            if (b->hvalue != INVALID_HASH) {
+            if (!is_pseudo_deleted(b)) {
                 goto Ldone;
             }
             break;
@@ -2989,16 +3078,18 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             HashDbTerm *q = new_dbterm(tb, obj);
 
             q->hvalue = hval;
+            q->pseudo_deleted = 0;
             q->next = NULL;
             *bp = b = q;
             flags |= DB_INC_TRY_GROW;
         } else {
             HashDbTerm *q, *next = b->next;
 
-            ASSERT(b->hvalue == INVALID_HASH);
+            ASSERT(is_pseudo_deleted(b));
             q = replace_dbterm(tb, b, obj);
             q->next = next;
-            q->hvalue = hval;
+            ASSERT(q->hvalue == hval);
+            q->pseudo_deleted = 0;
             *bp = b = q;
             erts_atomic_inc_nob(&tb->common.nitems);
         }
@@ -3036,7 +3127,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
         if (IS_FIXED(tb) && add_fixed_deletion(tb, hash_to_ix(tb, b->hvalue),
                                                0)) {
-            b->hvalue = INVALID_HASH;
+            b->pseudo_deleted = 1;
         } else {
             *bp = b->next;
             free_me = b;
@@ -3073,16 +3164,19 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     return;
 }
 
-static int db_delete_all_objects_hash(Process* p, DbTable* tbl)
+static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
 {
     if (IS_FIXED(tbl)) {
-	db_mark_all_deleted_hash(tbl);
+	reds = db_mark_all_deleted_hash(tbl, reds);
     } else {
-	db_free_table_hash(tbl);
+        reds = db_free_table_continue_hash(tbl, reds);
+        if (reds < 0)
+            return reds;
+
 	db_create_hash(p, tbl);
 	erts_atomic_set_nob(&tbl->hash.common.nitems, 0);
     }
-    return 0;
+    return reds;
 }
 
 void db_foreach_offheap_hash(DbTable *tbl,
@@ -3125,7 +3219,7 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 	len = 0;
 	for (b = BUCKET(tb,ix); b!=NULL; b=b->next) {
 	    len++;
-            if (b->hvalue == INVALID_HASH)
+            if (is_pseudo_deleted(b))
                 ++kept_items;
 	}
 	sum += len;

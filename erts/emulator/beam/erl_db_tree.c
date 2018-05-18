@@ -170,11 +170,6 @@ static ERTS_INLINE TreeDbTerm* replace_dbterm(DbTableTree *tb, TreeDbTerm* old,
 #define DIR_END 2 
 
 /*
- * Special binary flag
- */
-#define BIN_FLAG_ALL_OBJECTS         BIN_FLAG_USR1
-
-/*
  * Number of records to delete before trapping.
  */
 #define DELETE_RECORD_LIMIT 12000
@@ -218,9 +213,6 @@ static void do_dump_tree2(DbTableTree*, int to, void *to_arg, int show,
  * functions.
  */
 struct mp_info {
-    int all_objects;		/* True if complete objects are always
-				 * returned from the match_spec (can use 
-				 * copy_shallow on the return value) */
     int something_can_match;	/* The match_spec is not "impossible" */
     int some_limitation;	/* There is some limitation on the search
 				 * area, i. e. least and/or most is set.*/
@@ -248,7 +240,6 @@ struct select_context {
     Eterm *lastobj;
     Sint32 max;
     int keypos;
-    int all_objects;
     Sint got;
     Sint chunk_size;
 };
@@ -263,7 +254,6 @@ struct select_count_context {
     Eterm *lastobj;
     Sint32 max;
     int keypos;
-    int all_objects;
     Sint got;
 };
 
@@ -293,7 +283,6 @@ struct select_replace_context {
     Eterm *lastobj;
     Sint32 max;
     int keypos;
-    int all_objects;
     Sint replaced;
 };
 
@@ -428,7 +417,7 @@ static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show, DbTable *tbl);
-static int db_free_table_tree(DbTable *tbl);
+static int db_free_empty_table_tree(DbTable *tbl);
 
 static SWord db_free_table_continue_tree(DbTable *tbl, SWord);
 
@@ -436,7 +425,7 @@ static void db_foreach_offheap_tree(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static int db_delete_all_objects_tree(Process* p, DbTable* tbl);
+static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds);
 
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
@@ -481,7 +470,7 @@ DbTableMethod db_tree =
     db_select_replace_continue_tree,
     db_take_tree,
     db_delete_all_objects_tree,
-    db_free_table_tree,
+    db_free_empty_table_tree,
     db_free_table_continue_tree,
     db_print_tree,
     db_foreach_offheap_tree,
@@ -992,7 +981,6 @@ static int db_select_continue_tree(Process *p,
     sc.lastobj = NULL;
     sc.max = 1000;
     sc.keypos = tb->common.keypos;
-    sc.all_objects = mp->intern.flags & BIN_FLAG_ALL_OBJECTS;
     sc.chunk_size = chunk_size;
     reverse = unsigned_val(tptr[7]);
     sc.got = signed_val(tptr[8]);
@@ -1143,7 +1131,6 @@ static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
     }
 
     sc.mp = mpi.mp;
-    sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
 	CMP_EQ(mpi.least,mpi.most)) {
@@ -1183,8 +1170,6 @@ static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
     sz = size_object(key);
     hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
     key = copy_struct(key, sz, &hp, &MSO(p));
-    if (mpi.all_objects)
-	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb= erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE8
@@ -1346,7 +1331,6 @@ static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
     }
 
     sc.mp = mpi.mp;
-    sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
 	CMP_EQ(mpi.least,mpi.most)) {
@@ -1381,8 +1365,6 @@ static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
 	hp += BIG_UINT_HEAP_SIZE;
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
-    if (mpi.all_objects)
-	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	    
     continuation = TUPLE5
@@ -1449,7 +1431,6 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
     }
 
     sc.mp = mpi.mp;
-    sc.all_objects = mpi.all_objects;
 
     if (!mpi.got_partial && mpi.some_limitation && 
 	CMP_EQ(mpi.least,mpi.most)) {
@@ -1506,8 +1487,6 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
 	sz = size_object(key);
 	hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
 	key = copy_struct(key, sz, &hp, &MSO(p));
-	if (mpi.all_objects)
-	    (mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
 	mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 	
 	continuation = TUPLE8
@@ -1532,8 +1511,6 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
     hp = HAlloc(p, 9 + sz + ERTS_MAGIC_REF_THING_SIZE);
     key = copy_struct(key, sz, &hp, &MSO(p));
 
-    if (mpi.all_objects)
-	(mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
     continuation = TUPLE8
 	(hp,
@@ -1882,7 +1859,6 @@ static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
     }
 
     sc.mp = mpi.mp;
-    sc.all_objects = mpi.all_objects;
 
     stack = get_static_stack(tb);
     if (!mpi.got_partial && mpi.some_limitation &&
@@ -1928,8 +1904,6 @@ static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
         hp += BIG_UINT_HEAP_SIZE;
     }
     key = copy_struct(key, sz, &hp, &MSO(p));
-    if (mpi.all_objects)
-        (mpi.mp)->intern.flags |= BIN_FLAG_ALL_OBJECTS;
     mpb = erts_db_make_match_prog_ref(p,mpi.mp,&hp);
 
     continuation = TUPLE5
@@ -1995,8 +1969,9 @@ static void db_print_tree(fmtfn_t to, void *to_arg,
 }
 
 /* release all memory occupied by a single table */
-static int db_free_table_tree(DbTable *tbl)
+static int db_free_empty_table_tree(DbTable *tbl)
 {
+    ASSERT(tbl->tree.root == NULL);
     while (db_free_table_continue_tree(tbl, ERTS_SWORD_MAX) < 0)
 	;
     return 1;
@@ -2023,12 +1998,14 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
     return reds;
 }
 
-static int db_delete_all_objects_tree(Process* p, DbTable* tbl)
+static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds)
 {
-    db_free_table_tree(tbl);
+    reds = db_free_table_continue_tree(tbl, reds);
+    if (reds < 0)
+        return reds;
     db_create_tree(p, tbl);
     erts_atomic_set_nob(&tbl->tree.common.nitems, 0);
-    return 0;
+    return reds;
 }
 
 static void do_db_tree_foreach_offheap(TreeDbTerm *,
@@ -2214,7 +2191,6 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
     mpi->got_partial = 0;
     mpi->something_can_match = 0;
     mpi->mp = NULL;
-    mpi->all_objects = 1;
     mpi->save_term = NULL;
 
     for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
@@ -2264,7 +2240,6 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
 
 	if (!is_list(body) || CDR(list_val(body)) != NIL ||
 	    CAR(list_val(body)) != am_DollarUnderscore) {
-	    mpi->all_objects = 0;
 	}
 	++i;
 
@@ -3339,8 +3314,7 @@ static int doit_select(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 			   GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0))) {
 	return 0;
     }
-    ret = db_match_dbterm(&tb->common,sc->p,sc->mp,sc->all_objects,
-			  &this->dbterm, &hp, 2);
+    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, &this->dbterm, &hp, 2);
     if (is_value(ret)) {
 	sc->accum = CONS(hp, ret, sc->accum);
     }
@@ -3371,8 +3345,7 @@ static int doit_select_count(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 			  GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0)) {
 	return 0;
     }
-    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, 0,
-			  &this->dbterm, NULL, 0);
+    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, &this->dbterm, NULL, 0);
     if (ret == am_true) {
 	++(sc->got);
     }
@@ -3401,8 +3374,7 @@ static int doit_select_chunk(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 	return 0;
     }
 
-    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, sc->all_objects,
-			  &this->dbterm, &hp, 2);
+    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, &this->dbterm, &hp, 2);
     if (is_value(ret)) {
 	++(sc->got);
 	sc->accum = CONS(hp, ret, sc->accum);
@@ -3437,8 +3409,7 @@ static int doit_select_delete(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 	cmp_partly_bound(sc->end_condition, 
 			 GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0)
 	return 0;
-    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, 0,
-			  &this->dbterm, NULL, 0);
+    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, &this->dbterm, NULL, 0);
     if (ret == am_true) {
 	key = GETKEY(sc->tb, this->dbterm.tpl);
 	linkout_tree(sc->tb, key);
@@ -3465,8 +3436,7 @@ static int doit_select_replace(DbTableTree *tb, TreeDbTerm **this, void *ptr,
 			  GETKEY_WITH_POS(sc->keypos, (*this)->dbterm.tpl)) > 0)) {
 	return 0;
     }
-    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, 0,
-			  &(*this)->dbterm, NULL, 0);
+    ret = db_match_dbterm(&tb->common, sc->p, sc->mp, &(*this)->dbterm, NULL, 0);
 
     if (is_value(ret)) {
         TreeDbTerm* new;

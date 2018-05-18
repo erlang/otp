@@ -32,6 +32,7 @@
 ** DMC_DEBUG does NOT need DEBUG, but DEBUG needs DMC_DEBUG
 */
 #define DMC_DEBUG 1
+#define ETS_DBG_FORCE_TRAP 1
 #endif
 
 /*
@@ -180,10 +181,9 @@ typedef struct db_table_method
             Eterm* ret);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
-    int (*db_delete_all_objects)(Process* p,
-				 DbTable* db /* [in out] */ );
+    SWord (*db_delete_all_objects)(Process* p, DbTable* db, SWord reds);
 
-    int (*db_free_table)(DbTable* db /* [in out] */ );
+    int (*db_free_empty_table)(DbTable* db);
     SWord (*db_free_table_continue)(DbTable* db, SWord reds);
     
     void (*db_print)(fmtfn_t to,
@@ -267,6 +267,10 @@ typedef struct db_table_common {
     Uint32 status;            /* bit masks defined  below */
     int keypos;               /* defaults to 1 */
     int compress;
+
+#ifdef ETS_DBG_FORCE_TRAP
+    erts_atomic_t dbg_force_trap;  /* &1 force enabled, &2 trap this call */
+#endif
 } DbTableCommon;
 
 /* These are status bit patterns */
@@ -281,9 +285,7 @@ typedef struct db_table_common {
 #define DB_FINE_LOCKED   (1 << 8) /* write_concurrency */
 #define DB_FREQ_READ     (1 << 9) /* read_concurrency */
 #define DB_NAMED_TABLE   (1 << 10)
-
-#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET\
-                              |DB_FINE_LOCKED|DB_FREQ_READ|DB_NAMED_TABLE)
+#define DB_BUSY          (1 << 11)
 
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
@@ -469,7 +471,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
+		      DbTerm* obj, Eterm** hpp, Uint extra);
 
 Eterm db_prog_match(Process *p, Process *self,
                     Binary *prog, Eterm term,

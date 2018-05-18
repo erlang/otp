@@ -135,6 +135,10 @@ void erts_lcnt_enable_db_lock_count(DbTable *tb, int enable);
 void erts_lcnt_update_db_locks(int enable);
 #endif
 
+#ifdef ETS_DBG_FORCE_TRAP
+extern erts_aint_t erts_ets_dbg_force_trap;
+#endif
+
 #endif /* ERL_DB_H__ */
 
 #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__)
