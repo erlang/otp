@@ -834,18 +834,44 @@ Sint
 erts_proc_sig_privqs_len(Process *c_p);
 
 
-/* SVERK: Doc me up! */
+/**
+ * @brief Enqueue list of signals on process.
+ *
+ * Message queue must be locked on receiving process.
+ *
+ * @param rp                Receiving process.
+ * @param first             First signal in list.
+ * @param last              Last signal in list.
+ * @param last_next         Pointer to next-pointer to last non-message signal
+ *                          or NULL if no non-message signal after 'first'.
+ * @param msg_cnt           Number of message signals in list.
+ * @param in_state          'state' of rp.
+ *
+ * @return                  'state' of rp.
+ */
 erts_aint32_t
 erts_enqueue_signals(Process *rp, ErtsMessage *first,
                      ErtsMessage **last, ErtsMessage **last_next,
                      Uint msg_cnt,
                      erts_aint32_t in_state);
 
-/* SVERK: Doc me up! */
+/**
+ *
+ * @brief Flush pending signal.
+ *
+ */
 void
 erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
 
-/* SVERK Doc me up! */
+/**
+ *
+ * @brief Schedule process to handle enqueued signal(s).
+ *
+ * @param rp                Receiving process.
+ * @param state             'state' of rp.
+ * @param enable_flag       Additional state flags to enable, like
+ *                          ERTS_PSFLG_ACTIVE if message has been enqueued.
+ */
 ERTS_GLB_INLINE void erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
                                               erts_aint32_t enable_flag);
 
