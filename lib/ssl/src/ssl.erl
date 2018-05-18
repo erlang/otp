@@ -23,8 +23,16 @@
 %%% Purpose : Main API module for SSL see also tls.erl and dtls.erl
 
 -module(ssl).
--include("ssl_internal.hrl").
+
 -include_lib("public_key/include/public_key.hrl").
+
+-include("ssl_internal.hrl").
+-include("ssl_api.hrl").
+-include("ssl_internal.hrl").
+-include("ssl_record.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_handshake.hrl").
+-include("ssl_srp.hrl").
 
 %% Application handling
 -export([start/0, start/1, stop/0, clear_pem_cache/0]).
@@ -39,8 +47,8 @@
 	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2,
 	 getopts/2, setopts/2, getstat/1, getstat/2
 	]).
-%% SSL/TLS protocol handling
 
+%% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, cipher_suites/2, filter_cipher_suites/2,
          prepend_cipher_suites/2, append_cipher_suites/2,
          eccs/0, eccs/1, versions/0, 
@@ -49,14 +57,9 @@
 %% Misc
 -export([handle_options/2, tls_version/1, new_ssl_options/3]).
 
--include("ssl_api.hrl").
--include("ssl_internal.hrl").
--include("ssl_record.hrl").
--include("ssl_cipher.hrl").
--include("ssl_handshake.hrl").
--include("ssl_srp.hrl").
-
--include_lib("public_key/include/public_key.hrl"). 
+-deprecated({ssl_accept, 1, eventually}).
+-deprecated({ssl_accept, 2, eventually}).
+-deprecated({ssl_accept, 3, eventually}).
 
 %%--------------------------------------------------------------------
 -spec start() -> ok  | {error, reason()}.

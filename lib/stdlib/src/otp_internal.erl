@@ -612,6 +612,15 @@ obsolete_1(erlang, get_stacktrace, 0) ->
 obsolete_1(erlang, hash, 2) ->
     {removed, {erlang, phash2, 2}, "20.0"};
 
+%% Add in OTP 21.
+
+obsolete_1(ssl, ssl_accept, 1) ->
+    {deprecated, "deprecated; use ssl:handshake/1 instead"};
+obsolete_1(ssl, ssl_accept, 2) ->
+    {deprecated, "deprecated; use ssl:handshake/2 instead"};
+obsolete_1(ssl, ssl_accept, 3) ->
+    {deprecated, "deprecated; use ssl:handshake/3 instead"};
+
 %% not obsolete
 
 obsolete_1(_, _, _) ->
