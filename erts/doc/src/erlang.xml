@@ -8166,6 +8166,12 @@ ok
             <c>erl(1)</c>.
             </p>
           </item>
+	  <tag><marker id="system_info_ets_count"/>
+            <c>ets_count</c></tag>
+          <item>
+            <p>Returns the number of ETS tables currently existing at the
+            local node.</p>
+          </item>
           <tag><marker id="system_info_ets_limit"/>
             <c>ets_limit</c></tag>
           <item>

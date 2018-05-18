@@ -450,7 +450,7 @@ save_sched_table(Process *c_p, DbTable *tb)
     DbTable *first;
 
     ASSERT(esdp);
-    esdp->ets_tables.count++;
+    erts_atomic_inc_nob(&esdp->ets_tables.count);
     erts_refc_inc(&tb->common.refc, 1);
 
     first = esdp->ets_tables.clist;
@@ -474,8 +474,8 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
     ASSERT(erts_get_ref_numbers_thr_id(ERTS_MAGIC_BIN_REFN(tb->common.btid))
            == (Uint32) esdp->no);
 
-    ASSERT(esdp->ets_tables.count > 0);
-    esdp->ets_tables.count--;
+    ASSERT(erts_atomic_read_nob(&esdp->ets_tables.count) > 0);
+    erts_atomic_dec_nob(&esdp->ets_tables.count);
 
     eaydp = ERTS_SCHED_AUX_YIELD_DATA(esdp, ets_all);
     if (eaydp->ongoing) {
@@ -2446,7 +2446,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         ASSERT(!*tablepp);
 
         /* Max heap size needed... */
-        sz = esdp->ets_tables.count;
+        sz = erts_atomic_read_nob(&esdp->ets_tables.count);
         sz *= ERTS_MAGIC_REF_THING_SIZE + 2;
         sz += 3 + ERTS_REF_THING_SIZE;
         hfragp = new_message_buffer(sz);
@@ -2530,7 +2530,8 @@ erts_handle_yielded_ets_all_request(ErtsSchedulerData *esdp,
             if (!eaydp->queue)
                 return 0; /* All work completed! */
 
-            if (yc < ERTS_ETS_ALL_TB_YCNT_START && yc > esdp->ets_tables.count)
+            if (yc < ERTS_ETS_ALL_TB_YCNT_START &&
+                yc > erts_atomic_read_nob(&esdp->ets_tables.count))
                 return 1; /* Yield! */
 
             eaydp->ongoing = ongoing = eaydp->queue;
@@ -2608,7 +2609,6 @@ BIF_RETTYPE ets_internal_request_all_0(BIF_ALIST_0)
     handle_ets_all_request((void *) req);
     BIF_RET(ref);
 }
-
 
 /*
 ** db_slot(Db, Slot) -> [Items].
@@ -3539,7 +3539,7 @@ erts_ets_sched_spec_data_init(ErtsSchedulerData *esdp)
     eaydp->tab = NULL;
     eaydp->queue = NULL;
     esdp->ets_tables.clist = NULL;
-    esdp->ets_tables.count = 0;
+    erts_atomic_init_nob(&esdp->ets_tables.count, 0);
 }
 
 
@@ -4345,6 +4345,18 @@ Uint
 erts_db_get_max_tabs()
 {
     return db_max_tabs;
+}
+
+Uint erts_ets_table_count(void)
+{
+    Uint tb_count = 0;
+    Uint six;
+
+    for (six = 0; six < erts_no_schedulers; six++) {
+        ErtsSchedulerData *esdp = &erts_aligned_scheduler_data[six].esd;
+        tb_count += erts_atomic_read_nob(&esdp->ets_tables.count);
+    }
+    return tb_count;
 }
 
 /*

@@ -45,7 +45,7 @@ typedef struct {
 } ErtsEtsAllYieldData;
 
 typedef struct {
-    Uint count;
+    erts_atomic_t count;
     DbTable *clist;
 } ErtsEtsTables;
 
@@ -69,6 +69,7 @@ typedef struct {
 /*TT*/
 
 Uint erts_get_ets_misc_mem_size(void);
+Uint erts_ets_table_count(void);
 
 typedef struct {
     DbTableCommon common;
