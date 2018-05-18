@@ -72,7 +72,7 @@ try_format(Log,Formatter,FormatterConfig) ->
                                  {log,Log},
                                  {reason,
                                   {C,R,logger:filter_stacktrace(?MODULE,S)}}]),
-            case {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG} of
+            case {?DEFAULT_FORMATTER,#{}} of
                 {Formatter,FormatterConfig} ->
                     "DEFAULT FORMATTER CRASHED";
                 {DefaultFormatter,DefaultConfig} ->

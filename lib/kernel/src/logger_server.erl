@@ -328,7 +328,7 @@ default_config(_) ->
     #{level=>info,
       filters=>[],
       filter_default=>log,
-      formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}.
+      formatter=>{?DEFAULT_FORMATTER,#{}}}.
 
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).

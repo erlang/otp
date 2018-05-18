@@ -677,7 +677,8 @@ init_default_config(Type) when Type==standard_io;
                                 Type==standard_error;
                                 element(1,Type)==file ->
     Env = get_logger_env(),
-    DefaultConfig = #{logger_std_h=>#{type=>Type}},
+    DefaultFormatter = #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}},
+    DefaultConfig = DefaultFormatter#{logger_std_h=>#{type=>Type}},
     NewLoggerEnv =
         case lists:keyfind(default, 2, Env) of
             {handler, default, Module, Config} ->
@@ -687,6 +688,13 @@ init_default_config(Type) when Type==standard_io;
                           %% if not configured by user AND the default
                           %% handler is still the logger_std_h.
                           {handler, default, Module, maps:merge(DefaultConfig,Config)};
+                     ({handler, default, logger_disk_log_h, _}) ->
+                          %% Add default formatter. The point of this
+                          %% is to get the expected formatter config
+                          %% for the default handler, since this
+                          %% differs from the default values that
+                          %% logger_formatter itself adds.
+                          {handler, default, logger_disk_log_h, maps:merge(DefaultFormatter,Config)};
                      (Other) ->
                           Other
                   end, Env);

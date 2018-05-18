@@ -31,8 +31,7 @@
          {no_domain,{fun logger_filters:domain/2,{log,no_domain,[]}}}]).
 -define(DEFAULT_FORMATTER,logger_formatter).
 -define(DEFAULT_FORMAT_CONFIG,#{legacy_header=>true,
-                                single_line=>false,
-                                template=>?DEFAULT_FORMAT_TEMPLATE_HEADER}).
+                                single_line=>false}).
 -define(DEFAULT_FORMAT_TEMPLATE_HEADER,
         [{logger_formatter,header},"\n",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE_SINGLE,
