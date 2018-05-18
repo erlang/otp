@@ -921,6 +921,9 @@ ERTS_GLB_INLINE int erts_proc_trylock(Process *, ErtsProcLocks);
 
 ERTS_GLB_INLINE void erts_proc_inc_refc(Process *);
 ERTS_GLB_INLINE void erts_proc_dec_refc(Process *);
+ERTS_GLB_INLINE void erts_proc_dec_refc_free_func(Process *p,
+                                                  void (*func)(int, void *),
+                                                  void *arg);
 ERTS_GLB_INLINE void erts_proc_add_refc(Process *, Sint);
 ERTS_GLB_INLINE Sint erts_proc_read_refc(Process *);
 
@@ -990,6 +993,21 @@ ERTS_GLB_INLINE void erts_proc_dec_refc(Process *p)
     if (!referred) {
 	ASSERT(ERTS_PROC_IS_EXITING(p));
 	erts_free_proc(p);
+    }
+}
+
+ERTS_GLB_INLINE void erts_proc_dec_refc_free_func(Process *p,
+                                                  void (*func)(int, void *),
+                                                  void *arg)
+{
+    Sint referred;
+    ASSERT(!(erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_PROXY));
+    referred = erts_ptab_atmc_dec_test_refc(&p->common);
+    if (!referred) {
+	ASSERT(ERTS_PROC_IS_EXITING(p));
+        (*func)(!0, arg);
+	erts_free_proc(p);
+        (*func)(0, arg);
     }
 }
 
