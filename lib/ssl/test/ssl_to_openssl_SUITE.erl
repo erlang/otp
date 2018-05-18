@@ -596,7 +596,7 @@ erlang_client_openssl_server_anon(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_anon_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -639,7 +639,7 @@ erlang_server_openssl_client_anon(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_anon_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -673,7 +673,7 @@ erlang_server_openssl_client_anon_with_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
