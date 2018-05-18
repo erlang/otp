@@ -1776,9 +1776,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
         ret = make_tid(BIF_P, tb);
 
     save_sched_table(BIF_P, tb);
+    save_owned_table(BIF_P, tb);
 
     if (is_named && !insert_named_tab(BIF_ARG_1, tb, 0)) {
         tid_clear(BIF_P, tb);
+        delete_owned_table(BIF_P, tb);
 
 	db_lock(tb,LCK_WRITE);
 	free_heir_data(tb);
@@ -1789,7 +1791,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     
     BIF_P->flags |= F_USING_DB; /* So we can remove tb if p dies */
-    save_owned_table(BIF_P, tb);
 
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
