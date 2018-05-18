@@ -85,8 +85,6 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
 
 do_format(Level,Msg,Data,[level|Format],Config) ->
     [to_string(level,Level,Config)|do_format(Level,Msg,Data,Format,Config)];
-do_format(Level,Msg,Data,[msg|Format],Config) ->
-    [Msg|do_format(Level,Msg,Data,Format,Config)];
 do_format(Level,Msg,Data,[Key|Format],Config) when is_atom(Key); is_tuple(Key) ->
     Value = value(Key,Data),
     [to_string(Key,Value,Config)|do_format(Level,Msg,Data,Format,Config)];
@@ -130,9 +128,7 @@ to_string(X) ->
     io_lib:format("~tp",[X]).
 
 format_msg({string,Chardata},Meta,Config) ->
-    try unicode:characters_to_list(Chardata)
-    catch _:_ -> format_msg({"INVALID STRING: ~tp",[Chardata]},Meta,Config)
-    end;
+    format_msg({"~ts",[Chardata]},Meta,Config);
 format_msg({report,_}=Msg,Meta,#{report_cb:=Fun}=Config) when is_function(Fun,1) ->
     format_msg(Msg,Meta#{report_cb=>Fun},maps:remove(report_cb,Config));
 format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,1) ->

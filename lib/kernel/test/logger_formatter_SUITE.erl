@@ -269,8 +269,8 @@ format_msg(_Config) ->
     String8 = format(info,{string,['not',printable,list]},
                      #{report_cb=>fun(_)-> {"formatted",[]} end},
                      #{template=>Template}),
-    ct:log(String8),
-    "INVALID STRING: ['not',printable,list]" = String8,
+    ct:log("~ts",[String8]), % avoiding ct_log crash
+    "FORMAT ERROR: \"~ts\" - [['not',printable,list]]" = String8,
 
     String9 = format(info,{string,"string"},#{},#{template=>Template}),
     ct:log(String9),
@@ -405,6 +405,14 @@ chars_limit(_Config) ->
     ct:log("String5: ~p~nLength5: ~p~n",[String5,L5]),
     L5 = MS5,
     true = lists:prefix(lists:sublist(String5,L5-4),String4),
+
+    %% Test that chars_limit limits string also
+    Str = "123456789012345678901234567890123456789012345678901234567890123456789",
+    CL6 = 80,
+    String6 = format(info,{string,Str},Meta,FC#{chars_limit=>CL6}),
+    L6 = string:length(String6),
+    ct:log("String6: ~p~nLength6: ~p~n",[String6,L6]),
+    L6 = CL6,
 
     ok.
 
