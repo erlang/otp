@@ -157,7 +157,7 @@
 	  <p>A formatter is defined as a module exporting the following
 	    function:</p>
 
-	  <code>format(Log,Extra) -> unicode:chardata()</code>
+	  <code>format(Log,FConfig) -> unicode:chardata()</code>
 
 	  <p>The formatter callback is called by each handler, and the
 	    returned string can be printed to the handler's destination
@@ -413,12 +413,12 @@
 	    return <c>ignore</c>.</p>
 	  <p>Default is <c>log</c>.</p>
 	</item>
-	<tag><c>formatter = {Module::module(),Extra::term()}</c></tag>
+	<tag><c>formatter = {FModule::module(),FConfig::map()}</c></tag>
 	<item>
 	  <p>See <seealso marker="#Formatter">Formatter</seealso> for more
 	    information.</p>
 	  <p>The default module is <seealso marker="logger_formatter">
-	      <c>logger_formatter</c></seealso>, and <c>Extra</c> is
+	      <c>logger_formatter</c></seealso>, and <c>FConfig</c> is
 	      it's configuration map.</p>
 	</item>
         <tag>HandlerConfig, <c>term() = term()</c></tag>

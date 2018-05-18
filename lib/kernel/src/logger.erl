@@ -41,6 +41,7 @@
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
          update_logger_config/1, update_handler_config/2,
+         update_formatter_config/2, update_formatter_config/3,
          get_logger_config/0, get_handler_config/1,
          add_handlers/1]).
 
@@ -92,7 +93,7 @@
 -type config() :: #{level => level(),
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
-                    formatter => {module(),term()},
+                    formatter => {module(),map()},
                     term() => term()}.
 -type timestamp() :: integer().
 
@@ -385,6 +386,21 @@ get_logger_config() ->
       Config :: config().
 get_handler_config(HandlerId) ->
     logger_config:get(?LOGGER_TABLE,HandlerId).
+
+-spec update_formatter_config(HandlerId,FormatterConfig) ->
+                                     ok | {error,term()} when
+      HandlerId :: config(),
+      FormatterConfig :: map().
+update_formatter_config(HandlerId,FormatterConfig) ->
+    logger_server:update_formatter_config(HandlerId,FormatterConfig).
+
+-spec update_formatter_config(HandlerId,Key,Value) ->
+                                     ok | {error,term()} when
+      HandlerId :: config(),
+      Key :: atom(),
+      Value :: term().
+update_formatter_config(HandlerId,Key,Value) ->
+    logger_server:update_formatter_config(HandlerId,#{Key=>Value}).
 
 -spec set_module_level(Module,Level) -> ok | {error,term()} when
       Module :: module(),

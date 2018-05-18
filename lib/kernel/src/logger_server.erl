@@ -27,7 +27,8 @@
          add_filter/2, remove_filter/2,
          set_module_level/2, reset_module_level/1,
          cache_module_level/1,
-         set_config/2, set_config/3, update_config/2]).
+         set_config/2, set_config/3, update_config/2,
+         update_formatter_config/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -110,6 +111,13 @@ update_config(Owner, Config) ->
         Error ->
             Error
     end.
+
+update_formatter_config(HandlerId, FormatterConfig)
+  when is_map(FormatterConfig) ->
+    call({update_formatter_config,HandlerId,FormatterConfig});
+update_formatter_config(_HandlerId, FormatterConfig) ->
+    {error,{invalid_formatter_config,FormatterConfig}}.
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -216,6 +224,22 @@ handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
         _ ->
             {reply,{error,{not_found,HandlerId}},State}
     end;
+handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
+            #state{tid=Tid}=State) ->
+    Reply =
+        case logger_config:get(Tid,HandlerId) of
+            {ok,{_Mod,#{formatter:={FMod,OldFConfig}}=Config}} ->
+                try
+                    FConfig = maps:merge(OldFConfig,NewFConfig),
+                    check_formatter({FMod,FConfig}),
+                    do_set_config(Tid,HandlerId,
+                                  Config#{formatter=>{FMod,FConfig}})
+                catch throw:Reason -> {error,Reason}
+                end;
+            _ ->
+            {error,{not_found,HandlerId}}
+        end,
+    {reply,Reply,State};
 handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:set_module_level(Tid,Module,Level),
     {reply,Reply,State};

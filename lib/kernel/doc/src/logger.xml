@@ -774,6 +774,31 @@ logger:set_handler_config(HandlerId,maps:merge(Old,Config)).
     </func>
 
     <func>
+      <name name="update_formatter_config" arity="2"/>
+      <fsummary>Update the formatter configuration for the specified handler.</fsummary>
+      <desc>
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>The new configuration is merged with the existing formatter
+	  configuration.</p>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_handler_config-3">
+	    <c>set_handler_config(HandlerId,formatter,
+	      {FormatterModule,FormatterConfig})</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_formatter_config" arity="3"/>
+      <fsummary>Update the formatter configuration for the specified handler.</fsummary>
+      <desc>
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>This is equivalent
+	  to <br/><seealso marker="#update_formatter_config-2">
+	    <c>update_formatter_config(<anno>HandlerId</anno>,#{<anno>Key</anno>=><anno>Value</anno>})</c></seealso></p>
+      </desc>
+    </func>
+
+    <func>
       <name name="compare_levels" arity="2"/>
       <fsummary>Compare the severity of two log levels.</fsummary>
       <desc>
