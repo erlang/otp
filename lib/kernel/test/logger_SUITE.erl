@@ -318,7 +318,7 @@ macros(_Config) ->
 
 macros(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 set_level(_Config) ->
@@ -350,29 +350,29 @@ set_level_module(_Config) ->
     logger:info(M2=?map_rep,?MY_LOC(0)),
     ok = check_logged(info,M2,?MY_LOC(1)),
 
-    {error,{not_a_module,{bad}}} = logger:reset_module_level({bad}),
-    ok = logger:reset_module_level(?MODULE),
+    {error,{not_a_module,{bad}}} = logger:unset_module_level({bad}),
+    ok = logger:unset_module_level(?MODULE),
 
     ok.
 
 set_level_module(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 cache_level_module(_Config) ->
-    ok = logger:reset_module_level(?MODULE),
+    ok = logger:unset_module_level(?MODULE),
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ?LOG_INFO(?map_rep),
     %% Caching is done asynchronously, so wait a bit for the update
     timer:sleep(100),
     [_] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
-    ok = logger:reset_module_level(?MODULE),
+    ok = logger:unset_module_level(?MODULE),
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ok.
 
 cache_level_module(cleanup,_Config) ->
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 format_report(_Config) ->

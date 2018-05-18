@@ -613,7 +613,7 @@ Current logger configuration:
     </func>
 
     <func>
-      <name name="reset_module_level" arity="1"/>
+      <name name="unset_module_level" arity="1"/>
       <fsummary>Remove a module specific log setting.</fsummary>
       <desc>
         <p>Remove a module specific log setting. After this, the

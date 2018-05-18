@@ -37,7 +37,7 @@
 -export([add_handler/3, remove_handler/1,
          add_logger_filter/2, add_handler_filter/3,
          remove_logger_filter/1, remove_handler_filter/2,
-         set_module_level/2, reset_module_level/1,
+         set_module_level/2, unset_module_level/1,
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
          update_logger_config/1, update_handler_config/2,
@@ -408,10 +408,10 @@ update_formatter_config(HandlerId,Key,Value) ->
 set_module_level(Module,Level) ->
     logger_server:set_module_level(Module,Level).
 
--spec reset_module_level(Module) -> ok | {error,term()} when
+-spec unset_module_level(Module) -> ok | {error,term()} when
       Module :: module().
-reset_module_level(Module) ->
-    logger_server:reset_module_level(Module).
+unset_module_level(Module) ->
+    logger_server:unset_module_level(Module).
 
 %%%-----------------------------------------------------------------
 %%% Misc

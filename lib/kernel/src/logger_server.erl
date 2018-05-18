@@ -25,7 +25,7 @@
 -export([start_link/0,
          add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
-         set_module_level/2, reset_module_level/1,
+         set_module_level/2, unset_module_level/1,
          cache_module_level/1,
          set_config/2, set_config/3, update_config/2,
          update_formatter_config/2]).
@@ -83,9 +83,9 @@ set_module_level(Module,Level) when is_atom(Module) ->
 set_module_level(Module,_) ->
     {error,{not_a_module,Module}}.
 
-reset_module_level(Module) when is_atom(Module) ->
-    call({reset_module_level,Module});
-reset_module_level(Module) ->
+unset_module_level(Module) when is_atom(Module) ->
+    call({unset_module_level,Module});
+unset_module_level(Module) ->
     {error,{not_a_module,Module}}.
 
 cache_module_level(Module) ->
@@ -243,8 +243,8 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
 handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:set_module_level(Tid,Module,Level),
     {reply,Reply,State};
-handle_call({reset_module_level,Module}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:reset_module_level(Tid,Module),
+handle_call({unset_module_level,Module}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:unset_module_level(Tid,Module),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
