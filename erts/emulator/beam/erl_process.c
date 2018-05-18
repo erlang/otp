@@ -6614,13 +6614,13 @@ change_proc_schedule_state(Process *p,
 
 	if (((n & (ERTS_PSFLG_SUSPENDED
 		   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
-	    && (!(a & (ERTS_PSFLG_ACTIVE_SYS
-		       | ERTS_PSFLG_RUNNING
-		       | ERTS_PSFLG_RUNNING_SYS
-		       | ERTS_PSFLG_DIRTY_RUNNING
-		       | ERTS_PSFLG_DIRTY_RUNNING_SYS)
-		  && (!(a & ERTS_PSFLG_ACTIVE)
-		      || (a & ERTS_PSFLG_SUSPENDED))))) {
+            & ((a & (ERTS_PSFLG_SUSPENDED
+                     | ERTS_PSFLG_ACTIVE)) != ERTS_PSFLG_ACTIVE)
+	    & !(a & (ERTS_PSFLG_ACTIVE_SYS
+                     | ERTS_PSFLG_RUNNING
+                     | ERTS_PSFLG_RUNNING_SYS
+                     | ERTS_PSFLG_DIRTY_RUNNING
+                     | ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
 	    /* We activated a prevously inactive process */
 	    profile_runnable_proc(p, am_active);
 	}
