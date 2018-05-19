@@ -70,11 +70,19 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   text-align: center;
 }
 
-.bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
-.code        {
- font-family: mono, Courier, monospace;
- font-weight: normal;
- background-color: #f3f3f3;
+.bold_code {
+  font-family: monospace;
+  font-weight: bold;
+}
+.code {
+  font-family: monospace;
+  font-weight: normal;
+  background-color: #f3f3f3;
+}
+pre {
+  font-family: monospace;
+  font-weight: normal;
+  margin: 0;
 }
 
 .note, .warning, .do, .dont {
@@ -146,13 +154,6 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   font-weight: bold;
   font-size: 1.2em;
 }
-
-pre {
- font-family: mono, Courier, monospace;
- font-weight: normal;
- margin: 0;
-}
-
 
 .exports-body, .data-types-body, .REFBODY{
  margin-left: 2em;
