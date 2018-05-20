@@ -93,14 +93,16 @@
 -type config() :: #{level => level(),
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
-                    formatter => {module(),map()},
-                    term() => term()}.
+                    formatter => {module(),formatter_config()},
+                    atom() => term()}.
 -type timestamp() :: integer().
+-type formatter_config() :: #{atom() => term()}.
 
 -type config_handler() :: {handler, handler_id(), module(), config()}.
 
 -export_type([log/0,level/0,report/0,msg_fun/0,metadata/0,config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0, config_handler/0]).
+              filter_id/0,filter/0,filter_arg/0,filter_return/0,config_handler/0,
+              formatter_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -390,7 +392,7 @@ get_handler_config(HandlerId) ->
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
       HandlerId :: config(),
-      FormatterConfig :: map().
+      FormatterConfig :: formatter_config().
 update_formatter_config(HandlerId,FormatterConfig) ->
     logger_server:update_formatter_config(HandlerId,FormatterConfig).
 

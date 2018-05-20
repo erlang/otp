@@ -36,33 +36,6 @@
   <modulesummary>API module for logging in Erlang/OTP.</modulesummary>
 
   <description>
-
-<!-- From old error_logger ref man:
- Errors, warnings, and info events
-      are sent to the error logger from the Erlang runtime system and
-      the different Erlang/OTP applications. The events are, by default,
-      logged to the terminal. Notice that an event from a process <c>P</c> is
-      logged at the node of the group leader of <c>P</c>. This means
-      that log output is directed to the node from which a process was
-      created, which not necessarily is the same node as where it is
-      executing.</p>
-    <p>Initially, <c>error_logger</c> has only a primitive event
-      handler, which buffers and prints the raw event messages. During
-      system startup, the Kernel application replaces this with a
-      <em>standard event handler</em>, by default one that writes
-      nicely formatted output to the terminal. Kernel can also be
-      configured so that events are logged to a file instead, or not logged at all,
-      see <seealso marker="kernel_app"><c>kernel(6)</c></seealso>.</p>
-    <p>Also the SASL application, if started, adds its own event
-      handler, which by default writes supervisor, crash, and progress
-      reports to the terminal. See
-      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso>.</p>
-    <p>It is recommended that user-defined applications report
-      errors through the error logger to get uniform reports.
--->
-
-
-
     <p>
       This module is the main API for logging in Erlang/OTP. It
       contains functions that allow applications to use a single log
@@ -215,6 +188,15 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	<p>A timestamp produced
 	  with <seealso marker="erts:erlang#system_time-1">
 	    <c>erlang:system_time(microsecond)</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="formatter_config"/>
+      <desc>
+	<p>Configuration data for the
+	formatter. See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example of a formatter implementation.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -486,8 +468,8 @@ Current logger configuration:
 	      handler part.</p>
 	  </item>
 	</taglist>
-	<p>See section <seealso marker="logger_chapter#Filter">
-	    Filter</seealso> in the User's Guide for more information
+	<p>See section <seealso marker="logger_chapter#filters">
+	    Filters</seealso> in the User's Guide for more information
 	    about filters.</p>
 	<p>Some built-in filters exist. These are defined
 	  in <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
@@ -528,7 +510,7 @@ Current logger configuration:
 	  </item>
 	</taglist>
 	<p>See
-	  section <seealso marker="logger_chapter#Filter">Filter</seealso>
+	  section <seealso marker="logger_chapter#filters">Filters</seealso>
 	  in the User's Guide for more information about filters.</p>
 	<p>Some built-in filters exist. These are defined in
 	  <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
@@ -891,14 +873,15 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
   </funcs>
 
   <section>
-    <title>Callback Functions</title>
+    <marker id="handler_callback_functions"/>
+    <title>Handler Callback Functions</title>
     <p>The following functions are to be exported from a handler
       callback module.</p>
   </section>
 
   <funcs>
     <func>
-      <name>Module:adding_handler(HandlerId,Config1) -> {ok,Config2} | {error,Reason}</name>
+      <name>HModule:adding_handler(HandlerId,Config1) -> {ok,Config2} | {error,Reason}</name>
       <fsummary>An instance of this handler is about to be added.</fsummary>
       <type>
 	<v>HandlerId =
@@ -911,7 +894,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	<p>This callback function is optional.</p>
 	<p>The function is called when an new handler is about to be
 	  added, and the purpose is to verify the configuration and
-	  initiate all resourced needed by the handler.</p>
+	  initiate all resources needed by the handler.</p>
 	<p>If everything succeeds, the callback function can add
 	  possible default values or internal state values to the
 	  configuration, and return the adjusted map
@@ -922,24 +905,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
     </func>
 
     <func>
-      <name>Module:removing_handler(HandlerId,Config) -> ok</name>
-      <fsummary>The given handler is about to be removed.</fsummary>
-      <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
-	<v>Config =
-	  <seealso marker="#type-config">config()</seealso></v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called when a handler is about to be
-	  removed, and the purpose is to release all resources used by
-	  the handler. The return value is ignored by Logger.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>Module:changing_config(HandlerId,Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
+      <name>HModule:changing_config(HandlerId,Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
 	<v>HandlerId =
@@ -959,6 +925,78 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	  possibly adjusted configuration in <c>{ok,Config3}</c>.</p>
 	<p>If the configuration is faulty, the callback function must
 	  return <c>{error,Reason}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>HModule:log(Log,Config) -> void()</name>
+      <fsummary>Log the given log event.</fsummary>
+      <type>
+	<v>Log =
+	  <seealso marker="#type-log">log()</seealso></v>
+	<v>Config =
+	  <seealso marker="#type-config">config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is mandatory.</p>
+	<p>The function is called when all global filters and all
+	  handler filters for the handler in question have passed for
+	  the given log event.</p>
+	<p>The handler must log the event.</p>
+	<p>The return value from this function is ignored by
+	  Logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>HModule:removing_handler(HandlerId,Config) -> ok</name>
+      <fsummary>The given handler is about to be removed.</fsummary>
+      <type>
+	<v>HandlerId =
+	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
+	<v>Config =
+	  <seealso marker="#type-config">config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called when a handler is about to be
+	  removed, and the purpose is to release all resources used by
+	  the handler. The return value is ignored by Logger.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <marker id="formatter_callback_functions"/>
+    <title>Formatter Callback Functions</title>
+    <p>The following functions are to be exported from a formatter
+      callback module.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name>FModule:format(Log,FConfig) -> FormattedLogEntry</name>
+      <fsummary>Format the given log event.</fsummary>
+      <type>
+	<v>Log =
+	  <seealso marker="#type-log">log()</seealso></v>
+	<v>FConfig =
+	  <seealso marker="#type-formatter_config">formatter_config()</seealso></v>
+	<v>FormattedLogEntry =
+	  <seealso marker="unicode#type-chardata">unicode:chardata()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is mandatory.</p>
+	<p>The function can be called by a log handler to convert a
+	  log event term to a printable string. The returned value
+	  can, for example, be printed as a log entry to the console
+	  or a file using <seealso marker="stdlib:io#put_chars-1">
+	    <c>io:put_chars/1,2</c></seealso>.</p>
+	<p>See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
       </desc>
     </func>
   </funcs>
