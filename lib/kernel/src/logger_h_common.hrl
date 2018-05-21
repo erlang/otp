@@ -124,7 +124,7 @@
 %%% slow down execution and therefore should not be include in code
 %%% to be officially released.
 
-%% -define(TEST_HOOKS, true).
+-define(TEST_HOOKS, true).
 -ifdef(TEST_HOOKS).
   -define(TEST_HOOKS_TAB, logger_h_test_hooks).
 

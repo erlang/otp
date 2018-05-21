@@ -135,7 +135,8 @@ call_cast_or_drop(Name, Bin) ->
                 _:{timeout,_} ->
                     ?observe(Name,{dropped,1})
             end;
-        drop -> ?observe(Name,{dropped,1})
+        drop ->
+            ?observe(Name,{dropped,1})
     catch
         %% if the ETS table doesn't exist (maybe because of a
         %% handler restart), we can only drop the request
@@ -152,12 +153,15 @@ check_load(State = #{id:=Name, mode := Mode,
                      flush_reqs_qlen := FlushQLen}) ->
     {_,Mem} = process_info(self(), memory),
     ?observe(Name,{max_mem,Mem}),
-    %% make sure the handler process doesn't get scheduled
-    %% out between the message_queue_len check below and the
-    %% action that follows (flush or write).
     {_,QLen} = process_info(self(), message_queue_len),
     ?observe(Name,{max_qlen,QLen}),
-
+    %% When the handler process gets scheduled in, it's impossible
+    %% to predict the QLen. We could jump "up" arbitrarily from say
+    %% async to sync, async to drop, sync to flush, etc. However, when
+    %% the handler process manages the log requests (without flushing),
+    %% one after the other, we will move "down" from drop to sync and
+    %% from sync to async. This way we don't risk getting stuck in
+    %% drop or sync mode with an empty mailbox.
     {Mode1,_NewDrops,_NewFlushes} =
         if
             QLen >= FlushQLen ->
@@ -292,7 +296,7 @@ overload_levels_ok(HandlerConfig) ->
     TSQL = maps:get(toggle_sync_qlen, HandlerConfig, ?TOGGLE_SYNC_QLEN),
     DNRQL = maps:get(drop_new_reqs_qlen, HandlerConfig, ?DROP_NEW_REQS_QLEN),
     FRQL = maps:get(flush_reqs_qlen, HandlerConfig, ?FLUSH_REQS_QLEN),
-    (TSQL < DNRQL) andalso (DNRQL < FRQL).
+    (DNRQL > 1) andalso (TSQL =< DNRQL) andalso (DNRQL =< FRQL).
 
 error_notify(Term) ->
     ?internal_log(error, Term).

@@ -661,10 +661,20 @@ do_log(Fd,Log,#{formatter:={FModule,FConfig}}) ->
 	</item>
       </taglist>
 
-      <p>For the overload protection algorithm to work properly, it is a
-      requirement that:</p>
+      <p>For the overload protection algorithm to work properly, it is
+      required that:</p>
 
-      <p><c>toggle_sync_qlen &lt; drop_new_reqs_qlen &lt; flush_reqs_qlen</c></p>
+      <p><c>toggle_sync_qlen =&lt; drop_new_reqs_qlen =&lt; flush_reqs_qlen</c></p>
+
+      <p>and that:</p>
+
+      <p><c>drop_new_reqs_qlen &gt; 1</c></p>
+
+      <p>If <c>toggle_sync_qlen</c> is set to <c>0</c>, the handler will handle all
+      requests synchronously. Setting the value of <c>toggle_sync_qlen</c> to the same
+      as <c>drop_new_reqs_qlen</c>, disables the synchronous mode. Likewise, setting
+      the value of <c>drop_new_reqs_qlen</c> to the same as <c>flush_reqs_qlen</c>,
+      disables the drop mode.</p>
 
       <p>During high load scenarios, the length of the handler message queue
       rarely grows in a linear and predictable way. Instead, whenever the

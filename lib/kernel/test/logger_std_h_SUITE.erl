@@ -289,10 +289,17 @@ config_fail(_Config) ->
                            #{logger_std_h => #{restart_type => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
-    {error,{handler_not_added,{invalid_levels,{42,42,_}}}} =
+    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
         logger:add_handler(?MODULE,logger_std_h,
-                           #{logger_std_h => #{toggle_sync_qlen=>42,
+                           #{logger_std_h => #{drop_new_reqs_qlen=>1}}),
+    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+        logger:add_handler(?MODULE,logger_std_h,
+                           #{logger_std_h => #{toggle_sync_qlen=>43,
                                                drop_new_reqs_qlen=>42}}),
+    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+        logger:add_handler(?MODULE,logger_std_h,
+                           #{logger_std_h => #{drop_new_reqs_qlen=>43,
+                                               flush_reqs_qlen=>42}}),
 
     ok = logger:add_handler(?MODULE,logger_std_h,
                             #{filter_default=>log,
@@ -691,16 +698,17 @@ internal_log(Type, Term) ->
 
 op_switch_to_sync_file(Config) ->
     {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    NumOfReqs = 500,
     NewHConfig =
-        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 3,
-                                             drop_new_reqs_qlen => 501,
-                                             flush_reqs_qlen => 2000,
+        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 2,
+                                             drop_new_reqs_qlen => NumOfReqs+1,
+                                             flush_reqs_qlen => 2*NumOfReqs,
                                              enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     %%    TRecvPid = start_op_trace(),
-    NumOfReqs = 500,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
-    NumOfReqs = count_lines(Log),
+    Lines = count_lines(Log),
+    ok = file:delete(Log),
     %% true = analyse_trace(TRecvPid,
     %%                      fun(Events) -> find_mode(async,Events) end),
     %% true = analyse_trace(TRecvPid,
@@ -711,68 +719,82 @@ op_switch_to_sync_file(Config) ->
     %%                       fun(Events) -> find_mode(drop,Events) end),
     %% false = analyse_trace(TRecvPid,
     %%                       fun(Events) -> find_mode(flush,Events) end),    
-    ok = file:delete(Log),
     %%    stop_op_trace(TRecvPid),
+    NumOfReqs = Lines,
     ok.
 op_switch_to_sync_file(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 op_switch_to_sync_tty(Config) ->
     {HConfig,StdHConfig} = start_handler(?MODULE, standard_io, Config),
+    NumOfReqs = 500,
     NewHConfig =
         HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 3,
-                                             drop_new_reqs_qlen => 501,
-                                             flush_reqs_qlen => 2000,
+                                             drop_new_reqs_qlen => NumOfReqs+1,
+                                             flush_reqs_qlen => 2*NumOfReqs,
                                              enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 500,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     ok.
 op_switch_to_sync_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
+op_switch_to_drop_file() ->
+    [{timetrap,{seconds,180}}].
 op_switch_to_drop_file(Config) ->
-    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-
-    NewHConfig =
-        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 2,
-                                             drop_new_reqs_qlen => 3,
-                                             flush_reqs_qlen => 600,
+    Test =
+        fun() ->
+                {Log,HConfig,StdHConfig} =
+                    start_handler(?MODULE, ?FUNCTION_NAME, Config),
+                NumOfReqs = 300,
+                Procs = 2,
+                Bursts = 10,
+                NewHConfig =
+                    HConfig#{logger_std_h =>
+                                 StdHConfig#{toggle_sync_qlen => 1,
+                                             drop_new_reqs_qlen => 2,
+                                             flush_reqs_qlen =>
+                                                 Procs*NumOfReqs*Bursts,
                                              enable_burst_limit => false}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
-    %%    TRecvPid = start_op_trace(),
-    NumOfReqs = 500,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
-    Logged = count_lines(Log),
-    ct:pal("Number of messages dropped = ~w (~w)",
-           [NumOfReqs-Logged,NumOfReqs]),
-    true = (Logged < NumOfReqs),
-    %% true = analyse_trace(TRecvPid,
-    %%                      fun(Events) -> find_mode(async,Events) end),
-    %% true = analyse_trace(TRecvPid,
-    %%                       fun(Events) -> find_mode(drop,Events) end),
-    %% false = analyse_trace(TRecvPid,
-    %%                       fun(Events) -> find_mode(flush,Events) end),
-    %% true = analyse_trace(TRecvPid,
-    %%                      fun(Events) -> find_switch(async,drop,Events)
-    %%                                     orelse find_switch(sync,drop,Events)
-    %%                      end),
-    ok = file:delete(Log),
-    %%    stop_op_trace(TRecvPid),
-    ok.
+                ok = logger:set_handler_config(?MODULE, NewHConfig),
+                %% It sometimes happens that the handler gets the
+                %% requests in a slow enough pace so that dropping
+                %% never occurs. Therefore, lets generate a number of
+                %% bursts to increase the chance of message buildup.
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                    _ <- lists:seq(1, Bursts)],
+                Logged = count_lines(Log),
+                ok = stop_handler(?MODULE),
+                _ = file:delete(Log),
+                ct:pal("Number of messages dropped = ~w (~w)",
+                       [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
+                true = (Logged < (Procs*NumOfReqs*Bursts)),
+                true = (Logged > 0),
+                ok
+        end,
+    %% As it's tricky to get the timing right in only one go, we perform the
+    %% test repeatedly, hoping that will generate a successful result.
+    case repeat_until_ok(Test, 10) of
+        {ok,{Failures,_Result}} ->
+            ct:log("Failed ~w times before success!", [Failures]);
+        {fails,Reason} ->
+            ct:fail(Reason)
+    end.
 op_switch_to_drop_file(cleanup, _Config) ->
-    ok = stop_handler(?MODULE).
+    _ = stop_handler(?MODULE).
 
 op_switch_to_drop_tty(Config) ->
     {HConfig,StdHConfig} = start_handler(?MODULE, standard_io, Config),
+    NumOfReqs = 300,
+    Procs = 2,
     NewHConfig =
-        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 2,
-                                             drop_new_reqs_qlen => 3,
-                                             flush_reqs_qlen => 600,
+        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 1,
+                                             drop_new_reqs_qlen => 2,
+                                             flush_reqs_qlen =>
+                                                 Procs*NumOfReqs+1,
                                              enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 500,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
     ok.
 op_switch_to_drop_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -780,32 +802,54 @@ op_switch_to_drop_tty(cleanup, _Config) ->
 op_switch_to_flush_file() ->
     [{timetrap,{minutes,3}}].
 op_switch_to_flush_file(Config) ->
-    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    Test =
+        fun() ->
+                {Log,HConfig,StdHConfig} =
+                    start_handler(?MODULE, ?FUNCTION_NAME, Config),
 
-    %% it's important that both async and sync requests have been queued
-    %% when the flush happens (verify with coverage of flush_log_requests/2)
+                %% NOTE: it's important that both async and sync
+                %% requests have been queued when the flush happens
+                %% (verify with coverage of flush_log_requests/2)
 
-    NewHConfig =
-        HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 2,
-                                             drop_new_reqs_qlen => 99,
-                                             flush_reqs_qlen => 100,
+                NewHConfig =
+                    HConfig#{logger_std_h =>
+                                 StdHConfig#{toggle_sync_qlen => 2,
+                                             %% disable drop mode
+                                             drop_new_reqs_qlen => 300,
+                                             flush_reqs_qlen => 300,
                                              enable_burst_limit => false}},    
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 10000,
-    Procs = 100,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
-    Logged = count_lines(Log),
-    ct:pal("Number of messages flushed/dropped = ~w (~w)",
-           [(NumOfReqs*Procs)-Logged,NumOfReqs*Procs]),
-    true = (Logged < (NumOfReqs*Procs)),
-
-    %%! --- Thu Apr 12 13:46:00 2018 --- peppe was here!
-    %%! TODO: Verify that handler has switched to flush mode
-
-    ok = file:delete(Log),
-    ok.
+                ok = logger:set_handler_config(?MODULE, NewHConfig),
+                NumOfReqs = 1500,
+                Procs = 10,
+                Bursts = 10,
+                %% It sometimes happens that the handler either gets
+                %% the requests in a slow enough pace so that flushing
+                %% never occurs, or it gets all messages at once,
+                %% causing all messages to get flushed (no dropping of
+                %% sync messages gets tested). Therefore, lets
+                %% generate a number of bursts to increase the chance
+                %% of message buildup in some random fashion.
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                    _ <- lists:seq(1,Bursts)],
+                Logged = count_lines(Log),
+                ok = stop_handler(?MODULE),
+                _ = file:delete(Log),
+                ct:pal("Number of messages flushed/dropped = ~w (~w)",
+                       [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
+                true = (Logged < (NumOfReqs*Procs*Bursts)),
+                true = (Logged > 0),
+                ok
+        end,
+    %% As it's tricky to get the timing right in only one go, we perform the
+    %% test repeatedly, hoping that will generate a successful result.
+    case repeat_until_ok(Test, 10) of
+        {ok,{Failures,_Result}} ->
+            ct:log("Failed ~w times before success!", [Failures]);
+        {fails,Reason} ->
+            ct:fail(Reason)
+    end.
 op_switch_to_flush_file(cleanup, _Config) ->
-    ok = stop_handler(?MODULE).
+    _ = stop_handler(?MODULE).
 
 op_switch_to_flush_tty(Config) ->
     {HConfig,StdHConfig} = start_handler(?MODULE, standard_io, Config),
@@ -815,12 +859,13 @@ op_switch_to_flush_tty(Config) ->
 
     NewHConfig =
         HConfig#{logger_std_h => StdHConfig#{toggle_sync_qlen => 2,
-                                             drop_new_reqs_qlen => 99,
+                                             %% disable drop mode
+                                             drop_new_reqs_qlen => 100,
                                              flush_reqs_qlen => 100,
                                              enable_burst_limit => false}},   
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    NumOfReqs = 10000,
-    Procs = 10,
+    NumOfReqs = 1000,
+    Procs = 100,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
     ok.
 op_switch_to_flush_tty(cleanup, _Config) ->
@@ -904,10 +949,10 @@ kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
-    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(?MODULE),
     {_,Mem0} = process_info(Pid0, memory),
-    RestartAfter = 2000,
+    RestartAfter = ?HANDLER_RESTART_AFTER,
      NewHConfig =
         HConfig#{logger_std_h=>StdHConfig#{enable_kill_overloaded=>true,
                                            handler_overloaded_qlen=>10,
@@ -927,7 +972,7 @@ qlen_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter + 1000),
+            timer:sleep(RestartAfter + 2000),
             true = is_pid(whereis(?MODULE)),
             ok
     after
@@ -941,7 +986,7 @@ qlen_kill_new(cleanup, _Config) ->
 
 %% choke the standard handler on remote node to verify the termination
 %% works as expected    
-qlen_kill_std(Config) ->
+qlen_kill_std(_Config) ->
     %%! HERE
     %% Dir = ?config(priv_dir, Config),
     %% File = lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"]),
@@ -955,10 +1000,10 @@ qlen_kill_std(Config) ->
     {skip,"Not done yet"}.
 
 mem_kill_new(Config) ->
-    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(?MODULE),
     {_,Mem0} = process_info(Pid0, memory),
-    RestartAfter = 2000,
+    RestartAfter = ?HANDLER_RESTART_AFTER,
      NewHConfig =
         HConfig#{logger_std_h=>StdHConfig#{enable_kill_overloaded=>true,
                                            handler_overloaded_qlen=>50000,
@@ -978,7 +1023,7 @@ mem_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter * 2),
+            timer:sleep(RestartAfter + 2000),
             true = is_pid(whereis(?MODULE)),
             ok
     after
@@ -992,7 +1037,7 @@ mem_kill_new(cleanup, _Config) ->
     
 %% choke the standard handler on remote node to verify the termination
 %% works as expected
-mem_kill_std(Config) ->
+mem_kill_std(_Config) ->
     {skip,"Not done yet"}.
 
 restart_after(Config) ->
@@ -1016,7 +1061,7 @@ restart_after(Config) ->
     end,
     
     {Log,_,_} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-    RestartAfter = 2000,
+    RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig2 =
         HConfig#{logger_std_h=>StdHConfig#{enable_kill_overloaded=>true,
                                            handler_overloaded_qlen=>10,
@@ -1028,7 +1073,7 @@ restart_after(Config) ->
     send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
     receive
         {'DOWN', MRef2, _, _, _Info2} ->
-            timer:sleep(RestartAfter + 1000),
+            timer:sleep(RestartAfter + 2000),
             Pid1 = whereis(?MODULE),
             true = is_pid(Pid1),
             false = (Pid1 == Pid0),
@@ -1074,7 +1119,7 @@ handler_requests_under_load(Config) ->
     NoOfReqs = lists:foldl(fun({_,Res}, N) -> N + length(Res) end, 0, ReqResult),
     ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file:delete(Log).
-handler_requests_under_load(cleanup, Config) ->
+handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
@@ -1126,8 +1171,9 @@ start_handler(Name, FuncName, Config) ->
     {Log,HConfig,StdHConfig}.
     
 stop_handler(Name) ->
-    ok = logger:remove_handler(Name),
-    ct:pal("Handler ~p stopped!", [Name]).    
+    R = logger:remove_handler(Name),
+    ct:pal("Handler ~p stopped! Result: ~p", [Name,R]),
+    R.
 
 count_lines(File) ->
     wait_until_written(File, -1),
@@ -1299,6 +1345,30 @@ try_match_file(_,Pattern,_,Incorrect) ->
            [Pattern,Incorrect]),
     erlang:error({error,not_matching_pattern,Pattern,Incorrect}).
 
+repeat_until_ok(Fun, N) ->
+    repeat_until_ok(Fun, 0, N, undefined).
+
+repeat_until_ok(_Fun, Stop, Stop, Reason) ->
+    {fails,Reason};
+
+repeat_until_ok(Fun, C, Stop, FirstReason) ->
+    if C > 0 -> timer:sleep(5000);
+       true -> ok
+    end,
+    try Fun() of
+        Result ->
+            {ok,{C,Result}}
+    catch
+        _:Reason:Stack ->
+            ct:pal("Test fails: ~p (~p)~n", [Reason,hd(Stack)]),
+            if FirstReason == undefined ->
+                    repeat_until_ok(Fun, C+1, Stop, {Reason,Stack});
+               true ->
+                    repeat_until_ok(Fun, C+1, Stop, FirstReason)
+            end
+    end.
+    
+
 %%%-----------------------------------------------------------------
 %%% 
 start_op_trace() ->
@@ -1339,17 +1409,17 @@ find_mode(flush, Events) ->
 find_mode(Mode, Events) ->
     lists:keymember([{mode,Mode}], 3, Events).
 
-find_switch(From, To, Events) ->
-    try lists:foldl(fun({trace_return,check_load,{To,_,_,_}},
-                        {trace_call,check_load,[#{mode := From}]}) ->
-                            throw(match);
-                       (Event, _) ->
-                            Event
-                    end, undefined, Events) of
-        _ -> false
-    catch
-        throw:match -> true
-    end.
+%% find_switch(_From, To, Events) ->
+%%     try lists:foldl(fun({trace_return,check_load,{To,_,_,_}},
+%%                         {trace_call,check_load,[#{mode := From}]}) ->
+%%                             throw(match);
+%%                        (Event, _) ->
+%%                             Event
+%%                     end, undefined, Events) of
+%%         _ -> false
+%%     catch
+%%         throw:match -> true
+%%     end.
 
 analyse_trace(TRecvPid, TestFun) ->
     TRecvPid ! {test,self(),TestFun},
@@ -1411,7 +1481,7 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_std_h,handle_cast,[{Op,_}|_]}},
+tracer({trace,_,call,{logger_std_h,handle_cast,[Op|_]}},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op});
 tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[_,Data,_,_,_]}},
