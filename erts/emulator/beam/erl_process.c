@@ -4176,6 +4176,8 @@ dequeue_process(ErtsRunQueue *runq, int prio_q, erts_aint32_t *statep)
     ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
 
     state = erts_smp_atomic32_read_nob(&p->state);
+    ASSERT(state & ERTS_PSFLG_IN_RUNQ);
+
     if (statep)
 	*statep = state;
 
@@ -4183,8 +4185,7 @@ dequeue_process(ErtsRunQueue *runq, int prio_q, erts_aint32_t *statep)
 
     rqi = &runq->procs.prio_info[prio];
 
-    if (p)
-	unqueue_process(runq, rpq, rqi, prio, NULL, p);
+    unqueue_process(runq, rpq, rqi, prio, NULL, p);
 
     return p;
 }
@@ -4593,22 +4594,17 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		    free_proxy_proc(proc);
 		else {
 		    erts_aint32_t clr_bits;
-#ifdef DEBUG
-		    erts_aint32_t old;
-#endif
 
 		    clr_bits = ERTS_PSFLG_IN_RUNQ;
 		    clr_bits |= qbit << ERTS_PSFLGS_IN_PRQ_MASK_OFFSET;
 
-#ifdef DEBUG
-		    old =
-#else
-			(void)
-#endif
-			erts_smp_atomic32_read_band_mb(&proc->state,
-						       ~clr_bits);
-			ASSERT((old & clr_bits) == clr_bits);
+                    state = erts_smp_atomic32_read_band_mb(&proc->state, ~clr_bits);
+                    ASSERT((state & clr_bits) == clr_bits);
 
+                    if (state & ERTS_PSFLG_FREE) {
+                        /* free and not queued by proxy */
+                        erts_proc_dec_refc(proc);
+		    }
 		}
 
 		goto handle_next_proc;
@@ -6726,13 +6722,14 @@ fin_dirty_enq_s_change(Process *p,
 	/* Already enqueue by someone else... */
 	if (pstruct_reserved) {
 	    /* We reserved process struct for enqueue; clear it... */
-#ifdef DEBUG
-	    erts_aint32_t old =
-#else
-		(void)
-#endif
-		erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_IN_RUNQ);
-	    ASSERT(old & ERTS_PSFLG_IN_RUNQ);
+	    erts_aint32_t state;
+
+            state = erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_IN_RUNQ);
+            ASSERT(state & ERTS_PSFLG_IN_RUNQ);
+
+            if (state & ERTS_PSFLG_FREE) {
+                erts_proc_dec_refc(p);
+            }
 	}
 	return 0;
     }
@@ -10758,6 +10755,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 			}
 			else if (state & ERTS_PSFLG_FREE) {
 			    /* free and not queued by proxy */
+                            ASSERT(state & ERTS_PSFLG_IN_RUNQ);
 			    erts_proc_dec_refc(p);
 			}
                         if (!is_normal_sched)
