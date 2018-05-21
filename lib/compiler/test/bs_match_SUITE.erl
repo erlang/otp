@@ -330,6 +330,11 @@ save_restore(Config) when is_list(Config) ->
     {"-",<<"x">>} = nnn(C),
     {"-",<<"x">>} = ooo(C),
 
+    a = multiple_matches(<<777:16>>, <<777:16>>),
+    b = multiple_matches(<<777:16>>, <<999:16>>),
+    c = multiple_matches(<<777:16>>, <<57:8>>),
+    d = multiple_matches(<<17:8>>, <<1111:16>>),
+
     Bin = <<-1:64>>,
     case bad_float_unpack_match(Bin) of
 	-1 -> ok;
@@ -356,6 +361,11 @@ nnn(<<Char,         Tail/binary>>) -> {[Char],Tail}. %% Buggy Tail!
 
 ooo(<<" - ",        Tail/binary>>) -> Tail;
 ooo(<<Char,         Tail/binary>>) -> {[Char],Tail}.
+
+multiple_matches(<<Y:16>>, <<Y:16>>) -> a;
+multiple_matches(<<_:16>>, <<_:16>>) -> b;
+multiple_matches(<<_:16>>, <<_:8>>) -> c;
+multiple_matches(<<_:8>>, <<_:16>>) -> d.
 
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
