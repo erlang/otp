@@ -4513,7 +4513,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 
 	erts_smp_runq_unlock(to_rq);
 	smp_notify_inc_runq(to_rq);
-	erts_smp_runq_lock(to_rq);
+	erts_smp_runq_lock(rq);
     }
 
     if (rq->ports.start) {
