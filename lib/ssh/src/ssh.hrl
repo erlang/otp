@@ -129,6 +129,8 @@
 -type pubkey_alg()       :: 'ecdsa-sha2-nistp256' |
                             'ecdsa-sha2-nistp384' |
                             'ecdsa-sha2-nistp521' |
+                            'ssh-ed25519'  |
+                            'ssh-ed448'  |
                             'rsa-sha2-256' |
                             'rsa-sha2-512' |
                             'ssh-dss' |
