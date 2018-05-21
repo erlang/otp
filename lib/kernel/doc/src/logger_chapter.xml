@@ -268,7 +268,7 @@
 
     <p>In addition to the mandatory callback function <c>log/2</c>, a
       handler module can export the optional callback
-      functions <c>adding_handler/2</c>, <c>changing_config/3</c>
+      functions <c>adding_handler/1</c>, <c>changing_config/2</c>
       and <c>removing_handler/1</c>. See
       section <seealso marker="logger#handler_callback_functions">Handler
       Callback Functions</seealso> in the logger(3) manual for more
@@ -738,22 +738,22 @@ ok</pre>
     <code>log(logger:log(),logger:config()) ->ok</code>
     <p>It may also implement the following callbacks:</p>
     <code>
-adding_handler(logger:handler_id(),logger:config()) -> {ok,logger:config()} | {error,term()}
-removing_handler(logger:handler_id(),logger:config()) -> ok
-changing_config(logger:handler_id(),logger:config(),logger:config()) -> {ok,logger:config()} | {error,term()}
+adding_handler(logger:config()) -> {ok,logger:config()} | {error,term()}
+removing_handler(logger:config()) -> ok
+changing_config(logger:config(),logger:config()) -> {ok,logger:config()} | {error,term()}
     </code>
     <p>When <c>logger:add_handler(Id,Module,Config)</c> is called, Logger
-      will first call <c>HModule:adding_handler(Id,Config)</c>, and if it
+      will first call <c>HModule:adding_handler(Config)</c>, and if it
       returns <c>{ok,NewConfig}</c>, <c>NewConfig</c> is written to the
       configuration database. After this, the handler may receive log
       events as calls to <c>HModule:log/2</c>.</p>
     <p>A handler can be removed by calling
       <c>logger:remove_handler(Id)</c>. Logger will call
-      <c>HModule:removing_handler(Id,Config)</c>, and then remove the
+      <c>HModule:removing_handler(Config)</c>, and then remove the
       handler's configuration from the configuration database.</p>
     <p>When <c>logger:set_handler_config/2,3</c>
       or <c>logger:update_handler_config/2</c> are called, Logger
-      calls <c>HModule:changing_config(Id,OldConfig,NewConfig)</c>. If
+      calls <c>HModule:changing_config(OldConfig,NewConfig)</c>. If
       this function returns <c>{ok,NewConfig}</c>, <c>NewConfig</c> is
       written to the configuration database.</p>
 
@@ -771,14 +771,14 @@ log(Log,#{formatter:={FModule,FConfig}) ->
       this:</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/2, log/2]).
+-export([adding_handler/1, removing_handler/1, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
-adding_handler(Id,Config) ->
+adding_handler(Config) ->
     {ok,Fd} = file:open(File,[append,{encoding,utf8}]),
     {ok,Config#{myhandler_fd=>Fd}}.
 
-removing_handler(Id,#{myhandler_fd:=Fd}) ->
+removing_handler(#{myhandler_fd:=Fd}) ->
     _ = file:close(Fd),
     ok.
 
@@ -800,14 +800,14 @@ log(Log,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
       single process.</p>
     <code>
 -module(myhandler).
--export([adding_handler/2, removing_handler/2, log/2]).
+-export([adding_handler/1, removing_handler/1, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
-adding_handler(Id,Config) ->
+adding_handler(Config) ->
     {ok,Pid} = gen_server:start(?MODULE,Config),
     {ok,Config#{myhandler_pid=>Pid}}.
 
-removing_handler(Id,#{myhandler_pid:=Pid}) ->
+removing_handler(#{myhandler_pid:=Pid}) ->
     gen_server:stop(Pid).
 
 log(Log,#{myhandler_pid:=Pid} = Config) ->

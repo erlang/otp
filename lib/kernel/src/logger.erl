@@ -90,7 +90,8 @@
 -type filter() :: {fun((log(),filter_arg()) -> filter_return()),filter_arg()}.
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log().
--type config() :: #{level => level(),
+-type config() :: #{id => handler_id(),
+                    level => level(),
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
                     formatter => {module(),formatter_config()},

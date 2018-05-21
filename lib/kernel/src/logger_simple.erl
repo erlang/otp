@@ -19,7 +19,7 @@
 %%
 -module(logger_simple).
 
--export([adding_handler/2, removing_handler/2, log/2]).
+-export([adding_handler/1, removing_handler/1, log/2]).
 
 %% This module implements a simple handler for logger. It is the
 %% default used during system start.
@@ -27,7 +27,7 @@
 %%%-----------------------------------------------------------------
 %%% Logger callback
 
-adding_handler(?MODULE,Config) ->
+adding_handler(#{id:=?MODULE}=Config) ->
     Me = self(),
     case whereis(?MODULE) of
         undefined ->
@@ -44,7 +44,7 @@ adding_handler(?MODULE,Config) ->
             {error,{handler_process_name_already_exists,?MODULE}}
     end.
 
-removing_handler(?MODULE,_Config) ->
+removing_handler(#{id:=?MODULE}) ->
     case whereis(?MODULE) of
         undefined ->
             ok;

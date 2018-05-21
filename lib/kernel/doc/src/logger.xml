@@ -881,11 +881,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 
   <funcs>
     <func>
-      <name>HModule:adding_handler(HandlerId,Config1) -> {ok,Config2} | {error,Reason}</name>
+      <name>HModule:adding_handler(Config1) -> {ok,Config2} | {error,Reason}</name>
       <fsummary>An instance of this handler is about to be added.</fsummary>
       <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
 	<v>Config1 = Config2 =
 	  <seealso marker="#type-config">config()</seealso></v>
 	<v>Reason = term()</v>
@@ -895,6 +893,8 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	<p>The function is called when an new handler is about to be
 	  added, and the purpose is to verify the configuration and
 	  initiate all resources needed by the handler.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config1</c>.</p>
 	<p>If everything succeeds, the callback function can add
 	  possible default values or internal state values to the
 	  configuration, and return the adjusted map
@@ -905,11 +905,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
     </func>
 
     <func>
-      <name>HModule:changing_config(HandlerId,Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
+      <name>HModule:changing_config(Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
 	<v>Config1 = Config2 = Config3 =
 	  <seealso marker="#type-config">config()</seealso></v>
 	<v>Reason = term()</v>
@@ -921,6 +919,8 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	  the new configuration.</p>
 	<p><c>Config1</c> is the existing configuration
 	  and <c>Config2</c> is the new configuration.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config1</c>.</p>
 	<p>If everything succeeds, the callback function must return a
 	  possibly adjusted configuration in <c>{ok,Config3}</c>.</p>
 	<p>If the configuration is faulty, the callback function must
@@ -942,6 +942,8 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	<p>The function is called when all global filters and all
 	  handler filters for the handler in question have passed for
 	  the given log event.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config</c>.</p>
 	<p>The handler must log the event.</p>
 	<p>The return value from this function is ignored by
 	  Logger.</p>
@@ -949,11 +951,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
     </func>
 
     <func>
-      <name>HModule:removing_handler(HandlerId,Config) -> ok</name>
+      <name>HModule:removing_handler(Config) -> ok</name>
       <fsummary>The given handler is about to be removed.</fsummary>
       <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
 	<v>Config =
 	  <seealso marker="#type-config">config()</seealso></v>
       </type>
@@ -961,7 +961,10 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	<p>This callback function is optional.</p>
 	<p>The function is called when a handler is about to be
 	  removed, and the purpose is to release all resources used by
-	  the handler. The return value is ignored by Logger.</p>
+	  the handler.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config</c>.</p>
+	<p>The return value is ignored by Logger.</p>
       </desc>
     </func>
 

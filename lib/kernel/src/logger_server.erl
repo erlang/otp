@@ -134,7 +134,7 @@ init([]) ->
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
     {ok,SimpleConfig} =
-        logger_simple:adding_handler(logger_simple,SimpleConfig0),
+        logger_simple:adding_handler(SimpleConfig0),
     logger_config:create(Tid,logger_simple,logger_simple,SimpleConfig),
     {ok, #state{tid=Tid, async_req_queue = queue:new()}}.
 
@@ -146,7 +146,7 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
             call_h_async(
               fun() ->
                       %% inform the handler
-                      call_h(Module,adding_handler,[Id,HConfig],{ok,HConfig})
+                      call_h(Module,adding_handler,[HConfig],{ok,HConfig})
               end,
               fun({ok,HConfig1}) ->
                       %% We know that the call_h would have loaded the module
@@ -177,7 +177,7 @@ handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
             call_h_async(
               fun() ->
                       %% inform the handler
-                      call_h(Module,removing_handler,[HandlerId,HConfig],ok)
+                      call_h(Module,removing_handler,[HConfig],ok)
               end,
               fun(_Res) ->
                       do_set_config(Tid,logger,Config#{handlers=>Handlers}),
@@ -213,7 +213,7 @@ handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
         {ok,{Module,OldConfig}} ->
             call_h_async(
               fun() ->
-                      call_h(Module,changing_config,[HandlerId,OldConfig,Config],
+                      call_h(Module,changing_config,[OldConfig,Config],
                              {ok,Config})
               end,
               fun({ok,Config1}) ->
@@ -348,8 +348,9 @@ default_config(logger) ->
     #{level=>info,
       filters=>[],
       filter_default=>log};
-default_config(_) ->
-    #{level=>info,
+default_config(Id) ->
+    #{id=>Id,
+      level=>info,
       filters=>[],
       filter_default=>log,
       formatter=>{?DEFAULT_FORMATTER,#{}}}.

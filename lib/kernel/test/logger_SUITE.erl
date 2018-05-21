@@ -839,20 +839,20 @@ check_maps(Expected,Got,What) ->
     end.
 
 %% Handler
-adding_handler(_Id,#{add_call:=Fun}) ->
+adding_handler(#{add_call:=Fun}) ->
     Fun();
-adding_handler(_Id,Config) ->
+adding_handler(Config) ->
     maybe_send(add),
     {ok,Config}.
 
-removing_handler(_Id,#{rem_call:=Fun}) ->
+removing_handler(#{rem_call:=Fun}) ->
     Fun();
-removing_handler(_Id,_Config) ->
+removing_handler(_Config) ->
     maybe_send(remove),
     ok.
-changing_config(_Id,_Old,#{conf_call:=Fun}) ->
+changing_config(_Old,#{conf_call:=Fun}) ->
     Fun();
-changing_config(_Id,_Old,Config) ->
+changing_config(_Old,Config) ->
     maybe_send(changing_config),
     {ok,Config}.
 
