@@ -643,12 +643,12 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 			    SysTimespec tp;
 			    int i;
 			    
-			    if (sys_get_proc_cputime(start, tp) < 0)
+			    if (sys_get_cputime(start, tp) < 0)
 				goto error;
 			    start = ((SysCpuTime)tp.tv_sec * 1000000000LL) + 
 				    (SysCpuTime)tp.tv_nsec;
 			    for (i = 0; i < 100; i++)
-				sys_get_proc_cputime(stop, tp);
+				sys_get_cputime(stop, tp);
 			    stop = ((SysCpuTime)tp.tv_sec * 1000000000LL) + 
 				   (SysCpuTime)tp.tv_nsec;
 			    if (start == 0) goto error;

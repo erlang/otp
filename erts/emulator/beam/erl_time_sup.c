@@ -1860,7 +1860,7 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec) {
   SysCpuTime t;
   SysTimespec tp;
 
-  sys_get_proc_cputime(t, tp);
+  sys_get_cputime(t, tp);
   *microsec = (Uint)(tp.tv_nsec / 1000);
   t = (tp.tv_sec / 1000000);
   *megasec = (Uint)(t % 1000000);
