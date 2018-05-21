@@ -322,10 +322,10 @@ erts_db_make_tid(Process *c_p, DbTableCommon *tb)
 /* 
 ** The meta hash table of all NAMED ets tables
 */
-#  define META_NAME_TAB_LOCK_CNT 16
+#  define META_NAME_TAB_LOCK_CNT 256
 union {
     erts_rwmtx_t lck;
-    byte _cache_line_alignment[64];
+    byte align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
 }meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
 static struct meta_name_tab_entry {
     union {
@@ -3491,7 +3491,11 @@ void init_db(ErtsDbSpinCount db_spin_count)
 		 db_max_tabs, ((Uint)1)<<SMALL_BITS);
     }
 
-    meta_name_tab_mask = (((Uint) 1)<<(bits-1)) - 1; /* At least half the size of main tab */
+    /*
+     * We don't have ony hard limit for number of tables anymore,                                                                            .
+     * but we use 'db_max_tabs' to determine size of name hash table.
+     */
+    meta_name_tab_mask = (((Uint) 1)<<bits) - 1;
     size = sizeof(struct meta_name_tab_entry)*(meta_name_tab_mask+1);
     meta_name_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
     ERTS_ETS_MISC_MEM_ADD(size);
