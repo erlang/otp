@@ -3506,27 +3506,27 @@ void init_db(ErtsDbSpinCount db_spin_count)
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_delete_continue_exp,
-			  am_ets, am_atom_put("delete_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("delete_trap"), 1,
 			  &ets_select_delete_trap_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_count_continue_exp,
-			  am_ets, am_atom_put("count_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("count_trap"), 1,
 			  &ets_select_count_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_replace_continue_exp,
-                          am_ets, am_atom_put("replace_trap",11), 1,
+                          am_ets, ERTS_MAKE_AM("replace_trap"), 1,
                           &ets_select_replace_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_continue_exp,
-			  am_ets, am_atom_put("select_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("select_trap"), 1,
 			  &ets_select_trap_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_delete_continue_exp,
-			  am_ets, am_atom_put("delete_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("delete_trap"), 1,
 			  &ets_delete_trap);
 }
 
@@ -4155,7 +4155,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     else if (What == am_data) {
 	print_table(ERTS_PRINT_STDOUT, NULL, 1, tb);
 	ret = am_true;
-    } else if (What == am_atom_put("fixed",5)) { 
+    } else if (ERTS_IS_ATOM_STR("fixed",What)) {
 	if (IS_FIXED(tb))
 	    ret = am_true;
 	else
@@ -4207,7 +4207,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_false;
 	}
 	erts_mtx_unlock(&tb->common.fixlock);
-    } else if (What == am_atom_put("stats",5)) {
+    } else if (ERTS_IS_ATOM_STR("stats",What)) {
 	if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;
 	    DbHashStats stats;

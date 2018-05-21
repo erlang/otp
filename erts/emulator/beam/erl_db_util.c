@@ -2770,9 +2770,7 @@ Eterm db_format_dmc_err_info(Process *p, DMCErrInfo *ei)
 	    sys_strcpy(buff,tmp->error_string);
 	sl = sys_strlen(buff);
 	shp = HAlloc(p, sl * 2 + 5);
-	sev = (tmp->severity == dmcWarning) ? 
-	    am_atom_put("warning",7) :
-	    am_error;
+	sev = (tmp->severity == dmcWarning) ? am_warning : am_error;
 	tlist = buf_to_intlist(&shp, buff, sl, NIL);
 	tpl = TUPLE2(shp, sev, tlist);
 	shp += 3;
@@ -5180,7 +5178,7 @@ BIF_RETTYPE match_spec_test_3(BIF_ALIST_3)
 {
     Eterm res;
 #ifdef DMC_DEBUG
-    if (BIF_ARG_3 == am_atom_put("dis",3)) {
+    if (BIF_ARG_3 == ERTS_MAKE_AM("dis")) {
 	test_disassemble_next = 1;
 	BIF_RET(am_true);
     } else
@@ -5291,7 +5289,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    erts_free(ERTS_ALC_T_DB_TMP, arr);
 	}
 	erts_bin_free(mps);
-	ret = TUPLE4(hp, am_atom_put("ok",2), res, flg, lint_res);
+	ret = TUPLE4(hp, am_ok, res, flg, lint_res);
     }
     return ret;
 }

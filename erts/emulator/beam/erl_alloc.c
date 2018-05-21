@@ -2821,20 +2821,20 @@ erts_allocator_options(void *proc)
 		Eterm as[4];
 		Eterm ts[4];
 
-		as[l] = am_atom_put("e", 1);
+		as[l] = ERTS_MAKE_AM("e");
 		ts[l++] = am_true;
 
 		switch (a) {
 		case ERTS_ALC_A_SYSTEM:
-		    as[l] = am_atom_put("m", 1);
-		    ts[l++] = am_atom_put("libc", 4);
+		    as[l] = ERTS_MAKE_AM("m");
+		    ts[l++] = ERTS_MAKE_AM("libc");
 		    if(sas.trim_threshold >= 0) {
-			as[l] = am_atom_put("tt", 2);
+			as[l] = ERTS_MAKE_AM("tt");
 			ts[l++] = erts_bld_uint(hpp, szp,
 						(Uint) sas.trim_threshold);
 		    }
 		    if(sas.top_pad >= 0) {
-			as[l] = am_atom_put("tp", 2);
+			as[l] = ERTS_MAKE_AM("tp");
 			ts[l++] = erts_bld_uint(hpp, szp, (Uint) sas.top_pad);
 		    }
 		    break;
@@ -2848,7 +2848,7 @@ erts_allocator_options(void *proc)
 
 	}
 	else {
-	    Eterm atom = am_atom_put("e", 1);
+	    Eterm atom = ERTS_MAKE_AM("e");
 	    Eterm term = am_false;
 	    tmp = erts_bld_2tup_list(hpp, szp, 1, &atom, &term);
 	}
@@ -2859,12 +2859,12 @@ erts_allocator_options(void *proc)
 
 #if HAVE_ERTS_MSEG
     if (use_mseg) {
-	atoms[length] = am_atom_put("mseg_alloc", 10);
+	atoms[length] = ERTS_MAKE_AM("mseg_alloc");
 	terms[length++] = erts_mseg_info_options(0, NULL, NULL, hpp, szp);
     }
 #endif
 
-    atoms[length] = am_atom_put("alloc_util", 10); 
+    atoms[length] = ERTS_MAKE_AM("alloc_util");
     terms[length++] = erts_alcu_au_info_options(NULL, NULL, hpp, szp);
 
 #if HAVE_ERTS_MMAP
@@ -2874,17 +2874,15 @@ erts_allocator_options(void *proc)
 #endif
     {
 	Eterm o[1], v[1];
-	o[0] = am_atom_put("t", 1);
+	o[0] = ERTS_MAKE_AM("t");
 	v[0] = erts_mtrace_enabled ? am_true : am_false;
 
-	atoms[length] = am_atom_put("instr", 5); 
+	atoms[length] = ERTS_MAKE_AM("instr");
 	terms[length++] = erts_bld_2tup_list(hpp, szp, 1, o, v);
     }
 
-    atoms[length] = am_atom_put("lock_physical_memory", 20);
-    terms[length++] = (lock_all_physical_memory
-		       ? am_atom_put("all", 3)
-		       : am_atom_put("no", 2));
+    atoms[length] = ERTS_MAKE_AM("lock_physical_memory");
+    terms[length++] = (lock_all_physical_memory ? am_all : am_no);
 
     settings = erts_bld_2tup_list(hpp, szp, length, atoms, terms);
 
@@ -2899,10 +2897,10 @@ erts_allocator_options(void *proc)
 
 #if HAVE_ERTS_MSEG
     if (use_mseg)
-	terms[length++] = am_atom_put("mseg_alloc", 10);
+	terms[length++] = ERTS_MAKE_AM("mseg_alloc");
 #endif
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
-    terms[length++] = am_atom_put("sys_aligned_alloc", 17);
+    terms[length++] = ERTS_MAKE_AM("sys_aligned_alloc");
 #endif
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     terms[length++] = ERTS_MAKE_AM("literal_mmap");
@@ -2911,7 +2909,7 @@ erts_allocator_options(void *proc)
 
 #if defined(__GLIBC__)
     {
-	Eterm AM_glibc = am_atom_put("glibc", 5);
+	Eterm AM_glibc = ERTS_MAKE_AM("glibc");
 	Eterm version;
 
 	version = erts_bld_cons(hpp,

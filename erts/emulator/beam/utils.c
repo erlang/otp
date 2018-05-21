@@ -1972,8 +1972,7 @@ static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args
         break;
     }
 
-    md = MAP2(hp, am_emulator, am_true,
-              am_atom_put("tag", 3), el_tag);
+    md = MAP2(hp, am_emulator, am_true, ERTS_MAKE_AM("tag"), el_tag);
     hp += MAP2_SZ;
 
     if (is_nil(gl) && is_non_value(pid)) {
@@ -1994,14 +1993,14 @@ static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args
         /* no gl */
         md = MAP3(hp,
                   am_error_logger, md,
-                  am_atom_put("gl", 2), gl,
+                  ERTS_MAKE_AM("gl"), gl,
                   am_time, time);
         hp += MAP3_SZ;
         pid = NIL;
     } else {
         md = MAP4(hp,
                   am_error_logger, md,
-                  am_atom_put("gl", 2), gl,
+                  ERTS_MAKE_AM("gl"), gl,
                   am_pid, pid,
                   am_time, time);
         hp += MAP4_SZ;
