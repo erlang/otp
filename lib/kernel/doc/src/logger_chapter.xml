@@ -630,7 +630,7 @@
 	  configuration parameters</seealso> can then be used as
 	  before, and the SASL reports will only be printed if the
 	  SASL application is running, through a second log handler
-	  named <c>sasl_h</c>.</p>
+	  named <c>sasl</c>.</p>
 	<p>All SASL reports have a metadata
 	  field <c>domain=>[beam,erlang,otp,sasl]</c>, which can be
 	  used, for example, by filters to stop or allow the

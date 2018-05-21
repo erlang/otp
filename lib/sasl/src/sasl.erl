@@ -131,7 +131,7 @@ add_sasl_logger(std, undefined) -> ok;
 add_sasl_logger(Dest, Level) ->
     FC = #{legacy_header=>true,
            single_line=>false},
-    ok = logger:add_handler(sasl_h,logger_std_h,
+    ok = logger:add_handler(sasl,logger_std_h,
                             #{level=>Level,
                               filter_default=>stop,
                               filters=>
@@ -146,7 +146,7 @@ add_sasl_logger(Dest, Level) ->
 delete_sasl_logger(undefined) -> ok;
 delete_sasl_logger(std) -> ok;
 delete_sasl_logger(_Type) ->
-    _ = logger:remove_handler(sasl_h),
+    _ = logger:remove_handler(sasl),
     ok.
 
 add_error_logger_mf(undefined) -> ok;

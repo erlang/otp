@@ -192,7 +192,7 @@
 	  will not log any progress-, crash-, or supervisor reports.
           If the SASL application is started,
 	  these log events will be sent to a second handler instance
-	  named <c>sasl_h</c>, according to values of the SASL
+	  named <c>sasl</c>, according to values of the SASL
 	  configuration parameter <c>sasl_error_logger</c>
 	  and <c>sasl_errlog_type</c>, see
 	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">sasl(6)

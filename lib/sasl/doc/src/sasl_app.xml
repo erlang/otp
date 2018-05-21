@@ -133,10 +133,10 @@
       obtained by setting the Kernel application environment
       variable <seealso marker="kernel:kernel_app#logger_sasl_compatible"><c>logger_sasl_compatible=true</c></seealso>. This will add a
       second instance of the standard logger handler
-      named <c>sasl_h</c>, which will only print the SASL reports. No
+      named <c>sasl</c>, which will only print the SASL reports. No
       SASL reports will then be printed by the Kernel logger
       handler.</p>
-    <p>The <c>sasl_h</c> handler will be configured according to the
+    <p>The <c>sasl</c> handler will be configured according to the
       values of the following SASL application environment
       variables.</p>
     <taglist>
