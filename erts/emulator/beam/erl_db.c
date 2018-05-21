@@ -3506,7 +3506,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_delete_continue_exp,
-			  am_ets, ERTS_MAKE_AM("delete_trap"), 1,
+			  am_ets, ERTS_MAKE_AM("select_delete_trap"), 1,
 			  &ets_select_delete_trap_1);
 
     /* Non visual BIF to trap to. */
