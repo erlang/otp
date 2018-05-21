@@ -6900,8 +6900,9 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 	enqueue = ERTS_ENQUEUE_NOT;
 
 	n &= ~running_flgs;
-	if ((a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-	    || (a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
+	if ((!!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+	    | ((a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE))
+            & !(a & ERTS_PSFLG_FREE)) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
 	}
 	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
@@ -14069,7 +14070,9 @@ erts_continue_exit_process(Process *p)
 	    n = e = a;
 	    ASSERT(a & ERTS_PSFLG_EXITING);
 	    n |= ERTS_PSFLG_FREE;
-	    n &= ~ERTS_PSFLG_ACTIVE;
+            n &= ~(ERTS_PSFLG_ACTIVE
+                   | ERTS_PSFLG_ACTIVE_SYS
+                   | ERTS_PSFLG_DIRTY_ACTIVE_SYS);
 	    if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
 		erts_proc_inc_refc(p);
 		refc_inced = 1;
