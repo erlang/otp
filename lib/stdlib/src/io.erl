@@ -86,7 +86,16 @@ put_chars(Chars) ->
       CharData :: unicode:chardata().
 
 put_chars(Io, Chars) ->
-    o_request(Io, {put_chars,unicode,Chars}, put_chars).
+    put_chars(Io, unicode, Chars).
+
+%% This function is here to make the erlang:raise in o_request actually raise to
+%% a valid function.
+-spec put_chars(IoDevice, Encoding, CharData) -> 'ok' when
+      IoDevice :: device(),
+      Encoding :: unicode,
+      CharData :: unicode:chardata().
+put_chars(Io, Encoding, Chars) ->
+    o_request(Io, {put_chars,Encoding,Chars}, put_chars).
 
 -spec nl() -> 'ok'.
 
