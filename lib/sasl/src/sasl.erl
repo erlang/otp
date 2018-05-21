@@ -129,15 +129,8 @@ get_mf_maxf() ->
 add_sasl_logger(undefined, _Level) -> ok;
 add_sasl_logger(std, undefined) -> ok;
 add_sasl_logger(Dest, Level) ->
-    FC0 = #{legacy_header=>true,
-            single_line=>false,
-            template=>[{logger_formatter,header},"\n",msg,"\n"]},
-    FC = case application:get_env(sasl,utc_log) of
-             {ok,Bool} when is_boolean(Bool) ->
-                 FC0#{utc=>Bool};
-             _ ->
-                 FC0
-         end,
+    FC = #{legacy_header=>true,
+           single_line=>false},
     ok = logger:add_handler(sasl_h,logger_std_h,
                             #{level=>Level,
                               filter_default=>stop,
@@ -146,7 +139,7 @@ add_sasl_logger(Dest, Level) ->
                                     {fun logger_filters:remote_gl/2,stop}},
                                    {sasl_domain,
                                     {fun logger_filters:domain/2,
-                                     {log,equals,[beam,erlang,otp,sasl]}}}],
+                                     {log,equal,[beam,erlang,otp,sasl]}}}],
                               logger_std_h=>#{type=>Dest},
                               formatter=>{logger_formatter,FC}}).
 

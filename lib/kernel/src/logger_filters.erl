@@ -31,15 +31,15 @@
       Log :: logger:log(),
       Extra :: {Action,Compare,MatchDomain},
       Action :: log | stop,
-      Compare :: prefix_of | starts_with | equals | no_domain,
+      Compare :: super | sub | equal | not_equal | undefined,
       MatchDomain :: list(atom()).
 domain(#{meta:=Meta}=Log,{Action,Compare,MatchDomain})
   when ?IS_ACTION(Action) andalso
-       (Compare==prefix_of orelse
-        Compare==starts_with orelse
-        Compare==equals orelse
-        Compare==differs orelse
-        Compare==no_domain) andalso
+       (Compare==super orelse
+        Compare==sub orelse
+        Compare==equal orelse
+        Compare==not_equal orelse
+        Compare==undefined) andalso
        is_list(MatchDomain) ->
     filter_domain(Compare,Meta,MatchDomain,on_match(Action,Log));
 domain(Log,Extra) ->
@@ -82,18 +82,18 @@ remote_gl(Log,Action) ->
 
 %%%-----------------------------------------------------------------
 %%% Internal
-filter_domain(prefix_of,#{domain:=Domain},MatchDomain,OnMatch) ->
+filter_domain(super,#{domain:=Domain},MatchDomain,OnMatch) ->
     is_prefix(Domain,MatchDomain,OnMatch);
-filter_domain(starts_with,#{domain:=Domain},MatchDomain,OnMatch) ->
+filter_domain(sub,#{domain:=Domain},MatchDomain,OnMatch) ->
     is_prefix(MatchDomain,Domain,OnMatch);
-filter_domain(equals,#{domain:=Domain},Domain,OnMatch) ->
+filter_domain(equal,#{domain:=Domain},Domain,OnMatch) ->
     OnMatch;
-filter_domain(differs,#{domain:=Domain},MatchDomain,OnMatch)
+filter_domain(not_equal,#{domain:=Domain},MatchDomain,OnMatch)
   when Domain=/=MatchDomain ->
     OnMatch;
-filter_domain(Action,Meta,_,OnMatch) ->
+filter_domain(Compare,Meta,_,OnMatch) ->
     case maps:is_key(domain,Meta) of
-        false when Action==no_domain; Action==differs -> OnMatch;
+        false when Compare==undefined; Compare==not_equal -> OnMatch;
         _ -> ignore
     end.
 

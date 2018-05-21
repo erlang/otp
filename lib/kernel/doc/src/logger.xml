@@ -421,10 +421,10 @@ Current logger configuration:
           Config: stop
         Id: domain
           Fun:    fun logger_filters:domain/2
-          Config: {log,prefix_of,[beam,erlang,otp,sasl]}
+          Config: {log,super,[beam,erlang,otp,sasl]}
         Id: no_domain
           Fun:    fun logger_filters:domain/2
-          Config: {log,no_domain,[]}
+          Config: {log,undefined,[]}
       Handler Config:
         logger_std_h: #{type => standard_io}
   Level set per module:

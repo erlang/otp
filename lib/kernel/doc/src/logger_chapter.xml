@@ -594,7 +594,7 @@
 	  except the former so called "SASL reports", look the same as
 	  before.</p>
       </item>
-      <tag>SASL Reports</tag>
+      <tag><marker id="sasl_reports"/>SASL Reports</tag>
       <item>
 	<p>By SASL reports we mean supervisor reports, crash reports
 	  and progress reports.</p>

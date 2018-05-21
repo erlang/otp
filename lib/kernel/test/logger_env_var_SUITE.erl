@@ -82,7 +82,7 @@ default(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -95,7 +95,7 @@ default_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -107,7 +107,7 @@ error_logger_tty(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -121,7 +121,7 @@ error_logger_tty_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -138,7 +138,7 @@ error_logger_false(Config) ->
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),
     false = lists:keymember(sasl_h,1,Hs),
@@ -155,7 +155,7 @@ error_logger_false_progress(Config) ->
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
     false = lists:keymember(sasl_h,1,Hs),
@@ -172,7 +172,7 @@ error_logger_false_sasl_compatible(Config) ->
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
     true = lists:keymember(sasl_h,1,Hs),
@@ -220,7 +220,7 @@ logger_file(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -243,7 +243,7 @@ logger_file_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -266,7 +266,7 @@ logger_file_log_progress(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -353,7 +353,7 @@ logger_filters(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -406,7 +406,7 @@ logger_module_level(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -428,7 +428,7 @@ logger_disk_log(Config) ->
     {?STANDARD_HANDLER,logger_disk_log_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(logger_simple,1,Hs),
@@ -465,7 +465,7 @@ logger_undefined(Config) ->
     info = maps:get(level,SimpleC),
     info = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),
     false = lists:keymember(sasl_h,1,Hs),

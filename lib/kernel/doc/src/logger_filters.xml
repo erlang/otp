@@ -52,61 +52,100 @@
   <funcs>
     <func>
       <name name="domain" arity="2"/>
-      <fsummary>Filter log events based on the domain field in metadata.</fsummary>
+      <fsummary>Filter log events based on the domain field in
+	metadata.</fsummary>
       <desc>
-	  <p>This filter provides a way of filtering log events based on a
-	    <c>domain</c> field <c>Metadata</c>.</p>
+	<p>This filter provides a way of filtering log events based on a
+	  <c>domain</c> field in <c>Metadata</c>. This field is
+	  optional, and the purpose of using it is to group log events
+	  from, for example, a specific functional area. This allows
+	  filtering or other specialized treatment in a Logger
+	  handler.</p>
 
-	  <p>The <c><anno>Extra</anno></c> parameter is specified when
-	    adding the filter
-	    via <seealso marker="logger#add_logger_filter-2">
-	      <c>logger:add_logger_filter/2</c></seealso>
-	    or <seealso marker="logger#add_handler_filter-3">
-	      <c>logger:add_handler_filter/3</c></seealso>.</p>
+	<p>A domain field must be a list of atoms, creating smaller
+	  and more specialized domains as the list grows longer. The
+	  biggest domain is <c>[]</c>, which comprices all
+	  possible domains.</p>
 
-	  <p>The filter compares the value of the <c>domain</c> field
-	    in the log event's metadata (<c>Domain</c>)
-	    to <c><anno>MatchDomain</anno></c> as follows:</p>
+	<p>For example, consider the following domains:</p>
+	<pre>
+D1 = [beam,erlang,otp]
+D2 = [beam,erlang,otp,sasl]</pre>
 
-	  <taglist>
-	    <tag><c><anno>Compare</anno> = starts_with</c></tag>
-	    <item><p>The filter matches if <c>MatchDomain</c> is a prefix
-	      of <c>Domain</c>.</p></item>
-	    <tag><c><anno>Compare</anno> = prefix_of</c></tag>
-	    <item><p>The filter matches if <c>Domain</c> is a prefix
-	      of <c>MatchDomain</c>.</p></item>
-	    <tag><c><anno>Compare</anno> = equals</c></tag>
-	    <item><p>The filter matches if <c>Domain</c> is equal
-	      to <c>MatchDomain</c>.</p></item>
-	    <tag><c><anno>Compare</anno> = differs</c></tag>
-	    <item><p>The filter matches if <c>Domain</c> differs
-	      from <c>MatchDomain</c>, or if there is no domain field
-	      in metadata.</p></item>
-	    <tag><c><anno>Compare</anno> = no_domain</c></tag>
-	    <item><p>The filter matches if there is no domain field in
-	      metadata. In this case <c><anno>MatchDomain</anno></c> shall
-	      be <c>[]</c>.</p></item>
-	  </taglist>
+	<p><c>D1</c> is the biggest of the two, and is said to be a
+	  super-domain of <c>D2</c>. <c>D2</c> is a
+	  sub-domain <c>D1</c>. Both <c>D1</c> and <c>D2</c> are
+	  sub-domains of <c>[]</c></p>
 
-          <p>If the filter matches and <c><anno>Action</anno> =
-            log</c>, the log event is allowed. If the filter matches
-            and <c><anno>Action</anno> = stop</c>, the log event is
-            stopped.</p>
+	<p>The above domains are used for logs originating from
+	  Erlang/OTP. D1 specifies that the log event comes from
+	  Erlang/OTP in general, and D2 indicates that the log event
+	  is a so
+	  called <seealso marker="logger_chapter#sasl_reports">SASL
+	  report</seealso>.</p>
 
-	  <p>If the filter does not match, it returns <c>ignore</c>,
-	    meaning that other filters, or the value of the
-	    configuration parameter <c>filter_default</c>, will decide
-	    if the event is allowed or not.</p>
+	<p>The <c><anno>Extra</anno></c> parameter to
+	  the <c>domain/2</c> function is specified when adding the
+	  filter via <seealso marker="logger#add_logger_filter-2">
+	    <c>logger:add_logger_filter/2</c></seealso>
+	  or <seealso marker="logger#add_handler_filter-3">
+	    <c>logger:add_handler_filter/3</c></seealso>.</p>
 
-	  <p>Log events that do not contain any domain field, will
-	    only match when <c><anno>Compare</anno> = no_domain</c>.</p>
+	<p>The filter compares the value of the <c>domain</c> field
+	  in the log event's metadata (<c>Domain</c>)
+	  to <c><anno>MatchDomain</anno></c> as follows:</p>
 
-	  <p>Example: stop all events with
-	    domain <c>[beam,erlang,otp,sasl|_]</c></p>
+	<taglist>
+	  <tag><c><anno>Compare</anno> = sub</c></tag>
+	  <item>
+	    <p>The filter matches if <c>Domain</c> is equal to or
+	      a sub-domain of <c>MatchDomain</c>, that is,
+	      if <c>MatchDomain</c> is a prefix of <c>Domain</c>.</p>
+	  </item>
+	  <tag><c><anno>Compare</anno> = super</c></tag>
+	  <item>
+	    <p>The filter matches if <c>Domain</c> is equal to or a
+	      super-domain of <c>MatchDomain</c>, that is,
+	      if <c>Domain</c> is a prefix of <c>MatchDomain</c>.</p>
+	  </item>
+	  <tag><c><anno>Compare</anno> = equal</c></tag>
+	  <item>
+	    <p>The filter matches if <c>Domain</c> is equal
+	      to <c>MatchDomain</c>.</p>
+	  </item>
+	  <tag><c><anno>Compare</anno> = not_equal</c></tag>
+	  <item>
+	    <p>The filter matches if <c>Domain</c> is not equal
+	      to <c>MatchDomain</c>, or if there is no domain field in
+	      metadata.</p>
+	  </item>
+	  <tag><c><anno>Compare</anno> = undefined</c></tag>
+	  <item><p>The filter matches if there is no domain field in
+	      metadata. In this case <c><anno>MatchDomain</anno></c>
+	      must be set to <c>[]</c>.</p>
+	  </item>
+	</taglist>
 
-	  <code>
+        <p>If the filter matches and <c><anno>Action</anno> = log</c>,
+          the log event is allowed. If the filter matches
+          and <c><anno>Action</anno> = stop</c>, the log event is
+          stopped.</p>
+
+	<p>If the filter does not match, it returns <c>ignore</c>,
+	  meaning that other filters, or the value of the
+	  configuration parameter <c>filter_default</c>, decide if the
+	  event is allowed or not.</p>
+
+	<p>Log events that do not contain any domain field, match only
+	  when <c><anno>Compare</anno> = undefined</c>
+	  or <c><anno>Compare</anno> = not_equal</c>.</p>
+
+	<p>Example: stop all events with
+	  domain <c>[beam,erlang,otp,sasl|_]</c></p>
+
+	<code>
 logger:set_handler_config(h1,filter_default,log). % this is the default
-Filter = {fun logger_filters:domain/2,{stop,starts_with,[beam,erlang,otp,sasl]}}.
+Filter = {fun logger_filters:domain/2,{stop,sub,[beam,erlang,otp,sasl]}}.
 logger:add_handler_filter(h1,no_sasl,Filter).
 ok</code>
       </desc>

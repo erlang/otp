@@ -27,8 +27,8 @@
         ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
         [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
-         {domain,{fun logger_filters:domain/2,{log,prefix_of,Domain}}},
-         {no_domain,{fun logger_filters:domain/2,{log,no_domain,[]}}}]).
+         {domain,{fun logger_filters:domain/2,{log,super,Domain}}},
+         {no_domain,{fun logger_filters:domain/2,{log,undefined,[]}}}]).
 -define(DEFAULT_FORMATTER,logger_formatter).
 -define(DEFAULT_FORMAT_CONFIG,#{legacy_header=>true,
                                 single_line=>false}).
