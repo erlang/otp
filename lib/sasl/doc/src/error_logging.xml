@@ -46,8 +46,8 @@
       Kernel. <seealso marker="#progress_report">Progress
       reports</seealso> are by default not logged, but can be enabled
       by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_log_progress">
-	<c>logger_log_progress</c></seealso> to <c>true</c>.</p>
+      parameter <seealso marker="kernel:kernel_app#logger_progress_reports">
+	<c>logger_progress_reports</c></seealso> to <c>log</c>.</p>
     <p>The old SASL error logging behaviour can be re-enabled by setting the
       Kernel configuration
       parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">

@@ -344,8 +344,8 @@
       <seealso marker="#logger"><c>logger</c></seealso>,
       <seealso marker="kernel_app#logger_level"><c>logger_level</c></seealso>,
       <seealso marker="kernel_app#logger_sasl_compatible"><c>logger_sasl_compatible</c></seealso> and
-      <seealso marker="kernel_app#logger_log_progress"><c>logger_log_progress</c></seealso>.
-      <c>logger_level</c>, <c>logger_sasl_compatible</c> and <c>logger_log_progress</c> are described in the
+      <seealso marker="kernel_app#logger_progress_reports"><c>logger_progress_reports</c></seealso>.
+      <c>logger_level</c>, <c>logger_sasl_compatible</c> and <c>logger_progress_reports</c> are described in the
       <seealso marker="kernel_app#configuration">Kernel Configuration</seealso>,
       while <c>logger</c> is described below.</p>
 
@@ -617,8 +617,8 @@
 	    default.</item>
 	  <item>Progress reports are not logged by default, but can be
 	    enabled with the Kernel configuration
-	    parameter <seealso marker="kernel_app#logger_log_progress">
-	    <c>logger_log_progress</c></seealso>.</item>
+	    parameter <seealso marker="kernel_app#logger_progress_reports">
+	    <c>logger_progress_reports</c></seealso>.</item>
 	  <item>The output format is the same for all log
 	    events.</item>
 	</list>

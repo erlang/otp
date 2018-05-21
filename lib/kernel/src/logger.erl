@@ -731,10 +731,10 @@ get_default_handler_filters() ->
             ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp]);
         false ->
             Extra =
-                case application:get_env(kernel, logger_log_progress, false) of
-                    true ->
+                case application:get_env(kernel, logger_progress_reports, stop) of
+                    log ->
                         [];
-                    false ->
+                    stop ->
                         [{stop_progress,
                           {fun logger_filters:progress/2,stop}}]
                 end,

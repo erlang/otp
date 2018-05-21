@@ -204,17 +204,17 @@
         <note><p>This configuration option only effects the <c>default</c>
           and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
       </item>
-      <tag><marker id="logger_log_progress"/>
-	<c>logger_log_progress = boolean()</c></tag>
+      <tag><marker id="logger_progress_reports"/>
+	<c>logger_progress_reports = stop | log</c></tag>
       <item>
 	<p>If <c>logger_sasl_compatible = false</c>,
-	  then <c>logger_log_progress</c> specifies if progress
+	  then <c>logger_progress_reports</c> specifies if progress
 	  reports from <c>supervisor</c>
 	  and <c>application_controller</c> shall be logged by the
           default logger.</p>
 	<p>If <c>logger_sasl_compatible = true</c>,
-	  then <c>logger_log_progress</c> is ignored.</p>
-        <p>The default value is <c>false</c></p>
+	  then <c>logger_progress_reports</c> is ignored.</p>
+        <p>The default value is <c>stop</c></p>
         <note><p>This configuration option only effects the <c>default</c>
           and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
       </item>

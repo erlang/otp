@@ -149,7 +149,7 @@ error_logger_false_progress(Config) ->
         setup(Config,
               [{error_logger,false},
                {logger_level,notice},
-               {logger_log_progress,true}]),
+               {logger_progress_reports,log}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
     {logger_simple,logger_simple,SimpleC} = lists:keyfind(logger_simple,1,Hs),
     info = maps:get(level,SimpleC),
@@ -255,7 +255,7 @@ logger_file_log_progress(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}}]}]),
@@ -340,7 +340,7 @@ logger_filters(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,logger:=Logger},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}},
@@ -367,7 +367,7 @@ logger_filters_stop(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,logger:=Logger},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filters=>[],
@@ -393,7 +393,7 @@ logger_module_level(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,module_levels:=ModuleLevels},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}},
@@ -552,7 +552,7 @@ sasl_compatible_false(Config) ->
     {ok,_Hs,Node} = setup(Config,
                           [{error_logger,{file,Log}},
                            {logger_sasl_compatible,false},
-                           {logger_log_progress,true}]),
+                           {logger_progress_reports,log}]),
     check_default_log(Node,Log,
                       file,% dest
                       6),% progress in std logger
@@ -563,7 +563,7 @@ sasl_compatible_false_no_progress(Config) ->
     {ok,_Hs,Node} = setup(Config,
                           [{error_logger,{file,Log}},
                            {logger_sasl_compatible,false},
-                           {logger_log_progress,false}]),
+                           {logger_progress_reports,stop}]),
     check_default_log(Node,Log,
                       file,% dest
                       0),% progress in std logger
@@ -589,7 +589,7 @@ bad_sasl_compatibility(Config) ->
     error = setup(Config,[{logger_sasl_compatible,badcomp}]).
 
 bad_progress(Config) ->
-    error = setup(Config,[{logger_log_progress,badprogress}]).
+    error = setup(Config,[{logger_progress_reports,badprogress}]).
 
 %%%-----------------------------------------------------------------
 %%% Internal

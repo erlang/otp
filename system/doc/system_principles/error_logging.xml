@@ -63,7 +63,7 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       and so on) send progress and error information to
       Logger. Progress reports are by default not logged, but can be
       enabled by setting the Kernel configuration
-      parameter <c>logger_log_progress</c> to true. Supervisor
+      parameter <c>logger_progress_reports</c> to <c>log</c>. Supervisor
       reports, crash reports and other error and information reports
       are by default logged through the log handler which is
       set up when the Kernel application is started.</p>
@@ -76,7 +76,7 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
     <pre>
-% <input>erl -kernel logger_log_progress true</input>
+% <input>erl -kernel logger_progress_reports log</input>
 Erlang/OTP 21 [erts-10.0] [source-76388a1] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
 
 =PROGRESS REPORT==== 18-May-2018::21:33:41.705292 ===

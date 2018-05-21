@@ -102,10 +102,10 @@
       reports</em>, <em>crash reports</em>, and <em>progress
       reports</em>. These reports are now also printed by the default
       logger handler started by the Kernel application. Progress
-      reports are by default stopped by a filter, but can easily be
+      reports are by default stopped by a filter, but can be
       added by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_log_progress">
-      <c>logger_log_progress=true</c></seealso>.</p>
+      parameter <seealso marker="kernel:kernel_app#logger_progress_reports">
+      <c>logger_progress_reports</c></seealso> to <c>log</c>.</p>
     <p>If the old error logger event handlers are still desired, they
       must be added by
       calling <c>error_logger:add_report_handler/1,2</c>.</p>
