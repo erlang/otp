@@ -6209,20 +6209,23 @@ spawn_logger(Procs) ->
 				  ok;
 			      (Proc) ->
 				  Mon = erlang:monitor(process, Proc),
-				  receive
+				  ok = receive
 				      {'DOWN', Mon, _, _, _} ->
 					  ok
 				  after 0 ->
 					  case Kill of
 					      true -> exit(Proc, kill);
-					      _ ->
-						  erlang:display({"Waiting for 'DOWN' from", Proc,
-								  process_info(Proc),
-								  pid_status(Proc)})
+					      _ -> ok
 					  end,
 					  receive
 					      {'DOWN', Mon, _, _, _} ->
 						  ok
+                                          after 5000 ->
+						  io:format("Waiting for 'DOWN' from ~w, status=~w\n"
+                                                            "info = ~p\n", [Proc,
+                                                                            pid_status(Proc),
+                                                                            process_info(Proc)]),
+                                                  timeout
 					  end
 				  end
 			  end, Procs),
