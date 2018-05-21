@@ -8175,13 +8175,9 @@ ok
           <tag><marker id="system_info_ets_limit"/>
             <c>ets_limit</c></tag>
           <item>
-            <p>Returns the maximum number of ETS tables allowed. This
-              limit can be increased at startup by passing
-              command-line flag
-              <seealso marker="erts:erl#+e"><c>+e</c></seealso> to
-              <c>erl(1)</c> or by setting environment variable
-              <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang
-              runtime system.</p>
+            <p>Returns the limit for number of ETS tables. This limit is
+	    <seealso marker="stdlib:ets#max_ets_tables">partially obsolete</seealso>
+	    and number of tables are only limited by available memory.</p>
           </item>
           <tag><marker id="system_info_port_count"/><c>port_count</c></tag>
           <item>

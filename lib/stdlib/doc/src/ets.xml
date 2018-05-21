@@ -49,14 +49,16 @@
       associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
       have many objects associated with each key.</p>
 
+   <marker id="max_ets_tables"></marker>
    <note>
      <p>
        The number of tables stored at one Erlang node <em>used</em> to
        be limited. This is no longer the case (except by memory usage).
        The previous default limit was about 1400 tables and
        could be increased by setting the environment variable
-       <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
-       system. This hard limit has been removed, but it is currently
+       <c>ERL_MAX_ETS_TABLES</c> or the command line option
+       <seealso marker="erts:erl#+e"><c>+e</c></seealso> before starting the
+       Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
        set to an approximate of the maximum amount of tables used. This since
        an internal table for named tables is sized using this value. If
