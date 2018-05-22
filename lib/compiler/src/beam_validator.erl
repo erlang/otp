@@ -204,6 +204,12 @@ validate_fun_info_branches([], _, _) -> ok.
 validate_fun_info_branches_1(Arity, {_,_,Arity}, _) -> ok;
 validate_fun_info_branches_1(X, {Mod,Name,Arity}=MFA, Vst) ->
     try
+        case Vst of
+            #vst{current=#st{numy=none}} ->
+                ok;
+            #vst{current=#st{numy=Size}} ->
+                error({unexpected_stack_frame,Size})
+        end,
 	get_term_type({x,X}, Vst)
     catch Error ->
 	    I = {func_info,{atom,Mod},{atom,Name},Arity},
