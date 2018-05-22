@@ -82,6 +82,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 pre {
   font-family: monospace;
   font-weight: normal;
+  font-size: 16px; /* like body */
   margin: 0;
 }
 
