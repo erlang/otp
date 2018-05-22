@@ -3778,8 +3778,8 @@ blocks_size([], Acc) ->
     Acc.
 
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
-							ProcType == monitor_sh;
-							ProcType == nlink_sh;
+							ProcType == monitor;
+							ProcType == link;
 							ProcType == msg_ref;
 							ProcType == ll_ptimer;
 							ProcType == hl_ptimer;
@@ -3903,7 +3903,6 @@ aa_mem_data(#memory{processes = Proc,
 		    processes_used = ProcU,
 		    system = Sys} = Mem,
 	    [{ProcData, Sz} | Rest]) when ProcData == bif_timer;
-					  ProcData == link_lh;
 					  ProcData == process_table ->
     aa_mem_data(Mem#memory{processes = Proc+Sz,
 			   processes_used = ProcU+Sz,
