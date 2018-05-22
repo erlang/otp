@@ -28,7 +28,7 @@ matrix:
       services:
         - docker
       script:
-        - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
+        - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp release && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
     - env: Linux64Dialyzer
       os: linux
       script:
