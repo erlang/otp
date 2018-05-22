@@ -233,8 +233,7 @@ backward([{label,Lbl}=L|Is], D, Acc) ->
     backward(Is, beam_utils:index_label(Lbl, Acc, D), [L|Acc]);
 backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     List1 = shortcut_select_list(List0, Reg, D, []),
-    Fail1 = shortcut_label(Fail0, D),
-    Fail = shortcut_bs_test(Fail1, Is, D),
+    Fail = shortcut_label(Fail0, D),
     List = prune_redundant(List1, Fail),
     case List of
 	[] ->
@@ -304,9 +303,8 @@ backward([{test,bs_start_match2,F,Live,[Src,_]=Args,Ctxt}|Is], D, Acc0) ->
             backward(Is, D, [I|Acc0])
     end;
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
-    To1 = shortcut_bs_test(To0, Is, D),
-    To2 = shortcut_label(To1, D),
-    To3 = shortcut_rel_op(To2, Op, Ops0, D),
+    To1 = shortcut_label(To0, D),
+    To2 = shortcut_rel_op(To1, Op, Ops0, D),
 
     %% Try to shortcut a repeated test:
     %%
@@ -314,14 +312,14 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     %%        . . .		          ==>   ...
     %% Fail1: test Op {f,Fail2} Operands        Fail1: test Op {f,Fail2} Operands
     %%
-    To = case beam_utils:code_at(To3, D) of
-	     [{test,Op,{f,To4},Ops}|_] ->
+    To = case beam_utils:code_at(To2, D) of
+	     [{test,Op,{f,To3},Ops}|_] ->
 		 case equal_ops(Ops0, Ops) of
-		     true -> To4;
-		     false -> To3
+		     true -> To3;
+		     false -> To2
 		 end;
 	     _Code ->
-		 To3
+		 To2
 	 end,
     I = case Op of
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
@@ -350,22 +348,22 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	    backward([I|Is], D, Acc)
     end;
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
-    To1 = shortcut_bs_test(To0, Is, D),
-    To2 = shortcut_label(To1, D),
+    To1 = shortcut_label(To0, D),
+
     %% Try to shortcut a repeated test:
     %%
     %%        test Op {f,Fail1} _ Ops _ 	test Op {f,Fail2} _ Ops _
     %%        . . .		          ==>   ...
     %% Fail1: test Op {f,Fail2} _ Ops _   Fail1: test Op {f,Fail2} _ Ops _
     %%
-    To = case beam_utils:code_at(To2, D) of
-	     [{test,Op,{f,To3},_,Ops,_}|_] ->
+    To = case beam_utils:code_at(To1, D) of
+	     [{test,Op,{f,To2},_,Ops,_}|_] ->
 		 case equal_ops(Ops0, Ops) of
-		     true -> To3;
-		     false -> To2
+		     true -> To2;
+		     false -> To1
 		 end;
 	     _Code ->
-		 To2
+		 To1
 	 end,
     I = {test,Op,{f,To},Live,Ops0,Dst},
     backward(Is, D, [I|Acc]);
@@ -537,68 +535,6 @@ test_bs_literal_1(Ctxt, Is, D, Literal) ->
         true -> {Literal,Is};
         false -> not_killed
     end.
-
-%% shortcut_bs_test(TargetLabel, ReversedInstructions, D) -> TargetLabel'
-%%  Try to shortcut the failure label for bit syntax matching.
-
-shortcut_bs_test(To, Is, D) ->
-    shortcut_bs_test_1(beam_utils:code_at(To, D), Is, To, D).
-
-shortcut_bs_test_1([{bs_restore2,Reg,SavePoint},
-		    {label,_},
-		    {test,bs_test_tail2,{f,To},[_,TailBits]}|_],
-		   PrevIs, To0, D) ->
-    case count_bits_matched(PrevIs, {Reg,SavePoint}, 0) of
-	Bits when Bits > TailBits ->
-	    %% This instruction will fail. We know because a restore has been
-	    %% done from the previous point SavePoint in the binary, and we
-	    %% also know that the binary contains at least Bits bits from
-	    %% SavePoint.
-	    %%
-	    %% Since we will skip a bs_restore2 if we shortcut to label To,
-	    %% we must now make sure that code at To does not depend on
-	    %% the position in the context in any way.
-	    case shortcut_bs_pos_used(To, Reg, D) of
-		false -> To;
-		true -> To0
-	    end;
-	_Bits ->
-	    To0
-    end;
-shortcut_bs_test_1([_|_], _, To, _) -> To.
-
-%% counts_bits_matched(ReversedInstructions, SavePoint, Bits) -> Bits'
-%%  Given a reversed instruction stream, determine the minimum number
-%%  of bits that will be matched by bit syntax instructions up to the
-%%  given save point.
-
-count_bits_matched([{test,bs_get_utf8,{f,_},_,_,_}|Is], SavePoint, Bits) ->
-    count_bits_matched(Is, SavePoint, Bits+8);
-count_bits_matched([{test,bs_get_utf16,{f,_},_,_,_}|Is], SavePoint, Bits) ->
-    count_bits_matched(Is, SavePoint, Bits+16);
-count_bits_matched([{test,bs_get_utf32,{f,_},_,_,_}|Is], SavePoint, Bits) ->
-    count_bits_matched(Is, SavePoint, Bits+32);
-count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits) ->
-    case Sz of
-	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
-	_ -> count_bits_matched(Is, SavePoint, Bits)
-    end;
-count_bits_matched([{test,bs_match_string,_,[_,Bs]}|Is], SavePoint, Bits) ->
-    count_bits_matched(Is, SavePoint, Bits+bit_size(Bs));
-count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
-    count_bits_matched(Is, SavePoint, Bits);
-count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
-    %% The save point we are looking for - we are done.
-    Bits;
-count_bits_matched([_|_], _, Bits) -> Bits.
-
-shortcut_bs_pos_used(To, Reg, D) ->
-    shortcut_bs_pos_used_1(beam_utils:code_at(To, D), Reg, D).
-
-shortcut_bs_pos_used_1([{bs_context_to_binary,Reg}|_], Reg, _) ->
-    false;
-shortcut_bs_pos_used_1(Is, Reg, D) ->
-    not beam_utils:is_killed(Reg, Is, D).
 
 %% shortcut_bs_start_match(TargetLabel, Reg) -> TargetLabel
 %%  A failing bs_start_match2 instruction means that the source (Reg)
