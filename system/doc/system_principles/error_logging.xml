@@ -67,10 +67,10 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       reports, crash reports and other error and information reports
       are by default logged through the log handler which is
       set up when the Kernel application is started.</p>
-    <p>Prior to OTP-21, supervisor, crash, and progress reports were
-      only logged when the SASL application was running. This
-      behaviour can, for backwards compatibility, be enabled by
-      setting the Kernel configuration
+    <p>Prior to Erlang/OTP 21.0, supervisor, crash, and progress
+      reports were only logged when the SASL application was
+      running. This behaviour can, for backwards compatibility, be
+      enabled by setting the Kernel configuration
       parameter <c>logger_sasl_compatible</c> to <c>true</c>. For more
       information, see
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>

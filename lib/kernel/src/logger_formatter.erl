@@ -26,21 +26,22 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
+-type config() :: #{chars_limit=>pos_integer()| unlimited,
+                    depth=>pos_integer() | unlimited,
+                    legacy_header=>boolean(),
+                    max_size=>pos_integer() | unlimited,
+                    report_cb=>fun((logger:report()) -> {io:format(),[term()]}),
+                    single_line=>boolean(),
+                    template=>template(),
+                    time_designator=>byte(),
+                    time_offset=>integer()|[byte()]}.
 -type template() :: [atom()|tuple()|string()].
 
 %%%-----------------------------------------------------------------
 %%% API
 -spec format(LogEvent,Config) -> unicode:chardata() when
       LogEvent :: logger:log_event(),
-      Config :: #{single_line=>boolean(),
-                  legacy_header=>boolean(),
-                  report_cb=>fun((logger:report()) -> {io:format(),[term()]}),
-                  chars_limit=>pos_integer()| unlimited,
-                  max_size=>pos_integer() | unlimited,
-                  depth=>pos_integer() | unlimited,
-                  template=>template(),
-                  time_designator=>byte(),
-                  time_offset=>integer()|[byte()]}.
+      Config :: config().
 format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
   when is_map(Config0) ->
     Config = add_default_config(Config0),
@@ -322,6 +323,8 @@ offset_to_utc([$+|Tz]) ->
 offset_to_utc(_) ->
     false.
 
+-spec check_config(Config) -> ok | {error,term()} when
+      Config :: config().
 check_config(Config) when is_map(Config) ->
     do_check_config(maps:to_list(Config));
 check_config(Config) ->

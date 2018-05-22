@@ -92,9 +92,9 @@
   <section>
     <marker id="deprecated_error_logger_config"/>
     <title>Deprecated Error Logger Event Handlers and Configuration</title>
-    <p>In OTP-21, a new API for logging was added to Erlang/OTP. The
+    <p>In Erlang/OTP 21.0, a new API for logging was added. The
       old <c>error_logger</c> event manager, and event handlers
-      running on this manager, will still work, but they are not used
+      running on this manager, still work, but they are not used
       by default.</p>
     <p>The error logger event handlers <c>sasl_report_tty_h</c>
       and <c>sasl_report_file_h</c>, were earlier used for printing

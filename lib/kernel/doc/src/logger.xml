@@ -132,6 +132,29 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	  log event to the handlers. If the same keys occur, values
 	  from the log call overwrite process metadata, which in turn
 	  overwrite values set by Logger.</p>
+	<p>The following custom metadata keys have special meaning:</p>
+	<taglist>
+	  <tag><c>domain</c></tag>
+	  <item>
+	    <p>The value associated with this key is used by filters
+	      for grouping log events originating from, for example,
+	      specific functional
+	      areas. See <seealso marker="logger_filters#domain-2">
+		<c>logger_filters:domain/2</c></seealso>
+	      for a description of how this field can be used.</p>
+	  </item>
+	  <tag><c>report_cb</c></tag>
+	  <item>
+	    <p>If the log message is specified as
+	      a <seealso marker="#type-report"><c>report()</c></seealso>,
+	      the <c>report_cb</c> key can be associated with a fun
+	      (report callback) that converts the report to a format
+	      string and arguments. See
+	      section <seealso marker="logger_chapter#log_message">Log
+	      Message</seealso> in the User's Guide for more
+	      information about report callbacks.</p>
+	  </item>
+	</taglist>
       </desc>
     </datatype>
     <datatype>
@@ -145,7 +168,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	  <item><c>filters => []</c></item>
 	  <item><c>formatter => {logger_formatter,DefaultFormatterConfig</c>}</item>
 	</list>
-	<p>See the <seealso marker="logger_formatter#configuration">
+	<p>See the <seealso marker="logger_formatter#type-config">
 	    <c>logger_formatter(3)</c></seealso> manual page for
 	  information about the default configuration for this
 	  formatter.</p>
@@ -978,6 +1001,25 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
   </section>
 
   <funcs>
+    <func>
+      <name>FModule:check_config(FConfig) -> ok | {error,term()}</name>
+      <fsummary>Validate the given formatter configuration.</fsummary>
+      <type>
+	<v>FConfig =
+	  <seealso marker="#type-formatter_config">formatter_config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called by a Logger when formatter
+	  configuration is set or modified. The formatter must
+	  validate the given configuration and return <c>ok</c> if it
+	  is correct, and <c>{error,term()}</c> if it is faulty.</p>
+	<p>See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
+      </desc>
+    </func>
     <func>
       <name>FModule:format(LogEvent,FConfig) -> FormattedLogEntry</name>
       <fsummary>Format the given log event.</fsummary>

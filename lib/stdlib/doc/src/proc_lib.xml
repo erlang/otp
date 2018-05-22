@@ -61,8 +61,9 @@
       <c>shutdown</c>, or <c>{shutdown,Term}</c>), a <em>crash report</em>
       is generated, which is written to terminal by the default logger
       handler setup by Kernel. For more information about how crash reports
-      were logged before OTP-21, see <seealso marker="sasl:error_logging">
-      SASL Error Logging</seealso> in the SASL User's Guide.</p>
+      were logged prior to Erlang/OTP 21.0, see
+      <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
+      in the SASL User's Guide.</p>
 
     <p>Unlike in "plain Erlang", <c>proc_lib</c> processes will not generate
       <em>error reports</em>, which are written to the terminal by the
@@ -118,9 +119,9 @@
 	    the <c>error_logger</c> is no longer the preferred
 	    interface for logging in Erlang/OTP. A
 	    new <seealso marker="kernel:logger_chapter">logging
-	    API</seealso> was added in OTP-21, but
-	    legacy <c>error_logger</c> handlers may still be used. New
-	    logger handlers do not need to used this function, since
+	    API</seealso> was added in Erlang/OTP 21.0, but
+	    legacy <c>error_logger</c> handlers can still be used. New
+	    Logger handlers do not need to use this function, since
 	    the formatting callback (<c>report_cb</c>) is included as
 	    metadata in the log event.</p>
 	</note>
@@ -145,9 +146,9 @@
 	    the <c>error_logger</c> is no longer the preferred
 	    interface for logging in Erlang/OTP. A
 	    new <seealso marker="kernel:logger_chapter">logging
-	    API</seealso> was added in OTP-21, but
-	    legacy <c>error_logger</c> handlers may still be used. New
-	    logger handlers do not need to used this function, since
+	    API</seealso> was added in Erlang/OTP 21.0, but
+	    legacy <c>error_logger</c> handlers can still be used. New
+	    Logger handlers do not need to used this function, since
 	    the formatting callback (<c>report_cb</c>) is included as
 	    metadata in the log event.</p>
 	</note>

@@ -481,13 +481,13 @@ MaxT = TickTime + TickTime / 4</code>
 
   <section>
     <title>Deprecated Configuration Parameters</title>
-    <p>In OTP-21, a new API for logging was added to Erlang/OTP. The
+    <p>In Erlang/OTP 21.0, a new API for logging was added. The
       old <c>error_logger</c> event manager, and event handlers
-      running on this manager, will still work, but they are not used
+      running on this manager, still work, but they are no longer used
       by default.</p>
     <p>The following application configuration parameters can still be
-      set, but they will only be used if the corresponding new logger
-      variables are not set.</p>
+      set, but they are only used if the corresponding configuration
+      parameters for Logger are not set.</p>
     <taglist>
       <tag><c>error_logger</c></tag>
       <item>Replaced by setting the type of the default

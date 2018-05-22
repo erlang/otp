@@ -81,7 +81,9 @@
                       mfa    => {module(),atom(),non_neg_integer()},
                       file   => file:filename(),
                       line   => non_neg_integer(),
-                      term() => term()}.
+                      domain => [atom()],
+                      report_cb => fun((report()) -> {io:format(),[term()]}),
+                      atom() => term()}.
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
                       line := non_neg_integer()}.
