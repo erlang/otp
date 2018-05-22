@@ -40,4 +40,8 @@ do_and_log "Autoconfing" autoconf
 do_and_log "Configuring" configure
 do_and_log "Building OTP" boot -a
 
+if [ $1 = "release" ]; then
+    do_and_log "Releasing OTP" release -a
+fi
+
 exit 0
