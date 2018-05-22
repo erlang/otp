@@ -414,6 +414,10 @@ struct AOFF_RBTree_t_ {
     AOFF_RBTree_t *right;
     Uint32 flags;
     Uint32 max_sz;  /* of all blocks in this sub-tree */
+    union {
+        AOFF_RBTree_t* next;   /* for best fit */
+        Sint64 birth_time;     /* for age first fit */
+    } u;
 };
 
 void aoff_add_pooled_mbc(Allctr_t*, Carrier_t*);
