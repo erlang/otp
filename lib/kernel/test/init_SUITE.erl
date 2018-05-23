@@ -451,7 +451,7 @@ find_system_procs([], SysProcs) ->
      SysProcs#sys_procs.dirty_sig_handler_max];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, [initial_call, priority]) of
-	[{initial_call,{otp_ring0,start,2}},_] ->
+	[{initial_call,{erl_init,start,2}},_] ->
 	    undefined = SysProcs#sys_procs.init,
 	    find_system_procs(Ps, SysProcs#sys_procs{init = P});
 	[{initial_call,{erts_code_purger,start,0}},_] ->

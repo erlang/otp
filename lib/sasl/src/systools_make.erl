@@ -1565,7 +1565,7 @@ preloaded() ->
     [erl_prim_loader,erl_tracer,erlang,
      erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
-     init,otp_ring0,prim_buffer,prim_eval,prim_file,
+     init,erl_init,prim_buffer,prim_eval,prim_file,
      prim_inet,prim_zip,zlib].
 
 %%______________________________________________________________________
