@@ -235,13 +235,8 @@ format_1(#k_bif{op=Op,args=As,ret=Rs}, Ctxt) ->
     [Txt,format_args(As, Ctxt1),
      format_ret(Rs, Ctxt1)
     ];
-format_1(#k_test{op=Op,args=As,inverted=Inverted}, Ctxt) ->
-    Txt = case Inverted of
-	      false ->
-		  ["test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)];
-	      true ->
-		  ["inverted_test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)]
-	  end,
+format_1(#k_test{op=Op,args=As}, Ctxt) ->
+    Txt = ["test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)],
     Ctxt1 = ctxt_bump_indent(Ctxt, 2),
     [Txt,format_args(As, Ctxt1)];
 format_1(#k_put{arg=A,ret=Rs}, Ctxt) ->
