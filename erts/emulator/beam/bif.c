@@ -4438,13 +4438,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
         BIF_RET(old_value);
-    } else if (BIF_ARG_1 == am_display_items) {
-	int oval = display_items;
-	if (!is_small(BIF_ARG_2) || (n = signed_val(BIF_ARG_2)) < 0) {
-	    goto error;
-	}
-	display_items = n < 32 ? 32 : n;
-	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_debug_flags) {
 	BIF_RET(am_true);
     } else if (BIF_ARG_1 == am_backtrace_depth) {

@@ -208,7 +208,6 @@ atom dirty_nif_finalizer
 atom disable_trace
 atom disabled
 atom discard
-atom display_items
 atom dist
 atom dist_cmd
 atom dist_ctrl_put_data

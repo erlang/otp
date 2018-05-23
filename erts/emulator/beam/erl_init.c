@@ -163,7 +163,6 @@ int erts_initialized = 0;
  * Configurable parameters.
  */
 
-Uint display_items;	    	/* no of items to display in traces etc */
 int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 int H_MAX_SIZE;			/* The maximum heap size */
@@ -534,9 +533,6 @@ void erts_usage(void)
     int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
     erts_fprintf(stderr, "The flags are:\n\n");
-
-    /*    erts_fprintf(stderr, "-# number  set the number of items to be used in traces etc\n"); */
-
     erts_fprintf(stderr, "-a size        suggested stack size in kilo words for threads\n");
     erts_fprintf(stderr, "               in the async-thread pool, valid range is [%d-%d]\n",
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
@@ -753,7 +749,6 @@ early_init(int *argc, char **argv) /*
 
     erts_sched_compact_load = 1;
     erts_printf_eterm_func = erts_printf_term;
-    display_items = 200;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
@@ -1270,15 +1265,6 @@ erl_start(int argc, char **argv)
 	     * -d has been reused in a patch R12B-4.
 	     */
 
-	case '#' :
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    if ((display_items = atoi(arg)) == 0) {
-		erts_fprintf(stderr, "bad display items%s\n", arg);
-		erts_usage();
-	    }
-	    VERBOSE(DEBUG_SYSTEM,
-                    ("using display items %d\n",display_items));
-	    break;
 	case 'p':
 	    if (!sys_strncmp(argv[i],"-pc",3)) {
 		int printable_chars = ERL_PRINTABLE_CHARACTERS_LATIN1;
