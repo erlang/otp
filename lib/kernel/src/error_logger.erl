@@ -529,18 +529,38 @@ logfile(filename) ->
       Flag :: boolean().
 
 tty(true) ->
-    case lists:member(error_logger_tty_h, which_report_handlers()) of
-	false ->
-	    add_report_handler(error_logger_tty_h, []);
-	true ->
-	    ignore
-    end,
+    _ = case lists:member(error_logger_tty_h, which_report_handlers()) of
+            false ->
+                case logger:get_handler_config(default) of
+                    {ok,{logger_std_h,#{logger_std_h:=#{type:=standard_io}}}} ->
+                        logger:remove_handler_filter(default,
+                                                     error_logger_tty_false);
+                    _ ->
+                        logger:add_handler(error_logger_tty_true,logger_std_h,
+                                           #{filter_default=>stop,
+                                             filters=>?DEFAULT_HANDLER_FILTERS(
+                                                         [beam,erlang,otp]),
+                                             formatter=>{?DEFAULT_FORMATTER,
+                                                         ?DEFAULT_FORMAT_CONFIG},
+                                             logger_std_h=>#{type=>standard_io}})
+                end;
+            true ->
+                ok
+        end,
     ok;
 tty(false) ->
-    delete_report_handler(error_logger_tty_h).
+    delete_report_handler(error_logger_tty_h),
+    _ = logger:remove_handler(error_logger_tty_true),
+    _ = case logger:get_handler_config(default) of
+            {ok,{logger_std_h,#{logger_std_h:=#{type:=standard_io}}}} ->
+                logger:add_handler_filter(default,error_logger_tty_false,
+                                          {fun(_,_) -> stop end, ok});
+            _ ->
+                ok
+        end,
+    ok.
 
 %%%-----------------------------------------------------------------
-
 -spec limit_term(term()) -> term().
 
 limit_term(Term) ->
@@ -552,4 +572,9 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    logger:get_format_depth().
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.

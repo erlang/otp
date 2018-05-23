@@ -1938,7 +1938,7 @@ format_log(#{label:={gen_statem,terminate},
 	    _ -> {Reason,Stacktrace}
 	end,
     [LimitedP, LimitedFmtData, LimitedFixedReason] =
-        [logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
+        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
     CBMode =
 	 case StateEnter of
 	     true ->

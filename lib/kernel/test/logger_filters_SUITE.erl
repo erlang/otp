@@ -81,6 +81,8 @@ domain(_Config) ->
     stop = logger_filters:domain(?dlog([]),{stop,starts_with,[]}),
     L3 = logger_filters:domain(L3=?dlog([]),{log,equals,[]}),
     stop = logger_filters:domain(?dlog([]),{stop,equals,[]}),
+    ignore = logger_filters:domain(?dlog([]),{log,differs,[]}),
+    ignore = logger_filters:domain(?dlog([]),{stop,differs,[]}),
     ignore = logger_filters:domain(?dlog([]),{log,no_domain,[]}),
     ignore = logger_filters:domain(?dlog([]),{stop,no_domain,[]}),
 
@@ -90,15 +92,19 @@ domain(_Config) ->
     ignore = logger_filters:domain(?dlog([a]),{stop,starts_with,[a,b]}),
     ignore = logger_filters:domain(?dlog([a]),{log,equals,[a,b]}),
     ignore = logger_filters:domain(?dlog([a]),{stop,equals,[a,b]}),
+    L5 = logger_filters:domain(L5=?dlog([a]),{log,differs,[a,b]}),
+    stop = logger_filters:domain(?dlog([a]),{stop,differs,[a,b]}),
     ignore = logger_filters:domain(?dlog([a]),{log,no_domain,[a,b]}),
     ignore = logger_filters:domain(?dlog([a]),{stop,no_domain,[a,b]}),
 
     ignore = logger_filters:domain(?dlog([a,b]),{log,prefix_of,[a]}),
     ignore = logger_filters:domain(?dlog([a,b]),{stop,prefix_of,[a]}),
-    L5 = logger_filters:domain(L5=?dlog([a,b]),{log,starts_with,[a]}),
+    L6 = logger_filters:domain(L6=?dlog([a,b]),{log,starts_with,[a]}),
     stop = logger_filters:domain(?dlog([a,b]),{stop,starts_with,[a]}),
     ignore = logger_filters:domain(?dlog([a,b]),{log,equals,[a]}),
     ignore = logger_filters:domain(?dlog([a,b]),{stop,equals,[a]}),
+    L7 = logger_filters:domain(L7=?dlog([a,b]),{log,differs,[a]}),
+    stop = logger_filters:domain(?dlog([a,b]),{stop,differs,[a]}),
     ignore = logger_filters:domain(?dlog([a,b]),{log,no_domain,[a]}),
     ignore = logger_filters:domain(?dlog([a,b]),{stop,no_domain,[a]}),
 
@@ -108,26 +114,33 @@ domain(_Config) ->
     ignore = logger_filters:domain(?ndlog,{stop,starts_with,[a]}),
     ignore = logger_filters:domain(?ndlog,{log,equals,[a]}),
     ignore = logger_filters:domain(?ndlog,{stop,equals,[a]}),
-    L6 = logger_filters:domain(L6=?ndlog,{log,no_domain,[a]}),
+    L8 = logger_filters:domain(L8=?ndlog,{log,differs,[a]}),
+    stop = logger_filters:domain(?ndlog,{stop,differs,[a]}),
+    L9 = logger_filters:domain(L9=?ndlog,{log,no_domain,[a]}),
     stop = logger_filters:domain(?ndlog,{stop,no_domain,[a]}),
 
-    L7 = logger_filters:domain(L7=?dlog([a,b,c,d]),{log,prefix_of,[a,b,c,d]}),
+    L10 = logger_filters:domain(L10=?dlog([a,b,c,d]),{log,prefix_of,[a,b,c,d]}),
     stop = logger_filters:domain(?dlog([a,b,c,d]),{stop,prefix_of,[a,b,c,d]}),
-    L8 = logger_filters:domain(L8=?dlog([a,b,c,d]),{log,starts_with,[a,b,c,d]}),
+    L11 = logger_filters:domain(L11=?dlog([a,b,c,d]),{log,starts_with,[a,b,c,d]}),
     stop = logger_filters:domain(?dlog([a,b,c,d]),{stop,starts_with,[a,b,c,d]}),
-    L9 = logger_filters:domain(L9=?dlog([a,b,c,d]),{log,equals,[a,b,c,d]}),
+    L12 = logger_filters:domain(L12=?dlog([a,b,c,d]),{log,equals,[a,b,c,d]}),
     stop = logger_filters:domain(?dlog([a,b,c,d]),{stop,equals,[a,b,c,d]}),
+    ignore = logger_filters:domain(?dlog([a,b,c,d]),{log,differs,[a,b,c,d]}),
+    ignore = logger_filters:domain(?dlog([a,b,c,d]),{stop,differs,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog([a,b,c,d]),{log,no_domain,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog([a,b,c,d]),{stop,no_domain,[a,b,c,d]}),
 
     %% A domain field in meta which is not a list is allowed by the
-    %% filter, but it will never match.
+    %% filter, but since MatchDomain is always a list of atoms, only
+    %% Action=differs can ever match.
     ignore = logger_filters:domain(?dlog(dummy),{log,prefix_of,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{stop,prefix_of,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{log,starts_with,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{stop,starts_with,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{log,equals,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{stop,equals,[a,b,c,d]}),
+    L13 = logger_filters:domain(L13=?dlog(dummy),{log,differs,[a,b,c,d]}),
+    stop = logger_filters:domain(?dlog(dummy),{stop,differs,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{log,no_domain,[a,b,c,d]}),
     ignore = logger_filters:domain(?dlog(dummy),{stop,no_domain,[a,b,c,d]}),
 

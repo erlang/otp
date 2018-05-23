@@ -37,10 +37,10 @@
       data in the system configuration file <c>Name.config</c>.</p>
     <p>Configuration parameter values in the configuration file
       override the values in the application resource files (see
-      <seealso marker="app"><c>app(4)</c></seealso>.
+      <seealso marker="app"><c>app(4)</c></seealso>).
       The values in the configuration file can be
       overridden by command-line flags (see
-      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>.</p>
+      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>).</p>
     <p>The value of a configuration parameter is retrieved by calling
       <c>application:get_env/1,2</c>.</p>
   </description>

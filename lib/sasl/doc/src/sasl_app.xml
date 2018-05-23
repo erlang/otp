@@ -86,12 +86,6 @@
           <c>RELDIR</c> is used. By default, this is
           <c>$OTP_ROOT/releases</c>.</p>
       </item>
-      <tag><c><![CDATA[utc_log = true | false ]]></c></tag>
-      <item>
-        <p>If set to <c>true</c>, all dates in textual log outputs are
-          displayed in Universal Coordinated Time with the string
-          <c>UTC</c> appended.</p>
-      </item>
     </taglist>
   </section>
 
@@ -119,22 +113,18 @@
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         reports</em>, and <em>progress reports</em> to <c>stdio</c>.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit how much detail is printed
-	in crash and supervisor reports. If <c>logger_format_depth</c>
-	is not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	in crash and supervisor reports.</p>
       </item>
       <tag><c>sasl_report_file_h</c></tag>
       <item>
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         report</em>, and <em>progress report</em> to a single file.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit the details printed in
-	crash and supervisor reports. If <c>logger_format_depth</c> is
-	not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	crash and supervisor reports.</p>
       </item>
     </taglist>
     <p>A similar behaviour, but still using the new logger API, can be
@@ -178,6 +168,12 @@
         <p>Restricts the error logging performed by the specified
           <c>sasl_error_logger</c> to error reports or progress reports,
           or both. Default is <c>all</c>.</p>
+      </item>
+      <tag><marker id="utc_log"/><c><![CDATA[utc_log = true | false ]]></c></tag>
+      <item>
+        <p>If set to <c>true</c>, all dates in textual log outputs are
+          displayed in Universal Coordinated Time with the string
+          <c>UTC</c> appended.</p>
       </item>
     </taglist>
 

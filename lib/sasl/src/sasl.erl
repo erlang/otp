@@ -142,7 +142,9 @@ add_sasl_logger(Dest, Level) ->
                             #{level=>Level,
                               filter_default=>stop,
                               filters=>
-                                  [{sasl_domain,
+                                  [{remote_gl,
+                                    {fun logger_filters:remote_gl/2,stop}},
+                                   {sasl_domain,
                                     {fun logger_filters:domain/2,
                                      {log,equals,[beam,erlang,otp,sasl]}}}],
                               logger_std_h=>#{type=>Dest},

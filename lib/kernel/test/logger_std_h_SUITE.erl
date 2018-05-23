@@ -50,11 +50,12 @@
                           end).
 
 suite() ->
-    [{timetrap,{seconds,30}}].
+    [{timetrap,{seconds,30}},
+     {ct_hooks,[logger_test_lib]}].
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report
-    {ok,{?STANDARD_HANDLER,#{formatter:=OrigFormatter}}} =
+    {ok,{logger_std_h,#{formatter:=OrigFormatter}}} =
         logger:get_handler_config(?STANDARD_HANDLER),
     [{formatter,OrigFormatter}|Config].
 
@@ -241,7 +242,8 @@ formatter_fail(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])}),
     Pid = whereis(?MODULE),
     true = is_pid(Pid),
-    {ok,#{handlers:=H}} = logger:get_logger_config(),
+    #{handlers:=HC1} = logger:i(),
+    H = [Id || {Id,_,_} <- HC1],
     true = lists:member(?MODULE,H),
 
     %% Formatter is added automatically
@@ -270,7 +272,8 @@ formatter_fail(Config) ->
 
     %% Check that handler is still alive and was never dead
     Pid = whereis(?MODULE),
-    {ok,#{handlers:=H}} = logger:get_logger_config(),
+    #{handlers:=HC2} = logger:i(),
+    H = [Id || {Id,_,_} <- HC2],
 
     ok.
 
@@ -322,29 +325,32 @@ config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 crash_std_h_to_file(Config) ->
-    crash_std_h(Config,?FUNCTION_NAME,logger_dest,file).
+    Dir = ?config(priv_dir,Config),
+    Log = filename:join(Dir,lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"])),
+    crash_std_h(Config,?FUNCTION_NAME,
+                [{handler,default,logger_std_h,
+                  #{ logger_std_h => #{ type => {file, Log} }}}],
+                file, Log).
 crash_std_h_to_file(cleanup,_Config) ->
     crash_std_h(cleanup).
 
 crash_std_h_to_disk_log(Config) ->
-    crash_std_h(Config,?FUNCTION_NAME,logger_dest,disk_log).
+    Dir = ?config(priv_dir,Config),
+    Log = filename:join(Dir,lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"])),
+    crash_std_h(Config,?FUNCTION_NAME,
+                [{handler,default,logger_disk_log_h,
+                  #{ disk_log_opts => #{ file => Log }}}],
+                disk_log,Log).
 crash_std_h_to_disk_log(cleanup,_Config) ->
     crash_std_h(cleanup).
 
-crash_std_h(Config,Func,Var,Type) ->
+crash_std_h(Config,Func,Var,Type,Log) ->
     Dir = ?config(priv_dir,Config),
-    File = lists:concat([?MODULE,"_",Func,".log"]),
-    Log = filename:join(Dir,File),
+    SysConfig = filename:join(Dir,lists:concat([?MODULE,"_",Func,".config"])),
+    ok = file:write_file(SysConfig, io_lib:format("[{kernel,[{logger,~p}]}].",[Var])),
     Pa = filename:dirname(code:which(?MODULE)),
-    TypeAndLog =
-        case os:type() of
-            {win32,_} ->
-                lists:concat([" {",Type,",\\\"",Log,"\\\"}"]);
-            _ ->
-                lists:concat([" \'{",Type,",\"",Log,"\"}\'"])
-        end,
-    Args = lists:concat([" -kernel ",Var,TypeAndLog," -pa ",Pa]),
     Name = lists:concat([?MODULE,"_",Func]),
+    Args = lists:concat([" -config ",filename:rootname(SysConfig)," -pa ",Pa]),
     ct:pal("Starting ~p with ~tp", [Name,Args]),
     %% Start a node which prints kernel logs to the destination specified by Type
     {ok,Node} = test_server:start_node(Name, peer, [{args, Args}]),
@@ -585,7 +591,7 @@ write_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     File = lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"]),
     Log = filename:join(Dir, File),
-    Node = start_std_h_on_new_node(Config, ?FUNCTION_NAME, Log),
+    Node = start_std_h_on_new_node(Config, Log),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -622,7 +628,7 @@ sync_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     File = lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"]),
     Log = filename:join(Dir, File),
-    Node = start_std_h_on_new_node(Config, ?FUNCTION_NAME, Log),
+    Node = start_std_h_on_new_node(Config, Log),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -658,21 +664,12 @@ sync_failure(cleanup, _Config) ->
     Nodes = nodes(),
     [test_server:stop_node(Node) || Node <- Nodes].
 
-start_std_h_on_new_node(_Config, Func, Log) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Dest =
-        case os:type() of
-            {win32,_} ->
-                lists:concat([" {file,\\\"",Log,"\\\"}"]);
-            _ ->
-                lists:concat([" \'{file,\"",Log,"\"}\'"])
-        end,
-    Args = lists:concat([" -kernel ",logger_dest,Dest," -pa ",Pa]),
-    Name = lists:concat([?MODULE,"_",Func]),
-    ct:pal("Starting ~s with ~tp", [Name,Args]),
-    {ok,Node} = test_server:start_node(Name, peer, [{args, Args}]),
-    Pid = rpc:call(Node,erlang,whereis,[?STANDARD_HANDLER]),
-    true = is_pid(Pid),
+start_std_h_on_new_node(Config, Log) ->
+    {ok,_,Node} =
+        logger_test_lib:setup(
+          Config,
+          [{logger,[{handler,default,logger_std_h,
+                     #{ logger_std_h => #{ type => {file,Log}}}}]}]),
     ok = rpc:call(Node,logger,set_handler_config,[?STANDARD_HANDLER,formatter,
                                                   {?MODULE,nl}]),
     Node.

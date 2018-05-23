@@ -54,7 +54,7 @@ gen_server_crash_unicode(Config) ->
 
 gen_server_crash(Config, Encoding) ->
     StopFilter = {fun(_,_) -> stop end, ok},
-    logger:add_handler_filter(logger_std_h,stop_all,StopFilter),
+    logger:add_handler_filter(default,stop_all,StopFilter),
     logger:add_handler_filter(cth_log_redirect,stop_all,StopFilter),
     try
 	do_gen_server_crash(Config, Encoding)
@@ -62,7 +62,7 @@ gen_server_crash(Config, Encoding) ->
         ok = application:unset_env(kernel, logger_sasl_compatible),
 	ok = application:unset_env(sasl, sasl_error_logger),
 	ok = application:unset_env(kernel, error_logger_format_depth),
-        logger:remove_handler_filter(logger_std_h,stop_all),
+        logger:remove_handler_filter(default,stop_all),
         logger:remove_handler_filter(cth_log_redirect,stop_all)
     end,
     ok.
@@ -83,8 +83,10 @@ do_gen_server_crash(Config, Encoding) ->
     error_logger:logfile({open,KernelLog}),
     application:start(sasl),
     logger:i(print),
+    ct:log("error_logger handlers: ~p",[error_logger:which_report_handlers()]),
 
     crash_me(),
+
 
     error_logger:logfile(close),
     application:stop(sasl),

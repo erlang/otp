@@ -33,10 +33,49 @@
     <file>logger.xml</file>
   </header>
   <module>logger</module>
-  <modulesummary>API module for the logger application.</modulesummary>
+  <modulesummary>API module for the logger.</modulesummary>
 
   <description>
-
+    <p>
+      This module is the main logger API. It contains functions that allow
+      application to use a single log API and the system to manage those log
+      events independently. To log events the logger
+      <seealso marker="#macros">macros</seealso> should be used. For instance,
+      to log a new error log event:</p>
+      <code>
+?LOG_ERROR("error happened because: ~p",[Reason]). %% With macro
+logger:error("error happened because: ~p",[Reason]). %% Without macro
+      </code>
+      <p>This log event will then be sent to the configured log handlers which
+      by default means that it will be printed to the console. If you want
+      your systems logs to be printed to a file instead of the console you
+      have to configure the default handler to do so. The simplest way is
+      to include the following in your <seealso marker="config"><c>sys.config</c></seealso>.</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler,default,logger_std_h,
+      #{logger_std_h=>#{type=>{file,"path/to/file.log"}}}}]}]}].
+      </code>
+    <p>
+      For more information about:
+    </p>
+    <list type="bulleted">
+      <item>how to use the API,
+        see <seealso marker="logger_chapter">the User's Guide</seealso>.</item>
+      <item>how to configure logger,
+        see the <seealso marker="logger_chapter#configuration">Configuration</seealso>
+        section in the User's Guide.</item>
+      <item>the convinience macros in logger.hrl,
+        see <seealso marker="#macros">the macro section</seealso>.</item>
+      <item>what the builtin formatter can do,
+        see <seealso marker="logger_formatter">logger_formatter</seealso>.</item>
+      <item>what the builtin handlers can do,
+        see <seealso marker="logger_std_h">logger_std_h</seealso> and
+        <seealso marker="logger_disk_log_h">logger_disk_log_h</seealso>.</item>
+      <item>what builtin filters are available,
+      see <seealso marker="logger_filters">logger_filters</seealso>.</item>
+    </list>
   </description>
 
   <datatypes>
@@ -348,16 +387,16 @@
             <code><![CDATA[1> logger:i(print).
 Current logger configuration:
   Level: info
-  FilterDefault: log
+  Filter Default: log
   Filters:
   Handlers:
-    Id: logger_std_h
+    Id: default
       Module:    logger_std_h
       Level:     info
       Formatter:
         Module: logger_formatter
-        Config: #{template => [{logger_formatter,header},"\n",msg,"\n"],
-                  legacy_header => true}
+        Config: #{legacy_header => true,single_line => false,
+                  template => [{logger_formatter,header},"\n",msg,"\n"]}
       Filter Default: stop
       Filters:
         Id: stop_progress
@@ -550,17 +589,68 @@ Current logger configuration:
     </func>
 
     <func>
+      <name name="add_handlers" arity="1" clause_i="1"/>
+      <fsummary>Setup logger handlers from the applications configuration parameters.</fsummary>
+      <desc>
+        <p>Reads the application configuration parameter <c>logger</c> and
+          calls <c>logger:add_handlers/1</c> with it contents.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_handlers" arity="1" clause_i="2"/>
+      <fsummary>Setup logger handlers.</fsummary>
+      <type name="config_handler"/>
+      <desc>
+        <p>This function should be used by custom logger handlers to make
+        configuration consistent no matter which handler the system uses.
+        Normal usage to to add a call to <c>logger:add_handlers/1</c>
+        just after the processes that the handler needs are started
+        and pass the applications logger config as an argument. Eg.</p>
+        <code>
+-behaviour(application).
+start(_, []) ->
+    case supervisor:start_link({local, my_sup}, my_sup, []) of
+        {ok, Pid} ->
+            ok = logger:add_handlers(my_app),
+            {ok, Pid, []};
+        Error -> Error
+     end.</code>
+       <p>This will read the <c>logger</c> configuration parameter from
+         the handler application and start the configured handlers. The contents
+         of the configuration use the same rules as the
+         <seealso marker="logger_chapter#handler-configuration">logger handler configuration</seealso>.
+       </p>
+       <p>If the handler is meant to replace the default handler the kernels
+         default handlers have to be disabled before the new handler is added.
+         A <c>sys.config</c> file that disables the kernel handler and adds
+         a custom handler could looks like this:</p>
+         <code>
+[{kernel,
+  [{logger,
+    %% Disable the default kernel handler
+    [{handler,default,undefined}]}]},
+ {my_app,
+  [{logger,
+    %% Enable this handler as the default
+    [{handler,default,my_handler,#{}}]}]}].
+         </code>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_logger_config" arity="1"/>
       <fsummary>Set configuration data for the logger.</fsummary>
       <desc>
         <p>Set configuration data for the logger. This overwrites the
           current logger configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#set_logger_config-2"><c>set_logger_config/2</c>
-	  </seealso>, or read the current configuration
+	  use <seealso marker="#update_logger_config-1">
+	    <c>update_logger_config/1</c></seealso>, or, if a more
+	  complex merge is needed, read the current configuration
 	  with <seealso marker="#get_logger_config-0"><c>get_logger_config/0</c>
-	  </seealso>, then merge in your added or updated
-	  associations before writing it back.</p>
+	  </seealso>, then do the merge before writing the new
+	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
 	  the default value is used.</p>
       </desc>
@@ -573,7 +663,23 @@ Current logger configuration:
         <p>Add or update configuration data for the logger. If the
           given <c><anno>Key</anno></c> already exists, its associated
           value will be changed to <c><anno>Value</anno></c>. If it
-          doesn't exist, it will be added.</p>
+          does not exist, it will be added.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_logger_config" arity="1"/>
+      <fsummary>Update configuration data for the logger.</fsummary>
+      <desc>
+        <p>Update configuration data for the logger. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+{ok,Old} = logger:get_logger_config(),
+logger:set_logger_config(maps:merge(Old,Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_logger_config-1"><c>set_logger_config/1</c>
+	  </seealso>.</p>
       </desc>
     </func>
 
@@ -584,11 +690,12 @@ Current logger configuration:
         <p>Set configuration data for the specified handler. This
           overwrites the current handler configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#set_handler_config-3"><c>set_handler_config/3</c>
-	  </seealso>, or read the current configuration
+	  use <seealso marker="#update_handler_config-2">
+	    <c>update_handler_config/2</c></seealso>, or, if a more
+	  complex merge is needed, read the current configuration
 	  with <seealso marker="#get_handler_config-1"><c>get_handler_config/1</c>
-	  </seealso>, then merge in your added or updated
-	  associations before writing it back.</p>
+	  </seealso>, then do the merge before writing the new
+	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
 	  and the key is know by Logger, the default value is used. If
 	  it is a custom key, then it is up to the handler
@@ -605,8 +712,24 @@ Current logger configuration:
         <p>Add or update configuration data for the specified
           handler. If the given <c><anno>Key</anno></c> already
           exists, its associated value will be changed
-          to <c><anno>Value</anno></c>. If it doesn't exist, it will
+          to <c><anno>Value</anno></c>. If it does not exist, it will
           be added.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_handler_config" arity="2"/>
+      <fsummary>Update configuration data for the specified handler.</fsummary>
+      <desc>
+        <p>Update configuration data for the specified handler. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+{ok,{_,Old}} = logger:get_handler_config(HandlerId),
+logger:set_handler_config(HandlerId,maps:merge(Old,Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_handler_config-2"><c>set_handler_config/2</c>
+	  </seealso>.</p>
       </desc>
     </func>
 
@@ -650,7 +773,7 @@ Current logger configuration:
 	<p>If process metadata exists for the current process, this
 	  function behaves as if it was implemented as follows:</p>
 	<code type="erl">
-logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta))
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	</code>
 	<p>If no process metadata exists, the function behaves as
 	  <seealso marker="#set_process_metadata-1">

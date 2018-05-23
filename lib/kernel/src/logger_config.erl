@@ -31,7 +31,7 @@
 -include("logger_internal.hrl").
 
 new(Name) ->
-    _ = ets:new(Name,[set,protected,named_table]),
+    _ = ets:new(Name,[set,protected,named_table,{write_concurrency,true}]),
     ets:whereis(Name).
 
 delete(Tid,Id) ->

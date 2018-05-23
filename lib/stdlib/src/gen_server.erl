@@ -934,14 +934,14 @@ format_log(#{label:={gen_server,terminate},
 			end
 		end;
 	    _ ->
-		logger:limit_term(Reason)
+		error_logger:limit_term(Reason)
 	end,    
     {ClientFmt,ClientArgs} = format_client_log(Client),
     {"** Generic server ~tp terminating \n"
      "** Last message in was ~tp~n"
      "** When Server state == ~tp~n"
      "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
-     [Name, Msg, logger:limit_term(State), Reason1] ++ ClientArgs};
+     [Name, Msg, error_logger:limit_term(State), Reason1] ++ ClientArgs};
 format_log(#{label:={gen_server,no_handle_info},
              module:=Mod,
              message:=Msg}) ->

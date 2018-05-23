@@ -121,11 +121,11 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
                               #{filesync_repeat_interval => 1000}}).
     </code>
     <p>In order to use the disk_log handler instead of the default standard
-    handler when starting en Erlang node, use the kernel configuration parameter
-    <seealso marker="kernel_app#configuration"><c>logger_dest</c></seealso> with
-    value <c>{disk_log,FileName}</c>. Example:</p>
+    handler when starting en Erlang node, change the Kernel default logger to
+    use disk_log. Example:</p>
     <code type="none">
-erl -kernel logger_dest '{disk_log,"./system_disk_log"}'
+erl -kernel logger '[{handler,default,logger_disk_log_h,
+                      #{ disk_log_opts => #{ file => "./system_disk_log"}}}]'
     </code>
   </description>
 

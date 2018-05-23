@@ -40,15 +40,18 @@
          set_module_level/2, reset_module_level/1,
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
-         get_logger_config/0, get_handler_config/1]).
+         update_logger_config/1, update_handler_config/2,
+         get_logger_config/0, get_handler_config/1,
+         add_handlers/1]).
+
+%% Private configuration
+-export([internal_init_logger/0]).
 
 %% Misc
 -export([compare_levels/2]).
 -export([set_process_metadata/1, update_process_metadata/1,
          unset_process_metadata/0, get_process_metadata/0]).
 -export([i/0, i/1]).
--export([setup_standard_handler/0, replace_simple_handler/3]).
--export([limit_term/1, get_format_depth/0, get_max_size/0, get_utc_config/0]).
 
 %% Basic report formatting
 -export([format_report/1, format_otp_report/1]).
@@ -93,8 +96,10 @@
                     term() => term()}.
 -type timestamp() :: integer().
 
+-type config_handler() :: {handler, handler_id(), module(), config()}.
+
 -export_type([log/0,level/0,report/0,msg_fun/0,metadata/0,config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0]).
+              filter_id/0,filter/0,filter_arg/0,filter_return/0, config_handler/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -357,10 +362,22 @@ set_handler_config(HandlerId,Key,Value) ->
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
 
+-spec update_logger_config(Config) -> ok | {error,term()} when
+      Config :: config().
+update_logger_config(Config) ->
+    logger_server:update_config(logger,Config).
+
+-spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
+      HandlerId :: handler_id(),
+      Config :: config().
+update_handler_config(HandlerId,Config) ->
+    logger_server:update_config(HandlerId,Config).
+
 -spec get_logger_config() -> {ok,Config} when
       Config :: config().
 get_logger_config() ->
-    logger_config:get(?LOGGER_TABLE,logger).
+    {ok,Config} = logger_config:get(?LOGGER_TABLE,logger),
+    {ok,maps:remove(handlers,Config)}.
 
 -spec get_handler_config(HandlerId) -> {ok,{Module,Config}} | {error,term()} when
       HandlerId :: handler_id(),
@@ -441,8 +458,9 @@ i() ->
 i(_Action = print) ->
     io:put_chars(i(string));
 i(_Action = string) ->
-    #{logger := #{level := Level, handlers := Handlers,
-                  filters := Filters, filter_default := FilterDefault},
+    #{logger := #{level := Level,
+                  filters := Filters,
+                  filter_default := FilterDefault},
       handlers := HandlerConfigs,
       module_levels := Modules} = i(term),
     [io_lib:format("Current logger configuration:~n", []),
@@ -451,16 +469,15 @@ i(_Action = string) ->
      io_lib:format("  Filters: ~n", []),
      print_filters(4, Filters),
      io_lib:format("  Handlers: ~n", []),
-     print_handlers([C || {Id, _, _} = C <- HandlerConfigs,
-                          lists:member(Id, Handlers)]),
+     print_handlers(HandlerConfigs),
      io_lib:format("  Level set per module: ~n", []),
      print_module_levels(Modules)
     ];
 i(_Action = term) ->
     {Logger, Handlers, Modules} = logger_config:get(tid()),
-    #{logger=>Logger,
-      handlers=>Handlers,
-      module_levels=>Modules}.
+    #{logger=>maps:remove(handlers,Logger),
+      handlers=>lists:keysort(1,Handlers),
+      module_levels=>lists:keysort(1,Modules)}.
 
 print_filters(Indent, {Id, {Fun, Config}}) ->
     io_lib:format("~sId: ~p~n"
@@ -504,118 +521,184 @@ print_module_levels({Module,Level}) ->
 print_module_levels(ModuleLevels) ->
     lists:map(fun print_module_levels/1, ModuleLevels).
 
--spec setup_standard_handler() -> ok | {error,term()}.
-setup_standard_handler() ->
-    case get_logger_type() of
-        {ok,silent} ->
-            Level = get_logger_level(),
-            ok = set_logger_config(level,Level),
-            remove_handler(logger_simple);
-        {ok,Type} ->
-            Level = get_logger_level(),
-            ok = set_logger_config(level,Level),
-            Filters = get_logger_filters(),
-            setup_standard_handler(Type,#{level=>Level,
-                                          filter_default=>stop,
-                                          filters=>Filters});
-        Error ->
-            Error
-    end.
+-spec internal_init_logger() -> ok | {error,term()}.
+%% This function is responsible for config of the logger
+%% This is done before add_handlers because we want the
+%% logger settings to take effect before the kernel supervisor
+%% tree is started.
+internal_init_logger() ->
+    try
+        ok = logger:set_logger_config(level, get_logger_level()),
+        ok = logger:set_logger_config(filter_default, get_logger_filter_default()),
 
--spec setup_standard_handler(Type,Config) -> ok | {error,term()} when
-      Type :: tty | standard_io | standard_error | {file,File} |
-              {file,File,Modes} | {disk_log,LogOpts} | false,
-      File :: file:filename(),
-      Modes :: [term()], % [file:mode()], or more specific?
-      Config :: config(),
-      LogOpts :: map().
-setup_standard_handler(false,#{level:=Level,filters:=Filters}) ->
-    case set_handler_config(logger_simple,level,Level) of
-        ok ->
-            set_handler_config(logger_simple,filters,Filters);
-        Error ->
-            Error
-    end;
-setup_standard_handler(Type,Config) ->
-    {Module,TypeConfig} = get_type_config(Type),
-    replace_simple_handler(?STANDARD_HANDLER,
-                           Module,
-                           maps:merge(Config,TypeConfig)).
+        [case logger:add_logger_filter(Id, Filter) of
+             ok -> ok;
+             {error, Reason} -> throw(Reason)
+         end || {Id, Filter} <- get_logger_filters()],
 
--spec replace_simple_handler(Id,Module,Config) -> ok | {error,term()} when
-      Id :: handler_id(),
-      Module :: module(),
-      Config :: config().
-replace_simple_handler(Id,Module,Config) ->
-    _ = code:ensure_loaded(Module),
-    DoBuffer = erlang:function_exported(Module,swap_buffer,2),
-    case add_handler(Id,Module,Config#{wait_for_buffer=>DoBuffer}) of
-        ok ->
-            if DoBuffer ->
-                    {ok,Buffered} = logger_simple:get_buffer(),
-                    _ = remove_handler(logger_simple),
-                    Module:swap_buffer(?STANDARD_HANDLER,Buffered);
-               true ->
-                    _ = remove_handler(logger_simple),
-                    ok
-            end,
-            ok;
-        Error ->
-            Error
-    end.
+        _ = [[case logger:set_module_level(Module, Level) of
+                  ok -> ok;
+                  {error, Reason} -> throw(Reason)
+              end || Module <- Modules]
+             || {module_level, Level, Modules} <- get_logger_env()],
 
-get_logger_type() ->
-    Type0 =
-        case application:get_env(kernel, logger_dest) of
-            undefined ->
-                application:get_env(kernel, error_logger);
-            T ->
-                T
+        case logger:set_handler_config(logger_simple,filters,
+                                       get_default_handler_filters()) of
+            ok -> ok;
+            {error,{not_found,logger_simple}} -> ok
         end,
-    case Type0 of
+
+        init_kernel_handlers()
+    catch throw:Reason ->
+            ?LOG_ERROR("Invalid logger config: ~p", [Reason]),
+            {error, {bad_config, {kernel, Reason}}}
+    end.
+
+-spec init_kernel_handlers() -> ok | {error,term()}.
+%% Setup the kernel environment variables to be correct
+%% The actual handlers are started by a call to add_handlers.
+init_kernel_handlers() ->
+    try
+        case get_logger_type() of
+            {ok,silent} ->
+                ok = logger:remove_handler(logger_simple);
+            {ok,false} ->
+                ok;
+            {ok,Type} ->
+                init_default_config(Type)
+        end
+    catch throw:Reason ->
+            ?LOG_ERROR("Invalid default handler config: ~p", [Reason]),
+            {error, {bad_config, {kernel, Reason}}}
+    end.
+
+-spec add_handlers(Application) -> ok | {error,term()} when
+      Application :: atom();
+                    (HandlerConfig) -> ok | {error,term()} when
+      HandlerConfig :: [config_handler()].
+%% This function is responsible for resolving the handler config
+%% and then starting the correct handlers. This is done after the
+%% kernel supervisor tree has been started as it needs the logger_sup.
+add_handlers(App) when is_atom(App) ->
+    add_handlers(application:get_env(App, logger, []));
+add_handlers(HandlerConfig) ->
+    try
+        check_logger_config(HandlerConfig),
+        DefaultAdded =
+            lists:foldl(
+              fun({handler, default = Id, Module, Config}, _)
+                    when not is_map_key(filters, Config) ->
+                      %% The default handler should have a couple of extra filters
+                      %% set on it by default.
+                      DefConfig = #{ filter_default => stop,
+                                     filters => get_default_handler_filters()},
+                      setup_handler(Id, Module, maps:merge(DefConfig,Config)),
+                      true;
+                 ({handler, Id, Module, Config}, Default) ->
+                      setup_handler(Id, Module, Config),
+                      Default orelse Id == default;
+                 (_, Default) -> Default
+              end, false, HandlerConfig),
+        %% If a default handler was added we try to remove the simple_logger
+        %% If the simple logger exists it will replay its log events
+        %% to the handler(s) added in the fold above.
+        _ = [case logger:remove_handler(logger_simple) of
+                 ok -> ok;
+                 {error,{not_found,logger_simple}} -> ok
+             end || DefaultAdded],
+        ok
+    catch throw:Reason ->
+            ?LOG_ERROR("Invalid logger handler config: ~p", [Reason]),
+            {error, {bad_config, {handler, Reason}}}
+    end.
+
+setup_handler(Id, Module, Config) ->
+    case logger:add_handler(Id, Module, Config) of
+        ok -> ok;
+        {error, Reason} -> throw(Reason)
+    end.
+
+check_logger_config(_) ->
+    ok.
+
+-spec get_logger_type() -> {ok, standard_io | false | silent |
+                            {file, file:name_all()} |
+                            {file, file:name_all(), [file:mode()]}}.
+get_logger_type() ->
+    case application:get_env(kernel, error_logger) of
         {ok, tty} ->
-            {ok, tty};
+            {ok, standard_io};
         {ok, {file, File}} when is_list(File) ->
             {ok, {file, File}};
         {ok, {file, File, Modes}} when is_list(File), is_list(Modes) ->
             {ok, {file, File, Modes}};
-        {ok, {disk_log, File}} when is_list(File) ->
-            {ok, {disk_log, get_disk_log_config(File)}};
         {ok, false} ->
             {ok, false};
         {ok, silent} ->
             {ok, silent};
         undefined ->
-            {ok, tty}; % default value
+            case lists:member({handler,default,undefined}, get_logger_env()) of
+                true ->
+                    {ok, false};
+                false ->
+                    {ok, standard_io} % default value
+            end;
         {ok, Bad} ->
-            {error,{bad_config, {kernel, {logger_dest, Bad}}}}
+            throw({error_logger, Bad})
     end.
 
-get_disk_log_config(File) ->
-    Config1 =
-        case application:get_env(kernel,logger_disk_log_maxfiles) of
-            undefined -> #{};
-            {ok,MF} -> #{max_no_files=>MF}
-        end,
-    Config2 =
-        case application:get_env(kernel,logger_disk_log_maxbytes) of
-            undefined -> Config1;
-            {ok,MB} -> Config1#{max_no_bytes=>MB}
-        end,
-    Config3 =
-        case application:get_env(kernel,logger_disk_log_type) of
-            undefined -> Config2;
-            {ok,T} -> Config1#{type=>T}
-        end,
-    Config3#{file=>File}.
-
 get_logger_level() ->
-    case application:get_env(kernel,logger_level) of
-        undefined -> info;
-        {ok,Level} when ?IS_LEVEL(Level) -> Level
+    case application:get_env(kernel,logger_level,info) of
+        Level when ?IS_LEVEL(Level) ->
+            Level;
+        Level ->
+            throw({logger_level, Level})
+    end.
+
+get_logger_filter_default() ->
+    case lists:keyfind(filters,1,get_logger_env()) of
+        {filters,Default,_} ->
+            Default;
+        false ->
+            log
     end.
 
 get_logger_filters() ->
+    lists:foldl(
+      fun({filters, _, Filters}, _Acc) ->
+              Filters;
+         (_, Acc) ->
+              Acc
+      end, [], get_logger_env()).
+
+%% This function looks at the kernel logger environment
+%% and updates it so that the correct logger is configured
+init_default_config(Type) when Type==standard_io;
+                                Type==standard_error;
+                                element(1,Type)==file ->
+    Env = get_logger_env(),
+    DefaultConfig = #{logger_std_h=>#{type=>Type}},
+    NewLoggerEnv =
+        case lists:keyfind(default, 2, Env) of
+            {handler, default, Module, Config} ->
+                lists:map(
+                  fun({handler, default, logger_std_h, _}) ->
+                          %% Only want to add the logger_std_h config
+                          %% if not configured by user AND the default
+                          %% handler is still the logger_std_h.
+                          {handler, default, Module, maps:merge(DefaultConfig,Config)};
+                     (Other) ->
+                          Other
+                  end, Env);
+            _ ->
+                %% Nothing has been configured, use default
+                [{handler, default, logger_std_h, DefaultConfig} | Env]
+        end,
+    application:set_env(kernel, logger, NewLoggerEnv, [{timeout,infinity}]);
+init_default_config(Type) ->
+    throw({illegal_logger_type,Type}).
+
+get_default_handler_filters() ->
     case application:get_env(kernel, logger_sasl_compatible, false) of
         true ->
             ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp]);
@@ -631,77 +714,8 @@ get_logger_filters() ->
             Extra ++ ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp,sasl])
     end.
 
-get_type_config({disk_log,LogOpts}) ->
-    {logger_disk_log_h,#{disk_log_opts=>LogOpts}};
-get_type_config(tty) ->
-    %% This is only for backwards compatibility with error_logger and
-    %% old kernel and sasl environment variables
-    get_type_config(standard_io);
-get_type_config(Type) when Type==standard_io;
-                           Type==standard_error;
-                           element(1,Type)==file ->
-    {logger_std_h,#{logger_std_h=>#{type=>Type}}};
-get_type_config(Type) ->
-    {error,{illegal_logger_type,Type}}.
-
-%%%-----------------------------------------------------------------
--spec limit_term(term()) -> term().
-
-limit_term(Term) ->
-    try get_format_depth() of
-        unlimited -> Term;
-        D -> io_lib:limit_term(Term, D)
-    catch error:badarg ->
-            %% This could happen during system termination, after
-            %% application_controller process is dead.
-            unlimited
-    end.
-
--spec get_format_depth() -> 'unlimited' | pos_integer().
-
-get_format_depth() ->
-    Depth =
-        case application:get_env(kernel, logger_format_depth) of
-            {ok, D} when is_integer(D) ->
-                D;
-            undefined ->
-                case application:get_env(kernel, error_logger_format_depth) of
-                    {ok, D} when is_integer(D) ->
-                        D;
-                    undefined ->
-                        unlimited
-                end
-        end,
-    max(10, Depth).
-
--spec get_max_size() -> 'unlimited' | pos_integer().
-
-get_max_size() ->
-    case application:get_env(kernel, logger_max_size) of
-	{ok, Size} when is_integer(Size) ->
-	    max(50, Size);
-	undefined ->
-	    unlimited
-    end.
-
--spec get_utc_config() -> boolean().
-
-get_utc_config() ->
-    %% Kernel's logger_utc configuration overrides SASL utc_log, which
-    %% in turn overrides stdlib config - in order to have uniform
-    %% timestamps in log messages
-    case application:get_env(kernel, logger_utc) of
-        {ok, Val} -> Val;
-        undefined ->
-            case application:get_env(sasl, utc_log) of
-                {ok, Val} -> Val;
-                undefined ->
-                    case application:get_env(stdlib, utc_log) of
-                        {ok, Val} -> Val;
-                        undefined -> false
-                    end
-            end
-    end.
+get_logger_env() ->
+    application:get_env(kernel, logger, []).
 
 %%%-----------------------------------------------------------------
 %%% Internal

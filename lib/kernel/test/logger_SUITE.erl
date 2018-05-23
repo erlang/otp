@@ -40,18 +40,18 @@ suite() ->
     [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
-    case logger:get_handler_config(logger_std_h) of
+    case logger:get_handler_config(?STANDARD_HANDLER) of
         {ok,StdH} ->
-            ok = logger:remove_handler(logger_std_h),
-            [{logger_std_h,StdH}|Config];
+            ok = logger:remove_handler(?STANDARD_HANDLER),
+            [{default_handler,StdH}|Config];
         _ ->
             Config
     end.
 
 end_per_suite(Config) ->
-    case ?config(logger_std_h,Config) of
+    case ?config(default_handler,Config) of
         {HMod,HConfig} ->
-            ok = logger:add_handler(logger_std_h,HMod,HConfig);
+            ok = logger:add_handler(?STANDARD_HANDLER,HMod,HConfig);
         _ ->
             ok
     end.
@@ -105,12 +105,12 @@ start_stop(_Config) ->
 
 add_remove_handler(_Config) ->
     register(callback_receiver,self()),
-    {ok,#{handlers:=Hs0}} = logger:get_logger_config(),
+    #{handlers:=Hs0} = logger:i(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     ok = logger:add_handler(h1,?MODULE,#{}),
     [add] = test_server:messages_get(),
-    {ok,#{handlers:=Hs}} = logger:get_logger_config(),
-    [h1|Hs0] = Hs,
+    #{handlers:=Hs} = logger:i(),
+    {value,_,Hs0} = lists:keytake(h1,1,Hs),
     {ok,{?MODULE,#{level:=info,filters:=[],filter_default:=log}}} = % defaults
         logger:get_handler_config(h1),
     ok = logger:set_handler_config(h1,filter_default,stop),
@@ -124,7 +124,7 @@ add_remove_handler(_Config) ->
     ok = check_logged(info,"hello",[],?MY_LOC(1)),
     ok = logger:remove_handler(h1),
     [remove] = test_server:messages_get(),
-    {ok,#{handlers:=Hs0}} = logger:get_logger_config(),
+    #{handlers:=Hs0} = logger:i(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
     logger:info("hello",[]),
@@ -218,33 +218,52 @@ change_config(_Config) ->
     {ok,{?MODULE,#{level:=info,filter_default:=stop}=C2}} =
         logger:get_handler_config(h1),
     false = maps:is_key(custom,C2),
-    {error,fail} = logger:set_handler_config(h1,#{fail=>true}),
+    {error,fail} = logger:set_handler_config(h1,#{conf_call=>fun() -> {error,fail} end}),
     {error,{attempting_syncronous_call_to_self,_}} =
         logger:set_handler_config(
-          h1,#{call=>fun() -> logger:set_module_level(?MODULE,debug) end}),
+          h1,#{conf_call=>fun() -> logger:set_handler_config(?MODULE,#{}) end}),
+    ok =
+        logger:set_handler_config(
+          h1,#{conf_call=>fun() -> logger:set_module_level(?MODULE,debug) end}),
     {ok,{?MODULE,C2}} = logger:get_handler_config(h1),
 
-    %% Change one key only
-    {error,fail} = logger:set_handler_config(h1,fail,true),
+    %% Change handler config: Single key
+    {error,fail} = logger:set_handler_config(h1,conf_call,fun() -> {error,fail} end),
     ok = logger:set_handler_config(h1,custom,custom),
     [changing_config] = test_server:messages_get(),
     {ok,{?MODULE,#{custom:=custom}=C3}} = logger:get_handler_config(h1),
     C2 = maps:remove(custom,C3),
 
-    %% Overwrite logger config - check that defaults are added
-    {ok,LConfig} = logger:get_logger_config(),
-    ok = logger:set_logger_config(#{filter_default=>stop}),
-    {ok,#{level:=info,filters:=[],handlers:=[],filter_default:=stop}=LC1} =
-        logger:get_logger_config(),
-    4 = maps:size(LC1),
+    %% Change handler config: Map
+    ok = logger:update_handler_config(h1,#{custom=>new_custom}),
+    [changing_config] = test_server:messages_get(),
+    {ok,{_,C4}} = logger:get_handler_config(h1),
+    C4 = C3#{custom:=new_custom},
 
-    %% Change one key only
-    ok = logger:set_logger_config(handlers,[h1]),
-    {ok,#{level:=info,filters:=[],handlers:=[h1],filter_default:=stop}} =
+    %% Change logger config: Single key
+    {ok,LConfig0} = logger:get_logger_config(),
+    ok = logger:set_logger_config(level,warning),
+    {ok,LConfig1} = logger:get_logger_config(),
+    LConfig1 = LConfig0#{level:=warning},
+
+    %% Change logger config: Map
+    ok = logger:update_logger_config(#{level=>error}),
+    {ok,LConfig2} = logger:get_logger_config(),
+    LConfig2 = LConfig1#{level:=error},
+
+    %% Overwrite logger config - check that defaults are added
+    ok = logger:set_logger_config(#{filter_default=>stop}),
+    {ok,#{level:=info,filters:=[],filter_default:=stop}=LC1} =
         logger:get_logger_config(),
+    3 = maps:size(LC1),
+    %% Check that internal 'handlers' field has not been changed
+    #{handlers:=HCs} = logger:i(),
+    HIds1 = [Id || {Id,_,_} <- HCs],
+    {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,logger),
+    HIds1 = lists:sort(HIds2),
 
     %% Cleanup
-    ok = logger:set_logger_config(LConfig),
+    ok = logger:set_logger_config(LConfig0),
     [] = test_server:messages_get(),
 
     ok.
@@ -425,6 +444,7 @@ filter_failed(cleanup,_Config) ->
     ok.
 
 handler_failed(_Config) ->
+    register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
     {error,{invalid_handler_config,bad}} = logger:add_handler(h1,?MODULE,bad),
@@ -434,25 +454,61 @@ handler_failed(_Config) ->
         logger:add_handler(h1,?MODULE,#{filter_default=>true}),
     {error,{invalid_formatter,[]}} =
         logger:add_handler(h1,?MODULE,#{formatter=>[]}),
-    ok = logger:add_handler(h1,nomodule,#{filter_default=>log}),
+    {error,{invalid_handler,_}} = logger:add_handler(h1,nomodule,#{filter_default=>log}),
     logger:info(?map_rep),
     check_no_log(),
-    #{logger:=#{handlers:=Ids1},
-      handlers:=H1} = logger:i(),
-    false = lists:member(h1,Ids1),
+    #{handlers:=H1} = logger:i(),
     false = lists:keymember(h1,1,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
-    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,crash=>true}),
+    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,log_call=>fun() -> a = b end}),
     {error,{already_exist,h2}} = logger:add_handler(h2,othermodule,#{}),
+    [add] = test_server:messages_get(),
 
     logger:info(?map_rep),
-    check_no_log(),
-    #{logger:=#{handlers:=Ids2},
-      handlers:=H2} = logger:i(),
-    false = lists:member(h2,Ids2),
+    [remove] = test_server:messages_get(),
+    #{handlers:=H2} = logger:i(),
     false = lists:keymember(h2,1,H2),
     {error,{not_found,h2}} = logger:remove_handler(h2),
+
+    CallAddHandler = fun() -> logger:add_handler(h2,?MODULE,#{}) end,
+    CrashHandler = fun() -> a = b end,
+    KillHandler = fun() -> exit(self(), die) end,
+
+    {error,{handler_not_added,{attempting_syncronous_call_to_self,_}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>CallAddHandler}),
+    {error,{handler_not_added,{callback_crashed,_}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>CrashHandler}),
+    {error,{handler_not_added,{logger_process_exited,_,die}}} =
+        logger:add_handler(h1,?MODULE,#{add_call=>KillHandler}),
+
+    check_no_log(),
+    ok = logger:add_handler(h1,?MODULE,#{}),
+    {error,{attempting_syncronous_call_to_self,_}} =
+        logger:set_handler_config(h1,#{conf_call=>CallAddHandler}),
+    {error,{callback_crashed,_}} =
+        logger:set_handler_config(h1,#{conf_call=>CrashHandler}),
+    {error,{logger_process_exited,_,die}} =
+        logger:set_handler_config(h1,#{conf_call=>KillHandler}),
+
+    {error,{attempting_syncronous_call_to_self,_}} =
+        logger:set_handler_config(h1,conf_call,CallAddHandler),
+    {error,{callback_crashed,_}} =
+        logger:set_handler_config(h1,conf_call,CrashHandler),
+    {error,{logger_process_exited,_,die}} =
+        logger:set_handler_config(h1,conf_call,KillHandler),
+
+    ok = logger:remove_handler(h1),
+    [add,remove] = test_server:messages_get(),
+
+    check_no_log(),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>CallAddHandler}),
+    ok = logger:remove_handler(h1),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>CrashHandler}),
+    ok = logger:remove_handler(h1),
+    ok = logger:add_handler(h1,?MODULE,#{rem_call=>KillHandler}),
+    ok = logger:remove_handler(h1),
+    [add,add,add] = test_server:messages_get(),
 
     ok.
 
@@ -466,10 +522,6 @@ config_sanity_check(_Config) ->
     {error,{invalid_filter_default,bad}} =
         logger:set_logger_config(filter_default,bad),
     {error,{invalid_level,bad}} = logger:set_logger_config(level,bad),
-    {error,{invalid_handlers,bad}} = logger:set_logger_config(handlers,bad),
-    {error,{invalid_id,{bad,bad}}} =
-        logger:set_logger_config(handlers,[{bad,bad}]),
-    {error,{invalid_id,"bad"}} = logger:set_logger_config(handlers,["bad"]),
     {error,{invalid_filters,bad}} = logger:set_logger_config(filters,bad),
     {error,{invalid_filter,bad}} = logger:set_logger_config(filters,[bad]),
     {error,{invalid_filter,{_,_}}} =
@@ -499,29 +551,96 @@ config_sanity_check(_Config) ->
         logger:set_handler_config(h1,formatter,bad),
     {error,{invalid_module,{bad}}} =
         logger:set_handler_config(h1,formatter,{{bad},cfg}),
-    {error,{invalid_formatter_config,bad}} =
+    {error,{invalid_formatter_config,logger_formatter,bad}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,bad}),
-    {error,{invalid_formatter_config,{bad,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{bad,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,#{bad=>bad}}),
-    {error,{invalid_formatter_config,{template,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{template,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{template=>bad}}),
-    {error,{invalid_formatter_template,[1]}} =
+    {error,{invalid_formatter_template,logger_formatter,[1]}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{template=>[1]}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{template=>[]}}),
-    {error,{invalid_formatter_config,{single_line,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{single_line,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{single_line=>bad}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{single_line=>true}}),
-    {error,{invalid_formatter_config,{legacy_header,bad}}} =
+    {error,{invalid_formatter_config,logger_formatter,{legacy_header,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{legacy_header=>bad}}),
     ok = logger:set_handler_config(h1,formatter,{logger_formatter,
                                                  #{legacy_header=>true}}),
+    {error,{invalid_formatter_config,logger_formatter,{report_cb,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{report_cb=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{report_cb=>fun(R) ->
+                                                                      {"~p",[R]}
+                                                              end}}),
+    {error,{invalid_formatter_config,logger_formatter,{chars_limit,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{chars_limit=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{chars_limit=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{chars_limit=>4}}),
+    {error,{invalid_formatter_config,logger_formatter,{depth,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{depth=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{depth=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{depth=>4}}),
+    {error,{invalid_formatter_config,logger_formatter,{max_size,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{max_size=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{max_size=>unlimited}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{max_size=>4}}),
+    ok = logger:set_handler_config(h1,formatter,{module,config}),
+    {error,{callback_crashed,{error,{badmatch,3},[{?MODULE,check_config,1,_}]}}} =
+        logger:set_handler_config(h1,formatter,{?MODULE,crash}),
     ok = logger:set_handler_config(h1,custom,custom),
+
+    %% Old utc parameter is no longer allowed (replaced by time_offset)
+    {error,{invalid_formatter_config,logger_formatter,{utc,true}}} =
+         logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{utc=>true}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_offset,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_offset=>bad}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>0}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>""}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"Z"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"z"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"-0:0"}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_offset=>"+10:13"}}),
+
+    {error,{invalid_formatter_config,logger_formatter,{time_offset,"+0"}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_offset=>"+0"}}),
+
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,bad}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>bad}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,"s"}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>"s"}}),
+    {error,{invalid_formatter_config,logger_formatter,{time_designator,0}}} =
+        logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                #{time_designator=>0}}),
+    ok = logger:set_handler_config(h1,formatter,{logger_formatter,
+                                                 #{time_designator=>$\s}}),
     ok.
 
 config_sanity_check(cleanup,_Config) ->
@@ -720,16 +839,19 @@ check_maps(Expected,Got,What) ->
     end.
 
 %% Handler
+adding_handler(_Id,#{add_call:=Fun}) ->
+    Fun();
 adding_handler(_Id,Config) ->
     maybe_send(add),
     {ok,Config}.
+
+removing_handler(_Id,#{rem_call:=Fun}) ->
+    Fun();
 removing_handler(_Id,_Config) ->
     maybe_send(remove),
     ok.
-changing_config(_Id,_Old,#{call:=Fun}) ->
+changing_config(_Id,_Old,#{conf_call:=Fun}) ->
     Fun();
-changing_config(_Id,_Old,#{fail:=true}) ->
-    {error,fail};
 changing_config(_Id,_Old,Config) ->
     maybe_send(changing_config),
     {ok,Config}.
@@ -740,8 +862,8 @@ maybe_send(Msg) ->
         Pid -> Pid ! Msg
     end.
 
-log(_Log,#{crash:=true}) ->
-    a=b;
+log(_Log,#{log_call:=Fun}) ->
+    Fun();
 log(Log,Config) ->
     TcProc  = maps:get(tc_proc,Config,self()),
     TcProc ! {Log,Config},
@@ -829,3 +951,8 @@ test_macros(emergency=Level) ->
 %%% Called by macro ?TRY(X)
 my_try(Fun) ->
     try Fun() catch C:R -> {C,R} end.
+
+check_config(crash) ->
+    erlang:error({badmatch,3});
+check_config(_) ->
+    ok.

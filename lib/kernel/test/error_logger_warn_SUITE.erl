@@ -480,9 +480,12 @@ rb_utc() ->
     UtcLog=case application:get_env(sasl,utc_log) of
                {ok,true} ->
                    true;
-               _AllOthers ->
+               {ok,false} ->
                    application:set_env(sasl,utc_log,true),
-                   false
+                   false;
+               undefined ->
+                   application:set_env(sasl,utc_log,true),
+                   undefined
            end,
     application:start(sasl),
     rb:start([{report_dir, rd()}]),
@@ -494,7 +497,12 @@ rb_utc() ->
     Sum=one_rb_findstr([],"UTC"),
     rb:stop(),
     application:stop(sasl),
-    application:set_env(sasl,utc_log,UtcLog),
+    case UtcLog of
+        undefined ->
+            application:unset_env(sasl,utc_log);
+        _ ->
+            application:set_env(sasl,utc_log,UtcLog)
+    end,
     stop_node(Node),
     ok.
     

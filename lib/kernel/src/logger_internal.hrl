@@ -22,7 +22,7 @@
 -define(LOGGER_KEY,'$logger_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
--define(STANDARD_HANDLER, logger_std_h).
+-define(STANDARD_HANDLER, default).
 -define(DEFAULT_HANDLER_FILTERS,
         ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),

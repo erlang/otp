@@ -78,6 +78,10 @@
 	    <tag><c><anno>Compare</anno> = equals</c></tag>
 	    <item><p>The filter matches if <c>Domain</c> is equal
 	      to <c>MatchDomain</c>.</p></item>
+	    <tag><c><anno>Compare</anno> = differs</c></tag>
+	    <item><p>The filter matches if <c>Domain</c> differs
+	      from <c>MatchDomain</c>, or if there is no domain field
+	      in metadata.</p></item>
 	    <tag><c><anno>Compare</anno> = no_domain</c></tag>
 	    <item><p>The filter matches if there is no domain field in
 	      metadata. In this case <c><anno>MatchDomain</anno></c> shall

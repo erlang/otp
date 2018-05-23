@@ -40,7 +40,7 @@
       application. Multiple instances of this handler can be added to
       logger, and each instance will print logs to <c>standard_io</c>,
       <c>standard_error</c> or to file. The default instance that starts
-      with kernel is named <c>logger_std_h</c> - which is the name to be used
+      with kernel is named <c>default</c> - which is the name to be used
       for reconfiguration.</p>
     <p>The handler has an overload protection mechanism that will keep the handler
       process and the kernel application alive during a high load of log 
@@ -57,7 +57,7 @@
        are stored in a sub map with the key <c>logger_std_h</c>. The following
        keys and values may be specified:</p>
     <taglist>
-      <tag><c>type</c></tag>
+      <tag><marker id="type"/><c>type</c></tag>
       <item>
 	<p>This will have the value <c>standard_io</c>, <c>standard_error</c>,
 	<c>{file,LogFileName}</c>, or <c>{file,LogFileName,LogFileOpts}</c>,
@@ -105,11 +105,10 @@ logger:add_handler(my_standard_h, logger_std_h,
     </code>
     <p>In order to configure the default handler (that starts initially with
     the kernel application) to log to file instead of <c>standard_io</c>,
-    use the kernel configuration parameter
-    <seealso marker="kernel_app#configuration"><c>logger_dest</c></seealso> with
-    value <c>{file,FileName}</c>. Example:</p>
+    change the Kernel default logger to use a file. Example:</p>
     <code type="none">
-erl -kernel logger_dest '{file,"./erl.log"}'
+erl -kernel logger '[{handler,default,logger_std_h,
+                      #{ logger_std_h => #{ type => {file,"./log.log"}}}}]'
     </code>
     <p>An example of how to replace the standard handler with a disk_log handler
     at startup can be found in the manual of
