@@ -129,25 +129,25 @@
 %% logger callback
 -export([format_log/1]).
 
--deprecated({start, 3, next_major_release}).
--deprecated({start, 4, next_major_release}).
--deprecated({start_link, 3, next_major_release}).
--deprecated({start_link, 4, next_major_release}).
--deprecated({stop, 1, next_major_release}).
--deprecated({stop, 3, next_major_release}).
--deprecated({send_event, 2, next_major_release}).
--deprecated({sync_send_event, 2, next_major_release}).
--deprecated({sync_send_event, 3, next_major_release}).
--deprecated({send_all_state_event, 2, next_major_release}).
--deprecated({sync_send_all_state_event, 2, next_major_release}).
--deprecated({sync_send_all_state_event, 3, next_major_release}).
--deprecated({reply, 2, next_major_release}).
--deprecated({start_timer, 2, next_major_release}).
--deprecated({send_event_after, 2, next_major_release}).
--deprecated({cancel_timer, 1, next_major_release}).
--deprecated({enter_loop, 4, next_major_release}).
--deprecated({enter_loop, 5, next_major_release}).
--deprecated({enter_loop, 6, next_major_release}).
+-deprecated({start, 3, eventually}).
+-deprecated({start, 4, eventually}).
+-deprecated({start_link, 3, eventually}).
+-deprecated({start_link, 4, eventually}).
+-deprecated({stop, 1, eventually}).
+-deprecated({stop, 3, eventually}).
+-deprecated({send_event, 2, eventually}).
+-deprecated({sync_send_event, 2, eventually}).
+-deprecated({sync_send_event, 3, eventually}).
+-deprecated({send_all_state_event, 2, eventually}).
+-deprecated({sync_send_all_state_event, 2, eventually}).
+-deprecated({sync_send_all_state_event, 3, eventually}).
+-deprecated({reply, 2, eventually}).
+-deprecated({start_timer, 2, eventually}).
+-deprecated({send_event_after, 2, eventually}).
+-deprecated({cancel_timer, 1, eventually}).
+-deprecated({enter_loop, 4, eventually}).
+-deprecated({enter_loop, 5, eventually}).
+-deprecated({enter_loop, 6, eventually}).
 
 %%% ---------------------------------------------------
 %%% Interface functions.
