@@ -2256,7 +2256,7 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    erts_init_process_id = erl_first_process_otp("otp_ring0", NULL, 0,
+    erts_init_process_id = erl_first_process_otp("erl_init", NULL, 0,
                                                  boot_argc, boot_argv);
 
     {

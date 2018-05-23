@@ -26,7 +26,7 @@
 		erl_prim_loader,
 		erts_internal,
 		init,
-		otp_ring0,
+		erl_init,
 		erts_code_purger,
 		prim_buffer,
 		prim_eval,
