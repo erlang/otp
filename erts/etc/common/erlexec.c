@@ -822,7 +822,6 @@ int main(int argc, char **argv)
 		  case '#':
 		  case 'a':
 		  case 'A':
-		  case 'b':
 		  case 'C':
 		  case 'e':
 		  case 'i':

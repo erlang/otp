@@ -481,7 +481,6 @@ erts_preloaded(Process* p)
 /* static variables that must not change (use same values at restart) */
 static char* program;
 static char* init = "init";
-static char* boot = "boot";
 static int    boot_argc;
 static char** boot_argv;
 
@@ -545,13 +544,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
     erts_fprintf(stderr, "               valid range is [0-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
-
     erts_fprintf(stderr, "-B[c|d|i]      c to have Ctrl-c interrupt the Erlang shell,\n");
     erts_fprintf(stderr, "               d (or no extra option) to disable the break\n");
     erts_fprintf(stderr, "               handler, i to ignore break signals\n");
-
-    /*    erts_fprintf(stderr, "-b func    set the boot function (default boot)\n"); */
-
     erts_fprintf(stderr, "-c bool        enable or disable time correction\n");
     erts_fprintf(stderr, "-C mode        set time warp mode; valid modes are:\n");
     erts_fprintf(stderr, "               no_time_warp|single_time_warp|multi_time_warp\n");
@@ -570,7 +565,6 @@ void erts_usage(void)
 	       erts_pd_initial_size);
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes,\n");
     erts_fprintf(stderr, "               valid values are: off_heap | on_heap\n");
-
     erts_fprintf(stderr, "-IOp number    set number of pollsets to be used to poll for I/O,\n");
     erts_fprintf(stderr, "               This value has to be equal or smaller than the\n");
     erts_fprintf(stderr, "               number of poll threads. If the current platform\n");
@@ -598,7 +592,6 @@ void erts_usage(void)
     erts_fprintf(stderr, "-R number      set compatibility release number,\n");
     erts_fprintf(stderr, "               valid range [%d-%d]\n",
 		 this_rel-2, this_rel);
-
     erts_fprintf(stderr, "-r             force ets memory block to be moved on realloc\n");
     erts_fprintf(stderr, "-rg amount     set reader groups limit\n");
     erts_fprintf(stderr, "-sbt type      set scheduler bind type, valid types are:\n");
@@ -669,9 +662,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-T number      set modified timing level, valid range is [0-%d]\n",
 		 ERTS_MODIFIED_TIMING_LEVELS-1);
     erts_fprintf(stderr, "-V             print Erlang version\n");
-
     erts_fprintf(stderr, "-v             turn on chatty mode (GCs will be reported etc)\n");
-
     erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
@@ -1564,11 +1555,6 @@ erl_start(int argc, char **argv)
 	case 'i':
 	    /* define name of module for initial function */
 	    init = get_arg(argv[i]+2, argv[i+1], &i);
-	    break;
-
-	case 'b':
-	    /* define name of initial function */
-	    boot = get_arg(argv[i]+2, argv[i+1], &i);
 	    break;
 
 	case 'B':
