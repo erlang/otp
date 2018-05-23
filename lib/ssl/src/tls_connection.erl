@@ -129,6 +129,7 @@ next_record(#state{protocol_buffers =
 		   = Buffers,
 		   connection_states = ConnStates0,
 		   ssl_options = #ssl_options{padding_check = Check}} = State) ->
+
     case tls_record:decode_cipher_text(CT, ConnStates0, Check) of
 	{Plain, ConnStates} ->		      
 	    {Plain, State#state{protocol_buffers =
@@ -267,6 +268,11 @@ queue_handshake(Handshake, #state{negotiated_version = Version,
 				  connection_states = ConnectionStates0} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinHandshake,
+               version => Version},
+    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates,
 		 tls_handshake_history = Hist,
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
@@ -282,6 +288,11 @@ queue_change_cipher(Msg, #state{negotiated_version = Version,
 				  connection_states = ConnectionStates0} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinChangeCipher,
+               version => Version},
+    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -312,7 +323,14 @@ send_alert(Alert, #state{negotiated_version = Version,
 			 connection_states = ConnectionStates0} = State0) ->
     {BinMsg, ConnectionStates} =
 	encode_alert(Alert, Version, ConnectionStates0),
+
     send(Transport, Socket, BinMsg),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinMsg,
+               version => Version},
+    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+
     State0#state{connection_states = ConnectionStates}.
 
 %%--------------------------------------------------------------------
@@ -415,6 +433,11 @@ init({call, From}, {start, Timeout},
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
     send(Transport, Socket, BinMsg),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinMsg,
+               version => HelloVersion},
+    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
     State1 = State0#state{connection_states = ConnectionStates,
 			  negotiated_version = Version, %% Requested version
 			  session =

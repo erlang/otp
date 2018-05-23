@@ -210,6 +210,8 @@ ssl_accept(Socket, SslOptions, Timeout) ->
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
+
+%% Performs the SSL/TLS/DTLS server-side handshake.
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
@@ -217,6 +219,12 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
                                                 (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
 
+%% If Socket is a ordinary socket(): upgrades a gen_tcp, or equivalent, socket to
+%% an SSL socket, that is, performs the SSL/TLS server-side handshake and returns
+%% the SSL socket.
+%%
+%% If Socket is an sslsocket(): provides extra SSL/TLS/DTLS options to those
+%% specified in ssl:listen/2 and then performs the SSL/TLS/DTLS handshake.
 handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     handshake(ListenSocket, SslOptions, infinity).
 

@@ -335,9 +335,14 @@ handle_own_alert(Alert, Version, StateName,
                         connection_states = ConnectionStates,
                         ssl_options = SslOpts} = State) ->
     try %% Try to tell the other side
-	{BinMsg, _} =
-	Connection:encode_alert(Alert, Version, ConnectionStates),
-	Connection:send(Transport, Socket, BinMsg)
+        {BinMsg, _} =
+            Connection:encode_alert(Alert, Version, ConnectionStates),
+        Connection:send(Transport, Socket, BinMsg),
+        Report = #{direction => outbound,
+                   protocol => 'tls_record',
+                   message => BinMsg,
+                   version => Version},
+        logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]})
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
@@ -431,16 +436,22 @@ write_application_data(Data0, {FromPid, _} = From,
 	    {Msgs, ConnectionStates} =
                 Connection:encode_data(Data, Version, ConnectionStates0),
             NewState = State#state{connection_states = ConnectionStates},
-	    case Connection:send(Transport, Socket, Msgs) of
-                ok when FromPid =:= self() ->
-                    hibernate_after(connection, NewState, []);
-                Error when FromPid =:= self() ->
-                    stop({shutdown, Error}, NewState);
-                ok ->
-                    hibernate_after(connection, NewState, [{reply, From, ok}]);
-                Result ->
-                    hibernate_after(connection, NewState, [{reply, From, Result}])
-            end
+	    RetVal = case Connection:send(Transport, Socket, Msgs) of
+                         ok when FromPid =:= self() ->
+                             hibernate_after(connection, NewState, []);
+                         Error when FromPid =:= self() ->
+                             stop({shutdown, Error}, NewState);
+                         ok ->
+                             hibernate_after(connection, NewState, [{reply, From, ok}]);
+                         Result ->
+                             hibernate_after(connection, NewState, [{reply, From, Result}])
+                     end,
+            Report = #{direction => outbound,
+                       protocol => 'tls_record',
+                       message => Msgs,
+                       version => Version},
+            logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+            RetVal
     end.
 
 read_application_data(Data, #state{user_application = {_Mon, Pid},
