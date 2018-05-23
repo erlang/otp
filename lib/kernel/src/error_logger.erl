@@ -116,7 +116,7 @@ removing_handler(#{id:=?MODULE}) ->
     stop(),
     ok.
 
--spec log(logger:log(),logger:config()) -> ok.
+-spec log(logger:log_event(),logger:config()) -> ok.
 log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
     do_log(Level,Msg,Meta).
 

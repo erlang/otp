@@ -514,7 +514,7 @@ level_or_msg_in_meta(_Config) ->
     ok.
 
 faulty_log(_Config) ->
-    %% Unexpected log (should be type logger:log()) - print error
+    %% Unexpected log (should be type logger:log_event()) - print error
     {error,
      function_clause,
      {logger_formatter,format,[_,_],_}} =

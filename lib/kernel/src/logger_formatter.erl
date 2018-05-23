@@ -30,8 +30,8 @@
 
 %%%-----------------------------------------------------------------
 %%% API
--spec format(Log,Config) -> unicode:chardata() when
-      Log :: logger:log(),
+-spec format(LogEvent,Config) -> unicode:chardata() when
+      LogEvent :: logger:log_event(),
       Config :: #{single_line=>boolean(),
                   legacy_header=>boolean(),
                   report_cb=>fun((logger:report()) -> {io:format(),[term()]}),

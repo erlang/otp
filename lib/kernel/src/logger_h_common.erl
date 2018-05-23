@@ -39,8 +39,8 @@
 
 %%%-----------------------------------------------------------------
 %%% Covert log data on any form to binary
--spec log_to_binary(Log,Config) -> LogString when
-      Log :: logger:log(),
+-spec log_to_binary(LogEvent,Config) -> LogString when
+      LogEvent :: logger:log_event(),
       Config :: logger:config(),
       LogString :: binary().
 log_to_binary(#{msg:={report,_},meta:=#{report_cb:=_}}=Log,Config) ->
@@ -58,7 +58,7 @@ do_log_to_binary(Log,Config) ->
     catch _:_ ->
             ?LOG_INTERNAL(debug,[{formatter_error,Formatter},
                                  {config,FormatterConfig},
-                                 {log,Log},
+                                 {log_event,Log},
                                  {bad_return_value,String}]),
             <<"FORMATTER ERROR: bad_return_value">>
     end.
@@ -69,7 +69,7 @@ try_format(Log,Formatter,FormatterConfig) ->
         C:R:S ->
             ?LOG_INTERNAL(debug,[{formatter_crashed,Formatter},
                                  {config,FormatterConfig},
-                                 {log,Log},
+                                 {log_event,Log},
                                  {reason,
                                   {C,R,logger:filter_stacktrace(?MODULE,S)}}]),
             case {?DEFAULT_FORMATTER,#{}} of

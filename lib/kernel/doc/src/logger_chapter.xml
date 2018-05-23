@@ -252,7 +252,7 @@
     <p>A handler is defined as a module exporting at least the
       following function:</p>
 
-    <pre><seealso marker="logger#HModule:log-2">log(Log, Config)</seealso></pre>
+    <pre><seealso marker="logger#HModule:log-2">log(LogEvent, Config)</seealso></pre>
 
     <p>This function is called when a log event has passed through all
       global filters, and all handler filters attached to the handler
@@ -320,7 +320,7 @@
       module, <c>FModule</c> and its
       configuration, <c>FConfig</c>. <c>FModule</c> must export the
       following function, which can be called by the handler:</p>
-    <pre><seealso marker="logger#FModule:format-2">format(Log,FConfig)
+    <pre><seealso marker="logger#FModule:format-2">format(LogEvent,FConfig)
 	-> FormattedLogEntry</seealso></pre>
     <p>See the <seealso marker="logger_formatter">
 	<c>logger_formatter(3)</c></seealso> manual for the full
@@ -735,7 +735,7 @@ ok</pre>
     <title>Example: implement a handler</title>
     <p>The only requirement that a handler MUST fulfill is to export
       the following function:</p>
-    <code>log(logger:log(),logger:config()) ->ok</code>
+    <code>log(logger:log_event(),logger:config()) -> ok</code>
     <p>It may also implement the following callbacks:</p>
     <code>
 adding_handler(logger:config()) -> {ok,logger:config()} | {error,term()}
@@ -763,8 +763,8 @@ changing_config(logger:config(),logger:config()) -> {ok,logger:config()} | {erro
 -module(myhandler).
 -export([log/2]).
 
-log(Log,#{formatter:={FModule,FConfig}) ->
-    io:put_chars(FModule:format(Log,FConfig)).
+log(LogEvent,#{formatter:={FModule,FConfig}) ->
+    io:put_chars(FModule:format(LogEvent,FConfig)).
     </code>
 
     <p>A simple handler which prints to file could be implemented like
@@ -782,8 +782,8 @@ removing_handler(#{myhandler_fd:=Fd}) ->
     _ = file:close(Fd),
     ok.
 
-log(Log,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
-    io:put_chars(Fd,FModule:format(Log,FConfig)).
+log(LogEvent,#{myhandler_fd:=Fd,formatter:={FModule,FConfig}}) ->
+    io:put_chars(Fd,FModule:format(LogEvent,FConfig)).
     </code>
 
     <note><p>The above handlers do not have any overload
@@ -810,8 +810,8 @@ adding_handler(Config) ->
 removing_handler(#{myhandler_pid:=Pid}) ->
     gen_server:stop(Pid).
 
-log(Log,#{myhandler_pid:=Pid} = Config) ->
-    gen_server:cast(Pid,{log,Log,Config}).
+log(LogEvent,#{myhandler_pid:=Pid} = Config) ->
+    gen_server:cast(Pid,{log,LogEvent,Config}).
 
 init(#{myhandler_file:=File}) ->
     {ok,Fd} = file:open(File,[append,{encoding,utf8}]),
@@ -820,16 +820,16 @@ init(#{myhandler_file:=File}) ->
 handle_call(_,_,State) ->
     {reply,{error,bad_request},State}.
 
-handle_cast({log,Log,Config},#{fd:=Fd} = State) ->
-    do_log(Fd,Log,Config),
+handle_cast({log,LogEvent,Config},#{fd:=Fd} = State) ->
+    do_log(Fd,LogEvent,Config),
     {noreply,State}.
 
 terminate(Reason,#{fd:=Fd}) ->
     _ = file:close(Fd),
     ok.
 
-do_log(Fd,Log,#{formatter:={FModule,FConfig}}) ->
-    String = FModule:format(Log,FConfig),
+do_log(Fd,LogEvent,#{formatter:={FModule,FConfig}}) ->
+    String = FModule:format(LogEvent,FConfig),
     io:put_chars(Fd,String).
     </code>
   </section>

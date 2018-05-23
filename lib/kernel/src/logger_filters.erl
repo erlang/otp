@@ -27,13 +27,13 @@
 -include("logger_internal.hrl").
 -define(IS_ACTION(A), (A==log orelse A==stop)).
 
--spec domain(Log,Extra) -> logger:filter_return() when
-      Log :: logger:log(),
+-spec domain(LogEvent,Extra) -> logger:filter_return() when
+      LogEvent :: logger:log_event(),
       Extra :: {Action,Compare,MatchDomain},
       Action :: log | stop,
       Compare :: super | sub | equal | not_equal | undefined,
       MatchDomain :: list(atom()).
-domain(#{meta:=Meta}=Log,{Action,Compare,MatchDomain})
+domain(#{meta:=Meta}=LogEvent,{Action,Compare,MatchDomain})
   when ?IS_ACTION(Action) andalso
        (Compare==super orelse
         Compare==sub orelse
@@ -41,17 +41,17 @@ domain(#{meta:=Meta}=Log,{Action,Compare,MatchDomain})
         Compare==not_equal orelse
         Compare==undefined) andalso
        is_list(MatchDomain) ->
-    filter_domain(Compare,Meta,MatchDomain,on_match(Action,Log));
-domain(Log,Extra) ->
-    erlang:error(badarg,[Log,Extra]).
+    filter_domain(Compare,Meta,MatchDomain,on_match(Action,LogEvent));
+domain(LogEvent,Extra) ->
+    erlang:error(badarg,[LogEvent,Extra]).
 
--spec level(Log,Extra) -> logger:filter_return() when
-      Log :: logger:log(),
+-spec level(LogEvent,Extra) -> logger:filter_return() when
+      LogEvent :: logger:log_event(),
       Extra :: {Action,Operator,MatchLevel},
       Action :: log | stop,
       Operator :: neq | eq | lt | gt | lteq | gteq,
       MatchLevel :: logger:level().
-level(#{level:=L1}=Log,{Action,Op,L2})
+level(#{level:=L1}=LogEvent,{Action,Op,L2})
   when ?IS_ACTION(Action) andalso 
        (Op==neq orelse
         Op==eq orelse
@@ -60,25 +60,25 @@ level(#{level:=L1}=Log,{Action,Op,L2})
         Op==lteq orelse
         Op==gteq) andalso
        ?IS_LEVEL(L2) ->
-    filter_level(Op,L1,L2,on_match(Action,Log));
-level(Log,Extra) ->
-    erlang:error(badarg,[Log,Extra]).
+    filter_level(Op,L1,L2,on_match(Action,LogEvent));
+level(LogEvent,Extra) ->
+    erlang:error(badarg,[LogEvent,Extra]).
 
--spec progress(Log,Extra) -> logger:filter_return() when
-      Log :: logger:log(),
+-spec progress(LogEvent,Extra) -> logger:filter_return() when
+      LogEvent :: logger:log_event(),
       Extra :: log | stop.
-progress(Log,Action) when ?IS_ACTION(Action) ->
-    filter_progress(Log,on_match(Action,Log));
-progress(Log,Action) ->
-    erlang:error(badarg,[Log,Action]).
+progress(LogEvent,Action) when ?IS_ACTION(Action) ->
+    filter_progress(LogEvent,on_match(Action,LogEvent));
+progress(LogEvent,Action) ->
+    erlang:error(badarg,[LogEvent,Action]).
 
--spec remote_gl(Log,Extra) -> logger:filter_return() when
-      Log :: logger:log(),
+-spec remote_gl(LogEvent,Extra) -> logger:filter_return() when
+      LogEvent :: logger:log_event(),
       Extra :: log | stop.
-remote_gl(Log,Action) when ?IS_ACTION(Action) ->
-    filter_remote_gl(Log,on_match(Action,Log));
-remote_gl(Log,Action) ->
-    erlang:error(badarg,[Log,Action]).
+remote_gl(LogEvent,Action) when ?IS_ACTION(Action) ->
+    filter_remote_gl(LogEvent,on_match(Action,LogEvent));
+remote_gl(LogEvent,Action) ->
+    erlang:error(badarg,[LogEvent,Action]).
 
 %%%-----------------------------------------------------------------
 %%% Internal
@@ -123,5 +123,5 @@ filter_remote_gl(#{meta:=#{gl:=GL}},OnMatch) when node(GL)=/=node() ->
 filter_remote_gl(_,_) ->
     ignore.
 
-on_match(log,Log) -> Log;
+on_match(log,LogEvent) -> LogEvent;
 on_match(stop,_) -> stop.

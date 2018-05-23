@@ -235,15 +235,15 @@ swap_buffer(Name,Buffer) ->
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
--spec log(Log, Config) -> ok | dropped when
-      Log :: logger:log(),
+-spec log(LogEvent, Config) -> ok | dropped when
+      LogEvent :: logger:log_event(),
       Config :: logger:config().
 
-log(Log,Config=#{id:=Name}) ->
+log(LogEvent,Config=#{id:=Name}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
     true = is_pid(whereis(Name)),
-    Bin = logger_h_common:log_to_binary(Log,Config),
+    Bin = logger_h_common:log_to_binary(LogEvent,Config),
     logger_h_common:call_cast_or_drop(Name, Bin).
 
 

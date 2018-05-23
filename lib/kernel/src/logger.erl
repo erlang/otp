@@ -64,11 +64,11 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
--type log() :: #{level:=level(),
-                 msg:={io:format(),[term()]} |
-                      {report,report()} |
-                      {string,unicode:chardata()},
-                 meta:=metadata()}.
+-type log_event() :: #{level:=level(),
+                       msg:={io:format(),[term()]} |
+                            {report,report()} |
+                            {string,unicode:chardata()},
+                       meta:=metadata()}.
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type report() :: map() | [{atom(),term()}].
@@ -87,9 +87,10 @@
                       line := non_neg_integer()}.
 -type handler_id() :: atom().
 -type filter_id() :: atom().
--type filter() :: {fun((log(),filter_arg()) -> filter_return()),filter_arg()}.
+-type filter() :: {fun((log_event(),filter_arg()) ->
+                              filter_return()),filter_arg()}.
 -type filter_arg() :: term().
--type filter_return() :: stop | ignore | log().
+-type filter_return() :: stop | ignore | log_event().
 -type config() :: #{id => handler_id(),
                     level => level(),
                     filter_default => log | stop,
@@ -101,9 +102,9 @@
 
 -type config_handler() :: {handler, handler_id(), module(), config()}.
 
--export_type([log/0,level/0,report/0,msg_fun/0,metadata/0,config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0,config_handler/0,
-              formatter_config/0]).
+-export_type([log_event/0,level/0,report/0,msg_fun/0,metadata/0,config/0,
+              handler_id/0,filter_id/0,filter/0,filter_arg/0,filter_return/0,
+              config_handler/0,formatter_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API

@@ -58,7 +58,7 @@ call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
                                        debug,
                                        [{logger,removed_failing_handler},
                                         {handler,{Id,Module}},
-                                        {log,Log1},
+                                        {log_event,Log1},
                                         {config,Config1},
                                         {reason,{C,R,filter_stacktrace(S)}}]);
                                 {error,{not_found,_}} ->
@@ -122,7 +122,7 @@ handle_filter_failed({Id,_}=Filter,Owner,Log,Reason) ->
                           [{logger,removed_failing_filter},
                            {filter,Filter},
                            {owner,Owner},
-                           {log,Log},
+                           {log_event,Log},
                            {reason,Reason}]);
         _ ->
             ok

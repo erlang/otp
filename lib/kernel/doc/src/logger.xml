@@ -87,7 +87,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
       </desc>
     </datatype>
     <datatype>
-      <name name="log"/>
+      <name name="log_event"/>
       <desc>
 	<p></p>
       </desc>
@@ -446,7 +446,7 @@ Current logger configuration:
 	<p>The return value of the fun specifies if a log event is to
 	  be discarded or forwarded to the handlers:</p>
 	<taglist>
-	  <tag><c>log()</c></tag>
+	  <tag><c>log_event()</c></tag>
 	  <item>
 	    <p>The filter <em>passed</em>. The next logger filter, if
 	      any, is applied. If no more logger filters exist, the
@@ -487,7 +487,7 @@ Current logger configuration:
 	<p>The return value of the fun specifies if a log event is to
 	  be discarded or forwarded to the handler callback:</p>
 	<taglist>
-	  <tag><c>log()</c></tag>
+	  <tag><c>log_event()</c></tag>
 	  <item>
 	    <p>The filter <em>passed</em>. The next handler filter, if
 	      any, is applied. If no more filters exist for this
@@ -929,11 +929,11 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
     </func>
 
     <func>
-      <name>HModule:log(Log,Config) -> void()</name>
+      <name>HModule:log(LogEvent,Config) -> void()</name>
       <fsummary>Log the given log event.</fsummary>
       <type>
-	<v>Log =
-	  <seealso marker="#type-log">log()</seealso></v>
+	<v>LogEvent =
+	  <seealso marker="#type-log_event">log_event()</seealso></v>
 	<v>Config =
 	  <seealso marker="#type-config">config()</seealso></v>
       </type>
@@ -979,11 +979,11 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 
   <funcs>
     <func>
-      <name>FModule:format(Log,FConfig) -> FormattedLogEntry</name>
+      <name>FModule:format(LogEvent,FConfig) -> FormattedLogEntry</name>
       <fsummary>Format the given log event.</fsummary>
       <type>
-	<v>Log =
-	  <seealso marker="#type-log">log()</seealso></v>
+	<v>LogEvent =
+	  <seealso marker="#type-log_event">log_event()</seealso></v>
 	<v>FConfig =
 	  <seealso marker="#type-formatter_config">formatter_config()</seealso></v>
 	<v>FormattedLogEntry =
