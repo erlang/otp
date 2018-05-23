@@ -2706,6 +2706,7 @@ dnl On x86/amd64, floating points exceptions have
 dnl unresolved stability issues.
 AC_MSG_CHECKING([for unreliable floating point exceptions])
 FPE=unreliable
+AC_SUBST(FPE)
 AC_MSG_RESULT([unreliable])
 AC_DEFINE(NO_FPE_SIGNALS,[],[Define if floating points exceptions are non-existing/not reliable])
 
