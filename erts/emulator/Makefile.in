@@ -633,6 +633,7 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 
 PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
