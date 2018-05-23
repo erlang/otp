@@ -157,7 +157,7 @@ init_per_testcase(TestCase, Config) ->
     ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, Version)]),
     end_per_testcase(TestCase, Config),
     ssl:start(),
-    ct:timetrap({seconds, 15}),
+    ct:timetrap({seconds, 30}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     

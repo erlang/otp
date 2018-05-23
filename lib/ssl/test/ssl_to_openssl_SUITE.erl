@@ -412,8 +412,16 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     
     Exe = "openssl",
-    Args = ["s_client", "-connect", hostname_format(Hostname) ++
-                ":" ++ integer_to_list(Port) ++ no_low_flag() | workaround_openssl_s_clinent()],
+    Args = case no_low_flag("-no_ssl2") of
+               [] ->
+                   ["s_client", "-connect", hostname_format(Hostname) ++
+                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3")
+                    | workaround_openssl_s_clinent()];
+               Flag ->
+                   ["s_client", "-connect", hostname_format(Hostname) ++
+                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3"), Flag
+                    | workaround_openssl_s_clinent()]
+           end, 
     
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, Data),
@@ -588,7 +596,7 @@ erlang_client_openssl_server_anon(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_anon_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -631,7 +639,7 @@ erlang_server_openssl_client_anon(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_anon_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -665,7 +673,7 @@ erlang_server_openssl_client_anon_with_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     VersionTuple = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(VersionTuple),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(VersionTuple),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1995,10 +2003,12 @@ hostname_format(Hostname) ->
             "localhost"   
     end.
 
-no_low_flag() ->
+no_low_flag("-no_ssl2" = Flag) ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
         true ->
-            " -no_ssl2 -no_ssl3";
+            Flag;
         false ->
-            " -no_ssl3"
-    end.
+            ""
+    end;
+no_low_flag(Flag) ->
+    Flag.

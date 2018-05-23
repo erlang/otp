@@ -686,11 +686,16 @@ hello_client_cancel(Config) when is_list(Config) ->
                                                       {host, Hostname},
                                                       {from, self()}, 
                                                       {options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
-                                                      {continue_options, cancel}]),
-    
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "user canceled"}}).
-%%--------------------------------------------------------------------
+                                                      {continue_options, cancel}]),    
+      receive
+          {Server, {error, {tls_alert, "user canceled"}}} ->
+              ok;
+          {Server, {error, closed}} ->
+              ct:pal("Did not receive the ALERT"),
+              ok
+      end.
 
+%%--------------------------------------------------------------------
 hello_server_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
 hello_server_cancel(Config) when is_list(Config) -> 
@@ -2539,7 +2544,7 @@ anonymous_cipher_suites()->
     [{doc,"Test the anonymous ciphersuites"}].
 anonymous_cipher_suites(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers = ssl_test_lib:anonymous_suites(NVersion),
+    Ciphers = ssl_test_lib:ecdh_dh_anonymous_suites(NVersion),
     run_suites(Ciphers, Config, anonymous).
 %%-------------------------------------------------------------------
 psk_cipher_suites() ->
@@ -2635,7 +2640,7 @@ default_reject_anonymous(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     TLSVersion = ssl_test_lib:tls_version(Version),
     
-   [CipherSuite | _] = ssl_test_lib:anonymous_suites(TLSVersion),
+   [CipherSuite | _] = ssl_test_lib:ecdh_dh_anonymous_suites(TLSVersion),
     
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
@@ -5046,8 +5051,14 @@ tls_downgrade_result(Socket) ->
 
 tls_close(Socket) ->
     ok = ssl_test_lib:send_recv_result(Socket),
-    ok = ssl:close(Socket, 5000).
-    
+    case ssl:close(Socket, 5000) of
+        ok ->
+            ok;
+        {error, closed} ->
+            ok;
+        Other ->
+            ct:fail(Other)
+    end.
 
  %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 treashold(N, {3,0}) ->
