@@ -1255,14 +1255,7 @@ erl_start(int argc, char **argv)
 
 	    /*
 	     * NOTE: -M flags are handled (and removed from argv) by
-	     * erts_alloc_init(). 
-	     *
-	     * The -d, -m, -S, -t, and -T flags was removed in
-	     * Erlang 5.3/OTP R9C.
-	     *
-	     * -S, and -T has been reused in Erlang 5.5/OTP R11B.
-	     *
-	     * -d has been reused in a patch R12B-4.
+	     * erts_alloc_init().
 	     */
 
 	case 'p':
