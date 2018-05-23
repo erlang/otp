@@ -528,7 +528,7 @@ Current logger configuration:
       <desc>
         <p>Add a handler with the given configuration.</p>
 	<p><c><anno>HandlerId</anno></c> is a unique identifier which
-	  must be used in all subsequent calls reffering to this
+	  must be used in all subsequent calls referring to this
 	  handler.</p>
       </desc>
     </func>
