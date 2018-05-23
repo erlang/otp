@@ -236,6 +236,7 @@ atom eof
 atom eol
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_init
 atom erl_tracer
 atom erlang
 atom erl_signal_server

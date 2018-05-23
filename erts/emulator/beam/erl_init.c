@@ -374,21 +374,19 @@ erl_init(int ncpu,
 }
 
 static Eterm
-erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
+erl_first_process_otp(char* mod_name, int argc, char** argv)
 {
     int i;
-    Eterm start_mod;
     Eterm args;
     Eterm res;
     Eterm* hp;
     Process parent;
     ErlSpawnOpts so;
-    Eterm env;
-    
-    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
-    if (erts_find_function(start_mod, am_start, 2,
+    Eterm boot_mod;
+
+    if (erts_find_function(am_erl_init, am_start, 2,
 			   erts_active_code_ix()) == NULL) {
-	erts_exit(ERTS_ERROR_EXIT, "No function %s:start/2\n", modname);
+	erts_exit(ERTS_ERROR_EXIT, "No function erl_init:start/2\n");
     }
 
     /*
@@ -404,13 +402,13 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 	args = CONS(hp, new_binary(&parent, (byte*)argv[i], len), args);
 	hp += 2;
     }
-    env = new_binary(&parent, code, size);
+    boot_mod = erts_atom_put((byte *) mod_name, sys_strlen(mod_name), ERTS_ATOM_ENC_LATIN1, 1);
     args = CONS(hp, args, NIL);
     hp += 2;
-    args = CONS(hp, env, args);
+    args = CONS(hp, boot_mod, args);
 
     so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
-    res = erl_create_process(&parent, start_mod, am_start, args, &so);
+    res = erl_create_process(&parent, am_erl_init, am_start, args, &so);
     erts_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
     return res;
@@ -571,9 +569,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "               number of poll threads.");
     erts_fprintf(stderr, "-IOPt number   set number of threads to be used to poll for I/O\n");
     erts_fprintf(stderr, "               as a percentage of the number of schedulers.");
-
-    /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
-
+    erts_fprintf(stderr, "-i module      set the boot module (default init)\n");
     erts_fprintf(stderr, "-n[s|a|d]      Control behavior of signals to ports\n");
     erts_fprintf(stderr, "               Note that this flag is deprecated!\n");
     erts_fprintf(stderr, "-M<X> <Y>      memory allocator switches,\n");
@@ -2221,8 +2217,7 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    erts_init_process_id = erl_first_process_otp("erl_init", NULL, 0,
-                                                 boot_argc, boot_argv);
+    erts_init_process_id = erl_first_process_otp(init, boot_argc, boot_argv);
 
     {
 	/*

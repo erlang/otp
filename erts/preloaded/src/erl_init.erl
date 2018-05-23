@@ -23,11 +23,14 @@
 
 -export([start/2]).
 
-%% This gets the boot arguments as expected by init:boot/1
+%% This gets the module name given by the +i option (default 'init')
+%% and the list of command line arguments
 
--spec start(_, term()) -> term().
-start(_Env, Argv) ->
-    run(init, boot, Argv).
+-spec start(Mod, BootArgs) -> no_return() when
+      Mod :: module(),
+      BootArgs :: [binary()].
+start(Mod, BootArgs) ->
+    run(Mod, boot, BootArgs).
 
 run(M, F, A) ->
     case erlang:function_exported(M, F, 1) of
