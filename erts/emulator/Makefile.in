@@ -517,7 +517,9 @@ release_docs_spec:
 # Generated source code. Put in $(TARGET) directory
 #
 
+ifneq ($(strip $(CREATE_DIRS)),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
 
 
 # has to be run after _create_dirs
