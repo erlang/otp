@@ -226,11 +226,6 @@ pbes2(Config) when is_list(Config) ->
 	    ok
     end.
 
-check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				     #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
-				 privateKey = Key}) ->
-    #'RSAPrivateKey'{} = public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key)).
-
 decode_encode_key_file(File, Password, Cipher, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, PemKey} = file:read_file(filename:join(Datadir, File)),
@@ -238,11 +233,10 @@ decode_encode_key_file(File, Password, Cipher, Config) ->
     PemEntry = public_key:pem_decode(PemKey),
     ct:print("Pem entry: ~p" , [PemEntry]),
     [{Asn1Type, _, {Cipher,_} = CipherInfo} = PubEntry] = PemEntry,
-    KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
+    #'RSAPrivateKey'{} = KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
     PemKey1 = public_key:pem_encode([public_key:pem_entry_encode(Asn1Type, KeyInfo, {CipherInfo, Password})]),
     Pem = strip_ending_newlines(PemKey),
-    Pem = strip_ending_newlines(PemKey1),
-    check_key_info(KeyInfo).
+    Pem = strip_ending_newlines(PemKey1).
 
 strip_ending_newlines(Bin) ->
     string:strip(binary_to_list(Bin), right, 10).
