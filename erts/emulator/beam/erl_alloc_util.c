@@ -3370,8 +3370,7 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 static Carrier_t *
 cpool_fetch(Allctr_t *allctr, UWord size)
 {
-    enum { IGNORANT, HAS_SEEN_SENTINEL, THE_LAST_ONE } loop_state;
-    int i;
+    int i, seen_sentinel;
     Carrier_t *crr;
     Carrier_t *reinsert_crr = NULL;
     ErtsAlcCPoolData_t *cpdp;
@@ -3485,43 +3484,34 @@ cpool_fetch(Allctr_t *allctr, UWord size)
         /*
          * We saw a pooled carried above, use it as entrance into the pool
 	 */
-	cpdp = cpool_entrance;
     }
     else {
         /*
-         * No pooled carried seen above. Start search at cpool sentinel,
+         * No pooled carrier seen above. Start search at cpool sentinel,
 	 * but begin by passing one element before trying to fetch.
 	 * This in order to avoid contention with threads inserting elements.
 	 */
-	cpool_entrance = sentinel;
-	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
-	if (cpdp == sentinel)
+        cpool_entrance = cpool_aint2cpd(cpool_read(&sentinel->prev));
+	if (cpool_entrance == sentinel)
 	    goto check_dc_list;
     }
 
-    loop_state = IGNORANT;
+    cpdp = cpool_entrance;
+    seen_sentinel = 0;
     do {
 	erts_aint_t exp;
 	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	if (cpdp == cpool_entrance) {
-	    if (cpool_entrance == sentinel) {
-		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-		if (cpdp == sentinel)
-		    break;
-	    }
-            loop_state = THE_LAST_ONE;
-	}
-	else if (cpdp == sentinel) {
-	    if (loop_state == HAS_SEEN_SENTINEL) {
+        if (cpdp == sentinel) {
+	    if (seen_sentinel) {
 		/* We been here before. cpool_entrance must have been removed */
                 INC_CC(allctr->cpool.stat.entrance_removed);
 		break;
 	    }
-	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	    if (cpdp == sentinel)
-                break;
-            loop_state = HAS_SEEN_SENTINEL;
+            seen_sentinel = 1;
+            continue;
 	}
+        ASSERT(cpdp != cpool_entrance || seen_sentinel);
+
 	crr = ErtsContainerStruct(cpdp, Carrier_t, cpool);
 	exp = erts_atomic_read_rb(&crr->allctr);
 
@@ -3554,7 +3544,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
             INC_CC(allctr->cpool.stat.fail_shared);
 	    return NULL;
         }
-    }while (loop_state != THE_LAST_ONE);
+    }while (cpdp != cpool_entrance);
 
 check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
