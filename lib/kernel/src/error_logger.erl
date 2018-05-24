@@ -32,7 +32,7 @@
          which_report_handlers/0]).
 
 %% logger callbacks
--export([adding_handler/2, removing_handler/2, log/2]).
+-export([adding_handler/1, removing_handler/1, log/2]).
 
 -export([get_format_depth/0, limit_term/1]).
 
@@ -101,9 +101,9 @@ stop() ->
 
 %%%-----------------------------------------------------------------
 %%% Callbacks for logger
--spec adding_handler(logger:handler_id(),logger:config()) ->
+-spec adding_handler(logger:config()) ->
                             {ok,logger:config()} | {error,term()}.
-adding_handler(?MODULE,Config) ->
+adding_handler(#{id:=?MODULE}=Config) ->
     case start() of
         ok ->
             {ok,Config};
@@ -111,12 +111,12 @@ adding_handler(?MODULE,Config) ->
             Error
     end.
 
--spec removing_handler(logger:handler_id(),logger:config()) -> ok.
-removing_handler(?MODULE,_Config) ->
+-spec removing_handler(logger:config()) -> ok.
+removing_handler(#{id:=?MODULE}) ->
     stop(),
     ok.
 
--spec log(logger:log(),logger:config()) -> ok.
+-spec log(logger:log_event(),logger:config()) -> ok.
 log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
     do_log(Level,Msg,Meta).
 

@@ -37,10 +37,11 @@
 -export([add_handler/3, remove_handler/1,
          add_logger_filter/2, add_handler_filter/3,
          remove_logger_filter/1, remove_handler_filter/2,
-         set_module_level/2, reset_module_level/1,
+         set_module_level/2, unset_module_level/1,
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
          update_logger_config/1, update_handler_config/2,
+         update_formatter_config/2, update_formatter_config/3,
          get_logger_config/0, get_handler_config/1,
          add_handlers/1]).
 
@@ -63,11 +64,11 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
--type log() :: #{level:=level(),
-                 msg:={io:format(),[term()]} |
-                      {report,report()} |
-                      {string,unicode:chardata()},
-                 meta:=metadata()}.
+-type log_event() :: #{level:=level(),
+                       msg:={io:format(),[term()]} |
+                            {report,report()} |
+                            {string,unicode:chardata()},
+                       meta:=metadata()}.
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type report() :: map() | [{atom(),term()}].
@@ -80,26 +81,32 @@
                       mfa    => {module(),atom(),non_neg_integer()},
                       file   => file:filename(),
                       line   => non_neg_integer(),
-                      term() => term()}.
+                      domain => [atom()],
+                      report_cb => fun((report()) -> {io:format(),[term()]}),
+                      atom() => term()}.
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
                       line := non_neg_integer()}.
 -type handler_id() :: atom().
 -type filter_id() :: atom().
--type filter() :: {fun((log(),filter_arg()) -> filter_return()),filter_arg()}.
+-type filter() :: {fun((log_event(),filter_arg()) ->
+                              filter_return()),filter_arg()}.
 -type filter_arg() :: term().
--type filter_return() :: stop | ignore | log().
--type config() :: #{level => level(),
+-type filter_return() :: stop | ignore | log_event().
+-type config() :: #{id => handler_id(),
+                    level => level(),
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
-                    formatter => {module(),term()},
-                    term() => term()}.
+                    formatter => {module(),formatter_config()},
+                    atom() => term()}.
 -type timestamp() :: integer().
+-type formatter_config() :: #{atom() => term()}.
 
 -type config_handler() :: {handler, handler_id(), module(), config()}.
 
--export_type([log/0,level/0,report/0,msg_fun/0,metadata/0,config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0, config_handler/0]).
+-export_type([log_event/0,level/0,report/0,msg_fun/0,metadata/0,config/0,
+              handler_id/0,filter_id/0,filter/0,filter_arg/0,filter_return/0,
+              config_handler/0,formatter_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -386,16 +393,31 @@ get_logger_config() ->
 get_handler_config(HandlerId) ->
     logger_config:get(?LOGGER_TABLE,HandlerId).
 
+-spec update_formatter_config(HandlerId,FormatterConfig) ->
+                                     ok | {error,term()} when
+      HandlerId :: config(),
+      FormatterConfig :: formatter_config().
+update_formatter_config(HandlerId,FormatterConfig) ->
+    logger_server:update_formatter_config(HandlerId,FormatterConfig).
+
+-spec update_formatter_config(HandlerId,Key,Value) ->
+                                     ok | {error,term()} when
+      HandlerId :: config(),
+      Key :: atom(),
+      Value :: term().
+update_formatter_config(HandlerId,Key,Value) ->
+    logger_server:update_formatter_config(HandlerId,#{Key=>Value}).
+
 -spec set_module_level(Module,Level) -> ok | {error,term()} when
       Module :: module(),
       Level :: level().
 set_module_level(Module,Level) ->
     logger_server:set_module_level(Module,Level).
 
--spec reset_module_level(Module) -> ok | {error,term()} when
+-spec unset_module_level(Module) -> ok | {error,term()} when
       Module :: module().
-reset_module_level(Module) ->
-    logger_server:reset_module_level(Module).
+unset_module_level(Module) ->
+    logger_server:unset_module_level(Module).
 
 %%%-----------------------------------------------------------------
 %%% Misc
@@ -542,10 +564,10 @@ internal_init_logger() ->
               end || Module <- Modules]
              || {module_level, Level, Modules} <- get_logger_env()],
 
-        case logger:set_handler_config(logger_simple,filters,
+        case logger:set_handler_config(simple,filters,
                                        get_default_handler_filters()) of
             ok -> ok;
-            {error,{not_found,logger_simple}} -> ok
+            {error,{not_found,simple}} -> ok
         end,
 
         init_kernel_handlers()
@@ -561,7 +583,7 @@ init_kernel_handlers() ->
     try
         case get_logger_type() of
             {ok,silent} ->
-                ok = logger:remove_handler(logger_simple);
+                ok = logger:remove_handler(simple);
             {ok,false} ->
                 ok;
             {ok,Type} ->
@@ -602,9 +624,9 @@ add_handlers(HandlerConfig) ->
         %% If a default handler was added we try to remove the simple_logger
         %% If the simple logger exists it will replay its log events
         %% to the handler(s) added in the fold above.
-        _ = [case logger:remove_handler(logger_simple) of
+        _ = [case logger:remove_handler(simple) of
                  ok -> ok;
-                 {error,{not_found,logger_simple}} -> ok
+                 {error,{not_found,simple}} -> ok
              end || DefaultAdded],
         ok
     catch throw:Reason ->
@@ -677,7 +699,8 @@ init_default_config(Type) when Type==standard_io;
                                 Type==standard_error;
                                 element(1,Type)==file ->
     Env = get_logger_env(),
-    DefaultConfig = #{logger_std_h=>#{type=>Type}},
+    DefaultFormatter = #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}},
+    DefaultConfig = DefaultFormatter#{logger_std_h=>#{type=>Type}},
     NewLoggerEnv =
         case lists:keyfind(default, 2, Env) of
             {handler, default, Module, Config} ->
@@ -687,6 +710,13 @@ init_default_config(Type) when Type==standard_io;
                           %% if not configured by user AND the default
                           %% handler is still the logger_std_h.
                           {handler, default, Module, maps:merge(DefaultConfig,Config)};
+                     ({handler, default, logger_disk_log_h, _}) ->
+                          %% Add default formatter. The point of this
+                          %% is to get the expected formatter config
+                          %% for the default handler, since this
+                          %% differs from the default values that
+                          %% logger_formatter itself adds.
+                          {handler, default, logger_disk_log_h, maps:merge(DefaultFormatter,Config)};
                      (Other) ->
                           Other
                   end, Env);
@@ -704,10 +734,10 @@ get_default_handler_filters() ->
             ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp]);
         false ->
             Extra =
-                case application:get_env(kernel, logger_log_progress, false) of
-                    true ->
+                case application:get_env(kernel, logger_progress_reports, stop) of
+                    log ->
                         [];
-                    false ->
+                    stop ->
                         [{stop_progress,
                           {fun logger_filters:progress/2,stop}}]
                 end,
@@ -833,7 +863,7 @@ proc_meta() ->
 
 default(pid) -> self();
 default(gl) -> group_leader();
-default(time) -> erlang:monotonic_time(microsecond).
+default(time) -> erlang:system_time(microsecond).
 
 %% Remove everything upto and including this module from the stacktrace
 filter_stacktrace(Module,[{Module,_,_,_}|_]) ->

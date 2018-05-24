@@ -48,7 +48,7 @@
       System Principles</seealso></p>
       <p>Starting and stopping, boot scripts, code loading,
       <seealso marker="doc/system_principles:error_logging">
-      error logging</seealso>,
+      logging</seealso>,
       <seealso marker="doc/system_principles:create_target">
       creating target systems</seealso></p>
       </item>

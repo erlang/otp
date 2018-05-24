@@ -26,21 +26,22 @@
 
 %%%-----------------------------------------------------------------
 %%% Types
+-type config() :: #{chars_limit=>pos_integer()| unlimited,
+                    depth=>pos_integer() | unlimited,
+                    legacy_header=>boolean(),
+                    max_size=>pos_integer() | unlimited,
+                    report_cb=>fun((logger:report()) -> {io:format(),[term()]}),
+                    single_line=>boolean(),
+                    template=>template(),
+                    time_designator=>byte(),
+                    time_offset=>integer()|[byte()]}.
 -type template() :: [atom()|tuple()|string()].
 
 %%%-----------------------------------------------------------------
 %%% API
--spec format(Log,Config) -> unicode:chardata() when
-      Log :: logger:log(),
-      Config :: #{single_line=>boolean(),
-                  legacy_header=>boolean(),
-                  report_cb=>fun((logger:report()) -> {io:format(),[term()]}),
-                  chars_limit=>pos_integer()| unlimited,
-                  max_size=>pos_integer() | unlimited,
-                  depth=>pos_integer() | unlimited,
-                  template=>template(),
-                  time_designator=>byte(),
-                  time_offset=>integer()|[byte()]}.
+-spec format(LogEvent,Config) -> unicode:chardata() when
+      LogEvent :: logger:log_event(),
+      Config :: config().
 format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
   when is_map(Config0) ->
     Config = add_default_config(Config0),
@@ -85,8 +86,6 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
 
 do_format(Level,Msg,Data,[level|Format],Config) ->
     [to_string(level,Level,Config)|do_format(Level,Msg,Data,Format,Config)];
-do_format(Level,Msg,Data,[msg|Format],Config) ->
-    [Msg|do_format(Level,Msg,Data,Format,Config)];
 do_format(Level,Msg,Data,[Key|Format],Config) when is_atom(Key); is_tuple(Key) ->
     Value = value(Key,Data),
     [to_string(Key,Value,Config)|do_format(Level,Msg,Data,Format,Config)];
@@ -130,9 +129,7 @@ to_string(X) ->
     io_lib:format("~tp",[X]).
 
 format_msg({string,Chardata},Meta,Config) ->
-    try unicode:characters_to_list(Chardata)
-    catch _:_ -> format_msg({"INVALID STRING: ~tp",[Chardata]},Meta,Config)
-    end;
+    format_msg({"~ts",[Chardata]},Meta,Config);
 format_msg({report,_}=Msg,Meta,#{report_cb:=Fun}=Config) when is_function(Fun,1) ->
     format_msg(Msg,Meta#{report_cb=>Fun},maps:remove(report_cb,Config));
 format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,1) ->
@@ -197,16 +194,15 @@ truncate(String,Size) ->
             String
     end.
 
-format_time(Timestamp,#{time_offset:=Offset,time_designator:=Des})
-  when is_integer(Timestamp) ->
-    SysTime = Timestamp + erlang:time_offset(microsecond),
+%% SysTime is the system time in microseconds
+format_time(SysTime,#{time_offset:=Offset,time_designator:=Des})
+  when is_integer(SysTime) ->
     calendar:system_time_to_rfc3339(SysTime,[{unit,microsecond},
                                              {offset,Offset},
                                              {time_designator,Des}]).
 
-%% Assuming this is monotonic time in microseconds
-timestamp_to_datetimemicro(Timestamp,Config) when is_integer(Timestamp) ->
-    SysTime = Timestamp + erlang:time_offset(microsecond),
+%% SysTime is the system time in microseconds
+timestamp_to_datetimemicro(SysTime,Config) when is_integer(SysTime) ->
     Micro = SysTime rem 1000000,
     Sec = SysTime div 1000000,
     UniversalTime =  erlang:posixtime_to_universaltime(Sec),
@@ -327,6 +323,8 @@ offset_to_utc([$+|Tz]) ->
 offset_to_utc(_) ->
     false.
 
+-spec check_config(Config) -> ok | {error,term()} when
+      Config :: config().
 check_config(Config) when is_map(Config) ->
     do_check_config(maps:to_list(Config));
 check_config(Config) ->

@@ -25,9 +25,10 @@
 -export([start_link/0,
          add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
-         set_module_level/2, reset_module_level/1,
+         set_module_level/2, unset_module_level/1,
          cache_module_level/1,
-         set_config/2, set_config/3, update_config/2]).
+         set_config/2, set_config/3, update_config/2,
+         update_formatter_config/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -82,9 +83,9 @@ set_module_level(Module,Level) when is_atom(Module) ->
 set_module_level(Module,_) ->
     {error,{not_a_module,Module}}.
 
-reset_module_level(Module) when is_atom(Module) ->
-    call({reset_module_level,Module});
-reset_module_level(Module) ->
+unset_module_level(Module) when is_atom(Module) ->
+    call({unset_module_level,Module});
+unset_module_level(Module) ->
     {error,{not_a_module,Module}}.
 
 cache_module_level(Module) ->
@@ -111,6 +112,13 @@ update_config(Owner, Config) ->
             Error
     end.
 
+update_formatter_config(HandlerId, FormatterConfig)
+  when is_map(FormatterConfig) ->
+    call({update_formatter_config,HandlerId,FormatterConfig});
+update_formatter_config(_HandlerId, FormatterConfig) ->
+    {error,{invalid_formatter_config,FormatterConfig}}.
+
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -119,15 +127,14 @@ init([]) ->
     process_flag(trap_exit, true),
     Tid = logger_config:new(?LOGGER_TABLE),
     LoggerConfig = maps:merge(default_config(logger),
-                              #{handlers=>[logger_simple]}),
+                              #{handlers=>[simple]}),
     logger_config:create(Tid,logger,LoggerConfig),
-    SimpleConfig0 = maps:merge(default_config(logger_simple),
+    SimpleConfig0 = maps:merge(default_config(simple),
                                #{filter_default=>stop,
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
-    {ok,SimpleConfig} =
-        logger_simple:adding_handler(logger_simple,SimpleConfig0),
-    logger_config:create(Tid,logger_simple,logger_simple,SimpleConfig),
+    {ok,SimpleConfig} = logger_simple_h:adding_handler(SimpleConfig0),
+    logger_config:create(Tid,simple,logger_simple_h,SimpleConfig),
     {ok, #state{tid=Tid, async_req_queue = queue:new()}}.
 
 handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
@@ -138,7 +145,7 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
             call_h_async(
               fun() ->
                       %% inform the handler
-                      call_h(Module,adding_handler,[Id,HConfig],{ok,HConfig})
+                      call_h(Module,adding_handler,[HConfig],{ok,HConfig})
               end,
               fun({ok,HConfig1}) ->
                       %% We know that the call_h would have loaded the module
@@ -169,7 +176,7 @@ handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
             call_h_async(
               fun() ->
                       %% inform the handler
-                      call_h(Module,removing_handler,[HandlerId,HConfig],ok)
+                      call_h(Module,removing_handler,[HConfig],ok)
               end,
               fun(_Res) ->
                       do_set_config(Tid,logger,Config#{handlers=>Handlers}),
@@ -205,7 +212,7 @@ handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
         {ok,{Module,OldConfig}} ->
             call_h_async(
               fun() ->
-                      call_h(Module,changing_config,[HandlerId,OldConfig,Config],
+                      call_h(Module,changing_config,[OldConfig,Config],
                              {ok,Config})
               end,
               fun({ok,Config1}) ->
@@ -216,11 +223,27 @@ handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
         _ ->
             {reply,{error,{not_found,HandlerId}},State}
     end;
+handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
+            #state{tid=Tid}=State) ->
+    Reply =
+        case logger_config:get(Tid,HandlerId) of
+            {ok,{_Mod,#{formatter:={FMod,OldFConfig}}=Config}} ->
+                try
+                    FConfig = maps:merge(OldFConfig,NewFConfig),
+                    check_formatter({FMod,FConfig}),
+                    do_set_config(Tid,HandlerId,
+                                  Config#{formatter=>{FMod,FConfig}})
+                catch throw:Reason -> {error,Reason}
+                end;
+            _ ->
+            {error,{not_found,HandlerId}}
+        end,
+    {reply,Reply,State};
 handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:set_module_level(Tid,Module,Level),
     {reply,Reply,State};
-handle_call({reset_module_level,Module}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:reset_module_level(Tid,Module),
+handle_call({unset_module_level,Module}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:unset_module_level(Tid,Module),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
@@ -324,11 +347,12 @@ default_config(logger) ->
     #{level=>info,
       filters=>[],
       filter_default=>log};
-default_config(_) ->
-    #{level=>info,
+default_config(Id) ->
+    #{id=>Id,
+      level=>info,
       filters=>[],
       filter_default=>log,
-      formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}.
+      formatter=>{?DEFAULT_FORMATTER,#{}}}.
 
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).

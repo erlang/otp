@@ -68,7 +68,8 @@ all() ->
      level_or_msg_in_meta,
      faulty_log,
      faulty_config,
-     faulty_msg].
+     faulty_msg,
+     update_config].
 
 default(_Config) ->
     String1 = format(info,{"~p",[term]},#{},#{}),
@@ -268,8 +269,8 @@ format_msg(_Config) ->
     String8 = format(info,{string,['not',printable,list]},
                      #{report_cb=>fun(_)-> {"formatted",[]} end},
                      #{template=>Template}),
-    ct:log(String8),
-    "INVALID STRING: ['not',printable,list]" = String8,
+    ct:log("~ts",[String8]), % avoiding ct_log crash
+    "FORMAT ERROR: \"~ts\" - [['not',printable,list]]" = String8,
 
     String9 = format(info,{string,"string"},#{},#{template=>Template}),
     ct:log(String9),
@@ -405,6 +406,14 @@ chars_limit(_Config) ->
     L5 = MS5,
     true = lists:prefix(lists:sublist(String5,L5-4),String4),
 
+    %% Test that chars_limit limits string also
+    Str = "123456789012345678901234567890123456789012345678901234567890123456789",
+    CL6 = 80,
+    String6 = format(info,{string,Str},Meta,FC#{chars_limit=>CL6}),
+    L6 = string:length(String6),
+    ct:log("String6: ~p~nLength6: ~p~n",[String6,L6]),
+    L6 = CL6,
+
     ok.
 
 format_mfa(_Config) ->
@@ -505,7 +514,7 @@ level_or_msg_in_meta(_Config) ->
     ok.
 
 faulty_log(_Config) ->
-    %% Unexpected log (should be type logger:log()) - print error
+    %% Unexpected log (should be type logger:log_event()) - print error
     {error,
      function_clause,
      {logger_formatter,format,[_,_],_}} =
@@ -532,6 +541,54 @@ faulty_msg(_Config) ->
                                      #{})),
     ok.
 
+%% Test that formatter config can be changed, and that the default
+%% template is updated accordingly
+update_config(_Config) ->
+    logger:add_handler_filter(default,silence,{fun(_,_) -> stop end,ok}),
+    ok = logger:add_handler(?MODULE,?MODULE,#{}),
+    D = lists:seq(1,1000),
+    logger:info("~p~n",[D]),
+    {Lines1,C1} = check_log(),
+    [ct:log(L) || L <- Lines1],
+    ct:log("~p",[C1]),
+    [Line1] = Lines1,
+    [_Time,"info: "++D1] = string:split(Line1," "),
+    true = length(D1)>3000,
+    true = #{}==C1,
+
+    ok = logger:update_formatter_config(?MODULE,single_line,false),
+    logger:info("~p~n",[D]),
+    {Lines2,C2} = check_log(),
+    [ct:log(L) || L <- Lines2],
+    ct:log("~p",[C2]),
+    true = length(Lines2)>50,
+    true = #{single_line=>false}==C2,
+
+    ok = logger:update_formatter_config(?MODULE,#{legacy_header=>true}),
+    logger:info("~p~n",[D]),
+    {Lines3,C3} = check_log(),
+    [ct:log(L) || L <- Lines3],
+    ct:log("~p",[C3]),
+    ["=INFO REPORT==== "++_|D3] = Lines3,
+    true = length(D3)>50,
+    true = #{legacy_header=>true,single_line=>false}==C3,
+
+    ok = logger:update_formatter_config(?MODULE,single_line,true),
+    logger:info("~p~n",[D]),
+    {Lines4,C4} = check_log(),
+    [ct:log(L) || L <- Lines4],
+    ct:log("~p",[C4]),
+    ["=INFO REPORT==== "++_,D4] = Lines4,
+    true = length(D4)>3000,
+    true = #{legacy_header=>true,single_line=>true}==C4,
+
+    ok.
+
+update_config(cleanup,_Config) ->
+    _ = logger:remove_handler(?MODULE),
+    _ = logger:remove_handler_filter(default,silence),
+    ok.
+
 %%%-----------------------------------------------------------------
 %%% Internal
 format(Level,Msg,Meta,Config) ->
@@ -546,8 +603,7 @@ default_time_format(Timestamp) ->
 default_time_format(Timestamp,Utc) ->
     default_time_format(Timestamp,Utc,$T).
 
-default_time_format(Timestamp0,Utc,Sep) ->
-    Timestamp=Timestamp0+erlang:time_offset(microsecond),
+default_time_format(Timestamp,Utc,Sep) ->
     Offset = if Utc -> "Z";
                 true -> ""
              end,
@@ -569,10 +625,20 @@ my_try(Fun) ->
     try Fun() catch C:R:S -> {C,R,hd(S)} end.
 
 timestamp() ->
-    erlang:monotonic_time(microsecond).
+    erlang:system_time(microsecond).
 
 %% necessary?
 add_time(#{time:=_}=Meta) ->
     Meta;
 add_time(Meta) ->
     Meta#{time=>timestamp()}.
+
+%%%-----------------------------------------------------------------
+%%% handler callback
+log(Log,#{formatter:={M,C}}) ->
+    put(log,{M:format(Log,C),C}),
+    ok.
+
+check_log() ->
+    {S,C} = erase(log),
+    {string:lexemes(S,"\n"),C}.

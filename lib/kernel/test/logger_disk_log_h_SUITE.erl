@@ -336,24 +336,24 @@ formatter_fail(Config) ->
     {ok,{_,#{formatter:={logger_formatter,_}}}} =
         logger:get_handler_config(Name),
     logger:info(M1=?msg,?domain),
-    Got1 = try_match_file(?log_no(LogFile,1),"=INFO REPORT====.*\n"++M1,5000),
+    Got1 = try_match_file(?log_no(LogFile,1),"[0-9\\+\\-T:\\.]* info: "++M1,5000),
 
     ok = logger:set_handler_config(Name,formatter,{nonexistingmodule,#{}}),
     logger:info(M2=?msg,?domain),
     Got2 = try_match_file(?log_no(LogFile,1),
-                          Got1++"=INFO REPORT====.*\nFORMATTER CRASH: .*"++M2,
+                          escape(Got1)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M2,
                           5000),
 
     ok = logger:set_handler_config(Name,formatter,{?MODULE,crash}),
     logger:info(M3=?msg,?domain),
     Got3 = try_match_file(?log_no(LogFile,1),
-                          Got2++"=INFO REPORT====.*\nFORMATTER CRASH: .*"++M3,
+                          escape(Got2)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M3,
                           5000),
 
     ok = logger:set_handler_config(Name,formatter,{?MODULE,bad_return}),
     logger:info(?msg,?domain),
     try_match_file(?log_no(LogFile,1),
-                   Got3++"FORMATTER ERROR: bad_return_value",
+                   escape(Got3)++"FORMATTER ERROR: bad_return_value",
                    5000),
 
     %% Check that handler is still alive and was never dead
@@ -1491,3 +1491,10 @@ check_tracer(T) ->
             dbg:stop_clear(),
             ct:fail({timeout,tracer})
     end.
+
+escape([$+|Rest]) ->
+    [$\\,$+|escape(Rest)];
+escape([H|T]) ->
+    [H|escape(T)];
+escape([]) ->
+    [].

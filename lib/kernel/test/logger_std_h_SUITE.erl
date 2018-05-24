@@ -250,24 +250,24 @@ formatter_fail(Config) ->
     {ok,{_,#{formatter:={logger_formatter,_}}}} =
         logger:get_handler_config(?MODULE),
     logger:info(M1=?msg,?domain),
-    Got1 = try_match_file(Log,"=INFO REPORT====.*\n"++M1,5000),
+    Got1 = try_match_file(Log,"[0-9\\+\\-T:\\.]* info: "++M1,5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{nonexistingmodule,#{}}),
     logger:info(M2=?msg,?domain),
     Got2 = try_match_file(Log,
-                          Got1++"=INFO REPORT====.*\nFORMATTER CRASH: .*"++M2,
+                          escape(Got1)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M2,
                           5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{?MODULE,crash}),
     logger:info(M3=?msg,?domain),
     Got3 = try_match_file(Log,
-                          Got2++"=INFO REPORT====.*\nFORMATTER CRASH: .*"++M3,
+                          escape(Got2)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M3,
                           5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{?MODULE,bad_return}),
     logger:info(?msg,?domain),
     try_match_file(Log,
-                   Got3++"FORMATTER ERROR: bad_return_value",
+                   escape(Got3)++"FORMATTER ERROR: bad_return_value",
                    5000),
 
     %% Check that handler is still alive and was never dead
@@ -1020,7 +1020,7 @@ mem_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter + 2000),
+            timer:sleep(RestartAfter * 3),
             true = is_pid(whereis(?MODULE)),
             ok
     after
@@ -1518,3 +1518,10 @@ check_tracer(T,TimeoutFun) ->
             dbg:stop_clear(),
             TimeoutFun()
     end.
+
+escape([$+|Rest]) ->
+    [$\\,$+|escape(Rest)];
+escape([H|T]) ->
+    [H|escape(T)];
+escape([]) ->
+    [].

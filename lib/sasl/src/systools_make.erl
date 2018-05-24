@@ -1551,7 +1551,7 @@ mandatory_modules() ->
      logger_server,
      logger_backend,
      logger_config,
-     logger_simple,
+     logger_simple_h,
      lists,
      proc_lib,
      supervisor

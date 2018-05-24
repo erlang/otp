@@ -318,7 +318,7 @@ macros(_Config) ->
 
 macros(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 set_level(_Config) ->
@@ -350,29 +350,29 @@ set_level_module(_Config) ->
     logger:info(M2=?map_rep,?MY_LOC(0)),
     ok = check_logged(info,M2,?MY_LOC(1)),
 
-    {error,{not_a_module,{bad}}} = logger:reset_module_level({bad}),
-    ok = logger:reset_module_level(?MODULE),
+    {error,{not_a_module,{bad}}} = logger:unset_module_level({bad}),
+    ok = logger:unset_module_level(?MODULE),
 
     ok.
 
 set_level_module(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 cache_level_module(_Config) ->
-    ok = logger:reset_module_level(?MODULE),
+    ok = logger:unset_module_level(?MODULE),
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ?LOG_INFO(?map_rep),
     %% Caching is done asynchronously, so wait a bit for the update
     timer:sleep(100),
     [_] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
-    ok = logger:reset_module_level(?MODULE),
+    ok = logger:unset_module_level(?MODULE),
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ok.
 
 cache_level_module(cleanup,_Config) ->
-    logger:reset_module_level(?MODULE),
+    logger:unset_module_level(?MODULE),
     ok.
 
 format_report(_Config) ->
@@ -769,14 +769,14 @@ process_metadata(_Config) ->
     undefined = logger:get_process_metadata(),
     {error,badarg} = ?TRY(logger:set_process_metadata(bad)),
     ok = logger:add_handler(h1,?MODULE,#{level=>info,filter_default=>log}),
-    Time = erlang:monotonic_time(microsecond),
+    Time = erlang:system_time(microsecond),
     ProcMeta = #{time=>Time,line=>0,custom=>proc},
     ok = logger:set_process_metadata(ProcMeta),
     S1 = ?str,
     ?LOG_INFO(S1,#{custom=>macro}),
     check_logged(info,S1,#{time=>Time,line=>0,custom=>macro}),
 
-    Time2 = erlang:monotonic_time(microsecond),
+    Time2 = erlang:system_time(microsecond),
     S2 = ?str,
     ?LOG_INFO(S2,#{time=>Time2,line=>1,custom=>macro}),
     check_logged(info,S2,#{time=>Time2,line=>1,custom=>macro}),
@@ -839,20 +839,20 @@ check_maps(Expected,Got,What) ->
     end.
 
 %% Handler
-adding_handler(_Id,#{add_call:=Fun}) ->
+adding_handler(#{add_call:=Fun}) ->
     Fun();
-adding_handler(_Id,Config) ->
+adding_handler(Config) ->
     maybe_send(add),
     {ok,Config}.
 
-removing_handler(_Id,#{rem_call:=Fun}) ->
+removing_handler(#{rem_call:=Fun}) ->
     Fun();
-removing_handler(_Id,_Config) ->
+removing_handler(_Config) ->
     maybe_send(remove),
     ok.
-changing_config(_Id,_Old,#{conf_call:=Fun}) ->
+changing_config(_Old,#{conf_call:=Fun}) ->
     Fun();
-changing_config(_Id,_Old,Config) ->
+changing_config(_Old,Config) ->
     maybe_send(changing_config),
     {ok,Config}.
 

@@ -24,7 +24,7 @@
          allow/2,allow/3,
          get/2, get/3, get/1,
          create/3, create/4, set/3,
-         set_module_level/3,reset_module_level/2,
+         set_module_level/3,unset_module_level/2,
          cache_module_level/2,
          level_to_int/1]).
 
@@ -109,7 +109,7 @@ set_module_level(Tid,Module,Level) ->
     ets:insert(Tid,{Module,level_to_int(Level)}),
     ok.
 
-reset_module_level(Tid,Module) ->
+unset_module_level(Tid,Module) ->
     ets:delete(Tid,Module), % should possibley overwrite instead of delete?
     ok.
 

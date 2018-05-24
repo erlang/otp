@@ -35,8 +35,8 @@
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/2, removing_handler/2,
-         changing_config/3, swap_buffer/2]).
+-export([log/2, adding_handler/1, removing_handler/1,
+         changing_config/2, swap_buffer/2]).
 
 %%%===================================================================
 %%% API
@@ -109,8 +109,8 @@ reset(Name) ->
 
 %%%-----------------------------------------------------------------
 %%% Handler being added
-adding_handler(Name, Config) ->
-    case check_config(adding, Name, Config) of
+adding_handler(#{id:=Name}=Config) ->
+    case check_config(adding, Config) of
         {ok, Config1} ->
             %% create initial handler state by merging defaults with config
             HConfig = maps:get(?MODULE, Config1, #{}),
@@ -137,9 +137,8 @@ adding_handler(Name, Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(Name,
-                OldConfig=#{id:=Id, ?MODULE:=#{type:=Type}},
-                NewConfig=#{id:=Id}) ->
+changing_config(OldConfig=#{id:=Name, ?MODULE:=#{type:=Type}},
+                NewConfig=#{id:=Name}) ->
     MyConfig = maps:get(?MODULE, NewConfig, #{}),
     case maps:get(type, MyConfig, Type) of
         Type ->
@@ -149,11 +148,11 @@ changing_config(Name,
         _ ->
             {error,{illegal_config_change,OldConfig,NewConfig}}
     end;
-changing_config(_Name, OldConfig, NewConfig) ->
+changing_config(OldConfig, NewConfig) ->
     {error,{illegal_config_change,OldConfig,NewConfig}}.
 
 changing_config1(Name, OldConfig, NewConfig) ->
-    case check_config(changing, Name, NewConfig) of
+    case check_config(changing, NewConfig) of
         Result = {ok,NewConfig1} ->
             try gen_server:call(Name, {change_config,OldConfig,NewConfig1},
                                 ?DEFAULT_CALL_TIMEOUT) of
@@ -166,9 +165,7 @@ changing_config1(Name, OldConfig, NewConfig) ->
             Error
     end.    
 
-check_config(adding, Name, Config0) ->
-    %% Merge in defaults on top level
-    Config = maps:merge(#{id => Name}, Config0),
+check_config(adding, Config) ->
     %% Merge in defaults on handler level
     MyConfig0 = maps:get(?MODULE, Config, #{}),
     MyConfig = maps:merge(#{type => standard_io},
@@ -179,7 +176,7 @@ check_config(adding, Name, Config0) ->
         Error ->
             Error
     end;
-check_config(changing, _Name, Config) ->
+check_config(changing, Config) ->
     MyConfig = maps:get(?MODULE, Config, #{}),
     case check_my_config(maps:to_list(MyConfig)) of
         ok    -> {ok,Config};
@@ -207,7 +204,7 @@ check_my_config([]) ->
 
 %%%-----------------------------------------------------------------
 %%% Handler being removed
-removing_handler(Name,_Config) ->
+removing_handler(#{id:=Name}) ->
     stop(Name).
 
 %%%-----------------------------------------------------------------
@@ -222,15 +219,15 @@ swap_buffer(Name,Buffer) ->
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
--spec log(Log, Config) -> ok | dropped when
-      Log :: logger:log(),
+-spec log(LogEvent, Config) -> ok | dropped when
+      LogEvent :: logger:log_event(),
       Config :: logger:config().
 
-log(Log,Config=#{id:=Name}) ->
+log(LogEvent,Config=#{id:=Name}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
     true = is_pid(whereis(Name)),
-    Bin = logger_h_common:log_to_binary(Log,Config),
+    Bin = logger_h_common:log_to_binary(LogEvent,Config),
     logger_h_common:call_cast_or_drop(Name, Bin).
 
 %%%===================================================================

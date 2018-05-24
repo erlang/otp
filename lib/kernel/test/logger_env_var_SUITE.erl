@@ -82,11 +82,11 @@ default(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 default_sasl_compatible(Config) ->
@@ -95,11 +95,11 @@ default_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    true = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    true = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_tty(Config) ->
@@ -107,11 +107,11 @@ error_logger_tty(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_tty_sasl_compatible(Config) ->
@@ -121,11 +121,11 @@ error_logger_tty_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    true = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    true = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_false(Config) ->
@@ -134,14 +134,14 @@ error_logger_false(Config) ->
               [{error_logger,false},
                {logger_level,notice}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    {logger_simple,logger_simple,SimpleC} = lists:keyfind(logger_simple,1,Hs),
+    {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_false_progress(Config) ->
@@ -149,16 +149,16 @@ error_logger_false_progress(Config) ->
         setup(Config,
               [{error_logger,false},
                {logger_level,notice},
-               {logger_log_progress,true}]),
+               {logger_progress_reports,log}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    {logger_simple,logger_simple,SimpleC} = lists:keyfind(logger_simple,1,Hs),
+    {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_false_sasl_compatible(Config) ->
@@ -168,22 +168,22 @@ error_logger_false_sasl_compatible(Config) ->
                {logger_level,notice},
                {logger_sasl_compatible,true}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    {logger_simple,logger_simple,SimpleC} = lists:keyfind(logger_simple,1,Hs),
+    {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     info = maps:get(level,SimpleC),
     notice = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
-    true = lists:keymember(sasl_h,1,Hs),
+    true = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_silent(Config) ->
     {ok,#{handlers:=Hs},_Node} = setup(Config,
                                        [{error_logger,silent}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 error_logger_silent_sasl_compatible(Config) ->
@@ -191,8 +191,8 @@ error_logger_silent_sasl_compatible(Config) ->
                                        [{error_logger,silent},
                                         {logger_sasl_compatible,true}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    false = lists:keymember(logger_simple,1,Hs),
-    true = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    true = lists:keymember(sasl,1,Hs),
     ok.
 
 
@@ -220,11 +220,11 @@ logger_file(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -243,11 +243,11 @@ logger_file_sasl_compatible(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    true = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    true = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -255,7 +255,7 @@ logger_file_log_progress(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}}]}]),
@@ -266,11 +266,11 @@ logger_file_log_progress(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -289,8 +289,8 @@ logger_file_no_filter(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     [] = maps:get(filters,StdC),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -310,8 +310,8 @@ logger_file_no_filter_level(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     error = maps:get(level,StdC),
     [] = maps:get(filters,StdC),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -331,8 +331,8 @@ logger_file_formatter(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     [] = maps:get(filters,StdC),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -340,7 +340,7 @@ logger_filters(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,logger:=Logger},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}},
@@ -353,11 +353,11 @@ logger_filters(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     LoggerFilters = maps:get(filters,Logger),
     true = lists:keymember(stop_progress,1,LoggerFilters),
 
@@ -367,7 +367,7 @@ logger_filters_stop(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,logger:=Logger},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filters=>[],
@@ -382,8 +382,8 @@ logger_filters_stop(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     [] = maps:get(filters,StdC),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     LoggerFilters = maps:get(filters,Logger),
     true = lists:keymember(log_error,1,LoggerFilters),
 
@@ -393,7 +393,7 @@ logger_module_level(Config) ->
     Log = file(Config,?FUNCTION_NAME),
     {ok,#{handlers:=Hs,module_levels:=ModuleLevels},Node}
         = setup(Config,
-                [{logger_log_progress,true},
+                [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{logger_std_h=>#{type=>{file,Log}}}},
@@ -406,11 +406,11 @@ logger_module_level(Config) ->
     {?STANDARD_HANDLER,logger_std_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     false = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     [{supervisor,error}] = ModuleLevels,
     ok.
 
@@ -428,11 +428,11 @@ logger_disk_log(Config) ->
     {?STANDARD_HANDLER,logger_disk_log_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,StdFilters),
     true = lists:keymember(stop_progress,1,StdFilters),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -452,8 +452,8 @@ logger_disk_log_formatter(Config) ->
     {?STANDARD_HANDLER,logger_disk_log_h,StdC} = lists:keyfind(?STANDARD_HANDLER,1,Hs),
     info = maps:get(level,StdC),
     [] = maps:get(filters,StdC),
-    false = lists:keymember(logger_simple,1,Hs),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(simple,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
 
     ok.
 
@@ -461,14 +461,14 @@ logger_undefined(Config) ->
     {ok,#{handlers:=Hs,logger:=L},_Node} =
         setup(Config,[{logger,[{handler,?STANDARD_HANDLER,undefined}]}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
-    {logger_simple,logger_simple,SimpleC} = lists:keyfind(logger_simple,1,Hs),
+    {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     info = maps:get(level,SimpleC),
     info = maps:get(level,L),
     SimpleFilters = maps:get(filters,SimpleC),
-    {domain,{_,{log,prefix_of,[beam,erlang,otp,sasl]}}} =
+    {domain,{_,{log,super,[beam,erlang,otp,sasl]}}} =
         lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),
-    false = lists:keymember(sasl_h,1,Hs),
+    false = lists:keymember(sasl,1,Hs),
     ok.
 
 
@@ -542,8 +542,8 @@ logger_many_handlers(Config, Env, LogErr, LogInfo, NumProgress) ->
     ok = rpc:call(Node,logger_std_h,filesync,[info]),
     {ok, Bin} = file:read_file(LogInfo),
     ct:log("Log content:~n~s",[Bin]),
-    match(Bin,<<"PROGRESS REPORT">>,NumProgress,info,info),
-    match(Bin,<<"ALERT REPORT">>,0,alert,info),
+    match(Bin,<<"info:">>,NumProgress+1,info,info),
+    match(Bin,<<"alert:">>,0,alert,info),
 
     ok.
 
@@ -552,7 +552,7 @@ sasl_compatible_false(Config) ->
     {ok,_Hs,Node} = setup(Config,
                           [{error_logger,{file,Log}},
                            {logger_sasl_compatible,false},
-                           {logger_log_progress,true}]),
+                           {logger_progress_reports,log}]),
     check_default_log(Node,Log,
                       file,% dest
                       6),% progress in std logger
@@ -563,7 +563,7 @@ sasl_compatible_false_no_progress(Config) ->
     {ok,_Hs,Node} = setup(Config,
                           [{error_logger,{file,Log}},
                            {logger_sasl_compatible,false},
-                           {logger_log_progress,false}]),
+                           {logger_progress_reports,stop}]),
     check_default_log(Node,Log,
                       file,% dest
                       0),% progress in std logger
@@ -589,7 +589,7 @@ bad_sasl_compatibility(Config) ->
     error = setup(Config,[{logger_sasl_compatible,badcomp}]).
 
 bad_progress(Config) ->
-    error = setup(Config,[{logger_log_progress,badprogress}]).
+    error = setup(Config,[{logger_progress_reports,badprogress}]).
 
 %%%-----------------------------------------------------------------
 %%% Internal

@@ -33,23 +33,24 @@
     <file>logger.xml</file>
   </header>
   <module>logger</module>
-  <modulesummary>API module for the logger.</modulesummary>
+  <modulesummary>API module for logging in Erlang/OTP.</modulesummary>
 
   <description>
     <p>
-      This module is the main logger API. It contains functions that allow
-      application to use a single log API and the system to manage those log
-      events independently. To log events the logger
-      <seealso marker="#macros">macros</seealso> should be used. For instance,
-      to log a new error log event:</p>
+      This module is the main API for logging in Erlang/OTP. It
+      contains functions that allow applications to use a single log
+      API and the system to manage those log events independently. Use
+      the <seealso marker="#emergency-1">API functions</seealso> or the log
+      <seealso marker="#macros">macros</seealso> to log events. For instance,
+      to log a new error event:</p>
       <code>
 ?LOG_ERROR("error happened because: ~p",[Reason]). %% With macro
 logger:error("error happened because: ~p",[Reason]). %% Without macro
       </code>
-      <p>This log event will then be sent to the configured log handlers which
-      by default means that it will be printed to the console. If you want
+      <p>This log event is then sent to the configured log handlers which
+      by default means that it is be printed to the console. If you want
       your systems logs to be printed to a file instead of the console you
-      have to configure the default handler to do so. The simplest way is
+      must configure the default handler to do so. The simplest way is
       to include the following in your <seealso marker="config"><c>sys.config</c></seealso>.</p>
       <code>
 [{kernel,
@@ -63,7 +64,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
     <list type="bulleted">
       <item>how to use the API,
         see <seealso marker="logger_chapter">the User's Guide</seealso>.</item>
-      <item>how to configure logger,
+      <item>how to configure Logger,
         see the <seealso marker="logger_chapter#configuration">Configuration</seealso>
         section in the User's Guide.</item>
       <item>the convinience macros in logger.hrl,
@@ -86,7 +87,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
       </desc>
     </datatype>
     <datatype>
-      <name name="log"/>
+      <name name="log_event"/>
       <desc>
 	<p></p>
       </desc>
@@ -111,7 +112,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	<list>
 	  <item><c>pid  => self()</c></item>
 	  <item><c>gl   => group_leader()</c></item>
-	  <item><c>time => erlang:monotonic_time(microsecond)</c></item>
+	  <item><c>time => erlang:system_time(microsecond)</c></item>
 	</list>
 	<p>When a log macro is used, Logger also inserts location
 	  information:</p>
@@ -129,8 +130,31 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	    <c>update_process_metadata/1</c></seealso>.</p>
 	<p>Logger merges all the metadata maps before forwarding the
 	  log event to the handlers. If the same keys occur, values
-	  from the log call overwrites process metadata, which in turn
-	  overwrites values set by Logger.</p>
+	  from the log call overwrite process metadata, which in turn
+	  overwrite values set by Logger.</p>
+	<p>The following custom metadata keys have special meaning:</p>
+	<taglist>
+	  <tag><c>domain</c></tag>
+	  <item>
+	    <p>The value associated with this key is used by filters
+	      for grouping log events originating from, for example,
+	      specific functional
+	      areas. See <seealso marker="logger_filters#domain-2">
+		<c>logger_filters:domain/2</c></seealso>
+	      for a description of how this field can be used.</p>
+	  </item>
+	  <tag><c>report_cb</c></tag>
+	  <item>
+	    <p>If the log message is specified as
+	      a <seealso marker="#type-report"><c>report()</c></seealso>,
+	      the <c>report_cb</c> key can be associated with a fun
+	      (report callback) that converts the report to a format
+	      string and arguments. See
+	      section <seealso marker="logger_chapter#log_message">Log
+	      Message</seealso> in the User's Guide for more
+	      information about report callbacks.</p>
+	  </item>
+	</taglist>
       </desc>
     </datatype>
     <datatype>
@@ -144,7 +168,7 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 	  <item><c>filters => []</c></item>
 	  <item><c>formatter => {logger_formatter,DefaultFormatterConfig</c>}</item>
 	</list>
-	<p>See the <seealso marker="logger_formatter#configuration">
+	<p>See the <seealso marker="logger_formatter#type-config">
 	    <c>logger_formatter(3)</c></seealso> manual page for
 	  information about the default configuration for this
 	  formatter.</p>
@@ -165,7 +189,8 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
     <datatype>
       <name name="filter"/>
       <desc>
-	<p>A filter which can be installed for logger or for a handler.</p>
+	<p>A filter which can be installed for the logger part of
+	  Logger, or for a handler.</p>
       </desc>
     </datatype>
     <datatype>
@@ -184,8 +209,17 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
       <name name="timestamp"/>
       <desc>
 	<p>A timestamp produced
-	  with <seealso marker="erts:erlang#monotonic_time-1">
-	    <c>erlang:monotonic_time(microsecond)</c></seealso>.</p>
+	  with <seealso marker="erts:erlang#system_time-1">
+	    <c>erlang:system_time(microsecond)</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="formatter_config"/>
+      <desc>
+	<p>Configuration data for the
+	formatter. See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example of a formatter implementation.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -213,9 +247,9 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
       <item><c>?LOG_DEBUG(FunOrFormat,Args[,Metadata])</c></item>
     </list>
 
-    <p>All macros expand to a call to logger, where <c>Level</c> is
-      taken from the macro name, and location data is added. See the
-      description of
+    <p>All macros expand to a call to Logger, where <c>Level</c> is
+      taken from the macro name, and location data is added to the
+      metadata. See the description of
       the <seealso marker="#type-metadata"><c>metadata()</c></seealso>
       type for more information about the location data.</p>
 
@@ -335,23 +369,26 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
 
     <func>
       <name name="get_logger_config" arity="0"/>
-      <fsummary>Lookup the current configuration for logger.</fsummary>
+      <fsummary>Look up the current configuration for the logger part
+	of Logger.</fsummary>
       <desc>
-        <p>Lookup the current configuration for logger.</p>
+        <p>Look up the current configuration for the logger part of
+          Logger.</p>
       </desc>
     </func>
 
     <func>
       <name name="get_handler_config" arity="1"/>
-      <fsummary>Lookup the current configuration for the given handler.</fsummary>
+      <fsummary>Look up the current configuration for the given
+	handler.</fsummary>
       <desc>
-        <p>Lookup the current configuration for the given handler.</p>
+        <p>Look up the current configuration for the given handler.</p>
       </desc>
     </func>
 
     <func>
       <name name="i" arity="0"/>
-      <fsummary>Get all logger configurations</fsummary>
+      <fsummary>Get all Logger configurations</fsummary>
       <desc>
         <p>Same as <seealso marker="#i/1"><c>logger:i(term)</c></seealso></p>
       </desc>
@@ -361,28 +398,28 @@ logger:error("error happened because: ~p",[Reason]). %% Without macro
       <name name="i" arity="1" clause_i="1"/>
       <name name="i" arity="1" clause_i="2"/>
       <name name="i" arity="1" clause_i="3"/>
-      <fsummary>Get all logger configurations</fsummary>
+      <fsummary>Get all Logger configurations</fsummary>
       <desc>
-        <p>Display or return all current logger configuration.</p>
+        <p>Display or return all current Logger configurations.</p>
         <taglist>
           <tag><c><anno>Action</anno> = string</c></tag>
           <item>
-	    <p>Return the pretty printed current logger configuration
+	    <p>Return the pretty printed current Logger configuration
               as iodata.</p>
 	  </item>
           <tag><c><anno>Action</anno> = term</c></tag>
           <item>
-	    <p>Return the current logger configuration as a term. The
-              format of this term may change inbetween releases. For a
+	    <p>Return the current Logger configuration as a term. The
+              format of this term may change between releases. For a
               stable format use <seealso marker="#get_handler_config/1">
 	      <c>logger:get_handler_config/1</c></seealso>
               and <seealso marker="#get_logger_config/0">
-	      <c>logger:get_logger_config/0</c></seealso>.
-              The same as calling <c>logger:i()</c>.</p>
+	      <c>logger:get_logger_config/0</c></seealso>.</p>
+            <p>The same as calling <c>logger:i()</c>.</p>
 	  </item>
 	  <tag><c><anno>Action</anno> = print</c></tag>
           <item>
-	    <p>Pretty print all the current logger configuration to
+	    <p>Pretty print all the current Logger configuration to
               standard out. Example:</p>
             <code><![CDATA[1> logger:i(print).
 Current logger configuration:
@@ -407,10 +444,10 @@ Current logger configuration:
           Config: stop
         Id: domain
           Fun:    fun logger_filters:domain/2
-          Config: {log,prefix_of,[beam,erlang,otp,sasl]}
+          Config: {log,super,[beam,erlang,otp,sasl]}
         Id: no_domain
           Fun:    fun logger_filters:domain/2
-          Config: {log,no_domain,[]}
+          Config: {log,undefined,[]}
       Handler Config:
         logger_std_h: #{type => standard_io}
   Level set per module:
@@ -423,21 +460,21 @@ Current logger configuration:
 
     <func>
       <name name="add_logger_filter" arity="2"/>
-      <fsummary>Add a filter to the logger.</fsummary>
+      <fsummary>Add a filter to the logger part of Logger.</fsummary>
       <desc>
-        <p>Add a filter to the logger.</p>
+        <p>Add a filter to the logger part of Logger.</p>
 	<p>The filter fun is called with the log event as the first
 	  parameter, and the specified <c>filter_args()</c> as the
 	  second parameter.</p>
 	<p>The return value of the fun specifies if a log event is to
 	  be discarded or forwarded to the handlers:</p>
 	<taglist>
-	  <tag><c>log()</c></tag>
+	  <tag><c>log_event()</c></tag>
 	  <item>
 	    <p>The filter <em>passed</em>. The next logger filter, if
 	      any, is applied. If no more logger filters exist, the
-	      log event is forwarded to the handler part of the
-	      logger, where handler filters are applied.</p>
+	      log event is forwarded to the handler part of Logger,
+	      where handler filters are applied.</p>
 	  </item>
 	  <tag><c>stop</c></tag>
 	  <item>
@@ -449,13 +486,13 @@ Current logger configuration:
 	    <p>The filter has no knowledge of the log event. The next
 	      logger filter, if any, is applied. If no more logger
 	      filters exist, the value of the <c>filter_default</c>
-	      configuration parameter for the logger specifies if the
-	      log event shall be discarded or forwarded to the handler
-	      part.</p>
+	      configuration parameter for the logger part specifies if
+	      the log event shall be discarded or forwarded to the
+	      handler part.</p>
 	  </item>
 	</taglist>
-	<p>See section <seealso marker="logger_chapter#Filter">
-	    Filter</seealso> in the User's Guide for more information
+	<p>See section <seealso marker="logger_chapter#filters">
+	    Filters</seealso> in the User's Guide for more information
 	    about filters.</p>
 	<p>Some built-in filters exist. These are defined
 	  in <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
@@ -473,7 +510,7 @@ Current logger configuration:
 	<p>The return value of the fun specifies if a log event is to
 	  be discarded or forwarded to the handler callback:</p>
 	<taglist>
-	  <tag><c>log()</c></tag>
+	  <tag><c>log_event()</c></tag>
 	  <item>
 	    <p>The filter <em>passed</em>. The next handler filter, if
 	      any, is applied. If no more filters exist for this
@@ -496,7 +533,7 @@ Current logger configuration:
 	  </item>
 	</taglist>
 	<p>See
-	  section <seealso marker="logger_chapter#Filter">Filter</seealso>
+	  section <seealso marker="logger_chapter#filters">Filters</seealso>
 	  in the User's Guide for more information about filters.</p>
 	<p>Some built-in filters exist. These are defined in
 	  <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
@@ -505,10 +542,10 @@ Current logger configuration:
 
     <func>
       <name name="remove_logger_filter" arity="1"/>
-      <fsummary>Remove a filter from the logger.</fsummary>
+      <fsummary>Remove a filter from the logger part of Logger.</fsummary>
       <desc>
         <p>Remove the filter identified
-          by <c><anno>FilterId</anno></c> from the logger.</p>
+          by <c><anno>FilterId</anno></c> from the logger part of Logger.</p>
       </desc>
     </func>
 
@@ -548,21 +585,21 @@ Current logger configuration:
         <p>Set the log level for the
           specified <c><anno>Module</anno></c>.</p>
 	<p>The log level for a module overrides the global log level
-	  of the logger for log event originating from the module in
+	  of Logger for log events originating from the module in
 	  question. Notice, however, that it does not override the
 	  level configuration for any handler.</p>
-	<p>For example: Assume that the global log level for the
-	  logger is <c>info</c>, and there is one handler, <c>h1</c>,
-	  with level <c>info</c> and one handler, <c>h2</c>, with
+	<p>For example: Assume that the global log level for Logger
+	  is <c>info</c>, and there is one handler, <c>h1</c>, with
+	  level <c>info</c> and one handler, <c>h2</c>, with
 	  level <c>debug</c>.</p>
 	<p>With this configuration, no debug messages will be logged,
 	  since they are all stopped by the global log level.</p>
-	<p>If the level for <c>mymodule</c> is set now set
+	<p>If the level for <c>mymodule</c> is now set
 	  to <c>debug</c>, then debug events from this module will be
 	  logged by the handler <c>h2</c>, but not by
 	  handler <c>h1</c>.</p>
 	<p>Debug events from other modules are still not logged.</p>
-        <p>To change the global log level for the logger, use
+        <p>To change the global log level for Logger, use
           <seealso marker="#set_logger_config/2">
 	    <c>logger:set_logger_config(level,Level)</c></seealso>.</p>
         <p>To change the log level for a handler, use
@@ -572,15 +609,16 @@ Current logger configuration:
 	  <p>The originating module for a log event is only detected
 	    if <c>mfa=>{Module,Function,Arity}</c> exists in the
 	    metadata. When log macros are used, this association is
-	    automatically added to all log events. If the logger API
+	    automatically added to all log events. If an API function
 	    is called directly, without using a macro, the logging
-	    client must explicitly add this information.</p>
+	    client must explicitly add this information if module
+	    levels shall have any effect.</p>
 	</note>
       </desc>
     </func>
 
     <func>
-      <name name="reset_module_level" arity="1"/>
+      <name name="unset_module_level" arity="1"/>
       <fsummary>Remove a module specific log setting.</fsummary>
       <desc>
         <p>Remove a module specific log setting. After this, the
@@ -590,10 +628,11 @@ Current logger configuration:
 
     <func>
       <name name="add_handlers" arity="1" clause_i="1"/>
-      <fsummary>Setup logger handlers from the applications configuration parameters.</fsummary>
+      <fsummary>Set up log handlers from the application's
+	configuration parameters.</fsummary>
       <desc>
         <p>Reads the application configuration parameter <c>logger</c> and
-          calls <c>logger:add_handlers/1</c> with it contents.</p>
+          calls <c>logger:add_handlers/1</c> with its contents.</p>
       </desc>
     </func>
 
@@ -602,11 +641,12 @@ Current logger configuration:
       <fsummary>Setup logger handlers.</fsummary>
       <type name="config_handler"/>
       <desc>
-        <p>This function should be used by custom logger handlers to make
+        <p>This function should be used by custom Logger handlers to make
         configuration consistent no matter which handler the system uses.
-        Normal usage to to add a call to <c>logger:add_handlers/1</c>
-        just after the processes that the handler needs are started
-        and pass the applications logger config as an argument. Eg.</p>
+        Normal usage is to add a call to <c>logger:add_handlers/1</c>
+        just after the processes that the handler needs are started,
+        and pass the application's <c>logger</c> configuration as the argument.
+	For example:</p>
         <code>
 -behaviour(application).
 start(_, []) ->
@@ -616,19 +656,20 @@ start(_, []) ->
             {ok, Pid, []};
         Error -> Error
      end.</code>
-       <p>This will read the <c>logger</c> configuration parameter from
-         the handler application and start the configured handlers. The contents
-         of the configuration use the same rules as the
+       <p>This reads the <c>logger</c> configuration parameter from
+         the <c>my_all</c> application and starts the configured
+         handlers. The contents of the configuration use the same
+         rules as the
          <seealso marker="logger_chapter#handler-configuration">logger handler configuration</seealso>.
        </p>
-       <p>If the handler is meant to replace the default handler the kernels
-         default handlers have to be disabled before the new handler is added.
-         A <c>sys.config</c> file that disables the kernel handler and adds
-         a custom handler could looks like this:</p>
+       <p>If the handler is meant to replace the default handler, the Kernel's
+         default handler have to be disabled before the new handler is added.
+         A <c>sys.config</c> file that disables the Kernel handler and adds
+         a custom handler could look like this:</p>
          <code>
 [{kernel,
   [{logger,
-    %% Disable the default kernel handler
+    %% Disable the default Kernel handler
     [{handler,default,undefined}]}]},
  {my_app,
   [{logger,
@@ -640,10 +681,10 @@ start(_, []) ->
 
     <func>
       <name name="set_logger_config" arity="1"/>
-      <fsummary>Set configuration data for the logger.</fsummary>
+      <fsummary>Set configuration data for the logger part of Logger.</fsummary>
       <desc>
-        <p>Set configuration data for the logger. This overwrites the
-          current logger configuration.</p>
+        <p>Set configuration data for the logger part of Logger. This
+          overwrites the current logger configuration.</p>
 	<p>To modify the existing configuration,
 	  use <seealso marker="#update_logger_config-1">
 	    <c>update_logger_config/1</c></seealso>, or, if a more
@@ -658,21 +699,25 @@ start(_, []) ->
 
     <func>
       <name name="set_logger_config" arity="2"/>
-      <fsummary>Add or update configuration data for the logger.</fsummary>
+      <fsummary>Add or update configuration data for the logger part
+	of Logger.</fsummary>
       <desc>
-        <p>Add or update configuration data for the logger. If the
-          given <c><anno>Key</anno></c> already exists, its associated
-          value will be changed to <c><anno>Value</anno></c>. If it
-          does not exist, it will be added.</p>
+        <p>Add or update configuration data for the logger part of
+          Logger. If the given <c><anno>Key</anno></c> already exists,
+          its associated value will be changed
+          to <c><anno>Value</anno></c>. If it does not exist, it will
+          be added.</p>
       </desc>
     </func>
 
     <func>
       <name name="update_logger_config" arity="1"/>
-      <fsummary>Update configuration data for the logger.</fsummary>
+      <fsummary>Update configuration data for the logger part of
+	Logger.</fsummary>
       <desc>
-        <p>Update configuration data for the logger. This function
-          behaves as if it was implemented as follows:</p>
+        <p>Update configuration data for the logger part of
+          Logger. This function behaves as if it was implemented as
+          follows:</p>
 	<code type="erl">
 {ok,Old} = logger:get_logger_config(),
 logger:set_logger_config(maps:merge(Old,Config)).
@@ -697,7 +742,7 @@ logger:set_logger_config(maps:merge(Old,Config)).
 	  </seealso>, then do the merge before writing the new
 	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
-	  and the key is know by Logger, the default value is used. If
+	  and the key is known by Logger, the default value is used. If
 	  it is a custom key, then it is up to the handler
 	  implementation if the value is removed or a default value is
 	  inserted.</p>
@@ -730,6 +775,31 @@ logger:set_handler_config(HandlerId,maps:merge(Old,Config)).
 	<p>To overwrite the existing configuration without any merge,
 	  use <seealso marker="#set_handler_config-2"><c>set_handler_config/2</c>
 	  </seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_formatter_config" arity="2"/>
+      <fsummary>Update the formatter configuration for the specified handler.</fsummary>
+      <desc>
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>The new configuration is merged with the existing formatter
+	  configuration.</p>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_handler_config-3">
+	    <c>set_handler_config(HandlerId,formatter,
+	      {FormatterModule,FormatterConfig})</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_formatter_config" arity="3"/>
+      <fsummary>Update the formatter configuration for the specified handler.</fsummary>
+      <desc>
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>This is equivalent
+	  to <br/><seealso marker="#update_formatter_config-2">
+	    <c>update_formatter_config(<anno>HandlerId</anno>,#{<anno>Key</anno>=><anno>Value</anno>})</c></seealso></p>
       </desc>
     </func>
 
@@ -826,18 +896,17 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
   </funcs>
 
   <section>
-    <title>Callback Functions</title>
+    <marker id="handler_callback_functions"/>
+    <title>Handler Callback Functions</title>
     <p>The following functions are to be exported from a handler
       callback module.</p>
   </section>
 
   <funcs>
     <func>
-      <name>Module:adding_handler(HandlerId,Config1) -> {ok,Config2} | {error,Reason}</name>
+      <name>HModule:adding_handler(Config1) -> {ok,Config2} | {error,Reason}</name>
       <fsummary>An instance of this handler is about to be added.</fsummary>
       <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
 	<v>Config1 = Config2 =
 	  <seealso marker="#type-config">config()</seealso></v>
 	<v>Reason = term()</v>
@@ -846,7 +915,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	<p>This callback function is optional.</p>
 	<p>The function is called when an new handler is about to be
 	  added, and the purpose is to verify the configuration and
-	  initiate all resourced needed by the handler.</p>
+	  initiate all resources needed by the handler.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config1</c>.</p>
 	<p>If everything succeeds, the callback function can add
 	  possible default values or internal state values to the
 	  configuration, and return the adjusted map
@@ -857,28 +928,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
     </func>
 
     <func>
-      <name>Module:removing_handler(HandlerId,Config) -> ok</name>
-      <fsummary>The given handler is about to be removed.</fsummary>
-      <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
-	<v>Config =
-	  <seealso marker="#type-config">config()</seealso></v>
-      </type>
-      <desc>
-	<p>This callback function is optional.</p>
-	<p>The function is called when a handler is about to be
-	  removed, and the purpose is to release all resources used by
-	  the handler. The return value is ignored by Logger.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>Module:changing_config(HandlerId,Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
+      <name>HModule:changing_config(Config1,Config2) -> {ok,Config3} | {error,Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
-	<v>HandlerId =
-	  <seealso marker="#type-handler_id">handler_id()</seealso></v>
 	<v>Config1 = Config2 = Config3 =
 	  <seealso marker="#type-config">config()</seealso></v>
 	<v>Reason = term()</v>
@@ -890,10 +942,106 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(),Meta)).
 	  the new configuration.</p>
 	<p><c>Config1</c> is the existing configuration
 	  and <c>Config2</c> is the new configuration.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config1</c>.</p>
 	<p>If everything succeeds, the callback function must return a
 	  possibly adjusted configuration in <c>{ok,Config3}</c>.</p>
 	<p>If the configuration is faulty, the callback function must
 	  return <c>{error,Reason}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>HModule:log(LogEvent,Config) -> void()</name>
+      <fsummary>Log the given log event.</fsummary>
+      <type>
+	<v>LogEvent =
+	  <seealso marker="#type-log_event">log_event()</seealso></v>
+	<v>Config =
+	  <seealso marker="#type-config">config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is mandatory.</p>
+	<p>The function is called when all global filters and all
+	  handler filters for the handler in question have passed for
+	  the given log event.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config</c>.</p>
+	<p>The handler must log the event.</p>
+	<p>The return value from this function is ignored by
+	  Logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>HModule:removing_handler(Config) -> ok</name>
+      <fsummary>The given handler is about to be removed.</fsummary>
+      <type>
+	<v>Config =
+	  <seealso marker="#type-config">config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called when a handler is about to be
+	  removed, and the purpose is to release all resources used by
+	  the handler.</p>
+	<p>The handler identity is associated with the <c>id</c> key
+	  in <c>Config</c>.</p>
+	<p>The return value is ignored by Logger.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <marker id="formatter_callback_functions"/>
+    <title>Formatter Callback Functions</title>
+    <p>The following functions are to be exported from a formatter
+      callback module.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name>FModule:check_config(FConfig) -> ok | {error,term()}</name>
+      <fsummary>Validate the given formatter configuration.</fsummary>
+      <type>
+	<v>FConfig =
+	  <seealso marker="#type-formatter_config">formatter_config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called by a Logger when formatter
+	  configuration is set or modified. The formatter must
+	  validate the given configuration and return <c>ok</c> if it
+	  is correct, and <c>{error,term()}</c> if it is faulty.</p>
+	<p>See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
+      </desc>
+    </func>
+    <func>
+      <name>FModule:format(LogEvent,FConfig) -> FormattedLogEntry</name>
+      <fsummary>Format the given log event.</fsummary>
+      <type>
+	<v>LogEvent =
+	  <seealso marker="#type-log_event">log_event()</seealso></v>
+	<v>FConfig =
+	  <seealso marker="#type-formatter_config">formatter_config()</seealso></v>
+	<v>FormattedLogEntry =
+	  <seealso marker="unicode#type-chardata">unicode:chardata()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is mandatory.</p>
+	<p>The function can be called by a log handler to convert a
+	  log event term to a printable string. The returned value
+	  can, for example, be printed as a log entry to the console
+	  or a file using <seealso marker="stdlib:io#put_chars-1">
+	    <c>io:put_chars/1,2</c></seealso>.</p>
+	<p>See <seealso marker="logger_formatter">
+	    <c>logger_formatter(3)</c></seealso>
+	  for an example implementation. <c>logger_formatter</c> is the
+	  default formatter used by Logger.</p>
       </desc>
     </func>
   </funcs>

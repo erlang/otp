@@ -68,7 +68,7 @@
              logger_formatter,
              logger_h_common,
              logger_server,
-             logger_simple,
+             logger_simple_h,
              logger_std_h,
              logger_sup,
 	     net,
@@ -140,7 +140,10 @@
                 inet_db,
                 pg2]},
   {applications, []},
-  {env, []},
+  {env, [{logger_level, info},
+         {logger_sasl_compatible, false},
+         {logger_progress_reports, stop}
+        ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-10.0", "stdlib-3.5", "sasl-3.0"]}
  ]
