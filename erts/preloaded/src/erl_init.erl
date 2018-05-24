@@ -30,6 +30,12 @@
       Mod :: module(),
       BootArgs :: [binary()].
 start(Mod, BootArgs) ->
+    %% Load the static nifs
+    zlib:on_load(),
+    erl_tracer:on_load(),
+    prim_buffer:on_load(),
+    prim_file:on_load(),
+    %% Proceed to the specified boot module
     run(Mod, boot, BootArgs).
 
 run(M, F, A) ->
