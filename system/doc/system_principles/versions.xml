@@ -32,9 +32,9 @@
     <rev></rev>
     <file>versions.xml</file>
   </header>
-  <marker id="versions section"></marker>
 
   <section>
+    <marker id="versions section"></marker>
     <title>OTP Version</title>
     <p>As of OTP release 17, the OTP release number corresponds to
     the major part of the OTP version. The OTP version as a concept was
@@ -136,8 +136,8 @@
   </section>
 
   <section>
-    <title>Version Scheme</title>
     <marker id="version_scheme"/>
+    <title>Version Scheme</title>
     <note><p>The version scheme was changed as of OTP 17.0. This implies
     that application versions used prior to OTP 17.0 do not adhere to this
     version scheme. <seealso marker="#otp_17_0_app_versions">A list of
@@ -207,8 +207,41 @@
   </section>
 
   <section>
-    <title>OTP 17.0 Application Versions</title>
+    <marker id="releases_and_patches"/>
+    <title>Releases and Patches</title>
+    <p>
+      When a new OTP release is released it will have an OTP
+      version on the form <c>&lt;Major&gt;.0</c> where the
+      major OTP version number equals the release number.
+      The major version number is increased one step since the
+      last major version. All other OTP versions with the same
+      major OTP version number are patches on that OTP release.
+    </p>
+    <p>
+      Patches are either released as maintenance patch packages
+      or emergency patch packages. The only difference is that
+      maintenance patch packages are planned and usually contain
+      more changes than emergency patch packages. Emergency patch
+      packages are released to solve one or more specific issues
+      when such are discovered.
+    </p>
+    <p>
+      The release of a maintenance patch package usually imply
+      an increase of the OTP <c>&lt;Minor&gt;</c> version while
+      the release of an emergency patch package usually imply an
+      increase of the OTP <c>&lt;Patch&gt;</c> version. This is
+      however not necessarily always the case since changes of
+      OTP versions are based on the actual changes in the code
+      and not based on whether the patch was planned or not.
+      For more information see the
+      <seealso marker="#version_scheme">Version Scheme</seealso>
+      section above.
+    </p>
+  </section>
+
+  <section>
     <marker id="otp_17_0_app_versions"/>
+    <title>OTP 17.0 Application Versions</title>
     <p>The following list details the application versions that
     were part of OTP 17.0. If
     the normal part of an application version number compares

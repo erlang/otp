@@ -34,4 +34,5 @@
   <xi:include href="create_target.xml"/>
   <xi:include href="upgrade.xml"/>
   <xi:include href="versions.xml"/>
+  <xi:include href="misc.xml"/>
 </part>
