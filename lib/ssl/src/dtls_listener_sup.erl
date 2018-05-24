@@ -23,7 +23,7 @@
 %% Purpose: Supervisor for a procsses dispatching upd datagrams to
 %% correct DTLS handler 
 %%----------------------------------------------------------------------
--module(dtls_udp_sup).
+-module(dtls_listener_sup).
 
 -behaviour(supervisor).
 
@@ -52,10 +52,10 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {dtls_udp_listener, start_link, []},
+    StartFunc = {dtls_packet_demux, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [dtls_udp_listener],
+    Modules = [dtls_packet_demux],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},

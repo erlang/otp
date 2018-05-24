@@ -137,9 +137,8 @@ next_record(#state{protocol_buffers =
                                 Buffers#protocol_buffers{dtls_cipher_texts = Rest},
                             connection_states = ConnectionStates});
 next_record(#state{role = server,
-		   socket = {Listener, {Client, _}},
-		   transport_cb = gen_udp} = State) -> 
-    dtls_udp_listener:active_once(Listener, Client, self()),
+		   socket = {Listener, {Client, _}}} = State) -> 
+    dtls_packet_demux:active_once(Listener, Client, self()),
     {no_record, State};
 next_record(#state{role = client,
 		   socket = {_Server, Socket} = DTLSSocket,
@@ -448,7 +447,7 @@ init({call, From}, {start, Timeout},
                          },
     {Record, State} = next_record(State3),
     next_event(hello, Record, State, Actions);
-init({call, _} = Type, Event, #state{role = server, transport_cb = gen_udp} = State) ->
+init({call, _} = Type, Event, #state{role = server, data_tag = udp} = State) ->
     Result = gen_handshake(?FUNCTION_NAME, Type, Event, 
                            State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
                                        protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
@@ -922,7 +921,7 @@ handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State)).
 
-handle_own_alert(Alert, Version, StateName, #state{transport_cb = gen_udp,
+handle_own_alert(Alert, Version, StateName, #state{data_tag = udp,
                                                    role = Role,
                                                    ssl_options = Options} = State0) ->
     case ignore_alert(Alert, State0) of
@@ -1013,10 +1012,10 @@ next_flight(Flight) ->
 	    change_cipher_spec => undefined,
 	    handshakes_after_change_cipher_spec => []}.
        
-handle_flight_timer(#state{transport_cb = gen_udp,
+handle_flight_timer(#state{data_tag = udp,
                           flight_state = {retransmit, Timeout}} = State) ->
     start_retransmision_timer(Timeout, State);
-handle_flight_timer(#state{transport_cb = gen_udp,
+handle_flight_timer(#state{data_tag = udp,
 		    flight_state = connection} = State) ->
     {State, []};
 handle_flight_timer(State) ->
