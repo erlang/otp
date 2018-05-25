@@ -43,6 +43,21 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typos.</p>
+          <p>
+	    Own Id: OTP-15045</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

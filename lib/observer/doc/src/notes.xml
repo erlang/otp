@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added possibility to garbage collect selected processes
+	    and fixed a crash when the saved config file contained
+	    bad data.</p>
+          <p>
+	    Own Id: OTP-14993 Aux Id: PR-1666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -27,6 +27,128 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of ECDH suites.</p>
+          <p>
+	    Own Id: OTP-14974</p>
+        </item>
+        <item>
+          <p>
+	    Proper handling of clients that choose to send an empty
+	    answer to a certificate request</p>
+          <p>
+	    Own Id: OTP-15050</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribution over SSL (inet_tls) has, to improve
+	    performance, been rewritten to not use intermediate
+	    processes and ports.</p>
+          <p>
+	    Own Id: OTP-14465</p>
+        </item>
+        <item>
+          <p>
+	    Add suport for ECDHE_PSK cipher suites</p>
+          <p>
+	    Own Id: OTP-14547</p>
+        </item>
+        <item>
+          <p>
+	    For security reasons no longer support 3-DES cipher
+	    suites by default</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14768</p>
+        </item>
+        <item>
+          <p>
+	    For security reasons RSA-key exchange cipher suites are
+	    no longer supported by default</p>
+          <p>
+	    *** INCOMPATIBILITY with possible ***</p>
+          <p>
+	    Own Id: OTP-14769</p>
+        </item>
+        <item>
+          <p>
+	    The interoperability option to fallback to insecure
+	    renegotiation now has to be explicitly turned on.</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14789</p>
+        </item>
+        <item>
+          <p>
+	    Drop support for SSLv2 enabled clients. SSLv2 has been
+	    broken for decades and never supported by the Erlang
+	    SSL/TLS implementation. This option was by default
+	    disabled and enabling it has proved to sometimes break
+	    connections not using SSLv2 enabled clients.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14824</p>
+        </item>
+        <item>
+          <p>
+	    Remove CHACHA20_POLY1305 ciphers form default for now. We
+	    have discovered interoperability problems, ERL-538, that
+	    we believe needs to be solved in crypto.</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14882</p>
+        </item>
+        <item>
+          <p>
+	    Generalize DTLS packet multiplexing to make it easier to
+	    add future DTLS features and uses.</p>
+          <p>
+	    Own Id: OTP-14888</p>
+        </item>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+        <item>
+          <p>
+	    The SSL distribution protocol <c>-proto inet_tls</c> has
+	    stopped setting the SSL option
+	    <c>server_name_indication</c>. New verify funs for client
+	    and server in <c>inet_tls_dist</c> has been added, not
+	    documented yet, that checks node name if present in peer
+	    certificate. Usage is still also yet to be documented.</p>
+          <p>
+	    Own Id: OTP-14969 Aux Id: OTP-14465, ERL-598 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecate ssl:ssl_accept/[1,2,3] in favour of
+	    ssl:handshake/[1,2,3]</p>
+          <p>
+	    Own Id: OTP-15056</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

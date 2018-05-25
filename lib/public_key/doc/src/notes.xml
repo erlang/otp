@@ -35,6 +35,42 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update calls to the base64 module to conform to that
+	    module's type specifications.</p>
+          <p>
+	    Own Id: OTP-14788 Aux Id: OTP-14624 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+        <item>
+          <p>
+	    Compleate PKCS-8 encoding support and enhance the
+	    decoding of 'PrivateKeyInfo' to conform to the rest of
+	    Erlang public_key API.</p>
+          <p>
+	    Own Id: OTP-15093</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
