@@ -592,8 +592,17 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
             {lists:sublist(Private, 2), Private}
     end;
 
+
+generate_key(ecdh, Curve, undefined) when Curve == x448 ;
+                                          Curve == x25519 ->
+    evp_generate_key_nif(Curve);
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
+
+
+evp_generate_key_nif(_Curve) -> ?nif_stub.
+
+
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
     case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
@@ -634,10 +643,17 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
     srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
                           UserPubBin, Prime));
 
+compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
+                                          Curve == x25519 ->
+    evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
+
 compute_key(ecdh, Others, My, Curve) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
 			 nif_curve_params(Curve),
 			 ensure_int_as_bin(My)).
+
+
+evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 
 %%======================================================================
 %% Engine functions
@@ -1150,7 +1166,11 @@ nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
     {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), ensure_int_as_bin(Order), ensure_int_as_bin(CoFactor)};
 nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
-    crypto_ec_curves:curve(Curve).
+    case Curve of
+        x448 -> {evp,Curve};
+        x25519 -> {evp,Curve};
+        _ -> crypto_ec_curves:curve(Curve)
+    end.
 
 
 %% MISC --------------------------------------------------------------------
