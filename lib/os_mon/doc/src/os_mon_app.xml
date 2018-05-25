@@ -88,33 +88,6 @@
   </section>
 
   <section>
-    <title>SNMP MIBs</title>
-    <p>The following MIBs are defined in OS_Mon:</p>
-    <taglist>
-      <tag>OTP-OS-MON-MIB</tag>
-      <item>
-        <p>This MIB contains objects for instrumentation of disk,
-          memory and CPU usage of the nodes in the system.</p>
-      </item>
-    </taglist>
-    <p>The MIB is stored in the <c>mibs</c> directory.  It is defined
-      in SNMPv2 SMI syntax. An SNMPv1 version of the MIB is delivered
-      in the <c>mibs/v1</c> directory.</p>
-    <p>The compiled MIB is located under <c>priv/mibs</c>, and
-      the generated <c>.hrl</c> file under the <c>include</c> directory.
-      To compile a MIB that IMPORTS the <c>OTP-OS-MON-MIB</c>, give
-      the option <c>{il, ["os_mon/priv/mibs"]}</c> to the MIB compiler.</p>
-    <p>If the MIB should be used in a system, it should be loaded into
-      an agent with a call to <c>os_mon_mib:load(Agent)</c>, where
-      <c>Agent</c> is the pid or registered name of an SNMP agent. Use
-      <c>os_mon_mib:unload(Agent)</c> to unload the MIB.
-      The implementation of this MIB uses Mnesia to store a cache with
-      data needed, which implicates that Mnesia must be up and running.
-      The MIB also use functions defined for the <c>OTP-MIB</c>, thus
-      that MIB must be loaded as well.</p>
-  </section>
-
-  <section>
     <title>See Also</title>
     <p><seealso marker="cpu_sup">cpu_sup(3)</seealso>,
       <seealso marker="disksup">disksup(3)</seealso>,

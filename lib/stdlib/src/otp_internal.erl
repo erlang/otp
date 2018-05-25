@@ -398,10 +398,8 @@ obsolete_1(megaco, format_versions, 1) ->
 
 %% *** OS-MON-MIB ***
 
-obsolete_1(os_mon_mib, init, 1) ->
-    {deprecated, {os_mon_mib, load, 1}};
-obsolete_1(os_mon_mib, stop, 1) ->
-    {deprecated, {os_mon_mib, unload, 1}};
+obsolete_1(os_mon_mib, _, _) ->
+    {removed, "was removed in 22.0"};
 
 obsolete_1(auth, is_auth, 1) ->
     {deprecated, {net_adm, ping, 1}};
