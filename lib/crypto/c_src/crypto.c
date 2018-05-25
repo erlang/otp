@@ -1120,6 +1120,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_password = enif_make_atom(env,"password");
 #endif
 
+
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
@@ -1216,6 +1217,8 @@ static int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
 static int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[2]; /* increase when extending the list */
+static int algo_curve_cnt, algo_curve_fips_cnt;
+static ERL_NIF_TERM algo_curve[87]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -1308,10 +1311,19 @@ static void init_algorithms_types(ErlNifEnv* env)
     // Non-validated algorithms follow
     algo_mac_fips_cnt = algo_mac_cnt;
 
+
+    // Validated algorithms first
+    algo_curve_cnt = 0;
+    // Non-validated algorithms follow
+    algo_curve_fips_cnt = algo_curve_cnt;
+    //--
+    
+    // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1322,17 +1334,20 @@ static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
     int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
     int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
+    int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
 #else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
     int mac_cnt    = algo_mac_cnt;
+    int curve_cnt    = algo_curve_cnt;
 #endif
-    return enif_make_tuple4(env,
-			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
+    return enif_make_tuple5(env,
+                            enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
 			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
-			    enif_make_list_from_array(env, algo_mac,    mac_cnt)
+                            enif_make_list_from_array(env, algo_mac,    mac_cnt),
+			    enif_make_list_from_array(env, algo_curve,  curve_cnt)
                             );
 }
 
@@ -1752,6 +1767,7 @@ static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ret;
 }
 #endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
+
 
 static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) or (Type, Key, Data, MacSize) */

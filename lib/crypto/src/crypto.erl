@@ -107,12 +107,13 @@ stop() ->
     application:stop(crypto).
 
 supports()->
-    {Hashs, PubKeys, Ciphers, Macs} = algorithms(),
+    {Hashs, PubKeys, Ciphers, Macs, Curves} = algorithms(),
 
     [{hashs, Hashs},
      {ciphers, Ciphers},
      {public_keys, PubKeys},
-     {macs, Macs}
+     {macs, Macs},
+     {curves, Curves}
     ].
 
 info_lib() -> ?nif_stub.
