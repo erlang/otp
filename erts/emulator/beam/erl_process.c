@@ -9186,6 +9186,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     internal_sched_out_proc:
 
 	ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+        ASSERT(p->scheduler_data || ERTS_SCHEDULER_IS_DIRTY(esdp));
 
 	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
@@ -9618,6 +9619,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	state = erts_atomic32_read_nob(&p->state);
 
 	if (is_normal_sched) {
+            ASSERT(!p->scheduler_data);
+	    p->scheduler_data = esdp;
 	    if ((!!(state & ERTS_PSFLGS_DIRTY_WORK))
 		& (!(state & ERTS_PSFLG_ACTIVE_SYS))) {
 		/* Migrate to dirty scheduler... */
@@ -9625,8 +9628,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 		goto sched_out_proc;
 	    }
-	    ASSERT(!p->scheduler_data);
-	    p->scheduler_data = esdp;
 	}
 	else {
             if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
