@@ -104,7 +104,12 @@ algo_two_spec_class(_) -> false.
 
 default_algorithms(kex) ->
     supported_algorithms(kex, [
-                               'diffie-hellman-group1-sha1' % Gone in OpenSSH 7.3.p1
+                               %% Under devolpment:
+                               'curve25519-sha256',
+                               'curve25519-sha256@libssh.org',
+                               'curve448-sha512',
+                               %%  Gone in OpenSSH 7.3.p1:
+                               'diffie-hellman-group1-sha1'
                               ]);
 
 default_algorithms(cipher) ->
@@ -126,6 +131,11 @@ supported_algorithms(kex) ->
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {ec_curve,secp384r1}, {hashs,sha384}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
+       %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
+       %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
+       {'curve25519-sha256',                    [{public_keys,eddh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve25519-sha256@libssh.org',         [{public_keys,eddh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve448-sha512',                      [{public_keys,eddh}, {curves,x448},   {hashs,sha512}]},
        {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
        {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
@@ -403,7 +413,10 @@ key_exchange_first_msg(Kex, Ssh0=#ssh{opts=Opts}) when Kex == 'diffie-hellman-gr
 
 key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 				       Kex == 'ecdh-sha2-nistp384' ;
-				       Kex == 'ecdh-sha2-nistp521' ->
+				       Kex == 'ecdh-sha2-nistp521' ;
+                                       Kex == 'curve25519-sha256' ;
+                                       Kex == 'curve25519-sha256@libssh.org';
+                                       Kex == 'curve448-sha512' ->
     Curve = ecdh_curve(Kex),
     {Public, Private} = generate_key(ecdh, Curve),
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kex_ecdh_init{q_c=Public},  Ssh0),
@@ -666,8 +679,10 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
     catch
         Class:Error ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("ECDH compute key failed in server: ~p:~p",
-                                      [Class,Error])
+                        io_lib:format("ECDH compute key failed in server: ~p:~p~n"
+                                      "Kex: ~p, Curve: ~p~n"
+                                      "PeerPublic: ~p",
+                                      [Class,Error,Kex,Curve,PeerPublic])
                        )
     end.
 
@@ -1874,6 +1889,11 @@ sha(?'secp521r1') -> sha(secp521r1);
 sha('ecdh-sha2-nistp256') -> sha(secp256r1);
 sha('ecdh-sha2-nistp384') -> sha(secp384r1);
 sha('ecdh-sha2-nistp521') -> sha(secp521r1);
+sha('curve25519-sha256' ) -> sha256;
+sha('curve25519-sha256@libssh.org' ) -> sha256;
+sha('curve448-sha512') -> sha512;
+sha(x25519) -> sha256;
+sha(x448) -> sha512;
 sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_atom(Str)).
 
 
@@ -1938,7 +1958,10 @@ dh_bits(#alg{encrypt = Encrypt,
 
 ecdh_curve('ecdh-sha2-nistp256') -> secp256r1;
 ecdh_curve('ecdh-sha2-nistp384') -> secp384r1;
-ecdh_curve('ecdh-sha2-nistp521') -> secp521r1.
+ecdh_curve('ecdh-sha2-nistp521') -> secp521r1;
+ecdh_curve('curve448-sha512'   ) -> x448;
+ecdh_curve('curve25519-sha256' ) -> x25519;
+ecdh_curve('curve25519-sha256@libssh.org' ) -> x25519.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
