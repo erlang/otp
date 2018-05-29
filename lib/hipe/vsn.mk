@@ -1,1 +1,1 @@
-HIPE_VSN = 3.18
+HIPE_VSN = 3.17.1

@@ -32,21 +32,6 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
-<section><title>Edoc 0.9.3</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Update to use the new string api instead of the old.</p>
-          <p>
-	    Own Id: OTP-15036</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Edoc 0.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

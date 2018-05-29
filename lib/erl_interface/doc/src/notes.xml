@@ -31,22 +31,6 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
-<section><title>Erl_Interface 3.10.3</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Fix bug where calling erl_init on certain platforms could
-	    result in a buffer overflow bug.</p>
-          <p>
-	    Own Id: OTP-15033</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Erl_Interface 3.10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

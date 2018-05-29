@@ -32,22 +32,6 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
-<section><title>Wx 1.8.4</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Changed implementation so wx can now be built towards
-	    wxWidgets-3.1.1.</p>
-          <p>
-	    Own Id: OTP-15027</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Wx 1.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
