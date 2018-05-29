@@ -55,8 +55,6 @@
               network_interface_index/0
              ]).
 
--record(name_info,    {flags, host, service}).
--record(address_info, {flags, family, socket_type, protocol, addr}).
 
 %% Many of these should be moved to the socket module.
 -type ip_address()  :: ip4_address() | ip6_address().
@@ -96,20 +94,13 @@
 -type name_info_flag_ext()      :: idn |
                                    idna_allow_unassigned |
                                    idna_use_std3_ascii_rules.
+-record(name_info,    {host, service}).
 -type name_info()               :: #name_info{}.
+-record(address_info, {family, socktype, protocol, addr}).
 -type address_info()            :: #address_info{}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
-
--define(NET_NAME_INFO_NAMEREQD,                  0).
--define(NET_NAME_INFO_DGRAM,                     1).
--define(NET_NAME_INFO_NOFQDN,                    2).
--define(NET_NAME_INFO_NUMERICHOST,               3).
--define(NET_NAME_INFO_NUMERICSERV,               4).
--define(NET_NAME_INFO_IDN,                       5).
--define(NET_NAME_INFO_IDNA_ALLOW_UNASSIGNED,     6).
--define(NET_NAME_INFO_IDNA_USE_STD3_ASCII_RULES, 7).
 
 
 %% ===========================================================================
@@ -183,47 +174,7 @@ getnameinfo(SockAddr, Flags)
   when (is_record(SockAddr, in4_sockaddr) orelse
         is_record(SockAddr, in6_sockaddr)) andalso
        is_list(Flags) ->
-    try
-        begin
-            EFlags = enc_name_info_flags(Flags),
-            nif_getnameinfo(SockAddr, EFlags)
-        end
-    catch
-        throw:T ->
-            T;
-        error:Reason ->
-            {error, Reason}
-    end.
-
-
-enc_name_info_flags([]) ->
-    0;
-enc_name_info_flags(Flags) ->
-    EFlags = [{namereqd,                 ?NET_NAME_INFO_NAMEREQD},
-              {dgram,                    ?NET_NAME_INFO_DGRAM},
-              {nofqdn,                   ?NET_NAME_INFO_NOFQDN},
-              {numerichost,              ?NET_NAME_INFO_NUMERICHOST},
-              {numericserv,              ?NET_NAME_INFO_NUMERICSERV},
-
-              %% The below flags was introduce with glibc 2.3.4.
-              {idn,                      ?NET_NAME_INFO_IDN},
-              {idna_allow_unassigned,    ?NET_NAME_INFO_IDNA_ALLOW_UNASSIGNED},
-              {idna_use_std3_ascii_rules,?NET_NAME_INFO_IDNA_USE_STD3_ASCII_RULES}],
-    enc_flags(Flags, EFlags).
-
-
-enc_flags([], _) ->
-    0;
-enc_flags(Flags, EFlags) ->
-    F = fun(Flag, Acc) ->
-                case lists:keysearch(Flag, 1, EFlags) of
-                    {value, {Flag, EFlag}} ->
-                        Acc bor (1 bsl EFlag);
-                    false ->
-                        throw({error, {unknown_flag, Flag}})
-                end
-        end,
-    lists:foldl(F, 0, Flags).
+    nif_getnameinfo(SockAddr, EFlags).
 
 
 %% ===========================================================================
