@@ -1567,8 +1567,9 @@ fail:
 	erts_port_dec_refc(pp);
 
     if (ptp) {
-        abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
-                          ptp->type, &ptp->u.alive.td, 0);
+        if (ptp->type == ERTS_PORT_TASK_PROC_SIG)
+            abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
+                              ptp->type, &ptp->u.alive.td, 0);
 	port_task_free(ptp);
     }
 
