@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@
 %%------------------------------------------------------------------------
 
 %% Public data types.
--type zstream() :: term().
+-type zstream() :: reference().
 -type zflush() :: 'none' | 'sync' | 'full' | 'finish'.
 
 -type zlevel() ::
@@ -102,11 +102,11 @@
 -type zmethod()     :: 'deflated'.
 
 -record(zlib_opts, {
-        stream :: zstream(),
-        method :: term(),
-        input_chunk_size :: integer(),
-        output_chunk_size :: integer(),
-        flush :: integer()
+        stream :: zstream() | 'undefined',
+        method :: function(),
+        input_chunk_size :: pos_integer(),
+        output_chunk_size :: pos_integer(),
+        flush :: non_neg_integer()
     }).
 
 %%------------------------------------------------------------------------
@@ -168,7 +168,7 @@ deflateInit_nif(_Z, _Level, _Method, _WindowBits, _MemLevel, _Strategy) ->
 -spec deflateSetDictionary(Z, Dictionary) -> Adler32 when
       Z :: zstream(),
       Dictionary :: iodata(),
-      Adler32 :: integer().
+      Adler32 :: non_neg_integer().
 deflateSetDictionary(Z, Dictionary) ->
     deflateSetDictionary_nif(Z, Dictionary).
 deflateSetDictionary_nif(_Z, _Dictionary) ->
@@ -295,7 +295,7 @@ inflate(Z, Data) ->
       Options :: list({exception_on_need_dict, boolean()}),
       Decompressed :: iolist() |
                       {need_dictionary,
-                       Adler32 :: integer(),
+                       Adler32 :: non_neg_integer(),
                        Output :: iolist()}.
 inflate(Z, Data, Options) ->
     enqueue_input(Z, Data),
@@ -357,7 +357,7 @@ exception_on_need_dict(Z, Output) when is_list(Output); is_binary(Output) ->
       Result :: {continue, Output :: iolist()} |
                 {finished, Output :: iolist()} |
                 {need_dictionary,
-                 Adler32 :: integer(),
+                 Adler32 :: non_neg_integer(),
                  Output :: iolist()}.
 safeInflate(Z, Data) ->
     enqueue_input(Z, Data),
@@ -389,7 +389,7 @@ getBufSize_nif(_Z) ->
 
 -spec crc32(Z) -> CRC when
       Z :: zstream(),
-      CRC :: integer().
+      CRC :: non_neg_integer().
 crc32(Z) ->
     crc32_nif(Z).
 crc32_nif(_Z) ->
@@ -398,7 +398,7 @@ crc32_nif(_Z) ->
 -spec crc32(Z, Data) -> CRC when
       Z :: zstream(),
       Data :: iodata(),
-      CRC :: integer().
+      CRC :: non_neg_integer().
 crc32(Z, Data) when is_reference(Z) ->
     erlang:crc32(Data);
 crc32(_Z, _Data) ->
@@ -406,9 +406,9 @@ crc32(_Z, _Data) ->
 
 -spec crc32(Z, PrevCRC, Data) -> CRC when
       Z :: zstream(),
-      PrevCRC :: integer(),
+      PrevCRC :: non_neg_integer(),
       Data :: iodata(),
-      CRC :: integer().
+      CRC :: non_neg_integer().
 crc32(Z, CRC, Data) when is_reference(Z) ->
     erlang:crc32(CRC, Data);
 crc32(_Z, _CRC, _Data) ->
@@ -416,10 +416,10 @@ crc32(_Z, _CRC, _Data) ->
 
 -spec crc32_combine(Z, CRC1, CRC2, Size2) -> CRC when
       Z :: zstream(),
-      CRC :: integer(),
-      CRC1 :: integer(),
-      CRC2 :: integer(),
-      Size2 :: integer().
+      CRC :: non_neg_integer(),
+      CRC1 :: non_neg_integer(),
+      CRC2 :: non_neg_integer(),
+      Size2 :: non_neg_integer().
 crc32_combine(Z, CRC1, CRC2, Size2) when is_reference(Z) ->
     erlang:crc32_combine(CRC1, CRC2, Size2);
 crc32_combine(_Z, _CRC1, _CRC2, _Size2) ->
@@ -428,7 +428,7 @@ crc32_combine(_Z, _CRC1, _CRC2, _Size2) ->
 -spec adler32(Z, Data) -> CheckSum when
       Z :: zstream(),
       Data :: iodata(),
-      CheckSum :: integer().
+      CheckSum :: non_neg_integer().
 adler32(Z, Data) when is_reference(Z) ->
     erlang:adler32(Data);
 adler32(_Z, _Data) ->
@@ -436,9 +436,9 @@ adler32(_Z, _Data) ->
 
 -spec adler32(Z, PrevAdler, Data) -> CheckSum when
       Z :: zstream(),
-      PrevAdler :: integer(),
+      PrevAdler :: non_neg_integer(),
       Data :: iodata(),
-      CheckSum :: integer().
+      CheckSum :: non_neg_integer().
 adler32(Z, Adler, Data) when is_reference(Z) ->
     erlang:adler32(Adler, Data);
 adler32(_Z, _Adler, _Data) ->
@@ -446,10 +446,10 @@ adler32(_Z, _Adler, _Data) ->
 
 -spec adler32_combine(Z, Adler1, Adler2, Size2) -> Adler when
       Z :: zstream(),
-      Adler :: integer(),
-      Adler1 :: integer(),
-      Adler2 :: integer(),
-      Size2 :: integer().
+      Adler :: non_neg_integer(),
+      Adler1 :: non_neg_integer(),
+      Adler2 :: non_neg_integer(),
+      Size2 :: non_neg_integer().
 adler32_combine(Z, Adler1, Adler2, Size2) when is_reference(Z) ->
     erlang:adler32_combine(Adler1, Adler2, Size2);
 adler32_combine(_Z, _Adler1, _Adler2, _Size2) ->
