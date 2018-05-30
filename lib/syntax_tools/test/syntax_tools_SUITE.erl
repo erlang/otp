@@ -26,13 +26,14 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
+         revert_map_type/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
 	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test,appup_test,smoke_test,revert,revert_map,
+    [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
     t_abstract_type,t_erl_parse_type,t_epp_dodger,
     t_comment_scan,t_igor,t_erl_tidy].
 
@@ -123,7 +124,26 @@ revert_map(Config) when is_list(Config) ->
 			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
     ?t:timetrap_cancel(Dog).
 
-
+%% Testing bug fix for reverting map_field_assoc in types
+revert_map_type(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    Form1 = {attribute,4,record,
+             {state,
+              [{typed_record_field,
+                {record_field,5,{atom,5,x}},
+                {type,5,map,
+                 [{type,5,map_field_exact,[{atom,5,y},{atom,5,z}]}]}}]}},
+    Mapped1 = erl_syntax_lib:map(fun(X) -> X end, Form1),
+    Form1 = erl_syntax:revert(Mapped1),
+    Form2 = {attribute,4,record,
+             {state,
+              [{typed_record_field,
+                {record_field,5,{atom,5,x}},
+                {type,5,map,
+                 [{type,5,map_field_assoc,[{atom,5,y},{atom,5,z}]}]}}]}},
+    Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
+    Form2 = erl_syntax:revert(Mapped2),
+    ?t:timetrap_cancel(Dog).
 
 %% api tests
 
