@@ -5328,7 +5328,7 @@ revert_map_type_assoc(Node) ->
     Pos = get_pos(Node),
     Name = map_type_assoc_name(Node),
     Value = map_type_assoc_value(Node),
-    {type, Pos, map_type_assoc, [Name, Value]}.
+    {type, Pos, map_field_assoc, [Name, Value]}.
 
 
 %% =====================================================================
@@ -5386,7 +5386,7 @@ revert_map_type_exact(Node) ->
     Pos = get_pos(Node),
     Name = map_type_exact_name(Node),
     Value = map_type_exact_value(Node),
-    {type, Pos, map_type_exact, [Name, Value]}.
+    {type, Pos, map_field_exact, [Name, Value]}.
 
 
 %% =====================================================================
