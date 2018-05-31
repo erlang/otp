@@ -30,13 +30,13 @@
 
 -export([
          open/2, open/3, open/4,
-         bind/2, bind/3,
-         connect/3,
+         bind/2,
+         connect/2, connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
 
          send/2, send/3, send/4,
-         sendto/5,
+         sendto/4, sendto/5,
          %% sendmsg/4,
          %% writev/4, OR SENDV? It will be strange for recv then: recvv (instead of readv)
 
@@ -125,6 +125,8 @@
 %% If we do we may need to include the family (domain) in the
 %% map (as the native type do. See struct sockaddr_in6).
 %% </KOLLA>
+-type in_sockaddr() :: in4_sockaddr() | in6_sockaddr().
+
 -record(in4_sockaddr, {port = 0   :: port_number(),
                        addr = any :: any | loopback | ip4_address()}).
 -type in4_sockaddr() :: #in4_sockaddr{}.
@@ -133,8 +135,6 @@
                        flowinfo = 0   :: in6_flow_info(),
                        scope_id = 0   :: in6_scope_id()}).
 -type in6_sockaddr() :: #in6_sockaddr{}.
-
--type in_sockaddr() :: in4_sockaddr() | in6_sockaddr().
 
 -type port_number() :: 0..65535.
 
@@ -369,7 +369,7 @@
           %% Optional address
           %% On an unconnected socket this is used to specify the target
           %% address for a datagram.
-          %% For a connected socket, this field should be specified [].
+          %% For a connected socket, this field should be specifiedset to [].
           name       :: list(),
 
           %% Scatter/gather array
@@ -495,7 +495,8 @@ on_load(Path, Extra) when is_list(Path) andalso is_map(Extra) ->
 on_load(true, _Path, _Extra) ->
     ok;
 on_load(false, Path, Extra) ->
-    ok = erlang:load_nif(Path, maps:put(timestamp, formated_timestamp(), Extra)).
+    %% ok = erlang:load_nif(Path, maps:put(timestamp, formated_timestamp(), Extra)).
+    ok = erlang:load_nif(Path, Extra).
 
 
 
@@ -582,7 +583,7 @@ default_protocol(Protocol, _)     -> Protocol.
 
 -spec bind(Socket, FileOrAddr) -> ok | {error, Reason} when
       Socket     :: socket(),
-      FileOrAddr :: binary() | string() | ip_address() | any | loopback,
+      FileOrAddr :: binary() | string() | in_sockaddr() | any | loopback,
       Reason     :: term().
 
 bind(Socket, File) when is_binary(File) ->
@@ -602,26 +603,11 @@ bind(Socket, File) when is_list(File) andalso (File =/= []) ->
         true ->
             {error, einval}
     end;
-bind(Socket, Addr) when is_tuple(Addr) orelse
-                        (Addr =:= any) orelse
-                        (Addr =:= loopback) ->
-    bind(Socket, Addr, 0).
-
-
--spec bind(Socket, Address, Port) -> ok | {ok, NewPort} | {error, Reason} when
-      Socket  :: socket(),
-      Address :: ip_address() | any | loopback,
-      Port    :: port_number(),
-      NewPort :: port_number(),
-      Reason  :: term().
-
-%% Shall we keep info about domain so that we can verify address?
-bind(#socket{ref = SockRef}, Addr, Port)
-  when (is_tuple(Addr) andalso
-        ((size(Addr) =:= 4) orelse (size(Addr) =:= 8))) orelse
-       ((Addr =:= any) orelse (Addr =:= loopback)) andalso
-       (is_integer(Port) andalso (Port >= 0)) ->
-    nif_bind(SockRef, {Addr, Port}).
+bind(#socket{ref = SockRef} = _Socket, SockAddr) 
+  when is_record(SockAddr, in4_sockaddr) orelse
+       is_record(SockAddr, in6_sockaddr) orelse
+       (SockAddr =:= any) orelse (SockAddr =:= loopback) ->
+    nif_bind(SockRef, SockAddr).
 
 
 
@@ -630,32 +616,29 @@ bind(#socket{ref = SockRef}, Addr, Port)
 %% connect - initiate a connection on a socket
 %%
 
--spec connect(Socket, Addr, Port) -> ok | {error, Reason} when
-      Socket :: socket(),
-      Addr   :: ip_address(),
-      Port   :: port_number(),
-      Reason :: term().
+-spec connect(Socket, SockAddr) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      SockAddr :: in_sockaddr(),
+      Reason   :: term().
 
-connect(Socket, Addr, Port) ->
-    connect(Socket, Addr, Port, infinity).
+connect(Socket, SockAddr) ->
+    connect(Socket, SockAddr, infinity).
 
--spec connect(Socket, Addr, Port, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Addr    :: ip_address(),
-      Port    :: port_number(),
-      Timeout :: timeout(),
-      Reason  :: term().
+-spec connect(Socket, SockAddr, Timeout) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      SockAddr :: in_sockaddr(),
+      Timeout  :: timeout(),
+      Reason   :: term().
 
-connect(_Socket, _Addr, _Port, Timeout)
+connect(_Socket, _SockAddr, Timeout)
   when (is_integer(Timeout) andalso (Timeout =< 0)) ->
     {error, timeout};
-connect(#socket{ref = SockRef}, Addr, Port, Timeout)
-  when (is_tuple(Addr) andalso
-        ((size(Addr) =:= 4) orelse (size(Addr) =:= 8))) andalso
-       (is_integer(Port) andalso (Port >= 0)) andalso
+connect(#socket{ref = SockRef}, SockAddr, Timeout)
+  when (is_record(SockAddr, in4_sockaddr) orelse 
+        is_record(SockAddr, in6_sockaddr)) andalso
        ((Timeout =:= infinity) orelse is_integer(Timeout)) ->
     TS = timestamp(Timeout),
-    case nif_connect(SockRef, Addr, Port) of
+    case nif_connect(SockRef, SockAddr) of
         ok ->
             %% Connected!
             ok;
@@ -680,13 +663,17 @@ connect(#socket{ref = SockRef}, Addr, Port, Timeout)
 %% listen - listen for connections on a socket
 %%
 
--spec listen(Socket, Backlog) -> ok | {error, Reason} when
+-spec listen(Socket) -> ok | {error, Reason} when
       Socket  :: socket(),
-      Backlog :: pos_integer(),
       Reason  :: term().
 
 listen(Socket) ->
     listen(Socket, ?SOCKET_LISTEN_BACKLOG_DEFAULT).
+
+-spec listen(Socket, Backlog) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      Backlog :: pos_integer(),
+      Reason  :: term().
 
 listen(#socket{ref = SockRef}, Backlog)
   when (is_integer(Backlog) andalso (Backlog >= 0)) ->
@@ -700,14 +687,19 @@ listen(#socket{ref = SockRef}, Backlog)
 %% accept, accept4 - accept a connection on a socket
 %%
 
--spec accept(LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
+-spec accept(LSocket) -> {ok, Socket} | {error, Reason} when
       LSocket :: socket(),
-      Timeout :: timeout(),
       Socket  :: socket(),
       Reason  :: term().
 
 accept(Socket) ->
     accept(Socket, ?SOCKET_ACCEPT_TIMEOUT_DEFAULT).
+
+-spec accept(LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
+      LSocket :: socket(),
+      Timeout :: timeout(),
+      Socket  :: socket(),
+      Reason  :: term().
 
 %% Do we really need this optimization?
 accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
@@ -824,35 +816,35 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 %% ---------------------------------------------------------------------------
 %%
 
-sendto(Socket, Data, Flags, DestAddr, DestPort) ->
-    sendto(Socket, Data, Flags, DestAddr, DestPort, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
+sendto(Socket, Data, Flags, DestSockAddr) ->
+    sendto(Socket, Data, Flags, DestSockAddr, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
 
--spec sendto(Socket, Data, Flags, DestAddr, DestPort, Timeout) ->
+-spec sendto(Socket, Data, Flags, DestSockAddr, Timeout) ->
                     ok | {error, Reason} when
-      Socket   :: socket(),
-      Data     :: binary(),
-      Flags    :: send_flags(),
-      DestAddr :: null | ip_address(),
-      DestPort :: port_number(),
-      Timeout  :: timeout(),
-      Reason   :: term().
+      Socket       :: socket(),
+      Data         :: binary(),
+      Flags        :: send_flags(),
+      DestSockAddr :: null | in_sockaddr(),
+      Timeout      :: timeout(),
+      Reason       :: term().
 
-sendto(Socket, Data, Flags, DestAddr, DestPort, Timeout) when is_list(Data) ->
+sendto(Socket, Data, Flags, DestSockAddr, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
-    sendto(Socket, Bin, Flags, DestAddr, DestPort, Timeout);
-sendto(#socket{ref = SockRef}, Data, Flags, DestAddr, DestPort, Timeout)
+    sendto(Socket, Bin, Flags, DestSockAddr, Timeout);
+sendto(#socket{ref = SockRef}, Data, Flags, DestSockAddr, Timeout)
   when is_binary(Data) andalso
        is_list(Flags) andalso
-       (is_tuple(DestAddr) orelse (DestAddr =:= null)) andalso
-       is_integer(DestPort) andalso
+       (is_record(DestSockAddr, in4_sockaddr) orelse 
+        is_record(DestSockAddr, in6_sockaddr) orelse
+        (DestSockAddr =:= null)) andalso
        (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
     EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, EFlags, DestAddr, DestPort, Timeout).
+    do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout).
 
-do_sendto(SockRef, Data, EFlags, DestAddr, DestPort, Timeout) ->
+do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout) ->
     TS      = timestamp(Timeout),
     SendRef = make_ref(),
-    case nif_sendto(SockRef, SendRef, Data, EFlags, DestAddr, DestPort) of
+    case nif_sendto(SockRef, SendRef, Data, EFlags, DestSockAddr) of
         ok ->
             %% We are done
             ok;
@@ -862,10 +854,10 @@ do_sendto(SockRef, Data, EFlags, DestAddr, DestPort, Timeout) ->
             receive
                 {select, SockRef, SendRef, ready_output} when (Written > 0) ->
                     <<_:Written/binary, Rest/binary>> = Data,
-                    do_sendto(SockRef, Rest, EFlags, DestAddr, DestPort,
+                    do_sendto(SockRef, Rest, EFlags, DestSockAddr,
                               next_timeout(TS, Timeout));
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, DestAddr, DestPort,
+                    do_sendto(SockRef, Data, EFlags, DestSockAddr,
                               next_timeout(TS, Timeout));
 
                 {nif_abort, SendRef, Reason} ->
@@ -880,7 +872,7 @@ do_sendto(SockRef, Data, EFlags, DestAddr, DestPort, Timeout) ->
         {error, eagain} ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, DestAddr, DestPort,
+                    do_sendto(SockRef, Data, EFlags, DestSockAddr,
                               next_timeout(TS, Timeout))
             after Timeout ->
                     nif_cancel(SockRef, sendto, SendRef),
@@ -1158,13 +1150,12 @@ recvfrom(Socket, BufSz, Flags) when is_list(Flags) ->
 recvfrom(Socket, BufSz, Timeout) ->
     recvfrom(Socket, BufSz, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recvfrom(Socket, BufSz, Flags, Timeout) -> {ok, {SrcDomain, Source, Data}} | {error, Reason} when
+-spec recvfrom(Socket, BufSz, Flags, Timeout) -> {ok, {Source, Data}} | {error, Reason} when
       Socket    :: socket(),
       BufSz     :: non_neg_integer(),
       Flags     :: recv_flags(),
       Timeout   :: timeout(),
-      SrcDomain :: domain() | undefined,
-      Source    :: {ip_address(), port_number()} | string() | undefined,
+      Source    :: in_sockaddr() | string() | undefined,
       Data      :: binary(),
       Reason    :: term().
 
@@ -1179,7 +1170,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
-        {ok, {_Domain, _Source, _NewData}} = OK ->
+        {ok, {_Source, _NewData}} = OK ->
             OK;
 
         {error, eagain} ->
@@ -1471,7 +1462,6 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
 
 link_if2idx(If) when is_list(If) ->
     nif_link_if2idx(If).
-
 
 
 %% ===========================================================================
@@ -2138,10 +2128,10 @@ nif_info() ->
 nif_open(_Domain, _Type, _Protocol, _Extra) ->
     erlang:error(badarg).
 
-nif_bind(_SRef, _LocalAddr) ->
+nif_bind(_SRef, _SockAddr) ->
     erlang:error(badarg).
 
-nif_connect(_SRef, _Addr, _Port) ->
+nif_connect(_SRef, _SockAddr) ->
     erlang:error(badarg).
 
 nif_finalize_connection(_SRef) ->
@@ -2156,7 +2146,7 @@ nif_accept(_SRef, _Ref) ->
 nif_send(_SockRef, _SendRef, _Data, _Flags) ->
     erlang:error(badarg).
 
-nif_sendto(_SRef, _SendRef, _Data, _Flags, _Dest, _Port) ->
+nif_sendto(_SRef, _SendRef, _Data, _Flags, _DestSockAddr) ->
     erlang:error(badarg).
 
 nif_recv(_SRef, _RecvRef, _Length, _Flags) ->

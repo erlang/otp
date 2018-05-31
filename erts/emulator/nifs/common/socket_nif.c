@@ -23,6 +23,8 @@
  *
  */
 
+#define STATIC_ERLANG_NIF 1
+
 /* #include <stdio.h> */
 /* #include <stdlib.h> */
 /* #include <stdarg.h> */
@@ -425,6 +427,8 @@ typedef union {
     if (enif_select((E), (FD), (M), (O), (P), (R)) < 0) \
         return enif_make_badarg((E));
 
+#define COMPARE(A, B)   enif_compare((A), (B))
+
 #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
 #define IS_BIN(E,   TE) enif_is_binary((E), (TE))
 #define IS_NUM(E,   TE) enif_is_number((E), (TE))
@@ -581,6 +585,7 @@ typedef struct {
 
     unsigned int   state;
     SocketAddress  remote;
+    unsigned int   addrLen;
 
 
     /* +++ Controller (owner) process +++ */
@@ -710,8 +715,8 @@ static ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
-                            int                argc,
-                            const ERL_NIF_TERM argv[]);
+                             int                argc,
+                             const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
@@ -760,9 +765,11 @@ static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
                                        int                argc,
                                        const ERL_NIF_TERM argv[]);
+/*
 static ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
+*/
 
 
 static ERL_NIF_TERM nopen(ErlNifEnv* env,
@@ -773,10 +780,8 @@ static ERL_NIF_TERM nopen(ErlNifEnv* env,
 static ERL_NIF_TERM nbind(ErlNifEnv*        env,
                           SocketDescriptor* descP,
                           ERL_NIF_TERM      addr);
-static ERL_NIF_TERM nconnect(ErlNifEnv*          env,
-                             SocketDescriptor*   descP,
-                             const ERL_NIF_TERM* addr,
-                             int                 port);
+static ERL_NIF_TERM nconnect(ErlNifEnv*        env,
+                             SocketDescriptor* descP);
 static ERL_NIF_TERM nlisten(ErlNifEnv*        env,
                             SocketDescriptor* descP,
                             int               backlog);
@@ -1156,6 +1161,43 @@ static ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
                                     SocketDescriptor* descP);
 
 
+static BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
+                                    ERL_NIF_TERM   eSockAddr,
+                                    SocketAddress* sockAddrP,
+                                    unsigned int*  addrLenP);
+static BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
+                                     const ERL_NIF_TERM* eIn4SockAddr,
+                                     SocketAddress*      sockAddrP,
+                                     unsigned int*       addrLenP);
+static BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
+                                              ERL_NIF_TERM   eAddr,
+                                              int            port,
+                                              SocketAddress* sockAddrP,
+                                              unsigned int*  addrLenP);
+static BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
+                                          ERL_NIF_TERM   eAddr,
+                                          int            port,
+                                          SocketAddress* sockAddrP,
+                                          unsigned int*  addrLenP);
+static BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
+                                     const ERL_NIF_TERM* eIn6SockAddr,
+                                     SocketAddress*      sockAddrP,
+                                     unsigned int*       addrLenP);
+static BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
+                                              ERL_NIF_TERM   eAddr,
+                                              int            port,
+                                              unsigned int   flowInfo,
+                                              unsigned int   scopeId,
+                                              SocketAddress* sockAddrP,
+                                              unsigned int*  addrLenP);
+/* Decode an in6_sockaddr where the address field is a tuple */
+static BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
+                                          ERL_NIF_TERM   eAddr,
+                                          int            port,
+                                          unsigned int   flowInfo,
+                                          unsigned int   scopeId,
+                                          SocketAddress* sockAddrP,
+                                          unsigned int*  addrLenP);
 static char* decode_laddress(ErlNifEnv*     env,
                              int            domain,
                              ERL_NIF_TERM   localAddr,
@@ -1184,18 +1226,22 @@ static char* decode_address_atom(ErlNifEnv*     env,
                                  int            port,
                                  SocketAddress* localP,
                                  unsigned int*  addrLenP);
+/*
 static char* decode_send_addr(ErlNifEnv*      env,
                               int             domain,
                               ERL_NIF_TERM    addr,
                               int             port,
                               SocketAddress** toAddrP,
                               unsigned int*   addrLenP);
+*/
+/*
 static char* decode_send_addr_tuple(ErlNifEnv*     env,
                                     int            domain,
                                     ERL_NIF_TERM   addr,
                                     int            port,
                                     SocketAddress* toAddrP,
                                     unsigned int*  addrLenP);
+*/
 static void encode_address(ErlNifEnv*     env,
                            SocketAddress* fromAddrP,
                            unsigned int   fromAddrLen,
@@ -1278,11 +1324,15 @@ static ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 static ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason);
 static ERL_NIF_TERM make_error2(ErlNifEnv* env, int err);
 
+/*
 static char* send_msg_error_closed(ErlNifEnv*   env,
                                    ErlNifPid*   pid);
+*/
+/*
 static char* send_msg_error(ErlNifEnv*   env,
                             ERL_NIF_TERM reason,
                             ErlNifPid*   pid);
+*/
 static char* send_msg_nif_abort(ErlNifEnv*   env,
                                 ERL_NIF_TERM ref,
                                 ERL_NIF_TERM reason,
@@ -1335,22 +1385,26 @@ static const struct in6_addr in6addr_loopback =
 
 
 /* *** String constants *** */
-static char str_close[]       = "close";
-static char str_closed[]      = "closed";
-static char str_closing[]     = "closing";
-static char str_error[]       = "error";
-static char str_false[]       = "false";
-static char str_nif_abort[]   = "nif_abort";
-static char str_ok[]          = "ok";
-static char str_select[]      = "select";
-static char str_timeout[]     = "timeout";
-static char str_true[]        = "true";
-static char str_undefined[]   = "undefined";
+static char str_any[]          = "any";
+static char str_close[]        = "close";
+static char str_closed[]       = "closed";
+static char str_closing[]      = "closing";
+static char str_error[]        = "error";
+static char str_false[]        = "false";
+static char str_in4_sockaddr[] = "in4_sockaddr";
+static char str_in6_sockaddr[] = "in6_sockaddr";
+static char str_loopback[]     = "loopback";
+static char str_nif_abort[]    = "nif_abort";
+static char str_ok[]           = "ok";
+static char str_select[]       = "select";
+static char str_timeout[]      = "timeout";
+static char str_true[]         = "true";
+static char str_undefined[]    = "undefined";
 
-static char str_lowdelay[]    = "lowdelay";
-static char str_throughput[]  = "throughput";
-static char str_reliability[] = "reliability";
-static char str_mincost[]     = "mincost";
+static char str_lowdelay[]     = "lowdelay";
+static char str_throughput[]   = "throughput";
+static char str_reliability[]  = "reliability";
+static char str_mincost[]      = "mincost";
 
 /* (special) error string constants */
 static char str_eagain[]         = "eagain";
@@ -1368,11 +1422,15 @@ static char str_exsend[]         = "exsend";     // failed send
 
 
 /* *** Atoms *** */
+static ERL_NIF_TERM atom_any;
 static ERL_NIF_TERM atom_close;
 static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_closing;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_false;
+static ERL_NIF_TERM atom_in4_sockaddr;
+static ERL_NIF_TERM atom_in6_sockaddr;
+static ERL_NIF_TERM atom_loopback;
 static ERL_NIF_TERM atom_nif_abort;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_select;
@@ -1425,11 +1483,11 @@ static SocketData socketData;
  * ------------------------------
  * nif_open(Domain, Type, Protocol, Extra)
  * nif_bind(Sock, LocalAddr)
- * nif_connect(Sock, Addr, Port)
+ * nif_connect(Sock, SockAddr)
  * nif_listen(Sock, Backlog)
  * nif_accept(LSock, Ref)
  * nif_send(Sock, SendRef, Data, Flags)
- * nif_sendto(Sock, SendRef, Data, Flags, DstAddr, DstPort)
+ * nif_sendto(Sock, SendRef, Data, Flags, DstSockAddr)
  * nif_recv(Sock, RecvRef, Length, Flags)
  * nif_recvfrom(Sock, Flags)
  * nif_close(Sock)
@@ -1437,8 +1495,8 @@ static SocketData socketData;
  *
  * And some functions to manipulate and retrieve socket options:
  * -------------------------------------------------------------
- * nif_setopt/3
- * nif_getopt/2
+ * nif_setopt/5
+ * nif_getopt/4
  *
  * And some utility functions:
  * -------------------------------------------------------------
@@ -1795,7 +1853,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
                    ERL_NIF_TERM      addr)
 {
     SocketAddress local;
-    unsigned int  addrLen;
+    unsigned int  addrLen = 0;
     char*         err;
     int           port;
 
@@ -2010,60 +2068,41 @@ char* decode_laddress_tuple(ErlNifEnv*     env,
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
- * Addr         - Address of "remote" host.
- *                A tuple of size 4 or 8 (depending on domain)
- * Port         - Port number of "remote" host.
+ * SockAddr     - Socket Address of "remote" host.
+ *                This is in_sockaddr(), which is either
+ *                in4_sockaddr (#in4_sockaddr{}) or 
+ *                in6_sockaddr (#in6_sockaddr{}).
  */
 static
 ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-    SocketDescriptor*   descP;
-    int                 addrSz;
-    const ERL_NIF_TERM* addr;
-    int                 port;
+    SocketDescriptor* descP;
+    ERL_NIF_TERM      eSockAddr;
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 3) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
-        !GET_TUPLE(env, argv[1], &addrSz, &addr) ||
-        !GET_INT(env, argv[2], &port)) {
+    if ((argc != 2) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+    eSockAddr = argv[1];
+
+    if (!decode_in_sockaddr(env, eSockAddr,
+                            &descP->remote, &descP->addrLen)) {
         return enif_make_badarg(env);
     }
 
-    switch (descP->domain) {
-    case AF_INET:
-        if (addrSz != 4)
-            return make_error(env, atom_einval);
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        if (addrSz != 8)
-            return make_error(env, atom_einval);
-        break;
-#endif
-
-    default:
-        return make_error(env, atom_eafnosupport);
-        break;
-    } // switch (descP->domain)
-
-    return nconnect(env, descP, addr, port);
+    return nconnect(env, descP);
 }
 
 
 static
-ERL_NIF_TERM nconnect(ErlNifEnv*          env,
-                      SocketDescriptor*   descP,
-                      const ERL_NIF_TERM* addr,
-                      int                 port)
+ERL_NIF_TERM nconnect(ErlNifEnv*        env,
+                      SocketDescriptor* descP)
 {
-    unsigned int addrLen;
-    int          code;
-    char*        xerr;
+    int code;
 
     /* Verify that we are where in the proper state */
 
@@ -2076,13 +2115,9 @@ ERL_NIF_TERM nconnect(ErlNifEnv*          env,
     if (IS_CONNECTING(descP))
         return make_error(env, atom_einval);
 
-    if ((xerr = decode_address_tuple(env,
-                                     descP->domain, addr, port,
-                                     &descP->remote, &addrLen)) != NULL)
-        return make_error1(env, xerr);
-
     code = sock_connect(descP->sock,
-                        (struct sockaddr*) &descP->remote, addrLen);
+                        (struct sockaddr*) &descP->remote,
+                        descP->addrLen);
 
     if (IS_SOCKET_ERROR(code) &&
         ((sock_errno() == ERRNO_BLOCK) ||   /* Winsock2            */
@@ -2661,8 +2696,7 @@ ERL_NIF_TERM nsend(ErlNifEnv*        env,
  * SendRef      - A unique id for this (send) request.
  * Data         - The data to send in the form of a IOVec.
  * Flags        - Send flags.
- * DestAddr     - Destination address.
- * DestPort     - Destination Port.
+ * DestSockAddr - Destination (socket) address.
  */
 
 static
@@ -2675,40 +2709,34 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     ErlNifBinary      data;
     unsigned int      eflags;
     int               flags;
-    ERL_NIF_TERM      addr;
-    int               port;
+    ERL_NIF_TERM      eSockAddr;
     SocketAddress     remoteAddr;
-    SocketAddress*    remoteAddrP = &remoteAddr;
     unsigned int      remoteAddrLen;
-    char*             xerr;
-    // ERL_NIF_TERM      res;
 
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 6) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_BIN(env, argv[2], &data) ||
-        !GET_UINT(env, argv[3], &eflags) ||
-        !GET_INT(env, argv[5], &port)) {
+        !GET_UINT(env, argv[3], &eflags)) {
         return enif_make_badarg(env);
     }
-    sendRef = argv[1];
-    addr    = argv[4];
+    sendRef   = argv[1];
+    eSockAddr = argv[4];
 
     /* THIS TEST IS NOT CORRECT!!! */
     if (!IS_OPEN(descP))
         return make_error(env, atom_einval);
 
     if (!esendflags2sendflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return make_error(env, atom_einval);
 
-    if ((xerr = decode_send_addr(env, descP->domain,
-                                 addr, port,
-                                 &remoteAddrP,
-                                 &remoteAddrLen)) != NULL)
-        return make_error1(env, xerr);
+    if (!decode_in_sockaddr(env, eSockAddr,
+                            &remoteAddr,
+                            &remoteAddrLen))
+        return make_error(env, atom_einval);
 
-    return nsendto(env, descP, sendRef, &data, flags, remoteAddrP, remoteAddrLen);
+    return nsendto(env, descP, sendRef, &data, flags, &remoteAddr, remoteAddrLen);
 }
 
 
@@ -5619,6 +5647,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
  * This function whouls really have a char* return value
  * type!!
  */
+/*
 static
 char* decode_send_addr(ErlNifEnv*      env,
                        int             domain,
@@ -5631,7 +5660,7 @@ char* decode_send_addr(ErlNifEnv*      env,
         unsigned int len;
         char         a[16]; // Just in case...
 
-        /* The only acceptable value is the atom 'null' */
+        / * The only acceptable value is the atom 'null' * /
 
         if (!(GET_ATOM_LEN(env, addr, &len) &&
               (len > 0) &&
@@ -5648,15 +5677,16 @@ char* decode_send_addr(ErlNifEnv*      env,
             return str_einval;
 
     } else if (IS_TUPLE(env, addr)) {
-        /* We now know that the we have a proper address. */
+        / * We now know that the we have a proper address. * /
         return decode_send_addr_tuple(env, domain, addr, port,
                                       *toAddrP, toAddrLenP);
     } else {
         return str_einval;
     }
 }
+*/
 
-
+/*
 static
 char* decode_send_addr_tuple(ErlNifEnv*     env,
                              int            domain,
@@ -5665,10 +5695,10 @@ char* decode_send_addr_tuple(ErlNifEnv*     env,
                              SocketAddress* toAddrP,
                              unsigned int*  toAddrLenP)
 {
-    /* We handle two different tuples:
+    / * We handle two different tuples:
      *    - size 4 (INET)
      *    - size 8 (INET6)
-     */
+     * /
 
     const ERL_NIF_TERM* addrt;
     int                 addrtSz;
@@ -5699,6 +5729,304 @@ char* decode_send_addr_tuple(ErlNifEnv*     env,
                                 toAddrP, toAddrLenP);
 
 }
+*/
+
+
+/* Decode an in_sockaddr(). This is either a: 
+ *    in4_sockaddr: #in4_sockaddr{} = 3 tuple =>
+ *        1: The tag in4_sockaddr
+ *        2: Port number (an integer())
+ *        3: The address: any | loopback | ip4_address()
+ *    in6_sockaddr: #in6_sockaddr{} = 5 tuple =>
+ *        1: The tag in6_sockaddr
+ *        2: Port number: integer()
+ *        3: The address: any | loopback | ip6_address()
+ *        4: Flow info: integer()
+ *        5: Scope Id: integer()
+ *
+ */
+static
+BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
+                             ERL_NIF_TERM   eSockAddr,
+                             SocketAddress* sockAddrP,
+                             unsigned int*  addrLenP)
+{
+    const ERL_NIF_TERM* addrt;
+    int                 addrtSz;
+    ERL_NIF_TERM        result;
+    
+    if (!GET_TUPLE(env, eSockAddr, &addrtSz, &addrt))
+        return FALSE;
+
+    /*
+     * We use the tuple size to figure out which
+     * of the records this is.
+     */
+    switch (addrtSz) {
+    case 3:
+        result = decode_in4_sockaddr(env, addrt, sockAddrP, addrLenP);
+        break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case 5:
+        result = decode_in6_sockaddr(env, addrt, sockAddrP, addrLenP);
+        break;
+#endif
+
+    default:
+        result = FALSE;
+        break;
+    }
+
+    return result;
+}
+
+
+
+/* Decode an in4_sockaddr().
+ * The first element should be the atom in4_sockaddr
+ * The second, the port number integer .
+ * The third and final, the ip4_address tuple.
+ */
+static
+BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
+                              const ERL_NIF_TERM* eIn4SockAddr,
+                              SocketAddress*      sockAddrP,
+                              unsigned int*       addrLenP)
+{
+    int port;
+
+    /* 1: Ensure that the tuple has the correct tag: in4_sockaddr */
+    if (COMPARE(atom_in4_sockaddr, eIn4SockAddr[0]) != 0)
+        return FALSE;
+
+    /* 2: Get the port number */
+    if (!GET_INT(env, eIn4SockAddr[1], &port))
+        return FALSE;
+
+    /* 3: Get the address.
+     *    It can either be the atoms: any | loopback, 
+     *    or the IPv4 address tuple (size 4).
+     */
+    if (IS_ATOM(env, eIn4SockAddr[2])) {
+        return decode_in4_sockaddr_atomaddr(env, eIn4SockAddr[2], port,
+                                            sockAddrP, addrLenP);
+    } else if (IS_TUPLE(env, eIn4SockAddr[2])) {
+        return decode_in4_sockaddr_addr(env, eIn4SockAddr[2], port,
+                                        sockAddrP, addrLenP);
+    } else {
+        return FALSE;
+    }
+}
+
+
+
+static
+BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
+                                       ERL_NIF_TERM   eAddr,
+                                       int            port,
+                                       SocketAddress* sockAddrP,
+                                       unsigned int*  addrLenP)
+{
+    struct in_addr addr;
+
+    if (COMPARE(atom_loopback, eAddr) == 0) {
+        addr.s_addr = sock_htonl(INADDR_LOOPBACK);
+    } else if (COMPARE(atom_any, eAddr) == 0) {
+        addr.s_addr = sock_htonl(INADDR_ANY);
+    } else {
+        return FALSE;
+    }
+
+    sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in));
+#ifndef NO_SA_LEN
+    sockAddrP->sai.sin_len         = sizeof(struct sockaddr_in6);
+#endif
+    sockAddrP->sai.sin_family      = AF_INET;
+    sockAddrP->sai.sin_port        = sock_htons(port);
+    sockAddrP->sai.sin_addr.s_addr = addr.s_addr;
+    *addrLenP                  = sizeof(struct sockaddr_in);
+    
+    return TRUE;
+}
+
+
+/* Decode an in4_sockaddr where the address field is a tuple.
+ * Its *supposed* to be an ip4_address (tuple).
+ */
+static
+BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
+                                   ERL_NIF_TERM   eAddr,
+                                   int            port,
+                                   SocketAddress* sockAddrP,
+                                   unsigned int*  addrLenP)
+{
+    const ERL_NIF_TERM* ip4AddrT;
+    int                 ip4AddrTSz;
+    int                 a, v;
+    char                addr[4];
+
+    /* This shall be a 4 tuple */
+    if (!GET_TUPLE(env, eAddr, &ip4AddrTSz, &ip4AddrT))
+        return FALSE;
+
+    if (ip4AddrTSz != 4)
+        return FALSE;
+
+    sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in));
+#ifndef NO_SA_LEN
+    sockAddrP->sai.sin_len    = sizeof(struct sockaddr_in);
+#endif
+    sockAddrP->sai.sin_family = AF_INET;
+    sockAddrP->sai.sin_port   = sock_htons(port);
+    for (a = 0; a < 4; a++) {
+        if (!GET_INT(env, ip4AddrT[a], &v))
+            return FALSE;
+        addr[a] = v;
+    }
+    sys_memcpy(&sockAddrP->sai.sin_addr, &addr, sizeof(addr));
+    *addrLenP = sizeof(struct sockaddr_in);
+    
+    return TRUE;
+}
+
+
+
+/* Decode an in6_sockaddr().
+ * The first element should be the atom in4_sockaddr
+ * The second, the port number integer .
+ * The third, the ip4_address tuple.
+ * The forth, the flowinfo integer.
+ * The fifth and final, the scope_id integer.
+ */
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static
+BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
+                              const ERL_NIF_TERM* eIn6SockAddr,
+                              SocketAddress*      sockAddrP,
+                              unsigned int*       addrLenP)
+{
+    int          port;
+    unsigned int flowInfo, scopeId;
+    
+    /* 1: Ensure that the tuple has the correct tag: in6_sockaddr */
+    if (COMPARE(atom_in6_sockaddr, eIn6SockAddr[0]) != 0)
+        return FALSE;
+
+    /* 2: Get the port number */
+    if (!GET_INT(env, eIn6SockAddr[1], &port))
+        return FALSE;
+
+    /* 4: Get the flowinfo */
+    if (!GET_UINT(env, eIn6SockAddr[3], &flowInfo))
+        return FALSE;
+
+    /* 5: Get the scope_id */
+    if (!GET_UINT(env, eIn6SockAddr[4], &scopeId))
+        return FALSE;
+
+    /* 3: Get the address.
+     *    It can either be the atoms: any | loopback, 
+     *    or the IPv6 address tuple (size 8).
+     */
+    if (IS_ATOM(env, eIn6SockAddr[2])) {
+        return decode_in6_sockaddr_atomaddr(env, eIn6SockAddr[2], port,
+                                            flowInfo, scopeId,
+                                            sockAddrP, addrLenP);
+    } else if (IS_TUPLE(env, eIn6SockAddr[2])) {
+        return decode_in6_sockaddr_addr(env, eIn6SockAddr[2], port,
+                                        flowInfo, scopeId,
+                                        sockAddrP, addrLenP);
+    } else {
+        return FALSE;
+    }
+}
+#endif
+
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static
+BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
+                                       ERL_NIF_TERM   eAddr,
+                                       int            port,
+                                       unsigned int   flowInfo,
+                                       unsigned int   scopeId,
+                                       SocketAddress* sockAddrP,
+                                       unsigned int*  addrLenP)
+{
+    const struct in6_addr* addr;
+
+    if (COMPARE(atom_loopback, eAddr) == 0) {
+        addr = &in6addr_loopback;
+    } else if (COMPARE(atom_any, eAddr) == 0) {
+        addr = &in6addr_any;
+    } else {
+        return FALSE;
+    }
+
+    sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
+#ifndef NO_SA_LEN
+    sockAddrP->sai6.sin6_len      = sizeof(struct sockaddr_in6);
+#endif
+    sockAddrP->sai6.sin6_family   = AF_INET6;
+    sockAddrP->sai6.sin6_port     = sock_htons(port);
+    sockAddrP->sai6.sin6_flowinfo = flowInfo;
+    sockAddrP->sai6.sin6_scope_id = scopeId;
+    sockAddrP->sai6.sin6_addr     = *addr;
+    *addrLenP                     = sizeof(struct sockaddr_in6);
+    
+    return TRUE;
+}
+#endif
+
+
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+/* Decode an in6_sockaddr where the address field is a tuple */
+static
+BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
+                                   ERL_NIF_TERM   eAddr,
+                                   int            port,
+                                   unsigned int   flowInfo,
+                                   unsigned int   scopeId,
+                                   SocketAddress* sockAddrP,
+                                   unsigned int*  addrLenP)
+{
+    const ERL_NIF_TERM* ip6AddrT;
+    int                 ip6AddrTSz;
+    int                 a, v;
+    char                addr[16];
+
+    /* This shall be a 8 tuple */
+    if (!GET_TUPLE(env, eAddr, &ip6AddrTSz, &ip6AddrT))
+        return FALSE;
+
+    if (ip6AddrTSz != 8)
+        return FALSE;
+
+    sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
+#ifndef NO_SA_LEN
+    sockAddrP->sai6.sin6_len      = sizeof(struct sockaddr_in6);
+#endif
+    sockAddrP->sai6.sin6_family   = AF_INET6;
+    sockAddrP->sai6.sin6_port     = sock_htons(port);
+    sockAddrP->sai6.sin6_flowinfo = flowInfo;
+    sockAddrP->sai6.sin6_scope_id = scopeId;
+    /* The address tuple is of size 8
+     * and each element is a two byte integer
+     */
+    for (a = 0; a < 8; a++) {
+        if (!GET_INT(env, ip6AddrT[a], &v))
+            return FALSE;
+        addr[a*2  ] = ((v >> 8) & 0xFF);
+        addr[a*2+1] = (v & 0xFF);
+    }
+    sys_memcpy(&sockAddrP->sai6.sin6_addr, &addr, sizeof(addr));
+    *addrLenP = sizeof(struct sockaddr_in6);
+    
+    return TRUE;
+}
+#endif
 
 
 /* Decode the 4- or 8-element address tuple
@@ -6651,13 +6979,14 @@ ERL_NIF_TERM make_error2(ErlNifEnv* env, int err)
  * This message is for processes that are waiting in the
  * erlang API functions for a select message.
  */
+/*
 static
 char* send_msg_error_closed(ErlNifEnv* env,
                             ErlNifPid* pid)
 {
   return send_msg_error(env, atom_closed, pid);
 }
-
+*/
 
 /* Send an error message to the specified process:
  * A message in the form:
@@ -6667,6 +6996,7 @@ char* send_msg_error_closed(ErlNifEnv* env,
  * This message is for processes that are waiting in the
  * erlang API functions for a select message.
  */
+/*
 static
 char* send_msg_error(ErlNifEnv*   env,
                      ERL_NIF_TERM reason,
@@ -6676,6 +7006,7 @@ char* send_msg_error(ErlNifEnv*   env,
 
     return send_msg(env, msg, pid);
 }
+*/
 
 
 /* Send an (nif-) abort message to the specified process:
@@ -6985,18 +7316,18 @@ ErlNifFunc socket_funcs[] =
 
     // The proper "socket" interface
     {"nif_open",                4, nif_open, 0},
-    {"nif_bind",                3, nif_bind, 0},
-    {"nif_connect",             3, nif_connect, 0},
+    {"nif_bind",                2, nif_bind, 0},
+    {"nif_connect",             2, nif_connect, 0},
     {"nif_listen",              2, nif_listen, 0},
     {"nif_accept",              2, nif_accept, 0},
     {"nif_send",                4, nif_send, 0},
-    {"nif_sendto",              6, nif_sendto, 0},
+    {"nif_sendto",              5, nif_sendto, 0},
     {"nif_recv",                4, nif_recv, 0},
-    {"nif_recvfrom",            2, nif_recvfrom, 0},
+    {"nif_recvfrom",            4, nif_recvfrom, 0},
     {"nif_close",               1, nif_close, 0},
     {"nif_shutdown",            2, nif_shutdown, 0},
-    {"nif_setopt",              3, nif_setopt, 0},
-    {"nif_getopt",              2, nif_getopt, 0},
+    {"nif_setopt",              5, nif_setopt, 0},
+    {"nif_getopt",              4, nif_getopt, 0},
 
     /* Misc utility functions */
     {"nif_link_if2idx",         1, nif_link_if2idx, 0},
@@ -7008,7 +7339,7 @@ ErlNifFunc socket_funcs[] =
      * is called after the connect *select* has "completed".
      */
     {"nif_finalize_connection", 1, nif_finalize_connection, 0},
-    {"nif_cancel",              2, nif_cancel, 0},
+    // {"nif_cancel",              2, nif_cancel, 0},
     {"nif_finalize_close",      1, nif_finalize_close, ERL_NIF_DIRTY_JOB_IO_BOUND}
 };
 
@@ -7125,6 +7456,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     socketData.numProtoSCTP   = 0;
 
     /* +++ Misc atoms +++ */
+    atom_any          = MKA(env, str_any);
     // atom_active       = MKA(env, str_active);
     // atom_active_n     = MKA(env, str_active_n);
     // atom_active_once  = MKA(env, str_active_once);
@@ -7135,6 +7467,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_closing      = MKA(env, str_closing);
     atom_error        = MKA(env, str_error);
     atom_false        = MKA(env, str_false);
+    atom_in4_sockaddr = MKA(env, str_in4_sockaddr);
+    atom_in6_sockaddr = MKA(env, str_in6_sockaddr);
+    atom_loopback     = MKA(env, str_loopback);
     // atom_list         = MKA(env, str_list);
     // atom_mode         = MKA(env, str_mode);
     atom_nif_abort    = MKA(env, str_nif_abort);

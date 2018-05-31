@@ -52,7 +52,8 @@ XML_REF3_EFILES = \
 	erlang.xml \
 	erl_tracer.xml \
 	init.xml \
-	zlib.xml
+	zlib.xml \
+	socket.xml
 
 XML_REF3_FILES = \
 	driver_entry.xml \
@@ -63,7 +64,8 @@ XML_REF3_FILES = \
 	erlang.xml \
 	erts_alloc.xml  \
 	init.xml \
-	zlib.xml
+	zlib.xml \
+	socket.xml
 
 XML_PART_FILES = \
 	part.xml
