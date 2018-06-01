@@ -180,6 +180,8 @@ init([Options]) ->
 	{stop, Why} ->
 	    {stop, Why}
     catch 
+        _:undef ->
+            {stop, {bad_channel_callback_module,Cb}};
 	_:Reason ->
 	    {stop, Reason}
     end.
