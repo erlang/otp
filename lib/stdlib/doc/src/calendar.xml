@@ -323,7 +323,9 @@
       <type name="rfc3339_string"/>
       <type name="rfc3339_time_unit"/>
       <desc>
-	<p>Converts an RFC 3339 timestamp into system time.</p>
+        <p>Converts an RFC 3339 timestamp into system time. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.</p>
 	<p>Valid option:</p>
 	<taglist>
 	  <tag><c>{unit, Unit}</c></tag>
@@ -378,7 +380,10 @@
       <type name="rfc3339_string"/>
       <type name="rfc3339_time_unit"/>
       <desc>
-	<p>Converts a system time into RFC 3339 timestamp.</p>
+        <p>Converts a system time into an RFC 3339 timestamp. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.
+	  The data format of offsets is also described by RFC 3339.</p>
 	<p>Valid options:</p>
 	<taglist>
 	  <tag><c>{offset, Offset}</c></tag>
