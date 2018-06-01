@@ -1345,11 +1345,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                                       {next_event, internal, Msg}
 				    ]}
 	    catch
-		C:E  ->
+		C:E:ST  ->
                     {Shutdown, D} =  
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
                                          io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,erlang:get_stacktrace()]),
+                                                       [C,E,ST]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1378,10 +1378,10 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                                  StateName, D0),
             {stop, Shutdown, D}
     catch
-	C:E ->
+	C:E:ST ->
             {Shutdown, D} =  
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,erlang:get_stacktrace()]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,ST]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
