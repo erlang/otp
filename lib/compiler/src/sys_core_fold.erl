@@ -1275,13 +1275,18 @@ let_subst_list([], [], _) -> {[],[],[]}.
 %%pattern(Pat, Sub) -> pattern(Pat, Sub, Sub).
 
 pattern(#c_var{}=Pat, Isub, Osub) ->
-    case sub_is_val(Pat, Isub) of
+    case sub_is_in_scope(Pat, Isub) of
 	true ->
+            %% This variable either has a substitution or is used in
+            %% the variable list of an enclosing `let`. In either
+            %% case, it must be renamed to an unused name to avoid
+            %% name capture problems.
 	    V1 = make_var_name(),
 	    Pat1 = #c_var{name=V1},
 	    {Pat1,sub_set_var(Pat, Pat1, sub_add_scope([V1], Osub))};
 	false ->
-	    {Pat,sub_del_var(Pat, Osub)}
+            %% This variable has never been used. Add it to the scope.
+	    {Pat,sub_add_scope([Pat#c_var.name], Osub)}
     end;
 pattern(#c_literal{}=Pat, _, Osub) -> {Pat,Osub};
 pattern(#c_cons{anno=Anno,hd=H0,tl=T0}, Isub, Osub0) ->
@@ -1460,8 +1465,8 @@ is_subst(_) -> false.
 %% sub_set_name(Name, Value, #sub{}) -> #sub{}.
 %% sub_del_var(Var, #sub{}) -> #sub{}.
 %% sub_subst_var(Var, Value, #sub{}) -> [{Name,Value}].
-%% sub_is_val(Var, #sub{}) -> boolean().
-%% sub_add_scope(#sub{}) -> #sub{}
+%% sub_is_in_scope(Var, #sub{}) -> boolean().
+%% sub_add_scope([Var], #sub{}) -> #sub{}
 %% sub_subst_scope(#sub{}) -> #sub{}
 %%
 %%  We use the variable name as key so as not have problems with
@@ -1496,18 +1501,6 @@ sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb = copy_type(V, Val, Tdb1),
     Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
 
-sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
-    %% Profiling shows that for programs with many record operations,
-    %% sub_del_var/2 is a bottleneck. Since the scope contains all
-    %% variables that are live, we know that V cannot be present in S
-    %% if it is not in the scope.
-    case cerl_sets:is_element(V, Scope) of
-	false ->
-	    Sub#sub{s=cerl_sets:add_element(V, Scope)};
-	true ->
-	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
-    end.
-
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
     [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
@@ -1533,16 +1526,8 @@ sub_subst_scope_1([H|T], Key, Acc) ->
     sub_subst_scope_1(T, Key-1, [{Key,#c_var{name=H}}|Acc]);
 sub_subst_scope_1([], _, Acc) -> Acc.
 
-sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
-    %% When the bottleneck in sub_del_var/2 was eliminated, this
-    %% became the new bottleneck. Since the scope contains all
-    %% live variables, a variable V can only be the target for
-    %% a substitution if it is in the scope.
-    cerl_sets:is_element(V, Scope) andalso v_is_value(V, S).
-
-v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
-v_is_value(Var, [_|T]) -> v_is_value(Var, T);
-v_is_value(_, []) -> false.
+sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
+    cerl_sets:is_element(V, Scope).
 
 %% warn_no_clause_match(CaseOrig, CaseOpt) -> ok
 %%  Generate a warning if none of the user-specified clauses
