@@ -445,6 +445,8 @@ sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig, ErtsMessage *last
             case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
                 destroy_trace_info((ErtsSigTraceInfo *) tmp_free);
                 break;
+            case ERTS_SIG_Q_OP_MONITOR:
+                break; /* ignore flushed pending signal */
             default:
                 ERTS_INTERNAL_ERROR("Unexpected signal op");
                 break;
@@ -688,19 +690,15 @@ first_last_done:
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
     if (res == 0) {
+        sig_enqueue_trace_cleanup(first, sig, last);
         if (pend_sig) {
             if (sig == pend_sig) {
                 /* We did a switch, callers signal is now pending (still ok) */
                 ASSERT(esdp->pending_signal.sig);
                 res = 1;
             }
-            else {
-                ASSERT(first == (ErtsMessage*)pend_sig);
-                first = first->next;
-            }
             erts_proc_sig_send_monitor_down((ErtsMonitor*)pend_sig, am_noproc);
         }
-        sig_enqueue_trace_cleanup(first, sig, last);
     }
 
     erts_proc_notify_new_sig(rp, state, 0);
