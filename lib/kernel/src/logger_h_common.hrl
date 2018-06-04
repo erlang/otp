@@ -77,29 +77,30 @@
 -define(DISK_LOG_MAX_NO_BYTES, 1048576).
 
 %%%-----------------------------------------------------------------
+%%% Utility macros
+
+-define(name_to_reg_name(MODULE,Name),
+        list_to_atom(lists:concat([MODULE,"_",Name]))).
+
+%%%-----------------------------------------------------------------
 %%% Overload protection macros
 
 -define(timestamp(), erlang:monotonic_time(microsecond)).
 
--define(get_mode(HandlerName),
-        case ets:lookup(HandlerName, mode) of
-            [{mode,sync}] ->
-                case whereis(HandlerName)==self() of
-                    true -> async;
-                    _ -> sync
-                end;
+-define(get_mode(Tid),
+        case ets:lookup(Tid, mode) of
             [{mode,M}] -> M;
             _          -> async
         end).
 
--define(set_mode(HandlerName, M),
-        begin ets:insert(HandlerName, {mode,M}), M end).
+-define(set_mode(Tid, M),
+        begin ets:insert(Tid, {mode,M}), M end).
 
--define(change_mode(HandlerName, M0, M1),
+-define(change_mode(Tid, M0, M1),
         if M0 == M1 ->
                 M0;
            true ->
-                ets:insert(HandlerName, {mode,M1}),
+                ets:insert(Tid, {mode,M1}),
                 M1
         end).
 
@@ -124,7 +125,7 @@
 %%% slow down execution and therefore should not be include in code
 %%% to be officially released.
 
--define(TEST_HOOKS, true).
+%%-define(TEST_HOOKS, true).
 -ifdef(TEST_HOOKS).
   -define(TEST_HOOKS_TAB, logger_h_test_hooks).
 

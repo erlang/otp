@@ -170,7 +170,7 @@ add_remove_instance_file(Log, Type) ->
                               filter_default=>stop,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()}}),
-    Pid = whereis(?MODULE),
+    Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
     logger:info(M1=?msg,?domain),
     ?check(M1),
@@ -178,7 +178,7 @@ add_remove_instance_file(Log, Type) ->
     try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
-    undefined = whereis(?MODULE),
+    undefined = whereis(h_proc_name()),
     logger:info(?msg,?domain),
     ?check_no_log,
     try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
@@ -240,7 +240,7 @@ formatter_fail(Config) ->
                             #{logger_std_h => #{type => {file,Log}},
                               filter_default=>stop,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])}),
-    Pid = whereis(?MODULE),
+    Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
     #{handlers:=HC1} = logger:i(),
     H = [Id || {Id,_,_} <- HC1],
@@ -271,7 +271,7 @@ formatter_fail(Config) ->
                    5000),
 
     %% Check that handler is still alive and was never dead
-    Pid = whereis(?MODULE),
+    Pid = whereis(h_proc_name()),
     #{handlers:=HC2} = logger:i(),
     H = [Id || {Id,_,_} <- HC2],
 
@@ -354,7 +354,12 @@ crash_std_h(Config,Func,Var,Type,Log) ->
     ct:pal("Starting ~p with ~tp", [Name,Args]),
     %% Start a node which prints kernel logs to the destination specified by Type
     {ok,Node} = test_server:start_node(Name, peer, [{args, Args}]),
-    Pid = rpc:call(Node,erlang,whereis,[?STANDARD_HANDLER]),
+    HProcName =
+        case Type of
+            file -> ?name_to_reg_name(logger_std_h,?STANDARD_HANDLER);
+            disk_log -> ?name_to_reg_name(logger_disk_log_h,?STANDARD_HANDLER)
+        end,
+    Pid = rpc:call(Node,erlang,whereis,[HProcName]),
     ok = rpc:call(Node,logger,set_handler_config,[?STANDARD_HANDLER,formatter,
                                                   {?MODULE,self()}]),
     ok = log_on_remote_node(Node,"dummy1"),
@@ -367,7 +372,7 @@ crash_std_h(Config,Func,Var,Type,Log) ->
 
     %% Wait a bit, then check that it is gone
     timer:sleep(2000),
-    undefined = rpc:call(Node,erlang,whereis,[?STANDARD_HANDLER]),
+    undefined = rpc:call(Node,erlang,whereis,[HProcName]),
 
     %% Check that file is not empty
     {ok,Bin2} = sync_and_read(Node,Type,Log),
@@ -940,14 +945,14 @@ kill_disabled(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file:delete(Log),
-    true = is_pid(whereis(?MODULE)),
+    true = is_pid(whereis(h_proc_name())),
     ok.
 kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
     {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
      NewHConfig =
@@ -970,7 +975,7 @@ qlen_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(?MODULE)),
+            true = is_pid(whereis(h_proc_name())),
             ok
     after
         5000 ->
@@ -998,7 +1003,7 @@ qlen_kill_std(_Config) ->
 
 mem_kill_new(Config) ->
     {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
      NewHConfig =
@@ -1021,7 +1026,7 @@ mem_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             timer:sleep(RestartAfter * 3),
-            true = is_pid(whereis(?MODULE)),
+            true = is_pid(whereis(h_proc_name())),
             ok
     after
         5000 ->
@@ -1044,13 +1049,13 @@ restart_after(Config) ->
                                            handler_overloaded_qlen=>10,
                                            handler_restart_after=>never}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
-    MRef1 = erlang:monitor(process, whereis(?MODULE)),
+    MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
     send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
     receive
         {'DOWN', MRef1, _, _, _Info1} ->
             timer:sleep(?HANDLER_RESTART_AFTER + 1000),
-            undefined = whereis(?MODULE),
+            undefined = whereis(h_proc_name()),
             ok
     after
         5000 ->
@@ -1064,14 +1069,14 @@ restart_after(Config) ->
                                            handler_overloaded_qlen=>10,
                                            handler_restart_after=>RestartAfter}},
     ok = logger:set_handler_config(?MODULE, NewHConfig2),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
     send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
     receive
         {'DOWN', MRef2, _, _, _Info2} ->
             timer:sleep(RestartAfter + 2000),
-            Pid1 = whereis(?MODULE),
+            Pid1 = whereis(h_proc_name()),
             true = is_pid(Pid1),
             false = (Pid1 == Pid0),
             ok
@@ -1286,7 +1291,7 @@ add_remove_instance_nofile(Type) ->
                               filter_default=>stop,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()}}),
-    Pid = whereis(?MODULE),
+    Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
     group_leader(group_leader(),Pid), % to get printouts in test log
     logger:info(M1=?msg,?domain),
@@ -1295,7 +1300,7 @@ add_remove_instance_nofile(Type) ->
     ok = logger_std_h:sync(?MODULE),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
-    undefined = whereis(?MODULE),
+    undefined = whereis(h_proc_name()),
     logger:info(?msg,?domain),
     ?check_no_log,
     ok.
@@ -1379,7 +1384,7 @@ start_op_trace() ->
     TRecvPid = spawn_link(fun() -> trace_receiver(5000) end),
     {ok,_} = dbg:tracer(process, {TraceFun, TRecvPid}),
 
-    {ok,_} = dbg:p(whereis(?MODULE), [c]),
+    {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
     {ok,_} = dbg:p(self(), [c]),
 
     MS1 = dbg:fun2ms(fun([_]) -> return_trace() end),
@@ -1459,7 +1464,7 @@ start_tracer(Trace,Expected) ->
     Pid = self(),
     FileCtrlPid = maps:get(file_ctrl_pid, logger_std_h:info(?MODULE)),
     dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
-    dbg:p(whereis(?MODULE),[c]),
+    dbg:p(whereis(h_proc_name()),[c]),
     dbg:p(FileCtrlPid,[c]),
     tpl(Trace),
     ok.
@@ -1525,3 +1530,8 @@ escape([H|T]) ->
     [H|escape(T)];
 escape([]) ->
     [].
+
+h_proc_name() ->
+    h_proc_name(?MODULE).
+h_proc_name(Name) ->
+    ?name_to_reg_name(logger_std_h,Name).

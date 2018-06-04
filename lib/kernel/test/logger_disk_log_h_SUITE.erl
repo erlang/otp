@@ -107,10 +107,10 @@ start_stop_handler(_Config) ->
     ok = logger:add_handler(?MODULE, logger_disk_log_h, #{}),
     {error,{already_exist,?MODULE}} =
         logger:add_handler(?MODULE, logger_disk_log_h, #{}),
-    true = is_pid(whereis(?MODULE)),
+    true = is_pid(whereis(h_proc_name())),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
-    undefined = whereis(?MODULE).
+    undefined = whereis(h_proc_name()).
 start_stop_handler(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
 
@@ -326,7 +326,7 @@ formatter_fail(Config) ->
                 filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])},
     %% no formatter!
     logger:add_handler(Name, logger_disk_log_h, HConfig),
-    Pid = whereis(Name),
+    Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
     #{handlers:=HC1} = logger:i(),
     H = [Id || {Id,_,_} <- HC1],
@@ -357,7 +357,7 @@ formatter_fail(Config) ->
                    5000),
 
     %% Check that handler is still alive and was never dead
-    Pid = whereis(Name),
+    Pid = whereis(h_proc_name(Name)),
     #{handlers:=HC2} = logger:i(),
     H = [Id || {Id,_,_} <- HC2],
     ok.
@@ -598,7 +598,7 @@ disk_log_wrap(Config) ->
                        Pid
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
-    {ok,_} = dbg:p(whereis(?MODULE), [c]),
+    {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
     {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
 
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,MaxBytes)],
@@ -652,7 +652,7 @@ disk_log_full(Config) ->
                        Pid
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
-    {ok,_} = dbg:p(whereis(?MODULE), [c]),
+    {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
     {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
 
     NoOfChars = 5,
@@ -701,10 +701,10 @@ disk_log_events(Config) ->
                        Pid
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
-    {ok,_} = dbg:p(whereis(?MODULE), [c]),
+    {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
     {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
     
-    [whereis(?MODULE) ! E || E <- Events],
+    [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
     dbg:stop_clear(),
@@ -889,7 +889,7 @@ op_switch_to_drop(Config) ->
                 [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
-                ok= stop_handler(?MODULE),
+                ok = stop_handler(?MODULE),
                 _ = file:delete(Log),
                 ct:pal("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
@@ -1033,14 +1033,14 @@ kill_disabled(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file:delete(Log),
-    true = is_pid(whereis(?MODULE)),
+    true = is_pid(whereis(h_proc_name())),
     ok.
 kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
     {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig =
@@ -1064,7 +1064,7 @@ qlen_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(?MODULE)),
+            true = is_pid(whereis(h_proc_name())),
             ok
     after
         5000 ->
@@ -1077,7 +1077,7 @@ qlen_kill_new(cleanup, _Config) ->
 
 mem_kill_new(Config) ->
     {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig =
@@ -1101,7 +1101,7 @@ mem_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(?MODULE)),
+            true = is_pid(whereis(h_proc_name())),
             ok
     after
         5000 ->
@@ -1119,13 +1119,13 @@ restart_after(Config) ->
                                                handler_overloaded_qlen=>10,
                                                handler_restart_after=>never}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
-    MRef1 = erlang:monitor(process, whereis(?MODULE)),
+    MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
     send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
     receive
         {'DOWN', MRef1, _, _, _Info1} ->
             timer:sleep(?HANDLER_RESTART_AFTER + 1000),
-            undefined = whereis(?MODULE),
+            undefined = whereis(h_proc_name()),
             ok
     after
         5000 ->
@@ -1139,14 +1139,14 @@ restart_after(Config) ->
                                                handler_overloaded_qlen=>10,
                                                handler_restart_after=>RestartAfter}},
     ok = logger:set_handler_config(?MODULE, NewHConfig2),
-    Pid0 = whereis(?MODULE),
+    Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
     send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
     receive
         {'DOWN', MRef2, _, _, _Info2} ->
             timer:sleep(RestartAfter + 2000),
-            Pid1 = whereis(?MODULE),
+            Pid1 = whereis(h_proc_name()),
             true = is_pid(Pid1),
             false = (Pid1 == Pid0),
             ok
@@ -1225,14 +1225,15 @@ start_handler(Name, FuncName, Config) ->
                                                max_no_bytes => 100000000},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
-                              formatter=>{?MODULE,op}}),
+                              formatter=>{?MODULE,op},
+                              level => info}),
     {ok,{_,HConfig = #{logger_disk_log_h := DLHConfig}}} =
         logger:get_handler_config(Name),
     {lists:concat([File,".1"]),HConfig,DLHConfig}.
     
 stop_handler(Name) ->
-    ok = logger:remove_handler(Name),
-    ct:pal("Handler ~p stopped!", [Name]).    
+    ct:pal("Stopping handler ~p!", [Name]),
+    logger:remove_handler(Name).
 
 send_burst(NorT, Type, {chars,Sz}, Class) ->
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,Sz)],
@@ -1331,7 +1332,7 @@ start_and_add(Name, Config, LogOpts) ->
            [Name,Config#{disk_log_opts=>LogOpts}]),
     ok = logger:add_handler(Name, logger_disk_log_h,
                             Config#{disk_log_opts=>LogOpts}),
-    Pid = whereis(Name),
+    Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
     Name = proplists:get_value(name, disk_log:info(Name)),
     ok.
@@ -1339,7 +1340,7 @@ start_and_add(Name, Config, LogOpts) ->
 remove_and_stop(Handler) ->
     ok = logger:remove_handler(Handler),
     timer:sleep(500),
-    undefined = whereis(Handler),
+    undefined = whereis(h_proc_name(Handler)),
     ok.
 
 try_read_file(FileName, Expected, Time) ->
@@ -1442,7 +1443,7 @@ repeat_until_ok(Fun, C, Stop, FirstReason) ->
 start_tracer(Trace,Expected) ->
     Pid = self(),
     dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
-    dbg:p(whereis(?MODULE),[c]),
+    dbg:p(h_proc_name(),[c]),
     tpl(Trace),
     ok.
 
@@ -1498,3 +1499,8 @@ escape([H|T]) ->
     [H|escape(T)];
 escape([]) ->
     [].
+
+h_proc_name() ->
+    h_proc_name(?MODULE).
+h_proc_name(Name) ->
+    list_to_atom(lists:concat([logger_disk_log_h,"_",Name])).

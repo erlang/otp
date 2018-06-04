@@ -63,7 +63,8 @@ start_link(Name, Config, HandlerState) ->
 
 sync(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, disk_log_sync, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        disk_log_sync, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
@@ -79,7 +80,8 @@ sync(Name) ->
 
 info(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, info, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        info, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
@@ -94,7 +96,8 @@ info(Name) ->
 
 reset(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, reset, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        reset, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;      
@@ -117,10 +120,10 @@ adding_handler(#{id:=Name}=Config) ->
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
                     case start(Name, Config1, HState) of
-                        ok ->
+                        {ok,Config2} ->
                             %% Make sure wait_for_buffer is not stored, so we
                             %% won't hang and wait for buffer on a restart
-                            {ok, maps:remove(wait_for_buffer,Config1)};
+                            {ok, maps:remove(wait_for_buffer,Config2)};
                         Error ->
                             Error
                     end;
@@ -136,13 +139,18 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts},
+changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts, ?MODULE:=HConfig},
                 NewConfig=#{id:=Name, disk_log_opts:=DLOpts}) ->
     case check_config(changing, NewConfig) of
-        Result = {ok,NewConfig1} ->
-            try gen_server:call(Name, {change_config,OldConfig,NewConfig1},
+        {ok,NewConfig1 = #{?MODULE:=NewHConfig}} ->
+            #{handler_pid:=HPid,
+              mode_tab:=ModeTab} = HConfig,
+            NewHConfig1 = NewHConfig#{handler_pid=>HPid,
+                                      mode_tab=>ModeTab},
+            NewConfig2 = NewConfig1#{?MODULE=>NewHConfig1},
+            try gen_server:call(HPid, {change_config,OldConfig,NewConfig2},
                                 ?DEFAULT_CALL_TIMEOUT) of
-                ok      -> Result;
+                ok      -> {ok,NewConfig2};
                 HError  -> HError
             catch
                 _:{timeout,_} -> {error,handler_busy}
@@ -225,12 +233,12 @@ removing_handler(#{id:=Name}) ->
 
 %%%-----------------------------------------------------------------
 %%% Get buffer when swapping from simple handler
-swap_buffer(Name,Buffer) ->
-    case whereis(Name) of
+swap_buffer(Name, Buffer) ->
+    case whereis(?name_to_reg_name(?MODULE,Name)) of
         undefined ->
             ok;
-        _ ->
-            Name ! {buffer,Buffer}
+        Pid ->
+            Pid ! {buffer,Buffer}
     end.
 
 %%%-----------------------------------------------------------------
@@ -239,21 +247,22 @@ swap_buffer(Name,Buffer) ->
       LogEvent :: logger:log_event(),
       Config :: logger:config().
 
-log(LogEvent,Config=#{id:=Name}) ->
+log(LogEvent, Config = #{id := Name,
+                         ?MODULE := #{handler_pid := HPid,
+                                      mode_tab := ModeTab}}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
-    true = is_pid(whereis(Name)),
-    Bin = logger_h_common:log_to_binary(LogEvent,Config),
-    logger_h_common:call_cast_or_drop(Name, Bin).
-
+    true = is_process_alive(HPid),
+    Bin = logger_h_common:log_to_binary(LogEvent, Config),
+    logger_h_common:call_cast_or_drop(Name, HPid, ModeTab, Bin).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config = #{disk_log_opts := LogOpts},
+init([Name, Config = #{?MODULE := HConfig, disk_log_opts := LogOpts},
       State = #{dl_sync_int := DLSyncInt}]) ->
-    register(Name, self()),
+    register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
@@ -262,25 +271,36 @@ init([Name, Config = #{disk_log_opts := LogOpts},
 
     case open_disk_log(Name, LogOpts) of
         ok ->
-            catch ets:new(Name, [public, named_table]),
-            ?set_mode(Name, async),
-            proc_lib:init_ack({ok,self()}),
-            T0 = ?timestamp(),
-            State1 =
-                ?merge_with_stats(State#{id => Name,
-                                         mode => async,
-                                         dl_sync => DLSyncInt,
-                                         log_opts => LogOpts,
-                                         last_qlen => 0,
-                                         last_log_ts => T0,
-                                         burst_win_ts => T0,
-                                         burst_msg_count => 0,
-                                         last_op => sync,
-                                         prev_log_result => ok,
-                                         prev_sync_result => ok,
-                                         prev_disk_log_info => undefined}),
-            gen_server:cast(self(), repeated_disk_log_sync),
-            enter_loop(Config, State1);
+            try ets:new(Name, [public]) of
+                ModeTab ->
+                    ?set_mode(ModeTab, async),
+                    T0 = ?timestamp(),
+                    State1 =
+                        ?merge_with_stats(State#{
+                                            id => Name,
+                                            mode_tab => ModeTab,
+                                            mode => async,
+                                            dl_sync => DLSyncInt,
+                                            log_opts => LogOpts,
+                                            last_qlen => 0,
+                                            last_log_ts => T0,
+                                            burst_win_ts => T0,
+                                            burst_msg_count => 0,
+                                            last_op => sync,
+                                            prev_log_result => ok,
+                                            prev_sync_result => ok,
+                                            prev_disk_log_info => undefined}),
+                    Config1 =
+                        Config#{?MODULE => HConfig#{handler_pid => self(),
+                                                    mode_tab => ModeTab}},
+                    proc_lib:init_ack({ok,self(),Config1}),
+                    gen_server:cast(self(), repeated_disk_log_sync),
+                    enter_loop(Config1, State1)
+            catch
+                _:Error ->
+                    logger_h_common:error_notify({open_disk_log,Name,Error}),
+                    proc_lib:init_ack(Error)
+            end;
         Error ->
             logger_h_common:error_notify({open_disk_log,Name,Error}),
             proc_lib:init_ack(Error)
@@ -477,8 +497,8 @@ start(Name, Config, HandlerState) ->
           type     => worker,
           modules  => [?MODULE]},
     case supervisor:start_child(logger_sup, LoggerDLH) of
-        {ok,_} ->
-            ok;
+        {ok,_Pid,Config1} ->
+            {ok,Config1};
         Error ->
             Error
     end.
@@ -486,16 +506,16 @@ start(Name, Config, HandlerState) ->
 %%%-----------------------------------------------------------------
 %%% Stop and remove the handler.
 stop(Name) ->
-    case whereis(Name) of
+    case whereis(?name_to_reg_name(?MODULE,Name)) of
         undefined ->
             ok;
-        _ ->
+        Pid ->
             %% We don't want to do supervisor:terminate_child here
             %% since we need to distinguish this explicit stop from a
             %% system termination in order to avoid circular attempts
             %% at removing the handler (implying deadlocks and
             %% timeouts).
-            _ = gen_server:call(Name,stop),
+            _ = gen_server:call(Pid, stop),
             _ = supervisor:delete_child(logger_sup, Name),
             ok
     end.
@@ -530,7 +550,7 @@ do_log(Bin, CallOrCast, State = #{id:=Name, mode := _Mode0}) ->
 
 %% this function is called by do_log/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
+flush(_Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
     %% flush messages in the mailbox (a limited number in
     %% order to not cause long delays)
     _NewFlushed = logger_h_common:flush_log_requests(?FLUSH_MAX_N),
@@ -539,20 +559,21 @@ flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
     %% handler will be scheduled out often and the mailbox could
     %% grow very large, so we'd better check the queue again here
     {_,_QLen1} = process_info(self(), message_queue_len),
-    ?observe(Name,{max_qlen,_QLen1}),
+    ?observe(_Name,{max_qlen,_QLen1}),
 
     %% Add 1 for the current log request
-    ?observe(Name,{flushed,_NewFlushed+1}),
+    ?observe(_Name,{flushed,_NewFlushed+1}),
 
     State1 = ?update_max_time(?diff_time(T1,_T0),State),
     {dropped,?update_other(flushed,FLUSHED,_NewFlushed,
-                           State1#{mode => ?set_mode(Name,async),
+                           State1#{mode => ?set_mode(ModeTab,async),
                                    last_qlen => 0,
                                    last_log_ts => T1})}.
 
 %% this function is called to write to disk_log
 write(Name, Mode, T1, Bin, _CallOrCast,
-      State = #{dl_sync := DLSync,
+      State = #{mode_tab := ModeTab,
+                dl_sync := DLSync,
                 dl_sync_int := DLSyncInt,
                 last_qlen := LastQLen,
                 last_log_ts := T0}) ->
@@ -589,7 +610,7 @@ write(Name, Mode, T1, Bin, _CallOrCast,
     {Mode1,BurstMsgCount1,State2} =
         if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
            (Time > ?IDLE_DETECT_TIME_USEC) ->
-                {?change_mode(Name,Mode,async), 0, disk_log_sync(Name,State1)};
+                {?change_mode(ModeTab,Mode,async), 0, disk_log_sync(Name,State1)};
            true ->
                 {Mode, BurstMsgCount,State1}
         end,

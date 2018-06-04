@@ -24,7 +24,7 @@
 
 -export([log_to_binary/2,
          check_common_config/1,
-         call_cast_or_drop/2,
+         call_cast_or_drop/4,
          check_load/1,
          limit_burst/1,
          kill_if_choked/4,
@@ -84,6 +84,10 @@ try_format(Log,Formatter,FormatterConfig) ->
 
 %%%-----------------------------------------------------------------
 %%% Check that the configuration term is valid
+check_common_config({mode_tab,_Tid}) ->
+    valid;
+check_common_config({handler_pid,Pid}) when is_pid(Pid) ->
+    valid;
 check_common_config({toggle_sync_qlen,N}) when is_integer(N) ->
     valid;
 check_common_config({drop_new_reqs_qlen,N}) when is_integer(N) ->
@@ -116,16 +120,16 @@ check_common_config(_) ->
 
 %%%-----------------------------------------------------------------
 %%% Overload Protection
-call_cast_or_drop(Name, Bin) ->
+call_cast_or_drop(_Name, HandlerPid, ModeTab, Bin) ->
     %% If the handler process is getting overloaded, the log request
     %% will be synchronous instead of asynchronous (slows down the
     %% logging tempo of a process doing lots of logging. If the
     %% handler is choked, drop mode is set and no request will be sent.
-    try ?get_mode(Name) of
+    try ?get_mode(ModeTab) of
         async ->
-            gen_server:cast(Name, {log,Bin});
+            gen_server:cast(HandlerPid, {log,Bin});
         sync ->
-            try gen_server:call(Name, {log,Bin}, ?DEFAULT_CALL_TIMEOUT) of
+            try gen_server:call(HandlerPid, {log,Bin}, ?DEFAULT_CALL_TIMEOUT) of
                 %% if return value from call == dropped, the
                 %% message has been flushed by handler and should
                 %% therefore not be counted as dropped in stats
@@ -133,28 +137,28 @@ call_cast_or_drop(Name, Bin) ->
                 dropped -> ok
             catch
                 _:{timeout,_} ->
-                    ?observe(Name,{dropped,1})
+                    ?observe(_Name,{dropped,1})
             end;
         drop ->
-            ?observe(Name,{dropped,1})
+            ?observe(_Name,{dropped,1})
     catch
         %% if the ETS table doesn't exist (maybe because of a
         %% handler restart), we can only drop the request
-        _:_ -> ?observe(Name,{dropped,1})
+        _:_ -> ?observe(_Name,{dropped,1})
     end,
     ok.
 
 handler_exit(_Name, Reason) ->
     exit(Reason).
 
-check_load(State = #{id:=Name, mode := Mode,
+check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
                      toggle_sync_qlen := ToggleSyncQLen,
                      drop_new_reqs_qlen := DropNewQLen,
                      flush_reqs_qlen := FlushQLen}) ->
     {_,Mem} = process_info(self(), memory),
-    ?observe(Name,{max_mem,Mem}),
+    ?observe(_Name,{max_mem,Mem}),
     {_,QLen} = process_info(self(), message_queue_len),
-    ?observe(Name,{max_qlen,QLen}),
+    ?observe(_Name,{max_qlen,QLen}),
     %% When the handler process gets scheduled in, it's impossible
     %% to predict the QLen. We could jump "up" arbitrarily from say
     %% async to sync, async to drop, sync to flush, etc. However, when
@@ -171,11 +175,11 @@ check_load(State = #{id:=Name, mode := Mode,
                 %% be dropped on the client side (never sent get to
                 %% the handler).
                 IncDrops = if Mode == drop -> 0; true -> 1 end,
-                {?change_mode(Name, Mode, drop), IncDrops,0};
+                {?change_mode(ModeTab, Mode, drop), IncDrops,0};
             QLen >= ToggleSyncQLen ->
-                {?change_mode(Name, Mode, sync), 0,0};
+                {?change_mode(ModeTab, Mode, sync), 0,0};
             true ->
-                {?change_mode(Name, Mode, async), 0,0}
+                {?change_mode(ModeTab, Mode, async), 0,0}
         end,
     State1 = ?update_other(drops,DROPS,_NewDrops,State),
     {Mode1, QLen, Mem,

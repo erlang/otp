@@ -64,7 +64,8 @@ start_link(Name, Config, HandlerState) ->
 
 sync(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, filesync, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        filesync, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
@@ -80,7 +81,8 @@ sync(Name) ->
 
 info(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, info, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        info, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
@@ -95,7 +97,8 @@ info(Name) ->
 
 reset(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, reset, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        reset, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;      
@@ -118,10 +121,10 @@ adding_handler(#{id:=Name}=Config) ->
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
                     case start(Name, Config1, HState) of
-                        ok ->
+                        {ok,Config2} ->
                             %% Make sure wait_for_buffer is not stored, so we
                             %% won't hang and wait for buffer on a restart
-                            {ok, maps:remove(wait_for_buffer,Config1)};
+                            {ok, maps:remove(wait_for_buffer,Config2)};
                         Error ->
                             Error
                     end;
@@ -137,13 +140,16 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, ?MODULE:=#{type:=Type}},
+changing_config(OldConfig=#{id:=Name, ?MODULE:=HConfig},
                 NewConfig=#{id:=Name}) ->
+    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = HConfig,
     MyConfig = maps:get(?MODULE, NewConfig, #{}),
     case maps:get(type, MyConfig, Type) of
         Type ->
-            MyConfig1 = MyConfig#{type=>Type},
-            changing_config1(Name, OldConfig,
+            MyConfig1 = MyConfig#{type=>Type,
+                                  handler_pid=>HPid,
+                                  mode_tab=>ModeTab},
+            changing_config1(HPid, OldConfig,
                              NewConfig#{?MODULE=>MyConfig1});
         _ ->
             {error,{illegal_config_change,OldConfig,NewConfig}}
@@ -151,10 +157,10 @@ changing_config(OldConfig=#{id:=Name, ?MODULE:=#{type:=Type}},
 changing_config(OldConfig, NewConfig) ->
     {error,{illegal_config_change,OldConfig,NewConfig}}.
 
-changing_config1(Name, OldConfig, NewConfig) ->
+changing_config1(HPid, OldConfig, NewConfig) ->
     case check_config(changing, NewConfig) of
         Result = {ok,NewConfig1} ->
-            try gen_server:call(Name, {change_config,OldConfig,NewConfig1},
+            try gen_server:call(HPid, {change_config,OldConfig,NewConfig1},
                                 ?DEFAULT_CALL_TIMEOUT) of
                 ok      -> Result;
                 HError  -> HError
@@ -209,12 +215,12 @@ removing_handler(#{id:=Name}) ->
 
 %%%-----------------------------------------------------------------
 %%% Get buffer when swapping from simple handler
-swap_buffer(Name,Buffer) ->
-    case whereis(Name) of
+swap_buffer(Name, Buffer) ->
+    case whereis(?name_to_reg_name(?MODULE,Name)) of
         undefined ->
             ok;
-        _ ->
-            Name ! {buffer,Buffer}
+        Pid ->
+            Pid ! {buffer,Buffer}
     end.
 
 %%%-----------------------------------------------------------------
@@ -223,20 +229,22 @@ swap_buffer(Name,Buffer) ->
       LogEvent :: logger:log_event(),
       Config :: logger:config().
 
-log(LogEvent,Config=#{id:=Name}) ->
+log(LogEvent, Config = #{id := Name,
+                         ?MODULE := #{handler_pid := HPid,
+                                      mode_tab := ModeTab}}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
-    true = is_pid(whereis(Name)),
-    Bin = logger_h_common:log_to_binary(LogEvent,Config),
-    logger_h_common:call_cast_or_drop(Name, Bin).
+    true = is_process_alive(HPid),
+    Bin = logger_h_common:log_to_binary(LogEvent, Config),
+    logger_h_common:call_cast_or_drop(Name, HPid, ModeTab, Bin).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config,
-      State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->
-    register(Name, self()),
+init([Name, Config = #{?MODULE := HConfig},
+      State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->    
+    register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
@@ -245,21 +253,32 @@ init([Name, Config,
 
     case do_init(Name, Type) of
         {ok,InitState} ->
-            catch ets:new(Name, [public, named_table]),
-            ?set_mode(Name, async),
-            State = maps:merge(State0, InitState),
-            T0 = ?timestamp(),
-            State1 =
-                ?merge_with_stats(State#{mode => async,
-                                         file_ctrl_sync => FileCtrlSyncInt,
-                                         last_qlen => 0,
-                                         last_log_ts => T0,
-                                         last_op => sync,
-                                         burst_win_ts => T0,
-                                         burst_msg_count => 0}),
-            proc_lib:init_ack({ok,self()}),
-            gen_server:cast(self(), repeated_filesync),
-            enter_loop(Config, State1);
+            try ets:new(Name, [public]) of
+                ModeTab ->
+                    ?set_mode(ModeTab, async),
+                    State = maps:merge(State0, InitState),
+                    T0 = ?timestamp(),
+                    State1 =
+                        ?merge_with_stats(State#{
+                                            mode_tab => ModeTab,
+                                            mode => async,
+                                            file_ctrl_sync => FileCtrlSyncInt,
+                                            last_qlen => 0,
+                                            last_log_ts => T0,
+                                            last_op => sync,
+                                            burst_win_ts => T0,
+                                            burst_msg_count => 0}),
+                    Config1 =
+                        Config#{?MODULE => HConfig#{handler_pid => self(),
+                                                    mode_tab => ModeTab}},
+                    proc_lib:init_ack({ok,self(),Config1}),
+                    gen_server:cast(self(), repeated_filesync),
+                    enter_loop(Config1, State1)
+            catch
+                _:Error ->
+                    logger_h_common:error_notify({init_handler,Name,Error}),
+                    proc_lib:init_ack(Error)
+            end;
         Error ->
             logger_h_common:error_notify({init_handler,Name,Error}),
             proc_lib:init_ack(Error)
@@ -466,8 +485,8 @@ start(Name, Config, HandlerState) ->
           type     => worker,
           modules  => [?MODULE]},
     case supervisor:start_child(logger_sup, LoggerStdH) of
-        {ok,_Pid} ->
-            ok;
+        {ok,_Pid,Config1} ->
+            {ok,Config1};
         Error ->
             Error
     end.
@@ -475,16 +494,16 @@ start(Name, Config, HandlerState) ->
 %%%-----------------------------------------------------------------
 %%% Stop and remove the handler.
 stop(Name) ->
-    case whereis(Name) of
+    case whereis(?name_to_reg_name(?MODULE,Name)) of
         undefined ->
             ok;
-        _ ->
+        Pid ->
             %% We don't want to do supervisor:terminate_child here
             %% since we need to distinguish this explicit stop from a
             %% system termination in order to avoid circular attempts
             %% at removing the handler (implying deadlocks and
             %% timeouts).
-            _ = gen_server:call(Name,stop),
+            _ = gen_server:call(Pid, stop),
             _ = supervisor:delete_child(logger_sup, Name),
             ok
     end.
@@ -519,7 +538,7 @@ do_log(Bin, CallOrCast, State = #{id:=Name}) ->
 
 %% this clause is called by do_log/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
+flush(_Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
     %% flush messages in the mailbox (a limited number in
     %% order to not cause long delays)
     _NewFlushed = logger_h_common:flush_log_requests(?FLUSH_MAX_N),
@@ -528,20 +547,21 @@ flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
     %% handler will be scheduled out often and the mailbox could
     %% grow very large, so we'd better check the queue again here
     {_,_QLen1} = process_info(self(), message_queue_len),
-    ?observe(Name,{max_qlen,_QLen1}),
+    ?observe(_Name,{max_qlen,_QLen1}),
     
     %% Add 1 for the current log request
-    ?observe(Name,{flushed,_NewFlushed+1}),
+    ?observe(_Name,{flushed,_NewFlushed+1}),
  
     State1 = ?update_max_time(?diff_time(T1,_T0),State),
     {dropped,?update_other(flushed,FLUSHED,_NewFlushed,
-                           State1#{mode => ?set_mode(Name,async),
+                           State1#{mode => ?set_mode(ModeTab,async),
                                    last_qlen => 0,
                                    last_log_ts => T1})}.
 
 %% this clause is called to write to file
-write(Name, Mode, T1, Bin, _CallOrCast,
-      State = #{file_ctrl_pid := FileCtrlPid,
+write(_Name, Mode, T1, Bin, _CallOrCast,
+      State = #{mode_tab := ModeTab,
+                file_ctrl_pid := FileCtrlPid,
                 file_ctrl_sync := FileCtrlSync,
                 last_qlen := LastQLen,
                 last_log_ts := T0,
@@ -555,15 +575,15 @@ write(Name, Mode, T1, Bin, _CallOrCast,
     %% file writes so it can keep up with incoming messages
     {Result,LastQLen1} =
         if DoWrite, FileCtrlSync == 0 ->
-                ?observe(Name,{_CallOrCast,1}),
+                ?observe(_Name,{_CallOrCast,1}),
                 file_write_sync(FileCtrlPid, Bin, false),
                 {ok,element(2, process_info(self(), message_queue_len))};
            DoWrite ->
-                ?observe(Name,{_CallOrCast,1}),
+                ?observe(_Name,{_CallOrCast,1}),
                 file_write_async(FileCtrlPid, Bin),
                 {ok,LastQLen};
            not DoWrite ->
-                ?observe(Name,{flushed,1}),
+                ?observe(_Name,{flushed,1}),
                 {dropped,LastQLen}
         end,
     
@@ -585,7 +605,7 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                     _File ->
                         file_ctrl_filesync_async(FileCtrlPid)
                 end,
-                {?change_mode(Name, Mode, async),0};
+                {?change_mode(ModeTab, Mode, async),0};
            true ->
                 {Mode,BurstMsgCount}
         end,
