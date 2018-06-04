@@ -3129,6 +3129,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("ets_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
+    else if (ERTS_IS_ATOM_STR("ets_count",BIF_ARG_1)) {
+        BIF_RET(make_small(erts_ets_table_count()));
+    }
     else if (ERTS_IS_ATOM_STR("atom_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_get_atom_limit()));
     }

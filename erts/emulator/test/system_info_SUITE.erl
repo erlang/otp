@@ -37,6 +37,7 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
+         ets_count/1,
          atom_count/1]).
 
 suite() ->
@@ -45,6 +46,7 @@ suite() ->
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
+     ets_count,
      heap_size, wordsize, memory, ets_limit, atom_limit, atom_count].
 
 %%%
@@ -477,6 +479,21 @@ get_node_name(Config) ->
 		 ++ integer_to_list(erlang:system_time(second))
 		 ++ "-"
 		 ++ integer_to_list(erlang:unique_integer([positive]))).
+
+ets_count(Config) when is_list(Config) ->
+    [ets_count_do([Type | Named])
+     || Type <- [set, bag, duplicate_bag, ordered_set],
+        Named <- [[named_table], []]
+    ],
+    ok.
+
+ets_count_do(Opts) ->
+    Before = erlang:system_info(ets_count),
+    T = ets:new(?MODULE, Opts),
+    After = erlang:system_info(ets_count),
+    After = Before + 1,
+    ets:delete(T),
+    Before = erlang:system_info(ets_count).
 
 
 %% Verify system_info(ets_limit) reflects max ETS table settings.

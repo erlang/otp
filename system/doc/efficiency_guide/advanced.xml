@@ -188,11 +188,6 @@
 	limit can be raised or lowered using the <c>+t</c> option.</cell>
       </row>
       <row>
-	<cell>Ets tables</cell>
-	<cell>Default is 1400. It can be changed with the environment
-	variable <c>ERL_MAX_ETS_TABLES</c>.</cell>
-      </row>
-      <row>
 	<cell>Elements in a tuple</cell>
 	<cell>The maximum number of elements in a tuple is 16,777,215
 	(24-bit unsigned integer).</cell>

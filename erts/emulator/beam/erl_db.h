@@ -45,7 +45,7 @@ typedef struct {
 } ErtsEtsAllYieldData;
 
 typedef struct {
-    Uint count;
+    erts_atomic_t count;
     DbTable *clist;
 } ErtsEtsTables;
 
@@ -69,6 +69,7 @@ typedef struct {
 /*TT*/
 
 Uint erts_get_ets_misc_mem_size(void);
+Uint erts_ets_table_count(void);
 
 typedef struct {
     DbTableCommon common;
@@ -93,7 +94,7 @@ union db_table {
     /*TT*/
 };
 
-#define DB_DEF_MAX_TABS 2053 /* Superseeded by environment variable 
+#define DB_DEF_MAX_TABS 8192 /* Superseeded by environment variable
 				"ERL_MAX_ETS_TABLES" */
 #define ERL_MAX_ETS_TABLES_ENV "ERL_MAX_ETS_TABLES"
 
