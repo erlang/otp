@@ -517,6 +517,15 @@ int erl_call(int argc, char **argv)
       }
      
     }
+
+    /*
+     * If we loaded any module source code, we can free the buffer
+     * now. This buffer was allocated in read_stdin().
+     */
+    if (module != NULL) {
+        free(module);
+    }
+
     /*
      * Eval the Erlang functions read from stdin/
      */
@@ -795,8 +804,6 @@ static int get_module(char **mbuf, char **mname)
     *mname = (char *) ei_chk_calloc(i+1, sizeof(char));
     memcpy(*mname, start, i);
   }
-  if (*mbuf)
-      free(*mbuf);			/* Allocated in read_stdin() */
 
   return len;
 
