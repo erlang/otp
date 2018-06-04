@@ -96,7 +96,7 @@
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log_event().
 -type config() :: #{id => handler_id(),
-                    level => level(),
+                    level => level() | all | none,
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
                     formatter => {module(),formatter_config()},
@@ -412,7 +412,7 @@ update_formatter_config(HandlerId,Key,Value) ->
 
 -spec set_module_level(Modules,Level) -> ok | {error,term()} when
       Modules :: [module()] | module(),
-      Level :: level().
+      Level :: level() | all | none.
 set_module_level(Module,Level) when is_atom(Module) ->
     set_module_level([Module],Level);
 set_module_level(Modules,Level) ->
@@ -432,7 +432,7 @@ unset_module_level() ->
 -spec get_module_level(Modules) -> [{Module,Level}] when
       Modules :: [Module] | Module,
       Module :: module(),
-      Level :: level().
+      Level :: level() | all | none.
 get_module_level(Module) when is_atom(Module) ->
     get_module_level([Module]);
 get_module_level(Modules) when is_list(Modules) ->
@@ -441,7 +441,7 @@ get_module_level(Modules) when is_list(Modules) ->
 
 -spec get_module_level() -> [{Module,Level}] when
       Module :: module(),
-      Level :: level().
+      Level :: level() | all | none.
 get_module_level() ->
     logger_config:get_module_level(?LOGGER_TABLE).
 
@@ -494,13 +494,13 @@ unset_process_metadata() ->
 
 -spec i() -> #{logger=>config(),
                handlers=>[{handler_id(),module(),config()}],
-               module_levels=>[{module(),level()}]}.
+               module_levels=>[{module(),level() | all | none}]}.
 i() ->
     i(term).
 
 -spec i(term) -> #{logger=>config(),
                    handlers=>[{handler_id(),module(),config()}],
-                   module_levels=>[{module(),level()}]};
+                   module_levels=>[{module(),level() | all | none}]};
        (print) -> ok;
        (string) -> iolist().
 i(_Action = print) ->

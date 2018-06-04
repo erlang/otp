@@ -136,6 +136,7 @@ get(Tid) ->
     Modules = get_module_level(Tid),
     {Logger,Handlers,Modules}.
 
+level_to_int(none) -> ?LOG_NONE;
 level_to_int(emergency) -> ?EMERGENCY;
 level_to_int(alert) -> ?ALERT;
 level_to_int(critical) -> ?CRITICAL;
@@ -143,8 +144,10 @@ level_to_int(error) -> ?ERROR;
 level_to_int(warning) -> ?WARNING;
 level_to_int(notice) -> ?NOTICE;
 level_to_int(info) -> ?INFO;
-level_to_int(debug) -> ?DEBUG.
+level_to_int(debug) -> ?DEBUG;
+level_to_int(all) -> ?LOG_ALL.
 
+int_to_level(?LOG_NONE) -> none;
 int_to_level(?EMERGENCY) -> emergency;
 int_to_level(?ALERT) -> alert;
 int_to_level(?CRITICAL) -> critical;
@@ -152,7 +155,8 @@ int_to_level(?ERROR) -> error;
 int_to_level(?WARNING) -> warning;
 int_to_level(?NOTICE) -> notice;
 int_to_level(?INFO) -> info;
-int_to_level(?DEBUG) -> debug.
+int_to_level(?DEBUG) -> debug;
+int_to_level(?LOG_ALL) -> all.
 
 %%%-----------------------------------------------------------------
 %%% Internal

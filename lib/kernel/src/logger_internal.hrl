@@ -54,14 +54,17 @@
 %%%-----------------------------------------------------------------
 %%% Levels
 %%% Using same as syslog
--define(LEVELS,[emergency,
+-define(LEVELS,[none,
+                emergency,
                 alert,
                 critical,
                 error,
                 warning,
                 notice,
                 info,
-                debug]).
+                debug,
+                all]).
+-define(LOG_NONE,-1).
 -define(EMERGENCY,0).
 -define(ALERT,1).
 -define(CRITICAL,2).
@@ -70,6 +73,7 @@
 -define(NOTICE,5).
 -define(INFO,6).
 -define(DEBUG,7).
+-define(LOG_ALL,10).
 
 -define(IS_LEVEL(L),
         (L=:=emergency orelse

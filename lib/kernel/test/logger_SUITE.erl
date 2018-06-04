@@ -82,6 +82,7 @@ all() ->
      add_remove_filter,
      change_config,
      set_formatter,
+     log_no_levels,
      log_all_levels_api,
      macros,
      set_level,
@@ -111,7 +112,7 @@ add_remove_handler(_Config) ->
     [add] = test_server:messages_get(),
     #{handlers:=Hs} = logger:i(),
     {value,_,Hs0} = lists:keytake(h1,1,Hs),
-    {ok,{?MODULE,#{level:=debug,filters:=[],filter_default:=log}}} = % defaults
+    {ok,{?MODULE,#{level:=all,filters:=[],filter_default:=log}}} = % defaults
         logger:get_handler_config(h1),
     ok = logger:set_handler_config(h1,filter_default,stop),
     [changing_config] = test_server:messages_get(),
@@ -215,7 +216,7 @@ change_config(_Config) ->
     register(callback_receiver,self()),
     ok = logger:set_handler_config(h1,#{filter_default=>stop}),
     [changing_config] = test_server:messages_get(),
-    {ok,{?MODULE,#{level:=debug,filter_default:=stop}=C2}} =
+    {ok,{?MODULE,#{level:=all,filter_default:=stop}=C2}} =
         logger:get_handler_config(h1),
     false = maps:is_key(custom,C2),
     {error,fail} = logger:set_handler_config(h1,#{conf_call=>fun() -> {error,fail} end}),
@@ -291,9 +292,50 @@ set_formatter(cleanup,_Config) ->
     logger:remove_handler(h1),
     ok.
 
+log_no_levels(_Config) ->
+    ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
+    logger:notice(M1=?map_rep),
+    ok = check_logged(notice,M1,#{}),
+
+    Levels = [emergency,alert,critical,error,warning,notice,info,debug],
+    ok = logger:set_logger_config(level,none),
+    [logger:Level(#{Level=>rep}) || Level <- Levels],
+    ok = check_no_log(),
+    
+    ok = logger:set_logger_config(level,all),
+    M2 = ?map_rep,
+    ?LOG_NOTICE(M2),
+    ok = check_logged(notice,M2,#{}),
+
+    ok = logger:set_module_level(?MODULE,none),
+    ?LOG_EMERGENCY(?map_rep),
+    ?LOG_ALERT(?map_rep),
+    ?LOG_CRITICAL(?map_rep),
+    ?LOG_ERROR(?map_rep),
+    ?LOG_WARNING(?map_rep),
+    ?LOG_NOTICE(?map_rep),
+    ?LOG_INFO(?map_rep),
+    ?LOG_DEBUG(?map_rep),
+    ok = check_no_log(),
+    
+    ok = logger:unset_module_level(?MODULE),
+    logger:notice(M3=?map_rep),
+    ok = check_logged(notice,M3,#{}),
+    
+    ok = logger:set_handler_config(h1,level,none),
+    [logger:Level(#{Level=>rep}) || Level <- Levels],
+    ok = check_no_log(),
+    
+    ok.
+log_no_levels(cleanup,_Config) ->
+    logger:remove_handler(h1),
+    logger:set_logger_level(level,info),
+    logger:unset_module_level(?MODULE),
+    ok.
+
 log_all_levels_api(_Config) ->
-    ok = logger:set_logger_config(level,debug),
-    ok = logger:add_handler(h1,?MODULE,#{level=>debug,filter_default=>log}),
+    ok = logger:set_logger_config(level,all),
+    ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     test_api(emergency),
     test_api(alert),
     test_api(critical),
@@ -311,8 +353,7 @@ log_all_levels_api(cleanup,_Config) ->
     ok.
 
 macros(_Config) ->
-    ok = logger:set_module_level(?MODULE,debug),
-    ok = logger:add_handler(h1,?MODULE,#{level=>debug,filter_default=>log}),
+    ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     test_macros(emergency),
     ok.
 
@@ -322,7 +363,7 @@ macros(cleanup,_Config) ->
     ok.
 
 set_level(_Config) ->
-    ok = logger:add_handler(h1,?MODULE,#{level=>debug,filter_default=>log}),
+    ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     logger:debug(?map_rep),
     ok = check_no_log(),
     logger:info(M1=?map_rep),
