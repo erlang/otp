@@ -197,9 +197,11 @@ check_contracts(Contracts, Callgraph, FunTypes, ModOpaques) ->
 		      false ->
 			[{MFA, Contract}|NewContracts]
 		    end;
-                  {error, {extra_range, _, _}} ->
-                    %% do not treat extra range as an error in this check
-                    %% since that prevents discovering other actual errors
+                  {range_warnings, _} ->
+                    %% do not treat extra range, either in contract or
+                    %% in success typing, as an error in this check
+                    %% since that prevents discovering other actual
+                    %% errors
                     [{MFA, Contract}|NewContracts];
 		  {error, _Error} -> NewContracts
 		end;
@@ -210,14 +212,26 @@ check_contracts(Contracts, Callgraph, FunTypes, ModOpaques) ->
     end,
   orddict:from_list(lists:foldl(FoldFun, [], orddict:to_list(FunTypes))).
 
+-type check_contract_return() ::
+        'ok'
+      | {'error',
+             'invalid_contract'
+           | {'opaque_mismatch', erl_types:erl_type()}
+           | {'overlapping_contract', [module() | atom() | byte()]}
+           | string()}
+      | {'range_warnings',
+         [{'error', {'extra_range' | 'missing_range',
+                     erl_types:erl_type(),
+                     erl_types:erl_type()}}]}.
+
 %% Checks all components of a contract
--spec check_contract(#contract{}, erl_types:erl_type()) -> 'ok' | {'error', term()}.
+-spec check_contract(#contract{}, erl_types:erl_type()) -> check_contract_return().
 
 check_contract(Contract, SuccType) ->
   check_contract(Contract, SuccType, 'universe').
 
 -spec check_contract(#contract{}, erl_types:erl_type(), erl_types:opaques()) ->
-                        'ok' | {'error', term()}.
+                        check_contract_return().
 
 check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
   try
@@ -290,15 +304,23 @@ check_contract_inf_list([], _SuccType, _Opaques, OM) ->
 check_extraneous([], _SuccType) -> ok;
 check_extraneous([C|Cs], SuccType) ->
   case check_extraneous_1(C, SuccType) of
-    ok -> check_extraneous(Cs, SuccType);
-    Error -> Error
+    {error, invalid_contract} = Error ->
+      Error;
+    {error, {extra_range, _, _}} = Error ->
+      {range_warnings, [Error | check_missing(C, SuccType)]};
+    ok ->
+      case check_missing(C, SuccType) of
+        [] -> check_extraneous(Cs, SuccType);
+        ErrorL -> {range_warnings, ErrorL}
+      end
   end.
 
 check_extraneous_1(Contract, SuccType) ->
   CRng = erl_types:t_fun_range(Contract),
   CRngs = erl_types:t_elements(CRng),
   STRng = erl_types:t_fun_range(SuccType),
-  ?debug("CR = ~tp\nSR = ~tp\n", [CRngs, STRng]),
+  ?debug("\nCR = ~ts\nSR = ~ts\n", [erl_types:t_to_string(CRng),
+                                    erl_types:t_to_string(STRng)]),
   case [CR || CR <- CRngs,
               erl_types:t_is_none(erl_types:t_inf(CR, STRng))] of
     [] ->
@@ -340,6 +362,18 @@ map_part(Type) ->
 
 is_empty_map(Type) ->
   erl_types:t_is_equal(Type, erl_types:t_from_term(#{})).
+
+check_missing(Contract, SuccType) ->
+  CRng = erl_types:t_fun_range(Contract),
+  STRng = erl_types:t_fun_range(SuccType),
+  STRngs = erl_types:t_elements(STRng),
+  ?debug("\nCR = ~ts\nSR = ~ts\n", [erl_types:t_to_string(CRng),
+                                    erl_types:t_to_string(STRng)]),
+  case [STR || STR <- STRngs,
+              erl_types:t_is_none(erl_types:t_inf(STR, CRng))] of
+    [] -> [];
+    STRs -> [{error, {missing_range, erl_types:t_sup(STRs), CRng}}]
+  end.
 
 %% This is the heart of the "range function"
 -spec process_contracts([contract_pair()], [erl_types:erl_type()]) ->
@@ -712,22 +746,30 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
             [W|Acc];
 	  {error, {overlapping_contract, []}} ->
 	    [overlapping_contract_warning(MFA, WarningInfo)|Acc];
-	  {error, {extra_range, ExtraRanges, STRange}} ->
-	    Warn =
-	      case t_from_forms_without_remote(Contract#contract.forms,
-					       MFA, RecDict) of
-		{ok, NoRemoteType} ->
-		  CRet = erl_types:t_fun_range(NoRemoteType),
-		  erl_types:t_is_subtype(ExtraRanges, CRet);
-		unsupported ->
-		  true
-	      end,
-	    case Warn of
-	      true ->
-		[extra_range_warning(MFA, WarningInfo, ExtraRanges, STRange)|Acc];
-	      false ->
-		Acc
-	    end;
+	  {range_warnings, Errors} ->
+            Fun =
+              fun({error, {extra_range, ExtraRanges, STRange}}, Acc0) ->
+                  Warn =
+                    case t_from_forms_without_remote(Contract#contract.forms,
+                                                     MFA, RecDict) of
+                      {ok, NoRemoteType} ->
+                        CRet = erl_types:t_fun_range(NoRemoteType),
+                        erl_types:t_is_subtype(ExtraRanges, CRet);
+                      unsupported ->
+                        true
+                    end,
+                  case Warn of
+                    true ->
+                      [extra_range_warning(MFA, WarningInfo,
+                                           ExtraRanges, STRange)|Acc0];
+                    false ->
+                      Acc0
+                  end;
+                 ({error, {missing_range, ExtraRanges, CRange}}, Acc0) ->
+                  [missing_range_warning(MFA, WarningInfo,
+                                         ExtraRanges, CRange)|Acc0]
+              end,
+            lists:foldl(Fun, Acc, Errors);
 	  {error, Msg} ->
 	    [{?WARN_CONTRACT_SYNTAX, WarningInfo, Msg}|Acc];
 	  ok ->
@@ -745,6 +787,9 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
 		  {error, _} ->
 		    [invalid_contract_warning(MFA, WarningInfo, BifSig, RecDict)
 		     |Acc];
+                  {range_warnings, _} ->
+		    picky_contract_check(CSig, BifSig, MFA, WarningInfo,
+					 Contract, RecDict, Acc);
 		  ok ->
 		    picky_contract_check(CSig, BifSig, MFA, WarningInfo,
 					 Contract, RecDict, Acc)
@@ -777,6 +822,12 @@ extra_range_warning({M, F, A}, WarningInfo, ExtraRanges, STRange) ->
   STRangeStr = erl_types:t_to_string(STRange),
   {?WARN_CONTRACT_SUPERTYPE, WarningInfo,
    {extra_range, [M, F, A, ERangesStr, STRangeStr]}}.
+
+missing_range_warning({M, F, A}, WarningInfo, ExtraRanges, CRange) ->
+  ERangesStr = erl_types:t_to_string(ExtraRanges),
+  CRangeStr = erl_types:t_to_string(CRange),
+  {?WARN_CONTRACT_SUBTYPE, WarningInfo,
+   {missing_range, [M, F, A, ERangesStr, CRangeStr]}}.
 
 picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
   CSig = erl_types:t_abstract_records(CSig0, RecDict),

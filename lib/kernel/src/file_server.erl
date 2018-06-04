@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ stop() ->
 %%          {stop, Reason}
 %%----------------------------------------------------------------------
 
--spec init([]) -> {'ok', state()} | {'stop', term()}.
+-spec init([]) -> {'ok', state()}.
 
 init([]) ->
     process_flag(trap_exit, true),
@@ -225,7 +225,7 @@ handle_cast(Msg, State) ->
 %%----------------------------------------------------------------------
 
 -spec handle_info(term(), state()) ->
-        {'noreply', state()} | {'stop', 'normal', state()}.
+        {'noreply', state()}.
 
 handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
     ets:delete(?FILE_IO_SERVER_TABLE, Pid),

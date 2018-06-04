@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -630,7 +630,7 @@ do_par_recv(N, Good, Bad) ->
 call(Req) ->
     code_server:call(Req).
 
--spec start_link() -> {'ok', pid()} | {'error', 'crash'}.
+-spec start_link() -> {'ok', pid()}.
 start_link() ->
     do_start().
     
