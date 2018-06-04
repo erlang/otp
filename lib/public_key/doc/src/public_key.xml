@@ -986,8 +986,36 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <p>The <c>ip</c> Reference ID takes an <seealso marker="inet:inet#type-ip_address">inet:ip_address()</seealso>
       or an ip address in string format (E.g "10.0.1.1" or "1234::5678:9012") as second element.
       </p>
+      <p>See <seealso marker="#pkix_verify_hostname_match_fun-1">pkix_verify_hostname_match_fun/1</seealso> for a
+      function that return a fun suitable for this option.
+      </p>
     </desc>
   </func>
+
+  <func>
+    <name>pkix_verify_hostname_match_fun(Alg) ->  fun(RefId | FQDN::string(), PresentedID) -> boolean() | default</name>
+    <fsummary>Returns a fun that is intendended as argument to the match_fun option in pkix_verify_hostname/3.
+    </fsummary>
+    <type>
+      <v>Alg = https</v>
+      <d>The algorithm for wich the fun should implement the special matching rules</d>
+      <v>RefId</v>
+      <d>See <seealso marker="#pkix_verify_hostname-3">pkix_verify_hostname/3</seealso>.</d>
+      <v>FQDN</v>
+      <d>See <seealso marker="#pkix_verify_hostname-3">pkix_verify_hostname/3</seealso>.</d>
+      <v>PresentedID</v>
+      <d>See <seealso marker="#pkix_verify_hostname-3">pkix_verify_hostname/3</seealso>.</d>
+    </type>
+    <desc>
+      <p>The return value of calling this function is intended to be used in the <c>match_fun</c> option in
+      <seealso marker="#pkix_verify_hostname-3">pkix_verify_hostname/3</seealso>.
+      </p>
+      <p>The returned fun augments the verify hostname matching according to the specific rules for
+      the protocol in the argument.
+      </p>
+    </desc>
+  </func>
+  
 
   <func>
     <name>sign(Msg, DigestType, Key) -> binary()</name>
