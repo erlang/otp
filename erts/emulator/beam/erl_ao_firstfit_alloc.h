@@ -29,10 +29,10 @@
 typedef struct AOFFAllctr_t_ AOFFAllctr_t;
 
 enum AOFFSortOrder {
-    FF_AGEFF = 0,
+    FF_AGEFF = 0,    /* carrier trees only */
     FF_AOFF  = 1,
-    FF_AOBF  = 2,
-    FF_BF    = 3
+    FF_AOBF  = 2,    /* block trees only */
+    FF_BF    = 3     /* block trees only */
 };
 
 typedef struct {

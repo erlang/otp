@@ -100,22 +100,14 @@
 
 #define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
-/* BF block nodes keeps list of all with equal size
- */
-typedef struct {
-    AOFF_RBTree_t t;
-    AOFF_RBTree_t *next;
-}AOFF_RBTreeList_t;
-
-#define LIST_NEXT(N) (((AOFF_RBTreeList_t*) (N))->next)
-#define LIST_PREV(N) (((AOFF_RBTreeList_t*) (N))->t.parent)
+#define LIST_NEXT(N) (((AOFF_RBTree_t*)(N))->u.next)
+#define LIST_PREV(N) (((AOFF_RBTree_t*)(N))->parent)
 
 typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
-    Sint64 birth_time;
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
 #define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
@@ -199,9 +191,7 @@ static ERTS_INLINE SWord cmp_blocks(enum AOFFSortOrder order,
 {
     ASSERT(lhs != rhs);
     if (order == FF_AGEFF) {
-	AOFF_Carrier_t* lc = RBT_NODE_TO_MBC(lhs);
-	AOFF_Carrier_t* rc = RBT_NODE_TO_MBC(rhs);
-	Sint64 diff = lc->birth_time - rc->birth_time;
+	Sint64 diff = lhs->u.birth_time - rhs->u.birth_time;
  #ifdef ARCH_64
         if (diff)
             return diff;
@@ -296,8 +286,10 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
-    allctr->min_block_size = (aoffinit->blk_order == FF_BF ?
-			      sizeof(AOFF_RBTreeList_t):sizeof(AOFF_RBTree_t));
+    allctr->min_block_size = (aoffinit->blk_order == FF_BF
+                              ? (offsetof(AOFF_RBTree_t, u.next)
+                                 + ErtsSizeofMember(AOFF_RBTree_t, u.next))
+                              : offsetof(AOFF_RBTree_t, u));
 
     allctr->vsn_str			= ERTS_ALC_AOFF_ALLOC_VSN_STR;
 
@@ -939,8 +931,11 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 
     crr->rbt_node.hdr.bhdr = 0;
-    if (alc->crr_order == FF_AGEFF || IS_DEBUG)
-	crr->birth_time = get_birth_time();
+    if (alc->crr_order == FF_AGEFF || IS_DEBUG) {
+        Sint64 bt = get_birth_time();
+        crr->rbt_node.u.birth_time = bt;
+        crr->crr.cpool.pooled.u.birth_time = bt;
+    }
     rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
@@ -978,6 +973,7 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
 
 void aoff_add_pooled_mbc(Allctr_t *allctr, Carrier_t *crr)
 {
+    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_RBTree_t **root = &allctr->cpool.pooled_tree;
 
     ASSERT(allctr == crr->cpool.orig_allctr);
@@ -985,7 +981,7 @@ void aoff_add_pooled_mbc(Allctr_t *allctr, Carrier_t *crr)
 
     /* Link carrier in address order tree
      */
-    rbt_insert(FF_AOFF, root, &crr->cpool.pooled);
+    rbt_insert(alc->crr_order, root, &crr->cpool.pooled);
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
