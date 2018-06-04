@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -332,11 +332,22 @@ Here T = [{attributes,[[{id,age,1.5},
           {tag,{'PRIVATE',3}},
           {mode,implicit}]
 ok</pre>
+
+            <p>As from Erlang/OTP 21.0, a field width of value
+	      <c>0</c> can be used for specifying that a line is
+	      infinitely long, which means that no line breaks
+	      are inserted. For example:</p>
+
+	    <pre>
+5> <input>io:fwrite("~0p~n", [lists:seq(1, 30)]).</input>
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+ok</pre>
+
             <p>When the modifier <c>l</c> is specified, no detection of
               printable character lists takes place, for example:</p>
             <pre>
-5> <input>S = [{a,"a"}, {b, "b"}].</input>
-6> <input>io:fwrite("~15p~n", [S]).</input>
+6> <input>S = [{a,"a"}, {b, "b"}],
+   io:fwrite("~15p~n", [S]).</input>
 [{a,"a"},
  {b,"b"}]
 ok
