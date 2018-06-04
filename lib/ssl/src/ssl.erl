@@ -55,7 +55,7 @@
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2, tls_version/1, new_ssl_options/3]).
+-export([handle_options/2, tls_version/1, new_ssl_options/3, suite_to_str/1]).
 
 -deprecated({ssl_accept, 1, eventually}).
 -deprecated({ssl_accept, 2, eventually}).
@@ -771,6 +771,16 @@ tls_version({3, _} = Version) ->
     Version;
 tls_version({254, _} = Version) ->
     dtls_v1:corresponding_tls_version(Version).
+
+
+%%--------------------------------------------------------------------
+-spec suite_to_str(ssl_cipher:erl_cipher_suite()) -> string().
+%%
+%% Description: Return the string representation of a cipher suite.
+%%--------------------------------------------------------------------
+suite_to_str(Cipher) ->
+    ssl_cipher:suite_to_str(Cipher).
+
 
 %%%--------------------------------------------------------------
 %%% Internal functions

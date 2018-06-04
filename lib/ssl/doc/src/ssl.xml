@@ -1492,6 +1492,18 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
+      <name>suite_to_str(CipherSuite) -> String</name>
+      <fsummary>Returns the string representation of a cipher suite.</fsummary>
+      <type>
+        <v>CipherSuite = erl_cipher_suite()</v>
+	<v>String = string()</v>
+      </type>
+      <desc>
+        <p>Returns the string representation of a cipher suite.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>transport_accept(ListenSocket) -></name>
       <name>transport_accept(ListenSocket, Timeout) ->
 	{ok, NewSocket} | {error, Reason}</name>
