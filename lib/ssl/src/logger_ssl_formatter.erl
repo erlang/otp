@@ -27,34 +27,126 @@
            ((X) >= 10) andalso ((X) =< 15) -> (X) + $a - 10
         end).
 
+-define(rec_info(T,R),lists:zip(record_info(fields,T),tl(tuple_to_list(R)))).
+
+-include("tls_record.hrl").
+-include("ssl_internal.hrl").
+-include("tls_handshake.hrl").
+
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
 format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
      #{direction := Direction,
        protocol := Protocol,
-       version := Version,
        message := BinMsg0} = Msg,
     case Protocol of
         'tls_record' ->
             BinMsg = lists:flatten(BinMsg0),
-            format_tls_record(Direction, Version, BinMsg);
+            format_tls_record(Direction, BinMsg);
         'handshake' ->
-            [];
+            format_handshake(Direction, BinMsg0);
         _Other ->
             []
     end.
 
 
 %%-------------------------------------------------------------------------
-%% Internal functions
+%% Handshake Protocol
 %%-------------------------------------------------------------------------
-format_tls_record(Direction, Version, BinMsg) ->
+format_handshake(Direction, BinMsg) ->
+    {Header, Message} = parse_handshake(Direction, BinMsg),
+    io_lib:format("~s~n~s~n", [Header, Message]).
+
+
+parse_handshake(Direction, #client_hello{
+                              client_version = Version
+                             } = ClientHello) ->
+    Header = io_lib:format("~s ~s Handshake, ClientHello",
+                           [header_prefix(Direction),
+                            version(Version)]),
+    Message = io_lib:format("~p", [?rec_info(client_hello, ClientHello)]),
+    {Header, Message};
+parse_handshake(Direction, #server_hello{
+                              server_version = Version
+                             } = ServerHello) ->
+    Header = io_lib:format("~s ~s Handshake, ServerHello",
+                           [header_prefix(Direction),
+                            version(Version)]),
+    Message = io_lib:format("~p", [?rec_info(server_hello, ServerHello)]),
+    {Header, Message};
+parse_handshake(Direction, #certificate{} = Certificate) ->
+    Header = io_lib:format("~s Handshake, Certificate",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate, Certificate)]),
+    {Header, Message};
+parse_handshake(Direction, #server_key_exchange{} = ServerKeyExchange) ->
+    Header = io_lib:format("~s Handshake, ServerKeyExchange",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(server_key_exchange, ServerKeyExchange)]),
+    {Header, Message};
+parse_handshake(Direction, #server_key_params{} = ServerKeyExchange) ->
+    Header = io_lib:format("~s Handshake, ServerKeyExchange",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(server_key_params, ServerKeyExchange)]),
+    {Header, Message};
+parse_handshake(Direction, #certificate_request{} = CertificateRequest) ->
+    Header = io_lib:format("~s Handshake, CertificateRequest",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_request, CertificateRequest)]),
+    {Header, Message};
+parse_handshake(Direction, #server_hello_done{} = ServerHelloDone) ->
+    Header = io_lib:format("~s Handshake, ServerHelloDone",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(server_hello_done, ServerHelloDone)]),
+    {Header, Message};
+parse_handshake(Direction, #client_key_exchange{} = ClientKeyExchange) ->
+    Header = io_lib:format("~s Handshake, ClientKeyExchange",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(client_key_exchange, ClientKeyExchange)]),
+    {Header, Message};
+parse_handshake(Direction, #certificate_verify{} = CertificateVerify) ->
+    Header = io_lib:format("~s Handshake, CertificateVerify",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_verify, CertificateVerify)]),
+    {Header, Message};
+parse_handshake(Direction, #finished{} = Finished) ->
+    Header = io_lib:format("~s Handshake, Finished",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(finished, Finished)]),
+    {Header, Message};
+parse_handshake(Direction, #hello_request{} = HelloRequest) ->
+    Header = io_lib:format("~s Handshake, HelloRequest",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(hello_request, HelloRequest)]),
+    {Header, Message}.
+
+
+version({3,3}) ->
+    "TLS 1.2";
+version({3,2}) ->
+    "TLS 1.1";
+version({3,1}) ->
+    "TLS 1.0";
+version({3,0}) ->
+    "SSL 3.0".
+
+
+header_prefix(inbound) ->
+    "<<<";
+header_prefix(outbound) ->
+    ">>>".
+
+
+%%-------------------------------------------------------------------------
+%% TLS Record Protocol
+%%-------------------------------------------------------------------------
+format_tls_record(Direction, BinMsg) ->
     {Message, Size} = convert_to_hex('tls_record', BinMsg),
     Header = io_lib:format("~s (~B bytes) ~s~n",
-                            [header_prefix_tls_record(Direction),
-                             Size,
-                            tls_record_version(Version, BinMsg)]),
+                           [header_prefix_tls_record(Direction),
+                            Size,
+                            tls_record_version(BinMsg)]),
     Header ++ Message.
 
 
@@ -65,23 +157,15 @@ header_prefix_tls_record(outbound) ->
 
 
 
-tls_record_version({3,3}, [<<B,_/binary>>|_]) ->
+tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(3),_/binary>>|_]) ->
     io_lib:format("TLS 1.2 Record Protocol, ~s", [msg_type(B)]);
-tls_record_version({3,2}, [<<B,_/binary>>|_]) ->
+tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(2),_/binary>>|_]) ->
     io_lib:format("TLS 1.1 Record Protocol, ~s", [msg_type(B)]);
-tls_record_version({3,1}, [<<B,_/binary>>|_]) ->
+tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(1),_/binary>>|_]) ->
     io_lib:format("TLS 1.0 Record Protocol, ~s", [msg_type(B)]);
-tls_record_version({3,0}, [<<B,_/binary>>|_]) ->
+tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(0),_/binary>>|_]) ->
     io_lib:format("SSL 3.0 Record Protocol, ~s", [msg_type(B)]).
 
-tls_version({3,3}, [<<B,_/binary>>|_]) ->
-    io_lib:format("TLS 1.2 Handshake, ~s", [msg_type(B)]);
-tls_version({3,2}, [<<B,_/binary>>|_]) ->
-    io_lib:format("TLS 1.1 Handshake, ~s", [msg_type(B)]);
-tls_version({3,1}, [<<B,_/binary>>|_]) ->
-    io_lib:format("TLS 1.0 Handshake, ~s", [msg_type(B)]);
-tls_version({3,0}, [<<B,_/binary>>|_]) ->
-    io_lib:format("SSL 3.0 Handshake, ~s", [msg_type(B)]).
 
 msg_type(20) -> "change_cipher_spec";
 msg_type(21) -> "alert";
@@ -90,6 +174,9 @@ msg_type(23) -> "application_data";
 msg_type(_) -> unknown.
 
 
+%%-------------------------------------------------------------------------
+%% Hex encoding functions
+%%-------------------------------------------------------------------------
 convert_to_hex(Protocol, BinMsg) ->
     convert_to_hex(Protocol, BinMsg, [], [], 0).
 %%
@@ -160,15 +247,11 @@ convert_to_hex(P, [H|T], Row, Acc, C) when is_integer(H) ->
 
 row_prefix(tls_record, N) ->
     S = string:pad(string:to_lower(erlang:integer_to_list(N, 16)),4,leading,$0),
-    lists:reverse(lists:flatten(S ++ " - "));
-row_prefix(handshake, _) ->
-    "   ".
+    lists:reverse(lists:flatten(S ++ " - ")).
 
 
 end_row(tls_record, Row) ->
-    Row ++ "  ";
-end_row(_, Row) ->
-    Row.
+    Row ++ "  ".
 
 
 %% Calculate padding of the "printable character" lines in order to be

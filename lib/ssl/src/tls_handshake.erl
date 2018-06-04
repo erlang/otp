@@ -272,6 +272,11 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
     try decode_handshake(Version, Type, Body) of
 	Handshake ->
+            Report = #{direction => inbound,
+                       protocol => 'handshake',
+                       message => Handshake,
+                       version => Version},
+            logger:info(Report, #{domain => [beam,erlang,otp,ssl,handshake]}),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
 	_:_ ->
