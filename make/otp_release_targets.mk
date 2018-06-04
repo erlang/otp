@@ -36,7 +36,9 @@ endif
 # -------------------------------------------------------
 # Take the XML files and add the github link info to them
 # -------------------------------------------------------
+ifneq ($(strip $(XMLDIR)),)
 _create_xml_dirs := $(shell mkdir -p $(XMLDIR))
+endif
 
 XML_GEN_FILES+=$(patsubst %.xml,$(XMLDIR)/%.xml,$(XML_FILES))
 $(XMLDIR)/%.xml: %.xml
