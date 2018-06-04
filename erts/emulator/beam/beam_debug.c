@@ -667,7 +667,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */
-	    erts_print(to, to_arg, "fr(%d)", loader_reg_index(ap[0]));
+	    erts_print(to, to_arg, "fr(%d)", ap[0] / sizeof(FloatDef));
 	    ap++;
 	    break;
 	default:
