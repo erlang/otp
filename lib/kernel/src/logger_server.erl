@@ -117,6 +117,7 @@ update_config(Owner, Config) ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    put(?LOGGER_SERVER_TAG,true),
     Tid = logger_config:new(?LOGGER_TABLE),
     LoggerConfig = maps:merge(default_config(logger),
                               #{handlers=>[logger_simple]}),
