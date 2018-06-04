@@ -1656,6 +1656,12 @@ merge_types(bool, {atom,A}) ->
     merge_bool(A);
 merge_types({atom,A}, bool) ->
     merge_bool(A);
+merge_types(cons, {literal,[_|_]}) ->
+    cons;
+merge_types({literal,[_|_]}, cons) ->
+    cons;
+merge_types({literal,[_|_]}, {literal,[_|_]}) ->
+    cons;
 merge_types(#ms{id=Id1,valid=B1,slots=Slots1},
 	    #ms{id=Id2,valid=B2,slots=Slots2}) ->
     Id = if
