@@ -156,46 +156,41 @@ function({function,Name,Arity,CLabel,Asm0}) ->
 %%%
 
 share(Is0) ->
-    Is1 = eliminate_fallthroughs(Is0, []),
-    Is2 = find_fixpoint(fun(Is) ->
-                                share_1(Is, #{}, #{}, [], [])
-                        end, Is1),
-    reverse(Is2).
+    %% We will get more sharing if we never fall through to a label.
+    Is = eliminate_fallthroughs(Is0, []),
+    share_1(Is, #{}, [], []).
 
-share_1([{label,L}=Lbl|Is], Dict0, Lbls0, [_|_]=Seq, Acc) ->
+share_1([{label,L}=Lbl|Is], Dict0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
 	error ->
 	    Dict = maps:put(Seq, L, Dict0),
-	    share_1(Is, Dict, Lbls0, [], [Lbl|Seq ++ Acc]);
+	    share_1(Is, Dict, [], [Lbl|Seq ++ Acc]);
 	{ok,Label} ->
-            Lbls = maps:put(L, Label, Lbls0),
-	    share_1(Is, Dict0, Lbls, [], [Lbl,{jump,{f,Label}}|Acc])
+	    share_1(Is, Dict0, [], [Lbl,{jump,{f,Label}}|Acc])
     end;
-share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =/= #{} ->
-    beam_utils:replace_labels(Acc, Is, Lbls, fun(Old) -> Old end);
-share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =:= #{} ->
-    reverse(Acc, Is);
-share_1([{'catch',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{'try',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{try_case,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{catch_end,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([I|Is], Dict, Lbls, Seq, Acc) ->
+share_1([{func_info,_,_,_}=I|Is], _, [], Acc) ->
+    reverse(Is, [I|Acc]);
+share_1([{'catch',_,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{'try',_,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{try_case,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{catch_end,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([I|Is], Dict, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
-	    share_1(Is, Dict, Lbls, [I|Seq], Acc);
+	    share_1(Is, Dict, [I|Seq], Acc);
 	true ->
-	    share_1(Is, Dict, Lbls, [I], Acc)
+	    share_1(Is, Dict, [I], Acc)
     end.
 
-clean_non_sharable(Dict0, Lbls0) ->
+clean_non_sharable(Dict) ->
     %% We are passing in or out of a 'catch' or 'try' block. Remove
     %% sequences that should not be shared over the boundaries of the
     %% block. Since the end of the sequence must match, the only
@@ -203,17 +198,7 @@ clean_non_sharable(Dict0, Lbls0) ->
     %% the 'catch'/'try' block is a sequence that ends with an
     %% instruction that causes an exception. Any sequence that causes
     %% an exception must contain a line/1 instruction.
-    Dict1 = maps:to_list(Dict0),
-    Lbls1 = maps:to_list(Lbls0),
-    {Dict2,Lbls2} = foldl(fun({K, V}, {Dict,Lbls}) ->
-                                  case sharable_with_try(K) of
-                                      true ->
-                                          {[{K,V}|Dict],lists:keydelete(V, 2, Lbls)};
-                                      false ->
-                                          {Dict,Lbls}
-                                  end
-                          end, {[],Lbls1}, Dict1),
-    {maps:from_list(Dict2),maps:from_list(Lbls2)}.
+    maps:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
 
 sharable_with_try([{line,_}|_]) ->
     %% This sequence may cause an exception and may potentially
