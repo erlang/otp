@@ -87,7 +87,9 @@ tests() ->
      extended_key_usage_verify_server,
      critical_extension_verify_client,
      critical_extension_verify_server,
-     critical_extension_verify_none].
+     critical_extension_verify_none,
+     customize_hostname_check
+    ].
 
 error_handling_tests()->
     [client_with_cert_cipher_suites_handshake,
@@ -1141,6 +1143,58 @@ unknown_server_ca_accept_backwardscompatibility(Config) when is_list(Config) ->
 					  {verify_fun, VerifyFun}| ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+customize_hostname_check() ->
+    [{doc,"Test option customize_hostname_check."}].
+customize_hostname_check(Config) when is_list(Config) ->
+    Ext = [#'Extension'{extnID = ?'id-ce-subjectAltName',
+                        extnValue = [{dNSName, "*.example.org"}],
+                        critical = false}
+          ],
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
+                                                                     [[], 
+                                                                      [],
+                                                                      [{extensions, Ext}]
+                                                                     ]}], 
+                                                                   Config, "https_hostname_convention"),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),  
+                                        
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    CustomFun = public_key:pkix_verify_hostname_match_fun(https),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+                                        {host, Hostname},
+					 {from, self()}, 
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,
+                                         [{server_name_indication, "other.example.org"},
+                                          {customize_hostname_check, 
+                                           [{match_fun, CustomFun}]} | ClientOpts]
+					 }]),    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+                                        
+    Client1 = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+                                               {host, Hostname},
+                                               {from, self()}, 
+                                               {mfa, {ssl_test_lib, no_result, []}},
+                                               {options, ClientOpts}
+                                              ]),    
+    ssl_test_lib:check_result(Client1, {error, {tls_alert, "handshake failure"}},
+                              Server,  {error, {tls_alert, "handshake failure"}}),
+    
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 

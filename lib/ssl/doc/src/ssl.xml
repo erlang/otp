@@ -89,6 +89,7 @@
 	[binary()]} | {client | server, [binary()], binary()}}</c></p>
 	<p><c>| {log_alert, boolean()}</c></p>
 	<p><c>| {server_name_indication, hostname() | disable}</c></p>
+	<p><c>| {customize_hostname_check, list()}</c></p>
 	<p><c>| {sni_hosts, [{hostname(), [ssl_option()]}]}</c></p>
 	<p><c>| {sni_fun, SNIfun::fun()}</c></p>
       </item>
@@ -649,6 +650,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  disables the hostname verification check
 	  <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> </p>
 	</item>
+
+	<tag><c>{customize_hostname_check, Options::list()}</c></tag>
+	<item>
+          <p> Customizes the hostname verification of the peer certificate, as different protocols that use
+	  TLS such as HTTP or LDAP may want to do it differently, for possible options see
+	  <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> </p>
+	</item>
+
       <tag><c>{fallback, boolean()}</c></tag>
       <item>
 	<p> Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version downgrade.

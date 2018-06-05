@@ -345,6 +345,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                   Opts#ssl_options.partial_chain),
         ValidationFunAndState = validation_fun_and_state(Opts#ssl_options.verify_fun, Role, 
                                                          CertDbHandle, CertDbRef, ServerName,
+                                                         Opts#ssl_options.customize_hostname_check,
                                                          Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
 	case public_key:pkix_path_validation(TrustedCert,
 					     CertPath,
@@ -1243,7 +1244,7 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 
 %%-------------Handle handshake messages --------------------------------
 validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CustomizeHostCheck, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1260,9 +1261,9 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef,
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
 			    SslState, CertPath)
-     end, {{Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}, UserState0}};
+     end, {{Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}, UserState0}};
 validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
+                         ServerNameIndication, CustomizeHostCheck, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
@@ -1282,7 +1283,7 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
 				      SslState)
-     end, {Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}}.
+     end, {Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}}.
 
 apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
 	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath) when
