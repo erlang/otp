@@ -28,9 +28,9 @@
 %%%-----------------------------------------------------------------
 %%% The default logger backend
 log_allowed(Log, Tid) ->
-    {ok,Config} = logger_config:get(Tid,logger),
+    {ok,Config} = logger_config:get(Tid,primary),
     Filters = maps:get(filters,Config,[]),
-    case apply_filters(logger,Log,Filters,Config) of
+    case apply_filters(primary,Log,Filters,Config) of
         stop ->
             ok;
         Log1 ->

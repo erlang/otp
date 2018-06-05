@@ -54,7 +54,7 @@ allow(Tid,Level,Module) ->
     end.
 
 allow(Tid,Level) ->
-    GlobalLevelInt = ets:lookup_element(Tid,?LOGGER_KEY,2),
+    GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
     level_to_int(Level) =< GlobalLevelInt.
 
 exist(Tid,What) ->
@@ -71,7 +71,7 @@ get(Tid,What) ->
     end.
 
 get(Tid,What,Level) ->
-    MS = [{{table_key(What),'$1','$2'}, % logger config
+    MS = [{{table_key(What),'$1','$2'}, % primary config
            [{'>=','$1',level_to_int(Level)}],
            ['$2']},
           {{table_key(What),'$1','$2','$3'}, % handler config
@@ -94,7 +94,7 @@ set(Tid,What,Config) ->
     %% Should do this only if the level has actually changed. Possibly
     %% overwrite instead of delete?
     case What of
-        logger ->
+        primary ->
             _ = ets:select_delete(Tid,[{{'_',{'$1',cached}},
                                         [{'=/=','$1',LevelInt}],
                                         [true]}]),
@@ -125,16 +125,16 @@ get_module_level(Tid) ->
     lists:sort([{M,int_to_level(L)} || {M,L} <- Modules]).
 
 cache_module_level(Tid,Module) ->
-    GlobalLevelInt = ets:lookup_element(Tid,?LOGGER_KEY,2),
+    GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
     ets:insert_new(Tid,{Module,{GlobalLevelInt,cached}}),
     ok.
 
 get(Tid) ->
-    {ok,Logger} = get(Tid,logger),
+    {ok,Primary} = get(Tid,primary),
     HMS = [{{table_key('$1'),'_','$2','$3'},[],[{{'$1','$3','$2'}}]}],
     Handlers = ets:select(Tid,HMS),
     Modules = get_module_level(Tid),
-    {Logger,Handlers,Modules}.
+    {Primary,Handlers,Modules}.
 
 level_to_int(none) -> ?LOG_NONE;
 level_to_int(emergency) -> ?EMERGENCY;
@@ -161,5 +161,5 @@ int_to_level(?LOG_ALL) -> all.
 %%%-----------------------------------------------------------------
 %%% Internal
 
-table_key(logger) -> ?LOGGER_KEY;
+table_key(primary) -> ?PRIMARY_KEY;
 table_key(HandlerId) -> {?HANDLER_KEY,HandlerId}.

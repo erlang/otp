@@ -125,14 +125,14 @@ error_logger_tty_sasl_compatible(Config) ->
     ok.
 
 error_logger_false(Config) ->
-    {ok,#{handlers:=Hs,logger:=L},_Node} =
+    {ok,#{handlers:=Hs,primary:=P},_Node} =
         setup(Config,
               [{error_logger,false},
                {logger_level,notice}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
     {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     all = maps:get(level,SimpleC),
-    notice = maps:get(level,L),
+    notice = maps:get(level,P),
     SimpleFilters = maps:get(filters,SimpleC),
     {domain,{_,{log,super,[otp,sasl]}}} = lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),
@@ -140,7 +140,7 @@ error_logger_false(Config) ->
     ok.
 
 error_logger_false_progress(Config) ->
-    {ok,#{handlers:=Hs,logger:=L},_Node} =
+    {ok,#{handlers:=Hs,primary:=P},_Node} =
         setup(Config,
               [{error_logger,false},
                {logger_level,notice},
@@ -148,7 +148,7 @@ error_logger_false_progress(Config) ->
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
     {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     all = maps:get(level,SimpleC),
-    notice = maps:get(level,L),
+    notice = maps:get(level,P),
     SimpleFilters = maps:get(filters,SimpleC),
     {domain,{_,{log,super,[otp,sasl]}}} = lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
@@ -156,7 +156,7 @@ error_logger_false_progress(Config) ->
     ok.
 
 error_logger_false_sasl_compatible(Config) ->
-    {ok,#{handlers:=Hs,logger:=L},_Node} =
+    {ok,#{handlers:=Hs,primary:=P},_Node} =
         setup(Config,
               [{error_logger,false},
                {logger_level,notice},
@@ -164,7 +164,7 @@ error_logger_false_sasl_compatible(Config) ->
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
     {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     all = maps:get(level,SimpleC),
-    notice = maps:get(level,L),
+    notice = maps:get(level,P),
     SimpleFilters = maps:get(filters,SimpleC),
     {domain,{_,{log,super,[otp]}}} = lists:keyfind(domain,1,SimpleFilters),
     false = lists:keymember(stop_progress,1,SimpleFilters),
@@ -328,7 +328,7 @@ logger_file_formatter(Config) ->
 
 logger_filters(Config) ->
     Log = file(Config,?FUNCTION_NAME),
-    {ok,#{handlers:=Hs,logger:=Logger},Node}
+    {ok,#{handlers:=Hs,primary:=P},Node}
         = setup(Config,
                 [{logger_progress_reports,log},
                  {logger,
@@ -347,14 +347,14 @@ logger_filters(Config) ->
     false = lists:keymember(stop_progress,1,StdFilters),
     false = lists:keymember(simple,1,Hs),
     false = lists:keymember(sasl,1,Hs),
-    LoggerFilters = maps:get(filters,Logger),
+    LoggerFilters = maps:get(filters,P),
     true = lists:keymember(stop_progress,1,LoggerFilters),
 
     ok.
 
 logger_filters_stop(Config) ->
     Log = file(Config,?FUNCTION_NAME),
-    {ok,#{handlers:=Hs,logger:=Logger},Node}
+    {ok,#{handlers:=Hs,primary:=P},Node}
         = setup(Config,
                 [{logger_progress_reports,log},
                  {logger,
@@ -373,7 +373,7 @@ logger_filters_stop(Config) ->
     [] = maps:get(filters,StdC),
     false = lists:keymember(simple,1,Hs),
     false = lists:keymember(sasl,1,Hs),
-    LoggerFilters = maps:get(filters,Logger),
+    LoggerFilters = maps:get(filters,P),
     true = lists:keymember(log_error,1,LoggerFilters),
 
     ok.
@@ -445,12 +445,12 @@ logger_disk_log_formatter(Config) ->
     ok.
 
 logger_undefined(Config) ->
-    {ok,#{handlers:=Hs,logger:=L},_Node} =
+    {ok,#{handlers:=Hs,primary:=P},_Node} =
         setup(Config,[{logger,[{handler,?STANDARD_HANDLER,undefined}]}]),
     false = lists:keymember(?STANDARD_HANDLER,1,Hs),
     {simple,logger_simple_h,SimpleC} = lists:keyfind(simple,1,Hs),
     all = maps:get(level,SimpleC),
-    info = maps:get(level,L),
+    info = maps:get(level,P),
     SimpleFilters = maps:get(filters,SimpleC),
     {domain,{_,{log,super,[otp,sasl]}}} = lists:keyfind(domain,1,SimpleFilters),
     true = lists:keymember(stop_progress,1,SimpleFilters),

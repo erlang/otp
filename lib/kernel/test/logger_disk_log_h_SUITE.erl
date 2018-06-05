@@ -1323,7 +1323,7 @@ remove(Handler, LogName) ->
     HState = #{log_names := Logs} = logger_disk_log_h:info(),
     false = maps:is_key(LogName, HState),
     false = lists:member(LogName, Logs),
-    false = logger_config:exist(logger, LogName),
+    false = logger_config:exist(?LOGGER_TABLE, LogName),
     {error,no_such_log} = disk_log:info(LogName),
     ok.
 

@@ -63,7 +63,7 @@ end_per_group(_Group, _Config) ->
     ok.
 
 init_per_testcase(_TestCase, Config) ->
-    {ok,LC} = logger:get_logger_config(),
+    {ok,LC} = logger:get_primary_config(),
     [{logger_config,LC}|Config].
 
 end_per_testcase(Case, Config) ->
@@ -155,11 +155,11 @@ multiple_handlers(cleanup,_Config) ->
 add_remove_filter(_Config) ->
     ok = logger:add_handler(h1,?MODULE,#{level=>info,filter_default=>log}),
     LF = {fun(Log,_) -> Log#{level=>error} end, []},
-    ok = logger:add_logger_filter(lf,LF),
-    {error,{already_exist,lf}} = logger:add_logger_filter(lf,LF),
-    {error,{already_exist,lf}} = logger:add_logger_filter(lf,{fun(Log,_) ->
-                                                                      Log
-                                                              end, []}),
+    ok = logger:add_primary_filter(lf,LF),
+    {error,{already_exist,lf}} = logger:add_primary_filter(lf,LF),
+    {error,{already_exist,lf}} = logger:add_primary_filter(lf,{fun(Log,_) ->
+                                                                       Log
+                                                               end, []}),
     ?LOG_INFO("hello",[]),
     ok = check_logged(error,"hello",[],?MY_LOC(1)),
     ok = check_no_log(),
@@ -180,8 +180,8 @@ add_remove_filter(_Config) ->
     ok = check_logged(mylevel,"hello",[],?MY_LOC(1)),
     ok = check_logged(error,"hello",[],?MY_LOC(2)),
 
-    ok = logger:remove_logger_filter(lf),
-    {error,{not_found,lf}} = logger:remove_logger_filter(lf),
+    ok = logger:remove_primary_filter(lf),
+    {error,{not_found,lf}} = logger:remove_primary_filter(lf),
 
     ?LOG_INFO("hello",[]),
     ok = check_logged(info,"hello",[],?MY_LOC(1)),
@@ -203,7 +203,7 @@ add_remove_filter(_Config) ->
     ok.
 
 add_remove_filter(cleanup,_Config) ->
-    logger:remove_logger_filter(lf),
+    logger:remove_primary_filter(lf),
     logger:remove_handler(h1),
     logger:remove_handler(h2),
     ok.
@@ -241,30 +241,30 @@ change_config(_Config) ->
     {ok,{_,C4}} = logger:get_handler_config(h1),
     C4 = C3#{custom:=new_custom},
 
-    %% Change logger config: Single key
-    {ok,LConfig0} = logger:get_logger_config(),
-    ok = logger:set_logger_config(level,warning),
-    {ok,LConfig1} = logger:get_logger_config(),
+    %% Change primary config: Single key
+    {ok,LConfig0} = logger:get_primary_config(),
+    ok = logger:set_primary_config(level,warning),
+    {ok,LConfig1} = logger:get_primary_config(),
     LConfig1 = LConfig0#{level:=warning},
 
-    %% Change logger config: Map
-    ok = logger:update_logger_config(#{level=>error}),
-    {ok,LConfig2} = logger:get_logger_config(),
+    %% Change primary config: Map
+    ok = logger:update_primary_config(#{level=>error}),
+    {ok,LConfig2} = logger:get_primary_config(),
     LConfig2 = LConfig1#{level:=error},
 
-    %% Overwrite logger config - check that defaults are added
-    ok = logger:set_logger_config(#{filter_default=>stop}),
+    %% Overwrite primary config - check that defaults are added
+    ok = logger:set_primary_config(#{filter_default=>stop}),
     {ok,#{level:=info,filters:=[],filter_default:=stop}=LC1} =
-        logger:get_logger_config(),
+        logger:get_primary_config(),
     3 = maps:size(LC1),
     %% Check that internal 'handlers' field has not been changed
     #{handlers:=HCs} = logger:i(),
     HIds1 = [Id || {Id,_,_} <- HCs],
-    {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,logger),
+    {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,primary),
     HIds1 = lists:sort(HIds2),
 
     %% Cleanup
-    ok = logger:set_logger_config(LConfig0),
+    ok = logger:set_primary_config(LConfig0),
     [] = test_server:messages_get(),
 
     ok.
@@ -272,7 +272,7 @@ change_config(_Config) ->
 change_config(cleanup,Config) ->
     logger:remove_handler(h1),
     LC = ?config(logger_config,Config),
-    logger:set_logger_config(LC),
+    logger:set_primary_config(LC),
     ok.
 
 set_formatter(_Config) ->
@@ -298,11 +298,11 @@ log_no_levels(_Config) ->
     ok = check_logged(notice,M1,#{}),
 
     Levels = [emergency,alert,critical,error,warning,notice,info,debug],
-    ok = logger:set_logger_config(level,none),
+    ok = logger:set_primary_config(level,none),
     [logger:Level(#{Level=>rep}) || Level <- Levels],
     ok = check_no_log(),
     
-    ok = logger:set_logger_config(level,all),
+    ok = logger:set_primary_config(level,all),
     M2 = ?map_rep,
     ?LOG_NOTICE(M2),
     ok = check_logged(notice,M2,#{}),
@@ -329,12 +329,12 @@ log_no_levels(_Config) ->
     ok.
 log_no_levels(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:set_logger_level(level,info),
+    logger:set_primary_config(level,info),
     logger:unset_module_level(?MODULE),
     ok.
 
 log_all_levels_api(_Config) ->
-    ok = logger:set_logger_config(level,all),
+    ok = logger:set_primary_config(level,all),
     ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     test_api(emergency),
     test_api(alert),
@@ -349,7 +349,7 @@ log_all_levels_api(_Config) ->
 
 log_all_levels_api(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:set_logger_config(level,info),
+    logger:set_primary_config(level,info),
     ok.
 
 macros(_Config) ->
@@ -368,14 +368,14 @@ set_level(_Config) ->
     ok = check_no_log(),
     logger:info(M1=?map_rep),
     ok = check_logged(info,M1,#{}),
-    ok = logger:set_logger_config(level,debug),
+    ok = logger:set_primary_config(level,debug),
     logger:debug(M2=?map_rep),
     ok = check_logged(debug,M2,#{}),
     ok.
 
 set_level(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:set_logger_config(level,info),
+    logger:set_primary_config(level,info),
     ok.
 
 set_module_level(_Config) ->
@@ -424,13 +424,13 @@ set_module_level(cleanup,_Config) ->
 
 cache_module_level(_Config) ->
     ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
+    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
     ?LOG_INFO(?map_rep),
     %% Caching is done asynchronously, so wait a bit for the update
     timer:sleep(100),
-    [_] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
+    [_] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
     ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
+    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
     ok.
 
 cache_module_level(cleanup,_Config) ->
@@ -468,18 +468,18 @@ filter_failed(_Config) ->
 
     %% Logger filters
     {error,{invalid_filter,_}} =
-        logger:add_logger_filter(lf,{fun(_) -> ok end,args}),
-    ok = logger:add_logger_filter(lf,{fun(_,_) -> a=b end,args}),
-    {ok,#{filters:=[_]}} = logger:get_logger_config(),
+        logger:add_primary_filter(lf,{fun(_) -> ok end,args}),
+    ok = logger:add_primary_filter(lf,{fun(_,_) -> a=b end,args}),
+    {ok,#{filters:=[_]}} = logger:get_primary_config(),
     ok = logger:info(M1=?map_rep),
     ok = check_logged(info,M1,#{}),
-    {error,{not_found,lf}} = logger:remove_logger_filter(lf),
+    {error,{not_found,lf}} = logger:remove_primary_filter(lf),
 
-    ok = logger:add_logger_filter(lf,{fun(_,_) -> faulty_return end,args}),
-    {ok,#{filters:=[_]}} = logger:get_logger_config(),
+    ok = logger:add_primary_filter(lf,{fun(_,_) -> faulty_return end,args}),
+    {ok,#{filters:=[_]}} = logger:get_primary_config(),
     ok = logger:info(M2=?map_rep),
     ok = check_logged(info,M2,#{}),
-    {error,{not_found,lf}} = logger:remove_logger_filter(lf),
+    {error,{not_found,lf}} = logger:remove_primary_filter(lf),
 
     %% Handler filters
     {error,{not_found,h0}} =
@@ -582,18 +582,18 @@ handler_failed(cleanup,_Config) ->
 config_sanity_check(_Config) ->
     %% Logger config
     {error,{invalid_filter_default,bad}} =
-        logger:set_logger_config(filter_default,bad),
-    {error,{invalid_level,bad}} = logger:set_logger_config(level,bad),
-    {error,{invalid_filters,bad}} = logger:set_logger_config(filters,bad),
-    {error,{invalid_filter,bad}} = logger:set_logger_config(filters,[bad]),
+        logger:set_primary_config(filter_default,bad),
+    {error,{invalid_level,bad}} = logger:set_primary_config(level,bad),
+    {error,{invalid_filters,bad}} = logger:set_primary_config(filters,bad),
+    {error,{invalid_filter,bad}} = logger:set_primary_config(filters,[bad]),
     {error,{invalid_filter,{_,_}}} =
-        logger:set_logger_config(filters,[{id,bad}]),
+        logger:set_primary_config(filters,[{id,bad}]),
     {error,{invalid_filter,{_,{_,_}}}} =
-        logger:set_logger_config(filters,[{id,{bad,args}}]),
+        logger:set_primary_config(filters,[{id,{bad,args}}]),
     {error,{invalid_filter,{_,{_,_}}}} =
-        logger:set_logger_config(filters,[{id,{fun() -> ok end,args}}]),
-    {error,{invalid_logger_config,{bad,bad}}} =
-        logger:set_logger_config(bad,bad),
+        logger:set_primary_config(filters,[{id,{fun() -> ok end,args}}]),
+    {error,{invalid_primary_config,{bad,bad}}} =
+        logger:set_primary_config(bad,bad),
 
     %% Handler config
     {error,{not_found,h1}} = logger:set_handler_config(h1,a,b),

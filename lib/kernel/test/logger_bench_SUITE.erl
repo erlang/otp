@@ -181,16 +181,16 @@ log(Config) ->
 
 log_drop(Config) ->
     Times = ?TIMES*100,
-    ok = logger:set_logger_config(level,error),
+    ok = logger:set_primary_config(level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_log_func/2, [info,?msg], Times).
 
 log_drop(cleanup,_Config) ->
-    ok = logger:set_logger_config(level,info).
+    ok = logger:set_primary_config(level,info).
 
 log_drop_by_handler(Config) ->
     Times = ?TIMES,
     %% just ensure correct levels
-    ok = logger:set_logger_config(level,info),
+    ok = logger:set_primary_config(level,info),
     ok = logger:set_handler_config(?MODULE,level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_log_func/2, [info,?msg], Times).
 
@@ -209,16 +209,16 @@ macro(Config) ->
     
 macro_drop(Config) ->
     Times = ?TIMES*100,
-    ok = logger:set_logger_config(level,error),
+    ok = logger:set_primary_config(level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_log_macro/2,[info,?msg], Times).
 
 macro_drop(cleanup,_Config) ->
-    ok = logger:set_logger_config(level,info).
+    ok = logger:set_primary_config(level,info).
 
 macro_drop_by_handler(Config) ->
     Times = ?TIMES,
     %% just ensure correct levels
-    ok = logger:set_logger_config(level,info),
+    ok = logger:set_primary_config(level,info),
     ok = logger:set_handler_config(?MODULE,level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_log_macro/2, [info,?msg], Times).
     
@@ -237,16 +237,16 @@ error_logger(Config) ->
     
 error_logger_drop(Config) ->
     Times = ?TIMES*100,
-    ok = logger:set_logger_config(level,error),
+    ok = logger:set_primary_config(level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_error_logger/2, [info,?msg], Times).
 
 error_logger_drop(cleanup,_Config) ->
-    ok = logger:set_logger_config(level,info).
+    ok = logger:set_primary_config(level,info).
 
 error_logger_drop_by_handler(Config) ->
     Times = ?TIMES,
     %% just ensure correct levels
-    ok = logger:set_logger_config(level,info),
+    ok = logger:set_primary_config(level,info),
     ok = logger:set_handler_config(?MODULE,level,error),
     run_benchmark(Config,?FUNCTION_NAME,fun do_log_func/2, [info,?msg], Times).
 
