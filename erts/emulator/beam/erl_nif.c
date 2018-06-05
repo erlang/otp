@@ -1251,8 +1251,10 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
     if (is_non_value(*term)) {
         return 0;
     }
-    erts_factory_close(&factory);
-    cache_env(dst_env);
+    if (size > 0) {
+        erts_factory_close(&factory);
+        cache_env(dst_env);
+    }
 
     ASSERT(bp > data);
     return bp - data;
