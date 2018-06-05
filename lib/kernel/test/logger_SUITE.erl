@@ -617,7 +617,7 @@ config_sanity_check(_Config) ->
         logger:set_handler_config(h1,formatter,{logger_formatter,bad}),
     {error,{invalid_formatter_config,logger_formatter,{bad,bad}}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,#{bad=>bad}}),
-    {error,{invalid_formatter_config,logger_formatter,{template,bad}}} =
+    {error,{invalid_formatter_template,logger_formatter,bad}} =
         logger:set_handler_config(h1,formatter,{logger_formatter,
                                                 #{template=>bad}}),
     {error,{invalid_formatter_template,logger_formatter,[1]}} =

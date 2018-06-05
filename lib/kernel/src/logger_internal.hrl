@@ -32,7 +32,7 @@
 -define(DEFAULT_FORMAT_CONFIG,#{legacy_header=>true,
                                 single_line=>false}).
 -define(DEFAULT_FORMAT_TEMPLATE_HEADER,
-        [{logger_formatter,header},"\n",msg,"\n"]).
+        [[logger_formatter,header],"\n",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE_SINGLE,
         [time," ",level,": ",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE,
