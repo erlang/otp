@@ -100,7 +100,7 @@ init_per_suite(Config) ->
 	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
 	   ssh:start(),
 	   [{std_simple_sftp_size,25000} % Sftp transferred data size
-	    | setup_pubkey(Config)]
+	    | Config]
        end
       ).
 
@@ -458,17 +458,6 @@ pubkey_opts(Config) ->
     [{auth_methods,"publickey"},
      {system_dir, SystemDir}].
 
-
-setup_pubkey(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
-    Keys =
-        [ssh_test_lib:setup_dsa(DataDir, UserDir),
-         ssh_test_lib:setup_rsa(DataDir, UserDir),
-         ssh_test_lib:setup_ecdsa("256", DataDir, UserDir)
-        ],
-    ssh_test_lib:write_auth_keys(Keys, UserDir), % 'authorized_keys' shall contain ALL pub keys
-    Config.
 
 setup_pubkey(Alg, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
