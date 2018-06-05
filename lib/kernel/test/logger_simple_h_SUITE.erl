@@ -48,7 +48,7 @@ suite() ->
      {ct_hooks, [logger_test_lib]}].
 
 init_per_suite(Config) ->
-    #{handlers:=Hs0} = logger:i(),
+    Hs0 = logger:get_handler_config(),
     Hs = lists:keydelete(cth_log_redirect,1,Hs0),
     [ok = logger:remove_handler(Id) || {Id,_,_} <- Hs],
     Env = [{App,Key,application:get_env(App,Key)} ||

@@ -328,7 +328,7 @@ formatter_fail(Config) ->
     logger:add_handler(Name, logger_disk_log_h, HConfig),
     Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
-    #{handlers:=HC1} = logger:i(),
+    HC1 = logger:get_handler_config(),
     H = [Id || {Id,_,_} <- HC1],
     true = lists:member(Name,H),
 
@@ -358,7 +358,7 @@ formatter_fail(Config) ->
 
     %% Check that handler is still alive and was never dead
     Pid = whereis(h_proc_name(Name)),
-    #{handlers:=HC2} = logger:i(),
+    HC2 = logger:get_handler_config(),
     H = [Id || {Id,_,_} <- HC2],
     ok.
 

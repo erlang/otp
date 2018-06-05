@@ -242,8 +242,7 @@ formatter_fail(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])}),
     Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
-    #{handlers:=HC1} = logger:i(),
-    H = [Id || {Id,_,_} <- HC1],
+    H = logger:get_handler_ids(),
     true = lists:member(?MODULE,H),
 
     %% Formatter is added automatically
@@ -272,8 +271,7 @@ formatter_fail(Config) ->
 
     %% Check that handler is still alive and was never dead
     Pid = whereis(h_proc_name()),
-    #{handlers:=HC2} = logger:i(),
-    H = [Id || {Id,_,_} <- HC2],
+    H = logger:get_handler_ids(),
 
     ok.
 

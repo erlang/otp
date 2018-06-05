@@ -63,8 +63,8 @@ end_per_group(_Group, _Config) ->
     ok.
 
 init_per_testcase(_TestCase, Config) ->
-    {ok,LC} = logger:get_primary_config(),
-    [{logger_config,LC}|Config].
+    PC = logger:get_primary_config(),
+    [{logger_config,PC}|Config].
 
 end_per_testcase(Case, Config) ->
     try apply(?MODULE,Case,[cleanup,Config])
@@ -106,11 +106,11 @@ start_stop(_Config) ->
 
 add_remove_handler(_Config) ->
     register(callback_receiver,self()),
-    #{handlers:=Hs0} = logger:i(),
+    Hs0 = logger:get_handler_config(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     ok = logger:add_handler(h1,?MODULE,#{}),
     [add] = test_server:messages_get(),
-    #{handlers:=Hs} = logger:i(),
+    Hs = logger:get_handler_config(),
     {value,_,Hs0} = lists:keytake(h1,1,Hs),
     {ok,{?MODULE,#{level:=all,filters:=[],filter_default:=log}}} = % defaults
         logger:get_handler_config(h1),
@@ -125,7 +125,7 @@ add_remove_handler(_Config) ->
     ok = check_logged(info,"hello",[],?MY_LOC(1)),
     ok = logger:remove_handler(h1),
     [remove] = test_server:messages_get(),
-    #{handlers:=Hs0} = logger:i(),
+    Hs0 = logger:get_handler_config(),
     {error,{not_found,h1}} = logger:get_handler_config(h1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
     logger:info("hello",[]),
@@ -242,37 +242,37 @@ change_config(_Config) ->
     C4 = C3#{custom:=new_custom},
 
     %% Change primary config: Single key
-    {ok,LConfig0} = logger:get_primary_config(),
+    PConfig0 = logger:get_primary_config(),
     ok = logger:set_primary_config(level,warning),
-    {ok,LConfig1} = logger:get_primary_config(),
-    LConfig1 = LConfig0#{level:=warning},
+    PConfig1 = logger:get_primary_config(),
+    PConfig1 = PConfig0#{level:=warning},
 
     %% Change primary config: Map
     ok = logger:update_primary_config(#{level=>error}),
-    {ok,LConfig2} = logger:get_primary_config(),
-    LConfig2 = LConfig1#{level:=error},
+    PConfig2 = logger:get_primary_config(),
+    PConfig2 = PConfig1#{level:=error},
 
     %% Overwrite primary config - check that defaults are added
     ok = logger:set_primary_config(#{filter_default=>stop}),
-    {ok,#{level:=info,filters:=[],filter_default:=stop}=LC1} =
+    #{level:=info,filters:=[],filter_default:=stop}=PC1 =
         logger:get_primary_config(),
-    3 = maps:size(LC1),
+    3 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
-    #{handlers:=HCs} = logger:i(),
-    HIds1 = [Id || {Id,_,_} <- HCs],
-    {ok,#{handlers:=HIds2}} = logger_config:get(?LOGGER_TABLE,primary),
+    MS = [{{{?HANDLER_KEY,'$1'},'_','_','_'},[],['$1']}],
+    HIds1 = ets:select(?LOGGER_TABLE,MS), % dirty, checking internal data
+    HIds2 = logger:get_handler_ids(),
     HIds1 = lists:sort(HIds2),
 
     %% Cleanup
-    ok = logger:set_primary_config(LConfig0),
+    ok = logger:set_primary_config(PConfig0),
     [] = test_server:messages_get(),
 
     ok.
 
 change_config(cleanup,Config) ->
     logger:remove_handler(h1),
-    LC = ?config(logger_config,Config),
-    logger:set_primary_config(LC),
+    PC = ?config(logger_config,Config),
+    logger:set_primary_config(PC),
     ok.
 
 set_formatter(_Config) ->
@@ -470,13 +470,13 @@ filter_failed(_Config) ->
     {error,{invalid_filter,_}} =
         logger:add_primary_filter(lf,{fun(_) -> ok end,args}),
     ok = logger:add_primary_filter(lf,{fun(_,_) -> a=b end,args}),
-    {ok,#{filters:=[_]}} = logger:get_primary_config(),
+    #{filters:=[_]} = logger:get_primary_config(),
     ok = logger:info(M1=?map_rep),
     ok = check_logged(info,M1,#{}),
     {error,{not_found,lf}} = logger:remove_primary_filter(lf),
 
     ok = logger:add_primary_filter(lf,{fun(_,_) -> faulty_return end,args}),
-    {ok,#{filters:=[_]}} = logger:get_primary_config(),
+    #{filters:=[_]} = logger:get_primary_config(),
     ok = logger:info(M2=?map_rep),
     ok = check_logged(info,M2,#{}),
     {error,{not_found,lf}} = logger:remove_primary_filter(lf),
@@ -519,7 +519,7 @@ handler_failed(_Config) ->
     {error,{invalid_handler,_}} = logger:add_handler(h1,nomodule,#{filter_default=>log}),
     logger:info(?map_rep),
     check_no_log(),
-    #{handlers:=H1} = logger:i(),
+    H1 = logger:get_handler_config(),
     false = lists:keymember(h1,1,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
@@ -529,7 +529,7 @@ handler_failed(_Config) ->
 
     logger:info(?map_rep),
     [remove] = test_server:messages_get(),
-    #{handlers:=H2} = logger:i(),
+    H2 = logger:get_handler_config(),
     false = lists:keymember(h2,1,H2),
     {error,{not_found,h2}} = logger:remove_handler(h2),
 

@@ -37,7 +37,7 @@ setup(Config,Vars) ->
                                          " -boot start_sasl -kernel start_timer true "
                                          "-config ",ConfigFileName]}]) of
         {ok, Node} ->
-            L = rpc:call(Node, logger, i, []),
+            L = rpc:call(Node, logger, get_config, []),
             ct:log("~p",[L]),
             {ok, L, Node};
         {error, Reason} ->

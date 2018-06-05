@@ -45,6 +45,7 @@
          update_primary_config/1, update_handler_config/2,
          update_formatter_config/2, update_formatter_config/3,
          get_primary_config/0, get_handler_config/1,
+         get_handler_config/0, get_handler_ids/0, get_config/0,
          add_handlers/1]).
 
 %% Private configuration
@@ -54,7 +55,6 @@
 -export([compare_levels/2]).
 -export([set_process_metadata/1, update_process_metadata/1,
          unset_process_metadata/0, get_process_metadata/0]).
--export([i/0, i/1]).
 
 %% Basic report formatting
 -export([format_report/1, format_otp_report/1]).
@@ -382,11 +382,11 @@ update_primary_config(Config) ->
 update_handler_config(HandlerId,Config) ->
     logger_server:update_config(HandlerId,Config).
 
--spec get_primary_config() -> {ok,Config} when
+-spec get_primary_config() -> Config when
       Config :: config().
 get_primary_config() ->
     {ok,Config} = logger_config:get(?LOGGER_TABLE,primary),
-    {ok,maps:remove(handlers,Config)}.
+    maps:remove(handlers,Config).
 
 -spec get_handler_config(HandlerId) -> {ok,{Module,Config}} | {error,term()} when
       HandlerId :: handler_id(),
@@ -394,6 +394,22 @@ get_primary_config() ->
       Config :: config().
 get_handler_config(HandlerId) ->
     logger_config:get(?LOGGER_TABLE,HandlerId).
+
+-spec get_handler_config() -> [{HandlerId,Module,Config}] when
+      HandlerId :: handler_id(),
+      Module :: module(),
+      Config :: config().
+get_handler_config() ->
+    [begin
+         {ok,{Module,Config}} = get_handler_config(HandlerId),
+         {HandlerId,Module,Config}
+     end || HandlerId <- get_handler_ids()].
+
+-spec get_handler_ids() -> [HandlerId] when
+      HandlerId :: handler_id().
+get_handler_ids() ->
+    {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
+    HandlerIds.
 
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
@@ -492,82 +508,13 @@ unset_process_metadata() ->
     _ = erase(?LOGGER_META_KEY),
     ok.
 
--spec i() -> #{primary=>config(),
-               handlers=>[{handler_id(),module(),config()}],
-               module_levels=>[{module(),level() | all | none}]}.
-i() ->
-    i(term).
-
--spec i(term) -> #{primary=>config(),
-                   handlers=>[{handler_id(),module(),config()}],
-                   module_levels=>[{module(),level() | all | none}]};
-       (print) -> ok;
-       (string) -> iolist().
-i(_Action = print) ->
-    io:put_chars(i(string));
-i(_Action = string) ->
-    #{primary := #{level := Level,
-                  filters := Filters,
-                  filter_default := FilterDefault},
-      handlers := HandlerConfigs,
-      module_levels := Modules} = i(term),
-    [io_lib:format("Current logger configuration:~n", []),
-     io_lib:format("  Level: ~p~n",[Level]),
-     io_lib:format("  Filter Default: ~p~n", [FilterDefault]),
-     io_lib:format("  Filters: ~n", []),
-     print_filters(4, Filters),
-     io_lib:format("  Handlers: ~n", []),
-     print_handlers(HandlerConfigs),
-     io_lib:format("  Level set per module: ~n", []),
-     print_module_levels(Modules)
-    ];
-i(_Action = term) ->
-    {Primary, Handlers, Modules} = logger_config:get(?LOGGER_TABLE),
-    #{primary=>maps:remove(handlers,Primary),
-      handlers=>lists:keysort(1,Handlers),
-      module_levels=>lists:keysort(1,Modules)}.
-
-print_filters(Indent, {Id, {Fun, Config}}) ->
-    io_lib:format("~sId: ~p~n"
-                  "~s  Fun:    ~p~n"
-                  "~s  Config: ~p~n",[Indent, Id, Indent, Fun, Indent, Config]);
-print_filters(Indent, Filters) ->
-    IndentStr = io_lib:format("~.*s",[Indent, ""]),
-    lists:map(fun(Filter) ->print_filters(IndentStr, Filter) end, Filters).
-
-
-print_handlers({Id,Module,
-                #{level := Level,
-                  filters := Filters, filter_default := FilterDefault,
-                  formatter := {FormatterModule,FormatterConfig}} = Config}) ->
-    MyKeys = [filter_default, filters, formatter, level, id],
-    UnhandledConfig = maps:filter(fun(Key, _) ->
-                                          not lists:member(Key, MyKeys)
-                                  end, Config),
-    Unhandled = lists:map(fun({Key, Value}) ->
-                                  io_lib:format("        ~p: ~p~n",[Key, Value])
-                          end, maps:to_list(UnhandledConfig)),
-    io_lib:format("    Id: ~p~n"
-                  "      Module:    ~p~n"
-                  "      Level:     ~p~n"
-                  "      Formatter:~n"
-                  "        Module: ~p~n"
-                  "        Config: ~p~n"
-                  "      Filter Default: ~p~n"
-                  "      Filters:~n~s"
-                  "      Handler Config:~n"
-                  "~s"
-                  "",[Id, Module, Level, FormatterModule, FormatterConfig,
-                      FilterDefault, print_filters(8, Filters), Unhandled]);
-print_handlers(Handlers) ->
-    lists:map(fun print_handlers/1, Handlers).
-
-print_module_levels({Module,Level}) ->
-    io_lib:format("    Module: ~p~n"
-                  "      Level: ~p~n",
-                  [Module,Level]);
-print_module_levels(ModuleLevels) ->
-    lists:map(fun print_module_levels/1, ModuleLevels).
+-spec get_config() -> #{primary=>config(),
+                        handlers=>[{handler_id(),module(),config()}],
+                        module_levels=>[{module(),level() | all | none}]}.
+get_config() ->
+    #{primary=>get_primary_config(),
+      handlers=>get_handler_config(),
+      module_levels=>lists:keysort(1,get_module_level())}.
 
 -spec internal_init_logger() -> ok | {error,term()}.
 %% This function is responsible for config of the logger

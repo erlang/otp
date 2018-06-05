@@ -365,7 +365,7 @@ calc_and_report(Config,Tag,MSecs,Times) ->
     {save_config,[{bench,[{Tag,IOPS,MSecs}|Bench]}]}.
 
 remove_all_handlers() ->
-    #{handlers:=Hs} = logger:i(),
+    Hs = logger:get_handler_config(),
     [logger:remove_handler(Id) || {Id,_,_} <- Hs],
     Hs.
 
