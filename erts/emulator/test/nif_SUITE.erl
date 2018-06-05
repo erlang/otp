@@ -2594,16 +2594,23 @@ nif_term_to_binary(Config) ->
 
 nif_binary_to_term(Config) ->
     ensure_lib_loaded(Config),
-    T = {#{ok => nok}, <<0:8096>>, lists:seq(1,100)},
+    BigMap = maps:from_list([{I,-I} || I <- lists:seq(1,100)]),
+    [nif_binary_to_term_do(T)
+     || T <- [{#{ok => nok}, <<0:8096>>, lists:seq(1,100)},
+              atom, 42, self(), BigMap]],
+    ok.
+
+nif_binary_to_term_do(T) ->
+    Dummy = [true|false],
     Bin = term_to_binary(T),
     Len = byte_size(Bin),
-    {Len,T} = binary_to_term_nif(Bin, undefined, 0),
+    {Len,T,Dummy} = binary_to_term_nif(Bin, undefined, 0),
     Len = binary_to_term_nif(Bin, self(), 0),
-    T = receive M -> M after 1000 -> timeout end,
+    {T,Dummy} = receive M -> M after 1000 -> timeout end,
 
-    {Len, T} = binary_to_term_nif(Bin, undefined, ?ERL_NIF_BIN2TERM_SAFE),
+    {Len,T,Dummy} = binary_to_term_nif(Bin, undefined, ?ERL_NIF_BIN2TERM_SAFE),
     false = binary_to_term_nif(<<131,100,0,14,"undefined_atom">>,
-			   undefined, ?ERL_NIF_BIN2TERM_SAFE),
+                               undefined, ?ERL_NIF_BIN2TERM_SAFE),
     false = binary_to_term_nif(Bin, undefined, 1),
     ok.
 
