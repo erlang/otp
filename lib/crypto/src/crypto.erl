@@ -112,8 +112,13 @@ supports()->
     [{hashs, Hashs},
      {ciphers, Ciphers},
      {public_keys, PubKeys},
-     {macs, Macs},
-     {curves, Curves}
+     {macs, Macs}
+     | case Curves of
+           [] -> [];
+           _ -> [{curves, Curves}] % Only show this experimental feature
+                                   % if OpenSSL 1.1.1 beta4 or higher (where
+                                   % eddsa and eddh is enabled)
+       end
     ].
 
 info_lib() -> ?nif_stub.
