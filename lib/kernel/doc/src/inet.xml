@@ -1149,7 +1149,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seealso>
               gets <c>{error, closed}</c>. In active
               mode, the controlling process receives a
-              <c>{tcp_close, Socket}</c> message, indicating that the
+              <c>{tcp_closed, Socket}</c> message, indicating that the
               peer has closed the connection.</p>
             <p>Setting this option to <c>true</c> allows you to
               distinguish between a connection that was closed normally,
