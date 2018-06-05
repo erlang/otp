@@ -775,8 +775,6 @@ get_logger_env() ->
 
 %%%-----------------------------------------------------------------
 %%% Internal
-do_log(warning,Msg,Meta) ->
-    do_log_1(error_logger:warning_map(),Msg,Meta);
 do_log(Level,Msg,Meta) ->
     do_log_1(Level,Msg,Meta).
 

@@ -169,16 +169,25 @@ do_log(_Level,_Msg,_Meta) ->
 
 -spec notify(logger:level(), msg_tag(), any(), any(), map()) -> 'ok'.
 notify(Level,Tag0,FormatOrType0,ArgsOrReport,#{pid:=Pid0,gl:=GL,?MODULE:=My}) ->
-    Tag = fix_warning_tag(Level,Tag0),
+    {Tag,FormatOrType} = maybe_map_warnings(Level,Tag0,FormatOrType0),
     Pid = case maps:get(emulator,My,false) of
               true -> emulator;
               _ -> Pid0
           end,
-    FormatOrType = fix_warning_type(Level,FormatOrType0),
     gen_event:notify(?MODULE,{Tag,GL,{Pid,FormatOrType,ArgsOrReport}}).
 
-%% This is to fix the case when the client has explicitly added the
-%% error logger tag and type in metadata, and not checked the warning map.
+%% For backwards compatibility with really old even handlers, check
+%% the warning map and update tag and type.
+maybe_map_warnings(warning,Tag,FormatOrType) ->
+    case error_logger:warning_map() of
+        warning ->
+            {Tag,FormatOrType};
+        Level ->
+            {fix_warning_tag(Level,Tag),fix_warning_type(Level,FormatOrType)}
+    end;
+maybe_map_warnings(_,Tag,FormatOrType) ->
+    {Tag,FormatOrType}.
+
 fix_warning_tag(error,warning_msg) -> error;
 fix_warning_tag(error,warning_report) -> error_report;
 fix_warning_tag(info,warning_msg) -> info_msg;
@@ -263,29 +272,10 @@ warning_report(Report) ->
       Report :: report().
 
 warning_report(Type, Report) ->
-    Level = error_logger:warning_map(),
-    {Tag, NType} = case Level of
-		       info ->
-			   if 
-			       Type =:= std_warning ->
-				   {info_report, std_info};
-			       true ->
-				   {info_report, Type}
-			   end;
-		       warning ->
-			   {warning_report, Type};
-		       error ->
-			   if
-			       Type =:= std_warning ->
-				   {error_report, std_error};
-			       true ->
-				   {error_report, Type}
-			   end
-		   end,
-    logger:log(Level,
+    logger:log(warning,
                #{label=>{?MODULE,warning_report},
                  report=>Report},
-               meta(Tag,NType)).
+               meta(warning_report,Type)).
 
 %%-----------------------------------------------------------------
 %% This function provides similar functions as error_msg for
@@ -304,20 +294,11 @@ warning_msg(Format) ->
       Data :: list().
 
 warning_msg(Format, Args) ->
-    Level = error_logger:warning_map(),
-    Tag = case Level of
-	      warning ->
-		  warning_msg;
-	      info ->
-		  info_msg;
-	      error ->
-		  error
-	  end,
-    logger:log(Level,
+    logger:log(warning,
                #{label=>{?MODULE,warning_msg},
                  format=>Format,
                  args=>Args},
-               meta(Tag)).
+               meta(warning_msg)).
 
 %%-----------------------------------------------------------------
 %% This function should be used for information reports.  Events
