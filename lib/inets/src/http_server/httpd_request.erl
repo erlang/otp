@@ -259,17 +259,17 @@ parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  Options, Result); 
-parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
+parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	      Options, Result) ->
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
 	    parse_headers(Rest, [Octet], Headers, 
-			  0, Max, Options, Result);
+			  Current, Max, Options, Result);
 	NewHeader ->
 	    case check_header(NewHeader, Options) of 
 		ok ->
 		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
-				  0, Max, Options, Result);
+				  Current, Max, Options, Result);
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
 		    {error, Reason, HttpVersion}

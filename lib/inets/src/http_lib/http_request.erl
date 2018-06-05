@@ -27,10 +27,12 @@
 
 key_value(KeyValueStr) ->
     case lists:splitwith(fun($:) -> false; (_) -> true end, KeyValueStr) of
-	{Key, [$: | Value]} ->
+	{Key, [$: | Value]} when Key =/= [] ->
 	    {http_util:to_lower(string:strip(Key)),  string:strip(Value)};
 	{_, []} -> 
-	    undefined
+	    undefined;
+        _ ->
+            undefined 
     end.
 %%-------------------------------------------------------------------------
 %% headers(HeaderList, #http_request_h{}) -> #http_request_h{}
