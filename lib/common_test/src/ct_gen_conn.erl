@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Generic connection owner process.
+%%% Generic connection owner process.
 %%%
-%%% @type handle() = pid(). A handle for using a connection implemented
+%%% -type handle() = pid(). A handle for using a connection implemented
 %%% with ct_gen_conn.erl.
 
 -module(ct_gen_conn).
@@ -48,7 +48,7 @@
 		  ct_util_server}).
 
 %%%-----------------------------------------------------------------
-%%% @spec start(Address,InitData,CallbackMod,Opts) ->
+%%% -spec start(Address,InitData,CallbackMod,Opts) ->
 %%%                                     {ok,Handle} | {error,Reason}
 %%%      Name = term()
 %%%      CallbackMod = atom()
@@ -58,57 +58,52 @@
 %%%      Opt = {name,Name} | {use_existing_connection,boolean()} |
 %%%            {reconnect,boolean()} | {forward_messages,boolean()}
 %%%
-%%% @doc Open a connection and start the generic connection owner process.
+%%% Open a connection and start the generic connection owner process.
 %%%
-%%% <p>The <code>CallbackMod</code> is a specific callback module for
+%%% The CallbackMod is a specific callback module for
 %%% each type of connection (e.g. telnet, ftp,...). It must export the
-%%% function <code>init/3</code> which takes the arguments
-%%% <code>Name</code>, <code>Addresse</code>) and
-%%% <code>InitData</code> and returna
-%%% <code>{ok,ConnectionPid,State}</code> or
-%%% <code>{error,Reason}</code>.</p>
+%%% function init/3 which takes the arguments
+%%% Name, Addresse) and
+%%% InitData and returna
+%%% {ok,ConnectionPid,State} or
+%%% {error,Reason}.
 %%%
-%%% If no name is given, the <code>Name</code> argument in init/3 will
-%%% have the value <code>undefined</code>.
+%%% If no name is given, the Name argument in init/3 will
+%%% have the value undefined.
 %%%
 %%% The callback modules must also export
-%%% ```
+%%%
 %%% handle_msg(Msg,From,State) -> {reply,Reply,State} |
 %%%                               {noreply,State} |
 %%%                               {stop,Reply,State}
 %%% terminate(ConnectionPid,State) -> term()
 %%% close(Handle) -> term()
-%%% '''
 %%%
-%%% The <code>close/1</code> callback function is actually a callback
+%%% The close/1 callback function is actually a callback
 %%% for ct_util, for closing registered connections when
-%%% ct_util_server is terminated. <code>Handle</code> is the Pid of
+%%% ct_util_server is terminated. Handle is the Pid of
 %%% the ct_gen_conn process.
 %%%
-%%% If option <code>reconnect</code> is <code>true</code>, then the
+%%% If option reconnect is true, then the
 %%% callback must also export
-%%% ```
-%%% reconnect(Address,State) -> {ok,ConnectionPid,State}
-%%% '''
 %%%
-%%% If option <code>forward_messages</code> is <ocde>true</code>, then
+%%% reconnect(Address,State) -> {ok,ConnectionPid,State}
+%%%
+%%% If option forward_messages is <ocde>true, then
 %%% the callback must also export
-%%% ```
+%%%
 %%% handle_msg(Msg,State) -> {noreply,State} | {stop,State}
-%%% '''
 %%%
 %%% An old interface still exists. This is used by ct_telnet, ct_ftp
 %%% and ct_ssh. The start function then has an explicit
-%%% <code>Name</code> argument, and no <code>Opts</code> argument. The
+%%% Name argument, and no Opts argument. The
 %%% callback must export:
 %%%
-%%% ```
 %%% init(Name,Address,InitData) -> {ok,ConnectionPid,State}
 %%% handle_msg(Msg,State) -> {Reply,State}
 %%% reconnect(Address,State) -> {ok,ConnectionPid,State}
 %%% terminate(ConnectionPid,State) -> term()
 %%% close(Handle) -> term()
-%%% '''
 %%%
 start(Address,InitData,CallbackMod,Opts) when is_list(Opts) ->
     do_start(Address,InitData,CallbackMod,Opts);
@@ -116,73 +111,73 @@ start(Name,Address,InitData,CallbackMod) ->
     do_start(Address,InitData,CallbackMod,[{name,Name},{old,true}]).
 
 %%%-----------------------------------------------------------------
-%%% @spec stop(Handle) -> ok
+%%% -spec stop(Handle) -> ok
 %%%      Handle = handle()
 %%%
-%%% @doc Close the connection and stop the process managing it.
+%%% Close the connection and stop the process managing it.
 stop(Handle) ->
     call(Handle,stop,5000).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_conn_pid(Handle) -> ok
+%%% -spec get_conn_pid(Handle) -> ok
 %%%      Handle = handle()
 %%%
-%%% @doc Return the connection pid associated with Handle
+%%% Return the connection pid associated with Handle
 get_conn_pid(Handle) ->
     call(Handle,get_conn_pid).
 
 %%%-----------------------------------------------------------------
-%%% @spec log(Heading,Format,Args) -> ok
+%%% -spec log(Heading,Format,Args) -> ok
 %%%
-%%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:log/3
+%%% Log activities on the current connection (tool-internal use only).
+%%% See ct_logs:log/3
 log(Heading,Format,Args) ->
     log(log,[Heading,Format,Args]).
 
 %%%-----------------------------------------------------------------
-%%% @spec start_log(Heading) -> ok
+%%% -spec start_log(Heading) -> ok
 %%%
-%%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:start_log/1
+%%% Log activities on the current connection (tool-internal use only).
+%%% See ct_logs:start_log/1
 start_log(Heading) ->
     log(start_log,[Heading]).
 
 %%%-----------------------------------------------------------------
-%%% @spec cont_log(Format,Args) -> ok
+%%% -spec cont_log(Format,Args) -> ok
 %%%
-%%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:cont_log/2
+%%% Log activities on the current connection (tool-internal use only).
+%%% See ct_logs:cont_log/2
 cont_log(Format,Args) ->
     log(cont_log,[Format,Args]).
 
 %%%-----------------------------------------------------------------
-%%% @spec cont_log_no_timestamp(Format,Args) -> ok
+%%% -spec cont_log_no_timestamp(Format,Args) -> ok
 %%%
-%%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:cont_log/2
+%%% Log activities on the current connection (tool-internal use only).
+%%% See ct_logs:cont_log/2
 cont_log_no_timestamp(Format,Args) ->
     log(cont_log_no_timestamp,[Format,Args]).
 
 %%%-----------------------------------------------------------------
-%%% @spec end_log() -> ok
+%%% -spec end_log() -> ok
 %%%
-%%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:end_log/0
+%%% Log activities on the current connection (tool-internal use only).
+%%% See ct_logs:end_log/0
 end_log() ->
     log(end_log,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec do_within_time(Fun,Timeout) -> FunResult | {error,Reason}
+%%% -spec do_within_time(Fun,Timeout) -> FunResult | {error,Reason}
 %%%      Fun = function()
 %%%      Timeout = integer()
 %%%
-%%% @doc Execute a function within a limited time (tool-internal use only).
+%%% Execute a function within a limited time (tool-internal use only).
 %%%
-%%% <p>Execute the given <code>Fun</code>, but interrupt if it takes
-%%% more than <code>Timeout</code> milliseconds.</p>
+%%% Execute the given Fun, but interrupt if it takes
+%%% more than Timeout milliseconds.
 %%%
-%%% <p>The execution is also interrupted if the connection is
-%%% closed.</p>
+%%% The execution is also interrupted if the connection is
+%%% closed.
 do_within_time(Fun,Timeout) ->
     Self = self(),
     Silent = get(silent),

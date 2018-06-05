@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Logging functionality for Common Test Master.
+%%% doc Logging functionality for Common Test Master.
 %%%
-%%% <p>This module keeps a list of <code>{Node,Status}</code>
+%%% This module keeps a list of {Node,Status}
 %%% tuples. It is possible to anytime during a test run get
 %%% a snapshot of the test status. The module is an event
-%%% handler for the master event manager.</p>
+%%% handler for the master event manager.
 -module(ct_master_status).
 
 -behaviour(gen_event).
