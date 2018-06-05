@@ -249,7 +249,7 @@ fold(Fun,Init,Map) when is_function(Fun,3), is_map(Map) ->
 fold(Fun,Init,Iterator) when is_function(Fun,3), ?IS_ITERATOR(Iterator) ->
     fold_1(Fun,Init,Iterator);
 fold(Fun,Init,Map) ->
-    erlang:error(error_type(Map),[Fun,Init,Map]).
+    erlang:error(error_type_iter(Map),[Fun,Init,Map]).
 
 fold_1(Fun, Acc, Iter) ->
     case next(Iter) of
@@ -272,7 +272,7 @@ map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
 map(Fun,Iterator) when is_function(Fun, 2), ?IS_ITERATOR(Iterator) ->
     maps:from_list(map_1(Fun, Iterator));
 map(Fun,Map) ->
-    erlang:error(error_type(Map),[Fun,Map]).
+    erlang:error(error_type_iter(Map),[Fun,Map]).
 
 map_1(Fun, Iter) ->
     case next(Iter) of
@@ -342,5 +342,8 @@ with(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
 
-error_type(M) when is_map(M); ?IS_ITERATOR(M) -> badarg;
+error_type(M) when is_map(M) -> badarg;
 error_type(V) -> {badmap, V}.
+
+error_type_iter(M) when is_map(M); ?IS_ITERATOR(M) -> badarg;
+error_type_iter(V) -> {badmap, V}.
