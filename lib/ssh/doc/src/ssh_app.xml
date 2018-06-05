@@ -130,39 +130,47 @@
     For the list on a particular installation, use the command
     <seealso marker="ssh:ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>. 
     The user may override the default algorithm configuration both on the server side and the client side.
-    See the option <c>preferred_algorithms</c> in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
+    See the options
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    and
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
     <seealso marker="ssh:ssh#connect/3">ssh:connect/3,4</seealso> functions.
     </p>
 
-    <p>Supported algorithms are:</p>
+    <p>Supported algorithms are (in the default order):</p>
     <marker id="supported_algos"></marker>
     <taglist>
       <tag>Key exchange algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdh-sha2-nistp256</item>
 	  <item>ecdh-sha2-nistp384</item>
 	  <item>ecdh-sha2-nistp521</item>
-	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>ecdh-sha2-nistp256</item>
 	  <item>diffie-hellman-group-exchange-sha256</item>
-	  <item>diffie-hellman-group14-sha1</item>
-	  <item>diffie-hellman-group14-sha256</item>
 	  <item>diffie-hellman-group16-sha512</item>
 	  <item>diffie-hellman-group18-sha512</item>
-	  <item>(diffie-hellman-group1-sha1, retired: can be enabled with the <c>preferred_algorithms</c> option)</item>
+	  <item>diffie-hellman-group14-sha256</item>
+	  <item>diffie-hellman-group14-sha1</item>
+	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>(diffie-hellman-group1-sha1, retired: It can be enabled with the 
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    or
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    options)</item>
 	</list>
       </item>
 
       <tag>Public key algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdsa-sha2-nistp256</item>
 	  <item>ecdsa-sha2-nistp384</item>
 	  <item>ecdsa-sha2-nistp521</item>
+	  <item>ecdsa-sha2-nistp256</item>
 	  <item>ssh-rsa</item>
-	  <item>ssh-dss</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
+	  <item>ssh-dss</item>
 	</list>
       </item>
 
@@ -178,11 +186,11 @@
       <tag>Encryption algorithms (ciphers)</tag>
       <item>
 	<list type="bulleted">
-          <item>aes128-gcm@openssh.com</item>
           <item>aes256-gcm@openssh.com</item>
-	  <item>aes128-ctr</item>
-	  <item>aes192-ctr</item>
 	  <item>aes256-ctr</item>
+	  <item>aes192-ctr</item>
+          <item>aes128-gcm@openssh.com</item>
+	  <item>aes128-ctr</item>
 	  <item>aes128-cbc</item>
 	  <item>3des-cbc</item>
 	  <item>(AEAD_AES_128_GCM, not enabled per default)</item>
@@ -241,7 +249,11 @@
       <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
       <p>Except</p>
       <list type="bulleted">
-	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the <c>preferred_algorithms</c> option.</item>
+	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.</item>
       </list>
       <p/>
       </item>
@@ -280,7 +292,10 @@
       <p><marker id="rfc5647_note"/>There is an ambiguity in the synchronized selection of cipher and mac algorithm. 
       This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
       If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
-      they could be enabled with the option preferred_algorithms.
+      they could be enabled with the options
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
       </p>
       <warning>
 	<p>
@@ -322,10 +337,18 @@
       <p>Deviations:</p>
       <list type="bulleted">
 	<item>The <c>diffie-hellman-group1-sha1</c> is not enabled by default, but is still supported and can be enabled
-	with the option <c>preferred-algorithms</c></item>
+	with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	</item>
 	<item>The questionable sha1-based algorithms <c>diffie-hellman-group-exchange-sha1</c> and
 	<c>diffie-hellman-group14-sha1</c> are still enabled by default for compatibility with ancient clients and servers.
-	They can be disabled with the option <c>preferred-algorithms</c></item>
+	They can be disabled with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	They will be disabled by default when the draft is turned into an RFC.</item>
       </list>
       <p/>
       </item>
