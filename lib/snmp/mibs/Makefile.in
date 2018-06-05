@@ -132,6 +132,9 @@ $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1: $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1.src
 # To support parallel make, we'll need explicit dependencies
 # to ensure that an imported MIB has been compiled when it's needed.
 
+$(SNMP_BIN_TARGET_DIR)/OTP-TC.bin: \
+	$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin
+
 $(SNMP_BIN_TARGET_DIR)/STANDARD-MIB.bin: \
 	$(SNMP_BIN_TARGET_DIR)/RFC1213-MIB.bin
 
