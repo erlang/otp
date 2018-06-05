@@ -423,13 +423,13 @@ sig_enqueue_trace(Process *c_p, ErtsMessage **sigp, int op,
 }
 
 static void
-sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig, ErtsMessage *last)
+sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig)
 {
     ErtsMessage *tmp;
 
     /* The usual case; no tracing signals... */
-    if (sig == (ErtsSignal *) first && sig == (ErtsSignal *) last) {
-        sig->common.next = NULL;
+    if (sig == (ErtsSignal *) first) {
+        ASSERT(sig->common.next == NULL);
         return;
     }
 
@@ -445,6 +445,8 @@ sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig, ErtsMessage *last
             case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
                 destroy_trace_info((ErtsSigTraceInfo *) tmp_free);
                 break;
+            case ERTS_SIG_Q_OP_MONITOR:
+                break; /* ignore flushed pending signal */
             default:
                 ERTS_INTERNAL_ERROR("Unexpected signal op");
                 break;
@@ -667,7 +669,7 @@ proc_queue_signal(Process *c_p, Eterm pid, ErtsSignal *sig, int op)
 first_last_done:
     sig->common.specific.next = NULL;
 
-    /* may add signals before and/or after sig */
+    /* may add signals before sig */
     sig_enqueue_trace(c_p, sigp, op, rp, &last_next);
 
     last->next = NULL;
@@ -688,22 +690,18 @@ first_last_done:
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
     if (res == 0) {
+        sig_enqueue_trace_cleanup(first, sig);
         if (pend_sig) {
+            erts_proc_sig_send_monitor_down((ErtsMonitor*)pend_sig, am_noproc);
             if (sig == pend_sig) {
                 /* We did a switch, callers signal is now pending (still ok) */
                 ASSERT(esdp->pending_signal.sig);
                 res = 1;
             }
-            else {
-                ASSERT(first == (ErtsMessage*)pend_sig);
-                first = first->next;
-            }
-            erts_proc_sig_send_monitor_down((ErtsMonitor*)pend_sig, am_noproc);
         }
-        sig_enqueue_trace_cleanup(first, sig, last);
     }
-
-    erts_proc_notify_new_sig(rp, state, 0);
+    else
+        erts_proc_notify_new_sig(rp, state, 0);
 
     if (!is_normal_sched)
         erts_proc_dec_refc(rp);
