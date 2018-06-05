@@ -33,7 +33,26 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.5.1</title>
+  <section><title>Inets 6.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inets: httpd - Gracefully handle bad headers</p>
+          <p>
+	    The option max_headers operated on the individual header
+	    length instead of the total length of all headers. Also
+	    headers with empty keys are now discarded.</p>
+          <p>
+	    Own Id: OTP-15092</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

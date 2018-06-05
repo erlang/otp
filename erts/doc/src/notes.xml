@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>enif_binary_to_term</c> which could cause
+	    memory corruption for immediate terms (atoms, small
+	    integers, pids, ports, empty lists).</p>
+          <p>
+	    Own Id: OTP-15080</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:system_profile/2</c> that could
+	    cause superfluous <c>{profile,_,active,_,_}</c> messages
+	    for terminating processes.</p>
+          <p>
+	    Own Id: OTP-15085</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
