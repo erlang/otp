@@ -164,17 +164,19 @@ share(Is0) ->
 
 share_1([{label,L}=Lbl|Is], Dict0, Lbls0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
-	error ->
-	    Dict = maps:put(Seq, L, Dict0),
-	    share_1(Is, Dict, Lbls0, [], [Lbl|Seq ++ Acc]);
-	{ok,Label} ->
+        error ->
+            Dict = maps:put(Seq, L, Dict0),
+            share_1(Is, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
+        {ok,Label} ->
             Lbls = maps:put(L, Label, Lbls0),
-	    share_1(Is, Dict0, Lbls, [], [Lbl,{jump,{f,Label}}|Acc])
+            share_1(Is, Dict0, Lbls, [], [[Lbl,{jump,{f,Label}}]|Acc])
     end;
-share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =/= #{} ->
-    beam_utils:replace_labels(Acc, Is, Lbls, fun(Old) -> Old end);
+share_1([{func_info,_,_,_}|_]=Is0, _, Lbls, [], Acc0) when Lbls =/= #{} ->
+    lists:foldl(fun(Is, Acc) ->
+        beam_utils:replace_labels(Is, Acc, Lbls, fun(Old) -> Old end)
+    end, Is0, Acc0);
 share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =:= #{} ->
-    reverse(Acc, Is);
+    lists:foldl(fun lists:reverse/2, Is, Acc);
 share_1([{'catch',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
     {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
     share_1(Is, Dict, Lbls, [I|Seq], Acc);
@@ -187,6 +189,9 @@ share_1([{try_case,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
 share_1([{catch_end,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
     {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
     share_1(Is, Dict, Lbls, [I|Seq], Acc);
+share_1([{jump,{f,To}}=I,{label,L}=Lbl|Is], Dict0, Lbls0, _Seq, Acc) ->
+    Lbls = maps:put(L, To, Lbls0),
+    share_1(Is, Dict0, Lbls, [], [[Lbl,I]|Acc]);
 share_1([I|Is], Dict, Lbls, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
