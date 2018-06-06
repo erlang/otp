@@ -96,7 +96,9 @@
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log_event().
 -type config() :: #{id => handler_id(),
+                    config => map(),
                     level => level() | all | none,
+                    module => module(),
                     filter_default => log | stop,
                     filters => [{filter_id(),filter()}],
                     formatter => {module(),formatter_config()},
@@ -673,7 +675,7 @@ init_default_config(Type) when Type==standard_io;
                                 element(1,Type)==file ->
     Env = get_logger_env(),
     DefaultFormatter = #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}},
-    DefaultConfig = DefaultFormatter#{logger_std_h=>#{type=>Type}},
+    DefaultConfig = DefaultFormatter#{config=>#{type=>Type}},
     NewLoggerEnv =
         case lists:keyfind(default, 2, Env) of
             {handler, default, Module, Config} ->

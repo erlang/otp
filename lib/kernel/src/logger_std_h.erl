@@ -116,7 +116,7 @@ adding_handler(#{id:=Name}=Config) ->
     case check_config(adding, Config) of
         {ok, Config1} ->
             %% create initial handler state by merging defaults with config
-            HConfig = maps:get(?MODULE, Config1, #{}),
+            HConfig = maps:get(config, Config1, #{}),
             HState = maps:merge(get_init_state(), HConfig),
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
@@ -140,17 +140,17 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, ?MODULE:=HConfig},
+changing_config(OldConfig=#{id:=Name, config:=HConfig},
                 NewConfig=#{id:=Name}) ->
     #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = HConfig,
-    MyConfig = maps:get(?MODULE, NewConfig, #{}),
+    MyConfig = maps:get(config, NewConfig, #{}),
     case maps:get(type, MyConfig, Type) of
         Type ->
             MyConfig1 = MyConfig#{type=>Type,
                                   handler_pid=>HPid,
                                   mode_tab=>ModeTab},
             changing_config1(HPid, OldConfig,
-                             NewConfig#{?MODULE=>MyConfig1});
+                             NewConfig#{config=>MyConfig1});
         _ ->
             {error,{illegal_config_change,OldConfig,NewConfig}}
     end;
@@ -173,17 +173,17 @@ changing_config1(HPid, OldConfig, NewConfig) ->
 
 check_config(adding, Config) ->
     %% Merge in defaults on handler level
-    MyConfig0 = maps:get(?MODULE, Config, #{}),
+    MyConfig0 = maps:get(config, Config, #{}),
     MyConfig = maps:merge(#{type => standard_io},
                           MyConfig0),
     case check_my_config(maps:to_list(MyConfig)) of
         ok ->
-            {ok,Config#{?MODULE=>MyConfig}};
+            {ok,Config#{config=>MyConfig}};
         Error ->
             Error
     end;
 check_config(changing, Config) ->
-    MyConfig = maps:get(?MODULE, Config, #{}),
+    MyConfig = maps:get(config, Config, #{}),
     case check_my_config(maps:to_list(MyConfig)) of
         ok    -> {ok,Config};
         Error -> Error
@@ -230,8 +230,8 @@ swap_buffer(Name, Buffer) ->
       Config :: logger:config().
 
 log(LogEvent, Config = #{id := Name,
-                         ?MODULE := #{handler_pid := HPid,
-                                      mode_tab := ModeTab}}) ->
+                         config := #{handler_pid := HPid,
+                                     mode_tab := ModeTab}}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
     true = is_process_alive(HPid),
@@ -242,7 +242,7 @@ log(LogEvent, Config = #{id := Name,
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config = #{?MODULE := HConfig},
+init([Name, Config = #{config := HConfig},
       State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->    
     register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
@@ -269,8 +269,8 @@ init([Name, Config = #{?MODULE := HConfig},
                                             burst_win_ts => T0,
                                             burst_msg_count => 0}),
                     Config1 =
-                        Config#{?MODULE => HConfig#{handler_pid => self(),
-                                                    mode_tab => ModeTab}},
+                        Config#{config => HConfig#{handler_pid => self(),
+                                                   mode_tab => ModeTab}},
                     proc_lib:init_ack({ok,self(),Config1}),
                     gen_server:cast(self(), repeated_filesync),
                     enter_loop(Config1, State1)
@@ -332,7 +332,7 @@ handle_call(filesync, _From, State = #{type := Type,
 
 handle_call({change_config,_OldConfig,NewConfig}, _From,
             State = #{filesync_repeat_interval := FSyncInt0}) ->
-    HConfig = maps:get(?MODULE, NewConfig, #{}),
+    HConfig = maps:get(config, NewConfig, #{}),
     State1 = maps:merge(State, HConfig),
     case logger_h_common:overload_levels_ok(State1) of
         true ->
@@ -470,9 +470,9 @@ get_init_state() ->
 %%% exist if the handler is not registered).
 %%%
 %%% Handler specific config should be provided with a sub map associated
-%%% with a key named the same as this module, e.g:
+%%% with a key named 'config', e.g:
 %%%
-%%% Config = #{logger_std_h => #{toggle_sync_qlen => 50}
+%%% Config = #{config => #{toggle_sync_qlen => 50}
 %%%
 %%% The standard handler process is linked to logger_sup, which is
 %%% part of the kernel application's supervision tree.

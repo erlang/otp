@@ -140,7 +140,7 @@ add_sasl_logger(Dest, Level) ->
                                    {sasl_domain,
                                     {fun logger_filters:domain/2,
                                      {log,equal,[otp,sasl]}}}],
-                              logger_std_h=>#{type=>Dest},
+                              config=>#{type=>Dest},
                               formatter=>{logger_formatter,FC}}).
 
 delete_sasl_logger(undefined) -> ok;

@@ -513,7 +513,7 @@ tty(true) ->
     _ = case lists:member(error_logger_tty_h, which_report_handlers()) of
             false ->
                 case logger:get_handler_config(default) of
-                    {ok,{logger_std_h,#{logger_std_h:=#{type:=standard_io}}}} ->
+                    {ok,{logger_std_h,#{config:=#{type:=standard_io}}}} ->
                         logger:remove_handler_filter(default,
                                                      error_logger_tty_false);
                     _ ->
@@ -523,7 +523,7 @@ tty(true) ->
                                                          [otp]),
                                              formatter=>{?DEFAULT_FORMATTER,
                                                          ?DEFAULT_FORMAT_CONFIG},
-                                             logger_std_h=>#{type=>standard_io}})
+                                             config=>#{type=>standard_io}})
                 end;
             true ->
                 ok
@@ -533,7 +533,7 @@ tty(false) ->
     delete_report_handler(error_logger_tty_h),
     _ = logger:remove_handler(error_logger_tty_true),
     _ = case logger:get_handler_config(default) of
-            {ok,{logger_std_h,#{logger_std_h:=#{type:=standard_io}}}} ->
+            {ok,{logger_std_h,#{config:=#{type:=standard_io}}}} ->
                 logger:add_handler_filter(default,error_logger_tty_false,
                                           {fun(_,_) -> stop end, ok});
             _ ->

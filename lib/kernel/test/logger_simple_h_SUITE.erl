@@ -138,7 +138,7 @@ replace_file(Config) ->
 
     ok = rpc:call(Node, logger, add_handlers,
                   [[{handler, default, logger_std_h,
-                     #{ logger_std_h => #{ type => {file, File} },
+                     #{ config => #{ type => {file, File} },
                         formatter => {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}}]]),
 
     {ok,Bin} = sync_and_read(Node, file, File),

@@ -369,21 +369,21 @@ formatter_fail(cleanup,_Config) ->
 config_fail(_Config) ->
     {error,{handler_not_added,{invalid_config,logger_disk_log_h,{bad,bad}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
-                           #{logger_disk_log_h => #{bad => bad},
+                           #{config => #{bad => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
 
     {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
-                           #{logger_disk_log_h => #{drop_new_reqs_qlen=>1}}),
+                           #{config => #{drop_new_reqs_qlen=>1}}),
     {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
-                           #{logger_disk_log_h => #{toggle_sync_qlen=>43,
-                                                    drop_new_reqs_qlen=>42}}),
+                           #{config => #{toggle_sync_qlen=>43,
+                                         drop_new_reqs_qlen=>42}}),
     {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
-                           #{logger_disk_log_h => #{drop_new_reqs_qlen=>43,
-                                                    flush_reqs_qlen=>42}}),
+                           #{config => #{drop_new_reqs_qlen=>43,
+                                         flush_reqs_qlen=>42}}),
 
     ok = logger:add_handler(?MODULE,logger_disk_log_h,
                             #{filter_default=>log,
@@ -397,12 +397,12 @@ config_fail(_Config) ->
         logger:set_handler_config(?MODULE,id,bad),
     %% incorrect values of OP params  
     {error,{invalid_levels,_}} =
-        logger:set_handler_config(?MODULE,logger_disk_log_h,
+        logger:set_handler_config(?MODULE,config,
                                   #{toggle_sync_qlen=>100,
                                     flush_reqs_qlen=>99}),
     %% invalid name of config parameter
     {error,{invalid_config,logger_disk_log_h,{filesync_rep_int,2000}}} =
-        logger:set_handler_config(?MODULE, logger_disk_log_h,
+        logger:set_handler_config(?MODULE, config,
                                   #{filesync_rep_int => 2000}),
     ok.
 config_fail(cleanup,_Config) ->
@@ -448,7 +448,7 @@ reconfig(Config) ->
                     file := _DiskLogFile}} =
         logger_disk_log_h:info(?MODULE),
 
-    ok = logger:set_handler_config(?MODULE, logger_disk_log_h,
+    ok = logger:set_handler_config(?MODULE, config,
                                    #{toggle_sync_qlen => 1,
                                      drop_new_reqs_qlen => 2,
                                      flush_reqs_qlen => 3,
@@ -532,7 +532,7 @@ sync(Config) ->
 
     %% check that if there's no repeated disk_log_sync active,
     %% a disk_log_sync is still performed when handler goes idle
-    logger:set_handler_config(?MODULE, logger_disk_log_h,
+    logger:set_handler_config(?MODULE, config,
                               #{filesync_repeat_interval => no_repeat}),
     no_repeat = maps:get(filesync_repeat_interval,
                          logger_disk_log_h:info(?MODULE)),
@@ -559,12 +559,12 @@ sync(Config) ->
     start_tracer([{logger_disk_log_h,handle_cast,2}],
                  [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
 
-    logger:set_handler_config(?MODULE, logger_disk_log_h,
+    logger:set_handler_config(?MODULE, config,
                               #{filesync_repeat_interval => SyncInt}),
     SyncInt = maps:get(filesync_repeat_interval,
                        logger_disk_log_h:info(?MODULE)),
     timer:sleep(WaitT),
-    logger:set_handler_config(?MODULE, logger_disk_log_h,
+    logger:set_handler_config(?MODULE, config,
                               #{filesync_repeat_interval => no_repeat}),    
     check_tracer(100),
     ok.
@@ -782,7 +782,7 @@ sync_failure(Config) ->
     
     SyncInt = 500,
     ok = rpc:call(Node, logger, set_handler_config,
-                  [?STANDARD_HANDLER, logger_disk_log_h,
+                  [?STANDARD_HANDLER, config,
                    #{filesync_repeat_interval => SyncInt}]),
     Info = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
     SyncInt = maps:get(filesync_repeat_interval, Info),
@@ -852,10 +852,10 @@ op_switch_to_sync(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NumOfReqs = 500,
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 2,
-                                                 drop_new_reqs_qlen => NumOfReqs+1,
-                                                 flush_reqs_qlen => 2*NumOfReqs,
-                                                 enable_burst_limit => false}},
+        HConfig#{config => DLHConfig#{toggle_sync_qlen => 2,
+                                      drop_new_reqs_qlen => NumOfReqs+1,
+                                      flush_reqs_qlen => 2*NumOfReqs,
+                                      enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     Lines = count_lines(Log),
@@ -876,7 +876,7 @@ op_switch_to_drop(Config) ->
                 Procs = 2,
                 Bursts = 10,
                 NewHConfig =
-                    HConfig#{logger_disk_log_h =>
+                    HConfig#{config =>
                                  DLHConfig#{toggle_sync_qlen => 1,
                                             drop_new_reqs_qlen => 2,
                                             flush_reqs_qlen => Procs*NumOfReqs*Bursts,
@@ -921,7 +921,7 @@ op_switch_to_flush(Config) ->
                 %% (verify with coverage of flush_log_requests/2)
     
                 NewHConfig =
-                    HConfig#{logger_disk_log_h =>
+                    HConfig#{config =>
                                  DLHConfig#{toggle_sync_qlen => 2,
                                             %% disable drop mode
                                             drop_new_reqs_qlen => 300,
@@ -964,11 +964,11 @@ op_switch_to_flush(cleanup, _Config) ->
 limit_burst_disabled(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{enable_burst_limit => false,
-                                                 burst_limit_size => 10,
-                                                 burst_window_time => 2000,
-                                                 drop_new_reqs_qlen => 200,
-                                                 flush_reqs_qlen => 300}},
+        HConfig#{config => DLHConfig#{enable_burst_limit => false,
+                                      burst_limit_size => 10,
+                                      burst_window_time => 2000,
+                                      drop_new_reqs_qlen => 200,
+                                      flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
@@ -983,11 +983,11 @@ limit_burst_enabled_one(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     ReqLimit = 10,
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{enable_burst_limit => true,
-                                                 burst_limit_size => ReqLimit,
-                                                 burst_window_time => 2000,
-                                                 drop_new_reqs_qlen => 200,
-                                                 flush_reqs_qlen => 300}},
+        HConfig#{config => DLHConfig#{enable_burst_limit => true,
+                                      burst_limit_size => ReqLimit,
+                                      burst_window_time => 2000,
+                                      drop_new_reqs_qlen => 200,
+                                      flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
@@ -1003,11 +1003,11 @@ limit_burst_enabled_period(Config) ->
     ReqLimit = 10,
     BurstTWin = 1000,
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{enable_burst_limit => true,
-                                                 burst_limit_size => ReqLimit,
-                                                 burst_window_time => BurstTWin,
-                                                 drop_new_reqs_qlen => 20000,
-                                                 flush_reqs_qlen => 20001}},
+        HConfig#{config => DLHConfig#{enable_burst_limit => true,
+                                      burst_limit_size => ReqLimit,
+                                      burst_window_time => BurstTWin,
+                                      drop_new_reqs_qlen => 20000,
+                                      flush_reqs_qlen => 20001}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     
     Windows = 3,
@@ -1024,9 +1024,9 @@ limit_burst_enabled_period(cleanup, _Config) ->
 kill_disabled(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig =
-        HConfig#{logger_disk_log_h=>DLHConfig#{enable_kill_overloaded=>false,
-                                               handler_overloaded_qlen=>10,
-                                               handler_overloaded_mem=>100}},
+        HConfig#{config=>DLHConfig#{enable_kill_overloaded=>false,
+                                    handler_overloaded_qlen=>10,
+                                    handler_overloaded_mem=>100}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
@@ -1044,7 +1044,7 @@ qlen_kill_new(Config) ->
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig =
-        HConfig#{logger_disk_log_h =>
+        HConfig#{config =>
                      DLHConfig#{enable_kill_overloaded=>true,
                                 handler_overloaded_qlen=>10,
                                 handler_overloaded_mem=>Mem0+50000,
@@ -1081,7 +1081,7 @@ mem_kill_new(Config) ->
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig =
-        HConfig#{logger_disk_log_h =>
+        HConfig#{config =>
                      DLHConfig#{enable_kill_overloaded=>true,
                                 handler_overloaded_qlen=>50000,
                                 handler_overloaded_mem=>Mem0+500,
@@ -1115,9 +1115,9 @@ mem_kill_new(cleanup, _Config) ->
 restart_after(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig1 =
-        HConfig#{logger_disk_log_h=>DLHConfig#{enable_kill_overloaded=>true,
-                                               handler_overloaded_qlen=>10,
-                                               handler_restart_after=>never}},
+        HConfig#{config=>DLHConfig#{enable_kill_overloaded=>true,
+                                    handler_overloaded_qlen=>10,
+                                    handler_restart_after=>never}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
@@ -1135,9 +1135,9 @@ restart_after(Config) ->
     {Log,_,_} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     RestartAfter = ?HANDLER_RESTART_AFTER,
     NewHConfig2 =
-        HConfig#{logger_disk_log_h=>DLHConfig#{enable_kill_overloaded=>true,
-                                               handler_overloaded_qlen=>10,
-                                               handler_restart_after=>RestartAfter}},
+        HConfig#{config=>DLHConfig#{enable_kill_overloaded=>true,
+                                    handler_overloaded_qlen=>10,
+                                    handler_restart_after=>RestartAfter}},
     ok = logger:set_handler_config(?MODULE, NewHConfig2),
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
@@ -1166,10 +1166,10 @@ handler_requests_under_load() ->
 handler_requests_under_load(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig =
-        HConfig#{logger_disk_log_h => DLHConfig#{toggle_sync_qlen => 2,
-                                                 drop_new_reqs_qlen => 1000,
-                                                 flush_reqs_qlen => 2000,
-                                                 enable_burst_limit => false}},   
+        HConfig#{config => DLHConfig#{toggle_sync_qlen => 2,
+                                      drop_new_reqs_qlen => 1000,
+                                      flush_reqs_qlen => 2000,
+                                      enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
                                                          {info,[]},
@@ -1227,7 +1227,7 @@ start_handler(Name, FuncName, Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op},
                               level => info}),
-    {ok,{_,HConfig = #{logger_disk_log_h := DLHConfig}}} =
+    {ok,{_,HConfig = #{config := DLHConfig}}} =
         logger:get_handler_config(Name),
     {lists:concat([File,".1"]),HConfig,DLHConfig}.
     

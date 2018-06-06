@@ -67,7 +67,7 @@ do_init_per_group(console_handler) ->
     ok = logger:add_handler(?MODULE,logger_std_h,
                             #{filter_default=>stop,
                               filters=>?DEFAULT_HANDLER_FILTERS,
-                              logger_std_h=>#{type=>standard_io,
+                              config=>#{type=>standard_io,
                                               toggle_sync_qlen => ?TIMES+1,
                                               drop_new_reqs_qlen => ?TIMES+2,
                                               flush_reqs_qlen => ?TIMES+3,

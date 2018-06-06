@@ -542,13 +542,14 @@ system_terminate(Reason,_Parent,_Deb,_State) ->
 
 
 t_format(_Config) ->
-    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
+    {ok,{_,#{level:=Level}}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
     error_logger:add_report_handler(?MODULE, self()),
     try
 	t_format()
     after
         error_logger:delete_report_handler(?MODULE),
-        logger:remove_handler_filter(logger_std_h,stop_all)
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 
@@ -585,11 +586,12 @@ t_format() ->
     ok.
 
 t_format_arbitrary(_Config) ->
-    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
+    {ok,{_,#{level:=Level}}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
     try
         t_format_arbitrary()
     after
-        logger:remove_handler_filter(logger_std_h,stop_all)
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 

@@ -115,7 +115,7 @@ adding_handler(#{id:=Name}=Config) ->
     case check_config(adding, Config) of
         {ok, Config1} ->
             %% create initial handler state by merging defaults with config
-            HConfig = maps:get(?MODULE, Config1, #{}),
+            HConfig = maps:get(config, Config1, #{}),
             HState = maps:merge(get_init_state(), HConfig),
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
@@ -139,15 +139,15 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts, ?MODULE:=HConfig},
+changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts, config:=HConfig},
                 NewConfig=#{id:=Name, disk_log_opts:=DLOpts}) ->
     case check_config(changing, NewConfig) of
-        {ok,NewConfig1 = #{?MODULE:=NewHConfig}} ->
+        {ok,NewConfig1 = #{config:=NewHConfig}} ->
             #{handler_pid:=HPid,
               mode_tab:=ModeTab} = HConfig,
             NewHConfig1 = NewHConfig#{handler_pid=>HPid,
                                       mode_tab=>ModeTab},
-            NewConfig2 = NewConfig1#{?MODULE=>NewHConfig1},
+            NewConfig2 = NewConfig1#{config=>NewHConfig1},
             try gen_server:call(HPid, {change_config,OldConfig,NewConfig2},
                                 ?DEFAULT_CALL_TIMEOUT) of
                 ok      -> {ok,NewConfig2};
@@ -167,11 +167,11 @@ check_config(adding, #{id:=Name}=Config) ->
     LogOpts = merge_default_logopts(Name, LogOpts0),
     case check_log_opts(maps:to_list(LogOpts)) of
         ok ->
-            MyConfig = maps:get(?MODULE, Config, #{}),
+            MyConfig = maps:get(config, Config, #{}),
             case check_my_config(maps:to_list(MyConfig)) of
                 ok ->
                     {ok,Config#{disk_log_opts=>LogOpts,
-                                ?MODULE=>MyConfig}};
+                                config=>MyConfig}};
                 Error ->
                     Error
             end;
@@ -179,7 +179,7 @@ check_config(adding, #{id:=Name}=Config) ->
             Error
     end;
 check_config(changing, Config) ->
-    MyConfig = maps:get(?MODULE, Config, #{}),
+    MyConfig = maps:get(config, Config, #{}),
     case check_my_config(maps:to_list(MyConfig)) of
         ok    -> {ok,Config};
         Error -> Error
@@ -248,8 +248,8 @@ swap_buffer(Name, Buffer) ->
       Config :: logger:config().
 
 log(LogEvent, Config = #{id := Name,
-                         ?MODULE := #{handler_pid := HPid,
-                                      mode_tab := ModeTab}}) ->
+                         config := #{handler_pid := HPid,
+                                     mode_tab := ModeTab}}) ->
     %% if the handler has crashed, we must drop this request
     %% and hope the handler restarts so we can try again
     true = is_process_alive(HPid),
@@ -260,7 +260,7 @@ log(LogEvent, Config = #{id := Name,
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config = #{?MODULE := HConfig, disk_log_opts := LogOpts},
+init([Name, Config = #{config := HConfig, disk_log_opts := LogOpts},
       State = #{dl_sync_int := DLSyncInt}]) ->
     register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
@@ -291,8 +291,8 @@ init([Name, Config = #{?MODULE := HConfig, disk_log_opts := LogOpts},
                                             prev_sync_result => ok,
                                             prev_disk_log_info => undefined}),
                     Config1 =
-                        Config#{?MODULE => HConfig#{handler_pid => self(),
-                                                    mode_tab => ModeTab}},
+                        Config#{config => HConfig#{handler_pid => self(),
+                                                   mode_tab => ModeTab}},
                     proc_lib:init_ack({ok,self(),Config1}),
                     gen_server:cast(self(), repeated_disk_log_sync),
                     enter_loop(Config1, State1)
@@ -335,7 +335,7 @@ handle_call(disk_log_sync, _From, State = #{id := Name}) ->
 
 handle_call({change_config,_OldConfig,NewConfig}, _From,
             State = #{filesync_repeat_interval := FSyncInt0}) ->
-    HConfig = maps:get(?MODULE, NewConfig, #{}),
+    HConfig = maps:get(config, NewConfig, #{}),
     State1 = #{toggle_sync_qlen   := TSQL,
                drop_new_reqs_qlen := DNRQL,
                flush_reqs_qlen    := FRQL} = maps:merge(State, HConfig),
@@ -482,9 +482,9 @@ get_init_state() ->
 %%% ignored.
 %%%
 %%% Handler specific config should be provided with a sub map associated
-%%% with a key named the same as this module, e.g:
+%%% with a key named 'config', e.g:
 %%%
-%%% Config = #{logger_disk_log_h => #{toggle_sync_qlen => 50}
+%%% Config = #{config => #{toggle_sync_qlen => 50}
 %%%
 %%% The disk_log handler process is linked to logger_sup, which is
 %%% part of the kernel application's supervision tree.

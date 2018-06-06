@@ -205,7 +205,7 @@ logger_file(Config) ->
         = setup(Config,
                 [{logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
-                    #{logger_std_h=>#{type=>{file,Log}}}}]}]),
+                    #{config=>#{type=>{file,Log}}}}]}]),
     check_default_log(Node,Log,
                       file,% dest
                       0),% progress in std logger
@@ -227,7 +227,7 @@ logger_file_sasl_compatible(Config) ->
                 [{logger_sasl_compatible,true},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
-                    #{logger_std_h=>#{type=>{file,Log}}}}]}]),
+                    #{config=>#{type=>{file,Log}}}}]}]),
     check_default_log(Node,Log,
                       file,% dest
                       0),% progress in std logger
@@ -249,7 +249,7 @@ logger_file_log_progress(Config) ->
                 [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
-                    #{logger_std_h=>#{type=>{file,Log}}}}]}]),
+                    #{config=>#{type=>{file,Log}}}}]}]),
     check_default_log(Node,Log,
                       file,% dest
                       6),% progress in std logger
@@ -271,7 +271,7 @@ logger_file_no_filter(Config) ->
                 [{logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filter_default=>log,filters=>[],
-                      logger_std_h=>#{type=>{file,Log}}}}]}]),
+                      config=>#{type=>{file,Log}}}}]}]),
     check_default_log(Node,Log,
                       file,% dest
                       6),% progress in std logger
@@ -291,7 +291,7 @@ logger_file_no_filter_level(Config) ->
                 [{logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filters=>[],level=>error,
-                      logger_std_h=>#{type=>{file,Log}}}}]}]),
+                      config=>#{type=>{file,Log}}}}]}]),
     check_default_log(Node,Log,
                       file,% dest
                       0,% progress in std logger
@@ -313,7 +313,7 @@ logger_file_formatter(Config) ->
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filters=>[],
                       formatter=>{logger_formatter,#{}},
-                      logger_std_h=>#{type=>{file,Log}}}}]}]),
+                      config=>#{type=>{file,Log}}}}]}]),
     check_single_log(Node,Log,
                      file,% dest
                      6),% progress in std logger
@@ -333,7 +333,7 @@ logger_filters(Config) ->
                 [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
-                    #{logger_std_h=>#{type=>{file,Log}}}},
+                    #{config=>#{type=>{file,Log}}}},
                    {filters,log,[{stop_progress,{fun logger_filters:progress/2,stop}}]}
                   ]}]),
     check_default_log(Node,Log,
@@ -360,7 +360,7 @@ logger_filters_stop(Config) ->
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
                     #{filters=>[],
-                      logger_std_h=>#{type=>{file,Log}}}},
+                      config=>#{type=>{file,Log}}}},
                    {filters,stop,[{log_error,{fun logger_filters:level/2,{log,gt,info}}}]}
                   ]}]),
     check_default_log(Node,Log,
@@ -385,7 +385,7 @@ logger_module_level(Config) ->
                 [{logger_progress_reports,log},
                  {logger,
                   [{handler,?STANDARD_HANDLER,logger_std_h,
-                    #{logger_std_h=>#{type=>{file,Log}}}},
+                    #{config=>#{type=>{file,Log}}}},
                    {module_level,error,[supervisor]}
                   ]}]),
     check_default_log(Node,Log,
@@ -469,12 +469,12 @@ logger_many_handlers_default_first(Config) ->
                  #{level=>error,
                    filters=>[],
                    formatter=>{logger_formatter,#{}},
-                   logger_std_h=>#{type=>{file,LogErr}}}
+                   config=>#{type=>{file,LogErr}}}
                 },
                 {handler,info,logger_std_h,
                  #{level=>info,
                    filters=>[{level,{fun logger_filters:level/2,{stop,gteq,error}}}],
-                   logger_std_h=>#{type=>{file,LogInfo}}}
+                   config=>#{type=>{file,LogInfo}}}
                 }
                ]}], LogErr, LogInfo, 6).
 
@@ -487,13 +487,13 @@ logger_many_handlers_default_last(Config) ->
                [{handler,info,logger_std_h,
                  #{level=>info,
                    filters=>[{level,{fun logger_filters:level/2,{stop,gteq,error}}}],
-                   logger_std_h=>#{type=>{file,LogInfo}}}
+                   config=>#{type=>{file,LogInfo}}}
                 },
                 {handler,?STANDARD_HANDLER,logger_std_h,
                  #{level=>error,
                    filters=>[],
                    formatter=>{logger_formatter,#{}},
-                   logger_std_h=>#{type=>{file,LogErr}}}
+                   config=>#{type=>{file,LogErr}}}
                 }
                ]}], LogErr, LogInfo, 7).
 
@@ -509,13 +509,13 @@ logger_many_handlers_default_last_broken_filter(Config) ->
                  #{level=>info,
                    filters=>[{broken,{fun logger_filters:level/2,broken_state}},
                              {level,{fun logger_filters:level/2,{stop,gteq,error}}}],
-                   logger_std_h=>#{type=>{file,LogInfo}}}
+                   config=>#{type=>{file,LogInfo}}}
                 },
                 {handler,?STANDARD_HANDLER,logger_std_h,
                  #{level=>error,
                    filters=>[],
                    formatter=>{logger_formatter,#{}},
-                   logger_std_h=>#{type=>{file,LogErr}}}
+                   config=>#{type=>{file,LogErr}}}
                 }
                ]}], LogErr, LogInfo, 7).
 

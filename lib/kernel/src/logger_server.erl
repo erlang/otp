@@ -53,7 +53,7 @@ add_handler(Id,Module,Config0) ->
         {ok,ok} ->
             case sanity_check(Id,Config0) of
                 ok ->
-                    Default = default_config(Id),
+                    Default = default_config(Id,Module),
                     Config = maps:merge(Default,Config0),
                     call({add_handler,Id,Module,Config});
                 Error ->
@@ -141,7 +141,7 @@ init([]) ->
     PrimaryConfig = maps:merge(default_config(primary),
                               #{handlers=>[simple]}),
     logger_config:create(Tid,primary,PrimaryConfig),
-    SimpleConfig0 = maps:merge(default_config(simple),
+    SimpleConfig0 = maps:merge(default_config(simple,logger_simple_h),
                                #{filter_default=>stop,
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
@@ -365,6 +365,8 @@ default_config(Id) ->
       filters=>[],
       filter_default=>log,
       formatter=>{?DEFAULT_FORMATTER,#{}}}.
+default_config(Id,Module) ->
+    (default_config(Id))#{module=>Module}.
 
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).

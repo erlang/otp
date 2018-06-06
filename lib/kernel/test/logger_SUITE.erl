@@ -260,7 +260,7 @@ change_config(_Config) ->
     %% Check that internal 'handlers' field has not been changed
     MS = [{{{?HANDLER_KEY,'$1'},'_','_','_'},[],['$1']}],
     HIds1 = ets:select(?LOGGER_TABLE,MS), % dirty, checking internal data
-    HIds2 = logger:get_handler_ids(),
+    HIds2 = lists:sort(logger:get_handler_ids()),
     HIds1 = lists:sort(HIds2),
 
     %% Cleanup
