@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -633,8 +633,8 @@ opt(service, {K, F})
         Nodes ->
             is_list(Nodes) orelse {error, Nodes}
     catch
-        E:R ->
-            {error, {E, R, ?STACK}}
+        E:R:Stack ->
+            {error, {E, R, Stack}}
     end;
 
 opt(service, {sequence, {H,N}}) ->
@@ -651,8 +651,8 @@ opt(service = S, {sequence = K, F}) ->
         V ->
             {error, V}
     catch
-        E:R ->
-            {error, {E, R, ?STACK}}
+        E:R:Stack ->
+            {error, {E, R, Stack}}
     end;
 
 opt(transport, {transport_module, M}) ->
@@ -932,8 +932,8 @@ cb(M,F) ->
     try M:F() of
         V -> V
     catch
-        E: Reason ->
-            ?THROW({callback, E, Reason, ?STACK})
+        E: Reason: Stack ->
+            ?THROW({callback, E, Reason, Stack})
     end.
 
 %% call/1
