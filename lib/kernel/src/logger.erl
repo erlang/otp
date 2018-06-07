@@ -390,21 +390,23 @@ get_primary_config() ->
     {ok,Config} = logger_config:get(?LOGGER_TABLE,primary),
     maps:remove(handlers,Config).
 
--spec get_handler_config(HandlerId) -> {ok,{Module,Config}} | {error,term()} when
+-spec get_handler_config(HandlerId) -> {ok,Config} | {error,term()} when
       HandlerId :: handler_id(),
-      Module :: module(),
       Config :: config().
 get_handler_config(HandlerId) ->
-    logger_config:get(?LOGGER_TABLE,HandlerId).
+    case logger_config:get(?LOGGER_TABLE,HandlerId) of
+        {ok,{_,Config}} ->
+            {ok,Config};
+        Error ->
+            Error
+    end.
 
--spec get_handler_config() -> [{HandlerId,Module,Config}] when
-      HandlerId :: handler_id(),
-      Module :: module(),
+-spec get_handler_config() -> [Config] when
       Config :: config().
 get_handler_config() ->
     [begin
-         {ok,{Module,Config}} = get_handler_config(HandlerId),
-         {HandlerId,Module,Config}
+         {ok,Config} = get_handler_config(HandlerId),
+         Config
      end || HandlerId <- get_handler_ids()].
 
 -spec get_handler_ids() -> [HandlerId] when
@@ -511,7 +513,7 @@ unset_process_metadata() ->
     ok.
 
 -spec get_config() -> #{primary=>config(),
-                        handlers=>[{handler_id(),module(),config()}],
+                        handlers=>[config()],
                         module_levels=>[{module(),level() | all | none}]}.
 get_config() ->
     #{primary=>get_primary_config(),

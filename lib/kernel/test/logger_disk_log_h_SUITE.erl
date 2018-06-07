@@ -328,13 +328,11 @@ formatter_fail(Config) ->
     logger:add_handler(Name, logger_disk_log_h, HConfig),
     Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
-    HC1 = logger:get_handler_config(),
-    H = [Id || {Id,_,_} <- HC1],
+    H = logger:get_handler_ids(),
     true = lists:member(Name,H),
 
     %% Formatter is added automatically
-    {ok,{_,#{formatter:={logger_formatter,_}}}} =
-        logger:get_handler_config(Name),
+    {ok,#{formatter:={logger_formatter,_}}} = logger:get_handler_config(Name),
     logger:info(M1=?msg,?domain),
     Got1 = try_match_file(?log_no(LogFile,1),"[0-9\\+\\-T:\\.]* info: "++M1,5000),
 
@@ -358,8 +356,7 @@ formatter_fail(Config) ->
 
     %% Check that handler is still alive and was never dead
     Pid = whereis(h_proc_name(Name)),
-    HC2 = logger:get_handler_config(),
-    H = [Id || {Id,_,_} <- HC2],
+    H = logger:get_handler_ids(),
     ok.
 
 formatter_fail(cleanup,_Config) ->
@@ -1227,8 +1224,7 @@ start_handler(Name, FuncName, Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op},
                               level => info}),
-    {ok,{_,HConfig = #{config := DLHConfig}}} =
-        logger:get_handler_config(Name),
+    {ok,HConfig = #{config := DLHConfig}} = logger:get_handler_config(Name),
     {lists:concat([File,".1"]),HConfig,DLHConfig}.
     
 stop_handler(Name) ->

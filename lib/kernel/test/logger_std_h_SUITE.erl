@@ -55,7 +55,7 @@ suite() ->
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report
-    {ok,{logger_std_h,#{formatter:=OrigFormatter}}} =
+    {ok,#{formatter:=OrigFormatter}} =
         logger:get_handler_config(?STANDARD_HANDLER),
     [{formatter,OrigFormatter}|Config].
 
@@ -246,8 +246,7 @@ formatter_fail(Config) ->
     true = lists:member(?MODULE,H),
 
     %% Formatter is added automatically
-    {ok,{_,#{formatter:={logger_formatter,_}}}} =
-        logger:get_handler_config(?MODULE),
+    {ok,#{formatter:={logger_formatter,_}}} = logger:get_handler_config(?MODULE),
     logger:info(M1=?msg,?domain),
     Got1 = try_match_file(Log,"[0-9\\+\\-T:\\.]* info: "++M1,5000),
 
@@ -1151,8 +1150,7 @@ start_handler(Name, TTY, Config) when TTY == standard_io;
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op}}),
-    {ok,{_,HConfig = #{config := StdHConfig}}} =
-        logger:get_handler_config(Name),
+    {ok,HConfig = #{config := StdHConfig}} = logger:get_handler_config(Name),
     {HConfig,StdHConfig};
 
 start_handler(Name, FuncName, Config) ->
@@ -1166,8 +1164,7 @@ start_handler(Name, FuncName, Config) ->
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op}}),
-    {ok,{_,HConfig = #{config := StdHConfig}}} =
-        logger:get_handler_config(Name),
+    {ok,HConfig = #{config := StdHConfig}} = logger:get_handler_config(Name),
     {Log,HConfig,StdHConfig}.
     
 stop_handler(Name) ->

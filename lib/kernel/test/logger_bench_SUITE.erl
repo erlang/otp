@@ -366,7 +366,7 @@ calc_and_report(Config,Tag,MSecs,Times) ->
 
 remove_all_handlers() ->
     Hs = logger:get_handler_config(),
-    [logger:remove_handler(Id) || {Id,_,_} <- Hs],
+    [logger:remove_handler(Id) || #{id:=Id} <- Hs],
     Hs.
 
 add_all_handlers(Hs) ->

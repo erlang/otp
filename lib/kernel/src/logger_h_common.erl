@@ -266,7 +266,7 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
                         exit(HandlerPid, kill)
                 end,
                 case logger:get_handler_config(Name) of
-                    {ok,{HMod,HConfig}} when is_integer(RestartAfter) ->
+                    {ok,#{module:=HMod}=HConfig} when is_integer(RestartAfter) ->
                         _ = logger:remove_handler(Name),
                         _ = timer:apply_after(RestartAfter, logger, add_handler,
                                               [Name,HMod,HConfig]);

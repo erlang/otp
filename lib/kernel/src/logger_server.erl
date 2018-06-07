@@ -107,10 +107,9 @@ cache_module_level(Module) ->
 set_config(Owner,Key,Value) ->
     update_config(Owner,#{Key=>Value}).
 
-set_config(Owner,Config0) ->
-    case sanity_check(Owner,Config0) of
+set_config(Owner,Config) ->
+    case sanity_check(Owner,Config) of
         ok ->
-            Config = maps:merge(default_config(Owner),Config0),
             call({set_config,Owner,Config});
         Error ->
             Error
@@ -215,13 +214,15 @@ handle_call({update_config,Id,NewConfig}, From, #state{tid=Tid}=State) ->
         Error ->
             {reply,Error,State}
     end;
-handle_call({set_config,primary,Config}, _From, #state{tid=Tid}=State) ->
+handle_call({set_config,primary,Config0}, _From, #state{tid=Tid}=State) ->
+    Config = maps:merge(default_config(primary),Config0),
     {ok,#{handlers:=Handlers}} = logger_config:get(Tid,primary),
     Reply = do_set_config(Tid,primary,Config#{handlers=>Handlers}),
     {reply,Reply,State};
-handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
+handle_call({set_config,HandlerId,Config0}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
         {ok,{Module,OldConfig}} ->
+            Config = maps:merge(default_config(HandlerId,Module),Config0),
             call_h_async(
               fun() ->
                       call_h(Module,changing_config,[OldConfig,Config],

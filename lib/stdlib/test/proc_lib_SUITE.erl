@@ -542,7 +542,7 @@ system_terminate(Reason,_Parent,_Deb,_State) ->
 
 
 t_format(_Config) ->
-    {ok,{_,#{level:=Level}}} = logger:get_handler_config(default),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
     logger:set_handler_config(default,level,none),
     error_logger:add_report_handler(?MODULE, self()),
     try
@@ -586,7 +586,7 @@ t_format() ->
     ok.
 
 t_format_arbitrary(_Config) ->
-    {ok,{_,#{level:=Level}}} = logger:get_handler_config(default),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
     logger:set_handler_config(default,level,none),
     try
         t_format_arbitrary()
