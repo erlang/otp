@@ -159,6 +159,7 @@
 
 -type otp_socket_option() :: debug |
                              iow |
+                             controlling_process |
                              rcvbuf |
                              sndbuf.
 %% Shall we have special treatment of linger??
@@ -517,6 +518,63 @@ info() ->
 %%
 %% open - create an endpoint for communication
 %%
+%% Extra: netns
+%%
+%% <KOLLA>
+%%
+%% How do we handle the case when an fd has beem created (somehow)
+%% and we shall create a socket "from it".
+%% Can we figure out Domain, Type and Protocol from fd?
+%% Yes we can: SO_DOMAIN, SO_PROTOCOL, SO_TYPE
+%%
+%% </KOLLA>
+%%
+%%
+%% <KOLLA>
+%%
+%% Start a controller process here, *before* the nif_open call.
+%% If that call is successful, update with owner process (controlling
+%% process) and SockRef. If the open fails, kill the process.
+%% "Register" the process on success:
+%%
+%%      nif_register(SockRef, self()).
+%%
+%% The nif sets up a monitor to this process, and if it dies the socket
+%% is closed. It is also used if someone wants to monitor the socket.
+%%
+%% We therefor need monitor function(s): 
+%%
+%%               socket:monitor(Socket)
+%%               socket:demonitor(Socket)
+%%
+%% These are basically used to monitor the controller process.
+%%
+%% </KOLLA>
+%%
+
+%% -spec open(FD) -> {ok, Socket} | {error, Reason} when
+%%       Socket   :: socket(),
+%%       Reason   :: term().
+
+%% open(FD) ->
+%%     try
+%%         begin
+%%             case nif_open(FD) of
+%%                 {ok, {SockRef, Domain, Type, Protocol}} ->
+%%                     SocketInfo     = #{domain   => Domain,
+%%                                        type     => Type,
+%%                                        protocol => Protocol},
+%%                     Socket         = #socket{info = SocketInfo,
+%%                                              ref  = SockRef},
+%%                     {ok, Socket};
+%%                 {error, _} = ERROR ->
+%%                     ERROR
+%%             end
+%%         end
+%%     catch
+%%         _:_ -> % This must be improved!!
+%%             {error, einval}
+%%     end.
 
 -spec open(Domain, Type) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
@@ -653,6 +711,20 @@ connect(#socket{ref = SockRef}, SockAddr, Timeout)
 	    NewTimeout = next_timeout(TS, Timeout),
 	    receive
 		{select, SockRef, Ref, ready_output} ->
+                    %% <KOLLA>
+                    %%
+                    %% See open above!!
+                    %%
+                    %% * Here we should start and *register* the reader process
+                    %%   (This will cause the nif code to create a monitor to 
+                    %%   the process)
+                    %% * The reader is basically used to implement the active-X 
+                    %%   feature!
+                    %% * If the reader dies for whatever reason, then the socket
+                    %%   (resource) closes and the owner (controlling) process
+                    %%   is informed (closed message).
+                    %%
+                    %% </KOLLA>
 		    nif_finalize_connection(SockRef)
 	    after NewTimeout ->
                     nif_cancel(SockRef, connect, Ref),
@@ -719,6 +791,16 @@ do_accept(LSockRef, SI, Timeout) ->
     AccRef = make_ref(),
     case nif_accept(LSockRef, AccRef) of
         {ok, SockRef} ->
+            %% <KOLLA>
+            %%
+            %% * Here we should start and *register* the reader process
+            %%   (This will cause the nif code to create a monitor to the process)
+            %% * The reader is basically used to implement the active-X feature!
+            %% * If the reader dies for whatever reason, then the socket (resource)
+            %%   closes and the owner (controlling) process is informed (closed 
+            %%   message).
+            %%
+            %% </KOLLA>
             SocketInfo = #{domain    => maps:get(domain,   SI),
                            type      => maps:get(type,     SI),
                            protocol  => maps:get(protocol, SI)},
@@ -1297,46 +1379,32 @@ shutdown(#socket{ref = SockRef}, How) ->
 %%
 %% </KOLLA>
 
--spec setopt(Socket, Level, Opt, Value) -> ok | {error, Reason} when
+-spec setopt(Socket, otp, otp_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: otp,
-      Opt    :: otp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, socket, socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: socket,
-      Opt    :: socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, ip, ip_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: ip,
-      Opt    :: ip_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, ipv6, ipv6_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: ipv6,
-      Opt    :: ipv6_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, tcp, tcp_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: tcp,
-      Opt    :: tcp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, udp, udp_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: udp,
-      Opt    :: udp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Opt, Value) -> ok | {error, Reason} when
+                ; (Socket, sctp, sctp_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
-      Level  :: sctp,
-      Opt    :: sctp_socket_option(),
       Value  :: term(),
       Reason :: term().
 
@@ -1374,46 +1442,34 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
 %% value size. Example: int | bool | {string, pos_integer()} | non_neg_integer()
 %%
 
--spec getopt(Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+-spec getopt(Socket, otp, otp_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: otp,
-      Key    :: otp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, socket, socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: socket,
-      Key    :: socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, ip, ip_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
       Level  :: ip,
       Key    :: ip_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, ipv6, ipv6_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: ipv6,
-      Key    :: ipv6_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, tcp, tcp_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: tcp,
-      Key    :: tcp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, udp, udp_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: udp,
-      Key    :: udp_socket_option(),
       Value  :: term(),
       Reason :: term()
-                ; (Socket, Level, Key) -> {ok, Value} | {error, Reason} when
+                ; (Socket, sctp, sctp_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: sctp,
-      Key    :: sctp_socket_option(),
       Value  :: term(),
       Reason :: term()
                 ; (Socket, Level, Key) -> ok | {ok, Value} | {error, Reason} when

@@ -7315,6 +7315,8 @@ ErlNifFunc socket_funcs[] =
     // {"nif_debug",      1, nif_debug_, 0},
 
     // The proper "socket" interface
+    // This is used when we already have a file descriptor
+    // {"nif_open",                1, nif_open, 0},
     {"nif_open",                4, nif_open, 0},
     {"nif_bind",                2, nif_bind, 0},
     {"nif_connect",             2, nif_connect, 0},
