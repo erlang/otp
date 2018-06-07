@@ -91,29 +91,33 @@ check_common_config({mode_tab,_Tid}) ->
     valid;
 check_common_config({handler_pid,Pid}) when is_pid(Pid) ->
     valid;
-check_common_config({toggle_sync_qlen,N}) when is_integer(N) ->
+
+check_common_config({sync_mode_qlen,N}) when is_integer(N) ->
     valid;
-check_common_config({drop_new_reqs_qlen,N}) when is_integer(N) ->
+check_common_config({drop_mode_qlen,N}) when is_integer(N) ->
     valid;
-check_common_config({flush_reqs_qlen,N}) when is_integer(N) ->
+check_common_config({flush_qlen,N}) when is_integer(N) ->
     valid;
-check_common_config({enable_burst_limit,Bool}) when Bool == true;
+
+check_common_config({burst_limit_enable,Bool}) when Bool == true;
                                                     Bool == false ->
     valid;
-check_common_config({burst_limit_size,N}) when is_integer(N) ->
+check_common_config({burst_limit_max_count,N}) when is_integer(N) ->
     valid;
-check_common_config({burst_window_time,N}) when is_integer(N) ->
+check_common_config({burst_limit_window_time,N}) when is_integer(N) ->
     valid;
-check_common_config({enable_kill_overloaded,Bool}) when Bool == true;
-                                                        Bool == false ->
+
+check_common_config({overload_kill_enable,Bool}) when Bool == true;
+                                                      Bool == false ->
     valid;
-check_common_config({handler_overloaded_qlen,N}) when is_integer(N) ->
+check_common_config({overload_kill_qlen,N}) when is_integer(N) ->
     valid;
-check_common_config({handler_overloaded_mem,N}) when is_integer(N) ->
+check_common_config({overload_kill_mem_size,N}) when is_integer(N) ->
     valid;
-check_common_config({handler_restart_after,NorA})  when is_integer(NorA);
-                                                        NorA == never ->
+check_common_config({overload_kill_restart_after,NorA})  when is_integer(NorA);
+                                                              NorA == never ->
     valid;
+
 check_common_config({filesync_repeat_interval,NorA}) when is_integer(NorA);
                                                           NorA == no_repeat ->
     valid;
@@ -173,9 +177,9 @@ unset_restart_flag(Name, Module) ->
     end.
 
 check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
-                     toggle_sync_qlen := ToggleSyncQLen,
-                     drop_new_reqs_qlen := DropNewQLen,
-                     flush_reqs_qlen := FlushQLen}) ->
+                     sync_mode_qlen := SyncModeQLen,
+                     drop_mode_qlen := DropModeQLen,
+                     flush_qlen := FlushQLen}) ->
     {_,Mem} = process_info(self(), memory),
     ?observe(_Name,{max_mem,Mem}),
     {_,QLen} = process_info(self(), message_queue_len),
@@ -191,13 +195,13 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
         if
             QLen >= FlushQLen ->
                 {flush, 0,1};
-            QLen >= DropNewQLen ->
+            QLen >= DropModeQLen ->
                 %% Note that drop mode will force log events to
                 %% be dropped on the client side (never sent get to
                 %% the handler).
                 IncDrops = if Mode == drop -> 0; true -> 1 end,
                 {?change_mode(ModeTab, Mode, drop), IncDrops,0};
-            QLen >= ToggleSyncQLen ->
+            QLen >= SyncModeQLen ->
                 {?change_mode(ModeTab, Mode, sync), 0,0};
             true ->
                 {?change_mode(ModeTab, Mode, async), 0,0}
@@ -207,17 +211,17 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State1#{last_qlen => QLen})}.
 
-limit_burst(#{enable_burst_limit := false}) ->
+limit_burst(#{burst_limit_enable := false}) ->
      {true,0,0};
 limit_burst(#{burst_win_ts := BurstWinT0,
               burst_msg_count := BurstMsgCount,
-              burst_window_time := BurstWinTime,
-              burst_limit_size := BurstLimitSz}) ->
-    if (BurstMsgCount >= BurstLimitSz) -> 
+              burst_limit_window_time := BurstLimitWinTime,
+              burst_limit_max_count := BurstLimitMaxCnt}) ->
+    if (BurstMsgCount >= BurstLimitMaxCnt) -> 
             %% the limit for allowed messages has been reached
             BurstWinT1 = ?timestamp(),
             case ?diff_time(BurstWinT1,BurstWinT0) of
-                BurstCheckTime when BurstCheckTime < (BurstWinTime*1000) ->
+                BurstCheckTime when BurstCheckTime < (BurstLimitWinTime*1000) ->
                     %% we're still within the burst time frame
                     {false,BurstWinT0,BurstMsgCount};
                 _BurstCheckTime ->
@@ -230,11 +234,11 @@ limit_burst(#{burst_win_ts := BurstWinT0,
     end.
 
 kill_if_choked(Name, QLen, Mem, HandlerMod,
-               State = #{enable_kill_overloaded := KillIfOL,
-                         handler_overloaded_qlen := HOLQLen,
-                         handler_overloaded_mem := HOLMem}) ->
+               State = #{overload_kill_enable   := KillIfOL,
+                         overload_kill_qlen     := OLKillQLen,
+                         overload_kill_mem_size := OLKillMem}) ->
     if KillIfOL andalso
-       ((QLen > HOLQLen) orelse (Mem > HOLMem)) ->
+       ((QLen > OLKillQLen) orelse (Mem > OLKillMem)) ->
             HandlerMod:log_handler_info(Name,
                                         "Handler ~p overloaded and stopping",
                                         [Name], State),
@@ -274,7 +278,7 @@ cancel_timer(TRef) -> timer:cancel(TRef).
 
 
 stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
-                #{handler_restart_after := RestartAfter}) ->
+                #{overload_kill_restart_after := RestartAfter}) ->
     %% If we're terminating because of an overload situation (see
     %% logger_h_common:kill_if_choked/4), we need to remove the handler
     %% and set a restart timer. A separate process must perform this
@@ -322,10 +326,10 @@ stop_or_restart(_Name, _Reason, _State) ->
     ok.
 
 overload_levels_ok(HandlerConfig) ->
-    TSQL = maps:get(toggle_sync_qlen, HandlerConfig, ?TOGGLE_SYNC_QLEN),
-    DNRQL = maps:get(drop_new_reqs_qlen, HandlerConfig, ?DROP_NEW_REQS_QLEN),
-    FRQL = maps:get(flush_reqs_qlen, HandlerConfig, ?FLUSH_REQS_QLEN),
-    (DNRQL > 1) andalso (TSQL =< DNRQL) andalso (DNRQL =< FRQL).
+    SMQL = maps:get(sync_mode_qlen, HandlerConfig, ?SYNC_MODE_QLEN),
+    DMQL = maps:get(drop_mode_qlen, HandlerConfig, ?DROP_MODE_QLEN),
+    FQL = maps:get(flush_qlen, HandlerConfig, ?FLUSH_QLEN),
+    (DMQL > 1) andalso (SMQL =< DMQL) andalso (DMQL =< FQL).
 
 error_notify(Term) ->
     ?internal_log(error, Term).

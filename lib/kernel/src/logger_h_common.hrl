@@ -4,47 +4,47 @@
 
 %%! *** NOTE *** 
 %%! It's important that:
-%%! TOGGLE_SYNC_QLEN < DROP_NEW_REQS_QLEN < FLUSH_REQS_QLEN
-%%! and that DROP_NEW_REQS_QLEN >= 2.
+%%! SYNC_MODE_QLEN =< DROP_MODE_QLEN =< FLUSH_QLEN
+%%! and that DROP_MODE_QLEN >= 2.
 %%! Otherwise the handler could end up in drop mode with no new
 %%! log requests to process. This would cause all future requests
 %%! to be dropped (no switch to async mode would ever take place).
 
 %% This specifies the message_queue_len value where the log
 %% requests switch from asynchronous casts to synchronous calls.
--define(TOGGLE_SYNC_QLEN, 10).
+-define(SYNC_MODE_QLEN, 10).
 %% Above this message_queue_len, log requests will be dropped,
 %% i.e. no log requests get sent to the handler process.
--define(DROP_NEW_REQS_QLEN, 200).
+-define(DROP_MODE_QLEN, 200).
 %% Above this message_queue_len, the handler process will flush
 %% its mailbox and only leave this number of messages in it.
--define(FLUSH_REQS_QLEN, 1000).
+-define(FLUSH_QLEN, 1000).
 
 %% Never flush more than this number of messages in one go,
 %% or the handler will be unresponsive for seconds (keep this
 %% number as large as possible or the mailbox could grow large).
 -define(FLUSH_MAX_N, 5000).
 
-%% BURST_LIMIT is the max number of log requests allowed to be
-%% written within a BURST_WINDOW_TIME time frame.
--define(ENABLE_BURST_LIMIT, true).
--define(BURST_LIMIT_SIZE, 500).
--define(BURST_WINDOW_TIME, 1000).
+%% BURST_LIMIT_MAX_COUNT is the max number of log requests allowed
+%% to be written within a BURST_LIMIT_WINDOW_TIME time frame.
+-define(BURST_LIMIT_ENABLE, true).
+-define(BURST_LIMIT_MAX_COUNT, 500).
+-define(BURST_LIMIT_WINDOW_TIME, 1000).
 
 %% This enables/disables the feature to automatically get the
 %% handler terminated if it gets too loaded (and can't keep up).
--define(ENABLE_KILL_OVERLOADED, false).
+-define(OVERLOAD_KILL_ENABLE, false).
 %% If the message_queue_len goes above this size even after
 %% flushing has been performed, the handler is terminated.
--define(HANDLER_OVERLOADED_QLEN, 20000).
+-define(OVERLOAD_KILL_QLEN, 20000).
 %% If the memory usage exceeds this level
--define(HANDLER_OVERLOADED_MEM, 3000000).
+-define(OVERLOAD_KILL_MEM_SIZE, 3000000).
 
 %% This is the default time that the handler will wait before
 %% restarting and accepting new requests. The value 'never'
 %% disables restarts.
--define(HANDLER_RESTART_AFTER, 5000).
-%%-define(HANDLER_RESTART_AFTER, never).
+-define(OVERLOAD_KILL_RESTART_AFTER, 5000).
+%%-define(OVERLOAD_KILL_RESTART_AFTER, never).
 
 %% The handler sends asynchronous write requests to the process
 %% controlling the i/o device, but every once in this interval

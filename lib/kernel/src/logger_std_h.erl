@@ -132,10 +132,10 @@ adding_handler(#{id:=Name}=Config) ->
                             Error
                     end;
                 false ->
-                    #{toggle_sync_qlen   := TSQL,
-                      drop_new_reqs_qlen := DNRQL,
-                      flush_reqs_qlen    := FRQL} = HState, 
-                    {error,{invalid_levels,{TSQL,DNRQL,FRQL}}}
+                    #{sync_mode_qlen := SMQL,
+                      drop_mode_qlen := DMQL,
+                      flush_qlen     := FQL} = HState, 
+                    {error,{invalid_levels,{SMQL,DMQL,FQL}}}
             end;
         Error ->
             Error
@@ -360,10 +360,10 @@ handle_call({change_config,_OldConfig,NewConfig}, _From,
                 end,
             {reply, ok, State1};
         false ->
-            #{toggle_sync_qlen   := TSQL,
-              drop_new_reqs_qlen := DNRQL,
-              flush_reqs_qlen    := FRQL} = State1,
-            {reply, {error,{invalid_levels,{TSQL,DNRQL,FRQL}}}, State}
+            #{sync_mode_qlen := SMQL,
+              drop_mode_qlen := DMQL,
+              flush_qlen     := FQL} = State1,
+            {reply, {error,{invalid_levels,{SMQL,DMQL,FQL}}}, State}
     end;
 
 handle_call(info, _From, State) ->
@@ -459,19 +459,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%%-----------------------------------------------------------------
 %%%
 get_init_state() ->
-     #{toggle_sync_qlen           => ?TOGGLE_SYNC_QLEN,
-       drop_new_reqs_qlen         => ?DROP_NEW_REQS_QLEN,
-       flush_reqs_qlen            => ?FLUSH_REQS_QLEN,
-       enable_burst_limit         => ?ENABLE_BURST_LIMIT,
-       burst_limit_size           => ?BURST_LIMIT_SIZE,
-       burst_window_time          => ?BURST_WINDOW_TIME,
-       enable_kill_overloaded     => ?ENABLE_KILL_OVERLOADED,
-       handler_overloaded_qlen    => ?HANDLER_OVERLOADED_QLEN,
-       handler_overloaded_mem     => ?HANDLER_OVERLOADED_MEM,
-       handler_restart_after      => ?HANDLER_RESTART_AFTER,
-       file_ctrl_sync_int         => ?CONTROLLER_SYNC_INTERVAL,
-       filesync_ok_qlen           => ?FILESYNC_OK_QLEN,
-       filesync_repeat_interval   => ?FILESYNC_REPEAT_INTERVAL}.
+     #{sync_mode_qlen              => ?SYNC_MODE_QLEN,
+       drop_mode_qlen              => ?DROP_MODE_QLEN,
+       flush_qlen                  => ?FLUSH_QLEN,
+       burst_limit_enable          => ?BURST_LIMIT_ENABLE,
+       burst_limit_max_count       => ?BURST_LIMIT_MAX_COUNT,
+       burst_limit_window_time     => ?BURST_LIMIT_WINDOW_TIME,
+       overload_kill_enable        => ?OVERLOAD_KILL_ENABLE,
+       overload_kill_qlen          => ?OVERLOAD_KILL_QLEN,
+       overload_kill_mem_size      => ?OVERLOAD_KILL_MEM_SIZE,
+       overload_kill_restart_after => ?OVERLOAD_KILL_RESTART_AFTER,
+       file_ctrl_sync_int          => ?CONTROLLER_SYNC_INTERVAL,
+       filesync_ok_qlen            => ?FILESYNC_OK_QLEN,
+       filesync_repeat_interval    => ?FILESYNC_REPEAT_INTERVAL}.
 
 %%%-----------------------------------------------------------------
 %%% Add a standard handler to the logger.
@@ -482,7 +482,7 @@ get_init_state() ->
 %%% Handler specific config should be provided with a sub map associated
 %%% with a key named 'config', e.g:
 %%%
-%%% Config = #{config => #{toggle_sync_qlen => 50}
+%%% Config = #{config => #{sync_mode_qlen => 50}
 %%%
 %%% The standard handler process is linked to logger_sup, which is
 %%% part of the kernel application's supervision tree.
