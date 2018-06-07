@@ -856,7 +856,7 @@ op_switch_to_sync(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     Lines = count_lines(Log),
-    ok = file:delete(Log),
+    ok = file_delete(Log),
     NumOfReqs = Lines,
     ok.
 op_switch_to_sync(cleanup, _Config) ->
@@ -887,7 +887,7 @@ op_switch_to_drop(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                _ = file:delete(Log),
+                _ = file_delete(Log),
                 ct:pal("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
@@ -939,7 +939,7 @@ op_switch_to_flush(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok= stop_handler(?MODULE),
-                _ = file:delete(Log),
+                _ = file_delete(Log),
                 ct:pal("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
@@ -971,7 +971,7 @@ limit_burst_disabled(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
-    ok = file:delete(Log),
+    ok = file_delete(Log),
     NumOfReqs = Logged.
 limit_burst_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -990,7 +990,7 @@ limit_burst_enabled_one(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
-    ok = file:delete(Log),
+    ok = file_delete(Log),
     ReqLimit = Logged.
 limit_burst_enabled_one(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -1012,7 +1012,7 @@ limit_burst_enabled_period(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
-    ok = file:delete(Log),
+    ok = file_delete(Log),
     true = (Logged > (ReqLimit*Windows)) andalso
            (Logged < (ReqLimit*(Windows+2))).
 limit_burst_enabled_period(cleanup, _Config) ->
@@ -1029,7 +1029,7 @@ kill_disabled(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, info),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
-    ok = file:delete(Log),
+    ok = file_delete(Log),
     true = is_pid(whereis(h_proc_name())),
     ok.
 kill_disabled(cleanup, _Config) ->
@@ -1187,7 +1187,7 @@ handler_requests_under_load(Config) ->
     Errors = [{Req,FindError(Res)} || {Req,Res} <- ReqResult],
     NoOfReqs = lists:foldl(fun({_,Res}, N) -> N + length(Res) end, 0, ReqResult),
     ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
-    ok = file:delete(Log).
+    ok = file_delete(Log).
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1301,9 +1301,11 @@ format(#{msg:={report,#{label:={gen_server,terminate}}}},op) ->
     "";
 format(#{msg:={report,#{label:={proc_lib,crash}}}},op) ->
     "";
-format(#{msg:={F,A}},Pid) when is_list(F), is_list(A) ->
+format(#{msg:={F,A}},OpOrPid) when is_list(F), is_list(A) ->
     String = lists:flatten(io_lib:format(F,A)),
-    Pid ! {log,String},
+    if is_pid(OpOrPid) -> OpOrPid ! {log,String};
+       true -> ok
+    end,
     String++"\n";
 format(#{msg:={string,String0}},Pid) ->
     String = unicode:characters_to_list(String0),
@@ -1402,16 +1404,20 @@ wait_until_written(File, Sz) ->
     end.
     
 count_lines1(File) ->
-    Counter = fun Cnt(Dev,LC) ->
-                      case file:read_line(Dev) of
-                          eof -> LC;
-                          _   -> Cnt(Dev,LC+1)
-                      end
-              end,
     {_,Dev} = file:open(File, [read]),
-    Lines = Counter(Dev, 0),
+    Lines = count_lines2(Dev, 0),
     file:close(Dev),
     Lines.
+
+count_lines2(Dev, LC) ->
+    case file:read_line(Dev) of
+        {ok,"Handler logger_disk_log_h_SUITE " ++_} ->
+            %% Not counting handler info
+            count_lines2(Dev,LC);
+        {ok,_} ->
+            count_lines2(Dev,LC+1);
+        eof -> LC
+    end.
 
 repeat_until_ok(Fun, N) ->
     repeat_until_ok(Fun, 0, N, undefined).
@@ -1500,3 +1506,6 @@ h_proc_name() ->
     h_proc_name(?MODULE).
 h_proc_name(Name) ->
     list_to_atom(lists:concat([logger_disk_log_h,"_",Name])).
+
+file_delete(Log) ->
+   file:delete(Log).

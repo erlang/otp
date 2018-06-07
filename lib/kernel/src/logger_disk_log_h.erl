@@ -37,6 +37,9 @@
          adding_handler/1, removing_handler/1,
          changing_config/2, swap_buffer/2]).
 
+%% handler internal
+-export([log_handler_info/4]).
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -250,7 +253,7 @@ swap_buffer(Name, Buffer) ->
 log(LogEvent, Config = #{id := Name,
                          config := #{handler_pid := HPid,
                                      mode_tab := ModeTab}}) ->
-    %% if the handler has crashed, we must drop this request
+    %% if the handler has crashed, we must drop this event
     %% and hope the handler restarts so we can try again
     true = is_process_alive(HPid),
     Bin = logger_h_common:log_to_binary(LogEvent, Config),
@@ -295,6 +298,16 @@ init([Name, Config = #{config := HConfig, disk_log_opts := LogOpts},
                                                    mode_tab => ModeTab}},
                     proc_lib:init_ack({ok,self(),Config1}),
                     gen_server:cast(self(), repeated_disk_log_sync),
+                    case logger_h_common:unset_restart_flag(Name, ?MODULE) of
+                        true ->
+                            %% inform about restart
+                            gen_server:cast(self(), {log_handler_info,
+                                                     "Handler ~p restarted",
+                                                     [Name]});
+                        false ->
+                            %% initial start
+                            ok
+                    end,
                     enter_loop(Config1, State1)
             catch
                 _:Error ->
@@ -315,15 +328,13 @@ enter_loop(#{wait_for_buffer:=true}=Config,State) ->
                           Bin = logger_h_common:log_to_binary(Log,Config),
                           {_,S1} = do_log(Bin,cast,S),
                           S1
-                  end,
-                  State,
-                  Buffer)
+                  end, State, Buffer)
         end,
     gen_server:enter_loop(?MODULE,[],State1);
 enter_loop(_Config,State) ->
     gen_server:enter_loop(?MODULE,[],State).
 
-%% This is the synchronous log request.
+%% This is the synchronous log event.
 handle_call({log, Bin}, _From, State) ->
     {Result,State1} = do_log(Bin, call, State),
     %% Result == ok | dropped
@@ -377,15 +388,19 @@ handle_call(stop, _From, State) ->
     {stop, {shutdown,stopped}, ok, State}.
 
 
-%% This is the asynchronous log request.
+%% This is the asynchronous log event.
 handle_cast({log, Bin}, State) ->
     {_,State1} = do_log(Bin, cast, State),
     {noreply, State1};
 
+handle_cast({log_handler_info, Format, Args}, State = #{id:=Name}) ->
+    log_handler_info(Name, Format, Args, State),
+    {noreply, State};
+
 %% If FILESYNC_REPEAT_INTERVAL is set to a millisec value, this
 %% clause gets called repeatedly by the handler. In order to
 %% guarantee that a filesync *always* happens after the last log
-%% request, the repeat operation must be active!
+%% event, the repeat operation must be active!
 handle_cast(repeated_disk_log_sync,
             State = #{id := Name,
                       filesync_repeat_interval := FSyncInt,
@@ -526,21 +541,31 @@ stop(Name) ->
         if C == 0 -> Interval;
            true -> C-1 end).
 
-%% check for overload between every request (and set Mode to async,
+%% check for overload between every event (and set Mode to async,
 %% sync or drop accordingly), but never flush the whole mailbox
-%% before LogWindowSize requests have been handled
-do_log(Bin, CallOrCast, State = #{id:=Name, mode := _Mode0}) ->
+%% before LogWindowSize events have been handled
+do_log(Bin, CallOrCast, State = #{id:=Name, mode := Mode0}) ->
     T1 = ?timestamp(),
 
     %% check if the handler is getting overloaded, or if it's
     %% recovering from overload (the check must be done for each
-    %% request to react quickly to large bursts of requests and
+    %% event to react quickly to large bursts of events and
     %% to ensure that the handler can never end up in drop mode
     %% with an empty mailbox, which would stop operation)
     {Mode1,QLen,Mem,State1} = logger_h_common:check_load(State),
 
+    if (Mode1 == drop) andalso (Mode0 =/= drop) ->
+            log_handler_info(Name, "Handler ~p switched to drop mode",
+                              [Name], State);
+       (Mode0 == drop) andalso ((Mode1 == async) orelse (Mode1 == sync)) ->
+            log_handler_info(Name, "Handler ~p switched to ~w mode",
+                             [Name,Mode1], State);
+       true ->
+            ok
+    end,    
+
     %% kill the handler if it can't keep up with the load
-    logger_h_common:kill_if_choked(Name, QLen, Mem, State),
+    logger_h_common:kill_if_choked(Name, QLen, Mem, ?MODULE, State),
 
     if Mode1 == flush ->            
             flush(Name, QLen, T1, State1);
@@ -550,22 +575,26 @@ do_log(Bin, CallOrCast, State = #{id:=Name, mode := _Mode0}) ->
 
 %% this function is called by do_log/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(_Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
+flush(Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
     %% flush messages in the mailbox (a limited number in
     %% order to not cause long delays)
-    _NewFlushed = logger_h_common:flush_log_requests(?FLUSH_MAX_N),
+    NewFlushed = logger_h_common:flush_log_events(?FLUSH_MAX_N),
+
+    %% write info in log about flushed messages
+    log_handler_info(Name, "Handler ~p flushed ~w log events",
+                      [Name,NewFlushed], State),
 
     %% because of the receive loop when flushing messages, the
     %% handler will be scheduled out often and the mailbox could
     %% grow very large, so we'd better check the queue again here
     {_,_QLen1} = process_info(self(), message_queue_len),
-    ?observe(_Name,{max_qlen,_QLen1}),
+    ?observe(Name,{max_qlen,_QLen1}),
 
-    %% Add 1 for the current log request
-    ?observe(_Name,{flushed,_NewFlushed+1}),
+    %% Add 1 for the current log event
+    ?observe(Name,{flushed,NewFlushed+1}),
 
     State1 = ?update_max_time(?diff_time(T1,_T0),State),
-    {dropped,?update_other(flushed,FLUSHED,_NewFlushed,
+    {dropped,?update_other(flushed,FLUSHED,NewFlushed,
                            State1#{mode => ?set_mode(ModeTab,async),
                                    last_qlen => 0,
                                    last_log_ts => T1})}.
@@ -578,10 +607,10 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                 last_qlen := LastQLen,
                 last_log_ts := T0}) ->
     %% check if we need to limit the number of writes
-    %% during a burst of log requests
+    %% during a burst of log events
     {DoWrite,BurstWinT,BurstMsgCount} = logger_h_common:limit_burst(State),
 
-    %% only send a synhrounous request to the disk_log process
+    %% only send a synhrounous event to the disk_log process
     %% every DLSyncInt time, to give the handler time between
     %% writes so it can keep up with incoming messages
     {Status,LastQLen1,State1} =
@@ -599,13 +628,13 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                 {dropped, LastQLen, State}
         end,
 
-    %% Check if the time since the previous log request is long enough -
+    %% Check if the time since the previous log event is long enough -
     %% and the queue length small enough - to assume the mailbox has
     %% been emptied, and if so, do filesync operation and reset mode to
     %% async. Note that this is the best we can do to detect an idle
     %% handler without setting a timer after each log call/cast. If the
-    %% time between two consecutive log requests is fast and no new
-    %% request comes in after the last one, idle state won't be detected!
+    %% time between two consecutive log events is fast and no new
+    %% event comes in after the last one, idle state won't be detected!
     Time = ?diff_time(T1,T0),
     {Mode1,BurstMsgCount1,State2} =
         if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
@@ -626,6 +655,20 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                                  burst_msg_count => BurstMsgCount1,
                                  dl_sync => ?update_dl_sync(DLSync,DLSyncInt)}),
     {Status,State4}.
+
+
+log_handler_info(Name, Format, Args, State) ->
+    Config =
+        case logger:get_handler_config(Name) of
+            {ok,Conf} -> Conf;
+            _ -> #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}
+        end,
+    Meta = #{time=>erlang:system_time(microsecond)},
+    Bin = logger_h_common:log_to_binary(#{level => notice,
+                                          msg => {Format,Args},
+                                          meta => Meta}, Config),
+    _ = disk_log_write(Name, Bin, State),
+    ok.
 
 
 open_disk_log(Name, LogOpts) ->

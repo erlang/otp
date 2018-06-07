@@ -27,10 +27,12 @@
          call_cast_or_drop/4,
          check_load/1,
          limit_burst/1,
-         kill_if_choked/4,
-         flush_log_requests/0,
-         flush_log_requests/1,
+         kill_if_choked/5,
+         flush_log_events/0,
+         flush_log_events/1,
          handler_exit/2,
+         set_restart_flag/2,
+         unset_restart_flag/2,
          cancel_timer/1,
          stop_or_restart/3,
          overload_levels_ok/1,
@@ -52,7 +54,8 @@ log_to_binary(Log,Config) ->
     do_log_to_binary(Log,Config).
 
 do_log_to_binary(Log,Config) ->
-    {Formatter,FormatterConfig} = maps:get(formatter,Config),
+    {Formatter,FormatterConfig} =
+        maps:get(formatter,Config,{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
     String = try_format(Log,Formatter,FormatterConfig),
     try unicode:characters_to_binary(String)
     catch _:_ ->
@@ -121,10 +124,10 @@ check_common_config(_) ->
 %%%-----------------------------------------------------------------
 %%% Overload Protection
 call_cast_or_drop(_Name, HandlerPid, ModeTab, Bin) ->
-    %% If the handler process is getting overloaded, the log request
+    %% If the handler process is getting overloaded, the log event
     %% will be synchronous instead of asynchronous (slows down the
     %% logging tempo of a process doing lots of logging. If the
-    %% handler is choked, drop mode is set and no request will be sent.
+    %% handler is choked, drop mode is set and no event will be sent.
     try ?get_mode(ModeTab) of
         async ->
             gen_server:cast(HandlerPid, {log,Bin});
@@ -143,13 +146,31 @@ call_cast_or_drop(_Name, HandlerPid, ModeTab, Bin) ->
             ?observe(_Name,{dropped,1})
     catch
         %% if the ETS table doesn't exist (maybe because of a
-        %% handler restart), we can only drop the request
+        %% handler restart), we can only drop the event
         _:_ -> ?observe(_Name,{dropped,1})
     end,
     ok.
 
 handler_exit(_Name, Reason) ->
     exit(Reason).
+
+set_restart_flag(Name, Module) ->
+    Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
+    spawn(fun() ->
+                  register(Flag, self()),
+                  timer:sleep(infinity)
+          end),
+    ok.
+
+unset_restart_flag(Name, Module) ->
+    Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
+    case whereis(Flag) of
+        undefined ->
+            false;
+        Pid ->
+            exit(Pid, kill),
+            true
+    end.
 
 check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
                      toggle_sync_qlen := ToggleSyncQLen,
@@ -162,7 +183,7 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
     %% When the handler process gets scheduled in, it's impossible
     %% to predict the QLen. We could jump "up" arbitrarily from say
     %% async to sync, async to drop, sync to flush, etc. However, when
-    %% the handler process manages the log requests (without flushing),
+    %% the handler process manages the log events (without flushing),
     %% one after the other, we will move "down" from drop to sync and
     %% from sync to async. This way we don't risk getting stuck in
     %% drop or sync mode with an empty mailbox.
@@ -171,7 +192,7 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
             QLen >= FlushQLen ->
                 {flush, 0,1};
             QLen >= DropNewQLen ->
-                %% Note that drop mode will force log requests to
+                %% Note that drop mode will force log events to
                 %% be dropped on the client side (never sent get to
                 %% the handler).
                 IncDrops = if Mode == drop -> 0; true -> 1 end,
@@ -208,38 +229,42 @@ limit_burst(#{burst_win_ts := BurstWinT0,
             {true,BurstWinT0,BurstMsgCount+1}
     end.
 
-kill_if_choked(Name, QLen, Mem,
-               #{enable_kill_overloaded := KillIfOL,
-                 handler_overloaded_qlen := HOLQLen,
-                 handler_overloaded_mem := HOLMem}) ->
+kill_if_choked(Name, QLen, Mem, HandlerMod,
+               State = #{enable_kill_overloaded := KillIfOL,
+                         handler_overloaded_qlen := HOLQLen,
+                         handler_overloaded_mem := HOLMem}) ->
     if KillIfOL andalso
-       ((QLen > HOLQLen) orelse (Mem > HOLMem)) ->            
+       ((QLen > HOLQLen) orelse (Mem > HOLMem)) ->
+            HandlerMod:log_handler_info(Name,
+                                        "Handler ~p overloaded and stopping",
+                                        [Name], State),
+            set_restart_flag(Name, HandlerMod),
             handler_exit(Name, {shutdown,{overloaded,Name,QLen,Mem}});
        true ->
             ok
     end.
 
-flush_log_requests() ->
-    flush_log_requests(-1).
+flush_log_events() ->
+    flush_log_events(-1).
 
-flush_log_requests(Limit) ->
+flush_log_events(Limit) ->
     process_flag(priority, high),
-    Flushed = flush_log_requests(0, Limit),
+    Flushed = flush_log_events(0, Limit),
     process_flag(priority, normal),
     Flushed.
 
-flush_log_requests(Limit, Limit) ->
+flush_log_events(Limit, Limit) ->
     Limit;
-flush_log_requests(N, Limit) ->
-    %% flush log requests but leave other requests, such as
+flush_log_events(N, Limit) ->
+    %% flush log events but leave other events, such as
     %% file/disk_log_sync, info and change_config, so that these
     %% have a chance to be processed even under heavy load
     receive
         {'$gen_cast',{log,_}} ->
-            flush_log_requests(N+1, Limit);
+            flush_log_events(N+1, Limit);
         {'$gen_call',{Pid,MRef},{log,_}} ->
             Pid ! {MRef, dropped},
-            flush_log_requests(N+1, Limit)
+            flush_log_events(N+1, Limit)
     after
         0 -> N
     end.
