@@ -1969,8 +1969,6 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
         save_owned_table(BIF_P, tb);
     }
 
-    tid_clear(BIF_P, tb);
-
     if (is_table_named(tb))
 	remove_named_tab(tb, 0);
     
@@ -1979,6 +1977,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     tb->common.heir = am_none;
 
     reds -= free_fixations_locked(BIF_P, tb);
+    tid_clear(BIF_P, tb);
     db_unlock(tb, LCK_WRITE);
 
     reds = free_table_continue(BIF_P, tb, reds);
@@ -3755,7 +3754,6 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
                 && give_away_to_heir(c_p, tb)) {
                 break;
             }
-            tid_clear(c_p, tb);
             /* Clear all access bits. */
             tb->common.status &= ~(DB_PROTECTED | DB_PUBLIC | DB_PRIVATE);
             tb->common.status |= DB_DELETE;
@@ -3765,6 +3763,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 
             free_heir_data(tb);
             reds -= free_fixations_locked(c_p, tb);
+            tid_clear(c_p, tb);
             db_unlock(tb, LCK_WRITE);
             state->op = FREE_OWNED_TABLE;
             break;
@@ -3912,7 +3911,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     struct free_fixations_ctx* ctx = (struct free_fixations_ctx*) vctx;
     erts_aint_t diff;
 
-    ASSERT(!btid2tab(fix->tabs.btid));
+    ASSERT(btid2tab(fix->tabs.btid) == ctx->tb);
     ASSERT(fix->counter > 0);
     ASSERT(ctx->tb->common.status & DB_DELETE);
 
