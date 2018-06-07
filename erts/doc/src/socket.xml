@@ -47,7 +47,11 @@
       <name name="protocol"/>
     </datatype>
     <datatype>
-      <name name="socket"/>
+      <name>socket()</name>
+      <desc><p>As returned by
+        <seealso marker="#open/1"><c>open/2,3,4</c></seealso> and
+        <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="ip4_address"/>
@@ -134,7 +138,7 @@
       <desc>
         <p>Bind a name to a socket.</p>
         <p>When a socket is created
-	(with <seealso marker="#open"><c>open</c></seealso>),
+	(with <seealso marker="#open/2"><c>open</c></seealso>),
 	it has no address assigned to it. <c>bind</c> assigns the
 	address specified by the <c>Addr</c> argument.</p>
 	<p>The rules used for name binding vary between domains.</p>
@@ -199,22 +203,18 @@
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
         <p>Creates an endpoint (socket) for communication.</p>
-        <p>For some types there is a default protocol, which will
+        <p>For some <c>types</c> there is a default protocol, which will
 	be used if no protocol is specified: </p>
-        <taglist>
-          <tag><c>stream</c></tag>
-          <item>
-            <p><c>tcp</c></p>
-          </item>
-          <tag><c>dgram</c></tag>
-          <item>
-            <p><c>udp</c></p>
-          </item>
-          <tag><c>seqpacket</c></tag>
-          <item>
-            <p><c>sctp</c></p>
-          </item>
-        </taglist>
+
+	<list>
+	  <item><p><c>stream</c>: <c>tcp</c></p></item>
+          <item><p><c>dgram</c>: <c>udp</c></p></item>
+          <item><p><c>seqpacket</c>: <c>sctp</c></p></item>
+	</list>
+
+	<p>The <c>Extra</c> argument is intended for "obscure" options.
+	Currently the only supported option is <c>netns</c>, which
+	is only supported on the linux platform.</p>
       </desc>
     </func>
 
@@ -282,8 +282,9 @@
       <fsummary>Set options on a socket.</fsummary>
       <desc>
         <p>Set options on a socket.</p>
-        <p>What properties are valid depend on what kind of socket
-	it is (<c>domain</c>, <c>type</c> and <c>protocol</c>).</p>
+	<p>What properties are valid depend both on <c>Level</c> and on
+	what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
 
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
