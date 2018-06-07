@@ -56,6 +56,7 @@ groups() ->
 all() -> 
     [default,
      legacy_header,
+     error_logger_notice_header,
      single_line,
      template,
      format_msg,
@@ -123,6 +124,34 @@ legacy_header(_Config) ->
                        single_line=>false}),
     ct:log(String5),
     "=INFO REPORT==== "++_ = String5,
+    ok.
+
+error_logger_notice_header(_Config) ->
+    Meta1 = #{error_logger=>#{tag => info_report,type => std_info}},
+    String1 = format(notice,{"~p",[term]},Meta1,
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>notice}),
+    ct:log(String1),
+    "=NOTICE REPORT==== "++_ = String1,
+
+    String2 = format(notice,{"~p",[term]},Meta1,
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>info}),
+    ct:log(String2),
+    "=INFO REPORT==== "++_ = String2,
+
+    String3 = format(notice,{"~p",[term]},#{},
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>notice}),
+    ct:log(String3),
+    "=NOTICE REPORT==== "++_ = String3,
+
+    String4 = format(notice,{"~p",[term]},#{},
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>info}),
+    ct:log(String4),
+    "=NOTICE REPORT==== "++_ = String4,
+
     ok.
 
 single_line(_Config) ->
@@ -581,6 +610,7 @@ check_config(_Config) ->
     C1 = #{chars_limit => 1,
            depth => 1,
            legacy_header => true,
+           error_logger_notice_header => info,
            max_size => 1,
            report_cb => fun(R) -> {"~p",[R]} end,
            single_line => false,
@@ -600,6 +630,10 @@ check_config(_Config) ->
     ok = logger_formatter:check_config(#{legacy_header => false}),
     ?cfgerr({legacy_header,bad}) =
         logger_formatter:check_config(#{legacy_header => bad}),
+
+    ok = logger_formatter:check_config(#{error_logger_notice_header => notice}),
+    ?cfgerr({error_logger_notice_header,bad}) =
+        logger_formatter:check_config(#{error_logger_notice_header => bad}),
 
     ok = logger_formatter:check_config(#{max_size => unlimited}),
     ?cfgerr({max_size,bad}) =
@@ -664,17 +698,17 @@ update_config(_Config) ->
     logger:add_handler_filter(default,silence,{fun(_,_) -> stop end,ok}),
     ok = logger:add_handler(?MODULE,?MODULE,#{}),
     D = lists:seq(1,1000),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines1,C1} = check_log(),
     [ct:log(L) || L <- Lines1],
     ct:log("~p",[C1]),
     [Line1] = Lines1,
-    [_Time,"info: "++D1] = string:split(Line1," "),
+    [_Time,"notice: "++D1] = string:split(Line1," "),
     true = length(D1)>3000,
     true = #{}==C1,
 
     ok = logger:update_formatter_config(?MODULE,single_line,false),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines2,C2} = check_log(),
     [ct:log(L) || L <- Lines2],
     ct:log("~p",[C2]),
@@ -682,22 +716,36 @@ update_config(_Config) ->
     true = #{single_line=>false}==C2,
 
     ok = logger:update_formatter_config(?MODULE,#{legacy_header=>true}),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines3,C3} = check_log(),
     [ct:log(L) || L <- Lines3],
     ct:log("~p",[C3]),
-    ["=INFO REPORT==== "++_|D3] = Lines3,
+    ["=NOTICE REPORT==== "++_|D3] = Lines3,
     true = length(D3)>50,
     true = #{legacy_header=>true,single_line=>false}==C3,
 
     ok = logger:update_formatter_config(?MODULE,single_line,true),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines4,C4} = check_log(),
     [ct:log(L) || L <- Lines4],
     ct:log("~p",[C4]),
-    ["=INFO REPORT==== "++_,D4] = Lines4,
+    ["=NOTICE REPORT==== "++_,D4] = Lines4,
     true = length(D4)>3000,
     true = #{legacy_header=>true,single_line=>true}==C4,
+
+    %% Finally, check that error_logger_notice_header works, default=info
+    error_logger:info_msg("~p",[D]),
+    {Lines5,C5} = check_log(),
+    [ct:log(L) || L <- Lines5],
+    ct:log("~p",[C5]),
+    ["=INFO REPORT==== "++_,_D5] = Lines5,
+
+    ok=logger:update_formatter_config(?MODULE,error_logger_notice_header,notice),
+    error_logger:info_msg("~p",[D]),
+    {Lines6,C6} = check_log(),
+    [ct:log(L) || L <- Lines6],
+    ct:log("~p",[C6]),
+    ["=NOTICE REPORT==== "++_,_D6] = Lines6,
 
     ok.
 

@@ -357,7 +357,7 @@ do_set_config(Tid,Id,Config) ->
     ok.
 
 default_config(primary) ->
-    #{level=>info,
+    #{level=>notice,
       filters=>[],
       filter_default=>log};
 default_config(Id) ->

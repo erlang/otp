@@ -123,7 +123,7 @@ create_log(Config) ->
                                 filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
-    logger:info("hello", ?domain),
+    logger:notice("hello", ?domain),
     logger_disk_log_h:sync(Name1),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"hello\n">>}, 5000),
@@ -136,7 +136,7 @@ create_log(Config) ->
                                 filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile2}),
-    logger:info("dummy", ?domain),
+    logger:notice("dummy", ?domain),
     logger_disk_log_h:sync(Name2),
     ct:pal("Checking contents of ~p", [?log_no(LogFile2,1)]),
     try_read_file(?log_no(LogFile2,1), {ok,<<"dummy\n">>}, 5000),
@@ -157,21 +157,21 @@ open_existing_log(Config) ->
                                 filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
-    logger:info("one", ?domain),
+    logger:notice("one", ?domain),
     logger_disk_log_h:sync(HName),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\n">>}, 5000),
-    logger:info("two", ?domain),
+    logger:notice("two", ?domain),
     ok = remove_and_stop(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\n">>}, 5000),
 
-    logger:info("two and a half", ?domain),
+    logger:notice("two and a half", ?domain),
 
     ok = start_and_add(HName, #{filter_default=>stop,
                                 filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
-    logger:info("three", ?domain),
+    logger:notice("three", ?domain),
     logger_disk_log_h:sync(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000),
     remove_and_stop(HName),
@@ -196,22 +196,22 @@ disk_log_opts(Config) ->
     ct:log("Fullname = ~s", [WFileFull]),
     {WFileFull,wrap,{Size,2},1} = {Get(file,WInfo1),Get(type,WInfo1),
                                    Get(size,WInfo1),Get(current_file,WInfo1)},
-    logger:info("123", ?domain),
+    logger:notice("123", ?domain),
     logger_disk_log_h:sync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
-    logger:info("45", ?domain),
+    logger:notice("45", ?domain),
     logger_disk_log_h:sync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
-    logger:info("6", ?domain),
+    logger:notice("6", ?domain),
     logger_disk_log_h:sync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
-    logger:info("7890", ?domain),
+    logger:notice("7890", ?domain),
     logger_disk_log_h:sync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
@@ -229,7 +229,7 @@ disk_log_opts(Config) ->
     ct:log("Fullname = ~s", [HFile1Full]),
     {HFile1Full,halt,infinity} = {Get(file,HInfo1),Get(type,HInfo1),
                                   Get(size,HInfo1)},
-    logger:info("12345", ?domain),
+    logger:notice("12345", ?domain),
     logger_disk_log_h:sync(HName1),
     timer:sleep(500),
     1 = Get(no_written_items, disk_log:info(HName1)),
@@ -260,10 +260,10 @@ default_formatter(Config) ->
     ok = logger:set_handler_config(?MODULE,formatter,
                                    {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
     LogName = lists:concat([LogFile, ".1"]),
-    logger:info("dummy"),
+    logger:notice("dummy"),
     wait_until_written(LogName),
     {ok,Bin} = file:read_file(LogName),
-    match = re:run(Bin, "=INFO REPORT====.*\ndummy", [{capture,none}]),
+    match = re:run(Bin, "=NOTICE REPORT====.*\ndummy", [{capture,none}]),
     ok.
 default_formatter(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
@@ -277,8 +277,8 @@ logging(Config) ->
                                formatter=>{?MODULE,self()}},
                        #{file => LogFile}),
     MsgFormatter = fun(Term) -> {io_lib:format("Term:~p",[Term]),[]} end,
-    logger:info([{x,y}], #{report_cb => MsgFormatter}),
-    logger:info([{x,y}], #{}),
+    logger:notice([{x,y}], #{report_cb => MsgFormatter}),
+    logger:notice([{x,y}], #{}),
     ct:pal("Checking contents of ~p", [?log_no(LogFile,1)]),   
     try_read_file(?log_no(LogFile,1), {ok,<<"Term:[{x,y}]\n    x: y\n">>}, 5000).
 
@@ -333,23 +333,23 @@ formatter_fail(Config) ->
 
     %% Formatter is added automatically
     {ok,#{formatter:={logger_formatter,_}}} = logger:get_handler_config(Name),
-    logger:info(M1=?msg,?domain),
-    Got1 = try_match_file(?log_no(LogFile,1),"[0-9\\+\\-T:\\.]* info: "++M1,5000),
+    logger:notice(M1=?msg,?domain),
+    Got1 = try_match_file(?log_no(LogFile,1),"[0-9\\+\\-T:\\.]* notice: "++M1,5000),
 
     ok = logger:set_handler_config(Name,formatter,{nonexistingmodule,#{}}),
-    logger:info(M2=?msg,?domain),
+    logger:notice(M2=?msg,?domain),
     Got2 = try_match_file(?log_no(LogFile,1),
-                          escape(Got1)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M2,
+                          escape(Got1)++"[0-9\\+\\-T:\\.]* notice: FORMATTER CRASH: .*"++M2,
                           5000),
 
     ok = logger:set_handler_config(Name,formatter,{?MODULE,crash}),
-    logger:info(M3=?msg,?domain),
+    logger:notice(M3=?msg,?domain),
     Got3 = try_match_file(?log_no(LogFile,1),
-                          escape(Got2)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M3,
+                          escape(Got2)++"[0-9\\+\\-T:\\.]* notice: FORMATTER CRASH: .*"++M3,
                           5000),
 
     ok = logger:set_handler_config(Name,formatter,{?MODULE,bad_return}),
-    logger:info(?msg,?domain),
+    logger:notice(?msg,?domain),
     try_match_file(?log_no(LogFile,1),
                    escape(Got3)++"FORMATTER ERROR: bad_return_value",
                    5000),
@@ -510,7 +510,7 @@ sync(Config) ->
                  [{disk_log,blog,<<"first\n">>},
                   {disk_log,sync}]),
 
-    logger:info("first", ?domain),
+    logger:notice("first", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
@@ -521,8 +521,8 @@ sync(Config) ->
                   {disk_log,sync}]),
     %% two log requests in fast succession will make the handler skip
     %% an automatic disk log sync
-    logger:info("second", ?domain),
-    logger:info("third", ?domain),
+    logger:notice("second", ?domain),
+    logger:notice("third", ?domain),
     %% do explicit sync
     logger_disk_log_h:sync(?MODULE),
     check_tracer(100),
@@ -540,9 +540,9 @@ sync(Config) ->
                   {disk_log,blog,<<"fifth\n">>},
                   {disk_log,sync}]),
 
-    logger:info("fourth", ?domain),
+    logger:notice("fourth", ?domain),
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
-    logger:info("fifth", ?domain),
+    logger:notice("fifth", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?IDLE_DETECT_TIME_MSEC*2),
 
@@ -603,7 +603,7 @@ disk_log_wrap(Config) ->
     %% fill first file
     lists:foreach(fun(N) ->
                           Log = lists:concat([File,".",N]),
-                          logger:info(Text, ?domain),
+                          logger:notice(Text, ?domain),
                           wait_until_written(Log),
                           ct:pal("N = ~w",
                                  [N = Get(current_file,
@@ -654,7 +654,7 @@ disk_log_full(Config) ->
 
     NoOfChars = 5,
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,NoOfChars)],
-    [logger:info(Text, ?domain) || _ <- lists:seq(1,trunc(MaxBytes/NoOfChars)+1)],
+    [logger:notice(Text, ?domain) || _ <- lists:seq(1,trunc(MaxBytes/NoOfChars)+1)],
 
     %% wait for trace messages
     timer:sleep(2000),
@@ -822,7 +822,7 @@ start_h_on_new_node(Config, File) ->
 log_on_remote_node(Node,Msg) ->
     _ = spawn_link(Node,
                    fun() -> erlang:group_leader(whereis(user),self()),
-                            logger:info(Msg)
+                            logger:notice(Msg)
                    end),
     ok.
 
@@ -854,7 +854,7 @@ op_switch_to_sync(Config) ->
                                       flush_reqs_qlen => 2*NumOfReqs,
                                       enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
     ok = file_delete(Log),
     NumOfReqs = Lines,
@@ -883,7 +883,7 @@ op_switch_to_drop(Config) ->
                 %% the requests in a slow enough pace so that dropping
                 %% never occurs. Therefore, lets generate a number of
                 %% bursts to increase the chance of message buildup.
-                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice) ||
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
@@ -935,7 +935,7 @@ op_switch_to_flush(Config) ->
                 %% sync messages gets tested). Therefore, lets
                 %% generate a number of bursts to increase the chance
                 %% of message buildup in some random fashion.
-                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice) ||
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok= stop_handler(?MODULE),
@@ -968,7 +968,7 @@ limit_burst_disabled(Config) ->
                                       flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -987,7 +987,7 @@ limit_burst_enabled_one(Config) ->
                                       flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -1008,7 +1008,7 @@ limit_burst_enabled_period(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     
     Windows = 3,
-    Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, info),
+    Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
@@ -1026,7 +1026,7 @@ kill_disabled(Config) ->
                                     handler_overloaded_mem=>100}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -1050,8 +1050,8 @@ qlen_kill_new(Config) ->
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
     Procs = 2,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
-    %% send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
+    %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
            case Info of
@@ -1087,8 +1087,8 @@ mem_kill_new(Config) ->
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
     Procs = 2,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
-    %% send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
+    %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
             case Info of
@@ -1118,7 +1118,7 @@ restart_after(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
+    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Info1} ->
             timer:sleep(?HANDLER_RESTART_AFTER + 1000),
@@ -1139,7 +1139,7 @@ restart_after(Config) ->
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
+    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Info2} ->
             timer:sleep(RestartAfter + 2000),
@@ -1174,7 +1174,7 @@ handler_requests_under_load(Config) ->
                                                          {change_config,[]}])
                      end),
     Procs = 100,
-    Sent = Procs * send_burst({n,5000}, {spawn,Procs,10}, {chars,79}, info),
+    Sent = Procs * send_burst({n,5000}, {spawn,Procs,10}, {chars,79}, notice),
     Pid ! {self(),finish},
     ReqResult = receive {Pid,Result} -> Result end,
     Logged = count_lines(Log),
@@ -1222,8 +1222,7 @@ start_handler(Name, FuncName, Config) ->
                                                max_no_bytes => 100000000},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
-                              formatter=>{?MODULE,op},
-                              level => info}),
+                              formatter=>{?MODULE,op}}),
     {ok,HConfig = #{config := DLHConfig}} = logger:get_handler_config(Name),
     {lists:concat([File,".1"]),HConfig,DLHConfig}.
     

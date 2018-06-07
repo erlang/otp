@@ -131,6 +131,10 @@ add_sasl_logger(std, undefined) -> ok;
 add_sasl_logger(Dest, Level) ->
     FC = #{legacy_header=>true,
            single_line=>false},
+    case Level of
+        info -> allow_progress();
+        _ -> ok
+    end,
     ok = logger:add_handler(sasl,logger_std_h,
                             #{level=>Level,
                               filter_default=>stop,
@@ -151,6 +155,7 @@ delete_sasl_logger(_Type) ->
 
 add_error_logger_mf(undefined) -> ok;
 add_error_logger_mf({Dir, MaxB, MaxF}) ->
+    allow_progress(),
     error_logger:add_report_handler(
       log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, fun pred/1)).
 
@@ -160,6 +165,13 @@ delete_error_logger_mf(_) ->
 
 pred({_Type, GL, _Msg}) when node(GL) =/= node() -> false;
 pred(_) -> true.
+
+allow_progress() ->
+    #{level:=PL} = logger:get_primary_config(),
+    case logger:compare_levels(info,PL) of
+        lt -> ok = logger:set_primary_config(level,info);
+        _ -> ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% supervisor functionality

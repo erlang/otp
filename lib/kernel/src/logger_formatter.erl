@@ -234,7 +234,7 @@ format_mfa(MFA) ->
 maybe_add_legacy_header(Level,
                         #{time:=Timestamp}=Meta,
                         #{legacy_header:=true}=Config) ->
-    #{title:=Title}=MyMeta = add_legacy_title(Level,maps:get(?MODULE,Meta,#{})),
+    #{title:=Title}=MyMeta = add_legacy_title(Level,Meta,Config),
     {{Y,Mo,D},{H,Mi,S},Micro,UtcStr} =
         timestamp_to_datetimemicro(Timestamp,Config),
     Header =
@@ -244,11 +244,23 @@ maybe_add_legacy_header(Level,
 maybe_add_legacy_header(_,Meta,_) ->
     Meta.
 
-add_legacy_title(_Level,#{title:=_}=MyMeta) ->
+add_legacy_title(_Level,#{?MODULE:=#{title:=_}=MyMeta},_) ->
     MyMeta;
-add_legacy_title(Level,MyMeta) ->
-    Title = string:uppercase(atom_to_list(Level)) ++ " REPORT",
-    MyMeta#{title=>Title}.
+add_legacy_title(Level,Meta,Config) ->
+    case maps:get(?MODULE,Meta,#{}) of
+        #{title:=_}=MyMeta ->
+            MyMeta;
+        MyMeta ->
+            TitleLevel =
+                case (Level=:=notice andalso maps:find(error_logger,Meta)) of
+                    {ok,_} ->
+                        maps:get(error_logger_notice_header,Config);
+                    _ ->
+                        Level
+                end,
+            Title = string:uppercase(atom_to_list(TitleLevel)) ++ " REPORT",
+            MyMeta#{title=>Title}
+    end.
 
 month(1) -> "Jan";
 month(2) -> "Feb";
@@ -268,6 +280,7 @@ month(12) -> "Dec".
 add_default_config(Config0) ->
     Default =
         #{legacy_header=>false,
+          error_logger_notice_header=>info,
           single_line=>true,
           chars_limit=>unlimited,
           time_designator=>$T},
@@ -351,6 +364,9 @@ do_check_config([{Type,L}|Config]) when Type == chars_limit;
 do_check_config([{single_line,SL}|Config]) when is_boolean(SL) ->
     do_check_config(Config);
 do_check_config([{legacy_header,LH}|Config]) when is_boolean(LH) ->
+    do_check_config(Config);
+do_check_config([{error_logger_notice_header,ELNH}|Config]) when ELNH == info;
+                                                                 ELNH == notice ->
     do_check_config(Config);
 do_check_config([{report_cb,RCB}|Config]) when is_function(RCB,1) ->
     do_check_config(Config);

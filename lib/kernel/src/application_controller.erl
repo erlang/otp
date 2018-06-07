@@ -1920,13 +1920,13 @@ info_started(Name, Node) ->
                 error_logger=>#{tag=>info_report,type=>progress}}).
 
 info_exited(Name, Reason, Type) ->
-    ?LOG_INFO(#{label=>{application_controller,exit},
-                report=>[{application, Name},
-                         {exited, Reason},
-                         {type, Type}]},
-              #{domain=>[otp],
-                report_cb=>fun logger:format_otp_report/1,
-                error_logger=>#{tag=>info_report,type=>std_info}}).
+    ?LOG_NOTICE(#{label=>{application_controller,exit},
+                  report=>[{application, Name},
+                           {exited, Reason},
+                           {type, Type}]},
+                #{domain=>[otp],
+                  report_cb=>fun logger:format_otp_report/1,
+                  error_logger=>#{tag=>info_report,type=>std_info}}).
 
 %%-----------------------------------------------------------------
 %% Reply to all processes waiting this application to be started.  

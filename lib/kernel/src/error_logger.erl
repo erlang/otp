@@ -317,7 +317,7 @@ info_report(Report) ->
       Report :: report().
 
 info_report(Type, Report) ->
-    logger:log(info,
+    logger:log(notice,
                #{label=>{?MODULE,info_report},
                  report=>Report},
                meta(info_report,Type)).
@@ -338,7 +338,7 @@ info_msg(Format) ->
       Data :: list().
 
 info_msg(Format, Args) ->
-    logger:log(info,
+    logger:log(notice,
                #{label=>{?MODULE,info_msg},
                  format=>Format,
                  args=>Args},
@@ -358,7 +358,7 @@ error_info(Error) ->
             false -> {"~p",[Error]}
         end,
     MyMeta = #{tag=>info,type=>Error},
-    logger:log(info, Format, Args, #{?MODULE=>MyMeta,domain=>[Error]}).
+    logger:log(notice, Format, Args, #{?MODULE=>MyMeta,domain=>[Error]}).
 
 %%-----------------------------------------------------------------
 %% Create metadata

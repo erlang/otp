@@ -710,15 +710,7 @@ get_default_handler_filters() ->
         true ->
             ?DEFAULT_HANDLER_FILTERS([otp]);
         false ->
-            Extra =
-                case application:get_env(kernel, logger_progress_reports, stop) of
-                    log ->
-                        [];
-                    stop ->
-                        [{stop_progress,
-                          {fun logger_filters:progress/2,stop}}]
-                end,
-            Extra ++ ?DEFAULT_HANDLER_FILTERS([otp,sasl])
+            ?DEFAULT_HANDLER_FILTERS([otp,sasl])
     end.
 
 get_logger_env() ->
@@ -726,17 +718,14 @@ get_logger_env() ->
 
 %%%-----------------------------------------------------------------
 %%% Internal
-do_log(Level,Msg,Meta) ->
-    do_log_1(Level,Msg,Meta).
-
-do_log_1(Level,Msg,#{mfa:={Module,_,_}}=Meta) ->
+do_log(Level,Msg,#{mfa:={Module,_,_}}=Meta) ->
     case logger_config:allow(?LOGGER_TABLE,Level,Module) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
             ok
     end;
-do_log_1(Level,Msg,Meta) ->
+do_log(Level,Msg,Meta) ->
     case logger_config:allow(?LOGGER_TABLE,Level) of
         true ->
             log_allowed(#{},Level,Msg,Meta);

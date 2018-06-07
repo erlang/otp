@@ -172,14 +172,14 @@ add_remove_instance_file(Log, Type) ->
                               formatter=>{?MODULE,self()}}),
     Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
-    logger:info(M1=?msg,?domain),
+    logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
     try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),
-    logger:info(?msg,?domain),
+    logger:notice(?msg,?domain),
     ?check_no_log,
     try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
     ok.
@@ -188,11 +188,11 @@ default_formatter(_Config) ->
     ok = logger:set_handler_config(?STANDARD_HANDLER,formatter,
                                    {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
     ct:capture_start(),
-    logger:info(M1=?msg),
+    logger:notice(M1=?msg),
     timer:sleep(100),
     ct:capture_stop(),
     [Msg] = ct:capture_get(),
-    match = re:run(Msg,"=INFO REPORT====.*\n"++M1,[{capture,none}]),
+    match = re:run(Msg,"=NOTICE REPORT====.*\n"++M1,[{capture,none}]),
     ok.
 
 errors(Config) ->
@@ -225,7 +225,7 @@ errors(Config) ->
         logger:add_handler(myh3,logger_std_h,
                            #{config=>#{type=>{file,Log,[bad_file_opt]}}}),
 
-    ok = logger:info(?msg).
+    ok = logger:notice(?msg).
 
 errors(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
@@ -247,23 +247,23 @@ formatter_fail(Config) ->
 
     %% Formatter is added automatically
     {ok,#{formatter:={logger_formatter,_}}} = logger:get_handler_config(?MODULE),
-    logger:info(M1=?msg,?domain),
-    Got1 = try_match_file(Log,"[0-9\\+\\-T:\\.]* info: "++M1,5000),
+    logger:notice(M1=?msg,?domain),
+    Got1 = try_match_file(Log,"[0-9\\+\\-T:\\.]* notice: "++M1,5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{nonexistingmodule,#{}}),
-    logger:info(M2=?msg,?domain),
+    logger:notice(M2=?msg,?domain),
     Got2 = try_match_file(Log,
-                          escape(Got1)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M2,
+                          escape(Got1)++"[0-9\\+\\-T:\\.]* notice: FORMATTER CRASH: .*"++M2,
                           5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{?MODULE,crash}),
-    logger:info(M3=?msg,?domain),
+    logger:notice(M3=?msg,?domain),
     Got3 = try_match_file(Log,
-                          escape(Got2)++"[0-9\\+\\-T:\\.]* info: FORMATTER CRASH: .*"++M3,
+                          escape(Got2)++"[0-9\\+\\-T:\\.]* notice: FORMATTER CRASH: .*"++M3,
                           5000),
 
     ok = logger:set_handler_config(?MODULE,formatter,{?MODULE,bad_return}),
-    logger:info(?msg,?domain),
+    logger:notice(?msg,?domain),
     try_match_file(Log,
                    escape(Got3)++"FORMATTER ERROR: bad_return_value",
                    5000),
@@ -383,7 +383,7 @@ crash_std_h(Config,Func,Var,Type,Log) ->
 log_on_remote_node(Node,Msg) ->
     _ = spawn_link(Node,
                    fun() -> erlang:group_leader(whereis(user),self()),
-                            logger:info(Msg)
+                            logger:notice(Msg)
                    end),
     ok.
 
@@ -496,7 +496,7 @@ file_opts(Config) ->
                               formatter=>{?MODULE,self()}}),
 
     #{type := OkType} = logger_std_h:info(?MODULE),
-    logger:info(M1=?msg,?domain),
+    logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
     try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
@@ -524,7 +524,7 @@ sync(Config) ->
                   {logger_std_h, sync_dev},
                   {file,datasync}]),
 
-    logger:info("first", ?domain),
+    logger:notice("first", ?domain),
     %% wait for automatic filesync
     check_tracer(?FILESYNC_REP_INT*2),
 
@@ -537,7 +537,7 @@ sync(Config) ->
                   {file,datasync},
                   {no_more,500}
                  ]),
-    logger:info("second", ?domain),
+    logger:notice("second", ?domain),
     %% do explicit sync
     logger_std_h:sync(?MODULE),
     %% a second sync should be ignored
@@ -562,10 +562,10 @@ sync(Config) ->
                   {logger_std_h, write_to_dev, <<"fourth\n">>},
                   {logger_std_h, sync_dev},
                   {file,datasync}]),
-    logger:info("third", ?domain),
+    logger:notice("third", ?domain),
     %% wait for automatic filesync
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
-    logger:info("fourth", ?domain),
+    logger:notice("fourth", ?domain),
     %% wait for automatic filesync
     check_tracer(?IDLE_DETECT_TIME_MSEC*2),
 
@@ -705,7 +705,7 @@ op_switch_to_sync_file(Config) ->
                                        enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     %%    TRecvPid = start_op_trace(),
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
     ok = file_delete(Log),
     %% true = analyse_trace(TRecvPid,
@@ -733,7 +733,7 @@ op_switch_to_sync_tty(Config) ->
                                        flush_reqs_qlen => 2*NumOfReqs,
                                        enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     ok.
 op_switch_to_sync_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -760,7 +760,7 @@ op_switch_to_drop_file(Config) ->
                 %% requests in a slow enough pace so that dropping
                 %% never occurs. Therefore, lets generate a number of
                 %% bursts to increase the chance of message buildup.
-                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice) ||
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
@@ -793,7 +793,7 @@ op_switch_to_drop_tty(Config) ->
                                            Procs*NumOfReqs+1,
                                        enable_burst_limit => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     ok.
 op_switch_to_drop_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -828,7 +828,7 @@ op_switch_to_flush_file(Config) ->
                 %% sync messages gets tested). Therefore, lets
                 %% generate a number of bursts to increase the chance
                 %% of message buildup in some random fashion.
-                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info) ||
+                [send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice) ||
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
@@ -867,7 +867,7 @@ op_switch_to_flush_tty(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 1000,
     Procs = 100,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     ok.
 op_switch_to_flush_tty(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -882,7 +882,7 @@ limit_burst_disabled(Config) ->
                                        flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -901,7 +901,7 @@ limit_burst_enabled_one(Config) ->
                                        flush_reqs_qlen => 300}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -922,7 +922,7 @@ limit_burst_enabled_period(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
 
     Windows = 3,
-    Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, info),
+    Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
@@ -940,7 +940,7 @@ kill_disabled(Config) ->
                                      handler_overloaded_mem=>100}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
-    send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
@@ -963,8 +963,8 @@ qlen_kill_new(Config) ->
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
     Procs = 2,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
-    %% send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
+    %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
            case Info of
@@ -1014,8 +1014,8 @@ mem_kill_new(Config) ->
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
     Procs = 2,
-    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, info),
-    %% send_burst({n,NumOfReqs}, seq, {chars,79}, info),
+    send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
+    %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
             case Info of
@@ -1050,7 +1050,7 @@ restart_after(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
+    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Info1} ->
             timer:sleep(?HANDLER_RESTART_AFTER + 1000),
@@ -1071,7 +1071,7 @@ restart_after(Config) ->
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, info),
+    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Info2} ->
             timer:sleep(RestartAfter + 2000),
@@ -1106,7 +1106,7 @@ handler_requests_under_load(Config) ->
                                                          {reset,[]},
                                                          {change_config,[]}])
                      end),
-    Sent = send_burst({t,10000}, seq, {chars,79}, info),
+    Sent = send_burst({t,10000}, seq, {chars,79}, notice),
     Pid ! {self(),finish},
     ReqResult = receive {Pid,Result} -> Result end,
     Logged = count_lines(Log),
@@ -1297,14 +1297,14 @@ add_remove_instance_nofile(Type) ->
     Pid = whereis(h_proc_name()),
     true = is_pid(Pid),
     group_leader(group_leader(),Pid), % to get printouts in test log
-    logger:info(M1=?msg,?domain),
+    logger:notice(M1=?msg,?domain),
     ?check(M1),
     %% check that sync doesn't do damage even if not relevant
     ok = logger_std_h:sync(?MODULE),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),
-    logger:info(?msg,?domain),
+    logger:notice(?msg,?domain),
     ?check_no_log,
     ok.
 
