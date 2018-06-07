@@ -716,7 +716,7 @@ tls_handshake(_, false, S) ->
 tls(connect, Sock, Opts) ->
     ssl:connect(Sock, Opts);
 tls(accept, Sock, Opts) ->
-    ssl:ssl_accept(Sock, Opts).
+    ssl:handshake(Sock, Opts).  %% assume no handshake option
 
 %% recv/2
 %%
@@ -839,7 +839,7 @@ start_fragment_timer(#transport{timeout = Tmo} = S) ->
 accept(ssl, LSock) ->
     case ssl:transport_accept(LSock) of
         {ok, Sock} ->
-            {ssl:ssl_accept(Sock), Sock};
+            ssl:handshake(Sock);
         {error, _} = No ->
             No
     end;

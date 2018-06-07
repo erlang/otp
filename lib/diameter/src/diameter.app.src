@@ -31,7 +31,7 @@
       {stdlib, "2.4"}, {kernel, "3.2"}%, {erts, "10.0"}
       %% {syntax-tools, "1.6,18"}
       %% {runtime-tools, "1.8.16"}
-      %, {ssl, "6.0"}
+      %, {ssl, "9.0"}
       ]},
   {env, []},
   {mod, {diameter_app, []}},
