@@ -82,7 +82,7 @@ all() ->
      bad_input,
      info_and_reset,
      reconfig,
-     disk_log_sync,
+     sync,
      disk_log_full,
      disk_log_wrap,
      disk_log_events,
@@ -124,7 +124,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:info("hello", ?domain),
-    logger_disk_log_h:disk_log_sync(Name1),
+    logger_disk_log_h:sync(Name1),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"hello\n">>}, 5000),
     
@@ -137,7 +137,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile2}),
     logger:info("dummy", ?domain),
-    logger_disk_log_h:disk_log_sync(Name2),
+    logger_disk_log_h:sync(Name2),
     ct:pal("Checking contents of ~p", [?log_no(LogFile2,1)]),
     try_read_file(?log_no(LogFile2,1), {ok,<<"dummy\n">>}, 5000),
 
@@ -158,7 +158,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:info("one", ?domain),
-    logger_disk_log_h:disk_log_sync(HName),
+    logger_disk_log_h:sync(HName),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\n">>}, 5000),
     logger:info("two", ?domain),
@@ -172,7 +172,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:info("three", ?domain),
-    logger_disk_log_h:disk_log_sync(HName),
+    logger_disk_log_h:sync(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000),
     remove_and_stop(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000).
@@ -197,22 +197,22 @@ disk_log_opts(Config) ->
     {WFileFull,wrap,{Size,2},1} = {Get(file,WInfo1),Get(type,WInfo1),
                                    Get(size,WInfo1),Get(current_file,WInfo1)},
     logger:info("123", ?domain),
-    logger_disk_log_h:disk_log_sync(WName),
+    logger_disk_log_h:sync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:info("45", ?domain),
-    logger_disk_log_h:disk_log_sync(WName),
+    logger_disk_log_h:sync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:info("6", ?domain),
-    logger_disk_log_h:disk_log_sync(WName),
+    logger_disk_log_h:sync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
     logger:info("7890", ?domain),
-    logger_disk_log_h:disk_log_sync(WName),
+    logger_disk_log_h:sync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
@@ -230,7 +230,7 @@ disk_log_opts(Config) ->
     {HFile1Full,halt,infinity} = {Get(file,HInfo1),Get(type,HInfo1),
                                   Get(size,HInfo1)},
     logger:info("12345", ?domain),
-    logger_disk_log_h:disk_log_sync(HName1),
+    logger_disk_log_h:sync(HName1),
     timer:sleep(500),
     1 = Get(no_written_items, disk_log:info(HName1)),
 
@@ -409,8 +409,8 @@ config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 bad_input(_Config) ->
-    {error,{badarg,{disk_log_sync,["BadType"]}}} =
-        logger_disk_log_h:disk_log_sync("BadType"),
+    {error,{badarg,{sync,["BadType"]}}} =
+        logger_disk_log_h:sync("BadType"),
     {error,{badarg,{info,["BadType"]}}} = logger_disk_log_h:info("BadType"),
     {error,{badarg,{reset,["BadType"]}}} = logger_disk_log_h:reset("BadType").
 
@@ -497,7 +497,7 @@ reconfig(Config) ->
 reconfig(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
 
-disk_log_sync(Config) ->
+sync(Config) ->
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, ?FUNCTION_NAME),
     Log = lists:concat([File,".1"]),
@@ -526,8 +526,8 @@ disk_log_sync(Config) ->
     %% an automatic disk log sync
     logger:info("second", ?domain),
     logger:info("third", ?domain),
-    %% do explicit disk_log_sync
-    logger_disk_log_h:disk_log_sync(?MODULE),
+    %% do explicit sync
+    logger_disk_log_h:sync(?MODULE),
     check_tracer(100),
 
     %% check that if there's no repeated disk_log_sync active,
@@ -568,7 +568,7 @@ disk_log_sync(Config) ->
                               #{filesync_repeat_interval => no_repeat}),    
     check_tracer(100),
     ok.
-disk_log_sync(cleanup,_Config) ->
+sync(cleanup,_Config) ->
     dbg:stop_clear(),
     logger:remove_handler(?MODULE).
 
@@ -737,7 +737,7 @@ write_failure(Config) ->
     ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
 
     ok = log_on_remote_node(Node, "Logged1"),
-    rpc:call(Node, logger_disk_log_h, disk_log_sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\n">>}, ?SYNC_REP_INT),
 
@@ -757,7 +757,7 @@ write_failure(Config) ->
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
-    rpc:call(Node, logger_disk_log_h, disk_log_sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?SYNC_REP_INT),
     ok.
@@ -1158,7 +1158,7 @@ restart_after(Config) ->
 restart_after(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
-%% send handler requests (filesync, info, reset, change_config)
+%% send handler requests (sync, info, reset, change_config)
 %% during high load to verify that sync, dropping and flushing is
 %% handled correctly.
 handler_requests_under_load() ->
@@ -1171,7 +1171,7 @@ handler_requests_under_load(Config) ->
                                                  flush_reqs_qlen => 2000,
                                                  enable_burst_limit => false}},   
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{disk_log_sync,[]},
+    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
                                                          {info,[]},
                                                          {reset,[]},
                                                          {change_config,[]}])

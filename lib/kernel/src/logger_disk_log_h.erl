@@ -26,7 +26,7 @@
 -include("logger_h_common.hrl").
 
 %%% API
--export([start_link/3, info/1, disk_log_sync/1, reset/1]).
+-export([start_link/3, info/1, sync/1, reset/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -57,18 +57,18 @@ start_link(Name, Config, HandlerState) ->
 
 %%%-----------------------------------------------------------------
 %%%
--spec disk_log_sync(Name) -> ok | {error,Reason} when
+-spec sync(Name) -> ok | {error,Reason} when
       Name :: atom(),
       Reason :: handler_busy | {badarg,term()}.
 
-disk_log_sync(Name) when is_atom(Name) ->
+sync(Name) when is_atom(Name) ->
     try
         gen_server:call(Name, disk_log_sync, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
-disk_log_sync(Name) ->
-    {error,{badarg,{disk_log_sync,[Name]}}}.
+sync(Name) ->
+    {error,{badarg,{sync,[Name]}}}.
 
 %%%-----------------------------------------------------------------
 %%%
