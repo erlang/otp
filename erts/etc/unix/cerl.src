@@ -88,8 +88,6 @@ TARGET=%TARGET%
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
 
-PRELOADED=$ROOTDIR/erts/preloaded/ebin
-
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -260,8 +258,6 @@ if [ $skip_erlexec = yes ]; then
 '
     set -- $beam_args
     IFS="$SAVE_IFS"
-else
-    xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
@@ -307,10 +303,10 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
     elif [ $run_rr = yes ]; then
-	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
     else
 	exec $EXEC $xargs ${1+"$@"}
     fi
