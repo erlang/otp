@@ -286,6 +286,8 @@ roundtrip(A, B, Prefix, HA, HB) ->
     Rounds = 40000,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    ok = ssl_apply(HA, net_kernel, allow, [[B]]),
+    ok = ssl_apply(HB, net_kernel, allow, [[A]]),
     Time = ssl_apply(HA, fun () -> roundtrip_runner(A, B, Rounds) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
