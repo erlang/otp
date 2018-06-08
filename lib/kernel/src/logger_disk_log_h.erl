@@ -133,12 +133,25 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts, config:=HConfig},
-                NewConfig=#{id:=Name, disk_log_opts:=DLOpts}) ->
+changing_config(OldConfig = #{id:=Name, config:=OldHConfig},
+                NewConfig = #{id:=Name, config:=NewHConfig}) ->
+    #{type:=Type, file:=File, max_no_files:=MaxFs,
+      max_no_bytes:=MaxBytes} = OldHConfig,
+    case NewHConfig of
+        #{type:=Type, file:=File, max_no_files:=MaxFs,
+          max_no_bytes:=MaxBytes} ->
+            changing_config1(OldConfig, NewConfig);
+        _ ->
+            {error,{illegal_config_change,OldConfig,NewConfig}}
+    end;
+changing_config(OldConfig, NewConfig) ->
+    {error,{illegal_config_change,OldConfig,NewConfig}}.
+
+changing_config1(OldConfig=#{config:=OldHConfig}, NewConfig) ->
     case check_config(changing, NewConfig) of
         {ok,NewConfig1 = #{config:=NewHConfig}} ->
             #{handler_pid:=HPid,
-              mode_tab:=ModeTab} = HConfig,
+              mode_tab:=ModeTab} = OldHConfig,
             NewHConfig1 = NewHConfig#{handler_pid=>HPid,
                                       mode_tab=>ModeTab},
             NewConfig2 = NewConfig1#{config=>NewHConfig1},
@@ -151,73 +164,58 @@ changing_config(OldConfig=#{id:=Name, disk_log_opts:=DLOpts, config:=HConfig},
             end;
         Error ->
             Error
-    end;
-changing_config(OldConfig, NewConfig) ->
-    {error,{illegal_config_change,OldConfig,NewConfig}}.
+    end.
 
 check_config(adding, #{id:=Name}=Config) ->
-    %% Merge in defaults on handler level
-    LogOpts0 = maps:get(disk_log_opts, Config, #{}),
-    LogOpts = merge_default_logopts(Name, LogOpts0),
-    case check_log_opts(maps:to_list(LogOpts)) of
+    %% merge handler specific config data
+    HConfig = merge_default_logopts(Name, maps:get(config, Config, #{})),
+    case check_h_config(maps:to_list(HConfig)) of
         ok ->
-            MyConfig = maps:get(config, Config, #{}),
-            case check_my_config(maps:to_list(MyConfig)) of
-                ok ->
-                    {ok,Config#{disk_log_opts=>LogOpts,
-                                config=>MyConfig}};
-                Error ->
-                    Error
-            end;
+            {ok,Config#{config=>HConfig}};
         Error ->
             Error
     end;
 check_config(changing, Config) ->
-    MyConfig = maps:get(config, Config, #{}),
-    case check_my_config(maps:to_list(MyConfig)) of
+    HConfig = maps:get(config, Config, #{}),
+    case check_h_config(maps:to_list(HConfig)) of
         ok    -> {ok,Config};
         Error -> Error
     end.
 
-merge_default_logopts(Name, LogOpts) ->
-    Type = maps:get(type, LogOpts, wrap),
+merge_default_logopts(Name, HConfig) ->
+    Type = maps:get(type, HConfig, wrap),
     {DefaultNoFiles,DefaultNoBytes} =
         case Type of
             halt -> {undefined,infinity};
             _wrap -> {10,1048576}
         end,
     {ok,Dir} = file:get_cwd(),
-    Default = #{file => filename:join(Dir,Name),
-                max_no_files => DefaultNoFiles,
-                max_no_bytes => DefaultNoBytes,
-                type => Type},
-    maps:merge(Default,LogOpts).
+    Defaults = #{file => filename:join(Dir,Name),
+                 max_no_files => DefaultNoFiles,
+                 max_no_bytes => DefaultNoBytes,
+                 type => Type},
+    maps:merge(Defaults, HConfig).
 
-check_log_opts([{file,File}|Opts]) when is_list(File) ->
-    check_log_opts(Opts);
-check_log_opts([{max_no_files,undefined}|Opts]) ->
-    check_log_opts(Opts);
-check_log_opts([{max_no_files,N}|Opts]) when is_integer(N), N>0 ->
-    check_log_opts(Opts);
-check_log_opts([{max_no_bytes,infinity}|Opts]) ->
-    check_log_opts(Opts);
-check_log_opts([{max_no_bytes,N}|Opts]) when is_integer(N), N>0 ->
-    check_log_opts(Opts);
-check_log_opts([{type,Type}|Opts]) when Type==wrap; Type==halt ->
-    check_log_opts(Opts);
-check_log_opts([Invalid|_]) ->
-    {error,{invalid_config,disk_log_opt,Invalid}};
-check_log_opts([]) ->
-    ok.
-
-check_my_config([Other | Config]) ->
+check_h_config([{file,File}|Config]) when is_list(File) ->
+    check_h_config(Config);
+check_h_config([{max_no_files,undefined}|Config]) ->
+    check_h_config(Config);
+check_h_config([{max_no_files,N}|Config]) when is_integer(N), N>0 ->
+    check_h_config(Config);
+check_h_config([{max_no_bytes,infinity}|Config]) ->
+    check_h_config(Config);
+check_h_config([{max_no_bytes,N}|Config]) when is_integer(N), N>0 ->
+    check_h_config(Config);
+check_h_config([{type,Type}|Config]) when Type==wrap; Type==halt ->
+    check_h_config(Config);
+check_h_config([Other | Config]) ->
     case logger_h_common:check_common_config(Other) of
         valid ->
-            check_my_config(Config);
+            check_h_config(Config);
         invalid ->
             {error,{invalid_config,?MODULE,Other}}
     end;
-check_my_config([]) ->
+check_h_config([]) ->
     ok.
 
 %%%-----------------------------------------------------------------
@@ -244,16 +242,22 @@ log(LogEvent, Config = #{id := Name,
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config = #{config := HConfig, disk_log_opts := LogOpts},
+init([Name,
+      Config = #{config := HConfig = #{file:=File,
+                                       type:=Type,
+                                       max_no_bytes:=MNB,
+                                       max_no_files:=MNF}},
       State = #{dl_sync_int := DLSyncInt}]) ->
+
     register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
     ?init_test_hooks(),
     ?start_observation(Name),
-
-    case open_disk_log(Name, LogOpts) of
+    
+    LogOpts = #{file=>File, type=>Type, max_no_bytes=>MNB, max_no_files=>MNF},
+    case open_disk_log(Name, File, Type, MNB, MNF) of
         ok ->
             try ets:new(Name, [public]) of
                 ModeTab ->
@@ -453,22 +457,21 @@ get_init_state() ->
 %%% exist if the handler is registered with logger (and should not
 %%% exist if the handler is not registered).
 %%%
-%%% Config is the logger:handler_config() map containing a sub map
-%%% with any of the following associations:
-%%%
-%%% Config = #{disk_log_opts => #{file          => file:filename(),
-%%%                               max_no_bytes  => integer(),
-%%%                               max_no_files  => integer(),
-%%%                               type          => wrap | halt}}.
-%%%
-%%% This map will be merged with the logger configuration data for
-%%% the disk_log LogName. If type == halt, then max_no_files is
-%%% ignored.
-%%%
-%%% Handler specific config should be provided with a sub map associated
-%%% with a key named 'config', e.g:
+%%% Config is the logger:handler_config() map. Handler specific parameters
+%%% should be provided with a sub map associated with a key named
+%%% 'config', e.g:
 %%%
 %%% Config = #{config => #{sync_mode_qlen => 50}
+%%%
+%%% The 'config' sub map will also contain parameters for configuring
+%%% the disk_log:
+%%%
+%%% Config = #{config => #{file          => file:filename(),
+%%%                        max_no_bytes  => integer(),
+%%%                        max_no_files  => integer(),
+%%%                        type          => wrap | halt}}.
+%%%
+%%% If type == halt, then max_no_files is ignored.
 %%%
 %%% The disk_log handler process is linked to logger_sup, which is
 %%% part of the kernel application's supervision tree.
@@ -640,11 +643,7 @@ log_handler_info(Name, Format, Args, State) ->
     ok.
 
 
-open_disk_log(Name, LogOpts) ->
-    #{file          := File,
-      max_no_bytes  := MaxNoBytes,
-      max_no_files  := MaxNoFiles,
-      type          := Type} = LogOpts,
+open_disk_log(Name, File, Type, MaxNoBytes, MaxNoFiles) ->
     case filelib:ensure_dir(File) of
         ok ->
             Size =

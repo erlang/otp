@@ -104,8 +104,7 @@
                             module => module(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}],
-                            formatter => {module(),formatter_config()},
-                            atom() => term()}.
+                            formatter => {module(),formatter_config()}}.
 -type timestamp() :: integer().
 -type formatter_config() :: #{atom() => term()}.
 

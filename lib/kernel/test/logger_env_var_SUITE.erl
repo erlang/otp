@@ -412,7 +412,7 @@ logger_disk_log(Config) ->
         = setup(Config,
                 [{logger,
                   [{handler,?STANDARD_HANDLER,logger_disk_log_h,
-                    #{disk_log_opts=>#{file=>Log}}}]}]),
+                    #{config=>#{file=>Log}}}]}]),
     check_default_log(Node,Log,
                       disk_log,% dest
                       0),% progress in std logger
@@ -434,7 +434,7 @@ logger_disk_log_formatter(Config) ->
                   [{handler,?STANDARD_HANDLER,logger_disk_log_h,
                     #{filters=>[],
                       formatter=>{logger_formatter,#{}},
-                      disk_log_opts=>#{file=>Log}}}]}]),
+                      config=>#{file=>Log}}}]}]),
     check_single_log(Node,Log,
                      disk_log,% dest
                      6),% progress in std logger

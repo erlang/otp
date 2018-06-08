@@ -182,7 +182,7 @@ replace_disk_log(Config) ->
 
     ok = rpc:call(Node, logger, add_handlers,
                   [[{handler, default, logger_disk_log_h,
-                     #{ disk_log_opts => #{ file => File },
+                     #{ config => #{ file => File },
                         formatter => {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}}]]),
     {ok,Bin} = sync_and_read(Node, disk_log, File),
     Lines = [unicode:characters_to_list(L) ||

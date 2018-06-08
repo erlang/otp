@@ -336,7 +336,7 @@ crash_std_h_to_disk_log(Config) ->
     Log = filename:join(Dir,lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"])),
     crash_std_h(Config,?FUNCTION_NAME,
                 [{handler,default,logger_disk_log_h,
-                  #{ disk_log_opts => #{ file => Log }}}],
+                  #{ config => #{ file => Log }}}],
                 disk_log,Log).
 crash_std_h_to_disk_log(cleanup,_Config) ->
     crash_std_h(cleanup).

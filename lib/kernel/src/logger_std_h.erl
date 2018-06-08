@@ -135,17 +135,17 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, config:=HConfig},
+changing_config(OldConfig=#{id:=Name, config:=OldHConfig},
                 NewConfig=#{id:=Name}) ->
-    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = HConfig,
-    MyConfig = maps:get(config, NewConfig, #{}),
-    case maps:get(type, MyConfig, Type) of
+    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = OldHConfig,
+    NewHConfig = maps:get(config, NewConfig, #{}),
+    case maps:get(type, NewHConfig, Type) of
         Type ->
-            MyConfig1 = MyConfig#{type=>Type,
-                                  handler_pid=>HPid,
-                                  mode_tab=>ModeTab},
+            NewHConfig1 = NewHConfig#{type=>Type,
+                                      handler_pid=>HPid,
+                                      mode_tab=>ModeTab},
             changing_config1(HPid, OldConfig,
-                             NewConfig#{config=>MyConfig1});
+                             NewConfig#{config=>NewHConfig1});
         _ ->
             {error,{illegal_config_change,OldConfig,NewConfig}}
     end;
@@ -168,38 +168,38 @@ changing_config1(HPid, OldConfig, NewConfig) ->
 
 check_config(adding, Config) ->
     %% Merge in defaults on handler level
-    MyConfig0 = maps:get(config, Config, #{}),
-    MyConfig = maps:merge(#{type => standard_io},
-                          MyConfig0),
-    case check_my_config(maps:to_list(MyConfig)) of
+    HConfig0 = maps:get(config, Config, #{}),
+    HConfig = maps:merge(#{type => standard_io},
+                         HConfig0),
+    case check_h_config(maps:to_list(HConfig)) of
         ok ->
-            {ok,Config#{config=>MyConfig}};
+            {ok,Config#{config=>HConfig}};
         Error ->
             Error
     end;
 check_config(changing, Config) ->
-    MyConfig = maps:get(config, Config, #{}),
-    case check_my_config(maps:to_list(MyConfig)) of
+    HConfig = maps:get(config, Config, #{}),
+    case check_h_config(maps:to_list(HConfig)) of
         ok    -> {ok,Config};
         Error -> Error
     end.
 
-check_my_config([{type,Type} | Config]) when Type == standard_io;
-                                             Type == standard_error ->
-    check_my_config(Config);
-check_my_config([{type,{file,File}} | Config]) when is_list(File) ->
-    check_my_config(Config);
-check_my_config([{type,{file,File,Modes}} | Config]) when is_list(File),
-                                                          is_list(Modes) ->
-    check_my_config(Config);
-check_my_config([Other | Config]) ->
+check_h_config([{type,Type} | Config]) when Type == standard_io;
+                                            Type == standard_error ->
+    check_h_config(Config);
+check_h_config([{type,{file,File}} | Config]) when is_list(File) ->
+    check_h_config(Config);
+check_h_config([{type,{file,File,Modes}} | Config]) when is_list(File),
+                                                         is_list(Modes) ->
+    check_h_config(Config);
+check_h_config([Other | Config]) ->
     case logger_h_common:check_common_config(Other) of
         valid ->
-            check_my_config(Config);
+            check_h_config(Config);
         invalid ->
             {error,{invalid_config,?MODULE,Other}}
     end;
-check_my_config([]) ->
+check_h_config([]) ->
     ok.
 
 

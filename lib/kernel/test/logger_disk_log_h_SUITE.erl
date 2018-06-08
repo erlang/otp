@@ -253,10 +253,10 @@ disk_log_opts(Config) ->
 default_formatter(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogFile = filename:join(PrivDir,atom_to_list(?FUNCTION_NAME)),
-    HConfig = #{disk_log_opts => #{file=>LogFile},
-                filter_default=>log},
+    HandlerConfig = #{config => #{file=>LogFile},
+                      filter_default=>log},
     ct:pal("Log: ~p", [LogFile]),
-    ok = logger:add_handler(?MODULE, logger_disk_log_h, HConfig),
+    ok = logger:add_handler(?MODULE, logger_disk_log_h, HandlerConfig),
     ok = logger:set_handler_config(?MODULE,formatter,
                                    {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
     LogName = lists:concat([LogFile, ".1"]),
@@ -290,10 +290,10 @@ errors(Config) ->
     PrivDir = ?config(priv_dir,Config),
     Name1 = list_to_atom(lists:concat([?FUNCTION_NAME,"_1"])),
     LogFile1 = filename:join(PrivDir,Name1),
-    HConfig = #{disk_log_opts=>#{file=>LogFile1},
-                filter_default=>log,
-                formatter=>{?MODULE,self()}},
-    ok = logger:add_handler(Name1, logger_disk_log_h, HConfig),
+    HandlerConfig = #{config=>#{file=>LogFile1},
+                      filter_default=>log,
+                      formatter=>{?MODULE,self()}},
+    ok = logger:add_handler(Name1, logger_disk_log_h, HandlerConfig),
     {error,{already_exist,Name1}} =
         logger:add_handler(Name1, logger_disk_log_h, #{}),
  
@@ -302,7 +302,7 @@ errors(Config) ->
 
     {error,{illegal_config_change,_,_}} =
         logger:set_handler_config(Name1,
-                                  disk_log_opts,
+                                  config,
                                   #{file=>LogFile1,
                                     type=>halt}),
     {error,{illegal_config_change,_,_}} =
@@ -321,11 +321,11 @@ formatter_fail(Config) ->
     Name = ?FUNCTION_NAME,
     LogFile = filename:join(PrivDir,Name),
     ct:pal("Log = ~p", [LogFile]),
-    HConfig = #{disk_log_opts => #{file=>LogFile},
-                filter_default=>stop,
-                filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])},
+    HandlerConfig = #{config => #{file=>LogFile},
+                      filter_default=>stop,
+                      filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])},
     %% no formatter!
-    logger:add_handler(Name, logger_disk_log_h, HConfig),
+    logger:add_handler(Name, logger_disk_log_h, HandlerConfig),
     Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
     H = logger:get_handler_ids(),
@@ -387,20 +387,21 @@ config_fail(_Config) ->
                               formatter=>{?MODULE,self()}}),
     %% can't change the disk log options for a log already in use
     {error,{illegal_config_change,_,_}} =
-        logger:set_handler_config(?MODULE,disk_log_opts,
+        logger:set_handler_config(?MODULE,config,
                                   #{max_no_files=>2}),
     %% can't change name of an existing handler
     {error,{illegal_config_change,_,_}} =
         logger:set_handler_config(?MODULE,id,bad),
-    %% incorrect values of OP params  
+    %% incorrect values of OP params
+    {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     {error,{invalid_levels,_}} =
         logger:set_handler_config(?MODULE,config,
-                                  #{sync_mode_qlen=>100,
-                                    flush_qlen=>99}),
+                                  HConfig#{sync_mode_qlen=>100,
+                                           flush_qlen=>99}),
     %% invalid name of config parameter
     {error,{invalid_config,logger_disk_log_h,{filesync_rep_int,2000}}} =
         logger:set_handler_config(?MODULE, config,
-                                  #{filesync_rep_int => 2000}),
+                                  HConfig#{filesync_rep_int => 2000}),
     ok.
 config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
@@ -445,18 +446,19 @@ reconfig(Config) ->
                     file := _DiskLogFile}} =
         logger_disk_log_h:info(?MODULE),
 
-    ok = logger:set_handler_config(?MODULE, config,
-                                   #{sync_mode_qlen => 1,
-                                     drop_mode_qlen => 2,
-                                     flush_qlen => 3,
-                                     burst_limit_enable => false,
-                                     burst_limit_max_count => 10,
-                                     burst_limit_window_time => 10,
-                                     overload_kill_enable => true,
-                                     overload_kill_qlen => 100000,
-                                     overload_kill_mem_size => 10000000,
-                                     overload_kill_restart_after => never,
-                                     filesync_repeat_interval => no_repeat}),
+    {ok,#{config := HConfig0}} = logger:get_handler_config(?MODULE),
+    HConfig1 = HConfig0#{sync_mode_qlen => 1,
+                         drop_mode_qlen => 2,
+                         flush_qlen => 3,
+                         burst_limit_enable => false,
+                         burst_limit_max_count => 10,
+                         burst_limit_window_time => 10,
+                         overload_kill_enable => true,
+                         overload_kill_qlen => 100000,
+                         overload_kill_mem_size => 10000000,
+                         overload_kill_restart_after => never,
+                         filesync_repeat_interval => no_repeat},
+    ok = logger:set_handler_config(?MODULE, config, HConfig1),
     #{id := ?MODULE,
       sync_mode_qlen := 1,
       drop_mode_qlen := 2,
@@ -479,7 +481,7 @@ reconfig(Config) ->
                             #{filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()},
-                              disk_log_opts=>
+                              config=>
                                   #{type => halt,
                                     max_no_files => 1,
                                     max_no_bytes => 1024,
@@ -500,7 +502,7 @@ sync(Config) ->
     Log = lists:concat([File,".1"]),
     ok = logger:add_handler(?MODULE,
                             logger_disk_log_h,
-                            #{disk_log_opts => #{file => File},
+                            #{config => #{file => File},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
@@ -529,8 +531,10 @@ sync(Config) ->
 
     %% check that if there's no repeated disk_log_sync active,
     %% a disk_log_sync is still performed when handler goes idle
-    logger:set_handler_config(?MODULE, config,
-                              #{filesync_repeat_interval => no_repeat}),
+    {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
+    HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
+    ok = logger:set_handler_config(?MODULE, config, HConfig1),
+
     no_repeat = maps:get(filesync_repeat_interval,
                          logger_disk_log_h:info(?MODULE)),
 
@@ -556,13 +560,14 @@ sync(Config) ->
     start_tracer([{logger_disk_log_h,handle_cast,2}],
                  [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
 
-    logger:set_handler_config(?MODULE, config,
-                              #{filesync_repeat_interval => SyncInt}),
+    HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
+    ok = logger:set_handler_config(?MODULE, config, HConfig2),
+                      
     SyncInt = maps:get(filesync_repeat_interval,
                        logger_disk_log_h:info(?MODULE)),
     timer:sleep(WaitT),
-    logger:set_handler_config(?MODULE, config,
-                              #{filesync_repeat_interval => no_repeat}),    
+    HConfig3 = HConfig#{filesync_repeat_interval => no_repeat},
+    ok = logger:set_handler_config(?MODULE, config, HConfig3),
     check_tracer(100),
     ok.
 sync(cleanup,_Config) ->
@@ -581,7 +586,7 @@ disk_log_wrap(Config) ->
                             #{filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()},
-                              disk_log_opts=>
+                              config=>
                                   #{type => wrap,
                                     max_no_files => MaxFiles,
                                     max_no_bytes => MaxBytes,
@@ -637,7 +642,7 @@ disk_log_full(Config) ->
                             #{filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()},
-                              disk_log_opts=>
+                              config=>
                                   #{type => halt,
                                     max_no_files => 1,
                                     max_no_bytes => MaxBytes,
@@ -814,7 +819,7 @@ start_h_on_new_node(Config, File) ->
         logger_test_lib:setup(
           Config,
           [{logger,[{handler,default,logger_disk_log_h,
-                     #{ disk_log_opts => #{ file => File }}}]}]),
+                     #{ config => #{ file => File }}}]}]),
     ok = rpc:call(Node,logger,set_handler_config,[?STANDARD_HANDLER,formatter,
                                                   {?MODULE,nl}]),
     Node.
@@ -1217,9 +1222,9 @@ start_handler(Name, FuncName, Config) ->
     ct:pal("Logging to ~tp", [File]),
     ok = logger:add_handler(Name,
                             logger_disk_log_h,
-                            #{disk_log_opts=>#{file => File,
-                                               max_no_files => 1,
-                                               max_no_bytes => 100000000},
+                            #{config=>#{file => File,
+                                        max_no_files => 1,
+                                        max_no_bytes => 100000000},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op}}),
@@ -1325,10 +1330,11 @@ remove(Handler, LogName) ->
     ok.
 
 start_and_add(Name, Config, LogOpts) ->
-    ct:pal("Adding handler ~w with: ~p",
-           [Name,Config#{disk_log_opts=>LogOpts}]),
-    ok = logger:add_handler(Name, logger_disk_log_h,
-                            Config#{disk_log_opts=>LogOpts}),
+    HConfig = maps:get(config, Config, #{}),
+    HConfig1 = maps:merge(HConfig, LogOpts),
+    Config1 = Config#{config=>HConfig1},
+    ct:pal("Adding handler ~w with: ~p", [Name,Config1]),
+    ok = logger:add_handler(Name, logger_disk_log_h, Config1),
     Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
     Name = proplists:get_value(name, disk_log:info(Name)),
