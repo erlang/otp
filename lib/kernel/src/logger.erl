@@ -37,7 +37,9 @@
 -export([add_handler/3, remove_handler/1,
          add_logger_filter/2, add_handler_filter/3,
          remove_logger_filter/1, remove_handler_filter/2,
-         set_module_level/2, unset_module_level/1,
+         set_module_level/2,
+         unset_module_level/1, unset_module_level/0,
+         get_module_level/0, get_module_level/1,
          set_logger_config/1, set_logger_config/2,
          set_handler_config/2, set_handler_config/3,
          update_logger_config/1, update_handler_config/2,
@@ -408,16 +410,40 @@ update_formatter_config(HandlerId,FormatterConfig) ->
 update_formatter_config(HandlerId,Key,Value) ->
     logger_server:update_formatter_config(HandlerId,#{Key=>Value}).
 
--spec set_module_level(Module,Level) -> ok | {error,term()} when
+-spec set_module_level(Modules,Level) -> ok | {error,term()} when
+      Modules :: [module()] | module(),
+      Level :: level().
+set_module_level(Module,Level) when is_atom(Module) ->
+    set_module_level([Module],Level);
+set_module_level(Modules,Level) ->
+    logger_server:set_module_level(Modules,Level).
+
+-spec unset_module_level(Modules) -> ok when
+      Modules :: [module()] | module().
+unset_module_level(Module) when is_atom(Module) ->
+    unset_module_level([Module]);
+unset_module_level(Modules) ->
+    logger_server:unset_module_level(Modules).
+
+-spec unset_module_level() -> ok.
+unset_module_level() ->
+    logger_server:unset_module_level().
+
+-spec get_module_level(Modules) -> [{Module,Level}] when
+      Modules :: [Module] | Module,
       Module :: module(),
       Level :: level().
-set_module_level(Module,Level) ->
-    logger_server:set_module_level(Module,Level).
+get_module_level(Module) when is_atom(Module) ->
+    get_module_level([Module]);
+get_module_level(Modules) when is_list(Modules) ->
+    [{M,L} || {M,L} <- get_module_level(),
+              lists:member(M,Modules)].
 
--spec unset_module_level(Module) -> ok | {error,term()} when
-      Module :: module().
-unset_module_level(Module) ->
-    logger_server:unset_module_level(Module).
+-spec get_module_level() -> [{Module,Level}] when
+      Module :: module(),
+      Level :: level().
+get_module_level() ->
+    logger_config:get_module_level(?LOGGER_TABLE).
 
 %%%-----------------------------------------------------------------
 %%% Misc
@@ -496,7 +522,7 @@ i(_Action = string) ->
      print_module_levels(Modules)
     ];
 i(_Action = term) ->
-    {Logger, Handlers, Modules} = logger_config:get(tid()),
+    {Logger, Handlers, Modules} = logger_config:get(?LOGGER_TABLE),
     #{logger=>maps:remove(handlers,Logger),
       handlers=>lists:keysort(1,Handlers),
       module_levels=>lists:keysort(1,Modules)}.

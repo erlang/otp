@@ -25,8 +25,8 @@
 -export([start_link/0,
          add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
-         set_module_level/2, unset_module_level/1,
-         cache_module_level/1,
+         set_module_level/2, unset_module_level/0,
+         unset_module_level/1, cache_module_level/1,
          set_config/2, set_config/3, update_config/2,
          update_formatter_config/2]).
 
@@ -75,22 +75,34 @@ add_filter(Owner,Filter) ->
 remove_filter(Owner,FilterId) ->
     call({remove_filter,Owner,FilterId}).
 
-set_module_level(Module,Level) when is_atom(Module) ->
-    case sanity_check(logger,level,Level) of
-        ok -> call({set_module_level,Module,Level});
-        Error -> Error
+set_module_level(Modules,Level) when is_list(Modules) ->
+    case lists:all(fun(M) -> is_atom(M) end,Modules) of
+        true ->
+            case sanity_check(logger,level,Level) of
+                ok -> call({set_module_level,Modules,Level});
+                Error -> Error
+            end;
+        false ->
+            {error,{not_a_list_of_modles,Modules}}
     end;
-set_module_level(Module,_) ->
-    {error,{not_a_module,Module}}.
+set_module_level(Modules,_) ->
+    {error,{not_a_list_of_modules,Modules}}.
 
-unset_module_level(Module) when is_atom(Module) ->
-    call({unset_module_level,Module});
-unset_module_level(Module) ->
-    {error,{not_a_module,Module}}.
+unset_module_level() ->
+    call({unset_module_level,all}).
+
+unset_module_level(Modules) when is_list(Modules) ->
+    case lists:all(fun(M) -> is_atom(M) end,Modules) of
+        true ->
+            call({unset_module_level,Modules});
+        false ->
+            {error,{not_a_list_of_modles,Modules}}
+    end;
+unset_module_level(Modules) ->
+    {error,{not_a_list_of_modules,Modules}}.
 
 cache_module_level(Module) ->
     gen_server:cast(?SERVER,{cache_module_level,Module}).
-
 
 set_config(Owner,Key,Value) ->
     update_config(Owner,#{Key=>Value}).
@@ -239,11 +251,11 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
             {error,{not_found,HandlerId}}
         end,
     {reply,Reply,State};
-handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:set_module_level(Tid,Module,Level),
+handle_call({set_module_level,Modules,Level}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:set_module_level(Tid,Modules,Level),
     {reply,Reply,State};
-handle_call({unset_module_level,Module}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:unset_module_level(Tid,Module),
+handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:unset_module_level(Tid,Modules),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->

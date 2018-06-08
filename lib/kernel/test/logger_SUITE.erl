@@ -85,8 +85,8 @@ all() ->
      log_all_levels_api,
      macros,
      set_level,
-     set_level_module,
-     cache_level_module,
+     set_module_level,
+     cache_module_level,
      format_report,
      filter_failed,
      handler_failed,
@@ -337,30 +337,51 @@ set_level(cleanup,_Config) ->
     logger:set_logger_config(level,info),
     ok.
 
-set_level_module(_Config) ->
+set_module_level(_Config) ->
+    [] = logger:get_module_level([?MODULE,other]),
+    [] = logger:get_module_level(?MODULE),
+    [] = logger:get_module_level(),
+
     ok = logger:add_handler(h1,?MODULE,#{level=>info,filter_default=>log}),
     {error,{invalid_level,bad}} = logger:set_module_level(?MODULE,bad),
-    {error,{not_a_module,{bad}}} = logger:set_module_level({bad},warning),
+    {error,{not_a_list_of_modules,{bad}}} =
+        logger:set_module_level({bad},warning),
     ok = logger:set_module_level(?MODULE,warning),
+    [{?MODULE,warning}] = logger:get_module_level([?MODULE,other]),
+    [{?MODULE,warning}] = logger:get_module_level(?MODULE),
+    [{?MODULE,warning}] = logger:get_module_level(),
     logger:info(?map_rep,?MY_LOC(0)),
     ok = check_no_log(),
     logger:warning(M1=?map_rep,?MY_LOC(0)),
     ok = check_logged(warning,M1,?MY_LOC(1)),
     ok = logger:set_module_level(?MODULE,info),
+    [{?MODULE,info}] = logger:get_module_level([?MODULE,other]),
+    [{?MODULE,info}] = logger:get_module_level(?MODULE),
+    [{?MODULE,info}] = logger:get_module_level(),
     logger:info(M2=?map_rep,?MY_LOC(0)),
     ok = check_logged(info,M2,?MY_LOC(1)),
 
-    {error,{not_a_module,{bad}}} = logger:unset_module_level({bad}),
+    {error,{not_a_list_of_modules,{bad}}} = logger:unset_module_level({bad}),
     ok = logger:unset_module_level(?MODULE),
+    [] = logger:get_module_level([?MODULE,other]),
+    [] = logger:get_module_level(?MODULE),
+    [] = logger:get_module_level(),
+
+    ok = logger:set_module_level([m1,m2,m3],info),
+    [{m1,info},{m2,info},{m3,info}] = logger:get_module_level(),
+    ok = logger:unset_module_level(m2),
+    [{m1,info},{m3,info}] = logger:get_module_level(),
+    ok = logger:unset_module_level(),
+    [] = logger:get_module_level(),
 
     ok.
 
-set_level_module(cleanup,_Config) ->
+set_module_level(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:unset_module_level(?MODULE),
     ok.
 
-cache_level_module(_Config) ->
+cache_module_level(_Config) ->
     ok = logger:unset_module_level(?MODULE),
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ?LOG_INFO(?map_rep),
@@ -371,7 +392,7 @@ cache_level_module(_Config) ->
     [] = ets:lookup(logger,?MODULE), %dirty - add API in logger_config?
     ok.
 
-cache_level_module(cleanup,_Config) ->
+cache_module_level(cleanup,_Config) ->
     logger:unset_module_level(?MODULE),
     ok.
 

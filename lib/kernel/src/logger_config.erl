@@ -25,7 +25,7 @@
          get/2, get/3, get/1,
          create/3, create/4, set/3,
          set_module_level/3,unset_module_level/2,
-         cache_module_level/2,
+         get_module_level/1,cache_module_level/2,
          level_to_int/1]).
 
 -include("logger_internal.hrl").
@@ -105,13 +105,24 @@ set(Tid,What,Config) ->
     ets:update_element(Tid,table_key(What),[{2,LevelInt},{3,Config}]),
     ok.
 
-set_module_level(Tid,Module,Level) ->
-    ets:insert(Tid,{Module,level_to_int(Level)}),
+set_module_level(Tid,Modules,Level) ->
+    LevelInt = level_to_int(Level),
+    [ets:insert(Tid,{Module,LevelInt}) || Module <- Modules],
     ok.
 
-unset_module_level(Tid,Module) ->
-    ets:delete(Tid,Module), % should possibley overwrite instead of delete?
+%% should possibly overwrite instead of delete?
+unset_module_level(Tid,all) ->
+    MS = [{{'$1','$2'},[{is_atom,'$1'},{is_integer,'$2'}],[true]}],
+    _ = ets:select_delete(Tid,MS),    
+    ok;
+unset_module_level(Tid,Modules) ->
+    [ets:delete(Tid,Module) || Module <- Modules],
     ok.
+
+get_module_level(Tid) ->
+    MS = [{{'$1','$2'},[{is_atom,'$1'},{is_integer,'$2'}],[{{'$1','$2'}}]}],
+    Modules = ets:select(Tid,MS),
+    lists:sort([{M,int_to_level(L)} || {M,L} <- Modules]).
 
 cache_module_level(Tid,Module) ->
     GlobalLevelInt = ets:lookup_element(Tid,?LOGGER_KEY,2),
@@ -122,9 +133,8 @@ get(Tid) ->
     {ok,Logger} = get(Tid,logger),
     HMS = [{{table_key('$1'),'_','$2','$3'},[],[{{'$1','$3','$2'}}]}],
     Handlers = ets:select(Tid,HMS),
-    MMS = [{{'$1','$2'},[{is_atom,'$1'},{is_integer,'$2'}],[{{'$1','$2'}}]}],
-    Modules = ets:select(Tid,MMS),
-    {Logger,Handlers,[{M,int_to_level(L)} || {M,L} <- Modules]}.
+    Modules = get_module_level(Tid),
+    {Logger,Handlers,Modules}.
 
 level_to_int(emergency) -> ?EMERGENCY;
 level_to_int(alert) -> ?ALERT;
