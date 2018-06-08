@@ -145,7 +145,8 @@
 	  eccs,
 	  honor_ecc_order            :: boolean(),
           max_handshake_size         :: integer(),
-          handshake
+          handshake,
+          customize_hostname_check
          }).
 
 -record(socket_options,

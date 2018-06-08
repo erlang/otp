@@ -938,7 +938,8 @@ handle_options(Opts0, Role, Host) ->
 		    crl_check = handle_option(crl_check, Opts, false),
 		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
                     max_handshake_size = handle_option(max_handshake_size, Opts, ?DEFAULT_MAX_HANDSHAKE_SIZE),
-                    handshake = handle_option(handshake, Opts, full)
+                    handshake = handle_option(handshake, Opts, full),
+                    customize_hostname_check = handle_option(customize_hostname_check, Opts, [])
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
@@ -954,7 +955,7 @@ handle_options(Opts0, Role, Host) ->
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
-                  max_handshake_size, handshake],
+                  max_handshake_size, handshake, customize_hostname_check],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -1196,6 +1197,8 @@ validate_option(protocol, Value = dtls) ->
 validate_option(handshake, hello = Value) ->
     Value;
 validate_option(handshake, full = Value) ->
+    Value;
+validate_option(customize_hostname_check, Value) when is_list(Value) ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
