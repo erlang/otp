@@ -29,7 +29,7 @@
 -export([new_bindings/0,bindings/1,binding/2,add_binding/3,del_binding/2]).
 -export([extended_parse_exprs/1, extended_parse_term/1,
          subst_values_for_vars/2]).
--export([is_constant_expr/1, partial_eval/1]).
+-export([is_constant_expr/1, partial_eval/1, eval_str/1]).
 
 %% Is used by standalone Erlang (escript).
 %% Also used by shell.erl.
@@ -1556,6 +1556,50 @@ ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
 %%ev_expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
 %%    true = erl_internal:guard_bif(F, length(As)),
 %%    apply(erlang, F, [ev_expr(X) || X <- As]);
+
+%% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
+%%   InStr must represent a body
+%%   Note: If InStr is a binary it has to be a Latin-1 string.
+%%   If you have a UTF-8 encoded binary you have to call
+%%   unicode:characters_to_list/1 before the call to eval_str().
+
+-define(result(F,D), lists:flatten(io_lib:format(F, D))).
+
+-spec eval_str(string() | unicode:latin1_binary()) ->
+                      {'ok', string()} | {'error', string()}.
+
+eval_str(Str) when is_list(Str) ->
+    case erl_scan:tokens([], Str, 0) of
+	{more, _} ->
+	    {error, "Incomplete form (missing .<cr>)??"};
+	{done, {ok, Toks, _}, Rest} ->
+	    case all_white(Rest) of
+		true ->
+		    case erl_parse:parse_exprs(Toks) of
+			{ok, Exprs} ->
+			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
+				{value, Val, _} ->
+				    {ok, Val};
+				Other ->
+				    {error, ?result("*** eval: ~p", [Other])}
+			    end;
+			{error, {_Line, Mod, Args}} ->
+                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
+                            {error, Msg}
+		    end;
+		false ->
+		    {error, ?result("Non-white space found after "
+				    "end-of-form :~ts", [Rest])}
+		end
+    end;
+eval_str(Bin) when is_binary(Bin) ->
+    eval_str(binary_to_list(Bin)).
+
+all_white([$\s|T]) -> all_white(T);
+all_white([$\n|T]) -> all_white(T);
+all_white([$\t|T]) -> all_white(T);
+all_white([])      -> true;
+all_white(_)       -> false.
 
 ret_expr(_Old, New) ->
     %%    io:format("~w: reduced ~s => ~s~n",

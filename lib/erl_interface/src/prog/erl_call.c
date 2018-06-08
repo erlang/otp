@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -554,7 +554,7 @@ int erl_call(int argc, char **argv)
 
 	  /* erl_format("[~w]", erl_mk_binary(evalbuf,len))) */
 
-	  if (ei_rpc(&ec, fd, "lib", "eval_str", p, i, &reply) < 0) {
+	  if (ei_rpc(&ec, fd, "erl_eval", "eval_str", p, i, &reply) < 0) {
 	      fprintf(stderr,"erl_call: evaluating input failed: %s\n",
 		      evalbuf);
 	      free(p);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -561,7 +561,7 @@ eval(#mod{method = Method} = ModData, ESIBody, Modules)
     end.
 
 generate_webpage(ESIBody) ->
-    (catch eval_str(string:concat(ESIBody,". "))).
+    (catch erl_eval:eval_str(string:concat(ESIBody,". "))).
 
 is_authorized(_ESIBody, [all]) ->
     true;
@@ -573,45 +573,3 @@ is_authorized(ESIBody, Modules) ->
 	nomatch ->
 	    false
     end.
-
-%% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
-%%   InStr must represent a body
-%%   Note: If InStr is a binary it has to be a Latin-1 string.
-%%   If you have a UTF-8 encoded binary you have to call
-%%   unicode:characters_to_list/1 before the call to eval_str().
-
--define(result(F,D), lists:flatten(io_lib:format(F, D))).
-
--spec eval_str(string()) ->
-                      {'ok', string()} | {'error', string()}.
-
-eval_str(Str) when is_list(Str) ->
-    case erl_scan:tokens([], Str, 0) of
-	{more, _} ->
-	    {error, "Incomplete form (missing .<cr>)??"};
-	{done, {ok, Toks, _}, Rest} ->
-	    case all_white(Rest) of
-		true ->
-		    case erl_parse:parse_exprs(Toks) of
-			{ok, Exprs} ->
-			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
-				{value, Val, _} ->
-				    {ok, Val};
-				Other ->
-				    {error, ?result("*** eval: ~p", [Other])}
-			    end;
-			{error, {_Line, Mod, Args}} ->
-                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
-                            {error, Msg}
-		    end;
-		false ->
-		    {error, ?result("Non-white space found after "
-				    "end-of-form :~ts", [Rest])}
-		end
-    end.
-
-all_white([$\s|T]) -> all_white(T);
-all_white([$\n|T]) -> all_white(T);
-all_white([$\t|T]) -> all_white(T);
-all_white([])      -> true;
-all_white(_)       -> false.
