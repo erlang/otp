@@ -35,8 +35,7 @@
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/1, removing_handler/1,
-         changing_config/2, swap_buffer/2]).
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/2]).
 
 %% handler internal
 -export([log_handler_info/4]).
@@ -123,14 +122,7 @@ adding_handler(#{id:=Name}=Config) ->
             HState = maps:merge(get_init_state(), HConfig),
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
-                    case start(Name, Config1, HState) of
-                        {ok,Config2} ->
-                            %% Make sure wait_for_buffer is not stored, so we
-                            %% won't hang and wait for buffer on a restart
-                            {ok, maps:remove(wait_for_buffer,Config2)};
-                        Error ->
-                            Error
-                    end;
+                    start(Name, Config1, HState);
                 false ->
                     #{sync_mode_qlen := SMQL,
                       drop_mode_qlen := DMQL,
@@ -217,16 +209,6 @@ removing_handler(#{id:=Name}) ->
     stop(Name).
 
 %%%-----------------------------------------------------------------
-%%% Get buffer when swapping from simple handler
-swap_buffer(Name, Buffer) ->
-    case whereis(?name_to_reg_name(?MODULE,Name)) of
-        undefined ->
-            ok;
-        Pid ->
-            Pid ! {buffer,Buffer}
-    end.
-
-%%%-----------------------------------------------------------------
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok | dropped when
       LogEvent :: logger:log_event(),
@@ -305,20 +287,6 @@ do_init(Name, Type) ->
             Error
     end.
 
-enter_loop(#{wait_for_buffer:=true}=Config,State) ->
-    State1 =
-        receive
-            {buffer,Buffer} ->
-                lists:foldl(
-                  fun(Log,S) ->
-                          Bin = logger_h_common:log_to_binary(Log,Config),
-                          {_,S1} = do_log(Bin,cast,S),
-                          S1
-                  end,
-                  State,
-                  Buffer)
-        end,
-    gen_server:enter_loop(?MODULE,[],State1);
 enter_loop(_Config,State) ->
     gen_server:enter_loop(?MODULE,[],State).
 
