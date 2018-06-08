@@ -51,7 +51,7 @@
 %%% handler process gets added
 -spec start_link(Name, Config, HandlerState) -> {ok,Pid} | {error,Reason} when
       Name :: atom(),
-      Config :: logger:config(),
+      Config :: logger:handler_config(),
       HandlerState :: map(),
       Pid :: pid(),
       Reason :: term().
@@ -230,7 +230,7 @@ swap_buffer(Name, Buffer) ->
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok | dropped when
       LogEvent :: logger:log_event(),
-      Config :: logger:config().
+      Config :: logger:handler_config().
 
 log(LogEvent, Config = #{id := Name,
                          config := #{handler_pid := HPid,

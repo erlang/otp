@@ -50,7 +50,7 @@
 %%% handler process gets added (as a result of calling add/3).
 -spec start_link(Name, Config, HandlerState) -> {ok,Pid} | {error,Reason} when
       Name :: atom(),
-      Config :: logger:config(),
+      Config :: logger:handler_config(),
       HandlerState :: map(),
       Pid :: pid(),
       Reason :: term().
@@ -248,7 +248,7 @@ swap_buffer(Name, Buffer) ->
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok | dropped when
       LogEvent :: logger:log_event(),
-      Config :: logger:config().
+      Config :: logger:handler_config().
 
 log(LogEvent, Config = #{id := Name,
                          config := #{handler_pid := HPid,
@@ -484,8 +484,8 @@ get_init_state() ->
 %%% exist if the handler is registered with logger (and should not
 %%% exist if the handler is not registered).
 %%%
-%%% Config is the logger:config() map containing a sub map with any of
-%%% the following associations:
+%%% Config is the logger:handler_config() map containing a sub map
+%%% with any of the following associations:
 %%%
 %%% Config = #{disk_log_opts => #{file          => file:filename(),
 %%%                               max_no_bytes  => integer(),

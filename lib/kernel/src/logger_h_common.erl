@@ -43,7 +43,7 @@
 %%% Covert log data on any form to binary
 -spec log_to_binary(LogEvent,Config) -> LogString when
       LogEvent :: logger:log_event(),
-      Config :: logger:config(),
+      Config :: logger:handler_config(),
       LogString :: binary().
 log_to_binary(#{msg:={report,_},meta:=#{report_cb:=_}}=Log,Config) ->
     do_log_to_binary(Log,Config);
