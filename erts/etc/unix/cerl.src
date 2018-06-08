@@ -69,15 +69,6 @@ cxargs_add() {
     done
 }
 
-eeargs=
-eeargs_add() {
-    while [ $# -gt 0 ]; do
-	cargs="$cargs $1"
-	eeargs="$eeargs $1"
-	shift
-    done
-}
-
 core=
 
 GDB=
@@ -255,7 +246,7 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+EMU_NAME=`$EXEC -emu_name_exit`
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -321,7 +312,7 @@ if [ "x$GDB" = "x" ]; then
     elif [ $run_rr = yes ]; then
 	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
     else
-	exec $EXEC $eeargs $xargs ${1+"$@"}
+	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in
