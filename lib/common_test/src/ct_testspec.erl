@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework functions handling test specifications.
-%%%
-%%% <p>This module exports functions that are used within CT to
-%%% scan and parse test specifikations.</p>
 -module(ct_testspec).
 
 -export([prepare_tests/1, prepare_tests/2, 

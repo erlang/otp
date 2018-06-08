@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test specific layer on Erlang/OTP rpc. 
-
 -module(ct_rpc).
 
 %%% API
@@ -29,49 +27,12 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-%%% @spec app_node(App, Candidates) -> NodeName
-%%%
-%%%      App = atom() 
-%%%      Candidates = [NodeName]
-%%%      NodeName = atom() 
-%%%
-%%% @doc From a set of candidate nodes determines which of them is
-%%%      running the application App. If none of the candidate nodes
-%%%      is running the application the function will make the test case
-%%%      calling this function fail. This function is the same as calling
-%%%      <code>app_node(App, Candidates, true)</code>.
-%%%
 app_node(App, Candidates) ->
     app_node(App, Candidates, true, []).
 
-%%% @spec app_node(App, Candidates, FailOnBadRPC) -> NodeName
-%%%
-%%%      App = atom() 
-%%%      Candidates = [NodeName]
-%%%      NodeName = atom() 
-%%%      FailOnBadRPC = true | false
-%%%
-%%% @doc Same as <code>app_node/2</code> only the <code>FailOnBadRPC</code>
-%%%      argument will determine if the search for a candidate node should
-%%%      stop or not if <code>badrpc</code> is received at some point. 
-%%%
 app_node(App, Candidates, FailOnBadRPC) ->
     app_node(App, Candidates, FailOnBadRPC, []).
 
-%%% @spec app_node(App, Candidates, FailOnBadRPC, Cookie) -> NodeName
-%%%
-%%%      App = atom() 
-%%%      Candidates = [NodeName]
-%%%      NodeName = atom() 
-%%%      FailOnBadRPC = true | false
-%%%      Cookie = atom()
-%%%
-%%% @doc Same as <code>app_node/2</code> only the <code>FailOnBadRPC</code>
-%%%      argument will determine if the search for a candidate node should
-%%%      stop or not if <code>badrpc</code> is received at some point. 
-%%%      The cookie on the client node will be set to <code>Cookie</code>
-%%%      for this rpc operation (use to match the server node cookie).
-%%%
 app_node(App, [], _, _) -> 
     ct:fail({application_not_running, App});
 
@@ -96,49 +57,12 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
 	    end
     end.
 
-%%% @spec call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
-%%% 
-%%% @doc Same as call(Node, Module, Function, Args, infinity)
-%%%
 call(Node, Module, Function, Args) ->
     call(Node, Module, Function, Args, infinity, []). 
 
-%%% @spec call(Node, Module, Function, Args, TimeOut) -> 
-%%%                                              term() | {badrpc, Reason}
-%%%      Node = NodeName | {Fun, FunArgs} 
-%%%      Fun = fun()
-%%%      FunArgs =  term()
-%%%      NodeName = atom() 
-%%%      Module = atom() 
-%%%      Function = atom()  
-%%%      Args = [term()]
-%%%      Reason = timeout | term() 
-%%%
-%%% @doc Evaluates apply(Module, Function, Args) on the node Node.
-%%% Returns whatever Function returns or {badrpc, Reason} if the
-%%% remote procedure call fails. If Node is {Fun, FunArgs} applying
-%%% Fun to FunArgs should return a node name.
 call(Node, Module, Function, Args, TimeOut) ->
     call(Node, Module, Function, Args, TimeOut, []).
 
-%%% @spec call(Node, Module, Function, Args, TimeOut, Cookie) -> 
-%%%                                              term() | {badrpc, Reason}
-%%%      Node = NodeName | {Fun, FunArgs} 
-%%%      Fun = fun()
-%%%      FunArgs =  term()
-%%%      NodeName = atom() 
-%%%      Module = atom() 
-%%%      Function = atom()  
-%%%      Args = [term()]
-%%%      Reason = timeout | term() 
-%%%      Cookie = atom()
-%%%
-%%% @doc Evaluates apply(Module, Function, Args) on the node Node.
-%%% Returns whatever Function returns or {badrpc, Reason} if the
-%%% remote procedure call fails. If Node is {Fun, FunArgs} applying
-%%% Fun to FunArgs should return a node name. 
-%%% The cookie on the client node will be set to <code>Cookie</code>
-%%% for this rpc operation (use to match the server node cookie).
 call({Fun, FunArgs}, Module, Function, Args, TimeOut, Cookie) ->
     Node = Fun(FunArgs),
     call(Node, Module, Function, Args, TimeOut, Cookie);
@@ -148,42 +72,9 @@ call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     _ = set_the_cookie(Cookie0),
     Result.    
 
-%%% @spec cast(Node, Module, Function, Args) -> ok
-%%%      Node = NodeName | {Fun, FunArgs} 
-%%%      Fun = fun()
-%%%      FunArgs =  term()
-%%%      NodeName = atom() 
-%%%      Module = atom()  
-%%%      Function = atom() 
-%%%      Args = [term()]
-%%%      Reason = timeout | term() 
-%%%
-%%% @doc Evaluates apply(Module, Function, Args) on the node Node.
-%%% No response is delivered and the process which makes the call is
-%%% not suspended until the evaluation is compleated as in the case of
-%%% call/[3,4]. If Node is {Fun, FunArgs} applying
-%%% Fun to FunArgs should return a node name.
 cast(Node, Module, Function, Args) ->
     cast(Node, Module, Function, Args, []).
 
-%%% @spec cast(Node, Module, Function, Args, Cookie) -> ok
-%%%      Node = NodeName | {Fun, FunArgs} 
-%%%      Fun = fun()
-%%%      FunArgs =  term()
-%%%      NodeName = atom() 
-%%%      Module = atom()  
-%%%      Function = atom() 
-%%%      Args = [term()]
-%%%      Reason = timeout | term() 
-%%%      Cookie = atom()
-%%%
-%%% @doc Evaluates apply(Module, Function, Args) on the node Node.
-%%% No response is delivered and the process which makes the call is
-%%% not suspended until the evaluation is compleated as in the case of
-%%% call/[3,4]. If Node is {Fun, FunArgs} applying
-%%% Fun to FunArgs should return a node name. 
-%%% The cookie on the client node will be set to <code>Cookie</code>
-%%% for this rpc operation (use to match the server node cookie).
 cast({Fun, FunArgs}, Module, Function, Args, Cookie) ->
     Node = Fun(FunArgs),
     cast(Node, Module, Function, Args, Cookie);
@@ -196,7 +87,6 @@ cast(Node, Module, Function, Args, Cookie) when is_atom(Node) ->
 
 %%%---------- Internal -----------
 
-%%% @hidden
 set_the_cookie([]) ->
     [];
 set_the_cookie(Cookie) ->

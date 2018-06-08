@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,12 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
-%%% @author Lukas Larsson <lukas@erlang-solutions.com>
-%%% @copyright (C) 2011, Erlang Solutions Ltd.
-%%% @doc
-%%%
-%%% @end
-%%% Created : 15 Feb 2011 by Lukas Larsson <lukas@erlang-solutions.com>
+%%% Author: Lukas Larsson <lukas@erlang-solutions.com>
 %%%-------------------------------------------------------------------
 -module(test_server_SUITE).
 

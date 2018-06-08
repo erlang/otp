@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%--------------------------------------------------------------------
 
-%%% @doc Common Test Framework functions handling test specifications.
+%%% Common Test Framework functions handling test specifications.
 %%%
-%%% <p>This module creates a junit report of the test run if plugged in
-%%% as a suite_callback.</p>
+%%% This module creates a junit report of the test run if plugged in
+%%% as a suite_callback.
 
 -module(cth_surefire).
 

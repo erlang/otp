@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,10 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module is a proxy for calling and handling common test hooks.</p>
 
 -module(ct_hooks).
 
@@ -47,14 +43,12 @@
 %% API Functions
 %% -------------------------------------------------------------------------
 
-%% @doc Called before any suites are started
 -spec init(State :: term()) -> ok |
 			       {fail, Reason :: term()}.
 init(Opts) ->
     call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
 
-%% @doc Called after all suites are done.
 -spec terminate(Hooks :: term()) ->
     ok.
 terminate(Hooks) ->
@@ -63,8 +57,6 @@ terminate(Hooks) ->
 	 ct_hooks_terminate_dummy, terminate, Hooks),
     ok.
 
-%% @doc Called as each test case is started. This includes all configuration
-%% tests.
 -spec init_tc(Mod :: atom(),
 	      FuncSpec :: atom() | 
 			  {ConfigFunc :: init_per_testcase | end_per_testcase,
@@ -104,8 +96,6 @@ init_tc(Mod, {end_per_testcase,TC}, Config) ->
 init_tc(Mod, TC = error_in_suite, Config) ->
     call(fun call_generic_fallback/3, Config, [pre_init_per_testcase, Mod, TC]).
 
-%% @doc Called as each test case is completed. This includes all configuration
-%% tests.
 -spec end_tc(Mod :: atom(),
 	     FuncSpec :: atom() |  
 			 {ConfigFunc :: init_per_testcase | end_per_testcase,
