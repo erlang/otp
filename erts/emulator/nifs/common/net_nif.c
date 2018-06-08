@@ -24,6 +24,8 @@
  *
  */
 
+#define STATIC_ERLANG_NIF 1
+
 /* #include <stdio.h> */
 /* #include <stdlib.h> */
 /* #include <stdarg.h> */
@@ -262,6 +264,8 @@ typedef unsigned long long llu_t;
 #define MKT2(E,E1,E2)       enif_make_tuple2((E), (E1), (E2))
 #define MKT3(E,E1,E2,E3)    enif_make_tuple3((E), (E1), (E2), (E3))
 #define MKT4(E,E1,E2,E3,E4) enif_make_tuple4((E), (E1), (E2), (E3), (E4))
+#define MKT5(E,E1,E2,E3,E4,E5) \
+    enif_make_tuple5((E), (E1), (E2), (E3), (E4), (E5))
 #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \
     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
 
@@ -364,8 +368,11 @@ static ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 
 static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                                  const SockAddress* saP,
-                                 socklen_t          saLen,
+                                 SOCKLEN_T          saLen,
                                  int                flags);
+static ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
+                                 char*      host,
+                                 char*      serv);
 static ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
                                    char*      ifn);
 static ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
@@ -387,16 +394,16 @@ static void net_down(ErlNifEnv*           env,
 static BOOLEAN_T decode_in_sockaddr(ErlNifEnv*         env,
                                     const ERL_NIF_TERM eAddr,
                                     SockAddress*       saP,
-                                    socklen_t*         saLen);
+                                    SOCKLEN_T*         saLen);
 static BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
                                      const ERL_NIF_TERM* addrt,
                                      SockAddress*        saP,
-                                     socklen_t*          saLen);
+                                     SOCKLEN_T*          saLen);
 #if defined(HAVE_IN6) && defined(AF_INET6)
 static BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
                                      const ERL_NIF_TERM* addrt,
                                      SockAddress*        saP,
-                                     socklen_t*          saLen);
+                                     SOCKLEN_T*          saLen);
 #endif
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
@@ -404,9 +411,25 @@ static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
 static BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                                             const ERL_NIF_TERM eflags,
                                             int*               flags);
+static
+BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
+                                 const ERL_NIF_TERM eString,
+                                 char**             stringP);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                                         struct addrinfo* addrInfo);
 static unsigned int address_info_length(struct addrinfo* addrInfoP);
+
+static ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
+                                      struct addrinfo* addrInfoP);
+static ERL_NIF_TERM make_addrinfo_family(ErlNifEnv* env,
+                                         int        family);
+static ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
+                                       int        socktype);
+static ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
+                                        int        proto);
+static ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
+                                       struct sockaddr* addrP,
+                                       SOCKLEN_T        addrLen);
 
 static ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM val);
 // static ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2);
@@ -448,18 +471,25 @@ static const struct in6_addr in6addr_loopback =
 
 
 /* *** String constants *** */
+static char str_address_info[]              = "address_info";
 static char str_dgram[]                     = "dgram";
 static char str_error[]                     = "error";
 static char str_idn[]                       = "idn";
 static char str_idna_allow_unassigned[]     = "idna_allow_unassigned";
 static char str_idna_use_std3_ascii_rules[] = "idna_use_std3_ascii_rules";
+static char str_inet[]                      = "inet";
+static char str_inet6[]                     = "inet6";
+static char str_ip[]                        = "ip";
 static char str_namereqd[]                  = "namereqd";
 static char str_name_info[]                 = "name_info";
 static char str_nofqdn[]                    = "nofqdn";
 static char str_numerichost[]               = "numerichost";
 static char str_numericserv[]               = "numericserv";
 static char str_ok[]                        = "ok";
+static char str_stream[]                    = "stream";
+static char str_tcp[]                       = "tcp";
 static char str_true[]                      = "true";
+static char str_udp[]                       = "udp";
 static char str_undefined[]                 = "undefined";
 
 // static char str_lowdelay[]    = "lowdelay";
@@ -469,6 +499,7 @@ static char str_undefined[]                 = "undefined";
 
 /* (special) error string constants */
 // static char str_eafnosupport[]   = "eafnosupport";
+static char str_eaddrfamily[]       = "eaddrfamily";
 static char str_eagain[]            = "eagain";
 static char str_ebadflags[]         = "ebadflags";
 static char str_efail[]             = "efail";
@@ -476,10 +507,14 @@ static char str_efamily[]           = "efamily";
 static char str_einval[]            = "einval";
 // static char str_eisconn[]        = "eisconn";
 static char str_emem[]              = "emem";
+static char str_enodata[]           = "enodata";
 static char str_enoname[]           = "enoname";
 // static char str_enotclosing[]    = "enotclosing";
 // static char str_enotconn[]       = "enotconn";
 static char str_eoverflow[]         = "eoverflow";
+static char str_eservice[]          = "eservice";
+static char str_esocktype[]         = "esocktype";
+static char str_esystem[]           = "esystem";
 // static char str_exalloc[]        = "exalloc";
 // static char str_exbadstate[]     = "exbadstate";
 // static char str_exbusy[]         = "exbusy";
@@ -490,11 +525,15 @@ static char str_eoverflow[]         = "eoverflow";
 
 /* *** Atoms *** */
 
-static ERL_NIF_TERM atom_error;
+static ERL_NIF_TERM atom_address_info;
 static ERL_NIF_TERM atom_dgram;
+static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_idn;
 static ERL_NIF_TERM atom_idna_allow_unassigned;
 static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
+static ERL_NIF_TERM atom_inet;
+static ERL_NIF_TERM atom_inet6;
+static ERL_NIF_TERM atom_ip;
 static ERL_NIF_TERM atom_namereqd;
 static ERL_NIF_TERM atom_name_info;
 static ERL_NIF_TERM atom_nofqdn;
@@ -502,8 +541,11 @@ static ERL_NIF_TERM atom_numerichost;
 static ERL_NIF_TERM atom_numericserv;
 static ERL_NIF_TERM atom_ok;
 // static ERL_NIF_TERM atom_select;
+static ERL_NIF_TERM atom_stream;
 // static ERL_NIF_TERM atom_timeout;
+static ERL_NIF_TERM atom_tcp;
 static ERL_NIF_TERM atom_true;
+static ERL_NIF_TERM atom_udp;
 static ERL_NIF_TERM atom_undefined;
 
 // static ERL_NIF_TERM atom_lowdelay;
@@ -512,6 +554,7 @@ static ERL_NIF_TERM atom_undefined;
 // static ERL_NIF_TERM atom_mincost;
 
 // static ERL_NIF_TERM atom_eafnosupport;
+static ERL_NIF_TERM atom_eaddrfamily;
 static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_ebadflags;
 static ERL_NIF_TERM atom_efail;
@@ -519,10 +562,14 @@ static ERL_NIF_TERM atom_efamily;
 static ERL_NIF_TERM atom_einval;
 // static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_emem;
+static ERL_NIF_TERM atom_enodata;
 static ERL_NIF_TERM atom_enoname;
 // static ERL_NIF_TERM atom_enotclosing;
 // static ERL_NIF_TERM atom_enotconn;
 static ERL_NIF_TERM atom_eoverflow;
+static ERL_NIF_TERM atom_eservice;
+static ERL_NIF_TERM atom_esocktype;
+static ERL_NIF_TERM atom_esystem;
 // static ERL_NIF_TERM atom_exalloc;
 // static ERL_NIF_TERM atom_exbadstate;
 // static ERL_NIF_TERM atom_exbusy;
@@ -620,7 +667,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
     unsigned int eFlags;
     int          flags = 0; // Just in case...
     SockAddress  sa;
-    socklen_t    saLen = 0; // Just in case...
+    SOCKLEN_T    saLen = 0; // Just in case...
 
     if ((argc != 2) ||
         !GET_UINT(env, argv[1], &eFlags)) {
@@ -645,14 +692,14 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 static
 ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                           const SockAddress* saP,
-                          socklen_t          saLen,
+                          SOCKLEN_T          saLen,
                           int                flags)
 {
     ERL_NIF_TERM result;
     char         host[HOSTNAME_LEN];
-    socklen_t    hostLen = sizeof(host);
+    SOCKLEN_T    hostLen = sizeof(host);
     char         serv[SERVICE_LEN];
-    socklen_t    servLen = sizeof(serv);
+    SOCKLEN_T    servLen = sizeof(serv);
 
     int res = getnameinfo((struct sockaddr*) saP, saLen,
                           host, hostLen,
@@ -729,7 +776,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM     result;
+    ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
     char*            servName;
     // struct addrinfo* hints;
@@ -739,7 +786,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     }
     eHostName = argv[0];
     eServName = argv[1];
-    eHints    = argv[2];
+    // eHints    = argv[2];
 
     if (!decode_addrinfo_string(env, eHostName, &hostName))
         return enif_make_badarg(env);
@@ -773,10 +820,11 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
 
 
 static
-ERL_NIF_TERM nifgetaddrinfo(ErlNifEnv* env,
-                            char*      host,
-                            char*      serv)
+ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
+                          char*      host,
+                          char*      serv)
 {
+    ERL_NIF_TERM     result;
     struct addrinfo* addrInfoP;
     int              res;
 
@@ -823,7 +871,7 @@ ERL_NIF_TERM nifgetaddrinfo(ErlNifEnv* env,
         result = make_error(env, atom_enoname);
         break;
 
-    case EAI_SERCVICE:
+    case EAI_SERVICE:
         result = make_error(env, atom_eservice);
         break;
 
@@ -1041,7 +1089,7 @@ static
 BOOLEAN_T decode_in_sockaddr(ErlNifEnv*         env,
                              const ERL_NIF_TERM eAddr,
                              SockAddress*       saP,
-                             socklen_t*         saLen)
+                             SOCKLEN_T*         saLen)
 {
     const ERL_NIF_TERM* addrt;
     int                 addrtSz;
@@ -1078,7 +1126,7 @@ static
 BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
                               const ERL_NIF_TERM* addrt,
                               SockAddress*        saP,
-                              socklen_t*          saLen)
+                              SOCKLEN_T*          saLen)
 {
     unsigned int        len;
     char                tag[16]; // Just in case...
@@ -1146,7 +1194,7 @@ static
 BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
                               const ERL_NIF_TERM* addrt,
                               SockAddress*        saP,
-                              socklen_t*          saLen)
+                              SOCKLEN_T*          saLen)
 {
     unsigned int        len;
     char                tag[16]; // Just in case...
@@ -1330,7 +1378,7 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
             result   = FALSE;
         }
 
-        bufP = ALLOC(len);
+        bufP = MALLOC(len);
 
         if (GET_STR(env, eString, bufP, len)) {
             *stringP = bufP;
@@ -1366,7 +1414,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
             array[i] = make_address_info(env, &addrInfo[i]);
         }
 
-        result = mkake_ok2(env, MKLA(env, array, len));
+        result = make_ok2(env, MKLA(env, array, len));
     } else {
         result = MKEL(env);
     }
@@ -1407,8 +1455,8 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
  * {address_info, Fam, Type, Proto, Addr}
  */
 static
-ERL_NIF_TERM make_adress_info(ErlNifEnv*       env,
-                              struct addrinfo* addrInfoP)
+ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
+                               struct addrinfo* addrInfoP)
 {
     ERL_NIF_TERM Fam   = make_addrinfo_family(env, addrInfoP->ai_family);
     ERL_NIF_TERM Type  = make_addrinfo_type(env,   addrInfoP->ai_socktype);
@@ -1530,35 +1578,41 @@ ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
 static
 ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
                                 struct sockaddr* addrP,
-                                socklen_t        addrLen)
+                                SOCKLEN_T        addrLen)
 {
     ERL_NIF_TERM port, addr, eaddr;
     SockAddress* p = (SockAddress*) addrP;
 
     switch (addrP->sa_family) {
     case AF_INET:
-        port = ntohs(p->in.sin_port);
-        addr = MKT4(env,
-                    MKI(env, p->in.sin_addr[0]),
-                    MKI(env, p->in.sin_addr[1]),
-                    MKI(env, p->in.sin_addr[2]),
-                    MKI(env, p->in.sin_addr[3]));
-        eaddr = MKT2(env, port, addr);
+        {
+            unsigned char* a = (unsigned char*) &p->in.sin_addr;
+            port = ntohs(p->in.sin_port);
+            addr = MKT4(env,
+                        MKI(env, a[0]),
+                        MKI(env, a[1]),
+                        MKI(env, a[2]),
+                        MKI(env, a[3]));
+            eaddr = MKT2(env, port, addr);
+        }
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
     case AF_INET6:
-        port = ntohs(p->in6.sin6_port);
-        addr = MKT8(env,
-                    MKI(env, p->in6.sin_addr[0]),
-                    MKI(env, p->in6.sin_addr[1]),
-                    MKI(env, p->in6.sin_addr[2]),
-                    MKI(env, p->in6.sin_addr[3]),
-                    MKI(env, p->in6.sin_addr[3]),
-                    MKI(env, p->in6.sin_addr[3]),
-                    MKI(env, p->in6.sin_addr[3]),
-                    MKI(env, p->in6.sin_addr[3]));
-        eaddr = MKT2(env, port, addr);
+        {
+            unsigned char* a = (unsigned char*) &p->in6.sin6_addr;
+            port = ntohs(p->in6.sin6_port);
+            addr = MKT8(env,
+                        MKI(env, get_int16(a)),
+                        MKI(env, get_int16(&a[ 2])),
+                        MKI(env, get_int16(&a[ 4])),
+                        MKI(env, get_int16(&a[ 6])),
+                        MKI(env, get_int16(&a[ 8])),
+                        MKI(env, get_int16(&a[10])),
+                        MKI(env, get_int16(&a[12])),
+                        MKI(env, get_int16(&a[14])));
+            eaddr = MKT2(env, port, addr);
+        }
         break;
 #endif
 
@@ -1713,6 +1767,7 @@ ErlNifFunc net_funcs[] =
 
     /* address and name translation in protocol-independent manner */
     {"nif_getnameinfo",         2, nif_getnameinfo,   0},
+    {"nif_getaddrinfo",         3, nif_getaddrinfo,   0},
 
     /* Network interface (name and/or index) functions */
     {"nif_if_name2index",       1, nif_if_name2index, 0},
@@ -1730,18 +1785,25 @@ static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     /* +++ Misc atoms +++ */
+    atom_address_info              = MKA(env, str_address_info);
     atom_dgram                     = MKA(env, str_dgram);
     atom_error                     = MKA(env, str_error);
     atom_idn                       = MKA(env, str_idn);
     atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
     atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
+    atom_inet                      = MKA(env, str_inet);
+    atom_inet6                     = MKA(env, str_inet6);
+    atom_ip                        = MKA(env, str_ip);
     atom_namereqd                  = MKA(env, str_namereqd);
     atom_name_info                 = MKA(env, str_name_info);
     atom_nofqdn                    = MKA(env, str_nofqdn);
     atom_numerichost               = MKA(env, str_numerichost);
     atom_numericserv               = MKA(env, str_numericserv);
     atom_ok                        = MKA(env, str_ok);
+    atom_stream                    = MKA(env, str_stream);
+    atom_tcp                       = MKA(env, str_tcp);
     atom_true                      = MKA(env, str_true);
+    atom_udp                       = MKA(env, str_udp);
     atom_undefined                 = MKA(env, str_undefined);
     // atom_version      = MKA(env, str_version);
 
@@ -1752,6 +1814,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     /* Error codes */
     // atom_eafnosupport = MKA(env, str_eafnosupport);
+    atom_eaddrfamily     = MKA(env, str_eaddrfamily);
     atom_eagain          = MKA(env, str_eagain);
     atom_ebadflags       = MKA(env, str_ebadflags);
     atom_efail           = MKA(env, str_efail);
@@ -1759,10 +1822,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_einval          = MKA(env, str_einval);
     // atom_eisconn      = MKA(env, str_eisconn);
     atom_emem            = MKA(env, str_emem);
+    atom_enodata         = MKA(env, str_enodata);
     atom_enoname         = MKA(env, str_enoname);
     // atom_enotclosing  = MKA(env, str_enotclosing);
     // atom_enotconn     = MKA(env, str_enotconn);
     atom_eoverflow       = MKA(env, str_eoverflow);
+    atom_eservice        = MKA(env, str_eservice);
+    atom_esocktype       = MKA(env, str_esocktype);
+    atom_esystem         = MKA(env, str_esystem);
     // atom_exalloc      = MKA(env, str_exalloc);
     // atom_exbadstate   = MKA(env, str_exbadstate);
     // atom_exbusy       = MKA(env, str_exbusy);

@@ -131,7 +131,7 @@ on_load(Path, Extra) when is_list(Path) andalso is_map(Extra) ->
 on_load(true, _Path, _Extra) ->
     ok;
 on_load(false, Path, Extra) ->
-    ok = erlang:load_nif(Path, maps:put(timestamp, formated_timestamp(), Extra)).
+    ok = erlang:load_nif(Path, Extra).
 
 
 
@@ -174,7 +174,7 @@ getnameinfo(SockAddr, Flags)
   when (is_record(SockAddr, in4_sockaddr) orelse
         is_record(SockAddr, in6_sockaddr)) andalso
        is_list(Flags) ->
-    nif_getnameinfo(SockAddr, EFlags).
+    nif_getnameinfo(SockAddr, Flags).
 
 
 %% ===========================================================================
@@ -254,30 +254,30 @@ if_names() ->
 %%
 %% ===========================================================================
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
 
-format_timestamp(Now) ->
-    N2T = fun(N) -> calendar:now_to_local_time(N) end,
-    format_timestamp(Now, N2T, true).
+%% format_timestamp(Now) ->
+%%     N2T = fun(N) -> calendar:now_to_local_time(N) end,
+%%     format_timestamp(Now, N2T, true).
 
-format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
-    FormatExtra = ".~.2.0w",
-    ArgsExtra   = [N3 div 10000],
-    format_timestamp(N, N2T, FormatExtra, ArgsExtra);
-format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
-    FormatExtra = "",
-    ArgsExtra   = [],
-    format_timestamp(N, N2T, FormatExtra, ArgsExtra).
+%% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
+%%     FormatExtra = ".~.2.0w",
+%%     ArgsExtra   = [N3 div 10000],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra);
+%% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
+%%     FormatExtra = "",
+%%     ArgsExtra   = [],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra).
 
-format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
-    {Date, Time}   = N2T(N),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
-                      [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
-    lists:flatten(FormatDate).
+%% format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
+%%     {Date, Time}   = N2T(N),
+%%     {YYYY,MM,DD}   = Date,
+%%     {Hour,Min,Sec} = Time,
+%%     FormatDate =
+%%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
+%%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
+%%     lists:flatten(FormatDate).
 
 
 %% ===========================================================================
