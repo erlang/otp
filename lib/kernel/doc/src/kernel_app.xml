@@ -54,9 +54,9 @@
     <p>Two standard logger handlers are defined in
       the Kernel application. These are described in the
       <seealso marker="logger_chapter">Kernel User's Guide</seealso>,
-      and in <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
+      and in the <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
       and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c>
-      </seealso>.</p>
+      </seealso> manual pages.</p>
   </section>
 
   <section>
@@ -166,57 +166,71 @@
       </item>
       <tag><marker id="logger"/><c>logger = [Config]</c></tag>
       <item>
-        <p>Specifies how <seealso marker="logger"><c>logger</c></seealso> should be
-          configured.</p>
-        <p>For more details and examples, see the <seealso marker="logger_chapter#logger">
-          Configuration</seealso> section in the <seealso marker="logger_chapter">
-          Logger User's Guide</seealso>.
-        </p>
+        <p>Specifies the configuration
+	  for <seealso marker="logger">Logger</seealso>, except the
+	  primary log level, which is specified
+	  with <seealso marker="#logger_level"><c>logger_level</c></seealso>,
+	  and the compatibility
+	  with <seealso marker="sasl:error_logging">SASL Error
+	  Logging</seealso>, which is specified
+	  with <seealso marker="#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seealso>.</p>
+        <p>The <c>logger </c> parameter is described in
+          section <seealso marker="logger_chapter#logger_parameter">
+	    Logging</seealso> in the Kernel User's Guide.</p>
       </item>
       <tag><marker id="logger_level"/><c>logger_level = Level</c></tag>
       <item>
-        <p><c>Level = emergency | alert | critical | error | warning |
-	    notice | info | debug</c></p>
-	  <p>This parameter specifies which log levels to log. The
-	    specified level, and all levels that are more severe, will
-	    be logged.</p>
-	  <p>The default value is <c>info</c>.</p>
-	  <p>To change the global log level at run-time, use
-            <seealso marker="logger#set_logger_config/2">
-            <c>logger:set_logger_config(level, error)</c></seealso>.</p>
+	<p>Specifies the primary log level for Logger. Log events with
+	  the same, or a more severe level, pass through the primary
+	  log level check. See
+	  section <seealso marker="logger_chapter">Logging</seealso>
+	  in the Kernel User's Guide for more information about Logger
+	  and log levels.</p>
+	<p><c>Level = emergency | alert | critical | error | warning |
+	    notice | info | debug | all | none</c></p>
+	<p>To change the primary log level at runtime, use
+          <seealso marker="logger#set_primary_config/2">
+            <c>logger:set_primary_config(level, Level)</c></seealso>.</p>
+	<p>Defaults to <c>info</c>.</p>
       </item>
       <tag><marker id="logger_sasl_compatible"/>
-	<c>logger_sasl_compatible = boolean()</c></tag>
+	<c>logger_sasl_compatible = true | false</c></tag>
       <item>
-	<p>If this parameter is set to true, then the <c>default</c> logger handler
-	  will not log any progress-, crash-, or supervisor reports.
-          If the SASL application is started,
-	  these log events will be sent to a second handler instance
-	  named <c>sasl</c>, according to values of the SASL
-	  configuration parameter <c>sasl_error_logger</c>
-	  and <c>sasl_errlog_type</c>, see
-	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">sasl(6)
-	</seealso></p>
-	<p>The default value is <c>false</c>.</p>
-	<p>See chapter <seealso marker="logger_chapter#compatibility">Backwards
-	  compatibility with error_logger</seealso> for more
-	  information about handling of the so called SASL reports.</p>
-        <note><p>This configuration option only effects the <c>default</c>
-          and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
-      </item>
-      <tag><marker id="logger_progress_reports"/>
-	<c>logger_progress_reports = stop | log</c></tag>
-      <item>
-	<p>If <c>logger_sasl_compatible = false</c>,
-	  then <c>logger_progress_reports</c> specifies if progress
-	  reports from <c>supervisor</c>
-	  and <c>application_controller</c> shall be logged by the
-          default logger.</p>
-	<p>If <c>logger_sasl_compatible = true</c>,
-	  then <c>logger_progress_reports</c> is ignored.</p>
-        <p>The default value is <c>stop</c></p>
-        <note><p>This configuration option only effects the <c>default</c>
-          and <c>sasl</c> handler. Any other handlers are uneffected.</p></note>
+	<p>Specifies if Logger behaves backwards compatible with the
+	  SASL error logging functionality from releases prior to
+	  Erlang/OTP 21.0.</p>
+	<p>If this parameter is set to <c>true</c>, the default Logger
+	  handler does not log any progress-, crash-, or supervisor
+	  reports. If the SASL application is then started, it adds a
+	  Logger handler named <c>sasl</c>, which logs these events
+	  according to values of the SASL configuration
+	  parameter <c>sasl_error_logger</c>
+	  and <c>sasl_errlog_type</c>.</p>
+	<p>See section
+	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">
+	    Deprecated Error Logger Event Handlers and
+	 Configuration</seealso> in the sasl(6) manual page for
+	 information about the SASL configuration parameters.</p>
+	<p>See section <seealso marker="sasl:error_logging">SASL Error
+	  Logging</seealso> in the SASL User's Guide, and
+	  section <seealso marker="logger_chapter#compatibility">Backwards
+	  Compatibility with error_logger</seealso> in the Kernel
+	  User's Guide for information about the SASL error logging
+	  functionality, and how Logger can be backwards compatible
+	  with this.</p>
+	<p>Defaults to <c>false</c>.</p>
+	<note>
+	  <p>If this parameter is set to <c>true</c>,
+	    <c>sasl_errlog_type</c> indicates that progress reports
+	    shall be logged, and the configured primary log level
+	    is <c>notice</c> or more severe, then SASL automatically
+	    sets the primary log level to <c>info</c>. That is, this
+	    setting can potentially overwrite the value of the Kernel
+	    configuration parameter <c>logger_level</c>. This is to
+	    allow progress reports, which have log level <c>info</c>,
+	    to be forwarded to the handlers.</p>
+	</note>
       </item>
       <tag><c>global_groups = [GroupTuple]</c></tag>
       <item>
@@ -269,9 +283,8 @@
       </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
-        <p>If set, no
-          <c>logger</c> messages are generated when erroneous
-          lines are found and skipped in the various Inet configuration
+        <p>If set, no log events are issued when erroneous lines are
+          found and skipped in the various Inet configuration
           files.</p>
       </item>
       <tag><c>inetrc = Filename</c></tag>
@@ -494,7 +507,7 @@ MaxT = TickTime + TickTime / 4</code>
       <seealso marker="logger_std_h#type"><c>logger_std_h</c></seealso>
       to the same value. Example:
       <code type="none">
-erl -kernel logger '[{handler,default,logger_std_h,#{logger_std_h=>#{type=>{file,"/tmp/erlang.log"}}}}]'
+erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{type=>{file,"/tmp/erlang.log"}}}}]'
       </code>
       </item>
       <tag><c>error_logger_format_depth</c></tag>

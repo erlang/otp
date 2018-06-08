@@ -4832,11 +4832,11 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>error_logger</c></tag>
           <item>
-            <p>When set to <c>true</c>, the runtime system sends a
-              message to the current <seealso marker="kernel:error_logger">
-              <c>error_logger</c></seealso>
+            <p>When set to <c>true</c>, the runtime system logs an
+              error event via <seealso marker="kernel:logger">
+              <c>logger</c></seealso>,
               containing details about the process when the maximum
-              heap size is reached. One <c>error_logger</c> report is sent
+              heap size is reached. One log event is sent
               each time the limit is reached.</p>
             <p>If <c>error_logger</c> is not defined in the map, the system
               default is used. The default system default is <c>true</c>.
@@ -4850,7 +4850,7 @@ RealSystem = system + MissedSystem</code>
           amount of memory that is used during the garbage collection. When
           contemplating using this option, it is recommended to first run
           it in production with <c>kill</c> set to <c>false</c> and inspect
-          the <c>error_logger</c> reports to see what the normal peak sizes
+          the log events to see what the normal peak sizes
           of the processes in the system is and then tune the value
           accordingly.
         </p>
@@ -7382,7 +7382,7 @@ ok
         <note><p>If a scheduler fails to bind, this is often silently
           ignored, as it is not always possible to verify valid
           logical processor identifiers. If an error is reported,
-          it is reported to <c>error_logger</c>. To verify that the
+          an error event is logged. To verify that the
           schedulers have bound as requested, call
           <seealso marker="#system_info_scheduler_bindings">
           <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>

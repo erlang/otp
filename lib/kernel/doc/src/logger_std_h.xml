@@ -54,7 +54,7 @@
        general configuration parameters, as documented in the
        <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
        </seealso>, as well as handler specific parameters. The specific parameters
-       are stored in a sub map with the key <c>logger_std_h</c>. The following
+       are stored in a sub map with the key <c>config</c>. The following
        keys and values may be specified:</p>
     <taglist>
       <tag><marker id="type"/><c>type</c></tag>
@@ -78,7 +78,7 @@
 	If <c>no_repeat</c> is set as value, the repeated file sync operation
 	is disabled, and it will be the operating system settings that determine
 	how quickly or slowly data gets written	to disk. The user can also call
-	the <seealso marker="logger_std_h#filesync-1"><c>filesync/1</c></seealso>
+	the <seealso marker="logger_std_h#sync-1"><c>sync/1</c></seealso>
         function to perform a file sync.</p></item>
     </taglist>
     <p>There are a number of other configuration parameters available, that are
@@ -99,26 +99,26 @@
 logger:add_handler(my_standard_h, logger_std_h,
                    #{level => info,
                      filter_default => log,
-                     logger_std_h =>
-                              #{type => {file,"./system_info.log"},
-                                filesync_repeat_interval => 1000}}).
+                     config =>
+		         #{type => {file,"./system_info.log"},
+                           filesync_repeat_interval => 1000}}).
     </code>
     <p>In order to configure the default handler (that starts initially with
     the Kernel application) to log to file instead of <c>standard_io</c>,
     change the Kernel default logger to use a file. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_std_h,
-                      #{ logger_std_h => #{ type => {file,"./log.log"}}}}]'
+                      #{config => #{type => {file,"./log.log"}}}}]'
     </code>
     <p>An example of how to replace the standard handler with a disk_log handler
-    at startup can be found in the manual of
+    at start up can be found in the manual of
     <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>.</p>
   </description>
 
   <funcs>
 
     <func>
-      <name name="filesync" arity="1" clause_i="1"/>
+      <name name="sync" arity="1" clause_i="1"/>
       <fsummary>Writes buffered data to disk.</fsummary>
       <desc>
         <p>Write buffered data to disk.</p>
@@ -129,8 +129,9 @@ erl -kernel logger '[{handler,default,logger_std_h,
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="logger"><c>logger(3)</c></seealso></p>
-    <p><seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seealso></p>
+    <p><seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seealso></p>
   </section>
 </erlref>
 

@@ -305,14 +305,22 @@ ok</pre>
       <type name="open_error"/>
       <desc>
         <p>Enables or disables printout of standard events to a file.</p>
-        <p>This is done by adding or deleting the standard event handler
-          for output to file. Thus, calling this function overrides
-          the value of the Kernel <c>error_logger</c> configuration
-          parameter.</p>
-        <p>Enabling file logging can be used together with calling
-          <c>tty(false)</c>, to have a silent system where
-          all standard events are logged to a file only.
-          Only one log file can be active at a time.</p>
+        <p>This is done by adding or deleting
+          the <c>error_logger_file_h</c> event handler, and thus
+          indirectly adding <c>error_logger</c> as a Logger
+          handler.</p>
+	<p>Notice that this function does not manipulate the Logger
+	  configuration directly, meaning that if the default Logger
+	  handler is already logging to a file, this function can
+	  potentially cause logging to a second file.</p>
+	<p>This function is useful as a shortcut during development
+	  and testing, but must not be used in a production
+	  system. See
+	  section <seealso marker="logger_chapter">Logging</seealso>
+	  in the Kernel User's Guide, and
+	  the <seealso marker="logger"><c>logger(3)</c></seealso>
+	  manual page for information about how to configure Logger
+	  for live systems.</p>
         <p><c>Request</c> is one of the following:</p>
         <taglist>
           <tag><c>{open, <anno>Filename</anno>}</c></tag>
@@ -344,9 +352,14 @@ ok</pre>
         <p>Enables (<c><anno>Flag</anno> == true</c>) or disables
           (<c><anno>Flag</anno> == false</c>) printout of standard events
 	  to the terminal.</p>
-        <p>This is done by adding or deleting the standard event handler
-          for output to the terminal. Thus, calling this function overrides
-          the value of the Kernel <c>error_logger</c> configuration parameter.</p>
+	<p>This is done by manipulating the Logger configuration. The
+	  function is useful as a shortcut during development and
+	  testing, but must not be used in a production system. See
+	  section <seealso marker="logger_chapter">Logging</seealso>
+	  in the Kernel User's Guide, and
+	  the <seealso marker="logger"><c>logger(3)</c></seealso>
+	  manual page for information about how to configure Logger
+	  for live systems.</p>
       </desc>
     </func>
     <func>

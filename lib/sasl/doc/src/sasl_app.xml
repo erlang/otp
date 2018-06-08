@@ -102,10 +102,11 @@
       reports</em>, <em>crash reports</em>, and <em>progress
       reports</em>. These reports are now also printed by the default
       logger handler started by the Kernel application. Progress
-      reports are by default stopped by a filter, but can be
-      added by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_progress_reports">
-      <c>logger_progress_reports</c></seealso> to <c>log</c>.</p>
+      reports are by default stopped by the primary log level, but can
+      be enabled by setting this level to <c>info</c>, for example by
+      using the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_level">
+      <c>logger_level</c></seealso>.</p>
     <p>If the old error logger event handlers are still desired, they
       must be added by
       calling <c>error_logger:add_report_handler/1,2</c>.</p>
@@ -131,14 +132,13 @@
     </taglist>
     <p>A similar behaviour, but still using the new logger API, can be
       obtained by setting the Kernel application environment
-      variable <seealso marker="kernel:kernel_app#logger_sasl_compatible"><c>logger_sasl_compatible=true</c></seealso>. This will add a
-      second instance of the standard logger handler
-      named <c>sasl</c>, which will only print the SASL reports. No
-      SASL reports will then be printed by the Kernel logger
-      handler.</p>
-    <p>The <c>sasl</c> handler will be configured according to the
-      values of the following SASL application environment
-      variables.</p>
+      variable <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso> to <c>true</c>. This
+      adds a second instance of the standard Logger handler,
+      named <c>sasl</c>, which only prints the SASL reports. No SASL
+      reports are then printed by the Kernel logger handler.</p>
+    <p>The <c>sasl</c> handler is configured according to the values
+      of the following SASL application environment variables.</p>
     <taglist>
       <tag><c><![CDATA[sasl_error_logger = Value ]]></c></tag>
       <item>

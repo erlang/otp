@@ -35,7 +35,8 @@
                     template=>template(),
                     time_designator=>byte(),
                     time_offset=>integer()|[byte()]}.
--type template() :: [atom()|tuple()|string()].
+-type template() :: [metakey()|{metakey(),template(),template()}|string()].
+-type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
 %%% API
