@@ -117,19 +117,14 @@ init_per_suite(Config) ->
                   ?MODULE_STRING ++ " ROOT CA", CertOptions),
             SSLConf =
                 [{verify, verify_peer},
-                 {fail_if_no_peer_cert, true},
                  {versions, [TLSVersion]},
                  {ciphers, [TLSCipher]}],
             ServerConf =
-                [{verify_fun,
-                  {fun inet_tls_dist:verify_client/3,
-                   fun inet_tls_dist:cert_nodes/1}}
+                [{fail_if_no_peer_cert, true},
+                 {verify_fun,
+                  {fun inet_tls_dist:verify_client/3,[]}}
                  | SSLConf],
-            ClientConf =
-                [{verify_fun,
-                  {fun inet_tls_dist:verify_server/3,
-                   fun inet_tls_dist:cert_nodes/1}}
-                 | SSLConf],
+            ClientConf = SSLConf,
             %%
             write_node_conf(
               NodeAConfFile, NodeA, ServerConf, ClientConf,

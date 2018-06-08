@@ -53,7 +53,7 @@
 
 %% Documented API functions.
 
--export([allow/1,
+-export([allow/1, allowed/0,
 	 connect_node/1,
 	 monitor_nodes/1,
 	 monitor_nodes/2,
@@ -170,6 +170,8 @@ kernel_apply(M,F,A) ->         request({apply,M,F,A}).
 -spec allow(Nodes) -> ok | error when
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
+
+allowed() ->                   request(allowed).
 
 longnames() ->                 request(longnames).
 
@@ -527,6 +529,9 @@ handle_call({allow, Nodes}, From, State) ->
 	false ->
 	    async_reply({reply,error,State}, From)
     end;
+
+handle_call(allowed, From, #state{allowed = Allowed} = State) ->
+    async_reply({reply,{ok,Allowed},State}, From);
 
 %%
 %% authentication, used by auth. Simply works as this:
