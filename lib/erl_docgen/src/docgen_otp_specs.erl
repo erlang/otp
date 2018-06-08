@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -658,6 +658,8 @@ ot_name(Es, T) ->
                             {atom,0,list_to_atom(Atom)},T]};
         "tuple" when T =:= [] ->
             {type,0,tuple,any};
+        "map" when T =:= [] ->
+            {type,0,map,any};
         Atom ->
             {type,0,list_to_atom(Atom),T}
     end.
