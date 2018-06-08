@@ -111,7 +111,7 @@ add_remove_handler(_Config) ->
     [add] = test_server:messages_get(),
     #{handlers:=Hs} = logger:i(),
     {value,_,Hs0} = lists:keytake(h1,1,Hs),
-    {ok,{?MODULE,#{level:=info,filters:=[],filter_default:=log}}} = % defaults
+    {ok,{?MODULE,#{level:=debug,filters:=[],filter_default:=log}}} = % defaults
         logger:get_handler_config(h1),
     ok = logger:set_handler_config(h1,filter_default,stop),
     [changing_config] = test_server:messages_get(),
@@ -209,13 +209,13 @@ add_remove_filter(cleanup,_Config) ->
 
 change_config(_Config) ->
     %% Overwrite handler config - check that defaults are added
-    ok = logger:add_handler(h1,?MODULE,#{level=>debug,custom=>custom}),
-    {ok,{?MODULE,#{level:=debug,filter_default:=log,custom:=custom}}} =
+    ok = logger:add_handler(h1,?MODULE,#{level=>info,custom=>custom}),
+    {ok,{?MODULE,#{level:=info,filter_default:=log,custom:=custom}}} =
         logger:get_handler_config(h1),
     register(callback_receiver,self()),
     ok = logger:set_handler_config(h1,#{filter_default=>stop}),
     [changing_config] = test_server:messages_get(),
-    {ok,{?MODULE,#{level:=info,filter_default:=stop}=C2}} =
+    {ok,{?MODULE,#{level:=debug,filter_default:=stop}=C2}} =
         logger:get_handler_config(h1),
     false = maps:is_key(custom,C2),
     {error,fail} = logger:set_handler_config(h1,#{conf_call=>fun() -> {error,fail} end}),

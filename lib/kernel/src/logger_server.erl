@@ -349,7 +349,7 @@ default_config(logger) ->
       filter_default=>log};
 default_config(Id) ->
     #{id=>Id,
-      level=>info,
+      level=>debug,
       filters=>[],
       filter_default=>log,
       formatter=>{?DEFAULT_FORMATTER,#{}}}.
