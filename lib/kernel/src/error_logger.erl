@@ -539,7 +539,7 @@ tty(true) ->
                         logger:add_handler(error_logger_tty_true,logger_std_h,
                                            #{filter_default=>stop,
                                              filters=>?DEFAULT_HANDLER_FILTERS(
-                                                         [beam,erlang,otp]),
+                                                         [otp]),
                                              formatter=>{?DEFAULT_FORMATTER,
                                                          ?DEFAULT_FORMAT_CONFIG},
                                              logger_std_h=>#{type=>standard_io}})

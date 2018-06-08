@@ -508,7 +508,7 @@ crash_report(Class, Reason, StartF, Stacktrace) ->
     ?LOG_ERROR(#{label=>{proc_lib,crash},
                  report=>[my_info(Class, Reason, StartF, Stacktrace),
                           linked_info(self())]},
-               #{domain=>[beam,erlang,otp,sasl],
+               #{domain=>[otp,sasl],
                  report_cb=>fun proc_lib:report_cb/1,
                  logger_formatter=>#{title=>"CRASH REPORT"},
                  error_logger=>#{tag=>error_report,type=>crash_report}}).

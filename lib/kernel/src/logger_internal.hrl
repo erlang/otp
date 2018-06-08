@@ -23,8 +23,7 @@
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
 -define(STANDARD_HANDLER, default).
--define(DEFAULT_HANDLER_FILTERS,
-        ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
+-define(DEFAULT_HANDLER_FILTERS,?DEFAULT_HANDLER_FILTERS([otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
         [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
          {domain,{fun logger_filters:domain/2,{log,super,Domain}}},

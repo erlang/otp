@@ -645,7 +645,7 @@ try_dispatch(Mod, Func, Msg, State) ->
                        #{label=>{gen_server,no_handle_info},
                          module=>Mod,
                          message=>Msg},
-                       #{domain=>[beam,erlang,otp],
+                       #{domain=>[otp],
                          report_cb=>fun gen_server:format_log/1,
                          error_logger=>#{tag=>warning_msg}}),
                     {ok, {noreply, State}};
@@ -891,7 +891,7 @@ error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
                  state=>format_status(terminate, Mod, get(), State),
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/1,
                  error_logger=>#{tag=>error}}),
     sys:print_log(Debug),

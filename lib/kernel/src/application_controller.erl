@@ -1914,7 +1914,7 @@ info_started(Name, Node) ->
     ?LOG_INFO(#{label=>{application_controller,progress},
                 report=>[{application, Name},
                          {started_at, Node}]},
-              #{domain=>[beam,erlang,otp,sasl],
+              #{domain=>[otp,sasl],
                 report_cb=>fun logger:format_otp_report/1,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
                 error_logger=>#{tag=>info_report,type=>progress}}).
@@ -1924,7 +1924,7 @@ info_exited(Name, Reason, Type) ->
                 report=>[{application, Name},
                          {exited, Reason},
                          {type, Type}]},
-              #{domain=>[beam,erlang,otp],
+              #{domain=>[otp],
                 report_cb=>fun logger:format_otp_report/1,
                 error_logger=>#{tag=>info_report,type=>std_info}}).
 

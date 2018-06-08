@@ -136,7 +136,7 @@ start_log_handler() ->
 init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.
 
-log(#{msg:={report,Msg},meta:=#{domain:=[beam,erlang,otp,sasl]}}=Log,Config) ->
+log(#{msg:={report,Msg},meta:=#{domain:=[otp,sasl]}}=Log,Config) ->
     case whereis(sasl_sup) of
 	undefined ->
 	    ok; % sasl application is not started
@@ -162,7 +162,7 @@ log(#{msg:={report,Msg},meta:=#{domain:=[beam,erlang,otp,sasl]}}=Log,Config) ->
                     do_log(add_log_category(Log,sasl),Config)
             end
     end;
-log(#{meta:=#{domain:=[beam,erlang,otp]}}=Log,Config) ->
+log(#{meta:=#{domain:=[otp]}}=Log,Config) ->
     do_log(add_log_category(Log,error_logger),Config);
 log(#{meta:=#{domain:=_}},_) ->
     ok;

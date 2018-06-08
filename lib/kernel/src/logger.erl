@@ -731,7 +731,7 @@ init_default_config(Type) ->
 get_default_handler_filters() ->
     case application:get_env(kernel, logger_sasl_compatible, false) of
         true ->
-            ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp]);
+            ?DEFAULT_HANDLER_FILTERS([otp]);
         false ->
             Extra =
                 case application:get_env(kernel, logger_progress_reports, stop) of
@@ -741,7 +741,7 @@ get_default_handler_filters() ->
                         [{stop_progress,
                           {fun logger_filters:progress/2,stop}}]
                 end,
-            Extra ++ ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp,sasl])
+            Extra ++ ?DEFAULT_HANDLER_FILTERS([otp,sasl])
     end.
 
 get_logger_env() ->

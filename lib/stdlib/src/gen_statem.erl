@@ -1900,7 +1900,7 @@ error_info(
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), S),
                  reason=>{Class,Reason,Stacktrace}},
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/1,
                  error_logger=>#{tag=>error}}).
 

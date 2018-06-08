@@ -139,7 +139,7 @@ add_sasl_logger(Dest, Level) ->
                                     {fun logger_filters:remote_gl/2,stop}},
                                    {sasl_domain,
                                     {fun logger_filters:domain/2,
-                                     {log,equal,[beam,erlang,otp,sasl]}}}],
+                                     {log,equal,[otp,sasl]}}}],
                               logger_std_h=>#{type=>Dest},
                               formatter=>{logger_formatter,FC}}).
 

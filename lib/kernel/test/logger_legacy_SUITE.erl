@@ -67,14 +67,12 @@ end_per_suite(_Config) ->
 init_per_group(std, Config) ->
     ok = logger:set_handler_config(
            error_logger,filters,
-           [{domain,{fun logger_filters:domain/2,
-                     {log,super,[beam,erlang,otp]}}}]),
+           [{domain,{fun logger_filters:domain/2,{log,super,[otp]}}}]),
     Config;
 init_per_group(sasl, Config) ->
     ok = logger:set_handler_config(
            error_logger,filters,
-           [{domain,{fun logger_filters:domain/2,
-                     {log,super,[beam,erlang,otp,sasl]}}}]),
+           [{domain,{fun logger_filters:domain/2,{log,super,[otp,sasl]}}}]),
 
     %% cth_log_redirect checks if sasl is started before displaying
     %% any sasl reports - so just to see the real sasl reports in tc
