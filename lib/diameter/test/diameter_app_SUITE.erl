@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -262,7 +262,9 @@ app(Mod) ->
         preloaded ->
             "erts";
         Path ->
-            unversion(lists:nth(3, lists:reverse(filename:split(Path))))
+            %% match to identify an unexpectedly short path
+            {_, _, [_,_,_|_] = Split} = {Mod, Path, filename:split(Path)},
+            unversion(lists:nth(3, lists:reverse(Split)))
     end.
 
 add_application(XRef, App) ->
