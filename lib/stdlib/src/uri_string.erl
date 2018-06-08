@@ -297,7 +297,10 @@
       NormalizedURI :: uri_string()
                      | error().
 normalize(URIMap) ->
-    normalize(URIMap, []).
+    try normalize(URIMap, [])
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 
 -spec normalize(URI, Options) -> NormalizedURI when
@@ -523,34 +526,34 @@ parse_relative_part(?STRING_REST("//", Rest), URI) ->
         {T, URI1} ->
             Userinfo = calculate_parsed_userinfo(Rest, T),
             URI2 = maybe_add_path(URI1),
-            URI2#{userinfo => decode_userinfo(Userinfo)}
+            URI2#{userinfo => Userinfo}
     catch
         throw:{_,_,_} ->
             {T, URI1} = parse_host(Rest, URI),
             Host = calculate_parsed_host_port(Rest, T),
             URI2 = maybe_add_path(URI1),
-            URI2#{host => decode_host(remove_brackets(Host))}
+            URI2#{host => remove_brackets(Host)}
     end;
 parse_relative_part(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-absolute
     Path = calculate_parsed_part(Rest, T),
-    URI1#{path => decode_path(?STRING_REST($/, Path))};
+    URI1#{path => ?STRING_REST($/, Path)};
 parse_relative_part(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
     URI2 = maybe_add_path(URI1),
-    URI2#{query => decode_query(Query)};
+    URI2#{query => Query};
 parse_relative_part(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
     URI2 = maybe_add_path(URI1),
-    URI2#{fragment => decode_fragment(Fragment)};
+    URI2#{fragment => Fragment};
 parse_relative_part(?STRING_REST(Char, Rest), URI) ->
     case is_segment_nz_nc(Char) of
         true ->
             {T, URI1} = parse_segment_nz_nc(Rest, URI),  % path-noscheme
             Path = calculate_parsed_part(Rest, T),
-            URI1#{path => decode_path(?STRING_REST(Char, Path))};
+            URI1#{path => ?STRING_REST(Char, Path)};
         false -> throw({error,invalid_uri,[Char]})
     end.
 
@@ -593,11 +596,11 @@ parse_segment(?STRING_REST($/, Rest), URI) ->
 parse_segment(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_segment(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_segment(?STRING_REST(Char, Rest), URI) ->
     case is_pchar(Char) of
         true -> parse_segment(Rest, URI);
@@ -616,11 +619,11 @@ parse_segment_nz_nc(?STRING_REST($/, Rest), URI) ->
 parse_segment_nz_nc(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_segment_nz_nc(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_segment_nz_nc(?STRING_REST(Char, Rest), URI) ->
     case is_segment_nz_nc(Char) of
         true -> parse_segment_nz_nc(Rest, URI);
@@ -709,31 +712,31 @@ parse_hier(?STRING_REST("//", Rest), URI) ->
     try parse_userinfo(Rest, URI) of
         {T, URI1} ->
             Userinfo = calculate_parsed_userinfo(Rest, T),
-	    {Rest, URI1#{userinfo => decode_userinfo(Userinfo)}}
+	    {Rest, URI1#{userinfo => Userinfo}}
     catch
         throw:{_,_,_} ->
             {T, URI1} = parse_host(Rest, URI),
             Host = calculate_parsed_host_port(Rest, T),
-	    {Rest, URI1#{host => decode_host(remove_brackets(Host))}}
+	    {Rest, URI1#{host => remove_brackets(Host)}}
     end;
 parse_hier(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-absolute
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_hier(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_hier(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_hier(?STRING_REST(Char, Rest), URI) ->  % path-rootless
     case is_pchar(Char) of
         true ->  % segment_nz
             {T, URI1} = parse_segment(Rest, URI),
             Path = calculate_parsed_part(Rest, T),
-            {Rest, URI1#{path => decode_path(?STRING_REST(Char, Path))}};
+            {Rest, URI1#{path => ?STRING_REST(Char, Path)}};
         false -> throw({error,invalid_uri,[Char]})
     end;
 parse_hier(?STRING_EMPTY, URI) ->
@@ -770,7 +773,7 @@ parse_userinfo(?CHAR($@), URI) ->
 parse_userinfo(?STRING_REST($@, Rest), URI) ->
     {T, URI1} = parse_host(Rest, URI),
     Host = calculate_parsed_host_port(Rest, T),
-    {Rest, URI1#{host => decode_host(remove_brackets(Host))}};
+    {Rest, URI1#{host => remove_brackets(Host)}};
 parse_userinfo(?STRING_REST(Char, Rest), URI) ->
     case is_userinfo(Char) of
         true -> parse_userinfo(Rest, URI);
@@ -836,20 +839,25 @@ parse_host(?STRING_REST($:, Rest), URI) ->
 parse_host(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_host(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_host(?STRING_REST($[, Rest), URI) ->
     parse_ipv6_bin(Rest, [], URI);
 parse_host(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_host(?STRING_REST(Char, Rest), URI) ->
     case is_digit(Char) of
-        true -> parse_ipv4_bin(Rest, [Char], URI);
+        true ->
+            try parse_ipv4_bin(Rest, [Char], URI)
+            catch
+                throw:{_,_,_} ->
+                    parse_reg_name(?STRING_REST(Char, Rest), URI)
+            end;
         false -> parse_reg_name(?STRING_REST(Char, Rest), URI)
     end;
 parse_host(?STRING_EMPTY, URI) ->
@@ -865,15 +873,15 @@ parse_reg_name(?STRING_REST($:, Rest), URI) ->
 parse_reg_name(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_reg_name(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_reg_name(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_reg_name(?STRING_REST(Char, Rest), URI) ->
     case is_reg_name(Char) of
         true -> parse_reg_name(Rest, URI);
@@ -899,17 +907,17 @@ parse_ipv4_bin(?STRING_REST($/, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_ipv4_bin(?STRING_REST($?, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_ipv4_bin(?STRING_REST($#, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_ipv4_bin(?STRING_REST(Char, Rest), Acc, URI) ->
     case is_ipv4(Char) of
         true -> parse_ipv4_bin(Rest, [Char|Acc], URI);
@@ -961,15 +969,15 @@ parse_ipv6_bin_end(?STRING_REST($:, Rest), URI) ->
 parse_ipv6_bin_end(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_ipv6_bin_end(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_ipv6_bin_end(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_ipv6_bin_end(?STRING_REST(Char, Rest), URI) ->
     case is_ipv6(Char) of
         true -> parse_ipv6_bin_end(Rest, URI);
@@ -999,15 +1007,15 @@ validate_ipv6_address(Addr) ->
 parse_port(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
     Path = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
 parse_port(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     Query = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{query => decode_query(Query)}};
+    {Rest, URI1#{query => Query}};
 parse_port(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_port(?STRING_REST(Char, Rest), URI) ->
     case is_digit(Char) of
         true -> parse_port(Rest, URI);
@@ -1033,7 +1041,7 @@ parse_port(?STRING_EMPTY, URI) ->
 parse_query(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),
     Fragment = calculate_parsed_query_fragment(Rest, T),
-    {Rest, URI1#{fragment => decode_fragment(Fragment)}};
+    {Rest, URI1#{fragment => Fragment}};
 parse_query(?STRING_REST(Char, Rest), URI) ->
     case is_query(Char) of
         true -> parse_query(Rest, URI);
@@ -1087,6 +1095,31 @@ is_fragment(Char) -> is_pchar(Char).
 %%               / "*" / "+" / "," / ";" / "="
 %%
 %%-------------------------------------------------------------------------
+
+%% Return true if input char is reserved.
+-spec is_reserved(char()) -> boolean().
+is_reserved($:) -> true;
+is_reserved($/) -> true;
+is_reserved($?) -> true;
+is_reserved($#) -> true;
+is_reserved($[) -> true;
+is_reserved($]) -> true;
+is_reserved($@) -> true;
+
+is_reserved($!) -> true;
+is_reserved($$) -> true;
+is_reserved($&) -> true;
+is_reserved($') -> true;
+is_reserved($() -> true;
+is_reserved($)) -> true;
+
+is_reserved($*) -> true;
+is_reserved($+) -> true;
+is_reserved($,) -> true;
+is_reserved($;) -> true;
+is_reserved($=) -> true;
+is_reserved(_) -> false.
+
 
 %% Check if char is sub-delim.
 -spec is_sub_delim(char()) -> boolean().
@@ -1276,36 +1309,6 @@ byte_size_exl_head(Binary) -> byte_size(Binary) + 1.
 %%
 %%   pct-encoded = "%" HEXDIG HEXDIG
 %%-------------------------------------------------------------------------
--spec decode_userinfo(binary()) -> binary().
-decode_userinfo(Cs) ->
-    check_utf8(decode(Cs, fun is_userinfo/1, <<>>)).
-
--spec decode_host(binary()) -> binary().
-decode_host(Cs) ->
-    check_utf8(decode(Cs, fun is_host/1, <<>>)).
-
--spec decode_path(binary()) -> binary().
-decode_path(Cs) ->
-    check_utf8(decode(Cs, fun is_path/1, <<>>)).
-
--spec decode_query(binary()) -> binary().
-decode_query(Cs) ->
-    check_utf8(decode(Cs, fun is_query/1, <<>>)).
-
--spec decode_fragment(binary()) -> binary().
-decode_fragment(Cs) ->
-    check_utf8(decode(Cs, fun is_fragment/1, <<>>)).
-
-
-%% Returns Cs if it is utf8 encoded.
-check_utf8(Cs) ->
-    case unicode:characters_to_list(Cs) of
-        {incomplete,_,_} ->
-            throw({error,invalid_utf8,Cs});
-        {error,_,_} ->
-            throw({error,invalid_utf8,Cs});
-        _ -> Cs
-    end.
 
 %%-------------------------------------------------------------------------
 %% Percent-encode
@@ -1351,20 +1354,56 @@ encode_fragment(Cs) ->
 %%-------------------------------------------------------------------------
 %% Helper funtions for percent-decode
 %%-------------------------------------------------------------------------
-decode(<<$%,C0,C1,Cs/binary>>, Fun, Acc) ->
+
+-spec decode(list()|binary()) -> list() | binary().
+decode(Cs) ->
+    decode(Cs, <<>>).
+%%
+decode(L, Acc) when is_list(L) ->
+    B0 = unicode:characters_to_binary(L),
+    B1 = decode(B0, Acc),
+    unicode:characters_to_list(B1);
+decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
-            decode(Cs, Fun, <<Acc/binary, B>>);
+            case is_reserved(B) of
+                true ->
+                    %% [2.2] Characters in the reserved set are protected from
+                    %% normalization.
+                    %% [2.1] For consistency, URI producers and normalizers should
+                    %% use uppercase hexadecimal digits for all percent-
+                    %% encodings.
+                    H0 = hex_to_upper(C0),
+                    H1 = hex_to_upper(C1),
+                    decode(Cs, <<Acc/binary,$%,H0,H1>>);
+                false ->
+                    decode(Cs, <<Acc/binary, B>>)
+            end;
         false -> throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
     end;
-decode(<<C,Cs/binary>>, Fun, Acc) ->
-    case Fun(C) of
-        true -> decode(Cs, Fun, <<Acc/binary, C>>);
-        false -> throw({error,invalid_percent_encoding,<<C,Cs/binary>>})
-    end;
-decode(<<>>, _Fun, Acc) ->
-    Acc.
+decode(<<C,Cs/binary>>, Acc) ->
+    decode(Cs, <<Acc/binary, C>>);
+decode(<<>>, Acc) ->
+    check_utf8(Acc).
+
+%% Returns Cs if it is utf8 encoded.
+check_utf8(Cs) ->
+    case unicode:characters_to_list(Cs) of
+        {incomplete,_,_} ->
+            throw({error,invalid_utf8,Cs});
+        {error,_,_} ->
+            throw({error,invalid_utf8,Cs});
+        _ -> Cs
+    end.
+
+%% Convert hex digit to uppercase form
+hex_to_upper(H) when $a =< H, H =< $f ->
+    H - 32;
+hex_to_upper(H) when $0 =< H, H =< $9;$A =< H, H =< $F->
+    H;
+hex_to_upper(H) ->
+    throw({error,invalid_input, H}).
 
 %% Check if char is allowed in host
 -spec is_host(char()) -> boolean().
@@ -1925,9 +1964,10 @@ base10_decode_unicode(<<H,_/binary>>, _, _) ->
 %%-------------------------------------------------------------------------
 
 normalize_map(URIMap) ->
-      normalize_path_segment(
-        normalize_scheme_based(
-          normalize_case(URIMap))).
+    normalize_path_segment(
+      normalize_scheme_based(
+        normalize_percent_encoding(
+          normalize_case(URIMap)))).
 
 
 %% 6.2.2.1.  Case Normalization
@@ -1940,6 +1980,18 @@ normalize_case(#{scheme := Scheme} = Map) ->
     Map#{scheme => to_lower(Scheme)};
 normalize_case(#{} = Map) ->
     Map.
+
+
+%% 6.2.2.2.  Percent-Encoding Normalization
+normalize_percent_encoding(Map) ->
+    Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
+                         K =:= query; K =:= fragment ->
+                  decode(V);
+              %% Handle port and scheme
+              (_,V) ->
+                  V
+          end,
+    maps:map(Fun, Map).
 
 
 to_lower(Cs) when is_list(Cs) ->
