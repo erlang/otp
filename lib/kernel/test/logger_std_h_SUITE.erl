@@ -226,11 +226,17 @@ errors(Config) ->
         logger:add_handler(?MODULE,logger_std_h,
                            #{config => #{type => faulty_type}}),
 
-    NoDir = lists:concat(["/",?MODULE,"_dir"]),
-    {error,
-     {handler_not_added,{{open_failed,NoDir,eacces},_}}} =
-        logger:add_handler(myh2,logger_std_h,
-                           #{config=>#{type=>{file,NoDir}}}),
+    case os:type() of
+        {win32,_} ->
+            %% No use in testing file access on windows
+            ok;
+        _ ->
+            NoDir = lists:concat(["/",?MODULE,"_dir"]),
+            {error,
+             {handler_not_added,{{open_failed,NoDir,eacces},_}}} =
+                logger:add_handler(myh2,logger_std_h,
+                                   #{config=>#{type=>{file,NoDir}}})
+    end,
 
     {error,
      {handler_not_added,{{open_failed,Log,_},_}}} =
