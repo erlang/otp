@@ -155,6 +155,14 @@
 # define HAVE_EC
 #endif
 
+// (test for == 1.1.1pre8)
+#if OPENSSL_VERSION_NUMBER == (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
+    && !defined(HAS_LIBRESSL) \
+    && defined(HAVE_EC)
+// EXPERIMENTAL:
+# define HAVE_EDDH
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c')
 # define HAVE_AES_IGE
 #endif
@@ -501,6 +509,9 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -581,6 +592,10 @@ static ErlNifFunc nif_funcs[] = {
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
     {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
+
+    {"evp_compute_key_nif", 3, evp_compute_key_nif},
+    {"evp_generate_key_nif", 1, evp_generate_key_nif},
+
     {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
@@ -668,6 +683,13 @@ static ERL_NIF_TERM atom_blowfish_ecb;
 static ERL_NIF_TERM atom_rsa;
 static ERL_NIF_TERM atom_dss;
 static ERL_NIF_TERM atom_ecdsa;
+
+#ifdef HAVE_EDDH
+static ERL_NIF_TERM atom_eddh;
+static ERL_NIF_TERM atom_x25519;
+static ERL_NIF_TERM atom_x448;
+#endif
+
 static ERL_NIF_TERM atom_rsa_mgf1_md;
 static ERL_NIF_TERM atom_rsa_oaep_label;
 static ERL_NIF_TERM atom_rsa_oaep_md;
@@ -1075,6 +1097,11 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_rsa = enif_make_atom(env,"rsa");
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
+#ifdef HAVE_EDDH
+    atom_eddh = enif_make_atom(env,"eddh");
+    atom_x25519 = enif_make_atom(env,"x25519");
+    atom_x448 = enif_make_atom(env,"x448");
+#endif
     atom_rsa_mgf1_md = enif_make_atom(env,"rsa_mgf1_md");
     atom_rsa_oaep_label = enif_make_atom(env,"rsa_oaep_label");
     atom_rsa_oaep_md = enif_make_atom(env,"rsa_oaep_md");
@@ -1119,6 +1146,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_key_id = enif_make_atom(env,"key_id");
     atom_password = enif_make_atom(env,"password");
 #endif
+
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
@@ -1211,11 +1239,13 @@ static void unload(ErlNifEnv* env, void* priv_data)
 static int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
-static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
+static ERL_NIF_TERM algo_pubkey[11]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
 static int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[2]; /* increase when extending the list */
+static int algo_curve_cnt, algo_curve_fips_cnt;
+static ERL_NIF_TERM algo_curve[87]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -1253,6 +1283,9 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
     // Non-validated algorithms follow
     algo_pubkey_fips_cnt = algo_pubkey_cnt;
+#ifdef HAVE_EDDH
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
+#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     // Validated algorithms first
@@ -1308,10 +1341,23 @@ static void init_algorithms_types(ErlNifEnv* env)
     // Non-validated algorithms follow
     algo_mac_fips_cnt = algo_mac_cnt;
 
+
+    // Validated algorithms first
+    algo_curve_cnt = 0;
+    // Non-validated algorithms follow
+    algo_curve_fips_cnt = algo_curve_cnt;
+    //--
+#ifdef HAVE_EDDH
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
+#endif
+
+    // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1322,17 +1368,20 @@ static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
     int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
     int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
+    int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
 #else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
     int mac_cnt    = algo_mac_cnt;
+    int curve_cnt    = algo_curve_cnt;
 #endif
-    return enif_make_tuple4(env,
-			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
+    return enif_make_tuple5(env,
+                            enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
 			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
-			    enif_make_list_from_array(env, algo_mac,    mac_cnt)
+                            enif_make_list_from_array(env, algo_mac,    mac_cnt),
+			    enif_make_list_from_array(env, algo_curve,  curve_cnt)
                             );
 }
 
@@ -1752,6 +1801,7 @@ static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ret;
 }
 #endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
+
 
 static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) or (Type, Key, Data, MacSize) */
@@ -3813,6 +3863,123 @@ out:
 out_err:
     ret = enif_make_badarg(env);
     goto out;
+#else
+    return atom_notsup;
+#endif
+}
+
+// EXPERIMENTAL!
+static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+    /*    (Curve, PeerBin, MyBin) */
+{
+#ifdef HAVE_EDDH
+    int type;
+    EVP_PKEY_CTX *ctx;
+    ErlNifBinary peer_bin, my_bin, key_bin;
+    EVP_PKEY *peer_key, *my_key;
+    size_t max_size;
+
+    if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
+    else if (argv[0] == atom_x448) type = EVP_PKEY_X448;
+    else return enif_make_badarg(env);
+
+    if (!enif_inspect_binary(env, argv[1], &peer_bin) ||
+        !enif_inspect_binary(env, argv[2], &my_bin)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) ||
+        !(ctx = EVP_PKEY_CTX_new(my_key, NULL))) {
+	return enif_make_badarg(env);
+    }
+
+    if (!EVP_PKEY_derive_init(ctx)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) ||
+        !EVP_PKEY_derive_set_peer(ctx, peer_key)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!EVP_PKEY_derive(ctx, NULL, &max_size)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!enif_alloc_binary(max_size, &key_bin) ||
+        !EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size)) {
+	return enif_make_badarg(env);
+    }
+
+    if (key_bin.size < max_size) {
+        size_t actual_size = key_bin.size;
+        if (!enif_realloc_binary(&key_bin, actual_size)) {
+            return enif_make_badarg(env);
+        }
+    }
+
+    return enif_make_binary(env, &key_bin);
+
+/* Importing the other side's public key from raw binary format can be done with the EVP_PKEY_new_raw_public_key() function. Man page here: */
+/* https://www.openssl.org/docs/man1.1.1/man3/EVP_PKEY_new_raw_public_key.html */
+
+
+/* You need two EVP_PKEY objects. One containing your private/public key pair (i.e. the one you generated in the EVP_PKEY_keygen() call in your question), and one containing the public key of the peer (e.g. created using EVP_PKEY_new_raw_public_key()). To generate the X25519 shared secret you then call EVP_PKEY_derive(). See the example on the man page: openssl.org/docs/man1.1.1/man3/EVP_PKEY_derive.html – Matt Caswell May 15 at 20:39 */
+
+#else
+    return atom_notsup;
+#endif
+}
+
+// EXPERIMENTAL!
+static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+/* (Curve) */
+{
+#ifdef HAVE_EDDH
+    int type;
+    EVP_PKEY_CTX *ctx;
+    EVP_PKEY *pkey = NULL;
+    ERL_NIF_TERM ret_pub, ret_prv;
+    size_t key_len;
+
+    if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
+    else if (argv[0] == atom_x448) type = EVP_PKEY_X448;
+    else return enif_make_badarg(env);
+
+    if (!(ctx = EVP_PKEY_CTX_new_id(type, NULL))) return enif_make_badarg(env);
+
+    if (!EVP_PKEY_keygen_init(ctx)) return enif_make_atom(env,"EVP_PKEY_keygen_init failed");
+    if (!EVP_PKEY_keygen(ctx, &pkey)) return enif_make_atom(env,"EVP_PKEY_keygen failed");
+
+    /*
+      int EVP_PKEY_get_raw_private_key(const EVP_PKEY *pkey, unsigned char *priv, size_t *len)
+      int EVP_PKEY_get_raw_public_key(const EVP_PKEY *pkey, unsigned char *pub, size_t *len)
+
+      +EVP_PKEY_get_raw_private_key() fills the buffer provided by B<priv> with raw
+      +private key data. The number of bytes written is populated in B<*len>. If the
+      +buffer B<priv> is NULL then B<*len> is populated with the number of bytes
+      +required in the buffer. The calling application is responsible for ensuring that
+      +the buffer is large enough to receive the private key data. This function only
+      +works for algorithms that support raw private keys. Currently this is:
+      +B<EVP_PKEY_HMAC>, B<EVP_PKEY_POLY1305>, B<EVP_PKEY_SIPHASH>, B<EVP_PKEY_X25519>,
+      +B<EVP_PKEY_ED25519>, B<EVP_PKEY_X448> or B<EVP_PKEY_ED448>.
+    */
+
+    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len))
+        return enif_make_atom(env,"EVP_PKEY_get_raw_public_key 1 failed");
+    if (!EVP_PKEY_get_raw_public_key(pkey,
+                                     enif_make_new_binary(env, key_len, &ret_pub),
+                                     &key_len))
+        return enif_make_atom(env,"EVP_PKEY_get_raw_public_key 2 failed");
+
+    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len))
+        return enif_make_atom(env,"EVP_PKEY_get_raw_private_key 1 failed");
+    if (!EVP_PKEY_get_raw_private_key(pkey,
+                                      enif_make_new_binary(env, key_len, &ret_prv),
+                                      &key_len))
+        return enif_make_atom(env,"EVP_PKEY_get_raw_private_key 2 failed");
+
+    return enif_make_tuple2(env, ret_pub, ret_prv);
 #else
     return atom_notsup;
 #endif

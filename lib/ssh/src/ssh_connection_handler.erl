@@ -1770,6 +1770,10 @@ set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams
     case catch atom_to_list(kex(SshParams)) of
 	"ecdh-sha2-" ++ _ ->
 	    <<"ecdh",Msg/binary>>;
+        "curve25519-" ++ _ ->
+	    <<"ecdh",Msg/binary>>;
+        "curve448-" ++ _ ->
+	    <<"ecdh",Msg/binary>>;
 	"diffie-hellman-group-exchange-" ++ _ ->
 	    <<"dh_gex",Msg/binary>>;
 	"diffie-hellman-group" ++ _ ->
