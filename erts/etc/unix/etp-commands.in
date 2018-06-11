@@ -1346,7 +1346,6 @@ define etp-sigq-int
     else
       if $etp_sig_save_last && *$etp_sig_save_last == $etp_sig
 	printf " %% <== SAVED_LAST"
-      else
       end
     end
     if $etp_sig_next
