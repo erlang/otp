@@ -893,7 +893,8 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 			   proplists:proplist()) -> boolean().
 
 -type referenceIDs() :: [referenceID()] .
--type referenceID() :: {uri_id | dns_id | ip | srv_id | oid(),  string()} .
+-type referenceID() :: {uri_id | dns_id | ip | srv_id | oid(),  string()} 
+                     | {ip, inet:ip_address()} .
 
 -spec pkix_verify_hostname_match_fun(high_level_alg()) -> match_fun() .
 
