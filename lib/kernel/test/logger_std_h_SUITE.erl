@@ -79,6 +79,18 @@ init_per_testcase(TestHooksCase, Config) when
             ct:print("********** ~w **********", [TestHooksCase]),
             Config
     end;
+init_per_testcase(OPCase, Config) when
+      OPCase == qlen_kill_new;
+      OPCase == restart_after ->
+    case re:run(erlang:system_info(system_version),
+                "dirty-schedulers-TEST",
+                [{capture,none}]) of
+        match ->
+            {skip,"Overload protection test skipped on dirty-schedulers-TEST"};
+        nomatch ->
+            ct:print("********** ~w **********", [OPCase]),
+            Config
+    end;
 init_per_testcase(TestCase, Config) ->
     ct:print("********** ~w **********", [TestCase]),
     Config.
