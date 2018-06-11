@@ -131,6 +131,8 @@ print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str) when is_tuple(Term);
     %% use Len as CHAR_MAX if M0 = -1
     M = max_cs(M0, Len),
     if
+        Ll =:= 0 ->
+            write(If);
         Len < Ll - Col, Len =< M ->
             %% write the whole thing on a single line when there is room
             write(If);
