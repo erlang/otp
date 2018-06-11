@@ -695,10 +695,10 @@ start_std_h_on_new_node(Config, Log) ->
     Node.
 
 %% functions for test hook macros to be called by rpc
-set_internal_log(Mod, Func) ->
-    ?set_internal_log({Mod,Func}).
-set_result(Op, Result) ->
-    ?set_result(Op, Result).
+set_internal_log(_Mod, _Func) ->
+    ?set_internal_log({_Mod,_Func}).
+set_result(_Op, _Result) ->
+    ?set_result(_Op, _Result).
 set_defaults() ->
     ?set_defaults().
 

@@ -214,6 +214,7 @@ logger_file(Config) ->
                       file,% dest
                       0),% progress in std logger
 
+    notice = maps:get(level,P),
     #{module:=logger_std_h} = StdC = find(?STANDARD_HANDLER,Hs),
     all = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
@@ -525,7 +526,7 @@ logger_many_handlers_default_last_broken_filter(Config) ->
               {logger_level,info}], LogErr, LogInfo, 7).
 
 logger_many_handlers(Config, Env, LogErr, LogInfo, NumProgress) ->
-    {ok,#{handlers:=Hs},Node} = setup(Config,Env),
+    {ok,_,Node} = setup(Config,Env),
     check_single_log(Node,LogErr,
                      file,% dest
                      0,% progress in std logger
