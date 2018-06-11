@@ -23,7 +23,8 @@
 %% Administrative and "global" utility functions
 -export([
 	 on_load/0, on_load/1, on_load/2,
-	 info/0
+	 info/0,
+         command/1
         ]).
 
 -export([
@@ -139,6 +140,12 @@ on_load(false, Path, Extra) ->
 
 info() ->
     nif_info().
+
+
+-spec command(Cmd :: term()) -> term().
+
+command(Cmd) ->
+    nif_command(Cmd).
 
 
 
@@ -290,6 +297,9 @@ nif_is_loaded() ->
     false.
 
 nif_info() ->
+    erlang:error(badarg).
+
+nif_command(_Cmd) ->
     erlang:error(badarg).
 
 nif_getnameinfo(_Addr, _Flags) ->

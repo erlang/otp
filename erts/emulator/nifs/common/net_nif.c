@@ -63,6 +63,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <netinet/ip.h>
+#include <time.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -317,6 +318,12 @@ typedef unsigned long long llu_t;
 #  define SOCKLEN_T size_t
 #endif
 
+#define NDEBUG( ___COND___ , proto ) \
+    if ( ___COND___ ) {              \
+        dbg_printf proto;            \
+        fflush(stdout);              \
+    }
+#define NDBG( proto ) NDEBUG( data.debug , proto )
 
 /* The general purpose socket address */
 typedef union {
@@ -330,6 +337,12 @@ typedef union {
 
 } SockAddress;
 
+typedef struct {
+    BOOLEAN_T debug;
+} NetData;
+
+
+static NetData data;
 
 
 /* ----------------------------------------------------------------------
@@ -347,6 +360,9 @@ static ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_command(ErlNifEnv*         env,
+                                int                argc,
+                                const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                                     int                argc,
@@ -366,6 +382,8 @@ static ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                                  int                argc,
                                  const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
+                             ERL_NIF_TERM cmd);
 static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                                  const SockAddress* saP,
                                  SOCKLEN_T          saLen,
@@ -415,6 +433,9 @@ static
 BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
                                  const ERL_NIF_TERM eString,
                                  char**             stringP);
+static ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
+                                ERL_NIF_TERM eBool,
+                                BOOLEAN_T*   bool);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                                         struct addrinfo* addrInfo);
 static unsigned int address_info_length(struct addrinfo* addrInfoP);
@@ -436,6 +457,10 @@ static ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM val);
 static ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 static ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason);
 static ERL_NIF_TERM make_error2(ErlNifEnv* env, int err);
+
+static void dbg_printf( const char* format, ... );
+static int  dbg_realtime(struct timespec* tsP);
+static int  dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts);
 
 /*
 static void xabort(const char* expr,
@@ -472,8 +497,10 @@ static const struct in6_addr in6addr_loopback =
 
 /* *** String constants *** */
 static char str_address_info[]              = "address_info";
+static char str_debug[]                     = "debug";
 static char str_dgram[]                     = "dgram";
 static char str_error[]                     = "error";
+static char str_false[]                     = "false";
 static char str_idn[]                       = "idn";
 static char str_idna_allow_unassigned[]     = "idna_allow_unassigned";
 static char str_idna_use_std3_ascii_rules[] = "idna_use_std3_ascii_rules";
@@ -526,8 +553,10 @@ static char str_esystem[]           = "esystem";
 /* *** Atoms *** */
 
 static ERL_NIF_TERM atom_address_info;
+static ERL_NIF_TERM atom_debug;
 static ERL_NIF_TERM atom_dgram;
 static ERL_NIF_TERM atom_error;
+static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_idn;
 static ERL_NIF_TERM atom_idna_allow_unassigned;
 static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
@@ -640,9 +669,87 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM info = enif_make_new_map(env);
+    ERL_NIF_TERM info;
+
+    NDBG( ("info -> entry\r\n") );
+
+    info = enif_make_new_map(env);
+
+    NDBG( ("info -> done\r\n") );
+
     return info;
 }
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_command
+ *
+ * Description:
+ * This is a general purpose utility function.
+ *
+ * Arguments:
+ * Command - This is a general purpose command, of any type.
+ *           Currently, the only supported command is:
+ *
+ *                  {debug, boolean()}
+ */
+static
+ERL_NIF_TERM nif_command(ErlNifEnv*         env,
+                         int                argc,
+                         const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM ecmd, result;
+
+    NDBG( ("command -> entry (%d)\r\n", argc) );
+
+    if (argc != 1)
+        return enif_make_badarg(env);
+
+    ecmd = argv[0];
+
+    NDBG( ("command -> ecmd: %T\r\n", ecmd) );
+
+    result = ncommand(env, ecmd);
+
+    NDBG( ("command -> result: %T\r\n", result) );
+
+    return result;
+}
+
+
+
+/*
+ * The command can, in principle, be anything, though currently we only
+ * support a debug command.
+ */
+static
+ERL_NIF_TERM ncommand(ErlNifEnv*   env,
+                      ERL_NIF_TERM cmd)
+{
+    const ERL_NIF_TERM* t;
+    int                 tsz;
+
+    if (IS_TUPLE(env, cmd)) {
+        /* Could be the debug tuple */
+        if (!GET_TUPLE(env, cmd, &tsz, &t))
+            return make_error(env, atom_einval);
+
+        if (tsz != 2)
+            return make_error(env, atom_einval);
+
+        /* First element should be the atom 'debug' */
+        if (COMPARE(t[0], atom_debug) != 0)
+            return make_error(env, atom_einval);
+
+        return decode_bool(env, t[1], &data.debug);
+
+    } else {
+        return make_error(env, atom_einval);
+    }
+
+}
+
 
 
 
@@ -663,11 +770,13 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM eSockAddr;
+    ERL_NIF_TERM result, eSockAddr;
     unsigned int eFlags;
     int          flags = 0; // Just in case...
     SockAddress  sa;
     SOCKLEN_T    saLen = 0; // Just in case...
+
+    NDBG( ("nif_getnameinfo -> entry (%d)\r\n", argc) );
 
     if ((argc != 2) ||
         !GET_UINT(env, argv[1], &eFlags)) {
@@ -675,13 +784,22 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
     }
     eSockAddr = argv[0];
 
+    NDBG( ("nif_getnameinfo -> "
+           "\r\n   SockAddr: %T"
+           "\r\n   Flags:    %T"
+           "\r\n", argv[0], argv[1]) );
+
     if (!decode_nameinfo_flags(env, eFlags, &flags))
         return enif_make_badarg(env);
 
     if (decode_in_sockaddr(env, eSockAddr, &sa, &saLen))
         return enif_make_badarg(env);
 
-    return ngetnameinfo(env, &sa, saLen, flags);
+    result = ngetnameinfo(env, &sa, saLen, flags);
+
+    NDBG( ("nif_getnameinfo -> done when result: %T\r\n", result) );
+
+    return result;
 }
 
 
@@ -781,12 +899,20 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     char*            servName;
     // struct addrinfo* hints;
 
+    NDBG( ("nif_getaddrinfo -> entry (%d)\r\n", argc) );
+
     if (argc != 3) {
         return enif_make_badarg(env);
     }
     eHostName = argv[0];
     eServName = argv[1];
     // eHints    = argv[2];
+
+    NDBG( ("nif_getaddrinfo -> "
+           "\r\n   Host:    %T"
+           "\r\n   Service: %T"
+           "\r\n   Hints:   %T"
+           "\r\n", argv[0], argv[1], argv[2]) );
 
     if (!decode_addrinfo_string(env, eHostName, &hostName))
         return enif_make_badarg(env);
@@ -814,6 +940,8 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     if (hints != NULL)
         FREE(hints);
     */
+
+    NDBG( ("nif_getaddrinfo -> done when result: %T\r\n", result) );
 
     return result;
 }
@@ -907,18 +1035,28 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM eifn;
+    ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
+
+    NDBG( ("nif_if_name2index -> entry (%d)\r\n", argc) );
 
     if (argc != 1) {
         return enif_make_badarg(env);
     }
     eifn = argv[0];
 
+    NDBG( ("nif_name2index -> "
+           "\r\n   Ifn: %T"
+           "\r\n", argv[0]) );
+
     if (0 >= GET_STR(env, eifn, ifn, sizeof(ifn)))
         return make_error2(env, atom_einval);
 
-    return nif_name2index(env, ifn);
+    result = nif_name2index(env, ifn);
+
+    NDBG( ("nif_if_name2index -> done when result: %T\r\n", result) );
+
+    return result;
 }
 
 
@@ -953,14 +1091,25 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM result;
     unsigned int idx;
+
+    NDBG( ("nif_if_index2name -> entry (%d)\r\n", argc) );
 
     if ((argc != 1) ||
         !GET_UINT(env, argv[0], &idx)) {
         return enif_make_badarg(env);
     }
 
-    return nif_index2name(env, idx);
+    NDBG( ("nif_index2name -> "
+           "\r\n   Idx: %T"
+           "\r\n", argv[0]) );
+
+    result = nif_index2name(env, idx);
+
+    NDBG( ("nif_if_index2name -> done when result: %T\r\n", result) );
+
+    return result;
 }
 
 
@@ -1001,11 +1150,19 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM result;
+
+    NDBG( ("nif_if_names -> entry (%d)\r\n", argc) );
+
     if (argc != 0) {
         return enif_make_badarg(env);
     }
 
-    return nif_names(env);
+    result = nif_names(env);
+
+    NDBG( ("nif_if_names -> done when result: %T\r\n", result) );
+
+    return result;
 }
 
 
@@ -1015,6 +1172,8 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
 {
     ERL_NIF_TERM         result;
     struct if_nameindex* ifs = if_nameindex();
+
+    NDBG( ("nif_names -> ifs: 0x%lX\r\n", ifs) );
 
     if (ifs == NULL) {
         result = make_error2(env, get_errno());
@@ -1032,6 +1191,8 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
          * its done, reverse that? Check
          */
         unsigned int len = nif_names_length(ifs);
+
+        NDBG( ("nif_names -> len: %d\r\n", len) );
 
         if (len > 0) {
             ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
@@ -1395,6 +1556,24 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
 
 
 
+static
+ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
+                         ERL_NIF_TERM eBool,
+                         BOOLEAN_T*   bool)
+{
+    if (COMPARE(eBool, atom_true) == 0) {
+        *bool = TRUE;
+        return atom_ok;
+    } else if (COMPARE(eBool, atom_false) == 0) {
+        *bool = FALSE;
+        return atom_ok;
+    } else {
+        return make_error(env, atom_einval);
+    }
+}
+
+
+
 /* Encode the address info
  * The address info is a linked list och address info, which
  * will result in the result being a list of zero or more length.
@@ -1754,6 +1933,88 @@ void net_down(ErlNifEnv*           env,
 
 
 /* ----------------------------------------------------------------------
+ *  D e b u g   F u n c t i o n s
+ * ----------------------------------------------------------------------
+ */
+
+/*
+ * Print a debug format string *with* both a timestamp and the
+ * the name of the *current* thread.
+ */
+static
+void dbg_printf( const char* format, ... )
+{
+  va_list         args;
+  char            f[512 + sizeof(format)]; // This has to suffice...
+  char            stamp[30];
+  struct timespec ts;
+  int             res;
+
+  /*
+   * We should really include self in the printout, so we can se which process
+   * are executing the code. But then I must change the API....
+   * ....something for later.
+   */
+
+  if (!dbg_realtime(&ts)) {
+    if (dbg_timespec2str(stamp, sizeof(stamp), &ts) != 0) {
+      // res = enif_snprintf(f, sizeof(f), "NET [%s] %s", TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "NET [%s]", format);
+    } else {
+      // res = enif_snprintf(f, sizeof(f), "NET[%s] [%s] %s", stamp, TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "NET [%s] %s", stamp, format);
+    }
+
+    if (res > 0) {
+      va_start (args, format);
+      erts_vfprintf (stdout, f, args); // TMP: use enif_vfprintf
+      va_end (args);
+      fflush(stdout);
+    }
+  }
+
+  return;
+}
+
+
+static
+int dbg_realtime(struct timespec* tsP)
+{
+  return clock_gettime(CLOCK_REALTIME, tsP);
+}
+
+
+
+
+/*
+ * Convert a timespec struct into a readable/printable string
+ */
+static
+int dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts)
+{
+  int       ret, buflen;
+  struct tm t;
+
+  tzset();
+  if (localtime_r(&(ts->tv_sec), &t) == NULL)
+    return 1;
+
+  ret = strftime(buf, len, "%F %T", &t);
+  if (ret == 0)
+    return 2;
+  len -= ret - 1;
+  buflen = strlen(buf);
+
+  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
+  if (ret >= len)
+    return 3;
+
+  return 0;
+}
+
+
+
+/* ----------------------------------------------------------------------
  *  L o a d / u n l o a d / u p g r a d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
@@ -1764,6 +2025,7 @@ ErlNifFunc net_funcs[] =
     // Some utility functions
     {"nif_is_loaded", 0, nif_is_loaded, 0},
     {"nif_info",      0, nif_info,      0},
+    {"nif_command",   1, nif_command,   0}, // Shall we let this be dirty?
 
     /* address and name translation in protocol-independent manner */
     {"nif_getnameinfo",         2, nif_getnameinfo,   0},
@@ -1784,10 +2046,17 @@ ErlNifFunc net_funcs[] =
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    // We should make it possible to use load_info to get default values
+    data.debug = FALSE;
+
+    // NDBG( ("on_load -> entry\r\n") );
+
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);
+    atom_debug                     = MKA(env, str_debug);
     atom_dgram                     = MKA(env, str_dgram);
     atom_error                     = MKA(env, str_error);
+    atom_false                     = MKA(env, str_false);
     atom_idn                       = MKA(env, str_idn);
     atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
     atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
@@ -1848,6 +2117,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                     &netInit,
                                     ERL_NIF_RT_CREATE,
                                     NULL);
+
+    // NDBG( ("on_load -> done\r\n") );
 
     return !net;
 }
