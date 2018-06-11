@@ -117,19 +117,14 @@ init_per_suite(Config) ->
                   ?MODULE_STRING ++ " ROOT CA", CertOptions),
             SSLConf =
                 [{verify, verify_peer},
-                 {fail_if_no_peer_cert, true},
                  {versions, [TLSVersion]},
                  {ciphers, [TLSCipher]}],
             ServerConf =
-                [{verify_fun,
-                  {fun inet_tls_dist:verify_client/3,
-                   fun inet_tls_dist:cert_nodes/1}}
+                [{fail_if_no_peer_cert, true},
+                 {verify_fun,
+                  {fun inet_tls_dist:verify_client/3,[]}}
                  | SSLConf],
-            ClientConf =
-                [{verify_fun,
-                  {fun inet_tls_dist:verify_server/3,
-                   fun inet_tls_dist:cert_nodes/1}}
-                 | SSLConf],
+            ClientConf = SSLConf,
             %%
             write_node_conf(
               NodeAConfFile, NodeA, ServerConf, ClientConf,
@@ -291,6 +286,8 @@ roundtrip(A, B, Prefix, HA, HB) ->
     Rounds = 40000,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    ok = ssl_apply(HA, net_kernel, allow, [[B]]),
+    ok = ssl_apply(HB, net_kernel, allow, [[A]]),
     Time = ssl_apply(HA, fun () -> roundtrip_runner(A, B, Rounds) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
