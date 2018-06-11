@@ -2723,6 +2723,9 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
     Uint reds = 0;
     Process *rp;
 
+    ASSERT(!!is_alive == !(erts_atomic32_read_nob(&c_p->state)
+                           & ERTS_PSFLG_EXITING));
+
     if (pisig->msgq_len_offset != ERTS_PROC_SIG_PI_MSGQ_LEN_IGNORE) {
         /*
          * Request requires message queue data to be updated
@@ -3007,10 +3010,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
-    if (local_only)
-        state = -1; /* can never be a valid state... */
-    else {
-        state = erts_atomic32_read_nob(&c_p->state);
+    state = erts_atomic32_read_nob(&c_p->state);
+    if (!local_only) {
         if (ERTS_PSFLG_SIG_IN_Q & state) {
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
             erts_proc_sig_fetch(c_p);
@@ -3023,11 +3024,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     yield = 0;
 
     if (!c_p->sig_qs.cont) {
-        if (state == -1)
-            *statep = erts_atomic32_read_nob(&c_p->state);
-        else
-            *statep = state;
+        *statep = state;
         return !0;
+    }
+
+    if (state & ERTS_PSFLG_EXITING) {
+        *statep = state;
+        return 0;
     }
 
     next_nm_sig = &c_p->sig_qs.nmsigs.next;
