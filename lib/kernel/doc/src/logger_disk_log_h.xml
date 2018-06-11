@@ -38,101 +38,110 @@
   <description>
     <p>This is a handler for Logger that offers circular
     (wrapped) logs by using <seealso marker="disk_log"><c>disk_log</c></seealso>. 
-    Multiple instances
-    of this handler can be added to Logger, and each instance prints to
-    its own disk_log file, created with the name and settings specified in
-    the handler configuration.</p>
+    Multiple instances of this handler can be added to Logger, and each instance
+    prints to its own disk_log file, created with the name and settings specified
+    in the handler configuration.</p>
     <p>The default standard handler,
     <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>, can be
-    replaced by a disk_log handler at start up of the Kernel application.
+    replaced by a disk_log handler at startup of the Kernel application.
     See an example of this below.</p>
-    <p>The handler has an overload protection mechanism that will keep the handler
-    process and the Kernel application alive during a high load of log 
-    requests. How this feature works, and how to modify the configuration,
-    is described in the
+    <p>The handler has an overload protection mechanism that keeps the handler
+    process and the Kernel application alive during  high loads of log 
+    events. How overload protection works, and how to configure it, is
+    described in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
     <p>To add a new instance of the disk_log handler, use
     <seealso marker="logger#add_handler-3"><c>logger:add_handler/3</c>
-    </seealso>. The handler configuration argument is a map which may contain
+    </seealso>. The handler configuration argument is a map which can contain
     general configuration parameters, as documented in the
     <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
-    </seealso>, as well as handler specific parameters.</p>
-    <p>The settings for the disk_log log file should be specified with the
-    key <c>disk_log_opts</c>. These settings are a subset of the disk_log
-    data type
-    <seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>.</p>
-    <p>Parameters in the <c>disk_log_opts</c> map:</p>
+    </seealso>, and handler specific parameters. The specific data
+    is stored in a sub map with the key <c>config</c>, and can contain the
+    following parameters:</p>
     <taglist>
       <tag><c>file</c></tag>
-      <item>This is the full name of the disk_log log file.</item>
+      <item>
+	<p>This is the full name of the disk_log log file. The option
+	corresponds to the <c>name</c> property in the
+	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	datatype.</p>
+      </item>
       <tag><c>type</c></tag>
-      <item>This is the disk_log type, <c>wrap</c> or <c>halt</c>. The
-      default value is <c>wrap</c>.</item>
+      <item>
+	<p>This is the disk_log type, <c>wrap</c> or <c>halt</c>. The option
+	corresponds to the <c>type</c> property in the
+	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	datatype.</p>
+	<p>Defaults to <c>wrap</c>.</p>
+      </item>
       <tag><c>max_no_files</c></tag>
-      <item>This is the maximum number of files that disk_log will use
-      for its circular logging. The default value is <c>10</c>. (The setting
-      has no effect on a halt log).</item>
+      <item>
+	<p>This is the maximum number of files that disk_log will use
+	for its circular logging. The option
+	corresponds to the <c>MaxNoFiles</c> element in the <c>size</c> property in the
+	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	datatype.</p>
+	<p>Defaults to <c>10</c>. (The setting has no effect on a halt log).</p>
+      </item>
       <tag><c>max_no_bytes</c></tag>
-      <item>This is the maximum number of bytes that will be written to
-      a log file before disk_log proceeds with the next file in order (or
-      generates an error in case of a full halt log). The default value for
-      a wrap log is <c>1048576</c> bytes, and <c>infinity</c> for a halt
-      log.</item>
-    </taglist>
-    <p>Specific configuration for the handler (represented as a sub map)
-    is specified with the key <c>config</c>. It may contain the
-    following parameter:</p>
-    <taglist>
+      <item>
+	<p>This is the maximum number of bytes that will be written to
+	a log file before disk_log proceeds with the next file in order (or
+	generates an error in case of a full halt log). The option
+	corresponds to the <c>MaxNoBytes</c> element in the <c>size</c> property in the
+	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	datatype.</p>
+	<p>Defaults to <c>1048576</c> bytes for a wrap log, and
+	<c>infinity</c> for a halt log.</p>
+      </item>
       <tag><c>filesync_repeat_interval</c></tag>
       <item>
-	<p>This value (in milliseconds) specifies how often the handler will
-	do a disk_log sync operation in order to make sure that buffered data
-	gets written to disk. The handler will repeatedly attempt this
-	operation, but only perform it if something has actually been logged
-	since the last sync. The default value is <c>5000</c> milliseconds.
-	If <c>no_repeat</c> is set as value, the repeated sync operation is
-	disabled. The user can also call the
-	<seealso marker="logger_disk_log_h#sync-1"><c>sync/1</c>
-	</seealso> function to perform a disk_log sync.</p></item>
+	<p>This value, in milliseconds, specifies how often the handler does
+	a disk_log sync operation to write buffered data to disk. The handler attempts
+	the operation repeatedly, but only performs a new sync if something has
+	actually been logged.</p>
+	<p>Defaults to <c>5000</c> milliseconds.</p>
+	<p>If <c>no_repeat</c> is set as value, the repeated sync operation
+	is disabled. The user can also call the
+	<seealso marker="logger_disk_log_h#filesync-1"><c>filesync/1</c>
+	</seealso> function to perform a disk_log sync.</p>
+      </item>
     </taglist>
-    <p>There are a number of other configuration parameters available, that are
-    to be used for customizing the overload protection behaviour. The same
-    parameters are used both in the standard handler and the disk_log handler,
-    and are documented in the
+    <p>Other configuration parameters exist, to be used for customizing
+    the overload protection behaviour. The same parameters are used both in the
+    standard handler and the disk_log handler, and are documented in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
     <p>Note that when changing the configuration of the handler in runtime, by
     calling
     <seealso marker="logger#set_handler_config-2"><c>logger:set_handler_config/2
-    or logger:set_handler_config/3</c></seealso>, the <c>disk_log_opts</c>
-    settings may not be modified.</p>
+    or logger:set_handler_config/3</c></seealso>, the disk_log options (<c>file</c>,
+    <c>type</c>, <c>max_no_files</c>, <c>max_no_bytes</c>) must not be modified.</p>
     <p>Example of adding a disk_log handler:</p>
     <code type="none">
 logger:add_handler(my_disk_log_h, logger_disk_log_h,
                    #{level => error,
                      filter_default => log,
-                     disk_log_opts =>
-                              #{file => "./my_disk_log",
-                                type => wrap,
-                                max_no_files => 4,
-                                max_no_bytes => 10000},
-                     config =>
-                              #{filesync_repeat_interval => 1000}}).
+                     config => #{file => "./my_disk_log",
+                                 type => wrap,
+                                 max_no_files => 4,
+                                 max_no_bytes => 10000},
+                                 filesync_repeat_interval => 1000}}).
     </code>
-    <p>In order to use the disk_log handler instead of the default standard
+    <p>To use the disk_log handler instead of the default standard
     handler when starting an Erlang node, change the Kernel default logger to
     use disk_log. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_disk_log_h,
-                      #{disk_log_opts => #{file => "./system_disk_log"}}}]'
+                      #{config => #{file => "./system_disk_log"}}}]'
     </code>
   </description>
 
   <funcs>
 
     <func>
-      <name name="sync" arity="1" clause_i="1"/>
+      <name name="filesync" arity="1" clause_i="1"/>
       <fsummary>Writes buffered data to disk.</fsummary>
       <desc>
         <p>Write buffered data to disk.</p>
