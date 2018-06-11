@@ -44,8 +44,19 @@ obsolete(Module, Name, Arity) ->
 	    no
     end.
 
-obsolete_1(net, _, _) ->
-    {deprecated, "module 'net' obsolete; use 'net_adm'"};
+obsolete_1(net, call, 4) ->
+    {deprecated, {rpc, call, 4}};
+obsolete_1(net, cast, 4) ->
+    {deprecated, {rpc, cast, 4}};
+obsolete_1(net, broadcast, 3) ->
+    {deprecated, {rpc, eval_everywhere, 3}};
+obsolete_1(net, ping, 1) ->
+    {deprecated, {net_adm, ping, 1}};
+obsolete_1(net, sleep, 1) ->
+    {deprecated, "Use 'receive after T -> ok end' instead"};
+obsolete_1(net, relay, 1) ->
+    {deprecated, {slave, relay, 1}};
+
 
 obsolete_1(erlang, now, 0) ->
     {deprecated,

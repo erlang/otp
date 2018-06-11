@@ -669,13 +669,15 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM info;
+    ERL_NIF_TERM info, tmp;
 
     NDBG( ("info -> entry\r\n") );
 
-    info = enif_make_new_map(env);
+    tmp  = enif_make_new_map(env);
+    if (!enif_make_map_put(env, tmp, atom_debug, BOOL2ATOM(data.debug), &info))
+        info = tmp;
 
-    NDBG( ("info -> done\r\n") );
+    NDBG( ("info -> done: %T\r\n", info) );
 
     return info;
 }

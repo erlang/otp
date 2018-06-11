@@ -36,6 +36,14 @@
          if_names/0
         ]).
 
+%% Deprecated functions from the "old" net module
+-export([call/4,
+	 cast/4,
+	 broadcast/3,
+	 ping/1,
+	 relay/1,
+	 sleep/1]).
+
 -export_type([
               ip_address/0,
               ip4_address/0,
@@ -101,6 +109,20 @@
 -type address_info()            :: #address_info{}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
+
+
+%% ===========================================================================
+%%
+%% D E P R E C A T E D   F U N C T I O N S
+%%
+%% ===========================================================================
+
+call(N,M,F,A) -> rpc:call(N,M,F,A).
+cast(N,M,F,A) -> rpc:cast(N,M,F,A).
+broadcast(M,F,A) -> rpc:eval_everywhere(M,F,A).
+ping(Node) -> net_adm:ping(Node).
+sleep(T) -> receive after T -> ok end.
+relay(X) -> slave:relay(X).
 
 
 
