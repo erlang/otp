@@ -88,6 +88,7 @@ MODULES= \
 	unicode_SUITE \
 	unicode_util_SUITE \
 	uri_string_SUITE \
+	uri_string_property_test_SUITE \
 	win32reg_SUITE \
 	y2k_SUITE \
 	select_SUITE \
@@ -152,6 +153,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec $(EMAKEFILE) \
 		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
