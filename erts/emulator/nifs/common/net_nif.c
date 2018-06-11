@@ -215,6 +215,13 @@ typedef unsigned int BOOLEAN_T;
 typedef unsigned long long llu_t;
 
 
+#ifdef __WIN32__
+#define net_gethostname(__buf__, __bufSz__) gethostname((__buf__), (__bufSz__))
+#else
+#define net_gethostname(__buf__, __bufSz__) gethostname((__buf__), (__bufSz__))
+#endif // __WIN32__
+
+
 
 /* Socket stuff */
 // #define INVALID_SOCKET -1
@@ -243,6 +250,12 @@ typedef unsigned long long llu_t;
 #define HOSTNAME_LEN 256
 #define SERVICE_LEN  256
 
+
+/* MAXHOSTNAMELEN could be 64 or 255 depending
+ * on the platform. Instead, use INET_MAXHOSTNAMELEN
+ * which is always 255 across all platforms
+ */
+#define NET_MAXHOSTNAMELEN 255
 
 /* =================================================================== *
  *                                                                     *
@@ -364,10 +377,13 @@ static ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                                 int                argc,
                                 const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
+static ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
                                     int                argc,
                                     const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
+                                    int                argc,
+                                    const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
                                     int                argc,
                                     const ERL_NIF_TERM argv[]);
@@ -384,6 +400,7 @@ static ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 
 static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              ERL_NIF_TERM cmd);
+static ERL_NIF_TERM ngethostname(ErlNifEnv* env);
 static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                                  const SockAddress* saP,
                                  SOCKLEN_T          saLen,
@@ -531,9 +548,11 @@ static char str_eagain[]            = "eagain";
 static char str_ebadflags[]         = "ebadflags";
 static char str_efail[]             = "efail";
 static char str_efamily[]           = "efamily";
+static char str_efault[]            = "efault";
 static char str_einval[]            = "einval";
 // static char str_eisconn[]        = "eisconn";
 static char str_emem[]              = "emem";
+static char str_enametoolong[]      = "enametoolong";
 static char str_enodata[]           = "enodata";
 static char str_enoname[]           = "enoname";
 // static char str_enotclosing[]    = "enotclosing";
@@ -588,9 +607,11 @@ static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_ebadflags;
 static ERL_NIF_TERM atom_efail;
 static ERL_NIF_TERM atom_efamily;
+static ERL_NIF_TERM atom_efault;
 static ERL_NIF_TERM atom_einval;
 // static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_emem;
+static ERL_NIF_TERM atom_enametoolong;
 static ERL_NIF_TERM atom_enodata;
 static ERL_NIF_TERM atom_enoname;
 // static ERL_NIF_TERM atom_enotclosing;
@@ -750,6 +771,71 @@ ERL_NIF_TERM ncommand(ErlNifEnv*   env,
         return make_error(env, atom_einval);
     }
 
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_gethostname
+ *
+ * Description:
+ * Access the hostname of the current processor.
+ *
+ */
+static
+ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
+                             int                argc,
+                             const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result;
+    
+    NDBG( ("nif_gethostname -> entry (%d)\r\n", argc) );
+
+    if (argc != 0)
+        return enif_make_badarg(env);
+
+    result = ngethostname(env);
+
+    NDBG( ("nif_gethostname -> done when result: %T\r\n", result) );
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM ngethostname(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+    char         buf[NET_MAXHOSTNAMELEN + 1];
+    int          res;
+
+    res = net_gethostname(buf, sizeof(buf));
+
+    NDBG( ("ngethostname -> gethostname res: %d\r\n", res) );
+
+    switch (res) {
+    case 0:
+        result = make_ok2(env, MKS(env, buf));
+        break;
+
+    case EFAULT:
+        result = make_error(env, atom_efault);
+        break;
+
+    case EINVAL:
+        result = make_error(env, atom_einval);
+        break;
+
+    case ENAMETOOLONG:
+        result = make_error(env, atom_enametoolong);
+        break;
+
+    default:
+        result = make_error(env, MKI(env, res));
+        break;
+    }
+
+    return result;
 }
 
 
@@ -2029,6 +2115,9 @@ ErlNifFunc net_funcs[] =
     {"nif_info",      0, nif_info,      0},
     {"nif_command",   1, nif_command,   0}, // Shall we let this be dirty?
 
+    /* get/set hostname */
+    {"nif_gethostname",         0, nif_gethostname,   0},
+
     /* address and name translation in protocol-independent manner */
     {"nif_getnameinfo",         2, nif_getnameinfo,   0},
     {"nif_getaddrinfo",         3, nif_getaddrinfo,   0},
@@ -2090,9 +2179,11 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_ebadflags       = MKA(env, str_ebadflags);
     atom_efail           = MKA(env, str_efail);
     atom_efamily         = MKA(env, str_efamily);
+    atom_efault          = MKA(env, str_efault);
     atom_einval          = MKA(env, str_einval);
     // atom_eisconn      = MKA(env, str_eisconn);
     atom_emem            = MKA(env, str_emem);
+    atom_enametoolong    = MKA(env, str_enametoolong);
     atom_enodata         = MKA(env, str_enodata);
     atom_enoname         = MKA(env, str_enoname);
     // atom_enotclosing  = MKA(env, str_enotclosing);

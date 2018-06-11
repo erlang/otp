@@ -28,6 +28,7 @@
         ]).
 
 -export([
+         gethostname/0,
          getnameinfo/1, getnameinfo/2,
          getaddrinfo/2,
 
@@ -179,6 +180,20 @@ command(Cmd) ->
 
 %% ===========================================================================
 %%
+%% gethostname - Get the name of the current host.
+%%
+%%
+
+-spec gethostname() -> {ok, HostName} | {error, Reason} when
+      HostName :: string(),
+      Reason   :: term().
+
+gethostname() ->
+    nif_gethostname().
+
+
+%% ===========================================================================
+%%
 %% getnameinfo - Address-to-name translation in protocol-independent manner.
 %%
 %%
@@ -322,6 +337,9 @@ nif_info() ->
     erlang:error(badarg).
 
 nif_command(_Cmd) ->
+    erlang:error(badarg).
+
+nif_gethostname() ->
     erlang:error(badarg).
 
 nif_getnameinfo(_Addr, _Flags) ->
