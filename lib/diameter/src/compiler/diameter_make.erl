@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -271,6 +271,6 @@ make(File, Opts, Dict, Mode) ->
     try
         diameter_codegen:from_dict(File, Dict, Opts, Mode)
     catch
-        error: Reason ->
-            erlang:error({Reason, Mode, erlang:get_stacktrace()})
+        error: Reason: Stack ->
+            erlang:error({Reason, Mode, Stack})
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1924,8 +1924,8 @@ compile_and_load() ->
         {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin),
         true
     catch
-        E:R ->
-            {E, R, erlang:get_stacktrace()}
+        E:R:Stack ->
+            {E, R, Stack}
     end.
 
 here() ->

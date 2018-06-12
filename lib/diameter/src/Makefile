@@ -149,7 +149,7 @@ gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
 	$(ERLC) -Werror -o $(@D) $<
 
 # Generate the app file.
-$(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk app.sed
+$(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
 	$(gen_verbose) \
 	M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
 	C=`echo $(COMPILER_MODULES) | tr ' ' ,`; \
@@ -160,8 +160,7 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk app.sed
 	    -e "s;%COMPILER%;$$C;" \
 	    -e "s;%INFO%;$$I;" \
 	    -e "s;%REGISTERED%;$$R;" \
-	  $< \
-	| sed -f app.sed > $@
+	  $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose) \
