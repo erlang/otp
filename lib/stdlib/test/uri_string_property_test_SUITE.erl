@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 -compile(export_all).
 
-all() -> [recompose].
+all() -> [recompose, normalize].
 
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
@@ -36,4 +36,9 @@ end_per_suite(Config) ->
 recompose(Config) ->
     ct_property_test:quickcheck(
       uri_string_recompose:prop_recompose(),
+      Config).
+
+normalize(Config) ->
+    ct_property_test:quickcheck(
+      uri_string_recompose:prop_normalize(),
       Config).
