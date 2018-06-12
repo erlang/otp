@@ -3919,13 +3919,6 @@ static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     }
 
     return enif_make_binary(env, &key_bin);
-
-/* Importing the other side's public key from raw binary format can be done with the EVP_PKEY_new_raw_public_key() function. Man page here: */
-/* https://www.openssl.org/docs/man1.1.1/man3/EVP_PKEY_new_raw_public_key.html */
-
-
-/* You need two EVP_PKEY objects. One containing your private/public key pair (i.e. the one you generated in the EVP_PKEY_keygen() call in your question), and one containing the public key of the peer (e.g. created using EVP_PKEY_new_raw_public_key()). To generate the X25519 shared secret you then call EVP_PKEY_derive(). See the example on the man page: openssl.org/docs/man1.1.1/man3/EVP_PKEY_derive.html – Matt Caswell May 15 at 20:39 */
-
 #else
     return atom_notsup;
 #endif
@@ -3950,20 +3943,6 @@ static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
     if (!EVP_PKEY_keygen_init(ctx)) return enif_make_atom(env,"EVP_PKEY_keygen_init failed");
     if (!EVP_PKEY_keygen(ctx, &pkey)) return enif_make_atom(env,"EVP_PKEY_keygen failed");
-
-    /*
-      int EVP_PKEY_get_raw_private_key(const EVP_PKEY *pkey, unsigned char *priv, size_t *len)
-      int EVP_PKEY_get_raw_public_key(const EVP_PKEY *pkey, unsigned char *pub, size_t *len)
-
-      +EVP_PKEY_get_raw_private_key() fills the buffer provided by B<priv> with raw
-      +private key data. The number of bytes written is populated in B<*len>. If the
-      +buffer B<priv> is NULL then B<*len> is populated with the number of bytes
-      +required in the buffer. The calling application is responsible for ensuring that
-      +the buffer is large enough to receive the private key data. This function only
-      +works for algorithms that support raw private keys. Currently this is:
-      +B<EVP_PKEY_HMAC>, B<EVP_PKEY_POLY1305>, B<EVP_PKEY_SIPHASH>, B<EVP_PKEY_X25519>,
-      +B<EVP_PKEY_ED25519>, B<EVP_PKEY_X448> or B<EVP_PKEY_ED448>.
-    */
 
     if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len))
         return enif_make_atom(env,"EVP_PKEY_get_raw_public_key 1 failed");
