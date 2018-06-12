@@ -690,30 +690,31 @@ chunk_to_data(debug_info=Id, Chunk, File, _Cs, AtomTable, Mod) ->
 	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
 	    Mode = binary_to_atom(Mode0, utf8),
 	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
-	    {AtomTable, {Id, Term}};
-	_ ->
-	    case catch binary_to_term(Chunk) of
-		{'EXIT', _} ->
-		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
-		Term ->
-                    {AtomTable, {Id, Term}}
-	    end
-    end;
-chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
-    case Chunk of
-	<<>> ->
-	    {AtomTable, {Id, no_abstract_code}};
-	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
-	    Mode = binary_to_atom(Mode0, utf8),
-	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
 	    {AtomTable, {Id, anno_from_term(Term)}};
 	_ ->
 	    case catch binary_to_term(Chunk) of
 		{'EXIT', _} ->
 		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
 		Term ->
+                    {AtomTable, {Id, anno_from_term(Term)}}
+	    end
+    end;
+chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
+    %% Before Erlang/OTP 20.0.
+    case Chunk of
+	<<>> ->
+	    {AtomTable, {Id, no_abstract_code}};
+	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
+	    Mode = binary_to_atom(Mode0, utf8),
+	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
+	    {AtomTable, {Id, old_anno_from_term(Term)}};
+	_ ->
+	    case catch binary_to_term(Chunk) of
+		{'EXIT', _} ->
+		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
+		Term ->
                     try
-                        {AtomTable, {Id, anno_from_term(Term)}}
+                        {AtomTable, {Id, old_anno_from_term(Term)}}
                     catch
                         _:_ ->
                             error({invalid_chunk, File,
@@ -947,13 +948,23 @@ decrypt_chunk(Type, Module, File, Id, Bin) ->
 	    error({key_missing_or_invalid, File, Id})
     end.
 
-anno_from_term({raw_abstract_v1, Forms}) ->
+old_anno_from_term({raw_abstract_v1, Forms}) ->
     {raw_abstract_v1, anno_from_forms(Forms)};
-anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
+old_anno_from_term({Tag, Forms}) when Tag =:= abstract_v1;
+                                      Tag =:= abstract_v2 ->
     try {Tag, anno_from_forms(Forms)}
     catch
         _:_ ->
             {Tag, Forms}
+    end;
+old_anno_from_term(T) ->
+    T.
+
+anno_from_term({debug_info_v1=Tag1, erl_abstract_code=Tag2, {Forms, Opts}}) ->
+    try {Tag1, Tag2, {anno_from_forms(Forms), Opts}}
+    catch
+        _:_ ->
+            {Tag1, Tag2, {Forms, Opts}}
     end;
 anno_from_term(T) ->
     T.
