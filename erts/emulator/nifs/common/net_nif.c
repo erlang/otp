@@ -514,6 +514,7 @@ static const struct in6_addr in6addr_loopback =
 
 /* *** String constants *** */
 static char str_address_info[]              = "address_info";
+static char str_dccp[]                      = "dccp";
 static char str_debug[]                     = "debug";
 static char str_dgram[]                     = "dgram";
 static char str_error[]                     = "error";
@@ -530,6 +531,9 @@ static char str_nofqdn[]                    = "nofqdn";
 static char str_numerichost[]               = "numerichost";
 static char str_numericserv[]               = "numericserv";
 static char str_ok[]                        = "ok";
+static char str_raw[]                       = "raw";
+static char str_rdm[]                       = "rdm";
+static char str_seqpacket[]                 = "seqpacket";
 static char str_stream[]                    = "stream";
 static char str_tcp[]                       = "tcp";
 static char str_true[]                      = "true";
@@ -557,6 +561,7 @@ static char str_enodata[]           = "enodata";
 static char str_enoname[]           = "enoname";
 // static char str_enotclosing[]    = "enotclosing";
 // static char str_enotconn[]       = "enotconn";
+static char str_enxio[]             = "enxio";
 static char str_eoverflow[]         = "eoverflow";
 static char str_eservice[]          = "eservice";
 static char str_esocktype[]         = "esocktype";
@@ -572,6 +577,7 @@ static char str_esystem[]           = "esystem";
 /* *** Atoms *** */
 
 static ERL_NIF_TERM atom_address_info;
+static ERL_NIF_TERM atom_dccp;
 static ERL_NIF_TERM atom_debug;
 static ERL_NIF_TERM atom_dgram;
 static ERL_NIF_TERM atom_error;
@@ -588,8 +594,11 @@ static ERL_NIF_TERM atom_nofqdn;
 static ERL_NIF_TERM atom_numerichost;
 static ERL_NIF_TERM atom_numericserv;
 static ERL_NIF_TERM atom_ok;
+static ERL_NIF_TERM atom_raw;
+static ERL_NIF_TERM atom_rdm;
 // static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_stream;
+static ERL_NIF_TERM atom_seqpacket;
 // static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_tcp;
 static ERL_NIF_TERM atom_true;
@@ -616,6 +625,7 @@ static ERL_NIF_TERM atom_enodata;
 static ERL_NIF_TERM atom_enoname;
 // static ERL_NIF_TERM atom_enotclosing;
 // static ERL_NIF_TERM atom_enotconn;
+static ERL_NIF_TERM atom_enxio;
 static ERL_NIF_TERM atom_eoverflow;
 static ERL_NIF_TERM atom_eservice;
 static ERL_NIF_TERM atom_esocktype;
@@ -1029,7 +1039,8 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
         FREE(hints);
     */
 
-    NDBG( ("nif_getaddrinfo -> done when result: %T\r\n", result) );
+    NDBG( ("nif_getaddrinfo -> done when result: "
+           "\r\n   %T\r\n", result) );
 
     return result;
 }
@@ -1044,8 +1055,17 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
     struct addrinfo* addrInfoP;
     int              res;
 
+    NDBG( ("ngetaddrinfo -> entry with"
+           "\r\n   host: %s"
+           "\r\n   serv: %s"
+           "\r\n",
+           ((host == NULL) ? "NULL" : host),
+           ((serv == NULL) ? "NULL" : serv)) );
+    
     res = getaddrinfo(host, serv, NULL, &addrInfoP);
 
+    NDBG( ("ngetaddrinfo -> res: %d\r\n", res) );
+    
     switch (res) {
     case 0:
         {
@@ -1133,7 +1153,7 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     }
     eifn = argv[0];
 
-    NDBG( ("nif_name2index -> "
+    NDBG( ("nif_if_name2index -> "
            "\r\n   Ifn: %T"
            "\r\n", argv[0]) );
 
@@ -1153,12 +1173,18 @@ static
 ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
                             char*      ifn)
 {
-     unsigned int idx = if_nametoindex(ifn);
+    unsigned int idx;
 
-     if (idx == 0)
+    NDBG( ("nif_name2index -> entry with ifn: %s\r\n", ifn) );
+
+    idx = if_nametoindex(ifn);
+
+    NDBG( ("nif_name2index -> idx: %d\r\n", idx) );
+
+    if (idx == 0)
          return make_error2(env, get_errno());
      else
-         return make_ok2(env, idx);
+         return make_ok2(env, MKI(env, idx));
 
 }
 
@@ -1212,10 +1238,10 @@ ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
     if (ifn == NULL)
         return enif_make_badarg(env); // PLACEHOLDER
 
-    if (NULL == if_indextoname(idx, ifn)) {
+    if (NULL != if_indextoname(idx, ifn)) {
         result = make_ok2(env, MKS(env, ifn));
     } else {
-        result = make_error2(env, get_errno());
+        result = make_error(env, atom_enxio);
     }
 
     FREE(ifn);
@@ -1310,9 +1336,19 @@ static
 unsigned int nif_names_length(struct if_nameindex* p)
 {
     unsigned int len = 0;
+    BOOLEAN_T    done =  FALSE;
 
-    while ((p[len].if_index == 0) && (p[len].if_name == NULL)) {
-        len++;
+    while (!done) {
+
+        NDBG( ("nif_names_length -> %d: "
+               "\r\n   if_index: %d"
+               "\r\n   if_name:  0x%lX"
+               "\r\n", len, p[len].if_index, p[len].if_name) );
+
+        if ((p[len].if_index == 0) && (p[len].if_name == NULL))
+            done = TRUE;
+        else
+            len++;
     }
 
     return len;
@@ -1627,9 +1663,13 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
             result   = FALSE;
         }
 
-        bufP = MALLOC(len);
+        NDBG( ("decode_addrinfo_string -> len: %d\r\n", len) );
+        
+        bufP = MALLOC(len + 1); // We shall NULL-terminate
 
-        if (GET_STR(env, eString, bufP, len)) {
+        if (GET_STR(env, eString, bufP, len+1)) {
+            NDBG( ("decode_addrinfo_string -> buf: %s\r\n", bufP) );
+            // bufP[len] = '\0';
             *stringP = bufP;
             result   = TRUE;
         } else {
@@ -1673,18 +1713,31 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
     ERL_NIF_TERM result;
     unsigned int len = address_info_length(addrInfo);
 
-    if (len > 0) {
-        ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
-        unsigned int  i;
+    NDBG( ("encode_address_info -> len: %d\r\n", len) );
 
+    if (len > 0) {
+        ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM));
+        unsigned int     i     = 0;
+        struct addrinfo* p     = addrInfo;
+
+        while (i < len) {
+            array[i] = make_address_info(env, p);
+            p = p->ai_next;
+            i++;
+        }
+        /*
         for (i = 0; i < len; i++) {
             array[i] = make_address_info(env, &addrInfo[i]);
         }
+        */
 
-        result = make_ok2(env, MKLA(env, array, len));
+        result = MKLA(env, array, len);
     } else {
         result = MKEL(env);
     }
+
+    NDBG( ("encode_address_info -> result: "
+           "\r\n   %T\r\n", result) );
 
     return result;
 }
@@ -1698,17 +1751,19 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
 static
 unsigned int address_info_length(struct addrinfo* addrInfoP)
 {
-    unsigned int     len;
-    struct addrinfo* tmp = addrInfoP;
+    unsigned int     len = 1;
+    struct addrinfo* tmp;
+    BOOLEAN_T        done = FALSE;
 
-    if (tmp != NULL) {
-        len = 1;
-        while (tmp->ai_next != NULL) {
-            tmp = tmp->ai_next;
+    tmp = addrInfoP;
+
+    while (!done) {
+        if (tmp->ai_next != NULL) {
             len++;
+            tmp = tmp->ai_next;
+        } else {
+            done = TRUE;
         }
-    } else {
-        len = 0;
     }
 
     return len;
@@ -1725,14 +1780,27 @@ static
 ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
                                struct addrinfo* addrInfoP)
 {
-    ERL_NIF_TERM Fam   = make_addrinfo_family(env, addrInfoP->ai_family);
-    ERL_NIF_TERM Type  = make_addrinfo_type(env,   addrInfoP->ai_socktype);
-    ERL_NIF_TERM Proto = make_addrinfo_proto(env,  addrInfoP->ai_protocol);
-    ERL_NIF_TERM Addr  = make_addrinfo_addr(env,
-                                            addrInfoP->ai_addr,
-                                            addrInfoP->ai_addrlen);
+    ERL_NIF_TERM result, fam, type, proto, addr;
 
-    return MKT5(env, atom_address_info, Fam, Type, Proto, Addr);
+    fam   = make_addrinfo_family(env, addrInfoP->ai_family);
+    // NDBG( ("make_address_info -> fam: %T\r\n", fam) );
+    type  = make_addrinfo_type(env,   addrInfoP->ai_socktype);
+    // NDBG( ("make_address_info -> type: %T\r\n", type) );
+    proto = make_addrinfo_proto(env,  addrInfoP->ai_protocol);
+    // NDBG( ("make_address_info -> proto: %T\r\n", proto) );
+    addr  = make_addrinfo_addr(env,
+                               addrInfoP->ai_addr,
+                               addrInfoP->ai_addrlen);
+    // NDBG( ("make_address_info -> addr: %T\r\n", addr) );
+    
+    result = MKT5(env, atom_address_info, fam, type, proto, addr);
+
+    /*
+    NDBG( ("make_address_info -> result: "
+           "\r\n   %T\r\n", result) );
+    */
+
+    return result;
 
 }
 
@@ -1787,6 +1855,22 @@ ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
 
     case SOCK_DGRAM:
         etype = atom_dgram;
+        break;
+
+    case SOCK_RAW:
+        etype = atom_raw;
+        break;
+
+    case SOCK_RDM:
+        etype = atom_rdm;
+        break;
+
+    case SOCK_SEQPACKET:
+        etype = atom_seqpacket;
+        break;
+
+    case SOCK_DCCP:
+        etype = atom_dccp;
         break;
 
     default:
@@ -1850,11 +1934,16 @@ ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
     ERL_NIF_TERM port, addr, eaddr;
     SockAddress* p = (SockAddress*) addrP;
 
+    NDBG( ("make_addrinfo_addr -> entry with"
+           "\r\n   family:  %d"
+           "\r\n   addrLen: %d"
+           "\r\n", addrP->sa_family, addrLen) );
+
     switch (addrP->sa_family) {
     case AF_INET:
         {
             unsigned char* a = (unsigned char*) &p->in.sin_addr;
-            port = ntohs(p->in.sin_port);
+            port = MKI(env, ntohs(p->in.sin_port));
             addr = MKT4(env,
                         MKI(env, a[0]),
                         MKI(env, a[1]),
@@ -1868,7 +1957,7 @@ ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
     case AF_INET6:
         {
             unsigned char* a = (unsigned char*) &p->in6.sin6_addr;
-            port = ntohs(p->in6.sin6_port);
+            port = MKI(env, ntohs(p->in6.sin6_port));
             addr = MKT8(env,
                         MKI(env, get_int16(a)),
                         MKI(env, get_int16(&a[ 2])),
@@ -1887,6 +1976,9 @@ ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
         eaddr = atom_undefined;
         break;
     }
+
+    NDBG( ("make_addrinfo_addr -> eaddr: "
+           "\r\n   %T\r\n", eaddr) );
 
     return eaddr;
 }
@@ -1948,6 +2040,7 @@ ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason)
 static
 ERL_NIF_TERM make_error2(ErlNifEnv* env, int err)
 {
+    NDBG( ("make_error2 -> err: %d\r\n", err) );
     return make_error1(env, erl_errno_id(err));
 }
 
@@ -2144,6 +2237,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);
+    atom_dccp                      = MKA(env, str_dccp);
     atom_debug                     = MKA(env, str_debug);
     atom_dgram                     = MKA(env, str_dgram);
     atom_error                     = MKA(env, str_error);
@@ -2160,6 +2254,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_numerichost               = MKA(env, str_numerichost);
     atom_numericserv               = MKA(env, str_numericserv);
     atom_ok                        = MKA(env, str_ok);
+    atom_raw                       = MKA(env, str_raw);
+    atom_rdm                       = MKA(env, str_rdm);
+    atom_seqpacket                 = MKA(env, str_seqpacket);
     atom_stream                    = MKA(env, str_stream);
     atom_tcp                       = MKA(env, str_tcp);
     atom_true                      = MKA(env, str_true);
@@ -2188,6 +2285,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_enoname         = MKA(env, str_enoname);
     // atom_enotclosing  = MKA(env, str_enotclosing);
     // atom_enotconn     = MKA(env, str_enotconn);
+    atom_enxio           = MKA(env, str_enxio);
     atom_eoverflow       = MKA(env, str_eoverflow);
     atom_eservice        = MKA(env, str_eservice);
     atom_esocktype       = MKA(env, str_esocktype);
