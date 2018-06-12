@@ -91,6 +91,7 @@ init_per_group(_Group, Config) ->
 end_per_group(sasl, Config) ->
     Apps = ?config(stop_apps,Config),
     [application:stop(App) || App <- Apps],
+    ok = logger:set_primary_config(level,notice),
     ok;
 end_per_group(_Group, _Config) ->
     ok.
