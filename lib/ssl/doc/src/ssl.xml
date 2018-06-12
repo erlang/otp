@@ -896,16 +896,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Type = erlang | openssl | all</v>
       </type>
       <desc>
-	<p>Returns a list of supported cipher suites.
-	This function will become deprecated in OTP 21, and replaced
-	by <seealso marker="#cipher_suites-2">ssl:cipher-suites/2</seealso>
-	<c>cipher_suites()</c> is equivalent to <c>cipher_suites(erlang).</c>
-	Type <c>openssl</c> is provided for backwards compatibility with the
-	old SSL, which used OpenSSL. <c>cipher_suites(all)</c> returns
-	all available cipher suites. The cipher suites not present
-	in <c>cipher_suites(erlang)</c> but included in
-	<c>cipher_suites(all)</c> are not used unless explicitly configured
-	by the user.</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">ssl:cipher_suites/2</seealso> instead.</p>
       </desc>
     </func>
     
@@ -948,7 +939,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
    
     <func>
       <name>connect(Socket, SslOptions) -> </name>
-      <name>connect(Socket, SslOptions, Timeout) -> {ok, TLSSocket} | {ok, TLSSocket, Ext}
+      <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
 	| {error, Reason}</name>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
 	equivalent, connected socket to an TLS socket.</fsummary>
@@ -956,7 +947,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<v>Socket = socket()</v>
 	<v>SslOptions = [{handshake, hello| full} | ssl_option()]</v>
 	<v>Timeout = integer() | infinity</v>
-	<v>TLSSocket = sslsocket()</v>
+	<v>SslSocket = sslsocket()</v>
 	<v>Ext = hello_extensions()</v>
 	<v>Reason = term()</v>
       </type>
@@ -973,8 +964,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
 	  <p> If the option <c>{handshake, hello}</c> is used the
 	  handshake is paused after receiving the server hello message
-	  and the success response is <c>{ok, TLSSocket, Ext}</c>
-	  instead of <c>{ok, TLSSocket}</c>. Thereafter the handshake is continued or
+	  and the success response is <c>{ok, SslSocket, Ext}</c>
+	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake is continued or
 	  canceled by calling <seealso marker="#handshake_continue-3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.	 
@@ -986,7 +977,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>connect(Host, Port, Options) -></name>
       <name>connect(Host, Port, Options, Timeout) ->
-	  {ok, SslSocket}| {ok, TLSSocket, Ext} | {error, Reason}</name>
+	  {ok, SslSocket}| {ok, SslSocket, Ext} | {error, Reason}</name>
       <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
       <type>
 	  <v>Host = host()</v>
@@ -1017,8 +1008,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <p> If the option <c>{handshake, hello}</c> is used the
 	  handshake is paused after receiving the server hello message
-	  and the success response is <c>{ok, TLSSocket, Ext}</c>
-	  instead of <c>{ok, TLSSocket}</c>. Thereafter the handshake is continued or
+	  and the success response is <c>{ok, SslSocket, Ext}</c>
+	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake is continued or
 	  canceled by calling <seealso marker="#handshake_continue-3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
@@ -1074,6 +1065,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns all the connection information.
       </fsummary>
       <type>
+	<v>SslSocket = sslsocket()</v>
         <v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | atom()</v>
 	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
@@ -1091,6 +1083,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns the requested connection information.
       </fsummary>
       <type>
+	<v>SslSocket = sslsocket()</v>
 	<v>Items = [Item]</v>
 	<v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | client_random 
           | server_random  | master_secret | atom()</v>
@@ -1133,7 +1126,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
    
     <func>
-      <name>getopts(Socket, OptionNames) ->
+      <name>getopts(SslSocket, OptionNames) ->
 	{ok, [socketoption()]} | {error, Reason}</name>
       <fsummary>Gets the values of the specified options.</fsummary>
       <type>
@@ -1147,13 +1140,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>getstat(Socket) ->
+      <name>getstat(SslSocket) ->
         {ok, OptionValues} | {error, inet:posix()}</name>
-      <name>getstat(Socket, OptionNames) ->
+      <name>getstat(SslSocket, OptionNames) ->
         {ok, OptionValues} | {error, inet:posix()}</name>
       <fsummary>Get one or more statistic options for a socket</fsummary>
       <type>
-    <v>Socket = sslsocket()</v>
+    <v>SslSocket = sslsocket()</v>
     <v>OptionNames = [atom()]</v>
         <v>OptionValues = [{inet:stat_option(), integer()}]</v>
       </type>
@@ -1164,28 +1157,27 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake(Socket) -> </name>
-      <name>handshake(Socket, Timeout) -> {ok, Socket}  | {error, Reason}</name>
+      <name>handshake(HsSocket) -> </name>
+      <name>handshake(HsSocket, Timeout) -> {ok, SslSocket}  | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>HsSocket = SslSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
-	<p><c>Socket</c> is a socket as returned by
-	<seealso marker="#transport_accept-2">ssl:transport_accept/[1,2]</seealso>.
-	</p>
+	<p>Returns a new TLS/DTLS socket if the handshake is successful.</p>
       </desc>
     </func>
 
     <func>
       <name>handshake(Socket, SslOptions) -> </name>
-      <name>handshake(Socket, SslOptions, Timeout) -> {ok, Socket} | {ok, Socket, Ext} | {error, Reason}</name>
+      <name>handshake(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
+	<v>SslSocket = sslsocket() </v>
 	<v>Ext = hello_extensions()</v>
 	<v>SslOptions = [{handshake, hello| full} | ssl_option()]</v>
         <v>Timeout = integer()</v>
@@ -1194,22 +1186,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
         <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
 	or equivalent, socket to an SSL socket, that is, performs
-        the SSL/TLS server-side handshake and returns the SSL socket.</p>
+        the SSL/TLS server-side handshake and returns a TLS socket.</p>
 
-	<warning><p>The Socket shall be in passive mode ({active,
-	false}) before calling this function or the handshake can fail
-	due to a race condition.</p></warning>
+	<warning><p>The <c>Socket</c> shall be in passive mode ({active,
+	false}) before calling this function or else the behavior of this function
+	is undefined.
+	</p></warning>
 	
 	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS/DTLS
 	options to those specified in
 	<seealso marker="#listen-2">ssl:listen/2 </seealso> and then performs
-	the SSL/TLS/DTLS handshake.</p>
-
+	the SSL/TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
+		
 	<p>
 	  If option <c>{handshake, hello}</c> is specified the handshake is
 	  paused after receiving the client hello message and the
-	  sucess response is <c>{ok, TLSSocket, Ext}</c>  instead of <c>{ok,
-	  TLSSocket}</c>. Thereafter the handshake is continued or
+	  success response is <c>{ok, SslSocket, Ext}</c>  instead of <c>{ok,
+	  SslSocket}</c>. Thereafter the handshake is continued or
 	  canceled by calling <seealso marker="#handshake_continue-3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
@@ -1218,10 +1211,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake_cancel(Socket) -> ok </name>
+      <name>handshake_cancel(SslSocket) -> ok </name>
       <fsummary>Cancel handshake with a fatal alert</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
       </type>
       <desc>
         <p>Cancel the handshake with a fatal <c>USER_CANCELED</c> alert.</p>
@@ -1229,10 +1222,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake_continue(Socket, SSLOptions, Timeout) -> 	{ok, Socket} | {error, Reason}</name>
+      <name>handshake_continue(HsSocket, SSLOptions) -> {ok, SslSocket} | {error, Reason}</name>
+      <name>handshake_continue(HsSocket, SSLOptions, Timeout) -> {ok, SslSocket} | {error, Reason}</name>
       <fsummary>Continue the SSL/TLS handshake.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+	<v>HsSocket = SslSocket = sslsocket()</v>
 	<v>SslOptions = [ssl_option()]</v>
 	<v>Timeout = integer()</v>
 	<v>Reason = term()</v>
@@ -1257,10 +1251,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>negotiated_protocol(Socket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
+      <name>negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
       <fsummary>Returns the protocol negotiated through ALPN or NPN extensions.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Protocol = binary()</v>
       </type>
       <desc>
@@ -1271,10 +1265,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>peercert(Socket) -> {ok, Cert} | {error, Reason}</name>
+      <name>peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
       <fsummary>Returns the peer certificate.</fsummary>
      <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Cert = binary()</v>
       </type>
       <desc>
@@ -1285,11 +1279,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>peername(Socket) -> {ok, {Address, Port}} |
+      <name>peername(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the peer address and port.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Address = ipaddress()</v>
         <v>Port = integer()</v>
       </type>
@@ -1335,12 +1329,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>recv(Socket, Length) -> </name>
-      <name>recv(Socket, Length, Timeout) -> {ok, Data} | {error,
+      <name>recv(SslSocket, Length) -> </name>
+      <name>recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
 	Reason}</name>
       <fsummary>Receives data on a socket.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Length = integer()</v>
         <v>Timeout = integer()</v>
         <v>Data = [char()] | binary()</v>
@@ -1362,10 +1356,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>renegotiate(Socket) -> ok | {error, Reason}</name>
+      <name>renegotiate(SslSocket) -> ok | {error, Reason}</name>
       <fsummary>Initiates a new handshake.</fsummary>
       <type>
-	<v>Socket = sslsocket()</v>
+	<v>SslSocket = sslsocket()</v>
       </type>
       <desc><p>Initiates a new handshake. A notable return value is
       <c>{error, renegotiation_rejected}</c> indicating that the peer
@@ -1375,10 +1369,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>send(Socket, Data) -> ok | {error, Reason}</name>
+      <name>send(SslSocket, Data) -> ok | {error, Reason}</name>
       <fsummary>Writes data to a socket.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Data = iodata()</v>
       </type>
       <desc>
@@ -1389,10 +1383,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>setopts(Socket, Options) -> ok | {error, Reason}</name>
+      <name>setopts(SslSocket, Options) -> ok | {error, Reason}</name>
       <fsummary>Sets socket options.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Options = [socketoption]()</v>
       </type>
       <desc>
@@ -1402,10 +1396,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>shutdown(Socket, How) -> ok | {error, Reason}</name>
+      <name>shutdown(SslSocket, How) -> ok | {error, Reason}</name>
       <fsummary>Immediately closes a socket.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>How = read | write | read_write</v>
         <v>Reason = reason()</v>
       </type>
@@ -1420,19 +1414,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>ssl_accept(Socket) -> </name>
-      <name>ssl_accept(Socket, Timeout) -> ok | {error, Reason}</name>
+      <name>ssl_accept(SslSocket) -> </name>
+      <name>ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
-	<p><c>Socket</c> is a socket as returned by
-	<seealso marker="#transport_accept-2">ssl:transport_accept/[1,2]</seealso>
-	</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">ssl:handshake[1,2]</seealso> instead.</p>
       </desc>
     </func>
 
@@ -1447,29 +1438,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>If <c>Socket</c> is a <c>socket()</c>: upgrades a <c>gen_tcp</c>,
-	or equivalent, socket to an SSL socket, that is, performs
-        the SSL/TLS server-side handshake and returns the SSL socket.</p>
-	
-	<warning><p>The listen socket is to be in mode <c>{active, false}</c>
-	before telling the client that the server is ready to upgrade
-	by calling this function, else the upgrade succeeds or does not
-	succeed depending on timing.</p></warning>
-	
-	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS/DTLS
-	options to those specified in
-	<seealso marker="#listen-2">ssl:listen/2 </seealso> and then performs
-	the SSL/TLS/DTLS handshake.
-	</p>
+	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">ssl:handshake[2,3]</seealso> instead.</p>
       </desc>
     </func>
     
     <func>
-      <name>sockname(Socket) -> {ok, {Address, Port}} |
+      <name>sockname(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the local address and port.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>SslSocket = sslsocket()</v>
         <v>Address = ipaddress()</v>
         <v>Port = integer()</v>
       </type>
@@ -1503,11 +1481,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name>transport_accept(ListenSocket) -></name>
       <name>transport_accept(ListenSocket, Timeout) ->
-	{ok, NewSocket} | {error, Reason}</name>
+	{ok, SslSocket} | {error, Reason}</name>
       <fsummary>Accepts an incoming connection and
 	prepares for <c>ssl_accept</c>.</fsummary>
       <type>
-        <v>ListenSocket = NewSocket = sslsocket()</v>
+        <v>ListenSocket = SslSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
         <v>Reason = reason()</v>
       </type>

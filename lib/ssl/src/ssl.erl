@@ -40,7 +40,7 @@
 %% Socket handling
 -export([connect/3, connect/2, connect/4,
 	 listen/2, transport_accept/1, transport_accept/2,
-	 handshake/1, handshake/2, handshake/3, 
+	 handshake/1, handshake/2, handshake/3, handshake_continue/2,
          handshake_continue/3, handshake_cancel/1,
          ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
@@ -259,6 +259,16 @@ handshake(Socket, SslOptions, Timeout) when is_port(Socket),
 	Error = {error, _Reason} -> Error
     end.
 
+
+%%--------------------------------------------------------------------
+-spec handshake_continue(#sslsocket{}, [ssl_option()]) -> 
+                                {ok, #sslsocket{}} | {error, reason()}.
+%%
+%%
+%% Description: Continues the handshke possible with newly supplied options.
+%%--------------------------------------------------------------------
+handshake_continue(Socket, SSLOptions) ->
+    handshake_continue(Socket, SSLOptions, infinity).
 %%--------------------------------------------------------------------
 -spec handshake_continue(#sslsocket{}, [ssl_option()], timeout()) -> 
                                 {ok, #sslsocket{}} | {error, reason()}.
