@@ -992,7 +992,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	<item>
 	  The <c>fun/2</c> in this option replaces the default host name matching rules. The fun should return a
 	  boolean to tell if the Reference ID and Presented ID matches or not. The fun can also return a third 
-	  value. the atom <c>default</c>, if the default matching rules shall apply.
+	  value, the atom <c>default</c>, if the default matching rules shall apply.
 	  This makes it possible to augment the tests with a special case:
 	  <code>
 fun(....) -> true;   % My special case
@@ -1007,7 +1007,7 @@ end
 
 	<tag><c>fail_callback</c></tag>
 	<item>If a matching fails, there could be circumstances when the certificate should be accepted anyway. Think for
-	example of a web browser where you choose to accept an outdated certificate. This options enables implementation
+	example of a web browser where you choose to accept an outdated certificate. This option enables implementation
 	of such a function. This <c>fun/1</c> is called when no <c>ReferenceID</c> matches. The return value of the fun
 	(a <c>boolean()</c>) decides the outcome. If <c>true</c> the the certificate is accepted otherwise
 	it is rejected. See
