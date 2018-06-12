@@ -880,8 +880,8 @@ op_switch_to_sync(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
-    ok = file_delete(Log),
     NumOfReqs = Lines,
+    ok = file_delete(Log),
     ok.
 op_switch_to_sync(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -911,11 +911,11 @@ op_switch_to_drop(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -963,11 +963,11 @@ op_switch_to_flush(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok= stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -995,8 +995,9 @@ limit_burst_disabled(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    NumOfReqs = Logged,
     ok = file_delete(Log),
-    NumOfReqs = Logged.
+    ok.
 limit_burst_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1014,8 +1015,9 @@ limit_burst_enabled_one(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    ReqLimit = Logged,
     ok = file_delete(Log),
-    ReqLimit = Logged.
+    ok.
 limit_burst_enabled_one(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1036,9 +1038,10 @@ limit_burst_enabled_period(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
-    ok = file_delete(Log),
     true = (Logged > (ReqLimit*Windows)) andalso
-           (Logged < (ReqLimit*(Windows+2))).
+           (Logged < (ReqLimit*(Windows+2))),
+    ok = file_delete(Log),
+    ok.
 limit_burst_enabled_period(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1239,6 +1242,8 @@ start_handler(Name, FuncName, Config) ->
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, FuncName),
     ct:pal("Logging to ~tp", [File]),
+    FullFile = lists:concat([File,".1"]),
+    _ = file_delete(FullFile),
     ok = logger:add_handler(Name,
                             logger_disk_log_h,
                             #{config=>#{file => File,
@@ -1248,7 +1253,7 @@ start_handler(Name, FuncName, Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op}}),
     {ok,HConfig = #{config := DLHConfig}} = logger:get_handler_config(Name),
-    {lists:concat([File,".1"]),HConfig,DLHConfig}.
+    {FullFile,HConfig,DLHConfig}.
     
 stop_handler(Name) ->
     ct:pal("Stopping handler ~p!", [Name]),
