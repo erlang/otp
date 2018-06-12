@@ -163,13 +163,13 @@ pair(A, B) -> {A, B}.
 %%--------------------------------------------------------------------
 
 wxSizer_replace() ->
-  wxSizer_replace(wxSizer, wxSizer).
+  wxSizer_replace(?MODULE, ?MODULE).
 
 -define(CLASS(Type, Class), ((Type) =:= Class) orelse (Type):parent_class(Class)).
 
 wxSizer_replace(OldwinT, NewwinT) -> % this function was the culprit
-  ?CLASS(OldwinT, wxSizer),
-  ?CLASS(NewwinT, wxSizer),
+  ?CLASS(OldwinT, ?MODULE),
+  ?CLASS(NewwinT, ?MODULE),
   ok.
 
 parent_class(wxWindow) -> true;
