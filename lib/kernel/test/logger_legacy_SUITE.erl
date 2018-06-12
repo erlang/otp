@@ -67,25 +67,28 @@ end_per_suite(_Config) ->
 init_per_group(std, Config) ->
     ok = logger:set_handler_config(
            error_logger,filters,
-           [{domain,{fun logger_filters:domain/2,
-                     {log,super,[beam,erlang,otp]}}}]),
+           [{domain,{fun logger_filters:domain/2,{log,super,[otp]}}}]),
     Config;
 init_per_group(sasl, Config) ->
+    %% Since default level is notice, and progress reports are info,
+    %% we need to raise the global logger level to info in order to
+    %% receive these.
+    ok = logger:set_primary_config(level,info),
     ok = logger:set_handler_config(
            error_logger,filters,
-           [{domain,{fun logger_filters:domain/2,
-                     {log,super,[beam,erlang,otp,sasl]}}}]),
+           [{domain,{fun logger_filters:domain/2,{log,super,[otp,sasl]}}}]),
 
     %% cth_log_redirect checks if sasl is started before displaying
     %% any sasl reports - so just to see the real sasl reports in tc
     %% log:
-    application:start(sasl),
-    Config;
+    {ok,Apps} = application:ensure_all_started(sasl),
+    [{stop_apps,Apps}|Config];
 init_per_group(_Group, Config) ->
     Config.
 
-end_per_group(sasl, _Config) ->
-    application:stop(sasl),
+end_per_group(sasl, Config) ->
+    Apps = ?config(stop_apps,Config),
+    [application:stop(App) || App <- Apps],
     ok;
 end_per_group(_Group, _Config) ->
     ok.

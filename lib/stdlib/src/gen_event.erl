@@ -589,7 +589,7 @@ server_update(Handler1, Func, Event, SName) ->
             ?LOG_WARNING(#{label=>{gen_event,no_handle_info},
                            module=>Mod1,
                            message=>Event},
-                         #{domain=>[beam,erlang,otp],
+                         #{domain=>[otp],
                            report_cb=>fun gen_event:format_log/1,
                            error_logger=>#{tag=>warning_msg}}), % warningmap??
             {ok, Handler1};
@@ -751,7 +751,7 @@ report_error(Handler, Reason, State, LastIn, SName) ->
                  state=>format_status(terminate,Handler#handler.module,
                                       get(),State),
                  reason=>Reason},
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  report_cb=>fun gen_event:format_log/1,
                  error_logger=>#{tag=>error}}).
 

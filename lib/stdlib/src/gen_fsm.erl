@@ -505,7 +505,7 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
             ?LOG_WARNING(#{label=>{gen_fsm,no_handle_info},
                            module=>Mod,
                            message=>Msg},
-                         #{domain=>[beam,erlang,otp],
+                         #{domain=>[otp],
                            report_cb=>fun gen_fsm:format_log/1,
                            error_logger=>#{tag=>warning_msg}}),
             loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
@@ -616,7 +616,7 @@ error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
                  state_name=>StateName,
                  state_data=>StateData,
                  reason=>Reason},
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  report_cb=>fun gen_fsm:format_log/1,
                  error_logger=>#{tag=>error}}),
     sys:print_log(Debug),

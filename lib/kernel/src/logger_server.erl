@@ -25,8 +25,8 @@
 -export([start_link/0,
          add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
-         set_module_level/2, unset_module_level/1,
-         cache_module_level/1,
+         set_module_level/2, unset_module_level/0,
+         unset_module_level/1, cache_module_level/1,
          set_config/2, set_config/3, update_config/2,
          update_formatter_config/2]).
 
@@ -53,7 +53,7 @@ add_handler(Id,Module,Config0) ->
         {ok,ok} ->
             case sanity_check(Id,Config0) of
                 ok ->
-                    Default = default_config(Id),
+                    Default = default_config(Id,Module),
                     Config = maps:merge(Default,Config0),
                     call({add_handler,Id,Module,Config});
                 Error ->
@@ -75,30 +75,41 @@ add_filter(Owner,Filter) ->
 remove_filter(Owner,FilterId) ->
     call({remove_filter,Owner,FilterId}).
 
-set_module_level(Module,Level) when is_atom(Module) ->
-    case sanity_check(logger,level,Level) of
-        ok -> call({set_module_level,Module,Level});
-        Error -> Error
+set_module_level(Modules,Level) when is_list(Modules) ->
+    case lists:all(fun(M) -> is_atom(M) end,Modules) of
+        true ->
+            case sanity_check(primary,level,Level) of
+                ok -> call({set_module_level,Modules,Level});
+                Error -> Error
+            end;
+        false ->
+            {error,{not_a_list_of_modles,Modules}}
     end;
-set_module_level(Module,_) ->
-    {error,{not_a_module,Module}}.
+set_module_level(Modules,_) ->
+    {error,{not_a_list_of_modules,Modules}}.
 
-unset_module_level(Module) when is_atom(Module) ->
-    call({unset_module_level,Module});
-unset_module_level(Module) ->
-    {error,{not_a_module,Module}}.
+unset_module_level() ->
+    call({unset_module_level,all}).
+
+unset_module_level(Modules) when is_list(Modules) ->
+    case lists:all(fun(M) -> is_atom(M) end,Modules) of
+        true ->
+            call({unset_module_level,Modules});
+        false ->
+            {error,{not_a_list_of_modles,Modules}}
+    end;
+unset_module_level(Modules) ->
+    {error,{not_a_list_of_modules,Modules}}.
 
 cache_module_level(Module) ->
     gen_server:cast(?SERVER,{cache_module_level,Module}).
 
-
 set_config(Owner,Key,Value) ->
     update_config(Owner,#{Key=>Value}).
 
-set_config(Owner,Config0) ->
-    case sanity_check(Owner,Config0) of
+set_config(Owner,Config) ->
+    case sanity_check(Owner,Config) of
         ok ->
-            Config = maps:merge(default_config(Owner),Config0),
             call({set_config,Owner,Config});
         Error ->
             Error
@@ -127,10 +138,10 @@ init([]) ->
     process_flag(trap_exit, true),
     put(?LOGGER_SERVER_TAG,true),
     Tid = logger_config:new(?LOGGER_TABLE),
-    LoggerConfig = maps:merge(default_config(logger),
+    PrimaryConfig = maps:merge(default_config(primary),
                               #{handlers=>[simple]}),
-    logger_config:create(Tid,logger,LoggerConfig),
-    SimpleConfig0 = maps:merge(default_config(simple),
+    logger_config:create(Tid,primary,PrimaryConfig),
+    SimpleConfig0 = maps:merge(default_config(simple,logger_simple_h),
                                #{filter_default=>stop,
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
@@ -155,9 +166,9 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
                       case erlang:function_exported(Module, log, 2) of
                           true ->
                               logger_config:create(Tid,Id,Module,HConfig1),
-                              {ok,Config} = do_get_config(Tid,logger),
+                              {ok,Config} = do_get_config(Tid,primary),
                               Handlers = maps:get(handlers,Config,[]),
-                              do_set_config(Tid,logger,
+                              do_set_config(Tid,primary,
                                             Config#{handlers=>[Id|Handlers]});
                           false ->
                               {error,{invalid_handler,
@@ -171,7 +182,7 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
 handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
         {ok,{Module,HConfig}} ->
-            {ok,Config} = do_get_config(Tid,logger),
+            {ok,Config} = do_get_config(Tid,primary),
             Handlers0 = maps:get(handlers,Config,[]),
             Handlers = lists:delete(HandlerId,Handlers0),
             call_h_async(
@@ -180,7 +191,7 @@ handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
                       call_h(Module,removing_handler,[HConfig],ok)
               end,
               fun(_Res) ->
-                      do_set_config(Tid,logger,Config#{handlers=>Handlers}),
+                      do_set_config(Tid,primary,Config#{handlers=>Handlers}),
                       logger_config:delete(Tid,HandlerId),
                       ok
               end,From,State);
@@ -204,13 +215,15 @@ handle_call({update_config,Id,NewConfig}, From, #state{tid=Tid}=State) ->
         Error ->
             {reply,Error,State}
     end;
-handle_call({set_config,logger,Config}, _From, #state{tid=Tid}=State) ->
-    {ok,#{handlers:=Handlers}} = logger_config:get(Tid,logger),
-    Reply = do_set_config(Tid,logger,Config#{handlers=>Handlers}),
+handle_call({set_config,primary,Config0}, _From, #state{tid=Tid}=State) ->
+    Config = maps:merge(default_config(primary),Config0),
+    {ok,#{handlers:=Handlers}} = logger_config:get(Tid,primary),
+    Reply = do_set_config(Tid,primary,Config#{handlers=>Handlers}),
     {reply,Reply,State};
-handle_call({set_config,HandlerId,Config}, From, #state{tid=Tid}=State) ->
+handle_call({set_config,HandlerId,Config0}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
         {ok,{Module,OldConfig}} ->
+            Config = maps:merge(default_config(HandlerId,Module),Config0),
             call_h_async(
               fun() ->
                       call_h(Module,changing_config,[OldConfig,Config],
@@ -240,11 +253,11 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
             {error,{not_found,HandlerId}}
         end,
     {reply,Reply,State};
-handle_call({set_module_level,Module,Level}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:set_module_level(Tid,Module,Level),
+handle_call({set_module_level,Modules,Level}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:set_module_level(Tid,Modules,Level),
     {reply,Reply,State};
-handle_call({unset_module_level,Module}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:unset_module_level(Tid,Module),
+handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
+    Reply = logger_config:unset_module_level(Tid,Modules),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
@@ -271,7 +284,7 @@ handle_info({Ref,_Reply},State) when is_reference(Ref) ->
 handle_info({'DOWN',_Ref,_Proc,_Pid,_Reason} = Down,State) ->
     call_h_reply(Down,State);
 handle_info(Unexpected,State) when element(1,Unexpected) == 'EXIT' ->
-    %% The simple logger will send an 'EXIT' message when it is replaced
+    %% The simple handler will send an 'EXIT' message when it is replaced
     %% We may as well ignore all 'EXIT' messages that we get
     ?LOG_INTERNAL(debug,
                   [{logger,got_unexpected_message},
@@ -344,16 +357,18 @@ do_set_config(Tid,Id,Config) ->
     logger_config:set(Tid,Id,Config),
     ok.
 
-default_config(logger) ->
-    #{level=>info,
+default_config(primary) ->
+    #{level=>notice,
       filters=>[],
       filter_default=>log};
 default_config(Id) ->
     #{id=>Id,
-      level=>info,
+      level=>all,
       filters=>[],
       filter_default=>log,
       formatter=>{?DEFAULT_FORMATTER,#{}}}.
+default_config(Id,Module) ->
+    (default_config(Id))#{module=>Module}.
 
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).
@@ -370,8 +385,8 @@ sanity_check_1(Owner,Config) when is_list(Config) ->
     catch throw:Error -> {error,Error}
     end.
 
-get_type(logger) ->
-    logger;
+get_type(primary) ->
+    primary;
 get_type(Id) ->
     check_id(Id),
     handler.
@@ -388,8 +403,8 @@ check_config(Owner,[{filter_default,FD}|Config]) ->
 check_config(handler,[{formatter,Formatter}|Config]) ->
     check_formatter(Formatter),
     check_config(handler,Config);
-check_config(logger,[C|_]) ->
-    throw({invalid_logger_config,C});
+check_config(primary,[C|_]) ->
+    throw({invalid_primary_config,C});
 check_config(handler,[{_,_}|Config]) ->
     %% Arbitrary config elements are allowed for handlers
     check_config(handler,Config);

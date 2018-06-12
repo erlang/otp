@@ -1914,19 +1914,19 @@ info_started(Name, Node) ->
     ?LOG_INFO(#{label=>{application_controller,progress},
                 report=>[{application, Name},
                          {started_at, Node}]},
-              #{domain=>[beam,erlang,otp,sasl],
+              #{domain=>[otp,sasl],
                 report_cb=>fun logger:format_otp_report/1,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
                 error_logger=>#{tag=>info_report,type=>progress}}).
 
 info_exited(Name, Reason, Type) ->
-    ?LOG_INFO(#{label=>{application_controller,exit},
-                report=>[{application, Name},
-                         {exited, Reason},
-                         {type, Type}]},
-              #{domain=>[beam,erlang,otp],
-                report_cb=>fun logger:format_otp_report/1,
-                error_logger=>#{tag=>info_report,type=>std_info}}).
+    ?LOG_NOTICE(#{label=>{application_controller,exit},
+                  report=>[{application, Name},
+                           {exited, Reason},
+                           {type, Type}]},
+                #{domain=>[otp],
+                  report_cb=>fun logger:format_otp_report/1,
+                  error_logger=>#{tag=>info_report,type=>std_info}}).
 
 %%-----------------------------------------------------------------
 %% Reply to all processes waiting this application to be started.  

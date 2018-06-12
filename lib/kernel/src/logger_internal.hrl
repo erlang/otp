@@ -19,12 +19,11 @@
 %%
 -include_lib("kernel/include/logger.hrl").
 -define(LOGGER_TABLE,logger).
--define(LOGGER_KEY,'$logger_config$').
+-define(PRIMARY_KEY,'$primary_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
 -define(STANDARD_HANDLER, default).
--define(DEFAULT_HANDLER_FILTERS,
-        ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
+-define(DEFAULT_HANDLER_FILTERS,?DEFAULT_HANDLER_FILTERS([otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
         [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
          {domain,{fun logger_filters:domain/2,{log,super,Domain}}},
@@ -33,7 +32,7 @@
 -define(DEFAULT_FORMAT_CONFIG,#{legacy_header=>true,
                                 single_line=>false}).
 -define(DEFAULT_FORMAT_TEMPLATE_HEADER,
-        [{logger_formatter,header},"\n",msg,"\n"]).
+        [[logger_formatter,header],"\n",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE_SINGLE,
         [time," ",level,": ",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE,
@@ -55,14 +54,17 @@
 %%%-----------------------------------------------------------------
 %%% Levels
 %%% Using same as syslog
--define(LEVELS,[emergency,
+-define(LEVELS,[none,
+                emergency,
                 alert,
                 critical,
                 error,
                 warning,
                 notice,
                 info,
-                debug]).
+                debug,
+                all]).
+-define(LOG_NONE,-1).
 -define(EMERGENCY,0).
 -define(ALERT,1).
 -define(CRITICAL,2).
@@ -71,6 +73,7 @@
 -define(NOTICE,5).
 -define(INFO,6).
 -define(DEBUG,7).
+-define(LOG_ALL,10).
 
 -define(IS_LEVEL(L),
         (L=:=emergency orelse

@@ -48,7 +48,7 @@ suite() ->
      {ct_hooks, [logger_test_lib]}].
 
 init_per_suite(Config) ->
-    #{handlers:=Hs0} = logger:i(),
+    Hs0 = logger:get_handler_config(),
     Hs = lists:keydelete(cth_log_redirect,1,Hs0),
     [ok = logger:remove_handler(Id) || {Id,_,_} <- Hs],
     Env = [{App,Key,application:get_env(App,Key)} ||
@@ -128,8 +128,8 @@ replace_file(Config) ->
     log(Node, emergency, [M1=?str]),
     log(Node, alert, [M2=?str,[]]),
     log(Node, error, [M3=?map_rep]),
-    log(Node, info, [M4=?keyval_rep]),
-    log(Node, info, [M41=?keyval_rep++[not_key_val]]),
+    log(Node, warning, [M4=?keyval_rep]),
+    log(Node, warning, [M41=?keyval_rep++[not_key_val]]),
     log(Node, critical, [M7=?str,[A7=?keyval_rep]]),
     log(Node, notice, [M8=["fake",string,"line:",?LINE]]),
 
@@ -138,7 +138,7 @@ replace_file(Config) ->
 
     ok = rpc:call(Node, logger, add_handlers,
                   [[{handler, default, logger_std_h,
-                     #{ logger_std_h => #{ type => {file, File} },
+                     #{ config => #{ type => {file, File} },
                         formatter => {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}}]]),
 
     {ok,Bin} = sync_and_read(Node, file, File),
@@ -151,10 +151,10 @@ replace_file(Config) ->
      "=ERROR REPORT===="++_,
      _,
      _,
-     "=INFO REPORT===="++_,
+     "=WARNING REPORT===="++_,
      _,
      _,
-     "=INFO REPORT===="++_,
+     "=WARNING REPORT===="++_,
      _,
      _,
      _,
@@ -172,8 +172,8 @@ replace_disk_log(Config) ->
     log(Node, emergency, [M1=?str]),
     log(Node, alert, [M2=?str,[]]),
     log(Node, error, [M3=?map_rep]),
-    log(Node, info, [M4=?keyval_rep]),
-    log(Node, info, [M41=?keyval_rep++[not_key_val]]),
+    log(Node, warning, [M4=?keyval_rep]),
+    log(Node, warning, [M41=?keyval_rep++[not_key_val]]),
     log(Node, critical, [M7=?str,[A7=?keyval_rep]]),
     log(Node, notice, [M8=["fake",string,"line:",?LINE]]),
 
@@ -182,7 +182,7 @@ replace_disk_log(Config) ->
 
     ok = rpc:call(Node, logger, add_handlers,
                   [[{handler, default, logger_disk_log_h,
-                     #{ disk_log_opts => #{ file => File },
+                     #{ config => #{ file => File },
                         formatter => {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}}]]),
     {ok,Bin} = sync_and_read(Node, disk_log, File),
     Lines = [unicode:characters_to_list(L) ||
@@ -194,10 +194,10 @@ replace_disk_log(Config) ->
      "=ERROR REPORT===="++_,
      _,
      _,
-     "=INFO REPORT===="++_,
+     "=WARNING REPORT===="++_,
      _,
      _,
-     "=INFO REPORT===="++_,
+     "=WARNING REPORT===="++_,
      _,
      _,
      _,

@@ -36,12 +36,15 @@
   <modulesummary>Default formatter for Logger.</modulesummary>
 
   <description>
-    <p>Each log handler has a configured formatter specified as a
+    <p>Each Logger handler has a configured formatter specified as a
       module and a configuration term. The purpose of the formatter is
       to translate the log events to a final printable string
       (<seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c>
-      </seealso>) which can be written to the output
-      device of the handler.</p>
+      </seealso>) which can be written to the output device of the
+      handler. See
+      sections <seealso marker="logger_chapter#handlers">Handlers</seealso>
+      and <seealso marker="logger_chapter#formatters">Formatters</seealso>
+      in the Kernel User's Guide for more information.</p>
     <p><c>logger_formatter</c> is the default formatter used by
       Logger.</p>
   </description>
@@ -55,7 +58,8 @@
 	  <seealso marker="stdlib:maps">map</seealso>, and the
 	  following keys can be set as configuration parameters:</p>
 	<taglist>
-	  <tag><c>chars_limit = pos_integer() | unlimited</c></tag>
+	  <tag><marker id="chars_limit"/>
+	    <c>chars_limit = integer() > 0 | unlimited</c></tag>
 	  <item>
 	    <p>A positive integer representing the value of the option
 	      with the same name to be used when calling
@@ -65,14 +69,8 @@
 	      for each log event. Notice that this is a soft limit. For a
 	      hard truncation limit, see option <c>max_size</c>.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
-	    <note>
-	      <p><c>chars_limit</c> has no effect on log messages on
-		string form. These are expected to be short, but can
-		still be truncated by the <c>max_size</c>
-		parameter.</p>
-	    </note>
 	  </item>
-	  <tag><marker id="depth"/><c>depth = pos_integer() | unlimited</c></tag>
+	  <tag><marker id="depth"/><c>depth = integer() > 0 | unlimited</c></tag>
 	  <item>
 	    <p>A positive integer representing the maximum depth to
 	      which terms shall be printed by this formatter. Format
@@ -83,26 +81,23 @@
 	      <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
 	      in STDLIB.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
-	    <note>
-	      <p><c>depth</c> has no effect on log messages on string
-		form. These are expected to be short, but can still be
-		truncated by the <c>max_size</c> parameter.</p>
-	    </note>
 	  </item>
 	  <tag><c>legacy_header = boolean()</c></tag>
 	  <item>
 	    <p>If set to <c>true</c> a header field is added to
 	      logger_formatter's part of <c>Metadata</c>. The value of
 	      this field is a string similar to the header created by
-	      the old <c>error_logger</c> event handlers. It can be
-	      included in the log event by adding the
-	      tuple <c>{logger_formatter,header}</c> to the
+	      the
+	      old <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      event handlers. It can be included in the log event by
+	      adding the list <c>[logger_formatter,header]</c> to the
 	      template. See the description of
 	      the <seealso marker="#type-template"><c>template()</c></seealso>
 	      type for more information.</p>
 	    <p>Defaults to <c>false</c>.</p>
 	  </item>
-	  <tag><c>max_size = pos_integer() | unlimited</c></tag>
+	  <tag><marker id="max_size"/>
+	    <c>max_size = integer() > 0 | unlimited</c></tag>
 	  <item>
 	    <p>A positive integer representing the absolute maximum size a
 	      string returned from this formatter can have. If the
@@ -110,12 +105,12 @@
 	      by <c>chars_limit</c> or <c>depth</c>, it is truncated.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
-	  <tag><c>report_cb = fun((</c><seealso marker="logger#type-report"><c>logger:report()</c></seealso><c>) -> {</c><seealso marker="stdlib:io#type-format"><c>io:format()</c></seealso><c>,[term()]})</c></tag>
+	  <tag><c>report_cb = fun((</c><seealso marker="logger#type-report"><c>logger:report()</c></seealso><c>) -> {</c><seealso marker="stdlib:io#type-format"><c>io:format()</c></seealso><c>, [term()]})</c></tag>
 	  <item>
 	    <p>A report callback is used by the formatter to transform
 	      log messages on report form to a format string and
 	      arguments. The report callback can be specified in the
-	      metadata for the log event. If no report callback exist
+	      metadata for the log event. If no report callback exists
 	      in metadata, <c>logger_formatter</c> will
 	      use <seealso marker="logger#format_report-1">
 		<c>logger:format_report/1</c></seealso> as default
@@ -131,12 +126,14 @@
 	  <tag><c>single_line = boolean()</c></tag>
 	  <item>
 	    <p>If set to <c>true</c>, all newlines in the message are
-	      replaced with <c>", "</c>, and whitespaces following
-	      directly after newlines are removed. Note that newlines
+	      replaced with <c>", "</c>, and white spaces following
+	      directly after newlines are removed. Notice that newlines
 	      added by the <c>template</c> parameter are not replaced.</p>
 	    <p>Defaults to <c>true</c>.</p>
 	  </item>
-	  <tag><c>template = </c><seealso marker="#type-template"><c>template()</c></seealso></tag>
+	  <tag><marker id="template"/>
+	    <c>template = </c><seealso marker="#type-template"><c>template()</c>
+	  </seealso></tag>
 	  <item>
 	    <p>The template describes how the formatted string is
 	      composed by combining different data values from the log
@@ -184,31 +181,42 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="metakey"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="template"/>
       <desc>
-	<p>The template is a list of atoms, tuples and strings. The
+	<p>The template is a list of atoms, atom lists, tuples and strings. The
 	  atoms <c>level</c> or <c>msg</c>, are treated as
 	  placeholders for the severity level and the log message,
-	  respectively. Other atoms or tuples are interpreted as
+	  respectively. Other atoms or atom lists are interpreted as
 	  placeholders for metadata, where atoms are expected to match
-	  top level keys, and tuples represent paths to sub keys when
+	  top level keys, and atom lists represent paths to sub keys when
 	  the metadata is a nested map. For example the
-	  tuple <c>{key1,key2}</c> is replaced by the value of
+	  list <c>[key1,key2]</c> is replaced by the value of
 	  the <c>key2</c> field in the nested map below. The
 	  atom <c>key1</c> on its own is replaced by the complete
 	  value of the <c>key1</c> field. The values are converted to
 	  strings.</p>
 
-<code>
-#{key1=>#{key2=>my_value,
-          ...}
+	<code>
+#{key1 => #{key2 => my_value,
+            ...}
   ...}</code>
 
-        <p>Strings in the template are printed literally.</p>
-	<p>The default template differs depending on the values
-	  of <c>legacy_header</c>
-	  and <c>single_line</c>:</p>
+        <p>Tuples in the template express if-exist tests for metadata
+          keys. For example, the following tuple says that
+          if <c>key1</c> exists in the metadata map,
+          print <c>"key1=Value"</c>, where <c>Value</c> is the value
+          that <c>key1</c> is associated with in the metadata map. If
+          <c>key1</c> does not exist, print nothing.</p>
+	<code>
+{key1, ["key1=",key1], []}</code>
 
+        <p>Strings in the template are printed literally.</p>
 	<p>The default value for the <c>template</c> configuration
 	  parameter depends on the value of the <c>single_line</c>
 	  and <c>legacy_header</c> configuration parameters as
@@ -216,13 +224,13 @@
 
 	<p>The log event used in the examples is:</p>
 	<code>
-?LOG_ERROR("name: ~p~nexit_reason: ~p",[my_name,"It crashed"])</code>
+?LOG_ERROR("name: ~p~nexit_reason: ~p", [my_name, "It crashed"])</code>
 
 	<taglist>
-	  <tag><c>legacy_header=true, single_line=false</c></tag>
+	  <tag><c>legacy_header = true, single_line = false</c></tag>
 	  <item>
 	    <p>Default
-	    template: <c>[{logger_formatter,header},"\n",msg,"\n"]</c></p>
+	    template: <c>[[logger_formatter,header],"\n",msg,"\n"]</c></p>
 
 	    <p>Example log entry:</p>
 	    <code type="none">
@@ -231,15 +239,16 @@ name: my_name
 exit_reason: "It crashed"</code>
 
 	    <p>Notice that all eight levels can occur in the heading,
-	      not only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c> as the
-	      old <c>error_logger</c> produced. And microseconds are
-	      added at the end of the timestamp.</p>
+	      not only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c> as
+	      <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      produces. And microseconds are added at the end of the
+	      timestamp.</p>
 	  </item>
 
-	  <tag><c>legacy_header=true, single_line=true</c></tag>
+	  <tag><c>legacy_header = true, single_line = true</c></tag>
 	  <item>
 	    <p>Default
-	    template: <c>[{logger_formatter,header},"\n",msg,"\n"]</c></p>
+	    template: <c>[[logger_formatter,header],"\n",msg,"\n"]</c></p>
 
 	    <p>Notice that the template is here the same as
 	      for <c>single_line=false</c>, but the resulting log entry
@@ -250,7 +259,7 @@ exit_reason: "It crashed"</code>
 name: my_name, exit_reason: "It crashed"</code>
 	  </item>
 
-	  <tag><c>legacy_header=false, single_line=true</c></tag>
+	  <tag><c>legacy_header = false, single_line = true</c></tag>
 	  <item>
 	    <p>Default template: <c>[time," ",level,": ",msg,"\n"]</c></p>
 
@@ -259,7 +268,7 @@ name: my_name, exit_reason: "It crashed"</code>
 2018-05-17T18:31:31.152864+02:00 error: name: my_name, exit_reason: "It crashed"</code>
 	  </item>
 
-	  <tag><c>legacy_header=false, single_line=false</c></tag>
+	  <tag><c>legacy_header = false, single_line = false</c></tag>
 	  <item>
 	    <p>Default template: <c>[time," ",level,":\n",msg,"\n"]</c></p>
 
@@ -279,10 +288,21 @@ exit_reason: "It crashed"</code>
       <name name="check_config" arity="1"/>
       <fsummary>Validates the given formatter configuration.</fsummary>
       <desc>
-	<p>This callback function is called by Logger when the
-	  formatter configuration for a handler is set or modified. It
+	<p>The function is called by Logger when the formatter
+	  configuration for a handler is set or modified. It
 	  returns <c>ok</c> if the configuration is valid,
 	  and <c>{error,term()}</c> if it is faulty.</p>
+	<p>The following Logger API functions can trigger this callback:</p>
+	<list>
+	  <item><seealso marker="logger#add_handler-3">
+	      <c>logger:add_handler/3</c></seealso></item>
+	  <item><seealso marker="logger#set_handler_config-2">
+	      <c>logger:set_handler_config/2,3</c></seealso></item>
+	  <item><seealso marker="logger#update_handler_config-2">
+	      <c>logger:updata_handler_config/2</c></seealso></item>
+	  <item><seealso marker="logger#update_formatter_config-2">
+	      <c>logger:update_formatter_config/2</c></seealso></item>
+	</list>
       </desc>
     </func>
     <func>
@@ -293,22 +313,38 @@ exit_reason: "It crashed"</code>
 	  handlers. The log event is processed as follows:</p>
 	<list>
 	  <item>If the message is on report form, it is converted to
-	    <c>{Format,Args}</c> by calling the report
-	    callback.</item>
-	  <item>The size is limited according to the values of
-	    configuration parameters <c>chars_limit</c>
-	    and <c>depth</c>. Notice that this does not apply to
-	    messages on string form.</item>
+	    <c>{Format,Args}</c> by calling the report callback. See
+	    section <seealso marker="logger_chapter#log_message">Log
+	    Message</seealso> in the Kernel User's Guide for more
+	    information about report callbacks and valid forms of log
+	    messages.</item>
+	  <item>The message size is limited according to the values of
+	    configuration parameters <seealso marker="#chars_limit">
+	      <c>chars_limit</c></seealso>
+	    and <seealso marker="#depth"><c>depth</c></seealso>.</item>
 	  <item>The full log entry is composed according to
-	    the <c>template</c>.</item>
+	    the <seealso marker="#template"><c>template</c></seealso>.</item>
 	  <item>If the final string is too long, it is truncated
 	    according to the value of configuration
-	    parameter <c>max_size</c>.</item>
+	    parameter <seealso marker="#max_size"><c>max_size</c></seealso>.</item>
 	</list>
       </desc>
     </func>
   </funcs>
 
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="stdlib:calendar"><c>calendar(3)</c></seealso>,
+      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
+      <seealso marker="stdlib:io"><c>io(3)</c></seealso>,
+      <seealso marker="stdlib:io_lib"><c>io_lib(3)</c></seealso>,
+      <seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="stdlib:maps"><c>maps(3)</c></seealso>,
+      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso>,
+      <seealso marker="stdlib:unicode"><c>unicode(3)</c></seealso>
+    </p>
+  </section>
 </erlref>
 
 

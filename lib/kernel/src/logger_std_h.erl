@@ -28,15 +28,17 @@
 -include_lib("kernel/include/file.hrl").
 
 %% API
--export([start_link/3, info/1, filesync/1, reset/1]).
+-export([start_link/3, info/1, sync/1, reset/1]).
 
 %% gen_server and proc_lib callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/1, removing_handler/1,
-         changing_config/2, swap_buffer/2]).
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/2]).
+
+%% handler internal
+-export([log_handler_info/4]).
 
 %%%===================================================================
 %%% API
@@ -48,7 +50,7 @@
 %%% handler process gets added
 -spec start_link(Name, Config, HandlerState) -> {ok,Pid} | {error,Reason} when
       Name :: atom(),
-      Config :: logger:config(),
+      Config :: logger:handler_config(),
       HandlerState :: map(),
       Pid :: pid(),
       Reason :: term().
@@ -58,18 +60,19 @@ start_link(Name, Config, HandlerState) ->
 
 %%%-----------------------------------------------------------------
 %%%
--spec filesync(Name) -> ok | {error,Reason} when
+-spec sync(Name) -> ok | {error,Reason} when
       Name :: atom(),
       Reason :: handler_busy | {badarg,term()}.
 
-filesync(Name) when is_atom(Name) ->
+sync(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, filesync, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        filesync, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
-filesync(Name) ->
-    {error,{badarg,{filesync,[Name]}}}.
+sync(Name) ->
+    {error,{badarg,{sync,[Name]}}}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -80,7 +83,8 @@ filesync(Name) ->
 
 info(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, info, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        info, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;
@@ -95,7 +99,8 @@ info(Name) ->
 
 reset(Name) when is_atom(Name) ->
     try
-        gen_server:call(Name, reset, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(?name_to_reg_name(?MODULE,Name),
+                        reset, ?DEFAULT_CALL_TIMEOUT)
     catch
         _:{timeout,_} -> {error,handler_busy}
     end;      
@@ -113,23 +118,16 @@ adding_handler(#{id:=Name}=Config) ->
     case check_config(adding, Config) of
         {ok, Config1} ->
             %% create initial handler state by merging defaults with config
-            HConfig = maps:get(?MODULE, Config1, #{}),
+            HConfig = maps:get(config, Config1, #{}),
             HState = maps:merge(get_init_state(), HConfig),
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
-                    case start(Name, Config1, HState) of
-                        ok ->
-                            %% Make sure wait_for_buffer is not stored, so we
-                            %% won't hang and wait for buffer on a restart
-                            {ok, maps:remove(wait_for_buffer,Config1)};
-                        Error ->
-                            Error
-                    end;
+                    start(Name, Config1, HState);
                 false ->
-                    #{toggle_sync_qlen   := TSQL,
-                      drop_new_reqs_qlen := DNRQL,
-                      flush_reqs_qlen    := FRQL} = HState, 
-                    {error,{invalid_levels,{TSQL,DNRQL,FRQL}}}
+                    #{sync_mode_qlen := SMQL,
+                      drop_mode_qlen := DMQL,
+                      flush_qlen     := FQL} = HState, 
+                    {error,{invalid_levels,{SMQL,DMQL,FQL}}}
             end;
         Error ->
             Error
@@ -137,24 +135,27 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, ?MODULE:=#{type:=Type}},
+changing_config(OldConfig=#{id:=Name, config:=OldHConfig},
                 NewConfig=#{id:=Name}) ->
-    MyConfig = maps:get(?MODULE, NewConfig, #{}),
-    case maps:get(type, MyConfig, Type) of
+    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = OldHConfig,
+    NewHConfig = maps:get(config, NewConfig, #{}),
+    case maps:get(type, NewHConfig, Type) of
         Type ->
-            MyConfig1 = MyConfig#{type=>Type},
-            changing_config1(Name, OldConfig,
-                             NewConfig#{?MODULE=>MyConfig1});
+            NewHConfig1 = NewHConfig#{type=>Type,
+                                      handler_pid=>HPid,
+                                      mode_tab=>ModeTab},
+            changing_config1(HPid, OldConfig,
+                             NewConfig#{config=>NewHConfig1});
         _ ->
             {error,{illegal_config_change,OldConfig,NewConfig}}
     end;
 changing_config(OldConfig, NewConfig) ->
     {error,{illegal_config_change,OldConfig,NewConfig}}.
 
-changing_config1(Name, OldConfig, NewConfig) ->
+changing_config1(HPid, OldConfig, NewConfig) ->
     case check_config(changing, NewConfig) of
         Result = {ok,NewConfig1} ->
-            try gen_server:call(Name, {change_config,OldConfig,NewConfig1},
+            try gen_server:call(HPid, {change_config,OldConfig,NewConfig1},
                                 ?DEFAULT_CALL_TIMEOUT) of
                 ok      -> Result;
                 HError  -> HError
@@ -167,38 +168,38 @@ changing_config1(Name, OldConfig, NewConfig) ->
 
 check_config(adding, Config) ->
     %% Merge in defaults on handler level
-    MyConfig0 = maps:get(?MODULE, Config, #{}),
-    MyConfig = maps:merge(#{type => standard_io},
-                          MyConfig0),
-    case check_my_config(maps:to_list(MyConfig)) of
+    HConfig0 = maps:get(config, Config, #{}),
+    HConfig = maps:merge(#{type => standard_io},
+                         HConfig0),
+    case check_h_config(maps:to_list(HConfig)) of
         ok ->
-            {ok,Config#{?MODULE=>MyConfig}};
+            {ok,Config#{config=>HConfig}};
         Error ->
             Error
     end;
 check_config(changing, Config) ->
-    MyConfig = maps:get(?MODULE, Config, #{}),
-    case check_my_config(maps:to_list(MyConfig)) of
+    HConfig = maps:get(config, Config, #{}),
+    case check_h_config(maps:to_list(HConfig)) of
         ok    -> {ok,Config};
         Error -> Error
     end.
 
-check_my_config([{type,Type} | Config]) when Type == standard_io;
-                                             Type == standard_error ->
-    check_my_config(Config);
-check_my_config([{type,{file,File}} | Config]) when is_list(File) ->
-    check_my_config(Config);
-check_my_config([{type,{file,File,Modes}} | Config]) when is_list(File),
-                                                          is_list(Modes) ->
-    check_my_config(Config);
-check_my_config([Other | Config]) ->
+check_h_config([{type,Type} | Config]) when Type == standard_io;
+                                            Type == standard_error ->
+    check_h_config(Config);
+check_h_config([{type,{file,File}} | Config]) when is_list(File) ->
+    check_h_config(Config);
+check_h_config([{type,{file,File,Modes}} | Config]) when is_list(File),
+                                                         is_list(Modes) ->
+    check_h_config(Config);
+check_h_config([Other | Config]) ->
     case logger_h_common:check_common_config(Other) of
         valid ->
-            check_my_config(Config);
+            check_h_config(Config);
         invalid ->
             {error,{invalid_config,?MODULE,Other}}
     end;
-check_my_config([]) ->
+check_h_config([]) ->
     ok.
 
 
@@ -208,35 +209,27 @@ removing_handler(#{id:=Name}) ->
     stop(Name).
 
 %%%-----------------------------------------------------------------
-%%% Get buffer when swapping from simple handler
-swap_buffer(Name,Buffer) ->
-    case whereis(Name) of
-        undefined ->
-            ok;
-        _ ->
-            Name ! {buffer,Buffer}
-    end.
-
-%%%-----------------------------------------------------------------
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok | dropped when
       LogEvent :: logger:log_event(),
-      Config :: logger:config().
+      Config :: logger:handler_config().
 
-log(LogEvent,Config=#{id:=Name}) ->
-    %% if the handler has crashed, we must drop this request
+log(LogEvent, Config = #{id := Name,
+                         config := #{handler_pid := HPid,
+                                     mode_tab := ModeTab}}) ->
+    %% if the handler has crashed, we must drop this event
     %% and hope the handler restarts so we can try again
-    true = is_pid(whereis(Name)),
-    Bin = logger_h_common:log_to_binary(LogEvent,Config),
-    logger_h_common:call_cast_or_drop(Name, Bin).
+    true = is_process_alive(HPid),
+    Bin = logger_h_common:log_to_binary(LogEvent, Config),
+    logger_h_common:call_cast_or_drop(Name, HPid, ModeTab, Bin).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Name, Config,
-      State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->
-    register(Name, self()),
+init([Name, Config = #{config := HConfig},
+      State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->    
+    register(?name_to_reg_name(?MODULE,Name), self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
@@ -245,59 +238,59 @@ init([Name, Config,
 
     case do_init(Name, Type) of
         {ok,InitState} ->
-            catch ets:new(Name, [public, named_table]),
-            ?set_mode(Name, async),
-            State = maps:merge(State0, InitState),
-            T0 = ?timestamp(),
-            State1 =
-                ?merge_with_stats(State#{mode => async,
-                                         file_ctrl_sync => FileCtrlSyncInt,
-                                         last_qlen => 0,
-                                         last_log_ts => T0,
-                                         last_op => sync,
-                                         burst_win_ts => T0,
-                                         burst_msg_count => 0}),
-            proc_lib:init_ack({ok,self()}),
-            gen_server:cast(self(), repeated_filesync),
-            enter_loop(Config, State1);
+            try ets:new(Name, [public]) of
+                ModeTab ->
+                    ?set_mode(ModeTab, async),
+                    State = maps:merge(State0, InitState),
+                    T0 = ?timestamp(),
+                    State1 =
+                        ?merge_with_stats(State#{
+                                            mode_tab => ModeTab,
+                                            mode => async,
+                                            file_ctrl_sync => FileCtrlSyncInt,
+                                            last_qlen => 0,
+                                            last_log_ts => T0,
+                                            last_op => sync,
+                                            burst_win_ts => T0,
+                                            burst_msg_count => 0}),
+                    Config1 =
+                        Config#{config => HConfig#{handler_pid => self(),
+                                                   mode_tab => ModeTab}},
+                    proc_lib:init_ack({ok,self(),Config1}),
+                    gen_server:cast(self(), repeated_filesync),
+                    enter_loop(Config1, State1)
+            catch
+                _:Error ->
+                    logger_h_common:error_notify({init_handler,Name,Error}),
+                    proc_lib:init_ack(Error)
+            end;
         Error ->
             logger_h_common:error_notify({init_handler,Name,Error}),
             proc_lib:init_ack(Error)
     end.
 
-do_init(Name, Std) when Std=:=standard_io; Std=:=standard_error ->
-    case open_log_file(Name, Std) of
+do_init(Name, Type) ->
+    case open_log_file(Name, Type) of
         {ok,FileCtrlPid} ->
-            {ok,#{id=>Name,type=>Std,file_ctrl_pid=>FileCtrlPid}};
-        Error ->
-            Error
-    end;
-do_init(Name, FileInfo) when is_tuple(FileInfo) ->
-    case open_log_file(Name, FileInfo) of
-        {ok,FileCtrlPid} ->
-            {ok,#{id=>Name,type=>FileInfo,file_ctrl_pid=>FileCtrlPid}};
+            case logger_h_common:unset_restart_flag(Name, ?MODULE) of
+                true ->
+                    %% inform about restart
+                    gen_server:cast(self(), {log_handler_info,
+                                             "Handler ~p restarted",
+                                             [Name]});
+                false ->
+                    %% initial start
+                    ok
+            end,
+            {ok,#{id=>Name,type=>Type,file_ctrl_pid=>FileCtrlPid}};
         Error ->
             Error
     end.
 
-enter_loop(#{wait_for_buffer:=true}=Config,State) ->
-    State1 =
-        receive
-            {buffer,Buffer} ->
-                lists:foldl(
-                  fun(Log,S) ->
-                          Bin = logger_h_common:log_to_binary(Log,Config),
-                          {_,S1} = do_log(Bin,cast,S),
-                          S1
-                  end,
-                  State,
-                  Buffer)
-        end,
-    gen_server:enter_loop(?MODULE,[],State1);
 enter_loop(_Config,State) ->
     gen_server:enter_loop(?MODULE,[],State).
 
-%% This is the synchronous log request.
+%% This is the synchronous log event.
 handle_call({log, Bin}, _From, State) ->
     {Result,State1} = do_log(Bin, call, State),
     %% Result == ok | dropped
@@ -313,7 +306,7 @@ handle_call(filesync, _From, State = #{type := Type,
 
 handle_call({change_config,_OldConfig,NewConfig}, _From,
             State = #{filesync_repeat_interval := FSyncInt0}) ->
-    HConfig = maps:get(?MODULE, NewConfig, #{}),
+    HConfig = maps:get(config, NewConfig, #{}),
     State1 = maps:merge(State, HConfig),
     case logger_h_common:overload_levels_ok(State1) of
         true ->
@@ -335,10 +328,10 @@ handle_call({change_config,_OldConfig,NewConfig}, _From,
                 end,
             {reply, ok, State1};
         false ->
-            #{toggle_sync_qlen   := TSQL,
-              drop_new_reqs_qlen := DNRQL,
-              flush_reqs_qlen    := FRQL} = State1,
-            {reply, {error,{invalid_levels,{TSQL,DNRQL,FRQL}}}, State}
+            #{sync_mode_qlen := SMQL,
+              drop_mode_qlen := DMQL,
+              flush_qlen     := FQL} = State1,
+            {reply, {error,{invalid_levels,{SMQL,DMQL,FQL}}}, State}
     end;
 
 handle_call(info, _From, State) ->
@@ -352,15 +345,19 @@ handle_call(reset, _From, State) ->
 handle_call(stop, _From, State) ->
     {stop, {shutdown,stopped}, ok, State}.
 
-%% This is the asynchronous log request.
+%% This is the asynchronous log event.
 handle_cast({log, Bin}, State) ->
     {_,State1} = do_log(Bin, cast, State),
     {noreply, State1};
 
+handle_cast({log_handler_info, Format, Args}, State = #{id:=Name}) ->
+    log_handler_info(Name, Format, Args, State),
+    {noreply, State};
+
 %% If FILESYNC_REPEAT_INTERVAL is set to a millisec value, this
 %% clause gets called repeatedly by the handler. In order to
 %% guarantee that a filesync *always* happens after the last log
-%% request, the repeat operation must be active!
+%% event, the repeat operation must be active!
 handle_cast(repeated_filesync,
             State = #{type := Type,
                       file_ctrl_pid := FileCtrlPid,
@@ -430,19 +427,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%%-----------------------------------------------------------------
 %%%
 get_init_state() ->
-     #{toggle_sync_qlen           => ?TOGGLE_SYNC_QLEN,
-       drop_new_reqs_qlen         => ?DROP_NEW_REQS_QLEN,
-       flush_reqs_qlen            => ?FLUSH_REQS_QLEN,
-       enable_burst_limit         => ?ENABLE_BURST_LIMIT,
-       burst_limit_size           => ?BURST_LIMIT_SIZE,
-       burst_window_time          => ?BURST_WINDOW_TIME,
-       enable_kill_overloaded     => ?ENABLE_KILL_OVERLOADED,
-       handler_overloaded_qlen    => ?HANDLER_OVERLOADED_QLEN,
-       handler_overloaded_mem     => ?HANDLER_OVERLOADED_MEM,
-       handler_restart_after      => ?HANDLER_RESTART_AFTER,
-       file_ctrl_sync_int         => ?CONTROLLER_SYNC_INTERVAL,
-       filesync_ok_qlen           => ?FILESYNC_OK_QLEN,
-       filesync_repeat_interval   => ?FILESYNC_REPEAT_INTERVAL}.
+     #{sync_mode_qlen              => ?SYNC_MODE_QLEN,
+       drop_mode_qlen              => ?DROP_MODE_QLEN,
+       flush_qlen                  => ?FLUSH_QLEN,
+       burst_limit_enable          => ?BURST_LIMIT_ENABLE,
+       burst_limit_max_count       => ?BURST_LIMIT_MAX_COUNT,
+       burst_limit_window_time     => ?BURST_LIMIT_WINDOW_TIME,
+       overload_kill_enable        => ?OVERLOAD_KILL_ENABLE,
+       overload_kill_qlen          => ?OVERLOAD_KILL_QLEN,
+       overload_kill_mem_size      => ?OVERLOAD_KILL_MEM_SIZE,
+       overload_kill_restart_after => ?OVERLOAD_KILL_RESTART_AFTER,
+       file_ctrl_sync_int          => ?CONTROLLER_SYNC_INTERVAL,
+       filesync_ok_qlen            => ?FILESYNC_OK_QLEN,
+       filesync_repeat_interval    => ?FILESYNC_REPEAT_INTERVAL}.
 
 %%%-----------------------------------------------------------------
 %%% Add a standard handler to the logger.
@@ -451,9 +448,9 @@ get_init_state() ->
 %%% exist if the handler is not registered).
 %%%
 %%% Handler specific config should be provided with a sub map associated
-%%% with a key named the same as this module, e.g:
+%%% with a key named 'config', e.g:
 %%%
-%%% Config = #{logger_std_h => #{toggle_sync_qlen => 50}
+%%% Config = #{config => #{sync_mode_qlen => 50}
 %%%
 %%% The standard handler process is linked to logger_sup, which is
 %%% part of the kernel application's supervision tree.
@@ -466,8 +463,8 @@ start(Name, Config, HandlerState) ->
           type     => worker,
           modules  => [?MODULE]},
     case supervisor:start_child(logger_sup, LoggerStdH) of
-        {ok,_Pid} ->
-            ok;
+        {ok,_Pid,Config1} ->
+            {ok,Config1};
         Error ->
             Error
     end.
@@ -475,16 +472,16 @@ start(Name, Config, HandlerState) ->
 %%%-----------------------------------------------------------------
 %%% Stop and remove the handler.
 stop(Name) ->
-    case whereis(Name) of
+    case whereis(?name_to_reg_name(?MODULE,Name)) of
         undefined ->
             ok;
-        _ ->
+        Pid ->
             %% We don't want to do supervisor:terminate_child here
             %% since we need to distinguish this explicit stop from a
             %% system termination in order to avoid circular attempts
             %% at removing the handler (implying deadlocks and
             %% timeouts).
-            _ = gen_server:call(Name,stop),
+            _ = gen_server:call(Pid, stop),
             _ = supervisor:delete_child(logger_sup, Name),
             ok
     end.
@@ -495,21 +492,31 @@ stop(Name) ->
         if C == 0 -> Interval;
            true -> C-1 end).
 
-%% check for overload between every request (and set Mode to async,
+%% check for overload between every event (and set Mode to async,
 %% sync or drop accordingly), but never flush the whole mailbox
-%% before LogWindowSize requests have been handled
-do_log(Bin, CallOrCast, State = #{id:=Name}) ->
+%% before LogWindowSize events have been handled
+do_log(Bin, CallOrCast, State = #{id:=Name, mode:=Mode0}) ->
     T1 = ?timestamp(),
 
     %% check if the handler is getting overloaded, or if it's
     %% recovering from overload (the check must be done for each
-    %% request to react quickly to large bursts of requests and
+    %% event to react quickly to large bursts of events and
     %% to ensure that the handler can never end up in drop mode
     %% with an empty mailbox, which would stop operation)
     {Mode1,QLen,Mem,State1} = logger_h_common:check_load(State),
 
+    if (Mode1 == drop) andalso (Mode0 =/= drop) ->
+            log_handler_info(Name, "Handler ~p switched to drop mode",
+                             [Name], State);
+       (Mode0 == drop) andalso ((Mode1 == async) orelse (Mode1 == sync)) ->
+            log_handler_info(Name, "Handler ~p switched to ~w mode",
+                             [Name,Mode1], State);
+       true ->
+            ok
+    end,
+
     %% kill the handler if it can't keep up with the load
-    logger_h_common:kill_if_choked(Name, QLen, Mem, State),
+    logger_h_common:kill_if_choked(Name, QLen, Mem, ?MODULE, State),
 
     if Mode1 == flush ->
             flush(Name, QLen, T1, State1);
@@ -519,10 +526,14 @@ do_log(Bin, CallOrCast, State = #{id:=Name}) ->
 
 %% this clause is called by do_log/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
+flush(Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
     %% flush messages in the mailbox (a limited number in
     %% order to not cause long delays)
-    _NewFlushed = logger_h_common:flush_log_requests(?FLUSH_MAX_N),
+    NewFlushed = logger_h_common:flush_log_events(?FLUSH_MAX_N),
+
+    %% write info in log about flushed messages
+    log_handler_info(Name, "Handler ~p flushed ~w log events",
+                     [Name,NewFlushed], State),
 
     %% because of the receive loop when flushing messages, the
     %% handler will be scheduled out often and the mailbox could
@@ -530,50 +541,51 @@ flush(Name, _QLen0, T1, State=#{last_log_ts := _T0}) ->
     {_,_QLen1} = process_info(self(), message_queue_len),
     ?observe(Name,{max_qlen,_QLen1}),
     
-    %% Add 1 for the current log request
-    ?observe(Name,{flushed,_NewFlushed+1}),
+    %% Add 1 for the current log event
+    ?observe(Name,{flushed,NewFlushed+1}),
  
     State1 = ?update_max_time(?diff_time(T1,_T0),State),
-    {dropped,?update_other(flushed,FLUSHED,_NewFlushed,
-                           State1#{mode => ?set_mode(Name,async),
+    {dropped,?update_other(flushed,FLUSHED,NewFlushed,
+                           State1#{mode => ?set_mode(ModeTab,async),
                                    last_qlen => 0,
                                    last_log_ts => T1})}.
 
 %% this clause is called to write to file
-write(Name, Mode, T1, Bin, _CallOrCast,
-      State = #{file_ctrl_pid := FileCtrlPid,
+write(_Name, Mode, T1, Bin, _CallOrCast,
+      State = #{mode_tab := ModeTab,
+                file_ctrl_pid := FileCtrlPid,
                 file_ctrl_sync := FileCtrlSync,
                 last_qlen := LastQLen,
                 last_log_ts := T0,
                 file_ctrl_sync_int := FileCtrlSyncInt}) ->
     %% check if we need to limit the number of writes
-    %% during a burst of log requests
+    %% during a burst of log events
     {DoWrite,BurstWinT,BurstMsgCount} = logger_h_common:limit_burst(State),
 
-    %% only send a synhrounous request to the file controller process
+    %% only send a synhrounous event to the file controller process
     %% every FileCtrlSyncInt time, to give the handler time between
     %% file writes so it can keep up with incoming messages
     {Result,LastQLen1} =
         if DoWrite, FileCtrlSync == 0 ->
-                ?observe(Name,{_CallOrCast,1}),
+                ?observe(_Name,{_CallOrCast,1}),
                 file_write_sync(FileCtrlPid, Bin, false),
                 {ok,element(2, process_info(self(), message_queue_len))};
            DoWrite ->
-                ?observe(Name,{_CallOrCast,1}),
+                ?observe(_Name,{_CallOrCast,1}),
                 file_write_async(FileCtrlPid, Bin),
                 {ok,LastQLen};
            not DoWrite ->
-                ?observe(Name,{flushed,1}),
+                ?observe(_Name,{flushed,1}),
                 {dropped,LastQLen}
         end,
     
-    %% Check if the time since the previous log request is long enough -
+    %% Check if the time since the previous log event is long enough -
     %% and the queue length small enough - to assume the mailbox has
     %% been emptied, and if so, do filesync operation and reset mode to
     %% async. Note that this is the best we can do to detect an idle
     %% handler without setting a timer after each log call/cast. If the
-    %% time between two consecutive log requests is fast and no new
-    %% request comes in after the last one, idle state won't be detected!
+    %% time between two consecutive log events is fast and no new
+    %% event comes in after the last one, idle state won't be detected!
     Time = ?diff_time(T1,T0),
     {Mode1,BurstMsgCount1} =
         if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
@@ -585,7 +597,7 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                     _File ->
                         file_ctrl_filesync_async(FileCtrlPid)
                 end,
-                {?change_mode(Name, Mode, async),0};
+                {?change_mode(ModeTab, Mode, async),0};
            true ->
                 {Mode,BurstMsgCount}
         end,
@@ -633,6 +645,20 @@ close_log_file(Std) when Std == standard_io; Std == standard_error ->
 close_log_file(Fd) ->
     _ = file:datasync(Fd),
     _ = file:close(Fd).
+
+
+log_handler_info(Name, Format, Args, #{file_ctrl_pid := FileCtrlPid}) ->
+    Config =
+        case logger:get_handler_config(Name) of
+            {ok,Conf} -> Conf;
+            _ -> #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}
+        end,
+    Meta = #{time=>erlang:system_time(microsecond)},
+    Bin = logger_h_common:log_to_binary(#{level => notice,
+                                          msg => {Format,Args},
+                                          meta => Meta}, Config),
+    _ = file_write_async(FileCtrlPid, Bin),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% File control process
@@ -706,7 +732,7 @@ file_ctrl_init(HandlerName, StdDev, Starter) ->
 file_ctrl_loop(Fd, Type, DevName, Synced,
                PrevWriteResult, PrevSyncResult, HandlerName) ->
     receive
-        %% asynchronous request
+        %% asynchronous event
         {log,Bin} ->
             Result = if Type == file ->
                              write_to_dev(Fd, Bin, DevName,
@@ -717,7 +743,7 @@ file_ctrl_loop(Fd, Type, DevName, Synced,
             file_ctrl_loop(Fd, Type, DevName, false,
                            Result, PrevSyncResult, HandlerName);
 
-        %% synchronous request
+        %% synchronous event
         {{log,From,Bin,FileSync},MRef} ->
             if Type == file ->
                     %% check that file hasn't been deleted
@@ -790,7 +816,7 @@ sync_dev(Fd, DevName, PrevSyncResult, HandlerName) ->
             %% don't report same error twice
             PrevSyncResult;
         Error ->
-            logger_h_common:error_notify({HandlerName,filesync,DevName,Error}),
+            logger_h_common:error_notify({HandlerName,sync,DevName,Error}),
             Error
     end.
 

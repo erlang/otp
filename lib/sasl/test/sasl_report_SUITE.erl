@@ -82,7 +82,7 @@ do_gen_server_crash(Config, Encoding) ->
     application:set_env(kernel, error_logger_format_depth, 30),
     error_logger:logfile({open,KernelLog}),
     application:start(sasl),
-    logger:i(print),
+    ct:log("Logger config:~n~p",[logger:get_config()]),
     ct:log("error_logger handlers: ~p",[error_logger:which_report_handlers()]),
 
     crash_me(),

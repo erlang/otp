@@ -62,46 +62,48 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
     <p>The standard behaviours (<c>supervisor</c>, <c>gen_server</c>,
       and so on) send progress and error information to
       Logger. Progress reports are by default not logged, but can be
-      enabled by setting the Kernel configuration
-      parameter <c>logger_progress_reports</c> to <c>log</c>. Supervisor
-      reports, crash reports and other error and information reports
-      are by default logged through the log handler which is
-      set up when the Kernel application is started.</p>
+      enabled by setting the primary log level to <c>info</c>, for
+      example by using the Kernel configuration
+      parameter <c>logger_level</c>. Supervisor reports, crash reports
+      and other error and information reports are by default logged
+      through the log handler which is set up when the Kernel
+      application is started.</p>
     <p>Prior to Erlang/OTP 21.0, supervisor, crash, and progress
       reports were only logged when the SASL application was
       running. This behaviour can, for backwards compatibility, be
       enabled by setting the Kernel configuration
-      parameter <c>logger_sasl_compatible</c> to <c>true</c>. For more
-      information, see
+      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso>
+      to <c>true</c>. For more information, see
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
     <pre>
-% <input>erl -kernel logger_progress_reports log</input>
-Erlang/OTP 21 [erts-10.0] [source-76388a1] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
+% <input>erl -kernel logger_level info</input>
+Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
 
-=PROGRESS REPORT==== 18-May-2018::21:33:41.705292 ===
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.916404 ===
     application: kernel
     started_at: nonode@nohost
-=PROGRESS REPORT==== 18-May-2018::21:33:41.708900 ===
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.922908 ===
     application: stdlib
     started_at: nonode@nohost
-=PROGRESS REPORT==== 18-May-2018::21:33:41.726003 ===
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.925755 ===
     supervisor: {local,kernel_safe_sup}
-    started: [{pid,&lt;0.75.0>},
+    started: [{pid,&lt;0.74.0>},
               {id,disk_log_sup},
               {mfargs,{disk_log_sup,start_link,[]}},
               {restart_type,permanent},
               {shutdown,1000},
               {child_type,supervisor}]
-=PROGRESS REPORT==== 18-May-2018::21:33:41.726348 ===
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.926056 ===
     supervisor: {local,kernel_safe_sup}
-    started: [{pid,&lt;0.76.0>},
+    started: [{pid,&lt;0.75.0>},
               {id,disk_log_server},
               {mfargs,{disk_log_server,start_link,[]}},
               {restart_type,permanent},
               {shutdown,2000},
               {child_type,worker}]
-Eshell V9.3.1  (abort with ^G)
+Eshell V10.0  (abort with ^G)
 1> </pre>
   </section>
 </chapter>

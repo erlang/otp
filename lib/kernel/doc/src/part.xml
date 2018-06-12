@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,17 +22,14 @@
     
     </legalnotice>
 
-    <title>Logger User's Guide</title>
+    <title>Kernel User's Guide</title>
     <prepared>OTP Team</prepared>
     <docno></docno>
-    <date>2017-12-01</date>
-    <rev>0.1</rev>
+    <date>2018-06-06</date>
     <file>part.xml</file>
   </header>
   <description>
-    <p>The System Architecture Support Libraries SASL application
-      provides support for alarm handling, release handling, and
-      related functions.</p>
+    <p></p>
   </description>
   <xi:include href="introduction_chapter.xml"/>
   <xi:include href="logger_chapter.xml"/>

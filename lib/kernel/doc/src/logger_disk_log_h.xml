@@ -44,7 +44,7 @@
     the handler configuration.</p>
     <p>The default standard handler,
     <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>, can be
-    replaced by a disk_log handler at startup of the Kernel application.
+    replaced by a disk_log handler at start up of the Kernel application.
     See an example of this below.</p>
     <p>The handler has an overload protection mechanism that will keep the handler
     process and the Kernel application alive during a high load of log 
@@ -60,7 +60,7 @@
     </seealso>, as well as handler specific parameters.</p>
     <p>The settings for the disk_log log file should be specified with the
     key <c>disk_log_opts</c>. These settings are a subset of the disk_log
-    datatype
+    data type
     <seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>.</p>
     <p>Parameters in the <c>disk_log_opts</c> map:</p>
     <taglist>
@@ -81,7 +81,7 @@
       log.</item>
     </taglist>
     <p>Specific configuration for the handler (represented as a sub map)
-    is specified with the key <c>logger_disk_log_h</c>. It may contain the
+    is specified with the key <c>config</c>. It may contain the
     following parameter:</p>
     <taglist>
       <tag><c>filesync_repeat_interval</c></tag>
@@ -93,7 +93,7 @@
 	since the last sync. The default value is <c>5000</c> milliseconds.
 	If <c>no_repeat</c> is set as value, the repeated sync operation is
 	disabled. The user can also call the
-	<seealso marker="logger_disk_log_h#disk_log_sync-1"><c>disk_log_sync/1</c>
+	<seealso marker="logger_disk_log_h#sync-1"><c>sync/1</c>
 	</seealso> function to perform a disk_log sync.</p></item>
     </taglist>
     <p>There are a number of other configuration parameters available, that are
@@ -117,7 +117,7 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
                                 type => wrap,
                                 max_no_files => 4,
                                 max_no_bytes => 10000},
-                     logger_disk_log_h =>
+                     config =>
                               #{filesync_repeat_interval => 1000}}).
     </code>
     <p>In order to use the disk_log handler instead of the default standard
@@ -125,14 +125,14 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
     use disk_log. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_disk_log_h,
-                      #{ disk_log_opts => #{ file => "./system_disk_log"}}}]'
+                      #{disk_log_opts => #{file => "./system_disk_log"}}}]'
     </code>
   </description>
 
   <funcs>
 
     <func>
-      <name name="disk_log_sync" arity="1" clause_i="1"/>
+      <name name="sync" arity="1" clause_i="1"/>
       <fsummary>Writes buffered data to disk.</fsummary>
       <desc>
         <p>Write buffered data to disk.</p>
@@ -143,9 +143,9 @@ erl -kernel logger '[{handler,default,logger_disk_log_h,
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="logger"><c>logger(3)</c></seealso></p>
-    <p><seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso></p>
-    <p><seealso marker="disk_log"><c>disk_log(3)</c></seealso></p>
+    <p><seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>,
+      <seealso marker="disk_log"><c>disk_log(3)</c></seealso></p>
   </section>
 </erlref>
 

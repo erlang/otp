@@ -33,8 +33,8 @@
     <file>error_logging.xml</file>
     </header>
   <note>
-    <p>The SASL error logging concept desribed in this section is
-      deprecated since OTP-21, when the
+    <p>The SASL error logging concept described in this section is
+      deprecated since Erlang/OTP 21.0, when the
       new <seealso marker="kernel:logger_chapter">logging
       API</seealso> was introduced.</p>
     <p>The new default behaviour is that the SASL application no
@@ -45,9 +45,10 @@
       which is setup by
       Kernel. <seealso marker="#progress_report">Progress
       reports</seealso> are by default not logged, but can be enabled
-      by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_progress_reports">
-	<c>logger_progress_reports</c></seealso> to <c>log</c>.</p>
+      by setting the primary log level to <c>info</c>, for example by
+      using the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_level">
+	<c>logger_level</c></seealso>.</p>
     <p>The old SASL error logging behaviour can be re-enabled by setting the
       Kernel configuration
       parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
@@ -70,10 +71,10 @@
     <item>Progress report</item>
     <item>Crash report</item>
   </list>
-  <p>When the SASL application is started, it adds a logger handler
+  <p>When the SASL application is started, it adds a Logger handler
     that formats and writes these reports, as specified in
     the <seealso marker="sasl_app#deprecated_error_logger_config">configuration
-    parameters for SASL</seealso></p>
+    parameters for SASL</seealso>.</p>
 
   <section>
     <marker id="supervisor_report"/>

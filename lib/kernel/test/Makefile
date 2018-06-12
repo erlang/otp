@@ -71,7 +71,6 @@ MODULES= \
 	init_SUITE \
 	kernel_config_SUITE \
 	logger_SUITE \
-	logger_bench_SUITE \
 	logger_disk_log_h_SUITE \
 	logger_env_var_SUITE \
 	logger_filters_SUITE \

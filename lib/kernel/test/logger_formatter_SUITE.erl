@@ -56,6 +56,7 @@ groups() ->
 all() -> 
     [default,
      legacy_header,
+     error_logger_notice_header,
      single_line,
      template,
      format_msg,
@@ -69,6 +70,7 @@ all() ->
      faulty_log,
      faulty_config,
      faulty_msg,
+     check_config,
      update_config].
 
 default(_Config) ->
@@ -124,6 +126,34 @@ legacy_header(_Config) ->
     "=INFO REPORT==== "++_ = String5,
     ok.
 
+error_logger_notice_header(_Config) ->
+    Meta1 = #{error_logger=>#{tag => info_report,type => std_info}},
+    String1 = format(notice,{"~p",[term]},Meta1,
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>notice}),
+    ct:log(String1),
+    "=NOTICE REPORT==== "++_ = String1,
+
+    String2 = format(notice,{"~p",[term]},Meta1,
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>info}),
+    ct:log(String2),
+    "=INFO REPORT==== "++_ = String2,
+
+    String3 = format(notice,{"~p",[term]},#{},
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>notice}),
+    ct:log(String3),
+    "=NOTICE REPORT==== "++_ = String3,
+
+    String4 = format(notice,{"~p",[term]},#{},
+                     #{legacy_header=>true,
+                       error_logger_notice_header=>info}),
+    ct:log(String4),
+    "=NOTICE REPORT==== "++_ = String4,
+
+    ok.
+
 single_line(_Config) ->
     Time = timestamp(),
     ExpectedTimestamp = default_time_format(Time),
@@ -158,7 +188,7 @@ template(_Config) ->
 
     Template4 = ["string\nnewline"],
     String4 = format(info,{"~p",[term]},#{time=>Time},#{template=>Template4,
-                                                      single_line=>true}),
+                                                        single_line=>true}),
     ct:log(String4),
     "string\nnewline" = String4,
 
@@ -179,7 +209,7 @@ template(_Config) ->
               tuple=>{1,atom,"list"},
               nested=>#{subkey=>subvalue}},
     Template6 = lists:join(";",maps:keys(maps:remove(nested,Meta6)) ++
-                               [{nested,subkey}]),
+                               [[nested,subkey]]),
     String6 = format(info,{"~p",[term]},Meta6,#{template=>Template6,
                                                 single_line=>true}),
     ct:log(String6),
@@ -202,16 +232,16 @@ template(_Config) ->
               nested=>#{key1=>#{subkey1=>value1},
                         key2=>value2}},
     Template7 = lists:join(";",[nested,
-                                {nested,key1},
-                                {nested,key1,subkey1},
-                                {nested,key2},
-                                {nested,key2,subkey2},
-                                {nested,key3},
-                                {nested,key3,subkey3}]),
+                                [nested,key1],
+                                [nested,key1,subkey1],
+                                [nested,key2],
+                                [nested,key2,subkey2],
+                                [nested,key3],
+                                [nested,key3,subkey3]]),
     String7 = format(info,{"~p",[term]},Meta7,#{template=>Template7,
                                                 single_line=>true}),
     ct:log(String7),
-    [MultipleKeysStr,
+    [MultipleKeysStr7,
      "#{subkey1 => value1}",
      "value1",
      "value2",
@@ -219,11 +249,42 @@ template(_Config) ->
      "",
      ""] = string:split(String7,";",all),
     %% Order of keys is not fixed
-    case MultipleKeysStr of
+    case MultipleKeysStr7 of
         "#{key2 => value2,key1 => #{subkey1 => value1}}" -> ok;
         "#{key1 => #{subkey1 => value1},key2 => value2}" -> ok;
-        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr})
+        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr7})
     end,
+
+    Meta8 = #{time=>Time,
+              nested=>#{key1=>#{subkey1=>value1},
+                        key2=>value2}},
+    Template8 =
+        lists:join(
+          ";",
+          [{nested,["exist:",nested],["noexist"]},
+           {[nested,key1],["exist:",[nested,key1]],["noexist"]},
+           {[nested,key1,subkey1],["exist:",[nested,key1,subkey1]],["noexist"]},
+           {[nested,key2],["exist:",[nested,key2]],["noexist"]},
+           {[nested,key2,subkey2],["exist:",[nested,key2,subkey2]],["noexist"]},
+           {[nested,key3],["exist:",[nested,key3]],["noexist"]},
+           {[nested,key3,subkey3],["exist:",[nested,key3,subkey3]],["noexist"]}]),
+    String8 = format(info,{"~p",[term]},Meta8,#{template=>Template8,
+                                                single_line=>true}),
+    ct:log(String8),
+    [MultipleKeysStr8,
+     "exist:#{subkey1 => value1}",
+     "exist:value1",
+     "exist:value2",
+     "noexist",
+     "noexist",
+     "noexist"] = string:split(String8,";",all),
+    %% Order of keys is not fixed
+    case MultipleKeysStr8 of
+        "exist:#{key2 => value2,key1 => #{subkey1 => value1}}" -> ok;
+        "exist:#{key1 => #{subkey1 => value1},key2 => value2}" -> ok;
+        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr8})
+    end,
+
     ok.
 
 format_msg(_Config) ->
@@ -541,23 +602,113 @@ faulty_msg(_Config) ->
                                      #{})),
     ok.
 
+-define(cfgerr(X), {error,{invalid_formatter_config,logger_formatter,X}}).
+check_config(_Config) ->
+    ok = logger_formatter:check_config(#{}),
+    ?cfgerr(bad) = logger_formatter:check_config(bad),
+
+    C1 = #{chars_limit => 1,
+           depth => 1,
+           legacy_header => true,
+           error_logger_notice_header => info,
+           max_size => 1,
+           report_cb => fun(R) -> {"~p",[R]} end,
+           single_line => false,
+           template => [],
+           time_designator => $T,
+           time_offset => 0},
+    ok = logger_formatter:check_config(C1),
+
+    ok = logger_formatter:check_config(#{chars_limit => unlimited}),
+    ?cfgerr({chars_limit,bad}) =
+        logger_formatter:check_config(#{chars_limit => bad}),
+
+    ok = logger_formatter:check_config(#{depth => unlimited}),
+    ?cfgerr({depth,bad}) =
+        logger_formatter:check_config(#{depth => bad}),
+
+    ok = logger_formatter:check_config(#{legacy_header => false}),
+    ?cfgerr({legacy_header,bad}) =
+        logger_formatter:check_config(#{legacy_header => bad}),
+
+    ok = logger_formatter:check_config(#{error_logger_notice_header => notice}),
+    ?cfgerr({error_logger_notice_header,bad}) =
+        logger_formatter:check_config(#{error_logger_notice_header => bad}),
+
+    ok = logger_formatter:check_config(#{max_size => unlimited}),
+    ?cfgerr({max_size,bad}) =
+        logger_formatter:check_config(#{max_size => bad}),
+
+    ?cfgerr({report_cb,F}) =
+        logger_formatter:check_config(#{report_cb => F=fun(_,_) -> {"",[]} end}),
+    ?cfgerr({report_cb,bad}) =
+        logger_formatter:check_config(#{report_cb => bad}),
+
+    ok = logger_formatter:check_config(#{single_line => true}),
+    ?cfgerr({single_line,bad}) =
+        logger_formatter:check_config(#{single_line => bad}),
+
+    Ts = [[key],
+          [[key1,key2]],
+          [{key,[key],[]}],
+          [{[key1,key2],[[key1,key2]],["noexist"]}],
+          ["string"]],
+    [begin
+         ct:log("check template: ~p",[T]),
+         ok = logger_formatter:check_config(#{template => T})
+     end
+     || T <- Ts],
+
+    ETs = [bad,
+           [{key,bad}],
+           [{key,[key],bad}],
+           [{key,[key],"bad"}],
+           "bad",
+           [[key,$a,$b,$c]],
+           [[$a,$b,$c,key]]],
+    [begin
+         ct:log("check template: ~p",[T]),
+         {error,{invalid_formatter_template,logger_formatter,T}} =
+         logger_formatter:check_config(#{template => T})
+     end
+     || T <- ETs],
+
+    ?cfgerr({time_designator,bad}) =
+        logger_formatter:check_config(#{time_designator => bad}),
+    ?cfgerr({time_designator,"b"}) =
+        logger_formatter:check_config(#{time_designator => "b"}),
+
+    ok = logger_formatter:check_config(#{time_offset => -1}),
+    ok = logger_formatter:check_config(#{time_offset => "+02:00"}),
+    ok = logger_formatter:check_config(#{time_offset => "-23:59"}),
+    ok = logger_formatter:check_config(#{time_offset => "+24:00"}),
+    ok = logger_formatter:check_config(#{time_offset => "-25:00"}),
+    ?cfgerr({time_offset,bad}) =
+        logger_formatter:check_config(#{time_offset => bad}),
+    ?cfgerr({time_offset,"02:00"}) =
+        logger_formatter:check_config(#{time_offset => "02:00"}),
+    ?cfgerr({time_offset,"+02"}) =
+        logger_formatter:check_config(#{time_offset => "+02"}),
+
+    ok.
+
 %% Test that formatter config can be changed, and that the default
 %% template is updated accordingly
 update_config(_Config) ->
     logger:add_handler_filter(default,silence,{fun(_,_) -> stop end,ok}),
     ok = logger:add_handler(?MODULE,?MODULE,#{}),
     D = lists:seq(1,1000),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines1,C1} = check_log(),
     [ct:log(L) || L <- Lines1],
     ct:log("~p",[C1]),
     [Line1] = Lines1,
-    [_Time,"info: "++D1] = string:split(Line1," "),
+    [_Time,"notice: "++D1] = string:split(Line1," "),
     true = length(D1)>3000,
     true = #{}==C1,
 
     ok = logger:update_formatter_config(?MODULE,single_line,false),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines2,C2} = check_log(),
     [ct:log(L) || L <- Lines2],
     ct:log("~p",[C2]),
@@ -565,22 +716,36 @@ update_config(_Config) ->
     true = #{single_line=>false}==C2,
 
     ok = logger:update_formatter_config(?MODULE,#{legacy_header=>true}),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines3,C3} = check_log(),
     [ct:log(L) || L <- Lines3],
     ct:log("~p",[C3]),
-    ["=INFO REPORT==== "++_|D3] = Lines3,
+    ["=NOTICE REPORT==== "++_|D3] = Lines3,
     true = length(D3)>50,
     true = #{legacy_header=>true,single_line=>false}==C3,
 
     ok = logger:update_formatter_config(?MODULE,single_line,true),
-    logger:info("~p~n",[D]),
+    logger:notice("~p~n",[D]),
     {Lines4,C4} = check_log(),
     [ct:log(L) || L <- Lines4],
     ct:log("~p",[C4]),
-    ["=INFO REPORT==== "++_,D4] = Lines4,
+    ["=NOTICE REPORT==== "++_,D4] = Lines4,
     true = length(D4)>3000,
     true = #{legacy_header=>true,single_line=>true}==C4,
+
+    %% Finally, check that error_logger_notice_header works, default=info
+    error_logger:info_msg("~p",[D]),
+    {Lines5,C5} = check_log(),
+    [ct:log(L) || L <- Lines5],
+    ct:log("~p",[C5]),
+    ["=INFO REPORT==== "++_,_D5] = Lines5,
+
+    ok=logger:update_formatter_config(?MODULE,error_logger_notice_header,notice),
+    error_logger:info_msg("~p",[D]),
+    {Lines6,C6} = check_log(),
+    [ct:log(L) || L <- Lines6],
+    ct:log("~p",[C6]),
+    ["=NOTICE REPORT==== "++_,_D6] = Lines6,
 
     ok.
 

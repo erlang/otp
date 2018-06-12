@@ -37,7 +37,7 @@ setup(Config,Vars) ->
                                          " -boot start_sasl -kernel start_timer true "
                                          "-config ",ConfigFileName]}]) of
         {ok, Node} ->
-            L = rpc:call(Node, logger, i, []),
+            L = rpc:call(Node, logger, get_config, []),
             ct:log("~p",[L]),
             {ok, L, Node};
         {error, Reason} ->
@@ -52,10 +52,10 @@ log(Node, M, F, A) ->
     rpc:call(Node, M, F, A ++ [MD]).
 
 sync_and_read(Node,disk_log,Log) ->
-    rpc:call(Node,logger_disk_log_h,disk_log_sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_disk_log_h,sync,[?STANDARD_HANDLER]),
     file:read_file(Log ++ ".1");
 sync_and_read(Node, file,Log) ->
-    ok = rpc:call(Node,logger_std_h,filesync,[?STANDARD_HANDLER]),
+    ok = rpc:call(Node,logger_std_h,sync,[?STANDARD_HANDLER]),
     file:read_file(Log).
 
 

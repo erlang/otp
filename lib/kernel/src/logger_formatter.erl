@@ -35,7 +35,8 @@
                     template=>template(),
                     time_designator=>byte(),
                     time_offset=>integer()|[byte()]}.
--type template() :: [atom()|tuple()|string()].
+-type template() :: [metakey()|{metakey(),template(),template()}|string()].
+-type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -53,8 +54,8 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
             [msg|Rest] -> {true,Rest};
             _ ->{false,AT0}
         end,
-    B = do_format(Level,"",Meta1,BT,Config),
-    A = do_format(Level,"",Meta1,AT,Config),
+    B = do_format(Level,Meta1,BT,Config),
+    A = do_format(Level,Meta1,AT,Config),
     MsgStr =
         if DoMsg ->
                 Config1 =
@@ -84,26 +85,37 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
         end,
     truncate(B ++ MsgStr ++ A,maps:get(max_size,Config)).
 
-do_format(Level,Msg,Data,[level|Format],Config) ->
-    [to_string(level,Level,Config)|do_format(Level,Msg,Data,Format,Config)];
-do_format(Level,Msg,Data,[Key|Format],Config) when is_atom(Key); is_tuple(Key) ->
-    Value = value(Key,Data),
-    [to_string(Key,Value,Config)|do_format(Level,Msg,Data,Format,Config)];
-do_format(Level,Msg,Data,[Str|Format],Config) ->
-    [Str|do_format(Level,Msg,Data,Format,Config)];
-do_format(_Level,_Msg,_Data,[],_Config) ->
+do_format(Level,Data,[level|Format],Config) ->
+    [to_string(level,Level,Config)|do_format(Level,Data,Format,Config)];
+do_format(Level,Data,[{Key,IfExist,Else}|Format],Config) ->
+    String =
+        case value(Key,Data) of
+            {ok,Value} -> do_format(Level,Data#{Key=>Value},IfExist,Config);
+            error -> do_format(Level,Data,Else,Config)
+        end,
+    [String|do_format(Level,Data,Format,Config)];
+do_format(Level,Data,[Key|Format],Config)
+  when is_atom(Key) orelse
+       (is_list(Key) andalso is_atom(hd(Key))) ->
+    String =
+        case value(Key,Data) of
+            {ok,Value} -> to_string(Key,Value,Config);
+            error -> ""
+        end,
+    [String|do_format(Level,Data,Format,Config)];
+do_format(Level,Data,[Str|Format],Config) ->
+    [Str|do_format(Level,Data,Format,Config)];
+do_format(_Level,_Data,[],_Config) ->
     [].
 
-value(Key,Meta) when is_atom(Key), is_map(Meta) ->
-    maps:get(Key,Meta,"");
-value(Key,_) when is_atom(Key) ->
-    "";
-value(Keys,Meta) when is_tuple(Keys) ->
-    value(tuple_to_list(Keys),Meta);
-value([Key|Keys],Meta) ->
-    value(Keys,value(Key,Meta));
+value(Key,Meta) when is_map_key(Key,Meta) ->
+    {ok,maps:get(Key,Meta)};
+value([Key|Keys],Meta) when is_map_key(Key,Meta) ->
+    value(Keys,maps:get(Key,Meta));
 value([],Value) ->
-    Value.
+    {ok,Value};
+value(_,_) ->
+    error.
 
 to_string(time,Time,Config) ->
     format_time(Time,Config);
@@ -223,7 +235,7 @@ format_mfa(MFA) ->
 maybe_add_legacy_header(Level,
                         #{time:=Timestamp}=Meta,
                         #{legacy_header:=true}=Config) ->
-    #{title:=Title}=MyMeta = add_legacy_title(Level,maps:get(?MODULE,Meta,#{})),
+    #{title:=Title}=MyMeta = add_legacy_title(Level,Meta,Config),
     {{Y,Mo,D},{H,Mi,S},Micro,UtcStr} =
         timestamp_to_datetimemicro(Timestamp,Config),
     Header =
@@ -233,11 +245,23 @@ maybe_add_legacy_header(Level,
 maybe_add_legacy_header(_,Meta,_) ->
     Meta.
 
-add_legacy_title(_Level,#{title:=_}=MyMeta) ->
+add_legacy_title(_Level,#{?MODULE:=#{title:=_}=MyMeta},_) ->
     MyMeta;
-add_legacy_title(Level,MyMeta) ->
-    Title = string:uppercase(atom_to_list(Level)) ++ " REPORT",
-    MyMeta#{title=>Title}.
+add_legacy_title(Level,Meta,Config) ->
+    case maps:get(?MODULE,Meta,#{}) of
+        #{title:=_}=MyMeta ->
+            MyMeta;
+        MyMeta ->
+            TitleLevel =
+                case (Level=:=notice andalso maps:find(error_logger,Meta)) of
+                    {ok,_} ->
+                        maps:get(error_logger_notice_header,Config);
+                    _ ->
+                        Level
+                end,
+            Title = string:uppercase(atom_to_list(TitleLevel)) ++ " REPORT",
+            MyMeta#{title=>Title}
+    end.
 
 month(1) -> "Jan";
 month(2) -> "Feb";
@@ -257,6 +281,7 @@ month(12) -> "Dec".
 add_default_config(Config0) ->
     Default =
         #{legacy_header=>false,
+          error_logger_notice_header=>info,
           single_line=>true,
           chars_limit=>unlimited,
           time_designator=>$T},
@@ -341,19 +366,15 @@ do_check_config([{single_line,SL}|Config]) when is_boolean(SL) ->
     do_check_config(Config);
 do_check_config([{legacy_header,LH}|Config]) when is_boolean(LH) ->
     do_check_config(Config);
+do_check_config([{error_logger_notice_header,ELNH}|Config]) when ELNH == info;
+                                                                 ELNH == notice ->
+    do_check_config(Config);
 do_check_config([{report_cb,RCB}|Config]) when is_function(RCB,1) ->
     do_check_config(Config);
-do_check_config([{template,T}|Config]) when is_list(T) ->
-    case lists:all(fun(X) when is_atom(X) -> true;
-                      (X) when is_tuple(X), is_atom(element(1,X)) -> true;
-                      (X) when is_list(X) -> io_lib:printable_unicode_list(X);
-                      (_) -> false
-                   end,
-                   T) of
-        true ->
-            do_check_config(Config);
-        false ->
-            {error,{invalid_formatter_template,?MODULE,T}}
+do_check_config([{template,T}|Config]) ->
+    case check_template(T) of
+        ok -> do_check_config(Config);
+        error -> {error,{invalid_formatter_template,?MODULE,T}}
     end;
 do_check_config([{time_offset,Offset}|Config]) ->
     case check_offset(Offset) of
@@ -379,6 +400,42 @@ check_limit(L) when is_integer(L), L>0 ->
 check_limit(unlimited) ->
     ok;
 check_limit(_) ->
+    error.
+
+check_template([Key|T]) when is_atom(Key) ->
+    check_template(T);
+check_template([Key|T]) when is_list(Key), is_atom(hd(Key)) ->
+    case lists:all(fun(X) when is_atom(X) -> true;
+                      (_) -> false
+                   end,
+                   Key) of
+        true ->
+            check_template(T);
+        false ->
+            error
+    end;
+check_template([{Key,IfExist,Else}|T])
+  when is_atom(Key) orelse
+       (is_list(Key) andalso is_atom(hd(Key))) ->
+    case check_template(IfExist) of
+        ok ->
+            case check_template(Else) of
+                ok ->
+                    check_template(T);
+                error ->
+                    error
+            end;
+        error ->
+            error
+    end;
+check_template([Str|T]) when is_list(Str) ->
+    case io_lib:printable_unicode_list(Str) of
+        true -> check_template(T);
+        false -> error
+    end;
+check_template([]) ->
+    ok;
+check_template(_) ->
     error.
 
 check_offset(I) when is_integer(I) ->
