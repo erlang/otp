@@ -132,7 +132,7 @@ sys_uds_writev(int fd, struct iovec *iov, size_t iov_len,
 
     struct msghdr msg;
     struct cmsghdr *cmsg = NULL;
-    int res, i;
+    int res, i, error;
 
     /* initialize socket message */
     memset(&msg, 0, sizeof(struct msghdr));
@@ -173,10 +173,21 @@ sys_uds_writev(int fd, struct iovec *iov, size_t iov_len,
 
     res = sendmsg(fd, &msg, flags);
 
+#ifdef ETOOMANYREFS
+    /* Linux may give ETOOMANYREFS when there are too many fds in transit.
+       We map this to EMFILE as bsd and other use this error code and we want
+       the behaviour to be the same on all OSs */
+    if (errno == ETOOMANYREFS)
+        errno = EMFILE;
+#endif
+    error = errno;
+
     if (iov_len > MAXIOV)
         free(iov[0].iov_base);
 
     free(msg.msg_control);
+
+    errno = error;
 
     return res;
 }
