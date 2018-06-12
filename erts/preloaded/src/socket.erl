@@ -1452,8 +1452,6 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
       Reason :: term()
                 ; (Socket, ip, ip_socket_option()) -> {ok, Value} | {error, Reason} when
       Socket :: socket(),
-      Level  :: ip,
-      Key    :: ip_socket_option(),
       Value  :: term(),
       Reason :: term()
                 ; (Socket, ipv6, ipv6_socket_option()) -> {ok, Value} | {error, Reason} when
