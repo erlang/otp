@@ -659,6 +659,7 @@ static ErlNifResourceTypeInit netInit = {
  *
  * The "proper" net functions:
  * ------------------------------
+ * nif_gethostname/0
  * nif_getnameinfo/2
  * nif_getaddrinfo/3
  * nif_if_name2index/1
@@ -860,7 +861,6 @@ ERL_NIF_TERM ngethostname(ErlNifEnv* env)
  * Arguments:
  * SockAddr - Socket Address (address and port)
  * Flags    - The flags argument modifies the behavior of getnameinfo().
- *            Not used!
  */
 
 static
@@ -869,33 +869,33 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM result, eSockAddr;
-    unsigned int eFlags;
+    ERL_NIF_TERM eFlags;
     int          flags = 0; // Just in case...
     SockAddress  sa;
     SOCKLEN_T    saLen = 0; // Just in case...
 
     NDBG( ("nif_getnameinfo -> entry (%d)\r\n", argc) );
 
-    if ((argc != 2) ||
-        !GET_UINT(env, argv[1], &eFlags)) {
+    if (argc != 2)
         return enif_make_badarg(env);
-    }
     eSockAddr = argv[0];
+    eFlags    = argv[1];
 
     NDBG( ("nif_getnameinfo -> "
            "\r\n   SockAddr: %T"
            "\r\n   Flags:    %T"
-           "\r\n", argv[0], argv[1]) );
+           "\r\n", eSockAddr, eFlags) );
 
     if (!decode_nameinfo_flags(env, eFlags, &flags))
         return enif_make_badarg(env);
 
-    if (decode_in_sockaddr(env, eSockAddr, &sa, &saLen))
+    if (!decode_in_sockaddr(env, eSockAddr, &sa, &saLen))
         return enif_make_badarg(env);
 
     result = ngetnameinfo(env, &sa, saLen, flags);
 
-    NDBG( ("nif_getnameinfo -> done when result: %T\r\n", result) );
+    NDBG( ("nif_getnameinfo -> done when result: "
+           "\r\n   %T\r\n", result) );
 
     return result;
 }
@@ -921,6 +921,8 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                           host, hostLen,
                           serv, servLen,
                           flags);
+
+    NDBG( ("ngetnameinfo -> res: %d\r\n", res) );
 
     switch (res) {
     case 0:
@@ -1569,6 +1571,7 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
             result = FALSE;
         }
     } else if (IS_LIST(env, eflags)) {
+        NDBG( ("decode_nameinfo_flags -> is atom\r\n") );
         result = decode_nameinfo_flags_list(env, eflags, flags);
     } else {
         result = FALSE;

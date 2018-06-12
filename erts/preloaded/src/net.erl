@@ -206,18 +206,20 @@ gethostname() ->
 getnameinfo(SockAddr)
   when is_record(SockAddr, in4_sockaddr) orelse
        is_record(SockAddr, in6_sockaddr) ->
-    getnameinfo(SockAddr, []).
+    getnameinfo(SockAddr, undefined).
 
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
       SockAddr :: in_sockaddr(),
-      Flags    :: name_info_flags(),
+      Flags    :: name_info_flags() | undefined,
       Info     :: name_info(),
       Reason   :: term().
 
+getnameinfo(SockAddr, [] = _Flags) ->
+    getnameinfo(SockAddr, undefined);
 getnameinfo(SockAddr, Flags)
   when (is_record(SockAddr, in4_sockaddr) orelse
         is_record(SockAddr, in6_sockaddr)) andalso
-       is_list(Flags) ->
+       (is_list(Flags) orelse (Flags =:= undefined)) ->
     nif_getnameinfo(SockAddr, Flags).
 
 
