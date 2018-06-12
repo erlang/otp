@@ -3835,6 +3835,54 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	    hpp = &hp;
 	}
     }
+    else if (ERTS_IS_ATOM_STR("message_queues", BIF_ARG_1)) {
+	Uint i;
+	Uint msgq_sum = 0;
+	Uint msgq_max = 0;
+	Eterm max_pid = am_undefined;
+	Uint msgq_nproc_nonzero = 0;
+	Eterm res, *hp, **hpp;
+	Uint sz, *szp;
+
+	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_thr_progress_block();
+
+	for (i = 0; i < erts_ptab_max(&erts_proc); i++) {
+	    Process* p = erts_pix2proc(i);
+	    if (p) {
+		Uint len;
+		len = p->sig_qs.len + p->sig_inq.len;
+		if (len) {
+		    msgq_sum += len;
+		    msgq_nproc_nonzero++;
+		    if (len > msgq_max) {
+			msgq_max = len;
+			max_pid = p->common.id;
+		    }
+		}
+	    }
+	}
+
+	erts_thr_progress_unblock();
+	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
+	sz = 0;
+	szp = &sz;
+	hpp = NULL;
+	while (1) {
+	    res = erts_bld_tuple(hpp, szp, 4,
+		erts_bld_uint(hpp, szp, msgq_sum),
+		erts_bld_uint(hpp, szp, msgq_nproc_nonzero),
+		erts_bld_uint(hpp, szp, msgq_max),
+		max_pid);
+	    if (hpp) {
+		BIF_RET(res);
+	    }
+	    hp = HAlloc(BIF_P, sz);
+	    szp = NULL;
+	    hpp = &hp;
+	}
+    }
     BIF_ERROR(BIF_P, BADARG);
 }
 

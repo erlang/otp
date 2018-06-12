@@ -8219,6 +8219,24 @@ ok
     </func>
 
     <func>
+      <name name="statistics" arity="1" clause_i="20"
+        anchor="statistics_message_queues"  since="OTP 24.0"/>
+      <fsummary>Information about message queues.</fsummary>
+      <desc>
+        <p>Returns a tuple
+          <c>{<anno>MsgqSum</anno>, <anno>MsgqProcNonzero</anno>,
+            <anno>MsgqProcMax</anno>, <anno>MaxPid</anno>}</c>, where
+          <c><anno>MsgqSum</anno></c> is the sum of all message queue lengths
+          in the system, <c><anno>MsgqProcNonzero</anno></c> is
+          the number of processes with non-empty queue,
+          <c><anno>MsgqProcMax</anno></c> is the length of the longest
+          message queue, and <c><anno>MaxPid</anno></c> is the process
+          accumulated the longest queue, or <c>undefined</c> if there is no such
+          process (all queues are empty). </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="suspend_process" arity="1" since=""/>
       <fsummary>Suspend a process.</fsummary>
       <desc>

@@ -2583,7 +2583,12 @@ setelement(_Index, _Tuple1, _Value) ->
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
-      Wallclock_Time_Since_Last_Call :: non_neg_integer().
+      Wallclock_Time_Since_Last_Call :: non_neg_integer();
+                (message_queues) -> {MsgqSum, MsgqProcNonzero, MsgqProcMax, MaxPid} when
+       MsgqSum :: non_neg_integer(),
+       MsgqProcNonzero :: non_neg_integer(),
+       MsgqProcMax :: non_neg_integer(),
+       MaxPid :: pid() | undefined.
 statistics(_Item) ->
     erlang:nif_error(undefined).
 

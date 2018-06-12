@@ -32,6 +32,7 @@
 	 scheduler_wall_time/1,
          scheduler_wall_time_all/1,
          msb_scheduler_wall_time/1,
+         statistics_message_queues/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
 	 badarg/1, run_queues_lengths_active_tasks/1, msacc/1]).
 
@@ -52,6 +53,7 @@ all() ->
      msb_scheduler_wall_time,
      garbage_collection, io, badarg,
      run_queues_lengths_active_tasks,
+     statistics_message_queues,
      msacc].
 
 groups() -> 
@@ -652,6 +654,43 @@ run_queues_lengths_active_tasks(_Config) ->
                   end,
                   TokLoops),
 
+    ok.
+
+%% Tests that statistics(message_queues) works.
+statistics_message_queues(_Config) ->
+    Million = 1000000,
+    {_, _, Longest, _} = statistics(message_queues),
+    true = Longest < Million,
+    %% make a process that will accumulate long queue
+    {MaxPid, MRef} = spawn_monitor(fun () ->
+        receive
+            {wait, From} ->
+                From ! {wait, self()}
+        end,
+        receive
+            stop ->
+                ok
+        end
+                        end),
+    [MaxPid ! non_stop || _ <- lists:seq(1, Million)],
+    %% ensure long queue was aссumulated
+    MaxPid ! {wait, self()},
+    receive
+        {wait, MaxPid} ->
+            ok
+    end,
+    %% ensure million messages are there in the queue
+    {MoreThanAMillion, NonZero, Million, MaxPid} = statistics(message_queues),
+    true = MoreThanAMillion >= Million,
+    true = NonZero > 0,
+    %% ensure when there is no process, max queue is gone
+    exit(MaxPid, kill),
+    receive
+        {'DOWN', MRef, process, MaxPid, _} ->
+            ok
+    end,
+    {LessThanAMillion, _, _, _} = statistics(message_queues),
+    true = LessThanAMillion < Million,
     ok.
 
 %% Tests that statistics(microstate_statistics) works.
