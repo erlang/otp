@@ -43,7 +43,7 @@
          filter/3, filter_suites/1, filter_suites/2,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
-         is_stream_ciphersuite/1]).
+         is_stream_ciphersuite/1, suite_to_str/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, old_erl_cipher_suite/0, openssl_cipher_suite/0,
@@ -1876,6 +1876,32 @@ suite(#{key_exchange := dhe_rsa,
         mac := aead, 
         prf := sha256}) ->
     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
+
+
+%%--------------------------------------------------------------------
+-spec suite_to_str(erl_cipher_suite()) -> string().
+%%
+%% Description: Return the string representation of a cipher suite.
+%%--------------------------------------------------------------------
+suite_to_str(#{key_exchange := null,
+               cipher := null,
+               mac := null,
+               prf := null}) ->
+    "TLS_EMPTY_RENEGOTIATION_INFO_SCSV";
+suite_to_str(#{key_exchange := Kex,
+               cipher := Cipher,
+               mac := aead,
+               prf := PRF}) ->
+    "TLS_" ++ string:to_upper(atom_to_list(Kex)) ++
+        "_WITH_" ++  string:to_upper(atom_to_list(Cipher)) ++
+        "_" ++ string:to_upper(atom_to_list(PRF));
+suite_to_str(#{key_exchange := Kex,
+               cipher := Cipher,
+               mac := Mac}) ->
+    "TLS_" ++ string:to_upper(atom_to_list(Kex)) ++
+        "_WITH_" ++  string:to_upper(atom_to_list(Cipher)) ++
+        "_" ++ string:to_upper(atom_to_list(Mac)).
+
 
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
