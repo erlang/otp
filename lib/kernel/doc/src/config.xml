@@ -86,8 +86,13 @@
       <tag><c>File = string()</c></tag>
       <item>Name of another <c>.config</c> file.
         Extension <c>.config</c> can be omitted. It is
-        recommended to use absolute paths. A relative path is
-        relative the current working directory of the emulator.</item>
+        recommended to use absolute paths. If a relative path is used,
+        <c>File</c> is searched, first, relative from <c>sys.config</c> directory, then relative
+        to the current working directory of the emulator, for backward compatibility.
+        This allow to use a <c>sys.config</c> pointing out other <c>.config</c> files in a release
+        or in a node started manually using <c>-config ...</c> with same result whatever
+        the current working directory.
+        </item>
     </taglist>
     <p>When traversing the contents of <c>sys.config</c> and a filename
       is encountered, its contents are read and merged with the result
