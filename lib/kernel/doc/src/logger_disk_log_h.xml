@@ -33,13 +33,13 @@
     <file>logger_disk_log_h.xml</file>
   </header>
   <module>logger_disk_log_h</module>
-  <modulesummary>A disk_log based handler for the Logger.</modulesummary>
+  <modulesummary>A disk_log based handler for Logger</modulesummary>
 
   <description>
     <p>This is a handler for Logger that offers circular
     (wrapped) logs by using <seealso marker="disk_log"><c>disk_log</c></seealso>. 
     Multiple instances of this handler can be added to Logger, and each instance
-    prints to its own disk_log file, created with the name and settings specified
+    prints to its own disk log file, created with the name and settings specified
     in the handler configuration.</p>
     <p>The default standard handler,
     <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>, can be
@@ -62,14 +62,14 @@
     <taglist>
       <tag><c>file</c></tag>
       <item>
-	<p>This is the full name of the disk_log log file. The option
+	<p>This is the full name of the disk log file. The option
 	corresponds to the <c>name</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
       </item>
       <tag><c>type</c></tag>
       <item>
-	<p>This is the disk_log type, <c>wrap</c> or <c>halt</c>. The option
+	<p>This is the disk log type, <c>wrap</c> or <c>halt</c>. The option
 	corresponds to the <c>type</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
@@ -77,18 +77,19 @@
       </item>
       <tag><c>max_no_files</c></tag>
       <item>
-	<p>This is the maximum number of files that disk_log will use
+	<p>This is the maximum number of files that disk_log uses
 	for its circular logging. The option
 	corresponds to the <c>MaxNoFiles</c> element in the <c>size</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
-	<p>Defaults to <c>10</c>. (The setting has no effect on a halt log).</p>
+	<p>Defaults to <c>10</c>.</p>
+	<p>The setting has no effect on a halt log.</p>
       </item>
       <tag><c>max_no_bytes</c></tag>
       <item>
-	<p>This is the maximum number of bytes that will be written to
-	a log file before disk_log proceeds with the next file in order (or
-	generates an error in case of a full halt log). The option
+	<p>This is the maximum number of bytes that is written to
+	a log file before disk_log proceeds with the next file in order, or
+	generates an error in case of a full halt log. The option
 	corresponds to the <c>MaxNoBytes</c> element in the <c>size</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
@@ -113,17 +114,13 @@
     standard handler and the disk_log handler, and are documented in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
-    <p>Note that when changing the configuration of the handler in runtime, by
-    calling
-    <seealso marker="logger#set_handler_config-2"><c>logger:set_handler_config/2
-    or logger:set_handler_config/3</c></seealso>, the disk_log options (<c>file</c>,
-    <c>type</c>, <c>max_no_files</c>, <c>max_no_bytes</c>) must not be modified.</p>
+    <p>Notice that when changing the configuration of the handler in runtime, the
+    disk_log options (<c>file</c>, <c>type</c>, <c>max_no_files</c>,
+    <c>max_no_bytes</c>) must not be modified.</p>
     <p>Example of adding a disk_log handler:</p>
     <code type="none">
 logger:add_handler(my_disk_log_h, logger_disk_log_h,
-                   #{level => error,
-                     filter_default => log,
-                     config => #{file => "./my_disk_log",
+                   #{config => #{file => "./my_disk_log",
                                  type => wrap,
                                  max_no_files => 4,
                                  max_no_bytes => 10000},
@@ -131,7 +128,7 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
     </code>
     <p>To use the disk_log handler instead of the default standard
     handler when starting an Erlang node, change the Kernel default logger to
-    use disk_log. Example:</p>
+    use <c>logger_disk_log_h</c>. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_disk_log_h,
                       #{config => #{file => "./system_disk_log"}}}]'

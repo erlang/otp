@@ -33,15 +33,13 @@
     <file>logger_std_h.xml</file>
   </header>
   <module>logger_std_h</module>
-  <modulesummary>Default handler for Logger.</modulesummary>
+  <modulesummary>Standard handler for Logger.</modulesummary>
 
   <description>
-    <p>This is the default handler for Logger.
+    <p>This is the standard handler for Logger.
       Multiple instances of this handler can be added to
       Logger, and each instance prints logs to <c>standard_io</c>,
-      <c>standard_error</c> or to file. The default instance that starts
-      with Kernel is named <c>default</c>, which is the name to be used
-      for reconfiguration.</p>
+      <c>standard_error</c>, or to file.</p>
     <p>The handler has an overload protection mechanism that keeps the handler
       process and the Kernel application alive during high loads of log 
       events. How overload protection works, and how to configure it, is
@@ -62,12 +60,12 @@
 	<p>This has the value <c>standard_io</c>, <c>standard_error</c>,
 	<c>{file,LogFileName}</c>, or <c>{file,LogFileName,LogFileOpts}</c>.</p>
 	<p> Defaults to <c>standard_io</c>.</p>
-	<p>It is recommended to not specify <c>LogFileOpts</c>, unless absolutely
-	necessary. The default options used by the handler to open a file for logging are:
-	<c>raw</c>, <c>append</c> and <c>delayed_write</c>. Note that the standard
-	handler does not have support for circular logging. Use the
-	<seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
-	</seealso> handler for this.</p>
+	<p>It is recommended not to specify <c>LogFileOpts</c> unless absolutely
+	necessary. The default options used by the handler to open a file for logging are
+	<c>raw</c>, <c>append</c>, and <c>delayed_write</c>. Notice that the standard
+	handler does not have support for circular logging. Use the disk_log handler,
+	<seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>,
+	for this.</p>
       </item>
       <tag><c>filesync_repeat_interval</c></tag>
       <item>
@@ -77,8 +75,8 @@
 	actually been logged.</p>
 	<p>Defaults to <c>5000</c> milliseconds.</p>
 	<p>If <c>no_repeat</c> is set as value, the repeated file sync operation
-	is disabled, and it will be the operating system settings that determine
-	how quickly or slowly data gets written	to disk. The user can also call
+	is disabled, and it is the operating system settings that determine
+	how quickly or slowly data is written to disk. The user can also call
 	the <seealso marker="logger_std_h#filesync-1"><c>filesync/1</c></seealso>
         function to perform a file sync.</p>
       </item>
@@ -88,32 +86,25 @@
     standard handler and the disk_log handler, and are documented in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
-    <p>Note that if changing the configuration of the handler in runtime, by
-    calling
-    <seealso marker="logger#set_handler_config-2"><c>logger:set_handler_config/2</c>
-    </seealso>, or
-    <seealso marker="logger#set_handler_config-3"><c>logger:set_handler_config/3</c>
-    </seealso>,
+    <p>Notice that if changing the configuration of the handler in runtime,
     the <c>type</c> parameter must not be modified.</p>
     <p>Example of adding a standard handler:</p>
     <code type="none">
 logger:add_handler(my_standard_h, logger_std_h,
-                   #{level => info,
-                     filter_default => log,
-                     config =>
-		         #{type => {file,"./system_info.log"},
-                           filesync_repeat_interval => 1000}}).
+                   #{config => #{type => {file,"./system_info.log"},
+                                 filesync_repeat_interval => 1000}}).
     </code>
-    <p>To set the default handler (that starts initially with
-    the Kernel application) to log to file instead of <c>standard_io</c>,
+    <p>To set the default handler, that starts initially with
+    the Kernel application, to log to file instead of <c>standard_io</c>,
     change the Kernel default logger configuration. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_std_h,
                       #{config => #{type => {file,"./log.log"}}}}]'
     </code>
     <p>An example of how to replace the standard handler with a disk_log handler
-    at start up can be found in the manual of
-    <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>.</p>
+    at startup is found in the
+    <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>
+    manual.</p>
   </description>
 
   <funcs>
