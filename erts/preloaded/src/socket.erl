@@ -324,7 +324,9 @@
                        mincost |
                        integer().
 
--type socket_info() :: map().
+-type socket_info() :: #{domain   => domain(),
+                         type     => type(),
+                         protocol => protocol()}.
 -record(socket, {info :: socket_info(),
                  ref  :: reference()}).
 %% -opaque socket() :: {socket, socket_info(), reference()}.
@@ -671,10 +673,17 @@ bind(Socket, File) when is_list(File) andalso (File =/= []) ->
         true ->
             {error, einval}
     end;
-bind(#socket{ref = SockRef} = _Socket, SockAddr) 
-  when is_record(SockAddr, in4_sockaddr) orelse
-       is_record(SockAddr, in6_sockaddr) orelse
-       (SockAddr =:= any) orelse (SockAddr =:= loopback) ->
+bind(#socket{info = #{domain := inet}} = Socket, Addr) 
+  when ((Addr =:= any) orelse (Addr =:= loopback)) ->
+    bind(Socket, #in4_sockaddr{addr = Addr});
+bind(#socket{info = #{domain := inet6}} = Socket, Addr) 
+  when ((Addr =:= any) orelse (Addr =:= loopback)) ->
+    bind(Socket, #in6_sockaddr{addr = Addr});
+bind(#socket{info = #{domain := inet}, ref = SockRef} = _Socket, SockAddr) 
+  when is_record(SockAddr, in4_sockaddr) ->
+    nif_bind(SockRef, SockAddr);
+bind(#socket{info = #{domain := inet6}, ref = SockRef} = _Socket, SockAddr) 
+  when is_record(SockAddr, in6_sockaddr) ->
     nif_bind(SockRef, SockAddr).
 
 

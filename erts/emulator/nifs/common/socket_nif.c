@@ -433,6 +433,7 @@ typedef union {
 
 #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
 #define IS_BIN(E,   TE) enif_is_binary((E), (TE))
+#define IS_MAP(E,   TE) enif_is_map((E), (TE))
 #define IS_NUM(E,   TE) enif_is_number((E), (TE))
 #define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE))
 
@@ -456,7 +457,8 @@ typedef union {
         dbg_printf proto;            \
         fflush(stdout);              \
     }
-#define SDBG( proto ) SDEBUG( data.dbg , proto )
+#define SGDBG( proto )         SDEBUG( data.dbg , proto )
+#define SSDBG( __D__ , proto ) SDEBUG( (__D__)->dbg , proto )
 
 
 /* =================================================================== *
@@ -1155,43 +1157,45 @@ static ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
                                     SocketDescriptor* descP);
 
 
-static BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
-                                    ERL_NIF_TERM   eSockAddr,
-                                    SocketAddress* sockAddrP,
-                                    unsigned int*  addrLenP);
-static BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
-                                     const ERL_NIF_TERM* eIn4SockAddr,
-                                     SocketAddress*      sockAddrP,
-                                     unsigned int*       addrLenP);
-static BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
-                                              ERL_NIF_TERM   eAddr,
-                                              int            port,
-                                              SocketAddress* sockAddrP,
-                                              unsigned int*  addrLenP);
-static BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
+static char* decode_in_sockaddr(ErlNifEnv*     env,
+                                ERL_NIF_TERM   eSockAddr,
+                                SocketAddress* sockAddrP,
+                                unsigned int*  addrLenP);
+static char* decode_in4_sockaddr(ErlNifEnv*          env,
+                                 const ERL_NIF_TERM* eIn4SockAddr,
+                                 SocketAddress*      sockAddrP,
+                                 unsigned int*       addrLenP);
+static char* decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
                                           ERL_NIF_TERM   eAddr,
                                           int            port,
                                           SocketAddress* sockAddrP,
                                           unsigned int*  addrLenP);
-static BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
-                                     const ERL_NIF_TERM* eIn6SockAddr,
-                                     SocketAddress*      sockAddrP,
-                                     unsigned int*       addrLenP);
-static BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
-                                              ERL_NIF_TERM   eAddr,
-                                              int            port,
-                                              unsigned int   flowInfo,
-                                              unsigned int   scopeId,
-                                              SocketAddress* sockAddrP,
-                                              unsigned int*  addrLenP);
-/* Decode an in6_sockaddr where the address field is a tuple */
-static BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
+static char* decode_in4_sockaddr_addr(ErlNifEnv*     env,
+                                      ERL_NIF_TERM   eAddr,
+                                      int            port,
+                                      SocketAddress* sockAddrP,
+                                      unsigned int*  addrLenP);
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static char* decode_in6_sockaddr(ErlNifEnv*          env,
+                                 const ERL_NIF_TERM* eIn6SockAddr,
+                                 SocketAddress*      sockAddrP,
+                                 unsigned int*       addrLenP);
+static char* decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
                                           ERL_NIF_TERM   eAddr,
                                           int            port,
                                           unsigned int   flowInfo,
                                           unsigned int   scopeId,
                                           SocketAddress* sockAddrP,
                                           unsigned int*  addrLenP);
+/* Decode an in6_sockaddr where the address field is a tuple */
+static char* decode_in6_sockaddr_addr(ErlNifEnv*     env,
+                                      ERL_NIF_TERM   eAddr,
+                                      int            port,
+                                      unsigned int   flowInfo,
+                                      unsigned int   scopeId,
+                                      SocketAddress* sockAddrP,
+                                      unsigned int*  addrLenP);
+#endif
 static char* decode_laddress(ErlNifEnv*     env,
                              int            domain,
                              ERL_NIF_TERM   localAddr,
@@ -1202,11 +1206,7 @@ static char* decode_laddress_binary(ErlNifEnv*     env,
                                     ERL_NIF_TERM   localAddr,
                                     SocketAddress* localP,
                                     unsigned int*  addrLenP);
-static char* decode_laddress_tuple(ErlNifEnv*     env,
-                                   int            domain,
-                                   ERL_NIF_TERM   laddr,
-                                   SocketAddress* localP,
-                                   unsigned int*  addrLenP);
+/*
 static char* decode_address_tuple(ErlNifEnv*          env,
                                   int                 domain,
                                   const ERL_NIF_TERM* addrt,
@@ -1220,6 +1220,7 @@ static char* decode_address_atom(ErlNifEnv*     env,
                                  int            port,
                                  SocketAddress* localP,
                                  unsigned int*  addrLenP);
+*/
 /*
 static char* decode_send_addr(ErlNifEnv*      env,
                               int             domain,
@@ -1610,10 +1611,10 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  * Create an endpoint for communication.
  *
  * Arguments:
- * Domain
- * Type
- * Protocol
- * Extra    - A map with obscure options.
+ * Domain   - The domain, for example 'inet'
+ * Type     - Type of socket, for example 'stream'
+ * Protocol - The protocol, for example 'tcp'
+ * Extra    - A map with "obscure" options.
  *            Currently the only allowed option is netns (network namespace).
  *            This is *only* allowed on linux!
  */
@@ -1626,17 +1627,27 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     int          domain,  type,  proto;
     char*        netns;
     ERL_NIF_TERM emap;
+    ERL_NIF_TERM result;
 
+    SGDBG( ("nif_open -> entry with %d args\r\n", argc) );
+    
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 4) ||
-        !enif_get_int(env, argv[0], &edomain) ||
-        !enif_get_int(env, argv[1], &etype) ||
-        !enif_get_int(env, argv[2], &eproto) ||
-        !enif_is_map(env,  argv[3])) {
+        !GET_INT(env, argv[0], &edomain) ||
+        !GET_INT(env, argv[1], &etype) ||
+        !GET_INT(env, argv[2], &eproto) ||
+        !IS_MAP(env,  argv[3])) {
         return enif_make_badarg(env);
     }
     emap = argv[3];
+
+    SGDBG( ("nif_open -> "
+            "\r\n   edomain: %T"
+            "\r\n   etype:   %T"
+            "\r\n   eproto:  %T"
+            "\r\n   extra:   %T"
+            "\r\n", argv[0], argv[1], argv[2], argv[3]) );
 
     if (!edomain2domain(edomain, &domain))
         return enif_make_badarg(env);
@@ -1655,13 +1666,23 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     netns = NULL;
 #endif
 
-    return nopen(env, domain, type, proto, netns);
+    result = nopen(env, domain, type, proto, netns);
+
+    SGDBG( ("nif_open -> done with result: "
+           "\r\n   %T"
+           "\r\n", result) );
+
+    return result;
 }
 
 
 /* nopen - create an endpoint for communication
  *
  * Assumes the input has been validated.
+ *
+ * Normally we want debugging on (individual) sockets to be controlled
+ * by the sockets own debug flag. But since we don't even have a socket
+ * yet, we must use the global debug flag.
  */
 static
 ERL_NIF_TERM nopen(ErlNifEnv* env,
@@ -1677,9 +1698,16 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
     int               current_ns;
 #endif
 
+    SGDBG( ("nopen -> entry with"
+            "\r\n   domain:   %d"
+            "\r\n   type:     %d"
+            "\r\n   protocol: %d"
+            "\r\n   netns:    %s"
+            "\r\n", domain, type, protocol, ((netns == NULL) ? "NULL" : netns)) );
 
 #ifdef HAVE_SETNS
-    if (!change_network_namespace(netns, &current_ns, &save_errno))
+    if ((netns != NULL) &&
+        !change_network_namespace(netns, &current_ns, &save_errno))
         return make_error2(env, save_errno);
 #endif
 
@@ -1687,7 +1715,8 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
         return make_error2(env, sock_errno());
 
 #ifdef HAVE_SETNS
-    if (!restore_network_namespace(current_ns, sock, &save_errno))
+    if ((netns != NULL) &&
+        !restore_network_namespace(current_ns, sock, &save_errno))
         return make_error2(env, save_errno);
 
     if (netns != NULL)
@@ -1736,12 +1765,16 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 
 
 #ifdef __WIN32__
-    /* What is the point of this?
+    /* <KOLLA
+     *
+     * What is the point of this?
      * And how do we handle it?
      * Since the select message will be delivered to the controlling
      * process, which has no idea what to do with this...
      *
      * TODO!
+     *
+     * </KOLLA>
      */
      SELECT(env,
             event,
@@ -1768,6 +1801,9 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
     int save_errno;
     int current_ns = 0;
     int new_ns     = 0;
+
+    SGDBG( ("change_network_namespace -> entry with"
+            "\r\n   new ns: %s", netns) );
 
     if (netns != NULL) {
         current_ns = open("/proc/self/ns/net", O_RDONLY);
@@ -1816,6 +1852,10 @@ static
 BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
 {
     int save_errno;
+
+    SGDBG( ("restore_network_namespace -> entry with"
+            "\r\n   ns: %d", ns) );
+
     if (ns != INVALID_SOCKET) {
         if (setns(ns, CLONE_NEWNET) != 0) {
             /* XXX Failed to restore network namespace.
@@ -1879,6 +1919,12 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    SSDBG( descP,
+           ("nif_bind -> "
+            "\r\n   Socket: %T"
+            "\r\n   Addr:   %T"
+            "\r\n", argv[0], argv[1]) );
+
     /* Basic arg validation:
      *  - if binary domain must be local (unix)
      *  - if tuple domain must be either inet or inet6
@@ -1910,11 +1956,19 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
 {
     SocketAddress local;
     unsigned int  addrLen = 0;
-    char*         err;
+    char*         xerr;
     int           port;
 
-    if ((err = decode_laddress(env, descP->domain, addr, &local, &addrLen)) != NULL)
-        return make_error1(env, err);
+    SSDBG( descP,
+           ("nbind -> entry with"
+            "\r\n   addr: %T"
+            "\r\n", addr) );
+
+    if ((xerr = decode_laddress(env,
+                                descP->domain, addr, &local, &addrLen)) != NULL)
+        return make_error1(env, xerr);
+
+    SSDBG( descP, ("nbind -> try bind\r\n") );
 
     if (IS_SOCKET_ERROR(sock_bind(descP->sock,
                                   (struct sockaddr*) &local, addrLen))) {
@@ -1931,15 +1985,17 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
         port = 0;
     }
 
-    return make_ok2(env, enif_make_int(env, port));
+    SSDBG( descP, ("nbind -> done with port = %d\r\n", port) );
+
+    return make_ok2(env, MKI(env, port));
 
 }
 
 
 /* Decode the (local) address. The format of the address should
- * either be an binary (domain = local) or a two tuple (first
- * part the actual address tuple and the second part the port
- * number) if the domain is either INET or INET6.
+ * either be an binary (domain = local) or an in_sockaddr(), which
+ * is either a in4_sockaddr record or a int6_sockaddr record 
+ * (if domain is either inet or inet6).
  */
 static
 char* decode_laddress(ErlNifEnv*     env,
@@ -1951,7 +2007,7 @@ char* decode_laddress(ErlNifEnv*     env,
     if (IS_BIN(env, localAddr)) {
         return decode_laddress_binary(env, domain, localAddr, localP, addrLenP);
     } else if (IS_TUPLE(env, localAddr)) {
-        return decode_laddress_tuple(env, domain, localAddr, localP, addrLenP);
+        return decode_in_sockaddr(env, localAddr, localP, addrLenP);
     }  else {
         return str_einval;
     }
@@ -1960,7 +2016,7 @@ char* decode_laddress(ErlNifEnv*     env,
 
 
 /* Only for domain = local (unix)
- * The erlang interface module ensures that the size of the
+ * The erlang interface module (socket) ensures that the size of the
  * binary is > 0, so we need not do that here.
  */
 static
@@ -2014,107 +2070,6 @@ char* decode_laddress_binary(ErlNifEnv*     env,
 }
 
 
-/* Only for domain = INET and INET6
- * The (local) address here is a two tuple:
- *    {Addr, Port}
- * where
- *    Addr:
- *      - a tuple of size 4 (INET) or size 8 (INET6)
- *      - the atoms 'any' or 'loopback'
- *   Port:
- *      - the port number (int)
- *
- */
-static
-char* decode_laddress_tuple(ErlNifEnv*     env,
-                            int            domain,
-                            ERL_NIF_TERM   laddr,
-                            SocketAddress* localP,
-                            unsigned int*  addrLenP)
-{
-    const ERL_NIF_TERM* laddrt;
-    int                 laddrtSz;
-    int                 port;
-
-    /* First, get the tuple and verify its size (2) */
-
-    if (!GET_TUPLE(env, laddr, &laddrtSz, &laddrt))
-        return str_einval;
-
-    if (laddrtSz != 2)
-        return str_einval;
-
-    /* So far so good. The first element is either a tuple or an atom */
-
-    if (IS_TUPLE(env, laddrt[0]) &&
-        IS_NUM(env, laddrt[1])) {
-
-        /* We handle two different tuples:
-         *    - size 4 (INET)
-         *    - size 8 (INET6)
-         */
-
-        const ERL_NIF_TERM* addrt;
-        int                 addrtSz;
-
-        if (!GET_TUPLE(env, laddrt[0], &addrtSz, &addrt))
-            return str_einval; // PLACEHOLDER
-
-        if (!GET_INT(env, laddrt[1], &port))
-            return str_einval; // PLACEHOLDER
-
-        switch (domain) {
-        case AF_INET:
-            if (addrtSz != 4)
-                return str_einval;
-            break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-        case AF_INET6:
-            if (addrtSz != 8)
-                return str_einval;
-            break;
-#endif
-
-        default:
-            return str_eafnosupport;
-            break;
-        }
-
-        return decode_address_tuple(env,
-                                    domain, addrt, port,
-                                    localP, addrLenP);
-
-    } else if (IS_ATOM(env, laddrt[0]) &&
-               IS_NUM(env, laddrt[1])) {
-
-        /* There are only two atoms we handle:
-         *    - any
-         *    - loopback
-         */
-
-        unsigned int len;
-        char         a[16]; // Just in case...
-
-        if (!(GET_ATOM_LEN(env, laddrt[0], &len) &&
-              (len > 0) &&
-              (len <= (sizeof("loopback")))))
-            return str_einval;
-
-        if (!GET_ATOM(env, laddrt[0], a, sizeof(a)))
-            return str_einval;
-
-        return decode_address_atom(env,
-                                   domain, a, len, port,
-                                   localP, addrLenP);
-
-    } else {
-        return str_einval;
-    }
-
-}
-
-
 
 /* ----------------------------------------------------------------------
  * nif_connect
@@ -2136,6 +2091,7 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
 {
     SocketDescriptor* descP;
     ERL_NIF_TERM      eSockAddr;
+    char*             xres;
 
     /* Extract arguments and perform preliminary validation */
 
@@ -2145,9 +2101,9 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     }
     eSockAddr = argv[1];
 
-    if (!decode_in_sockaddr(env, eSockAddr,
-                            &descP->remote, &descP->addrLen)) {
-        return enif_make_badarg(env);
+    if ((xres = decode_in_sockaddr(env, eSockAddr,
+                                   &descP->remote, &descP->addrLen)) != NULL) {
+        return make_error1(env, xres);
     }
 
     return nconnect(env, descP);
@@ -2768,6 +2724,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     ERL_NIF_TERM      eSockAddr;
     SocketAddress     remoteAddr;
     unsigned int      remoteAddrLen;
+    char*             xres;
 
     /* Extract arguments and perform preliminary validation */
 
@@ -2787,10 +2744,10 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     if (!esendflags2sendflags(eflags, &flags))
         return make_error(env, atom_einval);
 
-    if (!decode_in_sockaddr(env, eSockAddr,
-                            &remoteAddr,
-                            &remoteAddrLen))
-        return make_error(env, atom_einval);
+    if ((xres = decode_in_sockaddr(env, eSockAddr,
+                                   &remoteAddr,
+                                   &remoteAddrLen)) != NULL)
+        return make_error1(env, xres);
 
     return nsendto(env, descP, sendRef, &data, flags, &remoteAddr, remoteAddrLen);
 }
@@ -5622,17 +5579,17 @@ char* decode_send_addr_tuple(ErlNifEnv*     env,
  *
  */
 static
-BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
-                             ERL_NIF_TERM   eSockAddr,
-                             SocketAddress* sockAddrP,
-                             unsigned int*  addrLenP)
+char* decode_in_sockaddr(ErlNifEnv*     env,
+                         ERL_NIF_TERM   eSockAddr,
+                         SocketAddress* sockAddrP,
+                         unsigned int*  addrLenP)
 {
     const ERL_NIF_TERM* addrt;
     int                 addrtSz;
-    ERL_NIF_TERM        result;
+    char*               result = NULL;
     
     if (!GET_TUPLE(env, eSockAddr, &addrtSz, &addrt))
-        return FALSE;
+        return str_einval;
 
     /*
      * We use the tuple size to figure out which
@@ -5650,7 +5607,7 @@ BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
 #endif
 
     default:
-        result = FALSE;
+        result = str_eafnosupport;
         break;
     }
 
@@ -5665,20 +5622,20 @@ BOOLEAN_T decode_in_sockaddr(ErlNifEnv*     env,
  * The third and final, the ip4_address tuple.
  */
 static
-BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
-                              const ERL_NIF_TERM* eIn4SockAddr,
-                              SocketAddress*      sockAddrP,
-                              unsigned int*       addrLenP)
+char* decode_in4_sockaddr(ErlNifEnv*          env,
+                          const ERL_NIF_TERM* eIn4SockAddr,
+                          SocketAddress*      sockAddrP,
+                          unsigned int*       addrLenP)
 {
     int port;
 
     /* 1: Ensure that the tuple has the correct tag: in4_sockaddr */
     if (COMPARE(atom_in4_sockaddr, eIn4SockAddr[0]) != 0)
-        return FALSE;
+        return str_einval;
 
     /* 2: Get the port number */
     if (!GET_INT(env, eIn4SockAddr[1], &port))
-        return FALSE;
+        return str_einval;
 
     /* 3: Get the address.
      *    It can either be the atoms: any | loopback, 
@@ -5691,18 +5648,18 @@ BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
         return decode_in4_sockaddr_addr(env, eIn4SockAddr[2], port,
                                         sockAddrP, addrLenP);
     } else {
-        return FALSE;
+        return str_einval;
     }
 }
 
 
 
 static
-BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
-                                       ERL_NIF_TERM   eAddr,
-                                       int            port,
-                                       SocketAddress* sockAddrP,
-                                       unsigned int*  addrLenP)
+char* decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
+                                   ERL_NIF_TERM   eAddr,
+                                   int            port,
+                                   SocketAddress* sockAddrP,
+                                   unsigned int*  addrLenP)
 {
     struct in_addr addr;
 
@@ -5711,7 +5668,7 @@ BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
     } else if (COMPARE(atom_any, eAddr) == 0) {
         addr.s_addr = sock_htonl(INADDR_ANY);
     } else {
-        return FALSE;
+        return str_einval;
     }
 
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in));
@@ -5721,9 +5678,9 @@ BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
     sockAddrP->sai.sin_family      = AF_INET;
     sockAddrP->sai.sin_port        = sock_htons(port);
     sockAddrP->sai.sin_addr.s_addr = addr.s_addr;
-    *addrLenP                  = sizeof(struct sockaddr_in);
+    *addrLenP                      = sizeof(struct sockaddr_in);
     
-    return TRUE;
+    return NULL;
 }
 
 
@@ -5731,11 +5688,11 @@ BOOLEAN_T decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
  * Its *supposed* to be an ip4_address (tuple).
  */
 static
-BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
-                                   ERL_NIF_TERM   eAddr,
-                                   int            port,
-                                   SocketAddress* sockAddrP,
-                                   unsigned int*  addrLenP)
+char* decode_in4_sockaddr_addr(ErlNifEnv*     env,
+                               ERL_NIF_TERM   eAddr,
+                               int            port,
+                               SocketAddress* sockAddrP,
+                               unsigned int*  addrLenP)
 {
     const ERL_NIF_TERM* ip4AddrT;
     int                 ip4AddrTSz;
@@ -5744,10 +5701,10 @@ BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
 
     /* This shall be a 4 tuple */
     if (!GET_TUPLE(env, eAddr, &ip4AddrTSz, &ip4AddrT))
-        return FALSE;
+        return str_einval;
 
     if (ip4AddrTSz != 4)
-        return FALSE;
+        return str_einval;
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in));
 #ifndef NO_SA_LEN
@@ -5757,13 +5714,13 @@ BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
     sockAddrP->sai.sin_port   = sock_htons(port);
     for (a = 0; a < 4; a++) {
         if (!GET_INT(env, ip4AddrT[a], &v))
-            return FALSE;
+            return str_einval;
         addr[a] = v;
     }
     sys_memcpy(&sockAddrP->sai.sin_addr, &addr, sizeof(addr));
     *addrLenP = sizeof(struct sockaddr_in);
     
-    return TRUE;
+    return NULL;
 }
 
 
@@ -5777,29 +5734,29 @@ BOOLEAN_T decode_in4_sockaddr_addr(ErlNifEnv*     env,
  */
 #if defined(HAVE_IN6) && defined(AF_INET6)
 static
-BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
-                              const ERL_NIF_TERM* eIn6SockAddr,
-                              SocketAddress*      sockAddrP,
-                              unsigned int*       addrLenP)
+char* decode_in6_sockaddr(ErlNifEnv*          env,
+                          const ERL_NIF_TERM* eIn6SockAddr,
+                          SocketAddress*      sockAddrP,
+                          unsigned int*       addrLenP)
 {
     int          port;
     unsigned int flowInfo, scopeId;
     
     /* 1: Ensure that the tuple has the correct tag: in6_sockaddr */
     if (COMPARE(atom_in6_sockaddr, eIn6SockAddr[0]) != 0)
-        return FALSE;
+        return str_einval;
 
     /* 2: Get the port number */
     if (!GET_INT(env, eIn6SockAddr[1], &port))
-        return FALSE;
+        return str_einval;
 
     /* 4: Get the flowinfo */
     if (!GET_UINT(env, eIn6SockAddr[3], &flowInfo))
-        return FALSE;
+        return str_einval;
 
     /* 5: Get the scope_id */
     if (!GET_UINT(env, eIn6SockAddr[4], &scopeId))
-        return FALSE;
+        return str_einval;
 
     /* 3: Get the address.
      *    It can either be the atoms: any | loopback, 
@@ -5814,7 +5771,7 @@ BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
                                         flowInfo, scopeId,
                                         sockAddrP, addrLenP);
     } else {
-        return FALSE;
+        return str_einval;
     }
 }
 #endif
@@ -5822,13 +5779,13 @@ BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 static
-BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
-                                       ERL_NIF_TERM   eAddr,
-                                       int            port,
-                                       unsigned int   flowInfo,
-                                       unsigned int   scopeId,
-                                       SocketAddress* sockAddrP,
-                                       unsigned int*  addrLenP)
+char* decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
+                                   ERL_NIF_TERM   eAddr,
+                                   int            port,
+                                   unsigned int   flowInfo,
+                                   unsigned int   scopeId,
+                                   SocketAddress* sockAddrP,
+                                   unsigned int*  addrLenP)
 {
     const struct in6_addr* addr;
 
@@ -5837,7 +5794,7 @@ BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
     } else if (COMPARE(atom_any, eAddr) == 0) {
         addr = &in6addr_any;
     } else {
-        return FALSE;
+        return str_einval;
     }
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
@@ -5851,7 +5808,7 @@ BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
     sockAddrP->sai6.sin6_addr     = *addr;
     *addrLenP                     = sizeof(struct sockaddr_in6);
     
-    return TRUE;
+    return NULL;
 }
 #endif
 
@@ -5860,13 +5817,13 @@ BOOLEAN_T decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
 #if defined(HAVE_IN6) && defined(AF_INET6)
 /* Decode an in6_sockaddr where the address field is a tuple */
 static
-BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
-                                   ERL_NIF_TERM   eAddr,
-                                   int            port,
-                                   unsigned int   flowInfo,
-                                   unsigned int   scopeId,
-                                   SocketAddress* sockAddrP,
-                                   unsigned int*  addrLenP)
+char* decode_in6_sockaddr_addr(ErlNifEnv*     env,
+                               ERL_NIF_TERM   eAddr,
+                               int            port,
+                               unsigned int   flowInfo,
+                               unsigned int   scopeId,
+                               SocketAddress* sockAddrP,
+                               unsigned int*  addrLenP)
 {
     const ERL_NIF_TERM* ip6AddrT;
     int                 ip6AddrTSz;
@@ -5875,10 +5832,10 @@ BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
 
     /* This shall be a 8 tuple */
     if (!GET_TUPLE(env, eAddr, &ip6AddrTSz, &ip6AddrT))
-        return FALSE;
+        return str_einval;
 
     if (ip6AddrTSz != 8)
-        return FALSE;
+        return str_einval;
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
 #ifndef NO_SA_LEN
@@ -5893,14 +5850,14 @@ BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
      */
     for (a = 0; a < 8; a++) {
         if (!GET_INT(env, ip6AddrT[a], &v))
-            return FALSE;
+            return str_einval;
         addr[a*2  ] = ((v >> 8) & 0xFF);
         addr[a*2+1] = (v & 0xFF);
     }
     sys_memcpy(&sockAddrP->sai6.sin6_addr, &addr, sizeof(addr));
     *addrLenP = sizeof(struct sockaddr_in6);
     
-    return TRUE;
+    return NULL;
 }
 #endif
 
@@ -5908,6 +5865,7 @@ BOOLEAN_T decode_in6_sockaddr_addr(ErlNifEnv*     env,
 /* Decode the 4- or 8-element address tuple
  * and initiate the socket address structure.
  */
+/*
 static
 char* decode_address_tuple(ErlNifEnv*          env,
                            int                 domain,
@@ -5917,9 +5875,9 @@ char* decode_address_tuple(ErlNifEnv*          env,
                            unsigned int*       addrLenP)
 {
 
-    /* We now *know* that the size of the tuple is correct,
+    / * We now *know* that the size of the tuple is correct,
      * so we don't need to check anything here, just unpack.
-     */
+     * /
 
     switch (domain) {
     case AF_INET:
@@ -5957,9 +5915,9 @@ char* decode_address_tuple(ErlNifEnv*          env,
             addrP->sai6.sin6_family   = domain;
             addrP->sai6.sin6_port     = sock_htons(port);
             addrP->sai6.sin6_flowinfo = 0;
-            /* The address tuple is of size 8
+            / * The address tuple is of size 8
              * and each element is a two byte integer
-             */
+             * /
             for (a = 0; a < 8; a++) {
                 if (!GET_INT(env, addrt[a], &v))
                     return str_einval;
@@ -5973,11 +5931,12 @@ char* decode_address_tuple(ErlNifEnv*          env,
         break;
 #endif
 
-    } /* switch (domain) */
+    } / * switch (domain) * /
 
     return str_eafnosupport;
 
 }
+*/
 
 /* Encode the 4- or 8-element address tuple from the socket address structure.
  *
@@ -6108,6 +6067,7 @@ void encode_address(ErlNifEnv*     env,
 /* Decode the address when its an atom.
  * Currently we only accept two atoms: 'any' and 'loopback'
  */
+/*
 static
 char* decode_address_atom(ErlNifEnv*     env,
                           int            domain,
@@ -6127,7 +6087,7 @@ char* decode_address_atom(ErlNifEnv*     env,
         return str_einval;
     }
 
-    /* If we get this far, we *know* its either 'any' or 'loopback' */
+    / * If we get this far, we *know* its either 'any' or 'loopback' * /
 
     switch (domain) {
     case AF_INET:
@@ -6178,7 +6138,7 @@ char* decode_address_atom(ErlNifEnv*     env,
 
     return NULL;
 }
-
+*/
 
 static
 BOOLEAN_T decode_bool(ErlNifEnv* env, ERL_NIF_TERM eVal, BOOLEAN_T* val)
@@ -7203,11 +7163,11 @@ void dbg_printf( const char* format, ... )
 
   if (!dbg_realtime(&ts)) {
     if (dbg_timespec2str(stamp, sizeof(stamp), &ts) != 0) {
-      // res = enif_snprintf(f, sizeof(f), "NET [%s] %s", TSNAME(), format);
-      res = enif_snprintf(f, sizeof(f), "NET [%s]", format);
+      // res = enif_snprintf(f, sizeof(f), "SOCKET [%s] %s", TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "SOCKET [%s]", format);
     } else {
-      // res = enif_snprintf(f, sizeof(f), "NET[%s] [%s] %s", stamp, TSNAME(), format);
-      res = enif_snprintf(f, sizeof(f), "NET [%s] %s", stamp, format);
+      // res = enif_snprintf(f, sizeof(f), "SOCKET [%s] [%s] %s", stamp, TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "SOCKET [%s] %s", stamp, format);
     }
 
     if (res > 0) {
