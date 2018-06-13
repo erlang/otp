@@ -115,7 +115,7 @@ check_common_config({overload_kill_qlen,N}) when is_integer(N) ->
 check_common_config({overload_kill_mem_size,N}) when is_integer(N) ->
     valid;
 check_common_config({overload_kill_restart_after,NorA})  when is_integer(NorA);
-                                                              NorA == never ->
+                                                              NorA == infinity ->
     valid;
 
 check_common_config({filesync_repeat_interval,NorA}) when is_integer(NorA);

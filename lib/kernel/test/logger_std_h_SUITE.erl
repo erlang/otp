@@ -473,7 +473,7 @@ reconfig(Config) ->
                                      overload_kill_enable => true,
                                      overload_kill_qlen => 100000,
                                      overload_kill_mem_size => 10000000,
-                                     overload_kill_restart_after => never,
+                                     overload_kill_restart_after => infinity,
                                      filesync_repeat_interval => no_repeat}),
     #{id := ?MODULE,
       type := standard_io,
@@ -487,7 +487,7 @@ reconfig(Config) ->
       overload_kill_enable := true,
       overload_kill_qlen := 100000,
       overload_kill_mem_size := 10000000,
-      overload_kill_restart_after := never,
+      overload_kill_restart_after := infinity,
       filesync_repeat_interval := no_repeat} = logger_std_h:info(?MODULE),
     ok.
 
@@ -1069,7 +1069,7 @@ restart_after(Config) ->
      NewHConfig1 =
         HConfig#{config=>StdHConfig#{overload_kill_enable=>true,
                                      overload_kill_qlen=>10,
-                                     overload_kill_restart_after=>never}},
+                                     overload_kill_restart_after=>infinity}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
