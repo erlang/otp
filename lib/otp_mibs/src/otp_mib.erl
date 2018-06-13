@@ -36,6 +36,9 @@
 %% Exported for internal use via rpc
 -export([get_erl_node/1, get_appls/1]).
 
+-deprecated([{load,1,eventually},
+	     {unload,1,eventually}]).
+
 %% Shadow tables
 -record(erlNodeTable,
 	{erlNodeId, erlNodeName, erlNodeMachine, erlNodeVersion,

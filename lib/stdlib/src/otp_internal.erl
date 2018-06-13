@@ -620,6 +620,8 @@ obsolete_1(ssl, ssl_accept, 2) ->
     {deprecated, "deprecated; use ssl:handshake/2 instead"};
 obsolete_1(ssl, ssl_accept, 3) ->
     {deprecated, "deprecated; use ssl:handshake/3 instead"};
+obsolete_1(otp_mib, F, _) when F =:= load; F =:= unload ->
+    {deprecated, "deprecated; functionality will be removed in a future release"};
 
 %% not obsolete
 
