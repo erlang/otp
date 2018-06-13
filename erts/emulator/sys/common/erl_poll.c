@@ -141,11 +141,25 @@ typedef struct {
     size_t sz;
     fd_set* ptr;
 }ERTS_fd_set;
-#  define ERTS_FD_CLR(fd, fds)	FD_CLR((fd), (fds)->ptr)
-#  define ERTS_FD_SET(fd, fds)	FD_SET((fd), (fds)->ptr)
-#  define ERTS_FD_ISSET(fd,fds) FD_ISSET((fd), (fds)->ptr)
+
 #  define ERTS_FD_ZERO(fds)	memset((fds)->ptr, 0, (fds)->sz)
 #  define ERTS_FD_SIZE(n)	((((n)+NFDBITS-1)/NFDBITS)*sizeof(fd_mask))
+
+static ERTS_INLINE void ERTS_FD_CLR(int fd, ERTS_fd_set *fds)
+{
+    ASSERT(ERTS_FD_SIZE(fd+1) <= fds->sz);
+    FD_CLR(fd, fds->ptr);
+}
+static ERTS_INLINE void ERTS_FD_SET(int fd, ERTS_fd_set *fds)
+{
+    ASSERT(ERTS_FD_SIZE(fd+1) <= fds->sz);
+    FD_SET(fd, fds->ptr);
+}
+static ERTS_INLINE int ERTS_FD_ISSET(int fd, ERTS_fd_set *fds)
+{
+    ASSERT(ERTS_FD_SIZE(fd+1) <= fds->sz);
+    return FD_ISSET(fd, fds->ptr);
+}
 
 static void ERTS_FD_COPY(ERTS_fd_set *src, ERTS_fd_set *dst)
 {
@@ -626,8 +640,15 @@ ensure_select_fds(int fd, ERTS_fd_set* in, ERTS_fd_set* out)
 	grow_select_fds(fd, out);
     }
 }
+static ERTS_INLINE int
+check_select_fds(int fd, ERTS_fd_set* in, ERTS_fd_set* out)
+{
+    ASSERT(in->sz == out->sz);
+    return (ERTS_FD_SIZE(fd+1) <= in->sz);
+}
 #else
 #  define ensure_select_fds(fd, in, out) do {} while(0)
+#  define check_select_fds(fd, in, out) (1)
 #endif /* _DARWIN_UNLIMITED_SELECT */
 
 #if !ERTS_POLL_USE_CONCURRENT_UPDATE
@@ -1085,8 +1106,10 @@ static int update_pollset(ErtsPollSet *ps, ErtsPollResFd pr[], int fd)
             res++;
         }
 
-        ERTS_FD_CLR(fd, &ps->input_fds);
-        ERTS_FD_CLR(fd, &ps->output_fds);
+        if (check_select_fds(fd, &ps->input_fds, &ps->output_fds)) {
+            ERTS_FD_CLR(fd, &ps->input_fds);
+            ERTS_FD_CLR(fd, &ps->output_fds);
+        }
 
         if (ps->fds_status[fd].used_events) {
             erts_atomic_dec_nob(&ps->no_of_user_fds);
