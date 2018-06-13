@@ -411,7 +411,7 @@ crash_std_h(cleanup) ->
     [test_server:stop_node(Node) || Node <- Nodes].
 
 sync_and_read(Node,disk_log,Log) ->
-    rpc:call(Node,logger_disk_log_h,sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_disk_log_h,filesync,[?STANDARD_HANDLER]),
     case file:read_file(Log ++ ".1") of
         {ok,<<>>} ->
             timer:sleep(5000),
@@ -420,7 +420,7 @@ sync_and_read(Node,disk_log,Log) ->
             Ok
     end;
 sync_and_read(Node,file,Log) ->
-    rpc:call(Node,logger_std_h,sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_std_h,filesync,[?STANDARD_HANDLER]),
     case file:read_file(Log) of
         {ok,<<>>} ->
             timer:sleep(5000),
@@ -430,7 +430,7 @@ sync_and_read(Node,file,Log) ->
     end.
 
 bad_input(_Config) ->
-    {error,{badarg,{sync,["BadType"]}}} = logger_std_h:sync("BadType"),
+    {error,{badarg,{filesync,["BadType"]}}} = logger_std_h:filesync("BadType"),
     {error,{badarg,{info,["BadType"]}}} = logger_std_h:info("BadType"),
     {error,{badarg,{reset,["BadType"]}}} = logger_std_h:reset("BadType").
 
@@ -557,9 +557,9 @@ sync(Config) ->
                  ]),
     logger:notice("second", ?domain),
     %% do explicit sync
-    logger_std_h:sync(?MODULE),
+    logger_std_h:filesync(?MODULE),
     %% a second sync should be ignored
-    logger_std_h:sync(?MODULE),
+    logger_std_h:filesync(?MODULE),
     check_tracer(100),
 
     %% check that if there's no repeated filesync active,
@@ -618,7 +618,7 @@ write_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [file_write,ok]),
 
     ok = log_on_remote_node(Node, "Logged1"),
-    rpc:call(Node, logger_std_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\n">>}, ?FILESYNC_REP_INT),
 
@@ -636,7 +636,7 @@ write_failure(Config) ->
 
     rpc:call(Node, ?MODULE, set_result, [file_write,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
-    rpc:call(Node, logger_std_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?FILESYNC_REP_INT),
     ok.
@@ -667,14 +667,14 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [file_datasync,{error,terminated}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
     
-    ?check({error,{?STANDARD_HANDLER,sync,Log,{error,terminated}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,Log,{error,terminated}}}),
 
     ok = log_on_remote_node(Node, "No second error printout"),
     ?check_no_log,
 
     rpc:call(Node, ?MODULE, set_result, [file_datasync,{error,eacces}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
-    ?check({error,{?STANDARD_HANDLER,sync,Log,{error,eacces}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,Log,{error,eacces}}}),
 
     rpc:call(Node, ?MODULE, set_result, [file_datasync,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
@@ -1127,7 +1127,7 @@ handler_requests_under_load(Config) ->
                                        flush_qlen => 2000,
                                        burst_limit_enable => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
+    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
                                                          {info,[]},
                                                          {reset,[]},
                                                          {change_config,[]}])
@@ -1328,7 +1328,7 @@ add_remove_instance_nofile(Type) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     %% check that sync doesn't do damage even if not relevant
-    ok = logger_std_h:sync(?MODULE),
+    ok = logger_std_h:filesync(?MODULE),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),

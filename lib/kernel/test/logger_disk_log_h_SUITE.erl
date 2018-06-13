@@ -143,7 +143,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("hello", ?domain),
-    logger_disk_log_h:sync(Name1),
+    logger_disk_log_h:filesync(Name1),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"hello\n">>}, 5000),
     
@@ -156,7 +156,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile2}),
     logger:notice("dummy", ?domain),
-    logger_disk_log_h:sync(Name2),
+    logger_disk_log_h:filesync(Name2),
     ct:pal("Checking contents of ~p", [?log_no(LogFile2,1)]),
     try_read_file(?log_no(LogFile2,1), {ok,<<"dummy\n">>}, 5000),
 
@@ -177,7 +177,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("one", ?domain),
-    logger_disk_log_h:sync(HName),
+    logger_disk_log_h:filesync(HName),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\n">>}, 5000),
     logger:notice("two", ?domain),
@@ -191,7 +191,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("three", ?domain),
-    logger_disk_log_h:sync(HName),
+    logger_disk_log_h:filesync(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000),
     remove_and_stop(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000).
@@ -216,22 +216,22 @@ disk_log_opts(Config) ->
     {WFileFull,wrap,{Size,2},1} = {Get(file,WInfo1),Get(type,WInfo1),
                                    Get(size,WInfo1),Get(current_file,WInfo1)},
     logger:notice("123", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("45", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("6", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("7890", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
@@ -249,7 +249,7 @@ disk_log_opts(Config) ->
     {HFile1Full,halt,infinity} = {Get(file,HInfo1),Get(type,HInfo1),
                                   Get(size,HInfo1)},
     logger:notice("12345", ?domain),
-    logger_disk_log_h:sync(HName1),
+    logger_disk_log_h:filesync(HName1),
     timer:sleep(500),
     1 = Get(no_written_items, disk_log:info(HName1)),
 
@@ -426,8 +426,8 @@ config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 bad_input(_Config) ->
-    {error,{badarg,{sync,["BadType"]}}} =
-        logger_disk_log_h:sync("BadType"),
+    {error,{badarg,{filesync,["BadType"]}}} =
+        logger_disk_log_h:filesync("BadType"),
     {error,{badarg,{info,["BadType"]}}} = logger_disk_log_h:info("BadType"),
     {error,{badarg,{reset,["BadType"]}}} = logger_disk_log_h:reset("BadType").
 
@@ -545,7 +545,7 @@ sync(Config) ->
     logger:notice("second", ?domain),
     logger:notice("third", ?domain),
     %% do explicit sync
-    logger_disk_log_h:sync(?MODULE),
+    logger_disk_log_h:filesync(?MODULE),
     check_tracer(100),
 
     %% check that if there's no repeated disk_log_sync active,
@@ -758,7 +758,7 @@ write_failure(Config) ->
     ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
 
     ok = log_on_remote_node(Node, "Logged1"),
-    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\n">>}, ?SYNC_REP_INT),
 
@@ -778,7 +778,7 @@ write_failure(Config) ->
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
-    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?SYNC_REP_INT),
     ok.
@@ -814,7 +814,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
     
-    ?check({error,{?STANDARD_HANDLER,sync,LogOpts,{error,no_such_log}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,LogOpts,{error,no_such_log}}}),
 
     ok = log_on_remote_node(Node, "No second error printout"),
     ?check_no_log,
@@ -822,7 +822,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result,
              [disk_log_sync,{error,{blocked_log,?STANDARD_HANDLER}}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
-    ?check({error,{?STANDARD_HANDLER,sync,LogOpts,
+    ?check({error,{?STANDARD_HANDLER,filesync,LogOpts,
                    {error,{blocked_log,?STANDARD_HANDLER}}}}),
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
@@ -1195,7 +1195,7 @@ handler_requests_under_load(Config) ->
                                       flush_qlen => 2000,
                                       burst_limit_enable => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
+    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
                                                          {info,[]},
                                                          {reset,[]},
                                                          {change_config,[]}])
