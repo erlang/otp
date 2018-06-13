@@ -1819,8 +1819,9 @@ check_conf() ->
 				   %% Therefore read and merge contents.
 				   if
 				       BFName =:= "sys" ->
+					   DName = filename:dirname(FName),
 					   {ok, SysEnv, Errors} =
-					       check_conf_sys(NewEnv),
+					       check_conf_sys(NewEnv, [], [], DName),
 
 					   %% Report first error, if any, and
 					   %% terminate
@@ -1842,20 +1843,31 @@ check_conf() ->
     end.
 
 check_conf_sys(Env) ->
-    check_conf_sys(Env, [], []).
+    check_conf_sys(Env, [], [], []).
 
-check_conf_sys([File|T], SysEnv, Errors) when is_list(File) ->
+check_conf_sys([File|T], SysEnv, Errors, DName) when is_list(File),is_list(DName) ->
     BFName = filename:basename(File, ".config"),
     FName = filename:join(filename:dirname(File), BFName ++ ".config"),
-    case load_file(FName) of
+    LName = case filename:pathtype(FName) of
+               relative when (DName =/= []) ->
+                  % Check if relative to sys.config dir otherwise use legacy mode,
+                  % i.e relative to cwd.
+                  RName = filename:join(DName, FName),
+                  case erl_prim_loader:read_file_info(RName) of
+                     {ok, _} -> RName ;
+                     error   -> FName
+                  end;
+		_          -> FName
+	    end,
+    case load_file(LName) of
 	{ok, NewEnv} ->
-	    check_conf_sys(T, merge_env(SysEnv, NewEnv), Errors);
+	    check_conf_sys(T, merge_env(SysEnv, NewEnv), Errors, DName);
 	{error, {Line, _Mod, Str}} ->
-	    check_conf_sys(T, SysEnv, [{error, {FName, Line, Str}}|Errors])
+	    check_conf_sys(T, SysEnv, [{error, {LName, Line, Str}}|Errors], DName)
     end;
-check_conf_sys([Tuple|T], SysEnv, Errors) ->
-    check_conf_sys(T, merge_env(SysEnv, [Tuple]), Errors);
-check_conf_sys([], SysEnv, Errors) ->
+check_conf_sys([Tuple|T], SysEnv, Errors, DName) ->
+    check_conf_sys(T, merge_env(SysEnv, [Tuple]), Errors, DName);
+check_conf_sys([], SysEnv, Errors, _) ->
     {ok, SysEnv, lists:reverse(Errors)}.
 
 load_file(File) ->
