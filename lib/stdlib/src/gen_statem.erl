@@ -1448,13 +1448,13 @@ loop_event_done(
 		[?sys_debug(
                     Debug_0,
                     {S#state.name,State},
-                    {postpone,Event_0,State}),
+                    {postpone,Event_0,NextState}),
 		 Event_0|P_0];
 	    false ->
 		[?sys_debug(
                     Debug_0,
                     {S#state.name,State},
-                    {consume,Event_0,State})|P_0]
+                    {consume,Event_0,NextState})|P_0]
 	end,
     {Events_2,P_2,Timers_2} =
 	%% Move all postponed events to queue,
