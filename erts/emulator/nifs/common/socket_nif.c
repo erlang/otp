@@ -62,6 +62,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <netinet/ip.h>
+#include <time.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -405,6 +406,7 @@ typedef union {
 #define MKBIN(E,B)          enif_make_binary((E), (B))
 #define MKI(E,I)            enif_make_int((E), (I))
 #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
+#define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M))
 #define MKREF(E)            enif_make_ref((E))
 #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1)
 #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1)
@@ -447,6 +449,14 @@ typedef union {
 
 #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
 #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
+
+
+#define SDEBUG( ___COND___ , proto ) \
+    if ( ___COND___ ) {              \
+        dbg_printf proto;            \
+        fflush(stdout);              \
+    }
+#define SDBG( proto ) SDEBUG( data.dbg , proto )
 
 
 /* =================================================================== *
@@ -672,13 +682,13 @@ typedef struct {
     ERL_NIF_TERM version;
     ERL_NIF_TERM buildDate;
     BOOLEAN_T    dbg;
+    BOOLEAN_T    iow;
 
     ErlNifMutex* cntMtx;
-    BOOLEAN_T    iow;
     uint32_t     numSockets;
     uint32_t     numTypeDGrams;
     uint32_t     numTypeStreams;
-    uint32_t     numTypeSeqPkg;
+    uint32_t     numTypeSeqPkgs;
     uint32_t     numDomainLocal;
     uint32_t     numDomainInet;
     uint32_t     numDomainInet6;
@@ -750,15 +760,6 @@ static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_link_if2idx(ErlNifEnv*         env,
-                                    int                argc,
-                                    const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_link_idx2if(ErlNifEnv*         env,
-                                    int                argc,
-                                    const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_link_ifs(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                             int                argc,
                                             const ERL_NIF_TERM argv[]);
@@ -1129,13 +1130,6 @@ static ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
                                     int               level,
                                     int               opt);
 
-static ERL_NIF_TERM nlink_if2idx(ErlNifEnv* env,
-                                 char*      ifn);
-static ERL_NIF_TERM nlink_idx2if(ErlNifEnv*   env,
-                                 unsigned int id);
-static ERL_NIF_TERM nlink_ifs(ErlNifEnv* env);
-static unsigned int nlink_ifs_length(struct if_nameindex* p);
-
 static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
                                       ssize_t           written,
@@ -1346,6 +1340,10 @@ static void xabort(const char* expr,
                    const char* file,
                    int         line);
 
+static void dbg_printf( const char* format, ... );
+static int  dbg_realtime(struct timespec* tsP);
+static int  dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts);
+
 static BOOLEAN_T extract_item_on_load(ErlNifEnv*    env,
                                       ERL_NIF_TERM  map,
                                       ERL_NIF_TERM  key,
@@ -1389,14 +1387,28 @@ static char str_any[]          = "any";
 static char str_close[]        = "close";
 static char str_closed[]       = "closed";
 static char str_closing[]      = "closing";
+static char str_debug[]        = "debug";
 static char str_error[]        = "error";
 static char str_false[]        = "false";
+static char str_global_counters[] = "global_counters";
 static char str_in4_sockaddr[] = "in4_sockaddr";
 static char str_in6_sockaddr[] = "in6_sockaddr";
+static char str_iow[]          = "iow";
 static char str_loopback[]     = "loopback";
 static char str_nif_abort[]    = "nif_abort";
 static char str_ok[]           = "ok";
 static char str_select[]       = "select";
+static char str_num_dlocal[]   = "num_domain_local";
+static char str_num_dinet[]    = "num_domain_inet";
+static char str_num_dinet6[]   = "num_domain_inet6";
+static char str_num_pip[]      = "num_proto_ip";
+static char str_num_psctp[]    = "num_proto_sctp";
+static char str_num_ptcp[]     = "num_proto_tcp";
+static char str_num_pudp[]     = "num_proto_udp";
+static char str_num_sockets[]  = "num_sockets";
+static char str_num_tdgrams[]  = "num_type_dgram";
+static char str_num_tseqpkgs[] = "num_type_seqpacket";
+static char str_num_tstreams[] = "num_type_stream";
 static char str_timeout[]      = "timeout";
 static char str_true[]         = "true";
 static char str_undefined[]    = "undefined";
@@ -1426,12 +1438,26 @@ static ERL_NIF_TERM atom_any;
 static ERL_NIF_TERM atom_close;
 static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_closing;
+static ERL_NIF_TERM atom_debug;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_false;
+static ERL_NIF_TERM atom_global_counters;
 static ERL_NIF_TERM atom_in4_sockaddr;
 static ERL_NIF_TERM atom_in6_sockaddr;
+static ERL_NIF_TERM atom_iow;
 static ERL_NIF_TERM atom_loopback;
 static ERL_NIF_TERM atom_nif_abort;
+static ERL_NIF_TERM atom_num_dinet;
+static ERL_NIF_TERM atom_num_dinet6;
+static ERL_NIF_TERM atom_num_dlocal;
+static ERL_NIF_TERM atom_num_pip;
+static ERL_NIF_TERM atom_num_psctp;
+static ERL_NIF_TERM atom_num_ptcp;
+static ERL_NIF_TERM atom_num_pudp;
+static ERL_NIF_TERM atom_num_sockets;
+static ERL_NIF_TERM atom_num_tdgrams;
+static ERL_NIF_TERM atom_num_tseqpkgs;
+static ERL_NIF_TERM atom_num_tstreams;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_timeout;
@@ -1466,7 +1492,7 @@ static ErlNifResourceTypeInit socketInit = {
 };
 
 // Initiated when the nif is loaded
-static SocketData socketData;
+static SocketData data;
 
 
 /* ----------------------------------------------------------------------
@@ -1500,9 +1526,6 @@ static SocketData socketData;
  *
  * And some utility functions:
  * -------------------------------------------------------------
- * nif_link_if2idx/1
- * nif_link_idx2if/1
- * nif_link_ifs/0
  *
  * And some socket admin functions:
  * -------------------------------------------------------------
@@ -1537,13 +1560,46 @@ ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
  * Description:
  * This is currently just a placeholder...
  */
+#define MKCT(E, T, C) MKT2((E), (T), MKI((E), (C)))
+
 static
 ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM info = enif_make_new_map(env);
-    return info;
+    if (argc != 0) {
+        return enif_make_badarg(env);
+    } else {
+        ERL_NIF_TERM numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
+        ERL_NIF_TERM numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
+        ERL_NIF_TERM numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
+        ERL_NIF_TERM numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
+        ERL_NIF_TERM numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
+        ERL_NIF_TERM numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
+        ERL_NIF_TERM numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
+        ERL_NIF_TERM numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
+        ERL_NIF_TERM numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
+        ERL_NIF_TERM numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
+        ERL_NIF_TERM numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
+        ERL_NIF_TERM gcnt[]  = {numSockets,
+                                numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
+                                numDomLocal, numDomInet, numDomInet6,
+                                numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
+        unsigned int lenGCnt = sizeof(gcnt) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM lgcnt   = MKLA(env, gcnt, lenGCnt);
+        ERL_NIF_TERM keys[]  = {atom_debug, atom_iow, atom_global_counters};
+        ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
+        ERL_NIF_TERM info;
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(keys) / sizeof(ERL_NIF_TERM);
+
+        SASSERT( (numKeys == numVals) );
+
+        if (!MKMA(env, keys, vals, numKeys, &info))
+            return enif_make_badarg(env);
+    
+        return info;
+    }
 }
 
 
@@ -5185,186 +5241,6 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
 
 
 
-
-/* ----------------------------------------------------------------------
- * nif_link_if2idx
- *
- * Description:
- * Perform a Interface Name to Interface Index translation.
- *
- * Arguments:
- * Ifn - Interface name to be translated.
- */
-
-static
-ERL_NIF_TERM nif_link_if2idx(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[])
-{
-     ERL_NIF_TERM eifn;
-     char         ifn[IF_NAMESIZE+1];
-
-     if (argc != 1) {
-         return enif_make_badarg(env);
-     }
-     eifn = argv[0];
-
-     if (0 >= GET_STR(env, eifn, ifn, sizeof(ifn)))
-         return make_error2(env, atom_einval);
-
-     return nlink_if2idx(env, ifn);
-}
-
-
-
-static
-ERL_NIF_TERM nlink_if2idx(ErlNifEnv* env,
-                          char*      ifn)
-{
-     unsigned int idx = if_nametoindex(ifn);
-
-     if (idx == 0)
-         return make_error2(env, sock_errno());
-     else
-         return make_ok2(env, idx);
-
-}
-
-
-
-/* ----------------------------------------------------------------------
- * nif_link_idx2if
- *
- * Description:
- * Perform a Interface Index to Interface Name translation.
- *
- * Arguments:
- * Idx - Interface index to be translated.
- */
-
-static
-ERL_NIF_TERM nif_link_idx2if(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[])
-{
-    unsigned int idx;
-
-    if ((argc != 1) ||
-        !GET_UINT(env, argv[0], &idx)) {
-        return enif_make_badarg(env);
-    }
-
-    return nlink_idx2if(env, idx);
-}
-
-
-
-static
-ERL_NIF_TERM nlink_idx2if(ErlNifEnv*   env,
-                          unsigned int idx)
-{
-    ERL_NIF_TERM result;
-    char*        ifn = MALLOC(IF_NAMESIZE+1);
-
-    if (ifn == NULL)
-        return enif_make_badarg(env); // PLACEHOLDER
-
-    if (NULL == if_indextoname(idx, ifn)) {
-        result = make_ok2(env, MKS(env, ifn));
-    } else {
-        result = make_error2(env, sock_errno());
-    }
-
-    FREE(ifn); // <KOLL> OR IS THIS AUTOMATIC? </KOLLA>
-
-    return result;
-}
-
-
-
-/* ----------------------------------------------------------------------
- * nif_link_idx2if
- *
- * Description:
- * Get network interface names and indexes.
- *
- */
-
-static
-ERL_NIF_TERM nif_link_ifs(ErlNifEnv*         env,
-                          int                argc,
-                          const ERL_NIF_TERM argv[])
-{
-    if (argc != 0) {
-        return enif_make_badarg(env);
-    }
-
-    return nlink_ifs(env);
-}
-
-
-
-static
-ERL_NIF_TERM nlink_ifs(ErlNifEnv* env)
-{
-    ERL_NIF_TERM         result;
-    struct if_nameindex* ifs = if_nameindex();
-
-    if (ifs == NULL) {
-        result = make_error2(env, sock_errno());
-    } else {
-        /*
-         * We got some interfaces:
-         * 1) Calculate how many - the only way is to iterate through the list
-         *    until its end (which is indicated by an entry with index = zero
-         *    and if_name = NULL).
-         * 2) Allocate an ERL_NIF_TERM array of the calculated length.
-         * 3) Iterate through the array of interfaces and for each create
-         *    a two tuple: {Idx, If}
-         *
-         * Or shall we instead build a list in reverse order and then when
-         * its done, reverse that? Check
-         */
-        unsigned int len = nlink_ifs_length(ifs);
-
-        if (len > 0) {
-            ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
-            unsigned int  i;
-
-            for (i = 0; i < len; i++) {
-                array[i] = MKT2(env,
-                                MKI(env, ifs[i].if_index),
-                                MKS(env, ifs[i].if_name));
-            }
-
-            result = make_ok2(env, MKLA(env, array, len));
-            FREE(array);
-        } else {
-            result = make_ok2(env, enif_make_list(env, 0));
-        }
-    }
-
-    if (ifs != NULL)
-        if_freenameindex(ifs);
-
-    return result;
-}
-
-
-static
-unsigned int nlink_ifs_length(struct if_nameindex* p)
-{
-    unsigned int len = 0;
-
-    while ((p[len].if_index == 0) && (p[len].if_name == NULL)) {
-        len++;
-    }
-
-    return len;
-}
-
-
-
 /* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
  * ----------------------------------------------------------------------
@@ -7302,6 +7178,89 @@ void socket_down(ErlNifEnv*           env,
 
 
 /* ----------------------------------------------------------------------
+ *  D e b u g   F u n c t i o n s
+ * ----------------------------------------------------------------------
+ */
+
+/*
+ * Print a debug format string *with* both a timestamp and the
+ * the name of the *current* thread.
+ */
+static
+void dbg_printf( const char* format, ... )
+{
+  va_list         args;
+  char            f[512 + sizeof(format)]; // This has to suffice...
+  char            stamp[30];
+  struct timespec ts;
+  int             res;
+
+  /*
+   * We should really include self in the printout, so we can se which process
+   * are executing the code. But then I must change the API....
+   * ....something for later.
+   */
+
+  if (!dbg_realtime(&ts)) {
+    if (dbg_timespec2str(stamp, sizeof(stamp), &ts) != 0) {
+      // res = enif_snprintf(f, sizeof(f), "NET [%s] %s", TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "NET [%s]", format);
+    } else {
+      // res = enif_snprintf(f, sizeof(f), "NET[%s] [%s] %s", stamp, TSNAME(), format);
+      res = enif_snprintf(f, sizeof(f), "NET [%s] %s", stamp, format);
+    }
+
+    if (res > 0) {
+      va_start (args, format);
+      erts_vfprintf (stdout, f, args); // TMP: use enif_vfprintf
+      va_end (args);
+      fflush(stdout);
+    }
+  }
+
+  return;
+}
+
+
+static
+int dbg_realtime(struct timespec* tsP)
+{
+  return clock_gettime(CLOCK_REALTIME, tsP);
+}
+
+
+
+
+/*
+ * Convert a timespec struct into a readable/printable string
+ */
+static
+int dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts)
+{
+  int       ret, buflen;
+  struct tm t;
+
+  tzset();
+  if (localtime_r(&(ts->tv_sec), &t) == NULL)
+    return 1;
+
+  ret = strftime(buf, len, "%F %T", &t);
+  if (ret == 0)
+    return 2;
+  len -= ret - 1;
+  buflen = strlen(buf);
+
+  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
+  if (ret >= len)
+    return 3;
+
+  return 0;
+}
+
+
+
+
+/* ----------------------------------------------------------------------
  *  L o a d / u n l o a d / u p g r a d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
@@ -7332,9 +7291,6 @@ ErlNifFunc socket_funcs[] =
     {"nif_getopt",              4, nif_getopt, 0},
 
     /* Misc utility functions */
-    {"nif_link_if2idx",         1, nif_link_if2idx, 0},
-    {"nif_link_idx2if",         1, nif_link_idx2if, 0},
-    {"nif_link_ifs",            0, nif_link_ifs,    0},
 
     /* "Extra" functions to "complete" the socket interface.
      * For instance, the function nif_finalize_connection
@@ -7437,54 +7393,55 @@ BOOLEAN_T extract_iow_on_load(ErlNifEnv* env, ERL_NIF_TERM map, BOOLEAN_T def)
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    socketData.dbg = extract_debug_on_load(env, load_info,
-                                           SOCKET_NIF_DEBUG_DEFAULT);
+    data.dbg = extract_debug_on_load(env, load_info,
+                                     SOCKET_NIF_DEBUG_DEFAULT);
+    data.iow = extract_iow_on_load(env, load_info,
+                                   SOCKET_NIF_IOW_DEFAULT);
 
     /* +++ Global Counters +++ */
-    socketData.cntMtx         = MCREATE("socket[gcnt]");
-    socketData.iow            = extract_iow_on_load(env,
-                                                    load_info,
-                                                    SOCKET_NIF_IOW_DEFAULT);
-    socketData.numSockets     = 0;
-    socketData.numTypeDGrams  = 0;
-    socketData.numTypeStreams = 0;
-    socketData.numTypeSeqPkg  = 0;
-    socketData.numDomainLocal = 0;
-    socketData.numDomainInet  = 0;
-    socketData.numDomainInet6 = 0;
-    socketData.numProtoIP     = 0;
-    socketData.numProtoTCP    = 0;
-    socketData.numProtoUDP    = 0;
-    socketData.numProtoSCTP   = 0;
+    data.cntMtx         = MCREATE("socket[gcnt]");
+    data.numSockets     = 0;
+    data.numTypeDGrams  = 0;
+    data.numTypeStreams = 0;
+    data.numTypeSeqPkgs = 0;
+    data.numDomainLocal = 0;
+    data.numDomainInet  = 0;
+    data.numDomainInet6 = 0;
+    data.numProtoIP     = 0;
+    data.numProtoTCP    = 0;
+    data.numProtoUDP    = 0;
+    data.numProtoSCTP   = 0;
 
     /* +++ Misc atoms +++ */
     atom_any          = MKA(env, str_any);
-    // atom_active       = MKA(env, str_active);
-    // atom_active_n     = MKA(env, str_active_n);
-    // atom_active_once  = MKA(env, str_active_once);
-    // atom_binary       = MKA(env, str_binary);
-    // atom_buildDate    = MKA(env, str_buildDate);
     atom_close        = MKA(env, str_close);
     atom_closed       = MKA(env, str_closed);
     atom_closing      = MKA(env, str_closing);
+    atom_debug        = MKA(env, str_debug);
     atom_error        = MKA(env, str_error);
     atom_false        = MKA(env, str_false);
+    atom_global_counters = MKA(env, str_global_counters);
     atom_in4_sockaddr = MKA(env, str_in4_sockaddr);
     atom_in6_sockaddr = MKA(env, str_in6_sockaddr);
+    atom_iow          = MKA(env, str_iow);
     atom_loopback     = MKA(env, str_loopback);
-    // atom_list         = MKA(env, str_list);
-    // atom_mode         = MKA(env, str_mode);
     atom_nif_abort    = MKA(env, str_nif_abort);
+    atom_num_dinet    = MKA(env, str_num_dinet);
+    atom_num_dinet6   = MKA(env, str_num_dinet6);
+    atom_num_dlocal   = MKA(env, str_num_dlocal);
+    atom_num_pip      = MKA(env, str_num_pip);
+    atom_num_psctp    = MKA(env, str_num_psctp);
+    atom_num_ptcp     = MKA(env, str_num_ptcp);
+    atom_num_pudp     = MKA(env, str_num_pudp);
+    atom_num_sockets  = MKA(env, str_num_sockets);
+    atom_num_tdgrams  = MKA(env, str_num_tdgrams);
+    atom_num_tseqpkgs = MKA(env, str_num_tseqpkgs);
+    atom_num_tstreams = MKA(env, str_num_tstreams);
     atom_ok           = MKA(env, str_ok);
-    // atom_once         = MKA(env, str_once);
-    // atom_passive      = MKA(env, str_passive);
-    // atom_receiver     = MKA(env, str_receiver);
     atom_select       = MKA(env, str_select);
-    // atom_tcp_closed   = MKA(env, str_tcp_closed);
     atom_timeout      = MKA(env, str_timeout);
     atom_true         = MKA(env, str_true);
     atom_undefined    = MKA(env, str_undefined);
-    // atom_version      = MKA(env, str_version);
 
     atom_lowdelay     = MKA(env, str_lowdelay);
     atom_throughput   = MKA(env, str_throughput);
@@ -7501,15 +7458,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_exalloc      = MKA(env, str_exalloc);
     atom_exbadstate   = MKA(env, str_exbadstate);
     atom_exbusy       = MKA(env, str_exbusy);
-    // atom_exnotopen    = MKA(env, str_exnotopen);
     atom_exmon        = MKA(env, str_exmon);
     atom_exself       = MKA(env, str_exself);
     atom_exsend       = MKA(env, str_exsend);
 
     // For storing "global" things...
-    // socketData.env       = enif_alloc_env(); // We should really check
-    // socketData.version   = MKA(env, ERTS_VERSION);
-    // socketData.buildDate = MKA(env, ERTS_BUILD_DATE);
+    // data.env       = enif_alloc_env(); // We should really check
+    // data.version   = MKA(env, ERTS_VERSION);
+    // data.buildDate = MKA(env, ERTS_BUILD_DATE);
 
     sockets = enif_open_resource_type_x(env,
                                         "sockets",

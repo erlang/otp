@@ -49,12 +49,7 @@
          shutdown/2,
 
          setopt/4,
-         getopt/3,
-
-         %% Some IPv6 utility functions
-         link_if2idx/1,
-         link_idx2if/1,
-         link_ifs/0
+         getopt/3
         ]).
 
 -export_type([
@@ -91,12 +86,11 @@
               ip_tos_flag/0
              ]).
 
-
 %% We support only a subset of all domains.
 -type domain() :: local | inet | inet6.
 
 %% We support only a subset of all types.
--type type()   :: stream | dgram | raw | seqpacket.
+-type type()   :: stream | dgram | raw | rdm | seqpacket.
 
 %% We support only a subset of all protocols:
 -type protocol() :: ip | tcp | udp | sctp.
@@ -539,6 +533,15 @@ info() ->
 %%
 %%      nif_register(SockRef, self()).
 %%
+%% <ALSO>
+%%
+%% Maybe register the process under a name?
+%% Something like: 
+%%
+%% list_to_atom(lists:flatten(io_lib:format("socket-~p", [SockRef]))).
+%%
+%% </ALSO>
+%%
 %% The nif sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
@@ -548,6 +551,7 @@ info() ->
 %%               socket:demonitor(Socket)
 %%
 %% These are basically used to monitor the controller process.
+%% Should the socket record therefor contain the pid of the controller process?
 %%
 %% </KOLLA>
 %%
@@ -1509,53 +1513,6 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
 
 
 
-%% ===========================================================================
-%%
-%% link_if2idx - Mappings between network interface names and indexes: if -> idx
-%%
-%%
-
--spec link_if2idx(If) -> {ok, Idx} | {error, Reason} when
-      If     :: string(),
-      Idx    :: non_neg_integer(),
-      Reason :: term().
-
-link_if2idx(If) when is_list(If) ->
-    nif_link_if2idx(If).
-
-
-%% ===========================================================================
-%%
-%% link_idx2if - Mappings between network interface names and indexes: idx -> if
-%%
-%%
-
--spec link_idx2if(Idx) -> {ok, If} | {error, Reason} when
-      Idx    :: non_neg_integer(),
-      If     :: string(),
-      Reason :: term().
-
-link_idx2if(Idx) when is_integer(Idx) ->
-    nif_link_idx2if(Idx).
-
-
-
-%% ===========================================================================
-%%
-%% link_ifs - get network interface names and indexes
-%%
-%%
-
--spec link_ifs() -> Names | {error, Reason} when
-      Names  :: [{Idx, If}],
-      Idx    :: non_neg_integer(),
-      If     :: string(),
-      Reason :: term().
-
-link_ifs() ->
-    nif_link_ifs().
-
-
 
 %% ===========================================================================
 %%
@@ -2233,11 +2190,3 @@ nif_setopt(_Ref, _IsEnc, _Lev, _Key, _Val) ->
 nif_getopt(_Ref, _IsEnc, _Lev, _Key) ->
     erlang:error(badarg).
 
-nif_link_if2idx(_Name) ->
-    erlang:error(badarg).
-
-nif_link_idx2if(_Id) ->
-    erlang:error(badarg).
-
-nif_link_ifs() ->
-    erlang:error(badarg).
