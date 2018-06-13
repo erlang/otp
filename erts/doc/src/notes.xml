@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>ets</c> that could cause VM crash if
+	    process A terminates after fixating a table and process B
+	    deletes the table at "the same time". The table fixation
+	    could be done with <c>ets:safe_fixtable</c> or if process
+	    A terminates in the middle of a long running
+	    <c>select</c> or <c>match</c> call.</p>
+          <p>
+	    Own Id: OTP-15109</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

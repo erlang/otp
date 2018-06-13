@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>SNMP 5.2.10</title>
+  <section><title>SNMP 5.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Snmp MIB compiler now allows using a
+	    TEXTUAL-CONVENTION type before defining it.</p>
+          <p>
+	    Own Id: OTP-14196 Aux Id: ERIERL-161 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
