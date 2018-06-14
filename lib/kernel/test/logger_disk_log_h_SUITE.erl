@@ -45,10 +45,6 @@
 -define(log_no(File,N), lists:concat([File,".",N])).
 -define(domain,#{domain=>[?MODULE]}).
 
--define(SYNC_REP_INT, if is_atom(?FILESYNC_REPEAT_INTERVAL) -> 5500;
-                         true -> ?FILESYNC_REPEAT_INTERVAL + 500
-                      end).
-
 suite() ->
     [{timetrap,{seconds,30}},
      {ct_hooks,[logger_test_lib]}].
@@ -69,9 +65,10 @@ end_per_group(_Group, _Config) ->
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
-    if ?TEST_HOOKS_TAB == undefined ->
+    case (fun() -> ?TEST_HOOKS_TAB == undefined end)() of
+        true ->
             {skip,"Define the TEST_HOOKS macro to run this test"};
-       true ->
+        false ->
             ct:print("********** ~w **********", [TestHooksCase]),
             Config
     end;
@@ -760,7 +757,13 @@ write_failure(Config) ->
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\n">>}, ?SYNC_REP_INT),
+
+    SyncRepInt = case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
+                     true -> 5500;
+                     false -> ?FILESYNC_REPEAT_INTERVAL + 500
+                 end,
+
+    try_read_file(Log, {ok,<<"Logged1\n">>}, SyncRepInt),
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
@@ -780,7 +783,7 @@ write_failure(Config) ->
     ok = log_on_remote_node(Node, "Logged2"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?SYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, SyncRepInt),
     ok.
 write_failure(cleanup, _Config) ->
     Nodes = nodes(),
@@ -1424,10 +1427,10 @@ wait_until_written(File, Sz) ->
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
-                {ok,#file_info{size = Sz1}} ->
+                {ok,#file_info{size = Sz}} ->
                     ok;
-                {ok,#file_info{size = Sz2}} ->
-                    wait_until_written(File, Sz2)
+                {ok,#file_info{size = Sz1}} ->
+                    wait_until_written(File, Sz1)
             end;
         {ok,#file_info{size = Sz1}} ->
             wait_until_written(File, Sz1)

@@ -45,10 +45,6 @@
 -define(bin(Msg), list_to_binary(Msg++"\n")).
 -define(domain,#{domain=>[?MODULE]}).
 
--define(FILESYNC_REP_INT, if is_atom(?FILESYNC_REPEAT_INTERVAL) -> 5500;
-                             true -> ?FILESYNC_REPEAT_INTERVAL + 500
-                          end).
-
 suite() ->
     [{timetrap,{seconds,30}},
      {ct_hooks,[logger_test_lib]}].
@@ -73,9 +69,10 @@ end_per_group(_Group, _Config) ->
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
-    if ?TEST_HOOKS_TAB == undefined ->
+    case (fun() -> ?TEST_HOOKS_TAB == undefined end)() of
+        true ->
             {skip,"Define the TEST_HOOKS macro to run this test"};
-       true ->
+        false ->
             ct:print("********** ~w **********", [TestHooksCase]),
             Config
     end;
@@ -187,13 +184,13 @@ add_remove_instance_file(Log, Type) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),
     logger:notice(?msg,?domain),
     ?check_no_log,
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok.
 
 default_formatter(_Config) ->
@@ -517,7 +514,7 @@ file_opts(Config) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok.
 file_opts(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
@@ -544,7 +541,7 @@ sync(Config) ->
 
     logger:notice("first", ?domain),
     %% wait for automatic filesync
-    check_tracer(?FILESYNC_REP_INT*2),
+    check_tracer(filesync_rep_int()*2),
 
     %% check that explicit filesync is only done once
     start_tracer([{logger_std_h, write_to_dev, 5},
@@ -620,7 +617,7 @@ write_failure(Config) ->
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\n">>}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\n">>}, filesync_rep_int()),
 
     rpc:call(Node, ?MODULE, set_result, [file_write,{error,terminated}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
@@ -638,7 +635,7 @@ write_failure(Config) ->
     ok = log_on_remote_node(Node, "Logged2"),
     rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, filesync_rep_int()),
     ok.
 write_failure(cleanup, _Config) ->
     Nodes = nodes(),
@@ -1211,10 +1208,10 @@ wait_until_written(File, Sz) ->
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
-                {ok,#file_info{size = Sz1}} ->
+                {ok,#file_info{size = Sz}} ->
                     ok;
-                {ok,#file_info{size = Sz2}} ->
-                    wait_until_written(File, Sz2)
+                {ok,#file_info{size = Sz1}} ->
+                    wait_until_written(File, Sz1)
             end;
         {ok,#file_info{size = Sz1}} ->
             wait_until_written(File, Sz1)
@@ -1574,7 +1571,7 @@ wait_for_process_up(Name,T) ->
     N = (T div 500) + 1,
     wait_for_process_up1(Name,N).
 
-wait_for_process_up1(Name,0) ->
+wait_for_process_up1(_Name,0) ->
     error;
 wait_for_process_up1(Name,N) ->
     timer:sleep(500),
@@ -1583,4 +1580,10 @@ wait_for_process_up1(Name,N) ->
             {ok,Pid};
         undefined ->
             wait_for_process_up1(Name,N-1)
+    end.
+
+filesync_rep_int() ->
+    case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
+        true  -> 5500;
+        false -> ?FILESYNC_REPEAT_INTERVAL + 500
     end.
