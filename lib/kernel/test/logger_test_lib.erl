@@ -52,10 +52,10 @@ log(Node, M, F, A) ->
     rpc:call(Node, M, F, A ++ [MD]).
 
 sync_and_read(Node,disk_log,Log) ->
-    rpc:call(Node,logger_disk_log_h,sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_disk_log_h,filesync,[?STANDARD_HANDLER]),
     file:read_file(Log ++ ".1");
 sync_and_read(Node, file,Log) ->
-    ok = rpc:call(Node,logger_std_h,sync,[?STANDARD_HANDLER]),
+    ok = rpc:call(Node,logger_std_h,filesync,[?STANDARD_HANDLER]),
     file:read_file(Log).
 
 

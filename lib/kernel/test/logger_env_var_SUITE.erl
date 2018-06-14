@@ -531,7 +531,7 @@ logger_many_handlers(Config, Env, LogErr, LogInfo, NumProgress) ->
                      file,% dest
                      0,% progress in std logger
                      error), % level
-    ok = rpc:call(Node,logger_std_h,sync,[info]),
+    ok = rpc:call(Node,logger_std_h,filesync,[info]),
     {ok, Bin} = file:read_file(LogInfo),
     ct:log("Log content:~n~s",[Bin]),
     match(Bin,<<"info:">>,NumProgress,info,info),
