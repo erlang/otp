@@ -1170,13 +1170,13 @@ rsa_suites(CounterPart) ->
 			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({ecdhe_rsa, Cipher, _}) when ECC == true ->
 			 lists:member(cipher_atom(Cipher), Ciphers);
+                    ({ecdhe_rsa, Cipher, _,_}) when ECC == true ->
+			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({rsa, Cipher, _, _}) ->
 			 lists:member(cipher_atom(Cipher), Ciphers);
 		    ({dhe_rsa, Cipher, _,_}) ->
 			 lists:member(cipher_atom(Cipher), Ciphers);
-		    ({ecdhe_rsa, Cipher, _,_}) when ECC == true ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-		    (_) ->
+                    (_) ->
 			 false
 		 end,
                  common_ciphers(CounterPart)).
@@ -1530,7 +1530,7 @@ is_sane_ecc(crypto) ->
 	    true
     end;
 is_sane_ecc(_) ->
-    true.
+    sufficient_crypto_support(cipher_ec).
 
 is_fips(openssl) ->
     VersionStr = os:cmd("openssl version"),
@@ -1601,11 +1601,7 @@ openssl_sane_dtls() ->
             false;
         "OpenSSL 1.0.2k-freebsd" ++ _ ->
             false;
-        "OpenSSL 1.0.2d" ++ _ ->
-            false;
-        "OpenSSL 1.0.2n" ++ _ ->
-            false;
-        "OpenSSL 1.0.2m" ++ _ ->
+        "OpenSSL 1.0.2" ++ _ ->
             false;
         "OpenSSL 1.0.0" ++ _ ->
             false;
