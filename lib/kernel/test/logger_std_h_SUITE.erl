@@ -995,7 +995,7 @@ qlen_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
-            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1046,7 +1046,7 @@ mem_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
-            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1077,7 +1077,7 @@ restart_after(Config) ->
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
-            error = wait_for_process_up(h_proc_name(),?OVERLOAD_KILL_RESTART_AFTER * 3),
+            error = wait_for_process_up(?OVERLOAD_KILL_RESTART_AFTER * 3),
             ok
     after
         5000 ->
@@ -1100,7 +1100,7 @@ restart_after(Config) ->
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
-            {ok,Pid1} = wait_for_process_up(h_proc_name(),RestartAfter * 3),
+            {ok,Pid1} = wait_for_process_up(RestartAfter * 3),
             false = (Pid1 == Pid0),
             ok
     after
@@ -1570,6 +1570,9 @@ h_proc_name(Name) ->
 file_delete(Log) ->
    file:delete(Log).
 
+wait_for_process_up(T) ->
+    wait_for_process_up(h_proc_name(),T).
+
 wait_for_process_up(Name,T) ->
     N = (T div 500) + 1,
     wait_for_process_up1(Name,N).
@@ -1580,7 +1583,9 @@ wait_for_process_up1(Name,N) ->
     timer:sleep(500),
     case whereis(Name) of
         Pid when is_pid(Pid) ->
+            %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
             {ok,Pid};
         undefined ->
+            %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
             wait_for_process_up1(Name,N-1)
     end.
