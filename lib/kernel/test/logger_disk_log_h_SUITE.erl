@@ -1285,13 +1285,9 @@ send_n_burst(N, seq, Text, Class) ->
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
     ct:pal("~w processes each sending ~w messages", [Ps,N]),
-    PerProc = fun() ->
-                      process_flag(priority,high),
-                      send_n_burst(N, seq, Text, Class)
-              end,
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
-                   monitor(process,spawn_link(PerProc)) end ||
-                _ <- lists:seq(1,Ps)],
+                   monitor(process,spawn_link(per_proc_fun(N,Text,Class,X)))
+             end || X <- lists:seq(1,Ps)],
     lists:foreach(fun(MRef) ->
                           receive
                               {'DOWN', MRef, _, _, _} ->
@@ -1308,6 +1304,16 @@ send_t_burst(T0, T, Text, Class, N) ->
        true ->
             ok = logger:Class(Text, ?domain),
             send_t_burst(T0, T, Text, Class, N+1)
+    end.
+
+per_proc_fun(N,Text,Class,X) when X rem 2 == 0 ->
+    fun() ->
+            process_flag(priority,high),
+            send_n_burst(N, seq, Text, Class)
+    end;
+per_proc_fun(N,Text,Class,_) ->
+    fun() ->
+            send_n_burst(N, seq, Text, Class)
     end.
 
 %%%-----------------------------------------------------------------
