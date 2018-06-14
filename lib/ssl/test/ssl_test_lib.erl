@@ -309,7 +309,7 @@ client_cont_loop(Node, Host, Port, Pid, Transport, Options, ContOpts, Opts) ->
     case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
         {ok, Socket0, _} ->
             ct:log("~p:~p~nClient: handshake_continue(~p, ~p, infinity) ~n", [?MODULE, ?LINE, Socket0, ContOpts]),
-            case rpc:call(Node, Transport, handshake_continue, [Socket0, ContOpts, infinity]) of
+            case rpc:call(Node, Transport, handshake_continue, [Socket0, ContOpts]) of
                 {ok, Socket} ->
                     Pid ! {connected, Socket},
                     {Module, Function, Args} = proplists:get_value(mfa, Opts),
