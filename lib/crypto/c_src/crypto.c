@@ -3230,77 +3230,6 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             return enif_make_badarg(env);
         }
     }
-#ifdef HAS_EVP_PKEY_CTX
-    {
-        EVP_PKEY_CTX *ctx = NULL;
-        /* Prepare my private key dh_priv and assign to CTX */
-        {
-            EVP_PKEY *my_priv_key = EVP_PKEY_new();
-            if (!EVP_PKEY_set1_DH(my_priv_key, dh_priv)) { /* set the key referenced by my_priv_key to dh_priv.
-                                                              dh_priv (and my_priv_key) must be freed by us */
-                DH_free(dh_priv);
-                EVP_PKEY_free(my_priv_key);
-                return atom_error;
-            }
-            DH_free(dh_priv);
-            ctx = EVP_PKEY_CTX_new(my_priv_key, NULL);
-            EVP_PKEY_free(my_priv_key);
-        }
-        /* Prepare derivation */
-        EVP_PKEY_derive_init(ctx);
-
-        /* Prepare the peers public key other_pub_key and assign to CTX */
-        {
-            EVP_PKEY *peer_pub_key = EVP_PKEY_new();
-            DH *dh_pub = DH_new();
-
-            if (!DH_set0_key(dh_pub, other_pub_key, NULL)
-                || !DH_set0_pqg(dh_pub, dh_p, NULL, dh_g)
-                || !EVP_PKEY_set1_DH(peer_pub_key, dh_pub)) {
-                EVP_PKEY_CTX_free(ctx);
-                return atom_error;
-            }
-            DH_free(dh_pub);
-            if (EVP_PKEY_derive_set_peer(ctx, peer_pub_key) <= 0) {
-                return atom_error;
-            }
-        }
-
-        /* Derive the common secret and return it in an Erlang binary */
-        {
-            size_t maxkeylen, len;
-            unsigned char *buf;
-            ErlNifBinary ret_bin;
-            int success;
-
-            /* Get the common key MAX length: */
-            if (EVP_PKEY_derive(ctx, NULL, &maxkeylen) <= 0) {
-                EVP_PKEY_CTX_free(ctx);
-                return atom_error;
-            }
-
-            buf = enif_alloc(maxkeylen);
-            len = maxkeylen;
-
-            success =
-                (EVP_PKEY_derive(ctx, buf, &len) > 0)
-                && (maxkeylen >= len);
-
-            EVP_PKEY_CTX_free(ctx);
-
-            if (!success) {
-                enif_free(buf);
-                return atom_error;
-            }
-
-            enif_alloc_binary(len, &ret_bin);
-            memcpy(ret_bin.data, buf, ret_bin.size);
-            enif_free(buf);
-
-            return enif_make_binary(env, &ret_bin);
-        }
-    }
-#else
     {
         ErlNifBinary ret_bin;
         int size;
@@ -3317,7 +3246,6 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
         if (size != ret_bin.size) enif_realloc_binary(&ret_bin, size);
         return enif_make_binary(env, &ret_bin);
     }
-#endif
 }
 
 
