@@ -415,7 +415,7 @@ transcode(URIString, Options) when is_list(URIString) ->
 %% (application/x-www-form-urlencoded encoding algorithm)
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
-      QueryList :: [{unicode:chardata(), unicode:chardata()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
       QueryString :: uri_string()
                    | error().
 compose_query(List) ->
@@ -423,7 +423,7 @@ compose_query(List) ->
 
 
 -spec compose_query(QueryList, Options) -> QueryString when
-      QueryList :: [{unicode:chardata(), unicode:chardata()}],
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
       Options :: [{encoding, atom()}],
       QueryString :: uri_string()
                    | error().
@@ -435,6 +435,11 @@ compose_query(List, Options) ->
       throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
 %%
+compose_query([{Key,true}|Rest], Options, IsList, Acc) ->
+    Separator = get_separator(Rest),
+    K = form_urlencode(Key, Options),
+    IsListNew = IsList orelse is_list(Key),
+    compose_query(Rest, Options, IsListNew, <<Acc/binary,K/binary,Separator/binary>>);
 compose_query([{Key,Value}|Rest], Options, IsList, Acc) ->
     Separator = get_separator(Rest),
     K = form_urlencode(Key, Options),
@@ -454,7 +459,7 @@ compose_query([], _Options, IsList, Acc) ->
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{unicode:chardata(), unicode:chardata()}]
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}]
                  | error().
 dissect_query(<<>>) ->
     [];
@@ -1889,13 +1894,12 @@ dissect_query_key(<<$=,T/binary>>, IsList, Acc, Key, Value) ->
     dissect_query_value(T, IsList, Acc, Key, Value);
 dissect_query_key(<<"&#",T/binary>>, IsList, Acc, Key, Value) ->
     dissect_query_key(T, IsList, Acc, <<Key/binary,"&#">>, Value);
-dissect_query_key(<<$&,_T/binary>>, _IsList, _Acc, _Key, _Value) ->
-    throw({error, missing_value, "&"});
+dissect_query_key(T = <<$&,_/binary>>, IsList, Acc, Key, <<>>) ->
+    dissect_query_value(T, IsList, Acc, Key, true);
 dissect_query_key(<<H,T/binary>>, IsList, Acc, Key, Value) ->
     dissect_query_key(T, IsList, Acc, <<Key/binary,H>>, Value);
-dissect_query_key(B, _, _, _, _) ->
-    throw({error, missing_value, B}).
-
+dissect_query_key(T = <<>>, IsList, Acc, Key, <<>>) ->
+    dissect_query_value(T, IsList, Acc, Key, true).
 
 dissect_query_value(<<$&,T/binary>>, IsList, Acc, Key, Value) ->
     K = form_urldecode(IsList, Key),
@@ -1908,9 +1912,10 @@ dissect_query_value(<<>>, IsList, Acc, Key, Value) ->
     V = form_urldecode(IsList, Value),
     lists:reverse([{K,V}|Acc]).
 
-
 %% HTML 5.2 - 4.10.21.6 URL-encoded form data - WHATWG URL (10 Jan 2018) - UTF-8
 %% HTML 5.0 - 4.10.22.6 URL-encoded form data - decoding (non UTF-8)
+form_urldecode(_, true) ->
+    true;
 form_urldecode(true, B) ->
     Result = base10_decode(form_urldecode(B, <<>>)),
     convert_to_list(Result, utf8);
