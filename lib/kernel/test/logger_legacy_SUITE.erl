@@ -20,6 +20,8 @@
 -module(logger_legacy_SUITE).
 
 -compile(export_all).
+-compile({nowarn_deprecated_function,[{gen_fsm,start,3},
+                                      {gen_fsm,send_all_state_event,2}]}).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -89,6 +91,7 @@ init_per_group(_Group, Config) ->
 end_per_group(sasl, Config) ->
     Apps = ?config(stop_apps,Config),
     [application:stop(App) || App <- Apps],
+    ok = logger:set_primary_config(level,notice),
     ok;
 end_per_group(_Group, _Config) ->
     ok.
@@ -122,7 +125,7 @@ all() ->
 
 gen_server(_Config) ->
     {ok,Pid} = gen_server:start(?MODULE,gen_server,[]),
-    Msg = fun() -> a=b end,
+    Msg = fun() -> erlang:error({badmatch,b}) end,
     Pid ! Msg,
     ?check({warning_msg,"** Undefined handle_info in ~p"++_,[?MODULE,Msg]}),
     ok = gen_server:cast(Pid,Msg),
@@ -132,7 +135,7 @@ gen_server(_Config) ->
 gen_event(_Config) ->
     {ok,Pid} = gen_event:start(),
     ok = gen_event:add_handler(Pid,?MODULE,gen_event),
-    Msg = fun() -> a=b end,
+    Msg = fun() -> erlang:error({badmatch,b}) end,
     Pid ! Msg,
     ?check({warning_msg,"** Undefined handle_info in ~tp"++_,[?MODULE,Msg]}),
     gen_event:notify(Pid,Msg),
@@ -141,7 +144,7 @@ gen_event(_Config) ->
 
 gen_fsm(_Config) ->
     {ok,Pid} = gen_fsm:start(?MODULE,gen_fsm,[]),
-    Msg = fun() -> a=b end,
+    Msg = fun() -> erlang:error({badmatch,b}) end,
     Pid ! Msg,
     ?check({warning_msg,"** Undefined handle_info in ~p"++_,[?MODULE,Msg]}),
     gen_fsm:send_all_state_event(Pid,Msg),
@@ -150,7 +153,7 @@ gen_fsm(_Config) ->
 
 gen_statem(_Config) ->
     {ok,Pid} = gen_statem:start(?MODULE,gen_statem,[]),
-    Msg = fun() -> a=b end,
+    Msg = fun() -> erlang:error({badmatch,b}) end,
     Pid ! Msg,
     ?check({error,"** State machine ~tp terminating"++_,
             [Pid,{info,Msg},{mystate,gen_statem},error,{badmatch,b}|_]}).
@@ -179,7 +182,7 @@ sasl_reports(Config) ->
     ok = gen_server:cast(ChPid, fun() ->
                                         spawn_link(fun() -> receive x->ok end end)
                                 end),
-    Msg = fun() -> a=b end,
+    Msg = fun() -> erlang:error({badmatch,b}) end,
     ok = gen_server:cast(ChPid,Msg),
     ?check_no_flush({error,"** Generic server ~tp terminating"++_,
                      [ChPid,{'$gen_cast',Msg},gen_server,{{badmatch,b},_}]}),

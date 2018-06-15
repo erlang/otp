@@ -208,7 +208,7 @@ template(_Config) ->
               time=>Time,
               tuple=>{1,atom,"list"},
               nested=>#{subkey=>subvalue}},
-    Template6 = lists:join(";",maps:keys(maps:remove(nested,Meta6)) ++
+    Template6 = lists:join(";",lists:sort(maps:keys(maps:remove(nested,Meta6))) ++
                                [[nested,subkey]]),
     String6 = format(info,{"~p",[term]},Meta6,#{template=>Template6,
                                                 single_line=>true}),

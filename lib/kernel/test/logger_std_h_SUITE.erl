@@ -45,10 +45,6 @@
 -define(bin(Msg), list_to_binary(Msg++"\n")).
 -define(domain,#{domain=>[?MODULE]}).
 
--define(FILESYNC_REP_INT, if is_atom(?FILESYNC_REPEAT_INTERVAL) -> 5500;
-                             true -> ?FILESYNC_REPEAT_INTERVAL + 500
-                          end).
-
 suite() ->
     [{timetrap,{seconds,30}},
      {ct_hooks,[logger_test_lib]}].
@@ -73,10 +69,23 @@ end_per_group(_Group, _Config) ->
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
-    if ?TEST_HOOKS_TAB == undefined ->
+    case (fun() -> ?TEST_HOOKS_TAB == undefined end)() of
+        true ->
             {skip,"Define the TEST_HOOKS macro to run this test"};
-       true ->
+        false ->
             ct:print("********** ~w **********", [TestHooksCase]),
+            Config
+    end;
+init_per_testcase(OPCase, Config) when
+      OPCase == qlen_kill_new;
+      OPCase == restart_after ->
+    case re:run(erlang:system_info(system_version),
+                "dirty-schedulers-TEST",
+                [{capture,none}]) of
+        match ->
+            {skip,"Overload protection test skipped on dirty-schedulers-TEST"};
+        nomatch ->
+            ct:print("********** ~w **********", [OPCase]),
             Config
     end;
 init_per_testcase(TestCase, Config) ->
@@ -175,13 +184,13 @@ add_remove_instance_file(Log, Type) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),
     logger:notice(?msg,?domain),
     ?check_no_log,
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok.
 
 default_formatter(_Config) ->
@@ -214,11 +223,17 @@ errors(Config) ->
         logger:add_handler(?MODULE,logger_std_h,
                            #{config => #{type => faulty_type}}),
 
-    NoDir = lists:concat(["/",?MODULE,"_dir"]),
-    {error,
-     {handler_not_added,{{open_failed,NoDir,eacces},_}}} =
-        logger:add_handler(myh2,logger_std_h,
-                           #{config=>#{type=>{file,NoDir}}}),
+    case os:type() of
+        {win32,_} ->
+            %% No use in testing file access on windows
+            ok;
+        _ ->
+            NoDir = lists:concat(["/",?MODULE,"_dir"]),
+            {error,
+             {handler_not_added,{{open_failed,NoDir,eacces},_}}} =
+                logger:add_handler(myh2,logger_std_h,
+                                   #{config=>#{type=>{file,NoDir}}})
+    end,
 
     {error,
      {handler_not_added,{{open_failed,Log,_},_}}} =
@@ -393,7 +408,7 @@ crash_std_h(cleanup) ->
     [test_server:stop_node(Node) || Node <- Nodes].
 
 sync_and_read(Node,disk_log,Log) ->
-    rpc:call(Node,logger_disk_log_h,sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_disk_log_h,filesync,[?STANDARD_HANDLER]),
     case file:read_file(Log ++ ".1") of
         {ok,<<>>} ->
             timer:sleep(5000),
@@ -402,7 +417,7 @@ sync_and_read(Node,disk_log,Log) ->
             Ok
     end;
 sync_and_read(Node,file,Log) ->
-    rpc:call(Node,logger_std_h,sync,[?STANDARD_HANDLER]),
+    rpc:call(Node,logger_std_h,filesync,[?STANDARD_HANDLER]),
     case file:read_file(Log) of
         {ok,<<>>} ->
             timer:sleep(5000),
@@ -412,7 +427,7 @@ sync_and_read(Node,file,Log) ->
     end.
 
 bad_input(_Config) ->
-    {error,{badarg,{sync,["BadType"]}}} = logger_std_h:sync("BadType"),
+    {error,{badarg,{filesync,["BadType"]}}} = logger_std_h:filesync("BadType"),
     {error,{badarg,{info,["BadType"]}}} = logger_std_h:info("BadType"),
     {error,{badarg,{reset,["BadType"]}}} = logger_std_h:reset("BadType").
 
@@ -455,7 +470,7 @@ reconfig(Config) ->
                                      overload_kill_enable => true,
                                      overload_kill_qlen => 100000,
                                      overload_kill_mem_size => 10000000,
-                                     overload_kill_restart_after => never,
+                                     overload_kill_restart_after => infinity,
                                      filesync_repeat_interval => no_repeat}),
     #{id := ?MODULE,
       type := standard_io,
@@ -469,7 +484,7 @@ reconfig(Config) ->
       overload_kill_enable := true,
       overload_kill_qlen := 100000,
       overload_kill_mem_size := 10000000,
-      overload_kill_restart_after := never,
+      overload_kill_restart_after := infinity,
       filesync_repeat_interval := no_repeat} = logger_std_h:info(?MODULE),
     ok.
 
@@ -499,7 +514,7 @@ file_opts(Config) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),
-    try_read_file(Log, {ok,B1}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok.
 file_opts(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
@@ -526,7 +541,7 @@ sync(Config) ->
 
     logger:notice("first", ?domain),
     %% wait for automatic filesync
-    check_tracer(?FILESYNC_REP_INT*2),
+    check_tracer(filesync_rep_int()*2),
 
     %% check that explicit filesync is only done once
     start_tracer([{logger_std_h, write_to_dev, 5},
@@ -539,9 +554,9 @@ sync(Config) ->
                  ]),
     logger:notice("second", ?domain),
     %% do explicit sync
-    logger_std_h:sync(?MODULE),
+    logger_std_h:filesync(?MODULE),
     %% a second sync should be ignored
-    logger_std_h:sync(?MODULE),
+    logger_std_h:filesync(?MODULE),
     check_tracer(100),
 
     %% check that if there's no repeated filesync active,
@@ -600,9 +615,9 @@ write_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [file_write,ok]),
 
     ok = log_on_remote_node(Node, "Logged1"),
-    rpc:call(Node, logger_std_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\n">>}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\n">>}, filesync_rep_int()),
 
     rpc:call(Node, ?MODULE, set_result, [file_write,{error,terminated}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
@@ -618,9 +633,9 @@ write_failure(Config) ->
 
     rpc:call(Node, ?MODULE, set_result, [file_write,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
-    rpc:call(Node, logger_std_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?FILESYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, filesync_rep_int()),
     ok.
 write_failure(cleanup, _Config) ->
     Nodes = nodes(),
@@ -649,14 +664,14 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [file_datasync,{error,terminated}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
     
-    ?check({error,{?STANDARD_HANDLER,sync,Log,{error,terminated}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,Log,{error,terminated}}}),
 
     ok = log_on_remote_node(Node, "No second error printout"),
     ?check_no_log,
 
     rpc:call(Node, ?MODULE, set_result, [file_datasync,{error,eacces}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
-    ?check({error,{?STANDARD_HANDLER,sync,Log,{error,eacces}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,Log,{error,eacces}}}),
 
     rpc:call(Node, ?MODULE, set_result, [file_datasync,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
@@ -677,10 +692,10 @@ start_std_h_on_new_node(Config, Log) ->
     Node.
 
 %% functions for test hook macros to be called by rpc
-set_internal_log(Mod, Func) ->
-    ?set_internal_log({Mod,Func}).
-set_result(Op, Result) ->
-    ?set_result(Op, Result).
+set_internal_log(_Mod, _Func) ->
+    ?set_internal_log({_Mod,_Func}).
+set_result(_Op, _Result) ->
+    ?set_result(_Op, _Result).
 set_defaults() ->
     ?set_defaults().
 
@@ -707,7 +722,6 @@ op_switch_to_sync_file(Config) ->
     %%    TRecvPid = start_op_trace(),
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
-    ok = file_delete(Log),
     %% true = analyse_trace(TRecvPid,
     %%                      fun(Events) -> find_mode(async,Events) end),
     %% true = analyse_trace(TRecvPid,
@@ -720,6 +734,7 @@ op_switch_to_sync_file(Config) ->
     %%                       fun(Events) -> find_mode(flush,Events) end),    
     %%    stop_op_trace(TRecvPid),
     NumOfReqs = Lines,
+    ok = file_delete(Log),
     ok.
 op_switch_to_sync_file(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -764,11 +779,11 @@ op_switch_to_drop_file(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -832,11 +847,11 @@ op_switch_to_flush_file(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -885,8 +900,9 @@ limit_burst_disabled(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    NumOfReqs = Logged,
     ok = file_delete(Log),
-    NumOfReqs = Logged.
+    ok.
 limit_burst_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -904,8 +920,9 @@ limit_burst_enabled_one(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    ReqLimit = Logged,
     ok = file_delete(Log),
-    ReqLimit = Logged.
+    ok.
 limit_burst_enabled_one(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -926,9 +943,10 @@ limit_burst_enabled_period(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
-    ok = file_delete(Log),
     true = (Logged > (ReqLimit*Windows)) andalso
-           (Logged < (ReqLimit*(Windows+2))).
+           (Logged < (ReqLimit*(Windows+2))),
+    ok = file_delete(Log),
+    ok.
 limit_burst_enabled_period(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -950,7 +968,7 @@ kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
-    {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
@@ -962,7 +980,7 @@ qlen_kill_new(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
-    Procs = 2,
+    Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
@@ -973,8 +991,8 @@ qlen_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(h_proc_name())),
+            file_delete(Log),
+            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1001,7 +1019,7 @@ qlen_kill_std(_Config) ->
     {skip,"Not done yet"}.
 
 mem_kill_new(Config) ->
-    {_Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
@@ -1013,7 +1031,7 @@ mem_kill_new(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
-    Procs = 2,
+    Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
@@ -1024,8 +1042,8 @@ mem_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter * 3),
-            true = is_pid(whereis(h_proc_name())),
+            file_delete(Log),
+            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1041,23 +1059,27 @@ mem_kill_new(cleanup, _Config) ->
 mem_kill_std(_Config) ->
     {skip,"Not done yet"}.
 
+restart_after() ->
+    [{timetrap,{minutes,2}}].
 restart_after(Config) ->
     {Log,HConfig,StdHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
      NewHConfig1 =
         HConfig#{config=>StdHConfig#{overload_kill_enable=>true,
                                      overload_kill_qlen=>10,
-                                     overload_kill_restart_after=>never}},
+                                     overload_kill_restart_after=>infinity}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
     receive
-        {'DOWN', MRef1, _, _, _Info1} ->
-            timer:sleep(?OVERLOAD_KILL_RESTART_AFTER + 1000),
-            undefined = whereis(h_proc_name()),
+        {'DOWN', MRef1, _, _, _Reason1} ->
+            file_delete(Log),
+            error = wait_for_process_up(h_proc_name(),?OVERLOAD_KILL_RESTART_AFTER * 3),
             ok
     after
         5000 ->
+            Info1 = logger_std_h:info(?MODULE),
+            ct:pal("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     
@@ -1071,16 +1093,17 @@ restart_after(Config) ->
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
     receive
-        {'DOWN', MRef2, _, _, _Info2} ->
-            timer:sleep(RestartAfter + 2000),
-            Pid1 = whereis(h_proc_name()),
-            true = is_pid(Pid1),
+        {'DOWN', MRef2, _, _, _Reason2} ->
+            file_delete(Log),
+            {ok,Pid1} = wait_for_process_up(h_proc_name(),RestartAfter * 3),
             false = (Pid1 == Pid0),
             ok
     after
         5000 ->
+            Info2 = logger_std_h:info(?MODULE),
+            ct:pal("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     ok.
@@ -1101,7 +1124,7 @@ handler_requests_under_load(Config) ->
                                        flush_qlen => 2000,
                                        burst_limit_enable => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
+    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
                                                          {info,[]},
                                                          {reset,[]},
                                                          {change_config,[]}])
@@ -1160,6 +1183,7 @@ start_handler(Name, FuncName, Config) ->
     Log = filename:join(Dir, lists:concat([FuncName,".log"])),
     ct:pal("Logging to ~tp", [Log]),
     Type = {file,Log},
+    _ = file_delete(Log),
     ok = logger:add_handler(Name,
                             logger_std_h,
                             #{config => #{type => Type},
@@ -1184,10 +1208,10 @@ wait_until_written(File, Sz) ->
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
-                {ok,#file_info{size = Sz1}} ->
+                {ok,#file_info{size = Sz}} ->
                     ok;
-                {ok,#file_info{size = Sz2}} ->
-                    wait_until_written(File, Sz2)
+                {ok,#file_info{size = Sz1}} ->
+                    wait_until_written(File, Sz1)
             end;
         {ok,#file_info{size = Sz1}} ->
             wait_until_written(File, Sz1)
@@ -1230,7 +1254,8 @@ send_n_burst(N, seq, Text, Class) ->
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
     ct:pal("~w processes each sending ~w messages", [Ps,N]),
-    PerProc = fun() -> 
+    PerProc = fun() ->
+                      process_flag(priority,high),
                       send_n_burst(N, seq, Text, Class)
               end,
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
@@ -1300,7 +1325,7 @@ add_remove_instance_nofile(Type) ->
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     %% check that sync doesn't do damage even if not relevant
-    ok = logger_std_h:sync(?MODULE),
+    ok = logger_std_h:filesync(?MODULE),
     ok = logger:remove_handler(?MODULE),
     timer:sleep(500),
     undefined = whereis(h_proc_name()),
@@ -1541,3 +1566,24 @@ h_proc_name(Name) ->
 
 file_delete(Log) ->
    file:delete(Log).
+
+wait_for_process_up(Name,T) ->
+    N = (T div 500) + 1,
+    wait_for_process_up1(Name,N).
+
+wait_for_process_up1(_Name,0) ->
+    error;
+wait_for_process_up1(Name,N) ->
+    timer:sleep(500),
+    case whereis(Name) of
+        Pid when is_pid(Pid) ->
+            {ok,Pid};
+        undefined ->
+            wait_for_process_up1(Name,N-1)
+    end.
+
+filesync_rep_int() ->
+    case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
+        true  -> 5500;
+        false -> ?FILESYNC_REPEAT_INTERVAL + 500
+    end.

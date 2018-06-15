@@ -1,3 +1,22 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2018. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(logger_disk_log_h_SUITE).
 
 -compile(export_all).
@@ -26,10 +45,6 @@
 -define(log_no(File,N), lists:concat([File,".",N])).
 -define(domain,#{domain=>[?MODULE]}).
 
--define(SYNC_REP_INT, if is_atom(?FILESYNC_REPEAT_INTERVAL) -> 5500;
-                         true -> ?FILESYNC_REPEAT_INTERVAL + 500
-                      end).
-
 suite() ->
     [{timetrap,{seconds,30}},
      {ct_hooks,[logger_test_lib]}].
@@ -50,9 +65,10 @@ end_per_group(_Group, _Config) ->
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
-    if ?TEST_HOOKS_TAB == undefined ->
+    case (fun() -> ?TEST_HOOKS_TAB == undefined end)() of
+        true ->
             {skip,"Define the TEST_HOOKS macro to run this test"};
-       true ->
+        false ->
             ct:print("********** ~w **********", [TestHooksCase]),
             Config
     end;
@@ -124,7 +140,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("hello", ?domain),
-    logger_disk_log_h:sync(Name1),
+    logger_disk_log_h:filesync(Name1),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"hello\n">>}, 5000),
     
@@ -137,7 +153,7 @@ create_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile2}),
     logger:notice("dummy", ?domain),
-    logger_disk_log_h:sync(Name2),
+    logger_disk_log_h:filesync(Name2),
     ct:pal("Checking contents of ~p", [?log_no(LogFile2,1)]),
     try_read_file(?log_no(LogFile2,1), {ok,<<"dummy\n">>}, 5000),
 
@@ -158,7 +174,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("one", ?domain),
-    logger_disk_log_h:sync(HName),
+    logger_disk_log_h:filesync(HName),
     ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\n">>}, 5000),
     logger:notice("two", ?domain),
@@ -172,7 +188,7 @@ open_existing_log(Config) ->
                                 formatter=>{?MODULE,self()}},
                        #{file=>LogFile1}),
     logger:notice("three", ?domain),
-    logger_disk_log_h:sync(HName),
+    logger_disk_log_h:filesync(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000),
     remove_and_stop(HName),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\ntwo\nthree\n">>}, 5000).
@@ -197,22 +213,22 @@ disk_log_opts(Config) ->
     {WFileFull,wrap,{Size,2},1} = {Get(file,WInfo1),Get(type,WInfo1),
                                    Get(size,WInfo1),Get(current_file,WInfo1)},
     logger:notice("123", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("45", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     1 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("6", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
     logger:notice("7890", ?domain),
-    logger_disk_log_h:sync(WName),
+    logger_disk_log_h:filesync(WName),
     timer:sleep(500),
     2 = Get(current_file, disk_log:info(WName)),
 
@@ -230,7 +246,7 @@ disk_log_opts(Config) ->
     {HFile1Full,halt,infinity} = {Get(file,HInfo1),Get(type,HInfo1),
                                   Get(size,HInfo1)},
     logger:notice("12345", ?domain),
-    logger_disk_log_h:sync(HName1),
+    logger_disk_log_h:filesync(HName1),
     timer:sleep(500),
     1 = Get(no_written_items, disk_log:info(HName1)),
 
@@ -407,8 +423,8 @@ config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 bad_input(_Config) ->
-    {error,{badarg,{sync,["BadType"]}}} =
-        logger_disk_log_h:sync("BadType"),
+    {error,{badarg,{filesync,["BadType"]}}} =
+        logger_disk_log_h:filesync("BadType"),
     {error,{badarg,{info,["BadType"]}}} = logger_disk_log_h:info("BadType"),
     {error,{badarg,{reset,["BadType"]}}} = logger_disk_log_h:reset("BadType").
 
@@ -456,7 +472,7 @@ reconfig(Config) ->
                          overload_kill_enable => true,
                          overload_kill_qlen => 100000,
                          overload_kill_mem_size => 10000000,
-                         overload_kill_restart_after => never,
+                         overload_kill_restart_after => infinity,
                          filesync_repeat_interval => no_repeat},
     ok = logger:set_handler_config(?MODULE, config, HConfig1),
     #{id := ?MODULE,
@@ -469,7 +485,7 @@ reconfig(Config) ->
       overload_kill_enable := true,
       overload_kill_qlen := 100000,
       overload_kill_mem_size := 10000000,
-      overload_kill_restart_after := never,
+      overload_kill_restart_after := infinity,
       filesync_repeat_interval := no_repeat} =
         logger_disk_log_h:info(?MODULE),
 
@@ -526,7 +542,7 @@ sync(Config) ->
     logger:notice("second", ?domain),
     logger:notice("third", ?domain),
     %% do explicit sync
-    logger_disk_log_h:sync(?MODULE),
+    logger_disk_log_h:filesync(?MODULE),
     check_tracer(100),
 
     %% check that if there's no repeated disk_log_sync active,
@@ -739,9 +755,15 @@ write_failure(Config) ->
     ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
 
     ok = log_on_remote_node(Node, "Logged1"),
-    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\n">>}, ?SYNC_REP_INT),
+
+    SyncRepInt = case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
+                     true -> 5500;
+                     false -> ?FILESYNC_REPEAT_INTERVAL + 500
+                 end,
+
+    try_read_file(Log, {ok,<<"Logged1\n">>}, SyncRepInt),
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
@@ -759,9 +781,9 @@ write_failure(Config) ->
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
-    rpc:call(Node, logger_disk_log_h, sync, [?STANDARD_HANDLER]),
+    rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
-    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, ?SYNC_REP_INT),
+    try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, SyncRepInt),
     ok.
 write_failure(cleanup, _Config) ->
     Nodes = nodes(),
@@ -795,7 +817,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
     
-    ?check({error,{?STANDARD_HANDLER,sync,LogOpts,{error,no_such_log}}}),
+    ?check({error,{?STANDARD_HANDLER,filesync,LogOpts,{error,no_such_log}}}),
 
     ok = log_on_remote_node(Node, "No second error printout"),
     ?check_no_log,
@@ -803,7 +825,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result,
              [disk_log_sync,{error,{blocked_log,?STANDARD_HANDLER}}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
-    ?check({error,{?STANDARD_HANDLER,sync,LogOpts,
+    ?check({error,{?STANDARD_HANDLER,filesync,LogOpts,
                    {error,{blocked_log,?STANDARD_HANDLER}}}}),
 
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
@@ -861,8 +883,8 @@ op_switch_to_sync(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
-    ok = file_delete(Log),
     NumOfReqs = Lines,
+    ok = file_delete(Log),
     ok.
 op_switch_to_sync(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -892,11 +914,11 @@ op_switch_to_drop(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -944,11 +966,11 @@ op_switch_to_flush(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok= stop_handler(?MODULE),
-                _ = file_delete(Log),
                 ct:pal("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
                 true = (Logged > 0),
+                _ = file_delete(Log),
                 ok
         end,
     %% As it's tricky to get the timing right in only one go, we perform the
@@ -976,8 +998,9 @@ limit_burst_disabled(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    NumOfReqs = Logged,
     ok = file_delete(Log),
-    NumOfReqs = Logged.
+    ok.
 limit_burst_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -995,8 +1018,9 @@ limit_burst_enabled_one(Config) ->
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
     ct:pal("Number of messages logged = ~w", [Logged]),
+    ReqLimit = Logged,
     ok = file_delete(Log),
-    ReqLimit = Logged.
+    ok.
 limit_burst_enabled_one(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1017,9 +1041,10 @@ limit_burst_enabled_period(Config) ->
     Logged = count_lines(Log),
     ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
-    ok = file_delete(Log),
     true = (Logged > (ReqLimit*Windows)) andalso
-           (Logged < (ReqLimit*(Windows+2))).
+           (Logged < (ReqLimit*(Windows+2))),
+    ok = file_delete(Log),
+    ok.
 limit_burst_enabled_period(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
@@ -1119,7 +1144,7 @@ restart_after(Config) ->
     NewHConfig1 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
                                     overload_kill_qlen=>10,
-                                    overload_kill_restart_after=>never}},
+                                    overload_kill_restart_after=>infinity}},
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
@@ -1173,7 +1198,7 @@ handler_requests_under_load(Config) ->
                                       flush_qlen => 2000,
                                       burst_limit_enable => false}},
     ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{sync,[]},
+    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
                                                          {info,[]},
                                                          {reset,[]},
                                                          {change_config,[]}])
@@ -1220,6 +1245,8 @@ start_handler(Name, FuncName, Config) ->
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, FuncName),
     ct:pal("Logging to ~tp", [File]),
+    FullFile = lists:concat([File,".1"]),
+    _ = file_delete(FullFile),
     ok = logger:add_handler(Name,
                             logger_disk_log_h,
                             #{config=>#{file => File,
@@ -1229,7 +1256,7 @@ start_handler(Name, FuncName, Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([Name]),
                               formatter=>{?MODULE,op}}),
     {ok,HConfig = #{config := DLHConfig}} = logger:get_handler_config(Name),
-    {lists:concat([File,".1"]),HConfig,DLHConfig}.
+    {FullFile,HConfig,DLHConfig}.
     
 stop_handler(Name) ->
     ct:pal("Stopping handler ~p!", [Name]),
@@ -1256,7 +1283,8 @@ send_n_burst(N, seq, Text, Class) ->
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
     ct:pal("~w processes each sending ~w messages", [Ps,N]),
-    PerProc = fun() -> 
+    PerProc = fun() ->
+                      process_flag(priority,high),
                       send_n_burst(N, seq, Text, Class)
               end,
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
@@ -1399,10 +1427,10 @@ wait_until_written(File, Sz) ->
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
-                {ok,#file_info{size = Sz1}} ->
+                {ok,#file_info{size = Sz}} ->
                     ok;
-                {ok,#file_info{size = Sz2}} ->
-                    wait_until_written(File, Sz2)
+                {ok,#file_info{size = Sz1}} ->
+                    wait_until_written(File, Sz1)
             end;
         {ok,#file_info{size = Sz1}} ->
             wait_until_written(File, Sz1)

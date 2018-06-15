@@ -115,7 +115,7 @@ check_common_config({overload_kill_qlen,N}) when is_integer(N) ->
 check_common_config({overload_kill_mem_size,N}) when is_integer(N) ->
     valid;
 check_common_config({overload_kill_restart_after,NorA})  when is_integer(NorA);
-                                                              NorA == never ->
+                                                              NorA == infinity ->
     valid;
 
 check_common_config({filesync_repeat_interval,NorA}) when is_integer(NorA);
@@ -261,7 +261,7 @@ flush_log_events(Limit, Limit) ->
     Limit;
 flush_log_events(N, Limit) ->
     %% flush log events but leave other events, such as
-    %% file/disk_log_sync, info and change_config, so that these
+    %% filesync, info and change_config, so that these
     %% have a chance to be processed even under heavy load
     receive
         {'$gen_cast',{log,_}} ->

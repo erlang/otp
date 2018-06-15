@@ -329,7 +329,7 @@ log_no_levels(_Config) ->
     ok.
 log_no_levels(cleanup,_Config) ->
     logger:remove_handler(h1),
-    logger:set_primary_config(level,info),
+    logger:set_primary_config(level,notice),
     logger:unset_module_level(?MODULE),
     ok.
 

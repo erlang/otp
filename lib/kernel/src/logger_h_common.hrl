@@ -41,10 +41,10 @@
 -define(OVERLOAD_KILL_MEM_SIZE, 3000000).
 
 %% This is the default time that the handler will wait before
-%% restarting and accepting new requests. The value 'never'
+%% restarting and accepting new requests. The value 'infinity'
 %% disables restarts.
 -define(OVERLOAD_KILL_RESTART_AFTER, 5000).
-%%-define(OVERLOAD_KILL_RESTART_AFTER, never).
+%%-define(OVERLOAD_KILL_RESTART_AFTER, infinity).
 
 %% The handler sends asynchronous write requests to the process
 %% controlling the i/o device, but every once in this interval
