@@ -86,6 +86,14 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <item>built-in filters,
       see <seealso marker="logger_filters">logger_filters</seealso>.</item>
     </list>
+
+    <note>
+      <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
+	to introduce changes to the Logger API and functionality in
+	patches following this release. These changes might or might not
+	be backwards compatible with the initial version.</p>
+    </note>
+
   </description>
 
   <datatypes>
@@ -939,7 +947,8 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 
   <funcs>
     <func>
-      <name>HModule:adding_handler(Config1) -> {ok, Config2} | {error, Reason}</name>
+      <name>HModule:adding_handler(Config1) -> {ok, Config2} | {error,
+	Reason}</name>
       <fsummary>An instance of this handler is about to be added.</fsummary>
       <type>
 	<v>Config1 = Config2 =
@@ -948,9 +957,10 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
       </type>
       <desc>
 	<p>This callback function is optional.</p>
-	<p>The function is called when an new handler is about to be
-	  added, and the purpose is to verify the configuration and
-	  initiate all resources needed by the handler.</p>
+	<p>The function is called on a temporary process when an new
+	  handler is about to be added. The purpose is to verify the
+	  configuration and initiate all resources needed by the
+	  handler.</p>
 	<p>The handler identity is associated with the <c>id</c> key
 	  in <c>Config1</c>.</p>
 	<p>If everything succeeds, the callback function can add
@@ -972,9 +982,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
       </type>
       <desc>
 	<p>This callback function is optional.</p>
-	<p>The function is called when the configuration for a handler
-	  is about to change, and the purpose is to verify and act on
-	  the new configuration.</p>
+	<p>The function is called on a temporary process when the
+	  configuration for a handler is about to change. The purpose
+	  is to verify and act on the new configuration.</p>
 	<p><c>Config1</c> is the existing configuration
 	  and <c>Config2</c> is the new configuration.</p>
 	<p>The handler identity is associated with the <c>id</c> key
@@ -999,7 +1009,8 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	<p>This callback function is mandatory.</p>
 	<p>The function is called when all primary filters and all
 	  handler filters for the handler in question have passed for
-	  the given log event.</p>
+	  the given log event. It is called on the client process, that
+	  is, the process that issued the log event.</p>
 	<p>The handler identity is associated with the <c>id</c> key
 	  in <c>Config</c>.</p>
 	<p>The handler must log the event.</p>
@@ -1017,9 +1028,9 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
       </type>
       <desc>
 	<p>This callback function is optional.</p>
-	<p>The function is called when a handler is about to be
-	  removed, and the purpose is to release all resources used by
-	  the handler.</p>
+	<p>The function is called on a temporary process when a
+	  handler is about to be removed. The purpose is to release
+	  all resources used by the handler.</p>
 	<p>The handler identity is associated with the <c>id</c> key
 	  in <c>Config</c>.</p>
 	<p>The return value is ignored by Logger.</p>

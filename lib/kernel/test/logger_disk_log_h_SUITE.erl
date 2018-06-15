@@ -1066,7 +1066,7 @@ kill_disabled(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 qlen_kill_new(Config) ->
-    {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
@@ -1079,7 +1079,7 @@ qlen_kill_new(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
-    Procs = 2,
+    Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
@@ -1090,8 +1090,8 @@ qlen_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(h_proc_name())),
+            file_delete(Log),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1103,7 +1103,7 @@ qlen_kill_new(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 mem_kill_new(Config) ->
-    {_Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     Pid0 = whereis(h_proc_name()),
     {_,Mem0} = process_info(Pid0, memory),
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
@@ -1116,7 +1116,7 @@ mem_kill_new(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
     NumOfReqs = 100,
-    Procs = 2,
+    Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
@@ -1127,8 +1127,8 @@ mem_kill_new(Config) ->
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
-            timer:sleep(RestartAfter + 2000),
-            true = is_pid(whereis(h_proc_name())),
+            file_delete(Log),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1139,6 +1139,8 @@ mem_kill_new(Config) ->
 mem_kill_new(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
+restart_after() ->
+    [{timetrap,{minutes,2}}].
 restart_after(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig1 =
@@ -1148,14 +1150,16 @@ restart_after(Config) ->
     ok = logger:set_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
     receive
-        {'DOWN', MRef1, _, _, _Info1} ->
-            timer:sleep(?OVERLOAD_KILL_RESTART_AFTER + 1000),
-            undefined = whereis(h_proc_name()),
+        {'DOWN', MRef1, _, _, _Reason1} ->
+            file_delete(Log),
+            error = wait_for_process_up(?OVERLOAD_KILL_RESTART_AFTER * 3),
             ok
     after
         5000 ->
+            Info1 = logger_std_h:info(?MODULE),
+            ct:pal("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     
@@ -1169,16 +1173,17 @@ restart_after(Config) ->
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,2,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
     receive
-        {'DOWN', MRef2, _, _, _Info2} ->
-            timer:sleep(RestartAfter + 2000),
-            Pid1 = whereis(h_proc_name()),
-            true = is_pid(Pid1),
+        {'DOWN', MRef2, _, _, _Reason2} ->
+            file_delete(Log),
+            {ok,Pid1} = wait_for_process_up(RestartAfter * 3),
             false = (Pid1 == Pid0),
             ok
     after
         5000 ->
+            Info2 = logger_std_h:info(?MODULE),
+            ct:pal("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     ok.
@@ -1283,13 +1288,9 @@ send_n_burst(N, seq, Text, Class) ->
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
     ct:pal("~w processes each sending ~w messages", [Ps,N]),
-    PerProc = fun() ->
-                      process_flag(priority,high),
-                      send_n_burst(N, seq, Text, Class)
-              end,
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
-                   monitor(process,spawn_link(PerProc)) end ||
-                _ <- lists:seq(1,Ps)],
+                   monitor(process,spawn_link(per_proc_fun(N,Text,Class,X)))
+             end || X <- lists:seq(1,Ps)],
     lists:foreach(fun(MRef) ->
                           receive
                               {'DOWN', MRef, _, _, _} ->
@@ -1306,6 +1307,16 @@ send_t_burst(T0, T, Text, Class, N) ->
        true ->
             ok = logger:Class(Text, ?domain),
             send_t_burst(T0, T, Text, Class, N+1)
+    end.
+
+per_proc_fun(N,Text,Class,X) when X rem 2 == 0 ->
+    fun() ->
+            process_flag(priority,high),
+            send_n_burst(N, seq, Text, Class)
+    end;
+per_proc_fun(N,Text,Class,_) ->
+    fun() ->
+            send_n_burst(N, seq, Text, Class)
     end.
 
 %%%-----------------------------------------------------------------
@@ -1542,3 +1553,23 @@ h_proc_name(Name) ->
 
 file_delete(Log) ->
    file:delete(Log).
+
+wait_for_process_up(T) ->
+    wait_for_process_up(h_proc_name(),T).
+
+wait_for_process_up(Name,T) ->
+    N = (T div 500) + 1,
+    wait_for_process_up1(Name,N).
+
+wait_for_process_up1(Name,0) ->
+    error;
+wait_for_process_up1(Name,N) ->
+    timer:sleep(500),
+    case whereis(Name) of
+        Pid when is_pid(Pid) ->
+            %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
+            {ok,Pid};
+        undefined ->
+            %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
+            wait_for_process_up1(Name,N-1)
+    end.

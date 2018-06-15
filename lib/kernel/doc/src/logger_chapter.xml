@@ -48,6 +48,13 @@
     handler, replace it by a custom handler, and install additional
     handlers.</p>
 
+  <note>
+    <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
+      to introduce changes to the Logger API and functionality in
+      patches following this release. These changes might or might not
+      be backwards compatible with the initial version.</p>
+  </note>
+
   <section>
     <title>Overview</title>
     <p>A <em>log event</em> consists of a <em>log level</em>, the
@@ -84,11 +91,11 @@
       section <seealso marker="#filters">Filters</seealso> for more
       details.</p>
     <p>If a log event passes through all primary filters and all
-      handler filters for a specific handler, Logger forwards the event
-      to the handler callback. The handler formats and prints the
-      event to its destination. See
-      section <seealso marker="#handlers">Handlers</seealso> for
-      more details.</p>
+      handler filters for a specific handler, Logger forwards the
+      event to the <em>handler callback</em>. The handler formats and
+      prints the event to its destination. See
+      section <seealso marker="#handlers">Handlers</seealso> for more
+      details.</p>
     <p>Everything up to and including the call to the handler
       callbacks is executed on the client process, that is, the
       process where the log event was issued. It is up to the handler
@@ -114,10 +121,11 @@
       <marker id="log_level"/>
       <title>Log Level</title>
       <p>The log level indicates the severity of a event. In
-	accordance with the Syslog protocol, RFC-5424, eight log
-	levels can be specified. The following table lists all
-	possible log levels by name (atom), integer value, and
-	description:</p>
+	accordance with the Syslog protocol,
+	<url href="https://www.ietf.org/rfc/rfc5424.txt">RFC
+	5424</url>, eight log levels can be specified. The following
+	table lists all possible log levels by name (atom), integer
+	value, and description:</p>
 
       <table align="left">
 	<row>
@@ -338,7 +346,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <marker id="handlers"/>
     <title>Handlers</title>
     <p>A handler is defined as a module exporting at least the
-      following function:</p>
+      following callback function:</p>
 
     <pre><seealso marker="logger#HModule:log-2">log(LogEvent, Config) -> void()</seealso></pre>
 
@@ -935,50 +943,50 @@ error_logger:add_report_handler/1,2.
   </section>
 
   <section>
-    <title>Example: Add a handler to log debug events to file</title>
+    <title>Example: Add a handler to log info events to file</title>
     <p>When starting an Erlang node, the default behaviour is that all
-      log events on level info or more severe, are logged to the
-      terminal via the default handler. To also log debug events, you
-      can either change the primary log level to <c>debug</c>:</p>
+      log events on level <c>notice</c> or more severe, are logged to
+      the terminal via the default handler. To also log info events,
+      you can either change the primary log level to <c>info</c>:</p>
     <pre>
-1> <input>logger:set_primary_config(level, debug).</input>
+1> <input>logger:set_primary_config(level, info).</input>
 ok</pre>
     <p>or set the level for one or a few modules only:</p>
     <pre>
-2> <input>logger:set_module_level(mymodule, debug).</input>
+2> <input>logger:set_module_level(mymodule, info).</input>
 ok</pre>
-    <p>This allows debug events to pass through to the default handler,
-      and be printed to the terminal as well. If there are many debug
+    <p>This allows info events to pass through to the default handler,
+      and be printed to the terminal as well. If there are many info
       events, it can be useful to print these to a file instead.</p>
-    <p>First, set the log level of the default handler to <c>info</c>,
-      preventing it from printing debug events to the terminal:</p>
+    <p>First, set the log level of the default handler
+      to <c>notice</c>, preventing it from printing info events to the
+      terminal:</p>
     <pre>
-3> <input>logger:set_handler_config(default, level, info).</input>
+3> <input>logger:set_handler_config(default, level, notice).</input>
 ok</pre>
     <p>Then, add a new handler which prints to file. You can use the
       handler
       module <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>,
-      and specify type <c>{file,File}</c>. The default handler level
-      is <c>all</c>, so you don't need to specify that:</p>
+      and specify type <c>{file,File}</c>.:</p>
     <pre>
-4> <input>Config = #{config => #{type => {file,"./debug.log"}}}.</input>
-#{config => #{type => {file,"./debug.log"}}}
-5> <input>logger:add_handler(debugger, logger_std_h, Config).</input>
+4> <input>Config = #{config => #{type => {file,"./info.log"}}, level => info}.</input>
+#{config => #{type => {file,"./info.log"}},level => info}
+5> <input>logger:add_handler(myhandler, logger_std_h, Config).</input>
 ok</pre>
     <p>Since <c>filter_default</c> defaults to <c>log</c>, this
-      handler now receives all log events. If you want debug events
-      only in the file, you must add a filter to stop all non-debug
+      handler now receives all log events. If you want info events
+      only in the file, you must add a filter to stop all non-info
       events. The built-in
       filter <seealso marker="logger_filters#level-2">
 	<c>logger_filters:level/2</c></seealso>
       can do this:</p>
     <pre>
-6> <input>logger:add_handler_filter(debugger, stop_non_debug,
-                             {fun logger_filters:level/2, {stop, neq, debug}}).</input>
+6> <input>logger:add_handler_filter(myhandler, stop_non_info,
+                             {fun logger_filters:level/2, {stop, neq, info}}).</input>
 ok</pre>
     <p>See section <seealso marker="#filters">Filters</seealso> for
-    more information about the filters and the <c>filter_default</c>
-    configuration parameter.</p>
+      more information about the filters and the <c>filter_default</c>
+      configuration parameter.</p>
 
   </section>
 
@@ -1024,63 +1032,42 @@ ok</pre>
     <p>A simple handler that prints to the terminal can be implemented
       as follows:</p>
     <code>
--module(myhandler).
+-module(myhandler1).
 -export([log/2]).
 
-log(LogEvent, #{formatter := {FModule, FConfig}) ->
+log(LogEvent, #{formatter := {FModule, FConfig}}) ->
     io:put_chars(FModule:format(LogEvent, FConfig)).
     </code>
 
-    <p>A simple handler which prints to file can be implemented like
-      this:</p>
+    <p>Notice that the above handler does not have any overload
+      protection, and all log events are printed directly from the
+      client process.</p>
+    <p>For information and examples of overload protection, please
+      refer to
+      section <seealso marker="#overload_protection">Protecting the
+	Handler from Overload</seealso>, and the implementation
+      of <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
+      and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
+      </seealso>.</p>
+    <p>The following is a simpler example of a handler which logs to a
+      file through one single process:</p>
     <code>
--module(myhandler).
+-module(myhandler2).
 -export([adding_handler/1, removing_handler/1, log/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 adding_handler(Config) ->
-    {ok, Fd} = file:open(File, [append, {encoding, utf8}]),
-    {ok, Config#{myhandler_fd => Fd}}.
+    MyConfig = maps:get(config,Config,#{file => "myhandler2.log"}),
+    {ok, Pid} = gen_server:start(?MODULE, MyConfig, []),
+    {ok, Config#{config => MyConfig#{pid => Pid}}}.
 
-removing_handler(#{myhandler_fd := Fd}) ->
-    _ = file:close(Fd),
-    ok.
-
-log(LogEvent,#{myhandler_fd := Fd, formatter := {FModule, FConfig}}) ->
-    io:put_chars(Fd, FModule:format(LogEvent, FConfig)).
-    </code>
-
-    <note>
-      <p>The above handlers do not have any overload
-	protection, and all log events are printed directly from the
-	client process.</p>
-      <p>For information and examples of overload protection, please
-	refer to
-	section <seealso marker="#overload_protection">Protecting the
-	  Handler from Overload</seealso>, and the implementation
-	of <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
-	and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
-	</seealso>.</p>
-    </note>
-
-    <p>Below is a simpler example of a handler which logs through one
-      single process.</p>
-    <code>
--module(myhandler).
--export([adding_handler/1, removing_handler/1, log/2]).
--export([init/1, handle_call/3, handle_cast/2, terminate/2]).
-
-adding_handler(Config) ->
-    {ok, Pid} = gen_server:start(?MODULE, Config),
-    {ok, Config#{myhandler_pid => Pid}}.
-
-removing_handler(#{myhandler_pid := Pid}) ->
+removing_handler(#{config := #{pid := Pid}}) ->
     gen_server:stop(Pid).
 
-log(LogEvent,#{myhandler_pid := Pid} = Config) ->
+log(LogEvent,#{config := #{pid := Pid}} = Config) ->
     gen_server:cast(Pid, {log, LogEvent, Config}).
 
-init(#{myhandler_file := File}) ->
+init(#{file := File}) ->
     {ok, Fd} = file:open(File, [append, {encoding, utf8}]),
     {ok, #{file => File, fd => Fd}}.
 
@@ -1091,7 +1078,7 @@ handle_cast({log, LogEvent, Config}, #{fd := Fd} = State) ->
     do_log(Fd, LogEvent, Config),
     {noreply, State}.
 
-terminate(Reason, #{fd := Fd}) ->
+terminate(_Reason, #{fd := Fd}) ->
     _ = file:close(Fd),
     ok.
 

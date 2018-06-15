@@ -249,7 +249,8 @@ init([Name,
                                        max_no_files:=MNF}},
       State = #{dl_sync_int := DLSyncInt}]) ->
 
-    register(?name_to_reg_name(?MODULE,Name), self()),
+    RegName = ?name_to_reg_name(?MODULE,Name),
+    register(RegName, self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
@@ -296,10 +297,12 @@ init([Name,
                     enter_loop(Config1, State1)
             catch
                 _:Error ->
+                    unregister(RegName),
                     logger_h_common:error_notify({open_disk_log,Name,Error}),
                     proc_lib:init_ack(Error)
             end;
         Error ->
+            unregister(RegName),
             logger_h_common:error_notify({open_disk_log,Name,Error}),
             proc_lib:init_ack(Error)
     end.
@@ -426,6 +429,7 @@ terminate(Reason, State = #{id := Name}) ->
     _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref, State,
                                               undefined)),
     _ = close_disk_log(Name, normal),
+    unregister(?name_to_reg_name(?MODULE, Name)),
     logger_h_common:stop_or_restart(Name, Reason, State).
 
 code_change(_OldVsn, State, _Extra) ->

@@ -229,7 +229,8 @@ log(LogEvent, Config = #{id := Name,
 
 init([Name, Config = #{config := HConfig},
       State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->    
-    register(?name_to_reg_name(?MODULE,Name), self()),
+    RegName = ?name_to_reg_name(?MODULE,Name),
+    register(RegName, self()),
     process_flag(trap_exit, true),
     process_flag(message_queue_data, off_heap),
 
@@ -261,10 +262,12 @@ init([Name, Config = #{config := HConfig},
                     enter_loop(Config1, State1)
             catch
                 _:Error ->
+                    unregister(RegName),
                     logger_h_common:error_notify({init_handler,Name,Error}),
                     proc_lib:init_ack(Error)
             end;
         Error ->
+            unregister(RegName),
             logger_h_common:error_notify({init_handler,Name,Error}),
             proc_lib:init_ack(Error)
     end.
@@ -415,6 +418,7 @@ terminate(Reason, State = #{id:=Name, file_ctrl_pid:=FWPid,
         false ->
             ok
     end,
+    unregister(?name_to_reg_name(?MODULE, Name)),
     logger_h_common:stop_or_restart(Name, Reason, State).
                                                   
 code_change(_OldVsn, State, _Extra) ->

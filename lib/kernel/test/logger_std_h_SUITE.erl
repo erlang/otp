@@ -992,7 +992,7 @@ qlen_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
-            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1043,7 +1043,7 @@ mem_kill_new(Config) ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
-            {ok,_} = wait_for_process_up(h_proc_name(), RestartAfter * 3),
+            {ok,_} = wait_for_process_up(RestartAfter * 3),
             ok
     after
         5000 ->
@@ -1074,7 +1074,7 @@ restart_after(Config) ->
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
-            error = wait_for_process_up(h_proc_name(),?OVERLOAD_KILL_RESTART_AFTER * 3),
+            error = wait_for_process_up(?OVERLOAD_KILL_RESTART_AFTER * 3),
             ok
     after
         5000 ->
@@ -1097,7 +1097,7 @@ restart_after(Config) ->
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
-            {ok,Pid1} = wait_for_process_up(h_proc_name(),RestartAfter * 3),
+            {ok,Pid1} = wait_for_process_up(RestartAfter * 3),
             false = (Pid1 == Pid0),
             ok
     after
@@ -1254,13 +1254,9 @@ send_n_burst(N, seq, Text, Class) ->
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
     ct:pal("~w processes each sending ~w messages", [Ps,N]),
-    PerProc = fun() ->
-                      process_flag(priority,high),
-                      send_n_burst(N, seq, Text, Class)
-              end,
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
-                   monitor(process,spawn_link(PerProc)) end ||
-                _ <- lists:seq(1,Ps)],
+                   monitor(process,spawn_link(per_proc_fun(N,Text,Class,X)))
+             end || X <- lists:seq(1,Ps)],
     lists:foreach(fun(MRef) ->
                           receive
                               {'DOWN', MRef, _, _, _} ->
@@ -1277,6 +1273,16 @@ send_t_burst(T0, T, Text, Class, N) ->
        true ->
             ok = logger:Class(Text, ?domain),
             send_t_burst(T0, T, Text, Class, N+1)
+    end.
+
+per_proc_fun(N,Text,Class,X) when X rem 2 == 0 ->
+    fun() ->
+            process_flag(priority,high),
+            send_n_burst(N, seq, Text, Class)
+    end;
+per_proc_fun(N,Text,Class,_) ->
+    fun() ->
+            send_n_burst(N, seq, Text, Class)
     end.
 
 %%%-----------------------------------------------------------------
@@ -1567,6 +1573,9 @@ h_proc_name(Name) ->
 file_delete(Log) ->
    file:delete(Log).
 
+wait_for_process_up(T) ->
+    wait_for_process_up(h_proc_name(),T).
+
 wait_for_process_up(Name,T) ->
     N = (T div 500) + 1,
     wait_for_process_up1(Name,N).
@@ -1577,8 +1586,10 @@ wait_for_process_up1(Name,N) ->
     timer:sleep(500),
     case whereis(Name) of
         Pid when is_pid(Pid) ->
+            %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
             {ok,Pid};
         undefined ->
+            %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
             wait_for_process_up1(Name,N-1)
     end.
 
