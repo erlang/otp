@@ -31,6 +31,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_cipher.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
 -export([client_hello/8, hello/4]).
@@ -274,9 +275,8 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 	Handshake ->
             Report = #{direction => inbound,
                        protocol => 'handshake',
-                       message => Handshake,
-                       version => Version},
-            logger:info(Report, #{domain => [beam,erlang,otp,ssl,handshake]}),
+                       message => Handshake},
+            ?LOG_DEBUG(Report, #{domain => [otp,ssl,handshake]}),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
 	_:_ ->

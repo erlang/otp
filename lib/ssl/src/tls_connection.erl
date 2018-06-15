@@ -38,7 +38,8 @@
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
--include_lib("public_key/include/public_key.hrl"). 
+-include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Internal application API
 
@@ -274,8 +275,8 @@ queue_handshake(Handshake, #state{negotiated_version = Version,
     HandshakeMsg = #{direction => outbound,
                      protocol => 'handshake',
                      message => Handshake},
-    logger:info(HandshakeMsg, #{domain => [beam,erlang,otp,ssl,handshake]}),
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(HandshakeMsg, #{domain => [otp,ssl,handshake]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates,
 		 tls_handshake_history = Hist,
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
@@ -294,7 +295,7 @@ queue_change_cipher(Msg, #state{negotiated_version = Version,
     Report = #{direction => outbound,
                protocol => 'tls_record',
                message => BinChangeCipher},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -330,7 +331,7 @@ send_alert(Alert, #state{negotiated_version = Version,
     Report = #{direction => outbound,
                protocol => 'tls_record',
                message => BinMsg},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
 
     State0#state{connection_states = ConnectionStates}.
 
@@ -440,8 +441,8 @@ init({call, From}, {start, Timeout},
     HelloMsg = #{direction => outbound,
                protocol => 'handshake',
                message => Hello},
-    logger:info(HelloMsg, #{domain => [beam,erlang,otp,ssl,handshake]}),
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(HelloMsg, #{domain => [otp,ssl,handshake]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     State1 = State0#state{connection_states = ConnectionStates,
 			  negotiated_version = Version, %% Requested version
 			  session =

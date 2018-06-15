@@ -342,7 +342,7 @@ handle_own_alert(Alert, Version, StateName,
                    protocol => 'tls_record',
                    message => BinMsg,
                    version => Version},
-        logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]})
+        ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]})
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
@@ -450,7 +450,7 @@ write_application_data(Data0, {FromPid, _} = From,
                        protocol => 'tls_record',
                        message => Msgs,
                        version => Version},
-            logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+            ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
             RetVal
     end.
 

@@ -30,6 +30,7 @@
 -include("ssl_alert.hrl").
 -include("tls_handshake.hrl").
 -include("ssl_cipher.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Handling of incoming data
 -export([get_tls_records/3, init_connection_states/2]).
@@ -405,7 +406,7 @@ get_tls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?APPLICATION_DATA,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
@@ -417,7 +418,7 @@ get_tls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
@@ -429,7 +430,7 @@ get_tls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?ALERT,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
@@ -441,7 +442,7 @@ get_tls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    logger:info(Report, #{domain => [beam,erlang,otp,ssl,tls_record]}),
+    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
