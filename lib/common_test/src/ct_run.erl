@@ -1909,7 +1909,8 @@ auto_compile(TestSuites) ->
     SuiteMakeErrors =
 	lists:flatmap(fun({TestDir,Suite} = TS) ->
 			      case run_make(suites, TestDir, 
-					    Suite, UserInclude) of
+					    Suite, UserInclude,
+                                            [nowarn_export_all]) of
 				  {error,{make_failed,Bad}} ->
 				      [{TS,Bad}];
 				  {error,_} ->
@@ -1927,7 +1928,7 @@ auto_compile(TestSuites) ->
 		  case lists:member(Dir, Done) of
 		      false ->
 			  Failed1 =
-			      case run_make(helpmods, Dir, Suite, UserInclude) of
+			      case run_make(helpmods, Dir, Suite, UserInclude, []) of
 				  {error,{make_failed,BadMods}} ->
 				      [{{Dir,all},BadMods}|Failed];
 				  {error,_} ->
@@ -2669,12 +2670,12 @@ get_name(Dir) ->
 
 
 run_make(TestDir, Mod, UserInclude) ->
-    run_make(suites, TestDir, Mod, UserInclude).
+    run_make(suites, TestDir, Mod, UserInclude, [nowarn_export_all]).
 
-run_make(Targets, TestDir0, Mod, UserInclude) when is_list(Mod) ->
-    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude);
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) when is_list(Mod) ->
+    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude, COpts);
 
-run_make(Targets, TestDir0, Mod, UserInclude) ->
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) ->
     case locate_test_dir(TestDir0, Mod) of
 	{ok,TestDir} ->
 	    %% send a start_make notification which may suspend
@@ -2689,7 +2690,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 	    XmerlInclude = get_dir(xmerl, "include"),
 	    ErlFlags = UserInclude ++ [{i,CtInclude},
 				       {i,XmerlInclude},
-				       debug_info],
+				       debug_info] ++ COpts,
 	    Result =
 		if Mod == all ; Targets == helpmods ->
 			case (catch ct_make:all([noexec|ErlFlags])) of
