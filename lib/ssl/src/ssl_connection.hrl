@@ -44,6 +44,7 @@
           host                  :: string() | inet:ip_address(),
           port                  :: integer(),
           socket                :: port() | tuple(), %% TODO: dtls socket
+          sender                :: pid() | undefined,
           ssl_options           :: #ssl_options{},
           socket_options        :: #socket_options{},
           connection_states     :: ssl_record:connection_states() | secret_printout(),

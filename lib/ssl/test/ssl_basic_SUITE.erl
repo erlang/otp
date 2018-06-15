@@ -3270,7 +3270,7 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options, DsaServerOpts}]),
+				   {options, [{reuseaddr, true} | DsaServerOpts]}]),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
@@ -3331,7 +3331,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options, NewServerOpts1}]),
+				   {options,  [{reuseaddr, true} | NewServerOpts1]}]),
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
@@ -3674,7 +3674,7 @@ hibernate(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=Pid}} = ssl_test_lib:start_client([return_socket,
+    {Client, #sslsocket{pid=[Pid|_]}} = ssl_test_lib:start_client([return_socket,
                     {node, ClientNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
@@ -3717,7 +3717,7 @@ hibernate_right_away(Config) ->
 
     Server1 = ssl_test_lib:start_server(StartServerOpts),
     Port1 = ssl_test_lib:inet_port(Server1),
-    {Client1, #sslsocket{pid = Pid1}} = ssl_test_lib:start_client(StartClientOpts ++
+    {Client1, #sslsocket{pid = [Pid1|_]}} = ssl_test_lib:start_client(StartClientOpts ++
                     [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
@@ -3729,7 +3729,7 @@ hibernate_right_away(Config) ->
     
     Server2 = ssl_test_lib:start_server(StartServerOpts),
     Port2 = ssl_test_lib:inet_port(Server2),
-    {Client2, #sslsocket{pid = Pid2}} = ssl_test_lib:start_client(StartClientOpts ++
+    {Client2, #sslsocket{pid = [Pid2|_]}} = ssl_test_lib:start_client(StartClientOpts ++
                     [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server2, ok, Client2, ok),
@@ -3965,13 +3965,13 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
 					 {mfa, {ssl_test_lib, no_result, []}},
 					 {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
-									   {node, ClientNode}, {port, Port},
-									   {host, Hostname},
-									   {from, self()},
-									   {mfa, {?MODULE, receive_msg, []}},
-									   {options, ClientOpts}]),
-
+    {Client, #sslsocket{pid=[Pid|_]} = SslSocket} = ssl_test_lib:start_client([return_socket,
+                                                                               {node, ClientNode}, {port, Port},
+                                                                               {host, Hostname},
+                                                                               {from, self()},
+                                                                               {mfa, {?MODULE, receive_msg, []}},
+                                                                               {options, ClientOpts}]),
+    
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
@@ -4645,6 +4645,7 @@ renegotiate_rejected(Socket) ->
 	    ok;
 	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 	{ssl, Socket, "H"} ->
+
 	    receive
 		{ssl, Socket, "ello world"} ->
 		    ok
