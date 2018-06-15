@@ -174,6 +174,9 @@
 
 #include <erl_nif.h>
 
+#include "socket_dbg.h"
+#include "socket_int.h"
+
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
@@ -263,66 +266,67 @@ typedef unsigned long long llu_t;
  *                                                                     *
  * =================================================================== */
 
-#define MALLOC(SZ)          enif_alloc((SZ))
-#define FREE(P)             enif_free((P))
+/* #define MALLOC(SZ)          enif_alloc((SZ)) */
+/* #define FREE(P)             enif_free((P)) */
 
-#define MKA(E,S)            enif_make_atom((E), (S))
-#define MKBIN(E,B)          enif_make_binary((E), (B))
-#define MKI(E,I)            enif_make_int((E), (I))
-#define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
-#define MKEL(E)             enif_make_list((E), 0)
-#define MKREF(E)            enif_make_ref((E))
-#define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1)
-#define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1)
-#define MKSBIN(E,B,ST,SZ)   enif_make_sub_binary((E), (B), (ST), (SZ))
-#define MKT2(E,E1,E2)       enif_make_tuple2((E), (E1), (E2))
-#define MKT3(E,E1,E2,E3)    enif_make_tuple3((E), (E1), (E2), (E3))
-#define MKT4(E,E1,E2,E3,E4) enif_make_tuple4((E), (E1), (E2), (E3), (E4))
-#define MKT5(E,E1,E2,E3,E4,E5) \
-    enif_make_tuple5((E), (E1), (E2), (E3), (E4), (E5))
-#define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \
-    enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
+/* #define MKA(E,S)            enif_make_atom((E), (S)) */
+/* #define MKBIN(E,B)          enif_make_binary((E), (B)) */
+/* #define MKI(E,I)            enif_make_int((E), (I)) */
+/* #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L)) */
+/* #define MKEL(E)             enif_make_list((E), 0) */
+/* #define MKREF(E)            enif_make_ref((E)) */
+/* #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1) */
+/* #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1) */
+/* #define MKSBIN(E,B,ST,SZ)   enif_make_sub_binary((E), (B), (ST), (SZ)) */
+/* #define MKT2(E,E1,E2)       enif_make_tuple2((E), (E1), (E2)) */
+/* #define MKT3(E,E1,E2,E3)    enif_make_tuple3((E), (E1), (E2), (E3)) */
+/* #define MKT4(E,E1,E2,E3,E4) enif_make_tuple4((E), (E1), (E2), (E3), (E4)) */
+/* #define MKT5(E,E1,E2,E3,E4,E5) \ */
+/*     enif_make_tuple5((E), (E1), (E2), (E3), (E4), (E5)) */
+/* #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \ */
+/*     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8)) */
+/* #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL)) */
 
-#define MCREATE(N)          enif_mutex_create((N))
-#define MDESTROY(M)         enif_mutex_destroy((M))
-#define MLOCK(M)            enif_mutex_lock((M))
-#define MUNLOCK(M)          enif_mutex_unlock((M))
+/* #define MCREATE(N)          enif_mutex_create((N)) */
+/* #define MDESTROY(M)         enif_mutex_destroy((M)) */
+/* #define MLOCK(M)            enif_mutex_lock((M)) */
+/* #define MUNLOCK(M)          enif_mutex_unlock((M)) */
 
-#define MONP(E,D,P,M)       enif_monitor_process((E), (D), (P), (M))
-#define DEMONP(E,D,M)       enif_demonitor_process((E), (D), (M))
+/* #define MONP(E,D,P,M)       enif_monitor_process((E), (D), (P), (M)) */
+/* #define DEMONP(E,D,M)       enif_demonitor_process((E), (D), (M)) */
 
-#define SELECT(E,FD,M,O,P,R)                            \
-    enif_select((E), (FD), (M), (O), (P), (R))
-#define SELECT_READ(E, DP, P, R)                                       \
-    SELECT((E), (DP)->sock, (ERL_NIF_SELECT_READ), (DP), (P), (R))
-#define SELECT_WRITE(E, DP, P, R)                                      \
-    SELECT((E), (DP)->sock, (ERL_NIF_SELECT_WRITE), (DP), (P), (R))
-#define SELECT_STOP(E, DP)                                              \
-    enif_select((E), (DP)->sock, (ERL_NIF_SELECT_STOP), (DP), NULL, atom_undefined)
+/* #define SELECT(E,FD,M,O,P,R)                            \ */
+/*     enif_select((E), (FD), (M), (O), (P), (R)) */
+/* #define SELECT_READ(E, DP, P, R)                                       \ */
+/*     SELECT((E), (DP)->sock, (ERL_NIF_SELECT_READ), (DP), (P), (R)) */
+/* #define SELECT_WRITE(E, DP, P, R)                                      \ */
+/*     SELECT((E), (DP)->sock, (ERL_NIF_SELECT_WRITE), (DP), (P), (R)) */
+/* #define SELECT_STOP(E, DP)                                              \ */
+/*     enif_select((E), (DP)->sock, (ERL_NIF_SELECT_STOP), (DP), NULL, atom_undefined) */
 
-#define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
-#define IS_BIN(E,   TE) enif_is_binary((E), (TE))
-#define IS_NUM(E,   TE) enif_is_number((E), (TE))
-#define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE))
-#define IS_LIST(E,  TE) enif_is_list((E),   (TE))
+/* #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE)) */
+/* #define IS_BIN(E,   TE) enif_is_binary((E), (TE)) */
+/* #define IS_NUM(E,   TE) enif_is_number((E), (TE)) */
+/* #define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE)) */
+/* #define IS_LIST(E,  TE) enif_is_list((E),   (TE)) */
 
-#define COMPARE(L, R) enif_compare((L), (R))
+/* #define COMPARE(L, R) enif_compare((L), (R)) */
 
-#define GET_ATOM_LEN(E, TE, LP) \
-    enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)
-#define GET_ATOM(E, TE, BP, MAX) \
-    enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
-#define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
-#define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
-#define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
-#define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
-#define GET_STR(E, L, B, SZ)      \
-    enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
-#define GET_UINT(E, TE, IP)         enif_get_uint((E), (TE), (IP))
-#define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
+/* #define GET_ATOM_LEN(E, TE, LP) \ */
+/*     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1) */
+/* #define GET_ATOM(E, TE, BP, MAX) \ */
+/*     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1) */
+/* #define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP)) */
+/* #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP)) */
+/* #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP)) */
+/* #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP)) */
+/* #define GET_STR(E, L, B, SZ)      \ */
+/*     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1) */
+/* #define GET_UINT(E, TE, IP)         enif_get_uint((E), (TE), (IP)) */
+/* #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA)) */
 
-#define ALLOC_BIN(SZ, BP)           enif_alloc_binary((SZ), (BP))
-#define REALLOC_BIN(SZ, BP)         enif_realloc_binary((SZ), (BP))
+/* #define ALLOC_BIN(SZ, BP)           enif_alloc_binary((SZ), (BP)) */
+/* #define REALLOC_BIN(SZ, BP)         enif_realloc_binary((SZ), (BP)) */
 
 
 #ifdef HAVE_SOCKLEN_T
@@ -342,10 +346,14 @@ typedef unsigned long long llu_t;
 typedef union {
     struct sockaddr     sa;
 
-    struct sockaddr_in  in;
+    struct sockaddr_in  in4;
 
 #ifdef HAVE_IN6
     struct sockaddr_in6 in6;
+#endif
+
+#ifdef HAVE_SYS_UN_H
+    struct sockaddr_un  un;
 #endif
 
 } SockAddress;
@@ -440,6 +448,22 @@ static BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
                                      SockAddress*        saP,
                                      SOCKLEN_T*          saLen);
 #endif
+static ERL_NIF_TERM encode_in_sockaddr(ErlNifEnv*       env,
+                                       struct sockaddr* addrP,
+                                       SOCKLEN_T        addrLen);
+static ERL_NIF_TERM encode_in4_sockaddr(ErlNifEnv*          env,
+                                        struct sockaddr_in* addrP,
+                                        SOCKLEN_T           addrLen);
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static ERL_NIF_TERM encode_in6_sockaddr(ErlNifEnv*           env,
+                                        struct sockaddr_in6* addrP,
+                                        SOCKLEN_T            addrLen);
+#endif
+#ifdef HAVE_SYS_UN_H
+static ERL_NIF_TERM encode_un_sockaddr(ErlNifEnv*          env,
+                                       struct sockaddr_un* addrP,
+                                       SOCKLEN_T           addrLen);
+#endif
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
                                        int*               flags);
@@ -453,27 +477,49 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
 static ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
                                 ERL_NIF_TERM eBool,
                                 BOOLEAN_T*   bool);
+static ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
+                                         struct addrinfo* addrInfo);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
-                                        struct addrinfo* addrInfo);
+                                        struct addrinfo* addrInfoP);
 static unsigned int address_info_length(struct addrinfo* addrInfoP);
 
-static ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
-                                      struct addrinfo* addrInfoP);
-static ERL_NIF_TERM make_addrinfo_family(ErlNifEnv* env,
+static ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
                                          int        family);
-static ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
+static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                        int        socktype);
-static ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
+static ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
                                         int        proto);
-static ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
-                                       struct sockaddr* addrP,
-                                       SOCKLEN_T        addrLen);
 
+/* static ERL_NIF_TERM make_address_info(ErlNifEnv*       env, */
+/*                                       struct addrinfo* addrInfoP); */
+/* static ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env, */
+/*                                        struct sockaddr* addrP, */
+/*                                        SOCKLEN_T        addrLen); */
+
+static ERL_NIF_TERM make_in4_sockaddr(ErlNifEnv*   env,
+                                      ERL_NIF_TERM port,
+                                      ERL_NIF_TERM addr);
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static ERL_NIF_TERM make_in6_sockaddr(ErlNifEnv*   env,
+                                          ERL_NIF_TERM port,
+                                          ERL_NIF_TERM addr,
+                                          ERL_NIF_TERM flowInfo,
+                                          ERL_NIF_TERM scopeId);
+#endif
+static ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
+                                      ERL_NIF_TERM fam,
+                                      ERL_NIF_TERM sockType,
+                                      ERL_NIF_TERM proto,
+                                      ERL_NIF_TERM addr);
 static ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM val);
 // static ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2);
 static ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 static ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason);
 static ERL_NIF_TERM make_error2(ErlNifEnv* env, int err);
+
+#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
+static size_t my_strnlen(const char *s, size_t maxlen);
+#endif
 
 static void dbg_printf( const char* format, ... );
 static int  dbg_realtime(struct timespec* tsP);
@@ -522,9 +568,12 @@ static char str_false[]                     = "false";
 static char str_idn[]                       = "idn";
 static char str_idna_allow_unassigned[]     = "idna_allow_unassigned";
 static char str_idna_use_std3_ascii_rules[] = "idna_use_std3_ascii_rules";
+static char str_in4_sockaddr[]              = "in4_sockaddr";
+static char str_in6_sockaddr[]              = "in6_sockaddr";
 static char str_inet[]                      = "inet";
 static char str_inet6[]                     = "inet6";
 static char str_ip[]                        = "ip";
+static char str_ipv6[]                      = "ipv6";
 static char str_namereqd[]                  = "namereqd";
 static char str_name_info[]                 = "name_info";
 static char str_nofqdn[]                    = "nofqdn";
@@ -585,9 +634,12 @@ static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_idn;
 static ERL_NIF_TERM atom_idna_allow_unassigned;
 static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
+static ERL_NIF_TERM atom_in4_sockaddr;
+static ERL_NIF_TERM atom_in6_sockaddr;
 static ERL_NIF_TERM atom_inet;
 static ERL_NIF_TERM atom_inet6;
 static ERL_NIF_TERM atom_ip;
+static ERL_NIF_TERM atom_ipv6;
 static ERL_NIF_TERM atom_namereqd;
 static ERL_NIF_TERM atom_name_info;
 static ERL_NIF_TERM atom_nofqdn;
@@ -1009,9 +1061,9 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     // eHints    = argv[2];
 
     NDBG( ("nif_getaddrinfo -> "
-           "\r\n   Host:    %T"
-           "\r\n   Service: %T"
-           "\r\n   Hints:   %T"
+           "\r\n   ehost:    %T"
+           "\r\n   eservice: %T"
+           "\r\n   ehints:   %T"
            "\r\n", argv[0], argv[1], argv[2]) );
 
     if (!decode_addrinfo_string(env, eHostName, &hostName))
@@ -1071,7 +1123,7 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
     switch (res) {
     case 0:
         {
-            ERL_NIF_TERM addrInfo = encode_address_info(env, addrInfoP);
+            ERL_NIF_TERM addrInfo = encode_address_infos(env, addrInfoP);
             freeaddrinfo(addrInfoP);
             result = make_ok2(env, addrInfo);
         }
@@ -1454,14 +1506,14 @@ BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
 
     /* And finally initialize the sockaddr structure (and size) */
     sys_memzero((char*)saP, sizeof(struct sockaddr_in));
-    saP->in.sin_family = AF_INET;
-    saP->in.sin_port   = htons(port);
+    saP->in4.sin_family = AF_INET;
+    saP->in4.sin_port   = htons(port);
     for (a = 0; a < 4; a++) {
         if (!GET_INT(env, ipAddrT[a], &v))
             return FALSE;
         addr[a] = v;
     }
-    sys_memcpy(&saP->in.sin_addr, &addr, sizeof(addr));
+    sys_memcpy(&saP->in4.sin_addr, &addr, sizeof(addr));
     *saLen = sizeof(struct sockaddr_in);
     return TRUE;
 }
@@ -1547,6 +1599,168 @@ BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
     *saLen = sizeof(struct sockaddr_in6);
 
     return TRUE;
+}
+#endif
+
+
+
+static
+ERL_NIF_TERM encode_in_sockaddr(ErlNifEnv*       env,
+                                struct sockaddr* addrP,
+                                SOCKLEN_T        addrLen)
+{
+    SockAddress* sockAddrP = (SockAddress*) addrP;
+    ERL_NIF_TERM sockAddr;
+
+    switch (sockAddrP->sa.sa_family) {
+    case AF_INET:
+        sockAddr = encode_in4_sockaddr(env, &sockAddrP->in4, addrLen);
+        break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case AF_INET6:
+        sockAddr = encode_in6_sockaddr(env, &sockAddrP->in6, addrLen);
+        break;
+#endif
+
+#ifdef HAVE_SYS_UN_H
+    case AF_UNIX:
+        sockAddr = encode_un_sockaddr(env, &sockAddrP->un, addrLen);
+        break;
+#endif
+
+    default:
+        sockAddr = atom_undefined;
+        break;
+    }
+
+    return sockAddr;
+}
+
+
+
+/* Encode an IPv4 socket address; in4_sockaddr */
+static
+ERL_NIF_TERM encode_in4_sockaddr(ErlNifEnv*          env,
+                                 struct sockaddr_in* addrP,
+                                 SOCKLEN_T           addrLen)
+{
+    ERL_NIF_TERM sockAddr;
+    short        port;
+    ERL_NIF_TERM ePort, eAddr;
+    
+
+    if (addrLen >= sizeof(struct sockaddr_in)) {
+        unsigned int   i;
+        ERL_NIF_TERM   at[4];
+        unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
+        unsigned char* a     = (unsigned char*) &addrP->sin_addr;
+
+        /* The port */
+        port  = ntohs(addrP->sin_port);
+        ePort = MKI(env, port);
+
+        /* The address */
+        for (i = 0; i < atLen; i++) {
+            at[i] = MKI(env, a[i]);
+        }
+        eAddr = MKTA(env, at, atLen);
+        // eAddr = MKT4(env, at[0], at[1], at[2], at[3]);
+
+        /* And finally construct the in4_sockaddr record */
+        sockAddr = make_in4_sockaddr(env, ePort, eAddr);
+
+    } else {
+        sockAddr = atom_undefined;
+    }
+
+    return sockAddr;
+}
+
+
+
+/* Encode an IPv6 socket address; in6_sockaddr */
+#if defined(HAVE_IN6) && defined(AF_INET6)
+static
+ERL_NIF_TERM encode_in6_sockaddr(ErlNifEnv*           env,
+                                 struct sockaddr_in6* addrP,
+                                 SOCKLEN_T            addrLen)
+{
+    ERL_NIF_TERM sockAddr;
+    short        port;
+    ERL_NIF_TERM ePort, eAddr, eFlowInfo, eScopeId;
+    
+
+    if (addrLen >= sizeof(struct sockaddr_in6)) {
+        unsigned int   i;
+        ERL_NIF_TERM   at[8];
+        unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
+        unsigned char* a     = (unsigned char*) &addrP->sin6_addr;
+
+        /* The port */
+        port  = ntohs(addrP->sin6_port);
+        ePort = MKI(env, port);
+
+        /* The address */
+        for (i = 0; i < atLen; i++) {
+            at[i] = MKI(env, get_int16(a + i*2));
+        }
+        eAddr = MKTA(env, at, atLen);
+
+        /* The flowInfo */
+        eFlowInfo = MKI(env, addrP->sin6_flowinfo);
+
+        /* The scopeId */
+        eScopeId = MKI(env, addrP->sin6_scope_id);
+        
+        /* And finally construct the in6_sockaddr record */
+        sockAddr = make_in6_sockaddr(env, ePort, eAddr, eFlowInfo, eScopeId);
+
+    } else {
+        sockAddr = atom_undefined;
+    }
+
+    return sockAddr;
+}
+#endif
+
+
+
+/* Encode an Unix Domain socket address: string() */
+#ifdef HAVE_SYS_UN_H
+static
+ERL_NIF_TERM encode_un_sockaddr(ErlNifEnv*          env,
+                                struct sockaddr_un* addrP,
+                                SOCKLEN_T           addrLen)
+{
+    ERL_NIF_TERM sockAddr;
+    size_t       n, m;
+
+    if (addrLen >= offsetof(struct sockaddr_un, sun_path)) {
+        n = addrLen - offsetof(struct sockaddr_un, sun_path);
+        if (255 < n) {
+            sockAddr = atom_undefined;
+        } else {
+            m = my_strnlen(addrP->sun_path, n);
+#ifdef __linux__
+            /* Assume that the address is a zero terminated string,
+             * except when the first byte is \0 i.e the string length is 0,
+             * then use the reported length instead.
+             * This fix handles Linux's nonportable
+             * abstract socket address extension.
+             */
+            if (m == 0) {
+                m = n;
+            }
+#endif
+            
+            sockAddr = MKSL(env, addrP->sun_path, m);
+        }
+    } else {
+        sockAddr = atom_undefined;
+    }
+
+    return sockAddr;
 }
 #endif
 
@@ -1710,13 +1924,13 @@ ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
  * will result in the result being a list of zero or more length.
  */
 static
-ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
-                                 struct addrinfo* addrInfo)
+ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
+                                  struct addrinfo* addrInfo)
 {
     ERL_NIF_TERM result;
     unsigned int len = address_info_length(addrInfo);
 
-    NDBG( ("encode_address_info -> len: %d\r\n", len) );
+    NDBG( ("encode_address_infos -> len: %d\r\n", len) );
 
     if (len > 0) {
         ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM));
@@ -1724,22 +1938,17 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
         struct addrinfo* p     = addrInfo;
 
         while (i < len) {
-            array[i] = make_address_info(env, p);
+            array[i] = encode_address_info(env, p);
             p = p->ai_next;
             i++;
         }
-        /*
-        for (i = 0; i < len; i++) {
-            array[i] = make_address_info(env, &addrInfo[i]);
-        }
-        */
 
         result = MKLA(env, array, len);
     } else {
         result = MKEL(env);
     }
 
-    NDBG( ("encode_address_info -> result: "
+    NDBG( ("encode_address_infos -> result: "
            "\r\n   %T\r\n", result) );
 
     return result;
@@ -1780,28 +1989,17 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
  * {address_info, Fam, Type, Proto, Addr}
  */
 static
-ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
-                               struct addrinfo* addrInfoP)
+ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
+                                 struct addrinfo* addrInfoP)
 {
     ERL_NIF_TERM result, fam, type, proto, addr;
 
-    fam   = make_addrinfo_family(env, addrInfoP->ai_family);
-    // NDBG( ("make_address_info -> fam: %T\r\n", fam) );
-    type  = make_addrinfo_type(env,   addrInfoP->ai_socktype);
-    // NDBG( ("make_address_info -> type: %T\r\n", type) );
-    proto = make_addrinfo_proto(env,  addrInfoP->ai_protocol);
-    // NDBG( ("make_address_info -> proto: %T\r\n", proto) );
-    addr  = make_addrinfo_addr(env,
-                               addrInfoP->ai_addr,
-                               addrInfoP->ai_addrlen);
-    // NDBG( ("make_address_info -> addr: %T\r\n", addr) );
+    fam   = encode_address_info_family(env, addrInfoP->ai_family);
+    type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
+    proto = encode_address_info_proto(env,  addrInfoP->ai_protocol);
+    addr  = encode_in_sockaddr(env, addrInfoP->ai_addr, addrInfoP->ai_addrlen);
     
-    result = MKT5(env, atom_address_info, fam, type, proto, addr);
-
-    /*
-    NDBG( ("make_address_info -> result: "
-           "\r\n   %T\r\n", result) );
-    */
+    result = make_address_info(env, fam, type, proto, addr);
 
     return result;
 
@@ -1814,23 +2012,29 @@ ERL_NIF_TERM make_address_info(ErlNifEnv*       env,
  * in the form of an integer.
  */
 static
-ERL_NIF_TERM make_addrinfo_family(ErlNifEnv* env,
-                                  int        family)
+ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
+                                        int        family)
 {
     ERL_NIF_TERM efam;
 
     switch (family) {
     case AF_INET:
-        efam = atom_inet;
+        efam = esock_atom_inet;
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
     case AF_INET6:
-        efam = atom_inet6;
+        efam = esock_atom_inet6;
         break;
 #endif
 
-    default:
+ #ifdef HAVE_SYS_UN_H
+    case AF_UNIX:
+        efam = esock_atom_local;
+        break;
+#endif
+
+   default:
         efam = MKI(env, family);
         break;
     }
@@ -1846,8 +2050,8 @@ ERL_NIF_TERM make_addrinfo_family(ErlNifEnv* env,
  * in the form of an integer.
  */
 static
-ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
-                                int        socktype)
+ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
+                                      int        socktype)
 {
     ERL_NIF_TERM etype;
 
@@ -1872,10 +2076,6 @@ ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
         etype = atom_seqpacket;
         break;
 
-    case SOCK_DCCP:
-        etype = atom_dccp;
-        break;
-
     default:
         etype = MKI(env, socktype);
         break;
@@ -1892,8 +2092,8 @@ ERL_NIF_TERM make_addrinfo_type(ErlNifEnv* env,
  * in the form of an integer.
  */
 static
-ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
-                                 int        proto)
+ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
+                                       int        proto)
 {
     ERL_NIF_TERM eproto;
 
@@ -1906,6 +2106,12 @@ ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
         eproto = atom_ip;
         break;
 
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        eproto = atom_ipv6;
+        break;
+#endif
+
     case IPPROTO_TCP:
         eproto = atom_tcp;
         break;
@@ -1913,6 +2119,12 @@ ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
     case IPPROTO_UDP:
         eproto = atom_udp;
         break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        eproto = atom_sctp;
+        break;
+#endif
 
     default:
         eproto = MKI(env, proto);
@@ -1929,15 +2141,16 @@ ERL_NIF_TERM make_addrinfo_proto(ErlNifEnv* env,
  * IPv4 and IPv6 addresses. Values of other families will be
  * returned as an undefined.
  */
+/*
 static
-ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
-                                struct sockaddr* addrP,
-                                SOCKLEN_T        addrLen)
+ERL_NIF_TERM encode_address_info_addr(ErlNifEnv*       env,
+                                      struct sockaddr* addrP,
+                                      SOCKLEN_T        addrLen)
 {
     ERL_NIF_TERM port, addr, eaddr;
     SockAddress* p = (SockAddress*) addrP;
 
-    NDBG( ("make_addrinfo_addr -> entry with"
+    NDBG( ("encode_address_info_addr -> entry with"
            "\r\n   family:  %d"
            "\r\n   addrLen: %d"
            "\r\n", addrP->sa_family, addrLen) );
@@ -1984,6 +2197,57 @@ ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env,
            "\r\n   %T\r\n", eaddr) );
 
     return eaddr;
+}
+*/
+
+    
+
+#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
+/* strnlen doesn't exist everywhere */
+static
+size_t my_strnlen(const char *s, size_t maxlen)
+{
+    size_t i = 0;
+    while (i < maxlen && s[i] != '\0')
+        i++;
+    return i;
+}
+#endif
+
+
+
+/* Construct the IPv4 socket address record: in4_sockaddr */
+static
+ERL_NIF_TERM make_in4_sockaddr(ErlNifEnv*   env,
+                               ERL_NIF_TERM port,
+                               ERL_NIF_TERM addr)
+{
+    return MKT3(env, atom_in4_sockaddr, port, addr);
+}
+
+
+
+/* Construct the IPv6 socket address record: in6_sockaddr */
+static
+ERL_NIF_TERM make_in6_sockaddr(ErlNifEnv*   env,
+                               ERL_NIF_TERM port,
+                               ERL_NIF_TERM addr,
+                               ERL_NIF_TERM flowInfo,
+                               ERL_NIF_TERM scopeId)
+{
+    return MKT5(env, atom_in6_sockaddr, port, addr, flowInfo, scopeId);
+}
+
+
+
+static
+ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
+                               ERL_NIF_TERM fam,
+                               ERL_NIF_TERM sockType,
+                               ERL_NIF_TERM proto,
+                               ERL_NIF_TERM addr)
+{
+    return MKT5(env, atom_address_info, fam, sockType, proto, addr);
 }
 
 
@@ -2248,9 +2512,12 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_idn                       = MKA(env, str_idn);
     atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
     atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
+    atom_in4_sockaddr              = MKA(env, str_in4_sockaddr);
+    atom_in6_sockaddr              = MKA(env, str_in6_sockaddr);
     atom_inet                      = MKA(env, str_inet);
     atom_inet6                     = MKA(env, str_inet6);
     atom_ip                        = MKA(env, str_ip);
+    atom_ipv6                      = MKA(env, str_ipv6);
     atom_namereqd                  = MKA(env, str_namereqd);
     atom_name_info                 = MKA(env, str_name_info);
     atom_nofqdn                    = MKA(env, str_nofqdn);

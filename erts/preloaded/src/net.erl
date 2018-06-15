@@ -30,7 +30,7 @@
 -export([
          gethostname/0,
          getnameinfo/1, getnameinfo/2,
-         getaddrinfo/2,
+         getaddrinfo/1, getaddrinfo/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -46,14 +46,6 @@
 	 sleep/1]).
 
 -export_type([
-              ip_address/0,
-              ip4_address/0,
-              ip6_address/0,
-              in_sockaddr/0,
-              in4_sockaddr/0,
-              in6_sockaddr/0,
-              port_number/0,
-
               address_info/0,
               name_info/0,
 
@@ -66,35 +58,6 @@
              ]).
 
 
-%% Many of these should be moved to the socket module.
--type ip_address()  :: ip4_address() | ip6_address().
--type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
--type ip6_address() ::
-           {0..65535,
-            0..65535,
-            0..65535,
-            0..65535,
-            0..65535,
-            0..65535,
-            0..65535,
-            0..65535}.
--type uint20()        :: 0..16#FFFFF.
--type uint32()        :: 0..16#FFFFFFFF.
--type in6_flow_info() :: uint20().
--type in6_scope_id()  :: uint32().
--record(in4_sockaddr, {port = 0   :: port_number(),
-                       addr = any :: any | loopback | ip4_address()}).
--type in4_sockaddr() :: #in4_sockaddr{}.
--record(in6_sockaddr, {port     = 0   :: port_number(),
-                       addr     = any :: any | loopback | ip6_address(),
-                       flowinfo = 0   :: in6_flow_info(),
-                       scope_id = 0   :: in6_scope_id()}).
--type in6_sockaddr() :: #in6_sockaddr{}.
-
--type in_sockaddr() :: in4_sockaddr() | in6_sockaddr().
-
--type port_number() :: 0..65535.
-
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
                                    dgram |
@@ -104,10 +67,19 @@
 -type name_info_flag_ext()      :: idn |
                                    idna_allow_unassigned |
                                    idna_use_std3_ascii_rules.
--record(name_info,    {host, service}).
--type name_info()               :: #name_info{}.
--record(address_info, {family, socktype, protocol, addr}).
--type address_info()            :: #address_info{}.
+-type name_info()               :: #{host    := string(),
+                                     service := string()}.
+%% -record(name_info,    {host, service}).
+%% -type name_info()               :: #name_info{}.
+-type address_info()            :: #{family   := socket:domain(),
+                                     socktype := socket:type(),
+                                     protocol := socket:protocol(),
+                                     address  := socket:sockaddr()}.
+%% -record(address_info, {family   :: socket:domain(),
+%%                        socktype :: socket:type(),
+%%                        protocol :: socket:protocol(),
+%%                        addr     :: undefined | socket:in_sockaddr() | string()}).
+%% -type address_info()            :: #address_info{}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -199,28 +171,29 @@ gethostname() ->
 %%
 
 -spec getnameinfo(SockAddr) -> {ok, Info} | {error, Reason} when
-      SockAddr :: in_sockaddr(),
+      SockAddr :: socket:sockaddr(),
       Info     :: name_info(),
       Reason   :: term().
 
-getnameinfo(SockAddr)
-  when is_record(SockAddr, in4_sockaddr) orelse
-       is_record(SockAddr, in6_sockaddr) ->
+getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
-      SockAddr :: in_sockaddr(),
+      SockAddr :: socket:sockaddr(),
       Flags    :: name_info_flags() | undefined,
       Info     :: name_info(),
       Reason   :: term().
 
 getnameinfo(SockAddr, [] = _Flags) ->
     getnameinfo(SockAddr, undefined);
-getnameinfo(SockAddr, Flags)
-  when (is_record(SockAddr, in4_sockaddr) orelse
-        is_record(SockAddr, in6_sockaddr)) andalso
+getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
        (is_list(Flags) orelse (Flags =:= undefined)) ->
+    nif_getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
+getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
+  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
     nif_getnameinfo(SockAddr, Flags).
+
 
 
 %% ===========================================================================
@@ -229,8 +202,20 @@ getnameinfo(SockAddr, Flags)
 %%
 %% There is also a "hint" argument that we "at some point" should implement.
 
--spec getaddrinfo(Host, Service) -> {ok, Info} | {error, Reason} when
+-spec getaddrinfo(Host) -> {ok, Info} | {error, Reason} when
       Host    :: string(),
+      Info    :: [address_info()],
+      Reason  :: term().
+
+getaddrinfo(Host) when is_list(Host) ->
+    getaddrinfo(Host, undefined).
+
+
+-spec getaddrinfo(Host, undefined) -> {ok, Info} | {error, Reason} when
+      Host    :: string(),
+      Info    :: [address_info()],
+      Reason  :: term()
+                 ; (undefined, Service) -> {ok, Info} | {error, Reason} when
       Service :: string(),
       Info    :: [address_info()],
       Reason  :: term().

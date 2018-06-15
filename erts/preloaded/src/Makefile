@@ -36,11 +36,11 @@ include $(ERL_TOP)/lib/kernel/vsn.mk
 PRE_LOADED_ERL_MODULES = \
 	erl_prim_loader \
 	init \
-	net \
 	prim_buffer \
 	prim_file \
 	prim_inet \
 	socket \
+	net \
 	zlib \
 	prim_zip \
 	otp_ring0 \

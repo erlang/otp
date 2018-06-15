@@ -25,7 +25,8 @@
 %% Administrative and "global" utility functions
 -export([
 	 on_load/0, on_load/1, on_load/2,
-	 info/0
+	 info/0,
+         ensure_sockaddr/1
         ]).
 
 -export([
@@ -58,13 +59,14 @@
               protocol/0,
               socket/0,
 
+              port_number/0,
               ip_address/0,
               ip4_address/0,
               ip6_address/0,
-              in_sockaddr/0,
-              in4_sockaddr/0,
-              in6_sockaddr/0,
-              port_number/0,
+              sockaddr/0,
+              sockaddr_in4/0,
+              sockaddr_in6/0,
+              sockaddr_un/0,
 
               accept_flags/0,
               accept_flag/0,
@@ -95,6 +97,8 @@
 %% We support only a subset of all protocols:
 -type protocol() :: ip | tcp | udp | sctp.
 
+-type port_number() :: 0..65535.
+
 -type ip_address() :: ip4_address() | ip6_address().
 
 -type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
@@ -115,22 +119,39 @@
             0..65535}.
 
 %% <KOLLA>
+%%
 %% Should we do these as maps instead?
 %% If we do we may need to include the family (domain) in the
 %% map (as the native type do. See struct sockaddr_in6).
+%%
+%% What about default values? Such as for port (=0) and addr (=any)?
+%%
 %% </KOLLA>
--type in_sockaddr() :: in4_sockaddr() | in6_sockaddr().
 
--record(in4_sockaddr, {port = 0   :: port_number(),
-                       addr = any :: any | loopback | ip4_address()}).
--type in4_sockaddr() :: #in4_sockaddr{}.
--record(in6_sockaddr, {port     = 0   :: port_number(),
-                       addr     = any :: any | loopback | ip6_address(),
-                       flowinfo = 0   :: in6_flow_info(),
-                       scope_id = 0   :: in6_scope_id()}).
--type in6_sockaddr() :: #in6_sockaddr{}.
+-type sockaddr_un()  :: #{family := local,
+                          path   := binary() | string()}.
+-type sockaddr_in4() :: #{family := inet,
+                          port   := port_number(),
+                          addr   := any | loopback | ip4_address()}.
+-type sockaddr_in6() :: #{family   := inet6,
+                          port     := port_number(),
+                          addr     := any | loopback | ip6_address(),
+                          flowinfo := in6_flow_info(),
+                          scope_id := in6_scope_id()}.
+-type sockaddr() :: sockaddr_in4() |
+                    sockaddr_in6() |
+                    sockaddr_un().
 
--type port_number() :: 0..65535.
+-define(SOCKADDR_IN4_DEFAULTS(A), #{port => 0,
+                                    addr => A}).
+-define(SOCKADDR_IN4_DEFAULTS,    ?SOCKADDR_IN4_DEFAULTS(any)).
+-define(SOCKADDR_IN4_DEFAULT(A),  (?SOCKADDR_IN4_DEFAULTS(A))#{family => inet}).
+-define(SOCKADDR_IN6_DEFAULTS(A), #{port     => 0,
+                                    addr     => A,
+                                    flowinfo => 0, 
+                                    scope_id => 0}).
+-define(SOCKADDR_IN6_DEFAULTS,    ?SOCKADDR_IN6_DEFAULTS(any)).
+-define(SOCKADDR_IN6_DEFAULT(A),  (?SOCKADDR_IN6_DEFAULTS(A))#{family => inet6}).
 
 %% otp    - The option is internal to our (OTP) imeplementation.
 %% socket - The socket layer (SOL_SOCKET).
@@ -651,40 +672,61 @@ default_protocol(Protocol, _)     -> Protocol.
 %% bind - bind a name to a socket
 %%
 
--spec bind(Socket, FileOrAddr) -> ok | {error, Reason} when
-      Socket     :: socket(),
-      FileOrAddr :: binary() | string() | in_sockaddr() | any | loopback,
-      Reason     :: term().
+-spec bind(Socket, Addr) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Addr   :: any | loopback | sockaddr(),
+      Reason :: term().
 
-bind(Socket, File) when is_binary(File) ->
-    if
-        byte_size(File) =:= 0 ->
-            {error, einval};
-        byte_size(File) =< 255 ->
-            nif_bind(Socket, File);
-        true ->
-            {error, einval}
-    end;
-bind(Socket, File) when is_list(File) andalso (File =/= []) ->
-    Bin = unicode:characters_to_binary(File, file:native_name_encoding()),
-    if
-        byte_size(Bin) =< 255 ->
-            nif_bind(Socket, Bin);
-        true ->
-            {error, einval}
-    end;
 bind(#socket{info = #{domain := inet}} = Socket, Addr) 
   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    bind(Socket, #in4_sockaddr{addr = Addr});
+    bind(Socket, ?SOCKADDR_IN4_DEFAULT(Addr));
 bind(#socket{info = #{domain := inet6}} = Socket, Addr) 
   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    bind(Socket, #in6_sockaddr{addr = Addr});
-bind(#socket{info = #{domain := inet}, ref = SockRef} = _Socket, SockAddr) 
-  when is_record(SockAddr, in4_sockaddr) ->
-    nif_bind(SockRef, SockAddr);
-bind(#socket{info = #{domain := inet6}, ref = SockRef} = _Socket, SockAddr) 
-  when is_record(SockAddr, in6_sockaddr) ->
-    nif_bind(SockRef, SockAddr).
+    bind(Socket, ?SOCKADDR_IN6_DEFAULT(Addr));
+bind(Socket, Addr) ->
+    try
+        begin
+            nif_bind(Socket, ensure_sockaddr(Addr))
+        end
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
+
+%% -spec bind(Socket, FileOrAddr) -> ok | {error, Reason} when
+%%       Socket     :: socket(),
+%%       FileOrAddr :: binary() | string() | in_sockaddr() | any | loopback,
+%%       Reason     :: term().
+
+%% bind(Socket, File) when is_binary(File) ->
+%%     if
+%%         byte_size(File) =:= 0 ->
+%%             {error, einval};
+%%         byte_size(File) =< 255 ->
+%%             nif_bind(Socket, File);
+%%         true ->
+%%             {error, einval}
+%%     end;
+%% bind(Socket, File) when is_list(File) andalso (File =/= []) ->
+%%     Bin = unicode:characters_to_binary(File, file:native_name_encoding()),
+%%     if
+%%         byte_size(Bin) =< 255 ->
+%%             nif_bind(Socket, Bin);
+%%         true ->
+%%             {error, einval}
+%%     end;
+%% bind(#socket{info = #{domain := inet}} = Socket, Addr) 
+%%   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
+%%     bind(Socket, #in4_sockaddr{addr = Addr});
+%% bind(#socket{info = #{domain := inet6}} = Socket, Addr) 
+%%   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
+%%     bind(Socket, #in6_sockaddr{addr = Addr});
+%% bind(#socket{info = #{domain := inet}, ref = SockRef} = _Socket, SockAddr) 
+%%   when is_record(SockAddr, in4_sockaddr) ->
+%%     nif_bind(SockRef, SockAddr);
+%% bind(#socket{info = #{domain := inet6}, ref = SockRef} = _Socket, SockAddr) 
+%%   when is_record(SockAddr, in6_sockaddr) ->
+%%     nif_bind(SockRef, SockAddr).
 
 
 
@@ -695,7 +737,7 @@ bind(#socket{info = #{domain := inet6}, ref = SockRef} = _Socket, SockAddr)
 
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
       Socket   :: socket(),
-      SockAddr :: in_sockaddr(),
+      SockAddr :: sockaddr(),
       Reason   :: term().
 
 connect(Socket, SockAddr) ->
@@ -703,16 +745,15 @@ connect(Socket, SockAddr) ->
 
 -spec connect(Socket, SockAddr, Timeout) -> ok | {error, Reason} when
       Socket   :: socket(),
-      SockAddr :: in_sockaddr(),
+      SockAddr :: sockaddr(),
       Timeout  :: timeout(),
       Reason   :: term().
 
 connect(_Socket, _SockAddr, Timeout)
   when (is_integer(Timeout) andalso (Timeout =< 0)) ->
     {error, timeout};
-connect(#socket{ref = SockRef}, SockAddr, Timeout)
-  when (is_record(SockAddr, in4_sockaddr) orelse 
-        is_record(SockAddr, in6_sockaddr)) andalso
+connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
+  when ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso
        ((Timeout =:= infinity) orelse is_integer(Timeout)) ->
     TS = timestamp(Timeout),
     case nif_connect(SockRef, SockAddr) of
@@ -917,35 +958,40 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 %% ---------------------------------------------------------------------------
 %%
 
-sendto(Socket, Data, Flags, DestSockAddr) ->
-    sendto(Socket, Data, Flags, DestSockAddr, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
+sendto(Socket, Data, Flags, Dest) ->
+    sendto(Socket, Data, Flags, Dest, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
 
--spec sendto(Socket, Data, Flags, DestSockAddr, Timeout) ->
+-spec sendto(Socket, Data, Flags, Dest, Timeout) ->
                     ok | {error, Reason} when
-      Socket       :: socket(),
-      Data         :: binary(),
-      Flags        :: send_flags(),
-      DestSockAddr :: null | in_sockaddr(),
-      Timeout      :: timeout(),
-      Reason       :: term().
+      Socket  :: socket(),
+      Data    :: binary(),
+      Flags   :: send_flags(),
+      Dest    :: null | sockaddr(),
+      Timeout :: timeout(),
+      Reason  :: term().
 
 sendto(Socket, Data, Flags, DestSockAddr, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Flags, DestSockAddr, Timeout);
-sendto(#socket{ref = SockRef}, Data, Flags, DestSockAddr, Timeout)
+sendto(#socket{ref = SockRef}, Data, Flags, Dest, Timeout)
   when is_binary(Data) andalso
        is_list(Flags) andalso
-       (is_record(DestSockAddr, in4_sockaddr) orelse 
-        is_record(DestSockAddr, in6_sockaddr) orelse
-        (DestSockAddr =:= null)) andalso
+       (Dest =:= null) andalso
        (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
     EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout).
+    do_sendto(SockRef, Data, EFlags, Dest, Timeout);
+sendto(#socket{ref = SockRef}, Data, Flags, #{family := Fam} = Dest, Timeout)
+  when is_binary(Data) andalso
+       is_list(Flags) andalso
+       ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
+       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+    EFlags = enc_send_flags(Flags),
+    do_sendto(SockRef, Data, EFlags, Dest, Timeout).
 
-do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout) ->
+do_sendto(SockRef, Data, EFlags, Dest, Timeout) ->
     TS      = timestamp(Timeout),
     SendRef = make_ref(),
-    case nif_sendto(SockRef, SendRef, Data, EFlags, DestSockAddr) of
+    case nif_sendto(SockRef, SendRef, Data, EFlags, Dest) of
         ok ->
             %% We are done
             ok;
@@ -955,10 +1001,10 @@ do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout) ->
             receive
                 {select, SockRef, SendRef, ready_output} when (Written > 0) ->
                     <<_:Written/binary, Rest/binary>> = Data,
-                    do_sendto(SockRef, Rest, EFlags, DestSockAddr,
+                    do_sendto(SockRef, Rest, EFlags, Dest,
                               next_timeout(TS, Timeout));
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, DestSockAddr,
+                    do_sendto(SockRef, Data, EFlags, Dest,
                               next_timeout(TS, Timeout));
 
                 {nif_abort, SendRef, Reason} ->
@@ -973,7 +1019,7 @@ do_sendto(SockRef, Data, EFlags, DestSockAddr, Timeout) ->
         {error, eagain} ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, DestSockAddr,
+                    do_sendto(SockRef, Data, EFlags, Dest,
                               next_timeout(TS, Timeout))
             after Timeout ->
                     nif_cancel(SockRef, sendto, SendRef),
@@ -1256,7 +1302,7 @@ recvfrom(Socket, BufSz, Timeout) ->
       BufSz     :: non_neg_integer(),
       Flags     :: recv_flags(),
       Timeout   :: timeout(),
-      Source    :: in_sockaddr() | string() | undefined,
+      Source    :: sockaddr() | undefined,
       Data      :: binary(),
       Reason    :: term().
 
@@ -2061,6 +2107,26 @@ enc_shutdown_how(read_write) ->
 %%
 %% ===========================================================================
 
+ensure_sockaddr(#{family := inet} = SockAddr) ->
+    maps:merge(?SOCKADDR_IN4_DEFAULTS, SockAddr);
+ensure_sockaddr(#{family := inet6} = SockAddr) ->
+    maps:merge(?SOCKADDR_IN6_DEFAULTS, SockAddr);
+ensure_sockaddr(#{family := local, path := Path} = SockAddr) 
+  when is_list(Path) andalso 
+       (length(Path) > 0) andalso 
+       (length(Path) =< 255) ->
+    BinPath = unicode:characters_to_binary(Path, file:native_name_encoding()),
+    ensure_sockaddr(SockAddr#{path => BinPath});
+ensure_sockaddr(#{family := local, path := Path} = SockAddr) 
+  when is_binary(Path) andalso 
+       (byte_size(Path) > 0) andalso 
+       (byte_size(Path) =< 255) ->
+    SockAddr;
+ensure_sockaddr(_SockAddr) ->
+    einval().
+
+
+
 flush_select_msgs(LSRef, Ref) ->
     receive
         {select, LSRef, Ref, _} ->
@@ -2135,6 +2201,9 @@ not_supported(What) ->
 
 unknown(What) ->
     error({unknown, What}).
+
+einval() ->
+    error(einval).
 
 error(Reason) ->
     throw({error, Reason}).

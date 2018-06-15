@@ -637,12 +637,12 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/net.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/net.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
@@ -863,7 +863,7 @@ RUN_OBJS += \
 	$(OBJDIR)/register.o		$(OBJDIR)/break.o \
 	$(OBJDIR)/erl_async.o		$(OBJDIR)/erl_lock_check.o \
 	$(OBJDIR)/erl_gc.o 		$(OBJDIR)/erl_lock_count.o \
-	$(OBJDIR)/erl_posix_str.o	 \
+	$(OBJDIR)/erl_posix_str.o	\
 	$(OBJDIR)/erl_bits.o 		$(OBJDIR)/erl_math.o \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
@@ -877,7 +877,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
-	$(OBJDIR)/erl_io_queue.o
+	$(OBJDIR)/erl_io_queue.o        \
+	$(OBJDIR)/socket_dbg.o		$(OBJDIR)/socket_util.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \
