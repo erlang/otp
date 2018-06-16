@@ -19,6 +19,9 @@
 # %CopyrightEnd%
 #
 
+# Make sure CDPATH doesn't affect cd in case path is relative.
+unset CDPATH
+
 # Global configuration variables
 #
 # NOTE: lazy_configure depends on '.' always being last directory
