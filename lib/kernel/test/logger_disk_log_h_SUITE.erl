@@ -1551,25 +1551,30 @@ h_proc_name() ->
 h_proc_name(Name) ->
     list_to_atom(lists:concat([logger_disk_log_h,"_",Name])).
 
-file_delete(Log) ->
-   file:delete(Log).
-
 wait_for_process_up(T) ->
-    wait_for_process_up(h_proc_name(),T).
+    wait_for_process_up(?MODULE, h_proc_name(), T).
 
-wait_for_process_up(Name,T) ->
+wait_for_process_up(Name, RegName, T) ->
     N = (T div 500) + 1,
-    wait_for_process_up1(Name,N).
+    wait_for_process_up1(Name, RegName, N).
 
-wait_for_process_up1(Name,0) ->
+wait_for_process_up1(_Name, _RegName, 0) ->
     error;
-wait_for_process_up1(Name,N) ->
+wait_for_process_up1(Name, RegName, N) ->
     timer:sleep(500),
-    case whereis(Name) of
+    case whereis(RegName) of
         Pid when is_pid(Pid) ->
-            %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
-            {ok,Pid};
+            case logger:get_handler_config(Name) of
+                {ok,_} ->
+                    %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
+                    {ok,Pid};
+                _ ->
+                    wait_for_process_up1(Name, RegName, N-1)
+            end;
         undefined ->
             %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
-            wait_for_process_up1(Name,N-1)
+            wait_for_process_up1(Name, RegName, N-1)
     end.
+
+file_delete(Log) ->
+   file:delete(Log).
