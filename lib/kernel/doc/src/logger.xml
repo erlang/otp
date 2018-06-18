@@ -290,13 +290,16 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <item><c>?LOG_INFO(FunOrFormat,Args[,Metadata])</c></item>
       <item><c>?LOG_DEBUG(StringOrReport[,Metadata])</c></item>
       <item><c>?LOG_DEBUG(FunOrFormat,Args[,Metadata])</c></item>
+      <item><c>?LOG(Level,StringOrReport[,Metadata])</c></item>
+      <item><c>?LOG(Level,FunOrFormat,Args[,Metadata])</c></item>
     </list>
 
     <p>All macros expand to a call to Logger, where <c>Level</c> is
-      taken from the macro name, and location data is added to the
-      metadata. See the description of
+      taken from the macro name, or from the first argument in the
+      case of the <c>?LOG</c> macro. Location data is added to the
+      metadata as described under
       the <seealso marker="#type-metadata"><c>metadata()</c></seealso>
-      type for more information about the location data.</p>
+      type definition.</p>
 
     <p>The call is wrapped in a case statement and will be evaluated
       only if <c>Level</c> is equal to or below the configured log

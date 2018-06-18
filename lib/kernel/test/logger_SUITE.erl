@@ -355,6 +355,7 @@ log_all_levels_api(cleanup,_Config) ->
 macros(_Config) ->
     ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     test_macros(emergency),
+    test_log_macro(alert),
     ok.
 
 macros(cleanup,_Config) ->
@@ -1005,6 +1006,34 @@ test_macros(emergency=Level) ->
                       [{F1,x},{fun_to_bad}],#{}),
     F2=fun(x) -> erlang:error(fun_that_crashes) end,
     ?LOG_EMERGENCY(F2,x,#{}),
+    ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
+                      [{F2,x},{error,fun_that_crashes}],#{}),
+    ok.
+
+test_log_macro(Level) ->
+    ?LOG(Level,#{Level=>rep}),
+    ok = check_logged(Level,#{Level=>rep},?MY_LOC(1)),
+    ?LOG(Level,#{Level=>rep},#{my=>meta}),
+    ok = check_logged(Level,#{Level=>rep},(?MY_LOC(1))#{my=>meta}),
+    ?LOG(Level,"~w: ~w",[Level,fa]),
+    ok = check_logged(Level,"~w: ~w",[Level,fa],?MY_LOC(1)),
+    ?LOG(Level,"~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fa,meta],(?MY_LOC(1))#{my=>meta}),
+    ?LOG(Level,fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,
+                   x, #{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],
+                      (?MY_LOC(3))#{my=>meta}),
+    ?LOG(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end, x, #{my=>meta}),
+    ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},
+                      (?MY_LOC(2))#{my=>meta}),
+    ?LOG(Level,fun(x) -> <<"fun_to_s">> end,x,#{}),
+    ok = check_logged(Level,<<"fun_to_s">>,?MY_LOC(1)),
+    F1=fun(x) -> {fun_to_bad} end,
+    ?LOG(Level,F1,x,#{}),
+    ok = check_logged(Level,"LAZY_FUN ERROR: ~tp; Returned: ~tp",
+                      [{F1,x},{fun_to_bad}],#{}),
+    F2=fun(x) -> erlang:error(fun_that_crashes) end,
+    ?LOG(Level,F2,x,#{}),
     ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
                       [{F2,x},{error,fun_that_crashes}],#{}),
     ok.
