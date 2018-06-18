@@ -274,6 +274,31 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       </desc>
     </datatype>
     <datatype>
+      <name name="seed"/>
+      <desc>
+	<p>
+	  A seed value for the generator.
+	</p>
+	<p>
+	  A list of integers sets the generator's internal state directly,
+	  after algorithm-dependent checks of the value
+	  and masking to the proper word size.
+	</p>
+	<p>
+	  An integer is used as the initial state for a SplitMix64 generator.
+	  The output values of that is then used for setting
+	  the generator's internal state
+	  after masking to the proper word size
+	  and if needed avoiding zero values.
+	</p>
+	<p>
+	  A traditional 3-tuple of integers seed is passed through
+	  algorithm-dependent hashing functions to create
+	  the generator's initial state.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="exrop_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>

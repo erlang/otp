@@ -21,27 +21,7 @@
 -compile({nowarn_deprecated_function,[{random,seed,1},
                                       {random,uniform_s,1},
                                       {random,uniform_s,2}]}).
-
--export([all/0, suite/0, groups/0, group/1]).
-
--export([interval_int/1, interval_float/1, seed/1,
-         api_eq/1, reference/1,
-	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
-	 basic_stats_standard_normal/1,
-	 basic_stats_normal/1,
-         stats_standard_normal_box_muller/1,
-         stats_standard_normal_box_muller_2/1,
-         stats_standard_normal/1,
-         uniform_real_conv/1,
-	 plugin/1, measure/1,
-	 reference_jump_state/1, reference_jump_procdict/1,
-	 short_jump/1]).
-
--export([test/0, gen/1]).
-
--export([uniform_real_gen/1, uniform_gen/2]).
-
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -129,7 +109,7 @@ seed_1(Alg) ->
     S0 = get(rand_seed),
     S0 = rand:seed_s(Alg, {0, 0, 0}),
     %% Check that process_dict should not be used for seed_s functionality
-    _ = rand:seed_s(Alg, {1, 0, 0}),
+    _ = rand:seed_s(Alg, 4711),
     S0 = get(rand_seed),
     %% Test export
     ES0 = rand:export_seed(),
@@ -295,13 +275,13 @@ gen(Algo) ->
     State =
         if
             Algo =:= exs64 -> %% Printed with orig 'C' code and this seed
-                rand:seed_s({exs64, 12345678});
+                rand:seed_s(exs64, [12345678]);
             Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
                 %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, [12345678|12345678]});
+                rand:seed_s(Algo, [12345678,12345678]);
             Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
                 %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
+                rand:seed_s(Algo, lists:duplicate(16, 12345678));
             true ->
                 rand:seed(Algo, {100, 200, 300})
         end,
@@ -1187,11 +1167,11 @@ gen_jump_1(Algo) ->
 	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
 	    %% Printed with orig 'C' code and this seed
 	    gen_jump_2(
-	      rand:seed_s({Algo, [12345678|12345678]}));
+	      rand:seed_s(Algo, [12345678,12345678]));
 	_ when Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
 	    %% Printed with orig 'C' code and this seed
 	    gen_jump_2(
-	      rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}}))
+	      rand:seed_s(Algo, lists:duplicate(16, 12345678)))
     end.
 
 gen_jump_2(State) ->
@@ -1241,11 +1221,11 @@ gen_jump_p1(Algo) ->
 	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
 	    %% Printed with orig 'C' code and this seed
 	    gen_jump_p2(
-	      rand:seed({Algo, [12345678|12345678]}));
+	      rand:seed(Algo, [12345678,12345678]));
 	_ when Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
 	    %% Printed with orig 'C' code and this seed
 	    gen_jump_p2(
-	      rand:seed({Algo, {lists:duplicate(16, 12345678), []}}))
+	      rand:seed(Algo, lists:duplicate(16, 12345678)))
     end.
 
 gen_jump_p2(Seed) ->
@@ -1265,7 +1245,7 @@ gen_jump_p3(_, _, Acc) -> lists:reverse(Acc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 short_jump(Config) when is_list(Config) ->
-    State_0 = {#{bits := Bits},_} = rand:seed(exro928ss, {1,2,3}),
+    State_0 = {#{bits := Bits},_} = rand:seed(exro928ss, 4711),
     Range = 1 bsl Bits,
     %%
     State_1a = repeat(1 bsl 20, Range, State_0),

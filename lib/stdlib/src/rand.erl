@@ -133,9 +133,10 @@
 	exrop | exs1024s | exro928ss | exsp | exs64 | exsplus | exs1024.
 -type alg() :: builtin_alg() | atom().
 -type export_state() :: {alg(), alg_state()}.
+-type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
 -export_type(
    [builtin_alg/0, alg/0, alg_handler/0, alg_state/0,
-    state/0, export_state/0]).
+    state/0, export_state/0, seed/0]).
 -export_type(
    [exrop_state/0, exs1024_state/0, exro928_state/0, exsplus_state/0,
     exs64_state/0]).
@@ -236,12 +237,12 @@ export_seed() ->
     end.
 
 -spec export_seed_s(State :: state()) -> export_state().
-export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
+export_seed_s({#{type:=Alg}, AlgState}) -> {Alg, AlgState}.
 
 %% seed(Alg) seeds RNG with runtime dependent values
 %% and return the NEW state
 
-%% seed({Alg,Seed}) setup RNG with a previously exported seed
+%% seed({Alg,AlgState}) setup RNG with a previously exported seed
 %% and return the NEW state
 
 -spec seed(
@@ -253,11 +254,11 @@ seed(Alg) ->
 -spec seed_s(
         AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
                     state().
-seed_s({AlgHandler, _Seed} = State) when is_map(AlgHandler) ->
+seed_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
     State;
-seed_s({Alg0, Seed}) ->
-    {Alg,_SeedFun} = mk_alg(Alg0),
-    {Alg, Seed};
+seed_s({Alg, AlgState}) when is_atom(Alg) ->
+    {AlgHandler,_SeedFun} = mk_alg(Alg),
+    {AlgHandler,AlgState};
 seed_s(Alg) ->
     seed_s(Alg, {erlang:phash2([{node(),self()}]),
 		 erlang:system_time(),
@@ -266,21 +267,15 @@ seed_s(Alg) ->
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
 
--spec seed(
-        Alg :: builtin_alg(),
-	Seed :: {integer(), integer(), integer()}) ->
-                  state().
-seed(Alg0, S0) ->
-    seed_put(seed_s(Alg0, S0)).
+-spec seed(Alg :: builtin_alg(),  Seed :: seed()) -> state().
+seed(Alg, Seed) ->
+    seed_put(seed_s(Alg, Seed)).
 
--spec seed_s(
-        Alg :: builtin_alg(),
-	Seed :: {integer(), integer(), integer()}) ->
-                    state().
-seed_s(Alg0, S0) ->
-    {Alg, Seed} = mk_alg(Alg0),
-    AS = Seed(S0),
-    {Alg, AS}.
+-spec seed_s(Alg :: builtin_alg(), Seed :: seed()) -> state().
+seed_s(Alg, Seed) ->
+    {AlgHandler,SeedFun} = mk_alg(Alg),
+    AlgState = SeedFun(Seed),
+    {AlgHandler,AlgState}.
 
 %%% uniform/0, uniform/1, uniform_s/1, uniform_s/2 are all
 %%% uniformly distributed random numbers.
@@ -290,8 +285,8 @@ seed_s(Alg0, S0) ->
 
 -spec uniform() -> X :: float().
 uniform() ->
-    {X, Seed} = uniform_s(seed_get()),
-    _ = seed_put(Seed),
+    {X, State} = uniform_s(seed_get()),
+    _ = seed_put(State),
     X.
 
 %% uniform/1: given an integer N >= 1,
@@ -300,8 +295,8 @@ uniform() ->
 
 -spec uniform(N :: pos_integer()) -> X :: pos_integer().
 uniform(N) ->
-    {X, Seed} = uniform_s(N, seed_get()),
-    _ = seed_put(Seed),
+    {X, State} = uniform_s(N, seed_get()),
+    _ = seed_put(State),
     X.
 
 %% uniform_s/1: given a state, uniform_s/1
@@ -650,6 +645,14 @@ mk_alg(exro928ss) ->
 
 -opaque exs64_state() :: uint64().
 
+exs64_seed(L) when is_list(L) ->
+    [R] = seed64_nz(1, L),
+    R;
+exs64_seed(A) when is_integer(A) ->
+    [R] = seed64(1, ?MASK(64, A)),
+    R;
+%%
+%% Traditional integer triplet seed
 exs64_seed({A1, A2, A3}) ->
     {V1, _} = exs64_next((?MASK(32, A1) * 4294967197 + 1)),
     {V2, _} = exs64_next((?MASK(32, A2) * 4294967231 + 1)),
@@ -676,6 +679,14 @@ exs64_next(R) ->
 
 -dialyzer({no_improper_lists, exsplus_seed/1}).
 
+exsplus_seed(L) when is_list(L) ->
+    [S0,S1] = seed58_nz(2, L),
+    [S0|S1];
+exsplus_seed(X) when is_integer(X) ->
+    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0|S1];
+%%
+%% Traditional integer triplet seed
 exsplus_seed({A1, A2, A3}) ->
     {_, R1} = exsplus_next(
                 [?MASK(58, (A1 * 4294967197) + 1)|
@@ -751,6 +762,12 @@ exsplus_jump(S, [AS0|AS1], J, N) ->
 
 -opaque exs1024_state() :: {list(uint64()), list(uint64())}.
 
+exs1024_seed(L) when is_list(L) ->
+    {seed64_nz(16, L), []};
+exs1024_seed(X) when is_integer(X) ->
+    {seed64(16, ?MASK(64, X)), []};
+%%
+%% Seed from traditional triple, remain backwards compatible
 exs1024_seed({A1, A2, A3}) ->
     B1 = ?MASK(21, (?MASK(21, A1) + 1) * 2097131),
     B2 = ?MASK(21, (?MASK(21, A2) + 1) * 2097133),
@@ -931,32 +948,17 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
 
 -opaque exro928_state() :: {list(uint58()), list(uint58())}.
 
-
-%%% %% Seed raw words
-%%% exro928_seed({S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14,S15})
-%%%   when S0 bor S1 bor S2 bor S3 bor S4 bor S5 bor S6 bor S7 bor
-%%%        S8 bor S9 bor S10 bor S11 bor S12 bor S13 bor S14 bor S15 > 0,
-%%%        S0 bor S1 bor S2 bor S3 bor S4 bor S5 bor S6 bor S7 bor
-%%%        S8 bor S9 bor S10 bor S11 bor S12 bor S13 bor S14 bor S15 < 1 bsl 58 ->
-%%%     {[S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14,S15], []};
-%%% %%
-%%% %% Seed from one 64-bit integer through splitmix
-%%% exro928_seed(X) when is_integer(X), 0 =< X, X =< 1 bsl 64 ->
-%%%     {exro928_seed(X, 16),[]};
+exro928_seed(L) when is_list(L) ->
+    {seed58_nz(16, L), []};
+exro928_seed(X) when is_integer(X) ->
+    {seed58(16, ?MASK(64, X)), []};
 %%
-%% Seed from traditional triple - splitmix mixed with the 3 integers
+%% Seed from traditional integer triple - mix into splitmix
 exro928_seed({A1, A2, A3}) ->
     {S0, X0} = seed58(?MASK(64, A1)),
-    {S1, X1} = seed58(?MASK(64, A2 bxor X0)),
-    {S2, X2} = seed58(?MASK(64, A3 bxor X1)),
-    {[S0,S1,S2|exro928_seed(X2, 13)],[]}.
-%%
-%% Splitmix seed the rest of the state words
-exro928_seed(_X, 0) ->
-    [];
-exro928_seed(X, N) ->
-    {S, NewX} = seed58(X),
-    [S|exro928_seed(NewX, N-1)].
+    {S1, X1} = seed58(?MASK(64, A2) bxor X0),
+    {S2, X2} = seed58(?MASK(64, A3) bxor X1),
+    {[S0,S1,S2|seed58(13, X2)], []}.
 
 
 %% Update the state and calculate output word
@@ -1038,65 +1040,6 @@ exro928_jump_2pow20(SR) ->
        16#415FEFCC78FF45E, 16#72CF460728C2FAF]).
 
 %% =====================================================================
-%% Polynomial jump with a jump constant word list,
-%% high bit in each word marking top of word,
-%% SR is a {Forward, Reverse} queue tuple with Forward never empty
-%% =====================================================================
-
-polyjump({Ss, Rs} = SR, NextState, JumpConst) ->
-    %% Create new state accumulator T
-    Ts = lists:duplicate(length(Ss) + length(Rs), 0),
-    polyjump(SR, NextState, JumpConst, Ts).
-%%
-%% Foreach jump word
-polyjump(_SR, _NextState, [], Ts) ->
-    %% Return new calculated state
-    {Ts, []};
-polyjump(SR, NextState, [J|Js], Ts) ->
-    polyjump(SR, NextState, Js, Ts, J).
-%%
-%% Foreach bit in jump word until top bit
-polyjump(SR, NextState, Js, Ts, 1) ->
-
-    polyjump(SR, NextState, Js, Ts);
-polyjump({Ss, Rs} = SR, NextState, Js, Ts, J) when J =/= 0 ->
-    NewSR = NextState(SR),
-    NewJ = J bsr 1,
-    case ?MASK(1, J) of
-        0 ->
-            polyjump(NewSR, NextState, Js, Ts, NewJ);
-        1 ->
-            %% Xor this state onto T
-            polyjump(NewSR, NextState, Js, xorzip_sr(Ts, Ss, Rs), NewJ)
-    end.
-
-xorzip_sr([], [], undefined) ->
-    [];
-xorzip_sr(Ts, [], Rs) ->
-    xorzip_sr(Ts, lists:reverse(Rs), undefined);
-xorzip_sr([T|Ts], [S|Ss], Rs) ->
-    [T bxor S|xorzip_sr(Ts, Ss, Rs)].
-
-%% =====================================================================
-
-format_jumpconst58(String) ->
-    ReOpts = [{newline,any},{capture,all_but_first,binary},global],
-    {match,Matches} = re:run(String, "0x([a-zA-Z0-9]+)", ReOpts),
-    format_jumcons58_matches(lists:reverse(Matches), 0).
-
-format_jumcons58_matches([], J) ->
-    format_jumpconst58_value(J);
-format_jumcons58_matches([[Bin]|Matches], J) ->
-    NewJ = (J bsl 64) bor binary_to_integer(Bin, 16),
-    format_jumcons58_matches(Matches, NewJ).
-
-format_jumpconst58_value(0) ->
-    ok;
-format_jumpconst58_value(J) ->
-    io:format("16#~s,~n", [integer_to_list(?MASK(58, J) bor ?BIT(58), 16)]),
-    format_jumpconst58_value(J bsr 58).
-
-%% =====================================================================
 %% exrop PRNG: Xoroshiro116+
 %%
 %% Reference URL: http://xorshift.di.unimi.it/
@@ -1164,6 +1107,15 @@ format_jumpconst58_value(J) ->
 -opaque exrop_state() :: nonempty_improper_list(uint58(), uint58()).
 
 -dialyzer({no_improper_lists, exrop_seed/1}).
+
+exrop_seed(L) when is_list(L) ->
+    [S0,S1] = seed58_nz(2, L),
+    [S0|S1];
+exrop_seed(X) when is_integer(X) ->
+    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0|S1];
+%%
+%% Traditional integer triplet seed
 exrop_seed({A1, A2, A3}) ->
     [_|S1] =
         exrop_next_s(
@@ -1227,14 +1179,34 @@ exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
     end.
 
 %% =====================================================================
-%% 58-bit seeder; lowest 58 bits of SplitMix64, zeros skipped
-%%
-%% uint64_t splitmix64_next() {
-%% 	uint64_t z = (x += 0x9e3779b97f4a7c15);
-%% 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-%% 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-%% 	return z ^ (z >> 31);
-%% }
+%% Mask and fill state list, ensure not all zeros
+%% =====================================================================
+
+seed58_nz(N, Ss) ->
+    seed_nz(N, Ss, 58, false).
+
+seed64_nz(N, Ss) ->
+    seed_nz(N, Ss, 64, false).
+
+seed_nz(_N, [], _M, false) ->
+    erlang:error(zero_seed);
+seed_nz(0, [_|_], _M, _NZ) ->
+    erlang:error(too_many_seed_integers);
+seed_nz(0, [], _M, _NZ) ->
+    [];
+seed_nz(N, [], M, true) ->
+    [0|seed_nz(N - 1, [], M, true)];
+seed_nz(N, [S|Ss], M, NZ) ->
+    if
+	is_integer(S) ->
+	    R = ?MASK(M, S),
+	    [R|seed_nz(N - 1, Ss, M, NZ orelse R =/= 0)];
+	true ->
+	    erlang:error(non_integer_seed)
+    end.
+
+%% =====================================================================
+%% Splitmix seeders, lowest bits of SplitMix64, zeros skipped
 %% =====================================================================
 
 seed58(0, _X) ->
@@ -1244,15 +1216,101 @@ seed58(N, X) ->
     [Z|seed58(N - 1, NewX)].
 %%
 seed58(X_0) ->
-    X = ?MASK(64, X_0 + 16#9e3779b97f4a7c15),
-    Z_0 = ?MASK(64, (X bxor (X bsr 30)) * 16#bf58476d1ce4e5b9),
-    Z_1 = ?MASK(64, (Z_0 bxor (Z_0 bsr 27)) * 16#94d049bb133111eb),
-    case ?MASK(58, Z_1 bxor (Z_1 bsr 31)) of
+    {Z0,X} = splitmix64_next(X_0),
+    case ?MASK(58, Z0) of
 	0 ->
 	    seed58(X);
 	Z ->
-	    {Z, X}
+	    {Z,X}
     end.
+
+seed64(0, _X) ->
+    [];
+seed64(N, X) ->
+    {Z,NewX} = seed64(X),
+    [Z|seed64(N - 1, NewX)].
+%%
+seed64(X_0) ->
+    {Z,X} = ZX = splitmix64_next(X_0),
+    if
+	Z =:= 0 ->
+	    seed64(X);
+	true ->
+	    ZX
+    end.
+
+%% The SplitMix64 generator:
+%%
+%% uint64_t splitmix64_next() {
+%% 	uint64_t z = (x += 0x9e3779b97f4a7c15);
+%% 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+%% 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+%% 	return z ^ (z >> 31);
+%% }
+%%
+splitmix64_next(X_0) ->
+    X = ?MASK(64, X_0 + 16#9e3779b97f4a7c15),
+    Z_0 = ?MASK(64, (X bxor (X bsr 30)) * 16#bf58476d1ce4e5b9),
+    Z_1 = ?MASK(64, (Z_0 bxor (Z_0 bsr 27)) * 16#94d049bb133111eb),
+    {?MASK(64, Z_1 bxor (Z_1 bsr 31)),X}.
+
+%% =====================================================================
+%% Polynomial jump with a jump constant word list,
+%% high bit in each word marking top of word,
+%% SR is a {Forward, Reverse} queue tuple with Forward never empty
+%% =====================================================================
+
+polyjump({Ss, Rs} = SR, NextState, JumpConst) ->
+    %% Create new state accumulator T
+    Ts = lists:duplicate(length(Ss) + length(Rs), 0),
+    polyjump(SR, NextState, JumpConst, Ts).
+%%
+%% Foreach jump word
+polyjump(_SR, _NextState, [], Ts) ->
+    %% Return new calculated state
+    {Ts, []};
+polyjump(SR, NextState, [J|Js], Ts) ->
+    polyjump(SR, NextState, Js, Ts, J).
+%%
+%% Foreach bit in jump word until top bit
+polyjump(SR, NextState, Js, Ts, 1) ->
+    polyjump(SR, NextState, Js, Ts);
+polyjump({Ss, Rs} = SR, NextState, Js, Ts, J) when J =/= 0 ->
+    NewSR = NextState(SR),
+    NewJ = J bsr 1,
+    case ?MASK(1, J) of
+        0 ->
+            polyjump(NewSR, NextState, Js, Ts, NewJ);
+        1 ->
+            %% Xor this state onto T
+            polyjump(NewSR, NextState, Js, xorzip_sr(Ts, Ss, Rs), NewJ)
+    end.
+
+xorzip_sr([], [], undefined) ->
+    [];
+xorzip_sr(Ts, [], Rs) ->
+    xorzip_sr(Ts, lists:reverse(Rs), undefined);
+xorzip_sr([T|Ts], [S|Ss], Rs) ->
+    [T bxor S|xorzip_sr(Ts, Ss, Rs)].
+
+%% =====================================================================
+
+format_jumpconst58(String) ->
+    ReOpts = [{newline,any},{capture,all_but_first,binary},global],
+    {match,Matches} = re:run(String, "0x([a-zA-Z0-9]+)", ReOpts),
+    format_jumcons58_matches(lists:reverse(Matches), 0).
+
+format_jumcons58_matches([], J) ->
+    format_jumpconst58_value(J);
+format_jumcons58_matches([[Bin]|Matches], J) ->
+    NewJ = (J bsl 64) bor binary_to_integer(Bin, 16),
+    format_jumcons58_matches(Matches, NewJ).
+
+format_jumpconst58_value(0) ->
+    ok;
+format_jumpconst58_value(J) ->
+    io:format("16#~s,~n", [integer_to_list(?MASK(58, J) bor ?BIT(58), 16)]),
+    format_jumpconst58_value(J bsr 58).
 
 %% =====================================================================
 %% Ziggurat cont
