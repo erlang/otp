@@ -26,8 +26,22 @@
 #include <stddef.h>
 #include "socket_int.h"
 #include "socket_util.h"
+#include "socket_dbg.h"
 #include "sys.h"
 
+
+/* We don't have a "debug flag" to check here, so we 
+ * should use the compile debug flag, whatever that is...
+ */
+
+// #define COMPILE_DEBUG_FLAG_WE_NEED_TO_CHECK 1
+#if defined(COMPILE_DEBUG_FLAG_WE_NEED_TO_CHECK)
+#define UTIL_DEBUG TRUE
+#else
+#define UTIL_DEBUG FALSE
+#endif
+
+#define UDBG( proto ) ESOCK_DBG_PRINTF( UTIL_DEBUG , proto )
 
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
@@ -69,15 +83,19 @@ char* esock_decode_sockaddr(ErlNifEnv*     env,
     int          fam;
     char*        xres;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr -> entry\r\n") );
+
     if (!IS_MAP(env, eSockAddr))
         return ESOCK_STR_EINVAL;
 
     if (!GET_MAP_VAL(env, eSockAddr, esock_atom_family, &efam))
         return ESOCK_STR_EINVAL;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr -> try decode domain (%T)\r\n", efam) );
     if ((xres = esock_decode_domain(env, efam, &fam)) != NULL)
         return xres;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr -> fam: %d\r\n", fam) );
     switch (fam) {
     case AF_INET:
         xres = esock_decode_sockaddr_in4(env, eSockAddr,
@@ -147,7 +165,8 @@ char* esock_encode_sockaddr(ErlNifEnv*     env,
 #endif
 
     default:
-        xres = ESOCK_STR_EAFNOSUPPORT;
+        *eSockAddr = esock_atom_undefined;
+        xres       = ESOCK_STR_EAFNOSUPPORT;
         break;
 
     }
@@ -178,6 +197,9 @@ char* esock_decode_sockaddr_in4(ErlNifEnv*          env,
 {
     ERL_NIF_TERM eport, eaddr;
     int          port;
+    char*        xres;
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> entry\r\n") );
 
     /* Basic init */
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in));
@@ -189,22 +211,28 @@ char* esock_decode_sockaddr_in4(ErlNifEnv*          env,
     sockAddrP->sin_family = AF_INET;
 
     /* Extract (e) port number from map */
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> try get port number\r\n") );
     if (!GET_MAP_VAL(env, eSockAddr, esock_atom_port, &eport))
         return ESOCK_STR_EINVAL;
 
     /* Decode port number */
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> try decode port number\r\n") );
     if (!GET_INT(env, eport, &port))
         return ESOCK_STR_EINVAL;
     
     sockAddrP->sin_port = htons(port);
 
     /* Extract (e) address from map */
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> try get (ip) address\r\n") );
     if (!GET_MAP_VAL(env, eSockAddr, esock_atom_addr, &eaddr))
         return ESOCK_STR_EINVAL;
 
     /* Decode address */
-    if (!esock_decode_ip4_address(env, eaddr, sockAddrP, addrLen))
-        return ESOCK_STR_EINVAL;
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> try decode (ip) address\r\n") );
+    if ((xres = esock_decode_ip4_address(env, eaddr, sockAddrP, addrLen)) != NULL)
+        return xres;
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> done\r\n") );
 
     return NULL;
 }
@@ -232,6 +260,8 @@ char* esock_encode_sockaddr_in4(ErlNifEnv*          env,
     int          port;
     char*        xres = NULL;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr_in4 -> entry\r\n") );
+
     if (addrLen >= sizeof(struct sockaddr_in)) {
         /* The port */
         port  = ntohs(sockAddrP->sin_port);
@@ -239,15 +269,23 @@ char* esock_encode_sockaddr_in4(ErlNifEnv*          env,
 
         /* The address */
         if ((xres = esock_encode_ip4_address(env, &sockAddrP->sin_addr,
-                                             &eAddr)) != NULL) {
+                                             &eAddr)) == NULL) {
             /* And finally construct the in4_sockaddr record */
             xres = make_sockaddr_in4(env, ePort, eAddr, eSockAddr);
         } else {
+            UDBG( ("SUTIL", "esock_encode_sockaddr_in4 -> "
+                   "failed encoding (ip) address: "
+                   "\r\n   xres: %s"
+                   "\r\n", xres) );
             *eSockAddr = esock_atom_undefined;
             xres       = ESOCK_STR_EINVAL;
         }
 
     } else {
+        UDBG( ("SUTIL", "esock_encode_sockaddr_in4 -> wrong size: "
+               "\r\n   addrLen:   %d"
+               "\r\n   addr size: %d"
+               "\r\n", addrLen, sizeof(struct sockaddr_in)) );
         *eSockAddr = esock_atom_undefined;
         xres       = ESOCK_STR_EINVAL;
     }
@@ -282,6 +320,7 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
     ERL_NIF_TERM eport, eaddr, eflowInfo, escopeId;
     int          port;
     unsigned int flowInfo, scopeId;
+    char*        xres;
 
     /* Basic init */
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in6));
@@ -326,8 +365,8 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
         return ESOCK_STR_EINVAL;
 
     /* Decode address */
-    if (!esock_decode_ip6_address(env, eaddr, sockAddrP, addrLen))
-        return ESOCK_STR_EINVAL;
+    if ((xres = esock_decode_ip6_address(env, eaddr, sockAddrP, addrLen)) != NULL)
+        return xres;
 
     return NULL;
 }
@@ -370,7 +409,7 @@ char* esock_encode_sockaddr_in6(ErlNifEnv*           env,
         
         /* The address */
         if ((xres = esock_encode_ip6_address(env, &sockAddrP->sin6_addr,
-                                             &eAddr)) != NULL) {
+                                             &eAddr)) == NULL) {
             /* And finally construct the in6_sockaddr record */
             xres = make_sockaddr_in6(env,
                                      ePort, eAddr, eFlowInfo, eScopeId, eSockAddr);
@@ -532,15 +571,22 @@ char* esock_decode_ip4_address(ErlNifEnv*          env,
                                struct sockaddr_in* sockAddrP,
                                unsigned int*       addrLen)
 {
+    UDBG( ("SUTIL", "esock_decode_ip4_address -> entry with"
+           "\r\n   eAddr: %T"
+           "\r\n", eAddr) );
+
     if (IS_ATOM(env, eAddr)) {
         /* This is either 'any' or 'loopback' */
         struct in_addr addr;
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
+            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: lookback\r\n") );
             addr.s_addr = htonl(INADDR_LOOPBACK);
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
+            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: any\r\n") );
             addr.s_addr = htonl(INADDR_ANY);
         } else {
+            UDBG( ("SUTIL", "esock_decode_ip4_address -> address: unknown\r\n") );
             return ESOCK_STR_EINVAL;
         }
 
@@ -596,13 +642,17 @@ char* esock_encode_ip4_address(ErlNifEnv*      env,
     ERL_NIF_TERM   at[4];
     unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
     unsigned char* a     = (unsigned char*) addrP;
+    ERL_NIF_TERM   addr;
     
     /* The address */
     for (i = 0; i < atLen; i++) {
         at[i] = MKI(env, a[i]);
     }
 
-    *eAddr = MKTA(env, at, atLen);
+    addr = MKTA(env, at, atLen);
+    UDBG( ("SUTIL", "esock_encode_ip4_address -> addr: %T\r\n", addr) );
+    // *eAddr = MKTA(env, at, atLen);
+    *eAddr = addr;
     
     return NULL;
 }
@@ -870,6 +920,108 @@ char* esock_encode_type(ErlNifEnv*    env,
 
     default:
         *eType = esock_atom_undefined; // Just in case
+        xres   = ESOCK_STR_EAFNOSUPPORT;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ esock_decode_protocol +++
+ *
+ * Encode the native protocol to the Erlang form, that is: 
+ * 
+ *    SOL_IP | IPPROTO_IP => ip
+ *    SOL_IPV6            => ipv6
+ *    SOL_TCP             => tcp
+ *    SOL_UDP             => udp
+ *    SOL_SCTP            => sctp
+ *
+ */
+extern
+char* esock_encode_protocol(ErlNifEnv*    env,
+                            int           proto,
+                            ERL_NIF_TERM* eProto)
+{
+    char* xres = NULL;
+
+    switch (proto) {
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        *eProto = esock_atom_ip;
+        break;
+
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        *eProto = esock_atom_ipv6;
+        break;
+#endif
+
+    case IPPROTO_TCP:
+        *eProto = esock_atom_tcp;
+        break;
+
+    case IPPROTO_UDP:
+        *eProto = esock_atom_udp;
+        break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        *eProto = esock_atom_sctp;
+        break;
+#endif
+
+    default:
+        *eProto = esock_atom_undefined;
+        xres    = ESOCK_STR_EAFNOSUPPORT;
+        break;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ esock_decode_protocol +++
+ *
+ * Decode the Erlang form of the 'protocol' type, that is: 
+ * 
+ *    ip   => SOL_IP | IPPROTO_IP
+ *    ipv6 => SOL_IPV6
+ *    tcp  => SOL_TCP
+ *    udp  => SOL_UDP
+ *    sctp => SOL_SCTP
+ *
+ */
+extern
+char* esock_decode_protocol(ErlNifEnv*   env,
+                            ERL_NIF_TERM eProto,
+                            int*         proto)
+{
+    char* xres = NULL;
+
+    if (COMPARE(esock_atom_ip, eProto) == 0) {
+#if defined(SOL_IP)
+        *proto = SOL_IP;
+#else
+        *proto = IPPROTO_IP;
+#endif
+    } else if (COMPARE(esock_atom_ipv6, eProto) == 0) {
+        *proto = SOL_IPV6;
+    } else if (COMPARE(esock_atom_tcp, eProto) == 0) {
+        *proto = IPPROTO_TCP;
+    } else if (COMPARE(esock_atom_udp, eProto) == 0) {
+        *proto = IPPROTO_UDP;
+#if defined(HAVE_SCTP)
+    } else if (COMPARE(esock_atom_sctp, eProto) == 0) {
+        *proto = IPPROTO_SCTP;
+#endif
+    } else {
+        *proto = -1;
         xres   = ESOCK_STR_EAFNOSUPPORT;
     }
 

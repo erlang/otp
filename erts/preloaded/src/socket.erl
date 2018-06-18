@@ -657,7 +657,7 @@ open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
     end.
 
 %% Note that this is just a convenience function for when the protocol was
-%% not specified. If its actually specied, then that will be selected.
+%% not specified. If its actually specified, then that will be selected.
 %% Also, this only works for the some of the type's (stream, dgram and
 %% seqpacket).
 default_protocol(null, stream)    -> tcp;
@@ -677,56 +677,21 @@ default_protocol(Protocol, _)     -> Protocol.
       Addr   :: any | loopback | sockaddr(),
       Reason :: term().
 
-bind(#socket{info = #{domain := inet}} = Socket, Addr) 
+bind(#socket{ref = SockRef, info = #{domain := inet}} = _Socket, Addr) 
   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    bind(Socket, ?SOCKADDR_IN4_DEFAULT(Addr));
-bind(#socket{info = #{domain := inet6}} = Socket, Addr) 
+    nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
+bind(#socket{ref = SockRef, info = #{domain := inet6}} = _Socket, Addr) 
   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    bind(Socket, ?SOCKADDR_IN6_DEFAULT(Addr));
-bind(Socket, Addr) ->
+    nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
+bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
     try
         begin
-            nif_bind(Socket, ensure_sockaddr(Addr))
+            nif_bind(SockRef, ensure_sockaddr(Addr))
         end
     catch
         throw:ERROR ->
             ERROR
     end.
-
-%% -spec bind(Socket, FileOrAddr) -> ok | {error, Reason} when
-%%       Socket     :: socket(),
-%%       FileOrAddr :: binary() | string() | in_sockaddr() | any | loopback,
-%%       Reason     :: term().
-
-%% bind(Socket, File) when is_binary(File) ->
-%%     if
-%%         byte_size(File) =:= 0 ->
-%%             {error, einval};
-%%         byte_size(File) =< 255 ->
-%%             nif_bind(Socket, File);
-%%         true ->
-%%             {error, einval}
-%%     end;
-%% bind(Socket, File) when is_list(File) andalso (File =/= []) ->
-%%     Bin = unicode:characters_to_binary(File, file:native_name_encoding()),
-%%     if
-%%         byte_size(Bin) =< 255 ->
-%%             nif_bind(Socket, Bin);
-%%         true ->
-%%             {error, einval}
-%%     end;
-%% bind(#socket{info = #{domain := inet}} = Socket, Addr) 
-%%   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-%%     bind(Socket, #in4_sockaddr{addr = Addr});
-%% bind(#socket{info = #{domain := inet6}} = Socket, Addr) 
-%%   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-%%     bind(Socket, #in6_sockaddr{addr = Addr});
-%% bind(#socket{info = #{domain := inet}, ref = SockRef} = _Socket, SockAddr) 
-%%   when is_record(SockAddr, in4_sockaddr) ->
-%%     nif_bind(SockRef, SockAddr);
-%% bind(#socket{info = #{domain := inet6}, ref = SockRef} = _Socket, SockAddr) 
-%%   when is_record(SockAddr, in6_sockaddr) ->
-%%     nif_bind(SockRef, SockAddr).
 
 
 
@@ -749,6 +714,9 @@ connect(Socket, SockAddr) ->
       Timeout  :: timeout(),
       Reason   :: term().
 
+%% <KOLLA>
+%% Is it possible to connect with family = local for the (dest) sockaddr?
+%% </KOLLA>
 connect(_Socket, _SockAddr, Timeout)
   when (is_integer(Timeout) andalso (Timeout =< 0)) ->
     {error, timeout};
@@ -970,9 +938,9 @@ sendto(Socket, Data, Flags, Dest) ->
       Timeout :: timeout(),
       Reason  :: term().
 
-sendto(Socket, Data, Flags, DestSockAddr, Timeout) when is_list(Data) ->
+sendto(Socket, Data, Flags, Dest, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
-    sendto(Socket, Bin, Flags, DestSockAddr, Timeout);
+    sendto(Socket, Bin, Flags, Dest, Timeout);
 sendto(#socket{ref = SockRef}, Data, Flags, Dest, Timeout)
   when is_binary(Data) andalso
        is_list(Flags) andalso

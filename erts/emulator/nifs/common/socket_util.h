@@ -110,7 +110,6 @@ extern
 char* esock_decode_domain(ErlNifEnv*   env,
                           ERL_NIF_TERM eDomain,
                           int*         domain);
-
 extern
 char* esock_encode_domain(ErlNifEnv*    env,
                           int           domain,
@@ -120,11 +119,19 @@ extern
 char* esock_decode_type(ErlNifEnv*   env,
                         ERL_NIF_TERM eType,
                         int*         type);
-
 extern
 char* esock_encode_type(ErlNifEnv*    env,
                         int           type,
                         ERL_NIF_TERM* eType);
+
+extern
+char* esock_decode_protocol(ErlNifEnv*   env,
+                            ERL_NIF_TERM eProtocol,
+                            int*         protocol);
+extern
+char* esock_encode_protocol(ErlNifEnv*    env,
+                            int           type,
+                            ERL_NIF_TERM* eProtocol);
 
 extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM val);

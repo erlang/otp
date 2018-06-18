@@ -1390,7 +1390,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
 }
 
 
-/* Convert an "native" family to an erlang family
+/* Convert an "native" family to an erlang family (=domain).
  * Note that this is not currently exhaustive, but only supports
  * inet and inet6. Other values will be returned as is, that is
  * in the form of an integer.
@@ -1401,34 +1401,15 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
 {
     ERL_NIF_TERM efam;
 
-    switch (family) {
-    case AF_INET:
-        efam = esock_atom_inet;
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        efam = esock_atom_inet6;
-        break;
-#endif
-
- #ifdef HAVE_SYS_UN_H
-    case AF_UNIX:
-        efam = esock_atom_local;
-        break;
-#endif
-
-   default:
+    if (NULL != esock_encode_type(env, family, &efam))
         efam = MKI(env, family);
-        break;
-    }
 
     return efam;
 }
 
 
 
-/* Convert an "native" socket type to an erlang socket type
+/* Convert an "native" socket type to an erlang socket type.
  * Note that this is not currently exhaustive, but only supports
  * stream and dgram. Other values will be returned as is, that is
  * in the form of an integer.
@@ -1439,38 +1420,15 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 {
     ERL_NIF_TERM etype;
 
-    switch (socktype) {
-    case SOCK_STREAM:
-        etype = esock_atom_stream;
-        break;
-
-    case SOCK_DGRAM:
-        etype = esock_atom_dgram;
-        break;
-
-    case SOCK_RAW:
-        etype = esock_atom_raw;
-        break;
-
-    case SOCK_RDM:
-        etype = esock_atom_rdm;
-        break;
-
-    case SOCK_SEQPACKET:
-        etype = esock_atom_seqpacket;
-        break;
-
-    default:
+    if (NULL != esock_encode_type(env, socktype, &etype))
         etype = MKI(env, socktype);
-        break;
-    }
 
     return etype;
 }
 
 
 
-/* Convert an "native" protocol to an erlang protocol
+/* Convert an "native" protocol to an erlang protocol.
  * Note that this is not currently exhaustive, but only supports
  * tcp and udp. Other values will be returned as is, that is
  * in the form of an integer.
@@ -1481,39 +1439,8 @@ ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
 {
     ERL_NIF_TERM eproto;
 
-    switch (proto) {
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        eproto = esock_atom_ip;
-        break;
-
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-        eproto = esock_atom_ipv6;
-        break;
-#endif
-
-    case IPPROTO_TCP:
-        eproto = esock_atom_tcp;
-        break;
-
-    case IPPROTO_UDP:
-        eproto = esock_atom_udp;
-        break;
-
-#if defined(HAVE_SCTP)
-    case IPPROTO_SCTP:
-        eproto = esock_atom_sctp;
-        break;
-#endif
-
-    default:
+    if (NULL != esock_encode_protocol(env, proto, &eproto))
         eproto = MKI(env, proto);
-        break;
-    }
 
     return eproto;
 }
@@ -1615,7 +1542,7 @@ static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     // We should make it possible to use load_info to get default values
-    data.debug = FALSE;
+    data.debug = TRUE;
 
     NDBG( ("NET", "on_load -> entry\r\n") );
 
