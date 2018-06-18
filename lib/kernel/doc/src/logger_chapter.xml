@@ -69,6 +69,8 @@
       figure shows two log handlers, but any number of handlers can be
       installed.</p>
 
+    <!-- The image is edited with dia in logger_arch.dia file,
+	 and .png file generated with make target 'png'. -->
     <image file="logger_arch.png">
       <icaption>Conceptual Overview</icaption>
     </image>

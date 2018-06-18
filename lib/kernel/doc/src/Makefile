@@ -84,6 +84,7 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
+# The .png file is generated from a .dia file with target 'update_png'
 IMAGE_FILES = \
 	logger_arch.png
 
@@ -110,6 +111,17 @@ TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 
 TOP_SPECS_FILE = specs.xml
+
+# ----------------------------------------------------
+# FIGURES
+# ----------------------------------------------------
+# In order to update the figures you have to have both dia
+# and imagemagick installed.
+# The generated .png file must be committed.
+
+update_png:
+	dia --export=logger_arch.eps logger_arch.dia
+	convert logger_arch.eps -resize 65% logger_arch.png
 
 # ----------------------------------------------------
 # FLAGS
@@ -147,7 +159,7 @@ clean clean_docs:
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~
+	rm -f errs core *~ *.eps
 
 $(SPECDIR)/specs_erl_prim_loader_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
