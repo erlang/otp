@@ -29,17 +29,34 @@
 #include <erl_nif.h>
 #include "socket_int.h"
 
+#define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
+#define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
+
+/* Two byte integer decoding */
+#define get_int16(s) ((((unsigned char*) (s))[0] << 8)  | \
+                      (((unsigned char*) (s))[1]))
+
 extern
 char* esock_decode_sockaddr(ErlNifEnv*     env,
                             ERL_NIF_TERM   eSockAddr,
                             SocketAddress* sockAddrP,
                             unsigned int*  addrLen);
+extern
+char* esock_encode_sockaddr(ErlNifEnv*     env,
+                            SocketAddress* sockAddrP,
+                            unsigned int   addrLen,
+                            ERL_NIF_TERM*  eSockAddr);
 
 extern
 char* esock_decode_sockaddr_in4(ErlNifEnv*          env,
                                 ERL_NIF_TERM        eSockAddr,
                                 struct sockaddr_in* sockAddrP,
                                 unsigned int*       addrLen);
+extern
+char* esock_encode_sockaddr_in4(ErlNifEnv*          env,
+                                struct sockaddr_in* sockAddrP,
+                                unsigned int        addrLen,
+                                ERL_NIF_TERM*       eSockAddr);
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 extern
@@ -47,6 +64,11 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
                                 ERL_NIF_TERM         eSockAddr,
                                 struct sockaddr_in6* sockAddrP,
                                 unsigned int*        addrLen);
+extern
+char* esock_encode_sockaddr_in6(ErlNifEnv*           env,
+                                struct sockaddr_in6* sockAddrP,
+                                unsigned int         addrLen,
+                                ERL_NIF_TERM*        eSockAddr);
 #endif
 
 #ifdef HAVE_SYS_UN_H
@@ -55,6 +77,11 @@ char* esock_decode_sockaddr_un(ErlNifEnv*          env,
                                ERL_NIF_TERM        eSockAddr,
                                struct sockaddr_un* sockAddrP,
                                unsigned int*       addrLen);
+extern
+char* esock_encode_sockaddr_un(ErlNifEnv*          env,
+                               struct sockaddr_un* sockAddrP,
+                               unsigned int        addrLen,
+                               ERL_NIF_TERM*       eSockAddr);
 #endif
 
 extern
@@ -62,6 +89,10 @@ char* esock_decode_ip4_address(ErlNifEnv*          env,
                                ERL_NIF_TERM        eAddr,
                                struct sockaddr_in* sockAddrP,
                                unsigned int*       addrLen);
+extern
+char* esock_encode_ip4_address(ErlNifEnv*      env,
+                               struct in_addr* addrP,
+                               ERL_NIF_TERM*   eAddr);
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 extern
@@ -69,6 +100,10 @@ char* esock_decode_ip6_address(ErlNifEnv*           env,
                                ERL_NIF_TERM         eAddr,
                                struct sockaddr_in6* sockAddrP,
                                unsigned int*        addrLen);
+extern
+char* esock_encode_ip6_address(ErlNifEnv*       env,
+                               struct in6_addr* addrP,
+                               ERL_NIF_TERM*    eAddr);
 #endif
 
 extern
@@ -91,6 +126,18 @@ char* esock_encode_type(ErlNifEnv*    env,
                         int           type,
                         ERL_NIF_TERM* eType);
 
+extern
+BOOLEAN_T esock_decode_bool(ERL_NIF_TERM val);
+extern
+ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val);
+
+extern
+size_t esock_strnlen(const char *s, size_t maxlen);
+extern
+void esock_abort(const char* expr,
+                 const char* func,
+                 const char* file,
+                 int         line);
 
 extern
 ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any);

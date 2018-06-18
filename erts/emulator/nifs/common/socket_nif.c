@@ -181,37 +181,12 @@
 #define FATAL_MALLOC
 
 
-
-/* *** Boolean *type* stuff... *** */
-typedef unsigned int BOOLEAN_T;
-#define TRUE  1
-#define FALSE 0
-#define BOOL2STR(__B__)  ((__B__) ? "true"    : "false")
-#define BOOL2ATOM(__B__) ((__B__) ? atom_true : atom_false)
-
-/* Two byte integer decoding */
-#define get_int16(s) ((((unsigned char*) (s))[0] << 8)  | \
-                      (((unsigned char*) (s))[1]))
-
-#define SASSERT(e) \
-  ((void) ((e) ? 1 : (xabort(#e, __func__, __FILE__, __LINE__), 0)))
-
-
 /* Debug stuff... */
 #define SOCKET_NIF_DEBUG_DEFAULT TRUE
 #define SOCKET_DEBUG_DEFAULT     TRUE
 
 /* Counters and stuff (Don't know where to sent this stuff anyway) */
 #define SOCKET_NIF_IOW_DEFAULT FALSE
-
-
-/* Used in debug printouts */
-#ifdef __WIN32__
-#define LLU "%I64u"
-#else
-#define LLU "%llu"
-#endif
-typedef unsigned long long llu_t;
 
 
 
@@ -301,9 +276,9 @@ typedef unsigned long long llu_t;
 
 #define SOCKET_RECV_BUFFER_SIZE_DEFAULT 2048
 
-#define SOCKET_OPT_VALLUE_TYPE_UNSPEC 0
-#define SOCKET_OPT_VALLUE_TYPE_INT    1
-#define SOCKET_OPT_VALLUE_TYPE_BOOL   2
+#define SOCKET_OPT_VALUE_TYPE_UNSPEC 0
+#define SOCKET_OPT_VALUE_TYPE_INT    1
+#define SOCKET_OPT_VALUE_TYPE_BOOL   2
 
 typedef union {
     struct {
@@ -1248,15 +1223,17 @@ static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
 static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
                                ERL_NIF_TERM eVal,
                                int*         val);
+/*
 static BOOLEAN_T decode_bool(ErlNifEnv*   env,
                              ERL_NIF_TERM eVal,
                              BOOLEAN_T*   val);
+*/
 static BOOLEAN_T decode_native_get_opt(ErlNifEnv*   env,
                                        ERL_NIF_TERM eVal,
                                        int*         opt,
                                        uint16_t*    valueType,
                                        int*         valueSz);
-static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
+// static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
 static void inform_waiting_procs(ErlNifEnv*          env,
@@ -1330,11 +1307,6 @@ static char* send_msg(ErlNifEnv*   env,
                       ERL_NIF_TERM msg,
                       ErlNifPid*   pid);
 
-static void xabort(const char* expr,
-                   const char* func,
-                   const char* file,
-                   int         line);
-
 static BOOLEAN_T extract_item_on_load(ErlNifEnv*    env,
                                       ERL_NIF_TERM  map,
                                       ERL_NIF_TERM  key,
@@ -1407,9 +1379,6 @@ static char str_reliability[]  = "reliability";
 static char str_mincost[]      = "mincost";
 
 /* (special) error string constants */
-static char str_eagain[]         = "eagain";
-static char str_eafnosupport[]   = "eafnosupport";
-static char str_einval[]         = "einval";
 static char str_eisconn[]        = "eisconn";
 static char str_enotclosing[]    = "enotclosing";
 static char str_enotconn[]       = "enotconn";
@@ -1426,21 +1395,33 @@ ERL_NIF_TERM esock_atom_addr;
 ERL_NIF_TERM esock_atom_any;
 ERL_NIF_TERM esock_atom_dgram;
 ERL_NIF_TERM esock_atom_error;
+ERL_NIF_TERM esock_atom_false;
 ERL_NIF_TERM esock_atom_family;
 ERL_NIF_TERM esock_atom_flowinfo;
 ERL_NIF_TERM esock_atom_inet;
 ERL_NIF_TERM esock_atom_inet6;
+ERL_NIF_TERM esock_atom_ip;
+ERL_NIF_TERM esock_atom_ipv6;
 ERL_NIF_TERM esock_atom_local;
 ERL_NIF_TERM esock_atom_loopback;
 ERL_NIF_TERM esock_atom_ok;
 ERL_NIF_TERM esock_atom_path;
 ERL_NIF_TERM esock_atom_port;
 ERL_NIF_TERM esock_atom_raw;
+ERL_NIF_TERM esock_atom_rdm;
 ERL_NIF_TERM esock_atom_scope_id;
+ERL_NIF_TERM esock_atom_sctp;
 ERL_NIF_TERM esock_atom_seqpacket;
 ERL_NIF_TERM esock_atom_stream;
+ERL_NIF_TERM esock_atom_tcp;
+ERL_NIF_TERM esock_atom_true;
+ERL_NIF_TERM esock_atom_udp;
 ERL_NIF_TERM esock_atom_undefined;
 
+/* *** "Global" error (=reason) atoms *** */
+ERL_NIF_TERM esock_atom_eagain;
+ERL_NIF_TERM esock_atom_eafnosupport;
+ERL_NIF_TERM esock_atom_einval;
 
 /* *** Atoms *** */
 static ERL_NIF_TERM atom_close;
@@ -1473,9 +1454,6 @@ static ERL_NIF_TERM atom_throughput;
 static ERL_NIF_TERM atom_reliability;
 static ERL_NIF_TERM atom_mincost;
 
-static ERL_NIF_TERM atom_eagain;
-static ERL_NIF_TERM atom_eafnosupport;
-static ERL_NIF_TERM atom_einval;
 static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_enotclosing;
 static ERL_NIF_TERM atom_enotconn;
@@ -1597,7 +1575,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
         unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
         unsigned int numVals = sizeof(keys) / sizeof(ERL_NIF_TERM);
 
-        SASSERT( (numKeys == numVals) );
+        ESOCK_ASSERT( (numKeys == numVals) );
 
         if (!MKMA(env, keys, vals, numKeys, &info))
             return enif_make_badarg(env);
@@ -1982,7 +1960,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
     if (port == 0) {
         SOCKLEN_T len = sizeof(local);
         sys_memzero((char *) &local, len);
-        sock_name(descP->sock, &local.in, &len);
+        sock_name(descP->sock, &local.sa, &len);
         port = which_address_port(&local);
     } else if (port == -1) {
         port = 0;
@@ -2012,7 +1990,7 @@ char* decode_laddress(ErlNifEnv*     env,
     } else if (IS_TUPLE(env, localAddr)) {
         return decode_in_sockaddr(env, localAddr, localP, addrLenP);
     }  else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 
 }
@@ -2035,10 +2013,10 @@ char* decode_laddress_binary(ErlNifEnv*     env,
     ErlNifBinary bin;
 
     if (domain != AF_UNIX)
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if (!GET_BIN(env, localAddr, &bin))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if ((bin.size +
 #ifdef __linux__
@@ -2054,7 +2032,7 @@ char* decode_laddress_binary(ErlNifEnv*     env,
         1
 #endif
          ) > sizeof(localP->un.sun_path))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sys_memzero((char*)localP, sizeof(struct sockaddr_un));
     localP->un.sun_family = domain;
@@ -2128,7 +2106,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
         return esock_make_error(env, atom_eisconn);
 
     if (IS_CONNECTING(descP))
-        return esock_make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     code = sock_connect(descP->sock,
                         (struct sockaddr*) &descP->remote,
@@ -2364,7 +2342,7 @@ ERL_NIF_TERM naccept(ErlNifEnv*        env,
         break;
 
     default:
-        res = esock_make_error(env, atom_einval);
+        res = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -2437,7 +2415,7 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
 
             descP->state = SOCKET_STATE_ACCEPTING;
 
-            return esock_make_error(env, atom_eagain);
+            return esock_make_error(env, esock_atom_eagain);
 
         } else {
             return esock_make_error_errno(env, save_errno);
@@ -2540,7 +2518,7 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
                    (ERL_NIF_SELECT_READ),
                    descP, NULL, ref);
 
-            return esock_make_error(env, atom_eagain);
+            return esock_make_error(env, esock_atom_eagain);
         } else {
             return esock_make_error_errno(env, save_errno);
         }
@@ -2742,10 +2720,10 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 
     /* THIS TEST IS NOT CORRECT!!! */
     if (!IS_OPEN(descP))
-        return esock_make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     if (!esendflags2sendflags(eflags, &flags))
-        return esock_make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     if ((xres = decode_in_sockaddr(env, eSockAddr,
                                    &remoteAddr,
@@ -2778,7 +2756,7 @@ ERL_NIF_TERM nsendto(ErlNifEnv*        env,
     if (toAddrP != NULL) {
         written = sock_sendto(descP->sock,
                               dataP->data, dataP->size, flags,
-                              &toAddrP->in, toAddrLen);
+                              &toAddrP->sa, toAddrLen);
     } else {
         written = sock_sendto(descP->sock,
                               dataP->data, dataP->size, flags,
@@ -3069,7 +3047,7 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
     sys_memzero((char*) &fromAddr, addrLen);
 
     read = sock_recvfrom(descP->sock, buf.data, buf.size, flags,
-                         &fromAddr.in, &addrLen);
+                         &fromAddr.sa, &addrLen);
 
     return recvfrom_check_result(env, descP,
                                  read,
@@ -3368,11 +3346,10 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     eIsEncoded = argv[1];
     eVal       = argv[4];
 
-    if (!decode_bool(env, eIsEncoded, &isEncoded))
-        return esock_make_error(env, atom_einval);
+    isEncoded = esock_decode_bool(eIsEncoded);
 
     if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
-        return esock_make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     return nsetopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
 }
@@ -3425,7 +3402,7 @@ ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
         break;
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -3440,15 +3417,9 @@ ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
                                SocketDescriptor* descP,
                                ERL_NIF_TERM      eVal)
 {
-    ERL_NIF_TERM result;
+    descP->dbg = esock_decode_bool(eVal);
 
-    if (decode_bool(env, eVal, &descP->dbg)) {
-        result = esock_atom_ok;
-    } else {
-        result = esock_make_error(env, atom_einval);
-    }
-
-    return result;
+    return esock_atom_ok;
 }
 
 
@@ -3459,15 +3430,9 @@ ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
                              SocketDescriptor* descP,
                              ERL_NIF_TERM      eVal)
 {
-    ERL_NIF_TERM result;
+    descP->iow = esock_decode_bool(eVal);
 
-    if (decode_bool(env, eVal, &descP->iow)) {
-        result = esock_atom_ok;
-    } else {
-        result = esock_make_error(env, atom_einval);
-    }
-
-    return result;
+    return esock_atom_ok;
 }
 
 
@@ -3493,7 +3458,7 @@ ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
         else
             result = esock_atom_ok;
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     return result;
@@ -3546,7 +3511,7 @@ ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -3615,7 +3580,7 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -3674,7 +3639,7 @@ ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
         else
             result = esock_atom_ok;
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     return result;
@@ -3763,7 +3728,7 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -3834,7 +3799,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
             result = esock_atom_ok;
 
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     return result;
@@ -3881,7 +3846,7 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -3934,7 +3899,7 @@ ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4002,7 +3967,7 @@ ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4050,7 +4015,7 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4113,7 +4078,7 @@ ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
             result = esock_atom_ok;
 
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     FREE(val);
@@ -4133,19 +4098,17 @@ ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
     BOOLEAN_T    val;
+    int          ival, res;
 
-    if (decode_bool(env, eVal, &val)) {
-        int ival = (val) ? 1 : 0;
-        int res  = socket_setopt(descP->sock, level, opt, &ival, sizeof(ival));
+    val = esock_decode_bool(eVal);
+    
+    ival = (val) ? 1 : 0;
+    res  = socket_setopt(descP->sock, level, opt, &ival, sizeof(ival));
 
-        if (res != 0)
-            result = esock_make_error_errno(env, res);
-        else
-            result = esock_atom_ok;
-
-    } else {
-        result = esock_make_error(env, atom_einval);
-    }
+    if (res != 0)
+        result = esock_make_error_errno(env, res);
+    else
+        result = esock_atom_ok;
 
     return result;
 }
@@ -4172,7 +4135,7 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
             result = esock_atom_ok;
 
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     return result;
@@ -4378,11 +4341,10 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     }
     eIsEncoded = argv[1];
 
-    if (!decode_bool(env, eIsEncoded, &isEncoded))
-        return esock_make_error(env, atom_einval);
+    isEncoded = esock_decode_bool(eIsEncoded);
 
     if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
-        return esock_make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     return ngetopt(env, descP, isEncoded, isOTP, level, eOpt);
 }
@@ -4434,7 +4396,7 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
         break;
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4448,9 +4410,7 @@ static
 ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
                                SocketDescriptor* descP)
 {
-    ERL_NIF_TERM eVal;
-
-    encode_bool(descP->dbg, &eVal);
+    ERL_NIF_TERM eVal = esock_encode_bool(descP->dbg);
 
     return esock_make_ok2(env, eVal);
 }
@@ -4462,9 +4422,7 @@ static
 ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
                              SocketDescriptor* descP)
 {
-    ERL_NIF_TERM eVal;
-
-    encode_bool(descP->iow, &eVal);
+    ERL_NIF_TERM eVal = esock_encode_bool(descP->iow);
 
     return esock_make_ok2(env, eVal);
 }
@@ -4494,21 +4452,21 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
 
     if (decode_native_get_opt(env, eOpt, &opt, &valueType, (int*) &valueSz)) {
         switch (valueType) {
-        case SOCKET_OPT_VALLUE_TYPE_UNSPEC:
+        case SOCKET_OPT_VALUE_TYPE_UNSPEC:
             result = ngetopt_native_unspec(env, descP, level, opt, valueSz);
             break;
-        case SOCKET_OPT_VALLUE_TYPE_INT:
+        case SOCKET_OPT_VALUE_TYPE_INT:
             result = ngetopt_int_opt(env, descP, level, opt);
             break;
-        case SOCKET_OPT_VALLUE_TYPE_BOOL:
+        case SOCKET_OPT_VALUE_TYPE_BOOL:
             result = ngetopt_bool_opt(env, descP, level, opt);
             break;
         default:
-            result = esock_make_error(env, atom_einval);
+            result = esock_make_error(env, esock_atom_einval);
             break;
         }
     } else {
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
     }
 
     return result;
@@ -4601,7 +4559,7 @@ ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4668,7 +4626,7 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4811,7 +4769,7 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4922,7 +4880,7 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -4973,7 +4931,7 @@ ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -5037,7 +4995,7 @@ ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -5082,7 +5040,7 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -5352,7 +5310,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
         } else if ((save_errno == ERRNO_BLOCK) ||
                    (save_errno == EAGAIN)) {
-            return esock_make_error(env, atom_eagain);
+            return esock_make_error(env, esock_atom_eagain);
         } else {
             return esock_make_error_errno(env, save_errno);
         }
@@ -5437,7 +5395,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
         } else if ((save_errno == ERRNO_BLOCK) ||
                    (save_errno == EAGAIN)) {
-            return esock_make_error(env, atom_eagain);
+            return esock_make_error(env, esock_atom_eagain);
         } else {
             return esock_make_error_errno(env, save_errno);
         }
@@ -5501,23 +5459,23 @@ char* decode_send_addr(ErlNifEnv*      env,
         if (!(GET_ATOM_LEN(env, addr, &len) &&
               (len > 0) &&
               (len <= (sizeof("null")))))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
 
         if (!GET_ATOM(env, addr, a, sizeof(a)))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
 
         *toAddrP = NULL;
         if (strncmp(a, "null", len) == 0)
             return NULL;
         else
-            return str_einval;
+            return ESOCK_STR_EINVAL;
 
     } else if (IS_TUPLE(env, addr)) {
         / * We now know that the we have a proper address. * /
         return decode_send_addr_tuple(env, domain, addr, port,
                                       *toAddrP, toAddrLenP);
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 }
 */
@@ -5540,18 +5498,18 @@ char* decode_send_addr_tuple(ErlNifEnv*     env,
     int                 addrtSz;
 
     if (!GET_TUPLE(env, addr, &addrtSz, &addrt))
-        return str_einval; // PLACEHOLDER
+        return ESOCK_STR_EINVAL; // PLACEHOLDER
 
     switch (domain) {
     case AF_INET:
         if (addrtSz != 4)
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
     case AF_INET6:
         if (addrtSz != 8)
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         break;
 #endif
 
@@ -5592,7 +5550,7 @@ char* decode_in_sockaddr(ErlNifEnv*     env,
     char*               result = NULL;
     
     if (!GET_TUPLE(env, eSockAddr, &addrtSz, &addrt))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /*
      * We use the tuple size to figure out which
@@ -5610,7 +5568,7 @@ char* decode_in_sockaddr(ErlNifEnv*     env,
 #endif
 
     default:
-        result = str_eafnosupport;
+        result = ESOCK_STR_EAFNOSUPPORT;
         break;
     }
 
@@ -5634,11 +5592,11 @@ char* decode_in4_sockaddr(ErlNifEnv*          env,
 
     /* 1: Ensure that the tuple has the correct tag: in4_sockaddr */
     if (COMPARE(atom_in4_sockaddr, eIn4SockAddr[0]) != 0)
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 2: Get the port number */
     if (!GET_INT(env, eIn4SockAddr[1], &port))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 3: Get the address.
      *    It can either be the atoms: any | loopback, 
@@ -5651,7 +5609,7 @@ char* decode_in4_sockaddr(ErlNifEnv*          env,
         return decode_in4_sockaddr_addr(env, eIn4SockAddr[2], port,
                                         sockAddrP, addrLenP);
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 }
 
@@ -5671,7 +5629,7 @@ char* decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
     } else if (COMPARE(esock_atom_any, eAddr) == 0) {
         addr.s_addr = sock_htonl(INADDR_ANY);
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in));
@@ -5704,10 +5662,10 @@ char* decode_in4_sockaddr_addr(ErlNifEnv*     env,
 
     /* This shall be a 4 tuple */
     if (!GET_TUPLE(env, eAddr, &ip4AddrTSz, &ip4AddrT))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if (ip4AddrTSz != 4)
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in));
 #ifndef NO_SA_LEN
@@ -5717,7 +5675,7 @@ char* decode_in4_sockaddr_addr(ErlNifEnv*     env,
     sockAddrP->in4.sin_port   = sock_htons(port);
     for (a = 0; a < 4; a++) {
         if (!GET_INT(env, ip4AddrT[a], &v))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         addr[a] = v;
     }
     sys_memcpy(&sockAddrP->in4.sin_addr, &addr, sizeof(addr));
@@ -5747,19 +5705,19 @@ char* decode_in6_sockaddr(ErlNifEnv*          env,
     
     /* 1: Ensure that the tuple has the correct tag: in6_sockaddr */
     if (COMPARE(atom_in6_sockaddr, eIn6SockAddr[0]) != 0)
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 2: Get the port number */
     if (!GET_INT(env, eIn6SockAddr[1], &port))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 4: Get the flowinfo */
     if (!GET_UINT(env, eIn6SockAddr[3], &flowInfo))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 5: Get the scope_id */
     if (!GET_UINT(env, eIn6SockAddr[4], &scopeId))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     /* 3: Get the address.
      *    It can either be the atoms: any | loopback, 
@@ -5774,7 +5732,7 @@ char* decode_in6_sockaddr(ErlNifEnv*          env,
                                         flowInfo, scopeId,
                                         sockAddrP, addrLenP);
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 }
 #endif
@@ -5797,7 +5755,7 @@ char* decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
     } else if (COMPARE(esock_atom_any, eAddr) == 0) {
         addr = &in6addr_any;
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
@@ -5835,10 +5793,10 @@ char* decode_in6_sockaddr_addr(ErlNifEnv*     env,
 
     /* This shall be a 8 tuple */
     if (!GET_TUPLE(env, eAddr, &ip6AddrTSz, &ip6AddrT))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if (ip6AddrTSz != 8)
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sys_memzero((char*)sockAddrP, sizeof(struct sockaddr_in6));
 #ifndef NO_SA_LEN
@@ -5853,7 +5811,7 @@ char* decode_in6_sockaddr_addr(ErlNifEnv*     env,
      */
     for (a = 0; a < 8; a++) {
         if (!GET_INT(env, ip6AddrT[a], &v))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         addr[a*2  ] = ((v >> 8) & 0xFF);
         addr[a*2+1] = (v & 0xFF);
     }
@@ -5896,7 +5854,7 @@ char* decode_address_tuple(ErlNifEnv*          env,
             addrP->sai.sin_port   = sock_htons(port);
             for (a = 0; a < 4; a++) {
                 if (!GET_INT(env, addrt[a], &v))
-                    return str_einval;
+                    return ESOCK_STR_EINVAL;
                 laddr[a] = v;
             }
             sys_memcpy(&addrP->sai.sin_addr, &laddr, sizeof(laddr));
@@ -5923,7 +5881,7 @@ char* decode_address_tuple(ErlNifEnv*          env,
              * /
             for (a = 0; a < 8; a++) {
                 if (!GET_INT(env, addrt[a], &v))
-                    return str_einval;
+                    return ESOCK_STR_EINVAL;
                 laddr[a*2  ] = ((v >> 8) & 0xFF);
                 laddr[a*2+1] = (v & 0xFF);
             }
@@ -5936,7 +5894,7 @@ char* decode_address_tuple(ErlNifEnv*          env,
 
     } / * switch (domain) * /
 
-    return str_eafnosupport;
+    return ESOCK_STR_EAFNOSUPPORT;
 
 }
 */
@@ -5956,14 +5914,14 @@ char* decode_address_tuple(ErlNifEnv*          env,
  */
 static
 void encode_address(ErlNifEnv*     env,
-                    SocketAddress* addrP,
+                    SocketAddress* sockAddrP,
                     unsigned int   addrLen,
                     ERL_NIF_TERM*  domainT,
                     ERL_NIF_TERM*  sourceT)
 {
     short port;
 
-    switch (addrP->in.sa_family) {
+    switch (sockAddrP->sa.sa_family) {
 
         /* +++ inet (IPv4) +++ */
 
@@ -5972,9 +5930,9 @@ void encode_address(ErlNifEnv*     env,
             ERL_NIF_TERM addrT, portT;
             unsigned int i;
             ERL_NIF_TERM at4[4];
-            char*        a4 = (char*) &addrP->in4.sin_addr;
+            char*        a4 = (char*) &sockAddrP->in4.sin_addr;
 
-            port = sock_ntohs(addrP->in4.sin_port);
+            port = sock_ntohs(sockAddrP->in4.sin_port);
             for (i = 0; i < 4; i++) {
                 at4[i] = MKI(env, a4[i]);
             }
@@ -5998,9 +5956,9 @@ void encode_address(ErlNifEnv*     env,
             ERL_NIF_TERM addrT, portT;
             unsigned int i;
             ERL_NIF_TERM at6[8];
-            char*        a16 = (char*) &addrP->in6.sin6_addr;
+            char*        a16 = (char*) &sockAddrP->in6.sin6_addr;
 
-            port = sock_ntohs(addrP->in6.sin6_port);
+            port = sock_ntohs(sockAddrP->in6.sin6_port);
             /* The address tuple is of size 8
              * and each element is a two byte integer
              */
@@ -6037,7 +5995,7 @@ void encode_address(ErlNifEnv*     env,
                 if (255 < n) {
                     *sourceT = esock_atom_undefined;
                 } else {
-                    m = my_strnlen(addrP->un.sun_path, n);
+                    m = my_strnlen(sockAddrP->un.sun_path, n);
 #ifdef __linux__
                     /* Assume that the address is a zero terminated string,
                      * except when the first byte is \0 i.e the string length is 0,
@@ -6050,7 +6008,7 @@ void encode_address(ErlNifEnv*     env,
                     }
 #endif
 
-                    *sourceT = MKSL(env, addrP->un.sun_path, m);
+                    *sourceT = MKSL(env, sockAddrP->un.sun_path, m);
                 }
             }
         }
@@ -6087,7 +6045,7 @@ char* decode_address_atom(ErlNifEnv*     env,
     } if (strncmp(addr, "loopback", addrLen) == 0) {
         any = FALSE;
     } else {
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     }
 
     / * If we get this far, we *know* its either 'any' or 'loopback' * /
@@ -6135,7 +6093,7 @@ char* decode_address_atom(ErlNifEnv*     env,
 #endif
 
     default:
-        return str_einval;
+        return ESOCK_STR_EINVAL;
         break;
     }
 
@@ -6143,23 +6101,24 @@ char* decode_address_atom(ErlNifEnv*     env,
 }
 */
 
+/*
 static
 BOOLEAN_T decode_bool(ErlNifEnv* env, ERL_NIF_TERM eVal, BOOLEAN_T* val)
 {
      unsigned int len;
      char         b[16]; // Just in case...
 
-     /* Verify that the value is actually an atom */
+     / * Verify that the value is actually an atom * /
      if (!IS_ATOM(env, eVal))
          return FALSE;
 
-     /* Verify that the value is of acceptable length */
+     / * Verify that the value is of acceptable length * /
      if (!(GET_ATOM_LEN(env, eVal, &len) &&
            (len > 0) &&
            (len <= sizeof("false"))))
          return FALSE;
 
-     /* And finally try to extract the value */
+     / * And finally try to extract the value * /
      if (!GET_ATOM(env, eVal, b, sizeof(b)))
          return FALSE;
 
@@ -6170,6 +6129,7 @@ BOOLEAN_T decode_bool(ErlNifEnv* env, ERL_NIF_TERM eVal, BOOLEAN_T* val)
 
      return TRUE;
 }
+*/
 
 
 /* +++ decode the linger value +++
@@ -6195,8 +6155,7 @@ BOOLEAN_T decode_sock_linger(ErlNifEnv* env, ERL_NIF_TERM eVal, struct linger* v
 
     /* So fas so good - now check the two elements of the tuple. */
 
-    if (!decode_bool(env, lt[0], &onOff))
-        return FALSE;
+    onOff = esock_decode_bool(lt[0]);
 
     if (!GET_INT(env, lt[1], &secs))
         return FALSE;
@@ -6326,10 +6285,10 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
             return FALSE;
 
         if (strncmp(t, "bool", len) == 0) {
-            *valueType = SOCKET_OPT_VALLUE_TYPE_BOOL;
+            *valueType = SOCKET_OPT_VALUE_TYPE_BOOL;
             *valueSz   = sizeof(int); // Just to be sure
         } else if (strncmp(t, "int", len) == 0) {
-            *valueType = SOCKET_OPT_VALLUE_TYPE_INT;
+            *valueType = SOCKET_OPT_VALUE_TYPE_INT;
             *valueSz   = sizeof(int); // Just to be sure
         } else {
             return FALSE;
@@ -6337,7 +6296,7 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
 
     } else if (IS_NUM(env, nativeOptT[1])) {
         if (GET_INT(env, nativeOptT[1], valueSz)) {
-            *valueType = SOCKET_OPT_VALLUE_TYPE_UNSPEC;
+            *valueType = SOCKET_OPT_VALUE_TYPE_UNSPEC;
         } else {
             return FALSE;
         }
@@ -6349,14 +6308,16 @@ BOOLEAN_T decode_native_get_opt(ErlNifEnv* env, ERL_NIF_TERM eVal,
 }
 
 
+/*
 static
 void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal)
 {
     if (val)
-        *eVal = atom_true;
+        *eVal = esock_atom_true;
     else
-        *eVal = atom_false;
+        *eVal = esock_atom_false;
 }
+*/
 
 
 /* +++ encode the ip socket option tos +++
@@ -6772,13 +6733,13 @@ char* decode_sockaddr(ErlNifEnv*     env,
     char*        res;
 
     if (!IS_MAP(env, eSockAddr))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if (!GET_MAP_VAL(env, eSockAddr, esock_atom_family, &efam))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     if (!decode_domain(env, efam, &fam))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     switch (fam) {
     case AF_INET:
@@ -6798,7 +6759,7 @@ char* decode_sockaddr(ErlNifEnv*     env,
 #endif
 
     default:
-        result = str_eafnosupport;
+        result = ESOCK_STR_EAFNOSUPPORT;
         break;
 
     }
@@ -6841,20 +6802,20 @@ char* decode_sockaddr_in4(ErlNifEnv*          env,
 
     / * Extract (e) port number from map * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_port, &eport))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * Decode port number * /
     if (!GET_INT(env, eport, &port))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     sockAddrP->sin_port = sock_htons(port);
 
     / * Extract (e) address from map * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_addr, &eaddr))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * Decode address * /
     if (!decode_ip4_address(env, eaddr, sockAddrP, addrLen))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     return NULL;
 }
@@ -6896,41 +6857,41 @@ char* decode_sockaddr_in6(ErlNifEnv*           env,
 
     / * *** Extract (e) port number from map *** * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_port, &eport))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * Decode port number * /
     if (!GET_INT(env, eport, &port))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sockAddrP->sin6_port = sock_htons(port);
 
     / * *** Extract (e) flowinfo from map *** * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_flowinfo, &eflowInfo))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * 4: Get the flowinfo * /
     if (!GET_UINT(env, eflowInfo, &flowInfo))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sockAddrP->sin6_flowinfo = flowInfo;
     
     / * *** Extract (e) scope_id from map *** * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_scope_id, &escopeId))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * *** Get the scope_id *** * /
     if (!GET_UINT(env, escopeId, &scopeId))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     sockAddrP->sin6_scope_id = scopeId;
 
     / * *** Extract (e) address from map *** * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_addr, &eaddr))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * Decode address * /
     if (!decode_ip6_address(env, eaddr, sockAddrP, addrLen))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     return NULL;
 }
@@ -6964,11 +6925,11 @@ char* decode_sockaddr_un(ErlNifEnv*          env,
 
     / * *** Extract (e) path (a binary) from map *** * /
     if (!GET_MAP_VAL(env, eSockAddr, atom_port, &epath))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
     / * Get the path * /
     if (!GET_BIN(env, epath, &bin))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
     
     if ((bin.size +
 #ifdef __linux__
@@ -6984,7 +6945,7 @@ char* decode_sockaddr_un(ErlNifEnv*          env,
         1
 #endif
          ) > sizeof(sockaAddrP->sun_path))
-        return str_einval;
+        return ESOCK_STR_EINVAL;
 
 
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_un));
@@ -7032,7 +6993,7 @@ char* decode_ip4_address(ErlNifEnv*          env,
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
             addr.s_addr = sock_htonl(INADDR_ANY);
         } else {
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         }
 
         sockAddrP->sin_addr.s_addr = addr.s_addr;
@@ -7047,14 +7008,14 @@ char* decode_ip4_address(ErlNifEnv*          env,
         char                addr[4];
         
         if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         
         if (addrtSz != 4)
-            return str_einval;
+            return ESOCK_STR_EINVAL;
 
         for (a = 0; a < 4; a++) {
             if (!GET_INT(env, addrt[a], &v))
-                return str_einval;
+                return ESOCK_STR_EINVAL;
             addr[a] = v;
         }
 
@@ -7098,7 +7059,7 @@ char* decode_ip6_address(ErlNifEnv*           env,
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
             addr = &in6addr_any;
         } else {
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         }
 
         sockAddrP->sin6_addr = *addr;
@@ -7113,14 +7074,14 @@ char* decode_ip6_address(ErlNifEnv*           env,
         char                addr[16];
         
         if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-            return str_einval;
+            return ESOCK_STR_EINVAL;
         
         if (addrtSz != 8)
-            return str_einval;
+            return ESOCK_STR_EINVAL;
 
         for (a = 0; a < 8; a++) {
             if (!GET_INT(env, addrt[a], &v))
-                return str_einval;
+                return ESOCK_STR_EINVAL;
             addr[a*2  ] = ((v >> 8) & 0xFF);
             addr[a*2+1] = (v & 0xFF);
         }
@@ -7216,20 +7177,6 @@ char* send_msg(ErlNifEnv*   env,
     return str_exsend;
   else
     return NULL;
-}
-
-
-static
-void xabort(const char* expr,
-	    const char* func,
-	    const char* file,
-	    int         line)
-{
-  fflush(stdout);
-  fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
-	  file, line, func, expr);
-  fflush(stderr);
-  abort();
 }
 
 
@@ -7332,10 +7279,10 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
        * writers waiting.
        */
 
-      SASSERT( (NULL == send_msg_nif_abort(env,
-                                           descP->currentWriter.ref,
-                                           atom_closed,
-                                           &descP->currentWriter.pid)) );
+      ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
+                                                descP->currentWriter.ref,
+                                                atom_closed,
+                                                &descP->currentWriter.pid)) );
 
       /* And also deal with the waiting writers (in the same way) */
       inform_waiting_procs(env, descP, &descP->writersQ, TRUE, atom_closed);
@@ -7347,10 +7294,10 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
        * readers waiting.
        */
 
-      SASSERT( (NULL == send_msg_nif_abort(env,
-                                           descP->currentReader.ref,
-                                           atom_closed,
-                                           &descP->currentReader.pid)) );
+      ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
+                                                descP->currentReader.ref,
+                                                atom_closed,
+                                                &descP->currentReader.pid)) );
 
       /* And also deal with the waiting readers (in the same way) */
       inform_waiting_procs(env, descP, &descP->readersQ, TRUE, atom_closed);
@@ -7361,10 +7308,10 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
        * acceptors waiting.
        */
 
-      SASSERT( (NULL == send_msg_nif_abort(env,
-                                           descP->currentAcceptor.ref,
-                                           atom_closed,
-                                           &descP->currentAcceptor.pid)) );
+      ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
+                                                descP->currentAcceptor.ref,
+                                                atom_closed,
+                                                &descP->currentAcceptor.pid)) );
 
       /* And also deal with the waiting acceptors (in the same way) */
       inform_waiting_procs(env, descP, &descP->acceptorsQ, TRUE, atom_closed);
@@ -7446,10 +7393,10 @@ void inform_waiting_procs(ErlNifEnv*          env,
          * </KOLLA>
          */
 
-        SASSERT( (NULL == send_msg_nif_abort(env,
-                                             currentP->data.ref,
-                                             reason,
-                                             &currentP->data.pid)) );
+        ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
+                                                  currentP->data.ref,
+                                                  reason,
+                                                  &currentP->data.pid)) );
         DEMONP(env, descP, &currentP->data.mon);
         nextP = currentP->nextP;
         if (free) FREE(currentP);
@@ -7656,24 +7603,38 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_timeout      = MKA(env, str_timeout);
     atom_true         = MKA(env, str_true);
 
+    /* Global atom(s) */
     esock_atom_addr      = MKA(env, "addr");
     esock_atom_any       = MKA(env, "any");
     esock_atom_dgram     = MKA(env, "dgram");
     esock_atom_error     = MKA(env, "error");
+    esock_atom_false     = MKA(env, "famlse");
     esock_atom_family    = MKA(env, "family");
     esock_atom_flowinfo  = MKA(env, "flowinfo");
     esock_atom_inet      = MKA(env, "inet");
     esock_atom_inet6     = MKA(env, "inet6");
+    esock_atom_ip        = MKA(env, "ip");
+    esock_atom_ipv6      = MKA(env, "ipvp");
     esock_atom_local     = MKA(env, "local");
     esock_atom_loopback  = MKA(env, "loopback");
     esock_atom_ok        = MKA(env, "ok");
     esock_atom_path      = MKA(env, "path");
     esock_atom_port      = MKA(env, "port");
     esock_atom_raw       = MKA(env, "raw");
+    esock_atom_rdm       = MKA(env, "rdm");
     esock_atom_scope_id  = MKA(env, "scope_id");
+    esock_atom_sctp      = MKA(env, "sctp");
     esock_atom_seqpacket = MKA(env, "seqpacket");
     esock_atom_stream    = MKA(env, "stream");
+    esock_atom_tcp       = MKA(env, "tcp");
+    esock_atom_true      = MKA(env, "true");
+    esock_atom_udp       = MKA(env, "udp");
     esock_atom_undefined = MKA(env, "undefined");
+
+    /* Global error codes */
+    esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);
+    esock_atom_eagain       = MKA(env, ESOCK_STR_EAGAIN);
+    esock_atom_einval       = MKA(env, ESOCK_STR_EINVAL);
 
     atom_lowdelay     = MKA(env, str_lowdelay);
     atom_throughput   = MKA(env, str_throughput);
@@ -7681,9 +7642,6 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_mincost      = MKA(env, str_mincost);
 
     /* Error codes */
-    atom_eagain       = MKA(env, str_eagain);
-    atom_eafnosupport = MKA(env, str_eafnosupport);
-    atom_einval       = MKA(env, str_einval);
     atom_eisconn      = MKA(env, str_eisconn);
     atom_enotclosing  = MKA(env, str_enotclosing);
     atom_enotconn     = MKA(env, str_enotconn);

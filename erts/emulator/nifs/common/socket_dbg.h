@@ -28,6 +28,16 @@
 #define SOCKET_DBG_H__
 
 
+/* Used in debug printouts */
+#ifdef __WIN32__
+#define LLU "%I64u"
+#else
+#define LLU "%llu"
+#endif
+typedef unsigned long long llu_t;
+
+
+
 #define ESOCK_DBG_PRINTF( ___COND___ , proto ) \
     if ( ___COND___ ) {                        \
         esock_dbg_printf proto;                \

@@ -29,8 +29,22 @@
 #include "sys.h"
 
 
-/* THIS IS JUST TEMPORARY */
-extern char* erl_errno_id(int error);
+
+extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
+
+static char* make_sockaddr_in4(ErlNifEnv*    env,
+                               ERL_NIF_TERM  port,
+                               ERL_NIF_TERM  addr,
+                               ERL_NIF_TERM* sa);
+static char* make_sockaddr_in6(ErlNifEnv*    env,
+                               ERL_NIF_TERM  port,
+                               ERL_NIF_TERM  addr,
+                               ERL_NIF_TERM  flowInfo,
+                               ERL_NIF_TERM  scopeId,
+                               ERL_NIF_TERM* sa);
+static char* make_sockaddr_un(ErlNifEnv*    env,
+                              ERL_NIF_TERM  path,
+                              ERL_NIF_TERM* sa);
 
 
 /* +++ esock_decode_sockaddr +++
@@ -95,10 +109,59 @@ char* esock_decode_sockaddr(ErlNifEnv*     env,
 
 
 
+/* +++ esock_encode_sockaddr +++
+ *
+ * Encode a socket address - sockaddr. In erlang its represented as
+ * a map, which has a specific set of attributes, depending on one
+ * mandatory attribute; family. So depending on the value of the family
+ * attribute: 
+ *
+ *    local - sockaddr_un:  path
+ *    inet  - sockaddr_in4: port, addr
+ *    inet6 - sockaddr_in6: port, addr, flowinfo, scope_id
+ */
+
+extern
+char* esock_encode_sockaddr(ErlNifEnv*     env,
+                            SocketAddress* sockAddrP,
+                            unsigned int   addrLen,
+                            ERL_NIF_TERM*  eSockAddr)
+{
+    char* xres;
+
+    switch (sockAddrP->sa.sa_family) {
+    case AF_INET:
+        xres = esock_encode_sockaddr_in4(env, &sockAddrP->in4, addrLen, eSockAddr);
+        break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case AF_INET6:
+        xres = esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen, eSockAddr);
+        break;
+#endif
+
+#ifdef HAVE_SYS_UN_H
+    case AF_UNIX:
+        xres = esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
+        break;
+#endif
+
+    default:
+        xres = ESOCK_STR_EAFNOSUPPORT;
+        break;
+
+    }
+
+    return xres;
+}
+
+
+
 /* +++ esock_decode_sockaddr_in4 +++
  *
  * Decode a IPv4 socket address - sockaddr_in4. In erlang its represented as
- * a map, which has a specific set of attributes: 
+ * a map, which has a specific set of attributes (beside the mandatory family
+ * attribute, which is "inherited" from the "sockaddr" type): 
  *
  *    port :: port_numbber()
  *    addr :: ip4_address()
@@ -147,10 +210,58 @@ char* esock_decode_sockaddr_in4(ErlNifEnv*          env,
 }
 
 
-/* +++ decode_sockaddr_in6 +++
+
+/* +++ esock_encode_sockaddr_in4 +++
+ *
+ * Encode a IPv4 socket address - sockaddr_in4. In erlang its represented as
+ * a map, which has a specific set of attributes (beside the mandatory family
+ * attribute, which is "inherited" from the "sockaddr" type):
+ *
+ *    port :: port_numbber()
+ *    addr :: ip4_address()
+ *
+ */
+
+extern
+char* esock_encode_sockaddr_in4(ErlNifEnv*          env,
+                                struct sockaddr_in* sockAddrP,
+                                unsigned int        addrLen,
+                                ERL_NIF_TERM*       eSockAddr)
+{
+    ERL_NIF_TERM ePort, eAddr;
+    int          port;
+    char*        xres = NULL;
+
+    if (addrLen >= sizeof(struct sockaddr_in)) {
+        /* The port */
+        port  = ntohs(sockAddrP->sin_port);
+        ePort = MKI(env, port);
+
+        /* The address */
+        if ((xres = esock_encode_ip4_address(env, &sockAddrP->sin_addr,
+                                             &eAddr)) != NULL) {
+            /* And finally construct the in4_sockaddr record */
+            xres = make_sockaddr_in4(env, ePort, eAddr, eSockAddr);
+        } else {
+            *eSockAddr = esock_atom_undefined;
+            xres       = ESOCK_STR_EINVAL;
+        }
+
+    } else {
+        *eSockAddr = esock_atom_undefined;
+        xres       = ESOCK_STR_EINVAL;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ esock_decode_sockaddr_in6 +++
  *
  * Decode a IPv6 socket address - sockaddr_in6. In erlang its represented as
- * a map, which has a specific set of attributes: 
+ * a map, which has a specific set of attributes (beside the mandatory family
+ * attribute, which is "inherited" from the "sockaddr" type): 
  *
  *    port     :: port_numbber()  (integer)
  *    addr     :: ip6_address()   (tuple)
@@ -224,10 +335,67 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
 
 
 
+/* +++ esock_encode_sockaddr_in6 +++
+ *
+ * Encode a IPv6 socket address - sockaddr_in6. In erlang its represented as
+ * a map, which has a specific set of attributes (beside the mandatory family
+ * attribute, which is "inherited" from the "sockaddr" type): 
+ *
+ *    port     :: port_numbber()  (integer)
+ *    addr     :: ip6_address()   (tuple)
+ *    flowinfo :: in6_flow_info() (integer)
+ *    scope_id :: in6_scope_id()  (integer)
+ *
+ */
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+extern
+char* esock_encode_sockaddr_in6(ErlNifEnv*           env,
+                                struct sockaddr_in6* sockAddrP,
+                                unsigned int         addrLen,
+                                ERL_NIF_TERM*        eSockAddr)
+{
+    ERL_NIF_TERM ePort, eAddr, eFlowInfo, eScopeId;
+    char*        xres;
+
+    if (addrLen >= sizeof(struct sockaddr_in6)) {
+        /* The port */
+        ePort = MKI(env, ntohs(sockAddrP->sin6_port));
+
+        /* The flowInfo */
+        eFlowInfo = MKI(env, sockAddrP->sin6_flowinfo);
+            
+        /* The scopeId */
+        eScopeId = MKI(env, sockAddrP->sin6_scope_id);
+        
+        /* The address */
+        if ((xres = esock_encode_ip6_address(env, &sockAddrP->sin6_addr,
+                                             &eAddr)) != NULL) {
+            /* And finally construct the in6_sockaddr record */
+            xres = make_sockaddr_in6(env,
+                                     ePort, eAddr, eFlowInfo, eScopeId, eSockAddr);
+        } else {
+            *eSockAddr = esock_atom_undefined;
+            xres       = ESOCK_STR_EINVAL;
+        }
+
+    } else {
+        *eSockAddr = esock_atom_undefined;
+        xres       = ESOCK_STR_EINVAL;
+    }
+
+    return xres;
+}
+#endif
+
+
+
 /* +++ esock_decode_sockaddr_un +++
  *
  * Decode a Unix Domain socket address - sockaddr_un. In erlang its 
- * represented as a map, which has a specific set of attributes: 
+ * represented as a map, which has a specific set of attributes
+ * (beside the mandatory family attribute, which is "inherited" from
+ * the "sockaddr" type):
  *
  *    path :: binary()
  *
@@ -256,16 +424,16 @@ char* esock_decode_sockaddr_un(ErlNifEnv*          env,
     
     if ((bin.size +
 #ifdef __linux__
-    /* Make sure the address gets zero terminated
-     * except when the first byte is \0 because then it is
-     * sort of zero terminated although the zero termination
-     * comes before the address...
-     * This fix handles Linux's nonportable
-     * abstract socket address extension.
-     */
-    (bin.data[0] == '\0' ? 0 : 1)
+         /* Make sure the address gets zero terminated
+          * except when the first byte is \0 because then it is
+          * sort of zero terminated although the zero termination
+          * comes before the address...
+          * This fix handles Linux's nonportable
+          * abstract socket address extension.
+          */
+         (bin.data[0] == '\0' ? 0 : 1)
 #else
-        1
+         1
 #endif
          ) > sizeof(sockAddrP->sun_path))
         return ESOCK_STR_EINVAL;
@@ -288,7 +456,65 @@ char* esock_decode_sockaddr_un(ErlNifEnv*          env,
 
 
 
-/* +++ decode_ip4_address +++
+/* +++ esock_encode_sockaddr_un +++
+ *
+ * Encode a Unix Domain socket address - sockaddr_un. In erlang its 
+ * represented as a map, which has a specific set of attributes
+ * (beside the mandatory family attribute, which is "inherited" from
+ * the "sockaddr" type):
+ *
+ *    path :: binary()
+ *
+ */
+
+#ifdef HAVE_SYS_UN_H
+extern
+char* esock_encode_sockaddr_un(ErlNifEnv*          env,
+                               struct sockaddr_un* sockAddrP,
+                               unsigned int        addrLen,
+                               ERL_NIF_TERM*       eSockAddr)
+{
+    ERL_NIF_TERM ePath;
+    size_t       n, m;
+    char*        xres;
+
+    if (addrLen >= offsetof(struct sockaddr_un, sun_path)) {
+        n = addrLen - offsetof(struct sockaddr_un, sun_path);
+        if (255 < n) {
+            *eSockAddr = esock_atom_undefined;
+            xres       = ESOCK_STR_EINVAL;
+        } else {
+            m = esock_strnlen(sockAddrP->sun_path, n);
+#ifdef __linux__
+            /* Assume that the address is a zero terminated string,
+             * except when the first byte is \0 i.e the string length is 0,
+             * then use the reported length instead.
+             * This fix handles Linux's nonportable
+             * abstract socket address extension.
+             */
+            if (m == 0) {
+                m = n;
+            }
+#endif
+
+            /* And finally build the 'path' attribute */
+            ePath      = MKSL(env, sockAddrP->sun_path, m);
+
+            /* And the socket address */
+            xres = make_sockaddr_un(env, ePath, eSockAddr);
+        }
+    } else {
+        *eSockAddr = esock_atom_undefined;
+        xres       = ESOCK_STR_EINVAL;
+    }
+
+    return xres;
+}
+#endif
+
+
+
+/* +++ esock_decode_ip4_address +++
  *
  * Decode a IPv4 address. This can be three things:
  *
@@ -351,7 +577,39 @@ char* esock_decode_ip4_address(ErlNifEnv*          env,
 
 
 
-/* +++ decode_ip6_address +++
+/* +++ esock_encode_ip4_address +++
+ *
+ * Encode a IPv4 address:
+ *
+ *    + An ip4_address() (4 tuple)
+ *
+ * Note that this *only* decodes the "address" part of a
+ * (IPv4) socket address. There are several other things (port).
+ */
+
+extern
+char* esock_encode_ip4_address(ErlNifEnv*      env,
+                               struct in_addr* addrP,
+                               ERL_NIF_TERM*   eAddr)
+{
+    unsigned int   i;
+    ERL_NIF_TERM   at[4];
+    unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
+    unsigned char* a     = (unsigned char*) addrP;
+    
+    /* The address */
+    for (i = 0; i < atLen; i++) {
+        at[i] = MKI(env, a[i]);
+    }
+
+    *eAddr = MKTA(env, at, atLen);
+    
+    return NULL;
+}
+
+
+
+/* +++ esock_decode_ip6_address +++
  *
  * Decode a IPv6 address. This can be three things:
  *
@@ -415,6 +673,42 @@ char* esock_decode_ip6_address(ErlNifEnv*           env,
     return NULL;
 }
 #endif
+
+
+
+/* +++ esock_encode_ip6_address +++
+ *
+ * Encode a IPv6 address:
+ *
+ *    + An ip6_address() (8 tuple)
+ *
+ * Note that this *only* encodes the "address" part of a
+ * (IPv6) socket address. There are several other things
+ * (port, flowinfo and scope_id) that are handled elsewhere).
+ */
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+extern
+char* esock_encode_ip6_address(ErlNifEnv*       env,
+                               struct in6_addr* addrP,
+                               ERL_NIF_TERM*    eAddr)
+{
+    unsigned int   i;
+    ERL_NIF_TERM   at[8];
+    unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
+    unsigned char* a     = (unsigned char*) &addrP;
+    
+    /* The address */
+    for (i = 0; i < atLen; i++) {
+        at[i] = MKI(env, get_int16(a + i*2));
+    }
+
+    *eAddr = MKTA(env, at, atLen);
+    
+    return NULL;
+}
+#endif
+
 
 
 /* +++ esock_decode_domain +++
@@ -584,6 +878,36 @@ char* esock_encode_type(ErlNifEnv*    env,
 
 
 
+/* *** esock_decode_bool ***
+ *
+ * Decode a boolean value.
+ *
+ */
+extern
+BOOLEAN_T esock_decode_bool(ERL_NIF_TERM val)
+{
+    if (COMPARE(esock_atom_true, val) == 0) 
+        return TRUE;
+    else
+        return FALSE;
+}
+
+
+/* *** esock_encode_bool ***
+ *
+ * Encode a boolean value.
+ *
+ */
+extern
+ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val)
+{
+    if (val)
+        return esock_atom_true;
+    else
+        return esock_atom_false;
+}
+
+
 /* Create an ok two (2) tuple in the form:
  *
  *         {ok, Any}
@@ -654,6 +978,122 @@ extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 {
     return esock_make_error_str(env, erl_errno_id(err));
+}
+
+
+
+/* strnlen doesn't exist everywhere */
+extern
+size_t esock_strnlen(const char *s, size_t maxlen)
+{
+    size_t i = 0;
+    while (i < maxlen && s[i] != '\0')
+        i++;
+    return i;
+}
+
+
+
+/* *** esock_abort ***
+ *
+ * Generate an abort with "extra" info. This should be called
+ * via the ESOCK_ABORT macro.
+ * Basically it prints the extra info onto stderr before aborting.
+ *
+ */
+extern
+void esock_abort(const char* expr,
+                 const char* func,
+                 const char* file,
+                 int         line)
+{
+  fflush(stdout);
+  fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+	  file, line, func, expr);
+  fflush(stderr);
+  abort();
+}
+
+
+
+
+/* =================================================================== *
+ *                                                                     *
+ *                   Various utility functions                         *
+ *                                                                     *
+ * =================================================================== */
+
+/* Construct the IPv4 socket address */
+static
+char* make_sockaddr_in4(ErlNifEnv*    env,
+                        ERL_NIF_TERM  port,
+                        ERL_NIF_TERM  addr,
+                        ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_port, esock_atom_addr};
+    ERL_NIF_TERM vals[] = {esock_atom_inet, port, addr};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+    ESOCK_ASSERT( (numKeys == numVals) );
+    
+    if (!MKMA(env, keys, vals, numKeys, sa)) {
+        *sa = esock_atom_undefined;
+        return ESOCK_STR_EINVAL;
+    } else {
+        return NULL;
+    }
+}
+
+
+/* Construct the IPv6 socket address */
+static
+char* make_sockaddr_in6(ErlNifEnv*    env,
+                        ERL_NIF_TERM  port,
+                        ERL_NIF_TERM  addr,
+                        ERL_NIF_TERM  flowInfo,
+                        ERL_NIF_TERM  scopeId,
+                        ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[] = {esock_atom_family,
+                           esock_atom_port,
+                           esock_atom_addr,
+                           esock_atom_flowinfo,
+                           esock_atom_scope_id};
+    ERL_NIF_TERM vals[] = {esock_atom_inet6, port, addr, flowInfo, scopeId};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+    ESOCK_ASSERT( (numKeys == numVals) );
+    
+    if (!MKMA(env, keys, vals, numKeys, sa)) {
+        *sa = esock_atom_undefined;
+        return ESOCK_STR_EINVAL;
+    } else {
+        return NULL;
+    }
+}
+
+
+/* Construct the Unix Domain socket address */
+static
+char* make_sockaddr_un(ErlNifEnv*    env,
+                       ERL_NIF_TERM  path,
+                       ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_path};
+    ERL_NIF_TERM vals[] = {esock_atom_inet, path};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+    ESOCK_ASSERT( (numKeys == numVals) );
+    
+    if (!MKMA(env, keys, vals, numKeys, sa)) {
+        *sa = esock_atom_undefined;
+        return ESOCK_STR_EINVAL;
+    } else {
+        return NULL;
+    }
 }
 
 

@@ -26,21 +26,6 @@
 
 #define STATIC_ERLANG_NIF 1
 
-/* #include <stdio.h> */
-/* #include <stdlib.h> */
-/* #include <stdarg.h> */
-/* #include <string.h> */
-/* #include <unistd.h> */
-/* #include <errno.h> */
-/* #include <netdb.h> */
-/* #include <sys/types.h> */
-/* #include <sys/wait.h> */
-/* #include <sys/socket.h> */
-/* #include <netinet/in.h> */
-/* #include <arpa/inet.h> */
-/* #include <sys/time.h> */
-/* #include <fcntl.h> */
-
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -176,46 +161,11 @@
 
 #include "socket_dbg.h"
 #include "socket_int.h"
+#include "socket_util.h"
 
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
-
-
-
-/* *** Boolean *type* stuff... *** */
-typedef unsigned int BOOLEAN_T;
-#define TRUE  1
-#define FALSE 0
-#define BOOL2STR(__B__)  ((__B__) ? "true"    : "false")
-#define BOOL2ATOM(__B__) ((__B__) ? atom_true : atom_false)
-
-/* Two byte integer decoding */
-#define get_int16(s) ((((unsigned char*) (s))[0] << 8)  | \
-                      (((unsigned char*) (s))[1]))
-
-#define SASSERT(e) \
-  ((void) ((e) ? 1 : (xabort(#e, __func__, __FILE__, __LINE__), 0)))
-
-
-/* Debug stuff... */
-#define SOCKET_NIF_DEBUG_DEFAULT TRUE
-
-/* Various defaults... */
-#define SOCKET_DEBUG_DEFAULT     TRUE
-#define SOCKET_IOW_DEFAULT       FALSE
-
-/* Counters and stuff (Don't know where to sent this stuff anyway) */
-#define SOCKET_NIF_IOW_DEFAULT FALSE
-
-
-/* Used in debug printouts */
-#ifdef __WIN32__
-#define LLU "%I64u"
-#else
-#define LLU "%llu"
-#endif
-typedef unsigned long long llu_t;
 
 
 #ifdef __WIN32__
@@ -226,15 +176,6 @@ typedef unsigned long long llu_t;
 
 
 
-/* Socket stuff */
-// #define INVALID_SOCKET -1
-// #define INVALID_EVENT  -1
-// #define SOCKET_ERROR   -1
-
-// #define SOCKET int
-// #define HANDLE long int
-
-
 /* *** Misc macros and defines *** */
 
 #ifdef __WIN32__
@@ -243,12 +184,6 @@ typedef unsigned long long llu_t;
 #define get_errno() errno
 #endif
 
-// #if defined(TCP_CA_NAME_MAX)
-// #define SOCKET_OPT_TCP_CONGESTION_NAME_MAX TCP_CA_NAME_MAX
-// #else
-/* This is really excessive, but just in case... */
-// #define SOCKET_OPT_TCP_CONGESTION_NAME_MAX 256
-// #endif
 
 #define HOSTNAME_LEN 256
 #define SERVICE_LEN  256
@@ -260,73 +195,12 @@ typedef unsigned long long llu_t;
  */
 #define NET_MAXHOSTNAMELEN 255
 
+
 /* =================================================================== *
  *                                                                     *
  *                        Various enif macros                          *
  *                                                                     *
  * =================================================================== */
-
-/* #define MALLOC(SZ)          enif_alloc((SZ)) */
-/* #define FREE(P)             enif_free((P)) */
-
-/* #define MKA(E,S)            enif_make_atom((E), (S)) */
-/* #define MKBIN(E,B)          enif_make_binary((E), (B)) */
-/* #define MKI(E,I)            enif_make_int((E), (I)) */
-/* #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L)) */
-/* #define MKEL(E)             enif_make_list((E), 0) */
-/* #define MKREF(E)            enif_make_ref((E)) */
-/* #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1) */
-/* #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1) */
-/* #define MKSBIN(E,B,ST,SZ)   enif_make_sub_binary((E), (B), (ST), (SZ)) */
-/* #define MKT2(E,E1,E2)       enif_make_tuple2((E), (E1), (E2)) */
-/* #define MKT3(E,E1,E2,E3)    enif_make_tuple3((E), (E1), (E2), (E3)) */
-/* #define MKT4(E,E1,E2,E3,E4) enif_make_tuple4((E), (E1), (E2), (E3), (E4)) */
-/* #define MKT5(E,E1,E2,E3,E4,E5) \ */
-/*     enif_make_tuple5((E), (E1), (E2), (E3), (E4), (E5)) */
-/* #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \ */
-/*     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8)) */
-/* #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL)) */
-
-/* #define MCREATE(N)          enif_mutex_create((N)) */
-/* #define MDESTROY(M)         enif_mutex_destroy((M)) */
-/* #define MLOCK(M)            enif_mutex_lock((M)) */
-/* #define MUNLOCK(M)          enif_mutex_unlock((M)) */
-
-/* #define MONP(E,D,P,M)       enif_monitor_process((E), (D), (P), (M)) */
-/* #define DEMONP(E,D,M)       enif_demonitor_process((E), (D), (M)) */
-
-/* #define SELECT(E,FD,M,O,P,R)                            \ */
-/*     enif_select((E), (FD), (M), (O), (P), (R)) */
-/* #define SELECT_READ(E, DP, P, R)                                       \ */
-/*     SELECT((E), (DP)->sock, (ERL_NIF_SELECT_READ), (DP), (P), (R)) */
-/* #define SELECT_WRITE(E, DP, P, R)                                      \ */
-/*     SELECT((E), (DP)->sock, (ERL_NIF_SELECT_WRITE), (DP), (P), (R)) */
-/* #define SELECT_STOP(E, DP)                                              \ */
-/*     enif_select((E), (DP)->sock, (ERL_NIF_SELECT_STOP), (DP), NULL, atom_undefined) */
-
-/* #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE)) */
-/* #define IS_BIN(E,   TE) enif_is_binary((E), (TE)) */
-/* #define IS_NUM(E,   TE) enif_is_number((E), (TE)) */
-/* #define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE)) */
-/* #define IS_LIST(E,  TE) enif_is_list((E),   (TE)) */
-
-/* #define COMPARE(L, R) enif_compare((L), (R)) */
-
-/* #define GET_ATOM_LEN(E, TE, LP) \ */
-/*     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1) */
-/* #define GET_ATOM(E, TE, BP, MAX) \ */
-/*     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1) */
-/* #define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP)) */
-/* #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP)) */
-/* #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP)) */
-/* #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP)) */
-/* #define GET_STR(E, L, B, SZ)      \ */
-/*     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1) */
-/* #define GET_UINT(E, TE, IP)         enif_get_uint((E), (TE), (IP)) */
-/* #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA)) */
-
-/* #define ALLOC_BIN(SZ, BP)           enif_alloc_binary((SZ), (BP)) */
-/* #define REALLOC_BIN(SZ, BP)         enif_realloc_binary((SZ), (BP)) */
 
 
 #ifdef HAVE_SOCKLEN_T
@@ -335,35 +209,24 @@ typedef unsigned long long llu_t;
 #  define SOCKLEN_T size_t
 #endif
 
-#define NDEBUG( ___COND___ , proto ) \
-    if ( ___COND___ ) {              \
-        dbg_printf proto;            \
-        fflush(stdout);              \
-    }
-#define NDBG( proto ) NDEBUG( data.debug , proto )
+#define NDBG( proto ) ESOCK_DBG_PRINTF( data.debug , proto )
 
-/* The general purpose socket address */
-typedef union {
-    struct sockaddr     sa;
-
-    struct sockaddr_in  in4;
-
-#ifdef HAVE_IN6
-    struct sockaddr_in6 in6;
-#endif
-
-#ifdef HAVE_SYS_UN_H
-    struct sockaddr_un  un;
-#endif
-
-} SockAddress;
 
 typedef struct {
     BOOLEAN_T debug;
 } NetData;
 
 
+
+/* =================================================================== *
+ *                                                                     *
+ *                           Static data                               *
+ *                                                                     *
+ * =================================================================== */
+
+
 static NetData data;
+
 
 
 /* ----------------------------------------------------------------------
@@ -409,10 +272,10 @@ static ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              ERL_NIF_TERM cmd);
 static ERL_NIF_TERM ngethostname(ErlNifEnv* env);
-static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
-                                 const SockAddress* saP,
-                                 SOCKLEN_T          saLen,
-                                 int                flags);
+static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
+                                 const SocketAddress* saP,
+                                 SOCKLEN_T            saLen,
+                                 int                  flags);
 static ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
                                  char*      host,
                                  char*      serv);
@@ -434,36 +297,7 @@ static void net_down(ErlNifEnv*           env,
                      const ErlNifPid*     pid,
                      const ErlNifMonitor* mon);
 */
-static BOOLEAN_T decode_in_sockaddr(ErlNifEnv*         env,
-                                    const ERL_NIF_TERM eAddr,
-                                    SockAddress*       saP,
-                                    SOCKLEN_T*         saLen);
-static BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
-                                     const ERL_NIF_TERM* addrt,
-                                     SockAddress*        saP,
-                                     SOCKLEN_T*          saLen);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
-                                     const ERL_NIF_TERM* addrt,
-                                     SockAddress*        saP,
-                                     SOCKLEN_T*          saLen);
-#endif
-static ERL_NIF_TERM encode_in_sockaddr(ErlNifEnv*       env,
-                                       struct sockaddr* addrP,
-                                       SOCKLEN_T        addrLen);
-static ERL_NIF_TERM encode_in4_sockaddr(ErlNifEnv*          env,
-                                        struct sockaddr_in* addrP,
-                                        SOCKLEN_T           addrLen);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static ERL_NIF_TERM encode_in6_sockaddr(ErlNifEnv*           env,
-                                        struct sockaddr_in6* addrP,
-                                        SOCKLEN_T            addrLen);
-#endif
-#ifdef HAVE_SYS_UN_H
-static ERL_NIF_TERM encode_un_sockaddr(ErlNifEnv*          env,
-                                       struct sockaddr_un* addrP,
-                                       SOCKLEN_T           addrLen);
-#endif
+
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
                                        int*               flags);
@@ -490,47 +324,11 @@ static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 static ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
                                         int        proto);
 
-/* static ERL_NIF_TERM make_address_info(ErlNifEnv*       env, */
-/*                                       struct addrinfo* addrInfoP); */
-/* static ERL_NIF_TERM make_addrinfo_addr(ErlNifEnv*       env, */
-/*                                        struct sockaddr* addrP, */
-/*                                        SOCKLEN_T        addrLen); */
-
-static ERL_NIF_TERM make_in4_sockaddr(ErlNifEnv*   env,
-                                      ERL_NIF_TERM port,
-                                      ERL_NIF_TERM addr);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static ERL_NIF_TERM make_in6_sockaddr(ErlNifEnv*   env,
-                                          ERL_NIF_TERM port,
-                                          ERL_NIF_TERM addr,
-                                          ERL_NIF_TERM flowInfo,
-                                          ERL_NIF_TERM scopeId);
-#endif
 static ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
                                       ERL_NIF_TERM fam,
                                       ERL_NIF_TERM sockType,
                                       ERL_NIF_TERM proto,
                                       ERL_NIF_TERM addr);
-static ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM val);
-// static ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2);
-static ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
-static ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason);
-static ERL_NIF_TERM make_error2(ErlNifEnv* env, int err);
-
-#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
-static size_t my_strnlen(const char *s, size_t maxlen);
-#endif
-
-static void dbg_printf( const char* format, ... );
-static int  dbg_realtime(struct timespec* tsP);
-static int  dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts);
-
-/*
-static void xabort(const char* expr,
-                   const char* func,
-                   const char* file,
-                   int         line);
-*/
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
@@ -560,134 +358,63 @@ static const struct in6_addr in6addr_loopback =
 
 /* *** String constants *** */
 static char str_address_info[]              = "address_info";
-static char str_dccp[]                      = "dccp";
 static char str_debug[]                     = "debug";
-static char str_dgram[]                     = "dgram";
-static char str_error[]                     = "error";
-static char str_false[]                     = "false";
 static char str_idn[]                       = "idn";
 static char str_idna_allow_unassigned[]     = "idna_allow_unassigned";
 static char str_idna_use_std3_ascii_rules[] = "idna_use_std3_ascii_rules";
-static char str_in4_sockaddr[]              = "in4_sockaddr";
-static char str_in6_sockaddr[]              = "in6_sockaddr";
-static char str_inet[]                      = "inet";
-static char str_inet6[]                     = "inet6";
-static char str_ip[]                        = "ip";
-static char str_ipv6[]                      = "ipv6";
 static char str_namereqd[]                  = "namereqd";
 static char str_name_info[]                 = "name_info";
 static char str_nofqdn[]                    = "nofqdn";
 static char str_numerichost[]               = "numerichost";
 static char str_numericserv[]               = "numericserv";
-static char str_ok[]                        = "ok";
-static char str_raw[]                       = "raw";
-static char str_rdm[]                       = "rdm";
-static char str_seqpacket[]                 = "seqpacket";
-static char str_stream[]                    = "stream";
-static char str_tcp[]                       = "tcp";
-static char str_true[]                      = "true";
-static char str_udp[]                       = "udp";
-static char str_undefined[]                 = "undefined";
-
-// static char str_lowdelay[]    = "lowdelay";
-// static char str_throughput[]  = "throughput";
-// static char str_reliability[] = "reliability";
-// static char str_mincost[]     = "mincost";
 
 /* (special) error string constants */
-// static char str_eafnosupport[]   = "eafnosupport";
 static char str_eaddrfamily[]       = "eaddrfamily";
-static char str_eagain[]            = "eagain";
 static char str_ebadflags[]         = "ebadflags";
 static char str_efail[]             = "efail";
 static char str_efamily[]           = "efamily";
 static char str_efault[]            = "efault";
-static char str_einval[]            = "einval";
-// static char str_eisconn[]        = "eisconn";
 static char str_emem[]              = "emem";
 static char str_enametoolong[]      = "enametoolong";
 static char str_enodata[]           = "enodata";
 static char str_enoname[]           = "enoname";
-// static char str_enotclosing[]    = "enotclosing";
-// static char str_enotconn[]       = "enotconn";
 static char str_enxio[]             = "enxio";
 static char str_eoverflow[]         = "eoverflow";
 static char str_eservice[]          = "eservice";
 static char str_esocktype[]         = "esocktype";
 static char str_esystem[]           = "esystem";
-// static char str_exalloc[]        = "exalloc";
-// static char str_exbadstate[]     = "exbadstate";
-// static char str_exbusy[]         = "exbusy";
-// static char str_exmon[]          = "exmonitor";  // failed monitor
-// static char str_exself[]         = "exself";     // failed self
-// static char str_exsend[]         = "exsend";     // failed send
 
 
 /* *** Atoms *** */
 
 static ERL_NIF_TERM atom_address_info;
-static ERL_NIF_TERM atom_dccp;
 static ERL_NIF_TERM atom_debug;
-static ERL_NIF_TERM atom_dgram;
-static ERL_NIF_TERM atom_error;
-static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_idn;
 static ERL_NIF_TERM atom_idna_allow_unassigned;
 static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
-static ERL_NIF_TERM atom_in4_sockaddr;
-static ERL_NIF_TERM atom_in6_sockaddr;
-static ERL_NIF_TERM atom_inet;
-static ERL_NIF_TERM atom_inet6;
-static ERL_NIF_TERM atom_ip;
-static ERL_NIF_TERM atom_ipv6;
 static ERL_NIF_TERM atom_namereqd;
 static ERL_NIF_TERM atom_name_info;
 static ERL_NIF_TERM atom_nofqdn;
 static ERL_NIF_TERM atom_numerichost;
 static ERL_NIF_TERM atom_numericserv;
-static ERL_NIF_TERM atom_ok;
-static ERL_NIF_TERM atom_raw;
-static ERL_NIF_TERM atom_rdm;
-// static ERL_NIF_TERM atom_select;
-static ERL_NIF_TERM atom_stream;
-static ERL_NIF_TERM atom_seqpacket;
-// static ERL_NIF_TERM atom_timeout;
-static ERL_NIF_TERM atom_tcp;
-static ERL_NIF_TERM atom_true;
-static ERL_NIF_TERM atom_udp;
-static ERL_NIF_TERM atom_undefined;
 
-// static ERL_NIF_TERM atom_lowdelay;
-// static ERL_NIF_TERM atom_throughput;
-// static ERL_NIF_TERM atom_reliability;
-// static ERL_NIF_TERM atom_mincost;
 
-// static ERL_NIF_TERM atom_eafnosupport;
 static ERL_NIF_TERM atom_eaddrfamily;
-static ERL_NIF_TERM atom_eagain;
+// static ERL_NIF_TERM atom_eagain;
 static ERL_NIF_TERM atom_ebadflags;
 static ERL_NIF_TERM atom_efail;
 static ERL_NIF_TERM atom_efamily;
 static ERL_NIF_TERM atom_efault;
-static ERL_NIF_TERM atom_einval;
-// static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_emem;
 static ERL_NIF_TERM atom_enametoolong;
 static ERL_NIF_TERM atom_enodata;
 static ERL_NIF_TERM atom_enoname;
-// static ERL_NIF_TERM atom_enotclosing;
-// static ERL_NIF_TERM atom_enotconn;
 static ERL_NIF_TERM atom_enxio;
 static ERL_NIF_TERM atom_eoverflow;
 static ERL_NIF_TERM atom_eservice;
 static ERL_NIF_TERM atom_esocktype;
 static ERL_NIF_TERM atom_esystem;
-// static ERL_NIF_TERM atom_exalloc;
-// static ERL_NIF_TERM atom_exbadstate;
-// static ERL_NIF_TERM atom_exbusy;
-// static ERL_NIF_TERM atom_exmon;
-// static ERL_NIF_TERM atom_exself;
-// static ERL_NIF_TERM atom_exsend;
+
 
 /* *** net *** */
 static ErlNifResourceType*    net;
@@ -738,7 +465,7 @@ ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
     if (argc != 0)
         return enif_make_badarg(env);
 
-    return atom_true;
+    return esock_atom_true;
 }
 
 
@@ -755,13 +482,13 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 {
     ERL_NIF_TERM info, tmp;
 
-    NDBG( ("info -> entry\r\n") );
+    NDBG( ("NET", "info -> entry\r\n") );
 
     tmp  = enif_make_new_map(env);
     if (!enif_make_map_put(env, tmp, atom_debug, BOOL2ATOM(data.debug), &info))
         info = tmp;
 
-    NDBG( ("info -> done: %T\r\n", info) );
+    NDBG( ("NET", "info -> done: %T\r\n", info) );
 
     return info;
 }
@@ -787,18 +514,18 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 {
     ERL_NIF_TERM ecmd, result;
 
-    NDBG( ("command -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "command -> entry (%d)\r\n", argc) );
 
     if (argc != 1)
         return enif_make_badarg(env);
 
     ecmd = argv[0];
 
-    NDBG( ("command -> ecmd: %T\r\n", ecmd) );
+    NDBG( ("NET", "command -> ecmd: %T\r\n", ecmd) );
 
     result = ncommand(env, ecmd);
 
-    NDBG( ("command -> result: %T\r\n", result) );
+    NDBG( ("NET", "command -> result: %T\r\n", result) );
 
     return result;
 }
@@ -819,19 +546,19 @@ ERL_NIF_TERM ncommand(ErlNifEnv*   env,
     if (IS_TUPLE(env, cmd)) {
         /* Could be the debug tuple */
         if (!GET_TUPLE(env, cmd, &tsz, &t))
-            return make_error(env, atom_einval);
+            return esock_make_error(env, esock_atom_einval);
 
         if (tsz != 2)
-            return make_error(env, atom_einval);
+            return esock_make_error(env, esock_atom_einval);
 
         /* First element should be the atom 'debug' */
         if (COMPARE(t[0], atom_debug) != 0)
-            return make_error(env, atom_einval);
+            return esock_make_error(env, esock_atom_einval);
 
         return decode_bool(env, t[1], &data.debug);
 
     } else {
-        return make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
     }
 
 }
@@ -852,14 +579,14 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
 {
     ERL_NIF_TERM result;
     
-    NDBG( ("nif_gethostname -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
 
     if (argc != 0)
         return enif_make_badarg(env);
 
     result = ngethostname(env);
 
-    NDBG( ("nif_gethostname -> done when result: %T\r\n", result) );
+    NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
     return result;
 }
@@ -874,27 +601,27 @@ ERL_NIF_TERM ngethostname(ErlNifEnv* env)
 
     res = net_gethostname(buf, sizeof(buf));
 
-    NDBG( ("ngethostname -> gethostname res: %d\r\n", res) );
+    NDBG( ("NET", "ngethostname -> gethostname res: %d\r\n", res) );
 
     switch (res) {
     case 0:
-        result = make_ok2(env, MKS(env, buf));
+        result = esock_make_ok2(env, MKS(env, buf));
         break;
 
     case EFAULT:
-        result = make_error(env, atom_efault);
+        result = esock_make_error(env, atom_efault);
         break;
 
     case EINVAL:
-        result = make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
 
     case ENAMETOOLONG:
-        result = make_error(env, atom_enametoolong);
+        result = esock_make_error(env, atom_enametoolong);
         break;
 
     default:
-        result = make_error(env, MKI(env, res));
+        result = esock_make_error(env, MKI(env, res));
         break;
     }
 
@@ -920,33 +647,35 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM result, eSockAddr;
-    ERL_NIF_TERM eFlags;
-    int          flags = 0; // Just in case...
-    SockAddress  sa;
-    SOCKLEN_T    saLen = 0; // Just in case...
+    ERL_NIF_TERM  result;
+    ERL_NIF_TERM  eSockAddr, eFlags;
+    int           flags = 0; // Just in case...
+    SocketAddress sa;
+    SOCKLEN_T     saLen = 0; // Just in case...
 
-    NDBG( ("nif_getnameinfo -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_getnameinfo -> entry (%d)\r\n", argc) );
 
     if (argc != 2)
         return enif_make_badarg(env);
     eSockAddr = argv[0];
     eFlags    = argv[1];
 
-    NDBG( ("nif_getnameinfo -> "
+    NDBG( ("NET",
+           "nif_getnameinfo -> "
            "\r\n   SockAddr: %T"
            "\r\n   Flags:    %T"
            "\r\n", eSockAddr, eFlags) );
 
-    if (!decode_nameinfo_flags(env, eFlags, &flags))
+    if (!esock_decode_sockaddr(env, eSockAddr, &sa, &saLen))
         return enif_make_badarg(env);
 
-    if (!decode_in_sockaddr(env, eSockAddr, &sa, &saLen))
+    if (!decode_nameinfo_flags(env, eFlags, &flags))
         return enif_make_badarg(env);
 
     result = ngetnameinfo(env, &sa, saLen, flags);
 
-    NDBG( ("nif_getnameinfo -> done when result: "
+    NDBG( ("NET",
+           "nif_getnameinfo -> done when result: "
            "\r\n   %T\r\n", result) );
 
     return result;
@@ -958,10 +687,10 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
  * service info.
  */
 static
-ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
-                          const SockAddress* saP,
-                          SOCKLEN_T          saLen,
-                          int                flags)
+ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
+                          const SocketAddress* saP,
+                          SOCKLEN_T            saLen,
+                          int                  flags)
 {
     ERL_NIF_TERM result;
     char         host[HOSTNAME_LEN];
@@ -974,7 +703,7 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                           serv, servLen,
                           flags);
 
-    NDBG( ("ngetnameinfo -> res: %d\r\n", res) );
+    NDBG( ("NET", "ngetnameinfo -> res: %d\r\n", res) );
 
     switch (res) {
     case 0:
@@ -983,44 +712,44 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*         env,
                                      atom_name_info,
                                      MKS(env, host),
                                      MKS(env, serv));
-            result = make_ok2(env, info);
+            result = esock_make_ok2(env, info);
         }
         break;
 
     case EAI_AGAIN:
-        result = make_error(env, atom_eagain);
+        result = esock_make_error(env, esock_atom_eagain);
         break;
 
     case EAI_BADFLAGS:
-        result = make_error(env, atom_ebadflags);
+        result = esock_make_error(env, atom_ebadflags);
         break;
 
     case EAI_FAIL:
-        result = make_error(env, atom_efail);
+        result = esock_make_error(env, atom_efail);
         break;
 
     case EAI_FAMILY:
-        result = make_error(env, atom_efamily);
+        result = esock_make_error(env, atom_efamily);
         break;
 
     case EAI_MEMORY:
-        result = make_error(env, atom_emem);
+        result = esock_make_error(env, atom_emem);
         break;
 
     case EAI_NONAME:
-        result = make_error(env, atom_enoname);
+        result = esock_make_error(env, atom_enoname);
         break;
 
     case EAI_OVERFLOW:
-        result = make_error(env, atom_eoverflow);
+        result = esock_make_error(env, atom_eoverflow);
         break;
 
     case EAI_SYSTEM:
-        result = make_error2(env, get_errno());
+        result = esock_make_error_errno(env, get_errno());
         break;
 
     default:
-        result = make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -1051,7 +780,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     char*            servName;
     // struct addrinfo* hints;
 
-    NDBG( ("nif_getaddrinfo -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_getaddrinfo -> entry (%d)\r\n", argc) );
 
     if (argc != 3) {
         return enif_make_badarg(env);
@@ -1060,7 +789,8 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     eServName = argv[1];
     // eHints    = argv[2];
 
-    NDBG( ("nif_getaddrinfo -> "
+    NDBG( ("NET",
+           "nif_getaddrinfo -> "
            "\r\n   ehost:    %T"
            "\r\n   eservice: %T"
            "\r\n   ehints:   %T"
@@ -1093,7 +823,8 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
         FREE(hints);
     */
 
-    NDBG( ("nif_getaddrinfo -> done when result: "
+    NDBG( ("NET",
+           "nif_getaddrinfo -> done when result: "
            "\r\n   %T\r\n", result) );
 
     return result;
@@ -1109,7 +840,7 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
     struct addrinfo* addrInfoP;
     int              res;
 
-    NDBG( ("ngetaddrinfo -> entry with"
+    NDBG( ("NET", "ngetaddrinfo -> entry with"
            "\r\n   host: %s"
            "\r\n   serv: %s"
            "\r\n",
@@ -1118,63 +849,63 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
     
     res = getaddrinfo(host, serv, NULL, &addrInfoP);
 
-    NDBG( ("ngetaddrinfo -> res: %d\r\n", res) );
+    NDBG( ("NET", "ngetaddrinfo -> res: %d\r\n", res) );
     
     switch (res) {
     case 0:
         {
             ERL_NIF_TERM addrInfo = encode_address_infos(env, addrInfoP);
             freeaddrinfo(addrInfoP);
-            result = make_ok2(env, addrInfo);
+            result = esock_make_ok2(env, addrInfo);
         }
         break;
 
     case EAI_ADDRFAMILY:
-        result = make_error(env, atom_eaddrfamily);
+        result = esock_make_error(env, atom_eaddrfamily);
         break;
 
     case EAI_AGAIN:
-        result = make_error(env, atom_eagain);
+        result = esock_make_error(env, esock_atom_eagain);
         break;
 
     case EAI_BADFLAGS:
-        result = make_error(env, atom_ebadflags);
+        result = esock_make_error(env, atom_ebadflags);
         break;
 
     case EAI_FAIL:
-        result = make_error(env, atom_efail);
+        result = esock_make_error(env, atom_efail);
         break;
 
     case EAI_FAMILY:
-        result = make_error(env, atom_efamily);
+        result = esock_make_error(env, atom_efamily);
         break;
 
     case EAI_MEMORY:
-        result = make_error(env, atom_emem);
+        result = esock_make_error(env, atom_emem);
         break;
 
     case EAI_NODATA:
-        result = make_error(env, atom_enodata);
+        result = esock_make_error(env, atom_enodata);
         break;
 
     case EAI_NONAME:
-        result = make_error(env, atom_enoname);
+        result = esock_make_error(env, atom_enoname);
         break;
 
     case EAI_SERVICE:
-        result = make_error(env, atom_eservice);
+        result = esock_make_error(env, atom_eservice);
         break;
 
     case EAI_SOCKTYPE:
-        result = make_error(env, atom_esocktype);
+        result = esock_make_error(env, atom_esocktype);
         break;
 
     case EAI_SYSTEM:
-        result = make_error(env, atom_esystem);
+        result = esock_make_error(env, atom_esystem);
         break;
 
     default:
-        result = make_error(env, atom_einval);
+        result = esock_make_error(env, esock_atom_einval);
         break;
     }
 
@@ -1200,23 +931,24 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
 
-    NDBG( ("nif_if_name2index -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_if_name2index -> entry (%d)\r\n", argc) );
 
     if (argc != 1) {
         return enif_make_badarg(env);
     }
     eifn = argv[0];
 
-    NDBG( ("nif_if_name2index -> "
+    NDBG( ("NET",
+           "nif_if_name2index -> "
            "\r\n   Ifn: %T"
            "\r\n", argv[0]) );
 
     if (0 >= GET_STR(env, eifn, ifn, sizeof(ifn)))
-        return make_error2(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
 
     result = nif_name2index(env, ifn);
 
-    NDBG( ("nif_if_name2index -> done when result: %T\r\n", result) );
+    NDBG( ("NET", "nif_if_name2index -> done when result: %T\r\n", result) );
 
     return result;
 }
@@ -1229,16 +961,16 @@ ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
 {
     unsigned int idx;
 
-    NDBG( ("nif_name2index -> entry with ifn: %s\r\n", ifn) );
+    NDBG( ("NET", "nif_name2index -> entry with ifn: %s\r\n", ifn) );
 
     idx = if_nametoindex(ifn);
 
-    NDBG( ("nif_name2index -> idx: %d\r\n", idx) );
+    NDBG( ("NET", "nif_name2index -> idx: %d\r\n", idx) );
 
     if (idx == 0)
-         return make_error2(env, get_errno());
+         return esock_make_error_errno(env, get_errno());
      else
-         return make_ok2(env, MKI(env, idx));
+         return esock_make_ok2(env, MKI(env, idx));
 
 }
 
@@ -1262,20 +994,20 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
     ERL_NIF_TERM result;
     unsigned int idx;
 
-    NDBG( ("nif_if_index2name -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_if_index2name -> entry (%d)\r\n", argc) );
 
     if ((argc != 1) ||
         !GET_UINT(env, argv[0], &idx)) {
         return enif_make_badarg(env);
     }
 
-    NDBG( ("nif_index2name -> "
+    NDBG( ("NET", "nif_index2name -> "
            "\r\n   Idx: %T"
            "\r\n", argv[0]) );
 
     result = nif_index2name(env, idx);
 
-    NDBG( ("nif_if_index2name -> done when result: %T\r\n", result) );
+    NDBG( ("NET", "nif_if_index2name -> done when result: %T\r\n", result) );
 
     return result;
 }
@@ -1293,9 +1025,9 @@ ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
         return enif_make_badarg(env); // PLACEHOLDER
 
     if (NULL != if_indextoname(idx, ifn)) {
-        result = make_ok2(env, MKS(env, ifn));
+        result = esock_make_ok2(env, MKS(env, ifn));
     } else {
-        result = make_error(env, atom_enxio);
+        result = esock_make_error(env, atom_enxio);
     }
 
     FREE(ifn);
@@ -1320,7 +1052,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 {
     ERL_NIF_TERM result;
 
-    NDBG( ("nif_if_names -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_if_names -> entry (%d)\r\n", argc) );
 
     if (argc != 0) {
         return enif_make_badarg(env);
@@ -1328,7 +1060,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 
     result = nif_names(env);
 
-    NDBG( ("nif_if_names -> done when result: %T\r\n", result) );
+    NDBG( ("NET", "nif_if_names -> done when result: %T\r\n", result) );
 
     return result;
 }
@@ -1341,10 +1073,10 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
     ERL_NIF_TERM         result;
     struct if_nameindex* ifs = if_nameindex();
 
-    NDBG( ("nif_names -> ifs: 0x%lX\r\n", ifs) );
+    NDBG( ("NET", "nif_names -> ifs: 0x%lX\r\n", ifs) );
 
     if (ifs == NULL) {
-        result = make_error2(env, get_errno());
+        result = esock_make_error_errno(env, get_errno());
     } else {
         /*
          * We got some interfaces:
@@ -1360,7 +1092,7 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
          */
         unsigned int len = nif_names_length(ifs);
 
-        NDBG( ("nif_names -> len: %d\r\n", len) );
+        NDBG( ("NET", "nif_names -> len: %d\r\n", len) );
 
         if (len > 0) {
             ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
@@ -1372,10 +1104,10 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
                                 MKS(env, ifs[i].if_name));
             }
 
-            result = make_ok2(env, MKLA(env, array, len));
+            result = esock_make_ok2(env, MKLA(env, array, len));
             FREE(array);
         } else {
-            result = make_ok2(env, enif_make_list(env, 0));
+            result = esock_make_ok2(env, enif_make_list(env, 0));
         }
     }
 
@@ -1394,7 +1126,7 @@ unsigned int nif_names_length(struct if_nameindex* p)
 
     while (!done) {
 
-        NDBG( ("nif_names_length -> %d: "
+        NDBG( ("NET", "nif_names_length -> %d: "
                "\r\n   if_index: %d"
                "\r\n   if_name:  0x%lX"
                "\r\n", len, p[len].if_index, p[len].if_name) );
@@ -1415,357 +1147,6 @@ unsigned int nif_names_length(struct if_nameindex* p)
  * ----------------------------------------------------------------------
  */
 
-/* Decode an in_sockaddr (the socket address).
- * This is the (erlang) type: in_sockaddr(), which is either
- * a in4_sockaddr() (tuple of size 3) or a in6_sockaddr()
- * (tuple of size 5). See the net erlang module for details.
- *
- * We first detect which which of the tuples it is:
- *   - Size 3: maybe in4_sockaddr
- *   - Size 5: maybe in6_sockaddr
- */
-static
-BOOLEAN_T decode_in_sockaddr(ErlNifEnv*         env,
-                             const ERL_NIF_TERM eAddr,
-                             SockAddress*       saP,
-                             SOCKLEN_T*         saLen)
-{
-    const ERL_NIF_TERM* addrt;
-    int                 addrtSz;
-
-    if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-        return FALSE;
-
-    switch (addrtSz) {
-    case 3:
-        return decode_in4_sockaddr(env, addrt, saP, saLen);
-        break;
-
-#ifdef HAVE_IN6
-    case 5:
-        return decode_in6_sockaddr(env, addrt, saP, saLen);
-        break;
-#endif
-
-    default:
-        return FALSE;
-        break;
-    }
-
-}
-
-
-/* Decode an in4_sockaddr record. This is a tuple of size 3.
- * The size has already been verified, but not its content.
- * So, the first element should be the atom 'in4_sockaddr'.
- * The second the port number, an integer. And the third,
- * the actual ip address, a 4-tuple.
- */
-static
-BOOLEAN_T decode_in4_sockaddr(ErlNifEnv*          env,
-                              const ERL_NIF_TERM* addrt,
-                              SockAddress*        saP,
-                              SOCKLEN_T*          saLen)
-{
-    unsigned int        len;
-    char                tag[16]; // Just in case...
-    int                 port;
-    int                 ipAddrSz;
-    const ERL_NIF_TERM* ipAddrT;
-    int                 a, v;
-    char                addr[4];
-
-    /* The first element: Verify record tag (atom()): in4_sockaddr */
-
-    if (!(GET_ATOM_LEN(env, addrt[0], &len) &&
-          (len > 0) &&
-          (len <= (sizeof(tag)))))
-        return FALSE;
-
-    if (!GET_ATOM(env, addrt[0], tag, sizeof(tag)))
-        return FALSE;
-
-    if (strncmp(tag, "in4_sockaddr", len) != 0)
-        return FALSE;
-
-
-    /* Get second element: port number (integer) */
-
-    if (!GET_INT(env, addrt[1], &port))
-        return FALSE;
-
-
-    /* And finally, get the third element, the ip address (a 4 tuple) */
-
-    if (!GET_TUPLE(env, addrt[2], &ipAddrSz, &ipAddrT))
-        return FALSE;
-
-    if (ipAddrSz != 4)
-        return FALSE;
-
-
-    /* And finally initialize the sockaddr structure (and size) */
-    sys_memzero((char*)saP, sizeof(struct sockaddr_in));
-    saP->in4.sin_family = AF_INET;
-    saP->in4.sin_port   = htons(port);
-    for (a = 0; a < 4; a++) {
-        if (!GET_INT(env, ipAddrT[a], &v))
-            return FALSE;
-        addr[a] = v;
-    }
-    sys_memcpy(&saP->in4.sin_addr, &addr, sizeof(addr));
-    *saLen = sizeof(struct sockaddr_in);
-    return TRUE;
-}
-
-
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-/* Decode an in6_sockaddr record. This is a tuple of size 5.
- * The size has already been verified, but not its content.
- * So, the first element should be the atom 'in6_sockaddr'.
- * The second the port number, an integer. The third, the
- * actual ip address, a 8-tuple. The forth, the flowinfo,
- * an integer. And finally, the fifth element, the scope_id,
- * also an integer. *Not used here*.
- */
-static
-BOOLEAN_T decode_in6_sockaddr(ErlNifEnv*          env,
-                              const ERL_NIF_TERM* addrt,
-                              SockAddress*        saP,
-                              SOCKLEN_T*          saLen)
-{
-    unsigned int        len;
-    char                tag[16]; // Just in case...
-    int                 port;
-    int                 ipAddrSz;
-    const ERL_NIF_TERM* ipAddrT;
-    int                 flowInfo;
-    int                 a, v;
-    char                addr[16];
-
-
-    /* The first element: Verify record tag (atom()): in6_sockaddr */
-
-    if (!(GET_ATOM_LEN(env, addrt[0], &len) &&
-          (len > 0) &&
-          (len <= (sizeof(tag)))))
-        return FALSE;
-
-    if (!GET_ATOM(env, addrt[0], tag, sizeof(tag)))
-        return FALSE;
-
-    if (strncmp(tag, "in6_sockaddr", len) != 0)
-        return FALSE;
-
-
-    /* Get second element: port number (integer) */
-
-    if (!GET_INT(env, addrt[1], &port))
-        return FALSE;
-
-
-    /* Get the third element, the ip address (a 8 tuple) */
-
-    if (!GET_TUPLE(env, addrt[2], &ipAddrSz, &ipAddrT))
-        return FALSE;
-
-    if (ipAddrSz != 8)
-        return FALSE;
-
-
-    /* And finally, get the forth element, the flowinfo (integer) */
-
-    if (!GET_INT(env, addrt[3], &flowInfo))
-        return FALSE;
-
-
-    /* And finally initialize the sockaddr structure (and size) */
-
-    sys_memzero((char*)saP, sizeof(struct sockaddr_in6));
-    saP->in6.sin6_family   = AF_INET6;
-    saP->in6.sin6_port     = htons(port);
-    saP->in6.sin6_flowinfo = flowInfo;
-    /* The address tuple is of size 8
-     * and each element is a two byte integer
-     */
-    for (a = 0; a < 8; a++) {
-        if (!GET_INT(env, addrt[a], &v))
-            return FALSE;
-        addr[a*2  ] = ((v >> 8) & 0xFF);
-        addr[a*2+1] = (v & 0xFF);
-    }
-    sys_memcpy(&saP->in6.sin6_addr, &addr, sizeof(addr));
-    *saLen = sizeof(struct sockaddr_in6);
-
-    return TRUE;
-}
-#endif
-
-
-
-static
-ERL_NIF_TERM encode_in_sockaddr(ErlNifEnv*       env,
-                                struct sockaddr* addrP,
-                                SOCKLEN_T        addrLen)
-{
-    SockAddress* sockAddrP = (SockAddress*) addrP;
-    ERL_NIF_TERM sockAddr;
-
-    switch (sockAddrP->sa.sa_family) {
-    case AF_INET:
-        sockAddr = encode_in4_sockaddr(env, &sockAddrP->in4, addrLen);
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        sockAddr = encode_in6_sockaddr(env, &sockAddrP->in6, addrLen);
-        break;
-#endif
-
-#ifdef HAVE_SYS_UN_H
-    case AF_UNIX:
-        sockAddr = encode_un_sockaddr(env, &sockAddrP->un, addrLen);
-        break;
-#endif
-
-    default:
-        sockAddr = atom_undefined;
-        break;
-    }
-
-    return sockAddr;
-}
-
-
-
-/* Encode an IPv4 socket address; in4_sockaddr */
-static
-ERL_NIF_TERM encode_in4_sockaddr(ErlNifEnv*          env,
-                                 struct sockaddr_in* addrP,
-                                 SOCKLEN_T           addrLen)
-{
-    ERL_NIF_TERM sockAddr;
-    short        port;
-    ERL_NIF_TERM ePort, eAddr;
-    
-
-    if (addrLen >= sizeof(struct sockaddr_in)) {
-        unsigned int   i;
-        ERL_NIF_TERM   at[4];
-        unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
-        unsigned char* a     = (unsigned char*) &addrP->sin_addr;
-
-        /* The port */
-        port  = ntohs(addrP->sin_port);
-        ePort = MKI(env, port);
-
-        /* The address */
-        for (i = 0; i < atLen; i++) {
-            at[i] = MKI(env, a[i]);
-        }
-        eAddr = MKTA(env, at, atLen);
-        // eAddr = MKT4(env, at[0], at[1], at[2], at[3]);
-
-        /* And finally construct the in4_sockaddr record */
-        sockAddr = make_in4_sockaddr(env, ePort, eAddr);
-
-    } else {
-        sockAddr = atom_undefined;
-    }
-
-    return sockAddr;
-}
-
-
-
-/* Encode an IPv6 socket address; in6_sockaddr */
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static
-ERL_NIF_TERM encode_in6_sockaddr(ErlNifEnv*           env,
-                                 struct sockaddr_in6* addrP,
-                                 SOCKLEN_T            addrLen)
-{
-    ERL_NIF_TERM sockAddr;
-    short        port;
-    ERL_NIF_TERM ePort, eAddr, eFlowInfo, eScopeId;
-    
-
-    if (addrLen >= sizeof(struct sockaddr_in6)) {
-        unsigned int   i;
-        ERL_NIF_TERM   at[8];
-        unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
-        unsigned char* a     = (unsigned char*) &addrP->sin6_addr;
-
-        /* The port */
-        port  = ntohs(addrP->sin6_port);
-        ePort = MKI(env, port);
-
-        /* The address */
-        for (i = 0; i < atLen; i++) {
-            at[i] = MKI(env, get_int16(a + i*2));
-        }
-        eAddr = MKTA(env, at, atLen);
-
-        /* The flowInfo */
-        eFlowInfo = MKI(env, addrP->sin6_flowinfo);
-
-        /* The scopeId */
-        eScopeId = MKI(env, addrP->sin6_scope_id);
-        
-        /* And finally construct the in6_sockaddr record */
-        sockAddr = make_in6_sockaddr(env, ePort, eAddr, eFlowInfo, eScopeId);
-
-    } else {
-        sockAddr = atom_undefined;
-    }
-
-    return sockAddr;
-}
-#endif
-
-
-
-/* Encode an Unix Domain socket address: string() */
-#ifdef HAVE_SYS_UN_H
-static
-ERL_NIF_TERM encode_un_sockaddr(ErlNifEnv*          env,
-                                struct sockaddr_un* addrP,
-                                SOCKLEN_T           addrLen)
-{
-    ERL_NIF_TERM sockAddr;
-    size_t       n, m;
-
-    if (addrLen >= offsetof(struct sockaddr_un, sun_path)) {
-        n = addrLen - offsetof(struct sockaddr_un, sun_path);
-        if (255 < n) {
-            sockAddr = atom_undefined;
-        } else {
-            m = my_strnlen(addrP->sun_path, n);
-#ifdef __linux__
-            /* Assume that the address is a zero terminated string,
-             * except when the first byte is \0 i.e the string length is 0,
-             * then use the reported length instead.
-             * This fix handles Linux's nonportable
-             * abstract socket address extension.
-             */
-            if (m == 0) {
-                m = n;
-            }
-#endif
-            
-            sockAddr = MKSL(env, addrP->sun_path, m);
-        }
-    } else {
-        sockAddr = atom_undefined;
-    }
-
-    return sockAddr;
-}
-#endif
-
-
-
 /* The erlang format for a set of flags is a list of atoms.
  * A special case is when there is no flags, which is
  * represented by the atom undefined.
@@ -1778,14 +1159,14 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
     BOOLEAN_T result;
 
     if (IS_ATOM(env, eflags)) {
-        if (COMPARE(eflags, atom_undefined) == 0) {
+        if (COMPARE(eflags, esock_atom_undefined) == 0) {
             *flags = 0;
             result = TRUE;
         } else {
             result = FALSE;
         }
     } else if (IS_LIST(env, eflags)) {
-        NDBG( ("decode_nameinfo_flags -> is atom\r\n") );
+        NDBG( ("NET", "decode_nameinfo_flags -> is atom\r\n") );
         result = decode_nameinfo_flags_list(env, eflags, flags);
     } else {
         result = FALSE;
@@ -1809,7 +1190,7 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
         if (GET_LIST_ELEM(env, list, &elem, &tail)) {
             if (COMPARE(elem, atom_namereqd) == 0) {
                 tmp |= NI_NAMEREQD;
-            } else if (COMPARE(elem, atom_dgram) == 0) {
+            } else if (COMPARE(elem, esock_atom_dgram) == 0) {
                 tmp |= NI_DGRAM;
             } else if (COMPARE(elem, atom_nofqdn) == 0) {
                 tmp |= NI_NOFQDN;
@@ -1864,7 +1245,7 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
     BOOLEAN_T result;
 
     if (IS_ATOM(env, eString)) {
-        if (COMPARE(eString, atom_undefined) == 0) {
+        if (COMPARE(eString, esock_atom_undefined) == 0) {
             *stringP = NULL;
             result   = TRUE;
         } else {
@@ -1880,12 +1261,12 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
             result   = FALSE;
         }
 
-        NDBG( ("decode_addrinfo_string -> len: %d\r\n", len) );
+        NDBG( ("NET", "decode_addrinfo_string -> len: %d\r\n", len) );
         
         bufP = MALLOC(len + 1); // We shall NULL-terminate
 
         if (GET_STR(env, eString, bufP, len+1)) {
-            NDBG( ("decode_addrinfo_string -> buf: %s\r\n", bufP) );
+            NDBG( ("NET", "decode_addrinfo_string -> buf: %s\r\n", bufP) );
             // bufP[len] = '\0';
             *stringP = bufP;
             result   = TRUE;
@@ -1906,14 +1287,14 @@ ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
                          ERL_NIF_TERM eBool,
                          BOOLEAN_T*   bool)
 {
-    if (COMPARE(eBool, atom_true) == 0) {
+    if (COMPARE(eBool, esock_atom_true) == 0) {
         *bool = TRUE;
-        return atom_ok;
-    } else if (COMPARE(eBool, atom_false) == 0) {
+        return esock_atom_ok;
+    } else if (COMPARE(eBool, esock_atom_false) == 0) {
         *bool = FALSE;
-        return atom_ok;
+        return esock_atom_ok;
     } else {
-        return make_error(env, atom_einval);
+        return esock_make_error(env, esock_atom_einval);
     }
 }
 
@@ -1930,10 +1311,10 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
     ERL_NIF_TERM result;
     unsigned int len = address_info_length(addrInfo);
 
-    NDBG( ("encode_address_infos -> len: %d\r\n", len) );
+    NDBG( ("NET", "encode_address_infos -> len: %d\r\n", len) );
 
     if (len > 0) {
-        ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM));
+        ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM)); // LEAK?
         unsigned int     i     = 0;
         struct addrinfo* p     = addrInfo;
 
@@ -1948,7 +1329,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
         result = MKEL(env);
     }
 
-    NDBG( ("encode_address_infos -> result: "
+    NDBG( ("NET", "encode_address_infos -> result: "
            "\r\n   %T\r\n", result) );
 
     return result;
@@ -1997,7 +1378,10 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
     fam   = encode_address_info_family(env, addrInfoP->ai_family);
     type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
     proto = encode_address_info_proto(env,  addrInfoP->ai_protocol);
-    addr  = encode_in_sockaddr(env, addrInfoP->ai_addr, addrInfoP->ai_addrlen);
+    esock_encode_sockaddr(env,
+                          (SocketAddress*) addrInfoP->ai_addr,
+                          addrInfoP->ai_addrlen,
+                          &addr);
     
     result = make_address_info(env, fam, type, proto, addr);
 
@@ -2057,23 +1441,23 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 
     switch (socktype) {
     case SOCK_STREAM:
-        etype = atom_stream;
+        etype = esock_atom_stream;
         break;
 
     case SOCK_DGRAM:
-        etype = atom_dgram;
+        etype = esock_atom_dgram;
         break;
 
     case SOCK_RAW:
-        etype = atom_raw;
+        etype = esock_atom_raw;
         break;
 
     case SOCK_RDM:
-        etype = atom_rdm;
+        etype = esock_atom_rdm;
         break;
 
     case SOCK_SEQPACKET:
-        etype = atom_seqpacket;
+        etype = esock_atom_seqpacket;
         break;
 
     default:
@@ -2103,26 +1487,26 @@ ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
 #else
     case IPPROTO_IP:
 #endif
-        eproto = atom_ip;
+        eproto = esock_atom_ip;
         break;
 
 #if defined(SOL_IPV6)
     case SOL_IPV6:
-        eproto = atom_ipv6;
+        eproto = esock_atom_ipv6;
         break;
 #endif
 
     case IPPROTO_TCP:
-        eproto = atom_tcp;
+        eproto = esock_atom_tcp;
         break;
 
     case IPPROTO_UDP:
-        eproto = atom_udp;
+        eproto = esock_atom_udp;
         break;
 
 #if defined(HAVE_SCTP)
     case IPPROTO_SCTP:
-        eproto = atom_sctp;
+        eproto = esock_atom_sctp;
         break;
 #endif
 
@@ -2132,110 +1516,6 @@ ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
     }
 
     return eproto;
-}
-
-
-
-/* Convert an "native" address to an erlang address
- * Note that this is not currently exhaustive, but only supports
- * IPv4 and IPv6 addresses. Values of other families will be
- * returned as an undefined.
- */
-/*
-static
-ERL_NIF_TERM encode_address_info_addr(ErlNifEnv*       env,
-                                      struct sockaddr* addrP,
-                                      SOCKLEN_T        addrLen)
-{
-    ERL_NIF_TERM port, addr, eaddr;
-    SockAddress* p = (SockAddress*) addrP;
-
-    NDBG( ("encode_address_info_addr -> entry with"
-           "\r\n   family:  %d"
-           "\r\n   addrLen: %d"
-           "\r\n", addrP->sa_family, addrLen) );
-
-    switch (addrP->sa_family) {
-    case AF_INET:
-        {
-            unsigned char* a = (unsigned char*) &p->in.sin_addr;
-            port = MKI(env, ntohs(p->in.sin_port));
-            addr = MKT4(env,
-                        MKI(env, a[0]),
-                        MKI(env, a[1]),
-                        MKI(env, a[2]),
-                        MKI(env, a[3]));
-            eaddr = MKT2(env, port, addr);
-        }
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        {
-            unsigned char* a = (unsigned char*) &p->in6.sin6_addr;
-            port = MKI(env, ntohs(p->in6.sin6_port));
-            addr = MKT8(env,
-                        MKI(env, get_int16(a)),
-                        MKI(env, get_int16(&a[ 2])),
-                        MKI(env, get_int16(&a[ 4])),
-                        MKI(env, get_int16(&a[ 6])),
-                        MKI(env, get_int16(&a[ 8])),
-                        MKI(env, get_int16(&a[10])),
-                        MKI(env, get_int16(&a[12])),
-                        MKI(env, get_int16(&a[14])));
-            eaddr = MKT2(env, port, addr);
-        }
-        break;
-#endif
-
-    default:
-        eaddr = atom_undefined;
-        break;
-    }
-
-    NDBG( ("make_addrinfo_addr -> eaddr: "
-           "\r\n   %T\r\n", eaddr) );
-
-    return eaddr;
-}
-*/
-
-    
-
-#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
-/* strnlen doesn't exist everywhere */
-static
-size_t my_strnlen(const char *s, size_t maxlen)
-{
-    size_t i = 0;
-    while (i < maxlen && s[i] != '\0')
-        i++;
-    return i;
-}
-#endif
-
-
-
-/* Construct the IPv4 socket address record: in4_sockaddr */
-static
-ERL_NIF_TERM make_in4_sockaddr(ErlNifEnv*   env,
-                               ERL_NIF_TERM port,
-                               ERL_NIF_TERM addr)
-{
-    return MKT3(env, atom_in4_sockaddr, port, addr);
-}
-
-
-
-/* Construct the IPv6 socket address record: in6_sockaddr */
-static
-ERL_NIF_TERM make_in6_sockaddr(ErlNifEnv*   env,
-                               ERL_NIF_TERM port,
-                               ERL_NIF_TERM addr,
-                               ERL_NIF_TERM flowInfo,
-                               ERL_NIF_TERM scopeId)
-{
-    return MKT5(env, atom_in6_sockaddr, port, addr, flowInfo, scopeId);
 }
 
 
@@ -2251,87 +1531,6 @@ ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
 }
 
 
-
-/* Create an ok two (2) tuple in the form: {ok, Any}.
- * The second element (Any) is already in the form of an
- * ERL_NIF_TERM so all we have to do is create the tuple.
- */
-static
-ERL_NIF_TERM make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
-{
-    return MKT2(env, atom_ok, any);
-}
-
-
-/* Create an ok three (3) tuple in the form: {ok, Val1, Val2}.
- * The second (Val1) and third (Val2) elements are already in
- * the form of an ERL_NIF_TERM so all we have to do is create
- * the tuple.
- */
-/*
-static
-ERL_NIF_TERM make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2)
-{
-  return MKT3(env, atom_ok, val1, val2);
-}
-*/
-
-
-/* Create an error two (2) tuple in the form: {error, Reason}.
- * The second element (Reason) is already in the form of an
- * ERL_NIF_TERM so all we have to do is create the tuple.
- */
-static
-ERL_NIF_TERM make_error(ErlNifEnv* env, ERL_NIF_TERM reason)
-{
-    return MKT2(env, atom_error, reason);
-}
-
-
-/* Create an error two (2) tuple in the form: {error, Reason}.
- * The second element, Reason, is a string to be converted into
- * an atom.
- */
-static
-ERL_NIF_TERM make_error1(ErlNifEnv* env, char* reason)
-{
-    return make_error(env, MKA(env, reason));
-}
-
-
-/* Create an error two (2) tuple in the form: {error, Reason}.
- * The second element, Reason, is the errno value in its
- * basic form (integer) which will (eventually) be converted
- * into an atom.
- */
-static
-ERL_NIF_TERM make_error2(ErlNifEnv* env, int err)
-{
-    NDBG( ("make_error2 -> err: %d\r\n", err) );
-    return make_error1(env, erl_errno_id(err));
-}
-
-
-/*
-static
-void xabort(const char* expr,
-	    const char* func,
-	    const char* file,
-	    int         line)
-{
-  fflush(stdout);
-  fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
-	  file, line, func, expr);
-  fflush(stderr);
-  abort();
-}
-*/
-
-
-/* ----------------------------------------------------------------------
- *  C o u n t e r   F u n c t i o n s
- * ----------------------------------------------------------------------
- */
 
 /* ----------------------------------------------------------------------
  *  C a l l b a c k   F u n c t i o n s
@@ -2381,88 +1580,6 @@ void net_down(ErlNifEnv*           env,
 
 
 /* ----------------------------------------------------------------------
- *  D e b u g   F u n c t i o n s
- * ----------------------------------------------------------------------
- */
-
-/*
- * Print a debug format string *with* both a timestamp and the
- * the name of the *current* thread.
- */
-static
-void dbg_printf( const char* format, ... )
-{
-  va_list         args;
-  char            f[512 + sizeof(format)]; // This has to suffice...
-  char            stamp[30];
-  struct timespec ts;
-  int             res;
-
-  /*
-   * We should really include self in the printout, so we can se which process
-   * are executing the code. But then I must change the API....
-   * ....something for later.
-   */
-
-  if (!dbg_realtime(&ts)) {
-    if (dbg_timespec2str(stamp, sizeof(stamp), &ts) != 0) {
-      // res = enif_snprintf(f, sizeof(f), "NET [%s] %s", TSNAME(), format);
-      res = enif_snprintf(f, sizeof(f), "NET [%s]", format);
-    } else {
-      // res = enif_snprintf(f, sizeof(f), "NET[%s] [%s] %s", stamp, TSNAME(), format);
-      res = enif_snprintf(f, sizeof(f), "NET [%s] %s", stamp, format);
-    }
-
-    if (res > 0) {
-      va_start (args, format);
-      erts_vfprintf (stdout, f, args); // TMP: use enif_vfprintf
-      va_end (args);
-      fflush(stdout);
-    }
-  }
-
-  return;
-}
-
-
-static
-int dbg_realtime(struct timespec* tsP)
-{
-  return clock_gettime(CLOCK_REALTIME, tsP);
-}
-
-
-
-
-/*
- * Convert a timespec struct into a readable/printable string
- */
-static
-int dbg_timespec2str(char *buf, unsigned int len, struct timespec *ts)
-{
-  int       ret, buflen;
-  struct tm t;
-
-  tzset();
-  if (localtime_r(&(ts->tv_sec), &t) == NULL)
-    return 1;
-
-  ret = strftime(buf, len, "%F %T", &t);
-  if (ret == 0)
-    return 2;
-  len -= ret - 1;
-  buflen = strlen(buf);
-
-  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
-  if (ret >= len)
-    return 3;
-
-  return 0;
-}
-
-
-
-/* ----------------------------------------------------------------------
  *  L o a d / u n l o a d / u p g r a d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
@@ -2500,78 +1617,40 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     // We should make it possible to use load_info to get default values
     data.debug = FALSE;
 
-    // NDBG( ("on_load -> entry\r\n") );
+    NDBG( ("NET", "on_load -> entry\r\n") );
 
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);
-    atom_dccp                      = MKA(env, str_dccp);
     atom_debug                     = MKA(env, str_debug);
-    atom_dgram                     = MKA(env, str_dgram);
-    atom_error                     = MKA(env, str_error);
-    atom_false                     = MKA(env, str_false);
     atom_idn                       = MKA(env, str_idn);
     atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
     atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
-    atom_in4_sockaddr              = MKA(env, str_in4_sockaddr);
-    atom_in6_sockaddr              = MKA(env, str_in6_sockaddr);
-    atom_inet                      = MKA(env, str_inet);
-    atom_inet6                     = MKA(env, str_inet6);
-    atom_ip                        = MKA(env, str_ip);
-    atom_ipv6                      = MKA(env, str_ipv6);
     atom_namereqd                  = MKA(env, str_namereqd);
     atom_name_info                 = MKA(env, str_name_info);
     atom_nofqdn                    = MKA(env, str_nofqdn);
     atom_numerichost               = MKA(env, str_numerichost);
     atom_numericserv               = MKA(env, str_numericserv);
-    atom_ok                        = MKA(env, str_ok);
-    atom_raw                       = MKA(env, str_raw);
-    atom_rdm                       = MKA(env, str_rdm);
-    atom_seqpacket                 = MKA(env, str_seqpacket);
-    atom_stream                    = MKA(env, str_stream);
-    atom_tcp                       = MKA(env, str_tcp);
-    atom_true                      = MKA(env, str_true);
-    atom_udp                       = MKA(env, str_udp);
-    atom_undefined                 = MKA(env, str_undefined);
-    // atom_version      = MKA(env, str_version);
-
-    // atom_lowdelay     = MKA(env, str_lowdelay);
-    // atom_throughput   = MKA(env, str_throughput);
-    // atom_reliability  = MKA(env, str_reliability);
-    // atom_mincost      = MKA(env, str_mincost);
 
     /* Error codes */
-    // atom_eafnosupport = MKA(env, str_eafnosupport);
     atom_eaddrfamily     = MKA(env, str_eaddrfamily);
-    atom_eagain          = MKA(env, str_eagain);
     atom_ebadflags       = MKA(env, str_ebadflags);
     atom_efail           = MKA(env, str_efail);
     atom_efamily         = MKA(env, str_efamily);
     atom_efault          = MKA(env, str_efault);
-    atom_einval          = MKA(env, str_einval);
-    // atom_eisconn      = MKA(env, str_eisconn);
     atom_emem            = MKA(env, str_emem);
     atom_enametoolong    = MKA(env, str_enametoolong);
     atom_enodata         = MKA(env, str_enodata);
     atom_enoname         = MKA(env, str_enoname);
-    // atom_enotclosing  = MKA(env, str_enotclosing);
-    // atom_enotconn     = MKA(env, str_enotconn);
     atom_enxio           = MKA(env, str_enxio);
     atom_eoverflow       = MKA(env, str_eoverflow);
     atom_eservice        = MKA(env, str_eservice);
     atom_esocktype       = MKA(env, str_esocktype);
     atom_esystem         = MKA(env, str_esystem);
-    // atom_exalloc      = MKA(env, str_exalloc);
-    // atom_exbadstate   = MKA(env, str_exbadstate);
-    // atom_exbusy       = MKA(env, str_exbusy);
-    // atom_exnotopen    = MKA(env, str_exnotopen);
-    // atom_exmon        = MKA(env, str_exmon);
-    // atom_exself       = MKA(env, str_exself);
-    // atom_exsend       = MKA(env, str_exsend);
 
     // For storing "global" things...
-    // socketData.env       = enif_alloc_env(); // We should really check
-    // socketData.version   = MKA(env, ERTS_VERSION);
-    // socketData.buildDate = MKA(env, ERTS_BUILD_DATE);
+    // data.env       = enif_alloc_env(); // We should really check
+    // data.version   = MKA(env, ERTS_VERSION);
+    // data.buildDate = MKA(env, ERTS_BUILD_DATE);
 
     net = enif_open_resource_type_x(env,
                                     "net",
@@ -2579,7 +1658,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                     ERL_NIF_RT_CREATE,
                                     NULL);
 
-    // NDBG( ("on_load -> done\r\n") );
+    NDBG( ("NET", "on_load -> done\r\n") );
 
     return !net;
 }

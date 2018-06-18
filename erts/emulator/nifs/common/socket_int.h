@@ -67,7 +67,7 @@
 /* The general purpose sockaddr */
 typedef union {
     /* General sockaddr */
-    struct sockaddr     in;
+    struct sockaddr     sa;
 
     /* IPv4 sockaddr */
     struct sockaddr_in  in4;
@@ -85,44 +85,56 @@ typedef union {
 } SocketAddress;
 
 
+/* *** Boolean *type* stuff... *** */
 typedef unsigned int BOOLEAN_T;
 #define TRUE  1
 #define FALSE 0
 
+#define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
+
 
 /* Misc error strings */
-#define ESOCK_STR_EINVAL       "einval"
 #define ESOCK_STR_EAFNOSUPPORT "eafnosupport"
+#define ESOCK_STR_EAGAIN       "eagain"
+#define ESOCK_STR_EINVAL       "einval"
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * Misc atoms
+ * "Global" atoms
  */
 extern ERL_NIF_TERM esock_atom_addr;
 extern ERL_NIF_TERM esock_atom_any;
 extern ERL_NIF_TERM esock_atom_dgram;
 extern ERL_NIF_TERM esock_atom_error;
+extern ERL_NIF_TERM esock_atom_false;
 extern ERL_NIF_TERM esock_atom_family;
 extern ERL_NIF_TERM esock_atom_flowinfo;
 extern ERL_NIF_TERM esock_atom_inet;
 extern ERL_NIF_TERM esock_atom_inet6;
+extern ERL_NIF_TERM esock_atom_ip;
+extern ERL_NIF_TERM esock_atom_ipv6;
 extern ERL_NIF_TERM esock_atom_local;
 extern ERL_NIF_TERM esock_atom_loopback;
 extern ERL_NIF_TERM esock_atom_ok;
 extern ERL_NIF_TERM esock_atom_path;
 extern ERL_NIF_TERM esock_atom_port;
 extern ERL_NIF_TERM esock_atom_raw;
+extern ERL_NIF_TERM esock_atom_rdm;
 extern ERL_NIF_TERM esock_atom_scope_id;
+extern ERL_NIF_TERM esock_atom_sctp;
 extern ERL_NIF_TERM esock_atom_seqpacket;
 extern ERL_NIF_TERM esock_atom_stream;
+extern ERL_NIF_TERM esock_atom_tcp;
+extern ERL_NIF_TERM esock_atom_true;
+extern ERL_NIF_TERM esock_atom_udp;
 extern ERL_NIF_TERM esock_atom_undefined;
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * Error value (=reason) atoms
  */
-extern ERL_NIF_TERM esock_atom_eagain;
 extern ERL_NIF_TERM esock_atom_eafnosupport;
+extern ERL_NIF_TERM esock_atom_eagain;
 extern ERL_NIF_TERM esock_atom_einval;
 
 
