@@ -696,6 +696,17 @@ start(_, []) ->
     </func>
 
     <func>
+      <name name="set_application_level" arity="2"/>
+      <fsummary>Set the log level for all modules in the specified application.</fsummary>
+      <desc>
+        <p>Set the log level for all the modules of the specified application.</p>
+        <p>This function is a convenience function that calls
+          <seealso marker="#set_module_level/2">logger:set_module_level/2</seealso>
+          for each module associated with an application.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_handler_config" arity="2"/>
       <fsummary>Set configuration data for the specified handler.</fsummary>
       <desc>
@@ -782,8 +793,7 @@ start(_, []) ->
       <name name="set_module_level" arity="2"/>
       <fsummary>Set the log level for the specified modules.</fsummary>
       <desc>
-        <p>Set the log level for the
-          specified modules.</p>
+        <p>Set the log level for the specified modules.</p>
 	<p>The log level for a module overrides the primary log level
 	  of Logger for log events originating from the module in
 	  question. Notice, however, that it does not override the
@@ -835,6 +845,17 @@ start(_, []) ->
           set. To update existing data instead of overwriting it,
           see <seealso marker="#update_process_metadata-1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unset_application_level" arity="1"/>
+      <fsummary>Unset the log level for all modules in the specified application.</fsummary>
+      <desc>
+        <p>Unset the log level for all the modules of the specified application.</p>
+        <p>This function is a convinience function that calls
+          <seealso marker="#unset_module_level/1">logger:unset_module_level/2</seealso>
+          for each module associated with an application.</p>
       </desc>
     </func>
 

@@ -83,7 +83,7 @@ set_module_level(Modules,Level) when is_list(Modules) ->
                 Error -> Error
             end;
         false ->
-            {error,{not_a_list_of_modles,Modules}}
+            {error,{not_a_list_of_modules,Modules}}
     end;
 set_module_level(Modules,_) ->
     {error,{not_a_list_of_modules,Modules}}.
@@ -96,7 +96,7 @@ unset_module_level(Modules) when is_list(Modules) ->
         true ->
             call({unset_module_level,Modules});
         false ->
-            {error,{not_a_list_of_modles,Modules}}
+            {error,{not_a_list_of_modules,Modules}}
     end;
 unset_module_level(Modules) ->
     {error,{not_a_list_of_modules,Modules}}.
