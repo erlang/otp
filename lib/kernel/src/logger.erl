@@ -352,9 +352,12 @@ add_handler(HandlerId,Module,Config) ->
 remove_handler(HandlerId) ->
     logger_server:remove_handler(HandlerId).
 
--spec set_primary_config(Key,Value) -> ok | {error,term()} when
-      Key :: atom(),
-      Value :: term().
+-spec set_primary_config(level,Level) -> ok | {error,term()} when
+      Level :: level() | all | none;
+                        (filter_default,FilterDefault) -> ok | {error,term()} when
+      FilterDefault :: log | stop;
+                        (filters,Filters) -> ok | {error,term()} when
+      Filters :: [{filter_id(),filter()}].
 set_primary_config(Key,Value) ->
     logger_server:set_config(primary,Key,Value).
 
@@ -363,10 +366,26 @@ set_primary_config(Key,Value) ->
 set_primary_config(Config) ->
     logger_server:set_config(primary,Config).
 
--spec set_handler_config(HandlerId,Key,Value) -> ok | {error,term()} when
+-spec set_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: handler_id(),
-      Key :: atom(),
-      Value :: term().
+      Level :: level() | all | none,
+      Return :: ok | {error,term()};
+                        (HandlerId,filter_default,FilterDefault) -> Return when
+      HandlerId :: handler_id(),
+      FilterDefault :: log | stop,
+      Return :: ok | {error,term()};
+                        (HandlerId,filters,Filters) -> Return when
+      HandlerId :: handler_id(),
+      Filters :: [{filter_id(),filter()}],
+      Return :: ok | {error,term()};
+                        (HandlerId,formatter,Formatter) -> Return when
+      HandlerId :: handler_id(),
+      Formatter :: {module(), formatter_config()},
+      Return :: ok | {error,term()};
+                        (HandlerId,config,Config) -> Return when
+      HandlerId :: handler_id(),
+      Config :: term(),
+      Return :: ok | {error,term()}.
 set_handler_config(HandlerId,Key,Value) ->
     logger_server:set_config(HandlerId,Key,Value).
 

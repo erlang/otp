@@ -98,46 +98,6 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 
   <datatypes>
     <datatype>
-      <name name="primary_config"/>
-      <desc>
-	<p>Primary configuration data for Logger. The following
-	  default values apply:</p>
-	<list>
-	  <item><c>level => info</c></item>
-	  <item><c>filter_default => log</c></item>
-	  <item><c>filters => []</c></item>
-	</list>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="handler_config"/>
-      <desc>
-	<p>Handler configuration data for Logger. The following
-	  default values apply:</p>
-	<list>
-	  <item><c>level => all</c></item>
-	  <item><c>filter_default => log</c></item>
-	  <item><c>filters => []</c></item>
-	  <item><c>formatter => {logger_formatter, DefaultFormatterConfig</c>}</item>
-	</list>
-	<p>In addition to these, the following fields are
-	  automatically inserted by Logger, values taken from the
-	  two first parameters
-	  to <seealso marker="#add_handler-3"><c>add_handler/3</c></seealso>:</p>
-	<list>
-	  <item><c>id => HandlerId</c></item>
-	  <item><c>module => Module</c></item>
-	</list>
-	<p>Handler specific configuration data is inserted by the
-	  handler callback itself, in a sub structure associated with
-	  the field named <c>config</c>.</p>
-	<p>See the <seealso marker="logger_formatter#type-config">
-	    <c>logger_formatter(3)</c></seealso> manual page for
-	  information about the default configuration for this
-	  formatter.</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="filter"/>
       <desc>
 	<p>A filter which can be installed as a handler filter, or as
@@ -169,6 +129,39 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	formatter. See <seealso marker="logger_formatter">
 	    <c>logger_formatter(3)</c></seealso>
 	  for an example of a formatter implementation.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="handler_config"/>
+      <desc>
+	<p>Handler configuration data for Logger. The following
+	  default values apply:</p>
+	<list>
+	  <item><c>level => all</c></item>
+	  <item><c>filter_default => log</c></item>
+	  <item><c>filters => []</c></item>
+	  <item><c>formatter => {logger_formatter, DefaultFormatterConfig</c>}</item>
+	</list>
+	<p>In addition to these, the following fields are
+	  automatically inserted by Logger, values taken from the
+	  two first parameters
+	  to <seealso marker="#add_handler-3"><c>add_handler/3</c></seealso>:</p>
+	<list>
+	  <item><c>id => HandlerId</c></item>
+	  <item><c>module => Module</c></item>
+	</list>
+	<p>These are read-only and cannot be changed in runtime.</p>
+	<p>Handler specific configuration data is inserted by the
+	  handler callback itself, in a sub structure associated with
+	  the field named <c>config</c>. See
+	  the <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
+	  and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>
+	  manual pages for information about the specifc configuration
+	  for these handlers.</p>
+	<p>See the <seealso marker="logger_formatter#type-config">
+	    <c>logger_formatter(3)</c></seealso> manual page for
+	  information about the default configuration for this
+	  formatter.</p>
       </desc>
     </datatype>
     <datatype>
@@ -246,6 +239,18 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <name name="msg_fun"/>
       <desc>
 	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="primary_config"/>
+      <desc>
+	<p>Primary configuration data for Logger. The following
+	  default values apply:</p>
+	<list>
+	  <item><c>level => info</c></item>
+	  <item><c>filter_default => log</c></item>
+	  <item><c>filters => []</c></item>
+	</list>
       </desc>
     </datatype>
     <datatype>
@@ -690,15 +695,30 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_handler_config" arity="3"/>
+      <name name="set_handler_config" arity="3" clause_i="1"/>
+      <name name="set_handler_config" arity="3" clause_i="2"/>
+      <name name="set_handler_config" arity="3" clause_i="3"/>
+      <name name="set_handler_config" arity="3" clause_i="4"/>
+      <name name="set_handler_config" arity="3" clause_i="5"/>
       <fsummary>Add or update configuration data for the specified
         handler.</fsummary>
+      <type variable="HandlerId"/>
+      <type variable="Level" name_i="1"/>
+      <type variable="FilterDefault" name_i="2"/>
+      <type variable="Filters" name_i="3"/>
+      <type variable="Formatter" name_i="4"/>
+      <type variable="Config" name_i="5"/>
+      <type variable="Return"/>
       <desc>
         <p>Add or update configuration data for the specified
           handler. If the given <c><anno>Key</anno></c> already
           exists, its associated value will be changed
-          to <c><anno>Value</anno></c>. If it does not exist, it will
+          to the given value. If it does not exist, it will
           be added.</p>
+	<p>See the definition of
+	  the <seealso marker="#type-handler_config">
+	    <c>handler_config()</c></seealso> type for more
+	  information about the different parameters.</p>
       </desc>
     </func>
 
@@ -721,13 +741,18 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_primary_config" arity="2"/>
+      <name name="set_primary_config" arity="2" clause_i="1"/>
+      <name name="set_primary_config" arity="2" clause_i="2"/>
+      <name name="set_primary_config" arity="2" clause_i="3"/>
       <fsummary>Add or update primary configuration data for Logger.</fsummary>
+      <type variable="Level" name_i="1"/>
+      <type variable="FilterDefault" name_i="2"/>
+      <type variable="Filters" name_i="3"/>
       <desc>
         <p>Add or update primary configuration data for Logger. If the
           given <c><anno>Key</anno></c> already exists, its associated
-          value will be changed to <c><anno>Value</anno></c>. If it
-          does not exist, it will be added.</p>
+          value will be changed to the given value. If it does not
+          exist, it will be added.</p>
       </desc>
     </func>
 
