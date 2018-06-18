@@ -78,7 +78,7 @@
 	      format controls ~p and ~w are replaced with ~P and ~W,
 	      respectively, and the value is used as the depth
 	      parameter. For details, see
-	      <seealso marker="stdlib:io#format-2">io:format/2,3</seealso>
+	      <seealso marker="stdlib:io#format-2"><c>io:format/2,3</c></seealso>
 	      in STDLIB.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
