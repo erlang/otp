@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(logger_ssl_formatter).
+-module(ssl_logger).
 
 -export([format/2]).
 
@@ -36,6 +36,8 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
+
+%% SSL log formatter
 format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
      #{direction := Direction,
        protocol := Protocol,
@@ -49,7 +51,6 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
         _Other ->
             []
     end.
-
 
 %%-------------------------------------------------------------------------
 %% Handshake Protocol

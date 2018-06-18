@@ -52,7 +52,7 @@
 	       ssl_crl_cache_api,
 	       ssl_crl_hash_dir,
 	       %% Logging
-	       logger_ssl_formatter,
+	       ssl_logger,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,
