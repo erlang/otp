@@ -266,7 +266,8 @@ send_handshake(Handshake, State) ->
 queue_handshake(Handshake, #state{negotiated_version = Version,
 				  tls_handshake_history = Hist0,
 				  flight_buffer = Flight0,
-				  connection_states = ConnectionStates0} = State0) ->
+				  connection_states = ConnectionStates0,
+                                  ssl_options = SslOpts} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
     Report = #{direction => outbound,
@@ -275,8 +276,9 @@ queue_handshake(Handshake, #state{negotiated_version = Version,
     HandshakeMsg = #{direction => outbound,
                      protocol => 'handshake',
                      message => Handshake},
-    ?LOG_DEBUG(HandshakeMsg, #{domain => [otp,ssl,handshake]}),
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, HandshakeMsg, #{domain => [otp,ssl,handshake]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+
     State0#state{connection_states = ConnectionStates,
 		 tls_handshake_history = Hist,
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
@@ -288,14 +290,15 @@ send_handshake_flight(#state{socket = Socket,
     {State0#state{flight_buffer = []}, []}.
 
 queue_change_cipher(Msg, #state{negotiated_version = Version,
-				  flight_buffer = Flight0,
-				  connection_states = ConnectionStates0} = State0) ->
+                                flight_buffer = Flight0,
+                                connection_states = ConnectionStates0,
+                                ssl_options = SslOpts} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
     Report = #{direction => outbound,
                protocol => 'tls_record',
                message => BinChangeCipher},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -323,7 +326,8 @@ empty_connection_state(ConnectionEnd, BeastMitigation) ->
 send_alert(Alert, #state{negotiated_version = Version,
 			 socket = Socket,
 			 transport_cb = Transport,
-			 connection_states = ConnectionStates0} = State0) ->
+			 connection_states = ConnectionStates0,
+                         ssl_options = SslOpts} = State0) ->
     {BinMsg, ConnectionStates} =
 	encode_alert(Alert, Version, ConnectionStates0),
 
@@ -331,8 +335,7 @@ send_alert(Alert, #state{negotiated_version = Version,
     Report = #{direction => outbound,
                protocol => 'tls_record',
                message => BinMsg},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
-
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     State0#state{connection_states = ConnectionStates}.
 
 %%--------------------------------------------------------------------
@@ -441,8 +444,8 @@ init({call, From}, {start, Timeout},
     HelloMsg = #{direction => outbound,
                protocol => 'handshake',
                message => Hello},
-    ?LOG_DEBUG(HelloMsg, #{domain => [otp,ssl,handshake]}),
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, HelloMsg, #{domain => [otp,ssl,handshake]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     State1 = State0#state{connection_states = ConnectionStates,
 			  negotiated_version = Version, %% Requested version
 			  session =
@@ -679,11 +682,11 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 
 next_tls_record(Data, StateName, #state{protocol_buffers = 
                                             #protocol_buffers{tls_record_buffer = Buf0,
-                                                              tls_cipher_texts = CT0} = Buffers}
-                                        = State0) ->
+                                                              tls_cipher_texts = CT0} = Buffers,
+                                       ssl_options = SslOpts} = State0) ->
     case tls_record:get_tls_records(Data, 
                                     acceptable_record_versions(StateName, State0),
-                                    Buf0) of
+                                    Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(State0#state{protocol_buffers =

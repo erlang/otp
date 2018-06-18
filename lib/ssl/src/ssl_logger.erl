@@ -20,7 +20,9 @@
 
 -module(ssl_logger).
 
--export([format/2]).
+-export([debug/3,
+         format/2,
+         notice/2]).
 
 -define(DEC2HEX(X),
         if ((X) >= 0) andalso ((X) =< 9) -> (X) + $0;
@@ -32,6 +34,7 @@
 -include("tls_record.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %%-------------------------------------------------------------------------
 %% External API
@@ -51,6 +54,29 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
         _Other ->
             []
     end.
+
+%% Stateful logging
+debug(Level, Report, Meta) ->
+    case logger:compare_levels(Level, debug) of
+        lt ->
+            ?LOG_DEBUG(Report, Meta);
+        eq ->
+            ?LOG_DEBUG(Report, Meta);
+        _ ->
+            ok
+    end.
+
+%% Stateful logging
+notice(Level, Report) ->
+    case logger:compare_levels(Level, notice) of
+        lt ->
+            ?LOG_NOTICE(Report);
+        eq ->
+            ?LOG_NOTICE(Report);
+        _ ->
+            ok
+    end.
+
 
 %%-------------------------------------------------------------------------
 %% Handshake Protocol

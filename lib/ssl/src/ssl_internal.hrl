@@ -128,7 +128,7 @@
           alpn_preferred_protocols = undefined  :: [binary()] | undefined,
 	  next_protocols_advertised = undefined :: [binary()] | undefined,
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_alert             :: boolean(),
+	  log_level = notice :: atom(),
 	  server_name_indication = undefined,
 	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
 	  sni_fun :: function() | undefined,
@@ -181,6 +181,8 @@
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
 				{next_state, state_name(), term(), timeout()} |
 				{stop, term(), term()}.
+-type ssl_options()          :: #ssl_options{}.
+
 -endif. % -ifdef(ssl_internal).
 
 

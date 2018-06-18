@@ -276,7 +276,7 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
             Report = #{direction => inbound,
                        protocol => 'handshake',
                        message => Handshake},
-            ?LOG_DEBUG(Report, #{domain => [otp,ssl,handshake]}),
+            ssl_logger:debug(Opts#ssl_options.log_level, Report, #{domain => [otp,ssl,handshake]}),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
 	_:_ ->

@@ -33,7 +33,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handling of incoming data
--export([get_tls_records/3, init_connection_states/2]).
+-export([get_tls_records/4, init_connection_states/2]).
 
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
@@ -76,24 +76,24 @@ init_connection_states(Role, BeastMitigation) ->
       pending_write => Pending}.
 
 %%--------------------------------------------------------------------
--spec get_tls_records(binary(), [tls_version()], binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_tls_records(binary(), [tls_version()], binary(), ssl_options()) -> {[binary()], binary()} | #alert{}.
 %%			     
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer) ->
+get_tls_records(Data, Versions, Buffer, SslOpts) ->
     BinData = list_to_binary([Buffer, Data]),
     case erlang:byte_size(BinData) of
         N when N >= 3 ->
             case assert_version(BinData, Versions) of
                 true ->
-                    get_tls_records_aux(BinData, []);
+                    get_tls_records_aux(BinData, [], SslOpts);
                 false ->
                     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
             end;
         _ ->
-            get_tls_records_aux(BinData, [])
+            get_tls_records_aux(BinData, [], SslOpts)
     end.
 
 %%====================================================================
@@ -400,57 +400,61 @@ assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) -
                    
 get_tls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
 		     ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) ->
+		    Acc, SslOpts) ->
     RawTLSRecord = <<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
                      ?UINT16(Length), Data:Length/binary>>,
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?APPLICATION_DATA,
 					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
+					fragment = Data} | Acc],
+                        SslOpts);
 get_tls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
                       ?UINT16(Length),
-                      Data:Length/binary, Rest/binary>>, Acc) ->
+                      Data:Length/binary, Rest/binary>>, Acc, SslOpts) ->
     RawTLSRecord = <<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
                      ?UINT16(Length), Data:Length/binary>>,
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
 					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
+					fragment = Data} | Acc],
+                        SslOpts);
 get_tls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
 		     ?UINT16(Length), Data:Length/binary, 
-		     Rest/binary>>, Acc) ->
+		     Rest/binary>>, Acc, SslOpts) ->
     RawTLSRecord = <<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
                      ?UINT16(Length), Data:Length/binary>>,
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?ALERT,
 					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
+					fragment = Data} | Acc],
+                        SslOpts);
 get_tls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
 		     ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) ->
+		    Acc, SslOpts) ->
     RawTLSRecord = <<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
                      ?UINT16(Length), Data:Length/binary>>,
     Report = #{direction => inbound,
                protocol => 'tls_record',
                message => [RawTLSRecord]},
-    ?LOG_DEBUG(Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
 					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
+					fragment = Data} | Acc],
+                       SslOpts);
 get_tls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
                       ?UINT16(Length), _/binary>>,
-                    _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
+                    _Acc, _SslOpts) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-get_tls_records_aux(Data, Acc) ->
+get_tls_records_aux(Data, Acc, _SslOpts) ->
     case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
 	true ->
 	    {lists:reverse(Acc), Data};
