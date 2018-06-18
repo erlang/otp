@@ -116,7 +116,7 @@ CONFIG_FILES="${ERL_TOP}/erts/emulator/$host/Makefile
 	    $os_mon_dir/$host/Makefile
 	    $zlibdir/$host/Makefile
 	    $runtime_tools_dir/$host/Makefile
-	    $tools_dir/$host/Makefile
+	    $tools_dir/$host/Makefile"
 
 for file in $CONFIG_FILES; do
     new_name=`echo $file|sed "s%/$host/%/$target/%"`
