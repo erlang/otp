@@ -896,7 +896,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Type = erlang | openssl | all</v>
       </type>
       <desc>
-	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">ssl:cipher_suites/2</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">cipher_suites/2</seealso> instead.</p>
       </desc>
     </func>
     
@@ -1195,7 +1195,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	
 	<p>If <c>Socket</c> is an <c>sslsocket()</c>: provides extra SSL/TLS/DTLS
 	options to those specified in
-	<seealso marker="#listen-2">ssl:listen/2 </seealso> and then performs
+	<seealso marker="#listen-2">listen/2 </seealso> and then performs
 	the SSL/TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
 		
 	<p>
@@ -1274,7 +1274,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
         <p>The peer certificate is returned as a DER-encoded binary.
 	  The certificate can be decoded with
-	  <c>public_key:pkix_decode_cert/2</c>.</p>
+	  <seealso marker="public_key:public_key#pkix_decode_cert-2">public_key:pkix_decode_cert/2</seealso>
+	</p>
       </desc>
     </func>
 
@@ -1423,7 +1424,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Reason = term()</v>
       </type>
       <desc>
-	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">ssl:handshake[1,2]</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">handshake/[1,2]</seealso> instead.</p>
+	<note><p>handshake/[1,2] always returns a new socket.</p></note>
       </desc>
     </func>
 
@@ -1438,7 +1440,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Reason = term()</v>
       </type>
       <desc>
-	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">ssl:handshake[2,3]</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">handshake/[2,3]</seealso> instead.</p>
+	<note><p>handshake/[2,3] always returns a new socket.</p></note>
       </desc>
     </func>
     
@@ -1504,19 +1507,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
 	<c>ListenSocket</c> must be a socket returned from
-	<seealso marker="#listen-2"> ssl:listen/2</seealso>.
+	<seealso marker="#listen-2"> listen/2</seealso>.
 	The socket returned is to be passed to
-	<seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>
+	<seealso marker="#handshake-2"> handshake/[2,3]</seealso>
 	to complete handshaking, that is,
 	establishing the SSL/TLS/DTLS connection.</p>
         <warning>
           <p>The socket returned can only be used with
-	  <seealso marker="#ssl_accept-2"> ssl:ssl_accept[2,3]</seealso>.
+	  <seealso marker="#handshake-2"> handshake/[2,3]</seealso>.
 	  No traffic can be sent or received before that call.</p>
         </warning>
         <p>The accepted socket inherits the options set for
 	<c>ListenSocket</c> in
-	<seealso marker="#listen-2"> ssl:listen/2</seealso>.</p>
+	<seealso marker="#listen-2"> listen/2</seealso>.</p>
 	<p>The default
 	value for <c>Timeout</c> is <c>infinity</c>. If
 	<c>Timeout</c> is specified and no connection is accepted
@@ -1547,7 +1550,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
 	  For the negotiated SSL/TLS version, see <seealso
-	  marker="#connection_information-1">ssl:connection_information/1
+	  marker="#connection_information-1">connection_information/1
 	  </seealso>.</item>
 	  
 	  <tag><c>supported_dtls</c></tag>
@@ -1557,7 +1560,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
 	  For the negotiated DTLS version, see <seealso
-	  marker="#connection_information-1">ssl:connection_information/1
+	  marker="#connection_information-1">connection_information/1
 	  </seealso>.</item>
 
 	  <tag><c>available</c></tag>

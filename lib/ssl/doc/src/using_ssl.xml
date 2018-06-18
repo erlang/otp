@@ -132,7 +132,7 @@ ok</code>
       
       <p><em>Step 7:</em> Upgrade to an TLS connection. The client and server
       must agree upon the upgrade. The server must call
-      <c>ssl:accept/2</c> before the client calls <c>ssl:connect/3.</c></p>
+      <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
       <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>
