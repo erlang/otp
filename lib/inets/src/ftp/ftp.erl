@@ -1073,6 +1073,7 @@ valid_socket_option({mode,_}        ) -> false;
 valid_socket_option(binary          ) -> false;
 valid_socket_option(list            ) -> false;
 valid_socket_option({header,_}      ) -> false;
+valid_socket_option({packet_size,_} ) -> false;
 valid_socket_option(_) -> true.
 
 
