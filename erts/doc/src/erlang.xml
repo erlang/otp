@@ -7581,7 +7581,7 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="75"/>
+      <name name="system_info" arity="1" clause_i="76"/>
       <fsummary>System info overview.</fsummary>
       <desc>
         <p>Returns information about the current system.
@@ -7629,6 +7629,7 @@ ok
             <p>
               <seealso marker="#system_info_atom_count"><c>atom_count</c></seealso>,
               <seealso marker="#system_info_atom_limit"><c>atom_limit</c></seealso>,
+              <seealso marker="#system_info_ets_count"><c>ets_count</c></seealso>,
               <seealso marker="#system_info_ets_limit"><c>ets_limit</c></seealso>,
               <seealso marker="#system_info_port_count"><c>port_count</c></seealso>,
               <seealso marker="#system_info_port_limit"><c>port_limit</c></seealso>,
@@ -7872,8 +7873,8 @@ ok
       <name name="system_info" arity="1" clause_i="12"
 	    anchor="system_info_cpu_topology"/>           <!-- cpu_topology -->
       <name name="system_info" arity="1" clause_i="13"/>  <!-- {cpu_topology, _} -->
-      <name name="system_info" arity="1" clause_i="37"/>  <!-- logical_processors -->
-      <name name="system_info" arity="1" clause_i="72"/>  <!-- update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="38"/>  <!-- logical_processors -->
+      <name name="system_info" arity="1" clause_i="73"/>  <!-- update_cpu_info -->
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -8024,16 +8025,16 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="30"
+      <name name="system_info" arity="1" clause_i="31"
 	    anchor="system_info_process"/>  <!-- fullsweep_after -->
-      <name name="system_info" arity="1" clause_i="31"/>  <!-- garbage_collection -->
-      <name name="system_info" arity="1" clause_i="32"/>  <!-- heap_sizes -->
-      <name name="system_info" arity="1" clause_i="33"/>  <!-- heap_type -->
-      <name name="system_info" arity="1" clause_i="39"/>  <!-- max_heap_size -->
-      <name name="system_info" arity="1" clause_i="40"/>  <!-- message_queue_data -->
-      <name name="system_info" arity="1" clause_i="41"/>  <!-- min_heap_size -->
-      <name name="system_info" arity="1" clause_i="42"/>  <!-- min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="56"/>  <!-- procs -->
+      <name name="system_info" arity="1" clause_i="32"/>  <!-- garbage_collection -->
+      <name name="system_info" arity="1" clause_i="33"/>  <!-- heap_sizes -->
+      <name name="system_info" arity="1" clause_i="34"/>  <!-- heap_type -->
+      <name name="system_info" arity="1" clause_i="40"/>  <!-- max_heap_size -->
+      <name name="system_info" arity="1" clause_i="41"/>  <!-- message_queue_data -->
+      <name name="system_info" arity="1" clause_i="42"/>  <!-- min_heap_size -->
+      <name name="system_info" arity="1" clause_i="43"/>  <!-- min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="57"/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
@@ -8143,14 +8144,14 @@ ok
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="6"
-	    anchor="system_info_limits"/>   <!-- atom_count -->
+      <name name="system_info" arity="1" clause_i="6" anchor="system_info_limits"/>   <!-- atom_count -->
       <name name="system_info" arity="1" clause_i="7"/>   <!-- atom_limit -->
-      <name name="system_info" arity="1" clause_i="29"/>  <!-- ets_limit -->
-      <name name="system_info" arity="1" clause_i="52"/>  <!-- port_count -->
-      <name name="system_info" arity="1" clause_i="53"/>  <!-- port_limit -->
-      <name name="system_info" arity="1" clause_i="54"/>  <!-- process_count -->
-      <name name="system_info" arity="1" clause_i="55"/>  <!-- process_limit -->
+      <name name="system_info" arity="1" clause_i="29"/>  <!-- ets_count -->
+      <name name="system_info" arity="1" clause_i="30"/>  <!-- ets_limit -->
+      <name name="system_info" arity="1" clause_i="53"/>  <!-- port_count -->
+      <name name="system_info" arity="1" clause_i="54"/>  <!-- port_limit -->
+      <name name="system_info" arity="1" clause_i="55"/>  <!-- process_count -->
+      <name name="system_info" arity="1" clause_i="56"/>  <!-- process_limit -->
       <fsummary>Information about various system limits.</fsummary>
       <desc>
         <marker id="system_info_limits"/>
@@ -8173,7 +8174,7 @@ ok
             <c>erl(1)</c>.
             </p>
           </item>
-	  <tag><marker id="system_info_ets_count"/>
+          <tag><marker id="system_info_ets_count"/>
             <c>ets_count</c></tag>
           <item>
             <p>Returns the number of ETS tables currently existing at the
@@ -8225,13 +8226,13 @@ ok
     <func>
       <name name="system_info" arity="1" clause_i="26"
 	    anchor="system_info_time"/>  <!-- end_time -->
-      <name name="system_info" arity="1" clause_i="49"/>  <!-- os_monotonic_time_source -->
-      <name name="system_info" arity="1" clause_i="50"/>  <!-- os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="62"/>  <!-- start_time -->
-      <name name="system_info" arity="1" clause_i="67"/>  <!-- time_correction -->
-      <name name="system_info" arity="1" clause_i="68"/>  <!-- time_offset -->
-      <name name="system_info" arity="1" clause_i="69"/>  <!-- time_warp_mode -->
-      <name name="system_info" arity="1" clause_i="70"/>  <!-- tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="50"/>  <!-- os_monotonic_time_source -->
+      <name name="system_info" arity="1" clause_i="51"/>  <!-- os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="63"/>  <!-- start_time -->
+      <name name="system_info" arity="1" clause_i="68"/>  <!-- time_correction -->
+      <name name="system_info" arity="1" clause_i="69"/>  <!-- time_offset -->
+      <name name="system_info" arity="1" clause_i="70"/>  <!-- time_warp_mode -->
+      <name name="system_info" arity="1" clause_i="71"/>  <!-- tolerant_timeofday -->
       <fsummary>Information about system time.</fsummary>
       <desc>
         <marker id="system_info_time_tags"/>
@@ -8455,16 +8456,16 @@ ok
 	    anchor="system_info_scheduler"/>  <!-- dirty_cpu_schedulers -->
       <name name="system_info" arity="1" clause_i="18"/>  <!-- dirty_cpu_schedulers_online -->
       <name name="system_info" arity="1" clause_i="19"/>  <!-- dirty_io_schedulers -->
-      <name name="system_info" arity="1" clause_i="44"/>  <!-- multi_scheduling -->
-      <name name="system_info" arity="1" clause_i="45"/>  <!-- multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="47"/>  <!-- normal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="57"/>  <!-- scheduler_bind_type -->
-      <name name="system_info" arity="1" clause_i="58"/>  <!-- scheduler_bindings -->
-      <name name="system_info" arity="1" clause_i="59"/>  <!-- scheduler_id -->
-      <name name="system_info" arity="1" clause_i="60"/>  <!-- schedulers -->
-      <name name="system_info" arity="1" clause_i="61"/>  <!-- smp_support -->
-      <name name="system_info" arity="1" clause_i="65"/>  <!-- threads -->
-      <name name="system_info" arity="1" clause_i="66"/>  <!-- thread_pool_size -->
+      <name name="system_info" arity="1" clause_i="45"/>  <!-- multi_scheduling -->
+      <name name="system_info" arity="1" clause_i="46"/>  <!-- multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="49"/>  <!-- normal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="58"/>  <!-- scheduler_bind_type -->
+      <name name="system_info" arity="1" clause_i="59"/>  <!-- scheduler_bindings -->
+      <name name="system_info" arity="1" clause_i="60"/>  <!-- scheduler_id -->
+      <name name="system_info" arity="1" clause_i="61"/>  <!-- schedulers -->
+      <name name="system_info" arity="1" clause_i="62"/>  <!-- smp_support -->
+      <name name="system_info" arity="1" clause_i="66"/>  <!-- threads -->
+      <name name="system_info" arity="1" clause_i="67"/>  <!-- thread_pool_size -->
       <fsummary>Information about system schedulers.</fsummary>
       <desc>
         <marker id="system_info_scheduler_tags"/>
@@ -8851,53 +8852,54 @@ ok
       <!-- <name name="system_info" arity="1" clause_i="26"/>  end_time -->
       <!-- <name name="system_info" arity="1" clause_i="27"/>  elib_malloc -->
       <!-- <name name="system_info" arity="1" clause_i="28"/>  eager_check_io, removed -->
-      <!-- <name name="system_info" arity="1" clause_i="29"/>  ets_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="30"/>  fullsweep_after -->
-      <!-- <name name="system_info" arity="1" clause_i="31"/>  garbage_collection -->
-      <!-- <name name="system_info" arity="1" clause_i="32"/>  heap_sizes -->
-      <!-- <name name="system_info" arity="1" clause_i="33"/>  heap_type -->
-      <name name="system_info" arity="1" clause_i="34"/>  <!-- info -->
-      <name name="system_info" arity="1" clause_i="35"/>  <!-- kernel_poll -->
-      <name name="system_info" arity="1" clause_i="36"/>  <!-- loaded -->
-      <!-- <name name="system_info" arity="1" clause_i="37"/>  logical_processors -->
-      <name name="system_info" arity="1" clause_i="38"/>  <!-- machine -->
-      <!-- <name name="system_info" arity="1" clause_i="39"/>  max_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="40"/>  message_queue_data -->
-      <!-- <name name="system_info" arity="1" clause_i="41"/>  min_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="42"/>  min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="43"/>  <!-- modified_timing_level -->
-      <!-- <name name="system_info" arity="1" clause_i="44"/>  multi_scheduling -->
-      <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="46"/>  <!-- nif_version -->
-      <!-- n<name name="system_info" arity="1" clause_i="47"/>  ormal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="48"/>  <!-- otp_release -->
-      <!-- <name name="system_info" arity="1" clause_i="49"/>  os_monotonic_time_source -->
-      <!-- <name name="system_info" arity="1" clause_i="50"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="51"/>  <!-- port_parallelism -->
-      <!-- <name name="system_info" arity="1" clause_i="52"/>  port_count -->
-      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="54"/>  process_count -->
-      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="56"/>  procs -->
-      <!-- <name name="system_info" arity="1" clause_i="57"/>  scheduler_bind_type -->
-      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bindings -->
-      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_id -->
-      <!-- <name name="system_info" arity="1" clause_i="60"/>  schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="61"/>  smp_support -->
-      <!-- <name name="system_info" arity="1" clause_i="62"/>  start_time -->
-      <name name="system_info" arity="1" clause_i="63"/>  <!-- system_version -->
-      <name name="system_info" arity="1" clause_i="64"/>  <!-- system_architecture -->
-      <!-- <name name="system_info" arity="1" clause_i="65"/>  threads -->
-      <!-- <name name="system_info" arity="1" clause_i="66"/>  thread_pool_size -->
-      <!-- <name name="system_info" arity="1" clause_i="67"/>  time_correction -->
-      <!-- <name name="system_info" arity="1" clause_i="68"/>  time_offset -->
-      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_warp_mode -->
-      <!-- <name name="system_info" arity="1" clause_i="70"/>  tolerant_timeofday -->
-      <name name="system_info" arity="1" clause_i="71"/>  <!-- trace_control_word -->
-      <!-- <name name="system_info" arity="1" clause_i="72"/>  update_cpu_info -->
-      <name name="system_info" arity="1" clause_i="73"/>  <!-- version -->
-      <name name="system_info" arity="1" clause_i="74"/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="75"/>  overview -->
+      <!-- <name name="system_info" arity="1" clause_i="29"/>  ets_count -->
+      <!-- <name name="system_info" arity="1" clause_i="30"/>  ets_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="31"/>  fullsweep_after -->
+      <!-- <name name="system_info" arity="1" clause_i="32"/>  garbage_collection -->
+      <!-- <name name="system_info" arity="1" clause_i="33"/>  heap_sizes -->
+      <!-- <name name="system_info" arity="1" clause_i="34"/>  heap_type -->
+      <name name="system_info" arity="1" clause_i="35"/>  <!-- info -->
+      <name name="system_info" arity="1" clause_i="36"/>  <!-- kernel_poll -->
+      <name name="system_info" arity="1" clause_i="37"/>  <!-- loaded -->
+      <!-- <name name="system_info" arity="1" clause_i="38"/>  logical_processors -->
+      <name name="system_info" arity="1" clause_i="39"/>  <!-- machine -->
+      <!-- <name name="system_info" arity="1" clause_i="40"/>  max_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="41"/>  message_queue_data -->
+      <!-- <name name="system_info" arity="1" clause_i="42"/>  min_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="43"/>  min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="44"/>  <!-- modified_timing_level -->
+      <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling -->
+      <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="47"/>  <!-- nif_version -->
+      <!-- n<name name="system_info" arity="1" clause_i="48"/>  ormal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="49"/>  <!-- otp_release -->
+      <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
+      <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="52"/>  <!-- port_parallelism -->
+      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_count -->
+      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_count -->
+      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="57"/>  procs -->
+      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bind_type -->
+      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bindings -->
+      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_id -->
+      <!-- <name name="system_info" arity="1" clause_i="61"/>  schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="62"/>  smp_support -->
+      <!-- <name name="system_info" arity="1" clause_i="63"/>  start_time -->
+      <name name="system_info" arity="1" clause_i="64"/>  <!-- system_version -->
+      <name name="system_info" arity="1" clause_i="65"/>  <!-- system_architecture -->
+      <!-- <name name="system_info" arity="1" clause_i="66"/>  threads -->
+      <!-- <name name="system_info" arity="1" clause_i="67"/>  thread_pool_size -->
+      <!-- <name name="system_info" arity="1" clause_i="68"/>  time_correction -->
+      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_offset -->
+      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_warp_mode -->
+      <!-- <name name="system_info" arity="1" clause_i="71"/>  tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="72"/>  <!-- trace_control_word -->
+      <!-- <name name="system_info" arity="1" clause_i="73"/>  update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="74"/>  <!-- version -->
+      <name name="system_info" arity="1" clause_i="75"/>  <!-- wordsize -->
+      <!-- <name name="system_info" arity="1" clause_i="76"/>  overview -->
       <fsummary>Information about the system.</fsummary>
       <desc>
         <marker id="system_info_misc_tags"/>
