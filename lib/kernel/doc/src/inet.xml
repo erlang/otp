@@ -414,7 +414,7 @@ get_tcpi_sacked(Sock) ->
         <p><c>getstat(<anno>Socket</anno>)</c> is equivalent to
           <c>getstat(<anno>Socket</anno>, [recv_avg, recv_cnt, recv_dvi,
           recv_max, recv_oct, send_avg, send_cnt, send_dvi, send_max,
-          send_oct])</c>.</p>
+          send_oct, send_pend])</c>.</p>
         <p>The following options are available:</p>
         <taglist>
           <tag><c>recv_avg</c></tag>
@@ -456,6 +456,11 @@ get_tcpi_sacked(Sock) ->
           <tag><c>send_oct</c></tag>
           <item>
             <p>Number of bytes sent from the socket.</p>
+          </item>
+          <tag><c>send_pend</c></tag>
+          <item>
+            <p>Number of bytes queued by the socket for sending.
+            (see also <c>queue_size</c> item of <seealso marker="erlang#port_info/2"><c>erlang:port_info/2</c></seealso>)</p>
           </item>
         </taglist>
       </desc>
