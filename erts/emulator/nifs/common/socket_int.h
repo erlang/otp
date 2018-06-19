@@ -104,6 +104,7 @@ typedef unsigned int BOOLEAN_T;
  */
 extern ERL_NIF_TERM esock_atom_addr;
 extern ERL_NIF_TERM esock_atom_any;
+extern ERL_NIF_TERM esock_atom_debug;
 extern ERL_NIF_TERM esock_atom_dgram;
 extern ERL_NIF_TERM esock_atom_error;
 extern ERL_NIF_TERM esock_atom_false;

@@ -36,6 +36,7 @@
   <xi:include href="init.xml"/>
   <xi:include href="zlib.xml"/>
   <xi:include href="socket.xml"/>
+  <xi:include href="net.xml"/>
   <xi:include href="epmd.xml"/>
   <xi:include href="erl.xml"/>
   <xi:include href="erlc.xml"/>

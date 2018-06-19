@@ -5,5 +5,6 @@
   <xi:include href="../specs/specs_erl_tracer.xml"/>
   <xi:include href="../specs/specs_init.xml"/>
   <xi:include href="../specs/specs_socket.xml"/>
+  <xi:include href="../specs/specs_net.xml"/>
   <xi:include href="../specs/specs_zlib.xml"/>
 </specs>

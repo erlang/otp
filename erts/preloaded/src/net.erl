@@ -69,17 +69,10 @@
                                    idna_use_std3_ascii_rules.
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
-%% -record(name_info,    {host, service}).
-%% -type name_info()               :: #name_info{}.
 -type address_info()            :: #{family   := socket:domain(),
                                      socktype := socket:type(),
                                      protocol := socket:protocol(),
                                      address  := socket:sockaddr()}.
-%% -record(address_info, {family   :: socket:domain(),
-%%                        socktype :: socket:type(),
-%%                        protocol :: socket:protocol(),
-%%                        addr     :: undefined | socket:in_sockaddr() | string()}).
-%% -type address_info()            :: #address_info{}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -218,6 +211,11 @@ getaddrinfo(Host) when is_list(Host) ->
                  ; (undefined, Service) -> {ok, Info} | {error, Reason} when
       Service :: string(),
       Info    :: [address_info()],
+      Reason  :: term()
+                 ; (Host, Service) -> {ok, Info} | {error, Reason} when
+      Host    :: string(),
+      Service :: string(),
+      Info    :: [address_info()],
       Reason  :: term().
 
 getaddrinfo(Host, Service)
@@ -236,8 +234,8 @@ getaddrinfo(Host, Service)
 %%
 
 -spec if_name2index(Name) -> {ok, Idx} | {error, Reason} when
-      Name   :: string(),
-      Idx    :: non_neg_integer(),
+      Name   :: network_interface_name(),
+      Idx    :: network_interface_index(),
       Reason :: term().
 
 if_name2index(If) when is_list(If) ->
@@ -247,14 +245,14 @@ if_name2index(If) when is_list(If) ->
 
 %% ===========================================================================
 %%
-%% if_index2name - Mappings between network interface names and indexes:
+%% if_index2name - Mappings between network interface index and names:
 %%                 idx -> name
 %%
 %%
 
 -spec if_index2name(Idx) -> {ok, Name} | {error, Reason} when
-      Idx    :: non_neg_integer(),
-      Name   :: string(),
+      Idx    :: network_interface_index(),
+      Name   :: network_interface_name(),
       Reason :: term().
 
 if_index2name(Idx) when is_integer(Idx) ->
@@ -270,8 +268,8 @@ if_index2name(Idx) when is_integer(Idx) ->
 
 -spec if_names() -> Names | {error, Reason} when
       Names  :: [{Idx, If}],
-      Idx    :: non_neg_integer(),
-      If     :: string(),
+      Idx    :: network_interface_index(),
+      If     :: network_interface_name(),
       Reason :: term().
 
 if_names() ->
