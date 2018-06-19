@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the OTP_Mibs
     application.</p>
 
+<section><title>Otp_Mibs 1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The otp_mibs application has been deprecated and will be
+	    removed in a future release.</p>
+          <p>
+	    Own Id: OTP-15141</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Otp_Mibs 1.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

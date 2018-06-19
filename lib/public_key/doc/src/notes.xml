@@ -35,6 +35,63 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update calls to the base64 module to conform to that
+	    module's type specifications.</p>
+          <p>
+	    Own Id: OTP-14788 Aux Id: OTP-14624 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+        <item>
+          <p>
+	    A new function -
+	    <c>public_key:pkix_verify_hostname_match_fun/1</c> -
+	    returns a fun to be given as option <c>match_fun</c> to
+	    <c>public_key:pkix_verify_hostname/3</c> or via ssl.</p>
+          <p>
+	    The fun makes the verify hostname matching according to
+	    the specific rules for the protocol in the argument.
+	    Presently only <c>https</c> is supported.</p>
+          <p>
+	    Own Id: OTP-14962 Aux Id: ERL-542, OTP-15102 </p>
+        </item>
+        <item>
+          <p>
+	    Compleate PKCS-8 encoding support and enhance the
+	    decoding of 'PrivateKeyInfo' to conform to the rest of
+	    Erlang public_key API.</p>
+          <p>
+	    Own Id: OTP-15093</p>
+        </item>
+        <item>
+          <p>
+	    A new moduli file is generated. This file is used for the
+	    recommended <c>diffie-hellman-group-exchange-sha256</c>
+	    key exchange algorithm in SSH.</p>
+          <p>
+	    Own Id: OTP-15113</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
