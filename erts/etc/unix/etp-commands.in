@@ -2734,25 +2734,37 @@ define etp-aux-work-flags
     printf " fix-alloc-lower-lim"
   end
   if ($arg0 & 0x10)
-    printf " async-ready"
+    printf " later-op"
   end
   if ($arg0 & 0x20)
-    printf " async-ready-clean"
+    printf " canceled-timers"
   end
   if ($arg0 & 0x40)
-    printf " misc-work-thr-prgr"
+    printf " canceled-timers-thr-prgr"
   end
   if ($arg0 & 0x80)
-    printf " misc-work"
+    printf " async-ready"
   end
   if ($arg0 & 0x100)
-    printf " check-children"
+    printf " async-ready-clean"
   end
   if ($arg0 & 0x200)
-    printf " set-tmo"
+    printf " misc-thr-prgr"
   end
   if ($arg0 & 0x400)
-    printf " mseg-cached-check"
+    printf " misc"
+  end
+  if ($arg0 & 0x800)
+    printf " set-tmo"
+  end
+  if ($arg0 & 0x1000)
+    printf " mseg-cache-check"
+  end
+  if ($arg0 & 0x2000)
+    printf " yield"
+  end
+  if ($arg0 & 0x1000)
+    printf " reap-ports"
   end
   if ($arg0 & ~0x7ff)
     printf " GARBAGE"
