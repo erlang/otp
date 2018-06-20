@@ -1785,6 +1785,7 @@ static void release_buffer(ErlDrvBinary* buf)
 #ifdef HAVE_UDP
 static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, ErlDrvSizeT newsz)
 {
+    DEBUGF(("realloc_buffer: %ld -> %ld\r\n", (buf==NULL) ? 0 : buf->orig_size, newsz));
     return driver_realloc_binary(buf, newsz);
 }
 #endif
@@ -12042,15 +12043,11 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	sys_memzero((char *) &other, sizeof(other));
 
 	/* udesc->i_buf is only kept between SCTP fragments */
-	if (udesc->i_buf == NULL) {
-	    udesc->i_bufsz = desc->bufsz + len;
-	    if ((udesc->i_buf = alloc_buffer(udesc->i_bufsz)) == NULL)
-		return packet_error(udesc, ENOMEM);
-	    /* pointer to message start */
-	    udesc->i_ptr = udesc->i_buf->orig_bytes + len;
-	} else {
-	    ErlDrvBinary* tmp;
+#ifdef HAVE_SCTP
+	if (udesc->i_buf != NULL) {
+            ErlDrvBinary* tmp;
 	    int bufsz;
+            ASSERT(IS_SCTP(desc));
 	    bufsz = desc->bufsz + (udesc->i_ptr - udesc->i_buf->orig_bytes);
 	    if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) == NULL) {
 		release_buffer(udesc->i_buf);
@@ -12062,6 +12059,15 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		udesc->i_buf = tmp;
 		udesc->i_bufsz = bufsz;
 	    }
+	} else
+#endif
+        {
+            ASSERT(udesc->i_buf == NULL);
+	    udesc->i_bufsz = desc->bufsz + len;
+	    if ((udesc->i_buf = alloc_buffer(udesc->i_bufsz)) == NULL)
+		return packet_error(udesc, ENOMEM);
+	    /* pointer to message start */
+	    udesc->i_ptr = udesc->i_buf->orig_bytes + len;
 	}
 
 	/* Note: On Windows NT, recvfrom() fails if the socket is connected. */
@@ -12120,6 +12126,14 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		) {
 		sock_select(desc,FD_READ,1);
 	    }
+#ifdef HAVE_SCTP
+            if (!short_recv) {
+#endif
+                release_buffer(udesc->i_buf);
+                udesc->i_buf = NULL;
+#ifdef HAVE_SCTP
+            }
+#endif
 	    return count;		/* strange, not ready */
 	}
 
