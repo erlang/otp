@@ -324,11 +324,12 @@ static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 static ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
                                         int        proto);
 
-static ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
-                                      ERL_NIF_TERM fam,
-                                      ERL_NIF_TERM sockType,
-                                      ERL_NIF_TERM proto,
-                                      ERL_NIF_TERM addr);
+static char* make_address_info(ErlNifEnv*    env,
+                               ERL_NIF_TERM  fam,
+                               ERL_NIF_TERM  sockType,
+                               ERL_NIF_TERM  proto,
+                               ERL_NIF_TERM  addr,
+                               ERL_NIF_TERM* ai);
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
@@ -1245,6 +1246,7 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
     BOOLEAN_T result;
 
     if (IS_ATOM(env, eString)) {
+
         if (COMPARE(eString, esock_atom_undefined) == 0) {
             *stringP = NULL;
             result   = TRUE;
@@ -1252,28 +1254,11 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
             *stringP = NULL;
             result   = FALSE;
         }
+
     } else {
-        unsigned int len;
-        char*        bufP;
 
-        if (!GET_LIST_LEN(env, eString, &len) && (len != 0)) {
-            *stringP = NULL;
-            result   = FALSE;
-        }
+        result = esock_decode_string(env, eString, stringP);
 
-        NDBG( ("NET", "decode_addrinfo_string -> len: %d\r\n", len) );
-        
-        bufP = MALLOC(len + 1); // We shall NULL-terminate
-
-        if (GET_STR(env, eString, bufP, len+1)) {
-            NDBG( ("NET", "decode_addrinfo_string -> buf: %s\r\n", bufP) );
-            // bufP[len] = '\0';
-            *stringP = bufP;
-            result   = TRUE;
-        } else {
-            *stringP = NULL;
-            result   = FALSE;
-        }
     }
 
     return result;
@@ -1373,7 +1358,7 @@ static
 ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                                  struct addrinfo* addrInfoP)
 {
-    ERL_NIF_TERM result, fam, type, proto, addr;
+    ERL_NIF_TERM fam, type, proto, addr, addrInfo;
 
     fam   = encode_address_info_family(env, addrInfoP->ai_family);
     type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
@@ -1383,9 +1368,10 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                           addrInfoP->ai_addrlen,
                           &addr);
     
-    result = make_address_info(env, fam, type, proto, addr);
-
-    return result;
+    if (make_address_info(env, fam, type, proto, addr, &addrInfo) == NULL)
+        return addrInfo;
+    else
+        return esock_atom_undefined; // We should to better...
 
 }
 
@@ -1401,7 +1387,7 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
 {
     ERL_NIF_TERM efam;
 
-    if (NULL != esock_encode_type(env, family, &efam))
+    if (NULL != esock_encode_domain(env, family, &efam))
         efam = MKI(env, family);
 
     return efam;
@@ -1448,13 +1434,29 @@ ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
 
 
 static
-ERL_NIF_TERM make_address_info(ErlNifEnv*   env,
-                               ERL_NIF_TERM fam,
-                               ERL_NIF_TERM sockType,
-                               ERL_NIF_TERM proto,
-                               ERL_NIF_TERM addr)
+char* make_address_info(ErlNifEnv*    env,
+                        ERL_NIF_TERM  fam,
+                        ERL_NIF_TERM  sockType,
+                        ERL_NIF_TERM  proto,
+                        ERL_NIF_TERM  addr,
+                        ERL_NIF_TERM* ai)
 {
-    return MKT5(env, atom_address_info, fam, sockType, proto, addr);
+    ERL_NIF_TERM keys[] = {esock_atom_family,
+                           esock_atom_type,
+                           esock_atom_protocol,
+                           esock_atom_addr};
+    ERL_NIF_TERM vals[] = {fam, sockType, proto, addr};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+    ESOCK_ASSERT( (numKeys == numVals) );
+    
+    if (!MKMA(env, keys, vals, numKeys, ai)) {
+        *ai = esock_atom_undefined;
+        return ESOCK_STR_EINVAL;
+    } else {
+        return NULL;
+    }
 }
 
 

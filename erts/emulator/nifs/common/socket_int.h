@@ -119,6 +119,7 @@ extern ERL_NIF_TERM esock_atom_loopback;
 extern ERL_NIF_TERM esock_atom_ok;
 extern ERL_NIF_TERM esock_atom_path;
 extern ERL_NIF_TERM esock_atom_port;
+extern ERL_NIF_TERM esock_atom_protocol;
 extern ERL_NIF_TERM esock_atom_raw;
 extern ERL_NIF_TERM esock_atom_rdm;
 extern ERL_NIF_TERM esock_atom_scope_id;
@@ -127,6 +128,7 @@ extern ERL_NIF_TERM esock_atom_seqpacket;
 extern ERL_NIF_TERM esock_atom_stream;
 extern ERL_NIF_TERM esock_atom_tcp;
 extern ERL_NIF_TERM esock_atom_true;
+extern ERL_NIF_TERM esock_atom_type;
 extern ERL_NIF_TERM esock_atom_udp;
 extern ERL_NIF_TERM esock_atom_undefined;
 

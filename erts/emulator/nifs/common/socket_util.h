@@ -134,6 +134,11 @@ char* esock_encode_protocol(ErlNifEnv*    env,
                             ERL_NIF_TERM* eProtocol);
 
 extern
+BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
+                              const ERL_NIF_TERM eString,
+                              char**             stringP);
+
+extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM val);
 extern
 ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val);

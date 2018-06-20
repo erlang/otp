@@ -890,7 +890,7 @@ char* esock_decode_type(ErlNifEnv*   env,
 
 
 
-/* +++ esock_decode_domain +++
+/* +++ esock_decode_type +++
  *
  * Encode the native type to the Erlang form, that is: 
  * 
@@ -1034,6 +1034,47 @@ char* esock_decode_protocol(ErlNifEnv*   env,
     }
 
     return xres;
+}
+
+
+
+/* *** esock_decode_string ***
+ *
+ * Decode a string value. A successful decode results in an 
+ * allocation of the string, which the caller has to free
+ * once the string has been used.
+ */
+extern
+BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
+                              const ERL_NIF_TERM eString,
+                              char**             stringP)
+{
+    BOOLEAN_T    result;
+    unsigned int len;
+    char*        bufP;
+    
+    if (!GET_LIST_LEN(env, eString, &len) && (len != 0)) {
+        *stringP = NULL;
+        result   = FALSE;
+    } else {
+
+        UDBG( ("SUTIL", "esock_decode_string -> len: %d\r\n", len) );
+
+        bufP = MALLOC(len + 1); // We shall NULL-terminate
+    
+        if (GET_STR(env, eString, bufP, len+1)) {
+            UDBG( ("SUTIL", "esock_decode_string -> buf: %s\r\n", bufP) );
+            // bufP[len] = '\0';
+            *stringP = bufP;
+            result   = TRUE;
+        } else {
+            *stringP = NULL;
+            result   = FALSE;
+            FREE(bufP);
+        }
+    }
+
+    return result;
 }
 
 
