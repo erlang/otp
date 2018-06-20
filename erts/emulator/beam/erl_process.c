@@ -9874,6 +9874,7 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st,
 	ASSERT(hp_start + hsz == hp);
 #endif
 
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
 	erts_queue_proc_message(c_p, rp, rp_locks, mp, msg);
 
 	if (c_p == rp)

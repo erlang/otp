@@ -744,8 +744,58 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	rp_locks = ERTS_PROC_LOCK_MAIN;
 
     if (menv) {
+        Eterm token = c_p ? SEQ_TRACE_TOKEN(c_p) : am_undefined;
+        if (token != NIL && token != am_undefined) {
+            /* This code is copied from erts_send_message */
+            Eterm stoken = SEQ_TRACE_TOKEN(c_p);
+#ifdef USE_VM_PROBES
+            DTRACE_CHARBUF(sender_name, 64);
+            DTRACE_CHARBUF(receiver_name, 64);
+            Sint tok_label = 0;
+            Sint tok_lastcnt = 0;
+            Sint tok_serial = 0;
+            Eterm utag = NIL;
+            *sender_name = *receiver_name = '\0';
+            if (DTRACE_ENABLED(message_send)) {
+                erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
+                              "%T", c_p->common.id);
+                erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
+                              "%T", rp->common.id);
+            }
+#endif
+            if (have_seqtrace(stoken)) {
+                seq_trace_update_send(c_p);
+                seq_trace_output(stoken, msg, SEQ_TRACE_SEND,
+                                 rp->common.id, c_p);
+            }
+#ifdef USE_VM_PROBES
+            if (!(DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING)) {
+                stoken = NIL;
+            }
+#endif
+            token = enif_make_copy(msg_env, stoken);
+
+#ifdef USE_VM_PROBES
+            if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) {
+                if (is_immed(DT_UTAG(c_p)))
+                    utag = DT_UTAG(c_p);
+                else
+                    utag = enif_make_copy(msg_env, DT_UTAG(c_p));
+            }
+            if (DTRACE_ENABLED(message_send)) {
+                if (have_seqtrace(stoken)) {
+                    tok_label = SEQ_TRACE_T_DTRACE_LABEL(stoken);
+                    tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
+                    tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
+                }
+                DTRACE6(message_send, sender_name, receiver_name,
+                        size_object(msg), tok_label, tok_lastcnt, tok_serial);
+            }
+#endif
+        }
         flush_env(msg_env);
         mp = erts_alloc_message(0, NULL);
+        ERL_MESSAGE_TOKEN(mp) = token;
         mp->data.heap_frag = menv->env.heap_frag;
         ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
         if (mp->data.heap_frag != NULL) {
@@ -783,6 +833,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		ohp = &bp->off_heap;
 	    }
 	}
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         msg = copy_struct_litopt(msg, sz, &hp, ohp, &litarea);
     }
 
@@ -826,6 +877,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
             ERL_MESSAGE_TERM(mp) = msg;
             ERL_MESSAGE_FROM(mp) = from;
+            ERL_MESSAGE_TOKEN(mp) = am_undefined;
 
             if (!msgq) {
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
