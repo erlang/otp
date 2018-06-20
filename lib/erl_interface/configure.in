@@ -29,11 +29,6 @@ dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)]
 
 AC_INIT()
 
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
-
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessary, since pwd can

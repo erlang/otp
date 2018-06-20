@@ -340,6 +340,8 @@ use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 Some of the available `configure` options are:
 
 *   `--prefix=PATH` - Specify installation prefix.
+*   `--disable-parallel-configure` - Disable parallel execution of
+    `configure` scripts (parallel execution is enabled by default)
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
 *   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported

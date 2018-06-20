@@ -22,10 +22,6 @@ dnl
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
 
 AC_INIT(vsn.mk)
 
