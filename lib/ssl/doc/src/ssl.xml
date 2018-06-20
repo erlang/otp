@@ -88,6 +88,7 @@
 	<p><c>| {client_preferred_next_protocols, {client | server,
 	[binary()]} | {client | server, [binary()], binary()}}</c></p>
 	<p><c>| {log_alert, boolean()}</c></p>
+	<p><c>| {log_level, atom()}</c></p>
 	<p><c>| {server_name_indication, hostname() | disable}</c></p>
 	<p><c>| {customize_hostname_check, list()}</c></p>
 	<p><c>| {sni_hosts, [{hostname(), [ssl_option()]}]}</c></p>
@@ -796,7 +797,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
       the client.</p></item>
 
       <tag><c>{log_alert, boolean()}</c></tag>
-      <item><p>If set to <c>false</c>, error reports are not displayed.</p></item>
+      <item><p>If set to <c>false</c>, error reports are not displayed.</p>
+      <p>Deprecated in OTP 22, use <seealso marker="#log_level">log_level</seealso> instead.</p>
+      </item>
+
+      <tag><marker id="log_level"/><c>{log_level, atom()}</c></tag>
+      <item><p>Specifies the log level for TLS/DTLS. It can take the following
+      values (ordered by increasing verbosity level): <c>emergency, alert, critical, error,
+      warning, notice, info, debug.</c></p>
+      <p>At verbosity level <c>notice</c> and above error reports are
+      displayed in TLS. The level <c>debug</c> triggers verbose logging of TLS protocol
+      messages and logging of ignored alerts in DTLS.</p></item>
 
       <tag><c>{honor_cipher_order, boolean()}</c></tag>
       <item><p>If set to <c>true</c>, use the server preference for cipher
