@@ -2643,24 +2643,7 @@ wait_deallocations() ->
 
 driver_alloc_size() ->
     wait_deallocations(),
-    case erlang:system_info({allocator_sizes, driver_alloc}) of
-        false ->
-            undefined;
-        MemInfo ->
-            CS = lists:foldl(
-                   fun ({instance, _, L}, Acc) ->
-                           {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-                           {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-                           [MBCS,SBCS | Acc]
-                   end,
-                   [],
-                   MemInfo),
-            lists:foldl(
-              fun(L, Sz0) ->
-                      {value,{_,Sz,_,_}} = lists:keysearch(blocks_size, 1, L),
-                      Sz0+Sz
-              end, 0, CS)
-    end.
+    erts_debug:alloc_blocks_size(driver_alloc).
 
 rpc(Config, Fun) ->
     case proplists:get_value(node, Config) of

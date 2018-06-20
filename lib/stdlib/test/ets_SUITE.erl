@@ -6112,40 +6112,11 @@ etsmem() ->
 				   ets:info(T,memory),ets:info(T,type)}
 			end, ets:all()),
 
-    EtsAllocInfo = erlang:system_info({allocator,ets_alloc}),
+    EtsAllocSize = erts_debug:alloc_blocks_size(ets_alloc),
     ErlangMemoryEts = try erlang:memory(ets) catch error:notsup -> notsup end,
 
-    Mem =
-	{ErlangMemoryEts,
-	 case EtsAllocInfo of
-	     false -> undefined;
-	     MemInfo ->
-		 CS = lists:foldl(
-			fun ({instance, _, L}, Acc) ->
-				{value,{mbcs,MBCS}} = lists:keysearch(mbcs, 1, L),
-				{value,{sbcs,SBCS}} = lists:keysearch(sbcs, 1, L),
-				NewAcc = [MBCS, SBCS | Acc],
-				case lists:keysearch(mbcs_pool, 1, L) of
-				    {value,{mbcs_pool, MBCS_POOL}} ->
-					[MBCS_POOL|NewAcc];
-				    _ -> NewAcc
-				end
-			end,
-			[],
-			MemInfo),
-		 lists:foldl(
-		   fun(L, {Bl0,BlSz0}) ->
-			   {value,BlTup} = lists:keysearch(blocks, 1, L),
-			   blocks = element(1, BlTup),
-			   Bl = element(2, BlTup),
-			   {value,BlSzTup} = lists:keysearch(blocks_size, 1, L),
-			   blocks_size = element(1, BlSzTup),
-			   BlSz = element(2, BlSzTup),
-			   {Bl0+Bl,BlSz0+BlSz}
-		   end, {0,0}, CS)
-	 end},
-    {Mem,AllTabs}.
-
+    Mem = {ErlangMemoryEts, EtsAllocSize},
+    {Mem, AllTabs}.
 
 verify_etsmem(MI) ->
     wait_for_test_procs(),
