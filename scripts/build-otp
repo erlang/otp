@@ -57,23 +57,23 @@ if [ "$1" = "docs" ]; then
     do_and_log "Linting documentation" make xmllint
     # The code below prepares this build to be used as a deploy to
     # github pages for documentation.
-    # if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_TAG" = "" ]; then
-    #     set -x
-    #     rm -rf logs
-    #     SHA=`git rev-parse --verify HEAD`
-    #     DATE=`date -Iseconds`
-    #     git clean -xfdq -e $DOC_TARGET
-    #     git fetch https://github.com/$TRAVIS_REPO_SLUG gh-pages
-    #     git checkout -f FETCH_HEAD
-    #     rm -rf _docs/$DOC_TARGET
-    #     mv $DOC_TARGET _docs/$DOC_TARGET
-    #     echo "---" > _docs/$DOC_TARGET.md
-    #     echo "title: $DOC_TARGET" >> _docs/$DOC_TARGET.md
-    #     echo "sha: $SHA" >> _docs/$DOC_TARGET.md
-    #     echo "generated: $DATE" >> _docs/$DOC_TARGET.md
-    #     echo "---" >> _docs/$DOC_TARGET.md
-    #     set +x
-    # fi
+    if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_TAG" = "" ]; then
+        set -x
+        rm -rf logs
+        SHA=`git rev-parse --verify HEAD`
+        DATE=`git show -s --format=%ci`
+        git clean -xfdq -e $DOC_TARGET
+        git fetch https://github.com/erlang/cd master
+        git checkout -f FETCH_HEAD
+        rm -rf _docs/$DOC_TARGET
+        mv $DOC_TARGET _docs/$DOC_TARGET
+        echo "---" > _docs/$DOC_TARGET.md
+        echo "title: $DOC_TARGET" >> _docs/$DOC_TARGET.md
+        echo "sha: $SHA" >> _docs/$DOC_TARGET.md
+        echo "generated: $DATE" >> _docs/$DOC_TARGET.md
+        echo "---" >> _docs/$DOC_TARGET.md
+        set +x
+    fi
 fi
 
 exit 0
