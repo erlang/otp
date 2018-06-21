@@ -2,6 +2,10 @@
 
 set -e
 
+if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_REPO_SLUG" != "erlang/otp" ]; then
+    exit 0
+fi
+
 OTP_META_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.txt
 OTP_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.tar.gz
 
@@ -27,3 +31,5 @@ done
 
 cd $ERL_TOP/bundle/
 tar czf $OTP_FILE *
+
+exit 0
