@@ -57,7 +57,7 @@ if [ "$1" = "docs" ]; then
     do_and_log "Linting documentation" make xmllint
     # The code below prepares this build to be used as a deploy to
     # github pages for documentation.
-    if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_TAG" = "" ]; then
+    if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_TAG" = "" -a "$TRAVIS_REPO_SLUG" = "erlang/otp" ]; then
         set -x
         rm -rf logs
         SHA=`git rev-parse --verify HEAD`
