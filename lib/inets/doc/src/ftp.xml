@@ -548,11 +548,12 @@
 	<v>start_option() = {verbose, verbose()} | {debug, debug()}</v>
 	<v>verbose() = boolean() (default is false)</v>
 	<v>debug() = disable | debug | trace (default is disable)</v>
-	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
+	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress() | {sock_ctrl, sock_opts()} | {sock_data_act, sock_opts()} | {sock_data_pass, sock_opts()} }</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (default is inet)</v>
 	<v>port() = integer() > 0 (default is 21)</v>
 	<v>mode() = active | passive (default is passive)</v>
 	<v>tls_options() = [<seealso marker="ssl:ssl#type-ssloption">ssl:ssloption()</seealso>]</v>
+	<v>sock_opts() = [<seealso marker="kernel:gen_tcp#type-option">gen_tcp:option()</seealso> except for ipv6_v6only, active, packet, mode, packet_size and header</v>
 	<v>timeout() = integer() > 0 (default is 60000 milliseconds)</v>
 	<v>dtimeout() = integer() > 0 | infinity (default is infinity)</v>
 	<v>pogress() = ignore | {module(), function(), initial_data()} (default is ignore)</v>
@@ -573,6 +574,11 @@
 	The list <c>tls_options()</c> can be empty. The function 
 	<seealso marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seealso> 
 	is used for securing both the control connection and the data sessions.
+	</p>
+
+	<p>The options <c>sock_ctrl</c>, <c>sock_data_act</c> and <c>sock_data_pass</c> passes options down to 
+	the underlying transport layer (tcp). The default value for <c>sock_ctrl</c> is <c>[]</c>. Both 
+	<c>sock_data_act</c> and <c>sock_data_pass</c> uses the value of <c>sock_ctrl</c> as default value.
 	</p>
 
         <p>A session opened in this way is closed using function
