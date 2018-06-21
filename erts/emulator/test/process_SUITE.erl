@@ -2232,8 +2232,8 @@ processes_term_proc_list(Config) when is_list(Config) ->
     %% We have to run this test case with +S1 since instrument:allocations()
     %% will report a free()'d block as present until it's actually deallocated
     %% by its employer.
-    Run("+MSe true +MSatags false +S1"),
-    Run("+MSe true +MSatags true +S1"),
+    Run("+MSe true +Muatags false +S1"),
+    Run("+MSe true +Muatags true +S1"),
 
     ok.
 
@@ -2241,9 +2241,11 @@ processes_term_proc_list(Config) when is_list(Config) ->
 	chk_term_proc_list(?LINE, MC, XB)).
 
 chk_term_proc_list(Line, MustChk, ExpectBlks) ->
-    Allocs = instrument:allocations(#{ allocator_types => [sl_alloc] }),
+    Allocs = instrument:allocations(),
     case {MustChk, Allocs} of
 	{false, {error, not_enabled}} ->
+	    not_enabled;
+	{false, {ok, {_Shift, _Unscanned, ByOrigin}}} when ByOrigin =:= #{} ->
 	    not_enabled;
 	{_, {ok, {_Shift, _Unscanned, ByOrigin}}} ->
             ByType = maps:get(system, ByOrigin, #{}),

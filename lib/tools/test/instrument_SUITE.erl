@@ -77,6 +77,8 @@ allocations_ramv(Config) when is_list(Config) ->
 verify_allocations_disabled(_AllocType, Result) ->
     verify_allocations_disabled(Result).
 
+verify_allocations_disabled({ok, {_HistStart, _UnscannedBytes, Allocs}}) ->
+    true = Allocs =:= #{};
 verify_allocations_disabled({error, not_enabled}) ->
     ok.
 
@@ -91,6 +93,13 @@ verify_allocations_enabled(_AllocType, Result) ->
 verify_allocations_enabled({ok, {_HistStart, _UnscannedBytes, Allocs}}) ->
     true = Allocs =/= #{}.
 
+verify_allocations_output(#{}, {ok, {_, _, Allocs}}) when Allocs =:= #{} ->
+    %% This happens when the allocator is enabled but tagging is disabled. If
+    %% there's an error that causes Allocs to always be empty when enabled it
+    %% will be caught by verify_allocations_enabled.
+    ok;
+verify_allocations_output(#{}, {error, not_enabled}) ->
+    ok;
 verify_allocations_output(#{ histogram_start := HistStart,
                              histogram_width := HistWidth },
                     {ok, {HistStart, _UnscannedBytes, ByOrigin}}) ->
@@ -124,8 +133,6 @@ verify_allocations_output(#{ histogram_start := HistStart,
                     [BlockCount, GenTotalBlockCount])
     end,
 
-    ok;
-verify_allocations_output(#{}, {error, not_enabled}) ->
     ok.
 
 %% %% %% %% %% %%

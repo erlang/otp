@@ -34,8 +34,8 @@ Solution
 --------
 
 In order to prevent scenarios like this we've implemented support for
-migration of multi-block carriers between allocator instances of the
-same type.
+migration of multi-block carriers between allocator instances that share
+the same allocation strategy.
 
 ### Management of Free Blocks ###
 
@@ -130,9 +130,9 @@ threads may have references to it via the pool.
 
 ### Migration ###
 
-There exists one pool for each allocator type enabling migration of
-carriers between scheduler specific allocator instances of the same
-allocator type.
+There exists one pool for each allocation strategy enabling migration of
+carriers between scheduler specific allocator instances using the same
+strategy.
 
 Each allocator instance keeps track of the current utilization of its
 multi-block carriers. When the total utilization falls below the "abandon
@@ -286,12 +286,4 @@ data structure of free blocks. This performance penalty is however
 reduced using the `aoffcbf` strategy. A trade off between memory
 consumption and performance is however inevitable, and it is up to
 the user to decide what is most important. 
-
-Further work
-------------
-
-It would be quite easy to extend this to allow migration of multi-block
-carriers between all allocator types. More or less the only obstacle
-is maintenance of the statistics information.
-
 
