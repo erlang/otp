@@ -30,6 +30,35 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SFTP clients reported the error reason <c>""</c> if a
+	    non-OTP sftp server was killed during a long file
+	    transmission.</p>
+          <p>
+	    Now the signal name (for example <c>"KILL"</c>) will be
+	    the error reason if the server's reason is empty.</p>
+          <p>
+	    The documentation also lacked type information about this
+	    class of errors.</p>
+          <p>
+	    Own Id: OTP-15148 Aux Id: ERIERL-194 </p>
+        </item>
+        <item>
+          <p>
+	    Fix ssh_sftp decode error for sftp protocol version 4</p>
+          <p>
+	    Own Id: OTP-15149 Aux Id: ERIERL-199 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
