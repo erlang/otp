@@ -137,9 +137,9 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     %% Ignore signals according to RFC 4254 section 6.9.
     {ok, State};
 
-handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}}, State) ->
-    Report = io_lib:format("Connection closed by peer ~n Error ~p~n",
-			   [Error]),
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, Signal, Error, _}}, State) ->
+    Report = io_lib:format("Connection closed by peer signal ~p~n Error ~p~n",
+			   [Signal,Error]),
     error_logger:error_report(Report),
     {stop, ChannelId,  State};
 
