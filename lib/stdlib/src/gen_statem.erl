@@ -330,6 +330,7 @@
 
 
 %% Type validation functions
+%% - return true if the value is of the type, false otherwise
 -compile(
    {inline,
     [callback_mode/1, state_enter/1,
@@ -1277,7 +1278,7 @@ parse_actions(StateCall, Debug, S, [Action|Actions], TransOpts) ->
     end.
 
 parse_actions_reply(
-  StateCall, ?not_sys_debug, S, Actions, TransOpts,
+  StateCall, ?not_sys_debug = Debug, S, Actions, TransOpts,
   From, Reply) ->
     %%
     case from(From) of
@@ -1287,8 +1288,7 @@ parse_actions_reply(
         false ->
             [error,
              {bad_action_from_state_function,{reply,From,Reply}},
-             ?STACKTRACE(),
-             ?not_sys_debug]
+             ?STACKTRACE(), Debug]
     end;
 parse_actions_reply(
   StateCall, Debug, #state{name = Name, state = State} = S,
@@ -1302,12 +1302,11 @@ parse_actions_reply(
         false ->
             [error,
              {bad_action_from_state_function,{reply,From,Reply}},
-             ?STACKTRACE(),
-             Debug]
+             ?STACKTRACE(), Debug]
     end.
 
 parse_actions_next_event(
-  StateCall, ?not_sys_debug, S,
+  StateCall, ?not_sys_debug = Debug, S,
   Actions, TransOpts, Type, Content) ->
     case event_type(Type) of
         true when StateCall ->
@@ -1320,8 +1319,7 @@ parse_actions_next_event(
             [error,
              {bad_state_enter_action_from_state_function,
 	      {next_event,Type,Content}},
-             ?STACKTRACE(),
-             ?not_sys_debug]
+             ?STACKTRACE(), Debug]
     end;
 parse_actions_next_event(
   StateCall, Debug, #state{name = Name, state = State} = S,
@@ -1403,13 +1401,13 @@ parse_actions_timeout_add(
 loop_event_done(
   Parent, ?not_sys_debug,
   #state{postponed = P} = S,
+%%  #state{postponed = will_not_happen = P} = S,
   Events, Event, NextState, NewData,
   #trans_opts{
      postpone = Postpone, hibernate = Hibernate,
-     timeouts_r = [], next_events_r = []}) ->
+     timeouts_r = [], next_events_r = NextEventsR}) ->
     %%
-    %% Optimize the simple cases
-    %% i.e no timer changes, no inserted events and no debug,
+    %% Optimize the simple cases i.e no debug and no timer changes,
     %% by duplicate stripped down code
     %%
     %% Fast path
@@ -1417,14 +1415,12 @@ loop_event_done(
     case Postpone of
         true ->
             loop_event_done_fast(
-              Parent, Hibernate,
-              S,
-              Events, [Event|P], NextState, NewData);
+              Parent, Hibernate, S,
+              Events, [Event|P], NextState, NewData, NextEventsR);
         false ->
             loop_event_done_fast(
-              Parent, Hibernate,
-              S,
-              Events, P, NextState, NewData)
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR)
     end;
 loop_event_done(
   Parent, Debug_0,
@@ -1456,26 +1452,23 @@ loop_event_done(
                     {S#state.name,State},
                     {consume,Event_0,NextState})|P_0]
 	end,
-    {Events_2,P_2,Timers_2} =
-	%% Move all postponed events to queue,
-        %% cancel the event timer,
-        %% and cancel the state timeout if the state changes
-	if
-	    NextState =:= State ->
-		{Events_0,P_1,
+    {Events_2,P_2,
+     Timers_2} =
+        %% Cancel the event timeout
+        if
+            NextState =:= State ->
+                {Events_0,P_1,
                  cancel_timer_by_type(
                    timeout, {TimerTypes_0,CancelTimers_0})};
-	    true ->
-		{lists:reverse(P_1, Events_0),
-		 [],
-		 cancel_timer_by_type(
-		   state_timeout,
+            true ->
+                %% Move all postponed events to queue
+                %% and cancel the state timeout
+                {lists:reverse(P_1, Events_0),[],
+                 cancel_timer_by_type(
+                   state_timeout,
                    cancel_timer_by_type(
                      timeout, {TimerTypes_0,CancelTimers_0}))}
-		    %% The state timer is removed from TimerTypes
-		    %% but remains in TimerRefs until we get
-		    %% the cancel_timer msg
-	end,
+        end,
     {TimerRefs_3,{TimerTypes_3,CancelTimers_3},TimeoutEvents} =
 	%% Stop and start timers
 	parse_timers(TimerRefs_0, Timers_2, TimeoutsR),
@@ -1495,104 +1488,15 @@ loop_event_done(
         hibernate = Hibernate},
       lists:reverse(Events_4R)).
 
-%% Fast path
-%%
-loop_event_done_fast(
-  Parent, Hibernate,
-  #state{
-     state = NextState,
-     timer_types = #{timeout := _} = TimerTypes,
-     cancel_timers = CancelTimers} = S,
-  Events, P, NextState, NewData) ->
-    %%
-    %% Same state, event timeout active
-    %%
-    loop_event_done_fast(
-      Parent, Hibernate, S,
-      Events, P, NextState, NewData,
-      cancel_timer_by_type(
-        timeout, {TimerTypes,CancelTimers}));
-loop_event_done_fast(
-  Parent, Hibernate,
-  #state{state = NextState} = S,
-  Events, P, NextState, NewData) ->
-    %%
-    %% Same state
-    %%
-    loop_event_done(
-      Parent, ?not_sys_debug,
-      S#state{
-        data = NewData,
-        postponed = P,
-        hibernate = Hibernate},
-      Events);
-loop_event_done_fast(
-  Parent, Hibernate,
-  #state{
-     timer_types = #{timeout := _} = TimerTypes,
-     cancel_timers = CancelTimers} = S,
-  Events, P, NextState, NewData) ->
-    %%
-    %% State change, event timeout active
-    %%
-    loop_event_done_fast(
-      Parent, Hibernate, S,
-      lists:reverse(P, Events), [], NextState, NewData,
-        cancel_timer_by_type(
-          state_timeout,
-          cancel_timer_by_type(
-            timeout, {TimerTypes,CancelTimers})));
-loop_event_done_fast(
-  Parent, Hibernate,
-  #state{
-     timer_types = #{state_timeout := _} = TimerTypes,
-     cancel_timers = CancelTimers} = S,
-  Events, P, NextState, NewData) ->
-    %%
-    %% State change, state timeout active
-    %%
-    loop_event_done_fast(
-      Parent, Hibernate, S,
-      lists:reverse(P, Events), [], NextState, NewData,
-        cancel_timer_by_type(
-          state_timeout,
-          cancel_timer_by_type(
-            timeout, {TimerTypes,CancelTimers})));
-loop_event_done_fast(
-  Parent, Hibernate,
-  #state{} = S,
-  Events, P, NextState, NewData) ->
-    %%
-    %% State change, no timeout to automatically cancel
-    %%
-    loop_event_done(
-      Parent, ?not_sys_debug,
-      S#state{
-        state = NextState,
-        data = NewData,
-        postponed = [],
-        hibernate = Hibernate},
-      lists:reverse(P, Events)).
-%%
-%% Fast path
-%%
-loop_event_done_fast(
-  Parent, Hibernate, S,
-  Events, P, NextState, NewData,
-  {TimerTypes,CancelTimers}) ->
-    %%
-    loop_event_done(
-      Parent, ?not_sys_debug,
-      S#state{
-        state = NextState,
-        data = NewData,
-        postponed = P,
-        timer_types = TimerTypes,
-        cancel_timers = CancelTimers,
-        hibernate = Hibernate},
-      Events).
-
 loop_event_done(Parent, Debug, S, Q) ->
+%%    io:format(
+%%      "loop_event_done:~n"
+%%      "    state = ~p, data = ~p, postponed = ~p~n "
+%%      "    timer_refs = ~p, timer_types = ~p, cancel_timers = ~p.~n"
+%%      "    Q = ~p.~n",
+%%      [S#state.state,S#state.data,S#state.postponed,
+%%       S#state.timer_refs,S#state.timer_types,S#state.cancel_timers,
+%%       Q]),
     case Q of
         [] ->
             %% Get a new event
@@ -1602,6 +1506,125 @@ loop_event_done(Parent, Debug, S, Q) ->
 	    loop_event(Parent, Debug, S, Events, Type, Content)
     end.
 
+
+%% Fast path
+%%
+%% Cancel event timer and state timer only if running
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{
+     state = NextState,
+     timer_types = TimerTypes,
+     cancel_timers = CancelTimers} = S,
+  Events, P, NextState, NewData, NextEventsR) ->
+    %% Same state
+    case TimerTypes of
+        #{timeout := _} ->
+            %% Event timeout active
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR,
+              cancel_timer_by_type(
+                timeout, {TimerTypes,CancelTimers}));
+        _ ->
+            %% No event timeout active
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR,
+              {TimerTypes,CancelTimers})
+    end;
+loop_event_done_fast(
+  Parent, Hibernate,
+  #state{
+     timer_types = TimerTypes,
+     cancel_timers = CancelTimers} = S,
+  Events, P, NextState, NewData, NextEventsR) ->
+    %% State change
+    case TimerTypes of
+        #{timeout := _} ->
+            %% Event timeout active
+            %% - cancel state_timeout too since it is faster than inspecting
+            loop_event_done_fast(
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR,
+              cancel_timer_by_type(
+                state_timeout,
+                cancel_timer_by_type(
+                  timeout, {TimerTypes,CancelTimers})));
+        #{state_timeout := _} ->
+            %% State_timeout active but not event timeout
+            loop_event_done_fast(
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR,
+              cancel_timer_by_type(
+                state_timeout, {TimerTypes,CancelTimers}));
+        _ ->
+            %% No event nor state_timeout active
+            loop_event_done_fast(
+              Parent, Hibernate, S,
+              Events, P, NextState, NewData, NextEventsR,
+              {TimerTypes,CancelTimers})
+    end.
+%%
+%% Retry postponed events
+loop_event_done_fast(
+  Parent, Hibernate, S,
+  Events, P, NextState, NewData, NextEventsR, TimerTypes_CancelTimers) ->
+    case P of
+        %% Handle 0..2 postponed events without list reversal since
+        %% that will move out all live registers and back again
+        [] ->
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              Events, [], NextState, NewData, NextEventsR,
+              TimerTypes_CancelTimers);
+        [E] ->
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              [E|Events], [], NextState, NewData, NextEventsR,
+              TimerTypes_CancelTimers);
+        [E1,E2] ->
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              [E2,E1|Events], [], NextState, NewData, NextEventsR,
+              TimerTypes_CancelTimers);
+        _ ->
+            %% A bit slower path
+            loop_event_done_fast_2(
+              Parent, Hibernate, S,
+              lists:reverse(P, Events), [], NextState, NewData, NextEventsR,
+              TimerTypes_CancelTimers)
+    end.
+%%
+%% Fast path
+%%
+loop_event_done_fast_2(
+  Parent, Hibernate, S,
+  Events, P, NextState, NewData, NextEventsR,
+  {TimerTypes,CancelTimers}) ->
+    %%
+    NewS =
+        S#state{
+          state = NextState,
+          data = NewData,
+          postponed = P,
+          timer_types = TimerTypes,
+          cancel_timers = CancelTimers,
+          hibernate = Hibernate},
+    case NextEventsR of
+        %% Handle 0..2 next events without list reversal since
+        %% that will move out all live registers and back again
+        [] ->
+            loop_event_done(Parent, ?not_sys_debug, NewS, Events);
+        [E] ->
+            loop_event_done(Parent, ?not_sys_debug, NewS, [E|Events]);
+        [E2,E1] ->
+            loop_event_done(Parent, ?not_sys_debug, NewS, [E1,E2|Events]);
+        _ ->
+            %% A bit slower path
+            loop_event_done(
+              Parent, ?not_sys_debug, NewS, lists:reverse(NextEventsR, Events))
+    end.
 
 %%---------------------------------------------------------------------------
 %% Server loop helpers
