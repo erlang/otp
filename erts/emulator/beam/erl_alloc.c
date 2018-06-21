@@ -1400,7 +1400,15 @@ handle_au_arg(struct au_init *auip,
 		auip->init.aoff.blk_order = FF_AOBF;
             }
 	    else {
-		bad_value(param, sub_param + 1, alg);
+                if (auip->init.util.alloc_no == ERTS_ALC_A_TEST
+                    && sys_strcmp("chaosff", alg) == 0) {
+                    auip->astrat = ERTS_ALC_S_FIRSTFIT;
+                    auip->init.aoff.crr_order = FF_CHAOS;
+                    auip->init.aoff.blk_order = FF_CHAOS;
+                }
+                else {
+                    bad_value(param, sub_param + 1, alg);
+                }
 	    }
 	    if (!strategy_support_carrier_migration(auip))
 		auip->init.util.acul = 0;

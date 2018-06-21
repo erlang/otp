@@ -283,6 +283,22 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
+    if (aoffinit->blk_order == FF_CHAOS) {
+        const enum AOFFSortOrder orders[3] = {FF_AOFF, FF_AOBF, FF_BF};
+        int index = init->ix % (sizeof(orders) / sizeof(orders[0]));
+
+        ASSERT(init->alloc_no == ERTS_ALC_A_TEST);
+        aoffinit->blk_order = orders[index];
+    }
+
+    if (aoffinit->crr_order == FF_CHAOS) {
+        const enum AOFFSortOrder orders[2] = {FF_AGEFF, FF_AOFF};
+        int index = init->ix % (sizeof(orders) / sizeof(orders[0]));
+
+        ASSERT(init->alloc_no == ERTS_ALC_A_TEST);
+        aoffinit->crr_order = orders[index];
+    }
+
     alc->blk_order                      = aoffinit->blk_order;
     alc->crr_order                      = aoffinit->crr_order;
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);

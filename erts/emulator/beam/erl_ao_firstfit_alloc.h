@@ -32,7 +32,12 @@ enum AOFFSortOrder {
     FF_AGEFF = 0,    /* carrier trees only */
     FF_AOFF  = 1,
     FF_AOBF  = 2,    /* block trees only */
-    FF_BF    = 3     /* block trees only */
+    FF_BF    = 3,    /* block trees only */
+
+    FF_CHAOS = -1    /* A test-specific sort order that picks any of the above
+                      * after instance id. Used to test that carriers created
+                      * under one order will work fine after being migrated
+                      * to another. */
 };
 
 typedef struct {
