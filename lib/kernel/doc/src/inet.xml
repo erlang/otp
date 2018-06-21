@@ -734,22 +734,23 @@ get_tcpi_sacked(Sock) ->
           </item>
           <tag><c>{buffer, Size}</c></tag>
           <item>
-            <p>The size of the user-level software buffer used by
-              the driver. 
-              Not to be confused with options <c>sndbuf</c>
+            <p>The size of the user-level buffer used by
+              the driver. Not to be confused with options <c>sndbuf</c>
               and <c>recbuf</c>, which correspond to the
-              Kernel socket buffers. It is recommended
-              to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c> to
+              Kernel socket buffers. For TCP it is recommended
+              to have <c>val(buffer) &gt;= val(recbuf)</c> to
               avoid performance issues because of unnecessary copying.
+              For UDP the same recommendation applies, but the max should
+              not be larger than the MTU of the network path.
               <c>val(buffer)</c> is automatically set to the above
-              maximum when values <c>sndbuf</c> or <c>recbuf</c> are set.
-              However, as the sizes set for <c>sndbuf</c> and <c>recbuf</c>
+              maximum when <c>recbuf</c> is set.
+              However, as the size set for <c>recbuf</c>
               usually become larger, you are encouraged to use
               <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
               to analyze the behavior of your operating system.</p>
             <p>Note that this is also the maximum amount of data that can be
-	       received from a single recv call. If you are using higher than 
-	       normal MTU consider setting buffer higher.</p> 
+	       received from a single recv call. If you are using higher than
+	       normal MTU consider setting buffer higher.</p>
           </item>
           <tag><c>{delay_send, Boolean}</c></tag>
           <item>

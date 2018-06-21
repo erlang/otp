@@ -1549,6 +1549,8 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #   define LOAD_ASSOC_ID        LOAD_UINT
 #   define LOAD_ASSOC_ID_CNT    LOAD_UINT_CNT
 #   define SCTP_ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
+#else
+#   define IS_SCTP(desc) 0
 #endif
 
 #ifdef HAVE_UDP
@@ -6436,7 +6438,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		(long)desc->port, desc->s, res));
 	if (type == SO_RCVBUF) {
 	    /* make sure we have desc->bufsz >= SO_RCVBUF */
-	    if (ival > desc->bufsz)
+            if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
+                /* For UDP we don't want to automatically
+                   set the buffer size to be larger than
+                   the theoretical max MTU */
+                desc->bufsz = 1 << 16;
+	    else if (ival > desc->bufsz)
 		desc->bufsz = ival;
 	}
     }

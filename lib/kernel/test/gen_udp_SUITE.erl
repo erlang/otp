@@ -34,7 +34,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([send_to_closed/1, active_n/1,
-	 buffer_size/1, binary_passive_recv/1, bad_address/1,
+	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1,
 	 local_basic/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1]).
@@ -44,7 +44,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [send_to_closed, buffer_size, binary_passive_recv,
+    [send_to_closed, buffer_size, binary_passive_recv, max_buffer_size,
      bad_address, read_packets, open_fd, connect,
      implicit_inet6, active_n,
      {group, local}].
@@ -237,6 +237,14 @@ buffer_size_server_recv(Socket, IP, Port, Cnt) ->
     end.
 
 
+%%-------------------------------------------------------------
+%% OTP-15206: Keep buffer small for udp
+%%-------------------------------------------------------------
+max_buffer_size(Config) when is_list(Config) ->
+    {ok, Socket}  = gen_udp:open(0, [binary]),
+    ok = inet:setopts(Socket,[{recbuf, 1 bsl 20}]),
+    {ok, [{buffer, 65536}]} = inet:getopts(Socket,[buffer]),
+    gen_udp:close(Socket).
 
 %%-------------------------------------------------------------
 %% OTP-3823 gen_udp:recv does not return address in binary mode
