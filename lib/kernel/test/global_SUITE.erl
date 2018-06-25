@@ -1383,7 +1383,7 @@ ring(Config) when is_list(Config) ->
     rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1466,7 +1466,7 @@ simple_ring(Config) when is_list(Config) ->
     rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1542,7 +1542,7 @@ line(Config) when is_list(Config) ->
     rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     %% Sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1626,7 +1626,7 @@ simple_line(Config) when is_list(Config) ->
     rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -3555,7 +3555,7 @@ single_node(Time, Node, Config) ->
     lists:foreach(fun(N) -> _ = erlang:disconnect_node(N) end, nodes()),
     ?UNTIL(get_known(node()) =:= [node()]),
     spawn(?MODULE, init_2, []),
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
     net_adm:ping(Node).
 
 init_2() ->
@@ -4009,13 +4009,6 @@ collect_nodes(N, Max) ->
             [Node | collect_nodes(N+1, Max)]
     end.
 
-only_element(_E, []) ->
-    true;
-only_element(E, [E|R]) ->
-    only_element(E, R);
-only_element(_E, _) ->
-    false.
-
 exit_p(Pid) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! die,
@@ -4037,6 +4030,11 @@ wait_for_exit_fast(Pid) ->
 	{'DOWN', Ref, process, Pid, _Reason} ->
 	    ok
     end.
+
+sleep(Time) when Time > 0 ->
+    ct:sleep(Time);
+sleep(_Time) ->
+    ok.
 
 check_everywhere(Nodes, Name, Config) ->
     ?UNTIL(begin
@@ -4162,10 +4160,10 @@ rpc_cast(Node, Module, Function, Args, File) ->
 
 %% The emulator now ensures that the node has been removed from
 %% nodes().
-rpc_disconnect_node(Node, DisconnectedNode, _Config) ->
-    True = rpc:call(Node, erlang, disconnect_node, [DisconnectedNode]),
-    False = lists:member(DisconnectedNode, rpc:call(Node, erlang, nodes, [])),
-    {true, false} = {True, False}.
+rpc_disconnect_node(Node, DisconnectedNode, Config) ->
+    true = rpc:call(Node, erlang, disconnect_node, [DisconnectedNode]),
+    ?UNTIL
+      (not lists:member(DisconnectedNode, rpc:call(Node, erlang, nodes, []))).
 
 %%%
 %%% Utility
