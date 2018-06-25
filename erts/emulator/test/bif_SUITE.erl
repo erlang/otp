@@ -36,7 +36,8 @@
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
          is_process_alive/1,
-         process_info_blast/1]).
+         process_info_blast/1,
+         os_env_case_sensitivity/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -51,7 +52,7 @@ all() ->
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
-     is_process_alive, process_info_blast].
+     is_process_alive, process_info_blast, os_env_case_sensitivity].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -442,6 +443,17 @@ os_env_long(Min, Max, Value) ->
     Value = os:getenv(EnvVar),
     true = os:unsetenv(EnvVar),
     os_env_long(Min+1, Max, Value).
+
+os_env_case_sensitivity(Config) when is_list(Config) ->
+    %% The keys in os:getenv/putenv must be case-insensitive on Windows, and
+    %% case-sensitive elsewhere.
+    true = os:putenv("os_env_gurka", "gaffel"),
+    Expected = case os:type() of
+                   {win32, _} -> "gaffel";
+                   _ -> false
+               end,
+    Expected = os:getenv("OS_ENV_GURKA"),
+    ok.
 
 %% Test that string:to_integer does not Halloc in wrong order.
 otp_7526(Config) when is_list(Config) ->
