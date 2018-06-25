@@ -734,7 +734,7 @@ decode_ATTR(Vsn, <<?UINT32(Flags), Tail/binary>>) ->
     {Type,Tail2} =
 	if Vsn =< 3 ->
 		{?SSH_FILEXFER_TYPE_UNKNOWN, Tail};
-	   Vsn >= 5 ->
+	   true ->
 		<<?BYTE(T), TL/binary>> = Tail,
 		{T, TL}
 	end,

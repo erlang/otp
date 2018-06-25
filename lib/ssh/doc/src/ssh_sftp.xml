@@ -46,9 +46,9 @@
     <taglist>
       <tag><c>reason()</c></tag>
       <item>
-	<p>= <c>atom()</c> A description of the reason why an operation failed.</p>
+	<p>= <c>atom() | string() | tuple() </c>A description of the reason why an operation failed.</p>
 	<p>
-	  The value is formed from the sftp error codes in the protocol-level responses as defined in 
+	  The <c>atom()</c> value is formed from the sftp error codes in the protocol-level responses as defined in 
 	  <url href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</url>
 	  section 9.1.
 	</p>
@@ -56,6 +56,10 @@
 	  The codes are named as <c>SSH_FX_*</c> which are transformed into lowercase of the star-part.
 	  E.g. the error code <c>SSH_FX_NO_SUCH_FILE</c>
 	  will cause the <c>reason()</c> to be <c>no_such_file</c>.
+	</p>
+	<p>The <c>string()</c> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
+	</p>
+	<p>The <c>tuple()</c> reason are other errors like the <c>{exit_status,integer()}</c> if the exit status is not 0.
 	</p>
       </item>
 
