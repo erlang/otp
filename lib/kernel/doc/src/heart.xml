@@ -107,6 +107,25 @@
         runtime system, whether the crash dump file is written or not.</p>
       </item>
     </taglist>
+    <p>When running on Linux, <c>heart</c> is at risk of being killed
+      by the OOM killer in low memory situations, since it is a child
+      of the Erlang runtime process which presumably is using a lot of
+      memory. <c>heart</c> attempts to change its "OOM score adjustment"
+      so that it can keep running and restart the Erlang runtime system
+      if needed. In order to do that when not running as root, it
+      needs to have the capability <c>CAP_SYS_RESOURCE</c>. You can use
+      the following command to set the capability for the <c>heart</c>
+      binary:</p>
+    <pre>
+% <input>setcap CAP_SYS_RESOURCE+ep /path/to/heart</input></pre>
+    <p>If it fails to change the OOM score adjustment, <c>heart</c>
+      will ignore the error and continue as usual. You can set
+      the environment variable <c>HEART_DEBUG</c> to a non-empty
+      value to see debugging output, or you can use the following
+      command to check if the adjustment has been changed to
+      <c>-1000</c> from the default <c>0</c>:</p>
+      <pre>
+% <input>cat /proc/$(pidof heart)/oom_score_adj</input></pre>
     <p>In the following descriptions, all functions fail with reason
       <c>badarg</c> if <c>heart</c> is not started.</p>
   </description>
