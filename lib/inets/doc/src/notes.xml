@@ -79,7 +79,6 @@
       </list>
     </section>
 
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -91,7 +90,26 @@
       </list>
     </section>
 
-</section>
+  </section>
+
+
+  <section><title>Inets 6.5.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Options added for setting low-level properties on the
+	    underlying TCP connections. The options are:
+	    <c>sock_ctrl</c>, <c>sock_data_act</c> and
+	    <c>sock_data_pass</c>. See the manual for details.</p>
+          <p>
+	    Own Id: OTP-15120 Aux Id: ERIERL-192 </p>
+        </item>
+      </list>
+    </section>
+
+  </section>
 
 <section><title>Inets 6.5.2</title>
 
