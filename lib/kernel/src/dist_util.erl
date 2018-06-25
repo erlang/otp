@@ -731,7 +731,7 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 
 %% The detection time interval is thus, by default, 45s < DT < 75s 
 
-%% A HIDDEN node is always (if not a pending write) ticked if 
+%% A HIDDEN node is always ticked if
 %% we haven't read anything as a hidden node only ticks when it receives 
 %% a TICK !! 
 	
@@ -745,8 +745,8 @@ send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
     case MFGetstat(Socket) of
 	{ok, Read, _, _} when  Ticked =:= T ->
 	    {error, not_responding};
-	{ok, Read, W, Pend} when Type =:= hidden ->
-	    send_tick(Socket, Pend, MFTick),
+	{ok, Read, W, _} when Type =:= hidden ->
+            MFTick(Socket),
 	    {ok, Tick#tick{write = W + 1,
 			   tick = T1}};
 	{ok, Read, Write, Pend} ->
