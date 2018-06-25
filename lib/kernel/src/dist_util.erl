@@ -750,12 +750,12 @@ send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
 	    {ok, Tick#tick{write = W + 1,
 			   tick = T1}};
 	{ok, Read, Write, Pend} ->
-	    send_tick(Socket, Pend, MFTick),
-	    {ok, Tick#tick{write = Write + 1,
+	    Sent = send_tick(Socket, Pend, MFTick),
+	    {ok, Tick#tick{write = Write + Sent,
 			   tick = T1}};
 	{ok, R, Write, Pend} ->
-	    send_tick(Socket, Pend, MFTick),
-	    {ok, Tick#tick{write = Write + 1,
+	    Sent = send_tick(Socket, Pend, MFTick),
+	    {ok, Tick#tick{write = Write + Sent,
 			   read = R,
 			   tick = T1,
 			   ticked = T}};
@@ -772,10 +772,11 @@ send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
     end.
 
 send_tick(Socket, 0, MFTick) ->
-    MFTick(Socket);
+    MFTick(Socket),
+    1;
 send_tick(_, _Pend, _) ->
     %% Dont send tick if pending write.
-    ok.
+    0.
 
 %% ------------------------------------------------------------
 %% Connection setup timeout timer.
