@@ -132,6 +132,15 @@ bs_init(_Config) ->
     <<"foo/foo">> = do_bs_init_4(<<"foo">>, true),
     error = do_bs_init_4([], not_boolean),
 
+    Id = 17575,
+    Domain = -8798798,
+    [<<10,1:16,Id:16/signed>>,<<8,2:16,Domain:32/signed>>] =
+        do_bs_init_5(#{tag=>value,id=>Id,domain=>Domain}),
+    {'EXIT',{{required,id},[_|_]}} =
+        (catch do_bs_init_5(#{tag=>value,id=>nil,domain=>Domain})),
+    {'EXIT',{{required,domain},[_|_]}} =
+        (catch do_bs_init_5(#{tag=>value,id=>Id,domain=>nil})),
+
     ok.
 
 do_bs_init_1([?MODULE], Sz) ->
@@ -188,6 +197,20 @@ do_bs_init_4(Arg1, Arg2) ->
         Other ->
             error
     end.
+
+do_bs_init_5(#{tag := value, id := Id, domain := Domain}) ->
+    [case Id of
+         nil ->
+             error(id({required, id}));
+         _ ->
+             <<10, 1:16/signed, Id:16/signed>>
+     end,
+     case Domain of
+         nil ->
+             error(id({required, domain}));
+         _ ->
+             <<8, 2:16/signed, Domain:32/signed>>
+     end].
 
 bs_save(_Config) ->
     {a,30,<<>>} = do_bs_save(<<1:1,30:5>>),
