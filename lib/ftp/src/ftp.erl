@@ -101,6 +101,9 @@
 	  %% data needed further on.
 	  caller = undefined, % term()     
 	  ipfamily,     % inet | inet6 | inet6fb4
+          sockopts_ctrl = [],
+          sockopts_data_passive = [],
+          sockopts_data_active = [],
 	  progress = ignore,   % ignore | pid()	    
 	  dtimeout = ?DATA_ACCEPT_TIMEOUT,  % non_neg_integer() | infinity
 	  tls_upgrading_data_connection = false,
@@ -135,9 +138,10 @@ start_standalone(Options) ->
     try
 	{ok, StartOptions} = start_options(Options),
 	{ok, OpenOptions}  = open_options(Options),
+	{ok, SocketOptions}  = socket_options(Options),
 	case start_link(StartOptions, []) of
 	    {ok, Pid} ->
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
+		call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
 	    Error1 ->
 		Error1
 	end
@@ -149,10 +153,11 @@ start_standalone(Options) ->
 start_service(Options) ->
     try
 	{ok, StartOptions} = start_options(Options),
-	{ok, OpenOptions}  = open_options(Options), 
+	{ok, OpenOptions}  = open_options(Options),
+	{ok, SocketOptions}  = socket_options(Options),
 	case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
 	    {ok, Pid} ->
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
+		call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
 	    Error1 ->
 		Error1
 	end
@@ -200,9 +205,10 @@ open({option_list, Options}) when is_list(Options) ->
     try
 	{ok, StartOptions} = start_options(Options),
 	{ok, OpenOptions}  = open_options(Options), 
+	{ok, SockOpts}  = socket_options(Options),
 	case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
 	    {ok, Pid} ->
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
+		call(Pid, {open, ip_comm, OpenOptions, SockOpts}, plain);
 	    Error1 ->
 		Error1
 	end
@@ -227,9 +233,10 @@ open(Host, Opts) when is_list(Opts) ->
     try
 	{ok, StartOptions} = start_options(Opts), 
 	{ok, OpenOptions}  = open_options([{host, Host}|Opts]), 
+	{ok, SocketOptions}  = socket_options(Opts),
 	case start_link(StartOptions, []) of
 	    {ok, Pid} ->
-		do_open(Pid, OpenOptions, tls_options(Opts));
+		do_open(Pid, OpenOptions, SocketOptions, tls_options(Opts));
 	    Error1 ->
 		Error1
 	end
@@ -238,8 +245,8 @@ open(Host, Opts) when is_list(Opts) ->
 	    Error2
     end.
 
-do_open(Pid, OpenOptions, TLSOpts) ->
-    case call(Pid, {open, ip_comm, OpenOptions}, plain) of
+do_open(Pid, OpenOptions, SocketOptions, TLSOpts) ->
+    case call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain) of
 	{ok, Pid} ->
 	    maybe_tls_upgrade(Pid, TLSOpts);
 	Error ->
@@ -1026,7 +1033,7 @@ handle_call({_,latest_ctrl_response}, _, #state{latest_ctrl_response=Resp} = Sta
 handle_call({Pid, _}, _, #state{owner = Owner} = State) when Owner =/= Pid ->
     {reply, {error, not_connection_owner}, State};
 
-handle_call({_, {open, ip_comm, Opts}}, From, State) ->
+handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, From, State) ->
     case key_search(host, Opts, undefined) of
 	undefined ->
 	    {stop, normal, {error, ehost}, State};
@@ -1043,6 +1050,9 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 				 mode     = Mode,
 				 progress = progress(Progress),
 				 ipfamily = IpFamily, 
+                                 sockopts_ctrl = CtrlOpts,
+                                 sockopts_data_passive =  DataPassOpts,
+                                 sockopts_data_active = DataActOpts,
 				 dtimeout = DTimeout,
 				 ftp_extension = FtpExt}, 
 
@@ -1053,28 +1063,6 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 		    gen_server:reply(From, {error, ehost}),
 		    {stop, normal, State2#state{client = undefined}}
 	    end
-    end;	
-
-handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
-    Mode     = key_search(mode,     Opts, ?DEFAULT_MODE),
-    Port     = key_search(port,     Opts, ?FTP_PORT), 
-    Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
-    DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
-    Progress = key_search(progress, Opts, ignore),
-    FtpExt   = key_search(ftp_extension, Opts, ?FTP_EXT_DEFAULT),
-    
-    State2 = State#state{client   = From, 
-			 mode     = Mode,
-			 progress = progress(Progress), 
-			 dtimeout = DTimeout,
-			 ftp_extension = FtpExt}, 
-
-    case setup_ctrl_connection(Host, Port, Timeout, State2) of
-	{ok, State3, WaitTimeout} ->
-	    {noreply, State3, WaitTimeout};
-	{error, _Reason} ->
-	    gen_server:reply(From, {error, ehost}),
-	    {stop, normal, State2#state{client = undefined}}
     end;	
 
 handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State) ->
@@ -1659,11 +1647,12 @@ handle_ctrl_result({pos_compl, Lines},
 			  client   = From,
 			  caller   = {setup_data_connection, Caller},
 			  csock    = CSock,
+                          sockopts_data_passive = SockOpts,
 			  timeout  = Timeout} 
 		   = State) ->
     [_, PortStr | _] =  lists:reverse(string:tokens(Lines, "|")),
     {ok, {IP, _}} = peername(CSock),
-    case connect(IP, list_to_integer(PortStr), Timeout, State) of
+    case connect(IP, list_to_integer(PortStr), SockOpts, Timeout, State) of
 	{ok, _, Socket} ->	       
 	    handle_caller(State#state{caller = Caller, dsock = {tcp, Socket}});
 	{error, _Reason} = Error ->
@@ -1676,7 +1665,8 @@ handle_ctrl_result({pos_compl, Lines},
 			  ipfamily = inet,
 			  client   = From,
 			  caller   = {setup_data_connection, Caller},
-			  timeout  = Timeout,
+			  timeout  = Timeout, 
+                          sockopts_data_passive = SockOpts,
 			  ftp_extension = false} = State) ->
     
     {_, [?LEFT_PAREN | Rest]} = 
@@ -1690,7 +1680,7 @@ handle_ctrl_result({pos_compl, Lines},
     Port = (P1 * 256) + P2, 
 
     ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,Port,Caller]),
-    case connect(IP, Port, Timeout, State) of
+    case connect(IP, Port, SockOpts, Timeout, State) of
 	{ok, _, Socket}  ->
 	    handle_caller(State#state{caller = Caller, dsock = {tcp,Socket}});
 	{error, _Reason} = Error ->
@@ -1705,13 +1695,14 @@ handle_ctrl_result({pos_compl, Lines},
 			  caller   = {setup_data_connection, Caller},
 			  csock    = CSock,
 			  timeout  = Timeout,
+                          sockopts_data_passive = SockOpts,
 			  ftp_extension = true} = State) ->
       
     [_, PortStr | _] =  lists:reverse(string:tokens(Lines, "|")),
     {ok, {IP, _}} = peername(CSock),
 
     ?DBG('<--data tcp connect to ~p:~p, Caller=~p~n',[IP,PortStr,Caller]),
-	case connect(IP, list_to_integer(PortStr), Timeout, State) of
+	case connect(IP, list_to_integer(PortStr), SockOpts, Timeout, State) of
 		{ok, _, Socket} ->	       
 		    handle_caller(State#state{caller = Caller, dsock = {tcp, Socket}});
 		{error, _Reason} = Error ->
@@ -2075,9 +2066,9 @@ handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} =
 
 %% Connect to FTP server at Host (default is TCP port 21) 
 %% in order to establish a control connection.
-setup_ctrl_connection(Host, Port, Timeout, State) ->
+setup_ctrl_connection(Host, Port, Timeout, #state{sockopts_ctrl = SockOpts} = State) ->
     MsTime = erlang:monotonic_time(),
-    case connect(Host, Port, Timeout, State) of
+    case connect(Host, Port, SockOpts, Timeout, State) of
 	{ok, IpFam, CSock} ->
 	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},
 	    activate_ctrl_connection(NewState),
@@ -2095,12 +2086,15 @@ setup_ctrl_connection(Host, Port, Timeout, State) ->
 setup_data_connection(#state{mode   = active, 
 			     caller = Caller, 
 			     csock  = CSock,
+                             sockopts_data_active = SockOpts,
 			     ftp_extension = FtpExt} = State) ->    
     case (catch sockname(CSock)) of
-	{ok, {{_, _, _, _, _, _, _, _} = IP, _}} ->
+	{ok, {{_, _, _, _, _, _, _, _} = IP0, _}} ->
+            IP = proplists:get_value(ip, SockOpts, IP0),
 	    {ok, LSock} = 
 		gen_tcp:listen(0, [{ip, IP}, {active, false},
-				   inet6, binary, {packet, 0}]),
+				   inet6, binary, {packet, 0} |
+                                   lists:keydelete(ip,1,SockOpts)]),
 	    {ok, {_, Port}} = sockname({tcp,LSock}),
 	    IpAddress = inet_parse:ntoa(IP),
 	    Cmd = mk_cmd("EPRT |2|~s|~p|", [IpAddress, Port]),
@@ -2108,9 +2102,11 @@ setup_data_connection(#state{mode   = active,
 	    activate_ctrl_connection(State),  
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}};
-	{ok, {{_,_,_,_} = IP, _}} ->	    
+	{ok, {{_,_,_,_} = IP0, _}} ->
+            IP = proplists:get_value(ip, SockOpts, IP0),
 	    {ok, LSock} = gen_tcp:listen(0, [{ip, IP}, {active, false},
-					     binary, {packet, 0}]),
+					     binary, {packet, 0} |
+                                             lists:keydelete(ip,1,SockOpts)]),
 	    {ok, Port} = inet:port(LSock),
 	    _ = case FtpExt of
                     false ->
@@ -2149,41 +2145,41 @@ setup_data_connection(#state{mode = passive, ipfamily = inet,
     activate_ctrl_connection(State),
     {noreply, State#state{caller = {setup_data_connection, Caller}}}.
 
-connect(Host, Port, Timeout, #state{ipfamily = inet = IpFam}) ->
-    connect2(Host, Port, IpFam, Timeout);
+connect(Host, Port, SockOpts, Timeout, #state{ipfamily = inet = IpFam}) ->
+    connect2(Host, Port, IpFam, SockOpts, Timeout);
 
-connect(Host, Port, Timeout, #state{ipfamily = inet6 = IpFam}) ->
-    connect2(Host, Port, IpFam, Timeout);
+connect(Host, Port, SockOpts, Timeout, #state{ipfamily = inet6 = IpFam}) ->
+    connect2(Host, Port, IpFam, SockOpts, Timeout);
 
-connect(Host, Port, Timeout, #state{ipfamily = inet6fb4}) ->
+connect(Host, Port, SockOpts, Timeout, #state{ipfamily = inet6fb4}) ->
     case inet:getaddr(Host, inet6) of
 	{ok, {0, 0, 0, 0, 0, 16#ffff, _, _} = IPv6} ->
 	    case inet:getaddr(Host, inet) of
 		{ok, IPv4} ->
 		    IpFam = inet, 
-		    connect2(IPv4, Port, IpFam, Timeout);
+		    connect2(IPv4, Port, IpFam, SockOpts, Timeout);
 		
 		_ ->
 		    IpFam = inet6, 
-		    connect2(IPv6, Port, IpFam, Timeout)
+		    connect2(IPv6, Port, IpFam, SockOpts, Timeout)
 	    end;
 	
 	{ok, IPv6} ->
 	    IpFam = inet6, 
-	    connect2(IPv6, Port, IpFam, Timeout);
+	    connect2(IPv6, Port, IpFam, SockOpts, Timeout);
 	
 	_ ->
 	    case inet:getaddr(Host, inet) of
 		{ok, IPv4} ->
 		    IpFam = inet,
-		    connect2(IPv4, Port, IpFam, Timeout);
+		    connect2(IPv4, Port, IpFam, SockOpts, Timeout);
 		Error ->
 		    Error
 	    end
     end.
 
-connect2(Host, Port, IpFam, Timeout) ->
-    Opts = [IpFam, binary, {packet, 0}, {active, false}], 
+connect2(Host, Port, IpFam, SockOpts, Timeout) ->
+    Opts = [IpFam, binary, {packet, 0}, {active, false} | SockOpts],
     case gen_tcp:connect(Host, Port, Opts, Timeout) of
 	{ok, Sock} ->
 	    {ok, IpFam, Sock};
@@ -2552,6 +2548,32 @@ open_options(Options) ->
 	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
 	 {ftp_extension, ValidateFtpExtension, false, ?FTP_EXT_DEFAULT}], 
     validate_options(Options, ValidOptions, []).
+
+socket_options(Options) ->
+    CtrlOpts = proplists:get_value(sock_ctrl, Options, []),
+    DataActOpts = proplists:get_value(sock_data_act, Options, CtrlOpts),
+    DataPassOpts = proplists:get_value(sock_data_pass, Options, CtrlOpts),
+    case [O || O <- lists:usort(CtrlOpts++DataPassOpts++DataActOpts),
+               not valid_socket_option(O)] of
+        [] ->
+            {ok, {CtrlOpts, DataPassOpts, DataActOpts}};
+        Invalid ->
+            throw({error,{sock_opts,Invalid}})
+    end.
+
+
+valid_socket_option(inet            ) -> false;
+valid_socket_option(inet6           ) -> false;
+valid_socket_option({ipv6_v6only, _}) -> false;
+valid_socket_option({active,_}      ) -> false;
+valid_socket_option({packet,_}      ) -> false;
+valid_socket_option({mode,_}        ) -> false;
+valid_socket_option(binary          ) -> false;
+valid_socket_option(list            ) -> false;
+valid_socket_option({header,_}      ) -> false;
+valid_socket_option({packet_size,_} ) -> false;
+valid_socket_option(_) -> true.
+
 
 tls_options(Options) ->
     %% Options will be validated by ssl application
