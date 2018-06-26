@@ -155,8 +155,8 @@
 # define HAVE_EC
 #endif
 
-// (test for == 1.1.1pre8)
-#if OPENSSL_VERSION_NUMBER == (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
+// (test for >= 1.1.1pre8)
+#if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
 // EXPERIMENTAL:
