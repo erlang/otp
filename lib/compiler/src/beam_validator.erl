@@ -146,7 +146,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 ct=[],				%List of hot catch/try labels
          setelem=false,                 %Previous instruction was setelement/3.
          puts_left=none,                %put/1 instructions left.
-         defs=#{}                       %Defining expression for each register.
+         defs=#{},                      %Defining expression for each register.
+         aliases=#{}
 	}).
 
 -type label()        :: integer().
@@ -311,9 +312,10 @@ valfun_1({move,{y,_}=Src,{y,_}=Dst}, Vst) ->
 	{trytag,_} -> error({trytag,Src});
 	Type -> set_type_reg(Type, Dst, Vst)
     end;
-valfun_1({move,Src,Dst}, Vst) ->
-    Type = get_move_term_type(Src, Vst),
-    set_type_reg(Type, Dst, Vst);
+valfun_1({move,Src,Dst}, Vst0) ->
+    Type = get_move_term_type(Src, Vst0),
+    Vst = set_type_reg(Type, Dst, Vst0),
+    set_alias(Src, Dst, Vst);
 valfun_1({fmove,Src,{fr,_}=Dst}, Vst) ->
     assert_type(float, Src, Vst),
     set_freg(Dst, Vst);
@@ -415,7 +417,7 @@ valfun_1({trim,N,Remaining}, #vst{current=#st{y=Yregs0,numy=NumY}=St}=Vst) ->
 	N =< NumY, N+Remaining =:= NumY ->
 	    Yregs1 = [{Y-N,Type} || {Y,Type} <- gb_trees:to_list(Yregs0), Y >= N],
 	    Yregs = gb_trees_from_list(Yregs1),
-	    Vst#vst{current=St#st{y=Yregs,numy=NumY-N}};
+	    Vst#vst{current=St#st{y=Yregs,numy=NumY-N,aliases=#{}}};
 	true ->
 	    error({trim,N,Remaining,allocated,NumY})
     end;
@@ -429,7 +431,7 @@ valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
 	{catchtag,Fail} ->
 	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
             Xregs = gb_trees:enter(0, term, St#st.x),
-	    Vst#vst{current=St#st{x=Xregs,ct=Fails,fls=undefined}};
+	    Vst#vst{current=St#st{x=Xregs,ct=Fails,fls=undefined,aliases=#{}}};
 	Type ->
 	    error({bad_type,Type})
     end;
@@ -446,7 +448,7 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
 	{trytag,Fail} ->
 	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
 	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]),
-	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined,aliases=#{}}};
 	Type ->
 	    error({bad_type,Type})
     end;
@@ -571,7 +573,7 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_term_type(Pos, Vst0),
     Vst1 = branch_state(Fail, Vst0),
     TupleType = upgrade_tuple_type({tuple,[get_tuple_size(PosType)]}, TupleType0),
-    Vst = set_type(TupleType, Tuple, Vst1),
+    Vst = set_aliased_type(TupleType, Tuple, Vst1),
     set_type_reg(term, Tuple, Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
@@ -716,16 +718,19 @@ valfun_4({test,is_float,{f,Lbl},[Float]}, Vst) ->
 valfun_4({test,is_tuple,{f,Lbl},[Tuple]}, Vst) ->
     Type0 = get_term_type(Tuple, Vst),
     Type = upgrade_tuple_type({tuple,[0]}, Type0),
-    set_type(Type, Tuple, branch_state(Lbl, Vst));
+    set_aliased_type(Type, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,is_nonempty_list,{f,Lbl},[Cons]}, Vst) ->
     assert_term(Cons, Vst),
-    set_type(cons, Cons, branch_state(Lbl, Vst));
+    Type = cons,
+    set_aliased_type(Type, Cons, branch_state(Lbl, Vst));
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
-    set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
+    Type = {tuple,Sz},
+    set_aliased_type(Type, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,_Atom]}, Vst) ->
     validate_src([Src], Vst),
-    set_type_reg({tuple, Sz}, Src, branch_state(Lbl, Vst));
+    Type = {tuple,Sz},
+    set_aliased_type(Type, Src, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
@@ -734,11 +739,12 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     Vst = branch_state(Lbl, Vst0),
     case Src of
 	{Tag,_} when Tag =:= x; Tag =:= y ->
-	    set_type_reg(map, Src, Vst);
+            Type = map,
+	    set_aliased_type(Type, Src, Vst);
 	{literal,Map} when is_map(Map) ->
-	    Vst;
+	    Vst0;
 	_ ->
-	    kill_state(Vst)
+	    kill_state(Vst0)
     end;
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
@@ -750,7 +756,7 @@ valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
             Type0 = get_term_type(Val, Vst),
             Type = upgrade_tuple_type({tuple,tuple_size(Tuple)},
                                       Type0),
-            set_type(Type, Src, Vst);
+            set_aliased_type(Type, Src, Vst);
         _ ->
             Vst
     end;
@@ -936,7 +942,7 @@ call(Name, Live, #vst{current=St}=Vst) ->
 	Type when Type =/= exception ->
 	    %% Type is never 'exception' because it has been handled earlier.
 	    Xs = gb_trees_from_list([{0,Type}]),
-	    Vst#vst{current=St#st{x=Xs,f=init_fregs()}}
+	    Vst#vst{current=St#st{x=Xs,f=init_fregs(),aliases=#{}}}
     end.
 
 %% Tail call.
@@ -1049,15 +1055,25 @@ heap_alloc_2([{floats,Floats}|T], St0) ->
     St = St0#st{hf=Floats},
     heap_alloc_2(T, St);
 heap_alloc_2([], St) -> St.
-    
-prune_x_regs(Live, #vst{current=#st{x=Xs0,defs=Defs0}=St0}=Vst)
+
+prune_x_regs(Live, #vst{current=St0}=Vst)
   when is_integer(Live) ->
+    #st{x=Xs0,defs=Defs0,aliases=Aliases0} = St0,
     Xs1 = gb_trees:to_list(Xs0),
     Xs = [P || {R,_}=P <- Xs1, R < Live],
     Defs = maps:filter(fun({x,X}, _) -> X < Live;
                           ({y,_}, _) -> true
                        end, Defs0),
-    St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs},
+    Aliases = maps:filter(fun({x,X1}, {x,X2}) ->
+                                  X1 < Live andalso X2 < Live;
+                             ({x,X}, _) ->
+                                  X < Live;
+                             (_, {x,X}) ->
+                                  X < Live;
+                             (_, _) ->
+                                  true
+                          end, Aliases0),
+    St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs,aliases=Aliases},
     Vst#vst{current=St}.
 
 %%%
@@ -1224,6 +1240,37 @@ infer_types(Src, Vst) ->
 %%% Keeping track of types.
 %%%
 
+set_alias(Reg1, Reg2, #vst{current=St0}=Vst) ->
+    case Reg1 of
+        {Kind,_} when Kind =:= x; Kind =:= y ->
+            #st{aliases=Aliases0} = St0,
+            Aliases = Aliases0#{Reg1=>Reg2,Reg2=>Reg1},
+            St = St0#st{aliases=Aliases},
+            Vst#vst{current=St};
+        _ ->
+            Vst
+    end.
+
+set_aliased_type(Type, Reg, #vst{current=#st{aliases=Aliases}}=Vst0) ->
+    Vst1 = set_type(Type, Reg, Vst0),
+    case Aliases of
+        #{Reg:=OtherReg} ->
+            Vst = set_type_reg(Type, OtherReg, Vst1),
+            #vst{current=St} = Vst,
+            Vst#vst{current=St#st{aliases=Aliases}};
+        #{} ->
+            Vst1
+    end.
+
+kill_aliases(Reg, #st{aliases=Aliases0}=St) ->
+    case Aliases0 of
+        #{Reg:=OtherReg} ->
+            Aliases = maps:without([Reg,OtherReg], Aliases0),
+            St#st{aliases=Aliases};
+        #{} ->
+            St
+    end.
+
 set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
 set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
@@ -1247,7 +1294,7 @@ set_type_reg_expr(Type, Expr, Reg, Vst) ->
 set_type_y(Type, Reg, Vst) ->
     set_type_y(Type, none, Reg, Vst).
 
-set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St}=Vst)
+set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St0}=Vst)
   when is_integer(X), 0 =< X ->
     check_limit(Reg),
     Xs = case gb_trees:lookup(X, Xs0) of
@@ -1259,11 +1306,12 @@ set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St}=Vst)
                  gb_trees:update(X, Type, Xs0)
          end,
     Defs = Defs0#{Reg=>Expr},
+    St = kill_aliases(Reg, St0),
     Vst#vst{current=St#st{x=Xs,defs=Defs}};
 set_type_x(Type, _Expr, Reg, #vst{}) ->
     error({invalid_store,Reg,Type}).
 
-set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St}=Vst)
+set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St0}=Vst)
   when is_integer(Y), 0 =< Y ->
     check_limit(Reg),
     Ys = case gb_trees:lookup(Y, Ys0) of
@@ -1278,6 +1326,7 @@ set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St}=Vst)
 	 end,
     check_try_catch_tags(Type, Y, Ys0),
     Defs = Defs0#{Reg=>Expr},
+    St = kill_aliases(Reg, St0),
     Vst#vst{current=St#st{y=Ys,defs=Defs}};
 set_type_y(Type, _Expr, Reg, #vst{}) ->
     error({invalid_store,Reg,Type}).
@@ -1523,7 +1572,7 @@ get_literal({literal,L}) -> L;
 get_literal(T) -> error({not_literal,T}).
 
 branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_]}=Type0, Vst0) when is_integer(Sz) ->
-    Vst1 = set_type_reg({tuple,Sz}, Tuple, Vst0),
+    Vst1 = set_aliased_type({tuple,Sz}, Tuple, Vst0),
     Vst = branch_state(L, Vst1),
     branch_arities(T, Tuple, Type0, Vst);
 branch_arities([Sz,{f,L}|T], Tuple, {tuple,Sz}=Type, Vst0) when is_integer(Sz) ->
@@ -1565,13 +1614,14 @@ merge_states(L, St, Branched) when L =/= 0 ->
 	{value,OtherSt} -> merge_states_1(St, OtherSt)
     end.
 
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0},
-	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1}) ->
+merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0,aliases=Aliases0},
+	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1,aliases=Aliases1}) ->
     NumY = merge_stk(NumY0, NumY1),
     Xs = merge_regs(Xs0, Xs1),
     Ys = merge_y_regs(Ys0, Ys1),
     Ct = merge_ct(Ct0, Ct1),
-    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
+    Aliases = merge_aliases(Aliases0, Aliases1),
+    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct,aliases=Aliases}.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
@@ -1680,7 +1730,17 @@ merge_bool([]) -> {atom,[]};
 merge_bool(true) -> bool;
 merge_bool(false) -> bool;
 merge_bool(_) -> {atom,[]}.
-    
+
+merge_aliases(Al0, Al1) when map_size(Al0) =< map_size(Al1) ->
+    maps:filter(fun(K, V) ->
+                        case Al1 of
+                            #{K:=V} -> true;
+                            #{} -> false
+                        end
+                end, Al0);
+merge_aliases(Al0, Al1) ->
+    merge_aliases(Al1, Al0).
+
 verify_y_init(#vst{current=#st{y=Ys}}) ->
     verify_y_init_1(gb_trees:to_list(Ys)).
 
