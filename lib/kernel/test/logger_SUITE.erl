@@ -470,7 +470,11 @@ filter_failed(_Config) ->
     %% Logger filters
     {error,{invalid_filter,_}} =
         logger:add_primary_filter(lf,{fun(_) -> ok end,args}),
-    ok = logger:add_primary_filter(lf,{fun(_,_) -> a=b end,args}),
+    ok = logger:add_primary_filter(lf,
+                                   {fun(_,_) ->
+                                            erlang:error({badmatch,b})
+                                    end,
+                                    args}),
     #{filters:=[_]} = logger:get_primary_config(),
     ok = logger:notice(M1=?map_rep),
     ok = check_logged(notice,M1,#{}),
@@ -488,7 +492,11 @@ filter_failed(_Config) ->
     {error,{not_found,h0}} = logger:remove_handler_filter(h0,hf),
     {error,{invalid_filter,_}} =
         logger:add_handler_filter(h1,hf,{fun(_) -> ok end,args}),
-    ok = logger:add_handler_filter(h1,hf,{fun(_,_) -> a=b end,args}),
+    ok = logger:add_handler_filter(h1,hf,
+                                   {fun(_,_) ->
+                                            erlang:error({badmatch,b})
+                                    end,
+                                    args}),
     {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
     ok = logger:notice(M3=?map_rep),
     ok = check_logged(notice,M3,#{}),
@@ -524,7 +532,11 @@ handler_failed(_Config) ->
     false = lists:search(fun(#{id:=h1}) -> true; (_) -> false end,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
-    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,log_call=>fun() -> a = b end}),
+    ok = logger:add_handler(h2,?MODULE,
+                            #{filter_default => log,
+                              log_call => fun() ->
+                                                  erlang:error({badmatch,b})
+                                          end}),
     {error,{already_exist,h2}} = logger:add_handler(h2,othermodule,#{}),
     [add] = test_server:messages_get(),
 
@@ -535,7 +547,7 @@ handler_failed(_Config) ->
     {error,{not_found,h2}} = logger:remove_handler(h2),
 
     CallAddHandler = fun() -> logger:add_handler(h2,?MODULE,#{}) end,
-    CrashHandler = fun() -> a = b end,
+    CrashHandler = fun() -> erlang:error({badmatch,b}) end,
     KillHandler = fun() -> exit(self(), die) end,
 
     {error,{handler_not_added,{attempting_syncronous_call_to_self,_}}} =
