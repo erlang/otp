@@ -158,7 +158,7 @@ then
 		    exit 1
 		fi
 		;;
-	    refs/tags/OTP-20.* | refs/tags/OTP-19.* | refs/tags/OTP-18.* | refs/tags/OTP-17.*)
+	    refs/tags/OTP-21.* | refs/tags/OTP-20.* | refs/tags/OTP-19.* | refs/tags/OTP-18.* | refs/tags/OTP-17.*)
 		tag=${remote_ref#refs/tags/}
 		if [ "$remote_sha" != $null ]
 		then
