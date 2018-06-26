@@ -38,18 +38,16 @@
 %%  and it also splits the handling of the control characters into two
 %%  parts.
 
--spec fwrite(Format, Data) -> FormatList when
+-spec fwrite(Format, Data) -> io_lib:chars() when
       Format :: io:format(),
-      Data :: [term()],
-      FormatList :: [char() | io_lib:format_spec()].
+      Data :: [term()].
 
 fwrite(Format, Args) ->
     build(scan(Format, Args)).
 
--spec fwrite(Format, Data, Options) -> FormatList when
+-spec fwrite(Format, Data, Options) -> io_lib:chars() when
       Format :: io:format(),
       Data :: [term()],
-      FormatList :: [char() | io_lib:format_spec()],
       Options :: [Option],
       Option :: {'chars_limit', CharsLimit},
       CharsLimit :: io_lib:chars_limit().
