@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The keys used in <c>os:getenv</c> and <c>os:putenv</c>
+	    are case-insensitive again on Windows.</p>
+          <p>
+	    Own Id: OTP-15147 Aux Id: ERL-644 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
