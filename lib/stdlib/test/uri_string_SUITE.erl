@@ -862,9 +862,11 @@ transcode_negative(_Config) ->
 compose_query(_Config) ->
     [] = uri_string:compose_query([]),
     "foo=1&bar=2" = uri_string:compose_query([{<<"foo">>,"1"}, {"bar", "2"}]),
+    "foo=1&bar" = uri_string:compose_query([{<<"foo">>,"1"}, {"bar", true}]),
     "foo=1&b%C3%A4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,utf8}]),
     "foo=1&b%C3%A4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,unicode}]),
     "foo=1&b%E4r=2" = uri_string:compose_query([{"foo","1"}, {"bär", "2"}],[{encoding,latin1}]),
+    "foo&b%E4r=2" = uri_string:compose_query([{"foo",true}, {"bär", "2"}],[{encoding,latin1}]),
     "foo+bar=1&%E5%90%88=2" = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
     "foo+bar=1&%26%2321512%3B=2" =
         uri_string:compose_query([{"foo bar","1"}, {"合", "2"}],[{encoding,latin1}]),
@@ -906,11 +908,13 @@ dissect_query(_Config) ->
     [{"föo bar","1"},{"ö","2"}] =
         uri_string:dissect_query("föo+bar=1&%C3%B6=2"),
     [{<<"föo bar"/utf8>>,<<"1">>},{<<"ö"/utf8>>,<<"2">>}] =
-        uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2"/utf8>>).
+        uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2"/utf8>>),
+    [{"foo1",true},{"bar","2"}] =
+        uri_string:dissect_query("foo1&bar=2"),
+    [{<<"foo1">>,<<"1">>},{<<"bar">>,true}] =
+        uri_string:dissect_query(<<"foo1=1&bar">>).
 
 dissect_query_negative(_Config) ->
-    {error,missing_value,"&"} =
-        uri_string:dissect_query("foo1&bar=2"),
     {error,invalid_percent_encoding,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
     {error,invalid_input,[153]} =
         uri_string:dissect_query("foo=%99%B6&amp;bar=2"),
