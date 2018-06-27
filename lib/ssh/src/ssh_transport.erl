@@ -104,10 +104,6 @@ algo_two_spec_class(_) -> false.
 
 default_algorithms(kex) ->
     supported_algorithms(kex, [
-                               %% Under devolpment:
-                               'curve25519-sha256',
-                               'curve25519-sha256@libssh.org',
-                               'curve448-sha512',
                                %%  Gone in OpenSSH 7.3.p1:
                                'diffie-hellman-group1-sha1'
                               ]);
@@ -131,6 +127,10 @@ supported_algorithms(kex) ->
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {curves,secp521r1}, {hashs,sha512}]},
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
+       {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
+       {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
+       {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
        %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
        %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
        {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
