@@ -99,7 +99,7 @@
               t=#{} :: map(),                       %Types
               in_guard=false}).                     %In guard or not.
 
--type type_info() :: cerl:cerl() | 'bool' | 'integer'.
+-type type_info() :: cerl:cerl() | 'bool' | 'integer' | {'fun', pos_integer()}.
 -type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
 -type sub() :: #sub{}.
 
@@ -883,6 +883,10 @@ fold_non_lit_args(Call, erlang, setelement, [Arg1,Arg2,Arg3], _) ->
     eval_setelement(Call, Arg1, Arg2, Arg3);
 fold_non_lit_args(Call, erlang, is_record, [Arg1,Arg2,Arg3], Sub) ->
     eval_is_record(Call, Arg1, Arg2, Arg3, Sub);
+fold_non_lit_args(Call, erlang, is_function, [Arg1], Sub) ->
+    eval_is_function_1(Call, Arg1, Sub);
+fold_non_lit_args(Call, erlang, is_function, [Arg1,Arg2], Sub) ->
+    eval_is_function_2(Call, Arg1, Arg2, Sub);
 fold_non_lit_args(Call, erlang, N, Args, Sub) ->
     NumArgs = length(Args),
     case erl_internal:comp_op(N, NumArgs) of
@@ -897,6 +901,22 @@ fold_non_lit_args(Call, erlang, N, Args, Sub) ->
 	    end
     end;
 fold_non_lit_args(Call, _, _, _, _) -> Call.
+
+eval_is_function_1(Call, Arg1, Sub) ->
+    case get_type(Arg1, Sub) of
+        none -> Call;
+        {'fun',_} -> #c_literal{anno=cerl:get_ann(Call),val=true};
+        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
+    end.
+
+eval_is_function_2(Call, Arg1, #c_literal{val=Arity}, Sub)
+  when is_integer(Arity), Arity > 0 ->
+    case get_type(Arg1, Sub) of
+        none -> Call;
+        {'fun',Arity} -> #c_literal{anno=cerl:get_ann(Call),val=true};
+        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
+    end;
+eval_is_function_2(Call, _Arg1, _Arg2, _Sub) -> Call.
 
 %% Evaluate a relational operation using type information.
 eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
@@ -3105,6 +3125,10 @@ update_types_2(V, [#c_tuple{}=P], Types) ->
     Types#{V=>P};
 update_types_2(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
     Types#{V=>bool};
+update_types_2(V, [#c_fun{vars=Vars}], Types) ->
+    Types#{V=>{'fun',length(Vars)}};
+update_types_2(V, [#c_var{name={_,Arity}}], Types) ->
+    Types#{V=>{'fun',Arity}};
 update_types_2(V, [Type], Types) when is_atom(Type) ->
     Types#{V=>Type};
 update_types_2(_, _, Types) -> Types.
@@ -3123,6 +3147,8 @@ kill_types2(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
 	false -> [Entry|kill_types2(V, Tdb)];
 	true -> kill_types2(V, Tdb)
     end;
+kill_types2(V, [{_, {'fun',_}}=Entry|Tdb]) ->
+    [Entry|kill_types2(V, Tdb)];
 kill_types2(V, [{_,Atom}=Entry|Tdb]) when is_atom(Atom) ->
     [Entry|kill_types2(V, Tdb)];
 kill_types2(_, []) -> [].

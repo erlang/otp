@@ -91,6 +91,7 @@ is_pure(erlang, is_bitstring, 1) -> true;
 %% erlang:is_builtin/3 depends on the state (i.e. the version of the emulator).
 is_pure(erlang, is_float, 1) -> true;
 is_pure(erlang, is_function, 1) -> true;
+is_pure(erlang, is_function, 2) -> true;
 is_pure(erlang, is_integer, 1) -> true;
 is_pure(erlang, is_list, 1) -> true;
 is_pure(erlang, is_map, 1) -> true;
