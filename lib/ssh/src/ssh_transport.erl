@@ -1808,6 +1808,7 @@ hash(K, H, Ki, N, HashAlg) ->
 kex_hash(SSH, Key, HashAlg, Args) ->
     crypto:hash(HashAlg, kex_plaintext(SSH,Key,Args)).
 
+
 kex_plaintext(SSH, Key, Args) ->
     EncodedKey = public_key:ssh_encode(Key, ssh2_pubkey),
     <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
@@ -1815,8 +1816,13 @@ kex_plaintext(SSH, Key, Args) ->
       ?Ebinary(EncodedKey),
       (kex_alg_dependent(Args))/binary>>.
 
+
+kex_alg_dependent({Q_c, Q_s, K}) when is_binary(Q_c), is_binary(Q_s) ->
+    %% ecdh
+    <<?Ebinary(Q_c), ?Ebinary(Q_s), ?Empint(K)>>;
+
 kex_alg_dependent({E, F, K}) ->
-    %% diffie-hellman and ec diffie-hellman (with E = Q_c, F = Q_s)
+    %% diffie-hellman
     <<?Empint(E), ?Empint(F), ?Empint(K)>>;
 
 kex_alg_dependent({-1, NBits, -1, Prime, Gen, E, F, K}) ->
@@ -1933,11 +1939,13 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
 
+generate_key(ecdh = Algorithm, Args) ->
+    crypto:generate_key(Algorithm, Args);
 generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
-      
+
 compute_key(Algorithm, OthersPublic, MyPrivate, Args) ->
     Shared = crypto:compute_key(Algorithm, OthersPublic, MyPrivate, Args),
     crypto:bytes_to_integer(Shared).
