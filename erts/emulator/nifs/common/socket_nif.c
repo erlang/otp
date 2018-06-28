@@ -282,6 +282,7 @@
 
 typedef union {
     struct {
+        // 0 = not open, 1 = open
         unsigned int open:1;
         // 0 = not conn, 1 = connecting, 2 = connected
         unsigned int connect:2;
@@ -377,61 +378,9 @@ typedef union {
  *                                                                     *
  * =================================================================== */
 
-/* #define MALLOC(SZ)          enif_alloc((SZ)) */
-/* #define FREE(P)             enif_free((P)) */
-
-/* #define MKA(E,S)            enif_make_atom((E), (S)) */
-/* #define MKBIN(E,B)          enif_make_binary((E), (B)) */
-/* #define MKI(E,I)            enif_make_int((E), (I)) */
-/* #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L)) */
-/* #define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M)) */
-/* #define MKREF(E)            enif_make_ref((E)) */
-/* #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1) */
-/* #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1) */
-/* #define MKSBIN(E,B,ST,SZ)   enif_make_sub_binary((E), (B), (ST), (SZ)) */
-/* #define MKT2(E,E1,E2)       enif_make_tuple2((E), (E1), (E2)) */
-/* #define MKT3(E,E1,E2,E3)    enif_make_tuple3((E), (E1), (E2), (E3)) */
-/* #define MKT4(E,E1,E2,E3,E4) enif_make_tuple4((E), (E1), (E2), (E3), (E4)) */
-/* #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \ */
-/*     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8)) */
-
-/* #define MCREATE(N)          enif_mutex_create((N)) */
-/* #define MDESTROY(M)         enif_mutex_destroy((M)) */
-/* #define MLOCK(M)            enif_mutex_lock((M)) */
-/* #define MUNLOCK(M)          enif_mutex_unlock((M)) */
-
-/* #define MONP(E,D,P,M)       enif_monitor_process((E), (D), (P), (M)) */
-/* #define DEMONP(E,D,M)       enif_demonitor_process((E), (D), (M)) */
-
-/* #define SELECT(E,FD,M,O,P,R)                            \ */
-/*     if (enif_select((E), (FD), (M), (O), (P), (R)) < 0) \ */
-/*         return enif_make_badarg((E)); */
-
-/* #define COMPARE(A, B)   enif_compare((A), (B)) */
-
-/* #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE)) */
-/* #define IS_BIN(E,   TE) enif_is_binary((E), (TE)) */
-/* #define IS_MAP(E,   TE) enif_is_map((E), (TE)) */
-/* #define IS_NUM(E,   TE) enif_is_number((E), (TE)) */
-/* #define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE)) */
-
-/* #define GET_ATOM_LEN(E, TE, LP) \ */
-/*     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1) */
-/* #define GET_ATOM(E, TE, BP, MAX) \ */
-/*     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1) */
-/* #define GET_BIN(E, TE, BP)        enif_inspect_iolist_as_binary((E), (TE), (BP)) */
-/* #define GET_INT(E, TE, IP)        enif_get_int((E), (TE), (IP)) */
-/* #define GET_STR(E, L, B, SZ)      \ */
-/*     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1) */
-/* #define GET_UINT(E, TE, IP)       enif_get_uint((E), (TE), (IP)) */
-/* #define GET_TUPLE(E, TE, TSZ, TA) enif_get_tuple((E), (TE), (TSZ), (TA)) */
-
-/* #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP)) */
-/* #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP)) */
-
-
 #define SGDBG( proto )         ESOCK_DBG_PRINTF( data.dbg , proto )
 #define SSDBG( __D__ , proto ) ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
+
 
 
 /* =================================================================== *
@@ -520,22 +469,6 @@ static unsigned long one_value  = 1;
 #else
 #define SOCKOPTLEN_T SOCKLEN_T
 #endif
-
-/* The general purpose sockaddr * /
-typedef union {
-    struct sockaddr     in;
-    struct sockaddr_in  in4;
-
-#ifdef HAVE_IN6
-    struct sockaddr_in6 in6;
-#endif
-
-#ifdef HAVE_SYS_UN_H
-    struct sockaddr_un  un;
-#endif
-
-} SocketAddress;
-*/
 
 /* We can use the IPv4 def for this since the beginning
  * is the same for INET and INET6 */
@@ -1933,7 +1866,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
                    SocketAddress*    sockAddrP,
                    unsigned int      addrLen)
 {
-    int port;
+    int port, ntohs_port;
 
     SSDBG( descP, ("SOCKET", "nbind -> try bind\r\n") );
 
@@ -1953,9 +1886,11 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
         port = 0;
     }
 
-    SSDBG( descP, ("SOCKET", "nbind -> done with port = %d\r\n", port) );
+    ntohs_port = sock_ntohs(port);
+    
+    SSDBG( descP, ("SOCKET", "nbind -> done with port = %d\r\n", ntohs_port) );
 
-    return esock_make_ok2(env, MKI(env, port));
+    return esock_make_ok2(env, MKI(env, ntohs_port));
 
 }
 
@@ -1983,6 +1918,8 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     ERL_NIF_TERM      eSockAddr;
     char*             xres;
 
+    SGDBG( ("SOCKET", "nif_connect -> entry with argc: %d\r\n", argc) );
+
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 2) ||
@@ -1991,6 +1928,12 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     }
     eSockAddr = argv[1];
 
+    SSDBG( descP,
+           ("SOCKET", "nif_connect -> args when sock = %d:"
+            "\r\n   Socket:   %T"
+            "\r\n   SockAddr: %T"
+            "\r\n", descP->sock, argv[0], eSockAddr) );
+    
     if ((xres = esock_decode_sockaddr(env, eSockAddr,
                                       &descP->remote, &descP->addrLen)) != NULL) {
         return esock_make_error_str(env, xres);
@@ -2166,6 +2109,8 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
     SocketDescriptor* descP;
     int               backlog;
 
+    SGDBG( ("SOCKET", "nif_listen -> entry with argc: %d\r\n", argc) );
+    
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 2) ||
@@ -2174,6 +2119,12 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    SSDBG( descP,
+           ("SOCKET", "nif_listen -> args when sock = %d:"
+            "\r\n   Socket:  %T"
+            "\r\n   backlog: %d"
+            "\r\n", descP->sock, argv[0], backlog) );
+    
     return nlisten(env, descP, backlog);
 }
 
@@ -2219,6 +2170,8 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
     SocketDescriptor* descP;
     ERL_NIF_TERM      ref;
 
+    SGDBG( ("SOCKET", "nif_accept -> entry with argc: %d\r\n", argc) );
+    
     /* Extract arguments and perform preliminary validation */
 
     if ((argc != 2) ||
@@ -2226,6 +2179,12 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     ref = argv[1];
+    
+    SSDBG( descP,
+           ("SOCKET", "nif_accept -> args when sock = %d:"
+            "\r\n   Socket: %T"
+            "\r\n   ReqRef: %T"
+            "\r\n", descP->sock, argv[0], ref) );
 
     return naccept(env, descP, ref);
 }
@@ -2275,17 +2234,27 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
     int           save_errno;
     ErlNifPid     caller;
 
+    SSDBG( descP, ("SOCKET", "naccept_listening -> get caller\r\n") );
+
     if (enif_self(env, &caller) == NULL)
         return esock_make_error(env, atom_exself);
 
     n = sizeof(remote);
     sys_memzero((char *) &remote, n);
+    SSDBG( descP, ("SOCKET", "naccept_listening -> try accept\r\n") );
     accSock = sock_accept(descP->sock, (struct sockaddr*) &remote, &n);
     if (accSock == INVALID_SOCKET) {
+
         save_errno = sock_errno();
+
+        SSDBG( descP,
+               ("SOCKET",
+                "naccept_listening -> accept failed (%d)\r\n", save_errno) );
+
         if (save_errno == ERRNO_BLOCK) {
 
             /* *** Try again later *** */
+            SSDBG( descP, ("SOCKET", "naccept_listening -> would block\r\n") );
 
             descP->currentAcceptor.pid = caller;
             if (MONP(env, descP,
@@ -2328,6 +2297,9 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
             return esock_make_error(env, esock_atom_eagain);
 
         } else {
+            SSDBG( descP,
+                   ("SOCKET",
+                    "naccept_listening -> errno: %d\r\n", save_errno) );
             return esock_make_error_errno(env, save_errno);
         }
 
@@ -2338,6 +2310,8 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
         /*
          * We got one
          */
+
+        SSDBG( descP, ("SOCKET", "naccept_listening -> accept success\r\n") );
 
         if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
             save_errno = sock_errno();
@@ -2400,28 +2374,52 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
     ErlNifPid     caller;
     int           save_errno;
 
+    SSDBG( descP, ("SOCKET", "naccept_accepting -> get caller\r\n") );
+
     if (enif_self(env, &caller) == NULL)
         return esock_make_error(env, atom_exself);
 
-    if (compare_pids(env, &descP->currentAcceptor.pid, &caller) != 0) {
+    SSDBG( descP, ("SOCKET", "naccept_accepting -> check: "
+                   "are caller current acceptor:"
+                   "\r\n   Caller:  %T"
+                   "\r\n   Current: %T"
+                   "\r\n", caller, descP->currentAcceptor.pid) );
+
+    if (!compare_pids(env, &descP->currentAcceptor.pid, &caller)) {
         /* This will have to do until we implement the queue.
          * When we have the queue, we should simply push this request,
          * and instead return with eagain (the caller will then wait
          * for the select message).
          */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "naccept_accepting -> not current acceptor: busy\r\n") );
+
         return esock_make_error(env, atom_exbusy);
     }
 
     n = sizeof(descP->remote);
     sys_memzero((char *) &remote, n);
+    SSDBG( descP, ("SOCKET", "naccept_accepting -> try accept\r\n") );
     accSock = sock_accept(descP->sock, (struct sockaddr*) &remote, &n);
     if (accSock == INVALID_SOCKET) {
+
         save_errno = sock_errno();
+
+        SSDBG( descP,
+               ("SOCKET",
+                "naccept_accepting -> accept failed (%d)\r\n", save_errno) );
+
         if (save_errno == ERRNO_BLOCK) {
 
             /*
              * Just try again, no real error, just a ghost trigger from poll,
              */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "naccept_accepting -> would block: try again\r\n") );
 
             SELECT(env,
                    descP->sock,
@@ -2430,6 +2428,9 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
 
             return esock_make_error(env, esock_atom_eagain);
         } else {
+            SSDBG( descP,
+                   ("SOCKET",
+                    "naccept_accepting -> errno: %d\r\n", save_errno) );
             return esock_make_error_errno(env, save_errno);
         }
     } else {
@@ -2439,6 +2440,8 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
         /*
          * We got one
          */
+
+        SSDBG( descP, ("SOCKET", "naccept_accepting -> accept success\r\n") );
 
         if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
             save_errno = sock_errno();
@@ -2479,7 +2482,6 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
 #endif
 
         accDescP->state = SOCKET_STATE_CONNECTED;
-
 
         /* Here we should have the test if we have something in the queue.
          * And if so, pop it and copy the (waiting) acceptor, and then
