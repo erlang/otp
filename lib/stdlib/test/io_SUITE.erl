@@ -31,7 +31,8 @@
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
-         otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1]).
+         otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1,
+         otp_15159/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -63,7 +64,7 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term, otp_14983, otp_15103].
+     otp_14285, limit_term, otp_14983, otp_15103, otp_15159].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2632,4 +2633,9 @@ otp_15103(_Config) ->
     S5 = io_lib:format("~1P", [T, 5]),
     "[{a,\n  b,\n  c},\n {a,\n  b,...},\n {a,...},\n {...}|...]" =
         lists:flatten(S5),
+    ok.
+
+otp_15159(_Config) ->
+    "[atom]" =
+        lists:flatten(io_lib:format("~p", [[atom]], [{chars_limit,5}])),
     ok.
