@@ -77,6 +77,7 @@ groups() ->
                      {group, aes_ctr},
 		     {group, aes_gcm},
 		     {group, chacha20_poly1305},
+                     {group, poly1305},
 		     {group, aes_cbc}]},
      {fips, [], [{group, no_md4},
                  {group, no_md5},
@@ -157,6 +158,7 @@ groups() ->
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
+     {poly1305, [], [poly1305]},
      {aes_cbc, [], [block]},
      {no_md4, [], [no_support, no_hash]},
      {no_md5, [], [no_support, no_hash, no_hmac]},
@@ -355,6 +357,20 @@ cmac(Config) when is_list(Config) ->
     Pairs = lazy_eval(proplists:get_value(cmac, Config)),
     lists:foreach(fun cmac_check/1, Pairs),
     lists:foreach(fun cmac_check/1, cmac_iolistify(Pairs)).
+%%--------------------------------------------------------------------
+poly1305() ->
+    [{doc, "Test poly1305 function"}].
+poly1305(Config) ->
+    lists:foreach(
+      fun({Key, Txt, Expect}) ->
+              case crypto:poly1305(Key,Txt) of
+                  Expect ->
+                      ok;
+                  Other ->
+                      ct:fail({{crypto, poly1305, [Key, Txt]}, {expected, Expect}, {got, Other}})
+              end
+      end, proplists:get_value(poly1305, Config)).
+
 %%--------------------------------------------------------------------
 block() ->
      [{doc, "Test block ciphers"}].
@@ -1432,6 +1448,15 @@ group_config(aes_gcm, Config) ->
 group_config(chacha20_poly1305, Config) ->
     AEAD = chacha20_poly1305(),
     [{aead, AEAD} | Config];
+group_config(poly1305, Config) ->
+    V = [%% {Key, Txt, Expect}
+         {%% RFC7539 2.5.2
+           crypto_SUITE:hexstr2bin("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"),
+           <<"Cryptographic Forum Research Group">>,
+           crypto_SUITE:hexstr2bin("a8061dc1305136c6c22b8baf0c0127a9")
+         }
+        ],
+    [{poly1305,V} | Config];
 group_config(aes_cbc, Config) ->
     Block = aes_cbc(Config),
     [{block, Block} | Config];
