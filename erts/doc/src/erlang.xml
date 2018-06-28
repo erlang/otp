@@ -6170,7 +6170,7 @@ true</pre>
             <p>Monitors the new process (like
               <seealso marker="#monitor/2"><c>monitor/2</c></seealso> does).</p>
           </item>
-          <tag><c>{priority, <anno>Level</anno></c></tag>
+          <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
             <p>Sets the priority of the new process. Equivalent to
               executing <seealso marker="#process_flag_priority">
