@@ -30,7 +30,7 @@ int oe_ei_encode_atom(CORBA_Environment *ev, const char *p) {
   int size = ev->_iout;
   size_t len = strlen(p);
 
-  if (DIRTY_ATOM_ENC_MAX(len) >= ev->_outbufsz) {
+  if (size + DIRTY_ATOM_ENC_MAX(len) >= ev->_outbufsz) {
 
       ei_encode_atom_len(0,&size,p,len);
 
