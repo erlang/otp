@@ -33,6 +33,19 @@ MASTER_ONLY=aea2a053e28a11497796879715be29ab0c3cd1a0
 NCOMMITS_MAX=100
 NFILES_MAX=100
 
+
+# Example testing this script for "git push upstream OTP-20.3.8.2":
+#
+#> null=0000000000000000000000000000000000000000
+#> echo "refs/tags/OTP-20.3.8.2 dummysha refs/tags/OTP-20.3.8.2 $null" | scripts/pre-push upstream https://github.com/erlang/otp.git
+
+# Example to test "git push upstream master"
+#
+#> local_sha=`git rev-parse master`
+#> remote_sha=`git rev-parse upstream/master`
+#> echo "refs/heads/master $local_sha refs/heads/master $remote_sha" | scripts/pre-push upstream https://github.com/erlang/otp.git
+
+
 remote="$1"
 url="$2"
 
