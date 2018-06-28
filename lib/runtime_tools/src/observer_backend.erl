@@ -94,7 +94,7 @@ sys_info() ->
      {port_limit, erlang:system_info(port_limit)},
      {port_count, erlang:system_info(port_count)},
      {ets_limit,  erlang:system_info(ets_limit)},
-     {ets_count, length(ets:all())},
+     {ets_count, erlang:system_info(ets_count)},
      {dist_buf_busy_limit, erlang:system_info(dist_buf_busy_limit)}
      | MemInfo].
 
