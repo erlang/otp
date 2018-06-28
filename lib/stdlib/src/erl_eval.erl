@@ -329,7 +329,8 @@ expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
         20 -> fun (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
            eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T], Info) end;
 	_Other ->
-	    erlang:raise(error, {'argument_limit',{'fun',Line,Cs}},
+            L = erl_anno:location(Line),
+	    erlang:raise(error, {'argument_limit',{'fun',L,to_terms(Cs)}},
 			 ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
@@ -381,7 +382,9 @@ expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
            eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],
                           RF, Info) end;
         _Other ->
-            erlang:raise(error, {'argument_limit',{named_fun,Line,Name,Cs}},
+            L = erl_anno:location(Line),
+            erlang:raise(error, {'argument_limit',
+                                 {named_fun,L,Name,to_terms(Cs)}},
                          ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
@@ -1092,7 +1095,7 @@ match(Pat, Term, Bs) ->
 match(Pat, Term, Bs, BBs) ->
     case catch match1(Pat, Term, Bs, BBs) of
 	invalid ->
-	    erlang:raise(error, {illegal_pattern,Pat}, ?STACKTRACE);
+	    erlang:raise(error, {illegal_pattern,to_term(Pat)}, ?STACKTRACE);
 	Other ->
 	    Other
     end.
@@ -1287,6 +1290,12 @@ merge_bindings(Bs1, Bs2) ->
 %% 		  error -> Bs
 %% 	      end
 %%       end, Bs2, Bs1).
+
+to_terms(Abstrs) ->
+    [to_term(Abstr) || Abstr <- Abstrs].
+
+to_term(Abstr) ->
+    erl_parse:anno_to_term(Abstr).
 
 %% Substitute {value, A, Item} for {var, A, Var}, preserving A.
 %% {value, A, Item} is a shell/erl_eval convention, and for example
