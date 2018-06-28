@@ -69,15 +69,6 @@ cxargs_add() {
     done
 }
 
-eeargs=
-eeargs_add() {
-    while [ $# -gt 0 ]; do
-	cargs="$cargs $1"
-	eeargs="$eeargs $1"
-	shift
-    done
-}
-
 core=
 
 GDB=
@@ -96,8 +87,6 @@ TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
-
-PRELOADED=$ROOTDIR/erts/preloaded/ebin
 
 
 while [ $# -gt 0 ]; do
@@ -255,7 +244,7 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+EMU_NAME=`$EXEC -emu_name_exit`
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -269,8 +258,6 @@ if [ $skip_erlexec = yes ]; then
 '
     set -- $beam_args
     IFS="$SAVE_IFS"
-else
-    xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
@@ -316,12 +303,12 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
     elif [ $run_rr = yes ]; then
-	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
     else
-	exec $EXEC $eeargs $xargs ${1+"$@"}
+	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in
