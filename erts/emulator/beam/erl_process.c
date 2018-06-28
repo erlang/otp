@@ -4176,6 +4176,8 @@ dequeue_process(ErtsRunQueue *runq, int prio_q, erts_aint32_t *statep)
     ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
 
     state = erts_smp_atomic32_read_nob(&p->state);
+    ASSERT(state & ERTS_PSFLG_IN_RUNQ);
+
     if (statep)
 	*statep = state;
 
@@ -4183,8 +4185,7 @@ dequeue_process(ErtsRunQueue *runq, int prio_q, erts_aint32_t *statep)
 
     rqi = &runq->procs.prio_info[prio];
 
-    if (p)
-	unqueue_process(runq, rpq, rqi, prio, NULL, p);
+    unqueue_process(runq, rpq, rqi, prio, NULL, p);
 
     return p;
 }
@@ -4512,7 +4513,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 
 	erts_smp_runq_unlock(to_rq);
 	smp_notify_inc_runq(to_rq);
-	erts_smp_runq_lock(to_rq);
+	erts_smp_runq_lock(rq);
     }
 
     if (rq->ports.start) {
@@ -4593,22 +4594,17 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		    free_proxy_proc(proc);
 		else {
 		    erts_aint32_t clr_bits;
-#ifdef DEBUG
-		    erts_aint32_t old;
-#endif
 
 		    clr_bits = ERTS_PSFLG_IN_RUNQ;
 		    clr_bits |= qbit << ERTS_PSFLGS_IN_PRQ_MASK_OFFSET;
 
-#ifdef DEBUG
-		    old =
-#else
-			(void)
-#endif
-			erts_smp_atomic32_read_band_mb(&proc->state,
-						       ~clr_bits);
-			ASSERT((old & clr_bits) == clr_bits);
+                    state = erts_smp_atomic32_read_band_mb(&proc->state, ~clr_bits);
+                    ASSERT((state & clr_bits) == clr_bits);
 
+                    if (state & ERTS_PSFLG_FREE) {
+                        /* free and not queued by proxy */
+                        erts_proc_dec_refc(proc);
+		    }
 		}
 
 		goto handle_next_proc;
@@ -6726,13 +6722,14 @@ fin_dirty_enq_s_change(Process *p,
 	/* Already enqueue by someone else... */
 	if (pstruct_reserved) {
 	    /* We reserved process struct for enqueue; clear it... */
-#ifdef DEBUG
-	    erts_aint32_t old =
-#else
-		(void)
-#endif
-		erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_IN_RUNQ);
-	    ASSERT(old & ERTS_PSFLG_IN_RUNQ);
+	    erts_aint32_t state;
+
+            state = erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_IN_RUNQ);
+            ASSERT(state & ERTS_PSFLG_IN_RUNQ);
+
+            if (state & ERTS_PSFLG_FREE) {
+                erts_proc_dec_refc(p);
+            }
 	}
 	return 0;
     }
@@ -6903,8 +6900,9 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 	enqueue = ERTS_ENQUEUE_NOT;
 
 	n &= ~running_flgs;
-	if ((a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-	    || (a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
+	if ((!!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+	    | ((a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE))
+            & !(a & ERTS_PSFLG_FREE)) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
 	}
 	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
@@ -7158,129 +7156,72 @@ erts_schedule_process(Process *p, erts_aint32_t state, ErtsProcLocks locks)
     schedule_process(p, state, locks);
 }
 
-static int
-schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
-			  erts_aint32_t *fail_state_p)
+/* Enqueues the given sys task on the process and schedules it. The task may be
+ * NULL if only scheduling is desired. */
+static ERTS_INLINE erts_aint32_t
+active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
+                   erts_aint32_t task_prio, erts_aint32_t enable_flags,
+                   erts_aint32_t state, erts_aint32_t *fail_state_p)
 {
-    int res;
-    int locked;
-    ErtsProcSysTaskQs *stqs, *free_stqs;
-    erts_aint32_t fail_state, state, a, n, enq_prio;
+    int runnable_procs = erts_system_profile_flags.runnable_procs;
+    erts_aint32_t n, a, enq_prio, fail_state;
+    int already_scheduled;
+    int status_locked;
     int enqueue; /* < 0 -> use proxy */
-    unsigned int prof_runnable_procs;
 
+    enable_flags |= ERTS_PSFLG_ACTIVE_SYS;
     fail_state = *fail_state_p;
-
-    res = 1; /* prepare for success */
-    st->next = st->prev = st; /* Prep for empty prio queue */
-    state = erts_smp_atomic32_read_nob(&p->state);
-    prof_runnable_procs = erts_system_profile_flags.runnable_procs;
-    locked = 0;
-    free_stqs = NULL;
-    if (state & ERTS_PSFLG_ACTIVE_SYS)
-	stqs = NULL;
-    else {
-    alloc_qs:
-	stqs = proc_sys_task_queues_alloc();
-	stqs->qmask = 1 << prio;
-	stqs->ncount = 0;
-	stqs->q[PRIORITY_MAX] = NULL;
-	stqs->q[PRIORITY_HIGH] = NULL;
-	stqs->q[PRIORITY_NORMAL] = NULL;
-	stqs->q[PRIORITY_LOW] = NULL;
-	stqs->q[prio] = st;
-    }
-
-    if (!locked) {
-	locked = 1;
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-
-	state = erts_smp_atomic32_read_nob(&p->state);
-	if (state & fail_state) {
-	    *fail_state_p = (state & fail_state);
-	    free_stqs = stqs;
-	    res = 0;
-	    goto cleanup;
-	}
-    }
-
-    if (!p->sys_task_qs) {
-	if (stqs)
-	    p->sys_task_qs = stqs;
-	else
-	    goto alloc_qs;
-    }
-    else {
-	free_stqs = stqs;
-	stqs = p->sys_task_qs;
-	if (!stqs->q[prio]) {
-	    stqs->q[prio] = st;
-	    stqs->qmask |= 1 << prio;
-	}
-	else {
-	    st->next = stqs->q[prio];
-	    st->prev = stqs->q[prio]->prev;
-	    st->next->prev = st;
-	    st->prev->next = st;
-	    ASSERT(stqs->qmask & (1 << prio));
-	}
-    }
-
-    if (ERTS_PSFLGS_GET_ACT_PRIO(state) > prio) {
-	erts_aint32_t n, a, e;
-	/* Need to elevate actual prio */
-
-	a = state;
-	do {
-	    if (ERTS_PSFLGS_GET_ACT_PRIO(a) <= prio) {
-		n = a;
-		break;
-	    }
-	    n = e = a;
-	    n &= ~ERTS_PSFLGS_ACT_PRIO_MASK;
-	    n |= (prio << ERTS_PSFLGS_ACT_PRIO_OFFSET);
-	    a = erts_smp_atomic32_cmpxchg_nob(&p->state, n, e);    
-	} while (a != e);
-	state = n;
-    }
-
-
-    a = state;
+    already_scheduled = 0;
+    status_locked = 0;
     enq_prio = -1;
+    a = state;
 
-    /* Status lock prevents out of order "runnable proc" trace msgs */
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
-
-    if (!prof_runnable_procs) {
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-	locked = 0;
-    }
-
+    ERTS_SMP_LC_ASSERT(!(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p)));
+    ASSERT(fail_state & (ERTS_PSFLG_EXITING | ERTS_PSFLG_FREE));
+    ASSERT(!(fail_state & enable_flags));
     ASSERT(!(state & ERTS_PSFLG_PROXY));
+
+    /* When runnable_procs is enabled, we need to take the status lock to
+     * prevent trace messages from being sent in the wrong order. The lock must
+     * be held over the call to add2runq.
+     *
+     * Otherwise, we only need to take it when we're enqueuing a task and can
+     * safely release it before add2runq. */
+    if (sys_task || runnable_procs) {
+        erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+        status_locked = 1;
+    }
 
     while (1) {
 	erts_aint32_t e;
 	n = e = a;
 
-	if (a & ERTS_PSFLG_FREE)
-	    goto cleanup; /* We don't want to schedule free processes... */
+	if (a & fail_state) {
+            *fail_state_p = a & fail_state;
+	    goto cleanup;
+        }
 
 	enqueue = ERTS_ENQUEUE_NOT;
-	n |= ERTS_PSFLG_ACTIVE_SYS;
+	n |= enable_flags;
+
 	if (!(a & (ERTS_PSFLG_RUNNING
 		   | ERTS_PSFLG_RUNNING_SYS
 		   | ERTS_PSFLG_DIRTY_RUNNING
-		   | ERTS_PSFLG_DIRTY_RUNNING_SYS)))
+		   | ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
+        }
+
 	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
-	if (a == e)
+	if (a == e) {
 	    break;
-	if (a == n && enqueue == ERTS_ENQUEUE_NOT)
-	    goto cleanup;
+	}
+        else if (a == n && enqueue == ERTS_ENQUEUE_NOT) {
+	    already_scheduled = 1;
+            break;
+        }
     }
 
-    if (prof_runnable_procs) {
-
+    if (!already_scheduled && runnable_procs) {
 	if (!(a & (ERTS_PSFLG_ACTIVE_SYS
 		   | ERTS_PSFLG_RUNNING
 		   | ERTS_PSFLG_RUNNING_SYS
@@ -7290,24 +7231,89 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
 	    /* We activated a prevously inactive process */
 	    profile_runnable_proc(p, am_active);
 	}
-
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-	locked = 0;
     }
 
-    add2runq(enqueue, enq_prio, p, n, NULL);
+    if (sys_task) {
+        ErtsProcSysTaskQs *stqs = p->sys_task_qs;
+
+        if (!stqs) {
+            sys_task->next = sys_task->prev = sys_task;
+
+            stqs = proc_sys_task_queues_alloc();
+
+            stqs->qmask = 1 << task_prio;
+            stqs->ncount = 0;
+            stqs->q[PRIORITY_MAX] = NULL;
+            stqs->q[PRIORITY_HIGH] = NULL;
+            stqs->q[PRIORITY_NORMAL] = NULL;
+            stqs->q[PRIORITY_LOW] = NULL;
+            stqs->q[task_prio] = sys_task;
+
+            p->sys_task_qs = stqs;
+        }
+        else {
+            if (!stqs->q[task_prio]) {
+                sys_task->next = sys_task->prev = sys_task;
+
+                stqs->q[task_prio] = sys_task;
+                stqs->qmask |= 1 << task_prio;
+            }
+            else {
+                sys_task->next = stqs->q[task_prio];
+                sys_task->prev = stqs->q[task_prio]->prev;
+                sys_task->next->prev = sys_task;
+                sys_task->prev->next = sys_task;
+                ASSERT(stqs->qmask & (1 << task_prio));
+            }
+        }
+    }
+
+    if (status_locked && !runnable_procs) {
+        erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+        status_locked = 0;
+    }
+
+    if (!already_scheduled) {
+        add2runq(enqueue, enq_prio, p, n, NULL);
+    }
 
 cleanup:
+    if (status_locked) {
+        erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    }
 
-    if (locked)
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    return n;
+}
 
-    if (free_stqs)
-	proc_sys_task_queues_free(free_stqs);
+static int
+schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
+			  erts_aint32_t *fail_state_p)
+{
+    erts_aint32_t fail_state, state;
 
-    ERTS_SMP_LC_ASSERT(!(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p)));
+    /* Elevate priority if needed. */
+    state = erts_smp_atomic32_read_nob(&p->state);
+    if (ERTS_PSFLGS_GET_ACT_PRIO(state) > prio) {
+        erts_aint32_t n, a, e;
 
-    return res;
+        a = state;
+        do {
+            if (ERTS_PSFLGS_GET_ACT_PRIO(a) <= prio) {
+                n = a;
+                break;
+            }
+            n = e = a;
+            n &= ~ERTS_PSFLGS_ACT_PRIO_MASK;
+            n |= (prio << ERTS_PSFLGS_ACT_PRIO_OFFSET);
+            a = erts_smp_atomic32_cmpxchg_nob(&p->state, n, e);
+        } while (a != e);
+
+        state = n;
+    }
+
+    fail_state = *fail_state_p;
+
+    return !(active_sys_enqueue(p, st, prio, 0, state, fail_state_p) & fail_state);
 }
 
 static ERTS_INLINE int
@@ -10758,6 +10764,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 			}
 			else if (state & ERTS_PSFLG_FREE) {
 			    /* free and not queued by proxy */
+                            ASSERT(state & ERTS_PSFLG_IN_RUNQ);
 			    erts_proc_dec_refc(p);
 			}
                         if (!is_normal_sched)
@@ -14071,7 +14078,9 @@ erts_continue_exit_process(Process *p)
 	    n = e = a;
 	    ASSERT(a & ERTS_PSFLG_EXITING);
 	    n |= ERTS_PSFLG_FREE;
-	    n &= ~ERTS_PSFLG_ACTIVE;
+            n &= ~(ERTS_PSFLG_ACTIVE
+                   | ERTS_PSFLG_ACTIVE_SYS
+                   | ERTS_PSFLG_DIRTY_ACTIVE_SYS);
 	    if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
 		erts_proc_inc_refc(p);
 		refc_inced = 1;
