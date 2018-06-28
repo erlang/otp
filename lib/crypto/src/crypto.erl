@@ -29,6 +29,7 @@
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
+-export([poly1305/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1]).
 -export([rand_seed_s/0, rand_seed_alg_s/1]).
@@ -193,6 +194,9 @@ cmac(Type, Key, Data) ->
     notsup_to_error(cmac_nif(Type, Key, Data)).
 cmac(Type, Key, Data, MacSize) ->
     erlang:binary_part(cmac(Type, Key, Data), 0, MacSize).
+
+poly1305(Key, Data) ->
+    poly1305_nif(Key, Data).
 
 %% Ecrypt/decrypt %%%
 
@@ -1060,8 +1064,11 @@ hmac_final_nif(_Context) -> ?nif_stub.
 hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
 
 %% CMAC
-
 cmac_nif(_Type, _Key, _Data) -> ?nif_stub.
+
+%% POLY1305
+poly1305_nif(_Key, _Data) -> ?nif_stub.
+
 
 %% CIPHERS --------------------------------------------------------------------
 

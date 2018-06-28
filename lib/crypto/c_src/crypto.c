@@ -183,6 +183,13 @@
 # endif
 #endif
 
+// OPENSSL_VERSION_NUMBER >= 1.1.1-pre8
+#if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1)-7)
+# ifndef HAS_LIBRESSL
+#  define HAVE_POLY1305
+# endif
+#endif
+
 #if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION(0,9,8,'l')
 # define HAVE_ECB_IVEC_BUG
 #endif
@@ -524,6 +531,8 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -613,6 +622,8 @@ static ErlNifFunc nif_funcs[] = {
 
     {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
     {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt},
+
+    {"poly1305_nif", 2, poly1305_nif},
 
     {"engine_by_id_nif", 1, engine_by_id_nif},
     {"engine_init_nif", 1, engine_init_nif},
@@ -1246,7 +1257,7 @@ static ERL_NIF_TERM algo_pubkey[11]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
 static int algo_mac_cnt, algo_mac_fips_cnt;
-static ERL_NIF_TERM algo_mac[2]; /* increase when extending the list */
+static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static int algo_curve_cnt, algo_curve_fips_cnt;
 static ERL_NIF_TERM algo_curve[87]; /* increase when extending the list */
 
@@ -1340,6 +1351,9 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
 #ifdef HAVE_CMAC
     algo_mac[algo_mac_cnt++] = enif_make_atom(env,"cmac");
+#endif
+#ifdef HAVE_POLY1305
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"poly1305");
 #endif
     // Non-validated algorithms follow
     algo_mac_fips_cnt = algo_mac_cnt;
@@ -2078,6 +2092,62 @@ static ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     /* The CMAC functionality was introduced in OpenSSL 1.0.1
      * Although OTP requires at least version 0.9.8, the versions 0.9.8 and 1.0.0 are
      * no longer maintained. */
+    return atom_notsup;
+#endif
+}
+
+/* For OpenSSL >= 1.1.1 the hmac_nif and cmac_nif could be integrated into poly1305 (with 'type' as parameter) */
+static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Text) */
+#ifdef HAVE_POLY1305
+    ErlNifBinary key_bin, text, ret_bin;
+    ERL_NIF_TERM ret = atom_error;
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *mctx = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    const EVP_MD *md = NULL;
+    size_t size;
+    int type;
+
+    type = EVP_PKEY_POLY1305;
+
+    if (!enif_inspect_binary(env, argv[0], &key_bin) ||
+        !(key_bin.size == 32) ) {
+        return enif_make_badarg(env);
+    }
+    
+    if (!enif_inspect_binary(env, argv[1], &text) ) {
+        return enif_make_badarg(env);
+    }
+
+    key = EVP_PKEY_new_raw_private_key(type, /*engine*/ NULL, key_bin.data,  key_bin.size);
+
+    if (!key ||
+        !(mctx = EVP_MD_CTX_new()) ||
+        !EVP_DigestSignInit(mctx, &pctx, md, /*engine*/ NULL, key) ||
+        !EVP_DigestSignUpdate(mctx, text.data, text.size)) {
+        goto err;
+    }
+    
+    if (!EVP_DigestSignFinal(mctx, NULL, &size) ||
+        !enif_alloc_binary(size, &ret_bin) ||
+        !EVP_DigestSignFinal(mctx, ret_bin.data, &size)) {
+        goto err;
+    }
+
+    if ((size != ret_bin.size) &&
+        !enif_realloc_binary(&ret_bin, size)) {
+        goto err;
+    }
+
+    ret = enif_make_binary(env, &ret_bin);
+
+ err:
+    EVP_MD_CTX_free(mctx);
+    EVP_PKEY_free(key);
+    return ret;
+
+#else
     return atom_notsup;
 #endif
 }
