@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 27 Jun 2018 by Micael Karlberg <Micael.Karlberg@ericsson.com>
 %%%-------------------------------------------------------------------
--module(client).
+-module(socket_client).
 
 -export([start/1]).
 
@@ -62,6 +62,7 @@ connect(Sock, Domain, Port) ->
     case socket:connect(Sock, SA) of
         ok ->
             i("connected"),
+            send_loop(Sock),
             ok;
         {error, Reason} ->
             e("connect failure: "
@@ -69,6 +70,26 @@ connect(Sock, Domain, Port) ->
             exit({connect, Reason})
     end.
 
+
+send_loop(Sock) ->
+    send_loop(Sock, 1).
+
+send_loop(Sock, N) ->
+    case socket:send(Sock, <<0:32, N:32, "hejsan">>) of
+        ok ->
+            case send:recv(Sock, 0) of
+                {ok, <<1:32, N:32, "hejsan">>} ->
+                    send_loop(Sock, N+1);
+                {error, RReason} ->
+                    e("Failed recv response for request ~w: "
+                      "~n   ~p", [RReason]),
+                    exit({failed_recv, RReason})
+            end;
+        {error, SReason} ->
+            e("Failed send request ~w: "
+              "~n   ~p", [SReason]),
+            exit({failed_send, SReason})
+    end.
 
 which_addr(_Domain, []) ->
     throw(no_address);

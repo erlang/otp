@@ -24,6 +24,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Target Specs
 # ----------------------------------------------------
 
+SOCKET_MODULES = \
+	socket_server \
+	socket_client
+
 MODULES= \
 	rpc_SUITE \
 	pdict_SUITE \
@@ -90,7 +94,8 @@ MODULES= \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
-	zzz_SUITE
+	zzz_SUITE \
+	$(SOCKET_MODULES)
 
 APP_FILES = \
 	appinc.app \
@@ -127,6 +132,9 @@ ERL_COMPILE_FLAGS +=
 
 EBIN = .
 
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -146,6 +154,9 @@ clean:
 	rm -f core
 
 docs:
+
+socket: $(SOCKET_TARGETS)
+
 
 # ----------------------------------------------------
 # Release Target

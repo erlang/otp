@@ -6,9 +6,11 @@
 %%% @end
 %%% Created : 27 Jun 2018 by Micael Karlberg <Micael.Karlberg@ericsson.com>
 %%%-------------------------------------------------------------------
--module(server).
+-module(socket_server).
 
 -export([start/0]).
+
+-record(handler, {socket, parent}).
 
 start() ->
     start_tcp().
@@ -17,6 +19,7 @@ start_tcp() ->
     start(inet, stream, tcp).
 
 start(Domain, Type, Proto) ->
+    put(sname, "starter"),
     try do_init(Domain, Type, Proto) of
         Sock ->
             accept_loop(Sock)
@@ -79,14 +82,23 @@ which_addr2(Domain, [_|IFO]) ->
 
 
 accept_loop(LSock) ->
+    put(sname, "accept-loop"),
     accept_loop(LSock, []).
 
-accept_loop(LSock, Socks) ->
+accept_loop(LSock, Handlers) ->
     i("try accept"),
     case socket:accept(LSock, infinity) of
         {ok, Sock} ->
             i("accepted: ~p", [Sock]),
-            accept_loop(LSock, [Sock|Socks]);
+            case handle_accept_success(Sock) of
+                {ok, Handler} ->
+                    accept_loop(LSock, [Handler|Handlers]);
+                {error, HReason} ->
+                    e("Failed starting handler: "
+                      "~n   ~p", [HReason]),
+                    socket:close(Sock),
+                    exit({failed_starting_handler, HReason})
+            end;
         {error, Reason} ->
             e("accept failure: "
               "~n   ~p", [Reason]),
@@ -94,6 +106,56 @@ accept_loop(LSock, Socks) ->
     end.
 
 
+handle_accept_success(Sock) ->
+    Self    = self(),
+    Handler = spawn_link(fun() -> handler_init(Self, Sock) end),
+    case socket:setopt(Sock, otp, controlling_process, Handler) of
+        ok ->
+            %% Normally we should have a msgs collection here
+            %% (of messages we receive before the control was
+            %% handled over to Handler), but since we don't 
+            %% have active implemented yet...
+            handler_continue(Handler),
+            {ok, {Handler, Sock}};
+       {error, _} = ERROR ->
+            exit(Handler, kill),
+            ERROR
+    end.
+
+
+handler_init(Parent, Socket) ->
+    put(sname, "handler"),
+    receive
+        {handler, Parent, continue} ->
+            handler_loop(#handler{parent = Parent,
+                                  socket = Socket})
+    end.
+
+handler_continue(Handler) ->
+    Handler ! {handler, self(), continue}.
+
+handler_loop(#handler{socket = Socket} = H) ->
+    case socket:read(Socket, 0) of
+        {ok, <<0:32, N:32, ReqData/binary>>} ->
+            i("received request ~w: "
+              "~n   ~p", [N, ReqData]),
+            Reply = <<1:32, N:32, ReqData/binary>>,
+            case socket:send(Socket, Reply) of
+                ok ->
+                    i("successfully sent reply ~w", [N]),
+                    handler_loop(H);
+                {error, SReason} ->
+                    e("failed sending reply ~w:"
+                      "~n   ~p", [N, SReason]),
+                    exit({failed_sending_reply, SReason})
+            end;
+        {error, RReason} ->
+            e("failed reading request: "
+              "~n   ~p", [RReason]),
+            exit({failed_sending_reply, RReason})
+    end.
+            
+    
 e(F, A) ->
     p("<ERROR> " ++ F, A).
 
@@ -103,5 +165,8 @@ i(F, A) ->
     p("*** " ++ F, A).
 
 p(F, A) ->
-    io:format("[server] " ++ F ++ "~n", A).
+    p(get(sname), F, A).
+
+p(SName, F, A) ->
+    io:format("[server,~s] " ++ F ++ "~n", [SName|A]).
     
