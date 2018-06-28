@@ -31,7 +31,24 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.4.4</title>
+   <section><title>IC 4.4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>ic</c> causing potential buffer overrun
+	    in funtion <c>oe_ei_encode_atom</c>. Bug exists since
+	    ic-4.4.4 (OTP-20.3.4).</p>
+          <p>
+	    Own Id: OTP-15160 Aux Id: ERIERL-191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
