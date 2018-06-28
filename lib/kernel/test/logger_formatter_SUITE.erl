@@ -312,30 +312,48 @@ format_msg(_Config) ->
                      #{report_cb=>fun(_)-> faulty_return end},
                      #{template=>Template}),
     ct:log(String5),
-    "REPORT_CB ERROR: term; Returned: faulty_return" = String5,
+    "REPORT_CB/1 ERROR: term; Returned: faulty_return" = String5,
 
     String6 = format(info,{report,term},
                      #{report_cb=>fun(_)-> erlang:error(fun_crashed) end},
                      #{template=>Template}),
     ct:log(String6),
-    "REPORT_CB CRASH: term; Reason: {error,fun_crashed}" = String6,
+    "REPORT_CB/1 CRASH: term; Reason: {error,fun_crashed,"++_ = String6,
 
-    %% strings are not formatted
-    String7 = format(info,{string,"string"},
-                     #{report_cb=>fun(_)-> {"formatted",[]} end},
+    String7 = format(info,{report,term},
+                     #{report_cb=>fun(_,_)-> ['not',a,string] end},
                      #{template=>Template}),
     ct:log(String7),
-    "string" = String7,
+    "REPORT_CB/2 ERROR: term; Returned: ['not',a,string]" = String7,
 
-    String8 = format(info,{string,['not',printable,list]},
+    String8 = format(info,{report,term},
+                     #{report_cb=>fun(_,_)-> faulty_return end},
+                     #{template=>Template}),
+    ct:log(String8),
+    "REPORT_CB/2 ERROR: term; Returned: faulty_return" = String8,
+
+    String9 = format(info,{report,term},
+                     #{report_cb=>fun(_,_)-> erlang:error(fun_crashed) end},
+                     #{template=>Template}),
+    ct:log(String9),
+    "REPORT_CB/2 CRASH: term; Reason: {error,fun_crashed,"++_ = String9,
+
+    %% strings are not formatted
+    String10 = format(info,{string,"string"},
                      #{report_cb=>fun(_)-> {"formatted",[]} end},
                      #{template=>Template}),
-    ct:log("~ts",[String8]), % avoiding ct_log crash
-    "FORMAT ERROR: \"~ts\" - [['not',printable,list]]" = String8,
+    ct:log(String10),
+    "string" = String10,
 
-    String9 = format(info,{string,"string"},#{},#{template=>Template}),
-    ct:log(String9),
-    "string" = String9,
+    String11 = format(info,{string,['not',printable,list]},
+                     #{report_cb=>fun(_)-> {"formatted",[]} end},
+                     #{template=>Template}),
+    ct:log("~ts",[String11]), % avoiding ct_log crash
+    "FORMAT ERROR: \"~ts\" - [['not',printable,list]]" = String11,
+
+    String12 = format(info,{string,"string"},#{},#{template=>Template}),
+    ct:log(String12),
+    "string" = String12,
 
     ok.
 
@@ -639,8 +657,10 @@ check_config(_Config) ->
     ?cfgerr({max_size,bad}) =
         logger_formatter:check_config(#{max_size => bad}),
 
+    ok =
+        logger_formatter:check_config(#{report_cb => fun(_,_) -> "" end}),
     ?cfgerr({report_cb,F}) =
-        logger_formatter:check_config(#{report_cb => F=fun(_,_) -> {"",[]} end}),
+        logger_formatter:check_config(#{report_cb => F=fun(_,_,_) -> {"",[]} end}),
     ?cfgerr({report_cb,bad}) =
         logger_formatter:check_config(#{report_cb => bad}),
 

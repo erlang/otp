@@ -194,10 +194,26 @@
 	the log event's <seealso marker="#metadata">metadata</seealso>.
 	The report callback is a convenience function that
 	the <seealso marker="#formatters">formatter</seealso> can use
-	to convert the report to a format string and arguments. The
+	to convert the report to a format string and arguments, or
+	directly to a string. The
 	formatter can also use its own conversion function, if no
 	callback is provided, or if a customized formatting is
 	desired.</p>
+      <p>The report callback must be a fun with one or two
+	arguments. If it takes one argument, this is the report
+	itself, and the fun returns a format string and arguments:</p>
+      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>) -> {<seealso marker="stdlib:io#type-format"><c>io:format()</c></seealso>,[term()]})</pre>
+      <p>If it takes two arguments, the first is the report, and the
+	second is a map containing extra data that allows direct
+	coversion to a string:</p>
+      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>,<seealso marker="logger#type-report_cb_config"><c>logger:report_cb_config()</c></seealso>) -> <seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c></seealso>)
+      </pre>
+      <p>The fun must obey the <c>encoding</c>, <c>depth</c>
+	and <c>chars_limit</c> parameters provided in the second
+	argument, as the formatter can not do anything useful of these
+	parameters with the returned string. This variant is used when
+	the formatting of the report depends on the size and encoding
+	parameters.</p>
       <p>Example, format string and arguments:</p>
       <code>logger:error("The file does not exist: ~ts",[Filename])</code>
       <p>Example, string:</p>

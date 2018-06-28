@@ -74,6 +74,11 @@
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type report() :: map() | [{atom(),term()}].
+-type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
+                     fun((report(),report_cb_config()) -> unicode:chardata()).
+-type report_cb_config() :: #{encoding    := unicode:encoding(),
+                              depth       := pos_integer() | unlimited,
+                              chars_limit := pos_integer() | unlimited}.
 -type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
                                    report() |
                                    unicode:chardata()).
@@ -84,7 +89,7 @@
                       file   => file:filename(),
                       line   => non_neg_integer(),
                       domain => [atom()],
-                      report_cb => fun((report()) -> {io:format(),[term()]}),
+                      report_cb => report_cb(),
                       atom() => term()}.
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
@@ -110,10 +115,22 @@
 
 -type config_handler() :: {handler, handler_id(), module(), handler_config()}.
 
--export_type([log_event/0,level/0,report/0,msg_fun/0,metadata/0,
-              primary_config/0,handler_config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0,
-              config_handler/0,formatter_config/0]).
+-export_type([log_event/0,
+              level/0,
+              report/0,
+              report_cb/0,
+              report_cb_config/0,
+              msg_fun/0,
+              metadata/0,
+              primary_config/0,
+              handler_config/0,
+              handler_id/0,
+              filter_id/0,
+              filter/0,
+              filter_arg/0,
+              filter_return/0,
+              config_handler/0,
+              formatter_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
