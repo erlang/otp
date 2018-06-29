@@ -980,7 +980,7 @@ Erlang code.
 
 -type af_unary_op(T) :: {'op', anno(), unary_op(), T}.
 
--type unary_op() :: '+' | '*' | 'bnot' | 'not'.
+-type unary_op() :: '+' | '-' | 'bnot' | 'not'.
 
 %% See also lib/stdlib/{src/erl_bits.erl,include/erl_bits.hrl}.
 -type type_specifier_list() :: 'default' | [type_specifier(), ...].
