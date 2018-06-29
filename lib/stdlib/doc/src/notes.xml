@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that could cause a crash when formatting a
+	    list of non-characters using the control sequences
+	    <c>p</c> or <c>P</c> and limiting the output with the
+	    option <c>chars_limit</c>. </p>
+          <p>
+	    Own Id: OTP-15159</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -35,6 +35,26 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some of the keylengths in the newly generated moduli file
+	    in public_key are not universally supported. This could
+	    cause the SSH key exchange
+	    diffie-hellman-group-exchange-sha* to fail.</p>
+          <p>
+	    Those keylengths are now removed.</p>
+          <p>
+	    Own Id: OTP-15151 Aux Id: OTP-15113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
