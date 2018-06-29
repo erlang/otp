@@ -29,6 +29,11 @@
 #include "socket_dbg.h"
 #include "sys.h"
 
+#include <stdarg.h>
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <time.h>
 
 /* We don't have a "debug flag" to check here, so we 
  * should use the compile debug flag, whatever that is...
@@ -45,6 +50,9 @@
 
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
+
+static int realtime(struct timespec* tsP);
+static int timespec2str(char *buf, unsigned int len, struct timespec *ts);
 
 static char* make_sockaddr_in4(ErlNifEnv*    env,
                                ERL_NIF_TERM  port,
@@ -1168,10 +1176,89 @@ void esock_abort(const char* expr,
 
 
 
+/* *** esock_warning_msg ***
+ *
+ * Temporary function for issuing warning messages.
+ *
+ */
+extern
+void esock_warning_msg( const char* format, ... )
+{
+  va_list         args;
+  char            f[512 + sizeof(format)]; // This has to suffice...
+  char            stamp[32];
+  struct timespec ts;
+  int             res;
+
+  /*
+   * We should really include self in the printout, so we can se which process
+   * are executing the code. But then I must change the API....
+   * ....something for later.
+   */
+
+  // 2018-06-29 12:13:21.232089
+  // 29-Jun-2018::13:47:25.097097
+  
+  if (!realtime(&ts)) {
+    if (timespec2str(stamp, sizeof(stamp), &ts) != 0) {
+        res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
+    } else {
+        res = enif_snprintf(f, sizeof(f),
+                            "=WARNING MSG==== %s ===\r\n%s" , stamp, format);
+    }
+
+    if (res > 0) {
+      va_start (args, format);
+      enif_vfprintf (stdout, f, args);
+      va_end (args);
+      fflush(stdout);
+    }
+  }
+
+  return;
+}
+
+
+static
+int realtime(struct timespec* tsP)
+{
+  return clock_gettime(CLOCK_REALTIME, tsP);
+}
+
+
+/*
+ * Convert a timespec struct into a readable/printable string.
+ *
+ * "%F::%T"       => 2018-06-29 12:13:21[.232089]
+ * "%d-%b-%Y::%T" => 29-Jun-2018::13:47:25.097097
+ */
+static
+int timespec2str(char *buf, unsigned int len, struct timespec *ts)
+{
+  int       ret, buflen;
+  struct tm t;
+
+  tzset();
+  if (localtime_r(&(ts->tv_sec), &t) == NULL)
+    return 1;
+
+  ret = strftime(buf, len, "%d-%B-%Y::%T", &t);
+  if (ret == 0)
+    return 2;
+  len -= ret - 1;
+  buflen = strlen(buf);
+
+  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
+  if (ret >= len)
+    return 3;
+
+  return 0;
+}
+
 
 /* =================================================================== *
  *                                                                     *
- *                   Various utility functions                         *
+ *              Various (internal) utility functions                   *
  *                                                                     *
  * =================================================================== */
 

@@ -41,7 +41,7 @@
          %% sendmsg/4,
          %% writev/4, OR SENDV? It will be strange for recv then: recvv (instead of readv)
 
-         recv/2, recv/3, recv/4,
+         recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
          %% recvmsg/4,
          %% readv/3,
@@ -442,16 +442,17 @@
 -define(SOCKET_RECV_FLAGS_DEFAULT,   []).
 -define(SOCKET_RECV_TIMEOUT_DEFAULT, infinity).
 
--define(SOCKET_OPT_LEVEL_OTP,       0).
--define(SOCKET_OPT_LEVEL_SOCKET,    1).
--define(SOCKET_OPT_LEVEL_IP,        2).
--define(SOCKET_OPT_LEVEL_IPV6,      3).
--define(SOCKET_OPT_LEVEL_TCP,       4).
--define(SOCKET_OPT_LEVEL_UDP,       5).
--define(SOCKET_OPT_LEVEL_SCTP,      6).
+-define(SOCKET_OPT_LEVEL_OTP,            0).
+-define(SOCKET_OPT_LEVEL_SOCKET,         1).
+-define(SOCKET_OPT_LEVEL_IP,             2).
+-define(SOCKET_OPT_LEVEL_IPV6,           3).
+-define(SOCKET_OPT_LEVEL_TCP,            4).
+-define(SOCKET_OPT_LEVEL_UDP,            5).
+-define(SOCKET_OPT_LEVEL_SCTP,           6).
 
--define(SOCKET_OPT_OTP_DEBUG,           0).
--define(SOCKET_OPT_OTP_IOW,             1).
+-define(SOCKET_OPT_OTP_DEBUG,            0).
+-define(SOCKET_OPT_OTP_IOW,              1).
+-define(SOCKET_OPT_OTP_CTRL_PROC,        2).
 
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
 -define(SOCKET_OPT_SOCK_DONTROUTE,       7).
@@ -1097,6 +1098,9 @@ do_sendto(SockRef, Data, EFlags, Dest, Timeout) ->
 %% Flags   - A list of "options" for the read.
 %% Timeout - Time-out in milliseconds.
 
+recv(Socket) ->
+    recv(Socket, 0).
+
 recv(Socket, Length) ->
     recv(Socket, Length,
          ?SOCKET_RECV_FLAGS_DEFAULT,
@@ -1131,10 +1135,21 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
        (is_integer(Timeout) andalso (Timeout > 0)) ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
+    p("do_recv -> try read with"
+      "~n   SockRef: ~p"
+      "~n   RecvRef: ~p"
+      "~n   Length:  ~p"
+      "~n   EFlags:  ~p"
+      "~nwhen"
+      "~n   Timeout: ~p (~p)", [SockRef, RecvRef, Length, EFlags, Timeout, TS]),
     case nif_recv(SockRef, RecvRef, Length, EFlags) of
         {ok, true = _Complete, Bin} when (size(Acc) =:= 0) ->
+            p("do_recv -> ok: complete (size(Acc) =:= 0)"
+              "~n   size(Bin): ~p", [size(Bin)]),
             {ok, Bin};
         {ok, true = _Complete, Bin} ->
+            p("do_recv -> ok: complete"
+              "~n   size(Bin): ~p", [size(Bin)]),
             {ok, <<Acc/binary, Bin/binary>>};
 
         %% It depends on the amount of bytes we tried to read:
@@ -1143,12 +1158,16 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
         {ok, false = _Complete, Bin} when (Length =:= 0) ->
+            p("do_recv -> ok: not-complete (Length =:= 0)"
+              "~n   size(Bin): ~p", [size(Bin)]),
             do_recv(SockRef, RecvRef,
                     Length, EFlags,
                     <<Acc/binary, Bin/binary>>,
                     next_timeout(TS, Timeout));
 
         {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
+            p("do_recv -> ok: not-complete (size(Acc) =:= 0)"
+              "~n   size(Bin): ~p", [size(Bin)]),
             %% We got the first chunk of it.
             %% We will be notified (select message) when there
             %% is more to read.
@@ -1171,6 +1190,8 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             end;
 
         {ok, false = _Completed, Bin} ->
+            p("do_recv -> ok: not-complete"
+              "~n   size(Bin): ~p", [size(Bin)]),
             %% We got a chunk of it!
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
@@ -1190,16 +1211,19 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     {error, {timeout, Acc}}
             end;
 
-        %% We return with the accumulated binary regardless if its empty...
-        {error, eagain} when (Length =:= 0) ->
+        %% We return with the accumulated binary (if its non-empty)
+        {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
+            p("do_recv -> eagain (Length =:= 0)", []),
             {ok, Acc};
 
         {error, eagain} ->
+            p("do_recv -> eagain", []),
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
+                    p("do_recv -> received select ready-input message", []),
                     do_recv(SockRef, RecvRef,
                             Length, EFlags,
                             Acc,
@@ -1212,6 +1236,15 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     nif_cancel(SockRef, recv, RecvRef),
                     flush_select_msgs(SockRef, RecvRef),
                     {error, timeout}
+            end;
+
+        {error, closed = Reason} ->
+            do_close(SockRef),
+            if
+                (size(Acc) =:= 0) ->
+                    {error, Reason};
+                true ->
+                    {error, {Reason, Acc}}
             end;
 
         {error, _} = ERROR when (size(Acc) =:= 0) ->
@@ -1342,6 +1375,9 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
       Reason :: term().
 
 close(#socket{ref = SockRef}) ->
+    do_close(SockRef).
+
+do_close(SockRef) ->
     case nif_close(SockRef) of
         ok ->
             nif_finalize_close(SockRef);
@@ -1659,6 +1695,8 @@ enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
     V;
 enc_setopt_value(otp, iow, V, _, _, _) when is_boolean(V) ->
     V;
+enc_setopt_value(otp, controlling_process, V, _, _, _) when is_pid(V) ->
+    V;
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
@@ -1859,27 +1897,31 @@ enc_sockopt_key(otp, debug, _, _, _, _) ->
     ?SOCKET_OPT_OTP_DEBUG;
 enc_sockopt_key(otp, iow, _, _, _, _) ->
     ?SOCKET_OPT_OTP_IOW;
+enc_sockopt_key(otp, controlling_process, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_CTRL_PROC;
+enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
+    not_supported({L, Opt});
 
 %% +++ SOCKET socket options +++
-enc_sockopt_key(socket, acceptconn = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, acceptconn = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 %% Before linux 3.8, this socket option could be set.
 %% Size of buffer for name: IFNAMSZ
 %% So, we let the implementation decide.
-enc_sockopt_key(socket, bindtodevide = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, bindtodevide = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, broadcast = _Opt, _Dir, _D, dgram = _T, _P) ->
     ?SOCKET_OPT_SOCK_BROADCAST;
-enc_sockopt_key(socket, busy_poll = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, debug = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, busy_poll = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, debug = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, dontroute = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_DONTROUTE;
-enc_sockopt_key(socket, error = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, error = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% This is only for connection-oriented sockets, but who are those?
 %% Type = stream or Protocol = tcp?
 %% For now, we just let is pass and it will fail later if not ok...
@@ -1887,111 +1929,111 @@ enc_sockopt_key(socket, keepalive = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_KEEPALIVE;
 enc_sockopt_key(socket, linger = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_LINGER;
-enc_sockopt_key(socket, mark = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, mark = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, oobinline = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, passcred = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, peek_off = Opt, _Dir, local = _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, passcred = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, peek_off = Opt, _Dir, local = _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;
 enc_sockopt_key(socket, rcvbuf = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_RCVBUF;
-enc_sockopt_key(socket, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% May not work on linux.
-enc_sockopt_key(socket, rcvlowat = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, rcvlowat = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, rcvtimeo = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
 enc_sockopt_key(socket, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_REUSEADDR;
-enc_sockopt_key(socket, reuseport = Opt, _Dir, D, _T, _P)
+enc_sockopt_key(socket = L, reuseport = Opt, _Dir, D, _T, _P)
   when ((D =:= inet) orelse (D =:= inet6)) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, setfib = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, setfib = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(socket, sndbuf = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_SNDBUF;
-enc_sockopt_key(socket, sndbufforce = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = L, sndbufforce = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% Not changeable on linux.
-enc_sockopt_key(socket, sndlowat = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, sndtimeo = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, timestamp = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(socket, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(socket = L, sndlowat = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, sndtimeo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, timestamp = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% +++ IP socket options +++
-enc_sockopt_key(ip, add_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, add_source_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, block_source = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, add_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, add_source_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, block_source = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% FreeBSD only?
 %% Only respected on udp and raw ip (unless the hdrincl option has been set).
-enc_sockopt_key(ip, dontfrag = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, drop_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, drop_source_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, dontfrag = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, drop_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, drop_source_membership = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% Linux only?
-enc_sockopt_key(ip, free_bind = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, free_bind = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported({L, Opt});
 %% FreeBSD only?
-enc_sockopt_key(ip, minttl = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, msfilter = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, mtu = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, mtu_discover = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, multicast_all = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, multicast_if = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, multicast_loop = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, multicast_ttl = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, nodefrag = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, options = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, pktinfo = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, minttl = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, msfilter = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, mtu = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, multicast_all = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, multicast_if = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, multicast_loop = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, multicast_ttl = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, nodefrag = Opt, _Dir, _D, raw = _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, options = Opt, _Dir, _D, _T, _P) ->
+    not_supported({Opt, L});
+enc_sockopt_key(ip = L, pktinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 %% This require special code for accessing the errors.
 %% via calling the recvmsg with the MSG_ERRQUEUE flag set,
-enc_sockopt_key(ip, recverr = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, recvif = Opt, _Dir, _D, dgram = _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, recvdstaddr = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, recvopts = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, recvorigdstaddr = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, recverr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, recvif = Opt, _Dir, _D, dgram = _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, recvdstaddr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, recvopts = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, recvorigdstaddr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ip, recvtos = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_RECVTOS;
-enc_sockopt_key(ip, recvttl = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, retopts = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, recvttl = Opt, _Dir, _D, T, _P) when (T =/= stream) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, retopts = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
     ?SOCKET_OPT_IP_ROUTER_ALERT;
 %% On FreeBSD it specifies that this option is only valid
@@ -1999,49 +2041,49 @@ enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
 %% No such condition on linux (in the man page)...
 enc_sockopt_key(ip, tos = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_TOS;
-enc_sockopt_key(ip, transparent = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(ip = L, transparent = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ip, ttl = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_TTL;
-enc_sockopt_key(ip, unblock_source = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported(Opt);
-enc_sockopt_key(ip, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(ip = L, unblock_source = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% IPv6 socket options
 enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;
-enc_sockopt_key(ipv6, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% TCP socket options
 %% There are other options that would be useful; info,
 %% but they are difficult to get portable...
 enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
-enc_sockopt_key(tcp, cork = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(tcp = L, cork = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_MAXSEG;
 enc_sockopt_key(tcp, nodelay = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_NODELAY;
-enc_sockopt_key(tcp, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(tcp = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% UDP socket options
 enc_sockopt_key(udp, cork = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_UDP_CORK;
-enc_sockopt_key(udp, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(udp = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% SCTP socket options
 enc_sockopt_key(sctp, autoclose = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SCTP_AUTOCLOSE;
 enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SCTP_NODELAY;
-enc_sockopt_key(sctp, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown(UnknownOpt);
+enc_sockopt_key(sctp = L, UnknownOpt, _Dir, _D, _T, _P) ->
+    unknown({L, UnknownOpt});
 
 %% +++ "Native" socket options +++
 enc_sockopt_key(Level, Opt, set = _Dir, _D, _T, _P)
@@ -2155,6 +2197,16 @@ next_timeout(TS, Timeout) ->
 tdiff(T1, T2) ->
     T2 - T1.
 
+
+
+
+p(F, A) ->
+    p(get(sname), F, A).
+
+p(undefined, F, A) ->
+    p("***", F, A);
+p(SName, F, A) ->
+    io:format("[~s,~p] " ++ F ++ "~n", [SName, self()|A]).
 
 
 

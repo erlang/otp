@@ -192,6 +192,7 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define GET_INT(E, TE, IP)        enif_get_int((E), (TE), (IP))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
+#define GET_LPID(E, T, P)           enif_get_local_pid((E), (T), (P))
 #define GET_STR(E, L, B, SZ)      \
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, IP)       enif_get_uint((E), (TE), (IP))

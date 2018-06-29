@@ -10,6 +10,9 @@
 
 -export([start/1]).
 
+-define(REQ, 0).
+-define(REP, 1).
+
 start(Port) ->
     start_tcp(Port).
 
@@ -19,12 +22,16 @@ start_tcp(Port) ->
 start(Domain, Type, Proto, Port) ->
     try do_init(Domain, Type, Proto) of
         Sock ->
-            connect(Sock, Domain, Port)
+            connect(Sock, Domain, Port),
+            %% Give the server some time...
+            p("wait some", []),
+            %% sleep(5000),
+            %% ok = socket:close(Sock),
+            send_loop(Sock)
     catch
-        throw:E:P ->
+        throw:E ->
             e("Failed initiate: "
-              "~n   Error: ~p"
-              "~n   Path:  ~p", [E, P])
+              "~n   Error: ~p", [E])
     end.
 
 do_init(Domain, Type, Proto) ->
@@ -58,11 +65,11 @@ connect(Sock, Domain, Port) ->
     SA = #{family => Domain,
            addr   => Addr,
            port   => Port},
-    i("try (socket) connect to ~p", [SA]),
+    i("try (socket) connect to:"
+      "~n   ~p", [SA]),
     case socket:connect(Sock, SA) of
         ok ->
             i("connected"),
-            send_loop(Sock),
             ok;
         {error, Reason} ->
             e("connect failure: "
@@ -74,22 +81,37 @@ connect(Sock, Domain, Port) ->
 send_loop(Sock) ->
     send_loop(Sock, 1).
 
-send_loop(Sock, N) ->
-    case socket:send(Sock, <<0:32, N:32, "hejsan">>) of
+send_loop(Sock, N) when (N =< 10) ->
+    i("try send request ~w", [N]),
+    Req = enc_req_msg(N, "hejsan"),
+    case socket:send(Sock, Req) of
         ok ->
-            case send:recv(Sock, 0) of
-                {ok, <<1:32, N:32, "hejsan">>} ->
-                    send_loop(Sock, N+1);
+            i("request ~w sent - now try read answer", [N]),
+            case socket:recv(Sock, 0) of
+                {ok, Msg} ->
+                    i("received ~w bytes of data", [size(Msg)]),
+                    case dec_msg(Msg) of
+                        {reply, N, Reply} ->
+                            i("received reply ~w: ~p", [N, Reply]),
+                            send_loop(Sock, N+1)
+                    end;
                 {error, RReason} ->
                     e("Failed recv response for request ~w: "
-                      "~n   ~p", [RReason]),
+                      "~n   ~p", [N, RReason]),
                     exit({failed_recv, RReason})
             end;
         {error, SReason} ->
             e("Failed send request ~w: "
               "~n   ~p", [SReason]),
             exit({failed_send, SReason})
-    end.
+    end;
+send_loop(Sock, _N) ->
+    i("we are done - close the socket when: "
+      "~n   ~p", [socket:info()]),
+    ok = socket:close(Sock),
+    i("we are done - socket closed when: "
+      "~n   ~p", [socket:info()]).
+
 
 which_addr(_Domain, []) ->
     throw(no_address);
@@ -106,6 +128,61 @@ which_addr2(Domain, [_|IFO]) ->
     which_addr2(Domain, IFO).
 
 
+%% ---
+
+enc_req_msg(N, Data) ->
+    enc_msg(?REQ, N, Data).
+
+enc_rep_msg(N, Data) ->
+    enc_msg(?REP, N, Data).
+
+enc_msg(Type, N, Data) when is_list(Data) ->
+    enc_msg(Type, N, list_to_binary(Data));
+enc_msg(Type, N, Data) 
+  when is_integer(Type) andalso is_integer(N) andalso is_binary(Data) ->
+    <<Type:32/integer, N:32/integer, Data/binary>>.
+    
+dec_msg(<<?REQ:32/integer, N:32/integer, Data/binary>>) ->
+    {request, N, Data};
+dec_msg(<<?REP:32/integer, N:32/integer, Data/binary>>) ->
+    {reply, N, Data}.
+
+
+%% ---
+
+sleep(T) ->
+    receive after T -> ok end.
+
+                     
+%% ---
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(Now, N2T, true).
+
+format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
+    FormatExtra = ".~.2.0w",
+    ArgsExtra   = [N3 div 10000],
+    format_timestamp(N, N2T, FormatExtra, ArgsExtra);
+format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
+    FormatExtra = "",
+    ArgsExtra   = [],
+    format_timestamp(N, N2T, FormatExtra, ArgsExtra).
+
+format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
+    {Date, Time}   = N2T(N),
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
+                      [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
+    lists:flatten(FormatDate).
+
+
+%% ---
 
 e(F, A) ->
     p("<ERROR> " ++ F, A).
@@ -116,5 +193,5 @@ i(F, A) ->
     p("*** " ++ F, A).
     
 p(F, A) ->
-    io:format("[client] " ++ F ++ "~n", A).
+    io:format("[client,~p][~s] " ++ F ++ "~n", [self(),formated_timestamp()|A]).
     
