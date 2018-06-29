@@ -79,7 +79,7 @@ test() ->
       end, Tests).
 
 algs() ->
-    [exrop, exsp, exs1024s, exs64, exsplus, exs1024, exro928ss].
+    [exrop, exsp, exsss, exs1024s, exs64, exsplus, exs1024, exro928ss].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
