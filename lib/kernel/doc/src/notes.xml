@@ -314,6 +314,26 @@
 
 </section>
 
+<section><title>Kernel 5.4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix some potential buggy behavior in how ticks are sent
+	    on inter node distribution connections. Tick is now sent
+	    to c-node even if there are unsent buffered data, as
+	    c-nodes need ticks in order to send reply ticks. The
+	    amount of sent data was calculated wrongly when ticks
+	    where suppressed due to unsent buffered data.</p>
+          <p>
+	    Own Id: OTP-15162 Aux Id: ERIERL-191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
