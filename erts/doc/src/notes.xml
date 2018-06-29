@@ -982,6 +982,21 @@
 
 </section>
 
+<section><title>Erts 9.3.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare bug that could cause processes to be
+	    scheduled after they had been freed.</p>
+          <p>
+	    Own Id: OTP-15067 Aux Id: ERL-573 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

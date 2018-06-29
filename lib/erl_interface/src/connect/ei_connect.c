@@ -1357,11 +1357,14 @@ static int recv_status(int fd, unsigned ms)
 		      "<- RECV_STATUS socket read failed (%d)", rlen);
 	goto error;
     }
-    if (rlen == 3 && buf[0] == 's' && buf[1] == 'o' && 
-	buf[2] == 'k') {
+
+    EI_TRACE_CONN2("recv_status",
+                   "<- RECV_STATUS (%.*s)", (rlen>20 ? 20 : rlen), buf);
+
+    if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
+        /* Expecting "sok" or "sok_simultaneous" */
 	if (!is_static)
 	    free(buf);
-	EI_TRACE_CONN0("recv_status","<- RECV_STATUS (ok)");
 	return 0;
     }
 error:
