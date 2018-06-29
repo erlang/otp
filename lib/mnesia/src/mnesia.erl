@@ -779,12 +779,16 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      ?ets_insert(Store, {Oid, Val, delete_object});
 		  _ ->
 		      case ?ets_match_object(Store, {Oid, '_', write}) of
-			  [] ->
-			      ?ets_match_delete(Store, {Oid, Val, '_'}),
-			      ?ets_insert(Store, {Oid, Val, delete_object});
-			  _  ->
-			      ?ets_delete(Store, Oid),
-			      ?ets_insert(Store, {Oid, Oid, delete})
+			      [] ->
+			          ?ets_match_delete(Store, {Oid, Val, '_'}),
+			          ?ets_insert(Store, {Oid, Val, delete_object});
+			      Ops  ->
+			          case lists:member({Oid, Val, write}, Ops) of
+			              true ->
+			                  ?ets_delete(Store, Oid),
+			                  ?ets_insert(Store, {Oid, Oid, delete});
+			              false -> ok
+			          end
 		      end
 	      end,
 	      ok;
