@@ -157,6 +157,7 @@ t_abstract_type(Config) when is_list(Config) ->
 		     {[$a,$b,$c],string},
 		     {"hello world",string},
 		     {<<1,2,3>>,binary},
+                     {<<1,2,3:4>>,binary},
 		     {#{a=>1,"b"=>2},map_expr},
 		     {#{#{i=>1}=>1,"b"=>#{v=>2}},map_expr},
 		     {{a,b,c},tuple}]),
