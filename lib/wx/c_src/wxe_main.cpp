@@ -59,11 +59,6 @@ void *wxe_main_loop(void * );
  *  START AND STOP of driver thread
  * ************************************************************/
 
-int load_native_gui()
-{
-  return 1;
-}
-
 int start_native_gui(wxe_data *sd)
 {
   int res;
@@ -113,11 +108,6 @@ void stop_native_gui(wxe_data *sd)
   erl_drv_cond_destroy(wxe_status_c);
   erl_drv_mutex_destroy(wxe_batch_locker_m);
   erl_drv_cond_destroy(wxe_batch_locker_c);
-}
-
-void unload_native_gui()
-{
-
 }
 
 /* ************************************************************
