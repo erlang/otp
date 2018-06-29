@@ -107,9 +107,12 @@
 #  include <sys/time.h>
 #  include <unistd.h>
 #  include <signal.h>
+#  include <limits.h>
 #  if defined(OS_MONOTONIC_TIME_USING_TIMES)
 #    include <sys/times.h>
-#    include <limits.h>
+#  endif
+#  if defined(__linux__)
+#    include <sys/prctl.h>
 #  endif
 #endif
 
@@ -194,6 +197,11 @@ static HANDLE start_reader_thread(void);
 static DWORD WINAPI reader(LPVOID);
 #define read _read
 #define write _write
+#endif
+
+#ifdef __linux__
+static void oom_adjust_restore(void);
+static void oom_adjust_setup(void);
 #endif
 
 /*  static variables */
@@ -350,6 +358,9 @@ int main(int argc, char **argv) {
     }
     _setmode(erlin_fd,_O_BINARY);
     _setmode(erlout_fd,_O_BINARY);
+#endif
+#ifdef __linux__
+    oom_adjust_setup();
 #endif
     strncpy(program_name, argv[0], sizeof(program_name));
     program_name[sizeof(program_name)-1] = '\0';
@@ -698,12 +709,18 @@ do_terminate(int erlin_fd, int reason) {
 		print_error("Would reboot. Terminating.");
 	    else {
 		kill_old_erlang();
+#ifdef __linux__
+		oom_adjust_restore();
+#endif
 		ret = system(command);
 		print_error("Executed \"%s\" -> %d. Terminating.",command, ret);
 	    }
 	    free_env_val(command);
 	} else {
 	    kill_old_erlang();
+#ifdef __linux__
+	    oom_adjust_restore();
+#endif
 	    ret = system((char*)&cmd[0]);
 	    print_error("Executed \"%s\" -> %d. Terminating.",cmd, ret);
 	}
@@ -1159,4 +1176,97 @@ time_t timestamp(time_t *res)
     return time(res);
 }
 
+#endif
+
+#ifdef __linux__
+/*
+ * Adjust the OOM killer to avoid killing the heart process.
+ * This code was taken from OpenSSH, openbsd-compat/port-linux.c.
+ *
+ * Note that this will normally not take effect, unless heart is
+ * being run as root, or has the CAP_SYS_RESOURCE capability.
+ *
+ * The magic "don't kill me" value is documented in eg:
+ * http://lxr.linux.no/#linux+v2.6.36/Documentation/filesystems/proc.txt
+ */
+
+static int oom_adj_save = INT_MIN;
+/* This file was introduced in Linux 2.6.36.  The old
+ * /proc/self/oom_adj is still present for compatibility, but we
+ * shouldn't need to support it.
+ *
+ * This "file" contains an integer between -1000 and 1000.
+ */
+static const char oom_adj_path[] = "/proc/self/oom_score_adj";
+
+/* Set the OOM score adjustment to new_value.
+ * Return the old value.  Return INT_MIN on failure.
+ */
+static int set_oom_adjust(int new_value)
+{
+  FILE *fp;
+  int dumpable = -1;
+  int old_value = INT_MIN;
+
+  fp = fopen(oom_adj_path, "r+");
+  if (fp == NULL && errno == EACCES) {
+    /* If we're running with elevated capabilities (in this case, with
+     * CAP_SYS_RESOURCE), then our process is made "not dumpable", and
+     * if it's "not dumpable", files in /proc/PID are owned by root, not
+     * the user that the process is running as.  So we need to
+     * temporarily mark ourselves as "dumpable" in order to set the OOM
+     * score adjustment.
+     */
+    dumpable = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+    prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+    fp = fopen(oom_adj_path, "r+");
+  }
+
+  if (fp == NULL) {
+    debugf("failed to open %s; not setting OOM score adjustment: %s",
+           oom_adj_path, strerror(errno));
+  } else {
+    if (fscanf(fp, "%d", &old_value) != 1) {
+      debugf("error reading %s: %s", oom_adj_path,
+             strerror(errno));
+    } else {
+      rewind(fp);
+      if (fprintf(fp, "%d\n", new_value) <= 0) {
+        debugf("error writing %s: %s",
+               oom_adj_path, strerror(errno));
+        old_value = INT_MIN;
+      } else {
+        debugf("Set %s from %d to %d",
+               oom_adj_path, old_value, new_value);
+      }
+    }
+    if (fclose(fp) != 0) {
+      debugf("error closing %s: %s",
+             oom_adj_path, strerror(errno));
+      old_value = INT_MIN;
+    }
+  }
+
+  if (dumpable != -1) {
+    /* restore previous value, if we changed it */
+    prctl(PR_SET_DUMPABLE, dumpable, 0, 0, 0);
+  }
+  return old_value;
+}
+
+/*
+ * Tell the kernel's out-of-memory killer to avoid heart.
+ */
+void oom_adjust_setup(void)
+{
+  oom_adj_save = set_oom_adjust(-1000);
+}
+
+/* Restore the saved OOM adjustment */
+void oom_adjust_restore(void)
+{
+  if (oom_adj_save != INT_MIN) {
+    set_oom_adjust(oom_adj_save);
+  }
+}
 #endif
