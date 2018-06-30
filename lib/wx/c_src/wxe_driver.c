@@ -38,7 +38,7 @@
 
 #define TEMP_BINARY_SIZE 512
 
-static ErlDrvData wxe_driver_start(ErlDrvPort port, char *buff);
+static ErlDrvData wxe_driver_start(ErlDrvPort port, char *command);
 static void wxe_driver_stop(ErlDrvData handle);
 static ErlDrvSSizeT wxe_driver_control(ErlDrvData handle,
 				       unsigned int command,  
@@ -96,43 +96,47 @@ ErlDrvPort WXE_DRV_PORT_HANDLE = 0;
 ErlDrvTermData WXE_DRV_PORT = 0;
 
 static ErlDrvData 
-wxe_driver_start(ErlDrvPort port, char *buff)
+wxe_driver_start(ErlDrvPort port, char *command)
 {
-   wxe_data *data;
+    wxe_data *data;
 
-   data = (wxe_data *) malloc(sizeof(wxe_data));
-   wxe_debug = 0;
+    data = (wxe_data *) malloc(sizeof(wxe_data));
+    wxe_debug = 0;
 
-   if (data == NULL) {
-      fprintf(stderr, " Couldn't alloc mem\r\n");
-      return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
-   } else {
-      ErlDrvTermData term_port = driver_mk_port(port);
-      set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
-      data->driver_data = NULL;
-      data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
-      data->bin[0].from = 0;
-      data->bin[1].from = 0;
-      data->bin[2].from = 0;
-      data->max_bins = DEF_BINS;
-      data->port_handle = port;
-      data->port = term_port;
-      data->pdl = driver_pdl_create(port);
-      if(WXE_DRV_PORT_HANDLE == 0) {
-	 for(; *buff != 32; buff++);
-	 buff++;
-	 erl_wx_privdir = strdup(buff);
-	 
-	 WXE_DRV_PORT_HANDLE = port;
-	 WXE_DRV_PORT = term_port;
-	 wxe_master = data;
-	 if(!(start_native_gui(data) == 1))
-	    return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
-      } else {
-	  meta_command(CREATE_PORT,data);
-      }
-      return (ErlDrvData) data;
-   }
+    if (data == NULL) {
+        fprintf(stderr, " Couldn't alloc mem\r\n");
+        return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
+    } else {
+        ErlDrvTermData term_port = driver_mk_port(port);
+        set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
+        data->driver_data = NULL;
+        data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
+        data->bin[0].from = 0;
+        data->bin[1].from = 0;
+        data->bin[2].from = 0;
+        data->max_bins = DEF_BINS;
+        data->port_handle = port;
+        data->port = term_port;
+        data->pdl = driver_pdl_create(port);
+        if(WXE_DRV_PORT_HANDLE == 0) {
+            char *first_space = strchr(command, ' ');
+            if (first_space) {
+              char *priv_dir = first_space + 1;
+              erl_wx_privdir = strdup(priv_dir);
+
+              WXE_DRV_PORT_HANDLE = port;
+              WXE_DRV_PORT = term_port;
+              wxe_master = data;
+              if(start_native_gui(data) != 1)
+                  return ERL_DRV_ERROR_GENERAL;  /* ENOMEM */
+            } else {
+              return ERL_DRV_ERROR_BADARG;
+            }
+        } else {
+            meta_command(CREATE_PORT, data);
+        }
+        return (ErlDrvData) data;
+    }
 }
 
 static void
@@ -177,7 +181,7 @@ wxe_driver_call(ErlDrvData handle, unsigned int command,
    if (len > rlen)
       *res = driver_alloc(len);
    memcpy((void *) *res, (void *) buf, len);
-   return len;   
+   return len;
 }
 
 
@@ -202,20 +206,20 @@ standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
    int i, max;
 
    for(i = 0; i < sd->max_bins; i++) {
-       if(sd->bin[i].from == 0) {
-	   binref = &sd->bin[i];
-	   break;
-       }
+     if(sd->bin[i].from == 0) {
+       binref = &sd->bin[i];
+       break;
+     }
    }
 
    if(binref == NULL) { /* realloc */
-       max = sd->max_bins + DEF_BINS;
-       driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
-       for(i=sd->max_bins; i < max; i++) {
-	   sd->bin[i].from = 0;
-       }
-       binref = &sd->bin[sd->max_bins];
-       sd->max_bins = max;
+     max = sd->max_bins + DEF_BINS;
+     driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
+     for(i=sd->max_bins; i < max; i++) {
+       sd->bin[i].from = 0;
+     }
+     binref = &sd->bin[sd->max_bins];
+     sd->max_bins = max;
    }
 
    if(ev->size > 0) {
