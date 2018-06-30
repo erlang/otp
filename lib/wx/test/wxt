@@ -18,7 +18,7 @@
 #  
 #  %CopyrightEnd%
 #
-# Usage: mt <args to erlang startup script>
+# Usage: wxt <args to erlang startup script>
 
 log=test_log_$$
 latest=test_log_latest
@@ -27,7 +27,7 @@ erlcmd="erl -sname test_server -smp -pa ../ebin $p $args -wx_test_verbose true -
 
 echo "Give the following command in order to see the outcome:"
 echo ""
-echo "	less test_log$$"
+echo "	less $log"
 
 rm "$latest" 2>/dev/null
 ln -s "$log" "$latest"
