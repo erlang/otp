@@ -3772,13 +3772,6 @@ RealSystem = system + MissedSystem</code>
               If found, that driver is started. A driver runs in the Erlang
               work space, which means that it is linked with the Erlang
               runtime system.</p>
-            <p>When starting external programs on Solaris, the system
-              call <c>vfork</c> is used in preference to <c>fork</c>
-              for performance reasons, although it has a history of
-              being less robust. If there are problems using
-              <c>vfork</c>, setting environment variable
-              <c>ERL_NO_VFORK</c> to any value causes <c>fork</c>
-              to be used instead.</p>
             <p>For external programs, <c>PATH</c> is searched
               (or an equivalent method is used to find programs,
               depending on the OS). This is done by invoking
