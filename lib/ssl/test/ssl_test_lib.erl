@@ -1186,13 +1186,13 @@ common_ciphers(crypto) ->
 common_ciphers(openssl) ->
     OpenSslSuites =
         string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
-    [ssl_cipher:erl_suite_definition(S)
+    [ssl_cipher:suite_definition(S)
      || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
         lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
     ].
 
 available_suites(Version) ->
-    [ssl_cipher:erl_suite_definition(Suite) || 
+    [ssl_cipher:suite_definition(Suite) || 
 	Suite  <-  ssl_cipher:filter_suites(ssl_cipher:suites(Version))].
 
 
@@ -1274,10 +1274,18 @@ ecdh_dh_anonymous_suites(Version) ->
                                   (_) -> 
                                        false 
                                end}]).
+psk_suites({3,_} = Version) ->
+    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:psk_suites(Version)], []);
 psk_suites(Version) ->
-    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:psk_suites(Version)], []).
+    ssl:filter_cipher_suites(psk_suites(dtls_v1:corresponding_tls_version(Version)), 
+                             [{cipher, 
+                               fun(rc4_128) -> 
+                                       false;
+                                  (_) -> 
+                                       true 
+                               end}]).
 
-psk_anon_suites(Version) ->
+psk_anon_suites({3,_} = Version) ->
     ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:psk_suites_anon(Version)], 
                              [{key_exchange, 
                                fun(psk) -> 
@@ -1286,7 +1294,17 @@ psk_anon_suites(Version) ->
                                        true;
                                   (_) -> 
                                        false 
+                               end}]);
+
+psk_anon_suites(Version) ->
+    ssl:filter_cipher_suites(psk_anon_suites(dtls_v1:corresponding_tls_version(Version)), 
+                             [{cipher, 
+                               fun(rc4_128) -> 
+                                       false;
+                                  (_) -> 
+                                       true 
                                end}]).
+
 
 srp_suites() ->
     ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:srp_suites()],
@@ -1308,7 +1326,7 @@ srp_dss_suites() ->
                                        false 
                                end}]).
 chacha_suites(Version) ->
-    [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:chacha_suites(Version))].
+    [ssl_cipher:suite_definition(S) || S <- ssl_cipher:filter_suites(ssl_cipher:chacha_suites(Version))].
 
 
 rc4_suites(Version) ->
@@ -1338,7 +1356,7 @@ der_to_pem(File, Entries) ->
 
 cipher_result(Socket, Result) ->
     {ok, Info} = ssl:connection_information(Socket),
-    Result = {ok, {proplists:get_value(protocol, Info), proplists:get_value(cipher_suite, Info)}},
+    Result = {ok, {proplists:get_value(protocol, Info), proplists:get_value(selected_cipher_suite, Info)}},
     ct:log("~p:~p~nSuccessfull connect: ~p~n", [?MODULE,?LINE, Result]),
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
@@ -1709,7 +1727,7 @@ filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_list(Cipher)->
     filter_suites([ssl_cipher:openssl_suite(S) || S <- Ciphers], 
                   AtomVersion);
 filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_binary(Cipher)->
-    filter_suites([ssl_cipher:erl_suite_definition(S) || S <- Ciphers], 
+    filter_suites([ssl_cipher:suite_definition(S) || S <- Ciphers], 
                   AtomVersion);
 filter_suites(Ciphers0, AtomVersion) ->
     Version = tls_version(AtomVersion),
@@ -1721,7 +1739,7 @@ filter_suites(Ciphers0, AtomVersion) ->
         ++ ssl_cipher:srp_suites_anon() 
 	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
-    Supported2 = [ssl_cipher:erl_suite_definition(S) || S <- Supported1],
+    Supported2 = [ssl_cipher:suite_definition(S) || S <- Supported1],
     [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
 
 -define(OPENSSL_QUIT, "Q\n").
