@@ -425,11 +425,11 @@ resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
 resolve_uri(Scheme, Host, Port, Path, Query, URI, Map0) ->
     case maps:is_key(scheme, URI) of
         true ->
-            Port = get_port(URI),
+            Port0 = get_port(URI),
             maybe_add_query(
               Map0#{scheme => maps:get(scheme, URI),
                    host => maps:get(host, URI),
-                   port => Port,
+                   port => Port0,
                    path => maps:get(path, URI)},
               URI);
         false ->
