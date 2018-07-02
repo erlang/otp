@@ -1482,6 +1482,7 @@ connection_info(#state{sni_hostname = SNIHostname,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {cipher_suite, ssl_cipher:erl_suite_definition(CipherSuiteDef)},
+     {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = ConnectionStates}) ->
