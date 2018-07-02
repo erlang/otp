@@ -2012,29 +2012,6 @@ esac
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
 
-disable_vfork=false
-if test "x$EMU_THR_LIB_NAME" != "x"; then
-	AC_MSG_CHECKING([if vfork is known to hang multithreaded applications])
-	case $host_os in
-		osf*)
-			AC_MSG_RESULT(yes)
-			disable_vfork=true;;
-		*)
-			AC_MSG_RESULT(no);;
-	esac
-fi
-
-if test $disable_vfork = false; then
-	AC_FUNC_VFORK
-	if test $ac_cv_func_vfork_works = no; then
-		disable_vfork=true
-	fi
-fi
-
-if test $disable_vfork = true; then
-	AC_DEFINE(DISABLE_VFORK, 1, [Define if you want to disable vfork.])
-fi
-
 AC_FUNC_VPRINTF
 
 dnl The AC_DEFINEs are necessary for autoheader to work. :-(
