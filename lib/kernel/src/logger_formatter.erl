@@ -77,7 +77,7 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
                         %% Trim leading and trailing whitespaces, and replace
                         %% newlines with ", "
                         re:replace(string:trim(MsgStr0),",?\r?\n\s*",", ",
-                                   [{return,list},global]);
+                                   [{return,list},global,unicode]);
                     _false ->
                         MsgStr0
                 end;
