@@ -457,10 +457,10 @@ get_default_port("https") ->
 resolve_authority(Host, Port, Path, Query, RelURI, Map) ->
     case maps:is_key(host, RelURI) of
         true ->
-            Port = get_port(RelURI),
+            Port0 = get_port(RelURI),
             maybe_add_query(
               Map#{host => maps:get(host, RelURI),
-                   port => Port,
+                   port => Port0,
                    path => maps:get(path, RelURI)},
               RelURI);
         false ->
