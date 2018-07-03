@@ -2523,7 +2523,7 @@ ssl_options_list([ciphers = Key | Keys], [Value | Values], Acc) ->
    ssl_options_list(Keys, Values, 
 		    [{Key, lists:map(
 			     fun(Suite) -> 
-				     ssl_cipher:erl_suite_definition(Suite) 
+				     ssl_cipher:suite_definition(Suite) 
 			     end, Value)} 
 		     | Acc]);
 ssl_options_list([Key | Keys], [Value | Values], Acc) ->
