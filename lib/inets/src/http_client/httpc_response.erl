@@ -434,7 +434,8 @@ resolve_uri(Scheme, Host, Port, Path, Query, URI, Map0) ->
               URI);
         false ->
             Map = Map0#{scheme => Scheme},
-            resolve_authority(Host, Port, Path, Query, URI, Map)
+            URI1 = URI#{scheme => Scheme},
+            resolve_authority(Host, Port, Path, Query, URI1, Map)
     end.
 
 
