@@ -71,7 +71,8 @@ migration(Cfg) ->
     %% Disable driver_alloc to avoid recursive alloc_util calls
     %% through enif_mutex_create() in my_creating_mbc().
     drv_case(Cfg, concurrent, "+MZe true +MRe false"),
-    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf").
+    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf"),
+    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas chaosff").
 
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of

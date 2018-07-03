@@ -3654,90 +3654,28 @@ memory() ->
 -spec erlang:memory(Type :: memory_type()) -> non_neg_integer();
                    (TypeList :: [memory_type()]) -> [{memory_type(), non_neg_integer()}].
 memory(Type) when erlang:is_atom(Type) ->
-    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(Type),
-    case get_mem_data(ChkSup, ALCU, AA) of
-	notsup ->
-	    erlang:error(notsup, [Type]);
-	Mem ->
-	    Value = get_memval(Type, Mem),
-	    case {BadArgZero, Value} of
-		{true, 0} -> erlang:error(badarg, [Type]);
-		_ -> Value
-	    end
+    try
+        case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+            notsup -> erlang:error(notsup);
+            Mem -> get_memval(Type, Mem)
+        end
+    catch
+        error:badarg -> erlang:error(badarg)
     end;
 memory(Types) when erlang:is_list(Types) ->
-    {AA, ALCU, ChkSup, BadArgZeroList} = need_mem_info_list(Types),
-    case get_mem_data(ChkSup, ALCU, AA) of
-	notsup ->
-	    erlang:error(notsup, [Types]);
-	Mem ->
-	    case memory_result_list(Types, BadArgZeroList, Mem) of
-		badarg -> erlang:error(badarg, [Types]);
-		Result -> Result
-	    end
+    try
+        case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+            notsup -> erlang:error(notsup);
+            Mem -> memory_1(Types, Mem)
+        end
+    catch
+        error:badarg -> erlang:error(badarg)
     end.
 
-memory_result_list([], [], _Mem) ->
-    [];
-memory_result_list([T|Ts], [BAZ|BAZs], Mem) ->
-    case memory_result_list(Ts, BAZs, Mem) of
-	badarg -> badarg;
-	TVs ->
-	    V = get_memval(T, Mem),
-	    case {BAZ, V} of
-		{true, 0} -> badarg;
-		_ -> [{T, V}| TVs]
-	    end
-    end.
-
-get_mem_data(true, AlcUAllocs, NeedAllocatedAreas) ->
-    case memory_is_supported() of
-	false -> notsup;
-	true -> get_mem_data(false, AlcUAllocs, NeedAllocatedAreas)
-    end;
-get_mem_data(false, AlcUAllocs, NeedAllocatedAreas) ->
-    AlcUMem = case AlcUAllocs of
-		  [] -> #memory{};
-		  _ ->
-		      au_mem_data(AlcUAllocs)
-	      end,
-    case NeedAllocatedAreas of
-	true -> aa_mem_data(AlcUMem);
-	false -> AlcUMem
-    end.
-
-need_mem_info_list([]) ->
-    {false, [], false, []};
-need_mem_info_list([T|Ts]) ->
-    {MAA, MALCU, MChkSup, MBadArgZero} = need_mem_info_list(Ts),
-    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(T),
-    {case AA of
-	 true -> true;
-	 _ -> MAA
-     end,
-     ALCU ++ (MALCU -- ALCU),
-     case ChkSup of
-	 true -> true;
-	 _ -> MChkSup
-     end,
-     [BadArgZero|MBadArgZero]}.
-
-need_mem_info(Type) when Type == total;
-			 Type == system ->
-    {true, ?ALL_NEEDED_ALLOCS, false, false};
-need_mem_info(Type) when Type == processes;
-			 Type == processes_used ->
-    {true, [eheap_alloc, fix_alloc], true, false};
-need_mem_info(Type) when Type == atom;
-			 Type == atom_used;
-			 Type == code ->
-    {true, [], true, false};
-need_mem_info(binary) ->
-    {false, [binary_alloc], true, false};
-need_mem_info(ets) ->
-    {true, [ets_alloc], true, false};
-need_mem_info(_) ->
-    {false, [], false, true}.
+memory_1([Type | Types], Mem) ->
+    [{Type, get_memval(Type, Mem)} | memory_1(Types, Mem)];
+memory_1([], _Mem) ->
+    [].
 
 get_memval(total, #memory{total = V}) -> V;
 get_memval(processes, #memory{processes = V}) -> V;
@@ -3748,16 +3686,7 @@ get_memval(atom_used, #memory{atom_used = V}) -> V;
 get_memval(binary, #memory{binary = V}) -> V;
 get_memval(code, #memory{code = V}) -> V;
 get_memval(ets, #memory{ets = V}) -> V;
-get_memval(_, #memory{}) -> 0.
-
-memory_is_supported() ->
-    {_, _, FeatureList, _} = erlang:system_info(allocator),
-    case ((erlang:system_info(alloc_util_allocators) 
-	   -- ?CARRIER_ALLOCS)
-	  -- FeatureList) of
-	[] -> true;
-	_ -> false
-    end.
+get_memval(_, #memory{}) -> erlang:error(badarg).
 
 get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
     get_blocks_size(Rest, Acc+Sz);
@@ -3766,16 +3695,6 @@ get_blocks_size([{blocks_size, Sz} | Rest], Acc) ->
 get_blocks_size([_ | Rest], Acc) ->
     get_blocks_size(Rest, Acc);
 get_blocks_size([], Acc) ->
-    Acc.
-
-
-blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
-						     Carriers == mbcs_pool;
-						     Carriers == sbcs ->
-    blocks_size(Rest, get_blocks_size(SizeList, Acc));
-blocks_size([_ | Rest], Acc) ->
-    blocks_size(Rest, Acc);
-blocks_size([], Acc) ->
     Acc.
 
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
@@ -3802,64 +3721,78 @@ fix_proc([_ | Rest], Acc) ->
 fix_proc([], Acc) ->
     Acc.
 
+au_mem_fix(#memory{ processes = Proc,
+                    processes_used = ProcU,
+                    system = Sys } = Mem, Data) ->
+    case fix_proc(Data, {0, 0}) of
+        {A, U} ->
+            Mem#memory{ processes = Proc+A,
+                        processes_used = ProcU+U,
+                        system = Sys-A };
+        {Mask, A, U} ->
+            Mem#memory{ processes = Mask band (Proc+A),
+                        processes_used = Mask band (ProcU+U),
+                        system = Mask band (Sys-A) }
+    end.
+
+au_mem_acc(#memory{ total = Tot,
+                    processes = Proc,
+                    processes_used = ProcU } = Mem,
+           eheap_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                processes = Proc+Sz,
+                processes_used = ProcU+Sz};
+au_mem_acc(#memory{ total = Tot,
+                    system = Sys,
+                    ets = Ets } = Mem, ets_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz,
+                ets = Ets+Sz };
+au_mem_acc(#memory{total = Tot,
+		    system = Sys,
+		    binary = Bin } = Mem,
+	    binary_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz,
+                binary = Bin+Sz};
+au_mem_acc(#memory{ total = Tot,
+                    system = Sys } = Mem,
+           _Type, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz }.
+
+au_mem_foreign(Mem, [{Type, SizeList} | Rest]) ->
+    au_mem_foreign(au_mem_acc(Mem, Type, SizeList), Rest);
+au_mem_foreign(Mem, []) ->
+    Mem.
+
+au_mem_current(Mem0, Type, [{mbcs_pool, MBCS} | Rest]) ->
+    [Foreign] = [Foreign || {foreign_blocks, Foreign} <- MBCS],
+    SizeList = MBCS -- [Foreign],
+    Mem = au_mem_foreign(Mem0, Foreign),
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [{mbcs, SizeList} | Rest]) ->
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [{sbcs, SizeList} | Rest]) ->
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [_ | Rest]) ->
+    au_mem_current(Mem, Type, Rest);
+au_mem_current(Mem, _Type, []) ->
+    Mem.
+
 au_mem_data(notsup, _) ->
     notsup;
 au_mem_data(_, [{_, false} | _]) ->
     notsup;
-au_mem_data(#memory{total = Tot,
-		    processes = Proc,
-		    processes_used = ProcU} = Mem,
-	    [{eheap_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   processes = Proc+Sz,
-			   processes_used = ProcU+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    system = Sys,
-		    ets = Ets} = Mem,
-	    [{ets_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz,
-			   ets = Ets+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    system = Sys,
-		    binary = Bin} = Mem,
-	    [{binary_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz,
-			   binary = Bin+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    processes = Proc,
-		    processes_used = ProcU,
-		    system = Sys} = Mem,
-	    [{fix_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    case fix_proc(Data, {0, 0}) of
-	{A, U} ->
-	    au_mem_data(Mem#memory{total = Tot+Sz,
-				   processes = Proc+A,
-				   processes_used = ProcU+U,
-				   system = Sys+Sz-A},
-			Rest);
-	{Mask, A, U} ->
-	    au_mem_data(Mem#memory{total = Tot+Sz,
-				   processes = Mask band (Proc+A),
-				   processes_used = Mask band (ProcU+U),
-				   system = Mask band (Sys+Sz-A)},
-			Rest)
-    end;
-au_mem_data(#memory{total = Tot,
-		    system = Sys} = Mem,
-	    [{_, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz},
-		Rest);
+au_mem_data(#memory{} = Mem0, [{fix_alloc, _, Data} | Rest]) ->
+    Mem = au_mem_fix(Mem0, Data),
+    au_mem_data(au_mem_current(Mem, fix_alloc, Data), Rest);
+au_mem_data(#memory{} = Mem, [{Type, _, Data} | Rest]) ->
+    au_mem_data(au_mem_current(Mem, Type, Data), Rest);
 au_mem_data(EMD, []) ->
     EMD.
 

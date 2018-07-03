@@ -107,9 +107,11 @@ typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
-    AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
-    AOFF_RBTree_t* root;        /* Root of my block tree */
+    AOFF_RBTree_t rbt_node;        /* My node in the carrier tree */
+    AOFF_RBTree_t* root;           /* Root of my block tree */
+    enum AOFFSortOrder blk_order;
 };
+
 #define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
 
 /* 
@@ -281,15 +283,28 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
+    if (aoffinit->blk_order == FF_CHAOS) {
+        const enum AOFFSortOrder orders[3] = {FF_AOFF, FF_AOBF, FF_BF};
+        int index = init->ix % (sizeof(orders) / sizeof(orders[0]));
+
+        ASSERT(init->alloc_no == ERTS_ALC_A_TEST);
+        aoffinit->blk_order = orders[index];
+    }
+
+    if (aoffinit->crr_order == FF_CHAOS) {
+        const enum AOFFSortOrder orders[2] = {FF_AGEFF, FF_AOFF};
+        int index = init->ix % (sizeof(orders) / sizeof(orders[0]));
+
+        ASSERT(init->alloc_no == ERTS_ALC_A_TEST);
+        aoffinit->crr_order = orders[index];
+    }
+
     alc->blk_order                      = aoffinit->blk_order;
     alc->crr_order                      = aoffinit->crr_order;
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
-    allctr->min_block_size = (aoffinit->blk_order == FF_BF
-                              ? (offsetof(AOFF_RBTree_t, u.next)
-                                 + ErtsSizeofMember(AOFF_RBTree_t, u.next))
-                              : offsetof(AOFF_RBTree_t, u));
+    allctr->min_block_size              = sizeof(AOFF_RBTree_t);
 
     allctr->vsn_str			= ERTS_ALC_AOFF_ALLOC_VSN_STR;
 
@@ -512,14 +527,15 @@ tree_insert_fixup(AOFF_RBTree_t** root, AOFF_RBTree_t *blk)
 static void
 aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
 {
-    AOFFAllctr_t* alc = (AOFFAllctr_t*)allctr;
     AOFF_RBTree_t* del = (AOFF_RBTree_t*)blk;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(&del->hdr);
 
-    ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
-    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
+    (void)allctr;
 
-    if (alc->blk_order == FF_BF) {
+    ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
+    HARD_CHECK_TREE(&crr->crr, crr->blk_order, crr->root, 0);
+
+    if (crr->blk_order == FF_BF) {
 	ASSERT(del->flags & IS_BF_FLG);
 	if (IS_LIST_ELEM(del)) {
 	    /* Remove from list */
@@ -540,14 +556,14 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
 	    
 	    replace(&crr->root, (AOFF_RBTree_t*)del, LIST_NEXT(del));
 	    
-	    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
+	    HARD_CHECK_TREE(&crr->crr, crr->blk_order, crr->root, 0);
 	    return;
 	}
     }
 
     rbt_delete(&crr->root, (AOFF_RBTree_t*)del);
 
-    HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, 0);
+    HARD_CHECK_TREE(&crr->crr, crr->blk_order, crr->root, 0);
 
     /* Update the carrier tree with a potentially new (lower) max_sz
      */    
@@ -737,17 +753,18 @@ rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
 static void
 aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 {
-    AOFFAllctr_t* alc = (AOFFAllctr_t*) allctr;
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
     AOFF_RBTree_t *crr_node;
     AOFF_Carrier_t *blk_crr = (AOFF_Carrier_t*) FBLK_TO_MBC(block);
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
+    (void)allctr;
+
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(&blk_crr->crr));
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
-    HARD_CHECK_TREE(&blk_crr->crr, alc->blk_order, blk_crr->root, 0);
+    HARD_CHECK_TREE(&blk_crr->crr, blk_crr->blk_order, blk_crr->root, 0);
 
-    rbt_insert(alc->blk_order, &blk_crr->root, blk);
+    rbt_insert(blk_crr->blk_order, &blk_crr->root, blk);
 
     /*
      * Update carrier tree with a potentially new (larger) max_sz
@@ -891,7 +908,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     /* Get block within carrier tree
      */
 #ifdef HARD_DEBUG
-    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->blk_order, crr->root, size);
+    dbg_blk = HARD_CHECK_TREE(&crr->crr, crr->blk_order, crr->root, size);
 #endif
 
     blk = rbt_search(crr->root, size);
@@ -904,7 +921,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     if (!blk)
 	return NULL;
 
-    if (cand_blk && cmp_cand_blk(alc->blk_order, cand_blk, blk) < 0) {
+    if (cand_blk && cmp_cand_blk(crr->blk_order, cand_blk, blk) < 0) {
 	return NULL; /* cand_blk was better */
     }
 
@@ -927,21 +944,28 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
+    Sint64 bt = get_birth_time();
 
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
 
     crr->rbt_node.hdr.bhdr = 0;
-    if (alc->crr_order == FF_AGEFF || IS_DEBUG) {
-        Sint64 bt = get_birth_time();
-        crr->rbt_node.u.birth_time = bt;
-        crr->crr.cpool.pooled.u.birth_time = bt;
-    }
+
+    /* While birth time is only used for FF_AGEFF, we have to set it for all
+     * types as we can be migrated to an instance that uses it and we don't
+     * want to mess its order up. */
+    crr->rbt_node.u.birth_time = bt;
+    crr->crr.cpool.pooled.u.birth_time = bt;
+
     rbt_insert(alc->crr_order, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
     crr->root = NULL;
 
     HARD_CHECK_TREE(NULL, alc->crr_order, *root, 0);
+
+    /* When a carrier has been migrated, its block order may differ from that
+     * of the allocator it's been migrated to. */
+    crr->blk_order = alc->blk_order;
 }
 
 #define IS_CRR_IN_TREE(CRR,ROOT) \

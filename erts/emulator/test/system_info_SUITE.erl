@@ -457,11 +457,16 @@ cmp_memory(MWs, Str) ->
     %% Total, processes, processes_used, and system will seldom
     %% give us exactly the same result since the two readings
     %% aren't taken atomically.
+    %%
+    %% Torerance is scaled according to the number of schedulers
+    %% to match spawn_mem_workers.
 
-    cmp_memory(total, EM, EDM, 1.05),
-    cmp_memory(processes, EM, EDM, 1.05),
-    cmp_memory(processes_used, EM, EDM, 1.05),
-    cmp_memory(system, EM, EDM, 1.05),
+    Tolerance = 1.05 + 0.01 * erlang:system_info(schedulers_online),
+
+    cmp_memory(total, EM, EDM, Tolerance),
+    cmp_memory(processes, EM, EDM, Tolerance),
+    cmp_memory(processes_used, EM, EDM, Tolerance),
+    cmp_memory(system, EM, EDM, Tolerance),
 
     ok.
     

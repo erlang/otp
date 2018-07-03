@@ -111,15 +111,18 @@
           default, but this can be configured an a per-allocator basis with the
           <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
           </seealso> emulator option.</p>
-        <p>If tagged allocations are not enabled on any of the specified
-          allocator types, the call will fail with
-          <c>{error, not_enabled}</c>.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
         <p>The following options can be used:</p>
         <taglist>
           <tag><c>allocator_types</c></tag>
           <item>
-            <p>The allocator types that will be searched. Defaults to all
-              <c>alloc_util</c> allocators.</p>
+            <p>The allocator types that will be searched. Note that blocks can
+              move freely between allocator types, so restricting the search to
+              certain allocators may return unexpected types (e.g. process
+              heaps when searching binary_alloc), or hide blocks that were
+              migrated out.</p>
+            <p>Defaults to all <c>alloc_util</c> allocators.</p>
           </item>
           <tag><c>scheduler_ids</c></tag>
           <item>
