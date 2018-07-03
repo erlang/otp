@@ -206,6 +206,7 @@ volatile int *__erl_errno_place(void)
 	use_fallback = 1;
 	return &fallback_errno;
     }
+    *erl_errno_p = 0;
 
     if (pthread_setspecific(erl_errno_key, erl_errno_p) != 0 ||
 	(erl_errno_p = pthread_getspecific(erl_errno_key)) == NULL) {
