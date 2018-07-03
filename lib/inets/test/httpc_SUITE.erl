@@ -59,7 +59,8 @@ all() ->
      {group, http_unix_socket},
      {group, https},
      {group, sim_https},
-     {group, misc}
+     {group, misc},
+     {group, sim_mixed} % HTTP and HTTPS sim servers
     ].
 
 groups() ->
@@ -74,7 +75,8 @@ groups() ->
      {http_unix_socket, [], simulated_unix_socket()},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
-     {misc, [], misc()}
+     {misc, [], misc()},
+     {sim_mixed, [], sim_mixed()}
     ].
 
 real_requests()->
@@ -170,6 +172,11 @@ misc() ->
      wait_for_whole_response
     ].
 
+sim_mixed() ->
+    [
+     redirect_http_to_https
+    ].
+
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
@@ -195,7 +202,8 @@ init_per_group(misc = Group, Config) ->
     Config;
 
 
-init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
+init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
+                                    Group =:= sim_mixed ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
@@ -238,6 +246,13 @@ end_per_group(http_unix_socket,_Config) ->
 end_per_group(_, _Config) ->
     ok.
 
+do_init_per_group(Group=sim_mixed, Config0) ->
+    % The mixed group uses two server ports (http and https), so we use
+    % different config names here.
+    Config1 = init_ssl(Config0),
+    Config2 = proplists:delete(http_port, proplists:delete(https_port, Config1)),
+    {HttpPort, HttpsPort} = server_start(Group, server_config(sim_https, Config2)),
+    [{http_port, HttpPort} | [{https_port, HttpsPort} | Config2]];
 do_init_per_group(Group, Config0) ->
     Config1 =
         case Group of
@@ -733,6 +748,24 @@ redirect_loop(Config) when is_list(Config) ->
     {ok, {{_,300,_}, [_ | _], _}}
 	= httpc:request(get, {URL, []}, [], []).
 
+%%-------------------------------------------------------------------------
+redirect_http_to_https() ->
+    [{doc, "Test that a 30X redirect from one scheme to another is handled "
+      "correctly."}].
+redirect_http_to_https(Config) when is_list(Config) ->
+    URL301 = mixed_url(http, "/301_custom_url.html", Config),
+    TargetUrl = mixed_url(https, "/dummy.html", Config),
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
+			[], []).
 %%-------------------------------------------------------------------------
 cookie() ->
     [{doc, "Test cookies."}].
@@ -1559,6 +1592,21 @@ url(sim_http, UserInfo, End, Config) ->
 url(sim_https, UserInfo, End, Config) ->
     url(https, UserInfo, End, Config).
 
+% Only for use in the `mixed` test group, where both http and https
+% URLs are possible.
+mixed_url(http, End, Config) ->
+    mixed_url(http_port, End, Config);
+mixed_url(https, End, Config) ->
+    mixed_url(https_port, End, Config);
+mixed_url(PortType, End, Config) ->
+    Port = proplists:get_value(PortType, Config),
+    {ok, Host} = inet:gethostname(),
+    Start = case PortType of
+        http_port -> ?URL_START;
+        https_port -> ?TLS_URL_START
+    end,
+    Start ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
+
 group_name(Config) ->
     GroupProp = proplists:get_value(tc_group_properties, Config),
     proplists:get_value(name, GroupProp).
@@ -1587,6 +1635,9 @@ server_start(http_ipv6, HttpdConfig) ->
     Serv = inets:services_info(),
     {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
     proplists:get_value(port, Info);
+server_start(sim_mixed, Config) ->
+    % For the mixed http/https case, we start two servers and return both ports.
+    {server_start(sim_http, []), server_start(sim_https, Config)};
 server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
@@ -1644,6 +1695,8 @@ esi_post(Sid, _Env, _Input) ->
 start_apps(https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(sim_https) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(sim_mixed) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
@@ -2089,6 +2142,20 @@ handle_uri(_,"/301_rel_uri.html",_,_,_,_) ->
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
 
+handle_uri("HEAD","/301_custom_url.html",_,Headers,_,_) ->
+    NewUri = proplists:get_value("x-test-301-url", Headers),
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
+
+handle_uri(_,"/301_custom_url.html",_,Headers,_,_) ->
+    NewUri = proplists:get_value("x-test-301-url", Headers),
+    Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
 
 handle_uri("HEAD","/302.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
