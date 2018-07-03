@@ -956,14 +956,14 @@ callback_mode() ->
       <seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast/2</c></seealso>:
     </p>
     <code type="erl"><![CDATA[
-button(Digit) ->
-    gen_statem:cast(?NAME, {button,Digit}).
+button(Button) ->
+    gen_statem:cast(?NAME, {button,Button}).
     ]]></code>
     <p>
       The first argument is the name of the <c>gen_statem</c> and must
       agree with the name used to start it. So, we use the
       same macro <c>?NAME</c> as when starting.
-      <c>{button,Digit}</c> is the event content.
+      <c>{button,Button}</c> is the event content.
     </p>
     <p>
       The event is sent to the <c>gen_statem</c>.
@@ -1171,7 +1171,7 @@ open(...) -> ... ;
 callback_mode() ->
     handle_event_function.
 
-handle_event(cast, {button,Digit}, State, #{code := Code} = Data) ->
+handle_event(cast, {button,Button}, State, #{code := Code} = Data) ->
     case State of
 	locked ->
             #{length := Length, buttons := Buttons} = Data,
@@ -1305,7 +1305,7 @@ stop() ->
 locked(timeout, _, Data) ->
     {next_state, locked, Data#{buttons := []}};
 locked(
-  cast, {button,Digit},
+  cast, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
 	true -> % Incomplete | Incorrect
@@ -1364,7 +1364,7 @@ locked(
     <code type="erl"><![CDATA[
 ...
 locked(
-  cast, {button,Digit},
+  cast, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
     if
@@ -1421,7 +1421,7 @@ open(cast, {button,_}, Data) ->
     <code type="erl"><![CDATA[
 ...
 locked(
-  cast, {button,Digit},
+  cast, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
     if
@@ -1662,7 +1662,7 @@ locked(enter, _OldState, Data) ->
     do_lock(),
     {keep_state,Data#{buttons => []}};
 locked(
-  cast, {button,Digit},
+  cast, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
     if
@@ -1747,7 +1747,7 @@ open(state_timeout, lock, Data) ->
     </p>
     <code type="erl"><![CDATA[
 ...
--export(down/1, up/1).
+-export([down/1, up/1]).
 ...
 down(Button) ->
     gen_statem:cast(?NAME, {down,Button}).
@@ -1759,15 +1759,15 @@ up(Button) ->
 
 locked(enter, _OldState, Data) ->
     do_lock(),
-    {keep_state,Data#{remaining => Code, buf => []}};
+    {keep_state,Data#{buttons => []}};
 locked(
-  internal, {button,Digit},
+  internal, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
 ...
 ]]></code>
     <code type="erl"><![CDATA[
 handle_common(cast, {down,Button}, Data) ->
-    {keep_state, Data#{button := Button}};
+    {keep_state, Data#{button => Button}};
 handle_common(cast, {up,Button}, Data) ->
     case Data of
         #{button := Button} ->
@@ -1833,10 +1833,10 @@ start_link(Code) ->
 stop() ->
     gen_statem:stop(?NAME).
 
-down(Digit) ->
-    gen_statem:cast(?NAME, {down,Digit}).
-up(Digit) ->
-    gen_statem:cast(?NAME, {up,Digit}).
+down(Button) ->
+    gen_statem:cast(?NAME, {down,Button}).
+up(Button) ->
+    gen_statem:cast(?NAME, {up,Button}).
 code_length() ->
     gen_statem:call(?NAME, code_length).
     ]]></code>
@@ -1873,7 +1873,7 @@ locked(enter, _OldState, Data) ->
 locked(state_timeout, button, Data) ->
     {keep_state, Data#{buttons := []}};
 locked(
-  internal, {button,Digit},
+  internal, {button,Button},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
     NewButtons =
         if
@@ -1884,7 +1884,6 @@ locked(
         end ++ [Button],
     if
         NewButtons =:= Code -> % Correct
-	    do_unlock(),
             {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
@@ -1940,7 +1939,7 @@ handle_event(enter, _OldState, locked, Data) ->
 handle_event(state_timeout, button, locked, Data) ->
     {keep_state, Data#{buttons := []}};
 handle_event(
-  internal, {button,Digit}, locked,
+  internal, {button,Button}, locked,
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
     NewButtons =
         if
@@ -1951,7 +1950,6 @@ handle_event(
         end ++ [Button],
     if
         NewButtons =:= Code -> % Correct
-	    do_unlock(),
             {next_state, open, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
@@ -2152,7 +2150,7 @@ handle_event(enter, _OldState, {locked,_}, Data) ->
 handle_event(state_timeout, button, {locked,_}, Data) ->
     {keep_state, Data#{buttons := []}};
 handle_event(
-  cast, {button,Digit}, {locked,LockButton},
+  cast, {button,Button}, {locked,LockButton},
   #{code := Code, length := Length, buttons := Buttons} = Data) ->
     NewButtons =
         if
@@ -2163,7 +2161,6 @@ handle_event(
         end ++ [Button],
     if
         NewButtons =:= Code -> % Correct
-	    do_unlock(),
             {next_state, {open,LockButton}, Data};
 	true -> % Incomplete | Incorrect
             {keep_state, Data#{buttons := NewButtons},
@@ -2177,11 +2174,11 @@ handle_event(enter, _OldState, {open,_}, _Data) ->
     do_unlock(),
     {keep_state_and_data,
      [{state_timeout,10000,lock}]}; % Time in milliseconds
-handle_event(state_timeout, lock, {open,_}, Data) ->
-    {next_state, locked, Data};
+handle_event(state_timeout, lock, {open,LockButton}, Data) ->
+    {next_state, {locked,LockButton}, Data};
 handle_event(cast, {button,LockButton}, {open,LockButton}, Data) ->
     {next_state, {locked,LockButton}, Data};
-handle_event(cast, {button,_}, {open,_}, Data) ->
+handle_event(cast, {button,_}, {open,_}, _Data) ->
     {keep_state_and_data,[postpone]};
     ]]></code>
     <code type="erl"><![CDATA[
