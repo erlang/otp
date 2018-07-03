@@ -803,6 +803,23 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
     struct kevent evts[2];
     struct timespec ts = {0, 0};
 
+    if (op == ERTS_POLL_OP_ADD) {
+        /* This is a hack to make the "noshell" option work; kqueue can poll
+         * these fds but will not report EV_EOF, so we return NVAL to use the
+         * fallback instead.
+         *
+         * This may be common to all pipes but we have no way to tell whether
+         * an fd is a pipe or not. */
+        switch (fd) {
+        case STDIN_FILENO:
+        case STDOUT_FILENO:
+        case STDERR_FILENO:
+            return ERTS_POLL_EV_NVAL;
+        default:
+            break;
+        }
+    }
+
 #if defined(EV_DISPATCH) && !defined(__OpenBSD__)
     /* If we have EV_DISPATCH we use it, unless we are on OpenBSD as the
        behavior of EV_EOF seems to be edge triggered there and we need it
