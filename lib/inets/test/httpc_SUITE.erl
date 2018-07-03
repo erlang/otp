@@ -174,7 +174,8 @@ misc() ->
 
 sim_mixed() ->
     [
-     redirect_http_to_https
+     redirect_http_to_https,
+     redirect_relative_different_port
     ].
 
 %%--------------------------------------------------------------------
@@ -755,6 +756,30 @@ redirect_http_to_https() ->
 redirect_http_to_https(Config) when is_list(Config) ->
     URL301 = mixed_url(http, "/301_custom_url.html", Config),
     TargetUrl = mixed_url(https, "/dummy.html", Config),
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
+			[], []).
+%%-------------------------------------------------------------------------
+redirect_relative_different_port() ->
+    [{doc, "Test that a 30X redirect with a relative target, but different "
+      "port, is handled correctly."}].
+redirect_relative_different_port(Config) when is_list(Config) ->
+    URL301 = mixed_url(http, "/301_custom_url.html", Config),
+
+    % We need an extra server of the same protocol here, so spawn a new
+    % HTTP-protocol one
+    Port = server_start(sim_http, []),
+    {ok, Host} = inet:gethostname(),
+    % Prefix the URI with '/' instead of a scheme
+    TargetUrl = "//" ++ Host ++ ":" ++ integer_to_list(Port) ++ "/dummy.html",
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
