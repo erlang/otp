@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 SOCKET_MODULES = \
+	socket_lib \
 	socket_server \
 	socket_client
 

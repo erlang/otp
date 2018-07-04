@@ -37,7 +37,7 @@
          accept/1, accept/2,
 
          send/2, send/3, send/4,
-         sendto/4, sendto/5,
+         sendto/3, sendto/4, sendto/5,
          %% sendmsg/4,
          %% writev/4, OR SENDV? It will be strange for recv then: recvv (instead of readv)
 
@@ -50,7 +50,10 @@
          shutdown/2,
 
          setopt/4,
-         getopt/3
+         getopt/3,
+
+         sockname/1,
+         peername/1
         ]).
 
 -export_type([
@@ -204,11 +207,11 @@
                          reuseaddr |
                          reuseport |
                          rxq_ovfl |
-                         sndlowat |
-                         sndtimeo |
                          setfib |
                          sndbuf |
                          sndbufforce |
+                         sndlowat |
+                         sndtimeo |
                          timestamp |
                          type.
 
@@ -431,6 +434,7 @@
 
 -define(SOCKET_SEND_FLAGS_DEFAULT,     []).
 -define(SOCKET_SEND_TIMEOUT_DEFAULT,   infinity).
+-define(SOCKET_SENDTO_FLAGS_DEFAULT,   []).
 -define(SOCKET_SENDTO_TIMEOUT_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
 
 -define(SOCKET_RECV_FLAG_CMSG_CLOEXEC, 0).
@@ -462,6 +466,7 @@
 -define(SOCKET_OPT_SOCK_RCVBUF,         17).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      21).
 -define(SOCKET_OPT_SOCK_SNDBUF,         27).
+-define(SOCKET_OPT_SOCK_TYPE,           32).
 
 -define(SOCKET_OPT_IP_RECVTOS,          25).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
@@ -927,40 +932,43 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 %% ---------------------------------------------------------------------------
 %%
 
-sendto(Socket, Data, Flags, Dest) ->
-    sendto(Socket, Data, Flags, Dest, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
+sendto(Socket, Data, Dest) ->
+    sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT).
 
--spec sendto(Socket, Data, Flags, Dest, Timeout) ->
+sendto(Socket, Data, Dest, Flags) ->
+    sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
+
+-spec sendto(Socket, Data, Dest, Flags, Timeout) ->
                     ok | {error, Reason} when
       Socket  :: socket(),
       Data    :: binary(),
-      Flags   :: send_flags(),
       Dest    :: null | sockaddr(),
+      Flags   :: send_flags(),
       Timeout :: timeout(),
       Reason  :: term().
 
-sendto(Socket, Data, Flags, Dest, Timeout) when is_list(Data) ->
+sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
-    sendto(Socket, Bin, Flags, Dest, Timeout);
-sendto(#socket{ref = SockRef}, Data, Flags, Dest, Timeout)
+    sendto(Socket, Bin, Dest, Flags, Timeout);
+sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
   when is_binary(Data) andalso
-       is_list(Flags) andalso
        (Dest =:= null) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
-    EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, EFlags, Dest, Timeout);
-sendto(#socket{ref = SockRef}, Data, Flags, #{family := Fam} = Dest, Timeout)
-  when is_binary(Data) andalso
        is_list(Flags) andalso
-       ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
        (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
     EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, EFlags, Dest, Timeout).
+    do_sendto(SockRef, Data, Dest, EFlags, Timeout);
+sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
+  when is_binary(Data) andalso
+       ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
+       is_list(Flags) andalso
+       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+    EFlags = enc_send_flags(Flags),
+    do_sendto(SockRef, Data, Dest, EFlags, Timeout).
 
-do_sendto(SockRef, Data, EFlags, Dest, Timeout) ->
+do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
     TS      = timestamp(Timeout),
     SendRef = make_ref(),
-    case nif_sendto(SockRef, SendRef, Data, EFlags, Dest) of
+    case nif_sendto(SockRef, SendRef, Data, Dest, EFlags) of
         ok ->
             %% We are done
             ok;
@@ -970,10 +978,10 @@ do_sendto(SockRef, Data, EFlags, Dest, Timeout) ->
             receive
                 {select, SockRef, SendRef, ready_output} when (Written > 0) ->
                     <<_:Written/binary, Rest/binary>> = Data,
-                    do_sendto(SockRef, Rest, EFlags, Dest,
+                    do_sendto(SockRef, Rest, Dest, EFlags,
                               next_timeout(TS, Timeout));
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, Dest,
+                    do_sendto(SockRef, Data, Dest, EFlags,
                               next_timeout(TS, Timeout));
 
                 {nif_abort, SendRef, Reason} ->
@@ -988,7 +996,7 @@ do_sendto(SockRef, Data, EFlags, Dest, Timeout) ->
         {error, eagain} ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
-                    do_sendto(SockRef, Data, EFlags, Dest,
+                    do_sendto(SockRef, Data, Dest, EFlags, 
                               next_timeout(TS, Timeout))
             after Timeout ->
                     nif_cancel(SockRef, sendto, SendRef),
@@ -1135,21 +1143,10 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
        (is_integer(Timeout) andalso (Timeout > 0)) ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
-    p("do_recv -> try read with"
-      "~n   SockRef: ~p"
-      "~n   RecvRef: ~p"
-      "~n   Length:  ~p"
-      "~n   EFlags:  ~p"
-      "~nwhen"
-      "~n   Timeout: ~p (~p)", [SockRef, RecvRef, Length, EFlags, Timeout, TS]),
     case nif_recv(SockRef, RecvRef, Length, EFlags) of
         {ok, true = _Complete, Bin} when (size(Acc) =:= 0) ->
-            p("do_recv -> ok: complete (size(Acc) =:= 0)"
-              "~n   size(Bin): ~p", [size(Bin)]),
             {ok, Bin};
         {ok, true = _Complete, Bin} ->
-            p("do_recv -> ok: complete"
-              "~n   size(Bin): ~p", [size(Bin)]),
             {ok, <<Acc/binary, Bin/binary>>};
 
         %% It depends on the amount of bytes we tried to read:
@@ -1158,16 +1155,12 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
         {ok, false = _Complete, Bin} when (Length =:= 0) ->
-            p("do_recv -> ok: not-complete (Length =:= 0)"
-              "~n   size(Bin): ~p", [size(Bin)]),
             do_recv(SockRef, RecvRef,
                     Length, EFlags,
                     <<Acc/binary, Bin/binary>>,
                     next_timeout(TS, Timeout));
 
         {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
-            p("do_recv -> ok: not-complete (size(Acc) =:= 0)"
-              "~n   size(Bin): ~p", [size(Bin)]),
             %% We got the first chunk of it.
             %% We will be notified (select message) when there
             %% is more to read.
@@ -1190,8 +1183,6 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             end;
 
         {ok, false = _Completed, Bin} ->
-            p("do_recv -> ok: not-complete"
-              "~n   size(Bin): ~p", [size(Bin)]),
             %% We got a chunk of it!
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
@@ -1213,17 +1204,14 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
 
         %% We return with the accumulated binary (if its non-empty)
         {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
-            p("do_recv -> eagain (Length =:= 0)", []),
             {ok, Acc};
 
         {error, eagain} ->
-            p("do_recv -> eagain", []),
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
-                    p("do_recv -> received select ready-input message", []),
                     do_recv(SockRef, RecvRef,
                             Length, EFlags,
                             Acc,
@@ -1317,16 +1305,21 @@ recvfrom(#socket{ref = SockRef}, BufSz, Flags, Timeout)
 do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
+    p("recvfrom -> try recvfrom"),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
         {ok, {_Source, _NewData}} = OK ->
+            p("recvfrom -> ok: "
+              "~n   Source: ~p", [_Source]),
             OK;
 
         {error, eagain} ->
+            p("recvfrom -> eagain - wait for select ready-input"),
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
+                    p("recvfrom -> eagain - got select ready-input"),
                     do_recvfrom(SockRef, BufSz, EFlags,
                                 next_timeout(TS, Timeout));
 
@@ -1339,7 +1332,8 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
                     {error, timeout}
             end;
 
-        {error, _} = ERROR ->
+        {error, _Reason} = ERROR ->
+            p("recvfrom -> error: ~p", [_Reason]),
             ERROR
 
     end.
@@ -1570,6 +1564,37 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
             {error, Reason} % Process more?
     end.
 
+
+
+%% ===========================================================================
+%%
+%% sockname - return the current address of the socket.
+%%
+%%
+
+-spec sockname(Socket) -> {ok, SockAddr} | {error, Reason} when
+      Socket   :: socket(),
+      SockAddr :: sockaddr(),
+      Reason   :: term().
+
+sockname(#socket{ref = SockRef}) ->
+    nif_sockname(SockRef).
+
+
+
+%% ===========================================================================
+%%
+%% peername - return the address of the peer *connected* to the socket.
+%%
+%%
+
+-spec peername(Socket) -> {ok, SockAddr} | {error, Reason} when
+      Socket   :: socket(),
+      SockAddr :: sockaddr(),
+      Reason   :: term().
+
+peername(#socket{ref = SockRef}) ->
+    nif_peername(SockRef).
 
 
 
@@ -1970,6 +1995,8 @@ enc_sockopt_key(socket = L, sndtimeo = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, timestamp = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
+enc_sockopt_key(socket = _L, type = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_TYPE;
 enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
@@ -2200,6 +2227,9 @@ tdiff(T1, T2) ->
 
 
 
+p(F) ->
+    p(F, []).
+
 p(F, A) ->
     p(get(sname), F, A).
 
@@ -2261,7 +2291,7 @@ nif_accept(_SRef, _Ref) ->
 nif_send(_SockRef, _SendRef, _Data, _Flags) ->
     erlang:error(badarg).
 
-nif_sendto(_SRef, _SendRef, _Data, _Flags, _DestSockAddr) ->
+nif_sendto(_SRef, _SendRef, _Data, _Dest, _Flags) ->
     erlang:error(badarg).
 
 nif_recv(_SRef, _RecvRef, _Length, _Flags) ->
@@ -2286,5 +2316,11 @@ nif_setopt(_Ref, _IsEnc, _Lev, _Key, _Val) ->
     erlang:error(badarg).
 
 nif_getopt(_Ref, _IsEnc, _Lev, _Key) ->
+    erlang:error(badarg).
+
+nif_sockname(_Ref) ->
+    erlang:error(badarg).
+
+nif_peername(_Ref) ->
     erlang:error(badarg).
 

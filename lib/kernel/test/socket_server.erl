@@ -1,27 +1,43 @@
-%%%-------------------------------------------------------------------
-%%% @author Micael Karlberg <Micael.Karlberg@ericsson.com>
-%%% @copyright (C) 2018, Micael Karlberg
-%%% @doc
-%%%
-%%% @end
-%%% Created : 27 Jun 2018 by Micael Karlberg <Micael.Karlberg@ericsson.com>
-%%%-------------------------------------------------------------------
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 -module(socket_server).
 
--export([start/0]).
+-export([start/0,
+         start_tcp/0,
+         start_udp/0]).
 
--define(REQ, 0).
--define(REP, 1).
+-define(LIB, socket_lib).
 
--record(manager, {acceptor, handler_id, handlers}).
+-record(manager,  {acceptor, handler_id, handlers}).
 -record(acceptor, {socket, manager}).
--record(handler, {socket, manager}).
+-record(handler,  {socket, type, manager}).
 
 start() ->
     start_tcp().
 
 start_tcp() ->
     start(inet, stream, tcp).
+
+start_udp() ->
+    start(inet, dgram, udp).
 
 start(Domain, Type, Proto) ->
     put(sname, "starter"),
@@ -51,13 +67,13 @@ manager_stop(Pid, Reason) ->
     manager_request(Pid, {stop, Reason}).
 
 manager_request(Pid, Request) ->
-    request(manager, Pid, Request).
+    ?LIB:request(manager, Pid, Request).
 
 manager_reply(Pid, Ref, Reply) ->
-    reply(manager, Pid, Ref, Reply).
+    ?LIB:reply(manager, Pid, Ref, Reply).
 
 
-manager_init(Domain, Type, Proto) ->
+manager_init(Domain, stream = Type, Proto) ->
     put(sname, "manager"),
     i("try start acceptor"),
     case acceptor_start(Domain, Type, Proto) of
@@ -68,7 +84,43 @@ manager_init(Domain, Type, Proto) ->
                                   handlers   = []});
         {error, Reason} ->
             exit({failed_starting_acceptor, Reason})
+    end;
+manager_init(Domain, dgram = Type, Proto) ->
+    put(sname, "manager"),
+    i("try open socket"),
+    case socket:open(Domain, Type, Proto) of
+        {ok, Sock} ->
+            Addr = which_addr(Domain),
+            SA = #{family => Domain,
+                   addr   => Addr},
+            case socket:bind(Sock, SA) of
+                {ok, _P} ->
+                   ok;
+                {error, BReason} ->
+                    throw({bind, BReason})
+            end,
+            i("try start handler for"
+              "~n   ~p", [case socket:sockname(Sock) of
+                              {ok, Name} -> Name;
+                              {error, _} = E -> E
+                          end]),
+            case handler_start(1, Sock) of
+                {ok, {Pid, MRef}} ->
+                    i("handler (~p) started", [Pid]),
+                    handler_continue(Pid),
+                    manager_loop(#manager{handler_id = 2, % Just in case
+                                          handlers   = [{Pid, MRef, 1}]});
+                {error, SReason} ->
+                    e("Failed starting handler: "
+                      "~n   ~p", [SReason]),
+                    exit({failed_start_handler, SReason})
+            end;
+        {error, OReason} ->
+            e("Failed open socket: "
+              "~n   ~p", [OReason]),
+            exit({failed_open_socket, OReason})
     end.
+
 
 manager_loop(M) ->
     receive
@@ -262,7 +314,11 @@ acceptor_loop(#acceptor{socket = LSock} = A) ->
     end.
 
 acceptor_handle_accept_success(#acceptor{manager = Manager}, Sock) ->
-    i("try start handler"),
+    i("try start handler for peer"
+      "~n   ~p", [case socket:peername(Sock) of
+                      {ok, Peer} -> Peer;
+                      {error, _} = E -> E
+                  end]),
     case manager_start_handler(Manager, Sock) of
         {ok, Pid} ->
             i("handler (~p) started - now change 'ownership'", [Pid]),
@@ -309,10 +365,10 @@ handler_continue(Pid) ->
     handler_request(Pid, continue).
 
 handler_request(Pid, Request) ->
-    request(handler, Pid, Request).
+    ?LIB:request(handler, Pid, Request).
 
 handler_reply(Pid, Ref, Reply) ->
-    reply(handler, Pid, Ref, Reply).
+    ?LIB:reply(handler, Pid, Ref, Reply).
 
 
 handler_init(Manager, ID, Sock) ->
@@ -321,23 +377,30 @@ handler_init(Manager, ID, Sock) ->
     Manager ! {handler, self(), ok},
     receive
         {handler, Pid, Ref, continue} ->
-            i("continue"),
+            i("got continue"),
             handler_reply(Pid, Ref, ok),
+            {ok, Type} = socket:getopt(Sock, socket, type),
             %% socket:setopt(Socket, otp, debug, true),
             handler_loop(#handler{manager = Manager,
+                                  type    = Type,
                                   socket  = Sock})
     end.
 
-handler_loop(#handler{socket = Socket} = H) ->
-    case socket:recv(Socket) of
-        {ok, Msg} ->
-            i("received ~w bytes of data", [size(Msg)]),
-            case dec_msg(Msg) of
+handler_loop(H) ->
+    i("try read message"),
+    case recv(H) of
+        {ok, {Source, Msg}} ->
+            i("received ~w bytes of data~s", 
+              [size(Msg), case Source of
+                              undefined -> "";
+                              _ -> f(" from:~n   ~p", [Source])
+                          end]),
+            case ?LIB:dec_msg(Msg) of
                 {request, N, Req} ->
                     i("received request ~w: "
                       "~n   ~p", [N, Req]),
-                    Reply = enc_rep_msg(N, "hoppsan"),
-                    case socket:send(Socket, Reply) of
+                    Reply = ?LIB:enc_rep_msg(N, "hoppsan"),
+                    case send(H, Reply, Source) of
                         ok ->
                             i("successfully sent reply ~w", [N]),
                             handler_loop(H);
@@ -360,87 +423,99 @@ handler_loop(#handler{socket = Socket} = H) ->
     end.
 
 
+recv(#handler{socket = Sock, type = stream}) ->
+    case socket:recv(Sock) of
+        {ok, Msg} ->
+            {ok, {undefined, Msg}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+recv(#handler{socket = Sock, type = dgram}) ->
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    socket:recvfrom(Sock).
+
+
+send(#handler{socket = Sock, type = stream}, Msg, _) ->
+    socket:send(Sock, Msg);
+send(#handler{socket = Sock, type = dgram}, Msg, Dest) ->
+    socket:sendto(Sock, Msg, Dest).
+
+
 
 %% =========================================================================
 
-enc_req_msg(N, Data) ->
-    enc_msg(?REQ, N, Data).
+%% enc_req_msg(N, Data) ->
+%%     enc_msg(?REQ, N, Data).
 
-enc_rep_msg(N, Data) ->
-    enc_msg(?REP, N, Data).
+%% enc_rep_msg(N, Data) ->
+%%     enc_msg(?REP, N, Data).
 
-enc_msg(Type, N, Data) when is_list(Data) ->
-    enc_msg(Type, N, list_to_binary(Data));
-enc_msg(Type, N, Data) 
-  when is_integer(Type) andalso is_integer(N) andalso is_binary(Data) ->
-    <<Type:32/integer, N:32/integer, Data/binary>>.
+%% enc_msg(Type, N, Data) when is_list(Data) ->
+%%     enc_msg(Type, N, list_to_binary(Data));
+%% enc_msg(Type, N, Data) 
+%%   when is_integer(Type) andalso is_integer(N) andalso is_binary(Data) ->
+%%     <<Type:32/integer, N:32/integer, Data/binary>>.
     
-dec_msg(<<?REQ:32/integer, N:32/integer, Data/binary>>) ->
-    {request, N, Data};
-dec_msg(<<?REP:32/integer, N:32/integer, Data/binary>>) ->
-    {reply, N, Data}.
+%% dec_msg(<<?REQ:32/integer, N:32/integer, Data/binary>>) ->
+%%     {request, N, Data};
+%% dec_msg(<<?REP:32/integer, N:32/integer, Data/binary>>) ->
+%%     {reply, N, Data}.
 
 
 
 %% ---
 
-request(Tag, Pid, Request) ->
-    Ref = make_ref(),
-    Pid ! {Tag, self(), Ref, Request},
-    receive
-        {Tag, Pid, Ref, Reply} ->
-            Reply
-    end.
+%% request(Tag, Pid, Request) ->
+%%     Ref = make_ref(),
+%%     Pid ! {Tag, self(), Ref, Request},
+%%     receive
+%%         {Tag, Pid, Ref, Reply} ->
+%%             Reply
+%%     end.
     
-reply(Tag, Pid, Ref, Reply) ->
-    Pid ! {Tag, self(), Ref, Reply}.
+%% reply(Tag, Pid, Ref, Reply) ->
+%%     Pid ! {Tag, self(), Ref, Reply}.
 
 
 %% ---
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
 
-format_timestamp(Now) ->
-    N2T = fun(N) -> calendar:now_to_local_time(N) end,
-    format_timestamp(Now, N2T, true).
+%% format_timestamp(Now) ->
+%%     N2T = fun(N) -> calendar:now_to_local_time(N) end,
+%%     format_timestamp(Now, N2T, true).
 
-format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
-    FormatExtra = ".~.2.0w",
-    ArgsExtra   = [N3 div 10000],
-    format_timestamp(N, N2T, FormatExtra, ArgsExtra);
-format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
-    FormatExtra = "",
-    ArgsExtra   = [],
-    format_timestamp(N, N2T, FormatExtra, ArgsExtra).
+%% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
+%%     FormatExtra = ".~.2.0w",
+%%     ArgsExtra   = [N3 div 10000],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra);
+%% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
+%%     FormatExtra = "",
+%%     ArgsExtra   = [],
+%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra).
 
-format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
-    {Date, Time}   = N2T(N),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
-                      [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
-    lists:flatten(FormatDate).
+%% format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
+%%     {Date, Time}   = N2T(N),
+%%     {YYYY,MM,DD}   = Date,
+%%     {Hour,Min,Sec} = Time,
+%%     FormatDate =
+%%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
+%%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
+%%     lists:flatten(FormatDate).
 
 
 %% ---
 
 f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
+    ?LIB:f(F, A).
 
 e(F, A) ->
-    p("<ERROR> " ++ F, A).
+    ?LIB:e(F, A).
 
 i(F) ->
-    i(F, []).
+    ?LIB:i(F).
+
 i(F, A) ->
-    p("*** " ++ F, A).
+    ?LIB:i(F, A).
 
-p(F, A) ->
-    p(get(sname), F, A).
-
-p(SName, F, A) ->
-    io:format("[~s,~p][~s] " ++ F ++ "~n", 
-              [SName,self(),formated_timestamp()|A]).
-    

@@ -354,6 +354,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_RCVBUF     17
 #define SOCKET_OPT_SOCK_REUSEADDR  21
 #define SOCKET_OPT_SOCK_SNDBUF     27
+#define SOCKET_OPT_SOCK_TYPE       32
 
 #define SOCKET_OPT_IP_RECVTOS      25
 #define SOCKET_OPT_IP_ROUTER_ALERT 28
@@ -410,6 +411,7 @@ typedef union {
 #define sock_ntohs(x)              ntohs((x))
 #define sock_open(domain, type, proto)                             \
     make_noninheritable_handle(socket((domain), (type), (proto)))
+#define sock_peer(s, addr, len)    getpeername((s), (addr), (len))
 #define sock_recv(s,buf,len,flag)  recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
@@ -448,6 +450,7 @@ static unsigned long one_value  = 1;
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_ntohs(x)                   ntohs((x))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
@@ -671,6 +674,12 @@ static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
+                                 int                argc,
+                                 const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
+                                 int                argc,
+                                 const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                             int                argc,
                                             const ERL_NIF_TERM argv[]);
@@ -950,6 +959,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
 #endif
+#if defined(SO_TYPE)
+static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
+                                          SocketDescriptor* descP);
+#endif
 static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt);
@@ -1013,6 +1026,10 @@ static ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
                                              SocketDescriptor* descP);
 #endif
 #endif // defined(HAVE_SCTP)
+static ERL_NIF_TERM nsockname(ErlNifEnv*        env,
+                              SocketDescriptor* descP);
+static ERL_NIF_TERM npeername(ErlNifEnv*        env,
+                              SocketDescriptor* descP);
 
 static ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
@@ -1061,6 +1078,7 @@ static ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
                                           int               read,
+                                          int               saveErrno,
                                           ErlNifBinary*     bufP,
                                           SocketAddress*    fromAddrP,
                                           unsigned int      fromAddrLen,
@@ -1369,6 +1387,7 @@ ERL_NIF_TERM esock_atom_tcp;
 ERL_NIF_TERM esock_atom_true;
 ERL_NIF_TERM esock_atom_udp;
 ERL_NIF_TERM esock_atom_undefined;
+ERL_NIF_TERM esock_atom_unknown;
 
 /* *** "Global" error (=reason) atoms *** */
 ERL_NIF_TERM esock_atom_eagain;
@@ -1447,7 +1466,7 @@ static SocketData data;
  * nif_listen(Sock, Backlog)
  * nif_accept(LSock, Ref)
  * nif_send(Sock, SendRef, Data, Flags)
- * nif_sendto(Sock, SendRef, Data, Flags, DstSockAddr)
+ * nif_sendto(Sock, SendRef, Data, Dest, Flags)
  * nif_recv(Sock, RecvRef, Length, Flags)
  * nif_recvfrom(Sock, Flags)
  * nif_close(Sock)
@@ -2629,8 +2648,8 @@ ERL_NIF_TERM nsend(ErlNifEnv*        env,
  * Socket (ref) - Points to the socket descriptor.
  * SendRef      - A unique id for this (send) request.
  * Data         - The data to send in the form of a IOVec.
- * Flags        - Send flags.
  * Dest         - Destination (socket) address.
+ * Flags        - Send flags.
  */
 
 static
@@ -2640,24 +2659,37 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 {
     SocketDescriptor* descP;
     ERL_NIF_TERM      sendRef;
-    ErlNifBinary      data;
+    ErlNifBinary      sndData;
     unsigned int      eflags;
     int               flags;
     ERL_NIF_TERM      eSockAddr;
     SocketAddress     remoteAddr;
     unsigned int      remoteAddrLen;
     char*             xres;
+    ERL_NIF_TERM      res;
+
+    SGDBG( ("SOCKET", "nif_sendto -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 6) ||
+    if ((argc != 5) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
-        !GET_BIN(env, argv[2], &data) ||
-        !GET_UINT(env, argv[3], &eflags)) {
+        !GET_BIN(env, argv[2], &sndData) ||
+        !GET_UINT(env, argv[4], &eflags)) {
         return enif_make_badarg(env);
     }
     sendRef   = argv[1];
-    eSockAddr = argv[4];
+    eSockAddr = argv[3];
+
+    SSDBG( descP,
+           ("SOCKET", "nif_sendto -> args when sock = %d:"
+            "\r\n   Socket:       %T"
+            "\r\n   sendRef:      %T"
+            "\r\n   size of data: %d"
+            "\r\n   eSockAddr:    %T"
+            "\r\n   eflags:       %d"
+            "\r\n",
+            descP->sock, argv[0], sendRef, sndData.size, eSockAddr, eflags) );
 
     /* THIS TEST IS NOT CORRECT!!! */
     if (!IS_OPEN(descP))
@@ -2671,7 +2703,14 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
                                       &remoteAddrLen)) != NULL)
         return esock_make_error_str(env, xres);
 
-    return nsendto(env, descP, sendRef, &data, flags, &remoteAddr, remoteAddrLen);
+    res = nsendto(env, descP, sendRef, &sndData, flags,
+                  &remoteAddr, remoteAddrLen);
+
+    SGDBG( ("SOCKET", "nif_sendto -> done with result: "
+           "\r\n   %T"
+           "\r\n", res) );
+
+    return res;
 }
 
 
@@ -2919,6 +2958,14 @@ ERL_NIF_TERM nrecv(ErlNifEnv*        env,
  * RecvRef      - A unique id for this (send) request.
  * BufSz        - Size of the buffer into which we put the received message.
  * Flags        - Receive flags.
+ *
+ * <KOLLA>
+ *
+ * How do we handle if the peek flag is set? We need to basically keep
+ * track of if we expect any data from the read. Regardless of the 
+ * number of bytes we try to read.
+ *
+ * </KOLLA>
  */
 
 static
@@ -2933,6 +2980,10 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     int               flags;
     ERL_NIF_TERM      res;
 
+    SGDBG( ("SOCKET", "nif_recvfrom -> entry with argc: %d\r\n", argc) );
+
+    /* Extract arguments and perform preliminary validation */
+
     if ((argc != 4) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_UINT(env, argv[2], &bufSz) ||
@@ -2940,6 +2991,14 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     recvRef  = argv[1];
+
+    SSDBG( descP,
+           ("SOCKET", "nif_recvfrom -> args when sock = %d:"
+            "\r\n   Socket:  %T"
+            "\r\n   recvRef: %T"
+            "\r\n   bufSz:   %d"
+            "\r\n   eflags:  %d"
+            "\r\n", descP->sock, argv[0], recvRef, bufSz, eflags) );
 
     /* if (IS_OPEN(descP)) */
     /*     return esock_make_error(env, atom_enotconn); */
@@ -2982,13 +3041,20 @@ static
 ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
                        SocketDescriptor* descP,
                        ERL_NIF_TERM      recvRef,
-                       uint16_t          bufSz,
+                       uint16_t          len,
                        int               flags)
 {
     SocketAddress fromAddr;
     unsigned int  addrLen;
     ssize_t       read;
+    int           save_errno;
     ErlNifBinary  buf;
+    int           bufSz = (len ? len : descP->rBufSz);
+
+    SSDBG( descP, ("SOCKET", "nrecvfrom -> entry with"
+                   "\r\n   len:   %d (%d)"
+                   "\r\n   flags: %d"
+                   "\r\n", len, bufSz, flags) );
 
     if (!descP->isReadable)
         return enif_make_badarg(env);
@@ -2997,7 +3063,7 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
      * Either as much as we want to read or (if zero (0)) use the "default"
      * size (what has been configured).
      */
-    if (!ALLOC_BIN((bufSz ? bufSz : descP->rBufSz), &buf))
+    if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
     /* We ignore the wrap for the moment.
@@ -3010,9 +3076,14 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
 
     read = sock_recvfrom(descP->sock, buf.data, buf.size, flags,
                          &fromAddr.sa, &addrLen);
+    if (IS_SOCKET_ERROR(read))
+        save_errno = sock_errno();
+    else
+        save_errno = -1; // The value does not actually matter in this case
 
     return recvfrom_check_result(env, descP,
                                  read,
+                                 save_errno,
                                  &buf,
                                  &fromAddr, addrLen,
                                  recvRef);
@@ -4683,6 +4754,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_TYPE)
+    case SOCKET_OPT_SOCK_TYPE:
+        result = ngetopt_lvl_sock_type(env, descP);
+        break;
+#endif
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -4788,6 +4865,51 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF);
+}
+#endif
+
+
+#if defined(SO_TYPE)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
+                                     SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(descP->sock, SOL_SOCKET, SO_TYPE, &val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, res);
+    } else {
+        switch (val) {
+        case SOCK_STREAM:
+            result = esock_make_ok2(env, esock_atom_stream);
+            break;
+        case SOCK_DGRAM:
+            result = esock_make_ok2(env, esock_atom_dgram);
+            break;
+#ifdef HAVE_SCTP
+        case SOCK_SEQPACKET:
+            result = esock_make_ok2(env, esock_atom_seqpacket);
+            break;
+#endif
+        case SOCK_RAW:
+            result = esock_make_ok2(env, esock_atom_raw);
+            break;
+        case SOCK_RDM:
+            result = esock_make_ok2(env, esock_atom_rdm);
+            break;
+        default:
+            result = esock_make_error(env,
+                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            break;
+        }
+    }
+
+    return result;
 }
 #endif
 
@@ -5217,6 +5339,137 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
 
 
 
+
+/* ----------------------------------------------------------------------
+ * nif_sockname - get socket name
+ *
+ * Description:
+ * Returns the current address to which the socket is bound.
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ */
+
+static
+ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    SocketDescriptor* descP;
+    ERL_NIF_TERM      res;
+
+    SGDBG( ("SOCKET", "nif_sockname -> entry with argc: %d\r\n", argc) );
+
+    /* Extract arguments and perform preliminary validation */
+
+    if ((argc != 1) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "nif_sockname -> args when sock = %d:"
+            "\r\n   Socket: %T"
+            "\r\n", descP->sock, argv[0]) );
+
+    res = nsockname(env, descP);
+
+    SSDBG( descP, ("SOCKET", "nif_sockname -> done with res = %T\r\n", res) );
+
+    return res;
+}
+
+
+
+static
+ERL_NIF_TERM nsockname(ErlNifEnv*        env,
+                       SocketDescriptor* descP)
+{
+    SocketAddress  sa;
+    SocketAddress* saP = &sa;
+    unsigned int   sz  = sizeof(SocketAddress);
+
+    sys_memzero((char*) saP, sz);
+    if (IS_SOCKET_ERROR(sock_name(descP->sock, (struct sockaddr*) saP, &sz))) {
+        return esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM esa;
+        char*        xres;
+
+        if ((xres = esock_encode_sockaddr(env, saP, sz, &esa)) != NULL)
+            return esock_make_error_str(env, xres);
+        else
+            return esock_make_ok2(env, esa);
+    }
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_peername - get name of the connected peer socket
+ *
+ * Description:
+ * Returns the address of the peer connected to the socket.
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ */
+
+static
+ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
+{
+    SocketDescriptor* descP;
+    ERL_NIF_TERM      res;
+
+    SGDBG( ("SOCKET", "nif_peername -> entry with argc: %d\r\n", argc) );
+
+    /* Extract arguments and perform preliminary validation */
+
+    if ((argc != 1) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "nif_peername -> args when sock = %d:"
+            "\r\n   Socket: %T"
+            "\r\n", descP->sock, argv[0]) );
+
+    res = npeername(env, descP);
+
+    SSDBG( descP, ("SOCKET", "nif_peername -> done with res = %T\r\n", res) );
+
+    return res;
+}
+
+
+
+static
+ERL_NIF_TERM npeername(ErlNifEnv*        env,
+                       SocketDescriptor* descP)
+{
+    SocketAddress  sa;
+    SocketAddress* saP = &sa;
+    unsigned int   sz  = sizeof(SocketAddress);
+
+    sys_memzero((char*) saP, sz);
+    if (IS_SOCKET_ERROR(sock_peer(descP->sock, (struct sockaddr*) saP, &sz))) {
+        return esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM esa;
+        char*        xres;
+
+        if ((xres = esock_encode_sockaddr(env, saP, sz, &esa)) != NULL)
+            return esock_make_error_str(env, xres);
+        else
+            return esock_make_ok2(env, esa);
+    }
+}
+
+
+
 /* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
  * ----------------------------------------------------------------------
@@ -5495,12 +5748,21 @@ static
 ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               read,
+                                   int               saveErrno,
                                    ErlNifBinary*     bufP,
                                    SocketAddress*    fromAddrP,
                                    unsigned int      fromAddrLen,
                                    ERL_NIF_TERM      recvRef)
 {
     ERL_NIF_TERM data;
+
+    SSDBG( descP,
+           ("SOCKET", "recvfrom_check_result -> entry with"
+            "\r\n   read:      %d"
+            "\r\n   saveErrno: %d"
+            "\r\n   recvRef:   %T"
+            "\r\n", read, saveErrno, recvRef) );
+
 
     /* There is a special case: If the provided 'to read' value is
      * zero (0). That means that we reads as much as we can, using
@@ -5511,11 +5773,11 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
         /* +++ Error handling +++ */
 
-        int save_errno = sock_errno();
-
-        if (save_errno == ECONNRESET)  {
+        if (saveErrno == ECONNRESET)  {
 
             /* +++ Oups - closed +++ */
+
+            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> closed\r\n") );
 
             /* <KOLLA>
              * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
@@ -5536,11 +5798,22 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
             return esock_make_error(env, atom_closed);
 
-        } else if ((save_errno == ERRNO_BLOCK) ||
-                   (save_errno == EAGAIN)) {
+        } else if ((saveErrno == ERRNO_BLOCK) ||
+                   (saveErrno == EAGAIN)) {
+
+            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> eagain\r\n") );
+            
+            SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
+                   descP, NULL, recvRef);
+
             return esock_make_error(env, esock_atom_eagain);
         } else {
-            return esock_make_error_errno(env, save_errno);
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
+            
+            return esock_make_error_errno(env, saveErrno);
         }
 
     } else {
@@ -6598,8 +6871,10 @@ void dec_socket(int domain, int type, int protocol)
         cnt_dec(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_dec(&data.numTypeDGrams, 1);
+#ifdef HAVE_SCTP
     else if (type == SOCK_SEQPACKET)
         cnt_dec(&data.numTypeSeqPkgs, 1);
+#endif
 
     if (protocol == IPPROTO_IP)
         cnt_dec(&data.numProtoIP, 1);
@@ -6639,8 +6914,10 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_inc(&data.numTypeDGrams, 1);
+#ifdef HAVE_SCTP
     else if (type == SOCK_SEQPACKET)
         cnt_inc(&data.numTypeSeqPkgs, 1);
+#endif
 
     if (protocol == IPPROTO_IP)
         cnt_inc(&data.numProtoIP, 1);
@@ -6729,9 +7006,11 @@ BOOLEAN_T etype2type(int etype, int* type)
         *type = SOCK_RAW;
         break;
 
+#ifdef HAVE_SCTP    
     case SOCKET_TYPE_SEQPACKET:
         *type = SOCK_SEQPACKET;
         break;
+#endif
 
     default:
         return FALSE;
@@ -7718,6 +7997,15 @@ void socket_down(ErlNifEnv*           env,
                  const ErlNifPid*     pid,
                  const ErlNifMonitor* mon)
 {
+    SocketDescriptor* descP = (SocketDescriptor*) obj;
+
+    SSDBG( descP,
+           ("SOCKET", "socket_down -> entry when"
+            "\r\n   sock: %d"
+            "\r\n   pid:  %T"
+            "\r\n   mon:  %T"
+            "\r\n", descP->sock, *pid, *mon) );
+    
 }
 
 
@@ -7751,6 +8039,8 @@ ErlNifFunc socket_funcs[] =
     {"nif_shutdown",            2, nif_shutdown, 0},
     {"nif_setopt",              5, nif_setopt, 0},
     {"nif_getopt",              4, nif_getopt, 0},
+    {"nif_sockname",            1, nif_sockname, 0},
+    {"nif_peername",            1, nif_peername, 0},
 
     /* Misc utility functions */
 
@@ -7927,6 +8217,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     esock_atom_true      = MKA(env, "true");
     esock_atom_udp       = MKA(env, "udp");
     esock_atom_undefined = MKA(env, "undefined");
+    esock_atom_unknown   = MKA(env, "unknown");
 
     /* Global error codes */
     esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);
