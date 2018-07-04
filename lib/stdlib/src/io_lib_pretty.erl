@@ -722,7 +722,7 @@ printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
 printable_list(L, _D, T, Enc) when T >= 0 ->
     case slice(L, tsub(T, 2)) of
-        {prefix, ""} ->
+        false ->
             false;
         {prefix, Prefix} when Enc =:= latin1 ->
             io_lib:printable_latin1_list(Prefix) andalso {true, Prefix};
@@ -738,11 +738,17 @@ printable_list(L, _D, T, _Uni) when T < 0->
     io_lib:printable_list(L).
 
 slice(L, N) ->
-    case string:length(L) =< N of
+    try string:length(L) =< N of
         true ->
             all;
         false ->
-            {prefix, string:slice(L, 0, N)}
+            case string:slice(L, 0, N) of
+                "" ->
+                    false;
+                Prefix ->
+                    {prefix, Prefix}
+            end
+    catch _:_ -> false
     end.
 
 printable_bin0(Bin, D, T, Enc) ->

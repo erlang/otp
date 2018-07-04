@@ -706,6 +706,12 @@ t_map_get(Config) when is_list(Config) ->
     {'EXIT',{{badmap,[]},_}} = (catch map_get(a, [])),
     {'EXIT',{{badmap,<<1,2,3>>},_}} = (catch map_get(a, <<1,2,3>>)),
     {'EXIT',{{badmap,1},_}} = (catch map_get(a, 1)),
+
+    %% Test that beam_validator understands that NewMap is
+    %% a map after seeing map_get(a, NewMap).
+    NewMap = id(#{a=>b}),
+    b = map_get(a, NewMap),
+    #{a:=z} = NewMap#{a:=z},
     ok.
 
 check_map_value(Map, Key, Value) when map_get(Key, Map) =:= Value -> true;
