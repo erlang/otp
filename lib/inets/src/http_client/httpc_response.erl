@@ -398,7 +398,7 @@ redirect(Response = {_, Headers, _}, Request) ->
                     THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
                     TPort = maps:get(port, URIMap),
                     TPath = maps:get(path, URIMap),
-                    TQuery = maps:get(query, URIMap, ""),
+                    TQuery = add_question_mark(maps:get(query, URIMap, "")),
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
@@ -417,6 +417,14 @@ redirect(Response = {_, Headers, _}, Request) ->
             end
     end.
 
+add_question_mark(<<>>) ->
+    <<>>;
+add_question_mark([]) ->
+    [];
+add_question_mark(Comp) when is_binary(Comp) ->
+    <<$?, Comp/binary>>;
+add_question_mark(Comp) when is_list(Comp) ->
+    [$?|Comp].
 
 %% RFC3986 - 5.2.2.  Transform References
 resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
