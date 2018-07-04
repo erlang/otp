@@ -559,7 +559,7 @@ update({bs_save2,_,_}, Ts) ->
 update({bs_restore2,_,_}, Ts) ->
     Ts;
 update({bs_context_to_binary,Dst}, Ts) ->
-    tdb_store(Dst, {binary,1}, Ts);
+    tdb_store(Dst, any, Ts);
 update({test,bs_start_match2,_,_,[Src,_],Dst}, Ts0) ->
     Ts = tdb_meet(Src, {binary,1}, Ts0),
     tdb_copy(Src, Dst, Ts);

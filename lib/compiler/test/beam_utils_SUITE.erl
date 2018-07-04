@@ -25,7 +25,8 @@
 	 is_not_killed/1,is_not_used_at/1,
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
          y_registers/1,user_predef/1,scan_f/1,cafu/1,
-         receive_label/1,read_size_file_version/1,not_used/1]).
+         receive_label/1,read_size_file_version/1,not_used/1,
+         is_used_fr/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -52,7 +53,8 @@ groups() ->
        scan_f,
        cafu,
        read_size_file_version,
-       not_used
+       not_used,
+       is_used_fr
       ]}].
 
 init_per_suite(Config) ->
@@ -549,6 +551,25 @@ not_used_p(_C, S, K, L) when is_record(K, k) ->
             id(K#k.v),
             id(K)
     end.
+
+is_used_fr(Config) ->
+    1 = is_used_fr(self(), self()),
+    1 = is_used_fr(self(), other),
+    receive 1 -> ok end,
+    receive 1 -> ok end,
+    receive 1 -> ok end,
+    receive 1 -> ok end,
+    ok.
+
+is_used_fr(X, Y) ->
+    %% beam_utils:is_used({fr,R}, Code) would crash.
+    _ = 0 / (X ! 1),
+    _ = case Y of
+            X -> ok;
+            _ -> error
+        end,
+    X ! 1.
+
 
 %% The identity function.
 id(I) -> I.

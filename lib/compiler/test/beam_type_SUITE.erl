@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
 	 tuple/1,record_float/1,binary_float/1,float_compare/1,
-	 arity_checks/1,elixir_binaries/1]).
+	 arity_checks/1,elixir_binaries/1,find_best/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -43,7 +43,8 @@ groups() ->
        binary_float,
        float_compare,
        arity_checks,
-       elixir_binaries
+       elixir_binaries,
+       find_best
       ]}].
 
 init_per_suite(Config) ->
@@ -291,6 +292,33 @@ elixir_bitstring_3(Bar) when is_bitstring(Bar) ->
           Rewrite ->
               list_to_bitstring(Rewrite)
       end/bitstring>>.
+
+find_best(_Config) ->
+    ok = find_best([a], nil),
+    ok = find_best([<<"a">>], nil),
+    {error,_} = find_best([], nil),
+    ok.
+
+%% Failed because beam_type assumed that the operand
+%% for bs_context_binary must be a binary. Not true!
+find_best([a|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> a;
+          X -> X
+      end);
+find_best([<<"a">>|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> <<"a">>;
+          X -> X
+      end);
+find_best([], a) ->
+    ok;
+find_best([], <<"a">>) ->
+    ok;
+find_best([], nil) ->
+    {error,<<"should not get here">>}.
 
 
 id(I) ->

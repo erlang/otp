@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare bug that could cause processes to be
+	    scheduled after they had been freed.</p>
+          <p>
+	    Own Id: OTP-15067 Aux Id: ERL-573 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+	    <p>Fixed a race condition in the inet driver that could
+	    cause receive to hang when the emulator was compiled with
+	    gcc 8.</p>
+          <p>
+	    Own Id: OTP-15158 Aux Id: ERL-654 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

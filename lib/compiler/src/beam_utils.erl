@@ -355,6 +355,9 @@ split_even(Rs) -> split_even(Rs, [], []).
 %%                    exit BIF will raise an exception
 %%    used - Reg is used
 
+check_liveness({fr,_}, _, St) ->
+    %% Conservatively always consider the floating point register used.
+    {used,St};
 check_liveness(R, [{block,Blk}|Is], St0) ->
     case check_liveness_block(R, Blk, St0) of
 	{transparent,St1} ->

@@ -1034,6 +1034,7 @@ typedef struct {
     inet_async_op* oph;          /* queue head or NULL */
     inet_async_op* opt;          /* queue tail or NULL */
     inet_async_op  op_queue[INET_MAX_ASYNC];  /* call queue */
+    int op_ref;                 /* queue reference generator  */
 
     int   active;               /* 0 = passive, 1 = active, 2 = active once */
     Sint16 active_count;        /* counter for {active,N} */
@@ -1299,8 +1300,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event);
 /* convert descriptor pointer to inet_descriptor pointer */
 #define INETP(d) (&(d)->inet)
 
-static int async_ref = 0;          /* async reference id generator */
-#define NEW_ASYNC_ID() ((async_ref++) & 0xffff)
+#define NEW_ASYNC_ID(desc) ((desc)->op_ref++ & 0xffff)
 
 /* check for transition from active to passive */
 #define INET_CHECK_ACTIVE_TO_PASSIVE(inet)                              \
@@ -1955,7 +1955,7 @@ static void enq_multi_op(tcp_descriptor *desc, char *buf, int req,
 			 ErlDrvTermData caller, MultiTimerData *timeout,
 			 ErlDrvMonitor *monitorp)
 {
-    int id = NEW_ASYNC_ID();
+    int id = NEW_ASYNC_ID(INETP(desc));
     enq_old_multi_op(desc,id,req,caller,timeout,monitorp);
     if (buf != NULL)
 	put_int16(id, buf);
@@ -2024,7 +2024,7 @@ static int remove_multi_op(tcp_descriptor *desc, int *id_p, int *req_p,
 static int enq_async_w_tmo(inet_descriptor* desc, char* buf, int req, unsigned timeout,
 			   ErlDrvMonitor *monitorp)
 {
-    int id = NEW_ASYNC_ID();
+    int id = NEW_ASYNC_ID(desc);
     inet_async_op* opp;
 
     if ((opp = desc->oph) == NULL)            /* queue empty */
@@ -8461,6 +8461,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->delimiter    = '\n';         /* line delimiting char */
     desc->oph = NULL;
     desc->opt = NULL;
+    desc->op_ref = 0;
 
     desc->peer_ptr = NULL;
     desc->name_ptr = NULL;

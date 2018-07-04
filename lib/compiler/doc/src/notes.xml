@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare cases involving matching of binary literal
+	    strings, the compiler could optimize away code that
+	    should be executed.</p>
+          <p>
+	    Own Id: OTP-15156 Aux Id: ERL-655 </p>
+        </item>
+        <item>
+	    <p>There could be an internal consistency check failure
+	    when compiling code that called <c>map_get(Key, Map)</c>
+	    and then updated the same map.</p>
+          <p>
+	    Own Id: OTP-15157</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler could crash in
+	    <c>beam_jump</c> when compiling a floating point
+	    operation.</p>
+          <p>
+	    Own Id: OTP-15166 Aux Id: ERL-660 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
