@@ -105,6 +105,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
         fail1("size of encoded data (%d) is incorrect", size1);    \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_2_FAIL(FUNC,SIZE,TYPE,VAL) \
@@ -148,6 +149,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define dump(arr, num) {	    \
@@ -205,6 +207,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data is incorrect"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_STRING(FUNC,SIZE,VAL) \
@@ -248,6 +251,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 //#define EI_DECODE_UTF8_STRING(FUNC,SIZE,VAL) 
@@ -310,6 +314,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data is incorrect"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 /* ******************************************************************** */
