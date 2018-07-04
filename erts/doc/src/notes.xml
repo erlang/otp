@@ -41,12 +41,6 @@
           <p>
 	    Own Id: OTP-15067 Aux Id: ERL-573 </p>
         </item>
-      </list>
-    </section>
-
-
-    <section><title>Known Bugs and Problems</title>
-      <list>
         <item>
 	    <p>Fixed a race condition in the inet driver that could
 	    cause receive to hang when the emulator was compiled with
