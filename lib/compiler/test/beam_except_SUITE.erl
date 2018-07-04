@@ -26,7 +26,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
@@ -35,6 +34,7 @@ groups() ->
        coverage]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

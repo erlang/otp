@@ -76,7 +76,6 @@
 suite() -> [].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [
 	%% literals
 	t_build_and_match_literals, t_build_and_match_literals_large,
@@ -130,8 +129,12 @@ all() ->
 
 groups() -> [].
 
-init_per_suite(Config) -> Config.
-end_per_suite(_Config) -> ok.
+init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) -> Config.
 end_per_group(_GroupName, Config) -> Config.

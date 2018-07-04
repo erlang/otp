@@ -61,7 +61,6 @@ suite() ->
 
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -70,6 +69,7 @@ groups() ->
        confused_literals,integer_encoding,override_bif]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

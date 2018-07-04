@@ -34,7 +34,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -43,9 +42,10 @@ groups() ->
        asymmetric_tests,big_asymmetric_tests,
        binary_to_and_from_list,big_binary_to_and_from_list,
        send_and_receive,send_and_receive_alot]}].
-      
+
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

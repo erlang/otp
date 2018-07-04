@@ -38,11 +38,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    test_lib:recompile(?MODULE),
+all() ->
     [{group,p}].
 
-groups() -> 
+groups() ->
     [{p,[parallel],
       [two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
@@ -50,6 +49,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
