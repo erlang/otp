@@ -88,7 +88,10 @@
               udp_socket_option/0,
               sctp_socket_option/0,
 
-              ip_tos_flag/0
+              ip_tos_flag/0,
+
+
+              msg_hdr/0
              ]).
 
 %% We support only a subset of all domains.
@@ -385,22 +388,23 @@
 
 -type shutdown_how() :: read | write | read_write.
 
+%% This is just a place-holder
 -record(msg_hdr,
         {
-          %% Optional address
-          %% On an unconnected socket this is used to specify the target
-          %% address for a datagram.
-          %% For a connected socket, this field should be specifiedset to [].
-          name       :: list(),
+         %% Optional address
+         %% On an unconnected socket this is used to specify the target
+         %% address for a datagram.
+         %% For a connected socket, this field should be specifiedset to [].
+         name       :: list(),
 
-          %% Scatter/gather array
-          iov        :: [binary()], % iovec(),
-
-          %% Ancillary (control) data
-          ctrl       :: binary(),
-
-          %% Unused
-          flags = [] :: list()
+         %% Scatter/gather array
+         iov        :: [binary()], % iovec(),
+         
+         %% Ancillary (control) data
+         ctrl       :: binary(),
+         
+         %% Unused
+         flags = [] :: list()
         }).
 -type msg_hdr() :: #msg_hdr{}.
 
@@ -858,8 +862,24 @@ do_accept(LSockRef, SI, Timeout) ->
 %% send, sendto, sendmsg - send a message on a socket
 %%
 
+-spec send(Socket, Data) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      Data    :: iodata(),
+      Reason  :: term().
+
 send(Socket, Data) ->
     send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
+
+-spec send(Socket, Data, Flags) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      Data    :: iodata(),
+      Flags   :: send_flags(),
+      Reason  :: term()
+                 ; (Socket, Data, Timeout) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      Data    :: iodata(),
+      Timeout :: timeout(),
+      Reason  :: term().
 
 send(Socket, Data, Flags) when is_list(Flags) ->
     send(Socket, Data, Flags, ?SOCKET_SEND_TIMEOUT_DEFAULT);
@@ -932,14 +952,27 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 %% ---------------------------------------------------------------------------
 %%
 
+-spec sendto(Socket, Data, Dest) ->
+                    ok | {error, Reason} when
+      Socket :: socket(),
+      Data   :: binary(),
+      Dest   :: null | sockaddr(),
+      Reason :: term().
+
 sendto(Socket, Data, Dest) ->
     sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT).
+
+-spec sendto(Socket, Data, Dest, Flags) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Data   :: binary(),
+      Dest   :: null | sockaddr(),
+      Flags  :: send_flags(),
+      Reason :: term().
 
 sendto(Socket, Data, Dest, Flags) ->
     sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
 
--spec sendto(Socket, Data, Dest, Flags, Timeout) ->
-                    ok | {error, Reason} when
+-spec sendto(Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
       Socket  :: socket(),
       Data    :: binary(),
       Dest    :: null | sockaddr(),
@@ -1014,7 +1047,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 
 %% -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
 %%       Socket   :: socket(),
-%%       MsgHdr   :: msg_header(),
+%%       MsgHdr   :: msg_hdr(),
 %%       Flags    :: send_flags(),
 %%       Reason   :: term().
 
@@ -1106,13 +1139,37 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 %% Flags   - A list of "options" for the read.
 %% Timeout - Time-out in milliseconds.
 
+-spec recv(Socket) -> {ok, Data} | {error, Reason} when
+      Socket :: socket(),
+      Data   :: binary(),
+      Reason :: term().
+                          
 recv(Socket) ->
     recv(Socket, 0).
+
+-spec recv(Socket, Length) -> {ok, Data} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Data   :: binary(),
+      Reason :: term().
 
 recv(Socket, Length) ->
     recv(Socket, Length,
          ?SOCKET_RECV_FLAGS_DEFAULT,
          ?SOCKET_RECV_TIMEOUT_DEFAULT).
+
+-spec recv(Socket, Length, Flags) -> {ok, Data} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Flags  :: recv_flags(),
+      Data   :: binary(),
+      Reason :: term()
+                ; (Socket, Length, Timeout) -> {ok, Data} | {error, Reason} when
+      Socket  :: socket(),
+      Length  :: non_neg_integer(),
+      Timeout :: timeout(),
+      Data    :: binary(),
+      Reason  :: term().
 
 recv(Socket, Length, Flags) when is_list(Flags) ->
     recv(Socket, Length, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
@@ -1270,14 +1327,51 @@ do_recv(_SockRef, _RecvRef, _Length, _EFlags, _Acc, _Timeout) ->
 %% is needed, possibly with a then adjusted buffer size.
 %%
 
+-spec recvfrom(Socket) -> {ok, {Source, Data}} | {error, Reason} when
+      Socket    :: socket(),
+      Source    :: sockaddr() | undefined,
+      Data      :: binary(),
+      Reason    :: term().
+
 recvfrom(Socket) ->
     recvfrom(Socket, 0).
+
+-spec recvfrom(Socket, BufSz) -> {ok, {Source, Data}} | {error, Reason} when
+      Socket    :: socket(),
+      BufSz     :: non_neg_integer(),
+      Source    :: sockaddr() | undefined,
+      Data      :: binary(),
+      Reason    :: term().
 
 recvfrom(Socket, BufSz) ->
     recvfrom(Socket, BufSz,
              ?SOCKET_RECV_FLAGS_DEFAULT,
              ?SOCKET_RECV_TIMEOUT_DEFAULT).
 
+-spec recvfrom(Socket, Flags, Timeout) -> 
+                      {ok, {Source, Data}} | {error, Reason} when
+      Socket  :: socket(),
+      Flags   :: recv_flags(),
+      Timeout :: timeout(),
+      Source  :: sockaddr() | undefined,
+      Data    :: binary(),
+      Reason  :: term()
+                 ; (Socket, BufSz, Flags) -> 
+                      {ok, {Source, Data}} | {error, Reason} when
+      Socket :: socket(),
+      BufSz  :: non_neg_integer(),
+      Flags  :: recv_flags(),
+      Source :: sockaddr() | undefined,
+      Data   :: binary(),
+      Reason :: term()
+                 ; (Socket, BufSz, Timeout) -> 
+                      {ok, {Source, Data}} | {error, Reason} when
+      Socket  :: socket(),
+      BufSz   :: non_neg_integer(),
+      Timeout :: timeout(),
+      Source  :: sockaddr() | undefined,
+      Data    :: binary(),
+      Reason  :: term().
 
 recvfrom(Socket, Flags, Timeout) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, Timeout);
@@ -1286,7 +1380,8 @@ recvfrom(Socket, BufSz, Flags) when is_list(Flags) ->
 recvfrom(Socket, BufSz, Timeout) ->
     recvfrom(Socket, BufSz, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recvfrom(Socket, BufSz, Flags, Timeout) -> {ok, {Source, Data}} | {error, Reason} when
+-spec recvfrom(Socket, BufSz, Flags, Timeout) -> 
+                      {ok, {Source, Data}} | {error, Reason} when
       Socket    :: socket(),
       BufSz     :: non_neg_integer(),
       Flags     :: recv_flags(),
@@ -1305,21 +1400,16 @@ recvfrom(#socket{ref = SockRef}, BufSz, Flags, Timeout)
 do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
-    p("recvfrom -> try recvfrom"),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
         {ok, {_Source, _NewData}} = OK ->
-            p("recvfrom -> ok: "
-              "~n   Source: ~p", [_Source]),
             OK;
 
         {error, eagain} ->
-            p("recvfrom -> eagain - wait for select ready-input"),
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
-                    p("recvfrom -> eagain - got select ready-input"),
                     do_recvfrom(SockRef, BufSz, EFlags,
                                 next_timeout(TS, Timeout));
 
@@ -1333,7 +1423,6 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
             end;
 
         {error, _Reason} = ERROR ->
-            p("recvfrom -> error: ~p", [_Reason]),
             ERROR
 
     end.
@@ -1345,7 +1434,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 
 %% -spec recvmsg(Socket, [out] MsgHdr, Flags) -> {ok, Data} | {error, Reason} when
 %%       Socket :: socket(),
-%%       MsgHdr :: msg_header(),
+%%       MsgHdr :: msg_hdr(),
 %%       Flags  :: recv_flags(),
 %%       Data   :: binary(),
 %%       Reason :: term().
@@ -2227,16 +2316,16 @@ tdiff(T1, T2) ->
 
 
 
-p(F) ->
-    p(F, []).
+%% p(F) ->
+%%     p(F, []).
 
-p(F, A) ->
-    p(get(sname), F, A).
+%% p(F, A) ->
+%%     p(get(sname), F, A).
 
-p(undefined, F, A) ->
-    p("***", F, A);
-p(SName, F, A) ->
-    io:format("[~s,~p] " ++ F ++ "~n", [SName, self()|A]).
+%% p(undefined, F, A) ->
+%%     p("***", F, A);
+%% p(SName, F, A) ->
+%%     io:format("[~s,~p] " ++ F ++ "~n", [SName, self()|A]).
 
 
 

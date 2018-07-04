@@ -63,13 +63,16 @@
       <name name="ip_address"/>
     </datatype>
     <datatype>
-      <name name="in4_sockaddr"/>
+      <name name="sockaddr"/>
     </datatype>
     <datatype>
-      <name name="in6_sockaddr"/>
+      <name name="sockaddr_in4"/>
     </datatype>
     <datatype>
-      <name name="in_sockaddr"/>
+      <name name="sockaddr_in6"/>
+    </datatype>
+    <datatype>
+      <name name="sockaddr_un"/>
     </datatype>
     <datatype>
       <name name="port_number"/>
@@ -244,8 +247,18 @@
     </func>
 
     <func>
+      <name name="peername" arity="1"/>
+      <fsummary>Get name of connected socket peer.</fsummary>
+      <desc>
+        <p>Returns the address of the peer connected to the socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recv" arity="1"/>
       <name name="recv" arity="2"/>
-      <name name="recv" arity="3"/>
+      <name name="recv" arity="3" clause_i="1"/>
+      <name name="recv" arity="3" clause_i="2"/>
       <name name="recv" arity="4"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
@@ -259,7 +272,9 @@
     <func>
       <name name="recvfrom" arity="1"/>
       <name name="recvfrom" arity="2"/>
-      <name name="recvfrom" arity="3"/>
+      <name name="recvfrom" arity="3" clause_i="1"/>
+      <name name="recvfrom" arity="3" clause_i="2"/>
+      <name name="recvfrom" arity="3" clause_i="3"/>
       <name name="recvfrom" arity="4"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
@@ -279,7 +294,8 @@
 
     <func>
       <name name="send" arity="2"/>
-      <name name="send" arity="3"/>
+      <name name="send" arity="3" clause_i="1"/>
+      <name name="send" arity="3" clause_i="2"/>
       <name name="send" arity="4"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
@@ -288,6 +304,7 @@
     </func>
 
     <func>
+      <name name="sendto" arity="3"/>
       <name name="sendto" arity="4"/>
       <name name="sendto" arity="5"/>
       <fsummary>Send a message on a socket.</fsummary>
@@ -326,6 +343,14 @@
       <fsummary>Shut down part of a full-duplex connection.</fsummary>
       <desc>
         <p>Shut down all or part of a full-duplex connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sockname" arity="1"/>
+      <fsummary>Get socket name.</fsummary>
+      <desc>
+        <p>Returns the current address to which the socket is bound.</p>
       </desc>
     </func>
 
