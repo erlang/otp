@@ -4219,17 +4219,17 @@ unordered_protocol_versions_server(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-					{mfa, {?MODULE, connection_info_result, []}},
+					{mfa, {?MODULE, protocol_info_result, []}},
 					{options, [{versions, ['tlsv1.1', 'tlsv1.2']} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
-					{mfa, {?MODULE, connection_info_result, []}},
+					{mfa, {?MODULE, protocol_info_result, []}},
 					{options, ClientOpts}]),
-    CipherSuite = first_rsa_suite(ssl:cipher_suites(default, 'tlsv1.2')),
-    ServerMsg = ClientMsg = {ok, {'tlsv1.2', CipherSuite}},    
+
+    ServerMsg = ClientMsg = {ok,'tlsv1.2'},    
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
 
 %%--------------------------------------------------------------------
@@ -4244,18 +4244,17 @@ unordered_protocol_versions_client(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-					{mfa, {?MODULE, connection_info_result, []}},
+					{mfa, {?MODULE, protocol_info_result, []}},
 					{options, ServerOpts }]),
     Port = ssl_test_lib:inet_port(Server),
     
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
-					{mfa, {?MODULE, connection_info_result, []}},
+					{mfa, {?MODULE, protocol_info_result, []}},
 					{options,  [{versions, ['tlsv1.1', 'tlsv1.2']} | ClientOpts]}]),
- 
-    CipherSuite = first_rsa_suite(ssl:cipher_suites(default, 'tlsv1.2')),
-    ServerMsg = ClientMsg = {ok, {'tlsv1.2', CipherSuite}},    
+
+    ServerMsg = ClientMsg = {ok, 'tlsv1.2'},    
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
   
 %%--------------------------------------------------------------------
@@ -5039,6 +5038,10 @@ connection_info_result(Socket) ->
     {ok, Info} = ssl:connection_information(Socket, [protocol, selected_cipher_suite]),
     {ok, {proplists:get_value(protocol, Info), proplists:get_value(selected_cipher_suite, Info)}}.
 
+protocol_info_result(Socket) ->
+    {ok, [{protocol, PVersion}]} = ssl:connection_information(Socket, [protocol]),
+    {ok, PVersion}.
+
 version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
@@ -5167,13 +5170,6 @@ try_recv_active_once(Socket) ->
     {error, einval} = ssl:recv(Socket, 11),
     ok.
 
-first_rsa_suite([#{key_exchange := UseRSACert} = Suite | Rest]) when 
-      UseRSACert == rsa;
-      UseRSACert == dhe_rsa;
-      UseRSACert == ecdhe_rsa ->
-    Suite;
-first_rsa_suite([_ | Rest]) ->
-    first_rsa_suite(Rest).
     
 wait_for_send(Socket) ->
     %% Make sure TLS process processed send message event
