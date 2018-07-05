@@ -55,7 +55,8 @@
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2, tls_version/1, new_ssl_options/3, suite_to_str/1]).
+-export([handle_options/2, tls_version/1, new_ssl_options/3, suite_to_str/1,
+         set_log_level/1]).
 
 -deprecated({ssl_accept, 1, eventually}).
 -deprecated({ssl_accept, 2, eventually}).
@@ -87,6 +88,7 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
+
 -spec connect(host() | port(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
 -spec connect(host() | port(), [connect_option()] | inet:port_number(),
@@ -209,6 +211,8 @@ ssl_accept(Socket, SslOptions, Timeout) ->
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
+
+%% Performs the SSL/TLS/DTLS server-side handshake.
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
@@ -216,6 +220,12 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
                                                 (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
 
+%% If Socket is a ordinary socket(): upgrades a gen_tcp, or equivalent, socket to
+%% an SSL socket, that is, performs the SSL/TLS server-side handshake and returns
+%% the SSL socket.
+%%
+%% If Socket is an sslsocket(): provides extra SSL/TLS/DTLS options to those
+%% specified in ssl:listen/2 and then performs the SSL/TLS/DTLS handshake.
 handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     handshake(ListenSocket, SslOptions, infinity).
 
@@ -792,6 +802,32 @@ suite_to_str(Cipher) ->
     ssl_cipher:suite_to_str(Cipher).
 
 
+%%--------------------------------------------------------------------
+-spec set_log_level(atom()) -> ok | {error, term()}.
+%%
+%% Description: Set log level for the SSL application
+%%--------------------------------------------------------------------
+set_log_level(Level) ->
+    case application:get_all_key(ssl) of
+        {ok, PropList} ->
+            Modules = proplists:get_value(modules, PropList),
+            set_module_level(Modules, Level);
+        undefined ->
+            {error, ssl_not_started}
+    end.
+
+set_module_level(Modules, Level) ->
+    Fun = fun (Module) ->
+                  ok = logger:set_module_level(Module, Level)
+          end,
+    try lists:map(Fun, Modules) of
+        _ ->
+            ok
+    catch
+        error:{badmatch, Error} ->
+            Error
+    end.
+
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
@@ -888,7 +924,7 @@ handle_options(Opts0, Role, Host) ->
             ok
     end,
    
-    SSLOptions = #ssl_options{
+    SSLOptions0 = #ssl_options{
 		    versions   = Versions,
 		    verify     = validate_option(verify, Verify),
 		    verify_fun = VerifyFun,
@@ -935,7 +971,6 @@ handle_options(Opts0, Role, Host) ->
 		    next_protocol_selector =
 			make_next_protocol_selector(
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
-		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, 
                                                            default_option_role(client,
                                                                                server_name_indication_default(Host), Role)),
@@ -961,6 +996,10 @@ handle_options(Opts0, Role, Host) ->
                     handshake = handle_option(handshake, Opts, full),
                     customize_hostname_check = handle_option(customize_hostname_check, Opts, [])
 		   },
+    LogLevel = handle_option(log_alert, Opts, true),
+    SSLOptions = SSLOptions0#ssl_options{
+                   log_level = handle_option(log_level, Opts, LogLevel)
+                  },
 
     CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
     SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
@@ -972,7 +1011,7 @@ handle_options(Opts0, Role, Host) ->
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
 		  erl_dist, alpn_advertised_protocols, sni_hosts, sni_fun,
 		  alpn_preferred_protocols, next_protocols_advertised,
-		  client_preferred_next_protocols, log_alert,
+		  client_preferred_next_protocols, log_alert, log_level,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
                   max_handshake_size, handshake, customize_hostname_check],
@@ -1151,7 +1190,20 @@ validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols
     Value;
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
-validate_option(log_alert, Value) when is_boolean(Value) ->
+validate_option(log_alert, true) ->
+    notice;
+validate_option(log_alert, false) ->
+    warning;
+validate_option(log_level, Value) when
+      is_atom(Value) andalso
+      (Value =:= emergency orelse
+       Value =:= alert orelse
+       Value =:= critical orelse
+       Value =:= error orelse
+       Value =:= warning orelse
+       Value =:= notice orelse
+       Value =:= info orelse
+       Value =:= debug) ->
     Value;
 validate_option(next_protocols_advertised, Value) when is_list(Value) ->
     validate_binary_list(next_protocols_advertised, Value),
@@ -1526,8 +1578,10 @@ new_ssl_options([{next_protocols_advertised, Value} | Rest], #ssl_options{} = Op
 new_ssl_options([{client_preferred_next_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{next_protocol_selector = 
 					       make_next_protocol_selector(validate_option(client_preferred_next_protocols, Value))}, RecordCB);
-new_ssl_options([{log_alert, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
-    new_ssl_options(Rest, Opts#ssl_options{log_alert = validate_option(log_alert, Value)}, RecordCB);
+new_ssl_options([{log_alert, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(Rest, Opts#ssl_options{log_level = validate_option(log_alert, Value)}, RecordCB);
+new_ssl_options([{log_level, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(Rest, Opts#ssl_options{log_level = validate_option(log_level, Value)}, RecordCB);
 new_ssl_options([{server_name_indication, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{server_name_indication = validate_option(server_name_indication, Value)}, RecordCB);
 new_ssl_options([{honor_cipher_order, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 

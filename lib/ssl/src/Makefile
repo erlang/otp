@@ -86,7 +86,8 @@ MODULES= \
 	ssl_record \
 	ssl_v3 \
 	tls_v1 \
-	dtls_v1
+	dtls_v1 \
+	ssl_logger
 
 INTERNAL_HRL_FILES = \
 	ssl_alert.hrl ssl_cipher.hrl \
@@ -118,7 +119,7 @@ EXTRA_ERLC_FLAGS = +warn_unused_vars
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
-	$(EXTRA_ERLC_FLAGS) -DVSN=\"$(VSN)\"
+	$(EXTRA_ERLC_FLAGS)
 
 
 # ----------------------------------------------------

@@ -20,6 +20,7 @@
 -module(ssl_crl_hash_dir).
 
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -behaviour(ssl_crl_cache_api).
 
@@ -55,7 +56,7 @@ select(Issuer, {_DbHandle, [{dir, Dir}]}) ->
             %% is happy with that, but if it's true, this is an error.
             [];
         {error, Error} ->
-            error_logger:error_report(
+            ?LOG_ERROR(
               [{cannot_find_crl, Error},
                {dir, Dir},
                {module, ?MODULE},
@@ -86,7 +87,7 @@ find_crls(Issuer, Hash, Dir, N, Acc) ->
 		error:Error ->
 		    %% Something is wrong with the file.  Report
 		    %% it, and try the next one.
-		    error_logger:error_report(
+		    ?LOG_ERROR(
 		      [{crl_parse_error, Error},
 		       {filename, Filename},
 		       {module, ?MODULE},

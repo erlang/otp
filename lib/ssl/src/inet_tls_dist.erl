@@ -41,6 +41,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% -------------------------------------------------------------------------
 
@@ -226,7 +227,7 @@ accept_loop(Driver, Listen, Kernel) ->
                 true ->
                     accept_loop(Driver, Listen, Kernel, Socket);
                 {false,IP} ->
-		    error_logger:error_msg(
+		    ?LOG_ERROR(
                       "** Connection attempt from "
                       "disallowed IP ~w ** ~n", [IP]),
 		    ?shutdown2(no_node, trace({disallowed, IP}))
@@ -261,7 +262,7 @@ accept_loop(Driver, Listen, Kernel, Socket) ->
         {error, {options, _}} = Error ->
             %% Bad options: that's probably our fault.
             %% Let's log that.
-            error_logger:error_msg(
+            ?LOG_ERROR(
               "Cannot accept TLS distribution connection: ~s~n",
               [ssl:format_error(Error)]),
             gen_tcp:close(Socket),
@@ -437,7 +438,7 @@ allowed_nodes(SslSocket, Allowed) ->
                           PeerCert, allowed_hosts(Allowed), PeerIP)
                     of
                         [] ->
-                            error_logger:error_msg(
+                            ?LOG_ERROR(
                               "** Connection attempt from "
                               "disallowed node(s) ~p ** ~n", [PeerIP]),
                             ?shutdown2(
@@ -691,12 +692,12 @@ split_node(Driver, Node, LongOrShortNames) ->
         {node, Name, Host} ->
 	    check_node(Driver, Node, Name, Host, LongOrShortNames);
 	{host, _} ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** Nodename ~p illegal, no '@' character **~n",
               [Node]),
 	    ?shutdown2(Node, trace({illegal_node_n@me, Node}));
 	_ ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** Nodename ~p illegal **~n", [Node]),
 	    ?shutdown2(Node, trace({illegal_node_name, Node}))
     end.
@@ -708,7 +709,7 @@ check_node(Driver, Node, Name, Host, LongOrShortNames) ->
 		{ok, _} ->
 		    {Name, Host};
 		_ ->
-		    error_logger:error_msg(
+		    ?LOG_ERROR(
                       "** System running to use "
                       "fully qualified hostnames **~n"
                       "** Hostname ~s is illegal **~n",
@@ -716,7 +717,7 @@ check_node(Driver, Node, Name, Host, LongOrShortNames) ->
 		    ?shutdown2(Node, trace({not_longnames, Host}))
 	    end;
 	[_,_|_] when LongOrShortNames =:= shortnames ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** System NOT running to use "
               "fully qualified hostnames **~n"
               "** Hostname ~s is illegal **~n",
@@ -846,13 +847,13 @@ monitor_pid(Pid) ->
     %%          MRef = erlang:monitor(process, Pid),
     %%          receive
     %%              {'DOWN', MRef, _, _, normal} ->
-    %%                  error_logger:error_report(
-    %%                    [dist_proc_died,
+    %%                  ?LOG_ERROR(
+    %%                    [{slogan, dist_proc_died},
     %%                     {reason, normal},
     %%                     {pid, Pid}]);
     %%              {'DOWN', MRef, _, _, Reason} ->
-    %%                  error_logger:info_report(
-    %%                    [dist_proc_died,
+    %%                  ?LOG_NOTICE(
+    %%                    [{slogan, dist_proc_died},
     %%                     {reason, Reason},
     %%                     {pid, Pid}])
     %%          end

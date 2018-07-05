@@ -32,6 +32,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
+-include_lib("kernel/include/logger.hrl").
 
 %% Internal application API
 
@@ -926,7 +927,7 @@ handle_own_alert(Alert, Version, StateName, #state{data_tag = udp,
                                                    ssl_options = Options} = State0) ->
     case ignore_alert(Alert, State0) of
         {true, State} ->
-            log_ignore_alert(Options#ssl_options.log_alert, StateName, Alert, Role),
+            log_ignore_alert(Options#ssl_options.log_level, StateName, Alert, Role),
             {next_state, StateName, State};
         {false, State} ->
             ssl_connection:handle_own_alert(Alert, Version, StateName, State)
@@ -1123,9 +1124,9 @@ is_ignore_alert(#alert{description = ?ILLEGAL_PARAMETER}) ->
 is_ignore_alert(_) ->
     false.
 
-log_ignore_alert(true, StateName, Alert, Role) ->
+log_ignore_alert(debug, StateName, Alert, Role) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:format("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n", 
-                        [Role, StateName, Txt]);
-log_ignore_alert(false, _, _,_) ->
+    ?LOG_ERROR("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n",
+                 [Role, StateName, Txt]);
+log_ignore_alert(_, _, _, _) ->
     ok.

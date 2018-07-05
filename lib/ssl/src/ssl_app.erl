@@ -29,9 +29,26 @@
 -export([start/2, stop/1]).
 
 start(_Type, _StartArgs) ->
+    start_logger(),
     ssl_sup:start_link().
 
 stop(_State) ->
+    stop_logger(),
     ok.
+
+%%
+%% Description: Start SSL logger
+start_logger() ->
+    Config = #{level => debug,
+               filter_default => stop,
+               formatter => {ssl_logger, #{}}},
+    Filter = {fun logger_filters:domain/2,{log,sub,[otp,ssl]}},
+    logger:add_handler(ssl_handler, logger_std_h, Config),
+    logger:add_handler_filter(ssl_handler, filter_non_ssl, Filter).
+
+%%
+%% Description: Stop SSL logger
+stop_logger() ->
+    logger:remove_handler(ssl_handler).
 
 

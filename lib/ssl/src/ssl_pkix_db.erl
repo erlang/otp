@@ -27,6 +27,7 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
@@ -311,7 +312,7 @@ decode_certs(Ref, Cert) ->
 	error:_ ->
 	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
 				   "it could not be correctly decoded.~n", []),
-	    error_logger:info_report(Report),
+	    ?LOG_NOTICE(Report),
 	    undefined
     end.
 
