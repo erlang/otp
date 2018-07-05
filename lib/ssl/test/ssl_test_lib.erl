@@ -1134,8 +1134,6 @@ check_ecc(SSL, Role, Expect) ->
     {ok, Data} = ssl:connection_information(SSL),
     case lists:keyfind(ecc, 1, Data) of
         {ecc, {named_curve, Expect}} -> ok;
-        false when Expect == undefined -> ok;
-        false when Expect == secp256r1 andalso Role == client_no_ecc -> ok;
         Other -> {error, Role, Expect, Other}
     end.
 

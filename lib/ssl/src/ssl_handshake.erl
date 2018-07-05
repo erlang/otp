@@ -2433,13 +2433,7 @@ cert_curve(Cert, ECCCurve0, CipherSuite) ->
             #'OTPSubjectPublicKeyInfo'{algorithm = AlgInfo} 
                 = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
             {namedCurve, Oid}  = AlgInfo#'PublicKeyAlgorithm'.parameters,
-            try pubkey_cert_records:namedCurves(Oid) of
-                Curve ->
-                    {{named_curve, Curve}, CipherSuite}
-            catch 
-                _:_ ->
-                    {no_curve, no_suite}
-            end;
+            {{namedCurve, Oid}, CipherSuite};
         _ ->
             {ECCCurve0, CipherSuite}
     end.
