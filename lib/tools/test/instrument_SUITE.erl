@@ -221,7 +221,7 @@ verify_carriers_output(#{ histogram_start := HistStart,
             ct:fail("Carrier count is ~p, expected at least ~p (SBC).",
                 [CarrierCount, GenSBCCount]);
         CarrierCount >= GenSBCCount ->
-            ct:pal("Found ~p blocks, required at least ~p (SBC)." ,
+            ct:pal("Found ~p carriers, required at least ~p (SBC)." ,
                 [CarrierCount, GenSBCCount])
     end,
 
@@ -327,8 +327,9 @@ generate_test_blocks() ->
               MBCs = [<<I, 0:64/unit:8>> ||
                       I <- lists:seq(1, ?GENERATED_MBC_BLOCK_COUNT)],
               Runner ! Ref,
-              receive after infinity -> ok end,
-              unreachable ! {SBCs, MBCs}
+              receive
+                   gurka -> gaffel ! {SBCs, MBCs}
+              end
           end),
     receive
         Ref -> ok
