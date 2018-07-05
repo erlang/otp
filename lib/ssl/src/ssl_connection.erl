@@ -681,6 +681,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{role = client, negotiated_version = Version,
 	       key_algorithm = Alg,
 	       public_key_info = PubKeyInfo,
+               session = Session,
 	       connection_states = ConnectionStates} = State, Connection)
   when Alg == dhe_dss; Alg == dhe_rsa;
        Alg == ecdhe_rsa; Alg == ecdhe_ecdsa;
@@ -702,7 +703,8 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 						  ConnectionStates, ssl:tls_version(Version), PubKeyInfo) of
 		true ->
 		    calculate_secret(Params#server_key_params.params,
-				     State#state{hashsign_algorithm = HashSign}, 
+				     State#state{hashsign_algorithm = HashSign,
+                                                 session = session_handle_params(Params#server_key_params.params, Session)}, 
 				     Connection);
 		false ->
 		    handle_own_alert(?ALERT_REC(?FATAL, ?DECRYPT_ERROR),
@@ -1244,7 +1246,7 @@ connection_info(#state{sni_hostname = SNIHostname,
     RecordCB = record_cb(Connection),
     CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher:suite_definition(CipherSuite),
     IsNamedCurveSuite = lists:member(KexAlg,
-                                     [ecdh_ecdsa, ecdhe_ecdsa, ecdh_rsa, ecdh_anon]),
+                                     [ecdh_ecdsa, ecdhe_ecdsa, ecdh_rsa, ecdhe_rsa, ecdh_anon]),
     CurveInfo = case ECCCurve of
 		    {namedCurve, Curve} when IsNamedCurveSuite ->
 			[{ecc, {named_curve, pubkey_cert_records:namedCurves(Curve)}}];
@@ -1347,11 +1349,9 @@ handle_peer_cert_key(client, _,
 		     KeyAlg, #state{session = Session} = State)  when KeyAlg == ecdh_rsa;
                                                                       KeyAlg == ecdh_ecdsa ->
     ECDHKey = public_key:generate_key(PublicKeyParams),
-    {namedCurve, Oid} = PublicKeyParams,
-    Curve = pubkey_cert_records:namedCurves(Oid), %% Need API function
     PremasterSecret = ssl_handshake:premaster_secret(PublicKey, ECDHKey),
     master_secret(PremasterSecret, State#state{diffie_hellman_keys = ECDHKey,
-                                               session = Session#session{ecc = {named_curve, Curve}}});
+                                               session = Session#session{ecc = PublicKeyParams}});
 %% We do currently not support cipher suites that use fixed DH.
 %% If we want to implement that the following clause can be used
 %% to extract DH parameters form cert.
@@ -1519,9 +1519,11 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       PrivateKey}),
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
-key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State, _)
+key_exchange(#state{role = server, private_key = #'ECPrivateKey'{parameters = ECCurve} = Key, key_algorithm = Algo,
+                   session = Session} = State, _)
   when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
-    State#state{diffie_hellman_keys = Key};
+    State#state{diffie_hellman_keys = Key,
+                session = Session#session{ecc = ECCurve}};
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1656,12 +1658,13 @@ key_exchange(#state{role = client,
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
 		    negotiated_version = Version,
-		    diffie_hellman_keys = Keys} = State0, Connection)
+                    session = Session,
+		    diffie_hellman_keys = #'ECPrivateKey'{parameters = ECCurve} = Key} = State0, Connection)
   when Algorithm == ecdhe_ecdsa; Algorithm == ecdhe_rsa;
        Algorithm == ecdh_ecdsa; Algorithm == ecdh_rsa;
        Algorithm == ecdh_anon ->
-    Msg = ssl_handshake:key_exchange(client, ssl:tls_version(Version), {ecdh, Keys}),
-    Connection:queue_handshake(Msg, State0);
+    Msg = ssl_handshake:key_exchange(client, ssl:tls_version(Version), {ecdh, Key}),
+    Connection:queue_handshake(Msg, State0#state{session = Session#session{ecc = ECCurve}});
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
 		    key_algorithm = psk,
@@ -2136,6 +2139,11 @@ cancel_timer(undefined) ->
 cancel_timer(Timer) ->
     erlang:cancel_timer(Timer),
     ok.
+
+session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
+    Session#session{ecc = ECCurve};
+session_handle_params(_, Session) ->
+    Session.
 
 register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},
