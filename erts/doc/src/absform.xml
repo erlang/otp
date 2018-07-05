@@ -801,7 +801,8 @@
           <c>{ann_type,LINE,[Rep(A),Rep(T_0)]}</c>.</p>
       </item>
       <item>
-        <p>If T is an atom or integer literal L, then Rep(T) = Rep(L).</p>
+        <p>If T is an atom, a character, or an integer literal L,
+	  then Rep(T) = Rep(L).</p>
       </item>
       <item>
         <p>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
