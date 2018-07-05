@@ -43,10 +43,10 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.2', [], test_cases()},
+     {'tlsv1.2', [], [mix_sign | test_cases()]},
      {'tlsv1.1', [], test_cases()},
      {'tlsv1', [], test_cases()},
-     {'dtlsv1.2', [], test_cases()},
+     {'dtlsv1.2', [], [mix_sign | test_cases()]},
      {'dtlsv1', [], test_cases()}     
     ].
 
@@ -392,3 +392,12 @@ client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom(Config) ->
         true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, ECCOpts, [], Config);
         false -> {skip, "unsupported named curves"}
     end.
+
+mix_sign(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert(Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECDHE_ECDSA =
+        ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
+                                 [{key_exchange, fun(ecdhe_ecdsa) -> true; (_) -> false end}]),
+    ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_ECDSA} | SOpts], Config).
