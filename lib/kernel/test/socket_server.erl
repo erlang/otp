@@ -20,29 +20,37 @@
 
 -module(socket_server).
 
--export([start/0,
-         start_tcp/0,
-         start_udp/0]).
+-export([
+         start/0,
+         start_tcp/0, start_tcp/1,
+         start_udp/0, start_udp/1
+        ]).
 
 -define(LIB, socket_lib).
 
--record(manager,  {acceptor, handler_id, handlers}).
+-record(manager,  {peek, acceptor, handler_id, handlers}).
 -record(acceptor, {socket, manager}).
--record(handler,  {socket, type, manager}).
+-record(handler,  {socket, peek, type, manager}).
 
 start() ->
     start_tcp().
 
 start_tcp() ->
-    start(inet, stream, tcp).
+    start_tcp(false).
+
+start_tcp(Peek) ->
+    start(inet, stream, tcp, Peek).
 
 start_udp() ->
-    start(inet, dgram, udp).
+    start_udp(false).
 
-start(Domain, Type, Proto) ->
+start_udp(Peek) when is_boolean(Peek) ->
+    start(inet, dgram, udp, Peek).
+
+start(Domain, Type, Proto, Peek) ->
     put(sname, "starter"),
     i("try start manager"),
-    {Pid, MRef} = manager_start(Domain, Type, Proto),
+    {Pid, MRef} = manager_start(Domain, Type, Proto, Peek),
     i("manager (~p) started", [Pid]),
     loop(Pid, MRef).
 
@@ -57,8 +65,8 @@ loop(Pid, MRef) ->
 
 %% =========================================================================
 
-manager_start(Domain, Type, Proto) ->
-    spawn_monitor(fun() -> manager_init(Domain, Type, Proto) end).
+manager_start(Domain, Type, Proto, Peek) ->
+    spawn_monitor(fun() -> manager_init(Domain, Type, Proto, Peek) end).
 
 manager_start_handler(Pid, Sock) ->
     manager_request(Pid, {start_handler, Sock}).
@@ -73,19 +81,20 @@ manager_reply(Pid, Ref, Reply) ->
     ?LIB:reply(manager, Pid, Ref, Reply).
 
 
-manager_init(Domain, stream = Type, Proto) ->
+manager_init(Domain, stream = Type, Proto, Peek) ->
     put(sname, "manager"),
     i("try start acceptor"),
     case acceptor_start(Domain, Type, Proto) of
         {ok, {Pid, MRef}} ->
             i("acceptor started"),
-            manager_loop(#manager{acceptor   = {Pid, MRef},
+            manager_loop(#manager{peek       = Peek,
+                                  acceptor   = {Pid, MRef},
                                   handler_id = 1,
                                   handlers   = []});
         {error, Reason} ->
             exit({failed_starting_acceptor, Reason})
     end;
-manager_init(Domain, dgram = Type, Proto) ->
+manager_init(Domain, dgram = Type, Proto, Peek) ->
     put(sname, "manager"),
     i("try open socket"),
     case socket:open(Domain, Type, Proto) of
@@ -104,11 +113,12 @@ manager_init(Domain, dgram = Type, Proto) ->
                               {ok, Name} -> Name;
                               {error, _} = E -> E
                           end]),
-            case handler_start(1, Sock) of
+            case handler_start(1, Sock, Peek) of
                 {ok, {Pid, MRef}} ->
                     i("handler (~p) started", [Pid]),
                     handler_continue(Pid),
-                    manager_loop(#manager{handler_id = 2, % Just in case
+                    manager_loop(#manager{peek       = Peek,
+                                          handler_id = 2, % Just in case
                                           handlers   = [{Pid, MRef, 1}]});
                 {error, SReason} ->
                     e("Failed starting handler: "
@@ -153,11 +163,12 @@ manager_handle_down(#manager{handlers = Handlers} = M, _MRef, Pid, Reason) ->
     M#manager{handlers = Handlers2}.
 
 
-manager_handle_request(#manager{handler_id = HID,
+manager_handle_request(#manager{peek       = Peek,
+                                handler_id = HID,
                                 handlers   = Handlers} = M, Pid, Ref,
                        {start_handler, Sock}) ->
     i("try start handler (~w)", [HID]),
-    case handler_start(HID, Sock) of
+    case handler_start(HID, Sock, Peek) of
         {ok, {HPid, HMRef}} ->
             i("handler ~w started", [HID]),
             manager_reply(Pid, Ref, {ok, HPid}),
@@ -346,9 +357,11 @@ acceptor_handle_accept_success(#acceptor{manager = Manager}, Sock) ->
 
 %% =========================================================================
 
-handler_start(ID, Sock) ->
+handler_start(ID, Sock, Peek) ->
     Self = self(),
-    H = {Pid, _} = spawn_monitor(fun() -> handler_init(Self, ID, Sock) end),
+    H = {Pid, _} = spawn_monitor(fun() ->
+                                         handler_init(Self, ID, Peek, Sock)
+                                 end),
     receive
         {handler, Pid, ok} ->
             {ok, H};
@@ -371,7 +384,7 @@ handler_reply(Pid, Ref, Reply) ->
     ?LIB:reply(handler, Pid, Ref, Reply).
 
 
-handler_init(Manager, ID, Sock) ->
+handler_init(Manager, ID, Peek, Sock) ->
     put(sname, f("handler:~w", [ID])),
     i("starting"),
     Manager ! {handler, self(), ok},
@@ -381,7 +394,8 @@ handler_init(Manager, ID, Sock) ->
             handler_reply(Pid, Ref, ok),
             {ok, Type} = socket:getopt(Sock, socket, type),
             %% socket:setopt(Socket, otp, debug, true),
-            handler_loop(#handler{manager = Manager,
+            handler_loop(#handler{peek    = Peek,
+                                  manager = Manager,
                                   type    = Type,
                                   socket  = Sock})
     end.
@@ -423,16 +437,55 @@ handler_loop(H) ->
     end.
 
 
-recv(#handler{socket = Sock, type = stream}) ->
+recv(#handler{peek = true, socket = Sock, type = stream}) ->
+    peek_recv(Sock);
+recv(#handler{peek = false, socket = Sock, type = stream}) ->
+    do_recv(Sock);
+recv(#handler{peek = Peek, socket = Sock, type = dgram})
+  when (Peek =:= true) ->
+    %% ok  = socket:setopt(Sock, otp, debug, true),
+    RES = peek_recvfrom(Sock, 5),
+    %% ok  = socket:setopt(Sock, otp, debug, false),
+    RES;
+recv(#handler{peek = Peek, socket = Sock, type = dgram})
+  when (Peek =:= false) ->
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    socket:recvfrom(Sock).
+
+do_recv(Sock) ->
     case socket:recv(Sock) of
         {ok, Msg} ->
             {ok, {undefined, Msg}};
         {error, _} = ERROR ->
             ERROR
-    end;
-recv(#handler{socket = Sock, type = dgram}) ->
-    %% ok = socket:setopt(Sock, otp, debug, true),
-    socket:recvfrom(Sock).
+    end.
+
+peek_recv(Sock) ->
+    i("try peek on the message type (expect request)"),
+    Type = ?LIB:req(),
+    case socket:recv(Sock, 4, [peek]) of
+        {ok, <<Type:32>>} ->
+            i("was request - do proper recv"),
+            do_recv(Sock);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+peek_recvfrom(Sock, BufSz) ->
+    i("try peek recvfrom with buffer size ~w", [BufSz]),
+    case socket:recvfrom(Sock, BufSz, [peek]) of
+        {ok, {_Source, Msg}} when (BufSz =:= size(Msg)) ->
+            %% i("we filled the buffer: "
+            %%   "~n   ~p", [Msg]),
+            %% It *may not* fit => try again with double size
+            peek_recvfrom(Sock, BufSz*2);
+        {ok, _} ->
+            %% It fits => read for real
+            i("we did *not* fill the buffer - do the 'real' read"),
+            socket:recvfrom(Sock);
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 
 send(#handler{socket = Sock, type = stream}, Msg, _) ->
@@ -443,69 +496,6 @@ send(#handler{socket = Sock, type = dgram}, Msg, Dest) ->
 
 
 %% =========================================================================
-
-%% enc_req_msg(N, Data) ->
-%%     enc_msg(?REQ, N, Data).
-
-%% enc_rep_msg(N, Data) ->
-%%     enc_msg(?REP, N, Data).
-
-%% enc_msg(Type, N, Data) when is_list(Data) ->
-%%     enc_msg(Type, N, list_to_binary(Data));
-%% enc_msg(Type, N, Data) 
-%%   when is_integer(Type) andalso is_integer(N) andalso is_binary(Data) ->
-%%     <<Type:32/integer, N:32/integer, Data/binary>>.
-    
-%% dec_msg(<<?REQ:32/integer, N:32/integer, Data/binary>>) ->
-%%     {request, N, Data};
-%% dec_msg(<<?REP:32/integer, N:32/integer, Data/binary>>) ->
-%%     {reply, N, Data}.
-
-
-
-%% ---
-
-%% request(Tag, Pid, Request) ->
-%%     Ref = make_ref(),
-%%     Pid ! {Tag, self(), Ref, Request},
-%%     receive
-%%         {Tag, Pid, Ref, Reply} ->
-%%             Reply
-%%     end.
-    
-%% reply(Tag, Pid, Ref, Reply) ->
-%%     Pid ! {Tag, self(), Ref, Reply}.
-
-
-%% ---
-
-%% formated_timestamp() ->
-%%     format_timestamp(os:timestamp()).
-
-%% format_timestamp(Now) ->
-%%     N2T = fun(N) -> calendar:now_to_local_time(N) end,
-%%     format_timestamp(Now, N2T, true).
-
-%% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
-%%     FormatExtra = ".~.2.0w",
-%%     ArgsExtra   = [N3 div 10000],
-%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra);
-%% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
-%%     FormatExtra = "",
-%%     ArgsExtra   = [],
-%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra).
-
-%% format_timestamp(N, N2T, FormatExtra, ArgsExtra) ->
-%%     {Date, Time}   = N2T(N),
-%%     {YYYY,MM,DD}   = Date,
-%%     {Hour,Min,Sec} = Time,
-%%     FormatDate =
-%%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
-%%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
-%%     lists:flatten(FormatDate).
-
-
-%% ---
 
 f(F, A) ->
     ?LIB:f(F, A).

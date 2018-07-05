@@ -22,6 +22,7 @@
 
 -export([
          sleep/1,
+         req/0, rep/0,
          enc_req_msg/2, enc_rep_msg/2,
          enc_msg/3, dec_msg/1,
          request/3, reply/4,
@@ -42,6 +43,9 @@ sleep(T) ->
 
 
 %% ---
+
+req() -> ?REQ.
+rep() -> ?REP.
 
 enc_req_msg(N, Data) ->
     enc_msg(?REQ, N, Data).
