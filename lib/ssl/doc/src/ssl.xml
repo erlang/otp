@@ -1077,7 +1077,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </fsummary>
       <type>
 	<v>SslSocket = sslsocket()</v>
-        <v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | atom()</v>
+        <v>Item = protocol | selected_cipher_suite | sni_hostname | ecc | session_id | atom()</v>
 	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
@@ -1085,6 +1085,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc><p>Returns the most relevant information about the connection, ssl options that
       are undefined will be filtered out. Note that values that affect the security of the
       connection will only be returned if explicitly requested by connection_information/2.</p>
+      <note><p>The legacy <c>Item = cipher_suite</c> is still supported
+        and returns the cipher suite on its (undocumented) legacy format.
+        It should be replaced by <c>selected_cipher_suite</c>.</p></note>
       </desc>
     </func>
 
