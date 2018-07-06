@@ -117,15 +117,24 @@ get_files(Apps, #{}=Opts) ->
     {Files,Opts}.
 
 add_opts([F|Fs], Opts0) ->
-    Opts = case filename:basename(F) of
-               "group_history.erl" ->
+    Opts = case vsn_is_harmful(F) of
+               true ->
                    Opts0 -- [{d,'VSN',1}];
-               _ ->
+               false ->
                    Opts0
            end,
     [{F,Opts}|add_opts(Fs, Opts0)];
 add_opts([], _Opts) ->
     [].
+
+vsn_is_harmful(F) ->
+    case filename:basename(F) of
+        "group_history.erl" ->
+            true;
+        _ ->
+            App = filename:basename(filename:dirname(filename:dirname(F))),
+            App =:= "ssl"
+    end.
 
 get_src(["preloaded"|Apps]) ->
     WC = filename:join(code:root_dir(), "erts/preloaded/src/*.erl"),
