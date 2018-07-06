@@ -31,7 +31,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
      utf32_roundtrip, guard, extreme_tripping, literals,
      coverage].
@@ -40,6 +39,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

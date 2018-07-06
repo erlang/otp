@@ -47,7 +47,6 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -63,6 +62,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

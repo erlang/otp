@@ -21,12 +21,28 @@
 -module(regressions_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,suite/0]).
+-export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,
+         init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+         suite/0]).
 -export([maps/1]).
 
 groups() ->
     [{p,test_lib:parallel(),
       [maps]}].
+
+init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -39,7 +55,6 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 %%% test cases

@@ -32,7 +32,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -42,6 +41,7 @@ groups() ->
        coverage]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
     {ok,Node} = start_node(compiler, Pa),
     [{testing_node,Node}|Config].
