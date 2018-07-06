@@ -27,7 +27,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [pending, bif_calls, math_functions,
      mixed_float_and_int].
 
@@ -35,6 +34,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

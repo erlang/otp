@@ -66,7 +66,6 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [self_compile_old_inliner,self_compile,
      {group,p}].
 
@@ -88,6 +87,7 @@ groups() ->
        string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->

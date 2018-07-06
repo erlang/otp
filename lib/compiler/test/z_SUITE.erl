@@ -26,13 +26,13 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [loaded].
 
 groups() ->
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
