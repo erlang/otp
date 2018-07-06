@@ -467,7 +467,8 @@ start(Name, Config, HandlerState) ->
           type     => worker,
           modules  => [?MODULE]},
     case supervisor:start_child(logger_sup, LoggerStdH) of
-        {ok,_Pid,Config1} ->
+        {ok,Pid,Config1} ->
+            ok = logger_handler_watcher:register_handler(Name,Pid),
             {ok,Config1};
         Error ->
             Error
@@ -485,8 +486,11 @@ stop(Name) ->
             %% system termination in order to avoid circular attempts
             %% at removing the handler (implying deadlocks and
             %% timeouts).
+            %% And we don't need to do supervisor:delete_child, since
+            %% the restart type is temporary, which means that the
+            %% child specification is automatically removed from the
+            %% supervisor when the process dies.
             _ = gen_server:call(Pid, stop),
-            _ = supervisor:delete_child(logger_sup, Name),
             ok
     end.
 

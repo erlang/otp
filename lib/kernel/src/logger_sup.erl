@@ -46,7 +46,11 @@ init([]) ->
                  intensity => 1,
                  period => 5},
 
-    {ok, {SupFlags, []}}.
+    Watcher = #{id => logger_handler_watcher,
+                start => {logger_handler_watcher, start_link, []},
+                shutdown => brutal_kill},
+
+    {ok, {SupFlags, [Watcher]}}.
 
 %%%===================================================================
 %%% Internal functions
