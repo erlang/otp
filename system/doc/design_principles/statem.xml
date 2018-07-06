@@ -125,8 +125,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	(in particular purely internal events)
       </item>
       <item>
-	<seealso marker="#State Enter Calls">
-	  <em>State Enter Calls</em>
+	<seealso marker="#State Enter Events">
+	  <em>State Enter Events</em>
 	</seealso>
 	(callback on state entry co-located with the rest
 	of each state's callback code)
@@ -237,8 +237,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       </seealso>
       function may also return a list containing the <em>callback mode</em>
       and the atom <c>state_enter</c> in which case
-      <seealso marker="#State Enter Calls">
-	<em>state enter calls</em>
+      <seealso marker="#State Enter Events">
+	<em>state enter events</em>
       </seealso>
       are activated for the <em>callback mode</em>.
     </p>
@@ -359,11 +359,6 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       and the current server <c>Data</c>.
     </p>
     <p>
-      <em>State enter calls</em> are also handled by the event handler
-      and have slightly different arguments. See section
-      <seealso marker="#State Enter Calls">State Enter Calls</seealso>.
-    </p>
-    <p>
       The <em>state callback</em> return values
       are defined in the description of
       <seealso marker="stdlib:gen_statem#Module:StateName/3">
@@ -401,8 +396,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	  any current
 	  <seealso marker="#State Time-Outs">state time-out</seealso>
 	  is cancelled, and a
-	  <seealso marker="#State Enter Calls">state enter call</seealso>
-	  is performed, if enabled.
+	  <seealso marker="#State Enter Events">
+	    <em>state enter event</em>
+	  </seealso>
+	  is generated, if enabled.
 	</p>
       </item>
       <tag>
@@ -435,18 +432,13 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<p>
 	  Same as the <c>keep_state</c> or <c>keep_state_and_data</c> values,
 	  and if
-	  <seealso marker="#State Enter Calls">
-	    State Enter Calls
+	  <seealso marker="#State Enter Events">
+	    <em>state enter events</em>
 	  </seealso>
-	  are enabled, repeat the <em>state enter call</em>
-	  as if this state was entered again.
-	</p>
-	<p>
-	  If these return values are used from a
-	  <em>state enter call</em> the <c>OldState</c> does not change,
-	  but if used from an event handling <em>state callback</em>
-	  the new <em>state enter call's</em> <c>OldState</c>
-	  will be the current state.
+	  are enabled, generate a new <em>state enter event</em>
+	  as if this state was entered again,
+	  but this time the generated event's <c>OldState</c> will be
+	  the current state since there is no <em>state change</em>.
 	</p>
       </item>
       <tag>
@@ -729,22 +721,41 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	the <c>next_event</c> action:
 	<c>{next_event,EventType,EventContent}</c>.
       </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-state_enter">
+	  <c>enter</c>
+	</seealso>
+      </tag>
+      <item>
+	When
+	<seealso marker="State Enter Events">
+	  <em>state enter events</em>
+	</seealso>
+	are enabled, type <c>enter</c> events are generated
+	when the state machine does a <em>state change</em>,
+	or by any of the
+	<seealso marker="State Callback"><em>state callback's</em></seealso>,
+	<c>{repeat...}</c>
+	<seealso marker="stdlib:gen_statem#type-state_callback_result">return values</seealso>.
+	Note that this <em>event type</em> is not allowed to generate using
+	<c>{next_event,EventType,EventContent}</c>.
+      </item>
     </taglist>
   </section>
 
 <!-- =================================================================== -->
 
   <section>
-    <marker id="State Enter Calls" />
-    <title>State Enter Calls</title>
+    <marker id="State Enter Events" />
+    <title>State Enter Events</title>
     <p>
       The <c>gen_statem</c> behavior can if this is enabled,
       regardless of <em>callback mode</em>,
-      automatically
+      automatically generate
       <seealso marker="stdlib:gen_statem#type-state_enter">
-	call the state callback
+	<em>state enter events</em>
       </seealso>
-      with special arguments whenever the state changes
+      whenever the state machine does a <em>state change</em>
       so you can write state enter actions
       near the rest of the <em>state transition</em> rules.
       It typically looks like this:
@@ -757,30 +768,26 @@ StateName(EventType, EventContent, Data) ->
     ... code for actions here ...
     {next_state, NewStateName, NewData}.</pre>
     <p>
-      Since the <em>state enter call</em> is not an event there are restrictions
-      on the allowed return value and
-      <seealso marker="#State Transition Actions">State Transition Actions</seealso>.
-      You may not change the state,
+      To avoid confusion <em>state enter events</em> are not allowed to
       <seealso marker="#Postponing Events">postpone</seealso>
-      this non-event, or
-      <seealso marker="#Inserted Events">insert any events</seealso>.
+      nor
+      <seealso marker="#Inserted Events">insert</seealso>.
     </p>
     <p>
       The first state that is entered
-      will get a <em>state enter call</em>
+      will get a <em>state enter event</em>
       with <c>OldState</c> equal to the current state.
     </p>
     <p>
-      You may repeat the <em>state enter call</em>
-      using the <c>{repeat_state,...}</c>
-      return value from the 
-      <seealso marker="#State Callback">state callback</seealso>.
+      You may generate a new <em>state enter event</em>
+      using the <c>{repeat_state,...}</c> return value from the
+      <seealso marker="#State Callback"><em>state callback</em></seealso>.
       In this case <c>OldState</c> will also be equal to the current state.
     </p>
     <p>
       Depending on how your state machine is specified,
       this can be a very useful feature, but it forces you to handle
-      the <em>state enter calls</em> in all states.
+      the <em>state enter events</em> in all states.
       See also the
       <seealso marker="#State Enter Actions">
 	State Enter Actions
@@ -1790,7 +1797,7 @@ do_unlock() ->
       (described in the next section), especially if just
       one or a few states has got state enter actions,
       this is a perfect use case for the built in
-      <seealso marker="#State Enter Calls"><em>state enter calls</em></seealso>.
+      <seealso marker="#State Enter Events"><em>state enter events</em></seealso>.
     </p>
     <p>
       You return a list containing <c>state_enter</c> from your
@@ -1801,7 +1808,7 @@ do_unlock() ->
       <em>state callback</em> once with an event
       <c>(enter, OldState, ...)</c>
       whenever it does a <em>state change</em>.
-      Then you just need to handle these event-like calls in all states.
+      Then you just need to handle these events in all states.
     </p>
     <code type="erl"><![CDATA[
 ...
@@ -1948,7 +1955,7 @@ open(internal, {button,_}, Data) ->
     <title>Example Revisited</title>
     <p>
       This section includes the example after most of the mentioned
-      modifications and some more using <em>state enter calls</em>,
+      modifications and some more using <em>state enter events</em>,
       which deserves a new state diagram:
     </p>
     <!-- The image is edited with dia in a .dia file,
@@ -2074,7 +2081,7 @@ terminate(_Reason, State, _Data) ->
         to use one <c>handle_event/4</c> function.
         The previously used approach to first branch depending on event
 	does not work that well here
-	because of the <em>state enter calls</em>,
+	because of the <em>state enter events</em>,
         so this example first branches depending on state:
       </p>
       <code type="erl"><![CDATA[
