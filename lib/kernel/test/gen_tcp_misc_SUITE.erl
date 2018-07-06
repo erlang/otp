@@ -2205,7 +2205,7 @@ wait_until_accepting(Proc,0) ->
     exit({timeout_waiting_for_accepting,Proc});
 wait_until_accepting(Proc,N) ->
     case process_info(Proc,current_function) of
-        {current_function,{prim_inet,accept0,2}} ->
+        {current_function,{prim_inet,accept0,3}} ->
             case process_info(Proc,status) of
                 {status,waiting} -> 
                     ok;

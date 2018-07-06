@@ -624,6 +624,26 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #  define VALGRIND_MAKE_MEM_DEFINED(ptr,size)
 #endif
 
+#ifndef __WIN32__
+/* Calculate CMSG_NXTHDR without having a struct msghdr*
+ * CMSG_LEN only caters for alignment for start of data.
+ * To get how much to advance we need to use CMSG_SPACE
+ * on the payload length.  To get the payload length we
+ * take the calculated cmsg->cmsg_len and subtract the
+ * header length.  To get the header length we use
+ * CMSG_LEN with payload length 0.
+ */
+#define LEN_CMSG_DATA(cmsg)  ((char*)CMSG_DATA(cmsg) - (char*)(cmsg))
+#define NXT_CMSG_HDR(cmsg)                                              \
+    ((struct cmsghdr*)                                                  \
+     (((char*)(cmsg)) +                                                 \
+      CMSG_SPACE((cmsg)->cmsg_len - LEN_CMSG_DATA(cmsg))))
+#endif
+
+#if !defined(IPV6_PKTOPTIONS) && defined(IPV6_2292PKTOPTIONS)
+#define IPV6_PKTOPTIONS IPV6_2292PKTOPTIONS
+#endif
+
 /*
   Magic errno value used locally for return of {error, system_limit}
   - the emulator definition of SYSTEM_LIMIT is not available here.
@@ -787,6 +807,11 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_LOPT_LINE_DELIM        40  /* Line delimiting char */
 #define INET_OPT_TCLASS             41  /* IPv6 transport class */
 #define INET_OPT_BIND_TO_DEVICE     42  /* get/set network device the socket is bound to */
+#define INET_OPT_RECVTOS            43  /* IP_RECVTOS ancillary data */
+#define INET_OPT_RECVTCLASS         44  /* IPV6_RECVTCLASS ancillary data */
+#define INET_OPT_PKTOPTIONS         45  /* IP(V6)_PKTOPTIONS get ancillary data */
+#define INET_OPT_TTL                46  /* IP_TTL */
+#define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -861,6 +886,11 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define	SCTP_FLAG_PMTUD_DISABLE    (16 /* am_pmtud_disable */)
 #define SCTP_FLAG_SACDELAY_ENABLE  (32 /* am_sackdelay_enable */)
 #define SCTP_FLAG_SACDELAY_DISABLE (64 /* am_sackdelay_disable */)
+
+/* Flags for recv_cmsgflags */
+#define INET_CMSG_RECVTOS        (1 << 0) /* am_recvtos, am_tos */
+#define INET_CMSG_RECVTCLASS     (1 << 1) /* am_recvtclass, am_tclass */
+#define INET_CMSG_RECVTTL        (1 << 2) /* am_recvttl, am_ttl */
 
 /*
 ** End of interface constants.
@@ -1084,6 +1114,7 @@ typedef struct {
     char *netns;                /* Socket network namespace name
 				   as full file path */
 #endif
+    int recv_cmsgflags;         /* Which ancillary data to expect */
 } inet_descriptor;
 
 
@@ -1336,6 +1367,11 @@ static ErlDrvTermData am_udp_error;
 #ifdef HAVE_SYS_UN_H
 static ErlDrvTermData am_local;
 #endif
+#ifndef __WIN32__
+static ErlDrvTermData am_tos;
+static ErlDrvTermData am_tclass;
+static ErlDrvTermData am_ttl;
+#endif
 #ifdef HAVE_SCTP
 static ErlDrvTermData am_sctp;
 static ErlDrvTermData am_sctp_passive;
@@ -1356,8 +1392,9 @@ static ErlDrvTermData am_sndbuf;
 static ErlDrvTermData am_reuseaddr;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
-static ErlDrvTermData am_tos;
-static ErlDrvTermData am_tclass;
+static ErlDrvTermData am_recvtos;
+static ErlDrvTermData am_recvtclass;
+static ErlDrvTermData am_recvttl;
 static ErlDrvTermData am_ipv6_v6only;
 static ErlDrvTermData am_netns;
 static ErlDrvTermData am_bind_to_device;
@@ -1548,10 +1585,10 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #   define ASSOC_ID_LEN		4
 #   define LOAD_ASSOC_ID        LOAD_UINT
 #   define LOAD_ASSOC_ID_CNT    LOAD_UINT_CNT
-#   define SCTP_ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 #else
 #   define IS_SCTP(desc) 0
 #endif
+#   define ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 
 #ifdef HAVE_UDP
 static int load_address(ErlDrvTermData* spec, int i, char* buf)
@@ -2752,6 +2789,44 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
     }
 }
 
+#ifndef __WIN32__
+static int parse_ancillary_data_item(ErlDrvTermData *spec, int i,
+                                     struct cmsghdr *cmsg, int *n) {
+#define LOAD_CMSG(proto, type, vtype, am, load)         \
+    if (cmsg->cmsg_level == (proto) &&                  \
+        cmsg->cmsg_type == (type)) {                    \
+        vtype *vp;                                      \
+        vp = (vtype *)CMSG_DATA(cmsg);                  \
+        i = LOAD_ATOM(spec, i, (am));                   \
+        i = load(spec, i, *vp);                         \
+        i = LOAD_TUPLE(spec, i, 2);                     \
+        (*n)++;                                         \
+        return i;                                       \
+    }
+#if defined(IPPROTO_IP) && defined(IP_TOS)
+    LOAD_CMSG(IPPROTO_IP, IP_TOS, unsigned char, am_tos, LOAD_INT);
+#endif
+#if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
+    LOAD_CMSG(IPPROTO_IPV6, IPV6_TCLASS, unsigned char, am_tclass, LOAD_INT);
+#endif
+#if defined(IPPROTO_IP) && defined(IP_TTL)
+    LOAD_CMSG(IPPROTO_IP, IP_TTL, unsigned char, am_ttl, LOAD_INT);
+#endif
+    /* BSD uses the RECV* names in CMSG fields */
+#if defined(IPPROTO_IP) && defined(IP_RECVTOS)
+    LOAD_CMSG(IPPROTO_IP, IP_RECVTOS, unsigned char, am_tos, LOAD_INT);
+#endif
+#if defined(IPPROTO_IPV6) && defined(IPV6_RECVTCLASS)
+    LOAD_CMSG(IPPROTO_IPV6, IPV6_RECVTCLASS, unsigned char, am_tclass, LOAD_INT);
+#endif
+#if defined(IPPROTO_IP) && defined(IP_RECVTTL)
+    LOAD_CMSG(IPPROTO_IP, IP_RECVTTL, unsigned char, am_ttl, LOAD_INT);
+#endif
+#undef LOAD_CMSG
+    return i;
+}
+#endif /* #ifndef __WIN32__ */
+
 #ifdef HAVE_SCTP
 /*
 ** SCTP-related atoms:
@@ -2883,11 +2958,18 @@ static int sctp_parse_ancillary_data
     for (cmsg = frst_msg; cmsg != NULL; cmsg = CMSG_NXTHDR(mptr,cmsg))
     {
 	struct sctp_sndrcvinfo * sri;
-	
+#ifndef __WIN32
+        int old_s;
+
+        /* Parse ancillary data common to UDP */
+        old_s = s;
+        i = parse_ancillary_data_item(spec, i, cmsg, &s);
+        if (s > old_s) continue;
 	/* Skip other possible ancillary data, e.g. from IPv6: */
 	if (cmsg->cmsg_level != IPPROTO_SCTP ||
 	    cmsg->cmsg_type  != SCTP_SNDRCV)
 	continue;
+#endif
 
 	if (((char*)cmsg + cmsg->cmsg_len) - (char*)frst_msg >
 	    mptr->msg_controllen)
@@ -3227,6 +3309,23 @@ static int sctp_parse_async_event
 }
 #endif  /* HAVE_SCTP */
 
+#ifndef __WIN32__
+static int udp_parse_ancillary_data(ErlDrvTermData *spec, int i,
+                                struct msghdr *mptr) {
+    struct cmsghdr *cmsg;
+    int n;
+
+    n = 0;
+    for (cmsg = CMSG_FIRSTHDR(mptr);
+         cmsg != NULL;
+         cmsg = CMSG_NXTHDR(mptr, cmsg)) {
+        i = parse_ancillary_data_item(spec, i, cmsg, &n);
+    }
+    i = LOAD_NIL(spec, i);
+    return LOAD_LIST(spec, i, n+1);
+}
+#endif /* ifndef __WIN32__ */
+
 /* 
 ** passive mode reply:
 ** for UDP:
@@ -3249,7 +3348,7 @@ static int sctp_parse_async_event
 static int
 inet_async_binary_data
 	(inet_descriptor* desc, unsigned  int phsz,
-	 ErlDrvBinary   * bin,  int offs, int len, void * extra)
+	 ErlDrvBinary   * bin,  int offs, int len, void *mp)
 {
     unsigned int hsz = desc->hsz + phsz;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
@@ -3282,9 +3381,10 @@ inet_async_binary_data
     if (IS_SCTP(desc))
     {	/* For SCTP we always have desc->hsz==0 (i.e., no application-level
 	   headers are used), so hsz==phsz (see above): */
-	struct msghdr* mptr;
 	int sz;
-	
+        struct msghdr *mptr;
+
+        mptr = mp;
 	ASSERT (hsz == phsz && hsz != 0);
 	sz = len - hsz;  /* Size of the msg data proper, w/o the addr */
 
@@ -3292,7 +3392,6 @@ inet_async_binary_data
 	i = LOAD_STRING(spec, i, bin->orig_bytes+offs, hsz);
 
 	/* Put in the list (possibly empty) of Ancillary Data: */
-	mptr = (struct msghdr *) extra;
 	i = sctp_parse_ancillary_data (spec, i, mptr);
 
 	/* Then: Data or Event (Notification)? */
@@ -3321,20 +3420,32 @@ inet_async_binary_data
     }
     else
 #endif  /* HAVE_SCTP */
-    /* Generic case. Both Addr and Data (or a single list of them together) are
-       returned: */
+    {
+        /* Generic case. Both Addr and Data
+         * (or a single list of them together) are returned: */
 
-    if ((desc->mode == INET_MODE_LIST) || (hsz > len)) {
-	/* INET_MODE_LIST => [H1,H2,...Hn] */
-	i = LOAD_STRING(spec, i, bin->orig_bytes+offs, len);
+        if ((desc->mode == INET_MODE_LIST) || (hsz > len)) {
+            /* INET_MODE_LIST => [H1,H2,...Hn] */
+            i = LOAD_STRING(spec, i, bin->orig_bytes+offs, len);
+        }
+        else {
+            /* INET_MODE_BINARY => [H1,H2,...HSz | Binary] or [Binary]: */
+            int sz = len - hsz;
+            i = LOAD_BINARY(spec, i, bin, offs+hsz, sz);
+            if (hsz > 0)
+                i = LOAD_STRING_CONS(spec, i, bin->orig_bytes+offs, hsz);
+        }
+
+#ifndef __WIN32__
+        if (mp) {
+            /* We got ancillary data from an UDP recvmsg.
+             * Insert an additional tuple level {[F|AddrData],AncData} */
+            i = udp_parse_ancillary_data(spec, i, (struct msghdr*)mp);
+            i = LOAD_TUPLE(spec, i, 2);
+        }
+#endif
     }
-    else {
-	/* INET_MODE_BINARY => [H1,H2,...HSz | Binary] or [Binary]: */
-	int sz = len - hsz;
-	i = LOAD_BINARY(spec, i, bin, offs+hsz, sz);
-	if (hsz > 0)
-	    i = LOAD_STRING_CONS(spec, i, bin->orig_bytes+offs, hsz);
-    }
+
     /* Close up the {ok, ...} or {error, ...} tuple: */
     i = LOAD_TUPLE(spec, i, 2);
 
@@ -3466,8 +3577,9 @@ static int tcp_error_message(tcp_descriptor* desc, int err)
 **    [AddrLen, H2,...,HSz] are msg headers for UDP AF_UNIX only
 **	  Data  : List() | Binary()
 */
-static int packet_binary_message
-    (inet_descriptor* desc, ErlDrvBinary* bin, int offs, int len, void* extra)
+static int packet_binary_message(inet_descriptor* desc,
+                                 ErlDrvBinary* bin, int offs, int len,
+                                 void *mp)
 {
     unsigned int hsz = desc->hsz;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
@@ -3492,8 +3604,14 @@ static int packet_binary_message
 
 #   ifdef HAVE_SCTP
     if (!IS_SCTP(desc))
-    {
 #   endif
+    {
+#ifndef __WIN32__
+        if (mp) i = udp_parse_ancillary_data(spec, i, (struct msghdr*)mp);
+#endif
+        /* We got ancillary data from an UDP recvmsg.
+         * Insert an additional tuple level {AncData,[F|AddrData]}
+         */
 	if ((desc->mode == INET_MODE_LIST) || (hsz > len))
 	    /* INET_MODE_LIST, or only headers => [H1,H2,...Hn] */
 	    i = LOAD_STRING(spec, i, bin->orig_bytes+offs, len);
@@ -3505,16 +3623,24 @@ static int packet_binary_message
 	    if (hsz > 0)
 		i = LOAD_STRING_CONS(spec, i, bin->orig_bytes+offs, hsz);
 	}
-#   ifdef HAVE_SCTP
+        /* Close up the outer 5-or-6-tuple */
+#ifndef __WIN32__
+        if (mp) i = LOAD_TUPLE(spec, i, 6);
+        else
+#endif
+            i = LOAD_TUPLE(spec, i, 5);
     }
+#   ifdef HAVE_SCTP
     else
-    {	/* For SCTP we always have desc->hsz==0 (i.e., no application-level
+    {
+        struct msghdr *mptr;
+
+        mptr = mp;
+	/* For SCTP we always have desc->hsz==0 (i.e., no application-level
 	   headers are used): */
-	struct msghdr* mptr;
 	ASSERT(hsz == 0);
 
 	/* Put in the list (possibly empty) of Ancillary Data: */
-	mptr = (struct msghdr *) extra;
 	i = sctp_parse_ancillary_data (spec, i, mptr);
 
 	/* Then: Data or Event (Notification)? */
@@ -3540,11 +3666,11 @@ static int packet_binary_message
 
 	/* Close up the {[AncilData], Event_OR_Data} tuple: */
 	i = LOAD_TUPLE (spec, i, 2);
+        /* Close up the outer 5-tuple: */
+        i = LOAD_TUPLE(spec, i, 5);
     }
 #   endif /* HAVE_SCTP */
 
-    /* Close up the outer 5-tuple: */
-    i = LOAD_TUPLE(spec, i, 5);
     ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);
     return erl_drv_output_term(desc->dport, spec, i);
 }
@@ -3678,19 +3804,19 @@ tcp_reply_binary_data(tcp_descriptor* desc, ErlDrvBinary* bin, int offs, int len
 static int
 packet_reply_binary_data(inet_descriptor* desc, unsigned  int hsz,
 			 ErlDrvBinary   * bin,  int offs, int len,
-			 void * extra)
+                         void *mp)
 {
     int code;
 
     if (desc->active == INET_PASSIVE)
 	/* "inet" is actually for both UDP and SCTP, as well as TCP! */
-	return inet_async_binary_data(desc, hsz, bin, offs, len, extra);
+	return inet_async_binary_data(desc, hsz, bin, offs, len, mp);
     else
     {	/* INET_ACTIVE or INET_ONCE: */
 	if (desc->deliver == INET_DELIVER_PORT)
 	    code = inet_port_binary_data(desc, bin, offs, len);
 	else
-	    code = packet_binary_message(desc, bin, offs, len, extra);
+	    code = packet_binary_message(desc, bin, offs, len, mp);
 	if (code < 0)
 	    return code;
         INET_CHECK_ACTIVE_TO_PASSIVE(desc);
@@ -3757,8 +3883,9 @@ static void inet_init_sctp(void) {
     INIT_ATOM(reuseaddr);
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
-    INIT_ATOM(tos);
-    INIT_ATOM(tclass);
+    INIT_ATOM(recvtos);
+    INIT_ATOM(recvtclass);
+    INIT_ATOM(recvttl);
     INIT_ATOM(ipv6_v6only);
     INIT_ATOM(netns);
     INIT_ATOM(bind_to_device);
@@ -3901,6 +4028,11 @@ static int inet_init()
 #endif
     INIT_ATOM(empty_out_q);
     INIT_ATOM(ssl_tls);
+#ifndef __WIN32__
+    INIT_ATOM(tos);
+    INIT_ATOM(tclass);
+    INIT_ATOM(ttl);
+#endif
 
     INIT_ATOM(http_eoh);
     INIT_ATOM(http_header);
@@ -5119,8 +5251,8 @@ static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
 	    sys_memcpy(sptr,
 		       sdlp->sdl_data + sdlp->sdl_nlen,
 		       sdlp->sdl_alen);
-	    freeifaddrs(ifa);
 	    sptr += sdlp->sdl_alen;
+	    freeifaddrs(ifa);
 #endif
 	    break;
 	}
@@ -5933,7 +6065,8 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
       but ditto for the other worked and that was actually the requested
       option, failure was still reported to erlang.                  */
 
-#if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
+#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
+    && defined(SO_PRIORITY) && !defined(__WIN32__)
 static int setopt_prio_tos_trick
 	(int fd, int proto, int type, char* arg_ptr, int arg_sz, int propagate)
 {
@@ -5955,14 +6088,14 @@ static int setopt_prio_tos_trick
 
     res_prio = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
 		      (char *) &tmp_ival_prio, &tmp_arg_sz_prio);
-    res_tos = sock_getopt(fd, SOL_IP, IP_TOS, 
+    res_tos = sock_getopt(fd, IPPROTO_IP, IP_TOS,
 		      (char *) &tmp_ival_tos, &tmp_arg_sz_tos);
 	    res = sock_setopt(fd, proto, type, arg_ptr, arg_sz);
 	    if (res == 0) {
 		if (type != SO_PRIORITY) {
 	    if (type != IP_TOS && res_tos == 0) {
 		res_tos = sock_setopt(fd, 
-					  SOL_IP, 
+					  IPPROTO_IP,
 					  IP_TOS,
 					  (char *) &tmp_ival_tos, 
 					  tmp_arg_sz_tos);
@@ -6006,7 +6139,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int proto;
     int opt;
     struct linger li_val;
-#ifdef HAVE_MULTICAST_SUPPORT
+#if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
     struct ip_mreq mreq_val;
 #endif
     int ival;
@@ -6029,6 +6162,8 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     /* XXX { int i; for(i=0;i<len;++i) fprintf(stderr,"0x%02X, ", (unsigned) ptr[i]); fprintf(stderr,"\r\n");} */
 
     while(len >= 5) {
+        int recv_cmsgflags;
+
 	opt = *ptr++;
 	ival = get_int32(ptr);
 	ptr += 4;
@@ -6037,6 +6172,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	arg_sz = sizeof(ival);
 	proto = SOL_SOCKET;
 	propagate = 0;
+        recv_cmsgflags = desc->recv_cmsgflags;
 
 	switch(opt) {
 	case INET_LOPT_HEADER:
@@ -6287,25 +6423,77 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		    (long)desc->port, desc->s, ival));
 	    break;
 #else
+            /* inet_fill_opts always returns a value for this option,
+             * so we need to ignore it if not implemented */
 	    continue;
 #endif
 	case INET_OPT_TOS:
-#if defined(IP_TOS) && defined(SOL_IP)
-	    proto = SOL_IP;
+#if defined(IP_TOS) && defined(IPPROTO_IP)
+	    proto = IPPROTO_IP;
 	    type = IP_TOS;
 	    propagate = 1;
 	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_TOS=%d\r\n",
 		    (long)desc->port, desc->s, ival));
 	    break;
 #else
+            /* inet_fill_opts always returns a value for this option,
+             * so we need to ignore it if not implemented. */
 	    continue;
 #endif
-#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+#if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
 	case INET_OPT_TCLASS:
-	    proto = SOL_IPV6;
+	    proto = IPPROTO_IPV6;
 	    type = IPV6_TCLASS;
 	    propagate = 1;
 	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_TCLASS=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
+#if defined(IP_TTL) && defined(IPPROTO_IP)
+	case INET_OPT_TTL:
+	    proto = IPPROTO_IP;
+	    type = IP_TTL;
+	    propagate = 1;
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_TTL=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
+#if defined(IP_RECVTOS) && defined(IPPROTO_IP)
+	case INET_OPT_RECVTOS:
+	    proto = IPPROTO_IP;
+	    type = IP_RECVTOS;
+	    propagate = 1;
+            recv_cmsgflags =
+                ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTOS) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTOS);
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_RECVTOS=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
+#if defined(IPV6_RECVTCLASS) && defined(IPPROTO_IPV6)
+	case INET_OPT_RECVTCLASS:
+	    proto = IPPROTO_IPV6;
+	    type = IPV6_RECVTCLASS;
+	    propagate = 1;
+            recv_cmsgflags =
+                ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTCLASS) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTCLASS);
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_RECVTCLASS=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
+#if defined(IP_RECVTTL) && defined(IPPROTO_IP)
+	case INET_OPT_RECVTTL:
+	    proto = IPPROTO_IP;
+	    type = IP_RECVTTL;
+	    propagate = 1;
+            recv_cmsgflags =
+                ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTTL) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTTL);
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IP_RECVTTL=%d\r\n",
 		    (long)desc->port, desc->s, ival));
 	    break;
 #endif
@@ -6317,7 +6505,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		    (long)desc->port, desc->s, ival));
 	    break;
 
-#ifdef HAVE_MULTICAST_SUPPORT
+#if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
 
 	case UDP_OPT_MULTICAST_TTL:
 	    proto = IPPROTO_IP;
@@ -6363,10 +6551,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz = sizeof(mreq_val);
 	    break;
 
-#endif /* HAVE_MULTICAST_SUPPORT */
+#endif /* defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP) */
 
 	case INET_OPT_IPV6_V6ONLY:
-#if HAVE_DECL_IPV6_V6ONLY
+#if HAVE_DECL_IPV6_V6ONLY && defined(IPPROTO_IPV6)
 	    proto = IPPROTO_IPV6;
 	    type = IPV6_V6ONLY;
 	    propagate = 1;
@@ -6426,11 +6614,13 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	default:
 	    return -1;
 	}
-#if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
+#if  defined(IP_TOS) && defined(IPPROTO_IP) \
+    && defined(SO_PRIORITY) && !defined(__WIN32__)
 	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, propagate);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
+        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
 	if (propagate && res != 0) {
 	    return -1;
 	}
@@ -6572,10 +6762,14 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
     while (curr < ptr + len)
     {
+        int recv_cmsgflags;
 	/* Get the Erlang-encoded option type -- always 1 byte: */
-	int eopt = *curr;
+	int eopt;
+
+        eopt = *curr;
 	curr++;
 
+        recv_cmsgflags = desc->recv_cmsgflags;
 	/* Get the option value.  XXX: The condition  (curr < ptr + len)
 	   does not preclude us from reading from beyond the buffer end,
 	   if the Erlang part of the driver specifies its input wrongly!
@@ -6756,28 +6950,32 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    break;
 	}
 #	else
-	    continue; /* Option not supported -- ignore it */
+        /* inet_fill_opts always returns a value for this option,
+         * so we need to ignore it if not implemented, just in case */
+	    continue;
 #	endif
 
 	case INET_OPT_TOS:
-#	if defined(IP_TOS) && defined(SOL_IP)
+#	if defined(IP_TOS) && defined(IPPROTO_IP)
 	{
 	    arg.ival= get_int32 (curr);	  curr += 4;
-	    proto   = SOL_IP;
+	    proto   = IPPROTO_IP;
 	    type    = IP_TOS;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
 	    break;
 	}
 #	else
-	    continue; /* Option not supported -- ignore it */
+        /* inet_fill_opts always returns a value for this option,
+         * so we need to ignore it if not implemented, just in case */
+	    continue;
 #	endif
 
-#       if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+#       if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
 	case INET_OPT_TCLASS:
 	{
 	    arg.ival= get_int32 (curr);	  curr += 4;
-	    proto   = SOL_IPV6;
+	    proto   = IPPROTO_IPV6;
 	    type    = IPV6_TCLASS;
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
@@ -6785,9 +6983,69 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 #	endif
 
+#       if defined(IP_TTL) && defined(IPPROTO_IP)
+	case INET_OPT_TTL:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = IPPROTO_IP;
+	    type    = IP_TTL;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+	}
+#	endif
+
+#	if defined(IP_RECVTOS) && defined(IPPROTO_IP)
+	case INET_OPT_RECVTOS:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = IPPROTO_IP;
+	    type    = IP_RECVTOS;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+            recv_cmsgflags =
+                arg.ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTOS) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTOS);
+	    break;
+	}
+#	endif
+
+#       if defined(IPV6_RECVTCLASS) && defined(IPPROTO_IPV6)
+	case INET_OPT_RECVTCLASS:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = IPPROTO_IPV6;
+	    type    = IPV6_RECVTCLASS;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+            recv_cmsgflags =
+                arg.ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTCLASS) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTCLASS);
+	    break;
+	}
+#	endif
+
+#	if defined(IP_RECVTTL) && defined(IPPROTO_IP)
+	case INET_OPT_RECVTTL:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = IPPROTO_IP;
+	    type    = IP_RECVTTL;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+            recv_cmsgflags =
+                arg.ival ?
+                (desc->recv_cmsgflags | INET_CMSG_RECVTTL) :
+                (desc->recv_cmsgflags & ~INET_CMSG_RECVTTL);
+	    break;
+	}
+#	endif
+
 
 	case INET_OPT_IPV6_V6ONLY:
-#       if HAVE_DECL_IPV6_V6ONLY
+#       if HAVE_DECL_IPV6_V6ONLY && defined(IPPROTO_IPV6)
 	{
 	    arg.ival= get_int32 (curr);   curr += 4;
 	    proto   = IPPROTO_IPV6;
@@ -7037,13 +7295,15 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    */
 	    return -1;
 	}
-#if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
+#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
+    && defined(SO_PRIORITY) && !defined(__WIN32__)
 	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
 	/* The return values of "sock_setopt" can only be 0 or -1: */
 	ASSERT(res == 0 || res == -1);
+        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
 	if (res == -1)
 	{  /* Got an error, DO NOT continue with other options. However, on
 	      Solaris 10, we DO allow SO_SNDBUF and SO_RCVBUF to fail, assu-
@@ -7298,8 +7558,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    continue;
 #endif
 	case INET_OPT_TOS:
-#if defined(IP_TOS) && defined(SOL_IP)
-	    proto = SOL_IP;
+#if defined(IP_TOS) && defined(IPPROTO_IP)
+	    proto = IPPROTO_IP;
 	    type = IP_TOS;
 	    break;
 #else
@@ -7308,9 +7568,45 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    continue;
 #endif
 	case INET_OPT_TCLASS:
-#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
-	    proto = SOL_IPV6;
+#if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
+	    proto = IPPROTO_IPV6;
 	    type = IPV6_TCLASS;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
+	case INET_OPT_TTL:
+#if defined(IP_TTL) && defined(IPPROTO_IP)
+	    proto = IPPROTO_IP;
+	    type = IP_TTL;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
+	case INET_OPT_RECVTOS:
+#if defined(IP_RECVTOS) && defined(IPPROTO_IP)
+	    proto = IPPROTO_IP;
+	    type = IP_RECVTOS;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
+	case INET_OPT_RECVTCLASS:
+#if defined(IPV6_RECVTCLASS) && defined(IPPROTO_IPV6)
+	    proto = IPPROTO_IPV6;
+	    type = IPV6_RECVTCLASS;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
+	case INET_OPT_RECVTTL:
+#if defined(IP_RECVTTL) && defined(IPPROTO_IP)
+	    proto = IPPROTO_IP;
+	    type = IP_RECVTTL;
 	    break;
 #else
 	    TRUNCATE_TO(0,ptr);
@@ -7342,7 +7638,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    type = TCP_NODELAY;
 	    break;
 
-#ifdef HAVE_MULTICAST_SUPPORT
+#if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
 	case UDP_OPT_MULTICAST_TTL:
 	    proto = IPPROTO_IP;
 	    type = IP_MULTICAST_TTL;
@@ -7361,10 +7657,10 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    arg_ptr = (char*) &li_val;	    
 	    type = SO_LINGER; 
 	    break;
-#endif /* HAVE_MULTICAST_SUPPORT */
+#endif /* defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP) */
 
 	case INET_OPT_IPV6_V6ONLY:
-#if HAVE_DECL_IPV6_V6ONLY
+#if HAVE_DECL_IPV6_V6ONLY && defined(IPPROTO_IPV6)
 	    proto = IPPROTO_IPV6;
 	    type = IPV6_V6ONLY;
 	    break;
@@ -7442,6 +7738,101 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    continue;
 #endif
 
+#ifndef __WIN32__
+            /* Winsock does not have struct cmsghdr */
+        case INET_OPT_PKTOPTIONS: {
+            struct cmsghdr *cmsg, *cmsg_top;
+            SOCKLEN_T cmsg_sz;
+            union {
+                /* Ensure alignment */
+                struct cmsghdr hdr;
+                /* Room for (IP_TOS | IPV6_TCLASS) + IP_TTL */
+                char buf[2*CMSG_SPACE(sizeof(int))];
+            } cmsgbuf;
+            /* Select between IPv4 or IPv6 PKTOPTIONS
+             * depending on the socket protocol family
+             */
+            switch (desc->sfamily) {
+#if defined(IPPROTO_IP) && defined(IP_PKTOPTIONS)
+            case AF_INET: {
+                proto = IPPROTO_IP;
+                type = IP_PKTOPTIONS;
+            }
+                break;
+#endif
+#if defined(IPPROTO_IPV6) && defined(IPV6_PKTOPTIONS) && defined(AF_INET6)
+            case AF_INET6: {
+                proto = IPPROTO_IPV6;
+                type = IPV6_PKTOPTIONS;
+            }
+                break;
+#endif
+            default: {
+                RETURN_ERROR();
+            }
+            } /* switch */
+            TRUNCATE_TO(0, ptr);
+            /* Fetch a cmsg buffer from the socket */
+            cmsg_sz = sizeof(cmsgbuf.buf);
+            if (IS_SOCKET_ERROR(sock_getopt(desc->s, proto, type,
+                                            cmsgbuf.buf, &cmsg_sz))) {
+                continue;
+            }
+            /* Reply with Opt/8, Length/32, [COpt/8, Value/32]*
+             * i.e opt, total length and then all returned
+             * cmsg options and values
+             */
+            PLACE_FOR(1+4, ptr);
+            *ptr = opt;
+            arg_ptr = ptr+1; /* Where to put total length */
+            arg_sz = 0; /* Total length */
+            for (cmsg_top = (struct cmsghdr*)(cmsgbuf.buf + cmsg_sz),
+                     cmsg = (struct cmsghdr*)cmsgbuf.buf;
+                 cmsg < cmsg_top;
+                 cmsg = NXT_CMSG_HDR(cmsg)) {
+#define PUT_CMSG_DATA(CMSG_LEVEL, CMSG_TYPE, OPT, TYPE, SZ, PUT)        \
+                if ((cmsg->cmsg_level == CMSG_LEVEL) &&                 \
+                    (cmsg->cmsg_type == CMSG_TYPE)) {                   \
+                    TYPE *cmsgp;                                        \
+                    cmsgp = (TYPE *)CMSG_DATA(cmsg);                    \
+                    PLACE_FOR(1+SZ, ptr);                               \
+                    *ptr = OPT;                                         \
+                    PUT(*cmsgp, ptr+1);                                 \
+                    arg_sz += 1+SZ;                                     \
+                    continue;                                           \
+                }
+#if defined(IPPROTO_IP) && defined(IP_TOS)
+                PUT_CMSG_DATA(IPPROTO_IP, IP_TOS,
+                              INET_OPT_TOS, unsigned char, 4, put_int32);
+#endif
+#if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
+                PUT_CMSG_DATA(IPPROTO_IPV6, IPV6_TCLASS,
+                              INET_OPT_TCLASS, unsigned char, 4, put_int32);
+#endif
+#if defined(IPPROTO_IP) && defined(IP_TTL)
+                PUT_CMSG_DATA(IPPROTO_IP, IP_TTL,
+                              INET_OPT_TTL, unsigned char, 4, put_int32);
+#endif
+                /* BSD uses the RECV* names in CMSG fields */
+            }
+#if defined(IPPROTO_IP) && defined(IP_RECVTOS)
+                PUT_CMSG_DATA(IPPROTO_IP, IP_RECVTOS,
+                              INET_OPT_TOS, unsigned char, 4, put_int32);
+#endif
+#if defined(IPPROTO_IPV6) && defined(IPV6_RECVTCLASS)
+                PUT_CMSG_DATA(IPPROTO_IPV6, IPV6_RECVTCLASS,
+                              INET_OPT_TCLASS, unsigned char, 4, put_int32);
+#endif
+#if defined(IPPROTO_IP) && defined(IP_RECVTTL)
+                PUT_CMSG_DATA(IPPROTO_IP, IP_RECVTTL,
+                              INET_OPT_TTL, unsigned char, 4, put_int32);
+#endif
+#undef PUT_CMSG_DATA
+            put_int32(arg_sz, arg_ptr); /* Put total length */
+            continue;
+        }
+#endif /* #ifdef __WIN32__ */
+
 	default:
 	    RETURN_ERROR();
 	}
@@ -7500,6 +7891,7 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
     i = LOAD_TUPLE	(spec, i, 8);
     return i;
 }
+
 
 /*
 **  "sctp_fill_opts":   Returns {ok, Results}, or an error:
@@ -7750,6 +8142,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
 	case INET_OPT_TCLASS   :
+	case INET_OPT_TTL      :
 	case INET_OPT_IPV6_V6ONLY:
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
@@ -7757,6 +8150,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case SCTP_OPT_NODELAY  :
 	case SCTP_OPT_DISABLE_FRAGMENTS:
 	case SCTP_OPT_I_WANT_MAPPED_V4_ADDR:
+	case INET_OPT_RECVTOS  :
+	case INET_OPT_RECVTCLASS :
+	case INET_OPT_RECVTTL :
 	{
 	    int res   = 0;
 	    unsigned int sz = sizeof(res);
@@ -7812,8 +8208,8 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    case INET_OPT_TOS:
 	    {
-#	    if defined(IP_TOS) && defined(SOL_IP)
-		proto  = SOL_IP;
+#	    if defined(IP_TOS) && defined(IPPROTO_IP)
+		proto  = IPPROTO_IP;
 		type   = IP_TOS;
 		is_int = 1;
 		tag    = am_tos;
@@ -7825,8 +8221,8 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    case INET_OPT_TCLASS:
 	    {
-#           if defined(IPV6_TCLASS) && defined(SOL_IPV6)
-		proto  = SOL_IPV6;
+#           if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
+		proto  = IPPROTO_IPV6;
 		type   = IPV6_TCLASS;
 		is_int = 1;
 		tag    = am_tclass;
@@ -7836,8 +8232,60 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		continue;
 #	    endif
 	    }
+	    case INET_OPT_TTL:
+	    {
+#           if defined(IP_TTL) && defined(IPPROTO_IP)
+		proto  = IPPROTO_IP;
+		type   = IP_TTL;
+		is_int = 1;
+		tag    = am_ttl;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
+	    case INET_OPT_RECVTOS:
+	    {
+#	    if defined(IP_RECVTOS) && defined(IPPROTO_IP)
+		proto  = IPPROTO_IP;
+		type   = IP_RECVTOS;
+		is_int = 0;
+		tag    = am_recvtos;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
+	    case INET_OPT_RECVTCLASS:
+	    {
+#           if defined(IPV6_RECVTCLASS) && defined(IPPROTO_IPV6)
+		proto  = IPPROTO_IPV6;
+		type   = IPV6_RECVTCLASS;
+		is_int = 0;
+		tag    = am_recvtclass;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
+	    case INET_OPT_RECVTTL:
+	    {
+#	    if defined(IP_RECVTTL) && defined(IPPROTO_IP)
+		proto  = IPPROTO_IP;
+		type   = IP_RECVTTL;
+		is_int = 0;
+		tag    = am_recvttl;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
 	    case INET_OPT_IPV6_V6ONLY:
-#           if HAVE_DECL_IPV6_V6ONLY
+#           if HAVE_DECL_IPV6_V6ONLY && defined(IPPROTO_IPV6)
 	    {
 		proto  = IPPROTO_IPV6;
 		type   = IPV6_V6ONLY;
@@ -8501,6 +8949,8 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
 #ifdef HAVE_SETNS
     desc->netns = NULL;
 #endif
+
+    desc->recv_cmsgflags = 0;
 
     return (ErlDrvData)desc;
 }
@@ -11920,10 +12370,10 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     if (IS_SCTP(desc))
     {
 	ErlDrvSizeT   data_len;
-	struct iovec  iov[1];		 /* For real data            */
-	struct msghdr mhdr;		 /* Message wrapper          */
-	struct sctp_sndrcvinfo *sri;     /* The actual ancilary data */
-	union {                          /* For ancilary data        */
+	struct iovec  iov[1];		 /* For real data              */
+	struct msghdr mhdr;		 /* Message wrapper            */
+	struct sctp_sndrcvinfo *sri;     /* The actual ancillary data  */
+	union {                          /* For ancillary data         */
 	    struct cmsghdr hdr;
 	    char ancd[CMSG_SPACE(sizeof(*sri))];
 	} cmsg;
@@ -11933,12 +12383,12 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    return;
 	}
 	
-	/* The ancilary data */
+	/* The ancillary data */
 	sri = (struct sctp_sndrcvinfo *) (CMSG_DATA(&cmsg.hdr));
 	/* Get the "sndrcvinfo" from the buffer, advancing the "ptr": */
 	ptr  = sctp_get_sendparams(sri, ptr);
 	
-	/* The ancilary data wrapper */
+	/* The ancillary data wrapper */
 	cmsg.hdr.cmsg_level = IPPROTO_SCTP;
 	cmsg.hdr.cmsg_type  = SCTP_SNDRCV;
 	cmsg.hdr.cmsg_len   = CMSG_LEN(sizeof(*sri));
@@ -11953,7 +12403,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	iov[0].iov_base         = ptr;          /* The real data */
 	mhdr.msg_iov            = iov;
 	mhdr.msg_iovlen         = 1;
-	mhdr.msg_control        = cmsg.ancd;    /* For ancilary data  */
+	mhdr.msg_control        = cmsg.ancd;    /* For ancillary data  */
 	mhdr.msg_controllen     = cmsg.hdr.cmsg_len;
 	VALGRIND_MAKE_MEM_DEFINED(mhdr.msg_control, mhdr.msg_controllen); /*suppress "uninitialised bytes"*/
 	mhdr.msg_flags          = 0;            /* Not used with "sendmsg"   */
@@ -12037,10 +12487,12 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
     char abuf[sizeof(inet_address)];  /* buffer address; enough??? */
     int packet_count = udesc->read_packets;
     int count = 0;     /* number of packets delivered to owner */
-#ifdef HAVE_SCTP
+#ifndef __WIN32__
     struct msghdr mhdr;	  	     /* Top-level msg structure    */
     struct iovec  iov[1]; 	     /* Data or Notification Event */
-    char   ancd[SCTP_ANC_BUFF_SIZE]; /* Ancillary Data		   */
+    char   ancd[ANC_BUFF_SIZE];      /* Ancillary Data		   */
+#endif
+#ifdef HAVE_SCTP
     int short_recv = 0;
 #endif
 
@@ -12089,7 +12541,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    mhdr.msg_iov	= iov;
 	    mhdr.msg_iovlen	= 1;
 	    mhdr.msg_control	= ancd;
-	    mhdr.msg_controllen	= SCTP_ANC_BUFF_SIZE;
+	    mhdr.msg_controllen	= ANC_BUFF_SIZE;
 	    mhdr.msg_flags	= 0;	   /* To be filled by "recvmsg"    */
 	    
 	    /* Do the actual SCTP receive: */
@@ -12104,6 +12556,24 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    other = desc->remote;
 	    goto check_result;
 	}
+#ifndef __WIN32__
+        /* recvmsg() does not exist in the Winsock API */
+        if (desc->recv_cmsgflags) {
+            /* Use recvmsg() */
+            iov->iov_base = udesc->i_ptr;
+            iov->iov_len = desc->bufsz;
+            mhdr.msg_name = &other;
+            mhdr.msg_namelen = len;
+            mhdr.msg_iov = iov;
+            mhdr.msg_iovlen = 1;
+	    mhdr.msg_control = ancd;
+            mhdr.msg_controllen = ANC_BUFF_SIZE;
+            mhdr.msg_flags = 0;
+            n = sock_recvmsg(desc->s, &mhdr, 0);
+            len = mhdr.msg_namelen;
+            goto check_result;
+        }
+#endif
 	n = sock_recvfrom(desc->s, udesc->i_ptr, desc->bufsz,
 			  0, &other.sa, &len);
     check_result:
@@ -12156,7 +12626,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	{
 	    /* message received */
 	    int code;
-	    void * extra = NULL;
+            void *mp;
 	    char * ptr;
 	    int nsz;
 
@@ -12187,14 +12657,18 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		    udesc->i_ptr = NULL;  /* not used from here */
 		}
 	    }
-#ifdef HAVE_SCTP
-	    if (IS_SCTP(desc)) extra = &mhdr;
+            mp = NULL;
+#if defined(HAVE_SCTP)
+	    if (IS_SCTP(desc)) mp = &mhdr;
+#endif
+#if !defined(__WIN32__)
+            if (desc->recv_cmsgflags) mp = &mhdr;
 #endif
 	    /* Actual parsing and return of the data received, occur here: */
 	    code = packet_reply_binary_data(desc, len, udesc->i_buf,
 					    (sizeof(other) - len),
 					    nsz,
-					    extra);
+					    mp);
 	    free_buffer(udesc->i_buf);
 	    udesc->i_buf = NULL;
 	    if (code < 0)

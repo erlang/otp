@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2017</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,6 +68,20 @@ do_recv(Sock, Bs) ->
   <datatypes>
     <datatype>
       <name name="option"/>
+    </datatype>
+    <datatype>
+      <name name="pktoptions_value"/>
+      <desc>
+	<p>
+	  If the platform implements the IPv4 option
+	  <c>IP_PKTOPTIONS</c> (probably Linux specific), or the IPv6 option
+	  <c>IPV6_PKTOPTIONS</c> or <c>IPV6_2292PKTOPTIONS</c> for the socket
+	  this value is returned from
+	  <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>
+	  when called with the option name
+	  <seealso marker="#type-option_name"><c>pktoptions</c></seealso>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="option_name"/>
