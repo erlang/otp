@@ -585,6 +585,17 @@ default_cert_chain_conf() ->
     %% Use only default options
     [[],[],[]].
 
+gen_conf(mix, mix, UserClient, UserServer) ->
+    ClientTag = conf_tag("client"),
+    ServerTag = conf_tag("server"),
+
+    DefaultClient = default_cert_chain_conf(), 
+    DefaultServer = default_cert_chain_conf(),
+    
+    ClientConf = merge_chain_spec(UserClient, DefaultClient, []),
+    ServerConf = merge_chain_spec(UserServer, DefaultServer, []),
+    
+    new_format([{ClientTag, ClientConf}, {ServerTag, ServerConf}]);
 gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
     ClientTag = conf_tag("client"),
     ServerTag = conf_tag("server"),
@@ -677,6 +688,32 @@ merge_spec(User, Default, [Conf | Rest], Acc) ->
         Value ->
                 merge_spec(User, Default, Rest, [{Conf, Value} | Acc])
     end.
+
+make_mix_cert(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
+    Digest = {digest, appropriate_sha(crypto:supports())},
+    CurveOid = hd(tls_v1:ecc_curves(0)),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
+    ClientChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key, hardcode_rsa_key(1)}], 
+                    [Digest, {key, {namedCurve, CurveOid}}, {extensions, Ext}]
+                   ],
+    ServerChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key,  hardcode_rsa_key(2)}], 
+                    [Digest, {key, {namedCurve, CurveOid}},{extensions, Ext}]
+                   ],
+    ClientChainType =ServerChainType = mix,
+    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    [{server_config, ServerConf}, 
+     {client_config, ClientConf}] = 
+        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    {[{verify, verify_peer} | ClientConf],
+     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
+    }.
 
 make_ecdsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
@@ -1097,8 +1134,6 @@ check_ecc(SSL, Role, Expect) ->
     {ok, Data} = ssl:connection_information(SSL),
     case lists:keyfind(ecc, 1, Data) of
         {ecc, {named_curve, Expect}} -> ok;
-        false when Expect == undefined -> ok;
-        false when Expect == secp256r1 andalso Role == client_no_ecc -> ok;
         Other -> {error, Role, Expect, Other}
     end.
 
@@ -1468,10 +1503,13 @@ check_key_exchange_send_active(Socket, KeyEx) ->
     send_recv_result_active(Socket).
 
 check_key_exchange({KeyEx,_, _}, KeyEx, _) ->
+    ct:pal("Kex: ~p", [KeyEx]),
     true;
 check_key_exchange({KeyEx,_,_,_}, KeyEx, _) ->
+    ct:pal("Kex: ~p", [KeyEx]),
     true;
 check_key_exchange(KeyEx1, KeyEx2, Version) ->
+    ct:pal("Kex: ~p ~p", [KeyEx1, KeyEx2]),
     case Version of
         'tlsv1.2' ->
             v_1_2_check(element(1, KeyEx1), KeyEx2);
@@ -1486,6 +1524,11 @@ v_1_2_check(ecdh_ecdsa, ecdh_rsa) ->
     true;
 v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
     true;
+v_1_2_check(ecdhe_ecdsa, ecdhe_rsa) ->
+    true;
+v_1_2_check(ecdhe_rsa, ecdhe_ecdsa) ->
+    true;
+
 v_1_2_check(_, _) ->
     false.
 
