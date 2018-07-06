@@ -74,7 +74,7 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
 
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
-  when Version == 3 ->
+  when Version == 3; Version == 4 ->
     %% RFC 5246 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -84,6 +84,7 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     %%          PRF(master_secret, finished_label, Hash(handshake_messages)) [0..11];
     Hash = crypto:hash(mac_algo(PrfAlgo), Handshake),
     prf(PrfAlgo, MasterSecret, finished_label(Role), Hash, 12).
+
 
 -spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
@@ -154,7 +155,7 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
 %% TLS v1.2
 setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
-  when Version == 3 ->
+  when Version == 3; Version == 4 ->
     %% RFC 5246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -192,7 +193,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		     Fragment]),
     Mac.
 
--spec suites(1|2|3) -> [ssl_cipher:cipher_suite()].
+-spec suites(1|2|3|4) -> [ssl_cipher:cipher_suite()].
 
 suites(Minor) when Minor == 1; Minor == 2 ->
     [
@@ -244,8 +245,15 @@ suites(3) ->
      %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
      %% ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
      %% ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256
-    ] ++ suites(2).
+    ] ++ suites(2);
 
+
+suites(4) ->
+    suites(3).
+
+
+signature_algs({3, 4}, HashSigns) ->
+    signature_algs({3, 3}, HashSigns);
 signature_algs({3, 3}, HashSigns) ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
@@ -273,6 +281,8 @@ signature_algs({3, 3}, HashSigns) ->
 			    end, [], HashSigns),
     lists:reverse(Supported).
 
+default_signature_algs({3, 4}) ->
+    default_signature_algs({3, 3});
 default_signature_algs({3, 3} = Version) ->
     Default = [%% SHA2
 	       {sha512, ecdsa},

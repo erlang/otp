@@ -1311,7 +1311,8 @@ validate_binary_list(Opt, List) ->
         end, List).
 validate_versions([], Versions) ->
     Versions;
-validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
+validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
+                                                   Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
                                                    Version == tlsv1;
                                                    Version == sslv3 ->
@@ -1324,10 +1325,11 @@ validate_versions([Ver| _], Versions) ->
 
 tls_validate_versions([], Versions) ->
     Versions;
-tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
-                                                   Version == 'tlsv1.1';
-                                                   Version == tlsv1;
-                                                   Version == sslv3 ->
+tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
+                                                       Version == 'tlsv1.2';
+                                                       Version == 'tlsv1.1';
+                                                       Version == tlsv1;
+                                                       Version == sslv3 ->
     tls_validate_versions(Rest, Versions);                  
 tls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).

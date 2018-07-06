@@ -230,6 +230,8 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
+protocol_version('tlsv1.3') ->
+    {3, 4};
 protocol_version('tlsv1.2') ->
     {3, 3};
 protocol_version('tlsv1.1') ->
@@ -240,6 +242,8 @@ protocol_version(sslv3) ->
     {3, 0};
 protocol_version(sslv2) -> %% Backwards compatibility
     {2, 0};
+protocol_version({3, 4}) ->
+    'tlsv1.3';
 protocol_version({3, 3}) ->
     'tlsv1.2';
 protocol_version({3, 2}) ->
