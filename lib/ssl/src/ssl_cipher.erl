@@ -2709,6 +2709,8 @@ filter_suites_pubkey(ec, Ciphers, _, OtpCert) ->
                                    ec_ecdhe_suites(Ciphers)),
     filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
+filter_suites_signature(rsa, Ciphers, {3, N}) when N >= 3 ->
+     Ciphers;
 filter_suites_signature(rsa, Ciphers, Version) ->
     (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version);
 filter_suites_signature(dsa, Ciphers, Version) ->

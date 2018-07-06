@@ -1065,17 +1065,14 @@ select_hashsign(HashSigns, Cert, KeyExAlgo,
     select_hashsign(HashSigns, Cert, KeyExAlgo, tls_v1:default_signature_algs(Version), Version);
 select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, KeyExAlgo, SupportedHashSigns,
 		{Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
-    #'OTPCertificate'{tbsCertificate = TBSCert,
-		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
      	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
 
-    Sign = sign_algo(SignAlgo),
     SubSign = sign_algo(SubjAlgo),
     
     case lists:filter(fun({_, S} = Algos) when S == SubSign ->
-			      is_acceptable_hash_sign(Algos, Sign,
-						      SubSign, KeyExAlgo, SupportedHashSigns);
+			      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
 			 (_)  ->
 			      false
 		      end, HashSigns) of
@@ -2232,37 +2229,7 @@ sign_algo(Alg) ->
     {_, Sign} =public_key:pkix_sign_types(Alg),
     Sign.
 
-is_acceptable_hash_sign(Algos, _, _, KeyExAlgo, SupportedHashSigns) when 
-      KeyExAlgo == dh_dss;
-      KeyExAlgo == dh_rsa;
-      KeyExAlgo == ecdh_rsa;
-      KeyExAlgo == ecdh_ecdsa
-      ->
-    %% *dh_* could be called only *dh in TLS-1.2
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdhe_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, dhe_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, ecdhe_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, srp_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, rsa_psk, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, dhe_dss, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, srp_dss, SupportedHashSigns) ->  
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, _, dhe_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdh_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
+is_acceptable_hash_sign( _, KeyExAlgo, _) when 
       KeyExAlgo == psk;
       KeyExAlgo == dhe_psk;
       KeyExAlgo == ecdhe_psk;
@@ -2271,8 +2238,9 @@ is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when
       KeyExAlgo == ecdhe_anon     
       ->
     true; 
-is_acceptable_hash_sign(_,_,_,_,_) ->
-    false.					
+is_acceptable_hash_sign(Algos,_, SupportedHashSigns) -> 
+    is_acceptable_hash_sign(Algos, SupportedHashSigns).
+
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
@@ -2465,13 +2433,7 @@ cert_curve(Cert, ECCCurve0, CipherSuite) ->
             #'OTPSubjectPublicKeyInfo'{algorithm = AlgInfo} 
                 = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
             {namedCurve, Oid}  = AlgInfo#'PublicKeyAlgorithm'.parameters,
-            try pubkey_cert_records:namedCurves(Oid) of
-                Curve ->
-                    {{named_curve, Curve}, CipherSuite}
-            catch 
-                _:_ ->
-                    {no_curve, no_suite}
-            end;
+            {{namedCurve, Oid}, CipherSuite};
         _ ->
             {ECCCurve0, CipherSuite}
     end.
