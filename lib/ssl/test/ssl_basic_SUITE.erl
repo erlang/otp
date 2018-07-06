@@ -242,7 +242,8 @@ error_handling_tests()->
     [close_transport_accept,
      recv_active,
      recv_active_once,
-     recv_error_handling
+     recv_error_handling,
+     call_in_error_state
     ].
 
 error_handling_tests_tls()->
@@ -3999,6 +4000,37 @@ recv_error_handling(Config) when is_list(Config) ->
 									   {options, ClientOpts}]),
     ssl:close(SslSocket),
     ssl_test_lib:check_result(Server, ok).
+
+
+
+%%--------------------------------------------------------------------
+call_in_error_state() ->
+    [{doc,"Special case of call error handling"}].
+call_in_error_state(Config) when is_list(Config) ->
+    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
+    Pid = spawn_link(?MODULE, run_error_server, [[self() | ServerOpts]]),
+    receive
+        {Pid, Port} ->
+            spawn_link(?MODULE, run_client_error, [[Port, ClientOpts]])
+    end,
+    receive
+        {error, closed} ->
+            ok;
+        Other ->
+            ct:fail(Other)
+    end.
+
+run_client_error([Port, Opts]) ->
+    ssl:connect("localhost", Port, Opts).
+    
+run_error_server([ Pid | Opts]) ->
+    {ok, Listen} = ssl:listen(0, Opts),
+    {ok,{_, Port}} = ssl:sockname(Listen),
+    Pid ! {self(), Port},
+    {ok, Socket} = ssl:transport_accept(Listen),
+    Pid ! ssl:controlling_process(Socket, self()).
 
 %%--------------------------------------------------------------------
 
