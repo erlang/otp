@@ -1522,7 +1522,7 @@
         <v>Hours = integer()</v>
         <v>Mins = integer()</v>
         <v>Secs = integer()</v>
-        <v>Millisecs = integer() | float()</v>
+        <v>Millisecs = integer()</v>
         <v>Func = {M, F, A} | function()</v>
         <v>M = atom()</v>
         <v>F = atom()</v>
