@@ -113,6 +113,8 @@ clean clean_docs:
 	rm -f $(GENERATED_XML_FILES)
 	rm -f $(XMLDIR)/*.xml
 	rm -f $(HTMLDIR)/*.gif $(HTMLDIR)/*.html
+	rm -f $(XML_GEN_FILES)
+	rm -rf $(HTMLDIR)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 

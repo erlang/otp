@@ -836,6 +836,10 @@
       <!-- .../part -->
       <xsl:call-template name="part.content" />
     </xsl:if>
+    <xsl:if test="$lname = 'internal'">
+      <!-- .../internals -->
+      <xsl:call-template name="internal.content" />
+    </xsl:if>
     <xsl:if test="$lname = 'chapter'">
       <!-- .../part/chapter -->
       <xsl:call-template name="chapter.content">
@@ -859,8 +863,14 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="curModule"/>
     <xsl:if test="(local-name() = 'part') or ((local-name() = 'chapter') and ancestor::part)">
-      <!-- .../part or.../part/chapter  -->
+      <!-- .../part or .../part/chapter  -->
       <xsl:call-template name="menu.ug">
+        <xsl:with-param name="chapnum" select="$chapnum"/>
+      </xsl:call-template>
+    </xsl:if>
+    <xsl:if test="(local-name() = 'internal') or ((local-name() = 'chapter') and ancestor::internal)">
+      <!-- .../internal or .../internal/chapter  -->
+      <xsl:call-template name="menu.internal">
         <xsl:with-param name="chapnum" select="$chapnum"/>
       </xsl:call-template>
     </xsl:if>
@@ -902,6 +912,9 @@
       <xsl:if test="boolean(/book/applications)">
           <li><a href="index.html">Reference Manual</a></li>
       </xsl:if>
+      <xsl:if test="boolean(/book/internals)">
+          <li><a href="internal_docs.html">Internal Documentation</a></li>
+      </xsl:if>
       <xsl:if test="boolean(/book/releasenotes)">
           <li><a href="release_notes.html">Release Notes</a></li>
       </xsl:if>
@@ -942,6 +955,7 @@
   <xsl:template match="/book">
     <xsl:apply-templates select="parts"/>
     <xsl:apply-templates select="applications"/>
+    <xsl:apply-templates select="internals"/>
     <xsl:apply-templates select="releasenotes"/>
   </xsl:template>
 
@@ -953,6 +967,11 @@
   <!-- Applications -->
   <xsl:template match="applications">
     <xsl:apply-templates select="application"/>
+  </xsl:template>
+
+  <!-- Internals -->
+  <xsl:template match="internals">
+    <xsl:apply-templates select="internal"/>
   </xsl:template>
 
  <!-- Header -->
@@ -1311,6 +1330,61 @@
   </xsl:template>
 
 
+  <!-- Internal Docs -->
+
+  <!-- Part -->
+  <xsl:template match="internal">
+
+    <xsl:document href="{$outdir}/internal_docs.html" method="html"  encoding="UTF-8" indent="yes" doctype-public="-//W3C//DTD HTML 4.01 Transitional//EN">
+      <xsl:call-template name="pagelayout"/>
+    </xsl:document>
+  </xsl:template>
+
+
+  <!-- Part content-->
+  <xsl:template name="internal.content">
+    <div class="frontpage"/>
+
+    <center><h1><xsl:value-of select="/book/header/title"/> Internal Docs</h1></center>
+
+    <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
+    <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
+
+    <xsl:apply-templates select="chapter"/>
+
+  </xsl:template>
+
+  <!-- Menu.ug -->
+  <xsl:template name="menu.internal">
+    <xsl:param name="chapnum"/>
+
+    <div id="leftnav">
+      <div class="innertube">
+
+        <xsl:call-template name="erlang_logo"/>
+
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">Internal Documentation</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
+
+        <xsl:call-template name="menu_middle"/>
+
+        <h3>Chapters</h3>
+
+        <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
+          <xsl:call-template name="menu.chapter">
+            <xsl:with-param name="entries" select="/book/internals/internal/chapter[header/title]"/>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:call-template>
+        </ul>
+      </div>
+    </div>
+  </xsl:template>
 
 
   <!--Users Guide -->

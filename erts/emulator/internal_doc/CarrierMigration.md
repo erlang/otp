@@ -1,6 +1,9 @@
 Carrier Migration
 =================
 
+Introduction
+------------
+
 The ERTS memory allocators manage memory blocks in two types of raw
 memory chunks. We call these chunks of raw memory
 *carriers*. Single-block carriers which only contain one large block,
@@ -141,11 +144,11 @@ Since the carrier has been unlinked from the data structure of
 available free blocks, no more allocations will be made in the
 carrier.
 
-The allocator instance that created a carrier is called its **owner**.
+The allocator instance that created a carrier is called its *owner*.
 Ownership never changes.
 
 The allocator instance that has the responsibility to perform deallocations in a
-carrier is called its **employer**. The employer may also perform allocations if
+carrier is called its *employer*. The employer may also perform allocations if
 the carrier is not in the pool. Employment may change when a carrier is fetched from
 or inserted into the pool.
 
@@ -153,14 +156,14 @@ Deallocations in a carrier, while it remains in the pool, is always performed
 the owner. That is, all pooled carriers are employed by their owners.
 
 Each carrier has an atomic word containing a pointer to the employing allocator
-instance and three bit flags; IN_POOL, BUSY and HOMECOMING.
+instance and three bit flags; IN\_POOL, BUSY and HOMECOMING.
 
 When fetching a carrier from the pool, employment may change and further
 deallocations in the carrier will be redirected to the new
 employer using the delayed dealloc functionality.
 
 When a foreign allocator instance abandons a carrier back into the pool, it will
-also pass it back to its **owner** using the delayed dealloc queue. When doing
+also pass it back to its *owner* using the delayed dealloc queue. When doing
 this it will set the HOMECOMING bit flag to mark it as "enqueued". The owner
 will later clear the HOMECOMING bit when the carrier is dequeued. This mechanism
 prevents a carrier from being enqueued again before it has been dequeued.
@@ -180,14 +183,14 @@ back to the owner for deallocation using the delayed dealloc functionality.
 
 In short:
 
-* The allocator instance that created a carrier **owns** it.
-* An empty carrier is always deallocated by its **owner**.
-* **Ownership** never changes.
-* The allocator instance that uses a carrier **employs** it.
-* An **employer** can abandon a carrier into the pool.
+* The allocator instance that created a carrier *owns* it.
+* An empty carrier is always deallocated by its *owner*.
+* *Ownership* never changes.
+* The allocator instance that uses a carrier *employs* it.
+* An *employer* can abandon a carrier into the pool.
 * Pooled carriers are not allocated from.
-* Pooled carriers are always **employed** by their **owner**.
-* **Employment** can only change from **owner** to a foreign allocator
+* Pooled carriers are always *employed* by their *owner*.
+* *Employment* can only change from *owner* to a foreign allocator
   when a carrier is fetched from the pool.
 
 
@@ -229,7 +232,7 @@ carrier. When the cluster gets to the same size as the search limit,
 all searches will essentially fail.
 
 To counter the "bad cluster" problem and also ease the contention, the
-search will now always start by first looking at the allocators **own**
+search will now always start by first looking at the allocators *own*
 carriers. That is, carriers that were initially created by the
 allocator itself and later had been abandoned to the pool. If none of
 our own abandoned carrier would do, then the search continues into the

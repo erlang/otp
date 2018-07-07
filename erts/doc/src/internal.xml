@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<internal xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>2018</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,32 +22,25 @@
     
     </legalnotice>
 
-    <title>Erlang Run-Time System Application (ERTS)</title>
-    <prepared>Magnus Fr&ouml;berg</prepared>
+    <title>ERTS Internal Documentation</title>
+    <prepared>Lukas Larsson</prepared>
     <docno></docno>
-    <date>1997-05-02</date>
+    <date>2018-07-07</date>
     <rev>4.5.2</rev>
-    <file>book.xml</file>
+    <file>internal.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>Erlang Run-Time System Application (ERTS)</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts lift="no">
-    <xi:include href="part.xml"/>
-  </parts>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <internals>
-    <xi:include href="internal.xml"/>
-  </internals>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
+  <description>
+  </description>
+  <xi:include href="CarrierMigration.xml"/>
+  <xi:include href="ThreadProgress.xml"/>
+  <xi:include href="CodeLoading.xml"/>
+  <xi:include href="Tracing.xml"/>
+  <xi:include href="DelayedDealloc.xml"/>
+<!--  <xi:include href="beam_makeops.xml"/>
+  <xi:include href="GarbageCollection.xml"/> -->
+  <xi:include href="PTables.xml"/>
+  <xi:include href="PortSignals.xml"/>
+  <xi:include href="ProcessManagementOptimizations.xml"/>
+  <xi:include href="SuperCarrier.xml"/> -->
+</internal>
 

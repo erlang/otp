@@ -67,7 +67,21 @@ XML_REF3_FILES = \
 	erts_alloc.xml
 
 XML_PART_FILES = \
-	part.xml
+	part.xml internal.xml
+
+XML_INTERNAL_FILES = \
+	CarrierMigration.xml	\
+	ThreadProgress.xml	\
+	CodeLoading.xml		\
+	Tracing.xml		\
+	DelayedDealloc.xml	\
+	beam_makeops.xml		\
+	GarbageCollection.xml	\
+	PTables.xml		\
+	PortSignals.xml		\
+	ProcessManagementOptimizations.xml \
+	SuperCarrier.xml
+
 
 XML_CHAPTER_FILES = \
 	introduction.xml \
@@ -96,6 +110,8 @@ GIF_FILES = \
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) $(XML_APPLICATION_FILES)
+
+XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 
@@ -163,6 +179,9 @@ clean:
 $(SPECDIR)/specs_%.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module $(patsubst $(SPECDIR)/specs_%.xml,%,$@)
+
+$(XMLDIR)/%.xml: ../../emulator/internal_doc/%.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
 
 # ----------------------------------------------------
 # Release Target

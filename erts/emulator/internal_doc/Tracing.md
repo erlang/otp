@@ -82,7 +82,7 @@ through when adding a new breakpoint.
    instruction word in the breakpoint.
 
 3. Write a pointer to the breakpoint at offset -4 from the first
-   instruction "func_info" header.
+   instruction "func\_info" header.
 
 4. Set the staging part of the breakpoint as enabled with specified
    breakpoint data.
@@ -139,7 +139,7 @@ and removing breakpoints.
 
 2. Allocate new breakpoint structures with a disabled active part and
    the original beam instruction. Write a pointer to the breakpoint in
-   "func_info" header at offset -4.
+   "func\_info" header at offset -4.
 
 3. Update the staging part of all affected breakpoints. Disable
    breakpoints that are to be removed.
