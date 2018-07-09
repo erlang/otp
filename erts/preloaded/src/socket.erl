@@ -193,6 +193,7 @@
                          broadcast |
                          busy_poll |
                          debug |
+                         domain |
                          dontroute |
                          error |
                          keepalive |
@@ -203,6 +204,7 @@
                          peek_off |
                          peek_cred |
                          priority |
+                         protocol |
                          rcvbuf |
                          rcvbufforce |
                          rcvlowat |
@@ -463,14 +465,16 @@
 -define(SOCKET_OPT_OTP_CTRL_PROC,        2).
 
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
--define(SOCKET_OPT_SOCK_DONTROUTE,       7).
--define(SOCKET_OPT_SOCK_KEEPALIVE,       9).
--define(SOCKET_OPT_SOCK_LINGER,         10).
--define(SOCKET_OPT_SOCK_PRIORITY,       16).
--define(SOCKET_OPT_SOCK_RCVBUF,         17).
--define(SOCKET_OPT_SOCK_REUSEADDR,      21).
--define(SOCKET_OPT_SOCK_SNDBUF,         27).
--define(SOCKET_OPT_SOCK_TYPE,           32).
+-define(SOCKET_OPT_SOCK_DOMAIN,          7).
+-define(SOCKET_OPT_SOCK_DONTROUTE,       8).
+-define(SOCKET_OPT_SOCK_KEEPALIVE,      10).
+-define(SOCKET_OPT_SOCK_LINGER,         11).
+-define(SOCKET_OPT_SOCK_PRIORITY,       17).
+-define(SOCKET_OPT_SOCK_PROTOCOL,       18).
+-define(SOCKET_OPT_SOCK_RCVBUF,         19).
+-define(SOCKET_OPT_SOCK_REUSEADDR,      23).
+-define(SOCKET_OPT_SOCK_SNDBUF,         29).
+-define(SOCKET_OPT_SOCK_TYPE,           34).
 
 -define(SOCKET_OPT_IP_RECVTOS,          25).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
@@ -2032,6 +2036,8 @@ enc_sockopt_key(socket = L, busy_poll = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, debug = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
+enc_sockopt_key(socket, domain = _Opt, get = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_DOMAIN;
 enc_sockopt_key(socket, dontroute = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_DONTROUTE;
 enc_sockopt_key(socket = L, error = Opt, get = _Dir, _D, _T, _P) ->
@@ -2055,6 +2061,8 @@ enc_sockopt_key(socket = L, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;
+enc_sockopt_key(socket, protocol = _Opt, get = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_PROTOCOL;
 enc_sockopt_key(socket, rcvbuf = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_RCVBUF;
 enc_sockopt_key(socket = L, rcvbufforce = Opt, _Dir, _D, _T, _P) ->

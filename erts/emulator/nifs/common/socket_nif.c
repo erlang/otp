@@ -347,14 +347,16 @@ typedef union {
 #define SOCKET_OPT_OTP_CTRL_PROC    2
 
 #define SOCKET_OPT_SOCK_BROADCAST   4
-#define SOCKET_OPT_SOCK_DONTROUTE   7
-#define SOCKET_OPT_SOCK_KEEPALIVE   9
-#define SOCKET_OPT_SOCK_LINGER     10
-#define SOCKET_OPT_SOCK_PRIORITY   16
-#define SOCKET_OPT_SOCK_RCVBUF     17
-#define SOCKET_OPT_SOCK_REUSEADDR  21
-#define SOCKET_OPT_SOCK_SNDBUF     27
-#define SOCKET_OPT_SOCK_TYPE       32
+#define SOCKET_OPT_SOCK_DOMAIN      7
+#define SOCKET_OPT_SOCK_DONTROUTE   8
+#define SOCKET_OPT_SOCK_KEEPALIVE  10
+#define SOCKET_OPT_SOCK_LINGER     11
+#define SOCKET_OPT_SOCK_PRIORITY   17
+#define SOCKET_OPT_SOCK_PROTOCOL   18
+#define SOCKET_OPT_SOCK_RCVBUF     19
+#define SOCKET_OPT_SOCK_REUSEADDR  23
+#define SOCKET_OPT_SOCK_SNDBUF     29
+#define SOCKET_OPT_SOCK_TYPE       34
 
 #define SOCKET_OPT_IP_RECVTOS      25
 #define SOCKET_OPT_IP_ROUTER_ALERT 28
@@ -931,6 +933,10 @@ static ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
 #endif
+#if defined(SO_DOMAIN)
+static ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
+                                            SocketDescriptor* descP);
+#endif
 #if defined(SO_DONTROUTE)
 static ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
@@ -945,6 +951,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
 #endif
 #if defined(SO_PRIORITY)
 static ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
+#endif
+#if defined(SO_PROTOCOL)
+static ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
                                               SocketDescriptor* descP);
 #endif
 #if defined(SO_RCVBUF)
@@ -4715,6 +4725,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_DOMAIN)
+    case SOCKET_OPT_SOCK_DOMAIN:
+        result = ngetopt_lvl_sock_domain(env, descP);
+        break;
+#endif
+
 #if defined(SO_DONTROUTE)
     case SOCKET_OPT_SOCK_DONTROUTE:
         result = ngetopt_lvl_sock_dontroute(env, descP);
@@ -4736,6 +4752,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 #if defined(SO_PRIORITY)
     case SOCKET_OPT_SOCK_PRIORITY:
         result = ngetopt_lvl_sock_priority(env, descP);
+        break;
+#endif
+
+#if defined(SO_PROTOCOL)
+    case SOCKET_OPT_SOCK_PROTOCOL:
+        result = ngetopt_lvl_sock_protocol(env, descP);
         break;
 #endif
 
@@ -4778,6 +4800,51 @@ ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                         SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST);
+}
+#endif
+
+
+#if defined(SO_DOMAIN)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
+                                     SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(descP->sock, SOL_SOCKET, SO_DOMAIN,
+                      &val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, res);
+    } else {
+        switch (val) {
+        case AF_INET:
+            result = esock_make_ok2(env, esock_atom_inet);
+            break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+        case AF_INET6:
+            result = esock_make_ok2(env, esock_atom_inet6);
+            break;
+#endif
+
+#ifdef HAVE_SYS_UN_H
+        case AF_UNIX:
+        result = esock_make_ok2(env, esock_atom_local);
+        break;
+#endif
+
+        default:
+            result = esock_make_error(env,
+                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            break;
+        }
+    }
+
+    return result;
 }
 #endif
 
@@ -4838,6 +4905,53 @@ ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY);
+}
+#endif
+
+
+#if defined(SO_PROTOCOL)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(descP->sock, SOL_SOCKET, SO_PROTOCOL,
+                      &val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, res);
+    } else {
+        switch (val) {
+        case IPPROTO_IP:
+            result = esock_make_ok2(env, esock_atom_ip);
+            break;
+
+        case IPPROTO_TCP:
+            result = esock_make_ok2(env, esock_atom_tcp);
+            break;
+
+        case IPPROTO_UDP:
+            result = esock_make_ok2(env, esock_atom_udp);
+            break;
+
+#if defined(HAVE_SCTP)
+        case IPPROTO_SCTP:
+            result = esock_make_ok2(env, esock_atom_sctp);
+            break;
+#endif
+
+        default:
+            result = esock_make_error(env,
+                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            break;
+        }
+    }
+
+    return result;
 }
 #endif
 

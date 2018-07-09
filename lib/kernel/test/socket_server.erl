@@ -258,7 +258,13 @@ acceptor_do_init(Domain, Type, Proto) ->
                {error, OReason} ->
                    throw({open, OReason})
            end,
-    i("(socket) open - try find (local) address"),
+    F = fun(X) -> case socket:getopt(Sock, socket, X) of
+                      {ok, V} ->    f("~p", [V]);
+                      {error, _} -> f("~w", [X])
+                  end
+        end,
+    i("(socket) open (~s,~s,~s) - try find (local) address", 
+      [F(domain), F(type), F(protocol)]),
     Addr = which_addr(Domain),
     SA = #{family => Domain,
            addr   => Addr},
@@ -392,7 +398,13 @@ handler_init(Manager, ID, Peek, Sock) ->
         {handler, Pid, Ref, continue} ->
             i("got continue"),
             handler_reply(Pid, Ref, ok),
-            {ok, Type} = socket:getopt(Sock, socket, type),
+            {ok, Domain} = socket:getopt(Sock, socket, domain),
+            {ok, Type}   = socket:getopt(Sock, socket, type),
+            {ok, Proto}  = socket:getopt(Sock, socket, protocol),
+            i("got continue when: "
+              "~n   Domain:   ~p"
+              "~n   Type:     ~p"
+              "~n   Protocol: ~p", [Domain, Type, Proto]),
             %% socket:setopt(Socket, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
