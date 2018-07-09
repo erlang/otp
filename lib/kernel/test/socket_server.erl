@@ -99,6 +99,25 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
     i("try open socket"),
     case socket:open(Domain, Type, Proto) of
         {ok, Sock} ->
+            F = fun(X) -> case socket:getopt(Sock, socket, X) of
+                              {ok, V} ->    f("~p", [V]);
+                              {error, _} -> "-"
+                          end
+                end,
+            i("(socket) open (~s,~s,~s): "
+              "~n   broadcast: ~s"
+              "~n   dontroute: ~s"
+              "~n   keepalive: ~s"
+              "~n   reuseaddr: ~s"
+              "~n   linger:    ~s"
+              "~n   debug:     ~s"
+              "~n   prio:      ~s"
+              "~n   rcvbuf:    ~s"
+              "~n   sndbuf:    ~s"
+              "~n   try find (local) address", 
+              [F(domain), F(type), F(protocol), 
+               F(broadcast), F(dontroute), F(keepalive), F(reuseaddr), F(linger),
+               F(debug), F(priority), F(rcvbuf), F(sndbuf)]),
             Addr = which_addr(Domain),
             SA = #{family => Domain,
                    addr   => Addr},
@@ -260,14 +279,22 @@ acceptor_do_init(Domain, Type, Proto) ->
            end,
     F = fun(X) -> case socket:getopt(Sock, socket, X) of
                       {ok, V} ->    f("~p", [V]);
-                      {error, _} -> "-"
+                      {error, R} -> f("error: ~p", [R])
                   end
         end,
     i("(socket) open (~s,~s,~s): "
-      "~n   debug: ~s"
-      "~n   prio:  ~s"
-      "~n   try find (local) address", 
-      [F(domain), F(type), F(protocol), F(debug), F(priority)]),
+      "~n   dontroute: ~s"
+      "~n   keepalive: ~s"
+      "~n   reuseaddr: ~s"
+      "~n   linger:    ~s"
+      "~n   debug:     ~s"
+      "~n   prio:      ~s"
+      "~n   rcvbuf:    ~s"
+      "~n   sndbuf:    ~s"
+      "~n   => try find (local) address", 
+      [F(domain), F(type), F(protocol), 
+       F(dontroute), F(keepalive), F(reuseaddr), F(linger),
+       F(debug), F(priority), F(rcvbuf), F(sndbuf)]),
     Addr = which_addr(Domain),
     SA = #{family => Domain,
            addr   => Addr},

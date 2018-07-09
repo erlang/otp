@@ -353,6 +353,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_DONTROUTE   8
 #define SOCKET_OPT_SOCK_KEEPALIVE  10
 #define SOCKET_OPT_SOCK_LINGER     11
+#define SOCKET_OPT_SOCK_PEEK_OFF   16
 #define SOCKET_OPT_SOCK_PRIORITY   18
 #define SOCKET_OPT_SOCK_PROTOCOL   19
 #define SOCKET_OPT_SOCK_RCVBUF     20
@@ -807,6 +808,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_PEEK_OFF)
+static ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_PRIORITY)
 static ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
@@ -963,6 +969,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*        env,
 #if defined(SO_LINGER)
 static ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
+#endif
+#if defined(SO_PEEK_OFF)
+static ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
 #endif
 #if defined(SO_PRIORITY)
 static ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
@@ -3723,6 +3733,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_PEEK_OFF)
+    case SOCKET_OPT_SOCK_PEEK_OFF:
+        result = nsetopt_lvl_sock_peek_off(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_PRIORITY)
     case SOCKET_OPT_SOCK_PRIORITY:
         result = nsetopt_lvl_sock_priority(env, descP, eVal);
@@ -3833,6 +3849,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
                                        ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY, eVal);
+}
+#endif
+
+
+#if defined(SO_PEEK_OFF)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PEEK_OFF, eVal);
 }
 #endif
 
@@ -4798,6 +4825,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_PEEK_OFF)
+    case SOCKET_OPT_SOCK_PEEK_OFF:
+        result = ngetopt_lvl_sock_peek_off(env, descP);
+        break;
+#endif
+
 #if defined(SO_PRIORITY)
     case SOCKET_OPT_SOCK_PRIORITY:
         result = ngetopt_lvl_sock_priority(env, descP);
@@ -4964,6 +4997,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
     }
 
     return result;
+}
+#endif
+
+
+#if defined(SO_PEEK_OFF)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_PEEK_OFF);
 }
 #endif
 
