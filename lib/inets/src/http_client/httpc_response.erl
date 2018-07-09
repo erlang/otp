@@ -431,23 +431,24 @@ resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
     resolve_uri(Scheme, Host, Port, Path, Query, URI, #{}).
 %%
 resolve_uri(Scheme, Host, Port, Path, Query, URI, Map0) ->
-    case maps:is_key(scheme, URI) of
-        true ->
-            Port = get_port(URI),
+    case maps:get(scheme, URI, undefined) of
+        undefined ->
+            Port0 = get_port(Scheme, URI),
+            Map = Map0#{scheme => Scheme,
+                        port => Port0},
+            resolve_authority(Host, Port, Path, Query, URI, Map);
+        URIScheme ->
+            Port0 = get_port(URIScheme, URI),
             maybe_add_query(
-              Map0#{scheme => maps:get(scheme, URI),
-                   host => maps:get(host, URI),
-                   port => Port,
-                   path => maps:get(path, URI)},
-              URI);
-        false ->
-            Map = Map0#{scheme => Scheme},
-            resolve_authority(Host, Port, Path, Query, URI, Map)
+              Map0#{scheme => URIScheme,
+                    host => maps:get(host, URI),
+                    port => Port0,
+                    path => maps:get(path, URI)},
+              URI)
     end.
 
 
-get_port(URI) ->
-    Scheme = maps:get(scheme, URI),
+get_port(Scheme, URI) ->
     case maps:get(port, URI, undefined) of
         undefined ->
             get_default_port(Scheme);
@@ -465,15 +466,13 @@ get_default_port("https") ->
 resolve_authority(Host, Port, Path, Query, RelURI, Map) ->
     case maps:is_key(host, RelURI) of
         true ->
-            Port = get_port(RelURI),
             maybe_add_query(
               Map#{host => maps:get(host, RelURI),
-                   port => Port,
                    path => maps:get(path, RelURI)},
               RelURI);
         false ->
             Map1 = Map#{host => Host,
-                    port => Port},
+                        port => Port},
             resolve_path(Path, Query, RelURI, Map1)
     end.
 
