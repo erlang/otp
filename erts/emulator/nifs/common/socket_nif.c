@@ -348,16 +348,17 @@ typedef union {
 
 #define SOCKET_OPT_SOCK_ACCEPTCONN  1
 #define SOCKET_OPT_SOCK_BROADCAST   4
+#define SOCKET_OPT_SOCK_DEBUG       6
 #define SOCKET_OPT_SOCK_DOMAIN      7
 #define SOCKET_OPT_SOCK_DONTROUTE   8
 #define SOCKET_OPT_SOCK_KEEPALIVE  10
 #define SOCKET_OPT_SOCK_LINGER     11
-#define SOCKET_OPT_SOCK_PRIORITY   17
-#define SOCKET_OPT_SOCK_PROTOCOL   18
-#define SOCKET_OPT_SOCK_RCVBUF     19
-#define SOCKET_OPT_SOCK_REUSEADDR  23
-#define SOCKET_OPT_SOCK_SNDBUF     29
-#define SOCKET_OPT_SOCK_TYPE       34
+#define SOCKET_OPT_SOCK_PRIORITY   18
+#define SOCKET_OPT_SOCK_PROTOCOL   19
+#define SOCKET_OPT_SOCK_RCVBUF     20
+#define SOCKET_OPT_SOCK_REUSEADDR  24
+#define SOCKET_OPT_SOCK_SNDBUF     30
+#define SOCKET_OPT_SOCK_TYPE       35
 
 #define SOCKET_OPT_IP_RECVTOS      25
 #define SOCKET_OPT_IP_ROUTER_ALERT 28
@@ -786,6 +787,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
                                                ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_DEBUG)
+static ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_DONTROUTE)
 static ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
@@ -937,6 +943,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
 #if defined(SO_BROADCAST)
 static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
+#endif
+#if defined(SO_DEBUG)
+static ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*        env,
+                                           SocketDescriptor* descP);
 #endif
 #if defined(SO_DOMAIN)
 static ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
@@ -3677,10 +3687,21 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_socket -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(SO_BROADCAST)
     case SOCKET_OPT_SOCK_BROADCAST:
         result = nsetopt_lvl_sock_broadcast(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SO_DEBUG)
+    case SOCKET_OPT_SOCK_DEBUG:
+        result = nsetopt_lvl_sock_debug(env, descP, eVal);
         break;
 #endif
 
@@ -3742,6 +3763,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                         ERL_NIF_TERM      eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST, eVal);
+}
+#endif
+
+
+#if defined(SO_DEBUG)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_DEBUG, eVal);
 }
 #endif
 
@@ -4277,7 +4309,7 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
         int res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
 
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
 
@@ -4736,6 +4768,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_DEBUG)
+    case SOCKET_OPT_SOCK_DEBUG:
+        result = ngetopt_lvl_sock_debug(env, descP);
+        break;
+#endif
+
 #if defined(SO_DOMAIN)
     case SOCKET_OPT_SOCK_DOMAIN:
         result = ngetopt_lvl_sock_domain(env, descP);
@@ -4821,6 +4859,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                         SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST);
+}
+#endif
+
+
+#if defined(SO_DEBUG)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_DEBUG);
 }
 #endif
 

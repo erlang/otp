@@ -469,7 +469,7 @@
 %% -define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
 %% -define(SOCKET_OPT_SOCK_BUSY_POLL,       5).
-%% -define(SOCKET_OPT_SOCK_DEBUG,           6).
+-define(SOCKET_OPT_SOCK_DEBUG,           6).
 -define(SOCKET_OPT_SOCK_DOMAIN,          7).
 -define(SOCKET_OPT_SOCK_DONTROUTE,       8).
 %% -define(SOCKET_OPT_SOCK_ERROR,           9).
@@ -1831,6 +1831,8 @@ enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
 
 enc_setopt_value(socket, broadcast, V, _D, _T, _P) when is_boolean(V) ->
     V;
+enc_setopt_value(socket, debug, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(socket, keepalive, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, linger, abort, D, T, P) ->
@@ -2045,8 +2047,8 @@ enc_sockopt_key(socket, broadcast = _Opt, _Dir, _D, dgram = _T, _P) ->
     ?SOCKET_OPT_SOCK_BROADCAST;
 enc_sockopt_key(socket = L, busy_poll = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket = L, debug = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, debug = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_DEBUG;
 enc_sockopt_key(socket, domain = _Opt, get = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_DOMAIN;
 enc_sockopt_key(socket, dontroute = _Opt, _Dir, _D, _T, _P) ->

@@ -260,17 +260,24 @@ acceptor_do_init(Domain, Type, Proto) ->
            end,
     F = fun(X) -> case socket:getopt(Sock, socket, X) of
                       {ok, V} ->    f("~p", [V]);
-                      {error, _} -> f("~w", [X])
+                      {error, _} -> "-"
                   end
         end,
-    i("(socket) open (~s,~s,~s) - try find (local) address", 
-      [F(domain), F(type), F(protocol)]),
+    i("(socket) open (~s,~s,~s): "
+      "~n   debug: ~s"
+      "~n   prio:  ~s"
+      "~n   try find (local) address", 
+      [F(domain), F(type), F(protocol), F(debug), F(priority)]),
     Addr = which_addr(Domain),
     SA = #{family => Domain,
            addr   => Addr},
     i("found (~p) - try (socket) bind", [Addr]),
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    %% ok = socket:setopt(Sock, socket, debug, 1), %% must have rights!!
     Port = case socket:bind(Sock, SA) of
                {ok, P} ->
+                   %% ok = socket:setopt(Sock, socket, debug, 0), %% must have rights!!
+                   %% ok = socket:setopt(Sock, otp, debug, false),
                    P;
                {error, BReason} ->
                    throw({bind, BReason})
