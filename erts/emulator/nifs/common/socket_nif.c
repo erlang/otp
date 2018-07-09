@@ -346,6 +346,7 @@ typedef union {
 #define SOCKET_OPT_OTP_IOW          1
 #define SOCKET_OPT_OTP_CTRL_PROC    2
 
+#define SOCKET_OPT_SOCK_ACCEPTCONN  1
 #define SOCKET_OPT_SOCK_BROADCAST   4
 #define SOCKET_OPT_SOCK_DOMAIN      7
 #define SOCKET_OPT_SOCK_DONTROUTE   8
@@ -929,6 +930,10 @@ static ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        int               eOpt);
+#if defined(SO_ACCEPTCONN)
+static ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
+                                                SocketDescriptor* descP);
+#endif
 #if defined(SO_BROADCAST)
 static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
@@ -4719,6 +4724,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(SO_ACCEPTCONN)
+    case SOCKET_OPT_SOCK_ACCEPTCONN:
+        result = ngetopt_lvl_sock_acceptconn(env, descP);
+        break;
+#endif
+
 #if defined(SO_BROADCAST)
     case SOCKET_OPT_SOCK_BROADCAST:
         result = ngetopt_lvl_sock_broadcast(env, descP);
@@ -4792,6 +4803,16 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 
     return result;
 }
+
+
+#if defined(SO_ACCEPTCONN)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_ACCEPTCONN);
+}
+#endif
 
 
 #if defined(SO_BROADCAST)

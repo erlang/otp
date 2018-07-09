@@ -202,7 +202,7 @@
                          oobinline |
                          passcred |
                          peek_off |
-                         peek_cred |
+                         peekcred |
                          priority |
                          protocol |
                          rcvbuf |
@@ -464,17 +464,28 @@
 -define(SOCKET_OPT_OTP_IOW,              1).
 -define(SOCKET_OPT_OTP_CTRL_PROC,        2).
 
+-define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
+%% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2).
+%% -define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
+%% -define(SOCKET_OPT_SOCK_BUSY_POLL,       5).
+%% -define(SOCKET_OPT_SOCK_DEBUG,           6).
 -define(SOCKET_OPT_SOCK_DOMAIN,          7).
 -define(SOCKET_OPT_SOCK_DONTROUTE,       8).
+%% -define(SOCKET_OPT_SOCK_ERROR,           9).
 -define(SOCKET_OPT_SOCK_KEEPALIVE,      10).
 -define(SOCKET_OPT_SOCK_LINGER,         11).
--define(SOCKET_OPT_SOCK_PRIORITY,       17).
--define(SOCKET_OPT_SOCK_PROTOCOL,       18).
--define(SOCKET_OPT_SOCK_RCVBUF,         19).
--define(SOCKET_OPT_SOCK_REUSEADDR,      23).
--define(SOCKET_OPT_SOCK_SNDBUF,         29).
--define(SOCKET_OPT_SOCK_TYPE,           34).
+%% -define(SOCKET_OPT_SOCK_MARK,           12).
+%% -define(SOCKET_OPT_SOCK_OOBINLLINE,     13).
+%% -define(SOCKET_OPT_SOCK_PASSCRED,       14).
+%% -define(SOCKET_OPT_SOCK_PEEK_OFF,       16).
+%% -define(SOCKET_OPT_SOCK_PEEKCRED,       17).
+-define(SOCKET_OPT_SOCK_PRIORITY,       18).
+-define(SOCKET_OPT_SOCK_PROTOCOL,       19).
+-define(SOCKET_OPT_SOCK_RCVBUF,         20).
+-define(SOCKET_OPT_SOCK_REUSEADDR,      24).
+-define(SOCKET_OPT_SOCK_SNDBUF,         30).
+-define(SOCKET_OPT_SOCK_TYPE,           35).
 
 -define(SOCKET_OPT_IP_RECVTOS,          25).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
@@ -2021,10 +2032,10 @@ enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
     not_supported({L, Opt});
 
 %% +++ SOCKET socket options +++
-enc_sockopt_key(socket = L, acceptconn = Opt, get = _Dir, _D, _T, _P) ->
+enc_sockopt_key(socket = _L, acceptconn = _Opt, get = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_ACCEPTCONN;
+enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket, acceptfilter = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
 %% Before linux 3.8, this socket option could be set.
 %% Size of buffer for name: IFNAMSZ
 %% So, we let the implementation decide.
@@ -2057,7 +2068,7 @@ enc_sockopt_key(socket = L, passcred = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, peek_off = Opt, _Dir, local = _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket = L, peek_cred = Opt, get = _Dir, _D, _T, _P) ->
+enc_sockopt_key(socket = L, peekcred = Opt, get = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PRIORITY;

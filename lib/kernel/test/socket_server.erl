@@ -275,9 +275,12 @@ acceptor_do_init(Domain, Type, Proto) ->
                {error, BReason} ->
                    throw({bind, BReason})
            end,
-    i("bound (~w) - try (socket) listen", [Port]),
+    i("bound (~w) - try (socket) listen (acceptconn: ~s)", 
+      [Port, F(acceptconn)]),
     case socket:listen(Sock) of
         ok ->
+            i("listening (acceptconn: ~s)", 
+              [F(acceptconn)]),
             Sock;
         {error, LReason} ->
             throw({listen, LReason})
