@@ -472,7 +472,7 @@ handle_call({passive_cnct, Node}, From, State) ->
 %% Explicit connect
 %% The response is delayed until the connection is up and running.
 %%
-handle_call({connect, _, Node, _, _}, From, State) when Node =:= node() ->
+handle_call({connect, _, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
