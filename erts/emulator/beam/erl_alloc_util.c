@@ -586,6 +586,7 @@ do {									\
 	STAT_MSEG_MBC_ALLOC((AP), csz__);				\
     else								\
 	STAT_SYS_ALLOC_MBC_ALLOC((AP), csz__);				\
+    set_new_allctr_abandon_limit(AP);                                   \
     (AP)->mbcs.blocks.curr.no += (CRR)->cpool.blocks[(AP)->alloc_no];   \
     if ((AP)->mbcs.blocks.max.no < (AP)->mbcs.blocks.curr.no)		\
 	(AP)->mbcs.blocks.max.no = (AP)->mbcs.blocks.curr.no;		\
@@ -613,7 +614,7 @@ do {									\
     DEBUG_CHECK_CARRIER_NO_SZ((AP));					\
 } while (0)
 
-#define STAT_MBC_ABANDON(AP, CRR)                                            \
+#define STAT_MBC_FREE(AP, CRR)                                               \
 do {                                                                         \
     UWord csz__ = CARRIER_SZ((CRR));                                         \
     if (IS_MSEG_CARRIER((CRR))) {                                            \
@@ -621,6 +622,12 @@ do {                                                                         \
     } else {                                                                 \
         STAT_SYS_ALLOC_MBC_FREE((AP), csz__);                                \
     }                                                                        \
+    set_new_allctr_abandon_limit(AP);                                        \
+} while (0)
+
+#define STAT_MBC_ABANDON(AP, CRR)                                            \
+do {                                                                         \
+    STAT_MBC_FREE(AP, CRR);                                                  \
     ERTS_ALC_CPOOL_ASSERT((AP)->mbcs.blocks.curr.no                          \
                           >= (CRR)->cpool.blocks[(AP)->alloc_no]);           \
     (AP)->mbcs.blocks.curr.no -= (CRR)->cpool.blocks[(AP)->alloc_no];        \
@@ -1704,6 +1711,7 @@ dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
 }
 
 
+static UWord allctr_abandon_limit(Allctr_t *allctr);
 static void set_new_allctr_abandon_limit(Allctr_t*);
 static void abandon_carrier(Allctr_t*, Carrier_t*);
 static void poolify_my_carrier(Allctr_t*, Carrier_t*);
@@ -2261,10 +2269,7 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	return;
 
-    allctr->cpool.check_limit_count--;
-    if (--allctr->cpool.check_limit_count <= 0)
-	set_new_allctr_abandon_limit(allctr);
-
+    ASSERT(allctr->cpool.abandon_limit == allctr_abandon_limit(allctr));
     ASSERT(erts_thr_progress_is_managed_thread());
 
     if (allctr->cpool.disable_abandon)
@@ -3006,7 +3011,6 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 
 #define ERTS_ALC_MAX_DEALLOC_CARRIER		10
 #define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	100
-#define ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT	100
 #define ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS	3
 
 #define ERTS_ALC_CPOOL_PTR_MOD_MRK		(((erts_aint_t) 1) << 0)
@@ -3370,8 +3374,7 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 static Carrier_t *
 cpool_fetch(Allctr_t *allctr, UWord size)
 {
-    enum { IGNORANT, HAS_SEEN_SENTINEL, THE_LAST_ONE } loop_state;
-    int i;
+    int i, seen_sentinel;
     Carrier_t *crr;
     Carrier_t *reinsert_crr = NULL;
     ErtsAlcCPoolData_t *cpdp;
@@ -3485,43 +3488,34 @@ cpool_fetch(Allctr_t *allctr, UWord size)
         /*
          * We saw a pooled carried above, use it as entrance into the pool
 	 */
-	cpdp = cpool_entrance;
     }
     else {
         /*
-         * No pooled carried seen above. Start search at cpool sentinel,
+         * No pooled carrier seen above. Start search at cpool sentinel,
 	 * but begin by passing one element before trying to fetch.
 	 * This in order to avoid contention with threads inserting elements.
 	 */
-	cpool_entrance = sentinel;
-	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
-	if (cpdp == sentinel)
+        cpool_entrance = cpool_aint2cpd(cpool_read(&sentinel->prev));
+	if (cpool_entrance == sentinel)
 	    goto check_dc_list;
     }
 
-    loop_state = IGNORANT;
+    cpdp = cpool_entrance;
+    seen_sentinel = 0;
     do {
 	erts_aint_t exp;
 	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	if (cpdp == cpool_entrance) {
-	    if (cpool_entrance == sentinel) {
-		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-		if (cpdp == sentinel)
-		    break;
-	    }
-            loop_state = THE_LAST_ONE;
-	}
-	else if (cpdp == sentinel) {
-	    if (loop_state == HAS_SEEN_SENTINEL) {
+        if (cpdp == sentinel) {
+	    if (seen_sentinel) {
 		/* We been here before. cpool_entrance must have been removed */
                 INC_CC(allctr->cpool.stat.entrance_removed);
 		break;
 	    }
-	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	    if (cpdp == sentinel)
-                break;
-            loop_state = HAS_SEEN_SENTINEL;
+            seen_sentinel = 1;
+            continue;
 	}
+        ASSERT(cpdp != cpool_entrance || seen_sentinel);
+
 	crr = ErtsContainerStruct(cpdp, Carrier_t, cpool);
 	exp = erts_atomic_read_rb(&crr->allctr);
 
@@ -3554,7 +3548,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
             INC_CC(allctr->cpool.stat.fail_shared);
 	    return NULL;
         }
-    }while (loop_state != THE_LAST_ONE);
+    }while (cpdp != cpool_entrance);
 
 check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
@@ -3750,13 +3744,13 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
     crr->cpool.state = ERTS_MBC_IS_HOME;
 }
 
-static void
-set_new_allctr_abandon_limit(Allctr_t *allctr)
+
+
+static UWord
+allctr_abandon_limit(Allctr_t *allctr)
 {
     UWord limit;
     UWord csz;
-
-    allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
 
     csz = allctr->mbcs.curr.norm.mseg.size;
     csz += allctr->mbcs.curr.norm.sys_alloc.size;
@@ -3767,7 +3761,13 @@ set_new_allctr_abandon_limit(Allctr_t *allctr)
     else
 	limit = (csz/100)*allctr->cpool.util_limit;
 
-    allctr->cpool.abandon_limit = limit;
+    return limit;
+}
+
+static void ERTS_INLINE
+set_new_allctr_abandon_limit(Allctr_t *allctr)
+{
+    allctr->cpool.abandon_limit = allctr_abandon_limit(allctr);
 }
 
 static void
@@ -3779,7 +3779,6 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     unlink_carrier(&allctr->mbc_list, crr);
     allctr->remove_mbc(allctr, crr);
-    set_new_allctr_abandon_limit(allctr);
 
     cpool_insert(allctr, crr);
 
@@ -4111,6 +4110,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 #if HAVE_ERTS_MSEG
     mbc_final_touch:
 #endif
+        set_new_allctr_abandon_limit(allctr);
 
 	blk = MBC_TO_FIRST_BLK(allctr, crr);
 
@@ -4329,7 +4329,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
     else {
 	ASSERT(IS_MBC_FIRST_FBLK(allctr, blk));
 	crr = FIRST_BLK_TO_MBC(allctr, blk);
-	crr_sz = CARRIER_SZ(crr);
 
 #ifdef DEBUG
 	if (!allctr->stopped) {
@@ -4361,15 +4360,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	else
 	{
 	    unlink_carrier(&allctr->mbc_list, crr);
-#if HAVE_ERTS_MSEG
-	    if (IS_MSEG_CARRIER(crr)) {
-		ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
-		STAT_MSEG_MBC_FREE(allctr, crr_sz);
-	    }
-	    else
-#endif
-		STAT_SYS_ALLOC_MBC_FREE(allctr, crr_sz);
-
+            STAT_MBC_FREE(allctr, crr);
             if (allctr->remove_mbc)
                 allctr->remove_mbc(allctr, crr);
 	}
@@ -4383,7 +4374,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
             LTTNG5(carrier_destroy,
                 ERTS_ALC_A2AD(allctr->alloc_no),
                 allctr->ix,
-                crr_sz,
+                CARRIER_SZ(crr),
                 mbc_stats,
                 sbc_stats);
         }
@@ -6478,7 +6469,6 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
-    allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
     if (!init->ts && init->acul && init->acnl) {
         allctr->cpool.util_limit = init->acul;
         allctr->cpool.in_pool_limit = init->acnl;
