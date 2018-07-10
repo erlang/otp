@@ -2093,17 +2093,6 @@ current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
     return res;
 }
 
-#if defined(VALGRIND)
-static int check_if_xml(void)
-{
-    char buf[1];
-    size_t bufsz = sizeof(buf);
-    return erts_sys_explicit_8bit_getenv("VALGRIND_LOG_XML", buf, &bufsz) != 0;
-}
-#else
-#define check_if_xml() 0
-#endif
-
 /*
  * This function takes care of calls to erlang:system_info/1 when the argument
  * is a tuple.
@@ -2200,15 +2189,9 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 #endif
 	} else if (is_list(*tp)) {
 #if defined(PURIFY)
-#define ERTS_ERROR_CHECKER_PRINTF purify_printf
-#define ERTS_ERROR_CHECKER_PRINTF_XML purify_printf
+#  define ERTS_ERROR_CHECKER_PRINTF purify_printf
 #elif defined(VALGRIND)
-#define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
-#  ifndef HAVE_VALGRIND_PRINTF_XML
-#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF
-#  else
-#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF_XML
-#  endif
+#  define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
 #endif
 	    ErlDrvSizeT buf_size = 8*1024; /* Try with 8KB first */
 	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
@@ -2224,12 +2207,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		ASSERT(r == buf_size - 1);
 	    }
 	    buf[buf_size - 1 - r] = '\0';
-	    if (check_if_xml()) {
-		ERTS_ERROR_CHECKER_PRINTF_XML("<erlang_info_log>"
-					      "%s</erlang_info_log>\n", buf);
-	    } else {
-		ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
-	    }
+            ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(am_true);
 #undef ERTS_ERROR_CHECKER_PRINTF
