@@ -510,7 +510,7 @@
 %% -define(SOCKET_OPT_IP_MTU,                   11).
 %% -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
 %% -define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
-%% -define(SOCKET_OPT_IP_MULTICAST_IF,          14).
+-define(SOCKET_OPT_IP_MULTICAST_IF,          14).
 -define(SOCKET_OPT_IP_MULTICAST_LOOP,        15).
 -define(SOCKET_OPT_IP_MULTICAST_TTL,         16).
 %% -define(SOCKET_OPT_IP_NODEFRAG,              17).
@@ -1955,6 +1955,9 @@ enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(ip, multicast_if, V, _D, _T, _P)
+  when (V =:= any) orelse (is_tuple(V) andalso (size(V) =:= 4)) ->
+    V;
 enc_setopt_value(ip, multicast_loop, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
@@ -2251,8 +2254,8 @@ enc_sockopt_key(ip = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, multicast_all = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ip = L, multicast_if = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, multicast_if = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_MULTICAST_IF;
 enc_sockopt_key(ip = _L, multicast_loop = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_MULTICAST_LOOP;
 enc_sockopt_key(ip = _L, multicast_ttl = _Opt, _Dir, _D, _T, _P) ->

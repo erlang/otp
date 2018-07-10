@@ -32,10 +32,6 @@
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
 
-/* Two byte integer decoding */
-#define get_int16(s) ((((unsigned char*) (s))[0] << 8)  | \
-                      (((unsigned char*) (s))[1]))
-
 extern
 char* esock_decode_sockaddr(ErlNifEnv*     env,
                             ERL_NIF_TERM   eSockAddr,
@@ -85,10 +81,9 @@ char* esock_encode_sockaddr_un(ErlNifEnv*          env,
 #endif
 
 extern
-char* esock_decode_ip4_address(ErlNifEnv*          env,
-                               ERL_NIF_TERM        eAddr,
-                               struct sockaddr_in* sockAddrP,
-                               unsigned int*       addrLen);
+char* esock_decode_ip4_address(ErlNifEnv*      env,
+                               ERL_NIF_TERM    eAddr,
+                               struct in_addr* inAddrP);
 extern
 char* esock_encode_ip4_address(ErlNifEnv*      env,
                                struct in_addr* addrP,
@@ -96,10 +91,9 @@ char* esock_encode_ip4_address(ErlNifEnv*      env,
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 extern
-char* esock_decode_ip6_address(ErlNifEnv*           env,
-                               ERL_NIF_TERM         eAddr,
-                               struct sockaddr_in6* sockAddrP,
-                               unsigned int*        addrLen);
+char* esock_decode_ip6_address(ErlNifEnv*       env,
+                               ERL_NIF_TERM     eAddr,
+                               struct in6_addr* inAddrP);
 extern
 char* esock_encode_ip6_address(ErlNifEnv*       env,
                                struct in6_addr* addrP,

@@ -362,6 +362,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_SNDBUF     27
 #define SOCKET_OPT_SOCK_TYPE       32
 
+#define SOCKET_OPT_IP_MULTICAST_IF   14
 #define SOCKET_OPT_IP_MULTICAST_LOOP 15
 #define SOCKET_OPT_IP_MULTICAST_TTL  16
 #define SOCKET_OPT_IP_RECVTOS        25
@@ -845,6 +846,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt,
                                    ERL_NIF_TERM      eVal);
+#if defined(IP_MULTICAST_IF)
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_MULTICAST_LOOP)
 static ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
                                                   SocketDescriptor* descP,
@@ -1023,6 +1029,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt);
+#if defined(IP_MULTICAST_IF)
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
+                                                SocketDescriptor* descP);
+#endif
 #if defined(IP_MULTICAST_LOOP)
 static ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
                                                   SocketDescriptor* descP);
@@ -1973,6 +1983,8 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
                                   (struct sockaddr*) sockAddrP, addrLen))) {
         return esock_make_error_errno(env, sock_errno());
     }
+
+    SSDBG( descP, ("SOCKET", "nbind -> bound - get port\r\n") );
 
     port = which_address_port(sockAddrP);
     SSDBG( descP, ("SOCKET", "nbind -> port: %d\r\n", port) );
@@ -3646,7 +3658,7 @@ ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
         int res = socket_setopt(descP->sock, level, opt,
                                 val.data, val.size);
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
     } else {
@@ -3866,7 +3878,7 @@ ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
         int res    = socket_setopt(descP->sock, SOL_SOCKET, SO_LINGER,
                                    (void*) &val, optLen);
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
     } else {
@@ -3956,6 +3968,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(IP_MULTICAST_IF)
+    case SOCKET_OPT_IP_MULTICAST_IF:
+        result = nsetopt_lvl_ip_multicast_if(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_LOOP)
     case SOCKET_OPT_IP_MULTICAST_LOOP:
         result = nsetopt_lvl_ip_multicast_loop(env, descP, eVal);
@@ -3999,6 +4017,45 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 
     return result;
 }
+
+
+/* nsetopt_lvl_ip_multicast_if - Level IP MULTICAST_IF option
+ *
+ * The value is either the atom 'any' or a 4-tuple.
+ */
+#if defined(IP_MULTICAST_IF)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM   result;
+    struct in_addr ifAddr;
+    char*          xres;
+    int            res;
+#if defined(SOL_IP)
+    int            level = SOL_IP;
+#else
+    int            level = IPPROTO_IP;
+#endif
+
+    if ((xres = esock_decode_ip4_address(env, eVal, &ifAddr)) != NULL) {
+        result = esock_make_error_str(env, xres);
+    } else {
+        
+        res = socket_setopt(descP->sock, level, IP_MULTICAST_LOOP,
+                            &ifAddr, sizeof(ifAddr));
+
+        if (res != 0)
+            result = esock_make_error_errno(env, sock_errno());
+        else
+            result = esock_atom_ok;
+
+    }
+
+    return result;
+}
+#endif
 
 
 /* nsetopt_lvl_ip_multicast_loop - Level IP MULTICAST_LOOP option
@@ -4097,7 +4154,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
         int res = socket_setopt(descP->sock, level, IP_TOS, &val, sizeof(val));
 
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
 
@@ -4376,7 +4433,7 @@ ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
         int res    = socket_setopt(descP->sock, level, opt, &val, optLen);
 
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
 
@@ -4409,7 +4466,7 @@ ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
     res  = socket_setopt(descP->sock, level, opt, &ival, sizeof(ival));
 
     if (res != 0)
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     else
         result = esock_atom_ok;
 
@@ -4789,7 +4846,7 @@ ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
     if (valueSz == 0) {
         res = sock_getopt(descP->sock, level, opt, NULL, NULL);
         if (res != 0)
-            result = esock_make_error_errno(env, res);
+            result = esock_make_error_errno(env, sock_errno());
         else
             result = esock_atom_ok;
     } else {
@@ -4798,7 +4855,7 @@ ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
         if (ALLOC_BIN(valueSz, &val)) {
             res = sock_getopt(descP->sock, level, opt, val.data, &valueSz);
             if (res != 0) {
-                result = esock_make_error_errno(env, res);
+                result = esock_make_error_errno(env, sock_errno());
             } else {
                 if (valueSz < val.size) {
                     if (REALLOC_BIN(&val, valueSz)) {
@@ -5023,7 +5080,7 @@ ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
                       &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         switch (val) {
         case AF_INET:
@@ -5090,7 +5147,7 @@ ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
                       &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         ERL_NIF_TERM lOnOff = ((val.l_onoff) ? atom_true : atom_false);
         ERL_NIF_TERM lSecs  = MKI(env, val.l_linger);
@@ -5148,7 +5205,7 @@ ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
                       &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         switch (val) {
         case IPPROTO_IP:
@@ -5224,7 +5281,7 @@ ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
     res = sock_getopt(descP->sock, SOL_SOCKET, SO_TYPE, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         switch (val) {
         case SOCK_STREAM:
@@ -5266,6 +5323,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(IP_MULTICAST_IF)
+    case SOCKET_OPT_IP_MULTICAST_IF:
+        result = ngetopt_lvl_ip_multicast_if(env, descP);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_LOOP)
     case SOCKET_OPT_IP_MULTICAST_LOOP:
         result = ngetopt_lvl_ip_multicast_loop(env, descP);
@@ -5309,6 +5372,43 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 
     return result;
 }
+
+
+/* ngetopt_lvl_ip_multicast_if - Level IP MULTICAST_IF option
+ */
+#if defined(IP_MULTICAST_IF)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
+                                         SocketDescriptor* descP)
+{
+    ERL_NIF_TERM   result;
+    ERL_NIF_TERM   eAddr;
+    struct in_addr ifAddr;
+    SOCKOPTLEN_T   ifAddrSz = sizeof(ifAddr);
+    char*          xres;
+    int            res;
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    res = sock_getopt(descP->sock, level, IP_MULTICAST_IF, &ifAddr, &ifAddrSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        if ((xres = esock_encode_ip4_address(env, &ifAddr, &eAddr)) != NULL) {
+            result = esock_make_error_str(env, xres);
+        } else {
+            result = esock_make_ok2(env, eAddr);
+        }
+    }
+
+    return result;
+
+}
+#endif
 
 
 /* ngetopt_lvl_ip_multicast_loop - Level IP MULTICAST_LOOP option
@@ -5403,7 +5503,7 @@ ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
     res = sock_getopt(descP->sock, level, IP_TOS, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         result = encode_ip_tos(env, val);
     }
@@ -5663,7 +5763,7 @@ ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         ERL_NIF_TERM sval = MKSL(env, val, valSz);
 
@@ -5692,7 +5792,7 @@ ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         ERL_NIF_TERM bval = ((val) ? atom_true : atom_false);
 
@@ -5719,7 +5819,7 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, res);
+        result = esock_make_error_errno(env, sock_errno());
     } else {
         result = esock_make_ok2(env, MKI(env, val));
     }
@@ -6933,394 +7033,6 @@ BOOLEAN_T ehow2how(unsigned int ehow, int* how)
 
      return TRUE;
 }
-
-
-
-/* +++ decode_sockaddr +++
- *
- * Decode a socket address - sockaddr. In erlang its represented by
- * a map, which has a specific set of attributes, depending on one
- * mandatory attribute; family. So depending on the value of the family
- * attribute: 
- *
- *    local - sockaddr_un:  path
- *    inet  - sockaddr_in4: port, addr
- *    inet6 - sockaddr_in6: port, addr, flowinfo, scope_id
- */
-/*
-static
-char* decode_sockaddr(ErlNifEnv*     env,
-                      ERL_NIF_TERM   eSockAddr,
-                      SocketAddress* sockAddrP,
-                      unsigned int*  addrLen)
-{
-    ERL_NIF_TERM efam;
-    int          fam;
-    char*        res;
-
-    if (!IS_MAP(env, eSockAddr))
-        return ESOCK_STR_EINVAL;
-
-    if (!GET_MAP_VAL(env, eSockAddr, esock_atom_family, &efam))
-        return ESOCK_STR_EINVAL;
-
-    if (!decode_domain(env, efam, &fam))
-        return ESOCK_STR_EINVAL;
-
-    switch (fam) {
-    case AF_INET:
-        res = decode_sockaddr_in4(env, eSockAddr, &sockAddrP->in6, addrLen);
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        res = decode_sockaddr_in6(env, eSockAddr, &sockAddrP->in6, addrLen);
-        break;
-#endif
-
-#ifdef HAVE_SYS_UN_H
-    case AF_UNIX:
-        res = decode_sockaddr_un(env, eSockAddr, &sockAddrP->un, addrLen);
-        break;
-#endif
-
-    default:
-        result = ESOCK_STR_EAFNOSUPPORT;
-        break;
-
-    }
-
-    return res;
-}
-*/
-
-
-
-/* +++ decode_sockaddr_in4 +++
- *
- * Decode a IPv4 socket address - sockaddr_in4. In erlang its represented by
- * a map, which has a specific set of attributes: 
- *
- *    port :: port_numbber()
- *    addr :: ip4_address()
- *
- * The erlang module ensures that both of these has values exist, so there 
- * is no need for any elaborate error handling.
- */
-/*
-static
-char* decode_sockaddr_in4(ErlNifEnv*          env,
-                          ERL_NIF_TERM        eSockAddr,
-                          struct sockaddr_in* sockAddrP,
-                          unsigned int*       addrLen)
-{
-    ERL_NIF_TERM eport, eaddr;
-    short        port;
-
-    / * Basic init * /
-    sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in));
-
-#ifndef NO_SA_LEN
-    sockAddrP->sin_len    = sizeof(struct sockaddr_in);
-#endif
-
-    sockAddrP->sin_family = AF_INET;
-
-    / * Extract (e) port number from map * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_port, &eport))
-        return ESOCK_STR_EINVAL;
-
-    / * Decode port number * /
-    if (!GET_INT(env, eport, &port))
-        return ESOCK_STR_EINVAL;
-    sockAddrP->sin_port = sock_htons(port);
-
-    / * Extract (e) address from map * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_addr, &eaddr))
-        return ESOCK_STR_EINVAL;
-
-    / * Decode address * /
-    if (!decode_ip4_address(env, eaddr, sockAddrP, addrLen))
-        return ESOCK_STR_EINVAL;
-
-    return NULL;
-}
-*/
-
-
-
-/* +++ decode_sockaddr_in6 +++
- *
- * Decode a IPv6 socket address - sockaddr_in6. In erlang its represented by
- * a map, which has a specific set of attributes: 
- *
- *    port     :: port_numbber()  (integer)
- *    addr     :: ip6_address()   (tuple)
- *    flowinfo :: in6_flow_info() (integer)
- *    scope_id :: in6_scope_id()  (integer)
- *
- * The erlang module ensures that all of these has values exist, so there
- * is no need for any elaborate error handling.
- */
-/*
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static
-char* decode_sockaddr_in6(ErlNifEnv*           env,
-                          ERL_NIF_TERM         eSockAddr,
-                          struct sockaddr_in6* sockAddrP,
-                          unsigned int*        addrLen)
-{
-    ERL_NIF_TERM eport, eaddr;
-    short        port;
-
-    / * Basic init * /
-    sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in6));
-#ifndef NO_SA_LEN
-    sockAddrP->sin6_len = sizeof(struct sockaddr_in);
-#endif
-
-    sockAddrP->sin6_family = AF_INET6;
-
-    / * *** Extract (e) port number from map *** * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_port, &eport))
-        return ESOCK_STR_EINVAL;
-
-    / * Decode port number * /
-    if (!GET_INT(env, eport, &port))
-        return ESOCK_STR_EINVAL;
-
-    sockAddrP->sin6_port = sock_htons(port);
-
-    / * *** Extract (e) flowinfo from map *** * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_flowinfo, &eflowInfo))
-        return ESOCK_STR_EINVAL;
-
-    / * 4: Get the flowinfo * /
-    if (!GET_UINT(env, eflowInfo, &flowInfo))
-        return ESOCK_STR_EINVAL;
-
-    sockAddrP->sin6_flowinfo = flowInfo;
-    
-    / * *** Extract (e) scope_id from map *** * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_scope_id, &escopeId))
-        return ESOCK_STR_EINVAL;
-
-    / * *** Get the scope_id *** * /
-    if (!GET_UINT(env, escopeId, &scopeId))
-        return ESOCK_STR_EINVAL;
-
-    sockAddrP->sin6_scope_id = scopeId;
-
-    / * *** Extract (e) address from map *** * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_addr, &eaddr))
-        return ESOCK_STR_EINVAL;
-
-    / * Decode address * /
-    if (!decode_ip6_address(env, eaddr, sockAddrP, addrLen))
-        return ESOCK_STR_EINVAL;
-
-    return NULL;
-}
-#endif
-*/
-
-
-
-
-/* +++ decode_sockaddr_un +++
- *
- * Decode a Unix Domain socket address - sockaddr_un. In erlang its represented by
- * a map, which has a specific set of attributes: 
- *
- *    path :: binary()
- *
- * The erlang module ensures that this value exist, so there 
- * is no need for any elaborate error handling.
- */
-/*
-#ifdef HAVE_SYS_UN_H
-static
-char* decode_sockaddr_un(ErlNifEnv*          env,
-                         ERL_NIF_TERM        eSockAddr,
-                         struct sockaddr_un* sockAddrP,
-                         unsigned int*       addrLen)
-{
-    ErlNifBinary bin;
-    ERL_NIF_TERM epath;
-    unsigned int len;
-
-    / * *** Extract (e) path (a binary) from map *** * /
-    if (!GET_MAP_VAL(env, eSockAddr, atom_port, &epath))
-        return ESOCK_STR_EINVAL;
-
-    / * Get the path * /
-    if (!GET_BIN(env, epath, &bin))
-        return ESOCK_STR_EINVAL;
-    
-    if ((bin.size +
-#ifdef __linux__
-    / * Make sure the address gets zero terminated
-     * except when the first byte is \0 because then it is
-     * sort of zero terminated although the zero termination
-     * comes before the address...
-     * This fix handles Linux's nonportable
-     * abstract socket address extension.
-     * /
-    (bin.data[0] == '\0' ? 0 : 1)
-#else
-        1
-#endif
-         ) > sizeof(sockaAddrP->sun_path))
-        return ESOCK_STR_EINVAL;
-
-
-    sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_un));
-    sockAddrP->sun_family = AF_UNIX;
-
-    sys_memcpy(sockAddrP->sun_path, bin.data, bin.size);
-    len = offsetof(struct sockaddr_un, sun_path) + bin.size;
-
-#ifndef NO_SA_LEN
-    sockAddrP->sun_len = len;
-#endif
-    *addrLen = len:
-
-    return NULL;
-}
-#endif
-*/
-
-
-
-/* +++ decode_ip4_address +++
- *
- * Decode a IPv4 address. This can be three things:
- *
- *    + Then atom 'any'
- *    + Then atom 'loopback'
- *    + An ip4_address() (4 tuple)
- *
- * Note that this *only* decodes the "address" part of a
- * (IPv4) socket address. There are several other things (port).
- */
-/*
-static
-char* decode_ip4_address(ErlNifEnv*          env,
-                         ERL_NIF_TERM        eAddr,
-                         struct sockaddr_in* sockAddrP,
-                         unsigned int*       addrLen)
-{
-    if (IS_ATOM(env, eAddr)) {
-        / * This is either 'any' or 'loopback' * /
-        struct in_addr addr;
-
-        if (COMPARE(esock_atom_loopback, eAddr) == 0) {
-            addr.s_addr = sock_htonl(INADDR_LOOPBACK);
-        } else if (COMPARE(esock_atom_any, eAddr) == 0) {
-            addr.s_addr = sock_htonl(INADDR_ANY);
-        } else {
-            return ESOCK_STR_EINVAL;
-        }
-
-        sockAddrP->sin_addr.s_addr = addr.s_addr;
-        *addrLen                   = sizeof(struct sockaddr_in);
-
-    } else {
-        / * This is a 4-tuple * /
-
-        const ERL_NIF_TERM* addrt;
-        int                 addrtSz;
-        int                 a, v;
-        char                addr[4];
-        
-        if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-            return ESOCK_STR_EINVAL;
-        
-        if (addrtSz != 4)
-            return ESOCK_STR_EINVAL;
-
-        for (a = 0; a < 4; a++) {
-            if (!GET_INT(env, addrt[a], &v))
-                return ESOCK_STR_EINVAL;
-            addr[a] = v;
-        }
-
-        sys_memcpy(&sockAddrP->sin_addr, &addr, sizeof(addr));
-        *addrLenP = sizeof(struct sockaddr_in);
-        
-    }
-
-    return NULL;
-}
-*/
-
-
-
-/* +++ decode_ip6_address +++
- *
- * Decode a IPv6 address. This can be three things:
- *
- *    + Then atom 'any'
- *    + Then atom 'loopback'
- *    + An ip6_address() (8 tuple)
- *
- * Note that this *only* decodes the "address" part of a
- * (IPv6) socket address. There are several other things
- * (port, flowinfo and scope_id) that are handled elsewhere).
- */
-/*
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static
-char* decode_ip6_address(ErlNifEnv*           env,
-                         ERL_NIF_TERM         eAddr,
-                         struct sockaddr_in6* sockAddrP,
-                         unsigned int*        addrLen)
-{
-    if (IS_ATOM(env, eAddr)) {
-        / * This is either 'any' or 'loopback' * /
-        const struct in6_addr* addr;
-
-        if (COMPARE(esock_atom_loopback, eAddr) == 0) {
-            addr = &in6addr_loopback;
-        } else if (COMPARE(esock_atom_any, eAddr) == 0) {
-            addr = &in6addr_any;
-        } else {
-            return ESOCK_STR_EINVAL;
-        }
-
-        sockAddrP->sin6_addr = *addr;
-        *addrLen             = sizeof(struct sockaddr_in6);
-
-    } else {
-        / * This is a 8-tuple * /
-
-        const ERL_NIF_TERM* addrt;
-        int                 addrtSz;
-        int                 a, v;
-        char                addr[16];
-        
-        if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-            return ESOCK_STR_EINVAL;
-        
-        if (addrtSz != 8)
-            return ESOCK_STR_EINVAL;
-
-        for (a = 0; a < 8; a++) {
-            if (!GET_INT(env, addrt[a], &v))
-                return ESOCK_STR_EINVAL;
-            addr[a*2  ] = ((v >> 8) & 0xFF);
-            addr[a*2+1] = (v & 0xFF);
-        }
-
-        sys_memcpy(&sockAddrP->sin6_addr, &addr, sizeof(addr));
-        *addrLen = sizeof(struct sockaddr_in6);
-        
-    }
-
-    return NULL;
-}
-#endif
-*/
 
 
 

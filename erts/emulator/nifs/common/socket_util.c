@@ -237,9 +237,13 @@ char* esock_decode_sockaddr_in4(ErlNifEnv*          env,
 
     /* Decode address */
     UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> try decode (ip) address\r\n") );
-    if ((xres = esock_decode_ip4_address(env, eaddr, sockAddrP, addrLen)) != NULL)
+    if ((xres = esock_decode_ip4_address(env,
+                                         eaddr,
+                                         &sockAddrP->sin_addr)) != NULL)
         return xres;
 
+    *addrLen = sizeof(struct sockaddr_in);
+    
     UDBG( ("SUTIL", "esock_decode_sockaddr_in4 -> done\r\n") );
 
     return NULL;
@@ -330,6 +334,8 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
     unsigned int flowInfo, scopeId;
     char*        xres;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in6 -> entry\r\n") );
+
     /* Basic init */
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_in6));
 #ifndef NO_SA_LEN
@@ -346,6 +352,8 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
     if (!GET_INT(env, eport, &port))
         return ESOCK_STR_EINVAL;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in6 -> port: %d\r\n", port) );
+
     sockAddrP->sin6_port = htons(port);
 
     /* *** Extract (e) flowinfo from map *** */
@@ -355,6 +363,8 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
     /* 4: Get the flowinfo */
     if (!GET_UINT(env, eflowInfo, &flowInfo))
         return ESOCK_STR_EINVAL;
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in6 -> flowinfo: %d\r\n", flowInfo) );
 
     sockAddrP->sin6_flowinfo = flowInfo;
     
@@ -366,6 +376,8 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
     if (!GET_UINT(env, escopeId, &scopeId))
         return ESOCK_STR_EINVAL;
 
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in6 -> scopeId: %d\r\n", scopeId) );
+
     sockAddrP->sin6_scope_id = scopeId;
 
     /* *** Extract (e) address from map *** */
@@ -373,8 +385,14 @@ char* esock_decode_sockaddr_in6(ErlNifEnv*           env,
         return ESOCK_STR_EINVAL;
 
     /* Decode address */
-    if ((xres = esock_decode_ip6_address(env, eaddr, sockAddrP, addrLen)) != NULL)
+    if ((xres = esock_decode_ip6_address(env,
+                                         eaddr,
+                                         &sockAddrP->sin6_addr)) != NULL)
         return xres;
+
+    *addrLen = sizeof(struct sockaddr_in6);
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_in6 -> done\r\n") );
 
     return NULL;
 }
@@ -570,22 +588,22 @@ char* esock_encode_sockaddr_un(ErlNifEnv*          env,
  *    + An ip4_address() (4 tuple)
  *
  * Note that this *only* decodes the "address" part of a
- * (IPv4) socket address. There are several other things (port).
+ * (IPv4) socket address.
  */
 
 extern
-char* esock_decode_ip4_address(ErlNifEnv*          env,
-                               ERL_NIF_TERM        eAddr,
-                               struct sockaddr_in* sockAddrP,
-                               unsigned int*       addrLen)
+char* esock_decode_ip4_address(ErlNifEnv*      env,
+                               ERL_NIF_TERM    eAddr,
+                               struct in_addr* inAddrP)
 {
+    struct in_addr addr;
+
     UDBG( ("SUTIL", "esock_decode_ip4_address -> entry with"
            "\r\n   eAddr: %T"
            "\r\n", eAddr) );
 
     if (IS_ATOM(env, eAddr)) {
         /* This is either 'any' or 'loopback' */
-        struct in_addr addr;
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
             UDBG( ("SUTIL", "esock_decode_ip4_address -> address: lookback\r\n") );
@@ -598,8 +616,7 @@ char* esock_decode_ip4_address(ErlNifEnv*          env,
             return ESOCK_STR_EINVAL;
         }
 
-        sockAddrP->sin_addr.s_addr = addr.s_addr;
-        *addrLen                   = sizeof(struct sockaddr_in);
+        inAddrP->s_addr = addr.s_addr;
 
     } else {
         /* This is a 4-tuple */
@@ -621,8 +638,7 @@ char* esock_decode_ip4_address(ErlNifEnv*          env,
             addr[a] = v;
         }
 
-        sys_memcpy(&sockAddrP->sin_addr, &addr, sizeof(addr));
-        *addrLen = sizeof(struct sockaddr_in);
+        sys_memcpy(inAddrP, &addr, sizeof(addr));
         
     }
 
@@ -682,11 +698,14 @@ char* esock_encode_ip4_address(ErlNifEnv*      env,
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 extern
-char* esock_decode_ip6_address(ErlNifEnv*           env,
-                               ERL_NIF_TERM         eAddr,
-                               struct sockaddr_in6* sockAddrP,
-                               unsigned int*        addrLen)
+char* esock_decode_ip6_address(ErlNifEnv*       env,
+                               ERL_NIF_TERM     eAddr,
+                               struct in6_addr* inAddrP)
 {
+    UDBG( ("SUTIL", "esock_decode_ip6_address -> entry with"
+           "\r\n   eAddr: %T"
+           "\r\n", eAddr) );
+
     if (IS_ATOM(env, eAddr)) {
         /* This is either 'any' or 'loopback' */
         const struct in6_addr* addr;
@@ -698,34 +717,34 @@ char* esock_decode_ip6_address(ErlNifEnv*           env,
         } else {
             return ESOCK_STR_EINVAL;
         }
-
-        sockAddrP->sin6_addr = *addr;
-        *addrLen             = sizeof(struct sockaddr_in6);
-
+        
+        *inAddrP = *addr;
+        
     } else {
         /* This is a 8-tuple */
-
+        
         const ERL_NIF_TERM* addrt;
         int                 addrtSz;
-        int                 a, v;
-        char                addr[16];
+        int                 ai, v;
+        unsigned char       addr[16];
+        unsigned char*      a = addr;
+        unsigned int        addrLen = sizeof(addr) / sizeof(unsigned char);
         
         if (!GET_TUPLE(env, eAddr, &addrtSz, &addrt))
             return ESOCK_STR_EINVAL;
         
         if (addrtSz != 8)
             return ESOCK_STR_EINVAL;
-
-        for (a = 0; a < 8; a++) {
-            if (!GET_INT(env, addrt[a], &v))
-                return ESOCK_STR_EINVAL;
-            addr[a*2  ] = ((v >> 8) & 0xFF);
-            addr[a*2+1] = (v & 0xFF);
-        }
-
-        sys_memcpy(&sockAddrP->sin6_addr, &addr, sizeof(addr));
-        *addrLen = sizeof(struct sockaddr_in6);
         
+        for (ai = 0; ai < 8; ai++) {
+            if (!GET_INT(env, addrt[ai], &v))
+                return ESOCK_STR_EINVAL;
+            put_int16(v, a);
+            a += 2;
+        }
+        
+        sys_memcpy(inAddrP, &addr, addrLen);
+
     }
 
     return NULL;
@@ -754,7 +773,7 @@ char* esock_encode_ip6_address(ErlNifEnv*       env,
     unsigned int   i;
     ERL_NIF_TERM   at[8];
     unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
-    unsigned char* a     = (unsigned char*) &addrP;
+    unsigned char* a     = (unsigned char*) addrP;
     
     /* The address */
     for (i = 0; i < atLen; i++) {

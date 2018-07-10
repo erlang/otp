@@ -22,8 +22,8 @@
 
 -export([
          start/1,
-         start_tcp/1, start_tcp/2,
-         start_udp/1, start_udp/2
+         start_tcp/1, start_tcp/2, start_tcp6/1,
+         start_udp/1, start_udp/2, start_udp6/1
         ]).
 
 -define(LIB, socket_lib).
@@ -36,6 +36,9 @@ start(Port) ->
 start_tcp(Port) ->
     start(inet, stream, tcp, Port).
 
+start_tcp6(Port) ->
+    start(inet6, stream, tcp, Port).
+
 start_tcp(Addr, Port) when (size(Addr) =:= 4) ->
     start(inet, stream, tcp, Addr, Port);
 start_tcp(Addr, Port) when (size(Addr) =:= 8) ->
@@ -44,6 +47,9 @@ start_tcp(Addr, Port) when (size(Addr) =:= 8) ->
 
 start_udp(Port) ->
     start(inet, dgram, udp, Port).
+
+start_udp6(Port) ->
+    start(inet6, dgram, udp, Port).
 
 start_udp(Addr, Port) when (size(Addr) =:= 4) ->
     start(inet, dgram, udp, Addr, Port);
@@ -65,21 +71,37 @@ do_start(Domain, stream = Type, Proto, SA) ->
     try do_init(Domain, Type, Proto) of
         Sock ->
             connect(Sock, SA),
+            {ok, Name} = socket:sockname(Sock), 
+            {ok, Peer} = socket:peername(Sock),
+            {ok, Domain} = socket:getopt(Sock, socket, domain),
+            {ok, Type}   = socket:getopt(Sock, socket, type),
+            {ok, Proto}  = socket:getopt(Sock, socket, protocol),
+            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
+            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
+            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
+            {ok, Linger} = socket:getopt(Sock, socket, linger),
+            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
+            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
             i("connected: "
               "~n   From: ~p"
-              "~n   To:   ~p", 
-              [
-               case socket:sockname(Sock) of
-                   {ok, Name} -> Name;
-                   {error, _} = NE -> NE
-               end,
-               case socket:peername(Sock) of
-                   {ok, Name} -> Name;
-                   {error, _} = PE -> PE
-               end
-              ]),
+              "~n   To:   ~p"
+              "~nwhen"
+              "~n   (socket) Domain:         ~p"
+              "~n   (socket) Type:           ~p"
+              "~n   (socket) Protocol:       ~p"
+              "~n   (socket) OOBInline:      ~p"
+              "~n   (socket) SndBuf:         ~p"
+              "~n   (socket) RcvBuf:         ~p"
+              "~n   (socket) Linger:         ~p"
+              "~n   (ip)     Multicast IF:   ~p"
+              "~n   (ip)     Multicast Loop: ~p"
+              "~n   (ip)     Multicast TTL:  ~p"
+              "~n   => wait some", 
+              [Name, Peer,
+               Domain, Type, Proto, 
+               OOBI, SndBuf, RcvBuf, Linger, MIF, MLoop, MTTL]),
             %% Give the server some time...
-            i("wait some", []),
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),
             send_loop(#client{socket = Sock, 
@@ -93,7 +115,30 @@ do_start(Domain, dgram = Type, Proto, SA) ->
     try do_init(Domain, Type, Proto) of
         Sock ->
             %% Give the server some time...
-            i("wait some", []),
+            {ok, Domain} = socket:getopt(Sock, socket, domain),
+            {ok, Type}   = socket:getopt(Sock, socket, type),
+            {ok, Proto}  = socket:getopt(Sock, socket, protocol),
+            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
+            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
+            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
+            {ok, Linger} = socket:getopt(Sock, socket, linger),
+            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
+            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
+            i("initiated when: "
+              "~n   (socket) Domain:         ~p"
+              "~n   (socket) Type:           ~p"
+              "~n   (socket) Protocol:       ~p"
+              "~n   (socket) OOBInline:      ~p"
+              "~n   (socket) SndBuf:         ~p"
+              "~n   (socket) RcvBuf:         ~p"
+              "~n   (socket) Linger:         ~p"
+              "~n   (ip)     Multicast IF:   ~p"
+              "~n   (ip)     Multicast Loop: ~p"
+              "~n   (ip)     Multicast TTL:  ~p"
+              "~n   => wait some", 
+              [Domain, Type, Proto, 
+               OOBI, SndBuf, RcvBuf, Linger, MIF, MLoop, MTTL]),
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),
             send_loop(#client{socket = Sock, 
@@ -185,7 +230,7 @@ send_loop(#client{msg_id = N} = C) when (N =< 10) ->
             end;
         {error, SReason} ->
             e("Failed send request ~w: "
-              "~n   ~p", [SReason]),
+              "~n   ~p", [N, SReason]),
             exit({failed_send, SReason})
     end;
 send_loop(#client{socket = Sock}) ->

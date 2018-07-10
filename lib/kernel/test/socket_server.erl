@@ -21,7 +21,7 @@
 -module(socket_server).
 
 -export([
-         start/0,
+         start/0, start/4,
          start_tcp/0, start_tcp/1,
          start_udp/0, start_udp/1
         ]).
@@ -104,7 +104,7 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
                               {error, _} -> "-"
                           end
                 end,
-            i("(socket) open (~s,~s,~s): "
+            i("socket opened (~s,~s,~s): "
               "~n   broadcast: ~s"
               "~n   dontroute: ~s"
               "~n   keepalive: ~s"
@@ -114,13 +114,15 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
               "~n   prio:      ~s"
               "~n   rcvbuf:    ~s"
               "~n   sndbuf:    ~s"
-              "~n   try find (local) address", 
+              "~n   => try find (local) address", 
               [F(domain), F(type), F(protocol), 
                F(broadcast), F(dontroute), F(keepalive), F(reuseaddr), F(linger),
                F(debug), F(priority), F(rcvbuf), F(sndbuf)]),
             Addr = which_addr(Domain),
             SA = #{family => Domain,
                    addr   => Addr},
+            i("try bind to: "
+              "~n   ~p", [Addr]),
             case socket:bind(Sock, SA) of
                 {ok, _P} ->
                    ok;
@@ -290,7 +292,9 @@ acceptor_do_init(Domain, Type, Proto) ->
     Addr = which_addr(Domain),
     SA = #{family => Domain,
            addr   => Addr},
-    i("found (~p) - try (socket) bind", [Addr]),
+    i("found: "
+      "~n   ~p"
+      "~n   => try (socket) bind", [Addr]),
     %% ok = socket:setopt(Sock, otp, debug, true),
     %% ok = socket:setopt(Sock, socket, debug, 1), %% must have rights!!
     Port = case socket:bind(Sock, SA) of
@@ -301,7 +305,9 @@ acceptor_do_init(Domain, Type, Proto) ->
                {error, BReason} ->
                    throw({bind, BReason})
            end,
-    i("bound (~w) - try (socket) listen (acceptconn: ~s)", 
+    i("bound to: "
+      "~n   ~p"
+      "~n   => try (socket) listen (acceptconn: ~s)", 
       [Port, F(acceptconn)]),
     case socket:listen(Sock) of
         ok ->
@@ -328,6 +334,8 @@ which_addr(Domain, [{Name, IFO}|_IFL]) when (Name =/= "lo") ->
 which_addr(Domain, [_|IFL]) ->
     which_addr(Domain, IFL).
 
+which_addr2(_, []) ->
+    throw(no_address);
 which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
     Addr;
 which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
@@ -434,6 +442,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
+            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
             i("got continue when: "
@@ -444,10 +453,11 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) SndBuf:         ~p"
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
+              "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p", 
               [Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, MLoop, MTTL]),
+               OOBI, SndBuf, RcvBuf, Linger, MIF, MLoop, MTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
