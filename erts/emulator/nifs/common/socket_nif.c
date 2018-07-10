@@ -363,6 +363,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_TYPE       32
 
 #define SOCKET_OPT_IP_MULTICAST_LOOP 15
+#define SOCKET_OPT_IP_MULTICAST_TTL  16
 #define SOCKET_OPT_IP_RECVTOS        25
 #define SOCKET_OPT_IP_ROUTER_ALERT   28
 #define SOCKET_OPT_IP_TOS            30
@@ -849,6 +850,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
                                                   SocketDescriptor* descP,
                                                   ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_MULTICAST_TTL)
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP,
+                                                 ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_RECVTOS)
 static ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
@@ -1020,6 +1026,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 #if defined(IP_MULTICAST_LOOP)
 static ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
                                                   SocketDescriptor* descP);
+#endif
+#if defined(IP_MULTICAST_TTL)
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP);
 #endif
 #if defined(IP_RECVTOS)
 static ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
@@ -3952,6 +3962,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MULTICAST_TTL)
+    case SOCKET_OPT_IP_MULTICAST_TTL:
+        result = nsetopt_lvl_ip_multicast_ttl(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_RECVTOS)
     case SOCKET_OPT_IP_RECVTOS:
         result = nsetopt_lvl_ip_recvtos(env, descP, eVal);
@@ -4000,6 +4016,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
 #endif
 
     return nsetopt_bool_opt(env, descP, level, IP_MULTICAST_LOOP, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_multicast_ttl - Level IP MULTICAST_TTL option
+ */
+#if defined(IP_MULTICAST_TTL)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
+                                          SocketDescriptor* descP,
+                                          ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IP_MULTICAST_TTL, eVal);
 }
 #endif
 
@@ -5237,6 +5272,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MULTICAST_TTL)
+    case SOCKET_OPT_IP_MULTICAST_TTL:
+        result = ngetopt_lvl_ip_multicast_ttl(env, descP);
+        break;
+#endif
+
 #if defined(IP_RECVTOS)
     case SOCKET_OPT_IP_RECVTOS:
         result = ngetopt_lvl_ip_recvtos(env, descP);
@@ -5272,7 +5313,7 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 
 /* ngetopt_lvl_ip_multicast_loop - Level IP MULTICAST_LOOP option
  */
-#if defined(IP_RECVTOS)
+#if defined(IP_MULTICAST_LOOP)
 static
 ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
                                            SocketDescriptor* descP)
@@ -5284,6 +5325,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
 #endif
 
     return ngetopt_bool_opt(env, descP, level, IP_MULTICAST_LOOP);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_multicast_ttl - Level IP MULTICAST_TTL option
+ */
+#if defined(IP_MULTICAST_TTL)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
+                                          SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IP_MULTICAST_TTL);
 }
 #endif
 

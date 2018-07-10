@@ -283,18 +283,10 @@ acceptor_do_init(Domain, Type, Proto) ->
                   end
         end,
     i("(socket) open (~s,~s,~s): "
-      "~n   dontroute: ~s"
-      "~n   keepalive: ~s"
-      "~n   reuseaddr: ~s"
-      "~n   linger:    ~s"
       "~n   debug:     ~s"
       "~n   prio:      ~s"
-      "~n   rcvbuf:    ~s"
-      "~n   sndbuf:    ~s"
       "~n   => try find (local) address", 
-      [F(domain), F(type), F(protocol), 
-       F(dontroute), F(keepalive), F(reuseaddr), F(linger),
-       F(debug), F(priority), F(rcvbuf), F(sndbuf)]),
+      [F(domain), F(type), F(protocol), F(debug), F(priority)]),
     Addr = which_addr(Domain),
     SA = #{family => Domain,
            addr   => Addr},
@@ -442,7 +434,8 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
-            {ok, ML}     = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -451,9 +444,10 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) SndBuf:         ~p"
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
-              "~n   (ip)     Multicast Loop: ~p", 
+              "~n   (ip)     Multicast Loop: ~p"
+              "~n   (ip)     Multicast TTL:  ~p", 
               [Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, ML]),
+               OOBI, SndBuf, RcvBuf, Linger, MLoop, MTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
