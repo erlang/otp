@@ -476,6 +476,8 @@ init_per_testcase(TestCase, Config) when TestCase == tls_ssl_accept_timeout;
 					 TestCase == tls_client_closes_socket;
 					 TestCase == tls_closed_in_active_once;
 					 TestCase == tls_downgrade ->
+    ssl:stop(),
+    ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 15}),
     Config;
