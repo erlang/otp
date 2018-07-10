@@ -439,11 +439,21 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
             {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
+            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
+            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
+            {ok, Linger} = socket:getopt(Sock, socket, linger),
+            {ok, ML}     = socket:getopt(Sock, ip,     multicast_loop),
             i("got continue when: "
-              "~n   Domain:    ~p"
-              "~n   Type:      ~p"
-              "~n   Protocol:  ~p"
-              "~n   OOBInline: ~p", [Domain, Type, Proto, OOBI]),
+              "~n   (socket) Domain:         ~p"
+              "~n   (socket) Type:           ~p"
+              "~n   (socket) Protocol:       ~p"
+              "~n   (socket) OOBInline:      ~p"
+              "~n   (socket) SndBuf:         ~p"
+              "~n   (socket) RcvBuf:         ~p"
+              "~n   (socket) Linger:         ~p"
+              "~n   (ip)     Multicast Loop: ~p", 
+              [Domain, Type, Proto, 
+               OOBI, SndBuf, RcvBuf, Linger, ML]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

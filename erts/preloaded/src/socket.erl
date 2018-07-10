@@ -460,9 +460,9 @@
 -define(SOCKET_OPT_LEVEL_UDP,            5).
 -define(SOCKET_OPT_LEVEL_SCTP,           6).
 
--define(SOCKET_OPT_OTP_DEBUG,            0).
--define(SOCKET_OPT_OTP_IOW,              1).
--define(SOCKET_OPT_OTP_CTRL_PROC,        2).
+-define(SOCKET_OPT_OTP_DEBUG,            1).
+-define(SOCKET_OPT_OTP_IOW,              2).
+-define(SOCKET_OPT_OTP_CTRL_PROC,        3).
 
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
 %% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2).
@@ -497,22 +497,112 @@
 %% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
--define(SOCKET_OPT_IP_RECVTOS,          25).
--define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
--define(SOCKET_OPT_IP_TOS,              30).
--define(SOCKET_OPT_IP_TTL,              32).
+%% -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
+%% -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
+%% -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
+%% -define(SOCKET_OPT_IP_DONT_FRAG,              4).
+%% -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
+%% -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
+%% -define(SOCKET_OPT_IP_FREEBIND,               7).
+%% -define(SOCKET_OPT_IP_HDRINCL,                8).
+%% -define(SOCKET_OPT_IP_MINTTL,                 9).
+%% -define(SOCKET_OPT_IP_MSFILTER,              10).
+%% -define(SOCKET_OPT_IP_MTU,                   11).
+%% -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
+%% -define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
+%% -define(SOCKET_OPT_IP_MULTICAST_IF,          14).
+-define(SOCKET_OPT_IP_MULTICAST_LOOP,        15).
+%% -define(SOCKET_OPT_IP_MULTICAST_TTL,         16).
+%% -define(SOCKET_OPT_IP_NODEFRAG,              17).
+%% -define(SOCKET_OPT_IP_OPTIONS,               18).
+%% -define(SOCKET_OPT_IP_PKTINFO,               19).
+%% -define(SOCKET_OPT_IP_RECVERR,               20).
+%% -define(SOCKET_OPT_IP_RECVIF,                21).
+%% -define(SOCKET_OPT_IP_RECVDSTADDR,           22).
+%% -define(SOCKET_OPT_IP_RECVOPTS,              23).
+%% -define(SOCKET_OPT_IP_RECVORIGDSTADDR,       24).
+-define(SOCKET_OPT_IP_RECVTOS,               25).
+%% -define(SOCKET_OPT_IP_RECVTTL,               26).
+%% -define(SOCKET_OPT_IP_RETOPTS,               27).
+-define(SOCKET_OPT_IP_ROUTER_ALERT,          28).
+%% -define(SOCKET_OPT_IP_SNDSRCADDR,            29).
+-define(SOCKET_OPT_IP_TOS,                   30).
+%% -define(SOCKET_OPT_IP_TRANSPARENT,           31).
+-define(SOCKET_OPT_IP_TTL,                   32).
+-define(SOCKET_OPT_IP_UNBLOCK_SOURCE,           33).
 
--define(SOCKET_OPT_IPV6_HOPLIMIT,       12).
+%% -define(SOCKET_OPT_IPV6_ADDFORM,            1).
+%% -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
+%% -define(SOCKET_OPT_IPV6_AUTHHDR,            3).
+%% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4).
+%% -define(SOCKET_OPT_IPV6_CHECKSUM,           5).
+%% -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
+%% -define(SOCKET_OPT_IPV6_DSTOPTS,            7).
+%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8).
+%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9).
+%% -define(SOCKET_OPT_IPV6_FAITH,             10).
+%% -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
+-define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
+%% -define(SOCKET_OPT_IPV6_HOPOPTS,           13).
+%% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14).
+%% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15).
+%% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16).
+%% -define(SOCKET_OPT_IPV6_MTU,               17).
+%% -define(SOCKET_OPT_IPV6_MTU_DISCOVER,      18).
+%% -define(SOCKET_OPT_IPV6_MULTICAST_HOPS,    19).
+%% -define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
+%% -define(SOCKET_OPT_IPV6_MULTICAST_LOOP,    21).
+%% -define(SOCKET_OPT_IPV6_PORTRANGE,         22).
+%% -define(SOCKET_OPT_IPV6_PKTINFO,           23).
+%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        24).
+%% -define(SOCKET_OPT_IPV6_RECVERR,           25).
+%% -define(SOCKET_OPT_IPV6_RECVPKTINFO,       26).
+%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
+%% -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
+%% -define(SOCKET_OPT_IPV6_RTHDR,             29).
+%% -define(SOCKET_OPT_IPV6_TCLASS,            30).
+%% -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
+%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32).
+%% -define(SOCKET_OPT_IPV6_V6ONLY,            33).
 
--define(SOCKET_OPT_TCP_CONGESTION,      0).
+-define(SOCKET_OPT_TCP_CONGESTION,      1).
 -define(SOCKET_OPT_TCP_CORK,            2).
 -define(SOCKET_OPT_TCP_MAXSEG,          3).
 -define(SOCKET_OPT_TCP_NODELAY,         4).
 
--define(SOCKET_OPT_UDP_CORK,            0).
+-define(SOCKET_OPT_UDP_CORK,            1).
 
--define(SOCKET_OPT_SCTP_AUTOCLOSE,      7).
--define(SOCKET_OPT_SCTP_NODELAY,        22).
+%% -define(SOCKET_OPT_SCTP_ADAPTION_LAYER,          1).
+%% -define(SOCKET_OPT_SCTP_ASSOCINFO,               2).
+%% -define(SOCKET_OPT_SCTP_AUTH_ACTIVE_KEY,         3).
+%% -define(SOCKET_OPT_SCTP_AUTH_ASCONF,             4).
+%% -define(SOCKET_OPT_SCTP_AUTH_CHUNK,              5).
+%% -define(SOCKET_OPT_SCTP_AUTH_KEY,                6).
+%% -define(SOCKET_OPT_SCTP_AUTH_DELETE_KEY,         7).
+-define(SOCKET_OPT_SCTP_AUTOCLOSE,               8).
+%% -define(SOCKET_OPT_SCTP_CONTEXT,                 9).
+%% -define(SOCKET_OPT_SCTP_DEFAULT_SEND_PARAMS,    10).
+%% -define(SOCKET_OPT_SCTP_DELAYED_ACK_TIME,       11).
+%% -define(SOCKET_OPT_SCTP_DISABLE_FRAGMENTS,      12).
+%% -define(SOCKET_OPT_SCTP_HMAC_IDENT,             13).
+%% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           14).
+%% -define(SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE,    15).
+%% -define(SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO,     16).
+%% -define(SOCKET_OPT_SCTP_INITMSG,                17).
+%% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  18).
+%% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      19).
+%% -define(SOCKET_OPT_SCTP_MAXSEG,                 20).
+%% -define(SOCKET_OPT_SCTP_MAXBURST,               21).
+-define(SOCKET_OPT_SCTP_NODELAY,                22).
+%% -define(SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT, 23).
+%% -define(SOCKET_OPT_SCTP_PEER_ADDR_PARAMS,       24).
+%% -define(SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS,       25).
+%% -define(SOCKET_OPT_SCTP_PRIMARY_ADDR,           26).
+%% -define(SOCKET_OPT_SCTP_RESET_STREAMS,          27).
+%% -define(SOCKET_OPT_SCTP_RTOINFO,                28).
+%% -define(SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  29).
+%% -define(SOCKET_OPT_SCTP_STATUS,                 30).
+%% -define(SOCKET_OPT_SCTP_USE_EXT_RECVINFO,       31).
 
 -define(SOCKET_SHUTDOWN_HOW_READ,       0).
 -define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
@@ -1865,6 +1955,9 @@ enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(ip, multicast_loop, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, recvtos, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
@@ -2157,8 +2250,8 @@ enc_sockopt_key(ip = L, multicast_all = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, multicast_if = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ip = L, multicast_loop = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, multicast_loop = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_MULTICAST_LOOP;
 enc_sockopt_key(ip = L, multicast_ttl = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, nodefrag = Opt, _Dir, _D, raw = _T, _P) ->
