@@ -632,7 +632,20 @@ encode_hello_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
 				    ?UINT16(ServerNameLength),
 				    ?BYTE(?SNI_NAMETYPE_HOST_NAME),
 				    ?UINT16(HostLen), HostnameBin/binary,
-				    Acc/binary>>).
+				    Acc/binary>>);
+encode_hello_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
+    Versions = encode_versions(Versions0),
+    VerLen = byte_size(Versions),
+    Len = VerLen + 2,
+    encode_hello_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
+                                    ?UINT16(Len), ?UINT16(VerLen), Versions/binary, Acc/binary>>);
+encode_hello_extensions([#server_hello_selected_version{selected_version = Version0} | Rest], Acc) ->
+    Version = encode_versions(Version0),
+    Len = byte_size(Version), %% 2
+    encode_hello_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
+                                    ?UINT16(Len), Version/binary, Acc/binary>>).
+
+
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -930,7 +943,8 @@ premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
 %%====================================================================
 client_hello_extensions(Version, CipherSuites, 
 			#ssl_options{signature_algs = SupportedHashSigns,
-				     eccs = SupportedECCs} = SslOpts, ConnectionStates, Renegotiation) ->
+				     eccs = SupportedECCs,
+                                     versions = Versions} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
@@ -940,18 +954,29 @@ client_hello_extensions(Version, CipherSuites,
 	end,
     SRP = srp_user(SslOpts),
 
-    #hello_extensions{
-       renegotiation_info = renegotiation_info(tls_record, client,
-					       ConnectionStates, Renegotiation),
-       srp = SRP,
-       signature_algs = available_signature_algs(SupportedHashSigns, Version),
-       ec_point_formats = EcPointFormats,
-       elliptic_curves = EllipticCurves,
-       alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
-       next_protocol_negotiation =
-	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
-					      Renegotiation),
-       sni = sni(SslOpts#ssl_options.server_name_indication)}.
+    HelloExtensions =
+        #hello_extensions{
+           renegotiation_info = renegotiation_info(tls_record, client,
+                                                   ConnectionStates, Renegotiation),
+           srp = SRP,
+           signature_algs = available_signature_algs(SupportedHashSigns, Version),
+           ec_point_formats = EcPointFormats,
+           elliptic_curves = EllipticCurves,
+           alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
+           next_protocol_negotiation =
+               encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
+                                                  Renegotiation),
+           sni = sni(SslOpts#ssl_options.server_name_indication)},
+
+    %% Add "supported_versions" extension if TLS 1.3
+    case Version of
+        {3,4} ->
+            HelloExtensions#hello_extensions{
+              client_hello_versions = #client_hello_versions{
+                                         versions = Versions}};
+        _Else ->
+            HelloExtensions
+    end.
 
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 			       #hello_extensions{renegotiation_info = Info,
@@ -1722,6 +1747,16 @@ encode_alpn(undefined, _) ->
 encode_alpn(Protocols, _) ->
     #alpn{extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
 
+
+encode_versions(Versions) ->
+    encode_versions(lists:reverse(Versions), <<>>).
+%%
+encode_versions([], Acc) ->
+    Acc;
+encode_versions([{M,N}|T], Acc) ->
+    encode_versions(T, <<?BYTE(M),?BYTE(N),Acc/binary>>).
+
+
 hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					srp = SRP,
 					signature_algs = HashSigns,
@@ -1729,9 +1764,13 @@ hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					elliptic_curves = EllipticCurves,
                                         alpn = ALPN,
 					next_protocol_negotiation = NextProtocolNegotiation,
-					sni = Sni}) ->
+					sni = Sni,
+                                        client_hello_versions = Versions,
+                                        server_hello_selected_version = Version}) ->
     [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns,
-		    EcPointFormats, EllipticCurves, ALPN, NextProtocolNegotiation, Sni], Ext =/= undefined].
+		    EcPointFormats, EllipticCurves, ALPN,
+                    NextProtocolNegotiation, Sni,
+                    Versions, Version], Ext =/= undefined].
 
 %%-------------Decode handshakes---------------------------------
 dec_server_key(<<?UINT16(PLen), P:PLen/binary,
@@ -1937,9 +1976,22 @@ dec_hello_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
                 ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?UINT16(_), NameList/binary>> = ExtData,
     dec_hello_extensions(Rest, Acc#hello_extensions{sni = dec_sni(NameList)});
+
+dec_hello_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+                       ExtData:Len/binary, Rest/binary>>, Acc) when Len > 2 ->
+    <<?UINT16(_),Versions/binary>> = ExtData,
+    dec_hello_extensions(Rest, Acc#hello_extensions{
+                                 client_hello_versions =
+                                     #client_hello_versions{versions = decode_versions(Versions)}});
+
+dec_hello_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+                       ?UINT16(Version), Rest/binary>>, Acc) when Len =:= 2, Version =:= 16#0304 ->
+    dec_hello_extensions(Rest, Acc#hello_extensions{
+                                 server_hello_selected_version =
+                                     #server_hello_selected_version{selected_version = [{3,4}]}});
+
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
-
 dec_hello_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Acc) ->
     dec_hello_extensions(Rest, Acc);
 %% This theoretically should not happen if the protocol is followed, but if it does it is ignored.
@@ -1960,6 +2012,15 @@ decode_alpn(undefined) ->
     undefined;
 decode_alpn(#alpn{extension_data=Data}) ->
     decode_protocols(Data, []).
+
+decode_versions(Versions) ->
+    decode_versions(Versions, []).
+%%
+decode_versions(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_versions(<<?BYTE(M),?BYTE(N),Rest/binary>>, Acc) ->
+    decode_versions(Rest, [{M,N}|Acc]).
+
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
     decode_protocols(Protocols, []).

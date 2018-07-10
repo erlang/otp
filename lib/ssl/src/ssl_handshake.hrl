@@ -105,7 +105,9 @@
 	  srp,
 	  ec_point_formats,
 	  elliptic_curves,
-	  sni
+	  sni,
+          client_hello_versions,
+          server_hello_selected_version
 	 }).
 
 -record(server_hello, {
@@ -376,5 +378,14 @@
 -record(sni, {
           hostname = undefined
         }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Supported Versions TLS 1.3  section 4.2.1
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(SUPPORTED_VERSIONS_EXT, 43).
+
+-record(client_hello_versions, {versions}).
+-record(server_hello_selected_version, {selected_version}).
 
 -endif. % -ifdef(ssl_handshake).
