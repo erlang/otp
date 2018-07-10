@@ -353,13 +353,14 @@ typedef union {
 #define SOCKET_OPT_SOCK_DONTROUTE   8
 #define SOCKET_OPT_SOCK_KEEPALIVE  10
 #define SOCKET_OPT_SOCK_LINGER     11
-#define SOCKET_OPT_SOCK_PEEK_OFF   16
-#define SOCKET_OPT_SOCK_PRIORITY   18
-#define SOCKET_OPT_SOCK_PROTOCOL   19
-#define SOCKET_OPT_SOCK_RCVBUF     20
-#define SOCKET_OPT_SOCK_REUSEADDR  24
-#define SOCKET_OPT_SOCK_SNDBUF     30
-#define SOCKET_OPT_SOCK_TYPE       35
+#define SOCKET_OPT_SOCK_OOBINLINE  13
+#define SOCKET_OPT_SOCK_PEEK_OFF   15
+#define SOCKET_OPT_SOCK_PRIORITY   17
+#define SOCKET_OPT_SOCK_PROTOCOL   18
+#define SOCKET_OPT_SOCK_RCVBUF     19
+#define SOCKET_OPT_SOCK_REUSEADDR  23
+#define SOCKET_OPT_SOCK_SNDBUF     27
+#define SOCKET_OPT_SOCK_TYPE       32
 
 #define SOCKET_OPT_IP_RECVTOS      25
 #define SOCKET_OPT_IP_ROUTER_ALERT 28
@@ -808,6 +809,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_OOBINLINE)
+static ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
@@ -969,6 +975,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*        env,
 #if defined(SO_LINGER)
 static ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
+#endif
+#if defined(SO_OOBINLINE)
+static ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
 #endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
@@ -3739,6 +3749,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_OOBINLINE)
+    case SOCKET_OPT_SOCK_OOBINLINE:
+        result = nsetopt_lvl_sock_oobinline(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_PRIORITY)
     case SOCKET_OPT_SOCK_PRIORITY:
         result = nsetopt_lvl_sock_priority(env, descP, eVal);
@@ -3842,13 +3858,13 @@ ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
 #endif
 
 
-#if defined(SO_PRIORITY)
+#if defined(SO_OOBINLINE)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY, eVal);
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE, eVal);
 }
 #endif
 
@@ -3860,6 +3876,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
                                        ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PEEK_OFF, eVal);
+}
+#endif
+
+
+#if defined(SO_PRIORITY)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY, eVal);
 }
 #endif
 
@@ -4825,6 +4852,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_OOBINLINE)
+    case SOCKET_OPT_SOCK_OOBINLINE:
+        result = ngetopt_lvl_sock_oobinline(env, descP);
+        break;
+#endif
+
 #if defined(SO_PEEK_OFF)
     case SOCKET_OPT_SOCK_PEEK_OFF:
         result = ngetopt_lvl_sock_peek_off(env, descP);
@@ -4997,6 +5030,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
     }
 
     return result;
+}
+#endif
+
+
+#if defined(SO_OOBINLINE)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE);
 }
 #endif
 

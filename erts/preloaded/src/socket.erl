@@ -476,16 +476,26 @@
 -define(SOCKET_OPT_SOCK_KEEPALIVE,      10).
 -define(SOCKET_OPT_SOCK_LINGER,         11).
 %% -define(SOCKET_OPT_SOCK_MARK,           12).
-%% -define(SOCKET_OPT_SOCK_OOBINLLINE,     13).
+-define(SOCKET_OPT_SOCK_OOBINLINE,      13).
 %% -define(SOCKET_OPT_SOCK_PASSCRED,       14).
--define(SOCKET_OPT_SOCK_PEEK_OFF,       16).
-%% -define(SOCKET_OPT_SOCK_PEEKCRED,       17).
--define(SOCKET_OPT_SOCK_PRIORITY,       18).
--define(SOCKET_OPT_SOCK_PROTOCOL,       19).
--define(SOCKET_OPT_SOCK_RCVBUF,         20).
--define(SOCKET_OPT_SOCK_REUSEADDR,      24).
--define(SOCKET_OPT_SOCK_SNDBUF,         30).
--define(SOCKET_OPT_SOCK_TYPE,           35).
+-define(SOCKET_OPT_SOCK_PEEK_OFF,       15).
+%% -define(SOCKET_OPT_SOCK_PEEKCRED,       16).
+-define(SOCKET_OPT_SOCK_PRIORITY,       17).
+-define(SOCKET_OPT_SOCK_PROTOCOL,       18).
+-define(SOCKET_OPT_SOCK_RCVBUF,         19).
+%% -define(SOCKET_OPT_SOCK_RCVBUFFORCE,    20).
+%% -define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
+%% -define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
+-define(SOCKET_OPT_SOCK_REUSEADDR,      23).
+%% -define(SOCKET_OPT_SOCK_REUSEPORT,      24).
+%% -define(SOCKET_OPT_SOCK_RXQ_OVFL,       25).
+%% -define(SOCKET_OPT_SOCK_SETFIB,         26).
+-define(SOCKET_OPT_SOCK_SNDBUF,         27).
+%% -define(SOCKET_OPT_SOCK_SNDBUFFORCE,    28).
+%% -define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
+%% -define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
+%% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
+-define(SOCKET_OPT_SOCK_TYPE,           32).
 
 -define(SOCKET_OPT_IP_RECVTOS,          25).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,     28).
@@ -1840,6 +1850,8 @@ enc_setopt_value(socket, linger, abort, D, T, P) ->
 enc_setopt_value(socket, linger, {OnOff, Secs} = V, _D, _T, _P)
   when is_boolean(OnOff) andalso is_integer(Secs) andalso (Secs >= 0) ->
     V;
+enc_setopt_value(socket, oobinline, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket, peek_off, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
@@ -2066,8 +2078,8 @@ enc_sockopt_key(socket, linger = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_LINGER;
 enc_sockopt_key(socket = L, mark = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket, oobinline = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = _L, oobinline = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_OOBINLINE;
 enc_sockopt_key(socket = L, passcred = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, peek_off = _Opt, _Dir, local = _D, _T, _P) ->

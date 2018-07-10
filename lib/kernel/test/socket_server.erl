@@ -438,11 +438,13 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, Domain} = socket:getopt(Sock, socket, domain),
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
+            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
             i("got continue when: "
-              "~n   Domain:   ~p"
-              "~n   Type:     ~p"
-              "~n   Protocol: ~p", [Domain, Type, Proto]),
-            %% socket:setopt(Socket, otp, debug, true),
+              "~n   Domain:    ~p"
+              "~n   Type:      ~p"
+              "~n   Protocol:  ~p"
+              "~n   OOBInline: ~p", [Domain, Type, Proto, OOBI]),
+            %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,
