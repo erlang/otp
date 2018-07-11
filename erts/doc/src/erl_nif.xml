@@ -194,7 +194,7 @@ ok
         <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
           bit length have no support yet.</p>
       </item>
-      <tag>Resource objects</tag>
+      <tag><marker id="resource_objects"/>Resource objects</tag>
       <item>
         <p>The use of resource objects is a safe way to return pointers to
           native data structures from a NIF. A resource object is
