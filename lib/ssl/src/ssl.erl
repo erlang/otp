@@ -887,9 +887,10 @@ handle_options(Opts0, #ssl_options{protocol = Protocol, cacerts = CaCerts0,
 	[] ->
 	    new_ssl_options(SslOpts1, NewVerifyOpts, RecordCB);
 	Value ->
-	    Versions = [RecordCB:protocol_version(Vsn) || Vsn <- Value],
+            Versions0 = [RecordCB:protocol_version(Vsn) || Vsn <- Value],
+            Versions1 = lists:sort(fun RecordCB:is_higher/2, Versions0),
 	    new_ssl_options(proplists:delete(versions, SslOpts1), 
-			    NewVerifyOpts#ssl_options{versions = Versions}, record_cb(Protocol))
+			    NewVerifyOpts#ssl_options{versions = Versions1}, record_cb(Protocol))
     end;
 
 %% Handle all options in listen and connect
@@ -912,7 +913,8 @@ handle_options(Opts0, Role, Host) ->
 		   [] ->
 		       RecordCb:supported_protocol_versions();
 		   Vsns  ->
-		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
+                       Versions0 = [RecordCb:protocol_version(Vsn) || Vsn <- Vsns],
+                       lists:sort(fun RecordCb:is_higher/2, Versions0)
 	       end,
 
     Protocol = handle_option(protocol, Opts, tls),
