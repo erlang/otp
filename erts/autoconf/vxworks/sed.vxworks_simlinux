@@ -36,6 +36,7 @@ s|@ARCH@|simlinux|
 s|@CC@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ccpentium|
 
 s|@HCC@|gcc|
+s|@GCC@|yes|
 
 s|@LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldpentium|
 
