@@ -119,6 +119,9 @@
     <datatype>
       <name name="ip_tos_flag"/>
     </datatype>
+    <datatype>
+      <name name="ip_mreq"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -194,6 +197,50 @@
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
 	underlying OS does.</p></note>
+
+	<!--
+	    We need these tables (one for each level) somewhere,
+	    but they don't work here, so where?
+
+        <p>Socket level options: </p>
+	<table>
+	  <row>
+	    <cell><em>Option Name</em></cell>
+	    <cell><em>Value Type</em></cell>
+	    <cell><em>Set</em></cell>
+	    <cell><em>Get</em></cell>
+	    <cell><em>Other</em></cell>
+	  </row>
+	  <row>
+	    <cell>acceptcon</cell>
+	    <cell>boolean()</cell>
+	    <cell>no</cell>
+	    <cell>yes</cell>
+	    <cell>none</cell>
+	  </row>
+	  <row>
+	    <cell>broadcast</cell>
+	    <cell>boolean()</cell>
+	    <cell>yes</cell>
+	    <cell>yes</cell>
+	    <cell>dgram</cell>
+	  </row>
+	  <row>
+	    <cell>debug</cell>
+	    <cell>integer()</cell>
+	    <cell>yes</cell>
+	    <cell>yes</cell>
+	    <cell>may require admin capability</cell>
+	  </row>
+	  <row>
+	    <cell>domain</cell>
+	    <cell>domain()</cell>
+	    <cell>no</cell>
+	    <cell>yes</cell>
+	    <cell>none</cell>
+	  </row>
+	</table>
+	-->
       </desc>
     </func>
 
