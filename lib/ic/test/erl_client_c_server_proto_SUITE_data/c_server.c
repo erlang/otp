@@ -187,6 +187,7 @@ int main(int argc, char **argv)
     }
     env = CORBA_Environment_alloc(INBUFSZ, OUTBUFSZ);
     env->_fd = fd; 
+    env->_memchunk = 32;
 
     status = 1;
     loop = 1;

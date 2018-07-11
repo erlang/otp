@@ -392,6 +392,7 @@ int main(int argc, char **argv)
     strcpy(env->_regname, peer_process_name);
     env->_to_pid = NULL;
     env->_from_pid = &pid;
+    env->_memchunk = 32;
     
     strcpy(pid.node, this_node);
     pid.num = fd;
