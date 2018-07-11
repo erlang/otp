@@ -78,8 +78,10 @@ int oe_ei_decode_wstring(const char *buf, int *index, CORBA_wchar *p) {
       /* Allocate temporary string */
       tmp_space = (char*) malloc((length + 1)*sizeof(char));
 
-      if ((error_code = ei_decode_string(buf, index, tmp_space)) < 0)
-	return error_code;
+      if ((error_code = ei_decode_string(buf, index, tmp_space)) < 0) {
+          free(tmp_space);
+          return error_code;
+      }
       
       /* Assign characters to wide characters */
       for(tmp = 0; tmp < length; tmp++)
@@ -88,7 +90,7 @@ int oe_ei_decode_wstring(const char *buf, int *index, CORBA_wchar *p) {
       p[tmp] = 0; /* Wide NULL */
       
       /* Free temporary string */
-      CORBA_free(tmp_space);
+      free(tmp_space);
 
     } else { /* Allocation counting part */
       
