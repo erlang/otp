@@ -71,6 +71,7 @@ all() ->
      sasl_compatible_false,
      sasl_compatible_false_no_progress,
      sasl_compatible,
+     all_logger_level,
      {group,bad},
      {group,error_logger},
      {group,logger}
@@ -570,6 +571,24 @@ sasl_compatible(Config) ->
     check_default_log(Node,Log,
                       file,% dest
                       0),% progress in std logger
+    ok.
+
+all_logger_level(Config) ->
+    [all_logger_level(Config,Level) || Level <- [none,
+                                                 emergency,
+                                                 alert,
+                                                 critical,
+                                                 error,
+                                                 warning,
+                                                 notice,
+                                                 info,
+                                                 debug,
+                                                 all]],
+    ok.
+
+all_logger_level(Config,Level) ->
+    {ok,#{primary:=#{level:=Level}},Node} = setup(Config,[{logger_level,Level}]),
+    true = test_server:stop_node(Node),
     ok.
 
 bad_error_logger(Config) ->

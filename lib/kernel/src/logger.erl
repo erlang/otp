@@ -687,7 +687,7 @@ get_logger_type() ->
 
 get_logger_level() ->
     case application:get_env(kernel,logger_level,info) of
-        Level when ?IS_LEVEL(Level) ->
+        Level when ?IS_LEVEL(Level); Level=:=all; Level=:=none ->
             Level;
         Level ->
             throw({logger_level, Level})
