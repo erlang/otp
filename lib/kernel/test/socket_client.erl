@@ -80,6 +80,7 @@ do_start(Domain, stream = Type, Proto, SA) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
+            {ok, MTU}    = socket:getopt(Sock, ip,     mtu),
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
@@ -94,13 +95,14 @@ do_start(Domain, stream = Type, Proto, SA) ->
               "~n   (socket) SndBuf:         ~p"
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
+              "~n   (ip)     MTU:            ~p"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p"
               "~n   => wait some", 
               [Name, Peer,
                Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, MIF, MLoop, MTTL]),
+               OOBI, SndBuf, RcvBuf, Linger, MTU, MIF, MLoop, MTTL]),
             %% Give the server some time...
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),

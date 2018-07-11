@@ -442,6 +442,12 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
+            MTU = case socket:getopt(Sock, ip, mtu) of
+                      {ok, Val} ->
+                          f("~w", [Val]);
+                      {error, _} ->
+                          "-" % We don't connect UDP (it can be done but we don't)
+                  end,
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
@@ -453,11 +459,12 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) SndBuf:         ~p"
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
+              "~n   (ip)     MTU:            ~s"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p", 
               [Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, MIF, MLoop, MTTL]),
+               OOBI, SndBuf, RcvBuf, Linger, MTU, MIF, MLoop, MTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

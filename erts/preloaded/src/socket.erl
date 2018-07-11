@@ -515,14 +515,14 @@
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
 %% -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
 %% -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
-%% -define(SOCKET_OPT_IP_DONT_FRAG,              4).
+%% -define(SOCKET_OPT_IP_DONTFRAG,               4). % Windows? MTU_DISCOVER...
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 %% -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 %% -define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
 %% -define(SOCKET_OPT_IP_MINTTL,                 9).
 %% -define(SOCKET_OPT_IP_MSFILTER,              10).
-%% -define(SOCKET_OPT_IP_MTU,                   11).
+-define(SOCKET_OPT_IP_MTU,                   11).
 %% -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
 %% -define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
 -define(SOCKET_OPT_IP_MULTICAST_IF,          14).
@@ -2275,8 +2275,8 @@ enc_sockopt_key(ip = L, minttl = Opt, _Dir, _D, raw = _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, msfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ip = L, mtu = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, mtu = _Opt, get = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_MTU;
 enc_sockopt_key(ip = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, multicast_all = Opt, _Dir, _D, _T, _P) ->
