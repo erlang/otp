@@ -1948,6 +1948,8 @@ enc_setopt_value(socket, broadcast, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, debug, V, _D, _T, _P) when is_integer(V) ->
     V;
+enc_setopt_value(socket, dontroute, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket, keepalive, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, linger, abort, D, T, P) ->
