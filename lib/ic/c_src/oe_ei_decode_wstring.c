@@ -76,7 +76,7 @@ int oe_ei_decode_wstring(const char *buf, int *index, CORBA_wchar *p) {
     if (p) { /* Decoding part */
       
       /* Allocate temporary string */
-      tmp_space = (char*) malloc(length*(__OE_WCHARSZ__+1));
+      tmp_space = (char*) malloc((length + 1)*sizeof(char));
 
       if ((error_code = ei_decode_string(buf, index, tmp_space)) < 0)
 	return error_code;

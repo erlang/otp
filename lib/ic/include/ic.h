@@ -251,13 +251,13 @@ extern "C" {
 
 #define __OE_MEMCHUNK__   1024
 #define __OE_VSNSZ__         1
-#define __OE_LONGSZ__        7
-#define __OE_LONGLONGSZ__    7
-#define __OE_ULONGSZ__       7
-#define __OE_ULONGLONGSZ__   7
-#define __OE_DOUBLESZ__     32
+#define __OE_LONGSZ__        (3+sizeof(long))
+#define __OE_LONGLONGSZ__    (3+sizeof(long))
+#define __OE_ULONGSZ__       (3+sizeof(long))
+#define __OE_ULONGLONGSZ__   (3+sizeof(long))
+#define __OE_DOUBLESZ__      9
 #define __OE_CHARSZ__        2
-#define __OE_WCHARSZ__       7  
+#define __OE_WCHARSZ__       (3+sizeof(CORBA_wchar))
 #define __OE_TUPLEHDRSZ__    5
 #define __OE_LISTHDRSZ__     5
 
