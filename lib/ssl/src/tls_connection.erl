@@ -112,12 +112,13 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 
 init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
+    State0 = #state{protocol_specific = Map} = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try 
 	State = ssl_connection:ssl_config(State0#state.ssl_options, Role, State0),
 	gen_statem:enter_loop(?MODULE, [], init, State)
     catch throw:Error ->
-	gen_statem:enter_loop(?MODULE, [], error, {Error, State0}) 
+            EState = State0#state{protocol_specific = Map#{error => Error}},
+            gen_statem:enter_loop(?MODULE, [], error, EState) 
     end.
 %%====================================================================
 %% State transition handling
@@ -463,17 +464,12 @@ init(Type, Event, State) ->
 	   {start, timeout()} | term(), #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-
-error({call, From}, {start, _Timeout}, {Error, State}) ->
-    ssl_connection:stop_and_reply(
-      normal, {reply, From, {error, Error}}, State);
 error({call, From}, {start, _Timeout}, 
       #state{protocol_specific = #{error := Error}} = State) ->
     ssl_connection:stop_and_reply(
       normal, {reply, From, {error, Error}}, State);
-error({call, _} = Call, Msg, {Error, #state{protocol_specific = Map} = State}) ->
-    gen_handshake(?FUNCTION_NAME, Call, Msg, 
-                  State#state{protocol_specific = Map#{error => Error}});
+error({call, _} = Call, Msg, State) ->
+    gen_handshake(?FUNCTION_NAME, Call, Msg, State);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  

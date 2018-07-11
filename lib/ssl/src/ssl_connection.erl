@@ -650,8 +650,8 @@ init(_Type, _Event, _State, _Connection) ->
             tls_connection | dtls_connection) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-error({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection).
+error({call, From}, _Msg, State, _Connection) ->
+    {next_state, ?FUNCTION_NAME, State, [{reply, From, {error, closed}}]}.
 
 %%--------------------------------------------------------------------
 -spec hello(gen_statem:event_type(),
