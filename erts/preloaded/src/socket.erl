@@ -89,6 +89,7 @@
               sctp_socket_option/0,
 
               ip_tos_flag/0,
+              ip_mreq/0,
 
 
               msg_hdr/0
@@ -133,6 +134,20 @@
 %% What about default values? Such as for port (=0) and addr (=any)?
 %%
 %% </KOLLA>
+
+%% This type is used when requesting to become member of a multicast
+%% group with a call to setopt. Example: 
+%%
+%%     socket:setopt(Socket, ip, add_membership, #{multiaddr => Addr,
+%%                                                 interface => any}).
+%%
+%% Its also used when removing from a multicast group. Example:
+%%
+%%     socket:setopt(Socket, ip, drop_membership, #{multiaddr => Addr,
+%%                                                  interface => any}).
+%%
+-type ip_mreq() :: #{multiaddr := ip4_address(),
+                     interface := any | ip4_address()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -497,11 +512,11 @@
 %% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
-%% -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
+-define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
 %% -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
 %% -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
 %% -define(SOCKET_OPT_IP_DONT_FRAG,              4).
-%% -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
+-define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 %% -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 %% -define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
@@ -1955,6 +1970,16 @@ enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(ip, add_membership, #{multiaddr := M, 
+                                       interface := IF} = V, _D, _T, _P)
+  when (is_tuple(M) andalso (size(M) =:= 4)) andalso 
+       ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
+    V;
+enc_setopt_value(ip, drop_membership, #{multiaddr := M, 
+                                        interface := IF} = V, _D, _T, _P)
+  when (is_tuple(M) andalso (size(M) =:= 4)) andalso 
+       ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
+    V;
 enc_setopt_value(ip, multicast_if, V, _D, _T, _P)
   when (V =:= any) orelse (is_tuple(V) andalso (size(V) =:= 4)) ->
     V;
@@ -2224,8 +2249,8 @@ enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% +++ IP socket options +++
-enc_sockopt_key(ip = L, add_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_ADD_MEMBERSHIP;
 enc_sockopt_key(ip = L, add_source_membership = Opt, set = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = L, block_source = Opt, set = _Dir, _D, _T, _P) ->
@@ -2234,8 +2259,8 @@ enc_sockopt_key(ip = L, block_source = Opt, set = _Dir, _D, _T, _P) ->
 %% Only respected on udp and raw ip (unless the hdrincl option has been set).
 enc_sockopt_key(ip = L, dontfrag = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ip = L, drop_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_DROP_MEMBERSHIP;
 enc_sockopt_key(ip = L, drop_source_membership = Opt, set = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Linux only?

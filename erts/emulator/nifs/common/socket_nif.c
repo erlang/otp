@@ -362,13 +362,15 @@ typedef union {
 #define SOCKET_OPT_SOCK_SNDBUF     27
 #define SOCKET_OPT_SOCK_TYPE       32
 
-#define SOCKET_OPT_IP_MULTICAST_IF   14
-#define SOCKET_OPT_IP_MULTICAST_LOOP 15
-#define SOCKET_OPT_IP_MULTICAST_TTL  16
-#define SOCKET_OPT_IP_RECVTOS        25
-#define SOCKET_OPT_IP_ROUTER_ALERT   28
-#define SOCKET_OPT_IP_TOS            30
-#define SOCKET_OPT_IP_TTL            32
+#define SOCKET_OPT_IP_ADD_MEMBERSHIP   1
+#define SOCKET_OPT_IP_DROP_MEMBERSHIP  5
+#define SOCKET_OPT_IP_MULTICAST_IF    14
+#define SOCKET_OPT_IP_MULTICAST_LOOP  15
+#define SOCKET_OPT_IP_MULTICAST_TTL   16
+#define SOCKET_OPT_IP_RECVTOS         25
+#define SOCKET_OPT_IP_ROUTER_ALERT    28
+#define SOCKET_OPT_IP_TOS             30
+#define SOCKET_OPT_IP_TTL             32
 
 #define SOCKET_OPT_IPV6_HOPLIMIT   12
 
@@ -846,6 +848,23 @@ static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt,
                                    ERL_NIF_TERM      eVal);
+#if defined(IP_ADD_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_DROP_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
+                                                   SocketDescriptor* descP,
+                                                   ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal,
+                                              int               opt);
+#endif
 #if defined(IP_MULTICAST_IF)
 static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
@@ -1397,7 +1416,9 @@ static char str_global_counters[] = "global_counters";
 static char str_in4_sockaddr[] = "in4_sockaddr";
 static char str_in6_sockaddr[] = "in6_sockaddr";
 static char str_iow[]          = "iow";
+static char str_interface[]    = "interface";
 // static char str_loopback[]     = "loopback";
+static char str_multiaddr[]    = "multiaddr";
 static char str_nif_abort[]    = "nif_abort";
 static char str_select[]       = "select";
 static char str_num_dlocal[]   = "num_domain_local";
@@ -1477,6 +1498,8 @@ static ERL_NIF_TERM atom_global_counters;
 static ERL_NIF_TERM atom_in4_sockaddr;
 static ERL_NIF_TERM atom_in6_sockaddr;
 static ERL_NIF_TERM atom_iow;
+static ERL_NIF_TERM atom_interface;
+static ERL_NIF_TERM atom_multiaddr;
 static ERL_NIF_TERM atom_nif_abort;
 static ERL_NIF_TERM atom_num_dinet;
 static ERL_NIF_TERM atom_num_dinet6;
@@ -3968,6 +3991,18 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(IP_ADD_MEMBERSHIP)
+    case SOCKET_OPT_IP_ADD_MEMBERSHIP:
+        result = nsetopt_lvl_ip_add_membership(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_DROP_MEMBERSHIP)
+    case SOCKET_OPT_IP_DROP_MEMBERSHIP:
+        result = nsetopt_lvl_ip_drop_membership(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_IF)
     case SOCKET_OPT_IP_MULTICAST_IF:
         result = nsetopt_lvl_ip_multicast_if(env, descP, eVal);
@@ -4017,6 +4052,101 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 
     return result;
 }
+
+
+/* nsetopt_lvl_ip_add_membership - Level IP ADD_MEMBERSHIP option
+ *
+ * The value is a map with two attributes: multiaddr and interface.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is either the atom 'any' or a 4-tuple
+ * (IPv4 address).
+ */
+#if defined(IP_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ip_update_membership(env, descP, eVal, IP_ADD_MEMBERSHIP);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_drop_membership - Level IP DROP_MEMBERSHIP option
+ *
+ * The value is a map with two attributes: multiaddr and interface.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is either the atom 'any' or a 4-tuple
+ * (IPv4 address).
+ *
+ * We should really have a common function with add_membership,
+ * since the code is virtually identical (except for the option
+ * value).
+ */
+#if defined(IP_DROP_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ip_update_membership(env, descP, eVal, IP_DROP_MEMBERSHIP);
+}
+#endif
+
+
+
+#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal,
+                                              int               opt)
+{
+    ERL_NIF_TERM   result, eMultiAddr, eInterface;
+    struct ip_mreq mreq;
+    char*          xres;
+    int            res;
+    size_t         sz;
+#if defined(SOL_IP)
+    int            level = SOL_IP;
+#else
+    int            level = IPPROTO_IP;
+#endif
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return enif_make_badarg(env);
+
+    // It must have exactly two attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+        return enif_make_badarg(env);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eMultiAddr,
+                                         &mreq.imr_multiaddr)) != NULL)
+        return esock_make_error_str(env, xres);
+        
+    if ((xres = esock_decode_ip4_address(env,
+                                         eInterface,
+                                         &mreq.imr_interface)) != NULL)
+        return esock_make_error_str(env, xres);
+        
+    res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif
 
 
 /* nsetopt_lvl_ip_multicast_if - Level IP MULTICAST_IF option
@@ -7510,6 +7640,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_in4_sockaddr = MKA(env, str_in4_sockaddr);
     atom_in6_sockaddr = MKA(env, str_in6_sockaddr);
     atom_iow          = MKA(env, str_iow);
+    atom_interface    = MKA(env, str_interface);
+    atom_multiaddr    = MKA(env, str_multiaddr);
     atom_nif_abort    = MKA(env, str_nif_abort);
     atom_num_dinet    = MKA(env, str_num_dinet);
     atom_num_dinet6   = MKA(env, str_num_dinet6);
