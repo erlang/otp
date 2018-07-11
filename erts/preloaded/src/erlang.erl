@@ -86,15 +86,15 @@
       | 'nano_seconds'.
 
 -opaque prepared_code() :: reference().
-
 -export_type([prepared_code/0]).
 
--opaque dist_handle() :: atom().
+-opaque nif_resource() :: reference().
+-export_type([nif_resource/0]).
 
+-opaque dist_handle() :: atom().
 -export_type([dist_handle/0]).
 
 -type iovec() :: [binary()].
-
 -export_type([iovec/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2316,7 +2316,7 @@ process_flag(_Flag, _Value) ->
       {min_heap_size, MinHeapSize :: non_neg_integer()} |
       {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
       {max_heap_size, MaxHeapSize :: max_heap_size()} |
-      {monitored_by, Pids :: [pid()]} |
+      {monitored_by, MonitoredBy :: [pid() | port() | nif_resource()]} |
       {monitors,
        Monitors :: [{process | port, Pid :: pid() | port() |
                                      {RegName :: atom(), Node :: node()}}]} |

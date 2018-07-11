@@ -197,6 +197,15 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="nif_resource"></name>
+      <desc>
+        <p>An opaque handle identifing a
+	<seealso marker="erl_nif#resource_objects">NIF resource object
+	</seealso>.</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -5288,10 +5297,10 @@ RealSystem = system + MissedSystem</code>
             <p><c><anno>MinBinVHeapSize</anno></c> is the minimum binary virtual
               heap size for the process.</p>
           </item>
-          <tag><c>{monitored_by, <anno>Pids</anno>}</c></tag>
+          <tag><c>{monitored_by, <anno>MonitoredBy</anno>}</c></tag>
           <item>
-            <p>A list of process identifiers monitoring the process (with
-              <c>monitor/2</c>).</p>
+            <p>A list of identifiers for all the processes, ports and NIF
+	    resources, that are monitoring the process.</p>
           </item>
           <tag><c>{monitors, <anno>Monitors</anno>}</c></tag>
           <item>
