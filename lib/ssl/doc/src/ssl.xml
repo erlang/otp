@@ -1516,9 +1516,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	to complete handshaking, that is,
 	establishing the SSL/TLS/DTLS connection.</p>
         <warning>
-          <p>The socket returned can only be used with
-	  <seealso marker="#handshake-2"> handshake/[2,3]</seealso>.
-	  No traffic can be sent or received before that call.</p>
+          <p>Most API functions require that the TLS/DTLS 
+          connection is established to work as expected.
+	  </p>
         </warning>
         <p>The accepted socket inherits the options set for
 	<c>ListenSocket</c> in
