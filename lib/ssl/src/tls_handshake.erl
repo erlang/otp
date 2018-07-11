@@ -61,6 +61,18 @@ client_hello(Host, Port, ConnectionStates,
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
+
+    %% In TLS 1.3, the client indicates its version preferences in the
+    %% "supported_versions" extension (Section 4.2.1) and the
+    %% legacy_version field MUST be set to 0x0303, which is the version
+    %% number for TLS 1.2.
+    LegacyVersion =
+        case tls_record:is_higher(Version, {3,2}) of
+            true ->
+                {3,3};
+            false ->
+                Version
+        end,
     #{security_parameters := SecParams} = 
         ssl_record:pending_connection_state(ConnectionStates, read),
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
@@ -71,7 +83,7 @@ client_hello(Host, Port, ConnectionStates,
     CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),    
     #client_hello{session_id = Id,
-		  client_version = Version,
+		  client_version = LegacyVersion,
 		  cipher_suites = CipherSuites,
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
@@ -93,6 +105,37 @@ client_hello(Host, Port, ConnectionStates,
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
+
+%% TLS 1.3 - 4.2.1.  Supported Versions
+%% If the "supported_versions" extension in the ServerHello contains a
+%% version not offered by the client or contains a version prior to TLS
+%% 1.3, the client MUST abort the handshake with an "illegal_parameter"
+%% alert.
+%%--------------------------------------------------------------------
+%% TLS 1.2 Client
+%%
+%% - If "supported_version" is present (ServerHello):
+%%   - Abort handshake with an "illegal_parameter" alert
+hello(#server_hello{server_version = Version,
+                    extensions = #hello_extensions{
+                                    server_hello_selected_version =
+                                        #server_hello_selected_version{selected_version = Version}
+                                   }},
+      #ssl_options{versions = SupportedVersions},
+      _ConnectionStates0, _Renegotiation) ->
+    case tls_record:is_higher({3,4}, Version) of
+        true ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+        false ->
+            case tls_record:is_acceptable_version(Version, SupportedVersions) of
+                true ->
+                    %% Implement TLS 1.3 statem ???
+                    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
+                false ->
+                    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+            end
+    end;
+
 hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
 		    compression_method = Compression,
@@ -107,6 +150,37 @@ hello(#server_hello{server_version = Version, random = Random,
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
+
+
+%% TLS 1.2 Server
+%% - If "supported_versions" is present (ClientHello):
+%%   - Select version from "supported_versions" (ignore ClientHello.legacy_version)
+%%   - If server only supports versions greater than "supported_versions":
+%%     - Abort handshake with a "protocol_version" alert (*)
+%% - If "supported_versions" is absent (ClientHello):
+%%   - Negotiate the minimum of ClientHello.legacy_version and TLS 1.2 (**)
+%%   - If server only supports versions greater than ClientHello.legacy_version:
+%%     - Abort handshake with a "protocol_version" alert
+%%
+%% (*)  Sends alert even if there is a gap in supported versions
+%%      e.g. Server 1.0,1.2 Client 1.1,1.3
+%% (**) Current implementation can negotiate a version not supported by the client
+%%      e.g. Server 1.0,1.2 Client 1.1 -> ServerHello 1.0
+hello(#client_hello{client_version = _ClientVersion,
+		    cipher_suites = CipherSuites,
+                    extensions = #hello_extensions{
+                                    client_hello_versions =
+                                        #client_hello_versions{versions = ClientVersions}
+                                   }} = Hello,
+      #ssl_options{versions = Versions} = SslOpts,
+      Info, Renegotiation) ->
+    try
+        Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
+        do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
+    catch
+	_:_ ->
+	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
+    end;
 			       
 hello(#client_hello{client_version = ClientVersion,
 		    cipher_suites = CipherSuites} = Hello,
@@ -114,18 +188,7 @@ hello(#client_hello{client_version = ClientVersion,
       Info, Renegotiation) ->
     try
 	Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
-	case ssl_cipher:is_fallback(CipherSuites) of
-	true -> 
-		Highest = tls_record:highest_protocol_version(Versions),
-		case tls_record:is_higher(Highest, Version) of
-		    true ->
-			?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
-		    false ->				     
-			handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
-		end;
-	    false ->
-		handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
-	end
+        do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
 	_:_ ->
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
@@ -242,6 +305,31 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
+
+
+do_hello(undefined, _Versions, _CipherSuites, _Hello, _SslOpts, _Info, _Renegotiation) ->
+    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
+do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) ->
+    case tls_record:is_higher({3,4}, Version) of
+        true -> %% TLS 1.2 and older
+            case ssl_cipher:is_fallback(CipherSuites) of
+                true ->
+                    Highest = tls_record:highest_protocol_version(Versions),
+                    case tls_record:is_higher(Highest, Version) of
+                        true ->
+                            ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
+                        false ->
+                            handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
+                    end;
+                false ->
+                    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
+            end;
+        false ->
+            %% Implement TLS 1.3 statem ???
+            ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+    end.
+
+
 %%--------------------------------------------------------------------
 enc_handshake(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};

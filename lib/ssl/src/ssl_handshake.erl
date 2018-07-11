@@ -53,7 +53,7 @@
 -export([certify/7, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
-         select_version/3, extension_value/1
+         select_version/3, select_supported_version/2, extension_value/1
 	]).
 
 %% Encode
@@ -504,6 +504,21 @@ verify_server_key(#server_key_params{params_bin = EncParams,
 
 select_version(RecordCB, ClientVersion, Versions) ->
     do_select_version(RecordCB, ClientVersion, Versions).
+
+
+%% Called by TLS 1.2/1.3 Server when "supported_versions" is present
+%% in ClientHello.
+%% Input lists are ordered (highest first)
+select_supported_version([], _ServerVersions) ->
+    undefined;
+select_supported_version([ClientVersion|T], ServerVersions) ->
+    case lists:member(ClientVersion, ServerVersions) of
+        true ->
+            ClientVersion;
+        false ->
+            select_supported_version(T, ServerVersions)
+    end.
+
 
 %%====================================================================
 %% Encode handshake 
