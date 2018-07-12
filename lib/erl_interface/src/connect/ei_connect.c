@@ -138,6 +138,11 @@ static int recv_name(int fd,
 		     unsigned *version,
 		     unsigned *flags, ErlConnect *namebuf, unsigned ms);
 
+static struct hostent*
+dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
+                    int buflen, int *h_errnop);
+
+
 
 /***************************************************************************
  *
@@ -480,10 +485,14 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 		    const char *cookie, short creation)
 {
-    struct hostent *hp;
     char thishostname[EI_MAXHOSTNAMELEN+1];
     char thisnodename[MAXNODELEN+1];
     char thisalivename[EI_MAXALIVELEN+1];
+    struct hostent host, *hp;
+    char buffer[1024];
+    char *buf = buffer;
+    int ei_h_errno;
+    int res;
 
 #ifdef __WIN32__
     if (!initWinSock()) {
@@ -517,10 +526,13 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	strcpy(thisalivename, this_node_name);
     }
     
-    if ((hp = ei_gethostbyname(thishostname)) == 0) {
+    hp = dyn_gethostbyname_r(thishostname,&host,&buf,sizeof(buffer),&ei_h_errno);
+    if (hp == NULL) {
 	/* Looking up IP given hostname fails. We must be on a standalone
 	   host so let's use loopback for communication instead. */
-	if ((hp = ei_gethostbyname("localhost")) == 0) {
+	hp = dyn_gethostbyname_r("localhost", &host, &buf, sizeof(buffer),
+                                 &ei_h_errno);
+        if (hp == NULL) {
 #ifdef __WIN32__
 	    char reason[1024];
 	
@@ -549,8 +561,11 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	    sprintf(thisnodename, "%s@%s", this_node_name, hp->h_name);
 	}
     }
-    return ei_connect_xinit(ec, thishostname, thisalivename, thisnodename,
-			    (struct in_addr *)*hp->h_addr_list, cookie, creation);
+    res = ei_connect_xinit(ec, thishostname, thisalivename, thisnodename,
+                           (struct in_addr *)*hp->h_addr_list, cookie, creation);
+    if (buf != buffer)
+        free(buf);
+    return res;
 }
 
 
@@ -595,6 +610,13 @@ struct hostent *dyn_gethostbyname_r(const char *name,
 				    int buflen,
 				    int *h_errnop)
 {
+#ifdef __WIN32__
+    /*
+     * Apparently ei_gethostbyname_r not implemented for Windows (?)
+     * Fall back on ei_gethostbyname like before.
+     */
+    return ei_gethostbyname(name);
+#else
     char* buf = *buffer_p;
     struct hostent *hp;
 
@@ -629,6 +651,7 @@ struct hostent *dyn_gethostbyname_r(const char *name,
         }
     }
     return hp;
+#endif
 }
 
   /* 
