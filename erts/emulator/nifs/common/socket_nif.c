@@ -374,6 +374,7 @@ typedef union {
 #define SOCKET_OPT_IP_MULTICAST_LOOP         15
 #define SOCKET_OPT_IP_MULTICAST_TTL          16
 #define SOCKET_OPT_IP_NODEFRAG               17
+#define SOCKET_OPT_IP_RECVIF                 21
 #define SOCKET_OPT_IP_RECVTOS                25
 #define SOCKET_OPT_IP_RECVTTL                26
 #define SOCKET_OPT_IP_ROUTER_ALERT           28
@@ -4164,6 +4165,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RECVIF)
+    case SOCKET_OPT_IP_RECVIF:
+        result = nsetopt_lvl_ip_recvif(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_RECVTOS)
     case SOCKET_OPT_IP_RECVTOS:
         result = nsetopt_lvl_ip_recvtos(env, descP, eVal);
@@ -4466,6 +4473,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
 #endif
 
     return nsetopt_bool_opt(env, descP, level, IP_NODEFRAG, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_recvif - Level IP RECVIFxs option
+ */
+#if defined(IP_RECVIF)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*        env,
+                                   SocketDescriptor* descP,
+                                   ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_RECVIF, eVal);
 }
 #endif
 
@@ -5899,6 +5925,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RECVIF)
+    case SOCKET_OPT_IP_RECVIF:
+        result = ngetopt_lvl_ip_recvif(env, descP);
+        break;
+#endif
+
 #if defined(IP_RECVTOS)
     case SOCKET_OPT_IP_RECVTOS:
         result = ngetopt_lvl_ip_recvtos(env, descP);
@@ -6113,6 +6145,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
 #endif
 
     return ngetopt_bool_opt(env, descP, level, IP_RECVTOS);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_recvif - Level IP RECVIF option
+ */
+#if defined(IP_RECVIF)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
+                                   SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_RECVIF);
 }
 #endif
 
