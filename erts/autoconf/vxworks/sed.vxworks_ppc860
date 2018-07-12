@@ -29,6 +29,7 @@ s|@system_type@|vxworks_ppc860|
 s|@ARCH@|ppc860|
 s|@CC@|@TTPREFIX@ccppc -mlongcall|
 s|@HCC@|gcc|
+s|@GCC@|yes|
 s|@LD@|@TTPREFIX@ldppc|
 s|@STRIP@|@TTPREFIX@stripppc|
 s|@SYMPREFIX@||

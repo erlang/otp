@@ -119,7 +119,9 @@ JAVADOC-GENERATED
 /bootstrap/lib/common_test
 /bootstrap/lib/edoc
 /bootstrap/lib/erl_docgen
+/bootstrap/lib/erl_interface
 /bootstrap/lib/hipe
+/bootstrap/lib/jinterface
 /bootstrap/lib/parsetools
 /bootstrap/lib/runtime_tools
 /bootstrap/lib/sasl

@@ -58,7 +58,7 @@ else
       SUB_DIRECTORIES = hipe parsetools asn1/src
     else
       ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
+        SUB_DIRECTORIES = snmp sasl jinterface syntax_tools wx
       else
         ifdef DOC_BOOTSTRAP
           SUB_DIRECTORIES = xmerl edoc erl_docgen
