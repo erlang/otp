@@ -1421,16 +1421,13 @@ get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
 
 i_get_map_elements f? s I
 
-i_get_map_element Fail Src=xy Key=y Dst => \
-    move Key x | i_get_map_element Fail Src x Dst
-
 i_get_map_element_hash Fail Src=c Key Hash Dst => \
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
 i_get_map_element_hash f? xy c I xy
 
 i_get_map_element Fail Src=c Key Dst => \
     move Src x | i_get_map_element Fail x Key Dst
-i_get_map_element f? xy x xy
+i_get_map_element f? xy xy xy
 
 #
 # Convert the plus operations to a generic plus instruction.
