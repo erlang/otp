@@ -531,7 +531,7 @@
 -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 %% -define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
-%% -define(SOCKET_OPT_IP_MINTTL,                 9).
+-define(SOCKET_OPT_IP_MINTTL,                 9).
 %% -define(SOCKET_OPT_IP_MSFILTER,              10).
 -define(SOCKET_OPT_IP_MTU,                   11).
 -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
@@ -2014,6 +2014,8 @@ enc_setopt_value(ip, drop_source_membership, #{multiaddr  := MA,
        (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
        (is_tuple(SA) andalso (size(SA) =:= 4)) ->
     V;
+enc_setopt_value(ip, minttl, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(ip, mtu_discover, V, _D, _T, _P)
   when (V =:= want)  orelse
        (V =:= dont)  orelse
@@ -2329,8 +2331,8 @@ enc_sockopt_key(ip = L, free_bind = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(ip = L, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
     not_supported({L, Opt});
 %% FreeBSD only?
-enc_sockopt_key(ip = L, minttl = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, minttl = _Opt, _Dir, _D, raw = _T, _P) ->
+    ?SOCKET_OPT_IP_MINTTL;
 enc_sockopt_key(ip = L, msfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = _L, mtu = _Opt, get = _Dir, _D, _T, _P) ->
