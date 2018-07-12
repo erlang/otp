@@ -90,6 +90,7 @@
 
               ip_tos_flag/0,
               ip_mreq/0,
+              ip_mreq_source/0,
               ip_pmtudisc/0,
 
 
@@ -149,6 +150,13 @@
 %%
 -type ip_mreq() :: #{multiaddr := ip4_address(),
                      interface := any | ip4_address()}.
+%% -type ip_mreqn() :: #{multiaddr := ip4_address(),
+%%                       address   := any | ip4_address(),
+%%                       ifindex   := integer()}.
+
+-type ip_mreq_source() :: #{multiaddr  := ip4_address(),
+                            interface  := ip4_address(),
+                            sourceaddr := ip4_address()}.
 
 -type ip_pmtudisc() :: want | dont | do | probe.
 
@@ -516,11 +524,11 @@
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
-%% -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
-%% -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
+-define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
+-define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
 %% -define(SOCKET_OPT_IP_DONTFRAG,               4). % Windows? MTU_DISCOVER...
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
-%% -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
+-define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 %% -define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
 %% -define(SOCKET_OPT_IP_MINTTL,                 9).
@@ -1977,13 +1985,34 @@ enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
 
 enc_setopt_value(ip, add_membership, #{multiaddr := M, 
                                        interface := IF} = V, _D, _T, _P)
-  when (is_tuple(M) andalso (size(M) =:= 4)) andalso 
+  when (is_tuple(M) andalso (size(M) =:= 4)) andalso
        ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
     V;
-enc_setopt_value(ip, drop_membership, #{multiaddr := M, 
+enc_setopt_value(ip, add_source_membership, #{multiaddr  := MA,
+                                              interface  := IF,
+                                              sourceaddr := SA} = V, _D, _T, _P)
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
+       (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
+       (is_tuple(SA) andalso (size(SA) =:= 4)) ->
+    V;
+enc_setopt_value(ip, block_source, #{multiaddr  := MA,
+                                     interface  := IF,
+                                     sourceaddr := SA} = V, _D, _T, _P)
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
+       (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
+       (is_tuple(SA) andalso (size(SA) =:= 4)) ->
+    V;
+enc_setopt_value(ip, drop_membership, #{multiaddr := MA,
                                         interface := IF} = V, _D, _T, _P)
-  when (is_tuple(M) andalso (size(M) =:= 4)) andalso 
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
        ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
+    V;
+enc_setopt_value(ip, drop_source_membership, #{multiaddr  := MA,
+                                               interface  := IF,
+                                               sourceaddr := SA} = V, _D, _T, _P)
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
+       (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
+       (is_tuple(SA) andalso (size(SA) =:= 4)) ->
     V;
 enc_setopt_value(ip, mtu_discover, V, _D, _T, _P)
   when (V =:= want)  orelse
@@ -2017,14 +2046,21 @@ enc_setopt_value(ip, router_alert, V, _D, _T, _P)
   when is_integer(V) ->
     V;
 enc_setopt_value(ip, tos, V, _D, _T, _P)
-  when (V =:= lowdelay) orelse
-       (V =:= throughput) orelse
+  when (V =:= lowdelay)    orelse
+       (V =:= throughput)  orelse
        (V =:= reliability) orelse
-       (V =:= mincost) orelse
+       (V =:= mincost)     orelse
        is_integer(V) ->
     V;
 enc_setopt_value(ip, ttl, V, _D, _T, _P)
   when is_integer(V) ->
+    V;
+enc_setopt_value(ip, unblock_source, #{multiaddr  := MA,
+                                       interface  := IF,
+                                       sourceaddr := SA} = V, _D, _T, _P)
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
+       (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
+       (is_tuple(SA) andalso (size(SA) =:= 4)) ->
     V;
 enc_setopt_value(ip = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
@@ -2272,18 +2308,18 @@ enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->
 %% +++ IP socket options +++
 enc_sockopt_key(ip = _L, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_ADD_MEMBERSHIP;
-enc_sockopt_key(ip = L, add_source_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
-enc_sockopt_key(ip = L, block_source = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, add_source_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP;
+enc_sockopt_key(ip = _L, block_source = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_BLOCK_SOURCE;
 %% FreeBSD only?
 %% Only respected on udp and raw ip (unless the hdrincl option has been set).
 enc_sockopt_key(ip = L, dontfrag = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = _L, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_DROP_MEMBERSHIP;
-enc_sockopt_key(ip = L, drop_source_membership = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, drop_source_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP;
 %% Linux only?
 enc_sockopt_key(ip = L, free_bind = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
@@ -2341,8 +2377,8 @@ enc_sockopt_key(ip = L, transparent = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip, ttl = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_TTL;
-enc_sockopt_key(ip = L, unblock_source = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, unblock_source = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_UNBLOCK_SOURCE;
 enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 

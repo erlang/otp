@@ -362,20 +362,24 @@ typedef union {
 #define SOCKET_OPT_SOCK_SNDBUF     27
 #define SOCKET_OPT_SOCK_TYPE       32
 
-#define SOCKET_OPT_IP_ADD_MEMBERSHIP   1
-#define SOCKET_OPT_IP_DROP_MEMBERSHIP  5
-#define SOCKET_OPT_IP_MTU             11
-#define SOCKET_OPT_IP_MTU_DISCOVER    12
-#define SOCKET_OPT_IP_MULTICAST_ALL   13
-#define SOCKET_OPT_IP_MULTICAST_IF    14
-#define SOCKET_OPT_IP_MULTICAST_LOOP  15
-#define SOCKET_OPT_IP_MULTICAST_TTL   16
-#define SOCKET_OPT_IP_NODEFRAG        17
-#define SOCKET_OPT_IP_RECVTOS         25
-#define SOCKET_OPT_IP_RECVTTL         26
-#define SOCKET_OPT_IP_ROUTER_ALERT    28
-#define SOCKET_OPT_IP_TOS             30
-#define SOCKET_OPT_IP_TTL             32
+#define SOCKET_OPT_IP_ADD_MEMBERSHIP          1
+#define SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP   2
+#define SOCKET_OPT_IP_BLOCK_SOURCE            3
+#define SOCKET_OPT_IP_DROP_MEMBERSHIP         5
+#define SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
+#define SOCKET_OPT_IP_MTU                    11
+#define SOCKET_OPT_IP_MTU_DISCOVER           12
+#define SOCKET_OPT_IP_MULTICAST_ALL          13
+#define SOCKET_OPT_IP_MULTICAST_IF           14
+#define SOCKET_OPT_IP_MULTICAST_LOOP         15
+#define SOCKET_OPT_IP_MULTICAST_TTL          16
+#define SOCKET_OPT_IP_NODEFRAG               17
+#define SOCKET_OPT_IP_RECVTOS                25
+#define SOCKET_OPT_IP_RECVTTL                26
+#define SOCKET_OPT_IP_ROUTER_ALERT           28
+#define SOCKET_OPT_IP_TOS                    30
+#define SOCKET_OPT_IP_TTL                    32
+#define SOCKET_OPT_IP_UNBLOCK_SOURCE         33
 
 #define SOCKET_OPT_IPV6_HOPLIMIT   12
 
@@ -794,6 +798,8 @@ static ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        int               eOpt,
                                        ERL_NIF_TERM      eVal);
+
+/* *** Handling set of socket options for level = socket *** */
 #if defined(SO_BROADCAST)
 static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
@@ -853,22 +859,32 @@ static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt,
                                    ERL_NIF_TERM      eVal);
+
+/* *** Handling set of socket options for level = ip *** */
 #if defined(IP_ADD_MEMBERSHIP)
 static ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
                                                   SocketDescriptor* descP,
                                                   ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_ADD_SOURCE_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*        env,
+                                                         SocketDescriptor* descP,
+                                                         ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_BLOCK_SOURCE)
+static ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal);
 #endif
 #if defined(IP_DROP_MEMBERSHIP)
 static ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
                                                    SocketDescriptor* descP,
                                                    ERL_NIF_TERM      eVal);
 #endif
-#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
-static
-ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal,
-                                              int               opt);
+#if defined(IP_DROP_SOURCE_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
+                                                          SocketDescriptor* descP,
+                                                          ERL_NIF_TERM      eVal);
 #endif
 #if defined(IP_MTU_DISCOVER)
 static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
@@ -925,6 +941,29 @@ static ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_UNBLOCK_SOURCE)
+static ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
+
+#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal,
+                                              int               opt);
+#endif
+#if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal,
+                                              int               opt);
+#endif
+
+
+/* *** Handling set of socket options for level = ipv6 *** */
 #if defined(SOL_IPV6)
 static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
@@ -1493,6 +1532,7 @@ static char str_num_tseqpkgs[] = "num_type_seqpacket";
 static char str_num_tstreams[] = "num_type_stream";
 static char str_probe[]        = "probe";
 static char str_select[]       = "select";
+static char str_sourceaddr[]   = "sourceaddr";
 static char str_timeout[]      = "timeout";
 static char str_true[]         = "true";
 static char str_want[]         = "want";
@@ -1578,6 +1618,7 @@ static ERL_NIF_TERM atom_num_tseqpkgs;
 static ERL_NIF_TERM atom_num_tstreams;
 static ERL_NIF_TERM atom_probe;
 static ERL_NIF_TERM atom_select;
+static ERL_NIF_TERM atom_sourceaddr;
 static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_want;
@@ -4063,9 +4104,27 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_ADD_SOURCE_MEMBERSHIP)
+    case SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP:
+        result = nsetopt_lvl_ip_add_source_membership(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_BLOCK_SOURCE)
+    case SOCKET_OPT_IP_BLOCK_SOURCE:
+        result = nsetopt_lvl_ip_block_source(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_DROP_MEMBERSHIP)
     case SOCKET_OPT_IP_DROP_MEMBERSHIP:
         result = nsetopt_lvl_ip_drop_membership(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_DROP_SOURCE_MEMBERSHIP)
+    case SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP:
+        result = nsetopt_lvl_ip_drop_source_membership(env, descP, eVal);
         break;
 #endif
 
@@ -4135,6 +4194,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_UNBLOCK_SOURCE)
+    case SOCKET_OPT_IP_UNBLOCK_SOURCE:
+        result = nsetopt_lvl_ip_unblock_source(env, descP, eVal);
+        break;
+#endif
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -4162,6 +4227,47 @@ ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
 #endif
 
 
+/* nsetopt_lvl_ip_add_source_membership - Level IP ADD_SOURCE_MEMBERSHIP option
+ *
+ * The value is a map with three attributes: multiaddr, interface and
+ * sourceaddr.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is always a 4-tuple (IPv4 address).
+ * The attribute 'sourceaddr' is always a 4-tuple (IPv4 address).
+ * (IPv4 address).
+ */
+#if defined(IP_ADD_SOURCE_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ip_update_source(env, descP, eVal,
+                                        IP_ADD_SOURCE_MEMBERSHIP);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_block_source - Level IP BLOCK_SOURCE option
+ *
+ * The value is a map with three attributes: multiaddr, interface and
+ * sourceaddr.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is always a 4-tuple (IPv4 address).
+ * The attribute 'sourceaddr' is always a 4-tuple (IPv4 address).
+ * (IPv4 address).
+ */
+#if defined(IP_BLOCK_SOURCE)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ip_update_source(env, descP, eVal, IP_BLOCK_SOURCE);
+}
+#endif
+
+
 /* nsetopt_lvl_ip_drop_membership - Level IP DROP_MEMBERSHIP option
  *
  * The value is a map with two attributes: multiaddr and interface.
@@ -4179,64 +4285,33 @@ ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal)
 {
-    return nsetopt_lvl_ip_update_membership(env, descP, eVal, IP_DROP_MEMBERSHIP);
+    return nsetopt_lvl_ip_update_membership(env, descP, eVal,
+                                            IP_DROP_MEMBERSHIP);
 }
 #endif
 
 
 
-#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
+/* nsetopt_lvl_ip_drop_source_membership - Level IP DROP_SOURCE_MEMBERSHIP option
+ *
+ * The value is a map with three attributes: multiaddr, interface and
+ * sourceaddr.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is always a 4-tuple (IPv4 address).
+ * The attribute 'sourceaddr' is always a 4-tuple (IPv4 address).
+ * (IPv4 address).
+ */
+#if defined(IP_DROP_SOURCE_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal,
-                                              int               opt)
+ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal)
 {
-    ERL_NIF_TERM   result, eMultiAddr, eInterface;
-    struct ip_mreq mreq;
-    char*          xres;
-    int            res;
-    size_t         sz;
-#if defined(SOL_IP)
-    int            level = SOL_IP;
-#else
-    int            level = IPPROTO_IP;
-#endif
-
-    // It must be a map
-    if (!IS_MAP(env, eVal))
-        return enif_make_badarg(env);
-
-    // It must have exactly two attributes
-    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
-        return enif_make_badarg(env);
-
-    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
-        return enif_make_badarg(env);
-
-    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
-        return enif_make_badarg(env);
-
-    if ((xres = esock_decode_ip4_address(env,
-                                         eMultiAddr,
-                                         &mreq.imr_multiaddr)) != NULL)
-        return esock_make_error_str(env, xres);
-        
-    if ((xres = esock_decode_ip4_address(env,
-                                         eInterface,
-                                         &mreq.imr_interface)) != NULL)
-        return esock_make_error_str(env, xres);
-        
-    res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
-
-    if (res != 0)
-        result = esock_make_error_errno(env, sock_errno());
-    else
-        result = esock_atom_ok;
-
-    return result;
+    return nsetopt_lvl_ip_update_source(env, descP, eVal,
+                                        IP_DROP_SOURCE_MEMBERSHIP);
 }
 #endif
+
 
 
 /* nsetopt_lvl_ip_mtu_discover - Level IP MTU_DISCOVER option
@@ -4504,6 +4579,145 @@ ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
 #endif
 
 
+
+/* nsetopt_lvl_ip_unblock_source - Level IP UNBLOCK_SOURCE option
+ *
+ * The value is a map with three attributes: multiaddr, interface and
+ * sourceaddr.
+ * The attribute 'multiaddr' is always a 4-tuple (IPv4 address).
+ * The attribute 'interface' is always a 4-tuple (IPv4 address).
+ * The attribute 'sourceaddr' is always a 4-tuple (IPv4 address).
+ * (IPv4 address).
+ */
+#if defined(IP_UNBLOCK_SOURCE)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ip_update_source(env, descP, eVal, IP_UNBLOCK_SOURCE);
+}
+#endif
+
+
+
+#if defined(IP_ADD_MEMBERSHIP) || defined(IP_DROP_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal,
+                                              int               opt)
+{
+    ERL_NIF_TERM   result, eMultiAddr, eInterface;
+    struct ip_mreq mreq;
+    char*          xres;
+    int            res;
+    size_t         sz;
+#if defined(SOL_IP)
+    int            level = SOL_IP;
+#else
+    int            level = IPPROTO_IP;
+#endif
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return enif_make_badarg(env);
+
+    // It must have atleast two attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+        return enif_make_badarg(env);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eMultiAddr,
+                                         &mreq.imr_multiaddr)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eInterface,
+                                         &mreq.imr_interface)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif
+
+
+#if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
+                                          SocketDescriptor* descP,
+                                          ERL_NIF_TERM      eVal,
+                                          int               opt)
+{
+    ERL_NIF_TERM          result, eMultiAddr, eInterface, eSourceAddr;
+    struct ip_mreq_source mreq;
+    char*                 xres;
+    int                   res;
+    size_t                sz;
+#if defined(SOL_IP)
+    int            level = SOL_IP;
+#else
+    int            level = IPPROTO_IP;
+#endif
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return enif_make_badarg(env);
+
+    // It must have atleast three attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 3))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_sourceaddr, &eSourceAddr))
+        return enif_make_badarg(env);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eMultiAddr,
+                                         &mreq.imr_multiaddr)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eInterface,
+                                         &mreq.imr_interface)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    if ((xres = esock_decode_ip4_address(env,
+                                         eSourceAddr,
+                                         &mreq.imr_sourceaddr)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif
+
+
+/* *** Handling set of socket options for level = ipv6 *** */
 
 /* nsetopt_lvl_ipv6 - Level *IPv6* option(s)
  */
@@ -8079,6 +8293,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_num_tstreams = MKA(env, str_num_tstreams);
     atom_probe        = MKA(env, str_probe);
     atom_select       = MKA(env, str_select);
+    atom_sourceaddr   = MKA(env, str_sourceaddr);
     atom_timeout      = MKA(env, str_timeout);
     atom_true         = MKA(env, str_true);
     atom_want         = MKA(env, str_want);
