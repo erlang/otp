@@ -92,6 +92,7 @@
               ip_mreq/0,
               ip_mreq_source/0,
               ip_pmtudisc/0,
+              ipv6_mreq/0,
 
 
               msg_hdr/0
@@ -159,6 +160,9 @@
                             sourceaddr := ip4_address()}.
 
 -type ip_pmtudisc() :: want | dont | do | probe.
+
+-type ipv6_mreq() :: #{multiaddr := ip6_address(),
+                       interface := non_neg_integer()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -526,7 +530,7 @@
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
 -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
 -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
-%% -define(SOCKET_OPT_IP_DONTFRAG,               4). % Windows? MTU_DISCOVER...
+%% -define(SOCKET_OPT_IP_DONTFRAG,               4).
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 %% -define(SOCKET_OPT_IP_FREEBIND,               7).
@@ -558,11 +562,11 @@
 -define(SOCKET_OPT_IP_UNBLOCK_SOURCE,           33).
 
 %% -define(SOCKET_OPT_IPV6_ADDFORM,            1).
-%% -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
+-define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
 %% -define(SOCKET_OPT_IPV6_AUTHHDR,            3).
 %% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4).
 %% -define(SOCKET_OPT_IPV6_CHECKSUM,           5).
-%% -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
+-define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
 %% -define(SOCKET_OPT_IPV6_DSTOPTS,            7).
 %% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8).
 %% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9).
@@ -1983,9 +1987,9 @@ enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
-enc_setopt_value(ip, add_membership, #{multiaddr := M, 
+enc_setopt_value(ip, add_membership, #{multiaddr := MA,
                                        interface := IF} = V, _D, _T, _P)
-  when (is_tuple(M) andalso (size(M) =:= 4)) andalso
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
        ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
     V;
 enc_setopt_value(ip, add_source_membership, #{multiaddr  := MA,
@@ -2070,6 +2074,16 @@ enc_setopt_value(ip, unblock_source, #{multiaddr  := MA,
 enc_setopt_value(ip = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(ipv6, add_membership, #{multiaddr := MA,
+                                         interface := IF} = V, _D, _T, _P)
+  when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
+        (is_integer(IF) andalso (IF >= 0))) ->
+    V;
+enc_setopt_value(ipv6, drop_membership, #{multiaddr := MA,
+                                          interface := IF} = V, _D, _T, _P)
+  when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
+        (is_integer(IF) andalso (IF >= 0))) ->
+    V;
 enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
@@ -2389,6 +2403,10 @@ enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% IPv6 socket options
+enc_sockopt_key(ipv6, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_ADD_MEMBERSHIP;
+enc_sockopt_key(ipv6, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_DROP_MEMBERSHIP;
 enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;

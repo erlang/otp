@@ -383,7 +383,9 @@ typedef union {
 #define SOCKET_OPT_IP_TTL                    32
 #define SOCKET_OPT_IP_UNBLOCK_SOURCE         33
 
-#define SOCKET_OPT_IPV6_HOPLIMIT   12
+#define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
+#define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
+#define SOCKET_OPT_IPV6_HOPLIMIT             12
 
 #define SOCKET_OPT_TCP_CONGESTION   1
 #define SOCKET_OPT_TCP_CORK         2
@@ -976,11 +978,29 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               eOpt,
                                      ERL_NIF_TERM      eVal);
+#if defined(IPV6_ADD_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
+                                                    SocketDescriptor* descP,
+                                                    ERL_NIF_TERM      eVal);
+#endif
+#if defined(IPV6_DROP_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
+                                                     SocketDescriptor* descP,
+                                                     ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_HOPLIMIT)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
                                               ERL_NIF_TERM      eVal);
 #endif
+
+#if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
+                                                       SocketDescriptor* descP,
+                                                       ERL_NIF_TERM      eVal,
+                                                       int               opt);
+#endif
+
 #endif // defined(SOL_IPV6)
 static ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
@@ -4779,6 +4799,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
 #endif
 
 
+
 /* *** Handling set of socket options for level = ipv6 *** */
 
 /* nsetopt_lvl_ipv6 - Level *IPv6* option(s)
@@ -4793,6 +4814,18 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(IPV6_ADD_MEMBERSHIP)
+    case SOCKET_OPT_IPV6_ADD_MEMBERSHIP:
+        result = nsetopt_lvl_ipv6_add_membership(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IPV6_DROP_MEMBERSHIP)
+    case SOCKET_OPT_IPV6_DROP_MEMBERSHIP:
+        result = nsetopt_lvl_ipv6_drop_membership(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_HOPLIMIT)
     case SOCKET_OPT_IPV6_HOPLIMIT:
         result = nsetopt_lvl_ipv6_hoplimit(env, descP, eVal);
@@ -4808,6 +4841,30 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 }
 
 
+#if defined(IPV6_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
+                                             SocketDescriptor* descP,
+                                             ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ipv6_update_membership(env, descP, eVal,
+                                              IPV6_ADD_MEMBERSHIP);
+}
+#endif
+
+
+#if defined(IPV6_DROP_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal)
+{
+    return nsetopt_lvl_ipv6_update_membership(env, descP, eVal,
+                                              IPV6_DROP_MEMBERSHIP);
+}
+#endif
+
+
 #if defined(IPV6_HOPLIMIT)
 static
 ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
@@ -4817,6 +4874,55 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
     return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT, eVal);
 }
 #endif
+
+
+#if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal,
+                                                int               opt)
+{
+    ERL_NIF_TERM     result, eMultiAddr, eInterface;
+    struct ipv6_mreq mreq;
+    char*            xres;
+    int              res;
+    size_t           sz;
+    int              level = IPPROTO_IPV6;
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return enif_make_badarg(env);
+
+    // It must have atleast two attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+        return enif_make_badarg(env);
+
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+        return enif_make_badarg(env);
+
+    if ((xres = esock_decode_ip6_address(env,
+                                         eMultiAddr,
+                                         &mreq.ipv6mr_multiaddr)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    if (!GET_UINT(env, eInterface, &mreq.ipv6mr_interface))
+        return esock_make_error(env, esock_atom_einval);
+
+    res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif
+
 
 
 #endif // defined(SOL_IPV6)
