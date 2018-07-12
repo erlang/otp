@@ -460,6 +460,8 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
             NF           = G(nodefrag), % raw only
+            RecvTOS      = G(recvtos),
+            RecvTTL      = G(recvttl),  % not stream
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -474,11 +476,13 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p"
-              "~n   (ip)     NodeFrag:       ~s",
+              "~n   (ip)     NodeFrag:       ~s"
+              "~n   (ip)     RecvTOS:        ~s"
+              "~n   (ip)     RecvTTL:        ~s",
               [Domain, Type, Proto,
                OOBI, SndBuf, RcvBuf, Linger,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
-               NF]),
+               NF, RecvTOS, RecvTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

@@ -86,6 +86,7 @@ do_start(Domain, stream = Type, Proto, SA) ->
             {ok, MIF}     = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}   = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}    = socket:getopt(Sock, ip,     multicast_ttl),
+            {ok, RecvTOS} = socket:getopt(Sock, ip,     recvtos),
             i("connected: "
               "~n   From: ~p"
               "~n   To:   ~p"
@@ -103,11 +104,13 @@ do_start(Domain, stream = Type, Proto, SA) ->
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p"
+              "~n   (ip)     RecvTOS:        ~p"
               "~n   => wait some", 
               [Name, Peer,
                Domain, Type, Proto,
                OOBI, SndBuf, RcvBuf, Linger,
-               MTU, MTUDisc, MALL, MIF, MLoop, MTTL]),
+               MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
+               RecvTOS]),
             %% Give the server some time...
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),
@@ -122,17 +125,19 @@ do_start(Domain, dgram = Type, Proto, SA) ->
     try do_init(Domain, Type, Proto) of
         Sock ->
             %% Give the server some time...
-            {ok, Domain} = socket:getopt(Sock, socket, domain),
-            {ok, Type}   = socket:getopt(Sock, socket, type),
-            {ok, Proto}  = socket:getopt(Sock, socket, protocol),
-            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
-            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
-            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
-            {ok, Linger} = socket:getopt(Sock, socket, linger),
-            {ok, MALL}   = socket:getopt(Sock, ip,     multicast_all),
-            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
-            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
-            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
+            {ok, Domain}  = socket:getopt(Sock, socket, domain),
+            {ok, Type}    = socket:getopt(Sock, socket, type),
+            {ok, Proto}   = socket:getopt(Sock, socket, protocol),
+            {ok, OOBI}    = socket:getopt(Sock, socket, oobinline),
+            {ok, SndBuf}  = socket:getopt(Sock, socket, sndbuf),
+            {ok, RcvBuf}  = socket:getopt(Sock, socket, rcvbuf),
+            {ok, Linger}  = socket:getopt(Sock, socket, linger),
+            {ok, MALL}    = socket:getopt(Sock, ip,     multicast_all),
+            {ok, MIF}     = socket:getopt(Sock, ip,     multicast_if),
+            {ok, MLoop}   = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MTTL}    = socket:getopt(Sock, ip,     multicast_ttl),
+            {ok, RecvTOS} = socket:getopt(Sock, ip,     recvtos),
+            {ok, RecvTTL} = socket:getopt(Sock, ip,     recvttl),
             i("initiated when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -145,10 +150,13 @@ do_start(Domain, dgram = Type, Proto, SA) ->
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p"
+              "~n   (ip)     RecvTOS:        ~p"
+              "~n   (ip)     RecvTTL:        ~p"
               "~n   => wait some",
               [Domain, Type, Proto,
                OOBI, SndBuf, RcvBuf, Linger,
-               MALL, MIF, MLoop, MTTL]),
+               MALL, MIF, MLoop, MTTL,
+               RecvTOS, RecvTTL]),
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),
             send_loop(#client{socket = Sock,
