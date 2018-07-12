@@ -810,7 +810,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     }
     erts_release_code_write_permission();
 
-    if (is_internal_ref(res))
+    if (is_value(res) && is_internal_ref(res))
         BIF_TRAP1(erts_await_result, BIF_P, res);
 
     BIF_RET(res);
