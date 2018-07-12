@@ -435,6 +435,13 @@ handler_init(Manager, ID, Peek, Sock) ->
         {handler, Pid, Ref, continue} ->
             i("got continue"),
             handler_reply(Pid, Ref, ok),
+            G = fun(K) -> case socket:getopt(Sock, ip, K) of
+                      {ok, Val} ->
+                          f("~w", [Val]);
+                      {error, _} ->
+                          "-"
+                          end
+                end,
             {ok, Domain} = socket:getopt(Sock, socket, domain),
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
@@ -442,12 +449,8 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
-            MTU = case socket:getopt(Sock, ip, mtu) of
-                      {ok, Val} ->
-                          f("~w", [Val]);
-                      {error, _} ->
-                          "-" % We don't connect UDP (it can be done but we don't)
-                  end,
+            MTU     = G(mtu),
+            MTUDisc = G(mtu_discover),
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
@@ -460,11 +463,13 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
               "~n   (ip)     MTU:            ~s"
+              "~n   (ip)     MTU Discovery:  ~s"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p", 
-              [Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, MTU, MIF, MLoop, MTTL]),
+              [Domain, Type, Proto,
+               OOBI, SndBuf, RcvBuf, Linger,
+               MTU, MTUDisc, MIF, MLoop, MTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

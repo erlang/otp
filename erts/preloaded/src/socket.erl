@@ -90,6 +90,7 @@
 
               ip_tos_flag/0,
               ip_mreq/0,
+              ip_pmtudisc/0,
 
 
               msg_hdr/0
@@ -148,6 +149,8 @@
 %%
 -type ip_mreq() :: #{multiaddr := ip4_address(),
                      interface := any | ip4_address()}.
+
+-type ip_pmtudisc() :: want | dont | do | probe.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -523,7 +526,7 @@
 %% -define(SOCKET_OPT_IP_MINTTL,                 9).
 %% -define(SOCKET_OPT_IP_MSFILTER,              10).
 -define(SOCKET_OPT_IP_MTU,                   11).
-%% -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
+-define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
 %% -define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
 -define(SOCKET_OPT_IP_MULTICAST_IF,          14).
 -define(SOCKET_OPT_IP_MULTICAST_LOOP,        15).
@@ -1982,6 +1985,13 @@ enc_setopt_value(ip, drop_membership, #{multiaddr := M,
   when (is_tuple(M) andalso (size(M) =:= 4)) andalso 
        ((IF =:= any) orelse (is_tuple(IF) andalso (size(IF) =:= 4))) ->
     V;
+enc_setopt_value(ip, mtu_discover, V, _D, _T, _P)
+  when (V =:= want)  orelse
+       (V =:= dont)  orelse
+       (V =:= do)    orelse
+       (V =:= probe) orelse
+       is_integer(V) ->
+    V;
 enc_setopt_value(ip, multicast_if, V, _D, _T, _P)
   when (V =:= any) orelse (is_tuple(V) andalso (size(V) =:= 4)) ->
     V;
@@ -2277,8 +2287,8 @@ enc_sockopt_key(ip = L, msfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = _L, mtu = _Opt, get = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_MTU;
-enc_sockopt_key(ip = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, mtu_discover = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_MTU_DISCOVER;
 enc_sockopt_key(ip = L, multicast_all = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = _L, multicast_if = _Opt, _Dir, _D, _T, _P) ->

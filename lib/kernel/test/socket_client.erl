@@ -71,19 +71,20 @@ do_start(Domain, stream = Type, Proto, SA) ->
     try do_init(Domain, Type, Proto) of
         Sock ->
             connect(Sock, SA),
-            {ok, Name} = socket:sockname(Sock), 
-            {ok, Peer} = socket:peername(Sock),
-            {ok, Domain} = socket:getopt(Sock, socket, domain),
-            {ok, Type}   = socket:getopt(Sock, socket, type),
-            {ok, Proto}  = socket:getopt(Sock, socket, protocol),
-            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
-            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
-            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
-            {ok, Linger} = socket:getopt(Sock, socket, linger),
-            {ok, MTU}    = socket:getopt(Sock, ip,     mtu),
-            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
-            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
-            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
+            {ok, Name}    = socket:sockname(Sock),
+            {ok, Peer}    = socket:peername(Sock),
+            {ok, Domain}  = socket:getopt(Sock, socket, domain),
+            {ok, Type}    = socket:getopt(Sock, socket, type),
+            {ok, Proto}   = socket:getopt(Sock, socket, protocol),
+            {ok, OOBI}    = socket:getopt(Sock, socket, oobinline),
+            {ok, SndBuf}  = socket:getopt(Sock, socket, sndbuf),
+            {ok, RcvBuf}  = socket:getopt(Sock, socket, rcvbuf),
+            {ok, Linger}  = socket:getopt(Sock, socket, linger),
+            {ok, MTU}     = socket:getopt(Sock, ip,     mtu),
+            {ok, MTUDisc} = socket:getopt(Sock, ip,     mtu_discover),
+            {ok, MIF}     = socket:getopt(Sock, ip,     multicast_if),
+            {ok, MLoop}   = socket:getopt(Sock, ip,     multicast_loop),
+            {ok, MTTL}    = socket:getopt(Sock, ip,     multicast_ttl),
             i("connected: "
               "~n   From: ~p"
               "~n   To:   ~p"
@@ -96,13 +97,15 @@ do_start(Domain, stream = Type, Proto, SA) ->
               "~n   (socket) RcvBuf:         ~p"
               "~n   (socket) Linger:         ~p"
               "~n   (ip)     MTU:            ~p"
+              "~n   (ip)     MTU Discovery:  ~p"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p"
               "~n   => wait some", 
               [Name, Peer,
-               Domain, Type, Proto, 
-               OOBI, SndBuf, RcvBuf, Linger, MTU, MIF, MLoop, MTTL]),
+               Domain, Type, Proto,
+               OOBI, SndBuf, RcvBuf, Linger,
+               MTU, MTUDisc, MIF, MLoop, MTTL]),
             %% Give the server some time...
             ?LIB:sleep(5000),
             %% ok = socket:close(Sock),

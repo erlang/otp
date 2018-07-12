@@ -365,6 +365,7 @@ typedef union {
 #define SOCKET_OPT_IP_ADD_MEMBERSHIP   1
 #define SOCKET_OPT_IP_DROP_MEMBERSHIP  5
 #define SOCKET_OPT_IP_MTU             11
+#define SOCKET_OPT_IP_MTU_DISCOVER    12
 #define SOCKET_OPT_IP_MULTICAST_IF    14
 #define SOCKET_OPT_IP_MULTICAST_LOOP  15
 #define SOCKET_OPT_IP_MULTICAST_TTL   16
@@ -866,6 +867,11 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
                                               ERL_NIF_TERM      eVal,
                                               int               opt);
 #endif
+#if defined(IP_MTU_DISCOVER)
+static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_MULTICAST_IF)
 static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
@@ -1052,6 +1058,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 #if defined(IP_MTU)
 static ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
                                        SocketDescriptor* descP);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
+                                                SocketDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_IF)
 static ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
@@ -1282,9 +1292,22 @@ static void encode_address(ErlNifEnv*     env,
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
+#if defined(IP_TOS)
 static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
                                ERL_NIF_TERM eVal,
                                int*         val);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static char* decode_ip_pmtudisc(ErlNifEnv*   env,
+                                ERL_NIF_TERM eVal,
+                                int*         val);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static void encode_ip_pmtudisc(ErlNifEnv*    env,
+                               int           val,
+                               ERL_NIF_TERM* eVal);
+#endif
+
 /*
 static BOOLEAN_T decode_bool(ErlNifEnv*   env,
                              ERL_NIF_TERM eVal,
@@ -1416,6 +1439,8 @@ static const struct in6_addr in6addr_loopback =
 static char str_close[]        = "close";
 static char str_closed[]       = "closed";
 static char str_closing[]      = "closing";
+static char str_do[]           = "do";
+static char str_dont[]         = "dont";
 static char str_false[]        = "false";
 static char str_global_counters[] = "global_counters";
 static char str_in4_sockaddr[] = "in4_sockaddr";
@@ -1425,7 +1450,6 @@ static char str_interface[]    = "interface";
 // static char str_loopback[]     = "loopback";
 static char str_multiaddr[]    = "multiaddr";
 static char str_nif_abort[]    = "nif_abort";
-static char str_select[]       = "select";
 static char str_num_dlocal[]   = "num_domain_local";
 static char str_num_dinet[]    = "num_domain_inet";
 static char str_num_dinet6[]   = "num_domain_inet6";
@@ -1437,8 +1461,11 @@ static char str_num_sockets[]  = "num_sockets";
 static char str_num_tdgrams[]  = "num_type_dgram";
 static char str_num_tseqpkgs[] = "num_type_seqpacket";
 static char str_num_tstreams[] = "num_type_stream";
+static char str_probe[]        = "probe";
+static char str_select[]       = "select";
 static char str_timeout[]      = "timeout";
 static char str_true[]         = "true";
+static char str_want[]         = "want";
 
 static char str_lowdelay[]     = "lowdelay";
 static char str_throughput[]   = "throughput";
@@ -1498,6 +1525,8 @@ ERL_NIF_TERM esock_atom_einval;
 static ERL_NIF_TERM atom_close;
 static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_closing;
+static ERL_NIF_TERM atom_do;
+static ERL_NIF_TERM atom_dont;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_global_counters;
 static ERL_NIF_TERM atom_in4_sockaddr;
@@ -1517,9 +1546,11 @@ static ERL_NIF_TERM atom_num_sockets;
 static ERL_NIF_TERM atom_num_tdgrams;
 static ERL_NIF_TERM atom_num_tseqpkgs;
 static ERL_NIF_TERM atom_num_tstreams;
+static ERL_NIF_TERM atom_probe;
 static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
+static ERL_NIF_TERM atom_want;
 
 static ERL_NIF_TERM atom_lowdelay;
 static ERL_NIF_TERM atom_throughput;
@@ -4008,6 +4039,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MTU_DISCOVER)
+    case SOCKET_OPT_IP_MTU_DISCOVER:
+        result = nsetopt_lvl_ip_mtu_discover(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_IF)
     case SOCKET_OPT_IP_MULTICAST_IF:
         result = nsetopt_lvl_ip_multicast_if(env, descP, eVal);
@@ -4148,6 +4185,47 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
         result = esock_make_error_errno(env, sock_errno());
     else
         result = esock_atom_ok;
+
+    return result;
+}
+#endif
+
+
+/* nsetopt_lvl_ip_mtu_discover - Level IP MTU_DISCOVER option
+ *
+ * The value is an atom of the type ip_pmtudisc().
+ */
+#if defined(IP_MTU_DISCOVER)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM   result;
+    int            val;
+    char*          xres;
+    int            res;
+#if defined(SOL_IP)
+    int            level = SOL_IP;
+#else
+    int            level = IPPROTO_IP;
+#endif
+
+    if ((xres = decode_ip_pmtudisc(env, eVal, &val)) != NULL) {
+
+        result = esock_make_error_str(env, xres);
+
+    } else {
+
+        res = socket_setopt(descP->sock, level, IP_MTU_DISCOVER,
+                            &val, sizeof(val));
+
+        if (res != 0)
+            result = esock_make_error_errno(env, sock_errno());
+        else
+            result = esock_atom_ok;
+
+    }
 
     return result;
 }
@@ -5236,7 +5314,9 @@ ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
 
         default:
             result = esock_make_error(env,
-                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+                                      MKT2(env,
+                                           esock_atom_unknown,
+                                           MKI(env, val)));
             break;
         }
     }
@@ -5464,6 +5544,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MTU_DISCOVER)
+    case SOCKET_OPT_IP_MTU_DISCOVER:
+        result = ngetopt_lvl_ip_mtu_discover(env, descP);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_IF)
     case SOCKET_OPT_IP_MULTICAST_IF:
         result = ngetopt_lvl_ip_multicast_if(env, descP);
@@ -5529,6 +5615,40 @@ ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
 #endif
 
     return ngetopt_int_opt(env, descP, level, IP_MTU);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_mtu_discover - Level IP MTU_DISCOVER option
+ */
+#if defined(IP_MTU_DISCOVER)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
+                                         SocketDescriptor* descP)
+{
+    ERL_NIF_TERM   result;
+    ERL_NIF_TERM   eMtuDisc;
+    int            mtuDisc;
+    SOCKOPTLEN_T   mtuDiscSz = sizeof(mtuDisc);
+    int            res;
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    res = sock_getopt(descP->sock, level, IP_MTU_DISCOVER,
+                      &mtuDisc, &mtuDiscSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        encode_ip_pmtudisc(env, mtuDisc, &eMtuDisc);
+        result = esock_make_ok2(env, eMtuDisc);
+    }
+
+    return result;
+
 }
 #endif
 
@@ -6532,7 +6652,7 @@ BOOLEAN_T decode_sock_linger(ErlNifEnv* env, ERL_NIF_TERM eVal, struct linger* v
 
 
 
-/* +++ decode the ip socket option tos +++
+/* +++ decode the ip socket option TOS +++
  * The (ip) option can be provide in two ways:
  *
  *           atom() | integer()
@@ -6542,6 +6662,7 @@ BOOLEAN_T decode_sock_linger(ErlNifEnv* env, ERL_NIF_TERM eVal, struct linger* v
  *       lowdelay |  throughput | reliability | mincost
  *
  */
+#if defined(IP_TOS)
 static
 BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
 {
@@ -6596,6 +6717,100 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
 
     return result;
 }
+#endif
+
+
+
+/* +++ decode the ip socket option MTU_DISCOVER +++
+ * The (ip) option can be provide in two ways:
+ *
+ *           atom() | integer()
+ *
+ * When its an atom it can have the values:
+ *
+ *       want | dont | do | probe
+ *
+ */
+#if defined(IP_MTU_DISCOVER)
+static
+char* decode_ip_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
+{
+    char* res = NULL;
+
+    if (IS_ATOM(env, eVal)) {
+
+        if (COMPARE(eVal, atom_want) == 0) {
+            *val = IP_PMTUDISC_WANT;
+        } else if (COMPARE(eVal, atom_dont) == 0) {
+            *val = IP_PMTUDISC_DONT;
+        } else if (COMPARE(eVal, atom_do) == 0) {
+            *val = IP_PMTUDISC_DO;
+        } else if (COMPARE(eVal, atom_probe) == 0) {
+            *val = IP_PMTUDISC_PROBE;
+        } else {
+            *val = -1;
+            res  = ESOCK_STR_EINVAL;
+        }
+
+    } else if (IS_NUM(env, eVal)) {
+
+        if (!GET_INT(env, eVal, val)) {
+            *val = -1;
+            res  = ESOCK_STR_EINVAL;
+        }
+
+    } else {
+
+        *val   = -1;
+        res  = ESOCK_STR_EINVAL;
+
+    }
+
+    return res;
+}
+#endif
+
+
+
+/* +++ encode the ip socket option MTU_DISCOVER +++
+ * The (ip) option can be provide in two ways:
+ *
+ *           atom() | integer()
+ *
+ * If its one of the "known" values, it will be an atom:
+ *
+ *       want | dont | do | probe
+ *
+ */
+#if defined(IP_MTU_DISCOVER)
+static
+void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
+{
+    switch (val) {
+    case IP_PMTUDISC_WANT:
+        *eVal = atom_want;
+        break;
+
+    case IP_PMTUDISC_DONT:
+        *eVal = atom_dont;
+        break;
+
+    case IP_PMTUDISC_DO:
+        *eVal = atom_do;
+        break;
+
+    case IP_PMTUDISC_PROBE:
+        *eVal = atom_probe;
+        break;
+
+    default:
+        *eVal = MKI(env, val);
+        break;
+    }
+
+    return;
+}
+#endif
 
 
 
@@ -7664,6 +7879,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_close        = MKA(env, str_close);
     atom_closed       = MKA(env, str_closed);
     atom_closing      = MKA(env, str_closing);
+    atom_do           = MKA(env, str_do);
+    atom_dont         = MKA(env, str_dont);
     atom_false        = MKA(env, str_false);
     atom_global_counters = MKA(env, str_global_counters);
     atom_in4_sockaddr = MKA(env, str_in4_sockaddr);
@@ -7683,9 +7900,11 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_num_tdgrams  = MKA(env, str_num_tdgrams);
     atom_num_tseqpkgs = MKA(env, str_num_tseqpkgs);
     atom_num_tstreams = MKA(env, str_num_tstreams);
+    atom_probe        = MKA(env, str_probe);
     atom_select       = MKA(env, str_select);
     atom_timeout      = MKA(env, str_timeout);
     atom_true         = MKA(env, str_true);
+    atom_want         = MKA(env, str_want);
 
     /* Global atom(s) */
     esock_atom_addr      = MKA(env, "addr");
