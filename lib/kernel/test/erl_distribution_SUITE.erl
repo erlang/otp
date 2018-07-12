@@ -25,6 +25,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1,
+         connect_node/1,
          nodenames/1, hostnames/1,
          illegal_nodenames/1, hidden_node/1,
 	 setopts/1,
@@ -70,6 +71,7 @@ suite() ->
 
 all() -> 
     [tick, tick_change, nodenames, hostnames, illegal_nodenames,
+     connect_node,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes}].
@@ -104,6 +106,12 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
 end_per_testcase(_Func, _Config) ->
+    ok.
+
+connect_node(Config) when is_list(Config) ->
+    Connected = nodes(connected),
+    true = net_kernel:connect_node(node()),
+    Connected = nodes(connected),
     ok.
 
 tick(Config) when is_list(Config) ->

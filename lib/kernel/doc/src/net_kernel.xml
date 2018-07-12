@@ -102,8 +102,10 @@ $ <input>erl -sname foobar</input></pre>
       <fsummary>Establish a connection to a node.</fsummary>
       <desc>
         <p>Establishes a connection to <c><anno>Node</anno></c>. Returns
-          <c>true</c> if successful, <c>false</c> if not, and <c>ignored</c>
-          if the local node is not alive.</p>
+          <c>true</c> if a connection was established or was already
+	  established or if <c><anno>Node</anno></c> is the local node
+	  itself. Returns <c>false</c> if the connection attempt failed, and
+	  <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
 
