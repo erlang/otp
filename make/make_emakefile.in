@@ -1,4 +1,4 @@
-#!@PERL@
+#!/usr/bin/env @PERL@
 # -*- cperl -*-
 
 use strict;
