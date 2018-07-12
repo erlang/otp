@@ -436,10 +436,14 @@ handler_init(Manager, ID, Peek, Sock) ->
             i("got continue"),
             handler_reply(Pid, Ref, ok),
             G = fun(K) -> case socket:getopt(Sock, ip, K) of
-                      {ok, Val} ->
-                          f("~w", [Val]);
-                      {error, _} ->
-                          "-"
+                              {ok, Val} ->
+                                  f("~p", [Val]);
+                              {error, R} when is_atom(R) ->
+                                  f("error: ~w", [R]);
+                              {error, {T, R}} when is_atom(T) ->
+                                  f("error: ~w, ~p", [T, R]);
+                              {error, R} ->
+                                  f("error: ~p", [R])
                           end
                 end,
             {ok, Domain} = socket:getopt(Sock, socket, domain),
@@ -449,12 +453,13 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
-            MTU     = G(mtu),
-            MTUDisc = G(mtu_discover),
+            MTU          = G(mtu),
+            MTUDisc      = G(mtu_discover),
             {ok, MALL}   = socket:getopt(Sock, ip,     multicast_all),
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
+            NF           = G(nodefrag), % raw only
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -468,10 +473,12 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Multicast ALL:  ~p"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
-              "~n   (ip)     Multicast TTL:  ~p", 
+              "~n   (ip)     Multicast TTL:  ~p"
+              "~n   (ip)     NodeFrag:       ~s",
               [Domain, Type, Proto,
                OOBI, SndBuf, RcvBuf, Linger,
-               MTU, MTUDisc, MALL, MIF, MLoop, MTTL]),
+               MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
+               NF]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
