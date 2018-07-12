@@ -451,6 +451,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, Linger} = socket:getopt(Sock, socket, linger),
             MTU     = G(mtu),
             MTUDisc = G(mtu_discover),
+            {ok, MALL}   = socket:getopt(Sock, ip,     multicast_all),
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
@@ -464,12 +465,13 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) Linger:         ~p"
               "~n   (ip)     MTU:            ~s"
               "~n   (ip)     MTU Discovery:  ~s"
+              "~n   (ip)     Multicast ALL:  ~p"
               "~n   (ip)     Multicast IF:   ~p"
               "~n   (ip)     Multicast Loop: ~p"
               "~n   (ip)     Multicast TTL:  ~p", 
               [Domain, Type, Proto,
                OOBI, SndBuf, RcvBuf, Linger,
-               MTU, MTUDisc, MIF, MLoop, MTTL]),
+               MTU, MTUDisc, MALL, MIF, MLoop, MTTL]),
             %% socket:setopt(Sock, otp, debug, true),
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

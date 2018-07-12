@@ -366,6 +366,7 @@ typedef union {
 #define SOCKET_OPT_IP_DROP_MEMBERSHIP  5
 #define SOCKET_OPT_IP_MTU             11
 #define SOCKET_OPT_IP_MTU_DISCOVER    12
+#define SOCKET_OPT_IP_MULTICAST_ALL   13
 #define SOCKET_OPT_IP_MULTICAST_IF    14
 #define SOCKET_OPT_IP_MULTICAST_LOOP  15
 #define SOCKET_OPT_IP_MULTICAST_TTL   16
@@ -872,6 +873,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
                                                 ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_MULTICAST_ALL)
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP,
+                                                 ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_MULTICAST_IF)
 static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
@@ -1062,6 +1068,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
 #if defined(IP_MTU_DISCOVER)
 static ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
                                                 SocketDescriptor* descP);
+#endif
+#if defined(IP_MULTICAST_ALL)
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_IF)
 static ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
@@ -4232,6 +4242,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
 #endif
 
 
+/* nsetopt_lvl_ip_multicast_all - Level IP MULTICAST_ALL option
+ */
+#if defined(IP_MULTICAST_ALL)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
+                                          SocketDescriptor* descP,
+                                          ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_MULTICAST_ALL, eVal);
+}
+#endif
+
+
 /* nsetopt_lvl_ip_multicast_if - Level IP MULTICAST_IF option
  *
  * The value is either the atom 'any' or a 4-tuple.
@@ -5550,6 +5579,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MULTICAST_ALL)
+    case SOCKET_OPT_IP_MULTICAST_ALL:
+        result = ngetopt_lvl_ip_multicast_all(env, descP);
+        break;
+#endif
+
 #if defined(IP_MULTICAST_IF)
     case SOCKET_OPT_IP_MULTICAST_IF:
         result = ngetopt_lvl_ip_multicast_if(env, descP);
@@ -5649,6 +5684,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
 
     return result;
 
+}
+#endif
+
+
+/* ngetopt_lvl_ip_multicast_all - Level IP MULTICAST_ALL option
+ */
+#if defined(IP_MULTICAST_ALL)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
+                                          SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_MULTICAST_ALL);
 }
 #endif
 
