@@ -1402,8 +1402,8 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
     ErtsAlcFixList_t *fix;
 
     fix = &allctr->fix[ERTS_ALC_FIX_TYPE_IX(type)];
-    ASSERT(type == fix->type);
-    ASSERT(size == fix->type_size);
+    ASSERT(type == fix->type && size == fix->type_size);
+    ASSERT(size >= sizeof(ErtsAllctrDDBlock_t));
 
     res = fix->list;
     if (res) {
@@ -1546,6 +1546,7 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 
     fix = &allctr->fix[ERTS_ALC_FIX_TYPE_IX(type)];
     ASSERT(type == fix->type && size == fix->type_size);
+    ASSERT(size >= sizeof(ErtsAllctrDDBlock_t));
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used++;
@@ -6607,7 +6608,6 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	    allctr->fix[i].type = ERTS_ALC_N2T(i + ERTS_ALC_N_MIN_A_FIXED_SIZE);
 	    allctr->fix[i].list_size = 0;
 	    allctr->fix[i].list = NULL;
-	    ASSERT(allctr->fix[i].type_size >= sizeof(ErtsAllctrDDBlock_t));
 	    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 		allctr->fix[i].u.cpool.min_list_size = 0;
 		allctr->fix[i].u.cpool.shrink_list = 0;

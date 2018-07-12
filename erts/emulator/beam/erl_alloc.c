@@ -568,7 +568,10 @@ static void adjust_fix_alloc_sizes(UWord extra_block_size)
 	    for (i=0; i < tspec->size; i++) {
 		Allctr_t* allctr = tspec->allctr[i];
 		for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
-		    allctr->fix[j].type_size += extra_block_size;
+                    size_t size = allctr->fix[j].type_size;
+                    size = MAX(size + extra_block_size,
+                               sizeof(ErtsAllctrDDBlock_t));
+		    allctr->fix[j].type_size = size;
 		}
 	    }
 	}
@@ -576,8 +579,11 @@ static void adjust_fix_alloc_sizes(UWord extra_block_size)
 	{
 	    Allctr_t* allctr = erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra;
 	    for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
-		allctr->fix[j].type_size += extra_block_size;
-	    }	
+                size_t size = allctr->fix[j].type_size;
+                size = MAX(size + extra_block_size,
+                           sizeof(ErtsAllctrDDBlock_t));
+                allctr->fix[j].type_size = size;
+	    }
 	}
     }
 }
