@@ -38,7 +38,8 @@
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1,
-	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1]).
+	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
+         trace_info_badarg/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -62,7 +63,7 @@ all() ->
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered,
-     trap_exit_self_receive].
+     trap_exit_self_receive, trace_info_badarg].
 
 init_per_testcase(_Case, Config) ->
     [{receiver,spawn(fun receiver/0)}|Config].
@@ -1732,6 +1733,10 @@ trap_exit_self_receive(Config) ->
     Proc ! {exit_please, Reason2},
     {trace, Proc, 'receive', {exit_please, Reason2}} = receive_first_trace(),
     receive_nothing(),
+    ok.
+
+trace_info_badarg(Config) when is_list(Config) ->
+    catch erlang:trace_info({a,b,c},d),
     ok.
 
 drop_trace_until_down(Proc, Mon) ->
