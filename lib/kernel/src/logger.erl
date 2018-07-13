@@ -74,6 +74,11 @@
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type report() :: map() | [{atom(),term()}].
+-type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
+                     fun((report(),report_cb_config()) -> unicode:chardata()).
+-type report_cb_config() :: #{encoding    := unicode:encoding(),
+                              depth       := pos_integer() | unlimited,
+                              chars_limit := pos_integer() | unlimited}.
 -type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
                                    report() |
                                    unicode:chardata()).
@@ -84,7 +89,7 @@
                       file   => file:filename(),
                       line   => non_neg_integer(),
                       domain => [atom()],
-                      report_cb => fun((report()) -> {io:format(),[term()]}),
+                      report_cb => report_cb(),
                       atom() => term()}.
 -type location() :: #{mfa  := {module(),atom(),non_neg_integer()},
                       file := file:filename(),
@@ -110,10 +115,22 @@
 
 -type config_handler() :: {handler, handler_id(), module(), handler_config()}.
 
--export_type([log_event/0,level/0,report/0,msg_fun/0,metadata/0,
-              primary_config/0,handler_config/0,handler_id/0,
-              filter_id/0,filter/0,filter_arg/0,filter_return/0,
-              config_handler/0,formatter_config/0]).
+-export_type([log_event/0,
+              level/0,
+              report/0,
+              report_cb/0,
+              report_cb_config/0,
+              msg_fun/0,
+              metadata/0,
+              primary_config/0,
+              handler_config/0,
+              handler_id/0,
+              filter_id/0,
+              filter/0,
+              filter_arg/0,
+              filter_return/0,
+              config_handler/0,
+              formatter_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -352,9 +369,12 @@ add_handler(HandlerId,Module,Config) ->
 remove_handler(HandlerId) ->
     logger_server:remove_handler(HandlerId).
 
--spec set_primary_config(Key,Value) -> ok | {error,term()} when
-      Key :: atom(),
-      Value :: term().
+-spec set_primary_config(level,Level) -> ok | {error,term()} when
+      Level :: level() | all | none;
+                        (filter_default,FilterDefault) -> ok | {error,term()} when
+      FilterDefault :: log | stop;
+                        (filters,Filters) -> ok | {error,term()} when
+      Filters :: [{filter_id(),filter()}].
 set_primary_config(Key,Value) ->
     logger_server:set_config(primary,Key,Value).
 
@@ -363,10 +383,26 @@ set_primary_config(Key,Value) ->
 set_primary_config(Config) ->
     logger_server:set_config(primary,Config).
 
--spec set_handler_config(HandlerId,Key,Value) -> ok | {error,term()} when
+-spec set_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: handler_id(),
-      Key :: atom(),
-      Value :: term().
+      Level :: level() | all | none,
+      Return :: ok | {error,term()};
+                        (HandlerId,filter_default,FilterDefault) -> Return when
+      HandlerId :: handler_id(),
+      FilterDefault :: log | stop,
+      Return :: ok | {error,term()};
+                        (HandlerId,filters,Filters) -> Return when
+      HandlerId :: handler_id(),
+      Filters :: [{filter_id(),filter()}],
+      Return :: ok | {error,term()};
+                        (HandlerId,formatter,Formatter) -> Return when
+      HandlerId :: handler_id(),
+      Formatter :: {module(), formatter_config()},
+      Return :: ok | {error,term()};
+                        (HandlerId,config,Config) -> Return when
+      HandlerId :: handler_id(),
+      Config :: term(),
+      Return :: ok | {error,term()}.
 set_handler_config(HandlerId,Key,Value) ->
     logger_server:set_config(HandlerId,Key,Value).
 
@@ -651,7 +687,7 @@ get_logger_type() ->
 
 get_logger_level() ->
     case application:get_env(kernel,logger_level,info) of
-        Level when ?IS_LEVEL(Level) ->
+        Level when ?IS_LEVEL(Level); Level=:=all; Level=:=none ->
             Level;
         Level ->
             throw({logger_level, Level})

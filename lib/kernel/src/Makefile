@@ -112,7 +112,8 @@ MODULES = \
         logger \
         logger_backend \
         logger_config \
-        logger_std_h \
+	logger_handler_watcher \
+	logger_std_h \
 	logger_disk_log_h \
 	logger_h_common \
 	logger_filters \
