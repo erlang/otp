@@ -351,6 +351,9 @@ is_cross_configured:
 target_configured:
 	@echo @TARGET@
 
+erlang_inst_libdir_configured:
+	@echo $(ERLANG_INST_LIBDIR)
+
 bootstrap: depend all_bootstraps
 
 
@@ -681,6 +684,14 @@ tertiary_bootstrap_copy:
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/ ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/ ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang ; fi
 	$(V_at)for x in lib/sasl/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
@@ -742,6 +753,38 @@ tertiary_bootstrap_copy:
 	$(V_at)for x in lib/runtime_tools/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/runtime_tools/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	copy erl_interface includes
+	$(V_at)for x in lib/erl_interface/include/*; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	copy jinterface priv directory
+	$(V_at)for x in lib/jinterface/priv/OtpErlang.jar; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	$(V_at)for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang/$$BN; \
 		test -f  $$TF && \
 		test '!' -z "`find $$x -newer $$TF -print`" && \
 			cp $$x $$TF; \

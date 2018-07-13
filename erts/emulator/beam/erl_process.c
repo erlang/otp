@@ -9606,7 +9606,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             ASSERT(!p->scheduler_data);
 	    p->scheduler_data = esdp;
 	    if ((!!(state & ERTS_PSFLGS_DIRTY_WORK))
-		& (!(state & ERTS_PSFLG_ACTIVE_SYS))) {
+		& (!(state & ERTS_PSFLG_RUNNING_SYS))) {
 		/* Migrate to dirty scheduler... */
 	    sunlock_sched_out_proc:
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);

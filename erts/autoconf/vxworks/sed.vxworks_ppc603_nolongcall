@@ -29,6 +29,7 @@ s|@system_type@|vxworks_ppc603|
 s|@ARCH@|ppc603|
 s|@CC@|@TTPREFIX@ccppc|
 s|@HCC@|gcc|
+s|@GCC@|yes|
 s|@LD@|@TTPREFIX@ldppc|
 s|@STRIP@|@TTPREFIX@stripppc|
 s|@SYMPREFIX@||
