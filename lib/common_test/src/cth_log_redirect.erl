@@ -184,21 +184,12 @@ handle_call({log,#{meta:=#{gl:=GL}},_}, _From,
     {reply, ok, State};
 
 handle_call({log,
-             #{msg:=Msg0,
-               meta:=#{?MODULE:=#{category:=Category}}=Meta}=Log,
+             #{meta:=#{?MODULE:=#{category:=Category}}}=Log,
              #{formatter:={Formatter,FConfig}}},
             _From,
             #eh_state{log_func=LogFunc}=State) ->
     Header = format_header(State),
-    Msg =
-        case Msg0 of
-            {report,R} ->
-                Fun=maps:get(report_cb,Meta,fun logger:format_report/1),
-                Fun(R);
-            _ ->
-                Msg0
-        end,
-    String = Formatter:format(Log#{msg=>Msg},FConfig),
+    String = Formatter:format(Log,FConfig),
     case LogFunc of
         tc_log ->
             ct_logs:tc_log(Category, ?STD_IMPORTANCE,

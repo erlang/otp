@@ -74,8 +74,8 @@ start() ->
                   type => worker,
                   modules => dynamic},
             case supervisor:start_child(logger_sup, ErrorLogger) of
-                {ok,_} ->
-                    ok;
+                {ok,Pid} ->
+                    ok = logger_handler_watcher:register_handler(?MODULE,Pid);
                 Error ->
                     Error
             end;
@@ -95,9 +95,14 @@ start_link() ->
 %%% Stop the event manager
 -spec stop() -> ok.
 stop() ->
-    _ = supervisor:terminate_child(logger_sup,?MODULE),
-    _ = supervisor:delete_child(logger_sup,?MODULE),
-    ok.
+    case whereis(?MODULE) of
+        undefined ->
+            ok;
+        _Pid ->
+            _ = gen_event:stop(?MODULE,{shutdown,stopped},infinity),
+            _ = supervisor:delete_child(logger_sup,?MODULE),
+            ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Callbacks for logger

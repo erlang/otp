@@ -355,6 +355,7 @@ log_all_levels_api(cleanup,_Config) ->
 macros(_Config) ->
     ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
     test_macros(emergency),
+    test_log_macro(alert),
     ok.
 
 macros(cleanup,_Config) ->
@@ -469,7 +470,11 @@ filter_failed(_Config) ->
     %% Logger filters
     {error,{invalid_filter,_}} =
         logger:add_primary_filter(lf,{fun(_) -> ok end,args}),
-    ok = logger:add_primary_filter(lf,{fun(_,_) -> a=b end,args}),
+    ok = logger:add_primary_filter(lf,
+                                   {fun(_,_) ->
+                                            erlang:error({badmatch,b})
+                                    end,
+                                    args}),
     #{filters:=[_]} = logger:get_primary_config(),
     ok = logger:notice(M1=?map_rep),
     ok = check_logged(notice,M1,#{}),
@@ -487,7 +492,11 @@ filter_failed(_Config) ->
     {error,{not_found,h0}} = logger:remove_handler_filter(h0,hf),
     {error,{invalid_filter,_}} =
         logger:add_handler_filter(h1,hf,{fun(_) -> ok end,args}),
-    ok = logger:add_handler_filter(h1,hf,{fun(_,_) -> a=b end,args}),
+    ok = logger:add_handler_filter(h1,hf,
+                                   {fun(_,_) ->
+                                            erlang:error({badmatch,b})
+                                    end,
+                                    args}),
     {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
     ok = logger:notice(M3=?map_rep),
     ok = check_logged(notice,M3,#{}),
@@ -523,7 +532,11 @@ handler_failed(_Config) ->
     false = lists:search(fun(#{id:=h1}) -> true; (_) -> false end,H1),
     {error,{not_found,h1}} = logger:remove_handler(h1),
 
-    ok = logger:add_handler(h2,?MODULE,#{filter_default=>log,log_call=>fun() -> a = b end}),
+    ok = logger:add_handler(h2,?MODULE,
+                            #{filter_default => log,
+                              log_call => fun() ->
+                                                  erlang:error({badmatch,b})
+                                          end}),
     {error,{already_exist,h2}} = logger:add_handler(h2,othermodule,#{}),
     [add] = test_server:messages_get(),
 
@@ -534,7 +547,7 @@ handler_failed(_Config) ->
     {error,{not_found,h2}} = logger:remove_handler(h2),
 
     CallAddHandler = fun() -> logger:add_handler(h2,?MODULE,#{}) end,
-    CrashHandler = fun() -> a = b end,
+    CrashHandler = fun() -> erlang:error({badmatch,b}) end,
     KillHandler = fun() -> exit(self(), die) end,
 
     {error,{handler_not_added,{attempting_syncronous_call_to_self,_}}} =
@@ -1005,6 +1018,34 @@ test_macros(emergency=Level) ->
                       [{F1,x},{fun_to_bad}],#{}),
     F2=fun(x) -> erlang:error(fun_that_crashes) end,
     ?LOG_EMERGENCY(F2,x,#{}),
+    ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
+                      [{F2,x},{error,fun_that_crashes}],#{}),
+    ok.
+
+test_log_macro(Level) ->
+    ?LOG(Level,#{Level=>rep}),
+    ok = check_logged(Level,#{Level=>rep},?MY_LOC(1)),
+    ?LOG(Level,#{Level=>rep},#{my=>meta}),
+    ok = check_logged(Level,#{Level=>rep},(?MY_LOC(1))#{my=>meta}),
+    ?LOG(Level,"~w: ~w",[Level,fa]),
+    ok = check_logged(Level,"~w: ~w",[Level,fa],?MY_LOC(1)),
+    ?LOG(Level,"~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fa,meta],(?MY_LOC(1))#{my=>meta}),
+    ?LOG(Level,fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,
+                   x, #{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],
+                      (?MY_LOC(3))#{my=>meta}),
+    ?LOG(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end, x, #{my=>meta}),
+    ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},
+                      (?MY_LOC(2))#{my=>meta}),
+    ?LOG(Level,fun(x) -> <<"fun_to_s">> end,x,#{}),
+    ok = check_logged(Level,<<"fun_to_s">>,?MY_LOC(1)),
+    F1=fun(x) -> {fun_to_bad} end,
+    ?LOG(Level,F1,x,#{}),
+    ok = check_logged(Level,"LAZY_FUN ERROR: ~tp; Returned: ~tp",
+                      [{F1,x},{fun_to_bad}],#{}),
+    F2=fun(x) -> erlang:error(fun_that_crashes) end,
+    ?LOG(Level,F2,x,#{}),
     ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
                       [{F2,x},{error,fun_that_crashes}],#{}),
     ok.

@@ -309,19 +309,6 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
         end,
     spawn(RemoveAndRestart),
     ok;
-
-stop_or_restart(Name, shutdown, _State) ->
-    %% Probably terminated by supervisor. Remove the handler to avoid
-    %% error printouts due to failing handler.
-    _ = case logger:get_handler_config(Name) of
-            {ok,_} ->
-                %% Spawning to avoid deadlock
-                spawn(logger,remove_handler,[Name]);
-            _ ->
-                ok
-        end,
-    ok;
-
 stop_or_restart(_Name, _Reason, _State) ->
     ok.
 
