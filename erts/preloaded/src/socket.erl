@@ -517,7 +517,7 @@
 %% -define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
 %% -define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      23).
-%% -define(SOCKET_OPT_SOCK_REUSEPORT,      24).
+-define(SOCKET_OPT_SOCK_REUSEPORT,      24).
 %% -define(SOCKET_OPT_SOCK_RXQ_OVFL,       25).
 %% -define(SOCKET_OPT_SOCK_SETFIB,         26).
 -define(SOCKET_OPT_SOCK_SNDBUF,         27).
@@ -1984,6 +1984,8 @@ enc_setopt_value(socket, rcvbuf, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
     V;
+enc_setopt_value(socket, reuseport, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
@@ -2301,11 +2303,11 @@ enc_sockopt_key(socket = L, rcvlowat = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, rcvtimeo = Opt, _Dir, _D, _T, _P) ->
     not_supported(Opt);
-enc_sockopt_key(socket, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
+enc_sockopt_key(socket = _L, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_REUSEADDR;
-enc_sockopt_key(socket = L, reuseport = Opt, _Dir, D, _T, _P)
+enc_sockopt_key(socket = _L, reuseport = _Opt, _Dir, D, _T, _P)
   when ((D =:= inet) orelse (D =:= inet6)) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_SOCK_REUSEPORT;
 enc_sockopt_key(socket = L, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, setfib = Opt, set = _Dir, _D, _T, _P) ->

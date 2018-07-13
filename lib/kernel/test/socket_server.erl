@@ -129,16 +129,13 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
                 {error, BReason} ->
                     throw({bind, BReason})
             end,
-            socket:setopt(Sock, otp, debug, true),
             i("bound to: "
               "~n   ~s"
-              "~n   (socket) Bind To Device: ~s"
               "~n   => try start handler", 
               [case socket:sockname(Sock) of
                    {ok, Name} -> f("~p", [Name]);
                    {error, R} -> f("error: ~p", [R])
-               end,
-               F(bindtodevice)]),
+               end]),
             case handler_start(1, Sock, Peek) of
                 {ok, {Pid, MRef}} ->
                     i("handler (~p) started", [Pid]),
@@ -457,16 +454,18 @@ handler_init(Manager, ID, Peek, Sock) ->
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
             B2D          = GSO(bindtodevice),
-            {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
-            {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
-            {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
-            {ok, Linger} = socket:getopt(Sock, socket, linger),
+            RA           = GSO(reuseaddr),
+            RP           = GSO(reuseport),
+            OOBI         = GSO(oobinline),
+            SndBuf       = GSO(sndbuf),
+            RcvBuf       = GSO(rcvbuf),
+            Linger       = GSO(linger),
             MTU          = GIP(mtu),
             MTUDisc      = GIP(mtu_discover),
-            {ok, MALL}   = socket:getopt(Sock, ip,     multicast_all),
-            {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
-            {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
-            {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
+            MALL         = GIP(multicast_all),
+            MIF          = GIP(multicast_if),
+            MLoop        = GIP(multicast_loop),
+            MTTL         = GIP(multicast_ttl),
             NF           = GIP(nodefrag), % raw only
             RecvTOS      = GIP(recvtos),
             RecvTTL      = GIP(recvttl),  % not stream
@@ -474,22 +473,24 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
               "~n   (socket) Protocol:       ~p"
+              "~n   (socket) Reuse Address:  ~s"
+              "~n   (socket) Reuse Port:     ~s"
               "~n   (socket) Bind To Device: ~s"
-              "~n   (socket) OOBInline:      ~p"
-              "~n   (socket) SndBuf:         ~p"
-              "~n   (socket) RcvBuf:         ~p"
-              "~n   (socket) Linger:         ~p"
+              "~n   (socket) OOBInline:      ~s"
+              "~n   (socket) SndBuf:         ~s"
+              "~n   (socket) RcvBuf:         ~s"
+              "~n   (socket) Linger:         ~s"
               "~n   (ip)     MTU:            ~s"
               "~n   (ip)     MTU Discovery:  ~s"
-              "~n   (ip)     Multicast ALL:  ~p"
-              "~n   (ip)     Multicast IF:   ~p"
-              "~n   (ip)     Multicast Loop: ~p"
-              "~n   (ip)     Multicast TTL:  ~p"
-              "~n   (ip)     NodeFrag:       ~s"
-              "~n   (ip)     RecvTOS:        ~s"
-              "~n   (ip)     RecvTTL:        ~s",
+              "~n   (ip)     Multicast ALL:  ~s"
+              "~n   (ip)     Multicast IF:   ~s"
+              "~n   (ip)     Multicast Loop: ~s"
+              "~n   (ip)     Multicast TTL:  ~s"
+              "~n   (ip)     Node Frag:      ~s"
+              "~n   (ip)     Recv TOS:       ~s"
+              "~n   (ip)     Recv TTL:       ~s",
               [Domain, Type, Proto,
-               B2D, OOBI, SndBuf, RcvBuf, Linger,
+               RA, RP, B2D, OOBI, SndBuf, RcvBuf, Linger,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
             %% socket:setopt(Sock, otp, debug, true),

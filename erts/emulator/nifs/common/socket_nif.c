@@ -360,6 +360,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_PROTOCOL      18
 #define SOCKET_OPT_SOCK_RCVBUF        19
 #define SOCKET_OPT_SOCK_REUSEADDR     23
+#define SOCKET_OPT_SOCK_REUSEPORT     24
 #define SOCKET_OPT_SOCK_SNDBUF        27
 #define SOCKET_OPT_SOCK_TYPE          32
 
@@ -862,6 +863,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
                                                ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_REUSEPORT)
+static ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_SNDBUF)
 static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1138,6 +1144,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 #endif
 #if defined(SO_REUSEADDR)
 static ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
+#endif
+#if defined(SO_REUSEPORT)
+static ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
 #endif
 #if defined(SO_SNDBUF)
@@ -3980,6 +3990,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_REUSEPORT)
+    case SOCKET_OPT_SOCK_REUSEPORT:
+        result = nsetopt_lvl_sock_reuseport(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_SNDBUF)
     case SOCKET_OPT_SOCK_SNDBUF:
         result = nsetopt_lvl_sock_sndbuf(env, descP, eVal);
@@ -4129,6 +4145,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
                                         ERL_NIF_TERM      eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEADDR, eVal);
+}
+#endif
+
+
+#if defined(SO_REUSEPORT)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEPORT, eVal);
 }
 #endif
 
@@ -5777,6 +5804,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_REUSEPORT)
+    case SOCKET_OPT_SOCK_REUSEPORT:
+        result = ngetopt_lvl_sock_reuseport(env, descP);
+        break;
+#endif
+
 #if defined(SO_SNDBUF)
     case SOCKET_OPT_SOCK_SNDBUF:
         result = ngetopt_lvl_sock_sndbuf(env, descP);
@@ -6031,6 +6064,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
                                         SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEADDR);
+}
+#endif
+
+
+#if defined(SO_REUSEPORT)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEPORT);
 }
 #endif
 
