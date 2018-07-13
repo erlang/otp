@@ -346,21 +346,22 @@ typedef union {
 #define SOCKET_OPT_OTP_IOW          2
 #define SOCKET_OPT_OTP_CTRL_PROC    3
 
-#define SOCKET_OPT_SOCK_ACCEPTCONN  1
-#define SOCKET_OPT_SOCK_BROADCAST   4
-#define SOCKET_OPT_SOCK_DEBUG       6
-#define SOCKET_OPT_SOCK_DOMAIN      7
-#define SOCKET_OPT_SOCK_DONTROUTE   8
-#define SOCKET_OPT_SOCK_KEEPALIVE  10
-#define SOCKET_OPT_SOCK_LINGER     11
-#define SOCKET_OPT_SOCK_OOBINLINE  13
-#define SOCKET_OPT_SOCK_PEEK_OFF   15
-#define SOCKET_OPT_SOCK_PRIORITY   17
-#define SOCKET_OPT_SOCK_PROTOCOL   18
-#define SOCKET_OPT_SOCK_RCVBUF     19
-#define SOCKET_OPT_SOCK_REUSEADDR  23
-#define SOCKET_OPT_SOCK_SNDBUF     27
-#define SOCKET_OPT_SOCK_TYPE       32
+#define SOCKET_OPT_SOCK_ACCEPTCONN     1
+#define SOCKET_OPT_SOCK_BINDTODEVICE   3
+#define SOCKET_OPT_SOCK_BROADCAST      4
+#define SOCKET_OPT_SOCK_DEBUG          6
+#define SOCKET_OPT_SOCK_DOMAIN         7
+#define SOCKET_OPT_SOCK_DONTROUTE      8
+#define SOCKET_OPT_SOCK_KEEPALIVE     10
+#define SOCKET_OPT_SOCK_LINGER        11
+#define SOCKET_OPT_SOCK_OOBINLINE     13
+#define SOCKET_OPT_SOCK_PEEK_OFF      15
+#define SOCKET_OPT_SOCK_PRIORITY      17
+#define SOCKET_OPT_SOCK_PROTOCOL      18
+#define SOCKET_OPT_SOCK_RCVBUF        19
+#define SOCKET_OPT_SOCK_REUSEADDR     23
+#define SOCKET_OPT_SOCK_SNDBUF        27
+#define SOCKET_OPT_SOCK_TYPE          32
 
 #define SOCKET_OPT_IP_ADD_MEMBERSHIP          1
 #define SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP   2
@@ -803,7 +804,14 @@ static ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
                                        int               eOpt,
                                        ERL_NIF_TERM      eVal);
 
+
 /* *** Handling set of socket options for level = socket *** */
+
+#if defined(SO_BINDTODEVICE)
+static ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_BROADCAST)
 static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
@@ -1079,6 +1087,10 @@ static ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 #if defined(SO_ACCEPTCONN)
 static ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
                                                 SocketDescriptor* descP);
+#endif
+#if defined(SO_BINDTODEVICE)
+static ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP);
 #endif
 #if defined(SO_BROADCAST)
 static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
@@ -3902,6 +3914,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
             "\r\n", eOpt) );
 
     switch (eOpt) {
+#if defined(SO_BINDTODEVICE)
+    case SOCKET_OPT_SOCK_BINDTODEVICE:
+        result = nsetopt_lvl_sock_bindtodevice(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_BROADCAST)
     case SOCKET_OPT_SOCK_BROADCAST:
         result = nsetopt_lvl_sock_broadcast(env, descP, eVal);
@@ -3975,6 +3993,19 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
 
     return result;
 }
+
+
+#if defined(SO_BINDTODEVICE)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    return nsetopt_str_opt(env, descP,
+                           SOL_SOCKET, SO_BROADCAST,
+                           IFNAMSIZ, eVal);
+}
+#endif
 
 
 #if defined(SO_BROADCAST)
@@ -5111,38 +5142,6 @@ ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
 
 
 
-/* nsetopt_str_opt - set an option that has an string value
- */
-static
-ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt,
-                             int               max,
-                             ERL_NIF_TERM      eVal)
-{
-    ERL_NIF_TERM result;
-    char*        val = MALLOC(max);
-
-    if (GET_STR(env, eVal, val, max) > 0) {
-        int optLen = strlen(val);
-        int res    = socket_setopt(descP->sock, level, opt, &val, optLen);
-
-        if (res != 0)
-            result = esock_make_error_errno(env, sock_errno());
-        else
-            result = esock_atom_ok;
-
-    } else {
-        result = esock_make_error(env, esock_atom_einval);
-    }
-
-    FREE(val);
-
-    return result;
-}
-
-
 /* nsetopt_bool_opt - set an option that has an (integer) bool value
  */
 static
@@ -5193,6 +5192,38 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
     } else {
         result = esock_make_error(env, esock_atom_einval);
     }
+
+    return result;
+}
+
+
+/* nsetopt_str_opt - set an option that has an string value
+ */
+static
+ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               level,
+                             int               opt,
+                             int               max,
+                             ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+    char*        val = MALLOC(max);
+
+    if (GET_STR(env, eVal, val, max) > 0) {
+        int optLen = strlen(val);
+        int res    = socket_setopt(descP->sock, level, opt, &val, optLen);
+
+        if (res != 0)
+            result = esock_make_error_errno(env, sock_errno());
+        else
+            result = esock_atom_ok;
+
+    } else {
+        result = esock_make_error(env, esock_atom_einval);
+    }
+
+    FREE(val);
 
     return result;
 }
@@ -5389,6 +5420,8 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     ERL_NIF_TERM      eIsEncoded;
     BOOLEAN_T         isEncoded, isOTP;
 
+    SGDBG( ("SOCKET", "nif_getopt -> entry with argc: %d\r\n", argc) );
+
     if ((argc != 4) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_INT(env, argv[2], &eLevel) ||
@@ -5396,6 +5429,14 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     eIsEncoded = argv[1];
+
+    SSDBG( descP,
+           ("SOCKET", "nif_getopt -> args when sock = %d:"
+            "\r\n   Socket:     %T"
+            "\r\n   eIsEncoded: %T"
+            "\r\n   eLevel:     %d"
+            "\r\n   eOpt:       %d"
+            "\r\n", descP->sock, argv[0], eIsEncoded, eLevel, eOpt) );
 
     isEncoded = esock_decode_bool(eIsEncoded);
 
@@ -5416,6 +5457,14 @@ ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
                      int               eOpt)
 {
     ERL_NIF_TERM result;
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt -> entry with"
+            "\r\n   isEncoded: %d"
+            "\r\n   isOTP:     %d"
+            "\r\n   level:     %d"
+            "\r\n   eOpt:      %d"
+            "\r\n", isEncoded, isOTP, level, eOpt) );
 
     if (isOTP) {
         /* These are not actual socket options,
@@ -5581,6 +5630,12 @@ ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_level -> entry with"
+            "\r\n   level: %d"
+            "\r\n   eOpt:  %d"
+            "\r\n", level, eOpt) );
+
     switch (level) {
     case SOL_SOCKET:
         result = ngetopt_lvl_socket(env, descP, eOpt);
@@ -5632,10 +5687,21 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_socket -> entry with"
+            "\r\n   eOpt:  %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(SO_ACCEPTCONN)
     case SOCKET_OPT_SOCK_ACCEPTCONN:
         result = ngetopt_lvl_sock_acceptconn(env, descP);
+        break;
+#endif
+
+#if defined(SO_BINDTODEVICE)
+    case SOCKET_OPT_SOCK_BINDTODEVICE:
+        result = ngetopt_lvl_sock_bindtodevice(env, descP);
         break;
 #endif
 
@@ -5738,6 +5804,19 @@ ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
                                         SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_ACCEPTCONN);
+}
+#endif
+
+
+#if defined(SO_BINDTODEVICE)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
+                                           SocketDescriptor* descP)
+{
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_sock_bindtodevice -> entry with\r\n") );
+
+    return ngetopt_str_opt(env, descP, SOL_SOCKET, SO_BROADCAST, IFNAMSIZ+1);
 }
 #endif
 
@@ -6628,37 +6707,7 @@ ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
 
 
 
-/* ngetopt_str_opt - get an string option
- */
-static
-ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt,
-                             int               max)
-{
-    ERL_NIF_TERM result;
-    char*        val   = MALLOC(max);
-    SOCKOPTLEN_T valSz = max;
-    int          res;
-
-    res = sock_getopt(descP->sock, level, opt, &val, &valSz);
-
-    if (res != 0) {
-        result = esock_make_error_errno(env, sock_errno());
-    } else {
-        ERL_NIF_TERM sval = MKSL(env, val, valSz);
-
-        result = esock_make_ok2(env, sval);
-    }
-
-    FREE(val);
-
-    return result;
-}
-
-
-/* nsetopt_bool_opt - get an (integer) bool option
+/* ngetopt_bool_opt - get an (integer) bool option
  */
 static
 ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
@@ -6685,7 +6734,7 @@ ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
 }
 
 
-/* nsetopt_int_opt - get an integer option
+/* ngetopt_int_opt - get an integer option
  */
 static
 ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
@@ -6709,6 +6758,53 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
     return result;
 }
 
+
+
+/* ngetopt_str_opt - get an string option
+ *
+ * We provide the max size of the string. This is the
+ * size of the buffer we allocate for the value.
+ * The actual size of the (read) value will be communicated
+ * in the optSz variable.
+ */
+static
+ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             int               level,
+                             int               opt,
+                             int               max)
+{
+    ERL_NIF_TERM result;
+    char*        val   = MALLOC(max);
+    SOCKOPTLEN_T valSz = max;
+    int          res;
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_str_opt -> entry with"
+            "\r\n   level: %d"
+            "\r\n   opt:   %d"
+            "\r\n   max:   %d"
+            "\r\n", level, opt, max) );
+
+    res = sock_getopt(descP->sock, level, opt, val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM sval = MKSL(env, val, valSz);
+
+        result = esock_make_ok2(env, sval);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_str_opt -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    FREE(val);
+
+    return result;
+}
 
 
 

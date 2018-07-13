@@ -101,7 +101,7 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
         {ok, Sock} ->
             F = fun(X) -> case socket:getopt(Sock, socket, X) of
                               {ok, V} ->    f("~p", [V]);
-                              {error, _} -> "-"
+                              {error, R} -> f("error: ~p", [R])
                           end
                 end,
             i("socket opened (~s,~s,~s): "
@@ -129,11 +129,16 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
                 {error, BReason} ->
                     throw({bind, BReason})
             end,
-            i("try start handler for"
-              "~n   ~p", [case socket:sockname(Sock) of
-                              {ok, Name} -> Name;
-                              {error, _} = E -> E
-                          end]),
+            socket:setopt(Sock, otp, debug, true),
+            i("bound to: "
+              "~n   ~s"
+              "~n   (socket) Bind To Device: ~s"
+              "~n   => try start handler", 
+              [case socket:sockname(Sock) of
+                   {ok, Name} -> f("~p", [Name]);
+                   {error, R} -> f("error: ~p", [R])
+               end,
+               F(bindtodevice)]),
             case handler_start(1, Sock, Peek) of
                 {ok, {Pid, MRef}} ->
                     i("handler (~p) started", [Pid]),
@@ -435,37 +440,41 @@ handler_init(Manager, ID, Peek, Sock) ->
         {handler, Pid, Ref, continue} ->
             i("got continue"),
             handler_reply(Pid, Ref, ok),
-            G = fun(K) -> case socket:getopt(Sock, ip, K) of
-                              {ok, Val} ->
-                                  f("~p", [Val]);
-                              {error, R} when is_atom(R) ->
-                                  f("error: ~w", [R]);
-                              {error, {T, R}} when is_atom(T) ->
-                                  f("error: ~w, ~p", [T, R]);
-                              {error, R} ->
-                                  f("error: ~p", [R])
+            G = fun(L, O) -> case socket:getopt(Sock, L, O) of
+                                {ok, Val} ->
+                                    f("~p", [Val]);
+                                {error, R} when is_atom(R) ->
+                                    f("error: ~w", [R]);
+                                {error, {T, R}} when is_atom(T) ->
+                                    f("error: ~w, ~p", [T, R]);
+                                {error, R} ->
+                                    f("error: ~p", [R])
                           end
                 end,
+            GIP = fun(O) -> G(ip, O)     end,
+            GSO = fun(O) -> G(socket, O) end,
             {ok, Domain} = socket:getopt(Sock, socket, domain),
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
+            B2D          = GSO(bindtodevice),
             {ok, OOBI}   = socket:getopt(Sock, socket, oobinline),
             {ok, SndBuf} = socket:getopt(Sock, socket, sndbuf),
             {ok, RcvBuf} = socket:getopt(Sock, socket, rcvbuf),
             {ok, Linger} = socket:getopt(Sock, socket, linger),
-            MTU          = G(mtu),
-            MTUDisc      = G(mtu_discover),
+            MTU          = GIP(mtu),
+            MTUDisc      = GIP(mtu_discover),
             {ok, MALL}   = socket:getopt(Sock, ip,     multicast_all),
             {ok, MIF}    = socket:getopt(Sock, ip,     multicast_if),
             {ok, MLoop}  = socket:getopt(Sock, ip,     multicast_loop),
             {ok, MTTL}   = socket:getopt(Sock, ip,     multicast_ttl),
-            NF           = G(nodefrag), % raw only
-            RecvTOS      = G(recvtos),
-            RecvTTL      = G(recvttl),  % not stream
+            NF           = GIP(nodefrag), % raw only
+            RecvTOS      = GIP(recvtos),
+            RecvTTL      = GIP(recvttl),  % not stream
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
               "~n   (socket) Protocol:       ~p"
+              "~n   (socket) Bind To Device: ~s"
               "~n   (socket) OOBInline:      ~p"
               "~n   (socket) SndBuf:         ~p"
               "~n   (socket) RcvBuf:         ~p"
@@ -480,7 +489,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     RecvTOS:        ~s"
               "~n   (ip)     RecvTTL:        ~s",
               [Domain, Type, Proto,
-               OOBI, SndBuf, RcvBuf, Linger,
+               B2D, OOBI, SndBuf, RcvBuf, Linger,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
             %% socket:setopt(Sock, otp, debug, true),

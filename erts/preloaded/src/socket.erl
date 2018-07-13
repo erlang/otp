@@ -366,15 +366,15 @@
         status |
         use_ext_recvinfo.
 
-%% -type plain_socket_options()  :: integer().
-%% -type sockopts() :: otp_socket_options() |
-%%                     socket_options() |
-%%                     ip_socket_options() |
-%%                     ipv6_socket_options() |
-%%                     tcp_socket_options() |
-%%                     udp_socket_options() |
-%%                     sctp_socket_options() |
-%%                     plain_socket_options().
+%% -type plain_socket_option()  :: integer().
+%% -type sockopt() :: otp_socket_option() |
+%%                    socket_option() |
+%%                    ip_socket_option() |
+%%                    ipv6_socket_option() |
+%%                    tcp_socket_option() |
+%%                    udp_socket_option() |
+%%                    sctp_socket_option() |
+%%                    plain_socket_option().
 
 %% If the integer value is used its up to the caller to ensure its valid!
 -type ip_tos_flag() :: lowdeley |
@@ -496,7 +496,7 @@
 
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
 %% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2).
-%% -define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
+-define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
 %% -define(SOCKET_OPT_SOCK_BUSY_POLL,       5).
 -define(SOCKET_OPT_SOCK_DEBUG,           6).
@@ -1959,6 +1959,8 @@ enc_setopt_value(otp, controlling_process, V, _, _, _) when is_pid(V) ->
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(socket, bindtodevice, V, _D, _T, _P) when is_list(V) ->
+    V;
 enc_setopt_value(socket, broadcast, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, debug, V, _D, _T, _P) when is_integer(V) ->
@@ -2253,10 +2255,10 @@ enc_sockopt_key(socket = _L, acceptconn = _Opt, get = _Dir, _D, _T, _P) ->
 enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Before linux 3.8, this socket option could be set.
-%% Size of buffer for name: IFNAMSZ
+%% Maximum size of buffer for name: IFNAMSZIZ
 %% So, we let the implementation decide.
-enc_sockopt_key(socket = L, bindtodevide = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, bindtodevice = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_BINDTODEVICE;
 enc_sockopt_key(socket, broadcast = _Opt, _Dir, _D, dgram = _T, _P) ->
     ?SOCKET_OPT_SOCK_BROADCAST;
 enc_sockopt_key(socket = L, busy_poll = Opt, _Dir, _D, _T, _P) ->
