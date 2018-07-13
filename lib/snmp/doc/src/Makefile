@@ -140,6 +140,7 @@ clean_man:
 clean_html:
 	@echo "cleaning html:"
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 
 $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo "processing $*"

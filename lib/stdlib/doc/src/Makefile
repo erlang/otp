@@ -155,6 +155,7 @@ debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)

@@ -119,6 +119,7 @@ html: images $(HTML_REF_MAN_FILE)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECS_FILES)

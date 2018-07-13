@@ -77,6 +77,7 @@ clean_man:
 
 clean_html:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
