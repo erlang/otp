@@ -679,8 +679,8 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 next_tls_record(Data, StateName, #state{protocol_buffers = 
                                             #protocol_buffers{tls_record_buffer = Buf0,
                                                               tls_cipher_texts = CT0} = Buffers,
-                                       ssl_options = SslOpts} = State0) ->
-    case tls_record:get_tls_records(Data, 
+                                        ssl_options = SslOpts} = State0) ->
+    case tls_record:get_tls_records(Data,
                                     acceptable_record_versions(StateName, State0),
                                     Buf0, SslOpts) of
 	{Records, Buf1} ->
@@ -693,10 +693,18 @@ next_tls_record(Data, StateName, #state{protocol_buffers =
     end.
 
 
+%% TLS 1.3 Client/Server
+%% - Ignore TLSPlaintext.legacy_record_version
+%% - Verify that TLSCiphertext.legacy_record_version is set to  0x0303 for all records
+%%   other than an initial ClientHello, where it MAY also be 0x0301.
 acceptable_record_versions(hello, _) ->
-    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS];
+    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_TLS_RECORD_VERSIONS];
+acceptable_record_versions(_, #state{negotiated_version = {Major, Minor}})
+  when Major > 3; Major =:= 3, Minor >= 4 ->
+    [{3, 3}];
 acceptable_record_versions(_, #state{negotiated_version = Version}) ->
     [Version].
+
 handle_record_alert(Alert, _) ->
     Alert.
 
