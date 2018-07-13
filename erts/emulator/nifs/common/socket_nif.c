@@ -1499,14 +1499,10 @@ static char* send_msg(ErlNifEnv*   env,
                       ERL_NIF_TERM msg,
                       ErlNifPid*   pid);
 
-static BOOLEAN_T extract_debug_on_load(ErlNifEnv*   env,
-                                       ERL_NIF_TERM map);
-static BOOLEAN_T extract_iow_on_load(ErlNifEnv*   env,
-                                     ERL_NIF_TERM map);
-static BOOLEAN_T extract_bool(ErlNifEnv*   env,
-                              ERL_NIF_TERM map,
-                              ERL_NIF_TERM ekey,
-                              BOOLEAN_T    def);
+static BOOLEAN_T extract_debug(ErlNifEnv*   env,
+                               ERL_NIF_TERM map);
+static BOOLEAN_T extract_iow(ErlNifEnv*   env,
+                             ERL_NIF_TERM map);
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
@@ -8423,37 +8419,29 @@ ErlNifFunc socket_funcs[] =
 
 
 static
-BOOLEAN_T extract_debug_on_load(ErlNifEnv*   env,
-                                ERL_NIF_TERM map)
+BOOLEAN_T extract_debug(ErlNifEnv*   env,
+                        ERL_NIF_TERM map)
 {
-    return extract_bool(env, map, esock_atom_debug, SOCKET_NIF_DEBUG_DEFAULT);
+    /*
+     * We need to do this here since the "proper" atom has not been
+     * created when this function is called.
+     */
+    ERL_NIF_TERM debug = MKA(env, "debug");
+    
+    return esock_extract_bool_from_map(env, map, debug, SOCKET_NIF_DEBUG_DEFAULT);
 }
 
 static
-BOOLEAN_T extract_iow_on_load(ErlNifEnv*   env,
-                              ERL_NIF_TERM map)
+BOOLEAN_T extract_iow(ErlNifEnv*   env,
+                      ERL_NIF_TERM map)
 {
-    return extract_bool(env, map, atom_iow, SOCKET_NIF_IOW_DEFAULT);
-}
-
-static
-BOOLEAN_T extract_bool(ErlNifEnv*   env,
-                       ERL_NIF_TERM map,
-                       ERL_NIF_TERM ekey,
-                       BOOLEAN_T    def)
-{
-    ERL_NIF_TERM eval;
-
-    if (!GET_MAP_VAL(env, map, ekey, &eval))
-        return def;
-
-    if (!IS_ATOM(env, eval))
-        return def;
-
-    if (COMPARE(eval, esock_atom_true) == 0)
-        return TRUE;
-    else
-        return FALSE;
+    /*
+     * We need to do this here since the "proper" atom has not been
+     * created when this function is called.
+     */
+    ERL_NIF_TERM iow = MKA(env, "iow");
+    
+    return esock_extract_bool_from_map(env, map, iow, SOCKET_NIF_IOW_DEFAULT);
 }
 
 
@@ -8465,8 +8453,8 @@ BOOLEAN_T extract_bool(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    data.dbg = extract_debug_on_load(env, load_info);
-    data.iow = extract_iow_on_load(env, load_info);
+    data.dbg = extract_debug(env, load_info);
+    data.iow = extract_iow(env, load_info);
 
     /* +++ Global Counters +++ */
     data.cntMtx         = MCREATE("socket[gcnt]");

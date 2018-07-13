@@ -133,6 +133,11 @@ BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
                               char**             stringP);
 
 extern
+BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
+                                      ERL_NIF_TERM map,
+                                      ERL_NIF_TERM key,
+                                      BOOLEAN_T    def);
+extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM val);
 extern
 ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val);

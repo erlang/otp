@@ -209,6 +209,9 @@
 #  define SOCKLEN_T size_t
 #endif
 
+/* Debug stuff... */
+#define NET_NIF_DEBUG_DEFAULT FALSE
+
 #define NDBG( proto ) ESOCK_DBG_PRINTF( data.debug , proto )
 
 
@@ -331,6 +334,8 @@ static char* make_address_info(ErlNifEnv*    env,
                                ERL_NIF_TERM  addr,
                                ERL_NIF_TERM* ai);
 
+static BOOLEAN_T extract_debug(ErlNifEnv*   env,
+                               ERL_NIF_TERM map);
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 
@@ -1535,6 +1540,19 @@ ErlNifFunc net_funcs[] =
 };
 
 
+static
+BOOLEAN_T extract_debug(ErlNifEnv*   env,
+                        ERL_NIF_TERM map)
+{
+    /*
+     * We need to do this here since the "proper" atom has not been
+     * created when this function is called.
+     */
+    ERL_NIF_TERM debug = MKA(env, "debug");
+    
+    return esock_extract_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
+}
+
 
 /* =======================================================================
  * load_info - A map of misc info (e.g global debug)
@@ -1544,7 +1562,7 @@ static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     // We should make it possible to use load_info to get default values
-    data.debug = TRUE;
+    data.debug = extract_debug(env, load_info);
 
     NDBG( ("NET", "on_load -> entry\r\n") );
 
