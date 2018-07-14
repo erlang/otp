@@ -192,7 +192,7 @@
 	<p>To change the primary log level at runtime, use
           <seealso marker="logger#set_primary_config/2">
             <c>logger:set_primary_config(level, Level)</c></seealso>.</p>
-	<p>Defaults to <c>info</c>.</p>
+	<p>Defaults to <c>notice</c>.</p>
       </item>
       <tag><marker id="logger_sasl_compatible"/>
 	<c>logger_sasl_compatible = true | false</c></tag>
