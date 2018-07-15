@@ -45,7 +45,7 @@
 
 -define(i32(Int), (Int bsr 24) band 255, (Int bsr 16) band 255, (Int bsr 8) band 255, Int band 255).
 
--define(BLOCK_CIPHER_AES(Key), case size(iolist_to_binary(Key)) of
+-define(BLOCK_CIPHER_AES(Key), case bit_size(iolist_to_binary(Key)) of
                                    128 -> aes_128_cfb128;
                                    192 -> aes_192_cfb128;
                                    256 -> aes_256_cfb128
