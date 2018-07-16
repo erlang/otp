@@ -21,7 +21,6 @@
 
 # Global configuration variables
 #
-# NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
     AUTOCONF_SUBDIRS="lib lib/* lib/common_test/test_server"
 fi
@@ -525,105 +524,6 @@ do_configure ()
 	fi
     fi
 }
-
-do_lazy_configure ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    maybe_copy_static_cache
-    CONFIG_FLAGS=
-    set_config_flags "$@"
-    CONFIGURE_FLAGS="$@"
-    [ "$CONFIG_FLAGS" = "" ] || CONFIGURE_FLAGS="$CONFIG_FLAGS $CONFIGURE_FLAGS"
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin configuring $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_FLAGS="$CONFIGURE_FLAGS"                           \
-		CONFIGURE_DIR=$dir                                           \
-		EXTRA_CONFIGURE_DEPENDENCIES=$xc_dep                         \
-		EXTRA_CONFIG_STATUS_DEPENDENCIES=$xcs_dep                    \
-		lazy_configure
-	    echo "=== Done configuring $dir"
-	    echo ""
-	fi
-    done
-}
-
-do_lazy_configure_clean ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin cleaning configure in $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_DIR=$dir                                           \
-		lazy_configure_clean
-	    echo "=== Done cleaning configure in $dir"
-	    echo ""
-	fi
-    done
-
-}
-
-do_lazy_configure_target_clean ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin target cleaning configure in $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_DIR=$dir                                           \
-		lazy_configure_target_clean
-	    echo "=== Done target cleaning configure in $dir"
-	    echo ""
-	fi
-    done
-
-}
-
-    
 
 echo_setenv ()
 {
@@ -1335,27 +1235,11 @@ case "$1" in
 		do_autoconf; 
 		do_configure "$@";
 		do_boot;;
-	lazy_setup)
-		shift;
-		if [ $minus_a_flag = true ]; then 
-		    shift
-		fi;
-		do_lazy_configure "$@";
-		do_boot;;
 	autoconf)
 		do_autoconf;;
 	configure)
 		shift;
 		do_configure "$@";;
-	lazy_configure)
-		shift;
-		do_lazy_configure "$@";;
-	lazy_configure_clean)
-		shift;
-		do_lazy_configure_clean;;
-	lazy_configure_target_clean)
-		shift;
-		do_lazy_configure_target_clean;;
 	opt)
 		do_boot;;
 	plain|smp)
