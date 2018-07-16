@@ -114,6 +114,7 @@ clean_man:
 
 clean_html:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 
 imgs: $(IMG_FILES:%=$(HTMLDIR)/%)
 

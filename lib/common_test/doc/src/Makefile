@@ -140,6 +140,7 @@ debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
