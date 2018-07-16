@@ -984,6 +984,7 @@ do_accept(LSockRef, SI, Timeout) ->
             Socket = #socket{info = SocketInfo,
                              ref  = SockRef},
             {ok, Socket};
+
         {error, eagain} ->
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
@@ -997,7 +998,11 @@ do_accept(LSockRef, SI, Timeout) ->
                     nif_cancel(LSockRef, accept, AccRef),
                     flush_select_msgs(LSockRef, AccRef),
                     {error, timeout}
-            end
+            end;
+
+        {error, _} = ERROR ->
+            nif_cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
+            ERROR
     end.
 
 

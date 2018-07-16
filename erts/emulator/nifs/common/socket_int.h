@@ -92,6 +92,7 @@ typedef unsigned int BOOLEAN_T;
 
 #define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
 
+#define B2S(__B__) ((__B__) ? "true" : "false")
 
 /* Misc error strings */
 #define ESOCK_STR_EAFNOSUPPORT "eafnosupport"
@@ -139,6 +140,7 @@ extern ERL_NIF_TERM esock_atom_undefined;
 extern ERL_NIF_TERM esock_atom_eafnosupport;
 extern ERL_NIF_TERM esock_atom_eagain;
 extern ERL_NIF_TERM esock_atom_einval;
+
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
