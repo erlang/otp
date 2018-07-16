@@ -240,7 +240,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    with <seealso marker="logger#set_process_metadata-1">
 	      <c>logger:set_process_metadata/1</c></seealso>
 	    and <seealso marker="logger#update_process_metadata-1">
-	      <c>logger:update_process metadata/1</c></seealso>,
+	      <c>logger:update_process_metadata/1</c></seealso>,
 	    respectively. This metadata applies to the process on
 	    which these calls are made, and Logger adds the metadata
 	    to all log events issued on that process.</p>
