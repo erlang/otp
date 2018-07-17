@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Socket Usage</title>
+    <prepared>Micael Karlberg</prepared>
+    <docno></docno>
+    <date>2018-07-17</date>
+    <rev>PA1</rev>
+    <file>socket_usage.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The socket interface (module) is basically an "thin" layer on top of
+    the OS socket interface. It is assumed that, unless you have special needs,
+    gen_[tcp|udp|sctp] should be sufficent. </p>
+  </section>
+
+  <section>
+    <title>Socket Options</title>
+
+    <p>Options for level <c>otp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>debug</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>iow</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>controlling_process</cell>
+	<cell>pid()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>socket</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>acceptcon</cell>
+	<cell>boolean()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>bindtodevice</cell>
+	<cell>string()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>broadcast</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
+	<cell>debug</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>may require admin capability</cell>
+      </row>
+      <row>
+	<cell>domain</cell>
+	<cell>domain()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>dontroute</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>keepalive</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>linger</cell>
+	<cell>abort | linger()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>oobinline</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>peep_off</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>domain = local (unix)</cell>
+      </row>
+      <row>
+	<cell>priority</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>protocol</cell>
+	<cell>protocol()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rcvbuf</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>reuseaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>reuseport</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>domain = inet | inet6</cell>
+      </row>
+      <row>
+	<cell>sndbuf</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>ip</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>add_membership</cell>
+	<cell>ip_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>add_source_membership</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>block_source</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>drop_membership</cell>
+	<cell>ip_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>drop_source_membership</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>minttl</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>mtu</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>mtu_discover</cell>
+	<cell>ip_mtu_discover()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_all</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_if</cell>
+	<cell>any | ip4_address()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_loop</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>multicast_ttl</cell>
+	<cell>0..255</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>nodefrag</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>recvif</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
+	<cell>recvttl</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
+	<cell>router_alert</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>tos</cell>
+	<cell>ip_tos()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>tos</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>unblock_source</cell>
+	<cell>ip_mreq_source()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>ipv6</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>add_membership</cell>
+	<cell>ipv6_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>drop_membership</cell>
+	<cell>ipv6_mreq()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>hoplimit</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>tcp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>congestion</cell>
+	<cell>string()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>maxseg</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = stream, protocol = tcp</cell>
+      </row>
+      <row>
+	<cell>nodelay</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = stream, protocol = tcp</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>udp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>cork</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram, protocol = udp</cell>
+      </row>
+    </table>
+    
+    <p>Options for level <c>sctp</c>: </p>
+    <table>
+      <row>
+	<cell><em>Option Name</em></cell>
+	<cell><em>Value Type</em></cell>
+	<cell><em>Set</em></cell>
+	<cell><em>Get</em></cell>
+	<cell><em>Other</em></cell>
+      </row>
+      <row>
+	<cell>autoclose</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>protocol = sctp</cell>
+      </row>
+      <row>
+	<cell>nodelay</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>protocol = sctp</cell>
+      </row>
+    </table>
+    
+  </section>
+</chapter>
+

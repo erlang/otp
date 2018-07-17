@@ -82,6 +82,7 @@ XML_CHAPTER_FILES = \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
+	socket_usage.xml \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \
