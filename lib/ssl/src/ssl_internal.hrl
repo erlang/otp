@@ -90,6 +90,21 @@
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).
 
+%% TLS 1.3 - Section 4.1.3
+%%
+%% If negotiating TLS 1.2, TLS 1.3 servers MUST set the last eight bytes
+%% of their Random value to the bytes:
+%%
+%%   44 4F 57 4E 47 52 44 01
+%%
+%% If negotiating TLS 1.1 or below, TLS 1.3 servers MUST and TLS 1.2
+%% servers SHOULD set the last eight bytes of their Random value to the
+%% bytes:
+%%
+%%   44 4F 57 4E 47 52 44 00
+-define(RANDOM_OVERRIDE_TLS12, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#01>>).
+-define(RANDOM_OVERRIDE_TLS11, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#00>>).
+
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
 

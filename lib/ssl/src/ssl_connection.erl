@@ -1515,13 +1515,18 @@ do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocol
 		    ServerHelloExt,
 		#state{negotiated_version = Version,
 		       session = #session{session_id = SessId},
-		       connection_states = ConnectionStates0}
+		       connection_states = ConnectionStates0,
+                       ssl_options = #ssl_options{versions = [HighestVersion|_]}}
 		= State0, Connection) when is_atom(Type) ->
-
+    %% TLS 1.3 - Section 4.1.3
+    %% Override server random values for TLS 1.3 downgrade protection mechanism.
+    ConnectionStates1 = update_server_random(ConnectionStates0, Version, HighestVersion),
+    State1 = State0#state{connection_states = ConnectionStates1},
     ServerHello =
-	ssl_handshake:server_hello(SessId, ssl:tls_version(Version), ConnectionStates0, ServerHelloExt),
+	ssl_handshake:server_hello(SessId, ssl:tls_version(Version),
+                                   ConnectionStates1, ServerHelloExt),
     State = server_hello(ServerHello,
-			 State0#state{expecting_next_protocol_negotiation =
+			 State1#state{expecting_next_protocol_negotiation =
 					  NextProtocols =/= undefined}, Connection),
     case Type of
 	new ->
@@ -1529,6 +1534,60 @@ do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocol
 	resumed ->
 	    resumed_server_hello(State, Connection)
     end.
+
+update_server_random(#{pending_read := #{security_parameters := ReadSecParams0} =
+                           ReadState0,
+                       pending_write := #{security_parameters := WriteSecParams0} =
+                           WriteState0} = ConnectionStates,
+                     Version, HighestVersion) ->
+    ReadRandom = override_server_random(
+                   ReadSecParams0#security_parameters.server_random,
+                   Version,
+                   HighestVersion),
+    WriteRandom = override_server_random(
+                    WriteSecParams0#security_parameters.server_random,
+                    Version,
+                    HighestVersion),
+    ReadSecParams = ReadSecParams0#security_parameters{server_random = ReadRandom},
+    WriteSecParams = WriteSecParams0#security_parameters{server_random = WriteRandom},
+    ReadState = ReadState0#{security_parameters => ReadSecParams},
+    WriteState = WriteState0#{security_parameters => WriteSecParams},
+
+    ConnectionStates#{pending_read => ReadState, pending_write => WriteState}.
+
+%% TLS 1.3 - Section 4.1.3
+%%
+%% If negotiating TLS 1.2, TLS 1.3 servers MUST set the last eight bytes
+%% of their Random value to the bytes:
+%%
+%%   44 4F 57 4E 47 52 44 01
+%%
+%% If negotiating TLS 1.1 or below, TLS 1.3 servers MUST and TLS 1.2
+%% servers SHOULD set the last eight bytes of their Random value to the
+%% bytes:
+%%
+%%   44 4F 57 4E 47 52 44 00
+override_server_random(<<Random0:24/binary,_:8/binary>> = Random, {M,N}, {Major,Minor})
+  when Major > 3 orelse Major =:= 3 andalso Minor >= 4 -> %% TLS 1.3 or above
+    if M =:= 3 andalso N =:= 3 ->                         %% Negotating TLS 1.2
+            Down = ?RANDOM_OVERRIDE_TLS12,
+            <<Random0/binary,Down/binary>>;
+       M =:= 3 andalso N < 3 ->                           %% Negotating TLS 1.1 or prior
+            Down = ?RANDOM_OVERRIDE_TLS11,
+            <<Random0/binary,Down/binary>>;
+       true ->
+            Random
+    end;
+override_server_random(<<Random0:24/binary,_:8/binary>> = Random, {M,N}, {Major,Minor})
+  when Major =:= 3 andalso Minor =:= 3 ->   %% TLS 1.2
+    if M =:= 3 andalso N < 3 ->             %% Negotating TLS 1.1 or prior
+            Down = ?RANDOM_OVERRIDE_TLS11,
+            <<Random0/binary,Down/binary>>;
+       true ->
+            Random
+    end;
+override_server_random(Random, _, _) ->
+    Random.
 
 new_server_hello(#server_hello{cipher_suite = CipherSuite,
 			      compression_method = Compression,
