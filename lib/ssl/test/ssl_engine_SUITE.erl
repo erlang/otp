@@ -117,8 +117,23 @@ private_key(Config) when is_list(Config) ->
     EngineServerConf = [{key, #{algorithm => rsa,
                                 engine => Engine,
                                 key_id => ServerKey}} | proplists:delete(key, ServerConf)],
+
+    EngineFileClientConf = [{key, #{algorithm => rsa,
+                                    engine => Engine,
+                                    key_id => ClientKey}} | 
+                            proplists:delete(keyfile, FileClientConf)],
+    
+    EngineFileServerConf = [{key, #{algorithm => rsa,
+                                    engine => Engine,
+                                    key_id => ServerKey}} | 
+                            proplists:delete(keyfile, FileServerConf)],
+
     %% Test with engine
     test_tls_connection(EngineServerConf, EngineClientConf, Config),
+    
+    %% Test with engine and present file arugments
+    test_tls_connection(EngineFileServerConf, EngineFileClientConf, Config),
+    
     %% Test that sofware fallback is available
     test_tls_connection(ServerConf, [{reuse_sessions, false} |ClientConf], Config).
     
