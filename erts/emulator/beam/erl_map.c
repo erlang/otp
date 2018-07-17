@@ -1505,25 +1505,6 @@ int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
     return ap ? -1 : 1;
 }
 
-/* maps:new/0 */
-
-BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
-    Eterm* hp;
-    Eterm tup;
-    flatmap_t *mp;
-
-    hp    = HAlloc(BIF_P, (MAP_HEADER_FLATMAP_SZ + 1));
-    tup   = make_tuple(hp);
-    *hp++ = make_arityval(0);
-
-    mp    = (flatmap_t*)hp;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = 0;
-    mp->keys = tup;
-
-    BIF_RET(make_flatmap(mp));
-}
-
 /* maps:put/3 */
 
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {

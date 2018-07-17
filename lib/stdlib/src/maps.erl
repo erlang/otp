@@ -21,7 +21,7 @@
 -module(maps).
 
 -export([get/3, filter/2,fold/3,
-         map/2, size/1,
+         map/2, size/1, new/0,
          update_with/3, update_with/4,
          without/2, with/2,
          iterator/1, next/1]).
@@ -29,7 +29,7 @@
 %% BIFs
 -export([get/2, find/2, from_list/1,
          is_key/2, keys/1, merge/2,
-         new/0, put/3, remove/2, take/2,
+         put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
 -opaque iterator() :: {term(), term(), iterator()}
@@ -91,13 +91,6 @@ keys(_) -> erlang:nif_error(undef).
 merge(_,_) -> erlang:nif_error(undef).
 
 
-
--spec new() -> Map when
-    Map :: map().
-
-new() -> erlang:nif_error(undef).
-
-
 %% Shadowed by erl_bif_types: maps:put/3
 -spec put(Key,Value,Map1) -> Map2 when
     Key :: term(),
@@ -156,6 +149,11 @@ update(_,_,_) -> erlang:nif_error(undef).
 values(_) -> erlang:nif_error(undef).
 
 %% End of BIFs
+
+-spec new() -> Map when
+    Map :: #{}.
+
+new() -> #{}.
 
 -spec update_with(Key,Fun,Map1) -> Map2 when
       Key :: term(),
