@@ -388,6 +388,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
 #define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
 #define SOCKET_OPT_IPV6_HOPLIMIT             12
+#define SOCKET_OPT_IPV6_V6ONLY               33
 
 #define SOCKET_OPT_TCP_CONGESTION   1
 #define SOCKET_OPT_TCP_CORK         2
@@ -1007,6 +1008,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
                                               ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_V6ONLY)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
 
 #if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
@@ -1221,6 +1227,11 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP);
 #endif
+#if defined(IPV6_V6ONLY)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
+                                            SocketDescriptor* descP);
+#endif
+
 #endif // defined(SOL_IPV6)
 static ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
@@ -4235,6 +4246,11 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_ip -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(IP_ADD_MEMBERSHIP)
     case SOCKET_OPT_IP_ADD_MEMBERSHIP:
@@ -4920,6 +4936,11 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_ipv6 -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(IPV6_ADD_MEMBERSHIP)
     case SOCKET_OPT_IPV6_ADD_MEMBERSHIP:
@@ -4936,6 +4957,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 #if defined(IPV6_HOPLIMIT)
     case SOCKET_OPT_IPV6_HOPLIMIT:
         result = nsetopt_lvl_ipv6_hoplimit(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IPV6_V6ONLY)
+    case SOCKET_OPT_IPV6_V6ONLY:
+        result = nsetopt_lvl_ipv6_v6only(env, descP, eVal);
         break;
 #endif
 
@@ -4979,6 +5006,17 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        ERL_NIF_TERM      eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT, eVal);
+}
+#endif
+
+
+#if defined(IPV6_V6ONLY)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_V6ONLY, eVal);
 }
 #endif
 
@@ -5045,6 +5083,11 @@ ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
                              ERL_NIF_TERM      eVal)
 {
     ERL_NIF_TERM result;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_tcp -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
 
     switch (eOpt) {
 #if defined(TCP_CONGESTION)
@@ -5126,6 +5169,11 @@ ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_udp -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(UDP_CORK)
     case SOCKET_OPT_UDP_CORK:
@@ -5167,6 +5215,11 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
                               ERL_NIF_TERM      eVal)
 {
     ERL_NIF_TERM result;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
 
     switch (eOpt) {
 #if defined(SCTP_AUTOCLOSE)
@@ -5557,6 +5610,11 @@ ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
         result = ngetopt_level(env, descP, level, eOpt);
     }
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
     return result;
 }
 
@@ -5629,6 +5687,12 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
     uint16_t     valueType;
     SOCKOPTLEN_T valueSz;
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_native -> entry with"
+            "\r\n   level: %d"
+            "\r\n   eOpt:  %d"
+            "\r\n", level, eOpt) );
+
     /* <KOLLA>
      * We should really make it possible to specify common specific types,
      * such as integer or boolean (instead of the size)...
@@ -5654,6 +5718,11 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
         result = esock_make_error(env, esock_atom_einval);
     }
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_native -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
     return result;
 }
 
@@ -5667,6 +5736,13 @@ ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result = enif_make_badarg(env);
     int          res;
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_native_unspec -> entry with"
+            "\r\n   level:   %d"
+            "\r\n   opt:     %d"
+            "\r\n   valueSz: %d"
+            "\r\n", level, opt, valueSz) );
 
     if (valueSz == 0) {
         res = sock_getopt(descP->sock, level, opt, NULL, NULL);
@@ -5694,6 +5770,11 @@ ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
             result = enif_make_badarg(env);
         }
     }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_native_unspec -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -5753,6 +5834,11 @@ ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_level -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -6599,6 +6685,11 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_ipv6 -> entry with"
+            "\r\n   eOpt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
 #if defined(IPV6_HOPLIMIT)
     case SOCKET_OPT_IPV6_HOPLIMIT:
@@ -6606,10 +6697,21 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_V6ONLY)
+    case SOCKET_OPT_IPV6_V6ONLY:
+        result = ngetopt_lvl_ipv6_v6only(env, descP);
+        break;
+#endif
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_ipv6 -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -6621,6 +6723,16 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT);
+}
+#endif
+
+
+#if defined(IPV6_V6ONLY)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
+                                     SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_V6ONLY);
 }
 #endif
 
