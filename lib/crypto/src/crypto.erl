@@ -590,7 +590,12 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
     srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
                           UserPubBin, Prime));
 
-compute_key(ecdh, Others, My, Curve) ->
+compute_key(ecdh, Others, My, Curve) when (is_binary(Others)
+                                            orelse is_map(Others)
+                                            orelse is_tuple(Others))
+                                            andalso (is_binary(My)
+                                            orelse is_map(My)
+                                            orelse is_tuple(My)) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
 			 nif_curve_params(Curve),
 			 ensure_int_as_bin(My)).
