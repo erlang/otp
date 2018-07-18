@@ -389,6 +389,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
 #define SOCKET_OPT_IPV6_HOPLIMIT             12
 #define SOCKET_OPT_IPV6_MTU                  17
+#define SOCKET_OPT_IPV6_MTU_DISCOVER         18
 #define SOCKET_OPT_IPV6_V6ONLY               33
 
 #define SOCKET_OPT_TCP_CONGESTION   1
@@ -1014,6 +1015,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                          SocketDescriptor* descP,
                                          ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_MTU_DISCOVER)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1237,6 +1243,10 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                          SocketDescriptor* descP);
 #endif
+#if defined(IPV6_MTU_DISCOVER)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
@@ -1450,6 +1460,16 @@ static char* decode_ip_pmtudisc(ErlNifEnv*   env,
 static void encode_ip_pmtudisc(ErlNifEnv*    env,
                                int           val,
                                ERL_NIF_TERM* eVal);
+#endif
+#if defined(IPV6_MTU_DISCOVER)
+static char* decode_ipv6_pmtudisc(ErlNifEnv*   env,
+                                  ERL_NIF_TERM eVal,
+                                  int*         val);
+#endif
+#if defined(IPV6_MTU_DISCOVER)
+static void encode_ipv6_pmtudisc(ErlNifEnv*    env,
+                                 int           val,
+                                 ERL_NIF_TERM* eVal);
 #endif
 
 /*
@@ -4977,6 +4997,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MTU_DISCOVER)
+    case SOCKET_OPT_IPV6_MTU_DISCOVER:
+        result = nsetopt_lvl_ipv6_mtu_discover(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = nsetopt_lvl_ipv6_v6only(env, descP, eVal);
@@ -5034,6 +5060,42 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                   ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ipv6_mtu_discover - Level IPv6 MTU_DISCOVER option
+ *
+ * The value is an atom of the type ipv6_pmtudisc().
+ */
+#if defined(IPV6_MTU_DISCOVER)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM  result;
+    int           val;
+    char*         xres;
+    int           res;
+
+    if ((xres = decode_ipv6_pmtudisc(env, eVal, &val)) != NULL) {
+
+        result = esock_make_error_str(env, xres);
+
+    } else {
+
+        res = socket_setopt(descP->sock, SOL_IPV6, IPV6_MTU_DISCOVER,
+                            &val, sizeof(val));
+
+        if (res != 0)
+            result = esock_make_error_errno(env, sock_errno());
+        else
+            result = esock_atom_ok;
+
+    }
+
+    return result;
 }
 #endif
 
@@ -6731,6 +6793,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MTU_DISCOVER)
+    case SOCKET_OPT_IPV6_MTU_DISCOVER:
+        result = ngetopt_lvl_ipv6_mtu_discover(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = ngetopt_lvl_ipv6_v6only(env, descP);
@@ -6767,6 +6835,35 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                   SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU);
+}
+#endif
+
+
+/* ngetopt_lvl_ipv6_mtu_discover - Level IPv6 MTU_DISCOVER option
+ */
+#if defined(IPV6_MTU_DISCOVER)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
+                                           SocketDescriptor* descP)
+{
+    ERL_NIF_TERM  result;
+    ERL_NIF_TERM  eMtuDisc;
+    int           mtuDisc;
+    SOCKOPTLEN_T  mtuDiscSz = sizeof(mtuDisc);
+    int           res;
+
+    res = sock_getopt(descP->sock, SOL_IPV6, IPV6_MTU_DISCOVER,
+                      &mtuDisc, &mtuDiscSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        encode_ipv6_pmtudisc(env, mtuDisc, &eMtuDisc);
+        result = esock_make_ok2(env, eMtuDisc);
+    }
+
+    return result;
+
 }
 #endif
 
@@ -7723,6 +7820,57 @@ char* decode_ip_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
 
 
 
+/* +++ decode the ipv6 socket option MTU_DISCOVER +++
+ * The (ip) option can be provide in two ways:
+ *
+ *           atom() | integer()
+ *
+ * When its an atom it can have the values:
+ *
+ *       want | dont | do | probe
+ *
+ */
+#if defined(IPV6_MTU_DISCOVER)
+static
+char* decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
+{
+    char* res = NULL;
+
+    if (IS_ATOM(env, eVal)) {
+
+        if (COMPARE(eVal, atom_want) == 0) {
+            *val = IPV6_PMTUDISC_WANT;
+        } else if (COMPARE(eVal, atom_dont) == 0) {
+            *val = IPV6_PMTUDISC_DONT;
+        } else if (COMPARE(eVal, atom_do) == 0) {
+            *val = IPV6_PMTUDISC_DO;
+        } else if (COMPARE(eVal, atom_probe) == 0) {
+            *val = IPV6_PMTUDISC_PROBE;
+        } else {
+            *val = -1;
+            res  = ESOCK_STR_EINVAL;
+        }
+
+    } else if (IS_NUM(env, eVal)) {
+
+        if (!GET_INT(env, eVal, val)) {
+            *val = -1;
+            res  = ESOCK_STR_EINVAL;
+        }
+
+    } else {
+
+        *val   = -1;
+        res  = ESOCK_STR_EINVAL;
+
+    }
+
+    return res;
+}
+#endif
+
+
+
 /* +++ encode the ip socket option MTU_DISCOVER +++
  * The (ip) option can be provide in two ways:
  *
@@ -7751,6 +7899,48 @@ void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
         break;
 
     case IP_PMTUDISC_PROBE:
+        *eVal = atom_probe;
+        break;
+
+    default:
+        *eVal = MKI(env, val);
+        break;
+    }
+
+    return;
+}
+#endif
+
+
+
+/* +++ encode the ipv6 socket option MTU_DISCOVER +++
+ * The (ipv6) option can be provide in two ways:
+ *
+ *           atom() | integer()
+ *
+ * If its one of the "known" values, it will be an atom:
+ *
+ *       want | dont | do | probe
+ *
+ */
+#if defined(IPV6_MTU_DISCOVER)
+static
+void encode_ipv6_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
+{
+    switch (val) {
+    case IPV6_PMTUDISC_WANT:
+        *eVal = atom_want;
+        break;
+
+    case IPV6_PMTUDISC_DONT:
+        *eVal = atom_dont;
+        break;
+
+    case IPV6_PMTUDISC_DO:
+        *eVal = atom_do;
+        break;
+
+    case IPV6_PMTUDISC_PROBE:
         *eVal = atom_probe;
         break;
 

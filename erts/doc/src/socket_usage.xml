@@ -145,7 +145,7 @@
 	<cell>none</cell>
       </row>
       <row>
-	<cell>peep_off</cell>
+	<cell>peek_off</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
@@ -255,7 +255,7 @@
       </row>
       <row>
 	<cell>mtu_discover</cell>
-	<cell>ip_mtu_discover()</cell>
+	<cell>ip_pmtudisc()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
@@ -377,6 +377,13 @@
 	<cell>Get: Only after the socket has been connected</cell>
       </row>
       <row>
+	<cell>mtu_discover</cell>
+	<cell>ipv6_pmtudisc()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>v6only</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
@@ -406,14 +413,14 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = stream, protocol = tcp</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>nodelay</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = stream, protocol = tcp</cell>
+	<cell>none</cell>
       </row>
     </table>
     
@@ -431,7 +438,7 @@
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = dgram, protocol = udp</cell>
+	<cell>none</cell>
       </row>
     </table>
     
@@ -449,14 +456,14 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>protocol = sctp</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>nodelay</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>protocol = sctp</cell>
+	<cell>none</cell>
       </row>
     </table>
     
