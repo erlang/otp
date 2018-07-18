@@ -214,7 +214,7 @@ NL="\
 
 distribute_config_helpers ()
 {
-    aclocal_dirs="make ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+    aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
     autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
 
     aclocal_master="./erts/aclocal.m4"
