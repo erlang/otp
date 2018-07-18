@@ -25,6 +25,7 @@
 -include("erl_global_SUITE_data/erl_global_test_cases.hrl").
 
 -export([all/0,suite/0,
+         init_per_testcase/2,
          erl_global_registration/1,
          erl_global_whereis/1, erl_global_names/1]).
 
@@ -39,9 +40,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 erl_global_registration(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     {ok, Fd} = erl_connect(P, node(), 42, erlang:get_cookie(), 0),
 
     ok = erl_global_register(P, Fd, ?GLOBAL_NAME),
@@ -53,7 +56,7 @@ erl_global_registration(Config) when is_list(Config) ->
     ok.
 
 erl_global_whereis(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     {ok, Fd} = erl_connect(P, node(), 42, erlang:get_cookie(), 0),
 
     Self = self(),
@@ -66,7 +69,7 @@ erl_global_whereis(Config) when is_list(Config) ->
     ok.
 
 erl_global_names(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     {ok, Fd} = erl_connect(P, node(), 42, erlang:get_cookie(), 0),
 
     Self = self(),

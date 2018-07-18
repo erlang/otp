@@ -1022,7 +1022,7 @@ int ei_do_receive_msg(int fd, int staticbuffer_p,
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
     }
-    x->index = x->buffsz;
+    x->index = msglen;
     switch (msg->msgtype) {	/* FIXME does not handle trace tokens and monitors */
     case ERL_SEND:
     case ERL_REG_SEND:
