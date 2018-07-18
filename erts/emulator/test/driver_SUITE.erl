@@ -81,6 +81,7 @@
          thr_msg_blast/1,
          consume_timeslice/1,
          env/1,
+         poll_pipe/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -168,6 +169,7 @@ all() -> %% Keep a_test first and z_test last...
      thr_msg_blast,
      consume_timeslice,
      env,
+     poll_pipe,
      z_test].
 
 groups() -> 
@@ -2692,4 +2694,26 @@ rpc(Config, Fun) ->
                 Other ->
                     ct:fail(Other)
             end
+    end.
+
+poll_pipe(Config) when is_list(Config) ->
+    %% ERL-647; we wouldn't see any events on EOF when polling a pipe using
+    %% kqueue(2).
+    case os:type() of
+        {unix, _} ->
+            Command = "erl -noshell -eval "
+                      "'\"DATA\n\" = io:get_line(\"\"),"
+                      "eof = io:get_line(\"\"),"
+                      "halt()' <<< 'DATA'",
+            Ref = make_ref(),
+            Self = self(),
+            Pid = spawn(fun() -> os:cmd(Command), Self ! Ref end),
+            receive
+                Ref -> ok
+            after 5000 ->
+                exit(Pid, kill),
+                ct:fail("Stuck reading from stdin.")
+            end;
+        _ ->
+            {skipped, "Unix-only test"}
     end.
