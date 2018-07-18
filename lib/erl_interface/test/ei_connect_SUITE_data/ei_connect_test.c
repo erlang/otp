@@ -74,11 +74,7 @@ TESTCASE(interpret)
     ei_term term;
 
     ei_x_new(&x);
-    for (;;) {
-	if (get_bin_term(&x, &term)) {
-	    report(1);
-	    return;
-	} else {
+    while (get_bin_term(&x, &term) == 0) {
 	    char* buf = x.buff, func[MAXATOMLEN];
 	    int index = x.index, arity;
 	    if (term.ei_type != ERL_SMALL_TUPLE_EXT || term.arity != 2)
@@ -99,8 +95,10 @@ TESTCASE(interpret)
 		message("\"%d\" \n", func);
 		fail("bad command");
 	    }
-	}
-    }	
+    }
+    report(1);
+    ei_x_free(&x);
+    return;
 }
 
 

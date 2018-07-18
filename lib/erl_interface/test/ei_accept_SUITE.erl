@@ -25,6 +25,7 @@
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          ei_accept/1, ei_threaded_accept/1,
          monitor_ei_process/1]).
 
@@ -38,8 +39,11 @@ all() ->
     [ei_accept, ei_threaded_accept,
      monitor_ei_process].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 ei_accept(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
@@ -91,7 +95,7 @@ ei_threaded_accept(Config) when is_list(Config) ->
 
 %% Test erlang:monitor toward erl_interface "processes"
 monitor_ei_process(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
@@ -99,7 +103,6 @@ monitor_ei_process(Config) when is_list(Config) ->
     EINode = list_to_atom("c42@"++Myname),
     io:format("EINode ~p ~n",  [EINode]),
 
-    Self = self(),
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
     MRef1 = erlang:monitor(process, {any, EINode}),

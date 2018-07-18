@@ -466,6 +466,7 @@ void decode_encode_big(struct Type* t)
     send_buffer(arg.buff, arg.index);
     ei_x_free(&arg);
     ei_free_big(p);
+    free_packet(buf);
 }
 
 

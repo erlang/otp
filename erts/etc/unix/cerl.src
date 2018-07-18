@@ -264,13 +264,14 @@ if [ "x$GDB" = "x" ]; then
 	valversion=`valgrind --version`
 	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
         valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
+	valint=`echo "$valmajor * 1000 + $valminor" | bc`
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
 	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		log_file_prefix="--xml-file="
 	    else
 		log_file_prefix="--log-file="
@@ -279,7 +280,7 @@ if [ "x$GDB" = "x" ]; then
 	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
 	    valgrind_log=
 	else
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
