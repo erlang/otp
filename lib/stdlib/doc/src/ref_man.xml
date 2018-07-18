@@ -39,6 +39,7 @@
   <xi:include href="binary.xml"/>
   <xi:include href="c.xml"/>
   <xi:include href="calendar.xml"/>
+  <xi:include href="counters.xml"/>
   <xi:include href="dets.xml"/>
   <xi:include href="dict.xml"/>
   <xi:include href="digraph.xml"/>

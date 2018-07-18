@@ -44,6 +44,7 @@ XML_REF3_FILES = \
 	binary.xml \
 	c.xml \
 	calendar.xml \
+	counters.xml \
 	dets.xml \
 	dict.xml \
 	digraph.xml \

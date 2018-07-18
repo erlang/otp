@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>counters</title>
+  </header>
+  <module>counters</module>
+  <modulesummary>Counters Functions</modulesummary>
+  <description>
+    <p>This module provides a set of functions to do atomic operations towards
+    mutable word sized counter variables. The implementation utilizes only
+    atomic hardware instructions without any software level locking, which makes
+    it very efficient for concurrent access. The counters are organized into
+    arrays with the follwing semantics:</p>
+    <list type="bulleted">
+      <item>
+	<p>Counters are signed word sized. That is 32-bit (-2147483648 to
+	+2147483647) or 64-bit (-9223372036854775808 to
+	+9223372036854775807) depending on cpu hardware architecture.</p>
+      </item>
+      <item>
+	<p>Counters wrap around at overflow and underflow operations.</p>
+      </item>
+      <item>
+	<p>All counter operations are atomic. No intermediate results can be
+	seen. Concurrent mutable operations to the same counter are
+	serialized. The result of one mutation can only be the input to one
+	following mutation.</p>
+      </item>
+      <item>
+	<p>All counter operations are ordered (using hardware memory
+	barriers). If counter B is updated <em>after</em> counter A, then that
+	is how it will appear to any concurrent readers. No one can read the new
+	value of B and then read the old value of A.</p>
+      </item>
+      <item>
+	<p>Indexes into counter arrays are zero-based. A counter array of
+	arity N contains N counters with index from 0 to N-1.</p>
+      </item>
+    </list>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="counters_ref"/>
+      <desc><p>Identifies a counter array returned from
+        <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="new" arity="2"/>
+      <fsummary>Create counter array</fsummary>
+      <desc>
+        <p>Create a new counter array of <c><anno>Arity</anno></c> counters.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="put" arity="3"/>
+      <fsummary>Set counter value</fsummary>
+      <desc>
+        <p>Set counter to <c><anno>Value</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get" arity="2"/>
+      <fsummary>Read counter value</fsummary>
+      <desc>
+        <p>Read counter value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add" arity="3"/>
+      <fsummary>Add to counter</fsummary>
+      <desc>
+        <p>Add <c><anno>Incr</anno></c> to counter.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="add_get" arity="3"/>
+      <fsummary>Atomic add and get</fsummary>
+      <desc>
+        <p>Atomic addition and return of the result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub" arity="3"/>
+      <fsummary>Subtract from counter</fsummary>
+      <desc>
+        <p>Subtract <c><anno>Decr</anno></c> from counter.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sub_get" arity="3"/>
+      <fsummary>Atomic sub and get</fsummary>
+      <desc>
+        <p>Atomic subtraction and return of the result.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="size" arity="1"/>
+      <fsummary>The size of counter array</fsummary>
+      <desc>
+        <p>Returns the number of counters in a counter array.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="max" arity="1"/>
+      <fsummary>The highest counter value</fsummary>
+      <desc>
+        <p>Returns the highest value a counter in this array can hold.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="min" arity="1"/>
+      <fsummary>The lowest counter value</fsummary>
+      <desc>
+	<p>Returns the lowest value a counter in this array can hold.</p>
+      </desc>
+    </func>
+
+ </funcs>
+</erlref>

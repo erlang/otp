@@ -325,6 +325,7 @@ typedef long          Sint  erts_align_attribute(sizeof(long));
 #define UWORD_CONSTANT(Const) Const##UL
 #define ERTS_UWORD_MAX ULONG_MAX
 #define ERTS_SWORD_MAX LONG_MAX
+#define ERTS_SWORD_MIN LONG_MIN
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_INT
@@ -335,6 +336,7 @@ typedef int          Sint  erts_align_attribute(sizeof(int));
 #define UWORD_CONSTANT(Const) Const##U
 #define ERTS_UWORD_MAX UINT_MAX
 #define ERTS_SWORD_MAX INT_MAX
+#define ERTS_SWORD_MIN INT_MIN
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
 #define ErtsStrToSint strtol
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
@@ -345,6 +347,7 @@ typedef long long          Sint  erts_align_attribute(sizeof(long long));
 #define UWORD_CONSTANT(Const) Const##ULL
 #define ERTS_UWORD_MAX ULLONG_MAX
 #define ERTS_SWORD_MAX LLONG_MAX
+#define ERTS_SWORD_MIN LLONG_MIN
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
 #if defined(__WIN32__)
 #define ErtsStrToSint _strtoi64
