@@ -21,7 +21,7 @@
 -module(socket_client).
 
 -export([
-         start/1,
+         start/1, start/5,
          start_tcp/1, start_tcp/2, start_tcp6/1,
          start_udp/1, start_udp/2, start_udp6/1
         ]).

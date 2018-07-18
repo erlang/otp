@@ -369,6 +369,20 @@
 	<cell>no</cell>
 	<cell>type = dgram | raw</cell>
       </row>
+      <row>
+	<cell>mtu</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>Get: Only after the socket has been connected</cell>
+      </row>
+      <row>
+	<cell>v6only</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
     </table>
     
     <p>Options for level <c>tcp</c>: </p>

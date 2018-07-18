@@ -388,6 +388,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
 #define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
 #define SOCKET_OPT_IPV6_HOPLIMIT             12
+#define SOCKET_OPT_IPV6_MTU                  17
 #define SOCKET_OPT_IPV6_V6ONLY               33
 
 #define SOCKET_OPT_TCP_CONGESTION   1
@@ -1008,6 +1009,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
                                               ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_MTU)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
+                                         SocketDescriptor* descP,
+                                         ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1227,12 +1233,17 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP);
 #endif
+#if defined(IPV6_MTU)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
+                                         SocketDescriptor* descP);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
 #endif
 
 #endif // defined(SOL_IPV6)
+
 static ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     int               eOpt);
@@ -4960,6 +4971,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MTU)
+    case SOCKET_OPT_IPV6_MTU:
+        result = nsetopt_lvl_ipv6_mtu(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = nsetopt_lvl_ipv6_v6only(env, descP, eVal);
@@ -5006,6 +5023,17 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        ERL_NIF_TERM      eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT, eVal);
+}
+#endif
+
+
+#if defined(IPV6_MTU)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
+                                  SocketDescriptor* descP,
+                                  ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU, eVal);
 }
 #endif
 
@@ -6697,6 +6725,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MTU)
+    case SOCKET_OPT_IPV6_MTU:
+        result = ngetopt_lvl_ipv6_mtu(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = ngetopt_lvl_ipv6_v6only(env, descP);
@@ -6723,6 +6757,16 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT);
+}
+#endif
+
+
+#if defined(IPV6_MTU)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
+                                  SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU);
 }
 #endif
 

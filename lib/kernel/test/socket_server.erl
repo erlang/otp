@@ -22,8 +22,10 @@
 
 -export([
          start/0, start/4,
-         start_tcp/0, start_tcp/1,
-         start_udp/0, start_udp/1
+         start_tcp/0, start_tcp/1, start_tcp/2,
+         start_tcp4/1, start_tcp6/1,
+         start_udp/0, start_udp/1, start_udp/2,
+         start_udp4/1, start_udp6/1
         ]).
 
 -define(LIB, socket_lib).
@@ -41,13 +43,31 @@ start_tcp() ->
     start_tcp(false).
 
 start_tcp(Peek) ->
-    start(inet, stream, tcp, Peek).
+    start_tcp4(Peek).
+
+start_tcp4(Peek) ->
+    start_tcp(inet, Peek).
+
+start_tcp6(Peek) ->
+    start_tcp(inet6, Peek).
+
+start_tcp(Domain, Peek) when is_boolean(Peek) ->
+    start(Domain, stream, tcp, Peek).
 
 start_udp() ->
     start_udp(false).
 
-start_udp(Peek) when is_boolean(Peek) ->
-    start(inet, dgram, udp, Peek).
+start_udp(Peek) ->
+    start_udp4(Peek).
+
+start_udp4(Peek) ->
+    start_udp(inet, Peek).
+
+start_udp6(Peek) ->
+    start_udp(inet6, Peek).
+
+start_udp(Domain, Peek) when is_boolean(Peek) ->
+    start(Domain, dgram, udp, Peek).
 
 start(Domain, Type, Proto, Peek) ->
     put(sname, "starter"),

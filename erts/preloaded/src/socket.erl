@@ -586,7 +586,7 @@
 %% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14).
 %% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15).
 %% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16).
-%% -define(SOCKET_OPT_IPV6_MTU,               17).
+-define(SOCKET_OPT_IPV6_MTU,               17).
 %% -define(SOCKET_OPT_IPV6_MTU_DISCOVER,      18).
 %% -define(SOCKET_OPT_IPV6_MULTICAST_HOPS,    19).
 %% -define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
@@ -2105,6 +2105,8 @@ enc_setopt_value(ipv6, drop_membership, #{multiaddr := MA,
 enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
+enc_setopt_value(ipv6, mtu, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(ipv6, v6only, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
@@ -2458,8 +2460,8 @@ enc_sockopt_key(ipv6 = L, join_group = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, leave_group = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, mtu = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, mtu = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_MTU;
 enc_sockopt_key(ipv6 = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, multicast_hops = Opt, _Dir, _D, _T, _P) ->
