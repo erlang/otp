@@ -291,7 +291,7 @@
                             ttl |
                             unblock_source.
 -type ipv6_socket_option() ::
-        addform |
+        addrform |
         add_membership |
         authhdr |
         auth_level |
@@ -327,8 +327,17 @@
 
 -type tcp_socket_option()  :: congestion |
                               cork |
+                              info |
+                              keepidle |
+                              keepintvl |
+                              keepcnt |
                               maxseg |
-                              nodelay.
+                              md5sig |
+                              nodelay |
+                              noopt |
+                              nopush |
+                              syncnt |
+                              user_timeout.
 
 -type udp_socket_option() :: cork.
 
@@ -2412,13 +2421,77 @@ enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% IPv6 socket options
+enc_sockopt_key(ipv6 = L, addrform = Opt, set = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ipv6, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_ADD_MEMBERSHIP;
+enc_sockopt_key(ipv6 = L, authhdr = Opt, set = _Dir, _D, T, _P) 
+  when ((T =:= dgram) orelse (T =:= raw)) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, auth_level = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, checksum = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ipv6, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_DROP_MEMBERSHIP;
-enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
+enc_sockopt_key(ipv6 = L, dstopts = Opt, set = _Dir, _D, T, _P)
+  when (T =:= dgram) orelse (T =:= raw) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, esp_trans_level = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, esp_network_level = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, flowinfo = Opt, set = _Dir, _D, T, _P)
+  when (T =:= dgram) orelse (T =:= raw) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, set = _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;
+enc_sockopt_key(ipv6 = L, hopopts = Opt, set = _Dir, _D, T, _P) 
+  when ((T =:= dgram) orelse (T =:= raw)) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, ipcomp_level = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, join_group = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, leave_group = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, mtu = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, mtu_discover = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, multicast_hops = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, multicast_if = Opt, _Dir, _D, T, _P) 
+  when (T =:= dgram) orelse (T =:= raw) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, multicast_loop = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, portrange = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, pktinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, pktoptions = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, recverr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, recvpktinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, router_alert = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, rthdr = Opt, set = _Dir, _D, T, _P) 
+  when ((T =:= dgram) orelse (T =:= raw)) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, tclass = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, unicast_hops = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, use_min_mtu = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = L, v6only = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
@@ -2429,10 +2502,26 @@ enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
 enc_sockopt_key(tcp = L, cork = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
+enc_sockopt_key(tcp = L, keepidle = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(tcp = L, keepintvl = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(tcp = L, keepcnt = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_MAXSEG;
+enc_sockopt_key(tcp = L, md5sig = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(tcp, nodelay = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_NODELAY;
+enc_sockopt_key(tcp = L, noopt = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(tcp = L, nopush = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(tcp = L, syncnt = Opt, _Dir, _D, _T, _P) -> % Only set? 1..255
+    not_supported({L, Opt});
+enc_sockopt_key(tcp = L, user_timeout = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(tcp = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
@@ -2443,10 +2532,70 @@ enc_sockopt_key(udp = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% SCTP socket options
+enc_sockopt_key(sctp = L, adaption_layer = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, associnfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, auth_active_key = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, auth_asconf = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, auth_chunk = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, auth_key = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, auth_delete_key = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(sctp, autoclose = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SCTP_AUTOCLOSE;
+enc_sockopt_key(sctp = L, context = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, default_send_params = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, delayed_ack_time = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, disable_fragments = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, hmac_ident = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, events = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, explicit_eor = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, fragment_interleave = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, get_peer_addr_info = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, initmsg = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, i_want_mapped_v4_addr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, local_auth_chunks = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, maxseg = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, maxburst = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SCTP_NODELAY;
+enc_sockopt_key(sctp = L, partial_delivery_point = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, peer_addr_params = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, peer_auth_chunks = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, primary_addr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, reset_streams = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, rtoinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, set_peer_primary_addr = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, status = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, use_exp_recvinfo = Opt, _Dir, _D, _T, _P) ->
+    not_supported({L, Opt});
 enc_sockopt_key(sctp = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
