@@ -580,15 +580,20 @@ read_link_info(Name, Opts) ->
     read_info_1(Name, 0, proplist_get_value(time, Opts, local)).
 
 read_info_1(Name, FollowLinks, TimeType) ->
-    try read_info_nif(encode_path(Name), FollowLinks) of
-        {error, Reason} -> {error, Reason};
-        FileInfo ->
-            CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
-            MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
-            ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
-            {ok, FileInfo#file_info{ ctime = CTime, mtime = MTime, atime = ATime }}
+    try
+        case read_info_nif(encode_path(Name), FollowLinks) of
+            {error, Reason} ->
+                {error, Reason};
+            FileInfo ->
+                CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
+                MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
+                ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
+                {ok, FileInfo#file_info{ ctime = CTime,
+                                         mtime = MTime,
+                                         atime = ATime }}
+        end
     catch
-        error:badarg -> {error, badarg}
+        error:_ -> {error, badarg}
     end.
 
 write_file_info(Filename, Info) ->

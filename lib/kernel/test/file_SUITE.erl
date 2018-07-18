@@ -1367,6 +1367,10 @@ file_info_basic_file(Config) when is_list(Config) ->
     io:put_chars(Fd1, "foo bar"),
     ok = ?FILE_MODULE:close(Fd1),
 
+    %% Don't crash the file server when passing incorrect arguments.
+    {error,badarg} = ?FILE_MODULE:read_file_info(Name, [{time, gurka}]),
+    {error,badarg} = ?FILE_MODULE:read_file_info([#{} | gaffel]),
+
     %% Test that the file has the expected attributes.
     %% The times are tricky, so we will save them to a separate test case.
     {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name),
