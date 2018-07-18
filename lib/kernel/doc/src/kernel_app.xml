@@ -310,24 +310,31 @@
       <tag><c>net_ticktime = TickTime</c></tag>
       <item>
         <marker id="net_ticktime"></marker>
-        <p>Specifies the <c>net_kernel</c> tick time. <c>TickTime</c>
-          is specified in seconds. Once every <c>TickTime/4</c> second, all
-          connected nodes are ticked (if anything else is written
-          to a node). If nothing is received from another node
-          within the last four tick times, that node is considered
-          to be down. This ensures that nodes that are not responding,
-          for reasons such as hardware errors, are considered to be
-          down.</p>
-        <p>The time <c>T</c>, in which a node that is not responding is
-          detected, is calculated as <c><![CDATA[MinT < T < MaxT]]></c>, where:</p>
+        <p>Specifies the <c>net_kernel</c> tick time in seconds. This is the
+	approximate time a connected node may be unresponsive until it is
+	considered down and thereby disconnected.</p>
+	<p>Once every <c>TickTime/4</c> seconds, each connected node is ticked
+	if nothing has been sent to it during that last <c>TickTime/4</c>
+	interval. A tick is a small package sent on the connection. A connected
+	node is considered to be down if no ticks or payload packages have been
+	received during the last four <c>TickTime/4</c> intervals. This ensures
+	that nodes that are not responding, for reasons such as hardware errors,
+	are considered to be down.</p>
+        <p>As the availability is only checked every <c>TickTime/4</c> seconds,
+	the actual time <c>T</c> a node have been unresponsive when
+	detected may vary between <c>MinT</c> and <c>MaxT</c>,
+	where:</p>
         <code type="none">
 MinT = TickTime - TickTime / 4
 MaxT = TickTime + TickTime / 4</code>
-        <p><c>TickTime</c> defaults to <c>60</c> (seconds). Thus,
-          <c><![CDATA[45 < T < 75]]></c> seconds.</p>
-        <p>Notice that <em>all</em> communicating nodes are to have the <em>same</em>
-          <c>TickTime</c> value specified.</p>
-        <p>Normally, a terminating node is detected immediately.</p>
+        <p><c>TickTime</c> defaults to <c>60</c> seconds. Thus,
+        <c><![CDATA[45 < T < 75]]></c> seconds.</p>
+        <p>Notice that <em>all</em> communicating nodes are to have the
+	<em>same</em> <c>TickTime</c> value specified, as it determines both the
+	frequency of outgoing ticks and the expected frequency of incominging
+	ticks.</p>
+        <p>Normally, a terminating node is detected immediately by the transport
+	protocol (like TCP/IP).</p>
       </item>
       <tag><c>shutdown_timeout = integer() | infinity</c></tag>
       <item>
