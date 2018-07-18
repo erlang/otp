@@ -278,7 +278,7 @@ stop() ->
 	Other -> Other
     end.
 
--spec change_config(Config::atom(), Value::_) -> ok | {error, term()}.
+-spec change_config(Config::atom(), Value::_) -> {ok, _} | {error, term()}.
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
