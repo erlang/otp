@@ -128,7 +128,7 @@ const Eterm etp_hole_marker = 0;
 
 static int modified_sched_thread_suggested_stack_size = 0;
 
-Eterm erts_init_process_id;
+Eterm erts_init_process_id = ERTS_INVALID_PID;
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
@@ -2258,6 +2258,7 @@ erl_start(int argc, char **argv)
 
     erts_init_process_id = erl_first_process_otp("otp_ring0", NULL, 0,
                                                  boot_argc, boot_argv);
+	ASSERT(erts_init_process_id != ERTS_INVALID_PID);
 
     {
 	/*

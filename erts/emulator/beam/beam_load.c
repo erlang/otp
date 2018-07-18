@@ -4245,21 +4245,55 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 {
     ErlFunEntry* fe;
     GenOp* op;
+    Uint arity, num_free;
 
     if (idx.val >= stp->num_lambdas) {
-	stp->lambda_error = "missing or short chunk 'FunT'";
-	fe = 0;
+        stp->lambda_error = "missing or short chunk 'FunT'";
+        fe = 0;
+        num_free = 0;
+        arity = 0;
     } else {
-	fe = stp->lambdas[idx.val].fe;
+        fe = stp->lambdas[idx.val].fe;
+        num_free = stp->lambdas[idx.val].num_free;
+        arity = fe->arity;
     }
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_make_fun_2;
-    op->arity = 2;
-    op->a[0].type = TAG_u;
-    op->a[0].val = (BeamInstr) fe;
-    op->a[1].type = TAG_u;
-    op->a[1].val = stp->lambdas[idx.val].num_free;
+
+    /*
+     * It's possible this is called before init process is started,
+     * skip the optimisation in such case.
+     */
+    if (num_free == 0 && erts_init_process_id != ERTS_INVALID_PID) {
+        Uint lit;
+        Eterm* hp;
+        ErlFunThing* funp;
+
+        lit = new_literal(stp, &hp, ERL_FUN_SIZE);
+        funp = (ErlFunThing *) hp;
+        erts_refc_inc(&fe->refc, 2);
+        funp->thing_word = HEADER_FUN;
+        funp->next = NULL;
+        funp->fe = fe;
+        funp->num_free = 0;
+        funp->creator = erts_init_process_id;
+        funp->arity = arity;
+
+        op->op = genop_move_2;
+        op->arity = 2;
+        op->a[0].type = TAG_q;
+        op->a[0].val = lit;
+        op->a[1].type = TAG_x;
+        op->a[1].val = 0;
+    } else {
+        op->op = genop_i_make_fun_2;
+        op->arity = 2;
+        op->a[0].type = TAG_u;
+        op->a[0].val = (BeamInstr) fe;
+        op->a[1].type = TAG_u;
+        op->a[1].val = num_free;
+    }
+
     op->next = NULL;
     return op;
 }

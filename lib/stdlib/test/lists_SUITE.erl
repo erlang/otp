@@ -1679,7 +1679,7 @@ make_fun() ->
     receive {Pid, Fun} -> Fun end.
 
 make_fun(Pid) ->
-    Pid ! {self(), fun make_fun/1}.
+    Pid ! {self(), fun (X) -> {X, Pid} end}.
 
 fun_pid(Fun) ->
     erlang:fun_info(Fun, pid).
