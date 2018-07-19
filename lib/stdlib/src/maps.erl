@@ -32,10 +32,12 @@
          new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
--opaque iterator() :: {term(), term(), iterator()}
-                      | none | nonempty_improper_list(integer(),map()).
+-opaque iterator(Key, Value) :: {Key, Value, iterator(Key, Value)} | none
+                              | nonempty_improper_list(integer(), #{Key => Value}).
 
--export_type([iterator/0]).
+-type iterator() :: iterator(term(), term()).
+
+-export_type([iterator/2, iterator/0]).
 
 -dialyzer({no_improper_lists, iterator/1}).
 
@@ -50,9 +52,7 @@
 get(_,_) -> erlang:nif_error(undef).
 
 -spec find(Key,Map) -> {ok, Value} | error when
-    Key :: term(),
-    Map :: map(),
-    Value :: term().
+    Map :: #{Key => Value, _ => _}.
 
 find(_,_) -> erlang:nif_error(undef).
 
@@ -75,9 +75,8 @@ is_key(_,_) -> erlang:nif_error(undef).
 
 
 -spec keys(Map) -> Keys when
-    Map :: map(),
-    Keys :: [Key],
-    Key :: term().
+    Map :: #{Key => _},
+    Keys :: [Key].
 
 keys(_) -> erlang:nif_error(undef).
 
@@ -116,17 +115,13 @@ put(_,_,_) -> erlang:nif_error(undef).
 remove(_,_) -> erlang:nif_error(undef).
 
 -spec take(Key,Map1) -> {Value,Map2} | error when
-    Key :: term(),
-    Map1 :: map(),
-    Value :: term(),
-    Map2 :: map().
+    Map1 :: #{Key => Value, _ => _},
+    Map2 :: #{_ => _}.
 
 take(_,_) -> erlang:nif_error(undef).
 
 -spec to_list(Map) -> [{Key,Value}] when
-    Map :: map(),
-    Key :: term(),
-    Value :: term().
+    Map :: #{Key => Value}.
 
 to_list(Map) when is_map(Map) ->
     to_list_internal(erts_internal:map_next(0, Map, []));
@@ -140,28 +135,24 @@ to_list_internal(Acc) ->
 
 %% Shadowed by erl_bif_types: maps:update/3
 -spec update(Key,Value,Map1) -> Map2 when
-    Key :: term(),
-    Value :: term(),
-    Map1 :: map(),
-    Map2 :: map().
+    Map1 :: #{Key := _, _ => _},
+    Map2 :: #{Key := Value, _ => _}.
 
 update(_,_,_) -> erlang:nif_error(undef).
 
 
 -spec values(Map) -> Values when
-    Map :: map(),
-    Values :: [Value],
-    Value :: term().
+    Map :: #{_ => Value},
+    Values :: [Value].
 
 values(_) -> erlang:nif_error(undef).
 
 %% End of BIFs
 
 -spec update_with(Key,Fun,Map1) -> Map2 when
-      Key :: term(),
-      Map1 :: map(),
-      Map2 :: map(),
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()).
+      Map1 :: #{Key := Value1, _ => _},
+      Map2 :: #{Key := Value2, _ => _},
+      Fun :: fun((Value1) -> Value2).
 
 update_with(Key,Fun,Map) when is_function(Fun,1), is_map(Map) ->
     case Map of
@@ -173,11 +164,9 @@ update_with(Key,Fun,Map) ->
 
 
 -spec update_with(Key,Fun,Init,Map1) -> Map2 when
-      Key :: term(),
-      Map1 :: Map1,
-      Map2 :: Map2,
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
-      Init :: term().
+      Map1 :: #{Key => Value1, _ => _},
+      Map2 :: #{Key := Value2 | Init, _ => _},
+      Fun :: fun((Value1) -> Value2).
 
 update_with(Key,Fun,Init,Map) when is_function(Fun,1), is_map(Map) ->
     case Map of
@@ -189,10 +178,7 @@ update_with(Key,Fun,Init,Map) ->
 
 
 -spec get(Key, Map, Default) -> Value | Default when
-        Key :: term(),
-        Map :: map(),
-        Value :: term(),
-        Default :: term().
+      Map :: #{Key => Value, _ => _}.
 
 get(Key,Map,Default) when is_map(Map) ->
     case Map of
@@ -203,12 +189,10 @@ get(Key,Map,Default) ->
     erlang:error({badmap,Map},[Key,Map,Default]).
 
 
--spec filter(Pred,MapOrIter) -> Map when
+-spec filter(Pred, MapOrIter) -> Map when
       Pred :: fun((Key, Value) -> boolean()),
-      Key  :: term(),
-      Value :: term(),
-      MapOrIter :: map() | iterator(),
-      Map :: map().
+      MapOrIter :: #{Key => Value} | iterator(Key, Value),
+      Map :: #{Key => Value}.
 
 filter(Pred,Map) when is_function(Pred,2), is_map(Map) ->
     maps:from_list(filter_1(Pred, iterator(Map)));
@@ -231,14 +215,11 @@ filter_1(Pred, Iter) ->
     end.
 
 -spec fold(Fun,Init,MapOrIter) -> Acc when
-    Fun :: fun((K, V, AccIn) -> AccOut),
+    Fun :: fun((Key, Value, AccIn) -> AccOut),
     Init :: term(),
-    Acc :: term(),
-    AccIn :: term(),
-    AccOut :: term(),
-    MapOrIter :: map() | iterator(),
-    K :: term(),
-    V :: term().
+    Acc :: AccOut,
+    AccIn :: Init | AccOut,
+    MapOrIter :: #{Key => Value} | iterator(Key, Value).
 
 fold(Fun,Init,Map) when is_function(Fun,3), is_map(Map) ->
     fold_1(Fun,Init,iterator(Map));
@@ -256,12 +237,9 @@ fold_1(Fun, Acc, Iter) ->
     end.
 
 -spec map(Fun,MapOrIter) -> Map when
-    Fun :: fun((K, V1) -> V2),
-    MapOrIter :: map() | iterator(),
-    Map :: map(),
-    K :: term(),
-    V1 :: term(),
-    V2 :: term().
+    Fun :: fun((Key, Value1) -> Value2),
+    MapOrIter :: #{Key => Value1} | iterator(Key, Value1),
+    Map :: #{Key => Value2}.
 
 map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
     maps:from_list(map_1(Fun, iterator(Map)));
@@ -287,17 +265,15 @@ size(Val) ->
     erlang:error({badmap,Val},[Val]).
 
 -spec iterator(Map) -> Iterator when
-      Map :: map(),
-      Iterator :: iterator().
+      Map :: #{Key => Value},
+      Iterator :: iterator(Key, Value).
 
 iterator(M) when is_map(M) -> [0 | M];
 iterator(M) -> erlang:error({badmap, M}, [M]).
 
 -spec next(Iterator) -> {Key, Value, NextIterator} | 'none' when
-      Iterator :: iterator(),
-      Key :: term(),
-      Value :: term(),
-      NextIterator :: iterator().
+      Iterator :: iterator(Key, Value),
+      NextIterator :: iterator(Key, Value).
 next({K, V, I}) ->
     {K, V, I};
 next([Path | Map]) when is_integer(Path), is_map(Map) ->
@@ -320,9 +296,8 @@ without(Ks,M) ->
 
 -spec with(Ks, Map1) -> Map2 when
     Ks :: [K],
-    Map1 :: map(),
-    Map2 :: map(),
-    K :: term().
+    Map1 :: #{K => V, _ => _},
+    Map2 :: #{K => V}.
 
 with(Ks,Map1) when is_list(Ks), is_map(Map1) ->
     maps:from_list(with_1(Ks, Map1));
