@@ -140,6 +140,9 @@
     <datatype>
       <name name="sctp_assocparams"/>
     </datatype>
+    <datatype>
+      <name name="sctp_rtoinfo"/>
+    </datatype>
   </datatypes>
 
   <funcs>

@@ -50,6 +50,13 @@
 	<cell><em>Other</em></cell>
       </row>
       <row>
+	<cell>assoc_id</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>type = seqpacket, protocol = sctp, is an association</cell>
+      </row>
+      <row>
 	<cell>debug</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
@@ -482,6 +489,13 @@
       <row>
 	<cell>nodelay</cell>
 	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rtoinfo</cell>
+	<cell>sctp_rtoinfo()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>

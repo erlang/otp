@@ -204,10 +204,12 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
             i("Miscellaneous options: "
               "~n   associnfo:         ~s"
               "~n   autoclose:         ~s"
-              "~n   disable-fragments: ~s", 
+              "~n   disable-fragments: ~s"
+              "~n   rtoinfo:           ~s", 
               [GO(associnfo),
                GO(autoclose),
-               GO(disable_fragments)]),
+               GO(disable_fragments),
+               GO(rtoinfo)]),
             Events = #{data_in          => true,
                        association      => true,
                        address          => true,

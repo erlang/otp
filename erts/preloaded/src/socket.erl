@@ -96,6 +96,7 @@
               ipv6_pmtudisc/0,
               sctp_event_subscribe/0,
               sctp_assocparams/0,
+              sctp_rtoinfo/0,
 
 
               msg_hdr/0
@@ -194,6 +195,11 @@
                               peer_rwnd      := non_neg_integer(),
                               local_rwnd     := non_neg_integer(),
                               cookie_life    := non_neg_integer()}.
+
+-type sctp_rtoinfo() :: #{assoc_id := integer(),
+                          initial  := non_neg_integer(),
+                          max      := non_neg_integer(),
+                          min      := non_neg_integer()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -672,7 +678,7 @@
 %% -define(SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS,       26).
 %% -define(SOCKET_OPT_SCTP_PRIMARY_ADDR,           27).
 %% -define(SOCKET_OPT_SCTP_RESET_STREAMS,          28).
-%% -define(SOCKET_OPT_SCTP_RTOINFO,                29).
+-define(SOCKET_OPT_SCTP_RTOINFO,                29).
 %% -define(SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  30).
 %% -define(SOCKET_OPT_SCTP_STATUS,                 31).
 %% -define(SOCKET_OPT_SCTP_USE_EXT_RECVINFO,       32).
@@ -2226,7 +2232,21 @@ enc_setopt_value(sctp, events, #{data_in          := DataIn,
 enc_setopt_value(sctp, nodelay, V, _D, _T, P)
   when is_boolean(V) andalso (P =:= sctp) ->
     V;
+enc_setopt_value(sctp, rtoinfo, #{assoc_id := AssocId,
+                                  initial  := Init,
+                                  max      := Max,
+                                  min      := Min} = V,
+                 _D, _T, P)
+  when is_integer(AssocId) andalso
+       is_integer(Init) andalso (Init >= 0) andalso
+       is_integer(Max)  andalso (Max >= 0)  andalso
+       is_integer(Min)  andalso (Min >= 0)  andalso
+       (P =:= sctp) ->
+    V;
+enc_setopt_value(sctp = L, Opt, V, _D, _T, _P) ->
+    not_supported({L, Opt, V});
 
+%% Is this correct? What about getopt?
 enc_setopt_value(L, Opt, V, _, _, _)
   when is_integer(L) andalso is_integer(Opt) andalso is_binary(V) ->
     V.
@@ -2672,8 +2692,8 @@ enc_sockopt_key(sctp = L, primary_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, reset_streams = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, rtoinfo = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, rtoinfo = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_RTOINFO;
 enc_sockopt_key(sctp = L, set_peer_primary_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, status = Opt, _Dir, _D, _T, _P) ->
