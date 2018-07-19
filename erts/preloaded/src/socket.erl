@@ -31,7 +31,7 @@
 
 -export([
          open/2, open/3, open/4,
-         bind/2,
+         bind/2, bind/3,
          connect/2, connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
@@ -897,6 +897,70 @@ bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
             ERROR
     end.
 
+
+
+%% ===========================================================================
+%%
+%% bind - Add or remove a bind addresses on a socket
+%%
+%% Calling this function is only valid if the socket is: 
+%%   type     = seqpacket
+%%   protocol = sctp
+%%
+%% If the domain is inet, then all addresses *must* be IPv4.
+%% If the domain is inet6, the addresses can be aither IPv4 or IPv6.
+%%
+
+-spec bind(Socket, Addrs, Action) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Addrs  :: [sockaddr()],
+      Action :: add | remove,
+      Reason :: term().
+
+bind(#socket{ref  = SockRef, 
+             info = #{domain   := Domain,
+                      type     := seqpacket, 
+                      protocol := sctp}} = _Socket, Addrs, Action) 
+  when is_list(Addrs) andalso ((Action =:= add) orelse (Action =:= remove)) ->
+    try
+        begin
+            validate_addrs(Domain, Addrs),
+            nif_bind(SockRef, Addrs, Action)
+        end
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
+
+
+validate_addrs(inet = _Domain, Addrs) ->
+    validate_inet_addrs(Addrs);
+validate_addrs(inet6 = _Domain, Addrs) ->
+    validate_inet6_addrs(Addrs).
+
+validate_inet_addrs(Addrs) ->
+    Validator = fun(#{family := inet,
+                      addrs  := Addr}) when is_tuple(Addr) andalso 
+                                            (size(Addr) =:= 4) ->
+                        ok;
+                   (X) ->
+                        throw({error, {invalid_address, X}})
+                end,
+    lists:foreach(Validator, Addrs).
+
+validate_inet6_addrs(Addrs) ->
+    Validator = fun(#{family := inet,
+                      addrs  := Addr}) when is_tuple(Addr) andalso 
+                                            (size(Addr) =:= 4) ->
+                        ok;
+                   (#{family := inet6,
+                      addrs  := Addr}) when is_tuple(Addr) andalso 
+                                            (size(Addr) =:= 8) ->
+                        ok;
+                   (X) ->
+                        throw({error, {invalid_address, X}})
+                end,
+    lists:foreach(Validator, Addrs).
 
 
 %% ===========================================================================
@@ -2699,8 +2763,8 @@ enc_sockopt_key(sctp = _L, rtoinfo = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SCTP_RTOINFO;
 enc_sockopt_key(sctp = L, set_peer_primary_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, status = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = L, status = Opt, get = _Dir, _D, _T, _P) ->
+    not_supported({L, Opt}); % ?SOCKET_OPT_SCTP_RTOINFO;
 enc_sockopt_key(sctp = L, use_exp_recvinfo = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, UnknownOpt, _Dir, _D, _T, _P) ->
@@ -2867,6 +2931,9 @@ nif_open(_Domain, _Type, _Protocol, _Extra) ->
     erlang:error(badarg).
 
 nif_bind(_SRef, _SockAddr) ->
+    erlang:error(badarg).
+
+nif_bind(_SRef, _SockAddrs, _Action) ->
     erlang:error(badarg).
 
 nif_connect(_SRef, _SockAddr) ->
