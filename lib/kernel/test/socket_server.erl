@@ -200,8 +200,14 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
                                {error, R} -> f("error: ~p", [R])
                            end
                  end,
+            %% ok = socket:setopt(Sock, otp, debug, true),
             i("Miscellaneous options: "
-              "~n   disable-fragments: ~s", [GO(disable_fragments)]),
+              "~n   associnfo:         ~s"
+              "~n   autoclose:         ~s"
+              "~n   disable-fragments: ~s", 
+              [GO(associnfo),
+               GO(autoclose),
+               GO(disable_fragments)]),
             Events = #{data_in          => true,
                        association      => true,
                        address          => true,

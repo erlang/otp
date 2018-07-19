@@ -542,6 +542,7 @@ typedef union {
 
 #define SOCKET_OPT_UDP_CORK         1
 
+#define SOCKET_OPT_SCTP_ASSOCINFO           2
 #define SOCKET_OPT_SCTP_AUTOCLOSE           8
 #define SOCKET_OPT_SCTP_DISABLE_FRAGMENTS  12
 #define SOCKET_OPT_SCTP_EVENTS             14
@@ -1212,6 +1213,11 @@ static ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               eOpt,
                                      ERL_NIF_TERM      eVal);
+#if defined(SCTP_ASSOCINFO)
+static ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(SCTP_AUTOCLOSE)
 static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
@@ -1435,6 +1441,10 @@ static ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               eOpt);
+#if defined(SCTP_ASSOCINFO)
+static ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
+#endif
 #if defined(SCTP_AUTOCLOSE)
 static ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
@@ -1780,11 +1790,13 @@ static const struct in6_addr in6addr_loopback =
 static char str_adaptation_layer[] = "adaptation_layer";
 static char str_address[]          = "address";
 static char str_association[]      = "association";
+static char str_assoc_id[]         = "assoc_id";
 static char str_authentication[]   = "authentication";
 // static char str_any[]              = "any";
 static char str_close[]            = "close";
 static char str_closed[]           = "closed";
 static char str_closing[]          = "closing";
+static char str_cookie_life[]      = "cookie_life";
 static char str_data_in[]          = "data_in";
 static char str_do[]               = "do";
 static char str_dont[]             = "dont";
@@ -1794,12 +1806,15 @@ static char str_in4_sockaddr[]     = "in4_sockaddr";
 static char str_in6_sockaddr[]     = "in6_sockaddr";
 static char str_iow[]              = "iow";
 static char str_interface[]        = "interface";
+static char str_local_rwnd[]       = "local_rwnd";
 // static char str_loopback[]         = "loopback";
+static char str_max_rxt[]          = "max_rxt";
 static char str_multiaddr[]        = "multiaddr";
 static char str_nif_abort[]        = "nif_abort";
 static char str_num_dlocal[]       = "num_domain_local";
 static char str_num_dinet[]        = "num_domain_inet";
 static char str_num_dinet6[]       = "num_domain_inet6";
+static char str_num_peer_dests[]   = "num_peer_dests";
 static char str_num_pip[]          = "num_proto_ip";
 static char str_num_psctp[]        = "num_proto_sctp";
 static char str_num_ptcp[]         = "num_proto_tcp";
@@ -1810,6 +1825,7 @@ static char str_num_tseqpkgs[]     = "num_type_seqpacket";
 static char str_num_tstreams[]     = "num_type_stream";
 static char str_partial_delivery[] = "partial_delivery";
 static char str_peer_error[]       = "peer_error";
+static char str_peer_rwnd[]        = "peer_rwnd";
 static char str_probe[]            = "probe";
 static char str_select[]           = "select";
 static char str_sender_dry[]       = "sender_dry";
@@ -1878,10 +1894,12 @@ ERL_NIF_TERM esock_atom_einval;
 static ERL_NIF_TERM atom_adaptation_layer;
 static ERL_NIF_TERM atom_address;
 static ERL_NIF_TERM atom_association;
+static ERL_NIF_TERM atom_assoc_id;
 static ERL_NIF_TERM atom_authentication;
 static ERL_NIF_TERM atom_close;
 static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_closing;
+static ERL_NIF_TERM atom_cookie_life;
 static ERL_NIF_TERM atom_data_in;
 static ERL_NIF_TERM atom_do;
 static ERL_NIF_TERM atom_dont;
@@ -1891,11 +1909,14 @@ static ERL_NIF_TERM atom_in4_sockaddr;
 static ERL_NIF_TERM atom_in6_sockaddr;
 static ERL_NIF_TERM atom_iow;
 static ERL_NIF_TERM atom_interface;
+static ERL_NIF_TERM atom_local_rwnd;
+static ERL_NIF_TERM atom_max_rxt;
 static ERL_NIF_TERM atom_multiaddr;
 static ERL_NIF_TERM atom_nif_abort;
 static ERL_NIF_TERM atom_num_dinet;
 static ERL_NIF_TERM atom_num_dinet6;
 static ERL_NIF_TERM atom_num_dlocal;
+static ERL_NIF_TERM atom_num_peer_dests;
 static ERL_NIF_TERM atom_num_pip;
 static ERL_NIF_TERM atom_num_psctp;
 static ERL_NIF_TERM atom_num_ptcp;
@@ -1906,6 +1927,7 @@ static ERL_NIF_TERM atom_num_tseqpkgs;
 static ERL_NIF_TERM atom_num_tstreams;
 static ERL_NIF_TERM atom_partial_delivery;
 static ERL_NIF_TERM atom_peer_error;
+static ERL_NIF_TERM atom_peer_rwnd;
 static ERL_NIF_TERM atom_probe;
 static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_sender_dry;
@@ -2042,7 +2064,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
         ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
         ERL_NIF_TERM info;
         unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-        unsigned int numVals = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
 
         ESOCK_ASSERT( (numKeys == numVals) );
 
@@ -5513,6 +5535,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
             "\r\n", eOpt) );
 
     switch (eOpt) {
+#if defined(SCTP_ASSOCINFO)
+    case SOCKET_OPT_SCTP_ASSOCINFO:
+        result = nsetopt_lvl_sctp_associnfo(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SCTP_AUTOCLOSE)
     case SOCKET_OPT_SCTP_AUTOCLOSE:
         result = nsetopt_lvl_sctp_autoclose(env, descP, eVal);
@@ -5544,6 +5572,116 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
 
     return result;
 }
+
+
+/* nsetopt_lvl_sctp_associnfo - Level SCTP ASSOCINFO option
+ */
+#if defined(SCTP_ASSOCINFO)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM            result;
+    ERL_NIF_TERM            eAssocId, eMaxRxt, eNumPeerDests;
+    ERL_NIF_TERM            ePeerRWND, eLocalRWND, eCookieLife;
+    struct sctp_assocparams assocParams;
+    int                     res;
+    size_t                  sz;
+    unsigned int            tmp;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_associnfo -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return esock_make_error(env, esock_atom_einval);
+
+    // It must have atleast ten attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz < 6))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_associnfo -> extract attributes\r\n") );    
+
+    if (!GET_MAP_VAL(env, eVal, atom_assoc_id,          &eAssocId))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_max_rxt,        &eMaxRxt))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_num_peer_dests, &eNumPeerDests))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_peer_rwnd,      &ePeerRWND))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_local_rwnd,     &eLocalRWND))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_cookie_life,    &eCookieLife))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> decode attributes\r\n") );
+
+    if (!GET_INT(env, eAssocId, &assocParams.sasoc_assoc_id))
+        return esock_make_error(env, esock_atom_einval);
+    
+    /*
+     * We should really make sure this is ok in erlang (to ensure that 
+     * the value fits in 16-bits).
+     * The value should be a 16-bit unsigned int...
+     * Both sasoc_asocmaxrxt and sasoc_number_peer_destinations.
+     */
+    
+    /*
+    if (!GET_UINT(env, eAssocId, (unsigned int*) &assocParams.sasoc_asocmaxrxt))
+        return esock_make_error(env, esock_atom_einval);
+    */
+    if (!GET_UINT(env, eAssocId, &tmp))
+        return esock_make_error(env, esock_atom_einval);
+    assocParams.sasoc_asocmaxrxt = (uint16_t) tmp;
+
+    /*
+    if (!GET_UINT(env, eAssocId, (unsigned int*) &assocParams.sasoc_number_peer_destinations))
+        return esock_make_error(env, esock_atom_einval);
+    */
+    if (!GET_UINT(env, eAssocId, &tmp))
+        return esock_make_error(env, esock_atom_einval);
+    assocParams.sasoc_number_peer_destinations = (uint16_t) tmp;
+
+    if (!GET_UINT(env, eAssocId, &assocParams.sasoc_peer_rwnd))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_UINT(env, eAssocId, &assocParams.sasoc_local_rwnd))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_UINT(env, eAssocId, &assocParams.sasoc_cookie_life))
+        return esock_make_error(env, esock_atom_einval);
+    
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> set associnfo option\r\n") );
+
+    res = socket_setopt(descP->sock, IPPROTO_SCTP, SCTP_ASSOCINFO,
+                        &assocParams, sizeof(assocParams));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_associnfo -> done with"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+    
+}
+#endif
 
 
 /* nsetopt_lvl_sctp_autoclose - Level SCTP AUTOCLOSE option
@@ -7330,7 +7468,18 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
 {
     ERL_NIF_TERM result;
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_sctp -> entry with"
+            "\r\n   opt: %d"
+            "\r\n", eOpt) );
+
     switch (eOpt) {
+#if defined(SCTP_ASSOCINFO)
+    case SOCKET_OPT_SCTP_ASSOCINFO:
+        result = ngetopt_lvl_sctp_associnfo(env, descP);
+        break;
+#endif
+
 #if defined(SCTP_AUTOCLOSE)
     case SOCKET_OPT_SCTP_AUTOCLOSE:
         result = ngetopt_lvl_sctp_autoclose(env, descP);
@@ -7354,8 +7503,75 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
         break;
     }
 
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_sctp -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
     return result;
 }
+
+
+/* ngetopt_lvl_sctp_associnfo - Level SCTP ASSOCINFO option
+ *
+ * <KOLLA>
+ *
+ * We should really specify which association this relates to,
+ * as it is now we get assoc-id = 0. If this socket is an 
+ * association (and not an endpoint) then it will have an
+ * assoc id. But since the sctp support at present is "limited",
+ * we leave it for now.
+ * What do we do if this is an endpoint? Invalid op?
+ *
+ * </KOLLA>
+ */
+#if defined(SCTP_ASSOCINFO)
+static
+ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    ERL_NIF_TERM            result;
+    struct sctp_assocparams val;
+    SOCKOPTLEN_T            valSz = sizeof(val);
+    int                     res;
+
+    SSDBG( descP, ("SOCKET", "ngetopt_lvl_sctp_associnfo -> entry\r\n") );
+    
+    sys_memzero((char*) &val, valSz);
+    res = sock_getopt(descP->sock, IPPROTO_SCTP, SCTP_ASSOCINFO, &val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM eAssocParams;        
+        ERL_NIF_TERM keys[]  = {atom_assoc_id, atom_max_rxt, atom_num_peer_dests,
+                                atom_peer_rwnd, atom_local_rwnd, atom_cookie_life};
+        ERL_NIF_TERM vals[]  = {MKUI(env, val.sasoc_assoc_id),
+                                MKUI(env, val.sasoc_asocmaxrxt),
+                                MKUI(env, val.sasoc_number_peer_destinations),
+                                MKUI(env, val.sasoc_peer_rwnd),
+                                MKUI(env, val.sasoc_local_rwnd),
+                                MKUI(env, val.sasoc_cookie_life)};
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+        ESOCK_ASSERT( (numKeys == numVals) );
+
+        if (!MKMA(env, keys, vals, numKeys, &eAssocParams))
+            return esock_make_error(env, esock_atom_einval);;
+    
+        result = esock_make_ok2(env, eAssocParams);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_sctp_associnfo -> done with"
+            "\r\n   res:    %d"
+            "\r\n   result: %T"
+            "\r\n", res, result) );
+
+    return result;
+}
+#endif
 
 
 /* ngetopt_lvl_sctp_autoclose - Level SCTP AUTOCLOSE option
@@ -9610,10 +9826,12 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_adaptation_layer    = MKA(env, str_adaptation_layer);
     atom_address             = MKA(env, str_address);
     atom_association         = MKA(env, str_association);
+    atom_assoc_id            = MKA(env, str_assoc_id);
     atom_authentication      = MKA(env, str_authentication);
     atom_close               = MKA(env, str_close);
     atom_closed              = MKA(env, str_closed);
     atom_closing             = MKA(env, str_closing);
+    atom_cookie_life         = MKA(env, str_cookie_life);
     atom_data_in             = MKA(env, str_data_in);
     atom_do                  = MKA(env, str_do);
     atom_dont                = MKA(env, str_dont);
@@ -9623,11 +9841,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_in6_sockaddr        = MKA(env, str_in6_sockaddr);
     atom_iow                 = MKA(env, str_iow);
     atom_interface           = MKA(env, str_interface);
+    atom_local_rwnd          = MKA(env, str_local_rwnd);
+    atom_max_rxt             = MKA(env, str_max_rxt);
     atom_multiaddr           = MKA(env, str_multiaddr);
     atom_nif_abort           = MKA(env, str_nif_abort);
     atom_num_dinet           = MKA(env, str_num_dinet);
     atom_num_dinet6          = MKA(env, str_num_dinet6);
     atom_num_dlocal          = MKA(env, str_num_dlocal);
+    atom_num_peer_dests      = MKA(env, str_num_peer_dests);
     atom_num_pip             = MKA(env, str_num_pip);
     atom_num_psctp           = MKA(env, str_num_psctp);
     atom_num_ptcp            = MKA(env, str_num_ptcp);
@@ -9637,6 +9858,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_num_tseqpkgs        = MKA(env, str_num_tseqpkgs);
     atom_num_tstreams        = MKA(env, str_num_tstreams);
     atom_partial_delivery    = MKA(env, str_partial_delivery);
+    atom_peer_rwnd           = MKA(env, str_peer_rwnd);
     atom_peer_error          = MKA(env, str_peer_error);
     atom_probe               = MKA(env, str_probe);
     atom_select              = MKA(env, str_select);

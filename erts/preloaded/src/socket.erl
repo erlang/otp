@@ -95,6 +95,7 @@
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
               sctp_event_subscribe/0,
+              sctp_assocparams/0,
 
 
               msg_hdr/0
@@ -186,6 +187,13 @@
                                   adaptation_layer := boolean(),
                                   authentication   := boolean(),
                                   sender_dry       := boolean()}.
+
+-type sctp_assocparams() :: #{assoc_id       := integer(),
+                              max_rxt        := non_neg_integer(),
+                              num_peer_dests := non_neg_integer(),
+                              peer_rwnd      := non_neg_integer(),
+                              local_rwnd     := non_neg_integer(),
+                              cookie_life    := non_neg_integer()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -637,7 +645,7 @@
 -define(SOCKET_OPT_UDP_CORK,            1).
 
 %% -define(SOCKET_OPT_SCTP_ADAPTION_LAYER,          1).
-%% -define(SOCKET_OPT_SCTP_ASSOCINFO,               2).
+-define(SOCKET_OPT_SCTP_ASSOCINFO,               2).
 %% -define(SOCKET_OPT_SCTP_AUTH_ACTIVE_KEY,         3).
 %% -define(SOCKET_OPT_SCTP_AUTH_ASCONF,             4).
 %% -define(SOCKET_OPT_SCTP_AUTH_CHUNK,              5).
@@ -2172,8 +2180,23 @@ enc_setopt_value(udp, cork, V, _D, T, P)
 enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
     not_supported({L, Opt});
 
+enc_setopt_value(sctp, associnfo, #{assoc_id       := AssocId,
+                                    asocmaxrxt     := MaxRxt,
+                                    num_peer_dests := NumPeerDests,
+                                    peer_rwnd      := PeerRWND,
+                                    local_rwnd     := LocalRWND,
+                                    cookie_life    := CLife} = V,
+                 _D, _T, P)
+  when is_integer(AssocId) andalso
+       is_integer(MaxRxt)       andalso (MaxRxt >= 0)       andalso
+       is_integer(NumPeerDests) andalso (NumPeerDests >= 0) andalso
+       is_integer(PeerRWND)     andalso (PeerRWND >= 0)     andalso
+       is_integer(LocalRWND)    andalso (LocalRWND >= 0)    andalso
+       is_integer(CLife)        andalso (CLife >= 0)        andalso
+       (P =:= sctp) ->
+    V;
 enc_setopt_value(sctp, autoclose, V, _D, _T, P)
-  when is_integer(V) andalso (P =:= sctp) ->
+  when is_integer(V) andalso (V >= 0) andalso (P =:= sctp) ->
     V;
 enc_setopt_value(sctp, disable_fragments, V, _D, _T, P)
   when is_boolean(V) andalso (P =:= sctp) ->
@@ -2595,8 +2618,8 @@ enc_sockopt_key(udp = L, UnknownOpt, _Dir, _D, _T, _P) ->
 %% SCTP socket options
 enc_sockopt_key(sctp = L, adaption_layer = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, associnfo = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, associnfo = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_ASSOCINFO;
 enc_sockopt_key(sctp = L, auth_active_key = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, auth_asconf = Opt, _Dir, _D, _T, _P) ->

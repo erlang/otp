@@ -137,6 +137,9 @@
     <datatype>
       <name name="sctp_event_subscribe"/>
     </datatype>
+    <datatype>
+      <name name="sctp_assocparams"/>
+    </datatype>
   </datatypes>
 
   <funcs>

@@ -452,8 +452,15 @@
 	<cell><em>Other</em></cell>
       </row>
       <row>
+	<cell>associnfo</cell>
+	<cell>sctp_assocparams()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>autoclose</cell>
-	<cell>integer()</cell>
+	<cell>non_neg_integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>

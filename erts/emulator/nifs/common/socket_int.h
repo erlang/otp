@@ -167,6 +167,7 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \
     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
 #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL))
+#define MKUI(E,I)           enif_make_uint((E), (I))
 
 #define MCREATE(N)          enif_mutex_create((N))
 #define MDESTROY(M)         enif_mutex_destroy((M))
