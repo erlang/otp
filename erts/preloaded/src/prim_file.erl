@@ -786,7 +786,7 @@ altname_nif(_Path) ->
 
 %% We know for certain that lists:reverse/2 is a BIF, so it's safe to use it
 %% even though this module is preloaded.
-reverse_list(List) -> lists:reverse(List).
+reverse_list(List) -> lists:reverse(List, []).
 
 proplist_get_value(_Key, [], Default) ->
     Default;
