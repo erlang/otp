@@ -187,14 +187,21 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
         {ok, Sock} ->
             i("(sctp) socket opened: "
               "~n   ~p", [Sock]),
-            F = fun(_Desc, Expect, Expect) ->
-                        Expect;
-                   (Desc, Expect, Actual) ->
-                        e("Unexpected result ~w: "
-                          "~n   Expect: ~p"
-                          "~n   Actual: ~p", [Desc, Expect, Actual]),
-                        exit({Desc, Expect, Actual})
-                end,
+            EXP = fun(_Desc, Expect, Expect) ->
+                          Expect;
+                     (Desc, Expect, Actual) ->
+                          e("Unexpected result ~w: "
+                            "~n   Expect: ~p"
+                            "~n   Actual: ~p", [Desc, Expect, Actual]),
+                          exit({Desc, Expect, Actual})
+                  end,
+            GO = fun(O) -> case socket:getopt(Sock, sctp, O) of
+                               {ok, V}    -> f("~p", [V]);
+                               {error, R} -> f("error: ~p", [R])
+                           end
+                 end,
+            i("Miscellaneous options: "
+              "~n   disable-fragments: ~s", [GO(disable_fragments)]),
             Events = #{data_in          => true,
                        association      => true,
                        address          => true,
@@ -205,8 +212,8 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
                        adaptation_layer => true,
                        authentication   => true,
                        sender_dry       => true},
-            F(set_sctp_events, ok, socket:setopt(Sock, sctp, events, Events)),
-            F(close_socket, ok, socket:close(Sock));
+            EXP(set_sctp_events, ok, socket:setopt(Sock, sctp, events, Events)),
+            EXP(close_socket, ok, socket:close(Sock));
         {error, Reason} ->
             exit({failed_open, Reason})
     end.

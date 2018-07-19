@@ -542,9 +542,10 @@ typedef union {
 
 #define SOCKET_OPT_UDP_CORK         1
 
-#define SOCKET_OPT_SCTP_AUTOCLOSE   8
-#define SOCKET_OPT_SCTP_EVENTS     14
-#define SOCKET_OPT_SCTP_NODELAY    23
+#define SOCKET_OPT_SCTP_AUTOCLOSE           8
+#define SOCKET_OPT_SCTP_DISABLE_FRAGMENTS  12
+#define SOCKET_OPT_SCTP_EVENTS             14
+#define SOCKET_OPT_SCTP_NODELAY            23
 
 
 /* =================================================================== *
@@ -1216,6 +1217,11 @@ static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
                                                ERL_NIF_TERM      eVal);
 #endif
+#if defined(SCTP_DISABLE_FRAGMENTS)
+static ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
+                                                       SocketDescriptor* descP,
+                                                       ERL_NIF_TERM      eVal);
+#endif
 #if defined(SCTP_EVENTS)
 static ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1432,6 +1438,10 @@ static ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
 #if defined(SCTP_AUTOCLOSE)
 static ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
+#endif
+#if defined(SCTP_DISABLE_FRAGMENTS)
+static ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
+                                                       SocketDescriptor* descP);
 #endif
 #if defined(SCTP_NODELAY)
 static ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
@@ -5509,6 +5519,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SCTP_DISABLE_FRAGMENTS)
+    case SOCKET_OPT_SCTP_DISABLE_FRAGMENTS:
+        result = nsetopt_lvl_sctp_disable_fragments(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SCTP_EVENTS)
     case SOCKET_OPT_SCTP_EVENTS:
         result = nsetopt_lvl_sctp_events(env, descP, eVal);
@@ -5539,6 +5555,19 @@ ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                         ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_sctp_disable_fragments - Level SCTP DISABLE_FRAGMENTS option
+ */
+#if defined(SCTP_DISABLE_FRAGMENTS)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
+                                                SocketDescriptor* descP,
+                                                ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_DISABLE_FRAGMENTS, eVal);
 }
 #endif
 
@@ -7308,6 +7337,12 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SCTP_DISABLE_FRAGMENTS)
+    case SOCKET_OPT_SCTP_DISABLE_FRAGMENTS:
+        result = ngetopt_lvl_sctp_disable_fragments(env, descP);
+        break;
+#endif
+
 #if defined(SCTP_NODELAY)
     case SOCKET_OPT_SCTP_NODELAY:
         result = ngetopt_lvl_sctp_nodelay(env, descP);
@@ -7331,6 +7366,18 @@ ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                         SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE);
+}
+#endif
+
+
+/* ngetopt_lvl_sctp_disable_fragments - Level SCTP DISABLE:FRAGMENTS option
+ */
+#if defined(SCTP_DISABLE_FRAGMENTS)
+static
+ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
+                                                SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_DISABLE_FRAGMENTS);
 }
 #endif
 

@@ -647,7 +647,7 @@
 %% -define(SOCKET_OPT_SCTP_CONTEXT,                 9).
 %% -define(SOCKET_OPT_SCTP_DEFAULT_SEND_PARAMS,    10).
 %% -define(SOCKET_OPT_SCTP_DELAYED_ACK_TIME,       11).
-%% -define(SOCKET_OPT_SCTP_DISABLE_FRAGMENTS,      12).
+-define(SOCKET_OPT_SCTP_DISABLE_FRAGMENTS,      12).
 %% -define(SOCKET_OPT_SCTP_HMAC_IDENT,             13).
 -define(SOCKET_OPT_SCTP_EVENTS,                 14).
 %% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           15).
@@ -2175,6 +2175,9 @@ enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
 enc_setopt_value(sctp, autoclose, V, _D, _T, P)
   when is_integer(V) andalso (P =:= sctp) ->
     V;
+enc_setopt_value(sctp, disable_fragments, V, _D, _T, P)
+  when is_boolean(V) andalso (P =:= sctp) ->
+    V;
 enc_setopt_value(sctp, events, #{data_in          := DataIn,
                                  association      := Assoc,
                                  address          := Addr,
@@ -2612,8 +2615,8 @@ enc_sockopt_key(sctp = L, default_send_params = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, delayed_ack_time = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, disable_fragments = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, disable_fragments = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_DISABLE_FRAGMENTS;
 enc_sockopt_key(sctp = L, hmac_ident = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, events = _Opt, set = _Dir, _D, _T, _P) ->

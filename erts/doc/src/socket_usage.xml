@@ -459,6 +459,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>disable_fragments</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>events</cell>
 	<cell>sctp_event_subscribe()</cell>
 	<cell>yes</cell>
