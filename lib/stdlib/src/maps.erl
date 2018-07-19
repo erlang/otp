@@ -164,11 +164,9 @@ values(_) -> erlang:nif_error(undef).
       Fun :: fun((Value1 :: term()) -> Value2 :: term()).
 
 update_with(Key,Fun,Map) when is_function(Fun,1), is_map(Map) ->
-    try maps:get(Key,Map) of
-        Val -> maps:update(Key,Fun(Val),Map)
-    catch
-        error:{badkey,_} ->
-            erlang:error({badkey,Key},[Key,Fun,Map])
+    case Map of
+        #{Key := Value} -> Map#{Key := Fun(Value)};
+        #{} -> erlang:error({badkey,Key},[Key,Fun,Map])
     end;
 update_with(Key,Fun,Map) ->
     erlang:error(error_type(Map),[Key,Fun,Map]).
@@ -182,9 +180,9 @@ update_with(Key,Fun,Map) ->
       Init :: term().
 
 update_with(Key,Fun,Init,Map) when is_function(Fun,1), is_map(Map) ->
-    case maps:find(Key,Map) of
-        {ok,Val} -> maps:update(Key,Fun(Val),Map);
-        error -> maps:put(Key,Init,Map)
+    case Map of
+        #{Key := Value} -> Map#{Key := Fun(Value)};
+        #{} -> Map#{Key => Init}
     end;
 update_with(Key,Fun,Init,Map) ->
     erlang:error(error_type(Map),[Key,Fun,Init,Map]).
@@ -197,11 +195,9 @@ update_with(Key,Fun,Init,Map) ->
         Default :: term().
 
 get(Key,Map,Default) when is_map(Map) ->
-    case maps:find(Key, Map) of
-        {ok, Value} ->
-            Value;
-        error ->
-            Default
+    case Map of
+        #{Key := Value} -> Value;
+        #{} -> Default
     end;
 get(Key,Map,Default) ->
     erlang:error({badmap,Map},[Key,Map,Default]).
@@ -318,7 +314,7 @@ next(Iter) ->
     K :: term().
 
 without(Ks,M) when is_list(Ks), is_map(M) ->
-    lists:foldl(fun(K, M1) -> maps:remove(K, M1) end, M, Ks);
+    lists:foldl(fun maps:remove/2, M, Ks);
 without(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
@@ -329,18 +325,16 @@ without(Ks,M) ->
     K :: term().
 
 with(Ks,Map1) when is_list(Ks), is_map(Map1) ->
-    Fun = fun(K, List) ->
-                  case maps:find(K, Map1) of
-                      {ok, V} ->
-                          [{K, V} | List];
-                      error ->
-                          List
-                  end
-          end,
-    maps:from_list(lists:foldl(Fun, [], Ks));
+    maps:from_list(with_1(Ks, Map1));
 with(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
+with_1([K|Ks], Map) ->
+    case Map of
+        #{K := V} -> [{K,V}|with_1(Ks, Map)];
+        #{} -> with_1(Ks, Map)
+    end;
+with_1([], _Map) -> [].
 
 error_type(M) when is_map(M) -> badarg;
 error_type(V) -> {badmap, V}.
