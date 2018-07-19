@@ -122,6 +122,21 @@
     <datatype>
       <name name="ip_mreq"/>
     </datatype>
+    <datatype>
+      <name name="ip_mreq_source"/>
+    </datatype>
+    <datatype>
+      <name name="ip_pmtudisc"/>
+    </datatype>
+    <datatype>
+      <name name="ipv6_mreq"/>
+    </datatype>
+    <datatype>
+      <name name="ipv6_pmtudisc"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_event_subscribe"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -132,9 +147,9 @@
       <desc>
         <p>Accept a connection on a socket.</p>
         <p>This call is used with connection-based socket types
-	(stream or seqpacket). It extracs the first pending connection
-	request for the listen socket and returns the (newly) connected
-	socket.</p>
+	(<c>stream</c> or <c>seqpacket</c>). It extracs the first pending
+	connection request for the listen socket and returns the (newly)
+	connected socket.</p>
       </desc>
     </func>
 

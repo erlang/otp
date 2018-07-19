@@ -94,6 +94,7 @@
               ip_pmtudisc/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
+              sctp_event_subscribe/0,
 
 
               msg_hdr/0
@@ -150,6 +151,14 @@
 %%     socket:setopt(Socket, ip, drop_membership, #{multiaddr => Addr,
 %%                                                  interface => any}).
 %%
+
+%% If the integer value is used its up to the caller to ensure its valid!
+-type ip_tos_flag() :: lowdeley |
+                       throughput |
+                       reliability |
+                       mincost |
+                       integer().
+
 -type ip_mreq() :: #{multiaddr := ip4_address(),
                      interface := any | ip4_address()}.
 %% -type ip_mreqn() :: #{multiaddr := ip4_address(),
@@ -166,6 +175,17 @@
                        interface := non_neg_integer()}.
 
 -type ipv6_pmtudisc() :: ip_pmtudisc().
+
+-type sctp_event_subscribe() :: #{data_in          := boolean(),
+                                  association      := boolean(),
+                                  address          := boolean(),
+                                  send_failure     := boolean(),
+                                  peer_error       := boolean(),
+                                  shutdown         := boolean(),
+                                  partial_delivery := boolean(),
+                                  adaptation_layer := boolean(),
+                                  authentication   := boolean(),
+                                  sender_dry       := boolean()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -331,9 +351,9 @@
 -type tcp_socket_option()  :: congestion |
                               cork |
                               info |
+                              keepcnt |
                               keepidle |
                               keepintvl |
-                              keepcnt |
                               maxseg |
                               md5sig |
                               nodelay |
@@ -387,13 +407,6 @@
 %%                    udp_socket_option() |
 %%                    sctp_socket_option() |
 %%                    plain_socket_option().
-
-%% If the integer value is used its up to the caller to ensure its valid!
--type ip_tos_flag() :: lowdeley |
-                       throughput |
-                       reliability |
-                       mincost |
-                       integer().
 
 -type socket_info() :: #{domain   => domain(),
                          type     => type(),
@@ -609,8 +622,17 @@
 
 -define(SOCKET_OPT_TCP_CONGESTION,      1).
 -define(SOCKET_OPT_TCP_CORK,            2).
--define(SOCKET_OPT_TCP_MAXSEG,          3).
--define(SOCKET_OPT_TCP_NODELAY,         4).
+%% -define(SOCKET_OPT_TCP_INFO,            3).
+%% -define(SOCKET_OPT_TCP_KEEPCNT,         4).
+%% -define(SOCKET_OPT_TCP_KEEPIDLE,        5).
+%% -define(SOCKET_OPT_TCP_KEEPINTVL,       6).
+-define(SOCKET_OPT_TCP_MAXSEG,          7).
+%% -define(SOCKET_OPT_TCP_MD5SIG,          8).
+-define(SOCKET_OPT_TCP_NODELAY,         9).
+%% -define(SOCKET_OPT_TCP_NOOPT,          10).
+%% -define(SOCKET_OPT_TCP_NOPUSH,         11).
+%% -define(SOCKET_OPT_TCP_SYNCNT,         12).
+%% -define(SOCKET_OPT_TCP_USER_TIMEOUT,   13).
 
 -define(SOCKET_OPT_UDP_CORK,            1).
 
@@ -627,24 +649,25 @@
 %% -define(SOCKET_OPT_SCTP_DELAYED_ACK_TIME,       11).
 %% -define(SOCKET_OPT_SCTP_DISABLE_FRAGMENTS,      12).
 %% -define(SOCKET_OPT_SCTP_HMAC_IDENT,             13).
-%% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           14).
-%% -define(SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE,    15).
-%% -define(SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO,     16).
-%% -define(SOCKET_OPT_SCTP_INITMSG,                17).
-%% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  18).
-%% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      19).
-%% -define(SOCKET_OPT_SCTP_MAXSEG,                 20).
-%% -define(SOCKET_OPT_SCTP_MAXBURST,               21).
--define(SOCKET_OPT_SCTP_NODELAY,                22).
-%% -define(SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT, 23).
-%% -define(SOCKET_OPT_SCTP_PEER_ADDR_PARAMS,       24).
-%% -define(SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS,       25).
-%% -define(SOCKET_OPT_SCTP_PRIMARY_ADDR,           26).
-%% -define(SOCKET_OPT_SCTP_RESET_STREAMS,          27).
-%% -define(SOCKET_OPT_SCTP_RTOINFO,                28).
-%% -define(SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  29).
-%% -define(SOCKET_OPT_SCTP_STATUS,                 30).
-%% -define(SOCKET_OPT_SCTP_USE_EXT_RECVINFO,       31).
+-define(SOCKET_OPT_SCTP_EVENTS,                 14).
+%% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           15).
+%% -define(SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE,    16).
+%% -define(SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO,     17).
+%% -define(SOCKET_OPT_SCTP_INITMSG,                18).
+%% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  19).
+%% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      20).
+%% -define(SOCKET_OPT_SCTP_MAXSEG,                 21).
+%% -define(SOCKET_OPT_SCTP_MAXBURST,               22).
+-define(SOCKET_OPT_SCTP_NODELAY,                23).
+%% -define(SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT, 24).
+%% -define(SOCKET_OPT_SCTP_PEER_ADDR_PARAMS,       25).
+%% -define(SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS,       26).
+%% -define(SOCKET_OPT_SCTP_PRIMARY_ADDR,           27).
+%% -define(SOCKET_OPT_SCTP_RESET_STREAMS,          28).
+%% -define(SOCKET_OPT_SCTP_RTOINFO,                29).
+%% -define(SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  30).
+%% -define(SOCKET_OPT_SCTP_STATUS,                 31).
+%% -define(SOCKET_OPT_SCTP_USE_EXT_RECVINFO,       32).
 
 -define(SOCKET_SHUTDOWN_HOW_READ,       0).
 -define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
@@ -1736,6 +1759,7 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
 
 
 
+
 %% ===========================================================================
 %%
 %% getopt - retrieve individual properties of a socket
@@ -1942,6 +1966,8 @@ enc_setopt_level(tcp) ->
     {true, ?SOCKET_OPT_LEVEL_TCP};
 enc_setopt_level(udp) ->
     {true, ?SOCKET_OPT_LEVEL_UDP};
+enc_setopt_level(sctp) ->
+    {true, ?SOCKET_OPT_LEVEL_SCTP};
 %% Any option that is of an plain level must be provided as a binary
 %% already fully encoded!
 enc_setopt_level(L) when is_integer(L) ->
@@ -2141,20 +2167,38 @@ enc_setopt_value(tcp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
 enc_setopt_value(udp, cork, V, _D, T, P)
-  when is_boolean(V) andalso
-       (T =:= dgram) andalso
-       (P =:= udp) ->
+  when is_boolean(V) andalso (T =:= dgram) andalso (P =:= udp) ->
     V;
 enc_setopt_value(udp = L, Opt, _V, _D, _T, _P) ->
     not_supported({L, Opt});
 
 enc_setopt_value(sctp, autoclose, V, _D, _T, P)
-  when is_integer(V) andalso
+  when is_integer(V) andalso (P =:= sctp) ->
+    V;
+enc_setopt_value(sctp, events, #{data_in          := DataIn,
+                                 association      := Assoc,
+                                 address          := Addr,
+                                 send_failure     := SndFailure,
+                                 peer_error       := PeerError,
+                                 shutdown         := Shutdown,
+                                 partial_delivery := PartialDelivery,
+                                 adaptation_layer := AdaptLayer,
+                                 authentication   := Auth,
+                                 sender_dry       := SndDry} = V, _D, _T, P)
+  when is_boolean(DataIn)          andalso
+       is_boolean(Assoc)           andalso
+       is_boolean(Addr)            andalso
+       is_boolean(SndFailure)      andalso
+       is_boolean(PeerError)       andalso
+       is_boolean(Shutdown)        andalso
+       is_boolean(PartialDelivery) andalso
+       is_boolean(AdaptLayer)      andalso
+       is_boolean(Auth)            andalso
+       is_boolean(SndDry)          andalso
        (P =:= sctp) ->
     V;
 enc_setopt_value(sctp, nodelay, V, _D, _T, P)
-  when is_boolean(V) andalso
-       (P =:= sctp) ->
+  when is_boolean(V) andalso (P =:= sctp) ->
     V;
 
 enc_setopt_value(L, Opt, V, _, _, _)
@@ -2572,8 +2616,8 @@ enc_sockopt_key(sctp = L, disable_fragments = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, hmac_ident = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, events = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, events = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_EVENTS;
 enc_sockopt_key(sctp = L, explicit_eor = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, fragment_interleave = Opt, _Dir, _D, _T, _P) ->
@@ -2724,7 +2768,6 @@ next_timeout(TS, Timeout) ->
 
 tdiff(T1, T2) ->
     T2 - T1.
-
 
 
 

@@ -459,6 +459,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>events</cell>
+	<cell>sctp_event_subscribe()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>nodelay</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>

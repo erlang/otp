@@ -164,6 +164,149 @@
 
 #define HAVE_UDP
 
+/* SCTP support -- currently for UNIX platforms only: */
+#undef HAVE_SCTP
+#if defined(HAVE_SCTP_H)
+
+#include <netinet/sctp.h>
+
+/* SCTP Socket API Draft from version 11 on specifies that netinet/sctp.h must
+   explicitly define HAVE_SCTP in case when SCTP is supported,  but Solaris 10
+   still apparently uses Draft 10, and does not define that symbol, so we have
+   to define it explicitly:
+*/
+#ifndef     HAVE_SCTP
+#    define HAVE_SCTP
+#endif
+
+/* These changed in draft 11, so SOLARIS10 uses the old MSG_* */
+#if ! HAVE_DECL_SCTP_UNORDERED
+#     define    SCTP_UNORDERED  MSG_UNORDERED
+#endif
+#if ! HAVE_DECL_SCTP_ADDR_OVER
+#     define    SCTP_ADDR_OVER  MSG_ADDR_OVER
+#endif
+#if ! HAVE_DECL_SCTP_ABORT
+#     define    SCTP_ABORT      MSG_ABORT
+#endif
+#if ! HAVE_DECL_SCTP_EOF
+#     define    SCTP_EOF        MSG_EOF
+#endif
+
+/* More Solaris 10 fixes: */
+#if ! HAVE_DECL_SCTP_CLOSED && HAVE_DECL_SCTPS_IDLE
+#    define SCTP_CLOSED SCTPS_IDLE
+#    undef HAVE_DECL_SCTP_CLOSED
+#    define HAVE_DECL_SCTP_CLOSED 1
+#endif
+#if ! HAVE_DECL_SCTP_BOUND && HAVE_DECL_SCTPS_BOUND
+#    define SCTP_BOUND SCTPS_BOUND
+#    undef HAVE_DECL_SCTP_BOUND
+#    define HAVE_DECL_SCTP_BOUND 1
+#endif
+#if ! HAVE_DECL_SCTP_LISTEN && HAVE_DECL_SCTPS_LISTEN
+#    define SCTP_LISTEN SCTPS_LISTEN
+#    undef HAVE_DECL_SCTP_LISTEN
+#    define HAVE_DECL_SCTP_LISTEN 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_WAIT && HAVE_DECL_SCTPS_COOKIE_WAIT
+#    define SCTP_COOKIE_WAIT SCTPS_COOKIE_WAIT
+#    undef HAVE_DECL_SCTP_COOKIE_WAIT
+#    define HAVE_DECL_SCTP_COOKIE_WAIT 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_ECHOED && HAVE_DECL_SCTPS_COOKIE_ECHOED
+#    define SCTP_COOKIE_ECHOED SCTPS_COOKIE_ECHOED
+#    undef HAVE_DECL_SCTP_COOKIE_ECHOED
+#    define HAVE_DECL_SCTP_COOKIE_ECHOED 1
+#endif
+#if ! HAVE_DECL_SCTP_ESTABLISHED && HAVE_DECL_SCTPS_ESTABLISHED
+#    define SCTP_ESTABLISHED SCTPS_ESTABLISHED
+#    undef HAVE_DECL_SCTP_ESTABLISHED
+#    define HAVE_DECL_SCTP_ESTABLISHED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_PENDING && HAVE_DECL_SCTPS_SHUTDOWN_PENDING
+#    define SCTP_SHUTDOWN_PENDING SCTPS_SHUTDOWN_PENDING
+#    undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
+#    define HAVE_DECL_SCTP_SHUTDOWN_PENDING 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_SENT && HAVE_DECL_SCTPS_SHUTDOWN_SENT
+#    define SCTP_SHUTDOWN_SENT SCTPS_SHUTDOWN_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_SENT 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_RECEIVED && HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
+#    define SCTP_SHUTDOWN_RECEIVED SCTPS_SHUTDOWN_RECEIVED
+#    undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
+#    define HAVE_DECL_SCTP_SHUTDOWN_RECEIVED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT && HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
+#    define SCTP_SHUTDOWN_ACK_SENT SCTPS_SHUTDOWN_ACK_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT 1
+#endif
+/* New spelling in lksctp 2.6.22 or maybe even earlier:
+ *  adaption -> adaptation
+ */
+#if !defined(SCTP_ADAPTATION_LAYER) && defined (SCTP_ADAPTION_LAYER)
+#     define SCTP_ADAPTATION_LAYER       SCTP_ADAPTION_LAYER
+#     define SCTP_ADAPTATION_INDICATION  SCTP_ADAPTION_INDICATION
+#     define sctp_adaptation_event       sctp_adaption_event
+#     define sctp_setadaptation          sctp_setadaption
+#     define sn_adaptation_event         sn_adaption_event
+#     define sai_adaptation_ind          sai_adaption_ind
+#     define ssb_adaptation_ind          ssb_adaption_ind
+#     define sctp_adaptation_layer_event sctp_adaption_layer_event
+#endif
+
+/*
+ * We *may* need this stuff later when we *fully* implement support for SCTP 
+ *
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_BINDX)
+static typeof(sctp_bindx) *p_sctp_bindx = NULL;
+#else
+static int (*p_sctp_bindx)
+	(int sd, struct sockaddr *addrs, int addrcnt, int flags) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_PEELOFF)
+static typeof(sctp_peeloff) *p_sctp_peeloff = NULL;
+#else
+static int (*p_sctp_peeloff)
+        (int sd, sctp_assoc_t assoc_id) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_GETLADDRS)
+static typeof(sctp_getladdrs) *p_sctp_getladdrs = NULL;
+#else
+static int (*p_sctp_getladdrs)
+        (int sd, sctp_assoc_t assoc_id, struct sockaddr **ss) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_FREELADDRS)
+static typeof(sctp_freeladdrs) *p_sctp_freeladdrs = NULL;
+#else
+static void (*p_sctp_freeladdrs)(struct sockaddr *addrs) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_GETPADDRS)
+static typeof(sctp_getpaddrs) *p_sctp_getpaddrs = NULL;
+#else
+static int (*p_sctp_getpaddrs)
+        (int sd, sctp_assoc_t assoc_id, struct sockaddr **ss) = NULL;
+#endif
+
+#if defined(__GNUC__) && defined(HAVE_SCTP_FREEPADDRS)
+static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
+#else
+static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
+#endif
+
+*/
+
+#endif /* #if defined(HAVE_SCTP_H) */
+
+
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
@@ -394,12 +537,13 @@ typedef union {
 
 #define SOCKET_OPT_TCP_CONGESTION   1
 #define SOCKET_OPT_TCP_CORK         2
-#define SOCKET_OPT_TCP_MAXSEG       3
-#define SOCKET_OPT_TCP_NODELAY      4
+#define SOCKET_OPT_TCP_MAXSEG       7
+#define SOCKET_OPT_TCP_NODELAY      9
 
 #define SOCKET_OPT_UDP_CORK         1
 
 #define SOCKET_OPT_SCTP_AUTOCLOSE   8
+#define SOCKET_OPT_SCTP_EVENTS     14
 #define SOCKET_OPT_SCTP_NODELAY    23
 
 
@@ -1072,6 +1216,11 @@ static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
                                                ERL_NIF_TERM      eVal);
 #endif
+#if defined(SCTP_EVENTS)
+static ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
 #if defined(SCTP_NODELAY)
 static ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
                                              SocketDescriptor* descP,
@@ -1618,38 +1767,48 @@ static const struct in6_addr in6addr_loopback =
 
 
 /* *** String constants *** */
-// static char str_any[]          = "any";
-static char str_close[]        = "close";
-static char str_closed[]       = "closed";
-static char str_closing[]      = "closing";
-static char str_do[]           = "do";
-static char str_dont[]         = "dont";
-static char str_false[]        = "false";
-static char str_global_counters[] = "global_counters";
-static char str_in4_sockaddr[] = "in4_sockaddr";
-static char str_in6_sockaddr[] = "in6_sockaddr";
-static char str_iow[]          = "iow";
-static char str_interface[]    = "interface";
-// static char str_loopback[]     = "loopback";
-static char str_multiaddr[]    = "multiaddr";
-static char str_nif_abort[]    = "nif_abort";
-static char str_num_dlocal[]   = "num_domain_local";
-static char str_num_dinet[]    = "num_domain_inet";
-static char str_num_dinet6[]   = "num_domain_inet6";
-static char str_num_pip[]      = "num_proto_ip";
-static char str_num_psctp[]    = "num_proto_sctp";
-static char str_num_ptcp[]     = "num_proto_tcp";
-static char str_num_pudp[]     = "num_proto_udp";
-static char str_num_sockets[]  = "num_sockets";
-static char str_num_tdgrams[]  = "num_type_dgram";
-static char str_num_tseqpkgs[] = "num_type_seqpacket";
-static char str_num_tstreams[] = "num_type_stream";
-static char str_probe[]        = "probe";
-static char str_select[]       = "select";
-static char str_sourceaddr[]   = "sourceaddr";
-static char str_timeout[]      = "timeout";
-static char str_true[]         = "true";
-static char str_want[]         = "want";
+static char str_adaptation_layer[] = "adaptation_layer";
+static char str_address[]          = "address";
+static char str_association[]      = "association";
+static char str_authentication[]   = "authentication";
+// static char str_any[]              = "any";
+static char str_close[]            = "close";
+static char str_closed[]           = "closed";
+static char str_closing[]          = "closing";
+static char str_data_in[]          = "data_in";
+static char str_do[]               = "do";
+static char str_dont[]             = "dont";
+static char str_false[]            = "false";
+static char str_global_counters[]  = "global_counters";
+static char str_in4_sockaddr[]     = "in4_sockaddr";
+static char str_in6_sockaddr[]     = "in6_sockaddr";
+static char str_iow[]              = "iow";
+static char str_interface[]        = "interface";
+// static char str_loopback[]         = "loopback";
+static char str_multiaddr[]        = "multiaddr";
+static char str_nif_abort[]        = "nif_abort";
+static char str_num_dlocal[]       = "num_domain_local";
+static char str_num_dinet[]        = "num_domain_inet";
+static char str_num_dinet6[]       = "num_domain_inet6";
+static char str_num_pip[]          = "num_proto_ip";
+static char str_num_psctp[]        = "num_proto_sctp";
+static char str_num_ptcp[]         = "num_proto_tcp";
+static char str_num_pudp[]         = "num_proto_udp";
+static char str_num_sockets[]      = "num_sockets";
+static char str_num_tdgrams[]      = "num_type_dgram";
+static char str_num_tseqpkgs[]     = "num_type_seqpacket";
+static char str_num_tstreams[]     = "num_type_stream";
+static char str_partial_delivery[] = "partial_delivery";
+static char str_peer_error[]       = "peer_error";
+static char str_probe[]            = "probe";
+static char str_select[]           = "select";
+static char str_sender_dry[]       = "sender_dry";
+static char str_send_failure[]     = "send_failure";
+static char str_shutdown[]         = "shutdown";
+static char str_sourceaddr[]       = "sourceaddr";
+static char str_timeout[]          = "timeout";
+static char str_true[]             = "true";
+static char str_want[]             = "want";
 
 static char str_lowdelay[]     = "lowdelay";
 static char str_throughput[]   = "throughput";
@@ -1706,9 +1865,14 @@ ERL_NIF_TERM esock_atom_eafnosupport;
 ERL_NIF_TERM esock_atom_einval;
 
 /* *** Atoms *** */
+static ERL_NIF_TERM atom_adaptation_layer;
+static ERL_NIF_TERM atom_address;
+static ERL_NIF_TERM atom_association;
+static ERL_NIF_TERM atom_authentication;
 static ERL_NIF_TERM atom_close;
 static ERL_NIF_TERM atom_closed;
 static ERL_NIF_TERM atom_closing;
+static ERL_NIF_TERM atom_data_in;
 static ERL_NIF_TERM atom_do;
 static ERL_NIF_TERM atom_dont;
 static ERL_NIF_TERM atom_false;
@@ -1730,8 +1894,13 @@ static ERL_NIF_TERM atom_num_sockets;
 static ERL_NIF_TERM atom_num_tdgrams;
 static ERL_NIF_TERM atom_num_tseqpkgs;
 static ERL_NIF_TERM atom_num_tstreams;
+static ERL_NIF_TERM atom_partial_delivery;
+static ERL_NIF_TERM atom_peer_error;
 static ERL_NIF_TERM atom_probe;
 static ERL_NIF_TERM atom_select;
+static ERL_NIF_TERM atom_sender_dry;
+static ERL_NIF_TERM atom_send_failure;
+static ERL_NIF_TERM atom_shutdown;
 static ERL_NIF_TERM atom_sourceaddr;
 static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
@@ -1895,7 +2064,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
     int          edomain, etype, eproto;
-    int          domain,  type,  proto;
+    int          domain, type, proto;
     char*        netns;
     ERL_NIF_TERM emap;
     ERL_NIF_TERM result;
@@ -1920,19 +2089,27 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
             "\r\n   extra:   %T"
             "\r\n", argv[0], argv[1], argv[2], argv[3]) );
 
-    if (!edomain2domain(edomain, &domain))
-        return enif_make_badarg(env);
+    if (!edomain2domain(edomain, &domain)) {
+        SGDBG( ("SOCKET", "nif_open -> domain: %d\r\n", domain) );
+        return esock_make_error(env, esock_atom_einval);
+    }
 
-    if (!etype2type(etype, &type))
-        return enif_make_badarg(env);
+    if (!etype2type(etype, &type)) {
+        SGDBG( ("SOCKET", "nif_open -> type: %d\r\n", type) );
+        return esock_make_error(env, esock_atom_einval);
+    }
 
-    if (!eproto2proto(eproto, &proto))
-        return enif_make_badarg(env);
+    if (!eproto2proto(eproto, &proto)) {
+        SGDBG( ("SOCKET", "nif_open -> protocol: %d\r\n", proto) );
+        return esock_make_error(env, esock_atom_einval);
+    }
 
 #ifdef HAVE_SETNS
     /* We *currently* only support one extra option: netns */
-    if (!emap2netns(env, emap, &netns))
+    if (!emap2netns(env, emap, &netns)) {
+        SGDBG( ("SOCKET", "nif_open -> namespace: %s\r\n", netns) );
         return enif_make_badarg(env);
+    }
 #else
     netns = NULL;
 #endif
@@ -3733,12 +3910,13 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
-    SocketDescriptor* descP;
+    SocketDescriptor* descP = NULL;
     int               eLevel, level = -1;
     int               eOpt;
     ERL_NIF_TERM      eIsEncoded;
     ERL_NIF_TERM      eVal;
     BOOLEAN_T         isEncoded, isOTP;
+    ERL_NIF_TERM      result;
 
     SGDBG( ("SOCKET", "nif_setopt -> entry with argc: %d\r\n", argc) );
 
@@ -3748,6 +3926,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_INT(env, argv[2], &eLevel) ||
         !GET_INT(env, argv[3], &eOpt)) {
+        SGDBG( ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
         return enif_make_badarg(env);
     }
     eIsEncoded = argv[1];
@@ -3755,23 +3934,35 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 
     isEncoded = esock_decode_bool(eIsEncoded);
 
-    if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
+    /* SGDBG( ("SOCKET", "nif_setopt -> eIsDecoded (%T) decoded: %d\r\n", */
+    /*         eIsEncoded, isEncoded) ); */
+
+    if (!elevel2level(isEncoded, eLevel, &isOTP, &level)) {
+        SSDBG( descP, ("SOCKET", "nif_seopt -> failed decode level\r\n") );
         return esock_make_error(env, esock_atom_einval);
+    }
 
     SSDBG( descP,
            ("SOCKET", "nif_setopt -> args when sock = %d:"
             "\r\n   Socket:  %T"
-            "\r\n   Encoded: %T (%d)"
+            "\r\n   Encoded: %d (%T)"
             "\r\n   Level:   %d (%d)"
             "\r\n   Opt:     %d"
             "\r\n   Value:   %T"
             "\r\n",
             descP->sock, argv[0],
-            eIsEncoded, isEncoded,
-            eLevel, level,
+            isEncoded, eIsEncoded,
+            level, eLevel,
             eOpt, eVal) );
 
-    return nsetopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
+    result = nsetopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
+
+    SSDBG( descP,
+           ("SOCKET", "nif_setopt -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
 }
 
 
@@ -5318,6 +5509,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SCTP_EVENTS)
+    case SOCKET_OPT_SCTP_EVENTS:
+        result = nsetopt_lvl_sctp_events(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SCTP_NODELAY)
     case SOCKET_OPT_SCTP_NODELAY:
         result = nsetopt_lvl_sctp_nodelay(env, descP, eVal);
@@ -5342,6 +5539,104 @@ ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
                                         ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_sctp_events - Level SCTP EVENTS option
+ */
+#if defined(SCTP_EVENTS)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM                result;
+    ERL_NIF_TERM                eDataIn, eAssoc, eAddr, eSndFailure;
+    ERL_NIF_TERM                ePeerError, eShutdown, ePartialDelivery;
+    ERL_NIF_TERM                eAdaptLayer, eAuth, eSndDry;
+    struct sctp_event_subscribe events;
+    int                         res;
+    size_t                      sz;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return esock_make_error(env, esock_atom_einval);
+
+    // It must have atleast ten attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz < 10))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> extract attributes\r\n") );    
+
+    if (!GET_MAP_VAL(env, eVal, atom_data_in,          &eDataIn))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_association,      &eAssoc))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_address,          &eAddr))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_send_failure,     &eSndFailure))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_peer_error,       &ePeerError))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_shutdown,         &eShutdown))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_partial_delivery, &ePartialDelivery))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_adaptation_layer, &eAdaptLayer))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_authentication,   &eAuth))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_sender_dry,       &eSndDry))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> decode attributes\r\n") );
+
+    events.sctp_data_io_event          = esock_decode_bool(eDataIn);
+    events.sctp_association_event      = esock_decode_bool(eAssoc);
+    events.sctp_address_event          = esock_decode_bool(eAddr);
+    events.sctp_send_failure_event     = esock_decode_bool(eSndFailure);
+    events.sctp_peer_error_event       = esock_decode_bool(ePeerError);
+    events.sctp_shutdown_event         = esock_decode_bool(eShutdown);
+    events.sctp_partial_delivery_event = esock_decode_bool(ePartialDelivery);
+    events.sctp_adaptation_layer_event = esock_decode_bool(eAdaptLayer);
+    events.sctp_authentication_event   = esock_decode_bool(eAuth);
+    events.sctp_sender_dry_event       = esock_decode_bool(eSndDry);
+    
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> set events option\r\n") );
+
+    res = socket_setopt(descP->sock, IPPROTO_SCTP, SCTP_EVENTS,
+                        &events, sizeof(events));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_events -> done with"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+    
 }
 #endif
 
@@ -8269,6 +8564,7 @@ BOOLEAN_T edomain2domain(int edomain, int* domain)
 #endif
 
     default:
+        *domain = -1;
         return FALSE;
     }
 
@@ -8303,6 +8599,7 @@ BOOLEAN_T etype2type(int etype, int* type)
 #endif
 
     default:
+        *type = -1;
         return FALSE;
     }
 
@@ -8337,11 +8634,12 @@ BOOLEAN_T eproto2proto(int eproto, int* proto)
 #endif
 
     default:
+        *proto = -1;
         return FALSE;
     }
 
-        return TRUE;
-    }
+    return TRUE;
+}
 
 
 #ifdef HAVE_SETNS
@@ -8909,8 +9207,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     SSDBG( descP,
            ("SOCKET", "socket_stop -> entry when"
             "\r\n   sock:           %d (%d)"
-            "\r\n   is_direct_call: %d"
-            "\r\n", descP->sock, fd, is_direct_call) );
+            "\r\n   Is Direct Call: %s"
+            "\r\n", descP->sock, fd, B2S(is_direct_call)) );
     
     MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
@@ -9051,6 +9349,10 @@ void inform_waiting_procs(ErlNifEnv*          env,
          * </KOLLA>
          */
 
+        SSDBG( descP,
+               ("SOCKET", "inform_waiting_procs -> abort %T (%T)\r\n",
+                currentP->data.ref, currentP->data.pid) );
+
         ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
                                                   currentP->data.ref,
                                                   reason,
@@ -9088,59 +9390,71 @@ void socket_down(ErlNifEnv*           env,
 
     /* Eventually we should go through the other queues also,
      * the process can be one of them...
+     *
+     * Currently only the accteptors actuallu use the queues.
      */
 
-    /* Check first if its the current acceptor, and if not check the queue */
-    if (compare_pids(env, &descP->currentAcceptor.pid, pid)) {
+    if (descP->currentAcceptorP != NULL) {
 
-        SSDBG( descP, ("SOCKET",
-                       "socket_down -> current acceptor - try pop the queue\r\n") );
+        /*
+         * We have acceptor(s) (atleast one)
+         *
+         * Check first if its the current acceptor,
+         * and if not check the queue.
+         */
 
-        if (acceptor_pop(env, descP,
-                         &descP->currentAcceptor.pid,
-                         &descP->currentAcceptor.mon,
-                         &descP->currentAcceptor.ref)) {
-            int res;
+        if (compare_pids(env, &descP->currentAcceptor.pid, pid)) {
 
-            /* There was another one, so we will still be in accepting state */
-
-            SSDBG( descP, ("SOCKET", "socket_down -> new (active) acceptor: "
-                           "\r\n   pid: %T"
-                           "\r\n   ref: %T"
-                           "\r\n",
-                           descP->currentAcceptor.pid,
-                           descP->currentAcceptor.ref) );
-
-            if ((res = enif_select(env,
-                                   descP->sock,
-                                   (ERL_NIF_SELECT_READ),
-                                   descP,
-                                   &descP->currentAcceptor.pid,
-                                   descP->currentAcceptor.ref) < 0)) {
-
-                esock_warning_msg("Failed select (%d) for new acceptor "
-                                  "after current (%T) died\r\n",
-                                  res, *pid);
-
+            SSDBG( descP, ("SOCKET",
+                           "socket_down -> "
+                           "current acceptor - try pop the queue\r\n") );
+            
+            if (acceptor_pop(env, descP,
+                             &descP->currentAcceptor.pid,
+                             &descP->currentAcceptor.mon,
+                             &descP->currentAcceptor.ref)) {
+                int res;
+                
+                /* There was another one, so we will still be in accepting state */
+                
+                SSDBG( descP, ("SOCKET", "socket_down -> new (active) acceptor: "
+                               "\r\n   pid: %T"
+                               "\r\n   ref: %T"
+                               "\r\n",
+                               descP->currentAcceptor.pid,
+                               descP->currentAcceptor.ref) );
+                
+                if ((res = enif_select(env,
+                                       descP->sock,
+                                       (ERL_NIF_SELECT_READ),
+                                       descP,
+                                       &descP->currentAcceptor.pid,
+                                       descP->currentAcceptor.ref) < 0)) {
+                    
+                    esock_warning_msg("Failed select (%d) for new acceptor "
+                                      "after current (%T) died\r\n",
+                                      res, *pid);
+                    
+                }
+                
+            } else {
+                
+                SSDBG( descP, ("SOCKET", "socket_down -> no active acceptor\r\n") );
+                
+                descP->currentAcceptorP = NULL;
+                descP->state            = SOCKET_STATE_LISTENING;
             }
-
+            
         } else {
-
-            SSDBG( descP, ("SOCKET", "socket_down -> no active acceptor\r\n") );
-
-            descP->currentAcceptorP = NULL;
-            descP->state            = SOCKET_STATE_LISTENING;
+            
+            /* Maybe unqueue one of the waiting acceptors */
+            
+            SSDBG( descP, ("SOCKET",
+                           "socket_down -> "
+                           "not current acceptor - maybe a waiting acceptor\r\n") );
+            
+            qunqueue(env, &descP->acceptorsQ, pid);
         }
-
-    } else {
-
-        /* Maybe unqueue one of the waiting acceptors */
-
-        SSDBG( descP, ("SOCKET",
-                       "socket_down -> "
-                       "not current acceptor - maybe a waiting acceptor\r\n") );
-
-        qunqueue(env, &descP->acceptorsQ, pid);
     }
     
     SSDBG( descP, ("SOCKET", "socket_down -> done\r\n") );
@@ -9246,36 +9560,46 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoSCTP   = 0;
 
     /* +++ Misc atoms +++ */
-    atom_close        = MKA(env, str_close);
-    atom_closed       = MKA(env, str_closed);
-    atom_closing      = MKA(env, str_closing);
-    atom_do           = MKA(env, str_do);
-    atom_dont         = MKA(env, str_dont);
-    atom_false        = MKA(env, str_false);
-    atom_global_counters = MKA(env, str_global_counters);
-    atom_in4_sockaddr = MKA(env, str_in4_sockaddr);
-    atom_in6_sockaddr = MKA(env, str_in6_sockaddr);
-    atom_iow          = MKA(env, str_iow);
-    atom_interface    = MKA(env, str_interface);
-    atom_multiaddr    = MKA(env, str_multiaddr);
-    atom_nif_abort    = MKA(env, str_nif_abort);
-    atom_num_dinet    = MKA(env, str_num_dinet);
-    atom_num_dinet6   = MKA(env, str_num_dinet6);
-    atom_num_dlocal   = MKA(env, str_num_dlocal);
-    atom_num_pip      = MKA(env, str_num_pip);
-    atom_num_psctp    = MKA(env, str_num_psctp);
-    atom_num_ptcp     = MKA(env, str_num_ptcp);
-    atom_num_pudp     = MKA(env, str_num_pudp);
-    atom_num_sockets  = MKA(env, str_num_sockets);
-    atom_num_tdgrams  = MKA(env, str_num_tdgrams);
-    atom_num_tseqpkgs = MKA(env, str_num_tseqpkgs);
-    atom_num_tstreams = MKA(env, str_num_tstreams);
-    atom_probe        = MKA(env, str_probe);
-    atom_select       = MKA(env, str_select);
-    atom_sourceaddr   = MKA(env, str_sourceaddr);
-    atom_timeout      = MKA(env, str_timeout);
-    atom_true         = MKA(env, str_true);
-    atom_want         = MKA(env, str_want);
+    atom_adaptation_layer    = MKA(env, str_adaptation_layer);
+    atom_address             = MKA(env, str_address);
+    atom_association         = MKA(env, str_association);
+    atom_authentication      = MKA(env, str_authentication);
+    atom_close               = MKA(env, str_close);
+    atom_closed              = MKA(env, str_closed);
+    atom_closing             = MKA(env, str_closing);
+    atom_data_in             = MKA(env, str_data_in);
+    atom_do                  = MKA(env, str_do);
+    atom_dont                = MKA(env, str_dont);
+    atom_false               = MKA(env, str_false);
+    atom_global_counters     = MKA(env, str_global_counters);
+    atom_in4_sockaddr        = MKA(env, str_in4_sockaddr);
+    atom_in6_sockaddr        = MKA(env, str_in6_sockaddr);
+    atom_iow                 = MKA(env, str_iow);
+    atom_interface           = MKA(env, str_interface);
+    atom_multiaddr           = MKA(env, str_multiaddr);
+    atom_nif_abort           = MKA(env, str_nif_abort);
+    atom_num_dinet           = MKA(env, str_num_dinet);
+    atom_num_dinet6          = MKA(env, str_num_dinet6);
+    atom_num_dlocal          = MKA(env, str_num_dlocal);
+    atom_num_pip             = MKA(env, str_num_pip);
+    atom_num_psctp           = MKA(env, str_num_psctp);
+    atom_num_ptcp            = MKA(env, str_num_ptcp);
+    atom_num_pudp            = MKA(env, str_num_pudp);
+    atom_num_sockets         = MKA(env, str_num_sockets);
+    atom_num_tdgrams         = MKA(env, str_num_tdgrams);
+    atom_num_tseqpkgs        = MKA(env, str_num_tseqpkgs);
+    atom_num_tstreams        = MKA(env, str_num_tstreams);
+    atom_partial_delivery    = MKA(env, str_partial_delivery);
+    atom_peer_error          = MKA(env, str_peer_error);
+    atom_probe               = MKA(env, str_probe);
+    atom_select              = MKA(env, str_select);
+    atom_sender_dry          = MKA(env, str_sender_dry);
+    atom_send_failure        = MKA(env, str_send_failure);
+    atom_shutdown            = MKA(env, str_shutdown);
+    atom_sourceaddr          = MKA(env, str_sourceaddr);
+    atom_timeout             = MKA(env, str_timeout);
+    atom_true                = MKA(env, str_true);
+    atom_want                = MKA(env, str_want);
 
     /* Global atom(s) */
     esock_atom_addr      = MKA(env, "addr");

@@ -25,7 +25,8 @@
          start_tcp/0, start_tcp/1, start_tcp/2,
          start_tcp4/1, start_tcp6/1,
          start_udp/0, start_udp/1, start_udp/2,
-         start_udp4/1, start_udp6/1
+         start_udp4/1, start_udp6/1,
+         start_sctp/0, start_sctp/1
         ]).
 
 -define(LIB, socket_lib).
@@ -69,6 +70,13 @@ start_udp6(Peek) ->
 start_udp(Domain, Peek) when is_boolean(Peek) ->
     start(Domain, dgram, udp, Peek).
 
+
+start_sctp() ->
+    start_sctp(inet).
+
+start_sctp(Domain) when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    start(Domain, seqpacket, sctp, false).
+
 start(Domain, Type, Proto, Peek) ->
     put(sname, "starter"),
     i("try start manager"),
@@ -103,8 +111,11 @@ manager_reply(Pid, Ref, Reply) ->
     ?LIB:reply(manager, Pid, Ref, Reply).
 
 
-manager_init(Domain, stream = Type, Proto, Peek) ->
+manager_init(Domain, Type, Proto, Peek) ->
     put(sname, "manager"),
+    do_manager_init(Domain, Type, Proto, Peek).
+
+do_manager_init(Domain, stream = Type, Proto, Peek) ->
     i("try start acceptor(s)"),
     {Sock, Acceptors} = manager_stream_init(Domain, Type, Proto),
     manager_loop(#manager{socket     = Sock,
@@ -112,8 +123,7 @@ manager_init(Domain, stream = Type, Proto, Peek) ->
                           acceptors  = Acceptors,
                           handler_id = 1,
                           handlers   = []});
-manager_init(Domain, dgram = Type, Proto, Peek) ->
-    put(sname, "manager"),
+do_manager_init(Domain, dgram = Type, Proto, Peek) ->
     i("try open socket"),
     case socket:open(Domain, Type, Proto) of
         {ok, Sock} ->
@@ -170,7 +180,37 @@ manager_init(Domain, dgram = Type, Proto, Peek) ->
             e("Failed open socket: "
               "~n   ~p", [OReason]),
             exit({failed_open_socket, OReason})
+    end;
+do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
+    %% This is as far as I have got with SCTP at the moment...
+    case socket:open(Domain, Type, Proto) of
+        {ok, Sock} ->
+            i("(sctp) socket opened: "
+              "~n   ~p", [Sock]),
+            F = fun(_Desc, Expect, Expect) ->
+                        Expect;
+                   (Desc, Expect, Actual) ->
+                        e("Unexpected result ~w: "
+                          "~n   Expect: ~p"
+                          "~n   Actual: ~p", [Desc, Expect, Actual]),
+                        exit({Desc, Expect, Actual})
+                end,
+            Events = #{data_in          => true,
+                       association      => true,
+                       address          => true,
+                       send_failure     => true,
+                       peer_error       => true,
+                       shutdown         => true,
+                       partial_delivery => true,
+                       adaptation_layer => true,
+                       authentication   => true,
+                       sender_dry       => true},
+            F(set_sctp_events, ok, socket:setopt(Sock, sctp, events, Events)),
+            F(close_socket, ok, socket:close(Sock));
+        {error, Reason} ->
+            exit({failed_open, Reason})
     end.
+
 
 
 manager_stream_init(Domain, Type, Proto) ->
