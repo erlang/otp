@@ -201,15 +201,21 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
                            end
                  end,
             %% ok = socket:setopt(Sock, otp, debug, true),
+
             i("Miscellaneous options: "
               "~n   associnfo:         ~s"
               "~n   autoclose:         ~s"
               "~n   disable-fragments: ~s"
+              "~n   maxseg:            ~s"
+              "~n   nodelay:           ~s"
               "~n   rtoinfo:           ~s", 
               [GO(associnfo),
                GO(autoclose),
                GO(disable_fragments),
+               GO(maxseg),
+               GO(nodelay),
                GO(rtoinfo)]),
+
             Events = #{data_in          => true,
                        association      => true,
                        address          => true,

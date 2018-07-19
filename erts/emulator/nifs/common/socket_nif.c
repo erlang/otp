@@ -546,6 +546,7 @@ typedef union {
 #define SOCKET_OPT_SCTP_AUTOCLOSE           8
 #define SOCKET_OPT_SCTP_DISABLE_FRAGMENTS  12
 #define SOCKET_OPT_SCTP_EVENTS             14
+#define SOCKET_OPT_SCTP_MAXSEG             21
 #define SOCKET_OPT_SCTP_NODELAY            23
 #define SOCKET_OPT_SCTP_RTOINFO            29
 
@@ -1234,6 +1235,11 @@ static ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
 #endif
+#if defined(SCTP_MAXSEG)
+static ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
 #if defined(SCTP_NODELAY)
 static ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
                                              SocketDescriptor* descP,
@@ -1458,6 +1464,10 @@ static ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
 #if defined(SCTP_DISABLE_FRAGMENTS)
 static ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
                                                        SocketDescriptor* descP);
+#endif
+#if defined(SCTP_MAXSEG)
+static ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
+                                            SocketDescriptor* descP);
 #endif
 #if defined(SCTP_NODELAY)
 static ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
@@ -5575,6 +5585,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SCTP_MAXSEG)
+    case SOCKET_OPT_SCTP_MAXSEG:
+        result = nsetopt_lvl_sctp_maxseg(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SCTP_NODELAY)
     case SOCKET_OPT_SCTP_NODELAY:
         result = nsetopt_lvl_sctp_nodelay(env, descP, eVal);
@@ -5818,6 +5834,19 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
 
     return result;
     
+}
+#endif
+
+
+/* nsetopt_lvl_sctp_maxseg - Level SCTP MAXSEG option
+ */
+#if defined(SCTP_MAXSEG)
+static
+ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_MAXSEG, eVal);
 }
 #endif
 
@@ -7585,6 +7614,12 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SCTP_MAXSEG)
+    case SOCKET_OPT_SCTP_MAXSEG:
+        result = ngetopt_lvl_sctp_maxseg(env, descP);
+        break;
+#endif
+
 #if defined(SCTP_NODELAY)
     case SOCKET_OPT_SCTP_NODELAY:
         result = ngetopt_lvl_sctp_nodelay(env, descP);
@@ -7693,6 +7728,18 @@ ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
                                                 SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_DISABLE_FRAGMENTS);
+}
+#endif
+
+
+/* ngetopt_lvl_sctp_maxseg - Level SCTP MAXSEG option
+ */
+#if defined(SCTP_MAXSEG)
+static
+ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
+                                     SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_MAXSEG);
 }
 #endif
 

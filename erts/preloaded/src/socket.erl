@@ -670,7 +670,7 @@
 %% -define(SOCKET_OPT_SCTP_INITMSG,                18).
 %% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  19).
 %% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      20).
-%% -define(SOCKET_OPT_SCTP_MAXSEG,                 21).
+-define(SOCKET_OPT_SCTP_MAXSEG,                 21).
 %% -define(SOCKET_OPT_SCTP_MAXBURST,               22).
 -define(SOCKET_OPT_SCTP_NODELAY,                23).
 %% -define(SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT, 24).
@@ -2229,6 +2229,9 @@ enc_setopt_value(sctp, events, #{data_in          := DataIn,
        is_boolean(SndDry)          andalso
        (P =:= sctp) ->
     V;
+enc_setopt_value(sctp, maxseg, V, _D, _T, P)
+  when is_integer(V) andalso (V >= 0) andalso (P =:= sctp) ->
+    V;
 enc_setopt_value(sctp, nodelay, V, _D, _T, P)
   when is_boolean(V) andalso (P =:= sctp) ->
     V;
@@ -2676,8 +2679,8 @@ enc_sockopt_key(sctp = L, i_want_mapped_v4_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, local_auth_chunks = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, maxseg = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, maxseg = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_MAXSEG;
 enc_sockopt_key(sctp = L, maxburst = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
