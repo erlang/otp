@@ -87,6 +87,7 @@
               tcp_socket_option/0,
               udp_socket_option/0,
               sctp_socket_option/0,
+              raw_socket_option/0,
 
               timeval/0,
               ip_tos_flag/0,
@@ -258,7 +259,7 @@
 %% Int    - Raw level, sent down and used "as is".
 -type sockopt_level() :: otp |
                          socket |
-                         ip | ipv6 | tcp | udp | sctp |
+                         ip | ipv6 | tcp | udp | sctp | raw |
                          non_neg_integer().
 
 %% There are some options that are 'read-only'.
@@ -434,6 +435,8 @@
         status |
         use_ext_recvinfo.
 
+-type raw_socket_option() :: filter.
+
 %% -type plain_socket_option()  :: integer().
 %% -type sockopt() :: otp_socket_option() |
 %%                    socket_option() |
@@ -442,6 +445,7 @@
 %%                    tcp_socket_option() |
 %%                    udp_socket_option() |
 %%                    sctp_socket_option() |
+%%                    raw_socket_option() |
 %%                    plain_socket_option().
 
 -type socket_info() :: #{domain   => domain(),
@@ -594,7 +598,7 @@
 %% -define(SOCKET_OPT_IP_DONTFRAG,               4).
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
-%% -define(SOCKET_OPT_IP_FREEBIND,               7).
+-define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
 -define(SOCKET_OPT_IP_MINTTL,                 9).
 %% -define(SOCKET_OPT_IP_MSFILTER,              10).
@@ -2177,6 +2181,8 @@ enc_setopt_value(ip, drop_source_membership, #{multiaddr  := MA,
        (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
        (is_tuple(SA) andalso (size(SA) =:= 4)) ->
     V;
+enc_setopt_value(ip, freebind, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, minttl, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(ip, mtu_discover, V, _D, _T, _P)
@@ -2357,6 +2363,9 @@ enc_setopt_value(sctp, rtoinfo, #{assoc_id := AssocId,
     V;
 enc_setopt_value(sctp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
+
+enc_setopt_value(raw = L, Opt, _V, _D, _T, _P) ->
+    not_supported({L, Opt});
 
 %% Is this correct? What about getopt?
 enc_setopt_value(L, Opt, V, _, _, _)
@@ -2574,8 +2583,8 @@ enc_sockopt_key(ip = _L, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
 enc_sockopt_key(ip = _L, drop_source_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP;
 %% Linux only?
-enc_sockopt_key(ip = L, free_bind = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, freebind = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_FREEBIND;
 enc_sockopt_key(ip = L, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
     not_supported({L, Opt});
 %% FreeBSD only?

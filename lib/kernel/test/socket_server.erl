@@ -604,6 +604,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             SndTO        = GSO(sndtimeo),
             Linger       = GSO(linger),
             Timestamp    = GSO(timestamp),
+            FreeBind     = GIP(freebind),
             MTU          = GIP(mtu),
             MTUDisc      = GIP(mtu_discover),
             MALL         = GIP(multicast_all),
@@ -629,6 +630,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) SndTO:          ~s"
               "~n   (socket) Linger:         ~s"
               "~n   (socket) Timestamp:      ~s"
+              "~n   (ip)     FreeBind:       ~s"
               "~n   (ip)     MTU:            ~s"
               "~n   (ip)     MTU Discovery:  ~s"
               "~n   (ip)     Multicast ALL:  ~s"
@@ -642,7 +644,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
-               MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
+               FreeBind, MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
             
             handler_loop(#handler{peek    = Peek,

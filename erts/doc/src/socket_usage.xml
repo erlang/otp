@@ -289,6 +289,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>freebind</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>minttl</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>

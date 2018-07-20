@@ -517,6 +517,7 @@ typedef union {
 #define SOCKET_OPT_IP_BLOCK_SOURCE            3
 #define SOCKET_OPT_IP_DROP_MEMBERSHIP         5
 #define SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
+#define SOCKET_OPT_IP_FREEBIND                7
 #define SOCKET_OPT_IP_MINTTL                  9
 #define SOCKET_OPT_IP_MTU                    11
 #define SOCKET_OPT_IP_MTU_DISCOVER           12
@@ -1086,6 +1087,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
                                                           SocketDescriptor* descP,
                                                           ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_FREEBIND)
+static ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_MINTTL)
 static ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
@@ -1408,6 +1414,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt);
+#if defined(IP_FREEBIND)
+static ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*        env,
+                                            SocketDescriptor* descP);
+#endif
 #if defined(IP_MINTTL)
 static ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*        env,
                                           SocketDescriptor* descP);
@@ -4738,6 +4748,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_FREEBIND)
+    case SOCKET_OPT_IP_FREEBIND:
+        result = nsetopt_lvl_ip_freebind(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_MINTTL)
     case SOCKET_OPT_IP_MINTTL:
         result = nsetopt_lvl_ip_minttl(env, descP, eVal);
@@ -4931,6 +4947,26 @@ ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
 {
     return nsetopt_lvl_ip_update_source(env, descP, eVal,
                                         IP_DROP_SOURCE_MEMBERSHIP);
+}
+#endif
+
+
+
+/* nsetopt_lvl_ip_freebind - Level IP FREEBIND option
+ */
+#if defined(IP_FREEBIND)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_FREEBIND, eVal);
 }
 #endif
 
@@ -7374,6 +7410,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
     ERL_NIF_TERM result;
 
     switch (eOpt) {
+#if defined(IP_FREEBIND)
+    case SOCKET_OPT_IP_FREEBIND:
+        result = ngetopt_lvl_ip_freebind(env, descP);
+        break;
+#endif
+
 #if defined(IP_MINTTL)
     case SOCKET_OPT_IP_MINTTL:
         result = ngetopt_lvl_ip_minttl(env, descP);
@@ -7481,6 +7523,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*        env,
 #endif
 
     return ngetopt_int_opt(env, descP, level, IP_MINTTL);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_freebind - Level IP FREEBIND option
+ */
+#if defined(IP_FREEBIND)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*        env,
+                                     SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_FREEBIND);
 }
 #endif
 
