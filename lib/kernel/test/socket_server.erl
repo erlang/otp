@@ -597,8 +597,10 @@ handler_init(Manager, ID, Peek, Sock) ->
             RP           = GSO(reuseport),
             OOBI         = GSO(oobinline),
             RcvBuf       = GSO(rcvbuf),
+            RcvLW        = GSO(rcvlowat),
             RcvTO        = GSO(rcvtimeo),
             SndBuf       = GSO(sndbuf),
+            SndLW        = GSO(sndlowat),
             SndTO        = GSO(sndtimeo),
             Linger       = GSO(linger),
             MTU          = GIP(mtu),
@@ -619,8 +621,10 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) Bind To Device: ~s"
               "~n   (socket) OOBInline:      ~s"
               "~n   (socket) RcvBuf:         ~s"
+              "~n   (socket) RcvLW:          ~s"
               "~n   (socket) RcvTO:          ~s"
               "~n   (socket) SndBuf:         ~s"
+              "~n   (socket) SndLW:          ~s"
               "~n   (socket) SndTO:          ~s"
               "~n   (socket) Linger:         ~s"
               "~n   (ip)     MTU:            ~s"
@@ -634,11 +638,11 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv TTL:       ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
-               RcvBuf, RcvTO, SndBuf, SndTO,
+               RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
-
+            
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,

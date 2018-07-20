@@ -575,7 +575,7 @@
 -define(SOCKET_OPT_SOCK_PROTOCOL,       18).
 -define(SOCKET_OPT_SOCK_RCVBUF,         19).
 %% -define(SOCKET_OPT_SOCK_RCVBUFFORCE,    20).
-%% -define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
+-define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
 -define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      23).
 -define(SOCKET_OPT_SOCK_REUSEPORT,      24).
@@ -583,7 +583,7 @@
 %% -define(SOCKET_OPT_SOCK_SETFIB,         26).
 -define(SOCKET_OPT_SOCK_SNDBUF,         27).
 %% -define(SOCKET_OPT_SOCK_SNDBUFFORCE,    28).
-%% -define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
+-define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
 -define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
 %% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
@@ -2125,6 +2125,8 @@ enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, rcvbuf, V, _D, _T, _P) when is_integer(V) ->
     V;
+enc_setopt_value(socket, rcvlowat, V, _D, _T, _P) when is_integer(V) ->
+    V;
 enc_setopt_value(socket, rcvtimeo, #{sec := Sec, usec := USec} = V, _D, _T, _P) 
   when is_integer(Sec) andalso is_integer(USec) ->
     V;
@@ -2133,6 +2135,8 @@ enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
 enc_setopt_value(socket, reuseport, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
+    V;
+enc_setopt_value(socket, sndlowat, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, sndtimeo, #{sec := Sec, usec := USec} = V, _D, _T, _P) 
   when is_integer(Sec) andalso is_integer(USec) ->
@@ -2523,8 +2527,8 @@ enc_sockopt_key(socket, rcvbuf = _Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(socket = L, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% May not work on linux.
-enc_sockopt_key(socket = L, rcvlowat = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, rcvlowat = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_RCVLOWAT;
 enc_sockopt_key(socket = _L, rcvtimeo = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_RCVTIMEO;
 enc_sockopt_key(socket = _L, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
@@ -2541,8 +2545,8 @@ enc_sockopt_key(socket = _L, sndbuf = _Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(socket = L, sndbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Not changeable on linux.
-enc_sockopt_key(socket = L, sndlowat = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, sndlowat = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_SNDLOWAT;
 enc_sockopt_key(socket = _L, sndtimeo = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_SNDTIMEO;
 enc_sockopt_key(socket = L, timestamp = Opt, _Dir, _D, _T, _P) ->

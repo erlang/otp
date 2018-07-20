@@ -502,10 +502,12 @@ typedef union {
 #define SOCKET_OPT_SOCK_PRIORITY      17
 #define SOCKET_OPT_SOCK_PROTOCOL      18
 #define SOCKET_OPT_SOCK_RCVBUF        19
+#define SOCKET_OPT_SOCK_RCVLOWAT      21
 #define SOCKET_OPT_SOCK_RCVTIMEO      22
 #define SOCKET_OPT_SOCK_REUSEADDR     23
 #define SOCKET_OPT_SOCK_REUSEPORT     24
 #define SOCKET_OPT_SOCK_SNDBUF        27
+#define SOCKET_OPT_SOCK_SNDLOWAT      29
 #define SOCKET_OPT_SOCK_SNDTIMEO      30
 #define SOCKET_OPT_SOCK_TYPE          32
 
@@ -1012,6 +1014,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_RCVLOWAT)
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_RCVTIMEO)
 static ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
@@ -1031,6 +1038,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_SNDLOWAT)
+static ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
 #endif
 #if defined(SO_SNDTIMEO)
 static ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
@@ -1351,6 +1363,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
 #endif
+#if defined(SO_RCVLOWAT)
+static ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
+#endif
 #if defined(SO_RCVTIMEO)
 static ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
                                               SocketDescriptor* descP);
@@ -1366,6 +1382,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 #if defined(SO_SNDBUF)
 static ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
+#endif
+#if defined(SO_SNDLOWAT)
+static ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
 #endif
 #if defined(SO_SNDTIMEO)
 static ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
@@ -4379,6 +4399,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_RCVLOWAT)
+    case SOCKET_OPT_SOCK_RCVLOWAT:
+        result = nsetopt_lvl_sock_rcvlowat(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_RCVTIMEO)
     case SOCKET_OPT_SOCK_RCVTIMEO:
         result = nsetopt_lvl_sock_rcvtimeo(env, descP, eVal);
@@ -4400,6 +4426,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
 #if defined(SO_SNDBUF)
     case SOCKET_OPT_SOCK_SNDBUF:
         result = nsetopt_lvl_sock_sndbuf(env, descP, eVal);
+        break;
+#endif
+
+#if defined(SO_SNDLOWAT)
+    case SOCKET_OPT_SOCK_SNDLOWAT:
+        result = nsetopt_lvl_sock_sndlowat(env, descP, eVal);
         break;
 #endif
 
@@ -4550,6 +4582,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 #endif
 
 
+#if defined(SO_RCVLOWAT)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVLOWAT, eVal);
+}
+#endif
+
+
 #if defined(SO_RCVTIMEO)
 static
 ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
@@ -4590,6 +4633,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                      ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF, eVal);
+}
+#endif
+
+
+#if defined(SO_SNDLOWAT)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDLOWAT, eVal);
 }
 #endif
 
@@ -6863,6 +6917,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_RCVLOWAT)
+    case SOCKET_OPT_SOCK_RCVLOWAT:
+        result = ngetopt_lvl_sock_rcvlowat(env, descP);
+        break;
+#endif
+
 #if defined(SO_RCVTIMEO)
     case SOCKET_OPT_SOCK_RCVTIMEO:
         result = ngetopt_lvl_sock_rcvtimeo(env, descP);
@@ -6884,6 +6944,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 #if defined(SO_SNDBUF)
     case SOCKET_OPT_SOCK_SNDBUF:
         result = ngetopt_lvl_sock_sndbuf(env, descP);
+        break;
+#endif
+
+#if defined(SO_SNDLOWAT)
+    case SOCKET_OPT_SOCK_SNDLOWAT:
+        result = ngetopt_lvl_sock_sndlowat(env, descP);
         break;
 #endif
 
@@ -7140,6 +7206,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 #endif
 
 
+#if defined(SO_RCVLOWAT)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVLOWAT);
+}
+#endif
+
+
 #if defined(SO_RCVTIMEO)
 static
 ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
@@ -7176,6 +7252,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF);
+}
+#endif
+
+
+#if defined(SO_SNDLOWAT)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDLOWAT);
 }
 #endif
 

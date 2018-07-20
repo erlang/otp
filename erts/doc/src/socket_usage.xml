@@ -180,6 +180,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>rcvlowat</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>rcvtimeo</cell>
 	<cell>timeval()</cell>
 	<cell>yes</cell>
@@ -202,10 +209,17 @@
       </row>
       <row>
 	<cell>sndbuf</cell>
-	<cell>integer()</cell>
+	<cell>non_neg_integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
+      </row>
+      <row>
+	<cell>sndlowat</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>not changeable on Linux</cell>
       </row>
       <row>
 	<cell>sndtimeo</cell>
