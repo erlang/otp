@@ -629,7 +629,6 @@ bif maps:from_list/1
 bif maps:is_key/2
 bif maps:keys/1
 bif maps:merge/2
-bif maps:new/0
 bif maps:put/3
 bif maps:remove/2
 bif maps:update/3
