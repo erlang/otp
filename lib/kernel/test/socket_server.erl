@@ -603,6 +603,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             SndLW        = GSO(sndlowat),
             SndTO        = GSO(sndtimeo),
             Linger       = GSO(linger),
+            Timestamp    = GSO(timestamp),
             MTU          = GIP(mtu),
             MTUDisc      = GIP(mtu_discover),
             MALL         = GIP(multicast_all),
@@ -627,6 +628,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) SndLW:          ~s"
               "~n   (socket) SndTO:          ~s"
               "~n   (socket) Linger:         ~s"
+              "~n   (socket) Timestamp:      ~s"
               "~n   (ip)     MTU:            ~s"
               "~n   (ip)     MTU Discovery:  ~s"
               "~n   (ip)     Multicast ALL:  ~s"
@@ -639,7 +641,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
-               Linger,
+               Linger, Timestamp,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
             

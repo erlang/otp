@@ -556,7 +556,7 @@
 -define(SOCKET_OPT_OTP_CTRL_PROC,        3).
 
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
-%% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2).
+%% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2). % FreeBSD
 -define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
 -define(SOCKET_OPT_SOCK_BROADCAST,       4).
 %% -define(SOCKET_OPT_SOCK_BUSY_POLL,       5).
@@ -580,12 +580,12 @@
 -define(SOCKET_OPT_SOCK_REUSEADDR,      23).
 -define(SOCKET_OPT_SOCK_REUSEPORT,      24).
 %% -define(SOCKET_OPT_SOCK_RXQ_OVFL,       25).
-%% -define(SOCKET_OPT_SOCK_SETFIB,         26).
+%% -define(SOCKET_OPT_SOCK_SETFIB,         26). % FreeBSD
 -define(SOCKET_OPT_SOCK_SNDBUF,         27).
 %% -define(SOCKET_OPT_SOCK_SNDBUFFORCE,    28).
 -define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
 -define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
-%% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
+-define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
@@ -2141,6 +2141,8 @@ enc_setopt_value(socket, sndlowat, V, _D, _T, _P) when is_integer(V) ->
 enc_setopt_value(socket, sndtimeo, #{sec := Sec, usec := USec} = V, _D, _T, _P) 
   when is_integer(Sec) andalso is_integer(USec) ->
     V;
+enc_setopt_value(socket, timestamp, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
@@ -2549,8 +2551,8 @@ enc_sockopt_key(socket = _L, sndlowat = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_SNDLOWAT;
 enc_sockopt_key(socket = _L, sndtimeo = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_SNDTIMEO;
-enc_sockopt_key(socket = L, timestamp = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, timestamp = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_TIMESTAMP;
 enc_sockopt_key(socket = _L, type = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_TYPE;
 enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->

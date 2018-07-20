@@ -228,6 +228,20 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <row>
+	<cell>timestamp</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>type</cell>
+	<cell>type()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
     </table>
     
     <p>Options for level <c>ip</c>: </p>

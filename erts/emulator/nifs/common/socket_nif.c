@@ -509,6 +509,7 @@ typedef union {
 #define SOCKET_OPT_SOCK_SNDBUF        27
 #define SOCKET_OPT_SOCK_SNDLOWAT      29
 #define SOCKET_OPT_SOCK_SNDTIMEO      30
+#define SOCKET_OPT_SOCK_TIMESTAMP     31
 #define SOCKET_OPT_SOCK_TYPE          32
 
 #define SOCKET_OPT_IP_ADD_MEMBERSHIP          1
@@ -1049,6 +1050,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
                                               ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_TIMESTAMP)
+static ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               eOpt,
@@ -1390,6 +1396,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
 #if defined(SO_SNDTIMEO)
 static ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
                                               SocketDescriptor* descP);
+#endif
+#if defined(SO_TIMESTAMP)
+static ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
 #endif
 #if defined(SO_TYPE)
 static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
@@ -4441,6 +4451,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_TIMESTAMP)
+    case SOCKET_OPT_SOCK_TIMESTAMP:
+        result = nsetopt_lvl_sock_timestamp(env, descP, eVal);
+        break;
+#endif
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -4660,6 +4676,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
             "\r\n", eVal) );
 
     return nsetopt_timeval_opt(env, descP, SOL_SOCKET, SO_SNDTIMEO, eVal);
+}
+#endif
+
+
+#if defined(SO_TIMESTAMP)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_TIMESTAMP, eVal);
 }
 #endif
 
@@ -6959,6 +6986,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_TIMESTAMP)
+    case SOCKET_OPT_SOCK_TIMESTAMP:
+        result = ngetopt_lvl_sock_timestamp(env, descP);
+        break;
+#endif
+
 #if defined(SO_TYPE)
     case SOCKET_OPT_SOCK_TYPE:
         result = ngetopt_lvl_sock_type(env, descP);
@@ -7272,6 +7305,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
     return ngetopt_timeval_opt(env, descP, SOL_SOCKET, SO_SNDTIMEO);
+}
+#endif
+
+
+#if defined(SO_TIMESTAMP)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_TIMESTAMP);
 }
 #endif
 
