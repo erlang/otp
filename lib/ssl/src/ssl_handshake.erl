@@ -759,11 +759,12 @@ available_suites(UserSuites, Version) ->
     lists:filtermap(fun(Suite) -> lists:member(Suite, VersionSuites) end, UserSuites).
 
 available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
-    ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version))
-	-- unavailable_ecc_suites(Curve);
+    Suites = ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version), Version),
+    filter_unavailable_ecc_suites(Curve, Suites);
 available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
     Suites = available_suites(ServerCert, UserSuites, Version, undefined, Curve),
-    filter_hashsigns(Suites, [ssl_cipher:suite_definition(Suite) || Suite <- Suites], HashSigns, []).
+    filter_hashsigns(Suites, [ssl_cipher:suite_definition(Suite) || Suite <- Suites], HashSigns, 
+                     Version, []).
 
 available_signature_algs(undefined, _)  ->
     undefined;
@@ -801,7 +802,7 @@ prf({3,0}, _, _, _, _, _) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, #session{ecc = ECCCurve} = 
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, #session{ecc = ECCCurve0} = 
 		   Session, Version,
 	       #ssl_options{ciphers = UserSuites, honor_cipher_order = HonorCipherOrder} = SslOpts,
 	       Cache, CacheCb, Cert) ->
@@ -810,10 +811,12 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, 
 						 Cache, CacheCb),
     case Resumed of
         undefined ->
-	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve),
-	    CipherSuite = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
+	    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+            {ECCCurve, CipherSuite} = cert_curve(Cert, ECCCurve0, CipherSuite0),
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
+                                  ecc = ECCCurve,
 				  cipher_suite = CipherSuite,
 				  compression_method = Compression}};
 	_ ->
@@ -1026,7 +1029,8 @@ select_curve(undefined, _, _) ->
 %%--------------------------------------------------------------------
 select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
                                                    KeyExAlgo == ecdh_anon;
-                                                   KeyExAlgo == srp_anon ->
+                                                   KeyExAlgo == srp_anon;
+                                                   KeyExAlgo == psk ->
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
@@ -1035,17 +1039,14 @@ select_hashsign(HashSigns, Cert, KeyExAlgo,
     select_hashsign(HashSigns, Cert, KeyExAlgo, tls_v1:default_signature_algs(Version), Version);
 select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, KeyExAlgo, SupportedHashSigns,
 		{Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
-    #'OTPCertificate'{tbsCertificate = TBSCert,
-		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
      	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
 
-    Sign = sign_algo(SignAlgo),
-    SubSing = sign_algo(SubjAlgo),
-
-    case lists:filter(fun({_, S} = Algos) when S == Sign ->
-			      is_acceptable_hash_sign(Algos, Sign,
-						      SubSing, KeyExAlgo, SupportedHashSigns);
+    SubSign = sign_algo(SubjAlgo),
+    
+    case lists:filter(fun({_, S} = Algos) when S == SubSign ->
+			      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
 			 (_)  ->
 			      false
 		      end, HashSigns) of
@@ -1993,25 +1994,26 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-filter_hashsigns([], [], _, Acc) ->
-    lists:reverse(Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns,
-		 Acc) when KeyExchange == dhe_ecdsa;
-			   KeyExchange == ecdhe_ecdsa ->
-    do_filter_hashsigns(ecdsa, Suite, Suites, Algos, HashSigns, Acc);
 
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns,
+filter_hashsigns([], [], _, _, Acc) ->
+    lists:reverse(Acc);
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
+ 		 Acc) when KeyExchange == dhe_ecdsa;
+ 			   KeyExchange == ecdhe_ecdsa ->
+    do_filter_hashsigns(ecdsa, Suite, Suites, Algos, HashSigns, Version, Acc); 
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
 		 Acc) when KeyExchange == rsa;
 			   KeyExchange == dhe_rsa;
 			   KeyExchange == ecdhe_rsa;
 			   KeyExchange == srp_rsa;
 			   KeyExchange == rsa_psk ->
-    do_filter_hashsigns(rsa, Suite, Suites, Algos, HashSigns, Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
+    do_filter_hashsigns(rsa, Suite, Suites, Algos, HashSigns, Version, Acc);
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version, Acc) when 
       KeyExchange == dhe_dss;
       KeyExchange == srp_dss ->							       
-    do_filter_hashsigns(dsa, Suite, Suites, Algos, HashSigns, Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
+    do_filter_hashsigns(dsa, Suite, Suites, Algos, HashSigns, Version, Acc);
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Verion,
+                 Acc) when 
       KeyExchange == dh_dss; 
       KeyExchange == dh_rsa; 
       KeyExchange == dh_ecdsa;
@@ -2020,28 +2022,37 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
       %%  Fixed DH certificates MAY be signed with any hash/signature
       %%  algorithm pair appearing in the hash_sign extension.  The names
     %%  DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are historical.
-    filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Acc) when 
+    filter_hashsigns(Suites, Algos, HashSigns, Verion, [Suite| Acc]);
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
+                 Acc) when 
       KeyExchange == dh_anon;
       KeyExchange == ecdh_anon;
       KeyExchange == srp_anon;
       KeyExchange == psk;
       KeyExchange == dhe_psk ->
     %% In this case hashsigns is not used as the kexchange is anonaymous
-    filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]).
+    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]).
 
-do_filter_hashsigns(SignAlgo, Suite, Suites, Algos, HashSigns, Acc) ->
+do_filter_hashsigns(SignAlgo, Suite, Suites, Algos, HashSigns, Version, Acc) ->
     case lists:keymember(SignAlgo, 2, HashSigns) of
 	true ->
-	    filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]);
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
 	false ->
-	    filter_hashsigns(Suites, Algos, HashSigns, Acc)
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, Acc)
     end.
 
-unavailable_ecc_suites(no_curve) ->
-    ssl_cipher:ec_keyed_suites();
-unavailable_ecc_suites(_) ->
-    [].
+filter_unavailable_ecc_suites(no_curve, Suites) ->
+    ECCSuites = ssl_cipher:filter_suites(Suites, #{key_exchange_filters => [fun(ecdh_ecdsa) -> true; 
+                                                                               (ecdhe_ecdsa) -> true; 
+                                                                               (ecdh_rsa) -> true; 
+                                                                               (_) -> false 
+                                                                            end],
+                                                   cipher_filters => [],
+                                                   mac_filters => [],
+                                                   prf_filters => []}),
+    Suites -- ECCSuites;       
+filter_unavailable_ecc_suites(_, Suites) ->
+    Suites.
 %%-------------Extension handling --------------------------------
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 
@@ -2134,35 +2145,7 @@ sign_algo(Alg) ->
     {_, Sign} =public_key:pkix_sign_types(Alg),
     Sign.
 
-is_acceptable_hash_sign(Algos, _, _, KeyExAlgo, SupportedHashSigns) when 
-      KeyExAlgo == dh_dss;
-      KeyExAlgo == dh_rsa;
-      KeyExAlgo == dh_ecdsa ->
-    %% dh_* could be called only dh in TLS-1.2
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdh_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, dhe_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, ecdhe_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, srp_rsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, rsa_psk, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, dhe_dss, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, srp_dss, SupportedHashSigns) ->  
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, _, dhe_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdh_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
+is_acceptable_hash_sign( _, KeyExAlgo, _) when 
       KeyExAlgo == psk;
       KeyExAlgo == dhe_psk;
       KeyExAlgo == srp_anon;
@@ -2170,8 +2153,9 @@ is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when
       KeyExAlgo == ecdhe_anon     
       ->
     true; 
-is_acceptable_hash_sign(_,_, _,_,_) ->
-    false.					
+is_acceptable_hash_sign(Algos,_, SupportedHashSigns) -> 
+    is_acceptable_hash_sign(Algos, SupportedHashSigns).
+
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
@@ -2350,3 +2334,21 @@ handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
 	{false, false} ->
 	    {ok, ConnectionStates}
     end.
+
+cert_curve(_, _, no_suite) ->
+    {no_curve, no_suite};
+cert_curve(Cert, ECCCurve0, CipherSuite) ->
+    case ssl_cipher:suite_definition(CipherSuite) of
+        #{key_exchange := Kex} when Kex == ecdh_ecdsa; 
+                                    Kex == ecdh_rsa ->
+            OtpCert = public_key:pkix_decode_cert(Cert, otp),
+            TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+            #'OTPSubjectPublicKeyInfo'{algorithm = AlgInfo} 
+                = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+            {namedCurve, Oid}  = AlgInfo#'PublicKeyAlgorithm'.parameters,
+            {{namedCurve, Oid}, CipherSuite};
+        _ ->
+            {ECCCurve0, CipherSuite}
+    end.
+
+   

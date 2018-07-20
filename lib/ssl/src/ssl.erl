@@ -476,8 +476,9 @@ eccs() ->
     eccs_filter_supported(Curves).
 
 %%--------------------------------------------------------------------
--spec eccs(tls_record:tls_version() | tls_record:tls_atom_version()) ->
-    tls_v1:curves().
+-spec eccs(tls_record:tls_version() | tls_record:tls_atom_version() |
+           dtls_record:dtls_version() | dtls_record:dtls_atom_version()) ->
+                  tls_v1:curves().
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
@@ -486,8 +487,17 @@ eccs({3,0}) ->
 eccs({3,_}) ->
     Curves = tls_v1:ecc_curves(all),
     eccs_filter_supported(Curves);
-eccs(AtomVersion) when is_atom(AtomVersion) ->
-    eccs(tls_record:protocol_version(AtomVersion)).
+
+eccs({254,_} = Version) ->
+    eccs(dtls_v1:corresponding_tls_version(Version));
+eccs(Version) when Version == 'tlsv1.2';
+                   Version == 'tlsv1.1';
+                   Version == tlsv1;
+                   Version == sslv3 ->
+    eccs(tls_record:protocol_version(Version));
+eccs(Version) when Version == 'dtlsv1.2';
+                   Version == 'dtlsv1'->
+    eccs(dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Version))).
 
 eccs_filter_supported(Curves) ->
     CryptoCurves = crypto:ec_curves(),

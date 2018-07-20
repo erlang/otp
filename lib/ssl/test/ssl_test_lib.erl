@@ -502,6 +502,17 @@ default_cert_chain_conf() ->
     %% Use only default options
     [[],[],[]].
 
+gen_conf(mix, mix, UserClient, UserServer) ->
+    ClientTag = conf_tag("client"),
+    ServerTag = conf_tag("server"),
+
+    DefaultClient = default_cert_chain_conf(), 
+    DefaultServer = default_cert_chain_conf(),
+    
+    ClientConf = merge_chain_spec(UserClient, DefaultClient, []),
+    ServerConf = merge_chain_spec(UserServer, DefaultServer, []),
+    
+    new_format([{ClientTag, ClientConf}, {ServerTag, ServerConf}]);
 gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
     ClientTag = conf_tag("client"),
     ServerTag = conf_tag("server"),
@@ -594,6 +605,32 @@ merge_spec(User, Default, [Conf | Rest], Acc) ->
         Value ->
                 merge_spec(User, Default, Rest, [{Conf, Value} | Acc])
     end.
+
+make_mix_cert(Config) ->
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
+    Digest = {digest, appropriate_sha(crypto:supports())},
+    CurveOid = hd(tls_v1:ecc_curves(0)),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
+    ClientChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key, hardcode_rsa_key(1)}], 
+                    [Digest, {key, {namedCurve, CurveOid}}, {extensions, Ext}]
+                   ],
+    ServerChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key,  hardcode_rsa_key(2)}], 
+                    [Digest, {key, {namedCurve, CurveOid}},{extensions, Ext}]
+                   ],
+    ClientChainType =ServerChainType = mix,
+    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    [{server_config, ServerConf}, 
+     {client_config, ClientConf}] = 
+        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    {[{verify, verify_peer} | ClientConf],
+     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
+    }.
 
 make_ecdsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
@@ -861,6 +898,159 @@ accepters(Acc, N) ->
 	{accepter, _, Server} ->
 	    accepters([Server| Acc], N-1)
     end.
+basic_test(COpts, SOpts, Config) ->
+    SType = proplists:get_value(server_type, Config),
+    CType = proplists:get_value(client_type, Config),
+    {Server, Port} = start_server(SType, SOpts, Config),
+    Client = start_client(CType, Port, COpts, Config),
+    gen_check_result(Server, SType, Client, CType),
+    stop(Server, Client).    
+
+ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
+    {Server, Port} = start_server_ecc(erlang, SOpts, Expect, SECCOpts, Config),
+    Client = start_client_ecc(erlang, Port, COpts, Expect, CECCOpts, Config),
+    check_result(Server, ok, Client, ok),
+    stop(Server, Client).
+
+ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
+    {Server, Port} = start_server_ecc_error(erlang, SOpts, SECCOpts, Config),
+    Client = start_client_ecc_error(erlang, Port, COpts, CECCOpts, Config),
+    Error = {error, {tls_alert, "insufficient security"}},
+    check_result(Server, Error, Client, Error).
+
+
+start_client(openssl, Port, ClientOpts, Config) ->
+    Cert = proplists:get_value(certfile, ClientOpts),
+    Key = proplists:get_value(keyfile, ClientOpts),
+    CA = proplists:get_value(cacertfile, ClientOpts),
+    Version = ssl_test_lib:protocol_version(Config),
+    Exe = "openssl",
+    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+	    ssl_test_lib:version_flag(Version),
+	    "-cert", Cert, "-CAfile", CA,
+	    "-key", Key, "-host","localhost", "-msg", "-debug"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
+    true = port_command(OpenSslPort, "Hello world"),
+    OpenSslPort;
+
+start_client(erlang, Port, ClientOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    KeyEx = proplists:get_value(check_keyex, Config, false),
+    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+			       {host, Hostname},
+			       {from, self()},
+			       {mfa, {ssl_test_lib, check_key_exchange_send_active, [KeyEx]}},
+			       {options, [{verify, verify_peer} | ClientOpts]}]).
+
+
+start_client_ecc(erlang, Port, ClientOpts, Expect, ECCOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                               {host, Hostname},
+                               {from, self()},
+                               {mfa, {?MODULE, check_ecc, [client, Expect]}},
+                               {options,
+                                ECCOpts ++
+                                [{verify, verify_peer} | ClientOpts]}]).
+
+start_client_ecc_error(erlang, Port, ClientOpts, ECCOpts, Config) ->
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                     {host, Hostname},
+                                     {from, self()},
+                                     {options,
+                                      ECCOpts ++
+                                      [{verify, verify_peer} | ClientOpts]}]).
+
+
+start_server(openssl, ServerOpts, Config) ->
+    Cert = proplists:get_value(certfile, ServerOpts),
+    Key = proplists:get_value(keyfile, ServerOpts),
+    CA = proplists:get_value(cacertfile, ServerOpts),
+    Port = inet_port(node()),
+    Version = protocol_version(Config),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
+	    "-verify", "2", "-cert", Cert, "-CAfile", CA,
+	    "-key", Key, "-msg", "-debug"],
+    OpenSslPort = portable_open_port(Exe, Args),
+    true = port_command(OpenSslPort, "Hello world"),
+    {OpenSslPort, Port};
+start_server(erlang, ServerOpts, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    KeyEx = proplists:get_value(check_keyex, Config, false),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                           {from, self()},
+                           {mfa, {ssl_test_lib,
+                                  check_key_exchange_send_active,
+                                  [KeyEx]}},
+                           {options, [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_with_raw_key(erlang, ServerOpts, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                           {from, self()},
+                           {mfa, {ssl_test_lib,
+                                  send_recv_result_active,
+                                  []}},
+                           {options,
+                            [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_ecc(erlang, ServerOpts, Expect, ECCOpts, Config) ->
+    {_, ServerNode, _} = run_where(Config),
+    Server = start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {?MODULE, check_ecc, [server, Expect]}},
+                                        {options,
+                                         ECCOpts ++
+                                         [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+start_server_ecc_error(erlang, ServerOpts, ECCOpts, Config) ->
+    {_, ServerNode, _} = run_where(Config),
+    Server = start_server_error([{node, ServerNode}, {port, 0},
+                                              {from, self()},
+                                              {options,
+                                               ECCOpts ++
+                                               [{verify, verify_peer} | ServerOpts]}]),
+    {Server, inet_port(Server)}.
+
+gen_check_result(Server, erlang, Client, erlang) ->
+    check_result(Server, ok, Client, ok);
+gen_check_result(Server, erlang, _, _) ->
+    check_result(Server, ok);
+gen_check_result(_, _, Client, erlang) ->
+    check_result(Client, ok);
+gen_check_result(_,openssl, _, openssl) ->
+    ok.
+
+stop(Port1, Port2) when is_port(Port1), is_port(Port2) ->
+    close_port(Port1),
+    close_port(Port2);
+stop(Port, Pid) when is_port(Port) ->
+    close_port(Port),
+    close(Pid);
+stop(Pid, Port) when is_port(Port) ->
+    close_port(Port),
+    close(Pid);
+stop(Client, Server)  ->
+    close(Server),
+    close(Client).
+
+supported_eccs(Opts) ->
+    ToCheck = proplists:get_value(eccs, Opts, []),
+    Supported = ssl:eccs(),
+    lists:all(fun(Curve) -> lists:member(Curve, Supported) end, ToCheck).
+
+check_ecc(SSL, Role, Expect) ->
+    {ok, Data} = ssl:connection_information(SSL),
+    case lists:keyfind(ecc, 1, Data) of
+        {ecc, {named_curve, Expect}} -> ok;
+        Other -> {error, Role, Expect, Other}
+    end.
 
 inet_port(Pid) when is_pid(Pid)->
     receive
@@ -1024,8 +1214,16 @@ string_regex_filter(Str, Search) when is_list(Str) ->
 string_regex_filter(_Str, _Search) ->
     false.
 
-anonymous_suites(Version) ->
-    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],[]).
+ecdh_dh_anonymous_suites(Version) ->
+    ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],
+                             [{key_exchange, 
+                               fun(dh_anon) -> 
+                                       true;
+                                  (ecdh_anon) -> 
+                                       true;
+                                  (_) -> 
+                                       false 
+                               end}]).
 psk_suites(Version) ->
     ssl:filter_cipher_suites([ssl_cipher:suite_definition(S) || S <- ssl_cipher:psk_suites(Version)], []).
 
@@ -1181,10 +1379,7 @@ sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
-sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic_SUITE
-				      Group == erlang_server;  %% From ssl_ECC_SUITE
-				      Group == erlang_client;  %% From ssl_ECC_SUITE
-				      Group == erlang ->       %% From ssl_ECC_SUITE
+sufficient_crypto_support(cipher_ec) -> 
     CryptoSupport = crypto:supports(),
     proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
@@ -1193,16 +1388,41 @@ sufficient_crypto_support(_) ->
 check_key_exchange_send_active(Socket, false) ->
     send_recv_result_active(Socket);
 check_key_exchange_send_active(Socket, KeyEx) ->
-    {ok, [{cipher_suite, Suite}]} = ssl:connection_information(Socket, [cipher_suite]),
-    true = check_key_exchange(Suite, KeyEx), 
+    {ok, Info} =
+        ssl:connection_information(Socket, [cipher_suite, protocol]),
+    Suite = proplists:get_value(cipher_suite, Info),
+    Version = proplists:get_value(protocol, Info),
+    true = check_key_exchange(Suite, KeyEx, Version), 
     send_recv_result_active(Socket).
 
-check_key_exchange({KeyEx,_, _}, KeyEx) ->
+check_key_exchange({KeyEx,_, _}, KeyEx, _) ->
+    ct:pal("Kex: ~p", [KeyEx]),
     true;
-check_key_exchange({KeyEx,_,_,_}, KeyEx) ->
+check_key_exchange({KeyEx,_,_,_}, KeyEx, _) ->
+    ct:pal("Kex: ~p", [KeyEx]),
     true;
-check_key_exchange(KeyEx1, KeyEx2) ->
-    ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+check_key_exchange(KeyEx1, KeyEx2, Version) ->
+    ct:pal("Kex: ~p ~p", [KeyEx1, KeyEx2]),
+    case Version of
+        'tlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        'dtlsv1.2' ->
+            v_1_2_check(element(1, KeyEx1), KeyEx2);
+        _ ->       
+            ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+            false
+    end.
+
+v_1_2_check(ecdh_ecdsa, ecdh_rsa) ->
+    true;
+v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
+    true;
+v_1_2_check(ecdhe_ecdsa, ecdhe_rsa) ->
+    true;
+v_1_2_check(ecdhe_rsa, ecdhe_ecdsa) ->
+    true;
+
+v_1_2_check(_, _) ->
     false.
 
 send_recv_result_active(Socket) ->
@@ -1326,12 +1546,60 @@ openssl_dsa_support() ->
             true
     end.
 
+%% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
+openssl_sane_dtls() -> 
+    case os:cmd("openssl version") of
+        "OpenSSL 0." ++ _ ->
+            false;
+        "OpenSSL 1.0.1s-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2k-freebsd" ++ _ ->
+            false;
+        "OpenSSL 1.0.2d" ++ _ ->
+            false;
+        "OpenSSL 1.0.2n" ++ _ ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false;
+        "OpenSSL" ++ _ ->
+            true;
+        "LibreSSL 2.7" ++ _ ->
+            true;
+        _ ->
+            false
+        end.
+openssl_sane_client_cert() -> 
+    case os:cmd("openssl version") of
+        "LibreSSL 2.5.2" ++ _ ->
+            true;
+        "LibreSSL 2.4" ++ _ ->
+            false;
+        "LibreSSL 2.3" ++ _ ->
+            false; 
+         "LibreSSL 2.1" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+         "LibreSSL 2.0" ++ _ ->
+            false; 
+        "OpenSSL 1.0.1s-freebsd" ->
+            false;
+        "OpenSSL 1.0.0" ++ _ ->
+            false; 
+        _ ->
+            true
+    end.
+
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
 	    case {Version, os:cmd("openssl version")} of
                 {'sslv3', "OpenSSL 1.0.2" ++ _} ->
                     false;
+                {'dtlsv1', _} ->
+		    not is_fips(openssl);
+		{'dtlsv1.2', _} ->
+		    not is_fips(openssl);
 		{_, "OpenSSL 1.0.2" ++ _} ->
 		    true;
 		{_, "OpenSSL 1.0.1" ++ _} ->
@@ -1340,7 +1608,7 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'tlsv1.1', "OpenSSL 1.0.0" ++ _} ->
 		    false;
-                {'dtlsv1.2', "OpenSSL 1.0.0" ++ _} ->
+                {'dtlsv1.2', "OpenSSL 1.0.2" ++ _} ->
 		    false;
 		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
 		    false;
@@ -1675,4 +1943,3 @@ hardcode_dsa_key(3) ->
        g =  20302424198893709525243209250470907105157816851043773596964076323184805650258390738340248469444700378962907756890306095615785481696522324901068493502141775433048117442554163252381401915027666416630898618301033737438756165023568220631119672502120011809327566543827706483229480417066316015458225612363927682579,
        y =  48598545580251057979126570873881530215432219542526130654707948736559463436274835406081281466091739849794036308281564299754438126857606949027748889019480936572605967021944405048011118039171039273602705998112739400664375208228641666852589396502386172780433510070337359132965412405544709871654840859752776060358,
        x = 1457508827177594730669011716588605181448418352823}.
-
