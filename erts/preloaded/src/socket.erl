@@ -88,6 +88,7 @@
               udp_socket_option/0,
               sctp_socket_option/0,
 
+              timeval/0,
               ip_tos_flag/0,
               ip_mreq/0,
               ip_mreq_source/0,
@@ -101,7 +102,7 @@
 
 
               msg_hdr/0,
-              
+
               uint8/0,
               uint16/0,
               uint20/0,
@@ -154,6 +155,16 @@
 %%
 %% </KOLLA>
 
+-type timeval() :: #{sec  := integer(),
+                     usec := integer()}.
+
+%% If the integer value is used its up to the caller to ensure its valid!
+-type ip_tos_flag() :: lowdeley |
+                       throughput |
+                       reliability |
+                       mincost |
+                       integer().
+
 %% This type is used when requesting to become member of a multicast
 %% group with a call to setopt. Example: 
 %%
@@ -165,13 +176,6 @@
 %%     socket:setopt(Socket, ip, drop_membership, #{multiaddr => Addr,
 %%                                                  interface => any}).
 %%
-
-%% If the integer value is used its up to the caller to ensure its valid!
--type ip_tos_flag() :: lowdeley |
-                       throughput |
-                       reliability |
-                       mincost |
-                       integer().
 
 -type ip_mreq() :: #{multiaddr := ip4_address(),
                      interface := any | ip4_address()}.
@@ -572,7 +576,7 @@
 -define(SOCKET_OPT_SOCK_RCVBUF,         19).
 %% -define(SOCKET_OPT_SOCK_RCVBUFFORCE,    20).
 %% -define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
-%% -define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
+-define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
 -define(SOCKET_OPT_SOCK_REUSEADDR,      23).
 -define(SOCKET_OPT_SOCK_REUSEPORT,      24).
 %% -define(SOCKET_OPT_SOCK_RXQ_OVFL,       25).
@@ -580,7 +584,7 @@
 -define(SOCKET_OPT_SOCK_SNDBUF,         27).
 %% -define(SOCKET_OPT_SOCK_SNDBUFFORCE,    28).
 %% -define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
-%% -define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
+-define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
 %% -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
@@ -2121,11 +2125,17 @@ enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, rcvbuf, V, _D, _T, _P) when is_integer(V) ->
     V;
+enc_setopt_value(socket, rcvtimeo, #{sec := Sec, usec := USec} = V, _D, _T, _P) 
+  when is_integer(Sec) andalso is_integer(USec) ->
+    V;
 enc_setopt_value(socket, reuseaddr, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, reuseport, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, sndbuf, V, _D, _T, _P) when is_integer(V) ->
+    V;
+enc_setopt_value(socket, sndtimeo, #{sec := Sec, usec := USec} = V, _D, _T, _P) 
+  when is_integer(Sec) andalso is_integer(USec) ->
     V;
 enc_setopt_value(socket = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
@@ -2515,8 +2525,8 @@ enc_sockopt_key(socket = L, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
 %% May not work on linux.
 enc_sockopt_key(socket = L, rcvlowat = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket, rcvtimeo = Opt, _Dir, _D, _T, _P) ->
-    not_supported(Opt);
+enc_sockopt_key(socket = _L, rcvtimeo = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_RCVTIMEO;
 enc_sockopt_key(socket = _L, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_REUSEADDR;
 enc_sockopt_key(socket = _L, reuseport = _Opt, _Dir, D, _T, _P)
@@ -2526,15 +2536,15 @@ enc_sockopt_key(socket = L, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, setfib = Opt, set = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket, sndbuf = _Opt, _Dir, _D, _T, _P) ->
+enc_sockopt_key(socket = _L, sndbuf = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_SNDBUF;
 enc_sockopt_key(socket = L, sndbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Not changeable on linux.
 enc_sockopt_key(socket = L, sndlowat = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(socket = L, sndtimeo = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(socket = _L, sndtimeo = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SOCK_SNDTIMEO;
 enc_sockopt_key(socket = L, timestamp = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, type = _Opt, _Dir, _D, _T, _P) ->

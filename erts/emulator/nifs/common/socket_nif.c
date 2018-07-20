@@ -502,9 +502,11 @@ typedef union {
 #define SOCKET_OPT_SOCK_PRIORITY      17
 #define SOCKET_OPT_SOCK_PROTOCOL      18
 #define SOCKET_OPT_SOCK_RCVBUF        19
+#define SOCKET_OPT_SOCK_RCVTIMEO      22
 #define SOCKET_OPT_SOCK_REUSEADDR     23
 #define SOCKET_OPT_SOCK_REUSEPORT     24
 #define SOCKET_OPT_SOCK_SNDBUF        27
+#define SOCKET_OPT_SOCK_SNDTIMEO      30
 #define SOCKET_OPT_SOCK_TYPE          32
 
 #define SOCKET_OPT_IP_ADD_MEMBERSHIP          1
@@ -1010,6 +1012,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
 #endif
+#if defined(SO_RCVTIMEO)
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
 #if defined(SO_REUSEADDR)
 static ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
                                                SocketDescriptor* descP,
@@ -1024,6 +1031,11 @@ static ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
+#endif
+#if defined(SO_SNDTIMEO)
+static ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
 #endif
 static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
@@ -1339,6 +1351,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
 #endif
+#if defined(SO_RCVTIMEO)
+static ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
+#endif
 #if defined(SO_REUSEADDR)
 static ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
@@ -1350,6 +1366,10 @@ static ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 #if defined(SO_SNDBUF)
 static ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
+#endif
+#if defined(SO_SNDTIMEO)
+static ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
+                                              SocketDescriptor* descP);
 #endif
 #if defined(SO_TYPE)
 static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
@@ -1509,6 +1529,11 @@ static ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
                                     int               level,
                                     int               opt,
                                     ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        int               level,
+                                        int               opt,
+                                        ERL_NIF_TERM      eVal);
 
 static ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
@@ -1523,6 +1548,10 @@ static ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     int               level,
                                     int               opt);
+static ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        int               level,
+                                        int               opt);
 
 static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
@@ -1864,6 +1893,7 @@ static char str_partial_delivery[] = "partial_delivery";
 static char str_peer_error[]       = "peer_error";
 static char str_peer_rwnd[]        = "peer_rwnd";
 static char str_probe[]            = "probe";
+static char str_sec[]              = "sec";
 static char str_select[]           = "select";
 static char str_sender_dry[]       = "sender_dry";
 static char str_send_failure[]     = "send_failure";
@@ -1871,6 +1901,7 @@ static char str_shutdown[]         = "shutdown";
 static char str_sourceaddr[]       = "sourceaddr";
 static char str_timeout[]          = "timeout";
 static char str_true[]             = "true";
+static char str_usec[]             = "usec";
 static char str_want[]             = "want";
 
 static char str_lowdelay[]     = "lowdelay";
@@ -1973,6 +2004,7 @@ static ERL_NIF_TERM atom_partial_delivery;
 static ERL_NIF_TERM atom_peer_error;
 static ERL_NIF_TERM atom_peer_rwnd;
 static ERL_NIF_TERM atom_probe;
+static ERL_NIF_TERM atom_sec;
 static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_sender_dry;
 static ERL_NIF_TERM atom_send_failure;
@@ -1980,6 +2012,7 @@ static ERL_NIF_TERM atom_shutdown;
 static ERL_NIF_TERM atom_sourceaddr;
 static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
+static ERL_NIF_TERM atom_usec;
 static ERL_NIF_TERM atom_want;
 
 static ERL_NIF_TERM atom_lowdelay;
@@ -4346,6 +4379,12 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_RCVTIMEO)
+    case SOCKET_OPT_SOCK_RCVTIMEO:
+        result = nsetopt_lvl_sock_rcvtimeo(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_REUSEADDR)
     case SOCKET_OPT_SOCK_REUSEADDR:
         result = nsetopt_lvl_sock_reuseaddr(env, descP, eVal);
@@ -4364,10 +4403,21 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_SNDTIMEO)
+    case SOCKET_OPT_SOCK_SNDTIMEO:
+        result = nsetopt_lvl_sock_sndtimeo(env, descP, eVal);
+        break;
+#endif
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_socket -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -4500,6 +4550,17 @@ ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 #endif
 
 
+#if defined(SO_RCVTIMEO)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    return nsetopt_timeval_opt(env, descP, SOL_SOCKET, SO_RCVTIMEO, eVal);
+}
+#endif
+
+
 #if defined(SO_REUSEADDR)
 static
 ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
@@ -4529,6 +4590,22 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                      ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF, eVal);
+}
+#endif
+
+
+#if defined(SO_SNDTIMEO)
+static
+ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sock_sndtimeo -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    return nsetopt_timeval_opt(env, descP, SOL_SOCKET, SO_SNDTIMEO, eVal);
 }
 #endif
 
@@ -6144,6 +6221,73 @@ ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
 }
 
 
+/* nsetopt_timeval_opt - set an option that has an (timeval) bool value
+ */
+static
+ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*        env,
+                                 SocketDescriptor* descP,
+                                 int               level,
+                                 int               opt,
+                                 ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM   result;
+    ERL_NIF_TERM   eSec, eUSec;
+    struct timeval timeVal;
+    int            res;
+    size_t         sz;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_timeval_opt -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    // It must be a map
+    if (!IS_MAP(env, eVal))
+        return esock_make_error(env, esock_atom_einval);
+
+    // It must have atleast ten attributes
+    if (!enif_get_map_size(env, eVal, &sz) || (sz < 2))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_sctp_rtoinfo -> extract attributes\r\n") );    
+
+    if (!GET_MAP_VAL(env, eVal, atom_sec, &eSec))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_MAP_VAL(env, eVal, atom_usec,  &eUSec))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_timeval_opt -> decode attributes\r\n") );
+
+    if (!GET_LONG(env, eSec, &timeVal.tv_sec))
+        return esock_make_error(env, esock_atom_einval);
+    
+    if (!GET_LONG(env, eUSec, &timeVal.tv_usec))
+        return esock_make_error(env, esock_atom_einval);
+    
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_timeval_opt -> set timeval option\r\n") );
+
+    res = socket_setopt(descP->sock, level, opt, &timeVal, sizeof(timeVal));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_timeval_opt -> done with"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+    
+}
+
+
+
 static
 BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
                        int        eLevel,
@@ -6719,6 +6863,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_RCVTIMEO)
+    case SOCKET_OPT_SOCK_RCVTIMEO:
+        result = ngetopt_lvl_sock_rcvtimeo(env, descP);
+        break;
+#endif
+
 #if defined(SO_REUSEADDR)
     case SOCKET_OPT_SOCK_REUSEADDR:
         result = ngetopt_lvl_sock_reuseaddr(env, descP);
@@ -6737,6 +6887,12 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(SO_SNDTIMEO)
+    case SOCKET_OPT_SOCK_SNDTIMEO:
+        result = ngetopt_lvl_sock_sndtimeo(env, descP);
+        break;
+#endif
+
 #if defined(SO_TYPE)
     case SOCKET_OPT_SOCK_TYPE:
         result = ngetopt_lvl_sock_type(env, descP);
@@ -6747,6 +6903,11 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_lvl_socket -> done when"
+            "\r\n   result:  %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -6979,6 +7140,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 #endif
 
 
+#if defined(SO_RCVTIMEO)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    return ngetopt_timeval_opt(env, descP, SOL_SOCKET, SO_RCVTIMEO);
+}
+#endif
+
+
 #if defined(SO_REUSEADDR)
 static
 ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
@@ -7005,6 +7176,16 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF);
+}
+#endif
+
+
+#if defined(SO_SNDTIMEO)
+static
+ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
+                                       SocketDescriptor* descP)
+{
+    return ngetopt_timeval_opt(env, descP, SOL_SOCKET, SO_SNDTIMEO);
 }
 #endif
 
@@ -8031,6 +8212,56 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
     } else {
         result = esock_make_ok2(env, MKI(env, val));
     }
+
+    return result;
+}
+
+
+
+/* ngetopt_timeval_opt - get an timeval option
+ */
+static
+ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
+                                 SocketDescriptor* descP,
+                                 int               level,
+                                 int               opt)
+{
+    ERL_NIF_TERM   result;
+    struct timeval val;
+    SOCKOPTLEN_T   valSz = sizeof(val);
+    int            res;
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_timeval_opt -> entry with"
+            "\r\n   level: %d"
+            "\r\n   opt:   %d"
+            "\r\n", level, opt) );
+
+    sys_memzero((char*) &val, valSz);
+    res = sock_getopt(descP->sock, level, opt, &val, &valSz);
+
+    if (res != 0) {
+        result = esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM eTimeVal;
+        ERL_NIF_TERM keys[] = {atom_sec, atom_usec};
+        ERL_NIF_TERM vals[] = {MKL(env, val.tv_sec), MKL(env, val.tv_usec)};
+        
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+        
+        ESOCK_ASSERT( (numKeys == numVals) );
+        
+        if (!MKMA(env, keys, vals, numKeys, &eTimeVal))
+            return esock_make_error(env, esock_atom_einval);;
+        
+        result = esock_make_ok2(env, eTimeVal);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "ngetopt_timeval_opt -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -10238,6 +10469,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_peer_rwnd           = MKA(env, str_peer_rwnd);
     atom_peer_error          = MKA(env, str_peer_error);
     atom_probe               = MKA(env, str_probe);
+    atom_sec                 = MKA(env, str_sec);
     atom_select              = MKA(env, str_select);
     atom_sender_dry          = MKA(env, str_sender_dry);
     atom_send_failure        = MKA(env, str_send_failure);
@@ -10245,6 +10477,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_sourceaddr          = MKA(env, str_sourceaddr);
     atom_timeout             = MKA(env, str_timeout);
     atom_true                = MKA(env, str_true);
+    atom_usec                = MKA(env, str_usec);
     atom_want                = MKA(env, str_want);
 
     /* Global atom(s) */

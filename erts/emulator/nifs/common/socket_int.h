@@ -152,6 +152,7 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define MKA(E,S)            enif_make_atom((E), (S))
 #define MKBIN(E,B)          enif_make_binary((E), (B))
 #define MKI(E,I)            enif_make_int((E), (I))
+#define MKL(E,L)            enif_make_long((E), (L))
 #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
 #define MKEL(E)             enif_make_list((E), 0)
 #define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M))
@@ -167,7 +168,8 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define MKT8(E,E1,E2,E3,E4,E5,E6,E7,E8) \
     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
 #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL))
-#define MKUI(E,I)           enif_make_uint((E), (I))
+#define MKUI(E,UI)          enif_make_uint((E), (UI))
+#define MKUL(E,UL)          enif_make_ulong((E), (UL))
 
 #define MCREATE(N)          enif_mutex_create((N))
 #define MDESTROY(M)         enif_mutex_destroy((M))
@@ -194,16 +196,18 @@ extern ERL_NIF_TERM esock_atom_einval;
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)
 #define GET_ATOM(E, TE, BP, MAX) \
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
-#define GET_BIN(E, TE, BP)        enif_inspect_iolist_as_binary((E), (TE), (BP))
-#define GET_INT(E, TE, IP)        enif_get_int((E), (TE), (IP))
+#define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
+#define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
+#define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))
 #define GET_LPID(E, T, P)           enif_get_local_pid((E), (T), (P))
 #define GET_STR(E, L, B, SZ)      \
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
-#define GET_UINT(E, TE, IP)       enif_get_uint((E), (TE), (IP))
-#define GET_TUPLE(E, TE, TSZ, TA) enif_get_tuple((E), (TE), (TSZ), (TA))
-#define GET_MAP_VAL(E, M, K, V)   enif_get_map_value((E), (M), (K), (V))
+#define GET_UINT(E, TE, UIP)        enif_get_uint((E), (TE), (UIP))
+#define GET_ULONG(E, TE, ULP)       enif_get_long((E), (TE), (ULP))
+#define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
+#define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))
 
 #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
 #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))

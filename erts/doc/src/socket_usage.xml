@@ -114,7 +114,7 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>may require admin capability</cell>
+	<cell>require admin capability</cell>
       </row>
       <row>
 	<cell>domain</cell>
@@ -174,7 +174,14 @@
       </row>
       <row>
 	<cell>rcvbuf</cell>
-	<cell>integer()</cell>
+	<cell>non_neg_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>rcvtimeo</cell>
+	<cell>timeval()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
@@ -196,6 +203,13 @@
       <row>
 	<cell>sndbuf</cell>
 	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
+	<cell>sndtimeo</cell>
+	<cell>timeval()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>

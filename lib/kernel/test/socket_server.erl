@@ -141,11 +141,14 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
               "~n   debug:     ~s"
               "~n   prio:      ~s"
               "~n   rcvbuf:    ~s"
+              "~n   rcvtimeo:  ~s"
               "~n   sndbuf:    ~s"
+              "~n   sndtimeo:  ~s"
               "~n   => try find (local) address", 
               [F(domain), F(type), F(protocol), 
                F(broadcast), F(dontroute), F(keepalive), F(reuseaddr), F(linger),
-               F(debug), F(priority), F(rcvbuf), F(sndbuf)]),
+               F(debug), F(priority), 
+               F(rcvbuf), F(rcvtimeo), F(sndbuf), F(sndtimeo)]),
             Addr = which_addr(Domain),
             SA = #{family => Domain,
                    addr   => Addr},
@@ -315,7 +318,7 @@ manager_stream_init(Sock, ID, NumAcceptors, Acc)
     case acceptor_start(Sock, ID) of
         {ok, {Pid, MRef}} ->
             i("acceptor ~w (~p) started", [ID, Pid]),
-            ?LIB:sleep(5000),
+            ?LIB:sleep(2000),
             manager_stream_init(Sock, ID+1, NumAcceptors-1, 
                                 [{ID, Pid, MRef}|Acc]);
         {error, Reason} ->
@@ -593,8 +596,10 @@ handler_init(Manager, ID, Peek, Sock) ->
             RA           = GSO(reuseaddr),
             RP           = GSO(reuseport),
             OOBI         = GSO(oobinline),
-            SndBuf       = GSO(sndbuf),
             RcvBuf       = GSO(rcvbuf),
+            RcvTO        = GSO(rcvtimeo),
+            SndBuf       = GSO(sndbuf),
+            SndTO        = GSO(sndtimeo),
             Linger       = GSO(linger),
             MTU          = GIP(mtu),
             MTUDisc      = GIP(mtu_discover),
@@ -613,8 +618,10 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (socket) Reuse Port:     ~s"
               "~n   (socket) Bind To Device: ~s"
               "~n   (socket) OOBInline:      ~s"
-              "~n   (socket) SndBuf:         ~s"
               "~n   (socket) RcvBuf:         ~s"
+              "~n   (socket) RcvTO:          ~s"
+              "~n   (socket) SndBuf:         ~s"
+              "~n   (socket) SndTO:          ~s"
               "~n   (socket) Linger:         ~s"
               "~n   (ip)     MTU:            ~s"
               "~n   (ip)     MTU Discovery:  ~s"
@@ -626,10 +633,12 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s",
               [Domain, Type, Proto,
-               RA, RP, B2D, OOBI, SndBuf, RcvBuf, Linger,
+               RA, RP, B2D, OOBI,
+               RcvBuf, RcvTO, SndBuf, SndTO,
+               Linger,
                MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
                NF, RecvTOS, RecvTTL]),
-            %% socket:setopt(Sock, otp, debug, true),
+
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,

@@ -117,6 +117,9 @@
       <name name="sctp_socket_option"/>
     </datatype>
     <datatype>
+      <name name="timeval"/>
+    </datatype>
+    <datatype>
       <name name="ip_tos_flag"/>
     </datatype>
     <datatype>
@@ -145,6 +148,12 @@
     </datatype>
     <datatype>
       <name name="sctp_rtoinfo"/>
+    </datatype>
+    <datatype>
+      <name name="uint16"/>
+    </datatype>
+    <datatype>
+      <name name="uint32"/>
     </datatype>
   </datatypes>
 
