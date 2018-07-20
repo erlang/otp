@@ -96,16 +96,30 @@
               ipv6_pmtudisc/0,
               sctp_event_subscribe/0,
               sctp_assocparams/0,
+              sctp_initmsg/0,
               sctp_rtoinfo/0,
 
 
-              msg_hdr/0
+              msg_hdr/0,
+              
+              uint8/0,
+              uint16/0,
+              uint20/0,
+              uint32/0
              ]).
+
+
+-type uint8()  :: 0..16#FF.
+-type uint16() :: 0..16#FFFF.
+-type uint20() :: 0..16#FFFFF.
+-type uint32() :: 0..16#FFFFFFFF.
+
 
 %% We support only a subset of all domains.
 -type domain() :: local | inet | inet6.
 
 %% We support only a subset of all types.
+%% RDM - Reliably Delivered Messages
 -type type()   :: stream | dgram | raw | rdm | seqpacket.
 
 %% We support only a subset of all protocols:
@@ -117,8 +131,6 @@
 
 -type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
 
--type uint20()        :: 0..16#FFFFF.
--type uint32()        :: 0..16#FFFFFFFF.
 -type in6_flow_info() :: uint20().
 -type in6_scope_id()  :: uint32().
 
@@ -190,16 +202,22 @@
                                   sender_dry       := boolean()}.
 
 -type sctp_assocparams() :: #{assoc_id       := integer(),
-                              max_rxt        := non_neg_integer(),
-                              num_peer_dests := non_neg_integer(),
-                              peer_rwnd      := non_neg_integer(),
-                              local_rwnd     := non_neg_integer(),
-                              cookie_life    := non_neg_integer()}.
+                              max_rxt        := uint16(),
+                              num_peer_dests := uint16(),
+                              peer_rwnd      := uint32(),
+                              local_rwnd     := uint32(),
+                              cookie_life    := uint32()}.
+
+-type sctp_initmsg() :: #{num_outstreams := uint16(),
+                          max_instreams  := uint16(),
+                          max_attempts   := uint16(),
+                          max_init_timeo := uint16()
+                         }.
 
 -type sctp_rtoinfo() :: #{assoc_id := integer(),
-                          initial  := non_neg_integer(),
-                          max      := non_neg_integer(),
-                          min      := non_neg_integer()}.
+                          initial  := uint32(),
+                          max      := uint32(),
+                          min      := uint32()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
@@ -667,7 +685,7 @@
 %% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           15).
 %% -define(SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE,    16).
 %% -define(SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO,     17).
-%% -define(SOCKET_OPT_SCTP_INITMSG,                18).
+-define(SOCKET_OPT_SCTP_INITMSG,                18).
 %% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  19).
 %% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      20).
 -define(SOCKET_OPT_SCTP_MAXSEG,                 21).
@@ -2293,6 +2311,17 @@ enc_setopt_value(sctp, events, #{data_in          := DataIn,
        is_boolean(SndDry)          andalso
        (P =:= sctp) ->
     V;
+enc_setopt_value(sctp, initmsg, #{num_outstreams := NumOut,
+                                  max_instreams  := MaxIn,
+                                  max_attempts   := MaxAttempts,
+                                  max_init_timeo := MaxInitTO} = V,
+                 _D, _T, P)
+  when is_integer(NumOut)      andalso (NumOut >= 0)      andalso
+       is_integer(MaxIn)       andalso (MaxIn >= 0)       andalso
+       is_integer(MaxAttempts) andalso (MaxAttempts >= 0) andalso
+       is_integer(MaxInitTO)   andalso (MaxInitTO >= 0)   andalso
+       (P =:= sctp) ->
+    V;
 enc_setopt_value(sctp, maxseg, V, _D, _T, P)
   when is_integer(V) andalso (V >= 0) andalso (P =:= sctp) ->
     V;
@@ -2737,8 +2766,8 @@ enc_sockopt_key(sctp = L, fragment_interleave = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, get_peer_addr_info = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(sctp = L, initmsg = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(sctp = _L, initmsg = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_SCTP_INITMSG;
 enc_sockopt_key(sctp = L, i_want_mapped_v4_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, local_auth_chunks = Opt, _Dir, _D, _T, _P) ->

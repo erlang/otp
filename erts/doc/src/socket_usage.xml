@@ -487,6 +487,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>initmsg</cell>
+	<cell>sctp_initmsg()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>maxseg</cell>
 	<cell>non_neg_integer()</cell>
 	<cell>yes</cell>

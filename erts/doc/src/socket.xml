@@ -141,6 +141,9 @@
       <name name="sctp_assocparams"/>
     </datatype>
     <datatype>
+      <name name="sctp_initmsg"/>
+    </datatype>
+    <datatype>
       <name name="sctp_rtoinfo"/>
     </datatype>
   </datatypes>
