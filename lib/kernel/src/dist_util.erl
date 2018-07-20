@@ -476,12 +476,12 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 	{Kernel, disconnect} ->
 	    ?shutdown2(Node, disconnected);
 	{Kernel, aux_tick} ->
-	    case MFGetstat(Socket) of
-		{ok, _, _, PendWrite} ->
-		    send_tick(Socket, PendWrite, MFTick);
-		_ ->
-		    ignore_it
-	    end,
+	    _ = case MFGetstat(Socket) of
+                    {ok, _, _, PendWrite} ->
+                        send_tick(Socket, PendWrite, MFTick);
+                    _ ->
+                        ignore_it
+                end,
 	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
 	    case send_tick(Socket, Tick, Type, 
