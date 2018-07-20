@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.4.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Non semantic change in dist_util.erl to silence dialyzer
+	    warning.</p>
+          <p>
+	    Own Id: OTP-15170</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

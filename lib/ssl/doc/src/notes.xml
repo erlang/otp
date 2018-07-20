@@ -27,6 +27,35 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve cipher suite handling correcting ECC and TLS-1.2
+	    requierments. Backport of solution for ERL-641</p>
+          <p>
+	    Own Id: OTP-15178</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Option keyfile defaults to certfile and should be trumped
+	    with key. This failed for engine keys.</p>
+          <p>
+	    Own Id: OTP-15193</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

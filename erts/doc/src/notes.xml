@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a race condition in the inet driver that could
+	    cause receive to hang when the emulator was compiled with
+	    gcc 8.</p>
+          <p>
+	    Own Id: OTP-15158 Aux Id: ERL-654 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in generation of erl_crash.dump, which could
+	    cause VM to crash.</p>
+          <p>
+	    Bug exist since erts-9.2 (OTP-20.2).</p>
+          <p>
+	    Own Id: OTP-15181</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

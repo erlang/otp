@@ -31,7 +31,28 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.4.4.1</title>
+   <section><title>IC 4.4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed potential buffer overflow bugs in
+	    oe_ei_encode_long/ulong/longlong/ulonglong functions on
+	    64-bit architectures. These functions expect 32 bit
+	    integers as the IDL type "long" is defined as 32 bits.
+	    But there is nothing preventing user code from "breaking"
+	    the interface and pass larger values on 64-bit
+	    architectures where the C type "long" is 64 bits.</p>
+          <p>
+	    Own Id: OTP-15179 Aux Id: ERIERL-208 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
