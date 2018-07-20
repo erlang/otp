@@ -156,7 +156,9 @@ version({3,2}) ->
 version({3,1}) ->
     "TLS 1.0";
 version({3,0}) ->
-    "SSL 3.0".
+    "SSL 3.0";
+version({M,N}) ->
+    io_lib:format("TLS [0x0~B0~B]", [M,N]).
 
 
 header_prefix(inbound) ->
@@ -183,7 +185,6 @@ header_prefix_tls_record(outbound) ->
     "writing".
 
 
-
 tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(3),_/binary>>|_]) ->
     io_lib:format("TLS 1.2 Record Protocol, ~s", [msg_type(B)]);
 tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(2),_/binary>>|_]) ->
@@ -191,7 +192,9 @@ tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(2),_/binary>>|_]) ->
 tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(1),_/binary>>|_]) ->
     io_lib:format("TLS 1.0 Record Protocol, ~s", [msg_type(B)]);
 tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(0),_/binary>>|_]) ->
-    io_lib:format("SSL 3.0 Record Protocol, ~s", [msg_type(B)]).
+    io_lib:format("SSL 3.0 Record Protocol, ~s", [msg_type(B)]);
+tls_record_version([<<?BYTE(B),?BYTE(M),?BYTE(N),_/binary>>|_]) ->
+    io_lib:format("TLS [0x0~B0~B] Record Protocol, ~s", [M, N, msg_type(B)]).
 
 
 msg_type(20) -> "change_cipher_spec";

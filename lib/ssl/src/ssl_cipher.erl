@@ -187,7 +187,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 	     Mac, Fragment, {3, N})
-  when N == 2; N == 3 ->
+  when N == 2; N == 3; N == 4 ->
     NextIV = random_iv(IV),
     L0 = build_cipher_block(BlockSz, Mac, Fragment),
     L = [NextIV|L0],
@@ -320,6 +320,8 @@ suites({3, Minor}) ->
 suites({_, Minor}) ->
     dtls_v1:suites(Minor).
 
+all_suites({3, 4}) ->
+    all_suites({3, 3});
 all_suites({3, _} = Version) ->
     suites(Version)
         ++ chacha_suites(Version)
@@ -478,11 +480,12 @@ rc4_suites({3, Minor}) ->
 rc4_suites(0) ->
     [?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5];
-rc4_suites(N) when N =< 3 ->
+rc4_suites(N) when N =< 4 ->
     [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
+
 %%--------------------------------------------------------------------
 -spec des_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
 %%
@@ -517,13 +520,14 @@ rsa_suites(0) ->
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
     ];  
-rsa_suites(N) when N =< 3 ->
+rsa_suites(N) when N =< 4 ->
     [
      ?TLS_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
     ].
+
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> erl_cipher_suite().
 %%
@@ -2430,7 +2434,7 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
-  when N =:= 1; N =:= 2; N =:= 3 ->
+  when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -2635,7 +2639,7 @@ generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
 			  next_iv = IV};
 
 generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
-  when N == 2; N == 3 ->
+  when N == 2; N == 3; N == 4 ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
