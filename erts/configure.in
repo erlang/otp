@@ -581,7 +581,8 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
            PROFILE_INSTR_USE=false])
         rm -f default.profdata
       fi],
-     [])
+     [],
+     [AC_MSG_NOTICE([Disabling PGO when cross-compiling])])
    rm -f *.profraw
    CFLAGS=$saved_CFLAGS;
 fi
