@@ -609,7 +609,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MTU          = GIP4(mtu),
             MTUDisc      = GIP4(mtu_discover),
             MALL         = GIP4(multicast_all),
-            MIF          = GIP4(multicast_if),
+            MIF4         = GIP4(multicast_if),
             MLoop        = GIP4(multicast_loop),
             MTTL         = GIP4(multicast_ttl),
             NF           = GIP4(nodefrag), % raw only
@@ -618,6 +618,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvTOS      = GIP4(recvtos),
             RecvTTL      = GIP4(recvttl),  % not stream
             MHops        = GIP6(multicast_hops),
+            MIF6         = GIP6(multicast_if), % Only dgram and raw
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -646,14 +647,15 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s"
-              "~n   (ipv6)   Multicast Hops: ~s",
+              "~n   (ipv6)   Multicast Hops: ~s"
+              "~n   (ipv6)   Multicast IF:   ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
-               FreeBind, MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
+               FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops]),
+               MHops, MIF6]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

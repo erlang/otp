@@ -650,7 +650,7 @@
 -define(SOCKET_OPT_IPV6_MTU,               17).
 -define(SOCKET_OPT_IPV6_MTU_DISCOVER,      18).
 -define(SOCKET_OPT_IPV6_MULTICAST_HOPS,    19).
-%% -define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
+-define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
 %% -define(SOCKET_OPT_IPV6_MULTICAST_LOOP,    21).
 %% -define(SOCKET_OPT_IPV6_PORTRANGE,         22).
 %% -define(SOCKET_OPT_IPV6_PKTINFO,           23).
@@ -2274,6 +2274,9 @@ enc_setopt_value(ipv6, multicast_hops, V, _D, _T, _P)
 enc_setopt_value(ipv6, multicast_hops, V, _D, _T, _P)
   when is_integer(V) andalso (V >= 0) andalso (V =< 255) ->
     V;
+enc_setopt_value(ipv6, multicast_if, V, _D, _T, _P)
+  when is_integer(V) ->
+    V;
 enc_setopt_value(ipv6, v6only, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
@@ -2700,9 +2703,9 @@ enc_sockopt_key(ipv6 = _L, mtu_discover = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_MTU_DISCOVER;
 enc_sockopt_key(ipv6 = _L, multicast_hops = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_MULTICAST_HOPS;
-enc_sockopt_key(ipv6 = L, multicast_if = Opt, _Dir, _D, T, _P) 
+enc_sockopt_key(ipv6 = _L, multicast_if = _Opt, _Dir, _D, T, _P) 
   when (T =:= dgram) orelse (T =:= raw) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_MULTICAST_IF;
 enc_sockopt_key(ipv6 = L, multicast_loop = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, portrange = Opt, _Dir, _D, _T, _P) ->

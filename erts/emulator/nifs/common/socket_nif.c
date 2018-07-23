@@ -541,6 +541,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_MTU                  17
 #define SOCKET_OPT_IPV6_MTU_DISCOVER         18
 #define SOCKET_OPT_IPV6_MULTICAST_HOPS       19
+#define SOCKET_OPT_IPV6_MULTICAST_IF         20
 #define SOCKET_OPT_IPV6_V6ONLY               33
 
 #define SOCKET_OPT_TCP_CONGESTION   1
@@ -1222,6 +1223,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                                     SocketDescriptor* descP,
                                                     ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_MULTICAST_IF)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1514,6 +1520,10 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
 #if defined(IPV6_MULTICAST_HOPS)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                                     SocketDescriptor* descP);
+#endif
+#if defined(IPV6_MULTICAST_IF)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP);
 #endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
@@ -5524,6 +5534,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MULTICAST_IF)
+    case SOCKET_OPT_IPV6_MULTICAST_IF:
+        result = nsetopt_lvl_ipv6_multicast_if(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = nsetopt_lvl_ipv6_v6only(env, descP, eVal);
@@ -5628,6 +5644,18 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                              ERL_NIF_TERM      eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_HOPS, eVal);
+}
+#endif
+
+
+
+#if defined(IPV6_MULTICAST_IF)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_IF, eVal);
 }
 #endif
 
@@ -7984,6 +8012,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_MULTICAST_IF)
+    case SOCKET_OPT_IPV6_MULTICAST_IF:
+        result = ngetopt_lvl_ipv6_multicast_if(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = ngetopt_lvl_ipv6_v6only(env, descP);
@@ -8059,6 +8093,16 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                              SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_HOPS);
+}
+#endif
+
+
+#if defined(IPV6_MULTICAST_IF)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
+                                           SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_IF);
 }
 #endif
 

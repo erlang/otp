@@ -454,6 +454,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>multicast_if</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
 	<cell>v6only</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
