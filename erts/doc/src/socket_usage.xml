@@ -359,6 +359,13 @@
 	<cell>type = dgram | raw</cell>
       </row>
       <row>
+	<cell>recvopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
 	<cell>recvttl</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>

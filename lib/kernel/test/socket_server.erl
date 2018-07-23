@@ -612,6 +612,8 @@ handler_init(Manager, ID, Peek, Sock) ->
             MLoop        = GIP(multicast_loop),
             MTTL         = GIP(multicast_ttl),
             NF           = GIP(nodefrag), % raw only
+            RecvIF       = GIP(recvif),   % Only dgram and raw (and FreeBSD)
+            RecvOPTS     = GIP(recvopts), % Not stream
             RecvTOS      = GIP(recvtos),
             RecvTTL      = GIP(recvttl),  % not stream
             i("got continue when: "
@@ -638,6 +640,8 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Multicast Loop: ~s"
               "~n   (ip)     Multicast TTL:  ~s"
               "~n   (ip)     Node Frag:      ~s"
+              "~n   (ip)     Recv IF:        ~s"
+              "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s",
               [Domain, Type, Proto,
@@ -645,8 +649,8 @@ handler_init(Manager, ID, Peek, Sock) ->
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
-               NF, RecvTOS, RecvTTL]),
-            
+               NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL]),
+
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,
