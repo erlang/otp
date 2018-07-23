@@ -102,7 +102,10 @@
               sctp_rtoinfo/0,
 
 
-              msg_hdr/0,
+              msghdr_flag/0,
+              msghdr_flags/0,
+              msghdr/0,
+              cmsghdr/0,
 
               uint8/0,
               uint16/0,
@@ -485,26 +488,28 @@
 
 -type shutdown_how() :: read | write | read_write.
 
-%% This is just a place-holder
--record(msg_hdr,
-        {
-         %% Optional address
-         %% On an unconnected socket this is used to specify the target
-         %% address for a datagram.
-         %% For a connected socket, this field should be specifiedset to [].
-         name       :: list(),
+%% These are just place-holder(s) - used by the sendmsg/recvmsg functions...
+-type msghdr_flag()  :: eor | trunc | ctrunc | oob | errqueue.
+-type msghdr_flags() :: [msghdr_flag()].
+-type msghdr() :: #{
+                    %% *Optional* target address
+                    %% *If* this field is specified for an unconnected
+                    %% socket, then it will be used as destination for the 
+                    %% datagram.
+                    target => sockaddr(),
+                    
+                    iov    => [binary()],
+                    
+                    ctrl   => cmsghdr(),
 
-         %% Scatter/gather array
-         iov        :: [binary()], % iovec(),
-         
-         %% Ancillary (control) data
-         ctrl       :: binary(),
-         
-         %% Unused
-         flags = [] :: list()
-        }).
--type msg_hdr() :: #msg_hdr{}.
-
+                    %% Only valid with recvmsg
+                    flags  => msghdr_flags()
+                   }.
+-type cmsghdr() :: #{
+                     level => protocol(),
+                     type  => integer(),
+                     data  => binary()
+                    }.
 
 -define(SOCKET_DOMAIN_LOCAL, 1).
 -define(SOCKET_DOMAIN_UNIX,  ?SOCKET_DOMAIN_LOCAL).
@@ -1721,11 +1726,10 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 %% ---------------------------------------------------------------------------
 %%
 
-%% -spec recvmsg(Socket, [out] MsgHdr, Flags) -> {ok, Data} | {error, Reason} when
+%% -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
 %%       Socket :: socket(),
-%%       MsgHdr :: msg_hdr(),
+%%       MsgHdr :: msghdr(),
 %%       Flags  :: recv_flags(),
-%%       Data   :: binary(),
 %%       Reason :: term().
 
 
