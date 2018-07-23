@@ -587,8 +587,9 @@ handler_init(Manager, ID, Peek, Sock) ->
                                     f("error: ~p", [R])
                           end
                 end,
-            GIP = fun(O) -> G(ip, O)     end,
-            GSO = fun(O) -> G(socket, O) end,
+            GSO  = fun(O) -> G(socket, O) end,
+            GIP4 = fun(O) -> G(ip,     O) end,
+            GIP6 = fun(O) -> G(ipv6,   O) end,
             {ok, Domain} = socket:getopt(Sock, socket, domain),
             {ok, Type}   = socket:getopt(Sock, socket, type),
             {ok, Proto}  = socket:getopt(Sock, socket, protocol),
@@ -604,18 +605,19 @@ handler_init(Manager, ID, Peek, Sock) ->
             SndTO        = GSO(sndtimeo),
             Linger       = GSO(linger),
             Timestamp    = GSO(timestamp),
-            FreeBind     = GIP(freebind),
-            MTU          = GIP(mtu),
-            MTUDisc      = GIP(mtu_discover),
-            MALL         = GIP(multicast_all),
-            MIF          = GIP(multicast_if),
-            MLoop        = GIP(multicast_loop),
-            MTTL         = GIP(multicast_ttl),
-            NF           = GIP(nodefrag), % raw only
-            RecvIF       = GIP(recvif),   % Only dgram and raw (and FreeBSD)
-            RecvOPTS     = GIP(recvopts), % Not stream
-            RecvTOS      = GIP(recvtos),
-            RecvTTL      = GIP(recvttl),  % not stream
+            FreeBind     = GIP4(freebind),
+            MTU          = GIP4(mtu),
+            MTUDisc      = GIP4(mtu_discover),
+            MALL         = GIP4(multicast_all),
+            MIF          = GIP4(multicast_if),
+            MLoop        = GIP4(multicast_loop),
+            MTTL         = GIP4(multicast_ttl),
+            NF           = GIP4(nodefrag), % raw only
+            RecvIF       = GIP4(recvif),   % Only dgram and raw (and FreeBSD)
+            RecvOPTS     = GIP4(recvopts), % Not stream
+            RecvTOS      = GIP4(recvtos),
+            RecvTTL      = GIP4(recvttl),  % not stream
+            MHops        = GIP6(multicast_hops),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -643,13 +645,15 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv IF:        ~s"
               "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
-              "~n   (ip)     Recv TTL:       ~s",
+              "~n   (ip)     Recv TTL:       ~s"
+              "~n   (ipv6)   Multicast Hops: ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF, MLoop, MTTL,
-               NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL]),
+               NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
+               MHops]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
