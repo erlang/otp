@@ -154,7 +154,7 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
                    addr   => Addr},
             i("try bind to: "
               "~n   ~p", [Addr]),
-            case socket:bind(Sock, SA) of
+            case socket:bind(Sock, any) of
                 {ok, _P} ->
                    ok;
                 {error, BReason} ->
@@ -610,7 +610,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MTUDisc      = GIP4(mtu_discover),
             MALL         = GIP4(multicast_all),
             MIF4         = GIP4(multicast_if),
-            MLoop        = GIP4(multicast_loop),
+            MLoop4       = GIP4(multicast_loop),
             MTTL         = GIP4(multicast_ttl),
             NF           = GIP4(nodefrag), % raw only
             RecvIF       = GIP4(recvif),   % Only dgram and raw (and FreeBSD)
@@ -619,6 +619,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvTTL      = GIP4(recvttl),  % not stream
             MHops        = GIP6(multicast_hops),
             MIF6         = GIP6(multicast_if), % Only dgram and raw
+            MLoop6       = GIP6(multicast_loop),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -648,14 +649,15 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s"
               "~n   (ipv6)   Multicast Hops: ~s"
-              "~n   (ipv6)   Multicast IF:   ~s",
+              "~n   (ipv6)   Multicast IF:   ~s"
+              "~n   (ipv6)   Multicast Loop: ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
-               FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop, MTTL,
+               FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops, MIF6]),
+               MHops, MIF6, MLoop6]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

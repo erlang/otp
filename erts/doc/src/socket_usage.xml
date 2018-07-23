@@ -461,6 +461,13 @@
 	<cell>type = dgram | raw</cell>
       </row>
       <row>
+	<cell>multicast_loop</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>v6only</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
