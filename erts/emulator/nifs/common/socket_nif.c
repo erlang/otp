@@ -543,7 +543,8 @@ typedef union {
 #define SOCKET_OPT_IPV6_MULTICAST_HOPS       19
 #define SOCKET_OPT_IPV6_MULTICAST_IF         20
 #define SOCKET_OPT_IPV6_MULTICAST_LOOP       21
-#define SOCKET_OPT_IPV6_V6ONLY               33
+#define SOCKET_OPT_IPV6_RECVPKTINFO          25 // PKTINFO on FreeBSD
+#define SOCKET_OPT_IPV6_V6ONLY               32
 
 #define SOCKET_OPT_TCP_CONGESTION   1
 #define SOCKET_OPT_TCP_CORK         2
@@ -1234,6 +1235,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
                                                     SocketDescriptor* descP,
                                                     ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP,
+                                                 ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
@@ -1534,6 +1540,10 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
 #if defined(IPV6_MULTICAST_LOOP)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
                                                     SocketDescriptor* descP);
+#endif
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
+                                                 SocketDescriptor* descP);
 #endif
 #if defined(IPV6_V6ONLY)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
@@ -5556,6 +5566,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+    case SOCKET_OPT_IPV6_RECVPKTINFO:
+        result = nsetopt_lvl_ipv6_recvpktinfo(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = nsetopt_lvl_ipv6_v6only(env, descP, eVal);
@@ -5687,6 +5703,22 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
 }
 #endif
 
+
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
+                                          SocketDescriptor* descP,
+                                          ERL_NIF_TERM      eVal)
+{
+#if defined(IPV6_RECVPKTINFO)
+    int opt = IPV6_RECVPKTINFO;
+#else
+    int opt = IPV6_PKTINFO;
+#endif
+
+    return nsetopt_bool_opt(env, descP, SOL_IPV6, opt, eVal);
+}
+#endif
 
 
 #if defined(IPV6_V6ONLY)
@@ -8052,6 +8084,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+    case SOCKET_OPT_IPV6_RECVPKTINFO:
+        result = ngetopt_lvl_ipv6_recvpktinfo(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_V6ONLY)
     case SOCKET_OPT_IPV6_V6ONLY:
         result = ngetopt_lvl_ipv6_v6only(env, descP);
@@ -8147,6 +8185,22 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
                                              SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_LOOP);
+}
+#endif
+
+
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
+                                          SocketDescriptor* descP)
+{
+#if defined(IPV6_RECVPKTINFO)
+    int opt = IPV6_RECVPKTINFO;
+#else
+    int opt = IPV6_PKTINFO;
+#endif
+
+    return ngetopt_bool_opt(env, descP, SOL_IPV6, opt);
 }
 #endif
 

@@ -468,6 +468,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>recvpktinfo | pktinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw</cell>
+      </row>
+      <row>
 	<cell>v6only</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>

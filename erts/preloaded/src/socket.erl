@@ -376,10 +376,9 @@
         multicast_if |
         multicast_loop |
         portrange |
-        pktinfo |
         pktoptions |
         recverr |
-        recvpktinfo |
+        recvpktinfo | pktinfo |
         recvtclass |
         router_alert |
         rthdr |
@@ -653,17 +652,16 @@
 -define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
 -define(SOCKET_OPT_IPV6_MULTICAST_LOOP,    21).
 %% -define(SOCKET_OPT_IPV6_PORTRANGE,         22).
-%% -define(SOCKET_OPT_IPV6_PKTINFO,           23).
-%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        24).
-%% -define(SOCKET_OPT_IPV6_RECVERR,           25).
-%% -define(SOCKET_OPT_IPV6_RECVPKTINFO,       26).
-%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
-%% -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
-%% -define(SOCKET_OPT_IPV6_RTHDR,             29).
-%% -define(SOCKET_OPT_IPV6_TCLASS,            30).
-%% -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
-%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32).
--define(SOCKET_OPT_IPV6_V6ONLY,            33).
+%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        23).
+%% -define(SOCKET_OPT_IPV6_RECVERR,           24).
+-define(SOCKET_OPT_IPV6_RECVPKTINFO,       25). % On FreeBSD: PKTINFO
+%% -define(SOCKET_OPT_IPV6_RECVTCLASS,        26).
+%% -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
+%% -define(SOCKET_OPT_IPV6_RTHDR,             28).
+%% -define(SOCKET_OPT_IPV6_TCLASS,            29).
+%% -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      30).
+%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31).
+-define(SOCKET_OPT_IPV6_V6ONLY,            32).
 
 -define(SOCKET_OPT_TCP_CONGESTION,      1).
 -define(SOCKET_OPT_TCP_CORK,            2).
@@ -2280,6 +2278,10 @@ enc_setopt_value(ipv6, multicast_if, V, _D, _T, _P)
 enc_setopt_value(ipv6, multicast_loop, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
+enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
+  when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
+       is_boolean(V) ->
+    V;
 enc_setopt_value(ipv6, v6only, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
@@ -2713,14 +2715,14 @@ enc_sockopt_key(ipv6 = _L, multicast_loop = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_MULTICAST_LOOP;
 enc_sockopt_key(ipv6 = L, portrange = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, pktinfo = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, pktoptions = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, recverr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, recvpktinfo = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P) 
+  when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
+       ((T =:= dgram) orelse (T =:= raw)) ->
+    ?SOCKET_OPT_IPV6_RECVPKTINFO;
 enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, router_alert = Opt, _Dir, _D, _T, _P) ->

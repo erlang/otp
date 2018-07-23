@@ -154,7 +154,7 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
                    addr   => Addr},
             i("try bind to: "
               "~n   ~p", [Addr]),
-            case socket:bind(Sock, any) of
+            case socket:bind(Sock, SA) of
                 {ok, _P} ->
                    ok;
                 {error, BReason} ->
@@ -620,6 +620,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MHops        = GIP6(multicast_hops),
             MIF6         = GIP6(multicast_if), % Only dgram and raw
             MLoop6       = GIP6(multicast_loop),
+            RecvPktInfo  = GIP6(recvpktinfo),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -650,20 +651,23 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv TTL:       ~s"
               "~n   (ipv6)   Multicast Hops: ~s"
               "~n   (ipv6)   Multicast IF:   ~s"
-              "~n   (ipv6)   Multicast Loop: ~s",
+              "~n   (ipv6)   Multicast Loop: ~s"
+              "~n   (ipv6)   Recv Pkt Info:  ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops, MIF6, MLoop6]),
+               MHops, MIF6, MLoop6,
+               RecvPktInfo]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,
                                   socket  = Sock})
     end.
+
 
 handler_loop(H) ->
     i("try read message"),
