@@ -510,6 +510,13 @@
 	<cell>type = dgram | raw, requires superuser privileges to update</cell>
       </row>
       <row>
+	<cell>unicast_hops</cell>
+	<cell>default | uint8()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>v6only</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
