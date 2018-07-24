@@ -635,7 +635,9 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvPktInfo  = GIP6(recvpktinfo),
             RtHdr        = GIP6(rthdr),
             AuthHdr      = GIP6(authhdr),
+            HopLimit     = GIP6(hoplimit),
             HopOpts      = GIP6(hopopts),
+            DstOpts      = GIP6(dstopts),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -670,7 +672,9 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ipv6)   Recv Pkt Info:  ~s"
               "~n   (ipv6)   RT Hdr:         ~s"
               "~n   (ipv6)   Auth Hdr:       ~s"
-              "~n   (ipv6)   Hop Opts:       ~s",
+              "~n   (ipv6)   Hop Limit:      ~s"
+              "~n   (ipv6)   Hop Opts:       ~s"
+              "~n   (ipv6)   Dst Opts:       ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
@@ -678,7 +682,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
                MHops, MIF6, MLoop6, RecvPktInfo,
-               RtHdr, AuthHdr, HopOpts]),
+               RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

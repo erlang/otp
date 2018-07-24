@@ -538,6 +538,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
 #define SOCKET_OPT_IPV6_AUTHHDR               3
 #define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
+#define SOCKET_OPT_IPV6_DSTOPTS               7
 #define SOCKET_OPT_IPV6_HOPLIMIT             12
 #define SOCKET_OPT_IPV6_HOPOPTS              13
 #define SOCKET_OPT_IPV6_MTU                  17
@@ -1213,6 +1214,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
                                                      SocketDescriptor* descP,
                                                      ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_DSTOPTS)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
+                                             SocketDescriptor* descP,
+                                             ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_HOPLIMIT)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                               SocketDescriptor* descP,
@@ -1537,6 +1543,10 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
                                      int               eOpt);
 #if defined(IPV6_AUTHHDR)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
+                                             SocketDescriptor* descP);
+#endif
+#if defined(IPV6_DSTOPTS)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
                                              SocketDescriptor* descP);
 #endif
 #if defined(IPV6_HOPLIMIT)
@@ -5581,6 +5591,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_DSTOPTS)
+    case SOCKET_OPT_IPV6_DSTOPTS:
+        result = nsetopt_lvl_ipv6_dstopts(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_HOPLIMIT)
     case SOCKET_OPT_IPV6_HOPLIMIT:
         result = nsetopt_lvl_ipv6_hoplimit(env, descP, eVal);
@@ -5688,6 +5704,17 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
 {
     return nsetopt_lvl_ipv6_update_membership(env, descP, eVal,
                                               IPV6_DROP_MEMBERSHIP);
+}
+#endif
+
+
+#if defined(IPV6_DSTOPTS)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
+                                      SocketDescriptor* descP,
+                                      ERL_NIF_TERM      eVal)
+{
+    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_DSTOPTS, eVal);
 }
 #endif
 
@@ -8157,6 +8184,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_DSTOPTS)
+    case SOCKET_OPT_IPV6_DSTOPTS:
+        result = ngetopt_lvl_ipv6_dstopts(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_HOPLIMIT)
     case SOCKET_OPT_IPV6_HOPLIMIT:
         result = ngetopt_lvl_ipv6_hoplimit(env, descP);
@@ -8237,6 +8270,16 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
                                       SocketDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_AUTHHDR);
+}
+#endif
+
+
+#if defined(IPV6_DSTOPTS)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
+                                      SocketDescriptor* descP)
+{
+    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_DSTOPTS);
 }
 #endif
 
