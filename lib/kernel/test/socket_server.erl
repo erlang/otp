@@ -247,6 +247,17 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
             EXP(close_socket, ok, socket:close(Sock));
         {error, Reason} ->
             exit({failed_open, Reason})
+    end;
+do_manager_init(Domain, raw = Type, Proto, Peek) when is_integer(Proto) ->
+    do_manager_init(Domain, Type, {raw, Proto}, Peek);
+do_manager_init(Domain, raw = Type, Proto, _Peek) ->
+    case socket:open(Domain, Type, Proto) of
+        {ok, Sock} ->
+            i("(sctp) socket opened: "
+              "~n   ~p", [Sock]),
+            socket:close(Sock);
+        {error, Reason} ->
+            exit({failed_open, Reason})
     end.
 
 

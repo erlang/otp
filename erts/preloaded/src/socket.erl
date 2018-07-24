@@ -128,7 +128,10 @@
 -type type()   :: stream | dgram | raw | rdm | seqpacket.
 
 %% We support only a subset of all protocols:
--type protocol() :: ip | tcp | udp | sctp.
+%% Note that the '{raw, integer()}' construct is intended
+%% to be used with type = raw.
+%% Note also that only the "superuser" can create a raw socket.
+-type protocol() :: ip | tcp | udp | sctp | icmp | igmp | {raw, integer()}.
 
 -type port_number() :: 0..65535.
 
@@ -525,6 +528,8 @@
 -define(SOCKET_PROTOCOL_TCP,   2).
 -define(SOCKET_PROTOCOL_UDP,   3).
 -define(SOCKET_PROTOCOL_SCTP,  4).
+-define(SOCKET_PROTOCOL_ICMP,  5).
+-define(SOCKET_PROTOCOL_IGMP,  6).
 
 -define(SOCKET_LISTEN_BACKLOG_DEFAULT, 5).
 
@@ -656,7 +661,7 @@
 %% -define(SOCKET_OPT_IPV6_RECVERR,           24).
 -define(SOCKET_OPT_IPV6_RECVPKTINFO,       25). % On FreeBSD: PKTINFO
 %% -define(SOCKET_OPT_IPV6_RECVTCLASS,        26).
-%% -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
+-define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
 -define(SOCKET_OPT_IPV6_RTHDR,             28).
 %% -define(SOCKET_OPT_IPV6_TCLASS,            29).
 -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      30).
@@ -2004,7 +2009,8 @@ enc_type(_, raw)       -> ?SOCKET_TYPE_RAW;
 enc_type(_, seqpacket) -> ?SOCKET_TYPE_SEQPACKET;
 enc_type(_, Type)      -> throw({error, {invalid_type, Type}}).
 
--spec enc_protocol(Type, Protocol) -> non_neg_integer() when
+-spec enc_protocol(Type, Protocol) -> non_neg_integer() | 
+                                      {raw, non_neg_integer()} when
       Type     :: type(),
       Protocol :: protocol().
 
@@ -2012,7 +2018,11 @@ enc_protocol(dgram,     ip)   -> ?SOCKET_PROTOCOL_IP;
 enc_protocol(stream,    tcp)  -> ?SOCKET_PROTOCOL_TCP;
 enc_protocol(dgram,     udp)  -> ?SOCKET_PROTOCOL_UDP;
 enc_protocol(seqpacket, sctp) -> ?SOCKET_PROTOCOL_SCTP;
-enc_protocol(Type, Proto)     -> throw({error, {invalid_protocol, {Type, Proto}}}).
+enc_protocol(raw,       icmp) -> ?SOCKET_PROTOCOL_ICMP;
+enc_protocol(raw,       igmp) -> ?SOCKET_PROTOCOL_IGMP;
+enc_protocol(raw,       {raw, P} = RAW) when is_integer(P) -> RAW;
+enc_protocol(Type, Proto) -> 
+    throw({error, {invalid_protocol, {Type, Proto}}}).
 
 
 -spec enc_send_flags(Flags) -> non_neg_integer() when
@@ -2296,6 +2306,9 @@ enc_setopt_value(ipv6, multicast_loop, V, _D, _T, _P)
 enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        is_boolean(V) ->
+    V;
+enc_setopt_value(ipv6, router_alert, V, _D, T, _P)
+  when is_integer(V) andalso (T =:= raw) ->
     V;
 enc_setopt_value(ipv6, rthdr, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
@@ -2749,8 +2762,8 @@ enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P)
     ?SOCKET_OPT_IPV6_RECVPKTINFO;
 enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, router_alert = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, router_alert = _Opt, _Dir, _D, T, _P) when (T =:= raw) ->
+    ?SOCKET_OPT_IPV6_ROUTER_ALERT;
 enc_sockopt_key(ipv6 = _L, rthdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
     ?SOCKET_OPT_IPV6_RTHDR;

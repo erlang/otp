@@ -470,6 +470,8 @@ typedef union {
 #define SOCKET_PROTOCOL_TCP       2
 #define SOCKET_PROTOCOL_UDP       3
 #define SOCKET_PROTOCOL_SCTP      4
+#define SOCKET_PROTOCOL_ICMP      5
+#define SOCKET_PROTOCOL_IGMP      6
 
 /* shutdown how */
 #define SOCKET_SHUTDOWN_HOW_RD    0
@@ -548,6 +550,7 @@ typedef union {
 #define SOCKET_OPT_IPV6_MULTICAST_IF         20
 #define SOCKET_OPT_IPV6_MULTICAST_LOOP       21
 #define SOCKET_OPT_IPV6_RECVPKTINFO          25 // PKTINFO on FreeBSD
+#define SOCKET_OPT_IPV6_ROUTER_ALERT         27
 #define SOCKET_OPT_IPV6_RTHDR                28
 #define SOCKET_OPT_IPV6_UNICAST_HOPS         30
 #define SOCKET_OPT_IPV6_V6ONLY               32
@@ -1266,6 +1269,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
                                                  SocketDescriptor* descP,
                                                  ERL_NIF_TERM      eVal);
 #endif
+#if defined(IPV6_ROUTER_ALERT)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP,
+                                                  ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_RTHDR)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
@@ -1597,6 +1605,10 @@ static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
                                                  SocketDescriptor* descP);
 #endif
+#if defined(IPV6_ROUTER_ALERT)
+static ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
+                                                  SocketDescriptor* descP);
+#endif
 #if defined(IPV6_RTHDR)
 static ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
@@ -1896,7 +1908,9 @@ static int compare_pids(ErlNifEnv*       env,
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
-static BOOLEAN_T eproto2proto(int eproto, int* proto);
+static BOOLEAN_T eproto2proto(ErlNifEnv*         env,
+                              const ERL_NIF_TERM eproto,
+                              int*               proto);
 static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
@@ -2344,18 +2358,18 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     if ((argc != 4) ||
         !GET_INT(env, argv[0], &edomain) ||
         !GET_INT(env, argv[1], &etype) ||
-        !GET_INT(env, argv[2], &eproto) ||
         !IS_MAP(env,  argv[3])) {
         return enif_make_badarg(env);
     }
-    emap = argv[3];
+    eproto = argv[2];
+    emap   = argv[3];
 
     SGDBG( ("SOCKET", "nif_open -> "
             "\r\n   edomain: %T"
             "\r\n   etype:   %T"
             "\r\n   eproto:  %T"
             "\r\n   extra:   %T"
-            "\r\n", argv[0], argv[1], argv[2], argv[3]) );
+            "\r\n", argv[0], argv[1], eproto, emap) );
 
     if (!edomain2domain(edomain, &domain)) {
         SGDBG( ("SOCKET", "nif_open -> domain: %d\r\n", domain) );
@@ -2367,7 +2381,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
         return esock_make_error(env, esock_atom_einval);
     }
 
-    if (!eproto2proto(eproto, &proto)) {
+    if (!eproto2proto(env, eproto, &proto)) {
         SGDBG( ("SOCKET", "nif_open -> protocol: %d\r\n", proto) );
         return esock_make_error(env, esock_atom_einval);
     }
@@ -5671,6 +5685,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_ROUTER_ALERT)
+    case SOCKET_OPT_IPV6_ROUTER_ALERT:
+        result = nsetopt_lvl_ipv6_router_alert(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_RTHDR)
     case SOCKET_OPT_IPV6_RTHDR:
         result = nsetopt_lvl_ipv6_rthdr(env, descP, eVal);
@@ -5881,6 +5901,18 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
     return nsetopt_bool_opt(env, descP, SOL_IPV6, opt, eVal);
 }
 #endif
+
+
+#if defined(IPV6_ROUTER_ALERT)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal)
+{
+    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_ROUTER_ALERT, eVal);
+}
+#endif
+
 
 
 #if defined(IPV6_RTHDR)
@@ -8299,6 +8331,12 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IPV6_ROUTER_ALERT)
+    case SOCKET_OPT_IPV6_ROUTER_ALERT:
+        result = ngetopt_lvl_ipv6_router_alert(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_RTHDR)
     case SOCKET_OPT_IPV6_RTHDR:
         result = ngetopt_lvl_ipv6_rthdr(env, descP);
@@ -8466,6 +8504,16 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
 #endif
 
 
+#if defined(IPV6_ROUTER_ALERT)
+static
+ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
+                                           SocketDescriptor* descP)
+{
+    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_ROUTER_ALERT);
+}
+#endif
+
+
 #if defined(IPV6_RTHDR)
 static
 ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
@@ -8479,7 +8527,7 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
 #if defined(IPV6_UNICAST_HOPS)
 static
 ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
-                                             SocketDescriptor* descP)
+                                           SocketDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_UNICAST_HOPS);
 }
@@ -10235,30 +10283,72 @@ BOOLEAN_T etype2type(int etype, int* type)
  * Note that only a subset is supported.
  */
 static
-BOOLEAN_T eproto2proto(int eproto, int* proto)
+BOOLEAN_T eproto2proto(ErlNifEnv*   env,
+                       ERL_NIF_TERM eproto,
+                       int*         proto)
 {
-    switch (eproto) {
-    case SOCKET_PROTOCOL_IP:
-        *proto = IPPROTO_IP;
-        break;
+    if (IS_NUM(env, eproto)) {
+        int ep;
 
-    case SOCKET_PROTOCOL_TCP:
-        *proto = IPPROTO_TCP;
-        break;
+        if (!GET_INT(env, eproto, &ep)) {
+            *proto = -1;
+            return FALSE;
+        }
 
-    case SOCKET_PROTOCOL_UDP:
-        *proto = IPPROTO_UDP;
-        break;
-
+        switch (ep) {
+        case SOCKET_PROTOCOL_IP:
+            *proto = IPPROTO_IP;
+            break;
+            
+        case SOCKET_PROTOCOL_TCP:
+            *proto = IPPROTO_TCP;
+            break;
+            
+        case SOCKET_PROTOCOL_UDP:
+            *proto = IPPROTO_UDP;
+            break;
+            
 #if defined(HAVE_SCTP)
-    case SOCKET_PROTOCOL_SCTP:
-        *proto = IPPROTO_SCTP;
-        break;
+        case SOCKET_PROTOCOL_SCTP:
+            *proto = IPPROTO_SCTP;
+            break;
 #endif
+            
+        case SOCKET_PROTOCOL_ICMP:
+            *proto = IPPROTO_ICMP;
+            break;
+            
+        case SOCKET_PROTOCOL_IGMP:
+            *proto = IPPROTO_IGMP;
+            break;
+            
+        default:
+            *proto = -2;
+            return FALSE;
+        }
+    } else {
+        const ERL_NIF_TERM* a;
+        int                 sz;
 
-    default:
-        *proto = -1;
-        return FALSE;
+        if (!GET_TUPLE(env, eproto, &sz, &a)) {
+            *proto = -3;
+            return FALSE;
+        }
+        
+        if (sz != 2) {
+            *proto = -4;
+            return FALSE;
+        }
+
+        if (COMPARE(a[0], esock_atom_raw) != 0) {
+            *proto = -5;
+            return FALSE;
+        }
+
+        if (!GET_INT(env, a[1], proto)) {
+            *proto = -6;
+            return FALSE;
+        }
     }
 
     return TRUE;

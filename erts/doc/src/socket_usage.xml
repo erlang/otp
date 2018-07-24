@@ -503,6 +503,13 @@
 	<cell>type = dgram | raw</cell>
       </row>
       <row>
+	<cell>router_alert</cell>
+	<cell>integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
 	<cell>rthdr</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
