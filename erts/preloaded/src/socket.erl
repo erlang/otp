@@ -640,7 +640,7 @@
 %% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8).
 %% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9).
 %% -define(SOCKET_OPT_IPV6_FAITH,             10).
-%% -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
+-define(SOCKET_OPT_IPV6_FLOWINFO,          11).
 -define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
 -define(SOCKET_OPT_IPV6_HOPOPTS,           13).
 %% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14).
@@ -2263,6 +2263,9 @@ enc_setopt_value(ipv6, drop_membership, #{multiaddr := MA,
   when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
         (is_integer(IF) andalso (IF >= 0))) ->
     V;
+enc_setopt_value(ipv6, flowinfo, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
 enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
@@ -2702,9 +2705,9 @@ enc_sockopt_key(ipv6 = L, esp_trans_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, esp_network_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, flowinfo = Opt, _Dir, _D, T, _P)
+enc_sockopt_key(ipv6 = _L, flowinfo = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_DSTOPTS;
 enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;

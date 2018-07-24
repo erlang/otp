@@ -166,7 +166,7 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
                    addr   => Addr},
             i("try bind to: "
               "~n   ~p", [Addr]),
-            case socket:bind(Sock, SA) of
+            case socket:bind(Sock, any) of
                 {ok, _P} ->
                    ok;
                 {error, BReason} ->
@@ -638,6 +638,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             HopLimit     = GIP6(hoplimit),
             HopOpts      = GIP6(hopopts),
             DstOpts      = GIP6(dstopts),
+            FlowInfo     = GIP6(flowinfo),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -674,7 +675,8 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ipv6)   Auth Hdr:       ~s"
               "~n   (ipv6)   Hop Limit:      ~s"
               "~n   (ipv6)   Hop Opts:       ~s"
-              "~n   (ipv6)   Dst Opts:       ~s",
+              "~n   (ipv6)   Dst Opts:       ~s"
+              "~n   (ipv6)   Flow Info:      ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
@@ -682,7 +684,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
                MHops, MIF6, MLoop6, RecvPktInfo,
-               RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts]),
+               RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,

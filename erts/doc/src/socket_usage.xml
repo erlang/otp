@@ -440,6 +440,13 @@
 	<cell>type = dgram | raw, requires superuser privileges to update</cell>
       </row>
       <row>
+	<cell>flowinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
 	<cell>hoplimit</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
