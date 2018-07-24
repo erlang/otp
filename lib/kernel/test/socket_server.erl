@@ -644,6 +644,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MHops        = GIP6(multicast_hops),
             MIF6         = GIP6(multicast_if), % Only dgram and raw
             MLoop6       = GIP6(multicast_loop),
+            RecvErr6     = GIP6(recverr),
             RecvPktInfo  = GIP6(recvpktinfo),
             RtHdr        = GIP6(rthdr),
             AuthHdr      = GIP6(authhdr),
@@ -684,6 +685,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ipv6)   Multicast Hops: ~s"
               "~n   (ipv6)   Multicast IF:   ~s"
               "~n   (ipv6)   Multicast Loop: ~s"
+              "~n   (ipv6)   Recv Err:       ~s"
               "~n   (ipv6)   Recv Pkt Info:  ~s"
               "~n   (ipv6)   RT Hdr:         ~s"
               "~n   (ipv6)   Auth Hdr:       ~s"
@@ -698,7 +700,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops, MIF6, MLoop6, RecvPktInfo,
+               MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
 

@@ -511,6 +511,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>recverr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>recvpktinfo | pktinfo</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
