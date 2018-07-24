@@ -279,7 +279,7 @@ int_file_decl(F, Options,_ExtCharset) ->
 
 %% @spec string(Text::list()) -> {xmlElement(),Rest}
 %%   Rest = list()
-%% @equiv string(Test, [])
+%% @equiv string(Text, [])
 string(Str) ->
     string(Str, []).
 
