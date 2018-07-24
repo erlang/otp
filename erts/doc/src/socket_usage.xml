@@ -419,6 +419,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>authhdr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, obsolete?</cell>
+      </row>
+      <row>
 	<cell>drop_membership</cell>
 	<cell>ipv6_mreq()</cell>
 	<cell>yes</cell>
@@ -429,8 +436,15 @@
 	<cell>hoplimit</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
-	<cell>no</cell>
-	<cell>type = dgram | raw</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>hopopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw, requires superuser privileges to update</cell>
       </row>
       <row>
 	<cell>mtu</cell>

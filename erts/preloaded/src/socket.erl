@@ -632,7 +632,7 @@
 
 %% -define(SOCKET_OPT_IPV6_ADDFORM,            1).
 -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
-%% -define(SOCKET_OPT_IPV6_AUTHHDR,            3).
+-define(SOCKET_OPT_IPV6_AUTHHDR,            3). % Obsolete?
 %% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4).
 %% -define(SOCKET_OPT_IPV6_CHECKSUM,           5).
 -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
@@ -642,7 +642,7 @@
 %% -define(SOCKET_OPT_IPV6_FAITH,             10).
 %% -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
 -define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
-%% -define(SOCKET_OPT_IPV6_HOPOPTS,           13).
+-define(SOCKET_OPT_IPV6_HOPOPTS,           13).
 %% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14).
 %% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15).
 %% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16).
@@ -2249,12 +2249,21 @@ enc_setopt_value(ipv6, add_membership, #{multiaddr := MA,
   when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
         (is_integer(IF) andalso (IF >= 0))) ->
     V;
+%% Is this obsolete? When get, the result is enoprotoopt and in the 
+%% header file it says 'obsolete'...
+%% But there might be (old?) versions of linux where it still works...
+enc_setopt_value(ipv6, authhdr, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
 enc_setopt_value(ipv6, drop_membership, #{multiaddr := MA,
                                           interface := IF} = V, _D, _T, _P)
   when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
         (is_integer(IF) andalso (IF >= 0))) ->
     V;
 enc_setopt_value(ipv6, hoplimit, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
+    V;
+enc_setopt_value(ipv6, hopopts, V, _D, T, _P)
   when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
 enc_setopt_value(ipv6, mtu, V, _D, _T, _P) when is_integer(V) ->
@@ -2282,8 +2291,8 @@ enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        is_boolean(V) ->
     V;
-enc_setopt_value(ipv6, rthdr, V, _D, _T, _P)
-  when is_boolean(V) ->
+enc_setopt_value(ipv6, rthdr, V, _D, T, _P)
+  when is_boolean(V) andalso ((T =:= dgram) orelse (T =:= raw)) ->
     V;
 enc_setopt_value(ipv6, v6only, V, _D, _T, _P) when is_boolean(V) ->
     V;
@@ -2674,9 +2683,9 @@ enc_sockopt_key(ipv6 = L, addrform = Opt, set = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_ADD_MEMBERSHIP;
-enc_sockopt_key(ipv6 = L, authhdr = Opt, set = _Dir, _D, T, _P) 
+enc_sockopt_key(ipv6 = _L, authhdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_AUTHHDR;
 enc_sockopt_key(ipv6 = L, auth_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, checksum = Opt, _Dir, _D, _T, _P) ->
@@ -2693,12 +2702,12 @@ enc_sockopt_key(ipv6 = L, esp_network_level = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(ipv6 = L, flowinfo = Opt, set = _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, set = _D, T, _P)
+enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IPV6_HOPLIMIT;
-enc_sockopt_key(ipv6 = L, hopopts = Opt, set = _Dir, _D, T, _P) 
+enc_sockopt_key(ipv6 = _L, hopopts = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_HOPOPTS;
 enc_sockopt_key(ipv6 = L, ipcomp_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, join_group = Opt, _Dir, _D, _T, _P) ->

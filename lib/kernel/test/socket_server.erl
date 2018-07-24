@@ -634,6 +634,8 @@ handler_init(Manager, ID, Peek, Sock) ->
             MLoop6       = GIP6(multicast_loop),
             RecvPktInfo  = GIP6(recvpktinfo),
             RtHdr        = GIP6(rthdr),
+            AuthHdr      = GIP6(authhdr),
+            HopOpts      = GIP6(hopopts),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -666,14 +668,17 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ipv6)   Multicast IF:   ~s"
               "~n   (ipv6)   Multicast Loop: ~s"
               "~n   (ipv6)   Recv Pkt Info:  ~s"
-              "~n   (ipv6)   RT Hdr:         ~s",
+              "~n   (ipv6)   RT Hdr:         ~s"
+              "~n   (ipv6)   Auth Hdr:       ~s"
+              "~n   (ipv6)   Hop Opts:       ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops, MIF6, MLoop6, RecvPktInfo, RtHdr]),
+               MHops, MIF6, MLoop6, RecvPktInfo,
+               RtHdr, AuthHdr, HopOpts]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
