@@ -537,6 +537,7 @@ typedef union {
 #define SOCKET_OPT_IP_TTL                    32
 #define SOCKET_OPT_IP_UNBLOCK_SOURCE         33
 
+#define SOCKET_OPT_IPV6_ADDRFORM              1
 #define SOCKET_OPT_IPV6_ADD_MEMBERSHIP        2
 #define SOCKET_OPT_IPV6_AUTHHDR               3
 #define SOCKET_OPT_IPV6_DROP_MEMBERSHIP       6
@@ -1204,6 +1205,11 @@ static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               eOpt,
                                      ERL_NIF_TERM      eVal);
+#if defined(IPV6_ADDRFORM)
+static ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*        env,
+                                              SocketDescriptor* descP,
+                                              ERL_NIF_TERM      eVal);
+#endif
 #if defined(IPV6_ADD_MEMBERSHIP)
 static ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
                                                     SocketDescriptor* descP,
@@ -5607,6 +5613,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
             "\r\n", eOpt) );
 
     switch (eOpt) {
+#if defined(IPV6_ADDRFORM)
+    case SOCKET_OPT_IPV6_ADDRFORM:
+        result = nsetopt_lvl_ipv6_addrform(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_ADD_MEMBERSHIP)
     case SOCKET_OPT_IPV6_ADD_MEMBERSHIP:
         result = nsetopt_lvl_ipv6_add_membership(env, descP, eVal);
@@ -5723,6 +5735,48 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 
     return result;
 }
+
+
+#if defined(IPV6_ADDRFORM)
+static
+ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+    int          res, edomain, domain;
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_ipv6_addrform -> entry with"
+            "\r\n   eVal: %T"
+            "\r\n", eVal) );
+
+    if (!GET_INT(env, eVal, &edomain))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_ipv6_addrform -> decode"
+            "\r\n   edomain: %d"
+            "\r\n", edomain) );
+
+    if (!edomain2domain(edomain, &domain))
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nsetopt_lvl_ipv6_addrform -> try set opt to %d\r\n",
+                   domain) );
+    
+    res = socket_setopt(descP->sock,
+                        SOL_IPV6, IPV6_ADDRFORM,
+                        &domain, sizeof(domain));
+
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif
 
 
 #if defined(IPV6_ADD_MEMBERSHIP)

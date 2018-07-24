@@ -412,6 +412,14 @@
 	<cell><em>Other</em></cell>
       </row>
       <row>
+	<cell>addrform</cell>
+	<cell>inet</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>allowed only for IPv6 sockets that are connected and bound to a
+	v4-mapped-on-v6 address</cell>
+      </row>
+      <row>
 	<cell>add_membership</cell>
 	<cell>ipv6_mreq()</cell>
 	<cell>yes</cell>

@@ -635,7 +635,7 @@
 -define(SOCKET_OPT_IP_TTL,                   32).
 -define(SOCKET_OPT_IP_UNBLOCK_SOURCE,           33).
 
-%% -define(SOCKET_OPT_IPV6_ADDFORM,            1).
+-define(SOCKET_OPT_IPV6_ADDRFORM,           1).
 -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
 -define(SOCKET_OPT_IPV6_AUTHHDR,            3). % Obsolete?
 %% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4).
@@ -2254,6 +2254,8 @@ enc_setopt_value(ip, unblock_source, #{multiaddr  := MA,
 enc_setopt_value(ip = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
+enc_setopt_value(ipv6, addrform, inet = V, _D, _T, _P) ->
+    enc_domain(V);
 enc_setopt_value(ipv6, add_membership, #{multiaddr := MA,
                                          interface := IF} = V, _D, _T, _P)
   when ((is_tuple(MA) andalso (size(MA) =:= 8)) andalso
@@ -2704,8 +2706,8 @@ enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% IPv6 socket options
-enc_sockopt_key(ipv6 = L, addrform = Opt, set = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ipv6 = _L, addrform = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IPV6_ADDRFORM;
 enc_sockopt_key(ipv6, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_ADD_MEMBERSHIP;
 enc_sockopt_key(ipv6 = _L, authhdr = _Opt, _Dir, _D, T, _P) 
