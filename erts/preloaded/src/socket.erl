@@ -657,7 +657,7 @@
 -define(SOCKET_OPT_IPV6_RECVPKTINFO,       25). % On FreeBSD: PKTINFO
 %% -define(SOCKET_OPT_IPV6_RECVTCLASS,        26).
 %% -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
-%% -define(SOCKET_OPT_IPV6_RTHDR,             28).
+-define(SOCKET_OPT_IPV6_RTHDR,             28).
 %% -define(SOCKET_OPT_IPV6_TCLASS,            29).
 %% -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      30).
 %% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31).
@@ -2282,6 +2282,9 @@ enc_setopt_value(ipv6, Opt, V, _D, _T, _P)
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        is_boolean(V) ->
     V;
+enc_setopt_value(ipv6, rthdr, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ipv6, v6only, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(ipv6 = L, Opt, V, _D, _T, _P) ->
@@ -2727,9 +2730,9 @@ enc_sockopt_key(ipv6 = L, recvtclass = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, router_alert = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-enc_sockopt_key(ipv6 = L, rthdr = Opt, set = _Dir, _D, T, _P) 
+enc_sockopt_key(ipv6 = _L, rthdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    not_supported({L, Opt});
+    ?SOCKET_OPT_IPV6_RTHDR;
 enc_sockopt_key(ipv6 = L, tclass = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, unicast_hops = Opt, _Dir, _D, _T, _P) ->
@@ -2739,7 +2742,7 @@ enc_sockopt_key(ipv6 = L, use_min_mtu = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(ipv6 = _L, v6only = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IPV6_V6ONLY;
 enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
-    unknown({L, UnknownOpt});
+    unknown({L, UnknownOpt, _Dir, _D, _T, _P});
 
 %% TCP socket options
 %% There are other options that would be useful; info,

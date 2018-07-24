@@ -23,9 +23,9 @@
 -export([
          start/0, start/4,
          start_tcp/0, start_tcp/1, start_tcp/2,
-         start_tcp4/1, start_tcp6/1,
+         start_tcp4/0, start_tcp4/1, start_tcp6/0, start_tcp6/1,
          start_udp/0, start_udp/1, start_udp/2,
-         start_udp4/1, start_udp6/1,
+         start_udp4/0, start_udp4/1, start_udp6/0, start_udp6/1,
          start_sctp/0, start_sctp/1
         ]).
 
@@ -41,13 +41,19 @@ start() ->
     start_tcp().
 
 start_tcp() ->
-    start_tcp(false).
+    start_tcp4().
 
 start_tcp(Peek) ->
     start_tcp4(Peek).
 
+start_tcp4() ->
+    start_tcp4(false).
+
 start_tcp4(Peek) ->
     start_tcp(inet, Peek).
+
+start_tcp6() ->
+    start_tcp6(false).
 
 start_tcp6(Peek) ->
     start_tcp(inet6, Peek).
@@ -56,13 +62,19 @@ start_tcp(Domain, Peek) when is_boolean(Peek) ->
     start(Domain, stream, tcp, Peek).
 
 start_udp() ->
-    start_udp(false).
+    start_udp4().
 
 start_udp(Peek) ->
     start_udp4(Peek).
 
+start_udp4() ->
+    start_udp4(false).
+
 start_udp4(Peek) ->
     start_udp(inet, Peek).
+
+start_udp6() ->
+    start_udp6(false).
 
 start_udp6(Peek) ->
     start_udp(inet6, Peek).
@@ -621,6 +633,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MIF6         = GIP6(multicast_if), % Only dgram and raw
             MLoop6       = GIP6(multicast_loop),
             RecvPktInfo  = GIP6(recvpktinfo),
+            RtHdr        = GIP6(rthdr),
             i("got continue when: "
               "~n   (socket) Domain:         ~p"
               "~n   (socket) Type:           ~p"
@@ -652,15 +665,15 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ipv6)   Multicast Hops: ~s"
               "~n   (ipv6)   Multicast IF:   ~s"
               "~n   (ipv6)   Multicast Loop: ~s"
-              "~n   (ipv6)   Recv Pkt Info:  ~s",
+              "~n   (ipv6)   Recv Pkt Info:  ~s"
+              "~n   (ipv6)   RT Hdr:         ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
-               MHops, MIF6, MLoop6,
-               RecvPktInfo]),
+               MHops, MIF6, MLoop6, RecvPktInfo, RtHdr]),
 
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
