@@ -106,6 +106,34 @@ client_hello(Host, Port, ConnectionStates,
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
 
+
+%% TLS 1.3 - Section 4.1.3
+%% TLS 1.3 clients receiving a ServerHello indicating TLS 1.2 or below
+%% MUST check that the last eight bytes are not equal to either of these
+%% values.
+hello(#server_hello{server_version = {Major, Minor},
+                    random = <<_:24/binary,Down:8/binary>>},
+      #ssl_options{versions = [{M,N}|_]}, _, _)
+  when (M > 3 orelse M =:= 3 andalso N >= 4) andalso  %% TLS 1.3 client
+       (Major =:= 3 andalso Minor =:= 3 andalso       %% Negotiating TLS 1.2
+        Down =:= ?RANDOM_OVERRIDE_TLS12) orelse
+
+       (M > 3 orelse M =:= 3 andalso N >= 4) andalso  %% TLS 1.3 client
+       (Major =:= 3 andalso Minor < 3 andalso         %% Negotiating TLS 1.1 or prior
+        Down =:= ?RANDOM_OVERRIDE_TLS11) ->
+    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+
+%% TLS 1.2 clients SHOULD also check that the last eight bytes are not
+%% equal to the second value if the ServerHello indicates TLS 1.1 or below.
+hello(#server_hello{server_version = {Major, Minor},
+                    random = <<_:24/binary,Down:8/binary>>},
+      #ssl_options{versions = [{M,N}|_]}, _, _)
+  when (M =:= 3 andalso N =:= 3) andalso              %% TLS 1.2 client
+       (Major =:= 3 andalso Minor < 3 andalso         %% Negotiating TLS 1.1 or prior
+        Down =:= ?RANDOM_OVERRIDE_TLS11) ->
+    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+
+
 %% TLS 1.3 - 4.2.1.  Supported Versions
 %% If the "supported_versions" extension in the ServerHello contains a
 %% version not offered by the client or contains a version prior to TLS
