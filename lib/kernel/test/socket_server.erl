@@ -636,6 +636,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MLoop4       = GIP4(multicast_loop),
             MTTL         = GIP4(multicast_ttl),
             NF           = GIP4(nodefrag), % raw only
+            RecvErr4     = GIP4(recverr),
             RecvIF       = GIP4(recvif),   % Only dgram and raw (and FreeBSD)
             RecvOPTS     = GIP4(recvopts), % Not stream
             RecvTOS      = GIP4(recvtos),
@@ -675,6 +676,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Multicast Loop: ~s"
               "~n   (ip)     Multicast TTL:  ~s"
               "~n   (ip)     Node Frag:      ~s"
+              "~n   (ip)     Recv Err:       ~s"
               "~n   (ip)     Recv IF:        ~s"
               "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
@@ -695,7 +697,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
-               NF, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
+               NF, RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
                MHops, MIF6, MLoop6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),

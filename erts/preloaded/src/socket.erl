@@ -620,7 +620,7 @@
 -define(SOCKET_OPT_IP_NODEFRAG,              17).
 %% -define(SOCKET_OPT_IP_OPTIONS,               18).
 %% -define(SOCKET_OPT_IP_PKTINFO,               19).
-%% -define(SOCKET_OPT_IP_RECVERR,               20).
+-define(SOCKET_OPT_IP_RECVERR,               20).
 -define(SOCKET_OPT_IP_RECVIF,                21).
 %% -define(SOCKET_OPT_IP_RECVDSTADDR,           22).
 -define(SOCKET_OPT_IP_RECVOPTS,              23).
@@ -638,34 +638,34 @@
 -define(SOCKET_OPT_IPV6_ADDRFORM,           1).
 -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
 -define(SOCKET_OPT_IPV6_AUTHHDR,            3). % Obsolete?
-%% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4).
-%% -define(SOCKET_OPT_IPV6_CHECKSUM,           5).
+%% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_CHECKSUM,           5). % FreeBSD
 -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
 -define(SOCKET_OPT_IPV6_DSTOPTS,            7).
-%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8).
-%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9).
-%% -define(SOCKET_OPT_IPV6_FAITH,             10).
+%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_FAITH,             10). % FreeBSD
 -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
 -define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
 -define(SOCKET_OPT_IPV6_HOPOPTS,           13).
-%% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14).
-%% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15).
-%% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16).
+%% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16). % FreeBSD
 -define(SOCKET_OPT_IPV6_MTU,               17).
 -define(SOCKET_OPT_IPV6_MTU_DISCOVER,      18).
 -define(SOCKET_OPT_IPV6_MULTICAST_HOPS,    19).
 -define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
 -define(SOCKET_OPT_IPV6_MULTICAST_LOOP,    21).
-%% -define(SOCKET_OPT_IPV6_PORTRANGE,         22).
-%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        23).
+%% -define(SOCKET_OPT_IPV6_PORTRANGE,         22). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        23). % FreeBSD
 %% -define(SOCKET_OPT_IPV6_RECVERR,           24).
 -define(SOCKET_OPT_IPV6_RECVPKTINFO,       25). % On FreeBSD: PKTINFO
 %% -define(SOCKET_OPT_IPV6_RECVTCLASS,        26).
 -define(SOCKET_OPT_IPV6_ROUTER_ALERT,      27).
 -define(SOCKET_OPT_IPV6_RTHDR,             28).
-%% -define(SOCKET_OPT_IPV6_TCLASS,            29).
+%% -define(SOCKET_OPT_IPV6_TCLASS,            29). % FreeBSD
 -define(SOCKET_OPT_IPV6_UNICAST_HOPS,      30).
-%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31).
+%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31). % FreeBSD
 -define(SOCKET_OPT_IPV6_V6ONLY,            32).
 
 -define(SOCKET_OPT_TCP_CONGESTION,      1).
@@ -2219,6 +2219,9 @@ enc_setopt_value(ip, multicast_ttl, V, _D, _T, _P)
 enc_setopt_value(ip, nodefrag, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
+enc_setopt_value(ip, recverr, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, recvif, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
@@ -2672,8 +2675,8 @@ enc_sockopt_key(ip = L, pktinfo = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% This require special code for accessing the errors.
 %% via calling the recvmsg with the MSG_ERRQUEUE flag set,
-enc_sockopt_key(ip = L, recverr = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, recverr = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_RECVERR;
 enc_sockopt_key(ip = _L, recvif = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IP_RECVIF;

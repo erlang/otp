@@ -339,7 +339,7 @@
       </row>
       <row>
 	<cell>multicast_ttl</cell>
-	<cell>0..255</cell>
+	<cell>uint8()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
@@ -350,6 +350,13 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>recverr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>recvif</cell>
