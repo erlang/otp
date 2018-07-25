@@ -636,6 +636,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             MLoop4       = GIP4(multicast_loop),
             MTTL         = GIP4(multicast_ttl),
             NF           = GIP4(nodefrag), % raw only
+            PktInfo      = GIP4(pktinfo),  % dgram only
             RecvErr4     = GIP4(recverr),
             RecvIF       = GIP4(recvif),   % Only dgram and raw (and FreeBSD)
             RecvOPTS     = GIP4(recvopts), % Not stream
@@ -677,6 +678,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Multicast Loop: ~s"
               "~n   (ip)     Multicast TTL:  ~s"
               "~n   (ip)     Node Frag:      ~s"
+              "~n   (ip)     Pkt Info:       ~s"
               "~n   (ip)     Recv Err:       ~s"
               "~n   (ip)     Recv IF:        ~s"
               "~n   (ip)     Recv OPTS:      ~s"
@@ -699,17 +701,28 @@ handler_init(Manager, ID, Peek, Sock) ->
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
-               NF, RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
+               NF, PktInfo,RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
                MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
-
+            
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,
                                   socket  = Sock})
     end.
 
+%% so(Sock, Lvl, Opt, Val) ->
+%%     ok = socket:setopt(Sock, Lvl, Opt, Val).
+
+%% soso(Sock, Opt, Val) ->
+%%     so(Sock, socket, Opt, Val).
+
+%% soip(Sock, Opt, Val) ->
+%%     so(Sock, ip, Opt, Val).
+
+%% soipv6(Sock, Opt, Val) ->
+%%     so(Sock, ipv6, Opt, Val).
 
 handler_loop(H) ->
     i("try read message"),

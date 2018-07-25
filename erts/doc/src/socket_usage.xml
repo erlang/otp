@@ -366,6 +366,13 @@
 	<cell>type = raw</cell>
       </row>
       <row>
+	<cell>pktinfo</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
 	<cell>recverr</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
@@ -408,7 +415,7 @@
 	<cell>none</cell>
       </row>
       <row>
-	<cell>tos</cell>
+	<cell>ttl</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
