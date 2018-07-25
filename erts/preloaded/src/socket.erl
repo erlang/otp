@@ -466,12 +466,8 @@
 %%                    raw_socket_option() |
 %%                    plain_socket_option().
 
--type socket_info() :: #{domain   => domain(),
-                         type     => type(),
-                         protocol => protocol()}.
--record(socket, {info :: socket_info(),
-                 ref  :: reference()}).
-%% -opaque socket() :: {socket, socket_info(), reference()}.
+-record(socket, {ref :: reference()}).
+
 -opaque socket() :: #socket{}.
 
 -type accept_flags() :: [accept_flag()].
@@ -890,11 +886,7 @@ open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
             EProtocol = enc_protocol(Type, Protocol),
             case nif_open(EDomain, EType, EProtocol, Extra) of
                 {ok, SockRef} ->
-                    SocketInfo = #{domain   => Domain,
-                                   type     => Type,
-                                   protocol => Protocol},
-                    Socket = #socket{info = SocketInfo,
-                                     ref  = SockRef},
+                    Socket = #socket{ref = SockRef},
                     {ok, Socket};
                 {error, _} = ERROR ->
                     ERROR
@@ -928,12 +920,17 @@ default_protocol(Protocol, _)     -> Protocol.
       Addr   :: any | loopback | sockaddr(),
       Reason :: term().
 
-bind(#socket{ref = SockRef, info = #{domain := inet}} = _Socket, Addr) 
+bind(#socket{ref = SockRef}, Addr)
   when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
-bind(#socket{ref = SockRef, info = #{domain := inet6}} = _Socket, Addr) 
-  when ((Addr =:= any) orelse (Addr =:= loopback)) ->
-    nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
+    try which_domain(SockRef) of
+        inet ->
+            nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
+        inet6 ->
+            nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr))
+    catch
+        throw:ERROR ->
+            ERROR
+    end;
 bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
     try
         begin
@@ -964,14 +961,13 @@ bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
       Action :: add | remove,
       Reason :: term().
 
-bind(#socket{ref  = SockRef, 
-             info = #{domain   := Domain,
-                      type     := seqpacket, 
-                      protocol := sctp}} = _Socket, Addrs, Action) 
+bind(#socket{ref = SockRef}, Addrs, Action) 
   when is_list(Addrs) andalso ((Action =:= add) orelse (Action =:= remove)) ->
     try
         begin
-            validate_addrs(Domain, Addrs),
+            ensure_type(seqpacket, which_type(SockRef)),
+            ensure_proto(sctp, which_protocol(SockRef)),
+            validate_addrs(which_domain(SockRef), Addrs),
             nif_bind(SockRef, Addrs, Action)
         end
     catch
@@ -979,6 +975,21 @@ bind(#socket{ref  = SockRef,
             ERROR
     end.
 
+ensure_type(SockRef, Type) ->
+    case which_type(SockRef) of
+        Type ->
+            ok;
+        _InvalidType ->
+            einval()
+    end.
+
+ensure_proto(SockRef, Proto) ->
+    case which_protocol(SockRef) of
+        Proto ->
+            ok;
+        _InvalidProto ->
+            einval()
+    end.
 
 validate_addrs(inet = _Domain, Addrs) ->
     validate_inet_addrs(Addrs);
@@ -1119,11 +1130,11 @@ accept(Socket) ->
 %% Do we really need this optimization?
 accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
     {error, timeout};
-accept(#socket{info = SI, ref = LSockRef}, Timeout)
+accept(#socket{ref = LSockRef}, Timeout)
   when is_integer(Timeout) orelse (Timeout =:= infinity) ->
-    do_accept(LSockRef, SI, Timeout).
+    do_accept(LSockRef, Timeout).
 
-do_accept(LSockRef, SI, Timeout) ->
+do_accept(LSockRef, Timeout) ->
     TS     = timestamp(Timeout),
     AccRef = make_ref(),
     case nif_accept(LSockRef, AccRef) of
@@ -1138,18 +1149,17 @@ do_accept(LSockRef, SI, Timeout) ->
             %%   message).
             %%
             %% </KOLLA>
-            SocketInfo = #{domain    => maps:get(domain,   SI),
-                           type      => maps:get(type,     SI),
-                           protocol  => maps:get(protocol, SI)},
-            Socket = #socket{info = SocketInfo,
-                             ref  = SockRef},
+            Socket = #socket{ref = SockRef},
             {ok, Socket};
 
         {error, eagain} ->
+            %% Each call is non-blocking, but even then it takes
+            %% *some* time, so just to be sure, recalculate before 
+            %% the receive.
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, LSockRef, AccRef, ready_input} ->
-                    do_accept(LSockRef, SI, next_timeout(TS, Timeout));
+                    do_accept(LSockRef, next_timeout(TS, Timeout));
 
                 {nif_abort, AccRef, Reason} ->
                     {error, Reason}
@@ -1863,12 +1873,12 @@ shutdown(#socket{ref = SockRef}, How) ->
       Value  :: term(),
       Reason :: term().
 
-setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
+setopt(#socket{ref = SockRef}, Level, Key, Value) ->
     try
         begin
-            Domain               = maps:get(domain, Info),
-            Type                 = maps:get(type, Info),
-            Protocol             = maps:get(protocol, Info),
+            Domain               = which_domain(SockRef),
+            Type                 = which_type(SockRef),
+            Protocol             = which_protocol(SockRef),
             {EIsEncoded, ELevel} = enc_setopt_level(Level),
             EKey = enc_setopt_key(Level, Key, Domain, Type, Protocol),
             EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
@@ -1935,12 +1945,12 @@ setopt(#socket{info = Info, ref = SockRef}, Level, Key, Value) ->
       Value     :: term(),
       Reason    :: term().
 
-getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
+getopt(#socket{ref = SockRef}, Level, Key) ->
     try
         begin
-            Domain   = maps:get(domain, Info),
-            Type     = maps:get(type, Info),
-            Protocol = maps:get(protocol, Info),
+            Domain   = which_domain(SockRef),
+            Type     = which_type(SockRef),
+            Protocol = which_protocol(SockRef),
             {EIsEncoded, ELevel} = enc_getopt_level(Level),
             EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
             %% We may need to decode the value (for the same reason
@@ -1963,6 +1973,36 @@ getopt(#socket{info = Info, ref = SockRef}, Level, Key) ->
             {error, Reason} % Process more?
     end.
 
+
+%% These are internal "shortcut" functions for the options
+%% domain, type and protocol.
+which_domain(SockRef) ->
+    case nif_getopt(SockRef, true,
+                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_DOMAIN) of
+        {ok, Domain} ->
+            Domain;
+        {error, _} = ERROR ->
+            throw(ERROR)
+    end.
+        
+
+which_type(SockRef) ->
+    case nif_getopt(SockRef, true,
+                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_TYPE) of
+        {ok, Type} ->
+            Type;
+        {error, _} = ERROR ->
+            throw(ERROR)
+    end.
+
+which_protocol(SockRef) ->
+    case nif_getopt(SockRef, true,
+                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_PROTOCOL) of
+        {ok, Type} ->
+            Type;
+        {error, _} = ERROR ->
+            throw(ERROR)
+    end.
 
 
 %% ===========================================================================
