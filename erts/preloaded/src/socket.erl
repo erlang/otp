@@ -94,6 +94,8 @@
               ip_mreq/0,
               ip_mreq_source/0,
               ip_pmtudisc/0,
+              ip_msfilter_mode/0,
+              ip_msfilter/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
               sctp_event_subscribe/0,
@@ -195,6 +197,17 @@
                             sourceaddr := ip4_address()}.
 
 -type ip_pmtudisc() :: want | dont | do | probe.
+
+%% multiaddr: Multicast group address
+%% interface: Address of local interface
+%% mode:      Filter mode
+%% slist:     List of source addresses
+-type ip_msfilter_mode() :: include | exclude.
+
+-type ip_msfilter() :: #{multiaddr => ip4_address(),
+                         interface => ip4_address(),
+                         mode      => ip_msfilter_mode(),
+                         slist     => [ip4_address()]}.
 
 -type ipv6_mreq() :: #{multiaddr := ip6_address(),
                        interface := non_neg_integer()}.
@@ -604,13 +617,13 @@
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
 -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
 -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
-%% -define(SOCKET_OPT_IP_DONTFRAG,               4).
+%% -define(SOCKET_OPT_IP_DONTFRAG,               4). % FreeBSD
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 -define(SOCKET_OPT_IP_FREEBIND,               7).
 %% -define(SOCKET_OPT_IP_HDRINCL,                8).
 -define(SOCKET_OPT_IP_MINTTL,                 9).
-%% -define(SOCKET_OPT_IP_MSFILTER,              10).
+-define(SOCKET_OPT_IP_MSFILTER,              10).
 -define(SOCKET_OPT_IP_MTU,                   11).
 -define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
 -define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
@@ -2197,6 +2210,18 @@ enc_setopt_value(ip, freebind, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(ip, minttl, V, _D, _T, _P) when is_integer(V) ->
     V;
+enc_setopt_value(ip, msfilter, null = V, _D, _T, _P) ->
+    V;
+enc_setopt_value(ip, msfilter, #{multiaddr := MA,
+                                 interface := IF,
+                                 fmode     := FMode,
+                                 slist     := SL} = V, _D, _T, _P) 
+  when (is_tuple(MA) andalso (size(MA) =:= 4)) andalso
+       (is_tuple(IF) andalso (size(IF) =:= 4)) andalso
+       ((FMode =:= include) orelse (FMode =:= exclude)) andalso 
+       is_list(SL) ->
+    ensure_ip_msfilter_slist(SL),
+    V;
 enc_setopt_value(ip, mtu_discover, V, _D, _T, _P)
   when (V =:= want)  orelse
        (V =:= dont)  orelse
@@ -2656,8 +2681,8 @@ enc_sockopt_key(ip = L, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
 %% FreeBSD only?
 enc_sockopt_key(ip = _L, minttl = _Opt, _Dir, _D, raw = _T, _P) ->
     ?SOCKET_OPT_IP_MINTTL;
-enc_sockopt_key(ip = L, msfilter = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, msfilter = _Opt, set = _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_MSFILTER;
 enc_sockopt_key(ip = _L, mtu = _Opt, get = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_MTU;
 enc_sockopt_key(ip = _L, mtu_discover = _Opt, _Dir, _D, _T, _P) ->
@@ -2921,6 +2946,13 @@ enc_shutdown_how(read_write) ->
 %% Misc utility functions
 %%
 %% ===========================================================================
+
+ensure_ip_msfilter_slist(SL) ->
+    EnsureSA = fun(SA) when is_tuple(SA) andalso (size(SA) =:= 4) -> ok;
+                  (_) -> einval()
+               end,
+    lists:foreach(EnsureSA, SL).
+
 
 ensure_sockaddr(#{family := inet} = SockAddr) ->
     maps:merge(?SOCKADDR_IN4_DEFAULTS, SockAddr);

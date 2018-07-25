@@ -303,6 +303,13 @@
 	<cell>type = raw</cell>
       </row>
       <row>
+	<cell>msfilter</cell>
+	<cell>null | ip_msfilter()</cell>
+	<cell>yes</cell>
+	<cell>no</cell>
+	<cell>none</cell>
+      </row>
+      <row>
 	<cell>mtu</cell>
 	<cell>integer()</cell>
 	<cell>no</cell>

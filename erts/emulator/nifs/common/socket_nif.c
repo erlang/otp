@@ -521,6 +521,7 @@ typedef union {
 #define SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
 #define SOCKET_OPT_IP_FREEBIND                7
 #define SOCKET_OPT_IP_MINTTL                  9
+#define SOCKET_OPT_IP_MSFILTER               10
 #define SOCKET_OPT_IP_MTU                    11
 #define SOCKET_OPT_IP_MTU_DISCOVER           12
 #define SOCKET_OPT_IP_MULTICAST_ALL          13
@@ -1113,6 +1114,18 @@ static ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
 static ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
                                           ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_MSFILTER)
+static ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal);
+static BOOLEAN_T decode_ip_msfilter_mode(ErlNifEnv*   env,
+                                         ERL_NIF_TERM eVal,
+                                         uint32_t*    mode);
+static ERL_NIF_TERM nsetopt_lvl_ip_msfilter_set(ErlNifEnv*          env,
+                                                SOCKET              sock,
+                                                struct ip_msfilter* msfP,
+                                                SOCKLEN_T           optLen);
 #endif
 #if defined(IP_MTU_DISCOVER)
 static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
@@ -2058,13 +2071,15 @@ static char str_cookie_life[]      = "cookie_life";
 static char str_data_in[]          = "data_in";
 static char str_do[]               = "do";
 static char str_dont[]             = "dont";
+static char str_exclude[]          = "exclude";
 static char str_false[]            = "false";
 static char str_global_counters[]  = "global_counters";
 static char str_in4_sockaddr[]     = "in4_sockaddr";
 static char str_in6_sockaddr[]     = "in6_sockaddr";
-static char str_iow[]              = "iow";
+static char str_include[]          = "include";
 static char str_initial[]          = "initial";
 static char str_interface[]        = "interface";
+static char str_iow[]              = "iow";
 static char str_local_rwnd[]       = "local_rwnd";
 // static char str_loopback[]         = "loopback";
 static char str_max[]              = "max";
@@ -2073,8 +2088,10 @@ static char str_max_init_timeo[]   = "max_init_timeo";
 static char str_max_instreams[]    = "max_instreams";
 static char str_max_rxt[]          = "max_rxt";
 static char str_min[]              = "min";
+static char str_mode[]             = "mode";
 static char str_multiaddr[]        = "multiaddr";
 static char str_nif_abort[]        = "nif_abort";
+static char str_null[]             = "null";
 static char str_num_dlocal[]       = "num_domain_local";
 static char str_num_dinet[]        = "num_domain_inet";
 static char str_num_dinet6[]       = "num_domain_inet6";
@@ -2097,6 +2114,7 @@ static char str_select[]           = "select";
 static char str_sender_dry[]       = "sender_dry";
 static char str_send_failure[]     = "send_failure";
 static char str_shutdown[]         = "shutdown";
+static char str_slist[]            = "slist";
 static char str_sourceaddr[]       = "sourceaddr";
 static char str_timeout[]          = "timeout";
 static char str_true[]             = "true";
@@ -2170,13 +2188,15 @@ static ERL_NIF_TERM atom_cookie_life;
 static ERL_NIF_TERM atom_data_in;
 static ERL_NIF_TERM atom_do;
 static ERL_NIF_TERM atom_dont;
+static ERL_NIF_TERM atom_exclude;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_global_counters;
 static ERL_NIF_TERM atom_in4_sockaddr;
 static ERL_NIF_TERM atom_in6_sockaddr;
-static ERL_NIF_TERM atom_iow;
+static ERL_NIF_TERM atom_include;
 static ERL_NIF_TERM atom_initial;
 static ERL_NIF_TERM atom_interface;
+static ERL_NIF_TERM atom_iow;
 static ERL_NIF_TERM atom_local_rwnd;
 static ERL_NIF_TERM atom_max;
 static ERL_NIF_TERM atom_max_attempts;
@@ -2184,8 +2204,10 @@ static ERL_NIF_TERM atom_max_init_timeo;
 static ERL_NIF_TERM atom_max_instreams;
 static ERL_NIF_TERM atom_max_rxt;
 static ERL_NIF_TERM atom_min;
+static ERL_NIF_TERM atom_mode;
 static ERL_NIF_TERM atom_multiaddr;
 static ERL_NIF_TERM atom_nif_abort;
+static ERL_NIF_TERM atom_null;
 static ERL_NIF_TERM atom_num_dinet;
 static ERL_NIF_TERM atom_num_dinet6;
 static ERL_NIF_TERM atom_num_dlocal;
@@ -2208,6 +2230,7 @@ static ERL_NIF_TERM atom_select;
 static ERL_NIF_TERM atom_sender_dry;
 static ERL_NIF_TERM atom_send_failure;
 static ERL_NIF_TERM atom_shutdown;
+static ERL_NIF_TERM atom_slist;
 static ERL_NIF_TERM atom_sourceaddr;
 static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
@@ -4934,6 +4957,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_MSFILTER)
+    case SOCKET_OPT_IP_MSFILTER:
+        result = nsetopt_lvl_ip_msfilter(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_MTU_DISCOVER)
     case SOCKET_OPT_IP_MTU_DISCOVER:
         result = nsetopt_lvl_ip_mtu_discover(env, descP, eVal);
@@ -5175,6 +5204,139 @@ ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
     return nsetopt_int_opt(env, descP, level, IP_MINTTL, eVal);
 }
 #endif
+
+
+
+/* nsetopt_lvl_ip_msfilter - Level IP MSFILTER option
+ *
+ * The value can be *either* the atom 'null' or a map of type ip_msfilter().
+ */
+#if defined(IP_MSFILTER)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
+                                     SocketDescriptor* descP,
+                                     ERL_NIF_TERM      eVal)
+{
+    ERL_NIF_TERM result;
+
+    if (COMPARE(eVal, atom_null) == 0) {
+        return nsetopt_lvl_ip_msfilter_set(env, descP->sock, NULL, 0);
+    } else {
+        struct ip_msfilter* msfP;
+        uint32_t            msfSz;
+        ERL_NIF_TERM        eMultiAddr, eInterface, eFMode, eSList, elem, tail;
+        size_t              sz;
+        unsigned int        slistLen, idx;
+
+        if (!IS_MAP(env, eVal))
+            return esock_make_error(env, esock_atom_einval);
+        
+        // It must have atleast four attributes
+        if (!enif_get_map_size(env, eVal, &sz) || (sz < 4))
+            return esock_make_error(env, esock_atom_einval);
+
+        if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+            return esock_make_error(env, esock_atom_einval);
+        
+        if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+            return esock_make_error(env, esock_atom_einval);
+        
+        if (!GET_MAP_VAL(env, eVal, atom_mode, &eFMode))
+            return esock_make_error(env, esock_atom_einval);
+        
+        if (!GET_MAP_VAL(env, eVal, atom_slist, &eSList))
+            return esock_make_error(env, esock_atom_einval);
+
+        /* We start (decoding) with the slist, since without it we don't
+         * really know how much (memory) to allocate.
+         */
+        if (!GET_LIST_LEN(env, eSList, &slistLen))
+            return esock_make_error(env, esock_atom_einval);
+
+        msfSz = IP_MSFILTER_SIZE(slistLen);
+        msfP  = MALLOC(msfSz);
+
+        if (!esock_decode_ip4_address(env, eMultiAddr, &msfP->imsf_multiaddr)) {
+            FREE(msfP);
+            return esock_make_error(env, esock_atom_einval);
+        }
+        
+        if (!esock_decode_ip4_address(env, eInterface, &msfP->imsf_interface)) {
+            FREE(msfP);
+            return esock_make_error(env, esock_atom_einval);
+        }
+        
+        if (!decode_ip_msfilter_mode(env, eFMode, &msfP->imsf_fmode)) {
+            FREE(msfP);
+            return esock_make_error(env, esock_atom_einval);
+        }
+
+        /* And finally, extract the source addresses */
+        msfP->imsf_numsrc = slistLen;
+        for (idx = 0; idx < slistLen; idx++) {
+            if (GET_LIST_ELEM(env, eSList, &elem, &tail)) {
+                if (!esock_decode_ip4_address(env, elem, &msfP->imsf_slist[idx])) {
+                    FREE(msfP);
+                    return esock_make_error(env, esock_atom_einval);
+                } else {
+                    eSList = tail;
+                }
+            }
+        }
+
+        /* And now, finally, set the option */
+        result = nsetopt_lvl_ip_msfilter_set(env, descP->sock, msfP, msfSz);
+        FREE(msfP);
+        return result;
+    }
+
+}
+
+
+static
+BOOLEAN_T decode_ip_msfilter_mode(ErlNifEnv*   env,
+                                  ERL_NIF_TERM eVal,
+                                  uint32_t*    mode)
+{
+    BOOLEAN_T result;
+
+    if (COMPARE(eVal, atom_include) == 0) {
+        *mode  = MCAST_INCLUDE;
+        result = TRUE;        
+    } else if (COMPARE(eVal, atom_exclude) == 0) {
+        *mode  = MCAST_EXCLUDE;
+        result = TRUE;        
+    } else {
+        result = FALSE;
+    }
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM nsetopt_lvl_ip_msfilter_set(ErlNifEnv*          env,
+                                         SOCKET              sock,
+                                         struct ip_msfilter* msfP,
+                                         SOCKLEN_T           optLen)
+{
+    ERL_NIF_TERM result;
+    int          res;
+#if defined(SOL_IP)
+    int          level = SOL_IP;
+#else
+    int          level = IPPROTO_IP;
+#endif
+
+    res = socket_setopt(sock, level, IP_MSFILTER, (void*) msfP, optLen);
+    if (res != 0)
+        result = esock_make_error_errno(env, sock_errno());
+    else
+        result = esock_atom_ok;
+
+    return result;
+}
+#endif // IP_MSFILTER
 
 
 
@@ -11441,13 +11603,15 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_data_in             = MKA(env, str_data_in);
     atom_do                  = MKA(env, str_do);
     atom_dont                = MKA(env, str_dont);
+    atom_exclude             = MKA(env, str_exclude);
     atom_false               = MKA(env, str_false);
     atom_global_counters     = MKA(env, str_global_counters);
     atom_in4_sockaddr        = MKA(env, str_in4_sockaddr);
     atom_in6_sockaddr        = MKA(env, str_in6_sockaddr);
-    atom_iow                 = MKA(env, str_iow);
+    atom_include             = MKA(env, str_include);
     atom_initial             = MKA(env, str_initial);
     atom_interface           = MKA(env, str_interface);
+    atom_iow                 = MKA(env, str_iow);
     atom_local_rwnd          = MKA(env, str_local_rwnd);
     atom_max                 = MKA(env, str_max);
     atom_max_attempts        = MKA(env, str_max_attempts);
@@ -11455,8 +11619,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_max_instreams       = MKA(env, str_max_instreams);
     atom_max_rxt             = MKA(env, str_max_rxt);
     atom_min                 = MKA(env, str_min);
+    atom_mode                = MKA(env, str_mode);
     atom_multiaddr           = MKA(env, str_multiaddr);
     atom_nif_abort           = MKA(env, str_nif_abort);
+    atom_null                = MKA(env, str_null);
     atom_num_dinet           = MKA(env, str_num_dinet);
     atom_num_dinet6          = MKA(env, str_num_dinet6);
     atom_num_dlocal          = MKA(env, str_num_dlocal);
@@ -11479,6 +11645,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_sender_dry          = MKA(env, str_sender_dry);
     atom_send_failure        = MKA(env, str_send_failure);
     atom_shutdown            = MKA(env, str_shutdown);
+    atom_slist               = MKA(env, str_slist);
     atom_sourceaddr          = MKA(env, str_sourceaddr);
     atom_timeout             = MKA(env, str_timeout);
     atom_true                = MKA(env, str_true);

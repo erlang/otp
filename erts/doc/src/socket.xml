@@ -132,6 +132,12 @@
       <name name="ip_pmtudisc"/>
     </datatype>
     <datatype>
+      <name name="ip_msfilter_mode"/>
+    </datatype>
+    <datatype>
+      <name name="ip_msfilter"/>
+    </datatype>
+    <datatype>
       <name name="ipv6_mreq"/>
     </datatype>
     <datatype>
