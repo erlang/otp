@@ -35,15 +35,20 @@
 
   <datatypes>
     <datatype>
-      <name name="iterator"/>
+      <name name="iterator" n_vars="2"/>
       <desc>
-        <p>An iterator representing the key value associations in a map.</p>
+        <p>An iterator representing the associations in a map with keys of type
+          <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
         <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>.</p>
         <p>Consumed by <seealso marker="#next-1"><c>maps:next/1</c></seealso>,
           <seealso marker="#filter-2"><c>maps:filter/2</c></seealso>,
           <seealso marker="#fold-3"><c>maps:fold/3</c></seealso> and
           <seealso marker="#map-2"><c>maps:map/2</c></seealso>.</p>
       </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator" n_vars="0"/>
     </datatype>
   </datatypes>
 
@@ -90,13 +95,13 @@
       <name name="fold" arity="3"/>
       <fsummary></fsummary>
       <desc>
-        <p>Calls <c>F(K, V, AccIn)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V</anno></c> association in <c><anno>MapOrIter</anno></c> in
-          any order. Function <c>fun F/3</c> must return a new
-          accumulator, which is passed to the next successive call.
-          This function returns the final value of the accumulator. The initial
-          accumulator value <c><anno>Init</anno></c> is returned if the map is
-          empty.</p>
+        <p>Calls <c>F(Key, Value, AccIn)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun F/3</c>
+          must return a new accumulator, which is passed to the next successive
+          call. This function returns the final value of the accumulator.
+          The initial accumulator value <c><anno>Init</anno></c> is returned
+          if the map is empty.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
@@ -234,11 +239,12 @@ none</code>
       <fsummary></fsummary>
       <desc>
         <p>Produces a new map <c><anno>Map</anno></c> by calling function
-          <c>fun F(K, V1)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V1</anno></c> association in <c><anno>MapOrIter</anno></c> in
-          any order. Function <c>fun F/2</c> must return value
-          <c><anno>V2</anno></c> to be associated with key <c><anno>K</anno></c>
-          for the new map <c><anno>Map</anno></c>.</p>
+          <c>fun F(Key, Value1)</c> for every <c><anno>Key</anno></c> to value
+          <c><anno>Value1</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun Fun/2</c>
+          must return value <c><anno>Value2</anno></c> to be associated with
+          key <c><anno>Key</anno></c> for the new map
+          <c><anno>Map</anno></c>.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
