@@ -642,6 +642,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvOPTS     = GIP4(recvopts), % Not stream
             RecvTOS      = GIP4(recvtos),
             RecvTTL      = GIP4(recvttl),  % not stream
+            RetOpts      = GIP4(retopts),  % not stream
             TOS          = GIP4(tos),
             Transparent  = GIP4(transparent),
             TTL          = GIP4(ttl),
@@ -687,6 +688,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s"
+              "~n   (ip)     Ret Opts:       ~s"
               "~n   (ip)     TOS:            ~s"
               "~n   (ip)     Transparent:    ~s"
               "~n   (ip)     TTL:            ~s"
@@ -707,12 +709,12 @@ handler_init(Manager, ID, Peek, Sock) ->
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
-               NF, PktInfo,RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
+               NF, PktInfo,RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL, RetOpts,
                TOS, Transparent, TTL,
                MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
-            
+
             handler_loop(#handler{peek    = Peek,
                                   manager = Manager,
                                   type    = Type,

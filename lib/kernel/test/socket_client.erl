@@ -22,8 +22,8 @@
 
 -export([
          start/1, start/5,
-         start_tcp/1, start_tcp/2, start_tcp6/1,
-         start_udp/1, start_udp/2, start_udp6/1
+         start_tcp/1, start_tcp/2, start_tcp4/1, start_tcp6/1,
+         start_udp/1, start_udp/2, start_udp4/1, start_udp6/1
         ]).
 
 -define(LIB, socket_lib).
@@ -34,6 +34,9 @@ start(Port) ->
     start_tcp(Port).
 
 start_tcp(Port) ->
+    start_tcp4(Port).
+
+start_tcp4(Port) ->
     start(inet, stream, tcp, Port).
 
 start_tcp6(Port) ->
@@ -46,6 +49,9 @@ start_tcp(Addr, Port) when (size(Addr) =:= 8) ->
 
 
 start_udp(Port) ->
+    start_udp4(Port).
+
+start_udp4(Port) ->
     start(inet, dgram, udp, Port).
 
 start_udp6(Port) ->

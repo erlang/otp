@@ -536,6 +536,7 @@ typedef union {
 #define SOCKET_OPT_IP_RECVOPTS               23
 #define SOCKET_OPT_IP_RECVTOS                25
 #define SOCKET_OPT_IP_RECVTTL                26
+#define SOCKET_OPT_IP_RETOPTS                27
 #define SOCKET_OPT_IP_ROUTER_ALERT           28
 #define SOCKET_OPT_IP_TOS                    30
 #define SOCKET_OPT_IP_TRANSPARENT            31
@@ -1195,6 +1196,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
                                            ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_RETOPTS)
+static ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_ROUTER_ALERT)
 static ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
@@ -1604,6 +1610,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
 #endif
 #if defined(IP_RECVTTL)
 static ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*        env,
+                                           SocketDescriptor* descP);
+#endif
+#if defined(IP_RETOPTS)
+static ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
 #endif
 #if defined(IP_ROUTER_ALERT)
@@ -5071,6 +5081,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RETOPTS)
+    case SOCKET_OPT_IP_RETOPTS:
+        result = nsetopt_lvl_ip_retopts(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_ROUTER_ALERT)
     case SOCKET_OPT_IP_ROUTER_ALERT:
         result = nsetopt_lvl_ip_router_alert(env, descP, eVal);
@@ -5680,6 +5696,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*        env,
 #endif
 
     return nsetopt_bool_opt(env, descP, level, IP_RECVTTL, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_retopts - Level IP RETOPTS option
+ */
+#if defined(IP_RETOPTS)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_RETOPTS, eVal);
 }
 #endif
 
@@ -8289,6 +8324,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RETOPTS)
+    case SOCKET_OPT_IP_RETOPTS:
+        result = ngetopt_lvl_ip_retopts(env, descP);
+        break;
+#endif
+
 #if defined(IP_ROUTER_ALERT)
     case SOCKET_OPT_IP_ROUTER_ALERT:
         result = ngetopt_lvl_ip_router_alert(env, descP);
@@ -8647,6 +8688,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*        env,
 #endif
 
     return ngetopt_bool_opt(env, descP, level, IP_RECVTTL);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_retopts - Level IP RETOPTS option
+ */
+#if defined(IP_RETOPTS)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
+                                    SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_RETOPTS);
 }
 #endif
 

@@ -401,6 +401,13 @@
 	<cell>type =/= stream</cell>
       </row>
       <row>
+	<cell>retopts</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type =/= stream</cell>
+      </row>
+      <row>
 	<cell>router_alert</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>

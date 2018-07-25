@@ -640,7 +640,7 @@
 %% -define(SOCKET_OPT_IP_RECVORIGDSTADDR,       24).
 -define(SOCKET_OPT_IP_RECVTOS,               25).
 -define(SOCKET_OPT_IP_RECVTTL,               26).
-%% -define(SOCKET_OPT_IP_RETOPTS,               27).
+-define(SOCKET_OPT_IP_RETOPTS,               27).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,          28).
 %% -define(SOCKET_OPT_IP_SNDSRCADDR,            29).
 -define(SOCKET_OPT_IP_TOS,                   30).
@@ -2264,6 +2264,9 @@ enc_setopt_value(ip, recvtos, V, _D, _T, _P)
 enc_setopt_value(ip, recvttl, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
+enc_setopt_value(ip, retopts, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, router_alert, V, _D, _T, _P)
   when is_integer(V) ->
     V;
@@ -2725,8 +2728,8 @@ enc_sockopt_key(ip, recvtos = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_RECVTOS;
 enc_sockopt_key(ip = _L, recvttl = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
     ?SOCKET_OPT_IP_RECVTTL;
-enc_sockopt_key(ip = L, retopts = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, retopts = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
+    ?SOCKET_OPT_IP_RETOPTS;
 enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
     ?SOCKET_OPT_IP_ROUTER_ALERT;
 %% On FreeBSD it specifies that this option is only valid
