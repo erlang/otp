@@ -3061,12 +3061,14 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
     Uint need;
     flatmap_t *old_mp, *mp;
     Eterm res;
+    Eterm* old_hp;
     Eterm* hp;
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
     Eterm new_key;
     Eterm map;
+    int changed = 0;
 
     n /= 2;		/* Number of values to be updated */
     ASSERT(n > 0);
@@ -3133,6 +3135,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
      * Update map, keeping the old key tuple.
      */
 
+    old_hp = p->htop;
     hp = p->htop;
     E = p->stop;
 
@@ -3155,20 +3158,26 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
 	    /* Not same keys */
 	    *hp++ = *old_vals;
 	} else {
-	    GET_TERM(new_p[1], *hp);
-	    hp++;
-	    n--;
+            GET_TERM(new_p[1], *hp);
+            if(*hp != *old_vals) changed = 1;
+            hp++;
+            n--;
 	    if (n == 0) {
-		/*
-		 * All updates done. Copy remaining values
-		 * and return the result.
-		 */
-		for (i++, old_vals++; i < num_old; i++) {
-		    *hp++ = *old_vals++;
-		}
-		ASSERT(hp == p->htop + need);
-		p->htop = hp;
-		return res;
+                /*
+                * All updates done. Copy remaining values
+                * if any changed or return the original one.
+                */
+                if(changed) {
+		    for (i++, old_vals++; i < num_old; i++) {
+		        *hp++ = *old_vals++;
+		    }
+		    ASSERT(hp == p->htop + need);
+		    p->htop = hp;
+		    return res;
+                } else {
+                    p->htop = old_hp;
+                    return map;
+                }
 	    } else {
 		new_p += 2;
 		GET_TERM(*new_p, new_key);
