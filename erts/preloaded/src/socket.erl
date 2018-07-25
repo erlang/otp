@@ -644,7 +644,7 @@
 -define(SOCKET_OPT_IP_ROUTER_ALERT,          28).
 %% -define(SOCKET_OPT_IP_SNDSRCADDR,            29).
 -define(SOCKET_OPT_IP_TOS,                   30).
-%% -define(SOCKET_OPT_IP_TRANSPARENT,           31).
+-define(SOCKET_OPT_IP_TRANSPARENT,           31).
 -define(SOCKET_OPT_IP_TTL,                   32).
 -define(SOCKET_OPT_IP_UNBLOCK_SOURCE,           33).
 
@@ -2274,6 +2274,9 @@ enc_setopt_value(ip, tos, V, _D, _T, _P)
        (V =:= mincost)     orelse
        is_integer(V) ->
     V;
+enc_setopt_value(ip, transparent, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, ttl, V, _D, _T, _P)
   when is_integer(V) ->
     V;
@@ -2731,8 +2734,8 @@ enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
 %% No such condition on linux (in the man page)...
 enc_sockopt_key(ip, tos = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_TOS;
-enc_sockopt_key(ip = L, transparent = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, transparent = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_TRANSPARENT;
 enc_sockopt_key(ip, ttl = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_TTL;
 enc_sockopt_key(ip = _L, unblock_source = _Opt, set = _Dir, _D, _T, _P) ->

@@ -642,6 +642,9 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvOPTS     = GIP4(recvopts), % Not stream
             RecvTOS      = GIP4(recvtos),
             RecvTTL      = GIP4(recvttl),  % not stream
+            TOS          = GIP4(tos),
+            Transparent  = GIP4(transparent),
+            TTL          = GIP4(ttl),
             MHops        = GIP6(multicast_hops),
             MIF6         = GIP6(multicast_if), % Only dgram and raw
             MLoop6       = GIP6(multicast_loop),
@@ -684,6 +687,9 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv OPTS:      ~s"
               "~n   (ip)     Recv TOS:       ~s"
               "~n   (ip)     Recv TTL:       ~s"
+              "~n   (ip)     TOS:            ~s"
+              "~n   (ip)     Transparent:    ~s"
+              "~n   (ip)     TTL:            ~s"
               "~n   (ipv6)   Multicast Hops: ~s"
               "~n   (ipv6)   Multicast IF:   ~s"
               "~n   (ipv6)   Multicast Loop: ~s"
@@ -702,6 +708,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, PktInfo,RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL,
+               TOS, Transparent, TTL,
                MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),

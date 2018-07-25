@@ -538,6 +538,7 @@ typedef union {
 #define SOCKET_OPT_IP_RECVTTL                26
 #define SOCKET_OPT_IP_ROUTER_ALERT           28
 #define SOCKET_OPT_IP_TOS                    30
+#define SOCKET_OPT_IP_TRANSPARENT            31
 #define SOCKET_OPT_IP_TTL                    32
 #define SOCKET_OPT_IP_UNBLOCK_SOURCE         33
 
@@ -1204,6 +1205,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_TRANSPARENT)
+static ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_TTL)
 static ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
@@ -1607,6 +1613,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
 #if defined(IP_TOS)
 static ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
                                        SocketDescriptor* descP);
+#endif
+#if defined(IP_TRANSPARENT)
+static ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
 #endif
 #if defined(IP_TTL)
 static ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*        env,
@@ -5073,6 +5083,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_TRANSPARENT)
+    case SOCKET_OPT_IP_TRANSPARENT:
+        result = nsetopt_lvl_ip_transparent(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_TTL)
     case SOCKET_OPT_IP_TTL:
         result = nsetopt_lvl_ip_ttl(env, descP, eVal);
@@ -5086,9 +5102,15 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 #endif
 
     default:
+        SSDBG( descP, ("SOCKET", "nsetopt_lvl_ip -> unknown opt (%d)\r\n", eOpt) );
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
+
+    SSDBG( descP,
+           ("SOCKET", "nsetopt_lvl_ip -> done when"
+            "\r\n   result: %T"
+            "\r\n", result) );
 
     return result;
 }
@@ -5712,6 +5734,26 @@ ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
     return result;
 }
 #endif
+
+
+/* nsetopt_lvl_ip_transparent - Level IP TRANSPARENT option
+ */
+#if defined(IP_TRANSPARENT)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_TRANSPARENT, eVal);
+}
+#endif
+
 
 
 /* nsetopt_lvl_ip_ttl - Level IP TTL option
@@ -8259,6 +8301,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_TRANSPARENT)
+    case SOCKET_OPT_IP_TRANSPARENT:
+        result = ngetopt_lvl_ip_transparent(env, descP);
+        break;
+#endif
+
 #if defined(IP_TTL)
     case SOCKET_OPT_IP_TTL:
         result = ngetopt_lvl_ip_ttl(env, descP);
@@ -8649,6 +8697,25 @@ ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
     return result;
 }
 #endif
+
+
+/* ngetopt_lvl_ip_transparent - Level IP TRANSPARENT option
+ */
+#if defined(IP_TRANSPARENT)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_TRANSPARENT);
+}
+#endif
+
 
 
 /* ngetopt_lvl_ip_ttl - Level IP TTL option

@@ -412,7 +412,14 @@
 	<cell>ip_tos()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell>may require admin capability</cell>
+      </row>
+      <row>
+	<cell>transparent</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>require admin capability</cell>
       </row>
       <row>
 	<cell>ttl</cell>
