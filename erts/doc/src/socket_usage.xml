@@ -296,6 +296,13 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>hdrincl</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = raw</cell>
+      </row>
+      <row>
 	<cell>minttl</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>

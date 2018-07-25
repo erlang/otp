@@ -621,7 +621,7 @@
 -define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
 -define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
 -define(SOCKET_OPT_IP_FREEBIND,               7).
-%% -define(SOCKET_OPT_IP_HDRINCL,                8).
+-define(SOCKET_OPT_IP_HDRINCL,                8).
 -define(SOCKET_OPT_IP_MINTTL,                 9).
 -define(SOCKET_OPT_IP_MSFILTER,              10).
 -define(SOCKET_OPT_IP_MTU,                   11).
@@ -631,7 +631,7 @@
 -define(SOCKET_OPT_IP_MULTICAST_LOOP,        15).
 -define(SOCKET_OPT_IP_MULTICAST_TTL,         16).
 -define(SOCKET_OPT_IP_NODEFRAG,              17).
-%% -define(SOCKET_OPT_IP_OPTIONS,               18).
+%% -define(SOCKET_OPT_IP_OPTIONS,               18). % FreeBSD
 %% -define(SOCKET_OPT_IP_PKTINFO,               19).
 -define(SOCKET_OPT_IP_RECVERR,               20).
 -define(SOCKET_OPT_IP_RECVIF,                21).
@@ -2208,6 +2208,8 @@ enc_setopt_value(ip, drop_source_membership, #{multiaddr  := MA,
     V;
 enc_setopt_value(ip, freebind, V, _D, _T, _P) when is_boolean(V) ->
     V;
+enc_setopt_value(ip, hdrincl, V, _D, _T, _P) when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, minttl, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(ip, msfilter, null = V, _D, _T, _P) ->
@@ -2676,9 +2678,8 @@ enc_sockopt_key(ip = _L, drop_source_membership = _Opt, set = _Dir, _D, _T, _P) 
 %% Linux only?
 enc_sockopt_key(ip = _L, freebind = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_FREEBIND;
-enc_sockopt_key(ip = L, hdrincl = Opt, _Dir, _D, raw = _T, _P) ->
-    not_supported({L, Opt});
-%% FreeBSD only?
+enc_sockopt_key(ip = _L, hdrincl = _Opt, _Dir, _D, raw = _T, _P) ->
+    ?SOCKET_OPT_IP_HDRINCL;
 enc_sockopt_key(ip = _L, minttl = _Opt, _Dir, _D, raw = _T, _P) ->
     ?SOCKET_OPT_IP_MINTTL;
 enc_sockopt_key(ip = _L, msfilter = _Opt, set = _Dir, _D, _T, _P) ->
