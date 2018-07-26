@@ -35,6 +35,10 @@
     <p>The socket interface (module) is basically an "thin" layer on top of
     the OS socket interface. It is assumed that, unless you have special needs,
     gen_[tcp|udp|sctp] should be sufficent. </p>
+    <p>Note that just because we have a documented and described option,
+    it does <em>not</em> mean that the OS supports it. So its recommended
+    that the user reads the platform specific documentation for the
+    option used. </p>
   </section>
 
   <section>
@@ -427,6 +431,13 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>type = raw</cell>
+      </row>
+      <row>
+	<cell>sendsrcaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>tos</cell>

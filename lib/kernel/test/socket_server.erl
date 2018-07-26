@@ -644,6 +644,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvTOS      = GIP4(recvtos),
             RecvTTL      = GIP4(recvttl),  % not stream
             RetOpts      = GIP4(retopts),  % not stream
+            SendSrcAddr  = GIP4(sendsrcaddr),
             TOS          = GIP4(tos),
             Transparent  = GIP4(transparent),
             TTL          = GIP4(ttl),
@@ -691,6 +692,7 @@ handler_init(Manager, ID, Peek, Sock) ->
               "~n   (ip)     Recv TOS:           ~s"
               "~n   (ip)     Recv TTL:           ~s"
               "~n   (ip)     Ret Opts:           ~s"
+              "~n   (ip)     Send Src Addr:      ~s"
               "~n   (ip)     TOS:                ~s"
               "~n   (ip)     Transparent:        ~s"
               "~n   (ip)     TTL:                ~s"
@@ -713,7 +715,7 @@ handler_init(Manager, ID, Peek, Sock) ->
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
                NF, PktInfo,RecvErr4, 
                RecvIF, RecvOPTS, RecvOrigDstAddr, RecvTOS, RecvTTL, RetOpts,
-               TOS, Transparent, TTL,
+               SendSrcAddr, TOS, Transparent, TTL,
                MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
@@ -724,14 +726,14 @@ handler_init(Manager, ID, Peek, Sock) ->
                                   socket  = Sock})
     end.
 
-so(Sock, Lvl, Opt, Val) ->
-    ok = socket:setopt(Sock, Lvl, Opt, Val).
+%% so(Sock, Lvl, Opt, Val) ->
+%%     ok = socket:setopt(Sock, Lvl, Opt, Val).
 
 %% soso(Sock, Opt, Val) ->
 %%     so(Sock, socket, Opt, Val).
 
-soip(Sock, Opt, Val) ->
-    so(Sock, ip, Opt, Val).
+%% soip(Sock, Opt, Val) ->
+%%     so(Sock, ip, Opt, Val).
 
 %% soipv6(Sock, Opt, Val) ->
 %%     so(Sock, ipv6, Opt, Val).

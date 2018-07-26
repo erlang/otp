@@ -638,11 +638,11 @@
 -define(SOCKET_OPT_IP_RECVTTL,               26).
 -define(SOCKET_OPT_IP_RETOPTS,               27).
 -define(SOCKET_OPT_IP_ROUTER_ALERT,          28).
-%% -define(SOCKET_OPT_IP_SNDSRCADDR,            29).
+-define(SOCKET_OPT_IP_SENDSRCADDR,           29). % FreeBSD
 -define(SOCKET_OPT_IP_TOS,                   30).
 -define(SOCKET_OPT_IP_TRANSPARENT,           31).
 -define(SOCKET_OPT_IP_TTL,                   32).
--define(SOCKET_OPT_IP_UNBLOCK_SOURCE,           33).
+-define(SOCKET_OPT_IP_UNBLOCK_SOURCE,        33).
 
 -define(SOCKET_OPT_IPV6_ADDRFORM,           1).
 -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
@@ -2316,6 +2316,9 @@ enc_setopt_value(ip, retopts, V, _D, _T, _P)
 enc_setopt_value(ip, router_alert, V, _D, _T, _P)
   when is_integer(V) ->
     V;
+enc_setopt_value(ip, sendsrcaddr, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, tos, V, _D, _T, _P)
   when (V =:= lowdelay)    orelse
        (V =:= throughput)  orelse
@@ -2776,6 +2779,8 @@ enc_sockopt_key(ip = _L, retopts = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
     ?SOCKET_OPT_IP_RETOPTS;
 enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
     ?SOCKET_OPT_IP_ROUTER_ALERT;
+enc_sockopt_key(ip, sendsrcaddr = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_SENDSRCADDR;
 %% On FreeBSD it specifies that this option is only valid
 %% for stream, dgram and "some" raw sockets...
 %% No such condition on linux (in the man page)...

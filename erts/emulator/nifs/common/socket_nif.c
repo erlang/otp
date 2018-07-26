@@ -540,6 +540,7 @@ typedef union {
 #define SOCKET_OPT_IP_RECVTTL                26
 #define SOCKET_OPT_IP_RETOPTS                27
 #define SOCKET_OPT_IP_ROUTER_ALERT           28
+#define SOCKET_OPT_IP_SENDSRCADDR            29 // Same as IP_RECVDSTADDR?
 #define SOCKET_OPT_IP_TOS                    30
 #define SOCKET_OPT_IP_TRANSPARENT            31
 #define SOCKET_OPT_IP_TTL                    32
@@ -1218,6 +1219,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
                                                 SocketDescriptor* descP,
                                                 ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_SENDSRCADDR)
+static ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_TOS)
 static ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
@@ -1639,6 +1645,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
 #if defined(IP_ROUTER_ALERT)
 static ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
                                                 SocketDescriptor* descP);
+#endif
+#if defined(IP_SENDSRCADDR)
+static ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
 #endif
 #if defined(IP_TOS)
 static ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
@@ -5125,6 +5135,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_SENDSRCADDR)
+    case SOCKET_OPT_IP_SENDSRCADDR:
+        result = nsetopt_lvl_ip_sendsrcaddr(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_TOS)
     case SOCKET_OPT_IP_TOS:
         result = nsetopt_lvl_ip_tos(env, descP, eVal);
@@ -5804,6 +5820,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
 #endif
 
     return nsetopt_int_opt(env, descP, level, IP_ROUTER_ALERT, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_sendsrcaddr - Level IP SENDSRCADDR option
+ */
+#if defined(IP_SENDSRCADDR)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_SENDSRCADDR, eVal);
 }
 #endif
 
@@ -8418,6 +8453,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_SENDSRCADDR)
+    case SOCKET_OPT_IP_SENDSRCADDR:
+        result = ngetopt_lvl_ip_sendsrcaddr(env, descP);
+        break;
+#endif
+
 #if defined(IP_TOS)
     case SOCKET_OPT_IP_TOS:
         result = ngetopt_lvl_ip_tos(env, descP);
@@ -8842,6 +8883,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
 #endif
 
     return ngetopt_int_opt(env, descP, level, IP_ROUTER_ALERT);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_sendsrcaddr - Level IP SENDSRCADDR option
+ */
+#if defined(IP_SENDSRCADDR)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_SENDSRCADDR);
 }
 #endif
 
