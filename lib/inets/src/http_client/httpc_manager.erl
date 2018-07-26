@@ -863,7 +863,7 @@ select_session(Candidates, _, Max, pipeline) ->
     select_session(Candidates, Max).
 
 select_session([] = _Candidates, _Max) ->
-    ?hcrd("select session - no candicate", []),
+    ?hcrd("select session - no candidate", []),
     no_connection; 
 select_session(Candidates, Max) ->
     NewCandidates = 
