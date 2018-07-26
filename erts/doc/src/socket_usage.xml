@@ -373,6 +373,13 @@
 	<cell>type = dgram</cell>
       </row>
       <row>
+	<cell>recvdstaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram</cell>
+      </row>
+      <row>
 	<cell>recverr</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
@@ -392,6 +399,13 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>type =/= stream</cell>
+      </row>
+      <row>
+	<cell>recvorigdstaddr</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
       </row>
       <row>
 	<cell>recvttl</cell>

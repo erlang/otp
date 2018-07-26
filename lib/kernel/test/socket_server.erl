@@ -640,6 +640,7 @@ handler_init(Manager, ID, Peek, Sock) ->
             RecvErr4     = GIP4(recverr),
             RecvIF       = GIP4(recvif),   % Only dgram and raw (and FreeBSD)
             RecvOPTS     = GIP4(recvopts), % Not stream
+            RecvOrigDstAddr = GIP4(recvorigdstaddr),
             RecvTOS      = GIP4(recvtos),
             RecvTTL      = GIP4(recvttl),  % not stream
             RetOpts      = GIP4(retopts),  % not stream
@@ -659,57 +660,59 @@ handler_init(Manager, ID, Peek, Sock) ->
             FlowInfo     = GIP6(flowinfo),
             UHops        = GIP6(unicast_hops),
             i("got continue when: "
-              "~n   (socket) Domain:         ~p"
-              "~n   (socket) Type:           ~p"
-              "~n   (socket) Protocol:       ~p"
-              "~n   (socket) Reuse Address:  ~s"
-              "~n   (socket) Reuse Port:     ~s"
-              "~n   (socket) Bind To Device: ~s"
-              "~n   (socket) OOBInline:      ~s"
-              "~n   (socket) RcvBuf:         ~s"
-              "~n   (socket) RcvLW:          ~s"
-              "~n   (socket) RcvTO:          ~s"
-              "~n   (socket) SndBuf:         ~s"
-              "~n   (socket) SndLW:          ~s"
-              "~n   (socket) SndTO:          ~s"
-              "~n   (socket) Linger:         ~s"
-              "~n   (socket) Timestamp:      ~s"
-              "~n   (ip)     FreeBind:       ~s"
-              "~n   (ip)     MTU:            ~s"
-              "~n   (ip)     MTU Discovery:  ~s"
-              "~n   (ip)     Multicast ALL:  ~s"
-              "~n   (ip)     Multicast IF:   ~s"
-              "~n   (ip)     Multicast Loop: ~s"
-              "~n   (ip)     Multicast TTL:  ~s"
-              "~n   (ip)     Node Frag:      ~s"
-              "~n   (ip)     Pkt Info:       ~s"
-              "~n   (ip)     Recv Err:       ~s"
-              "~n   (ip)     Recv IF:        ~s"
-              "~n   (ip)     Recv OPTS:      ~s"
-              "~n   (ip)     Recv TOS:       ~s"
-              "~n   (ip)     Recv TTL:       ~s"
-              "~n   (ip)     Ret Opts:       ~s"
-              "~n   (ip)     TOS:            ~s"
-              "~n   (ip)     Transparent:    ~s"
-              "~n   (ip)     TTL:            ~s"
-              "~n   (ipv6)   Multicast Hops: ~s"
-              "~n   (ipv6)   Multicast IF:   ~s"
-              "~n   (ipv6)   Multicast Loop: ~s"
-              "~n   (ipv6)   Recv Err:       ~s"
-              "~n   (ipv6)   Recv Pkt Info:  ~s"
-              "~n   (ipv6)   RT Hdr:         ~s"
-              "~n   (ipv6)   Auth Hdr:       ~s"
-              "~n   (ipv6)   Hop Limit:      ~s"
-              "~n   (ipv6)   Hop Opts:       ~s"
-              "~n   (ipv6)   Dst Opts:       ~s"
-              "~n   (ipv6)   Flow Info:      ~s"
-              "~n   (ipv6)   Unicast Hops:   ~s",
+              "~n   (socket) Domain:             ~p"
+              "~n   (socket) Type:               ~p"
+              "~n   (socket) Protocol:           ~p"
+              "~n   (socket) Reuse Address:      ~s"
+              "~n   (socket) Reuse Port:         ~s"
+              "~n   (socket) Bind To Device:     ~s"
+              "~n   (socket) OOBInline:          ~s"
+              "~n   (socket) RcvBuf:             ~s"
+              "~n   (socket) RcvLW:              ~s"
+              "~n   (socket) RcvTO:              ~s"
+              "~n   (socket) SndBuf:             ~s"
+              "~n   (socket) SndLW:              ~s"
+              "~n   (socket) SndTO:              ~s"
+              "~n   (socket) Linger:             ~s"
+              "~n   (socket) Timestamp:          ~s"
+              "~n   (ip)     FreeBind:           ~s"
+              "~n   (ip)     MTU:                ~s"
+              "~n   (ip)     MTU Discovery:      ~s"
+              "~n   (ip)     Multicast ALL:      ~s"
+              "~n   (ip)     Multicast IF:       ~s"
+              "~n   (ip)     Multicast Loop:     ~s"
+              "~n   (ip)     Multicast TTL:      ~s"
+              "~n   (ip)     Node Frag:          ~s"
+              "~n   (ip)     Pkt Info:           ~s"
+              "~n   (ip)     Recv Err:           ~s"
+              "~n   (ip)     Recv IF:            ~s"
+              "~n   (ip)     Recv OPTS:          ~s"
+              "~n   (ip)     Recv Orig Dst Addr: ~s"
+              "~n   (ip)     Recv TOS:           ~s"
+              "~n   (ip)     Recv TTL:           ~s"
+              "~n   (ip)     Ret Opts:           ~s"
+              "~n   (ip)     TOS:                ~s"
+              "~n   (ip)     Transparent:        ~s"
+              "~n   (ip)     TTL:                ~s"
+              "~n   (ipv6)   Multicast Hops:     ~s"
+              "~n   (ipv6)   Multicast IF:       ~s"
+              "~n   (ipv6)   Multicast Loop:     ~s"
+              "~n   (ipv6)   Recv Err:           ~s"
+              "~n   (ipv6)   Recv Pkt Info:      ~s"
+              "~n   (ipv6)   RT Hdr:             ~s"
+              "~n   (ipv6)   Auth Hdr:           ~s"
+              "~n   (ipv6)   Hop Limit:          ~s"
+              "~n   (ipv6)   Hop Opts:           ~s"
+              "~n   (ipv6)   Dst Opts:           ~s"
+              "~n   (ipv6)   Flow Info:          ~s"
+              "~n   (ipv6)   Unicast Hops:       ~s",
               [Domain, Type, Proto,
                RA, RP, B2D, OOBI,
                RcvBuf, RcvLW, RcvTO, SndBuf, SndLW, SndTO,
                Linger, Timestamp,
                FreeBind, MTU, MTUDisc, MALL, MIF4, MLoop4, MTTL,
-               NF, PktInfo,RecvErr4, RecvIF, RecvOPTS, RecvTOS, RecvTTL, RetOpts,
+               NF, PktInfo,RecvErr4, 
+               RecvIF, RecvOPTS, RecvOrigDstAddr, RecvTOS, RecvTTL, RetOpts,
                TOS, Transparent, TTL,
                MHops, MIF6, MLoop6, RecvErr6, RecvPktInfo,
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
@@ -721,14 +724,14 @@ handler_init(Manager, ID, Peek, Sock) ->
                                   socket  = Sock})
     end.
 
-%% so(Sock, Lvl, Opt, Val) ->
-%%     ok = socket:setopt(Sock, Lvl, Opt, Val).
+so(Sock, Lvl, Opt, Val) ->
+    ok = socket:setopt(Sock, Lvl, Opt, Val).
 
 %% soso(Sock, Opt, Val) ->
 %%     so(Sock, socket, Opt, Val).
 
-%% soip(Sock, Opt, Val) ->
-%%     so(Sock, ip, Opt, Val).
+soip(Sock, Opt, Val) ->
+    so(Sock, ip, Opt, Val).
 
 %% soipv6(Sock, Opt, Val) ->
 %%     so(Sock, ipv6, Opt, Val).

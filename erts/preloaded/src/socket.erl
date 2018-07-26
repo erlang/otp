@@ -629,11 +629,11 @@
 -define(SOCKET_OPT_IP_NODEFRAG,              17).
 %% -define(SOCKET_OPT_IP_OPTIONS,               18). % FreeBSD
 -define(SOCKET_OPT_IP_PKTINFO,               19).
--define(SOCKET_OPT_IP_RECVERR,               20).
--define(SOCKET_OPT_IP_RECVIF,                21).
-%% -define(SOCKET_OPT_IP_RECVDSTADDR,           22).
+-define(SOCKET_OPT_IP_RECVDSTADDR,           20). % FreeBSD
+-define(SOCKET_OPT_IP_RECVERR,               21).
+-define(SOCKET_OPT_IP_RECVIF,                22).
 -define(SOCKET_OPT_IP_RECVOPTS,              23).
-%% -define(SOCKET_OPT_IP_RECVORIGDSTADDR,       24).
+-define(SOCKET_OPT_IP_RECVORIGDSTADDR,       24).
 -define(SOCKET_OPT_IP_RECVTOS,               25).
 -define(SOCKET_OPT_IP_RECVTTL,               26).
 -define(SOCKET_OPT_IP_RETOPTS,               27).
@@ -2289,6 +2289,9 @@ enc_setopt_value(ip, nodefrag, V, _D, _T, _P)
 enc_setopt_value(ip, pktinfo, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
+enc_setopt_value(ip, recvdstaddr, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
 enc_setopt_value(ip, recverr, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
@@ -2296,6 +2299,9 @@ enc_setopt_value(ip, recvif, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
 enc_setopt_value(ip, recvopts, V, _D, _T, _P)
+  when is_boolean(V) ->
+    V;
+enc_setopt_value(ip, recvorigdstaddr, V, _D, _T, _P)
   when is_boolean(V) ->
     V;
 enc_setopt_value(ip, recvtos, V, _D, _T, _P)
@@ -2751,19 +2757,17 @@ enc_sockopt_key(ip = L, options = Opt, _Dir, _D, _T, _P) ->
     not_supported({Opt, L});
 enc_sockopt_key(ip = _L, pktinfo = _Opt, _Dir, _D, dgram = _T, _P) ->
     ?SOCKET_OPT_IP_PKTINFO;
-%% This require special code for accessing the errors.
-%% via calling the recvmsg with the MSG_ERRQUEUE flag set,
+enc_sockopt_key(ip = _L, recvdstaddr = _Opt, _Dir, _D, T, _P) when (T =:= dgram) ->
+    ?SOCKET_OPT_IP_RECVDSTADDR;
 enc_sockopt_key(ip = _L, recverr = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_RECVERR;
 enc_sockopt_key(ip = _L, recvif = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
     ?SOCKET_OPT_IP_RECVIF;
-enc_sockopt_key(ip = L, recvdstaddr = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
 enc_sockopt_key(ip = _L, recvopts = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
     ?SOCKET_OPT_IP_RECVOPTS;
-enc_sockopt_key(ip = L, recvorigdstaddr = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(ip = _L, recvorigdstaddr = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_IP_RECVORIGDSTADDR;
 enc_sockopt_key(ip, recvtos = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_IP_RECVTOS;
 enc_sockopt_key(ip = _L, recvttl = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->

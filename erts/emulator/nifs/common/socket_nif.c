@@ -531,9 +531,11 @@ typedef union {
 #define SOCKET_OPT_IP_MULTICAST_TTL          16
 #define SOCKET_OPT_IP_NODEFRAG               17
 #define SOCKET_OPT_IP_PKTINFO                19
-#define SOCKET_OPT_IP_RECVERR                20
-#define SOCKET_OPT_IP_RECVIF                 21
+#define SOCKET_OPT_IP_RECVDSTADDR            20
+#define SOCKET_OPT_IP_RECVERR                21
+#define SOCKET_OPT_IP_RECVIF                 22
 #define SOCKET_OPT_IP_RECVOPTS               23
+#define SOCKET_OPT_IP_RECVORIGDSTADDR        24
 #define SOCKET_OPT_IP_RECVTOS                25
 #define SOCKET_OPT_IP_RECVTTL                26
 #define SOCKET_OPT_IP_RETOPTS                27
@@ -1171,6 +1173,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
                                            ERL_NIF_TERM      eVal);
 #endif
+#if defined(IP_RECVDSTADDR)
+static ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP,
+                                               ERL_NIF_TERM      eVal);
+#endif
 #if defined(IP_RECVERR)
 static ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
@@ -1185,6 +1192,11 @@ static ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*        env,
 static ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
+#endif
+#if defined(IP_RECVORIGDSTADDR)
+static ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
+                                                   SocketDescriptor* descP,
+                                                   ERL_NIF_TERM      eVal);
 #endif
 #if defined(IP_RECVTOS)
 static ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
@@ -1592,6 +1604,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
 #endif
+#if defined(IP_RECVDSTADDRS)
+static ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
+                                               SocketDescriptor* descP);
+#endif
 #if defined(IP_RECVERR)
 static ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
@@ -1603,6 +1619,10 @@ static ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
 #if defined(IP_RECVOPTS)
 static ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*        env,
                                             SocketDescriptor* descP);
+#endif
+#if defined(IP_RECVORIGDSTADDR)
+static ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
+                                                   SocketDescriptor* descP);
 #endif
 #if defined(IP_RECVTOS)
 static ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
@@ -5051,6 +5071,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RECVDSTADDR)
+    case SOCKET_OPT_IP_RECVDSTADDR:
+        result = nsetopt_lvl_ip_recvdstaddr(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IP_RECVERR)
     case SOCKET_OPT_IP_RECVERR:
         result = nsetopt_lvl_ip_recverr(env, descP, eVal);
@@ -5066,6 +5092,12 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
 #if defined(IP_RECVOPTS)
     case SOCKET_OPT_IP_RECVOPTS:
         result = nsetopt_lvl_ip_recvopts(env, descP, eVal);
+        break;
+#endif
+
+#if defined(IP_RECVORIGDSTADDR)
+    case SOCKET_OPT_IP_RECVORIGDSTADDR:
+        result = nsetopt_lvl_ip_recvorigdstaddr(env, descP, eVal);
         break;
 #endif
 
@@ -5605,6 +5637,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
 #endif
 
 
+/* nsetopt_lvl_ip_recvdstaddr - Level IP RECVDSTADDR option
+ */
+#if defined(IP_RECVDSTADDR)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
+                                        SocketDescriptor* descP,
+                                        ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_RECVDSTADDR, eVal);
+}
+#endif
+
+
 /* nsetopt_lvl_ip_recverr - Level IP RECVERR option
  */
 #if defined(IP_RECVERR)
@@ -5658,6 +5709,25 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*        env,
 #endif
 
     return nsetopt_bool_opt(env, descP, level, IP_RECVOPTS, eVal);
+}
+#endif
+
+
+/* nsetopt_lvl_ip_recvorigdstaddr - Level IP RECVORIGDSTADDR option
+ */
+#if defined(IP_RECVORIGDSTADDR)
+static
+ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
+                                            SocketDescriptor* descP,
+                                            ERL_NIF_TERM      eVal)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IP_RECVORIGDSTADDR, eVal);
 }
 #endif
 
@@ -8294,6 +8364,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
+#if defined(IP_RECVDSTADDR)
+    case SOCKET_OPT_IP_RECVDSTADDR:
+        result = ngetopt_lvl_ip_recvdstaddr(env, descP);
+        break;
+#endif
+
 #if defined(IP_RECVERR)
     case SOCKET_OPT_IP_RECVERR:
         result = ngetopt_lvl_ip_recverr(env, descP);
@@ -8309,6 +8385,12 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 #if defined(IP_RECVOPTS)
     case SOCKET_OPT_IP_RECVOPTS:
         result = ngetopt_lvl_ip_recvopts(env, descP);
+        break;
+#endif
+
+#if defined(IP_RECVORIGDSTADDR)
+    case SOCKET_OPT_IP_RECVORIGDSTADDR:
+        result = ngetopt_lvl_ip_recvorigdstaddr(env, descP);
         break;
 #endif
 
@@ -8620,12 +8702,12 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
 #endif
 
 
-/* ngetopt_lvl_ip_recvif - Level IP RECVIF option
+/* ngetopt_lvl_ip_recvdstaddr - Level IP RECVDSTADDR option
  */
-#if defined(IP_RECVIF)
+#if defined(IP_RECVDSTADDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
-                                   SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
+                                        SocketDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8633,7 +8715,7 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
     int level = IPPROTO_IP;
 #endif
 
-    return ngetopt_bool_opt(env, descP, level, IP_RECVIF);
+    return ngetopt_bool_opt(env, descP, level, IP_RECVDSTADDR);
 }
 #endif
 
@@ -8656,6 +8738,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*        env,
 #endif
 
 
+/* ngetopt_lvl_ip_recvif - Level IP RECVIF option
+ */
+#if defined(IP_RECVIF)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
+                                   SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_RECVIF);
+}
+#endif
+
+
 /* ngetopt_lvl_ip_recvopt - Level IP RECVOPTS option
  */
 #if defined(IP_RECVOPTS)
@@ -8670,6 +8770,24 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*        env,
 #endif
 
     return ngetopt_bool_opt(env, descP, level, IP_RECVOPTS);
+}
+#endif
+
+
+/* ngetopt_lvl_ip_recvorigdstaddr - Level IP RECVORIGDSTADDR option
+ */
+#if defined(IP_RECVORIGDSTADDR)
+static
+ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
+                                            SocketDescriptor* descP)
+{
+#if defined(SOL_IP)
+    int level = SOL_IP;
+#else
+    int level = IPPROTO_IP;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IP_RECVORIGDSTADDR);
 }
 #endif
 
