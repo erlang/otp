@@ -2755,8 +2755,8 @@
 	    The info function for <c>init/end_per_suite(Config)</c>
 	    is <c>init/end_per_suite()</c>, and for
 	    <c>init/end_per_group(GroupName,Config)</c> it's
-	    <c>init/end_per_group(GroupName)</c>. Info functions can
-	    not be used with <c>init/end_per_testcase(TestCase,
+	    <c>init/end_per_group(GroupName)</c>. Info functions
+	    can not be used with <c>init/end_per_testcase(TestCase,
 	    Config)</c>, since these configuration functions execute
 	    on the test case process and will use the same properties
 	    as the test case (i.e. properties set by the test case

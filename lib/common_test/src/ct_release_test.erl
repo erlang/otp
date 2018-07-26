@@ -152,8 +152,8 @@
 %% returned configuration must therefore also be returned from
 %% the calling `init_per_*'.
 %%
-%% If the initialization fails, e.g. if a required release can
-%% not be found, the function returns `{skip,Reason}'. In
+%% If the initialization fails, e.g. if a required release
+%% can not be found, the function returns `{skip,Reason}'. In
 %% this case the other test support functions in this mudule
 %% can not be used.
 %%
