@@ -182,7 +182,7 @@ chapter_title(#xmlElement{content=Es}) -> % name = h3 | h4
 %% otp_xmlify(Es1) -> Es2
 %%   Es1 = Es2 = [#xmlElement{} | #xmlText{}]
 %% Fix things that are allowed in XHTML but not in chapter/erlref DTDs.
-%% 1)  lists (<ul>, <ol>, <dl>) and code snippets (<pre>) can not occur
+%% 1)  lists (<ul>, <ol>, <dl>) and code snippets (<pre>) cannot occur
 %%     within a <p>, such a <p> must be splitted into a sequence of <p>,
 %%     <ul>, <ol>, <dl> and <pre>.
 %% 2)  <a> must only have either a href attribute (corresponds to a

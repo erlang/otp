@@ -234,7 +234,7 @@
           <c>{already_cover_compiled,no_beam_found,Module}</c> is
           returned.</p>
         <p><c>{error,BeamFile}</c> is returned if the compiled code
-          can not be loaded on the node.</p>
+          cannot be loaded on the node.</p>
 	<p>If a list of <c>ModFiles</c> is given as input, a list
 	  of <c>Result</c> will be returned. The order of the returned
 	  list is undefined.</p>
@@ -470,7 +470,7 @@
         <p>Exports the current coverage data for <c>Module</c> to the
           file <c>ExportFile</c>. It is recommended to name the
           <c>ExportFile</c> with the extension <c>.coverdata</c>, since
-          other filenames can not be read by the web based interface to
+          other filenames cannot be read by the web based interface to
           cover.</p>
         <p>If <c>Module</c> is not given, data for all Cover compiled
           or earlier imported modules is exported.</p>
@@ -496,7 +496,7 @@
         <p>Coverage data from several export files can be imported
           into one system. The coverage data is then added up when
           analysing.</p>
-        <p>Coverage data for a module can not be imported from the
+        <p>Coverage data for a module cannot be imported from the
           same file twice unless the module is first reset or
           compiled. The check is based on the filename, so you can
           easily fool the system by renaming your export file.</p>

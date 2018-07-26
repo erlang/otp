@@ -486,7 +486,7 @@ uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
                     {M1 * math:pow(2.0, BitNo - 56), {Alg, R1}};
                 BitNo =:= -1008 ->
                     %% Endgame
-                    %% For the last round we can not have 14 zeros or more
+                    %% For the last round we cannot have 14 zeros or more
                     %% at the top of M1 because then we will underflow,
                     %% so we need at least 43 bits
                     if

@@ -203,7 +203,7 @@ limited. We only inspect a limited number of carriers. If none of
 those carriers had a free block large enough to satisfy the allocation
 request, the search will fail. A carrier in the pool can also be BUSY
 if another thread is currently doing block deallocation work on the
-carrier. A BUSY carrier will also be skipped by the search as it can not
+carrier. A BUSY carrier will also be skipped by the search as it cannot
 satisfy the request. The pool is lock-free and we do not want to
 block, waiting for the other thread to finish.
 

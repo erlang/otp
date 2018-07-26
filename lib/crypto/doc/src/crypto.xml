@@ -830,7 +830,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	</p>
 	<note>
 	  <p>
-	    The state returned from this function can not be used
+	    The state returned from this function cannot be used
 	    to get a reproducable random sequence as from
 	    the other 
 	    <seealso marker="stdlib:rand">rand</seealso>
@@ -920,7 +920,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	</p>
 	<note>
 	  <p>
-	    The state returned from this function can not be used
+	    The state returned from this function cannot be used
 	    to get a reproducable random sequence as from
 	    the other 
 	    <seealso marker="stdlib:rand">rand</seealso>

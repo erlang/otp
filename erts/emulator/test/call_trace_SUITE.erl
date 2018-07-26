@@ -1395,7 +1395,7 @@ seq(M, N, R) when M =< N ->
     seq(M, N-1, [N|R]);
 seq(_, _, R) -> R.
 
-%% lists:reverse can not be called since it is traced
+%% lists:reverse cannot be called since it is traced
 reverse(L) ->
     reverse(L, []).
 %%

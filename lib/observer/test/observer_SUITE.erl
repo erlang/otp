@@ -301,7 +301,7 @@ table_win(Config) when is_list(Config) ->
     Notebook = setup_whitebox_testing(),
     Parent = get_top_level_parent(Notebook),
     TObj = observer_tv_table:start_link(Parent, [{node,node()}, {type,ets}, {table,#tab{name=foo, id=Table}}]),
-    %% Modal can not test edit..
+    %% Modal cannot test edit..
     %% TPid = wx_object:get_pid(TObj),
     %% TPid ! #wx{event=#wxList{type=command_list_item_activated, itemIndex=12}},
     timer:sleep(3000),

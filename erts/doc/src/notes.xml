@@ -9904,7 +9904,7 @@
 	    you use erlang:halt/2 with an integer first argument and
 	    an option list containing {flush,false} as the second
 	    argument. Note that now is flushing not dependant of the
-	    exit code, and you can not only flush async threads
+	    exit code, and you cannot only flush async threads
 	    operations which we deemed as a strange behaviour anyway.
 	    </p>
 	    <p>Also, erlang:halt/1,2 has gotten a new feature: If the

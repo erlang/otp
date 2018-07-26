@@ -538,7 +538,7 @@ zip:create("mnesia-4.4.7.ez",
 	  </item>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>
@@ -611,7 +611,7 @@ ok = code:finish_loading(Prepared),
 	<taglist>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>

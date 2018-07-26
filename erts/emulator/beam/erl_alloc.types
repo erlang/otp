@@ -31,9 +31,9 @@
 # * Types, allocators, classes, and descriptions have different name
 #   spaces.
 # * The type, allocator, and class names INVALID are reserved and
-#   can not be used.
+#   cannot be used.
 # * The descriptions invalid_allocator, invalid_class, and invalid_type
-#   are reserved and can not be used.
+#   are reserved and cannot be used.
 # * Declarations can be done conditionally by use of a
 #     +if <boolean_variable>
 #

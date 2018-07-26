@@ -2765,7 +2765,7 @@
         </item>
         <item>
           <p>
-	    Fixed internal error on when client and server can not
+	    Fixed internal error on when client and server cannot
 	    agree o which authmethod to use.</p>
           <p>
 	    Own Id: OTP-10731 Aux Id: seq12237 </p>

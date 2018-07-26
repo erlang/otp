@@ -368,7 +368,7 @@
           <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
           instead.</p>
 
-        <p>This function can not change the result of the test case by returning skip or fail
+        <p>This function cannot change the result of the test case by returning skip or fail
 	tuples, but it may insert items in <c>Config</c> that can be read in
 	<c>end_per_testcase/2</c> or in <c>post_end_per_testcase/5</c>.</p>
 

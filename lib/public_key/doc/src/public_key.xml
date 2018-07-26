@@ -682,7 +682,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
 	<tag>{undetermined_details, boolean()}</tag>
 	<item>
-	  <p>Defaults to false. When revocation status can not be
+	  <p>Defaults to false. When revocation status cannot be
 	  determined, and this option is set to true, details of why no
 	  CRLs where accepted are included in the return value.</p>
 	</item>
@@ -902,7 +902,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	  
 	<note><p>
 	Note that the generated certificates and keys does not provide a formally correct PKIX-trust-chain 
-	and they can not be used to achieve real security. This function is provided for testing purposes only.
+	and they cannot be used to achieve real security. This function is provided for testing purposes only.
 </p></note>
     </desc>
   </func>

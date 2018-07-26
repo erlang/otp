@@ -272,7 +272,7 @@ valfun_1(if_end, Vst) ->
 valfun_1({try_case_end,Src}, Vst) ->
     assert_term(Src, Vst),
     kill_state(Vst);
-%% Instructions that can not cause exceptions
+%% Instructions that cannot cause exceptions
 valfun_1({move,Src,Dst}, Vst) ->
     Type = get_term_type(Src, Vst),
     set_type_reg(Type, Dst, Vst);

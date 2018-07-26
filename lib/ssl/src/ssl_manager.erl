@@ -499,10 +499,10 @@ last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
 last_delay_timer({_,_}, TRef, {_, LastClient}) ->
     {TRef, LastClient}.
 
-%% If we can not generate a not allready in use session ID in
+%% If we cannot generate a not allready in use session ID in
 %% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
 %% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which
-%% states : "If we can not find a session id in
+%% states : "If we cannot find a session id in
 %% ?GEN_UNIQUE_ID_MAX_TRIES either the RAND code is broken or someone
 %% is trying to open roughly very close to 2^128 (or 2^256) SSL
 %% sessions to our server"
@@ -513,7 +513,7 @@ new_id(Port, Tries, Cache, CacheCb) ->
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
 	    Now = erlang:monotonic_time(),
-	    %% New sessions can not be set to resumable
+	    %% New sessions cannot be set to resumable
 	    %% until handshake is compleate and the
 	    %% other session values are set.
 	    CacheCb:update(Cache, {Port, Id}, #session{session_id = Id,

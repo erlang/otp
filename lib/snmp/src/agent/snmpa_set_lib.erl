@@ -46,9 +46,9 @@
 %%*  6) IF value is outside the acceptable range THEN wrongValue.
 %%   7) IF variable does not exist and could not ever be created
 %%      THEN noCreation.
-%%   8) IF variable can not be created now THEN inconsistentName.
-%%   9) IF value can not be set now THEN inconsistentValue.
-%%*  9) IF instances of the variable can not be modified THEN notWritable.
+%%   8) IF variable cannot be created now THEN inconsistentName.
+%%   9) IF value cannot be set now THEN inconsistentValue.
+%%*  9) IF instances of the variable cannot be modified THEN notWritable.
 %%  10) IF an unavailable resource is needed THEN resourceUnavailable.
 %%  11) IF any other error THEN genErr.
 %%  12) Otherwise ok!

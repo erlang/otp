@@ -830,11 +830,11 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
 		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
 		    false ->
 			?vtrace(
-			   "snmpa_trap: can not send v1 trap "
+			   "snmpa_trap: cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]),
 			user_err(
-			   "snmpa_trap: can not send v1 trap "
+			   "snmpa_trap: cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]);
 		    DomainAddr ->

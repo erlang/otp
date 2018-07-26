@@ -1150,7 +1150,7 @@
       <item>
 	<p>When further testing the functionality of https requests
 	  that goes through a proxy. We realised that alas this
-	  can not currently be supported as it requires features from
+	  cannot currently be supported as it requires features from
 	  the ssl implementation that is not currently available.
 	  So for now an error message will be returned when trying
 	  to use this functionality.</p>

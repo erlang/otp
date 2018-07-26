@@ -147,7 +147,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_activated,
 	     State=#state{holder=Holder, node=Node, opts=#opts{type=Type}, grid=Grid}) ->
     case get_table(Holder, Index) of
         #tab{protection=private} ->
-            self() ! {error, "Table has 'private' protection and can not be read"};
+            self() ! {error, "Table has 'private' protection and cannot be read"};
         #tab{}=Table ->
 	    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}]);
         _ -> ignore
@@ -187,7 +187,7 @@ handle_event(#wx{id=?ID_SHOW_TABLE},
 	R when is_integer(R) ->
 	    case get_table(Holder, R) of
 		#tab{protection=private} ->
-		    self() ! {error, "Table has 'private' protection and can not be read"};
+		    self() ! {error, "Table has 'private' protection and cannot be read"};
                 #tab{}=Table ->
 		    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}]);
                 _ -> ignore

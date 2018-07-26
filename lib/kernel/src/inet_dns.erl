@@ -699,7 +699,7 @@ encode_labels(Bin, Comp0, Pos, [L|Ls]=Labels)
 	none ->
 	    Comp = if Pos < (3 bsl 14) ->
 			   %% Just in case - compression
-			   %% pointers can not reach further
+			   %% pointers cannot reach further
 			   gb_trees:insert(Labels, Pos, Comp0);
 		      true -> Comp0
 		   end,

@@ -215,7 +215,7 @@ gen_enter(I, VarMap, ConstTab) ->
   {Code1, ConstTab2} =
     case hipe_icode:enter_type(I) of
       primop ->
-	IsGuard = false, % enter can not happen in a guard
+	IsGuard = false, % enter cannot happen in a guard
 	hipe_rtl_primops:gen_enter_primop({Fun, Args}, IsGuard, ConstTab1);
       Type ->
 	Call = gen_enter_1(Fun, Args, Type),

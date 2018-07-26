@@ -78,12 +78,12 @@
       </item>
 
       <tag>NIFs</tag>
-      <item><p>Modules compiled with HiPE can not call <seealso marker="erts:erlang#load_nif-2">
+      <item><p>Modules compiled with HiPE cannot call <seealso marker="erts:erlang#load_nif-2">
       <c>erlang:load_nif/2</c></seealso> to load NIFs.</p>
       </item>
 
       <tag>-on_load</tag>
-      <item><p>Modules compiled with HiPE can not use
+      <item><p>Modules compiled with HiPE cannot use
       <seealso marker="doc/reference_manual:code_loading#on_load"><c>-on_load()</c></seealso>
       directives.</p>
       </item>

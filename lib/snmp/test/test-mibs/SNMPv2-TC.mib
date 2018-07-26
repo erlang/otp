@@ -454,7 +454,7 @@ value         |              |      see 1|          ->C|          ->D
                  associated with this column or that there is no
                  conceptual row for which this column would be
                  accessible in the MIB view used by the retrieval.  As
-                 such, the management station can not issue any
+                 such, the management station cannot issue any
                  management protocol set operations to create an
                  instance of this column.
 
@@ -576,7 +576,7 @@ value         |              |      see 1|          ->C|          ->D
                  associated with this column or that there is no
                  conceptual row for which this column would be
                  accessible in the MIB view used by the retrieval.  As
-                 such, the management station can not issue any
+                 such, the management station cannot issue any
                  management protocol set operations to create an
                  instance of this column.
 

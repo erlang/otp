@@ -978,7 +978,7 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
     Eterm* hp;
     /*
      * No preserved sharing allowed as long as literals are also preserved.
-     * Process independent environment can not be reached by purge.
+     * Process independent environment cannot be reached by purge.
      */
     sz = size_object(src_term);
     hp = alloc_heap(dst_env, sz);

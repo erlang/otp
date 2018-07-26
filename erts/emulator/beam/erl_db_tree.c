@@ -3126,7 +3126,7 @@ static int partly_bound_can_match_lesser(Eterm partly_bound_1,
     if (ret)
 	erts_fprintf(stderr," can match lesser than ");
     else
-	erts_fprintf(stderr," can not match lesser than ");
+	erts_fprintf(stderr," cannot match lesser than ");
     erts_fprintf(stderr,"%T\n",partly_bound_2);
 #endif
     return ret;
@@ -3144,7 +3144,7 @@ static int partly_bound_can_match_greater(Eterm partly_bound_1,
     if (ret)
 	erts_fprintf(stderr," can match greater than ");
     else
-	erts_fprintf(stderr," can not match greater than ");
+	erts_fprintf(stderr," cannot match greater than ");
     erts_fprintf(stderr,"%T\n",partly_bound_2);
 #endif
     return ret;
