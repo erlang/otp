@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that prevented the <c>noshell</c> option
+	    from working correctly on Mac OS X and BSD.</p>
+          <p>
+	    Own Id: OTP-15169</p>
+        </item>
+        <item>
+	    <p>Fixed a crash when matching directly against a literal
+	    map using a single key that had been saved on the
+	    stack.</p>
+          <p>
+	    Own Id: OTP-15184</p>
+        </item>
+        <item>
+	    <p>Fix node crash when passing a bad time option to
+	    <c>file:read_file_info/2</c>.</p>
+          <p>
+	    Own Id: OTP-15196</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

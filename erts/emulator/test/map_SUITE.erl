@@ -3080,7 +3080,18 @@ y_regs(Config) when is_list(Config) ->
 
     true = is_map(Map2) andalso is_map(Map4),
 
+    gurka = y_regs_literal(0),
+    gaffel = y_regs_literal(1),
+
     ok.
+
+y_regs_literal(Key) when is_integer(Key) ->
+    %% Forces the key to be placed in a Y register.
+    lists:seq(1, 2),
+    case is_map_key(Key, #{ 0 => 0 }) of
+        true -> gurka;
+        false -> gaffel
+    end.
 
 y_regs_update(Map0, Val0) ->
     Val1 = {t,Val0},
