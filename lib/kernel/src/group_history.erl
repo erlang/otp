@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(group_history).
--export([load/0, add/1]).
+-export([load/0, add/1, clean/0]).
 
 %% Make a minimal size that should encompass set of lines and then make
 %% a file rotation for N files of this size.
@@ -95,6 +95,16 @@ add(Line, enabled) ->
     end;
 add(_Line, disabled) ->
     ok.
+
+%% @doc cleans the default erlang history log and once you close the
+%% session and restart the session, your saved histories will not persist
+-spec clean() -> ok | {error, _HistoryStatus}.
+clean() -> clean(history_status()).
+
+clean(enabled) ->
+    disk_log:truncate(?LOG_NAME);
+clean(disabled) ->
+    {error, history_not_enabled}.
 
 %%%%%%%%%%%%%%%
 %%% PRIVATE %%%
