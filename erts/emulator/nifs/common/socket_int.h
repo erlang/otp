@@ -105,19 +105,28 @@ typedef unsigned int BOOLEAN_T;
  */
 extern ERL_NIF_TERM esock_atom_addr;
 extern ERL_NIF_TERM esock_atom_any;
+extern ERL_NIF_TERM esock_atom_ctrl;
+extern ERL_NIF_TERM esock_atom_ctrunc;
+extern ERL_NIF_TERM esock_atom_data;
 extern ERL_NIF_TERM esock_atom_debug;
 extern ERL_NIF_TERM esock_atom_dgram;
+extern ERL_NIF_TERM esock_atom_eor;
 extern ERL_NIF_TERM esock_atom_error;
+extern ERL_NIF_TERM esock_atom_errqueue;
 extern ERL_NIF_TERM esock_atom_false;
 extern ERL_NIF_TERM esock_atom_family;
+extern ERL_NIF_TERM esock_atom_flags;
 extern ERL_NIF_TERM esock_atom_flowinfo;
 extern ERL_NIF_TERM esock_atom_inet;
 extern ERL_NIF_TERM esock_atom_inet6;
+extern ERL_NIF_TERM esock_atom_iov;
 extern ERL_NIF_TERM esock_atom_ip;
 extern ERL_NIF_TERM esock_atom_ipv6;
+extern ERL_NIF_TERM esock_atom_level;
 extern ERL_NIF_TERM esock_atom_local;
 extern ERL_NIF_TERM esock_atom_loopback;
 extern ERL_NIF_TERM esock_atom_ok;
+extern ERL_NIF_TERM esock_atom_oob;
 extern ERL_NIF_TERM esock_atom_path;
 extern ERL_NIF_TERM esock_atom_port;
 extern ERL_NIF_TERM esock_atom_protocol;
@@ -129,6 +138,7 @@ extern ERL_NIF_TERM esock_atom_seqpacket;
 extern ERL_NIF_TERM esock_atom_stream;
 extern ERL_NIF_TERM esock_atom_tcp;
 extern ERL_NIF_TERM esock_atom_true;
+extern ERL_NIF_TERM esock_atom_trunc;
 extern ERL_NIF_TERM esock_atom_type;
 extern ERL_NIF_TERM esock_atom_udp;
 extern ERL_NIF_TERM esock_atom_undefined;
@@ -147,6 +157,7 @@ extern ERL_NIF_TERM esock_atom_einval;
  * Various wrapper macros for enif functions
  */
 #define MALLOC(SZ)          enif_alloc((SZ))
+#define REALLOC(P, SZ)      enif_realloc((P), (SZ))
 #define FREE(P)             enif_free((P))
 
 #define MKA(E,S)            enif_make_atom((E), (S))

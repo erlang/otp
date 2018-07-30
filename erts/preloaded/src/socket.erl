@@ -43,7 +43,7 @@
 
          recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
-         %% recvmsg/4,
+         recvmsg/1, recvmsg/2, recvmsg/5,
          %% readv/3,
 
          close/1,
@@ -500,24 +500,28 @@
 -type shutdown_how() :: read | write | read_write.
 
 %% These are just place-holder(s) - used by the sendmsg/recvmsg functions...
--type msghdr_flag()  :: eor | trunc | ctrunc | oob | errqueue.
+-type msghdr_flag()  :: ctrunc | eor | errqueue | oob | trunc.
 -type msghdr_flags() :: [msghdr_flag()].
 -type msghdr() :: #{
                     %% *Optional* target address
                     %% *If* this field is specified for an unconnected
                     %% socket, then it will be used as destination for the 
                     %% datagram.
-                    target => sockaddr(),
+                    addr => sockaddr(),
                     
-                    iov    => [binary()],
+                    iov  => [binary()],
                     
-                    ctrl   => cmsghdr(),
+                    ctrl => [cmsghdr()],
 
                     %% Only valid with recvmsg
                     flags  => msghdr_flags()
                    }.
+%% At some point we should be able to encode/decode the most common types
+%% of control message headers. For now, we leave/take the data part raw 
+%% (as a binary) and leave it to the user to figure out (how to encode/decode
+%% that bit).
 -type cmsghdr() :: #{
-                     level => protocol(),
+                     level => protocol() | integer(),
                      type  => integer(),
                      data  => binary()
                     }.
@@ -1752,11 +1756,62 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 %% ---------------------------------------------------------------------------
 %%
 
-%% -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
-%%       Socket :: socket(),
-%%       MsgHdr :: msghdr(),
-%%       Flags  :: recv_flags(),
-%%       Reason :: term().
+recvmsg(Socket) ->
+    recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+
+recvmsg(Socket, Flags) when is_list(Flags) ->
+    recvmsg(Socket, 0, 0, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
+recvmsg(Socket, Timeout) ->
+    recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
+
+-spec recvmsg(Socket, 
+              BufSz, CtrlSz,
+              Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: recv_flags(),
+      Timeout :: timeout(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term().
+
+recvmsg(#socket{ref = SockRef}, BufSz, CtrlSz, Flags, Timeout)
+  when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
+       (is_integer(CtrlSz) andalso (CtrlSz >= 0)) andalso
+       is_list(Flags) andalso
+       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+    EFlags = enc_recv_flags(Flags),
+    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout).
+
+do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
+    TS      = timestamp(Timeout),
+    RecvRef = make_ref(),
+    case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+        {ok, _MsgHdr} = OK ->
+            OK;
+
+        {error, eagain} ->
+            %% There is nothing just now, but we will be notified when there
+            %% is something to read (a select message).
+            NewTimeout = next_timeout(TS, Timeout),
+            receive
+                {select, SockRef, RecvRef, ready_input} ->
+                    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
+                               next_timeout(TS, Timeout));
+
+                {nif_abort, RecvRef, Reason} ->
+                    {error, Reason}
+
+            after NewTimeout ->
+                    nif_cancel(SockRef, recvmsg, RecvRef),
+                    flush_select_msgs(SockRef, RecvRef),
+                    {error, timeout}
+            end;
+
+        {error, _Reason} = ERROR ->
+            ERROR
+
+    end.
 
 
 
@@ -3169,6 +3224,9 @@ nif_recv(_SRef, _RecvRef, _Length, _Flags) ->
     erlang:error(badarg).
 
 nif_recvfrom(_SRef, _RecvRef, _Length, _Flags) ->
+    erlang:error(badarg).
+
+nif_recvmsg(_SRef, _RecvRef, _BufSz, _CtrlSz, _Flags) ->
     erlang:error(badarg).
 
 nif_cancel(_SRef, _Op, _Ref) ->

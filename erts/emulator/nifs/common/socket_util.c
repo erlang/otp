@@ -23,17 +23,18 @@
  *
  */
 
-#include <stddef.h>
-#include "socket_int.h"
-#include "socket_util.h"
-#include "socket_dbg.h"
-#include "sys.h"
-
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
+#include <stddef.h>
+
+#include "socket_int.h"
+#include "socket_tarray.h"
+#include "socket_util.h"
+#include "socket_dbg.h"
+#include "sys.h"
 
 /* We don't have a "debug flag" to check here, so we 
  * should use the compile debug flag, whatever that is...
@@ -67,6 +68,260 @@ static char* make_sockaddr_in6(ErlNifEnv*    env,
 static char* make_sockaddr_un(ErlNifEnv*    env,
                               ERL_NIF_TERM  path,
                               ERL_NIF_TERM* sa);
+
+
+/* +++ esock_encode_msghdr +++
+ *
+ * Encode a msghdr (recvmsg). In erlang its represented as
+ * a map, which has a specific set of attributes:
+ *
+ *     addr (source address) - sockaddr()
+ *     iov                   - [binary()]
+ *     ctrl                  - [cmsghdr()]
+ *     flags                 - msghdr_flags()
+ */
+
+extern
+char* esock_encode_msghdr(ErlNifEnv*     env,
+                          int            read,
+                          struct msghdr* msgHdrP,
+                          ErlNifBinary*  ctrlBufP,
+                          ERL_NIF_TERM*  eSockAddr)
+{
+    char*        xres;
+    ERL_NIF_TERM addr, iov, ctrl, flags;
+
+    if ((xres = esock_encode_sockaddr(env,
+                                      (SocketAddress*) msgHdrP->msg_name,
+                                      msgHdrP->msg_namelen,
+                                      &addr)) != NULL)
+        return xres;
+
+    if ((xres = esock_encode_iov(env,
+                                 read,
+                                 msgHdrP->msg_iov,
+                                 msgHdrP->msg_iovlen,
+                                 &iov)) != NULL)
+        return xres;
+
+    if ((xres = esock_encode_cmsghdrs(env,
+                                      ctrlBufP,
+                                      msgHdrP,
+                                      &ctrl)) != NULL)
+        return xres;
+
+    if ((xres = esock_encode_mshghdr_flags(env,
+                                           msgHdrP->msg_flags,
+                                           &flags)) != NULL)
+        return xres;
+
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_addr,
+                               esock_atom_iov,
+                               esock_atom_ctrl,
+                               esock_atom_flags};
+        ERL_NIF_TERM vals[] = {addr, iov, ctrl, flags};
+        
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+        
+        ESOCK_ASSERT( (numKeys == numVals) );
+        
+        if (!MKMA(env, keys, vals, numKeys, eSockAddr))
+            return ESOCK_STR_EINVAL;
+
+    }
+
+    return NULL;
+}
+
+
+
+/* +++ esock_encode_iov +++
+ *
+ * Encode a IO Vector. In erlang we represented this as a list of binaries.
+ *
+ * We iterate through the IO vector, and as long as the remaining (rem)
+ * number of bytes is greater than the size of the current buffer, we
+ * contunue. When we have a buffer that is greater than rem, we have found
+ * the last buffer (it may be empty, and then the previous was last). 
+ * We may need to split this (if 0 < rem < bufferSz).
+ */
+
+extern
+char* esock_encode_iov(ErlNifEnv*    env,
+                       int           read,
+                       struct iovec* iov,
+                       size_t        len,
+                       ERL_NIF_TERM* eIOV)
+{
+    int          rem = read;
+    uint16_t     i;
+    BOOLEAN_T    done = FALSE;
+    ERL_NIF_TERM a[len]; // At most this length
+
+    if (len == 0) {
+        *eIOV = MKEL(env);
+        return NULL;
+    }
+
+    for (i = 0; (!done) && (i < len); i++) {
+        if (iov[i].iov_len == rem) {
+            /* We have the exact amount - we are done */
+            a[i] = MKBIN(env, iov[i].iov_base);
+            done = TRUE;
+        } else if (iov[i].iov_len < rem) {
+            /* Filled another buffer - continue */
+            a[i] = MKBIN(env, iov[i].iov_base);            
+        } else if (iov[i].iov_len > rem) {
+            /* Partly filled buffer (=> split) - we are done */
+            a[i] = MKBIN(env, iov[i].iov_base);
+            a[i] = MKSBIN(env, a[i], 0, rem);            
+            done = TRUE;
+        }
+    }
+
+    *eIOV = MKLA(env, a, i+1);
+
+    return NULL;
+}
+
+
+
+/* +++ esock_encode_cmsghdrs +++
+ *
+ * Encode a list of cmsghdr(). The X can 0 or more cmsghdr blocks.
+ *
+ * Our problem is that we have no idea how many control messages
+ * we have.
+ *
+ * The cmsgHdrP arguments points to the start of the control data buffer,
+ * an actual binary. Its the only way to create sub-binaries. So, what we
+ * need to continue processing this is to tern that into an binary erlang 
+ * term (which can then in turn be turned into sub-binaries).
+ *
+ * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
+ * to create sub-binaries (one for each HDR).
+ *
+ * The TArray is created with the size of 128, which should be enough.
+ * But if its not, then it will be automatically realloc'ed during add.
+ * Once we are done adding hdr's to it, we convert it to a list.
+ */
+
+extern
+char* esock_encode_cmsghdrs(ErlNifEnv*     env,
+                            ErlNifBinary*  cmsgBinP,
+                            struct msghdr* msgHdrP,
+                            ERL_NIF_TERM*  eCMsgHdr)
+{
+    ERL_NIF_TERM    ctrlBuf  = MKBIN(env, cmsgBinP); // The *entire* binary
+    SocketTArray    cmsghdrs = TARRAY_CREATE(128);
+    struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
+    struct cmsghdr* currentP;
+    
+    for (currentP = firstP;
+         currentP != NULL;
+         currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
+
+        /* MUST check this since on Linux the returned "cmsg" may actually
+         * go too far!
+         */
+        if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
+            msgHdrP->msg_controllen) {
+            /* Ouch, fatal error - give up 
+             * We assume we cannot trust any data if this is wrong.
+             */
+            TARRAY_DELETE(cmsghdrs);
+            return ESOCK_STR_EINVAL;
+        } else {
+            ERL_NIF_TERM   level;
+            ERL_NIF_TERM   type    = MKI(env, currentP->cmsg_type);
+            unsigned char* dataP   = (unsigned char*) CMSG_DATA(currentP);
+            size_t         dataPos = dataP - cmsgBinP->data;
+            size_t         dataLen = currentP->cmsg_len - (CHARP(currentP)-CHARP(dataP));
+            ERL_NIF_TERM dataBin = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+
+            /* We can't give up just because its an unknown protocol,
+             * so if its a protocol we don't know, we return its integer 
+             * value and leave it to the user.
+             */
+            if (esock_encode_protocol(env, currentP->cmsg_level, &level) != NULL)
+                level = MKI(env, currentP->cmsg_level);
+
+            /* And finally create the 'cmsghdr' map -
+             * and if successfull add it to the tarray.
+             */
+            {
+                ERL_NIF_TERM keys[]  = {esock_atom_level,
+                                        esock_atom_type,
+                                        esock_atom_data};
+                ERL_NIF_TERM vals[]  = {level, type, dataBin};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+                ERL_NIF_TERM cmsgHdr;
+
+                /* Guard agains cut-and-paste errors */
+                ESOCK_ASSERT( (numKeys == numVals) );
+            
+                if (!MKMA(env, keys, vals, numKeys, &cmsgHdr)) {
+                    TARRAY_DELETE(cmsghdrs);
+                    return ESOCK_STR_EINVAL;
+                }
+
+                /* And finally add it to the list... */
+                TARRAY_ADD(cmsghdrs, cmsgHdr);
+            }
+        }
+    }
+
+    /* The tarray is populated - convert it to a list */
+    TARRAY_TOLIST(cmsghdrs, env, eCMsgHdr);
+
+    return NULL;
+}
+
+
+
+/* +++ esock_encode_mshghdr_flags +++
+ *
+ * Encode a list of msghdr_flag().
+ *
+ * The following flags are handled: eor | trunc | ctrunc | oob | errqueue.
+ */
+
+extern
+char* esock_encode_mshghdr_flags(ErlNifEnv*    env,
+                                 int           msgFlags,
+                                 ERL_NIF_TERM* flags)
+{
+    if (msgFlags == 0) {
+        *flags = MKEL(env);
+        return NULL;
+    } else {
+        SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
+
+        if ((msgFlags & MSG_EOR) == MSG_EOR)
+            TARRAY_ADD(ta, esock_atom_eor);
+    
+        if ((msgFlags & MSG_TRUNC) == MSG_TRUNC)
+            TARRAY_ADD(ta, esock_atom_trunc);
+    
+        if ((msgFlags & MSG_CTRUNC) == MSG_CTRUNC)
+            TARRAY_ADD(ta, esock_atom_ctrunc);
+    
+        if ((msgFlags & MSG_OOB) == MSG_OOB)
+            TARRAY_ADD(ta, esock_atom_oob);
+    
+        if ((msgFlags & MSG_ERRQUEUE) == MSG_ERRQUEUE)
+            TARRAY_ADD(ta, esock_atom_errqueue);
+
+        TARRAY_TOLIST(ta, env, flags);
+
+        return NULL;
+    }
+}
+
+
 
 
 /* +++ esock_decode_sockaddr +++

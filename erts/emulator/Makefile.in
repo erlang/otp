@@ -878,7 +878,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
 	$(OBJDIR)/erl_io_queue.o        \
-	$(OBJDIR)/socket_dbg.o		$(OBJDIR)/socket_util.o
+	$(OBJDIR)/socket_dbg.o		$(OBJDIR)/socket_tarray.o \
+	$(OBJDIR)/socket_util.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \
