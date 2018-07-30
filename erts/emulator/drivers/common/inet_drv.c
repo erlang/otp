@@ -919,6 +919,12 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define PACKET_ERL_DRV_TERM_DATA_LEN  32
 #endif
 
+/* state of TCP_CORK on Linux */
+#define INET_TCP_CORK_UNKNOWN -2
+#define INET_TCP_CORK_NOTUSED -1
+#define INET_TCP_CORK_UNCORKED 0
+#define INET_TCP_CORK_CORKED   1
+
 
 #define BIN_REALLOC_MARGIN(x)  ((x)/4)  /* 25% */
 
@@ -1262,6 +1268,9 @@ typedef struct {
                                  * reduce (but not eliminate) the impact of a
                                  * nasty race, so we have to remember to close
                                  * it. */
+#if defined(__linux__) && defined(TCP_CORK)
+        int user_cork;          /* save user's TCP_CORK value on Linux TCP sockets  */
+#endif
         Uint64 bytes_sent;
         Uint64 offset;
         Uint64 length;
@@ -9690,6 +9699,9 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
             return ctl_error(errno, rbuf, rsize);
         }
 
+#if defined(__linux__) && defined(TCP_CORK)
+        desc->sendfile.user_cork = INET_TCP_CORK_UNKNOWN;
+#endif
         desc->sendfile.offset = get_int64(buf);
         buf += sizeof(Uint64);
 
@@ -10973,6 +10985,12 @@ static int tcp_sendfile_completed(tcp_descriptor* desc) {
     Uint32 sent_low, sent_high;
     int i;
 
+#if defined(__linux__) && defined(TCP_CORK)
+    if (desc->sendfile.user_cork == INET_TCP_CORK_UNCORKED) {
+        sock_setopt(desc->inet.s, IPPROTO_TCP, TCP_CORK,
+                    &desc->sendfile.user_cork, sizeof(desc->sendfile.user_cork));
+    }
+#endif
     desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
     close(desc->sendfile.dup_file_fd);
 
@@ -11090,6 +11108,28 @@ static int tcp_inet_sendfile(tcp_descriptor* desc) {
             goto socket_error;
         }
     }
+
+#if defined(__linux__) && defined(TCP_CORK)
+    if (desc->sendfile.length > 0 && desc->sendfile.user_cork == INET_TCP_CORK_UNKNOWN) {
+        int domain = 0, type = 0;
+        socklen_t domain_size = sizeof(domain), type_size = sizeof(type);
+
+        desc->sendfile.user_cork = INET_TCP_CORK_NOTUSED;
+        if (sock_getopt(desc->inet.s, SOL_SOCKET, SO_DOMAIN, (void*)&domain, &domain_size) == 0 &&
+            sock_getopt(desc->inet.s, SOL_SOCKET, SO_TYPE, (void*)&type, &type_size) == 0) {
+            if ((domain == AF_INET || domain == AF_INET6) && type == SOCK_STREAM) {
+                int cork;
+                socklen_t cork_size = sizeof(cork);
+                if (sock_getopt(desc->inet.s, IPPROTO_TCP, TCP_CORK, &cork, &cork_size) == 0 &&
+                    cork == INET_TCP_CORK_UNCORKED) {
+                    desc->sendfile.user_cork = cork;
+                    cork = INET_TCP_CORK_CORKED;
+                    sock_setopt(desc->inet.s, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork));
+                }
+            }
+        }
+    }
+#endif
 
     while (desc->sendfile.length > 0) {
         /* For some reason the maximum ssize_t cannot be used as the max size.
