@@ -1557,7 +1557,7 @@ type_opt_1(O) when is_atom(O) -> undefined.
 
 %% Get. No supplied value.
 type_value(get, undefined)        -> false; % Undefined type
-%% These two clauses can not happen since they are only used
+%% These two clauses cannot happen since they are only used
 %% in record fields - from record fields they must have a
 %% value though it might be 'undefined', so record fields
 %% calls type_value/3, not type_value/2.
@@ -1723,7 +1723,7 @@ type_value_2(_, _)         -> false.
 
 %% Get. No supplied value.
 %%
-%% These two clauses can not happen since they are only used
+%% These two clauses cannot happen since they are only used
 %% in record fields - from record fields they must have a
 %% value though it might be 'undefined', so record fields
 %% calls enc_value/3, not enc_value/2.

@@ -1393,7 +1393,7 @@ temp_nodename([Chr|Base], Acc) ->
 %%
 %% Counts the test cases that are about to run and returns that number.
 %% If there's a conf group in TestSpec with a repeat property, the total number
-%% of cases can not be calculated and NoOfCases = unknown.
+%% of cases cannot be calculated and NoOfCases = unknown.
 count_test_cases(TopCases, SkipCases) when is_list(TopCases) ->
     case collect_all_cases(TopCases, SkipCases) of
 	{error,_Why} = Error ->
@@ -4906,7 +4906,7 @@ collect_files(Dir, Pattern, St, Mode) ->
 fullname_to_mod(Path) when is_list(Path) ->
     %% If this is called with a binary, then we are probably in +fnu
     %% mode and have found a beam file with name encoded as latin1. We
-    %% will let this crash since it can not work to load such a module
+    %% will let this crash since it cannot work to load such a module
     %% anyway. It should be removed or renamed!
     list_to_atom(filename:rootname(filename:basename(Path))).
 

@@ -280,7 +280,7 @@ valfun_1({try_case_end,Src}, Vst) ->
     verify_y_init(Vst),
     assert_term(Src, Vst),
     kill_state(Vst);
-%% Instructions that can not cause exceptions
+%% Instructions that cannot cause exceptions
 valfun_1({bs_context_to_binary,Ctx}, #vst{current=#st{x=Xs}}=Vst) ->
     case Ctx of
 	{Tag,X} when Tag =:= x; Tag =:= y ->

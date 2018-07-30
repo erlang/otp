@@ -152,10 +152,10 @@
 %% returned configuration must therefore also be returned from
 %% the calling `init_per_*'.
 %%
-%% If the initialization fails, e.g. if a required release can
-%% not be found, the function returns `{skip,Reason}'. In
+%% If the initialization fails, e.g. if a required release
+%% cannot be found, the function returns `{skip,Reason}'. In
 %% this case the other test support functions in this mudule
-%% can not be used.
+%% cannot be used.
 %%
 %% Example:
 %%
@@ -426,7 +426,7 @@ init_upgrade_test(Level) ->
     case OldRel of
 	false ->
 	    ct:log("Release ~tp is not available."
-		   " Upgrade on '~p' level can not be tested.",
+		   " Upgrade on '~p' level cannot be tested.",
 		   [FromVsn,Level]),
 	    undefined;
 	_ ->

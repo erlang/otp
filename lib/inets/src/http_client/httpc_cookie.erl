@@ -271,7 +271,7 @@ lookup_cookies(CookieDb, Host, Path) ->
 lookup_domain_cookies(_CookieDb, [], AccCookies) ->
     lists:flatten(AccCookies);
 
-%% Top domains can not have cookies
+%% Top domains cannot have cookies
 lookup_domain_cookies(_CookieDb, [_], AccCookies) ->
     lists:flatten(AccCookies);
 

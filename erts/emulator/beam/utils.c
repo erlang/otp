@@ -1569,7 +1569,7 @@ make_hash2(Eterm term)
  * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
  * chance of hashing different when salted: hash([Salt|A]) vs hash([Salt|B]).
  *
- * This is why we can not use cached hash values for atoms for example.
+ * This is why we cannot use cached hash values for atoms for example.
  *
  */
 

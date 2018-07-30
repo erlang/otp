@@ -246,7 +246,7 @@
         <p>Closes a connection to a database. This will also
           terminate all processes that may have been spawned 
           when the connection was opened. This call will always succeed.
-          If the connection can not be disconnected gracefully it will
+          If the connection cannot be disconnected gracefully it will
           be brutally killed. However you may receive an error message
           as result if you try to disconnect a connection started by another
           process.

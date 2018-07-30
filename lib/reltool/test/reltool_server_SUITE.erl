@@ -1038,7 +1038,7 @@ create_standalone_app(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system with inlined archived application
-%% Check that the inlined app can not be explicitly configured
+%% Check that the inlined app cannot be explicitly configured
 
 create_standalone_app_clash(Config) ->
     %% Create archive
@@ -1658,7 +1658,7 @@ set_apps_inlined(Config) ->
     ?m(true, Someapp1#app.is_included),
     ?m(true, Someapp1#app.is_pre_included),
 
-    %% Check that inlined app can not be configured
+    %% Check that inlined app cannot be configured
     Someapp2 = Someapp1#app{incl_cond=exclude},
     ?msym({error,
 	   "Application someapp is inlined in '*escript* someapp'. "

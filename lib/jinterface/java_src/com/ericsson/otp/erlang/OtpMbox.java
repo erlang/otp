@@ -156,7 +156,7 @@ public class OtpMbox {
      *         of the next message waiting in this mailbox.
      *
      * @exception OtpErlangDecodeException
-     *                if the message can not be decoded.
+     *                if the message cannot be decoded.
      *
      * @exception OtpErlangExit
      *                if a linked {@link OtpErlangPid pid} has exited or has
@@ -184,7 +184,7 @@ public class OtpMbox {
      *         of the next message waiting in this mailbox.
      *
      * @exception OtpErlangDecodeException
-     *                if the message can not be decoded.
+     *                if the message cannot be decoded.
      *
      * @exception OtpErlangExit
      *                if a linked {@link OtpErlangPid pid} has exited or has

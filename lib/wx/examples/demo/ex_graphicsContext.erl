@@ -74,7 +74,7 @@ do_init(Config) ->
 		   pen = Pen, brush = Brush, font = Font}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Sync events i.e. from callbacks must return ok, it can not return a new state.
+%% Sync events i.e. from callbacks must return ok, it cannot return a new state.
 %% Do the redrawing here.
 handle_sync_event(#wx{event = #wxPaint{}},_,
 		  #state{win=Win, pen = Pen, brush = Brush, font = Font}) ->

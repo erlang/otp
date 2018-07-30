@@ -210,7 +210,7 @@
       </pre>
       <p>The fun must obey the <c>encoding</c>, <c>depth</c>
 	and <c>chars_limit</c> parameters provided in the second
-	argument, as the formatter can not do anything useful of these
+	argument, as the formatter cannot do anything useful of these
 	parameters with the returned string. This variant is used when
 	the formatting of the report depends on the size and encoding
 	parameters.</p>

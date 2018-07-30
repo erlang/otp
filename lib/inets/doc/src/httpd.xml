@@ -173,7 +173,7 @@
       <item>
 	<p>For <c>ip_comm</c> configuration options, see 
 	<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>, some options
-	that are used internally by httpd can not be set.</p>
+	that are used internally by httpd cannot be set.</p>
 	<p>For <c>SSL</c> configuration options, see 
 	<seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>.</p>
 	<p>Default is <c>ip_comm</c>.</p> 

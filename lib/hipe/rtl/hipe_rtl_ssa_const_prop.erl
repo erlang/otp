@@ -31,11 +31,11 @@
 %%
 %% Some things to note:
 %%
-%% 1. All precoloured registers are assumed to contain bottom. We can not
+%% 1. All precoloured registers are assumed to contain bottom. We cannot
 %%    do anything with them since they are not in SSA-form. This might be
 %%    possible to resolve in some way, but we decided to not go there.
 %%
-%% 2. const_labels are assumed to be bottom, we can not find the address
+%% 2. const_labels are assumed to be bottom, we cannot find the address
 %%    in any nice way (that I know of, maybe someone can help ?). I
 %%    suppose they don't get a value until linking (or some step that
 %%    resembles it). They are only affecting bignums and floats (at least
@@ -579,7 +579,7 @@ visit_multimove(Inst, Env) ->
 %% Procedure : visit_call/2
 %% Purpose   : execute a call-instruction. All calls return bottom. We make 
 %%             this assumption since the icode-leel have taken care of BIF's
-%%             and we belive that we are left with the things that can not be
+%%             and we belive that we are left with the things that cannot be
 %%             done att compile time.
 %% Arguments : Inst - The instruction
 %%             Env  - The environment

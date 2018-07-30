@@ -479,7 +479,7 @@ if test -f "erts/doc/CONF_INFO"; then
   fi
   done  
   if test $havexsltproc = "no"; then
-    echo '                 The documentation can not be built.'
+    echo '                 The documentation cannot be built.'
   else
     echo '                 Using fakefop to generate placeholder PDF files.'
   fi

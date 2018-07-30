@@ -3659,7 +3659,7 @@
 	    you use erlang:halt/2 with an integer first argument and
 	    an option list containing {flush,false} as the second
 	    argument. Note that now is flushing not dependant of the
-	    exit code, and you can not only flush async threads
+	    exit code, and you cannot only flush async threads
 	    operations which we deemed as a strange behaviour anyway.
 	    </p>
 	    <p>Also, erlang:halt/1,2 has gotten a new feature: If the
@@ -4173,9 +4173,9 @@
 	    Supervisors should not save child-specs for temporary
 	    processes when they terminate as they should not be
 	    restarted. Saving the temporary child spec will result in
-	    that you can not start a new temporary process with the
+	    that you cannot start a new temporary process with the
 	    same child spec as an already terminated temporary
-	    process. Since R14B02 you can not restart a temporary
+	    process. Since R14B02 you cannot restart a temporary
 	    temporary process as arguments are no longer saved, it
 	    has however always been semantically incorrect to restart
 	    a temporary process. Thanks to Filipe David Manana for

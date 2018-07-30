@@ -1285,7 +1285,7 @@ sleep
 start_prim_loader
 erl_prim_loader
 set_path
-'can not start loader'
+'cannot start loader'
 add_to_kernel
 prim_load_flags
 '-loader'
@@ -1304,7 +1304,7 @@ path_flags
 '-pz'
 get_boot
 not_found
-'can not get bootfile'
+'cannot get bootfile'
 'bootfile format error'
 get_file
 script
@@ -1349,7 +1349,7 @@ extension
 '-boot/1-fun-0-'
 '-bs2ss/1-fun-0-'
 '-bs2as/1-fun-0-'
-'can not load'
+'cannot load'
 'unexpected command in bootfile'
 prim_inet
 open
@@ -3071,7 +3071,7 @@ change_group
 change_time
 master
 start_slave
-'can not get remote filer '
+'cannot get remote filer '
 start_relay
 relay
 'Port controlling ~w terminated in file_server'

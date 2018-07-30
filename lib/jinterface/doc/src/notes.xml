@@ -705,7 +705,7 @@
         <item>
           <p><c>OtpMbox.receive()</c> and <c>OtpMbox.receive(long timeout)</c> can now throw
             <c>OtpErlangDecodeException</c> if the received message
-            can not be decoded. <c>null</c> is now only returned from
+            cannot be decoded. <c>null</c> is now only returned from
             <c>OtpMbox.receive(long timeout)</c> if a timeout occurs.
             <c>OtpMbox.receive()</c> will never return <c>null</c>.</p>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>

@@ -49,7 +49,7 @@ format_bin_fun(Format,Bin) ->
 	    try io_lib:format(Format,[Bin]) of
 		Str -> plain_html(lists:flatten(Str))
 	    catch error:badarg ->
-		    Warning = "This binary can not be formatted with " ++ Format,
+		    Warning = "This binary cannot be formatted with " ++ Format,
 		    observer_html_lib:warning(Warning)
 	    end
     end.
@@ -59,7 +59,7 @@ binary_to_term_fun(Bin) ->
 	    try binary_to_term(Bin) of
 		Term -> plain_html(io_lib:format("~tp",[Term]))
 	    catch error:badarg ->
-		    Warning = "This binary can not be converted to an Erlang term",
+		    Warning = "This binary cannot be converted to an Erlang term",
 		    observer_html_lib:warning(Warning)
 	    end
     end.

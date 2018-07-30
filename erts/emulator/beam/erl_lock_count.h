@@ -532,7 +532,7 @@ ERTS_GLB_INLINE
 void lcnt_dec_lock_state__(ethr_atomic_t *l_state) {
     ethr_sint_t state = ethr_atomic_dec_read_acqb(l_state);
 
-    /* We can not assume that state is >= -1 here; unlock and unacquire might
+    /* We cannot assume that state is >= -1 here; unlock and unacquire might
      * bring it below -1 and race to increment it back. */
 
     if(state < 0) {

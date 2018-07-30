@@ -25,7 +25,7 @@
 
 -define(upgr_sname,otp_upgrade).
 
-%% Applications that are excluded from this test because they can not
+%% Applications that are excluded from this test because they cannot
 %% just be started in a new node with out specific configuration.
 -define(start_exclude,
 	[cosEvent,cosEventDomain,cosFileTransfer,cosNotification,

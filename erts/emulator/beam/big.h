@@ -42,7 +42,7 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
-#error "can not determine machine size"
+#error "cannot determine machine size"
 #endif
 
 typedef Uint  dsize_t;	 /* Vector size type */

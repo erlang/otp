@@ -2730,7 +2730,7 @@ bif_clash(Config) when is_list(Config) ->
            [],
 	   {errors,[{2,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
-	  %% Verify that warnings can not be turned off in the old way.
+	  %% Verify that warnings cannot be turned off in the old way.
 	  {clash2,
            <<"-export([t/1,size/1]).
               t(X) ->

@@ -3526,7 +3526,7 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 
 %%--------------------------------------------------------------------
 tls_ciphersuite_vs_version()  ->
-    [{doc,"Test a SSLv3 client can not negotiate a TLSv* cipher suite."}].
+    [{doc,"Test a SSLv3 client cannot negotiate a TLSv* cipher suite."}].
 tls_ciphersuite_vs_version(Config) when is_list(Config) ->
     
     {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

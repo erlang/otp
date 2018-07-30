@@ -231,7 +231,7 @@ exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*      <
       <p>If a diskless and/or read-only client node with the SASL
         configuration parameter <c>static_emulator</c> set to <c>true</c>
         is about to start the <c>-boot</c> and <c>-config</c> flags must be
-        changed. As such a client can not read a new <c>start_erl.data</c>
+        changed. As such a client cannot read a new <c>start_erl.data</c>
         file (the file is not possible to change dynamically) the boot and
         config files is always fetched from the same place (but with a new 
         contents if a new release has been installed). The

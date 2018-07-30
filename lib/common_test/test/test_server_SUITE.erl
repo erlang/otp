@@ -260,7 +260,7 @@ translate_filename(Filename,EncodingOnTestNode) ->
     end.
 
 get_latest_run_dir(Dir) ->
-    %% For the time being, filelib:wildcard can not take a binary
+    %% For the time being, filelib:wildcard cannot take a binary
     %% argument, so we avoid using this here.
     case file:list_dir(Dir) of
 	{ok,Files} ->
@@ -315,7 +315,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     DataDir = ?config(data_dir,Config0),
     Suite = create_unicode_test_suite(DataDir,Encoding),
 
-    %% We can not run this test on default node since it must be
+    %% We cannot run this test on default node since it must be
     %% started with correct file name mode (+fnu/+fnl).
     %% OBS: the node are stopped by end_per_testcase/2
     Config1 = lists:keydelete(node,1,Config0),

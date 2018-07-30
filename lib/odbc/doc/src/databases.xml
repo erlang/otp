@@ -65,7 +65,7 @@
     <p>Another obstacle is that some drivers do not support scrollable
       cursors which has the effect that the only way to traverse the
       result set is sequentially, with next, from the first row to the
-      last, and once you pass a row you can not go back. This means
+      last, and once you pass a row you cannot go back. This means
       that some functions in the interface will not work together with
       certain drivers. A similar problem is that not all drivers
       support "row count" for select queries, hence resulting in that

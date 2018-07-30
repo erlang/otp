@@ -22,7 +22,7 @@
 -export([parse_suite/1]).
 -export([init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
 
-%% for test_server_SUITE when node can not be started as slave
+%% for test_server_SUITE when node cannot be started as slave
 -export([prepare_tester_node/2]).
 
 -include("test_server_test_lib.hrl").

@@ -435,7 +435,7 @@ http_request(Config) when is_list(Config) ->
 			[<<>>, Length1], HttpBody1)).
 %%-------------------------------------------------------------------------
 validate_request_line() ->
-    [{doc, "Test httpd_request:validate/3. Makes sure you can not get past"
+    [{doc, "Test httpd_request:validate/3. Makes sure you cannot get past"
      " the server_root and that the request is recognized by the server"
      " and protcol version."}].
 validate_request_line(Config) when is_list(Config) ->

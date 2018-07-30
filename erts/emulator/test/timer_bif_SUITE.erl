@@ -361,7 +361,7 @@ evil_timers(Config) when is_list(Config) ->
     %%
     %% 1. A timer started with erlang:start_timer(Time, Receiver, Msg),
     %%    where Msg is a composite term, expires, and the receivers main
-    %%    lock *can not* be acquired immediately (typically when the
+    %%    lock *cannot* be acquired immediately (typically when the
     %%    receiver *is* running).
     %%
     %%    The wrap tuple ({timeout, TRef, Msg}) will in this case
@@ -372,7 +372,7 @@ evil_timers(Config) when is_list(Config) ->
     RecvTimeOutMsgs0 = evil_recv_timeouts(200),
     %% 2. A timer started with erlang:start_timer(Time, Receiver, Msg),
     %%    where Msg is an immediate term, expires, and the receivers main
-    %%    lock *can not* be acquired immediately (typically when the
+    %%    lock *cannot* be acquired immediately (typically when the
     %%    receiver *is* running).
     %%
     %%    The wrap tuple will in this case be allocated in a new

@@ -4390,7 +4390,7 @@ static void desc_close_read(inet_descriptor* desc)
 {
     if (desc->s != INVALID_SOCKET) {
 #ifdef __WIN32__
-	/* This call can not be right???
+	/* This call cannot be right???
 	 * We want to turn off read events but keep any write events.
 	 * But on windows driver_select(...,READ,1) is only used as a
 	 * way to hook into the pollset. sock_select is used to control

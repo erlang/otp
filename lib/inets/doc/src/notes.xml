@@ -1182,7 +1182,7 @@
 	    Add option {ftp_extension, boolean} to enable use of
 	    extended commands EPSV and EPRT, as specified in RFC
 	    2428, for IPv4 instead of using the legacy commands. Ipv6
-	    can not be supported without the extended commands.</p>
+	    cannot be supported without the extended commands.</p>
           <p>
 	    Own Id: OTP-12255</p>
         </item>

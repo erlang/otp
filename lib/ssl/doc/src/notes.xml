@@ -368,7 +368,7 @@
           <p>
 	    TLS sessions must be registered with SNI if provided, so
 	    that sessions where client hostname verification would
-	    fail can not connect reusing a session created when the
+	    fail cannot connect reusing a session created when the
 	    server name verification succeeded.</p>
           <p>
 	    Own Id: OTP-14632</p>
@@ -546,7 +546,7 @@
 	    public_key:pkix_verify_hostname/2 to verify the hostname
 	    of the connection with the server certificates specified
 	    hostname during certificate path validation. The user may
-	    explicitly disables it. Also if the hostname can not be
+	    explicitly disables it. Also if the hostname cannot be
 	    derived from the first argument to connect or is not
 	    supplied by the server name indication option, the check
 	    will not be performed.</p>

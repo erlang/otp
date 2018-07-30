@@ -526,7 +526,7 @@ analyse(#state{sys=Sys} = S, Apps, Status) ->
     %% is included in a release (rel spec - see apps_in_rels above).
     %% Then initiate the same for each module, and check that there
     %% are no duplicated module names (in different applications)
-    %% where we can not decide which one to use.
+    %% where we cannot decide which one to use.
     %% Write all #app to app_tab and all #mod to mod_tab.
     Status2 = apps_init_is_included(S, Apps, RelApps, Status),
 

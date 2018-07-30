@@ -890,7 +890,7 @@ read_rep(Fd, FilePosition, Device, Abort, Log) ->
     
 handle_bad_form(Date, Msg, Device, Abort, Log) ->
     io:format("rb: ERROR! A report on bad form was encountered. " ++
-	      "It can not be printed to the log.~n~n"),
+	      "It cannot be printed to the log.~n~n"),
     io:format("Details:~n~p ~tp~n~n", [Date,Msg]),
     case {Abort,Device,open_log_file(Log)} of
 	{true,standard_io,standard_io} ->
