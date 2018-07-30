@@ -722,7 +722,7 @@ handle_event(_, _, State, Data) ->
 	  right before entering the initial state even though this
 	  formally is not a state change.
 	  In this case <c>OldState</c> will be the same as <c>State</c>,
-	  which can not happen for a subsequent state change,
+	  which cannot happen for a subsequent state change,
 	  but will happen when repeating the state enter call.
 	</p>
       </desc>
@@ -1256,7 +1256,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  <c><anno>State</anno></c> is the current state
-	  and it can not be changed since the state callback
+	  and it cannot be changed since the state callback
 	  was called with a
 	  <seealso marker="#type-state_enter"><em>state enter call</em></seealso>.
 	</p>
@@ -1922,7 +1922,7 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If the function returns a failure <c>Reason</c>, the ongoing
 	  upgrade fails and rolls back to the old release.
-	  Note that <c>Reason</c> can not be an <c>{ok,_,_}</c> tuple
+	  Note that <c>Reason</c> cannot be an <c>{ok,_,_}</c> tuple
 	  since that will be regarded as a
 	  <c>{ok,NewState,NewData}</c> tuple,
 	  and that a tuple matching <c>{ok,_}</c>
@@ -2208,7 +2208,7 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return the result, which can be useful.
 	  For example to bail out with <c>throw(keep_state_and_data)</c>
-	  from deep within complex code that can not
+	  from deep within complex code that cannot
 	  return <c>{next_state,State,Data}</c> because
 	  <c>State</c> or <c>Data</c> is no longer in scope.
 	</p>

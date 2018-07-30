@@ -1654,7 +1654,7 @@ abnormal_relup(Config) when is_list(Config) ->
     ok.
 
 
-%% make_relup: Check relup can not be created is sasl is not in rel file.
+%% make_relup: Check relup cannot be created is sasl is not in rel file.
 no_sasl_relup(Config) when is_list(Config) ->
     {ok, OldDir} = file:get_cwd(),
     {Dir1,Name1} = create_script(latest1_no_sasl,Config),

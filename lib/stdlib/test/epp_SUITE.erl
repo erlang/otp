@@ -1372,7 +1372,7 @@ otp_8562(Config) when is_list(Config) ->
 otp_8911(Config) when is_list(Config) ->
     case test_server:is_cover() of
 	true ->
-	    {skip, "Testing cover, so can not run when cover is already running"};
+	    {skip, "Testing cover, so cannot run when cover is already running"};
 	false ->
 	    do_otp_8911(Config)
     end.

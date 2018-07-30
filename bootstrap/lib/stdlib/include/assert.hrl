@@ -140,7 +140,7 @@
 -endif.
 
 %% This is mostly a convenience which gives more detailed reports.
-%% Note: Guard is a guarded pattern, and can not be used for value.
+%% Note: Guard is a guarded pattern, and cannot be used for value.
 -ifdef(NOASSERT).
 -define(assertMatch(Guard, Expr), ok).
 -define(assertMatch(Guard, Expr, Comment), ok).
@@ -289,7 +289,7 @@
         end).
 -endif.
 
-%% Note: Class and Term are patterns, and can not be used for value.
+%% Note: Class and Term are patterns, and cannot be used for value.
 %% Term can be a guarded pattern, but Class cannot.
 -ifdef(NOASSERT).
 -define(assertException(Class, Term, Expr), ok).
@@ -364,7 +364,7 @@
         ?assertException(throw, Term, Expr, Comment)).
 
 %% This is the inverse case of assertException, for convenience.
-%% Note: Class and Term are patterns, and can not be used for value.
+%% Note: Class and Term are patterns, and cannot be used for value.
 %% Both Class and Term can be guarded patterns.
 -ifdef(NOASSERT).
 -define(assertNotException(Class, Term, Expr), ok).

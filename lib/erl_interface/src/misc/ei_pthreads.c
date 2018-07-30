@@ -78,7 +78,7 @@ static void tls_init_once(void)
 	errno_tls_index = TlsAlloc();
 	if (errno_tls_index == TLS_OUT_OF_INDEXES) {
 	    fprintf(stderr, 
-		    "FATAL ERROR: can not allocate TLS index for "
+		    "FATAL ERROR: cannot allocate TLS index for "
 		    "erl_errno (error code = %d)!\n",GetLastError());
 	    exit(1);
 	}

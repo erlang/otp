@@ -98,7 +98,7 @@ init() ->
 			      {win32,WinType} ->
 				  win32_load_from_registry(WinType);
 			      _ ->
-				  error("can not read win32 system registry~n", [])
+				  error("cannot read win32 system registry~n", [])
 			  end
 		  end, CfgFiles),
 

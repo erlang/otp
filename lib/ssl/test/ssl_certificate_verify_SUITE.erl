@@ -513,7 +513,7 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
     Port  = ssl_test_lib:inet_port(Server),
 
     %% If user verify fun is called correctly we fail the connection.
-    %% otherwise we can not tell this case apart form where we miss
+    %% otherwise we cannot tell this case apart form where we miss
     %% to call users verify fun
     FunAndState =  {fun(_,{extension, _}, UserState) ->
 			    {unknown, UserState};
@@ -552,7 +552,7 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     %% If user verify fun is called correctly we fail the connection.
-    %% otherwise we can not tell this case apart form where we miss
+    %% otherwise we cannot tell this case apart form where we miss
     %% to call users verify fun
     FunAndState =  {fun(_,{extension, _}, UserState) ->
 			    {unknown, UserState};

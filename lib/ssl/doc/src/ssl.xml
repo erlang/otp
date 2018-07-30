@@ -410,7 +410,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	  <item>check is only performed on the peer certificate.</item>
 
 	  <tag><c>best_effort</c></tag>
-	  <item>if certificate revocation status can not be determined
+	  <item>if certificate revocation status cannot be determined
 	  it will be accepted as valid.</item>
 	</taglist>
 

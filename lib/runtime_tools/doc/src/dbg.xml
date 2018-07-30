@@ -113,7 +113,7 @@
         <p>The imported variables will be replaced by match_spec
           <c>const</c> expressions, which is consistent with the
           static scoping for Erlang <c>fun()</c>s. Local or global
-          function calls can not be in the guard or body of the fun
+          function calls cannot be in the guard or body of the fun
           however. Calls to builtin match_spec functions of course is
           allowed:</p>
         <pre>
@@ -756,7 +756,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <c>cant_add_local_node</c> is returned.
           </p>
         <p>If a trace port (see <seealso marker="#trace_port-2"><c>trace_port/2</c></seealso>) is
-          running on the local node, remote nodes can not be traced with
+          running on the local node, remote nodes cannot be traced with
           a tracer process. The error reason
           <c>cant_trace_remote_pid_to_local_port</c> is returned. A
           trace port can however be started on the remote node with the

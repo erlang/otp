@@ -97,7 +97,7 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
-    %% The bad option can not enter through inet_db:set_lookup/1,
+    %% The bad option cannot enter through inet_db:set_lookup/1,
     %% but through e.g .inetrc.
     Prev = ets:lookup(Db, Key),
     ets:delete(Db, Key),

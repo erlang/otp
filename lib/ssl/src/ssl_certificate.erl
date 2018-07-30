@@ -69,7 +69,7 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) -
     
     case SignedAndIssuerID of
 	{error, issuer_not_found} ->
-	    %% The root CA was not sent and can not be found.
+	    %% The root CA was not sent and cannot be found.
 	    handle_incomplete_chain(Path, PartialChainHandler);
 	{self, _} when length(Path) == 1 ->
 	    {selfsigned_peer, Path};

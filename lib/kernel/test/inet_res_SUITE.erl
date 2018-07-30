@@ -531,7 +531,7 @@ edns0(Config) when is_list(Config) ->
 		    case os:version() of
 			{M,V,_} when M < 5;  M == 5, V =< 8 ->
 			    %% In our test park only known platform
-			    %% with an DNS resolver that can not do
+			    %% with an DNS resolver that cannot do
 			    %% EDNS0.
 			    {comment,"No EDNS0"}
 		    end

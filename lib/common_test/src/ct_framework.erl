@@ -1168,7 +1168,7 @@ get_all(Mod, ConfTests) ->
 		case code:which(Mod) of
 		    non_existing ->
 			list_to_atom(atom_to_list(Mod)++
-					 " can not be compiled or loaded");
+					 " cannot be compiled or loaded");
 		    _ ->
 			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
 		end,

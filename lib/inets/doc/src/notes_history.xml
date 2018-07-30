@@ -1149,8 +1149,8 @@
     <list type="bulleted">
       <item>
 	<p>When further testing the functionality of https requests
-	  that goes through a proxy. We realised that alas this can
-	  not currently be supported as it requires features from
+	  that goes through a proxy. We realised that alas this
+	  cannot currently be supported as it requires features from
 	  the ssl implementation that is not currently available.
 	  So for now an error message will be returned when trying
 	  to use this functionality.</p>

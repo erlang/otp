@@ -980,7 +980,7 @@ fatal_error(Slogan) ->
 
 mode_error(OldMode, NewMode) ->
   Msg = io_lib:format("Mode was previously set to '~s'; "
-		      "can not set it to '~s' now",
+		      "cannot set it to '~s' now",
 		      [OldMode, NewMode]),
   fatal_error(Msg).
 

@@ -2470,7 +2470,7 @@ handle_trusted_certs_db(#state{ssl_options =
 handle_trusted_certs_db(#state{cert_db_ref = Ref,
 			       cert_db = CertDb,
 			       ssl_options = #ssl_options{cacertfile = <<>>}}) when CertDb =/= undefined ->
-    %% Certs provided as DER directly can not be shared
+    %% Certs provided as DER directly cannot be shared
     %% with other connections and it is safe to delete them when the connection ends.
     ssl_pkix_db:remove_trusted_certs(Ref, CertDb);
 handle_trusted_certs_db(#state{file_ref_db = undefined}) ->
@@ -2920,7 +2920,7 @@ erl_dist_stop_reason(
   Reason, #state{ssl_options = #ssl_options{erl_dist = true}}) ->
     case Reason of
         normal ->
-            %% We can not exit with normal since that will not bring
+            %% We cannot exit with normal since that will not bring
             %% down the rest of the distribution processes
             {shutdown, normal};
         _ -> Reason

@@ -829,7 +829,7 @@ BIF_RETTYPE erl_ddll_format_error_int_1(BIF_ALIST_1)
 	    "cannot be loaded/unloaded";
 	break;
     case am_permanent:
-	errstring = "DDLL driver is permanent an can not be unloaded/loaded";
+	errstring = "DDLL driver is permanent an cannot be unloaded/loaded";
 	break;
     case am_not_loaded:
 	errstring = "DDLL driver is not loaded";

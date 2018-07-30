@@ -31,7 +31,7 @@
 static int ttysl_init(void);
 static ErlDrvData ttysl_start(ErlDrvPort, char*);
 
-#ifdef HAVE_TERMCAP  /* else make an empty driver that can not be opened */
+#ifdef HAVE_TERMCAP  /* else make an empty driver that cannot be opened */
 
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING

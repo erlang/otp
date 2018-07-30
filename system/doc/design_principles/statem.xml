@@ -1410,7 +1410,7 @@ open(cast, {button,_}, Data) ->
       <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/3,4</c></seealso>.
       Most time-out tasks can be performed with the
       time-out features in <c>gen_statem</c>,
-      but an example of one that can not is if you should need
+      but an example of one that cannot is if you should need
       the return value from
       <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>, that is; the remaining time of the timer.
     </p>

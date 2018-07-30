@@ -2089,7 +2089,7 @@
 	    ct_netconfc:close_session sometimes returned
 	    {error,closed} because the ssh connection was closed
 	    (from the server side) before the rpc-reply was received
-	    by the client. This is normal and can not be helped. It
+	    by the client. This is normal and cannot be helped. It
 	    has been corrected so the return will be 'ok' in this
 	    case. Other error situations will still give
 	    {error,Reason}.</p>
@@ -2103,7 +2103,7 @@
 	    {error,{process_down,Pid,normal}} because the ssh
 	    connection was closed (from the server side) before the
 	    rpc-reply was received by the client. This is normal and
-	    can not be helped. It has been corrected so the return
+	    cannot be helped. It has been corrected so the return
 	    will be 'ok' in this situation.</p>
           <p>
 	    Own Id: OTP-10570</p>
@@ -2755,8 +2755,8 @@
 	    The info function for <c>init/end_per_suite(Config)</c>
 	    is <c>init/end_per_suite()</c>, and for
 	    <c>init/end_per_group(GroupName,Config)</c> it's
-	    <c>init/end_per_group(GroupName)</c>. Info functions can
-	    not be used with <c>init/end_per_testcase(TestCase,
+	    <c>init/end_per_group(GroupName)</c>. Info functions
+	    cannot be used with <c>init/end_per_testcase(TestCase,
 	    Config)</c>, since these configuration functions execute
 	    on the test case process and will use the same properties
 	    as the test case (i.e. properties set by the test case
@@ -3840,7 +3840,7 @@
             If the Erlang runtime system was started without access
             to an erlang shell (e.g. -noshell), compilation errors
             would cause a crash in the Common Test application.
-            Without access to a shell, Common Test can not prompt the
+            Without access to a shell, Common Test cannot prompt the
             user to choose to continue or abort the test session, but
             must assume that the session should proceed.</p>
           <p>
