@@ -1981,7 +1981,7 @@ analyze_application(Node) ->
 %%
 %% @see analyze_type_name/1
 
--type typeName() :: atom() | {module(), atom(), arity()} | {atom(), arity()}.
+-type typeName() :: atom() | {module(), {atom(), arity()}} | {atom(), arity()}.
 
 -spec analyze_type_application(erl_syntax:syntaxTree()) -> typeName().
 
