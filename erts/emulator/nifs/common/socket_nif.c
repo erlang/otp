@@ -317,6 +317,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #include <erl_nif.h>
 
 #include "socket_dbg.h"
+#include "socket_tarray.h"
 #include "socket_int.h"
 #include "socket_util.h"
 
@@ -1884,97 +1885,42 @@ static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
 static ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
                                     SocketDescriptor* descP);
 
-/*
-static char* decode_in_sockaddr(ErlNifEnv*     env,
-                                ERL_NIF_TERM   eSockAddr,
-                                SocketAddress* sockAddrP,
-                                unsigned int*  addrLenP);
-static char* decode_in4_sockaddr(ErlNifEnv*          env,
-                                 const ERL_NIF_TERM* eIn4SockAddr,
-                                 SocketAddress*      sockAddrP,
-                                 unsigned int*       addrLenP);
-static char* decode_in4_sockaddr_atomaddr(ErlNifEnv*     env,
-                                          ERL_NIF_TERM   eAddr,
-                                          int            port,
-                                          SocketAddress* sockAddrP,
-                                          unsigned int*  addrLenP);
-static char* decode_in4_sockaddr_addr(ErlNifEnv*     env,
-                                      ERL_NIF_TERM   eAddr,
-                                      int            port,
-                                      SocketAddress* sockAddrP,
-                                      unsigned int*  addrLenP);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-static char* decode_in6_sockaddr(ErlNifEnv*          env,
-                                 const ERL_NIF_TERM* eIn6SockAddr,
-                                 SocketAddress*      sockAddrP,
-                                 unsigned int*       addrLenP);
-static char* decode_in6_sockaddr_atomaddr(ErlNifEnv*     env,
-                                          ERL_NIF_TERM   eAddr,
-                                          int            port,
-                                          unsigned int   flowInfo,
-                                          unsigned int   scopeId,
-                                          SocketAddress* sockAddrP,
-                                          unsigned int*  addrLenP);
-/ * Decode an in6_sockaddr where the address field is a tuple * /
-static char* decode_in6_sockaddr_addr(ErlNifEnv*     env,
-                                      ERL_NIF_TERM   eAddr,
-                                      int            port,
-                                      unsigned int   flowInfo,
-                                      unsigned int   scopeId,
-                                      SocketAddress* sockAddrP,
-                                      unsigned int*  addrLenP);
-#endif
-*/
-/*
-static char* decode_laddress(ErlNifEnv*     env,
-                             int            domain,
-                             ERL_NIF_TERM   localAddr,
-                             SocketAddress* localP,
-                             unsigned int*  addrLenP);
-static char* decode_laddress_binary(ErlNifEnv*     env,
-                                    int            domain,
-                                    ERL_NIF_TERM   localAddr,
-                                    SocketAddress* localP,
-                                    unsigned int*  addrLenP);
-*/
-/*
-static char* decode_address_tuple(ErlNifEnv*          env,
-                                  int                 domain,
-                                  const ERL_NIF_TERM* addrt,
-                                  int                 port,
-                                  SocketAddress*      localP,
-                                  unsigned int*  addrLenP);
-static char* decode_address_atom(ErlNifEnv*     env,
-                                 int            domain,
-                                 char*          addr,
-                                 int            addrLen,
-                                 int            port,
-                                 SocketAddress* localP,
-                                 unsigned int*  addrLenP);
-*/
-/*
-static char* decode_send_addr(ErlNifEnv*      env,
-                              int             domain,
-                              ERL_NIF_TERM    addr,
-                              int             port,
-                              SocketAddress** toAddrP,
-                              unsigned int*   addrLenP);
-*/
-/*
-static char* decode_send_addr_tuple(ErlNifEnv*     env,
-                                    int            domain,
-                                    ERL_NIF_TERM   addr,
-                                    int            port,
-                                    SocketAddress* toAddrP,
-                                    unsigned int*  addrLenP);
-*/
-/*
-static void encode_address(ErlNifEnv*     env,
-                           SocketAddress* fromAddrP,
-                           unsigned int   fromAddrLen,
-                           ERL_NIF_TERM*  fromDomainT,
-                           ERL_NIF_TERM*  fromSourceT);
-*/
+extern char* encode_msghdr(ErlNifEnv*        env,
+                           SocketDescriptor* descP,
+                           int               read,
+                           struct msghdr*    msgHdrP,
+                           ErlNifBinary*     dataBufP,
+                           ErlNifBinary*     ctrlBufP,
+                           ERL_NIF_TERM*     eSockAddr);
+extern char* encode_cmsghdrs(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             ErlNifBinary*     cmsgBinP,
+                             struct msghdr*    msgHdrP,
+                             ERL_NIF_TERM*     eCMsgHdr);
+static char* encode_cmsghdr_type(ErlNifEnv*    env,
+                                 int           level,
+                                 int           type,
+                                 ERL_NIF_TERM* eType);
+static char* encode_cmsghdr_data(ErlNifEnv*     env,
+                                 ERL_NIF_TERM   ctrlBuf,
+                                 int            level,
+                                 int            type,
+                                 unsigned char* dataP,
+                                 size_t         dataPos,
+                                 size_t         dataLen,
+                                 ERL_NIF_TERM*  eCMsgHdrData);
+static char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
+                                    ERL_NIF_TERM   ctrlBuf,
+                                    int            type,
+                                    unsigned char* dataP,
+                                    size_t         dataPos,
+                                    size_t         dataLen,
+                                    ERL_NIF_TERM*  eCMsgHdrData);
+extern char* encode_msghdr_flags(ErlNifEnv*        env,
+                                 SocketDescriptor* descP,
+                                 int               msgFlags,
+                                 ERL_NIF_TERM*     flags);
+
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
@@ -2215,11 +2161,6 @@ static char str_true[]             = "true";
 static char str_usec[]             = "usec";
 static char str_want[]             = "want";
 
-static char str_lowdelay[]     = "lowdelay";
-static char str_throughput[]   = "throughput";
-static char str_reliability[]  = "reliability";
-static char str_mincost[]      = "mincost";
-
 /* (special) error string constants */
 static char str_eisconn[]        = "eisconn";
 static char str_enotclosing[]    = "enotclosing";
@@ -2235,6 +2176,7 @@ static char str_exsend[]         = "exsend";     // failed send
 /* *** "Global" Atoms *** */
 ERL_NIF_TERM esock_atom_addr;
 ERL_NIF_TERM esock_atom_any;
+ERL_NIF_TERM esock_atom_credentials;
 ERL_NIF_TERM esock_atom_ctrl;
 ERL_NIF_TERM esock_atom_ctrunc;
 ERL_NIF_TERM esock_atom_data;
@@ -2247,6 +2189,7 @@ ERL_NIF_TERM esock_atom_false;
 ERL_NIF_TERM esock_atom_family;
 ERL_NIF_TERM esock_atom_flags;
 ERL_NIF_TERM esock_atom_flowinfo;
+ERL_NIF_TERM esock_atom_ifindex;
 ERL_NIF_TERM esock_atom_inet;
 ERL_NIF_TERM esock_atom_inet6;
 ERL_NIF_TERM esock_atom_iov;
@@ -2255,20 +2198,30 @@ ERL_NIF_TERM esock_atom_ipv6;
 ERL_NIF_TERM esock_atom_level;
 ERL_NIF_TERM esock_atom_local;
 ERL_NIF_TERM esock_atom_loopback;
+ERL_NIF_TERM esock_atom_lowdelay;
+ERL_NIF_TERM esock_atom_mincost;
 ERL_NIF_TERM esock_atom_ok;
 ERL_NIF_TERM esock_atom_oob;
+ERL_NIF_TERM esock_atom_origdstaddr;
 ERL_NIF_TERM esock_atom_path;
-ERL_NIF_TERM esock_atom_protocol;
+ERL_NIF_TERM esock_atom_pktinfo;
 ERL_NIF_TERM esock_atom_port;
+ERL_NIF_TERM esock_atom_protocol;
 ERL_NIF_TERM esock_atom_raw;
 ERL_NIF_TERM esock_atom_rdm;
+ERL_NIF_TERM esock_atom_rights;
+ERL_NIF_TERM esock_atom_reliability;
 ERL_NIF_TERM esock_atom_scope_id;
 ERL_NIF_TERM esock_atom_sctp;
 ERL_NIF_TERM esock_atom_seqpacket;
+ERL_NIF_TERM esock_atom_spec_dst;
 ERL_NIF_TERM esock_atom_stream;
 ERL_NIF_TERM esock_atom_tcp;
+ERL_NIF_TERM esock_atom_throughput;
+ERL_NIF_TERM esock_atom_tos;
 ERL_NIF_TERM esock_atom_true;
 ERL_NIF_TERM esock_atom_trunc;
+ERL_NIF_TERM esock_atom_ttl;
 ERL_NIF_TERM esock_atom_type;
 ERL_NIF_TERM esock_atom_udp;
 ERL_NIF_TERM esock_atom_undefined;
@@ -2340,11 +2293,6 @@ static ERL_NIF_TERM atom_timeout;
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_usec;
 static ERL_NIF_TERM atom_want;
-
-static ERL_NIF_TERM atom_lowdelay;
-static ERL_NIF_TERM atom_throughput;
-static ERL_NIF_TERM atom_reliability;
-static ERL_NIF_TERM atom_mincost;
 
 static ERL_NIF_TERM atom_eisconn;
 static ERL_NIF_TERM atom_enotclosing;
@@ -10683,9 +10631,9 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
          * </KOLLA>
          */
 
-        if ((xres = esock_encode_msghdr(env, read,
-                                        msgHdrP, dataBufP, ctrlBufP,
-                                        &eMsgHdr)) != NULL) {
+        if ((xres = encode_msghdr(env, descP,
+                                  read, msgHdrP, dataBufP, ctrlBufP,
+                                  &eMsgHdr)) != NULL) {
             
             SSDBG( descP,
                    ("SOCKET",
@@ -10705,6 +10653,586 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
     }
 }
+
+
+
+
+/* +++ encode_msghdr +++
+ *
+ * Encode a msghdr (recvmsg). In erlang its represented as
+ * a map, which has a specific set of attributes:
+ *
+ *     addr (source address) - sockaddr()
+ *     iov                   - [binary()]
+ *     ctrl                  - [cmsghdr()]
+ *     flags                 - msghdr_flags()
+ */
+
+extern
+char* encode_msghdr(ErlNifEnv*        env,
+                    SocketDescriptor* descP,
+                    int               read,
+                    struct msghdr*    msgHdrP,
+                    ErlNifBinary*     dataBufP,
+                    ErlNifBinary*     ctrlBufP,
+                    ERL_NIF_TERM*     eSockAddr)
+{
+    char*        xres;
+    ERL_NIF_TERM addr, iov, ctrl, flags;
+
+    SSDBG( descP,
+           ("SOCKET", "encode_msghdr -> entry with"
+            "\r\n   read: %d"
+            "\r\n", read) );
+    
+    if ((xres = esock_encode_sockaddr(env,
+                                      (SocketAddress*) msgHdrP->msg_name,
+                                      msgHdrP->msg_namelen,
+                                      &addr)) != NULL)
+        return xres;
+
+    SSDBG( descP, ("SOCKET", "encode_msghdr -> try encode iov\r\n") );
+    if ((xres = esock_encode_iov(env,
+                                 read,
+                                 msgHdrP->msg_iov,
+                                 msgHdrP->msg_iovlen,
+                                 dataBufP,
+                                 &iov)) != NULL)
+        return xres;
+
+    SSDBG( descP, ("SOCKET", "encode_msghdr -> try encode cmsghdrs\r\n") );
+    if ((xres = encode_cmsghdrs(env, descP, ctrlBufP, msgHdrP, &ctrl)) != NULL)
+        return xres;
+
+    SSDBG( descP, ("SOCKET", "encode_msghdr -> try encode flags\r\n") );
+    if ((xres = encode_msghdr_flags(env, descP, msgHdrP->msg_flags, &flags)) != NULL)
+        return xres;
+
+    SSDBG( descP,
+           ("SOCKET", "encode_msghdr -> components encoded:"
+            "\r\n   addr:  %T"
+            "\r\n   iov:   %T"
+            "\r\n   ctrl:  %T"
+            "\r\n   flags: %T"
+           "\r\n", addr, iov, ctrl, flags) );
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_addr,
+                                esock_atom_iov,
+                                esock_atom_ctrl,
+                                esock_atom_flags};
+        ERL_NIF_TERM vals[]  = {addr, iov, ctrl, flags};
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM tmp;
+        
+        ESOCK_ASSERT( (numKeys == numVals) );
+        
+        SSDBG( descP, ("SOCKET", "encode_msghdr -> create msghdr map\r\n") );
+        if (!MKMA(env, keys, vals, numKeys, &tmp))
+            return ESOCK_STR_EINVAL;
+
+        SSDBG( descP, ("SOCKET", "encode_msghdr -> msghdr: "
+                       "\r\n   %T"
+                       "\r\n", tmp) );
+
+        *eSockAddr = tmp;
+    }
+
+    SSDBG( descP, ("SOCKET", "encode_msghdr -> done\r\n") );
+
+    return NULL;
+}
+
+
+
+/* +++ encode_cmsghdrs +++
+ *
+ * Encode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
+ *
+ * Our "problem" is that we have no idea how many control messages
+ * we have.
+ *
+ * The cmsgHdrP arguments points to the start of the control data buffer,
+ * an actual binary. Its the only way to create sub-binaries. So, what we
+ * need to continue processing this is to tern that into an binary erlang 
+ * term (which can then in turn be turned into sub-binaries).
+ *
+ * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
+ * to create sub-binaries (one for each cmsg hdr).
+ *
+ * The TArray (term array) is created with the size of 128, which should
+ * be enough. But if its not, then it will be automatically realloc'ed during
+ * add. Once we are done adding hdr's to it, we convert the tarray to a list.
+ */
+
+extern
+char* encode_cmsghdrs(ErlNifEnv*        env,
+                      SocketDescriptor* descP,
+                      ErlNifBinary*     cmsgBinP,
+                      struct msghdr*    msgHdrP,
+                      ERL_NIF_TERM*     eCMsgHdr)
+{
+    ERL_NIF_TERM    ctrlBuf  = MKBIN(env, cmsgBinP); // The *entire* binary
+    SocketTArray    cmsghdrs = TARRAY_CREATE(128);
+    struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
+    struct cmsghdr* currentP;
+    
+    SSDBG( descP, ("SOCKET", "encode_cmsghdrs -> entry\r\n") );
+
+    for (currentP = firstP;
+         currentP != NULL;
+         currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
+
+        SSDBG( descP,
+               ("SOCKET", "encode_cmsghdrs -> process cmsg header when"
+                "\r\n   TArray Size: %d"
+                "\r\n", TARRAY_SZ(cmsghdrs)) );
+
+        /* MUST check this since on Linux the returned "cmsg" may actually
+         * go too far!
+         */
+        if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
+            msgHdrP->msg_controllen) {
+            /* Ouch, fatal error - give up 
+             * We assume we cannot trust any data if this is wrong.
+             */
+            TARRAY_DELETE(cmsghdrs);
+            return ESOCK_STR_EINVAL;
+        } else {
+            ERL_NIF_TERM   level, type, data;
+            unsigned char* dataP   = (unsigned char*) CMSG_DATA(currentP);
+            size_t         dataPos = dataP - cmsgBinP->data;
+            size_t         dataLen = currentP->cmsg_len - (CHARP(currentP)-CHARP(dataP));
+
+            SSDBG( descP,
+                   ("SOCKET", "encode_cmsghdrs -> cmsg header data: "
+                    "\r\n   dataPos: %d"
+                    "\r\n   dataLen: %d"
+                    "\r\n", dataPos, dataLen) );
+
+            /* We can't give up just because its an unknown protocol,
+             * so if its a protocol we don't know, we return its integer 
+             * value and leave it to the user.
+             */
+            if (esock_encode_protocol(env, currentP->cmsg_level, &level) != NULL)
+                level = MKI(env, currentP->cmsg_level);
+
+            if (encode_cmsghdr_type(env,
+                                    currentP->cmsg_level, currentP->cmsg_type,
+                                    &type) != NULL)
+                type = MKI(env, currentP->cmsg_type);
+
+            if (encode_cmsghdr_data(env, ctrlBuf,
+                                    currentP->cmsg_level,
+                                    currentP->cmsg_type,
+                                    dataP, dataPos, dataLen,
+                                    &data) != NULL)
+                data = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+
+            SSDBG( descP,
+                   ("SOCKET", "encode_cmsghdrs -> "
+                    "\r\n   level: %T"
+                    "\r\n   type:  %T"
+                    "\r\n   data:  %T"
+                    "\r\n", level, type, data) );
+
+            /* And finally create the 'cmsghdr' map -
+             * and if successfull add it to the tarray.
+             */
+            {
+                ERL_NIF_TERM keys[]  = {esock_atom_level,
+                                        esock_atom_type,
+                                        esock_atom_data};
+                ERL_NIF_TERM vals[]  = {level, type, data};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+                ERL_NIF_TERM cmsgHdr;
+
+                /* Guard agains cut-and-paste errors */
+                ESOCK_ASSERT( (numKeys == numVals) );
+            
+                if (!MKMA(env, keys, vals, numKeys, &cmsgHdr)) {
+                    TARRAY_DELETE(cmsghdrs);
+                    return ESOCK_STR_EINVAL;
+                }
+
+                /* And finally add it to the list... */
+                TARRAY_ADD(cmsghdrs, cmsgHdr);
+            }
+        }
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "encode_cmsghdrs -> cmsg headers processed when"
+            "\r\n   TArray Size: %d"
+            "\r\n", TARRAY_SZ(cmsghdrs)) );
+
+    /* The tarray is populated - convert it to a list */
+    TARRAY_TOLIST(cmsghdrs, env, eCMsgHdr);
+
+    return NULL;
+}
+
+
+
+/* +++ encode_cmsghdr_type +++
+ *
+ * Encode the type part of the cmsghdr().
+ *
+ */
+
+static
+char* encode_cmsghdr_type(ErlNifEnv*    env,
+                          int           level,
+                          int           type,
+                          ERL_NIF_TERM* eType)
+{
+    char* xres = NULL;
+
+    switch (level) {
+    case SOL_SOCKET:
+        switch (type) {
+#if defined(SCM_RIGHTS)
+        case SCM_RIGHTS:
+            *eType = esock_atom_rights;
+            break;
+#endif
+
+#if defined(SCM_CREDENTIALS)
+        case SCM_CREDENTIALS:
+            *eType = esock_atom_credentials;
+            break;
+#endif
+
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }        
+        break;
+
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        switch (type) {
+#if defined(IP_TOS)
+        case IP_TOS:
+            *eType = esock_atom_tos;
+            break;
+#endif
+            
+#if defined(IP_TTL)
+        case IP_TTL:
+            *eType = esock_atom_ttl;
+            break;
+#endif
+            
+#if defined(IP_PKTINFO)
+        case IP_PKTINFO:
+            *eType = esock_atom_pktinfo;
+            break;
+#endif
+            
+#if defined(IP_ORIGDSTADDR)
+        case IP_ORIGDSTADDR:
+            *eType = esock_atom_origdstaddr;
+            break;
+#endif
+
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }
+        break;
+        
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        switch (type) {
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }        
+        break;
+#endif
+        
+    case IPPROTO_TCP:
+        switch (type) {
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }        
+        break;
+
+    case IPPROTO_UDP:
+        switch (type) {
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }        
+        break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        switch (type) {
+        default:
+            xres = ESOCK_STR_EINVAL;
+            break;
+        }        
+        break;
+#endif
+
+    default:
+        xres = ESOCK_STR_EINVAL;
+        break;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ encode_cmsghdr_data +++
+ *
+ * Encode the data part of the cmsghdr().
+ *
+ */
+
+static
+char* encode_cmsghdr_data(ErlNifEnv*     env,
+                          ERL_NIF_TERM   ctrlBuf,
+                          int            level,
+                          int            type,
+                          unsigned char* dataP,
+                          size_t         dataPos,
+                          size_t         dataLen,
+                          ERL_NIF_TERM*  eCMsgHdrData)
+{
+    char* xres;
+
+    switch (level) {
+        /*
+          #if defined(SOL_SOCKET)
+          case SOL_SOCKET:
+          xres = encode_cmsghdr_data_socket(env, type, dataP, eCMsgHdrData);
+          break;
+          #endif
+        */
+
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        xres = encode_cmsghdr_data_ip(env, ctrlBuf, type,
+                                      dataP, dataPos, dataLen,
+                                      eCMsgHdrData);
+        break;
+
+        /*
+          #if defined(SOL_IPV6)
+          case SOL_IPV6:
+          xres = encode_cmsghdr_data_ipv6(env, type, dataP, eCMsgHdrData);
+          break;
+          #endif
+        */
+
+        /*
+          case IPPROTO_TCP:
+          xres = encode_cmsghdr_data_tcp(env, type, dataP, eCMsgHdrData);
+          break;
+        */
+
+        /*
+          case IPPROTO_UDP:
+          xres = encode_cmsghdr_data_udp(env, type, dataP, eCMsgHdrData);
+          break;
+        */
+
+        /*
+          #if defined(HAVE_SCTP)
+          case IPPROTO_SCTP:
+          xres = encode_cmsghdr_data_sctp(env, type, dataP, eCMsgHdrData);
+          break;
+          #endif
+        */
+
+    default:
+        *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+        xres = NULL;
+        break;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ encode_cmsghdr_data_ip +++
+ *
+ * Encode the data part when protocol = IP of the cmsghdr().
+ *
+ */
+
+static
+char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
+                             ERL_NIF_TERM   ctrlBuf,
+                             int            type,
+                             unsigned char* dataP,
+                             size_t         dataPos,
+                             size_t         dataLen,
+                             ERL_NIF_TERM*  eCMsgHdrData)
+{
+    char* xres;
+
+    switch (type) {
+#if defined(IP_TOS)
+    case IP_TOS:
+        {
+            unsigned char tos = IPTOS_TOS(*dataP);
+            switch (tos) {
+            case IPTOS_LOWDELAY:
+                *eCMsgHdrData = esock_atom_lowdelay;
+                break;
+            case IPTOS_THROUGHPUT:
+                *eCMsgHdrData = esock_atom_throughput;
+                break;
+            case IPTOS_RELIABILITY:
+                *eCMsgHdrData = esock_atom_reliability;
+                break;
+            case IPTOS_MINCOST:
+                *eCMsgHdrData = esock_atom_mincost;
+                break;
+            default:
+                *eCMsgHdrData = MKUI(env, tos);
+                break;
+            }
+        }
+        break;
+#endif
+
+#if defined(IP_TTL)
+    case IP_TTL:
+        {
+            int ttl = *((int*) dataP);
+            *eCMsgHdrData = MKI(env, ttl);
+        }
+        break;
+#endif
+
+#if defined(IP_PKTINFO)
+    case IP_PKTINFO:
+        {
+            struct in_pktinfo* pktInfoP = (struct in_pktinfo*) dataP;
+            ERL_NIF_TERM       ifIndex  = MKUI(env, pktInfoP->ipi_ifindex);
+            ERL_NIF_TERM       specDst, addr;
+
+            if ((xres = esock_encode_ip4_address(env,
+                                                 &pktInfoP->ipi_spec_dst,
+                                                 &specDst)) != NULL) {
+                *eCMsgHdrData = esock_atom_undefined;
+                return xres;
+            }
+
+            if ((xres = esock_encode_ip4_address(env,
+                                                 &pktInfoP->ipi_addr,
+                                                 &addr)) != NULL) {
+                *eCMsgHdrData = esock_atom_undefined;
+                return xres;
+            }
+
+
+            {
+                ERL_NIF_TERM keys[] = {esock_atom_ifindex,
+                                       esock_atom_spec_dst,
+                                       esock_atom_addr};
+                ERL_NIF_TERM vals[] = {ifIndex, specDst, addr};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+                ESOCK_ASSERT( (numKeys == numVals) );
+                
+                if (!MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+                    *eCMsgHdrData = esock_atom_undefined;
+                    return ESOCK_STR_EINVAL;
+                }
+            }
+        }
+        break;
+#endif
+
+#if defined(IP_ORIGDSTADDR)
+    case IP_ORIGDSTADDR:
+        if ((xres = esock_encode_sockaddr_in4(env,
+                                              (struct sockaddr_in*) dataP,
+                                              dataLen,
+                                              eCMsgHdrData)) != NULL) {
+            *eCMsgHdrData = esock_atom_undefined;
+            return xres;            
+        }
+        break;
+#endif
+
+    default:
+        *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+        break;
+    }
+
+    return NULL;
+}
+
+
+
+/* +++ encode_msghdr_flags +++
+ *
+ * Encode a list of msghdr_flag().
+ *
+ * The following flags are handled: eor | trunc | ctrunc | oob | errqueue.
+ */
+
+extern
+char* encode_msghdr_flags(ErlNifEnv*        env,
+                          SocketDescriptor* descP,
+                          int               msgFlags,
+                          ERL_NIF_TERM*     flags)
+{
+    SSDBG( descP,
+           ("SOCKET", "encode_cmsghdrs_flags -> entry with"
+            "\r\n   msgFlags: %d (0x%lX)"
+            "\r\n", msgFlags, msgFlags) );
+
+    if (msgFlags == 0) {
+        *flags = MKEL(env);
+        return NULL;
+    } else {
+        SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
+
+        if ((msgFlags & MSG_EOR) == MSG_EOR)
+            TARRAY_ADD(ta, esock_atom_eor);
+    
+        if ((msgFlags & MSG_TRUNC) == MSG_TRUNC)
+            TARRAY_ADD(ta, esock_atom_trunc);
+    
+        if ((msgFlags & MSG_CTRUNC) == MSG_CTRUNC)
+            TARRAY_ADD(ta, esock_atom_ctrunc);
+    
+        if ((msgFlags & MSG_OOB) == MSG_OOB)
+            TARRAY_ADD(ta, esock_atom_oob);
+    
+        if ((msgFlags & MSG_ERRQUEUE) == MSG_ERRQUEUE)
+            TARRAY_ADD(ta, esock_atom_errqueue);
+
+        SSDBG( descP,
+               ("SOCKET", "esock_encode_cmsghdrs -> flags processed when"
+                "\r\n   TArray size: %d"
+                "\r\n", TARRAY_SZ(ta)) );
+
+        TARRAY_TOLIST(ta, env, flags);
+
+        return NULL;
+    }
+}
+
 
 
 
@@ -10761,38 +11289,24 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
     BOOLEAN_T result = FALSE;
 
     if (IS_ATOM(env, eVal)) {
-        unsigned int len;
-        char         b[sizeof(str_reliability)+1]; // Just in case...
 
-        if (!(GET_ATOM_LEN(env, eVal, &len) &&
-              (len > 0) &&
-              (len <= (sizeof(str_reliability))))) {
-            *val = -1;
-            return FALSE;
-        }
-
-        if (!GET_ATOM(env, eVal, b, sizeof(b))) {
-            *val = -1;
-            return FALSE;
-        }
-
-        if (strncmp(b, str_lowdelay, len) == 0) {
-            *val = IPTOS_LOWDELAY;
+        if (COMPARE(eVal, esock_atom_lowdelay) == 0) {
+            *val   = IPTOS_LOWDELAY;
             result = TRUE;
-        } else if (strncmp(b, str_throughput, len) == 0) {
-            *val = IPTOS_THROUGHPUT;
+        } else if (COMPARE(eVal, esock_atom_throughput) == 0) {
+            *val   = IPTOS_THROUGHPUT;
             result = TRUE;
-        } else if (strncmp(b, str_reliability, len) == 0) {
-            *val = IPTOS_RELIABILITY;
+        } else if (COMPARE(eVal, esock_atom_reliability) == 0) {
+            *val   = IPTOS_RELIABILITY;
             result = TRUE;
-        } else if (strncmp(b, str_mincost, len) == 0) {
-            *val = IPTOS_MINCOST;
+        } else if (COMPARE(eVal, esock_atom_mincost) == 0) {
+            *val   = IPTOS_MINCOST;
             result = TRUE;
         } else {
-            *val = -1;
+            *val   = -1;
             result = FALSE;
         }
-
+            
     } else if (IS_NUM(env, eVal)) {
 
         if (GET_INT(env, eVal, val)) {
@@ -11095,21 +11609,21 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 {
     ERL_NIF_TERM result;
 
-    switch (val) {
+    switch (IPTOS_TOS(val)) {
     case IPTOS_LOWDELAY:
-        result = esock_make_ok2(env, atom_lowdelay);
+        result = esock_make_ok2(env, esock_atom_lowdelay);
         break;
 
     case IPTOS_THROUGHPUT:
-        result = esock_make_ok2(env, atom_throughput);
+        result = esock_make_ok2(env, esock_atom_throughput);
         break;
 
     case IPTOS_RELIABILITY:
-        result = esock_make_ok2(env, atom_reliability);
+        result = esock_make_ok2(env, esock_atom_reliability);
         break;
 
     case IPTOS_MINCOST:
-        result = esock_make_ok2(env, atom_mincost);
+        result = esock_make_ok2(env, esock_atom_mincost);
         break;
 
     default:
@@ -12415,55 +12929,63 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_want                = MKA(env, str_want);
 
     /* Global atom(s) */
-    esock_atom_addr      = MKA(env, "addr");
-    esock_atom_any       = MKA(env, "any");
-    esock_atom_ctrl      = MKA(env, "ctrl");
-    esock_atom_ctrunc    = MKA(env, "ctrunc");
-    esock_atom_data      = MKA(env, "data");
-    esock_atom_debug     = MKA(env, "debug");
-    esock_atom_dgram     = MKA(env, "dgram");
-    esock_atom_eor       = MKA(env, "eor");
-    esock_atom_error     = MKA(env, "error");
-    esock_atom_errqueue  = MKA(env, "errqueue");
-    esock_atom_false     = MKA(env, "false");
-    esock_atom_family    = MKA(env, "family");
-    esock_atom_flags     = MKA(env, "flags");
-    esock_atom_flowinfo  = MKA(env, "flowinfo");
-    esock_atom_inet      = MKA(env, "inet");
-    esock_atom_inet6     = MKA(env, "inet6");
-    esock_atom_iov       = MKA(env, "iov");
-    esock_atom_ip        = MKA(env, "ip");
-    esock_atom_ipv6      = MKA(env, "ipv6");
-    esock_atom_level     = MKA(env, "level");
-    esock_atom_local     = MKA(env, "local");
-    esock_atom_loopback  = MKA(env, "loopback");
-    esock_atom_ok        = MKA(env, "ok");
-    esock_atom_path      = MKA(env, "path");
-    esock_atom_port      = MKA(env, "port");
-    esock_atom_protocol  = MKA(env, "protocol");
-    esock_atom_raw       = MKA(env, "raw");
-    esock_atom_rdm       = MKA(env, "rdm");
-    esock_atom_scope_id  = MKA(env, "scope_id");
-    esock_atom_sctp      = MKA(env, "sctp");
-    esock_atom_seqpacket = MKA(env, "seqpacket");
-    esock_atom_stream    = MKA(env, "stream");
-    esock_atom_tcp       = MKA(env, "tcp");
-    esock_atom_true      = MKA(env, "true");
-    esock_atom_trunc     = MKA(env, "trunc");
-    esock_atom_type      = MKA(env, "type");
-    esock_atom_udp       = MKA(env, "udp");
-    esock_atom_undefined = MKA(env, "undefined");
-    esock_atom_unknown   = MKA(env, "unknown");
+    esock_atom_addr        = MKA(env, "addr");
+    esock_atom_any         = MKA(env, "any");
+    esock_atom_credentials = MKA(env, "credentials");
+    esock_atom_ctrl        = MKA(env, "ctrl");
+    esock_atom_ctrunc      = MKA(env, "ctrunc");
+    esock_atom_data        = MKA(env, "data");
+    esock_atom_debug       = MKA(env, "debug");
+    esock_atom_dgram       = MKA(env, "dgram");
+    esock_atom_eor         = MKA(env, "eor");
+    esock_atom_error       = MKA(env, "error");
+    esock_atom_errqueue    = MKA(env, "errqueue");
+    esock_atom_false       = MKA(env, "false");
+    esock_atom_family      = MKA(env, "family");
+    esock_atom_flags       = MKA(env, "flags");
+    esock_atom_flowinfo    = MKA(env, "flowinfo");
+    esock_atom_ifindex     = MKA(env, "ifindex");
+    esock_atom_inet        = MKA(env, "inet");
+    esock_atom_inet6       = MKA(env, "inet6");
+    esock_atom_iov         = MKA(env, "iov");
+    esock_atom_ip          = MKA(env, "ip");
+    esock_atom_ipv6        = MKA(env, "ipv6");
+    esock_atom_level       = MKA(env, "level");
+    esock_atom_local       = MKA(env, "local");
+    esock_atom_loopback    = MKA(env, "loopback");
+    esock_atom_lowdelay    = MKA(env, "lowdelay");
+    esock_atom_mincost     = MKA(env, "mincost");
+    esock_atom_ok          = MKA(env, "ok");
+    esock_atom_oob         = MKA(env, "oob");
+    esock_atom_origdstaddr = MKA(env, "origdstaddr");
+    esock_atom_path        = MKA(env, "path");
+    esock_atom_pktinfo     = MKA(env, "pktinfo");
+    esock_atom_port        = MKA(env, "port");
+    esock_atom_protocol    = MKA(env, "protocol");
+    esock_atom_raw         = MKA(env, "raw");
+    esock_atom_rdm         = MKA(env, "rdm");
+    esock_atom_reliability = MKA(env, "reliability");
+    esock_atom_rights      = MKA(env, "rights");
+    esock_atom_scope_id    = MKA(env, "scope_id");
+    esock_atom_sctp        = MKA(env, "sctp");
+    esock_atom_seqpacket   = MKA(env, "seqpacket");
+    esock_atom_spec_dst    = MKA(env, "spec_dst");
+    esock_atom_stream      = MKA(env, "stream");
+    esock_atom_tcp         = MKA(env, "tcp");
+    esock_atom_throughput  = MKA(env, "throughput");
+    esock_atom_tos         = MKA(env, "tos");
+    esock_atom_true        = MKA(env, "true");
+    esock_atom_trunc       = MKA(env, "trunc");
+    esock_atom_ttl         = MKA(env, "ttl");
+    esock_atom_type        = MKA(env, "type");
+    esock_atom_udp         = MKA(env, "udp");
+    esock_atom_undefined   = MKA(env, "undefined");
+    esock_atom_unknown     = MKA(env, "unknown");
 
     /* Global error codes */
     esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);
     esock_atom_eagain       = MKA(env, ESOCK_STR_EAGAIN);
     esock_atom_einval       = MKA(env, ESOCK_STR_EINVAL);
-
-    atom_lowdelay     = MKA(env, str_lowdelay);
-    atom_throughput   = MKA(env, str_throughput);
-    atom_reliability  = MKA(env, str_reliability);
-    atom_mincost      = MKA(env, str_mincost);
 
     /* Error codes */
     atom_eisconn      = MKA(env, str_eisconn);

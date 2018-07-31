@@ -720,10 +720,18 @@ handler_init(Manager, ID, Msg, Peek, Sock) ->
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
 
-            ok = soip(Sock, pktinfo,  true),
+            SIP = 
+                fun(O, V) ->
+                        if 
+                            (Type =:= dgram) -> 
+                                ok = soip(Sock, O,  V);
+                            true ->
+                                ok
+                        end
+                end,
             ok = soip(Sock, recvtos,  true),
-            ok = soip(Sock, recvttl,  true),
-            %% ok = soip(Sock, recvopts, true),
+            SIP(recvttl,  true),
+            ok = soip(Sock, recvorigdstaddr,  true),
 
             handler_loop(#handler{msg     = Msg,
                                   peek    = Peek,
@@ -786,13 +794,13 @@ recv(#handler{peek = true, socket = Sock, type = stream}) ->
 recv(#handler{peek = false, socket = Sock, type = stream}) ->
     do_recv(Sock);
 recv(#handler{socket = Sock, msg = true, type = dgram}) ->
-    ok = socket:setopt(Sock, otp, debug, true),
+    %% ok = socket:setopt(Sock, otp, debug, true),
     case socket:recvmsg(Sock) of
         {ok, #{addr  := Source,
                iov   := [Data],
                ctrl  := CMsgHdrs,
                flags := Flags}} ->
-            ok = socket:setopt(Sock, otp, debug, false),
+            %% ok = socket:setopt(Sock, otp, debug, false),
             i("received message: "
               "~n   CMsgHdrs: ~p"
               "~n   Flags:    ~p", [CMsgHdrs, Flags]),

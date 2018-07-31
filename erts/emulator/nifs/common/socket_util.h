@@ -36,29 +36,12 @@
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
 
 extern
-char* esock_encode_msghdr(ErlNifEnv*     env,
-                          int            read,
-                          struct msghdr* msgHdrP,
-                          ErlNifBinary*  dataBufP,
-                          ErlNifBinary*  ctrlBufP,
-                          ERL_NIF_TERM*  eSockAddr);
-extern
 char* esock_encode_iov(ErlNifEnv*    env,
                        int           read,
                        struct iovec* iov,
                        size_t        len,
                        ErlNifBinary* data,
                        ERL_NIF_TERM* eIOV);
-extern
-char* esock_encode_cmsghdrs(ErlNifEnv*     env,
-                            ErlNifBinary*  cmsgBinP,
-                            struct msghdr* msgHdrP,
-                            ERL_NIF_TERM*  eCMsgHdr);
-
-extern
-char* esock_encode_mshghdr_flags(ErlNifEnv*    env,
-                                 int           msgFlags,
-                                 ERL_NIF_TERM* flags);
 extern
 char* esock_decode_sockaddr(ErlNifEnv*     env,
                             ERL_NIF_TERM   eSockAddr,
