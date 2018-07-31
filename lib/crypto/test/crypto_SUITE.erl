@@ -77,6 +77,7 @@ groups() ->
                      {group, aes_ctr},
 		     {group, aes_gcm},
 		     {group, chacha20_poly1305},
+		     {group, chacha20},
                      {group, poly1305},
 		     {group, aes_cbc}]},
      {fips, [], [{group, no_md4},
@@ -113,6 +114,7 @@ groups() ->
                  {group, aes_ctr},
 		 {group, aes_gcm},
 		 {group, no_chacha20_poly1305},
+		 {group, no_chacha20},
 		 {group, aes_cbc}]},
      {md4, [], [hash]},
      {md5, [], [hash, hmac]},
@@ -158,6 +160,7 @@ groups() ->
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
+     {chacha20, [], [stream]},
      {poly1305, [], [poly1305]},
      {aes_cbc, [], [block]},
      {no_md4, [], [no_support, no_hash]},
@@ -172,6 +175,7 @@ groups() ->
      {no_blowfish_ofb64, [], [no_support, no_block]},
      {no_aes_ige256, [], [no_support, no_block]},
      {no_chacha20_poly1305, [], [no_support, no_aead]},
+     {no_chacha20, [], [no_support, no_stream_ivec]},
      {no_rc2_cbc, [], [no_support, no_block]},
      {no_rc4, [], [no_support, no_stream]},
      {api_errors, [], [api_errors_ecdh]}
@@ -434,6 +438,13 @@ no_stream() ->
 no_stream(Config) when is_list(Config) ->
     Type = ?config(type, Config),
     notsup(fun crypto:stream_init/2, [Type, <<"Key">>]).
+
+%%--------------------------------------------------------------------
+no_stream_ivec() ->
+      [{doc, "Test disabled stream ciphers that uses ivec"}].
+no_stream_ivec(Config) when is_list(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:stream_init/2, [Type, <<"Key">>, <<"Ivec">>]).
 
 %%--------------------------------------------------------------------
 aead() ->
@@ -773,16 +784,33 @@ stream_cipher({Type, Key, IV, PlainText}) ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other}})
+    end;
+stream_cipher({Type, Key, IV, PlainText, CipherText}) ->
+    Plain = iolist_to_binary(PlainText),
+    State = crypto:stream_init(Type, Key, IV),
+    case crypto:stream_encrypt(State, PlainText) of
+        {_, CipherText} ->
+            ok;
+        {_, Other0} ->
+            ct:fail({{crypto, stream_encrypt, [State, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
+    end,
+    case crypto:stream_decrypt(State, CipherText) of
+        {_, Plain} ->
+            ok;
+        Other1 ->
+            ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other1}})
     end.
 
 stream_cipher_incment({Type, Key, PlainTexts}) ->
     State = crypto:stream_init(Type, Key),
-    stream_cipher_incment(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
 stream_cipher_incment({Type, Key, IV, PlainTexts}) ->
     State = crypto:stream_init(Type, Key, IV),
-    stream_cipher_incment(State, State, PlainTexts, [], iolist_to_binary(PlainTexts)).
+    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+stream_cipher_incment({Type, Key, IV, PlainTexts, _CipherText}) ->
+    stream_cipher_incment({Type, Key, IV, PlainTexts}).
 
-stream_cipher_incment(_State, OrigState, [], Acc, Plain) ->
+stream_cipher_incment_loop(_State, OrigState, [], Acc, Plain) ->
     CipherText = iolist_to_binary(lists:reverse(Acc)),
     case crypto:stream_decrypt(OrigState, CipherText) of
 	{_, Plain} ->
@@ -790,9 +818,9 @@ stream_cipher_incment(_State, OrigState, [], Acc, Plain) ->
 	Other ->
 	    ct:fail({{crypto, stream_decrypt, [OrigState, CipherText]}, {expected, Plain}, {got, Other}})
     end;
-stream_cipher_incment(State0, OrigState, [PlainText | PlainTexts], Acc, Plain) ->
+stream_cipher_incment_loop(State0, OrigState, [PlainText | PlainTexts], Acc, Plain) ->
     {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
-    stream_cipher_incment(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
+    stream_cipher_incment_loop(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
 
 aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
     Plain = iolist_to_binary(PlainText),
@@ -1043,7 +1071,9 @@ do_cmac_iolistify({Type, Key, Text, Size, CMac}) ->
 do_stream_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
 do_stream_iolistify({Type, Key, IV, PlainText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText)}.
+    {Type, iolistify(Key), IV, iolistify(PlainText)};
+do_stream_iolistify({Type, Key, IV, PlainText, CipherText}) ->
+    {Type, iolistify(Key), IV, iolistify(PlainText), CipherText}.
 
 do_block_iolistify({des_cbc = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
@@ -1448,6 +1478,9 @@ group_config(aes_gcm, Config) ->
 group_config(chacha20_poly1305, Config) ->
     AEAD = chacha20_poly1305(),
     [{aead, AEAD} | Config];
+group_config(chacha20, Config) ->
+    Stream = chacha20(),
+    [{stream, Stream} | Config];
 group_config(poly1305, Config) ->
     V = [%% {Key, Txt, Expect}
          {%% RFC7539 2.5.2
@@ -2094,6 +2127,7 @@ aes_gcm(Config) ->
              "gcmEncryptExtIV192.rsp",
              "gcmEncryptExtIV256.rsp"]).
 
+
 %% https://tools.ietf.org/html/rfc7539#appendix-A.5
 chacha20_poly1305() ->
     [
@@ -2138,6 +2172,103 @@ chacha20_poly1305() ->
       "a6ad5cb4022b02709b"),
       hexstr2bin("eead9d67890cbb22392336fea1851f38")}                    %% CipherTag
     ].
+
+
+chacha20() ->
+%%% chacha20 (no mode) test vectors from RFC 7539 A.2
+    [
+     %% Test Vector #1:
+     {chacha20,
+      hexstr2bin("00000000000000000000000000000000"
+                 "00000000000000000000000000000000"),                    %% Key
+      hexstr2bin("00000000" % Initial counter = 0, little-endian
+                 "000000000000000000000000"),                            %% IV
+      hexstr2bin("00000000000000000000000000000000"                      %% PlainText
+                 "00000000000000000000000000000000"
+                 "00000000000000000000000000000000"
+                 "00000000000000000000000000000000"),
+      hexstr2bin("76b8e0ada0f13d90405d6ae55386bd28"                      %% CipherText
+                 "bdd219b8a08ded1aa836efcc8b770dc7"
+                 "da41597c5157488d7724e03fb8d84a37"
+                 "6a43b8f41518a11cc387b669b2ee6586")},
+     %% Test Vector #2:
+     {chacha20,
+      hexstr2bin("00000000000000000000000000000000"
+                 "00000000000000000000000000000001"),                    %% Key
+      hexstr2bin("01000000" % Initial counter = 1, little-endian
+                 "000000000000000000000002"),                            %% IV
+      hexstr2bin("416e79207375626d697373696f6e2074"                      %% PlainText
+                 "6f20746865204945544620696e74656e"
+                 "6465642062792074686520436f6e7472"
+                 "696275746f7220666f72207075626c69"
+                 "636174696f6e20617320616c6c206f72"
+                 "2070617274206f6620616e2049455446"
+                 "20496e7465726e65742d447261667420"
+                 "6f722052464320616e6420616e792073"
+                 "746174656d656e74206d616465207769"
+                 "7468696e2074686520636f6e74657874"
+                 "206f6620616e20494554462061637469"
+                 "7669747920697320636f6e7369646572"
+                 "656420616e20224945544620436f6e74"
+                 "7269627574696f6e222e205375636820"
+                 "73746174656d656e747320696e636c75"
+                 "6465206f72616c2073746174656d656e"
+                 "747320696e2049455446207365737369"
+                 "6f6e732c2061732077656c6c20617320"
+                 "7772697474656e20616e6420656c6563"
+                 "74726f6e696320636f6d6d756e696361"
+                 "74696f6e73206d61646520617420616e"
+                 "792074696d65206f7220706c6163652c"
+                 "20776869636820617265206164647265"
+                 "7373656420746f"),
+      hexstr2bin("a3fbf07df3fa2fde4f376ca23e827370"                      %% CipherText
+                 "41605d9f4f4f57bd8cff2c1d4b7955ec"
+                 "2a97948bd3722915c8f3d337f7d37005"
+                 "0e9e96d647b7c39f56e031ca5eb6250d"
+                 "4042e02785ececfa4b4bb5e8ead0440e"
+                 "20b6e8db09d881a7c6132f420e527950"
+                 "42bdfa7773d8a9051447b3291ce1411c"
+                 "680465552aa6c405b7764d5e87bea85a"
+                 "d00f8449ed8f72d0d662ab052691ca66"
+                 "424bc86d2df80ea41f43abf937d3259d"
+                 "c4b2d0dfb48a6c9139ddd7f76966e928"
+                 "e635553ba76c5c879d7b35d49eb2e62b"
+                 "0871cdac638939e25e8a1e0ef9d5280f"
+                 "a8ca328b351c3c765989cbcf3daa8b6c"
+                 "cc3aaf9f3979c92b3720fc88dc95ed84"
+                 "a1be059c6499b9fda236e7e818b04b0b"
+                 "c39c1e876b193bfe5569753f88128cc0"
+                 "8aaa9b63d1a16f80ef2554d7189c411f"
+                 "5869ca52c5b83fa36ff216b9c1d30062"
+                 "bebcfd2dc5bce0911934fda79a86f6e6"
+                 "98ced759c3ff9b6477338f3da4f9cd85"
+                 "14ea9982ccafb341b2384dd902f3d1ab"
+                 "7ac61dd29c6f21ba5b862f3730e37cfd"
+                 "c4fd806c22f221")},
+     %%Test Vector #3:
+     {chacha20,
+      hexstr2bin("1c9240a5eb55d38af333888604f6b5f0"
+                 "473917c1402b80099dca5cbc207075c0"),                    %% Key
+      hexstr2bin("2a000000" % Initial counter = 42 (decimal), little-endian
+                 "000000000000000000000002"),                            %% IV
+      hexstr2bin("2754776173206272696c6c69672c2061"                      %% PlainText
+                 "6e642074686520736c6974687920746f"
+                 "7665730a446964206779726520616e64"
+                 "2067696d626c6520696e207468652077"
+                 "6162653a0a416c6c206d696d73792077"
+                 "6572652074686520626f726f676f7665"
+                 "732c0a416e6420746865206d6f6d6520"
+                 "7261746873206f757467726162652e"),
+      hexstr2bin("62e6347f95ed87a45ffae7426f27a1df"                      %% CipherText
+                 "5fb69110044c0d73118effa95b01e5cf"
+                 "166d3df2d721caf9b21e5fb14c616871"
+                 "fd84c54f9d65b283196c7fe4f60553eb"
+                 "f39c6402c42234e32a356b3e764312a6"
+                 "1a5532055716ead6962568f87d3f3f77"
+                 "04c6a8d1bcd1bf4d50d6154b6da731b1"
+                 "87b58dfd728afa36757a797ac188d1")}
+    ].
+
 
 rsa_plain() ->
     <<"7896345786348756234 Hejsan Svejsan, erlang crypto debugger"
