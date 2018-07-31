@@ -40,7 +40,7 @@
  * should use the compile debug flag, whatever that is...
  */
 
-// #define COMPILE_DEBUG_FLAG_WE_NEED_TO_CHECK 1
+#define COMPILE_DEBUG_FLAG_WE_NEED_TO_CHECK 1
 #if defined(COMPILE_DEBUG_FLAG_WE_NEED_TO_CHECK)
 #define UTIL_DEBUG TRUE
 #else
@@ -85,11 +85,16 @@ extern
 char* esock_encode_msghdr(ErlNifEnv*     env,
                           int            read,
                           struct msghdr* msgHdrP,
+                          ErlNifBinary*  dataBufP,
                           ErlNifBinary*  ctrlBufP,
                           ERL_NIF_TERM*  eSockAddr)
 {
     char*        xres;
     ERL_NIF_TERM addr, iov, ctrl, flags;
+
+    UDBG( ("SUTIL", "esock_encode_msghdr -> entry with"
+           "\r\n   read: %d"
+           "\r\n", read) );
 
     if ((xres = esock_encode_sockaddr(env,
                                       (SocketAddress*) msgHdrP->msg_name,
@@ -97,40 +102,58 @@ char* esock_encode_msghdr(ErlNifEnv*     env,
                                       &addr)) != NULL)
         return xres;
 
+    UDBG( ("SUTIL", "esock_encode_msghdr -> try encode iov\r\n") );
     if ((xres = esock_encode_iov(env,
                                  read,
                                  msgHdrP->msg_iov,
                                  msgHdrP->msg_iovlen,
+                                 dataBufP,
                                  &iov)) != NULL)
         return xres;
 
+    UDBG( ("SUTIL", "esock_encode_msghdr -> try encode cmsghdrs\r\n") );
     if ((xres = esock_encode_cmsghdrs(env,
                                       ctrlBufP,
                                       msgHdrP,
                                       &ctrl)) != NULL)
         return xres;
 
+    UDBG( ("SUTIL", "esock_encode_msghdr -> try encode flags\r\n") );
     if ((xres = esock_encode_mshghdr_flags(env,
                                            msgHdrP->msg_flags,
                                            &flags)) != NULL)
         return xres;
 
+    UDBG( ("SUTIL", "esock_encode_msghdr -> components encoded:"
+           "\r\n   addr:  %T"
+           "\r\n   iov:   %T"
+           "\r\n   ctrl:  %T"
+           "\r\n   flags: %T"
+           "\r\n", addr, iov, ctrl, flags) );
     {
-        ERL_NIF_TERM keys[] = {esock_atom_addr,
-                               esock_atom_iov,
-                               esock_atom_ctrl,
-                               esock_atom_flags};
-        ERL_NIF_TERM vals[] = {addr, iov, ctrl, flags};
-        
+        ERL_NIF_TERM keys[]  = {esock_atom_addr,
+                                esock_atom_iov,
+                                esock_atom_ctrl,
+                                esock_atom_flags};
+        ERL_NIF_TERM vals[]  = {addr, iov, ctrl, flags};
         unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
         unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM tmp;
         
         ESOCK_ASSERT( (numKeys == numVals) );
         
-        if (!MKMA(env, keys, vals, numKeys, eSockAddr))
+        UDBG( ("SUTIL", "esock_encode_msghdr -> create msghdr map\r\n") );
+        if (!MKMA(env, keys, vals, numKeys, &tmp))
             return ESOCK_STR_EINVAL;
 
+        UDBG( ("SUTIL", "esock_encode_msghdr -> msghdr: "
+               "\r\n   %T"
+               "\r\n", tmp) );
+
+        *eSockAddr = tmp;
     }
+
+    UDBG( ("SUTIL", "esock_encode_msghdr -> done\r\n") );
 
     return NULL;
 }
@@ -153,6 +176,7 @@ char* esock_encode_iov(ErlNifEnv*    env,
                        int           read,
                        struct iovec* iov,
                        size_t        len,
+                       ErlNifBinary* data,
                        ERL_NIF_TERM* eIOV)
 {
     int          rem = read;
@@ -160,28 +184,51 @@ char* esock_encode_iov(ErlNifEnv*    env,
     BOOLEAN_T    done = FALSE;
     ERL_NIF_TERM a[len]; // At most this length
 
+    UDBG( ("SUTIL", "esock_encode_iov -> entry with"
+           "\r\n   read:      %d"
+           "\r\n   (IOV) len: %d"
+           "\r\n", read, len) );
+
     if (len == 0) {
         *eIOV = MKEL(env);
         return NULL;
     }
 
     for (i = 0; (!done) && (i < len); i++) {
+        UDBG( ("SUTIL", "esock_encode_iov -> process iov:"
+               "\r\n   iov[%d].iov_len: %d"
+               "\r\n   rem:            %d"
+               "\r\n", i, iov[i].iov_len, rem) );
         if (iov[i].iov_len == rem) {
             /* We have the exact amount - we are done */
-            a[i] = MKBIN(env, iov[i].iov_base);
+            UDBG( ("SUTIL", "esock_encode_iov -> exact => done\r\n") );
+            a[i] = MKBIN(env, &data[i]);
+            UDBG( ("SUTIL", "esock_encode_iov -> a[%d]: %T\r\n", i, a[i]) );
+            rem = 0; // Besserwisser
             done = TRUE;
         } else if (iov[i].iov_len < rem) {
             /* Filled another buffer - continue */
-            a[i] = MKBIN(env, iov[i].iov_base);            
+            UDBG( ("SUTIL", "esock_encode_iov -> filled => continue\r\n") );
+            a[i] = MKBIN(env, &data[i]);
+            rem -= iov[i].iov_len;
+            UDBG( ("SUTIL", "esock_encode_iov -> a[%d]: %T\r\n", i, a[i]) );
         } else if (iov[i].iov_len > rem) {
             /* Partly filled buffer (=> split) - we are done */
-            a[i] = MKBIN(env, iov[i].iov_base);
-            a[i] = MKSBIN(env, a[i], 0, rem);            
+            ERL_NIF_TERM tmp;
+            UDBG( ("SUTIL", "esock_encode_iov -> split => done\r\n") );
+            tmp  = MKBIN(env, &data[i]);
+            a[i] = MKSBIN(env, tmp, 0, rem);
+            UDBG( ("SUTIL", "esock_encode_iov -> a[%d]: %T\r\n", i, a[i]) );
+            rem = 0; // Besserwisser
             done = TRUE;
         }
     }
 
-    *eIOV = MKLA(env, a, i+1);
+    UDBG( ("SUTIL", "esock_encode_iov -> create the IOV list (%d)\r\n", i) );
+
+    *eIOV = MKLA(env, a, i);
+
+    UDBG( ("SUTIL", "esock_encode_msghdr -> done\r\n") );
 
     return NULL;
 }
@@ -201,11 +248,11 @@ char* esock_encode_iov(ErlNifEnv*    env,
  * term (which can then in turn be turned into sub-binaries).
  *
  * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
- * to create sub-binaries (one for each HDR).
+ * to create sub-binaries (one for each cmsg hdr).
  *
- * The TArray is created with the size of 128, which should be enough.
- * But if its not, then it will be automatically realloc'ed during add.
- * Once we are done adding hdr's to it, we convert it to a list.
+ * The TArray (term array) is created with the size of 128, which should
+ * be enough. But if its not, then it will be automatically realloc'ed during
+ * add. Once we are done adding hdr's to it, we convert the tarray to a list.
  */
 
 extern
@@ -219,9 +266,15 @@ char* esock_encode_cmsghdrs(ErlNifEnv*     env,
     struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
     struct cmsghdr* currentP;
     
+    UDBG( ("SUTIL", "esock_encode_cmsghdrs -> entry\r\n") );
+
     for (currentP = firstP;
          currentP != NULL;
          currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
+
+        UDBG( ("SUTIL", "esock_encode_cmsghdrs -> process cmsg header when"
+               "\r\n   TArray Size: %d"
+               "\r\n", TARRAY_SZ(cmsghdrs)) );
 
         /* MUST check this since on Linux the returned "cmsg" may actually
          * go too far!
@@ -247,6 +300,11 @@ char* esock_encode_cmsghdrs(ErlNifEnv*     env,
              */
             if (esock_encode_protocol(env, currentP->cmsg_level, &level) != NULL)
                 level = MKI(env, currentP->cmsg_level);
+
+            UDBG( ("SUTIL", "esock_encode_cmsghdrs -> "
+                   "\r\n   level: %T"
+                   "\r\n   type:  %T"
+                   "\r\n", level, type) );
 
             /* And finally create the 'cmsghdr' map -
              * and if successfull add it to the tarray.
@@ -274,6 +332,10 @@ char* esock_encode_cmsghdrs(ErlNifEnv*     env,
         }
     }
 
+    UDBG( ("SUTIL", "esock_encode_cmsghdrs -> cmsg headers processed when"
+           "\r\n   TArray Size: %d"
+           "\r\n", TARRAY_SZ(cmsghdrs)) );
+
     /* The tarray is populated - convert it to a list */
     TARRAY_TOLIST(cmsghdrs, env, eCMsgHdr);
 
@@ -294,6 +356,10 @@ char* esock_encode_mshghdr_flags(ErlNifEnv*    env,
                                  int           msgFlags,
                                  ERL_NIF_TERM* flags)
 {
+    UDBG( ("SUTIL", "esock_encode_cmsghdrs -> entry with"
+           "\r\n   msgFlags: %d (0x%lX)"
+           "\r\n", msgFlags, msgFlags) );
+
     if (msgFlags == 0) {
         *flags = MKEL(env);
         return NULL;
@@ -314,6 +380,10 @@ char* esock_encode_mshghdr_flags(ErlNifEnv*    env,
     
         if ((msgFlags & MSG_ERRQUEUE) == MSG_ERRQUEUE)
             TARRAY_ADD(ta, esock_atom_errqueue);
+
+        UDBG( ("SUTIL", "esock_encode_cmsghdrs -> flags processed when"
+               "\r\n   TArray size: %d"
+               "\r\n", TARRAY_SZ(ta)) );
 
         TARRAY_TOLIST(ta, env, flags);
 

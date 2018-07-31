@@ -39,6 +39,7 @@ extern
 char* esock_encode_msghdr(ErlNifEnv*     env,
                           int            read,
                           struct msghdr* msgHdrP,
+                          ErlNifBinary*  dataBufP,
                           ErlNifBinary*  ctrlBufP,
                           ERL_NIF_TERM*  eSockAddr);
 extern
@@ -46,6 +47,7 @@ char* esock_encode_iov(ErlNifEnv*    env,
                        int           read,
                        struct iovec* iov,
                        size_t        len,
+                       ErlNifBinary* data,
                        ERL_NIF_TERM* eIOV);
 extern
 char* esock_encode_cmsghdrs(ErlNifEnv*     env,

@@ -33,7 +33,7 @@
 
 -record(manager,  {socket, peek, acceptors, handler_id, handlers}).
 -record(acceptor, {id, socket, manager}).
--record(handler,  {socket, peek, type, manager}).
+-record(handler,  {socket, peek, msg, type, manager}).
 
 -define(NUM_ACCEPTORS, 5).
 
@@ -179,7 +179,7 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
                    {ok, Name} -> f("~p", [Name]);
                    {error, R} -> f("error: ~p", [R])
                end]),
-            case handler_start(1, Sock, Peek) of
+            case handler_start(1, true, Sock, Peek) of
                 {ok, {Pid, MRef}} ->
                     i("handler (~p) started", [Pid]),
                     handler_continue(Pid),
@@ -405,7 +405,7 @@ manager_handle_request(#manager{peek       = Peek,
                                 handlers   = Handlers} = M, Pid, Ref,
                        {start_handler, Sock}) ->
     i("try start handler (~w)", [HID]),
-    case handler_start(HID, Sock, Peek) of
+    case handler_start(HID, false, Sock, Peek) of
         {ok, {HPid, HMRef}} ->
             i("handler ~w started", [HID]),
             manager_reply(Pid, Ref, {ok, HPid}),
@@ -564,10 +564,10 @@ acceptor_handle_accept_success(#acceptor{manager = Manager}, Sock) ->
 
 %% =========================================================================
 
-handler_start(ID, Sock, Peek) ->
+handler_start(ID, Msg, Sock, Peek) ->
     Self = self(),
     H = {Pid, _} = spawn_monitor(fun() ->
-                                         handler_init(Self, ID, Peek, Sock)
+                                         handler_init(Self, ID, Msg, Peek, Sock)
                                  end),
     receive
         {handler, Pid, ok} ->
@@ -591,7 +591,7 @@ handler_reply(Pid, Ref, Reply) ->
     ?LIB:reply(handler, Pid, Ref, Reply).
 
 
-handler_init(Manager, ID, Peek, Sock) ->
+handler_init(Manager, ID, Msg, Peek, Sock) ->
     put(sname, f("handler:~w", [ID])),
     i("starting"),
     Manager ! {handler, self(), ok},
@@ -720,20 +720,26 @@ handler_init(Manager, ID, Peek, Sock) ->
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
 
-            handler_loop(#handler{peek    = Peek,
+            ok = soip(Sock, pktinfo,  true),
+            ok = soip(Sock, recvtos,  true),
+            ok = soip(Sock, recvttl,  true),
+            %% ok = soip(Sock, recvopts, true),
+
+            handler_loop(#handler{msg     = Msg,
+                                  peek    = Peek,
                                   manager = Manager,
                                   type    = Type,
                                   socket  = Sock})
     end.
 
-%% so(Sock, Lvl, Opt, Val) ->
-%%     ok = socket:setopt(Sock, Lvl, Opt, Val).
+so(Sock, Lvl, Opt, Val) ->
+    ok = socket:setopt(Sock, Lvl, Opt, Val).
 
 %% soso(Sock, Opt, Val) ->
 %%     so(Sock, socket, Opt, Val).
 
-%% soip(Sock, Opt, Val) ->
-%%     so(Sock, ip, Opt, Val).
+soip(Sock, Opt, Val) ->
+    so(Sock, ip, Opt, Val).
 
 %% soipv6(Sock, Opt, Val) ->
 %%     so(Sock, ipv6, Opt, Val).
@@ -779,6 +785,23 @@ recv(#handler{peek = true, socket = Sock, type = stream}) ->
     peek_recv(Sock);
 recv(#handler{peek = false, socket = Sock, type = stream}) ->
     do_recv(Sock);
+recv(#handler{socket = Sock, msg = true, type = dgram}) ->
+    ok = socket:setopt(Sock, otp, debug, true),
+    case socket:recvmsg(Sock) of
+        {ok, #{addr  := Source,
+               iov   := [Data],
+               ctrl  := CMsgHdrs,
+               flags := Flags}} ->
+            ok = socket:setopt(Sock, otp, debug, false),
+            i("received message: "
+              "~n   CMsgHdrs: ~p"
+              "~n   Flags:    ~p", [CMsgHdrs, Flags]),
+            {ok, {Source, Data}};
+        {ok, X} ->
+            {error, {unexpected, X}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
 recv(#handler{peek = Peek, socket = Sock, type = dgram})
   when (Peek =:= true) ->
     %% ok  = socket:setopt(Sock, otp, debug, true),

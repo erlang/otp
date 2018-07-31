@@ -1875,6 +1875,7 @@ static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                                          int               read,
                                          int               saveErrno,
                                          struct msghdr*    msgHdrP,
+                                         ErlNifBinary*     dataBufP,
                                          ErlNifBinary*     ctrlBufP,
                                          ERL_NIF_TERM      recvRef);
 
@@ -4102,7 +4103,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 4) ||
+    if ((argc != 5) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
         !GET_UINT(env, argv[2], &bufSz) ||
         !GET_UINT(env, argv[3], &ctrlSz) ||
@@ -4170,14 +4171,15 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
     unsigned int  addrLen;
     ssize_t       read;
     int           save_errno;
-    ErlNifBinary  buf, ctrl;
     int           bufSz  = (bufLen  ? bufLen  : descP->rBufSz);
     int           ctrlSz = (ctrlLen ? ctrlLen : descP->rCtrlSz);
     struct msghdr msgHdr;
-    struct iovec  iov[1]; // Shall we always use 1?
+    struct iovec  iov[1];  // Shall we always use 1?
+    ErlNifBinary  data[1]; // Shall we always use 1?
+    ErlNifBinary  ctrl;
     SocketAddress addr;
 
-    SSDBG( descP, ("SOCKET", "nrecvfrom -> entry with"
+    SSDBG( descP, ("SOCKET", "nrecvmsg -> entry with"
                    "\r\n   bufSz:  %d (%d)"
                    "\r\n   ctrlSz: %d (%d)"
                    "\r\n   flags:  %d"
@@ -4197,7 +4199,7 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
     
     /* Allocate the (msg) data buffer:
      */
-    if (!ALLOC_BIN(bufSz, &buf))
+    if (!ALLOC_BIN(bufSz, &data[0]))
         return esock_make_error(env, atom_exalloc);
 
     /* Allocate the ctrl (buffer):
@@ -4214,8 +4216,8 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
     sys_memzero((char*) &addr,   addrLen);
     sys_memzero((char*) &msgHdr, sizeof(msgHdr));
 
-    iov[0].iov_base = buf.data;
-    iov[0].iov_len  = buf.size;
+    iov[0].iov_base = data[0].data;
+    iov[0].iov_len  = data[0].size;
         
     msgHdr.msg_name       = &addr;
     msgHdr.msg_namelen    = addrLen;
@@ -4234,7 +4236,8 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
                                 read,
                                 save_errno,
                                 &msgHdr,
-                                &ctrl, // Needed for ctrl header decode
+                                data,  // Needed for iov encode
+                                &ctrl, // Needed for ctrl header encode
                                 recvRef);
 }
 
@@ -10598,6 +10601,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                                   int               read,
                                   int               saveErrno,
                                   struct msghdr*    msgHdrP,
+                                  ErlNifBinary*     dataBufP,
                                   ErlNifBinary*     ctrlBufP,
                                   ERL_NIF_TERM      recvRef)
 {
@@ -10680,11 +10684,24 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
          */
 
         if ((xres = esock_encode_msghdr(env, read,
-                                        msgHdrP, ctrlBufP,
-                                        &eMsgHdr)) != NULL)
+                                        msgHdrP, dataBufP, ctrlBufP,
+                                        &eMsgHdr)) != NULL) {
+            
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recvfrom_check_result -> "
+                    "(msghdr) encode failed: %s\r\n", xres) );
+            
             return esock_make_error_str(env, xres);
-        else
+        } else {
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recvfrom_check_result -> "
+                    "(msghdr) encode ok: %T\r\n", eMsgHdr) );
+            
             return esock_make_ok2(env, eMsgHdr);
+        }
 
     }
 }
@@ -12414,8 +12431,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     esock_atom_flowinfo  = MKA(env, "flowinfo");
     esock_atom_inet      = MKA(env, "inet");
     esock_atom_inet6     = MKA(env, "inet6");
-    esock_atom_ip        = MKA(env, "iov");
-    esock_atom_ipv6      = MKA(env, "ipvp");
+    esock_atom_iov       = MKA(env, "iov");
+    esock_atom_ip        = MKA(env, "ip");
+    esock_atom_ipv6      = MKA(env, "ipv6");
     esock_atom_level     = MKA(env, "level");
     esock_atom_local     = MKA(env, "local");
     esock_atom_loopback  = MKA(env, "loopback");

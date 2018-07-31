@@ -63,13 +63,13 @@ void* esock_tarray_create(uint32_t sz)
 {
     SocketTArrayInt* tarrayP;
 
-    ESOCK_ASSERT( (sz == 0) );
+    ESOCK_ASSERT( (sz > 0) );
 
     tarrayP = MALLOC(sizeof(SocketTArrayInt));
-    ESOCK_ASSERT( (tarrayP == NULL) );
+    ESOCK_ASSERT( (tarrayP != NULL) );
   
     tarrayP->array = MALLOC(sz * sizeof(ERL_NIF_TERM));
-    ESOCK_ASSERT( (tarrayP->array == NULL) );
+    ESOCK_ASSERT( (tarrayP->array != NULL) );
     tarrayP->sz   = sz;
     tarrayP->idx  = 0;
     
@@ -131,7 +131,7 @@ void esock_tarray_ensure_fits(SocketTArrayInt* taP, uint32_t needs)
     uint32_t newSz = (needs < taP->sz) ? 2*taP->sz : 2*needs;
     void*    mem   = REALLOC(taP->array, newSz * sizeof(ERL_NIF_TERM));
     
-    ESOCK_ASSERT( (mem == NULL) );
+    ESOCK_ASSERT( (mem != NULL) );
     
     taP->sz    = newSz;
     taP->array = (ERL_NIF_TERM*) mem;

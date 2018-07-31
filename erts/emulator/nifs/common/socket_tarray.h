@@ -33,7 +33,7 @@ extern SocketTArray esock_tarray_create(uint32_t sz);
 extern void         esock_tarray_delete(SocketTArray ta);
 extern uint32_t     esock_tarray_sz(SocketTArray ta);
 extern void         esock_tarray_add(SocketTArray ta, ERL_NIF_TERM t);
-extern void         esock_tarray_tolist(SocketTArray ta,
+extern void         esock_tarray_tolist(SocketTArray  ta,
                                         ErlNifEnv*    env,
                                         ERL_NIF_TERM* list);
 
