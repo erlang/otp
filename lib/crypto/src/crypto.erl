@@ -313,7 +313,10 @@ next_iv(Type, Data, _Ivec) ->
     next_iv(Type, Data).
 
 stream_init(aes_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
+stream_init(chacha20, Key, Ivec) ->
+    {chacha20, chacha20_stream_init(Key,Ivec)}.
+
 stream_init(rc4, Key) ->
     {rc4, notsup_to_error(rc4_set_key(Key))}.
 
@@ -1124,14 +1127,20 @@ do_stream_encrypt({aes_ctr, State0}, Data) ->
     {{aes_ctr, State}, Cipher};
 do_stream_encrypt({rc4, State0}, Data) ->
     {State, Cipher} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Cipher}.
+    {{rc4, State}, Cipher};
+do_stream_encrypt({chacha20, State0}, Data) ->
+    {State, Cipher} = chacha20_stream_encrypt(State0, Data),
+    {{chacha20, State}, Cipher}.
 
 do_stream_decrypt({aes_ctr, State0}, Data) ->
     {State, Text} = aes_ctr_stream_decrypt(State0, Data),
     {{aes_ctr, State}, Text};
 do_stream_decrypt({rc4, State0}, Data) ->
     {State, Text} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Text}.
+    {{rc4, State}, Text};
+do_stream_decrypt({chacha20, State0}, Data) ->
+    {State, Cipher} = chacha20_stream_decrypt(State0, Data),
+    {{chacha20, State}, Cipher}.
 
 
 %%
@@ -1154,6 +1163,13 @@ aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
 %%
 rc4_set_key(_Key) -> ?nif_stub.
 rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
+
+%%
+%% CHACHA20 - stream cipher
+%%
+chacha20_stream_init(_Key, _IVec) -> ?nif_stub.
+chacha20_stream_encrypt(_State, _Data) -> ?nif_stub.
+chacha20_stream_decrypt(_State, _Data) -> ?nif_stub.
 
 %% Secure remote password  -------------------------------------------------------------------
 

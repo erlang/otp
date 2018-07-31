@@ -178,6 +178,7 @@
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # ifndef HAS_LIBRESSL
+#  define HAVE_CHACHA20
 #  define HAVE_CHACHA20_POLY1305
 #  define HAVE_RSA_OAEP_MD
 # endif
@@ -531,6 +532,9 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -622,6 +626,10 @@ static ErlNifFunc nif_funcs[] = {
 
     {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
     {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt},
+
+    {"chacha20_stream_init",    2, chacha20_stream_init},
+    {"chacha20_stream_encrypt", 2, chacha20_stream_crypt},
+    {"chacha20_stream_decrypt", 2, chacha20_stream_crypt},
 
     {"poly1305_nif", 2, poly1305_nif},
 
@@ -1345,7 +1353,10 @@ static void init_algorithms_types(ErlNifEnv* env)
 #if defined(HAVE_CHACHA20_POLY1305)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
-
+#if defined(HAVE_CHACHA20)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20");
+#endif
+ 
     // Validated algorithms first
     algo_mac_cnt = 0;
     algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
@@ -2735,6 +2746,69 @@ out_err:
     return enif_raise_exception(env, atom_notsup);
 #endif
 }
+
+
+static ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IV) */
+#if defined(HAVE_CHACHA20)
+    ErlNifBinary     key_bin, ivec_bin;
+    struct evp_cipher_ctx *ctx;
+    const EVP_CIPHER *cipher;
+    ERL_NIF_TERM     ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+        || !enif_inspect_binary(env, argv[1], &ivec_bin)
+        || key_bin.size != 32
+        || ivec_bin.size != 16) {
+        return enif_make_badarg(env);
+    }
+
+    cipher = EVP_chacha20();
+
+    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    ctx->ctx = EVP_CIPHER_CTX_new();
+
+
+    EVP_CipherInit_ex(ctx->ctx, cipher, NULL,
+                      key_bin.data, ivec_bin.data, 1);
+    EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+    return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+};
+
+static ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (State, Data) */
+#if defined(HAVE_CHACHA20)
+    struct evp_cipher_ctx *ctx, *new_ctx;
+    ErlNifBinary   data_bin;
+    ERL_NIF_TERM   ret, cipher_term;
+    unsigned char  *out;
+    int            outl = 0;
+
+    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+        return enif_make_badarg(env);
+    }
+    new_ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    new_ctx->ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX_copy(new_ctx->ctx, ctx->ctx);
+    out = enif_make_new_binary(env, data_bin.size, &cipher_term);
+    EVP_CipherUpdate(new_ctx->ctx, out, &outl, data_bin.data, data_bin.size);
+    ASSERT(outl == data_bin.size);
+
+    ret = enif_make_tuple2(env, enif_make_resource(env, new_ctx), cipher_term);
+    enif_release_resource(new_ctx);
+    CONSUME_REDS(env,data_bin);
+    return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+};
+
 
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Bytes) */
