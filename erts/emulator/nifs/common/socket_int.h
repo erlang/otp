@@ -142,11 +142,14 @@ extern ERL_NIF_TERM esock_atom_reliability;
 extern ERL_NIF_TERM esock_atom_rights;
 extern ERL_NIF_TERM esock_atom_scope_id;
 extern ERL_NIF_TERM esock_atom_sctp;
+extern ERL_NIF_TERM esock_atom_sec;
 extern ERL_NIF_TERM esock_atom_seqpacket;
+extern ERL_NIF_TERM esock_atom_socket;
 extern ERL_NIF_TERM esock_atom_spec_dst;
 extern ERL_NIF_TERM esock_atom_stream;
 extern ERL_NIF_TERM esock_atom_tcp;
 extern ERL_NIF_TERM esock_atom_throughput;
+extern ERL_NIF_TERM esock_atom_timestamp;
 extern ERL_NIF_TERM esock_atom_tos;
 extern ERL_NIF_TERM esock_atom_true;
 extern ERL_NIF_TERM esock_atom_trunc;
@@ -154,6 +157,8 @@ extern ERL_NIF_TERM esock_atom_ttl;
 extern ERL_NIF_TERM esock_atom_type;
 extern ERL_NIF_TERM esock_atom_udp;
 extern ERL_NIF_TERM esock_atom_undefined;
+extern ERL_NIF_TERM esock_atom_unknown;
+extern ERL_NIF_TERM esock_atom_usec;
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

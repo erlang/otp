@@ -90,12 +90,13 @@
               raw_socket_option/0,
 
               timeval/0,
-              ip_tos_flag/0,
+              ip_tos/0,
               ip_mreq/0,
               ip_mreq_source/0,
               ip_pmtudisc/0,
               ip_msfilter_mode/0,
               ip_msfilter/0,
+              ip_pktinfo/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
               sctp_event_subscribe/0,
@@ -107,6 +108,9 @@
               msghdr_flag/0,
               msghdr_flags/0,
               msghdr/0,
+              cmsghdr_level/0,
+              cmsghdr_type/0,
+              cmsghdr_data/0,
               cmsghdr/0,
 
               uint8/0,
@@ -168,11 +172,11 @@
                      usec := integer()}.
 
 %% If the integer value is used its up to the caller to ensure its valid!
--type ip_tos_flag() :: lowdeley |
-                       throughput |
-                       reliability |
-                       mincost |
-                       integer().
+-type ip_tos() :: lowdeley |
+                  throughput |
+                  reliability |
+                  mincost |
+                  integer().
 
 %% This type is used when requesting to become member of a multicast
 %% group with a call to setopt. Example: 
@@ -516,14 +520,32 @@
                     %% Only valid with recvmsg
                     flags  => msghdr_flags()
                    }.
-%% At some point we should be able to encode/decode the most common types
-%% of control message headers. For now, we leave/take the data part raw 
-%% (as a binary) and leave it to the user to figure out (how to encode/decode
-%% that bit).
+%% We are able to (completely) decode *some* control message headers.
+%% Even if we are able to decode both level and type, we may not be
+%% able to decode the data, in which case it will be a binary.
+-type ip_pktinfo() :: #{
+                        ifindex  => non_neg_integer(), % Interface Index
+                        spec_dst => ip4_address(),     % Local Address
+                        addr     => ip4_address()      % Header Destination address
+                       }.
+-type cmsghdr_level() :: socket | protocol() | integer().
+-type cmsghdr_type()  :: timestamp |
+                         rights |
+                         credentials |
+                         tos |
+                         ttl |
+                         origdstaddr |
+                         integer().
+-type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
+                        ip_pktinfo()   | % if level = ip and type = pktinfo
+                        ip_tos()       | % if level = ip and type = tos
+                        integer()      | % if level = ip and type = ttl
+                        sockaddr_in4() | % if level = ip and type = origdstaddr
+                        binary().
 -type cmsghdr() :: #{
-                     level => protocol() | integer(),
-                     type  => integer(),
-                     data  => binary()
+                     level => cmsghdr_level(),
+                     type  => cmsghdr_type(),
+                     data  => cmsghdr_data()
                     }.
 
 -define(SOCKET_DOMAIN_LOCAL, 1).
@@ -1807,6 +1829,10 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
                     flush_select_msgs(SockRef, RecvRef),
                     {error, timeout}
             end;
+
+        {error, closed} = ERROR ->
+            do_close(SockRef),
+            ERROR;
 
         {error, _Reason} = ERROR ->
             ERROR

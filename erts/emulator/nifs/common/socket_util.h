@@ -110,6 +110,12 @@ char* esock_encode_ip6_address(ErlNifEnv*       env,
                                ERL_NIF_TERM*    eAddr);
 #endif
 
+extern char* esock_encode_timeval(ErlNifEnv*      env,
+                                  struct timeval* timeP,
+                                  ERL_NIF_TERM*   eTime);
+extern char* esock_decode_timeval(ErlNifEnv*      env,
+                                  ERL_NIF_TERM    eTime,
+                                  struct timeval* timeP);
 extern
 char* esock_decode_domain(ErlNifEnv*   env,
                           ERL_NIF_TERM eDomain,

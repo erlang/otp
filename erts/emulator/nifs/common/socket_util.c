@@ -227,6 +227,11 @@ char* esock_encode_sockaddr(ErlNifEnv*     env,
 {
     char* xres;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr -> entry with"
+           "\r\n   family:  %d"
+           "\r\n   addrLen: %d"
+           "\r\n", sockAddrP->sa.sa_family, addrLen) );
+
     switch (sockAddrP->sa.sa_family) {
     case AF_INET:
         xres = esock_encode_sockaddr_in4(env, &sockAddrP->in4, addrLen, eSockAddr);
@@ -857,6 +862,74 @@ char* esock_encode_ip6_address(ErlNifEnv*       env,
     return NULL;
 }
 #endif
+
+
+
+/* +++ esock_encode_timeval +++
+ *
+ * Encode a timeval struct into its erlang form, a map with two fields:
+ *
+ *    sec
+ *    usec
+ *
+ */
+extern
+char* esock_encode_timeval(ErlNifEnv*      env,
+                           struct timeval* timeP,
+                           ERL_NIF_TERM*   eTime)
+{
+    ERL_NIF_TERM keys[] = {esock_atom_sec, esock_atom_usec};
+    ERL_NIF_TERM vals[] = {MKL(env, timeP->tv_sec), MKL(env, timeP->tv_usec)};
+    
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+    ESOCK_ASSERT( (numKeys == numVals) );
+    
+    if (!MKMA(env, keys, vals, numKeys, eTime))
+        return ESOCK_STR_EINVAL;
+
+    return NULL;
+}
+
+
+
+/* +++ esock_decode_timeval +++
+ *
+ * Decode a timeval in its erlang form (a map) into its native form,
+ * a timeval struct.
+ *
+ */
+extern
+char* esock_decode_timeval(ErlNifEnv*      env,
+                           ERL_NIF_TERM    eTime,
+                           struct timeval* timeP)
+{
+    ERL_NIF_TERM eSec, eUSec;
+    size_t       sz;
+
+    // It must be a map
+    if (!IS_MAP(env, eTime))
+        return ESOCK_STR_EINVAL;
+
+    // It must have atleast two attributes
+    if (!enif_get_map_size(env, eTime, &sz) || (sz < 2))
+        return ESOCK_STR_EINVAL;
+
+    if (!GET_MAP_VAL(env, eTime, esock_atom_sec, &eSec))
+        return ESOCK_STR_EINVAL;
+
+    if (!GET_MAP_VAL(env, eTime, esock_atom_usec, &eUSec))
+        return ESOCK_STR_EINVAL;
+
+    if (!GET_LONG(env, eSec, &timeP->tv_sec))
+        return ESOCK_STR_EINVAL;
+    
+    if (!GET_LONG(env, eUSec, &timeP->tv_usec))
+        return ESOCK_STR_EINVAL;
+
+    return NULL;
+}
 
 
 

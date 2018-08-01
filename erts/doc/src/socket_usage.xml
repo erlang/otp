@@ -444,7 +444,7 @@
 	<cell>ip_tos()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>may require admin capability</cell>
+	<cell>some high-priority levels may require superuser capability</cell>
       </row>
       <row>
 	<cell>transparent</cell>

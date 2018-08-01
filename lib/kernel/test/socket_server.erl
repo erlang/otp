@@ -21,17 +21,19 @@
 -module(socket_server).
 
 -export([
-         start/0, start/4,
-         start_tcp/0, start_tcp/1, start_tcp/2,
-         start_tcp4/0, start_tcp4/1, start_tcp6/0, start_tcp6/1,
-         start_udp/0, start_udp/1, start_udp/2,
-         start_udp4/0, start_udp4/1, start_udp6/0, start_udp6/1,
+         start/0, start/5,
+         start_tcp/0,  start_tcp/1,  start_tcp/3,
+         start_tcp4/0, start_tcp4/1, start_tcp4/2,
+         start_tcp6/0, start_tcp6/1, start_tcp6/2,
+         start_udp/0,  start_udp/1,  start_udp/3,
+         start_udp4/0, start_udp4/1, start_udp4/2,
+         start_udp6/0, start_udp6/1, start_udp6/2,
          start_sctp/0, start_sctp/1
         ]).
 
 -define(LIB, socket_lib).
 
--record(manager,  {socket, peek, acceptors, handler_id, handlers}).
+-record(manager,  {socket, msg, peek, acceptors, handler_id, handlers}).
 -record(acceptor, {id, socket, manager}).
 -record(handler,  {socket, peek, msg, type, manager}).
 
@@ -50,16 +52,22 @@ start_tcp4() ->
     start_tcp4(false).
 
 start_tcp4(Peek) ->
-    start_tcp(inet, Peek).
+    start_tcp4(false, Peek).
+
+start_tcp4(UseMsg, Peek) ->
+    start_tcp(inet, UseMsg, Peek).
 
 start_tcp6() ->
     start_tcp6(false).
 
 start_tcp6(Peek) ->
-    start_tcp(inet6, Peek).
+    start_tcp6(false, Peek).
 
-start_tcp(Domain, Peek) when is_boolean(Peek) ->
-    start(Domain, stream, tcp, Peek).
+start_tcp6(UseMsg, Peek) ->
+    start_tcp(inet6, UseMsg, Peek).
+
+start_tcp(Domain, UseMsg, Peek) when is_boolean(UseMsg) andalso is_boolean(Peek) ->
+    start(Domain, stream, tcp, UseMsg, Peek).
 
 start_udp() ->
     start_udp4().
@@ -71,28 +79,34 @@ start_udp4() ->
     start_udp4(false).
 
 start_udp4(Peek) ->
-    start_udp(inet, Peek).
+    start_udp4(false, Peek).
+
+start_udp4(UseMsg, Peek) ->
+    start_udp(inet, UseMsg, Peek).
 
 start_udp6() ->
-    start_udp6(false).
+    start_udp6(false, false).
 
 start_udp6(Peek) ->
-    start_udp(inet6, Peek).
+    start_udp6(false, Peek).
 
-start_udp(Domain, Peek) when is_boolean(Peek) ->
-    start(Domain, dgram, udp, Peek).
+start_udp6(UseMsg, Peek) ->
+    start_udp(inet6, UseMsg, Peek).
+
+start_udp(Domain, UseMsg, Peek) when is_boolean(UseMsg) andalso is_boolean(Peek) ->
+    start(Domain, dgram, udp, UseMsg, Peek).
 
 
 start_sctp() ->
     start_sctp(inet).
 
 start_sctp(Domain) when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
-    start(Domain, seqpacket, sctp, false).
+    start(Domain, seqpacket, sctp, true, false).
 
-start(Domain, Type, Proto, Peek) ->
+start(Domain, Type, Proto, UseMsg, Peek) ->
     put(sname, "starter"),
     i("try start manager"),
-    {Pid, MRef} = manager_start(Domain, Type, Proto, Peek),
+    {Pid, MRef} = manager_start(Domain, Type, Proto, UseMsg, Peek),
     i("manager (~p) started", [Pid]),
     loop(Pid, MRef).
 
@@ -107,8 +121,8 @@ loop(Pid, MRef) ->
 
 %% =========================================================================
 
-manager_start(Domain, Type, Proto, Peek) ->
-    spawn_monitor(fun() -> manager_init(Domain, Type, Proto, Peek) end).
+manager_start(Domain, Type, Proto, UseMsg, Peek) ->
+    spawn_monitor(fun() -> manager_init(Domain, Type, Proto, UseMsg, Peek) end).
 
 manager_start_handler(Pid, Sock) ->
     manager_request(Pid, {start_handler, Sock}).
@@ -123,19 +137,20 @@ manager_reply(Pid, Ref, Reply) ->
     ?LIB:reply(manager, Pid, Ref, Reply).
 
 
-manager_init(Domain, Type, Proto, Peek) ->
+manager_init(Domain, Type, Proto, UseMsg, Peek) ->
     put(sname, "manager"),
-    do_manager_init(Domain, Type, Proto, Peek).
+    do_manager_init(Domain, Type, Proto, UseMsg, Peek).
 
-do_manager_init(Domain, stream = Type, Proto, Peek) ->
+do_manager_init(Domain, stream = Type, Proto, UseMsg, Peek) ->
     i("try start acceptor(s)"),
     {Sock, Acceptors} = manager_stream_init(Domain, Type, Proto),
     manager_loop(#manager{socket     = Sock,
+                          msg        = UseMsg,
                           peek       = Peek,
                           acceptors  = Acceptors,
                           handler_id = 1,
                           handlers   = []});
-do_manager_init(Domain, dgram = Type, Proto, Peek) ->
+do_manager_init(Domain, dgram = Type, Proto, UseMsg, Peek) ->
     i("try open socket"),
     case socket:open(Domain, Type, Proto) of
         {ok, Sock} ->
@@ -179,11 +194,12 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
                    {ok, Name} -> f("~p", [Name]);
                    {error, R} -> f("error: ~p", [R])
                end]),
-            case handler_start(1, true, Sock, Peek) of
+            case handler_start(1, Sock, UseMsg, Peek) of
                 {ok, {Pid, MRef}} ->
                     i("handler (~p) started", [Pid]),
                     handler_continue(Pid),
                     manager_loop(#manager{peek       = Peek,
+                                          msg        = UseMsg,
                                           handler_id = 2, % Just in case
                                           handlers   = [{1, Pid, MRef}]});
                 {error, SReason} ->
@@ -196,7 +212,7 @@ do_manager_init(Domain, dgram = Type, Proto, Peek) ->
               "~n   ~p", [OReason]),
             exit({failed_open_socket, OReason})
     end;
-do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
+do_manager_init(Domain, seqpacket = Type, sctp = Proto, _UseMsg, _Peek) ->
     %% This is as far as I have got with SCTP at the moment...
     case socket:open(Domain, Type, Proto) of
         {ok, Sock} ->
@@ -248,9 +264,9 @@ do_manager_init(Domain, seqpacket = Type, sctp = Proto, _Peek) ->
         {error, Reason} ->
             exit({failed_open, Reason})
     end;
-do_manager_init(Domain, raw = Type, Proto, Peek) when is_integer(Proto) ->
-    do_manager_init(Domain, Type, {raw, Proto}, Peek);
-do_manager_init(Domain, raw = Type, Proto, _Peek) ->
+do_manager_init(Domain, raw = Type, Proto, UseMsg, Peek) when is_integer(Proto) ->
+    do_manager_init(Domain, Type, {raw, Proto}, UseMsg, Peek);
+do_manager_init(Domain, raw = Type, Proto, _UseMsg, _Peek) ->
     case socket:open(Domain, Type, Proto) of
         {ok, Sock} ->
             i("(sctp) socket opened: "
@@ -401,11 +417,12 @@ manager_handle_down(#manager{acceptors = Acceptors,
 
 
 manager_handle_request(#manager{peek       = Peek,
+                                msg        = UseMsg,
                                 handler_id = HID,
                                 handlers   = Handlers} = M, Pid, Ref,
                        {start_handler, Sock}) ->
     i("try start handler (~w)", [HID]),
-    case handler_start(HID, false, Sock, Peek) of
+    case handler_start(HID, Sock, UseMsg, Peek) of
         {ok, {HPid, HMRef}} ->
             i("handler ~w started", [HID]),
             manager_reply(Pid, Ref, {ok, HPid}),
@@ -564,10 +581,10 @@ acceptor_handle_accept_success(#acceptor{manager = Manager}, Sock) ->
 
 %% =========================================================================
 
-handler_start(ID, Msg, Sock, Peek) ->
+handler_start(ID, Sock, UseMsg, Peek) ->
     Self = self(),
     H = {Pid, _} = spawn_monitor(fun() ->
-                                         handler_init(Self, ID, Msg, Peek, Sock)
+                                         handler_init(Self, ID, UseMsg, Peek, Sock)
                                  end),
     receive
         {handler, Pid, ok} ->
@@ -720,7 +737,16 @@ handler_init(Manager, ID, Msg, Peek, Sock) ->
                RtHdr, AuthHdr, HopLimit, HopOpts, DstOpts, FlowInfo,
                UHops]),
 
-            SIP = 
+            %% ok = socket:setopt(Sock, otp, debug, true),
+            %% case socket:getopt(Sock, 0, {13, int}) of
+            %%     {ok, Val} ->
+            %%         i("PktOpts ok:  ~p", [Val]);
+            %%     {error, Reason} ->
+            %%         e("PktOpts err: ~p", [Reason])
+            %% end,
+            %% ok = socket:setopt(Sock, otp, debug, false),
+            SSO = fun(O, V) -> soso(Sock, O, V) end,
+            SIP4 = 
                 fun(O, V) ->
                         if 
                             (Type =:= dgram) -> 
@@ -729,8 +755,10 @@ handler_init(Manager, ID, Msg, Peek, Sock) ->
                                 ok
                         end
                 end,
+            SSO(timestamp, true),
+            SIP4(pktinfo, true),
             ok = soip(Sock, recvtos,  true),
-            SIP(recvttl,  true),
+            SIP4(recvttl,  true),
             ok = soip(Sock, recvorigdstaddr,  true),
 
             handler_loop(#handler{msg     = Msg,
@@ -743,8 +771,8 @@ handler_init(Manager, ID, Msg, Peek, Sock) ->
 so(Sock, Lvl, Opt, Val) ->
     ok = socket:setopt(Sock, Lvl, Opt, Val).
 
-%% soso(Sock, Opt, Val) ->
-%%     so(Sock, socket, Opt, Val).
+soso(Sock, Opt, Val) ->
+    so(Sock, socket, Opt, Val).
 
 soip(Sock, Opt, Val) ->
     so(Sock, ip, Opt, Val).
@@ -791,16 +819,29 @@ handler_loop(H) ->
 
 recv(#handler{peek = true, socket = Sock, type = stream}) ->
     peek_recv(Sock);
-recv(#handler{peek = false, socket = Sock, type = stream}) ->
-    do_recv(Sock);
+recv(#handler{socket = Sock, msg = true, type = stream}) ->
+    case socket:recvmsg(Sock) of
+        {ok, #{addr  := undefined = Source,
+               iov   := [Data],
+               ctrl  := CMsgHdrs,
+               flags := Flags}} ->
+            i("received message: "
+              "~n   CMsgHdrs: ~p"
+              "~n   Flags:    ~p", [CMsgHdrs, Flags]),
+            {ok, {Source, Data}};
+        {ok, X} ->
+            e("received *unexpected* message: "
+              "~n   ~p", [X]),
+            {error, {unexpected, X}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
 recv(#handler{socket = Sock, msg = true, type = dgram}) ->
-    %% ok = socket:setopt(Sock, otp, debug, true),
     case socket:recvmsg(Sock) of
         {ok, #{addr  := Source,
                iov   := [Data],
                ctrl  := CMsgHdrs,
                flags := Flags}} ->
-            %% ok = socket:setopt(Sock, otp, debug, false),
             i("received message: "
               "~n   CMsgHdrs: ~p"
               "~n   Flags:    ~p", [CMsgHdrs, Flags]),
@@ -810,6 +851,8 @@ recv(#handler{socket = Sock, msg = true, type = dgram}) ->
         {error, _} = ERROR ->
             ERROR
     end;
+recv(#handler{peek = false, socket = Sock, type = stream}) ->
+    do_recv(Sock);
 recv(#handler{peek = Peek, socket = Sock, type = dgram})
   when (Peek =:= true) ->
     %% ok  = socket:setopt(Sock, otp, debug, true),

@@ -120,7 +120,7 @@
       <name name="timeval"/>
     </datatype>
     <datatype>
-      <name name="ip_tos_flag"/>
+      <name name="ip_tos"/>
     </datatype>
     <datatype>
       <name name="ip_mreq"/>
@@ -136,6 +136,9 @@
     </datatype>
     <datatype>
       <name name="ip_msfilter"/>
+    </datatype>
+    <datatype>
+      <name name="ip_pktinfo"/>
     </datatype>
     <datatype>
       <name name="ipv6_mreq"/>
@@ -154,6 +157,27 @@
     </datatype>
     <datatype>
       <name name="sctp_rtoinfo"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr_flag"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr_flags"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_level"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_type"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_data"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr"/>
     </datatype>
     <datatype>
       <name name="uint16"/>
