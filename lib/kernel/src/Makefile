@@ -55,6 +55,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)
 MODULES = \
 	application \
 	application_controller \
+	application_env_cli_provider \
 	application_master \
 	application_starter \
 	auth \
