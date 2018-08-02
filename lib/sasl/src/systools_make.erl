@@ -1529,6 +1529,7 @@ mandatory_modules() ->
      %% Keep this list sorted.
      application,
      application_controller,
+     application_env_cli_provider,
      application_master,
      code,
      code_server,

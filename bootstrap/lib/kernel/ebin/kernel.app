@@ -25,6 +25,7 @@
   {vsn, "5.4.3"},
   {modules, [application,
 	     application_controller,
+             application_env_cli_provider,
 	     application_master,
 	     application_starter,
 	     auth,

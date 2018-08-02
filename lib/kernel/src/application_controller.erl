@@ -134,6 +134,7 @@
 -type appname() :: atom().
 
 -record(state, {loading = [], starting = [], start_p_false = [], running = [],
+		env_providers = [application_env_cli_provider],
 		control = [], started = [], start_req = [], conf_data}).
 -type state() :: #state{}.
 
@@ -827,7 +828,7 @@ handle_call({change_application_data, Applications, Config}, _From, S) ->
 				  false
 			  end,
 			  []),
-    case catch do_change_apps(Applications, Config, OldAppls) of
+    case catch do_change_apps(Applications, Config, OldAppls, S) of
 	{error, _} = Error ->
 	    {reply, Error, S};
 	{'EXIT', R} ->
@@ -1270,8 +1271,7 @@ load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
     Name = ApplData#appl_data.name,
     ConfEnv = get_env_i(Name, S),
     NewEnv = merge_app_env(ApplEnv, ConfEnv),
-    CmdLineEnv = get_cmd_env(Name),
-    NewEnv2 = merge_app_env(NewEnv, CmdLineEnv),
+    NewEnv2 = merge_providers(S, Name, NewEnv),
     add_env(Name, NewEnv2),
     Appl = #appl{name = Name, descr = Descr, id = Id, vsn = Vsn, 
 		 appl_data = ApplData, inc_apps = IncApps, apps = Apps},
@@ -1529,11 +1529,11 @@ make_appl_i(Appl) -> throw({error, {bad_application, Appl}}).
 %% Merge current applications with changes.  
 %%-----------------------------------------------------------------
 
-%% do_change_apps(Applications, Config, OldAppls) -> NewAppls
+%% do_change_apps(Applications, Config, OldAppls, State) -> NewAppls
 %%   Applications = [{application, AppName, [{Key,Value}]}]
 %%   Config = [{AppName,[{Par,Value}]} | File]
 %%   OldAppls = NewAppls = [#appl{}]
-do_change_apps(Applications, Config, OldAppls) ->
+do_change_apps(Applications, Config, OldAppls, S) ->
 
     %% OTP-4867
     %% Config = contents of sys.config file
@@ -1555,7 +1555,7 @@ do_change_apps(Applications, Config, OldAppls) ->
 		 case is_loaded_app(AppName, Applications) of
 		     {true, Application} ->
 			 do_change_appl(make_appl(Application),
-					Appl, SysConfig);
+					Appl, SysConfig, S);
 
 		     %% ignored removed apps - handled elsewhere
 		     false ->
@@ -1570,16 +1570,15 @@ is_loaded_app(AppName, [_ | T]) -> is_loaded_app(AppName, T);
 is_loaded_app(_AppName, []) -> false.
 
 do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
-	       OldAppl, Config) ->
+	       OldAppl, Config, S) ->
     AppName = OldAppl#appl.name,
 
     %% Merge application env with env from sys.config, if any
     ConfEnv = get_opt(AppName, Config, []),
     NewEnv1 = merge_app_env(Env, ConfEnv),
 
-    %% Merge application env with command line arguments, if any
-    CmdLineEnv = get_cmd_env(AppName),
-    NewEnv2 = merge_app_env(NewEnv1, CmdLineEnv),
+    %% Merge application env with other providers
+    NewEnv2 = merge_providers(S, AppName, NewEnv1),
 
     %% Update ets table with new application env
     del_env(AppName),
@@ -1591,44 +1590,24 @@ do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
 		 vsn=Vsn,
 		 inc_apps=IncApps,
 		 apps=Apps};
-do_change_appl({error, _R} = Error, _Appl, _ConfData) ->
+do_change_appl({error, _R} = Error, _Appl, _ConfData, _S) ->
     throw(Error).
+
+merge_providers(#state{env_providers=Providers}, AppName, Env) ->
+    lists:foldl(fun(Provider, Acc) ->
+	try Provider:load(AppName, Acc) of
+	    {ok, NewAcc} -> NewAcc;
+	    {error, _} = Error -> throw(Error)
+        catch
+            Kind:Reason:Stack -> {error, {Kind, Reason, Stack}}
+	end
+    end, Env, Providers).
 
 get_opt(Key, List, Default) ->
     case lists:keyfind(Key, 1, List) of
 	{_Key, Val} -> Val;
 	_ -> Default
     end.
-
-get_cmd_env(Name) ->
-    case init:get_argument(Name) of
-	{ok, Args} ->
-	   foldl(fun(List, Res) -> conv(List) ++ Res end, [], Args);
-	_ -> []
-    end.
-
-conv([Key, Val | T]) ->
-    [{make_term(Key), make_term(Val)} | conv(T)];
-conv(_) -> [].
-
-make_term(Str) -> 
-    case erl_scan:string(Str) of
-	{ok, Tokens, _} ->		  
-	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
-		{ok, Term} ->
-		    Term;
-		{error, {_,M,Reason}} ->
-                    handle_make_term_error(M, Reason, Str)
-	    end;
-	{error, {_,M,Reason}, _} ->
-            handle_make_term_error(M, Reason, Str)
-    end.
-
-handle_make_term_error(Mod, Reason, Str) ->
-    ?LOG_ERROR("application_controller: ~ts: ~ts~n",
-               [Mod:format_error(Reason), Str],
-               #{error_logger=>#{tag=>error}}),
-    throw({error, {bad_environment_value, Str}}).
 
 get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
     case lists:keyfind(Name, 1, ConfData) of
@@ -1989,10 +1968,10 @@ test_change_apps(Apps, Conf) ->
 test_do_change_appl([], _, _) ->
     ok;
 test_do_change_appl([A|Apps], [], [R|Res]) ->
-    _ = do_change_appl(R, #appl{name = A}, []),
+    _ = do_change_appl(R, #appl{name = A}, [], #state{}),
     test_do_change_appl(Apps, [], Res);
 test_do_change_appl([A|Apps], [C|Conf], [R|Res]) ->
-    _ = do_change_appl(R, #appl{name = A}, C),
+    _ = do_change_appl(R, #appl{name = A}, C, #state{}),
     test_do_change_appl(Apps, Conf, Res).
 
 test_make_apps([], Res) ->
