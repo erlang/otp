@@ -195,6 +195,8 @@ cmac(Type, Key, Data) ->
 cmac(Type, Key, Data, MacSize) ->
     erlang:binary_part(cmac(Type, Key, Data), 0, MacSize).
 
+-spec poly1305(iodata(), iodata()) -> binary().
+
 poly1305(Key, Data) ->
     poly1305_nif(Key, Data).
 
@@ -1167,6 +1169,11 @@ rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
 %%
 %% CHACHA20 - stream cipher
 %%
+-type chacha20_state() :: term().
+-spec chacha20_stream_init(iodata(), binary()) -> chacha20_state().
+-spec chacha20_stream_encrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
+-spec chacha20_stream_decrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
+
 chacha20_stream_init(_Key, _IVec) -> ?nif_stub.
 chacha20_stream_encrypt(_State, _Data) -> ?nif_stub.
 chacha20_stream_decrypt(_State, _Data) -> ?nif_stub.
