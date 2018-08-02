@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,8 @@ groups() ->
        testSeq2738,
        % Uses 'Constructed'
        {group, [], [constructed,
-                    ber_decode_error]},
+                    ber_decode_error,
+                    otp_14440]},
        testSeqSetIndefinite,
        testChoiceIndefinite,
        per_open_type,
@@ -736,6 +737,36 @@ ber_decode_error(Config) ->
 ber_decode_error(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
     ber_decode_error:run(Opts).
+
+otp_14440(_Config) ->
+    Args = " -pa \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    {ok,N} = slave:start(hostname(), otp_14440, Args),
+    Result = rpc:call(N, ?MODULE, otp_14440_decode, []),
+    io:format("Decode result = ~p~n", [Result]),
+    case Result of
+        {exit,{error,{asn1,{invalid_value,5}}}} ->
+            ok = slave:stop(N);
+        %% We get this if stack depth limit kicks in:
+        {exit,{error,{asn1,{unknown,_}}}} ->
+            ok = slave:stop(N);
+        _ ->
+            _ = slave:stop(N),
+            ?t:fail(Result)
+    end.
+%%
+otp_14440_decode() ->
+    Data =
+        iolist_to_binary(
+          lists:duplicate(
+            32, list_to_binary(lists:duplicate(1024, 16#7f)))),
+    try asn1rt_nif:decode_ber_tlv(Data) of
+        Result ->
+            {unexpected_return,Result}
+    catch
+        Class:Reason ->
+            {Class,Reason}
+    end.
+
 
 h323test(Config) -> test(Config, fun h323test/3).
 h323test(Config, Rule, Opts) ->
@@ -1351,7 +1382,7 @@ xref_export_all(_Config) ->
     {ok,_} = xref:q(S, Def),
     {ok,Unused} = xref:q(S, "X - Called - range (closure E | Called)"),
     xref:stop(S),
-    case Unused of
+    case Unused -- [{?MODULE,otp_14440_decode,0}] of
         [] ->
             ok;
         [_|_] ->
@@ -1386,3 +1417,11 @@ all_called_1([F|T]) when is_atom(F) ->
     L ++ all_called_1(T);
 all_called_1([]) ->
     [].
+
+hostname() ->
+    hostname(atom_to_list(node())).
+
+hostname([$@ | Hostname]) ->
+    list_to_atom(Hostname);
+hostname([_C | Cs]) ->
+    hostname(Cs).
