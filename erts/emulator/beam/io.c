@@ -3287,7 +3287,6 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if (trace_send)
         trace_port_send(prt, to, tuple, 1);
 
-    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
     if (rp_locks)
 	erts_proc_unlock(rp, rp_locks);
@@ -3459,7 +3458,6 @@ deliver_vec_message(Port* prt,			/* Port */
     if (IS_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, to, tuple, 1);
 
-    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
     erts_proc_unlock(rp, rp_locks);
     if (!scheduler)
@@ -5382,7 +5380,6 @@ void driver_report_exit(ErlDrvPort ix, int status)
     if (IS_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, pid, tuple, 1);
 
-   ERL_MESSAGE_TOKEN(mp) = am_undefined;
    erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
 
    erts_proc_unlock(rp, rp_locks);
@@ -5988,8 +5985,6 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    from = prt->common.id;
 	}
 
-	/* send message */
-        ERL_MESSAGE_TOKEN(factory.message) = am_undefined;
 	erts_queue_message(rp, rp_locks, factory.message, mess, from);
     }
     else if (res == -2) {

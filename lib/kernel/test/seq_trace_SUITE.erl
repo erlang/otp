@@ -783,6 +783,24 @@ do_shrink(N) ->
     erlang:garbage_collect(),
     do_shrink(N-1).
 
+%% Test that messages from a port does not clear the token
+port_clean_token(Config) when is_list(Config) ->
+    seq_trace:reset_trace(),
+    Label = make_ref(),
+    seq_trace:set_token(label, Label),
+    {label,Label} = seq_trace:get_token(label),
+
+    %% Create a port and get messages from it
+    %% We use os:cmd as a convenience as it does
+    %% open_port, port_command, port_close and receives replies.
+    %% Maybe it is not ideal to rely on the internal implementation
+    %% of os:cmd but it will have to do.
+    os:cmd("ls"),
+
+    %% Make sure that the seq_trace token is still there
+    {label,Label} = seq_trace:get_token(label),
+
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

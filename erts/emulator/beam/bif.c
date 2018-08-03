@@ -2063,7 +2063,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	if (p == rp)
 	    rp_locks |= ERTS_PROC_LOCK_MAIN;
 	/* send to local process */
-	erts_send_message(p, rp, &rp_locks, msg, 0);
+	erts_send_message(p, rp, &rp_locks, msg);
 	erts_proc_unlock(rp,
 			     p == rp
 			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)

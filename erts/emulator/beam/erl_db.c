@@ -3647,6 +3647,7 @@ send_ets_transfer_message(Process *c_p, Process *proc,
         hd_copy = copy_struct(heir_data, hd_sz, &hp, ohp);
     sender = c_p->common.id;
     msg = TUPLE4(hp, am_ETS_TRANSFER, tid, sender, hd_copy);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_proc_message(c_p, proc, *locks, mp, msg);
 }
 

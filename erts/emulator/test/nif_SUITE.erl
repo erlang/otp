@@ -45,8 +45,9 @@
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
-	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1,
-	 is_checks/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
+         send_trace/1, send_seq_trace/1,
+         neg/1, is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, nif_schedule/1,
@@ -1788,6 +1789,59 @@ send(Config) when is_list(Config) ->
     {'DOWN', DeadMon, process, DeadPid, normal} = receive_any(),
     {ok,0} = send_list_seq(7, DeadPid),
     ok.
+
+
+%% Test tracing of enif_send
+send_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    erlang:trace(self(), true, [send,'receive',{tracer,Tracer}]),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    Tracer ! get,
+    {trace,Papa,send,List,Papa} = receive_any(),
+    Tracer ! get,
+    {trace,Papa,'receive',List} = receive_any().
+
+%% Test that seq_trace works with nif trace
+send_seq_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+    Label = make_ref(),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    seq_trace:set_system_tracer(Tracer),
+    seq_trace:set_token(label,Label),
+    seq_trace:set_token(send,true),
+    seq_trace:set_token('receive',true),
+
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+
+    Tracer ! get,
+    {seq_trace,Label,{send,{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{send,{1,2},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{1,2},Papa,Papa,List}} = receive_any().
+
 
 %% More NIF message sending
 send2(Config) when is_list(Config) ->
