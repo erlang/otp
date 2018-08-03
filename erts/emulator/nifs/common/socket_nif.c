@@ -397,9 +397,10 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define IS_CONNECTING(d)                                \
     (((d)->state & SOCKET_FLAG_CON) == SOCKET_FLAG_CON)
 
+/*
 #define IS_BUSY(d)                                      \
     (((d)->state & SOCKET_FLAG_BUSY) == SOCKET_FLAG_BUSY)
-
+*/
 
 #define SOCKET_SEND_FLAG_CONFIRM    0
 #define SOCKET_SEND_FLAG_DONTROUTE  1
@@ -420,6 +421,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 #define SOCKET_RECV_BUFFER_SIZE_DEFAULT      2048
 #define SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
+#define SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
 #define VT2S(__VT__) (((__VT__) == SOCKET_OPT_VALUE_TYPE_UNSPEC) ? "unspec" : \
                       (((__VT__) == SOCKET_OPT_VALUE_TYPE_INT) ? "int" : \
@@ -676,6 +678,7 @@ static unsigned long one_value  = 1;
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
+#define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
                 sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_setopt(s,l,o,v,ln)         setsockopt((s),(l),(o),(v),(ln))
@@ -773,6 +776,7 @@ typedef struct {
     /* +++ Config & Misc stuff +++ */
     size_t    rBufSz;  // Read buffer size (when data length = 0 is specified)
     size_t    rCtrlSz; // Read control buffer size
+    size_t    wCtrlSz; // Write control buffer size
     BOOLEAN_T iow;     // Inform On Wrap
     BOOLEAN_T dbg;
 
@@ -878,6 +882,9 @@ static ERL_NIF_TERM nif_send(ErlNifEnv*         env,
 static ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
+                                int                argc,
+                                const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
@@ -953,6 +960,11 @@ static ERL_NIF_TERM nsendto(ErlNifEnv*        env,
                             int               flags,
                             SocketAddress*    toAddrP,
                             unsigned int      toAddrLen);
+static ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             ERL_NIF_TERM      sendRef,
+                             ERL_NIF_TERM      eMsgHdr,
+                             int               flags);
 static ERL_NIF_TERM nrecv(ErlNifEnv*        env,
                           SocketDescriptor* descP,
                           ERL_NIF_TERM      recvRef,
@@ -1902,13 +1914,30 @@ extern char* encode_cmsghdrs(ErlNifEnv*        env,
                              ErlNifBinary*     cmsgBinP,
                              struct msghdr*    msgHdrP,
                              ERL_NIF_TERM*     eCMsgHdr);
+extern char* decode_cmsghdrs(ErlNifEnv*        env,
+                             SocketDescriptor* descP,
+                             ERL_NIF_TERM      eCMsgHdr,
+                             void*             cmsgHdrBufP,
+                             size_t            cmsgHdrBufLen);
+extern char* decode_cmsghdr(ErlNifEnv*        env,
+                            SocketDescriptor* descP,
+                            ERL_NIF_TERM      eCMsgHdr,
+                            void**            bufP,
+                            size_t*           rem);
 static char* encode_cmsghdr_level(ErlNifEnv*    env,
                                   int           level,
                                   ERL_NIF_TERM* eLevel);
+static char* decode_cmsghdr_level(ErlNifEnv*   env,
+                                  ERL_NIF_TERM eLevel,
+                                  int*         level);
 static char* encode_cmsghdr_type(ErlNifEnv*    env,
                                  int           level,
                                  int           type,
                                  ERL_NIF_TERM* eType);
+static char* decode_cmsghdr_type(ErlNifEnv*   env,
+                                 int          level,
+                                 ERL_NIF_TERM eType,
+                                 int*         type);
 static char* encode_cmsghdr_data(ErlNifEnv*     env,
                                  ERL_NIF_TERM   ctrlBuf,
                                  int            level,
@@ -2355,6 +2384,7 @@ static SocketData data;
  * nif_accept(LSock, Ref)
  * nif_send(Sock, SendRef, Data, Flags)
  * nif_sendto(Sock, SendRef, Data, Dest, Flags)
+ * nif_sendmsg(Sock, SendRef, MsgHdr, Flags)
  * nif_recv(Sock, RecvRef, Length, Flags)
  * nif_recvfrom(Sock, RecvRef, BufSz, Flags)
  * nif_recvmsg(Sock, RecvRef, BufSz, CtrlSz, Flags)
@@ -3641,8 +3671,8 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
                   &remoteAddr, remoteAddrLen);
 
     SGDBG( ("SOCKET", "nif_sendto -> done with result: "
-           "\r\n   %T"
-           "\r\n", res) );
+            "\r\n   %T"
+            "\r\n", res) );
 
     return res;
 }
@@ -3683,6 +3713,197 @@ ERL_NIF_TERM nsendto(ErlNifEnv*        env,
         save_errno = -1; // The value does not actually matter in this case
 
     return send_check_result(env, descP, written, dataP->size, save_errno, sendRef);
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_sendmsg
+ *
+ * Description:
+ * Send a message on a socket
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * SendRef      - A unique id for this (send) request.
+ * MsgHdr       - Message Header - data and (maybe) control and dest
+ * Flags        - Send flags.
+ */
+
+static
+ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
+                         int                argc,
+                         const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM      res, sendRef, eMsgHdr;
+    SocketDescriptor* descP;
+    unsigned int      eflags;
+    int               flags;
+
+    SGDBG( ("SOCKET", "nif_sendmsg -> entry with argc: %d\r\n", argc) );
+
+    /* Extract arguments and perform preliminary validation */
+
+    if ((argc != 4) ||
+        !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
+        !IS_MAP(env, argv[2]) ||
+        !GET_UINT(env, argv[3], &eflags)) {
+        return enif_make_badarg(env);
+    }
+    sendRef = argv[1];
+    eMsgHdr = argv[2];
+
+    SSDBG( descP,
+           ("SOCKET", "nif_sendmsg -> args when sock = %d:"
+            "\r\n   Socket:  %T"
+            "\r\n   sendRef: %T"
+            "\r\n   eflags:  %d"
+            "\r\n",
+            descP->sock, argv[0], sendRef, eflags) );
+
+    /* THIS TEST IS NOT CORRECT!!! */
+    if (!IS_OPEN(descP))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!esendflags2sendflags(eflags, &flags))
+        return esock_make_error(env, esock_atom_einval);
+
+    res = nsendmsg(env, descP, sendRef, eMsgHdr, flags);
+
+    SGDBG( ("SOCKET", "nif_sendmsg -> done with result: "
+            "\r\n   %T"
+            "\r\n", res) );
+
+    return res;
+}
+
+
+static
+ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
+                      SocketDescriptor* descP,
+                      ERL_NIF_TERM      sendRef,
+                      ERL_NIF_TERM      eMsgHdr,
+                      int               flags)
+{
+    ERL_NIF_TERM  res, eAddr, eIOV, eCtrl;
+    SocketAddress addr;
+    struct msghdr msgHdr;
+    ErlNifBinary* iovBins;
+    struct iovec* iov;
+    unsigned int  iovLen;
+    void*         ctrlBuf;
+    size_t        ctrlBufLen;
+    int           save_errno;
+    ssize_t       written, dataSize;
+    char*         xres;
+
+    if (!descP->isWritable)
+        return enif_make_badarg(env);
+
+
+    /* Depending on if we are *connected* or not, we require
+     * different things in the msghdr map.
+     */
+    if (IS_CONNECTED(descP)) {
+
+        /* We don't need the address */
+
+        msgHdr.msg_name    = NULL;
+        msgHdr.msg_namelen = 0;
+        
+    } else {
+
+        /* We need the address */
+
+        msgHdr.msg_name    = (void*) &addr;
+        msgHdr.msg_namelen = sizeof(addr);
+        sys_memzero((char *) msgHdr.msg_name, msgHdr.msg_namelen);
+        if (!GET_MAP_VAL(env, eMsgHdr, esock_atom_addr, &eAddr))
+            return esock_make_error(env, esock_atom_einval);
+        if ((xres = esock_decode_sockaddr(env, eAddr,
+                                          msgHdr.msg_name,
+                                          &msgHdr.msg_namelen)) != NULL)
+            return esock_make_error_str(env, xres);
+    }
+
+
+    /* Extract the (other) attributes of the msghdr map: iov and maybe ctrl */
+
+    /* The *mandatory* iov, which must be a list */
+    if (!GET_MAP_VAL(env, eMsgHdr, esock_atom_iov, &eIOV))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (!GET_LIST_LEN(env, eIOV, &iovLen) && (iovLen > 0))
+        return esock_make_error(env, esock_atom_einval);
+
+    iovBins = MALLOC(iovLen * sizeof(ErlNifBinary));
+    ESOCK_ASSERT( (iovBins != NULL) );
+
+    iov     = MALLOC(iovLen * sizeof(struct iovec));
+    ESOCK_ASSERT( (iov != NULL) );
+
+    /* The *opional* ctrl */
+    if (GET_MAP_VAL(env, eMsgHdr, esock_atom_ctrl, &eCtrl)) {
+        ctrlBufLen = descP->wCtrlSz;
+        ctrlBuf    = MALLOC(ctrlBufLen);
+        ESOCK_ASSERT( (ctrlBuf != NULL) );
+    } else {
+        eCtrl      = esock_atom_undefined;
+        ctrlBufLen = 0;
+        ctrlBuf    = NULL;
+    }
+
+
+    /* Decode the iov and initiate that part of the msghdr */
+    if ((xres = esock_decode_iov(env, eIOV,
+                                 iovBins, iov, iovLen, &dataSize)) != NULL) {
+        FREE(iovBins);
+        FREE(iov);
+        if (ctrlBuf != NULL) FREE(ctrlBuf);
+        return esock_make_error_str(env, xres);
+    }
+    msgHdr.msg_iov    = iov;
+    msgHdr.msg_iovlen = iovLen;
+    
+
+    /* Decode the ctrl and initiate that part of the msghdr */
+    if (ctrlBuf != NULL) {
+        if ((xres = decode_cmsghdrs(env, descP,
+                                    eCtrl, ctrlBuf, ctrlBufLen)) != NULL) {
+            FREE(iovBins);
+            FREE(iov);
+            if (ctrlBuf != NULL) FREE(ctrlBuf);
+            return esock_make_error_str(env, xres);
+        }
+    }
+    msgHdr.msg_control    = ctrlBuf;
+    msgHdr.msg_controllen = ctrlBufLen;
+    
+
+    /* The msg-flags field is not used when sending, but zero it just in case */
+    msgHdr.msg_flags      = 0;
+    
+
+    /* We ignore the wrap for the moment.
+     * Maybe we should issue a wrap-message to controlling process...
+     */
+    cnt_inc(&descP->writeTries, 1);
+
+    /* And now, finally, try to send the message */
+    written = sock_sendmsg(descP->sock, &msgHdr, flags);
+
+    if (IS_SOCKET_ERROR(written))
+        save_errno = sock_errno();
+    else
+        save_errno = -1; // The value does not actually matter in this case
+
+    res = send_check_result(env, descP, written, dataSize, save_errno, sendRef);
+
+    FREE(iovBins);
+    FREE(iov);
+    if (ctrlBuf != NULL) FREE(ctrlBuf);
+    
+    return res;
 }
 
 
@@ -10198,13 +10419,14 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
             "\r\n   saveErrno: %d"
             "\r\n", written, dataSize, saveErrno) );
 
-    if (written == dataSize) {
+    if (written >= dataSize) {
 
         cnt_inc(&descP->writePkgCnt,  1);
         cnt_inc(&descP->writeByteCnt, written);
 
         SSDBG( descP,
-               ("SOCKET", "send_check_result -> everything written - done\r\n") );
+               ("SOCKET", "send_check_result -> "
+                "everything written (%d,%d) - done\r\n", dataSize, written) );
 
         return esock_atom_ok;
 
@@ -10248,7 +10470,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
     SSDBG( descP,
            ("SOCKET", "send_check_result -> not entire package written\r\n") );
 
-    return esock_make_ok2(env, enif_make_int(env, written));
+    return esock_make_ok2(env, MKI(env, written));
 
 }
 
@@ -10791,6 +11013,7 @@ char* encode_msghdr(ErlNifEnv*        env,
 
 
 
+
 /* +++ encode_cmsghdrs +++
  *
  * Encode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
@@ -10921,9 +11144,157 @@ char* encode_cmsghdrs(ErlNifEnv*        env,
 
 
 
+/* +++ decode_cmsghdrs +++
+ *
+ * Decode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
+ *
+ * Each element can either be a (erlang) map that needds to be decoded,
+ * or a (erlang) binary that just needs to be appended to the control
+ * buffer.
+ *
+ * Our "problem" is that we have no idea much memory we actually need.
+ *
+ */
+
+extern
+char* decode_cmsghdrs(ErlNifEnv*        env,
+                      SocketDescriptor* descP,
+                      ERL_NIF_TERM      eCMsgHdr,
+                      void*             cmsgHdrBufP,
+                      size_t            cmsgHdrBufLen)
+{
+    ERL_NIF_TERM elem, tail, list;
+    void*        bufP;
+    size_t       rem;
+    unsigned int len;
+    int          i;
+    char*        xres;
+
+    if (IS_LIST(env, eCMsgHdr) && GET_LIST_LEN(env, eCMsgHdr, &len)) {
+        for (i = 0, list = eCMsgHdr, rem = cmsgHdrBufLen, bufP = cmsgHdrBufP;
+             i < len; i++) {
+            
+            /* Extract the (current) head of the (cmsg hdr) list */
+            if (!GET_LIST_ELEM(env, list, &elem, &tail))
+                return ESOCK_STR_EINVAL;
+            
+            if ((xres = decode_cmsghdr(env, descP, elem, &bufP, &rem)) != NULL)
+                return xres;
+            
+            list = tail;
+        }
+
+        xres = NULL;
+    } else {
+        xres = ESOCK_STR_EINVAL;
+    }
+
+    return xres;
+}
+
+
+/* +++ decode_cmsghdr +++
+ *
+ * Decode one cmsghdr(). Put the "result" into the buffer and advance the
+ * pointer (of the buffer) afterwards. Also update 'rem' accordingly.
+ * But before the actual decode, make sure that there is enough room in 
+ * the buffer for the cmsg header (sizeof(*hdr) < rem).
+ *
+ * The eCMsgHdr should be a map with three fields: 
+ *
+ *     level :: cmsghdr_level()   (socket | protocol() | integer())
+ *     type  :: cmsghdr_type()    (atom() | integer())
+ *                                What values are valid depend on the level
+ *     data  :: cmsghdr_data()    (term() | binary())
+ *                                The type of the data depends on
+ *                                level and type, but can be a binary,
+ *                                which means that the data already coded.
+ */
+extern
+char* decode_cmsghdr(ErlNifEnv*        env,
+                     SocketDescriptor* descP,
+                     ERL_NIF_TERM      eCMsgHdr,
+                     void**            bufP,
+                     size_t*           rem)
+{
+    if (IS_MAP(env, eCMsgHdr)) {
+        ERL_NIF_TERM eLevel, eType, eData;
+        int          level, type;
+        char*        xres;
+
+        /* First extract all three attributes (as terms) */
+
+        if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_level, &eLevel))
+            return ESOCK_STR_EINVAL;
+        
+        if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_type, &eType))
+            return ESOCK_STR_EINVAL;
+        
+        if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_data, &eData))
+            return ESOCK_STR_EINVAL;
+
+        /* Second, decode level */
+        if ((xres = decode_cmsghdr_level(env, eLevel, &level)) != NULL)
+            return xres;
+
+        /* third, decode type */
+        if ((xres = decode_cmsghdr_type(env, level, eType, &type)) != NULL)
+            return xres;
+        
+        /* And finally data
+         * If its a binary, we are done. Otherwise, we need to check
+         * level and type to know what kind of data to expect.
+         *
+         * <KOLLA>
+         *
+         * At the moment, the only data we support is a binary...
+         *
+         * </KOLLA>
+         */
+        
+        if (IS_BIN(env, eData)) {
+            ErlNifBinary bin;
+            size_t       currentRem = *rem;
+
+            if (!GET_BIN(env, eData, &bin)) {
+                return ESOCK_STR_EINVAL;
+            } else {
+                int len   = CMSG_LEN(bin.size);   // The cmsghdr
+                int space = CMSG_SPACE(bin.size); // With padding
+                /* Make sure it fits before we copy */
+                if (currentRem >= space) {
+                    struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
+
+                    /* The header */
+                    cmsgP->cmsg_len   = len;
+                    cmsgP->cmsg_level = level;
+                    cmsgP->cmsg_type  = type;
+
+                    /* And the data */
+                    sys_memcpy(CMSG_DATA(cmsgP), bin.data, bin.size);
+                    *bufP += space;
+                    *rem  -= space;
+                } else {
+                    return ESOCK_STR_EINVAL;
+                }
+            }
+        } else {
+
+            /* Here is where we should have the proper data decode */
+
+            return ESOCK_STR_EINVAL;
+        }
+    } else {
+        return ESOCK_STR_EINVAL;
+    }
+
+    return NULL;
+}
+
+
 /* +++ encode_cmsghdr_level +++
  *
- * Encode the type part of the cmsghdr().
+ * Encode the level part of the cmsghdr().
  *
  */
 
@@ -10943,6 +11314,38 @@ char* encode_cmsghdr_level(ErlNifEnv*    env,
     default:
         xres = esock_encode_protocol(env, level, eLevel);
         break;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ decode_cmsghdr_level +++
+ *
+ * Decode the level part of the cmsghdr().
+ *
+ */
+
+static
+char* decode_cmsghdr_level(ErlNifEnv*   env,
+                           ERL_NIF_TERM eLevel,
+                           int*         level)
+{
+    char* xres = NULL;
+
+    if (IS_ATOM(env, eLevel)) {
+        if (COMPARE(eLevel, esock_atom_socket) == 0) {
+            *level = SOL_SOCKET;
+            xres   = NULL;
+        } else {
+            xres = esock_decode_protocol(env, eLevel, level);            
+        }
+    } else if (IS_NUM(env, eLevel)) {
+        if (!GET_INT(env, eLevel, level))
+            xres = ESOCK_STR_EINVAL;
+    } else {
+        xres = ESOCK_STR_EINVAL;
     }
 
     return xres;
@@ -11060,6 +11463,113 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             xres = ESOCK_STR_EINVAL;
             break;
         }        
+        break;
+#endif
+
+    default:
+        xres = ESOCK_STR_EINVAL;
+        break;
+    }
+
+    return xres;
+}
+
+
+
+/* +++ decode_cmsghdr_type +++
+ *
+ * Decode the type part of the cmsghdr().
+ *
+ */
+
+static
+char* decode_cmsghdr_type(ErlNifEnv*   env,
+                          int          level,
+                          ERL_NIF_TERM eType,
+                          int*         type)
+{
+    char* xres = NULL;
+
+    switch (level) {
+    case SOL_SOCKET:
+        if (COMPARE(eType, esock_atom_timestamp) == 0) {
+#if defined(SO_TIMESTAMP)
+           *type = SO_TIMESTAMP;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else if (COMPARE(eType, esock_atom_rights) == 0) {
+#if defined(SCM_RIGHTS)
+            *type = SCM_RIGHTS;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else if (COMPARE(eType, esock_atom_credentials) == 0) {
+#if defined(SCM_CREDENTIALS)
+            *type = SCM_CREDENTIALS;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else {
+            xres = ESOCK_STR_EINVAL;
+        }
+        break;
+
+
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        if (COMPARE(eType, esock_atom_tos) == 0) {
+#if defined(IP_TOS)
+            *type = IP_TOS;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else if (COMPARE(eType, esock_atom_ttl) == 0) {
+#if defined(IP_TTL)
+            *type = IP_TTL;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else if (COMPARE(eType, esock_atom_pktinfo) == 0) {
+#if defined(IP_PKTINFO)
+            *type = IP_PKTINFO;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else if (COMPARE(eType, esock_atom_origdstaddr) == 0) {
+#if defined(IP_ORIGDSTADDR)
+            *type = IP_ORIGDSTADDR;
+#else
+            xres  = ESOCK_STR_EINVAL;
+#endif
+        } else {
+            xres = ESOCK_STR_EINVAL;
+        }
+        break;
+        
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        xres = ESOCK_STR_EINVAL;
+        break;
+#endif
+        
+    case IPPROTO_TCP:
+        xres = ESOCK_STR_EINVAL;
+        break;
+        break;
+
+    case IPPROTO_UDP:
+        xres = ESOCK_STR_EINVAL;
+        break;
+        break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        xres = ESOCK_STR_EINVAL;
+        break;
         break;
 #endif
 
@@ -11787,6 +12297,7 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 
         descP->rBufSz           = SOCKET_RECV_BUFFER_SIZE_DEFAULT;
         descP->rCtrlSz          = SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT;
+        descP->wCtrlSz          = SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT;
         descP->iow              = FALSE;
         descP->dbg              = SOCKET_DEBUG_DEFAULT;
 
@@ -12895,6 +13406,7 @@ ErlNifFunc socket_funcs[] =
     {"nif_accept",              2, nif_accept, 0},
     {"nif_send",                4, nif_send, 0},
     {"nif_sendto",              5, nif_sendto, 0},
+    {"nif_sendmsg",             4, nif_sendmsg, 0},
     {"nif_recv",                4, nif_recv, 0},
     {"nif_recvfrom",            4, nif_recvfrom, 0},
     {"nif_recvmsg",             5, nif_recvmsg, 0},

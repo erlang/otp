@@ -71,7 +71,7 @@ static char* make_sockaddr_un(ErlNifEnv*    env,
 
 /* +++ esock_encode_iov +++
  *
- * Encode a IO Vector. In erlang we represented this as a list of binaries.
+ * Encode an IO Vector. In erlang we represented this as a list of binaries.
  *
  * We iterate through the IO vector, and as long as the remaining (rem)
  * number of bytes is greater than the size of the current buffer, we
@@ -135,6 +135,61 @@ char* esock_encode_iov(ErlNifEnv*    env,
     *eIOV = MKLA(env, a, i);
 
     UDBG( ("SUTIL", "esock_encode_msghdr -> done\r\n") );
+
+    return NULL;
+}
+
+
+
+/* +++ esock_decode_iov +++
+ *
+ * Decode an IO Vector. In erlang we represented this as a list of binaries.
+ *
+ * We assume that we have already figured out how long the iov (actually
+ * eIOV) is (len), and therefor allocated an array of bins and iov to be
+ * used.
+ */
+
+extern
+char* esock_decode_iov(ErlNifEnv*    env,
+                       ERL_NIF_TERM  eIOV,
+                       ErlNifBinary* bufs,
+                       struct iovec* iov,
+                       size_t        len,
+                       ssize_t*      totSize)
+{
+    uint16_t     i;
+    ssize_t      sz;
+    ERL_NIF_TERM elem, tail, list;
+
+    UDBG( ("SUTIL", "esock_decode_iov -> entry with"
+           "\r\n   (IOV) len: %d"
+           "\r\n", read, len) );
+
+    for (i = 0, list = eIOV, sz = 0; (i < len); i++) {
+
+        UDBG( ("SUTIL", "esock_decode_iov -> "
+               "\r\n   iov[%d].iov_len: %d"
+               "\r\n   rem:            %d"
+               "\r\n", i) );
+
+        if (!GET_LIST_ELEM(env, list, &elem, &tail))
+            return ESOCK_STR_EINVAL;
+
+        if (IS_BIN(env, elem) && GET_BIN(env, elem, &bufs[i])) {
+            iov[i].iov_base  = bufs[i].data;
+            iov[i].iov_len   = bufs[i].size;
+            sz              += bufs[i].size;
+        } else {
+            return ESOCK_STR_EINVAL;
+        }
+
+        list = tail;
+    }
+
+    *totSize = sz;
+
+    UDBG( ("SUTIL", "esock_decode_msghdr -> done (%d)\r\n", sz) );
 
     return NULL;
 }
@@ -1100,7 +1155,7 @@ char* esock_encode_type(ErlNifEnv*    env,
 
 
 
-/* +++ esock_decode_protocol +++
+/* +++ esock_encode_protocol +++
  *
  * Encode the native protocol to the Erlang form, that is: 
  * 

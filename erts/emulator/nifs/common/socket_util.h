@@ -43,6 +43,13 @@ char* esock_encode_iov(ErlNifEnv*    env,
                        ErlNifBinary* data,
                        ERL_NIF_TERM* eIOV);
 extern
+char* esock_decode_iov(ErlNifEnv*    env,
+                       ERL_NIF_TERM  eIOV,
+                       ErlNifBinary* bufs,
+                       struct iovec* iov,
+                       size_t        len,
+                       ssize_t*      totSize);
+extern
 char* esock_decode_sockaddr(ErlNifEnv*     env,
                             ERL_NIF_TERM   eSockAddr,
                             SocketAddress* sockAddrP,

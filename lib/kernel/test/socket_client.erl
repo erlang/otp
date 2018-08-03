@@ -71,6 +71,10 @@ start(Domain, Type, Proto, Addr, Port) ->
     SA = #{family => Domain,
            addr   => Addr,
            port   => Port},
+    %% The way we use tos only works because we
+    %% send so few messages (a new value for every
+    %% message).
+    put(tos, 1),
     do_start(Domain, Type, Proto, SA).
 
 do_start(Domain, stream = Type, Proto, SA) ->
@@ -186,6 +190,7 @@ do_init(Domain, stream = Type, Proto) ->
     i("try (socket) bind"),
     case socket:bind(Sock, any) of
         {ok, _P} ->
+            ok = socket:setopt(Sock, ip, tos, mincost),
             Sock;
         {error, BReason} ->
             throw({bind, BReason})
@@ -271,7 +276,15 @@ send(#client{socket = Sock, type = dgram, dest = Dest}, Msg) ->
     %% i("try send to: "
     %%   "~n   ~p", [Dest]),
     %% ok = socket:setopt(Sock, otp, debug, true),
-    socket:sendto(Sock, Msg, Dest).
+    TOS = get(tos),
+    ok = socket:setopt(Sock, ip, tos, TOS),
+    case socket:sendto(Sock, Msg, Dest) of
+        ok = OK ->
+            put(tos, TOS+1),
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 recv(#client{socket = Sock, type = stream}) ->
     case socket:recv(Sock) of

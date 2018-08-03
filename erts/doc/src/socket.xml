@@ -403,6 +403,40 @@
     </func>
 
     <func>
+      <name name="recvmsg" arity="1"/>
+      <name name="recvmsg" arity="2" clause_i="1"/>
+      <name name="recvmsg" arity="2" clause_i="2"/>
+      <name name="recvmsg" arity="3"/>
+      <name name="recvmsg" arity="5"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message.</p>
+	<p>The message will be delivered in the form of a <c>msghdr()</c>,
+	which may contain the source address (if socket not connected),
+	a list of <c>cmsghdr()</c> (depends on what socket options have
+	been set and what the protocol and platform supports) and
+	also a set of flags, providing further info about the read . </p>
+	
+        <p>The <c>BufSz</c> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <c>Level</c> = <c>otp</c>) is used.</p>
+
+        <p>The <c>CtrlSz</c> argument basically defines the size of the
+	receive buffer for the control messages.
+	By setting the value to zero (0), the configured size (setopt
+	with <c>Level</c> = <c>otp</c>) is used.</p>
+
+	<p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvmsg call
+	is needed, possibly with a then adjusted buffer size.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="send" arity="2"/>
       <name name="send" arity="3" clause_i="1"/>
       <name name="send" arity="3" clause_i="2"/>
@@ -410,6 +444,21 @@
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendmsg" arity="2"/>
+      <name name="sendmsg" arity="3" clause_i="1"/>
+      <name name="sendmsg" arity="3" clause_i="2"/>
+      <name name="sendmsg" arity="4"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+	<p>Send a message on a socket. The destination, if needed (socket not
+	connected) is provided in the <c>MsgHdr</c>, which also
+	contains the message to send, The <c>MsgHdr</c> may also contain
+	an list of optional <c>cmsghdr()</c> (depends on what the protocol and
+	platform supports).</p>
       </desc>
     </func>
 

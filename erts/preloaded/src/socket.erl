@@ -38,12 +38,12 @@
 
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
-         %% sendmsg/4,
+         sendmsg/2, sendmsg/3, sendmsg/4,
          %% writev/4, OR SENDV? It will be strange for recv then: recvv (instead of readv)
 
          recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
-         recvmsg/1, recvmsg/2, recvmsg/5,
+         recvmsg/1, recvmsg/2, recvmsg/3, recvmsg/5,
          %% readv/3,
 
          close/1,
@@ -508,13 +508,15 @@
 -type msghdr_flags() :: [msghdr_flag()].
 -type msghdr() :: #{
                     %% *Optional* target address
-                    %% *If* this field is specified for an unconnected
-                    %% socket, then it will be used as destination for the 
-                    %% datagram.
+                    %% Used on an unconnected socket to specify the 
+                    %% target address for a datagram.
                     addr => sockaddr(),
                     
                     iov  => [binary()],
-                    
+
+                    %% The maximum size of the control buffer is platform
+                    %% specific. It is the users responsibility to ensure 
+                    %% that its not exceeded.
                     ctrl => [cmsghdr()],
 
                     %% Only valid with recvmsg
@@ -577,10 +579,12 @@
 -define(SOCKET_SEND_FLAG_NOSIGNAL,   4).
 -define(SOCKET_SEND_FLAG_OOB,        5).
 
--define(SOCKET_SEND_FLAGS_DEFAULT,     []).
--define(SOCKET_SEND_TIMEOUT_DEFAULT,   infinity).
--define(SOCKET_SENDTO_FLAGS_DEFAULT,   []).
--define(SOCKET_SENDTO_TIMEOUT_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
+-define(SOCKET_SEND_FLAGS_DEFAULT,      []).
+-define(SOCKET_SEND_TIMEOUT_DEFAULT,    infinity).
+-define(SOCKET_SENDTO_FLAGS_DEFAULT,    []).
+-define(SOCKET_SENDTO_TIMEOUT_DEFAULT,  ?SOCKET_SEND_TIMEOUT_DEFAULT).
+-define(SOCKET_SENDMSG_FLAGS_DEFAULT,   []).
+-define(SOCKET_SENDMSG_TIMEOUT_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
 
 -define(SOCKET_RECV_FLAG_CMSG_CLOEXEC, 0).
 -define(SOCKET_RECV_FLAG_ERRQUEUE,     1).
@@ -1390,14 +1394,123 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 
 
 %% ---------------------------------------------------------------------------
+%%
+%% The only part of the msghdr() that *must* exist (a connected
+%% socket need not specify the addr field) is the iov.
+%% The ctrl field is optional, and the addr and flags are not
+%% used when sending.
+%%
 
-%% -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
-%%       Socket   :: socket(),
-%%       MsgHdr   :: msg_hdr(),
-%%       Flags    :: send_flags(),
-%%       Reason   :: term().
+-spec sendmsg(Socket, MsgHdr) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term().
+
+sendmsg(Socket, MsgHdr) ->
+    sendmsg(Socket, MsgHdr,
+            ?SOCKET_SENDMSG_FLAGS_DEFAULT, ?SOCKET_SENDMSG_TIMEOUT_DEFAULT).
 
 
+-spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      Flags   :: send_flags(),
+      Reason  :: term()
+                 ; (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      Timeout :: timeout(),
+      Reason  :: term().
+
+sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
+    sendmsg(Socket, MsgHdr, Flags, ?SOCKET_SENDMSG_TIMEOUT_DEFAULT);
+sendmsg(Socket, MsgHdr, Timeout) 
+  when is_integer(Timeout) orelse (Timeout =:= infinity) ->
+    sendmsg(Socket, MsgHdr, ?SOCKET_SENDMSG_FLAGS_DEFAULT, Timeout).
+
+
+-spec sendmsg(Socket, MsgHdr, Flags, Timeout) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      Flags   :: send_flags(),
+      Timeout :: timeout(),
+      Reason  :: term().
+
+sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
+  when is_list(IOV) andalso 
+       is_list(Flags) andalso
+       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+    try ensure_msghdr(MsgHdr) of
+        M ->
+            EFlags = enc_send_flags(Flags),
+            do_sendmsg(SockRef, M, EFlags, Timeout)
+    catch
+        throw:T ->
+            T;
+        error:Reason ->
+            {error, Reason}
+    end.
+
+do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
+    TS      = timestamp(Timeout),
+    SendRef = make_ref(),
+    case nif_sendmsg(SockRef, SendRef, MsgHdr, EFlags) of
+        ok ->
+            %% We are done
+            ok;
+
+        {error, eagain} ->
+            receive
+                {select, SockRef, SendRef, ready_output} ->
+                    do_sendmsg(SockRef, MsgHdr, EFlags, 
+                              next_timeout(TS, Timeout))
+            after Timeout ->
+                    nif_cancel(SockRef, sendmsg, SendRef),
+                    flush_select_msgs(SockRef, SendRef),
+                    {error, timeout}
+            end;
+
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+ensure_msghdr(#{iov := IOV} = M) when is_list(IOV) andalso (IOV =/= []) ->
+    M#{iov := erlang:iolist_to_iovec(IOV)};
+ensure_msghdr(_) ->
+    einval().
+
+
+
+%% send(Sock, #{ctrl = Ctrl} = MsgHdr, Flags) when is_list(Ctrl) ->
+%%     case encode_cmsghdrs(Ctrl) of
+%%         undefined ->
+%%             send(Sock, maps:remove(ctrl, MsgHdr), Flags);
+%%         Ctrl2 ->
+%%             send(Sock, MsgHdr#{ctrl = Ctrl2}, Flags)
+%%     end.
+    
+%% encode_cmsghdrs([]) ->
+%%     undefined;
+%% encode_cmsghdrs(Hdrs) ->
+%%     encode_cmsghdrs(Hdrs, []).
+
+%% encode_cmsghdrs([], Acc) ->
+%%     list_to_binary(lists:reverse(Acc));
+%% encode_cmsghdrs([H|T], Acc) when is_binary(H) ->
+%%     encode_cmsghdrs(T, [H|Acc]);
+%% encode_cmsghdrs([#{level := Level,
+%%                    type  := Type,
+%%                    data  := Data} | T], Acc) ->
+%%     case nif_encode_cmsghdr(Level, Type, Data) of
+%%         {ok, Bin} when is_binary(Bin) ->
+%%             encode_cmsghdrs(T, [Bin | Acc]);
+%%         {error, _} = ERROR ->
+%%             ERROR
+%%     end.
+
+
+    
+    
 
 %% ===========================================================================
 %%
@@ -1778,13 +1891,39 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 %% ---------------------------------------------------------------------------
 %%
 
+-spec recvmsg(Socket) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term().
+
 recvmsg(Socket) ->
     recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+
+-spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      Flags   :: recv_flags(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term()
+                 ; (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      Timeout :: timeout(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
 recvmsg(Socket, Timeout) ->
     recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
+
+-spec recvmsg(Socket, Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      Flags   :: recv_flags(),
+      Timeout :: timeout(),
+      MsgHdr  :: msghdr(),
+      Reason  :: term().
+
+recvmsg(Socket, Flags, Timeout) ->
+    recvmsg(Socket, 0, 0, Flags, Timeout).
 
 -spec recvmsg(Socket, 
               BufSz, CtrlSz,
@@ -3244,6 +3383,9 @@ nif_send(_SockRef, _SendRef, _Data, _Flags) ->
     erlang:error(badarg).
 
 nif_sendto(_SRef, _SendRef, _Data, _Dest, _Flags) ->
+    erlang:error(badarg).
+
+nif_sendmsg(_SRef, _SendRef, _MsgHdr, _Flags) ->
     erlang:error(badarg).
 
 nif_recv(_SRef, _RecvRef, _Length, _Flags) ->

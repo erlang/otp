@@ -900,8 +900,18 @@ peek_recvfrom(Sock, BufSz) ->
     end.
 
 
+send(#handler{socket = Sock, msg = true, type = stream}, Msg, _) ->
+    MsgHdr = #{iov => [Msg]},
+    socket:sendmsg(Sock, MsgHdr);
 send(#handler{socket = Sock, type = stream}, Msg, _) ->
     socket:send(Sock, Msg);
+send(#handler{socket = Sock, msg = true, type = dgram}, Msg, Dest) ->
+    MsgHdr = #{addr => Dest,
+               iov  => [Msg]},
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    Res = socket:sendmsg(Sock, MsgHdr),
+    %% ok = socket:setopt(Sock, otp, debug, false),
+    Res;
 send(#handler{socket = Sock, type = dgram}, Msg, Dest) ->
     socket:sendto(Sock, Msg, Dest).
 
