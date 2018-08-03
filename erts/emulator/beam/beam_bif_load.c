@@ -1753,6 +1753,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 	if (literals) {
 	    ErtsLiteralAreaRef *ref;
+            ErtsMessage *mp;
 	    ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
 			     sizeof(ErtsLiteralAreaRef));
 	    ref->literal_area = literals;
@@ -1767,10 +1768,12 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		release_literal_areas.last = ref;
 	    }
 	    erts_mtx_unlock(&release_literal_areas.mtx);
+            mp = erts_alloc_message(0, NULL);
+            ERL_MESSAGE_TOKEN(mp) = am_undefined;
 	    erts_queue_proc_message(BIF_P,
                                erts_literal_area_collector,
 			       0,
-			       erts_alloc_message(0, NULL),
+			       mp,
 			       am_copy_literals);
 	}
 

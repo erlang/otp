@@ -52,8 +52,8 @@
 
 #define ERTS_SIG_Q_OP_MAX 13
 
-#define ERTS_SIG_Q_OP_EXIT                      0
-#define ERTS_SIG_Q_OP_EXIT_LINKED               1
+#define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
+#define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
 #define ERTS_SIG_Q_OP_MONITOR_DOWN              2
 #define ERTS_SIG_Q_OP_MONITOR                   3
 #define ERTS_SIG_Q_OP_DEMONITOR                 4
@@ -1167,10 +1167,7 @@ erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_PERSISTENT_MON_MSG,
                                                   type, 0);
     ERL_MESSAGE_FROM(mp) = from;
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
 
     if (!proc_queue_signal(NULL, to, (ErtsSignal *) mp,
                            ERTS_SIG_Q_OP_PERSISTENT_MON_MSG)) {
@@ -1564,11 +1561,6 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to, Eterm ref)
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_IS_ALIVE,
                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
                                                   0);
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-    ERL_MESSAGE_FROM(mp) = am_system;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_IS_ALIVE))
         (void) maybe_elevate_sig_handling_prio(c_p, to);
@@ -1672,11 +1664,6 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to, Eterm tag, Eterm reply)
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_SYNC_SUSPEND,
                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
                                                   0);
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-    ERL_MESSAGE_FROM(mp) = am_system;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_SYNC_SUSPEND))
         (void) maybe_elevate_sig_handling_prio(c_p, to);
@@ -1790,7 +1777,7 @@ handle_rpc(Process *c_p, ErtsProcSigRPC *rpc, int cnt, int limit, int *yieldp)
         msg = TUPLE2(hp, ref, res);
 
         mp->hfrag.next = bp;
-
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, 0, mp, msg);
     }
 
@@ -2155,10 +2142,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
                 pid = STORE_NC(&hp, ohp, from);
 
                 ERL_MESSAGE_TERM(mp) = TUPLE3(hp, am_EXIT, pid, reason);
-                ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-                ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+                ERL_MESSAGE_TOKEN(mp) = am_undefined;
                 if (is_immed(pid))
                     ERL_MESSAGE_FROM(mp) = pid;
                 else {
@@ -2346,10 +2330,7 @@ convert_to_down_message(Process *c_p,
                                   type, from, reason);
     hp += 6;
 
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     /* Replace original signal with the exit message... */
     convert_to_msg(c_p, sig, mp, next_nm_sig);
 
@@ -2397,10 +2378,7 @@ convert_to_nodedown_messages(Process *c_p,
 
             ERL_MESSAGE_TERM(mp) = TUPLE2(hp, am_nodedown, node);
             ERL_MESSAGE_FROM(mp) = am_system;
-            ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-            ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+            ERL_MESSAGE_TOKEN(mp) = am_undefined;
             mp->next = nd_first;
             nd_first = mp;
             if (!nd_last)
@@ -2830,6 +2808,7 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
         if (is_alive)
             erts_factory_trim_and_close(&hfact, &msg, 1);
 
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, locks, mp, msg);
 
         if (!is_alive && locks)
@@ -2931,6 +2910,7 @@ sync_suspend_reply(Process *c_p, ErtsMessage *mp, erts_aint32_t state)
                 tp[2] = ssusp->async ? am_not_suspended : am_internal_error;
             }
         }
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, 0, mp, ssusp->message);
     }
 }

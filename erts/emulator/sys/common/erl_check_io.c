@@ -1493,7 +1493,6 @@ send_event_tuple(struct erts_nif_select_event* e, ErtsResource* resource,
     }
     tuple = TUPLE4(hp, am_select, resource_term, ref_term, event_atom);
 
-    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_message(rp, rp_locks, mp, tuple, am_system);
 
     if (rp_locks)
