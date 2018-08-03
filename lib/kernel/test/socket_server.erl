@@ -915,6 +915,9 @@ send(#handler{socket = Sock, msg = true, type = dgram}, Msg, Dest) ->
 send(#handler{socket = Sock, type = dgram}, Msg, Dest) ->
     socket:sendto(Sock, Msg, Dest).
 
+%% filler() ->
+%%     list_to_binary(lists:duplicate(2048, " FILLER ")).
+
 
 
 %% =========================================================================

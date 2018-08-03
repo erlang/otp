@@ -99,6 +99,8 @@
               ip_pktinfo/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
+              sctp_assoc_id/0,
+              sctp_sndrcvinfo/0,
               sctp_event_subscribe/0,
               sctp_assocparams/0,
               sctp_initmsg/0,
@@ -116,7 +118,8 @@
               uint8/0,
               uint16/0,
               uint20/0,
-              uint32/0
+              uint32/0,
+              int32/0
              ]).
 
 
@@ -124,6 +127,7 @@
 -type uint16() :: 0..16#FFFF.
 -type uint20() :: 0..16#FFFFF.
 -type uint32() :: 0..16#FFFFFFFF.
+-type int32()  :: -2147483648..2147483647.
 
 
 %% We support only a subset of all domains.
@@ -171,6 +175,12 @@
 -type timeval() :: #{sec  := integer(),
                      usec := integer()}.
 
+-type ip_pktinfo() :: #{
+                        ifindex  := non_neg_integer(), % Interface Index
+                        spec_dst := ip4_address(),     % Local Address
+                        addr     := ip4_address()      % Header Destination address
+                       }.
+
 %% If the integer value is used its up to the caller to ensure its valid!
 -type ip_tos() :: lowdeley |
                   throughput |
@@ -208,15 +218,28 @@
 %% slist:     List of source addresses
 -type ip_msfilter_mode() :: include | exclude.
 
--type ip_msfilter() :: #{multiaddr => ip4_address(),
-                         interface => ip4_address(),
-                         mode      => ip_msfilter_mode(),
-                         slist     => [ip4_address()]}.
+-type ip_msfilter() :: #{multiaddr := ip4_address(),
+                         interface := ip4_address(),
+                         mode      := ip_msfilter_mode(),
+                         slist     := [ip4_address()]}.
 
 -type ipv6_mreq() :: #{multiaddr := ip6_address(),
                        interface := non_neg_integer()}.
 
 -type ipv6_pmtudisc() :: ip_pmtudisc().
+
+-type sctp_assoc_id() :: int32().
+-type sctp_sndrcvinfo() :: #{
+                             stream     := uint16(),
+                             ssn        := uint16(),
+                             flags      := uint16(),
+                             ppid       := uint16(),
+                             context    := uint16(),
+                             timetolive := uint16(),
+                             tsn        := uint16(),
+                             cumtsn     := uint16(),
+                             assoc_id   := sctp_assoc_id()
+                            }.
 
 -type sctp_event_subscribe() :: #{data_in          := boolean(),
                                   association      := boolean(),
@@ -229,7 +252,7 @@
                                   authentication   := boolean(),
                                   sender_dry       := boolean()}.
 
--type sctp_assocparams() :: #{assoc_id       := integer(),
+-type sctp_assocparams() :: #{assoc_id       := sctp_assoc_id(),
                               max_rxt        := uint16(),
                               num_peer_dests := uint16(),
                               peer_rwnd      := uint32(),
@@ -242,7 +265,7 @@
                           max_init_timeo := uint16()
                          }.
 
--type sctp_rtoinfo() :: #{assoc_id := integer(),
+-type sctp_rtoinfo() :: #{assoc_id := sctp_assoc_id(),
                           initial  := uint32(),
                           max      := uint32(),
                           min      := uint32()}.
@@ -510,32 +533,29 @@
                     %% *Optional* target address
                     %% Used on an unconnected socket to specify the 
                     %% target address for a datagram.
-                    addr => sockaddr(),
+                    addr  := sockaddr(),
                     
-                    iov  => [binary()],
+                    iov   := [binary()],
 
                     %% The maximum size of the control buffer is platform
                     %% specific. It is the users responsibility to ensure 
                     %% that its not exceeded.
-                    ctrl => [cmsghdr()],
+                    ctrl  := [cmsghdr()],
 
                     %% Only valid with recvmsg
-                    flags  => msghdr_flags()
+                    flags := msghdr_flags()
                    }.
 %% We are able to (completely) decode *some* control message headers.
 %% Even if we are able to decode both level and type, we may not be
 %% able to decode the data, in which case it will be a binary.
--type ip_pktinfo() :: #{
-                        ifindex  => non_neg_integer(), % Interface Index
-                        spec_dst => ip4_address(),     % Local Address
-                        addr     => ip4_address()      % Header Destination address
-                       }.
+
 -type cmsghdr_level() :: socket | protocol() | integer().
 -type cmsghdr_type()  :: timestamp |
-                         rights |
-                         credentials |
+                         pktinfo |
                          tos |
                          ttl |
+                         rights |
+                         credentials |
                          origdstaddr |
                          integer().
 -type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
@@ -545,9 +565,9 @@
                         sockaddr_in4() | % if level = ip and type = origdstaddr
                         binary().
 -type cmsghdr() :: #{
-                     level => cmsghdr_level(),
-                     type  => cmsghdr_type(),
-                     data  => cmsghdr_data()
+                     level := cmsghdr_level(),
+                     type  := cmsghdr_type(),
+                     data  := cmsghdr_data()
                     }.
 
 -define(SOCKET_DOMAIN_LOCAL, 1).
@@ -1476,6 +1496,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
 
 ensure_msghdr(#{iov := IOV} = M) when is_list(IOV) andalso (IOV =/= []) ->
     M#{iov := erlang:iolist_to_iovec(IOV)};
+    %% M;
 ensure_msghdr(_) ->
     einval().
 
@@ -1885,7 +1906,6 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
             ERROR
 
     end.
-
 
 
 %% ---------------------------------------------------------------------------

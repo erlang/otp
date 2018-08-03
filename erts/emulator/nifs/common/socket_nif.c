@@ -3770,7 +3770,8 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
     res = nsendmsg(env, descP, sendRef, eMsgHdr, flags);
 
-    SGDBG( ("SOCKET", "nif_sendmsg -> done with result: "
+    SSDBG( descP,
+           ("SOCKET", "nif_sendmsg -> done with result: "
             "\r\n   %T"
             "\r\n", res) );
 
@@ -3808,6 +3809,8 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
 
         /* We don't need the address */
 
+        SSDBG( descP, ("SOCKET", "nsendmsg -> connected: no address\r\n") );
+
         msgHdr.msg_name    = NULL;
         msgHdr.msg_namelen = 0;
         
@@ -3820,6 +3823,11 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
         sys_memzero((char *) msgHdr.msg_name, msgHdr.msg_namelen);
         if (!GET_MAP_VAL(env, eMsgHdr, esock_atom_addr, &eAddr))
             return esock_make_error(env, esock_atom_einval);
+
+        SSDBG( descP, ("SOCKET", "nsendmsg -> not connected: "
+                       "\r\n   %T"
+                       "\r\n", eAddr) );
+
         if ((xres = esock_decode_sockaddr(env, eAddr,
                                           msgHdr.msg_name,
                                           &msgHdr.msg_namelen)) != NULL)
@@ -3835,6 +3843,8 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
 
     if (!GET_LIST_LEN(env, eIOV, &iovLen) && (iovLen > 0))
         return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nsendmsg -> iov length: %d\r\n", iovLen) );
 
     iovBins = MALLOC(iovLen * sizeof(ErlNifBinary));
     ESOCK_ASSERT( (iovBins != NULL) );
@@ -3865,6 +3875,10 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     msgHdr.msg_iov    = iov;
     msgHdr.msg_iovlen = iovLen;
     
+
+    SSDBG( descP, ("SOCKET",
+                   "nsendmsg -> total (iov) data size: %d\r\n", dataSize) );
+
 
     /* Decode the ctrl and initiate that part of the msghdr */
     if (ctrlBuf != NULL) {

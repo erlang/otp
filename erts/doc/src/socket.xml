@@ -147,6 +147,9 @@
       <name name="ipv6_pmtudisc"/>
     </datatype>
     <datatype>
+      <name name="sctp_sndrcvinfo"/>
+    </datatype>
+    <datatype>
       <name name="sctp_event_subscribe"/>
     </datatype>
     <datatype>
@@ -180,10 +183,19 @@
       <name name="cmsghdr"/>
     </datatype>
     <datatype>
+      <name name="uint8"/>
+    </datatype>
+    <datatype>
       <name name="uint16"/>
     </datatype>
     <datatype>
+      <name name="uint20"/>
+    </datatype>
+    <datatype>
       <name name="uint32"/>
+    </datatype>
+    <datatype>
+      <name name="int32"/>
     </datatype>
   </datatypes>
 
