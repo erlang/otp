@@ -228,6 +228,12 @@
 
 -type ipv6_pmtudisc() :: ip_pmtudisc().
 
+-type ipv6_pktinfo() :: #{
+                          addr    := ip6_address(),
+                          ifindex := integer()
+                         }.
+
+
 -type sctp_assoc_id() :: int32().
 -type sctp_sndrcvinfo() :: #{
                              stream     := uint16(),
@@ -560,6 +566,7 @@
                          integer().
 -type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
                         ip_pktinfo()   | % if level = ip and type = pktinfo
+                        ipv6_pktinfo() | % if level = ipv6 and type = pktinfo
                         ip_tos()       | % if level = ip and type = tos
                         integer()      | % if level = ip and type = ttl
                         sockaddr_in4() | % if level = ip and type = origdstaddr

@@ -51,7 +51,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>assoc_id</cell>
@@ -90,7 +90,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>acceptcon</cell>
@@ -118,7 +118,7 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>require admin capability</cell>
+	<cell>requires admin capability</cell>
       </row>
       <row>
 	<cell>domain</cell>
@@ -255,7 +255,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>add_membership</cell>
@@ -451,7 +451,7 @@
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>require admin capability</cell>
+	<cell>requires admin capability</cell>
       </row>
       <row>
 	<cell>ttl</cell>
@@ -476,7 +476,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>addrform</cell>
@@ -621,7 +621,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>congestion</cell>
@@ -653,7 +653,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>cork</cell>
@@ -671,7 +671,7 @@
 	<cell><em>Value Type</em></cell>
 	<cell><em>Set</em></cell>
 	<cell><em>Get</em></cell>
-	<cell><em>Other</em></cell>
+	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
 	<cell>associnfo</cell>

@@ -1960,6 +1960,15 @@ static char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
                                     size_t         dataPos,
                                     size_t         dataLen,
                                     ERL_NIF_TERM*  eCMsgHdrData);
+#if defined(SOL_IPV6)
+static char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
+                                      ERL_NIF_TERM   ctrlBuf,
+                                      int            type,
+                                      unsigned char* dataP,
+                                      size_t         dataPos,
+                                      size_t         dataLen,
+                                      ERL_NIF_TERM*  eCMsgHdrData);
+#endif
 extern char* encode_msghdr_flags(ErlNifEnv*        env,
                                  SocketDescriptor* descP,
                                  int               msgFlags,
@@ -11419,19 +11428,19 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             *eType = esock_atom_tos;
             break;
 #endif
-            
+
 #if defined(IP_TTL)
         case IP_TTL:
             *eType = esock_atom_ttl;
             break;
 #endif
-            
+
 #if defined(IP_PKTINFO)
         case IP_PKTINFO:
             *eType = esock_atom_pktinfo;
             break;
 #endif
-            
+
 #if defined(IP_ORIGDSTADDR)
         case IP_ORIGDSTADDR:
             *eType = esock_atom_origdstaddr;
@@ -11443,17 +11452,23 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
         }
         break;
-        
+
 #if defined(SOL_IPV6)
     case SOL_IPV6:
         switch (type) {
+#if defined(IPV6_PKTINFO)
+        case IPV6_PKTINFO:
+            *eType = esock_atom_pktinfo;
+            break;
+#endif
+
         default:
             xres = ESOCK_STR_EINVAL;
             break;
         }        
         break;
 #endif
-        
+
     case IPPROTO_TCP:
         switch (type) {
         default:
@@ -11634,13 +11649,13 @@ char* encode_cmsghdr_data(ErlNifEnv*     env,
                                       eCMsgHdrData);
         break;
 
-        /*
-          #if defined(SOL_IPV6)
-          case SOL_IPV6:
-          xres = encode_cmsghdr_data_ipv6(env, type, dataP, eCMsgHdrData);
-          break;
-          #endif
-        */
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        xres = encode_cmsghdr_data_ipv6(env, ctrlBuf, type,
+                                        dataP, dataPos, dataLen,
+                                        eCMsgHdrData);
+        break;
+#endif
 
         /*
           case IPPROTO_TCP:
@@ -11824,6 +11839,66 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
 
     return NULL;
 }
+
+
+
+/* +++ encode_cmsghdr_data_ipv6 +++
+ *
+ * Encode the data part when protocol = IPv6 of the cmsghdr().
+ *
+ */
+#if defined(SOL_IPV6)
+static
+char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
+                               ERL_NIF_TERM   ctrlBuf,
+                               int            type,
+                               unsigned char* dataP,
+                               size_t         dataPos,
+                               size_t         dataLen,
+                               ERL_NIF_TERM*  eCMsgHdrData)
+{
+    char* xres;
+
+    switch (type) {
+#if defined(IPV6_PKTINFO)
+    case IPV6_PKTINFO:
+        {
+            struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) dataP;
+            ERL_NIF_TERM        ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
+            ERL_NIF_TERM        addr;
+
+            if ((xres = esock_encode_ip6_address(env,
+                                                 &pktInfoP->ipi6_addr,
+                                                 &addr)) != NULL) {
+                *eCMsgHdrData = esock_atom_undefined;
+                return xres;
+            }
+
+            {
+                ERL_NIF_TERM keys[]  = {esock_atom_addr, esock_atom_ifindex};
+                ERL_NIF_TERM vals[]  = {addr, ifIndex};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    
+                ESOCK_ASSERT( (numKeys == numVals) );
+                
+                if (!MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+                    *eCMsgHdrData = esock_atom_undefined;
+                    return ESOCK_STR_EINVAL;
+                }
+            }
+        }
+        break;
+#endif
+
+    default:
+        *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+        break;
+    }
+
+    return NULL;
+}
+#endif
 
 
 
