@@ -1688,11 +1688,16 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	return 0;
 
 found_key:
-	*hp++ = value;
-	vs++;
-	if (++i < n)
-	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
-	*res = make_flatmap(shp);
+        if(*vs == value) {
+            HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
+            *res = map;
+        } else {
+	    *hp++ = value;
+	    vs++;
+	    if (++i < n)
+	       sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+	    *res = make_flatmap(shp);
+        }
 	return 1;
     }
 
@@ -1748,9 +1753,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	if (is_immed(key)) {
 	    for( i = 0; i < n; i ++) {
 		if (ks[i] == key) {
-		    *hp++ = value;
-		    vs++;
-		    c = 1;
+                    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
@@ -1758,17 +1761,12 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	} else {
 	    for( i = 0; i < n; i ++) {
 		if (EQ(ks[i], key)) {
-		    *hp++ = value;
-		    vs++;
-		    c = 1;
+		    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
 	    }
 	}
-
-	if (c)
-	    return res;
 
 	/* the map will grow */
 
@@ -1824,6 +1822,18 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	 */
 	*shp = make_pos_bignum_header(0);
 	return res;
+
+found_key:
+        if(*vs == value) {
+            HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
+            return map;
+        } else {
+            *hp++ = value;
+            vs++;
+            if (++i < n)
+               sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+            return res;
+        }
     }
     ASSERT(is_hashmap(map));
 
