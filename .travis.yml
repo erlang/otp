@@ -36,16 +36,42 @@ matrix:
       script:
         - ./scripts/build-otp
         - ./scripts/run-dialyzer
+
     - env: Linux32
       services:
         - docker
       script:
         - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp release && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
+
     - env: Linux64SmokeTest
       script:
         - ./scripts/build-otp
         - ./otp_build tests
         - ./scripts/run-smoke-tests
+
+    - env: Linux-ppc64le-SmokeTest
+      os: linux-ppc64le
+      script:
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - ./scripts/run-smoke-tests
+      addons:
+        apt:
+          update: true
+          packages:
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+            - libwxgtk3.0-dev
+            - libgl1-mesa-dev
+            - libglu1-mesa-dev
+            - libpng3
+            - default-jdk
+            - g++
+            - xsltproc
+            - libxml2-utils
+
     - env: Linux64Docbuild
       script:
         - ./scripts/build-otp docs
