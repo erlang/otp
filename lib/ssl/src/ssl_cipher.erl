@@ -2775,6 +2775,8 @@ ecdsa_signed_suites(Ciphers, Version) ->
 
 rsa_keyed(dhe_rsa) -> 
     true;
+rsa_keyed(ecdhe_rsa) -> 
+    true;
 rsa_keyed(rsa) -> 
     true;
 rsa_keyed(rsa_psk) -> 
@@ -2837,6 +2839,8 @@ dss_dhe_suites(Ciphers) ->
 ec_keyed(ecdh_ecdsa) ->
     true;
 ec_keyed(ecdh_rsa) ->
+    true;
+ec_keyed(ecdhe_ecdsa) ->
     true;
 ec_keyed(_) -> 
     false.
