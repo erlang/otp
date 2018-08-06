@@ -40,6 +40,37 @@ static int check_relaxed(void);
 #ifdef __WIN32__
 static int has_console(void);
 #endif
+#ifndef HAVE_SYSTEMD_DAEMON
+static int create_pidfile(void);
+static const char *pidfile = EPMD_PIDFILE;
+#endif
+
+#ifndef HAVE_SYSTEMD_DAEMON
+static int create_pidfile(void)
+{
+    int fd;
+
+    unlink(pidfile);
+
+    /* open the pidfile */
+    fd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL, 0644);
+    if (fd >= 0) {
+        FILE *f;
+
+        /* write our pid to it */
+        f = fdopen(fd, "w");
+        if (f != NULL) {
+            fprintf(f, "%d\n", getpid());
+            fclose(f);
+            /* leave the fd open */
+            return 0;
+        }
+        close(fd);
+    }
+
+    return -1;
+}
+#endif    /* (no) HAVE_SYSTEMD_DAEMON */
 
 #ifdef DONT_USE_MAIN
 
@@ -340,6 +371,13 @@ static void run_daemon(EpmdVars *g)
     
     umask(0);
 
+#ifndef HAVE_SYSTEMD_DAEMON
+    if (create_pidfile() < 0) {
+        dbg_perror(g,"could not create pidfile %s", pidfile);
+        epmd_cleanup_exit(g,1);
+    }
+#endif /* HAVE_SYSTEMD_DAEMON */
+
     for (fd = 0; fd < g->max_conn ; fd++) /* close all files ... */
         close(fd);
     /* Syslog on linux will try to write to whatever if we dont
@@ -614,4 +652,3 @@ static int check_relaxed(void)
     char* port_str = getenv("ERL_EPMD_RELAXED_COMMAND_CHECK");
     return (port_str != NULL) ? 1 : 0;
 }
-

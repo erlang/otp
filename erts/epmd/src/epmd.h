@@ -20,6 +20,9 @@
 
 /* The port number is defined in a makefile */
 
+/* The name and path to the pid file */
+#define EPMD_PIDFILE "/var/run/epmd.pid"
+
 /* Definitions of message codes */
 
 /* Registration and queries */
