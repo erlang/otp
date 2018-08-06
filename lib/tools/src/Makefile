@@ -72,6 +72,9 @@ APP_TARGET = $(EBIN)/$(APP_FILE)
 APPUP_SRC = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
+PRIVDIR = ../priv
+CSS = $(PRIVDIR)/styles.css
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -110,5 +113,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) \
 		"$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(CSS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
