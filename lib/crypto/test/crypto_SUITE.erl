@@ -444,7 +444,7 @@ no_stream_ivec() ->
       [{doc, "Test disabled stream ciphers that uses ivec"}].
 no_stream_ivec(Config) when is_list(Config) ->
     Type = ?config(type, Config),
-    notsup(fun crypto:stream_init/2, [Type, <<"Key">>, <<"Ivec">>]).
+    notsup(fun crypto:stream_init/3, [Type, <<"Key">>, <<"Ivec">>]).
 
 %%--------------------------------------------------------------------
 aead() ->
