@@ -945,6 +945,10 @@ eval_rel_op(Call, '/=', Ops, Sub) ->
 	false ->
 	    Call
     end;
+eval_rel_op(#c_call{anno=Anno} = Call, Op, [#c_tuple{es=LEs}, #c_tuple{es=REs}], _) ->
+    try eval_tuple_compare(LEs, REs, Op, Anno)
+    catch impossible -> Call
+    end;
 eval_rel_op(Call, _, _, _) -> Call.
 
 is_exact_eq_ok([A,B]=L, Sub) ->
@@ -976,6 +980,22 @@ is_non_numeric_tuple(Tuple, El) when El >= 1 ->
     is_non_numeric(element(El, Tuple)) andalso
 	is_non_numeric_tuple(Tuple, El-1);
 is_non_numeric_tuple(_Tuple, 0) -> true.
+
+eval_tuple_compare(Left, Right, Op, A) ->
+	Erlang = #c_literal{anno=A,val=erlang},
+	Name = #c_literal{anno=A,val=Op},
+	True = #c_literal{anno=A,val=true},
+	Clauses = build_tuple_clauses(Left, Right, A, Erlang, Name, True),
+	#c_case{anno=A,arg=#c_values{es=[]},clauses=Clauses}.
+
+build_tuple_clauses([L], [R], A, Erlang, Name, True) ->
+	Call = #c_call{anno=A,module=Erlang,name=Name,args=[L,R]},
+	[#c_clause{anno=A,pats=[],guard=True,body=Call}];
+build_tuple_clauses([L|Ls], [R|Rs], A, Erlang, Name, True) ->
+	Call = #c_call{anno=A,module=Erlang,name=Name,args=[L,R]},
+	Clause = #c_clause{anno=A,pats=[],guard=Call,body=True},
+	[Clause|build_tuple_clauses(Ls, Rs, A, Erlang, Name, True)];
+build_tuple_clauses(_, _, _, _, _, _) -> throw(impossible).
 
 %% Evaluate a bool op using type information. We KNOW that
 %% there must be at least one non-literal argument (i.e.
