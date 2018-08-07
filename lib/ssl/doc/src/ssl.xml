@@ -200,14 +200,14 @@
        | sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2</c></p></item>
 
        <tag><c>hello_extensions() =</c></tag>
-       <item><p><c>#{renegotiation_info => 
+       <item><p><c>#{renegotiation_info => binary() | undefined,
                    signature_algs => [{hash(), ecsda| rsa| dsa}] | undefined
 		   alpn => binary() | undefined,
-		   next_protocol_negotiation,
+		   next_protocol_negotiation => binary() | undefined,
 		   srp => string() | undefined,
-		   ec_point_formats ,
-		   elliptic_curves = [oid] | undefined
-		   sni = string()} 
+		   ec_point_formats => list() | undefined,
+		   elliptic_curves => [oid] | undefined,
+		   sni => string() | undefined}
        }</c></p></item>
       
 
