@@ -723,6 +723,12 @@ requires thorough reading of all new text.  For the upgrade from 7.6
 to 8.33, the update of the pcrepattern part of our manual page took
 about eight hours.
 
+## Update Licence
+
+Copy the LICENCE file to `erts/emulator/pcre/LICENCE` and update
+the `[PCRE]` section in `system/COPYRIGHT` with the content of
+the `LICENCE` file.
+
 ## Add new relevant options to re
 
 Then, when all this is done, you should add any new relevant options
