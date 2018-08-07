@@ -2545,13 +2545,17 @@ BIF_RETTYPE setelement_3(BIF_ALIST_3)
 	goto error;
     }
 
-    hp = HAlloc(BIF_P, size);
+    if (ptr[ix] == BIF_ARG_3) {
+        BIF_RET(BIF_ARG_2);
+    } else {
+        hp = HAlloc(BIF_P, size);
 
-    /* copy the tuple */
-    resp = hp;
-    sys_memcpy(hp, ptr, sizeof(Eterm)*size);
-    resp[ix] = BIF_ARG_3;
-    BIF_RET(make_tuple(resp));
+        /* copy the tuple */
+        resp = hp;
+        sys_memcpy(hp, ptr, sizeof(Eterm)*size);
+        resp[ix] = BIF_ARG_3;
+        BIF_RET(make_tuple(resp));
+    }
 }
 
 /**********************************************************************/
