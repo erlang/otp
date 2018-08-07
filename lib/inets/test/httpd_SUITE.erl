@@ -75,6 +75,9 @@ all() ->
      {group, http_mime_types},
      {group, http_logging},
      {group, http_post},
+     {group, http_rel_path_script_alias},
+     {group, http_not_sup},
+     {group, https_not_sup},
      mime_types_format
     ].
 
@@ -102,6 +105,8 @@ groups() ->
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
      {http_post, [], [{group, post}]},
+     {http_not_sup, [], [{group, not_sup}]},
+     {https_not_sup, [], [{group, not_sup}]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
      {custom, [],  [customize, add_default]},  
@@ -131,7 +136,9 @@ groups() ->
        trace, range, if_modified_since, mod_esi_chunk_timeout,
        esi_put, esi_post] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
-     {http_0_9, [], http_head() ++ http_get() ++ load()}
+     {http_0_9, [], http_head() ++ http_get() ++ load()},
+     {http_rel_path_script_alias, [], [cgi]},
+     {not_sup, [], [put_not_sup]}
     ].
 
 basic_groups ()->
@@ -203,7 +210,8 @@ init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_auth_api_dets;
 				    Group == https_auth_api_mnesia;
 				    Group == https_security;
-				    Group == https_reload
+				    Group == https_reload;
+                                    Group == https_not_sup
 				    ->
     catch crypto:stop(),
     try crypto:start() of
@@ -222,6 +230,7 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_auth_api_mnesia;
 				      Group == http_security;
 				      Group == http_reload;
+                                      Group == http_not_sup;
                                       Group == http_post;
                                       Group == http_mime_types
 				      ->
@@ -268,6 +277,11 @@ init_per_group(http_logging, Config) ->
     ServerRoot = proplists:get_value(server_root, Config1),
     Path = ServerRoot ++ "/httpd_log_transfer",
     [{transfer_log, Path} | Config1];
+init_per_group(http_rel_path_script_alias = Group, Config) ->
+    ok = start_apps(Group),
+    init_httpd(Group, [{type, ip_comm},{http_version, "HTTP/1.1"}| Config]);
+init_per_group(not_sup, Config) ->
+    [{http_version, "HTTP/1.1"} | Config];
 init_per_group(_, Config) ->
     Config.
 
@@ -891,6 +905,33 @@ max_clients_0_9() ->
 
 max_clients_0_9(Config) when is_list(Config) -> 
     do_max_clients([{http_version, "HTTP/0.9"} | Config]).
+
+
+%%-------------------------------------------------------------------------
+put_not_sup() ->
+    [{doc, "Test unhandled request"}].
+
+put_not_sup(Config) when is_list(Config) ->
+    ok = http_status("PUT /index.html ",
+                     {"Content-Length:100 \r\n",
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"},
+		     Config, [{statuscode, 501}]).
 %%-------------------------------------------------------------------------
 esi() ->
     [{doc, "Test mod_esi"}].
@@ -1738,7 +1779,8 @@ start_apps(Group) when  Group == https_basic;
 			Group == https_auth_api_mnesia;
 			Group == https_htaccess;
 			Group == https_security;
-			Group == https_reload
+			Group == https_reload;
+                        Group == https_not_sup
 			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
@@ -1753,6 +1795,9 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_logging;
 			Group == http_reload;
                         Group == http_post;
+                        Group == http_mime_types;
+                        Group == http_rel_path_script_alias;
+                        Group == http_not_sup;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
 
@@ -1797,6 +1842,10 @@ server_config(http_basic, Config) ->
     basic_conf() ++ server_config(http, Config);
 server_config(https_basic, Config) ->
     basic_conf() ++ server_config(https, Config);
+server_config(http_not_sup, Config) ->
+    not_sup_conf() ++ server_config(http, Config);
+server_config(https_not_sup, Config) ->
+    not_sup_conf() ++ server_config(https, Config);
 server_config(http_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(http, Config);
 server_config(http_post, Config) ->
@@ -1930,7 +1979,9 @@ head_status(_) ->
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
-		mod_trace, mod_esi, mod_cgi, mod_dir, mod_get, mod_head]}].
+		mod_trace, mod_esi, mod_cgi, mod_get, mod_head]}].
+not_sup_conf() ->
+     [{modules, [mod_get]}].
 
 auth_access_conf() ->
     [{modules, [mod_alias, mod_htaccess, mod_dir, mod_get, mod_head]},
