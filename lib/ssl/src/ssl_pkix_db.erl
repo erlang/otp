@@ -157,7 +157,7 @@ extract_trusted_certs(File) ->
             {error, {badmatch, Error}}
     end.
 
--spec decode_pem_file(binary()) -> {ok, term()}.
+-spec decode_pem_file(binary()) -> {ok, term()} | {error, term()}.
 decode_pem_file(File) ->
     case file:read_file(File) of
         {ok, PemBin} ->
@@ -316,11 +316,16 @@ decode_certs(Ref, Cert) ->
     end.
 
 new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
-    Ref = make_ref(),
-    init_ref_db(Ref, File, RefsDb),
-    {ok, Content} = ssl_pem_cache:insert(File),
-    add_certs_from_pem(Content, Ref, CertsDb),
-    {ok, Ref}.
+    case decode_pem_file(File) of
+        {ok, Content} ->
+            Ref = make_ref(),
+            init_ref_db(Ref, File, RefsDb),
+            ok = ssl_pem_cache:insert(File, Content),
+            add_certs_from_pem(Content, Ref, CertsDb),
+            {ok, Ref};
+        Error ->
+            Error
+    end.
 
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs];
