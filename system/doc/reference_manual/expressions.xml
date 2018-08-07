@@ -567,6 +567,10 @@ Expr1 <input>op</input> Expr2</pre>
       order is defined:</p>
     <pre>
 number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
+    <p><pre>nil</pre> in the previous expression represents the empty list
+      (i.e. <pre>[]</pre>), which is regarded as a separate type from
+      <pre>list/0</pre>. That's why <pre>nil &lt; list</pre>.
+    </p>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
