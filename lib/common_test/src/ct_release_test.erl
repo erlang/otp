@@ -528,7 +528,7 @@ target_system(Apps,CreateDir,InstallDir,{FromVsn,_,AllAppsVsns,Path}) ->
 				     {path,Path}]]),
 
     %% Unpack the tar to complete the installation
-    erl_tar:extract(RelName ++ ".tar.gz", [{cwd, InstallDir}, compressed]),
+    ok = erl_tar:extract(RelName ++ ".tar.gz", [{cwd, InstallDir}, compressed]),
 
     %% Add bin and log dirs
     BinDir = filename:join([InstallDir, "bin"]),
