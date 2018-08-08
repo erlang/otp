@@ -473,8 +473,20 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 	false ->
 	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
-	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
+	    H2 = opt_try_handler(H1, lists:last(Evs1)),
+	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H2}
     end.
+
+%% Attempts to convert old erlang:get_stacktrace/0 calls into the new
+%% three-argument catch, with possibility of further optimisations.
+opt_try_handler(#c_call{anno=A,module=#c_literal{val=erlang},name=#c_literal{val=get_stacktrace},args=[]}, Var) ->
+    #c_primop{anno=A,name=#c_literal{val=build_stacktrace},args=[Var]};
+opt_try_handler(#c_case{clauses=Cs0} = Case, Var) ->
+    Cs = [C#c_clause{body=opt_try_handler(B, Var)} || #c_clause{body=B} = C <- Cs0],
+    Case#c_case{clauses=Cs};
+opt_try_handler(#c_let{arg=Arg} = Let, Var) ->
+    Let#c_let{arg=opt_try_handler(Arg, Var)};
+opt_try_handler(X, _) -> X.
 
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
