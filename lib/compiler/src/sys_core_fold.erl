@@ -115,13 +115,6 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
     {ok,Mod#c_module{defs=Ds1},get_warnings()}.
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
-    %% Find a suitable starting value for the variable counter. Note
-    %% that this pass assumes that new_var_name/1 returns a variable
-    %% name distinct from any variable used in the entire body of
-    %% the function. We use integers as variable names to avoid
-    %% filling up the atom table when compiling huge functions.
-    Count = cerl_trees:next_free_variable_name(B0),
-    put(new_var_num, Count),
     try
         %% Find a suitable starting value for the variable
         %% counter. Note that this pass assumes that new_var_name/1
