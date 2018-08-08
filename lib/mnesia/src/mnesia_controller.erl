@@ -1456,7 +1456,8 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 				    L = [Tab | Local],
 				    orphan_tables(Tabs, Node, Ns, L, Remote);
 				Masters ->
-				    R = [{Tab, Masters} | Remote],
+                                    %% Do not disc_load table from RamCopyHolders
+				    R = [{Tab, Masters -- RamCopyHolders} | Remote],
 				    orphan_tables(Tabs, Node, Ns, Local, R)
 			    end;
 			_ ->
