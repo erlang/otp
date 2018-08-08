@@ -1271,9 +1271,14 @@ sendfile(Filename, Sock)  ->
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, Fd} ->
-	    Res = sendfile(Fd, Sock, 0, 0, []),
-	    _ = file:close(Fd),
-	    Res
+	    case file:read_file_info(Filename) of
+	    {error, Reason} ->
+		{error, Reason};
+	    {ok, #file_info{size = Size}} ->
+		Res = sendfile(Fd, Sock, 0, Size, []),
+		_ = file:close(Fd),
+		Res
+	end
     end.
 
 %% Internal sendfile functions
