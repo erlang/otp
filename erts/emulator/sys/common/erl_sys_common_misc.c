@@ -191,7 +191,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     }
 
     /* Don't bother with optimizing too large numbers or too large precision */
-    if (af > MAX_FLOAT || decimals >= MAX_DECIMALS) {
+    if ((Uint64)af > MAX_FLOAT || decimals >= MAX_DECIMALS) {
         int len = erts_snprintf(buffer, buffer_size, "%.*f", decimals, f);
         char* p = buffer + len;
         if (len >= buffer_size)
