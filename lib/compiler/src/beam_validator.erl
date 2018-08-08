@@ -451,6 +451,19 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
 	Type ->
 	    error({bad_type,Type})
     end;
+valfun_1({get_list,Src,D1,D2}, Vst0) ->
+    assert_type(cons, Src, Vst0),
+    Vst = set_type_reg(term, Src, D1, Vst0),
+    set_type_reg(term, Src, D2, Vst);
+valfun_1({get_hd,Src,Dst}, Vst) ->
+    assert_type(cons, Src, Vst),
+    set_type_reg(term, Src, Dst, Vst);
+valfun_1({get_tl,Src,Dst}, Vst) ->
+    assert_type(cons, Src, Vst),
+    set_type_reg(term, Src, Dst, Vst);
+valfun_1({get_tuple_element,Src,I,Dst}, Vst) ->
+    assert_type({tuple_element,I+1}, Src, Vst),
+    set_type_reg(term, Src, Dst, Vst);
 valfun_1(I, Vst) ->
     valfun_2(I, Vst).
 
@@ -609,19 +622,6 @@ valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     assert_type(tuple, Tuple, Vst),
     kill_state(branch_arities(Choices, Tuple, branch_state(Fail, Vst)));
-valfun_4({get_list,Src,D1,D2}, Vst0) ->
-    assert_type(cons, Src, Vst0),
-    Vst = set_type_reg(term, Src, D1, Vst0),
-    set_type_reg(term, Src, D2, Vst);
-valfun_4({get_hd,Src,Dst}, Vst) ->
-    assert_type(cons, Src, Vst),
-    set_type_reg(term, Src, Dst, Vst);
-valfun_4({get_tl,Src,Dst}, Vst) ->
-    assert_type(cons, Src, Vst),
-    set_type_reg(term, Src, Dst, Vst);
-valfun_4({get_tuple_element,Src,I,Dst}, Vst) ->
-    assert_type({tuple_element,I+1}, Src, Vst),
-    set_type_reg(term, Src, Dst, Vst);
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->

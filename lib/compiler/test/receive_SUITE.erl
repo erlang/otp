@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
-	 wait/1]).
+	 wait/1,recv_in_try/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,7 +44,8 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [recv,coverage,otp_7980,ref_opt,export,wait]}].
+      [recv,coverage,otp_7980,ref_opt,export,wait,
+       recv_in_try]}].
 
 
 init_per_suite(Config) ->
@@ -304,5 +305,49 @@ wait_1(r, _, _) ->
 %% to the next clause.
 wait_1(A, B, C) ->
     {A,B,C}.
+
+recv_in_try(_Config) ->
+    self() ! {ok,fh}, {ok,fh} = recv_in_try(infinity, native),
+    self() ! {ok,ignored}, {ok,42} = recv_in_try(infinity, plain),
+    self() ! {error,ignored}, nok = recv_in_try(infinity, plain),
+    timeout = recv_in_try(1, plain),
+    ok.
+
+recv_in_try(Timeout, Format) ->
+    try
+	receive
+	    {Status,History} ->
+                %% {test,is_tuple,{f,148},[{x,0}]}.
+                %% {test,test_arity,{f,148},[{x,0},2]}.
+                %% {get_tuple_element,{x,0},0,{y,1}}.  %y1 is fragile.
+                %%
+                %% %% Here the fragility of y1 would be be progated to
+                %% %% the 'catch' below. Incorrect, since get_tuple_element
+                %% %% can't fail.
+                %% {get_tuple_element,{x,0},1,{x,2}}.
+                %%
+                %% remove_message.                     %y1 fragility cleared.
+		FH = case Format of
+			native ->
+                             id(History);
+			plain ->
+                             id(42)
+		    end,
+		case Status of
+		    ok ->
+			{ok,FH};
+		    error ->
+			nok
+		end
+	after Timeout ->
+		timeout
+	end
+    catch
+        %% The fragility of y1 incorrectly propagated to here.
+        %% beam_validator would complain.
+	throw:{error,Reason} ->
+	    {nok,Reason}
+    end.
+
 
 id(I) -> I.
