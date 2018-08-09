@@ -1524,11 +1524,6 @@ v_1_2_check(ecdh_ecdsa, ecdh_rsa) ->
     true;
 v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
     true;
-v_1_2_check(ecdhe_ecdsa, ecdhe_rsa) ->
-    true;
-v_1_2_check(ecdhe_rsa, ecdhe_ecdsa) ->
-    true;
-
 v_1_2_check(_, _) ->
     false.
 
