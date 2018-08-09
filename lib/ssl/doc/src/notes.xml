@@ -27,6 +27,29 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of empty server SNI extension</p>
+          <p>
+	    Own Id: OTP-15168</p>
+        </item>
+        <item>
+          <p>
+	    Correct cipher suite handling for ECDHE_*, the incorrect
+	    handling could cause an incorrrect suite to be selected
+	    and most likly fail the handshake.</p>
+          <p>
+	    Own Id: OTP-15203</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

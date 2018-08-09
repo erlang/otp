@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an issue where files compiled with the
+	    <c>+deterministic</c> option differed if they were
+	    compiled in a different directory but were otherwise
+	    identical.</p>
+          <p>
+	    Own Id: OTP-15204 Aux Id: ERL-679 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
