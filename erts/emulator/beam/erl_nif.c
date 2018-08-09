@@ -453,8 +453,18 @@ static void full_flush_env(ErlNifEnv* env)
 
 static void full_cache_env(ErlNifEnv* env)
 {    
-    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC)
+    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	erts_cache_dirty_shadow_proc(env->proc);
+        /*
+         * If shadow proc had heap fragments when flushed
+         * those have now been moved to the real proc.
+         * Ensure heap pointers do not point into a heap
+         * fragment on real proc...
+         */
+        ASSERT(!env->proc->mbuf);
+	env->hp_end = HEAP_LIMIT(env->proc);
+	env->hp = HEAP_TOP(env->proc);
+    }
     cache_env(env);
 }
 
