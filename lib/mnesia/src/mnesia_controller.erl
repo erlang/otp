@@ -771,22 +771,6 @@ handle_call({unannounce_add_table_copy, [Tab, Node], From}, ReplyTo, State) ->
 	    noreply(State#state{early_msgs = [{call, Msg, undefined} | Msgs]})
     end;
 
-handle_call({net_load, Tab, Cs}, From, State) ->
-    State2 =
-	case State#state.schema_is_merged of
-	    true ->
-		Worker = #net_load{table = Tab,
-				   opt_reply_to = From,
-				   reason = {dumper,{add_table_copy, unknown}},
-				   cstruct = Cs
-				  },
-		add_worker(Worker, State);
-	    false ->
-		reply(From, {not_loaded, schema_not_merged}),
-		State
-	end,
-    noreply(State2);
-
 handle_call(Msg, From, State) when State#state.schema_is_merged /= true ->
     %% Buffer early messages
     Msgs = State#state.early_msgs,
@@ -2161,6 +2145,15 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 		       {dumper,{add_table_copy,_}} -> true;
 		       _ -> false
 		   end,
+
+    OnlyRamCopies = case Cs of
+                        #cstruct{disc_copies = DC,
+                                 disc_only_copies = DOC,
+                                 external_copies = Ext} ->
+                            [] =:= (DC ++ (DOC ++ Ext)) -- [node()];
+                        _ ->
+                            false
+                    end,
     if
 	ReadNode == node() ->
 	    %% Already loaded locally
@@ -2172,6 +2165,8 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 	    end;
 	AccessMode == read_only, not AddTableCopy ->
 	    fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
+        Active =:= [], AddTableCopy, OnlyRamCopies ->
+            fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
 	true ->
 	    fun() ->
 		    %% Either we cannot read the table yet
