@@ -31,6 +31,7 @@
          db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
          checkpoint/1, table_lifecycle/1, storage_options/1,
          add_copy_conflict/1, add_copy_when_going_down/1,
+         add_copy_with_down/1,
          replica_management/1, clear_table_during_load/1,
          schema_availability/1, local_content/1,
          replica_location/1, user_properties/1, unsupp_user_props/1,
@@ -65,7 +66,8 @@ all() ->
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
      checkpoint, table_lifecycle, storage_options, 
      add_copy_conflict,
-     add_copy_when_going_down, replica_management, clear_table_during_load,
+     add_copy_when_going_down, add_copy_with_down, replica_management,
+     clear_table_during_load,
      schema_availability, local_content,
      {group, table_access_modifications}, replica_location,
      {group, table_sync}, user_properties, unsupp_user_props,
@@ -732,6 +734,49 @@ add_copy_when_going_down(Config) ->
     ?match_receive({test,{aborted,_}}),
     ?verify_mnesia([Node2], []).
 
+add_copy_with_down(suite) -> [];
+add_copy_with_down(Config) ->
+    %% Allow add_table_copy() with ram_copies even all other replicas are down
+    Nodes = [Node1, Node2, Node3] = ?acquire_nodes(3, Config),
+    ?match({atomic, ok}, mnesia:create_table(a, [{ram_copies, [Node3]}, {disc_copies, [Node2]}])),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({aborted, _}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match({aborted, _}, mnesia:del_table_copy(a, Node2)),
+    ok = rpc:call(Node3, mnesia, start, []),
+    ?match({aborted, _}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match([], mnesia_test_lib:start_mnesia([Node2], [a])),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(a, Node2, ram_copies)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?match({atomic, ok}, mnesia:del_table_copy(a, Node1)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, disc_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?match({atomic, ok}, mnesia:del_table_copy(a, Node1)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, disc_only_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add, drop and move replicas, change storage types

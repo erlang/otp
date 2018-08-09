@@ -66,7 +66,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     EtsOpts = proplists:get_value(ets, StorageProps, []),
     Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
-	{dumper, _} -> %% Resources already allocated
+	{dumper, DR} when is_atom(DR) -> %% Resources already allocated
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
@@ -90,8 +90,8 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == ram_copies ->
     EtsOpts = proplists:get_value(ets, StorageProps, []),
     Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
-	{dumper, _} -> %% Resources allready allocated
-	    ignore;
+	{dumper, DR} when is_atom(DR) ->
+            ignore; %% Resources already allocated
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
 	    Fname = mnesia_lib:tab2dcd(Tab),
@@ -130,7 +130,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_only_copies -
 	    {repair, mnesia_monitor:get_env(auto_repair)} 
 	    | DetsOpts],
     case Reason of
-	{dumper, _} ->
+	{dumper, DR} when is_atom(DR) ->
 	    mnesia_index:init_index(Tab, Storage),
 	    snmpify(Tab, Storage),
 	    set({Tab, load_node}, node()),
