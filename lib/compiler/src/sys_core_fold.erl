@@ -345,7 +345,12 @@ expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     void();
 expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
-		      {Name,expr(Fb, {letrec,Ctxt}, Sub)}
+                      case Ctxt =:= effect andalso is_fun_effect_safe(Name, B0) of
+                          true ->
+                              {Name,expr(Fb, {letrec, effect}, Sub)};
+                          false ->
+                              {Name,expr(Fb, {letrec, value}, Sub)}
+                      end
 	      end, Fs0),
     B1 = body(B0, Ctxt, Sub),
     Letrec#c_letrec{defs=Fs1,body=B1};
@@ -475,6 +480,86 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 	    H1 = body(H0, value, Sub2),
 	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
     end.
+
+
+%% If a fun or its application is used as an argument, then it's unsafe to
+%% handle it in effect context as the side-effects may rely on its return
+%% value. The following is a minimal example of where it can go wrong:
+%%
+%% do letrec 'f'/0 = fun () -> ... whatever ...
+%%      in call 'side':'effect'(apply 'f'/0())
+%%   'ok'
+%%
+%% This function returns 'true' if Body definitely does not rely on a
+%% value produced by FVar, or 'false' if Body depends on or might depend on
+%% a value produced by FVar.
+
+is_fun_effect_safe(#c_var{}=FVar, Body) ->
+    ifes_1(FVar, Body, true).
+
+ifes_1(FVar, #c_alias{pat=Pat}, _Safe) ->
+    ifes_1(FVar, Pat, false);
+ifes_1(FVar, #c_apply{op=Op,args=Args}, Safe) ->
+    %% FVar(...) is safe as long its return value is ignored, but it's never
+    %% okay to pass FVar as an argument.
+    ifes_list(FVar, Args, false) andalso ifes_1(FVar, Op, Safe);
+ifes_1(FVar, #c_binary{segments=Segments}, _Safe) ->
+    ifes_list(FVar, Segments, false);
+ifes_1(FVar, #c_bitstr{val=Val,size=Size,unit=Unit}, _Safe) ->
+    ifes_list(FVar, [Val, Size, Unit], false);
+ifes_1(FVar, #c_call{args=Args}, _Safe) ->
+    ifes_list(FVar, Args, false);
+ifes_1(FVar, #c_case{arg=Arg,clauses=Clauses}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_list(FVar, Clauses, Safe);
+ifes_1(FVar, #c_catch{body=Body}, _Safe) ->
+    ifes_1(FVar, Body, false);
+ifes_1(FVar, #c_clause{pats=Pats,guard=Guard,body=Body}, Safe) ->
+    ifes_list(FVar, Pats, false) andalso
+        ifes_1(FVar, Guard, false) andalso
+        ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_cons{hd=Hd,tl=Tl}, _Safe) ->
+    ifes_1(FVar, Hd, false) andalso ifes_1(FVar, Tl, false);
+ifes_1(FVar, #c_fun{body=Body}, _Safe) ->
+    ifes_1(FVar, Body, false);
+ifes_1(FVar, #c_let{arg=Arg,body=Body}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_letrec{defs=Defs,body=Body}, Safe) ->
+    Funs = [Fun || {_,Fun} <- Defs],
+    ifes_list(FVar, Funs, false) andalso ifes_1(FVar, Body, Safe);
+ifes_1(_FVar, #c_literal{}, _Safe) ->
+    true;
+ifes_1(FVar, #c_map{arg=Arg,es=Elements}, _Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_list(FVar, Elements, false);
+ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
+    ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
+ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
+    ifes_list(FVar, Args, false);
+ifes_1(FVar, #c_receive{timeout=Timeout,action=Action,clauses=Clauses}, Safe) ->
+    ifes_1(FVar, Timeout, false) andalso
+        ifes_1(FVar, Action, Safe) andalso
+        ifes_list(FVar, Clauses, Safe);
+ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
+    %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
+    %% Safe=false.
+    ifes_1(FVar, Arg, true) andalso ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_try{arg=Arg,handler=Handler,body=Body}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso
+        ifes_1(FVar, Handler, Safe) andalso
+        ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_tuple{es=Elements}, _Safe) ->
+    ifes_list(FVar, Elements, false);
+ifes_1(FVar, #c_values{es=Elements}, _Safe) ->
+    ifes_list(FVar, Elements, false);
+ifes_1(#c_var{name=Name}, #c_var{name=Name}, Safe) ->
+    %% It's safe to return FVar if it's unused.
+    Safe;
+ifes_1(_FVar, #c_var{}, _Safe) ->
+    true.
+
+ifes_list(FVar, [E|Es], Safe) ->
+    ifes_1(FVar, E, Safe) andalso ifes_list(FVar, Es, Safe);
+ifes_list(_FVar, [], _Safe) ->
+    true.
 
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
