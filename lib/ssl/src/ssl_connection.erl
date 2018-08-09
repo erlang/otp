@@ -650,6 +650,8 @@ init(_Type, _Event, _State, _Connection) ->
             tls_connection | dtls_connection) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+error({call, From}, {close, _}, State, _Connection) ->
+    stop_and_reply(normal, {reply, From, ok}, State);
 error({call, From}, _Msg, State, _Connection) ->
     {next_state, ?FUNCTION_NAME, State, [{reply, From, {error, closed}}]}.
 
