@@ -157,7 +157,7 @@ decode_single_hello_sni_extension_correctly(_Config) ->
     Exts = Decoded.
 
 decode_empty_server_sni_correctly(_Config) ->
-    Exts = #hello_extensions{sni = ""},
+    Exts = #hello_extensions{sni = #sni{hostname = ""}},
     SNI = <<?UINT16(?SNI_EXT),?UINT16(0)>>,
     Decoded = ssl_handshake:decode_hello_extensions(SNI),
     Exts = Decoded.
