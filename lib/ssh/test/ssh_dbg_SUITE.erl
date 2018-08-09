@@ -38,11 +38,15 @@ suite() ->
      {timetrap,{seconds,60}}].
 
 all() -> 
-    [basic,
-     dbg_alg_terminate,
-     dbg_ssh_messages,
-     dbg_connections,
-     dbg_channels
+    [{group, dbg}
+    ].
+
+groups() ->
+    [{dbg, [], [dbg_basic,
+                dbg_alg_terminate,
+                dbg_ssh_messages,
+                dbg_connections,
+                dbg_channels]}
     ].
 
 %%--------------------------------------------------------------------
@@ -82,7 +86,7 @@ end_per_testcase(_TC, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-basic(_Config) ->
+dbg_basic(_Config) ->
     L0 = ssh_dbg:start(),
     true = is_pid(whereis(ssh_dbg)),
     true = is_list(L0),
