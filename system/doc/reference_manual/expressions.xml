@@ -578,8 +578,7 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
     </p>
-    <p>Atoms are compared using their string value, character by character.
-    </p>
+    <p>Atoms are compared using their string value, codepoint by codepoint.</p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than
