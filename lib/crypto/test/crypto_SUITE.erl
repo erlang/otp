@@ -31,6 +31,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,
+     {group, api_errors},
      appup,
      {group, fips},
      {group, non_fips},
@@ -170,7 +171,8 @@ groups() ->
      {no_aes_ige256, [], [no_support, no_block]},
      {no_chacha20_poly1305, [], [no_support, no_aead]},
      {no_rc2_cbc, [], [no_support, no_block]},
-     {no_rc4, [], [no_support, no_stream]}
+     {no_rc4, [], [no_support, no_stream]},
+     {api_errors, [], [api_errors_ecdh]}
     ].
 
 %%-------------------------------------------------------------------
@@ -238,6 +240,8 @@ init_per_group(non_fips, Config) ->
         _NotEnabled ->
             NonFIPSConfig
     end;
+init_per_group(api_errors, Config) ->
+    Config;
 init_per_group(GroupName, Config) ->
     case atom_to_list(GroupName) of
         "no_" ++ TypeStr ->
@@ -2510,3 +2514,14 @@ parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, Acc) ->
         I ->
             parse_rsp(Type, Next, [{Type, Key, Msg, I, MAC}|Acc])
     end.
+
+api_errors_ecdh(Config) when is_list(Config) ->
+    %% Check that we don't segfault when fed garbage.
+    Test = fun(Others, Curve) ->
+                   {_Pub, Priv} = crypto:generate_key(ecdh, Curve),
+                   crypto:compute_key(ecdh, Others, Priv, Curve)
+           end,
+    Others = [gurka, 0, <<0>>],
+    Curves = [gaffel, 0, sect571r1],
+    [_= (catch Test(O, C)) || O <- Others, C <- Curves],
+    ok.
