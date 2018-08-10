@@ -40,7 +40,7 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1]).
+         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,erl_689/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -72,7 +72,7 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       beam_bsm,guard,is_ascii,non_opt_eq]}].
+       beam_bsm,guard,is_ascii,non_opt_eq,erl_689]}].
 
 
 init_per_suite(Config) ->
@@ -1687,6 +1687,35 @@ non_opt_eq([_|_], <<_,_/binary>>) ->
     false;
 non_opt_eq([], <<>>) ->
     true.
+
+%% ERL-689
+
+erl_689(Config) ->
+    {{0, 0, 0}, <<>>} = do_erl_689_1(<<0>>, ?MODULE),
+    {{2018, 8, 7}, <<>>} = do_erl_689_1(<<4,2018:16/little,8,7>>, ?MODULE),
+    {{0, 0, 0}, <<>>} = do_erl_689_2(?MODULE, <<0>>),
+    {{2018, 8, 7}, <<>>} = do_erl_689_2(?MODULE, <<4,2018:16/little,8,7>>),
+    ok.
+
+do_erl_689_1(<<Length, Data/binary>>, _) ->
+    case {Data, Length} of
+        {_, 0} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            {{0, 0, 0}, Data};
+        {<<Y:16/little, M, D, Rest/binary>>, 4} ->
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_2(_, <<Length, Data/binary>>) ->
+    case {Length, Data} of
+        {0, _} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            {{0, 0, 0}, Data};
+        {4, <<Y:16/little, M, D, Rest/binary>>} ->
+            {{Y, M, D}, Rest}
+    end.
 
 check(F, R) ->
     R = F().
