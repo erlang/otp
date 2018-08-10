@@ -3810,7 +3810,7 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
     int i;
     EC_GROUP *group;
     const BIGNUM *priv_key;
-    EC_POINT *my_ecpoint;
+    EC_POINT *my_ecpoint = NULL;
     EC_KEY *other_ecdh = NULL;
 
     if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
