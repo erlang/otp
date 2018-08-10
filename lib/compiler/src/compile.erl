@@ -1432,16 +1432,30 @@ encrypt_debug_info(DebugInfo, Key, Opts) ->
     end.
 
 cleanup_compile_options(Opts) ->
-    lists:filter(fun keep_compile_option/1, Opts).
+    IsDeterministic = lists:member(deterministic, Opts),
+    lists:filter(fun(Opt) ->
+                         keep_compile_option(Opt, IsDeterministic)
+                 end, Opts).
 
+%% Include paths and current directory don't affect compilation, but they might
+%% be helpful so we include them unless we're doing a deterministic build.
+keep_compile_option({i, _}, Deterministic) ->
+    not Deterministic;
+keep_compile_option({cwd, _}, Deterministic) ->
+    not Deterministic;
 %% We are storing abstract, not asm or core.
-keep_compile_option(from_asm) -> false;
-keep_compile_option(from_core) -> false;
+keep_compile_option(from_asm, _Deterministic) ->
+    false;
+keep_compile_option(from_core, _Deterministic) ->
+    false;
 %% Parse transform and macros have already been applied.
-keep_compile_option({parse_transform, _}) -> false;
-keep_compile_option({d, _, _}) -> false;
+keep_compile_option({parse_transform, _}, _Deterministic) ->
+    false;
+keep_compile_option({d, _, _}, _Deterministic) ->
+    false;
 %% Do not affect compilation result on future calls.
-keep_compile_option(Option) -> effects_code_generation(Option).
+keep_compile_option(Option, _Deterministic) ->
+    effects_code_generation(Option).
 
 start_crypto() ->
     try crypto:start() of
@@ -1589,6 +1603,7 @@ effects_code_generation(Option) ->
 	binary -> false;
 	verbose -> false;
 	{cwd,_} -> false;
+	{i,_} -> false;
 	{outdir, _} -> false;
 	_ -> true
     end.

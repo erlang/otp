@@ -36,7 +36,7 @@
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1
+         bc_options/1, deterministic_include/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -54,7 +54,7 @@ all() ->
      cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
-     custom_compile_info].
+     custom_compile_info, deterministic_include].
 
 groups() -> 
     [].
@@ -1513,6 +1513,23 @@ highest_opcode(DataDir, Mod, Opt) ->
     {ok,{Mod,[{"Code",Code}]}} = beam_lib:chunks(Beam, ["Code"]),
     <<16:32,0:32,HighestOpcode:32,_/binary>> = Code,
     HighestOpcode.
+
+deterministic_include(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Simple = filename:join(DataDir, "simple"),
+ 
+    %% Files without +deterministic should differ if their include paths do,
+    %% as their debug info will be different.
+    {ok,_,NonDetA} = compile:file(Simple, [binary, {i,"gurka"}]),
+    {ok,_,NonDetB} = compile:file(Simple, [binary, {i,"gaffel"}]),
+    true = NonDetA =/= NonDetB,
+
+    %% ... but files with +deterministic shouldn't.
+    {ok,_,DetC} = compile:file(Simple, [binary, deterministic, {i,"gurka"}]),
+    {ok,_,DetD} = compile:file(Simple, [binary, deterministic, {i,"gaffel"}]),
+    true = DetC =:= DetD,
+
+    ok.
 
 %%%
 %%% Utilities.
