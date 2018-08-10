@@ -54,6 +54,32 @@
 
 </section>
 
+<section><title>Mnesia 4.15.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When master node is set do not force a load from
+	    ram_copies replica when there are no available
+	    disc_copies, since that would load an empty table. Wait
+	    until a disk replica is available or until user
+	    explicitly force_loads the table.</p>
+          <p>
+	    Own Id: OTP-15221 Aux Id: ERIERL-217 </p>
+        </item>
+        <item>
+          <p>
+	    Allow to add replicas even if all other replicas are down
+	    when the other replicase are not stored on disk.</p>
+          <p>
+	    Own Id: OTP-15226 Aux Id: ERIERL-221 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Mnesia 4.15.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
