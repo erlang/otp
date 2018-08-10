@@ -188,40 +188,50 @@ format_msg({report,Report},Meta,Config) ->
     format_msg({report,Report},
                Meta#{report_cb=>fun logger:format_report/1},
                Config);
-format_msg(Msg,_Meta,#{depth:=Depth,chars_limit:=CharsLimit,encoding:=Enc}) ->
-    limit_size(Msg, Depth, CharsLimit, Enc).
+format_msg(Msg,_Meta,#{depth:=Depth,chars_limit:=CharsLimit,
+                       encoding:=Enc,single_line:=Single}) ->
+    Opts = chars_limit_to_opts(CharsLimit),
+    format_msg(Msg, Depth, Opts, Enc, Single).
 
-limit_size(Msg,Depth,unlimited,Enc) ->
-    limit_size(Msg,Depth,[],Enc);
-limit_size(Msg,Depth,CharsLimit,Enc) when is_integer(CharsLimit) ->
-    limit_size(Msg,Depth,[{chars_limit,CharsLimit}],Enc);
-limit_size({Format,Args},unlimited,Opts,Enc) when is_list(Opts) ->
-    try io_lib:format(Format,Args,Opts)
-    catch _:_ ->
-            P = p(Enc),
-            io_lib:format("FORMAT ERROR: "++P++" - "++P,[Format,Args],Opts)
-    end;
-limit_size({Format0,Args},Depth,Opts,Enc) when is_integer(Depth) ->
+chars_limit_to_opts(unlimited) -> [];
+chars_limit_to_opts(CharsLimit) -> [{chars_limit,CharsLimit}].
+
+format_msg({Format0,Args},Depth,Opts,Enc,Single) ->
     try
         Format1 = io_lib:scan_format(Format0, Args),
-        Format = limit_format(Format1, Depth),
+        Format = reformat(Format1, Depth, Single),
         io_lib:build_text(Format,Opts)
-    catch _:_ ->
-            P = p(Enc),
-            limit_size({"FORMAT ERROR: "++P++" - "++P,[Format0,Args]},
-                       Depth,Opts,Enc)
+    catch C:R:S ->
+            P = p(Enc,Single),
+            FormatError = "FORMAT ERROR: "++P++" - "++P,
+            case Format0 of
+                FormatError ->
+                    %% already been here - avoid failing cyclically
+                    erlang:raise(C,R,S);
+                _ ->
+                    format_msg({FormatError,[Format0,Args]},
+                               Depth,Opts,Enc,Single)
+            end
     end.
 
-limit_format([#{control_char:=C0}=M0|T], Depth) when C0 =:= $p;
-						     C0 =:= $w ->
-    C = C0 - ($a - $A),				%To uppercase.
-    #{args:=Args} = M0,
-    M = M0#{control_char:=C,args:=Args++[Depth]},
-    [M|limit_format(T, Depth)];
-limit_format([H|T], Depth) ->
-    [H|limit_format(T, Depth)];
-limit_format([], _) ->
+reformat(Format,unlimited,false) ->
+    Format;
+reformat([#{control_char:=C}=M|T], Depth, true) when C =:= $p ->
+    [limit_depth(M#{width => 0}, Depth)|reformat(T, Depth, true)];
+reformat([#{control_char:=C}=M|T], Depth, true) when C =:= $P ->
+    [M#{width => 0}|reformat(T, Depth, true)];
+reformat([#{control_char:=C}=M|T], Depth, Single) when C =:= $p; C =:= $w ->
+    [limit_depth(M, Depth)|reformat(T, Depth, Single)];
+reformat([H|T], Depth, Single) ->
+    [H|reformat(T, Depth, Single)];
+reformat([], _, _) ->
     [].
+
+limit_depth(M0, unlimited) ->
+    M0;
+limit_depth(#{control_char:=C0, args:=Args}=M0, Depth) ->
+    C = C0 - ($a - $A),				%To uppercase.
+    M0#{control_char:=C,args:=Args++[Depth]}.
 
 truncate(String,unlimited) ->
     String;
@@ -492,12 +502,21 @@ check_timezone(Tz) ->
             error
     end.
 
-p(#{encoding:=Enc}) ->
-    p(Enc);
-p(latin1) ->
-    "~p";
-p(_) ->
-    "~tp".
+p(#{encoding:=Enc, single_line:=Single}) ->
+    p(Enc,Single).
+
+p(Enc,Single) ->
+    "~"++p_width(Single)++p_char(Enc).
+
+p_width(true) ->
+    "0";
+p_width(false) ->
+    "".
+
+p_char(latin1) ->
+    "p";
+p_char(_) ->
+    "tp".
 
 s(#{encoding:=Enc}) ->
     s(Enc);
