@@ -3122,7 +3122,7 @@ tailrecur_ne:
 		ASSERT(alen == blen);
 		for (i = (Sint) alen - 1; i >= 0; i--)
 		    if (anum[i] != bnum[i])
-			RETURN_NEQ((Sint32) (anum[i] - bnum[i]));
+			RETURN_NEQ(anum[i] < bnum[i] ? -1 : 1);
 		goto pop_next;
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
 		if (is_internal_ref(b)) {
