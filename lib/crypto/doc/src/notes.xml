@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a node crash in <c>crypto:compute_key(ecdh,
+	    ...)</c> when passing a wrongly typed Others
+	    argument.</p>
+          <p>
+	    Own Id: OTP-15194 Aux Id: ERL-673 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
