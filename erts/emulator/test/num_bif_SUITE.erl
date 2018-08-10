@@ -161,6 +161,7 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.000",1.0,   [{decimals,   3}]),
     test_fts("1.0",1.0, [{decimals, 1}]),
     test_fts("1.0",1.0, [{decimals, 3}, compact]),
+    test_fts("10",10.0, [{decimals, 0}, compact]),
     test_fts("1.12",1.123, [{decimals, 2}]),
     test_fts("1.123",1.123, [{decimals, 3}]),
     test_fts("1.123",1.123, [{decimals, 3}, compact]),
