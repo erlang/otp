@@ -2557,6 +2557,63 @@
 
 </section>
 
+<section><title>Erts 8.3.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a race condition in the inet driver that could
+	    cause receive to hang when the emulator was compiled with
+	    gcc 8.</p>
+          <p>
+	    Own Id: OTP-15158 Aux Id: ERL-654 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug causing some Erlang references to be
+	    inconsistently ordered. This could for example cause
+	    failure to look up certain elements with references as
+	    keys in search data structures. This bug was introduced
+	    in R13B02.</p>
+          <p>
+	    Thanks to Simon Cornish for finding the bug and supplying
+	    a fix.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 8.3.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in file closure on Unix; close(2) was
+	    retried on EINTR which could cause a different (recently
+	    opened) file to be closed as well.</p>
+          <p>
+	    Own Id: OTP-14775</p>
+        </item>
+        <item>
+          <p>
+	    A race-condition when tearing down a connection with
+	    active node monitors could cause the runtime system to
+	    crash.</p>
+          <p>
+	    This bug was introduced in ERTS version 8.0 (OTP 19.0).</p>
+          <p>
+	    Own Id: OTP-14781 Aux Id: OTP-13047 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.3.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
