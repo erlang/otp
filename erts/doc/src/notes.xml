@@ -31,6 +31,41 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug which caused an emulator crash when
+	    <c>enif_send()</c> was called by a NIF that executed on a
+	    dirty scheduler. The bug was either triggered when the
+	    NIF called <c>enif_send()</c> without a message
+	    environment, or when the process executing the NIF was
+	    <c>send</c> traced.</p>
+          <p>
+	    Own Id: OTP-15223</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug causing some Erlang references to be
+	    inconsistently ordered. This could for example cause
+	    failure to look up certain elements with references as
+	    keys in search data structures. This bug was introduced
+	    in R13B02.</p>
+          <p>
+	    Thanks to Simon Cornish for finding the bug and supplying
+	    a fix.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
