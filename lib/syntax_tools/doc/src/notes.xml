@@ -108,6 +108,20 @@
 
 </section>
 
+<section><title>Syntax_Tools 2.1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding reverting map types. </p>
+          <p>
+	    Own Id: OTP-15098 Aux Id: ERIERL-177 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
