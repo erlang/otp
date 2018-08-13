@@ -56,10 +56,8 @@ typedef struct wxe_data_def {
 
 void init_glexts(wxe_data*);
 
-int  load_native_gui();
 int  start_native_gui(wxe_data *sd);
 void stop_native_gui(wxe_data *sd);
-void unload_native_gui();
 
 #define FUNC_CALL    13
 #define CREATE_PORT  14
