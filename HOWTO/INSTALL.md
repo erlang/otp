@@ -77,8 +77,6 @@ also find the utilities needed for building the documentation.
 
     Download from <http://www.oracle.com/technetwork/java/javase/downloads>.
     We have also tested with IBM's JDK 1.6.0.
-*   X Windows -- Development headers and libraries are needed
-    to build the Erlang/OTP application `gs` on Unix/Linux.
 *   `flex` -- Headers and libraries are needed to build the flex
     scanner for the `megaco` application on Unix/Linux.
 *   wxWidgets -- Toolkit for GUI applications.
