@@ -77,6 +77,8 @@
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
+-define(CALL_TIMEOUT, 15000). % 3x the default
+
 %%%================================================================
 
 -define(ALL_DBG_TYPES, get_all_dbg_types()).
@@ -113,7 +115,7 @@ start_tracer(WriteFun) when is_function(WriteFun,3) ->
 start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
     Handler = 
         fun(Arg, Acc0) ->
-                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on),
+                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
                                              Arg, WriteFun,
                                              Acc0)
         end,
@@ -128,7 +130,7 @@ off() -> off(?ALL_DBG_TYPES). % A bit overkill...
 off(Type) -> switch(off, Type).
     
 go_on() ->
-    IsOn = gen_server:call(?SERVER, get_on),
+    IsOn = gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
     on(IsOn).
 
 %%%----------------------------------------------------------------
@@ -259,7 +261,7 @@ switch(X, Types) when is_list(Types) ->
     end,
     case lists:usort(Types) -- ?ALL_DBG_TYPES of
         [] ->
-            gen_server:call(?SERVER, {switch,X,Types});
+            gen_server:call(?SERVER, {switch,X,Types}, ?CALL_TIMEOUT);
         L ->
             {error, {unknown, L}}
     end.
