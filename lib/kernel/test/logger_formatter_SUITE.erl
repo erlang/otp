@@ -166,6 +166,56 @@ single_line(_Config) ->
     " info:\nterm\n" = string:prefix(String2,ExpectedTimestamp), 
 
     String2 = format(info,{"~p",[term]},#{time=>Time},#{single_line=>bad}),
+
+
+    %% Test that no extra commas/spaces are added when removing
+    %% newlines, especially not after "=>" in a map association (as
+    %% was the case in OTP-21.0, when the only single_line adjustment
+    %% was done by regexp replacement of "\n" by ", ").
+    Prefix =
+        "Some characters to fill the line ------------------------------------- ",
+    String3 = format(info,{"~s~p~n~s~p~n",[Prefix,
+                                           lists:seq(1,10),
+                                           Prefix,
+                                           #{a=>map,with=>a,few=>accociations}]},
+                     #{time=>Time},
+                     #{single_line=>true}),
+    ct:log(String3),
+    match = re:run(String3,"\\[1,2,3,4,5,6,7,8,9,10\\]",[{capture,none}]),
+    match = re:run(String3,
+                   "#{a => map,few => accociations,with => a}",
+                   [{capture,none}]),
+
+    %% This part is added to make sure that the previous test made
+    %% sense, i.e. that there would actually be newlines inside the
+    %% list and map.
+    String4 = format(info,{"~s~p~n~s~p~n",[Prefix,
+                                           lists:seq(1,10),
+                                           Prefix,
+                                           #{a=>map,with=>a,few=>accociations}]},
+                     #{time=>Time},
+                     #{single_line=>false}),
+    ct:log(String4),
+    match = re:run(String4,"\\[1,2,3,\n",[global,{capture,none}]),
+    {match,Match4} = re:run(String4,"=>\n",[global,{capture,all}]),
+    3 = length(Match4),
+
+    %% Test that big metadata fields do not get line breaks
+    String5 = format(info,"",
+                     #{mymeta=>lists:seq(1,100)},
+                     #{single_line=>true,template=>[mymeta,"\n"]}),
+    ct:log(String5),
+    [_] = string:lexemes(String5,"\n"),
+
+    %% Ensure that the previous test made sense, i.e. that the
+    %% metadata field does produce multiple lines if
+    %% single_line==false.
+    String6 = format(info,"",
+                     #{mymeta=>lists:seq(1,100)},
+                     #{single_line=>false,template=>[mymeta,"\n"]}),
+    ct:log(String6),
+    [_,_|_] = string:lexemes(String6,"\n"),
+
     ok.
 
 template(_Config) ->
