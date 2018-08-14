@@ -174,9 +174,9 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-256',    [{hashs,sha256}]},
-	 {'hmac-sha2-512',    [{hashs,sha512}]},
-	 {'hmac-sha1',        [{hashs,sha}]},
+	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
+	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
+	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]}
 	]
