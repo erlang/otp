@@ -130,10 +130,16 @@
 	  </item>
 	  <tag><c>single_line = boolean()</c></tag>
 	  <item>
-	    <p>If set to <c>true</c>, all newlines in the message are
-	      replaced with <c>", "</c>, and white spaces following
-	      directly after newlines are removed. Notice that newlines
-	      added by the <c>template</c> parameter are not replaced.</p>
+	    <p>If set to <c>true</c>, each log event is printed as a
+	      single line. To achieve this, <c>logger_formatter</c>
+	      sets the field width to <c>0</c> for all <c>~p</c>
+	      and <c>~P</c> control sequences in the format a string
+	      (see <seealso marker="stdlib:io#format-2">
+		<c>io:format/2</c></seealso>), and replaces all
+	      newlines in the message with <c>", "</c>. White spaces
+	      following directly after newlines are removed. Notice
+	      that newlines added by the <c>template</c> parameter are
+	      not replaced.</p>
 	    <p>Defaults to <c>true</c>.</p>
 	  </item>
 	  <tag><marker id="template"/>
