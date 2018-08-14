@@ -142,8 +142,7 @@ BEAM_FORMAT_NUMBER=0
 20: send/0
 
 ## @spec remove_message
-## @doc  Unlink the current message from the message queue and store a
-##       pointer to the message in x(0). Remove any timeout.
+## @doc  Unlink the current message from the message queue. Remove any timeout.
 21: remove_message/0
 
 ## @spec timeout
