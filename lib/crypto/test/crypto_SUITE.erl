@@ -207,7 +207,7 @@ init_per_suite(Config) ->
 		    Config
 	    end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+	    {fail, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
