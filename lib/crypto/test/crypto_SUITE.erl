@@ -134,7 +134,7 @@ groups() ->
                  ]},
      {dh, [], [generate_compute,
                compute_bug]},
-     {ecdh, [], [compute, generate]},
+     {ecdh, [], [generate_all_supported, compute, generate]},
      {srp, [], [generate_compute]},
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
@@ -509,6 +509,33 @@ compute() ->
 compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
+%%--------------------------------------------------------------------
+generate_all_supported() ->
+    [{doc, " Test that all curves from crypto:ec_curves/0 returns two binaries"}].
+generate_all_supported(_Config) ->
+    Results =
+        [try
+             crypto:generate_key(ecdh, C)
+         of
+             {B1,B2} when is_binary(B1) and is_binary(B2) ->
+                 %% That is, seems like it works as expected.
+                 {ok,C};
+             Err ->
+                 ct:log("ERROR: Curve ~p generated ~p", [C,Err]),
+                 {error,{C,Err}}
+         catch
+             Cls:Err:Stack ->
+                 ct:log("ERROR: Curve ~p exception ~p:~p~n~p", [C,Cls,Err,Stack]),
+                 {error,{C,{Cls,Err}}}
+         end
+         || C <- crypto:ec_curves()
+        ],
+    OK = [C || {ok,C} <- Results],
+    ct:log("Ok (len=~p): ~p", [length(OK), OK]),
+    false = lists:any(fun({error,_}) -> true;
+                         (_) -> false
+                      end, Results).
+
 %%--------------------------------------------------------------------
 generate() ->
      [{doc, " Test crypto:generate_key"}].
