@@ -294,7 +294,7 @@ init([Name,
                             %% initial start
                             ok
                     end,
-                    enter_loop(Config1, State1)
+                    gen_server:enter_loop(?MODULE, [], State1)
             catch
                 _:Error ->
                     unregister(RegName),
@@ -306,9 +306,6 @@ init([Name,
             logger_h_common:error_notify({open_disk_log,Name,Error}),
             proc_lib:init_ack(Error)
     end.
-
-enter_loop(_Config,State) ->
-    gen_server:enter_loop(?MODULE,[],State).
 
 %% This is the synchronous log event.
 handle_call({log, Bin}, _From, State) ->

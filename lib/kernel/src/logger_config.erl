@@ -22,8 +22,8 @@
 -export([new/1,delete/2,
          exist/2,
          allow/2,allow/3,
-         get/2, get/3, get/1,
-         create/3, create/4, set/3,
+         get/2, get/3,
+         create/3, set/3,
          set_module_level/3,unset_module_level/2,
          get_module_level/1,cache_module_level/2,
          level_to_int/1]).
@@ -64,27 +64,19 @@ get(Tid,What) ->
     case ets:lookup(Tid,table_key(What)) of
         [{_,_,Config}] ->
             {ok,Config};
-        [{_,_,Config,Module}] ->
-            {ok,{Module,Config}};
         [] ->
             {error,{not_found,What}}
     end.
 
 get(Tid,What,Level) ->
-    MS = [{{table_key(What),'$1','$2'}, % primary config
+    MS = [{{table_key(What),'$1','$2'},
            [{'>=','$1',level_to_int(Level)}],
-           ['$2']},
-          {{table_key(What),'$1','$2','$3'}, % handler config
-           [{'>=','$1',level_to_int(Level)}],
-           [{{'$3','$2'}}]}],
+           ['$2']}],
     case ets:select(Tid,MS) of
         [] -> error;
         [Data] -> {ok,Data}
     end.
 
-create(Tid,What,Module,Config) ->
-    LevelInt = level_to_int(maps:get(level,Config)),
-    ets:insert(Tid,{table_key(What),LevelInt,Config,Module}).
 create(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
     ets:insert(Tid,{table_key(What),LevelInt,Config}).
@@ -128,13 +120,6 @@ cache_module_level(Tid,Module) ->
     GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
     ets:insert_new(Tid,{Module,{GlobalLevelInt,cached}}),
     ok.
-
-get(Tid) ->
-    {ok,Primary} = get(Tid,primary),
-    HMS = [{{table_key('$1'),'_','$2','$3'},[],[{{'$1','$3','$2'}}]}],
-    Handlers = ets:select(Tid,HMS),
-    Modules = get_module_level(Tid),
-    {Primary,Handlers,Modules}.
 
 level_to_int(none) -> ?LOG_NONE;
 level_to_int(emergency) -> ?EMERGENCY;
