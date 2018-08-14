@@ -127,7 +127,13 @@ cache_pem_file(File, DbHandle) ->
 	[Content]  ->
 	    {ok, Content};
 	undefined ->
-            ssl_pem_cache:insert(File)
+            case ssl_pkix_db:decode_pem_file(File) of
+                {ok, Content} ->
+                    ssl_pem_cache:insert(File, Content),
+                    {ok, Content};
+                Error ->
+                    Error
+            end
     end.
 
 %%--------------------------------------------------------------------

@@ -29,7 +29,7 @@
 -export([start_link/1, 
 	 start_link_dist/1,
 	 name/1,
-	 insert/1,
+	 insert/2,
 	 clear/0]).
 
 % Spawn export
@@ -90,19 +90,17 @@ start_link_dist(_) ->
 
 
 %%--------------------------------------------------------------------
--spec insert(binary()) -> {ok, term()} | {error, reason()}.
+-spec insert(binary(), term()) -> ok | {error, reason()}.
 %%		    
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
-insert(File) ->    
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
+insert(File, Content) ->    
     case bypass_cache() of
 	true ->
-	    {ok, Content};
+	    ok;
 	false ->
 	    cast({cache_pem, File, Content}),
-	    {ok, Content}
+            ok
     end.
 
 %%--------------------------------------------------------------------
