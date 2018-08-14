@@ -815,7 +815,7 @@ do_sign_verify({Type, Hash, Public, Private, Msg, Options}) ->
         error:notsup when NotSupLow == true,
                           is_integer(LibVer),
                           LibVer < 16#10001000 ->
-            %% Thoose opts where introduced in 1.0.1
+            %% Those opts where introduced in 1.0.1
             ct:log("notsup but OK in old cryptolib crypto:sign(~p, ~p, ..., ..., ..., ~p)",
                    [Type,Hash,Options]),
             true;

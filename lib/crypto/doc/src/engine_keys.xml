@@ -40,7 +40,7 @@
     </p>
     <p>
       An engine could among other tasks provide a storage for
-      private or public keys. Such a storage could be made safer than the normal file system. Thoose techniques are not 
+      private or public keys. Such a storage could be made safer than the normal file system. Those techniques are not
       described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
       such an engine.
     </p>
