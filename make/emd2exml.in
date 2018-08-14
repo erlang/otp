@@ -1214,7 +1214,7 @@ complete_output(#state{out = Out} = S) ->
 
 complete_output(S, [], Out) ->
     S#state{delayed_array = [],
-	    out = ["<?xml version=\"1.0\" encoding=\"utf8\" ?>", nl(),
+	    out = ["<?xml version=\"1.0\" encoding=\"utf-8\" ?>", nl(),
 		   "<!DOCTYPE chapter SYSTEM \"chapter.dtd\">", nl(),
 		   Out]};
 complete_output(S, [{delayed, IX}|Rest], Out) ->
