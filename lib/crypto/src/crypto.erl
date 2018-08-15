@@ -142,7 +142,8 @@ hash(Hash, Data0) ->
     hash(Hash, Data, erlang:byte_size(Data), MaxBytes).
 
 -spec hash_init('md5'|'md4'|'ripemd160'|
-                'sha'|'sha224'|'sha256'|'sha384'|'sha512') -> any().
+                'sha'|'sha224'|'sha256'|'sha384'|'sha512'|
+                'sha3_224' | 'sha3_256' | 'sha3_384' | 'sha3_512') -> any().
 
 hash_init(Hash) ->
     notsup_to_error(hash_init_nif(Hash)).

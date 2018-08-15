@@ -161,6 +161,7 @@
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
 
      <code>aead_cipher() = aes_gcm | chacha20_poly1305 </code>
+     <p>Note that the actual supported algorithms depends on the underlying crypto library.</p>
 
      <code>stream_key() = aes_key() | rc4_key() </code>
 
@@ -189,8 +190,11 @@
 
      <code>rsa_sign_padding() = rsa_pkcs1_padding | rsa_pkcs1_pss_padding</code>
 
-     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> <p>md4 is also supported for hash_init/1 and hash/2.
+     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 |
+     sha3_224 | sha3_256 | sha3_384 | sha3_512 </code>
+     <p>md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
+     Note that the actual supported hash_algorithms depends on the underlying crypto library.
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
      aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc |
