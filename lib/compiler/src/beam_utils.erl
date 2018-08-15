@@ -1164,7 +1164,7 @@ defs([{loop_rec,{f,L},{x,0}}=I|Is], _Regs, D0) ->
     D = update_regs(L, RegsAtLabel, D0),
     [I|defs(Is, init_def_regs(1), D)];
 defs([{loop_rec_end,_}=I|Is], _Regs, D) ->
-    [I|defs(Is, 0, D)];
+    [I|defs_unreachable(Is, D)];
 defs([{make_fun2,_,_,_,_}=I|Is], _Regs, D) ->
     [I|defs(Is, 1, D)];
 defs([{move,_,Dst}=I|Is], Regs0, D) ->

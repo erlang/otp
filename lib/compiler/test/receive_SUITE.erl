@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
-	 wait/1,recv_in_try/1]).
+	 wait/1,recv_in_try/1,double_recv/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +45,7 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [recv,coverage,otp_7980,ref_opt,export,wait,
-       recv_in_try]}].
+       recv_in_try,double_recv]}].
 
 
 init_per_suite(Config) ->
@@ -349,5 +349,33 @@ recv_in_try(Timeout, Format) ->
 	    {nok,Reason}
     end.
 
+%% ERL-703. The compiler would crash because beam_utils:anno_defs/1
+%% failed to take into account that code after loop_rec_end is
+%% unreachable.
+
+double_recv(_Config) ->
+    self() ! {more,{a,term}},
+    ok = do_double_recv({more,{a,term}}, any),
+    self() ! message,
+    ok = do_double_recv(whatever, message),
+
+    error = do_double_recv({more,42}, whatever),
+    error = do_double_recv(whatever, whatever),
+    ok.
+
+do_double_recv({more, Rest}, _Msg) ->
+    receive
+        {more, Rest} ->
+            ok
+    after 0 ->
+            error
+    end;
+do_double_recv(_, Msg) ->
+    receive
+        Msg ->
+            ok
+    after 0 ->
+            error
+    end.
 
 id(I) -> I.
