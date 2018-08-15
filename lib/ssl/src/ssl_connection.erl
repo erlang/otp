@@ -64,13 +64,13 @@
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
 -export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, cipher/4,
-         connection/4, death_row/4, downgrade/4]).
+         connection/4, death_row/4, death_row/2, downgrade/4]).
 
 %% gen_statem callbacks
 -export([terminate/3, format_status/2]).
 
 %% Erlang Distribution export
--export([get_sslsocket/1, handshake_complete/3]).
+-export([get_sslsocket/1, dist_handshake_complete/2]).
 
 %%====================================================================
 %% Setup
@@ -318,8 +318,8 @@ internal_renegotiation(ConnectionPid, #{current_write := WriteState}) ->
 get_sslsocket(ConnectionPid) ->
     call(ConnectionPid, get_sslsocket).
 
-handshake_complete(ConnectionPid, Node, DHandle) ->
-    call(ConnectionPid, {handshake_complete, Node, DHandle}).
+dist_handshake_complete(ConnectionPid, DHandle) ->
+    gen_statem:cast(ConnectionPid, {dist_handshake_complete, DHandle}).
 
 %%--------------------------------------------------------------------
 -spec prf(pid(), binary() | 'master_secret', binary(),
@@ -452,50 +452,36 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	      end,
     case get_data(SOpts, BytesToRead, Buffer1) of
 	{ok, ClientData, Buffer} -> % Send data
-            case State0 of
-                #state{
-                   ssl_options = #ssl_options{erl_dist = true},
-                  protocol_specific = #{d_handle := DHandle}} ->
-                    State =
-                        State0#state{
-                          user_data_buffer = Buffer,
-                          bytes_to_read = undefined},
-                    try erlang:dist_ctrl_put_data(DHandle, ClientData) of
-                        _
-                          when SOpts#socket_options.active =:= false;
-                               Buffer =:= <<>> ->
-                            %% Passive mode, wait for active once or recv
-                            %% Active and empty, get more data
-                            Connection:next_record_if_active(State);
-                        _ -> %% We have more data
-                            read_application_data(<<>>, State)
-                    catch error:_ ->
-                            death_row(State, disconnect)
-                    end;
-                _ ->
-                    SocketOpt =
-                        deliver_app_data(Connection:pids(State0),
-                                         Transport, Socket, SOpts,
-                                         ClientData, Pid, RecvFrom, Tracker, Connection),
-                    cancel_timer(Timer),
-                    State =
-                        State0#state{
-                          user_data_buffer = Buffer,
+            #state{ssl_options = #ssl_options{erl_dist = Dist},
+                   erl_dist_data = DistData} = State0,
+            case Dist andalso is_dist_up(DistData) of                
+                       true ->                                
+                           dist_app_data(ClientData, State0#state{user_data_buffer = Buffer,
+                                                                      bytes_to_read = undefined});
+                       _ ->
+                           SocketOpt =
+                               deliver_app_data(Connection:pids(State0),
+                                                Transport, Socket, SOpts,
+                                                ClientData, Pid, RecvFrom, Tracker, Connection),
+                           cancel_timer(Timer),
+                           State =
+                               State0#state{
+                                 user_data_buffer = Buffer,
                           start_or_recv_from = undefined,
                           timer = undefined,
                           bytes_to_read = undefined,
                           socket_options = SocketOpt
-                         },
-                    if
-                        SocketOpt#socket_options.active =:= false;
-                        Buffer =:= <<>> ->
-                            %% Passive mode, wait for active once or recv
+                                },
+                           if
+                               SocketOpt#socket_options.active =:= false;
+                               Buffer =:= <<>> ->
+                                   %% Passive mode, wait for active once or recv
                             %% Active and empty, get more data
-                            Connection:next_record_if_active(State);
-                        true -> %% We have more data
-                            read_application_data(<<>>, State)
-                    end
-            end;
+                                   Connection:next_record_if_active(State);
+                               true -> %% We have more data
+                                   read_application_data(<<>>, State)
+                           end
+                   end;
 	{more, Buffer} -> % no reply, we need more data
 	    Connection:next_record(State0#state{user_data_buffer = Buffer});
 	{passive, Buffer} ->
@@ -505,6 +491,35 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
                                  Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker, Connection),
             stop(normal, State0)
     end.
+
+dist_app_data(ClientData, #state{protocol_cb = Connection,
+                                 erl_dist_data = #{dist_handle := undefined,
+                                                   dist_buffer := DistBuff} = DistData} = State) ->
+    Connection:next_record_if_active(State#state{erl_dist_data = DistData#{dist_buffer => [ClientData, DistBuff]}});
+dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := DHandle,
+                                                   dist_buffer := DistBuff} = ErlDistData,
+                                 protocol_cb = Connection,
+                                 user_data_buffer = Buffer,
+                                 socket_options = SOpts} = State) ->
+    Data = merge_dist_data(DistBuff, ClientData),
+    try erlang:dist_ctrl_put_data(DHandle, Data) of
+        _ when SOpts#socket_options.active =:= false;
+               Buffer =:= <<>> ->
+            %% Passive mode, wait for active once or recv
+            %% Active and empty, get more data
+            Connection:next_record_if_active(State#state{erl_dist_data = ErlDistData#{dist_buffer => <<>>}});
+        _ -> %% We have more data
+            read_application_data(<<>>, State)
+    catch error:_ ->
+            death_row(State, disconnect)
+    end.
+
+merge_dist_data(<<>>, ClientData) ->
+    ClientData;
+merge_dist_data(DistBuff, <<>>) ->
+    DistBuff;
+merge_dist_data(DistBuff, ClientData) ->
+    [DistBuff, ClientData].
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
 %%====================================================================
@@ -604,12 +619,6 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
             socket_options = SockOpts} = State0, Connection) ->
     try 
         SslOpts = ssl:handle_options(Opts, OrigSSLOptions),
-        case SslOpts of
-            #ssl_options{erl_dist = true} ->
-                process_flag(priority, max);
-            _ ->
-                ok
-        end,
 	State = ssl_config(SslOpts, Role, State0),
 	init({call, From}, {start, Timeout}, 
 	     State#state{ssl_options = SslOpts, 
@@ -1045,25 +1054,6 @@ connection({call, From}, negotiated_protocol,
 	   #state{negotiated_protocol = SelectedProtocol} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
-connection({call, From}, {handshake_complete, _Node, DHandle},
-           #state{ssl_options = #ssl_options{erl_dist = true},
-                  socket_options = SockOpts,
-                  protocol_specific = ProtocolSpecific} = State, Connection) ->
-    %% From now on we execute on normal priority
-    process_flag(priority, normal),
-    try erlang:dist_ctrl_get_data_notification(DHandle) of
-        _ ->
-            NewState =
-                State#state{
-                  socket_options =
-                      SockOpts#socket_options{active = true},
-                  protocol_specific =
-                      ProtocolSpecific#{d_handle => DHandle}},
-            {Record, NewerState} = Connection:next_record_if_active(NewState),
-            Connection:next_event(connection, Record, NewerState, [{reply, From, ok}])
-    catch error:_ ->
-            death_row(State, disconnect)
-    end;
 connection({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 connection(cast, {internal_renegotiate, WriteState}, #state{protocol_cb = Connection,
@@ -1071,28 +1061,18 @@ connection(cast, {internal_renegotiate, WriteState}, #state{protocol_cb = Connec
            = State, Connection) -> 
     Connection:renegotiate(State#state{renegotiation = {true, internal},
                                        connection_states = ConnectionStates#{current_write => WriteState}}, []);
-connection(info, dist_data = Msg, #state{ssl_options = #ssl_options{erl_dist = true},
-                                         protocol_specific = #{d_handle := DHandle}} = State, _) ->
-    eat_msgs(Msg),
-    try send_dist_data(?FUNCTION_NAME, State, DHandle, [])
-    catch error:_ ->
-            death_row(State, disconnect)
-    end;
-connection(info, {send, From, Ref, Data}, #state{ssl_options = #ssl_options{erl_dist = true},
-                                                 protocol_specific = #{d_handle := _}}, _) ->
-    %% This is for testing only!
-    %%
-    %% Needed by some OTP distribution
-    %% test suites...
-    From ! {Ref, ok},
-    {keep_state_and_data,
-     [{next_event, {call, {self(), undefined}},
-       {application_data, iolist_to_binary(Data)}}]};
-connection(info, tick = Msg, #state{ssl_options = #ssl_options{erl_dist = true},
-                                    protocol_specific = #{d_handle := _}},_) ->
-    eat_msgs(Msg),
-    {keep_state_and_data,
-     [{next_event, {call, {self(), undefined}}, {application_data, <<>>}}]};
+connection(cast, {dist_handshake_complete, DHandle},
+           #state{ssl_options = #ssl_options{erl_dist = true},
+                  erl_dist_data = ErlDistData,
+                  socket_options = SockOpts} = State0, Connection) ->
+    process_flag(priority, normal),
+    State1 =
+        State0#state{
+          socket_options =
+              SockOpts#socket_options{active = true},
+          erl_dist_data = ErlDistData#{dist_handle => DHandle}},
+    {Record, State} = dist_app_data(<<>>, State1),
+    Connection:next_event(connection, Record, State);
 connection(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 connection(internal, {recv, _}, State, Connection) ->
@@ -1107,13 +1087,10 @@ connection(Type, Msg, State, Connection) ->
 %%--------------------------------------------------------------------
 %% We just wait for the owner to die which triggers the monitor,
 %% or the socket may die too
-death_row(
-  info, {'DOWN', MonitorRef, _, _, Reason},
-  #state{user_application={MonitorRef,_Pid}},
-  _) ->
+death_row(info, {'DOWN', MonitorRef, _, _, Reason},
+          #state{user_application={MonitorRef,_Pid}},_) ->
     {stop, {shutdown, Reason}};
-death_row(
-  info, {'EXIT', Socket, Reason}, #state{socket = Socket}, _) ->
+death_row(info, {'EXIT', Socket, Reason}, #state{socket = Socket}, _) ->
     {stop, {shutdown, Reason}};
 death_row(state_timeout, Reason, _State, _Connection) ->
     {stop, {shutdown,Reason}};
@@ -1176,7 +1153,14 @@ handle_common_event(internal, {application_data, Data}, StateName, State0, Conne
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State} ->
-   	    Connection:next_event(StateName, Record, State)
+   	     case Connection:next_event(StateName, Record, State) of
+                 {next_state, StateName, State} ->
+                     hibernate_after(StateName, State, []);
+                 {next_state, StateName, State, Actions} -> 
+                     hibernate_after(StateName, State, Actions);
+                 {stop, _, _} = Stop ->
+                     Stop
+             end 
     end;
 handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, 
 		    #state{negotiated_version = Version} = State,  _) ->
@@ -1262,12 +1246,8 @@ handle_call({set_opts, Opts0}, From, StateName,
 handle_call(renegotiate, From, StateName, _, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
 
-handle_call(
-  get_sslsocket, From, _StateName,
-  #state{transport_cb = Transport, socket = Socket, tracker = Tracker},
-  Connection) ->
-    SslSocket =
-        Connection:socket(self(), Transport, Socket, Connection, Tracker),
+handle_call(get_sslsocket, From, _StateName, State, Connection) ->
+    SslSocket = Connection:socket(State),
     {keep_state_and_data, [{reply, From, SslSocket}]};
 
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
@@ -1316,23 +1296,18 @@ handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     stop(normal, State);
 
-handle_info(
-  {'DOWN', MonitorRef, _, _, Reason}, _,
-  #state{
-     user_application = {MonitorRef, _Pid},
-     ssl_options = #ssl_options{erl_dist = true}}) ->
+handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
+            #state{user_application = {MonitorRef, _Pid},
+                   ssl_options = #ssl_options{erl_dist = true}}) ->
     {stop, {shutdown, Reason}};
-handle_info(
-  {'DOWN', MonitorRef, _, _, _}, _,
-  #state{user_application = {MonitorRef, _Pid}}) ->
+handle_info({'DOWN', MonitorRef, _, _, _}, _,
+            #state{user_application = {MonitorRef, _Pid}}) ->
     {stop, normal};
-handle_info(
-  {'EXIT', Pid, _Reason}, StateName,
-  #state{user_application = {_MonitorRef, Pid}} = State) ->
+handle_info({'EXIT', Pid, _Reason}, StateName,
+            #state{user_application = {_MonitorRef, Pid}} = State) ->
     %% It seems the user application has linked to us
     %% - ignore that and let the monitor handle this
     {next_state, StateName, State};
-
 %%% So that terminate will be run when supervisor issues shutdown
 handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
     stop(shutdown, State);
@@ -1380,7 +1355,7 @@ terminate({shutdown, transport_closed} = Reason,
 			     socket = Socket, transport_cb = Transport} = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined);
-terminate({shutdown, own_alert}, _StateName, #state{%%send_queue = SendQueue, 
+terminate({shutdown, own_alert}, _StateName, #state{
 						protocol_cb = Connection,
 						socket = Socket, 
 						transport_cb = Transport} = State) ->
@@ -2753,25 +2728,6 @@ new_emulated([], EmOpts) ->
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
 %%---------------Erlang distribution --------------------------------------
-
-send_dist_data(StateName, State, DHandle, Acc) ->
-    case erlang:dist_ctrl_get_data(DHandle) of
-        none ->
-            erlang:dist_ctrl_get_data_notification(DHandle),
-            hibernate_after(StateName, State, lists:reverse(Acc));
-        Data ->
-            send_dist_data(
-              StateName, State, DHandle,
-              [{next_event, {call, {self(), undefined}}, {application_data, Data}}
-               |Acc])
-    end.
-
-%% Overload mitigation
-eat_msgs(Msg) ->
-    receive Msg -> eat_msgs(Msg)
-    after 0 -> ok
-    end.
-
 %% When acting as distribution controller map the exit reason
 %% to follow the documented nodedown_reason for net_kernel
 stop(Reason, State) ->
@@ -2791,3 +2747,8 @@ erl_dist_stop_reason(
     end;
 erl_dist_stop_reason(Reason, _State) ->
     Reason.
+
+is_dist_up(#{dist_handle := Handle}) when Handle =/= undefined ->
+    true;
+is_dist_up(_) ->
+    false.

@@ -75,6 +75,7 @@
           cert_db_ref          :: certdb_ref() | 'undefined',
           bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
           user_data_buffer     :: undefined | binary() | secret_printout(), 
+          erl_dist_data = #{} :: map(),
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer

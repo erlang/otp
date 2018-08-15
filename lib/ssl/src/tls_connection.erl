@@ -69,6 +69,9 @@
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
+
+-define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -93,7 +96,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
-        {ok, Sender} = tls_sender:start(),
+        {ok, Sender} = tls_sender:start([{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]),
 	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Sender, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Tracker),
@@ -113,8 +116,14 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
 
-init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
+    case SslOpts#ssl_options.erl_dist of
+        true ->
+            process_flag(priority, max);
+        _ ->
+            ok
+    end,
     State0 = #state{protocol_specific = Map} = initial_state(Role, Sender,
                                                              Host, Port, Socket, Options, User, CbInfo),
     try 
@@ -646,9 +655,11 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
-    #ssl_options{beast_mitigation = BeastMitigation} = SSLOptions,
+    #ssl_options{beast_mitigation = BeastMitigation,
+                 erl_dist = IsErlDist} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
     
+    ErlDistData = erl_dist_data(IsErlDist),
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
 			    Cb;
@@ -670,6 +681,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 	   host = Host,
 	   port = Port,
 	   socket = Socket,
+           erl_dist_data = ErlDistData,
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},
 	   user_application = {UserMonitor, User},
@@ -684,8 +696,16 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
            protocol_specific = #{sender => {SendMonitor, Sender}}
 	  }.
 
-initialize_tls_sender(#state{socket = Socket,
+erl_dist_data(true) ->
+    #{dist_handle => undefined,
+      dist_buffer => <<>>};
+erl_dist_data(false) ->
+    #{}.
+
+initialize_tls_sender(#state{role = Role,
+                             socket = Socket,
                              socket_options = SockOpts,
+                             tracker = Tracker,
                              protocol_cb = Connection,
                              transport_cb = Transport,
                              negotiated_version = Version,
@@ -693,8 +713,10 @@ initialize_tls_sender(#state{socket = Socket,
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := {_, Sender}}}) ->
     Init = #{current_write => ConnectionWriteState,
+             role => Role,
              socket => Socket,
              socket_options => SockOpts,
+             tracker => Tracker,
              protocol_cb => Connection,
              transport_cb => Transport,
              negotiated_version => Version,
@@ -772,6 +794,9 @@ handle_info({CloseTag, Socket}, StateName,
             %% and then receive the final message.
             next_event(StateName, no_record, State)
     end;
+handle_info({'DOWN', Mon, _, _, _}, _, #state{ssl_options = #ssl_options{erl_dist = true},
+                                           protocol_specific = #{sender:= {Mon, _}}} = State) ->
+    ssl_connection:death_row(State, disconnect);
 handle_info({'DOWN', Mon, _, _,  Reason}, _, #state{protocol_specific = #{sender:= {Mon, _}}} = State) ->
     {stop, {shudown, sender_died, Reason}, State};
 handle_info(Msg, StateName, State) ->
