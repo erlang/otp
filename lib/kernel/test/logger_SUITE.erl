@@ -87,6 +87,7 @@ all() ->
      macros,
      set_level,
      set_module_level,
+     set_application_level,
      cache_module_level,
      format_report,
      filter_failed,
@@ -421,6 +422,34 @@ set_module_level(_Config) ->
 set_module_level(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:unset_module_level(?MODULE),
+    ok.
+
+set_application_level(_Config) ->
+
+    {error,{not_loaded,mnesia}} = logger:set_application_level(mnesia, warning),
+    {error,{not_loaded,mnesia}} = logger:unset_application_level(mnesia),
+
+    application:load(mnesia),
+    {ok, Modules} = application:get_key(mnesia, modules),
+    [] = logger:get_module_level(Modules),
+
+    {error,{invalid_level,warn}} = logger:set_application_level(mnesia, warn),
+
+    ok = logger:set_application_level(mnesia, debug),
+    DebugModules = lists:sort([{M,debug} || M <- Modules]),
+    DebugModules = lists:sort(logger:get_module_level(Modules)),
+
+    ok = logger:set_application_level(mnesia, warning),
+
+    WarnModules = lists:sort([{M,warning} || M <- Modules]),
+    WarnModules = lists:sort(logger:get_module_level(Modules)),
+
+    ok = logger:unset_application_level(mnesia),
+    [] = logger:get_module_level(Modules).
+
+set_application_level(cleanup,_Config) ->
+    ok = logger:unset_application_level(mnesia),
+    ok = application:unload(mnesia),
     ok.
 
 cache_module_level(_Config) ->
