@@ -22,7 +22,7 @@ for repo in $REPOSITORIES; do
     git clone https://github.com/erlang/$1 $1
     cd $1
     echo $1 $2
-    TAG=`git tag -l | grep -P "$2" | sort -V | tail -1`
+    TAG=`git tag -l | grep -v "\-rc" | grep -P "$2" | sort -V | tail -1`
     git checkout $TAG
     SHA=`git rev-parse --verify HEAD`
     rm -rf .git
