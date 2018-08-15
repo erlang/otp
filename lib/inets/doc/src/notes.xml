@@ -33,7 +33,7 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0</title>
+ <section><title>Inets 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -91,6 +91,22 @@
     </section>
 
   </section>
+
+  <section><title>Inets 6.5.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change status code for no mod found to handle request to
+	    501</p>
+          <p>
+	    Own Id: OTP-15215</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Inets 6.5.2.2</title>
 
