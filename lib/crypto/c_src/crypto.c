@@ -150,10 +150,10 @@
 
 // SHA3:
 # ifdef NID_sha3_224
-#  define HAVE_SHA3_224
+//Error #  define HAVE_SHA3_224
 # endif
 # ifdef NID_sha3_256
-#  define HAVE_SHA3_256
+//Error #  define HAVE_SHA3_256
 # endif
 # ifdef NID_sha3_384
 #  define HAVE_SHA3_384
