@@ -1803,7 +1803,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       k = 0;
       while (1) {
 	  if (k++ == min){
-	      if (i == j) return 0;
+	      if (i == j) return compare_top_ext(e1 , e2);
 	      if (i < j) return -1;
 	      return 1;
 	  }
