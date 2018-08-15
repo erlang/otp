@@ -39,6 +39,7 @@
          remove_primary_filter/1, remove_handler_filter/2,
          set_module_level/2,
          unset_module_level/1, unset_module_level/0,
+         set_application_level/2, unset_application_level/1,
          get_module_level/0, get_module_level/1,
          set_primary_config/1, set_primary_config/2,
          set_handler_config/2, set_handler_config/3,
@@ -487,6 +488,27 @@ unset_module_level(Modules) ->
 -spec unset_module_level() -> ok.
 unset_module_level() ->
     logger_server:unset_module_level().
+
+-spec set_application_level(Application,Level) -> ok | {error, not_loaded} when
+      Application :: atom(),
+      Level :: level() | all | none.
+set_application_level(App,Level) ->
+    case application:get_key(App, modules) of
+        {ok, Modules} ->
+            set_module_level(Modules, Level);
+        undefined ->
+            {error, {not_loaded, App}}
+    end.
+
+-spec unset_application_level(Application) -> ok | {error, not_loaded} when
+      Application :: atom().
+unset_application_level(App) ->
+    case application:get_key(App, modules) of
+        {ok, Modules} ->
+            unset_module_level(Modules);
+        undefined ->
+            {error, {not_loaded, App}}
+    end.
 
 -spec get_module_level(Modules) -> [{Module,Level}] when
       Modules :: [Module] | Module,
