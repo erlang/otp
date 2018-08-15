@@ -61,8 +61,12 @@ generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
 			{StatusCode, Response} ->   %% Old way
 			    send_response_old(ModData, StatusCode, Response),
 			    ok;
-			undefined ->
-			    send_status(ModData, 500, none),
+			undefined -> 
+                            %% Happens when no mod_* 
+                            %% handles the request
+			    send_status(ModData, 501, {ModData#mod.method,
+                                                       ModData#mod.request_uri,
+                                                       ModData#mod.http_version}),
 			    ok
 		    end
 	    end
