@@ -75,7 +75,6 @@ all() ->
      {group, http_mime_types},
      {group, http_logging},
      {group, http_post},
-     {group, http_rel_path_script_alias},
      {group, http_not_sup},
      {group, https_not_sup},
      mime_types_format
@@ -137,7 +136,6 @@ groups() ->
        esi_put, esi_post] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()},
-     {http_rel_path_script_alias, [], [cgi]},
      {not_sup, [], [put_not_sup]}
     ].
 
@@ -277,9 +275,6 @@ init_per_group(http_logging, Config) ->
     ServerRoot = proplists:get_value(server_root, Config1),
     Path = ServerRoot ++ "/httpd_log_transfer",
     [{transfer_log, Path} | Config1];
-init_per_group(http_rel_path_script_alias = Group, Config) ->
-    ok = start_apps(Group),
-    init_httpd(Group, [{type, ip_comm},{http_version, "HTTP/1.1"}| Config]);
 init_per_group(not_sup, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
 init_per_group(_, Config) ->
@@ -1807,7 +1802,6 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_reload;
                         Group == http_post;
                         Group == http_mime_types;
-                        Group == http_rel_path_script_alias;
                         Group == http_not_sup;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
@@ -1938,7 +1932,6 @@ server_config(http, Config) ->
      {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
      {eval_script_alias, {"/eval", [httpd_example, io]}}
     ];
-
 server_config(https, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     [{socket_type, {essl,
