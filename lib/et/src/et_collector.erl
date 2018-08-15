@@ -509,7 +509,7 @@ get_global_pid() ->
 %% CollectorPid = pid()
 %% RawPattern = {report_module(), extended_dbg_match_spec()}
 %% report_module() = atom() | undefined
-%% extended_dbg_match_spec()() = detail_level() | dbg_match_spec()
+%% extended_dbg_match_spec() = detail_level() | dbg_match_spec()
 %% RawPattern = detail_level()
 %% detail_level() = min | max | integer(X) when X =< 0, X >= 100
 %% TracePattern = {report_module(), dbg_match_spec_match_spec()}

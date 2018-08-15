@@ -90,7 +90,9 @@
       <fsummary>Transforms trace data and makes an event record out of it</fsummary>
 
       <type>
-        <v>Mod = module_name() | undefined &lt;v>module_name() = atom() &lt;v>ValidTraceData = erlang_trace_data() | record(event)</v>
+          <v>Mod = module_name() | undefined</v>
+          <v>module_name() = atom()</v>
+          <v>ValidTraceData = erlang_trace_data() | record(event)</v>
         <v>erlang_trace_data() = {trace, Pid, Label, Info} |  {trace, Pid, Label, Info, Extra} |  {trace_ts, Pid, Label, Info, ReportedTS} |  {trace_ts, Pid, Label, Info, Extra, ReportedTS} |  {seq_trace, Label, Info} |  {seq_trace, Label, Info, ReportedTS} |  {drop, NumberOfDroppedItems}</v>
       </type>
 
