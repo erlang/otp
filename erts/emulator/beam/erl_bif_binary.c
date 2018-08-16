@@ -208,8 +208,8 @@ typedef struct _ac_trie {
 typedef struct _bm_data {
     byte *x;
     Sint len;
+    Sint *badshift;
     Sint *goodshift;
-    Sint badshift[ALPHABET_SIZE];
 } BMData;
 
 typedef struct _ac_find_all_state {
@@ -319,16 +319,104 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
  * The needed size of binary data for a search structure - given the
  * accumulated string lengths.
  */
-#define BM_SIZE(StrLen) 	      /* StrLen: length of searchstring */ \
-((MYALIGN(sizeof(Sint) * (StrLen))) + /* goodshift array */                \
- MYALIGN(StrLen) +                    /* searchstring saved */             \
- (MYALIGN(sizeof(BMData))))           /* Structure */
+#define BM_SIZE_SINGLE()    /* Single byte search string */ \
+(MYALIGN(1) +               /* searchstring saved */        \
+ (MYALIGN(sizeof(BMData)))) /* Structure */
+
+#define BM_SIZE_MULTI(StrLen) 	           /* StrLen: length of searchstring */ \
+((MYALIGN(sizeof(Uint) * (StrLen))) +      /* goodshift array */                \
+ (MYALIGN(sizeof(Uint) * ALPHABET_SIZE)) + /* badshift array */                 \
+ MYALIGN(StrLen) +                         /* searchstring saved */             \
+ (MYALIGN(sizeof(BMData))))                /* Structure */
 
 #define AC_SIZE(StrLens)       /* StrLens: sum of all searchstring lengths */ \
 ((MYALIGN(sizeof(ACNode)) *                                                   \
 ((StrLens)+1)) + 	       /* The actual nodes (including rootnode) */    \
  MYALIGN(sizeof(ACTrie)))      /* Structure */
 
+/*
+ * Boyer Moore - most obviously implemented more or less exactly as
+ * Christian Charras and Thierry Lecroq describe it in "Handbook of
+ * Exact String-Matching Algorithms"
+ * http://www-igm.univ-mlv.fr/~lecroq/string/
+ */
+
+/*
+ * Call this to compute badshifts array
+ */
+static void compute_badshifts(BMData *bmd)
+{
+    Sint i;
+    Sint m = bmd->len;
+
+    for (i = 0; i < ALPHABET_SIZE; ++i) {
+	bmd->badshift[i] = m;
+    }
+    for (i = 0; i < m - 1; ++i) {
+	bmd->badshift[bmd->x[i]] = m - i - 1;
+    }
+}
+
+/* Helper for "compute_goodshifts" */
+static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
+{
+    int f,g,i;
+
+    suffixes[m - 1] = m;
+
+    f = 0; /* To avoid use before set warning */
+
+    g = m - 1;
+
+    for (i = m - 2; i >= 0; --i) {
+	if (i > g && suffixes[i + m - 1 - f] < i - g) {
+	    suffixes[i] = suffixes[i + m - 1 - f];
+	} else {
+	    if (i < g) {
+		g = i;
+	    }
+	    f = i;
+	    while ( g >= 0 && x[g] == x[g + m - 1 - f] ) {
+		--g;
+	    }
+	    suffixes[i] = f - g;
+	}
+    }
+}
+
+/*
+ * Call this to compute goodshift array
+ */
+static void compute_goodshifts(BMData *bmd)
+{
+    Sint m = bmd->len;
+    byte *x = bmd->x;
+    Sint i, j;
+    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Sint));
+
+    compute_suffixes(x, m, suffixes);
+
+    for (i = 0; i < m; ++i) {
+	bmd->goodshift[i] = m;
+    }
+
+    j = 0;
+
+    for (i = m - 1; i >= -1; --i) {
+	if (i == -1 || suffixes[i] == i + 1) {
+	    while (j < m - 1 - i) {
+		if (bmd->goodshift[j] == m) {
+		    bmd->goodshift[j] = m - 1 - i;
+		}
+		++j;
+	    }
+	}
+    }
+    for (i = 0; i <= m - 2; ++i) {
+	bmd->goodshift[m - 1 - suffixes[i]] = m - 1 - i;
+    }
+    erts_free(ERTS_ALC_T_TMP, suffixes);
+}
 
 /*
  * Callback for the magic binary
@@ -377,11 +465,19 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
 
 /*
  * The same initialization of allocator and basic data for Boyer-Moore.
+ * For single byte, we don't use goodshift and badshift, only memchr.
  */
 static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 			     Binary **the_bin /* out */)
 {
-    Uint datasize = BM_SIZE(len);
+    Uint datasize;
+
+    if(len > 1) {
+	datasize = BM_SIZE_MULTI(len);
+    } else {
+	datasize = BM_SIZE_SINGLE();
+    }
+
     BMData *bmd;
     Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
     byte *data = ERTS_MAGIC_BIN_DATA(mb);
@@ -390,7 +486,14 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
     bmd->x = my_alloc(my,len);
     sys_memcpy(bmd->x,x,len);
     bmd->len = len;
-    bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
+
+    if(len > 1) {
+	bmd->goodshift = my_alloc(my, sizeof(Uint) * len);
+	bmd->badshift = my_alloc(my, sizeof(Uint) * ALPHABET_SIZE);
+	compute_badshifts(bmd);
+	compute_goodshifts(bmd);
+    }
+
     *the_bin = mb;
     return bmd;
 }
@@ -711,90 +814,6 @@ static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
     return (m == 0) ? BF_NOT_FOUND : BF_OK;
 }
 
-/*
- * Boyer Moore - most obviously implemented more or less exactly as
- * Christian Charras and Thierry Lecroq describe it in "Handbook of
- * Exact String-Matching Algorithms"
- * http://www-igm.univ-mlv.fr/~lecroq/string/
- */
-
-/*
- * Call this to compute badshifts array
- */
-static void compute_badshifts(BMData *bmd)
-{
-    Sint i;
-    Sint m = bmd->len;
-
-    for (i = 0; i < ALPHABET_SIZE; ++i) {
-	bmd->badshift[i] = m;
-    }
-    for (i = 0; i < m - 1; ++i) {
-	bmd->badshift[bmd->x[i]] = m - i - 1;
-    }
-}
-
-/* Helper for "compute_goodshifts" */
-static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
-{
-    int f,g,i;
-
-    suffixes[m - 1] = m;
-
-    f = 0; /* To avoid use before set warning */
-
-    g = m - 1;
-
-    for (i = m - 2; i >= 0; --i) {
-	if (i > g && suffixes[i + m - 1 - f] < i - g) {
-	    suffixes[i] = suffixes[i + m - 1 - f];
-	} else {
-	    if (i < g) {
-		g = i;
-	    }
-	    f = i;
-	    while ( g >= 0 && x[g] == x[g + m - 1 - f] ) {
-		--g;
-	    }
-	    suffixes[i] = f - g;
-	}
-    }
-}
-
-/*
- * Call this to compute goodshift array
- */
-static void compute_goodshifts(BMData *bmd)
-{
-    Sint m = bmd->len;
-    byte *x = bmd->x;
-    Sint i, j;
-    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Sint));
-
-    compute_suffixes(x, m, suffixes);
-
-    for (i = 0; i < m; ++i) {
-	bmd->goodshift[i] = m;
-    }
-
-    j = 0;
-
-    for (i = m - 1; i >= -1; --i) {
-	if (i == -1 || suffixes[i] == i + 1) {
-	    while (j < m - 1 - i) {
-		if (bmd->goodshift[j] == m) {
-		    bmd->goodshift[j] = m - 1 - i;
-		}
-		++j;
-	    }
-	}
-    }
-    for (i = 0; i <= m - 2; ++i) {
-	bmd->goodshift[m - 1 - suffixes[i]] = m - 1 - i;
-    }
-    erts_free(ERTS_ALC_T_TMP, suffixes);
-}
-
 #define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
 #define MC_LOOP_FACTOR 8
 
@@ -1038,8 +1057,6 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
 	bmd = create_bmdata(&my, bytes, characters, &bin);
-	compute_badshifts(bmd);
-	compute_goodshifts(bmd);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
 	*tag = am_bm;
@@ -3063,17 +3080,19 @@ static void dump_bm_data(BMData *bm)
 	}
     }
     erts_printf(">>\n");
-    erts_printf("GoodShift array:\n");
-    for (i = 0; i < bm->len; ++i) {
-	erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
-    }
-    erts_printf("BadShift array:\n");
-    j = 0;
-    for (i = 0; i < ALPHABET_SIZE; i += j) {
-	for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
-	    erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+    if(bm->len > 1) {
+	erts_printf("GoodShift array:\n");
+	for (i = 0; i < bm->len; ++i) {
+	    erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
 	}
-	erts_printf("\n");
+	erts_printf("BadShift array:\n");
+	j = 0;
+	for (i = 0; i < ALPHABET_SIZE; i += j) {
+	    for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
+		erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+	    }
+	    erts_printf("\n");
+	}
     }
 }
 
