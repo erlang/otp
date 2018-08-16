@@ -151,6 +151,9 @@
 	  <item>diffie-hellman-group16-sha512</item>
 	  <item>diffie-hellman-group18-sha512</item>
 	  <item>diffie-hellman-group14-sha256</item>
+	  <item>curve25519-sha256</item>
+	  <item>curve25519-sha256@libssh.org</item>
+	  <item>curve448-sha512</item>
 	  <item>diffie-hellman-group14-sha1</item>
 	  <item>diffie-hellman-group-exchange-sha1</item>
 	  <item>(diffie-hellman-group1-sha1, retired: It can be enabled with the 
@@ -364,6 +367,10 @@
 	<item>The extension <c>server-sig-algs</c></item>
       </list>
       <p/>
+      </item>
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
       </item>
       
     </list>
