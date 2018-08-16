@@ -314,7 +314,7 @@
       <fsummary>Transfers a binary into a remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
-        <v>Bin = binary()()</v>
+        <v>Bin = binary()</v>
         <v>RemoteFile = string()</v>
         <v>Reason = restriction_reason()| shortage_reason() | common_reason()</v>
       </type>
@@ -736,7 +736,7 @@
       <fsummary>Transfers a binary into a remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
-        <v>Bin = binary()()</v>
+        <v>Bin = binary()</v>
         <v>RemoteFile = string()</v>
         <v>Reason = restriction_reason() | common_reason() | shortage_reason()</v>
       </type>

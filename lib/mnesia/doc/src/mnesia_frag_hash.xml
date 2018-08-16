@@ -130,7 +130,7 @@
       <name>key_to_frag_number(State, Key) -> FragNum | abort(Reason)</name>
       <fsummary>Resolves the key of a record into a fragment number.</fsummary>
       <type>
-        <v>FragNum = integer()()</v>
+        <v>FragNum = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
