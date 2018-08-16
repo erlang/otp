@@ -77,6 +77,7 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
+(eval-when-compile (require 'align))
 
 ;; Variables:
 
@@ -1405,6 +1406,19 @@ Other commands:
     (add-function :before-until (local 'eldoc-documentation-function)
                   #'erldoc-eldoc-function))
   (run-hooks 'erlang-mode-hook)
+
+  ;; Align maps.
+  (add-to-list 'align-rules-list
+               '(erlang-maps
+                 (regexp  . "\\(\\s-*\\)\\(=>\\)\\s-*")
+                 (modes   . '(erlang-mode))
+                 (repeat  . t)))
+  ;; Align records and :: specs
+  (add-to-list 'align-rules-list
+               '(erlang-record-specs
+                 (regexp  . "\\(\\s-*\\)\\(=\\).*\\(::\\)*\\s-*")
+                 (modes   . '(erlang-mode))
+                 (repeat  . t)))
   (if (zerop (buffer-size))
       (run-hooks 'erlang-new-file-hook)))
 
