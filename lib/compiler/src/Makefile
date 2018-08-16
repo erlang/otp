@@ -211,7 +211,6 @@ $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
-$(EBIN)/v3_codegen.beam: v3_kernel.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
 $(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl
 $(EBIN)/v3_kernel_pp.beam: v3_kernel.hrl
