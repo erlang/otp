@@ -150,7 +150,7 @@
 
    <tag><c>{logger, Module}</c></tag>
       <item>
-        <p><c>Module = module()()</c></p>
+        <p><c>Module = module()</c></p>
 
         <p>Callback module for customized logging of errors, warnings, and
 	  info messages. The callback module must implement the
@@ -220,7 +220,7 @@
       <name>info(daemons) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all daemons.</fsummary>
       <type>
-        <v>Pid = [pid()()]</v>
+        <v>Pid = [pid()]</v>
         <v>Options = [option()]</v>
         <v>Reason = term()</v>
       </type>
@@ -233,7 +233,7 @@
       <name>info(servers) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all servers.</fsummary>
       <type>
-        <v>Pid = [pid()()]</v>
+        <v>Pid = [pid()]</v>
         <v>Options = [option()]</v>
         <v>Reason = term()</v>
       </type>
