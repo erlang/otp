@@ -186,6 +186,7 @@
       <tag>Encryption algorithms (ciphers)</tag>
       <item>
 	<list type="bulleted">
+	  <item>chacha20-poly1305@openssh.com</item>
           <item>aes256-gcm@openssh.com</item>
 	  <item>aes256-ctr</item>
 	  <item>aes192-ctr</item>
