@@ -218,6 +218,9 @@ hello(#client_hello{client_version = ClientVersion,
 	Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
         do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
+        error:{case_clause,{asn1, Asn1Reason}} ->
+	    %% ASN-1 decode of certificate somehow failed
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {failed_to_decode_own_certificate, Asn1Reason});
 	_:_ ->
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
     end.  

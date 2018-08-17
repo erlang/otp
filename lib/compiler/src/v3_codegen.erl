@@ -1621,11 +1621,6 @@ test_cg(is_boolean, [#k_atom{val=Val}], Fail, I, Vdb, Bef, St) ->
 	     false -> [{jump,{f,Fail}}]
 	 end,
     {Is,Aft,St};
-test_cg(is_map_key, As, Fail, I, Vdb, Bef, St) ->
-    [Key,Map] = cg_reg_args(As, Bef),
-    Aft = clear_dead(Bef, I, Vdb),
-    F = {f,Fail},
-    {[{test,is_map,F,[Map]},{test,has_map_fields,F,Map,{list,[Key]}}],Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),

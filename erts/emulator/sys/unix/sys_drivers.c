@@ -1000,7 +1000,7 @@ static void clear_fd_data(ErtsSysFdData *fdd)
 
 static void nbio_stop_fd(ErlDrvPort prt, ErtsSysFdData *fdd)
 {
-    driver_select(prt, abs(fdd->fd), DO_READ|DO_WRITE, 0);
+    driver_select(prt, abs(fdd->fd), ERL_DRV_USE_NO_CALLBACK|DO_READ|DO_WRITE, 0);
     clear_fd_data(fdd);
     SET_BLOCKING(abs(fdd->fd));
 

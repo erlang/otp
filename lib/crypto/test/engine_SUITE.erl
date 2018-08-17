@@ -425,7 +425,7 @@ ctrl_cmd_string_optional(Config) when is_list(Config) ->
    end.        
 
 %%%----------------------------------------------------------------
-%%% Pub/priv key storage tests.  Thoose are for testing the crypto.erl
+%%% Pub/priv key storage tests.  Those are for testing the crypto.erl
 %%% support for using priv/pub keys stored in an engine.
 
 sign_verify_rsa(Config) ->

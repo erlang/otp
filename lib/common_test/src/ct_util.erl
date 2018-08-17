@@ -192,7 +192,10 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    ok
     end,
 
-    ct_default_gl:start_link(group_leader()),
+    case ct_default_gl:start_link(group_leader()) of
+        {ok, _} -> ok;
+        ignore -> ok
+    end,
 
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 

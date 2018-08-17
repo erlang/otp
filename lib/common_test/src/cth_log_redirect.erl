@@ -124,7 +124,8 @@ start_log_handler() ->
                   shutdown=>2000,
                   type=>worker,
                   modules=>[?MODULE]},
-            {ok,_} = supervisor:start_child(logger_sup,ChildSpec);
+            {ok,_} = supervisor:start_child(logger_sup,ChildSpec),
+            ok;
         _Pid ->
             ok
     end,

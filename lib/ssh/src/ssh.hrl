@@ -492,4 +492,29 @@
 -define(wr_record(N), ?wr_record(N, [])).
 
 
+%% Circular trace buffer macros
+
+-record(circ_buf_entry,
+        {
+          module,
+          line,
+          function,
+          pid = self(),
+          value
+        }).
+
+-define(CIRC_BUF_IN(VALUE),
+        ssh_dbg:cbuf_in(
+          #circ_buf_entry{module = ?MODULE,
+                          line = ?LINE,
+                          function = {?FUNCTION_NAME,?FUNCTION_ARITY},
+                          pid = self(),
+                          value = (VALUE)
+                         })
+       ).
+
+-define(CIRC_BUF_IN_ONCE(VALUE),
+        ((fun(V) -> ?CIRC_BUF_IN(V), V end)(VALUE))
+       ).
+                 
 -endif. % SSH_HRL defined

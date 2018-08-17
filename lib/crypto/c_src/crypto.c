@@ -179,6 +179,7 @@
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # ifndef HAS_LIBRESSL
 #  define HAVE_CHACHA20_POLY1305
+#  define HAVE_RSA_OAEP_MD
 # endif
 #endif
 
@@ -1341,11 +1342,101 @@ static void init_algorithms_types(ErlNifEnv* env)
     // Non-validated algorithms follow
     algo_mac_fips_cnt = algo_mac_cnt;
 
-
     // Validated algorithms first
     algo_curve_cnt = 0;
+#if defined(HAVE_EC)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp384r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp521r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime256v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls7");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls9");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls12");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512t1");
+#if !defined(OPENSSL_NO_EC2M)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect239k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb176v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb208w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb272w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb304w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb359v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb368w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb431r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls5");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls10");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls11");
+#endif
+#endif
     // Non-validated algorithms follow
     algo_curve_fips_cnt = algo_curve_cnt;
+#if defined(HAVE_EC)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls6");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls8");
+#if !defined(OPENSSL_NO_EC2M)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls4");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec4");
+#endif
+#endif
     //--
 #ifdef HAVE_EDDH
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");

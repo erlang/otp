@@ -806,7 +806,7 @@ target_spec()       = [target_spec()]
       <name>stop(Pid) -> ok | {error, Reason}</name>
       <fsummary>Stop a server or window process</fsummary>
       <type>
-        <v>Pid     = server_pid() | window_pid()()</v>
+        <v>Pid     = server_pid() | window_pid()</v>
         <v>Reason  = reason()</v>
       </type>
       <desc><p>Stop a server or window process</p></desc>
