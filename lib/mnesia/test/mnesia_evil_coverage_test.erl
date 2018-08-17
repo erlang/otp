@@ -35,7 +35,7 @@
          replica_management/1, clear_table_during_load/1,
          schema_availability/1, local_content/1,
          replica_location/1, user_properties/1, unsupp_user_props/1,
-         sorted_ets/1,
+         sorted_ets/1, index_cleanup/1,
          change_table_access_mode/1, change_table_load_order/1,
          set_master_nodes/1, offline_set_master_nodes/1,
          dump_tables/1, dump_log/1, wait_for_tables/1, force_load_table/1,
@@ -49,7 +49,7 @@
          record_name_dirty_access_disc_only/1,
          record_name_dirty_access_xets/1]).
 
--export([info_check/8]).
+-export([info_check/8, index_size/1]).
 
 -define(cleanup(N, Config),
 	mnesia_test_lib:prepare_test_case([{reload_appls, [mnesia]}],
@@ -73,7 +73,7 @@ all() ->
      {group, table_sync}, user_properties, unsupp_user_props,
      {group, record_name}, {group, snmp_access},
      {group, subscriptions}, {group, iteration},
-     {group, debug_support}, sorted_ets,
+     {group, debug_support}, sorted_ets, index_cleanup,
      {mnesia_dirty_access_test, all},
      {mnesia_trans_access_test, all},
      {mnesia_evil_backup, all}].
@@ -2559,3 +2559,55 @@ sorted_ets(Config) when is_list(Config) ->
     ?match({atomic, [{rec,1,1}, {rec,2,1}]}, mnesia:transaction(TestIt)).
 
 
+index_cleanup(Config) when is_list(Config) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+    ?match({atomic, ok}, mnesia:create_table(i_set, [{type, set}, {ram_copies, [N1]}, {index, [val]},
+                                                     {disc_only_copies, [N2]}])),
+    ?match({atomic, ok}, mnesia:create_table(i_bag, [{type, bag}, {ram_copies, [N1]}, {index, [val]},
+                                                     {disc_only_copies, [N2]}])),
+    ?match({atomic, ok}, mnesia:create_table(i_oset, [{type, ordered_set}, {ram_copies, [N1, N2]},
+                                                      {index, [val]}])),
+
+    Tabs = [i_set, i_bag, i_oset],
+
+    Add = fun(Tab) ->
+                  Write = fun(Tab) ->
+                                  Recs = [{Tab, N, N rem 5} || N <- lists:seq(1,10)],
+                                  [ok = mnesia:write(Rec) || Rec <- Recs],
+                                  Recs
+                          end,
+                  {atomic, Recs} = mnesia:sync_transaction(Write, [Tab]),
+                  lists:sort(Recs)
+          end,
+
+    IRead = fun(Tab) ->
+                    Read = fun(Tab) ->
+                                   [mnesia:index_read(Tab, N, val) || N <- lists:seq(0,4)]
+                           end,
+                    {atomic, Recs} = mnesia:transaction(Read, [Tab]),
+                    lists:sort(lists:flatten(Recs))
+           end,
+
+    Delete = fun(Rec) ->
+                     Del = fun() -> mnesia:delete_object(Rec) end,
+                     {atomic, ok} = mnesia:sync_transaction(Del),
+                     ok
+             end,
+
+
+    Recs = [Add(Tab) || Tab <- Tabs],
+    ?match(Recs, [IRead(Tab) || Tab <- Tabs]),
+    [Delete(Rec) || Rec <- lists:flatten(Recs)],
+
+    [?match({Tab,0}, {Tab,mnesia:table_info(Tab, size)}) || Tab <- Tabs],
+
+    [?match({Tab,Node,0, _}, rpc:call(Node, ?MODULE, index_size, [Tab]))
+     || Node <- All, Tab <- Tabs],
+    ?verify_mnesia(All, []).
+
+index_size(Tab) ->
+    %% White box testing
+    case mnesia:table_info(Tab, index_info) of
+        {index, _, [{_, {ram, Ref}}=Dbg]} -> {Tab, node(), ets:info(Ref, size), Dbg};
+        {index, _, [{_, {dets, Ref}}=Dbg]} -> {Tab, node(), dets:info(Ref, size), Dbg}
+    end.
