@@ -128,9 +128,9 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 supported_algorithms(kex) ->
     select_crypto_supported(
       [
-       {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {ec_curve,secp384r1}, {hashs,sha384}]},
-       {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
-       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
+       {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
+       {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {curves,secp521r1}, {hashs,sha512}]},
+       {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
        %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
        %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
        {'curve25519-sha256',                    [{public_keys,eddh}, {curves,x25519}, {hashs,sha256}]},
@@ -147,9 +147,9 @@ supported_algorithms(kex) ->
 supported_algorithms(public_key) ->
     select_crypto_supported(
       [
-       {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
-       {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
-       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
+       {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {curves,secp384r1}]},
+       {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {curves,secp521r1}]},
+       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
@@ -174,9 +174,9 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-256',    [{hashs,sha256}]},
-	 {'hmac-sha2-512',    [{hashs,sha512}]},
-	 {'hmac-sha1',        [{hashs,sha}]},
+	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
+	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
+	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]}
 	]
@@ -1978,14 +1978,9 @@ supported_algorithms(Key, BlackList) ->
 
 
 select_crypto_supported(L) ->    
-    Sup = [{ec_curve,crypto_supported_curves()} | crypto:supports()],
+    Sup = crypto:supports(),
     [Name || {Name,CryptoRequires} <- L,
 	     crypto_supported(CryptoRequires, Sup)].
-
-crypto_supported_curves() ->
-    try crypto:ec_curves()
-    catch _:_ -> []
-    end.
 
 crypto_supported(Conditions, Supported) ->
     lists:all( fun({Tag,CryptoName}) when is_atom(CryptoName) ->
@@ -1996,7 +1991,11 @@ crypto_supported(Conditions, Supported) ->
 	       end, Conditions).
 
 crypto_name_supported(Tag, CryptoName, Supported) ->
-    lists:member(CryptoName, proplists:get_value(Tag,Supported,[])).
+    Vs = case proplists:get_value(Tag,Supported,[]) of
+             [] when Tag == curves -> crypto:ec_curves();
+             L -> L
+         end,
+    lists:member(CryptoName, Vs).
 
 len_supported(Name, Len) ->
     try
