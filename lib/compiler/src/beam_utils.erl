@@ -258,6 +258,7 @@ is_pure_test({test,is_ge,_,[_,_]}) -> true;
 is_pure_test({test,is_lt,_,[_,_]}) -> true;
 is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
+is_pure_test({test,is_tagged_tuple,_,[_,_,_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
 is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
 is_pure_test({test,is_bitstr,_,[_]}) -> true;
