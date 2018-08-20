@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1012,24 +1012,33 @@ filename_string_to_binary(List) ->
 %% basedir
 %% http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
--type basedir_type() :: 'user_cache' | 'user_config' | 'user_data'
-                      | 'user_log'
-                      | 'site_config' | 'site_data'.
+-type basedir_path_type() :: 'user_cache' | 'user_config' | 'user_data'
+                           | 'user_log'.
+-type basedir_paths_type() :: 'site_config' | 'site_data'.
 
--spec basedir(Type,Application) -> file:filename_all() when
-      Type :: basedir_type(),
+-type basedir_opts() :: #{author => string() | binary(),
+                          os => 'windows' | 'darwin' | 'linux',
+                          version => string() | binary()}.
+
+-spec basedir(PathType,Application) -> file:filename_all() when
+      PathType :: basedir_path_type(),
+      Application :: string() | binary();
+             (PathsType,Application) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
       Application :: string() | binary().
 
 basedir(Type,Application) when is_atom(Type), is_list(Application) orelse
                                               is_binary(Application) ->
     basedir(Type, Application, #{}).
 
--spec basedir(Type,Application,Opts) -> file:filename_all() when
-      Type :: basedir_type(),
+-spec basedir(PathType,Application,Opts) -> file:filename_all() when
+      PathType :: basedir_path_type(),
       Application :: string() | binary(),
-      Opts :: #{author => string() | binary(),
-                os => 'windows' | 'darwin' | 'linux',
-                version => string() | binary()}.
+      Opts :: basedir_opts();
+             (PathsType,Application,Opts) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
+      Application :: string() | binary(),
+      Opts :: basedir_opts().
 
 basedir(Type,Application,Opts) when is_atom(Type), is_map(Opts),
                                     is_list(Application) orelse
