@@ -210,6 +210,7 @@ JAVADOC-GENERATED
 /lib/wx/autoconf/config.guess
 /lib/wx/autoconf/config.sub
 /lib/wx/autoconf/install-sh
+/lib/crypto/aclocal.m4
 
 #
 # Files generated when building/running tests (especially if

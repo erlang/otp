@@ -93,6 +93,8 @@ dnl
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
     AC_CANONICAL_HOST
+else
+    host_os=$host
 fi
 
 TARGET=$host
@@ -127,6 +129,8 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_TOOL(LD, [ld])
+
+LM_WINDOWS_ENVIRONMENT
 
 _search_path=/bin:/usr/bin:/usr/local/bin:$PATH
 
@@ -415,7 +419,9 @@ if test $CROSS_COMPILING = no; then
    esac
 fi
 
-AC_CONFIG_FILES([../Makefile output.mk])
+ERL_DED
+
+AC_CONFIG_FILES([../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in])
 AC_CONFIG_FILES([emd2exml], [chmod +x emd2exml])
 
 AC_OUTPUT
