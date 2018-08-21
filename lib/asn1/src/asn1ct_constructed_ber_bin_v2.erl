@@ -95,7 +95,7 @@ gen_encode_sequence(Gen, Typename, #type{}=D) ->
 		    _ -> CompList
 		end,
 
-    enc_match_input(Gen, ValName, CompList1),
+    enc_match_input(Gen, ValName, CompList1, Ext),
 
     EncObj =
 	case TableConsInfo of
@@ -162,12 +162,17 @@ gen_encode_sequence(Gen, Typename, #type{}=D) ->
     call(encode_tags, ["TagIn","BytesSoFar","LenSoFar"]),
     emit([".",nl]).
 
-enc_match_input(#gen{pack=record}, ValName, CompList) ->
+enc_match_input(#gen{pack=record}, ValName, CompList, Ext) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
     RecordName = "_",
-    emit(["{",lists:join(",", [RecordName|Vars]),"} = ",ValName,com,nl]);
-enc_match_input(#gen{pack=map}, ValName, CompList) ->
+    case Ext of
+        {ext,_,_} ->
+            emit(["[",lists:join(",", [RecordName|Vars]),"|_] = tuple_to_list(",ValName,")",com,nl]);
+        _ ->
+            emit(["{",lists:join(",", [RecordName|Vars]),"} = ",ValName,com,nl])
+    end;
+enc_match_input(#gen{pack=map}, ValName, CompList, _Ext) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
     Zipped = lists:zip(CompList, Vars),
@@ -278,11 +283,19 @@ gen_decode_sequence(Gen, Typename, #type{}=D) ->
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
 	    %% return value as record
+	    IncludeEllipsis = case asn1ct:include_ellipsis() of
+				  true when element(1,Ext) == ext ->
+				      true;
+				  _ ->
+				      false
+			      end,
 	    case Ext of
-		{ext,_,_} -> 
-		    emit(["case ",{prev,tlv}," of [] -> true; _ -> true end, % ... extra fields skipped",nl]);
+		_ when IncludeEllipsis == true ->
+		    emit(["% ... including ellipsis",nl]);
+		{ext,_,_} ->
+		    emit(["% ... skipping ellipsis",nl]);
 		_ ->
-                    %% noext | extensible
+		    %% noext | extensible
 		    emit(["case ",{prev,tlv}," of",nl,
 			  "[] -> true;",
 			  "_ -> exit({error,{asn1, {unexpected,",{prev,tlv},
@@ -290,17 +303,17 @@ gen_decode_sequence(Gen, Typename, #type{}=D) ->
 			  "end,",nl])
 	    end,
 	    asn1ct_name:new(rb),
-            gen_dec_pack(Gen, RecordName, Typename, CompList),
+            gen_dec_pack(Gen, RecordName, Typename, CompList, IncludeEllipsis),
             emit([".",nl])
     end.
 
-gen_dec_pack(Gen, RecordName, Typename, CompList) ->
+gen_dec_pack(Gen, RecordName, Typename, CompList, IncludeEllipsis) ->
     case Typename of
 	['EXTERNAL'] ->
             dec_external(Gen, RecordName);
 	_ ->
             asn1ct_name:new(res),
-            gen_dec_do_pack(Gen, RecordName, CompList),
+            gen_dec_do_pack(Gen, RecordName, CompList, IncludeEllipsis),
             emit([com,nl,
                   {curr,res}])
     end.
@@ -322,11 +335,19 @@ dec_external(#gen{pack=map}, _RecordName) ->
           {call,ext,transform_to_EXTERNAL1994_maps,
            ["OldFormat"]}]).
 
-gen_dec_do_pack(#gen{pack=record}, RecordName, _CompList) ->
+gen_dec_do_pack(#gen{pack=record}, RecordName, _CompList, IncludeEllipsis) ->
     All = asn1ct_name:all(term),
     L = [{asis,RecordName}|[{var,Var} || Var <- All]],
-    emit([{curr,res}," = {",lists:join(",", L),"}"]);
-gen_dec_do_pack(#gen{pack=map}, _, CompList) ->
+    Extra = if IncludeEllipsis ->
+                    [",",nl,"   case ",{prev,tlv}," of",nl,
+                     "    [] -> asn1_NOVALUE;",nl,
+                     "    Ellipsis -> Ellipsis",nl,
+                     "  end"];
+               true ->
+                    []
+            end,
+    emit([{curr,res}," = {",lists:join(",", L),Extra,"}"]);
+gen_dec_do_pack(#gen{pack=map}, _, CompList, IncludeEllipsis) ->
     Zipped = lists:zip(CompList, asn1ct_name:all(term)),
     PF = fun({#'ComponentType'{prop='OPTIONAL'},_}) -> false;
             ({_,_}) -> true
@@ -335,6 +356,16 @@ gen_dec_do_pack(#gen{pack=map}, _, CompList) ->
     L = [[{asis,Name},"=>",{var,Var}] ||
             {#'ComponentType'{name=Name},Var} <- Mandatory],
     emit([{curr,res}," = #{",lists:join(",", L),"}"]),
+    if IncludeEllipsis ->
+            asn1ct_name:new(res),
+            emit([com,nl,
+                  {curr,res}," = case ",{prev,tlv}," of",nl,
+                  "  [] -> ",{prev,res},";",nl,
+                  "  Ellipsis -> ",{prev,res},"#{'$ellipsis' =>",{prev,tlv},"}",nl,
+                  "end"]);
+       true ->
+            ignore
+    end,
     gen_dec_map_optional(Optional).
 
 gen_dec_map_optional([{#'ComponentType'{name=Name},Var}|T]) ->
@@ -502,7 +533,15 @@ gen_decode_set(Gen, Typename, #type{}=D) ->
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
 	    %% return value as record
+            IncludeEllipsis = case asn1ct:include_ellipsis() of
+                                  true when element(1, Ext) == ext ->
+                                      true;
+                                  _ ->
+                                      false
+                              end,
 	    case Ext of
+                _ when IncludeEllipsis ->
+                    emit(["% ... including ellipsis", nl]);
 		Extnsn when Extnsn =/= noext -> 
 		    emit(["case ",{prev,tlv}," of [] -> true; _ -> true end, % ... extra fields skipped",nl]);
 		noext -> 
@@ -512,7 +551,7 @@ gen_decode_set(Gen, Typename, #type{}=D) ->
 			  "}}}) % extra fields not allowed",nl,
 			  "end,",nl])
 	    end,
-            gen_dec_pack(Gen, RecordName, Typename, CompList),
+            gen_dec_pack(Gen, RecordName, Typename, CompList, IncludeEllipsis),
 	    emit([".",nl])
     end.
 

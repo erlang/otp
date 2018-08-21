@@ -149,6 +149,7 @@ groups() ->
        testDER,
        testDEFAULT,
        testExtensionDefault,
+       testIncludeEllipsis,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
@@ -450,6 +451,13 @@ testExtensionDefault(Config) ->
 testExtensionDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["ExtensionDefault"], Config, [Rule|Opts]),
     testExtensionDefault:main(Rule).
+
+testIncludeEllipsis(Config) ->
+    test(Config, fun testIncludeEllipsis/3,
+         [{ber,[include_ellipsis]}]).
+testIncludeEllipsis(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(['IncludeEllipsis'], Config, [Rule|Opts]),
+    testIncludeEllipsis:main(Rule).
 
 testMaps(Config) ->
     test(Config, fun testMaps/3,

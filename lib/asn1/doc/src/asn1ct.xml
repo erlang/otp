@@ -288,6 +288,20 @@ File3.asn</pre>
               list or a binary. Earlier versions of the compiler ignored
               those following bytes.</p>
           </item>
+          <tag><c>include_ellipsis</c></tag>
+          <item>
+            <p>
+	      <c>SET</c> or <c>SEQUENCE</c> types that are extensible will
+	      have an <c>'$ellipsis'</c> element included in the
+	      record.
+	    </p>
+	    <p>
+	      During decoding, the <c>'$ellipsis'</c> element (or key,
+	      if maps are used) will be set to any extension data in
+	      the form returned by <c>asn1rt_nif:decode_ber_tlv/1</c>
+	    </p>
+	    <p><c>'$ellipsis'</c> is ignored when encoding</p>
+	  </item>
 	  <tag><c>no_ok_wrapper</c></tag>
 	  <item>
 	    <p>With this option, the generated <c>encode/2</c>

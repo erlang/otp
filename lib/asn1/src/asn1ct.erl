@@ -41,7 +41,7 @@
 	 maybe_rename_function/3,current_sindex/0,
 	 set_current_sindex/1,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3,format_error/1]).
--export([get_bit_string_format/0,use_legacy_types/0]).
+-export([get_bit_string_format/0,use_legacy_types/0,include_ellipsis/0]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -831,6 +831,7 @@ generate({M,CodeTuple}, OutFile, EncodingRule, Options) ->
                  classes=Classes,objects=Objects,objsets=ObjectSets},
     setup_bit_string_format(Options),
     setup_legacy_erlang_types(Options),
+    setup_include_ellipsis(Options),
     asn1ct_table:new(check_functions),
 
     Gen = init_gen_record(EncodingRule, Options),
@@ -896,6 +897,12 @@ legacy_forced_info(Opt) ->
 
 use_legacy_types() ->
     get(use_legacy_erlang_types).
+
+setup_include_ellipsis(Opts) ->
+    put(include_ellipsis, lists:member(include_ellipsis, Opts)).
+
+include_ellipsis() ->
+    get(include_ellipsis).
 
 setup_bit_string_format(Opts) ->
     Format = case {lists:member(compact_bit_string, Opts),

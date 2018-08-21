@@ -646,7 +646,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 pgen_exports(#gen{options=Options}=Gen, Code) ->
     #abst{types=Types,values=Values,objects=Objects,objsets=ObjectSets} = Code,
     emit(["-export([encoding_rule/0,maps/0,bit_string_format/0,",nl,
-	  "         legacy_erlang_types/0]).",nl]),
+	  "         legacy_erlang_types/0,include_ellipsis/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
     case Gen of
         #gen{erule=ber} ->
@@ -834,12 +834,18 @@ gen_info_functions(Gen) ->
                #gen{pack=record} -> false;
                #gen{pack=map} -> true
            end,
+    IncludeEllipsis = case asn1ct:include_ellipsis() of
+                          true -> true;
+                          _ -> false
+                      end,
     emit(["encoding_rule() -> ",
 	  {asis,Erule},".",nl,nl,
           "maps() -> ",
           {asis,Maps},".",nl,nl,
 	  "bit_string_format() -> ",
 	  {asis,asn1ct:get_bit_string_format()},".",nl,nl,
+	  "include_ellipsis() -> ",
+	  {asis,IncludeEllipsis},".",nl,nl,
 	  "legacy_erlang_types() -> ",
 	  {asis,asn1ct:use_legacy_types()},".",nl,nl]).
 
@@ -1151,11 +1157,21 @@ gen_record(_, _, _, _, NumRecords) ->        % skip CLASS etc for now.
 
 do_gen_record(Gen, Name, CL0) ->
     CL = case CL0 of
+             {Root=[],[]} ->
+                 Root ++ [{comment,"with UNHANDLED extension mark"}];
              {Root,[]} ->
-                 Root ++ [{comment,"with extension mark"}];
+                 Root ++ [{comment,"with extension mark"} |
+                          case asn1ct:include_ellipsis() of
+                              true -> [#'ComponentType'{name = '$ellipsis', prop = 'OPTIONAL'}];
+                              _ -> []
+                          end];
              {Root,Ext} ->
                  Root ++ [{comment,"with exensions"}] ++
-                     only_components(Ext);
+                     only_components(Ext) ++
+                     case asn1ct:include_ellipsis() of
+                         true -> [#'ComponentType'{name = '$ellipsis', prop = 'OPTIONAL'}];
+                         _ -> []
+                     end;
              {Root1,Ext,Root2} ->
                  Root1 ++ [{comment,"with exensions"}] ++
                      only_components(Ext) ++

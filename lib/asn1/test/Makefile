@@ -44,6 +44,7 @@ MODULES= \
 	testConstraints \
 	testDef \
 	testExtensionDefault \
+	testIncludeEllipsis \
 	testOpt \
 	testSeqDefault \
 	testSeqExtension \
