@@ -44,8 +44,6 @@ BEHAVIOUR_MODULES= \
 
 MODULES= \
 	ssl \
-	tls \
-	dtls \
 	ssl_alert \
 	ssl_app \
 	ssl_sup \
