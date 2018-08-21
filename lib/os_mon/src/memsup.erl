@@ -701,6 +701,7 @@ get_os_wordsize_with_uname() ->
 	"sparc64" -> 64;
 	"amd64"   -> 64;
 	"ppc64"   -> 64;
+	"ppc64le" -> 64;
 	"s390x"   -> 64;
 	_         -> 32
     end.
