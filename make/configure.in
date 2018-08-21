@@ -44,7 +44,7 @@ case "X$ERL_TOP" in
     X)
 	;;
     X/*)
-	test -f $ERL_TOP/erts/emulator/beam/beam_emu.c || {
+	test -f "$ERL_TOP/erts/emulator/beam/beam_emu.c" || {
 	     AC_MSG_ERROR([Invalid \$ERL_TOP])
 	}
 	srcdir="$ERL_TOP";;
@@ -206,6 +206,9 @@ AC_MSG_CHECKING([OTP version])
 [OTP_VSN=`cat $ERL_TOP/OTP_VERSION`]
 AC_MSG_RESULT([$OTP_VSN])
 AC_SUBST(OTP_VSN)
+
+AC_ARG_ENABLE(parallel-configure,
+AS_HELP_STRING([--disable-parallel-configure], [disable parallel execution of configure scripts]))
 
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
@@ -412,77 +415,7 @@ if test $CROSS_COMPILING = no; then
    esac
 fi
 
-rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
-for app in `cd lib && ls -d *`; do
-    var=`eval echo \\$with_$app`
-    if test X${var} = Xno; then
-       echo "$app" >> $ERL_TOP/lib/SKIP-APPLICATIONS
-     fi
-done
-
-export ERL_TOP
-AC_CONFIG_SUBDIRS(lib erts)
-
-AC_CONFIG_FILES([Makefile make/output.mk])
-AC_CONFIG_FILES([make/emd2exml], [chmod +x make/emd2exml])
+AC_CONFIG_FILES([../Makefile output.mk])
+AC_CONFIG_FILES([emd2exml], [chmod +x emd2exml])
 
 AC_OUTPUT
-
-pattern="lib/*/SKIP"
-files=`echo $pattern`
-if test "$files" != "$pattern" || test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
-  echo '*********************************************************************'
-  echo '**********************  APPLICATIONS DISABLED  **********************'
-  echo '*********************************************************************'
-  echo
-  if test "$files" != "$pattern"; then
-    for skipfile in $files; do
-      app=`dirname $skipfile`; app=`basename $app`
-      printf "%-15s: " $app; cat $skipfile
-    done
-  fi
-  if test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
-    for skipapp in `cat $ERL_TOP/lib/SKIP-APPLICATIONS`; do
-      printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
-    done
-  fi
-  echo
-  echo '*********************************************************************'
-fi
-pattern="lib/*/CONF_INFO"
-files=`echo $pattern`
-if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
-  echo '*********************************************************************'
-  echo '**********************  APPLICATIONS INFORMATION  *******************'
-  echo '*********************************************************************'
-  echo
-  test "$files" != "$pattern" || files=""
-  test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
-  for infofile in $files; do
-    app=`dirname $infofile`; app=`basename $app`
-    printf "%-15s: " $app; cat $infofile
-  done
-  echo
-  echo '*********************************************************************'
-fi
-if test -f "erts/doc/CONF_INFO"; then
-  echo '*********************************************************************'
-  echo '**********************  DOCUMENTATION INFORMATION  ******************'
-  echo '*********************************************************************'
-  echo
-  printf "%-15s: \n" documentation; 
-  havexsltproc="yes"
-  for cmd in `cat erts/doc/CONF_INFO`; do
-	echo "                 $cmd is missing." 
-  if test $cmd = "xsltproc"; then
-    havexsltproc="no"
-  fi
-  done  
-  if test $havexsltproc = "no"; then
-    echo '                 The documentation cannot be built.'
-  else
-    echo '                 Using fakefop to generate placeholder PDF files.'
-  fi
-  echo
-  echo '*********************************************************************'
-fi
