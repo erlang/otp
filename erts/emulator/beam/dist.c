@@ -1938,6 +1938,8 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 
 	    ctx->data_size = ctx->obuf->ext_endp - ctx->obuf->extp;
 	    if (ctx->data_size > (Uint) INT_MAX) {
+		free_dist_obuf(ctx->obuf);
+                ctx->obuf = NULL;
 		retval = ERTS_DSIG_SEND_TOO_LRG;
 		goto done;
 	    }
