@@ -3126,8 +3126,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p),
                                              &mdp->origin);
                     omon = &mdp->origin;
+                    remove_nm_sig(c_p, sig, next_nm_sig);
                 }
-                remove_nm_sig(c_p, sig, next_nm_sig);
                 break;
             default:
                 ERTS_INTERNAL_ERROR("invalid monitor type");
