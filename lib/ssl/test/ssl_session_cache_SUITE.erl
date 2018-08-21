@@ -487,8 +487,8 @@ test_copts(_, 0, ClientOpts) ->
       ClientOpts;		 
 test_copts(max_table_size, N, ClientOpts) ->
     Version = tls_record:highest_protocol_version([]),		   
-    CipherSuites = %%lists:map(fun(X) -> ssl_cipher:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))),
-[ Y|| Y = {Alg,_, _, _} <- lists:map(fun(X) -> ssl_cipher:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))), Alg =/=  ecdhe_ecdsa,  Alg =/=  ecdh_ecdsa, Alg =/=  ecdh_rsa, Alg =/=  ecdhe_rsa, Alg =/= dhe_dss, Alg =/= dss], 
+    CipherSuites = %%lists:map(fun(X) -> ssl_cipher_format:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))),
+[ Y|| Y = {Alg,_, _, _} <- lists:map(fun(X) -> ssl_cipher_format:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))), Alg =/=  ecdhe_ecdsa,  Alg =/=  ecdh_ecdsa, Alg =/=  ecdh_rsa, Alg =/=  ecdhe_rsa, Alg =/= dhe_dss, Alg =/= dss], 
     case length(CipherSuites) of 
         M when M >= N ->		      
           Cipher = lists:nth(N, CipherSuites),

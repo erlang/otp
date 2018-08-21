@@ -62,6 +62,7 @@ MODULES= \
 	ssl_certificate\
 	ssl_pkix_db\
 	ssl_cipher \
+	ssl_cipher_format \
 	ssl_srp_primes \
 	tls_connection \
 	dtls_connection \
