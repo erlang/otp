@@ -1803,6 +1803,7 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_INTERNAL_ERROR	(-6)
 #define SEND_AWAIT_RESULT	(-7)
 #define SEND_YIELD_CONTINUE     (-8)
+#define SEND_SYSTEM_LIMIT		(-9)
 
 
 static Sint remote_send(Process *p, DistEntry *dep,
@@ -1842,6 +1843,8 @@ static Sint remote_send(Process *p, DistEntry *dep,
 	    res = SEND_YIELD_RETURN;
 	else if (code == ERTS_DSIG_SEND_CONTINUE)
 	    res = SEND_YIELD_CONTINUE;
+	else if (code == ERTS_DSIG_SEND_TOO_LRG)
+	    res = SEND_SYSTEM_LIMIT;
 	else
 	    res = 0;
 	break;
@@ -2162,6 +2165,9 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     case SEND_BADARG:
 	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
 	break;
+    case SEND_SYSTEM_LIMIT:
+	ERTS_BIF_PREP_ERROR(retval, p, SYSTEM_LIMIT);
+	break;
     case SEND_USER_ERROR:
 	ERTS_BIF_PREP_ERROR(retval, p, EXC_ERROR);
 	break;
@@ -2217,6 +2223,10 @@ static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
     case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
 	BUMP_ALL_REDS(BIF_P);
 	BIF_TRAP1(&dsend_continue_trap_export, BIF_P, BIF_ARG_1);
+    }
+    case ERTS_DSIG_SEND_TOO_LRG: { /*SEND_SYSTEM_LIMIT*/
+	erts_set_gc_state(BIF_P, 1);
+	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
     default:
 	erts_exit(ERTS_ABORT_EXIT, "dsend_continue_trap invalid result %d\n", (int)result);
@@ -2274,6 +2284,9 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	break;
     case SEND_BADARG:
 	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+	break;
+    case SEND_SYSTEM_LIMIT:
+	ERTS_BIF_PREP_ERROR(retval, p, SYSTEM_LIMIT);
 	break;
     case SEND_USER_ERROR:
 	ERTS_BIF_PREP_ERROR(retval, p, EXC_ERROR);

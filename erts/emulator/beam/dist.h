@@ -376,6 +376,7 @@ typedef struct {
 #define ERTS_DSIG_SEND_OK	0
 #define ERTS_DSIG_SEND_YIELD	1
 #define ERTS_DSIG_SEND_CONTINUE 2
+#define ERTS_DSIG_SEND_TOO_LRG  3
 
 extern int erts_dsig_send_link(ErtsDSigData *, Eterm, Eterm);
 extern int erts_dsig_send_msg(Eterm, Eterm, ErtsSendContext*);
