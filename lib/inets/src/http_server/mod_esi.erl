@@ -394,7 +394,16 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
             Continue;
 	{Headers, Body} ->
             {ok, NewHeaders, StatusCode} = httpd_esi:handle_headers(Headers),
-                IsDisableChunkedSend = httpd_response:is_disable_chunked_send(Db),
+            %% All 1xx (informational), 204 (no content), and 304 (not modified)
+            %% responses MUST NOT include a message-body, and thus are always
+            %% terminated by the first empty line after the header fields.
+            %% This implies that chunked encoding MUST NOT be used for these
+            %% status codes.
+            IsDisableChunkedSend =
+                httpd_response:is_disable_chunked_send(Db) orelse
+                StatusCode =:= 204 orelse                      %% No Content
+                StatusCode =:= 304 orelse                      %% Not Modified
+                (100 =< StatusCode andalso StatusCode =< 199), %% Informational
             case (ModData#mod.http_version =/= "HTTP/1.1") or
                 (IsDisableChunkedSend) of
                 true ->
@@ -405,8 +414,8 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
                     send_headers(ModData, StatusCode, 
                                  [{"transfer-encoding", 
                                    "chunked"} | NewHeaders])
-            end,    
-            handle_body(Pid, ModData, Body, Timeout, length(Body), 
+            end,
+            handle_body(Pid, ModData, Body, Timeout, length(Body),
                         IsDisableChunkedSend);
         timeout ->
             send_headers(ModData, 504, [{"connection", "close"}]),
