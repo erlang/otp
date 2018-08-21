@@ -446,6 +446,7 @@ letify_guard(A, B) ->
 selectify(Config) when is_list(Config) ->
     integer = sel_different_types({r,42}),
     atom = sel_different_types({r,forty_two}),
+    float = sel_different_types({r,100.0}),
     none = sel_different_types({r,18}),
     {'EXIT',_} = (catch sel_different_types([a,b,c])),
 
@@ -456,12 +457,15 @@ selectify(Config) when is_list(Config) ->
     integer42 = sel_same_value2(42),
     integer43 = sel_same_value2(43),
     error = sel_same_value2(44),
+
     ok.
 
 sel_different_types({r,_}=T) when element(2, T) =:= forty_two ->
     atom;
 sel_different_types({r,_}=T) when element(2, T) =:= 42 ->
     integer;
+sel_different_types({r,_}=T) when element(2, T) =:= 100.0 ->
+    float;
 sel_different_types({r,_}) ->
     none.
 

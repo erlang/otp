@@ -2047,6 +2047,7 @@ pre_load() ->
 	 beam_peep,
 	 beam_ssa,
 	 beam_ssa_codegen,
+	 beam_ssa_dead,
 	 beam_ssa_opt,
 	 beam_ssa_pre_codegen,
 	 beam_ssa_recv,

@@ -52,10 +52,19 @@ passes(Opts0) ->
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_record),
+
+          %% Run ssa_opt_cse twice, because it will help ssa_opt_dead,
+          %% and ssa_opt_dead will help ssa_opt_cse. Run ssa_opt_live
+          %% twice, because it will help ssa_opt_dead and ssa_opt_dead
+          %% will help ssa_opt_live.
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_type),
-          ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_dead),
+          ?PASS(ssa_opt_cse),                   %Second time.
+          ?PASS(ssa_opt_float),
+          ?PASS(ssa_opt_live),                  %Second time.
+
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_misc),
@@ -90,6 +99,9 @@ function(#b_function{anno=Anno,bs=Blocks0,args=Args,cnt=Count0}=F, Ps) ->
 %%%
 %%% Trivial sub passes.
 %%%
+
+ssa_opt_dead(#st{ssa=Linear}=St) ->
+    St#st{ssa=beam_ssa_dead:opt(Linear)}.
 
 ssa_opt_linearize(#st{ssa=Blocks}=St) ->
     St#st{ssa=beam_ssa:linearize(Blocks)}.
@@ -493,11 +505,13 @@ cse_suitable(#b_set{op={bif,tuple_size}}) ->
     %% and beam_validator could fail to understand
     %% that tuple operations that follow are safe.
     false;
-cse_suitable(#b_set{op={bif,Name},args=Args}) ->
+cse_suitable(#b_set{anno=Anno,op={bif,Name},args=Args}) ->
+    %% Doing CSE for floating point operators is unsafe.
     %% Doing CSE for comparison operators would prevent
     %% creation of 'test' instructions.
     Arity = length(Args),
-    not (erl_internal:new_type_test(Name, Arity) orelse
+    not (is_map_key(float_op, Anno) orelse
+         erl_internal:new_type_test(Name, Arity) orelse
          erl_internal:comp_op(Name, Arity) orelse
          erl_internal:bool_op(Name, Arity));
 cse_suitable(#b_set{}) -> false.

@@ -39,6 +39,7 @@
 	     beam_peep,
              beam_ssa,
              beam_ssa_codegen,
+             beam_ssa_dead,
              beam_ssa_lint,
              beam_ssa_opt,
              beam_ssa_pp,
