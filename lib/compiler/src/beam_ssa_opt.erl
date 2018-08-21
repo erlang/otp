@@ -941,6 +941,22 @@ misc_opt_is([#b_set{op=phi}=I0|Is], Sub0, Acc) ->
         false ->
             misc_opt_is(Is, Sub0, [I|Acc])
     end;
+misc_opt_is([#b_set{op={bif,'and'}}=I0], Sub, Acc) ->
+    #b_set{dst=Dst,args=Args} = I = sub(I0, Sub),
+    case eval_and(Args) of
+        error ->
+            misc_opt_is([], Sub, [I|Acc]);
+        Val ->
+            misc_opt_is([], Sub#{Dst=>Val}, Acc)
+    end;
+misc_opt_is([#b_set{op={bif,'or'}}=I0], Sub, Acc) ->
+    #b_set{dst=Dst,args=Args} = I = sub(I0, Sub),
+    case eval_or(Args) of
+        error ->
+            misc_opt_is([], Sub, [I|Acc]);
+        Val ->
+            misc_opt_is([], Sub#{Dst=>Val}, Acc)
+    end;
 misc_opt_is([#b_set{}=I0|Is], Sub, Acc) ->
     #b_set{op=Op,dst=Dst,args=Args} = I = sub(I0, Sub),
     case make_literal(Op, Args) of
@@ -972,6 +988,20 @@ make_literal_list([_|_], _) ->
     error;
 make_literal_list([], Acc) ->
     reverse(Acc).
+
+eval_and(Args) ->
+    case Args of
+        [_,#b_literal{val=false}=Res] -> Res;
+        [Res,#b_literal{val=true}] -> Res;
+        [_,_] -> error
+    end.
+
+eval_or(Args) ->
+    case Args of
+        [Res,#b_literal{val=false}] -> Res;
+        [_,#b_literal{val=true}=Res] -> Res;
+        [_,_] -> error
+    end.
 
 %%%
 %%% Merge blocks.
@@ -1283,20 +1313,23 @@ rel2fam(S0) ->
     S = sofs:rel2fam(S1),
     sofs:to_external(S).
 
-sub(#b_set{op=phi,args=Args}=I, Sub) ->
+sub(I, Sub) ->
+    beam_ssa:normalize(sub_1(I, Sub)).
+
+sub_1(#b_set{op=phi,args=Args}=I, Sub) ->
     I#b_set{args=[{sub_arg(A, Sub),P} || {A,P} <- Args]};
-sub(#b_set{args=Args}=I, Sub) ->
+sub_1(#b_set{args=Args}=I, Sub) ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};
-sub(#b_br{bool=#b_var{}=Old}=Br, Sub) ->
+sub_1(#b_br{bool=#b_var{}=Old}=Br, Sub) ->
     New = sub_arg(Old, Sub),
     Br#b_br{bool=New};
-sub(#b_switch{arg=#b_var{}=Old}=Sw, Sub) ->
+sub_1(#b_switch{arg=#b_var{}=Old}=Sw, Sub) ->
     New = sub_arg(Old, Sub),
     Sw#b_switch{arg=New};
-sub(#b_ret{arg=#b_var{}=Old}=Ret, Sub) ->
+sub_1(#b_ret{arg=#b_var{}=Old}=Ret, Sub) ->
     New = sub_arg(Old, Sub),
     Ret#b_ret{arg=New};
-sub(Last, _) -> Last.
+sub_1(Last, _) -> Last.
 
 sub_arg(#b_remote{mod=Mod,name=Name}=Rem, Sub) ->
     Rem#b_remote{mod=sub_arg(Mod, Sub),name=sub_arg(Name, Sub)};

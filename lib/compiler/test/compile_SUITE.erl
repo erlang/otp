@@ -1250,11 +1250,8 @@ do_opt_guards_fun([]) -> [].
 is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
 is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
 is_exception(guard_SUITE, {bad_guards,1}) -> true;
-is_exception(guard_SUITE, {bad_guards_2,2}) -> true;
 is_exception(guard_SUITE, {bad_guards_3,2}) -> true;
-is_exception(guard_SUITE, {csemi7,3}) -> true;
 is_exception(guard_SUITE, {nested_not_2b,4}) -> true;
-is_exception(guard_SUITE, {tricky_1,2}) -> true;
 is_exception(_, _) -> false.
 
 sys_pre_attributes(Config) ->

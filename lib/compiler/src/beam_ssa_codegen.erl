@@ -1180,6 +1180,16 @@ cg_copy_1([#cg_set{dst=Dst0,args=Args}|T], St) ->
     end;
 cg_copy_1([], _St) -> [].
 
+bif_to_test('and', [V1,V2], Fail) ->
+    [{test,is_eq_exact,Fail,[V1,{atom,true}]},
+     {test,is_eq_exact,Fail,[V2,{atom,true}]}];
+bif_to_test('or', [V1,V2], {f,Lbl}=Fail) when Lbl =/= 0 ->
+    %% Labels are spaced 2 apart. We can create a new
+    %% label by incrementing the Fail label.
+    SuccLabel = Lbl + 1,
+    [{test,is_eq_exact,{f,SuccLabel},[V1,{atom,false}]},
+     {test,is_eq_exact,Fail,[V2,{atom,true}]},
+     {label,SuccLabel}];
 bif_to_test('not', [Var], Fail) ->
     [{test,is_eq_exact,Fail,[Var,{atom,false}]}];
 bif_to_test(Name, Args, Fail) ->
@@ -1785,7 +1795,9 @@ is_gc_bif(Bif, Args) ->
 %% new_label(St) -> {L,St}.
 
 new_label(#cg{lcount=Next}=St) ->
-    {Next,St#cg{lcount=Next+1}}.
+    %% Advance the label counter by 2 to allow us to create
+    %% a label for 'or' by incrementing an existing label.
+    {Next,St#cg{lcount=Next+2}}.
 
 %% call_line(tail|body, Func, Anno) -> [] | [{line,...}].
 %%  Produce a line instruction if it will be needed by the

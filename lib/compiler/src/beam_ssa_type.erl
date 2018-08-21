@@ -449,6 +449,11 @@ type(succeeded, [#b_var{name=Src}], Ts, Ds) ->
         #b_set{op={bif,Bif},args=BifArgs} ->
             Types = get_types(BifArgs, Ts),
             case {Bif,Types} of
+                {BoolOp,[T1,T2]} when BoolOp =:= 'and'; BoolOp =:= 'or' ->
+                    case t_is_boolean(T1) andalso t_is_boolean(T2) of
+                        true -> t_atom(true);
+                        false -> t_boolean()
+                    end;
                 {byte_size,[{binary,_}]} ->
                     t_atom(true);
                 {bit_size,[{binary,_}]} ->
