@@ -27,22 +27,22 @@
 
 -define(COOKIE_BASE_TIMEOUT, 30000).
 
--spec suites(Minor:: 253|255) -> [ssl_cipher:cipher_suite()].
+-spec suites(Minor:: 253|255) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Minor) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
                  end,
                  tls_v1:suites(corresponding_minor_tls_version(Minor))).
 all_suites(Version) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
                  end,
                  ssl_cipher:all_suites(corresponding_tls_version(Version))).
 
 anonymous_suites(Version) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
                  end, 
                  ssl_cipher:anonymous_suites(corresponding_tls_version(Version))).
                  

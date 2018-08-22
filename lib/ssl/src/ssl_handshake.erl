@@ -169,14 +169,14 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(ssl_cipher:cipher_suite(), db_handle(), 
+-spec certificate_request(ssl_cipher_format:cipher_suite(), db_handle(), 
 			  certdb_ref(),  #hash_sign_algos{}, ssl_record:ssl_version()) ->
 				 #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
 certificate_request(CipherSuite, CertDbHandle, CertDbRef, HashSigns, Version) ->
-    Types = certificate_types(ssl_cipher:suite_definition(CipherSuite), Version),
+    Types = certificate_types(ssl_cipher_format:suite_definition(CipherSuite), Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -758,7 +758,7 @@ decode_hello_extensions(Extensions) ->
     dec_hello_extensions(Extensions, #hello_extensions{}).
 
 %%--------------------------------------------------------------------
--spec decode_server_key(binary(), ssl_cipher:key_algo(), ssl_record:ssl_version()) ->
+-spec decode_server_key(binary(), ssl_cipher_format:key_algo(), ssl_record:ssl_version()) ->
 			       #server_key_params{}.
 %%
 %% Description: Decode server_key data and return appropriate type
@@ -767,7 +767,7 @@ decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
--spec decode_client_key(binary(), ssl_cipher:key_algo(), ssl_record:ssl_version()) ->
+-spec decode_client_key(binary(), ssl_cipher_format:key_algo(), ssl_record:ssl_version()) ->
 			    #encrypted_premaster_secret{}
 			    | #client_diffie_hellman_public{}
 			    | #client_ec_diffie_hellman_public{}
@@ -805,7 +805,7 @@ available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
     filter_unavailable_ecc_suites(Curve, Suites);
 available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
     Suites = available_suites(ServerCert, UserSuites, Version, undefined, Curve),
-    filter_hashsigns(Suites, [ssl_cipher:suite_definition(Suite) || Suite <- Suites], HashSigns, 
+    filter_hashsigns(Suites, [ssl_cipher_format:suite_definition(Suite) || Suite <- Suites], HashSigns, 
                      Version, []).
 
 available_signature_algs(undefined, _)  ->
@@ -961,7 +961,7 @@ client_hello_extensions(Version, CipherSuites,
 				     eccs = SupportedECCs,
                                      versions = Versions} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
-	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
+	case advertises_ec_ciphers(lists:map(fun ssl_cipher_format:suite_definition/1, CipherSuites)) of
 	    true ->
 		client_ecc_extensions(SupportedECCs);
 	    false ->
@@ -2501,7 +2501,7 @@ handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
 cert_curve(_, _, no_suite) ->
     {no_curve, no_suite};
 cert_curve(Cert, ECCCurve0, CipherSuite) ->
-    case ssl_cipher:suite_definition(CipherSuite) of
+    case ssl_cipher_format:suite_definition(CipherSuite) of
         #{key_exchange := Kex} when Kex == ecdh_ecdsa; 
                                     Kex == ecdh_rsa ->
             OtpCert = public_key:pkix_decode_cert(Cert, otp),
