@@ -300,7 +300,8 @@ next_iv(Type, Data) when is_binary(Data) ->
                    des3_cbc -> 8;
                    blowfish_cbc -> 8;
                    aes_cbc  -> 16;
-                   aes_ige  -> 32
+                   aes_ige  -> 32; % For compatibility if someone has bug-adapted code
+                   aes_ige256 -> 32 % The name used in block_encrypt et al
                end,
     {_, IVec} = split_binary(Data, size(Data) - IVecSize),
     IVec;
