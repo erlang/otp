@@ -5045,7 +5045,7 @@ run_suites(Ciphers, Config, Type) ->
     end.
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl_cipher:suite_definition(ssl_cipher:openssl_suite(Suite));
+    ssl_cipher_format:suite_definition(ssl_cipher_format:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 

@@ -438,29 +438,29 @@ negotiated_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_protocol(Pid).
 
 %%--------------------------------------------------------------------
--spec cipher_suites() -> [ssl_cipher:old_erl_cipher_suite()] | [string()].
+-spec cipher_suites() -> [ssl_cipher_format:old_erl_cipher_suite()] | [string()].
 %%--------------------------------------------------------------------
 cipher_suites() ->
     cipher_suites(erlang).
 %%--------------------------------------------------------------------
 -spec cipher_suites(erlang | openssl | all) -> 
-                           [ssl_cipher:old_erl_cipher_suite() | string()].
+                           [ssl_cipher_format:old_erl_cipher_suite() | string()].
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
-    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(default)];
+    [ssl_cipher_format:erl_suite_definition(Suite) || Suite <- available_suites(default)];
 
 cipher_suites(openssl) ->
-    [ssl_cipher:openssl_suite_name(Suite) ||
+    [ssl_cipher_format:openssl_suite_name(Suite) ||
         Suite <- available_suites(default)];
 
 cipher_suites(all) ->
-    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
+    [ssl_cipher_format:erl_suite_definition(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(default | all | anonymous, tls_record:tls_version() | dtls_record:dtls_version() |
                     tls_record:tls_atom_version() |  dtls_record:dtls_atom_version()) -> 
-                           [ssl_cipher:erl_cipher_suite()].
+                           [ssl_cipher_format:erl_cipher_suite()].
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
@@ -473,12 +473,12 @@ cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
     cipher_suites(Base, dtls_record:protocol_version(Version));                   
 cipher_suites(Base, Version) ->
-    [ssl_cipher:suite_definition(Suite) || Suite <- supported_suites(Base, Version)].
+    [ssl_cipher_format:suite_definition(Suite) || Suite <- supported_suites(Base, Version)].
 
 %%--------------------------------------------------------------------
--spec filter_cipher_suites([ssl_cipher:erl_cipher_suite()], 
+-spec filter_cipher_suites([ssl_cipher_format:erl_cipher_suite()], 
                            [{key_exchange | cipher | mac | prf, fun()}] | []) -> 
-                                  [ssl_cipher:erl_cipher_suite()].
+                                  [ssl_cipher_format:erl_cipher_suite()].
 %% Description: Removes cipher suites if any of the filter functions returns false
 %% for any part of the cipher suite. This function also calls default filter functions
 %% to make sure the cipher suite are supported by crypto.
@@ -495,10 +495,10 @@ filter_cipher_suites(Suites, Filters0) ->
                 prf_filters => add_filter(proplists:get_value(prf, Filters0), PrfF)},
     ssl_cipher:filter_suites(Suites, Filters).
 %%--------------------------------------------------------------------
--spec prepend_cipher_suites([ssl_cipher:erl_cipher_suite()] | 
+-spec prepend_cipher_suites([ssl_cipher_format:erl_cipher_suite()] | 
                             [{key_exchange | cipher | mac | prf, fun()}],
-                            [ssl_cipher:erl_cipher_suite()]) -> 
-                                   [ssl_cipher:erl_cipher_suite()].
+                            [ssl_cipher_format:erl_cipher_suite()]) -> 
+                                   [ssl_cipher_format:erl_cipher_suite()].
 %% Description: Make <Preferred> suites become the most prefered
 %%      suites that is put them at the head of the cipher suite list
 %%      and remove them from <Suites> if present. <Preferred> may be a
@@ -513,10 +513,10 @@ prepend_cipher_suites(Filters, Suites) ->
     Preferred = filter_cipher_suites(Suites, Filters), 
     Preferred ++ (Suites -- Preferred).
 %%--------------------------------------------------------------------
--spec append_cipher_suites(Deferred :: [ssl_cipher:erl_cipher_suite()] | 
+-spec append_cipher_suites(Deferred :: [ssl_cipher_format:erl_cipher_suite()] | 
                                        [{key_exchange | cipher | mac | prf, fun()}],
-                           [ssl_cipher:erl_cipher_suite()]) -> 
-                                  [ssl_cipher:erl_cipher_suite()].
+                           [ssl_cipher_format:erl_cipher_suite()]) -> 
+                                  [ssl_cipher_format:erl_cipher_suite()].
 %% Description: Make <Deferred> suites suites become the 
 %% least prefered suites that is put them at the end of the cipher suite list
 %% and removed them from <Suites> if present.
@@ -784,12 +784,12 @@ tls_version({254, _} = Version) ->
 
 
 %%--------------------------------------------------------------------
--spec suite_to_str(ssl_cipher:erl_cipher_suite()) -> string().
+-spec suite_to_str(ssl_cipher_format:erl_cipher_suite()) -> string().
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------
 suite_to_str(Cipher) ->
-    ssl_cipher:suite_to_str(Cipher).
+    ssl_cipher_format:suite_to_str(Cipher).
 
 
 %%%--------------------------------------------------------------
@@ -1323,10 +1323,10 @@ binary_cipher_suites(Version, []) ->
     %% not require explicit configuration
     default_binary_suites(Version);
 binary_cipher_suites(Version, [Map|_] = Ciphers0) when is_map(Map) ->
-    Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:suite(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
-    Ciphers = [ssl_cipher:suite(tuple_to_map(C)) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:suite(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     All = ssl_cipher:all_suites(Version) ++ 
@@ -1341,11 +1341,11 @@ binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) 
     end;
 binary_cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
     %% Format: ["RC4-SHA","RC4-MD5"]
-    Ciphers = [ssl_cipher:openssl_suite(C) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:openssl_suite(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
-    Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
+    Ciphers = [ssl_cipher_format:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
 
 default_binary_suites(Version) ->
