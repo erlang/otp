@@ -565,6 +565,12 @@ valfun_4({bif,map_get,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
     Vst = set_type(map, Map, Vst1),
     Type = propagate_fragility(term, Src, Vst),
     set_type_reg(Type, Dst, Vst);
+valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
+    validate_src(Src, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    Vst = set_type(map, Map, Vst1),
+    Type = propagate_fragility(bool, Src, Vst),
+    set_type_reg(Type, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
