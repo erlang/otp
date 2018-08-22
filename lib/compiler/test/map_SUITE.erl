@@ -1283,6 +1283,13 @@ t_guard_bifs(Config) when is_list(Config) ->
     error = beam_dead_5(#{k=>false}),
     error = beam_dead_3(#{}),
 
+    %% Test is_map_key/2 followed by map update.
+
+    Used0 = map_usage(var, #{other=>value}),
+    Used0 = #{other=>value,var=>dead},
+    Used1 = map_usage(var, #{var=>live}),
+    Used1 = #{var=>live},
+
     ok.
 
 map_guard_empty() when is_map(#{}); false -> true.
@@ -1356,6 +1363,14 @@ beam_dead_5(#{}=M) when map_get(k, M) ->
     ok;
 beam_dead_5(#{}) ->
     error.
+
+%% Test is_map_key/2, followed by an update of the map.
+map_usage(Def, Used) ->
+    case is_map_key(Def, Used) of
+        true -> Used;
+        false -> Used#{Def=>dead}
+    end.
+
 
 t_guard_sequence(Config) when is_list(Config) ->
 	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
