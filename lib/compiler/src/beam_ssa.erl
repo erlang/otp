@@ -103,7 +103,7 @@
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
 'copy' | 'put_tuple_arity' | 'put_tuple_element'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,reverse/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -376,6 +376,10 @@ fold_po(Fun, From, Acc0, Blocks) ->
 
 %% linearize(Blocks) -> [{BlockLabel,#b_blk{}}].
 %%  Linearize the intermediate representation of the code.
+%%  Unreachable blocks will be discarded, and phi nodes will
+%%  be adjusted so that they no longer refers to discarded
+%%  blocks or to blocks that no longer are predecessors of
+%%  the phi node block.
 
 -spec linearize(Blocks) -> Linear when
       Blocks :: block_map(),
@@ -383,7 +387,8 @@ fold_po(Fun, From, Acc0, Blocks) ->
 
 linearize(Blocks) ->
     Seen = gb_sets:empty(),
-    {Linear,_} = linearize_1([0], Blocks, Seen, []),
+    {Linear0,_} = linearize_1([0], Blocks, Seen, []),
+    Linear = fix_phis(Linear0, #{}),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
@@ -591,6 +596,33 @@ linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
     end;
 linearize_1([], _, Seen, Acc) ->
     {Acc,Seen}.
+
+fix_phis([{L,Blk0}|Bs], S) ->
+    Blk = case Blk0 of
+              #b_blk{is=[#b_set{op=phi}|_]=Is0} ->
+                  Is = fix_phis_1(Is0, L, S),
+                  Blk0#b_blk{is=Is};
+              #b_blk{} ->
+                  Blk0
+          end,
+    Successors = successors(Blk),
+    [{L,Blk}|fix_phis(Bs, S#{L=>Successors})];
+fix_phis([], _) -> [].
+
+fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
+    Args = [{Val,Pred} || {Val,Pred} <- Args0,
+                          is_successor(L, Pred, S)],
+    [I#b_set{args=Args}|fix_phis_1(Is, L, S)];
+fix_phis_1(Is, _, _) -> Is.
+
+is_successor(L, Pred, S) ->
+    case S of
+        #{Pred:=Successors} ->
+            member(L, Successors);
+        #{} ->
+            %% This block has been removed.
+            false
+    end.
 
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
     case gb_sets:is_member(L, Seen0) of
