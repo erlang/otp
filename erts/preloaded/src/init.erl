@@ -48,7 +48,7 @@
 
 -module(init).
 
--export([restart/0,reboot/0,stop/0,stop/1,
+-export([restart/0,restart/1,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
@@ -165,6 +165,10 @@ request(Req) ->
 
 -spec restart() -> 'ok'.
 restart() -> init ! {stop,restart}, ok.
+
+-spec restart(Flags) -> 'ok' when
+      Flags :: [{Flag :: atom(), Value :: string()}].
+restart(Flags) -> init ! {stop,{restart,Flags}}, ok.
 
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
@@ -501,33 +505,47 @@ do_handle_msg(Msg,State) ->
 %%% -config arguments.
 %%% -------------------------------------------------
 
-make_permanent(Boot,Config,Flags0,State) ->
-    case set_flag(boot, Boot, Flags0) of
-	{ok,Flags1} ->
-	    case set_flag(config, Config, Flags1) of
-		{ok,Flags} ->
-		    {ok,State#state{flags = Flags}};
-		Error ->
-		    {Error,State}
-	    end;
-	Error ->
-	    {Error,State}
+make_permanent(Boot,Config,Flags,State) ->
+    set_flags([{boot,Boot},{config,Config}],Flags,State).
+
+set_flags([],Flags,State) ->
+    {ok,State#state{flags = Flags}};
+set_flags([{Flag,Value}|Rest],Flags0,State) ->
+    case set_flag(Flag, Value, Flags0) of
+        {ok,Flags1} ->
+            set_flags(Rest,Flags1,State);
+        Error ->
+            {Error,State}
+    end;
+set_flags([Flag|Rest],Flags0,State) ->
+    case set_flag(Flag, [], Flags0) of
+        {ok,Flags1} ->
+            set_flags(Rest,Flags1,State);
+        Error ->
+            {Error,State}
     end.
 
-set_flag(_Flag,false,Flags) ->
-    {ok,Flags};
-set_flag(Flag,Value,Flags) when is_list(Value) ->
+set_flag(Flag,false,Flags) ->
+    {ok,delete_argument(Flags,Flag)};
+set_flag(boot,Value,Flags) ->
+    set_filename_flag(boot,Value,Flags);
+set_flag(config,Value,Flags) ->
+    set_filename_flag(config,Value,Flags);
+set_flag(Flag,Value,Flags) ->
+    {ok,set_argument(Flags,Flag,Value)}.
+
+set_filename_flag(Flag,Value,Flags) when is_list(Value); is_binary(Value) ->
     %% The flag here can be -boot or -config, which means the value is
     %% a file name! Thus the file name encoding is used when coverting.
     Encoding = file:native_name_encoding(),
     case catch unicode:characters_to_binary(Value,Encoding,Encoding) of
-	{'EXIT',_} ->
-	    {error,badarg};
+	{'EXIT',Reason} ->
+	    {error,{badarg,Reason}};
 	AValue ->
 	    {ok,set_argument(Flags,Flag,AValue)}
     end;
-set_flag(_,_,_) ->
-    {error,badarg}.
+set_filename_flag(Flag,Value,Flags) ->
+    {error,{badarg,Flag,Value,Flags}}.
 
 %%% -------------------------------------------------
 %%% Stop the system. 
@@ -536,6 +554,16 @@ set_flag(_,_,_) ->
 %%% system using the same init process again.
 %%% -------------------------------------------------
 
+stop({restart,NewFlags},#state{flags = Flags} = State0) ->
+    %% Set flags, then proceed with restart normally
+    %% We set the new flags prior to clearing the system so
+    %% that we may safely invoke set_flags/3
+    case set_flags(NewFlags,Flags,State0) of
+        {ok,State1} ->
+            stop(restart,State1);
+        {Err,_State1} ->
+            exit({'invalid flags given to init:restart/1',Err,NewFlags})
+    end;
 stop(Reason,State) ->
     BootPid = State#state.bootpid,
     {_,Progress} = State#state.status,
@@ -1301,6 +1329,13 @@ set_argument([Item|Flags],Flag,Value) ->
     [Item|set_argument(Flags,Flag,Value)];
 set_argument([],Flag,Value) ->
     [{Flag,[Value]}].
+
+delete_argument([{Flag,_}|Flags],Flag) ->
+    delete_argument(Flags,Flag);
+delete_argument([Item|Flags],Flag) ->
+    [Item|delete_argument(Flags,Flag)];
+delete_argument([],_Flag) ->
+    [].
 
 append([E]) -> E;
 append([H|T]) ->
