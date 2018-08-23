@@ -39,7 +39,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.15.3.1</title>
+  <section><title>Mnesia 4.15.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug where the bag table index data was not
+	    deleted when objects were deleted.</p>
+          <p>
+	    Own Id: OTP-15243</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

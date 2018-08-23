@@ -31,6 +31,37 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.2.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Update the crypto engine functions to handle multiple
+	    loads of an engine. </p> <p><c>engine_load/3/4</c> is
+	    updated so it doesn't add the engine ID to OpenSSLs
+	    internal list of engines which makes it possible to run
+	    the engine_load more than once if it doesn't contain
+	    global data.</p> <p>Added <c>ensure_engine_loaded/2/3</c>
+	    which guarantees that the engine just is loaded once and
+	    the following calls just returns a reference to it. This
+	    is done by add the ID to the internal OpenSSL list and
+	    check if it is already registered when the function is
+	    called.</p> <p>Added <c>ensure_engine_unloaded/1/2</c> to
+	    unload engines loaded with ensure_engine_loaded.</p>
+	    <p>Then some more utility functions are added.</p>
+	    <p><c>engine_add/1</c>, adds the engine to OpenSSL
+	    internal list</p> <p><c>engine_remove/1</c>, remove the
+	    engine from OpenSSL internal list</p>
+	    <p><c>engine_get_id/1</c>, fetch the engines id</p>
+	    <p><c>engine_get_name/1</c>, fetch the engine name</p>
+          <p>
+	    Own Id: OTP-15233</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
