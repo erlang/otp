@@ -65,10 +65,10 @@ init_per_suite(Config) ->
                                      {preferred_algorithms, Algs},
                                      {modify_algorithms,[{prepend,[{cipher,[none]},
                                                                    {mac,[none]}
-                                                                  ]},
-                                                         {rm, [{cipher,['aes256-gcm@openssh.com',
-                                                                        'aes128-gcm@openssh.com']}
-                                                              ]}
+                                                                  ]}
+                                                         %% ,{rm, [{cipher,['aes256-gcm@openssh.com',
+                                                         %%                'aes128-gcm@openssh.com']}
+                                                         %%      ]}
                                                         ]},
                                      {max_random_length_padding, 0},
                                      {subsystems, [{"/dev/null", {ssh_bench_dev_null,[DataSize]}}]}
@@ -152,7 +152,8 @@ transfer_text(Config) ->
      || {Crypto,Mac} <- [{        none,                    none},
                          {'aes128-ctr',             'hmac-sha1'},
                          {'aes256-ctr',             'hmac-sha1'},
-%%                         {'aes128-gcm@openssh.com', 'hmac-sha1'},
+{'aes128-gcm@openssh.com', 'hmac-sha1'},
+{'chacha20-poly1305@openssh.com', 'hmac-sha1'},
                          {'aes128-cbc',             'hmac-sha1'},
                          {'3des-cbc',               'hmac-sha1'},
                          {'aes128-ctr',             'hmac-sha2-256'},
@@ -182,29 +183,31 @@ gen_data(DataSz) ->
 %%              {suite, ?MODULE},
 %%              {name, mk_name(["Transfer 1M bytes ",Cipher,"/",Mac," [µs]"])}]);
 connect_measure(Port, Cipher, Mac, Data, Options) ->
-    AES_GCM = {cipher,['aes256-gcm@openssh.com',
-                       'aes128-gcm@openssh.com']},
+    AES_GCM = {cipher,
+               []},
+               %% ['aes256-gcm@openssh.com',
+               %%  'aes128-gcm@openssh.com']},
 
     AlgOpt = case {Cipher,Mac} of
                  {none,none} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]},
-                                                     {mac,[Mac]}]},
-                                          {rm,[AES_GCM]}
+                                                     {mac,[Mac]}]}
+%%%                                          ,{rm,[AES_GCM]}
                                          ]}];
                  {none,_} ->
-                     [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]},
-                                          {rm,[AES_GCM]}
+                     [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]}
+%%%                                          ,{rm,[AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{mac,[Mac]}]}];
                  {_,none} ->
-                     [{modify_algorithms,[{prepend, [{mac,[Mac]}]},
-                                          {rm,[AES_GCM]}
+                     [{modify_algorithms,[{prepend, [{mac,[Mac]}]}
+%%%                                          ,{rm,[AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{cipher,[Cipher]}]}];
                  _ ->
                      [{preferred_algorithms, [{cipher,[Cipher]},
-                                              {mac,[Mac]}]},
-                      {modify_algorithms, [{rm,[AES_GCM]}]}
+                                              {mac,[Mac]}]}
+%%%                      ,{modify_algorithms, [{rm,[AES_GCM]}]}
                      ]
              end,
     Times =

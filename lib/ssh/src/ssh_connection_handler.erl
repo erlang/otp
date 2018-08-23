@@ -356,6 +356,8 @@ alg(ConnectionHandler) ->
                                                  | undefined,
 	  encrypted_data_buffer     = <<>>      :: binary()
                                                  | undefined,
+	  aead_data                 = <<>>      :: binary()
+                                                 | undefined,
 	  undecrypted_packet_length             :: undefined | non_neg_integer(),
 	  key_exchange_init_msg                 :: #ssh_msg_kexinit{}
 						 | undefined,
@@ -1308,14 +1310,16 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
-	  D0#data.undecrypted_packet_length,
+          D0#data.aead_data,
+          D0#data.undecrypted_packet_length,
 	  D0#data.ssh_params)
     of
 	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
 	    D1 = D0#data{ssh_params =
 			    Ssh1#ssh{recv_sequence = ssh_transport:next_seqnum(Ssh1#ssh.recv_sequence)},
 			decrypted_data_buffer = <<>>,
-			undecrypted_packet_length = undefined,
+                        undecrypted_packet_length = undefined,
+                        aead_data = <<>>,
 			encrypted_data_buffer = EncryptedDataRest},
 	    try
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
@@ -1353,14 +1357,15 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
-        
-	{get_more, DecryptedBytes, EncryptedDataRest, RemainingSshPacketLen, Ssh1} ->
+
+	{get_more, DecryptedBytes, EncryptedDataRest, AeadData, RemainingSshPacketLen, Ssh1} ->
 	    %% Here we know that there are not enough bytes in
 	    %% EncryptedDataRest to use. We must wait for more.
 	    inet:setopts(Sock, [{active, once}]),
 	    {keep_state, D0#data{encrypted_data_buffer = EncryptedDataRest,
 				 decrypted_data_buffer = DecryptedBytes,
-				 undecrypted_packet_length = RemainingSshPacketLen,
+                                 undecrypted_packet_length = RemainingSshPacketLen,
+                                 aead_data = AeadData,
 				 ssh_params = Ssh1}};
 
 	{bad_mac, Ssh1} ->

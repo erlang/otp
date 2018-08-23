@@ -155,7 +155,7 @@
     <p>The key's password
     </p>
 
-     <code>stream_cipher() = rc4 | aes_ctr </code>
+     <code>stream_cipher() = rc4 | aes_ctr | chacha20 </code>
 
      <code>block_cipher() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
@@ -193,9 +193,9 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
-     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc |
+     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20 | chacha20_poly1305 | des_cbc |
      des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
-     <code> mac_algorithms() = hmac | cmac</code>
+     <code> mac_algorithms() = hmac | cmac | poly1305</code>
      <code> public_key_algorithms() = rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -598,6 +598,20 @@
     </func>
 
     <func>
+      <name>poly1305(Key, Data) -> Mac</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = iodata()</v>
+	<v>Data = iodata()</v>
+	<v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>private_decrypt(Type, CipherText, PrivateKey, Padding) -> PlainText</name>
       <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <type>
@@ -958,7 +972,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <name>stream_init(Type, Key, IVec) -> State</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = aes_ctr </v>
+	<v>Type = aes_ctr | chacha20</v>
         <v>State = opaque() </v>
         <v>Key = iodata()</v>
         <v>IVec = binary()</v>

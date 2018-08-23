@@ -29,6 +29,7 @@
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
+-export([poly1305/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1]).
 -export([rand_seed_s/0, rand_seed_alg_s/1]).
@@ -194,6 +195,11 @@ cmac(Type, Key, Data) ->
 cmac(Type, Key, Data, MacSize) ->
     erlang:binary_part(cmac(Type, Key, Data), 0, MacSize).
 
+-spec poly1305(iodata(), iodata()) -> binary().
+
+poly1305(Key, Data) ->
+    poly1305_nif(Key, Data).
+
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb |
@@ -309,7 +315,10 @@ next_iv(Type, Data, _Ivec) ->
     next_iv(Type, Data).
 
 stream_init(aes_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
+stream_init(chacha20, Key, Ivec) ->
+    {chacha20, chacha20_stream_init(Key,Ivec)}.
+
 stream_init(rc4, Key) ->
     {rc4, notsup_to_error(rc4_set_key(Key))}.
 
@@ -1060,8 +1069,11 @@ hmac_final_nif(_Context) -> ?nif_stub.
 hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
 
 %% CMAC
-
 cmac_nif(_Type, _Key, _Data) -> ?nif_stub.
+
+%% POLY1305
+poly1305_nif(_Key, _Data) -> ?nif_stub.
+
 
 %% CIPHERS --------------------------------------------------------------------
 
@@ -1117,14 +1129,20 @@ do_stream_encrypt({aes_ctr, State0}, Data) ->
     {{aes_ctr, State}, Cipher};
 do_stream_encrypt({rc4, State0}, Data) ->
     {State, Cipher} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Cipher}.
+    {{rc4, State}, Cipher};
+do_stream_encrypt({chacha20, State0}, Data) ->
+    {State, Cipher} = chacha20_stream_encrypt(State0, Data),
+    {{chacha20, State}, Cipher}.
 
 do_stream_decrypt({aes_ctr, State0}, Data) ->
     {State, Text} = aes_ctr_stream_decrypt(State0, Data),
     {{aes_ctr, State}, Text};
 do_stream_decrypt({rc4, State0}, Data) ->
     {State, Text} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Text}.
+    {{rc4, State}, Text};
+do_stream_decrypt({chacha20, State0}, Data) ->
+    {State, Cipher} = chacha20_stream_decrypt(State0, Data),
+    {{chacha20, State}, Cipher}.
 
 
 %%
@@ -1147,6 +1165,18 @@ aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
 %%
 rc4_set_key(_Key) -> ?nif_stub.
 rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
+
+%%
+%% CHACHA20 - stream cipher
+%%
+-type chacha20_state() :: term().
+-spec chacha20_stream_init(iodata(), binary()) -> chacha20_state().
+-spec chacha20_stream_encrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
+-spec chacha20_stream_decrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
+
+chacha20_stream_init(_Key, _IVec) -> ?nif_stub.
+chacha20_stream_encrypt(_State, _Data) -> ?nif_stub.
+chacha20_stream_decrypt(_State, _Data) -> ?nif_stub.
 
 %% Secure remote password  -------------------------------------------------------------------
 
