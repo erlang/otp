@@ -25,6 +25,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
+-include("ssl_api.hrl").
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2, send_alert/2, renegotiate/1,
@@ -32,7 +33,7 @@
 
 %% gen_statem callbacks
 -export([callback_mode/0, init/1, terminate/3, code_change/4]).
--export([init/3, connection/3, handshake/3]).
+-export([init/3, connection/3, handshake/3, death_row/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -53,6 +54,7 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
 -spec start() -> {ok, Pid :: pid()} |
                  ignore |
                  {error, Error :: term()}.
@@ -65,7 +67,7 @@
 %%  same process is sending and receiving 
 %%--------------------------------------------------------------------
 start() ->
-    gen_statem:start(?MODULE, [], []).
+    gen_statem:start_link(?MODULE, [], []).
 start(SpawnOpts) ->
     gen_statem:start_link(?MODULE, [], SpawnOpts).
 
@@ -77,10 +79,19 @@ start(SpawnOpts) ->
 initialize(Pid, InitMsg) ->
     gen_statem:call(Pid, {self(), InitMsg}).
 
+%%--------------------------------------------------------------------
+-spec send_data(pid(), iodata()) -> ok. 
+%%  Description: Send application data
+%%--------------------------------------------------------------------
 send_data(Pid, AppData) ->
     %% Needs error handling for external API
     call(Pid, {application_data, AppData}).
 
+%%--------------------------------------------------------------------
+-spec send_alert(pid(), #alert{}) -> _. 
+%% Description: TLS connection process wants to end an Alert
+%% in the connection state.
+%%--------------------------------------------------------------------
 send_alert(Pid, Alert) ->
     gen_statem:cast(Pid, Alert).
 
@@ -99,10 +110,16 @@ renegotiate(Pid) ->
 %%--------------------------------------------------------------------
 update_connection_state(Pid, NewState, Version) ->
     gen_statem:cast(Pid, {new_write, NewState, Version}).
-
+%%--------------------------------------------------------------------
+-spec dist_handshake_complete(pid(), node(), term()) -> ok. 
+%%  Description: Erlang distribution callback 
+%%--------------------------------------------------------------------
 dist_handshake_complete(ConnectionPid, Node, DHandle) ->
     gen_statem:call(ConnectionPid, {dist_handshake_complete, Node, DHandle}).
-
+%%--------------------------------------------------------------------
+-spec dist_tls_socket(pid()) -> {ok, #sslsocket{}}. 
+%%  Description: To enable distribution startup to get a proper "#sslsocket{}" 
+%%--------------------------------------------------------------------
 dist_tls_socket(Pid) ->
     gen_statem:call(Pid, dist_get_tls_socket).
 
@@ -120,6 +137,9 @@ callback_mode() ->
                   gen_statem:init_result(atom()).
 %%--------------------------------------------------------------------
 init(_) ->
+    %% Note: Should not trap exits so that this process
+    %% will be terminated if tls_connection process is
+    %% killed brutally
     {ok, init, #data{}}.
 
 %%--------------------------------------------------------------------
@@ -233,6 +253,18 @@ handshake(info, Msg, StateData) ->
     handle_info(Msg, ?FUNCTION_NAME, StateData).
 
 %%--------------------------------------------------------------------
+-spec death_row(gen_statem:event_type(),
+                Msg :: term(),
+                StateData :: term()) ->
+                       gen_statem:event_handler_result(atom()).
+%%--------------------------------------------------------------------
+death_row(state_timeout, Reason, _State) ->
+    {stop, {shutdown, Reason}};
+death_row(_Type, _Msg, _State) ->
+    %% Waste all other events
+    keep_state_and_data.
+
+%%--------------------------------------------------------------------
 -spec terminate(Reason :: term(), State :: term(), Data :: term()) ->
                        any().
 %%--------------------------------------------------------------------
@@ -254,8 +286,12 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 handle_info({'DOWN', Monitor, _, _, Reason}, _, 
+            #data{connection_monitor = Monitor,
+                  dist_handle = Handle} = StateData) when Handle =/= undefined->
+    {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
+handle_info({'DOWN', Monitor, _, _, _}, _, 
             #data{connection_monitor = Monitor} = StateData) ->
-    {stop, {shutdown, Reason}, StateData};
+    {stop, normal, StateData};
 handle_info(_,_,_) ->
     {keep_state_and_data}.
 
@@ -290,8 +326,8 @@ send_application_data(Data, From, StateName,
 	    case Connection:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
                     {next_state, StateName, StateData, []};
-                Error when DistHandle =/= undefined ->
-                    ssl_connection:stop({shutdown, Error}, StateData);
+                Reason when DistHandle =/= undefined ->
+                    {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
                 ok ->
                     {next_state, StateName, StateData,  [{reply, From, ok}]};
                 Result ->

@@ -65,7 +65,7 @@
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
 	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
-	 connection/3, death_row/3]).
+	 connection/3]).
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
@@ -135,7 +135,7 @@ init([Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options,  User, CbInfo
             gen_statem:enter_loop(?MODULE, [], error, EState) 
     end.
 
-pids(#state{protocol_specific = #{sender := {_, Sender}}}) ->
+pids(#state{protocol_specific = #{sender := Sender}}) ->
     [self(), Sender].
 
 %%====================================================================
@@ -307,7 +307,7 @@ queue_change_cipher(Msg, #state{negotiated_version = Version,
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
-reinit(#state{protocol_specific = #{sender := {_,Sender}},
+reinit(#state{protocol_specific = #{sender := Sender},
               negotiated_version = Version,
               connection_states = #{current_write := Write}} = State) -> 
     tls_sender:update_connection_state(Sender, Write, Version),
@@ -353,7 +353,7 @@ send_alert(Alert, #state{negotiated_version = Version,
     Connection:send(Transport, Socket, BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
 
-send_alert_in_connection(Alert, #state{protocol_specific = #{sender := {_, Sender}}}) ->
+send_alert_in_connection(Alert, #state{protocol_specific = #{sender := Sender}}) ->
     tls_sender:send_alert(Sender, Alert).
 
 %% User closes or recursive call!
@@ -597,7 +597,7 @@ connection(internal, #hello_request{},
 connection(internal, #client_hello{} = Hello, 
 	   #state{role = server, allow_renegotiate = true, connection_states = CS,
                   %%protocol_cb = Connection,
-                  protocol_specific = #{sender := {_, Sender}}
+                  protocol_specific = #{sender := Sender}
                  } = State0) ->
     %% Mitigate Computational DoS attack
     %% http://www.educatedguesswork.org/2011/10/ssltls_and_computational_dos.html
@@ -622,13 +622,6 @@ connection(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
--spec death_row(gen_statem:event_type(), term(), #state{}) ->
-		       gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-death_row(Type, Event, State) ->
-     ssl_connection:death_row(Type, Event, State, ?MODULE).
-
-%%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
@@ -642,6 +635,7 @@ callback_mode() ->
     state_functions.
 
 terminate(Reason, StateName, State) ->
+    ensure_sender_terminate(Reason, State),
     catch ssl_connection:terminate(Reason, StateName, State).
 
 format_status(Type, Data) ->
@@ -668,7 +662,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 		     end,
     
     UserMonitor = erlang:monitor(process, User),
-    SendMonitor = erlang:monitor(process, Sender),
 
     #state{socket_options = SocketOptions,
 	   ssl_options = SSLOptions,	   
@@ -693,7 +686,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 	   protocol_cb = ?MODULE,
 	   tracker = Tracker,
 	   flight_buffer = [],
-           protocol_specific = #{sender => {SendMonitor, Sender}}
+           protocol_specific = #{sender => Sender}
 	  }.
 
 erl_dist_data(true) ->
@@ -711,7 +704,7 @@ initialize_tls_sender(#state{role = Role,
                              negotiated_version = Version,
                              ssl_options = #ssl_options{renegotiate_at = RenegotiateAt},
                              connection_states = #{current_write := ConnectionWriteState},
-                             protocol_specific = #{sender := {_, Sender}}}) ->
+                             protocol_specific = #{sender := Sender}}) ->
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
@@ -794,11 +787,9 @@ handle_info({CloseTag, Socket}, StateName,
             %% and then receive the final message.
             next_event(StateName, no_record, State)
     end;
-handle_info({'DOWN', Mon, _, _, _}, _, #state{ssl_options = #ssl_options{erl_dist = true},
-                                           protocol_specific = #{sender:= {Mon, _}}} = State) ->
-    ssl_connection:death_row(State, disconnect);
-handle_info({'DOWN', Mon, _, _,  Reason}, _, #state{protocol_specific = #{sender:= {Mon, _}}} = State) ->
-    {stop, {shudown, sender_died, Reason}, State};
+handle_info({'EXIT', Pid, Reason}, _,
+            #state{protocol_specific = Pid} = State) ->
+    {stop, {shutdown, sender_died, Reason}, State};
 handle_info(Msg, StateName, State) ->
     ssl_connection:StateName(info, Msg, State, ?MODULE).
 
@@ -888,3 +879,16 @@ assert_buffer_sanity(Bin, _) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
                              malformed_handshake_data))
     end.  
+
+ensure_sender_terminate(downgrade, _) ->
+    ok; %% Do not terminate sender during downgrade phase 
+ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->
+    %% Make sure TLS sender dies when connection process is terminated normally
+    %% This is needed if the tls_sender is blocked in prim_inet:send 
+    Kill = fun() -> 
+                   receive 
+                   after 5000 ->
+                           catch (exit(Sender, kill))
+                   end
+           end,
+    spawn(Kill).

@@ -64,7 +64,7 @@
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
 -export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, cipher/4,
-         connection/4, death_row/4, death_row/2, downgrade/4]).
+         connection/4, downgrade/4]).
 
 %% gen_statem callbacks
 -export([terminate/3, format_status/2]).
@@ -511,7 +511,7 @@ dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := DHandle,
         _ -> %% We have more data
             read_application_data(<<>>, State)
     catch error:_ ->
-            death_row(State, disconnect)
+            stop(State, disconnect)
     end.
 
 merge_dist_data(<<>>, ClientData) ->
@@ -1079,29 +1079,6 @@ connection(internal, {recv, _}, State, Connection) ->
     Connection:passive_receive(State, ?FUNCTION_NAME);
 connection(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
-
-%%--------------------------------------------------------------------
--spec death_row(gen_statem:event_type(), term(),
-		#state{}, tls_connection | dtls_connection) ->
-		       gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-%% We just wait for the owner to die which triggers the monitor,
-%% or the socket may die too
-death_row(info, {'DOWN', MonitorRef, _, _, Reason},
-          #state{user_application={MonitorRef,_Pid}},_) ->
-    {stop, {shutdown, Reason}};
-death_row(info, {'EXIT', Socket, Reason}, #state{socket = Socket}, _) ->
-    {stop, {shutdown, Reason}};
-death_row(state_timeout, Reason, _State, _Connection) ->
-    {stop, {shutdown,Reason}};
-death_row(_Type, _Msg, _State, _Connection) ->
-    %% Waste all other events
-    keep_state_and_data.
-
-%% State entry function
-death_row(State, Reason) ->
-    {next_state, death_row, State,
-     [{state_timeout, 5000, Reason}]}.
 
 %%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), 
@@ -2727,26 +2704,12 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
-%%---------------Erlang distribution --------------------------------------
-%% When acting as distribution controller map the exit reason
-%% to follow the documented nodedown_reason for net_kernel
+
 stop(Reason, State) ->
-    {stop, erl_dist_stop_reason(Reason, State), State}.
+    {stop, Reason, State}.
 
 stop_and_reply(Reason, Replies, State) ->
-    {stop_and_reply, erl_dist_stop_reason(Reason, State), Replies, State}.
-
-erl_dist_stop_reason(
-  Reason, #state{ssl_options = #ssl_options{erl_dist = true}}) ->
-    case Reason of
-        normal ->
-            %% We can not exit with normal since that will not bring
-            %% down the rest of the distribution processes
-            {shutdown, normal};
-        _ -> Reason
-    end;
-erl_dist_stop_reason(Reason, _State) ->
-    Reason.
+    {stop_and_reply, Reason, Replies, State}.
 
 is_dist_up(#{dist_handle := Handle}) when Handle =/= undefined ->
     true;
