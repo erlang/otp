@@ -1258,6 +1258,38 @@ t_guard_bifs(Config) when is_list(Config) ->
     {'EXIT',{{badkey,k},_}} = (catch erl_699(#{})),
     {'EXIT',{{badmap,not_a_map},_}} = (catch erl_699(not_a_map)),
 
+    %% Cover optimizations in beam_dead.
+
+    ok = beam_dead_1(#{a=>any,k=>true}),
+    error = beam_dead_1(#{a=>any,k=>false}),
+    error = beam_dead_1(#{a=>any}),
+    error = beam_dead_1(#{}),
+
+    ok = beam_dead_2(#{a=>any,k=>true}),
+    error = beam_dead_2(#{a=>any,k=>false}),
+    error = beam_dead_2(#{a=>any}),
+    error = beam_dead_2(#{}),
+
+    ok = beam_dead_3(#{k=>true}),
+    error = beam_dead_3(#{k=>false}),
+    error = beam_dead_3(#{}),
+
+    ok = beam_dead_4(#{k=>true}),
+    error = beam_dead_4(#{k=>false}),
+    error = beam_dead_4(#{}),
+    error = beam_dead_4(not_a_map),
+
+    ok = beam_dead_5(#{k=>true}),
+    error = beam_dead_5(#{k=>false}),
+    error = beam_dead_3(#{}),
+
+    %% Test is_map_key/2 followed by map update.
+
+    Used0 = map_usage(var, #{other=>value}),
+    Used0 = #{other=>value,var=>dead},
+    Used1 = map_usage(var, #{var=>live}),
+    Used1 = #{var=>live},
+
     ok.
 
 map_guard_empty() when is_map(#{}); false -> true.
@@ -1297,6 +1329,48 @@ map_field_check_sequence(_) ->
 erl_699(M) ->
     %% Used to cause an internal consistency failure.
     {is_map_key(k, M),maps:get(k, M)}.
+
+beam_dead_1(#{a:=_,k:=_}=M) when map_get(k, M) ->
+    ok;
+beam_dead_1(#{}) ->
+    error.
+
+beam_dead_2(M) ->
+    case M of
+        #{a:=_,k:=_} when map_get(k, M) ->
+            ok;
+        #{} ->
+            error
+    end.
+
+beam_dead_3(M) ->
+    case M of
+        #{k:=_} when map_get(k, M) ->
+            ok;
+        #{} ->
+            error
+    end.
+
+beam_dead_4(M) ->
+    case M of
+        #{} when map_get(k, M) ->
+            ok;
+        _ ->
+            error
+    end.
+
+beam_dead_5(#{}=M) when map_get(k, M) ->
+    ok;
+beam_dead_5(#{}) ->
+    error.
+
+%% Test is_map_key/2, followed by an update of the map.
+map_usage(Def, Used) ->
+    case is_map_key(Def, Used) of
+        true -> Used;
+        false -> Used#{Def=>dead}
+    end.
+
 
 t_guard_sequence(Config) when is_list(Config) ->
 	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
