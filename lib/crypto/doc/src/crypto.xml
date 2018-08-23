@@ -143,7 +143,7 @@
                                password => password()}</code>
 
     <code>engine_ref() = term()</code>
-    <p>The result of a call to <seealso marker="#engine_load-3">engine_load/3</seealso>.
+    <p>The result of a call to for example <seealso marker="#engine_load-3">engine_load/3</seealso>.
     </p>
 
     <code>key_id() = string() | binary()</code>
@@ -629,7 +629,7 @@
       <desc>
 	<p>Fetches the corresponding public key from a private key stored in an Engine.
 	The key must be of the type indicated by the Type parameter.
-	</p>	
+	</p>
       </desc>
     </func>
 
@@ -1075,8 +1075,8 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	<p>
 	  Returns a list of all possible engine methods.
 	</p>
-	<p>	  
-	  May throw exception notsup in case there is 
+	<p>
+	  May throw exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
 	</p>
 	<p>
@@ -1092,18 +1092,18 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <type>
 	<v>EngineId = unicode:chardata()</v>
 	<v>PreCmds, PostCmds = [{unicode:chardata(), unicode:chardata()}]</v>
-	<v>Result = {ok, Engine::term()} | {error, Reason::term()}</v>
+	<v>Result = {ok, Engine::engine_ref()} | {error, Reason::term()}</v>
       </type>
       <desc>
 	<p>
 	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
-	  an engine handle. This function is the same as calling <c>engine_load/4</c> with 
-	  <c>EngineMethods</c> set to a list of all the possible methods.  An error tuple is 
+	  an engine handle. This function is the same as calling <c>engine_load/4</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods.  An error tuple is
 	  returned if the engine can't be loaded.
 	</p>
 	<p>
 	  The function throws a badarg if the parameters are in wrong format.
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
 	</p>
 	<p>
@@ -1120,7 +1120,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	<v>EngineId = unicode:chardata()</v>
 	<v>PreCmds, PostCmds = [{unicode:chardata(), unicode:chardata()}]</v>
 	<v>EngineMethods = [engine_method_type()]</v>
-	<v>Result = {ok, Engine::term()} | {error, Reason::term()}</v>
+	<v>Result = {ok, Engine::engine_ref()} | {error, Reason::term()}</v>
       </type>
       <desc>
 	<p>
@@ -1129,7 +1129,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	</p>
 	<p>
 	  The function throws a badarg if the parameters are in wrong format.
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
 	</p>
 	<p>
@@ -1143,22 +1143,165 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <name>engine_unload(Engine) -> Result</name>
       <fsummary>Dynamical load an encryption engine</fsummary>
       <type>
-	<v>Engine = term()</v>
+	<v>Engine = engine_ref()</v>
 	<v>Result = ok | {error, Reason::term()}</v>
       </type>
       <desc>
 	<p>
-	  Unloads the OpenSSL engine given by <c>EngineId</c>.
+	  Unloads the OpenSSL engine given by <c>Engine</c>.
 	  An error tuple is returned if the engine can't be unloaded.
 	</p>
 	<p>
 	  The function throws a badarg if the parameter is in wrong format.
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
 	</p>
 	<p>
 	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
 	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_by_id(EngineId) -> Result</name>
+      <fsummary>Get a reference to an already loaded engine</fsummary>
+      <type>
+	<v>EngineID = unicode:chardata()engine_ref()</v>
+	<v>Result = {ok, Engine::engine_ref()} | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Get a reference to an already loaded engine with <c>EngineId</c>.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameter is in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg) -> Result</name>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>CmdName = unicode:chardata()</v>
+	<v>CmdArg = unicode:chardata()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  This function is the same as calling <c>engine_ctrl_cmd_string/4</c> with
+	  <c>Optional</c> set to <c>false</c>.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) -> Result</name>
+      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>CmdName = unicode:chardata()</v>
+	<v>CmdArg = unicode:chardata()</v>
+	<v>Optional = boolean()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
+	  <c>Optional</c> is a boolean argument that can relax the semantics of the function.
+	  If set to <c>true</c> it will only return failure if the ENGINE supported the given
+	  command name but failed while executing it, if the ENGINE doesn't support the command
+	  name it will simply return success without doing anything. In this case we assume
+	  the user is only supplying commands specific to the given ENGINE so we set this to
+	  <c>false</c>.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_add(Engine) -> Result</name>
+      <fsummary>Add engine to OpenSSL internal list</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>Add the engine to OpenSSL's internal list.</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_remove(Engine) -> Result</name>
+      <fsummary>Remove engine to OpenSSL internal list</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>Remove the engine from OpenSSL's internal list.</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_get_id(Engine) -> EngineId</name>
+      <fsummary>Fetch engine ID</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>EngineId = unicode:chardata()</v>
+      </type>
+      <desc>
+	<p>Return the ID for the engine, or an empty binary if there is no id set.</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>engine_get_name(Engine) -> EngineName</name>
+      <fsummary>Fetch engine name</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>EngineName = unicode:chardata()</v>
+      </type>
+      <desc>
+	<p>Return the name (eg a description) for the engine, or an empty binary if there is no name set.</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
 	</p>
       </desc>
     </func>
@@ -1172,63 +1315,125 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <desc>
 	<p>List the id's of all engines in OpenSSL's internal list.</p>
 	<p>
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
 	</p>
 	<p>
-	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso> 
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+	<p>
+	  May throw exception notsup in case engine functionality is not supported by the underlying
+	  OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ensure_engine_loaded(EngineId, LibPath) -> Result</name>
+      <fsummary>Ensure encryption engine just loaded once</fsummary>
+      <type>
+	<v>EngineId = unicode:chardata()</v>
+	<v>LibPath = unicode:chardata()</v>
+	<v>Result = {ok, Engine::engine_ref()} | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Loads the OpenSSL engine given by <c>EngineId</c> and the path to the dynamic library
+	  implementing the engine. This function is the same as calling <c>ensure_engine_loaded/3</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods. An error tuple is
+	  returned if the engine can't be loaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
 	  in the User's Guide.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg) -> Result</name>
-      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <name>ensure_engine_loaded(EngineId, LibPath, EngineMethods) -> Result</name>
+      <fsummary>Ensure encryption engine just loaded once</fsummary>
       <type>
-	<v>Engine = term()</v>
-	<v>CmdName = unicode:chardata()</v>
-	<v>CmdArg = unicode:chardata()</v>
-	<v>Result = ok | {error, Reason::term()}</v>
+	<v>EngineId = unicode:chardata()</v>
+	<v>LibPath = unicode:chardata()</v>
+	<v>EngineMethods = [engine_method_type()]</v>
+	<v>Result = {ok, Engine::engine_ref()} | {error, Reason::term()}</v>
       </type>
       <desc>
 	<p>
-	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
-	  This function is the same as calling <c>engine_ctrl_cmd_string/4</c> with 
-	  <c>Optional</c> set to <c>false</c>.
+	  Loads the OpenSSL engine given by <c>EngineId</c> and the path to the dynamic library
+	  implementing the engine. This function differs from the normal engine_load in that sense it
+	  also add the engine id to the internal list in OpenSSL. Then in the following calls to the function
+	  it just fetch the reference to the engine instead of loading it again.
+	  An error tuple is returned if the engine can't be loaded.
 	</p>
 	<p>
 	  The function throws a badarg if the parameters are in wrong format.
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name>engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) -> Result</name>
-      <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
+      <name>ensure_engine_unloaded(Engine) -> Result</name>
+      <fsummary>Unload an engine loaded with the ensure function</fsummary>
       <type>
-	<v>Engine = term()</v>
-	<v>CmdName = unicode:chardata()</v>
-	<v>CmdArg = unicode:chardata()</v>
-	<v>Optional = boolean()</v>
+	<v>Engine = engine_ref()</v>
 	<v>Result = ok | {error, Reason::term()}</v>
       </type>
       <desc>
 	<p>
-	  Sends ctrl commands to the OpenSSL engine given by <c>Engine</c>.
-	  <c>Optional</c> is a boolean argument that can relax the semantics of the function. 
-	  If set to <c>true</c> it will only return failure if the ENGINE supported the given 
-	  command name but failed while executing it, if the ENGINE doesn't support the command 
-	  name it will simply return success without doing anything. In this case we assume 
-	  the user is only supplying commands specific to the given ENGINE so we set this to
-	  <c>false</c>.
+	  Unloads an engine loaded with the <c>ensure_engine_loaded</c> function.
+	  It both removes the label from the OpenSSL internal engine list and unloads the engine.
+	  This function is the same as calling <c>ensure_engine_unloaded/2</c> with
+	  <c>EngineMethods</c> set to a list of all the possible methods. An error tuple is
+	  returned if the engine can't be unloaded.
 	</p>
 	<p>
 	  The function throws a badarg if the parameters are in wrong format.
-	  It may also throw the exception notsup in case there is 
+	  It may also throw the exception notsup in case there is
 	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ensure_engine_unloaded(Engine, EngineMethods) -> Result</name>
+      <fsummary>Unload an engine loaded with the ensure function</fsummary>
+      <type>
+	<v>Engine = engine_ref()</v>
+	<v>EngineMethods = [engine_method_type()]</v>
+	<v>Result = ok | {error, Reason::term()}</v>
+      </type>
+      <desc>
+	<p>
+	  Unloads an engine loaded with the <c>ensure_engine_loaded</c> function.
+	  It both removes the label from the OpenSSL internal engine list and unloads the engine.
+	  An error tuple is returned if the engine can't be unloaded.
+	</p>
+	<p>
+	  The function throws a badarg if the parameters are in wrong format.
+	  It may also throw the exception notsup in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+	<p>
+	  See also the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+	  in the User's Guide.
 	</p>
       </desc>
     </func>
