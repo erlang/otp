@@ -110,6 +110,9 @@
 
     <code>ecdh_params() = ec_named_curve() | ec_explicit_curve()</code>
 
+    <code>ed_named_curves_ecdh() -> x448 | x25519</code>
+    <p>Note that the curves are only supported if the underlying OpenSSL has support for them.</p>
+
     <code>ec_explicit_curve() =
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(),
      CoFactor :: none | integer()} </code>
@@ -310,7 +313,7 @@
 	<v> Type = dh | ecdh | srp </v>
 	<v>OthersPublicKey =  dh_public() | ecdh_public() | srp_public() </v>
 	<v>MyKey = dh_private() | ecdh_private() | {srp_public(),srp_private()}</v>
-	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams</v>
+	<v>Params = dh_params() | ecdh_params() | ed_named_curves_ecdh() | SrpUserParams | SrpHostParams</v>
 	<v>SrpUserParams = {user, [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | [Scrambler:binary()]]} </v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Prime::binary(), Version::atom() | [Scrambler::binary]]} </v>
 	<v>SharedSecret = binary()</v>
@@ -340,7 +343,7 @@
       <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <type>
 	<v> Type = dh | ecdh | rsa | srp </v>
-	<v>Params = dh_params() | ecdh_params() | RsaParams | SrpUserParams | SrpHostParams </v>
+	<v>Params = dh_params() | ecdh_params() | ed_named_curves_ecdh()| RsaParams | SrpUserParams | SrpHostParams </v>
 	<v>RsaParams = {ModulusSizeInBits::integer(), PublicExponent::key_value()}</v>
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>

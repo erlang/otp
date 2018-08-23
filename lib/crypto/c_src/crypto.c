@@ -169,12 +169,12 @@
 # define HAVE_EC
 #endif
 
-// (test for == 1.1.1pre8)
-#if OPENSSL_VERSION_NUMBER == (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
+// (test for >= 1.1.1pre8)
+#if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
 // EXPERIMENTAL:
-# define HAVE_EDDH
+# define HAVE_ED_CURVE_DH
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c')
@@ -720,8 +720,7 @@ static ERL_NIF_TERM atom_rsa;
 static ERL_NIF_TERM atom_dss;
 static ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_EDDH
-static ERL_NIF_TERM atom_eddh;
+#ifdef HAVE_ED_CURVE_DH
 static ERL_NIF_TERM atom_x25519;
 static ERL_NIF_TERM atom_x448;
 #endif
@@ -1166,8 +1165,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_rsa = enif_make_atom(env,"rsa");
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
-#ifdef HAVE_EDDH
-    atom_eddh = enif_make_atom(env,"eddh");
+#ifdef HAVE_ED_CURVE_DH
     atom_x25519 = enif_make_atom(env,"x25519");
     atom_x448 = enif_make_atom(env,"x448");
 #endif
@@ -1368,9 +1366,6 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
     // Non-validated algorithms follow
     algo_pubkey_fips_cnt = algo_pubkey_cnt;
-#ifdef HAVE_EDDH
-    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
-#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     // Validated algorithms first
@@ -1528,7 +1523,7 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
 #endif
     //--
-#ifdef HAVE_EDDH
+#ifdef HAVE_ED_CURVE_DH
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
 #endif
@@ -4157,7 +4152,7 @@ out_err:
 static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*    (Curve, PeerBin, MyBin) */
 {
-#ifdef HAVE_EDDH
+#ifdef HAVE_ED_CURVE_DH
     int type;
     EVP_PKEY_CTX *ctx;
     ErlNifBinary peer_bin, my_bin, key_bin;
@@ -4213,7 +4208,7 @@ static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (Curve) */
 {
-#ifdef HAVE_EDDH
+#ifdef HAVE_ED_CURVE_DH
     int type;
     EVP_PKEY_CTX *ctx;
     EVP_PKEY *pkey = NULL;
