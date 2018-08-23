@@ -148,6 +148,20 @@
 # define HAVE_DES_ede3_cfb_encrypt
 #endif
 
+// SHA3:
+# ifdef NID_sha3_224
+//Error #  define HAVE_SHA3_224
+# endif
+# ifdef NID_sha3_256
+//Error #  define HAVE_SHA3_256
+# endif
+# ifdef NID_sha3_384
+#  define HAVE_SHA3_384
+# endif
+# ifdef NID_sha3_512
+#  define HAVE_SHA3_512
+# endif
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
@@ -727,6 +741,10 @@ static ERL_NIF_TERM atom_sha224;
 static ERL_NIF_TERM atom_sha256;
 static ERL_NIF_TERM atom_sha384;
 static ERL_NIF_TERM atom_sha512;
+static ERL_NIF_TERM atom_sha3_224;
+static ERL_NIF_TERM atom_sha3_256;
+static ERL_NIF_TERM atom_sha3_384;
+static ERL_NIF_TERM atom_sha3_512;
 static ERL_NIF_TERM atom_md5;
 static ERL_NIF_TERM atom_ripemd160;
 
@@ -812,6 +830,35 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+    {{"sha3_224"},
+#ifdef HAVE_SHA3_224
+     {&EVP_sha3_224}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_256"},
+#ifdef HAVE_SHA3_256
+     {&EVP_sha3_256}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_384"},
+#ifdef HAVE_SHA3_384
+     {&EVP_sha3_384}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_512"},
+#ifdef HAVE_SHA3_512
+     {&EVP_sha3_512}
+#else
+     {NULL}
+#endif
+    },
+
     {{NULL}}
 };
 
@@ -1139,6 +1186,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_sha256 = enif_make_atom(env,"sha256");
     atom_sha384 = enif_make_atom(env,"sha384");
     atom_sha512 = enif_make_atom(env,"sha512");
+    atom_sha3_224 = enif_make_atom(env,"sha3_224");
+    atom_sha3_256 = enif_make_atom(env,"sha3_256");
+    atom_sha3_384 = enif_make_atom(env,"sha3_384");
+    atom_sha3_512 = enif_make_atom(env,"sha3_512");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
 
@@ -1259,7 +1310,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 }
 
 static int algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
+static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
 static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[11]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
@@ -1285,6 +1336,18 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
 #ifdef HAVE_SHA512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
+#endif
+#ifdef HAVE_SHA3_224
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_224");
+#endif
+#ifdef HAVE_SHA3_256
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_256");
+#endif
+#ifdef HAVE_SHA3_384
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_384");
+#endif
+#ifdef HAVE_SHA3_512
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
 #endif
     // Non-validated algorithms follow
     algo_hash_fips_cnt = algo_hash_cnt;

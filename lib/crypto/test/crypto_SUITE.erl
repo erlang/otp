@@ -51,6 +51,10 @@ groups() ->
                      {group, sha256},
                      {group, sha384},
                      {group, sha512},
+                     {group, sha3_224},
+                     {group, sha3_256},
+                     {group, sha3_384},
+                     {group, sha3_512},
                      {group, rsa},
                      {group, dss},
                      {group, ecdsa},
@@ -124,6 +128,10 @@ groups() ->
      {sha256, [], [hash, hmac]},
      {sha384, [], [hash, hmac]},
      {sha512, [], [hash, hmac]},
+     {sha3_224, [], [hash, hmac]},
+     {sha3_256, [], [hash, hmac]},
+     {sha3_384, [], [hash, hmac]},
+     {sha3_512, [], [hash, hmac]},
      {rsa, [], [sign_verify,
                 public_encrypt,
                 private_encrypt,
@@ -497,7 +505,7 @@ generate_compute(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 compute_bug() ->
     [{doc, "Test that it works even if the Secret is smaller than expected"}].
-compute_bug(Config) ->
+compute_bug(_Config) ->
     ExpectedSecret = <<118,89,171,16,156,18,156,103,189,134,130,49,28,144,111,241,247,82,79,32,228,11,209,141,119,176,251,80,105,143,235,251,203,121,223,211,129,3,233,133,45,2,31,157,24,111,5,75,153,66,135,185,128,115,229,178,216,39,73,52,80,151,8,241,34,52,226,71,137,167,53,48,59,224,175,154,89,110,76,83,24,117,149,21,72,6,186,78,149,74,188,56,98,244,30,77,108,248,88,194,195,237,23,51,20,242,254,123,21,12,209,74,217,168,230,65,7,60,211,139,128,239,234,153,22,229,180,59,159,121,41,156,121,200,177,130,163,162,54,224,93,1,94,11,177,254,118,28,156,26,116,10,207,145,219,166,214,189,214,230,221,170,228,15,69,88,31,68,94,255,113,58,49,82,86,192,248,176,131,133,39,186,194,172,206,84,184,16,66,68,153,128,178,227,27,118,52,130,122,92,24,222,102,195,221,207,255,13,152,175,65,32,167,84,54,244,243,109,244,18,234,16,159,224,188,2,106,123,27,17,131,171,226,34,111,251,62,119,155,124,221,124,254,62,97,167,1,105,116,98,98,19,197,30,72,180,79,221,100,134,120,117,124,85,73,132,224,223,222,41,155,137,218,130,238,237,157,161,134,150,69,206,91,141,17,89,120,218,235,229,37,150,76,197,7,157,56,144,42,203,137,100,200,72,141,194,239,1,67,236,238,183,48,214,75,76,108,235,3,237,67,40,137,45,182,236,246,37,116,103,144,237,142,211,88,233,11,24,21,218,41,245,250,51,130,250,104,74,189,17,69,145,70,50,50,215,253,155,10,128,41,114,185,211,82,164,72,92,17,145,104,66,6,140,226,80,43,62,1,166,216,153,118,96,15,147,126,137,118,191,192,75,149,241,206,18,92,17,154,215,219,18,6,139,190,103,210,156,184,29,224,213,157,60,112,189,104,220,125,40,186,50,119,17,143,136,149,38,74,107,21,192,59,61,59,42,231,144,59,175,3,176,87,23,16,122,54,31,82,34,230,211,44,81,41,47,86,37,228,175,130,148,88,136,131,254,241,202,99,199,175,1,141,215,124,155,120,43,141,89,11,140,120,141,29,35,82,219,155,204,75,12,66,241,253,33,250,84,24,85,68,13,80,85,142,227,34,139,26,146,24>>,
     OthersPublicKey = 635619632099733175381667940709387641100492974601603060984753028943194386334921787463327680809776598322996634648015962954045728174069768874873236397421720142610982770302060309928552098274817978606093380781524199673890631795310930242601197479471368910519338301177304682162189801040921618559902948819107531088646753320486728060005223263561551402855338732899079439899705951063999951507319258050864346087428042978411873495523439615429804957374639092580169417598963105885529553632847023899713490485619763926900318508906706745060947269748612049634207985438016935262521715769812475329234748426647554362991758104620357149045960316987533503707855364806010494793980069245562784050236811004893018183726397041999426883788660276453352521120006817370050691205529335316794439089316232980047277245051173281601960196573681285904611182521967067911862467395705665888521948321299521549941618586026714676885890192323289343756440666276226084448279082483536164085883288884231665240707495770544705648564889889198060417915693315346959170105413290799314390963124178046425737828369059171472978294050322371452255088799865552038756937873388385970088906560408959959429398326288750834357514847891423941047433478384621074116184703014798814515161475596555032391555842,
     MyPrivateKey = 387759582879975726965038486537011291913744975764132199838375902680222019267527675651273586836110220500657652661706223760165097275862806031329642160439090779625708664007910974206651834216043397115514725827856461492311499129200688538220719685637154290305617686974719521885238198226075381217068175824097878445476010193039590876624464274744156624589136789060427283492343902761765833713520850870233407503430180028104167029073459918756981323130062648615262139444306321256382009848217866984408901761817655567071716275177768316006340055589170095799943481591033461616307776069027985761229636731465482676467627154100912586936231051371168178564599296638350391246393336702334311781595616786107810962134407697848002331639021101685320844880636050048769216986088652236979636019052557155807310341483407890060105599892252118584570558049301477535792498672552850760356632076013402382600669875697284264329434950712239302528367835155163504374877787288116104285944993818319105835423479332617802010952731990182088670508346704423006877514817882782443833997288652405892920173712497948376815825396272381214976859009518623799156300136570204539240675245115597412280078940442452936425561984312708387584800789375684525365060589104566195610526570099527133097201479,
@@ -629,31 +637,29 @@ hash_increment(State0, [Increment | Rest]) ->
 hmac(_, [],[],[]) ->
     ok;
 hmac(sha = Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected | Expects]) ->
-    case crypto:hmac(Type, Key, Data, 20) of
-	Expected ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
+    call_crypto_hmac([Type, Key, Data, 20], Type, Expected),
     hmac(Type, Keys, Rest, Expects);
-
 hmac(Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected | Expects]) ->
-    case crypto:hmac(Type, Key, Data, 16) of
-	Expected ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
+    call_crypto_hmac([Type, Key, Data, 16], Type, Expected),
     hmac(Type, Keys, Rest, Expects);
-
 hmac(Type, [Key | Keys], [Data| Rest], [Expected | Expects]) ->
-    case crypto:hmac(Type, Key, Data) of
+    call_crypto_hmac([Type, Key, Data], Type, Expected),
+    hmac(Type, Keys, Rest, Expects).
+
+call_crypto_hmac(Args, Type, Expected) ->
+    try apply(crypto, hmac, Args)
+    of
 	Expected ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
-    hmac(Type, Keys, Rest, Expects).
+	    ct:fail({{crypto,hmac,Args}, {expected,Expected}, {got,Other}})
+    catch
+        error:notsup ->
+            ct:fail("HMAC ~p not supported", [Type]);
+        Class:Cause ->
+            ct:fail({{crypto,hmac,Args}, {expected,Expected}, {got,{Class,Cause}}})
+    end.
+
 
 hmac_increment(Type) ->
     Key = hmac_key(Type),
@@ -1042,6 +1048,8 @@ hexstr2bin(S) when is_binary(S) ->
 hexstr2bin(S) ->
     list_to_binary(hexstr2list(S)).
 
+hexstr2list([$ |T]) ->
+    hexstr2list(T);
 hexstr2list([X,Y|T]) ->
     [mkint(X)*16 + mkint(Y) | hexstr2list(T)];
 hexstr2list([]) ->
@@ -1319,7 +1327,7 @@ group_config(sha224 = Type, Config) ->
     Keys = rfc_4231_keys(),
     Data = rfc_4231_msgs(),
     Hmac = rfc4231_hmac_sha224(),
-   [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
 group_config(sha256 = Type, Config) ->
     Msgs =   [rfc_4634_test1(), rfc_4634_test2_1(), long_msg()],
     Digests = rfc_4634_sha256_digests()  ++ [long_sha256_digest()],
@@ -1341,6 +1349,18 @@ group_config(sha512 = Type, Config) ->
     Data = rfc_4231_msgs() ++ [long_msg()],
     Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+group_config(sha3_224 = Type, Config) ->
+    {Msgs,Digests} = sha3_test_vectors(Type),
+    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+group_config(sha3_256 = Type, Config) ->
+    {Msgs,Digests} = sha3_test_vectors(Type),
+    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+group_config(sha3_384 = Type, Config) ->
+    {Msgs,Digests} = sha3_test_vectors(Type),
+    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+group_config(sha3_512 = Type, Config) ->
+    {Msgs,Digests} = sha3_test_vectors(Type),
+    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
 group_config(rsa = Type, Config) ->
     Msg = rsa_plain(),
     Public = rsa_public(),
@@ -1557,6 +1577,160 @@ rfc_1321_md5_digests() ->
      hexstr2bin("c3fcd3d76192e4007dfb496cca67e13b"),
      hexstr2bin("d174ab98d277d9f5a5611c2c9f419d9f"),
      hexstr2bin("57edf4a22be3c955ac49da2e2107b67a")].
+
+%%% https://www.di-mgt.com.au/sha_testvectors.html
+sha3_msgs() ->
+    ["abc",
+     "",
+     "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", % length 448 bits
+     "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu", % length 896 bits
+     lists:duplicate(1000000,$a)
+    ].
+
+sha3_test_vectors(sha3_224) ->
+    {sha3_msgs(),
+     [hexstr2bin("e642824c3f8cf24a d09234ee7d3c766f c9a3a5168d0c94ad 73b46fdf"),
+      hexstr2bin("6b4e03423667dbb7 3b6e15454f0eb1ab d4597f9a1b078e3f 5b5a6bc7"),
+      hexstr2bin("8a24108b154ada21 c9fd5574494479ba 5c7e7ab76ef264ea d0fcce33"),
+      hexstr2bin("543e6868e1666c1a 643630df77367ae5 a62a85070a51c14c bf665cbc"),
+      hexstr2bin("d69335b93325192e 516a912e6d19a15c b51c6ed5c15243e7 a7fd653c")
+     ]
+    };
+sha3_test_vectors(sha3_256) ->
+    {sha3_msgs(),
+     [hexstr2bin("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"),
+      hexstr2bin("a7ffc6f8bf1ed766 51c14756a061d662 f580ff4de43b49fa 82d80a4b80f8434a"),
+      hexstr2bin("41c0dba2a9d62408 49100376a8235e2c 82e1b9998a999e21 db32dd97496d3376"),
+      hexstr2bin("916f6061fe879741 ca6469b43971dfdb 28b1a32dc36cb325 4e812be27aad1d18"),
+      hexstr2bin("5c8875ae474a3634 ba4fd55ec85bffd6 61f32aca75c6d699 d0cdcb6c115891c1")
+     ]
+    };
+sha3_test_vectors(sha3_384) ->
+    {sha3_msgs(),
+     [hexstr2bin("ec01498288516fc9 26459f58e2c6ad8d f9b473cb0fc08c25 96da7cf0e49be4b2 98d88cea927ac7f5 39f1edf228376d25"),
+      hexstr2bin("0c63a75b845e4f7d 01107d852e4c2485 c51a50aaaa94fc61 995e71bbee983a2a c3713831264adb47 fb6bd1e058d5f004"),
+      hexstr2bin("991c665755eb3a4b 6bbdfb75c78a492e 8c56a22c5c4d7e42 9bfdbc32b9d4ad5a a04a1f076e62fea1 9eef51acd0657c22"),
+      hexstr2bin("79407d3b5916b59c 3e30b09822974791 c313fb9ecc849e40 6f23592d04f625dc 8c709b98b43b3852 b337216179aa7fc7"),
+      hexstr2bin("eee9e24d78c18553 37983451df97c8ad 9eedf256c6334f8e 948d252d5e0e7684 7aa0774ddb90a842 190d2c558b4b8340")
+     ]
+    };
+sha3_test_vectors(sha3_512) ->
+    {sha3_msgs(),
+     [hexstr2bin("b751850b1a57168a 5693cd924b6b096e 08f621827444f70d 884f5d0240d2712e 10e116e9192af3c9 1a7ec57647e39340 57340b4cf408d5a5 6592f8274eec53f0"),
+      hexstr2bin("a69f73cca23a9ac5 c8b567dc185a756e 97c982164fe25859 e0d1dcc1475c80a6 15b2123af1f5f94c 11e3e9402c3ac558 f500199d95b6d3e3 01758586281dcd26"),
+      hexstr2bin("04a371e84ecfb5b8 b77cb48610fca818 2dd457ce6f326a0f d3d7ec2f1e91636d ee691fbe0c985302 ba1b0d8dc78c0863 46b533b49c030d99 a27daf1139d6e75e"),
+      hexstr2bin("afebb2ef542e6579 c50cad06d2e578f9 f8dd6881d7dc824d 26360feebf18a4fa 73e3261122948efc fd492e74e82e2189 ed0fb440d187f382 270cb455f21dd185"),
+      hexstr2bin("3c3a876da14034ab 60627c077bb98f7e 120a2a5370212dff b3385a18d4f38859 ed311d0a9d5141ce 9cc5c66ee689b266 a8aa18ace8282a0e 0db596c90b0a7b87")
+     ]
+    }.
+
+
+
+%%% http://www.wolfgang-ehrhardt.de/hmac-sha3-testvectors.html
+
+hmac_sha3(Type) ->
+    N = case Type of
+            sha3_224 -> 1;
+            sha3_256 -> 2;
+            sha3_384 -> 3;
+            sha3_512 -> 4
+        end,
+    {Keys, Datas, Hmacs} =
+        lists:unzip3(
+          [{hexstr2bin(Key), hexstr2bin(Data), hexstr2bin(element(N,Hmacs))} 
+           || {Key,Data,Hmacs} <- hmac_sha3_data()]),
+    {Type, Keys, Datas, Hmacs}.
+        
+
+hmac_sha3_data() ->    
+    [
+     {"0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b 0b0b0b0b",
+      "4869205468657265",
+      {"3b16546bbc7be2706a031dcafd56373d 9884367641d8c59af3c860f7",
+       "ba85192310dffa96e2a3a40e69774351 140bb7185e1202cdcc917589f95e16bb",
+       "68d2dcf7fd4ddd0a2240c8a437305f61 fb7334cfb5d0226e1bc27dc10a2e723a 20d370b47743130e26ac7e3d532886bd",
+       "eb3fbd4b2eaab8f5c504bd3a41465aac ec15770a7cabac531e482f860b5ec7ba 47ccb2c6f2afce8f88d22b6dc61380f2 3a668fd3888bb80537c0a0b86407689e"
+      }},
+
+     {"4a656665",
+      "7768617420646f2079612077616e7420 666f72206e6f7468696e673f",
+      {"7fdb8dd88bd2f60d1b798634ad386811 c2cfc85bfaf5d52bbace5e66",
+       "c7d4072e788877ae3596bbb0da73b887 c9171f93095b294ae857fbe2645e1ba5",
+       "f1101f8cbf9766fd6764d2ed61903f21 ca9b18f57cf3e1a23ca13508a93243ce 48c045dc007f26a21b3f5e0e9df4c20a",
+       "5a4bfeab6166427c7a3647b747292b83 84537cdb89afb3bf5665e4c5e709350b 287baec921fd7ca0ee7a0c31d022a95e 1fc92ba9d77df883960275beb4e62024"
+       }},
+
+     {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaa",
+      "dddddddddddddddddddddddddddddddd dddddddddddddddddddddddddddddddd dddddddddddddddddddddddddddddddd dddd",
+      {"676cfc7d16153638780390692be142d2 df7ce924b909c0c08dbfdc1a",
+       "84ec79124a27107865cedd8bd82da996 5e5ed8c37b0ac98005a7f39ed58a4207",
+       "275cd0e661bb8b151c64d288f1f782fb 91a8abd56858d72babb2d476f0458373 b41b6ab5bf174bec422e53fc3135ac6e",
+       "309e99f9ec075ec6c6d475eda1180687 fcf1531195802a99b5677449a8625182 851cb332afb6a89c411325fbcbcd42af cb7b6e5aab7ea42c660f97fd8584bf03"
+       }},
+
+     {"0102030405060708090a0b0c0d0e0f10 111213141516171819",
+      "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd cdcd",
+      {"a9d7685a19c4e0dbd9df2556cc8a7d2a 7733b67625ce594c78270eeb",
+       "57366a45e2305321a4bc5aa5fe2ef8a9 21f6af8273d7fe7be6cfedb3f0aea6d7",
+       "3a5d7a879702c086bc96d1dd8aa15d9c 46446b95521311c606fdc4e308f4b984 da2d0f9449b3ba8425ec7fb8c31bc136",
+       "b27eab1d6e8d87461c29f7f5739dd58e 98aa35f8e823ad38c5492a2088fa0281 993bbfff9a0e9c6bf121ae9ec9bb09d8 4a5ebac817182ea974673fb133ca0d1d"
+       }},
+
+     %% {"0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c 0c0c0c0c",
+     %%  "546573742057697468205472756e6361 74696f6e",
+     %%  {"49fdd3abd005ebb8ae63fea946d1883c",
+     %%   "6e02c64537fb118057abb7fb66a23b3c",
+     %%   "47c51ace1ffacffd7494724682615783",
+     %%   "0fa7475948f43f48ca0516671e18978c"
+     %%   }},
+
+     {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaa",
+      "54657374205573696e67204c61726765 72205468616e20426c6f636b2d53697a 65204b6579202d2048617368204b6579 204669727374",
+      {"b4a1f04c00287a9b7f6075b313d279b8 33bc8f75124352d05fb9995f",
+       "ed73a374b96c005235f948032f09674a 58c0ce555cfc1f223b02356560312c3b",
+       "0fc19513bf6bd878037016706a0e57bc 528139836b9a42c3d419e498e0e1fb96 16fd669138d33a1105e07c72b6953bcc",
+       "00f751a9e50695b090ed6911a4b65524 951cdc15a73a5d58bb55215ea2cd839a c79d2b44a39bafab27e83fde9e11f634 0b11d991b1b91bf2eee7fc872426c3a4"
+       }},
+
+     {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaa",
+      "54657374205573696e67204c61726765 72205468616e20426c6f636b2d53697a 65204b6579202d2048617368204b6579 204669727374",
+      {
+       "b96d730c148c2daad8649d83defaa371 9738d34775397b7571c38515",
+       "a6072f86de52b38bb349fe84cd6d97fb 6a37c4c0f62aae93981193a7229d3467",
+       "713dff0302c85086ec5ad0768dd65a13 ddd79068d8d4c6212b712e4164944911 1480230044185a99103ed82004ddbfcc",
+       "b14835c819a290efb010ace6d8568dc6 b84de60bc49b004c3b13eda763589451 e5dd74292884d1bdce64e6b919dd61dc 9c56a282a81c0bd14f1f365b49b83a5b"
+      }},
+
+     {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaa",
+      "54686973206973206120746573742075 73696e672061206c6172676572207468 616e20626c6f636b2d73697a65206b65 7920616e642061206c61726765722074 68616e20626c6f636b2d73697a652064 6174612e20546865206b6579206e6565 647320746f2062652068617368656420 6265666f7265206265696e6720757365 642062792074686520484d414320616c 676f726974686d2e",
+      {
+       "05d8cd6d00faea8d1eb68ade28730bbd 3cbab6929f0a086b29cd62a0",
+       "65c5b06d4c3de32a7aef8763261e49ad b6e2293ec8e7c61e8de61701fc63e123",
+       "026fdf6b50741e373899c9f7d5406d4e b09fc6665636fc1a530029ddf5cf3ca5 a900edce01f5f61e2f408cdf2fd3e7e8",
+       "38a456a004bd10d32c9ab83366841128 62c3db61adcca31829355eaf46fd5c73 d06a1f0d13fec9a652fb3811b577b1b1 d1b9789f97ae5b83c6f44dfcf1d67eba"
+       }},
+
+     {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaa",
+      "54686973206973206120746573742075 73696e672061206c6172676572207468 616e20626c6f636b2d73697a65206b65 7920616e642061206c61726765722074 68616e20626c6f636b2d73697a652064 6174612e20546865206b6579206e6565 647320746f2062652068617368656420 6265666f7265206265696e6720757365 642062792074686520484d414320616c 676f726974686d2e",
+      {
+       "c79c9b093424e588a9878bbcb089e018 270096e9b4b1a9e8220c866a",
+       "e6a36d9b915f86a093cac7d110e9e04c f1d6100d30475509c2475f571b758b5a",
+       "cad18a8ff6c4cc3ad487b95f9769e9b6 1c062aefd6952569e6e6421897054cfc 70b5fdc6605c18457112fc6aaad45585",
+       "dc030ee7887034f32cf402df34622f31 1f3e6cf04860c6bbd7fa488674782b46 59fdbdf3fd877852885cfe6e22185fe7 b2ee952043629bc9d5f3298a41d02c66"
+       }}
+    %%,
+
+    %%  {"4a656665",
+    %%   "'11001' or LSB 13 or MSB c8",
+    %%   {
+     %% "5f8c0ea7fafecd0c3463aad09742cece  b142fe0ab6f4539438c59de8",
+     %% "ec8222773fac68b3d3dcb182aec8b050  7ace4448d20a1147e682118da4e3f44c",
+     %% "21fbd3bf3ebba3cfc9ef64c0591c92c5  acb265e92d8761d1f91a52a103a6c796  94cfd67a9a2ac1324f02fea63b81effc",
+     %% "27f9388c1567ef4ef200602a6cf871d6  8a6fb048d4737ac4418a2f021289d13d  1fd1120fecb9cf964c5b117ab5b11c61  4b2da39dadd51f2f5e22aaccec7d576e"
+     %%   }}
+    ].
+
+
 
 rfc_4634_test1() ->
     <<"abc">>.
