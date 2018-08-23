@@ -36,7 +36,7 @@
 	 default_algorithms/0, default_algorithms/1,
          algo_classes/0, algo_class/1,
          algo_two_spec_classes/0, algo_two_spec_class/1,
-	 handle_packet_part/4,
+	 handle_packet_part/5,
 	 handle_hello_version/1,
 	 key_exchange_init_msg/1,
 	 key_init/3, new_keys_message/1,
@@ -114,7 +114,8 @@ default_algorithms(kex) ->
 
 default_algorithms(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
-				       'AEAD_AES_256_GCM']));
+				       'AEAD_AES_256_GCM'
+                                      ]));
 default_algorithms(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM']));
@@ -160,6 +161,7 @@ supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
 	[
+         {'chacha20-poly1305@openssh.com', [{ciphers,chacha20}, {macs,poly1305}]},
          {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
          {'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
          {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
@@ -982,13 +984,14 @@ select_algorithm(Role, Client, Server, Opts) ->
 %%% the exchanged MAC algorithms are ignored and there doesn't have to be
 %%% a matching MAC.
 
-aead_gcm_simultan('aes128-gcm@openssh.com', _) -> {'AEAD_AES_128_GCM', 'AEAD_AES_128_GCM'};
-aead_gcm_simultan('aes256-gcm@openssh.com', _) -> {'AEAD_AES_256_GCM', 'AEAD_AES_256_GCM'};
-aead_gcm_simultan('AEAD_AES_128_GCM', _) -> {'AEAD_AES_128_GCM', 'AEAD_AES_128_GCM'};
-aead_gcm_simultan('AEAD_AES_256_GCM', _) -> {'AEAD_AES_256_GCM', 'AEAD_AES_256_GCM'};
-aead_gcm_simultan(_, 'AEAD_AES_128_GCM') -> {'AEAD_AES_128_GCM', 'AEAD_AES_128_GCM'};
-aead_gcm_simultan(_, 'AEAD_AES_256_GCM') -> {'AEAD_AES_256_GCM', 'AEAD_AES_256_GCM'};
-aead_gcm_simultan(Cipher, Mac) -> {Cipher,Mac}.
+aead_gcm_simultan('aes128-gcm@openssh.com', _)         -> {'AEAD_AES_128_GCM', 'AEAD_AES_128_GCM'};
+aead_gcm_simultan('aes256-gcm@openssh.com', _)         -> {'AEAD_AES_256_GCM', 'AEAD_AES_256_GCM'};
+aead_gcm_simultan('AEAD_AES_128_GCM'=C, _)             -> {C, C};
+aead_gcm_simultan('AEAD_AES_256_GCM'=C, _)             -> {C, C};
+aead_gcm_simultan(_, 'AEAD_AES_128_GCM'=C)             -> {C, C};
+aead_gcm_simultan(_, 'AEAD_AES_256_GCM'=C)             -> {C, C};
+aead_gcm_simultan('chacha20-poly1305@openssh.com'=C, _)-> {C, C};
+aead_gcm_simultan(Cipher, Mac)                         -> {Cipher,Mac}.
 
 
 select_encrypt_decrypt(client, Client, Server) ->
@@ -1136,7 +1139,7 @@ pack(PlainText,
 	  encrypt = CryptoAlg} = Ssh0,  PacketLenDeviationForTests) when is_binary(PlainText) ->
 
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
-    {EcryptedPacket, MAC, Ssh3} =
+    {FinalPacket, Ssh3} =
 	case pkt_type(CryptoAlg) of
 	    common ->
 		PaddingLen = padding_length(4+1+size(CompressedPlainText), Ssh0),
@@ -1145,16 +1148,15 @@ pack(PlainText,
 		PlainPacketData = <<?UINT32(PlainPacketLen),?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
 		{Ssh2, EcryptedPacket0} = encrypt(Ssh1, PlainPacketData),
 		MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPacketData),
-		{EcryptedPacket0, MAC0, Ssh2};
+                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2};
 	    aead ->
 		PaddingLen = padding_length(1+size(CompressedPlainText), Ssh0),
 		Padding =  ssh_bits:random(PaddingLen),
 		PlainPacketLen = 1 + PaddingLen + size(CompressedPlainText) + PacketLenDeviationForTests,
 		PlainPacketData = <<?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
-		{Ssh2, {EcryptedPacket0,MAC0}} = encrypt(Ssh1, {<<?UINT32(PlainPacketLen)>>,PlainPacketData}),
-		{<<?UINT32(PlainPacketLen),EcryptedPacket0/binary>>, MAC0, Ssh2}
+                {Ssh2, {EcryptedPacket0,MAC0}} = encrypt(Ssh1, <<?UINT32(PlainPacketLen),PlainPacketData/binary>>),
+                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2}
 	end,
-    FinalPacket = [EcryptedPacket, MAC],
     Ssh = Ssh3#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {FinalPacket, Ssh}.
 
@@ -1174,31 +1176,31 @@ padding_length(Size, #ssh{encrypt_block_size = BlockSize,
 
 
 
-handle_packet_part(<<>>, Encrypted0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0) ->
+handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0) ->
     %% New ssh packet
     case get_length(pkt_type(CryptoAlg), Encrypted0, Ssh0) of
 	get_more ->
 	    %% too short to get the length
-	    {get_more, <<>>, Encrypted0, undefined, Ssh0};
+	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
 
-	{ok, PacketLen, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
+	{ok, PacketLen, _, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
 	    %% far too long message than expected
 	    {error, {exceeds_max_size,PacketLen}};
 	
-	{ok, PacketLen, Decrypted, Encrypted1,
+	{ok, PacketLen, Decrypted, Encrypted1, AEAD,
 	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
 	    %% enough bytes so we got the length and can calculate how many
 	    %% more bytes to expect for a full packet
 	    TotalNeeded = (4 + PacketLen + MacSize),
-	    handle_packet_part(Decrypted, Encrypted1, TotalNeeded, Ssh1)
+	    handle_packet_part(Decrypted, Encrypted1, AEAD, TotalNeeded, Ssh1)
     end;
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded, Ssh0) 
+handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) 
   when (size(DecryptedPfx)+size(EncryptedBuffer)) < TotalNeeded ->
     %% need more bytes to finalize the packet
-    {get_more, DecryptedPfx, EncryptedBuffer, TotalNeeded, Ssh0};
+    {get_more, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0};
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded, 
+handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
 		   #ssh{recv_mac_size = MacSize,
 			decrypt = CryptoAlg} = Ssh0) ->
     %% enough bytes to decode the packet.
@@ -1216,8 +1218,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end;
 	aead ->
-	    PacketLenBin = DecryptedPfx,
-	    case decrypt(Ssh0, {PacketLenBin,EncryptedSfx,Mac}) of
+            case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
 		{Ssh1, error} ->
 		    {bad_mac, Ssh1};
 		{Ssh1, DecryptedSfx} ->
@@ -1234,21 +1235,29 @@ get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0)
 	    <<EncBlock:BlockSize/binary, EncryptedRest/binary>> = EncryptedBuffer,
 	    {Ssh, 
 	     <<?UINT32(PacketLen),_/binary>> = Decrypted} = decrypt(Ssh0, EncBlock),
-	    {ok, PacketLen, Decrypted, EncryptedRest, Ssh};
+	    {ok, PacketLen, Decrypted, EncryptedRest, <<>>, Ssh};
 	false ->
 	    get_more
     end;
+
 get_length(aead, EncryptedBuffer, Ssh) ->
-    case size(EncryptedBuffer) >= 4 of
-	true ->
+    case {size(EncryptedBuffer) >= 4, Ssh#ssh.decrypt} of
+       {true, 'chacha20-poly1305@openssh.com'} ->
+            <<EncryptedLen:4/binary, EncryptedRest/binary>> = EncryptedBuffer,
+            {Ssh1,  PacketLenBin} = decrypt(Ssh, {length,EncryptedLen}),
+            <<?UINT32(PacketLen)>> = PacketLenBin,
+            {ok, PacketLen, PacketLenBin, EncryptedRest, EncryptedLen, Ssh1};
+        {true, _} ->
 	    <<?UINT32(PacketLen), EncryptedRest/binary>> = EncryptedBuffer,
-	    {ok, PacketLen, <<?UINT32(PacketLen)>>, EncryptedRest, Ssh};
-	false ->
+            {ok, PacketLen, <<?UINT32(PacketLen)>>, EncryptedRest, <<?UINT32(PacketLen)>>, Ssh};
+        {false, _} ->
 	    get_more
     end.
 
+
 pkt_type('AEAD_AES_128_GCM') -> aead;
 pkt_type('AEAD_AES_256_GCM') -> aead;
+pkt_type('chacha20-poly1305@openssh.com') -> aead;
 pkt_type(_) -> common.
 
 payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
@@ -1353,11 +1362,32 @@ cipher('aes192-ctr') ->
 cipher('aes256-ctr') ->
     #cipher_data{key_bytes = 32,
                  iv_bytes = 16,
-                 block_bytes = 16}.
+                 block_bytes = 16};
+
+cipher('chacha20-poly1305@openssh.com') -> % FIXME: Verify!!
+    #cipher_data{key_bytes = 32,
+                 iv_bytes = 12,
+                 block_bytes = 8}.
+    
 
 
 encrypt_init(#ssh{encrypt = none} = Ssh) ->
     {ok, Ssh};
+encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = client} = Ssh) ->
+    %% chacha20-poly1305@openssh.com uses two independent crypto streams, one (chacha20)
+    %% for the length used in stream mode, and the other (chacha20-poly1305) as AEAD for
+    %% the payload and to MAC the length||payload.
+    %% See draft-josefsson-ssh-chacha20-poly1305-openssh-00
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "C", 512),
+    {ok, Ssh#ssh{encrypt_keys = {K1,K2}
+                % encrypt_block_size = 16, %default = 8.  What to set it to? 64 (openssl chacha.h)
+                 % ctx and iv is setup for each packet
+                }};
+encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = server} = Ssh) ->
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "D", 512),
+    {ok, Ssh#ssh{encrypt_keys = {K1,K2}
+                % encrypt_block_size = 16, %default = 8.  What to set it to?
+                }};
 encrypt_init(#ssh{encrypt = 'AEAD_AES_128_GCM', role = client} = Ssh) ->
     IV = hash(Ssh, "A", 12*8),
     <<K:16/binary>> = hash(Ssh, "C", 128),
@@ -1458,18 +1488,40 @@ encrypt_final(Ssh) ->
 
 encrypt(#ssh{encrypt = none} = Ssh, Data) ->
     {Ssh, Data};
+encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
+             encrypt_keys = {K1,K2},
+             send_sequence = Seq} = Ssh,
+        <<LenData:4/binary, PayloadData/binary>>) ->
+    %% Encrypt length
+    IV1 = <<0:8/unit:8, Seq:8/unit:8>>,
+    {_,EncLen} = crypto:stream_encrypt(crypto:stream_init(chacha20, K1, IV1),
+                                            LenData),
+    %% Encrypt payload
+    IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
+     {_,EncPayloadData} = crypto:stream_encrypt(crypto:stream_init(chacha20, K2, IV2),
+                                                PayloadData),
+
+    %% MAC tag
+    {_,PolyKey} = crypto:stream_encrypt(crypto:stream_init(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>),
+                                        <<0:32/unit:8>>),
+    EncBytes = <<EncLen/binary,EncPayloadData/binary>>,
+    Ctag = crypto:poly1305(PolyKey, EncBytes),
+    %% Result
+    {Ssh, {EncBytes,Ctag}};
 encrypt(#ssh{encrypt = 'AEAD_AES_128_GCM',
             encrypt_keys = K,
-            encrypt_ctx = IV0} = Ssh, Data={_AAD,_Ptext}) ->
-    Enc = {_Ctext,_Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, Data),
+             encrypt_ctx = IV0} = Ssh,
+        <<LenData:4/binary, PayloadData/binary>>) ->
+    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
     IV = next_gcm_iv(IV0),
-    {Ssh#ssh{encrypt_ctx = IV}, Enc};
+    {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
 encrypt(#ssh{encrypt = 'AEAD_AES_256_GCM',
             encrypt_keys = K,
-            encrypt_ctx = IV0} = Ssh, Data={_AAD,_Ptext}) ->
-    Enc = {_Ctext,_Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, Data),
+             encrypt_ctx = IV0} = Ssh, 
+        <<LenData:4/binary, PayloadData/binary>>) ->
+    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
     IV = next_gcm_iv(IV0),
-    {Ssh#ssh{encrypt_ctx = IV}, Enc};
+    {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
 encrypt(#ssh{encrypt = '3des-cbc',
 	     encrypt_keys = {K1,K2,K3},
 	     encrypt_ctx = IV0} = Ssh, Data) ->
@@ -1502,6 +1554,14 @@ encrypt(#ssh{encrypt = 'aes256-ctr',
 
 decrypt_init(#ssh{decrypt = none} = Ssh) ->
     {ok, Ssh};
+decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = client} = Ssh) ->
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "D", 512),
+    {ok, Ssh#ssh{decrypt_keys = {K1,K2}
+                }};
+decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = server} = Ssh) ->
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "C", 512),
+    {ok, Ssh#ssh{decrypt_keys = {K1,K2}
+                }};
 decrypt_init(#ssh{decrypt = 'AEAD_AES_128_GCM', role = client} = Ssh) ->
     IV = hash(Ssh, "B", 12*8),
     <<K:16/binary>> = hash(Ssh, "D", 128),
@@ -1602,6 +1662,31 @@ decrypt_final(Ssh) ->
 
 decrypt(Ssh, <<>>) ->
     {Ssh, <<>>};
+decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
+             decrypt_keys = {K1,_K2},
+             recv_sequence = Seq} = Ssh, {length,EncryptedLen}) ->
+    {_State,PacketLenBin} =
+        crypto:stream_decrypt(crypto:stream_init(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>),
+                              EncryptedLen),
+    {Ssh, PacketLenBin};
+decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
+             decrypt_keys = {_K1,K2},
+             recv_sequence = Seq} = Ssh, {AAD,Ctext,Ctag}) ->
+    %% The length is already decoded and used to divide the input
+    %% Check the mac (important that it is timing-safe):
+    {_,PolyKey} =
+        crypto:stream_encrypt(crypto:stream_init(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>),
+                              <<0:32/unit:8>>),
+    case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
+        true ->
+            %% MAC is ok, decode
+            IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
+            {_,PlainText} =
+                crypto:stream_decrypt(crypto:stream_init(chacha20,K2,IV2), Ctext),
+            {Ssh, PlainText};
+        false ->
+           {Ssh,error}
+    end;
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->
     {Ssh, Data};
 decrypt(#ssh{decrypt = 'AEAD_AES_128_GCM',
@@ -1744,7 +1829,7 @@ send_mac_init(SSH) ->
 		    Key = hash(SSH, "F", KeySize),
 		    {ok, SSH#ssh { send_mac_key = Key }}
 	    end;
-	aead ->
+	_ ->
 	    %% Not applicable
 	    {ok, SSH}
     end.
@@ -1765,7 +1850,7 @@ recv_mac_init(SSH) ->
 		    Key = hash(SSH, "E", 8*mac_key_bytes(SSH#ssh.recv_mac)),
 		    {ok, SSH#ssh { recv_mac_key = Key }}
 	    end;
-	aead ->
+	_ ->
 	    %% Not applicable
 	    {ok, SSH}
     end.
@@ -1905,6 +1990,7 @@ mac_key_bytes('hmac-sha2-256')-> 32;
 mac_key_bytes('hmac-sha2-512')-> 64;
 mac_key_bytes('AEAD_AES_128_GCM') -> 0;
 mac_key_bytes('AEAD_AES_256_GCM') -> 0;
+mac_key_bytes('chacha20-poly1305@openssh.com') -> 0;
 mac_key_bytes(none) -> 0.
 
 mac_digest_size('hmac-sha1')    -> 20;
@@ -1915,6 +2001,7 @@ mac_digest_size('hmac-sha2-256') -> 32;
 mac_digest_size('hmac-sha2-512') -> 64;
 mac_digest_size('AEAD_AES_128_GCM') -> 16;
 mac_digest_size('AEAD_AES_256_GCM') -> 16;
+mac_digest_size('chacha20-poly1305@openssh.com') -> 16;
 mac_digest_size(none) -> 0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2025,6 +2112,20 @@ same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 %% Other utils
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Compare two binaries in a timing safe maner.
+%%% The time spent in comparing should not be different depending on where in the binaries they differ.
+%%% This is to avoid a certain side-channel attac.
+equal_const_time(X1, X2) -> equal_const_time(X1, X2, true).
+
+equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
+    equal_const_time(R1, R2, Truth and (B1 == B2));
+equal_const_time(<<>>, <<>>, Truth) ->
+    Truth;
+equal_const_time(_, _, _) ->
+    false.
+
+%%%-------- Remove CR, LF and following characters from a line
 
 trim_tail(Str) ->
     lists:takewhile(fun(C) -> 
