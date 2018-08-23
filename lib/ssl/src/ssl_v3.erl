@@ -131,7 +131,7 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 
--spec suites() -> [ssl_cipher:cipher_suite()].
+-spec suites() -> [ssl_cipher_format:cipher_suite()].
 
 suites() ->
     [
