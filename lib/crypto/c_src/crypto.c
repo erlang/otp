@@ -537,6 +537,7 @@ static ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 static ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /* helpers */
@@ -626,6 +627,7 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_first_nif", 0, engine_get_first_nif},
     {"engine_get_next_nif", 1, engine_get_next_nif},
     {"engine_get_id_nif", 1, engine_get_id_nif},
+    {"engine_get_name_nif", 1, engine_get_name_nif},
     {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif}
 
 };
@@ -4967,7 +4969,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
         } else {
             /* non-evp rsa private decrypt */
             i = RSA_private_decrypt(in_bin.size, in_bin.data,
-                                    out_bin.data, rsa, crypt_opt.rsa_padding);       
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);
             if (i > 0) {
                 ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
                 enif_realloc_binary(&out_bin, i);
@@ -4985,7 +4987,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
         } else {
             /* non-evp rsa public decrypt */
             i = RSA_public_decrypt(in_bin.size, in_bin.data,
-                                   out_bin.data, rsa, crypt_opt.rsa_padding);    
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);
             if (i > 0) {
                 ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
                 enif_realloc_binary(&out_bin, i);
@@ -5103,7 +5105,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
           / * Example of result:
                {
                  Curve =  {Field, Prime, Point, Order, CoFactor} =
-                    { 
+                    {
                       Field =  {prime_field,<<255,...,255>>},
                       Prime = {<<255,...,252>>,
                                <<90,...,75>>,
@@ -5116,9 +5118,9 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
                 Key = <<151,...,62>>
                 }
               or
-              { 
+              {
                 Curve =
-                    {characteristic_two_field, 
+                    {characteristic_two_field,
                      M,
                      Basis = {tpbasis, _}
                            | {ppbasis, k1, k2, k3}
@@ -5131,7 +5133,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
         */
 #endif
     }
-    
+
     if (pkey) EVP_PKEY_free(pkey);
     return enif_make_badarg(env);
 }
@@ -5312,7 +5314,7 @@ static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const 
 
  error:
     for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
-        enif_free(cmds[i]);    
+        enif_free(cmds[i]);
     enif_free(cmds);
     return ret;
 #else
@@ -5630,7 +5632,7 @@ static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!engine_id) {
         enif_alloc_binary(0, &engine_id_bin);
         engine_id_bin.size = 0;
-        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_id_bin));
+        return enif_make_binary(env, &engine_id_bin);
     }
 
     size = strlen(engine_id);
@@ -5638,7 +5640,39 @@ static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     engine_id_bin.size = size;
     memcpy(engine_id_bin.data, engine_id, size);
 
-    return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_id_bin));
+    return enif_make_binary(env, &engine_id_bin);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ErlNifBinary engine_name_bin;
+    const char *engine_name;
+    int size;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_id_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    engine_name = ENGINE_get_name(ctx->engine);
+    if (!engine_name) {
+        enif_alloc_binary(0, &engine_name_bin);
+        engine_name_bin.size = 0;
+        return enif_make_binary(env, &engine_name_bin);
+    }
+
+    size = strlen(engine_name);
+    enif_alloc_binary(size, &engine_name_bin);
+    engine_name_bin.size = size;
+    memcpy(engine_name_bin.data, engine_name, size);
+
+    return enif_make_binary(env, &engine_name_bin);
 #else
     return atom_notsup;
 #endif
