@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,9 +51,18 @@
          engine_load/3,
          engine_load/4,
          engine_unload/1,
+         engine_by_id/1,
          engine_list/0,
          engine_ctrl_cmd_string/3,
-         engine_ctrl_cmd_string/4
+         engine_ctrl_cmd_string/4,
+         engine_add/1,
+         engine_remove/1,
+         engine_get_id/1,
+         engine_get_name/1,
+         ensure_engine_loaded/2,
+         ensure_engine_loaded/3,
+         ensure_engine_unloaded/1,
+         ensure_engine_unloaded/2
         ]).
 
 -export_type([engine_ref/0,
@@ -444,7 +453,7 @@ sign(Algorithm, Type, Data, Key, Options) ->
 -type engine_key_ref() :: #{engine :=   engine_ref(),
                             key_id :=   key_id(),
                             password => password(),
-                            term() => term() 
+                            term() => term()
                            }.
 
 -type pk_algs() :: rsa | ecdsa | dss .
@@ -604,7 +613,7 @@ compute_key(ecdh, Others, My, Curve) ->
 -type engine_method_type() :: engine_method_rsa | engine_method_dsa | engine_method_dh |
                               engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
                               engine_method_ciphers | engine_method_digests | engine_method_store |
-                              engine_method_pkey_meths | engine_method_pkey_asn1_meths | 
+                              engine_method_pkey_meths | engine_method_pkey_asn1_meths |
                               engine_method_ec.
 
 -type engine_ref() :: term().
@@ -621,7 +630,8 @@ engine_get_all_methods() ->
                   PreCmds::[{unicode:chardata(), unicode:chardata()}],
                   PostCmds::[{unicode:chardata(), unicode:chardata()}]) ->
     {ok, Engine::engine_ref()} | {error, Reason::term()}.
-engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds), is_list(PostCmds) ->
+engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
+                                              is_list(PostCmds) ->
     engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
 
 %%----------------------------------------------------------------------
@@ -638,28 +648,26 @@ engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
         ok = notsup_to_error(engine_load_dynamic_nif()),
         case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
             {ok, Engine} ->
-                ok = engine_load_1(Engine, PreCmds, PostCmds, EngineMethods),
-                {ok, Engine};
+                engine_load_1(Engine, PreCmds, PostCmds, EngineMethods);
             {error, Error1} ->
                 {error, Error1}
         end
     catch
-       throw:Error2 ->
-          Error2
+        throw:Error2 ->
+            Error2
     end.
 
 engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
-        ok = engine_nif_wrapper(engine_add_nif(Engine)),
         ok = engine_nif_wrapper(engine_init_nif(Engine)),
         engine_load_2(Engine, PostCmds, EngineMethods),
-        ok
+        {ok, Engine}
     catch
-       throw:Error ->
-          %% The engine couldn't initialise, release the structural reference
-          ok = engine_free_nif(Engine),
-          throw(Error)
+        throw:Error ->
+            %% The engine couldn't initialise, release the structural reference
+            ok = engine_free_nif(Engine),
+            throw(Error)
     end.
 
 engine_load_2(Engine, PostCmds, EngineMethods) ->
@@ -689,7 +697,6 @@ engine_unload(Engine, EngineMethods) ->
     try
         [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
             Method <- EngineMethods],
-        ok = engine_nif_wrapper(engine_remove_nif(Engine)),
         %% Release the functional reference from engine_init_nif
         ok = engine_nif_wrapper(engine_finish_nif(Engine)),
         %% Release the structural reference from engine_by_id_nif
@@ -698,6 +705,41 @@ engine_unload(Engine, EngineMethods) ->
        throw:Error ->
           Error
     end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_by_id/1
+%%----------------------------------------------------------------------
+engine_by_id(EngineId) ->
+    try
+        notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)))
+    catch
+       throw:Error ->
+          Error
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_add/1
+%%----------------------------------------------------------------------
+engine_add(Engine) ->
+    notsup_to_error(engine_add_nif(Engine)).
+
+%%----------------------------------------------------------------------
+%% Function: engine_remove/1
+%%----------------------------------------------------------------------
+engine_remove(Engine) ->
+    notsup_to_error(engine_remove_nif(Engine)).
+
+%%----------------------------------------------------------------------
+%% Function: engine_get_id/1
+%%----------------------------------------------------------------------
+engine_get_id(Engine) ->
+    notsup_to_error(engine_get_id_nif(Engine)).
+
+%%----------------------------------------------------------------------
+%% Function: engine_get_name/1
+%%----------------------------------------------------------------------
+engine_get_name(Engine) ->
+    notsup_to_error(engine_get_name_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_list/0
@@ -710,9 +752,9 @@ engine_list() ->
             [];
         {ok, Engine} ->
             case notsup_to_error(engine_get_id_nif(Engine)) of
-                {ok, <<>>} ->
+                <<>> ->
                     engine_list(Engine, []);
-                {ok, EngineId} ->
+                EngineId ->
                     engine_list(Engine, [EngineId])
             end
     end.
@@ -723,9 +765,9 @@ engine_list(Engine0, IdList) ->
             lists:reverse(IdList);
         {ok, Engine1} ->
             case notsup_to_error(engine_get_id_nif(Engine1)) of
-                {ok, <<>>} ->
+                <<>> ->
                     engine_list(Engine1, IdList);
-                {ok, EngineId} ->
+                EngineId ->
                     engine_list(Engine1, [EngineId |IdList])
             end
     end.
@@ -734,7 +776,7 @@ engine_list(Engine0, IdList) ->
 %% Function: engine_ctrl_cmd_string/3
 %%----------------------------------------------------------------------
 -spec engine_ctrl_cmd_string(Engine::term(),
-                      CmdName::unicode:chardata(), 
+                      CmdName::unicode:chardata(),
                       CmdArg::unicode:chardata()) ->
     ok | {error, Reason::term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
@@ -744,13 +786,13 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
 %% Function: engine_ctrl_cmd_string/4
 %%----------------------------------------------------------------------
 -spec engine_ctrl_cmd_string(Engine::term(),
-                      CmdName::unicode:chardata(), 
+                      CmdName::unicode:chardata(),
                       CmdArg::unicode:chardata(),
                       Optional::boolean()) ->
     ok | {error, Reason::term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
-    case engine_ctrl_cmd_strings_nif(Engine, 
-                                     ensure_bin_cmds([{CmdName, CmdArg}]), 
+    case engine_ctrl_cmd_strings_nif(Engine,
+                                     ensure_bin_cmds([{CmdName, CmdArg}]),
                                      bool_to_int(Optional)) of
         ok ->
             ok;
@@ -758,6 +800,82 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
             erlang:error(notsup);
         {error, Error} ->
             {error, Error}
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: ensure_engine_loaded/2
+%% Special version of load that only uses dynamic engine to load
+%%----------------------------------------------------------------------
+ensure_engine_loaded(EngineId, LibPath) ->
+    ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
+
+%%----------------------------------------------------------------------
+%% Function: ensure_engine_loaded/3
+%% Special version of load that only uses dynamic engine to load
+%%----------------------------------------------------------------------
+ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
+    try
+        List = crypto:engine_list(),
+        case lists:member(EngineId, List) of
+            true ->
+                notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)));
+            false ->
+                ok = notsup_to_error(engine_load_dynamic_nif()),
+                case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(<<"dynamic">>))) of
+                    {ok, Engine} ->
+                        PreCommands = [{<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
+                                       {<<"ID">>, ensure_bin_chardata(EngineId)},
+                                       <<"LOAD">>],
+                        ensure_engine_loaded_1(Engine, PreCommands, EngineMethods);
+                    {error, Error1} ->
+                        {error, Error1}
+                end
+        end
+    catch
+        throw:Error2 ->
+            Error2
+    end.
+
+ensure_engine_loaded_1(Engine, PreCmds, Methods) ->
+    try
+        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
+        ok = engine_nif_wrapper(engine_add_nif(Engine)),
+        ok = engine_nif_wrapper(engine_init_nif(Engine)),
+        ensure_engine_loaded_2(Engine, Methods),
+        {ok, Engine}
+    catch
+        throw:Error ->
+            %% The engine couldn't initialise, release the structural reference
+            ok = engine_free_nif(Engine),
+            throw(Error)
+    end.
+
+ensure_engine_loaded_2(Engine, Methods) ->
+    try
+        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
+            Method <- Methods],
+        ok
+    catch
+       throw:Error ->
+          %% The engine registration failed, release the functional reference
+          ok = engine_finish_nif(Engine),
+          throw(Error)
+    end.
+%%----------------------------------------------------------------------
+%% Function: ensure_engine_unloaded/1
+%%----------------------------------------------------------------------
+ensure_engine_unloaded(Engine) ->
+    ensure_engine_unloaded(Engine, engine_get_all_methods()).
+
+%%----------------------------------------------------------------------
+%% Function: ensure_engine_unloaded/2
+%%----------------------------------------------------------------------
+ensure_engine_unloaded(Engine, EngineMethods) ->
+    case engine_remove(Engine) of
+        ok ->
+            engine_unload(Engine, EngineMethods);
+        {error, E} ->
+            {error, E}
     end.
 
 %%--------------------------------------------------------------------
@@ -827,7 +945,7 @@ path2bin(Path) when is_list(Path) ->
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
 
-notsup_to_error(notsup) -> 
+notsup_to_error(notsup) ->
     erlang:error(notsup);
 notsup_to_error(Other) ->
     Other.
@@ -1104,7 +1222,7 @@ privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
         error:notsup ->
             {error, notsup}
     end.
-            
+
 privkey_to_pubkey_nif(_Alg, _EngineMap) -> ?nif_stub.
 
 
@@ -1266,6 +1384,7 @@ engine_unregister_nif(_Engine, _EngineMethod) -> ?nif_stub.
 engine_get_first_nif() -> ?nif_stub.
 engine_get_next_nif(_Engine) -> ?nif_stub.
 engine_get_id_nif(_Engine) -> ?nif_stub.
+engine_get_name_nif(_Engine) -> ?nif_stub.
 engine_get_all_methods_nif() -> ?nif_stub.
 
 %%--------------------------------------------------------------------
@@ -1323,7 +1442,7 @@ get_test_engine() ->
     Type = erlang:system_info(system_architecture),
     LibDir = filename:join([code:priv_dir(crypto), "lib"]),
     ArchDir = filename:join([LibDir, Type]),
-    case filelib:is_dir(ArchDir) of        
+    case filelib:is_dir(ArchDir) of
 	true  -> check_otp_test_engine(ArchDir);
 	false -> check_otp_test_engine(LibDir)
     end.
@@ -1341,4 +1460,3 @@ check_otp_test_engine(LibDir) ->
                     {error, notexist}
             end
     end.
-            
