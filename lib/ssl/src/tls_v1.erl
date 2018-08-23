@@ -193,7 +193,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		     Fragment]),
     Mac.
 
--spec suites(1|2|3|4) -> [ssl_cipher:cipher_suite()].
+-spec suites(1|2|3|4) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Minor) when Minor == 1; Minor == 2 ->
     [

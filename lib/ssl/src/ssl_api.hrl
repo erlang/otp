@@ -57,7 +57,7 @@
 
 -type verify_type()  :: verify_none | verify_peer.
 -type path()         :: string().
--type ciphers()      :: [ssl_cipher:erl_cipher_suite()] |
+-type ciphers()      :: [ssl_cipher_format:erl_cipher_suite()] |
 			string(). % (according to old API)
 -type ssl_imp()      :: new | old.
 
