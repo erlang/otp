@@ -980,13 +980,23 @@ handle_http_body(_, #state{status = {ssl_tunnel, Request},
     NewState     = answer_request(Request, ClientErrMsg, State),
     {stop, normal, NewState};
 
-handle_http_body(<<>>, #state{status_line = {_,304, _}} = State) ->
+%% All 1xx (informational), 204 (no content), and 304 (not modified)
+%% responses MUST NOT include a message-body, and thus are always
+%% terminated by the first empty line after the header fields.
+%% This implies that chunked encoding MUST NOT be used for these
+%% status codes.
+handle_http_body(<<>>, #state{headers = Headers,
+                              status_line = {_,StatusCode, _}} = State)
+  when Headers#http_response_h.'transfer-encoding' =/= "chunked" andalso
+       (StatusCode =:= 204 orelse                       %% No Content
+        StatusCode =:= 304 orelse                       %% Not Modified
+        100 =< StatusCode andalso StatusCode =< 199) -> %% Informational
     handle_response(State#state{body = <<>>});
 
-handle_http_body(<<>>, #state{status_line = {_,204, _}} = State) ->
-    handle_response(State#state{body = <<>>});
 
-handle_http_body(<<>>, #state{request = #request{method = head}} = State) ->
+handle_http_body(<<>>, #state{headers = Headers,
+                              request = #request{method = head}} = State)
+  when Headers#http_response_h.'transfer-encoding' =/= "chunked" ->
     handle_response(State#state{body = <<>>});
 
 handle_http_body(Body, #state{headers       = Headers, 
