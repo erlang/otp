@@ -155,7 +155,7 @@ del_object_bag_([IxK|IxKs], Found, Type, Tab, Key, Obj, Ixt) ->
 		bag ->
                     db_match_erase(Ixt, {IxK, Key});
 		ordered ->
-		    db_erase(Ixt, {{IxK, Key}})
+		    db_erase(Ixt, {IxK, Key})
 	    end;
         _ ->
 	    ok
