@@ -110,6 +110,9 @@
 
     <code>ecdh_params() = ec_named_curve() | ec_explicit_curve()</code>
 
+    <code>ed_named_curves_ecdh() -> x448 | x25519</code>
+    <p>Note that the curves are only supported if the underlying OpenSSL has support for them.</p>
+
     <code>ec_explicit_curve() =
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(),
      CoFactor :: none | integer()} </code>
@@ -161,6 +164,7 @@
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
 
      <code>aead_cipher() = aes_gcm | chacha20_poly1305 </code>
+     <p>Note that the actual supported algorithms depends on the underlying crypto library.</p>
 
      <code>stream_key() = aes_key() | rc4_key() </code>
 
@@ -189,8 +193,11 @@
 
      <code>rsa_sign_padding() = rsa_pkcs1_padding | rsa_pkcs1_pss_padding</code>
 
-     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> <p>md4 is also supported for hash_init/1 and hash/2.
+     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 |
+     sha3_224 | sha3_256 | sha3_384 | sha3_512 </code>
+     <p>md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
+     Note that the actual supported hash_algorithms depends on the underlying crypto library.
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
      aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20 | chacha20_poly1305 | des_cbc |
@@ -306,7 +313,7 @@
 	<v> Type = dh | ecdh | srp </v>
 	<v>OthersPublicKey =  dh_public() | ecdh_public() | srp_public() </v>
 	<v>MyKey = dh_private() | ecdh_private() | {srp_public(),srp_private()}</v>
-	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams</v>
+	<v>Params = dh_params() | ecdh_params() | ed_named_curves_ecdh() | SrpUserParams | SrpHostParams</v>
 	<v>SrpUserParams = {user, [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | [Scrambler:binary()]]} </v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Prime::binary(), Version::atom() | [Scrambler::binary]]} </v>
 	<v>SharedSecret = binary()</v>
@@ -336,7 +343,7 @@
       <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <type>
 	<v> Type = dh | ecdh | rsa | srp </v>
-	<v>Params = dh_params() | ecdh_params() | RsaParams | SrpUserParams | SrpHostParams </v>
+	<v>Params = dh_params() | ecdh_params() | ed_named_curves_ecdh()| RsaParams | SrpUserParams | SrpHostParams </v>
 	<v>RsaParams = {ModulusSizeInBits::integer(), PublicExponent::key_value()}</v>
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>

@@ -104,10 +104,6 @@ algo_two_spec_class(_) -> false.
 
 default_algorithms(kex) ->
     supported_algorithms(kex, [
-                               %% Under devolpment:
-                               'curve25519-sha256',
-                               'curve25519-sha256@libssh.org',
-                               'curve448-sha512',
                                %%  Gone in OpenSSH 7.3.p1:
                                'diffie-hellman-group1-sha1'
                               ]);
@@ -132,15 +128,15 @@ supported_algorithms(kex) ->
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {curves,secp521r1}, {hashs,sha512}]},
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
-       %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
-       %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
-       {'curve25519-sha256',                    [{public_keys,eddh}, {curves,x25519}, {hashs,sha256}]},
-       {'curve25519-sha256@libssh.org',         [{public_keys,eddh}, {curves,x25519}, {hashs,sha256}]},
-       {'curve448-sha512',                      [{public_keys,eddh}, {curves,x448},   {hashs,sha512}]},
        {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
        {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
+       %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
+       %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
+       {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
        {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
@@ -1897,6 +1893,7 @@ hash(K, H, Ki, N, HashAlg) ->
 kex_hash(SSH, Key, HashAlg, Args) ->
     crypto:hash(HashAlg, kex_plaintext(SSH,Key,Args)).
 
+
 kex_plaintext(SSH, Key, Args) ->
     EncodedKey = public_key:ssh_encode(Key, ssh2_pubkey),
     <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
@@ -1904,8 +1901,13 @@ kex_plaintext(SSH, Key, Args) ->
       ?Ebinary(EncodedKey),
       (kex_alg_dependent(Args))/binary>>.
 
+
+kex_alg_dependent({Q_c, Q_s, K}) when is_binary(Q_c), is_binary(Q_s) ->
+    %% ecdh
+    <<?Ebinary(Q_c), ?Ebinary(Q_s), ?Empint(K)>>;
+
 kex_alg_dependent({E, F, K}) ->
-    %% diffie-hellman and ec diffie-hellman (with E = Q_c, F = Q_s)
+    %% diffie-hellman
     <<?Empint(E), ?Empint(F), ?Empint(K)>>;
 
 kex_alg_dependent({-1, NBits, -1, Prime, Gen, E, F, K}) ->
@@ -2024,11 +2026,13 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
 
+generate_key(ecdh = Algorithm, Args) ->
+    crypto:generate_key(Algorithm, Args);
 generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
-      
+
 compute_key(Algorithm, OthersPublic, MyPrivate, Args) ->
     Shared = crypto:compute_key(Algorithm, OthersPublic, MyPrivate, Args),
     crypto:bytes_to_integer(Shared).
