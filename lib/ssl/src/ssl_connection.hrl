@@ -59,7 +59,7 @@
           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
           client_hello_version  :: ssl_record:ssl_version() | 'undefined',
           client_certificate_requested = false :: boolean(),
-	  key_algorithm         :: ssl_cipher:key_algo(),
+	  key_algorithm         :: ssl_cipher_format:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
 	  cert_hashsign_algorithm = {undefined, undefined},
           public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
