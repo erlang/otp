@@ -181,7 +181,7 @@
       goes for application versions.</p>
       <p>In general, versions can have more than three parts.
       The versions are then only partially ordered. Such
-      versions are only used in exceptional cases. When an extra
+      versions are only used when branching off from another branch. When an extra
       part (out of the normal three parts) is added to a version number,
       a new branch of versions is made. The new branch has a linear
       order against the base version. However, versions on different
@@ -236,6 +236,33 @@
       For more information see the
       <seealso marker="#version_scheme">Version Scheme</seealso>
       section above.
+    </p>
+  </section>
+
+  <section>
+    <marker id="otp_versions_tree"/>
+    <title>OTP Versions Tree</title>
+    <p>
+      All released OTP versions can be found in the
+      <url href="http://www.erlang.org/download/otp_versions_tree.html">OTP
+      Versions Tree</url> which is automatically updated whenever
+      we release a new OTP version. Note that every version number as
+      such explicitly define its position in the version tree. Nothing
+      more than the version numbers are needed in order to construct
+      the tree. The root of the tree is OTP version 17.0 which is when
+      we introduced the new
+      <seealso marker="#version_scheme">version scheme</seealso>. The
+      green versions are normal versions released on the main track.
+      Old <seealso marker="#releases_and_patches">OTP releases</seealso>
+      will be maintained for a while on <c>maint</c> branches that have
+      branched off from the main track. Old <c>maint</c> branches always
+      branch off from the main track when the next OTP release is
+      introduced into the main track. Versions on these old <c>maint</c>
+      branches are marked blue. Besides the green and blue versions,
+      there are also gray versions. These are versions on branches
+      introduced in order to fix a specific problem for a specific
+      customer on a specific base version. Branches with gray versions
+      will typically become dead ends very quickly if not immediately.
     </p>
   </section>
 
