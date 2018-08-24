@@ -52,6 +52,13 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
+rename_instrs([{test,is_eq_exact,_,[Dst,Src]}=Test,
+               {move,Src,Dst}|Is]) ->
+    %% The move instruction is not needed.
+    rename_instrs([Test|Is]);
+rename_instrs([{test,is_eq_exact,_,[Same,Same]}|Is]) ->
+    %% Same literal or same register. Will always succeed.
+    rename_instrs(Is);
 rename_instrs([{apply_last,A,N}|Is]) ->
     [{apply,A},{deallocate,N},return|rename_instrs(Is)];
 rename_instrs([{call_last,A,F,N}|Is]) ->

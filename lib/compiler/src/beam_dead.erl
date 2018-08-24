@@ -80,11 +80,6 @@ move_move_into_block([], Acc) -> reverse(Acc).
 %%% the register already contains the value being assigned, as in the
 %%% following code:
 %%%
-%%%           test is_eq_exact SomeLabel Src Dst
-%%%           move Src Dst
-%%%
-%%% or in:
-%%%
 %%%           select_val Register FailLabel [... Literal => L1...]
 %%%                      .
 %%%                      .
@@ -103,9 +98,6 @@ forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
 forward([{bif,_,_,_,_}=Bif|[{label,L}|_]=Is], D, Lc, Acc) ->
     %% bif/4 followed by jump/1 is optimized by backward/3.
     forward([Bif,{jump,{f,L}}|Is], D, Lc, Acc);
-forward([{block,[]}|Is], D, Lc, Acc) ->
-    %% Empty blocks can prevent optimizations.
-    forward(Is, D, Lc, Acc);
 forward([{select,select_val,Reg,_,List}=I|Is], D0, Lc, Acc) ->
     D = update_value_dict(List, Reg, D0),
     forward(Is, D, Lc, [I|Acc]);
@@ -130,13 +122,6 @@ forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
 	     _ -> Is0		  %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
-forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
-    forward(Is, D, Lc, Acc);
-forward([{test,is_eq_exact,_,[Dst,Src]}=I,
-	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
-    forward([I,{block,Bl}|Is], D, Lc, Acc);
-forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
-    forward([I|Is], D, Lc, Acc);
 forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
     %% Help the second, backward pass to by inserting labels after
     %% relational operators so that they can be skipped if they are
