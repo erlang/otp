@@ -101,38 +101,55 @@ forward([{bif,_,_,_,_}=Bif|[{label,L}|_]=Is], D, Lc, Acc) ->
 forward([{select,select_val,Reg,_,List}=I|Is], D0, Lc, Acc) ->
     D = update_value_dict(List, Reg, D0),
     forward(Is, D, Lc, [I|Acc]);
-forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc, Acc) ->
-    %% Assumption: The target labels in a select_val/3 instruction
-    %% cannot be reached in any other way than through the select_val/3
-    %% instruction (i.e. there can be no fallthrough to such label and
-    %% it cannot be referenced by, for example, a jump/1 instruction).
-    Key = {Lbl,Dst},
-    Block = case D of
-                #{Key := Lit} -> {block,BlkIs}; %Safe to remove move instruction.
-                _ -> Blk                        %Must keep move instruction.
-            end,
-    forward([Block|Is], D, Lc, [LblI|Acc]);
-forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
-    %% Assumption: The target labels in a select_val/3 instruction
-    %% cannot be reached in any other way than through the select_val/3
-    %% instruction (i.e. there can be no fallthrough to such label and
-    %% it cannot be referenced by, for example, a jump/1 instruction).
-    Is = case maps:find({Lbl,Dst}, D) of
-	     {ok,Lit} -> Is1;     %Safe to remove move instruction.
-	     _ -> Is0		  %Keep move instruction.
-	 end,
-    forward(Is, D, Lc, [LblI|Acc]);
-forward([{test,_,_,_}=I|Is]=Is0, D, Lc, Acc) ->
+forward([{label,Lbl},{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk0|Is],
+        D, Lc, Acc0) ->
+    Acc = [{label,Lbl}|Acc0],
+    case already_has_value(Lit, Lbl, Dst, D) andalso
+        no_fallthrough(Acc0) of
+        true ->
+            Blk = {block,BlkIs},
+            forward([Blk|Is], D, Lc, Acc);
+        false ->
+            forward([Blk0|Is], D, Lc, Acc)
+    end;
+forward([{label,Lbl},{move,Lit,Dst}=Move|Is], D, Lc, Acc0) ->
+    Acc = [{label,Lbl}|Acc0],
+    case already_has_value(Lit, Lbl, Dst, D) andalso
+        no_fallthrough(Acc0) of
+        true ->
+            %% Remove redundant 'move' instruction.
+            forward(Is, D, Lc, Acc);
+        false ->
+            %% Keep 'move' instruction.
+            forward([Move|Is], D, Lc, Acc)
+    end;
+forward([{test,_,_,_}=I|Is]=Is0, D0, Lc, Acc) ->
     %% Help the second, backward pass to by inserting labels after
     %% relational operators so that they can be skipped if they are
     %% known to be true.
+    D = update_unsafe_labels(I, D0),
     case useful_to_insert_label(Is0) of
 	false -> forward(Is, D, Lc, [I|Acc]);
 	true -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
     end;
-forward([I|Is], D, Lc, Acc) ->
+forward([I|Is], D0, Lc, Acc) ->
+    D = update_unsafe_labels(I, D0),
     forward(Is, D, Lc, [I|Acc]);
 forward([], _, Lc, Acc) -> {Acc,Lc}.
+
+no_fallthrough([I|_]) ->
+    beam_jump:is_unreachable_after(I).
+
+already_has_value(Lit, Lbl, Reg, D) ->
+    Key = {Lbl,Reg},
+    case D of
+        #{Lbl:=unsafe} ->
+            false;
+        #{Key:=Lit} ->
+            true;
+        #{} ->
+            false
+    end.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
@@ -143,6 +160,14 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
         end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
+
+update_unsafe_labels(I, D) ->
+    Ls = beam_jump:instr_labels(I),
+    update_unsafe_labels_1(Ls, D).
+
+update_unsafe_labels_1([L|Ls], D) ->
+    update_unsafe_labels_1(Ls, D#{L=>unsafe});
+update_unsafe_labels_1([], D) -> D.
 
 useful_to_insert_label([_,{label,_}|_]) ->
     false;
