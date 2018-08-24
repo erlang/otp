@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
 	 tuple/1,record_float/1,binary_float/1,float_compare/1,
-	 arity_checks/1,elixir_binaries/1,find_best/1]).
+	 arity_checks/1,elixir_binaries/1,find_best/1,
+         test_size/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -43,7 +44,8 @@ groups() ->
        float_compare,
        arity_checks,
        elixir_binaries,
-       find_best
+       find_best,
+       test_size
       ]}].
 
 init_per_suite(Config) ->
@@ -177,10 +179,49 @@ setelement(_Config) ->
 
 cons(_Config) ->
     [did] = cons(assigned, did),
+
+    true = cons_is_empty_list([]),
+    false = cons_is_empty_list([a]),
+
+    false = cons_not(true),
+    true = cons_not(false),
+
+    {$a,"bc"} = cons_hdtl(true),
+    {$d,"ef"} = cons_hdtl(false),
     ok.
 
 cons(assigned, Instrument) ->
     [Instrument] = [did].
+
+cons_is_empty_list(L) ->
+    Cons = case L of
+               [] -> "true";
+               _ -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> true;
+        "false" -> false
+    end.
+
+cons_not(B) ->
+    Cons = case B of
+               true -> "true";
+               false -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> false;
+        "false" -> true
+    end.
+
+cons_hdtl(B) ->
+    Cons = case B of
+               true -> "abc";
+               false -> "def"
+           end,
+    id(1),
+    {id(hd(Cons)),id(tl(Cons))}.
 
 tuple(_Config) ->
     {'EXIT',{{badmatch,{necessary}},_}} = (catch do_tuple()),
@@ -320,6 +361,15 @@ find_best([], <<"a">>) ->
 find_best([], nil) ->
     {error,<<"should not get here">>}.
 
+test_size(Config) ->
+    2 = do_test_size({a,b}),
+    4 = do_test_size(<<42:32>>),
+    ok.
+
+do_test_size(Term) when is_tuple(Term) ->
+    size(Term);
+do_test_size(Term) when is_binary(Term) ->
+    size(Term).
 
 id(I) ->
     I.

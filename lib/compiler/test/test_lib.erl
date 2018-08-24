@@ -72,11 +72,9 @@ opt_opts(Mod) ->
     {options,Opts} = lists:keyfind(options, 1, Comp),
     lists:filter(fun(no_copt) -> true;
 		    (no_postopt) -> true;
-		    (no_float_opt) -> true;
-		    (no_new_funs) -> true;
-		    (no_new_binaries) -> true;
-		    (no_new_apply) -> true;
-		    (no_gc_bifs) -> true;
+                    (no_ssa_opt) -> true;
+                    (no_recv_opt) -> true;
+		    (no_ssa_float) -> true;
 		    (no_stack_trimming) -> true;
 		    (debug_info) -> true;
 		    (inline) -> true;

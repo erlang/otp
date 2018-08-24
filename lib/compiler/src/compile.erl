@@ -31,6 +31,9 @@
 %% Erlc interface.
 -export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
 
+%% Utility functions for compiler passes.
+-export([run_sub_passes/2]).
+
 -export_type([option/0]).
 
 -include("erl_compile.hrl").
@@ -38,6 +41,8 @@
 
 -import(lists, [member/2,reverse/1,reverse/2,keyfind/3,last/1,
 		map/2,flatmap/2,foreach/2,foldr/3,any/2]).
+
+-define(SUB_PASS_TIMES, compile__sub_pass_times).
 
 %%----------------------------------------------------------------------
 
@@ -63,6 +68,7 @@
                   | {'ok', module(), binary(), warnings()}.
 -type err_ret()  :: 'error' | {'error', errors(), warnings()}.
 -type comp_ret() :: mod_ret() | bin_ret() | err_ret().
+
 
 %%----------------------------------------------------------------------
 
@@ -143,6 +149,30 @@ noenv_output_generated(Opts) ->
 
 env_compiler_options() -> env_default_opts().
 
+
+%%%
+%%% Run sub passes from a compiler pass.
+%%%
+
+-spec run_sub_passes([term()], term()) -> term().
+
+run_sub_passes(Ps, St) ->
+    case get(?SUB_PASS_TIMES) of
+        undefined ->
+            Runner = fun(_Name, Run, S) -> Run(S) end,
+            run_sub_passes_1(Ps, Runner, St);
+        Times when is_list(Times) ->
+            Runner = fun(Name, Run, S0) ->
+                             T1 = erlang:monotonic_time(),
+                             S = Run(S0),
+                             T2 = erlang:monotonic_time(),
+                             put(?SUB_PASS_TIMES,
+                                 [{Name,T2-T1}|get(?SUB_PASS_TIMES)]),
+                             S
+                     end,
+            run_sub_passes_1(Ps, Runner, St)
+    end.
+
 %%
 %%  Local functions
 %%
@@ -219,21 +249,23 @@ expand_opt(report, Os) ->
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(r16, Os) ->
-    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+    expand_opt_before_21(Os);
 expand_opt(r17, Os) ->
-    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+    expand_opt_before_21(Os);
 expand_opt(r18, Os) ->
-    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+    expand_opt_before_21(Os);
 expand_opt(r19, Os) ->
-    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+    expand_opt_before_21(Os);
 expand_opt(r20, Os) ->
-    [no_get_hd_tl,no_record_opt,no_utf8_atoms|Os];
+    expand_opt_before_21(Os);
+expand_opt(r21, Os) ->
+    Os;
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
-expand_opt(no_float_opt, Os) ->
-    %%Turn off the entire type optimization pass.
-    [no_topt|Os];
 expand_opt(O, Os) -> [O|Os].
+
+expand_opt_before_21(Os) ->
+    [no_get_hd_tl,no_ssa_opt_record,no_utf8_atoms|Os].
 
 %% format_error(ErrorDescriptor) -> string()
 
@@ -387,16 +419,56 @@ fold_comp([{Name,Pass}|Ps], Run, Code0, St0) ->
     end;
 fold_comp([], _Run, Code, St) -> {ok,Code,St}.
 
+run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
+  when is_atom(Name), is_function(Run, 1) ->
+    try Runner(Name, Run, St0) of
+        St ->
+            run_sub_passes_1(Ps, Runner, St)
+    catch
+        C:E:Stk ->
+            io:format("Sub pass ~s\n", [Name]),
+            erlang:raise(C, E, Stk)
+    end;
+run_sub_passes_1([], _, St) -> St.
+
 run_tc({Name,Fun}, Code, St) ->
+    put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(Code, St)),
     T2 = erlang:monotonic_time(),
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, millisecond),
+    Times = erase(?SUB_PASS_TIMES),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, microsecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
     io:format(" ~-30s: ~10.3f s ~12s\n",
-	      [Name,Elapsed/1000,Mem]),
+	      [Name,Elapsed/1000000,Mem]),
+    print_times(Times, Name),
     Val.
+
+print_times(Times0, Name) ->
+    Fam0 = sofs:relation(Times0),
+    Fam1 = sofs:rel2fam(Fam0),
+    Fam2 = sofs:to_external(Fam1),
+    Fam3 = [{W,lists:sum(Times)} || {W,Times} <- Fam2],
+    Fam = reverse(lists:keysort(2, Fam3)),
+    Total = case lists:sum([T || {_,T} <- Fam]) of
+                0 -> 1;
+                Total0 -> Total0
+            end,
+    case Fam of
+        [] ->
+            ok;
+        [_|_] ->
+            io:format("    %% Sub passes of ~s from slowest to fastest:\n", [Name]),
+            print_times_1(Fam, Total)
+    end.
+
+print_times_1([{Name,T}|Ts], Total) ->
+    Elapsed = erlang:convert_time_unit(T, native, microsecond),
+    io:format("    ~-27s: ~10.3f s ~3w %\n",
+              [Name,Elapsed/1000000,round(100*T/Total)]),
+    print_times_1(Ts, Total);
+print_times_1([], _Total) -> ok.
 
 run_eprof({Name,Fun}, Code, Name, St) ->
     io:format("~p: Running eprof\n", [Name]),
@@ -741,8 +813,20 @@ kernel_passes() ->
      ?pass(v3_kernel),
      {iff,dkern,{listing,"kernel"}},
      {iff,'to_kernel',{done,"kernel"}},
-     {pass,v3_codegen},
-     {iff,dcg,{listing,"codegen"}}
+     {pass,beam_kernel_to_ssa},
+     {iff,dssa,{listing,"ssa"}},
+     {iff,ssalint,{pass,beam_ssa_lint}},
+     {unless,no_ssa_opt,{pass,beam_ssa_opt}},
+     {iff,dssaopt,{listing,"ssaopt"}},
+     {iff,ssalint,{pass,beam_ssa_lint}},
+     {unless,no_recv_opt,{pass,beam_ssa_recv}},
+     {iff,drecv,{listing,"recv"}},
+     {pass,beam_ssa_pre_codegen},
+     {iff,dprecg,{listing,"precodegen"}},
+     {iff,ssalint,{pass,beam_ssa_lint}},
+     {pass,beam_ssa_codegen},
+     {iff,dcg,{listing,"codegen"}},
+     {iff,doldcg,{listing,"codegen"}}
      | asm_passes()].
 
 asm_passes() ->
@@ -751,16 +835,12 @@ asm_passes() ->
       [{pass,beam_a},
        {iff,da,{listing,"a"}},
        {unless,no_postopt,
-	[{unless,no_reorder,{pass,beam_reorder}},
-	 {iff,dre,{listing,"reorder"}},
-	 {pass,beam_block},
+	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
 	 {iff,dexcept,{listing,"except"}},
 	 {unless,no_bs_opt,{pass,beam_bs}},
 	 {iff,dbs,{listing,"bs"}},
-	 {unless,no_topt,{pass,beam_type}},
-	 {iff,dtype,{listing,"type"}},
 	 {pass,beam_split},
 	 {iff,dsplit,{listing,"split"}},
 	 {unless,no_dead,{pass,beam_dead}},
@@ -773,12 +853,6 @@ asm_passes() ->
 	 {iff,dclean,{listing,"clean"}},
 	 {unless,no_bsm_opt,{pass,beam_bsm}},
 	 {iff,dbsm,{listing,"bsm"}},
-	 {unless,no_recv_opt,{pass,beam_receive}},
-	 {iff,drecv,{listing,"recv"}},
-	 {unless,no_record_opt,{pass,beam_record}},
-	 {iff,drecord,{listing,"record"}},
-         {unless,no_blk2,?pass(block2)},
-	 {iff,dblk2,{listing,"block2"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -1353,10 +1427,6 @@ v3_kernel(Code0, #compile{options=Opts,warnings=Ws0}=St) ->
 	    %% warnings. Ignore any such warnings.
 	    {ok,Code,St}
     end.
-
-block2(Code0, #compile{options=Opts}=St) ->
-    {ok,Code} = beam_block:module(Code0, [no_blockify|Opts]),
-    {ok,Code,St}.
 
 test_old_inliner(#compile{options=Opts}) ->
     %% The point of this test is to avoid loading the old inliner
@@ -1972,14 +2042,17 @@ pre_load() ->
 	 beam_except,
 	 beam_flatten,
 	 beam_jump,
+	 beam_kernel_to_ssa,
 	 beam_opcodes,
 	 beam_peep,
-	 beam_receive,
-         beam_record,
-	 beam_reorder,
+	 beam_ssa,
+	 beam_ssa_codegen,
+	 beam_ssa_opt,
+	 beam_ssa_pre_codegen,
+	 beam_ssa_recv,
+	 beam_ssa_type,
 	 beam_split,
 	 beam_trim,
-	 beam_type,
 	 beam_utils,
 	 beam_validator,
 	 beam_z,
@@ -1998,7 +2071,6 @@ pre_load() ->
 	 sys_core_bsm,
 	 sys_core_dsetel,
 	 sys_core_fold,
-	 v3_codegen,
 	 v3_core,
 	 v3_kernel],
     _ = code:ensure_modules_loaded(L),

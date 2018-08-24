@@ -66,7 +66,7 @@
 -record(k_receive_next, {anno=[]}).
 -record(k_try, {anno=[],arg,vars,body,evars,handler,ret=[]}).
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
--record(k_protected, {anno=[],arg,ret=[]}).
+-record(k_protected, {anno=[],arg,ret=[],inner}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
 -record(k_guard_match, {anno=[],vars,body,ret=[]}).

@@ -1139,9 +1139,10 @@ trans_fun([{test,has_map_fields,{f,Lbl},Map,{list,Keys}}|Instructions], Env) ->
 		    lists:flatten([[K, {r, 0}] || K <- Keys])),
   [MapMove, TestInstructions | trans_fun(Instructions, Env2)];
 trans_fun([{get_map_elements,{f,Lbl},Map,{list,KVPs}}|Instructions], Env) ->
+  KVPs1 = overwrite_map_last(Map, KVPs),
   {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
   {TestInstructions, GetInstructions, Env2} =
-    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs),
+    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs1),
   [MapMove, TestInstructions, GetInstructions | trans_fun(Instructions, Env2)];
 %%--- put_map_assoc ---
 trans_fun([{put_map_assoc,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) ->
@@ -1562,6 +1563,21 @@ trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
   I = hipe_icode:mk_type([Var1,Var2], function2,
 			 hipe_icode:label_name(True), map_label(Lbl)),
   {[Move1,Move2,I,True],Env2}.
+
+
+%%
+%% Makes sure that if a get_map_elements instruction will overwrite
+%% the map source, it will be done last.
+%%
+overwrite_map_last(Map, KVPs) ->
+  overwrite_map_last2(Map, KVPs, []).
+
+overwrite_map_last2(Map, [Key,Map|KVPs], _Last) ->
+  overwrite_map_last2(Map, KVPs, [Key,Map]);
+overwrite_map_last2(Map, [Key,Val|KVPs], Last) ->
+  [Key,Val|overwrite_map_last2(Map, KVPs, Last)];
+overwrite_map_last2(_Map, [], Last) ->
+  Last.
 
 %%
 %% Handles the get_map_elements instruction and the has_map_fields

@@ -96,7 +96,8 @@ try_inline(Mod, Config) ->
 
     %% Normal compilation.
     io:format("Compiling: ~s\n", [Src]),
-    {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,clint]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,
+                                  bin_opt_info,clint,ssalint]),
 
     ct:timetrap({minutes,10}),
     NormalResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
@@ -104,7 +105,7 @@ try_inline(Mod, Config) ->
     %% Inlining.
     io:format("Compiling with old inliner: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
-					{inline,1000},clint]),
+                                  {inline,1000},clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
@@ -117,7 +118,7 @@ try_inline(Mod, Config) ->
     %% Inlining.
     io:format("Compiling with new inliner: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,
-					bin_opt_info,inline,clint]),
+					bin_opt_info,inline,clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
@@ -351,7 +352,8 @@ otp_7223_2({a}) ->
 coverage(Config) when is_list(Config) ->
     Mod = bsdecode,
     Src = filename:join(proplists:get_value(data_dir, Config), Mod),
-    {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},clint]),
+    {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},
+                                    clint,ssalint]),
     {ok,Mod,_} = compile:file(Src, [binary,report,{inline,20},
-				    verbose,clint]),
+				    verbose,clint,ssalint]),
     ok.

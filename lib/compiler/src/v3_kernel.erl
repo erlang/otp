@@ -2043,9 +2043,6 @@ get_match(#k_cons{}, St0) ->
 get_match(#k_binary{}, St0) ->
     {[V]=Mes,St1} = new_vars(1, St0),
     {#k_binary{segs=V},Mes,St1};
-get_match(#k_bin_seg{size=#k_atom{val=all},next={k_bin_end,[]}}=Seg, St0) ->
-    {[S]=Vars,St1} = new_vars(1, St0),
-    {Seg#k_bin_seg{seg=S,next=[]},Vars,St1};
 get_match(#k_bin_seg{}=Seg, St0) ->
     {[S,N0],St1} = new_vars(2, St0),
     N = set_kanno(N0, [no_usage]),
@@ -2073,9 +2070,6 @@ new_clauses(Cs0, U, St) ->
 				 #k_cons{hd=H,tl=T} -> [H,T|As];
 				 #k_tuple{es=Es} -> Es ++ As;
 				 #k_binary{segs=E}  -> [E|As];
-				 #k_bin_seg{size=#k_atom{val=all},
-					    seg=S,next={k_bin_end,[]}} ->
-				     [S|As];
 				 #k_bin_seg{seg=S,next=N} ->
 				     [S,N|As];
 				 #k_bin_int{next=N} ->
@@ -2374,9 +2368,10 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
 	true ->
 	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
 	    #k_atom{val=false} = H0,		%Assertion.
-	    {A1,Bu,St1} = uexpr(A0, Br, St0),
+	    {Avs,St1} = new_vars(length(Rs0), St0),
+	    {A1,Bu,St} = uexpr(A0, {break,Avs}, St1),
 	    {#k_protected{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
-			  arg=A1,ret=Rs0},Bu,St1};
+			  arg=A1,ret=Rs0,inner=Avs},Bu,St};
 	false ->
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),

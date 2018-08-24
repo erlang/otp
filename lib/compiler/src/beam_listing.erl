@@ -23,6 +23,7 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+-include("beam_ssa.hrl").
 -include("beam_disasm.hrl").
 
 -import(lists, [foreach/2]).
@@ -41,6 +42,12 @@ module(File, #k_mdef{}=Kern) ->
     %% This is a kernel module.
     io:put_chars(File, v3_kernel_pp:format(Kern));
     %%io:put_chars(File, io_lib:format("~p~n", [Kern]));
+module(File, #b_module{name=Mod,exports=Exp,attributes=Attr,body=Fs}) ->
+    io:format(File, "module ~p.\n", [Mod]),
+    io:format(File, "exports ~p.\n", [Exp]),
+    io:format(File, "attributes ~p.\n\n", [Attr]),
+    PP = [beam_ssa_pp:format_function(F) || F <- Fs],
+    io:put_chars(File, lists:join($\n, PP));
 module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
     %% This is output from v3_codegen.
     io:format(Stream, "{module, ~p}.  %% version = ~w\n",

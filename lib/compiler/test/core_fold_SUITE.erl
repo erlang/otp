@@ -373,7 +373,7 @@ unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "unused_multiple_values_error"),
-    Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
+    Opts = [no_copt,clint,ssalint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],
     {error,[{unused_multiple_values_error,
 	     [{none,core_lint,{return_mismatch,{hello,1}}}]}],

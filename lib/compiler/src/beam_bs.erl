@@ -17,26 +17,24 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Purpose : Partitions assembly instructions into basic blocks and
-%% optimizes them.
+%% Purpose: Peephole optimization of binary syntax instructions.
 
 -module(beam_bs).
 
 -export([module/2]).
--import(lists, [mapfoldl/3,reverse/1]).
+-import(lists, [reverse/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
-    {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
+module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
+    Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}, Lc0) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
-	Is1 = bs_put_opt(Is0),
-	{Is,Lc} = bsm_opt(Is1, Lc0),
-	{{function,Name,Arity,CLabel,Is},Lc}
+	Is = bs_opt(Is0),
+	{function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -44,16 +42,25 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
     end.
 
 %%%
-%%% Evaluation of constant bit fields.
+%%% Evaluate construction of constant bit fields.
+%%% Combine bs_skip_bits2 and bs_test_tail2 instructions.
 %%%
 
-bs_put_opt([{bs_put,_,_,_}=I|Is0]) ->
+bs_opt([{bs_put,_,_,_}=I|Is0]) ->
     {BsPuts0,Is} = collect_bs_puts(Is0, [I]),
     BsPuts = opt_bs_puts(BsPuts0),
-    BsPuts ++ bs_put_opt(Is);
-bs_put_opt([I|Is]) ->
-    [I|bs_put_opt(Is)];
-bs_put_opt([]) -> [].
+    BsPuts ++ bs_opt(Is);
+bs_opt([{test,bs_skip_bits2,F,[Ctx,{integer,I},Unit,_Flags]},
+            {test,bs_test_tail2,F,[Ctx,Bits]}|Is]) ->
+    [{test,bs_test_tail2,F,[Ctx,Bits+I*Unit]}|bs_opt(Is)];
+bs_opt([{test,bs_skip_bits2,F,[Ctx,{integer,I1},Unit1,Flags]},
+            {test,bs_skip_bits2,F,[Ctx,{integer,I2},Unit2,_]}|Is]) ->
+    I = {test,bs_skip_bits2,F,
+         [Ctx,{integer,I1*Unit1+I2*Unit2},1,Flags]},
+    bs_opt([I|Is]);
+bs_opt([I|Is]) ->
+    [I|bs_opt(Is)];
+bs_opt([]) -> [].
 
 collect_bs_puts([{bs_put,_,_,_}=I|Is], Acc) ->
     collect_bs_puts(Is, [I|Acc]);
@@ -174,107 +181,3 @@ bs_split_int_1(N, ByteSz, Sz, Fail, Acc) when Sz > 0 ->
 	 [{integer,ByteSz},{integer,N band Mask}]},
     bs_split_int_1(N bsr ByteSz, 8, Sz-ByteSz, Fail, [I|Acc]);
 bs_split_int_1(_, _, _, _, Acc) -> Acc.
-
-%%%
-%%% Optimization of bit syntax matching: get rid
-%%% of redundant bs_restore2/2 instructions across select_val
-%%% instructions, as well as a few other simple peep-hole
-%%% optimizations.
-%%%
-
-bsm_opt(Is0, Lc0) ->
-    {Is1,D0,Lc} = bsm_scan(Is0, [], Lc0, []),
-    Is2 = case D0 of
-	      [] ->
-		  %% No bit syntax matching in this function.
-		  Is1;
-	      [_|_] ->
-		  %% Optimize the bit syntax matching.
-		  D = gb_trees:from_orddict(orddict:from_list(D0)),
-		  bsm_reroute(Is1, D, none, [])
-	 end,
-    Is = beam_clean:bs_clean_saves(Is2),
-    {bsm_opt_2(Is, []),Lc}.
-
-bsm_scan([{label,L}=Lbl,{bs_restore2,_,Save}=R|Is], D0, Lc, Acc0) ->
-    D = [{{L,Save},Lc}|D0],
-    Acc = [{label,Lc},R,Lbl|Acc0],
-    bsm_scan(Is, D, Lc+1, Acc);
-bsm_scan([I|Is], D, Lc, Acc) ->
-    bsm_scan(Is, D, Lc, [I|Acc]);
-bsm_scan([], D, Lc, Acc) ->
-    {reverse(Acc),D,Lc}.
-
-bsm_reroute([{bs_save2,Reg,Save}=I|Is], D, _, Acc) ->
-    bsm_reroute(Is, D, {Reg,Save}, [I|Acc]);
-bsm_reroute([{bs_restore2,Reg,Save}=I|Is], D, _, Acc) ->
-    bsm_reroute(Is, D, {Reg,Save}, [I|Acc]);
-bsm_reroute([{label,_}=I|Is], D, S, Acc) ->
-    bsm_reroute(Is, D, S, [I|Acc]);
-bsm_reroute([{select,select_val,Reg,F0,Lbls0}|Is], D, {_,Save}=S, Acc0) ->
-    [F|Lbls] = bsm_subst_labels([F0|Lbls0], Save, D),
-    Acc = [{select,select_val,Reg,F,Lbls}|Acc0],
-    bsm_reroute(Is, D, S, Acc);
-bsm_reroute([{test,TestOp,F0,TestArgs}=I|Is], D, {_,Save}=S, Acc0) ->
-    F = bsm_subst_label(F0, Save, D),
-    Acc = [{test,TestOp,F,TestArgs}|Acc0],
-    case bsm_not_bs_test(I) of
-	true ->
-	    %% The test instruction will not update the bit offset for
-	    %% the binary being matched. Therefore the save position
-	    %% can be kept.
-	    bsm_reroute(Is, D, S, Acc);
-	false ->
-	    %% The test instruction might update the bit offset. Kill
-	    %% our remembered Save position.
-	    bsm_reroute(Is, D, none, Acc)
-    end;
-bsm_reroute([{test,TestOp,F0,Live,TestArgs,Dst}|Is], D, {_,Save}, Acc0) ->
-    F = bsm_subst_label(F0, Save, D),
-    Acc = [{test,TestOp,F,Live,TestArgs,Dst}|Acc0],
-    %% The test instruction will update the bit offset. Kill our
-    %% remembered Save position.
-    bsm_reroute(Is, D, none, Acc);
-bsm_reroute([{block,[{set,[],[],{alloc,_,_}}]}=Bl,
-	     {bs_context_to_binary,_}=I|Is], D, S, Acc) ->
-    %% To help further bit syntax optimizations.
-    bsm_reroute([I,Bl|Is], D, S, Acc);
-bsm_reroute([I|Is], D, _, Acc) ->
-    bsm_reroute(Is, D, none, [I|Acc]);
-bsm_reroute([], _, _, Acc) -> reverse(Acc).
-
-bsm_opt_2([{test,bs_test_tail2,F,[Ctx,Bits]}|Is],
-	  [{test,bs_skip_bits2,F,[Ctx,{integer,I},Unit,_Flags]}|Acc]) ->
-    bsm_opt_2(Is, [{test,bs_test_tail2,F,[Ctx,Bits+I*Unit]}|Acc]);
-bsm_opt_2([{test,bs_skip_bits2,F,[Ctx,{integer,I1},Unit1,_]}|Is],
-	  [{test,bs_skip_bits2,F,[Ctx,{integer,I2},Unit2,Flags]}|Acc]) ->
-    bsm_opt_2(Is, [{test,bs_skip_bits2,F,
-		    [Ctx,{integer,I1*Unit1+I2*Unit2},1,Flags]}|Acc]);
-bsm_opt_2([I|Is], Acc) ->
-    bsm_opt_2(Is, [I|Acc]);
-bsm_opt_2([], Acc) -> reverse(Acc).
-
-%% bsm_not_bs_test({test,Name,_,Operands}) -> true|false.
-%%  Test whether is the test is a "safe", i.e. does not move the
-%%  bit offset for a binary.
-%%
-%%  'true' means that the test is safe, 'false' that we don't know or
-%%  that the test moves the offset (e.g. bs_get_integer2).
-
-bsm_not_bs_test({test,bs_test_tail2,_,[_,_]}) -> true;
-bsm_not_bs_test(Test) -> beam_utils:is_pure_test(Test).
-
-bsm_subst_labels(Fs, Save, D) ->
-    bsm_subst_labels_1(Fs, Save, D, []).
-
-bsm_subst_labels_1([F|Fs], Save, D, Acc) ->
-    bsm_subst_labels_1(Fs, Save, D, [bsm_subst_label(F, Save, D)|Acc]);
-bsm_subst_labels_1([], _, _, Acc) ->
-    reverse(Acc).
-
-bsm_subst_label({f,Lbl0}=F, Save, D) ->
-    case gb_trees:lookup({Lbl0,Save}, D) of
-	{value,Lbl} -> {f,Lbl};
-	none -> F
-    end;
-bsm_subst_label(Other, _, _) -> Other.

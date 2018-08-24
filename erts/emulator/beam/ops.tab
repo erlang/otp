@@ -1097,23 +1097,29 @@ i_bs_match_string x f W W
 bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
+i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
+   i_bs_get_integer_small_imm Ms Bits Fail Flags x | move x Y
+
+i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
+   i_bs_get_integer_imm Ms Bits Live Fail Flags x | move x Y
+
 i_bs_get_integer_small_imm x W f? t x
 i_bs_get_integer_imm x W t f? t x
-i_bs_get_integer f? t t x s x
-i_bs_get_integer_8 x f? x
-i_bs_get_integer_16 x f? x
+i_bs_get_integer f? t t x s xy
+i_bs_get_integer_8 x f? xy
+i_bs_get_integer_16 x f? xy
 
 %if ARCH_64
-i_bs_get_integer_32 x f? x
+i_bs_get_integer_32 x f? xy
 %endif
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f? x t W t x
-i_bs_get_binary2 f x t? s t x
-i_bs_get_binary_all2 f? x t t x
+i_bs_get_binary_imm2 f? x t W t xy
+i_bs_get_binary2 f x t? s t xy
+i_bs_get_binary_all2 f? x t t xy
 i_bs_get_binary_all_reuse x f? t
 
 # Fetching float from binaries.
@@ -1122,7 +1128,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f? x t s t x
+i_bs_get_float2 f? x t s t xy
 
 # Miscellanous
 
@@ -1156,14 +1162,14 @@ bs_context_to_binary x
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f? x
+i_bs_get_utf8 x f? xy
 
 bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
 
 bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
 bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f? t x
+i_bs_get_utf16 x f? t xy
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
@@ -1181,6 +1187,9 @@ i_bs_validate_unicode_retract j s S
 %warm
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
+
+bs_init2 Fail Sz Words Regs Flags Dst=y => \
+   bs_init2 Fail Sz Words Regs Flags x | move x Dst
 
 bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
 
@@ -1202,6 +1211,8 @@ i_bs_init_heap W I t? x
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
+bs_init_bits Fail Sz Words Regs Flags Dst=y => \
+   bs_init_bits Fail Sz Words Regs Flags x | move x Dst
 
 bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init_bits Sz Regs Dst
 bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Regs Dst
@@ -1230,7 +1241,7 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 
 bs_init_writable
 
-i_bs_append j? I t? t s x
+i_bs_append j? I t? t s xy
 i_bs_private_append j? t s S x
 
 #

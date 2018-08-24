@@ -610,6 +610,12 @@ ulbl({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}, Used) ->
     mark_used(Lbl, Used);
 ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
     mark_used(Lbl, Used);
+ulbl({recv_mark,Lbl}, Used) ->
+    mark_used(Lbl, Used);
+ulbl({recv_set,Lbl}, Used) ->
+    mark_used(Lbl, Used);
+ulbl({fcheckerror,Lbl}, Used) ->
+    mark_used(Lbl, Used);
 ulbl(_, Used) -> Used.
 
 mark_used({f,0}, Used) -> Used;
