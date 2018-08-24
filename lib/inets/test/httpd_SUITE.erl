@@ -2047,6 +2047,7 @@ head_status(_) ->
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
 		mod_trace, mod_esi, mod_cgi, mod_get, mod_head]}].
+
 not_sup_conf() ->
      [{modules, [mod_get]}].
 
