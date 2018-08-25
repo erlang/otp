@@ -769,14 +769,14 @@ live_opt_is([#b_set{op=succeeded,dst=#b_var{name=SuccDst}=SuccDstVar,
                     end
             end
     end;
-live_opt_is([#b_set{op=Op,dst=#b_var{name=Dst}}=I|Is], Live0, Acc) ->
+live_opt_is([#b_set{dst=#b_var{name=Dst}}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
             Live1 = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(I))),
             Live = gb_sets:delete_any(Dst, Live1),
             live_opt_is(Is, Live, [I|Acc]);
         false ->
-            case is_pure(Op) of
+            case beam_ssa:no_side_effect(I) of
                 true ->
                     live_opt_is(Is, Live0, Acc);
                 false ->
@@ -786,19 +786,6 @@ live_opt_is([#b_set{op=Op,dst=#b_var{name=Dst}}=I|Is], Live0, Acc) ->
     end;
 live_opt_is([], Live, Acc) ->
     {Acc,Live}.
-
-is_pure({bif,_}) -> true;
-is_pure({float,get}) -> true;
-is_pure(bs_extract) -> true;
-is_pure(extract) -> true;
-is_pure(get_hd) -> true;
-is_pure(get_tl) -> true;
-is_pure(get_tuple_element) -> true;
-is_pure(is_nonempty_list) -> true;
-is_pure(is_tagged_tuple) -> true;
-is_pure(put_list) -> true;
-is_pure(put_tuple) -> true;
-is_pure(_) -> false.
 
 live_opt_unused(#b_set{op=get_map_element}=Set) ->
     {replace,Set#b_set{op=has_map_field}};

@@ -28,6 +28,7 @@
          linearize/1,
          mapfold_instrs_rpo/4,
          normalize/1,
+         no_side_effect/1,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
@@ -149,6 +150,37 @@ clobbers_xregs(#b_set{op=Op}) ->
         make_fun -> true;
         peek_message -> true;
         raw_raise -> true;
+        _ -> false
+    end.
+
+%% no_side_effect(#b_set{}) -> true|false.
+%%  Test whether this instruction has no side effect and thus is safe
+%%  not to execute if its value is not used. Note that even if `true`
+%%  is returned, the instruction could still be impure (e.g. bif:get).
+
+-spec no_side_effect(b_set()) -> boolean().
+
+no_side_effect(#b_set{op=Op}) ->
+    case Op of
+        {bif,_} -> true;
+        {float,get} -> true;
+        bs_init -> true;
+        bs_extract -> true;
+        bs_match -> true;
+        bs_start_match -> true;
+        bs_test_tail -> true;
+        bs_put -> true;
+        extract -> true;
+        get_hd -> true;
+        get_tl -> true;
+        get_tuple_element -> true;
+        has_map_field -> true;
+        is_nonempty_list -> true;
+        is_tagged_tuple -> true;
+        put_map -> true;
+        put_list -> true;
+        put_tuple -> true;
+        succeeded -> true;
         _ -> false
     end.
 

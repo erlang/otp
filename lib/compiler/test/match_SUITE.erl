@@ -254,6 +254,8 @@ non_matching_aliases(_Config) ->
     none = mixed_aliases([d]),
     none = mixed_aliases({a,42}),
     none = mixed_aliases(42),
+    none = mixed_aliases(<<6789:16>>),
+    none = mixed_aliases(#{key=>value}),
 
     {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
     {'EXIT',{{badmatch,job},_}} = (catch entirely()),
@@ -279,6 +281,16 @@ mixed_aliases(<<X:8>> = x) -> {a,X};
 mixed_aliases([b] = <<X:8>>) -> {b,X};
 mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
 mixed_aliases([X] = <<X:8>>) -> {d,X};
+mixed_aliases(<<X:16>> = X) -> {e,X};
+mixed_aliases(X = <<X:16>>) -> {f,X};
+mixed_aliases(<<X:16,_/binary>> = X) -> {g,X};
+mixed_aliases(X = <<X:16,_/binary>>) -> {h,X};
+mixed_aliases(X = #{key:=X}) -> {i,X};
+mixed_aliases(#{key:=X} = X) -> {j,X};
+mixed_aliases([X] = #{key:=X}) -> {k,X};
+mixed_aliases(#{key:=X} = [X]) -> {l,X};
+mixed_aliases({a,X} = #{key:=X}) -> {m,X};
+mixed_aliases(#{key:=X} = {a,X}) -> {n,X};
 mixed_aliases(_) -> none.
 
 nomatch_alias(I) ->
