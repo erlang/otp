@@ -2999,13 +2999,21 @@ case $host_os in
 		# Mach-O linker: a shared lib and a loadable
 		# object file is not the same thing.
 		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
-		case $ARCH in
-			amd64)
-				DED_LDFLAGS="-m64 $DED_LDFLAGS"
-				;;
-			*)
-				;;
-		esac
+		if test X${enable_m64_build} = Xyes; then
+		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		else
+		  if test X${enable_m32_build} = Xyes; then
+		    DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		  else
+		    AC_CHECK_SIZEOF(void *)
+		    case "$ac_cv_sizeof_void_p" in
+		      8)
+			DED_LDFLAGS="-m64 $DED_LDFLAGS";;
+		      *)
+		        ;;
+		    esac
+		  fi
+		fi
 		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
