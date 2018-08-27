@@ -23,7 +23,7 @@
 
 -include("beam_ssa.hrl").
 -import(lists, [any/2,droplast/1,foldl/3,last/1,member/2,
-                reverse/1,search/2,sort/1]).
+                reverse/1,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -115,7 +115,7 @@ opt_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args0}=I0|Is], Ts0, Ds0, Ls, Acc
     Ds = Ds0#{Dst=>I},
     opt_is(Is, Ts, Ds, Ls, [I|Acc]);
 opt_is([#b_set{dst=#b_var{name=Dst}}=I0|Is], Ts0, Ds0, Ls, Acc) ->
-    I = simplify(I0, Ts0),
+    I = beam_ssa:normalize(simplify(I0, Ts0)),
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{Dst=>I},
     opt_is(Is, Ts, Ds, Ls, [I|Acc]);
@@ -228,12 +228,12 @@ anno_float_arg(float) -> float;
 anno_float_arg(_) -> convert.
 
 opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
-    Br;
+    beam_ssa:normalize(Br);
 opt_terminator(#b_br{bool=#b_var{name=V}=Var}=Br, Ts, Ds) ->
     BoolType = get_type(Var, Ts),
     case get_literal_from_type(BoolType) of
         #b_literal{}=BoolLit ->
-            Br#b_br{bool=BoolLit};
+            beam_ssa:normalize(Br#b_br{bool=BoolLit});
         none ->
             #{V:=Set} = Ds,
             case Set of
@@ -249,19 +249,14 @@ opt_terminator(#b_br{bool=#b_var{name=V}=Var}=Br, Ts, Ds) ->
                     simplify_not(Br, Ts, Ds)
             end
     end;
-opt_terminator(#b_switch{arg=#b_literal{val=Val0}=Arg,fail=Fail,list=List},
-               _Ts, _Ds) ->
-    {value,{_,L}} = search(fun({#b_literal{val=Val1},_}) ->
-                                   Val1 =:= Val0
-                           end, List ++ [{Arg,Fail}]),
-    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 opt_terminator(#b_switch{arg=V}=Sw0, Ts, Ds) ->
-    case get_literal_from_type(Ts) of
+    Type = get_type(V, Ts),
+    case get_literal_from_type(Type) of
         #b_literal{}=Lit ->
             Sw = Sw0#b_switch{arg=Lit},
-            opt_terminator(Sw, Ts, Ds);
+            beam_ssa:normalize(Sw);
         none ->
-            case get_type(V, Ts) of
+            case Type of
                 #t_integer{elements={_,_}=Range} ->
                     simplify_switch_int(Sw0, Range);
                 Type ->
@@ -271,18 +266,16 @@ opt_terminator(#b_switch{arg=V}=Sw0, Ts, Ds) ->
                                 #b_br{}=Br ->
                                     opt_terminator(Br, Ts, Ds);
                                 Sw ->
-                                    Sw
+                                    beam_ssa:normalize(Sw)
                             end;
                         false ->
-                            Sw0
+                            beam_ssa:normalize(Sw0)
                     end
             end
     end;
 opt_terminator(#b_ret{}=Ret, _Ts, _Ds) ->
     Ret.
 
-update_successors(#b_br{bool=#b_literal{val=false},fail=S}, Ts, D) ->
-    update_successor(S, Ts, D);
 update_successors(#b_br{bool=#b_literal{val=true},succ=S}, Ts, D) ->
     update_successor(S, Ts, D);
 update_successors(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}, Ts, D0) ->
@@ -582,8 +575,6 @@ will_succeed(is_tuple, Type) ->
 will_succeed(_, _) -> maybe.
 
 
-band_type([#b_literal{val=Int},Other], Ts) when is_integer(Int) ->
-    band_type_1(Int, Other, Ts);
 band_type([Other,#b_literal{val=Int}], Ts) when is_integer(Int) ->
     band_type_1(Int, Other, Ts);
 band_type([_,_], _) -> t_integer().
@@ -667,17 +658,18 @@ simplify_switch_bool(#b_switch{arg=B,list=List0}=Sw, Ts, Ds) ->
             Sw
     end.
 
-simplify_not(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}=Br, Ts, Ds) ->
+simplify_not(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
             case t_is_boolean(get_type(Bool, Ts)) of
                 true ->
-                    Br#b_br{bool=Bool,succ=Fail,fail=Succ};
+                    Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
+                    beam_ssa:normalize(Br);
                 false ->
-                    Br
+                    Br0
             end;
         #{} ->
-            Br
+            Br0
     end.
 
 get_literals(Values, Ts) ->
