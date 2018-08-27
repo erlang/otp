@@ -9079,6 +9079,9 @@ unlock_lock_rq(int pre_free, void *vrq)
 }
 
 
+static void trace_schedule_in(Process *p, erts_aint32_t state);
+static void trace_schedule_out(Process *p, erts_aint32_t state);
+
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
  * (hipe_mode_switch()) when the current process is to be
@@ -9184,22 +9187,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	state = erts_atomic32_read_nob(&p->state);
 
-	if (IS_TRACED(p)) {
-	    if (IS_TRACED_FL(p, F_TRACE_CALLS) && !(state & ERTS_PSFLG_FREE))
-		erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_OUT);
-	    if ((state & (ERTS_PSFLG_FREE|ERTS_PSFLG_EXITING)) == ERTS_PSFLG_EXITING) {
-		if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
-		    trace_sched(p, ERTS_PROC_LOCK_MAIN,
-                                ((state & ERTS_PSFLG_FREE)
-                                 ? am_out_exited
-                                 : am_out_exiting));
-	    }
-	    else {
-		if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
-                    ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
-		    trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
-	    }
-	}
+	if (IS_TRACED(p))
+            trace_schedule_out(p, state);
 
 	erts_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
 
@@ -9610,6 +9599,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		/* Migrate to dirty scheduler... */
 	    sunlock_sched_out_proc:
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+                if (IS_TRACED(p))
+                    trace_schedule_in(p, state);
 		goto sched_out_proc;
 	    }
 	}
@@ -9643,23 +9634,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
-        /* Clear tracer if it has been removed */
-	if (IS_TRACED(p) && erts_is_tracer_proc_enabled(
-                p, ERTS_PROC_LOCK_MAIN, &p->common)) {
-
-	    if (state & ERTS_PSFLG_EXITING) {
-		if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
-		    trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in_exiting);
-	    }
-	    else {
-		if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
-                    ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
-		    trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
-	    }
-	    if (IS_TRACED_FL(p, F_TRACE_CALLS)) {
-		erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
-	    }
-	}
+        if (IS_TRACED(p))
+            trace_schedule_in(p, state);
 
         if (is_normal_sched) {
             if (state & ERTS_PSFLG_RUNNING_SYS) {
@@ -9820,6 +9796,53 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         reds = actual_reds;
         goto internal_sched_out_proc;
 
+    }
+}
+
+static void
+trace_schedule_in(Process *p, erts_aint32_t state)
+{
+    ASSERT(IS_TRACED(p));
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
+
+    /* Clear tracer if it has been removed */
+    if (erts_is_tracer_proc_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common)) {
+
+        if (state & ERTS_PSFLG_EXITING) {
+            if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
+                trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in_exiting);
+        }
+        else {
+            if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
+                ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
+                trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
+        }
+        if (IS_TRACED_FL(p, F_TRACE_CALLS))
+            erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
+    }
+
+}
+
+static void
+trace_schedule_out(Process *p, erts_aint32_t state)
+{
+    ASSERT(IS_TRACED(p));
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
+    
+    if (IS_TRACED_FL(p, F_TRACE_CALLS) && !(state & ERTS_PSFLG_FREE))
+        erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_OUT);
+
+    if ((state & (ERTS_PSFLG_FREE|ERTS_PSFLG_EXITING)) == ERTS_PSFLG_EXITING) {
+        if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
+            trace_sched(p, ERTS_PROC_LOCK_MAIN,
+                        ((state & ERTS_PSFLG_FREE)
+                         ? am_out_exited
+                         : am_out_exiting));
+    }
+    else {
+        if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
+            ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
+            trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
     }
 }
 
