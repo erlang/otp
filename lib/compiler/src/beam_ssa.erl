@@ -27,6 +27,7 @@
          fold_instrs_rpo/4,
          linearize/1,
          mapfold_instrs_rpo/4,
+         normalize/1,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
@@ -102,7 +103,7 @@
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
 'copy' | 'put_tuple_arity' | 'put_tuple_element'.
 
--import(lists, [foldl/3,mapfoldl/3,reverse/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,reverse/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -179,6 +180,69 @@ successors(#b_blk{last=Terminator}) ->
         #b_ret{} ->
             []
     end.
+
+%% normalize(Instr0) -> Instr.
+%%  Normalize instructions to help optimizations.
+%%
+%%  For commutative operators (such as '+' and 'or'), always
+%%  place a variable operand before a literal operand.
+%%
+%%  Normalize #b_br{} to one of the following forms:
+%%
+%%    #b_br{b_literal{val=true},succ=Label,fail=Label}
+%%    #b_br{b_var{},succ=Label1,fail=Label2} where Label1 =/= Label2
+%%
+%%  Simplify a #b_switch{} with a literal argument to a #b_br{}.
+%%
+%%  Simplify a #b_switch{} with a variable argument and an empty
+%%  switch list to a #b_br{}.
+
+-spec normalize(b_set() | terminator()) ->
+                       b_set() | terminator().
+
+normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
+    case {is_commutative(Bif),Args} of
+        {false,_} ->
+            Set;
+        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
+            Set#b_set{args=[Var,Lit]};
+        {true,_} ->
+            Set
+    end;
+normalize(#b_set{}=Set) ->
+    Set;
+normalize(#b_br{}=Br) ->
+    case Br of
+        #b_br{bool=Bool,succ=Same,fail=Same} ->
+            case Bool of
+                #b_literal{val=true} ->
+                    Br;
+                _ ->
+                    Br#b_br{bool=#b_literal{val=true}}
+            end;
+        #b_br{bool=#b_literal{val=true},succ=Succ} ->
+            Br#b_br{fail=Succ};
+        #b_br{bool=#b_literal{val=false},fail=Fail} ->
+            Br#b_br{bool=#b_literal{val=true},succ=Fail};
+        #b_br{} ->
+            Br
+    end;
+normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
+    case Arg of
+        #b_literal{} ->
+            case keyfind(Arg, 1, List) of
+                false ->
+                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
+                {Arg,L} ->
+                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
+            end;
+        #b_var{} when List =:= [] ->
+            #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
+        #b_var{} ->
+            Sw
+    end;
+normalize(#b_ret{}=Ret) ->
+    Ret.
 
 -spec successors(label(), block_map()) -> [label()].
 
@@ -423,6 +487,20 @@ used(_) -> [].
 %%%
 %%% Internal functions.
 %%%
+
+is_commutative('and') -> true;
+is_commutative('or') -> true;
+is_commutative('xor') -> true;
+is_commutative('band') -> true;
+is_commutative('bor') -> true;
+is_commutative('bxor') -> true;
+is_commutative('+') -> true;
+is_commutative('*') -> true;
+is_commutative('=:=') -> true;
+is_commutative('==') -> true;
+is_commutative('=/=') -> true;
+is_commutative('/=') -> true;
+is_commutative(_) -> false.
 
 def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
     {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
