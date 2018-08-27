@@ -84,11 +84,6 @@
       reject such filenames.
     </p></warning>
   </description>
-  <datatypes>
-      <datatype>
-          <name name="basedir_type"/>
-      </datatype>
-  </datatypes>
  
   <funcs>
     <func>
@@ -149,18 +144,37 @@
     </func>
 
     <func>
-      <name name="basedir" arity="2"/>
-      <fsummary>Equivalent to <c>basedir(<anno>Type</anno>,<anno>Application</anno>,#{})</c>.</fsummary>
+      <name name="basedir" arity="2" clause_i="1"/>
+      <name name="basedir" arity="2" clause_i="2"/>
+      <fsummary>Equivalent to <c>basedir(<anno>PathType</anno>,
+           <anno>Application</anno>,#{})</c> or
+	   <c>basedir(<anno>PathsType</anno>, <anno>Application</anno>,#{})</c>.
+	 </fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
       <desc>
           <p>
-              Equivalent to <seealso marker="#basedir-3">
-                  basedir(<anno>Type</anno>, <anno>Application</anno>, #{})</seealso>.
+              Equivalent to <seealso marker="#basedir_3_1">
+              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seealso>
+	      or <seealso marker="#basedir_3_2">
+basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
           </p>
       </desc>
     </func>
     <func>
-      <name name="basedir" arity="3"/>
+      <name name="basedir" arity="3" clause_i="1" anchor="basedir_3_1"/>
+      <name name="basedir" arity="3" clause_i="2" anchor="basedir_3_2"/>
       <fsummary></fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
+      <type variable="Opts"/>
+      <type name="basedir_opts"/>
       <desc><marker id="basedir-3"/>
           <p>
               Returns a suitable path, or paths, for a given type.  If
