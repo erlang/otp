@@ -169,7 +169,8 @@ misc() ->
     [
      server_does_not_exist,
      timeout_memory_leak,
-     wait_for_whole_response
+     wait_for_whole_response,
+     post_204_chunked
     ].
 
 sim_mixed() ->
@@ -1389,6 +1390,59 @@ wait_for_whole_response(Config) when is_list(Config) ->
      Server ! shutdown,
      RespSeqNumServer ! shutdown,
      ReqSeqNumServer ! shutdown.
+
+%%--------------------------------------------------------------------
+post_204_chunked() ->
+    [{doc,"Test that chunked encoded 204 responses do not freeze the http client"}].
+post_204_chunked(_Config) ->
+    Msg = "HTTP/1.1 204 No Content\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket) end),
+
+    {ok,Host} = inet:gethostname(),
+    End = "/cgi-bin/erl/httpd_example:post_204",
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End,
+    {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []).
+
+custom_server(Msg, Chunk, ListenSocket) ->
+    {ok, Accept} = gen_tcp:accept(ListenSocket),
+    receive_packet(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept).
+
+custom_server_loop(Msg, Chunk, Accept) ->
+    receive_packet(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept).
+
+send_response(Msg, Chunk, Socket) ->
+    inet:setopts(Socket, [{active, once}]),
+    gen_tcp:send(Socket, Msg),
+    timer:sleep(250),
+    gen_tcp:send(Socket, Chunk).
+
+receive_packet() ->
+    receive
+        {tcp, _, Msg} ->
+            ct:log("Message received: ~p", [Msg])
+    after
+        1000 ->
+            ct:fail("Timeout: did not recive packet")
+    end.
 
 %%--------------------------------------------------------------------
 stream_fun_server_close() ->
