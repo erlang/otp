@@ -2250,22 +2250,24 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    case crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
-	error ->
-	    generate_srp_server_keys(SrpParams, N+1);
+    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
 	Keys ->
 	    Keys
+    catch
+	error:_ ->
+	    generate_srp_server_keys(SrpParams, N+1)
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 generate_srp_client_keys(Generator, Prime, N) ->
 
-    case crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
-	error ->
-	    generate_srp_client_keys(Generator, Prime, N+1);
+    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
 	Keys ->
 	    Keys
+    catch
+	error:_ ->
+	    generate_srp_client_keys(Generator, Prime, N+1)
     end.
 
 handle_srp_identity(Username, {Fun, UserState}) ->

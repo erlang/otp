@@ -887,22 +887,24 @@ premaster_secret(PublicDhKey, PrivateDhKey, #server_dh_params{dh_p = Prime, dh_g
     end;
 premaster_secret(#client_srp_public{srp_a = ClientPublicKey}, ServerKey, #srp_user{prime = Prime,
 										   verifier = Verifier}) ->
-    case crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']}) of
-	error ->
-	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
+    try crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']}) of
 	PremasterSecret ->
 	    PremasterSecret
+    catch
+	error:_ ->
+	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
 premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Salt, srp_b = Public},
 		 ClientKeys, {Username, Password}) ->
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    DerivedKey = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-	    case crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
-		error ->
-		    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
+	    try crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
 		PremasterSecret ->
 		    PremasterSecret
+            catch
+		error ->
+		    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
 	    end;
 	_ ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
