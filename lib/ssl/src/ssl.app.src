@@ -5,6 +5,7 @@
 	       %% TLS/SSL 
 	       tls_connection,
 	       tls_handshake,
+	       tls_handshake_1_3,
 	       tls_record,
 	       tls_socket,
 	       tls_v1,
