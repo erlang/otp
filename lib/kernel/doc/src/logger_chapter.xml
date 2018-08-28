@@ -507,7 +507,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	      <c>logger_level</c></seealso>. It is changed during
 	    runtime with <seealso marker="logger#set_primary_config-2">
 	      <c>logger:set_primary_config(level,Level)</c></seealso>.</p>
-	  <p>Defaults to <c>info</c>.</p>
+	  <p>Defaults to <c>notice</c>.</p>
 	</item>
 	<tag><c>filters = [{FilterId,Filter}]</c></tag>
 	<item>
