@@ -62,7 +62,7 @@
       on the Engine loaded
       </item>
       <item>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if
-      needed by the Engine. See the <seealso marker="crypto:crypto#engine_key_ref_type">Reference Manual</seealso> for
+      needed by the Engine. See the <seealso marker="crypto:crypto#type-engine_key_ref">Reference Manual</seealso> for
       details of the map.
       </item>
     </list>
