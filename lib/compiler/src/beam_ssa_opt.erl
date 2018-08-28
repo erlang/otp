@@ -48,6 +48,7 @@ functions([], _Ps) -> [].
 
 passes(Opts0) ->
     Ps = [?PASS(ssa_opt_split_blocks),
+          ?PASS(ssa_opt_coalesce_phis),
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_record),
@@ -115,6 +116,102 @@ ssa_opt_split_blocks(#st{ssa=Blocks0,cnt=Count0}=St) ->
         end,
     {Blocks,Count} = beam_ssa:split_blocks(P, Blocks0, Count0),
     St#st{ssa=Blocks,cnt=Count}.
+
+%%%
+%%% Coalesce phi nodes.
+%%%
+%%% Nested cases can led to code such as this:
+%%%
+%%%     10:
+%%%       _1 = phi {literal value1, label 8}, {Var, label 9}
+%%%       br 11
+%%%
+%%%     11:
+%%%       _2 = phi {_1, label 10}, {literal false, label 3}
+%%%
+%%% The phi nodes can be coalesced like this:
+%%%
+%%%     11:
+%%%       _2 = phi {literal value1, label 8}, {Var, label 9}, {literal false, label 3}
+%%%
+%%% Coalescing can help other optimizations, and can in some cases reduce register
+%%% shuffling (if the phi variables for two phi nodes happens to be allocated to
+%%% different registers).
+%%%
+
+ssa_opt_coalesce_phis(#st{ssa=Blocks0}=St) ->
+    Ls = beam_ssa:rpo(Blocks0),
+    Blocks = c_phis_1(Ls, Blocks0),
+    St#st{ssa=Blocks}.
+
+c_phis_1([L|Ls], Blocks0) ->
+    case maps:get(L, Blocks0) of
+        #b_blk{is=[#b_set{op=phi}|_]}=Blk ->
+            Blocks = c_phis_2(L, Blk, Blocks0),
+            c_phis_1(Ls, Blocks);
+        #b_blk{} ->
+            c_phis_1(Ls, Blocks0)
+    end;
+c_phis_1([], Blocks) -> Blocks.
+
+c_phis_2(L, #b_blk{is=Is0}=Blk0, Blocks0) ->
+    case c_phis_args(Is0, Blocks0) of
+        none ->
+            Blocks0;
+        {_,_,Preds}=Info ->
+            Is = c_rewrite_phis(Is0, Info),
+            Blk = Blk0#b_blk{is=Is},
+            Blocks = Blocks0#{L:=Blk},
+            c_fix_branches(Preds, L, Blocks)
+    end.
+
+c_phis_args([#b_set{op=phi,args=Args0}|Is], Blocks) ->
+    case c_phis_args_1(Args0, Blocks) of
+        none ->
+            c_phis_args(Is, Blocks);
+        Res ->
+            Res
+    end;
+c_phis_args(_, _Blocks) -> none.
+
+c_phis_args_1([{Var,Pred}|As], Blocks) ->
+    case c_get_pred_vars(Var, Pred, Blocks) of
+        none ->
+            c_phis_args_1(As, Blocks);
+        Result ->
+            Result
+    end;
+c_phis_args_1([], _Blocks) -> none.
+
+c_get_pred_vars(Var, Pred, Blocks) ->
+    case maps:get(Pred, Blocks) of
+        #b_blk{is=[#b_set{op=phi,dst=Var,args=Args}]} ->
+            {Var,Pred,Args};
+        #b_blk{} ->
+            none
+    end.
+
+c_rewrite_phis([#b_set{op=phi,args=Args0}=I|Is], Info) ->
+    Args = c_rewrite_phi(Args0, Info),
+    [I#b_set{args=Args}|c_rewrite_phis(Is, Info)];
+c_rewrite_phis(Is, _Info) -> Is.
+
+c_rewrite_phi([{Var,Pred}|As], {Var,Pred,Values}) ->
+    Values ++ As;
+c_rewrite_phi([{Value,Pred}|As], {_,Pred,Values}) ->
+    [{Value,P} || {_,P} <- Values] ++ As;
+c_rewrite_phi([A|As], Info) ->
+    [A|c_rewrite_phi(As, Info)];
+c_rewrite_phi([], _Info) -> [].
+
+c_fix_branches([{_,Pred}|As], L, Blocks0) ->
+    #b_blk{last=Last0} = Blk0 = maps:get(Pred, Blocks0),
+    #b_br{bool=#b_literal{val=true}} = Last0,   %Assertion.
+    Last = Last0#b_br{bool=#b_literal{val=true},succ=L,fail=L},
+    Blk = Blk0#b_blk{last=Last},
+    Blocks = Blocks0#{Pred:=Blk},
+    c_fix_branches(As, L, Blocks);
+c_fix_branches([], _, Blocks) -> Blocks.
 
 %%%
 %%% Order element/2 calls.
