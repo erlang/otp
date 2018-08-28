@@ -66,12 +66,31 @@
          ensure_engine_unloaded/2
         ]).
 
+-export_type([ %% A minimum exported: only what public_key needs.
+               dh_private/0,
+               dh_public/0,
+               dss_digest_type/0,
+               ec_named_curve/0,
+               ecdsa_digest_type/0,
+               pk_encrypt_decrypt_opts/0,
+               pk_sign_verify_opts/0,
+               rsa_digest_type/0,
+               sha1/0,
+               sha2/0
+             ]).
+
 -export_type([engine_ref/0,
               key_id/0,
               password/0
              ]).
 
-
+%%% Opaque types must be exported :(
+-export_type([
+              stream_state/0,
+              hmac_state/0,
+              hash_state/0
+             ]).
+   
 %% Private. For tests.
 -export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2, get_test_engine/0]).
 
@@ -83,16 +102,187 @@
 %% Used by strong_rand_float/0
 -define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
 
-%%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
+
+%%% ===== BEGIN NEW TYPING ====
+
+%%% Basic
+-type key_integer() :: integer() | binary(). % Always binary() when used as return value
+
+%%% Keys
+-type rsa_public() :: [key_integer()] . % [E, N]
+-type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
+-type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
+
+-type dss_public() :: [key_integer()] . % [P, Q, G, Y] 
+-type dss_private() :: [key_integer()] . % [P, Q, G, X]
+
+-type ecdsa_public()  :: key_integer() .
+-type ecdsa_private() :: key_integer() .
+-type ecdsa_params()  :: ec_named_curve() | edwards_curve() | ec_explicit_curve() .
+
+-type srp_public() :: key_integer() .
+-type srp_private() :: key_integer() .
+-type srp_gen_params()  :: {user,srp_user_gen_params()}  | {host,srp_host_gen_params()}.
+-type srp_comp_params() :: {user,srp_user_comp_params()} | {host,srp_host_comp_params()}.
+-type srp_user_gen_params() :: list(binary() | atom() | list()) .
+-type srp_host_gen_params() :: list(binary() | atom() | list()) .
+-type srp_user_comp_params() :: list(binary() | atom()) .
+-type srp_host_comp_params() :: list(binary() | atom()) .
+
+-type dh_public() :: key_integer() .
+-type dh_private() :: key_integer() .
+-type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
+
+-type ecdh_public()  :: key_integer() .
+-type ecdh_private() :: key_integer() .
+-type ecdh_params()  :: ec_named_curve() | edwards_curve() | ec_explicit_curve() .
+
+
+%%% Curves
+
+-type ec_explicit_curve() :: {Field :: ec_field(),
+                              Curve :: ec_curve(),
+                              BasePoint :: binary(),
+                              Order :: binary(),
+                              CoFactor :: none | % FIXME: Really?
+                                          binary()
+                             } .
+
+-type ec_curve() :: {A :: binary(),
+                     B :: binary(),
+                     Seed :: none | binary()
+                    } .
+
+-type ec_field() ::  ec_prime_field() | ec_characteristic_two_field() .
+
+-type ec_prime_field()              :: {prime_field, Prime :: integer()} .
+-type ec_characteristic_two_field() :: {characteristic_two_field, M :: integer(), Basis :: ec_basis()} .
+
+-type ec_basis() :: {tpbasis, K :: non_neg_integer()}
+                  | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()}
+                  |  onbasis .
+
+-type ec_named_curve() :: brainpoolP160r1
+                        | brainpoolP160t1
+                        | brainpoolP192r1
+                        | brainpoolP192t1
+                        | brainpoolP224r1
+                        | brainpoolP224t1
+                        | brainpoolP256r1
+                        | brainpoolP256t1
+                        | brainpoolP320r1
+                        | brainpoolP320t1
+                        | brainpoolP384r1
+                        | brainpoolP384t1
+                        | brainpoolP512r1
+                        | brainpoolP512t1
+                        | c2pnb163v1
+                        | c2pnb163v2
+                        | c2pnb163v3
+                        | c2pnb176v1
+                        | c2pnb208w1
+                        | c2pnb272w1
+                        | c2pnb304w1
+                        | c2pnb368w1
+                        | c2tnb191v1
+                        | c2tnb191v2
+                        | c2tnb191v3
+                        | c2tnb239v1
+                        | c2tnb239v2
+                        | c2tnb239v3
+                        | c2tnb359v1
+                        | c2tnb431r1
+                        | ipsec3
+                        | ipsec4
+                        | prime192v1
+                        | prime192v2
+                        | prime192v3
+                        | prime239v1
+                        | prime239v2
+                        | prime239v3
+                        | prime256v1
+                        | secp112r1
+                        | secp112r2
+                        | secp128r1
+                        | secp128r2
+                        | secp160k1
+                        | secp160r1
+                        | secp160r2
+                        | secp192k1
+                        | secp192r1
+                        | secp224k1
+                        | secp224r1
+                        | secp256k1
+                        | secp256r1
+                        | secp384r1
+                        | secp521r1
+                        | sect113r1
+                        | sect113r2
+                        | sect131r1
+                        | sect131r2
+                        | sect163k1
+                        | sect163r1
+                        | sect163r2
+                        | sect193r1
+                        | sect193r2
+                        | sect233k1
+                        | sect233r1
+                        | sect239k1
+                        | sect283k1
+                        | sect283r1
+                        | sect409k1
+                        | sect409r1
+                        | sect571k1
+                        | sect571r1
+                        | wtls1
+                        | wtls10
+                        | wtls11
+                        | wtls12
+                        | wtls3
+                        | wtls4
+                        | wtls5
+                        | wtls6
+                        | wtls7
+                        | wtls8
+                        | wtls9
+                          .
+
+-type edwards_curve() :: x25519
+                       | x448 .
+
+%%% 
+-type block_cipher_with_iv() :: cbc_cipher()
+                              | cfb_cipher()
+                              | aes_cbc128
+                              | aes_cbc256
+                              | aes_ige256
+                              | blowfish_ofb64
+                              | des3_cbf % cfb misspelled
+                              | des_ede3
+                              | rc2_cbc .
+
+-type cbc_cipher()  :: des_cbc | des3_cbc | aes_cbc | blowfish_cbc .
+-type aead_cipher() :: aes_gcm | chacha20_poly1305 .
+-type cfb_cipher()  :: aes_cfb128 | aes_cfb8 | blowfish_cfb64 | des3_cfb | des_cfb .
+
+-type block_cipher_without_iv() :: ecb_cipher() .
+-type ecb_cipher()  :: des_ecb | blowfish_ecb | aes_ecb .
+
+-type key() :: iodata().
+-type des3_key() :: [key()].
+
+%%%
+-type rsa_digest_type()   :: sha1() | sha2() | md5 | ripemd160 .
+-type dss_digest_type()   :: sha1() | sha2() .
+-type ecdsa_digest_type() :: sha1() | sha2() .
+
+-type sha1() :: sha .
+-type sha2() :: sha224 | sha256 | sha384 | sha512 .
+-type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
+
+-type compatibility_only_hash() :: md5 | md4 .
+
 -type crypto_integer() :: binary() | integer().
-%%-type ec_named_curve() :: atom().
-%%-type ec_point() :: crypto_integer().
-%%-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
-%%-type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
-%%-type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
-%%-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
-%%-type ec_curve() :: ec_named_curve() | ec_curve_spec().
-%%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -compile(no_native).
 -on_load(on_load/0).
@@ -108,14 +298,36 @@ nif_stub_error(Line) ->
 %% Crypto app version history:
 %% (no version): Driver implementation
 %% 2.0         : NIF implementation, requires OTP R14
+
+%% When generating documentation from crypto.erl, the macro ?CRYPTO_VSN is not defined.
+%% That causes the doc generation to stop...
+-ifndef(CRYPTO_VSN).
+-define(CRYPTO_VSN, "??").
+-endif.
 version() -> ?CRYPTO_VSN.
 
+-spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
+-spec stop() -> ok | {error, Reason::term()}.
 stop() ->
     application:stop(crypto).
 
+-spec supports() -> [Support]
+                        when Support :: {hashs,   Hashs}
+                                      | {ciphers, Ciphers}
+                                      | {public_keys, PKs}
+                                      | {macs,    Macs}
+                                      | {curves,  Curves},
+                             Hashs :: [sha1() | sha2() | sha3() | ripemd160 | compatibility_only_hash()],
+                             Ciphers :: [stream_cipher()
+                                         | block_cipher_with_iv() | block_cipher_without_iv()
+                                         | aead_cipher()
+                                        ], 
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
+                             Macs :: [hmac | cmac | poly1305],
+                             Curves :: [ec_named_curve() | edwards_curve()].
 supports()->
     {Hashs, PubKeys, Ciphers, Macs, Curves} = algorithms(),
     [{hashs, Hashs},
@@ -125,6 +337,9 @@ supports()->
      {curves, Curves}
     ].
 
+-spec info_lib() -> [{Name,VerNum,VerStr}] when Name :: binary(),
+                                                VerNum :: integer(),
+                                                VerStr :: binary() .
 info_lib() -> ?nif_stub.
 
 -spec info_fips() -> not_supported | not_enabled | enabled.
@@ -135,85 +350,150 @@ info_fips() -> ?nif_stub.
 
 enable_fips_mode(_) -> ?nif_stub.
 
--spec hash(_, iodata()) -> binary().
+%%%================================================================
+%%%
+%%% Hashing
+%%%
+%%%================================================================
 
-hash(Hash, Data0) ->
-    Data = iolist_to_binary(Data0),
+-define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | ripemd160 | compatibility_only_hash() ).
+
+-spec hash(Type, Data) -> Digest when Type :: ?HASH_HASH_ALGORITHM,
+                                      Data :: iodata(),
+                                      Digest :: binary().
+hash(Type, Data) ->
+    Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
-    hash(Hash, Data, erlang:byte_size(Data), MaxBytes).
+    hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
 
--spec hash_init('md5'|'md4'|'ripemd160'|
-                'sha'|'sha224'|'sha256'|'sha384'|'sha512'|
-                'sha3_224' | 'sha3_256' | 'sha3_384' | 'sha3_512') -> any().
+-opaque hash_state() :: reference().
 
-hash_init(Hash) ->
-    notsup_to_error(hash_init_nif(Hash)).
+-spec hash_init(Type) -> State when Type :: ?HASH_HASH_ALGORITHM,
+                                    State :: hash_state().
+hash_init(Type) -> 
+    notsup_to_error(hash_init_nif(Type)).
 
--spec hash_update(_, iodata()) -> any().
-
-hash_update(State, Data0) ->
-    Data = iolist_to_binary(Data0),
+-spec hash_update(State, Data) -> NewState when State :: hash_state(),
+                                                NewState :: hash_state(),
+                                                Data :: iodata() .
+hash_update(Context, Data) ->
+    Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
-    hash_update(State, Data, erlang:byte_size(Data), MaxBytes).
+    hash_update(Context, Data1, erlang:byte_size(Data1), MaxBytes).
 
--spec hash_final(_) -> binary().
+-spec hash_final(State) -> Digest when  State :: hash_state(),
+                                        Digest :: binary().
+hash_final(Context) ->
+    notsup_to_error(hash_final_nif(Context)).
 
-hash_final(State) ->
-    notsup_to_error(hash_final_nif(State)).
+%%%================================================================
+%%%
+%%% MACs (Message Authentication Codes)
+%%% 
+%%%================================================================
 
+%%%---- HMAC
 
--spec hmac(_, iodata(), iodata()) -> binary().
--spec hmac(_, iodata(), iodata(), integer()) -> binary().
--spec hmac_init(atom(), iodata()) -> binary().
--spec hmac_update(binary(), iodata()) -> binary().
--spec hmac_final(binary()) -> binary().
--spec hmac_final_n(binary(), integer()) -> binary().
+-define(HMAC_HASH_ALGORITHM,  sha1() | sha2() | sha3() | compatibility_only_hash()).
 
-hmac(Type, Key, Data0) ->
-    Data = iolist_to_binary(Data0),
-    hmac(Type, Key, Data, undefined, erlang:byte_size(Data), max_bytes()).
-hmac(Type, Key, Data0, MacSize) ->
-    Data = iolist_to_binary(Data0),
-    hmac(Type, Key, Data, MacSize, erlang:byte_size(Data), max_bytes()).
+%%%---- hmac/3,4 
 
+-spec hmac(Type, Key, Data) -> 
+                  Mac when Type :: ?HMAC_HASH_ALGORITHM,
+                           Key :: iodata(),
+                           Data :: iodata(),
+                           Mac :: binary() .
+hmac(Type, Key, Data) ->
+    Data1 = iolist_to_binary(Data),
+    hmac(Type, Key, Data1, undefined, erlang:byte_size(Data1), max_bytes()).
+
+-spec hmac(Type, Key, Data, MacLength) -> 
+                  Mac when Type :: ?HMAC_HASH_ALGORITHM,
+                           Key :: iodata(),
+                           Data :: iodata(),
+                           MacLength :: integer(),
+                           Mac :: binary() .
+
+hmac(Type, Key, Data, MacLength) ->
+    Data1 = iolist_to_binary(Data),
+    hmac(Type, Key, Data1, MacLength, erlang:byte_size(Data1), max_bytes()).
+
+%%%---- hmac_init, hamc_update, hmac_final
+
+-opaque hmac_state() :: binary().
+
+-spec hmac_init(Type, Key) ->
+                       State when Type :: ?HMAC_HASH_ALGORITHM,
+                                  Key :: iodata(),
+                                  State :: hmac_state() .
 hmac_init(Type, Key) ->
     notsup_to_error(hmac_init_nif(Type, Key)).
 
+%%%---- hmac_update
+
+-spec hmac_update(State, Data) -> NewState when Data :: iodata(),
+                                                State :: hmac_state(),
+                                                NewState :: hmac_state().
 hmac_update(State, Data0) ->
     Data = iolist_to_binary(Data0),
     hmac_update(State, Data, erlang:byte_size(Data), max_bytes()).
 
+%%%---- hmac_final
+
+-spec hmac_final(State) -> Mac when State :: hmac_state(),
+                                    Mac :: binary().
 hmac_final(Context) ->
     notsup_to_error(hmac_final_nif(Context)).
+
+-spec hmac_final_n(State, HashLen) -> Mac when State :: hmac_state(),
+                                               HashLen :: integer(),
+                                               Mac :: binary().
 hmac_final_n(Context, HashLen) ->
     notsup_to_error(hmac_final_nif(Context, HashLen)).
 
--spec cmac(_, iodata(), iodata()) -> binary().
--spec cmac(_, iodata(), iodata(), integer()) -> binary().
+%%%---- CMAC
 
+-define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc  ).
+
+-spec cmac(Type, Key, Data) ->
+                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
+                           Key :: iodata(),
+                           Data :: iodata(),
+                           Mac :: binary().
 cmac(Type, Key, Data) ->
     notsup_to_error(cmac_nif(Type, Key, Data)).
-cmac(Type, Key, Data, MacSize) ->
-    erlang:binary_part(cmac(Type, Key, Data), 0, MacSize).
 
--spec poly1305(iodata(), iodata()) -> binary().
+-spec cmac(Type, Key, Data, MacLength) ->
+                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
+                           Key :: iodata(),
+                           Data :: iodata(),
+                           MacLength :: integer(), 
+                           Mac :: binary().
+cmac(Type, Key, Data, MacLength) ->
+    erlang:binary_part(cmac(Type, Key, Data), 0, MacLength).
+
+%%%---- POLY1305
+
+-spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
 
 poly1305(Key, Data) ->
     poly1305_nif(Key, Data).
 
-%% Ecrypt/decrypt %%%
+%%%================================================================
+%%%
+%%% Encrypt/decrypt
+%%%
+%%%================================================================
 
--spec block_encrypt(des_cbc | des_cfb |
-                    des3_cbc | des3_cbf | des3_cfb | des_ede3 |
-                    blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
-                    aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
-                    aes_cbc |
-                    rc2_cbc,
-                    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
-                   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()};
-                   (aes_gcm, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata(), TagLength::1..16}) -> {binary(), binary()}.
+%%%---- Block ciphers
 
-block_encrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
+-spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
+                   (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
+                           {binary(), binary()};
+                   (aes_gcm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
+                           {binary(), binary()}.
+
+block_encrypt(Type, Key, Ivec, PlainText) when Type =:= des_cbc;
                                           Type =:= des_cfb;
                                           Type =:= blowfish_cbc;
                                           Type =:= blowfish_cfb64;
@@ -224,34 +504,28 @@ block_encrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= aes_cbc256;
 					  Type =:= aes_cbc;
                                           Type =:= rc2_cbc ->
-    block_crypt_nif(Type, Key, Ivec, Data, true);
-block_encrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
+    block_crypt_nif(Type, Key, Ivec, PlainText, true);
+block_encrypt(Type, Key0, Ivec, PlainText) when Type =:= des3_cbc;
                                            Type =:= des_ede3 ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbc, Key, Ivec, Data, true);
-block_encrypt(des3_cbf, Key0, Ivec, Data) ->
+    block_crypt_nif(des_ede3_cbc, Key, Ivec, PlainText, true);
+block_encrypt(des3_cbf, Key0, Ivec, PlainText) -> % cfb misspelled
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, true);
-block_encrypt(des3_cfb, Key0, Ivec, Data) ->
+    block_crypt_nif(des_ede3_cbf, Key, Ivec, PlainText, true);
+block_encrypt(des3_cfb, Key0, Ivec, PlainText) ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, true);
-block_encrypt(aes_ige256, Key, Ivec, Data) ->
-    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, true));
-block_encrypt(aes_gcm, Key, Ivec, {AAD, Data}) ->
-    aes_gcm_encrypt(Key, Ivec, AAD, Data);
-block_encrypt(aes_gcm, Key, Ivec, {AAD, Data, TagLength}) ->
-    aes_gcm_encrypt(Key, Ivec, AAD, Data, TagLength);
-block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, Data}) ->
-    chacha20_poly1305_encrypt(Key, Ivec, AAD, Data).
+    block_crypt_nif(des_ede3_cfb, Key, Ivec, PlainText, true);
+block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
+    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
+block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText}) ->
+    aes_gcm_encrypt(Key, Ivec, AAD, PlainText);
+block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText, TagLength}) ->
+    aes_gcm_encrypt(Key, Ivec, AAD, PlainText, TagLength);
+block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, PlainText}) ->
+    chacha20_poly1305_encrypt(Key, Ivec, AAD, PlainText).
 
--spec block_decrypt(des_cbc | des_cfb |
-                    des3_cbc | des3_cbf | des3_cfb | des_ede3 |
-                    blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
-                    aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
-		    aes_cbc |
-                    rc2_cbc,
-		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
-		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
+-spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
+		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
 block_decrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= des_cfb;
@@ -269,7 +543,7 @@ block_decrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
                                            Type =:= des_ede3 ->
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cbc, Key, Ivec, Data, false);
-block_decrypt(des3_cbf, Key0, Ivec, Data) ->
+block_decrypt(des3_cbf, Key0, Ivec, Data) -> % cfb misspelled
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, false);
 block_decrypt(des3_cfb, Key0, Ivec, Data) ->
@@ -282,18 +556,23 @@ block_decrypt(aes_gcm, Key, Ivec, {AAD, Data, Tag}) ->
 block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
     chacha20_poly1305_decrypt(Key, Ivec, AAD, Data, Tag).
 
--spec block_encrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
 
-block_encrypt(Type, Key, Data) ->
-    block_crypt_nif(Type, Key, Data, true).
 
--spec block_decrypt(des_ecb | blowfish_ecb | aes_ecb, Key::iodata(), Data::iodata()) -> binary().
+-spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
+
+block_encrypt(Type, Key, PlainText) ->
+    block_crypt_nif(Type, Key, PlainText, true).
+
+
+-spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) -> binary().
 
 block_decrypt(Type, Key, Data) ->
     block_crypt_nif(Type, Key, Data, false).
 
--spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
+-spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
+                                           Data :: iodata(),
+                                           NextIVec :: binary().
 next_iv(Type, Data) when is_binary(Data) ->
     IVecSize = case Type of
                    des_cbc  -> 8;
@@ -308,7 +587,9 @@ next_iv(Type, Data) when is_binary(Data) ->
 next_iv(Type, Data) when is_list(Data) ->
     next_iv(Type, list_to_binary(Data)).
 
--spec next_iv(des_cfb, Data::iodata(), Ivec::binary()) -> binary().
+-spec next_iv(des_cfb, Data, IVec) -> NextIVec when Data :: iodata(),
+                                                    IVec :: binary(),
+                                                    NextIVec :: binary().
 
 next_iv(des_cfb, Data, IVec) ->
     IVecAndData = list_to_binary([IVec, Data]),
@@ -317,41 +598,57 @@ next_iv(des_cfb, Data, IVec) ->
 next_iv(Type, Data, _Ivec) ->
     next_iv(Type, Data).
 
+%%%---- Stream ciphers
+
+-opaque stream_state() :: {stream_cipher(), reference()}.
+
+-type stream_cipher() :: rc4 | aes_ctr | chacha20 .
+
+-spec stream_init(Type, Key, IVec) -> State when Type :: aes_ctr | chacha20,
+                                                 Key :: iodata(),
+                                                 IVec :: binary(),
+                                                 State :: stream_state() .
 stream_init(aes_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
 stream_init(chacha20, Key, Ivec) ->
     {chacha20, chacha20_stream_init(Key,Ivec)}.
 
+-spec stream_init(Type, Key) -> State when Type :: rc4,
+                                           Key :: iodata(),
+                                           State :: stream_state() .
 stream_init(rc4, Key) ->
     {rc4, notsup_to_error(rc4_set_key(Key))}.
 
+-spec stream_encrypt(State, PlainText) -> {NewState, CipherText}
+                                              when State :: stream_state(),
+                                                   PlainText :: iodata(),
+                                                   NewState :: stream_state(),
+                                                   CipherText :: iodata() .
 stream_encrypt(State, Data0) ->
     Data = iolist_to_binary(Data0),
     MaxByts = max_bytes(),
     stream_crypt(fun do_stream_encrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
 
+-spec stream_decrypt(State, CipherText) -> {NewState, PlainText}
+                                              when State :: stream_state(),
+                                                   CipherText :: iodata(),
+                                                   NewState :: stream_state(),
+                                                   PlainText :: iodata() .
 stream_decrypt(State, Data0) ->
     Data = iolist_to_binary(Data0),
     MaxByts = max_bytes(),
     stream_crypt(fun do_stream_decrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
 
-%%
-%% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
-%%
+
+%%%================================================================
+%%%
+%%% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
+%%%
+%%%================================================================
 -type rand_cache_seed() ::
         nonempty_improper_list(non_neg_integer(), binary()).
--spec strong_rand_bytes(non_neg_integer()) -> binary().
--spec rand_seed() -> rand:state().
--spec rand_seed_s() -> rand:state().
--spec rand_seed_alg(Alg :: atom()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
--spec rand_seed_alg_s(Alg :: atom()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
--spec rand_uniform(crypto_integer(), crypto_integer()) ->
-			  crypto_integer().
 
+-spec strong_rand_bytes(N::non_neg_integer()) -> binary().
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
         false -> erlang:error(low_entropy);
@@ -360,16 +657,24 @@ strong_rand_bytes(Bytes) ->
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
+-spec rand_seed() -> rand:state().
 rand_seed() ->
     rand:seed(rand_seed_s()).
 
+-spec rand_seed_s() -> rand:state().
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
+-spec rand_seed_alg(Alg :: atom()) ->
+                           {rand:alg_handler(),
+                            atom() | rand_cache_seed()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -define(CRYPTO_CACHE_BITS, 56).
+-spec rand_seed_alg_s(Alg :: atom()) ->
+                             {rand:alg_handler(),
+                              atom() | rand_cache_seed()}.
 rand_seed_alg_s(?MODULE) ->
     {#{ type => ?MODULE,
         bits => 64,
@@ -427,7 +732,9 @@ strong_rand_float() ->
     WholeRange = strong_rand_range(1 bsl 53),
     ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
-rand_uniform(From,To) when is_binary(From), is_binary(To) ->
+-spec rand_uniform(crypto_integer(), crypto_integer()) ->
+			  crypto_integer().
+rand_uniform(From, To) when is_binary(From), is_binary(To) ->
     case rand_uniform_nif(From,To) of
 	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
 	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
@@ -462,115 +769,227 @@ rand_seed(Seed) when is_binary(Seed) ->
 
 rand_seed_nif(_Seed) -> ?nif_stub.
 
--spec mod_pow(binary()|integer(), binary()|integer(), binary()|integer()) -> binary() | error.
-mod_pow(Base, Exponent, Prime) ->
-    case mod_exp_nif(ensure_int_as_bin(Base), ensure_int_as_bin(Exponent), ensure_int_as_bin(Prime), 0) of
-	<<0>> -> error;
-	R -> R
-    end.
+%%%================================================================
+%%%
+%%% Sign/verify
+%%%
+%%%================================================================
+-type pk_sign_verify_algs() :: rsa | dss | ecdsa .
 
-verify(Algorithm, Type, Data, Signature, Key) ->
-    verify(Algorithm, Type, Data, Signature, Key, []).
+-type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
 
-%% Backwards compatible
-verify(Algorithm = dss, none, Digest, Signature, Key, Options) ->
-    verify(Algorithm, sha, {digest, Digest}, Signature, Key, Options);
-verify(Algorithm, Type, Data, Signature, Key, Options) ->
-    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
-	notsup -> erlang:error(notsup);
-	Boolean -> Boolean
-    end.
+-type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
+                             | {rsa_pss_saltlen, integer()} .
 
+-type rsa_sign_verify_padding() :: rsa_pkcs1_padding | rsa_pkcs1_pss_padding
+                                 | rsa_x931_padding | rsa_no_padding
+                                   .
+
+
+%%%----------------------------------------------------------------
+%%% Sign
+
+-spec sign(Algorithm, DigestType, Msg, Key)
+          -> Signature 
+                 when Algorithm :: pk_sign_verify_algs(),
+                      DigestType :: rsa_digest_type()
+                                  | dss_digest_type()
+                                  | ecdsa_digest_type(),
+                      Msg :: binary() | {digest,binary()},
+                      Key :: rsa_private()
+                           | dss_private()
+                           | [ecdsa_private()|ecdsa_params()]
+                           | engine_key_ref(),
+                      Signature :: binary() .
 
 sign(Algorithm, Type, Data, Key) ->
     sign(Algorithm, Type, Data, Key, []).
 
-%% Backwards compatible
-sign(Algorithm = dss, none, Digest, Key, Options) ->
-    sign(Algorithm, sha, {digest, Digest}, Key, Options);
-sign(Algorithm, Type, Data, Key, Options) ->
+
+-spec sign(Algorithm, DigestType, Msg, Key, Options)
+          -> Signature 
+                 when Algorithm :: pk_sign_verify_algs(),
+                      DigestType :: rsa_digest_type()
+                                  | dss_digest_type()
+                                  | ecdsa_digest_type()
+                                  | none,
+                      Msg :: binary() | {digest,binary()},
+                      Key :: rsa_private()
+                           | dss_private()
+                           | [ecdsa_private() | ecdsa_params()]
+                           | engine_key_ref(),
+                      Options :: pk_sign_verify_opts(),
+                      Signature :: binary() .
+
+sign(Algorithm0, Type0, Data, Key, Options) ->
+    {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
     case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
 	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
 	notsup -> erlang:error(notsup);
 	Signature -> Signature
     end.
 
+pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
+%%%----------------------------------------------------------------
+%%% Verify
 
--type key_id()   :: string() | binary() .
--type password() :: string() | binary() .
+-spec verify(Algorithm, DigestType, Msg, Signature, Key)
+            -> Result
+                   when Algorithm :: pk_sign_verify_algs(),
+                        DigestType :: rsa_digest_type()
+                                    | dss_digest_type()
+                                    | ecdsa_digest_type(),
+                        Msg :: binary() | {digest,binary()},
+                        Signature :: binary(),
+                        Key :: rsa_private()
+                             | dss_private()
+                             | [ecdsa_private() | ecdsa_params()]
+                             | engine_key_ref(),
+                        Result :: boolean().
 
--type engine_key_ref() :: #{engine :=   engine_ref(),
-                            key_id :=   key_id(),
-                            password => password(),
-                            term() => term()
-                           }.
+verify(Algorithm, Type, Data, Signature, Key) ->
+    verify(Algorithm, Type, Data, Signature, Key, []).
 
--type pk_algs() :: rsa | ecdsa | dss .
--type pk_key()  :: engine_key_ref() | [integer() | binary()] .
--type pk_opt()  :: list() | rsa_padding() .
+-spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
+            -> Result
+                   when Algorithm :: pk_sign_verify_algs(),
+                        DigestType :: rsa_digest_type()
+                                    | dss_digest_type()
+                                    | ecdsa_digest_type(),
+                        Msg :: binary() | {digest,binary()},
+                        Signature :: binary(),
+                        Key :: rsa_public()
+                             | dss_public()
+                             | [ecdsa_public() | ecdsa_params()]
+                             | engine_key_ref(),
+                        Options :: pk_sign_verify_opts(),
+                        Result :: boolean().
 
--spec public_encrypt(pk_algs(),  binary(), pk_key(), pk_opt()) -> binary().
--spec public_decrypt(pk_algs(),  binary(), pk_key(), pk_opt()) -> binary().
--spec private_encrypt(pk_algs(), binary(), pk_key(), pk_opt()) -> binary().
--spec private_decrypt(pk_algs(), binary(), pk_key(), pk_opt()) -> binary().
+verify(Algorithm0, Type0, Data, Signature, Key, Options) ->
+    {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
+    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
+	notsup -> erlang:error(notsup);
+	Boolean -> Boolean
+    end.
 
-public_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
-    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, true) of
-	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
+pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
+
+%% Backwards compatible:
+sign_verify_compatibility(dss, none, Digest) ->
+    {sha, {digest, Digest}};
+sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
+    {Algorithm0, Type0}.
+
+%%%================================================================
+%%%
+%%% Public/private encrypt/decrypt
+%%%
+%%% Only rsa works so far (although ecdsa | dss should do it)
+%%%================================================================
+-type pk_encrypt_decrypt_algs() :: rsa .
+
+-type pk_encrypt_decrypt_opts() ::  [rsa_opt()] | rsa_compat_opts().
+
+-type rsa_compat_opts() :: [{rsa_pad, rsa_padding()}]
+                         | rsa_padding() .
+
+-type rsa_padding() :: rsa_pkcs1_padding
+                     | rsa_pkcs1_oaep_padding
+                     | rsa_sslv23_padding
+                     | rsa_x931_padding
+                     | rsa_no_padding.
+
+-type rsa_opt() :: {rsa_padding, rsa_padding()} 
+                 | {signature_md, atom()}
+                 | {rsa_mgf1_md, sha}
+                 | {rsa_oaep_label, binary()}
+                 | {rsa_oaep_md, sha} .
+
+%%%---- Encrypt with public key
+
+-spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
+                            CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
+                                            PlainText :: binary(),
+                                            PublicKey :: rsa_public() | engine_key_ref(),
+                                            Options :: pk_encrypt_decrypt_opts(),
+                                            CipherText :: binary().
+public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
+    pkey_crypt(Algorithm, PlainText, PublicKey, Options, false, true).
+
+%%%---- Decrypt with private key
+
+-spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
+                             PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
+                                            CipherText :: binary(),
+                                            PrivateKey :: rsa_private() | engine_key_ref(),
+                                            Options :: pk_encrypt_decrypt_opts(),
+                                            PlainText :: binary() .
+private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
+    pkey_crypt(Algorithm, CipherText,  PrivateKey, Options, true, false).
+
+%%%---- Encrypt with private key
+
+-spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
+                            CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
+                                            PlainText :: binary(),
+                                            PrivateKey :: rsa_private() | engine_key_ref(),
+                                            Options :: pk_encrypt_decrypt_opts(),
+                                            CipherText :: binary().
+private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
+    pkey_crypt(Algorithm, PlainText,  PrivateKey, Options, true, true).
+
+%%%---- Decrypt with public key
+
+-spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
+                             PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
+                                            CipherText :: binary(),
+                                            PublicKey :: rsa_public() | engine_key_ref(),
+                                            Options :: pk_encrypt_decrypt_opts(),
+                                            PlainText :: binary() .
+public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
+    pkey_crypt(Algorithm, CipherText, PublicKey, Options, false, false).
+
+%%%---- Call the nif, but fix a compatibility issue first
+
+%% Backwards compatible (rsa_pad -> rsa_padding is handled by the pkey_crypt_nif):
+pkey_crypt(rsa, Text, Key, Padding, PubPriv, EncDec) when is_atom(Padding) ->
+    pkey_crypt(rsa, Text, Key, [{rsa_padding, Padding}], PubPriv, EncDec);
+
+pkey_crypt(Alg, Text, Key, Options, PubPriv, EncDec) ->
+    case pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec) of
+	error when EncDec==true  -> erlang:error(encrypt_failed, [Alg, Text, Key, Options]);
+	error when EncDec==false -> erlang:error(decrypt_failed, [Alg, Text, Key, Options]);
 	notsup -> erlang:error(notsup);
 	Out -> Out
-    end;
-%% Backwards compatible
-public_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
-    public_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+    end.
 
-private_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
-    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, false) of
-	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
-    end;
-%% Backwards compatible
-private_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
-    private_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
-private_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
-    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, true) of
-	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
-    end;
-%% Backwards compatible
-private_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
-    private_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+%%%================================================================
+%%%
+%%%
+%%%
+%%%================================================================
 
-public_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
-    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, false) of
-	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
-    end;
-%% Backwards compatible
-public_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
-    public_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
-
-
-%%
-%% XOR - xor to iolists and return a binary
-%% NB doesn't check that they are the same size, just concatenates
-%% them and sends them to the driver
-%%
--spec exor(iodata(), iodata()) -> binary().
-
-exor(Bin1, Bin2) ->
-    Data1 = iolist_to_binary(Bin1),
-    Data2 = iolist_to_binary(Bin2),
-    MaxBytes = max_bytes(),
-    exor(Data1, Data2, erlang:byte_size(Data1), MaxBytes, []).
-
+-spec generate_key(Type, Params)
+                 -> {PublicKey, PrivKeyOut} 
+                        when Type :: dh | ecdh | rsa | srp,
+                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+                             Params :: dh_params() | ecdh_params() | rsa_params() | srp_gen_params()
+                                       .
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
+
+-spec generate_key(Type, Params, PrivKeyIn)
+                 -> {PublicKey, PrivKeyOut} 
+                        when Type :: dh | ecdh | rsa | srp,
+                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+                             PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+                             Params :: dh_params() | ecdh_params() | rsa_params() | srp_comp_params()
+                                       .
 
 generate_key(dh, DHParameters0, PrivateKey) ->
     {DHParameters, Len} =
@@ -618,6 +1037,14 @@ generate_key(ecdh, Curve, PrivKey) ->
 evp_generate_key_nif(_Curve) -> ?nif_stub.
 
 
+-spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
+                 -> SharedSecret
+                        when Type :: dh | ecdh | srp,
+                             SharedSecret :: binary(),
+                             OthersPublicKey :: dh_public() | ecdh_public() | srp_public(),
+                             MyPrivateKey :: dh_private() | ecdh_private() | {srp_public(),srp_private()},
+                             Params :: dh_params() | ecdh_params() | srp_comp_params()
+                                       .
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
     case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
@@ -670,9 +1097,59 @@ compute_key(ecdh, Others, My, Curve) ->
 
 evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 
-%%======================================================================
-%% Engine functions
-%%======================================================================
+
+%%%================================================================
+%%%
+%%% XOR - xor to iolists and return a binary
+%%% NB doesn't check that they are the same size, just concatenates
+%%% them and sends them to the driver
+%%%
+%%%================================================================
+
+-spec exor(iodata(), iodata()) -> binary().
+
+exor(Bin1, Bin2) ->
+    Data1 = iolist_to_binary(Bin1),
+    Data2 = iolist_to_binary(Bin2),
+    MaxBytes = max_bytes(),
+    exor(Data1, Data2, erlang:byte_size(Data1), MaxBytes, []).
+
+
+%%%================================================================
+%%%
+%%% Exponentiation modulo
+%%%
+%%%================================================================
+
+-spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
+                                      P :: binary() | integer(),
+                                      M :: binary() | integer(),
+                                      Result :: binary() | error .
+mod_pow(Base, Exponent, Prime) ->
+    case mod_exp_nif(ensure_int_as_bin(Base), ensure_int_as_bin(Exponent), ensure_int_as_bin(Prime), 0) of
+	<<0>> -> error;
+	R -> R
+    end.
+
+%%%======================================================================
+%%%
+%%% Engine functions
+%%% 
+%%%======================================================================
+
+%%%---- Refering to keys stored in an engine:
+-type key_id()   :: string() | binary() .
+-type password() :: string() | binary() .
+
+-type engine_key_ref() :: #{engine :=   engine_ref(),
+                            key_id :=   key_id(),
+                            password => password(),
+                            term() => term()
+                           }.
+
+%%%---- Commands:
+-type engine_cmnd() :: {unicode:chardata(), unicode:chardata()}.
+
 %%----------------------------------------------------------------------
 %% Function: engine_get_all_methods/0
 %%----------------------------------------------------------------------
@@ -684,18 +1161,18 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 
 -type engine_ref() :: term().
 
--spec engine_get_all_methods() ->
-    [engine_method_type()].
+-spec engine_get_all_methods() -> Result when Result :: [engine_method_type()].
 engine_get_all_methods() ->
      notsup_to_error(engine_get_all_methods_nif()).
 
 %%----------------------------------------------------------------------
 %% Function: engine_load/3
 %%----------------------------------------------------------------------
--spec engine_load(EngineId::unicode:chardata(),
-                  PreCmds::[{unicode:chardata(), unicode:chardata()}],
-                  PostCmds::[{unicode:chardata(), unicode:chardata()}]) ->
-    {ok, Engine::engine_ref()} | {error, Reason::term()}.
+-spec engine_load(EngineId, PreCmds, PostCmds) ->
+                         Result when EngineId::unicode:chardata(),
+                                     PreCmds::[engine_cmnd()],
+                                     PostCmds::[engine_cmnd()],
+                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
                                               is_list(PostCmds) ->
     engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
@@ -703,11 +1180,12 @@ engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
 %%----------------------------------------------------------------------
 %% Function: engine_load/4
 %%----------------------------------------------------------------------
--spec engine_load(EngineId::unicode:chardata(),
-                  PreCmds::[{unicode:chardata(), unicode:chardata()}],
-                  PostCmds::[{unicode:chardata(), unicode:chardata()}],
-                  EngineMethods::[engine_method_type()]) ->
-    {ok, Engine::term()} | {error, Reason::term()}.
+-spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
+                         Result when EngineId::unicode:chardata(),
+                                     PreCmds::[engine_cmnd()],
+                                     PostCmds::[engine_cmnd()],
+                                     EngineMethods::[engine_method_type()],
+                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
                                                              is_list(PostCmds) ->
     try
@@ -752,13 +1230,14 @@ engine_load_2(Engine, PostCmds, EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: engine_unload/1
 %%----------------------------------------------------------------------
--spec engine_unload(Engine::term()) ->
-    ok | {error, Reason::term()}.
+-spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
+                                           Result :: ok | {error, Reason::term()}.
 engine_unload(Engine) ->
     engine_unload(Engine, engine_get_all_methods()).
 
--spec engine_unload(Engine::term(), EngineMethods::[engine_method_type()]) ->
-    ok | {error, Reason::term()}.
+-spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+                                                          EngineMethods :: [engine_method_type()],
+                                                          Result :: ok | {error, Reason::term()}.
 engine_unload(Engine, EngineMethods) ->
     try
         [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
@@ -775,6 +1254,8 @@ engine_unload(Engine, EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: engine_by_id/1
 %%----------------------------------------------------------------------
+-spec engine_by_id(EngineId) -> Result when EngineId :: unicode:chardata(),
+                                            Result :: {ok, Engine::engine_ref()} | {error, Reason::term()} .
 engine_by_id(EngineId) ->
     try
         notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)))
@@ -786,32 +1267,39 @@ engine_by_id(EngineId) ->
 %%----------------------------------------------------------------------
 %% Function: engine_add/1
 %%----------------------------------------------------------------------
+-spec engine_add(Engine) -> Result when Engine :: engine_ref(),
+                                        Result ::  ok | {error, Reason::term()} .
 engine_add(Engine) ->
     notsup_to_error(engine_add_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_remove/1
 %%----------------------------------------------------------------------
+-spec engine_remove(Engine) -> Result when Engine :: engine_ref(),
+                                           Result ::  ok | {error, Reason::term()} .
 engine_remove(Engine) ->
     notsup_to_error(engine_remove_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_id/1
 %%----------------------------------------------------------------------
+-spec engine_get_id(Engine) -> EngineId when Engine :: engine_ref(),
+                                             EngineId :: unicode:chardata().
 engine_get_id(Engine) ->
     notsup_to_error(engine_get_id_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_name/1
 %%----------------------------------------------------------------------
+-spec engine_get_name(Engine) -> EngineName when Engine :: engine_ref(),
+                                                 EngineName :: unicode:chardata().
 engine_get_name(Engine) ->
     notsup_to_error(engine_get_name_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_list/0
 %%----------------------------------------------------------------------
--spec engine_list() ->
-    [EngineId::binary()].
+-spec engine_list() -> Result when Result :: [EngineId::unicode:chardata()].
 engine_list() ->
     case notsup_to_error(engine_get_first_nif()) of
         {ok, <<>>} ->
@@ -841,21 +1329,23 @@ engine_list(Engine0, IdList) ->
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/3
 %%----------------------------------------------------------------------
--spec engine_ctrl_cmd_string(Engine::term(),
-                      CmdName::unicode:chardata(),
-                      CmdArg::unicode:chardata()) ->
-    ok | {error, Reason::term()}.
+-spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
+                                    Result when Engine::term(),
+                                                CmdName::unicode:chardata(),
+                                                CmdArg::unicode:chardata(),
+                                                Result :: ok | {error, Reason::term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
     engine_ctrl_cmd_string(Engine, CmdName, CmdArg, false).
 
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/4
 %%----------------------------------------------------------------------
--spec engine_ctrl_cmd_string(Engine::term(),
-                      CmdName::unicode:chardata(),
-                      CmdArg::unicode:chardata(),
-                      Optional::boolean()) ->
-    ok | {error, Reason::term()}.
+-spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
+                                    Result when Engine::term(),
+                                                CmdName::unicode:chardata(),
+                                                CmdArg::unicode:chardata(),
+                                                Optional::boolean(),
+                                                Result :: ok | {error, Reason::term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
     case engine_ctrl_cmd_strings_nif(Engine,
                                      ensure_bin_cmds([{CmdName, CmdArg}]),
@@ -872,6 +1362,10 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Function: ensure_engine_loaded/2
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
+-spec ensure_engine_loaded(EngineId, LibPath) ->
+                                  Result when EngineId :: unicode:chardata(),
+                                              LibPath :: unicode:chardata(),
+                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
     ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
 
@@ -879,6 +1373,11 @@ ensure_engine_loaded(EngineId, LibPath) ->
 %% Function: ensure_engine_loaded/3
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
+-spec ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
+                                  Result when EngineId :: unicode:chardata(),
+                                              LibPath :: unicode:chardata(),
+                                              EngineMethods :: [engine_method_type()],
+                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
     try
         List = crypto:engine_list(),
@@ -930,12 +1429,18 @@ ensure_engine_loaded_2(Engine, Methods) ->
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
+-spec ensure_engine_unloaded(Engine) -> Result when Engine :: engine_ref(),
+                                                    Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine) ->
     ensure_engine_unloaded(Engine, engine_get_all_methods()).
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
 %%----------------------------------------------------------------------
+-spec ensure_engine_unloaded(Engine, EngineMethods) -> 
+                                    Result when Engine :: engine_ref(),
+                                                EngineMethods :: [engine_method_type()],
+                                                Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine, EngineMethods) ->
     case engine_remove(Engine) of
         ok ->
@@ -1010,9 +1515,13 @@ path2bin(Path) when is_list(Path) ->
 	    Bin
     end.
 
-%%--------------------------------------------------------------------
+%%%================================================================
+%%%================================================================
+%%%
 %%% Internal functions
-%%--------------------------------------------------------------------
+%%% 
+%%%================================================================
+
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
 
@@ -1151,14 +1660,6 @@ do_stream_decrypt({chacha20, State0}, Data) ->
 %%
 %% AES - in counter mode (CTR) with state maintained for multi-call streaming
 %%
--type ctr_state() :: { iodata(), binary(), binary(), integer() } | binary().
-
--spec aes_ctr_stream_init(iodata(), binary()) -> ctr_state().
--spec aes_ctr_stream_encrypt(ctr_state(), binary()) ->
-				 { ctr_state(), binary() }.
--spec aes_ctr_stream_decrypt(ctr_state(), binary()) ->
-				 { ctr_state(), binary() }.
-
 aes_ctr_stream_init(_Key, _IVec) -> ?nif_stub.
 aes_ctr_stream_encrypt(_State, _Data) -> ?nif_stub.
 aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
@@ -1172,11 +1673,6 @@ rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
 %%
 %% CHACHA20 - stream cipher
 %%
--type chacha20_state() :: term().
--spec chacha20_stream_init(iodata(), binary()) -> chacha20_state().
--spec chacha20_stream_encrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
--spec chacha20_stream_decrypt(chacha20_state(), binary()) -> {chacha20_state(), binary()}.
-
 chacha20_stream_init(_Key, _IVec) -> ?nif_stub.
 chacha20_stream_encrypt(_State, _Data) -> ?nif_stub.
 chacha20_stream_decrypt(_State, _Data) -> ?nif_stub.
@@ -1247,11 +1743,6 @@ srp_user_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?
 srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 
-%% Digital signatures  --------------------------------------------------------------------
-
-pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
-pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
-
 %% Public Keys  --------------------------------------------------------------------
 %% RSA Rivest-Shamir-Adleman functions
 %%
@@ -1273,13 +1764,20 @@ ec_key_generate(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
+-spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve() | edwards_curve() .
+
 ec_curves() ->
     crypto_ec_curves:curves().
 
+-spec ec_curve(CurveName) -> ExplicitCurve when CurveName :: ec_named_curve(),
+                                                ExplicitCurve :: ec_explicit_curve() .
 ec_curve(X) ->
     crypto_ec_curves:curve(X).
 
 
+-spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when Type :: rsa | dss,
+                                                                     EnginePrivateKeyRef :: engine_key_ref(),
+                                                                     PublicKey ::  rsa_public() | dss_public() .
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
     try privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))
     of
@@ -1305,10 +1803,16 @@ term_to_nif_prime({prime_field, Prime}) ->
     {prime_field, ensure_int_as_bin(Prime)};
 term_to_nif_prime(PrimeField) ->
     PrimeField.
+
 term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
+
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), ensure_int_as_bin(Order), ensure_int_as_bin(CoFactor)};
+    {term_to_nif_prime(PrimeField),
+     term_to_nif_curve(Curve),
+     ensure_int_as_bin(BasePoint),
+     ensure_int_as_bin(Order),
+     ensure_int_as_bin(CoFactor)};
 nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
     case Curve of
@@ -1348,6 +1852,7 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
+-spec bytes_to_integer(binary()) -> integer() .
 bytes_to_integer(Bin) ->
     bin_to_int(Bin).
 
@@ -1395,9 +1900,6 @@ format_pwd(M) -> M.
 
 %%--------------------------------------------------------------------
 %%
--type rsa_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' | 'rsa_no_padding'.
-
-pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
