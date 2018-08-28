@@ -1260,11 +1260,15 @@ get_text(#xmlElement{content=[E]}) ->
 
 %% text_and_name_only(Es) -> {N, Ts}
 text_and_a_name_only(Es) ->
-    [Name|_] = [Name ||
-                   #xmlElement{
-                      name = a,
-                      attributes = [#xmlAttribute{name=name}]}=Name <- Es],
-    {Name#xmlElement{content = []}, text_only(Es)}.
+    erlang:display(Es),
+    case [Name || #xmlElement{
+                     name = a,
+                     attributes = [#xmlAttribute{name=name}]}=Name <- Es] of
+        [Name|_] ->
+            {Name#xmlElement{content = []}, text_only(Es)};
+        [] ->
+            {"", text_only(Es)}
+    end.
 
 %% text_only(Es) -> Ts
 %% Takes a list of xmlElement and xmlText and return a lists of xmlText.
