@@ -66,11 +66,6 @@ dnl use "PATH/include" and "PATH/lib".
 
 AC_CHECK_SIZEOF(void *)
 
-CC=$DED_CC
-CFLAGS=$DED_BASIC_CFLAGS
-LD=$DED_LD
-LDFLAGS=$DED_LDFLAGS
-
 std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl /"
 
 AC_ARG_WITH(ssl-zlib,
