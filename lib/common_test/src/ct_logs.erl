@@ -542,7 +542,7 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:concat([get_header(Heading),Format,"\n\n"]),
+            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
             try
                 io:format(?def_gl, Str, Args)
             catch
@@ -935,7 +935,7 @@ create_io_fun(FromPid, CtLogFd, EscChars) ->
 		    {_HdOrFt,S,A} -> {false,S,A};
 		    {S,A}         -> {true,S,A}
 		end,
-	    try io_lib:format(Str, Args) of
+	    try io_lib:format(lists:flatten(Str), Args) of
 		IoStr when Escapable, EscChars, IoList == [] ->
 		    escape_chars(IoStr);
 		IoStr when Escapable, EscChars ->
@@ -1138,10 +1138,10 @@ set_evmgr_gl(GL) ->
 
 open_ctlog(MiscIoName) ->
     {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
-    io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
+    io:format(Fd, "~ts", [header("Common Test Framework Log", {[],[1,2],[]})]),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
-	    io:format(Fd, config_table(Vars), []);
+	    io:format(Fd, "~ts", [config_table(Vars)]);
 	{error,Reason} ->
 	    {ok,Cwd} = file:get_cwd(),
 	    Dir = filename:dirname(Cwd),
@@ -1213,7 +1213,7 @@ print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
-    io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
+    io:format(Fd, "~ts", [[xhtml("<br><br>\n", "<br /><br />\n") | footer()]]),
     ok = file:close(Fd).
 
 %%%-----------------------------------------------------------------

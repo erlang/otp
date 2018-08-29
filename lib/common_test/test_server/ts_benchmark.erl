@@ -45,7 +45,7 @@ run(Specs, Opts, Vars) ->
      || Spec <- Specs],
     file:delete(filename:join(Cwd,"latest_benchmark")),
     {ok,D} = file:open(filename:join(Cwd,"latest_benchmark"),[write]),
-    io:format(D,BDir,[]),
+    io:format(D,"~ts", [BDir]),
     file:close(D).
     
 

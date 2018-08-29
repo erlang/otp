@@ -235,7 +235,7 @@ close_suite(#state{ test_cases = TCs, url_base = UrlBase } = State) ->
 terminate(State = #state{ test_cases = [] }) ->
     {ok,D} = file:open(State#state.filepath,[write,{encoding,utf8}]),
     io:format(D, "<?xml version=\"1.0\" encoding= \"UTF-8\" ?>", []),
-    io:format(D, to_xml(State), []),
+    io:format(D, "~ts", [to_xml(State)]),
     catch file:sync(D),
     catch file:close(D);
 terminate(State) ->
