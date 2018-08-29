@@ -684,10 +684,12 @@ struct Allctr_t_ {
     void		(*creating_mbc)		(Allctr_t *, Carrier_t *);
     void		(*destroying_mbc)	(Allctr_t *, Carrier_t *);
 
-    /* The three callbacks below are needed to support carrier migration */
+    /* The five callbacks below are needed to support carrier migration. */
     void		(*add_mbc)		(Allctr_t *, Carrier_t *);
     void		(*remove_mbc)	        (Allctr_t *, Carrier_t *);
     UWord		(*largest_fblk_in_mbc)  (Allctr_t *, Carrier_t *);
+    Block_t *           (*first_fblk_in_mbc)     (Allctr_t *, Carrier_t *);
+    Block_t *           (*next_fblk_in_mbc)      (Allctr_t *, Carrier_t *, Block_t *);
 
 #if HAVE_ERTS_MSEG
     void*               (*mseg_alloc)(Allctr_t*, Uint *size_p, Uint flags);

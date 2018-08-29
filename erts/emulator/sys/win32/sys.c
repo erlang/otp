@@ -186,7 +186,9 @@ void sys_primitive_init(HMODULE beam)
 UWord
 erts_sys_get_page_size(void)
 {
-    return (UWord) 4*1024; /* Guess 4 KB */
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (UWord)info.dwPageSize;
 }
 
 Uint

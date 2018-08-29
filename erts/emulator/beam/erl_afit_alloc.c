@@ -102,6 +102,8 @@ erts_afalc_start(AFAllctr_t *afallctr,
     allctr->add_mbc                     = NULL;
     allctr->remove_mbc                  = NULL;
     allctr->largest_fblk_in_mbc         = NULL;
+    allctr->first_fblk_in_mbc           = NULL;
+    allctr->next_fblk_in_mbc            = NULL;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG

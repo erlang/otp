@@ -42,6 +42,7 @@
 
 #include "global.h"
 #include "big.h"
+#include "erl_mmap.h"
 #include "erl_mtrace.h"
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
@@ -90,6 +91,8 @@ static int initialized = 0;
 #define SYS_ALLOC_CARRIER_FLOOR(X)	((X) & SYS_ALLOC_CARRIER_MASK)
 #define SYS_ALLOC_CARRIER_CEILING(X) \
   SYS_ALLOC_CARRIER_FLOOR((X) + INV_SYS_ALLOC_CARRIER_MASK)
+#define SYS_PAGE_SIZE                   (sys_page_size)
+#define SYS_PAGE_SZ_MASK                ((UWord)(SYS_PAGE_SIZE - 1))
 
 #if 0
 /* Can be useful for debugging */
@@ -98,6 +101,8 @@ static int initialized = 0;
 
 /* alloc_util global parameters */
 static Uint sys_alloc_carrier_size;
+static Uint sys_page_size;
+
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
 #endif
@@ -2540,9 +2545,155 @@ mbc_alloc(Allctr_t *allctr, Uint size)
     return BLK2UMEM(blk);
 }
 
+typedef struct {
+    char *ptr;
+    UWord size;
+} ErtsMemDiscardRegion;
+
+/* Construct a discard region for the user memory of a free block, letting the
+ * OS reclaim its physical memory when required.
+ *
+ * Note that we're ignoring both the footer and everything that comes before
+ * the minimum block size as the allocator uses those areas to manage the
+ * block. */
+static void ERTS_INLINE
+mem_discard_start(Allctr_t *allocator, Block_t *block,
+                  ErtsMemDiscardRegion *out)
+{
+    UWord size = BLK_SZ(block);
+
+    ASSERT(size >= allocator->min_block_size);
+
+    if (size > (allocator->min_block_size + FBLK_FTR_SZ)) {
+        out->size = size - allocator->min_block_size - FBLK_FTR_SZ;
+    } else {
+        out->size = 0;
+    }
+
+    out->ptr = (char*)block + allocator->min_block_size;
+}
+
+/* Expands a discard region into a neighboring free block, allowing us to
+ * discard the block header and first page.
+ *
+ * This is very important in small-allocation scenarios where no single block
+ * is large enough to be discarded on its own. */
+static void ERTS_INLINE
+mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
+                     ErtsMemDiscardRegion *region)
+{
+    char *neighbor_start;
+
+    ASSERT(IS_FREE_BLK(neighbor));
+
+    neighbor_start = (char*)neighbor;
+
+    if (region->ptr >= neighbor_start) {
+        char *region_start_page;
+
+        region_start_page = region->ptr - SYS_PAGE_SIZE;
+        region_start_page = (char*)((UWord)region_start_page & ~SYS_PAGE_SZ_MASK);
+
+        /* Expand if our first page begins within the previous free block's
+         * unused data. */
+        if (region_start_page >= (neighbor_start + allocator->min_block_size)) {
+            region->size += (region->ptr - region_start_page) - FBLK_FTR_SZ;
+            region->ptr = region_start_page;
+        }
+    } else {
+        char *region_end_page;
+        UWord neighbor_size;
+
+        ASSERT(region->ptr <= neighbor_start);
+
+        region_end_page = region->ptr + region->size + SYS_PAGE_SIZE;
+        region_end_page = (char*)((UWord)region_end_page & ~SYS_PAGE_SZ_MASK);
+
+        neighbor_size = BLK_SZ(neighbor) - FBLK_FTR_SZ;
+
+        /* Expand if our last page ends anywhere within the next free block,
+         * sans the footer we'll inherit. */
+        if (region_end_page < neighbor_start + neighbor_size) {
+            region->size += region_end_page - (region->ptr + region->size);
+        }
+    }
+}
+
+static void ERTS_INLINE
+mem_discard_finish(Allctr_t *allocator, Block_t *block,
+                   ErtsMemDiscardRegion *region)
+{
+#ifdef DEBUG
+    char *block_start, *block_end;
+    UWord block_size;
+
+    block_size = BLK_SZ(block);
+
+    /* Ensure that the region is completely covered by the legal area of the
+     * free block. This must hold even when the region is too small to be
+     * discarded. */
+    if (region->size > 0) {
+        ASSERT(block_size > allocator->min_block_size + FBLK_FTR_SZ);
+
+        block_start = (char*)block + allocator->min_block_size;
+        block_end = (char*)block + block_size - FBLK_FTR_SZ;
+
+        ASSERT(region->size == 0 ||
+            (region->ptr + region->size <= block_end &&
+             region->ptr >= block_start &&
+             region->size <= block_size));
+    }
+#else
+    (void)allocator;
+    (void)block;
+#endif
+
+    if (region->size > SYS_PAGE_SIZE) {
+        UWord align_offset, size;
+        char *ptr;
+
+        align_offset = SYS_PAGE_SIZE - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
+
+        size = (region->size - align_offset) & ~SYS_PAGE_SZ_MASK;
+        ptr = region->ptr + align_offset;
+
+        if (size > 0) {
+            ASSERT(!((UWord)ptr & SYS_PAGE_SZ_MASK));
+            ASSERT(!(size & SYS_PAGE_SZ_MASK));
+
+            erts_mem_discard(ptr, size);
+        }
+    }
+}
+
+static void
+carrier_mem_discard_free_blocks(Allctr_t *allocator, Carrier_t *carrier)
+{
+    static const int MAX_BLOCKS_TO_DISCARD = 100;
+    Block_t *block;
+    int i;
+
+    block = allocator->first_fblk_in_mbc(allocator, carrier);
+    i = 0;
+
+    while (block != NULL && i < MAX_BLOCKS_TO_DISCARD) {
+        ErtsMemDiscardRegion region;
+
+        ASSERT(IS_FREE_BLK(block));
+
+        mem_discard_start(allocator, block, &region);
+        mem_discard_finish(allocator, block, &region);
+
+        block = allocator->next_fblk_in_mbc(allocator, carrier, block);
+        i++;
+    }
+}
+
 static void
 mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp)
 {
+    ErtsMemDiscardRegion discard_region = {0};
+    int discard;
     Uint is_first_blk;
     Uint is_last_blk;
     Uint blk_sz;
@@ -2557,6 +2708,21 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 
     ASSERT(IS_MBC_BLK(blk));
     ASSERT(blk_sz >= allctr->min_block_size);
+
+#ifndef DEBUG
+    /* We want to mark freed blocks as reclaimable to the OS, but it's a fairly
+     * expensive operation which doesn't do much good if we use it again soon
+     * after, so we limit it to deallocations on pooled carriers. */
+    discard = busy_pcrr_pp && *busy_pcrr_pp;
+#else
+    /* Always discard in debug mode, regardless of whether we're in the pool or
+     * not. */
+    discard = 1;
+#endif
+
+    if (discard) {
+        mem_discard_start(allctr, blk, &discard_region);
+    }
 
     HARD_CHECK_BLK_CARRIER(allctr, blk);
 
@@ -2575,6 +2741,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk);
 
+        if (discard) {
+            mem_discard_coalesce(allctr, blk, &discard_region);
+        }
+
 	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
 	SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2590,6 +2760,11 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	if (IS_FREE_BLK(nxt_blk)) {
 	    /* Coalesce with next block... */
 	    (*allctr->unlink_free_block)(allctr, nxt_blk);
+
+            if (discard) {
+                mem_discard_coalesce(allctr, nxt_blk, &discard_region);
+            }
+
 	    blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    SET_MBC_FBLK_SZ(blk, blk_sz);
 
@@ -2625,10 +2800,16 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
-        if (busy_pcrr_pp && *busy_pcrr_pp)
+
+        if (discard) {
+            mem_discard_finish(allctr, blk, &discard_region);
+        }
+
+        if (busy_pcrr_pp && *busy_pcrr_pp) {
             update_pooled_tree(allctr, crr, blk_sz);
-        else
+        } else {
             check_abandon_carrier(allctr, blk, busy_pcrr_pp);
+        }
     }
 }
 
@@ -3780,6 +3961,9 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     unlink_carrier(&allctr->mbc_list, crr);
     allctr->remove_mbc(allctr, crr);
+
+    /* Mark our free blocks as unused and reclaimable to the OS. */
+    carrier_mem_discard_free_blocks(allctr, crr);
 
     cpool_insert(allctr, crr);
 
@@ -6471,6 +6655,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
     if (!init->ts && init->acul && init->acnl) {
+        ASSERT(allctr->add_mbc);
+        ASSERT(allctr->remove_mbc);
+        ASSERT(allctr->largest_fblk_in_mbc);
+        ASSERT(allctr->first_fblk_in_mbc);
+        ASSERT(allctr->next_fblk_in_mbc);
+
         allctr->cpool.util_limit = init->acul;
         allctr->cpool.in_pool_limit = init->acnl;
         allctr->cpool.fblk_min_limit = init->acfml;
@@ -6675,6 +6865,8 @@ erts_alcu_init(AlcUInit_t *init)
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
     allow_sys_alloc_carriers = init->sac;
+
+    sys_page_size = erts_sys_get_page_size();
 
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);

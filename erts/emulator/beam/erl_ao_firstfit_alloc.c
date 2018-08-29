@@ -241,6 +241,9 @@ static void aoff_add_mbc(Allctr_t*, Carrier_t*);
 static void aoff_remove_mbc(Allctr_t*, Carrier_t*);
 static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
 
+static Block_t *aoff_first_fblk_in_mbc(Allctr_t *, Carrier_t *);
+static Block_t *aoff_next_fblk_in_mbc(Allctr_t *, Carrier_t *, Block_t *);
+
 /* Generic tree functions used by both carrier and block trees. */
 static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
 static void rbt_insert(enum AOFFSortOrder, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
@@ -326,6 +329,8 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
     allctr->add_mbc                     = aoff_add_mbc;
     allctr->remove_mbc                  = aoff_remove_mbc;
     allctr->largest_fblk_in_mbc         = aoff_largest_fblk_in_mbc;
+    allctr->first_fblk_in_mbc           = aoff_first_fblk_in_mbc;
+    allctr->next_fblk_in_mbc            = aoff_next_fblk_in_mbc;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -1056,6 +1061,62 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
     ASSERT(crr->rbt_node.hdr.bhdr == (crr->root ? crr->root->max_sz : 0));
     return crr->rbt_node.hdr.bhdr;
+}
+
+static Block_t *aoff_first_fblk_in_mbc(Allctr_t *allctr, Carrier_t *carrier)
+{
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*)carrier;
+
+    (void)allctr;
+
+    if (crr->root) {
+        AOFF_RBTree_t *blk;
+
+        /* Descend to the rightmost block of the tree. */
+        for (blk = crr->root; blk->right; blk = blk->right);
+
+        return (Block_t*)blk;
+    }
+
+    return NULL;
+}
+
+static Block_t *aoff_next_fblk_in_mbc(Allctr_t *allctr, Carrier_t *carrier,
+                                      Block_t *block)
+{
+    AOFF_RBTree_t *parent, *blk;
+
+    (void)allctr;
+    (void)carrier;
+
+    blk = (AOFF_RBTree_t*)block;
+
+    if (blk->left) {
+        /* Descend to the rightmost block of the left subtree. */
+        for (blk = blk->left; blk->right; blk = blk->right);
+
+        return (Block_t*)blk;
+    }
+
+    while (blk->parent) {
+        parent = blk->parent;
+
+        /* If we ascend from the right we know we haven't visited our parent
+         * yet, because we always descend as far as we can to the right when
+         * entering a subtree. */
+        if (parent->right == blk) {
+            ASSERT(parent->left != blk);
+            return (Block_t*)parent;
+        }
+
+        /* If we ascend from the left we know we've already visited our
+         * parent, and will need to keep ascending until we do so from the
+         * right or reach the end of the tree. */
+        ASSERT(parent->left == blk);
+        blk = parent;
+    }
+
+    return NULL;
 }
 
 /*
