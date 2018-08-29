@@ -587,7 +587,7 @@ default(warnings_as_errors) -> false.
 
 print_error({error, Mod, Error}) ->
     S = apply(Mod, format_error, [Error]),
-    io:format(S, []);
+    io:format("~ts", [S]);
 print_error(Other) ->
     io:format("Error: ~tp~n", [Other]).
 
