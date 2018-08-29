@@ -51,7 +51,7 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
 
 XML_INTERNAL_FILES = \
-	cerl.xml cerl_trees.xml
+	cerl.xml cerl_trees.xml cerl_clauses.xml
 
 # ----------------------------------------------------
 

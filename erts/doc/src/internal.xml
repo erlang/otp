@@ -29,18 +29,15 @@
     <rev>4.5.2</rev>
     <file>internal.xml</file>
   </header>
-  <description>
-  </description>
   <xi:include href="CarrierMigration.xml"/>
   <xi:include href="ThreadProgress.xml"/>
   <xi:include href="CodeLoading.xml"/>
   <xi:include href="Tracing.xml"/>
   <xi:include href="DelayedDealloc.xml"/>
-<!--  <xi:include href="beam_makeops.xml"/>
-  <xi:include href="GarbageCollection.xml"/> -->
+  <xi:include href="beam_makeops.xml"/>
+  <xi:include href="GarbageCollection.xml"/>
   <xi:include href="PTables.xml"/>
   <xi:include href="PortSignals.xml"/>
   <xi:include href="ProcessManagementOptimizations.xml"/>
-  <xi:include href="SuperCarrier.xml"/> -->
+  <xi:include href="SuperCarrier.xml"/>
 </internal>
-

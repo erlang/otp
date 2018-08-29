@@ -75,7 +75,7 @@ XML_INTERNAL_FILES = \
 	CodeLoading.xml		\
 	Tracing.xml		\
 	DelayedDealloc.xml	\
-	beam_makeops.xml		\
+	beam_makeops.xml	\
 	GarbageCollection.xml	\
 	PTables.xml		\
 	PortSignals.xml		\

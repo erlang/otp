@@ -37,6 +37,7 @@ what different type of break actions that are enabled.
 
 Same Same but Different
 -----------------------
+
 Even though `trace_pattern` use the same technique as the non-blocking
 code loading with replicated generations of data structures and an
 atomic switch, the implementations are quite separate from each
@@ -72,6 +73,7 @@ aligned write operation on all hardware architectures we use.
 
 Adding a new Breakpoint
 -----------------------
+
 This is a simplified sequence describing what `trace_pattern` goes
 through when adding a new breakpoint.
 
