@@ -67,7 +67,6 @@
 #  define HAVE_ERTS_MMAP 0
 #endif
 
-
 extern UWord erts_page_inv_mask;
 
 typedef struct {
@@ -175,5 +174,38 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 #endif
 
 #endif /* HAVE_ERTS_MMAP */
+
+/*
+ * Begin MADVISE section
+ */
+
+/* Struct represents a sized block of memory.
+ * The optimizer is smart enough to reduce pointer to struct when inlining. */
+typedef struct {
+    void *p;
+    size_t sz;
+} ErtsMemSlice;
+
+#if defined (_WIN32)
+    #error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
+    /* OS is free to reuse pages under memory pressure */
+    void ERTS_INLINE erts_mem_advise(struct ErtsMemSlice *) {
+    }
+    /* Pages are used again, but may be zero-filled */
+    void ERTS_INLINE erts_mem_unadvise(struct ErtsMemSlice *) {
+    }
+#elif defined(__linux__)
+    #include <sys/mman.h>
+    /* OS is free to reuse pages under memory pressure */
+    void ERTS_INLINE erts_mem_advise(ErtsMemSlice *slice) {
+        /* Linux since 4.5: MADV_FREE is available */
+        madvise(slice->p, slice->sz, MADV_FREE);
+    }
+    void ERTS_INLINE erts_mem_unadvise(ErtsMemSlice *slice) {}
+#endif
+
+/*
+ * End MADVISE section
+ */
 
 #endif /* ERL_MMAP_H__ */

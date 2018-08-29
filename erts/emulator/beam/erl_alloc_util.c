@@ -40,8 +40,11 @@
 #  include "config.h"
 #endif
 
+#include <stdint.h>
+
 #include "global.h"
 #include "big.h"
+#include "erl_mmap.h"
 #include "erl_mtrace.h"
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
@@ -2539,6 +2542,119 @@ mbc_alloc(Allctr_t *allctr, Uint size)
 			   1);
     return BLK2UMEM(blk);
 }
+/* Given a pointer and size, try shrink it to be page-aligned (4096 bytes
+ * typically) and make size to be a multiple of page size too. */
+static void ERTS_INLINE
+slice_align_to_page(ErtsMemSlice *slice) {
+    static size_t PAGE_SIZE = 0;
+    if (PAGE_SIZE == 0) {
+        PAGE_SIZE = (size_t)getpagesize(); /* 4096 but YMMV */
+    }
+    if (slice->sz < PAGE_SIZE) {
+        slice->sz = 0;
+        return; /* no deal */
+    }
+    {
+        const size_t PAGE_SIZE_MASK = PAGE_SIZE - 1;
+        void *newp = slice->p;
+        /* How many bytes p is after the page start */
+        size_t hanging_bytes = PAGE_SIZE_MASK & (size_t) slice->p;
+        if (hanging_bytes > 0) {
+            /* not aligned: move up by page size and cut extra bits */
+            newp = (void *) (((size_t) slice->p + PAGE_SIZE) & ~PAGE_SIZE_MASK);
+        }
+        /* p moved forward by (page size minus hanging bytes) so reduce size by
+         * that and then cut to a multiple of page size */
+        slice->sz -= hanging_bytes ? (PAGE_SIZE - hanging_bytes) : 0;
+        slice->sz &= ~PAGE_SIZE_MASK;
+        slice->p = newp;
+    }
+}
+
+
+static void ERTS_INLINE
+blk_mark_unused_pages(Allctr_t *allocator, Block_t *block) {
+    ErtsMemSlice slice = {
+            BLK2UMEM(block) + allocator->min_block_size,
+            BLK_UMEM_SZ(block) - allocator->min_block_size
+    };
+    slice_align_to_page(&slice);
+    if (!slice.sz) { return; } /* was not able to fit any full pages */
+    erts_mem_advise(&slice);
+#if defined(_WIN32)
+#error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
+#endif
+}
+
+
+/* Given a marked block and unmarked block, calculate whether their merge would
+ * produce one or more new full virtual memory pages to be marked. This is
+ * used to minimize marking of already marked pages and to avoid the syscall
+ * at all, if merging blocks will not create a new page to mark.
+ */
+static void ERTS_INLINE
+blk_mark_merge_unused_pages(Allctr_t *allocator,
+                               Block_t *b_marked, Block_t *b_unmarked) {
+//    ErtsMemSlice slice = {
+//            BLK2UMEM(block) + allocator->min_block_size,
+//            BLK_UMEM_SZ(block) - allocator->min_block_size
+//    };
+//    slice_align_to_page(&slice);
+//    if (!slice.sz) { return; } /* was not able to fit any full pages */
+//    erts_mem_advise(&slice);
+//#if defined(_WIN32)
+//#error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
+//#endif
+}
+
+
+static void ERTS_INLINE
+blk_unmark_unused_pages(Allctr_t *allocator, Block_t *block) {
+    /*  NOTE: This is not called on Linux if MADV_FREE is detected
+     *  (the calling loop is removed) */
+    ErtsMemSlice slice = {
+            BLK2UMEM(block) + allocator->min_block_size,
+            BLK_UMEM_SZ(block) - allocator->min_block_size
+    };
+    slice_align_to_page(&slice);
+    if (!slice.sz) { return; } /* was not able to fit any full pages */
+    erts_mem_unadvise(&slice);
+}
+
+
+/* Mark carrier's free pages as unwanted/unused for reclaiming by OS. */
+static void
+carrier_mark_pages_unused(Allctr_t *allocator, Carrier_t *carrier) {
+    Block_t *block = MBC_TO_FIRST_BLK(allocator, carrier);
+    while (1) {
+        if (IS_FREE_BLK(block)) {
+            blk_mark_unused_pages(allocator, block);
+        }
+        if (IS_LAST_BLK(block)) {
+            break;
+        }
+        block = NXT_BLK(block);
+    }
+}
+
+
+static void
+carrier_mark_pages_used_again(Allctr_t *allocator, Carrier_t *carrier) {
+    /* For Linux with MADV_FREE eliminate this loop, as it is doing nothing */
+#if !defined (MADV_FREE)
+    Block_t *block = MBC_TO_FIRST_BLK(allocator, carrier);
+    while (1) {
+        if (IS_FREE_BLK(block)) {
+            block_mark_pages_used_again(allocator, block);
+        }
+        if (IS_LAST_BLK(block)) {
+            break;
+        }
+        block = NXT_BLK(block);
+    }
+#endif
+}
+
 
 static void
 mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp)
@@ -2625,9 +2741,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
-        if (busy_pcrr_pp && *busy_pcrr_pp)
+        if (busy_pcrr_pp && *busy_pcrr_pp) {
+            blk_mark_unused_pages(allctr, blk);
             update_pooled_tree(allctr, crr, blk_sz);
-        else
+        } else
             check_abandon_carrier(allctr, blk, busy_pcrr_pp);
     }
 }
@@ -3165,6 +3282,7 @@ cpool_mod_mark(erts_atomic_t *aptr)
     }
 }
 
+
 static void
 cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 {
@@ -3259,6 +3377,10 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 			 (erts_aint_t) cpd1p);
 
     LTTNG3(carrier_pool_put, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, CARRIER_SZ(crr));
+
+    /* Use madvise or similar Windows mechanism to mark memory pages unused
+     * and allow them to be temporarily claimed by OS. */
+    carrier_mark_pages_unused(allctr, crr);
 }
 
 static void
@@ -3370,6 +3492,7 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
         erts_atomic_dec_wb(&orig_allctr->cpool.stat.no_carriers);
     }
 
+    carrier_mark_pages_used_again(allctr, crr);
 }
 
 static Carrier_t *
