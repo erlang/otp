@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race between termination of a process and resume of the
+	    same process via <c>erlang:resume_process/1</c> could
+	    cause the VM to crash. This bug was introduced in erts
+	    version 10.0 (OTP 21.0).</p>
+          <p>
+	    Own Id: OTP-15237</p>
+        </item>
+        <item>
+          <p>
+	    When tracing on <c>running</c>, <c>in</c> trace events
+	    could be lost when a process was rescheduled between a
+	    dirty and a normal scheduler.</p>
+          <p>
+	    Own Id: OTP-15269 Aux Id: ERL-713 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
