@@ -66,6 +66,7 @@ MODULES= \
 	ssl_srp_primes \
 	tls_connection \
 	dtls_connection \
+	tls_sender\
 	ssl_config \
 	ssl_connection \
 	tls_handshake \

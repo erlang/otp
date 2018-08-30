@@ -70,14 +70,14 @@ is_node_name(Node) ->
 
 %% -------------------------------------------------------------------------
 
-hs_data_common(#sslsocket{pid = DistCtrl} = SslSocket) ->
+hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
     #hs_data{
        f_send =
-           fun (Ctrl, Packet) when Ctrl == DistCtrl ->
+           fun (_Ctrl, Packet) ->
                    f_send(SslSocket, Packet)
            end,
        f_recv =
-           fun (Ctrl, Length, Timeout) when Ctrl == DistCtrl ->
+           fun (_, Length, Timeout) ->
                    f_recv(SslSocket, Length, Timeout)
            end,
        f_setopts_pre_nodeup =
@@ -176,8 +176,7 @@ mf_getopts(SslSocket, Opts) ->
     ssl:getopts(SslSocket, Opts).
 
 f_handshake_complete(DistCtrl, Node, DHandle) ->
-    ssl_connection:handshake_complete(DistCtrl, Node, DHandle).
-
+    tls_sender:dist_handshake_complete(DistCtrl, Node, DHandle).
 
 setopts_filter(Opts) ->
     [Opt || {K,_} = Opt <- Opts,
@@ -245,7 +244,7 @@ accept_loop(Driver, Listen, Kernel, Socket) ->
           trace([{active, false},{packet, 4}|Opts]),
           net_kernel:connecttime())
     of
-        {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+        {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
             trace(
               Kernel !
                   {accept, self(), DistCtrl,
@@ -405,7 +404,7 @@ gen_accept_connection(
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
-    SslSocket = ssl_connection:get_sslsocket(DistCtrl),
+    {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
     receive
 	{AcceptPid, controller} ->
 	    Timer = dist_util:start_timer(SetupTime),
@@ -530,7 +529,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
         [binary, {active, false}, {packet, 4},
             Driver:family(), nodelay()] ++ Opts,
         net_kernel:connecttime()) of
-    {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+    {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
             _ = monitor_pid(DistCtrl),
             ok = ssl:controlling_process(SslSocket, self()),
             HSData0 = hs_data_common(SslSocket),

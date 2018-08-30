@@ -146,7 +146,7 @@
 	  %% undefined if not hibernating, or number of ms of
 	  %% inactivity after which ssl_connection will go into
 	  %% hibernation
-	  hibernate_after      :: timeout(),
+	  hibernate_after      :: timeout(),          
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
           alpn_advertised_protocols = undefined :: [binary()] | undefined ,
