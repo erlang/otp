@@ -48,7 +48,7 @@ accept(dtls, #config{transport_info = {Transport,_,_,_},
 		    dtls_handler = {Listner, _}}, _Timeout) -> 
     case dtls_packet_demux:accept(Listner, self()) of
 	{ok, Pid, Socket} ->
-	    {ok, socket(Pid, Transport, {Listner, Socket}, ConnectionCb)};
+	    {ok, socket([Pid], Transport, {Listner, Socket}, ConnectionCb)};
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -73,12 +73,12 @@ close(gen_udp, {_Client, _Socket}) ->
 close(Transport, {_Client, Socket}) ->
     Transport:close(Socket).
 
-socket(Pid, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}};
-socket(Pid, Transport, Socket, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, Transport, Socket, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
 setopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->

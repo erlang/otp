@@ -64,11 +64,12 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
 	{ok, Socket} ->
 	    {ok, EmOpts} = get_emulated_opts(Tracker),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
-	    ConnArgs = [server, "localhost", Port, Socket,
+            {ok, Sender} = tls_sender:start(),
+            ConnArgs = [server, Sender, "localhost", Port, Socket,
 			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Tracker}, self(), CbInfo],
 	    case tls_connection_sup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport, Tracker);
+		    ssl_connection:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Tracker);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -112,8 +113,8 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-socket(Pid, Transport, Socket, ConnectionCb, Tracker) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, Transport, Socket, ConnectionCb, Tracker) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb, Tracker}}.
 setopts(gen_tcp, #sslsocket{pid = {ListenSocket, #config{emulated = Tracker}}}, Options) ->

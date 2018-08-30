@@ -44,6 +44,7 @@
           host                  :: string() | inet:ip_address(),
           port                  :: integer(),
           socket                :: port() | tuple(), %% TODO: dtls socket
+          sender                :: pid() | undefined,
           ssl_options           :: #ssl_options{},
           socket_options        :: #socket_options{},
           connection_states     :: ssl_record:connection_states() | secret_printout(),
@@ -74,6 +75,7 @@
           cert_db_ref          :: certdb_ref() | 'undefined',
           bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
           user_data_buffer     :: undefined | binary() | secret_printout(), 
+          erl_dist_data = #{} :: map(),
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer

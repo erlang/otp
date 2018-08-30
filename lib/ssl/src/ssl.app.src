@@ -10,6 +10,7 @@
 	       tls_v1,
 	       ssl_v3,
 	       tls_connection_sup,
+	       tls_sender,
 	       %% DTLS
 	       dtls_connection,
 	       dtls_handshake,
