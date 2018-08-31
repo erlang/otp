@@ -77,8 +77,7 @@
 -type report() :: map() | [{atom(),term()}].
 -type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
                      fun((report(),report_cb_config()) -> unicode:chardata()).
--type report_cb_config() :: #{encoding    := unicode:encoding(),
-                              depth       := pos_integer() | unlimited,
+-type report_cb_config() :: #{depth       := pos_integer() | unlimited,
                               chars_limit := pos_integer() | unlimited}.
 -type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
                                    report() |

@@ -28,7 +28,6 @@
 %%% Types
 -type config() :: #{chars_limit     => pos_integer() | unlimited,
                     depth           => pos_integer() | unlimited,
-                    encoding        => unicode:encoding(),
                     legacy_header   => boolean(),
                     max_size        => pos_integer() | unlimited,
                     report_cb       => logger:report_cb(),
@@ -84,7 +83,7 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
            true ->
                 ""
         end,
-    truncate(B ++ MsgStr ++ A,maps:get(max_size,Config)).
+    truncate([B,MsgStr,A],maps:get(max_size,Config)).
 
 do_format(Level,Data,[level|Format],Config) ->
     [to_string(level,Level,Config)|do_format(Level,Data,Format,Config)];
@@ -147,7 +146,7 @@ printable_list(X) ->
     io_lib:printable_list(X).
 
 format_msg({string,Chardata},Meta,Config) ->
-    format_msg({s(Config),[Chardata]},Meta,Config);
+    format_msg({"~ts",[Chardata]},Meta,Config);
 format_msg({report,_}=Msg,Meta,#{report_cb:=Fun}=Config)
   when is_function(Fun,1); is_function(Fun,2) ->
     format_msg(Msg,Meta#{report_cb=>Fun},maps:remove(report_cb,Config));
@@ -166,13 +165,13 @@ format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,1
                        Meta,Config)
     end;
 format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,2) ->
-    try Fun(Report,maps:with([encoding,depth,chars_limit],Config)) of
-        String when ?IS_STRING(String) ->
-            try unicode:characters_to_list(String)
+    try Fun(Report,maps:with([depth,chars_limit],Config)) of
+        Chardata when ?IS_STRING(Chardata) ->
+            try chardata_to_list(Chardata) % already size limited by report_cb
             catch _:_ ->
                     P = p(Config),
                     format_msg({"REPORT_CB/2 ERROR: "++P++"; Returned: "++P,
-                                [Report,String]},Meta,Config)
+                                [Report,Chardata]},Meta,Config)
             end;
         Other ->
             P = p(Config),
@@ -189,28 +188,27 @@ format_msg({report,Report},Meta,Config) ->
                Meta#{report_cb=>fun logger:format_report/1},
                Config);
 format_msg(Msg,_Meta,#{depth:=Depth,chars_limit:=CharsLimit,
-                       encoding:=Enc,single_line:=Single}) ->
+                       single_line:=Single}) ->
     Opts = chars_limit_to_opts(CharsLimit),
-    format_msg(Msg, Depth, Opts, Enc, Single).
+    format_msg(Msg, Depth, Opts, Single).
 
 chars_limit_to_opts(unlimited) -> [];
 chars_limit_to_opts(CharsLimit) -> [{chars_limit,CharsLimit}].
 
-format_msg({Format0,Args},Depth,Opts,Enc,Single) ->
+format_msg({Format0,Args},Depth,Opts,Single) ->
     try
         Format1 = io_lib:scan_format(Format0, Args),
         Format = reformat(Format1, Depth, Single),
         io_lib:build_text(Format,Opts)
     catch C:R:S ->
-            P = p(Enc,Single),
+            P = p(Single),
             FormatError = "FORMAT ERROR: "++P++" - "++P,
             case Format0 of
                 FormatError ->
                     %% already been here - avoid failing cyclically
                     erlang:raise(C,R,S);
                 _ ->
-                    format_msg({FormatError,[Format0,Args]},
-                               Depth,Opts,Enc,Single)
+                    format_msg({FormatError,[Format0,Args]},Depth,Opts,Single)
             end
     end.
 
@@ -232,6 +230,14 @@ limit_depth(M0, unlimited) ->
 limit_depth(#{control_char:=C0, args:=Args}=M0, Depth) ->
     C = C0 - ($a - $A),				%To uppercase.
     M0#{control_char:=C,args:=Args++[Depth]}.
+
+chardata_to_list(Chardata) ->
+    case unicode:characters_to_list(Chardata,unicode) of
+        List when is_list(List) ->
+            List;
+        Error ->
+            throw(Error)
+    end.
 
 truncate(String,unlimited) ->
     String;
@@ -278,12 +284,11 @@ maybe_add_legacy_header(Level,
                         #{time:=Timestamp}=Meta,
                         #{legacy_header:=true}=Config) ->
     #{title:=Title}=MyMeta = add_legacy_title(Level,Meta,Config),
-    {{Y,Mo,D},{H,Mi,Sec},Micro,UtcStr} =
+    {{Y,Mo,D},{H,Mi,S},Micro,UtcStr} =
         timestamp_to_datetimemicro(Timestamp,Config),
-    S = s(Config),
     Header =
-        io_lib:format("="++S++"==== ~w-~s-~4w::~2..0w:~2..0w:~2..0w.~6..0w ~s===",
-                      [Title,D,month(Mo),Y,H,Mi,Sec,Micro,UtcStr]),
+        io_lib:format("=~ts==== ~w-~s-~4w::~2..0w:~2..0w:~2..0w.~6..0w ~s===",
+                      [Title,D,month(Mo),Y,H,Mi,S,Micro,UtcStr]),
     Meta#{?MODULE=>MyMeta#{header=>Header}};
 maybe_add_legacy_header(_,Meta,_) ->
     Meta.
@@ -324,7 +329,6 @@ month(12) -> "Dec".
 add_default_config(Config0) ->
     Default =
         #{chars_limit=>unlimited,
-          encoding=>utf8,
           error_logger_notice_header=>info,
           legacy_header=>false,
           single_line=>true,
@@ -502,25 +506,9 @@ check_timezone(Tz) ->
             error
     end.
 
-p(#{encoding:=Enc, single_line:=Single}) ->
-    p(Enc,Single).
-
-p(Enc,Single) ->
-    "~"++p_width(Single)++p_char(Enc).
-
-p_width(true) ->
-    "0";
-p_width(false) ->
-    "".
-
-p_char(latin1) ->
-    "p";
-p_char(_) ->
-    "tp".
-
-s(#{encoding:=Enc}) ->
-    s(Enc);
-s(latin1) ->
-    "~s";
-s(_) ->
-    "~ts".
+p(#{single_line:=Single}) ->
+    p(Single);
+p(true) ->
+    "~0tp";
+p(false) ->
+    "~tp".

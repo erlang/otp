@@ -757,7 +757,7 @@ check(Res)               -> Res.
 report_cb(#{label:={proc_lib,crash}, report:=CrashReport}, Extra) ->
     Default = #{chars_limit => unlimited,
                 depth => unlimited,
-                encoding => latin1},
+                encoding => utf8},
     do_format(CrashReport, maps:merge(Default,Extra)).
 
 -spec format(CrashReport) -> string() when

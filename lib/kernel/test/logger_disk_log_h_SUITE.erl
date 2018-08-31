@@ -367,7 +367,7 @@ formatter_fail(Config) ->
     ok = logger:set_handler_config(Name,formatter,{?MODULE,bad_return}),
     logger:notice(?msg,?domain),
     try_match_file(?log_no(LogFile,1),
-                   escape(Got3)++"FORMATTER ERROR: bad_return_value",
+                   escape(Got3)++"FORMATTER ERROR: bad return value",
                    5000),
 
     %% Check that handler is still alive and was never dead
