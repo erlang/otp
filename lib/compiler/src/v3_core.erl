@@ -328,14 +328,16 @@ gexpr({protect,Line,Arg}, Bools0, St0) ->
             Anno = lineno_anno(Line, St),
 	    {#iprotect{anno=#a{anno=Anno},body=Eps++[E]},[],Bools0,St}
     end;
-gexpr({op,L,'andalso',E1,E2}, Bools, St0) ->
+gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch_guard(L, E1, V, E2, False),
     gexpr(E, Bools, St);
-gexpr({op,L,'orelse',E1,E2}, Bools, St0) ->
+gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -2053,6 +2055,19 @@ fail_clause(Pats, Anno, Arg) ->
 	     pats=Pats,guard=[],
 	     body=[#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
 			    args=[Arg]}]}.
+
+%% Optimization for Dialyzer.
+right_assoc(E, Op, St) ->
+    case member(dialyzer, St#core.opts) of
+        true ->
+            right_assoc2(E, Op);
+        false ->
+            E
+    end.
+
+right_assoc2({op,L1,Op,{op,L2,Op,E1,E2},E3}, Op) ->
+    right_assoc2({op,L2,Op,E1,{op,L1,Op,E2,E3}}, Op);
+right_assoc2(E, _Op) -> E.
 
 annotate_tuple(A, Es, St) ->
     case member(dialyzer, St#core.opts) of
