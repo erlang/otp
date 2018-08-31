@@ -2572,12 +2572,35 @@ slice_align_to_page(ErtsMemSlice *slice) {
 }
 
 
+/* Construct a slice struct for user memory of a block */
+static void ERTS_INLINE
+slice_new(Allctr_t *allocator, Block_t *block, ErtsMemSlice *out) {
+  out->p = BLK2UMEM(block) + allocator->min_block_size;
+  out->sz = BLK_UMEM_SZ(block) - allocator->min_block_size;
+}
+
+
+static void ERTS_INLINE
+slice_subtract(ErtsMemSlice *a, ErtsMemSlice *b) {
+    /* Check if b overlaps a from the bottom */
+    if (b->p + b->sz >= a->p && b->p <= a->p) {
+        void *a_end = a->p + a->sz;
+        /* Move a to where b ends, also shrink size for a */
+        a->p = b->p + b->sz;
+        a->sz = a_end - a->p;
+    }
+    /* Check if b overlaps a from the top */
+    if (a->p + a->sz >= b->p && a->p <= b->p) {
+        /* Resize a down to where b begins */
+        a->sz = b->p - a->p;
+    }
+}
+
+
 static void ERTS_INLINE
 blk_mark_unused_pages(Allctr_t *allocator, Block_t *block) {
-    ErtsMemSlice slice = {
-            BLK2UMEM(block) + allocator->min_block_size,
-            BLK_UMEM_SZ(block) - allocator->min_block_size
-    };
+    ErtsMemSlice slice;
+    slice_new(allocator, block, &slice);
     slice_align_to_page(&slice);
     if (!slice.sz) { return; } /* was not able to fit any full pages */
     erts_mem_advise(&slice);
@@ -2587,39 +2610,19 @@ blk_mark_unused_pages(Allctr_t *allocator, Block_t *block) {
 }
 
 
-/* Given a marked block and unmarked block, calculate whether their merge would
- * produce one or more new full virtual memory pages to be marked. This is
- * used to minimize marking of already marked pages and to avoid the syscall
- * at all, if merging blocks will not create a new page to mark.
- */
-static void ERTS_INLINE
-blk_mark_merge_unused_pages(Allctr_t *allocator,
-                               Block_t *b_marked, Block_t *b_unmarked) {
-//    ErtsMemSlice slice = {
-//            BLK2UMEM(block) + allocator->min_block_size,
-//            BLK_UMEM_SZ(block) - allocator->min_block_size
-//    };
-//    slice_align_to_page(&slice);
-//    if (!slice.sz) { return; } /* was not able to fit any full pages */
-//    erts_mem_advise(&slice);
-//#if defined(_WIN32)
-//#error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
-//#endif
-}
-
-
+/* Enable this if madvise is available, otherwise calls to it are eliminated */
+#if !defined (MADV_FREE)
 static void ERTS_INLINE
 blk_unmark_unused_pages(Allctr_t *allocator, Block_t *block) {
     /*  NOTE: This is not called on Linux if MADV_FREE is detected
      *  (the calling loop is removed) */
-    ErtsMemSlice slice = {
-            BLK2UMEM(block) + allocator->min_block_size,
-            BLK_UMEM_SZ(block) - allocator->min_block_size
-    };
+    ErtsMemSlice slice;
+    slice_new(allocator, block, &slice);
     slice_align_to_page(&slice);
     if (!slice.sz) { return; } /* was not able to fit any full pages */
     erts_mem_unadvise(&slice);
 }
+#endif
 
 
 /* Mark carrier's free pages as unwanted/unused for reclaiming by OS. */
@@ -2665,6 +2668,10 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
     Block_t *blk;
     Block_t *nxt_blk;
     Carrier_t *crr;
+    /* memory area being freed right now - will be marked via madvise */
+    ErtsMemSlice slice_to_mark;
+    /* memory area coalesced into this block, to be subtracted */
+    ErtsMemSlice slice_marked = {NULL, 0};
 
     ASSERT(p);
 
@@ -2673,6 +2680,8 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 
     ASSERT(IS_MBC_BLK(blk));
     ASSERT(blk_sz >= allctr->min_block_size);
+    slice_new(allctr, blk, &slice_to_mark);
+    slice_align_to_page(&slice_to_mark);
 
     HARD_CHECK_BLK_CARRIER(allctr, blk);
 
@@ -2691,6 +2700,12 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk);
 
+        /* sub old block pages (already marked with madvise) from merged block
+         * pages to know the unmarked diff */
+        slice_new(allctr, blk, &slice_marked);
+        slice_align_to_page(&slice_marked);
+        slice_subtract(&slice_to_mark, &slice_marked);
+
 	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
 	SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2706,6 +2721,13 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	if (IS_FREE_BLK(nxt_blk)) {
 	    /* Coalesce with next block... */
 	    (*allctr->unlink_free_block)(allctr, nxt_blk);
+
+            /* sub old block pages (already marked with madvise) from merged block
+            * pages to know the unmarked diff */
+            slice_new(allctr, nxt_blk, &slice_marked);
+            slice_align_to_page(&slice_marked);
+            slice_subtract(&slice_to_mark, &slice_marked);
+
 	    blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    SET_MBC_FBLK_SZ(blk, blk_sz);
 
@@ -2742,7 +2764,9 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
         if (busy_pcrr_pp && *busy_pcrr_pp) {
-            blk_mark_unused_pages(allctr, blk);
+            if (slice_to_mark.sz > 0) {
+                erts_mem_advise(&slice_to_mark);
+            }
             update_pooled_tree(allctr, crr, blk_sz);
         } else
             check_abandon_carrier(allctr, blk, busy_pcrr_pp);
