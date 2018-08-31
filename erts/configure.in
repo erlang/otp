@@ -1438,7 +1438,7 @@ dnl Some Linuxes needs <sys/socketio.h> instead of <sys/sockio.h>
 dnl
 AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/types.h sys/stropts.h sys/sysctl.h \
-                 sys/ioctl.h sys/time.h sys/uio.h \
+                 sys/ioctl.h sys/time.h sys/uio.h sys/mman.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
                  net/errno.h malloc.h arpa/nameser.h libdlpi.h \
 		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h)

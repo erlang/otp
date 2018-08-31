@@ -186,22 +186,43 @@ typedef struct {
     size_t sz;
 } ErtsMemSlice;
 
+static void erts_mem_advise(ErtsMemSlice *slice);
+static void erts_mem_unadvise(ErtsMemSlice *slice);
+
 #if defined (_WIN32)
+    #define ERTS_USING_WINDOWS_DECOMMIT 1
     #error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
     /* OS is free to reuse pages under memory pressure */
-    void ERTS_INLINE erts_mem_advise(struct ErtsMemSlice *) {
+    static void ERTS_INLINE erts_mem_advise(struct ErtsMemSlice *slice) {
+        // Old-fashioned:
+        // VirtualFree with MEM_DECOMMIT will not reduce the Working Set but
+        //      will free physical memory
+        // After Win NT 4: VirtualUnlock on unlocked memory would remove from RSS
+        // After Win 2000: VirtualAlloc + MEM_RESET - mark as no longer interesting
+        //      Does not remove from Working Set
+        // Windows 8: MEM_RESET_UNDO flag to unmark the marked memory
+        // ??? Filling page with all 0 bytes will mark it in some special way
+        // Windows 8.1: OfferVirtualMemory + flag that says how much you don't
+        //      care about this memory & ReclainVirtualMemory (contents will
+        //      be garbage)
+        // ??? DiscardVirtualMemory which forces an immediate discard of contents
     }
     /* Pages are used again, but may be zero-filled */
-    void ERTS_INLINE erts_mem_unadvise(struct ErtsMemSlice *) {
+    static void ERTS_INLINE erts_mem_unadvise(struct ErtsMemSlice *slice) {
     }
-#elif defined(__linux__)
+#elif defined(HAVE_SYS_MMAN_H) && defined(MADV_FREE)
+    #define ERTS_USING_MADV_FREE 1
     #include <sys/mman.h>
     /* OS is free to reuse pages under memory pressure */
-    void ERTS_INLINE erts_mem_advise(ErtsMemSlice *slice) {
+    static void ERTS_INLINE erts_mem_advise(ErtsMemSlice *slice) {
         /* Linux since 4.5: MADV_FREE is available */
         madvise(slice->p, slice->sz, MADV_FREE);
     }
-    void ERTS_INLINE erts_mem_unadvise(ErtsMemSlice *slice) {}
+    static void ERTS_INLINE erts_mem_unadvise(ErtsMemSlice *slice) {}
+#else
+    /* Do nothing */
+    static void ERTS_INLINE erts_mem_advise(ErtsMemSlice *slice) {}
+    static void ERTS_INLINE erts_mem_unadvise(ErtsMemSlice *slice) {}
 #endif
 
 /*

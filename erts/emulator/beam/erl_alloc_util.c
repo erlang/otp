@@ -2604,14 +2604,14 @@ blk_mark_unused_pages(Allctr_t *allocator, Block_t *block) {
     slice_align_to_page(&slice);
     if (!slice.sz) { return; } /* was not able to fit any full pages */
     erts_mem_advise(&slice);
-#if defined(_WIN32)
-#error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
+#if defined(ERTS_USING_WINDOWS_DECOMMIT)
+    #error "TODO https://blogs.msdn.microsoft.com/oldnewthing/20170113-00/?p=95185"
 #endif
 }
 
 
 /* Enable this if madvise is available, otherwise calls to it are eliminated */
-#if !defined (MADV_FREE)
+#if defined (ERTS_USING_WINDOWS_DECOMMIT)
 static void ERTS_INLINE
 blk_unmark_unused_pages(Allctr_t *allocator, Block_t *block) {
     /*  NOTE: This is not called on Linux if MADV_FREE is detected
@@ -2644,7 +2644,7 @@ carrier_mark_pages_unused(Allctr_t *allocator, Carrier_t *carrier) {
 static void
 carrier_mark_pages_used_again(Allctr_t *allocator, Carrier_t *carrier) {
     /* For Linux with MADV_FREE eliminate this loop, as it is doing nothing */
-#if !defined (MADV_FREE)
+#if defined (ERTS_USING_WINDOWS_DECOMMIT)
     Block_t *block = MBC_TO_FIRST_BLK(allocator, carrier);
     while (1) {
         if (IS_FREE_BLK(block)) {
