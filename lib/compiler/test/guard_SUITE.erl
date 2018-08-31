@@ -1779,16 +1779,6 @@ t_tuple_size(Config) when is_list(Config) ->
     error = ludicrous_tuple_size({a,b,c}),
     error = ludicrous_tuple_size([a,b,c]),
 
-    %% Test the "unsafe case" - the register assigned the tuple size is
-    %% not killed.
-    DataDir = test_lib:get_data_dir(Config),
-    File = filename:join(DataDir, "guard_SUITE_tuple_size"),
-    {ok,Mod,Code} = compile:file(File, [from_asm,binary]),
-    code:load_binary(Mod, File, Code),
-    14 = Mod:t({1,2,3,4}),
-    _ = code:delete(Mod),
-    _ = code:purge(Mod),
-
     good_ip({1,2,3,4}),
     good_ip({1,2,3,4,5,6,7,8}),
     error = validate_ip({42,11}),

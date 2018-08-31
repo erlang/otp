@@ -59,6 +59,7 @@ passes(Opts0) ->
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_misc),
+          ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
@@ -1087,6 +1088,126 @@ eval_or(Args) ->
         [_,#b_literal{val=true}=Res] -> Res;
         [_,_] -> error
     end.
+
+%%%
+%%% Optimize expressions such as "tuple_size(Var) =:= 2".
+%%%
+%%% Consider this code:
+%%%
+%%% 0:
+%%%   .
+%%%   .
+%%%   .
+%%%   Size = bif:tuple_size Var
+%%%   BoolVar1 = succeeded Size
+%%%   br BoolVar1, label 4, label 3
+%%%
+%%% 4:
+%%%   BoolVar2 = bif:'=:=' Size, literal 2
+%%%   br BoolVar2, label 6, label 3
+%%%
+%%% 6: ...   %% OK
+%%%
+%%% 3: ...   %% Not a tuple of size 2
+%%%
+%%% The BEAM code will look this:
+%%%
+%%%   {bif,tuple_size,{f,3},[{x,0}],{x,0}}.
+%%%   {test,is_eq_exact,{f,3},[{x,0},{integer,2}]}.
+%%%
+%%% Better BEAM code will be produced if we transform the
+%%% code like this:
+%%%
+%%% 0:
+%%%   .
+%%%   .
+%%%   .
+%%%   br label 10
+%%%
+%%% 10:
+%%%   NewBoolVar = bif:is_tuple Var
+%%%   br NewBoolVar, label 11, label 3
+%%%
+%%% 11:
+%%%   Size = bif:tuple_size Var
+%%%   br label 4
+%%%
+%%% 4:
+%%%   BoolVar2 = bif:'=:=' Size, literal 2
+%%%   br BoolVar2, label 6, label 3
+%%%
+%%% (The key part of the transformation is the removal of
+%%% the 'succeeded' instruction to signal to the code generator
+%%% that the call to tuple_size/1 can't fail.)
+%%%
+%%% The BEAM code will look like:
+%%%
+%%%   {test,is_tuple,{f,3},[{x,0}]}.
+%%%   {test_arity,{f,3},[{x,0},2]}.
+%%%
+%%% Those two instructions will be combined into a single
+%%% is_tuple_of_arity instruction by the loader.
+%%%
+
+ssa_opt_tuple_size(#st{ssa=Linear0,cnt=Count0}=St) ->
+    {Linear,Count} = opt_tup_size(Linear0, Count0, []),
+    St#st{ssa=Linear,cnt=Count}.
+
+opt_tup_size([{L,#b_blk{is=Is,last=Last}=Blk}|Bs], Count0, Acc0) ->
+    case {Is,Last} of
+        {[#b_set{op={bif,'=:='},dst=Bool,args=[#b_var{}=Tup,#b_literal{val=Arity}]}],
+         #b_br{bool=Bool}} when is_integer(Arity), Arity >= 0 ->
+            {Acc,Count} = opt_tup_size_1(Tup, L, Count0, Acc0),
+            opt_tup_size(Bs, Count, [{L,Blk}|Acc]);
+        {_,_} ->
+            opt_tup_size(Bs, Count0, [{L,Blk}|Acc0])
+    end;
+opt_tup_size([], Count, Acc) ->
+    {reverse(Acc),Count}.
+
+opt_tup_size_1(Size, EqL, Count0, [{L,Blk0}|Acc]) ->
+    case Blk0 of
+        #b_blk{is=Is0,last=#b_br{bool=Bool,succ=EqL,fail=Fail}} ->
+            case opt_tup_size_is(Is0, Bool, Size, []) of
+                none ->
+                    {[{L,Blk0}|Acc],Count0};
+                {PreIs,TupleSizeIs,Tuple} ->
+                    opt_tup_size_2(PreIs, TupleSizeIs, L, EqL,
+                                   Tuple, Fail, Count0, Acc)
+            end;
+        #b_blk{} ->
+            {[{L,Blk0}|Acc],Count0}
+    end;
+opt_tup_size_1(_, _, Count, Acc) ->
+    {Acc,Count}.
+
+opt_tup_size_2(PreIs, TupleSizeIs, PreL, EqL, Tuple, Fail, Count0, Acc) ->
+    IsTupleL = Count0,
+    TupleSizeL = Count0 + 1,
+    Bool = #b_var{name={'@ssa_bool',Count0+2}},
+    Count = Count0 + 3,
+
+    True = #b_literal{val=true},
+    PreBr = #b_br{bool=True,succ=IsTupleL,fail=IsTupleL},
+    PreBlk = #b_blk{is=PreIs,last=PreBr},
+
+    IsTupleIs = [#b_set{op={bif,is_tuple},dst=Bool,args=[Tuple]}],
+    IsTupleBr = #b_br{bool=Bool,succ=TupleSizeL,fail=Fail},
+    IsTupleBlk = #b_blk{is=IsTupleIs,last=IsTupleBr},
+
+    TupleSizeBr = #b_br{bool=True,succ=EqL,fail=EqL},
+    TupleSizeBlk = #b_blk{is=TupleSizeIs,last=TupleSizeBr},
+    {[{TupleSizeL,TupleSizeBlk},
+      {IsTupleL,IsTupleBlk},
+      {PreL,PreBlk}|Acc],Count}.
+
+opt_tup_size_is([#b_set{op={bif,tuple_size},dst=Size,args=[Tuple]}=I,
+                 #b_set{op=succeeded,dst=Bool,args=[Size]}],
+                Bool, Size, Acc) ->
+    {reverse(Acc),[I],Tuple};
+opt_tup_size_is([I|Is], Bool, Size, Acc) ->
+    opt_tup_size_is(Is, Bool, Size, [I|Acc]);
+opt_tup_size_is([], _, _, _Acc) -> none.
 
 %%%
 %%% Optimize #b_switch{} instructions.
