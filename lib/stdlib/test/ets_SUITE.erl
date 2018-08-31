@@ -6649,8 +6649,11 @@ wait_pids(Pids, Acc) ->
 	{Pid,Result} ->
 	    true = lists:member(Pid,Pids),
 	    Others = lists:delete(Pid,Pids),
-	    io:format("wait_pid got ~p from ~p, still waiting for ~p\n",[Result,Pid,Others]),
+	    %%io:format("wait_pid got ~p from ~p\n",[Result,Pid]),
 	    wait_pids(Others,[Result | Acc])
+    after 60*1000 ->
+	    io:format("Still waiting for workers ~p\n",[Pids]),
+            wait_pids(Pids, Acc)
     end.
 
 
@@ -7262,9 +7265,15 @@ ets_new(Name, Opts) ->
         end,
     EtsNewHelper = 
         fun (MOpts) ->
-                %%ets:new(Name, [compressed | MOpts])
-                io:format("OTPS ~p ~n", [ReplaceStimOrdSetHelper(MOpts)]),
-                ets:new(Name, ReplaceStimOrdSetHelper(MOpts))
+                UseOpts = ReplaceStimOrdSetHelper(MOpts),
+                case get(ets_new_opts) of
+                    UseOpts ->
+                        silence; %% suppress identical table opts spam
+                    _ ->
+                        put(ets_new_opts, UseOpts),
+                        io:format("ets:new(~p, ~p)~n", [Name, UseOpts])
+                end,
+                ets:new(Name, UseOpts)
         end,
     case (lists:member(stim_cat_ord_set, Opts) or
           lists:member(cat_ord_set, Opts)) andalso
