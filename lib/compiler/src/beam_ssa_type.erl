@@ -428,6 +428,8 @@ type(is_tagged_tuple, [Src,#b_literal{val=Size},#b_literal{val=Tag}], Ts, _Ds) -
         _ ->
             t_atom(false)
     end;
+type(put_map, _Args, _Ts, _Ds) ->
+    map;
 type(put_list, _Args, _Ts, _Ds) ->
     cons;
 type(put_tuple, Args, _Ts, _Ds) ->
@@ -762,6 +764,8 @@ bif_type(floor, [_]) -> t_integer();
 bif_type(is_map_key, [_,_]) -> t_boolean();
 bif_type(length, [_]) -> t_integer();
 bif_type(map_size, [_]) -> t_integer();
+bif_type(node, []) -> #t_atom{};
+bif_type(node, [_]) -> #t_atom{};
 bif_type(round, [_]) -> t_integer();
 bif_type(size, [_]) -> t_integer();
 bif_type(trunc, [_]) -> t_integer();
@@ -803,8 +807,12 @@ inferred_bif_type(byte_size, [_]) -> {binary,1};
 inferred_bif_type(ceil, [_]) -> number;
 inferred_bif_type(float, [_]) -> number;
 inferred_bif_type(floor, [_]) -> number;
+inferred_bif_type(hd, [_]) -> cons;
+inferred_bif_type(length, [_]) -> list;
+inferred_bif_type(map_size, [_]) -> map;
 inferred_bif_type(round, [_]) -> number;
 inferred_bif_type(trunc, [_]) -> number;
+inferred_bif_type(tl, [_]) -> cons;
 inferred_bif_type(tuple_size, [_]) -> #t_tuple{};
 inferred_bif_type(_, _) -> any.
 
