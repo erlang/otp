@@ -29,6 +29,9 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Alert protocol - RFC 2246 section 7.2
+%%% updated by RFC 8486 with
+%%% missing_extension(109),
+%%% certificate_required(116),
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% AlertLevel
@@ -100,12 +103,14 @@
 -define(INAPPROPRIATE_FALLBACK, 86).
 -define(USER_CANCELED, 90).
 -define(NO_RENEGOTIATION, 100).
+-define(MISSING_EXTENSION, 109).
 -define(UNSUPPORTED_EXTENSION, 110).
 -define(CERTIFICATE_UNOBTAINABLE, 111).
 -define(UNRECOGNISED_NAME, 112).
 -define(BAD_CERTIFICATE_STATUS_RESPONSE, 113).
 -define(BAD_CERTIFICATE_HASH_VALUE, 114).
 -define(UNKNOWN_PSK_IDENTITY, 115).
+-define(CERTIFICATE_REQUIRED, 116).
 -define(NO_APPLICATION_PROTOCOL, 120).
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
