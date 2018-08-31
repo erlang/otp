@@ -64,7 +64,8 @@ static int test_init(ENGINE *e) {
     printf("OTP Test Engine Initializatzion!\r\n");
     
     /* Load all digest and cipher algorithms. Needed for password protected private keys */
-    OpenSSL_add_all_algorithms();
+    OpenSSL_add_all_ciphers();
+    OpenSSL_add_all_digests();
 
     return 111;
 }
