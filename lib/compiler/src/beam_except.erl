@@ -113,14 +113,7 @@ dig_out_block([{set,[{x,0}],[{atom,if_clause}],move}]) ->
     {yes,if_end,[]};
 dig_out_block([{set,[{x,0}],[{literal,{Exc,Value}}],move}|Is]) ->
     translate_exception(Exc, {literal,Value}, Is, 0);
-dig_out_block([{set,[{x,0}],[Tuple],move},
-	       {set,[],[Value],put},
-	       {set,[],[{atom,Exc}],put},
-	       {set,[Tuple],[],{put_tuple,2}}|Is]) ->
-    translate_exception(Exc, Value, Is, 3);
-dig_out_block([{set,[],[Value],put},
-	       {set,[],[{atom,Exc}],put},
-	       {set,[{x,0}],[],{put_tuple,2}}|Is]) ->
+dig_out_block([{set,[{x,0}],[{atom,Exc},Value],put_tuple2}|Is]) ->
     translate_exception(Exc, Value, Is, 3);
 dig_out_block(_) -> no.
 

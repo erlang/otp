@@ -286,6 +286,8 @@ classify_heap_need(put_list, _) ->
     {put,2};
 classify_heap_need(put_tuple_arity, [#b_literal{val=Words}]) ->
     {put,Words+1};
+classify_heap_need(put_tuple, Elements) ->
+    {put,length(Elements)+1};
 classify_heap_need({bif,Name}, Args) ->
     case is_gc_bif(Name, Args) of
         false -> neutral;
@@ -1360,6 +1362,8 @@ cg_instr(get_tuple_element=Op, [Src,{integer,N}], Dst) ->
     [{Op,Src,N,Dst}];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
     [{Op,Hd,Tl,Dst}];
+cg_instr(put_tuple, Elements, Dst) ->
+    [{put_tuple2,Dst,{list,Elements}}];
 cg_instr(put_tuple_arity, [{integer,Arity}], Dst) ->
     [{put_tuple,Arity,Dst}];
 cg_instr(put_tuple_elements, Elements, _Dst) ->

@@ -373,6 +373,8 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_map_inst(get_map_elements, Arity, Bs, Atoms, Literals);
 	has_map_fields ->
 	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
+	put_tuple2 ->
+	    disasm_put_tuple2(Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -412,6 +414,14 @@ disasm_map_inst(Inst, Arity, Bs0, Atoms, Literals) ->
     {u, Len}   = U,
     {List, RestBs} = decode_n_args(Len, Bs2, Atoms, Literals),
     {{Inst, Args ++ [{Z,U,List}]}, RestBs}.
+
+disasm_put_tuple2(Bs, Atoms, Literals) ->
+    {X, Bs1} = decode_arg(Bs, Atoms, Literals),
+    {Z, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {U, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs3, Atoms, Literals),
+    {{put_tuple2, [X,{Z,U,List}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -1094,6 +1104,13 @@ resolve_inst({get_hd,[Src,Dst]},_,_,_) ->
     {get_hd,Src,Dst};
 resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
     {get_tl,Src,Dst};
+
+%%
+%% OTP 22.
+%%
+resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
+    List = resolve_args(List0),
+    {put_tuple2,Dst,{list,List}};
 
 %%
 %% Catches instructions that are not yet handled.

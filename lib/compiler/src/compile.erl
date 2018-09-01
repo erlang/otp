@@ -259,13 +259,13 @@ expand_opt(r19, Os) ->
 expand_opt(r20, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r21, Os) ->
-    Os;
+    [no_put_tuple2|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
-    [no_get_hd_tl,no_ssa_opt_record,no_utf8_atoms|Os].
+    [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,no_utf8_atoms|Os].
 
 %% format_error(ErrorDescriptor) -> string()
 

@@ -1476,18 +1476,22 @@ bc_options(Config) ->
     101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
 
     103 = highest_opcode(DataDir, big,
-                         [no_get_hd_tl,no_ssa_opt_record,
+                         [no_put_tuple2,
+                          no_get_hd_tl,no_ssa_opt_record,
                           no_line_info,no_stack_trimming]),
 
     125 = highest_opcode(DataDir, small_float,
                          [no_get_hd_tl,no_line_info,no_ssa_opt_float]),
 
     132 = highest_opcode(DataDir, small,
-                         [no_get_hd_tl,no_ssa_opt_record,no_ssa_opt_float,no_line_info]),
+                         [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                          no_ssa_opt_float,no_line_info]),
 
-    136 = highest_opcode(DataDir, big, [no_get_hd_tl,no_ssa_opt_record,no_line_info]),
+    136 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
+                                        no_ssa_opt_record,no_line_info]),
 
-    153 = highest_opcode(DataDir, big, [no_get_hd_tl,no_ssa_opt_record]),
+    153 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
+                                        no_ssa_opt_record]),
     153 = highest_opcode(DataDir, big, [r16]),
     153 = highest_opcode(DataDir, big, [r17]),
     153 = highest_opcode(DataDir, big, [r18]),
@@ -1499,9 +1503,10 @@ bc_options(Config) ->
     158 = highest_opcode(DataDir, small_maps, [r18]),
     158 = highest_opcode(DataDir, small_maps, [r19]),
     158 = highest_opcode(DataDir, small_maps, [r20]),
-    158 = highest_opcode(DataDir, small_maps, []),
+    158 = highest_opcode(DataDir, small_maps, [r21]),
 
-    163 = highest_opcode(DataDir, big, []),
+    164 = highest_opcode(DataDir, small_maps, []),
+    164 = highest_opcode(DataDir, big, []),
 
     ok.
 

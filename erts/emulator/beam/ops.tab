@@ -483,9 +483,16 @@ is_eq f? s s
 is_ne f? s s
 
 #
-# Putting things.
+# Putting tuples.
+#
+# Code compiled with OTP 22 and later uses put_tuple2 to
+# to construct a tuple.
+#
+# Code compiled before OTP 22 uses put_tuple + one put instruction
+# per element. Translate to put_tuple2.
 #
 
+i_put_tuple/2
 put_tuple Arity Dst => i_put_tuple Dst u
 
 i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
@@ -495,10 +502,12 @@ i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
 i_put_tuple Dst Arity Puts=* | put S => \
 	    tuple_append_put(Arity, Dst, Puts, S)
 
-i_put_tuple/2
+i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
-i_put_tuple xy I
+put_tuple2 xy I
 
+#
+# Putting lists.
 #
 # The instruction "put_list Const [] Dst" were generated in rare
 # circumstances up to and including OTP 18. Starting with OTP 19,
