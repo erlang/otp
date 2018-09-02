@@ -244,7 +244,7 @@ if_end
 # Optimize for that case.
 raise x==2 x==1 => i_raise
 raise Trace=y Value=y => move Trace x=2 | move Value x=1 | i_raise
-raise Trace Value => move Trace x=3 | move Value x=1 | move x=3 x=2 | i_raise
+raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
 
 i_raise
 
