@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Usage: test-erlang-mode [options]
+#
+# Basic test script for erlang.el
+#
+# Options:
+#   -f  - Forgiving mode.  Return success if no
+#         suitable emacs is found.
+#
+
+invalid_emacs_rc=33
+
+tmp=$(getopt --options hf --long help: -- "$@") || exit
+
+eval set -- $tmp
+
+while true
+do
+  case "$1" in
+    -f)
+      invalid_emacs_rc=0
+      shift;;
+
+    --)
+      shift
+      break;;
+
+    -h|--help)
+      echo
+      sed -nr '/^# Usage:/,/^$/ s/^# ?//p' "$0"
+      exit;;
+  esac
+done
+
+
+set -e
+
+cd $(dirname "$0")
+
+if ! type emacs &> /dev/null
+then
+    echo "Skipping emacs test due to no emacs in PATH"
+    exit "$invalid_emacs_rc"
+fi
+
+version="$(emacs --version | head -n1)"
+version_number="${version#GNU Emacs }"
+version_major="${version_number%%\.*}"
+
+
+case "$version_major" in
+    [0-9][0-9])
+        if [ "$version_major" -lt 24 ]
+        then
+            echo "Skipping emacs test due to too old emacs ($version_major)"
+            exit "$invalid_emacs_rc"
+        fi;;
+    *)
+        echo "Skipping emacs test due to unsupported emacs version ($version)"
+        exit "$invalid_emacs_rc";;
+esac
+     
+set -x
+
+# Test interpreted erlang-mode.
+emacs -Q -batch -L . -l erlang.el -f erlang-mode
+
+# Compile.
+emacs -Q -batch -L . -f batch-byte-compile *.el
+
+# Test compiled erlang-mode.
+emacs -Q -batch -L . -l erlang.elc -f erlang-mode
+
+# Run unit tests in interpreted mode.
+emacs -Q -batch -L . -l erlang.el -l erlang-test.el \
+      -f ert-run-tests-batch-and-exit
+
+# Run unit tests in compiled mode.
+emacs -Q -batch -L . -l erlang.elc -l erlang-test.elc \
+      -f ert-run-tests-batch-and-exit

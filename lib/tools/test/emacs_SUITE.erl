@@ -23,18 +23,18 @@
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([bif_highlight/1, indent/1]).
+-export([bif_highlight/1, indent/1, test_erlang_mode_script/1]).
 
 all() ->
-    [bif_highlight, indent].
+    [bif_highlight, indent, test_erlang_mode_script].
 
 init_per_testcase(_Case, Config) ->
     ErlangEl = filename:join([code:lib_dir(tools),"emacs","erlang.el"]),
     case file:read_file_info(ErlangEl) of
-	{ok, _} ->
-	    [{el, ErlangEl}|Config];
-	_ ->
-	    {skip, "Could not find erlang.el"}
+        {ok, _} ->
+            [{el, ErlangEl}|Config];
+        _ ->
+            {skip, "Could not find erlang.el"}
     end.
 
 end_per_testcase(_Case, _Config) ->
@@ -46,26 +46,26 @@ bif_highlight(Config) ->
 
     %% All auto-imported bifs
     IntBifs = lists:usort(
-		[F  || {F,A} <- erlang:module_info(exports),
-		       erl_internal:bif(F,A)]),
+                [F  || {F,A} <- erlang:module_info(exports),
+                       erl_internal:bif(F,A)]),
 
     %% all bif which need erlang: prefix and are not operands
     ExtBifs = lists:usort(
-		[F  || {F,A} <- erlang:module_info(exports),
-		       not erl_internal:bif(F,A) andalso
-			   not is_atom(catch erl_internal:op_type(F,A))]),
+                [F  || {F,A} <- erlang:module_info(exports),
+                       not erl_internal:bif(F,A) andalso
+                           not is_atom(catch erl_internal:op_type(F,A))]),
 
     check_bif_highlight(Bin, <<"erlang-int-bifs">>, IntBifs),
     check_bif_highlight(Bin, <<"erlang-ext-bifs">>, ExtBifs).
-    
+
 
 check_bif_highlight(Bin, Tag, Compare) ->
-    [_H,IntMatch,_T] = 
-	re:split(Bin,<<"defvar ",Tag/binary,
-		       "[^(]*\\(([^)]*)">>,[]),
-    EmacsIntBifs = [list_to_atom(S) || 
-		  S <- string:tokens(binary_to_list(IntMatch)," '\"\n")],
-    
+    [_H,IntMatch,_T] =
+        re:split(Bin,<<"defvar ",Tag/binary,
+                       "[^(]*\\(([^)]*)">>,[]),
+    EmacsIntBifs = [list_to_atom(S) ||
+                  S <- string:tokens(binary_to_list(IntMatch)," '\"\n")],
+
     ct:log("Emacs ~p",[EmacsIntBifs]),
     ct:log("Int ~p",[Compare]),
 
@@ -73,14 +73,17 @@ check_bif_highlight(Bin, Tag, Compare) ->
     ct:log("Diff2 ~p",[EmacsIntBifs -- Compare]),
     [] = Compare -- EmacsIntBifs,
     [] = EmacsIntBifs -- Compare.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 indent(Config) ->
     case emacs_version_ok() of
         false -> {skip, "Old or no emacs found"};
         true ->
-            Def = filename:dirname(code:which(?MODULE)) ++ "/" ++ ?MODULE_STRING ++ "_data",
+            Def = filename:dirname(code:which(?MODULE))
+                ++ "/"
+                ++ ?MODULE_STRING
+                ++ "_data",
             Dir = proplists:get_value(data_dir, Config, Def),
             OrigFs = filelib:wildcard(Dir ++ "/*"),
             io:format("Dir: ~s~nFs: ~p~n", [Dir, OrigFs]),
@@ -119,7 +122,7 @@ emacs_version_ok() ->
                 {Vsn, _} when Vsn >= 24.1 ->
                     true;
                 _ ->
-                    io:format("Emacs version fail~n~s~n~n",[Ver]),
+                    io:format("Unsupported Emacs version~n~s~n~n",[Ver]),
                     false
             end;
         Res ->
@@ -128,10 +131,9 @@ emacs_version_ok() ->
     end.
 
 emacs(File) ->
-    EmacsErlDir = filename:join([code:lib_dir(tools), "emacs"]),
     Cmd = ["emacs ",
            "--batch --quick ",
-           "--directory ", EmacsErlDir, " ",
+           "--directory ", emacs_dir(), " ",
            "--eval \"(require 'erlang-start)\" ",
            File, " ",
            "--eval '(indent-region (point-min) (point-max) nil)' ",
@@ -139,4 +141,20 @@ emacs(File) ->
           ],
     _Res = os:cmd(Cmd),
     % io:format("cmd ~s:~n=> ~s~n", [Cmd, _Res]),
+    ok.
+
+emacs_dir() ->
+    filename:join([code:lib_dir(tools), "emacs"]).
+
+test_erlang_mode_script(_Config) ->
+    Script = filename:join([emacs_dir(), "test-erlang-mode"]),
+    RcFile = string:trim(os:cmd("mktemp /tmp/emacs_SUITE.XXXXXX")),
+    Output = os:cmd(Script ++ " -f; echo $? > " ++ RcFile),
+    io:format("~s output:~n~ts~n", [Script, Output]),
+    {ok, RcBin} = file:read_file(RcFile),
+    ok = file:delete(RcFile),
+    RcString = binary:bin_to_list(RcBin),
+    {Rc, _} = string:to_integer(RcString),
+    io:format("Script return code: ~p~n", [Rc]),
+    0 = Rc,
     ok.
