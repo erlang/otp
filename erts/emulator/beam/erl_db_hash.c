@@ -162,6 +162,7 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
         if (NFIXED(tb) <= fixated_by_me) {
             erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
                          fixd, sizeof(FixedDeletion));
+            ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
             return 0; /* raced by unfixer */
         }
         exp_next = was_next;
