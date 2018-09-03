@@ -636,6 +636,14 @@ encode_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Res
     Len = ListLen + 2,
     encode_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>);
+encode_hello_extensions([#signature_scheme_list{
+                            signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
+    SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- SignatureSchemes >>,
+    ListLen = byte_size(SignSchemeList),
+    Len = ListLen + 2,
+    encode_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT),
+				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
 encode_hello_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
     HostLen = length(Hostname),
     HostnameBin = list_to_binary(Hostname),
@@ -960,6 +968,7 @@ premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
 %%====================================================================
 client_hello_extensions(Version, CipherSuites, 
 			#ssl_options{signature_algs = SupportedHashSigns,
+                                     signature_algs_cert = SignatureSchemes,
 				     eccs = SupportedECCs,
                                      versions = Versions} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
@@ -990,7 +999,9 @@ client_hello_extensions(Version, CipherSuites,
         {3,4} ->
             HelloExtensions#hello_extensions{
               client_hello_versions = #client_hello_versions{
-                                         versions = Versions}};
+                                         versions = Versions},
+              signature_algs_cert = #signature_scheme_list{
+                                       signature_scheme_list = SignatureSchemes}};
         _Else ->
             HelloExtensions
     end.
@@ -1777,6 +1788,7 @@ encode_versions([{M,N}|T], Acc) ->
 hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					srp = SRP,
 					signature_algs = HashSigns,
+                                        signature_algs_cert = SignatureSchemes,
 					ec_point_formats = EcPointFormats,
 					elliptic_curves = EllipticCurves,
                                         alpn = ALPN,
@@ -1784,7 +1796,7 @@ hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					sni = Sni,
                                         client_hello_versions = Versions,
                                         server_hello_selected_version = Version}) ->
-    [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns,
+    [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns, SignatureSchemes,
 		    EcPointFormats, EllipticCurves, ALPN,
                     NextProtocolNegotiation, Sni,
                     Versions, Version], Ext =/= undefined].
@@ -1961,6 +1973,16 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 			<<?BYTE(Hash), ?BYTE(Sign)>> <= SignAlgoList],
     dec_hello_extensions(Rest, Acc#hello_extensions{signature_algs =
 						    #hash_sign_algos{hash_sign_algos = HashSignAlgos}});
+
+dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Acc) ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
+			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    dec_hello_extensions(Rest, Acc#hello_extensions{signature_algs_cert =
+                                                        #signature_scheme_list{
+                                                           signature_scheme_list = SignSchemes}});
 
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->

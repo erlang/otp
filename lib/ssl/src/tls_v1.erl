@@ -32,7 +32,8 @@
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7, hmac_hash/3,
 	 setup_keys/8, suites/1, prf/5,
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
-	 default_signature_algs/1, signature_algs/2, v1_3_filters/0]).
+	 default_signature_algs/1, signature_algs/2, v1_3_filters/0,
+         default_signature_schemes/1, signature_schemes/2]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -302,6 +303,64 @@ default_signature_algs({3, 3} = Version) ->
     signature_algs(Version, Default);
 default_signature_algs(_) ->
     undefined.
+
+
+signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
+                                                  andalso Version >= {3, 3} ->
+    CryptoSupports =  crypto:supports(),
+    Hashes = proplists:get_value(hashs, CryptoSupports),
+    PubKeys = proplists:get_value(public_keys, CryptoSupports),
+    Curves = proplists:get_value(curves, CryptoSupports),
+    Fun = fun (Scheme, Acc) ->
+                  {Hash0, Sign0, Curve} =
+                      ssl_cipher:scheme_to_components(Scheme),
+                  Sign = case Sign0 of
+                             rsa_pkcs1 -> rsa;
+                             S -> S
+                         end,
+                  Hash = case Hash0 of
+                             sha1 -> sha;
+                             H -> H
+                         end,
+                  case proplists:get_bool(Sign, PubKeys)
+                      andalso proplists:get_bool(Hash, Hashes)
+                      andalso (Curve =:= undefined orelse
+                               proplists:get_bool(Curve, Curves))
+                      andalso is_pair(Hash, Sign, Hashes)
+                  of
+                      true ->
+                          [Scheme | Acc];
+                      false ->
+                          Acc
+                  end
+          end,
+    Supported = lists:foldl(Fun, [], SignatureSchemes),
+    lists:reverse(Supported);
+signature_schemes(_, _) ->
+    [].
+
+
+default_signature_schemes(Version) ->
+    Default = [
+               rsa_pkcs1_sha256,
+               rsa_pkcs1_sha384,
+               rsa_pkcs1_sha512,
+               ecdsa_secp256r1_sha256,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp521r1_sha512,
+               rsa_pss_rsae_sha256,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha512,
+               %% ed25519,
+               %% ed448,
+               rsa_pss_pss_sha256,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha512,
+               rsa_pkcs1_sha1,
+               ecdsa_sha1
+              ],
+    signature_schemes(Version, Default).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
