@@ -960,10 +960,14 @@ handle_options(Opts0, Role, Host) ->
 						      RecordCb:highest_protocol_version(Versions)),
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
 						      RecordCb:highest_protocol_version(Versions)),
-		    signature_algs = handle_hashsigns_option(proplists:get_value(signature_algs, Opts, 
-									     default_option_role(server, 
-												 tls_v1:default_signature_algs(Versions), Role)),
-							 tls_version(RecordCb:highest_protocol_version(Versions))), 
+		    signature_algs = handle_hashsigns_option(
+                                       proplists:get_value(
+                                         signature_algs,
+                                         Opts,
+                                         default_option_role(server,
+                                                             tls_v1:default_signature_algs(Versions),
+                                                             Role)),
+                                       tls_version(RecordCb:highest_protocol_version(Versions))),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
