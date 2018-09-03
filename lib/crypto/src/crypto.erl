@@ -298,6 +298,7 @@ next_iv(Type, Data) when is_binary(Data) ->
     IVecSize = case Type of
                    des_cbc  -> 8;
                    des3_cbc -> 8;
+                   blowfish_cbc -> 8;
                    aes_cbc  -> 16;
                    aes_ige  -> 32
                end,
