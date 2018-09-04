@@ -1270,21 +1270,29 @@ cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[#b_local{}=Func0|Args0]},
     Call = build_call(call, Arity, {f,FuncLbl}, Context, Dst),
     Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
     {Is,St};
-cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
+cg_call(#cg_set{anno=Anno0,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
         Where, Context, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     #b_remote{mod=Mod0,name=Name0,arity=Arity} = Func0,
     case {beam_arg(Mod0, St),beam_arg(Name0, St)} of
         {{atom,Mod},{atom,Name}} ->
             Func = {extfunc,Mod,Name,Arity},
-            Line = call_line(Where, Func, Anno),
+            Line = call_line(Where, Func, Anno0),
             Call = build_call(call_ext, Arity, Func, Context, Dst),
+            Anno = case erl_bifs:is_exit_bif(Mod, Name, Arity) of
+                       true ->
+                           %% There is no need to kill Y registers
+                           %% before calling an exit BIF.
+                           maps:remove(kill_yregs, Anno0);
+                       false ->
+                           Anno0
+                   end,
             Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
             {Is,St};
         {Mod,Name} ->
             Apply = build_apply(Arity, Context, Dst),
-            Is = setup_args(Args++[Mod,Name], Anno, Context, St) ++
-                [line(Anno)] ++ Apply,
+            Is = setup_args(Args++[Mod,Name], Anno0, Context, St) ++
+                [line(Anno0)] ++ Apply,
             {Is,St}
     end;
 cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=Args0},
