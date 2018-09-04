@@ -52,7 +52,6 @@ MODULES =  \
 	beam_bs \
 	beam_bsm \
 	beam_clean \
-	beam_dead \
 	beam_dict \
 	beam_disasm \
 	beam_except \
@@ -61,7 +60,6 @@ MODULES =  \
 	beam_listing \
 	beam_opcodes \
 	beam_peep \
-	beam_split \
 	beam_ssa \
 	beam_ssa_codegen \
 	beam_ssa_dead \

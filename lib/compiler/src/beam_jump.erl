@@ -22,8 +22,8 @@
 -module(beam_jump).
 
 -export([module/2,
-	 is_unreachable_after/1,is_exit_instruction/1,
-	 remove_unused_labels/1,instr_labels/1]).
+	 is_exit_instruction/1,
+	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
 %%%
@@ -128,27 +128,123 @@
 %%% on the program state.
 %%% 
 
--import(lists, [reverse/1,reverse/2,foldl/3]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
-    Fs = [function(F) || F <- Fs0],
+module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
+    {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% function(Function) -> Function'
 %%  Optimize jumps and branches.
 %%
 %%  NOTE: This function assumes that there are no labels inside blocks.
-function({function,Name,Arity,CLabel,Asm0}) ->
-    Asm1 = share(Asm0),
-    Asm2 = move(Asm1),
-    Asm3 = opt(Asm2, CLabel),
-    Asm = remove_unused_labels(Asm3),
-    {function,Name,Arity,CLabel,Asm}.
+function({function,Name,Arity,CLabel,Asm0}, Lc0) ->
+    Asm1 = eliminate_moves(Asm0),
+    {Asm2,Lc} = insert_labels(Asm1, Lc0, []),
+    Asm3 = share(Asm2),
+    Asm4 = move(Asm3),
+    Asm5 = opt(Asm4, CLabel),
+    Asm = remove_unused_labels(Asm5),
+    {{function,Name,Arity,CLabel,Asm},Lc}.
+
+%%%
+%%% Scan instructions in execution order and remove redundant 'move'
+%%% instructions. 'move' instructions are redundant if we know that
+%%% the register already contains the value being assigned, as in the
+%%% following code:
+%%%
+%%%           select_val Register FailLabel [... Literal => L1...]
+%%%                      .
+%%%                      .
+%%%                      .
+%%%   L1:     move Literal Register
+%%%
+
+eliminate_moves(Is) ->
+    eliminate_moves(Is, #{}, []).
+
+eliminate_moves([{select,select_val,Reg,_,List}=I|Is], D0, Acc) ->
+    D = update_value_dict(List, Reg, D0),
+    eliminate_moves(Is, D, [I|Acc]);
+eliminate_moves([{label,Lbl},{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk0|Is],
+        D, Acc0) ->
+    Acc = [{label,Lbl}|Acc0],
+    case already_has_value(Lit, Lbl, Dst, D) andalso
+        no_fallthrough(Acc0) of
+        true ->
+            %% Remove redundant 'move' instruction.
+            Blk = {block,BlkIs},
+            eliminate_moves([Blk|Is], D, Acc);
+        false ->
+            %% Keep 'move' instruction.
+            eliminate_moves([Blk0|Is], D, Acc)
+    end;
+eliminate_moves([{block,[]}|Is], D, Acc) ->
+    %% Empty blocks can prevent further jump optimizations.
+    eliminate_moves(Is, D, Acc);
+eliminate_moves([I|Is], D0, Acc) ->
+    D = update_unsafe_labels(I, D0),
+    eliminate_moves(Is, D, [I|Acc]);
+eliminate_moves([], _, Acc) -> reverse(Acc).
+
+no_fallthrough([I|_]) ->
+    is_unreachable_after(I).
+
+already_has_value(Lit, Lbl, Reg, D) ->
+    Key = {Lbl,Reg},
+    case D of
+        #{Lbl:=unsafe} ->
+            false;
+        #{Key:=Lit} ->
+            true;
+        #{} ->
+            false
+    end.
+
+update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
+    Key = {Lbl,Reg},
+    D = case D0 of
+            #{Key := inconsistent} -> D0;
+            #{Key := _} -> D0#{Key := inconsistent};
+            _ -> D0#{Key => Lit}
+        end,
+    update_value_dict(T, Reg, D);
+update_value_dict([], _, D) -> D.
+
+update_unsafe_labels(I, D) ->
+    Ls = instr_labels(I),
+    update_unsafe_labels_1(Ls, D).
+
+update_unsafe_labels_1([L|Ls], D) ->
+    update_unsafe_labels_1(Ls, D#{L=>unsafe});
+update_unsafe_labels_1([], D) -> D.
+
+%%%
+%%% It seems to be useful to insert extra labels after certain
+%%% test instructions. This used to be done by beam_dead.
+%%%
+
+insert_labels([{test,Op,_,_}=I|Is], Lc, Acc) ->
+    Useful = case Op of
+                 is_lt -> true;
+                 is_ge -> true;
+                 is_eq_exact -> true;
+                 is_ne_exact -> true;
+                 _ -> false
+             end,
+    case Useful of
+	false -> insert_labels(Is, Lc, [I|Acc]);
+	true -> insert_labels(Is, Lc+1, [{label,Lc},I|Acc])
+    end;
+insert_labels([I|Is], Lc, Acc) ->
+    insert_labels(Is, Lc, [I|Acc]);
+insert_labels([], Lc, Acc) ->
+    {reverse(Acc),Lc}.
 
 %%%
 %%% (1) We try to share the code for identical code segments by replacing all
