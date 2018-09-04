@@ -524,27 +524,14 @@ sync(Config) ->
                               formatter=>{?MODULE,nl}}),
 
     start_tracer([{disk_log,blog,2},
-                  {disk_log,sync,1}],
+                  {logger_disk_log_h,disk_log_sync,2}],
                  [{disk_log,blog,<<"first\n">>},
-                  {disk_log,sync}]),
+                  {logger_disk_log_h,disk_log_sync}]),
 
     logger:notice("first", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
-    start_tracer([{disk_log,blog,2},
-                  {disk_log,sync,1}],
-                 [{disk_log,blog,<<"second\n">>},
-                  {disk_log,blog,<<"third\n">>},
-                  {disk_log,sync}]),
-    %% two log requests in fast succession will make the handler skip
-    %% an automatic disk log sync
-    logger:notice("second", ?domain),
-    logger:notice("third", ?domain),
-    %% do explicit sync
-    logger_disk_log_h:filesync(?MODULE),
-    check_tracer(100),
-
     %% check that if there's no repeated disk_log_sync active,
     %% a disk_log_sync is still performed when handler goes idle
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
@@ -553,20 +540,25 @@ sync(Config) ->
 
     no_repeat = maps:get(filesync_repeat_interval,
                          logger_disk_log_h:info(?MODULE)),
+    %% The following timer is to make sure the time from last log
+    %% ("first") to next ("second") is long enough, so the a flush is
+    %% triggered by the idle timeout between "fourth" and "fifth".
+    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
 
     start_tracer([{disk_log,blog,2},
-                  {disk_log,sync,1}],
-                 [{disk_log,blog,<<"fourth\n">>},
-                  {disk_log,blog,<<"fifth\n">>},
-                  {disk_log,sync}]),
+                  {logger_disk_log_h,disk_log_sync,2}],
+                 [{disk_log,blog,<<"second\n">>},
+                  {logger_disk_log_h,disk_log_sync},
+                  {disk_log,blog,<<"third\n">>},
+                  {logger_disk_log_h,disk_log_sync}]),
 
-    logger:notice("fourth", ?domain),
+    logger:notice("second", ?domain),
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
-    logger:notice("fifth", ?domain),
+    logger:notice("third", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?IDLE_DETECT_TIME_MSEC*2),
 
-    try_read_file(Log, {ok,<<"first\nsecond\nthird\nfourth\nfifth\n">>}, 1000),
+    try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
     
     %% switch repeated disk_log_sync on and verify that the looping works
     SyncInt = 1000,
@@ -1494,7 +1486,7 @@ start_tracer(Trace,Expected) ->
     ok.
 
 tpl([{M,F,A}|Trace]) ->
-    {ok,Match} = dbg:tpl(M,F,A,[]),
+    {ok,Match} = dbg:tpl(M,F,A,c),
     case lists:keyfind(matched,1,Match) of
         {_,_,1} ->
             ok;
@@ -1507,23 +1499,23 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_disk_log_h,handle_cast,[Op|_]}},
+tracer({trace,_,call,{logger_disk_log_h,handle_cast,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
-    maybe_tracer_done(Pid,Expected,{Mod,Func,Op});
-tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]}}, {Pid,[{Mod,Func,Data}|Expected]}) ->
-    maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
-tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
-    maybe_tracer_done(Pid,Expected,{Mod,Func});
-tracer({trace,_,call,Call}, {Pid,Expected}) ->
-    ct:log("Tracer got unexpected: ~p~nExpected: ~p~n",[Call,Expected]),
+    maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
+tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func,Data},Caller);
+tracer({trace,_,call,{Mod,Func,_},Caller}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
+tracer({trace,_,call,Call,Caller}, {Pid,Expected}) ->
+    ct:log("Tracer got unexpected: ~p~nCaller: ~p~nExpected: ~p~n",[Call,Caller,Expected]),
     Pid ! {tracer_got_unexpected,Call,Expected},
     {Pid,Expected}.
 
-maybe_tracer_done(Pid,[],Got) ->
-    ct:log("Tracer got: ~p~n",[Got]),
+maybe_tracer_done(Pid,[],Got,Caller) ->
+    ct:log("Tracer got: ~p~nCaller: ~p~n",[Got,Caller]),
     Pid ! tracer_done;
-maybe_tracer_done(Pid,Expected,Got) ->
-    ct:log("Tracer got: ~p~n",[Got]),
+maybe_tracer_done(Pid,Expected,Got,Caller) ->
+    ct:log("Tracer got: ~p~nCaller: ~p~n",[Got,Caller]),
     {Pid,Expected}.
 
 check_tracer(T) ->
