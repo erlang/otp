@@ -176,6 +176,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     double af;
     Uint64 int_part, frac_part;
     int neg;
+    int  has_decimals = decimals != 0;
     char *p = buffer;
 
     if (decimals < 0)
@@ -257,7 +258,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     }
 
     /* Delete trailing zeroes */
-    if (compact)
+    if (compact && has_decimals)
         p = find_first_trailing_zero(p);
     *p = '\0';
     return p - buffer;
