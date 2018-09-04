@@ -42,7 +42,8 @@
 			 {verify, verify_type()} |
 			 {verify_fun, {fun(), InitialUserState::term()}} |
                          {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
-                         {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
+                         {cert, Der::binary()} | {certfile, path()} |
+                         {key, {private_key_type(), Der::binary()}} |
                          {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
                          {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
                          {user_lookup_fun, {fun(), InitialUserState::term()}} |
@@ -64,5 +65,12 @@
 -type transport_option() :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
 				       ClosedTag::atom(), ErrTag::atom()}}.
 -type prf_random() :: client_random | server_random.
+
+-type private_key_type() :: rsa | %% Backwards compatibility
+                            dsa | %% Backwards compatibility
+                            'RSAPrivateKey' |
+                            'DSAPrivateKey' |
+                            'ECPrivateKey' |
+                            'PrivateKeyInfo'.
 
 -endif. % -ifdef(ssl_api).
