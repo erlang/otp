@@ -648,10 +648,12 @@ valfun_4({set_tuple_element,Src,Tuple,I}, Vst) ->
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
+    assert_choices(Choices),
     Vst = branch_state(Fail, Vst0),
     kill_state(select_val_branches(Src, Choices, Vst));
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     assert_type(tuple, Tuple, Vst),
+    assert_arities(Choices),
     TupleType = case get_term_type(Tuple, Vst) of
                     {fragile,TupleType0} -> TupleType0;
                     TupleType0 -> TupleType0
@@ -1087,6 +1089,29 @@ prune_x_regs(Live, #vst{current=St0}=Vst)
                           end, Aliases0),
     St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs,aliases=Aliases},
     Vst#vst{current=St}.
+
+%% All choices in a select_val list must be integers, floats, or atoms.
+%% All must be of the same type.
+assert_choices([{Tag,_},{f,_}|T]) ->
+    if
+        Tag =:= atom; Tag =:= float; Tag =:= integer ->
+            assert_choices_1(T, Tag);
+        true ->
+            error(bad_select_list)
+    end;
+assert_choices([]) -> ok.
+
+assert_choices_1([{Tag,_},{f,_}|T], Tag) ->
+    assert_choices_1(T, Tag);
+assert_choices_1([_,{f,_}|_], _Tag) ->
+    error(bad_select_list);
+assert_choices_1([], _Tag) -> ok.
+
+assert_arities([Arity,{f,_}|T]) when is_integer(Arity) ->
+    assert_arities(T);
+assert_arities([]) -> ok;
+assert_arities(_) -> error(bad_tuple_arity_list).
+
 
 %%%
 %%% Floating point checking.
