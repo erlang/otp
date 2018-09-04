@@ -106,6 +106,9 @@ gen_server_crash(Config, Encoding) ->
 
     ok = rpc:call(Node,?MODULE,crash_me,[]),
 
+    ok = rpc:call(Node,logger_std_h,filesync,[default]),
+    ok = rpc:call(Node,logger_std_h,filesync,[sasl]),
+
     test_server:stop_node(Node),
     ok = logger:remove_primary_filter(no_remote),
 
