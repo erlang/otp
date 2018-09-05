@@ -573,3 +573,8 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Get the tail (or cdr) part of a list (a cons cell) from Source and
 ##       put it into the register Tail.
 163: get_tl/2
+
+## @spec put_tuple2  Destination Elements
+## @doc  Build a tuple with the elements in the list Elements and put it
+##       put into register Destination.
+164: put_tuple2/2

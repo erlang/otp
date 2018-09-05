@@ -65,6 +65,7 @@ norm({set,[D],[S],move})          -> {move,S,D};
 norm({set,[D],[S],fmove})         -> {fmove,S,D};
 norm({set,[D],[S],fconv})         -> {fconv,S,D};
 norm({set,[D],[S1,S2],put_list})  -> {put_list,S1,S2,D};
+norm({set,[D],Els,put_tuple2})    -> {put_tuple2,D,{list,Els}};
 norm({set,[D],[],{put_tuple,A}})  -> {put_tuple,A,D};
 norm({set,[],[S],put})            -> {put,S};
 norm({set,[D],[S],{get_tuple_element,I}}) -> {get_tuple_element,S,I,D};

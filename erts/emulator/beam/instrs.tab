@@ -559,17 +559,19 @@ update_list(Hd, Dst) {
     HTOP += 2;
 }
 
-i_put_tuple := i_put_tuple.make.fill;
-
-i_put_tuple.make(Dst) {
-    $Dst = make_tuple(HTOP);
-}
-
-i_put_tuple.fill(Arity) {
+put_tuple2(Dst, Arity) {
     Eterm* hp = HTOP;
     Eterm arity = $Arity;
 
+    /*
+     * If operands are not packed (in the 32-bit VM),
+     * is is not safe to use $Dst directly after I
+     * has been updated.
+     */
+    Eterm* dst_ptr = &($Dst);
+
     //| -no_next
+    ASSERT(arity != 0);
     *hp++ = make_arityval(arity);
     I = $NEXT_INSTRUCTION;
     do {
@@ -586,6 +588,7 @@ i_put_tuple.fill(Arity) {
             break;
         }
     } while (--arity != 0);
+    *dst_ptr = make_tuple(HTOP);
     HTOP = hp;
     ASSERT(VALID_INSTR(* (Eterm *)I));
     Goto(*I);

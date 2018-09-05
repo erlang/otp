@@ -89,6 +89,7 @@ collect({move,S,D})          -> {set,[D],[S],move};
 collect({put_list,S1,S2,D})  -> {set,[D],[S1,S2],put_list};
 collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
 collect({put,S})             -> {set,[],[S],put};
+collect({put_tuple2,D,{list,Els}}) -> {set,[D],Els,put_tuple2};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_hd,S,D})  ->       {set,[D],[S],get_hd};

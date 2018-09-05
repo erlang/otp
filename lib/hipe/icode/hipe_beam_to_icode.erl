@@ -647,6 +647,13 @@ trans_fun([{put_tuple,_Size,Reg}|Instructions], Env) ->
   Primop = hipe_icode:mk_primop(Dest,mktuple,Src),
   Moves ++ [Primop | trans_fun(Instructions2,Env2)];
 %%--- put --- SHOULD NOT REALLY EXIST HERE; put INSTRUCTIONS ARE HANDLED ABOVE.
+%%--- put_tuple2 ---
+trans_fun([{put_tuple2,Reg,{list,Elements}}|Instructions], Env) ->
+  Dest = [mk_var(Reg)],
+  {Moves,Vars,Env2} = trans_elements(Elements, [], [], Env),
+  Src = lists:reverse(Vars),
+  Primop = hipe_icode:mk_primop(Dest, mktuple, Src),
+  Moves ++ [Primop | trans_fun(Instructions, Env2)];
 %%--- badmatch ---
 trans_fun([{badmatch,Arg}|Instructions], Env) ->
   BadVar = trans_arg(Arg),
@@ -1698,6 +1705,19 @@ trans_puts([{put,X}|Code], Vars, Moves, Env) ->
   end;
 trans_puts(Code, Vars, Moves, Env) ->    %% No more put operations
   {Moves, Code, Vars, Env}.
+
+trans_elements([X|Code], Vars, Moves, Env) ->
+  case type(X) of
+    var ->
+      Var = mk_var(X),
+      trans_elements(Code, [Var|Vars], Moves, Env);
+    #beam_const{value=C} ->
+      Var = mk_var(new),
+      Move = hipe_icode:mk_move(Var, hipe_icode:mk_const(C)),
+      trans_elements(Code, [Var|Vars], [Move|Moves], Env)
+  end;
+trans_elements([], Vars, Moves, Env) ->
+  {Moves, Vars, Env}.
 
 %%-----------------------------------------------------------------------
 %% The code for this instruction is a bit large because we are treating

@@ -349,6 +349,12 @@ valfun_1({put_list,A,B,Dst}, Vst0) ->
     assert_term(B, Vst0),
     Vst = eat_heap(2, Vst0),
     set_type_reg(cons, Dst, Vst);
+valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
+    _ = [assert_term(El, Vst0) || El <- Elements],
+    Size = length(Elements),
+    Vst = eat_heap(Size+1, Vst0),
+    Type = {tuple,Size},
+    set_type_reg(Type, Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
     Vst = set_type_reg(tuple_in_progress, Dst, Vst1),

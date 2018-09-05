@@ -79,8 +79,9 @@
                     {'ok',beam_ssa:b_module()}.
 
 module(#b_module{body=Fs0}=Module, Opts) ->
+    FixTuples = proplists:get_bool(no_put_tuple2, Opts),
     ExtraAnnos = proplists:get_bool(dprecg, Opts),
-    Ps = passes(ExtraAnnos),
+    Ps = passes(FixTuples, ExtraAnnos),
     Fs = functions(Fs0, Ps),
     {ok,Module#b_module{body=Fs}}.
 
@@ -113,13 +114,16 @@ functions([], _Ps) -> [].
             }).
 -define(PASS(N), {N,fun N/1}).
 
-passes(ExtraAnnos) ->
+passes(FixTuples, ExtraAnnos) ->
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
           ?PASS(fix_bs),
           ?PASS(sanitize),
-          ?PASS(fix_tuples),
+          case FixTuples of
+              false -> ignore;
+              true -> ?PASS(fix_tuples)
+          end,
           ?PASS(place_frames),
           ?PASS(fix_receives),
 
@@ -151,10 +155,7 @@ passes(ExtraAnnos) ->
           ?PASS(fix_aliased_regs),
           ?PASS(frame_size),
           ?PASS(turn_yregs)],
-    case ExtraAnnos of
-        false -> [P || P <- Ps, P =/= ignore];
-        true -> Ps
-    end.
+    [P || P <- Ps, P =/= ignore].
 
 function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0, Ps) ->
     try
@@ -693,9 +694,11 @@ prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
 %%%
 
 %% fix_tuples(St0) -> St.
-%%  We must split tuple creation into two instruction to mirror the
-%%  the way tuples are created in BEAM.  Each put_tuple instruction is
-%%  split into put_tuple_arity followed by put_tuple_elements.
+%%  If compatibility with a previous version of Erlang has been
+%%  requested, tuple creation must be split into two instruction to
+%%  mirror the the way tuples are created in BEAM prior to OTP 22.
+%%  Each put_tuple instruction is split into put_tuple_arity followed
+%%  by put_tuple_elements.
 
 fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
     F = fun (#b_set{op=put_tuple,args=Args}=Put, C0) ->
