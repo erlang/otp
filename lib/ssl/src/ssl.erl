@@ -958,17 +958,18 @@ handle_options(Opts0, Role, Host) ->
 		    psk_identity = handle_option(psk_identity, Opts, undefined),
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
 		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
-						      RecordCb:highest_protocol_version(Versions)),
+						      HighestVersion),
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
-						      RecordCb:highest_protocol_version(Versions)),
-		    signature_algs = handle_hashsigns_option(
-                                       proplists:get_value(
-                                         signature_algs,
-                                         Opts,
-                                         default_option_role(server,
-                                                             tls_v1:default_signature_algs(Versions),
-                                                             Role)),
-                                       tls_version(RecordCb:highest_protocol_version(Versions))),
+                                                    HighestVersion),
+		    signature_algs =
+                         handle_hashsigns_option(
+                           proplists:get_value(
+                             signature_algs,
+                             Opts,
+                             default_option_role(server,
+                                                 tls_v1:default_signature_algs(HighestVersion),
+                                                 Role)),
+                           tls_version(HighestVersion)),
                     signature_algs_cert =
                          handle_signature_algorithms_option(
                            proplists:get_value(
