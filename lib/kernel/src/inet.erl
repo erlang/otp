@@ -164,9 +164,7 @@
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
 
 -type ancillary_data() ::
-        [ {'tos', TOS :: byte()} |
-          {'tclass', TCLASS :: byte()} |
-          {'ttl', TTL :: byte()} ].
+        [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 
 %%% ---------------------------------
 
