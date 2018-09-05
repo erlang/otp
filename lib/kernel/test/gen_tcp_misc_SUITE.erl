@@ -41,6 +41,7 @@
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
 	 partial_recv_and_close_2/1,partial_recv_and_close_3/1,so_priority/1,
+         recvtos/1, recvttl/1, recvtosttl/1, recvtclass/1,
 	 %% Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
@@ -83,7 +84,8 @@ all() ->
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
      partial_recv_and_close_2, partial_recv_and_close_3,
-     so_priority, primitive_accept,
+     so_priority, recvtos, recvttl, recvtosttl,
+     recvtclass, primitive_accept,
      multi_accept_close_listen, accept_timeout,
      accept_timeouts_in_order, accept_timeouts_in_order2,
      accept_timeouts_in_order3, accept_timeouts_in_order4,
@@ -1913,6 +1915,209 @@ so_priority(Config) when is_list(Config) ->
 		   {skip, "SO_PRIORITY not suppoorted"}
 	    end
     end.
+
+
+
+%% IP_RECVTOS and IP_RECVTCLASS for IP_PKTOPTIONS
+%% does not seem to be implemented in Linux until kernel 3.0
+
+recvtos(_Config) ->
+    test_pktoptions(
+      inet, [{recvtos,tos,96}],
+      fun recvtos_ok/2,
+      false).
+
+recvtosttl(_Config) ->
+    test_pktoptions(
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
+      fun (OSType, OSVer) ->
+              recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
+      end,
+      false).
+
+recvttl(_Config) ->
+    test_pktoptions(
+      inet, [{recvttl,ttl,33}],
+      fun recvttl_ok/2,
+      false).
+
+recvtclass(_Config) ->
+    {ok,IFs} = inet:getifaddrs(),
+    case
+        [Name ||
+            {Name,Opts} <- IFs,
+            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
+    of
+        [_] ->
+            test_pktoptions(
+              inet6, [{recvtclass,tclass,224}],
+              fun recvtclass_ok/2,
+              true);
+        [] ->
+            {skip,{ipv6_not_supported,IFs}}
+    end.
+
+%% These version numbers are the highest noted in daily tests
+%% where the test fails for a plausible reason, so
+%% skip on that platform.
+%%
+%% On newer versions it might be fixed, but we'll see about that
+%% when machines with newer versions gets installed...
+%% If the test still fails for a plausible reason these
+%% version numbers simply should be increased.
+
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+%% Does not return any value - not implemented for pktoptions
+recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
+%%
+recvtos_ok({unix,_}, _) -> true;
+recvtos_ok(_, _) -> false.
+
+recvttl_ok({unix,linux}, _) -> true;
+recvttl_ok({unix,_}, _) -> true;
+recvttl_ok(_, _) -> false.
+
+%% Using the option returns einval, so it is not implemented.
+recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+%% Using the option returns einval up to 0.9.0, so it is not implemented.
+%% Does not return any value - not implemented for pktoptions
+recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+%% Does not return any value - not implemented for pktoptions
+recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
+%%
+recvtclass_ok({unix,_}, _) -> true;
+recvtclass_ok(_, _) -> false.
+
+semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+    if
+        X1 > X2 -> false;
+        X1 < X2 -> true;
+        Y1 > Y2 -> false;
+        Y1 < Y2 -> true;
+        Z1 > Z2 -> false;
+        Z1 < Z2 -> true;
+        true -> false
+    end;
+semver_lt(_, {_,_,_}) -> false.
+
+test_pktoptions(Family, Spec, OSFilter, CheckAccept) ->
+    OSType = os:type(),
+    OSVer = os:version(),
+    case OSFilter(OSType, OSVer) of
+        true ->
+            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            test_pktoptions(Family, Spec, CheckAccept, OSType, OSVer);
+        false ->
+            {skip,{not_supported_for_os_version,{OSType,OSVer}}}
+    end.
+%%
+test_pktoptions(Family, Spec, CheckAccept, OSType, OSVer) ->
+    Timeout = 5000,
+    RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
+    TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
+    FalseRecvOpts = [{RecvOpt,false} || {RecvOpt,_,_} <- Spec],
+    Opts = [Opt || {_,Opt,_} <- Spec],
+    OptsVals = [{Opt,Val} || {_,Opt,Val} <- Spec],
+    Address =
+        case Family of
+            inet ->
+                {127,0,0,1};
+            inet6 ->
+                {0,0,0,0,0,0,0,1}
+        end,
+    %%
+    %% Set RecvOpts on listen socket
+    {ok,L} =
+        gen_tcp:listen(
+          0,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+           |TrueRecvOpts]),
+    {ok,P} = inet:port(L),
+    {ok,TrueRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(L, Opts),
+    %%
+    %% Set RecvOpts and Option values on connect socket
+    {ok,S2} =
+        gen_tcp:connect(
+          Address, P,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+           |TrueRecvOpts ++ OptsVals],
+          Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    {ok,OptsVals} = inet:getopts(S2, Opts),
+    %%
+    %% Accept socket inherits the options from listen socket
+    {ok,S1} = gen_tcp:accept(L, Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(S1, Opts),
+%%%    %%
+%%%    %% Handshake
+%%%    ok = gen_tcp:send(S1, <<"hello">>),
+%%%    {ok,<<"hello">>} = gen_tcp:recv(S2, 5, Timeout),
+%%%    ok = gen_tcp:send(S2, <<"hi">>),
+%%%    {ok,<<"hi">>} = gen_tcp:recv(S1, 2, Timeout),
+    %%
+    %% Verify returned remote options
+    {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
+    {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
+    (Result1 = sets_eq(OptsVals1, OptsVals))
+        orelse io:format(
+                 "Accept differs: ~p neq ~p~n", [OptsVals1,OptsVals]),
+    (Result2 = sets_eq(OptsVals2, OptsValsDefault))
+        orelse io:format(
+                 "Connect differs: ~p neq ~p~n",
+                 [OptsVals2,OptsValsDefault]),
+    %%
+    ok = gen_tcp:close(S2),
+    ok = gen_tcp:close(S1),
+    %%
+    %%
+    %% Clear RecvOpts on listen socket and set Option values
+    ok = inet:setopts(L, FalseRecvOpts ++ OptsVals),
+    {ok,FalseRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok,OptsVals} = inet:getopts(L, Opts),
+    %%
+    %% Set RecvOpts on connecting socket
+    %%
+    {ok,S4} =
+        gen_tcp:connect(
+          Address, P,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+          |TrueRecvOpts],
+          Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S4, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(S4, Opts),
+    %%
+    %% Accept socket inherits the options from listen socket
+    {ok,S3} = gen_tcp:accept(L, Timeout),
+    {ok,FalseRecvOpts} = inet:getopts(S3, RecvOpts),
+    {ok,OptsVals} = inet:getopts(S3, Opts),
+    %%
+    %% Verify returned remote options
+    {ok,[{pktoptions,[]}]} = inet:getopts(S3, [pktoptions]),
+    {ok,[{pktoptions,OptsVals4}]} = inet:getopts(S4, [pktoptions]),
+    (Result3 = sets_eq(OptsVals4, OptsVals))
+        orelse io:format(
+                 "Accept2 differs: ~p neq ~p~n", [OptsVals4,OptsVals]),
+    %%
+    ok = gen_tcp:close(S4),
+    ok = gen_tcp:close(S3),
+    ok = gen_tcp:close(L),
+    (Result1 and ((not CheckAccept) or (Result2 and Result3)))
+        orelse
+        exit({failed,
+              [{OptsVals1,OptsVals4,OptsVals},
+               {OptsVals2,OptsValsDefault}],
+              {OSType,OSVer}}),
+%%    exit({{OSType,OSVer},success}), % In search for the truth
+    ok.
+
+sets_eq(L1, L2) ->
+    lists:sort(L1) == lists:sort(L2).
+
+
 
 %% Accept test utilities (suites are below)
 
