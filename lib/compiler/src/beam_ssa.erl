@@ -387,7 +387,7 @@ fold_po(Fun, From, Acc0, Blocks) ->
       Linear :: [{label(),b_blk()}].
 
 linearize(Blocks) ->
-    Seen = gb_sets:empty(),
+    Seen = cerl_sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, #{}),
     Linear.
@@ -405,7 +405,7 @@ rpo(Blocks) ->
       Labels :: [label()].
 
 rpo(From, Blocks) ->
-    Seen = gb_sets:empty(),
+    Seen = cerl_sets:new(),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
 
@@ -416,7 +416,7 @@ rename_vars(Rename, From, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), From, Blocks);
 rename_vars(Rename, From, Blocks) when is_map(Rename)->
     Top = rpo(From, Blocks),
-    Preds = gb_sets:from_list(Top),
+    Preds = cerl_sets:from_list(Top),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 Set#b_set{args=Args};
@@ -598,11 +598,11 @@ flatmapfold_instrs_rpo_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
 linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case gb_sets:is_member(L, Seen0) of
+    case cerl_sets:is_element(L, Seen0) of
         true ->
             linearize_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Seen1 = gb_sets:insert(L, Seen0),
+            Seen1 = cerl_sets:add_element(L, Seen0),
             Block = maps:get(L, Blocks),
             Successors = successors(Block),
             {Acc,Seen} = linearize_1(Successors, Blocks, Seen1, Acc0),
@@ -639,12 +639,12 @@ is_successor(L, Pred, S) ->
     end.
 
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case gb_sets:is_member(L, Seen0) of
+    case cerl_sets:is_element(L, Seen0) of
         true ->
             rpo_1(Ls, Blocks, Seen0, Acc0);
         false ->
             Block = maps:get(L, Blocks),
-            Seen1 = gb_sets:insert(L, Seen0),
+            Seen1 = cerl_sets:add_element(L, Seen0),
             Successors = successors(Block),
             {Acc,Seen} = rpo_1(Successors, Blocks, Seen1, Acc0),
             rpo_1(Ls, Blocks, Seen, [L|Acc])
@@ -664,7 +664,7 @@ rename_var(#b_remote{mod=Mod0,name=Name0}=Remote, Rename) ->
 rename_var(Old, _) -> Old.
 
 rename_phi_vars([{Var,L}|As], Preds, Ren) ->
-    case gb_sets:is_member(L, Preds) of
+    case cerl_sets:is_element(L, Preds) of
         true ->
             [{rename_var(Var, Ren),L}|rename_phi_vars(As, Preds, Ren)];
         false ->
