@@ -3628,6 +3628,12 @@ static Sint abort_connection(DistEntry* dep, Uint32 conn_id)
     return 0;
 }
 
+Sint
+erts_abort_connection(DistEntry *dep, Uint32 conn_id)
+{
+    return abort_connection(dep, conn_id);
+}
+
 BIF_RETTYPE erts_internal_abort_connection_2(BIF_ALIST_2)
 {
     DistEntry* dep;
