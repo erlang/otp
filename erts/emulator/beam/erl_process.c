@@ -9641,7 +9641,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
                     int local_only = (!!(p->flags & F_LOCAL_SIGS_ONLY)
-                                      & !(state & ERTS_PSFLG_SUSPENDED));
+                                      & !(state & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLGS_DIRTY_WORK)));
                     if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
                         int sig_reds;
                         /*
