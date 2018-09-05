@@ -66,7 +66,7 @@
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
 -export([smp_insert/1, smp_fixed_delete/1, smp_unfix_fix/1, smp_select_delete/1,
-         smp_select_replace/1, otp_8166/1, otp_8732/1]).
+         smp_select_replace/1, otp_8166/1, otp_8732/1, delete_unfix_race/1]).
 -export([exit_large_table_owner/1,
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
@@ -142,7 +142,8 @@ all() ->
      ets_all,
      massive_ets_all,
      take,
-     whereis_table].
+     whereis_table,
+     delete_unfix_race].
 
 groups() ->
     [{new, [],
@@ -5488,6 +5489,46 @@ smp_fixed_delete_do() ->
     %%Mem = ets:info(T,memory),
     %%verify_table_load(T),
     ets:delete(T).
+
+%% ERL-720
+%% Provoke race between ets:delete and table unfix (by select_count)
+%% that caused ets_misc memory counter to indicate false leak.
+delete_unfix_race(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    Table = ets:new(t,[set,public,{write_concurrency,true}]),
+    InsertOp =
+        fun() ->
+                receive stop ->
+                        false
+                after 0 ->
+                        ets:insert(Table, {rand:uniform(10)}),
+                        true
+                end
+        end,
+    DeleteOp =
+        fun() ->
+                receive stop ->
+                        false
+                after 0 ->
+                        ets:delete(Table, rand:uniform(10)),
+                        true
+                end
+        end,
+    SelectOp =
+        fun() ->
+                ets:select_count(Table, ets:fun2ms(fun(X) -> true end))
+        end,
+    Main = self(),
+    Ins = spawn(fun()-> repeat_while(InsertOp), Main ! self() end),
+    Del = spawn(fun()-> repeat_while(DeleteOp), Main ! self() end),
+    spawn(fun()->
+                  repeat(SelectOp, 10000),
+                  Del ! stop,
+                  Ins ! stop
+          end),
+    [receive Pid -> ok end || Pid <- [Ins,Del]],
+    ets:delete(Table),
+    verify_etsmem(EtsMem).
 
 num_of_buckets(T) ->
     element(1,ets:info(T,stats)).

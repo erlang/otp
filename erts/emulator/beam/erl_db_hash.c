@@ -150,6 +150,22 @@ static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 }
 
 
+static ERTS_INLINE FixedDeletion* alloc_fixdel(DbTableHash* tb)
+{
+    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+                                                         (DbTable *) tb,
+                                                         sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    return fixd;
+}
+
+static ERTS_INLINE void free_fixdel(DbTableHash* tb, FixedDeletion* fixd)
+{
+    erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
+                 fixd, sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+}
+
 static ERTS_INLINE int link_fixdel(DbTableHash* tb,
                                    FixedDeletion* fixd,
                                    erts_aint_t fixated_by_me)
@@ -160,8 +176,7 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
     was_next = erts_atomic_read_acqb(&tb->fixdel);
     do { /* Lockless atomic insertion in linked list: */
         if (NFIXED(tb) <= fixated_by_me) {
-            erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
-                         fixd, sizeof(FixedDeletion));
+            free_fixdel(tb, fixd);
             return 0; /* raced by unfixer */
         }
         exp_next = was_next;
@@ -180,10 +195,7 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
 static int add_fixed_deletion(DbTableHash* tb, int ix,
                               erts_aint_t fixated_by_me)
 {
-    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-							 (DbTable *) tb,
-							 sizeof(FixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    FixedDeletion* fixd = alloc_fixdel(tb);
     fixd->slot = ix;
     fixd->all = 0;
     return link_fixdel(tb, fixd, fixated_by_me);
@@ -637,11 +649,7 @@ restart:
 
         free_me = fixdel;
         fixdel = fixdel->next;
-        erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-                     (DbTable *) tb,
-                     (void *) free_me,
-                     sizeof(FixedDeletion));
-        ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        free_fixdel(tb, free_me);
         work++;
     }
 
@@ -2338,11 +2346,10 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     }
     else {
         /* First call */
-        fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-                               (DbTable *) tb,
-                               sizeof(FixedDeletion));
-        ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
-        link_fixdel(tb, fixdel, 0);
+        int ok;
+        fixdel = alloc_fixdel(tb);
+        ok = link_fixdel(tb, fixdel, 0);
+        ASSERT(ok); (void)ok;
         i = 0;
     }
 
@@ -2444,11 +2451,7 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 	FixedDeletion *fx = fixdel;
 
 	fixdel = fx->next;
-	erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-		     (DbTable *) tb,
-		     (void *) fx,
-		     sizeof(FixedDeletion));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        free_fixdel(tb, fx);
 	if (--reds < 0) {
 	    erts_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
 	    return reds;		/* Not done */
