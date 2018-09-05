@@ -90,7 +90,8 @@ enum DbIterSafety {
     ITER_SAFE         /* No need to fixate at all */
 };
 #  define ITERATION_SAFETY(Proc,Tab) \
-    ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE \
+    ((IS_TREE_TABLE((Tab)->common.status) || IS_CATREE_TABLE((Tab)->common.status) \
+      || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE                             \
      : (((Tab)->common.status & DB_FINE_LOCKED) ? ITER_UNSAFE : ITER_SAFE_LOCKED))
 
 #define DID_TRAP(P,Ret) (!is_value(Ret) && ((P)->freason == TRAP))
@@ -359,6 +360,7 @@ typedef enum {
 
 extern DbTableMethod db_hash;
 extern DbTableMethod db_tree;
+extern DbTableMethod db_catree;
 
 int user_requested_db_max_tabs;
 int erts_ets_realloc_always_moves;
@@ -414,6 +416,15 @@ free_dbtable(void *vtb)
 			 tb->common.fixations);
 	}
 #endif
+    if (erts_atomic_read_nob(&tb->common.memory_size) > sizeof(DbTable)) {
+        /* The CA tree implementation use delayed freeing and the  DbTable needs to
+           be freed after all other memory blocks that are allocated by the table. */
+        erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
+                                                (void *) tb,
+                                                &tb->release.data,
+                                                sizeof(DbTable));
+        return;
+    }
 	erts_rwmtx_destroy(&tb->common.rwlock);
 	erts_mtx_destroy(&tb->common.fixlock);
 	ASSERT(is_immed(tb->common.heir_data));
@@ -1076,7 +1087,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_3);
 
     UseTmpHeap(2,BIF_P);
-    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
+    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
 	goto bail_out;
     }
     if (is_tuple(BIF_ARG_3)) {
@@ -1165,7 +1176,7 @@ do_update_counter(Process *p, DbTable* tb,
 
     UseTmpHeap(5, p);
 
-    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
+    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
 	goto bail_out;
     }
     if (is_integer(arg3)) { /* Incr */
@@ -1647,15 +1658,15 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	val = CAR(list_val(list));
 	if (val == am_bag) {
 	    status |= DB_BAG;
-	    status &= ~(DB_SET | DB_DUPLICATE_BAG | DB_ORDERED_SET);
+	    status &= ~(DB_SET | DB_DUPLICATE_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_duplicate_bag) {
 	    status |= DB_DUPLICATE_BAG;
-	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET);
+	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_ordered_set) {
 	    status |= DB_ORDERED_SET;
-	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG);
+	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET);
 	}
 	else if (is_tuple(val)) {
 	    Eterm *tp = tuple_val(val);
@@ -1716,7 +1727,13 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (IS_HASH_TABLE(status)) {
+    if (IS_TREE_TABLE(status) && is_fine_locked && !(status & DB_PRIVATE)) {
+        meth = &db_catree;
+        status |= DB_CA_ORDERED_SET;
+        status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_ORDERED_SET);
+        status |= DB_FINE_LOCKED;
+    }
+    else if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
@@ -3506,6 +3523,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
 
     db_initialize_hash();
     db_initialize_tree();
+    db_initialize_catree();
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_delete_continue_exp,
@@ -4114,6 +4132,8 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_duplicate_bag;
 	} else if (tb->common.status & DB_ORDERED_SET) {
 	    ret = am_ordered_set;
+	} else if (tb->common.status & DB_CA_ORDERED_SET) {
+	    ret = am_ordered_set;
 	} else { /*TT*/
 	    ASSERT(tb->common.status & DB_BAG);
 	    ret = am_bag;
@@ -4409,6 +4429,12 @@ void erts_lcnt_enable_db_lock_count(DbTable *tb, int enable) {
 
     if(IS_HASH_TABLE(tb->common.status)) {
         erts_lcnt_enable_db_hash_lock_count(&tb->hash, enable);
+    } else if(IS_CATREE_TABLE(tb->common.status)) {
+        /* erts_lcnt_enable_db_catree_lock_count is not thread safe so
+           the table needs to get locked */
+        db_lock(tb, LCK_WRITE);
+        erts_lcnt_enable_db_catree_lock_count(&tb->catree, enable);
+        db_unlock(tb, LCK_WRITE);
     }
 }
 

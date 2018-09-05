@@ -874,7 +874,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
-	$(OBJDIR)/erl_io_queue.o
+	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \
