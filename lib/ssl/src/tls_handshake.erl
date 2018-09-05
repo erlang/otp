@@ -362,7 +362,7 @@ do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) -
 
 
 %%--------------------------------------------------------------------
-enc_handshake(#hello_request{}, _Version) ->
+enc_handshake(#hello_request{}, {3, N}) when N < 4 ->
     {?HELLO_REQUEST, <<>>};
 enc_handshake(#client_hello{client_version = {Major, Minor},
 		     random = Random,
@@ -381,7 +381,8 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
 		      ?BYTE(SIDLength), SessionID/binary,
 		      ?UINT16(CsLength), BinCipherSuites/binary,
 		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
-
+enc_handshake(HandshakeMsg, {3, 4}) ->
+    tls_handshake_1_3:encode_handshake(HandshakeMsg);
 enc_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, Version).
 
@@ -404,7 +405,7 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 get_tls_handshake_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
-decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
+decode_handshake({3, N}, ?HELLO_REQUEST, <<>>) when N < 4 ->
     #hello_request{};
 decode_handshake(_Version, ?CLIENT_HELLO, 
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
@@ -421,6 +422,8 @@ decode_handshake(_Version, ?CLIENT_HELLO,
        compression_methods = Comp_methods,
        extensions = DecodedExtensions
       };
+decode_handshake({3, 4}, Tag, Msg) ->
+    tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
 

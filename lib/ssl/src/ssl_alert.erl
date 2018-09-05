@@ -163,6 +163,8 @@ description_txt(?USER_CANCELED) ->
     "User Canceled";
 description_txt(?NO_RENEGOTIATION) ->
     "No Renegotiation";
+description_txt(?MISSING_EXTENSION) ->
+    "Missing extension";
 description_txt(?UNSUPPORTED_EXTENSION) ->
     "Unsupported Extension";
 description_txt(?CERTIFICATE_UNOBTAINABLE) ->
@@ -177,6 +179,8 @@ description_txt(?UNKNOWN_PSK_IDENTITY) ->
     "Unknown Psk Identity";
 description_txt(?INAPPROPRIATE_FALLBACK) ->
     "Inappropriate Fallback";
+description_txt(?CERTIFICATE_REQUIRED) ->
+    "Certificate required";
 description_txt(?NO_APPLICATION_PROTOCOL) ->
     "No application protocol";
 description_txt(Enum) ->

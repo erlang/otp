@@ -56,4 +56,11 @@
 	  fragment
 	 }).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 7764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
+%% for the Secure Real-time Transport Protocol (SRTP)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(USE_SRTP, 14).
+
 -endif. % -ifdef(dtls_handshake).

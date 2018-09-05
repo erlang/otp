@@ -320,7 +320,7 @@
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Application-Layer Protocol Negotiation  RFC 7301
+%% RFC 7301 Application-Layer Protocol Negotiation  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(ALPN_EXT, 16).
@@ -340,7 +340,7 @@
 -record(next_protocol, {selected_protocol}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ECC Extensions RFC 4492 section 4 and 5
+%% ECC Extensions RFC 8422  section 4 and 5 (RFC 7919 not supported)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(ELLIPTIC_CURVES_EXT, 10).
@@ -367,10 +367,11 @@
 -define(NAMED_CURVE, 3).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Server name indication RFC 6066 section 3
+%% RFC 6066 Server name indication 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SNI_EXT, 16#0000).
+%% section 3
+-define(SNI_EXT, 0).
 
 %% enum { host_name(0), (255) } NameType;
 -define(SNI_NAMETYPE_HOST_NAME, 0).
@@ -379,8 +380,43 @@
           hostname = undefined
         }).
 
+%% Other possible values from RFC 6066, not supported
+-define(MAX_FRAGMENT_LENGTH, 1).
+-define(CLIENT_CERTIFICATE_URL, 2).
+-define(TRUSTED_CA_KEYS, 3).
+-define(TRUNCATED_HMAC, 4).
+-define(STATUS_REQUEST, 5).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Supported Versions TLS 1.3  section 4.2.1
+%% RFC 7250 Using Raw Public Keys in Transport Layer Security (TLS)
+%% and Datagram Transport Layer Security (DTLS)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(CLIENT_CERTIFICATE_TYPE, 19).            
+-define(SERVER_CERTIFICATE_TYPE, 20).         
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 6520 Transport Layer Security (TLS) and
+%% Datagram Transport Layer Security (DTLS) Heartbeat Extension
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(HEARTBEAT, 15).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 6962 Certificate Transparency     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(SIGNED_CERTIFICATE_TIMESTAMP, 18).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 7685  A Transport Layer Security (TLS) ClientHello Padding Extension
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(PADDING, 21).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Supported Versions TLS 1.3  section 4.2.1 also affects TLS-1.2
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(SUPPORTED_VERSIONS_EXT, 43).

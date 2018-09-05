@@ -488,9 +488,9 @@ cipher_suites(Base, Version) ->
     [ssl_cipher_format:suite_definition(Suite) || Suite <- supported_suites(Base, Version)].
 
 %%--------------------------------------------------------------------
--spec filter_cipher_suites([ssl_cipher_format:erl_cipher_suite()], 
+-spec filter_cipher_suites([ssl_cipher_format:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()], 
                            [{key_exchange | cipher | mac | prf, fun()}] | []) -> 
-                                  [ssl_cipher_format:erl_cipher_suite()].
+                                  [ssl_cipher_format:erl_cipher_suite() ] |  [ssl_cipher_format:cipher_suite()].
 %% Description: Removes cipher suites if any of the filter functions returns false
 %% for any part of the cipher suite. This function also calls default filter functions
 %% to make sure the cipher suite are supported by crypto.

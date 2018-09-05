@@ -70,6 +70,7 @@ MODULES= \
 	ssl_config \
 	ssl_connection \
 	tls_handshake \
+	tls_handshake_1_3\
 	dtls_handshake\
 	ssl_handshake\
 	ssl_manager \
@@ -92,8 +93,9 @@ MODULES= \
 INTERNAL_HRL_FILES = \
 	ssl_alert.hrl ssl_cipher.hrl \
 	tls_connection.hrl dtls_connection.hrl ssl_connection.hrl \
-        ssl_handshake.hrl tls_handshake.hrl dtls_handshake.hrl ssl_api.hrl ssl_internal.hrl \
-        ssl_record.hrl tls_record.hrl dtls_record.hrl ssl_srp.hrl
+        ssl_handshake.hrl tls_handshake.hrl tls_handshake_1_3.hrl  dtls_handshake.hrl \
+	ssl_api.hrl ssl_internal.hrl \
+        ssl_record.hrl tls_record.hrl dtls_record.hrl ssl_srp.hrl 
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
@@ -170,6 +172,7 @@ $(EBIN)/tls_connection.$(EMULATOR): ssl_internal.hrl tls_connection.hrl tls_reco
 $(EBIN)/dtls_connection.$(EMULATOR): ssl_internal.hrl dtls_connection.hrl dtls_record.hrl ssl_cipher.hrl dtls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
 $(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
 $(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl ssl_connection.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
+$(EBIN)/tls_handshake_1_3.$(EMULATOR): tls_handshake_1_3.hrl tls_handshake.hrl ssl_internal.hrl
 $(EBIN)/ssl_manager.$(EMULATOR): ssl_internal.hrl ssl_handshake.hrl ../../kernel/include/file.hrl
 $(EBIN)/ssl_record.$(EMULATOR):  ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl
 $(EBIN)/ssl_session.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl

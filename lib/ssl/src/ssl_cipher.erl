@@ -301,8 +301,11 @@ suites({3, Minor}) ->
 suites({_, Minor}) ->
     dtls_v1:suites(Minor).
 
-all_suites({3, 4}) ->
-    all_suites({3, 3});
+all_suites({3, 4} = Version) ->
+    Default = suites(Version),
+    Rest = ssl:filter_cipher_suites(chacha_suites(Version) ++ psk_suites(Version),
+                                    tls_v1:v1_3_filters()),
+    Default ++ Rest;
 all_suites({3, _} = Version) ->
     suites(Version)
         ++ chacha_suites(Version)
@@ -340,6 +343,8 @@ anonymous_suites({3, N}) ->
     srp_suites_anon() ++ anonymous_suites(N);
 anonymous_suites({254, _} = Version) ->
     dtls_v1:anonymous_suites(Version);
+anonymous_suites(4) ->
+    []; %% Raw public key negotiation may be used instead
 anonymous_suites(N)
   when N >= 3 ->
     psk_suites_anon(N) ++
@@ -374,6 +379,8 @@ anonymous_suites(N)  when N == 0;
 %%--------------------------------------------------------------------
 psk_suites({3, N}) ->
     psk_suites(N);
+psk_suites(4) ->
+    []; %% TODO Add new PSK, PSK_(EC)DHE suites
 psk_suites(N)
   when N >= 3 ->
     [
