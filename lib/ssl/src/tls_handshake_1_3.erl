@@ -58,7 +58,7 @@ encode_handshake(#new_session_ticket{
     {?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
                             ?BYTE(Nonce), ?UINT16(TicketSize), Ticket/binary,
                             BinExts/binary>>};
-encode_handshake(#end_of_earyly_data{}) ->
+encode_handshake(#end_of_early_data{}) ->
     {?END_OF_EARLY_DATA, <<>>};
 encode_handshake(#key_update{request_update = Update}) ->
     {?KEY_UPDATE, <<?BYTE(Update)>>};
@@ -103,7 +103,7 @@ decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
                         ticket = Ticket,           
                         extensions = Exts};
 decode_handshake(?END_OF_EARLY_DATA, _) ->
-    #end_of_earyly_data{};
+    #end_of_early_data{};
 decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
     #key_update{request_update = Update};
 decode_handshake(Tag, HandshakeMsg) ->
