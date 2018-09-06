@@ -50,7 +50,8 @@
          bad_nc/1,
          unique_pid/1,
          iter_max_procs/1,
-         magic_ref/1]).
+         magic_ref/1,
+         dist_entry_gc/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -58,7 +59,7 @@ suite() ->
 
 
 all() -> 
-    [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
+    [dist_entry_gc, term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, pid_wrap, port_wrap, bad_nc,
@@ -894,6 +895,29 @@ magic_ref(Config) when is_list(Config) ->
     true = is_reference(MRef2),
     true = erts_debug:get_internal_state({magic_ref,MRef2}),
     ok.
+
+
+lost_pending_connection(Node) ->
+    _ = (catch erts_internal:new_connection(Node)),
+    ok.
+
+dist_entry_gc(Config) when is_list(Config) ->
+    Me = self(),
+    {ok, Node} = start_node(get_nodefirstname(), "+zdntgc 0"),
+    P = spawn_link(Node,
+                   fun () ->
+                           LostNode = list_to_atom("lost_pending_connection@" ++ hostname()),
+                           lost_pending_connection(LostNode),
+                           garbage_collect(), %% Could crash...
+                           Me ! {self(), ok}
+                   end),
+    receive
+        {P, ok} -> ok
+    end,
+    unlink(P),
+    stop_node(Node),
+    ok.
+
 %%
 %% -- Internal utils ---------------------------------------------------------
 %%

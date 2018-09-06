@@ -279,24 +279,18 @@ passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
     Reply = case lists:member(Node,nodes([connected])) of
                 true ->
-                    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                     true;
                 _ ->
                     receive
                         {nodeup,Node,_} ->
-                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                             true
                     after connecttime() ->
-                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                             false
                     end
             end,
     ok = monitor_nodes(false,[{node_type,all}]),
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
     {Pid, Tag} = From,
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
-    erlang:send(Pid, {Tag, Reply}),
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]).
+    erlang:send(Pid, {Tag, Reply}).
 
 
 %% If the net_kernel isn't running we ignore all requests to the
@@ -358,20 +352,34 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 	    {stop, Error}
     end.
 
-
-do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
-    ConnLookup = ets:lookup(sys_dist, Node),
-
-    case ConnLookup of
+do_auto_connect_1(Node, ConnId, From, State) ->
+    case ets:lookup(sys_dist, Node) of
         [#barred_connection{}] ->
-            case WaitForBarred of
-                false ->
-                    {reply, false, State};
-                true ->
+            case ConnId of
+                passive_cnct ->
                     spawn(?MODULE,passive_connect_monitor,[From,Node]),
-                    {noreply, State}
+                    {noreply, State};
+                _ ->
+                    erts_internal:abort_connection(Node, ConnId),
+                    {reply, false, State}
             end;
 
+        ConnLookup ->
+            do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
+    end.
+   
+do_auto_connect_2(Node, passive_cnct, From, State, ConnLookup) ->
+    case (catch erts_internal:new_connection(Node)) of
+        {Nr,_DHandle}=ConnId when is_integer(Nr) ->
+            do_auto_connect_2(Node, ConnId, From, State, ConnLookup);
+        
+        _Error ->
+            error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
+                                   [Node]),
+            {reply, false, State}
+    end;
+do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
+    case ConnLookup of
         [#connection{conn_id=ConnId, state = up}] ->
             {reply, true, State};
         [#connection{conn_id=ConnId, waiting=Waiting}=Conn] ->
@@ -385,6 +393,7 @@ do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
             case application:get_env(kernel, dist_auto_connect) of
                 {ok, never} ->
                     ?connect_failure(Node,{dist_auto_connect,never}),
+                    erts_internal:abort_connection(Node, ConnId),                    
                     {reply, false, State};
 
                 %% This might happen due to connection close
@@ -394,14 +403,16 @@ do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
                                 (hd(ConnLookup))#connection.state =:= up ->
                     ?connect_failure(Node,{barred_connection,
                                            ets:lookup(sys_dist, Node)}),
+                    erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
                 _ ->
-                    case setup(ConnLookup, Node,ConnId,Type,From,State) of
+                    case setup(ConnLookup, Node,ConnId,normal,From,State) of
                         {ok, SetupPid} ->
                             Owners = [{SetupPid, Node} | State#state.conn_owners],
                             {noreply,State#state{conn_owners=Owners}};
                         _Error  ->
                             ?connect_failure(Node, {setup_call, failed, _Error}),
+                            erts_internal:abort_connection(Node, ConnId),
                             {reply, false, State}
                     end
             end
@@ -454,18 +465,7 @@ handle_call({passive_cnct, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({passive_cnct, Node}, From, State) ->
     verbose({passive_cnct, Node}, 1, State),
-    Type = normal,
-    WaitForBarred = true,
-    R = case (catch erts_internal:new_connection(Node)) of
-            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
-
-            _Error ->
-                error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
-                                       [Node]),
-                {reply, false, State}
-        end,
-
+    R = do_auto_connect_1(Node, passive_cnct, From, State),
     return_call(R, From);
 
 %%
@@ -479,7 +479,16 @@ handle_call({connect, Type, Node}, From, State) ->
     ConnLookup = ets:lookup(sys_dist, Node),
     R = case (catch erts_internal:new_connection(Node)) of
             {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State);
+                R1 = do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State),
+                case R1 of
+                    {reply, true, _S} -> %% already connected
+                        ok;
+                    {noreply, _S} -> %% connection pending
+                        ok;
+                    {reply, false, _S} -> %% connection refused
+                        erts_internal:abort_connection(Node, ConnId)
+                end,
+                R1;
                     
             _Error ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
@@ -703,7 +712,7 @@ handle_info({auto_connect,Node, Nr, DHandle}, State) ->
     verbose({auto_connect, Node, Nr, DHandle}, 1, State),
     ConnId = {Nr, DHandle},
     NewState =
-        case do_auto_connect(normal, Node, ConnId, false, noreply, State) of
+        case do_auto_connect_1(Node, ConnId, noreply, State) of
             {noreply, S} ->           %% Pending connection
                 S;
 
@@ -711,7 +720,6 @@ handle_info({auto_connect,Node, Nr, DHandle}, State) ->
                 S;
 
             {reply, false, S} -> %% Connection refused
-                erts_internal:abort_connection(Node, ConnId),
                 S
         end,
     {noreply, NewState};
