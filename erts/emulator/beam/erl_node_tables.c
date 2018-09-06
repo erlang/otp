@@ -412,6 +412,44 @@ static void schedule_delete_dist_entry(DistEntry* dep)
 static void
 start_timer_delete_dist_entry(void *vdep)
 {
+    DistEntry *dep = vdep;
+    Eterm sysname;
+    enum dist_entry_state state;
+    Uint32 connection_id;
+
+    erts_de_rlock(dep);
+    state = dep->state;
+    connection_id = dep->connection_id;
+    sysname = dep->sysname;
+    erts_de_runlock(dep);
+
+    if (state != ERTS_DE_STATE_IDLE) {
+        char *state_str;
+        erts_dsprintf_buf_t *dsbuf = erts_create_logger_dsbuf();
+        switch (state) {
+        case ERTS_DE_STATE_CONNECTED:
+            state_str = "connected";
+            break;
+        case ERTS_DE_STATE_PENDING:
+            state_str = "pending connect";
+            break;
+        case ERTS_DE_STATE_EXITING:
+            state_str = "exiting";
+            break;
+        case ERTS_DE_STATE_IDLE:
+            state_str = "idle";
+            break;
+        default:
+            state_str = "unknown";
+            break;
+        }
+        erts_dsprintf(dsbuf, "Garbage collecting distribution "
+                      "entry for node %T in state: %s",
+                      sysname, state_str);
+        erts_send_error_to_logger_nogl(dsbuf);
+        erts_abort_connection(dep, connection_id);
+    }
+    
     if (node_tab_delete_delay == 0) {
         prepare_try_delete_dist_entry(vdep);
     }

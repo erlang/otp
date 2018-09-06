@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>net_kernel</c> that could cause an
+	    emulator crash if certain connection attempts failed. Bug
+	    exists since kernel-6.0 (OTP-21.0).</p>
+          <p>
+	    Own Id: OTP-15280 Aux Id: ERIERL-226, OTP-15279 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
