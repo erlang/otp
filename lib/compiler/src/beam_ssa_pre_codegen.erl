@@ -1016,14 +1016,19 @@ recv_fix_common_1([], [], _Msg, Blocks) -> Blocks.
 
 fix_exit_phi_args([V|Vs], [Rm|Rms], Exit, Blocks) ->
     Path = beam_ssa:rpo([Rm], Blocks),
-    Pred = exit_predecessor(Path, Exit),
-    [{V,Pred}|fix_exit_phi_args(Vs, Rms, Exit, Blocks)];
+    Preds = exit_predecessors(Path, Exit, Blocks),
+    [{V,Pred} || Pred <- Preds] ++ fix_exit_phi_args(Vs, Rms, Exit, Blocks);
 fix_exit_phi_args([], [], _, _) -> [].
 
-exit_predecessor([Pred,Exit|_], Exit) ->
-    Pred;
-exit_predecessor([_|Bs], Exit) ->
-    exit_predecessor(Bs, Exit).
+exit_predecessors([L|Ls], Exit, Blocks) ->
+    Blk = map_get(L, Blocks),
+    case member(Exit, beam_ssa:successors(Blk)) of
+        true ->
+            [L|exit_predecessors(Ls, Exit, Blocks)];
+        false ->
+            exit_predecessors(Ls, Exit, Blocks)
+    end;
+exit_predecessors([], _Exit, _Blocks) -> [].
 
 %% fix_receive([Label], Defs, Blocks0, Count0) -> {Blocks,Count}.
 %%  Add a copy instruction for all variables that are matched out and
