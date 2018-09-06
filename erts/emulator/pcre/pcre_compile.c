@@ -8061,7 +8061,7 @@ for (;; ptr++)
         single group (i.e. not to a duplicated name. */
 
         HANDLE_REFERENCE:
-        if (firstcharflags == REQ_UNSET) firstcharflags = REQ_NONE;
+        if (firstcharflags == REQ_UNSET) zerofirstcharflags = firstcharflags = REQ_NONE;
         previous = code;
         item_hwm_offset = cd->hwm - cd->start_workspace;
         *code++ = ((options & PCRE_CASELESS) != 0)? OP_REFI : OP_REF;
