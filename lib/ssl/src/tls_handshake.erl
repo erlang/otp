@@ -419,7 +419,7 @@ decode_handshake(_Version, ?CLIENT_HELLO,
        random = Random,
        session_id = Session_ID,
        cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = Comp_methods,
+       compression_methods = erlang:binary_to_list(Comp_methods),
        extensions = DecodedExtensions
       };
 decode_handshake({3, 4}, Tag, Msg) ->
