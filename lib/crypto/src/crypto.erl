@@ -319,7 +319,8 @@ stop() ->
                                       | {ciphers, Ciphers}
                                       | {public_keys, PKs}
                                       | {macs,    Macs}
-                                      | {curves,  Curves},
+                                      | {curves,  Curves}
+                                      | {rsa_opts, RSAopts},
                              Hashs :: [sha1() | sha2() | sha3() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [stream_cipher()
                                          | block_cipher_with_iv() | block_cipher_without_iv()
@@ -327,14 +328,16 @@ stop() ->
                                         ], 
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
-                             Curves :: [ec_named_curve() | edwards_curve()].
+                             Curves :: [ec_named_curve() | edwards_curve()],
+                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports()->
-    {Hashs, PubKeys, Ciphers, Macs, Curves} = algorithms(),
+    {Hashs, PubKeys, Ciphers, Macs, Curves, RsaOpts} = algorithms(),
     [{hashs, Hashs},
      {ciphers, Ciphers},
      {public_keys, PubKeys},
      {macs, Macs},
-     {curves, Curves}
+     {curves, Curves},
+     {rsa_opts, RsaOpts}
     ].
 
 -spec info_lib() -> [{Name,VerNum,VerStr}] when Name :: binary(),
