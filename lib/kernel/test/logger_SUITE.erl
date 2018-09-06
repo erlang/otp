@@ -214,6 +214,7 @@ add_remove_filter(cleanup,_Config) ->
 
 change_config(_Config) ->
     %% Overwrite handler config - check that defaults are added
+    {error,{not_found,h1}} = logger:set_handler_config(h1,#{}),
     ok = logger:add_handler(h1,?MODULE,#{level=>notice,custom=>custom}),
     {ok,#{module:=?MODULE,level:=notice,filter_default:=log,custom:=custom}} =
         logger:get_handler_config(h1),
@@ -392,6 +393,8 @@ set_module_level(_Config) ->
     {error,{invalid_level,bad}} = logger:set_module_level(?MODULE,bad),
     {error,{not_a_list_of_modules,{bad}}} =
         logger:set_module_level({bad},warning),
+    {error,{not_a_list_of_modules,[{bad}]}} =
+        logger:set_module_level([{bad}],warning),
     ok = logger:set_module_level(?MODULE,warning),
     [{?MODULE,warning}] = logger:get_module_level([?MODULE,other]),
     [{?MODULE,warning}] = logger:get_module_level(?MODULE),
@@ -408,6 +411,7 @@ set_module_level(_Config) ->
     ok = check_logged(notice,M2,?MY_LOC(1)),
 
     {error,{not_a_list_of_modules,{bad}}} = logger:unset_module_level({bad}),
+    {error,{not_a_list_of_modules,[{bad}]}} = logger:unset_module_level([{bad}]),
     ok = logger:unset_module_level(?MODULE),
     [] = logger:get_module_level([?MODULE,other]),
     [] = logger:get_module_level(?MODULE),
@@ -550,7 +554,7 @@ handler_failed(_Config) ->
     register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
-    {error,{invalid_handler_config,bad}} = logger:add_handler(h1,?MODULE,bad),
+    {error,{invalid_config,bad}} = logger:add_handler(h1,?MODULE,bad),
     {error,{invalid_filters,false}} =
         logger:add_handler(h1,?MODULE,#{filters=>false}),
     {error,{invalid_filter_default,true}} =
@@ -625,7 +629,8 @@ handler_failed(cleanup,_Config) ->
     ok.
 
 config_sanity_check(_Config) ->
-    %% Logger config
+    %% Primary config
+    {error,{invalid_config,bad}} = logger:set_primary_config(bad),
     {error,{invalid_filter_default,bad}} =
         logger:set_primary_config(filter_default,bad),
     {error,{invalid_level,bad}} = logger:set_primary_config(level,bad),

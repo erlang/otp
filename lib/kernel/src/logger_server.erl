@@ -372,7 +372,7 @@ sanity_check(Owner,Key,Value) ->
 sanity_check(HandlerId,Config) when is_map(Config) ->
     sanity_check_1(HandlerId,maps:to_list(Config));
 sanity_check(_,Config) ->
-    {error,{invalid_handler_config,Config}}.
+    {error,{invalid_config,Config}}.
 
 sanity_check_1(Owner,Config) when is_list(Config) ->
     try
@@ -417,8 +417,6 @@ check_mod(Mod) when is_atom(Mod) ->
 check_mod(Mod) ->
     throw({invalid_module,Mod}).
 
-check_level({LevelInt,cached}) when LevelInt>=?EMERGENCY, LevelInt=<?DEBUG ->
-    ok;
 check_level(Level) ->
     case lists:member(Level,?LEVELS) of
         true ->
