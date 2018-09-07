@@ -652,8 +652,8 @@ do_log_to_file(Log, TextFile, Mibs, Start, Stop) ->
                                 {Tag, S} when (Tag =:= ok) orelse (Tag =:= error) ->
 				    io:format(Fd, "~s", [S]),
                                     Tag;
-				X ->
-				    X
+				Ignore ->
+				    Ignore
 			    end
 		    end,
             Res = (catch loop(Log, Write)),
@@ -696,8 +696,8 @@ loop({Cont, Terms}, Log, Write, NumOK, NumERR) ->
             loop(disk_log:chunk(Log, Cont), Log, Write,
                  NumOK+AddedOK, NumERR+AddedERR)
     catch
-        T:E ->
-            {error, {T, E}}
+        C:E:S ->
+            {error, {C, E, S}}
     end;
 loop({Cont, Terms, BadBytes}, Log, Write, NumOK, NumERR) ->
     error_logger:error_msg("Skipping ~w bytes while converting ~p~n~n", 
@@ -707,8 +707,8 @@ loop({Cont, Terms, BadBytes}, Log, Write, NumOK, NumERR) ->
             loop(disk_log:chunk(Log, Cont), Log, Write,
                  NumOK+AddedOK, NumERR+AddedERR)
     catch
-        T:E ->
-            {error, {T, E}}
+        C:E:S ->
+            {error, {C, E, S}}
     end.
 
 
@@ -718,16 +718,13 @@ loop_terms(Terms, Write) ->
 loop_terms([], _Write, NumOK, NumERR) ->
     {ok, {NumOK, NumERR}};
 loop_terms([Term|Terms], Write, NumOK, NumERR) ->
-    try Write(Term) of
+    case Write(Term) of
         ok ->
             loop_terms(Terms, Write, NumOK+1, NumERR);
         error ->
             loop_terms(Terms, Write, NumOK,   NumERR+1);
         _ ->
             loop_terms(Terms, Write, NumOK,   NumERR)
-    catch
-        T:E:S ->
-            {error, {T, E, S}}
     end.
 
 
