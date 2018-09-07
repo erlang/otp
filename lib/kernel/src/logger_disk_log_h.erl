@@ -225,7 +225,7 @@ removing_handler(#{id:=Name}) ->
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
--spec log(LogEvent, Config) -> ok | dropped when
+-spec log(LogEvent, Config) -> ok when
       LogEvent :: logger:log_event(),
       Config :: logger:handler_config().
 
