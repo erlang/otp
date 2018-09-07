@@ -593,8 +593,6 @@ verify(DigestOrPlainText, DigestType, Signature, Key) ->
 %% Backwards compatible
 verify(Digest, none, Signature, Key = {_, #'Dss-Parms'{}}, Options) when is_binary(Digest) ->
     verify({digest, Digest}, sha, Signature, Key, Options);
-verify(Digest, none, Signature, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
-    verify({digest, Digest}, sha, Signature, Key, Options);
 verify(DigestOrPlainText, DigestType, Signature, Key, Options) when is_binary(Signature) ->
     case format_verify_key(Key) of
 	badarg ->
