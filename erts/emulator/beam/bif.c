@@ -218,11 +218,8 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
              * We have (pending) connection.
              * Setup link and enqueue link signal.
              */
-#ifdef DEBUG
-            int inserted =
-#endif
-                erts_link_dist_insert(&ldp->b, dep->mld);
-            ASSERT(inserted);
+            int inserted = erts_link_dist_insert(&ldp->b, dep->mld);
+            ASSERT(inserted); (void)inserted;
             erts_de_runlock(dep);
 
             code = erts_dsig_send_link(&dsd, BIF_P->common.id, BIF_ARG_1);
@@ -567,12 +564,8 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
 
             case ERTS_DSIG_PREP_PENDING:
             case ERTS_DSIG_PREP_CONNECTED: {
-#ifdef DEBUG
-                int inserted =
-#endif
-
-                erts_monitor_dist_insert(&mdp->target, dep->mld);
-                ASSERT(inserted);
+                int inserted = erts_monitor_dist_insert(&mdp->target, dep->mld);
+                ASSERT(inserted); (void)inserted;
                 erts_de_runlock(dep);
 
                 code = erts_dsig_send_monitor(&dsd, BIF_P->common.id, target, ref);
@@ -2745,9 +2738,7 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
     Uint num_chars, num_built, num_eaten;
     byte* err_pos;
     Eterm res;
-#ifdef DEBUG
     int ares;
-#endif
 
     if (is_not_atom(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
@@ -2757,11 +2748,9 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
     if (ap->len == 0)
 	BIF_RET(NIL);	/* the empty atom */
 
-#ifdef DEBUG
     ares =
-#endif
 	erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
-    ASSERT(ares == ERTS_UTF8_OK);
+    ASSERT(ares == ERTS_UTF8_OK); (void)ares;
     
     res = erts_utf8_to_list(BIF_P, num_chars, ap->name, ap->len, ap->len,
 			    &num_built, &num_eaten, NIL);
@@ -5160,17 +5149,11 @@ BIF_RETTYPE send_to_logger_2(BIF_ALIST_2)
     else if (len == 0)
 	buf = "";
     else {
-#ifdef DEBUG
 	ErlDrvSizeT len2;
-#endif
 	buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, len+1);
-#ifdef DEBUG
 	len2 =
-#else
-	(void)
-#endif
 	    erts_iolist_to_buf(BIF_ARG_2, buf, len);
-	ASSERT(len2 == len);
+	ASSERT(len2 == len); (void)len2;
 	buf[len] = '\0';
 	switch (BIF_ARG_1) {
 	case am_info:

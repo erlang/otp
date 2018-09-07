@@ -2705,9 +2705,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    goto bld_instruction_counts;
 	}
 
-#ifdef DEBUG
 	ASSERT(endp == hp);
-#endif
 
 	BIF_RET(res);
 #endif /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */

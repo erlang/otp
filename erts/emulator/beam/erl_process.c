@@ -4022,9 +4022,7 @@ schedule_bound_processes(ErtsRunQueue *rq,
 static ERTS_INLINE void
 clear_proc_dirty_queue_bit(Process *p, ErtsRunQueue *rq, int prio_bit)
 {
-#ifdef DEBUG
     erts_aint32_t old;
-#endif
     erts_aint32_t qb = prio_bit;
     if (rq == ERTS_DIRTY_CPU_RUNQ)
 	qb <<= ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET;
@@ -4032,13 +4030,8 @@ clear_proc_dirty_queue_bit(Process *p, ErtsRunQueue *rq, int prio_bit)
 	ASSERT(rq == ERTS_DIRTY_IO_RUNQ);
 	qb <<= ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET;
     }
-#ifdef DEBUG
-    old = (int)
-#else
-	(void)
-#endif
-	erts_atomic32_read_band_mb(&p->dirty_state, ~qb);
-    ASSERT(old & qb);
+    old = (int) erts_atomic32_read_band_mb(&p->dirty_state, ~qb);
+    ASSERT(old & qb); (void)old;
 }
 
 
@@ -7175,9 +7168,7 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
     Uint32 nrml_prio, dcpu_prio, dio_prio;
     ErtsSchedType exec_type;
     ErtsRunQueue *exec_rq;
-#ifdef DEBUG
     erts_aint32_t dbg_val;
-#endif
 
     ASSERT(schdlr_sspnd.msb.ongoing);
 
@@ -7292,16 +7283,12 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
      * Suspend this scheduler and wake up scheduler
      * number one of another type...
      */
-#ifdef DEBUG
     dbg_val =
-#else
-    (void)
-#endif
         erts_atomic32_read_bset_mb(&esdp->ssi->flags,
                                        (ERTS_SSI_FLG_SUSPENDED
                                         | ERTS_SSI_FLG_MSB_EXEC),
                                        ERTS_SSI_FLG_SUSPENDED);
-    ASSERT(dbg_val & ERTS_SSI_FLG_MSB_EXEC);
+    ASSERT(dbg_val & ERTS_SSI_FLG_MSB_EXEC); (void)dbg_val;
 
     switch (exec_type) {
     case ERTS_SCHED_NORMAL:
@@ -7319,11 +7306,7 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
         break;
     }
 
-#ifdef DEBUG
     dbg_val =
-#else
-    (void)
-#endif
         erts_atomic32_read_bset_mb(&exec_rq->scheduler->ssi->flags,
                                        (ERTS_SSI_FLG_SUSPENDED
                                         | ERTS_SSI_FLG_MSB_EXEC),
@@ -8888,11 +8871,8 @@ erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
 	suspend = 1;
 
     if (suspend) {
-#ifdef DEBUG
-	int res =
-#endif
-	    suspend_process(c_p, c_p);
-	ASSERT(res);
+	int res = suspend_process(c_p, c_p);
+	ASSERT(res); (void)res;
     }
 
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
@@ -12490,9 +12470,7 @@ erts_continue_exit_process(Process *p)
 
  yield:
 
-#ifdef DEBUG
     ASSERT(yield_allowed);
-#endif
 
     ERTS_LC_ASSERT(curr_locks == erts_proc_lc_my_proc_locks(p));
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & curr_locks);

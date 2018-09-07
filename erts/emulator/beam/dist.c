@@ -570,9 +570,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
         }
 
 	if (dep->state == ERTS_DE_STATE_EXITING) {
-#ifdef DEBUG
 	    ASSERT(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT);
-#endif
 	}
 	else {
 	    dep->state = ERTS_DE_STATE_EXITING;
@@ -1363,10 +1361,7 @@ int erts_net_message(Port *prt,
                                                  from, to);
             ASSERT(ldp->a.other.item == to);
             ASSERT(eq(ldp->b.other.item, from));
-#ifdef DEBUG
-            code =
-#endif
-                erts_link_dist_insert(&ldp->a, dep->mld);
+            code = erts_link_dist_insert(&ldp->a, dep->mld);
             ASSERT(code);
 
             if (erts_proc_sig_send_link(NULL, to, &ldp->b))
@@ -1374,10 +1369,7 @@ int erts_net_message(Port *prt,
 
             /* Failed to send signal; cleanup and reply noproc... */
 
-#ifdef DEBUG
-            code =
-#endif
-                erts_link_dist_delete(&ldp->a);
+            code = erts_link_dist_delete(&ldp->a);
             ASSERT(code);
             erts_link_release_both(ldp);
         }
@@ -3943,28 +3935,22 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
                                                   Node);
             mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
             if (created) {
-#ifdef DEBUG
                 int inserted =
-#endif
                     erts_monitor_dist_insert(&mdep->md.target, dep->mld);
-                ASSERT(inserted);
+                ASSERT(inserted); (void)inserted;
                 ASSERT(mdep->dist->connection_id == dep->connection_id);
             }
             else if (mdep->dist->connection_id != dep->connection_id) {
                 ErtsMonitorDataExtended *mdep2;
                 ErtsMonitor *mon2;
-#ifdef DEBUG
                 int inserted;
-#endif
                 mdep2 = ((ErtsMonitorDataExtended *)
                          erts_monitor_create(ERTS_MON_TYPE_NODE, NIL,
                                              p->common.id, Node, NIL));
                 mon2 = &mdep2->md.origin;
-#ifdef DEBUG
                 inserted =
-#endif
                     erts_monitor_dist_insert(&mdep->md.target, dep->mld);
-                ASSERT(inserted);
+                ASSERT(inserted); (void)inserted;
                 ASSERT(mdep2->dist->connection_id == dep->connection_id);
 
                 mdep2->uptr.node_monitors = mdep->uptr.node_monitors;
