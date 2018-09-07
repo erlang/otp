@@ -31,6 +31,7 @@
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
+-include("tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, security_parameters/3, 
@@ -42,7 +43,8 @@
          filter/3, filter_suites/1, filter_suites/2,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
-         is_stream_ciphersuite/1]).
+         is_stream_ciphersuite/1, signature_scheme/1,
+         scheme_to_components/1]).
 
 -compile(inline).
 
@@ -860,6 +862,61 @@ sign_algorithm(?DSA) -> dsa;
 sign_algorithm(?ECDSA) -> ecdsa;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 4) and (Other =< 223)) -> unassigned;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
+
+
+signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
+signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
+signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
+signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
+signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
+signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
+signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
+signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
+signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
+signature_scheme(ed25519) -> ?ED25519;
+signature_scheme(ed448) -> ?ED448;
+signature_scheme(rsa_pss_pss_sha256) -> ?RSA_PSS_PSS_SHA256;
+signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
+signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
+signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
+signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+signature_scheme(?RSA_PKCS1_SHA256) -> rsa_pkcs1_sha256;
+signature_scheme(?RSA_PKCS1_SHA384) -> rsa_pkcs1_sha384;
+signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
+signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
+signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
+signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
+signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
+signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
+signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
+signature_scheme(?ED25519) -> ed25519;
+signature_scheme(?ED448) -> ed448;
+signature_scheme(?RSA_PSS_PSS_SHA256) -> rsa_pss_pss_sha256;
+signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
+signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
+signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
+signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+signature_scheme(_) -> unassigned.
+%% TODO: reserved code points?
+
+scheme_to_components(rsa_pkcs1_sha256) -> {sha256, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha384) -> {sha384, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
+scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
+scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
+scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
+%% scheme_to_components(ed25519) -> {undefined, undefined, undefined};
+%% scheme_to_components(ed448) -> {undefined, undefined, undefined};
+scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined}.
+
+
 
 hash_size(null) ->
     0;

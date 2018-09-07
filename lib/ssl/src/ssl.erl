@@ -919,13 +919,14 @@ handle_options(Opts0, Role, Host) ->
     CertFile = handle_option(certfile, Opts, <<>>),
     RecordCb = record_cb(Opts),
     
-    Versions = case handle_option(versions, Opts, []) of
-		   [] ->
-		       RecordCb:supported_protocol_versions();
-		   Vsns  ->
-                       Versions0 = [RecordCb:protocol_version(Vsn) || Vsn <- Vsns],
-                       lists:sort(fun RecordCb:is_higher/2, Versions0)
-	       end,
+    [HighestVersion|_] = Versions =
+        case handle_option(versions, Opts, []) of
+            [] ->
+                RecordCb:supported_protocol_versions();
+            Vsns  ->
+                Versions0 = [RecordCb:protocol_version(Vsn) || Vsn <- Vsns],
+                lists:sort(fun RecordCb:is_higher/2, Versions0)
+        end,
 
     Protocol = handle_option(protocol, Opts, tls),
 
@@ -957,13 +958,28 @@ handle_options(Opts0, Role, Host) ->
 		    psk_identity = handle_option(psk_identity, Opts, undefined),
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
 		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
-						      RecordCb:highest_protocol_version(Versions)),
+						      HighestVersion),
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
-						      RecordCb:highest_protocol_version(Versions)),
-		    signature_algs = handle_hashsigns_option(proplists:get_value(signature_algs, Opts, 
-									     default_option_role(server, 
-												 tls_v1:default_signature_algs(Versions), Role)),
-							 tls_version(RecordCb:highest_protocol_version(Versions))), 
+                                                    HighestVersion),
+		    signature_algs =
+                         handle_hashsigns_option(
+                           proplists:get_value(
+                             signature_algs,
+                             Opts,
+                             default_option_role(server,
+                                                 tls_v1:default_signature_algs(HighestVersion),
+                                                 Role)),
+                           tls_version(HighestVersion)),
+                    signature_algs_cert =
+                         handle_signature_algorithms_option(
+                           proplists:get_value(
+                             signature_algs_cert,
+                             Opts,
+                             default_option_role(server,
+                                                 tls_v1:default_signature_schemes(HighestVersion),
+                                                 Role
+                                                )),
+                           tls_version(HighestVersion)),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
@@ -1298,6 +1314,21 @@ handle_hashsigns_option(Value, Version) when is_list(Value)
 handle_hashsigns_option(_, Version) when Version >= {3, 3} ->
     handle_hashsigns_option(tls_v1:default_signature_algs(Version), Version);
 handle_hashsigns_option(_, _Version) ->
+    undefined.
+
+handle_signature_algorithms_option(Value, Version) when is_list(Value)
+                                                        andalso Version >= {3, 4} ->
+    case tls_v1:signature_schemes(Version, Value) of
+	[] ->
+	    throw({error, {options,
+                           no_supported_signature_schemes,
+                           {signature_algs_cert, Value}}});
+	_ ->
+	    Value
+    end;
+handle_signature_algorithms_option(_, Version)  when Version >= {3, 4} ->
+    handle_signature_algorithms_option(tls_v1:default_signature_schemes(Version), Version);
+handle_signature_algorithms_option(_, _Version) ->
     undefined.
 
 validate_options([]) ->

@@ -107,7 +107,8 @@
 	  elliptic_curves,
 	  sni,
           client_hello_versions,
-          server_hello_selected_version
+          server_hello_selected_version,
+          signature_algs_cert
 	 }).
 
 -record(server_hello, {
@@ -416,12 +417,20 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Supported Versions TLS 1.3  section 4.2.1 also affects TLS-1.2
+%% Supported Versions RFC 8446 (TLS 1.3) section 4.2.1 also affects TLS-1.2
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(SUPPORTED_VERSIONS_EXT, 43).
 
 -record(client_hello_versions, {versions}).
 -record(server_hello_selected_version, {selected_version}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Signature Algorithms RFC 8446 (TLS 1.3) section 4.2.3 also affects TLS-1.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(SIGNATURE_ALGORITHMS_CERT_EXT, 50).
+
+-record(signature_scheme_list, {signature_scheme_list}).
 
 -endif. % -ifdef(ssl_handshake).

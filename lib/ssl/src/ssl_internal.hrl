@@ -168,6 +168,7 @@
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
 	  signature_algs,
+	  signature_algs_cert,
 	  eccs,
 	  honor_ecc_order            :: boolean(),
           max_handshake_size         :: integer(),

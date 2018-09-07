@@ -40,18 +40,18 @@
 %% %% when a "hello-retry-request" (special server_hello) is sent
 -define(MESSAGE_HASH, 254). 
 
-%% %%  RFC 8446 B.3.1. 
-%% %% New extension types in TLS-1.3 
--define(PRE_SHARED_KEY, 41).                     
--define(EARLY_DATA, 42).                          
-%%-define(SUPPORTED_VERSIONS, 43). %% Updates TLS 1.2 so defined in ssl_handshake.hrl                 
--define(COOKIE, 44).                              
--define(PSK_KEY_EXCHANGE_MODES, 45).              
--define(CERTIFICATE_AUTHORITIES, 47).             
--define(OID_FILTERS, 48).                         
--define(POST_HANDSHAKE_AUTH, 49).                 
--define(SIGNATURE_ALGORITHMS_CERT, 50).           
--define(KEY_SHARE, 51).                           
+%% %%  RFC 8446 B.3.1.
+%% %% New extension types in TLS-1.3
+-define(PRE_SHARED_KEY_EXT, 41).
+-define(EARLY_DATA_EXT, 42).
+%%-define(SUPPORTED_VERSIONS_EXT, 43). %% Updates TLS 1.2 so defined in ssl_handshake.hrl
+-define(COOKIE_EXT, 44).
+-define(PSK_KEY_EXCHANGE_MODES_EXT, 45).
+-define(CERTIFICATE_AUTHORITIES_EXT, 47).
+-define(OID_FILTERS_EXT, 48).
+-define(POST_HANDSHAKE_AUTH_EXT, 49).
+%% -define(SIGNATURE_ALGORITHMS_CERT_EXT, 50). %% Updates TLS 1.2 so defined in ssl_handshake.hrl
+-define(KEY_SHARE_EXT, 51).
 
 %%  RFC 8446 B.3.1
 -record(key_share_entry, {
@@ -132,10 +132,6 @@
 %% Legacy algorithms
 -define(RSA_PKCS1_SHA1, 16#201).
 -define(ECDSA_SHA1, 16#0203).
-
--record(signature_scheme_list, {
-          signature_scheme_list
-         }).
 
 %%  RFC 8446 B.3.1.4.  Supported Groups Extension
 %% Elliptic Curve Groups (ECDHE)
