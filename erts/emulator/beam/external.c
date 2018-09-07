@@ -674,15 +674,6 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
                       Uint32 conn_id,
 		      ErtsAtomCache *cache)
 {
-#undef ERTS_EXT_FAIL
-#undef ERTS_EXT_HDR_FAIL
-#if 1
-#define ERTS_EXT_FAIL goto fail
-#define ERTS_EXT_HDR_FAIL goto bad_hdr
-#else
-#define ERTS_EXT_FAIL abort()
-#define ERTS_EXT_HDR_FAIL abort()
-#endif
     register byte *ep;
 
     edep->heap_size = -1;
@@ -719,7 +710,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
                       "channel %d\n",
                       dist_entry_channel_no(dep));
 	erts_send_error_to_logger_nogl(dsbufp);
-	ERTS_EXT_FAIL;
+	goto fail;
     }
 
     if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
@@ -729,7 +720,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
     if (ep[1] != DIST_HEADER) {
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 	edep->attab.size = 0;
 	edep->extp = ext;
     }
@@ -738,17 +729,17 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	int no_atoms;
 
 	if (!(edep->flags & ERTS_DIST_EXT_DFLAG_HDR))
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 
 #undef CHKSIZE
 #define CHKSIZE(SZ) \
-	do { if ((SZ) > edep->ext_endp - ep) ERTS_EXT_HDR_FAIL; } while(0)
+	do { if ((SZ) > edep->ext_endp - ep) goto bad_hdr; } while(0)
 
 	CHKSIZE(1+1+1);
 	ep += 2;
 	no_atoms = (int) get_int8(ep);
 	if (no_atoms < 0 || ERTS_ATOM_CACHE_SIZE < no_atoms)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 	ep++;
 	if (no_atoms) {
 	    int long_atoms = 0;
@@ -826,18 +817,18 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		    /* atom already cached */
 		    cix += (int) get_int8(ep);
 		    if (cix >= ERTS_ATOM_CACHE_SIZE)
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep++;
 		    atom = cache->in_arr[cix];
 		    if (!is_atom(atom))
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    edep->attab.atom[tix] = atom;
 		}
 		else {
 		    /* new cached atom */
 		    cix += (int) get_int8(ep);
 		    if (cix >= ERTS_ATOM_CACHE_SIZE)
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep++;
 		    if (long_atoms) {
 			CHKSIZE(2);
@@ -855,7 +846,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
                                          ERTS_ATOM_ENC_UTF8,
 					 0);
 		    if (is_non_value(atom))
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep += len;
 		    cache->in_arr[cix] = atom;
 		    edep->attab.atom[tix] = atom;
@@ -875,12 +866,12 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	edep->extp = ep;
 #ifdef ERTS_DEBUG_USE_DIST_SEP
 	if (*ep != VERSION_MAGIC)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 #endif
     }
 #ifdef ERTS_DEBUG_USE_DIST_SEP
     if (*ep != VERSION_MAGIC)
-	ERTS_EXT_FAIL;
+	goto fail;
 #endif
 
     erts_de_runlock(dep);
@@ -888,8 +879,6 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     return ERTS_PREP_DIST_EXT_SUCCESS;
 
 #undef CHKSIZE
-#undef ERTS_EXT_FAIL
-#undef ERTS_EXT_HDR_FAIL
 
  bad_hdr: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
