@@ -346,8 +346,8 @@ info_lib() -> ?nif_stub.
 
 info_fips() -> ?nif_stub.
 
--spec enable_fips_mode(boolean()) -> boolean().
-
+-spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
+                                              Result :: boolean().
 enable_fips_mode(_) -> ?nif_stub.
 
 %%%================================================================

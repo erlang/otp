@@ -642,7 +642,11 @@
         crypto and the underlying libcrypto library. If crypto was built
         with FIPS support this can be either <c>enabled</c> (when
         running in FIPS mode) or <c>not_enabled</c>. For other builds
-        this value is always <c>not_supported</c>.</p>
+        this value is always <c>not_supported</c>.
+	</p>
+	<p>See <seealso marker="#enable_fips_mode-1">enable_fips_mode/1</seealso> about how to enable
+	FIPS mode.
+	</p>
         <warning>
           <p>In FIPS mode all non-FIPS compliant algorithms are
           disabled and raise exception <c>error:notsup</c>. Check
@@ -650,6 +654,21 @@
           FIPS mode returns the restricted list of available
           algorithms.</p>
         </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="enable_fips_mode" arity="1"/>
+      <fsummary>Change FIPS mode.</fsummary>
+      <desc>
+        <p>Enables (<c>Enable = true</c>) or disables (<c>Enable = false</c>) FIPS mode. Returns <c>true</c> if
+	the operation was successful or <c>false</c> otherwise.
+	</p>
+	<p>Note that to enable FIPS mode succesfully, OTP must be built with the configure option <c>--enable-fips</c>,
+	and the underlying libcrypto must also support FIPS.
+	</p>
+	<p>See also <seealso marker="#info_fips-0">info_fips/0</seealso>.
+	</p>
       </desc>
     </func>
 
