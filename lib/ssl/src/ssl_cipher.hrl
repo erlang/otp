@@ -610,4 +610,21 @@
 %%      TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = {0xcc, 0x15}
 -define(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#15)>>).
 
+%%% TLS 1.3 cipher suites RFC8446
+
+%% TLS_AES_128_GCM_SHA256       = {0x13,0x01}
+-define(TLS_AES_128_GCM_SHA256, <<?BYTE(16#13), ?BYTE(16#01)>>).
+
+%% TLS_AES_256_GCM_SHA384       = {0x13,0x02}
+-define(TLS_AES_256_GCM_SHA384, <<?BYTE(16#13),?BYTE(16#02)>>).
+
+%% TLS_CHACHA20_POLY1305_SHA256 = {0x13,0x03}
+-define(TLS_CHACHA20_POLY1305_SHA256, <<?BYTE(16#13),?BYTE(16#03)>>).
+
+%% %% TLS_AES_128_CCM_SHA256       = {0x13,0x04}
+%% -define(TLS_AES_128_CCM_SHA256, <<?BYTE(16#13), ?BYTE(16#04)>>).
+
+%% %%  TLS_AES_128_CCM_8_SHA256    = {0x13,0x05}
+%% -define(TLS_AES_128_CCM_8_SHA256, <<?BYTE(16#13),?BYTE(16#05)>>).
+
 -endif. % -ifdef(ssl_cipher).

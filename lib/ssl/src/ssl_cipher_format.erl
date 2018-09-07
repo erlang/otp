@@ -36,7 +36,14 @@
 -type cipher()            :: null |rc4_128 | des_cbc | '3des_ede_cbc' | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
 -type hash()              :: null | md5 | sha | sha224 | sha256 | sha384 | sha512.
 -type sign_algo()         :: rsa | dsa | ecdsa.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
+-type key_algo()          :: null |
+                             rsa |
+                             dhe_rsa | dhe_dss |
+                             ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
+                             srp_rsa| srp_dss |
+                             psk | dhe_psk | rsa_psk |
+                             dh_anon | ecdh_anon | srp_anon |
+                             any. %% TLS 1.3
 -type erl_cipher_suite()  :: #{key_exchange := key_algo(),
                                cipher := cipher(),
                                mac    := hash() | aead,
@@ -62,6 +69,12 @@ suite_to_str(#{key_exchange := null,
                mac := null,
                prf := null}) ->
     "TLS_EMPTY_RENEGOTIATION_INFO_SCSV";
+suite_to_str(#{key_exchange := any,
+               cipher := Cipher,
+               mac := aead,
+               prf := PRF}) ->
+    "TLS_" ++ string:to_upper(atom_to_list(Cipher)) ++
+        "_" ++ string:to_upper(atom_to_list(PRF));
 suite_to_str(#{key_exchange := Kex,
                cipher := Cipher,
                mac := aead,
@@ -802,7 +815,34 @@ suite_definition(?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
     #{key_exchange => dhe_rsa, 
       cipher => chacha20_poly1305, 
       mac => aead, 
+      prf => sha256};
+%% TLS 1.3 Cipher Suites RFC8446
+suite_definition(?TLS_AES_128_GCM_SHA256) ->
+    #{key_exchange => any,
+      cipher => aes_128_gcm,
+      mac => aead,
+      prf => sha256};
+suite_definition(?TLS_AES_256_GCM_SHA384) ->
+    #{key_exchange => any,
+      cipher => aes_256_gcm,
+      mac => aead,
+      prf => sha384};
+suite_definition(?TLS_CHACHA20_POLY1305_SHA256) ->
+    #{key_exchange => any,
+      cipher => chacha20_poly1305,
+      mac => aead,
       prf => sha256}.
+%% suite_definition(?TLS_AES_128_CCM_SHA256) ->
+%%     #{key_exchange => any,
+%%       cipher => aes_128_ccm,
+%%       mac => aead,
+%%       prf => sha256};
+%% suite_definition(?TLS_AES_128_CCM_8_SHA256) ->
+%%     #{key_exchange => any,
+%%       cipher => aes_128_ccm_8,
+%%       mac => aead,
+%%       prf => sha256}.
+
 
 %%--------------------------------------------------------------------
 -spec erl_suite_definition(cipher_suite() | erl_cipher_suite()) -> old_erl_cipher_suite().
@@ -1427,8 +1467,33 @@ suite(#{key_exchange := dhe_rsa,
         cipher := chacha20_poly1305,  
         mac := aead, 
         prf := sha256}) ->
-    ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
-
+    ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
+%% TLS 1.3 Cipher Suites RFC8446
+suite(#{key_exchange := any,
+        cipher := aes_128_gcm,
+        mac := aead,
+        prf := sha256}) ->
+    ?TLS_AES_128_GCM_SHA256;
+suite(#{key_exchange := any,
+      cipher := aes_256_gcm,
+      mac := aead,
+      prf := sha384}) ->
+    ?TLS_AES_256_GCM_SHA384;
+suite(#{key_exchange := any,
+      cipher := chacha20_poly1305,
+      mac := aead,
+      prf := sha256}) ->
+    ?TLS_CHACHA20_POLY1305_SHA256.
+%% suite(#{key_exchange := any,
+%%       cipher := aes_128_ccm,
+%%       mac := aead,
+%%       prf := sha256}) ->
+%%     ?TLS_AES_128_CCM_SHA256;
+%% suite(#{key_exchange := any,
+%%       cipher := aes_128_ccm_8,
+%%       mac := aead,
+%%       prf := sha256}) ->
+%%     ?TLS_AES_128_CCM_8_SHA256.
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
 %%
@@ -1582,7 +1647,20 @@ openssl_suite("ECDHE-RSA-AES256-GCM-SHA384") ->
 openssl_suite("ECDH-RSA-AES128-GCM-SHA256") ->
     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
 openssl_suite("ECDH-RSA-AES256-GCM-SHA384") ->
-    ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384.
+    ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
+
+%% TLS 1.3 Cipher Suites RFC8446
+openssl_suite("TLS_AES_128_GCM_SHA256") ->
+    ?TLS_AES_128_GCM_SHA256;
+openssl_suite("TLS_AES_256_GCM_SHA384") ->
+    ?TLS_AES_256_GCM_SHA384;
+openssl_suite("TLS_CHACHA20_POLY1305_SHA256") ->
+    ?TLS_CHACHA20_POLY1305_SHA256.
+%% openssl_suite("TLS_AES_128_CCM_SHA256") ->
+%%     ?TLS_AES_128_CCM_SHA256;
+%% openssl_suite("TLS_AES_128_CCM_8_SHA256") ->
+%%     ?TLS_AES_128_CCM_8_SHA256.
+
 
 %%--------------------------------------------------------------------
 -spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite() | erl_cipher_suite().
@@ -1758,6 +1836,18 @@ openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256) ->
     "ECDH-RSA-AES128-GCM-SHA256";
 openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384) ->
     "ECDH-RSA-AES256-GCM-SHA384";
+
+%% TLS 1.3 Cipher Suites RFC8446
+openssl_suite_name(?TLS_AES_128_GCM_SHA256) ->
+    "TLS_AES_128_GCM_SHA256";
+openssl_suite_name(?TLS_AES_256_GCM_SHA384) ->
+    "TLS_AES_256_GCM_SHA384";
+openssl_suite_name(?TLS_CHACHA20_POLY1305_SHA256) ->
+    "TLS_CHACHA20_POLY1305_SHA256";
+%% openssl_suite(?TLS_AES_128_CCM_SHA256) ->
+%%     "TLS_AES_128_CCM_SHA256";
+%% openssl_suite(?TLS_AES_128_CCM_8_SHA256) ->
+%%     "TLS_AES_128_CCM_8_SHA256";
 
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
