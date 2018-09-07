@@ -598,6 +598,14 @@ valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
     Vst = set_type(map, Map, Vst1),
     Type = propagate_fragility(bool, Src, Vst),
     set_type_reg(Type, Dst, Vst);
+valfun_4({bif,Op,{f,Fail},[Cons]=Src,Dst}, Vst0)
+  when Op =:= hd; Op =:= tl ->
+    validate_src(Src, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    Vst = set_type(cons, Cons, Vst1),
+    Type0 = bif_type(Op, Src, Vst),
+    Type = propagate_fragility(Type0, Src, Vst),
+    set_type_reg(Type, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
@@ -610,7 +618,13 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
     Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
+    Vst3 = prune_x_regs(Live, Vst2),
+    Vst = case Op of
+              map_size ->
+                  set_type(map, hd(Src), Vst3);
+              _ ->
+                  Vst3
+          end,
     validate_src(Src, Vst),
     Type0 = bif_type(Op, Src, Vst),
     Type = propagate_fragility(Type0, Src, Vst),
