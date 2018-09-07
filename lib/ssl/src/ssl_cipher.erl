@@ -303,11 +303,6 @@ suites({3, Minor}) ->
 suites({_, Minor}) ->
     dtls_v1:suites(Minor).
 
-all_suites({3, 4} = Version) ->
-    Default = suites(Version),
-    Rest = ssl:filter_cipher_suites(chacha_suites(Version) ++ psk_suites(Version),
-                                    tls_v1:v1_3_filters()),
-    Default ++ Rest;
 all_suites({3, _} = Version) ->
     suites(Version)
         ++ chacha_suites(Version)

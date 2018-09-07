@@ -32,7 +32,7 @@
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7, hmac_hash/3,
 	 setup_keys/8, suites/1, prf/5,
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
-	 default_signature_algs/1, signature_algs/2, v1_3_filters/0,
+	 default_signature_algs/1, signature_algs/2,
          default_signature_schemes/1, signature_schemes/2]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
@@ -249,11 +249,13 @@ suites(3) ->
     ] ++ suites(2);
 
 suites(4) ->
-    ssl:filter_cipher_suites(suites(3), v1_3_filters()).
-
-v1_3_filters() ->
-    [{mac, fun(aead) -> true; (_) -> false end}, 
-     {key_exchange, fun(dhe_dss) -> false;(rsa) -> false; (rsa_psk) -> false;(_) -> true end}].
+    [?TLS_AES_256_GCM_SHA384,
+     ?TLS_AES_128_GCM_SHA256,
+     ?TLS_CHACHA20_POLY1305_SHA256
+     %% Not supported
+     %% ?TLS_AES_128_CCM_SHA256,
+     %% ?TLS_AES_128_CCM_8_SHA256
+    ] ++ suites(3).
 
 signature_algs({3, 4}, HashSigns) ->
     signature_algs({3, 3}, HashSigns);
