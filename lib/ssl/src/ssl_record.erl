@@ -278,13 +278,12 @@ compress(?NULL, Data, CS) ->
     {Data, CS}.
 
 %%--------------------------------------------------------------------
--spec compressions() -> [binary()].
+-spec compressions() -> [integer()].
 %%
 %% Description: return a list of compressions supported (currently none)
 %%--------------------------------------------------------------------
 compressions() ->
-    [?byte(?NULL)].
-
+    [?NULL].
 
 %%====================================================================
 %% Payload encryption/decryption

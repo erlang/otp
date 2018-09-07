@@ -217,7 +217,7 @@
          }).
 
 %%  RFC 8446 B.3.5. Updating Keys
--record(end_of_earyly_data, {
+-record(end_of_early_data, {
          }).
 
 -define(UPDATE_NOT_REQUESTED, 0).

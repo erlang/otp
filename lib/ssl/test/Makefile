@@ -61,6 +61,7 @@ MODULES = \
 	ssl_ECC\
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
+	ssl_eqc_SUITE \
 	make_certs\
         x509_test
 
@@ -144,7 +145,7 @@ release_tests_spec: opt
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(HRL_FILES_NEEDED_IN_TEST) $(COVER_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) ssl.spec ssl_bench.spec ssl.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 
