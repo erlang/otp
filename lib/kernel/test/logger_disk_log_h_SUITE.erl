@@ -1186,7 +1186,7 @@ restart_after(cleanup, _Config) ->
 %% during high load to verify that sync, dropping and flushing is
 %% handled correctly.
 handler_requests_under_load() ->
-    [{timetrap,{minutes,3}}].
+    [{timetrap,{minutes,5}}].
 handler_requests_under_load(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig =
