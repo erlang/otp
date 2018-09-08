@@ -21,8 +21,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1,binary_float/1,float_compare/1,
+	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
+	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1]).
 
@@ -34,6 +34,7 @@ all() ->
 groups() ->
     [{p,[parallel],
       [integers,
+       numbers,
        coverage,
        booleans,
        setelement,
@@ -125,6 +126,59 @@ do_integers_5(X0, Y0) ->
         3 -> three
     end.
 
+numbers(_Config) ->
+    Int = id(42),
+    true = is_integer(Int),
+    true = is_number(Int),
+    false = is_float(Int),
+
+    Float = id(42.0),
+    true = is_float(Float),
+    true = is_number(Float),
+    false = is_integer(Float),
+
+    Number = id(1) + id(2),
+    true = is_number(Number),
+    true = is_integer(Number),
+    false = is_float(Number),
+
+    AnotherNumber = id(99.0) + id(1),
+    true = is_float(AnotherNumber),
+    true = is_number(AnotherNumber),
+    false = is_integer(AnotherNumber),
+
+    NotNumber = id(atom),
+    true = is_atom(NotNumber),
+    false = is_number(NotNumber),
+    false = is_integer(NotNumber),
+    false = is_float(NotNumber),
+
+    true = is_number(Int),
+    true = is_number(Float),
+    true = is_number(Number),
+    true = is_number(AnotherNumber),
+
+    %% Cover beam_ssa_type:join/2.
+
+    Join1 = case id(a) of
+                a -> 3 + id(7);                 %Number.
+                b -> id(5) / id(2)              %Float.
+            end,
+    true = is_integer(Join1),
+
+    Join2 = case id(a) of
+                a -> id(5) / 2;                 %Float.
+                b -> 3 + id(7)                  %Number.
+            end,
+    true = is_float(Join2),
+
+    %% Cover beam_ssa_type:meet/2.
+
+    Meet1 = id(0) + -10.0,                       %Float.
+    10.0 = abs(Meet1),                           %Number.
+
+    ok.
+
 coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
     {'EXIT',{badarith,_}} = (catch id(2.0) bsl 2),
@@ -162,10 +216,31 @@ coverage(Config) ->
     ok.
 
 booleans(_Config) ->
-    {'EXIT',{{case_clause,_},_}} = (catch do_booleans(42)),
+    {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
+
+    AnyAtom = id(atom),
+    true = is_atom(AnyAtom),
+    false = is_boolean(AnyAtom),
+
+    MaybeBool = id(maybe),
+    case MaybeBool of
+        true -> ok;
+        maybe -> ok;
+        false -> ok
+    end,
+    false = is_boolean(MaybeBool),
+
+    NotBool = id(a),
+    case NotBool of
+        a -> ok;
+        b -> ok;
+        c -> ok
+    end,
+    false = is_boolean(NotBool),
+
     ok.
 
-do_booleans(B) ->
+do_booleans_1(B) ->
     case is_integer(B) of
 	yes -> yes;
 	no -> no
@@ -223,8 +298,15 @@ cons_hdtl(B) ->
     id(1),
     {id(hd(Cons)),id(tl(Cons))}.
 
+-record(bird, {a=a,b=id(42)}).
+
 tuple(_Config) ->
     {'EXIT',{{badmatch,{necessary}},_}} = (catch do_tuple()),
+
+    [] = [X || X <- [], #bird{a = a} == {r,X,foo}],
+    [] = [X || X <- [], #bird{b = b} == {bird,X}],
+    [] = [X || X <- [], 3 == X#bird.a],
+
     ok.
 
 do_tuple() ->
@@ -361,7 +443,7 @@ find_best([], <<"a">>) ->
 find_best([], nil) ->
     {error,<<"should not get here">>}.
 
-test_size(Config) ->
+test_size(_Config) ->
     2 = do_test_size({a,b}),
     4 = do_test_size(<<42:32>>),
     ok.
