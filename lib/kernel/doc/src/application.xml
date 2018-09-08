@@ -189,7 +189,7 @@
         <p>Loads the application specification for an application into
           the application controller. It also loads the application
           specifications for any included applications. Notice that
-          the function does not load the Erlang object code.</p>
+          the function does not load any module bytecode into memory.</p>
         <p>The application can be specified by its name <c><anno>Application</anno></c>.
           In this case, the application controller searches the code
           path for the application resource file <c><anno>Application</anno>.app</c>
@@ -430,8 +430,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <p>Unloads the application specification for <c><anno>Application</anno></c>
           from the application controller. It also unloads
           the application specifications for any included applications.
-          Notice that the function does not purge the Erlang
-          object code.</p>
+          Notice that the function does not purge any module bytecode from memory.</p>
       </desc>
     </func>
     <func>

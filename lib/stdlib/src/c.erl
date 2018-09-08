@@ -248,7 +248,7 @@ safe_recompile(File, Options, BeamFile) ->
             Error
     end.
 
-%% Compile the file and load the resulting object code (if any).
+%% Compile the file and load the resulting module bytecode (if any).
 %% Automatically ensures that there is an outdir option, by default the
 %% directory of File, and that a 'from' option will be passed to match the
 %% actual source suffix if needed (unless already specified).

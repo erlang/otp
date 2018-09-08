@@ -273,7 +273,7 @@
 	  or <c>{badrpc, <anno>Reason</anno>}</c> for failing calls.
           <c><anno>Timeout</anno></c> is a time (integer) in milliseconds, or
           <c>infinity</c>.</p>
-        <p>The following example is useful when new object code is to
+        <p>The following example is useful when module bytecode is to
           be loaded on all nodes in the network, and indicates
           some side effects that RPCs can produce:</p>
         <code type="none">

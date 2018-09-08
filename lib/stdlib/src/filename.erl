@@ -857,7 +857,7 @@ climb(T, [_|Acc]) ->
 %% known by the code manager, i.e. code:which/1 should succeed.
 %%
 %% Rules describes how the source directory should be found given
-%% the directory for the object code.  Each rule is on the form
+%% the directory for the module.  Each rule is on the form
 %% {BinSuffix, SourceSuffix}, and is interpreted like this:
 %% If the end of directory name where the object is located matches
 %% BinSuffix, then the suffix will be replaced with SourceSuffix

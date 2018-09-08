@@ -395,7 +395,7 @@ true
           case, the module must be known by the code server, that is,
           <c>code:which(<anno>Module</anno>)</c> must succeed.</p>
         <p><c><anno>Rules</anno></c> describes how the source directory can be
-          found when the object code directory is known. It is a list of
+          found when the module directory is known. It is a list of
           tuples <c>{<anno>BinSuffix</anno>, <anno>SourceSuffix</anno>}</c> and
           is interpreted as follows: if the end of the directory name where the
           object is located matches <c><anno>BinSuffix</anno></c>, then the
