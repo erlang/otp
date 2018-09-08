@@ -1025,13 +1025,9 @@ meet(#t_integer{elements={Min1,Max1}},
      #t_integer{elements={Min2,Max2}}) ->
     #t_integer{elements={max(Min1, Min2),min(Max1, Max2)}};
 meet(#t_integer{}=T, number) -> T;
-meet(float, number) -> float;
-meet(#t_integer{}=T, number) -> T;
-meet(float, number) -> float;
-meet(number, #t_integer{}=T) -> T;
-meet(#t_integer{}=T, number) -> T;
-meet(number, float=T) -> T;
 meet(float=T, number) -> T;
+meet(number, #t_integer{}=T) -> T;
+meet(number, float=T) -> T;
 meet(list, cons) -> cons;
 meet(list, nil) -> nil;
 meet(cons, list) -> cons;
