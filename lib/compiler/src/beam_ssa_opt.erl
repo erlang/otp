@@ -820,11 +820,16 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
             LiveMap;
         [_|_] ->
             PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
-            PhiVars = [{P,V} || {#b_var{name=V},P} <- PhiArgs],
-            PhiLive0 = rel2fam(PhiVars),
-            PhiLive = [{{L,P},gb_sets:union(gb_sets:from_list(Vs), Live0)} ||
-                          {P,Vs} <- PhiLive0],
-            maps:merge(LiveMap, maps:from_list(PhiLive))
+            case [{P,V} || {#b_var{name=V},P} <- PhiArgs] of
+                [_|_]=PhiVars ->
+                    PhiLive0 = rel2fam(PhiVars),
+                    PhiLive = [{{L,P},gb_sets:union(gb_sets:from_list(Vs), Live0)} ||
+                                  {P,Vs} <- PhiLive0],
+                    maps:merge(LiveMap, maps:from_list(PhiLive));
+                [] ->
+                    %% There were only literals in the phi node(s).
+                    LiveMap
+            end
     end.
 
 live_opt_blk(#b_blk{is=Is0,last=Last}=Blk, Live0) ->
