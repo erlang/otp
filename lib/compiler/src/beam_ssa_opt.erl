@@ -486,6 +486,13 @@ cse_suitable(#b_set{op=get_hd}) -> true;
 cse_suitable(#b_set{op=get_tl}) -> true;
 cse_suitable(#b_set{op=put_list}) -> true;
 cse_suitable(#b_set{op=put_tuple}) -> true;
+cse_suitable(#b_set{op={bif,tuple_size}}) ->
+    %% Doing CSE for tuple_size/1 can prevent the
+    %% creation of test_arity and select_tuple_arity
+    %% instructions. That could decrease performance
+    %% and beam_validator could fail to understand
+    %% that tuple operations that follow are safe.
+    false;
 cse_suitable(#b_set{op={bif,Name},args=Args}) ->
     %% Doing CSE for comparison operators would prevent
     %% creation of 'test' instructions.
