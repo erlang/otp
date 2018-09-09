@@ -417,7 +417,13 @@ cse_successors(_Is, Blk, Es, M) ->
 
 cse_successors_1([L|Ls], Es0, M) ->
     case M of
+        #{L:=Es1} when map_size(Es1) =:= 0 ->
+            %% The map is already empty. No need to do anything
+            %% since the intersection will be empty.
+            cse_successors_1(Ls, Es0, M);
         #{L:=Es1} ->
+            %% Calculate the intersection of the two maps.
+            %% Both keys and values must match.
             Es = maps:filter(fun(Key, Value) ->
                                      case Es1 of
                                          #{Key:=Value} -> true;
