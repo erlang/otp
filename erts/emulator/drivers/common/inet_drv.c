@@ -625,13 +625,14 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 
 #ifndef __WIN32__
-/* Calculate CMSG_NXTHDR without having a struct msghdr*
+/* Calculate CMSG_NXTHDR without having a struct msghdr*.
  * CMSG_LEN only caters for alignment for start of data.
  * To get how much to advance we need to use CMSG_SPACE
  * on the payload length.  To get the payload length we
  * take the calculated cmsg->cmsg_len and subtract the
  * header length.  To get the header length we use
- * CMSG_LEN with payload length 0.
+ * the pointer difference from the cmsg start pointer
+ * to the CMSG_DATA(cmsg) pointer.
  */
 #define LEN_CMSG_DATA(cmsg)  ((char*)CMSG_DATA(cmsg) - (char*)(cmsg))
 #define NXT_CMSG_HDR(cmsg)                                              \
@@ -946,7 +947,12 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #ifdef  HAVE_SCTP
 #define PACKET_ERL_DRV_TERM_DATA_LEN  512
 #else
+#ifndef __WIN32__
+/* Assume we have recvmsg() and might need room for ancillary data */
+#define PACKET_ERL_DRV_TERM_DATA_LEN  64
+#else
 #define PACKET_ERL_DRV_TERM_DATA_LEN  32
+#endif
 #endif
 
 
@@ -12658,10 +12664,10 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		}
 	    }
             mp = NULL;
-#if defined(HAVE_SCTP)
+#ifdef HAVE_SCTP
 	    if (IS_SCTP(desc)) mp = &mhdr;
 #endif
-#if !defined(__WIN32__)
+#ifndef __WIN32__
             if (desc->recv_cmsgflags) mp = &mhdr;
 #endif
 	    /* Actual parsing and return of the data received, occur here: */
