@@ -33,6 +33,7 @@
          rpo/1,rpo/2,
          split_blocks/3,
          successors/1,successors/2,
+         trim_unreachable/1,
          update_phi_labels/4,used/1]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
@@ -447,6 +448,19 @@ rename_vars(Rename, From, Blocks) when is_map(Rename)->
 split_blocks(P, Blocks, Count) ->
     Ls = beam_ssa:rpo(Blocks),
     split_blocks_1(Ls, P, Blocks, Count).
+
+-spec trim_unreachable(Blocks0) -> Blocks when
+      Blocks0 :: block_map(),
+      Blocks :: block_map().
+
+%% trim_unreachable(Blocks0) -> Blocks.
+%%  Remove all unreachable blocks. Adjust all phi nodes so
+%%  they don't refer to blocks that has been removed or no
+%%  no longer branch to the phi node in question.
+
+trim_unreachable(Blocks) ->
+    %% Could perhaps be optimized if there is any need.
+    maps:from_list(linearize(Blocks)).
 
 %% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
 %%  In the given blocks, replace label Old in with New in all
