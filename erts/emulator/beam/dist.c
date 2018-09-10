@@ -2069,13 +2069,14 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_output)) {
+        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
         erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                       "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
-                      "%T", prt->dist_entry->sysname);
+                      "%T", dep->sysname);
         DTRACE4(dist_output, erts_this_node_sysname, port_str,
                 remote_str, size);
     }
@@ -2131,13 +2132,14 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_outputv)) {
+        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
         erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                       "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
-                      "%T", prt->dist_entry->sysname);
+                      "%T", dep->sysname);
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
                 remote_str, size);
     }
@@ -2175,7 +2177,7 @@ erts_dist_command(Port *prt, int initial_reds)
     Uint32 flags;
     Sint qsize, obufsize = 0;
     ErtsDistOutputQueue oq, foq;
-    DistEntry *dep = prt->dist_entry;
+    DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
     Uint (*send)(Port *prt, ErtsDistOutputBuf *obuf);
     erts_aint32_t sched_flags;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
@@ -2842,13 +2844,14 @@ erts_dist_port_not_busy(Port *prt)
 {
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_port_not_busy)) {
+        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
         erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
                       "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
-                      "%T", prt->dist_entry->sysname);
+                      "%T", dep->sysname);
         DTRACE3(dist_port_not_busy, erts_this_node_sysname,
                 port_str, remote_str);
     }
@@ -3277,13 +3280,14 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
         if ((pp->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY) == 0)
             goto badarg;
 
-        if (pp->dist_entry || is_not_nil(dep->cid))
+        if (erts_prtsd_get(pp, ERTS_PRTSD_DIST_ENTRY) != NULL
+            || is_not_nil(dep->cid))
             goto badarg;
 
         erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
 
-        pp->dist_entry = dep;
-        pp->connection_id = dep->connection_id;
+        erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, dep);
+        erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, (void*)(UWord)dep->connection_id);
 
         ASSERT(pp->drv_ptr->outputv || pp->drv_ptr->output);
 

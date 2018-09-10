@@ -256,9 +256,9 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 	ASSERT((erts_atomic32_read_nob(&prt->state)
 		& ERTS_PORT_SFLGS_DEAD) == 0);
-	ASSERT(prt->dist_entry);
 
-	dep = prt->dist_entry;
+        dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        ASSERT(dep);
 	id = prt->common.id;
     }
     else {

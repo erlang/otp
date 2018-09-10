@@ -1913,8 +1913,9 @@ setup_reference_table(void)
 	if (ohp)
 	    insert_offheap(ohp, HEAP_REF, prt->common.id);
 	/* Insert controller */
-	if (prt->dist_entry)
-	    insert_dist_entry(prt->dist_entry,
+	dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        if (dep)
+            insert_dist_entry(dep,
 			      CTRL_REF,
 			      prt->common.id,
 			      0);

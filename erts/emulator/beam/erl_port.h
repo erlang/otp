@@ -112,8 +112,10 @@ typedef struct line_buf {  /* Buffer used in line oriented I/O */
  */
 
 #define ERTS_PRTSD_SCHED_ID 0
+#define ERTS_PRTSD_DIST_ENTRY 1
+#define ERTS_PRTSD_CONN_ID 2
 
-#define ERTS_PRTSD_SIZE 1
+#define ERTS_PRTSD_SIZE 3
 
 typedef struct {
     void *data[ERTS_PRTSD_SIZE];
@@ -154,8 +156,6 @@ struct _erl_drv_port {
     Uint bytes_out;		/* Number of bytes written */
 
     ErlPortIOQueue ioq;          /* driver accessible i/o queue */
-    DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
-    Uint32 connection_id;
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;
     UWord drv_data;
