@@ -1562,7 +1562,6 @@ effects_code_generation(Option) ->
 	binary -> false;
 	verbose -> false;
 	{cwd,_} -> false;
-	{i,_} -> false;
 	{outdir, _} -> false;
 	_ -> true
     end.
