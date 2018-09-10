@@ -257,6 +257,8 @@ ERTS_GLB_INLINE void *
 erts_prtsd_get(Port *prt, int ix)
 {
     ErtsPrtSD *psd = (ErtsPrtSD *) erts_atomic_read_nob(&prt->psd);
+
+    ASSERT((unsigned)ix < ERTS_PRTSD_SIZE);
     if (!psd)
 	return NULL;
     ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
@@ -272,6 +274,7 @@ erts_prtsd_set(Port *prt, int ix, void *data)
 
     psd = (ErtsPrtSD *) erts_atomic_read_nob(&prt->psd);
 
+    ASSERT((unsigned)ix < ERTS_PRTSD_SIZE);
     if (psd) {
 #ifdef ETHR_ORDERED_READ_DEPEND
 	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
@@ -459,7 +462,7 @@ erts_port_unlock(Port *prt)
   ERTS_INVALID_PORT_OPT((PP), (ID), ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP)
 
 #define ERTS_PORT_SCHED_ID(P, ID) \
-  ((Uint) (UWord) erts_prtsd_set((P), ERTS_PSD_SCHED_ID, (void *) (UWord) (ID)))
+  ((Uint) (UWord) erts_prtsd_set((P), ERTS_PRTSD_SCHED_ID, (void *) (UWord) (ID)))
 
 extern const Port erts_invalid_port;
 #define ERTS_PORT_LOCK_BUSY ((Port *) &erts_invalid_port)
