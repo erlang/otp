@@ -46,7 +46,7 @@
 %% Handshake handling
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), ssl_record:connection_states(),
+-spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -59,7 +59,7 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 		 Cache, CacheCb, Renegotiation, OwnCert).
 
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), term(), ssl_record:connection_states(),
+-spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -123,7 +123,7 @@ cookie(Key, Address, Port, #client_hello{client_version = {Major, Minor},
 		  Random, SessionId, CipherSuites, CompressionMethods],
     crypto:hmac(sha, Key, CookieData).
 %%--------------------------------------------------------------------
--spec hello_verify_request(binary(),  dtls_record:dtls_version()) -> #hello_verify_request{}.
+-spec hello_verify_request(binary(),  ssl_record:ssl_version()) -> #hello_verify_request{}.
 %%
 %% Description: Creates a hello verify request message sent by server to
 %% verify client
@@ -151,7 +151,7 @@ encode_handshake(Handshake, Version, Seq) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(dtls_record:dtls_version(), binary(), #protocol_buffers{}) ->
+-spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}) ->
                                 {[dtls_handshake()], #protocol_buffers{}}.                
 %%
 %% Description:  Given buffered and new data from dtls_record, collects

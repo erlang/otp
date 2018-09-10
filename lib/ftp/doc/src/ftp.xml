@@ -550,7 +550,7 @@
 	<v>ipfamily() = inet | inet6 | inet6fb4 (default is inet)</v>
 	<v>port() = integer() > 0 (default is 21)</v>
 	<v>mode() = active | passive (default is passive)</v>
-	<v>tls_options() = [<seealso marker="ssl:ssl#type-ssloption">ssl:ssloption()</seealso>]</v>
+	<v>tls_options() = [<seealso marker="ssl:ssl#type-tls_option">ssl:tls_option()</seealso>]</v>
 	<v>sock_opts() = [<seealso marker="kernel:gen_tcp#type-option">gen_tcp:option()</seealso> except for ipv6_v6only, active, packet, mode, packet_size and header</v>
 	<v>timeout() = integer() > 0 (default is 60000 milliseconds)</v>
 	<v>dtimeout() = integer() > 0 | infinity (default is infinity)</v>

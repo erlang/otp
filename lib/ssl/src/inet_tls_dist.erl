@@ -480,22 +480,25 @@ allowed_nodes(PeerCert, Allowed, PeerIP, Node, Host) ->
             allowed_nodes(PeerCert, Allowed, PeerIP)
     end.
 
-
-
 setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     gen_setup(inet_tcp, Node, Type, MyNode, LongOrShortNames, SetupTime).
 
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     Kernel = self(),
     monitor_pid(
-      spawn_opt(
-        fun() ->
-                do_setup(
-                  Driver, Kernel, Node, Type,
-                  MyNode, LongOrShortNames, SetupTime)
-        end,
-        [link, {priority, max}])).
+      spawn_opt(setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime),
+                [link, {priority, max}])).
 
+-spec setup_fun(_,_,_,_,_,_,_) -> fun(() -> no_return()).
+setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    fun() ->
+            do_setup(
+              Driver, Kernel, Node, Type,
+              MyNode, LongOrShortNames, SetupTime)
+    end.
+
+
+-spec do_setup(_,_,_,_,_,_,_) -> no_return().
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     {Name, Address} = split_node(Driver, Node, LongOrShortNames),
     ErlEpmd = net_kernel:epmd_module(),
@@ -519,6 +522,8 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                Node,
                trace({getaddr_failed, Driver, Address, Other}))
     end.
+
+-spec do_setup_connect(_,_,_,_,_,_,_,_,_,_) -> no_return().
 
 do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
     Opts =  trace(connect_options(get_ssl_options(client))),
@@ -564,7 +569,7 @@ gen_close(Driver, Socket) ->
 %% Determine if EPMD module supports address resolving. Default
 %% is to use inet_tcp:getaddr/2.
 %% ------------------------------------------------------------
-get_address_resolver(EpmdModule, Driver) ->
+get_address_resolver(EpmdModule, _Driver) ->
     case erlang:function_exported(EpmdModule, address_please, 3) of
         true -> {EpmdModule, address_please};
         _    -> {erl_epmd, address_please}

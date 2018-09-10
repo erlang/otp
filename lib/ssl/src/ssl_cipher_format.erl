@@ -25,26 +25,25 @@
 %%----------------------------------------------------------------------
 -module(ssl_cipher_format).
 
+-include("ssl_api.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export_type([cipher_suite/0,
-	      erl_cipher_suite/0, old_erl_cipher_suite/0, openssl_cipher_suite/0,
-	      hash/0, key_algo/0, sign_algo/0]).
+-export_type([old_erl_cipher_suite/0, openssl_cipher_suite/0, cipher_suite/0]).
 
--type cipher()            :: null |rc4_128 | des_cbc | '3des_ede_cbc' | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
--type hash()              :: null | md5 | sha | sha224 | sha256 | sha384 | sha512.
--type sign_algo()         :: rsa | dsa | ecdsa.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
--type erl_cipher_suite()  :: #{key_exchange := key_algo(),
-                               cipher := cipher(),
-                               mac    := hash() | aead,
-                               prf    := hash() | default_prf %% Old cipher suites, version dependent
+-type internal_cipher()            :: null | ssl:cipher().
+-type internal_hash()              :: null | ssl:hash().
+-type internal_key_algo()          :: null | ssl:key_algo().
+-type internal_erl_cipher_suite()  :: #{key_exchange := internal_key_algo(),
+                               cipher := internal_cipher(),
+                               mac    := internal_hash() | aead,
+                               prf    := internal_hash() | default_prf %% Old cipher suites, version dependent
                               }.  
--type old_erl_cipher_suite() :: {key_algo(), cipher(), hash()} % Pre TLS 1.2 
+-type old_erl_cipher_suite() :: {ssl:key_algo(), internal_cipher(), internal_hash()} % Pre TLS 1.2 
                                 %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
-                              | {key_algo(), cipher(), hash(), hash() | default_prf}. 
+                              | {ssl:key_algo(), internal_cipher(), internal_hash(), 
+                                 internal_hash() | default_prf}. 
 -type cipher_suite()      :: binary().
 -type openssl_cipher_suite()  :: string().
 
@@ -53,7 +52,7 @@
          openssl_suite/1, openssl_suite_name/1]).
 
 %%--------------------------------------------------------------------
--spec suite_to_str(erl_cipher_suite()) -> string().
+-spec suite_to_str(internal_erl_cipher_suite()) -> string().
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------
@@ -77,7 +76,7 @@ suite_to_str(#{key_exchange := Kex,
         "_" ++ string:to_upper(atom_to_list(Mac)).
 
 %%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+-spec suite_definition(cipher_suite()) -> internal_erl_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
 %% Note: Currently not supported suites are commented away.
@@ -805,7 +804,7 @@ suite_definition(?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
       prf => sha256}.
 
 %%--------------------------------------------------------------------
--spec erl_suite_definition(cipher_suite() | erl_cipher_suite()) -> old_erl_cipher_suite().
+-spec erl_suite_definition(cipher_suite() | internal_erl_cipher_suite()) -> old_erl_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition. Filters last value
 %% for now (compatibility reasons).
@@ -822,7 +821,7 @@ erl_suite_definition(#{key_exchange := KeyExchange, cipher := Cipher,
     end.
 
 %%--------------------------------------------------------------------
--spec suite(erl_cipher_suite()) -> cipher_suite().
+-spec suite(internal_erl_cipher_suite()) -> cipher_suite().
 %%
 %% Description: Return TLS cipher suite definition.
 %%--------------------------------------------------------------------
@@ -1585,7 +1584,7 @@ openssl_suite("ECDH-RSA-AES256-GCM-SHA384") ->
     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384.
 
 %%--------------------------------------------------------------------
--spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite() | erl_cipher_suite().
+-spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite() | internal_erl_cipher_suite().
 %%
 %% Description: Return openssl cipher suite name if possible
 %%-------------------------------------------------------------------

@@ -31,8 +31,6 @@
 -type reply()             :: term().
 -type msg()               :: term().
 -type from()              :: term().
--type host()		  :: inet:ip_address() | inet:hostname().
--type session_id()        :: 0 | binary().
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type der_cert()          :: binary().
