@@ -208,8 +208,16 @@ child_spec() = #{id => child_id(),       % mandatory
           the child process is unconditionally terminated using
           <c>exit(Child,kill)</c>.</p>
         <p>If the child process is another supervisor, the shutdown time
-          is to be set to <c>infinity</c> to give the subtree ample
-          time to shut down. It is also allowed to set it to <c>infinity</c>,
+          must be set to <c>infinity</c> to give the subtree ample
+          time to shut down.</p>
+	<warning>
+	  <p>Setting the shutdown time to anything other
+	    than <c>infinity</c> for a child of type <c>supervisor</c>
+	    can cause a race condition where the child in question
+	    unlinks its own children, but fails to terminate them
+	    before it is killed.</p>
+	</warning>
+	<p>It is also allowed to set it to <c>infinity</c>,
           if the child process is a worker.</p>
         <warning>
           <p>Be careful when setting the shutdown time to
