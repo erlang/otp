@@ -5033,18 +5033,22 @@ run_suites(Ciphers, Config, Type) ->
                  [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]} 
 	end,
-    ct:pal("ssl_test_lib:filter_suites(~p ~p) -> ~p ", [Ciphers, Version, ssl_test_lib:filter_suites(Ciphers, Version)]),
-    Result =  lists:map(fun(Cipher) ->
-				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
-			ssl_test_lib:filter_suites(Ciphers, Version)),
-    case lists:flatten(Result) of
-	[] ->
-	    ok;
-	Error ->
-	    ct:log("Cipher suite errors: ~p~n", [Error]),
-	    ct:fail(cipher_suite_failed_see_test_case_log)
-    end.
+    Suites = ssl_test_lib:filter_suites(Ciphers, Version),
+    ct:pal("ssl_test_lib:filter_suites(~p ~p) -> ~p ", [Ciphers, Version, Suites]),
+    Results0 =  lists:map(fun(Cipher) ->
+                                 cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
+                         ssl_test_lib:filter_suites(Ciphers, Version)),
+    Results = lists:flatten(Results0),
+    true = length(Results) == length(Suites),
+    check_cipher_result(Results).
 
+check_cipher_result([]) ->
+    ok;
+check_cipher_result([ok | Rest]) ->
+    check_cipher_result(Rest);
+check_cipher_result([_ |_] = Error) ->
+    ct:fail(Error).
+    
 erlang_cipher_suite(Suite) when is_list(Suite)->
     ssl_cipher_format:suite_definition(ssl_cipher_format:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
@@ -5081,7 +5085,7 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
     case Result of
 	ok ->
-	    [];
+	    [ok];
 	Error ->
 	    [{ErlangCipherSuite, Error}]
     end.

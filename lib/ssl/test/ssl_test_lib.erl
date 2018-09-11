@@ -1325,7 +1325,9 @@ psk_anon_suites({3,_} = Version) ->
                              [{key_exchange, 
                                fun(psk) -> 
                                        true;
-                                  (psk_dhe) -> 
+                                  (dhe_psk) -> 
+                                       true;
+                                  (ecdhe_psk) -> 
                                        true;
                                   (_) -> 
                                        false 
