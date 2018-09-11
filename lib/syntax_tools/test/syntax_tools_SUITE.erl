@@ -25,14 +25,14 @@
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
          revert_map_type/1,
-	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
+	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
 	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
-    t_abstract_type,t_erl_parse_type,t_epp_dodger,
+    t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
     t_comment_scan,t_igor,t_erl_tidy].
 
 groups() -> 
@@ -144,6 +144,74 @@ revert_map_type(Config) when is_list(Config) ->
     ?t:timetrap_cancel(Dog).
 
 %% api tests
+
+t_type(Config) when is_list(Config) ->
+    F0 = fun validate_basic_type/1,
+    Appl0 = fun(Name) ->
+                    Atom = erl_syntax:atom(Name),
+                    erl_syntax:type_application(none, Atom, [])
+            end,
+    User0 = fun(Name) ->
+                    Atom = erl_syntax:atom(Name),
+                    erl_syntax:user_type_application(Atom, [])
+            end,
+    ok = validate(F0,[{"tuple()", erl_syntax:tuple_type()}
+                     ,{"{}", erl_syntax:tuple_type([])}
+                     ,{"integer()", Appl0(integer)}
+                     ,{"foo()", User0(foo)}
+                     ,{"map()", erl_syntax:map_type()}
+                     ,{"#{}", erl_syntax:map_type([])}
+                     ,{"1..2", erl_syntax:integer_range_type
+                          (erl_syntax:integer(1), erl_syntax:integer(2))}
+                     ,{"<<_:1,_:_*2>>", erl_syntax:bitstring_type
+                          (erl_syntax:integer(1), erl_syntax:integer(2))}
+                     ,{"fun()", erl_syntax:fun_type()}
+                     ]),
+
+    F = fun validate_type/1,
+    ok = validate(F,[{"{}", tuple_type, false}
+                    ,{"tuple()", tuple_type, true}
+                    ,{"{atom()}", tuple_type, false}
+                    ,{"{atom(),integer()}", tuple_type, false}
+                    ,{"integer()", type_application, false}
+                    ,{"foo()", user_type_application, false}
+                    ,{"foo(integer())", user_type_application, false}
+                    ,{"module:function()", type_application, false}
+                    ,{"map()", map_type, true}
+                    ,{"#{}", map_type, false}
+                    ,{"#{atom() => integer()}", map_type, false}
+                    ,{"#{atom() := integer()}", map_type, false}
+                    ,{"#r{}", record_type, false}
+                    ,{"#r{a :: integer()}", record_type, false}
+                    ,{"[]", type_application, false}
+                    ,{"nil()", type_application, false}
+                    ,{"[atom()]", type_application, false}
+                    ,{"1..2", integer_range_type, false}
+                    ,{"<<_:1,_:_*2>>", bitstring_type, false}
+                    ,{"fun()", fun_type, true}
+                    ,{"integer() | atom()", type_union, false}
+                    ,{"A :: fun()", annotated_type, false}
+                    ,{"fun((...) -> atom())", function_type, false}
+                    ,{"fun((integer()) -> atom())", function_type, false}
+                    ,{"V", variable, true}
+                    ]),
+    ok.
+
+validate_basic_type({String, Tree}) ->
+    ErlT = string_to_type(String),
+    ErlT = erl_syntax:revert(Tree),
+    ok.
+
+validate_type({String, Type, Leaf}) ->
+    ErlT = string_to_type(String),
+    Type = erl_syntax:type(ErlT),
+    Leaf = erl_syntax:is_leaf(ErlT),
+    Tree = erl_syntax_lib:map(fun(Node) -> Node end, ErlT),
+    Type = erl_syntax:type(Tree),
+    _    = erl_syntax:meta(Tree),
+    RevT = erl_syntax:revert(Tree),
+    Type = erl_syntax:type(RevT),
+    ok.
 
 t_abstract_type(Config) when is_list(Config) ->
     F = fun validate_abstract_type/1,
@@ -450,6 +518,13 @@ string_to_expr(String) ->
     {ok, Ts, _} = erl_scan:string(String++"."),
     {ok,[Expr]} = erl_parse:parse_exprs(Ts),
     Expr.
+
+string_to_type(String) ->
+    io:format("Str: ~p~n", [String]),
+    {ok,Ts,_} = erl_scan:string("-type foo() :: "++String++".", 0),
+    {ok,Form} = erl_parse:parse_form(Ts),
+    {attribute,_,type,{foo,Type,_NoParms=[]}} = Form,
+    Type.
 
 
 p_run(Test, List) ->
