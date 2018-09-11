@@ -491,7 +491,6 @@ arith_op_type(Args, Ts) ->
              (number, #t_integer{}) -> number;
              (number, float) -> float;
              (any, _) -> number;
-             (_, any) -> number;
              (Same, Same) -> Same;
              (_, _) -> none
           end, unknown, Types).
