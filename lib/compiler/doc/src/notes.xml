@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a regression in OTP-15204 that removed
+	    <c>.beam</c> file metadata that some external build tools
+	    relied on.</p>
+          <p>
+	    Own Id: OTP-15292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.1.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
