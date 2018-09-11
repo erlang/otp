@@ -262,7 +262,7 @@
                               | rc2_cbc .
 
 -type cbc_cipher()  :: des_cbc | des3_cbc | aes_cbc | blowfish_cbc .
--type aead_cipher() :: aes_gcm | chacha20_poly1305 .
+-type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305 .
 -type cfb_cipher()  :: aes_cfb128 | aes_cfb8 | blowfish_cfb64 | des3_cfb | des_cfb .
 
 -type block_cipher_without_iv() :: ecb_cipher() .
@@ -490,23 +490,23 @@ poly1305(Key, Data) ->
 -spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
                    (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
                            {binary(), binary()};
-                   (aes_gcm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
+                   (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
                            {binary(), binary()}.
 
 block_encrypt(Type, Key, Ivec, PlainText) when Type =:= des_cbc;
-                                          Type =:= des_cfb;
-                                          Type =:= blowfish_cbc;
-                                          Type =:= blowfish_cfb64;
-                                          Type =:= blowfish_ofb64;
-                                          Type =:= aes_cbc128;
-                                          Type =:= aes_cfb8;
-                                          Type =:= aes_cfb128;
-                                          Type =:= aes_cbc256;
-					  Type =:= aes_cbc;
-                                          Type =:= rc2_cbc ->
+                                               Type =:= des_cfb;
+                                               Type =:= blowfish_cbc;
+                                               Type =:= blowfish_cfb64;
+                                               Type =:= blowfish_ofb64;
+                                               Type =:= aes_cbc128;
+                                               Type =:= aes_cfb8;
+                                               Type =:= aes_cfb128;
+                                               Type =:= aes_cbc256;
+                                               Type =:= aes_cbc;
+                                               Type =:= rc2_cbc ->
     block_crypt_nif(Type, Key, Ivec, PlainText, true);
 block_encrypt(Type, Key0, Ivec, PlainText) when Type =:= des3_cbc;
-                                           Type =:= des_ede3 ->
+                                                Type =:= des_ede3 ->
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cbc, Key, Ivec, PlainText, true);
 block_encrypt(des3_cbf, Key0, Ivec, PlainText) -> % cfb misspelled
@@ -517,10 +517,12 @@ block_encrypt(des3_cfb, Key0, Ivec, PlainText) ->
     block_crypt_nif(des_ede3_cfb, Key, Ivec, PlainText, true);
 block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
-block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText}) ->
-    aead_encrypt(Key, Ivec, AAD, PlainText);
-block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText, TagLength}) ->
-    aead_encrypt(Key, Ivec, AAD, PlainText, TagLength);
+block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= aes_gcm;
+                                                      Type =:= aes_ccm ->
+    aead_encrypt(Type, Key, Ivec, AAD, PlainText);
+block_encrypt(Type, Key, Ivec, {AAD, PlainText, TagLength}) when Type =:= aes_gcm;
+                                                                 Type =:= aes_ccm ->
+    aead_encrypt(Type, Key, Ivec, AAD, PlainText, TagLength);
 block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, PlainText}) ->
     chacha20_poly1305_encrypt(Key, Ivec, AAD, PlainText).
 
@@ -551,7 +553,8 @@ block_decrypt(des3_cfb, Key0, Ivec, Data) ->
     block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, false);
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
-block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm ->
+block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
+                                                      Type =:= aes_ccm ->
     aead_decrypt(Type, Key, Ivec, AAD, Data, Tag);
 block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
     chacha20_poly1305_decrypt(Key, Ivec, AAD, Data, Tag).
@@ -1604,6 +1607,7 @@ check_des3_key(Key) ->
 %% AES - in Galois/Counter Mode (GCM)
 %%
 %% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
+aead_encrypt(Type=aes_ccm, Key, Ivec, AAD, In) -> aead_encrypt(Type, Key, Ivec, AAD, In, 12);
 aead_encrypt(Type=aes_gcm, Key, Ivec, AAD, In) -> aead_encrypt(Type, Key, Ivec, AAD, In, 16).
 
 aead_encrypt(_Type, _Key, _Ivec, _AAD, _In, _TagLength) -> ?nif_stub.

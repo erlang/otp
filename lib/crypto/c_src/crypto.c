@@ -187,6 +187,7 @@
 # define HAVE_EVP_AES_CTR
 # define HAVE_AEAD
 # define HAVE_GCM
+# define HAVE_CCM
 # define HAVE_CMAC
 # if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION(1,0,1,'d')
 #  define HAVE_GCM_EVP_DECRYPT_BUG
@@ -716,6 +717,9 @@ static ERL_NIF_TERM atom_aes_cfb128;
 #ifdef HAVE_GCM
 static ERL_NIF_TERM atom_aes_gcm;
 #endif
+#ifdef HAVE_CCM
+static ERL_NIF_TERM atom_aes_ccm;
+#endif
 #ifdef HAVE_ECB_IVEC_BUG
 static ERL_NIF_TERM atom_aes_ecb;
 static ERL_NIF_TERM atom_des_ecb;
@@ -1159,6 +1163,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
 #endif
+#ifdef HAVE_CCM
+    atom_aes_ccm = enif_make_atom(env, "aes_ccm");
+#endif
 #ifdef HAVE_ECB_IVEC_BUG
     atom_aes_ecb = enif_make_atom(env, "aes_ecb");
     atom_des_ecb = enif_make_atom(env, "des_ecb");
@@ -1321,7 +1328,7 @@ static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
 static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[11]; /* increase when extending the list */
 static int algo_cipher_cnt, algo_cipher_fips_cnt;
-static ERL_NIF_TERM algo_cipher[24]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[25]; /* increase when extending the list */
 static int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static int algo_curve_cnt, algo_curve_fips_cnt;
@@ -1396,6 +1403,9 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
+#endif
+#if defined(HAVE_CCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ccm");
 #endif
     // Non-validated algorithms follow
     algo_cipher_fips_cnt = algo_cipher_cnt;
@@ -2560,6 +2570,22 @@ static ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     } else
 #endif
+#if defined(HAVE_CCM)
+    if ((type == atom_aes_ccm)
+        && (7 <= iv.size && iv.size <= 13)
+        && (4 <= tag_len && tag_len <= 16)
+        && ((tag_len & 1) == 0)
+        ) {
+        ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
+        ctx_ctrl_get_tag = EVP_CTRL_CCM_GET_TAG;
+        if (key.size == 16)      cipher = EVP_aes_128_ccm();
+        else if (key.size == 24) cipher = EVP_aes_192_ccm();
+        else if (key.size == 32) cipher = EVP_aes_256_ccm();
+        else
+            enif_make_badarg(env);
+
+    } else
+#endif
         enif_make_badarg(env);
  
     ctx = EVP_CIPHER_CTX_new();
@@ -2571,6 +2597,13 @@ static ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
         } else
 #endif            
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag_len, NULL) != 1) goto out_err;
+        if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
+        if (EVP_EncryptUpdate(ctx, NULL, &len, NULL, in.size) != 1) goto out_err;
+    } else
+#endif
         goto out_err; 
 
     if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1) goto out_err;
@@ -2635,6 +2668,18 @@ static ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     } else
 #endif
+#if defined(HAVE_CCM)
+    if ((type == atom_aes_ccm)
+        && (iv.size > 0)) {
+        ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
+        if (key.size == 16)      cipher = EVP_aes_128_ccm();
+        else if (key.size == 24) cipher = EVP_aes_192_ccm();
+        else if (key.size == 32) cipher = EVP_aes_256_ccm();
+        else
+            enif_make_badarg(env);
+
+    } else
+#endif
         enif_make_badarg(env);
 
     outp = enif_make_new_binary(env, in.size, &out);
@@ -2643,7 +2688,19 @@ static ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) goto out_err;
     if (EVP_CIPHER_CTX_ctrl(ctx,  ctx_ctrl_set_ivlen, iv.size, NULL) != 1) goto out_err;
 
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag.size, tag.data) != 1) goto out_err;
+    }
+#endif
+
     if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
+
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (1 != EVP_DecryptUpdate(ctx, NULL, &len, NULL, in.size)) goto out_err;
+    }
+#endif
 
     if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1) goto out_err;
     if (EVP_DecryptUpdate(ctx, outp, &len, in.data, in.size) != 1) goto out_err;
