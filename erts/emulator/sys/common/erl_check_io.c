@@ -916,7 +916,7 @@ enif_select(ErlNifEnv* env,
         ctl_op = ERTS_POLL_OP_DEL;
     }
     else {
-        on = 1;
+        on = !(mode & ERL_NIF_SELECT_CANCEL);
         ASSERT(mode);
         if (mode & ERL_DRV_READ) {
             ctl_events |= ERTS_POLL_EV_IN;
@@ -1042,38 +1042,51 @@ enif_select(ErlNifEnv* env,
         ret = 0;
     }
     else { /* off */
+        ret = 0;
         if (state->type == ERTS_EV_TYPE_NIF) {
-            state->driver.nif->in.pid = NIL;
-            state->driver.nif->out.pid = NIL;
+            if (mode & ERL_NIF_SELECT_READ
+                && is_not_nil(state->driver.nif->in.pid)) {
+                state->driver.nif->in.pid = NIL;
+                ret |= ERL_NIF_SELECT_READ_CANCELLED;
+            }
+            if (mode & ERL_NIF_SELECT_WRITE
+                && is_not_nil(state->driver.nif->out.pid)) {
+                state->driver.nif->out.pid = NIL;
+                ret |= ERL_NIF_SELECT_WRITE_CANCELLED;
+            }
         }
-        ASSERT(state->events==0);
-        if (!wake_poller) {
-            /*
-             * Safe to close fd now as it is not in pollset
-             * or there was no need to eject fd (kernel poll)
-             */
-            if (state->type == ERTS_EV_TYPE_NIF) {
-                ASSERT(state->driver.stop.resource == resource);
-                call_stop = CALL_STOP_AND_RELEASE;
-                state->driver.stop.resource = NULL;
+        if (mode & ERL_NIF_SELECT_STOP) {
+            ASSERT(state->events==0);
+            if (!wake_poller) {
+                /*
+                 * Safe to close fd now as it is not in pollset
+                 * or there was no need to eject fd (kernel poll)
+                 */
+                if (state->type == ERTS_EV_TYPE_NIF) {
+                    ASSERT(state->driver.stop.resource == resource);
+                    call_stop = CALL_STOP_AND_RELEASE;
+                    state->driver.stop.resource = NULL;
+                }
+                else {
+                    ASSERT(!state->driver.stop.resource);
+                    call_stop = CALL_STOP;
+                }
+                state->type = ERTS_EV_TYPE_NONE;
+                ret |= ERL_NIF_SELECT_STOP_CALLED;
             }
             else {
-                ASSERT(!state->driver.stop.resource);
-                call_stop = CALL_STOP;
+                /* Not safe to close fd, postpone stop_select callback. */
+                if (state->type == ERTS_EV_TYPE_NONE) {
+                    ASSERT(!state->driver.stop.resource);
+                    state->driver.stop.resource = resource;
+                    enif_keep_resource(resource);
+                }
+                state->type = ERTS_EV_TYPE_STOP_NIF;
+                ret |= ERL_NIF_SELECT_STOP_SCHEDULED;
             }
-            state->type = ERTS_EV_TYPE_NONE;
-            ret = ERL_NIF_SELECT_STOP_CALLED;
         }
-        else {
-            /* Not safe to close fd, postpone stop_select callback. */
-            if (state->type == ERTS_EV_TYPE_NONE) {
-                ASSERT(!state->driver.stop.resource);
-                state->driver.stop.resource = resource;
-                enif_keep_resource(resource);
-            }
-            state->type = ERTS_EV_TYPE_STOP_NIF;
-            ret = ERL_NIF_SELECT_STOP_SCHEDULED;
-        }
+        else
+            ASSERT(mode & ERL_NIF_SELECT_CANCEL);
     }
 
 done:
@@ -1251,7 +1264,8 @@ print_nif_select_op(erts_dsprintf_buf_t *dsbufp,
 		  (int) fd,
 		  mode & ERL_NIF_SELECT_READ ? " READ" : "",
 		  mode & ERL_NIF_SELECT_WRITE ? " WRITE" : "",
-		  mode & ERL_NIF_SELECT_STOP ? " STOP" : "",
+		  (mode & ERL_NIF_SELECT_STOP ? " STOP"
+                   : (mode & ERL_NIF_SELECT_CANCEL ? " CANCEL" : "")),
 		  resource->type->module,
                   resource->type->name,
                   ref);
@@ -2332,10 +2346,16 @@ drvmode2str(int mode) {
 
 static ERTS_INLINE char *
 nifmode2str(enum ErlNifSelectFlags mode) {
+    if (mode & ERL_NIF_SELECT_STOP)
+        return "STOP";
     switch (mode) {
     case ERL_NIF_SELECT_READ: return "READ";
     case ERL_NIF_SELECT_WRITE: return "WRITE";
-    case ERL_NIF_SELECT_STOP: return "STOP";
+    case ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE: return "READ|WRITE";
+    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_READ: return "CANCEL|READ";
+    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_WRITE: return "CANCEL|WRITE";
+    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE:
+        return "CANCEL|READ|WRITE";
     default: return "UNKNOWN";
     }
 }

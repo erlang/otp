@@ -3037,7 +3037,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
 	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
 	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
-	  which is described further below. When a read or write event is triggered,
+	  or <c>ERL_NIF_SELECT_CANCEL</c> which are described further
+	  below. When a read or write event is triggered,
 	  a notification message like this is sent to the process identified by
 	  <c>pid</c>:</p>
 	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
@@ -3058,13 +3059,21 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>The notifications are one-shot only. To receive further notifications of the same
 	  type (read or write), repeated calls to <c>enif_select</c> must be made
 	  after receiving each notification.</p>
+	<p><c>ERL_NIF_SELECT_CANCEL</c> can be used to cancel previously
+	  selected events. It must be used in a bitwise OR combination with
+	  <c>ERL_NIF_SELECT_READ</c> and/or <c>ERL_NIF_SELECT_WRITE</c> to
+	  indicate which type of event to cancel. The return value will
+	  tell if the event was actualy cancelled or if a notification may
+	  already have been sent.</p>
 	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
 	  close an event object that has been passed to <c>enif_select</c>. The
 	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
 	  of the resource <c>obj</c> will be called when it is safe to close
 	  the event object. This safe way of closing event objects must be used
-	  even if all notifications have been received and no further calls to
-	  <c>enif_select</c> have been made.</p>
+	  even if all notifications have been received (or cancelled) and no
+	  further calls to <c>enif_select</c> have been made.
+	  <c>ERL_NIF_SELECT_STOP</c> will first cancel any selected events
+	  before it calls or schedules the <c>stop</c> callback.</p>
 	<p>The first call to <c>enif_select</c> for a specific OS <c>event</c> will establish
 	  a relation between the event object and the containing resource. All subsequent calls
 	  for an <c>event</c> must pass its containing resource as argument
@@ -3086,7 +3095,15 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <item>The stop callback was called directly by <c>enif_select</c>.</item>
           <tag><c>ERL_NIF_SELECT_STOP_SCHEDULED</c></tag>
           <item>The stop callback was scheduled to run on some other thread
-	    or later by this thread.</item>
+	  or later by this thread.</item>
+	  <tag><c>ERL_NIF_SELECT_READ_CANCELLED</c></tag>
+          <item>A read event was cancelled by <c>ERL_NIF_SELECT_CANCEL</c> or
+	  <c>ERL_NIF_SELECT_STOP</c> and is guaranteed not to generate a
+	  <c>ready_input</c> notification message.</item>
+	  <tag><c>ERL_NIF_SELECT_WRITE_CANCELLED</c></tag>
+          <item>A write event was cancelled by <c>ERL_NIF_SELECT_CANCEL</c> or
+	  <c>ERL_NIF_SELECT_STOP</c> and is guaranteed not to generate a
+	  <c>ready_output</c> notification message.</item>
 	</taglist>
 	<p>Returns a negative value if the call failed where the following bits can be set:</p>
         <taglist>
@@ -3112,6 +3129,11 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 }
 </code>
         </note>
+	<note><p>The mode flag <c>ERL_NIF_SELECT_CANCEL</c> and the return flags
+	  <c>ERL_NIF_SELECT_READ_CANCELLED</c> and
+	  <c>ERL_NIF_SELECT_WRITE_CANCELLED</c> were introduced in erts-11.0
+	  (OTP-22.0).</p>
+	</note>
       </desc>
     </func>
 

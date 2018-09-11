@@ -485,12 +485,14 @@ t_on_load(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
+-define(ERL_NIF_SELECT_CANCEL, (1 bsl 3)).
 
 -define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
 -define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
 -define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 2)).
 -define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
-
+-define(ERL_NIF_SELECT_READ_CANCELLED, (1 bsl 4)).
+-define(ERL_NIF_SELECT_WRITE_CANCELLED, (1 bsl 5)).
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
@@ -516,7 +518,16 @@ select(Config) when is_list(Config) ->
                      end),
     0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Pid,Ref),
     {Pid, done} = receive_any(1000),
+
+    %% Cancel read
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
     <<"hej">> = read_nif(R, 3),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    ?ERL_NIF_SELECT_READ_CANCELLED =
+        select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
+    ok = write_nif(W, <<"hej again">>),
+    [] = flush(0),
+    <<"hej again">> = read_nif(R, 9),
 
     %% Wait for write
     Written = write_full(W, $a),
@@ -524,6 +535,15 @@ select(Config) when is_list(Config) ->
     [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
     [{select, W, Ref, ready_output}] = flush(),
+
+    %% Cancel write
+    0 = select_nif(W,?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL,W,null,Ref),
+    Written2 = write_full(W, $b),
+    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,null,Ref),
+    ?ERL_NIF_SELECT_WRITE_CANCELLED =
+        select_nif(W,?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL,W,null,Ref),
+    Written2 = read_nif(R,byte_size(Written2)),
+    [] = flush(0),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
