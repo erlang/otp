@@ -79,6 +79,7 @@ groups() ->
                      {group, rc2_cbc},
                      {group, rc4},
                      {group, aes_ctr},
+		     {group, aes_ccm},
 		     {group, aes_gcm},
 		     {group, chacha20_poly1305},
 		     {group, chacha20},
@@ -116,6 +117,7 @@ groups() ->
                  {group, no_rc2_cbc},
                  {group, no_rc4},
                  {group, aes_ctr},
+		 {group, aes_ccm},
 		 {group, aes_gcm},
 		 {group, no_chacha20_poly1305},
 		 {group, no_chacha20},
@@ -166,6 +168,7 @@ groups() ->
      {blowfish_ofb64,[], [block]},
      {rc4, [], [stream]},
      {aes_ctr, [], [stream]},
+     {aes_ccm, [], [aead]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
      {chacha20, [], [stream]},
@@ -425,7 +428,7 @@ no_block(Config) when is_list(Config) ->
 no_aead() ->
      [{doc, "Test disabled aead ciphers"}].
 no_aead(Config) when is_list(Config) ->
-    [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag} | _] =
+    [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, _Info} | _] =
 	lazy_eval(proplists:get_value(aead, Config)),
     EncryptArgs = [Type, Key, Nonce, {AAD, PlainText}],
     DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
@@ -828,34 +831,51 @@ stream_cipher_incment_loop(State0, OrigState, [PlainText | PlainTexts], Acc, Pla
     {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
     stream_cipher_incment_loop(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
 
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
     Plain = iolist_to_binary(PlainText),
     case crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) of
 	{CipherText, CipherTag} ->
 	    ok;
 	Other0 ->
-	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, CipherTag}}, {got, Other0}})
+	    ct:fail({{crypto,
+                      block_encrypt,
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
+                     {expected, {CipherText, CipherTag}},
+                     {got, Other0}})
     end,
     case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) of
 	Plain ->
 	    ok;
 	Other1 ->
-	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+	    ct:fail({{crypto,
+                      block_decrypt,
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
+                     {expected, Plain},
+                     {got, Other1}})
     end;
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen}) ->
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
     <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
     Plain = iolist_to_binary(PlainText),
     case crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) of
 	{CipherText, TruncatedCipherTag} ->
 	    ok;
 	Other0 ->
-	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, TruncatedCipherTag}}, {got, Other0}})
+	    ct:fail({{crypto,
+                      block_encrypt, 
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}, {taglen,TagLen}]},
+                     {expected, {CipherText, TruncatedCipherTag}},
+                     {got, Other0}})
     end,
     case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) of
 	Plain ->
 	    ok;
 	Other1 ->
-	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+	    ct:fail({{crypto,
+                      block_decrypt, 
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag},
+                       {truncated,TruncatedCipherTag}]},
+                     {expected, Plain},
+                     {got, Other1}})
     end.
 
 do_sign_verify({Type, Hash, Public, Private, Msg}) ->
@@ -1060,6 +1080,14 @@ mkint(C) when $A =< C, C =< $F ->
     C - $A + 10;
 mkint(C) when $a =< C, C =< $f ->
     C - $a + 10.
+
+bin2hexstr(B) when is_binary(B) ->
+    io_lib:format("~.16b",[crypto:bytes_to_integer(B)]).    
+
+decstr2int(S) when is_binary(S) ->
+    list_to_integer(binary:bin_to_list(S));
+decstr2int(S) ->
+    list_to_integer(S).
 
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
@@ -1492,6 +1520,9 @@ group_config(rc4, Config) ->
 group_config(aes_ctr, Config) ->
     Stream = aes_ctr(),
     [{stream, Stream} | Config];
+group_config(aes_ccm, Config) ->
+    AEAD = fun() -> aes_ccm(Config) end,
+    [{aead, AEAD} | Config];
 group_config(aes_gcm, Config) ->
     AEAD = fun() -> aes_gcm(Config) end,
     [{aead, AEAD} | Config];
@@ -2301,6 +2332,12 @@ aes_gcm(Config) ->
              "gcmEncryptExtIV192.rsp",
              "gcmEncryptExtIV256.rsp"]).
 
+aes_ccm(Config) ->
+   read_rsp(Config, aes_ccm,
+            ["VADT128.rsp", "VADT192.rsp", "VADT256.rsp",
+             "VNT128.rsp",  "VNT192.rsp",  "VNT256.rsp",
+             "VPT128.rsp",  "VPT192.rsp",  "VPT256.rsp"
+            ]).
 
 %% https://tools.ietf.org/html/rfc7539#appendix-A.5
 chacha20_poly1305() ->
@@ -2344,7 +2381,9 @@ chacha20_poly1305() ->
       "49e617d91d361094fa68f0ff77987130"
       "305beaba2eda04df997b714d6c6f2c29"
       "a6ad5cb4022b02709b"),
-      hexstr2bin("eead9d67890cbb22392336fea1851f38")}                    %% CipherTag
+      hexstr2bin("eead9d67890cbb22392336fea1851f38"),                    %% CipherTag
+      no_info
+      }
     ].
 
 
@@ -2880,29 +2919,36 @@ read_rsp(Config, Type, Files) ->
     Tests =
         lists:foldl(
           fun(FileName, Acc) ->
-                  read_rsp_file(filename:join(datadir(Config), FileName),
-                                Type, Acc)
+                  NewAcc = read_rsp_file(filename:join(datadir(Config), FileName),
+                                         Type, Acc),
+                  ct:log("~p: ~p tests read.~n",[FileName,length(NewAcc)-length(Acc)]),
+                  NewAcc
           end, [], Files),
     log_rsp_size(Type, Tests),
     Tests.
 
 read_rsp_file(FileName, Type, Acc) ->
-    {ok, Raw} = file:read_file(FileName),
-    Split = binary:split(Raw, [<<"\r">>, <<"\n">>], [global, trim_all]),
-    parse_rsp(Type, Split, Acc).
+    case file:read_file(FileName) of
+        {ok, Raw} ->
+            Split = binary:split(Raw, [<<"\r">>, <<"\n">>], [global, trim_all]),
+            parse_rsp(Type, Split, #{file => FileName}, Acc);
+        Other ->
+            ct:fail("~p ~p",[FileName, Other])
+    end.
 
-parse_rsp(_Type, [], Acc) ->
+parse_rsp(_Type, [], _State, Acc) ->
     Acc;
-parse_rsp(_Type, [<<"DECRYPT">>|_], Acc) ->
+parse_rsp(_Type, [<<"DECRYPT">>|_], _State, Acc) ->
     Acc;
 %% AES format
 parse_rsp(Type, [<<"COUNT = ", _/binary>>,
                  <<"KEY = ", Key/binary>>,
                  <<"IV = ", IV/binary>>,
                  <<"PLAINTEXT = ", PlainText/binary>>,
-                 <<"CIPHERTEXT = ", CipherText/binary>>|Next], Acc) ->
-    parse_rsp(Type, Next, [{Type, hexstr2bin(Key), hexstr2bin(IV),
-                            hexstr2bin(PlainText), hexstr2bin(CipherText)}|Acc]);
+                 <<"CIPHERTEXT = ", CipherText/binary>>|Next], State, Acc) ->
+    parse_rsp(Type, Next, State,
+              [{Type, hexstr2bin(Key), hexstr2bin(IV),
+                hexstr2bin(PlainText), hexstr2bin(CipherText)}|Acc]);
 %% CMAC format
 parse_rsp(Type, [<<"Count = ", _/binary>>,
                  <<"Klen = ", _/binary>>,
@@ -2910,23 +2956,23 @@ parse_rsp(Type, [<<"Count = ", _/binary>>,
                  <<"Tlen = ", Tlen/binary>>,
                  <<"Key = ", Key/binary>>,
                  <<"Msg = ", Msg/binary>>,
-                 <<"Mac = ", MAC/binary>>|Rest], Acc) ->
+                 <<"Mac = ", MAC/binary>>|Rest], State, Acc) ->
     case Rest of
         [<<"Result = P">>|Next] ->
-            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Next, Acc);
+            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Next, State, Acc);
         [<<"Result = ", _/binary>>|Next] ->
-            parse_rsp(Type, Next, Acc);
+            parse_rsp(Type, Next, State, Acc);
         _ ->
-            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Rest, Acc)
+            parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Rest, State, Acc)
     end;
 %% GCM format decode format
-parse_rsp(Type, [<<"Count = ", _/binary>>,
+parse_rsp(Type, [<<"Count = ", Count/binary>>,
                  <<"Key = ", Key/binary>>,
                  <<"IV = ",  IV/binary>>,
                  <<"CT = ",  CipherText/binary>>,
                  <<"AAD = ", AAD/binary>>,
                  <<"Tag = ", CipherTag0/binary>>,
-                 <<"PT = ",  PlainText/binary>>|Next], Acc) ->
+                 <<"PT = ",  PlainText/binary>>|Next], #{file:=File}=State, Acc) ->
     CipherTag = hexstr2bin(CipherTag0),
     TestCase = {Type,
                 hexstr2bin(Key),
@@ -2935,16 +2981,17 @@ parse_rsp(Type, [<<"Count = ", _/binary>>,
                 hexstr2bin(AAD),
                 hexstr2bin(CipherText),
                 CipherTag,
-                size(CipherTag)},
-    parse_rsp(Type, Next, [TestCase|Acc]);
+                size(CipherTag),
+                {File,decstr2int(Count)}},
+    parse_rsp(Type, Next, State, [TestCase|Acc]);
 %% GCM format encode format
-parse_rsp(Type, [<<"Count = ", _/binary>>,
+parse_rsp(Type, [<<"Count = ", Count/binary>>,
                  <<"Key = ", Key/binary>>,
                  <<"IV = ",  IV/binary>>,
                  <<"PT = ",  PlainText/binary>>,
                  <<"AAD = ", AAD/binary>>,
                  <<"CT = ",  CipherText/binary>>,
-                 <<"Tag = ", CipherTag0/binary>>|Next], Acc) ->
+                 <<"Tag = ", CipherTag0/binary>>|Next], #{file:=File}=State, Acc) ->
     CipherTag = hexstr2bin(CipherTag0),
     TestCase = {Type,
                 hexstr2bin(Key),
@@ -2953,13 +3000,88 @@ parse_rsp(Type, [<<"Count = ", _/binary>>,
                 hexstr2bin(AAD),
                 hexstr2bin(CipherText),
                 CipherTag,
-                size(CipherTag)},
-    parse_rsp(Type, Next, [TestCase|Acc]);
+                size(CipherTag),
+                {File,decstr2int(Count)}},
+    parse_rsp(Type, Next, State, [TestCase|Acc]);
+%% CCM-VADT format
+parse_rsp(Type, [<<"[Alen = ", AlenB0/binary>>|Next], State0, Acc) ->
+    AlenSize = size(AlenB0) - 1, % remove closing ']'
+    Alen = decstr2int(<<AlenB0:AlenSize/binary>>),
+    State = State0#{alen => Alen},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"[Nlen = ", NlenB0/binary>>|Next], State0, Acc) ->
+    NlenSize = size(NlenB0) - 1, % remove closing ']'
+    Nlen = decstr2int(<<NlenB0:NlenSize/binary>>),
+    State = State0#{nlen => Nlen},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"[Plen = ", PlenB0/binary>>|Next], State0, Acc) ->
+    PlenSize = size(PlenB0) - 1, % remove closing ']'
+    Plen = decstr2int(<<PlenB0:PlenSize/binary>>),
+    State = State0#{plen => Plen},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"[Tlen = ", TlenB0/binary>>|Next], State0, Acc) ->
+    TlenSize = size(TlenB0) - 1, % remove closing ']'
+    Tlen = decstr2int(<<TlenB0:TlenSize/binary>>),
+    State = State0#{tlen => Tlen},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Alen = ", B/binary>>|Next], State0, Acc) ->
+    State = State0#{alen => decstr2int(B)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Plen = ", B/binary>>|Next], State0, Acc) ->
+    State = State0#{plen => decstr2int(B)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Count = ", B/binary>>|Next], State0, Acc) ->
+    State = State0#{count => B},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Nlen = ", B/binary>>|Next], State0, Acc) ->
+    State = State0#{nlen => decstr2int(B)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Tlen = ", B/binary>>|Next], State0, Acc) ->
+    State = State0#{tlen => decstr2int(B)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Key = ",Key/binary>>|Next], State0, Acc) ->
+    State = State0#{key => hexstr2bin(Key)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Nonce = ",Nonce/binary>>|Next], State0, Acc) ->
+    State = State0#{nonce => hexstr2bin(Nonce)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Adata = ",Adata/binary>>|Next], State0, Acc) ->
+    State = State0#{adata => hexstr2bin(Adata)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type, [<<"Payload = ",Payload/binary>>|Next], State0, Acc) ->
+    State = State0#{payload => hexstr2bin(Payload)},
+    parse_rsp(Type, Next, State, Acc);
+parse_rsp(Type,
+          [<<"CT = ", CT/binary>>|Next],
+          #{count := Count,
+            file := File,
+            alen := Alen,
+            plen := Plen,
+            nlen := Nlen,
+            tlen := Tlen,
+            key := Key,
+            nonce := IV,
+            adata := Adata,
+            payload := Payload
+           } = State, Acc) ->
+    AAD = <<Adata:Alen/binary>>,
+    PlainText = <<Payload:Plen/binary>>,
+    <<CipherText:Plen/binary, CipherTag:Tlen/binary>> = hexstr2bin(CT),
+    TestCase = {Type,
+                Key,
+                PlainText,
+                IV,
+                AAD,
+                CipherText,
+                CipherTag,
+                Tlen,
+                {File,decstr2int(Count)}},
+    parse_rsp(Type, Next, State, [TestCase|Acc]);
+parse_rsp(Type, [_|Next], State, Acc) ->
+    parse_rsp(Type, Next, State, Acc).
 
-parse_rsp(Type, [_|Next], Acc) ->
-    parse_rsp(Type, Next, Acc).
 
-parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, Acc) ->
+parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, State, Acc) ->
     Key = hexstr2bin(Key0),
     Mlen = binary_to_integer(Mlen0),
     <<Msg:Mlen/bytes, _/binary>> = hexstr2bin(Msg0),
@@ -2967,9 +3089,9 @@ parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, Acc) ->
 
     case binary_to_integer(Tlen) of
         0 ->
-            parse_rsp(Type, Next, [{Type, Key, Msg, MAC}|Acc]);
+            parse_rsp(Type, Next, State, [{Type, Key, Msg, MAC}|Acc]);
         I ->
-            parse_rsp(Type, Next, [{Type, Key, Msg, I, MAC}|Acc])
+            parse_rsp(Type, Next, State, [{Type, Key, Msg, I, MAC}|Acc])
     end.
 
 api_errors_ecdh(Config) when is_list(Config) ->
