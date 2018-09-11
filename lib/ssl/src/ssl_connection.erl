@@ -60,7 +60,7 @@
 
 %% Help functions for tls|dtls_connection.erl
 -export([handle_session/7, ssl_config/3,
-	 prepare_connection/2, hibernate_after/3, map_extensions/1]).
+	 prepare_connection/2, hibernate_after/3]).
 
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
@@ -1427,7 +1427,7 @@ security_info(#state{connection_states = ConnectionStates}) ->
 	ssl_record:current_connection_state(ConnectionStates, read),
     [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}].
 
-do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
+do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
 		    ServerHelloExt,
 		#state{negotiated_version = Version,
 		       session = #session{session_id = SessId},
@@ -2351,22 +2351,6 @@ hibernate_after(connection = StateName,
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
 
-map_extensions(#hello_extensions{renegotiation_info = RenegotiationInfo,
-                                 signature_algs = SigAlg,          
-                                 alpn = Alpn,
-                                 next_protocol_negotiation = Next, 
-                                 srp = SRP,
-                                 ec_point_formats = ECPointFmt,
-                                 elliptic_curves = ECCCurves,
-                                 sni = SNI}) ->
-    #{renegotiation_info => ssl_handshake:extension_value(RenegotiationInfo),
-      signature_algs =>  ssl_handshake:extension_value(SigAlg),
-      alpn =>  ssl_handshake:extension_value(Alpn),
-      srp  => ssl_handshake:extension_value(SRP),
-      next_protocol => ssl_handshake:extension_value(Next),
-      ec_point_formats  => ssl_handshake:extension_value(ECPointFmt),
-      elliptic_curves => ssl_handshake:extension_value(ECCCurves),
-      sni => ssl_handshake:extension_value(SNI)}.
 
 terminate_alert(normal) ->
     ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY);

@@ -169,10 +169,7 @@ handle_client_hello(Version,
                                   cipher_suites = CipherSuites,
                                   compression_methods = Compressions,
                                   random = Random,
-                                  extensions =
-                                      #hello_extensions{elliptic_curves = Curves,
-                                                        signature_algs = ClientHashSigns} 
-                                  = HelloExt},
+                                  extensions = HelloExt},
 		    #ssl_options{versions = Versions,
 				 signature_algs = SupportedHashSigns,
                                  eccs = SupportedECCs,
@@ -181,6 +178,8 @@ handle_client_hello(Version,
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
+            Curves = maps:get(elliptic_curves, HelloExt, undefined),
+            ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert,TLSVersion),
@@ -335,7 +334,7 @@ decode_handshake(Version, <<?BYTE(Type), Bin/binary>>) ->
 
 decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
     #hello_request{};
-decode_handshake(_Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
+decode_handshake(Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
 					    ?UINT24(_),  ?UINT24(_), 
 					    ?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
@@ -343,8 +342,9 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
 					    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
 					    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
 					    Extensions/binary>>) ->
-    
-    DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
+    TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    Exts = ssl_handshake:decode_vector(Extensions),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, client),
 
     #client_hello{
        client_version = {Major,Minor},

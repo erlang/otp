@@ -57,10 +57,10 @@
 	]).
 
 %% Encode
--export([encode_handshake/2, encode_hello_extensions/1,
+-export([encode_handshake/2, encode_hello_extensions/1, encode_extensions/1, encode_extensions/2,
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
--export([decode_handshake/3, decode_hello_extensions/1,
+-export([decode_handshake/3, decode_vector/1, decode_hello_extensions/3, decode_extensions/1,
 	 decode_server_key/3, decode_client_key/3,
 	 decode_suites/2
 	]).
@@ -93,7 +93,7 @@ hello_request() ->
 
 %%--------------------------------------------------------------------
 -spec server_hello(#session{}, ssl_record:ssl_version(), ssl_record:connection_states(),
-		   #hello_extensions{}) -> #server_hello{}.
+		   Extension::map()) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
@@ -532,7 +532,7 @@ encode_handshake(#server_hello{server_version = {Major, Minor},
 			       session_id = Session_ID,
 			       cipher_suite = CipherSuite,
 			       compression_method = Comp_method,
-			       extensions = #hello_extensions{} = Extensions}, _Version) ->
+			       extensions = Extensions}, _Version) ->
 			SID_length = byte_size(Session_ID),
     ExtensionsBin = encode_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
@@ -582,92 +582,93 @@ encode_handshake(#certificate_verify{signature = BinSig, hashsign_algorithm = Ha
 encode_handshake(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
-encode_hello_extensions(#hello_extensions{} = Extensions) ->
-    encode_hello_extensions(hello_extensions_list(Extensions), <<>>).
-encode_hello_extensions([], <<>>) ->
+encode_hello_extensions(Extensions) ->
+    encode_extensions(hello_extensions_list(Extensions), <<>>).
+
+encode_extensions(Exts) ->
+    encode_extensions(Exts, <<>>).
+    
+encode_extensions([], <<>>) ->
     <<>>;
-encode_hello_extensions([], Acc) ->
+encode_extensions([], Acc) ->
     Size = byte_size(Acc),
     <<?UINT16(Size), Acc/binary>>;
-
-encode_hello_extensions([#alpn{extension_data = ExtensionData} | Rest], Acc) ->
-	Len = byte_size(ExtensionData),
-    ExtLen = Len + 2,
-	encode_hello_extensions(Rest, <<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
-					ExtensionData/binary, Acc/binary>>);
-encode_hello_extensions([#next_protocol_negotiation{extension_data = ExtensionData} | Rest], Acc) ->
+encode_extensions([#alpn{extension_data = ExtensionData} | Rest], Acc) ->
     Len = byte_size(ExtensionData),
-    encode_hello_extensions(Rest, <<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
+    ExtLen = Len + 2,
+    encode_extensions(Rest, <<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
+                              ExtensionData/binary, Acc/binary>>);
+encode_extensions([#next_protocol_negotiation{extension_data = ExtensionData} | Rest], Acc) ->
+    Len = byte_size(ExtensionData),
+    encode_extensions(Rest, <<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
 				    ExtensionData/binary, Acc/binary>>);
-encode_hello_extensions([#renegotiation_info{renegotiated_connection = undefined} | Rest], Acc) ->
-    encode_hello_extensions(Rest, Acc);
-encode_hello_extensions([#renegotiation_info{renegotiated_connection = ?byte(0) = Info} | Rest], Acc) ->
+encode_extensions([#renegotiation_info{renegotiated_connection = undefined} | Rest], Acc) ->
+    encode_extensions(Rest, Acc);
+encode_extensions([#renegotiation_info{renegotiated_connection = ?byte(0) = Info} | Rest], Acc) ->
     Len = byte_size(Info),
-    encode_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info/binary, Acc/binary>>);
+    encode_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info/binary, Acc/binary>>);
 
-encode_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest], Acc) ->
+encode_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest], Acc) ->
     InfoLen = byte_size(Info),
     Len = InfoLen +1,
-    encode_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen),
+    encode_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen),
 				    Info/binary, Acc/binary>>);
-encode_hello_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest], Acc) ->
+encode_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest], Acc) ->
 
     EllipticCurveList = << <<(tls_v1:oid_to_enum(X)):16>> || X <- EllipticCurves>>,
     ListLen = byte_size(EllipticCurveList),
     Len = ListLen + 2,
-    encode_hello_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
+    encode_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary, Acc/binary>>);
-encode_hello_extensions([#ec_point_formats{ec_point_format_list = ECPointFormats} | Rest], Acc) ->
+encode_extensions([#ec_point_formats{ec_point_format_list = ECPointFormats} | Rest], Acc) ->
     ECPointFormatList = list_to_binary(ECPointFormats),
     ListLen = byte_size(ECPointFormatList),
     Len = ListLen + 1,
-    encode_hello_extensions(Rest, <<?UINT16(?EC_POINT_FORMATS_EXT),
+    encode_extensions(Rest, <<?UINT16(?EC_POINT_FORMATS_EXT),
 				 ?UINT16(Len), ?BYTE(ListLen), ECPointFormatList/binary, Acc/binary>>);
-encode_hello_extensions([#srp{username = UserName} | Rest], Acc) ->
+encode_extensions([#srp{username = UserName} | Rest], Acc) ->
     SRPLen = byte_size(UserName),
     Len = SRPLen + 2,
-    encode_hello_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
+    encode_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 				    UserName/binary, Acc/binary>>);
-encode_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
+encode_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
     SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
 		       {Hash, Sign} <- HashSignAlgos >>,
     ListLen = byte_size(SignAlgoList),
     Len = ListLen + 2,
-    encode_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
+    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>);
-encode_hello_extensions([#signature_scheme_list{
+encode_extensions([#signature_scheme_list{
                             signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
     SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- SignatureSchemes >>,
     ListLen = byte_size(SignSchemeList),
     Len = ListLen + 2,
-    encode_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT),
+    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
-encode_hello_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
+encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
     HostLen = length(Hostname),
     HostnameBin = list_to_binary(Hostname),
     % Hostname type (1 byte) + Hostname length (2 bytes) + Hostname (HostLen bytes)
     ServerNameLength = 1 + 2 + HostLen,
     % ServerNameListSize (2 bytes) + ServerNameLength
     ExtLength = 2 + ServerNameLength,
-    encode_hello_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(ExtLength),
-				    ?UINT16(ServerNameLength),
-				    ?BYTE(?SNI_NAMETYPE_HOST_NAME),
-				    ?UINT16(HostLen), HostnameBin/binary,
-				    Acc/binary>>);
-encode_hello_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(ExtLength),
+                              ?UINT16(ServerNameLength),
+                              ?BYTE(?SNI_NAMETYPE_HOST_NAME),
+                              ?UINT16(HostLen), HostnameBin/binary,
+                              Acc/binary>>);
+encode_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
     Versions = encode_versions(Versions0),
     VerLen = byte_size(Versions),
     Len = VerLen + 2,
-    encode_hello_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
+    encode_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
                                     ?UINT16(Len), ?UINT16(VerLen), Versions/binary, Acc/binary>>);
-encode_hello_extensions([#server_hello_selected_version{selected_version = Version0} | Rest], Acc) ->
-    Version = encode_versions(Version0),
+encode_extensions([#server_hello_selected_version{selected_version = Version0} | Rest], Acc) ->
+    Version = encode_versions([Version0]),
     Len = byte_size(Version), %% 2
-    encode_hello_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
+    encode_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
                                     ?UINT16(Len), Version/binary, Acc/binary>>).
-
-
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -693,7 +694,7 @@ decode_handshake(_, ?NEXT_PROTOCOL, <<?BYTE(SelectedProtocolLength),
 				      ?BYTE(PaddingLength), _Padding:PaddingLength/binary>>) ->
     #next_protocol{selected_protocol = SelectedProtocol};
 
-decode_handshake(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
 					    Cipher_suite:2/binary, ?BYTE(Comp_method)>>) ->
     #server_hello{
@@ -702,14 +703,14 @@ decode_handshake(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:3
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
        compression_method = Comp_method,
-       extensions = #hello_extensions{}};
+       extensions = empty_hello_extensions(Version, server)};
 
-decode_handshake(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       Cipher_suite:2/binary, ?BYTE(Comp_method),
 		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
 
-    HelloExtensions = decode_hello_extensions(Extensions),
+    HelloExtensions = decode_hello_extensions(Extensions, Version, server),
 
     #server_hello{
        server_version = {Major,Minor},
@@ -752,17 +753,34 @@ decode_handshake(_Version, ?FINISHED, VerifyData) ->
 decode_handshake(_, Message, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {unknown_or_malformed_handshake, Message})).
 
+
 %%--------------------------------------------------------------------
--spec decode_hello_extensions({client, binary()} | binary()) -> #hello_extensions{}.
+-spec decode_vector(binary()) -> binary().
+%%
+%% Description: Remove length tag from TLS Vector type. Needed
+%% for client hello when extensions in older versions may be empty.
+%% 
+%%--------------------------------------------------------------------
+decode_vector(<<>>) ->
+    <<>>;
+decode_vector(<<?UINT16(Len), Vector:Len/binary>>) ->
+    Vector.
+
+%%--------------------------------------------------------------------
+-spec decode_hello_extensions(binary(), tls_record:version(), client | server) -> map().
 %%
 %% Description: Decodes TLS hello extensions
 %%--------------------------------------------------------------------
-decode_hello_extensions({client, <<>>}) ->
-    #hello_extensions{};
-decode_hello_extensions({client, <<?UINT16(ExtLen), Extensions:ExtLen/binary>>}) ->
-    decode_hello_extensions(Extensions);
-decode_hello_extensions(Extensions) ->
-    dec_hello_extensions(Extensions, #hello_extensions{}).
+decode_hello_extensions(Extensions, Version, Role) ->
+    decode_extensions(Extensions, empty_hello_extensions(Version, Role)).
+
+%%--------------------------------------------------------------------
+-spec decode_extensions(binary()) -> map().
+%%
+%% Description: Decodes TLS hello extensions
+%%--------------------------------------------------------------------
+decode_extensions(Extensions) ->
+    decode_extensions(Extensions, empty_extensions()).
 
 %%--------------------------------------------------------------------
 -spec decode_server_key(binary(), ssl_cipher_format:key_algo(), ssl_record:ssl_version()) ->
@@ -979,57 +997,52 @@ client_hello_extensions(Version, CipherSuites,
 	end,
     SRP = srp_user(SslOpts),
 
-    HelloExtensions =
-        #hello_extensions{
-           renegotiation_info = renegotiation_info(tls_record, client,
-                                                   ConnectionStates, Renegotiation),
-           srp = SRP,
-           signature_algs = available_signature_algs(SupportedHashSigns, Version),
-           ec_point_formats = EcPointFormats,
-           elliptic_curves = EllipticCurves,
-           alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
-           next_protocol_negotiation =
-               encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
-                                                  Renegotiation),
-           sni = sni(SslOpts#ssl_options.server_name_indication)},
+    HelloExtensions = #{renegotiation_info => renegotiation_info(tls_record, client,
+                                                                 ConnectionStates, Renegotiation),
+                        srp => SRP,
+                        signature_algs => available_signature_algs(SupportedHashSigns, Version),
+                        ec_point_formats => EcPointFormats,
+                        elliptic_curves => EllipticCurves,
+                        alpn => encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
+                        next_protocol_negotiation =>
+                            encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
+                                                               Renegotiation),
+                        sni => sni(SslOpts#ssl_options.server_name_indication)
+                       },
 
     %% Add "supported_versions" extension if TLS 1.3
     case Version of
         {3,4} ->
-            HelloExtensions#hello_extensions{
-              client_hello_versions = #client_hello_versions{
-                                         versions = Versions},
-              signature_algs_cert = #signature_scheme_list{
-                                       signature_scheme_list = SignatureSchemes}};
+            HelloExtensions#{client_hello_versions => 
+                                 #client_hello_versions{versions = Versions},
+                             signature_algs_cert => 
+                                 #signature_scheme_list{signature_scheme_list = SignatureSchemes}};
         _Else ->
             HelloExtensions
     end.
 
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
-			       #hello_extensions{renegotiation_info = Info,
-						 srp = SRP,
-						 ec_point_formats = ECCFormat,
-						 alpn = ALPN,
-						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
+                               Exts, Version,
 			       #ssl_options{secure_renegotiate = SecureRenegotation,
                                             alpn_preferred_protocols = ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite,
 					compression_method = Compression} = Session0,
 			       ConnectionStates0, Renegotiation) ->
-    Session = handle_srp_extension(SRP, Session0),
-    ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, Info,
+    Session = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
+    ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, maps:get(renegotiation_info, Exts, undefined),
 						      Random, NegotiatedCipherSuite, 
 						      ClientCipherSuites, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
 
-    ServerHelloExtensions =  #hello_extensions{
-				renegotiation_info = renegotiation_info(RecordCB, server,
-									ConnectionStates, Renegotiation),
-				ec_point_formats = server_ecc_extension(Version, ECCFormat)
-			       },
-
+    Empty = empty_hello_extensions(Version, client),
+    ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
+                                                                            ConnectionStates, Renegotiation),
+                                   ec_point_formats => server_ecc_extension(Version, maps:get(ec_point_formats, Exts, undefined))
+                                  },
+    
     %% If we receive an ALPN extension and have ALPN configured for this connection,
     %% we handle it. Otherwise we check for the NPN extension.
+    ALPN = maps:get(alpn, Exts, undefined),
     if
         ALPN =/= undefined, ALPNPreferredProtocols =/= undefined ->
 			case handle_alpn_extension(ALPNPreferredProtocols, decode_alpn(ALPN)) of
@@ -1037,35 +1050,36 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                     Alert;
                 Protocol ->
                     {Session, ConnectionStates, Protocol,
-                        ServerHelloExtensions#hello_extensions{alpn=encode_alpn([Protocol], Renegotiation)}}
+                        ServerHelloExtensions#{alpn => encode_alpn([Protocol], Renegotiation)}}
             end;
         true ->
+            NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
             ProtocolsToAdvertise = handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, Opts),
             {Session, ConnectionStates, undefined,
-				ServerHelloExtensions#hello_extensions{next_protocol_negotiation=
-                	encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
+             ServerHelloExtensions#{next_protocol_negotiation =>
+                                        encode_protocols_advertised_on_server(ProtocolsToAdvertise)}}
     end.
 
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
-			       #hello_extensions{renegotiation_info = Info,
-                                                 alpn = ALPN,
-						 next_protocol_negotiation = NextProtocolNegotiation}, Version,
+                               Exts, Version,
 			       #ssl_options{secure_renegotiate = SecureRenegotation,
 					    next_protocol_selector = NextProtoSelector},
 			       ConnectionStates0, Renegotiation) ->
-    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version, Info, Random, 
+    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  maps:get(renegotiation_info, Exts, undefined), Random, 
 						      CipherSuite, undefined,
 						      Compression, ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
 
     %% If we receive an ALPN extension then this is the protocol selected,
     %% otherwise handle the NPN extension.
+    ALPN = maps:get(alpn, Exts, undefined),
     case decode_alpn(ALPN) of
         %% ServerHello contains exactly one protocol: the one selected.
         %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
         [Protocol] when not Renegotiation ->
             {ConnectionStates, alpn, Protocol};
         undefined ->
+            NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
             case handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation) of
                 #alert{} = Alert ->
                     Alert;
@@ -1823,21 +1837,8 @@ encode_versions([{M,N}|T], Acc) ->
     encode_versions(T, <<?BYTE(M),?BYTE(N),Acc/binary>>).
 
 
-hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
-					srp = SRP,
-					signature_algs = HashSigns,
-                                        signature_algs_cert = SignatureSchemes,
-					ec_point_formats = EcPointFormats,
-					elliptic_curves = EllipticCurves,
-                                        alpn = ALPN,
-					next_protocol_negotiation = NextProtocolNegotiation,
-					sni = Sni,
-                                        client_hello_versions = Versions,
-                                        server_hello_selected_version = Version}) ->
-    [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns, SignatureSchemes,
-		    EcPointFormats, EllipticCurves, ALPN,
-                    NextProtocolNegotiation, Sni,
-                    Versions, Version], Ext =/= undefined].
+hello_extensions_list(HelloExtensions) ->
+    [Ext || {_, Ext} <- maps:to_list(HelloExtensions), Ext =/= undefined].
 
 %%-------------Decode handshakes---------------------------------
 dec_server_key(<<?UINT16(PLen), P:PLen/binary,
@@ -1977,16 +1978,16 @@ dec_server_key_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
 dec_server_key_signature(_, _, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, failed_to_decrypt_server_key_sign)).
 
-dec_hello_extensions(<<>>, Acc) ->
+decode_extensions(<<>>, Acc) ->
     Acc;
-dec_hello_extensions(<<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc)
+decode_extensions(<<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc)
         when Len + 2 =:= ExtLen ->
     ALPN = #alpn{extension_data = ExtensionData},
-    dec_hello_extensions(Rest, Acc#hello_extensions{alpn = ALPN});
-dec_hello_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc) ->
+    decode_extensions(Rest, Acc#{alpn => ALPN});
+decode_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc) ->
     NextP = #next_protocol_negotiation{extension_data = ExtensionData},
-    dec_hello_extensions(Rest, Acc#hello_extensions{next_protocol_negotiation = NextP});
-dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binary, Rest/binary>>, Acc) ->
+    decode_extensions(Rest, Acc#{next_protocol_negotiation => NextP});
+decode_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binary, Rest/binary>>, Acc) ->
     RenegotiateInfo = case Len of
 			  1 ->  % Initial handshake
 			      Info; % should be <<0>> will be matched in handle_renegotiation_info
@@ -1995,34 +1996,34 @@ dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binar
 			      <<?BYTE(VerifyLen), VerifyInfo/binary>> = Info,
 			      VerifyInfo
 		      end,
-    dec_hello_extensions(Rest, Acc#hello_extensions{renegotiation_info =
-							#renegotiation_info{renegotiated_connection =
-										RenegotiateInfo}});
+    decode_extensions(Rest, Acc#{renegotiation_info =>
+                                     #renegotiation_info{renegotiated_connection =
+                                                             RenegotiateInfo}});
 
-dec_hello_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen), SRP:SRPLen/binary, Rest/binary>>, Acc)
+decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen), SRP:SRPLen/binary, Rest/binary>>, Acc)
   when Len == SRPLen + 2 ->
-    dec_hello_extensions(Rest,  Acc#hello_extensions{srp = #srp{username = SRP}});
+    decode_extensions(Rest,  Acc#{srp => #srp{username = SRP}});
 
-dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
 			<<?BYTE(Hash), ?BYTE(Sign)>> <= SignAlgoList],
-    dec_hello_extensions(Rest, Acc#hello_extensions{signature_algs =
-						    #hash_sign_algos{hash_sign_algos = HashSignAlgos}});
+    decode_extensions(Rest, Acc#{signature_algs =>
+                                     #hash_sign_algos{hash_sign_algos = HashSignAlgos}});
 
-dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
     SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
 			<<?UINT16(SignScheme)>> <= SignSchemeList],
-    dec_hello_extensions(Rest, Acc#hello_extensions{signature_algs_cert =
-                                                        #signature_scheme_list{
-                                                           signature_scheme_list = SignSchemes}});
+    decode_extensions(Rest, Acc#{signature_algs_cert =>
+                                     #signature_scheme_list{
+                                        signature_scheme_list = SignSchemes}});
 
-dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     %% Ignore unknown curves
@@ -2035,44 +2036,42 @@ dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		   end
 	   end,
     EllipticCurves = lists:filtermap(Pick, [ECC || <<ECC:16>> <= EllipticCurveList]),
-    dec_hello_extensions(Rest, Acc#hello_extensions{elliptic_curves =
-							#elliptic_curves{elliptic_curve_list =
-									     EllipticCurves}});
-dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
+    decode_extensions(Rest, Acc#{elliptic_curves =>
+                                     #elliptic_curves{elliptic_curve_list =
+                                                          EllipticCurves}});
+decode_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?BYTE(_), ECPointFormatList/binary>> = ExtData,
     ECPointFormats = binary_to_list(ECPointFormatList),
-    dec_hello_extensions(Rest, Acc#hello_extensions{ec_point_formats =
-							#ec_point_formats{ec_point_format_list =
-									      ECPointFormats}});
+    decode_extensions(Rest, Acc#{ec_point_formats =>
+                                     #ec_point_formats{ec_point_format_list =
+                                                           ECPointFormats}});
 
-dec_hello_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len), Rest/binary>>, Acc) when Len == 0 ->
-    dec_hello_extensions(Rest, Acc#hello_extensions{sni = #sni{hostname = ""}}); %% Server may send an empy SNI
+decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len), Rest/binary>>, Acc) when Len == 0 ->
+    decode_extensions(Rest, Acc#{sni => #sni{hostname = ""}}); %% Server may send an empy SNI
 
-dec_hello_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
                 ExtData:Len/binary, Rest/binary>>, Acc) ->
     <<?UINT16(_), NameList/binary>> = ExtData,
-    dec_hello_extensions(Rest, Acc#hello_extensions{sni = dec_sni(NameList)});
+    decode_extensions(Rest, Acc#{sni => dec_sni(NameList)});
 
-dec_hello_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>, Acc) when Len > 2 ->
     <<?UINT16(_),Versions/binary>> = ExtData,
-    dec_hello_extensions(Rest, Acc#hello_extensions{
-                                 client_hello_versions =
+    decode_extensions(Rest, Acc#{client_hello_versions =>
                                      #client_hello_versions{versions = decode_versions(Versions)}});
 
-dec_hello_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                        ?UINT16(Version), Rest/binary>>, Acc) when Len =:= 2, Version =:= 16#0304 ->
-    dec_hello_extensions(Rest, Acc#hello_extensions{
-                                 server_hello_selected_version =
-                                     #server_hello_selected_version{selected_version = [{3,4}]}});
+    decode_extensions(Rest, Acc#{server_hello_selected_version =>
+                                     #server_hello_selected_version{selected_version = {3,4}}});
 
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
-dec_hello_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Acc) ->
-    dec_hello_extensions(Rest, Acc);
+decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Acc) ->
+    decode_extensions(Rest, Acc);
 %% This theoretically should not happen if the protocol is followed, but if it does it is ignored.
-dec_hello_extensions(_, Acc) ->
+decode_extensions(_, Acc) ->
     Acc.
 
 dec_hashsign(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
@@ -2576,4 +2575,39 @@ cert_curve(Cert, ECCCurve0, CipherSuite) ->
             {ECCCurve0, CipherSuite}
     end.
 
-   
+empty_hello_extensions({3, 4}, server) ->
+    #{server_hello_selected_version => undefined,
+      key_share => undefined,
+      pre_shared_key => undefined,
+      sni => undefined
+     };
+empty_hello_extensions({3, 4}, client) -> 
+    #{client_hello_versions => undefined,
+      signature_algs => undefined,
+      signature_algs_cert => undefined,
+      sni => undefined,
+      alpn => undefined,
+      key_share => undefined,
+      pre_shared_key => undefined
+     };
+empty_hello_extensions({3, 3}, client) -> 
+    Ext = empty_hello_extensions({3,2}, client),
+    Ext#{client_hello_versions => undefined,
+         signature_algs => undefined,
+         signature_algs_cert => undefined};
+empty_hello_extensions(_, client) ->
+    #{renegotiation_info => undefined,
+      alpn => undefined,
+      next_protocol_negotiation => undefined,
+      srp => undefined,
+      ec_point_formats => undefined,
+      elliptic_curves => undefined,
+      sni => undefined};
+empty_hello_extensions(_, server) ->
+    #{renegotiation_info => undefined,
+      alpn => undefined,
+      next_protocol_negotiation => undefined,
+      ec_point_formats => undefined,
+      sni => undefined}.
+empty_extensions() ->
+     #{}.

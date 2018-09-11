@@ -104,15 +104,13 @@ decode_hello_handshake(_Config) ->
 							 #ssl_options{}),
 
     {Hello, _Data} = hd(Records),
-    #renegotiation_info{renegotiated_connection = <<0>>}
-	= (Hello#server_hello.extensions)#hello_extensions.renegotiation_info.
-
+    Extensions = Hello#server_hello.extensions,
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_single_hello_extension_correctly(_Config) -> 
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(Renegotiation),
-    #renegotiation_info{renegotiated_connection = <<0>>}
-	= Extensions#hello_extensions.renegotiation_info.
+    Extensions = ssl_handshake:decode_extensions(Renegotiation),
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     % List of supported and unsupported curves (RFC4492:S5.1.1)
@@ -123,37 +121,34 @@ decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     Len = ListLen + 2,
     Extension = <<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary>>,
     % after decoding we should see only valid curves
-    #hello_extensions{elliptic_curves = DecodedCurves} = ssl_handshake:decode_hello_extensions(Extension),
-    #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]} = DecodedCurves.
+    Extensions = ssl_handshake:decode_hello_extensions(Extension, {3,2}, client),
+    #{elliptic_curves := #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]}} = Extensions. 
 
 decode_unknown_hello_extension_correctly(_Config) ->
     FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>),
-     #renegotiation_info{renegotiated_connection = <<0>>}
-	= Extensions#hello_extensions.renegotiation_info.
+    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, {3,2}, client),
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
+
 
 encode_single_hello_sni_extension_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
     SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
     ExtSize = byte_size(SNI),
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
-    Encoded = ssl_handshake:encode_hello_extensions(Exts),
+    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}]),
     HelloExt = Encoded.
 
 decode_single_hello_sni_extension_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
     SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI),
-    Exts = Decoded.
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, client),
+    #{sni := #sni{hostname = "test.com"}} = Decoded.
 
 decode_empty_server_sni_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = ""}},
     SNI = <<?UINT16(?SNI_EXT),?UINT16(0)>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI),
-    Exts = Decoded.
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, server),
+    #{sni := #sni{hostname = ""}} = Decoded.
 
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
