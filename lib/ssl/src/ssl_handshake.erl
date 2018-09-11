@@ -1109,7 +1109,9 @@ select_curve(undefined, _, _) ->
 select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
                                                    KeyExAlgo == ecdh_anon;
                                                    KeyExAlgo == srp_anon;
-                                                   KeyExAlgo == psk ->
+                                                   KeyExAlgo == psk;
+                                                   KeyExAlgo == dhe_psk;
+                                                   KeyExAlgo == ecdhe_psk ->
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
