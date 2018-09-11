@@ -173,7 +173,6 @@
 #if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) - 7) \
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
-// EXPERIMENTAL:
 # define HAVE_ED_CURVE_DH
 #endif
 
@@ -4148,7 +4147,6 @@ out_err:
 #endif
 }
 
-// EXPERIMENTAL!
 static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*    (Curve, PeerBin, MyBin) */
 {
@@ -4204,7 +4202,6 @@ static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 #endif
 }
 
-// EXPERIMENTAL!
 static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (Curve) */
 {
@@ -4221,22 +4218,20 @@ static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
     if (!(ctx = EVP_PKEY_CTX_new_id(type, NULL))) return enif_make_badarg(env);
 
-    if (!EVP_PKEY_keygen_init(ctx)) return enif_make_atom(env,"EVP_PKEY_keygen_init failed");
-    if (!EVP_PKEY_keygen(ctx, &pkey)) return enif_make_atom(env,"EVP_PKEY_keygen failed");
+    if (!EVP_PKEY_keygen_init(ctx)) return atom_error;
+    if (!EVP_PKEY_keygen(ctx, &pkey)) return atom_error;
 
-    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len))
-        return enif_make_atom(env,"EVP_PKEY_get_raw_public_key 1 failed");
+    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len)) return atom_error;
     if (!EVP_PKEY_get_raw_public_key(pkey,
                                      enif_make_new_binary(env, key_len, &ret_pub),
                                      &key_len))
-        return enif_make_atom(env,"EVP_PKEY_get_raw_public_key 2 failed");
+        return atom_error;
 
-    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len))
-        return enif_make_atom(env,"EVP_PKEY_get_raw_private_key 1 failed");
+    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len)) return atom_error;
     if (!EVP_PKEY_get_raw_private_key(pkey,
                                       enif_make_new_binary(env, key_len, &ret_prv),
                                       &key_len))
-        return enif_make_atom(env,"EVP_PKEY_get_raw_private_key 2 failed");
+        return atom_error;
 
     return enif_make_tuple2(env, ret_pub, ret_prv);
 #else
