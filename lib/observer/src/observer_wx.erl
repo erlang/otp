@@ -39,6 +39,8 @@
 -define(ID_NOTEBOOK, 3).
 -define(ID_CDV,      4).
 -define(ID_LOGVIEW, 5).
+-define(FIRST_PLUGINS_MENU_ID, 10).
+-define(LAST_PLUGINS_MENU_ID, 20).
 
 -define(FIRST_NODES_MENU_ID, 1000).
 -define(LAST_NODES_MENU_ID,  2000).
@@ -61,7 +63,8 @@
 	 prev_node="",
 	 log = false,
 	 reply_to=false,
-         config
+	 config,
+	 plugins
 	}).
 
 start() ->
@@ -119,7 +122,8 @@ setup(#state{frame = Frame} = State) ->
     MenuBar = wxMenuBar:new(),
 
     {Nodes, NodeMenus} = get_nodes(),
-    DefMenus = default_menus(NodeMenus),
+    {Plugins, PluginsMenus} = get_plugins(),
+    DefMenus = default_menus(NodeMenus, PluginsMenus),
     observer_lib:create_menus(DefMenus, MenuBar, default),
 
     wxFrame:setMenuBar(Frame, MenuBar),
@@ -209,7 +213,8 @@ setup(#state{frame = Frame} = State) ->
 			   active_tab = SysPid,
                            panels = Panels,
 			   node  = node(),
-			   nodes = Nodes
+			   nodes = Nodes,
+			   plugins = Plugins
 			  },
     %% Create resources which we don't want to duplicate
     SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
@@ -366,6 +371,37 @@ handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}},
 		 false -> State
              end,
     {noreply, change_node_view(Node, LState)};
+
+handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}},
+	     #state{plugins= Ns} = State)
+  when Id > ?FIRST_PLUGINS_MENU_ID, Id =< ?LAST_PLUGINS_MENU_ID ->
+    {N, {M, F, A}} = case lists:nth(Id - ?FIRST_PLUGINS_MENU_ID, Ns) of
+                        {N0, {M0, F0, [], node}} -> {N0, {M0, F0, [State#state.node]}};
+                        {N0, {M0, F0, A0, node}} -> {N0, {M0, F0, A0 ++ [State#state.node]}};
+                        {N0, {M0, F0, A0}} -> {N0, {M0, F0, A0}}
+                     end,
+    Env = wx:get_env(),
+    spawn(fun() ->
+           wx:set_env(Env),
+           WO = try
+		   erlang:apply(M, F, A)
+		catch
+		   throw:T1 -> T1
+		end,
+           Pid = try
+		   wx_object:get_pid(WO)
+		 catch
+		   throw:T2 -> T2
+		 end,
+           case Pid of
+               Pid when is_pid(Pid) ->
+                       erlang:monitor(process, Pid),
+                       set_status("Plugin started : " ++ N);
+               _  -> io:format("~ts : ~p~n", [N, WO]),
+                       set_status(io_lib:format("Plugin ~ts : start error", [N]))
+           end
+        end),
+    {noreply, State};
 
 handle_event(Event, #state{active_tab=Pid} = State) ->
     Pid ! Event,
@@ -656,7 +692,7 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
 	    cancel
     end.
 
-default_menus(NodesMenuItems) ->
+default_menus(NodesMenuItems, PluginsMenu) ->
     CDV   = #create_menu{id = ?ID_CDV, text = "Examine Crashdump"},
     Quit  = #create_menu{id = ?wxID_EXIT, text = "Quit"},
     About = #create_menu{id = ?wxID_ABOUT, text = "About"},
@@ -673,7 +709,7 @@ default_menus(NodesMenuItems) ->
 	false ->
 	    FileMenu = {"File", [CDV, Quit]},
 	    HelpMenu = {"Help", [About,Help]},
-	    [FileMenu, NodeMenu, LogMenu, HelpMenu];
+	    lists:flatten([FileMenu, NodeMenu, LogMenu, PluginsMenu, HelpMenu]);
 	true ->
 	    %% On Mac quit and about will be moved to the "default' place
 	    %% automagicly, so just add them to a menu that always exist.
@@ -806,7 +842,7 @@ is_rb_compatible(Node) ->
 
 is_rb_server_running(Node, LogState) ->
    %% If already started, somebody else may use it.
-   %% We can not use it too, as far log file would be overriden. Not fair.
+   %% We cannot use it too, as far log file would be overriden. Not fair.
    case rpc:block_call(Node, erlang, whereis, [rb_server]) of
        Pid when is_pid(Pid), (LogState == false) ->
 	   throw("Error: rb_server is already started and maybe used by someone.");
@@ -815,3 +851,22 @@ is_rb_server_running(Node, LogState) ->
        undefined ->
 	   ok
    end.
+
+get_plugins() ->
+   %% Returns optional plugins to add to menu, otherwise []
+   application:load(observer),
+   case application:get_env(observer, plugins) of
+      undefined -> {[], []};
+      {ok, P}  -> % Add only valid parameters
+            F = lists:filter(fun(X) -> case X of
+                                          {_N, {_M, _F, _A}} -> true;
+                                          {_N, {_M, _F, _A, node}} -> true;
+                                          _ -> io:format("~p~n",[{invalid, X}]), false end end , P),
+            {Plugins, _} = lists:split((?LAST_PLUGINS_MENU_ID - ?FIRST_PLUGINS_MENU_ID), lists:usort(F)),
+            {_, PMenues} = lists:foldl(fun({N, _}, {Id, Acc}) when Id =< ?LAST_PLUGINS_MENU_ID ->
+                                       {Id + 1, [#create_menu{id=Id + ?FIRST_PLUGINS_MENU_ID,
+                                                              text=N} | Acc]}
+                                       end, {1, []}, Plugins),
+         {Plugins, {"Plugins",lists:reverse(PMenues)}}
+   end.
+

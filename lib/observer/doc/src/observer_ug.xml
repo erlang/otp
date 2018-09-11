@@ -355,4 +355,143 @@
     in application STDLIB.
     </p>
   </section>
+
+  <section>
+    <title>Plugins</title>
+    <p>Other third party graphical user interfaces can be added to Observer menu.
+       If any declared, a menu entry 'Plugins' is shown, otherwise not.
+    </p>
+    <p>Plugins have to be declared in <c>observer</c> application configuration,
+       as a list of tuple <c>{NameString, StartMFA}</c> under a key <c>plugins</c>.
+       Plugin names will be sorted in alphabetic order in menu, and a maximum of ten plugins
+       kept. If more are declared only first ten (sorted) ones will be available.
+    </p>
+    <p>
+       <c>NameString</c> is the name of application to display in Plugins menu.
+       <c>StartMFA</c> is the start command MFA , as a 3 or 4 elements tuple.
+       Atom 'node' as fourth tuple element will add the current node observed by Observer as last argument of start command.
+    </p>
+    <list type="bulleted">
+       <item><c>{M, F, []}</c> Start without any argument.</item>
+       <item><c>{M, F, A}</c> Start with argument list A.</item>
+       <item><c>{M, F, A, node}</c> Start with current observed node as last argument of list A.</item>
+    </list>
+    <p>
+    Start command must return a <c>wx_object()</c> like <c>wx:new/0</c>.
+    </p>
+    <p>Configuration example :</p>
+       <code type="none"><![CDATA[
+       [
+         {observer, [ {plugins, [
+                                    { "My app",      {myapp_gui, start, [], node}},
+                                    { "Another app", {another, gui, []}},
+                                    { "A third app", {acme, start, [debug, verbose]}},
+                                    { "A funny app", {funny, ui, [{log_level, 3}], node}}
+                                ]}
+                    ]}
+       ].]]></code>
+    <p>Example of a minimalist plugin restarting applications on observed node.
+       Note that <c>init:restart/0</c> on local node will close Observer,
+       so better using this on a remote observed node.
+    </p>
+    <warning>
+         <p>To prevent the observer from being closed, please do not call
+  	 <c>wx:destroy()</c> from your plugins.</p>
+    </warning>
+    <code type="none"><![CDATA[
+         -module(opdemo).
+
+         -include_lib("wx/include/wx.hrl").
+
+         -behaviour(wx_object).
+
+         -export([start/0, start/1, start_link/0, start_link/1]).
+
+         -export([init/1, handle_call/3, handle_event/2,
+               handle_info/2, handle_cast/2, code_change/3, terminate/2]).
+
+         -record(state,
+            {frame
+            ,node
+            }).
+
+         start() ->
+            start([]).
+
+         start(Args) ->
+            wx_object:start(?MODULE, Args, []).
+
+         start_link() ->
+            start_link([]).
+
+         start_link(Args) ->
+            wx_object:start_link(?MODULE, Args, []).
+
+         init(Node) ->
+            TNode = case Node of
+                        X when is_atom(X) -> X;
+                        _  -> erlang:node() % default to current node
+                     end,
+            Parent = wx:new(),
+            process_flag(trap_exit, true),
+
+            Text = atom_to_list(?MODULE),
+            MiniFrame = wxMiniFrame:new(Parent, ?wxID_ANY, Text, [{style,
+                                    ?wxDEFAULT_FRAME_STYLE bor
+                                    ?wxFRAME_FLOAT_ON_PARENT}]),
+            Panel = wxPanel:new(MiniFrame, []),
+
+            % Add a button to  restart all application of given node
+            Sz = wxBoxSizer:new(?wxVERTICAL),
+            ButtSz = wxStaticBoxSizer:new(?wxHORIZONTAL, Panel,
+                     [{label, atom_to_list(TNode)}]),
+            SzFlags = [{proportion, 0}, {border, 4}, {flag, ?wxALL}],
+            B  = wxButton:new(Panel, 10, [{label,"Restart applications"}]),
+            wxSizer:add(ButtSz, B, SzFlags),
+
+            wxMiniFrame:setSize(MiniFrame, {150,100}),
+            wxMiniFrame:center(MiniFrame),
+            wxMiniFrame:show(MiniFrame),
+            wxWindow:connect(Panel, command_button_clicked),
+            wxWindow:setSizer(Panel, Sz),
+            wxSizer:layout(Sz),
+            wxWindow:refresh(Panel),
+            {MiniFrame, #state{frame=MiniFrame ,node = TNode}}.
+
+         %%%%%%%%%%%%
+         %% Callbacks
+
+         handle_info({'EXIT',_, wx_deleted}, State) ->
+            {noreply,State};
+         handle_info({'EXIT',_, shutdown}, State) ->
+            {noreply,State};
+         handle_info({'EXIT',_, normal}, State) ->
+            {noreply,State};
+         handle_info(_, State) ->
+            {noreply,State}.
+
+         handle_call(_, _From, State) ->
+            {reply,ok,State}.
+
+         handle_cast(_, State) ->
+            {noreply,State}.
+
+         handle_event({wx,10, _, _,
+                     {wxCommand,command_button_clicked,_,_,_}}, State) ->
+            % Restart applications on node
+            Res = rpc:call(State#state.node, init, restart, []),
+            io:format("restarting application on ~p : ~p~n", [State#state.node, Res]),
+            {noreply,State};
+         handle_event(Ev,State) ->
+            io:format("~p Got uncaught event ~p ~n",[?MODULE, Ev]),
+            {noreply, State}.
+
+         code_change(_, _, State) ->
+            {stop, not_yet_implemented, State}.
+
+         terminate(_Reason, _State = #state{frame=Frame}) ->
+            wxMiniFrame:destroy(Frame),
+            ok.
+       .]]></code>
+  </section>
 </chapter>
