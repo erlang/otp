@@ -319,6 +319,7 @@ call(Request) ->
     case get(?LOGGER_SERVER_TAG) of
         true when
               Action == add_handler; Action == remove_handler;
+              Action == add_filter; Action == remove_filter;
               Action == update_config; Action == set_config ->
             {error,{attempting_syncronous_call_to_self,Request}};
         _ ->
