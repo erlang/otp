@@ -136,8 +136,54 @@ compressions(_) ->
 client_random(_) ->
     crypto:strong_rand_bytes(32).
        
-client_extensions(_) ->
-    #hello_extensions{}.
+client_extensions(?'TLS_v1.3' = Version) ->
+    #hello_extensions{
+       client_hello_versions =
+           #client_hello_versions{
+              versions = supported_versions(Version)
+             },
+       signature_algs_cert =
+           #signature_scheme_list{
+              signature_scheme_list = signature_scheme_list()
+             }
+      };
+client_extensions(Version) ->
+    #hello_extensions{
+       client_hello_versions =
+           #client_hello_versions{
+              versions = supported_versions(Version)
+             }
+      }.
+
+signature_scheme_list() ->
+    oneof([[rsa_pkcs1_sha256],
+           [rsa_pkcs1_sha256, ecdsa_sha1],
+           [rsa_pkcs1_sha256,
+            rsa_pkcs1_sha384,
+            rsa_pkcs1_sha512,
+            ecdsa_secp256r1_sha256,
+            ecdsa_secp384r1_sha384,
+            ecdsa_secp521r1_sha512,
+            rsa_pss_rsae_sha256,
+            rsa_pss_rsae_sha384,
+            rsa_pss_rsae_sha512,
+            rsa_pss_pss_sha256,
+            rsa_pss_pss_sha384,
+            rsa_pss_pss_sha512,
+            rsa_pkcs1_sha1,
+            ecdsa_sha1]
+          ]).
+
+supported_versions(?'TLS_v1.3') ->
+    oneof([[{3,4}],
+           [{3,3},{3,4}],
+           [{3,4},{3,3},{3,2},{3,1},{3,0}]
+          ]);
+supported_versions(_) ->
+    oneof([[{3,3}],
+           [{3,3},{3,2}],
+           [{3,3},{3,2},{3,1},{3,0}]
+          ]).
 
 key_update() ->
     #key_update{request_update = request_update()}.
