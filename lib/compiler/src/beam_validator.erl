@@ -1919,6 +1919,12 @@ is_bif_safe(self, 0) -> true;
 is_bif_safe(node, 0) -> true;
 is_bif_safe(_, _) -> false.
 
+arith_type([A], Vst) ->
+    %% Unary '+' or '-'.
+    case get_term_type(A, Vst) of
+	{float,_} -> {float,[]};
+        _ -> number
+    end;
 arith_type([A,B], Vst) ->
     case {get_term_type(A, Vst),get_term_type(B, Vst)} of
 	{{float,_},_} -> {float,[]};
