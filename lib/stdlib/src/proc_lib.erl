@@ -757,6 +757,7 @@ check(Res)               -> Res.
 report_cb(#{label:={proc_lib,crash}, report:=CrashReport}, Extra) ->
     Default = #{chars_limit => unlimited,
                 depth => unlimited,
+                single_line => false,
                 encoding => utf8},
     do_format(CrashReport, maps:merge(Default,Extra)).
 
@@ -780,33 +781,48 @@ format(CrashReport, Encoding) ->
 format(CrashReport, Encoding, Depth) ->
     do_format(CrashReport, #{chars_limit => unlimited,
                              depth => Depth,
-                             encoding => Encoding}).
+                             encoding => Encoding,
+                             single_line => false}).
 
-do_format([OwnReport,LinkReport], Extra) ->
-    MyIndent = "    ",
+do_format([OwnReport,LinkReport], #{single_line:=Single}=Extra) ->
+    Indent = if Single -> "";
+                true -> "  "
+             end,
+    MyIndent = Indent ++ Indent,
+    Sep = nl(Single,"; "),
     OwnFormat = format_report(OwnReport, MyIndent, Extra),
-    LinkFormat = format_link_report(LinkReport, MyIndent, Extra),
-    Str = io_lib:format("  crasher:~n~ts  neighbours:~n~ts",
-                        [OwnFormat, LinkFormat]),
+    LinkFormat = lists:join(Sep,format_link_report(LinkReport, MyIndent, Extra)),
+    Nl = nl(Single," "),
+    Str = io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~sneighbours:"++Nl++"~ts",
+                        [Indent,OwnFormat,Indent,LinkFormat]),
     lists:flatten(Str).
 
-format_link_report([Link|Reps], Indent, Extra) ->
+format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
     Rep = case Link of
               {neighbour,Rep0} -> Rep0;
               _ -> Link
           end,
+    Indent = if Single -> "";
+                true -> Indent0
+             end,
     LinkIndent = ["  ",Indent],
-    [Indent,"neighbour:\n",format_report(Rep, LinkIndent, Extra)|
+    [[Indent,"neighbour:",nl(Single," "),format_report(Rep, LinkIndent, Extra)]|
      format_link_report(Reps, Indent, Extra)];
 format_link_report(Rep, Indent, Extra) ->
     format_report(Rep, Indent, Extra).
 
-format_report(Rep, Indent, Extra) when is_list(Rep) ->
-    format_rep(Rep, Indent, Extra);
-format_report(Rep, Indent, #{encoding:=Enc,depth:=unlimited}) ->
-    io_lib:format("~s~"++modifier(Enc)++"p~n", [Indent, Rep]);
-format_report(Rep, Indent, #{encoding:=Enc,depth:=Depth}) ->
-    io_lib:format("~s~"++modifier(Enc)++"P~n", [Indent, Rep, Depth]).
+format_report(Rep, Indent, #{single_line:=Single}=Extra) when is_list(Rep) ->
+    lists:join(nl(Single,", "),format_rep(Rep, Indent, Extra));
+format_report(Rep, Indent0, #{encoding:=Enc,depth:=Depth,
+                              chars_limit:=Limit,single_line:=Single}) ->
+    {P,Tl} = p(Enc,Depth),
+    {Indent,Width} = if Single -> {"","0"};
+                        true -> {Indent0,""}
+                     end,
+    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
+              true -> []
+           end,
+    io_lib:format("~s~"++Width++P, [Indent, Rep | Tl], Opts).
 
 format_rep([{initial_call,InitialCall}|Rep], Indent, Extra) ->
     [format_mfa(Indent, InitialCall, Extra)|format_rep(Rep, Indent, Extra)];
@@ -818,19 +834,32 @@ format_rep([{Tag,Data}|Rep], Indent, Extra) ->
 format_rep(_, _, _Extra) ->
     [].
 
-format_exception(Class, Reason, StackTrace, #{encoding:=Enc}=Extra) ->
+format_exception(Class, Reason, StackTrace,
+                 #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,
+                   single_line:=Single}=Extra) ->
     PF = pp_fun(Extra),
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
-    %% EI = "    exception: ",
-    EI = "    ",
-    [EI, erl_error:format_exception(1+length(EI), Class, Reason,
-                                    StackTrace, StackFun, PF, Enc), "\n"].
+    if Single ->
+            {P,Tl} = p(Enc,Depth),
+            Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
+                      true -> []
+                   end,
+            [atom_to_list(Class), ": ",
+             io_lib:format("~0"++P,[{Reason,StackTrace}|Tl],Opts)];
+       true ->
+            EI = "    ",
+            [EI, erl_error:format_exception(1+length(EI), Class, Reason,
+                                            StackTrace, StackFun, PF, Enc)]
+    end.
 
-format_mfa(Indent, {M,F,Args}=StartF, #{encoding:=Enc}=Extra) ->
+format_mfa(Indent0, {M,F,Args}=StartF, #{encoding:=Enc,single_line:=Single}=Extra) ->
+    Indent = if Single -> "";
+                true -> Indent0
+             end,
     try
 	A = length(Args),
 	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
-	 integer_to_list(A),"\n"]
+	 integer_to_list(A)]
     catch
 	error:_ ->
 	    format_tag(Indent, initial_call, StartF, Extra)
@@ -841,21 +870,29 @@ to_string(A, latin1) ->
 to_string(A, _) ->
     io_lib:write_atom(A).
 
-pp_fun(#{encoding:=Enc,depth:=Depth,chars_limit:=Limit}) ->
+pp_fun(#{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
     {P,Tl} = p(Enc, Depth),
+    Width = if Single -> "0";
+               true -> ""
+            end,
     Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
               true -> []
            end,
     fun(Term, I) -> 
-            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term|Tl], Opts)
+            io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
+                          [Term|Tl], Opts)
     end.
 
-format_tag(Indent, Tag, Data, #{encoding:=Enc,depth:=Depth,chars_limit:=Limit}) ->
+format_tag(Indent0, Tag, Data, #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
     {P,Tl} = p(Enc, Depth),
+    {Indent,Width} = if Single -> {"","0"};
+                        true -> {Indent0,""}
+                     end,
     Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
               true -> []
            end,
-    io_lib:format("~s~p: ~80.18" ++ P ++ "\n", [Indent, Tag, Data|Tl], Opts).
+    io_lib:format("~s~" ++ Width ++ "p: ~" ++ Width ++ ".18" ++ P,
+                  [Indent, Tag, Data|Tl], Opts).
 
 p(Encoding, Depth) ->
     {Letter, Tl}  = case Depth of
@@ -868,6 +905,8 @@ p(Encoding, Depth) ->
 modifier(latin1) -> "";
 modifier(_) -> "t".
 
+nl(true,Else) -> Else;
+nl(false,_) -> "\n".
 
 %%% -----------------------------------------------------------
 %%% Stop a process and wait for it to terminate
