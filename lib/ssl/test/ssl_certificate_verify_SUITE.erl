@@ -88,7 +88,8 @@ tests() ->
      critical_extension_verify_client,
      critical_extension_verify_server,
      critical_extension_verify_none,
-     customize_hostname_check
+     customize_hostname_check,
+     incomplete_chain
     ].
 
 error_handling_tests()->
@@ -1197,6 +1198,39 @@ customize_hostname_check(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+incomplete_chain() ->
+    [{doc,"Test option verify_peer"}].
+incomplete_chain(Config) when is_list(Config) ->
+    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
+    #{server_config := ServerConf,
+      client_config := ClientConf} = public_key:pkix_test_data(CertChainConf),
+    [ServerRoot| _] = ServerCas = proplists:get_value(cacerts, ServerConf),
+    ClientCas = proplists:get_value(cacerts, ClientConf),
+
+    Active = proplists:get_value(active, Config),
+    ReceiveFunction =  proplists:get_value(receive_function, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                                        {options, [{active, Active}, {verify, verify_peer},
+                                                   {cacerts, [ServerRoot]} |  
+                                                   proplists:delete(cacerts, ServerConf)]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                                        {options, [{active, Active}, 
+                                                   {verify, verify_peer},
+                                                   {cacerts,  ServerCas ++ ClientCas} | 
+                                                   proplists:delete(cacerts, ClientConf)]}]),
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
