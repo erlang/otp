@@ -3897,7 +3897,7 @@ unfold_try_clauses(Cs) ->
 
 unfold_try_clause({clause, Pos, [{tuple, _, [{atom, _, throw},
                                              V,
-                                             [{var, _, '_'}]]}],
+                                             {var, _, '_'}]}],
 		   Guard, Body}) ->
     {clause, Pos, [V], Guard, Body};
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V, Stacktrace]}],
