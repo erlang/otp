@@ -60,6 +60,10 @@ static int references_atoms_need_init = 1;
 static ErtsMonotonicTime orig_node_tab_delete_delay;
 static ErtsMonotonicTime node_tab_delete_delay;
 
+
+static void report_gc_active_dist_entry(Eterm sysname, enum dist_entry_state);
+
+
 /* -- The distribution table ---------------------------------------------- */
 
 #define ErtsBin2DistEntry(B) \
@@ -412,44 +416,6 @@ static void schedule_delete_dist_entry(DistEntry* dep)
 static void
 start_timer_delete_dist_entry(void *vdep)
 {
-    DistEntry *dep = vdep;
-    Eterm sysname;
-    enum dist_entry_state state;
-    Uint32 connection_id;
-
-    erts_de_rlock(dep);
-    state = dep->state;
-    connection_id = dep->connection_id;
-    sysname = dep->sysname;
-    erts_de_runlock(dep);
-
-    if (state != ERTS_DE_STATE_IDLE) {
-        char *state_str;
-        erts_dsprintf_buf_t *dsbuf = erts_create_logger_dsbuf();
-        switch (state) {
-        case ERTS_DE_STATE_CONNECTED:
-            state_str = "connected";
-            break;
-        case ERTS_DE_STATE_PENDING:
-            state_str = "pending connect";
-            break;
-        case ERTS_DE_STATE_EXITING:
-            state_str = "exiting";
-            break;
-        case ERTS_DE_STATE_IDLE:
-            state_str = "idle";
-            break;
-        default:
-            state_str = "unknown";
-            break;
-        }
-        erts_dsprintf(dsbuf, "Garbage collecting distribution "
-                      "entry for node %T in state: %s",
-                      sysname, state_str);
-        erts_send_error_to_logger_nogl(dsbuf);
-        erts_abort_connection(dep, connection_id);
-    }
-    
     if (node_tab_delete_delay == 0) {
         prepare_try_delete_dist_entry(vdep);
     }
@@ -489,6 +455,19 @@ static void try_delete_dist_entry(DistEntry* dep)
 {
     erts_aint_t refc;
 
+    erts_de_rwlock(dep);
+    if (dep->state != ERTS_DE_STATE_IDLE && de_refc_read(dep,0) == 0) {
+        Eterm sysname = dep->sysname;
+        enum dist_entry_state state  = dep->state;
+
+        if (dep->state != ERTS_DE_STATE_PENDING)
+            ERTS_INTERNAL_ERROR("Garbage collecting connected distribution entry");
+        erts_abort_connection_rwunlock(dep);
+        report_gc_active_dist_entry(sysname, state);
+    }
+    else
+        erts_de_rwunlock(dep);
+
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
     /*
      * Another thread might have looked up this dist entry after
@@ -513,6 +492,34 @@ static void try_delete_dist_entry(DistEntry* dep)
     if (refc == 0) {
         schedule_delete_dist_entry(dep);
     }
+}
+
+static void report_gc_active_dist_entry(Eterm sysname,
+                                        enum dist_entry_state state)
+{
+    char *state_str;
+    erts_dsprintf_buf_t *dsbuf = erts_create_logger_dsbuf();
+    switch (state) {
+    case ERTS_DE_STATE_CONNECTED:
+        state_str = "connected";
+        break;
+    case ERTS_DE_STATE_PENDING:
+        state_str = "pending connect";
+        break;
+    case ERTS_DE_STATE_EXITING:
+        state_str = "exiting";
+        break;
+    case ERTS_DE_STATE_IDLE:
+        state_str = "idle";
+        break;
+    default:
+        state_str = "unknown";
+        break;
+    }
+    erts_dsprintf(dsbuf, "Garbage collecting distribution "
+                  "entry for node %T in state: %s",
+                  sysname, state_str);
+    erts_send_error_to_logger_nogl(dsbuf);
 }
 
 int erts_dist_entry_destructor(Binary *bin)
