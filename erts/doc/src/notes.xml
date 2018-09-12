@@ -31,6 +31,36 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    As of ERTS version 10.0 (OTP 21.0) the
+	    <c>erl_child_setup</c> program, which creates port
+	    programs, ignores <c>TERM</c> signals. This setting was
+	    unintentionally inherited by port programs. Handling of
+	    <c>TERM</c> signals in port programs has now been
+	    restored to the default behavior. That is, terminate the
+	    process.</p>
+          <p>
+	    Own Id: OTP-15289 Aux Id: ERIERL-235, OTP-14943, ERL-576 </p>
+        </item>
+        <item>
+          <p>
+	    The fix made for OTP-15279 in erts-10.07 (OTP-21.0.8) was
+	    not complete. It could cause a new connection attempt to
+	    be incorrectly aborted in certain cases. This fix will
+	    amend that flaw.</p>
+          <p>
+	    Own Id: OTP-15296 Aux Id: OTP-15279, ERIERL-226 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
