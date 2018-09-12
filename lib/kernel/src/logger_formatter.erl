@@ -165,7 +165,7 @@ format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,1
                        Meta,Config)
     end;
 format_msg({report,Report},#{report_cb:=Fun}=Meta,Config) when is_function(Fun,2) ->
-    try Fun(Report,maps:with([depth,chars_limit],Config)) of
+    try Fun(Report,maps:with([depth,chars_limit,single_line],Config)) of
         Chardata when ?IS_STRING(Chardata) ->
             try chardata_to_list(Chardata) % already size limited by report_cb
             catch _:_ ->
