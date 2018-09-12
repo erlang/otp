@@ -338,7 +338,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         Opts, CRLDbHandle, Role, Host) ->    
 
     ServerName = server_name(Opts#ssl_options.server_name_indication, Host, Role),
-    [PeerCert | _] = ASN1Certs,       
+    [PeerCert | ChainCerts ] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
@@ -347,14 +347,14 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                          CertDbHandle, CertDbRef, ServerName,
                                                          Opts#ssl_options.customize_hostname_check,
                                                          Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
-	case public_key:pkix_path_validation(TrustedCert,
-					     CertPath,
-					     [{max_path_length,  Opts#ssl_options.depth},
-					      {verify_fun, ValidationFunAndState}]) of
+        Options = [{max_path_length, Opts#ssl_options.depth},
+                   {verify_fun, ValidationFunAndState}],
+	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
 	    {ok, {PublicKeyInfo,_}} ->
 		{PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
-		path_validation_alert(Reason)
+		handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options, 
+                                             CertDbHandle, CertDbRef)
 	end
     catch
 	error:{badmatch,{asn1, Asn1Reason}} ->
@@ -363,7 +363,6 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         error:OtherReason ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
     end.
-
 %%--------------------------------------------------------------------
 -spec certificate_verify(binary(), public_key_info(), ssl_record:ssl_version(), term(),
 			 binary(), ssl_handshake_history()) -> valid | #alert{}.
@@ -1363,6 +1362,45 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath) 
 	    {unknown, {SslState, UserState}}
     end.
 
+handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,  
+                             Opts, Options, CertDbHandle, CertsDbRef) ->
+    handle_incomplete_chain(PeerCert, Chain, Opts, Options, CertDbHandle, CertsDbRef, Reason);
+handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chain0, 
+			     Opts, Options, CertDbHandle, CertsDbRef) ->
+    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef, Chain0) of
+	{ok, _, [PeerCert | Chain] = OrdedChain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
+            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(OrdedChain,
+                                                                    CertDbHandle, CertsDbRef,
+                                                                    Opts#ssl_options.partial_chain),
+            case public_key:pkix_path_validation(Trusted, Path, Options) of
+		{ok, {PublicKeyInfo,_}} ->
+		    {PeerCert, PublicKeyInfo};
+                {error, PathError} ->
+		    handle_path_validation_error(PathError, PeerCert, Path,
+                                                 Opts, Options, CertDbHandle, CertsDbRef)
+	    end;
+        _ ->
+            path_validation_alert(Reason)
+    end;
+handle_path_validation_error(Reason, _, _, _, _,_, _) ->
+    path_validation_alert(Reason).
+
+handle_incomplete_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError0) ->
+    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
+        {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
+            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
+                                                                    CertDbHandle, CertsDbRef,
+                                                                    Opts#ssl_options.partial_chain),
+            case public_key:pkix_path_validation(Trusted, Path, Options) of
+		{ok, {PublicKeyInfo,_}} ->
+		    {PeerCert, PublicKeyInfo};
+                {error, PathError} ->
+		    path_validation_alert(PathError)
+	    end;
+        _ ->
+            path_validation_alert(PathError0)
+    end.
+
 path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
 path_validation_alert({bad_cert, invalid_issuer}) ->
@@ -1375,8 +1413,6 @@ path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
-%%path_validation_alert({bad_cert, revocation_status_undetermined}) ->
-%%   ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
     Alert = ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE),
     Alert#alert{reason = Details};
