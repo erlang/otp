@@ -1135,11 +1135,22 @@ ets:select(Table, MatchSpec),</code>
               Functions that makes such promises over many objects (like
               <seealso marker="#insert/2"><c>insert/2</c></seealso>)
               gain less (or nothing) from this option.</p>
-            <p>Table type <c>ordered_set</c> is not affected by this option.
-              Also, the memory consumption inflicted by
-              both <c>write_concurrency</c> and <c>read_concurrency</c> is a
-              constant overhead per table. This overhead can be especially
-              large when both options are combined.</p>
+            <p>The memory consumption inflicted by both <c>write_concurrency</c>
+	      and <c>read_concurrency</c> is a constant overhead per table for
+	      <c>set</c>, <c>bag</c> and <c>duplicate_bag</c>. For
+	      <c>ordered_set</c> the memory overhead depends on the number
+	      of inserted objects and the amount of actual detected
+	      concurrency. The memory overhead can be especially large when both
+	      options are combined.</p>
+	    <note>
+              <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
+	      effect on <c>ordered_set</c>.</p>
+	      <p>The current implementation of <c>write_concurrency</c> for
+	      <c>ordered_set</c> does only improve explicit single key
+	      operations. Mixing single key operations with operations
+	      potentially accessing multiple keys may even yield worse
+	      performance with <c>write_concurrency</c> on <c>ordered_set</c>.</p>
+            </note>
             <marker id="new_2_read_concurrency"></marker>
           </item>
           <tag><c>{read_concurrency,boolean()}</c></tag>
