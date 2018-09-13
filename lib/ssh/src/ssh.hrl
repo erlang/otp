@@ -260,13 +260,7 @@
                       | accept_callback()
                       | {HashAlgoSpec::fp_digest_alg(), accept_callback()}.
 
--type fp_digest_alg() :: 'md5' |
-                        'sha' |
-                        'sha224' |
-                        'sha256' |
-                        'sha384' |
-                        'sha512'
-                        .
+-type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
 
 -type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) .
 -type fingerprint() :: string() | [string()].

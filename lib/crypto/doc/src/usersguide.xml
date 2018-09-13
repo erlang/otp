@@ -50,4 +50,5 @@
   <xi:include href="fips.xml"/>
   <xi:include href="engine_load.xml"/>
   <xi:include href="engine_keys.xml"/>
+  <xi:include href="algorithm_details.xml"/>
 </part>
