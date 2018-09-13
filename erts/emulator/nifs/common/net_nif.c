@@ -241,9 +241,6 @@ static NetData data;
 extern char* erl_errno_id(int error);
 
 
-static ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
-                                  int                argc,
-                                  const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
@@ -439,8 +436,8 @@ static ErlNifResourceTypeInit netInit = {
  *
  * Utility and admin functions:
  * ----------------------------
- * nif_is_loaded/0
  * nif_info/0
+ * nif_command/1
  *
  * The "proper" net functions:
  * ------------------------------
@@ -452,27 +449,6 @@ static ErlNifResourceTypeInit netInit = {
  * nif_if_names/0
  *
  */
-
-
-/* ----------------------------------------------------------------------
- * nif_is_loaded
- *
- * Description:
- * This functions only purpose is to return the atom 'true'.
- * This will happen *if* the (socket) nif library is loaded.
- * If its not, the erlang (nif_is_loaded) will instead return
- * 'false'.
- */
-static
-ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
-                           int                argc,
-                           const ERL_NIF_TERM argv[])
-{
-    if (argc != 0)
-        return enif_make_badarg(env);
-
-    return esock_atom_true;
-}
 
 
 /* ----------------------------------------------------------------------
@@ -1522,7 +1498,6 @@ static
 ErlNifFunc net_funcs[] =
 {
     // Some utility functions
-    {"nif_is_loaded", 0, nif_is_loaded, 0},
     {"nif_info",      0, nif_info,      0},
     {"nif_command",   1, nif_command,   0}, // Shall we let this be dirty?
 

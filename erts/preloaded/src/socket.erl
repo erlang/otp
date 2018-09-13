@@ -20,11 +20,12 @@
 
 -module(socket).
 
+-compile(no_native).
 -compile({no_auto_import,[error/1]}).
 
 %% Administrative and "global" utility functions
 -export([
-	 on_load/0, on_load/1, on_load/2,
+	 on_load/0, on_load/1,
 	 info/0,
          ensure_sockaddr/1
         ]).
@@ -112,8 +113,8 @@
               msghdr/0,
               cmsghdr_level/0,
               cmsghdr_type/0,
-              cmsghdr_data/0,
-              cmsghdr/0,
+              %% cmsghdr_data/0,
+              cmsghdr_recv/0, cmsghdr_send/0,
 
               uint8/0,
               uint16/0,
@@ -311,7 +312,7 @@
 %% Int    - Raw level, sent down and used "as is".
 -type sockopt_level() :: otp |
                          socket |
-                         ip | ipv6 | tcp | udp | sctp | raw |
+                         ip | ipv6 | tcp | udp | sctp |
                          non_neg_integer().
 
 %% There are some options that are 'read-only'.
@@ -546,7 +547,7 @@
                     %% The maximum size of the control buffer is platform
                     %% specific. It is the users responsibility to ensure 
                     %% that its not exceeded.
-                    ctrl  := [cmsghdr()],
+                    ctrl  := [cmsghdr_recv()] | [cmsghdr_send()],
 
                     %% Only valid with recvmsg
                     flags := msghdr_flags()
@@ -555,7 +556,7 @@
 %% Even if we are able to decode both level and type, we may not be
 %% able to decode the data, in which case it will be a binary.
 
--type cmsghdr_level() :: socket | protocol() | integer().
+-type cmsghdr_level() :: socket | ip | ipv6 | integer().
 -type cmsghdr_type()  :: timestamp |
                          pktinfo |
                          tos |
@@ -564,18 +565,44 @@
                          credentials |
                          origdstaddr |
                          integer().
--type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
-                        ip_pktinfo()   | % if level = ip and type = pktinfo
-                        ipv6_pktinfo() | % if level = ipv6 and type = pktinfo
-                        ip_tos()       | % if level = ip and type = tos
-                        integer()      | % if level = ip and type = ttl
-                        sockaddr_in4() | % if level = ip and type = origdstaddr
-                        binary().
--type cmsghdr() :: #{
-                     level := cmsghdr_level(),
-                     type  := cmsghdr_type(),
-                     data  := cmsghdr_data()
-                    }.
+%% Do we need this? See cmsghdr()
+%% -type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
+%%                         ip_pktinfo()   | % if level = ip and type = pktinfo
+%%                         ipv6_pktinfo() | % if level = ipv6 and type = pktinfo
+%%                         ip_tos()       | % if level = ip and type = tos
+%%                         integer()      | % if level = ip and type = ttl
+%%                         sockaddr_in4() | % if level = ip and type = origdstaddr
+%%                         binary().
+%% -type cmsghdr() :: #{
+%%                      level := cmsghdr_level(),
+%%                      type  := cmsghdr_type(),
+%%                      data  := cmsghdr_data()
+%%                     }.
+
+-type cmsghdr_recv() :: 
+        #{level := socket,    type := timestamp,   data := timeval()}      |
+        #{level := socket,    type := rights,      data := binary()}       |
+        #{level := socket,    type := credentials, data := binary()}       |
+        #{level := socket,    type := integer(),   data := binary()}       |
+        #{level := ip,        type := tos,         data := ip_tos()}       |
+        #{level := ip,        type := ttl,         data := integer()}      |
+        #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
+        #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
+        #{level := ip,        type := integer(),   data := binary()}       |
+        #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+        #{level := ipv6,      type := integer(),   data := binary()}       |
+        #{level := integer(), type := integer(),   data := binary()}.
+
+
+-type cmsghdr_send() :: 
+        #{level := socket,    type := integer(), data := binary()} |
+        #{level := ip,        type := tos,       data := ip_tos()  | binary()} |
+        #{level := ip,        type := ttl,       data := integer() | binary()} |
+        #{level := ip,        type := integer(), data := binary()} |
+        #{level := ipv6,      type := integer(), data := binary()} |
+        #{level := udp,       type := integer(), data := binary()} |
+        #{level := integer(), type := integer(), data := binary()}.
+
 
 -define(SOCKET_DOMAIN_LOCAL, 1).
 -define(SOCKET_DOMAIN_UNIX,  ?SOCKET_DOMAIN_LOCAL).
@@ -630,10 +657,12 @@
 -define(SOCKET_OPT_LEVEL_UDP,            5).
 -define(SOCKET_OPT_LEVEL_SCTP,           6).
 
+%% *** OTP (socket) options
 -define(SOCKET_OPT_OTP_DEBUG,            1).
 -define(SOCKET_OPT_OTP_IOW,              2).
 -define(SOCKET_OPT_OTP_CTRL_PROC,        3).
 
+%% *** SOCKET (socket) options
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
 %% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2). % FreeBSD
 -define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
@@ -667,6 +696,7 @@
 -define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
 -define(SOCKET_OPT_SOCK_TYPE,           32).
 
+%% *** IP (socket) options
 -define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
 -define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
 -define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
@@ -701,6 +731,7 @@
 -define(SOCKET_OPT_IP_TTL,                   32).
 -define(SOCKET_OPT_IP_UNBLOCK_SOURCE,        33).
 
+%% *** IPv6 (socket) options
 -define(SOCKET_OPT_IPV6_ADDRFORM,           1).
 -define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
 -define(SOCKET_OPT_IPV6_AUTHHDR,            3). % Obsolete?
@@ -734,6 +765,7 @@
 %% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       31). % FreeBSD
 -define(SOCKET_OPT_IPV6_V6ONLY,            32).
 
+%% *** TCP (socket) options
 -define(SOCKET_OPT_TCP_CONGESTION,      1).
 -define(SOCKET_OPT_TCP_CORK,            2).
 %% -define(SOCKET_OPT_TCP_INFO,            3).
@@ -748,8 +780,10 @@
 %% -define(SOCKET_OPT_TCP_SYNCNT,         12).
 %% -define(SOCKET_OPT_TCP_USER_TIMEOUT,   13).
 
+%% *** UDP (socket) options
 -define(SOCKET_OPT_UDP_CORK,            1).
 
+%% *** SCTP (socket) options
 %% -define(SOCKET_OPT_SCTP_ADAPTION_LAYER,          1).
 -define(SOCKET_OPT_SCTP_ASSOCINFO,               2).
 %% -define(SOCKET_OPT_SCTP_AUTH_ACTIVE_KEY,         3).
@@ -802,23 +836,10 @@ on_load() ->
     on_load(#{}).
 
 -spec on_load(Extra) -> ok when
-      Extra :: maps:map().
+      Extra :: map().
 
-on_load(Extra) when is_map(Extra) ->
-    on_load(atom_to_list(?MODULE), Extra).
-
--spec on_load(Path, Extra) -> ok when
-      Path  :: string(),
-      Extra :: maps:map().
-
-on_load(Path, Extra) when is_list(Path) andalso is_map(Extra) ->
-    on_load(nif_is_loaded(), Path, Extra).
-
-on_load(true, _Path, _Extra) ->
-    ok;
-on_load(false, Path, Extra) ->
-    %% ok = erlang:load_nif(Path, maps:put(timestamp, formated_timestamp(), Extra)).
-    ok = erlang:load_nif(Path, Extra).
+on_load(Extra) ->
+    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
 
 
 
@@ -1022,8 +1043,8 @@ bind(#socket{ref = SockRef}, Addrs, Action)
   when is_list(Addrs) andalso ((Action =:= add) orelse (Action =:= remove)) ->
     try
         begin
-            ensure_type(seqpacket, which_type(SockRef)),
-            ensure_proto(sctp, which_protocol(SockRef)),
+            ensure_type(SockRef, seqpacket),
+            ensure_proto(SockRef, sctp),
             validate_addrs(which_domain(SockRef), Addrs),
             nif_bind(SockRef, Addrs, Action)
         end
@@ -1508,38 +1529,6 @@ ensure_msghdr(_) ->
     einval().
 
 
-
-%% send(Sock, #{ctrl = Ctrl} = MsgHdr, Flags) when is_list(Ctrl) ->
-%%     case encode_cmsghdrs(Ctrl) of
-%%         undefined ->
-%%             send(Sock, maps:remove(ctrl, MsgHdr), Flags);
-%%         Ctrl2 ->
-%%             send(Sock, MsgHdr#{ctrl = Ctrl2}, Flags)
-%%     end.
-    
-%% encode_cmsghdrs([]) ->
-%%     undefined;
-%% encode_cmsghdrs(Hdrs) ->
-%%     encode_cmsghdrs(Hdrs, []).
-
-%% encode_cmsghdrs([], Acc) ->
-%%     list_to_binary(lists:reverse(Acc));
-%% encode_cmsghdrs([H|T], Acc) when is_binary(H) ->
-%%     encode_cmsghdrs(T, [H|Acc]);
-%% encode_cmsghdrs([#{level := Level,
-%%                    type  := Type,
-%%                    data  := Data} | T], Acc) ->
-%%     case nif_encode_cmsghdr(Level, Type, Data) of
-%%         {ok, Bin} when is_binary(Bin) ->
-%%             encode_cmsghdrs(T, [Bin | Acc]);
-%%         {error, _} = ERROR ->
-%%             ERROR
-%%     end.
-
-
-    
-    
-
 %% ===========================================================================
 %%
 %% writev - write data into multiple buffers
@@ -1924,7 +1913,8 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
       Reason  :: term().
 
 recvmsg(Socket) ->
-    recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+    recvmsg(Socket, 0, 0,
+            ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
 
 -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
@@ -2118,6 +2108,12 @@ shutdown(#socket{ref = SockRef}, How) ->
                 ; (Socket, sctp, sctp_socket_option(), Value) -> ok | {error, Reason} when
       Socket :: socket(),
       Value  :: term(),
+      Reason :: term()
+                ; (Socket, Level, Key, Value) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Level  :: non_neg_integer(),
+      Key    :: non_neg_integer(),
+      Value  :: binary(),
       Reason :: term().
 
 setopt(#socket{ref = SockRef}, Level, Key, Value) ->
@@ -2223,6 +2219,11 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
 
 %% These are internal "shortcut" functions for the options
 %% domain, type and protocol.
+
+-spec which_domain(SockRef) -> Domain when
+      SockRef :: reference(),
+      Domain  :: domain().
+
 which_domain(SockRef) ->
     case nif_getopt(SockRef, true,
                     ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_DOMAIN) of
@@ -2233,6 +2234,10 @@ which_domain(SockRef) ->
     end.
         
 
+-spec which_type(SockRef) -> Type when
+      SockRef :: reference(),
+      Type    :: type().
+
 which_type(SockRef) ->
     case nif_getopt(SockRef, true,
                     ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_TYPE) of
@@ -2241,6 +2246,10 @@ which_type(SockRef) ->
         {error, _} = ERROR ->
             throw(ERROR)
     end.
+
+-spec which_protocol(SockRef) -> Protocol when
+      SockRef  :: reference(),
+      Protocol :: protocol().
 
 which_protocol(SockRef) ->
     case nif_getopt(SockRef, true,
@@ -2409,6 +2418,57 @@ enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% encode the value into an more "manageable" type.
 %% It also handles "aliases" (see linger).
 
+-spec enc_setopt_value(otp, otp_socket_option(),
+                       Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+                  ; (socket, socket_option(),
+                     Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (ip, ip_socket_option(),
+              Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (ipv6, ipv6_socket_option(),
+              Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (tcp, tcp_socket_option(),
+              Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (udp, udp_socket_option(),
+              Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (sctp, sctp_socket_option(),
+              Value, Domain, Type, Protocol) -> term() when
+      Value    :: term(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol()
+           ; (Level, Opt,
+              Value, Domain, Type, Protocol) -> term() when
+      Level    :: integer(),
+      Opt      :: integer(),
+      Value    :: binary(),
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol().
+      
 enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
     V;
 enc_setopt_value(otp, iow, V, _, _, _) when is_boolean(V) ->
@@ -2762,8 +2822,8 @@ enc_setopt_value(sctp, rtoinfo, #{assoc_id := AssocId,
 enc_setopt_value(sctp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
-enc_setopt_value(raw = L, Opt, _V, _D, _T, _P) ->
-    not_supported({L, Opt});
+%% enc_setopt_value(raw = L, Opt, _V, _D, _T, _P) ->
+%%     not_supported({L, Opt});
 
 %% Is this correct? What about getopt?
 enc_setopt_value(L, Opt, V, _, _, _)
@@ -2788,10 +2848,10 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% +++ Decode getopt value +++
 %%
 %% For the most part, we simply let the value pass through, but for some
-%% values we do an actual decode.
+%% values we may need to do an actual decode.
 %%
 
-%% Let the user deal with this...
+%% Let the user deal with this for now...
 dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
     V.
 
@@ -3361,14 +3421,25 @@ tdiff(T1, T2) ->
 %%
 %% ===========================================================================
 
+-spec not_supported(What) -> no_return() when
+      What :: term().
+
 not_supported(What) ->
     error({not_supported, What}).
+
+-spec unknown(What) -> no_return() when
+      What :: term().
 
 unknown(What) ->
     error({unknown, What}).
 
+-spec einval() -> no_return().
+
 einval() ->
     error(einval).
+
+-spec error(Reason) -> no_return() when
+      Reason :: term().
 
 error(Reason) ->
     throw({error, Reason}).
@@ -3380,71 +3451,69 @@ error(Reason) ->
 %%
 %% ===========================================================================
 
-nif_is_loaded() -> false.
-
 nif_info() ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_open(_Domain, _Type, _Protocol, _Extra) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_bind(_SRef, _SockAddr) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_bind(_SRef, _SockAddrs, _Action) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_connect(_SRef, _SockAddr) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_finalize_connection(_SRef) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_listen(_SRef, _Backlog) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_accept(_SRef, _Ref) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_send(_SockRef, _SendRef, _Data, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_sendto(_SRef, _SendRef, _Data, _Dest, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_sendmsg(_SRef, _SendRef, _MsgHdr, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_recv(_SRef, _RecvRef, _Length, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_recvfrom(_SRef, _RecvRef, _Length, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_recvmsg(_SRef, _RecvRef, _BufSz, _CtrlSz, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_cancel(_SRef, _Op, _Ref) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_close(_SRef) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_shutdown(_SRef, _How) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_finalize_close(_SRef) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_setopt(_Ref, _IsEnc, _Lev, _Key, _Val) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_getopt(_Ref, _IsEnc, _Lev, _Key) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_sockname(_Ref) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_peername(_Ref) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 

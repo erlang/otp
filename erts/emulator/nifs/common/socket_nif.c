@@ -848,9 +848,6 @@ typedef struct {
 
 
 
-static ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
-                                  int                argc,
-                                  const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
@@ -1973,7 +1970,18 @@ extern char* encode_msghdr_flags(ErlNifEnv*        env,
                                  SocketDescriptor* descP,
                                  int               msgFlags,
                                  ERL_NIF_TERM*     flags);
-
+static char* decode_cmsghdr_data(ErlNifEnv*   env,
+                                 void**       bufP,
+                                 size_t*      rem,
+                                 int          level,
+                                 int          type,
+                                 ERL_NIF_TERM eData);
+static char* decode_cmsghdr_final(void**  bufP,
+                                  size_t* rem,
+                                  int     level,
+                                  int     type,
+                                  char*   data,
+                                  int     sz);
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
@@ -2380,7 +2388,6 @@ static SocketData data;
  *
  * Utility and admin functions:
  * ----------------------------
- * nif_is_loaded/0
  * nif_info/0
  * (nif_debug/1)
  *
@@ -2414,27 +2421,6 @@ static SocketData data;
  * -------------------------------------------------------------
  * nif_cancel(Sock, Ref)
  */
-
-
-/* ----------------------------------------------------------------------
- * nif_is_loaded
- *
- * Description:
- * This functions only purpose is to return the atom 'true'.
- * This will happen *if* the (socket) nif library is loaded.
- * If its not, the erlang (nif_is_loaded) will instead return
- * 'false'.
- */
-static
-ERL_NIF_TERM nif_is_loaded(ErlNifEnv*         env,
-                           int                argc,
-                           const ERL_NIF_TERM argv[])
-{
-    if (argc != 0)
-        return enif_make_badarg(env);
-
-    return atom_true;
-}
 
 
 /* ----------------------------------------------------------------------
@@ -11046,7 +11032,7 @@ char* encode_msghdr(ErlNifEnv*        env,
  *
  * The cmsgHdrP arguments points to the start of the control data buffer,
  * an actual binary. Its the only way to create sub-binaries. So, what we
- * need to continue processing this is to tern that into an binary erlang 
+ * need to continue processing this is to turn that into an binary erlang 
  * term (which can then in turn be turned into sub-binaries).
  *
  * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
@@ -11171,7 +11157,7 @@ char* encode_cmsghdrs(ErlNifEnv*        env,
  *
  * Decode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
  *
- * Each element can either be a (erlang) map that needds to be decoded,
+ * Each element can either be a (erlang) map that needs to be decoded,
  * or a (erlang) binary that just needs to be appended to the control
  * buffer.
  *
@@ -11267,46 +11253,121 @@ char* decode_cmsghdr(ErlNifEnv*        env,
         /* And finally data
          * If its a binary, we are done. Otherwise, we need to check
          * level and type to know what kind of data to expect.
-         *
-         * <KOLLA>
-         *
-         * At the moment, the only data we support is a binary...
-         *
-         * </KOLLA>
          */
+
+        return decode_cmsghdr_data(env, bufP, rem, level, type, eData);
+
+    } else {
+        return ESOCK_STR_EINVAL;
+    }
+
+    return NULL;
+}
+
+
+/* *** decode_cmsghdr_data ***
+ *
+ * For all combinations of level and type we accept a binary as data,
+ * so we begin by testing for that. If its not a binary, then we check
+ * level (ip) and type (tos or ttl), in which case the data *must* be
+ * an integer (we have already taken care of the binary).
+ */
+static
+char* decode_cmsghdr_data(ErlNifEnv*   env,
+                          void**       bufP,
+                          size_t*      rem,
+                          int          level,
+                          int          type,
+                          ERL_NIF_TERM eData)
+{
+    char* xres = ESOCK_STR_EINVAL;
+
+    if (IS_BIN(env, eData)) {
+        ErlNifBinary bin;
         
-        if (IS_BIN(env, eData)) {
-            ErlNifBinary bin;
-            size_t       currentRem = *rem;
-
-            if (!GET_BIN(env, eData, &bin)) {
-                return ESOCK_STR_EINVAL;
-            } else {
-                int len   = CMSG_LEN(bin.size);   // The cmsghdr
-                int space = CMSG_SPACE(bin.size); // With padding
-                /* Make sure it fits before we copy */
-                if (currentRem >= space) {
-                    struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
-
-                    /* The header */
-                    cmsgP->cmsg_len   = len;
-                    cmsgP->cmsg_level = level;
-                    cmsgP->cmsg_type  = type;
-
-                    /* And the data */
-                    sys_memcpy(CMSG_DATA(cmsgP), bin.data, bin.size);
-                    *bufP += space;
-                    *rem  -= space;
-                } else {
-                    return ESOCK_STR_EINVAL;
-                }
-            }
-        } else {
-
-            /* Here is where we should have the proper data decode */
-
-            return ESOCK_STR_EINVAL;
+        if (GET_BIN(env, eData, &bin)) {
+            return decode_cmsghdr_final(bufP, rem, level, type,
+                                        (char*) bin.data, bin.size);
         }
+    } else {
+
+        /* Its *not* a binary so we need to look at what level and type 
+         * we have and treat them individually.
+         */
+
+        switch (level) {
+#if defined(SOL_IP)
+        case SOL_IP:
+#else
+        case IPPROTO_IP:
+#endif
+            switch (type) {
+#if defined(IP_TOS)
+            case IP_TOS:
+                {
+                    int data;
+                    if (decode_ip_tos(env, eData, &data)) {
+                        return decode_cmsghdr_final(bufP, rem, level, type,
+                                                    (char*) &data,
+                                                    sizeof(data));
+                    }
+                }
+                break;
+#endif
+
+#if defined(IP_TTL)
+            case IP_TTL:
+                {
+                    int data;
+                    if (GET_INT(env, eData, &data)) {
+                        return decode_cmsghdr_final(bufP, rem, level, type,
+                                                    (char*) &data,
+                                                    sizeof(data));
+                    }
+                }
+                break;
+#endif
+
+            }
+            break;
+
+        default:
+            break;
+        }        
+
+    }
+
+    return xres;
+}
+                              
+
+/* *** decode_cmsghdr_final ***
+ *
+ * This does the final create of the cmsghdr (including the data copy).
+ */
+static
+char* decode_cmsghdr_final(void**  bufP,
+                           size_t* rem,
+                           int     level,
+                           int     type,
+                           char*   data,
+                           int     sz)
+{
+    int currentRem = *rem;
+    int len        = CMSG_LEN(sz);
+    int space      = CMSG_SPACE(sz);
+
+    if (currentRem >= space) {
+        struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
+        
+        /* The header */
+        cmsgP->cmsg_len   = len;
+        cmsgP->cmsg_level = level;
+        cmsgP->cmsg_type  = type;
+
+        sys_memcpy(CMSG_DATA(cmsgP), &data, sz);
+        *bufP += space;
+        *rem  -= space;
     } else {
         return ESOCK_STR_EINVAL;
     }
@@ -11334,8 +11395,30 @@ char* encode_cmsghdr_level(ErlNifEnv*    env,
         xres    = NULL;
         break;
 
+#if defined(SOL_IP)
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        *eLevel = esock_atom_ip;
+        xres    = NULL;
+        break;
+
+#if defined(SOL_IPV6)
+    case SOL_IPV6:
+        *eLevel = esock_atom_ip;
+        xres    = NULL;
+        break;
+#endif
+
+    case IPPROTO_UDP:
+        *eLevel = esock_atom_udp;
+        xres    = NULL;
+        break;
+
     default:
-        xres = esock_encode_protocol(env, level, eLevel);
+        *eLevel = MKI(env, level);
+        xres    = NULL;
         break;
     }
 
@@ -11358,17 +11441,35 @@ char* decode_cmsghdr_level(ErlNifEnv*   env,
     char* xres = NULL;
 
     if (IS_ATOM(env, eLevel)) {
+
         if (COMPARE(eLevel, esock_atom_socket) == 0) {
             *level = SOL_SOCKET;
             xres   = NULL;
+        } else if (COMPARE(eLevel, esock_atom_ip) == 0) {
+#if defined(SOL_IP)
+            *level = SOL_IP;
+#else
+            *level = IPPROTO_IP;
+#endif
+            xres   = NULL;
+#if defined(SOL_IPV6)
+        } else if (COMPARE(eLevel, esock_atom_ipv6) == 0) {
+            *level = SOL_IPV6;
+            xres   = NULL;
+#endif
+        } else if (COMPARE(eLevel, esock_atom_udp) == 0) {
+            *level = IPPROTO_UDP;
+            xres   = NULL;
         } else {
-            xres = esock_decode_protocol(env, eLevel, level);            
+            *level = -1;
+            xres   = ESOCK_STR_EINVAL;
         }
     } else if (IS_NUM(env, eLevel)) {
         if (!GET_INT(env, eLevel, level))
             xres = ESOCK_STR_EINVAL;
     } else {
-        xres = ESOCK_STR_EINVAL;
+        *level = -1;
+        xres   = ESOCK_STR_EINVAL;
     }
 
     return xres;
@@ -11521,25 +11622,13 @@ char* decode_cmsghdr_type(ErlNifEnv*   env,
 
     switch (level) {
     case SOL_SOCKET:
-        if (COMPARE(eType, esock_atom_timestamp) == 0) {
-#if defined(SO_TIMESTAMP)
-           *type = SO_TIMESTAMP;
-#else
-            xres  = ESOCK_STR_EINVAL;
-#endif
-        } else if (COMPARE(eType, esock_atom_rights) == 0) {
-#if defined(SCM_RIGHTS)
-            *type = SCM_RIGHTS;
-#else
-            xres  = ESOCK_STR_EINVAL;
-#endif
-        } else if (COMPARE(eType, esock_atom_credentials) == 0) {
-#if defined(SCM_CREDENTIALS)
-            *type = SCM_CREDENTIALS;
-#else
-            xres  = ESOCK_STR_EINVAL;
-#endif
+        if (IS_NUM(env, eType)) {
+            if (!GET_INT(env, eType, type)) {
+                *type = -1;
+                xres  = ESOCK_STR_EINVAL;
+            }
         } else {
+            *type = -1;
             xres = ESOCK_STR_EINVAL;
         }
         break;
@@ -11550,60 +11639,62 @@ char* decode_cmsghdr_type(ErlNifEnv*   env,
 #else
     case IPPROTO_IP:
 #endif
-        if (COMPARE(eType, esock_atom_tos) == 0) {
+        if (IS_ATOM(env, eType)) {
+            if (COMPARE(eType, esock_atom_tos) == 0) {
 #if defined(IP_TOS)
-            *type = IP_TOS;
+                *type = IP_TOS;
 #else
-            xres  = ESOCK_STR_EINVAL;
+                xres  = ESOCK_STR_EINVAL;
 #endif
-        } else if (COMPARE(eType, esock_atom_ttl) == 0) {
+            } else if (COMPARE(eType, esock_atom_ttl) == 0) {
 #if defined(IP_TTL)
-            *type = IP_TTL;
+                *type = IP_TTL;
 #else
-            xres  = ESOCK_STR_EINVAL;
+                xres  = ESOCK_STR_EINVAL;
 #endif
-        } else if (COMPARE(eType, esock_atom_pktinfo) == 0) {
-#if defined(IP_PKTINFO)
-            *type = IP_PKTINFO;
-#else
-            xres  = ESOCK_STR_EINVAL;
-#endif
-        } else if (COMPARE(eType, esock_atom_origdstaddr) == 0) {
-#if defined(IP_ORIGDSTADDR)
-            *type = IP_ORIGDSTADDR;
-#else
-            xres  = ESOCK_STR_EINVAL;
-#endif
+            } else {
+                xres = ESOCK_STR_EINVAL;
+            }
+        } else if (IS_NUM(env, eType)) {
+            if (!GET_INT(env, eType, type)) {
+                *type = -1;
+                xres  = ESOCK_STR_EINVAL;
+            }
         } else {
-            xres = ESOCK_STR_EINVAL;
+            *type = -1;
+            xres  = ESOCK_STR_EINVAL;
         }
         break;
         
 #if defined(SOL_IPV6)
     case SOL_IPV6:
-        xres = ESOCK_STR_EINVAL;
+        if (IS_NUM(env, eType)) {
+            if (!GET_INT(env, eType, type)) {
+                *type = -1;
+                xres  = ESOCK_STR_EINVAL;
+            }
+        } else {
+            *type = -1;
+            xres = ESOCK_STR_EINVAL;
+        }
         break;
 #endif
         
-    case IPPROTO_TCP:
-        xres = ESOCK_STR_EINVAL;
-        break;
-        break;
-
     case IPPROTO_UDP:
-        xres = ESOCK_STR_EINVAL;
+        if (IS_NUM(env, eType)) {
+            if (!GET_INT(env, eType, type)) {
+                *type = -1;
+                xres  = ESOCK_STR_EINVAL;
+            }
+        } else {
+            *type = -1;
+            xres = ESOCK_STR_EINVAL;
+        }
         break;
-        break;
-
-#if defined(HAVE_SCTP)
-    case IPPROTO_SCTP:
-        xres = ESOCK_STR_EINVAL;
-        break;
-        break;
-#endif
 
     default:
-        xres = ESOCK_STR_EINVAL;
+        *type = -1;
+        xres  = ESOCK_STR_EINVAL;
         break;
     }
 
@@ -13481,7 +13572,6 @@ static
 ErlNifFunc socket_funcs[] =
 {
     // Some utility functions
-    {"nif_is_loaded", 0, nif_is_loaded, 0},
     {"nif_info",      0, nif_info, 0},
     // {"nif_debug",      1, nif_debug_, 0},
 

@@ -20,9 +20,11 @@
 
 -module(net).
 
+-compile(no_native).
+
 %% Administrative and "global" utility functions
 -export([
-	 on_load/0, on_load/1, on_load/2,
+	 on_load/0, on_load/1,
 	 info/0,
          command/1
         ]).
@@ -105,23 +107,10 @@ on_load() ->
     on_load(#{}).
 
 -spec on_load(Extra) -> ok when
-      Extra :: maps:map().
+      Extra :: map().
 
-on_load(Extra) when is_map(Extra) ->
-    on_load(atom_to_list(?MODULE), Extra).
-
--spec on_load(Path, Extra) -> ok when
-      Path  :: string(),
-      Extra :: maps:map().
-
-on_load(Path, Extra) when is_list(Path) andalso is_map(Extra) ->
-    on_load(nif_is_loaded(), Path, Extra).
-
-on_load(true, _Path, _Extra) ->
-    ok;
-on_load(false, Path, Extra) ->
-    ok = erlang:load_nif(Path, Extra).
-
+on_load(Extra) ->
+    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
 
 
 -spec info() -> list().
@@ -315,29 +304,26 @@ if_names() ->
 %%
 %% ===========================================================================
 
-nif_is_loaded() ->
-    false.
-
 nif_info() ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_command(_Cmd) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_gethostname() ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_getnameinfo(_Addr, _Flags) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_getaddrinfo(_Host, _Service, _Hints) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_if_name2index(_Name) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_if_index2name(_Id) ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).
 
 nif_if_names() ->
-    erlang:error(badarg).
+    erlang:nif_error(undef).

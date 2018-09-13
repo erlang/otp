@@ -78,6 +78,10 @@ STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
 ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
+DIA_PLT      = erts-preloaded.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+
+
 debug opt: $(TARGET_FILES) 
 
 clean:
@@ -88,7 +92,6 @@ copy:
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/erts/vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
-
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
@@ -103,6 +106,30 @@ release_docs_spec:
 
 list_preloaded:
 	@echo $(PRE_LOADED_MODULES)
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../ebin \
+                     ../../../lib/kernel/ebin \
+                     ../../../lib/stdlib/ebin \
+                     ../../../lib/crypto/ebin \
+                     ../../../lib/compiler/ebin \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@dialyzer --plt $< \
+                  ../ebin \
+                  --verbose
 
 #
 # Combine a BEAM assembly script file a stub Erlang file into a BEAM file.

@@ -176,11 +176,16 @@
     <datatype>
       <name name="cmsghdr_type"/>
     </datatype>
+    <!--
     <datatype>
       <name name="cmsghdr_data"/>
     </datatype>
+    -->
     <datatype>
-      <name name="cmsghdr"/>
+      <name name="cmsghdr_recv"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_send"/>
     </datatype>
     <datatype>
       <name name="uint8"/>
@@ -427,7 +432,7 @@
 	how much we want to read, it returns when we get a message.</p>
 	<p>The message will be delivered in the form of a <c>msghdr()</c>,
 	which may contain the source address (if socket not connected),
-	a list of <c>cmsghdr()</c> (depends on what socket options have
+	a list of <c>cmsghdr_recv()</c> (depends on what socket options have
 	been set and what the protocol and platform supports) and
 	also a set of flags, providing further info about the read . </p>
 	
@@ -466,11 +471,11 @@
       <name name="sendmsg" arity="4"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
-	<p>Send a message on a socket. The destination, if needed (socket not
-	connected) is provided in the <c>MsgHdr</c>, which also
-	contains the message to send, The <c>MsgHdr</c> may also contain
-	an list of optional <c>cmsghdr()</c> (depends on what the protocol and
-	platform supports).</p>
+	<p>Send a message on a socket. The destination, if needed
+	(socket <em>not</em> connected) is provided in the <c>MsgHdr</c>,
+	which also contains the message to send,
+	The <c>MsgHdr</c> may also contain an list of optional <c>cmsghdr_send()</c>
+	(depends on what the protocol and platform supports).</p>
       </desc>
     </func>
 
@@ -492,6 +497,7 @@
       <name name="setopt" arity="4" clause_i="5"/>
       <name name="setopt" arity="4" clause_i="6"/>
       <name name="setopt" arity="4" clause_i="7"/>
+      <name name="setopt" arity="4" clause_i="8"/>
       <fsummary>Set options on a socket.</fsummary>
       <desc>
         <p>Set options on a socket.</p>
