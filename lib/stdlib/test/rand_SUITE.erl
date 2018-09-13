@@ -1101,7 +1101,7 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
             crypto_aes ->
                 {rand,
 		 crypto:rand_seed_alg(
-		   {crypto_aes,crypto:strong_rand_bytes(256)})};
+		   crypto_aes, crypto:strong_rand_bytes(256))};
             random ->
                 {random, random:seed(os:timestamp()), get(random_seed)};
             _ ->
@@ -1250,20 +1250,31 @@ gen_jump_p3(_, _, Acc) -> lists:reverse(Acc).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 short_jump(Config) when is_list(Config) ->
-    State_0 = {#{bits := Bits},_} = rand:seed(exro928ss, 4711),
-    Range = 1 bsl Bits,
-    %%
-    State_1a = repeat(1 bsl 20, Range, State_0),
-    State_1b = exro928_jump_2pow20(State_0),
-    check(17, Range, State_1a, State_1b),
-    %%
-    {_,State_2a} = rand:uniform_s(Range, State_1a),
-    State_3a = exro928_jump_2pow20(State_2a),
-    State_3b = repeat((1 bsl 20) + 1, Range, State_1b),
-    check(17, Range, State_3a, State_3b).
+    Seed = erlang:system_time(),
+    short_jump(
+      rand:seed_s(exro928ss, Seed),
+      fun ({Alg,AlgState}) ->
+	      {Alg,rand:exro928_jump_2pow20(AlgState)}
+      end),
+    short_jump(
+      crypto:rand_seed_alg_s(crypto_aes, integer_to_list(Seed)),
+      fun ({Alg,AlgState}) ->
+	      {Alg,crypto:rand_plugin_aes_jump_2pow20(AlgState)}
+      end),
+    ok.
 
-exro928_jump_2pow20({Alg, AlgState}) ->
-    {Alg,rand:exro928_jump_2pow20(AlgState)}.
+short_jump({#{bits := Bits},_} = State_0, Jump2Pow20) ->
+    Range = 1 bsl Bits,
+    State_1 = repeat(7, Range, State_0),
+    %%
+    State_2a = repeat(1 bsl 20, Range, State_1),
+    State_2b = Jump2Pow20(State_1),
+    check(17, Range, State_2a, State_2b),
+    %%
+    {_,State_3a} = rand:uniform_s(Range, State_2a),
+    State_4a = Jump2Pow20(State_3a),
+    State_4b = repeat((1 bsl 20) + 1, Range, State_2b),
+    check(17, Range, State_4a, State_4b).
 
 repeat(0, _Range, State) ->
     State;
@@ -1275,8 +1286,12 @@ check(0, _Range, _StateA, _StateB) ->
     ok;
 check(N, Range, StateA, StateB) ->
     {V,NewStateA} = rand:uniform_s(Range, StateA),
-    {V,NewStateB} = rand:uniform_s(Range, StateB),
-    check(N - 1, Range, NewStateA, NewStateB).
+    case rand:uniform_s(Range, StateB) of
+	{V,NewStateB} ->
+	    check(N - 1, Range, NewStateA, NewStateB);
+	{Wrong,_} ->
+	    ct:fail({Wrong,neq,V,for,N})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 
 %% Test, dev and internal
 -export([exro928_jump_2pow512/1, exro928_jump_2pow20/1,
+	 exro928_seed/1, exro928_next/1, exro928_next_state/1,
 	 format_jumpconst58/1, seed58/2]).
 
 %% Debug
@@ -948,6 +949,9 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
 
 -opaque exro928_state() :: {list(uint58()), list(uint58())}.
 
+-spec exro928_seed(
+        list(uint58()) | integer() | {integer(), integer(), integer()}) ->
+                          exro928_state().
 exro928_seed(L) when is_list(L) ->
     {seed58_nz(16, L), []};
 exro928_seed(X) when is_integer(X) ->
@@ -979,7 +983,15 @@ exro928ss_next({[S15,S0|Ss], Rs}) ->
 exro928ss_next({[S15], Rs}) ->
     exro928ss_next({[S15|lists:reverse(Rs)], []}).
 
+-spec exro928_next(exro928_state()) -> {{uint58(),uint58()}, exro928_state()}.
+exro928_next({[S15,S0|Ss], Rs}) ->
+    SR = exro928_next_state(Ss, Rs, S15, S0),
+    {{S15,S0}, SR};
+exro928_next({[S15], Rs}) ->
+    exro928_next({[S15|lists:reverse(Rs)], []}).
+
 %% Just update the state
+-spec exro928_next_state(exro928_state()) -> exro928_state().
 exro928_next_state({[S15,S0|Ss], Rs}) ->
     exro928_next_state(Ss, Rs, S15, S0);
 exro928_next_state({[S15], Rs}) ->
@@ -1013,6 +1025,7 @@ exro928ss_uniform(Range, {Alg, SR}) ->
 exro928_jump({Alg, SR}) ->
     {Alg,exro928_jump_2pow512(SR)}.
 
+-spec exro928_jump_2pow512(exro928_state()) -> exro928_state().
 exro928_jump_2pow512(SR) ->
     polyjump(
       SR, fun exro928_next_state/1,
@@ -1026,6 +1039,7 @@ exro928_jump_2pow512(SR) ->
        16#7B7C4CC049C536E, 16#431801F9DB3AF2C,
        16#41A1504ACD83F24, 16#6C41DCF2F867D7F]).
 
+-spec exro928_jump_2pow20(exro928_state()) -> exro928_state().
 exro928_jump_2pow20(SR) ->
     polyjump(
       SR, fun exro928_next_state/1,
@@ -1209,6 +1223,7 @@ seed_nz(N, [S|Ss], M, NZ) ->
 %% Splitmix seeders, lowest bits of SplitMix64, zeros skipped
 %% =====================================================================
 
+-spec seed58(non_neg_integer(), uint64()) -> list(uint58()).
 seed58(0, _X) ->
     [];
 seed58(N, X) ->
@@ -1224,6 +1239,7 @@ seed58(X_0) ->
 	    {Z,X}
     end.
 
+-spec seed64(non_neg_integer(), uint64()) -> list(uint64()).
 seed64(0, _X) ->
     [];
 seed64(N, X) ->

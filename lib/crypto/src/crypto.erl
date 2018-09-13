@@ -31,8 +31,8 @@
 -export([cmac/3, cmac/4]).
 -export([poly1305/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
--export([rand_seed/0, rand_seed_alg/1]).
--export([rand_seed_s/0, rand_seed_alg_s/1]).
+-export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
+-export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
 -export([rand_plugin_next/1]).
 -export([rand_plugin_aes_next/1, rand_plugin_aes_jump/1]).
 -export([rand_plugin_uniform/1]).
@@ -93,7 +93,9 @@
              ]).
    
 %% Private. For tests.
--export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2, get_test_engine/0]).
+-export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2,
+	 get_test_engine/0]).
+-export([rand_plugin_aes_jump_2pow20/1]).
 
 -deprecated({rand_uniform, 2, next_major_release}).
 
@@ -672,39 +674,62 @@ rand_seed_s() ->
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
+-spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
+                           {rand:alg_handler(),
+                            atom() | rand_cache_seed()}.
+rand_seed_alg(Alg, Seed) ->
+    rand:seed(rand_seed_alg_s(Alg, Seed)).
+
 -define(CRYPTO_CACHE_BITS, 56).
 -define(CRYPTO_AES_BITS, 58).
 
 -spec rand_seed_alg_s(Alg :: atom()) ->
                              {rand:alg_handler(),
                               atom() | rand_cache_seed()}.
-rand_seed_alg_s(?MODULE) ->
-    {#{ type => ?MODULE,
-        bits => 64,
-        next => fun ?MODULE:rand_plugin_next/1,
-        uniform => fun ?MODULE:rand_plugin_uniform/1,
-        uniform_n => fun ?MODULE:rand_plugin_uniform/2},
-     no_seed};
-rand_seed_alg_s(crypto_cache) ->
+rand_seed_alg_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
+    State;
+rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
+    {mk_alg_handler(Alg),AlgState};
+ rand_seed_alg_s(Alg) when is_atom(Alg) ->
+    {mk_alg_handler(Alg),mk_alg_state(Alg)}.
+%%
+-spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
+                             {rand:alg_handler(),
+                              atom() | rand_cache_seed()}.
+rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
+    {mk_alg_handler(Alg),mk_alg_state({Alg,Seed})}.
+
+mk_alg_handler(?MODULE = Alg) ->
+    #{ type => Alg,
+       bits => 64,
+       next => fun ?MODULE:rand_plugin_next/1,
+       uniform => fun ?MODULE:rand_plugin_uniform/1,
+       uniform_n => fun ?MODULE:rand_plugin_uniform/2};
+mk_alg_handler(crypto_cache = Alg) ->
+    #{ type => Alg,
+       bits => ?CRYPTO_CACHE_BITS,
+       next => fun ?MODULE:rand_cache_plugin_next/1};
+mk_alg_handler(crypto_aes = Alg) ->
+    #{ type => Alg,
+       bits => ?CRYPTO_AES_BITS,
+       next => fun ?MODULE:rand_plugin_aes_next/1,
+       jump => fun ?MODULE:rand_plugin_aes_jump/1}.
+
+mk_alg_state(?MODULE) ->
+    no_seed;
+mk_alg_state(crypto_cache) ->
     CacheBits = ?CRYPTO_CACHE_BITS,
     BytesPerWord = (CacheBits + 7) div 8,
     GenBytes =
         ((rand_cache_size() + (2*BytesPerWord - 1)) div BytesPerWord)
         * BytesPerWord,
-    {#{ type => crypto_cache,
-        bits => CacheBits,
-        next => fun ?MODULE:rand_cache_plugin_next/1},
-     {CacheBits, GenBytes, <<>>}};
-rand_seed_alg_s({crypto_aes,Seed}) ->
+    {CacheBits, GenBytes, <<>>};
+mk_alg_state({crypto_aes,Seed}) ->
     %% 16 byte words (128 bit crypto blocks)
     GenWords = (rand_cache_size() + 31) div 16,
     Key = crypto:hash(sha256, Seed),
-    NN = [0,0,0,0],
-    {#{ type => crypto_aes,
-	bits => ?CRYPTO_AES_BITS,
-	next => fun ?MODULE:rand_plugin_aes_next/1,
-        jump => fun ?MODULE:rand_plugin_aes_jump/1},
-     {Key,GenWords,NN}}.
+    {F,Count} = longcount_seed(Seed),
+    {Key,GenWords,F,Count}.
 
 rand_cache_size() ->
     DefaultCacheSize = 1024,
@@ -745,44 +770,68 @@ rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
 -dialyzer({no_improper_lists, rand_plugin_aes_next/1}).
 rand_plugin_aes_next([V|Cache]) ->
     {V,Cache};
-rand_plugin_aes_next({Key,GenWords,NN}) ->
-    {Cleartext,NewNN} = aes_cleartext(<<>>, NN, GenWords),
+rand_plugin_aes_next({Key,GenWords,F,Count}) ->
+    rand_plugin_aes_next(Key, GenWords, F, Count);
+rand_plugin_aes_next({Key,GenWords,F,_JumpBase,Count}) ->
+    rand_plugin_aes_next(Key, GenWords, F, Count).
+%%
+rand_plugin_aes_next(Key, GenWords, F, Count) ->
+    {Cleartext,NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
     Encrypted = crypto:block_encrypt(aes_ecb, Key, Cleartext),
-    [V|Cache] = aes_cache(Encrypted, {Key,GenWords,NewNN}),
+    [V|Cache] = aes_cache(Encrypted, {Key,GenWords,F,Count,NewCount}),
     {V,Cache}.
 
-%% A jump advances the counter 2^64 steps; the the number
-%% of cached random values has to be subtracted
-%% for the jump to be correct.
--dialyzer({no_improper_lists, rand_plugin_aes_jump/1}).
+%% A jump advances the counter 2^512 steps; the jump function
+%% is applied to the jump base and then the number of used
+%% numbers from the cache has to be wasted for the jump to be correct
+%%
 rand_plugin_aes_jump({#{type := crypto_aes} = Alg, Cache}) ->
-    rand_plugin_aes_jump(Alg, Cache, 0).
+    {Alg,rand_plugin_aes_jump(fun longcount_jump/1, 0, Cache)}.
 %% Count cached words and subtract their number from jump
 -dialyzer({no_improper_lists, rand_plugin_aes_jump/3}).
-rand_plugin_aes_jump(Alg, [_|Cache], J) ->
-    rand_plugin_aes_jump(Alg, Cache, J + 1);
-rand_plugin_aes_jump(Alg, {Key,GenWords,NN}, J) ->
-    {Alg, {Key,GenWords,long32_add(NN, (1 bsl 64) - J)}}.
+rand_plugin_aes_jump(Jump, J, [_|Cache]) ->
+    rand_plugin_aes_jump(Jump, J + 1, Cache);
+rand_plugin_aes_jump(Jump, J, {Key,GenWords,F,JumpBase, _Count}) ->
+    rand_plugin_aes_jump(Jump, GenWords - J, Key, GenWords, F, JumpBase);
+rand_plugin_aes_jump(Jump, 0, {Key,GenWords,F,JumpBase}) ->
+    rand_plugin_aes_jump(Jump, 0, Key, GenWords, F, JumpBase).
+%%
+rand_plugin_aes_jump(Jump, Skip, Key, GenWords, F, JumpBase) ->
+    Count = longcount_next_count(Skip, Jump(JumpBase)),
+    {Key,GenWords,F,Count}.
+
+rand_plugin_aes_jump_2pow20(Cache) ->
+    rand_plugin_aes_jump(fun longcount_jump_2pow20/1, 0, Cache).
 
 
-long32_add([], _) -> [];
-long32_add([X|N], Cy) ->
-    Y = X + Cy,
-    if
-        Y < 0; 1 bsl 32 =< Y ->
-            [(Y band ((1 bsl 32) - 1))|long32_add(N, Y bsr 32)];
-        true ->
-            [Y|N]
-    end.
+longcount_seed(Seed) ->
+    <<X:64, _:6, F:12, S2:58, S1:58, S0:58>> =
+        crypto:hash(sha256, [Seed,<<"Xoroshiro928">>]),
+    {F,rand:exro928_seed([S0,S1,S2|rand:seed58(13, X)])}.
+
+longcount_next_count(0, Count) ->
+    Count;
+longcount_next_count(N, Count) ->
+    longcount_next_count(N - 1, rand:exro928_next_state(Count)).
+
+longcount_next(Count) ->
+    rand:exro928_next(Count).
+
+longcount_jump(Count) ->
+    rand:exro928_jump_2pow512(Count).
+
+longcount_jump_2pow20(Count) ->
+    rand:exro928_jump_2pow20(Count).
+
 
 %% Build binary with counter values to cache
-aes_cleartext(Cleartext, NN, 0) ->
-    {Cleartext,NN};
-aes_cleartext(Cleartext, [A,B,C,D] = NN, GenWords) ->
+aes_cleartext(Cleartext, _F, Count, 0) ->
+    {Cleartext,Count};
+aes_cleartext(Cleartext, F, Count, GenWords) ->
+    {{S0,S1}, NewCount} = longcount_next(Count),
     aes_cleartext(
-      <<Cleartext/binary, D:32, C:32, B:32, A:32>>,
-      long32_add(NN, 1),
-      GenWords - 1).
+      <<Cleartext/binary, F:12, S1:58, S0:58>>,
+      F, NewCount, GenWords - 1).
 
 %% Parse and cache encrypted counter values aka random numbers
 -dialyzer({no_improper_lists, aes_cache/2}).
