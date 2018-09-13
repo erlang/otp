@@ -718,12 +718,8 @@ encrypt_decrypt(Config) when is_list(Config) ->
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
     RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
     Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),
-    Msg = public_key:decrypt_public(RsaEncrypted, PrivateKey),
     RsaEncrypted2 = public_key:encrypt_public(Msg, PublicKey),
-    RsaEncrypted3 = public_key:encrypt_public(Msg, PrivateKey),
     Msg = public_key:decrypt_private(RsaEncrypted2, PrivateKey),
-    Msg = public_key:decrypt_private(RsaEncrypted3, PrivateKey),
-
     ok.
        
 %%--------------------------------------------------------------------
