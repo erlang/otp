@@ -848,7 +848,8 @@ do_measure(_Config) ->
     Algs =
         algs() ++
         try crypto:strong_rand_bytes(1) of
-            <<_>> -> [crypto64, crypto_cache, crypto]
+            <<_>> ->
+		[crypto64, crypto_cache, crypto_aes, crypto]
         catch
             error:low_entropy -> [];
             error:undef -> []
@@ -1097,6 +1098,10 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                 {rand, crypto:rand_seed_alg(crypto_cache)};
             crypto ->
                 {rand, crypto:rand_seed_s()};
+            crypto_aes ->
+                {rand,
+		 crypto:rand_seed_alg(
+		   {crypto_aes,crypto:strong_rand_bytes(256)})};
             random ->
                 {random, random:seed(os:timestamp()), get(random_seed)};
             _ ->
@@ -1112,7 +1117,7 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                             _ -> (Time * 100 + 50) div TMark
                         end,
                     io:format(
-                      "~.12w: ~p ns ~p% [16#~.16b]~n",
+                      "~.20w: ~p ns ~p% [16#~.16b]~n",
                       [Alg, (Time * 1000 + 500) div ?LOOP_MEASURE,
                        Percent, Range]),
                     Parent ! {self(), Time},
