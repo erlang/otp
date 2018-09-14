@@ -428,12 +428,18 @@ no_block(Config) when is_list(Config) ->
 no_aead() ->
      [{doc, "Test disabled aead ciphers"}].
 no_aead(Config) when is_list(Config) ->
-    [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, _Info} | _] =
-	lazy_eval(proplists:get_value(aead, Config)),
-    EncryptArgs = [Type, Key, Nonce, {AAD, PlainText}],
+    EncArg4 =
+        case lazy_eval(proplists:get_value(aead, Config)) of
+            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, TagLen, _Info} | _] ->
+                {AAD, PlainText, TagLen};
+            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, _Info} | _] ->
+                {AAD, PlainText}
+        end,
+    EncryptArgs = [Type, Key, Nonce, EncArg4],
     DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
     notsup(fun crypto:block_encrypt/4, EncryptArgs),
     notsup(fun crypto:block_decrypt/4, DecryptArgs).
+
 %%--------------------------------------------------------------------
 stream() ->
       [{doc, "Test stream ciphers"}].
