@@ -294,6 +294,7 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
     %% and set a restart timer. A separate process must perform this
     %% in order to avoid deadlock.
     HandlerPid = self(),
+    ConfigResult = logger:get_handler_config(Name),
     RemoveAndRestart =
         fun() ->
                 MRef = erlang:monitor(process, HandlerPid),
@@ -304,7 +305,7 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
                         error_notify(Reason),
                         exit(HandlerPid, kill)
                 end,
-                case logger:get_handler_config(Name) of
+                case ConfigResult of
                     {ok,#{module:=HMod}=HConfig} when is_integer(RestartAfter) ->
                         _ = logger:remove_handler(Name),
                         _ = timer:apply_after(RestartAfter, logger, add_handler,

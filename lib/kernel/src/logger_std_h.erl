@@ -415,8 +415,9 @@ terminate(Reason, State = #{id:=Name, file_ctrl_pid:=FWPid,
         false ->
             ok
     end,
+    ok = logger_h_common:stop_or_restart(Name, Reason, State),
     unregister(?name_to_reg_name(?MODULE, Name)),
-    logger_h_common:stop_or_restart(Name, Reason, State).
+    ok.
                                                   
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

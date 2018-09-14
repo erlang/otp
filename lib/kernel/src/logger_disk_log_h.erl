@@ -426,8 +426,9 @@ terminate(Reason, State = #{id := Name}) ->
     _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref, State,
                                               undefined)),
     _ = close_disk_log(Name, normal),
+    ok = logger_h_common:stop_or_restart(Name, Reason, State),
     unregister(?name_to_reg_name(?MODULE, Name)),
-    logger_h_common:stop_or_restart(Name, Reason, State).
+    ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
