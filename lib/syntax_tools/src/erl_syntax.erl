@@ -5455,8 +5455,12 @@ map_type(Fields) ->
 
 revert_map_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, map, map_type_fields(Node)}.
-
+    case map_type_fields(Node) of
+        any_size ->
+            {type, Pos, map, any};
+        Fields ->
+            {type, Pos, map, Fields}
+    end.
 
 %% =====================================================================
 %% @doc Returns the list of field subtrees of a `map_type' node.
@@ -5714,7 +5718,12 @@ tuple_type(Elements) ->
 
 revert_tuple_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, tuple, tuple_type_elements(Node)}.
+    case tuple_type_elements(Node) of
+        any_size ->
+            {type, Pos, tuple, any};
+        TypeElements ->
+            {type, Pos, tuple, TypeElements}
+    end.
 
 
 %% =====================================================================
