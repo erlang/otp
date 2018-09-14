@@ -1644,6 +1644,8 @@ openssl_dsa_support() ->
             true;
         "LibreSSL"  ++ _ ->
             false;
+        "OpenSSL 1.1" ++ Rest ->
+            false;
         "OpenSSL 1.0.1" ++ Rest ->
             hd(Rest) >= s;
         _ ->
@@ -1854,13 +1856,11 @@ do_supports_ssl_tls_version(Port, Acc) ->
             case Acc ++ Data of
                 "unknown option"  ++ _ ->
                     false;
-                Error when length(Error) >= 11 ->
-                    case lists:member("error", string:tokens(Data, ":")) of
-                        true ->
-                            false;
-                        false ->
-                            do_supports_ssl_tls_version(Port, Error)
-                    end;
+                "s_client: Option unknown" ++ _->
+                    false;
+                Info when length(Info) >= 24 ->
+                    ct:pal("~p", [Info]),
+                    true;
                 _ ->
                     do_supports_ssl_tls_version(Port, Acc ++ Data)
             end
