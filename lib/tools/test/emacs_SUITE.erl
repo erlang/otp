@@ -150,7 +150,7 @@ test_erlang_mode_script(_Config) ->
     Script = filename:join([emacs_dir(), "test-erlang-mode"]),
     RcFile = string:trim(os:cmd("mktemp /tmp/emacs_SUITE.XXXXXX")),
     Output = os:cmd(Script ++ " -f; echo $? > " ++ RcFile),
-    io:format("~s output:~n~ts~n", [Script, Output]),
+    io:format("~s output:~n~n~ts~n", [Script, Output]),
     {ok, RcBin} = file:read_file(RcFile),
     ok = file:delete(RcFile),
     RcString = binary:bin_to_list(RcBin),

@@ -48,6 +48,7 @@ version="$(emacs --version | head -n1)"
 version_number="${version#GNU Emacs }"
 version_major="${version_number%%\.*}"
 
+echo "Emacs version $version"
 
 case "$version_major" in
     [0-9][0-9])
@@ -60,22 +61,50 @@ case "$version_major" in
         echo "Skipping emacs test due to unsupported emacs version ($version)"
         exit "$invalid_emacs_rc";;
 esac
-     
+
 set -x
 
 # Test interpreted erlang-mode.
 emacs -Q -batch -L . -l erlang.el -f erlang-mode
 
-# Compile.
-emacs -Q -batch -L . -f batch-byte-compile *.el
+# Compile everything except erldoc.el.
+for el in *.el
+do
+    [ "$el" = "erldoc.el" ] && continue
+    emacs -Q -batch -L . -f batch-byte-compile "$el"
+done
 
 # Test compiled erlang-mode.
 emacs -Q -batch -L . -l erlang.elc -f erlang-mode
 
-# Run unit tests in interpreted mode.
-emacs -Q -batch -L . -l erlang.el -l erlang-test.el \
-      -f ert-run-tests-batch-and-exit
+if [ "$version_major" -ge 25 ]
+then
+    # Run unit tests in interpreted mode.
+    emacs -Q -batch -L . -l erlang.el -l erlang-test.el \
+          -f ert-run-tests-batch-and-exit
 
-# Run unit tests in compiled mode.
-emacs -Q -batch -L . -l erlang.elc -l erlang-test.elc \
-      -f ert-run-tests-batch-and-exit
+    # Run unit tests in compiled mode.
+    emacs -Q -batch -L . -l erlang.elc -l erlang-test.elc \
+          -f ert-run-tests-batch-and-exit
+
+    # Compile erldoc which depends on cl-lib which was introduced in
+    # Emacs 25.
+    emacs -Q -batch -L . -f batch-byte-compile erldoc.el
+    
+    # Compile selected files again and this time do not accept any
+    # warnings.  Add files here whenever they are cleaned of warnings.
+    if [ "$version_major" -ge 26 ]
+    then
+        unforgiving="(setq byte-compile-error-on-warn t)"
+    else
+        # Workaround byte-compile-error-on-warn which seem broken in
+        # Emacs 25.
+        unforgiving="(advice-add #'display-warning :after \
+         (lambda (_ f _ _) (error \"%s\" f)))"
+    fi
+    for el in erlang.el erlang-test.el erlang-edoc.el \
+                        erlang-start.el erldoc.el
+    do
+        emacs -Q -batch -L . --eval "$unforgiving" -f batch-byte-compile "$el"
+    done
+fi
