@@ -67,7 +67,7 @@
     ("SYMBOL" . "-define(SYMBOL, value).")
     ("MACRO" . "-define(MACRO(X), X + X).")
     ("struct" . "-record(struct, {until,maps,are,everywhere}).")
-    ("function". "function() -> #struct{}."))
+    ("function" . "function() -> #struct{}."))
   "Alist of erlang test code.
 Each entry have the format (TAGNAME . ERLANG_CODE).  If TAGNAME
 is nil there is no definitions in the ERLANG_CODE.  The
@@ -147,8 +147,9 @@ concatenated to form an erlang file to test on.")
         do (when tagname
              (switch-to-buffer erlang-buffer)
              (erlang-test-xref-jump tagname erlang-file line)
-             (erlang-test-xref-jump (concat "erlang_test:" tagname)
-                                    erlang-file line)))
+             (when (string-equal tagname "function")
+               (erlang-test-xref-jump (concat "erlang_test:" tagname)
+                                      erlang-file line))))
   (erlang-test-xref-jump "erlang_test:" erlang-file 1))
 
 (defun erlang-test-xref-jump (id expected-file expected-line)
