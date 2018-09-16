@@ -3697,16 +3697,17 @@ retried without regard to module.
 4. Arity - Integer in case of functions and macros if the number
 of arguments could be found, otherwise nil."
   (save-excursion
-    (save-match-data
-      (if (eq (char-syntax (following-char)) ? )
-          (skip-chars-backward " \t"))
-      (skip-chars-backward "[:word:]_:'")
-      (cond ((looking-at erlang-module-function-regexp)
-             (erlang-get-qualified-function-id-at-point))
-            ((looking-at (concat erlang-atom-regexp ":"))
-             (erlang-get-module-id-at-point))
-            ((looking-at erlang-name-regexp)
-             (erlang-get-some-other-id-at-point))))))
+    (let (case-fold-search)
+      (save-match-data
+        (if (eq (char-syntax (following-char)) ? )
+            (skip-chars-backward " \t"))
+        (skip-chars-backward "[:word:]_:'")
+        (cond ((looking-at erlang-module-function-regexp)
+               (erlang-get-qualified-function-id-at-point))
+              ((looking-at (concat erlang-atom-regexp ":"))
+               (erlang-get-module-id-at-point))
+              ((looking-at erlang-name-regexp)
+               (erlang-get-some-other-id-at-point)))))))
 
 (defun erlang-get-qualified-function-id-at-point ()
   (let ((kind 'qualified-function)
