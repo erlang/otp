@@ -1044,6 +1044,9 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
       <desc>
         <p> Can be used to determine which crypto algorithms that are supported
 	by the underlying libcrypto library</p>
+	<p>Note: the <c>rsa_opts</c> entry is in an experimental state and may change or be removed without notice.
+	No guarantee for the accuarcy of the rsa option's value list should be assumed.
+	</p>
       </desc>
     </func>
 
