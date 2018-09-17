@@ -583,7 +583,7 @@ AC_MSG_CHECKING([whether to do PGO of erts])
 if test $enable_pgo = no; then
   AC_MSG_RESULT([no, disabled by user])
 elif test $CROSS_COMPILING = yes; then
-  if $enable_pgo = yes; then
+  if test $enable_pgo = yes; then
     AC_MSG_ERROR(cannot use PGO when cross-compiling)
   else
     AC_MSG_RESULT([no, cross compiling])
