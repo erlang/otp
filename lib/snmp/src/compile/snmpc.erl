@@ -169,11 +169,7 @@ get_version() ->
     MI   = ?MODULE:module_info(),
     Attr = get_info(attributes, MI),
     Vsn  = get_info(app_vsn, Attr),
-    Comp = get_info(compile, MI),
-    Time = get_info(time, Comp),
-    {Year, Month, Day, Hour, Min, Sec} = Time,
-    io_lib:format("~s [~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w]", 
-		  [Vsn, Year, Month, Day, Hour, Min, Sec]).
+    Vsn.
 
 maybe_display_options(Opts) ->
     case lists:member(options, Opts) of
