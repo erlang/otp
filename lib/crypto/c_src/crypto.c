@@ -211,10 +211,14 @@
 # define HAVE_ECB_IVEC_BUG
 #endif
 
-#define HAVE_RSA_SSLV23_PADDING
-#if defined(HAS_LIBRESSL)                                             \
-    && LIBRESSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(2,6,1)
-# undef HAVE_RSA_SSLV23_PADDING
+#ifdef RSA_SSLV23_PADDING
+# define HAVE_RSA_SSLV23_PADDING
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+# ifdef RSA_PKCS1_PSS_PADDING
+#  define HAVE_RSA_PKCS1_PSS_PADDING
+# endif
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'h') \
@@ -1319,6 +1323,8 @@ static int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static int algo_curve_cnt, algo_curve_fips_cnt;
 static ERL_NIF_TERM algo_curve[87]; /* increase when extending the list */
+static int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
+static ERL_NIF_TERM algo_rsa_opts[10]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -1530,12 +1536,36 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
 #endif
 
+    // Validated algorithms first
+    algo_rsa_opts_cnt = 0;
+#ifdef HAS_EVP_PKEY_CTX
+# ifdef HAVE_RSA_PKCS1_PSS_PADDING
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pkcs1_pss_padding");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pss_saltlen");
+# endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_mgf1_md");
+# ifdef HAVE_RSA_OAEP_MD
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_oaep_label");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_oaep_md");
+# endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"signature_md");
+#endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pkcs1_padding");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_x931_padding");
+#ifdef HAVE_RSA_SSLV23_PADDING
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_sslv23_padding");
+#endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_no_padding");
+    algo_rsa_opts_fips_cnt = algo_rsa_opts_cnt;
+
+
     // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1547,19 +1577,22 @@ static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
     int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
     int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
+    int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
 #else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
     int mac_cnt    = algo_mac_cnt;
     int curve_cnt    = algo_curve_cnt;
+    int rsa_opts_cnt = algo_rsa_opts_cnt;
 #endif
-    return enif_make_tuple5(env,
+    return enif_make_tuple6(env,
                             enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
 			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
                             enif_make_list_from_array(env, algo_mac,    mac_cnt),
-			    enif_make_list_from_array(env, algo_curve,  curve_cnt)
+			    enif_make_list_from_array(env, algo_curve,  curve_cnt),
+			    enif_make_list_from_array(env, algo_rsa_opts, rsa_opts_cnt)
                             );
 }
 
@@ -4385,7 +4418,7 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
 			opt->rsa_padding = RSA_PKCS1_PADDING;
                     } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) {
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#ifdef HAVE_RSA_PKCS1_PSS_PADDING
                         opt->rsa_padding = RSA_PKCS1_PSS_PADDING;
                         if (opt->rsa_mgf1_md == NULL) {
                             opt->rsa_mgf1_md = md;
@@ -4674,6 +4707,7 @@ printf("\r\n");
 
     if (argv[0] == atom_rsa) {
 	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
+#ifdef HAVE_RSA_PKCS1_PSS_PADDING
 	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
             if (sig_opt.rsa_mgf1_md != NULL) {
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
@@ -4688,6 +4722,7 @@ printf("\r\n");
 		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
 		goto badarg;
 	}
+#endif
     }
 
     if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) <= 0) goto badarg;
