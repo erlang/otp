@@ -89,9 +89,10 @@
       <seealso marker="crypto#supports-0">crypto:supports()</seealso>.
       </p>
       <table>
-	<row><cell><strong>Cipher and Mode</strong></cell><cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell><cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell><cell><strong>AAD length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell><cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell></row>
-	<row><cell><c>aes_gcm</c></cell> <cell>16</cell> <cell>16</cell> <cell>0-16</cell> <cell>any</cell><cell>1.0.1 -</cell></row>
-	<row><cell><c>chacha20_poly1305</c></cell><cell>32</cell> <cell>1-16</cell> <cell>any</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
+	<row><cell><strong>Cipher and Mode</strong></cell><cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell><cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell><cell><strong>AAD length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Tag length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell><cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell></row>
+	<row><cell><c>aes_ccm</c></cell> <cell>16,24,32</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
+	<row><cell><c>aes_gcm</c></cell> <cell>16,24,32</cell> <cell>1-</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
+	<row><cell><c>chacha20_poly1305</c></cell><cell>32</cell> <cell>1-16</cell> <cell>any</cell> <cell>16</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
 	<tcaption>AEAD cipher key lengths</tcaption>
       </table>
     </section>
