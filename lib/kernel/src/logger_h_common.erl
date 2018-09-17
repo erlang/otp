@@ -40,7 +40,7 @@
          info_notify/1]).
 
 %%%-----------------------------------------------------------------
-%%% Covert log data on any form to binary
+%%% Convert log data on any form to binary
 -spec log_to_binary(LogEvent,Config) -> LogString when
       LogEvent :: logger:log_event(),
       Config :: logger:handler_config(),
@@ -57,13 +57,14 @@ do_log_to_binary(Log,Config) ->
     {Formatter,FormatterConfig} =
         maps:get(formatter,Config,{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
     String = try_format(Log,Formatter,FormatterConfig),
-    try unicode:characters_to_binary(String)
-    catch _:_ ->
+    try string_to_binary(String)
+    catch C2:R2:S2 ->
             ?LOG_INTERNAL(debug,[{formatter_error,Formatter},
                                  {config,FormatterConfig},
                                  {log_event,Log},
-                                 {bad_return_value,String}]),
-            <<"FORMATTER ERROR: bad_return_value">>
+                                 {bad_return_value,String},
+                                 {catched,{C2,R2,S2}}]),
+            <<"FORMATTER ERROR: bad return value">>
     end.
 
 try_format(Log,Formatter,FormatterConfig) ->
@@ -84,6 +85,15 @@ try_format(Log,Formatter,FormatterConfig) ->
                               DefaultFormatter,DefaultConfig)
             end
     end.
+
+string_to_binary(String) ->
+    case unicode:characters_to_binary(String) of
+        Binary when is_binary(Binary) ->
+            Binary;
+        Error ->
+            throw(Error)
+    end.
+
 
 %%%-----------------------------------------------------------------
 %%% Check that the configuration term is valid
@@ -284,6 +294,7 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
     %% and set a restart timer. A separate process must perform this
     %% in order to avoid deadlock.
     HandlerPid = self(),
+    ConfigResult = logger:get_handler_config(Name),
     RemoveAndRestart =
         fun() ->
                 MRef = erlang:monitor(process, HandlerPid),
@@ -294,7 +305,7 @@ stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
                         error_notify(Reason),
                         exit(HandlerPid, kill)
                 end,
-                case logger:get_handler_config(Name) of
+                case ConfigResult of
                     {ok,#{module:=HMod}=HConfig} when is_integer(RestartAfter) ->
                         _ = logger:remove_handler(Name),
                         _ = timer:apply_after(RestartAfter, logger, add_handler,

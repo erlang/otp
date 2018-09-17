@@ -82,13 +82,6 @@
 	      in STDLIB.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
-	  <tag><c>encoding = </c><seealso marker="stdlib:unicode#type-encoding">
-	      <c>unicode:encoding()</c></seealso></tag>
-	  <item>
-	    <p>This parameter must reflect the encoding of the device
-	      that the handler prints to.</p>
-	    <p>Defaults to <c>utf8</c></p>
-	  </item>
 	  <tag><c>legacy_header = boolean()</c></tag>
 	  <item>
 	    <p>If set to <c>true</c> a header field is added to

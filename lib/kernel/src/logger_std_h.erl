@@ -210,7 +210,7 @@ removing_handler(#{id:=Name}) ->
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
--spec log(LogEvent, Config) -> ok | dropped when
+-spec log(LogEvent, Config) -> ok when
       LogEvent :: logger:log_event(),
       Config :: logger:handler_config().
 
@@ -259,7 +259,7 @@ init([Name, Config = #{config := HConfig},
                                                    mode_tab => ModeTab}},
                     proc_lib:init_ack({ok,self(),Config1}),
                     gen_server:cast(self(), repeated_filesync),
-                    enter_loop(Config1, State1)
+                    gen_server:enter_loop(?MODULE, [], State1)
             catch
                 _:Error ->
                     unregister(RegName),
@@ -289,9 +289,6 @@ do_init(Name, Type) ->
         Error ->
             Error
     end.
-
-enter_loop(_Config,State) ->
-    gen_server:enter_loop(?MODULE,[],State).
 
 %% This is the synchronous log event.
 handle_call({log, Bin}, _From, State) ->
@@ -418,8 +415,9 @@ terminate(Reason, State = #{id:=Name, file_ctrl_pid:=FWPid,
         false ->
             ok
     end,
+    ok = logger_h_common:stop_or_restart(Name, Reason, State),
     unregister(?name_to_reg_name(?MODULE, Name)),
-    logger_h_common:stop_or_restart(Name, Reason, State).
+    ok.
                                                   
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

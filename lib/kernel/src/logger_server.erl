@@ -146,7 +146,7 @@ init([]) ->
                                  filters=>?DEFAULT_HANDLER_FILTERS}),
     %% If this fails, then the node should crash
     {ok,SimpleConfig} = logger_simple_h:adding_handler(SimpleConfig0),
-    logger_config:create(Tid,simple,logger_simple_h,SimpleConfig),
+    logger_config:create(Tid,simple,SimpleConfig),
     {ok, #state{tid=Tid, async_req_queue = queue:new()}}.
 
 handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
@@ -165,11 +165,11 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
                       %% to find out if this is a valid handler
                       case erlang:function_exported(Module, log, 2) of
                           true ->
-                              logger_config:create(Tid,Id,Module,HConfig1),
-                              {ok,Config} = do_get_config(Tid,primary),
+                              logger_config:create(Tid,Id,HConfig1),
+                              {ok,Config} = logger_config:get(Tid,primary),
                               Handlers = maps:get(handlers,Config,[]),
-                              do_set_config(Tid,primary,
-                                            Config#{handlers=>[Id|Handlers]});
+                              logger_config:set(Tid,primary,
+                                                Config#{handlers=>[Id|Handlers]});
                           false ->
                               {error,{invalid_handler,
                                       {function_not_exported,
@@ -181,8 +181,8 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
     end;
 handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
-        {ok,{Module,HConfig}} ->
-            {ok,Config} = do_get_config(Tid,primary),
+        {ok,#{module:=Module}=HConfig} ->
+            {ok,Config} = logger_config:get(Tid,primary),
             Handlers0 = maps:get(handlers,Config,[]),
             Handlers = lists:delete(HandlerId,Handlers0),
             call_h_async(
@@ -191,7 +191,7 @@ handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
                       call_h(Module,removing_handler,[HConfig],ok)
               end,
               fun(_Res) ->
-                      do_set_config(Tid,primary,Config#{handlers=>Handlers}),
+                      logger_config:set(Tid,primary,Config#{handlers=>Handlers}),
                       logger_config:delete(Tid,HandlerId),
                       ok
               end,From,State);
@@ -204,25 +204,35 @@ handle_call({add_filter,Id,Filter}, _From,#state{tid=Tid}=State) ->
 handle_call({remove_filter,Id,FilterId}, _From, #state{tid=Tid}=State) ->
     Reply = do_remove_filter(Tid,Id,FilterId),
     {reply,Reply,State};
-handle_call({update_config,Id,NewConfig}, From, #state{tid=Tid}=State) ->
-    case logger_config:get(Tid,Id) of
-        {ok,{_Module,OldConfig}} ->
+handle_call({update_config,primary,NewConfig}, _From, #state{tid=Tid}=State) ->
+    {ok,OldConfig} = logger_config:get(Tid,primary),
+    Config = maps:merge(OldConfig,NewConfig),
+    {reply,logger_config:set(Tid,primary,Config),State};
+handle_call({update_config,HandlerId,NewConfig}, From, #state{tid=Tid}=State) ->
+    case logger_config:get(Tid,HandlerId) of
+        {ok,#{module:=Module}=OldConfig} ->
             Config = maps:merge(OldConfig,NewConfig),
-            handle_call({set_config,Id,Config}, From, State);
-        {ok,OldConfig} ->
-            Config = maps:merge(OldConfig,NewConfig),
-            {reply,do_set_config(Tid,Id,Config),State};
+            call_h_async(
+              fun() ->
+                      call_h(Module,changing_config,[OldConfig,Config],
+                             {ok,Config})
+              end,
+              fun({ok,Config1}) ->
+                      logger_config:set(Tid,HandlerId,Config1);
+                 (Error) ->
+                      Error
+              end,From,State);
         Error ->
             {reply,Error,State}
     end;
 handle_call({set_config,primary,Config0}, _From, #state{tid=Tid}=State) ->
     Config = maps:merge(default_config(primary),Config0),
     {ok,#{handlers:=Handlers}} = logger_config:get(Tid,primary),
-    Reply = do_set_config(Tid,primary,Config#{handlers=>Handlers}),
+    Reply = logger_config:set(Tid,primary,Config#{handlers=>Handlers}),
     {reply,Reply,State};
 handle_call({set_config,HandlerId,Config0}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
-        {ok,{Module,OldConfig}} ->
+        {ok,#{module:=Module}=OldConfig} ->
             Config = maps:merge(default_config(HandlerId,Module),Config0),
             call_h_async(
               fun() ->
@@ -230,7 +240,7 @@ handle_call({set_config,HandlerId,Config0}, From, #state{tid=Tid}=State) ->
                              {ok,Config})
               end,
               fun({ok,Config1}) ->
-                      do_set_config(Tid,HandlerId,Config1);
+                      logger_config:set(Tid,HandlerId,Config1);
                  (Error) ->
                       Error
               end,From,State);
@@ -241,12 +251,12 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
             #state{tid=Tid}=State) ->
     Reply =
         case logger_config:get(Tid,HandlerId) of
-            {ok,{_Mod,#{formatter:={FMod,OldFConfig}}=Config}} ->
+            {ok,#{formatter:={FMod,OldFConfig}}=Config} ->
                 try
                     FConfig = maps:merge(OldFConfig,NewFConfig),
                     check_formatter({FMod,FConfig}),
-                    do_set_config(Tid,HandlerId,
-                                  Config#{formatter=>{FMod,FConfig}})
+                    logger_config:set(Tid,HandlerId,
+                                      Config#{formatter=>{FMod,FConfig}})
                 catch throw:Reason -> {error,Reason}
                 end;
             _ ->
@@ -309,6 +319,7 @@ call(Request) ->
     case get(?LOGGER_SERVER_TAG) of
         true when
               Action == add_handler; Action == remove_handler;
+              Action == add_filter; Action == remove_filter;
               Action == update_config; Action == set_config ->
             {error,{attempting_syncronous_call_to_self,Request}};
         _ ->
@@ -316,46 +327,32 @@ call(Request) ->
     end.
 
 do_add_filter(Tid,Id,{FId,_} = Filter) ->
-    case do_get_config(Tid,Id) of
+    case logger_config:get(Tid,Id) of
         {ok,Config} ->
             Filters = maps:get(filters,Config,[]),
             case lists:keymember(FId,1,Filters) of
                 true ->
                     {error,{already_exist,FId}};
                 false ->
-                    do_set_config(Tid,Id,Config#{filters=>[Filter|Filters]})
+                    logger_config:set(Tid,Id,Config#{filters=>[Filter|Filters]})
             end;
         Error ->
             Error
     end.
 
 do_remove_filter(Tid,Id,FilterId) ->
-    case do_get_config(Tid,Id) of
+    case logger_config:get(Tid,Id) of
         {ok,Config} ->
             Filters0 = maps:get(filters,Config,[]),
             case lists:keytake(FilterId,1,Filters0) of
                 {value,_,Filters} ->
-                    do_set_config(Tid,Id,Config#{filters=>Filters});
+                    logger_config:set(Tid,Id,Config#{filters=>Filters});
                 false ->
                     {error,{not_found,FilterId}}
             end;
         Error ->
             Error
     end.
-
-do_get_config(Tid,Id) ->
-    case logger_config:get(Tid,Id) of
-        {ok,{_,Config}} ->
-            {ok,Config};
-        {ok,Config} ->
-            {ok,Config};
-        Error ->
-            Error
-    end.
-
-do_set_config(Tid,Id,Config) ->
-    logger_config:set(Tid,Id,Config),
-    ok.
 
 default_config(primary) ->
     #{level=>notice,
@@ -376,7 +373,7 @@ sanity_check(Owner,Key,Value) ->
 sanity_check(HandlerId,Config) when is_map(Config) ->
     sanity_check_1(HandlerId,maps:to_list(Config));
 sanity_check(_,Config) ->
-    {error,{invalid_handler_config,Config}}.
+    {error,{invalid_config,Config}}.
 
 sanity_check_1(Owner,Config) when is_list(Config) ->
     try
@@ -421,8 +418,6 @@ check_mod(Mod) when is_atom(Mod) ->
 check_mod(Mod) ->
     throw({invalid_module,Mod}).
 
-check_level({LevelInt,cached}) when LevelInt>=?EMERGENCY, LevelInt=<?DEBUG ->
-    ok;
 check_level(Level) ->
     case lists:member(Level,?LEVELS) of
         true ->

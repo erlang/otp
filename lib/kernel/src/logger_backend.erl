@@ -41,7 +41,7 @@ log_allowed(Log, Tid) ->
 
 call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
     case logger_config:get(Tid,Id,Level) of
-        {ok,{Module,Config}} ->
+        {ok,#{module:=Module}=Config} ->
             Filters = maps:get(filters,Config,[]),
             case apply_filters(Id,Log,Filters,Config) of
                 stop ->

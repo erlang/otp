@@ -208,11 +208,13 @@
 	coversion to a string:</p>
       <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>,<seealso marker="logger#type-report_cb_config"><c>logger:report_cb_config()</c></seealso>) -> <seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c></seealso>)
       </pre>
-      <p>The fun must obey the <c>encoding</c>, <c>depth</c>
-	and <c>chars_limit</c> parameters provided in the second
-	argument, as the formatter cannot do anything useful of these
-	parameters with the returned string. This variant is used when
-	the formatting of the report depends on the size and encoding
+      <p>The fun must obey the <c>depth</c> and <c>chars_limit</c>
+	parameters provided in the second argument, as the formatter
+	cannot do anything useful of these parameters with the
+	returned string. The extra data also contains a field named
+	<c>single_line</c>, indicating if the printed log message may
+	contain line breaks or not. This variant is used when the
+	formatting of the report depends on the size or single line
 	parameters.</p>
       <p>Example, format string and arguments:</p>
       <code>logger:error("The file does not exist: ~ts",[Filename])</code>
