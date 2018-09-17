@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -649,13 +649,14 @@ do_log_to_file(Log, TextFile, Mibs, Start, Stop) ->
             MiniMib = snmp_mini_mib:create(Mibs),
 	    Write = fun(X) -> 
 			    case format_msg(X, MiniMib, Start, Stop) of
-				{ok, S} ->
-				    io:format(Fd, "~s", [S]);
-				_ ->
-				    ok
+                                {Tag, S} when (Tag =:= ok) orelse (Tag =:= error) ->
+				    io:format(Fd, "~s", [S]),
+                                    Tag;
+				Ignore ->
+				    Ignore
 			    end
 		    end,
-            Res = (catch loop(disk_log:chunk(Log, start), Log, Write)),
+            Res = (catch loop(Log, Write)),
 	    snmp_mini_mib:delete(MiniMib), 
             file:close(Fd),
             Res;
@@ -668,39 +669,63 @@ do_log_to_io(Log, Mibs, Start, Stop) ->
     MiniMib = snmp_mini_mib:create(Mibs),
     Write = fun(X) -> 
 		    case format_msg(X, MiniMib, Start, Stop) of
-			{ok, S} ->
-			    io:format("~s", [S]);
-			_ ->
-			    ok
+			{Tag, S} when (Tag =:= ok) orelse (Tag =:= error) ->
+			    io:format("~s", [S]),
+                            Tag;
+			X ->
+			    X
 		    end
 	    end,
-    (catch loop(disk_log:chunk(Log, start), Log, Write)),
+    Res = (catch loop(Log, Write)),
     snmp_mini_mib:delete(MiniMib),
-    ok.
+    Res.
 
 
-loop(eof, _Log, _Write) ->
+loop(Log, Write) ->
+    loop(disk_log:chunk(Log, start), Log, Write, 0, 0).
+
+loop(eof, _Log, _Write, _NumOK, 0 = _NumERR) ->
     ok;
-loop({error, _} = Error, _Log, _Write) ->
+loop(eof, _Log, _Write, NumOK, NumERR) ->
+    {ok, {NumOK, NumERR}};
+loop({error, _} = Error, _Log, _Write, _NumOK, _NumERR) ->
     Error;
-loop({Cont, Terms}, Log, Write) ->
-    case (catch lists:foreach(Write, Terms)) of
-	{'EXIT', Reason} ->
-	    {error, Reason};
-	_ ->
-	    loop(disk_log:chunk(Log, Cont), Log, Write)
+loop({Cont, Terms}, Log, Write, NumOK, NumERR) ->
+    try loop_terms(Terms, Write) of
+        {ok, {AddedOK, AddedERR}} ->
+            loop(disk_log:chunk(Log, Cont), Log, Write,
+                 NumOK+AddedOK, NumERR+AddedERR)
+    catch
+        C:E:S ->
+            {error, {C, E, S}}
     end;
-loop({Cont, Terms, BadBytes}, Log, Write) ->
+loop({Cont, Terms, BadBytes}, Log, Write, NumOK, NumERR) ->
     error_logger:error_msg("Skipping ~w bytes while converting ~p~n~n", 
 			   [BadBytes, Log]),
-    case (catch lists:foreach(Write, Terms)) of
-	{'EXIT', Reason} ->
-	    {error, Reason};
-	_ ->
-	    loop(disk_log:chunk(Log, Cont), Log, Write)
-    end;
-loop(Error, _Log, _Write) ->
-    Error.
+    try loop_terms(Terms, Write) of
+        {ok, {AddedOK, AddedERR}} ->
+            loop(disk_log:chunk(Log, Cont), Log, Write,
+                 NumOK+AddedOK, NumERR+AddedERR)
+    catch
+        C:E:S ->
+            {error, {C, E, S}}
+    end.
+
+
+loop_terms(Terms, Write) ->
+    loop_terms(Terms, Write, 0, 0).
+
+loop_terms([], _Write, NumOK, NumERR) ->
+    {ok, {NumOK, NumERR}};
+loop_terms([Term|Terms], Write, NumOK, NumERR) ->
+    case Write(Term) of
+        ok ->
+            loop_terms(Terms, Write, NumOK+1, NumERR);
+        error ->
+            loop_terms(Terms, Write, NumOK,   NumERR+1);
+        _ ->
+            loop_terms(Terms, Write, NumOK,   NumERR)
+    end.
 
 
 format_msg(Entry, Mib, Start, Stop) ->
@@ -733,88 +758,149 @@ do_format_msg({Timestamp, SeqNo, Packet, Ip, Port}, Mib) ->
 
 %% This is crap...
 do_format_msg(_, _) ->
-    format_tab("** unknown entry in log file\n\n", []).
+    {error, format_tab("** unknown entry in log file\n\n", [])}.
 
 do_format_msg(TimeStamp, {V3Hdr, ScopedPdu}, AddrStr, Mib) ->
-    case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
+    try snmp_pdus:dec_scoped_pdu(ScopedPdu) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
-	    f(ts2str(TimeStamp), "", Msg, AddrStr, Mib);
-	{'EXIT', Reason} ->
-	    format_tab(
-	      "** error in log file at ~s from ~s ~p\n\n",
-	      [ts2str(TimeStamp), AddrStr, Reason])
+	    try f(ts2str(TimeStamp), "", Msg, AddrStr, Mib) of
+                {ok, _} = OK ->
+                    OK
+            catch
+                FormatT:FormatE ->
+                    format_error("format scoped pdu",
+                                 TimeStamp, AddrStr, FormatT, FormatE)
+            end
+    catch
+        DecT:DecE ->
+            format_error("decode scoped pdu", 
+                         TimeStamp, AddrStr, DecT, DecE)
     end;
 do_format_msg(TimeStamp, Packet, AddrStr, Mib) ->
-    case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
+    try snmp_pdus:dec_message(binary_to_list(Packet)) of
 	Msg when is_record(Msg, message) ->
-	    f(ts2str(TimeStamp), "", Msg, AddrStr, Mib);
-	{'EXIT', Reason} ->
-	    format_tab("** error in log file ~p\n\n", [Reason])
+	    try f(ts2str(TimeStamp), "", Msg, AddrStr, Mib) of
+                {ok, _} = OK ->
+                    OK
+            catch
+                FormatT:FormatE ->
+                    %% Provide info about the message
+                    Extra = 
+                        case Msg#message.version of
+                            'version-3' ->
+                                #v3_hdr{msgID            = ID,
+                                        msgFlags         = Flags,
+                                        msgSecurityModel = SecModel} = 
+                                    Msg#message.vsn_hdr,
+                                SecLevel = snmp_misc:get_sec_level(Flags),
+                                f("msg-id: ~w, sec-level: ~w, sec-model: ~w", 
+                                  [ID, SecLevel, sm2atom(SecModel)]);
+                            _ -> %% Community
+                                f("community: ~s", [Msg#message.vsn_hdr])
+                        end,
+                    format_error(f("format ~p message; ~s", 
+                                   [Msg#message.version, Extra]),
+                                 TimeStamp, AddrStr, FormatT, FormatE)
+            end
+    catch
+        DecT:DecE ->
+            format_error("decode message", 
+                         TimeStamp, AddrStr, DecT, DecE)
+
     end.
-    
+
+sm2atom(?SEC_ANY) -> any;
+sm2atom(?SEC_V1)  -> v1;
+sm2atom(?SEC_V2C) -> v2c;
+sm2atom(?SEC_USM) -> usm;
+sm2atom(_)        -> unknown.
+
 do_format_msg(TimeStamp, SeqNo, {V3Hdr, ScopedPdu}, AddrStr, Mib) ->
-    case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
+    try snmp_pdus:dec_scoped_pdu(ScopedPdu) of
 	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
 	    Msg = #message{version = 'version-3',
 			   vsn_hdr = V3Hdr,
 			   data    = ScopedPDU},
-	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib);
-	{'EXIT', Reason} ->
-	    format_tab(
-	      "** error in log file at ~s from ~s ~p\n\n",
-	      [ts2str(TimeStamp), sn2str(SeqNo), AddrStr, Reason])
+	    try f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib) of
+                {ok, _} = OK ->
+                    OK
+            catch
+                FormatT:FormatE ->
+                    format_error("format scoped pdu",
+                                 TimeStamp, SeqNo, AddrStr, FormatT, FormatE)
+            end
+    catch
+        DecT:DecE ->
+            format_error("decode scoped pdu",
+                         TimeStamp, SeqNo, AddrStr, DecT, DecE)
     end;
 do_format_msg(TimeStamp, SeqNo, Packet, AddrStr, Mib) ->
-    case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
+    try snmp_pdus:dec_message(binary_to_list(Packet)) of
 	Msg when is_record(Msg, message) ->
-	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib);
-	{'EXIT', Reason} ->
-	    format_tab(
-	      "** error in log file ~s from ~s ~p\n\n",
-	      [ts2str(TimeStamp), sn2str(SeqNo), AddrStr, Reason])
+	    try f(ts2str(TimeStamp), sn2str(SeqNo), Msg, AddrStr, Mib) of
+                {ok, _} = OK ->
+                    OK
+                        
+            catch
+                FormatT:FormatE ->
+                    %% Provide info about the message
+                    Extra = 
+                        case Msg#message.version of
+                            'version-3' ->
+                                #v3_hdr{msgID            = ID,
+                                        msgFlags         = Flags,
+                                        msgSecurityModel = SecModel} = 
+                                    Msg#message.vsn_hdr,
+                                SecLevel = snmp_misc:get_sec_level(Flags),
+                                f("msg-id: ~w, sec-level: ~w, sec-model: ~w", 
+                                  [ID, SecLevel, sm2atom(SecModel)]);
+                            _ -> %% Community
+                                f("community: ~s", [Msg#message.vsn_hdr])
+                        end,
+                    format_error(f("format ~p message; ~s", 
+                                   [Msg#message.version, Extra]),
+                                 TimeStamp, SeqNo, AddrStr, FormatT, FormatE)
+            end
+    catch
+        DecT:DecE ->
+            format_error("decode message",
+                         TimeStamp, SeqNo, AddrStr, DecT, DecE)
     end.
-    
-    
-%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, {Addr, Port}}, 
-%% 	   Mib, Start, Stop) ->
-%%     format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-%% 	      Mib, Start, Stop);
-%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-%% 	  Mib, Start, Stop) ->
-%%     case timestamp_filter(TimeStamp, Start, Stop) of
-%%         true ->
-%%             case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
-%%                 ScopedPDU when record(ScopedPDU, scopedPdu) -> 
-%%                     Msg = #message{version = 'version-3',
-%%                                    vsn_hdr = V3Hdr,
-%%                                    data    = ScopedPDU},
-%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-%%                 {'EXIT', Reason} ->
-%%                     format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
-%% 			       [ts2str(TimeStamp), ip(Addr), Port, Reason])
-%%             end;
-%%         false ->
-%%             ignore
-%%     end;
-%% format_msg({TimeStamp, Packet, {Addr, Port}}, Mib, Start, Stop) -> 
-%%     format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop);
-%% format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop) ->
-%%     case timestamp_filter(TimeStamp, Start, Stop) of
-%%         true ->
-%%             case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
-%%                 Msg when record(Msg, message) ->
-%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-%%                 {'EXIT', Reason} ->
-%%                     format_tab("** error in log file ~p\n\n", [Reason])
-%%             end;
-%%         false ->
-%%             ignore
-%%     end;
-%% format_msg(_, _Mib, _Start, _Stop) ->
-%%     format_tab("** unknown entry in log file\n\n", []).
+
+
+format_error(WhatStr, TimeStamp, AddrStr, throw, {error, Reason}) ->
+    {ok, Str} = 
+        format_tab(
+          "** error (~s) in log file at ~s from ~s: "
+          "~n   ~p\n\n",
+          [WhatStr, ts2str(TimeStamp), AddrStr, Reason]),
+    {error, Str};
+format_error(WhatStr, TimeStamp, AddrStr, T, E) ->
+    {ok, Str} = 
+        format_tab(
+          "** error (~s) in log file at ~s from ~s: "
+          "~n   ~w: ~p\n\n",
+          [WhatStr, ts2str(TimeStamp), AddrStr, T, E]),
+    {error, Str}.
+
+format_error(WhatStr, TimeStamp, SeqNo, AddrStr, throw, {error, Reason}) ->
+    {ok, Str} = 
+        format_tab(
+          "** error (~s) in log file at ~s~s from ~s: "
+          "~n   ~p\n\n",
+          [WhatStr, ts2str(TimeStamp), sn2str(SeqNo), AddrStr, Reason]),        
+    {error, Str};
+format_error(WhatStr, TimeStamp, SeqNo, AddrStr, T, E) ->
+    {ok, Str} = 
+        format_tab(
+          "** error (~s) in log file at ~s~s from ~s: "
+          "~n   ~w, ~p\n\n",
+          [WhatStr, ts2str(TimeStamp), sn2str(SeqNo), AddrStr, T, E]),        
+    {error, Str}.
+
 
 f(TimeStamp, SeqNo, 
   #message{version = Vsn, vsn_hdr = VsnHdr, data = Data}, 
@@ -838,51 +924,21 @@ f(TimeStamp, SeqNo,
 	end,
     format_tab(
       "~w ~s - ~s [~s]~s ~w\n~s",
-      [Class, AddrStr, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
+      [Class, AddrStr, HdrStr, TimeStamp, SeqNo, Vsn, Str]);
+f(TimeStamp, SeqNo, Msg, AddrStr, _Mib) ->
+    io:format("<ERROR> Unexpected data: "
+              "~n   TimeStamp: ~s~s"
+              "~n   Msg:       ~p"
+              "~n   AddrStr:   ~p"
+              "~n", [TimeStamp, SeqNo, Msg, AddrStr]),
+    throw({error, 'invalid-message'}).
 
-%% f(TimeStamp, SeqNo,
-%%   #message{version = Vsn, vsn_hdr = VsnHdr, data = Data},
-%%   Addr, Port, Mib) ->
-%%     Str    = format_pdu(Data, Mib),
-%%     HdrStr = format_header(Vsn, VsnHdr),
-%%     case get_type(Data) of
-%%         trappdu ->
-%%             f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-%%         'snmpv2-trap' ->
-%%             f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-%%         'inform-request' ->
-%%             f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-%%         'get-response' ->
-%%             f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-%%         report ->
-%%             f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
-%%         _ ->
-%%             f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
-%%     end.
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
-%% f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-%%     format_tab("request ~s:~w - ~s [~s]~s ~w\n~s",
-%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
-
-%% f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-%%     format_tab("response ~s:~w - ~s [~s]~s ~w\n~s",
-%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
-
-%% f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-%%     format_tab("report ~s:~w - ~s [~s]~s ~w\n~s",
-%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
-
-%% f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-%%     format_tab("trap ~s:~w - ~s [~s]~s ~w\n~s",
-%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
-
-%% f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
-%%     format_tab("inform ~s:~w - ~s [~s]~s ~w\n~s",
-%% 	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
 ipPort2Str(Ip, Port) ->
     snmp_conf:mk_addr_string({Ip, Port}).
-    %% io_lib:format("~s:~w", [ip(Ip), Port]).
 
 %% Convert a timestamp 2-tupple to a printable string
 %%
@@ -973,7 +1029,13 @@ format_pdu(#scopedPdu{contextName = Context, data = Pdu}, Mib) ->
     io_lib:format("Context: \"~s\"\n~s",
                   [Context, snmp_misc:format_pdu(Pdu, Mib)]);
 format_pdu(Pdu, Mib) ->
-    snmp_misc:format_pdu(Pdu, Mib).
+    try snmp_misc:format_pdu(Pdu, Mib) of
+        Str ->
+            Str
+    catch
+        _:_ ->
+            throw({error, 'invalid-pdu'})
+    end.
 
 get_type(#scopedPdu{data = Pdu}) ->
     get_type(Pdu);
@@ -981,12 +1043,6 @@ get_type(Pdu) when is_record(Pdu, trappdu) ->
     trappdu;
 get_type(#pdu{type = Type}) ->
     Type.
-
-
-%% ip(Domain, Addr) ->
-%%     snmp_conf:mk_addr_string(Domain, Addr).
-%% ip({A,B,C,D}) ->
-%%     io_lib:format("~w.~w.~w.~w", [A,B,C,D]).
 
 
 
