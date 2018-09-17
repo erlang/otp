@@ -522,14 +522,15 @@ cse_suitable(#b_set{}) -> false.
         {s=undefined :: 'undefined' | 'cleared',
          regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
          fail=none :: 'none' | beam_ssa:label(),
-         ren=#{} :: #{beam_ssa:label():=beam_ssa:label()},
-         non_guards :: gb_sets:set(beam_ssa:label())
+         non_guards :: gb_sets:set(beam_ssa:label()),
+         bs :: beam_ssa:block_map()
         }).
 
 ssa_opt_float(#st{ssa=Linear0,cnt=Count0}=St) ->
     NonGuards0 = float_non_guards(Linear0),
     NonGuards = gb_sets:from_list(NonGuards0),
-    Fs = #fs{non_guards=NonGuards},
+    Blocks = maps:from_list(Linear0),
+    Fs = #fs{non_guards=NonGuards,bs=Blocks},
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
     St#st{ssa=Linear,cnt=Count}.
 
@@ -542,42 +543,35 @@ float_non_guards([{L,#b_blk{is=Is}}|Bs]) ->
     end;
 float_non_guards([]) -> [?BADARG_BLOCK].
 
-float_opt([{L,Blk0}|Bs], Count, Fs) ->
-    Blk = float_rename_phis(Blk0, Fs),
-    case float_need_flush(Blk, Fs) of
-        true ->
-            float_flush(L, Blk, Bs, Count, Fs);
-        false ->
-            float_opt_1(L, Blk, Bs, Count, Fs)
-    end;
-float_opt([], Count, _Fs) ->
-    {[],Count}.
-
-float_opt_1(L, #b_blk{last=#b_br{fail=F}}=Blk, Bs0,
+float_opt([{L,#b_blk{last=#b_br{fail=F}}=Blk}|Bs0],
             Count0, #fs{non_guards=NonGuards}=Fs) ->
     case gb_sets:is_member(F, NonGuards) of
         true ->
             %% This block is not inside a guard.
             %% We can do the optimization.
-            float_opt_2(L, Blk, Bs0, Count0, Fs);
+            float_opt_1(L, Blk, Bs0, Count0, Fs);
         false ->
             %% This block is inside a guard. Don't do
             %% any floating point optimizations.
             {Bs,Count} = float_opt(Bs0, Count0, Fs),
             {[{L,Blk}|Bs],Count}
     end;
-float_opt_1(L, Blk, Bs, Count, Fs) ->
-    float_opt_2(L, Blk, Bs, Count, Fs).
+float_opt([{L,Blk}|Bs], Count, Fs) ->
+    float_opt_1(L, Blk, Bs, Count, Fs);
+float_opt([], Count, _Fs) ->
+    {[],Count}.
 
-float_opt_2(L, #b_blk{is=Is0}=Blk0, Bs0, Count0, Fs0) ->
+float_opt_1(L, #b_blk{is=Is0}=Blk0, Bs0, Count0, Fs0) ->
     case float_opt_is(Is0, Fs0, Count0, []) of
         {Is1,Fs1,Count1} ->
-            Fs = float_fail_label(Blk0, Fs1),
-            Split = float_split_conv(Is1, Blk0),
-            {Blks0,Count2} = float_number(Split, L, Count1),
-            {Blks,Count3} = float_conv(Blks0, Fs#fs.fail, Count2),
-            {Bs,Count} = float_opt(Bs0, Count3, Fs),
-            {Blks++Bs,Count};
+            Fs2 = float_fail_label(Blk0, Fs1),
+            Fail = Fs2#fs.fail,
+            {Flush,Blk,Fs,Count2} = float_maybe_flush(Blk0, Fs2, Count1),
+            Split = float_split_conv(Is1, Blk),
+            {Blks0,Count3} = float_number(Split, L, Count2),
+            {Blks,Count4} = float_conv(Blks0, Fail, Count3),
+            {Bs,Count} = float_opt(Bs0, Count4, Fs),
+            {Blks++Flush++Bs,Count};
         none ->
             {Bs,Count} = float_opt(Bs0, Count0, Fs0),
             {[{L,Blk0}|Bs],Count}
@@ -637,14 +631,42 @@ float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
             end
     end.
 
-float_need_flush(#b_blk{is=Is}, #fs{s=cleared}) ->
+float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
+    #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
+    #b_blk{is=Is} = maps:get(Succ, Blocks),
     case Is of
         [#b_set{anno=#{float_op:=_}}|_] ->
-            false;
+            %% The next operation is also a floating point operation.
+            %% No flush needed.
+            {[],Blk0,Fs0,Count0};
         _ ->
-            true
+            %% Flush needed.
+            {Bool0,Count1} = new_reg('@ssa_bool', Count0),
+            Bool = #b_var{name=Bool0},
+
+            %% Allocate block numbers.
+            CheckL = Count1,              %For checkerror.
+            FlushL = Count1 + 1,          %For flushing of float regs.
+            Count = Count1 + 2,
+            Blk = Blk0#b_blk{last=Br#b_br{succ=CheckL}},
+
+            %% Build the block with the checkerror instruction.
+            CheckIs = [#b_set{op={float,checkerror},dst=Bool}],
+            CheckBr = #b_br{bool=Bool,succ=FlushL,fail=Fail},
+            CheckBlk = #b_blk{is=CheckIs,last=CheckBr},
+
+            %% Build the block that flushes all registers.
+            FlushIs = float_flush_regs(Fs0),
+            FlushBr = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
+            FlushBlk = #b_blk{is=FlushIs,last=FlushBr},
+
+            %% Update state and blocks.
+            Fs = Fs0#fs{s=undefined,regs=#{},fail=none},
+            FlushBs = [{CheckL,CheckBlk},{FlushL,FlushBlk}],
+            {FlushBs,Blk,Fs,Count}
     end;
-float_need_flush(_, _) -> false.
+float_maybe_flush(Blk, Fs, Count) ->
+    {[],Blk,Fs,Count}.
 
 float_opt_is([#b_set{op=succeeded,args=[Src]}=I0],
              #fs{regs=Rs}=Fs, Count, Acc) ->
@@ -668,27 +690,6 @@ float_opt_is([#b_set{anno=Anno0}=I0|Is0], Fs0, Count0, Acc) ->
 float_opt_is([], Fs, _Count, _Acc) ->
     #fs{s=undefined} = Fs,                      %Assertion.
     none.
-
-float_rename_phis(#b_blk{is=Is}=Blk, #fs{ren=Ren}) ->
-    if
-        map_size(Ren) =:= 0 ->
-            Blk;
-        true ->
-            Blk#b_blk{is=float_rename_phis_1(Is, Ren)}
-    end.
-
-float_rename_phis_1([#b_set{op=phi,args=Args0}=I|Is], Ren) ->
-    Args = [float_phi_arg(Arg, Ren) || Arg <- Args0],
-    [I#b_set{args=Args}|float_rename_phis_1(Is, Ren)];
-float_rename_phis_1(Is, _) -> Is.
-
-float_phi_arg({Var,OldLbl}, Ren) ->
-    case Ren of
-        #{OldLbl:=NewLbl} ->
-            {Var,NewLbl};
-        #{} ->
-            {Var,OldLbl}
-    end.
 
 float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0}=I0,
               Ts, #fs{s=S,regs=Rs0}=Fs, Count0) ->
@@ -745,37 +746,6 @@ new_float_copy_reg(Count) ->
 new_reg(Base, Count) ->
     Fr = {Base,Count},
     {Fr,Count+1}.
-
-float_flush(L, Blk, Bs0, Count0, #fs{s=cleared,fail=Fail,ren=Ren0}=Fs0) ->
-    {Bool0,Count1} = new_reg('@ssa_bool', Count0),
-    Bool = #b_var{name=Bool0},
-
-    %% Insert two blocks before the current block. First allocate
-    %% block numbers.
-    FirstL = L,                                  %For checkerror.
-    MiddleL = Count1,                            %For flushed float regs.
-    LastL = Count1 + 1,                          %For original block.
-    Count2 = Count1 + 2,
-
-    %% Build the block with the checkerror instruction.
-    CheckIs = [#b_set{op={float,checkerror},dst=Bool}],
-    FirstBlk = #b_blk{is=CheckIs,last=#b_br{bool=Bool,succ=MiddleL,fail=Fail}},
-
-    %% Build the block that flushes all registers. Note that this must be a
-    %% separate block in case the original block begins with a phi instruction,
-    %% to avoid embedding a phi instruction in the middle of a block.
-    FlushIs = float_flush_regs(Fs0),
-    MiddleBlk = #b_blk{is=FlushIs,last=#b_br{bool=#b_literal{val=true},
-                                             succ=LastL,fail=LastL}},
-
-    %% The last block is the original unmodified block.
-    LastBlk = Blk,
-
-    %% Update state and blocks.
-    Ren = Ren0#{L=>LastL},
-    Fs = Fs0#fs{s=undefined,regs=#{},fail=none,ren=Ren},
-    Bs1 = [{FirstL,FirstBlk},{MiddleL,MiddleBlk},{LastL,LastBlk}|Bs0],
-    float_opt(Bs1, Count2, Fs).
 
 float_fail_label(#b_blk{last=Last}, Fs) ->
     case Last of
