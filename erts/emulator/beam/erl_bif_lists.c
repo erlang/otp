@@ -277,75 +277,121 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     BIF_RET2(am_false, CONTEXT_REDS - max_iter/10);
 }
 
+static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
+                                       Eterm list_in,
+                                       Eterm tail_in)
+{
+    static const Uint CELLS_PER_RED = 40;
+
+    Eterm *heap_top, *heap_end;
+    Uint cells_left, max_cells;
+    Eterm list, tail;
+    Eterm lookahead;
+
+    list = list_in;
+    tail = tail_in;
+
+    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+    lookahead = list;
+
+    while (cells_left != 0 && is_list(lookahead)) {
+        lookahead = CDR(list_val(lookahead));
+        cells_left--;
+    }
+
+    BUMP_REDS(c_p, (max_cells - cells_left) / CELLS_PER_RED);
+
+    if (is_not_list(lookahead) && is_not_nil(lookahead)) {
+        BIF_ERROR(c_p, BADARG);
+    }
+
+    heap_top = HAlloc(c_p, 2 * (max_cells - cells_left));
+    heap_end = heap_top + 2 * (max_cells - cells_left);
+
+    while (heap_top < heap_end) {
+        Eterm *pair = list_val(list);
+
+        tail = CONS(heap_top, CAR(pair), tail);
+        list = CDR(pair);
+
+        ASSERT(is_list(list) || is_nil(list));
+
+        heap_top += 2;
+    }
+
+    if (is_nil(list)) {
+        BIF_RET(tail);
+    }
+
+    ASSERT(is_list(tail) && cells_left == 0);
+    BIF_TRAP2(bif_export[BIF_lists_reverse_2], c_p, list, tail);
+}
+
+static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
+                                        Eterm list_in,
+                                        Eterm tail_in)
+{
+    static const Uint CELLS_PER_RED = 60;
+
+    Eterm *heap_top, *heap_end;
+    Uint cells_left, max_cells;
+    Eterm list, tail;
+
+    list = list_in;
+    tail = tail_in;
+
+    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+
+    ASSERT(HEAP_LIMIT(c_p) >= HEAP_TOP(c_p) + 2);
+    heap_end = HEAP_LIMIT(c_p) - 2;
+    heap_top = HEAP_TOP(c_p);
+
+    while (heap_top < heap_end && is_list(list)) {
+        Eterm *pair = list_val(list);
+
+        tail = CONS(heap_top, CAR(pair), tail);
+        list = CDR(pair);
+
+        heap_top += 2;
+    }
+
+    cells_left -= (heap_top - heap_end) / 2;
+    BUMP_REDS(c_p, (max_cells - cells_left) / CELLS_PER_RED);
+    HEAP_TOP(c_p) = heap_top;
+
+    if (is_nil(list)) {
+        BIF_RET(tail);
+    } else if (is_list(list)) {
+        ASSERT(is_list(tail));
+
+        if (cells_left > CELLS_PER_RED) {
+            return lists_reverse_alloc(c_p, list, tail);
+        }
+
+        BUMP_ALL_REDS(c_p);
+        BIF_TRAP2(bif_export[BIF_lists_reverse_2], c_p, list, tail);
+    }
+
+    BIF_ERROR(c_p, BADARG);
+}
+
 BIF_RETTYPE lists_reverse_2(BIF_ALIST_2)
 {
-    Eterm list;
-    Eterm tmp_list;
-    Eterm result;
-    Eterm* hp;
-    Uint n;
-    int max_iter;
-    
-    /*
-     * Handle legal and illegal non-lists quickly.
-     */
+    /* Handle legal and illegal non-lists quickly. */
     if (is_nil(BIF_ARG_1)) {
-	BIF_RET(BIF_ARG_2);
+        BIF_RET(BIF_ARG_2);
     } else if (is_not_list(BIF_ARG_1)) {
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
 
-    /*
-     * First use the rest of the remaning heap space.
-     */
-    list = BIF_ARG_1;
-    result = BIF_ARG_2;
-    hp = HEAP_TOP(BIF_P);
-    n = HeapWordsLeft(BIF_P) / 2;
-    while (n != 0 && is_list(list)) {
-	Eterm* pair = list_val(list);
-	result = CONS(hp, CAR(pair), result);
-	list = CDR(pair);
-	hp += 2;
-	n--;
-    }
-    HEAP_TOP(BIF_P) = hp;
-    if (is_nil(list)) {
-	BIF_RET(result);
+    /* We build the reversal on the unused part of the heap if possible to save
+     * us the trouble of having to figure out the list size. We fall back to
+     * lists_reverse_alloc when we run out of space. */
+    if (HeapWordsLeft(BIF_P) > 8) {
+        return lists_reverse_onheap(BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
-    /*
-     * Calculate length of remaining list (up to a suitable limit).
-     */
-    max_iter = CONTEXT_REDS * 40;
-    n = 0;
-    tmp_list = list;
-    while (max_iter-- > 0 && is_list(tmp_list)) {
-	tmp_list = CDR(list_val(tmp_list));
-	n++;
-    }
-    if (is_not_nil(tmp_list) && is_not_list(tmp_list)) {
-	goto error;
-    }
-
-    /*
-     * Now do one HAlloc() and continue reversing.
-     */
-    hp = HAlloc(BIF_P, 2*n);
-    while (n != 0 && is_list(list)) {
-	Eterm* pair = list_val(list);
-	result = CONS(hp, CAR(pair), result);
-	list = CDR(pair);
-	hp += 2;
-	n--;
-    }
-    if (is_nil(list)) {
-	BIF_RET(result);
-    } else {
-	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_lists_reverse_2], BIF_P, list, result);
-    }
+    return lists_reverse_alloc(BIF_P, BIF_ARG_1, BIF_ARG_2);
 }
 
 BIF_RETTYPE

@@ -2155,13 +2155,15 @@ workers_exit([Ps|Pss])  ->
     workers_exit(Pss).
 
 do_work(PartTime) ->
-    lists:reverse(lists:seq(1, 50)),
+    _ = id(lists:seq(1, 50)),
     receive stop_work -> receive after infinity -> ok end after 0 -> ok end,
     case PartTime of
 	true -> receive after 1 -> ok end;
 	false -> ok
     end,
     do_work(PartTime).
+
+id(I) -> I.
 
 workers(N, _Prio, _PartTime) when N =< 0 ->
     [];
