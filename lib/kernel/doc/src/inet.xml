@@ -177,6 +177,27 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="ancillary_data"/>
+      <desc>
+	<p>
+	  Ancillary data received with the data packet
+	  or read with the socket option
+	  <seealso marker="gen_tcp#type-pktoptions_value">
+	    <c>pktoptions</c>
+	  </seealso>
+	  from a TCP socket.
+	</p>
+	<p>
+	  The value(s) correspond to the currently active socket
+	  <seealso marker="#type-socket_setopt">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  and
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="posix"/>
       <desc>
         <p>An atom that is named from the POSIX error codes used in Unix,
@@ -344,7 +365,11 @@ fe80::204:acff:fe17:bf38
       <desc>
         <p>Gets one or more options for a socket. For a list of available
           options, see
-          <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.</p>
+          <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+	  See also the description for the type
+          <seealso marker="gen_tcp#type-pktoptions_value">
+	    <c>gen_tcp:pktoptions_value()</c>
+	  </seealso>.</p>
         <p>The number of elements in the returned
           <c><anno>OptionValues</anno></c>
           list does not necessarily correspond to the number of options
@@ -360,7 +385,7 @@ fe80::204:acff:fe17:bf38
           socket options not (explicitly) supported by the emulator. The
           use of raw socket options makes the code non-portable, but
           allows the Erlang programmer to take advantage of unusual features
-          present on the current platform.</p>
+          present on a particular platform.</p>
         <p><c>RawOptReq</c> consists of tag <c>raw</c> followed
           by the protocol level, the option number, and either a binary
           or the size, in bytes, of the
@@ -1115,6 +1140,100 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               the socket. You are encouraged to use
               <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
               to retrieve the size set by your operating system.</p>
+	    <marker id="option-recvtclass"></marker>
+          </item>
+          <tag><c>{recvtclass, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TCLASS</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IPV6</c>
+	      option <c>IPV6_RECVTCLASS</c> or <c>IPV6_2292RECVTCLASS</c>
+	      for the socket.
+	      The value is returned as a <c>{tclass,TCLASS}</c> tuple
+	      regardless of if the platform returns an <c>IPV6_TCLASS</c>
+	      or an <c>IPV6_RECVTCLASS</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TCLASS</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TCLASS</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
+	    <marker id="option-recvtos"></marker>
+          </item>
+          <tag><c>{recvtos, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TOS</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IP</c> option <c>IP_RECVTOS</c>
+	      for the socket.
+	      The value is returned as a <c>{tos,TOS}</c> tuple
+	      regardless of if the platform returns an <c>IP_TOS</c>
+	      or an <c>IP_RECVTOS</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TOS</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TOS</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
+	    <marker id="option-recvttl"></marker>
+          </item>
+          <tag><c>{recvttl, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TTL</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IP</c> option <c>IP_RECVTTL</c>
+	      for the socket.
+	      The value is returned as a <c>{ttl,TTL}</c> tuple
+	      regardless of if the platform returns an <c>IP_TTL</c>
+	      or an <c>IP_RECVTTL</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TTL</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TTL</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
           </item>
           <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>

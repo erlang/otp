@@ -62,7 +62,14 @@
         {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
+        {tclass,          non_neg_integer()} |
+        {ttl,             non_neg_integer()} |
+	{recvtos,         boolean()} |
+	{recvtclass,      boolean()} |
+	{recvttl,         boolean()} |
 	{ipv6_v6only,     boolean()}.
+-type pktoptions_value() ::
+        {pktoptions, inet:ancillary_data()}.
 -type option_name() ::
         active |
         buffer |
@@ -81,6 +88,7 @@
         nodelay |
         packet |
         packet_size |
+        pktoptions |
         priority |
         {raw,
          Protocol :: non_neg_integer(),
@@ -94,6 +102,12 @@
         show_econnreset |
         sndbuf |
         tos |
+        tclass |
+        ttl |
+        recvtos |
+        recvtclass |
+        recvttl |
+        pktoptions |
 	ipv6_v6only.
 -type connect_option() ::
         {ip, inet:socket_address()} |
@@ -119,7 +133,7 @@
 -type socket() :: port().
 
 -export_type([option/0, option_name/0, connect_option/0, listen_option/0,
-              socket/0]).
+              socket/0, pktoptions_value/0]).
 
 %%
 %% Connect a socket

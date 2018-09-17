@@ -66,7 +66,12 @@
         {sctp_set_peer_primary_addr, #sctp_setpeerprim{}} |
         {sctp_status, #sctp_status{}} |
         {sndbuf, non_neg_integer()} |
-        {tos, non_neg_integer()}.
+        {tos, non_neg_integer()} |
+        {tclass, non_neg_integer()} |
+        {ttl, non_neg_integer()} |
+        {recvtos, boolean()} |
+        {recvtclass, boolean()} |
+        {recvttl, boolean()}.
 -type option_name() ::
         active |
         buffer |
@@ -97,7 +102,12 @@
         sctp_set_peer_primary_addr |
         sctp_status |
         sndbuf |
-        tos.
+        tos |
+        tclass |
+        ttl |
+        recvtos |
+        recvtclass |
+        recvttl.
 -type sctp_socket() :: port().
 
 -export_type([assoc_id/0, option/0, option_name/0, sctp_socket/0]).
@@ -365,7 +375,7 @@ send(S, AssocChange, Stream, Data) ->
       Socket :: sctp_socket(),
       FromIP   :: inet:ip_address(),
       FromPort :: inet:port_number(),
-      AncData  :: [#sctp_sndrcvinfo{}],
+      AncData  :: [#sctp_sndrcvinfo{} | inet:ancillary_data()],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},
@@ -382,7 +392,7 @@ recv(S) ->
       Timeout :: timeout(),
       FromIP   :: inet:ip_address(),
       FromPort :: inet:port_number(),
-      AncData  :: [#sctp_sndrcvinfo{}],
+      AncData  :: [#sctp_sndrcvinfo{} | inet:ancillary_data()],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},

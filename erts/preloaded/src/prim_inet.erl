@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 -export([open/3, open/4, fdopen/4, fdopen/5, close/1]).
 -export([bind/3, listen/1, listen/2, peeloff/2]).
 -export([connect/3, connect/4, async_connect/4]).
--export([accept/1, accept/2, async_accept/2]).
+-export([accept/1, accept/2, accept/3, async_accept/2]).
 -export([shutdown/2]).
 -export([send/2, send/3, sendto/4, sendmsg/3, sendfile/4]).
 -export([recv/2, recv/3, async_recv/3]).
@@ -307,7 +307,7 @@ async_connect0(S, Addr, Time) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% ACCEPT(insock() [,Timeout] ) -> {ok,insock()} | {error, Reason}
+%% ACCEPT(insock() [,Timeout][,FamilyOpts] ) -> {ok,insock()} | {error, Reason}
 %%
 %% accept incoming connection on listen socket 
 %% if timeout is given:
@@ -315,6 +315,8 @@ async_connect0(S, Addr, Time) ->
 %%                 0  -> immediate accept (poll)
 %%               > 0  -> wait for timeout ms for accept if no accept then 
 %%                       return {error, timeout}
+%% FamilyOpts are address family specific options to copy from
+%% listen socket to accepted socket
 %%
 %% ASYNC_ACCEPT(insock(), Timeout)
 %%
@@ -325,17 +327,22 @@ async_connect0(S, Addr, Time) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% For TCP sockets only.
 %%
-accept(L)            -> accept0(L, -1).
+accept(L) -> accept0(L, -1, []).
 
-accept(L, infinity)  -> accept0(L, -1);
-accept(L, Time)      -> accept0(L, Time).
+accept(L, infinity) -> accept0(L, -1, []);
+accept(L, FamilyOpts) when is_list(FamilyOpts) -> accept0(L, -1, FamilyOpts);
+accept(L, Time) -> accept0(L, Time, []).
 
-accept0(L, Time) when is_port(L), is_integer(Time) ->
+accept(L, infinity, FamilyOpts) -> accept0(L, -1, FamilyOpts);
+accept(L, Time, FamilyOpts) -> accept0(L, Time, FamilyOpts).
+
+accept0(L, Time, FamilyOpts)
+  when is_port(L), is_integer(Time), is_list(FamilyOpts) ->
     case async_accept(L, Time) of
 	{ok, Ref} ->
 	    receive 
 		{inet_async, L, Ref, {ok,S}} ->
-		    accept_opts(L, S);
+		    accept_opts(L, S, FamilyOpts);
 		{inet_async, L, Ref, Error} ->
 		    Error
 	    end;
@@ -343,25 +350,22 @@ accept0(L, Time) when is_port(L), is_integer(Time) ->
     end.
 
 %% setup options from listen socket on the connected socket
-accept_opts(L, S) ->
-    case getopts(L, [active, nodelay, keepalive, delay_send, priority, tos]) of
+accept_opts(L, S, FamilyOpts) ->
+    case
+        getopts(
+          L,
+          [active, nodelay, keepalive, delay_send, priority]
+          ++ FamilyOpts)
+    of
 	{ok, Opts} ->
-	    case setopts(S, Opts) of
-		ok ->
-		    case getopts(L, [tclass]) of
-			{ok, []} ->
-			    {ok, S};
-			{ok, TClassOpts} ->
-			    case setopts(S, TClassOpts) of
-				ok ->
-				    {ok, S};
-				Error -> close(S), Error
-			    end
-		    end;
-		Error -> close(S), Error
-	    end;
-	Error ->
-	    close(S), Error
+            case setopts(S, Opts) of
+                ok ->
+                    {ok, S};
+                Error1 ->
+                    close(S), Error1
+            end;
+	Error2 ->
+	    close(S), Error2
     end.
 
 async_accept(L, Time) ->
@@ -616,7 +620,16 @@ recvfrom0(S, Length, Time)
 	    Ref = ?u16(R1,R0),
 	    receive
 		% Success, UDP:
+		{inet_async, S, Ref, {ok, {[F | AddrData], AncData}}} ->
+                    %% With ancillary data
+		    case get_addr(F, AddrData) of
+			{{Family, _} = Addr, Data} when is_atom(Family) ->
+			    {ok, {Addr, 0, AncData, Data}};
+			{{IP, Port}, Data} ->
+			    {ok, {IP, Port, AncData, Data}}
+		    end;
 		{inet_async, S, Ref, {ok, [F | AddrData]}} ->
+                    %% Without ancillary data
 		    case get_addr(F, AddrData) of
 			{{Family, _} = Addr, Data} when is_atom(Family) ->
 			    {ok, {Addr, 0, Data}};
@@ -1256,6 +1269,11 @@ enc_opt(recbuf)          -> ?INET_OPT_RCVBUF;
 enc_opt(priority)        -> ?INET_OPT_PRIORITY;
 enc_opt(tos)             -> ?INET_OPT_TOS;
 enc_opt(tclass)          -> ?INET_OPT_TCLASS;
+enc_opt(recvtos)         -> ?INET_OPT_RECVTOS;
+enc_opt(recvtclass)      -> ?INET_OPT_RECVTCLASS;
+enc_opt(pktoptions)      -> ?INET_OPT_PKTOPTIONS;
+enc_opt(ttl)             -> ?INET_OPT_TTL;
+enc_opt(recvttl)         -> ?INET_OPT_RECVTTL;
 enc_opt(nodelay)         -> ?TCP_OPT_NODELAY;
 enc_opt(multicast_if)    -> ?UDP_OPT_MULTICAST_IF;
 enc_opt(multicast_ttl)   -> ?UDP_OPT_MULTICAST_TTL;
@@ -1318,6 +1336,11 @@ dec_opt(?INET_OPT_PRIORITY)       -> priority;
 dec_opt(?INET_OPT_TOS)            -> tos;
 dec_opt(?INET_OPT_TCLASS)         -> tclass;
 dec_opt(?TCP_OPT_NODELAY)         -> nodelay;
+dec_opt(?INET_OPT_RECVTOS)        -> recvtos;
+dec_opt(?INET_OPT_RECVTCLASS)     -> recvtclass;
+dec_opt(?INET_OPT_PKTOPTIONS)     -> pktoptions;
+dec_opt(?INET_OPT_TTL)            -> ttl;
+dec_opt(?INET_OPT_RECVTTL)        -> recvttl;
 dec_opt(?UDP_OPT_MULTICAST_IF)    -> multicast_if;
 dec_opt(?UDP_OPT_MULTICAST_TTL)   -> multicast_ttl;
 dec_opt(?UDP_OPT_MULTICAST_LOOP)  -> multicast_loop;
@@ -1393,6 +1416,11 @@ type_opt_1(recbuf)          -> int;
 type_opt_1(priority)        -> int;
 type_opt_1(tos)             -> int;
 type_opt_1(tclass)          -> int;
+type_opt_1(recvtos)         -> bool;
+type_opt_1(recvtclass)      -> bool;
+type_opt_1(pktoptions)      -> opts;
+type_opt_1(ttl)             -> int;
+type_opt_1(recvttl)         -> bool;
 type_opt_1(nodelay)         -> bool;
 type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
@@ -1899,6 +1927,11 @@ dec_value(binary,[L0,L1,L2,L3|List]) ->
     Len = ?i32(L0,L1,L2,L3),
     {X,T}=split(Len,List),
     {list_to_binary(X),T};
+dec_value(opts, [L0,L1,L2,L3|List]) ->
+    Len = ?u32(L0,L1,L2,L3),
+    {X,T} = split(Len, List),
+    Opts = dec_opt_val(X),
+    {Opts,T};
 dec_value(Types, List) when is_tuple(Types) ->
     {L,T} = dec_value_tuple(Types, List, 1, []),
     {list_to_tuple(L),T};
