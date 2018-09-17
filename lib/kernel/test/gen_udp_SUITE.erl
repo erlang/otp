@@ -36,6 +36,7 @@
 -export([send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1,
+         recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
 	 local_basic/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1]).
 
@@ -47,6 +48,7 @@ all() ->
     [send_to_closed, buffer_size, binary_passive_recv, max_buffer_size,
      bad_address, read_packets, open_fd, connect,
      implicit_inet6, active_n,
+     recvtos, recvtosttl, recvttl, recvtclass,
      {group, local}].
 
 groups() -> 
@@ -570,6 +572,167 @@ active_n(Config) when is_list(Config) ->
     ok = gen_udp:close(S2),
     ok = gen_udp:close(S1),
     ok.
+
+
+
+recvtos(_Config) ->
+    test_recv_opts(
+      inet, [{recvtos,tos,96}],
+      fun recvtos_ok/2).
+
+recvtosttl(_Config) ->
+    test_recv_opts(
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
+      fun (OSType, OSVer) ->
+              recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
+      end).
+
+recvttl(_Config) ->
+    test_recv_opts(
+      inet, [{recvttl,ttl,33}],
+      fun recvttl_ok/2).
+
+recvtclass(_Config) ->
+    {ok,IFs} = inet:getifaddrs(),
+    case
+        [Name ||
+            {Name,Opts} <- IFs,
+            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
+    of
+        [_] ->
+            test_recv_opts(
+              inet6, [{recvtclass,tclass,224}],
+              fun recvtclass_ok/2);
+        [] ->
+            {skip,ipv6_not_supported,IFs}
+    end.
+
+%% These version numbers are just above the highest noted in daily tests
+%% where the test fails for a plausible reason, that is the lowest
+%% where we can expect that the test mighe succeed, so
+%% skip on platforms lower than this.
+%%
+%% On newer versions it might be fixed, but we'll see about that
+%% when machines with newer versions gets installed...
+%% If the test still fails for a plausible reason these
+%% version numbers simply should be increased.
+
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,11,0});
+%%
+recvtos_ok({unix,_}, _) -> true;
+recvtos_ok(_, _) -> false.
+
+recvttl_ok({unix,_}, _) -> true;
+recvttl_ok(_, _) -> false.
+
+%% Using the option returns einval, so it is not implemented.
+recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {9,9,0});
+recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,6,11});
+%%
+recvtclass_ok({unix,_}, _) -> true;
+recvtclass_ok(_, _) -> false.
+
+semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+    if
+        X1 > X2 -> false;
+        X1 < X2 -> true;
+        Y1 > Y2 -> false;
+        Y1 < Y2 -> true;
+        Z1 > Z2 -> false;
+        Z1 < Z2 -> true;
+        true -> false
+    end;
+semver_lt(_, {_,_,_}) -> false.
+
+test_recv_opts(Family, Spec, OSFilter) ->
+    OSType = os:type(),
+    OSVer = os:version(),
+    case OSFilter(OSType, OSVer) of
+        true ->
+            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            test_recv_opts(Family, Spec, OSType, OSVer);
+        false ->
+            {skip,{not_supported_for_os_version,{OSType,OSVer}}}
+    end.
+%%
+test_recv_opts(Family, Spec, _OSType, _OSVer) ->
+    Timeout = 5000,
+    RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
+    TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
+    FalseRecvOpts = [{RecvOpt,false} || {RecvOpt,_,_} <- Spec],
+    Opts = [Opt || {_,Opt,_} <- Spec],
+    OptsVals = [{Opt,Val} || {_,Opt,Val} <- Spec],
+    TrueRecvOpts_OptsVals = TrueRecvOpts ++ OptsVals,
+    Addr =
+        case Family of
+            inet ->
+                {127,0,0,1};
+            inet6 ->
+                {0,0,0,0,0,0,0,1}
+        end,
+    %%
+    {ok,S1} =
+        gen_udp:open(0, [Family,binary,{active,false}|TrueRecvOpts]),
+    {ok,P1} = inet:port(S1),
+    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    ok = inet:setopts(S1, FalseRecvOpts),
+    {ok,FalseRecvOpts} = inet:getopts(S1, RecvOpts),
+    ok = inet:setopts(S1, TrueRecvOpts_OptsVals),
+    {ok,TrueRecvOpts_OptsVals} = inet:getopts(S1, RecvOpts ++ Opts),
+    %%
+    {ok,S2} =
+        gen_udp:open(0, [Family,binary,{active,true}|FalseRecvOpts]),
+    {ok,P2} = inet:port(S2),
+    {ok,FalseRecvOpts_OptsVals2} = inet:getopts(S2, RecvOpts ++ Opts),
+    OptsVals2 = FalseRecvOpts_OptsVals2 -- FalseRecvOpts,
+    %%
+    ok = gen_udp:send(S2, Addr, P1, <<"abcde">>),
+    ok = gen_udp:send(S1, Addr, P2, <<"fghij">>),
+    {ok,{_,P2,OptsVals3,<<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
+    verify_sets_eq(OptsVals3, OptsVals2),
+    receive
+        {udp,S2,_,P1,<<"fghij">>} ->
+            ok;
+        Other1 ->
+            exit({unexpected,Other1})
+    after Timeout ->
+            exit(timeout)
+    end,
+    %%
+    ok = inet:setopts(S1, FalseRecvOpts),
+    {ok,FalseRecvOpts} = inet:getopts(S1, RecvOpts),
+    ok = inet:setopts(S2, TrueRecvOpts),
+    {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    %%
+    ok = gen_udp:send(S2, Addr, P1, <<"klmno">>),
+    ok = gen_udp:send(S1, Addr, P2, <<"pqrst">>),
+    {ok,{_,P2,<<"klmno">>}} = gen_udp:recv(S1, 0, Timeout),
+    receive
+        {udp,S2,_,P1,OptsVals4,<<"pqrst">>} ->
+            verify_sets_eq(OptsVals4, OptsVals);
+        Other2 ->
+            exit({unexpected,Other2})
+    after Timeout ->
+            exit(timeout)
+    end,
+    ok = gen_udp:close(S1),
+    ok = gen_udp:close(S2),
+%%    exit({{OSType,OSVer},success}), % In search for the truth
+    ok.
+
+verify_sets_eq(L1, L2) ->
+    L = lists:sort(L1),
+    case lists:sort(L2) of
+        L ->
+            ok;
+        _ ->
+            exit({sets_neq,L1,L2})
+    end.
 
 
 local_basic(_Config) ->

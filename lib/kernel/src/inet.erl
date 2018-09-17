@@ -76,7 +76,7 @@
 -export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
 	      local_address/0, socket_address/0, returned_non_ip_address/0,
-	      socket_setopt/0, socket_getopt/0,
+	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
 	      posix/0, socket/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -162,6 +162,9 @@
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
+
+-type ancillary_data() ::
+        [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 
 %%% ---------------------------------
 
@@ -302,7 +305,7 @@ setopts(Socket, Opts) ->
 	{'ok', OptionValues} | {'error', posix()} when
       Socket :: socket(),
       Options :: [socket_getopt()],
-      OptionValues :: [socket_setopt()].
+      OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
 
 getopts(Socket, Opts) ->
     case prim_inet:getopts(Socket, Opts) of
@@ -722,6 +725,7 @@ stats() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
     [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+     recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
@@ -790,6 +794,7 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
     [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+     recvtos, recvtclass, ttl, recvttl,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
@@ -870,7 +875,7 @@ tcp_module_1(Opts, Address) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
     [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
-     deliver, ipv6_v6only,
+     recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
      high_msgq_watermark, low_msgq_watermark, bind_to_device].
@@ -940,8 +945,10 @@ udp_module(Opts) ->
 %  (*) passing of open FDs ("fdopen") is not supported.
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
-    mode, active, buffer, tos, tclass, priority, dontroute, reuseaddr, linger, sndbuf,
-    recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
+    mode, active, buffer, tos, tclass, ttl,
+    priority, dontroute, reuseaddr, linger,
+    recvtos, recvtclass, recvttl,
+    sndbuf, recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
     bind_to_device,
 
     % Other options are SCTP-specific (though they may be similar to their
