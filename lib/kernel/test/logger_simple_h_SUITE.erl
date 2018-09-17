@@ -117,8 +117,7 @@ replace_default(Config) ->
     log(Node, critical, [?str,[?keyval_rep]]),
     log(Node, notice, [["fake",string,"line:",?LINE]]),
 
-    Env = rpc:call(Node, application, get_env, [kernel, logger, []]),
-    ok = rpc:call(Node, logger, add_handlers, [Env]),
+    ok = rpc:call(Node, logger, add_handlers, [kernel]),
 
     ok.
 

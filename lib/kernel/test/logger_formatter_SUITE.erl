@@ -765,6 +765,8 @@ check_config(_Config) ->
 %% Test that formatter config can be changed, and that the default
 %% template is updated accordingly
 update_config(_Config) ->
+    {error,{not_found,?MODULE}} = logger:update_formatter_config(?MODULE,#{}),
+
     logger:add_handler_filter(default,silence,{fun(_,_) -> stop end,ok}),
     ok = logger:add_handler(?MODULE,?MODULE,#{}),
     D = lists:seq(1,1000),
@@ -816,6 +818,11 @@ update_config(_Config) ->
     [ct:log(L) || L <- Lines6],
     ct:log("~p",[C6]),
     ["=NOTICE REPORT==== "++_,_D6] = Lines6,
+
+    {error,{invalid_formatter_config,bad}} =
+        logger:update_formatter_config(?MODULE,bad),
+    {error,{invalid_formatter_config,logger_formatter,{depth,bad}}} =
+        logger:update_formatter_config(?MODULE,depth,bad),
 
     ok.
 

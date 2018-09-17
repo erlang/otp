@@ -527,7 +527,7 @@ start(_, []) ->
         Error -> Error
      end.</code>
        <p>This reads the <c>logger</c> configuration parameter from
-         the <c>my_all</c> application and starts the configured
+         the <c>my_app</c> application and starts the configured
          handlers. The contents of the configuration use the same
          rules as the
          <seealso marker="logger_chapter#handler-configuration">logger handler configuration</seealso>.
