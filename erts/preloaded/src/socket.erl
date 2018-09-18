@@ -565,20 +565,6 @@
                          credentials |
                          origdstaddr |
                          integer().
-%% Do we need this? See cmsghdr()
-%% -type cmsghdr_data() :: timeval()      | % if level = socket and type = timstamp
-%%                         ip_pktinfo()   | % if level = ip and type = pktinfo
-%%                         ipv6_pktinfo() | % if level = ipv6 and type = pktinfo
-%%                         ip_tos()       | % if level = ip and type = tos
-%%                         integer()      | % if level = ip and type = ttl
-%%                         sockaddr_in4() | % if level = ip and type = origdstaddr
-%%                         binary().
-%% -type cmsghdr() :: #{
-%%                      level := cmsghdr_level(),
-%%                      type  := cmsghdr_type(),
-%%                      data  := cmsghdr_data()
-%%                     }.
-
 -type cmsghdr_recv() :: 
         #{level := socket,    type := timestamp,   data := timeval()}      |
         #{level := socket,    type := rights,      data := binary()}       |
@@ -592,8 +578,6 @@
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
-
-
 -type cmsghdr_send() :: 
         #{level := socket,    type := integer(), data := binary()} |
         #{level := ip,        type := tos,       data := ip_tos()  | binary()} |
@@ -1522,9 +1506,10 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             ERROR
     end.
 
+ensure_msghdr(#{ctrl := []} = M) ->
+    ensure_msghdr(maps:remove(ctrl, M));
 ensure_msghdr(#{iov := IOV} = M) when is_list(IOV) andalso (IOV =/= []) ->
     M#{iov := erlang:iolist_to_iovec(IOV)};
-    %% M;
 ensure_msghdr(_) ->
     einval().
 
