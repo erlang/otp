@@ -1083,7 +1083,7 @@ extern int erts_do_net_exits(DistEntry*, Eterm);
 extern int distribution_info(fmtfn_t, void *);
 extern int is_node_name_atom(Eterm a);
 
-extern int erts_net_message(Port *, DistEntry *,
+extern int erts_net_message(Port *, DistEntry *, Uint32 conn_id,
 			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
 
 extern void init_dist(void);
