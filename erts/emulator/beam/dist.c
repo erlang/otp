@@ -85,10 +85,10 @@ dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
     }
     else {
 	ErlHeapFragment *mbuf = new_message_buffer(size);
-	erts_factory_static_init(&factory, ctl, ctl_len, &mbuf->off_heap);
+	erts_factory_static_init(&factory, mbuf->mem, ctl_len, &mbuf->off_heap);
 	msg = erts_decode_dist_ext(&factory, edep);
 	if (is_value(msg))
-	    erts_fprintf(stderr, "    %s: %T\n", what, msg);
+	    erts_fprintf(stderr, "    %s: %.80T\n", what, msg);
 	else {
 	    erts_fprintf(stderr,
 			 "DIST MSG DEBUG: erts_decode_dist_ext(%s) failed:\n",
@@ -1211,6 +1211,7 @@ int erts_net_message(Port *prt,
                      Uint32 conn_id,
 		     byte *hbuf,
 		     ErlDrvSizeT hlen,
+                     Binary *bin,
 		     byte *buf,
 		     ErlDrvSizeT len)
 {
@@ -1259,7 +1260,7 @@ int erts_net_message(Port *prt,
     bw(buf, len);
 #endif
 
-    res = erts_prepare_dist_ext(&ede, buf, len, dep, conn_id, dep->cache);
+    res = erts_prepare_dist_ext(&ede, buf, len, bin, dep, conn_id, dep->cache);
 
     switch (res) {
     case ERTS_PREP_DIST_EXT_CLOSED:
@@ -1303,7 +1304,7 @@ int erts_net_message(Port *prt,
     }
 
 #ifdef ERTS_DIST_MSG_DBG
-    erts_fprintf(stderr, "<< CTL: %T\n", arg);
+    erts_fprintf(stderr, "<< CTL: %.80T\n", arg);
 #endif
 
     if (is_not_tuple(arg) || 
@@ -1830,9 +1831,9 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    }
 
     #ifdef ERTS_DIST_MSG_DBG
-            erts_fprintf(stderr, ">> CTL: %T\n", ctx->ctl);
+            erts_fprintf(stderr, ">> CTL: %.80T\n", ctx->ctl);
             if (is_value(ctx->msg))
-                erts_fprintf(stderr, "    MSG: %T\n", ctx->msg);
+                erts_fprintf(stderr, "    MSG: %.80T\n", ctx->msg);
     #endif
 
 	    ctx->data_size = ctx->max_finalize_prepend;
@@ -2613,6 +2614,7 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
     ErlDrvSizeT size;
     Eterm input_handler;
     Uint32 conn_id;
+    Binary *bin = NULL;
 
     if (is_binary(BIF_ARG_2))
         size = binary_size(BIF_ARG_2);
@@ -2638,13 +2640,27 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
     if (size != 0) {
         byte *data, *temp_alloc = NULL;
 
-        data = (byte *) erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc);
+        if (binary_bitoffset(BIF_ARG_2))
+            data = (byte *) erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc);
+        else {
+            Eterm real_bin;
+            ProcBin *proc_bin;
+            Uint offset, bitoffs, bitsize;
+
+            ERTS_GET_REAL_BIN(BIF_ARG_2, real_bin, offset, bitoffs, bitsize);
+            ASSERT(bitoffs == 0);
+            data = binary_bytes(real_bin) + offset;
+            proc_bin = (ProcBin *)binary_val(real_bin);
+            if (proc_bin->thing_word == HEADER_PROC_BIN)
+                bin = proc_bin->val;
+        }
+
         if (!data)
             BIF_ERROR(BIF_P, BADARG);
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-        (void) erts_net_message(NULL, dep, conn_id, NULL, 0, data, size);
+        (void) erts_net_message(NULL, dep, conn_id, NULL, 0, bin, data, size);
         /*
          * We ignore any decode failures. On fatal failures the
          * connection will be taken down by killing the

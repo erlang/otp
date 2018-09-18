@@ -640,14 +640,15 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
 {
     size_t align_sz;
     size_t dist_ext_sz;
-    size_t ext_sz;
+    size_t ext_sz = 0;
     byte *ep;
     ErtsDistExternal *new_edep;
 
     dist_ext_sz = ERTS_DIST_EXT_SIZE(edep);
     ASSERT(edep->ext_endp && edep->extp);
     ASSERT(edep->ext_endp >= edep->extp);
-    ext_sz = edep->ext_endp - edep->extp;
+    if (edep->binp == NULL)
+        ext_sz = edep->ext_endp - edep->extp;
 
     align_sz = ERTS_EXTRA_DATA_ALIGN_SZ(dist_ext_sz + ext_sz);
 
@@ -656,20 +657,36 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
 
     ep = (byte *) new_edep;
     sys_memcpy((void *) ep, (void *) edep, dist_ext_sz);
-    ep += dist_ext_sz;
     if (new_edep->dep)
         erts_ref_dist_entry(new_edep->dep);
-    new_edep->extp = ep;
-    new_edep->ext_endp = ep + ext_sz;
     new_edep->heap_size = -1;
-    sys_memcpy((void *) ep, (void *) edep->extp, ext_sz);
+
+    if (ext_sz) {
+        ep += dist_ext_sz;
+        new_edep->extp = ep;
+        new_edep->ext_endp = ep + ext_sz;
+        sys_memcpy((void *) ep, (void *) edep->extp, ext_sz);
+    } else {
+        erts_refc_inc(&new_edep->binp->intern.refc, 2);
+    }
     return new_edep;
+}
+
+void
+erts_free_dist_ext_copy(ErtsDistExternal *edep)
+{
+    if (edep->dep)
+	erts_deref_dist_entry(edep->dep);
+    if (edep->binp)
+        erts_bin_release(edep->binp);
+    erts_free(ERTS_ALC_T_EXT_TERM_DATA, edep);
 }
 
 int
 erts_prepare_dist_ext(ErtsDistExternal *edep,
 		      byte *ext,
 		      Uint size,
+                      Binary *binp,
 		      DistEntry *dep,
                       Uint32 conn_id,
 		      ErtsAtomCache *cache)
@@ -685,6 +702,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
     ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
 
+
     if ((dep->state != ERTS_DE_STATE_CONNECTED &&
          dep->state != ERTS_DE_STATE_PENDING)
         || dep->connection_id != conn_id) {
@@ -697,7 +715,11 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
         ext++;
         size--;
     }
+
+    edep->heap_size = -1;
     edep->ext_endp = ext + size;
+    edep->binp = binp;
+
     ep = ext;
 
     if (size < 2)

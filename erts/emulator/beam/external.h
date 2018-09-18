@@ -122,10 +122,13 @@ typedef struct {
 
 #define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
 
-typedef struct {
+struct binary;
+
+typedef struct erl_dist_external {
     DistEntry *dep;
     byte *extp;
     byte *ext_endp;
+    struct binary *binp;
     Sint heap_size;
     Uint32 connection_id;
     Uint32 flags;
@@ -171,7 +174,7 @@ Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
-ERTS_GLB_INLINE void erts_free_dist_ext_copy(ErtsDistExternal *);
+void erts_free_dist_ext_copy(ErtsDistExternal *);
 ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
 ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
 void *erts_dist_ext_trailer(ErtsDistExternal *);
@@ -181,8 +184,8 @@ void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 #define ERTS_PREP_DIST_EXT_SUCCESS      (0)
 #define ERTS_PREP_DIST_EXT_CLOSED       (1)
 
-int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
-			  DistEntry *, Uint32 conn_id, ErtsAtomCache *);
+int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struct binary *,
+			  DistEntry *, Uint32, ErtsAtomCache *);
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 
@@ -201,14 +204,6 @@ int erts_debug_atom_to_out_cache_index(Eterm);
 void transcode_free_ctx(DistEntry* dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_free_dist_ext_copy(ErtsDistExternal *edep)
-{
-    if (edep->dep)
-	erts_deref_dist_entry(edep->dep);
-    erts_free(ERTS_ALC_T_EXT_TERM_DATA, edep);
-}
 
 ERTS_GLB_INLINE void *
 erts_dist_ext_trailer(ErtsDistExternal *edep)
