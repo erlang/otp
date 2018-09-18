@@ -436,27 +436,32 @@ set_application_level(_Config) ->
     {error,{not_loaded,mnesia}} = logger:set_application_level(mnesia, warning),
     {error,{not_loaded,mnesia}} = logger:unset_application_level(mnesia),
 
-    application:load(mnesia),
-    {ok, Modules} = application:get_key(mnesia, modules),
-    [] = logger:get_module_level(Modules),
+    case application:load(mnesia) of
+        ok ->
+            {ok, Modules} = application:get_key(mnesia, modules),
+            [] = logger:get_module_level(Modules),
 
-    {error,{invalid_level,warn}} = logger:set_application_level(mnesia, warn),
+            {error,{invalid_level,warn}} =
+                logger:set_application_level(mnesia, warn),
 
-    ok = logger:set_application_level(mnesia, debug),
-    DebugModules = lists:sort([{M,debug} || M <- Modules]),
-    DebugModules = lists:sort(logger:get_module_level(Modules)),
+            ok = logger:set_application_level(mnesia, debug),
+            DebugModules = lists:sort([{M,debug} || M <- Modules]),
+            DebugModules = lists:sort(logger:get_module_level(Modules)),
 
-    ok = logger:set_application_level(mnesia, warning),
+            ok = logger:set_application_level(mnesia, warning),
 
-    WarnModules = lists:sort([{M,warning} || M <- Modules]),
-    WarnModules = lists:sort(logger:get_module_level(Modules)),
+            WarnModules = lists:sort([{M,warning} || M <- Modules]),
+            WarnModules = lists:sort(logger:get_module_level(Modules)),
 
-    ok = logger:unset_application_level(mnesia),
-    [] = logger:get_module_level(Modules).
+            ok = logger:unset_application_level(mnesia),
+            [] = logger:get_module_level(Modules);
+        {error,{"no such file or directory","mnesia.app"}} ->
+            {skip, "Cannot load mnesia, does not exist"}
+    end.
 
 set_application_level(cleanup,_Config) ->
-    ok = logger:unset_application_level(mnesia),
-    ok = application:unload(mnesia),
+    _ = logger:unset_application_level(mnesia),
+    _ = application:unload(mnesia),
     ok.
 
 cache_module_level(_Config) ->

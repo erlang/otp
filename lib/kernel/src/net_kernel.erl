@@ -369,11 +369,11 @@ do_auto_connect_1(Node, ConnId, From, State) ->
     end.
    
 do_auto_connect_2(Node, passive_cnct, From, State, ConnLookup) ->
-    case (catch erts_internal:new_connection(Node)) of
-        {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-            do_auto_connect_2(Node, ConnId, From, State, ConnLookup);
-        
-        _Error ->
+    try erts_internal:new_connection(Node) of
+        ConnId ->
+            do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
+    catch
+        _:_ ->
             error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                    [Node]),
             {reply, false, State}
@@ -406,7 +406,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                     erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
                 _ ->
-                    case setup(ConnLookup, Node,ConnId,normal,From,State) of
+                    case setup(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
                             Owners = [{SetupPid, Node} | State#state.conn_owners],
                             {noreply,State#state{conn_owners=Owners}};
@@ -430,8 +430,8 @@ do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, St
 do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
     do_explicit_connect([], Type, Node, ConnId, From , State);
-do_explicit_connect(ConnLookup, Type, Node, ConnId, From , State) ->
-    case setup(ConnLookup, Node,ConnId,Type,From,State) of
+do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
+    case setup(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
             Owners = [{SetupPid, Node} | State#state.conn_owners],
             {noreply,State#state{conn_owners=Owners}};
@@ -439,18 +439,6 @@ do_explicit_connect(ConnLookup, Type, Node, ConnId, From , State) ->
             ?connect_failure(Node, {setup_call, failed, _Error}),
             {reply, false, State}
     end.
-
--define(ERTS_DIST_CON_ID_MASK, 16#ffffff).  % also in external.h
-
-verify_new_conn_id([], {Nr,_DHandle})
-  when (Nr band (bnot ?ERTS_DIST_CON_ID_MASK)) =:= 0 ->
-    true;
-verify_new_conn_id([#connection{conn_id = {Old,_}}], {New,_})
-  when New =:= ((Old+1) band ?ERTS_DIST_CON_ID_MASK) ->
-    true;
-verify_new_conn_id(_, _) ->
-    false.
-                                                              
 
 
 %% ------------------------------------------------------------
@@ -477,8 +465,8 @@ handle_call({connect, _, Node}, From, State) when Node =:= node() ->
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     ConnLookup = ets:lookup(sys_dist, Node),
-    R = case (catch erts_internal:new_connection(Node)) of
-            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
+    R = try erts_internal:new_connection(Node) of
+            ConnId ->
                 R1 = do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State),
                 case R1 of
                     {reply, true, _S} -> %% already connected
@@ -488,9 +476,10 @@ handle_call({connect, Type, Node}, From, State) ->
                     {reply, false, _S} -> %% connection refused
                         erts_internal:abort_connection(Node, ConnId)
                 end,
-                R1;
+                R1
                     
-            _Error ->
+        catch
+            _:_ ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                        [Node]),
                 {reply, false, State}                    
@@ -708,9 +697,9 @@ terminate(_Reason, State) ->
 %%
 %% Asynchronous auto connect request
 %%
-handle_info({auto_connect,Node, Nr, DHandle}, State) ->
-    verbose({auto_connect, Node, Nr, DHandle}, 1, State),
-    ConnId = {Nr, DHandle},
+handle_info({auto_connect,Node, DHandle}, State) ->
+    verbose({auto_connect, Node, DHandle}, 1, State),
+    ConnId = DHandle,
     NewState =
         case do_auto_connect_1(Node, ConnId, noreply, State) of
             {noreply, S} ->           %% Pending connection
@@ -804,8 +793,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
 	_ ->
-            case (catch erts_internal:new_connection(Node)) of
-                {Nr,_DHandle}=ConnId when is_integer(Nr) ->
+            try erts_internal:new_connection(Node) of
+                ConnId ->
                     ets:insert(sys_dist, #connection{node = Node,
                                                      conn_id = ConnId,
                                                      state = pending,
@@ -814,9 +803,9 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
                                                      type = Type}),
                     AcceptPid ! {self(),{accept_pending,ok}},
                     Owners = [{AcceptPid,Node} | State#state.conn_owners],
-                    {noreply, State#state{conn_owners = Owners}};
-
-                _ ->
+                    {noreply, State#state{conn_owners = Owners}}
+            catch
+                _:_ ->
                     error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                            [Node]),
                     AcceptPid ! {self(),{accept_pending,nok_pending}}
@@ -1283,8 +1272,8 @@ spawn_func(_,{From,Tag},M,F,A,Gleader) ->
 %% Set up connection to a new node.
 %% -----------------------------------------------------------
 
-setup(ConnLookup, Node,ConnId,Type,From,State) ->
-    case setup_check(ConnLookup, Node, ConnId, State) of
+setup(Node, ConnId, Type, From, State) ->
+    case setup_check(Node, State) of
 		{ok, L} ->
 		    Mod = L#listen.module,
 		    LAddr = L#listen.address,
@@ -1313,7 +1302,7 @@ setup(ConnLookup, Node,ConnId,Type,From,State) ->
 		    Error
     end.
 
-setup_check(ConnLookup, Node, ConnId, State) ->
+setup_check(Node, State) ->
     Allowed = State#state.allowed,    
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
@@ -1321,16 +1310,9 @@ setup_check(ConnLookup, Node, ConnId, State) ->
 		      "disallowed node ~w ** ~n", [Node]),
 	    {error, bad_node};
        _ ->
-            case verify_new_conn_id(ConnLookup, ConnId) of
-                false ->
-                    error_msg("** Connection attempt to ~w with "
-                              "bad connection id ~w ** ~n", [Node, ConnId]),
-                    {error, bad_conn_id};
-                true ->
-                    case select_mod(Node, State#state.listen) of
-                        {ok, _L}=OK -> OK;
-                        Error -> Error
-                    end
+            case select_mod(Node, State#state.listen) of
+                {ok, _L}=OK -> OK;
+                Error -> Error
             end
     end.                    
 
