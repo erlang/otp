@@ -284,6 +284,13 @@
       <name name="rsa_padding"/>
       <desc>
 	<p>Options for public key encrypt/decrypt. Only RSA is supported.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
       </desc>
     </datatype>
 
@@ -309,6 +316,13 @@
       <name name="rsa_sign_verify_padding"/>
       <desc>
 	<p>Options for sign and verify.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
       </desc>
     </datatype>
 
