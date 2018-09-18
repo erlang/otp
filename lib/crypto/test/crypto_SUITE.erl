@@ -1419,8 +1419,8 @@ group_config(rsa = Type, Config) ->
                   {rsa, PublicS, PrivateS, MsgPubEnc, [{rsa_padding, rsa_sslv23_padding}]},
                   {rsa, PublicS, PrivateS, MsgPubEnc, [{rsa_padding, rsa_x931_padding}]},
                   rsa_oaep(),
-		  rsa_oaep_label(),
-		  rsa_oaep256(),
+		  %% rsa_oaep_label(),
+		  %% rsa_oaep256(),
                   no_padding()
                  ],
     Generate = [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}],
