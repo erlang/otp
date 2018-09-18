@@ -901,13 +901,21 @@ peek_recvfrom(Sock, BufSz) ->
 
 
 send(#handler{socket = Sock, msg = true, type = stream}, Msg, _) ->
-    MsgHdr = #{iov => [Msg]},
-    socket:sendmsg(Sock, MsgHdr);
+    CMsgHdr  = #{level => ip, type => tos, data => reliability},
+    CMsgHdrs = [CMsgHdr],
+    MsgHdr   = #{iov => [Msg], ctrl => CMsgHdrs},
+    %% socket:setopt(Sock, otp, debug, true),
+    Res = socket:sendmsg(Sock, MsgHdr),
+    %% socket:setopt(Sock, otp, debug, false),
+    Res;
 send(#handler{socket = Sock, type = stream}, Msg, _) ->
     socket:send(Sock, Msg);
 send(#handler{socket = Sock, msg = true, type = dgram}, Msg, Dest) ->
-    MsgHdr = #{addr => Dest,
-               iov  => [Msg]},
+    CMsgHdr  = #{level => ip, type => tos, data => reliability},
+    CMsgHdrs = [CMsgHdr],
+    MsgHdr   = #{addr => Dest,
+                 iov  => [Msg],
+                 ctrl => CMsgHdrs},
     %% ok = socket:setopt(Sock, otp, debug, true),
     Res = socket:sendmsg(Sock, MsgHdr),
     %% ok = socket:setopt(Sock, otp, debug, false),

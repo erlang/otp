@@ -28,7 +28,7 @@
 
 -define(LIB, socket_lib).
 
--record(client, {socket, type, dest, msg_id = 1}).
+-record(client, {socket, msg = true, type, dest, msg_id = 1}).
 
 start(Port) ->
     start_tcp(Port).
@@ -190,7 +190,9 @@ do_init(Domain, stream = Type, Proto) ->
     i("try (socket) bind"),
     case socket:bind(Sock, any) of
         {ok, _P} ->
-            ok = socket:setopt(Sock, ip, tos, mincost),
+            ok = socket:setopt(Sock, socket, timestamp, true),
+            ok = socket:setopt(Sock, ip,     tos,       mincost),
+            ok = socket:setopt(Sock, ip,     recvtos,   true),
             Sock;
         {error, BReason} ->
             throw({bind, BReason})
@@ -205,6 +207,10 @@ do_init(Domain, dgram = Type, Proto) ->
            end,
     case socket:bind(Sock, any) of
         {ok, _} ->
+            ok = socket:setopt(Sock, socket, timestamp, true),
+            ok = socket:setopt(Sock, ip,     tos,       mincost),
+            ok = socket:setopt(Sock, ip,     recvtos,   true),
+            ok = socket:setopt(Sock, ip,     recvttl,   true),
             Sock;
         {error, BReason} ->
             throw({bind, BReason})
@@ -286,15 +292,43 @@ send(#client{socket = Sock, type = dgram, dest = Dest}, Msg) ->
             ERROR
     end.
 
-recv(#client{socket = Sock, type = stream}) ->
+recv(#client{socket = Sock, type = stream, msg = false}) ->
     case socket:recv(Sock) of
         {ok, Msg} ->
             {ok, {undefined, Msg}};
         {error, _} = ERROR ->
             ERROR
     end;
-recv(#client{socket = Sock, type = dgram}) ->
-    socket:recvfrom(Sock).
+recv(#client{socket = Sock, type = stream, msg = true}) ->
+    case socket:recvmsg(Sock) of
+        %% An iov of length 1 is an simplification...
+        {ok, #{addr  := undefined = Source,
+               iov   := [Msg],
+               ctrl  := CMsgHdrs,
+               flags := Flags}} ->
+            i("received message: "
+              "~n   CMsgHdr: ~p"
+              "~n   Flags:   ~p", [CMsgHdrs, Flags]),
+            {ok, {Source, Msg}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+recv(#client{socket = Sock, type = dgram, msg = false}) ->
+    socket:recvfrom(Sock);
+recv(#client{socket = Sock, type = dgram, msg = true}) ->
+    case socket:recvmsg(Sock) of
+        {ok, #{addr  := Source,
+               iov   := [Msg],
+               ctrl  := CMsgHdrs,
+               flags := Flags}} ->
+            i("received message: "
+              "~n   CMsgHdr: ~p"
+              "~n   Flags:   ~p", [CMsgHdrs, Flags]),
+            {ok, {Source, Msg}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+        
 
 
 which_addr(_Domain, []) ->
