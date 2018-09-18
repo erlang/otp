@@ -6172,6 +6172,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
         erts_atomic64_inc_nob(&prt->dist_entry->in);
 	return erts_net_message(prt,
 				prt->dist_entry,
+                                prt->connection_id,
 				(byte*) hbuf, hlen,
 				(byte*) (bin->orig_bytes+offs), len);
     }
@@ -6214,11 +6215,13 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	if (len == 0)
 	    return erts_net_message(prt,
 				    prt->dist_entry,
+                                    prt->connection_id,
 				    NULL, 0,
 				    (byte*) hbuf, hlen);
 	else
 	    return erts_net_message(prt,
 				    prt->dist_entry,
+                                    prt->connection_id,
 				    (byte*) hbuf, hlen,
 				    (byte*) buf, len);
     }

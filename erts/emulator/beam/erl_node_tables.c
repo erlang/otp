@@ -366,31 +366,43 @@ DistEntry *erts_find_dist_entry(Eterm sysname)
 }
 
 DistEntry *
-erts_dhandle_to_dist_entry(Eterm dhandle)
+erts_dhandle_to_dist_entry(Eterm dhandle, Uint32 *conn_id)
 {
+    Eterm *tpl;
     Binary *bin;
-    if (!is_internal_magic_ref(dhandle))
+
+    if (!is_boxed(dhandle))
         return NULL;
-    bin = erts_magic_ref2bin(dhandle);
+    tpl = boxed_val(dhandle);
+    if (tpl[0] != make_arityval(2) || !is_small(tpl[1])
+        || !is_internal_magic_ref(tpl[2]))
+        return NULL;
+    *conn_id = unsigned_val(tpl[1]);
+    bin = erts_magic_ref2bin(tpl[2]);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != erts_dist_entry_destructor)
         return NULL;
     return ErtsBin2DistEntry(bin);
 }
 
 Eterm
-erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp, DistEntry *dep)
+erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp,
+                   DistEntry *dep, Uint32 conn_id)
 {
     Binary *bin = ErtsDistEntry2Bin(dep);
+    Eterm mref, dhandle;
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
-    return erts_mk_magic_ref(hpp, ohp, bin);
+    mref = erts_mk_magic_ref(hpp, ohp, bin);
+    dhandle = TUPLE2(*hpp, make_small(conn_id), mref);
+    *hpp += 3;
+    return dhandle;
 }
 
 Eterm
-erts_make_dhandle(Process *c_p, DistEntry *dep)
+erts_make_dhandle(Process *c_p, DistEntry *dep, Uint32 conn_id)
 {
-    Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
-    return erts_build_dhandle(&hp, &c_p->off_heap, dep);
+    Eterm *hp = HAlloc(c_p, ERTS_DHANDLE_SIZE);
+    return erts_build_dhandle(&hp, &c_p->off_heap, dep, conn_id);
 }
 
 static void start_timer_delete_dist_entry(void *vdep);
@@ -620,7 +632,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    dep->state = ERTS_DE_STATE_EXITING;
+    dep->state = ERTS_DE_STATE_IDLE;
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;

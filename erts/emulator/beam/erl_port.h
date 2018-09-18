@@ -155,6 +155,7 @@ struct _erl_drv_port {
 
     ErlPortIOQueue ioq;          /* driver accessible i/o queue */
     DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
+    Uint32 connection_id;
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;
     UWord drv_data;

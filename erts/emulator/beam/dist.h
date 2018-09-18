@@ -136,6 +136,7 @@ typedef struct {
     Eterm cid;
     Eterm connection_id;
     int no_suspend;
+    Uint32 flags;
 } ErtsDSigData;
 
 #define ERTS_DE_BUSY_LIMIT (1024*1024)
@@ -235,6 +236,7 @@ retry:
     dsdp->cid = dep->cid;
     dsdp->connection_id = dep->connection_id;
     dsdp->no_suspend = no_suspend;
+    dsdp->flags = dep->flags;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
     return res;

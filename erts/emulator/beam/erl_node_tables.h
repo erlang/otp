@@ -214,9 +214,10 @@ int erts_lc_is_de_rwlocked(DistEntry *);
 int erts_lc_is_de_rlocked(DistEntry *);
 #endif
 int erts_dist_entry_destructor(Binary *bin);
-DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle);
-Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*);
-Eterm erts_make_dhandle(Process *c_p, DistEntry *dep);
+DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle, Uint32* connection_id);
+#define ERTS_DHANDLE_SIZE (3+ERTS_MAGIC_REF_THING_SIZE)
+Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*, Uint32 conn_id);
+Eterm erts_make_dhandle(Process *c_p, DistEntry*, Uint32 conn_id);
 
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
 ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);

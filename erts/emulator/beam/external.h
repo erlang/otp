@@ -182,7 +182,7 @@ void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 #define ERTS_PREP_DIST_EXT_CLOSED       (1)
 
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
-			  DistEntry *, ErtsAtomCache *, Uint32 *);
+			  DistEntry *, Uint32 conn_id, ErtsAtomCache *);
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 
