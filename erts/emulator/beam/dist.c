@@ -3503,13 +3503,11 @@ BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
     BIF_RET(dhandle);
 }
 
-static Sint abort_connection(DistEntry* dep, Uint32 conn_id)
+Sint erts_abort_connection_rwunlock(DistEntry* dep)
 {
-    erts_de_rwlock(dep);
+    ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
 
-    if (dep->connection_id != conn_id)
-        ;
-    else if (dep->state == ERTS_DE_STATE_CONNECTED) {
+    if (dep->state == ERTS_DE_STATE_CONNECTED) {
         kill_connection(dep);
     }
     else if (dep->state == ERTS_DE_STATE_PENDING) {
@@ -3550,17 +3548,19 @@ static Sint abort_connection(DistEntry* dep, Uint32 conn_id)
 
 	delete_cache(cache);
 	free_de_out_queues(dep, obuf);
-
         return reds;
     }
     erts_de_rwunlock(dep);
     return 0;
 }
 
-Sint
-erts_abort_connection(DistEntry *dep, Uint32 conn_id)
+static Sint abort_connection(DistEntry *dep, Uint32 conn_id)
 {
-    return abort_connection(dep, conn_id);
+    erts_de_rwlock(dep);
+    if (dep->connection_id == conn_id)
+        return erts_abort_connection_rwunlock(dep);
+    erts_de_rwunlock(dep);
+    return 0;
 }
 
 BIF_RETTYPE erts_internal_abort_connection_2(BIF_ALIST_2)
