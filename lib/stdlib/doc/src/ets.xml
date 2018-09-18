@@ -1023,7 +1023,7 @@ ets:select(Table, MatchSpec),</code>
           be used in subsequent operations. The table identifier can be
           sent to other processes so that a table can be shared between
           different processes within a node.</p>
-        <p>Parameter <c><anno>Options</anno></c> is a list of atoms that
+        <p>Parameter <c><anno>Options</anno></c> is a list of options that
           specifies table type, access rights, key position, and whether the
           table is named. Default values are used for omitted options.
           This means that not specifying any options (<c>[]</c>) is the same
