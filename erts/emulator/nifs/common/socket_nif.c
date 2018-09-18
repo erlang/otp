@@ -1914,13 +1914,15 @@ extern char* encode_cmsghdrs(ErlNifEnv*        env,
 extern char* decode_cmsghdrs(ErlNifEnv*        env,
                              SocketDescriptor* descP,
                              ERL_NIF_TERM      eCMsgHdr,
-                             void*             cmsgHdrBufP,
-                             size_t            cmsgHdrBufLen);
+                             char*             cmsgHdrBufP,
+                             size_t            cmsgHdrBufLen,
+                             size_t*           cmsgHdrBufUsed);
 extern char* decode_cmsghdr(ErlNifEnv*        env,
                             SocketDescriptor* descP,
                             ERL_NIF_TERM      eCMsgHdr,
-                            void**            bufP,
-                            size_t*           rem);
+                            char*             bufP,
+                            size_t            rem,
+                            size_t*           used);
 static char* encode_cmsghdr_level(ErlNifEnv*    env,
                                   int           level,
                                   ERL_NIF_TERM* eLevel);
@@ -1970,18 +1972,22 @@ extern char* encode_msghdr_flags(ErlNifEnv*        env,
                                  SocketDescriptor* descP,
                                  int               msgFlags,
                                  ERL_NIF_TERM*     flags);
-static char* decode_cmsghdr_data(ErlNifEnv*   env,
-                                 void**       bufP,
-                                 size_t*      rem,
-                                 int          level,
-                                 int          type,
-                                 ERL_NIF_TERM eData);
-static char* decode_cmsghdr_final(void**  bufP,
-                                  size_t* rem,
-                                  int     level,
-                                  int     type,
-                                  char*   data,
-                                  int     sz);
+static char* decode_cmsghdr_data(ErlNifEnv*        env,
+                                 SocketDescriptor* descP,
+                                 char*             bufP,
+                                 size_t            rem,
+                                 int               level,
+                                 int               type,
+                                 ERL_NIF_TERM      eData,
+                                 size_t*           used);
+static char* decode_cmsghdr_final(SocketDescriptor* descP,
+                                  char*             bufP,
+                                  size_t            rem,
+                                  int               level,
+                                  int               type,
+                                  char*             data,
+                                  int               sz,
+                                  size_t*           used);
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
@@ -3787,8 +3793,8 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     ErlNifBinary* iovBins;
     struct iovec* iov;
     unsigned int  iovLen;
-    void*         ctrlBuf;
-    size_t        ctrlBufLen;
+    char*         ctrlBuf;
+    size_t        ctrlBufLen, ctrlBufUsed;
     int           save_errno;
     ssize_t       written, dataSize;
     char*         xres;
@@ -3820,7 +3826,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
             return esock_make_error(env, esock_atom_einval);
 
         SSDBG( descP, ("SOCKET", "nsendmsg -> not connected: "
-                       "\r\n   %T"
+                       "\r\n   address: %T"
                        "\r\n", eAddr) );
 
         if ((xres = esock_decode_sockaddr(env, eAddr,
@@ -3850,15 +3856,18 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     /* The *opional* ctrl */
     if (GET_MAP_VAL(env, eMsgHdr, esock_atom_ctrl, &eCtrl)) {
         ctrlBufLen = descP->wCtrlSz;
-        ctrlBuf    = MALLOC(ctrlBufLen);
+        ctrlBuf    = (char*) MALLOC(ctrlBufLen);
         ESOCK_ASSERT( (ctrlBuf != NULL) );
     } else {
         eCtrl      = esock_atom_undefined;
         ctrlBufLen = 0;
         ctrlBuf    = NULL;
     }
-
-
+    SSDBG( descP, ("SOCKET", "nsendmsg -> optional ctrl: "
+                   "\r\n   ctrlBuf:    0x%lX"
+                   "\r\n   ctrlBufLen: %d"
+                   "\r\n   eCtrl:      %T\r\n", ctrlBuf, ctrlBufLen, eCtrl) );
+    
     /* Decode the iov and initiate that part of the msghdr */
     if ((xres = esock_decode_iov(env, eIOV,
                                  iovBins, iov, iovLen, &dataSize)) != NULL) {
@@ -3875,10 +3884,12 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
                    "nsendmsg -> total (iov) data size: %d\r\n", dataSize) );
 
 
-    /* Decode the ctrl and initiate that part of the msghdr */
+    /* Decode the ctrl and initiate that part of the msghdr.
+     */
     if (ctrlBuf != NULL) {
         if ((xres = decode_cmsghdrs(env, descP,
-                                    eCtrl, ctrlBuf, ctrlBufLen)) != NULL) {
+                                    eCtrl,
+                                    ctrlBuf, ctrlBufLen, &ctrlBufUsed)) != NULL) {
             FREE(iovBins);
             FREE(iov);
             if (ctrlBuf != NULL) FREE(ctrlBuf);
@@ -3886,7 +3897,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
         }
     }
     msgHdr.msg_control    = ctrlBuf;
-    msgHdr.msg_controllen = ctrlBufLen;
+    msgHdr.msg_controllen = ctrlBufUsed;
     
 
     /* The msg-flags field is not used when sending, but zero it just in case */
@@ -11169,34 +11180,63 @@ extern
 char* decode_cmsghdrs(ErlNifEnv*        env,
                       SocketDescriptor* descP,
                       ERL_NIF_TERM      eCMsgHdr,
-                      void*             cmsgHdrBufP,
-                      size_t            cmsgHdrBufLen)
+                      char*             cmsgHdrBufP,
+                      size_t            cmsgHdrBufLen,
+                      size_t*           cmsgHdrBufUsed)
 {
     ERL_NIF_TERM elem, tail, list;
-    void*        bufP;
-    size_t       rem;
+    char*        bufP;
+    size_t       rem, used, totUsed = 0;
     unsigned int len;
     int          i;
     char*        xres;
 
+    SSDBG( descP, ("SOCKET", "decode_cmsghdrs -> entry with"
+                   "\r\n   cmsgHdrBufP:   0x%lX"
+                   "\r\n   cmsgHdrBufLen: %d"
+                   "\r\n", cmsgHdrBufP, cmsgHdrBufLen) );
+
     if (IS_LIST(env, eCMsgHdr) && GET_LIST_LEN(env, eCMsgHdr, &len)) {
-        for (i = 0, list = eCMsgHdr, rem = cmsgHdrBufLen, bufP = cmsgHdrBufP;
+
+        SSDBG( descP, ("SOCKET", "decode_cmsghdrs -> list length: %d\r\n", len) );
+
+        for (i = 0, list = eCMsgHdr, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
              i < len; i++) {
             
+            SSDBG( descP, ("SOCKET", "decode_cmsghdrs -> process elem %d:"
+                           "\r\n   (buffer) rem:     %u"
+                           "\r\n   (buffer) totUsed: %u"
+                           "\r\n", i, rem, totUsed) );
+
             /* Extract the (current) head of the (cmsg hdr) list */
             if (!GET_LIST_ELEM(env, list, &elem, &tail))
                 return ESOCK_STR_EINVAL;
             
-            if ((xres = decode_cmsghdr(env, descP, elem, &bufP, &rem)) != NULL)
+            used = 0; // Just in case...
+            if ((xres = decode_cmsghdr(env, descP, elem, bufP, rem, &used)) != NULL)
                 return xres;
-            
-            list = tail;
+
+            bufP     = CHARP( ULONG(bufP) + used );
+            rem      = SZT( rem - used );
+            list     = tail;
+            totUsed += used;
+
         }
+
+        SSDBG( descP, ("SOCKET",
+                       "decode_cmsghdrs -> all %d ctrl headers processed\r\n",
+                       len) );
 
         xres = NULL;
     } else {
         xres = ESOCK_STR_EINVAL;
     }
+
+    *cmsgHdrBufUsed = totUsed;
+
+    SSDBG( descP, ("SOCKET", "decode_cmsghdrs -> done with %s when"
+                   "\r\n   totUsed = %u\r\n",
+                   ((xres != NULL) ? xres : "NULL"), totUsed) );
 
     return xres;
 }
@@ -11217,15 +11257,20 @@ char* decode_cmsghdrs(ErlNifEnv*        env,
  *     data  :: cmsghdr_data()    (term() | binary())
  *                                The type of the data depends on
  *                                level and type, but can be a binary,
- *                                which means that the data already coded.
+ *                                which means that the data is already coded.
  */
 extern
 char* decode_cmsghdr(ErlNifEnv*        env,
                      SocketDescriptor* descP,
                      ERL_NIF_TERM      eCMsgHdr,
-                     void**            bufP,
-                     size_t*           rem)
+                     char*             bufP,
+                     size_t            rem,
+                     size_t*           used)
 {
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr -> entry with"
+                   "\r\n   eCMsgHdr: %T"
+                   "\r\n", eCMsgHdr) );
+
     if (IS_MAP(env, eCMsgHdr)) {
         ERL_NIF_TERM eLevel, eType, eData;
         int          level, type;
@@ -11236,28 +11281,42 @@ char* decode_cmsghdr(ErlNifEnv*        env,
         if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_level, &eLevel))
             return ESOCK_STR_EINVAL;
         
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr -> eLevel: %T"
+                       "\r\n", eLevel) );
+
         if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_type, &eType))
             return ESOCK_STR_EINVAL;
         
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr -> eType:  %T"
+                       "\r\n", eType) );
+
         if (!GET_MAP_VAL(env, eCMsgHdr, esock_atom_data, &eData))
             return ESOCK_STR_EINVAL;
+
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr -> eData:  %T"
+                       "\r\n", eData) );
 
         /* Second, decode level */
         if ((xres = decode_cmsghdr_level(env, eLevel, &level)) != NULL)
             return xres;
 
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr -> level:  %d\r\n", level) );
+
         /* third, decode type */
         if ((xres = decode_cmsghdr_type(env, level, eType, &type)) != NULL)
             return xres;
         
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr -> type:   %d\r\n", type) );
+
         /* And finally data
          * If its a binary, we are done. Otherwise, we need to check
          * level and type to know what kind of data to expect.
          */
 
-        return decode_cmsghdr_data(env, bufP, rem, level, type, eData);
+        return decode_cmsghdr_data(env, descP, bufP, rem, level, type, eData, used);
 
     } else {
+        *used = 0;
         return ESOCK_STR_EINVAL;
     }
 
@@ -11270,24 +11329,36 @@ char* decode_cmsghdr(ErlNifEnv*        env,
  * For all combinations of level and type we accept a binary as data,
  * so we begin by testing for that. If its not a binary, then we check
  * level (ip) and type (tos or ttl), in which case the data *must* be
- * an integer (we have already taken care of the binary).
+ * an integer and ip_tos() respectively.
  */
 static
-char* decode_cmsghdr_data(ErlNifEnv*   env,
-                          void**       bufP,
-                          size_t*      rem,
-                          int          level,
-                          int          type,
-                          ERL_NIF_TERM eData)
+char* decode_cmsghdr_data(ErlNifEnv*        env,
+                          SocketDescriptor* descP,
+                          char*             bufP,
+                          size_t            rem,
+                          int               level,
+                          int               type,
+                          ERL_NIF_TERM      eData,
+                          size_t*           used)
 {
-    char* xres = ESOCK_STR_EINVAL;
+    char* xres;
+
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> entry with"
+                   "\r\n   eData: %T"
+                   "\r\n", eData) );
 
     if (IS_BIN(env, eData)) {
         ErlNifBinary bin;
         
         if (GET_BIN(env, eData, &bin)) {
-            return decode_cmsghdr_final(bufP, rem, level, type,
-                                        (char*) bin.data, bin.size);
+            SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
+                           "do final decode with binary\r\n") );
+            return decode_cmsghdr_final(descP, bufP, rem, level, type,
+                                        (char*) bin.data, bin.size,
+                                        used);
+        } else {
+            *used = 0;
+            xres  = ESOCK_STR_EINVAL;
         }
     } else {
 
@@ -11307,9 +11378,15 @@ char* decode_cmsghdr_data(ErlNifEnv*   env,
                 {
                     int data;
                     if (decode_ip_tos(env, eData, &data)) {
-                        return decode_cmsghdr_final(bufP, rem, level, type,
+                        SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
+                                       "do final decode with tos\r\n") );
+                        return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
-                                                    sizeof(data));
+                                                    sizeof(data),
+                                                    used);
+                    } else {
+                        *used = 0;
+                        xres  = ESOCK_STR_EINVAL;
                     }
                 }
                 break;
@@ -11320,9 +11397,15 @@ char* decode_cmsghdr_data(ErlNifEnv*   env,
                 {
                     int data;
                     if (GET_INT(env, eData, &data)) {
-                        return decode_cmsghdr_final(bufP, rem, level, type,
+                        SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
+                                       "do final decode with ttl\r\n") );
+                        return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
-                                                    sizeof(data));
+                                                    sizeof(data),
+                                                    used);
+                    } else {
+                        *used = 0;
+                        xres  = ESOCK_STR_EINVAL;
                     }
                 }
                 break;
@@ -11332,6 +11415,8 @@ char* decode_cmsghdr_data(ErlNifEnv*   env,
             break;
 
         default:
+            *used = 0;
+            xres  = ESOCK_STR_EINVAL;
             break;
         }        
 
@@ -11346,18 +11431,25 @@ char* decode_cmsghdr_data(ErlNifEnv*   env,
  * This does the final create of the cmsghdr (including the data copy).
  */
 static
-char* decode_cmsghdr_final(void**  bufP,
-                           size_t* rem,
-                           int     level,
-                           int     type,
-                           char*   data,
-                           int     sz)
+char* decode_cmsghdr_final(SocketDescriptor* descP,
+                           char*             bufP,
+                           size_t            rem,
+                           int               level,
+                           int               type,
+                           char*             data,
+                           int               sz,
+                           size_t*           used)
 {
-    int currentRem = *rem;
-    int len        = CMSG_LEN(sz);
-    int space      = CMSG_SPACE(sz);
+    int len   = CMSG_LEN(sz);
+    int space = CMSG_SPACE(sz);
 
-    if (currentRem >= space) {
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> entry when"
+                   "\r\n   level: %d"
+                   "\r\n   type:  %d"
+                   "\r\n   sz:    %d => %d, %d"
+                   "\r\n", level, type, sz, len, space) );
+
+    if (rem >= space) {
         struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
         
         /* The header */
@@ -11365,12 +11457,14 @@ char* decode_cmsghdr_final(void**  bufP,
         cmsgP->cmsg_level = level;
         cmsgP->cmsg_type  = type;
 
-        sys_memcpy(CMSG_DATA(cmsgP), &data, sz);
-        *bufP += space;
-        *rem  -= space;
+        sys_memcpy(CMSG_DATA(cmsgP), data, sz);
+        *used = space;
     } else {
+        *used = 0;
         return ESOCK_STR_EINVAL;
     }
+
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr_final -> done\r\n") );
 
     return NULL;
 }

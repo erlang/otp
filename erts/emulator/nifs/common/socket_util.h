@@ -29,8 +29,15 @@
 #include <erl_nif.h>
 #include "socket_int.h"
 
-#define VOIDP(P) ((void*)P)
-#define CHARP(P) ((char*)P)
+#define CHAR(C)  ((char) (C))
+#define UCHAR(C) ((unsigned char) (C))
+#define INT(I)   ((int)   (I))
+#define UINT(U)  ((unsigned int) (U))
+#define LONG(L)  ((long) (L))
+#define ULONG(L) ((unsigned long) (L))
+#define SZT(I)   ((size_t) (I))
+#define VOIDP(P) ((void*) (P))
+#define CHARP(P) ((char*) (P))
 
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
