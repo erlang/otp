@@ -97,6 +97,9 @@ INLINE= \
 	receive \
 	record
 
+R21= \
+        bs_match
+
 CORE_MODULES = \
 	lfe_andor_SUITE \
 	lfe_guard_SUITE
@@ -107,6 +110,8 @@ POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
 POST_OPT_ERL_FILES= $(POST_OPT_MODULES:%=%.erl)
 INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
+R21_MODULES= $(R21:%=%_r21_SUITE)
+R21_ERL_FILES= $(R21_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 CORE_FILES= $(CORE_MODULES:%=%.core)
@@ -135,7 +140,8 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
+  $(INLINE_ERL_FILES) $(R21_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt \
@@ -145,6 +151,8 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
 	-o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +inline $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(INLINE_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +r21 $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(R21_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +from_core $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(CORE_MODULES) >> $(EMAKEFILE)
 
@@ -171,6 +179,9 @@ docs:
 %_inline_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_r21_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -183,7 +194,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) compiler.spec compiler.cover \
 		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
-		$(INLINE_ERL_FILES) "$(RELSYSDIR)"
+		$(INLINE_ERL_FILES) $(R21_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(CORE_FILES) "$(RELSYSDIR)"
 	for file in $(ERL_DUMMY_FILES); do \
 	    module=`basename $$file .erl`; \
