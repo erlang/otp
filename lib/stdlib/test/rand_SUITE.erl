@@ -21,24 +21,7 @@
 -compile({nowarn_deprecated_function,[{random,seed,1},
                                       {random,uniform_s,1},
                                       {random,uniform_s,2}]}).
-
--export([all/0, suite/0, groups/0, group/1]).
-
--export([interval_int/1, interval_float/1, seed/1,
-         api_eq/1, reference/1,
-	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
-	 basic_stats_standard_normal/1,
-	 basic_stats_normal/1,
-         stats_standard_normal_box_muller/1,
-         stats_standard_normal_box_muller_2/1,
-         stats_standard_normal/1,
-         uniform_real_conv/1,
-	 plugin/1, measure/1,
-	 reference_jump_state/1, reference_jump_procdict/1]).
-
--export([test/0, gen/1]).
-
--export([uniform_real_gen/1, uniform_gen/2]).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -56,7 +39,8 @@ all() ->
      {group, distr_stats},
      uniform_real_conv,
      plugin, measure,
-     {group, reference_jump}
+     {group, reference_jump},
+     short_jump
     ].
 
 groups() ->
@@ -95,7 +79,7 @@ test() ->
       end, Tests).
 
 algs() ->
-    [exrop, exsp, exs1024s, exs64, exsplus, exs1024].
+    [exrop, exsp, exs1024s, exs64, exsplus, exs1024, exro928ss].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -125,7 +109,7 @@ seed_1(Alg) ->
     S0 = get(rand_seed),
     S0 = rand:seed_s(Alg, {0, 0, 0}),
     %% Check that process_dict should not be used for seed_s functionality
-    _ = rand:seed_s(Alg, {1, 0, 0}),
+    _ = rand:seed_s(Alg, 4711),
     S0 = get(rand_seed),
     %% Test export
     ES0 = rand:export_seed(),
@@ -262,31 +246,43 @@ reference(Config) when is_list(Config) ->
     ok.
 
 reference_1(Alg) ->
-    Refval  = reference_val(Alg),
-    Testval = gen(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false when Refval =:= not_implemented ->
-            exit({not_implemented,Alg});
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    exit(wrong_value)
+    Refval = reference_val(Alg),
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen(Alg) of
+		Refval ->
+		    io:format("Ok: ~p~n",[Alg]),
+                    ok;
+		Testval ->
+		    io:format("Failed: ~p~n",[Alg]),
+		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+                    show_wrong(Refval, Testval),
+		    exit(wrong_value)
+	    end
     end.
+
+show_wrong([], []) ->
+    ok;
+show_wrong([H|T1], [H|T2]) ->
+    show_wrong(T1, T2);
+show_wrong([H1|_], [H2|_]) ->
+    io:format("Wrong ~p ~p~n",[H1,H2]).
+
 
 gen(Algo) ->
     State =
-        case Algo of
-            exs64 -> %% Printed with orig 'C' code and this seed
-                rand:seed_s({exs64, 12345678});
-            _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+        if
+            Algo =:= exs64 -> %% Printed with orig 'C' code and this seed
+                rand:seed_s(exs64, [12345678]);
+            Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
                 %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, [12345678|12345678]});
-            _ when Algo =:= exs1024; Algo =:= exs1024s ->
+                rand:seed_s(Algo, [12345678,12345678]);
+            Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
                 %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
-            _ ->
+                rand:seed_s(Algo, lists:duplicate(16, 12345678));
+            true ->
                 rand:seed(Algo, {100, 200, 300})
         end,
     Max = range(State),
@@ -852,7 +848,8 @@ do_measure(_Config) ->
     Algs =
         algs() ++
         try crypto:strong_rand_bytes(1) of
-            <<_>> -> [crypto64, crypto_cache, crypto]
+            <<_>> ->
+		[crypto64, crypto_cache, crypto_aes, crypto]
         catch
             error:low_entropy -> [];
             error:undef -> []
@@ -1101,6 +1098,10 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                 {rand, crypto:rand_seed_alg(crypto_cache)};
             crypto ->
                 {rand, crypto:rand_seed_s()};
+            crypto_aes ->
+                {rand,
+		 crypto:rand_seed_alg(
+		   crypto_aes, crypto:strong_rand_bytes(256))};
             random ->
                 {random, random:seed(os:timestamp()), get(random_seed)};
             _ ->
@@ -1116,7 +1117,7 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                             _ -> (Time * 100 + 50) div TMark
                         end,
                     io:format(
-                      "~.12w: ~p ns ~p% [16#~.16b]~n",
+                      "~.20w: ~p ns ~p% [16#~.16b]~n",
                       [Alg, (Time * 1000 + 500) div ?LOOP_MEASURE,
                        Percent, Range]),
                     Parent ! {self(), Time},
@@ -1141,104 +1142,156 @@ reference_jump_state(Config) when is_list(Config) ->
     ok.
 
 reference_jump_1(Alg) ->
-    Refval  = reference_jump_val(Alg),
-    Testval = gen_jump_1(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    io:format("Vals ~p ~p~n",[Refval, Testval]),
-	    exit(wrong_value)
+    Refval = reference_jump_val(Alg),
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen_jump_1(Alg) of
+		Refval -> ok;
+		Testval ->
+		    io:format(
+		      "Failed: ~p~n",[Alg]),
+		    io:format(
+		      "Length ~p ~p~n",
+		      [length(Refval), length(Testval)]),
+		    io:format(
+		      "Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+		    io:format(
+		      "Vals ~p ~p~n",[Refval, Testval]),
+		    exit(wrong_value)
+	    end
     end.
 
 gen_jump_1(Algo) ->
-    State =
-        case Algo of
-            exs64 -> %% Test exception of not_implemented notice
-                try rand:jump(rand:seed_s(exs64))
-                catch
-                    error:not_implemented -> not_implemented
-                end;
-            _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
-                %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, [12345678|12345678]});
-            _ when Algo =:= exs1024; Algo =:= exs1024s ->
-                %% Printed with orig 'C' code and this seed
-                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
-            _ -> % unimplemented
-                not_implemented
-        end,
-    case State of
-        not_implemented -> [not_implemented];
-        _ ->
-            Max = range(State),
-            gen_jump_1(?LOOP_JUMP, State, Max, [])
+    case Algo of
+	exs64 -> %% Test exception of not_implemented notice
+	    try rand:jump(rand:seed_s(exs64))
+	    catch
+		error:not_implemented -> [error_not_implemented]
+	    end;
+	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_2(
+	      rand:seed_s(Algo, [12345678,12345678]));
+	_ when Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_2(
+	      rand:seed_s(Algo, lists:duplicate(16, 12345678)))
     end.
 
-gen_jump_1(N, State0, Max, Acc) when N > 0 ->
+gen_jump_2(State) ->
+    Max = range(State),
+    gen_jump_3(?LOOP_JUMP, State, Max, []).
+
+gen_jump_3(N, State0, Max, Acc) when N > 0 ->
     {_, State1} = rand:uniform_s(Max, State0),
     {Random, State2} = rand:uniform_s(Max, rand:jump(State1)),
     case N rem (?LOOP_JUMP div 100) of
-	0 -> gen_jump_1(N-1, State2, Max, [Random|Acc]);
-	_ -> gen_jump_1(N-1, State2, Max, Acc)
+	0 -> gen_jump_3(N-1, State2, Max, [Random|Acc]);
+	_ -> gen_jump_3(N-1, State2, Max, Acc)
     end;
-gen_jump_1(_, _, _, Acc) -> lists:reverse(Acc).
+gen_jump_3(_, _, _, Acc) -> lists:reverse(Acc).
 
 
 %% Check if each algorithm generates the proper jump sequence
 %% with the internal state in the process dictionary.
 reference_jump_procdict(Config) when is_list(Config) ->
-    [reference_jump_0(Alg) || Alg <- algs()],
+    [reference_jump_p1(Alg) || Alg <- algs()],
     ok.
 
-reference_jump_0(Alg) ->
+reference_jump_p1(Alg) ->
     Refval  = reference_jump_val(Alg),
-    Testval = gen_jump_0(Alg),
-    case Refval =:= Testval of
-        true -> ok;
-        false ->
-	    io:format("Failed: ~p~n",[Alg]),
-	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
-	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    exit(wrong_value)
+    if
+	Refval =:= not_implemented -> Refval;
+	true ->
+	    case gen_jump_p1(Alg) of
+		Refval -> ok;
+		Testval ->
+		    io:format("Failed: ~p~n",[Alg]),
+		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+		    exit(wrong_value)
+	    end
     end.
 
-gen_jump_0(Algo) ->
-    Seed = case Algo of
-	       exs64 -> %% Test exception of not_implemented notice
-                   try
-                       _ = rand:seed(exs64),
-                       rand:jump()
-                   catch
-                       error:not_implemented -> not_implemented
-                   end;
-	       _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
-                   %% Printed with orig 'C' code and this seed
-		   rand:seed({Algo, [12345678|12345678]});
-	       _ when Algo =:= exs1024; Algo =:= exs1024s ->
-                   %% Printed with orig 'C' code and this seed
-		   rand:seed({Algo, {lists:duplicate(16, 12345678), []}});
-	       _ -> % unimplemented
-		   not_implemented
-	   end,
-    case Seed of
-        not_implemented -> [not_implemented];
-        _ ->
-            Max = range(Seed),
-            gen_jump_0(?LOOP_JUMP, Max, [])
+gen_jump_p1(Algo) ->
+    case Algo of
+	exs64 -> %% Test exception of not_implemented notice
+	    try
+		_ = rand:seed(exs64),
+		rand:jump()
+	    catch
+		error:not_implemented -> [error_not_implemented]
+	    end;
+	_ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_p2(
+	      rand:seed(Algo, [12345678,12345678]));
+	_ when Algo =:= exs1024; Algo =:= exs1024s; Algo =:= exro928ss ->
+	    %% Printed with orig 'C' code and this seed
+	    gen_jump_p2(
+	      rand:seed(Algo, lists:duplicate(16, 12345678)))
     end.
 
-gen_jump_0(N, Max, Acc) when N > 0 ->
+gen_jump_p2(Seed) ->
+    Max = range(Seed),
+    gen_jump_p3(?LOOP_JUMP, Max, []).
+
+gen_jump_p3(N, Max, Acc) when N > 0 ->
     _ = rand:uniform(Max),
     _ = rand:jump(),
     Random = rand:uniform(Max),
     case N rem (?LOOP_JUMP div 100) of
-	0 -> gen_jump_0(N-1, Max, [Random|Acc]);
-	_ -> gen_jump_0(N-1, Max, Acc)
+	0 -> gen_jump_p3(N-1, Max, [Random|Acc]);
+	_ -> gen_jump_p3(N-1, Max, Acc)
     end;
-gen_jump_0(_, _, Acc) -> lists:reverse(Acc).
+gen_jump_p3(_, _, Acc) -> lists:reverse(Acc).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+short_jump(Config) when is_list(Config) ->
+    Seed = erlang:system_time(),
+    short_jump(
+      rand:seed_s(exro928ss, Seed),
+      fun ({Alg,AlgState}) ->
+	      {Alg,rand:exro928_jump_2pow20(AlgState)}
+      end),
+    short_jump(
+      crypto:rand_seed_alg_s(crypto_aes, integer_to_list(Seed)),
+      fun ({Alg,AlgState}) ->
+	      {Alg,crypto:rand_plugin_aes_jump_2pow20(AlgState)}
+      end),
+    ok.
+
+short_jump({#{bits := Bits},_} = State_0, Jump2Pow20) ->
+    Range = 1 bsl Bits,
+    State_1 = repeat(7, Range, State_0),
+    %%
+    State_2a = repeat(1 bsl 20, Range, State_1),
+    State_2b = Jump2Pow20(State_1),
+    check(17, Range, State_2a, State_2b),
+    %%
+    {_,State_3a} = rand:uniform_s(Range, State_2a),
+    State_4a = Jump2Pow20(State_3a),
+    State_4b = repeat((1 bsl 20) + 1, Range, State_2b),
+    check(17, Range, State_4a, State_4b).
+
+repeat(0, _Range, State) ->
+    State;
+repeat(N, Range, State) ->
+    {_, NewState} = rand:uniform_s(Range, State),
+    repeat(N - 1, Range, NewState).
+
+check(0, _Range, _StateA, _StateB) ->
+    ok;
+check(N, Range, StateA, StateB) ->
+    {V,NewStateA} = rand:uniform_s(Range, StateA),
+    case rand:uniform_s(Range, StateB) of
+	{V,NewStateB} ->
+	    check(N - 1, Range, NewStateA, NewStateB);
+	{Wrong,_} ->
+	    ct:fail({Wrong,neq,V,for,N})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data
@@ -1389,7 +1442,50 @@ reference_val(exrop) ->
      250789092615679985,78848633178610658,72059442721196128,
      98223942961505519,191144652663779840,
      102425686803727694,89058927716079076,80721467542933080,
-     8462479817391645,2774921106204163].
+     8462479817391645,2774921106204163];
+
+reference_val(exro928ss) ->
+%% Same as for exrop, but this state init:
+%%     for (n = 0;  n < 16;  n++) {
+%%         s[n] = 12345678;
+    [16#000000108e8d5b01,16#03604028f2769dff,16#007f92f60bc7170c,
+     16#035ea81a9898a5e2,16#0104c90c5a0c8178,16#0313514025cca717,
+     16#03c5506b2a2e98cf,16#0098a5405961552e,16#004ad29eabb785a0,
+     16#033ea8ec4efb8058,16#00b21545e62bef1c,16#0333fc5320703482,
+     16#02c3c650e51a8d47,16#03a3b7fc848c9cda,16#03775adea6cddff5,
+     16#01ae5499c9049973,16#03d3c90e5504e16b,16#0383cd6b6cb852e6,
+     16#009c8d0996ef543a,16#0059cf671371af60,16#03dfd68ed980b719,
+     16#0290f2a0acf2c5b0,16#029061df18d63b55,16#02e702ea4b45137b,
+     16#029a0ccca604d848,16#01664c7cd31f0fa6,16#00dced83e60ccddc,
+     16#008764d2c9a05f3e,16#02b9ca5f6a80c4ba,16#02daf93d2c566750,
+     16#0147d326ead18ace,16#014b452efc19297f,16#0242d3f7a7237eca,
+     16#0141bb68c2abce39,16#02d798e1230baf45,16#0216bf8f25c1ec2d,
+     16#003a43ea733f1e1f,16#036c75390db736f3,16#028cca5f5f48c6f9,
+     16#0186e4a17174d6cf,16#02152679dfa4c25c,16#01429b9f15e3b9d6,
+     16#0134a61411d22bb0,16#01593f7d970d1c94,16#0205a7d8a305490f,
+     16#01dd092272595a9c,16#0028c95208aad2d4,16#016347c25cc24162,
+     16#025306acfb891309,16#0207a07e2bebef2f,16#024ee78d86ff5288,
+     16#030b53192db97613,16#03f765cb9e98e611,16#025ec35a1e237377,
+     16#03d81fd73102ef6f,16#0242dc8fea9a68b2,16#00abb876c1d4ea1b,
+     16#00871ffd2b7e45fb,16#03593ff73c9be08d,16#00b96b2b8aca3688,
+     16#0174aba957b7cf7b,16#012b7a5d4cf4a5b7,16#032a5260f2123db8,
+     16#00f9374d88ee0080,16#030df39bec2ad657,16#00dce0cb81d006c4,
+     16#038213b806303c76,16#03940aafdbfabf84,16#0398dbb26aeba037,
+     16#01eb28d61951587f,16#00fed3d2aacfeef4,16#03499587547d6e40,
+     16#01b192fe6e979e3c,16#00e974bf5f0a26d0,16#012ed94f76459c83,
+     16#02d76859e7a82587,16#00d1d2c7b791f51b,16#03988058017a031b,
+     16#00bbcf4b59d8e86d,16#015ed8b73a1b767c,16#0277283ea6a5ee74,
+     16#002211460dd6d422,16#001ad62761ee9fbd,16#037311b44518b067,
+     16#02b5ed61bf70904e,16#011862a05c1929fa,16#014be68683c3bab4,
+     16#025c29aa5c508b07,16#00895c6106f97378,16#026ce91a3d671c7f,
+     16#02591f4c74784293,16#02f0ed2a70bc1853,16#00a2762ff614bfbc,
+     16#008f4e354f0c20d4,16#038b66fb587ed430,16#00636296e188de89,
+     16#0278fadd143e74f5,16#029697ccf1b3a4c2,16#011eccb273404458,
+     16#03f204064a9fe0c0];
+
+reference_val(_) ->
+    not_implemented.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1451,7 +1547,7 @@ reference_jump_val(exsp) ->
     reference_jump_val(exsplus);
 reference_jump_val(exs1024s) ->
     reference_jump_val(exs1024);
-reference_jump_val(exs64) -> [not_implemented];
+reference_jump_val(exs64) -> [error_not_implemented];
 reference_jump_val(exrop) ->
 %% #include <stdint.h>
 %% #include <stdio.h>
@@ -1516,7 +1612,50 @@ reference_jump_val(exrop) ->
      250227633882474729,171181147785250210,55437891969696407,
      241227318715885854,77323084015890802,
      1663590009695191,234064400749487599,222983191707424780,
-     254956809144783896,203898972156838252].
+     254956809144783896,203898972156838252];
+
+reference_jump_val(exro928ss) ->
+%% Same as for exrop, but this state init:
+%%     for (n = 0;  n < 16;  n++) {
+%%         s[n] = 12345678;
+    [16#031ee449e53b6689,16#001afeee12813137,16#005e2172711df36b,
+     16#02850aea3a595d36,16#0029705187e891c7,16#001794badd489667,
+     16#00ab621be15be56c,16#024b663a6924786b,16#03cab70b8ab854bf,
+     16#01daa37601285320,16#02db955a53c40e89,16#01fbef51d5c65891,
+     16#02fecf4116ed5f77,16#0349c2057246ac5d,16#01217f257c4fa148,
+     16#0367ee84d020697d,16#01d5cf647fe23335,16#020941838adfb750,
+     16#02c2da26b1d7b3e5,16#00d1583d34cea6c0,16#038be9cb5b527f50,
+     16#00bfa93c1d7f4864,16#03778912a4f56b14,16#037fcabc483fa5c5,
+     16#00a3c9de6aaf5fc7,16#03600b883b2f2b42,16#03797a99ffddfdfb,
+     16#0189fead429945b7,16#0103ac90cd912508,16#03e3d872fd950d64,
+     16#0214fc3e77dc2f02,16#02a084f4f0e580ca,16#035d2fe72266a7f3,
+     16#02887c49ae7e41a4,16#0011dc026af83c51,16#02d28bfd32c2c517,
+     16#022e4165c33ad4f3,16#01f053cf0687b052,16#035315e6e53c8918,
+     16#01255312da07b572,16#0237f1da11ec9221,16#02faf2e282fb1fb1,
+     16#0227423ec1787ebc,16#011fa5eb1505571c,16#0275ff9eaaa1abdd,
+     16#03e2d032c3981cb4,16#0181bb32d51d3072,16#01b1d3939b9f16ec,
+     16#0259f09f55d1112f,16#0396464a2767e428,16#039777c0368bdb9e,
+     16#0320925f35f36c5f,16#02a35289e0af1248,16#02e80bd4bc72254b,
+     16#00a8b11af1674d68,16#027735036100a69e,16#03c8c268ded7f254,
+     16#03de80aa57c65217,16#00f2247754d24000,16#005582a42b467f89,
+     16#0031906569729477,16#00fd523f2ca4fefe,16#00ad223113d1e336,
+     16#0238ddf026cbfca9,16#028b98211cfed876,16#0354353ebcc0de9a,
+     16#009ee370c1e154f4,16#033131af3b8a7f88,16#032291baa45801e3,
+     16#00941fc2b45eb217,16#035d6a61fa101647,16#03fdb51f736f1bbc,
+     16#0232f7b98539faa0,16#0311b35319e3a61e,16#0048356b17860eb5,
+     16#01a205b2554ce71e,16#03f873ea136e29d6,16#003c67d5c3df5ffd,
+     16#00cd19e7a8641648,16#0149a8c54e4ba45e,16#0329498d134d2f6a,
+     16#03b69421ae65ee2b,16#01a8d20b59447429,16#006b2292571032a2,
+     16#00c193b17da22ba5,16#01faa7ab62181249,16#00acd401cd596a00,
+     16#005b5086c3531402,16#0259113d5d3d058d,16#00bef3f3ce4a43b2,
+     16#014837a4070b893c,16#00460a26ac2eeec1,16#026219a8b8c63d7e,
+     16#03c7b8ed032cf5a6,16#004da912a1fff131,16#0297de3716215741,
+     16#0079fb9b4c715466,16#00a73bad4ae5a356,16#0072e606c0d4ab86,
+     16#02374382d5f9bd2e];
+
+reference_jump_val(_) ->
+    not_implemented.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
