@@ -74,7 +74,7 @@ start(Domain, Type, Proto, Addr, Port) ->
     %% The way we use tos only works because we
     %% send so few messages (a new value for every
     %% message).
-    put(tos, 1),
+    tos_init(),
     do_start(Domain, Type, Proto, SA).
 
 do_start(Domain, stream = Type, Proto, SA) ->
@@ -282,11 +282,10 @@ send(#client{socket = Sock, type = dgram, dest = Dest}, Msg) ->
     %% i("try send to: "
     %%   "~n   ~p", [Dest]),
     %% ok = socket:setopt(Sock, otp, debug, true),
-    TOS = get(tos),
+    TOS = tos_next(),
     ok = socket:setopt(Sock, ip, tos, TOS),
     case socket:sendto(Sock, Msg, Dest) of
         ok = OK ->
-            put(tos, TOS+1),
             OK;
         {error, _} = ERROR ->
             ERROR
@@ -398,6 +397,22 @@ which_addr2(Domain, [_|IFO]) ->
 %%         io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w" ++ FormatExtra,
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
+
+
+%% ---
+
+tos_init() ->
+    put(tos, 1).
+
+tos_next() ->
+    case get(tos) of
+        TOS when (TOS < 100) ->
+            put(tos, TOS + 1),
+            TOS;
+        _ ->
+            put(tos, 1),
+            1
+    end.
 
 
 %% ---

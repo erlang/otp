@@ -34,7 +34,7 @@
 -define(LIB, socket_lib).
 
 -record(manager,  {socket, msg, peek, acceptors, handler_id, handlers}).
--record(acceptor, {id, socket, manager}).
+-record(acceptor, {id, socket, manager, atimeout = 5000}).
 -record(handler,  {socket, peek, msg, type, manager}).
 
 -define(NUM_ACCEPTORS, 5).
@@ -521,13 +521,14 @@ acceptor_stop(Pid, _Reason) ->
 acceptor_init(Manager, Sock, ID) ->
     put(sname, f("acceptor[~w]", [ID])),
     Manager ! {acceptor, self(), ok},
+    %% ok = socket:setopt(Sock, otp, debug, true),
     acceptor_loop(#acceptor{id      = ID,
                             manager = Manager,
                             socket  = Sock}).
 
-acceptor_loop(#acceptor{socket = LSock} = A) ->
+acceptor_loop(#acceptor{socket = LSock, atimeout = Timeout} = A) ->
     i("try accept"),
-    case socket:accept(LSock, infinity) of
+    case socket:accept(LSock, Timeout) of
         {ok, Sock} ->
             i("accepted: "
               "~n   ~p"
@@ -542,6 +543,9 @@ acceptor_loop(#acceptor{socket = LSock} = A) ->
                     socket:close(Sock),
                     exit({failed_starting_handler, Reason})
             end;
+        {error, timeout} ->
+            i("timeout"),
+            acceptor_loop(A);
         {error, Reason} ->
             e("accept failure: "
               "~n   ~p", [Reason]),

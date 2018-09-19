@@ -1137,13 +1137,12 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
                     %% </KOLLA>
 		    nif_finalize_connection(SockRef)
 	    after NewTimeout ->
-                    nif_cancel(SockRef, connect, Ref),
+                    cancel(SockRef, connect, Ref),
 		    {error, timeout}
 	    end;
 	{error, _} = ERROR ->
 	    ERROR
     end.
-
 
 
 %% ===========================================================================
@@ -1227,13 +1226,12 @@ do_accept(LSockRef, Timeout) ->
                     {error, Reason}
 
             after NewTimeout ->
-                    nif_cancel(LSockRef, accept, AccRef),
-                    flush_select_msgs(LSockRef, AccRef),
+                    cancel(LSockRef, accept, AccRef),
                     {error, timeout}
             end;
 
         {error, _} = ERROR ->
-            nif_cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
+            cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
             ERROR
     end.
 
@@ -1305,8 +1303,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     {error, Reason}
 
             after NewTimeout ->
-                    nif_cancel(SockRef, send, SendRef),
-                    flush_select_msgs(SockRef, SendRef),
+                    cancel(SockRef, send, SendRef),
                     {error, {timeout, size(Data)}}
             end;
         {error, eagain} ->
@@ -1319,8 +1316,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     {error, Reason}
 
             after Timeout ->
-                    nif_cancel(SockRef, send, SendRef),
-                    flush_select_msgs(SockRef, SendRef),
+                    cancel(SockRef, send, SendRef),
                     {error, {timeout, size(Data)}}
             end;
 
@@ -1403,8 +1399,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     {error, Reason}
 
             after Timeout ->
-                    nif_cancel(SockRef, sendto, SendRef),
-                    flush_select_msgs(SockRef, SendRef),
+                    cancel(SockRef, sendto, SendRef),
                     {error, timeout}
             end;
 
@@ -1414,8 +1409,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     do_sendto(SockRef, Data, Dest, EFlags, 
                               next_timeout(TS, Timeout))
             after Timeout ->
-                    nif_cancel(SockRef, sendto, SendRef),
-                    flush_select_msgs(SockRef, SendRef),
+                    cancel(SockRef, sendto, SendRef),
                     {error, timeout}
             end;
 
@@ -1497,8 +1491,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
                     do_sendmsg(SockRef, MsgHdr, EFlags, 
                               next_timeout(TS, Timeout))
             after Timeout ->
-                    nif_cancel(SockRef, sendmsg, SendRef),
-                    flush_select_msgs(SockRef, SendRef),
+                    cancel(SockRef, sendmsg, SendRef),
                     {error, timeout}
             end;
 
@@ -1519,62 +1512,6 @@ ensure_msghdr(_) ->
 %% writev - write data into multiple buffers
 %%
 
-%% send(Socket, Data, Flags, Timeout)
-%%   when (is_list(Data) orelse is_binary(Data)) andalso is_list(Flags)  ->
-%%     IOVec  = erlang:iolist_to_iovec(Data),
-%%     EFlags = enc_send_flags(Flags),
-%%     send_iovec(Socket, IOVec, EFlags, Timeout).
-
-
-%% %% Iterate over the IO-vector (list of binaries).
-
-%% send_iovec(_Socket, [] = _IOVec, _EFlags, _Timeout) ->
-%%     ok;
-%% send_iovec({socket, _, SockRef} = Socket, [Bin|IOVec], EFlags, Timeout) ->
-%%     case do_send(SockRef, make_ref(), Bin, EFlags, Timeout) of
-%%         {ok, NewTimeout} ->
-%%             send_iovec(Socket, IOVec, EFlags, NewTimeout);
-%%         {error, _} = ERROR ->
-%%             ERROR
-%%     end.
-
-
-%% do_send(SockRef, SendRef, Data, _EFlags, Timeout)
-%%   when (Timeout < 0) ->
-%%     nif_cancel(SockRef, SendRef),
-%%     flush_select_msgs(SockRef, SendRef),
-%%     {error, {timeout, size(Data)}};
-%% do_send(SockRef, SendRef, Data, EFlags, Timeout) ->
-%%     TS = timestamp(Timeout),
-%%     case nif_send(SockRef, SendRef, Data, EFlags) of
-%%         ok ->
-%%             {ok, next_timeout(TS, Timeout)};
-%%         {ok, Written} ->
-%% 	    %% We are partially done, wait for continuation
-%%             receive
-%%                 {select, SockRef, SendRef, ready_output} ->
-%%                     <<_:Written/binary, Rest/binary>> = Data,
-%%                     do_send(SockRef, make_ref(), Rest, EFlags,
-%%                             next_timeout(TS, Timeout))
-%%             after Timeout ->
-%%                     nif_cancel(SockRef, SendRef),
-%%                     flush_select_msgs(SockRef, SendRef),
-%%                     {error, timeout}
-%%             end;
-%%         {error, eagain} ->
-%%             receive
-%%                 {select, SockRef, SendRef, ready_output} ->
-%%                     do_send(SockRef, SendRef, Data, EFlags,
-%%                             next_timeout(TS, Timeout))
-%%             after Timeout ->
-%%                     nif_cancel(SockRef, SendRef),
-%%                     flush_select_msgs(SockRef, SendRef),
-%%                     {error, timeout}
-%%             end;
-
-%%         {error, _} = ERROR ->
-%%             ERROR
-%%     end.
 
 
 %% ===========================================================================
@@ -1695,8 +1632,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
 
 
             after NewTimeout ->
-                    nif_cancel(SockRef, recv, RecvRef),
-                    flush_select_msgs(SockRef, RecvRef),
+                    cancel(SockRef, recv, RecvRef),
                     {error, {timeout, Acc}}
             end;
 
@@ -1715,8 +1651,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
 
 
             after NewTimeout ->
-                    nif_cancel(SockRef, recv, RecvRef),
-                    flush_select_msgs(SockRef, RecvRef),
+                    cancel(SockRef, recv, RecvRef),
                     {error, {timeout, Acc}}
             end;
 
@@ -1739,8 +1674,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     {error, Reason}
 
             after NewTimeout ->
-                    nif_cancel(SockRef, recv, RecvRef),
-                    flush_select_msgs(SockRef, RecvRef),
+                    cancel(SockRef, recv, RecvRef),
                     {error, timeout}
             end;
 
@@ -1765,7 +1699,7 @@ do_recv(SockRef, RecvRef, 0 = _Length, _Eflags, Acc, _Timeout) ->
     %% The current recv operation is to be cancelled, so no need for a ref...
     %% The cancel will end our 'read everything you have' and "activate"
     %% any waiting reader.
-    nif_cancel(SockRef, recv, RecvRef),
+    cancel(SockRef, recv, RecvRef),
     {ok, Acc};
 do_recv(_SockRef, _RecvRef, _Length, _EFlags, Acc, _Timeout) when (size(Acc) > 0) ->
     {error, {timeout, Acc}};
@@ -1878,8 +1812,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
                     {error, Reason}
 
             after NewTimeout ->
-                    nif_cancel(SockRef, recvfrom, RecvRef),
-                    flush_select_msgs(SockRef, RecvRef),
+                    cancel(SockRef, recvfrom, RecvRef),
                     {error, timeout}
             end;
 
@@ -1966,8 +1899,7 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
                     {error, Reason}
 
             after NewTimeout ->
-                    nif_cancel(SockRef, recvmsg, RecvRef),
-                    flush_select_msgs(SockRef, RecvRef),
+                    cancel(SockRef, recvmsg, RecvRef),
                     {error, timeout}
             end;
 
@@ -3325,10 +3257,19 @@ ensure_sockaddr(_SockAddr) ->
 
 
 
-flush_select_msgs(LSRef, Ref) ->
+cancel(SockRef, Op, OpRef) ->
+    case nif_cancel(SockRef, Op, OpRef) of
+        %% The select has already completed
+        {error, select_sent} ->
+            flush_select_msgs(SockRef, OpRef);
+        Other ->
+            Other
+    end.
+
+flush_select_msgs(SockRef, Ref) ->
     receive
-        {select, LSRef, Ref, _} ->
-            flush_select_msgs(LSRef, Ref)
+        {select, SockRef, Ref, _} ->
+            flush_select_msgs(SockRef, Ref)
     after 0 ->
             ok
     end.
