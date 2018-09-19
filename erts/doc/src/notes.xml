@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 8.3.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed small memory leak that could occur when sending to
+	    a terminating port.</p>
+          <p>
+	    Own Id: OTP-14609 Aux Id: ERIERL-238 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.3.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
