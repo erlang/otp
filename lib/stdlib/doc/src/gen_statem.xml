@@ -84,7 +84,7 @@
       <item>State time-out</item>
       <item>Multiple generic named time-outs</item>
       <item>Absolute time-out time</item>
-      <item>Automatic state enter calls</item>
+      <item>Automatic state enter events</item>
       <item>
 	Reply from other state than the request, <c>sys</c> traceable
       </item>
@@ -263,7 +263,7 @@ erlang:'!'            -----> Module:StateName/3
     </p>
     <p>
       The <c>gen_statem</c> engine can automatically
-      make a specialized call to the
+      generate a special event to the
       <seealso marker="#state callback"><em>state callback</em></seealso>
       whenever a new state is entered; see 
       <seealso marker="#type-state_enter"><c>state_enter()</c></seealso>.
@@ -664,9 +664,9 @@ handle_event(_, _, State, Data) ->
 	  This is the return type from
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
 	  and selects 
-	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-	  and whether to do
-	  <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>,
+	  <seealso marker="#type-callback_mode">callback mode</seealso>
+	  and whether to generate
+	  <seealso marker="#type-state_enter">state enter events</seealso>,
 	  or not.
 	</p>
       </desc>
@@ -706,9 +706,10 @@ handle_event(_, _, State, Data) ->
       <name name="state_enter"/>
       <desc>
 	<p>
-	  Whether the state machine should use <em>state enter calls</em>
-	  or not is selected when starting the  <c>gen_statem</c>
-	  and after code change using the return value from
+	  Whether the state machine should
+	  generate <em>state enter events</em>
+	  or not is selected when starting the <c>gen_statem</c>,
+	  and after code change, by the return value from
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>.
 	</p>
 	<p>
@@ -716,19 +717,15 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
 	  returns a list containing <c>state_enter</c>,
 	  the <c>gen_statem</c> engine will, at every <em>state change</em>,
-	  call the
-	  <seealso marker="#state callback">state callback</seealso>
-	  with arguments <c>(enter, OldState, Data)</c>.
-	  This may look like an event but is really a call
-	  performed after the previous
+	  generate an event
+	  of type <c>enter</c> with content <c>OldState</c> to the
 	  <seealso marker="#state callback"><em>state callback</em></seealso>
-	  returned and before any event is delivered to the new
-	  <seealso marker="#state callback"><em>state callback</em></seealso>.
+	  before all other including inserted events.
 	  See
 	  <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>
 	  and
 	  <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>.
-	  Such a call can be repeated by returning a
+	  This event can be repeated by returning a
 	  <seealso marker="#type-state_callback_result">
 	    <c>repeat_state</c>
 	  </seealso>
@@ -741,23 +738,30 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If 
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
-	  does not return such a list, no <em>state enter calls</em> are done.
+	  does not return such a list,
+	  no state enter events are generated.
 	</p>
 	<p>
 	  If 
 	  <seealso marker="#Module:code_change/4"><c>Module:code_change/4</c></seealso>
 	  should transform the state,
 	  it is regarded as a state rename and not a <em>state change</em>,
-	  which will not cause a <em>state enter call</em>.
+	  which will not generate a state enter event.
 	</p>
 	<p>
-	  Note that a <em>state enter call</em> <em>will</em> be done
+	  Note that a state enter event <em>will</em> be generated
 	  right before entering the initial state even though this
 	  actually is not a <em>state change</em>.
 	  In this case <c>OldState =:= State</c>,
 	  which can not happen for a subsequent state change,
-	  but will happen when repeating the <em>state enter call</em>.
+	  but will happen when repeating the state entry.
 	</p>
+	<note>
+	  <p>
+	    Events of type <c>enter</c> can not be
+	    postponed nor inserted.
+	  </p>
+	</note>
       </desc>
     </datatype>
     <datatype>
@@ -774,39 +778,6 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<list type="ordered">
 	  <item>
-            <p>
-	      If
-	      <seealso marker="#type-state_enter">
-		<em>state enter calls</em>
-	      </seealso>
-	      are used, and either:
-	      the state changes, it is the initial state,
-	      or one of the callback results
-	      <seealso marker="#type-state_callback_result">
-		<c>repeat_state</c>
-	      </seealso>
-	      or
-	      <seealso marker="#type-state_callback_result">
-		<c>repeat_state_and_data</c>
-	      </seealso>
-	      is used; the <c>gen_statem</c> calls
-	      the new state callback with arguments
-	      <seealso marker="#type-state_enter"><c>(enter, OldState, Data)</c></seealso>.
-	    </p>
-	    <p>
-	      Any 
-	      <seealso marker="#type-enter_action">actions</seealso>
-	      returned from this call are handled as if they were
-	      appended to the actions
-	      returned by the state callback that caused the state entry.
-	    </p>
-	    <p>
-	      Should this <em>state enter call</em> return any of
-	      the mentioned <c>repeat_*</c> callback results
-	      it is repeated again, with the updated <c>Data</c>.
-            </p>
-	  </item>
-	  <item>
 	    <p>
 	      All
               <seealso marker="#type-action">actions</seealso>
@@ -819,6 +790,7 @@ handle_event(_, _, State, Data) ->
               <seealso marker="#type-postpone"><c>postpone()</c></seealso>
 	      is <c>true</c>,
 	      the current event is postponed.
+	      Note that a state enter event can not be postponed.
 	    </p>
 	  </item>
 	  <item>
@@ -834,6 +806,7 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-action"><c>action()</c></seealso>
 	      <c>next_event</c>
 	      are inserted to be processed before previously queued events.
+	      Note that a state enter event can not be inserted.
             </p>
 	  </item>
 	  <item>
@@ -862,6 +835,32 @@ handle_event(_, _, State, Data) ->
               <seealso marker="#type-state_timeout"><c>state_timeout()</c></seealso>
 	      and any new transition option of this type
 	      belongs to the new state.
+	    </p>
+	  </item>
+	  <item>
+            <p>
+	      If
+	      <seealso marker="#type-state_enter">
+		<em>state enter events</em>
+	      </seealso>
+	      are used, and either:
+	      this is a <em>state change</em>, it is the initial state,
+	      or one of the callback results
+	      <seealso marker="#type-state_callback_result">
+		<c>repeat_state</c>
+	      </seealso>
+	      or
+	      <seealso marker="#type-state_callback_result">
+		<c>repeat_state_and_data</c>
+	      </seealso>
+	      is used; the <c>gen_statem</c> inserts
+	      an event of type
+	      <seealso marker="#type-state_enter">
+		<c>enter</c>
+	      </seealso>
+	      with the state before the <em>state transition</em>
+	      as content <c>OldState</c>
+	      before all other enqueued events.
 	    </p>
 	  </item>
 	  <item>
@@ -916,7 +915,7 @@ handle_event(_, _, State, Data) ->
 	<note>
 	  <p>
 	    If there are enqueued events to process
-	    when hibrnation is requested,
+	    when hibernation is requested,
 	    this is optimized by not hibernating but instead calling
 	    <seealso marker="erts:erlang#garbage_collect/0">
 	      <c>erlang:garbage_collect/0</c>
@@ -1099,30 +1098,6 @@ handle_event(_, _, State, Data) ->
 	      as there is no event to postpone in those cases.
 	    </p>
 	  </item>
-	  <tag><c>next_event</c></tag>
-	  <item>
-	    <p>
-	      This action does not set any
-	      <seealso marker="#type-transition_option">
-		<c>transition_option()</c>
-	      </seealso>
-	      but instead stores the specified <c><anno>EventType</anno></c>
-	      and <c><anno>EventContent</anno></c> for insertion after all
-	      actions have been executed.
-	    </p>
-	    <p>
-	      The stored events are inserted in the queue as the next to process
-	      before any already queued events. The order of these stored events
-	      is preserved, so the first <c>next_event</c> in the containing
-	      list becomes the first to process.
-	    </p>
-	    <p>
-	      An event of type
-	      <seealso marker="#type-event_type"><c>internal</c></seealso>
-	      is to be used when you want to reliably distinguish
-	      an event inserted this way from any external event.
-	    </p>
-	  </item>
 	</taglist>
       </desc>
     </datatype>
@@ -1157,6 +1132,30 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>
 	      <seealso marker="#type-hibernate"><c>hibernate()</c></seealso>
 	      for this <em>state transition</em>.
+	    </p>
+	  </item>
+	  <tag><c>next_event</c></tag>
+	  <item>
+	    <p>
+	      This action does not set any
+	      <seealso marker="#type-transition_option">
+		<c>transition_option()</c>
+	      </seealso>
+	      but instead stores the specified <c><anno>EventType</anno></c>
+	      and <c><anno>EventContent</anno></c> for insertion after all
+	      actions have been executed.
+	    </p>
+	    <p>
+	      The stored events are inserted in the queue as the next to process
+	      before any already queued events. The order of these stored events
+	      is preserved, so the first <c>next_event</c> in the containing
+	      list becomes the first to process.
+	    </p>
+	    <p>
+	      An event of type
+	      <seealso marker="#type-event_type"><c>internal</c></seealso>
+	      is to be used when you want to reliably distinguish
+	      an event inserted this way from any external event.
 	    </p>
 	  </item>
 	</taglist>
@@ -1292,27 +1291,45 @@ handle_event(_, _, State, Data) ->
       <name name="state_enter_result"/>
       <desc>
 	<p>
-	  <c><anno>State</anno></c> is the current state
-	  and it cannot be changed since the state callback
-	  was called with a
-	  <seealso marker="#type-state_enter"><em>state enter call</em></seealso>.
+	  Same as
+	  <seealso marker="#type-state_callback_result">
+	    <c>state_callback_result</c>
+	  </seealso>
+	  <c>(<anno>StateType</anno>,</c>
+	  <seealso marker="#type-enter_action">
+	    <c>enter_action()</c>
+	  </seealso>
+	  <c>)</c>
 	</p>
-	<taglist>
-	  <tag><c>next_state</c></tag>
-	  <item>
-	    <p>
-	      The <c>gen_statem</c> does a state transition to
-	      <c><anno>State</anno></c>, which has to be
-	      the current state,
-	      sets <c><anno>NewData</anno></c>,
-	      and executes all <c><anno>Actions</anno></c>.
-	    </p>
-	  </item>
-	</taglist>
+	<p>
+	  The only difference from
+	  <seealso marker="#type-event_handler_result">
+	    <c>event_handler_result(<anno>StateType</anno>)</c>
+	  </seealso>
+	  is that
+	  <seealso marker="#type-postpone"><c>postpone()</c></seealso>
+	  actions are not allowed.
+	</p>
       </desc>
     </datatype>
     <datatype>
       <name name="event_handler_result"/>
+      <desc>
+	<p>
+	  Same as
+	  <seealso marker="#type-state_callback_result">
+	    <c>state_callback_result</c>
+	  </seealso>
+	  <c>(<anno>StateType</anno>,</c>
+	  <seealso marker="#type-action">
+	    <c>action()</c>
+	  </seealso>
+	  <c>)</c>
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="state_callback_result"/>
       <desc>
 	<p>
 	  <c><anno>StateType</anno></c> is
@@ -1324,6 +1341,17 @@ handle_event(_, _, State, Data) ->
 	  if
 	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
 	  is <c>handle_event_function</c>.
+	</p>
+	<p>
+	  <c><anno>ActionType</anno></c> is
+	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
+	  if the <em>state callback</em> got a
+	  <seealso marker="#type-state_enter">
+	    <em>state enter event</em>
+	  </seealso>
+	  and
+	  <seealso marker="#type-action"><c>action()</c></seealso>
+	  for all other events.
 	</p>
 	<taglist>
 	  <tag><c>next_state</c></tag>
@@ -1338,22 +1366,6 @@ handle_event(_, _, State, Data) ->
 	      the <em>state transition</em> is a <em>state change</em>.
 	    </p>
 	  </item>
-	</taglist>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="state_callback_result"/>
-      <desc>
-	<p>
-	  <c><anno>ActionType</anno></c> is
-	  <seealso marker="#type-enter_action"><c>enter_action()</c></seealso>
-	  if the state callback was called with a
-	  <seealso marker="#type-state_enter"><em>state enter call</em></seealso>
-	  and
-	  <seealso marker="#type-action"><c>action()</c></seealso>
-	  if the state callback was called with an event.
-	</p>
-	<taglist>
 	  <tag><c>keep_state</c></tag>
 	  <item>
 	    <p>
@@ -1372,8 +1384,9 @@ handle_event(_, _, State, Data) ->
 	  <item>
 	    <p>
 	      If the <c>gen_statem</c> runs with
-	      <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>,
-	      the <em>state enter call</em> is repeated, see type
+	      <seealso marker="#type-state_enter"><em>state enter events</em></seealso>,
+	      a state enter event is inserted with
+	      <c>OldState = State</c>, see type
 	      <seealso marker="#type-transition_option"><c>transition_option()</c></seealso>,
 	      other than that <c>repeat_state</c> is the same as
 	      <c>keep_state</c>.
@@ -1959,7 +1972,7 @@ handle_event(_, _, State, Data) ->
 	  or to act on the <c>Extra</c> argument.
 	  It is also needed if an upgrade or downgrade should change 
 	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>,
-	  or else the <em>callback mode</em> after the code change
+	  or else the callback mode after the code change
 	  will not be honoured,
 	  most probably causing a server crash.
 	</p>
@@ -2193,25 +2206,19 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	</p>
 	<p>
 	  When the <c>gen_statem</c> runs with
-	  <seealso marker="#type-state_enter"><em>state enter calls</em></seealso>,
-	  these functions are also called with arguments
-	  <c>(enter, OldState, ...)</c> during every <em>state change</em>.
-	  In this case there are some restrictions on the
+	  <seealso marker="#type-state_enter">state enter events</seealso>,
+	  an event with <c>EventType =:= enter</c>
+	  and <c>EventContent =:= OldState</c>
+	  is generated during every <em>state change</em>.
+	  In this case the
 	  <seealso marker="#type-enter_action">actions</seealso>
-	  that may be returned:
+	  that are returned may not contain a
 	  <seealso marker="#type-postpone"><c>postpone()</c></seealso>
-	  is not allowed since a <em>state enter call</em> is not
-	  an event so there is no event to postpone, and 
-	  <seealso marker="#type-action"><c>{next_event,_,_}</c></seealso>
-	  is not allowed since using <em>state enter calls</em>
-	  should not affect how events are consumed and produced.
-	  You may also not change states from this call.
-	  Should you return <c>{next_state,NextState, ...}</c>
-	  with <c>NextState =/= State</c> the <c>gen_statem</c> crashes.
+	  action.
 	  Note that it is actually allowed to use
 	  <c>{repeat_state, NewData, ...}</c> although it makes little
-	  sense since you immediately will be called again with a new
-	  <em>state enter call</em> making this just a weird way
+	  sense since you immediately will be get a new
+	  <em>state enter event</em> making this just a weird way
 	  of looping, and there are better ways to loop in Erlang.
 	  If you do not update <c>NewData</c> and have some
 	  loop termination condition, or if you use
@@ -2219,9 +2226,7 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	  <c>repeat_state_and_data</c> you have an infinite loop!
 	  You are advised to use <c>{keep_state,...}</c>,
 	  <c>{keep_state_and_data,_}</c> or
-	  <c>keep_state_and_data</c>
-	  since changing states from a <em>state enter call</em>
-	  is not possible anyway.
+	  <c>keep_state_and_data</c>.
 	</p>
 	<p>
 	  Note the fact that you can use
