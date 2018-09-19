@@ -616,13 +616,14 @@ recvtclass(_Config) ->
 %% when machines with newer versions gets installed...
 %% If the test still fails for a plausible reason these
 %% version numbers simply should be increased.
+%% Or maybe we should change to only test on known good platforms?
 
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 %% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,11,0});
+recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
 recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.

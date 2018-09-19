@@ -1919,7 +1919,17 @@ so_priority(Config) when is_list(Config) ->
 
 
 %% IP_RECVTOS and IP_RECVTCLASS for IP_PKTOPTIONS
-%% does not seem to be implemented in Linux until kernel 3.0
+%% does not seem to be implemented in Linux until kernel 3.1
+%%
+%% It seems pktoptions does not return valid values
+%% for IPv4 connect sockets.  On the accept socket
+%% we get valid values, but on the connect socket we get
+%% the default values for TOS and TTL.
+%%
+%% Therefore the argument CheckConnect that enables
+%% checking the returned values for the connect socket.
+%% It is only used for recvtclass that is an IPv6 option
+%% and there we get valid values from both socket ends.
 
 recvtos(_Config) ->
     test_pktoptions(
@@ -1965,25 +1975,38 @@ recvtclass(_Config) ->
 %% when machines with newer versions gets installed...
 %% If the test still fails for a plausible reason these
 %% version numbers simply should be increased.
+%% Or maybe we should change to only test on known good
+%% platforms - change {unix,_} to false?
 
-%% Using the option returns einval, so it is not implemented.
+%% pktoptions is not supported for IPv4
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Does not return any value - not implemented for pktoptions
 recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
 %%
 recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.
 
+%% pktoptions is not supported for IPv4
+recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+%% Using the option returns einval, so it is not implemented.
+recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%%
 recvttl_ok({unix,linux}, _) -> true;
 recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
-%% Using the option returns einval, so it is not implemented.
+%% pktoptions is not supported for IPv6
 recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
-recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
-%% Using the option returns einval up to 0.9.0, so it is not implemented.
-%% Does not return any value - not implemented for pktoptions
 recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%% Using the option returns einval, so it is not implemented.
+recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 %% Does not return any value - not implemented for pktoptions
 recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
 %%
@@ -2002,18 +2025,18 @@ semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
     end;
 semver_lt(_, {_,_,_}) -> false.
 
-test_pktoptions(Family, Spec, OSFilter, CheckAccept) ->
+test_pktoptions(Family, Spec, OSFilter, CheckConnect) ->
     OSType = os:type(),
     OSVer = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
             io:format("Os: ~p, ~p~n", [OSType,OSVer]),
-            test_pktoptions(Family, Spec, CheckAccept, OSType, OSVer);
+            test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
     end.
 %%
-test_pktoptions(Family, Spec, CheckAccept, OSType, OSVer) ->
+test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
     Timeout = 5000,
     RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
     TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
@@ -2105,7 +2128,7 @@ test_pktoptions(Family, Spec, CheckAccept, OSType, OSVer) ->
     ok = gen_tcp:close(S4),
     ok = gen_tcp:close(S3),
     ok = gen_tcp:close(L),
-    (Result1 and ((not CheckAccept) or (Result2 and Result3)))
+    (Result1 and ((not CheckConnect) or (Result2 and Result3)))
         orelse
         exit({failed,
               [{OptsVals1,OptsVals4,OptsVals},
