@@ -20,12 +20,15 @@
 %% Purpose: Type definitions and utilities for the SSA format.
 
 -module(beam_ssa).
--export([add_anno/3,get_anno/2,
-         clobbers_xregs/1,def/2,def_used/2,dominators/1,
+-export([add_anno/3,get_anno/2,get_anno/3,
+         clobbers_xregs/1,def/2,def_used/2,
+         definitions/1,
+         dominators/1,
          flatmapfold_instrs_rpo/4,
          fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
          fold_instrs_rpo/4,
          linearize/1,
+         mapfold_blocks_rpo/4,
          mapfold_instrs_rpo/4,
          normalize/1,
          no_side_effect/1,
@@ -35,14 +38,17 @@
          split_blocks/3,
          successors/1,successors/2,
          trim_unreachable/1,
-         update_phi_labels/4,used/1]).
+         update_phi_labels/4,used/1,
+         uses/1,uses/2]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
               b_ret/0,b_br/0,b_switch/0,terminator/0,
               b_var/0,b_literal/0,b_remote/0,b_local/0,
               value/0,argument/0,label/0,
               var_name/0,var_base/0,literal_value/0,
-              op/0,anno/0,block_map/0]).
+              op/0,anno/0,block_map/0,dominator_map/0,
+              rename_map/0,rename_proplist/0,usage_map/0,
+              definition_map/0]).
 
 -include("beam_ssa.hrl").
 
@@ -55,6 +61,9 @@
 -type b_ret()      :: #b_ret{}.
 -type b_switch()   :: #b_switch{}.
 -type terminator() :: b_br() | b_ret() | b_switch().
+
+-type construct()  :: b_module() | b_function() | b_blk() | b_set() |
+                      terminator().
 
 -type b_var()      :: #b_var{}.
 -type b_literal()  :: #b_literal{}.
@@ -76,6 +85,11 @@
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
+-type dominator_map() :: #{label():=ordsets:ordset(label())}.
+-type usage_map() :: #{b_var():=[{label(),b_set() | terminator()}]}.
+-type definition_map() :: #{b_var():=b_set()}.
+-type rename_map() :: #{b_var():=value()}.
+-type rename_proplist() :: [{b_var(),value()}].
 
 %% Note: By default, dialyzer will collapse this type to atom().
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
@@ -103,14 +117,14 @@
 
 %% Primops only used internally during code generation.
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
-'copy' | 'put_tuple_arity' | 'put_tuple_element'.
+                      'copy' | 'put_tuple_arity' | 'put_tuple_element'.
 
 -import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
       Value :: any(),
-      Construct :: b_function() | b_blk() | b_set() | terminator().
+      Construct :: construct().
 
 add_anno(Key, Val, #b_function{anno=Anno}=Bl) ->
     Bl#b_function{anno=Anno#{Key=>Val}};
@@ -125,11 +139,17 @@ add_anno(Key, Val, #b_ret{anno=Anno}=Bl) ->
 add_anno(Key, Val, #b_switch{anno=Anno}=Bl) ->
     Bl#b_switch{anno=Anno#{Key=>Val}}.
 
--spec get_anno(atom(), b_blk()|b_set()|terminator()) -> any().
+-spec get_anno(atom(), construct()) -> any().
 
 get_anno(Key, Construct) ->
     maps:get(Key, get_anno(Construct)).
 
+-spec get_anno(atom(), construct(),any()) -> any().
+
+get_anno(Key, Construct, Default) ->
+    maps:get(Key, get_anno(Construct), Default).
+
+get_anno(#b_function{anno=Anno}) -> Anno;
 get_anno(#b_blk{anno=Anno}) -> Anno;
 get_anno(#b_set{anno=Anno}) -> Anno;
 get_anno(#b_br{anno=Anno}) -> Anno;
@@ -169,6 +189,7 @@ no_side_effect(#b_set{op=Op}) ->
         bs_match -> true;
         bs_start_match -> true;
         bs_test_tail -> true;
+        bs_get_tail -> true;
         bs_put -> true;
         extract -> true;
         get_hd -> true;
@@ -306,7 +327,7 @@ def_used(Ls, Blocks) ->
 
 -spec dominators(Blocks) -> Result when
       Blocks :: block_map(),
-      Result :: #{label():=ordsets:ordset(label())}.
+      Result :: dominator_map().
 
 dominators(Blocks) ->
     Preds = predecessors(Blocks),
@@ -326,6 +347,26 @@ dominators(Blocks) ->
 fold_instrs_rpo(Fun, From, Acc0, Blocks) ->
     Top = rpo(From, Blocks),
     fold_instrs_rpo_1(Top, Fun, Blocks, Acc0).
+
+%% Like mapfold_instrs_rpo but at the block level to support lookahead and
+%% scope-dependent transformations.
+-spec mapfold_blocks_rpo(Fun, From, Acc, Blocks) -> Result when
+      Fun :: fun((label(), b_blk(), any()) -> {b_blk(), any()}),
+      From :: [label()],
+      Acc :: any(),
+      Blocks :: block_map(),
+      Result :: {block_map(), any()}.
+mapfold_blocks_rpo(Fun, From, Acc, Blocks) ->
+    Successors = rpo(From, Blocks),
+    foldl(fun(Lbl, A) ->
+                  mapfold_blocks_rpo_1(Fun, Lbl, A)
+          end, {Blocks, Acc}, Successors).
+
+mapfold_blocks_rpo_1(Fun, Lbl, {Blocks0, Acc0}) ->
+    Block0 = maps:get(Lbl, Blocks0),
+    {Block, Acc} = Fun(Lbl, Block0, Acc0),
+    Blocks = maps:put(Lbl, Block, Blocks0),
+    {Blocks, Acc}.
 
 -spec mapfold_instrs_rpo(Fun, From, Acc0, Blocks0) -> {Blocks,Acc} when
       Fun :: fun((b_blk()|terminator(), any()) -> any()),
@@ -442,7 +483,7 @@ rpo(From, Blocks) ->
     Ls.
 
 -spec rename_vars(Rename, [label()], block_map()) -> block_map() when
-      Rename :: [{var_name(),value()}] | #{var_name():=value()}.
+      Rename :: rename_map() | rename_proplist().
 
 rename_vars(Rename, From, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), From, Blocks);
@@ -534,6 +575,34 @@ used(#b_set{args=Args}) ->
 used(#b_switch{arg=#b_var{}=V}) ->
     [V];
 used(_) -> [].
+
+-spec definitions(Blocks :: block_map()) -> definition_map().
+definitions(Blocks) ->
+    beam_ssa:fold_instrs_rpo(fun(#b_set{ dst = Var }=I, Acc) ->
+                                     maps:put(Var, I, Acc);
+                                (_Terminator, Acc) ->
+                                     Acc
+                             end, [0], #{}, Blocks).
+
+-spec uses(Blocks :: block_map()) -> usage_map().
+uses(Blocks) ->
+    uses([0], Blocks).
+
+-spec uses(From, Blocks) -> usage_map() when
+      From :: [label()],
+      Blocks :: block_map().
+uses(From, Blocks) ->
+    beam_ssa:fold_rpo(fun fold_uses_block/3, From, #{}, Blocks).
+
+fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
+    F = fun(I, UseMap) ->
+                foldl(fun(Var, Acc) ->
+                              Uses0 = maps:get(Var, Acc, []),
+                              Uses = [{Lbl, I} | Uses0],
+                              maps:put(Var, Uses, Acc)
+                      end, UseMap, beam_ssa:used(I))
+        end,
+    F(Last, foldl(F, UseMap0, Is)).
 
 %%%
 %%% Internal functions.
