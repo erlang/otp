@@ -112,6 +112,10 @@ peep([{select,Op,R,F,Vls0}|Is], SeenTests0, Acc0) ->
             %% Single value left. Convert to regular test
             Is1 = [{test,test_arity,F,[R,Arity]},{jump,Lbl}|Is],
             peep(Is1, SeenTests0, Acc0);
+	[{atom,B1},Lbl,{atom,B2},Lbl] when B1 =:= not B2 ->
+            %% Replace with is_boolean test.
+            Is1 = [{test,is_boolean,F,[R]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
 	[_|_]=Vls ->
 	    I = {select,Op,R,F,Vls},
 	    peep(Is, gb_sets:empty(), [I|Acc0])

@@ -598,6 +598,14 @@ valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
     Vst = set_type(map, Map, Vst1),
     Type = propagate_fragility(bool, Src, Vst),
     set_type_reg(Type, Dst, Vst);
+valfun_4({bif,Op,{f,Fail},[Cons]=Src,Dst}, Vst0)
+  when Op =:= hd; Op =:= tl ->
+    validate_src(Src, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+    Vst = set_type(cons, Cons, Vst1),
+    Type0 = bif_type(Op, Src, Vst),
+    Type = propagate_fragility(Type0, Src, Vst),
+    set_type_reg(Type, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
@@ -610,7 +618,13 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
     Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
+    Vst3 = prune_x_regs(Live, Vst2),
+    Vst = case Op of
+              map_size ->
+                  set_type(map, hd(Src), Vst3);
+              _ ->
+                  Vst3
+          end,
     validate_src(Src, Vst),
     Type0 = bif_type(Op, Src, Vst),
     Type = propagate_fragility(Type0, Src, Vst),
@@ -648,10 +662,12 @@ valfun_4({set_tuple_element,Src,Tuple,I}, Vst) ->
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
+    assert_choices(Choices),
     Vst = branch_state(Fail, Vst0),
     kill_state(select_val_branches(Src, Choices, Vst));
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     assert_type(tuple, Tuple, Vst),
+    assert_arities(Choices),
     TupleType = case get_term_type(Tuple, Vst) of
                     {fragile,TupleType0} -> TupleType0;
                     TupleType0 -> TupleType0
@@ -1087,6 +1103,29 @@ prune_x_regs(Live, #vst{current=St0}=Vst)
                           end, Aliases0),
     St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs,aliases=Aliases},
     Vst#vst{current=St}.
+
+%% All choices in a select_val list must be integers, floats, or atoms.
+%% All must be of the same type.
+assert_choices([{Tag,_},{f,_}|T]) ->
+    if
+        Tag =:= atom; Tag =:= float; Tag =:= integer ->
+            assert_choices_1(T, Tag);
+        true ->
+            error(bad_select_list)
+    end;
+assert_choices([]) -> ok.
+
+assert_choices_1([{Tag,_},{f,_}|T], Tag) ->
+    assert_choices_1(T, Tag);
+assert_choices_1([_,{f,_}|_], _Tag) ->
+    error(bad_select_list);
+assert_choices_1([], _Tag) -> ok.
+
+assert_arities([Arity,{f,_}|T]) when is_integer(Arity) ->
+    assert_arities(T);
+assert_arities([]) -> ok;
+assert_arities(_) -> error(bad_tuple_arity_list).
+
 
 %%%
 %%% Floating point checking.
@@ -1919,6 +1958,12 @@ is_bif_safe(self, 0) -> true;
 is_bif_safe(node, 0) -> true;
 is_bif_safe(_, _) -> false.
 
+arith_type([A], Vst) ->
+    %% Unary '+' or '-'.
+    case get_term_type(A, Vst) of
+	{float,_} -> {float,[]};
+        _ -> number
+    end;
 arith_type([A,B], Vst) ->
     case {get_term_type(A, Vst),get_term_type(B, Vst)} of
 	{{float,_},_} -> {float,[]};

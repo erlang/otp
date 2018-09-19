@@ -234,16 +234,6 @@ silly_coverage(Config) when is_list(Config) ->
 		      {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_except:module(ExceptInput, []) end),
 
-    %% beam_dead. This is tricky. Our function must look OK to
-    %% beam_utils:clean_labels/1, but must crash beam_dead.
-    DeadInput = {?MODULE,[{foo,0}],[],
-		  [{function,foo,0,2,
-		    [{label,1},
-		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2},
-		     {test,is_eq_exact,{f,1},[bad,operands]}]}],99},
-    expect_error(fun() -> beam_dead:module(DeadInput, []) end),
-
     %% beam_clean
     CleanInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,

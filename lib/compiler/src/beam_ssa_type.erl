@@ -22,13 +22,15 @@
 -export([opt/2]).
 
 -include("beam_ssa.hrl").
--import(lists, [any/2,droplast/1,foldl/3,last/1,member/2,
-                reverse/1,search/2,sort/1]).
+-import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
+                reverse/1,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
 -record(d, {ds :: #{beam_ssa:var_name():=beam_ssa:b_set()},
-            ls :: #{beam_ssa:label():=type_db()}}).
+            ls :: #{beam_ssa:label():=type_db()},
+            sub :: #{beam_ssa:var_name():=beam_ssa:value()}
+           }).
 
 -define(ATOM_SET_SIZE, 5).
 
@@ -60,7 +62,7 @@ opt(Linear, Args) ->
                                               arity=0}]},
     Defs = maps:from_list([{V,FakeCall#b_set{dst=Var}} ||
                               #b_var{name=V}=Var <- Args]),
-    D = #d{ds=Defs,ls=#{0=>Ts}},
+    D = #d{ds=Defs,ls=#{0=>Ts},sub=#{}},
     opt_1(Linear, D).
 
 opt_1([{L,Blk}|Bs], #d{ls=Ls}=D) ->
@@ -71,9 +73,9 @@ opt_1([{L,Blk}|Bs], #d{ls=Ls}=D) ->
             %% This block is never reached. Discard it.
             opt_1(Bs, D)
     end;
-opt_1([], _) -> [].
+opt_1([], #d{}) -> [].
 
-opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, D0) ->
+opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, #d{sub=Sub}=D0) ->
     case Is0 of
         [#b_set{op=call,dst=Dst,
                 args=[#b_remote{mod=#b_literal{val=Mod},
@@ -84,7 +86,7 @@ opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, D0) ->
                     %% Rewrite the terminator to a 'ret', and remove
                     %% all type information for this label. That will
                     %% simplify the phi node in the former successor.
-                    Args = [simplify_arg(Arg, Ts) || Arg <- Args0],
+                    Args = simplify_args(Args0, Sub, Ts),
                     I = I0#b_set{args=[Rem|Args]},
                     Ret = #b_ret{arg=Dst},
                     Blk = Blk0#b_blk{is=[I],last=Ret},
@@ -98,61 +100,120 @@ opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, D0) ->
             opt_3(L, Blk0, Bs, Ts, D0)
     end.
 
-opt_3(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0, #d{ds=Ds0,ls=Ls0}=D0) ->
-    {Is,Ts,Ds} = opt_is(Is0, Ts0, Ds0, Ls0, []),
-    D1 = D0#d{ds=Ds},
-    Last = opt_terminator(Last0, Ts, Ds),
+opt_3(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
+      #d{ds=Ds0,ls=Ls0,sub=Sub0}=D0) ->
+    {Is,Ts,Ds,Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Sub0, []),
+    D1 = D0#d{ds=Ds,sub=Sub},
+    Last1 = simplify_terminator(Last0, Sub, Ts),
+    Last = opt_terminator(Last1, Ts, Ds),
     D = update_successors(Last, Ts, D1),
     Blk = Blk0#b_blk{is=Is,last=Last},
     [{L,Blk}|opt_1(Bs, D)].
 
-opt_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args0}=I0|Is], Ts0, Ds0, Ls, Acc) ->
+simplify_terminator(#b_br{bool=Bool}=Br, Sub, Ts) ->
+    Br#b_br{bool=simplify_arg(Bool, Sub, Ts)};
+simplify_terminator(#b_switch{arg=Arg}=Sw, Sub, Ts) ->
+    Sw#b_switch{arg=simplify_arg(Arg, Sub, Ts)};
+simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts) ->
+    Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}.
+
+opt_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args0}=I0|Is],
+       Ts0, Ds0, Ls, Sub0, Acc) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
-    Args = [P || {_,From}=P <- Args0, maps:is_key(From, Ls)],
-    I = I0#b_set{args=Args},
-    Ts = update_types(I, Ts0, Ds0),
-    Ds = Ds0#{Dst=>I},
-    opt_is(Is, Ts, Ds, Ls, [I|Acc]);
-opt_is([#b_set{dst=#b_var{name=Dst}}=I0|Is], Ts0, Ds0, Ls, Acc) ->
-    I = simplify(I0, Ts0),
-    Ts = update_types(I, Ts0, Ds0),
-    Ds = Ds0#{Dst=>I},
-    opt_is(Is, Ts, Ds, Ls, [I|Acc]);
-opt_is([], Ts, Ds, _Ls, Acc) ->
-    {reverse(Acc),Ts,Ds}.
+    Args = [{simplify_arg(Arg, Sub0, Ts0),From} ||
+               {Arg,From} <- Args0, maps:is_key(From, Ls)],
+    case all_same(Args) of
+        true ->
+            %% Eliminate the phi node if there is just one source
+            %% value or if the values are identical.
+            [{Val,_}|_] = Args,
+            Sub = Sub0#{Dst=>Val},
+            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc);
+        false ->
+            I = I0#b_set{args=Args},
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{Dst=>I},
+            opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc])
+    end;
+opt_is([#b_set{args=Args0,dst=#b_var{name=Dst}}=I0|Is],
+       Ts0, Ds0, Ls, Sub0, Acc) ->
+    Args = simplify_args(Args0, Sub0, Ts0),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    case simplify(I1, Ts0) of
+        #b_set{}=I2 ->
+            I = beam_ssa:normalize(I2),
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{Dst=>I},
+            opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc]);
+        #b_literal{}=Lit ->
+            Sub = Sub0#{Dst=>Lit},
+            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc);
+        #b_var{}=Var ->
+            Sub = Sub0#{Dst=>Var},
+            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc)
+    end;
+opt_is([], Ts, Ds, _Ls, Sub, Acc) ->
+    {reverse(Acc),Ts,Ds,Sub}.
 
+simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
+    case is_safe_bool_op(Args, Ts) of
+        true ->
+            case Args of
+                [_,#b_literal{val=false}=Res] -> Res;
+                [Res,#b_literal{val=true}] -> Res;
+                _ -> eval_bif(I, Ts)
+            end;
+        false ->
+            I
+    end;
+simplify(#b_set{op={bif,'or'},args=Args}=I, Ts) ->
+    case is_safe_bool_op(Args, Ts) of
+        true ->
+            case Args of
+                [Res,#b_literal{val=false}] -> Res;
+                [_,#b_literal{val=true}=Res] -> Res;
+                _ -> eval_bif(I, Ts)
+            end;
+        false ->
+            I
+    end;
 simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I, Ts) ->
     case t_tuple_size(get_type(Tuple, Ts)) of
         {_,Size} when is_integer(Index), 1 =< Index, Index =< Size ->
             I#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=Index-1}]};
         _ ->
-            I
+            eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts) ->
     case get_type(List, Ts) of
         cons ->
             I#b_set{op=get_hd};
         _ ->
-            I
+            eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,tl},args=[List]}=I, Ts) ->
     case get_type(List, Ts) of
         cons ->
             I#b_set{op=get_tl};
         _ ->
-            I
+            eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
     case get_type(Term, Ts) of
         #t_tuple{} ->
-            I#b_set{op={bif,tuple_size}};
+            simplify(I#b_set{op={bif,tuple_size}}, Ts);
+        _ ->
+            eval_bif(I, Ts)
+    end;
+simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
+    case get_type(Term, Ts) of
+        #t_tuple{size=Size,exact=true} ->
+            #b_literal{val=Size};
         _ ->
             I
     end;
-simplify(#b_set{op={bif,'=='},args=Args0}=I0, Ts) ->
-    Args = [simplify_arg(Arg, Ts) || Arg <- Args0],
-    I = I0#b_set{args=Args},
+simplify(#b_set{op={bif,'=='},args=Args}=I, Ts) ->
     Types = get_types(Args, Ts),
     EqEq = case {meet(Types),join(Types)} of
                {none,any} -> true;
@@ -164,50 +225,147 @@ simplify(#b_set{op={bif,'=='},args=Args0}=I0, Ts) ->
            end,
     case EqEq of
         true ->
-            I#b_set{op={bif,'=:='}};
+            simplify(I#b_set{op={bif,'=:='}}, Ts);
         false ->
-            I
+            eval_bif(I, Ts)
     end;
-simplify(#b_set{op={bif,Op},args=Args0}=I0, Ts) ->
-    Args = [simplify_arg(Arg, Ts) || Arg <- Args0],
-    I = I0#b_set{args=Args},
+simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
+    #b_literal{val=true};
+simplify(#b_set{op={bif,'=:='},args=Args}=I, Ts) ->
+    case meet(get_types(Args, Ts)) of
+        none -> #b_literal{val=false};
+        _ -> eval_bif(I, Ts)
+    end;
+simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
     Types = get_types(Args, Ts),
     case is_float_op(Op, Types) of
         false ->
-            I;
+            eval_bif(I, Ts);
         true ->
             AnnoArgs = [anno_float_arg(A) || A <- Types],
-            beam_ssa:add_anno(float_op, AnnoArgs, I)
+            eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
     end;
-simplify(#b_set{op=wait_timeout,args=[Timeout0]}=I, Ts) ->
-    case simplify_arg(Timeout0, Ts) of
-        #b_literal{val=infinity} ->
-            I#b_set{op=wait,args=[]};
-        Timeout ->
-            I#b_set{args=[Timeout]}
-    end;
-simplify(#b_set{op=Op,args=Args0}=I, Ts) ->
-    Safe = case Op of
-               call -> true;
-               put_list -> true;
-               put_tuple -> true;
-               _ -> false
-           end,
-    case Safe of
-        true ->
-            Args = [simplify_arg(Arg, Ts) || Arg <- Args0],
-            I#b_set{args=Args};
-        false ->
+simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=0}]}=I, Ts) ->
+    case get_type(Tuple, Ts) of
+        #t_tuple{elements=[First]} ->
+            #b_literal{val=First};
+        #t_tuple{} ->
             I
+    end;
+simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
+    case get_type(Src, Ts) of
+        any ->  I;
+        list -> I;
+        cons -> #b_literal{val=true};
+        _ ->    #b_literal{val=false}
+    end;
+simplify(#b_set{op=is_tagged_tuple,
+                args=[Src,#b_literal{val=Size},#b_literal{val=Tag}]}=I, Ts) ->
+    case get_type(Src, Ts) of
+        #t_tuple{exact=true,size=Size,elements=[Tag]} ->
+            #b_literal{val=true};
+        #t_tuple{exact=true,size=ActualSize,elements=[]} ->
+            if
+                Size =/= ActualSize ->
+                    #b_literal{val=false};
+                true ->
+                    I
+            end;
+        #t_tuple{exact=false} ->
+            I;
+        any ->
+            I;
+        _ ->
+            #b_literal{val=false}
+    end;
+simplify(#b_set{op=put_list,args=[#b_literal{val=H},
+                                  #b_literal{val=T}]}, _Ts) ->
+    #b_literal{val=[H|T]};
+simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
+    case make_literal_list(Args) of
+        none -> I;
+        List -> #b_literal{val=list_to_tuple(List)}
+    end;
+simplify(#b_set{op=succeeded,args=[#b_literal{}]}, _Ts) ->
+    #b_literal{val=true};
+simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
+    I#b_set{op=wait,args=[]};
+simplify(I, _Ts) -> I.
+
+make_literal_list(Args) ->
+    make_literal_list(Args, []).
+
+make_literal_list([#b_literal{val=H}|T], Acc) ->
+    make_literal_list(T, [H|Acc]);
+make_literal_list([_|_], _) ->
+    none;
+make_literal_list([], Acc) ->
+    reverse(Acc).
+
+is_safe_bool_op(Args, Ts) ->
+    [T1,T2] = get_types(Args, Ts),
+    t_is_boolean(T1) andalso t_is_boolean(T2).
+
+all_same([{H,_}|T]) ->
+    all(fun({E,_}) -> E =:= H end, T).
+
+eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
+    Arity = length(Args),
+    case erl_bifs:is_pure(erlang, Bif, Arity) of
+        false ->
+            I;
+        true ->
+            case make_literal_list(Args) of
+                none ->
+                    case get_types(Args, Ts) of
+                        [any] ->
+                            I;
+                        [Type] ->
+                            case will_succeed(Bif, Type) of
+                                yes ->
+                                    #b_literal{val=true};
+                                no ->
+                                    #b_literal{val=false};
+                                maybe ->
+                                    I
+                            end;
+                        _ ->
+                            I
+                    end;
+                LitArgs ->
+                    try apply(erlang, Bif, LitArgs) of
+                        Val -> #b_literal{val=Val}
+                    catch
+                        error:_ -> I
+                    end
+
+            end
     end.
 
-simplify_arg(#b_var{}=Arg, Ts) ->
-    Type = get_type(Arg, Ts),
-    case get_literal_from_type(Type) of
-        none -> Arg;
-        #b_literal{}=Lit -> Lit
+simplify_args(Args, Sub, Ts) ->
+    [simplify_arg(Arg, Sub, Ts) || Arg <- Args].
+
+simplify_arg(#b_var{}=Arg0, Sub, Ts) ->
+    case sub_arg(Arg0, Sub) of
+        #b_literal{}=LitArg ->
+            LitArg;
+        #b_var{}=Arg ->
+            Type = get_type(Arg, Ts),
+            case get_literal_from_type(Type) of
+                none -> Arg;
+                #b_literal{}=Lit -> Lit
+            end
     end;
-simplify_arg(Arg, _Ts) -> Arg.
+simplify_arg(#b_remote{mod=Mod,name=Name}=Rem, Sub, Ts) ->
+    Rem#b_remote{mod=simplify_arg(Mod, Sub, Ts),
+                 name=simplify_arg(Name, Sub, Ts)};
+simplify_arg(Arg, _Sub, _Ts) -> Arg.
+
+sub_arg(#b_var{name=V}=Old, Sub) ->
+    case Sub of
+        #{V:=New} -> New;
+        #{} -> Old
+    end.
 
 is_float_op('-', [float]) ->
     true;
@@ -228,67 +386,49 @@ anno_float_arg(float) -> float;
 anno_float_arg(_) -> convert.
 
 opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
-    Br;
-opt_terminator(#b_br{bool=#b_var{name=V}=Var}=Br, Ts, Ds) ->
-    BoolType = get_type(Var, Ts),
-    case get_literal_from_type(BoolType) of
-        #b_literal{}=BoolLit ->
-            Br#b_br{bool=BoolLit};
-        none ->
-            #{V:=Set} = Ds,
-            case Set of
-                #b_set{op={bif,'=:='},args=[Bool,#b_literal{val=true}]} ->
-                    case t_is_boolean(get_type(Bool, Ts)) of
-                        true ->
-                            %% Bool =:= true   ==>  Bool
-                            simplify_not(Br#b_br{bool=Bool}, Ts, Ds);
-                        false ->
-                            Br
+    beam_ssa:normalize(Br);
+opt_terminator(#b_br{bool=#b_var{name=V}}=Br, Ts, Ds) ->
+    #{V:=Set} = Ds,
+    case Set of
+        #b_set{op={bif,'=:='},args=[Bool,#b_literal{val=true}]} ->
+            case t_is_boolean(get_type(Bool, Ts)) of
+                true ->
+                    %% Bool =:= true   ==>  Bool
+                    simplify_not(Br#b_br{bool=Bool}, Ts, Ds);
+                false ->
+                    Br
+            end;
+        #b_set{} ->
+            simplify_not(Br, Ts, Ds)
+    end;
+opt_terminator(#b_switch{arg=#b_literal{}}=Sw, _Ts, _Ds) ->
+    beam_ssa:normalize(Sw);
+opt_terminator(#b_switch{arg=#b_var{}=V}=Sw0, Ts, Ds) ->
+    Type = get_type(V, Ts),
+    case Type of
+        #t_integer{elements={_,_}=Range} ->
+            simplify_switch_int(Sw0, Range);
+        _ ->
+            case t_is_boolean(Type) of
+                true ->
+                    case simplify_switch_bool(Sw0, Ts, Ds) of
+                        #b_br{}=Br ->
+                            opt_terminator(Br, Ts, Ds);
+                        Sw ->
+                            beam_ssa:normalize(Sw)
                     end;
-                #b_set{} ->
-                    simplify_not(Br, Ts, Ds)
+                false ->
+                    beam_ssa:normalize(Sw0)
             end
     end;
-opt_terminator(#b_switch{arg=#b_literal{val=Val0}=Arg,fail=Fail,list=List},
-               _Ts, _Ds) ->
-    {value,{_,L}} = search(fun({#b_literal{val=Val1},_}) ->
-                                   Val1 =:= Val0
-                           end, List ++ [{Arg,Fail}]),
-    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
-opt_terminator(#b_switch{arg=V}=Sw0, Ts, Ds) ->
-    case get_literal_from_type(Ts) of
-        #b_literal{}=Lit ->
-            Sw = Sw0#b_switch{arg=Lit},
-            opt_terminator(Sw, Ts, Ds);
-        none ->
-            case get_type(V, Ts) of
-                #t_integer{elements={_,_}=Range} ->
-                    simplify_switch_int(Sw0, Range);
-                Type ->
-                    case t_is_boolean(Type) of
-                        true ->
-                            case simplify_switch_bool(Sw0, Ts, Ds) of
-                                #b_br{}=Br ->
-                                    opt_terminator(Br, Ts, Ds);
-                                Sw ->
-                                    Sw
-                            end;
-                        false ->
-                            Sw0
-                    end
-            end
-    end;
-opt_terminator(#b_ret{}=Ret, _Ts, _Ds) ->
-    Ret.
+opt_terminator(#b_ret{}=Ret, _Ts, _Ds) -> Ret.
 
-update_successors(#b_br{bool=#b_literal{val=false},fail=S}, Ts, D) ->
-    update_successor(S, Ts, D);
 update_successors(#b_br{bool=#b_literal{val=true},succ=S}, Ts, D) ->
     update_successor(S, Ts, D);
-update_successors(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}, Ts, D0) ->
-    D = update_successor(Fail, Ts#{V:=t_atom(false)}, D0),
-    SuccTs = infer_types(V, Ts, D0),
-    update_successor(Succ, SuccTs#{V:=t_atom(true)}, D);
+update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts, D0) ->
+    D = update_successor_bool(Bool, false, Fail, Ts, D0),
+    SuccTs = infer_types(Bool, Ts, D0),
+    update_successor_bool(Bool, true, Succ, SuccTs, D);
 update_successors(#b_switch{arg=#b_var{name=V},fail=Fail,list=List}, Ts, D0) ->
     D = update_successor(Fail, Ts, D0),
     foldl(fun({Val,S}, A) ->
@@ -296,6 +436,16 @@ update_successors(#b_switch{arg=#b_var{name=V},fail=Fail,list=List}, Ts, D0) ->
                   update_successor(S, Ts#{V=>T}, A)
           end, D, List);
 update_successors(#b_ret{}, _Ts, D) -> D.
+
+update_successor_bool(#b_var{name=V}=Var, BoolValue, S, Ts, D) ->
+    case t_is_boolean(get_type(Var, Ts)) of
+        true ->
+            update_successor(S, Ts#{V:=t_atom(BoolValue)}, D);
+        false ->
+            %% The `br` terminator is preceeded by an instruction that
+            %% does not produce a boolean value, such a `new_try_tag`.
+            update_successor(S, Ts, D)
+    end.
 
 update_successor(S, Ts0, #d{ls=Ls}=D) ->
     case Ls of
@@ -313,41 +463,8 @@ update_types(#b_set{op=Op,dst=#b_var{name=Dst},args=Args}, Ts, Ds) ->
 type(phi, Args, Ts, _Ds) ->
     Types = [get_type(A, Ts) || {A,_} <- Args],
     join(Types);
-type({bif,'=:='}, [Same,Same], _Ts, _Ds) ->
-    t_atom(true);
-type({bif,'=:='}, [_,_]=Args, Ts, _Ds) ->
-    case get_literals(Args, Ts) of
-        [#b_literal{val=Lit1},#b_literal{val=Lit2}] ->
-            t_atom(Lit1 =:= Lit2);
-        [_,_] ->
-            case meet(get_types(Args, Ts)) of
-                none -> t_atom(false);
-                _ -> t_boolean()
-            end
-    end;
-type({bif,tuple_size}, [Src], Ts, _Ds) ->
-    case t_tuple_size(get_type(Src, Ts)) of
-        {exact,Size} ->
-            t_integer(Size);
-        _ ->
-            t_integer()
-    end;
 type({bif,'band'}, Args, Ts, _Ds) ->
     band_type(Args, Ts);
-type({bif,Bif}, [Src]=Args, Ts, _Ds) ->
-    case get_type(Src, Ts) of
-        any ->
-            bif_type(Bif, Args);
-        Type ->
-            case will_succeed(Bif, Type) of
-                yes ->
-                    t_atom(true);
-                no ->
-                    t_atom(false);
-                maybe ->
-                    bif_type(Bif, Args)
-            end
-    end;
 type({bif,Bif}, Args, Ts, _Ds) ->
     case bif_type(Bif, Args) of
         number ->
@@ -399,42 +516,12 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
                 false -> any
             end
     end;
-type(get_tuple_element, [Tuple,#b_literal{val=0}], Ts, _Ds) ->
-    case get_type(Tuple, Ts) of
-        #t_tuple{elements=[First]} ->
-            get_type(#b_literal{val=First}, Ts);
-        #t_tuple{} ->
-            any
-    end;
-type(is_nonempty_list, [Src], Ts, _Ds) ->
-    case get_type(Src, Ts) of
-        any ->
-            t_boolean();
-        list ->
-            t_boolean();
-        cons ->
-            t_atom(true);
-        _ ->
-            t_atom(false)
-    end;
-type(is_tagged_tuple, [Src,#b_literal{val=Size},#b_literal{val=Tag}], Ts, _Ds) ->
-    case get_type(Src, Ts) of
-        #t_tuple{exact=true,size=Size,elements=[Tag]} ->
-            t_atom(true);
-        #t_tuple{exact=true,size=ActualSize,elements=[]} ->
-            if
-                Size =/= ActualSize ->
-                    t_atom(false);
-                true ->
-                    t_boolean()
-            end;
-        #t_tuple{exact=false} ->
-            t_boolean();
-        any ->
-            t_boolean();
-        _ ->
-            t_atom(false)
-    end;
+type(is_nonempty_list, [_], _Ts, _Ds) ->
+    t_boolean();
+type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Ts, _Ds) ->
+    t_boolean();
+type(put_map, _Args, _Ts, _Ds) ->
+    map;
 type(put_list, _Args, _Ts, _Ds) ->
     cons;
 type(put_tuple, Args, _Ts, _Ds) ->
@@ -449,6 +536,11 @@ type(succeeded, [#b_var{name=Src}], Ts, Ds) ->
         #b_set{op={bif,Bif},args=BifArgs} ->
             Types = get_types(BifArgs, Ts),
             case {Bif,Types} of
+                {BoolOp,[T1,T2]} when BoolOp =:= 'and'; BoolOp =:= 'or' ->
+                    case t_is_boolean(T1) andalso t_is_boolean(T2) of
+                        true -> t_atom(true);
+                        false -> t_boolean()
+                    end;
                 {byte_size,[{binary,_}]} ->
                     t_atom(true);
                 {bit_size,[{binary,_}]} ->
@@ -493,7 +585,6 @@ arith_op_type(Args, Ts) ->
              (number, #t_integer{}) -> number;
              (number, float) -> float;
              (any, _) -> number;
-             (_, any) -> number;
              (Same, Same) -> Same;
              (_, _) -> none
           end, unknown, Types).
@@ -554,7 +645,6 @@ will_succeed(is_list, Type) ->
     case Type of
         list -> yes;
         cons -> yes;
-        nil -> yes;
         _ -> no
     end;
 will_succeed(is_map, Type) ->
@@ -577,8 +667,6 @@ will_succeed(is_tuple, Type) ->
 will_succeed(_, _) -> maybe.
 
 
-band_type([#b_literal{val=Int},Other], Ts) when is_integer(Int) ->
-    band_type_1(Int, Other, Ts);
 band_type([Other,#b_literal{val=Int}], Ts) when is_integer(Int) ->
     band_type_1(Int, Other, Ts);
 band_type([_,_], _) -> t_integer().
@@ -662,25 +750,22 @@ simplify_switch_bool(#b_switch{arg=B,list=List0}=Sw, Ts, Ds) ->
             Sw
     end.
 
-simplify_not(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}=Br, Ts, Ds) ->
+simplify_not(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
             case t_is_boolean(get_type(Bool, Ts)) of
                 true ->
-                    Br#b_br{bool=Bool,succ=Fail,fail=Succ};
+                    Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
+                    beam_ssa:normalize(Br);
                 false ->
-                    Br
+                    Br0
             end;
         #{} ->
-            Br
+            Br0
     end.
-
-get_literals(Values, Ts) ->
-    [get_literal_from_type(get_type(Val, Ts)) || Val <- Values].
 
 get_types(Values, Ts) ->
     [get_type(Val, Ts) || Val <- Values].
-
 -spec get_type(beam_ssa:value(), type_db()) -> type().
 
 get_type(#b_var{name=V}, Ts) ->
@@ -709,7 +794,7 @@ get_type(#b_literal{val=Val}, _Ts) ->
             any
     end.
 
-infer_types(V, Ts, #d{ds=Ds}) ->
+infer_types(#b_var{name=V}, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
     Types = infer_type(Op, Args, Ds),
     meet_types(Types, Ts).
@@ -755,7 +840,6 @@ infer_type(_Op, _Args, _Ds) ->
 %%  Note that that the following BIFs are handle elsewhere:
 %%
 %%     band/2
-%%     tuple_size/1
 
 bif_type(abs, [_]) -> number;
 bif_type(bit_size, [_]) -> t_integer();
@@ -766,9 +850,12 @@ bif_type(floor, [_]) -> t_integer();
 bif_type(is_map_key, [_,_]) -> t_boolean();
 bif_type(length, [_]) -> t_integer();
 bif_type(map_size, [_]) -> t_integer();
+bif_type(node, []) -> #t_atom{};
+bif_type(node, [_]) -> #t_atom{};
 bif_type(round, [_]) -> t_integer();
 bif_type(size, [_]) -> t_integer();
 bif_type(trunc, [_]) -> t_integer();
+bif_type(tuple_size, [_]) -> t_integer();
 bif_type('bnot', [_]) -> t_integer();
 bif_type('bor', [_,_]) -> t_integer();
 bif_type('bsl', [_,_]) -> t_integer();
@@ -807,8 +894,12 @@ inferred_bif_type(byte_size, [_]) -> {binary,1};
 inferred_bif_type(ceil, [_]) -> number;
 inferred_bif_type(float, [_]) -> number;
 inferred_bif_type(floor, [_]) -> number;
+inferred_bif_type(hd, [_]) -> cons;
+inferred_bif_type(length, [_]) -> list;
+inferred_bif_type(map_size, [_]) -> map;
 inferred_bif_type(round, [_]) -> number;
 inferred_bif_type(trunc, [_]) -> number;
+inferred_bif_type(tl, [_]) -> cons;
 inferred_bif_type(tuple_size, [_]) -> #t_tuple{};
 inferred_bif_type(_, _) -> any.
 
@@ -1025,13 +1116,9 @@ meet(#t_integer{elements={Min1,Max1}},
      #t_integer{elements={Min2,Max2}}) ->
     #t_integer{elements={max(Min1, Min2),min(Max1, Max2)}};
 meet(#t_integer{}=T, number) -> T;
-meet(float, number) -> float;
-meet(#t_integer{}=T, number) -> T;
-meet(float, number) -> float;
-meet(number, #t_integer{}=T) -> T;
-meet(#t_integer{}=T, number) -> T;
-meet(number, float=T) -> T;
 meet(float=T, number) -> T;
+meet(number, #t_integer{}=T) -> T;
+meet(number, float=T) -> T;
 meet(list, cons) -> cons;
 meet(list, nil) -> nil;
 meet(cons, list) -> cons;

@@ -83,8 +83,8 @@ collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
 collect({allocate_heap_zero,Ns,Nh,R}) -> {set,[],[],{alloc,R,{zero,Ns,Nh,[]}}};
 collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
-collect({bif,N,F,As,D})      -> {set,[D],As,{bif,N,F}};
-collect({gc_bif,N,F,R,As,D}) -> {set,[D],As,{alloc,R,{gc_bif,N,F}}};
+collect({bif,N,{f,0},As,D})  -> {set,[D],As,{bif,N,{f,0}}};
+collect({gc_bif,N,{f,0},R,As,D}) ->   {set,[D],As,{alloc,R,{gc_bif,N,{f,0}}}};
 collect({move,S,D})          -> {set,[D],[S],move};
 collect({put_list,S1,S2,D})  -> {set,[D],[S1,S2],put_list};
 collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
@@ -95,12 +95,8 @@ collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_hd,S,D})  ->       {set,[D],[S],get_hd};
 collect({get_tl,S,D})  ->       {set,[D],[S],get_tl};
 collect(remove_message)      -> {set,[],[],remove_message};
-collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
-    {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
-collect({'catch'=Op,R,L}) ->
-    {set,[R],[],{try_catch,Op,L}};
-collect({'try'=Op,R,L}) ->
-    {set,[R],[],{try_catch,Op,L}};
+collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
+    {set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,0}}}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};

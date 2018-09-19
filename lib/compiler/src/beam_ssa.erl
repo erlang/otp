@@ -27,11 +27,14 @@
          fold_instrs_rpo/4,
          linearize/1,
          mapfold_instrs_rpo/4,
+         normalize/1,
+         no_side_effect/1,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
          split_blocks/3,
          successors/1,successors/2,
+         trim_unreachable/1,
          update_phi_labels/4,used/1]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
@@ -102,7 +105,7 @@
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
 'copy' | 'put_tuple_arity' | 'put_tuple_element'.
 
--import(lists, [foldl/3,mapfoldl/3,reverse/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -150,6 +153,37 @@ clobbers_xregs(#b_set{op=Op}) ->
         _ -> false
     end.
 
+%% no_side_effect(#b_set{}) -> true|false.
+%%  Test whether this instruction has no side effect and thus is safe
+%%  not to execute if its value is not used. Note that even if `true`
+%%  is returned, the instruction could still be impure (e.g. bif:get).
+
+-spec no_side_effect(b_set()) -> boolean().
+
+no_side_effect(#b_set{op=Op}) ->
+    case Op of
+        {bif,_} -> true;
+        {float,get} -> true;
+        bs_init -> true;
+        bs_extract -> true;
+        bs_match -> true;
+        bs_start_match -> true;
+        bs_test_tail -> true;
+        bs_put -> true;
+        extract -> true;
+        get_hd -> true;
+        get_tl -> true;
+        get_tuple_element -> true;
+        has_map_field -> true;
+        is_nonempty_list -> true;
+        is_tagged_tuple -> true;
+        put_map -> true;
+        put_list -> true;
+        put_tuple -> true;
+        succeeded -> true;
+        _ -> false
+    end.
+
 -spec predecessors(Blocks) -> #{BlockNumber:=[Predecessor]} when
       Blocks :: block_map(),
       BlockNumber :: label(),
@@ -179,6 +213,69 @@ successors(#b_blk{last=Terminator}) ->
         #b_ret{} ->
             []
     end.
+
+%% normalize(Instr0) -> Instr.
+%%  Normalize instructions to help optimizations.
+%%
+%%  For commutative operators (such as '+' and 'or'), always
+%%  place a variable operand before a literal operand.
+%%
+%%  Normalize #b_br{} to one of the following forms:
+%%
+%%    #b_br{b_literal{val=true},succ=Label,fail=Label}
+%%    #b_br{b_var{},succ=Label1,fail=Label2} where Label1 =/= Label2
+%%
+%%  Simplify a #b_switch{} with a literal argument to a #b_br{}.
+%%
+%%  Simplify a #b_switch{} with a variable argument and an empty
+%%  switch list to a #b_br{}.
+
+-spec normalize(b_set() | terminator()) ->
+                       b_set() | terminator().
+
+normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
+    case {is_commutative(Bif),Args} of
+        {false,_} ->
+            Set;
+        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
+            Set#b_set{args=[Var,Lit]};
+        {true,_} ->
+            Set
+    end;
+normalize(#b_set{}=Set) ->
+    Set;
+normalize(#b_br{}=Br) ->
+    case Br of
+        #b_br{bool=Bool,succ=Same,fail=Same} ->
+            case Bool of
+                #b_literal{val=true} ->
+                    Br;
+                _ ->
+                    Br#b_br{bool=#b_literal{val=true}}
+            end;
+        #b_br{bool=#b_literal{val=true},succ=Succ} ->
+            Br#b_br{fail=Succ};
+        #b_br{bool=#b_literal{val=false},fail=Fail} ->
+            Br#b_br{bool=#b_literal{val=true},succ=Fail};
+        #b_br{} ->
+            Br
+    end;
+normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
+    case Arg of
+        #b_literal{} ->
+            case keyfind(Arg, 1, List) of
+                false ->
+                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
+                {Arg,L} ->
+                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
+            end;
+        #b_var{} when List =:= [] ->
+            #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
+        #b_var{} ->
+            Sw
+    end;
+normalize(#b_ret{}=Ret) ->
+    Ret.
 
 -spec successors(label(), block_map()) -> [label()].
 
@@ -312,14 +409,19 @@ fold_po(Fun, From, Acc0, Blocks) ->
 
 %% linearize(Blocks) -> [{BlockLabel,#b_blk{}}].
 %%  Linearize the intermediate representation of the code.
+%%  Unreachable blocks will be discarded, and phi nodes will
+%%  be adjusted so that they no longer refers to discarded
+%%  blocks or to blocks that no longer are predecessors of
+%%  the phi node block.
 
 -spec linearize(Blocks) -> Linear when
       Blocks :: block_map(),
       Linear :: [{label(),b_blk()}].
 
 linearize(Blocks) ->
-    Seen = gb_sets:empty(),
-    {Linear,_} = linearize_1([0], Blocks, Seen, []),
+    Seen = cerl_sets:new(),
+    {Linear0,_} = linearize_1([0], Blocks, Seen, []),
+    Linear = fix_phis(Linear0, #{}),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
@@ -335,7 +437,7 @@ rpo(Blocks) ->
       Labels :: [label()].
 
 rpo(From, Blocks) ->
-    Seen = gb_sets:empty(),
+    Seen = cerl_sets:new(),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
 
@@ -346,7 +448,7 @@ rename_vars(Rename, From, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), From, Blocks);
 rename_vars(Rename, From, Blocks) when is_map(Rename)->
     Top = rpo(From, Blocks),
-    Preds = gb_sets:from_list(Top),
+    Preds = cerl_sets:from_list(Top),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 Set#b_set{args=Args};
@@ -378,6 +480,19 @@ rename_vars(Rename, From, Blocks) when is_map(Rename)->
 split_blocks(P, Blocks, Count) ->
     Ls = beam_ssa:rpo(Blocks),
     split_blocks_1(Ls, P, Blocks, Count).
+
+-spec trim_unreachable(Blocks0) -> Blocks when
+      Blocks0 :: block_map(),
+      Blocks :: block_map().
+
+%% trim_unreachable(Blocks0) -> Blocks.
+%%  Remove all unreachable blocks. Adjust all phi nodes so
+%%  they don't refer to blocks that has been removed or no
+%%  no longer branch to the phi node in question.
+
+trim_unreachable(Blocks) ->
+    %% Could perhaps be optimized if there is any need.
+    maps:from_list(linearize(Blocks)).
 
 %% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
 %%  In the given blocks, replace label Old in with New in all
@@ -423,6 +538,20 @@ used(_) -> [].
 %%%
 %%% Internal functions.
 %%%
+
+is_commutative('and') -> true;
+is_commutative('or') -> true;
+is_commutative('xor') -> true;
+is_commutative('band') -> true;
+is_commutative('bor') -> true;
+is_commutative('bxor') -> true;
+is_commutative('+') -> true;
+is_commutative('*') -> true;
+is_commutative('=:=') -> true;
+is_commutative('==') -> true;
+is_commutative('=/=') -> true;
+is_commutative('/=') -> true;
+is_commutative(_) -> false.
 
 def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
     {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
@@ -501,11 +630,11 @@ flatmapfold_instrs_rpo_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
 linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case gb_sets:is_member(L, Seen0) of
+    case cerl_sets:is_element(L, Seen0) of
         true ->
             linearize_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Seen1 = gb_sets:insert(L, Seen0),
+            Seen1 = cerl_sets:add_element(L, Seen0),
             Block = maps:get(L, Blocks),
             Successors = successors(Block),
             {Acc,Seen} = linearize_1(Successors, Blocks, Seen1, Acc0),
@@ -514,13 +643,40 @@ linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
 linearize_1([], _, Seen, Acc) ->
     {Acc,Seen}.
 
+fix_phis([{L,Blk0}|Bs], S) ->
+    Blk = case Blk0 of
+              #b_blk{is=[#b_set{op=phi}|_]=Is0} ->
+                  Is = fix_phis_1(Is0, L, S),
+                  Blk0#b_blk{is=Is};
+              #b_blk{} ->
+                  Blk0
+          end,
+    Successors = successors(Blk),
+    [{L,Blk}|fix_phis(Bs, S#{L=>Successors})];
+fix_phis([], _) -> [].
+
+fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
+    Args = [{Val,Pred} || {Val,Pred} <- Args0,
+                          is_successor(L, Pred, S)],
+    [I#b_set{args=Args}|fix_phis_1(Is, L, S)];
+fix_phis_1(Is, _, _) -> Is.
+
+is_successor(L, Pred, S) ->
+    case S of
+        #{Pred:=Successors} ->
+            member(L, Successors);
+        #{} ->
+            %% This block has been removed.
+            false
+    end.
+
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case gb_sets:is_member(L, Seen0) of
+    case cerl_sets:is_element(L, Seen0) of
         true ->
             rpo_1(Ls, Blocks, Seen0, Acc0);
         false ->
             Block = maps:get(L, Blocks),
-            Seen1 = gb_sets:insert(L, Seen0),
+            Seen1 = cerl_sets:add_element(L, Seen0),
             Successors = successors(Block),
             {Acc,Seen} = rpo_1(Successors, Blocks, Seen1, Acc0),
             rpo_1(Ls, Blocks, Seen, [L|Acc])
@@ -540,7 +696,7 @@ rename_var(#b_remote{mod=Mod0,name=Name0}=Remote, Rename) ->
 rename_var(Old, _) -> Old.
 
 rename_phi_vars([{Var,L}|As], Preds, Ren) ->
-    case gb_sets:is_member(L, Preds) of
+    case cerl_sets:is_element(L, Preds) of
         true ->
             [{rename_var(Var, Ren),L}|rename_phi_vars(As, Preds, Ren)];
         false ->

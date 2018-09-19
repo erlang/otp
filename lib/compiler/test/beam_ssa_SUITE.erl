@@ -21,7 +21,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-         calls/1,tuple_matching/1,recv/1,maps/1]).
+         calls/1,tuple_matching/1,recv/1,maps/1,
+         cover_ssa_dead/1,combine_sw/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -33,7 +34,9 @@ groups() ->
       [tuple_matching,
        calls,
        recv,
-       maps
+       maps,
+       cover_ssa_dead,
+       combine_sw
       ]}].
 
 init_per_suite(Config) ->
@@ -285,6 +288,184 @@ maps_1(K) ->
     _ = id(42),
     #{K:=V} = #{},
     V.
+
+-record(wx_ref, {type=any_type,ref=any_ref}).
+
+cover_ssa_dead(_Config) ->
+    str = format_str(str, escapable, [], true),
+    [iolist,str] = format_str(str, escapable, iolist, true),
+    bad = format_str(str, not_escapable, [], true),
+    bad = format_str(str, not_escapable, iolist, true),
+    bad = format_str(str, escapable, [], false),
+    bad = format_str(str, escapable, [], bad),
+
+    DefWxRef = #wx_ref{},
+    {DefWxRef,77,9999,[]} = contains(#wx_ref{}, 77, 9999),
+    {DefWxRef,77.0,9999,[]} = contains(#wx_ref{}, 77.0, 9999),
+    {DefWxRef,77,9999.0,[]} = contains(#wx_ref{}, 77, 9999.0),
+    {DefWxRef,77.0,9999.0,[]} = contains(#wx_ref{}, 77.0, 9999.0),
+    {any_type,any_ref,42,43,[option]} = contains(#wx_ref{}, {42,43}, [option]),
+    {any_type,any_ref,42,43,[]} = contains(#wx_ref{}, {42,43}, []),
+    {any_type,any_ref,42.0,43,[]} = contains(#wx_ref{}, {42.0,43}, []),
+    {any_type,any_ref,42,43.0,[]} = contains(#wx_ref{}, {42,43.0}, []),
+    {any_type,any_ref,42.0,43.0,[]} = contains(#wx_ref{}, {42.0,43.0}, []),
+
+    nope = conv_alub(false, '=:='),
+    ok = conv_alub(true, '=:='),
+    ok = conv_alub(true, none),
+    error = conv_alub(false, none),
+
+    {false,false} = eval_alu(false, false, false),
+    {true,false}  = eval_alu(false, false, true),
+    {false,true}  = eval_alu(false, true, false),
+    {false,false} = eval_alu(false, true, true),
+    {false,true}  = eval_alu(true, false, false),
+    {false,false} = eval_alu(true, false, true),
+    {true,true}   = eval_alu(true, true, false),
+    {false,true}  = eval_alu(true, true, true),
+
+    100.0 = percentage(1.0, 0.0),
+    100.0 = percentage(1, 0),
+    0.0 = percentage(0, 0),
+    0.0 = percentage(0.0, 0.0),
+    40.0 = percentage(4.0, 10.0),
+    60.0 = percentage(6, 10),
+
+    %% Cover '=:=', followed by '=/='.
+    false = 'cover__=:=__=/='(41),
+    true = 'cover__=:=__=/='(42),
+    false = 'cover__=:=__=/='(43),
+
+    %% Cover '<', followed by '=/='.
+    true = 'cover__<__=/='(41),
+    false = 'cover__<__=/='(42),
+    false = 'cover__<__=/='(43),
+
+    %% Cover '=<', followed by '=/='.
+    true = 'cover__=<__=/='(41),
+    true = 'cover__=<__=/='(42),
+    false = 'cover__=<__=/='(43),
+
+    %% Cover '>=', followed by '=/='.
+    false = 'cover__>=__=/='(41),
+    true = 'cover__>=__=/='(42),
+    true = 'cover__>=__=/='(43),
+
+    %% Cover '>', followed by '=/='.
+    false = 'cover__>__=/='(41),
+    false = 'cover__>__=/='(42),
+    true = 'cover__>__=/='(43),
+
+    ok.
+
+'cover__=:=__=/='(X) when X =:= 42 -> X =/= 43;
+'cover__=:=__=/='(_) -> false.
+
+'cover__<__=/='(X) when X < 42 -> X =/= 42;
+'cover__<__=/='(_) -> false.
+
+'cover__=<__=/='(X) when X =< 42 -> X =/= 43;
+'cover__=<__=/='(_) -> false.
+
+'cover__>=__=/='(X) when X >= 42 -> X =/= 41;
+'cover__>=__=/='(_) -> false.
+
+'cover__>__=/='(X) when X > 42 -> X =/= 42;
+'cover__>__=/='(_) -> false.
+
+format_str(Str, FormatData, IoList, EscChars) ->
+    Escapable = FormatData =:= escapable,
+    case id(Str) of
+        IoStr when Escapable, EscChars, IoList == [] ->
+            id(IoStr);
+        IoStr when Escapable, EscChars ->
+            [IoList,id(IoStr)];
+        _ ->
+            bad
+    end.
+
+contains(This, X, Y) when is_record(This, wx_ref), is_number(X), is_number(Y) ->
+    {This,X,Y,[]};
+contains(#wx_ref{type=ThisT,ref=ThisRef}, {CX,CY}, Options)
+  when is_number(CX), is_number(CY), is_list(Options) ->
+    {ThisT,ThisRef,CX,CY,Options}.
+
+conv_alub(HasDst, CmpOp) ->
+    case (not HasDst) andalso CmpOp =/= none of
+        true -> nope;
+        false ->
+            case HasDst of
+                false -> error;
+                true -> ok
+            end
+    end.
+
+eval_alu(Sign1, Sign2, N) ->
+    V = (Sign1 andalso Sign2 andalso (not N))
+        or ((not Sign1) andalso (not Sign2) andalso N),
+    C = (Sign1 andalso Sign2)
+          or ((not N) andalso (Sign1 orelse Sign2)),
+    {V,C}.
+
+percentage(Divident, Divisor) ->
+    if Divisor == 0 andalso Divident /= 0 ->
+            100.0;
+       Divisor == 0 ->
+            0.0;
+       true ->
+            Divident / Divisor * 100
+    end.
+
+combine_sw(_Config) ->
+    [a] = do_comb_sw_1(a),
+    [b,b] = do_comb_sw_1(b),
+    [c] = do_comb_sw_1(c),
+    [c] = do_comb_sw_1(c),
+    [] = do_comb_sw_1(z),
+
+    [a] = do_comb_sw_2(a),
+    [b2,b1] = do_comb_sw_2(b),
+    [c] = do_comb_sw_2(c),
+    [c] = do_comb_sw_2(c),
+    [] = do_comb_sw_2(z),
+
+    ok.
+
+do_comb_sw_1(X) ->
+    put(?MODULE, []),
+    if
+        X == a; X == b ->
+            put(?MODULE, [X|get(?MODULE)]);
+        true ->
+            ok
+    end,
+    if
+        X == b; X == c ->
+            put(?MODULE, [X|get(?MODULE)]);
+        true ->
+            ok
+    end,
+    erase(?MODULE).
+
+do_comb_sw_2(X) ->
+    put(?MODULE, []),
+    case X of
+        a ->
+            put(?MODULE, [a|get(?MODULE)]);
+        b ->
+            put(?MODULE, [b1|get(?MODULE)]);
+        _ ->
+            ok
+    end,
+    case X of
+        b ->
+            put(?MODULE, [b2|get(?MODULE)]);
+        c ->
+            put(?MODULE, [c|get(?MODULE)]);
+        _ ->
+            ok
+    end,
+    erase(?MODULE).
 
 %% The identity function.
 id(I) -> I.

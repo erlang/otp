@@ -52,7 +52,6 @@ MODULES =  \
 	beam_bs \
 	beam_bsm \
 	beam_clean \
-	beam_dead \
 	beam_dict \
 	beam_disasm \
 	beam_except \
@@ -61,9 +60,9 @@ MODULES =  \
 	beam_listing \
 	beam_opcodes \
 	beam_peep \
-	beam_split \
 	beam_ssa \
 	beam_ssa_codegen \
+	beam_ssa_dead \
 	beam_ssa_lint \
 	beam_ssa_opt \
 	beam_ssa_pp \
@@ -194,6 +193,7 @@ $(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl
 $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl

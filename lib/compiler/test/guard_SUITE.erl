@@ -35,8 +35,7 @@
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
-         guard_in_catch/1,beam_bool_SUITE/1,
-         cover_beam_dead/1]).
+         guard_in_catch/1,beam_bool_SUITE/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -54,8 +53,7 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       cover_beam_dead]}].
+       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1779,16 +1777,6 @@ t_tuple_size(Config) when is_list(Config) ->
     error = ludicrous_tuple_size({a,b,c}),
     error = ludicrous_tuple_size([a,b,c]),
 
-    %% Test the "unsafe case" - the register assigned the tuple size is
-    %% not killed.
-    DataDir = test_lib:get_data_dir(Config),
-    File = filename:join(DataDir, "guard_SUITE_tuple_size"),
-    {ok,Mod,Code} = compile:file(File, [from_asm,binary]),
-    code:load_binary(Mod, File, Code),
-    14 = Mod:t({1,2,3,4}),
-    _ = code:delete(Mod),
-    _ = code:purge(Mod),
-
     good_ip({1,2,3,4}),
     good_ip({1,2,3,4,5,6,7,8}),
     error = validate_ip({42,11}),
@@ -2219,32 +2207,6 @@ maps() ->
 
 %% Cover handling of put_map in in split_block_label_used/2.
 evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
-    ok.
-
-cover_beam_dead(_Config) ->
-    Mod = ?FUNCTION_NAME,
-    Attr = [],
-    Fs = [{function,test,1,2,
-           [{label,1},
-            {line,[]},
-            {func_info,{atom,Mod},{atom,test},1},
-            {label,2},
-            %% Cover beam_dead:turn_op/1 using swapped operand order.
-            {test,is_ne_exact,{f,3},[{integer,1},{x,0}]},
-            {test,is_eq_exact,{f,1},[{atom,a},{x,0}]},
-            {label,3},
-            {move,{atom,ok},{x,0}},
-            return]}],
-    Exp = [{test,1}],
-    Asm = {Mod,Exp,Attr,Fs,3},
-    {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
-    {module,Mod} = code:load_binary(Mod, Mod, Beam),
-    ok = Mod:test(1),
-    ok = Mod:test(a),
-    {'EXIT',_} = (catch Mod:test(other)),
-    true = code:delete(Mod),
-    _ = code:purge(Mod),
-
     ok.
 
 %% Call this function to turn off constant propagation.
