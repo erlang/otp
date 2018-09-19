@@ -116,6 +116,8 @@ dflag2str(?DFLAG_SEND_SENDER) ->
     "SEND_SENDER";
 dflag2str(?DFLAG_BIG_SEQTRACE_LABELS) ->
     "BIG_SEQTRACE_LABELS";
+dflag2str(?DFLAG_EXIT_PAYLOAD) ->
+    "EXIT_PAYLOAD";
 dflag2str(_) ->
     "UNKNOWN".
 

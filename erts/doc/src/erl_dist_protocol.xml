@@ -532,11 +532,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
     <marker id="distribution_handshake"/>
     <title>Distribution Handshake</title>
     <p>This section describes the distribution handshake protocol introduced
-      in Erlang/OTP R6. This description was previously located in
-      <c>$ERL_TOP/lib/kernel/internal_doc/distribution_handshake.txt</c> and
-      has more or less been copied and "formatted" here. It has been almost
-      unchanged since 1999, but the handshake has not changed much since then
-      either.</p>
+      in Erlang/OTP R6. The handshake has remaining almost the same since then.</p>
 
     <section>
       <title>General</title>
@@ -847,6 +843,18 @@ DiB == gen_digest(ChA, ICA)?
 	    of the <c>SEND_TT</c> control message.
 	  </p>
         </item>
+        <tag><c>-define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).</c></tag>
+        <item>
+          <p>The node understands any term as the seqtrace label.</p>
+        </item>
+        <tag><c>-define(DFLAG_EXIT_PAYLOAD, 16#400000).</c></tag>
+        <item>
+          <p>Use the <c>PAYLOAD_EXIT</c>, <c>PAYLOAD_EXIT_TT</c>,
+          <c>PAYLOAD_EXIT2</c>, <c>PAYLOAD_EXIT2_TT</c>
+          and <c>PAYLOAD_MONITOR_P_EXIT</c>
+          <seealso marker="#control_message">control message</seealso>s
+          instead of the non-PAYLOAD variants.</p>
+        </item>
       </taglist>
       <p>
 	There is also function <c>dist_util:strict_order_flags/0</c>
@@ -859,7 +867,7 @@ DiB == gen_digest(ChA, ICA)?
   <section>
     <marker id="connected_nodes"/>
     <title>Protocol between Connected Nodes</title>
-    <p>As from ERTS 5.7.2 the runtime system passes a distribution flag
+    <p>Since ERTS 5.7.2 (OTP R13B) the runtime system passes a distribution flag
       in the handshake stage that enables the use of a
       <seealso marker="erl_ext_dist#distribution_header">distribution header
       </seealso> on all messages passed. Messages passed between nodes have in
@@ -878,7 +886,7 @@ DiB == gen_digest(ChA, ICA)?
         <cell align="center"><c>ControlMessage</c></cell>
         <cell align="center"><c>Message</c></cell>
       </row>
-      <tcaption>Format of Messages Passed between Nodes (as from ERTS 5.7.2)
+      <tcaption>Format of Messages Passed between Nodes (as from ERTS 5.7.2 (OTP R13B))
       </tcaption>
     </table>
 
@@ -887,15 +895,23 @@ DiB == gen_digest(ChA, ICA)?
       <item>
         <p>Equal to d + n + m.</p>
       </item>
+      <tag><c>DistributionHeader</c></tag>
+      <item>
+        <p>
+          <seealso marker="erl_ext_dist#distribution_header">Distribution header
+          describing the atom cache.
+          </seealso>
+        </p>
+      </item>
       <tag><c>ControlMessage</c></tag>
       <item>
         <p>A tuple passed using the external format of Erlang.</p>
       </item>
       <tag><c>Message</c></tag>
       <item>
-        <p>The message sent to another node using the '!' (in external format).
-          Notice that <c>Message</c> is only passed in combination with a
-          <c>ControlMessage</c> encoding a send ('!').</p>
+        <p>The message sent to another node using the '!'
+          or the reason for a EXIT, EXIT2 or DOWN signal using
+          the external term format.</p>
       </item>
     </taglist>
 
@@ -903,7 +919,7 @@ DiB == gen_digest(ChA, ICA)?
       number is omitted from the terms that follow a distribution header
       </seealso>.</p>
 
-    <p>Nodes with an ERTS version earlier than 5.7.2 does not pass the
+    <p>Nodes with an ERTS version earlier than 5.7.2 (OTP R13B) does not pass the
       distribution flag that enables the distribution header. Messages passed
       between nodes have in this case the following format:</p>
 
@@ -920,7 +936,7 @@ DiB == gen_digest(ChA, ICA)?
         <cell align="center"><c>ControlMessage</c></cell>
         <cell align="center"><c>Message</c></cell>
       </row>
-      <tcaption>Format of Messages Passed between Nodes (before ERTS 5.7.2)
+      <tcaption>Format of Messages Passed between Nodes (before ERTS 5.7.2 (OTP R13B))
       </tcaption>
     </table>
 
@@ -1007,7 +1023,7 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{16, FromPid, Unused, ToName, TraceToken}</c></p>
         <p>Followed by <c>Message</c>.</p>
         <p><c>Unused</c> is kept for backward compatibility.</p>
-      </item>      
+      </item>
       <tag><c>EXIT2_TT</c></tag>
       <item>
         <p><c>{18, FromPid, ToPid, TraceToken, Reason}</c></p>
@@ -1061,7 +1077,7 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{22, FromPid, ToPid}</c></p>
         <p>Followed by <c>Message</c>.</p>
 	<p>
-	  This control messages replace the <c>SEND</c> control
+	  This control message replaces the <c>SEND</c> control
 	  message and will be sent when the distribution flag
 	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
 	  has been negotiated in the connection setup handshake.
@@ -1080,7 +1096,7 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{23, FromPid, ToPid, TraceToken}</c></p>
         <p>Followed by <c>Message</c>.</p>
 	<p>
-	  This control messages replace the <c>SEND_TT</c> control
+	  This control message replaces the <c>SEND_TT</c> control
 	  message and will be sent when the distribution flag
 	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
 	  has been negotiated in the connection setup handshake.
@@ -1093,6 +1109,74 @@ DiB == gen_digest(ChA, ICA)?
 	  control messages will be sent in the same direction
 	  on the connection.
 	</p></note>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 22</title>
+    <note><p>
+      Messages encoded before the connection has
+      been set up may still use the non-PAYLOAD variant.
+      However, once a PAYLOAD control message has been sent,
+      no more non-PAYLOAD control messages will be sent in
+      the same direction on the connection.
+    </p></note>
+    <taglist>
+      <tag><c>PAYLOAD_EXIT</c></tag>
+      <item>
+        <p><c>{24, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT_TT</c></tag>
+      <item>
+        <p><c>{25, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT2</c></tag>
+      <item>
+        <p><c>{26, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT2</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_EXIT2_TT</c></tag>
+      <item>
+        <p><c>{27, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>EXIT2_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+      </item>
+      <tag><c>PAYLOAD_MONITOR_P_EXIT</c></tag>
+      <item>
+        <p><c>{28, FromPid, ToPid, Ref}</c></p>
+        <p>Followed by <c>Reason</c>.</p>
+	<p>
+	  This control message replaces the <c>MONITOR_P_EXIT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
       </item>
     </taglist>
   </section>

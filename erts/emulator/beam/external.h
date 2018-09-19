@@ -176,7 +176,7 @@ byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_he
 
 void erts_free_dist_ext_copy(ErtsDistExternal *);
 ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
-ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
+ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Eterm *);
 void *erts_dist_ext_trailer(ErtsDistExternal *);
 void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 

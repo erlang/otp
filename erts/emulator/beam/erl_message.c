@@ -201,34 +201,40 @@ free_message_buffer(ErlHeapFragment* bp)
     }while (bp != NULL);
 }
 
+static void
+erts_cleanup_message(ErtsMessage *mp)
+{
+    ErlHeapFragment *bp;
+    if (ERTS_SIG_IS_EXTERNAL_MSG(mp) || ERTS_SIG_IS_NON_MSG(mp)) {
+        ErtsDistExternal *edep = erts_proc_sig_get_external(mp);
+        if (edep) {
+            erts_free_dist_ext_copy(edep);
+            if (mp->data.heap_frag == &mp->hfrag) {
+                ASSERT(ERTS_SIG_IS_EXTERNAL_MSG(mp));
+                mp->data.heap_frag = ERTS_MSG_COMBINED_HFRAG;
+            }
+        }
+    }
+
+    if (ERTS_SIG_IS_MSG(mp) && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
+        bp = mp->data.heap_frag;
+    } else {
+        mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
+        bp = mp->hfrag.next;
+        erts_cleanup_offheap(&mp->hfrag.off_heap);
+    }
+
+    if (bp)
+        free_message_buffer(bp);
+}
+
 void
 erts_cleanup_messages(ErtsMessage *msgp)
 {
     ErtsMessage *mp = msgp;
     while (mp) {
 	ErtsMessage *fmp;
-	ErlHeapFragment *bp;
-	if (ERTS_SIG_IS_EXTERNAL_MSG(mp)) {
-	    if (is_not_immed(ERL_MESSAGE_TOKEN(mp))) {
-		bp = (ErlHeapFragment *) mp->data.dist_ext->ext_endp;
-		erts_cleanup_offheap(&bp->off_heap);
-	    }
-	    if (mp->data.dist_ext)
-		erts_free_dist_ext_copy(mp->data.dist_ext);
-	}
-        else {
-	    if (ERTS_SIG_IS_INTERNAL_MSG(mp)
-                && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
-		bp = mp->data.heap_frag;
-            }
-	    else {
-                mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
-		bp = mp->hfrag.next;
-		erts_cleanup_offheap(&mp->hfrag.off_heap);
-	    }
-	    if (bp)
-		free_message_buffer(bp);
-	}
+        erts_cleanup_message(mp);
 	fmp = mp;
 	mp = mp->next;
 	erts_free_message(fmp);
@@ -1097,80 +1103,6 @@ change_to_off_heap:
     }
 
     return res;
-}
-
-int
-erts_decode_dist_message(Process *proc, ErtsProcLocks proc_locks,
-			 ErtsMessage *msgp, int force_off_heap)
-{
-    ErtsHeapFactory factory;
-    Eterm msg;
-    ErlHeapFragment *bp;
-    Sint need;
-    int decode_in_heap_frag;
-
-    decode_in_heap_frag = (force_off_heap
-			   || !(proc_locks & ERTS_PROC_LOCK_MAIN)
-			   || (proc->flags & F_OFF_HEAP_MSGQ));
-
-    if (msgp->data.dist_ext->heap_size >= 0)
-	need = msgp->data.dist_ext->heap_size;
-    else {
-	need = erts_decode_dist_ext_size(msgp->data.dist_ext);
-	if (need < 0) {
-	    /* bad msg; remove it... */
-	    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
-		bp = erts_dist_ext_trailer(msgp->data.dist_ext);
-		erts_cleanup_offheap(&bp->off_heap);
-	    }
-	    erts_free_dist_ext_copy(msgp->data.dist_ext);
-	    msgp->data.dist_ext = NULL;
-	    return 0;
-	}
-
-	msgp->data.dist_ext->heap_size = need;
-    }
-
-    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
-	bp = erts_dist_ext_trailer(msgp->data.dist_ext);
-	need += bp->used_size;
-    }
-
-    if (decode_in_heap_frag)
-	erts_factory_heap_frag_init(&factory, new_message_buffer(need));
-    else
-	erts_factory_proc_prealloc_init(&factory, proc, need);
-
-    ASSERT(msgp->data.dist_ext->heap_size >= 0);
-    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
-	ErlHeapFragment *heap_frag;
-	heap_frag = erts_dist_ext_trailer(msgp->data.dist_ext);
-	ERL_MESSAGE_TOKEN(msgp) = copy_struct(ERL_MESSAGE_TOKEN(msgp),
-					      heap_frag->used_size,
-					      &factory.hp,
-					      factory.off_heap);
-	erts_cleanup_offheap(&heap_frag->off_heap);
-    }
-
-    msg = erts_decode_dist_ext(&factory, msgp->data.dist_ext);
-    ERL_MESSAGE_TERM(msgp) = msg;
-    erts_free_dist_ext_copy(msgp->data.dist_ext);
-    msgp->data.attached = NULL;
-
-    if (is_non_value(msg)) {
-	erts_factory_undo(&factory);
-	return 0;
-    }
-
-    erts_factory_trim_and_close(&factory, msgp->m,
-				ERL_MESSAGE_REF_ARRAY_SZ);
-
-    ASSERT(!msgp->data.heap_frag);
-
-    if (decode_in_heap_frag)
-	msgp->data.heap_frag = factory.heap_frags;
-
-    return 1;
 }
 
 void erts_factory_proc_init(ErtsHeapFactory* factory,

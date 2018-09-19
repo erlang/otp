@@ -80,6 +80,8 @@
 #define ERTS_SIG_Q_TYPE_ADJUST_TRACE_INFO \
     ERTS_SIG_Q_TYPE_MAX
 
+#define ERTS_SIG_IS_EXTERNAL(sig) is_non_value(get_exit_signal_data(sig)->reason)
+
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_high);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_max);
@@ -112,6 +114,8 @@ typedef struct {
     Eterm message;
     Eterm from;
     Eterm reason;
+    struct erl_dist_external *dist_ext;
+    ErlHeapFragment *heap_frag;
     union {
         Eterm ref;
         int normal_kills;
@@ -936,13 +940,32 @@ erts_proc_sig_privqs_len(Process *c_p)
     return proc_sig_privqs_len(c_p, 0);
 }
 
+ErtsDistExternal *
+erts_proc_sig_get_external(ErtsMessage *msgp)
+{
+    if (ERTS_SIG_IS_EXTERNAL_MSG(msgp)) {
+        return erts_get_dist_ext(msgp->data.heap_frag);
+    } else if (ERTS_SIG_IS_NON_MSG(msgp) && ERTS_SIG_IS_EXTERNAL(msgp)) {
+        ErtsDistExternal *edep;
+        ErtsExitSignalData *xsigd = get_exit_signal_data(msgp);
+        ASSERT(ERTS_PROC_SIG_TYPE(((ErtsSignal *) msgp)->common.tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
+        ASSERT(is_non_value(xsigd->reason));
+        if (msgp->hfrag.next == NULL)
+            edep = (ErtsDistExternal*)((void*)xsigd) + sizeof(ErtsExitSignalData);
+        else
+            edep = erts_get_dist_ext(msgp->hfrag.next);
+        return edep;
+    }
+    return NULL;
+}
+
 static void do_seq_trace_output(Eterm to, Eterm token, Eterm msg);
 
 static void
 send_gen_exit_signal(Process *c_p, Eterm from_tag,
                      Eterm from, Eterm to,
-                     Sint16 op, Eterm reason, Eterm ref,
-                     Eterm token, int normal_kills)
+                     Sint16 op, Eterm reason, ErtsDistExternal *dist_ext,
+                     Eterm ref, Eterm token, int normal_kills)
 {
     ErtsExitSignalData *xsigd;
     Eterm *hp, *start_hp, s_reason, s_ref, s_message, s_token, s_from;
@@ -955,6 +978,9 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     Eterm s_utag, utag;
     Uint utag_sz;
 #endif
+
+    ASSERT((is_value(reason) && dist_ext == NULL) ||
+           (is_non_value(reason) && dist_ext != NULL));
 
     ASSERT(is_immed(from_tag));
 
@@ -977,33 +1003,35 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     hsz += utag_sz;
 #endif
 
-    token_sz = is_immed(token) ? 0 : size_object(token);
+    token_sz = size_object(token);
     hsz += token_sz;
 
-    from_sz = is_immed(from) ? 0 : size_object(from);
+    from_sz = size_object(from);
     hsz += from_sz;
 
-    reason_sz = is_immed(reason) ? 0 : size_object(reason);
-    hsz += reason_sz;
+    ref_sz = size_object(ref);
+    hsz += ref_sz;
 
-    switch (op) {
-    case ERTS_SIG_Q_OP_EXIT:
-    case ERTS_SIG_Q_OP_EXIT_LINKED: {
-        /* {'EXIT', From, Reason} */
-        hsz += 4; /* 3-tuple */
-        ref_sz = 0;
-        break;
-    }
-    case ERTS_SIG_Q_OP_MONITOR_DOWN: {
-        /* {'DOWN', Ref, process, From, Reason} */
-        hsz += 6; /* 5-tuple */
-        ref_sz = NC_HEAP_SIZE(ref);
-        hsz += ref_sz;
-        break;
-    }
-    default:
-        ERTS_INTERNAL_ERROR("Invalid exit signal op");
-        break;
+    if (is_value(reason)) {
+        reason_sz = size_object(reason);
+        hsz += reason_sz;
+
+        switch (op) {
+        case ERTS_SIG_Q_OP_EXIT:
+        case ERTS_SIG_Q_OP_EXIT_LINKED: {
+            /* {'EXIT', From, Reason} */
+            hsz += 4; /* 3-tuple */
+            break;
+        }
+        case ERTS_SIG_Q_OP_MONITOR_DOWN: {
+            /* {'DOWN', Ref, process, From, Reason} */
+            hsz += 6; /* 5-tuple */
+            break;
+        }
+        default:
+            ERTS_INTERNAL_ERROR("Invalid exit signal op");
+            break;
+        }
     }
 
     /*
@@ -1015,35 +1043,33 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     ohp = &hfrag->off_heap;
     start_hp = hp;
 
-    s_token = (is_immed(token)
-                ? token
-                : copy_struct(token, token_sz, &hp, ohp));
+    s_token = copy_struct(token, token_sz, &hp, ohp);
+    s_from = copy_struct(from, from_sz, &hp, ohp);
+    s_ref = copy_struct(ref, ref_sz, &hp, ohp);
 
-    s_reason = (is_immed(reason)
-                ? reason
-                : copy_struct(reason, reason_sz, &hp, ohp));
+    if (is_value(reason)) {
+        s_reason = copy_struct(reason, reason_sz, &hp, ohp);
 
-    s_from = (is_immed(from)
-              ? from
-              : copy_struct(from, from_sz, &hp, ohp));
-
-    if (!ref_sz)
-        s_ref = NIL;
-    else
-        s_ref = STORE_NC(&hp, ohp, ref);
-
-    switch (op) {
-    case ERTS_SIG_Q_OP_EXIT:
-    case ERTS_SIG_Q_OP_EXIT_LINKED:
-        /* {'EXIT', From, Reason} */
-        s_message = TUPLE3(hp, am_EXIT, s_from, s_reason);
-        hp += 4;
-        break;
-    case ERTS_SIG_Q_OP_MONITOR_DOWN:
-        /* {'DOWN', Ref, process, From, Reason} */
-        s_message = TUPLE5(hp, am_DOWN, s_ref, am_process, s_from, s_reason);
-        hp += 6;
-        break;
+        switch (op) {
+        case ERTS_SIG_Q_OP_EXIT:
+        case ERTS_SIG_Q_OP_EXIT_LINKED:
+            /* {'EXIT', From, Reason} */
+            s_message = TUPLE3(hp, am_EXIT, s_from, s_reason);
+            hp += 4;
+            break;
+        case ERTS_SIG_Q_OP_MONITOR_DOWN:
+            /* {'DOWN', Ref, process, From, Reason} */
+            s_message = TUPLE5(hp, am_DOWN, s_ref, am_process, s_from, s_reason);
+            hp += 6;
+            break;
+        default:
+            /* This cannot happen, used to silence gcc warning */
+            s_message = THE_NON_VALUE;
+            break;
+        }
+    } else {
+        s_message = THE_NON_VALUE;
+        s_reason = THE_NON_VALUE;
     }
 
 #ifdef USE_VM_PROBES
@@ -1066,6 +1092,9 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     xsigd->message = s_message;
     xsigd->from = s_from;
     xsigd->reason = s_reason;
+    xsigd->dist_ext = dist_ext;
+    xsigd->heap_frag = NULL;
+
     if (is_nil(s_ref))
         xsigd->u.normal_kills = normal_kills;
     else {
@@ -1205,7 +1234,18 @@ erts_proc_sig_send_exit(Process *c_p, Eterm from, Eterm to,
         from_tag = dep->sysname;
     }
     send_gen_exit_signal(c_p, from_tag, from, to, ERTS_SIG_Q_OP_EXIT,
-                         reason, NIL, token, normal_kills);
+                         reason, NULL, NIL, token, normal_kills);
+}
+
+void
+erts_proc_sig_send_dist_exit(DistEntry *dep,
+                             Eterm from, Eterm to,
+                             ErtsDistExternal *dist_ext,
+                             Eterm reason, Eterm token)
+{
+    send_gen_exit_signal(NULL, dep->sysname, from, to, ERTS_SIG_Q_OP_EXIT,
+                         reason, dist_ext, NIL, token, 0);
+
 }
 
 void
@@ -1219,7 +1259,7 @@ erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
     if (is_not_immed(reason) || is_not_nil(token)) {
         ASSERT(is_internal_pid(from) || is_internal_port(from));
         send_gen_exit_signal(c_p, from, from, to, ERTS_SIG_Q_OP_EXIT_LINKED,
-                             reason, NIL, token, 0);
+                             reason, NULL, NIL, token, 0);
     }
     else {
         /* Pass signal using old link structure... */
@@ -1274,10 +1314,12 @@ erts_proc_sig_send_unlink(Process *c_p, ErtsLink *lnk)
 void
 erts_proc_sig_send_dist_link_exit(DistEntry *dep,
                                   Eterm from, Eterm to,
+                                  ErtsDistExternal *dist_ext,
                                   Eterm reason, Eterm token)
 {
     send_gen_exit_signal(NULL, dep->sysname, from, to, ERTS_SIG_Q_OP_EXIT_LINKED,
-                         reason, NIL, token, 0);
+                         reason, dist_ext, NIL, token, 0);
+
 }
 
 void
@@ -1299,16 +1341,17 @@ erts_proc_sig_send_dist_unlink(DistEntry *dep, Eterm from, Eterm to)
 void
 erts_proc_sig_send_dist_monitor_down(DistEntry *dep, Eterm ref,
                                      Eterm from, Eterm to,
+                                     ErtsDistExternal *dist_ext,
                                      Eterm reason)
 {
     Eterm monitored, heap[3];
-    if (is_atom(from)) 
+    if (is_atom(from))
         monitored = TUPLE2(&heap[0], from, dep->sysname);
     else
         monitored = from;
     send_gen_exit_signal(NULL, dep->sysname, monitored,
                          to, ERTS_SIG_Q_OP_MONITOR_DOWN,
-                         reason, ref, NIL, 0);    
+                         reason, dist_ext, ref, NIL, 0);
 }
 
 void
@@ -1376,10 +1419,10 @@ erts_proc_sig_send_monitor_down(ErtsMonitor *mon, Eterm reason)
                    || is_internal_pid(from_tag)
                    || is_atom(from_tag));
             monitored = TUPLE2(&heap[0], name, node);
-        }    
+        }
         send_gen_exit_signal(NULL, from_tag, monitored,
                              to, ERTS_SIG_Q_OP_MONITOR_DOWN,
-                             reason, mdp->ref, NIL, 0);
+                             reason, NULL, mdp->ref, NIL, 0);
     }
     erts_monitor_release(mon);
 }
@@ -2037,7 +2080,6 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     if (type == ERTS_SIG_Q_TYPE_GEN_EXIT) {
         xsigd = get_exit_signal_data(sig);
         from = xsigd->from;
-        reason = xsigd->reason;
         if (op != ERTS_SIG_Q_OP_EXIT_LINKED)
             ignore = 0;
         else {
@@ -2062,13 +2104,28 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
             }
         }
 
+        /* This GEN_EXIT was received from another node, decode the exit reason */
+        if (ERTS_SIG_IS_EXTERNAL(sig))
+            erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, sig, 1);
+        
+        reason = xsigd->reason;
+
+        if (is_non_value(reason)) {
+            /* Bad distribution message; remove it from queue... */
+            ignore = !0;
+            destroy = !0;
+        }
+        
         if (!ignore) {
 
             if ((op != ERTS_SIG_Q_OP_EXIT || reason != am_kill)
                 && (c_p->flags & F_TRAP_EXIT)) {
                 convert_prepared_sig_to_msg(c_p, sig,
                                             xsigd->message, next_nm_sig);
+                ASSERT(sig->hfrag.next == NULL);
+                sig->hfrag.next = xsigd->heap_frag;
                 conv_msg = sig;
+                
             }
             else if (reason == am_normal && !xsigd->u.normal_kills) {
                 /* Ignore it... */
@@ -2929,6 +2986,130 @@ handle_sync_suspend(Process *c_p, ErtsMessage *mp)
     }
 }
 
+int
+erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
+                          ErtsMessage *msgp, int force_off_heap)
+{
+    ErtsHeapFactory factory;
+    Eterm msg;
+    ErlHeapFragment *bp;
+    Sint need;
+    int decode_in_heap_frag;
+    ErtsDistExternal *dist_ext;
+    ErtsExitSignalData *xsigd = NULL;
+
+    decode_in_heap_frag = (force_off_heap
+			   || !(proc_locks & ERTS_PROC_LOCK_MAIN)
+			   || (proc->flags & F_OFF_HEAP_MSGQ));
+
+    if (ERTS_SIG_IS_EXTERNAL_MSG(msgp))
+        dist_ext = msgp->data.dist_ext;
+    else {
+        xsigd = get_exit_signal_data(msgp);
+        ASSERT(ERTS_PROC_SIG_TYPE(((ErtsSignal *) msgp)->common.tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
+        ASSERT(is_non_value(xsigd->reason));
+        dist_ext = xsigd->dist_ext;
+    }
+
+    if (dist_ext->heap_size >= 0)
+	need = dist_ext->heap_size;
+    else {
+	need = erts_decode_dist_ext_size(dist_ext);
+	if (need < 0) {
+	    /* bad msg; remove it... */
+	    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
+		bp = erts_dist_ext_trailer(dist_ext);
+		erts_cleanup_offheap(&bp->off_heap);
+	    }
+	    erts_free_dist_ext_copy(dist_ext);
+	    dist_ext = NULL;
+	    return 0;
+	}
+
+	dist_ext->heap_size = need;
+    }
+
+    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
+	bp = erts_dist_ext_trailer(dist_ext);
+	need += bp->used_size;
+    }
+
+    if (xsigd) {
+        switch (ERTS_PROC_SIG_OP(ERL_MESSAGE_TERM(msgp))) {
+        case ERTS_SIG_Q_OP_EXIT:
+        case ERTS_SIG_Q_OP_EXIT_LINKED:
+            /* {'EXIT', From, Reason} */
+            need += 4;
+            break;
+        case ERTS_SIG_Q_OP_MONITOR_DOWN:
+            /* {'DOWN', Ref, process, From, Reason} */
+            need += 6; /* 5-tuple */
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid exit signal op");
+            break;
+        }
+    }
+
+    if (decode_in_heap_frag)
+	erts_factory_heap_frag_init(&factory, new_message_buffer(need));
+    else
+	erts_factory_proc_prealloc_init(&factory, proc, need);
+
+    ASSERT(dist_ext->heap_size >= 0);
+    if (is_not_immed(ERL_MESSAGE_TOKEN(msgp))) {
+	ErlHeapFragment *heap_frag;
+	heap_frag = erts_dist_ext_trailer(dist_ext);
+	ERL_MESSAGE_TOKEN(msgp) = copy_struct(ERL_MESSAGE_TOKEN(msgp),
+					      heap_frag->used_size,
+					      &factory.hp,
+					      factory.off_heap);
+	erts_cleanup_offheap(&heap_frag->off_heap);
+    }
+
+    msg = erts_decode_dist_ext(&factory, dist_ext);
+    if (!xsigd) {
+        ERL_MESSAGE_TERM(msgp) = msg;
+        msgp->data.attached = NULL;
+    } else {
+        switch (ERTS_PROC_SIG_OP(ERL_MESSAGE_TERM(msgp))) {
+        case ERTS_SIG_Q_OP_EXIT:
+        case ERTS_SIG_Q_OP_EXIT_LINKED:
+            /* {'EXIT', From, Reason} */
+            erts_reserve_heap(&factory, 4);
+            xsigd->message = TUPLE3(factory.hp, am_EXIT, xsigd->from, msg);
+            factory.hp += 4;
+            break;
+        case ERTS_SIG_Q_OP_MONITOR_DOWN:
+            /* {'DOWN', Ref, process, From, Reason} */
+            erts_reserve_heap(&factory, 6);
+            xsigd->message = TUPLE5(factory.hp, am_DOWN, xsigd->u.ref, am_process, xsigd->from, msg);
+            factory.hp += 6;
+            break;
+        }
+        xsigd->reason = msg;
+    }
+    erts_free_dist_ext_copy(dist_ext);
+
+    if (is_non_value(msg)) {
+	erts_factory_undo(&factory);
+	return 0;
+    }
+
+    erts_factory_close(&factory);
+
+    ASSERT(!msgp->data.heap_frag || xsigd);
+
+    if (decode_in_heap_frag) {
+        if (!xsigd)
+            msgp->data.heap_frag = factory.heap_frags;
+        else
+            xsigd->heap_frag = factory.heap_frags;
+    }
+
+    return 1;
+}
+
 void
 erts_proc_sig_handle_pending_suspend(Process *c_p)
 {
@@ -3045,7 +3226,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         ASSERT(ERTS_SIG_IS_NON_MSG(sig));
 
         tag = ((ErtsSignal *) sig)->common.tag;
- 
+
         switch (ERTS_PROC_SIG_OP(tag)) {
 
         case ERTS_SIG_Q_OP_EXIT:
@@ -3091,6 +3272,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 break;
             case ERTS_SIG_Q_TYPE_GEN_EXIT:
                 xsigd = get_exit_signal_data(sig);
+
+                /* This GEN_EXIT was received from another node, decode the exit reason */
+                if (ERTS_SIG_IS_EXTERNAL(sig))
+                    erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, sig, 1);
+
                 omon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p),
                                                 xsigd->u.ref);
                 if (omon) {
@@ -4190,8 +4376,8 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
         }
         if (ERTS_SIG_IS_EXTERNAL_MSG(sig)) {
             cnt++;
-            if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN,
-                                          sig, 0)) {
+            if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN,
+                                           sig, 0)) {
                 /* Bad dist message; remove it... */
                 remove_mq_m_sig(c_p, sig, next_sig, next_nm_sig);
                 sig = *next_sig;
@@ -4266,7 +4452,7 @@ erts_proc_sig_prep_msgq_for_inspection(Process *c_p,
 	if (ERTS_SIG_IS_EXTERNAL_MSG(mp)) {
 	    /* decode it... */
 	    if (mp->data.attached)
-		erts_decode_dist_message(rp, rp_locks, mp, !0);
+		erts_proc_sig_decode_dist(rp, rp_locks, mp, !0);
 
 	    msg = ERL_MESSAGE_TERM(mp);
 

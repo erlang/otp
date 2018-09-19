@@ -47,6 +47,7 @@
 #define DFLAG_SEND_SENDER         0x80000
 #define DFLAG_BIG_SEQTRACE_LABELS 0x100000
 #define DFLAG_NO_MAGIC            0x200000 /* internal for pending connection */
+#define DFLAG_EXIT_PAYLOAD        0x400000
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -75,7 +76,8 @@
                             | DFLAG_MAP_TAG                   \
                             | DFLAG_BIG_CREATION              \
                             | DFLAG_SEND_SENDER               \
-                            | DFLAG_BIG_SEQTRACE_LABELS)
+                            | DFLAG_BIG_SEQTRACE_LABELS       \
+                            | DFLAG_EXIT_PAYLOAD)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -99,26 +101,35 @@
                                | DFLAG_BIG_CREATION)
 
 /* opcodes used in distribution messages */
-#define DOP_LINK		1
-#define DOP_SEND		2
-#define DOP_EXIT		3
-#define DOP_UNLINK		4
+enum {
+    DOP_LINK                = 1,
+    DOP_SEND                = 2,
+    DOP_EXIT                = 3,
+    DOP_UNLINK              = 4,
 /* Ancient DOP_NODE_LINK (5) was here, can be reused */
-#define DOP_REG_SEND		6
-#define DOP_GROUP_LEADER	7
-#define DOP_EXIT2		8
+    DOP_REG_SEND            = 6,
+    DOP_GROUP_LEADER        = 7,
+    DOP_EXIT2               = 8,
 
-#define DOP_SEND_TT		12
-#define DOP_EXIT_TT		13
-#define DOP_REG_SEND_TT		16
-#define DOP_EXIT2_TT		18
+    DOP_SEND_TT             = 12,
+    DOP_EXIT_TT             = 13,
+    DOP_REG_SEND_TT         = 16,
+    DOP_EXIT2_TT            = 18,
 
-#define DOP_MONITOR_P		19
-#define DOP_DEMONITOR_P		20
-#define DOP_MONITOR_P_EXIT	21
+    DOP_MONITOR_P           = 19,
+    DOP_DEMONITOR_P         = 20,
+    DOP_MONITOR_P_EXIT      = 21,
 
-#define DOP_SEND_SENDER         22
-#define DOP_SEND_SENDER_TT      23
+    DOP_SEND_SENDER         = 22,
+    DOP_SEND_SENDER_TT      = 23,
+
+    /* These are used when DFLAG_EXIT_PAYLOAD is detected */
+    DOP_PAYLOAD_EXIT           = 24,
+    DOP_PAYLOAD_EXIT_TT        = 25,
+    DOP_PAYLOAD_EXIT2          = 26,
+    DOP_PAYLOAD_EXIT2_TT       = 27,
+    DOP_PAYLOAD_MONITOR_P_EXIT = 28
+};
 
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
@@ -346,6 +357,7 @@ struct erts_dsig_send_context {
     Eterm ctl;
     Eterm msg;
     int force_busy;
+    int force_encode;
     Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
     ErtsAtomCacheMap *acmp;

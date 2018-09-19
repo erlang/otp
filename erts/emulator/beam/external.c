@@ -636,11 +636,13 @@ byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off
 }
 
 ErtsDistExternal *
-erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
+erts_make_dist_ext_copy(ErtsDistExternal *edep, Eterm *token)
 {
     size_t align_sz;
     size_t dist_ext_sz;
     size_t ext_sz = 0;
+    size_t token_sz = 0;
+    Eterm token_size;
     byte *ep;
     ErtsDistExternal *new_edep;
 
@@ -652,8 +654,12 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
 
     align_sz = ERTS_EXTRA_DATA_ALIGN_SZ(dist_ext_sz + ext_sz);
 
+    token_size = size_object(*token);
+    if (token_size)
+        token_sz = ERTS_HEAP_FRAG_SIZE(token_size);
+
     new_edep = erts_alloc(ERTS_ALC_T_EXT_TERM_DATA,
-			  dist_ext_sz + ext_sz + align_sz + xsize);
+			  dist_ext_sz + ext_sz + align_sz + token_sz);
 
     ep = (byte *) new_edep;
     sys_memcpy((void *) ep, (void *) edep, dist_ext_sz);
@@ -668,6 +674,18 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
         sys_memcpy((void *) ep, (void *) edep->extp, ext_sz);
     } else {
         erts_refc_inc(&new_edep->binp->intern.refc, 2);
+    }
+
+    /* Copy the seq_trace token */
+    if (is_not_nil(*token)) {
+        ErlHeapFragment *heap_frag;
+        ErlOffHeap *ohp;
+        Eterm *hp;
+        heap_frag = erts_dist_ext_trailer(new_edep);
+        ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
+        hp = heap_frag->mem;
+        ohp = &heap_frag->off_heap;
+        *token = copy_struct(*token, token_size, &hp, ohp);
     }
     return new_edep;
 }
