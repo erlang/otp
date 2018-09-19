@@ -213,7 +213,13 @@
       list with the <c>public_keys</c> tag in the return value of
       <seealso marker="crypto#supports-0">crypto:supports()</seealso>.
       </p>
-
+      <warning>
+	<!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	<p>The RSA options are experimental.
+	</p>
+	<p>The exact set of options and there syntax <em>may</em> be changed
+	without prior notice.</p>
+      </warning>
       <table>
 	<row><cell><strong>Option</strong></cell> <cell><strong>sign/verify</strong></cell> <cell><strong>encrypt/decrypt</strong></cell> <cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell> </row>
 	<row><cell>{rsa_mgf1_md,atom()}</cell>                <cell>x</cell> <cell>x</cell>  <cell>1.0.1</cell></row>
