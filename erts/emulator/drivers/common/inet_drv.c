@@ -634,11 +634,10 @@ static size_t my_strnlen(const char *s, size_t maxlen)
  * the pointer difference from the cmsg start pointer
  * to the CMSG_DATA(cmsg) pointer.
  */
-#define LEN_CMSG_DATA(cmsg)  ((char*)CMSG_DATA(cmsg) - (char*)(cmsg))
+#define LEN_CMSG_DATA(cmsg)                                             \
+    ((cmsg)->cmsg_len - ((char*)CMSG_DATA(cmsg) - (char*)(cmsg)))
 #define NXT_CMSG_HDR(cmsg)                                              \
-    ((struct cmsghdr*)                                                  \
-     (((char*)(cmsg)) +                                                 \
-      CMSG_SPACE((cmsg)->cmsg_len - LEN_CMSG_DATA(cmsg))))
+    ((struct cmsghdr*)(((char*)(cmsg)) + CMSG_SPACE(LEN_CMSG_DATA(cmsg))))
 #endif
 
 #if !defined(IPV6_PKTOPTIONS) && defined(IPV6_2292PKTOPTIONS)
@@ -2796,39 +2795,61 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
 }
 
 #ifndef __WIN32__
+static int load_cmsg_int(ErlDrvTermData *spec, int i,
+                    struct cmsghdr *cmsg) {
+    union u {
+        byte uint8;
+        Uint16 uint16;
+        Uint32 uint32;
+        Uint64 uint64;
+    } *p;
+    p = (union u*) CMSG_DATA(cmsg);
+    switch (LEN_CMSG_DATA(cmsg) * CHAR_BIT) {
+    case 8:
+        return LOAD_INT(spec, i, p->uint8);
+    case 16:
+        return LOAD_INT(spec, i, p->uint16);
+
+    case 32:
+        return LOAD_INT(spec, i, p->uint32);
+
+    case 64:
+        return LOAD_INT(spec, i, p->uint64);
+    }
+    return LOAD_INT(spec, i, 0);
+}
+
 static int parse_ancillary_data_item(ErlDrvTermData *spec, int i,
                                      struct cmsghdr *cmsg, int *n) {
-#define LOAD_CMSG(proto, type, vtype, am, load)         \
-    if (cmsg->cmsg_level == (proto) &&                  \
-        cmsg->cmsg_type == (type)) {                    \
-        vtype *vp;                                      \
-        vp = (vtype *)CMSG_DATA(cmsg);                  \
-        i = LOAD_ATOM(spec, i, (am));                   \
-        i = load(spec, i, *vp);                         \
-        i = LOAD_TUPLE(spec, i, 2);                     \
-        (*n)++;                                         \
-        return i;                                       \
+#define LOAD_CMSG_INT(proto, type, am)              \
+    if (cmsg->cmsg_level == (proto) &&          \
+        cmsg->cmsg_type == (type)) {            \
+        i = LOAD_ATOM(spec, i, (am));           \
+        i = load_cmsg_int(spec, i, cmsg);            \
+        i = LOAD_TUPLE(spec, i, 2);             \
+        (*n)++;                                 \
+        return i;                               \
     }
 #if defined(IPPROTO_IP) && defined(IP_TOS)
-    LOAD_CMSG(IPPROTO_IP, IP_TOS, unsigned char, am_tos, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IP, IP_TOS, am_tos);
 #endif
 #if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
-    LOAD_CMSG(IPPROTO_IPV6, IPV6_TCLASS, unsigned char, am_tclass, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IPV6, IPV6_TCLASS, am_tclass);
 #endif
 #if defined(IPPROTO_IP) && defined(IP_TTL)
-    LOAD_CMSG(IPPROTO_IP, IP_TTL, unsigned char, am_ttl, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IP, IP_TTL, am_ttl);
 #endif
     /* BSD uses the RECV* names in CMSG fields */
 #if defined(IPPROTO_IP) && defined(IP_RECVTOS)
-    LOAD_CMSG(IPPROTO_IP, IP_RECVTOS, unsigned char, am_tos, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IP, IP_RECVTOS, am_tos);
 #endif
 #if defined(IPPROTO_IPV6) && defined(IPV6_RECVTCLASS)
-    LOAD_CMSG(IPPROTO_IPV6, IPV6_RECVTCLASS, unsigned char, am_tclass, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IPV6, IPV6_RECVTCLASS, am_tclass);
 #endif
 #if defined(IPPROTO_IP) && defined(IP_RECVTTL)
-    LOAD_CMSG(IPPROTO_IP, IP_RECVTTL, unsigned char, am_ttl, LOAD_INT);
+    LOAD_CMSG_INT(IPPROTO_IP, IP_RECVTTL, am_ttl);
 #endif
-#undef LOAD_CMSG
+#undef LOAD_CMSG_INT
     return i;
 }
 #endif /* #ifndef __WIN32__ */
@@ -7330,6 +7351,35 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 }
 #endif /* HAVE_SCTP */
 
+#ifndef __WIN32__
+static void put_cmsg_int32(struct cmsghdr *cmsg, char *ptr) {
+    union u {
+        byte uint8;
+        Uint16 uint16;
+        Uint32 uint32;
+        Uint64 uint64;
+    } *p;
+    p = (union u*) CMSG_DATA(cmsg);
+    switch (LEN_CMSG_DATA(cmsg) * CHAR_BIT) {
+    case 8:
+        put_int32((Uint32) p->uint8, ptr);
+        break;
+    case 16:
+        put_int32((Uint32) p->uint16, ptr);
+        break;
+    case 32:
+        put_int32(p->uint32, ptr);
+        break;
+    case 64:
+        put_int32((Uint32) p->uint64, ptr);
+        break;
+    default:
+        put_int32(0, ptr);
+    }
+    return;
+}
+#endif
+
 /* load all option values into the buf and reply 
 ** return total length of reply filled into ptr
 ** ptr should point to a buffer with 9*len +1 to be safe!!
@@ -7796,44 +7846,37 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                      cmsg = (struct cmsghdr*)cmsgbuf.buf;
                  cmsg < cmsg_top;
                  cmsg = NXT_CMSG_HDR(cmsg)) {
-#define PUT_CMSG_DATA(CMSG_LEVEL, CMSG_TYPE, OPT, TYPE, SZ, PUT)        \
-                if ((cmsg->cmsg_level == CMSG_LEVEL) &&                 \
-                    (cmsg->cmsg_type == CMSG_TYPE)) {                   \
-                    TYPE *cmsgp;                                        \
-                    cmsgp = (TYPE *)CMSG_DATA(cmsg);                    \
-                    PLACE_FOR(1+SZ, ptr);                               \
-                    *ptr = OPT;                                         \
-                    PUT(*cmsgp, ptr+1);                                 \
-                    arg_sz += 1+SZ;                                     \
-                    continue;                                           \
+#define PUT_CMSG_INT32(CMSG_LEVEL, CMSG_TYPE, OPT)      \
+                if ((cmsg->cmsg_level == CMSG_LEVEL) && \
+                    (cmsg->cmsg_type == CMSG_TYPE)) {   \
+                    PLACE_FOR(1+4, ptr);                \
+                    *ptr++ = OPT;                       \
+                    put_cmsg_int32(cmsg, ptr);          \
+                    ptr += 4;                           \
+                    arg_sz += 1+4;                      \
+                    continue;                           \
                 }
 #if defined(IPPROTO_IP) && defined(IP_TOS)
-                PUT_CMSG_DATA(IPPROTO_IP, IP_TOS,
-                              INET_OPT_TOS, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IP, IP_TOS, INET_OPT_TOS);
 #endif
 #if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
-                PUT_CMSG_DATA(IPPROTO_IPV6, IPV6_TCLASS,
-                              INET_OPT_TCLASS, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IPV6, IPV6_TCLASS, INET_OPT_TCLASS);
 #endif
 #if defined(IPPROTO_IP) && defined(IP_TTL)
-                PUT_CMSG_DATA(IPPROTO_IP, IP_TTL,
-                              INET_OPT_TTL, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IP, IP_TTL, INET_OPT_TTL);
 #endif
                 /* BSD uses the RECV* names in CMSG fields */
             }
 #if defined(IPPROTO_IP) && defined(IP_RECVTOS)
-                PUT_CMSG_DATA(IPPROTO_IP, IP_RECVTOS,
-                              INET_OPT_TOS, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IP, IP_RECVTOS, INET_OPT_TOS);
 #endif
 #if defined(IPPROTO_IPV6) && defined(IPV6_RECVTCLASS)
-                PUT_CMSG_DATA(IPPROTO_IPV6, IPV6_RECVTCLASS,
-                              INET_OPT_TCLASS, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IPV6, IPV6_RECVTCLASS, INET_OPT_TCLASS);
 #endif
 #if defined(IPPROTO_IP) && defined(IP_RECVTTL)
-                PUT_CMSG_DATA(IPPROTO_IP, IP_RECVTTL,
-                              INET_OPT_TTL, unsigned char, 4, put_int32);
+                PUT_CMSG_INT32(IPPROTO_IP, IP_RECVTTL, INET_OPT_TTL);
 #endif
-#undef PUT_CMSG_DATA
+#undef PUT_CMSG_INT32
             put_int32(arg_sz, arg_ptr); /* Put total length */
             continue;
         }
