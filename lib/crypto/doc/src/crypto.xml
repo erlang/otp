@@ -27,41 +27,150 @@
   <description>
     <p>This module provides a set of cryptographic functions.
       </p>
-    <list type="bulleted">
-      <item>
-	<p>Hash functions -
-	<url href="http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf"> Secure Hash Standard</url>,
-	<url href="http://www.ietf.org/rfc/rfc1321.txt"> The MD5 Message Digest Algorithm (RFC 1321)</url> and
-	<url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm (RFC 1320)</url>
-	</p>
-      </item>
-      <item>
-        <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
-      </item>
-      <item>
-        <p>Cmac functions - <url href="http://www.ietf.org/rfc/rfc4493.txt">The AES-CMAC Algorithm (RFC 4493)</url></p>
-      </item>
-      <item>
-        <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
-        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
-      </item>
-      <item>
-        <p>GCM: <url href="https://csrc.nist.gov/publications/detail/sp/800-38d/final">Dworkin, M.,
-	"Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC",
-        National Institute of Standards and Technology SP 800-38D, November 2007</url>.
-      </p>
-      </item>
-      <item>
-        <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
-      </item>
-      <item>
-        <p>Digital signatures <url href="http://csrc.nist.gov/publications/drafts/fips186-3/fips_186-3.pdf">Digital Signature Standard (DSS)</url> and<url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf"> Elliptic Curve Digital
-	Signature Algorithm (ECDSA) </url> </p>
-      </item>
-      <item>
-        <p><url href="http://www.ietf.org/rfc/rfc2945.txt"> Secure Remote Password Protocol (SRP - RFC 2945) </url></p>
-      </item>
-    </list>
+      <taglist>
+	<tag>Hash functions</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>SHA1, SHA2</tag>
+	    <item>
+	      <url href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf">
+		Secure Hash Standard [FIPS PUB 180-4]
+	      </url>
+	    </item>
+	    <tag>SHA3</tag>
+	      <item>
+		<url href="https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061">
+		  SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions [FIPS PUB 202]
+		</url>		  
+	      </item>
+	    <tag>MD5</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc1321.txt">The MD5 Message Digest Algorithm [RFC 1321]</url>
+	    </item>
+	    <tag>MD4</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm [RFC 1320]</url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>MACs - Message Authentication Codes</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>Hmac functions</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc2104.txt">
+		Keyed-Hashing for Message Authentication [RFC 2104]
+	      </url>
+	    </item>
+	    <tag>Cmac functions</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc4493.txt">
+		The AES-CMAC Algorithm [RFC 4493]
+	      </url>
+	    </item>
+	    <tag>POLY1305</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Symmetric Ciphers</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+            <tag>DES, 3DES and AES</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/projects/block-cipher-techniques">Block Cipher Techniques [NIST]</url>
+	    </item>
+	    <tag>Blowfish</tag>
+	    <item>
+	      <url href="https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html">
+		Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204.
+	      </url>
+	    </item>
+	    <tag>Chacha20</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	    <tag>Chacha20_poly1305</tag>
+	    <item>
+	      <url href="http://www.ietf.org/rfc/rfc7539.txt">
+		ChaCha20 and Poly1305 for IETF Protocols [RFC 7539]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Modes</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>ECB, CBC, CFB, OFB and CTR</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/publications/detail/sp/800-38a/final">
+		Recommendation for Block Cipher Modes of Operation: Methods and Techniques [NIST SP 800-38A]
+	      </url>
+	    </item>
+	    <tag>GCM</tag>
+	    <item>
+              <url href="https://csrc.nist.gov/publications/detail/sp/800-38d/final">
+		Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC [NIST SP 800-38D]
+	      </url>
+	    </item>
+	    <tag>CCM</tag>
+	    <item>
+	      <url href="https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf">
+		Recommendation for Block Cipher Modes of Operation:
+		The CCM Mode for Authentication and Confidentiality [NIST SP 800-38C]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+
+	<tag>Asymetric Ciphers - Public Key Techniques</tag>
+	<item>
+	  <p></p>
+	  <taglist>
+	    <tag>RSA</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc3447.txt">
+		PKCS #1: RSA Cryptography Specifications [RFC 3447]
+	      </url>
+	    </item>
+	    <tag>DSS</tag>
+	    <item>
+	      <url href="https://csrc.nist.gov/publications/detail/fips/186/4/final">
+		Digital Signature Standard (DSS) [FIPS 186-4]
+	      </url>
+	    </item>
+	    <tag>ECDSA</tag>
+	    <item>
+	      <url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf">
+		Elliptic Curve Digital Signature Algorithm [ECDSA]
+	      </url>
+	    </item>
+	    <tag>SRP</tag>
+	    <item>
+              <url href="http://www.ietf.org/rfc/rfc2945.txt">
+		The SRP Authentication and Key Exchange System [RFC 2945]
+	      </url>
+	    </item>
+	  </taglist>
+	  <p></p>
+	</item>
+      </taglist>
 
     <note>
       <p>The actual supported algorithms and features depends on their availability in the actual libcrypto used.
@@ -283,6 +392,13 @@
       <name name="rsa_padding"/>
       <desc>
 	<p>Options for public key encrypt/decrypt. Only RSA is supported.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
       </desc>
     </datatype>
 
@@ -308,6 +424,13 @@
       <name name="rsa_sign_verify_padding"/>
       <desc>
 	<p>Options for sign and verify.</p>
+	 <warning>
+	   <!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
+	   <p>The RSA options are experimental.
+	   </p>
+	   <p>The exact set of options and there syntax <em>may</em> be changed
+	   without prior notice.</p>
+	</warning>
       </desc>
     </datatype>
 
