@@ -121,7 +121,8 @@ end_per_testcase(_CaseName, Config) ->
 start1(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
-    {ok,Pid0} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid0} =
+	gen_statem:start_link(?MODULE, start_arg(Config, []), [{debug,[trace]}]),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stop_it(Pid0),
@@ -135,7 +136,8 @@ start1(Config) ->
 %% anonymous w. shutdown
 start2(Config) ->
     %% Dont link when shutdown
-    {ok,Pid0} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid0} =
+	gen_statem:start(?MODULE, start_arg(Config, []), []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stopped = gen_statem:call(Pid0, {stop,shutdown}),
@@ -641,51 +643,72 @@ state_enter(_Config) ->
 	      end,
 	  start =>
 	      fun (enter, Prev, N) ->
-		      Self ! {enter,start,Prev,N},
+		      Self ! {N,enter,start,Prev},
 		      {keep_state,N + 1};
 		  (internal, Prev, N) ->
-		      Self ! {internal,start,Prev,N},
+		      Self ! {N,internal,start,Prev},
 		      {keep_state,N + 1};
+                  (timeout, M, N) ->
+                      {keep_state, N + 1,
+                       {reply, {Self,N}, {timeout,M}}};
 		  ({call,From}, repeat, N) ->
 		      {repeat_state,N + 1,
-		       [{reply,From,{repeat,start,N}}]};
+		       [{reply,From,{N,repeat,start}}]};
 		  ({call,From}, echo, N) ->
 		      {next_state,wait,N + 1,
-		       {reply,From,{echo,start,N}}};
+		       [{reply,From,{N,echo,start}},{timeout,0,N}]};
 		  ({call,From}, {stop,Reason}, N) ->
 		      {stop_and_reply,Reason,
-		       [{reply,From,{stop,N}}],N + 1}
+		       [{reply,From,{N,stop}}],N + 1}
 	      end,
 	  wait =>
 	      fun (enter, Prev, N) when N < 5 ->
 		      {repeat_state,N + 1,
-		       {reply,{Self,N},{enter,Prev}}};
+		       [{reply,{Self,N},{enter,Prev}},
+                        {timeout,0,N},
+                        {state_timeout,0,N}]};
 		  (enter, Prev, N) ->
-		      Self ! {enter,wait,Prev,N},
-		      {keep_state,N + 1};
+		      Self ! {N,enter,wait,Prev},
+		      {keep_state,N + 1,
+                       [{timeout,0,N},
+                        {state_timeout,0,N}]};
+                  (timeout, M, N) ->
+                      {keep_state, N + 1,
+                       {reply, {Self,N}, {timeout,M}}};
+                  (state_timeout, M, N) ->
+                      {keep_state, N + 1,
+                       {reply, {Self,N}, {state_timeout,M}}};
 		  ({call,From}, repeat, N) ->
 		      {repeat_state_and_data,
-		       [{reply,From,{repeat,wait,N}}]};
+		       [{reply,From,{N,repeat,wait}},
+                        {timeout,0,N}]};
 		  ({call,From}, echo, N) ->
 		      {next_state,start,N + 1,
 		       [{next_event,internal,wait},
-			{reply,From,{echo,wait,N}}]}
+			{reply,From,{N,echo,wait}}]}
 	      end},
     {ok,STM} =
 	gen_statem:start_link(
-	  ?MODULE, {map_statem,Machine,[state_enter]}, []),
+	  ?MODULE, {map_statem,Machine,[state_enter]}, [{debug,[trace]}]),
 
-    [{enter,start,start,1}] = flush(),
-    {echo,start,2} = gen_statem:call(STM, echo),
-    [{3,{enter,start}},{4,{enter,start}},{enter,wait,start,5}] = flush(),
-    {wait,[6|_]} = sys:get_state(STM),
-    {repeat,wait,6} = gen_statem:call(STM, repeat),
-    [{enter,wait,wait,6}] = flush(),
-    {echo,wait,7} = gen_statem:call(STM, echo),
-    [{enter,start,wait,8},{internal,start,wait,9}] = flush(),
-    {repeat,start,10} = gen_statem:call(STM, repeat),
-    [{enter,start,start,11}] = flush(),
-    {stop,12} = gen_statem:call(STM, {stop,bye}),
+    [{1,enter,start,start}] = flush(),
+    {2,echo,start} = gen_statem:call(STM, echo),
+    [{3,{enter,start}},
+     {4,{enter,start}},
+     {5,enter,wait,start},
+     {6,{timeout,5}},
+     {7,{state_timeout,5}}] = flush(),
+    {wait,[8|_]} = sys:get_state(STM),
+    {8,repeat,wait} = gen_statem:call(STM, repeat),
+    [{8,enter,wait,wait},
+     {9,{timeout,8}},
+     {10,{state_timeout,8}}] = flush(),
+    {11,echo,wait} = gen_statem:call(STM, echo),
+    [{12,enter,start,wait},
+     {13,internal,start,wait}] = flush(),
+    {14,repeat,start} = gen_statem:call(STM, repeat),
+    [{15,enter,start,start}] = flush(),
+    {16,stop} = gen_statem:call(STM, {stop,bye}),
     [{'EXIT',STM,bye}] = flush(),
 
     {noproc,_} =
