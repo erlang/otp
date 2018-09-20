@@ -67,9 +67,9 @@
 %%  same process is sending and receiving 
 %%--------------------------------------------------------------------
 start() ->
-    gen_statem:start_link(?MODULE, [], []).
+    gen_statem:start(?MODULE, [], []).
 start(SpawnOpts) ->
-    gen_statem:start_link(?MODULE, [], SpawnOpts).
+    gen_statem:start(?MODULE, [], SpawnOpts).
 
 %%--------------------------------------------------------------------
 -spec initialize(pid(), map()) -> ok. 
