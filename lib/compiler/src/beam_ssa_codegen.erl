@@ -218,7 +218,7 @@ need_heap_never(_) -> false.
 
 need_heap_blks([{L,#cg_blk{is=Is0}=Blk0}|Bs], H0, Acc) ->
     {Is1,H1} = need_heap_is(reverse(Is0), H0, []),
-    {Ns,H} = need_heap_terminator(Bs, H1),
+    {Ns,H} = need_heap_terminator(Bs, L, H1),
     Is = Ns ++ Is1,
     Blk = Blk0#cg_blk{is=Is},
     need_heap_blks(Bs, H, [{L,Blk}|Acc]);
@@ -228,6 +228,13 @@ need_heap_blks([], H, Acc) ->
 need_heap_is([#cg_alloc{words=Words}=Alloc0|Is], N, Acc) ->
     Alloc = Alloc0#cg_alloc{words=add_heap_words(N, Words)},
     need_heap_is(Is, #need{}, [Alloc|Acc]);
+need_heap_is([#cg_set{anno=Anno,op=bs_init}=I0|Is], N, Acc) ->
+    Alloc = case need_heap_need(N) of
+                [#cg_alloc{words=Need}] -> alloc(Need);
+                [] -> 0
+            end,
+    I = I0#cg_set{anno=Anno#{alloc=>Alloc}},
+    need_heap_is(Is, #need{}, [I|Acc]);
 need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
     case classify_heap_need(Op, Args) of
         {put,Words} ->
@@ -243,11 +250,31 @@ need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
 need_heap_is([], N, Acc) ->
     {Acc,N}.
 
-need_heap_terminator([{_,#cg_blk{last=#cg_br{succ=Same,fail=Same}}}|_], N) ->
+need_heap_terminator([{_,#cg_blk{last=#cg_br{succ=L,fail=L}}}|_], L, N) ->
+    %% Fallthrough.
     {[],N};
-need_heap_terminator([{_,#cg_blk{}}|_], N) ->
+need_heap_terminator([{_,#cg_blk{is=Is,last=#cg_br{succ=L}}}|_], L, N) ->
+    case need_heap_need(N) of
+        [] ->
+            {[],#need{}};
+        [_|_]=Alloc ->
+            %% If the preceding instructions are a binary construction,
+            %% hoist the allocation and incorporate into the bs_init
+            %% instruction.
+            case reverse(Is) of
+                [#cg_set{op=succeeded},#cg_set{op=bs_init}|_] ->
+                    {[],N};
+                [#cg_set{op=bs_put}|_] ->
+                    {[],N};
+                _ ->
+                    %% Not binary construction. Must emit an allocation
+                    %% instruction in this block.
+                    {Alloc,#need{}}
+            end
+    end;
+need_heap_terminator([{_,#cg_blk{}}|_], _, N) ->
     {need_heap_need(N),#need{}};
-need_heap_terminator([], H) ->
+need_heap_terminator([], _, H) ->
     {need_heap_need(H),#need{}}.
 
 need_heap_need(#need{h=0,f=0}) -> [];
@@ -1022,12 +1049,13 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
     Fail = bif_fail(Fail0),
     Line = line(Anno),
+    Alloc = map_get(alloc, Anno),
     [#b_literal{val=Kind}|Args1] = Args0,
     case Kind of
         new ->
             [Dst,Size,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Live = get_live(I),
-            {[Line|cg_bs_init(Dst, Size, Unit, Live, Fail)],St};
+            {[Line|cg_bs_init(Dst, Size, Alloc, Unit, Live, Fail)],St};
         private_append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
@@ -1037,7 +1065,7 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
             Live = get_live(I),
-            Is = [Line,{bs_append,Fail,Bits,0,Live,Unit,Src,Flags,Dst}],
+            Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;
 cg_block([#cg_set{anno=Anno,op=bs_start_match,dst=Ctx0,args=[Bin0]}=I,
@@ -1531,13 +1559,13 @@ cg_bs_put(Fail, [{atom,Type},{literal,Flags}|Args]) ->
             [{Op,Fail,{field_flags,Flags},Src}]
     end.
 
-cg_bs_init(Dst, Size0, Unit, Live, Fail) ->
+cg_bs_init(Dst, Size0, Alloc, Unit, Live, Fail) ->
     Op = case Unit of
              1 -> bs_init_bits;
              8 -> bs_init2
          end,
     Size = cg_bs_init_size(Size0),
-    [{Op,Fail,Size,0,Live,{field_flags,[]},Dst}].
+    [{Op,Fail,Size,Alloc,Live,{field_flags,[]},Dst}].
 
 cg_bs_init_size({x,_}=R) -> R;
 cg_bs_init_size({y,_}=R) -> R;
