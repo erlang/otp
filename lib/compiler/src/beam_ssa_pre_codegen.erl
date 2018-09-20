@@ -107,7 +107,6 @@ functions([], _Ps, _UseBSM3) -> [].
              use_bsm3 :: boolean(),
              frames=[] :: [beam_ssa:label()],
              intervals=[] :: [{b_var(),[range()]}],
-             aliases=[] :: [{b_var(),b_var()}],
              res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
              regs=#{} :: #{b_var():=ssa_register()},
              extra_annos=[] :: [{atom(),term()}]
@@ -141,9 +140,7 @@ passes(Opts) ->
           %% Calculate live intervals.
           ?PASS(number_instructions),
           ?PASS(live_intervals),
-          ?PASS(remove_unsuitable_aliases),
           ?PASS(reserve_regs),
-          ?PASS(merge_intervals),
 
           %% If needed for a .precg file, save the live intervals
           %% so they can be included in an annotation.
@@ -154,7 +151,6 @@ passes(Opts) ->
 
           %% Allocate registers.
           ?PASS(linear_scan),
-          ?PASS(fix_aliased_regs),
           ?PASS(frame_size),
           ?PASS(turn_yregs)],
     [P || P <- Ps, P =/= ignore].
@@ -177,14 +173,6 @@ function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0,
 
 save_live_intervals(#st{intervals=Intervals}=St) ->
     St#st{extra_annos=[{live_intervals,Intervals}]}.
-
-fix_aliased_regs(#st{aliases=Aliases,regs=Regs}=St) ->
-    St#st{regs=fix_aliased_regs(Aliases, Regs)}.
-
-fix_aliased_regs([{Alias,V}|Aliases], Regs) ->
-    #{V:=Reg} = Regs,
-    fix_aliased_regs(Aliases, Regs#{Alias=>Reg});
-fix_aliased_regs([], Regs) -> Regs.
 
 %% Add extra annotations when a .precg listing file is being produced.
 add_extra_annos(F, Annos) ->
@@ -1611,10 +1599,10 @@ live_intervals(#st{args=Args,ssa=Blocks}=St) ->
     Vars0 = [{V,{0,1}} || #b_var{}=V <- Args],
     F = fun(L, _, A) -> live_interval_blk(L, Blocks, A) end,
     LiveMap0 = #{},
-    Acc0 = {[],[],LiveMap0},
-    {Vars,Aliases,_} = beam_ssa:fold_po(F, Acc0, Blocks),
+    Acc0 = {[],LiveMap0},
+    {Vars,_} = beam_ssa:fold_po(F, Acc0, Blocks),
     Intervals = merge_ranges(rel2fam(Vars0++Vars)),
-    St#st{intervals=Intervals,aliases=Aliases}.
+    St#st{intervals=Intervals}.
 
 merge_ranges([{V,Rs}|T]) ->
     [{V,merge_ranges_1(Rs)}|merge_ranges(T)];
@@ -1626,7 +1614,7 @@ merge_ranges_1([R|Rs]) ->
     [R|merge_ranges_1(Rs)];
 merge_ranges_1([]) -> [].
 
-live_interval_blk(L, Blocks, {Vars0,Aliases0,LiveMap0}) ->
+live_interval_blk(L, Blocks, {Vars0,LiveMap0}) ->
     Live0 = [],
     Successors = beam_ssa:successors(L, Blocks),
     Live1 = update_successors(Successors, L, Blocks, LiveMap0, Live0),
@@ -1638,8 +1626,7 @@ live_interval_blk(L, Blocks, {Vars0,Aliases0,LiveMap0}) ->
 
     %% Determine used and defined variables in this block.
     FirstNumber = first_number(Is, Last),
-    {UseDef0,Aliases} = live_interval_blk_1([Last|reverse(Is)],
-                                            FirstNumber, Aliases0, Use),
+    UseDef0 = live_interval_blk_1([Last|reverse(Is)], FirstNumber, Use),
     UseDef = rel2fam(UseDef0),
 
     %% Update what is live at the beginning of this block and
@@ -1652,7 +1639,7 @@ live_interval_blk(L, Blocks, {Vars0,Aliases0,LiveMap0}) ->
 
     %% Construct the ranges for this block.
     Vars = make_block_ranges(UseDef, FirstNumber, Vars0),
-    {Vars,Aliases,LiveMap}.
+    {Vars,LiveMap}.
 
 make_block_ranges([{V,[{def,Def}]}|Vs], First, Acc) ->
     make_block_ranges(Vs, First, [{V,{Def,Def}}|Acc]);
@@ -1664,18 +1651,17 @@ make_block_ranges([{V,[{use,_}|_]=Uses}|Vs], First, Acc) ->
     make_block_ranges(Vs, First, [{V,{First,Last}}|Acc]);
 make_block_ranges([], _, Acc) -> Acc.
 
-live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is],
-                    FirstNumber, Aliases, Acc0) ->
+live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
     Acc = [{Dst,{def,FirstNumber}}|Acc0],
-    live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
-live_interval_blk_1([#b_set{op=bs_start_match}=I|Is], FirstNumber,
-                    Aliases, Acc0) ->
+    live_interval_blk_1(Is, FirstNumber, Acc);
+live_interval_blk_1([#b_set{op=bs_start_match}=I|Is],
+                    FirstNumber, Acc0) ->
     N = beam_ssa:get_anno(n, I),
     #b_set{dst=Dst} = I,
     Acc1 = [{Dst,{def,N}}|Acc0],
     Acc = [{V,{use,N}} || V <- beam_ssa:used(I)] ++ Acc1,
-    live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
-live_interval_blk_1([I|Is], FirstNumber, Aliases, Acc0) ->
+    live_interval_blk_1(Is, FirstNumber, Acc);
+live_interval_blk_1([I|Is], FirstNumber, Acc0) ->
     N = beam_ssa:get_anno(n, I),
     Acc1 = case I of
                #b_set{dst=Dst} ->
@@ -1685,9 +1671,9 @@ live_interval_blk_1([I|Is], FirstNumber, Aliases, Acc0) ->
            end,
     Used = beam_ssa:used(I),
     Acc = [{V,{use,N}} || V <- Used] ++ Acc1,
-    live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
-live_interval_blk_1([], _FirstNumber, Aliases, Acc) ->
-    {Acc,Aliases}.
+    live_interval_blk_1(Is, FirstNumber, Acc);
+live_interval_blk_1([], _FirstNumber, Acc) ->
+    Acc.
 
 %% first_number([#b_set{}]) -> InstructionNumber.
 %%  Return the number for the first instruction for the block.
@@ -2122,82 +2108,6 @@ res_xregs_prune(Xs, Used, Res) ->
     %% Remove unsafe registers from the list of potential
     %% preferred registers.
     maps:filter(fun(_, {x,X}) -> X < NumSafe end, Xs).
-
-%%%
-%%% Remove unsuitable aliases.
-%%%
-%%% If a binary is matched more than once, we must not put the
-%%% the match context in the same register as the binary to
-%%% avoid the following situation:
-%%%
-%%%     {test,bs_start_match2,{f,3},1,[{x,0},0],{x,0}}.
-%%%          .
-%%%          .
-%%%          .
-%%%     {test,bs_start_match2,{f,6},1,[{x,0},0],{x,1}}. %% ILLEGAL!
-%%%
-%%% The second instruction is illegal because a match context source
-%%% is only allowed if source and destination registers are identical.
-%%%
-
-remove_unsuitable_aliases(#st{aliases=[_|_]=Aliases0,ssa=Blocks}=St) ->
-    R = rem_unsuitable(maps:values(Blocks)),
-    Unsuitable0 = [V || {V,[_,_|_]} <- rel2fam(R)],
-    Unsuitable = gb_sets:from_list(Unsuitable0),
-    Aliases =[P || {_,V}=P <- Aliases0,
-                   not gb_sets:is_member(V, Unsuitable)],
-    St#st{aliases=Aliases};
-remove_unsuitable_aliases(#st{aliases=[]}=St) -> St.
-
-rem_unsuitable([#b_blk{is=Is}|Bs]) ->
-    Vs = [{Var,Dst} ||
-          #b_set{op=bs_start_match,dst=Dst,
-                 args=[#b_var{}=Var]} <- Is],
-    Vs ++ rem_unsuitable(Bs);
-rem_unsuitable([]) -> [].
-
-%%%
-%%% Merge intervals.
-%%%
-
-merge_intervals(#st{aliases=Aliases0,intervals=Intervals0,
-                    res=Reserved}=St) ->
-    Aliases1 = [A || A <- Aliases0,
-                     is_suitable_alias(A, Reserved)],
-    case Aliases1 of
-        [] ->
-            St#st{aliases=Aliases1};
-        [_|_] ->
-            Intervals1 = maps:from_list(Intervals0),
-            {Intervals,Aliases} =
-                merge_intervals_1(Aliases1, Intervals1, []),
-            St#st{aliases=Aliases,intervals=Intervals}
-    end.
-
-merge_intervals_1([{Alias,V}|Vs], Intervals0, Acc) ->
-    #{Alias:=Int1,V:=Int2} = Intervals0,
-    Int3 = lists:merge(Int1, Int2),
-    Int = merge_intervals_2(Int3),
-    Intervals1 = maps:remove(Alias, Intervals0),
-    Intervals = Intervals1#{V:=Int},
-    merge_intervals_1(Vs, Intervals, [{Alias,V}|Acc]);
-merge_intervals_1([], Intervals, Acc) ->
-    {maps:to_list(Intervals),Acc}.
-
-merge_intervals_2([{A1,B1},{A2,B2}|Is]) when A2 =< B1 ->
-    merge_intervals_2([{min(A1, A2),max(B1, B2)}|Is]);
-merge_intervals_2([{_A1,B1}=R|[{A2,_B2}|_]=Is]) when B1 < A2 ->
-    [R|merge_intervals_2(Is)];
-merge_intervals_2([_]=Is) -> Is.
-
-is_suitable_alias({V1,V2}, Reserved) ->
-    #{V1:=Res1,V2:=Res2} = Reserved,
-    case {Res1,Res2} of
-        {x,x} -> true;
-        {x,{x,_}} -> true;
-        {{x,_},x} -> true;
-        {_,_} -> false
-    end.
 
 %%%
 %%% Register allocation using linear scan.
