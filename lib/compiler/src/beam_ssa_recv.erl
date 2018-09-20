@@ -166,7 +166,7 @@ ref_in_tuple(Tuple, Blocks) ->
     beam_ssa:fold_instrs_rpo(F, [0], no, Blocks).
 
 opt_ref_used(RecvLbl, Ref, Blocks) ->
-    Vs = #{{var,Ref}=>ref,ref=>Ref,ref_matched=>false},
+    Vs = #{Ref=>ref,ref=>Ref,ref_matched=>false},
     case opt_ref_used_1(RecvLbl, Vs, Blocks) of
         used -> true;
         not_used -> false;
@@ -183,7 +183,7 @@ opt_ref_used_1(L, Vs0, Blocks) ->
     end.
 
 opt_ref_used_is([#b_set{op=peek_message,dst=Msg}|Is], Vs0) ->
-    Vs = Vs0#{{var,Msg}=>message},
+    Vs = Vs0#{Msg=>message},
     opt_ref_used_is(Is, Vs);
 opt_ref_used_is([#b_set{op={bif,Bif},args=Args,dst=Dst}=I|Is],
                 Vs0) ->
@@ -254,15 +254,14 @@ ref_used_in([], _) -> done.
 
 update_vars(#b_set{args=Args,dst=Dst}, Vs) ->
     Vars = [V || #b_var{}=V <- Args],
-    All = all(fun(V) ->
-                      Var = {var,V},
+    All = all(fun(Var) ->
                       case Vs of
                           #{Var:=message} -> true;
                           #{} -> false
                       end
               end, Vars),
     case All of
-        true -> Vs#{{var,Dst}=>message};
+        true -> Vs#{Dst=>message};
         false -> Vs
     end.
 
@@ -270,9 +269,7 @@ update_vars(#b_set{args=Args,dst=Dst}, Vs) ->
 %%  Return 'true' if Args denotes a comparison between the
 %%  reference and message or part of the message.
 
-is_ref_msg_comparison([#b_var{}=A1,#b_var{}=A2], Vs) ->
-    V1 = {var,A1},
-    V2 = {var,A2},
+is_ref_msg_comparison([#b_var{}=V1,#b_var{}=V2], Vs) ->
     case Vs of
         #{V1:=ref,V2:=message} -> true;
         #{V1:=message,V2:=ref} -> true;
