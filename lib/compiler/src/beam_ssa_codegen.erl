@@ -1196,11 +1196,40 @@ bif_to_test(Name, Args, Fail) ->
 
 opt_call_moves(Is0, Arity) ->
     {Moves0,Is} = splitwith(fun({move,_,_}) -> true;
+                               ({kill,_}) -> true;
                                (_) -> false
                             end, Is0),
     Moves = opt_call_moves_1(Moves0, Arity),
     Moves ++ Is.
 
+opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1|[{kill,_}|_]=Is], Arity) ->
+    %% There could be a {move,Tmp,{x,0}} instruction after the
+    %% kill/1 instructions (moved to there by opt_move_to_x0/1).
+    case splitwith(fun({kill,_}) -> true;
+                      (_) -> false
+                   end, Is) of
+        {Kills,[{move,{x,_}=Tmp,{x,0}}=M2]} ->
+            %% The two move/2 instructions (M1 and M2) can be combined
+            %% to one. The question is, though, is it safe to place
+            %% them after the kill/1 instructions?
+            case is_killed(Src, Kills, Arity) of
+                true ->
+                    %% Src (a Y register) is killed by one of the
+                    %% kill/1 instructions. Thus M1 and M2
+                    %% must be placed before the kill/1 instructions
+                    %% (essentially undoing what opt_move_to_x0/1
+                    %% did, which turned out to be a pessimization
+                    %% in this case).
+                    opt_call_moves_1([M1,M2|Kills], Arity);
+                false ->
+                    %% Src is not killed by any of the kill/1
+                    %% instructions. Thus it is safe to place
+                    %% M1 and M2 after the kill/1 instructions.
+                    opt_call_moves_1(Kills++[M1,M2], Arity)
+            end;
+        {_,_} ->
+            [M1|Is]
+    end;
 opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1,{move,Tmp,Dst}=M2|Is], Arity) ->
     case is_killed(Tmp, Is, Arity) of
         true ->
@@ -1214,6 +1243,10 @@ opt_call_moves_1([M|Ms], Arity) ->
     [M|opt_call_moves_1(Ms, Arity)];
 opt_call_moves_1([], _Arity) -> [].
 
+is_killed(Y, [{kill,Y}|_], _) ->
+    true;
+is_killed(R, [{kill,_}|Is], Arity) ->
+    is_killed(R, Is, Arity);
 is_killed(R, [{move,R,_}|_], _) ->
     false;
 is_killed(R, [{move,_,R}|_], _) ->
@@ -1221,7 +1254,9 @@ is_killed(R, [{move,_,R}|_], _) ->
 is_killed(R, [{move,_,_}|Is], Arity) ->
     is_killed(R, Is, Arity);
 is_killed({x,X}, [], Arity) ->
-    X >= Arity.
+    X >= Arity;
+is_killed({y,_}, [], _) ->
+    false.
 
 cg_alloc(#cg_alloc{stack=none,words=#need{h=0,f=0}}, _St) ->
     [];
@@ -1621,12 +1656,41 @@ phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
     [#cg_set{op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
 phi_copies([], _) -> [].
 
+%% opt_move_to_x0([Instruction]) -> [Instruction].
+%%  Simple peep-hole optimization to move a {move,Any,{x,0}} past
+%%  any kill up to the next call instruction. (To give the loader
+%%  an opportunity to combine the 'move' and the 'call' instructions.)
+
+opt_move_to_x0(Moves) ->
+    opt_move_to_x0(Moves, []).
+
+opt_move_to_x0([{move,_,{x,0}}=I|Is0], Acc0) ->
+    case move_past_kill(Is0, I, Acc0) of
+       impossible -> opt_move_to_x0(Is0, [I|Acc0]);
+       {Is,Acc} -> opt_move_to_x0(Is, Acc)
+    end;
+opt_move_to_x0([I|Is], Acc) ->
+    opt_move_to_x0(Is, [I|Acc]);
+opt_move_to_x0([], Acc) -> reverse(Acc).
+
+move_past_kill([{kill,Src}|_], {move,Src,_}, _) ->
+    impossible;
+move_past_kill([{kill,_}=I|Is], Move, Acc) ->
+    move_past_kill(Is, Move, [I|Acc]);
+move_past_kill(Is, Move, Acc) ->
+    {Is,[Move|Acc]}.
+
 %% setup_args(Args, Anno, Context) -> [Instruction].
 %% setup_args(Args) -> [Instruction].
 %%  Set up X registers for a call.
 
 setup_args(Args, Anno, none, St) ->
-    setup_args(Args) ++ kill_yregs(Anno, St);
+    case {setup_args(Args),kill_yregs(Anno, St)} of
+        {Moves,[]} ->
+            Moves;
+        {Moves,Kills} ->
+            opt_move_to_x0(Moves ++ Kills)
+    end;
 setup_args(Args, _, _, _) ->
     setup_args(Args).
 

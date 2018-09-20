@@ -32,8 +32,7 @@ module({Mod,Exp,Attr,Fs,Lc}, _Opt) ->
     {ok,{Mod,Exp,Attr,[function(F) || F <- Fs],Lc}}.
 
 function({function,Name,Arity,CLabel,Is0}) ->
-    Is1 = block(Is0),
-    Is = opt(Is1),
+    Is = block(Is0),
     {function,Name,Arity,CLabel,Is}.
 
 block(Is) ->
@@ -115,33 +114,3 @@ insert_alloc_1([{bs_init=Op,Fail,Info0,Live,Ss,Dst}|Is],
     reverse(Acc, [I|Is]);
 insert_alloc_1([{bs_put,_,_,_}=I|Is], Alloc, Acc) ->
     insert_alloc_1(Is, Alloc, [I|Acc]).
-
-%% opt(Is0) -> Is
-%%  Simple peep-hole optimization to move a {move,Any,{x,0}} past
-%%  any kill up to the next call instruction. (To give the loader
-%%  an opportunity to combine the 'move' and the 'call' instructions.)
-%%
-opt(Is) ->
-    opt_1(Is, []).
-
-opt_1([{move,_,{x,0}}=I|Is0], Acc0) ->
-    case move_past_kill(Is0, I, Acc0) of
-	impossible -> opt_1(Is0, [I|Acc0]);
-	{Is,Acc} -> opt_1(Is, Acc)
-    end;
-opt_1([I|Is], Acc) ->
-    opt_1(Is, [I|Acc]);
-opt_1([], Acc) -> reverse(Acc).
-
-move_past_kill([{kill,Src}|_], {move,Src,_}, _) ->
-    impossible;
-move_past_kill([{kill,_}=I|Is], Move, Acc) ->
-    move_past_kill(Is, Move, [I|Acc]);
-move_past_kill([{trim,N,_}=I|Is], {move,Src,Dst}=Move, Acc) ->
-    case Src of
-	{y,Y} when Y < N-> impossible;
-	{y,Y} -> {Is,[{move,{y,Y-N},Dst},I|Acc]};
-	_ -> {Is,[Move,I|Acc]}
-    end;
-move_past_kill(Is, Move, Acc) ->
-    {Is,[Move|Acc]}.
