@@ -47,6 +47,7 @@ MODULES= \
 	binary \
 	c \
 	calendar \
+	counters \
 	dets \
 	dets_server \
 	dets_sup \

@@ -6,6 +6,7 @@
   <xi:include href="../specs/specs_binary.xml"/>
   <xi:include href="../specs/specs_c.xml"/>
   <xi:include href="../specs/specs_calendar.xml"/>
+  <xi:include href="../specs/specs_counters.xml"/>
   <xi:include href="../specs/specs_dets.xml"/>
   <xi:include href="../specs/specs_dict.xml"/>
   <xi:include href="../specs/specs_digraph.xml"/>

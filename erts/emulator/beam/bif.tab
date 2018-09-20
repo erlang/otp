@@ -697,3 +697,12 @@ ubif erlang:map_get/2
 ubif erlang:is_map_key/2
 bif ets:internal_delete_all/2
 bif ets:internal_select_delete/2
+
+bif counters:new/2
+bif counters:get/2
+bif counters:put/3
+bif counters:add/3
+bif counters:add_get/3
+bif counters:size/1
+bif counters:max/1
+bif counters:min/1
