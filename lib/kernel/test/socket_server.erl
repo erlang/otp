@@ -34,8 +34,10 @@
 -define(LIB, socket_lib).
 
 -record(manager,  {socket, msg, peek, acceptors, handler_id, handlers}).
--record(acceptor, {id, socket, manager, atimeout = 5000}).
--record(handler,  {socket, peek, msg, type, manager}).
+-record(acceptor, {id, socket, manager, 
+                   atimeout = 5000}).
+-record(handler,  {socket, peek, msg, type, manager, 
+                   stimeout = 5000, rtimeout = 5000}).
 
 -define(NUM_ACCEPTORS, 5).
 
@@ -904,28 +906,30 @@ peek_recvfrom(Sock, BufSz) ->
     end.
 
 
-send(#handler{socket = Sock, msg = true, type = stream}, Msg, _) ->
+send(#handler{socket = Sock, msg = true, type = stream, stimeout = Timeout}, 
+     Msg, _) ->
     CMsgHdr  = #{level => ip, type => tos, data => reliability},
     CMsgHdrs = [CMsgHdr],
     MsgHdr   = #{iov => [Msg], ctrl => CMsgHdrs},
     %% socket:setopt(Sock, otp, debug, true),
-    Res = socket:sendmsg(Sock, MsgHdr),
+    Res = socket:sendmsg(Sock, MsgHdr, Timeout),
     %% socket:setopt(Sock, otp, debug, false),
     Res;
-send(#handler{socket = Sock, type = stream}, Msg, _) ->
-    socket:send(Sock, Msg);
-send(#handler{socket = Sock, msg = true, type = dgram}, Msg, Dest) ->
+send(#handler{socket = Sock, type = stream, stimeout = Timeout}, Msg, _) ->
+    socket:send(Sock, Msg, Timeout);
+send(#handler{socket = Sock, msg = true, type = dgram, stimeout = Timeout}, 
+     Msg, Dest) ->
     CMsgHdr  = #{level => ip, type => tos, data => reliability},
     CMsgHdrs = [CMsgHdr],
     MsgHdr   = #{addr => Dest,
                  iov  => [Msg],
                  ctrl => CMsgHdrs},
     %% ok = socket:setopt(Sock, otp, debug, true),
-    Res = socket:sendmsg(Sock, MsgHdr),
+    Res = socket:sendmsg(Sock, MsgHdr, Timeout),
     %% ok = socket:setopt(Sock, otp, debug, false),
     Res;
-send(#handler{socket = Sock, type = dgram}, Msg, Dest) ->
-    socket:sendto(Sock, Msg, Dest).
+send(#handler{socket = Sock, type = dgram, stimeout = Timeout}, Msg, Dest) ->
+    socket:sendto(Sock, Msg, Dest, Timeout).
 
 %% filler() ->
 %%     list_to_binary(lists:duplicate(2048, " FILLER ")).

@@ -1345,10 +1345,19 @@ sendto(Socket, Data, Dest) ->
       Data   :: binary(),
       Dest   :: null | sockaddr(),
       Flags  :: send_flags(),
-      Reason :: term().
+      Reason :: term()
+                 ; (Socket, Data, Dest, Timeout) -> ok | {error, Reason} when
+      Socket  :: socket(),
+      Data    :: iodata(),
+      Dest    :: null | sockaddr(),
+      Timeout :: timeout(),
+      Reason  :: term().
 
-sendto(Socket, Data, Dest, Flags) ->
-    sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT).
+sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
+    sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT);
+sendto(Socket, Data, Dest, Timeout) ->
+    sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT, Timeout).
+
 
 -spec sendto(Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
       Socket  :: socket(),
