@@ -1041,10 +1041,11 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:changing_config(Config1, Config2) -> {ok, Config3} | {error, Reason}</name>
+      <name>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -> {ok, Config} | {error, Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
-	<v>Config1 = Config2 = Config3 =
+	<v>SetOrUpdate = set | update</v>
+	<v>OldConfig = NewConfig = Config =
 	  <seealso marker="#type-handler_config">handler_config()</seealso></v>
 	<v>Reason = term()</v>
       </type>
@@ -1053,12 +1054,25 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	<p>The function is called on a temporary process when the
 	  configuration for a handler is about to change. The purpose
 	  is to verify and act on the new configuration.</p>
-	<p><c>Config1</c> is the existing configuration
-	  and <c>Config2</c> is the new configuration.</p>
+	<p><c>OldConfig</c> is the existing configuration
+	  and <c>NewConfig</c> is the new configuration.</p>
 	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>Config1</c>.</p>
+	  in <c>OldConfig</c>.</p>
+	<p><c>SetOrUpdate</c> has the value <c>set</c> if the
+	  configuration change originates from a call to
+	  <seealso marker="#set_handler_config-2">
+	    <c>set_handler_config/2,3</c></seealso>, and <c>update</c>
+	  if it originates from <seealso marker="#update_handler_config-2">
+	    <c>update_handler_config/2</c></seealso>. The handler can
+	  use this parameteter to decide how to update the value of
+	  the <c>config</c> field, that is, the handler specific
+	  configuration data. Typically, if <c>SetOrUpdate</c>
+	  equals <c>set</c>, values that are not specified must be
+	  given their default values. If <c>SetOrUpdate</c>
+	  equals <c>update</c>, the values found in <c>OldConfig</c>
+	  must be used instead.</p>
 	<p>If everything succeeds, the callback function must return a
-	  possibly adjusted configuration in <c>{ok,Config3}</c>.</p>
+	  possibly adjusted configuration in <c>{ok,Config}</c>.</p>
 	<p>If the configuration is faulty, the callback function must
 	  return <c>{error,Reason}</c>.</p>
       </desc>

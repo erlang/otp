@@ -384,7 +384,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 
     <p>In addition to the mandatory callback function <c>log/2</c>, a
       handler module can export the optional callback
-      functions <c>adding_handler/1</c>, <c>changing_config/2</c>
+      functions <c>adding_handler/1</c>, <c>changing_config/3</c>
       and <c>removing_handler/1</c>. See
       section <seealso marker="logger#handler_callback_functions">Handler
       Callback Functions</seealso> in the logger(3) manual page for
@@ -1024,7 +1024,7 @@ ok</pre>
     <list>
       <item><c>adding_handler(Config)</c></item>
       <item><c>removing_handler(Config)</c></item>
-      <item><c>changing_config(OldConfig, NewConfig)</c></item>
+      <item><c>changing_config(SetOrUpdate, OldConfig, NewConfig)</c></item>
     </list>
     <p>When a handler is added, by for example a call
       to <seealso marker="logger#add_handler-3">
@@ -1045,7 +1045,7 @@ ok</pre>
       or <seealso marker="logger#update_handler_config/2">
 	<c>logger:update_handler_config/2</c></seealso> is called,
       Logger
-      calls <c>HModule:changing_config(OldConfig, NewConfig)</c>. If
+      calls <c>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig)</c>. If
       this function returns <c>{ok,NewConfig1}</c>, Logger
       writes <c>NewConfig1</c> to the configuration database.</p>
 
