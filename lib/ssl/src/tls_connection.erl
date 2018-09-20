@@ -119,6 +119,7 @@ start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
 
 init([Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
+    link(Sender),
     case SslOpts#ssl_options.erl_dist of
         true ->
             process_flag(priority, max);
