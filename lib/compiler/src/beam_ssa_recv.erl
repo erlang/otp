@@ -138,7 +138,7 @@ recv_opt_is([I|Is], RecvLbl, Blocks, Acc) ->
     recv_opt_is(Is, RecvLbl, Blocks, [I|Acc]);
 recv_opt_is([], _, _, _) -> no.
 
-makes_ref(#b_set{dst=#b_var{name=Dst},args=[Func0|_]}, Blocks) ->
+makes_ref(#b_set{dst=Dst,args=[Func0|_]}, Blocks) ->
     Func = case Func0 of
                #b_remote{mod=#b_literal{val=erlang},
                          name=#b_literal{val=Name},arity=A0} ->
@@ -158,8 +158,8 @@ makes_ref(#b_set{dst=#b_var{name=Dst},args=[Func0|_]}, Blocks) ->
     end.
 
 ref_in_tuple(Tuple, Blocks) ->
-    F = fun(#b_set{op=get_tuple_element,dst=#b_var{name=Ref},
-                   args=[#b_var{name=Tup},#b_literal{val=1}]}, no)
+    F = fun(#b_set{op=get_tuple_element,dst=Ref,
+                   args=[#b_var{}=Tup,#b_literal{val=1}]}, no)
               when Tup =:= Tuple -> {yes,Ref};
            (_, A) -> A
         end,
@@ -182,10 +182,10 @@ opt_ref_used_1(L, Vs0, Blocks) ->
             Result
     end.
 
-opt_ref_used_is([#b_set{op=peek_message,dst=#b_var{name=M}}|Is], Vs0) ->
-    Vs = Vs0#{{var,M}=>message},
+opt_ref_used_is([#b_set{op=peek_message,dst=Msg}|Is], Vs0) ->
+    Vs = Vs0#{{var,Msg}=>message},
     opt_ref_used_is(Is, Vs);
-opt_ref_used_is([#b_set{op={bif,Bif},args=Args,dst=#b_var{name=B}}=I|Is],
+opt_ref_used_is([#b_set{op={bif,Bif},args=Args,dst=Dst}=I|Is],
                 Vs0) ->
     S = case Bif of
             '=:=' -> true;
@@ -199,7 +199,7 @@ opt_ref_used_is([#b_set{op={bif,Bif},args=Args,dst=#b_var{name=B}}=I|Is],
         Bool when is_boolean(Bool) ->
             case is_ref_msg_comparison(Args, Vs0) of
                 true ->
-                    Vs = Vs0#{B=>{is_ref,Bool}},
+                    Vs = Vs0#{Dst=>{is_ref,Bool}},
                     opt_ref_used_is(Is, Vs);
                 false ->
                     opt_ref_used_is(Is, Vs0)
@@ -225,7 +225,7 @@ opt_ref_used_is([], Vs) -> Vs.
 
 opt_ref_used_last(#b_blk{last=Last}=Blk, Vs, Blocks) ->
     case Last of
-        #b_br{bool=#b_var{name=Bool},succ=Succ,fail=Fail} ->
+        #b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail} ->
             case Vs of
                 #{Bool:={is_ref,Matched}} ->
                     ref_used_in([{Succ,Vs#{ref_matched:=Matched}},
@@ -252,8 +252,8 @@ ref_used_in([{L,Vs0}|Ls], Blocks) ->
     end;
 ref_used_in([], _) -> done.
 
-update_vars(#b_set{args=Args,dst=#b_var{name=B}}, Vs) ->
-    Vars = [V || #b_var{name=V} <- Args],
+update_vars(#b_set{args=Args,dst=Dst}, Vs) ->
+    Vars = [V || #b_var{}=V <- Args],
     All = all(fun(V) ->
                       Var = {var,V},
                       case Vs of
@@ -262,7 +262,7 @@ update_vars(#b_set{args=Args,dst=#b_var{name=B}}, Vs) ->
                       end
               end, Vars),
     case All of
-        true -> Vs#{{var,B}=>message};
+        true -> Vs#{{var,Dst}=>message};
         false -> Vs
     end.
 
@@ -270,7 +270,7 @@ update_vars(#b_set{args=Args,dst=#b_var{name=B}}, Vs) ->
 %%  Return 'true' if Args denotes a comparison between the
 %%  reference and message or part of the message.
 
-is_ref_msg_comparison([#b_var{name=A1},#b_var{name=A2}], Vs) ->
+is_ref_msg_comparison([#b_var{}=A1,#b_var{}=A2], Vs) ->
     V1 = {var,A1},
     V2 = {var,A2},
     case Vs of

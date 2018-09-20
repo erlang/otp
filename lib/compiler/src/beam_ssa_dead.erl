@@ -180,7 +180,7 @@ shortcut_2(L, Bs0, UnsetVars0, St) ->
                     %% We have a potentially suitable br.
                     %% Now update the set of variables that will never
                     %% be set if this block will be skipped.
-                    UnsetVars1 = [V || #b_set{dst=#b_var{name=V}} <- Is],
+                    UnsetVars1 = [V || #b_set{dst=V} <- Is],
                     UnsetVars = ordsets:union(UnsetVars0,
                                               ordsets:from_list(UnsetVars1)),
 
@@ -315,7 +315,7 @@ get_block(L, St) ->
 is_br_safe(UnsetVars, Br, #st{us=Us}=St) ->
     %% Check that none of the unset variables will be used.
     case Br of
-        #b_br{bool=#b_var{name=V},succ=Succ,fail=Fail} ->
+        #b_br{bool=#b_var{}=V,succ=Succ,fail=Fail} ->
             #{Succ:=Used0,Fail:=Used1} = Us,
 
             %% A two-way branch never branches to a phi node, so there
@@ -922,7 +922,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% can be skipped (does not bind any variable used
     %% in successor).
 
-    Defined0 = [Def || #b_set{dst=#b_var{name=Def}} <- Is],
+    Defined0 = [Def || #b_set{dst=Def} <- Is],
     Defined = ordsets:from_list(Defined0),
     MaySkip = ordsets:is_disjoint(Defined, Used0),
     case MaySkip of
@@ -957,7 +957,7 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             UsedVars;
         [_|_] ->
             PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
-            case [{P,V} || {#b_var{name=V},P} <- PhiArgs] of
+            case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
                     PhiLive = [{{L,P},ordsets:union(ordsets:from_list(Vs), Live0)} ||
@@ -975,7 +975,7 @@ used_vars_blk(#b_blk{is=Is,last=Last}, Used0) ->
 
 used_vars_is([#b_set{op=phi}|Is], Used) ->
     used_vars_is(Is, Used);
-used_vars_is([#b_set{dst=#b_var{name=Dst}}=I|Is], Used0) ->
+used_vars_is([#b_set{dst=Dst}=I|Is], Used0) ->
     Used1 = ordsets:union(Used0, beam_ssa:used(I)),
     Used = ordsets:del_element(Dst, Used1),
     used_vars_is(Is, Used);

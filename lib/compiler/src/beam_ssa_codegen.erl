@@ -592,8 +592,7 @@ liveness_successors(Terminator) ->
 liveness_is([#cg_alloc{}=I0|Is], Regs, Live, Acc) ->
     I = I0#cg_alloc{live=num_live(Live, Regs)},
     liveness_is(Is, Regs, Live, [I|Acc]);
-liveness_is([#cg_set{dst=Dst0,args=Args}=I0|Is], Regs, Live0, Acc) ->
-    #b_var{name=Dst} = Dst0,
+liveness_is([#cg_set{dst=Dst,args=Args}=I0|Is], Regs, Live0, Acc) ->
     Live1 = liveness_clobber(I0, Live0, Regs),
     I1 = liveness_yregs_anno(I0, Live1, Regs),
     Live2 = liveness_args(Args, Live1),
@@ -610,7 +609,7 @@ liveness_terminator(#cg_switch{arg=Arg}, Live) ->
 liveness_terminator(#cg_ret{arg=Arg}, Live) ->
     liveness_terminator_1(Arg, Live).
 
-liveness_terminator_1(#b_var{name=V}, Live) ->
+liveness_terminator_1(#b_var{}=V, Live) ->
     ordsets:add_element(V, Live);
 liveness_terminator_1(#b_literal{}, Live) ->
     Live;
@@ -618,7 +617,7 @@ liveness_terminator_1(Reg, Live) ->
     _ = verify_beam_register(Reg),
     ordsets:add_element(Reg, Live).
 
-liveness_args([#b_var{name=V}|As], Live) ->
+liveness_args([#b_var{}=V|As], Live) ->
     liveness_args(As, ordsets:add_element(V, Live));
 liveness_args([#b_remote{mod=Mod,name=Name}|As], Live) ->
     liveness_args([Mod,Name|As], Live);
@@ -641,7 +640,7 @@ liveness_anno(#cg_set{op=Op}=I, Live, Regs) ->
             I
     end.
 
-liveness_yregs_anno(#cg_set{op=Op,dst=#b_var{name=Dst}}=I, Live0, Regs) ->
+liveness_yregs_anno(#cg_set{op=Op,dst=Dst}=I, Live0, Regs) ->
     case need_live_anno(Op) of
         true ->
             Live = ordsets:del_element(Dst, Live0),
@@ -728,13 +727,13 @@ def_get(L, DefMap) ->
 def_is([#cg_alloc{anno=Anno0}=I0|Is], Regs, Def, Acc) ->
     I = I0#cg_alloc{anno=Anno0#{def_yregs=>Def}},
     def_is(Is, Regs, Def, [I|Acc]);
-def_is([#cg_set{op=kill_try_tag,args=[#b_var{name=Tag}]}=I|Is], Regs, Def0, Acc) ->
+def_is([#cg_set{op=kill_try_tag,args=[#b_var{}=Tag]}=I|Is], Regs, Def0, Acc) ->
     Def = ordsets:del_element(Tag, Def0),
     def_is(Is, Regs, Def, [I|Acc]);
-def_is([#cg_set{op=catch_end,args=[#b_var{name=Tag}|_]}=I|Is], Regs, Def0, Acc) ->
+def_is([#cg_set{op=catch_end,args=[#b_var{}=Tag|_]}=I|Is], Regs, Def0, Acc) ->
     Def = ordsets:del_element(Tag, Def0),
     def_is(Is, Regs, Def, [I|Acc]);
-def_is([#cg_set{anno=Anno0,op=call,dst=#b_var{name=Dst}}=I0|Is],
+def_is([#cg_set{anno=Anno0,op=call,dst=Dst}=I0|Is],
        Regs, Def0, Acc) ->
     #{live_yregs:=LiveYregVars} = Anno0,
     LiveRegs = gb_sets:from_list([maps:get(V, Regs) || V <- LiveYregVars]),
@@ -749,7 +748,7 @@ def_is([#cg_set{anno=Anno0,op=call,dst=#b_var{name=Dst}}=I0|Is],
     Def1 = ordsets:subtract(Def0, Kill),
     Def = def_add_yreg(Dst, Def1, Regs),
     def_is(Is, Regs, Def, [I|Acc]);
-def_is([#cg_set{anno=Anno0,op={bif,Bif},dst=#b_var{name=Dst},args=Args}=I0|Is],
+def_is([#cg_set{anno=Anno0,op={bif,Bif},dst=Dst,args=Args}=I0|Is],
        Regs, Def0, Acc) ->
     Arity = length(Args),
     I = case is_gc_bif(Bif, Args) orelse not erl_bifs:is_safe(erlang, Bif, Arity) of
@@ -760,7 +759,7 @@ def_is([#cg_set{anno=Anno0,op={bif,Bif},dst=#b_var{name=Dst},args=Args}=I0|Is],
         end,
     Def = def_add_yreg(Dst, Def0, Regs),
     def_is(Is, Regs, Def, [I|Acc]);
-def_is([#cg_set{anno=Anno0,dst=#b_var{name=Dst}}=I0|Is], Regs, Def0, Acc) ->
+def_is([#cg_set{anno=Anno0,dst=Dst}=I0|Is], Regs, Def0, Acc) ->
     I = case need_y_init(I0) of
             true ->
                 I0#cg_set{anno=Anno0#{def_yregs=>Def0}};
@@ -1716,7 +1715,7 @@ get_register(V, Regs) ->
 beam_args(As, St) ->
     [beam_arg(A, St) || A <- As].
 
-beam_arg(#b_var{name=Name}, #cg{regs=Regs}) ->
+beam_arg(#b_var{}=Name, #cg{regs=Regs}) ->
     maps:get(Name, Regs);
 beam_arg(#b_literal{val=Val}, _) ->
     if
