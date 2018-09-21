@@ -91,6 +91,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
+    {	"erl_db_catree_base_node",		"dynamic"		},
+    {	"erl_db_catree_route_node",		"dynamic"		},
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
     {	"proc_msgq",				"pid"			},
@@ -707,6 +709,26 @@ erts_lc_get_lock_order_id(char *name)
     return (Sint16) -1;
 }
 
+int
+erts_lc_is_check_order(char *name)
+{
+    int i;
+    if (!name || name[0] == '\0')
+	erts_fprintf(stderr, "Missing lock name\n");
+    
+    for (i = 0; i < ERTS_LOCK_ORDER_SIZE; i++) {
+        if (sys_strcmp(erts_lock_order[i].name, name) == 0) {
+            if (erts_lock_order[i].internal_order != NULL &&
+                sys_strcmp(erts_lock_order[i].internal_order, "dynamic") == 0) {
+                return 0;
+            }else{
+                return 1;
+            }
+        }
+    }
+    return 1;
+}
+
 static int compare_locked_by_id(lc_locked_lock_t *locked_lock, erts_lc_lock_t *comparand)
 {
     if(locked_lock->id < comparand->id) {
@@ -987,15 +1009,17 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 	 */
 
 
-	/* Check that we are not trying to lock this lock twice */
-	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
-	    if (tl_lck->id < lck->id
-		|| (tl_lck->id == lck->id && tl_lck->extra <= lck->extra)) {
-		if (tl_lck->id == lck->id && tl_lck->extra == lck->extra)
-		    lock_twice("Trylocking", thr, lck, options);
-		break;
-	    }
-	}
+        if (lck->check_order) {
+            /* Check that we are not trying to lock this lock twice */
+            for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
+                if (tl_lck->id < lck->id
+                    || (tl_lck->id == lck->id && tl_lck->extra <= lck->extra)) {
+                    if (tl_lck->id == lck->id && tl_lck->extra == lck->extra)
+                        lock_twice("Trylocking", thr, lck, options);
+                    break;
+                }
+            }
+        }
 
 #ifndef ERTS_LC_ALLWAYS_FORCE_BUSY_TRYLOCK_ON_LOCK_ORDER_VIOLATION
 	/* We only force busy if a lock order violation would occur
@@ -1044,7 +1068,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
 	    if (tl_lck->id < lck->id
 		|| (tl_lck->id == lck->id && tl_lck->extra <= lck->extra)) {
-		if (tl_lck->id == lck->id && tl_lck->extra == lck->extra)
+		if (tl_lck->id == lck->id && tl_lck->extra == lck->extra && lck->check_order)
 		    lock_twice("Trylocking", thr, lck, options);
 		if (locked) {
 		    ll->next = tl_lck->next;
@@ -1164,9 +1188,10 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
         ASSERT(0 < lck->id && lck->id < ERTS_LOCK_ORDER_SIZE);
         thr->matrix.m[lck->id][0] = 1;
     }
-    else if (thr->locked.last->id < lck->id
-	     || (thr->locked.last->id == lck->id
-		 && thr->locked.last->extra < lck->extra)) {
+    else if (( ! lck->check_order && thr->locked.last->id == lck->id) ||
+             (thr->locked.last->id < lck->id
+              || (thr->locked.last->id == lck->id
+                  && thr->locked.last->extra < lck->extra))) {
         lc_locked_lock_t* ll;
 	if (LOCK_IS_TYPE_ORDER_VIOLATION(lck->flags, thr->locked.last->flags)) {
 	    type_order_violation("locking ", thr, lck);
@@ -1296,7 +1321,7 @@ void
 erts_lc_init_lock(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
-
+    lck->check_order = erts_lc_is_check_order(name);
     lck->extra = (UWord) &lck->extra;
     ASSERT(is_not_immed(lck->extra));
     lck->flags = flags;
@@ -1308,6 +1333,7 @@ void
 erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags, Eterm extra)
 {
     lck->id = erts_lc_get_lock_order_id(name);
+    lck->check_order = erts_lc_is_check_order(name);
     lck->extra = extra;
     ASSERT(is_immed(lck->extra));
     lck->flags = flags;

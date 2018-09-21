@@ -66,6 +66,7 @@ typedef struct {
 #include "erl_db_util.h" /* Flags */
 #include "erl_db_hash.h" /* DbTableHash */
 #include "erl_db_tree.h" /* DbTableTree */
+#include "erl_db_catree.h" /* DbTableCATree */
 /*TT*/
 
 Uint erts_get_ets_misc_mem_size(void);
@@ -90,6 +91,7 @@ union db_table {
     DbTableCommon common; /* Any type of db table */
     DbTableHash hash;     /* Linear hash array specific data */
     DbTableTree tree;     /* AVL tree specific data */
+    DbTableCATree catree;     /* CA tree specific data */
     DbTableRelease release;
     /*TT*/
 };
