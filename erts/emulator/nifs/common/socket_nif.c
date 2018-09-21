@@ -25,22 +25,6 @@
 
 #define STATIC_ERLANG_NIF 1
 
-/* #include <stdio.h> */
-/* #include <stdlib.h> */
-/* #include <stdarg.h> */
-/* #include <string.h> */
-/* #include <unistd.h> */
-/* #include <errno.h> */
-/* #include <netdb.h> */
-/* #include <sys/types.h> */
-/* #include <sys/wait.h> */
-/* #include <sys/socket.h> */
-/* #include <netinet/in.h> */
-/* #include <arpa/inet.h> */
-/* #include <sys/time.h> */
-/* #include <fcntl.h> */
-
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -61,7 +45,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <netinet/ip.h>
 #include <time.h>
 
 #ifdef HAVE_UNISTD_H
@@ -120,6 +103,14 @@
 #undef WANT_NONBLOCKING
 #include "sys.h"
 
+
+
+
+/* AND HERE WE MAY HAVE A BUNCH OF DEFINES....SEE INET DRIVER.... */
+
+
+
+
 #else /* !__WIN32__ */
 
 #include <sys/time.h>
@@ -135,6 +126,7 @@
 #include <rpc/types.h>
 #endif
 
+#include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
@@ -312,7 +304,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 #include "sys.h"
 
-#endif
+#endif /* !__WIN32__ */
 
 #include <erl_nif.h>
 
