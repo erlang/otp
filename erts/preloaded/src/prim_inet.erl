@@ -870,9 +870,9 @@ chgopts(S, Opts) when is_port(S), is_list(Opts) ->
 
 getifaddrs(S) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_GETIFADDRS, []) of
-	{ok, Data} ->
-	    {ok, comp_ifaddrs(build_ifaddrs(Data), ktree_empty())};
-	{error,enotsup} ->
+        {ok, Data} ->
+            {ok, comp_ifaddrs(build_ifaddrs(Data))};
+        {error,enotsup} ->
 	    case getiflist(S) of
 		{ok, IFs} ->
 		    {ok, getifaddrs_ifget(S, IFs)};
@@ -881,30 +881,75 @@ getifaddrs(S) when is_port(S) ->
 	Err2 -> Err2
     end.
 
-%% Restructure interface properties per interface and remove duplicates
+%% Restructure interface properties per interface
 
-comp_ifaddrs([{If,Opts}|IfOpts], T) ->
-    case ktree_is_defined(If, T) of
-	true ->
-	    OptSet = comp_ifaddrs_add(ktree_get(If, T), Opts),
-	    comp_ifaddrs(IfOpts, ktree_update(If, OptSet, T));
-	false ->
-	    OptSet = comp_ifaddrs_add(ktree_empty(), Opts),
-	    comp_ifaddrs(IfOpts, ktree_insert(If, OptSet, T))
-     end;
-comp_ifaddrs([], T) ->
-    [{If,ktree_keys(ktree_get(If, T))} || If <- ktree_keys(T)].
-
-comp_ifaddrs_add(OptSet, [Opt|Opts]) ->
-    case ktree_is_defined(Opt, OptSet) of
-	true
-	  when element(1, Opt) =:= flags;
-	       element(1, Opt) =:= hwaddr ->
-	    comp_ifaddrs_add(OptSet, Opts);
-	_ ->
-	    comp_ifaddrs_add(ktree_insert(Opt, undefined, OptSet), Opts)
+comp_ifaddrs(IfOpts) ->
+    comp_ifaddrs(IfOpts, ktree_empty()).
+%%
+comp_ifaddrs([{If,[{flags,Flags}|Opts]}|IfOpts], IfT) ->
+    case ktree_is_defined(If, IfT) of
+        true ->
+            comp_ifaddrs(
+              IfOpts,
+              ktree_update(
+                If,
+                comp_ifaddrs_flags(Flags, Opts, ktree_get(If, IfT)),
+                IfT));
+        false ->
+            comp_ifaddrs(
+              IfOpts,
+              ktree_insert(
+                If,
+                comp_ifaddrs_flags(Flags, Opts, ktree_empty()),
+                IfT))
     end;
-comp_ifaddrs_add(OptSet, []) -> OptSet.
+comp_ifaddrs([], IfT) ->
+    comp_ifaddrs_2(ktree_keys(IfT), IfT).
+
+comp_ifaddrs_flags(Flags, Opts, FlagsT) ->
+    case ktree_is_defined(Flags, FlagsT) of
+        true ->
+            ktree_update(
+              Flags,
+              rev(Opts, ktree_get(Flags, FlagsT)),
+              FlagsT);
+        false ->
+            ktree_insert(Flags, rev(Opts), FlagsT)
+    end.
+
+comp_ifaddrs_2([If|Ifs], IfT) ->
+    FlagsT = ktree_get(If, IfT),
+    [{If,comp_ifaddrs_3(ktree_keys(FlagsT), FlagsT)}
+     | comp_ifaddrs_2(Ifs, IfT)];
+comp_ifaddrs_2([], _IfT) ->
+    [].
+%%
+comp_ifaddrs_3([Flags|FlagsL], FlagsT) ->
+    [{flags,Flags}|hwaddr_last(rev(ktree_get(Flags, FlagsT)))]
+        ++ hwaddr_last(comp_ifaddrs_3(FlagsL, FlagsT));
+comp_ifaddrs_3([], _FlagsT) ->
+    [].
+
+%% Place hwaddr last to look more like legacy emulation
+hwaddr_last(Opts) ->
+    hwaddr_last(Opts, Opts, []).
+%%
+hwaddr_last([{hwaddr,_} = Opt|Opts], L, R) ->
+    hwaddr_last(Opts, L, [Opt|R]);
+hwaddr_last([_|Opts], L, R) ->
+    hwaddr_last(Opts, L, R);
+hwaddr_last([], L, []) ->
+    L;
+hwaddr_last([], L, R) ->
+    rev(hwaddr_last(L, []), rev(R)).
+%%
+hwaddr_last([{hwaddr,_}|Opts], R) ->
+    hwaddr_last(Opts, R);
+hwaddr_last([Opt|Opts], R) ->
+    hwaddr_last(Opts, [Opt|R]);
+hwaddr_last([], R) ->
+    R.
+
 
 %% Legacy emulation of getifaddrs
 
@@ -912,21 +957,19 @@ getifaddrs_ifget(_, []) -> [];
 getifaddrs_ifget(S, [IF|IFs]) ->
     case ifget(S, IF, [flags]) of
 	{ok,[{flags,Flags}]=FlagsVals} ->
-	    BroadOpts =
-		case member(broadcast, Flags) of
-		    true ->
-			[broadaddr,hwaddr];
-		    false ->
-			[hwaddr]
-		end,
-	    P2POpts =
-		case member(pointtopoint, Flags) of
-		    true ->
-			[dstaddr|BroadOpts];
-		    false ->
-			BroadOpts
-		end,
-	    getifaddrs_ifget(S, IFs, IF, FlagsVals, [addr,netmask|P2POpts]);
+            GetOpts =
+                case member(pointtopoint, Flags) of
+                    true ->
+                        [dstaddr,hwaddr];
+                    false ->
+                        case member(broadcast, Flags) of
+                            true ->
+                                [broadaddr,hwaddr];
+                            false ->
+                                [hwaddr]
+                        end
+                end,
+	    getifaddrs_ifget(S, IFs, IF, FlagsVals, [addr,netmask|GetOpts]);
 	_ ->
 	    getifaddrs_ifget(S, IFs, IF, [], [addr,netmask,hwaddr])
     end.
@@ -2500,7 +2543,7 @@ get_addrs([F|Addrs]) ->
     [Addr|get_addrs(Rest)].
 
 get_addr(?INET_AF_LOCAL, [N|Addr]) ->
-    {A,Rest} = lists:split(N, Addr),
+    {A,Rest} = split(N, Addr),
     {{local,iolist_to_binary(A)},Rest};
 get_addr(?INET_AF_UNSPEC, Rest) ->
     {{unspec,<<>>},Rest};
