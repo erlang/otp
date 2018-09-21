@@ -6253,6 +6253,19 @@ do_work(WorksDoneSoFar, Table, ProbHelpTab, Range, Operations) ->
              do_work(WorksDoneSoFar + 1, Table, ProbHelpTab, Range, Operations)
     end.
 
+prefill_table(T, KeyRange, Num) ->
+    Seed = rand:uniform(KeyRange),
+    %%io:format("prefill_table: Seed = ~p\n", [Seed]),
+    RState = unique_rand_start(KeyRange, Seed),
+    prefill_table_loop(T, RState, Num),
+    Num = ets:info(T, size).
+
+prefill_table_loop(_, _, 0) ->
+    ok;
+prefill_table_loop(T, RS0, N) ->
+    {Key, RS1} = unique_rand_next(RS0),
+    ets:insert(T, {Key}),
+    prefill_table_loop(T, RS1, N-1).
 
 throughput_benchmark() -> 
     throughput_benchmark(false, not_set, not_set).
@@ -6337,14 +6350,6 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
                                         false -> Calculate([Count*2,Count|Rest])
                                     end
                             end,
-    PrefillTable = fun Prefill(T, KeyRange) ->
-                           Size = ets:info(T, size),
-                           case Size > KeyRange / 2 of
-                               true -> ok;
-                               false -> ets:insert(T, {rand:uniform(KeyRange)}),
-                                        Prefill(T, KeyRange)
-                           end
-                   end,
     CalculateOpsProbHelpTab =
         fun Calculate([{_, OpName}], _) ->
                 [{1.0, OpName}];
@@ -6386,7 +6391,7 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
             Range, Duration, RecoverTime) ->
                 ProbHelpTab = CalculateOpsProbHelpTab(Scenario, 0),
                 Table = ets:new(t, TableConfig),
-                PrefillTable(Table, Range),
+                prefill_table(Table, Range, Range div 2),
                 SafeFixTableIfRequired(Table, Scenario, true),
                 ParentPid = self(),
                 ChildPids =
@@ -6426,7 +6431,7 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
         end,
     KeyRanges = % Sizes of the key ranges
         case TestMode of
-            true -> [100000];
+            true -> [50000];
             false -> [1000000]
         end,
     Duration = 
@@ -7361,3 +7366,49 @@ syrup_factor() ->
         valgrind -> 20;
         _ -> 1
     end.
+
+
+%%
+%% This is a pseudo random number generator for UNIQUE integers.
+%% All integers between 1 and Max will be generated before it repeat itself.
+%% It's a variant of this one using quadratic residues by Jeff Preshing:
+%% http://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
+%%
+unique_rand_start(Max, Seed) ->
+    L = lists:dropwhile(fun(P) -> P < Max end,
+                        primes_3mod4()),
+    [P | _] = case L of
+                      [] ->
+                          error("Random range too large");
+                      _ ->
+                          L
+                  end,
+    3 = P rem 4,
+    {0, {Max, P, Seed}}.
+
+unique_rand_next({N, {Max, P, Seed}=Const}) ->
+    case dquad(P, N, Seed) + 1 of
+        RND when RND > Max ->  % Too large, skip
+            unique_rand_next({N+1, Const});
+        RND ->
+            {RND, {N+1, Const}}
+    end.
+
+%% A one-to-one relation between all integers 0 =< X < Prime
+%% if Prime rem 4 == 3.
+quad(Prime, X) ->
+    Rem = X*X rem Prime,
+    case 2*X < Prime of
+        true ->
+            Rem;
+        false ->
+            Prime - Rem
+    end.
+
+dquad(Prime, X, Seed) ->
+    quad(Prime, (quad(Prime, X) + Seed) rem Prime).
+
+%% Primes where P rem 4 == 3.
+primes_3mod4() ->
+    [103, 211, 503, 1019, 2003, 5003, 10007, 20011, 50023,
+     100003, 200003, 500083, 1000003, 2000003].
