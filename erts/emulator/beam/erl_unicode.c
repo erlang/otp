@@ -1358,11 +1358,9 @@ Uint erts_atom_to_string_length(Eterm atom)
     else {
         byte* err_pos;
         Uint num_chars;
-#ifdef DEBUG
         int ares =
-#endif
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
-        ASSERT(ares == ERTS_UTF8_OK);
+        ASSERT(ares == ERTS_UTF8_OK); (void)ares;
 
         return num_chars;
     }

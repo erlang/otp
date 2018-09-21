@@ -3118,9 +3118,7 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     Uint new_sz = offset + db_size_dbterm_comp(tb, obj);
     byte* basep;
     DbTerm* newp;
-#ifdef DEBUG
     byte* top;
-#endif
 
     ASSERT(tb->compress);
     if (old != 0) {
@@ -3142,11 +3140,8 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     }
 
     newp->size = size_object(obj);
-#ifdef DEBUG
-    top = 
-#endif
-	copy_to_comp(tb, obj, newp, new_sz);
-    ASSERT(top <= basep + new_sz);
+    top = copy_to_comp(tb, obj, newp, new_sz);
+    ASSERT(top <= basep + new_sz); (void)top;
 
     /* ToDo: Maybe realloc if ((basep+new_sz) - top) > WASTED_SPACE_LIMIT */
 
