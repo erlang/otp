@@ -47,7 +47,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <netinet/ip.h>
 #include <time.h>
 
 #ifdef HAVE_UNISTD_H
@@ -121,6 +120,7 @@
 #include <rpc/types.h>
 #endif
 
+#include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
@@ -698,37 +698,53 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
         }
         break;
 
+#if defined(EAI_AGAIN)
     case EAI_AGAIN:
         result = esock_make_error(env, esock_atom_eagain);
         break;
+#endif
 
+#if defined(EAI_BADFLAGS)
     case EAI_BADFLAGS:
         result = esock_make_error(env, atom_ebadflags);
         break;
+#endif
 
+#if defined(EAI_FAIL)
     case EAI_FAIL:
         result = esock_make_error(env, atom_efail);
         break;
+#endif
 
+#if defined(EAI_FAMILY)
     case EAI_FAMILY:
         result = esock_make_error(env, atom_efamily);
         break;
+#endif
 
+#if defined(EAI_MEMORY)
     case EAI_MEMORY:
         result = esock_make_error(env, atom_emem);
         break;
+#endif
 
+#if defined(EAI_NONAME)
     case EAI_NONAME:
         result = esock_make_error(env, atom_enoname);
         break;
+#endif
 
+#if defined(EAI_OVERFLOW)
     case EAI_OVERFLOW:
         result = esock_make_error(env, atom_eoverflow);
         break;
+#endif
 
+#if defined(EAI_SYSTEM)
     case EAI_SYSTEM:
         result = esock_make_error_errno(env, get_errno());
         break;
+#endif
 
     default:
         result = esock_make_error(env, esock_atom_einval);
@@ -842,49 +858,71 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
         }
         break;
 
+#if defined(EAI_ADDRFAMILY)
     case EAI_ADDRFAMILY:
         result = esock_make_error(env, atom_eaddrfamily);
         break;
+#endif
 
+#if defined(EAI_AGAIN)
     case EAI_AGAIN:
         result = esock_make_error(env, esock_atom_eagain);
         break;
+#endif
 
+#if defined(EAI_BADFLAGS)
     case EAI_BADFLAGS:
         result = esock_make_error(env, atom_ebadflags);
         break;
+#endif
 
+#if defined(EAI_FAIL)
     case EAI_FAIL:
         result = esock_make_error(env, atom_efail);
         break;
+#endif
 
+#if defined(EAI_FAMILY)
     case EAI_FAMILY:
         result = esock_make_error(env, atom_efamily);
         break;
+#endif
 
+#if defined(EAI_MEMORY)
     case EAI_MEMORY:
         result = esock_make_error(env, atom_emem);
         break;
+#endif
 
+#if defined(EAI_NODATA)
     case EAI_NODATA:
         result = esock_make_error(env, atom_enodata);
         break;
+#endif
 
+#if defined(EAI_NONAME)
     case EAI_NONAME:
         result = esock_make_error(env, atom_enoname);
         break;
+#endif
 
+#if defined(EAI_SERVICE)
     case EAI_SERVICE:
         result = esock_make_error(env, atom_eservice);
         break;
+#endif
 
+#if defined(EAI_SOCKTYPE)
     case EAI_SOCKTYPE:
         result = esock_make_error(env, atom_esocktype);
         break;
+#endif
 
+#if defined(EAI_SYSTEM)
     case EAI_SYSTEM:
         result = esock_make_error(env, atom_esystem);
         break;
+#endif
 
     default:
         result = esock_make_error(env, esock_atom_einval);

@@ -1238,7 +1238,11 @@ char* esock_decode_protocol(ErlNifEnv*   env,
         *proto = IPPROTO_IP;
 #endif
     } else if (COMPARE(esock_atom_ipv6, eProto) == 0) {
+#if defined(SOL_IPV6)
         *proto = SOL_IPV6;
+#else
+        *proto = IPPROTO_IPV6;
+#endif
     } else if (COMPARE(esock_atom_tcp, eProto) == 0) {
         *proto = IPPROTO_TCP;
     } else if (COMPARE(esock_atom_udp, eProto) == 0) {

@@ -25,6 +25,7 @@
 
 #define STATIC_ERLANG_NIF 1
 
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -353,6 +354,15 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 /* *** Misc macros and defines *** */
+
+/* This macro exist on some (linux) platforms */
+#if !defined(IPTOS_TOS_MASK)
+#define IPTOS_TOS_MASK     0x1E
+#endif
+#if !defined(IPTOS_TOS)
+#define IPTOS_TOS(tos)          ((tos)&IPTOS_TOS_MASK)
+#endif
+
 
 #if defined(TCP_CA_NAME_MAX)
 #define SOCKET_OPT_TCP_CONGESTION_NAME_MAX TCP_CA_NAME_MAX
@@ -1148,7 +1158,7 @@ static ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
                                           ERL_NIF_TERM      eVal);
 #endif
-#if defined(IP_MSFILTER)
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
 static ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
                                             SocketDescriptor* descP,
                                             ERL_NIF_TERM      eVal);
@@ -1631,7 +1641,7 @@ static ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
 #endif
-#if defined(IP_RECVDSTADDRS)
+#if defined(IP_RECVDSTADDR)
 static ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
                                                SocketDescriptor* descP);
 #endif
@@ -5542,7 +5552,7 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
         break;
 #endif
 
-#if defined(IP_MSFILTER)
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
     case SOCKET_OPT_IP_MSFILTER:
         result = nsetopt_lvl_ip_msfilter(env, descP, eVal);
         break;
@@ -5858,7 +5868,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
  *
  * The value can be *either* the atom 'null' or a map of type ip_msfilter().
  */
-#if defined(IP_MSFILTER)
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
 static
 ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
@@ -7262,6 +7272,7 @@ ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
     int                     res;
     size_t                  sz;
     unsigned int            tmp;
+    int32_t                 tmpAssocId;
 
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_associnfo -> entry with"
@@ -7300,8 +7311,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_associnfo -> decode attributes\r\n") );
 
-    if (!GET_INT(env, eAssocId, &assocParams.sasoc_assoc_id))
+    /* On some platforms the assoc id is typed as an unsigned integer (uint32)
+     * So, to avoid warnings there, we always make an explicit cast... 
+     */
+    if (!GET_INT(env, eAssocId, &tmpAssocId))
         return esock_make_error(env, esock_atom_einval);
+    assocParams.sasoc_assoc_id = (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
     
     /*
      * We should really make sure this is ok in erlang (to ensure that 
@@ -7596,6 +7611,7 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
     struct sctp_rtoinfo rtoInfo;
     int                 res;
     size_t              sz;
+    int32_t             tmpAssocId;
 
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_rtoinfo -> entry with"
@@ -7628,8 +7644,12 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_rtoinfo -> decode attributes\r\n") );
 
-    if (!GET_INT(env, eAssocId, &rtoInfo.srto_assoc_id))
+    /* On some platforms the assoc id is typed as an unsigned integer (uint32)
+     * So, to avoid warnings there, we always make an explicit cast... 
+     */
+    if (!GET_INT(env, eAssocId, &tmpAssocId))
         return esock_make_error(env, esock_atom_einval);
+    rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
     
     if (!GET_UINT(env, eInitial, &rtoInfo.srto_initial))
         return esock_make_error(env, esock_atom_einval);
@@ -7825,7 +7845,7 @@ BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
 #if defined(SOL_IP)
             *level = SOL_IP;
 #else
-            *level = IPROTO_IP;
+            *level = IPPROTO_IP;
 #endif
             result = TRUE;
             break;
@@ -12513,7 +12533,7 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
                              size_t         dataLen,
                              ERL_NIF_TERM*  eCMsgHdrData)
 {
-    char* xres;
+    char* xres = NULL;
 
     switch (type) {
 #if defined(IP_TOS)
@@ -12608,7 +12628,7 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
     }
 
-    return NULL;
+    return xres;
 }
 
 
@@ -12697,20 +12717,30 @@ char* encode_msghdr_flags(ErlNifEnv*        env,
     } else {
         SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
 
+#if defined(MSG_EOR)
         if ((msgFlags & MSG_EOR) == MSG_EOR)
             TARRAY_ADD(ta, esock_atom_eor);
-    
+#endif
+
+#if defined(MSG_TRUNC)
         if ((msgFlags & MSG_TRUNC) == MSG_TRUNC)
             TARRAY_ADD(ta, esock_atom_trunc);
+#endif
     
+#if defined(MSG_CTRUNC)
         if ((msgFlags & MSG_CTRUNC) == MSG_CTRUNC)
             TARRAY_ADD(ta, esock_atom_ctrunc);
+#endif
     
+#if defined(MSG_OOB)
         if ((msgFlags & MSG_OOB) == MSG_OOB)
             TARRAY_ADD(ta, esock_atom_oob);
+#endif
     
+#if defined(MSG_ERRQUEUE)
         if ((msgFlags & MSG_ERRQUEUE) == MSG_ERRQUEUE)
             TARRAY_ADD(ta, esock_atom_errqueue);
+#endif
 
         SSDBG( descP,
                ("SOCKET", "esock_encode_cmsghdrs -> flags processed when"
@@ -13493,35 +13523,47 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
     for (ef = SOCKET_SEND_FLAG_LOW; ef <= SOCKET_SEND_FLAG_HIGH; ef++) {
 
         switch (ef) {
+#if defined(MSG_CONFIRM)
         case SOCKET_SEND_FLAG_CONFIRM:
             if ((1 << SOCKET_SEND_FLAG_CONFIRM) & eflags)
                 tmp |= MSG_CONFIRM;
             break;
+#endif
 
+#if defined(MSG_DONTROUTE)
         case SOCKET_SEND_FLAG_DONTROUTE:
             if ((1 << SOCKET_SEND_FLAG_DONTROUTE) & eflags)
                 tmp |= MSG_DONTROUTE;
             break;
+#endif
 
+#if defined(MSG_EOR)
         case SOCKET_SEND_FLAG_EOR:
             if ((1 << SOCKET_SEND_FLAG_EOR) & eflags)
                 tmp |= MSG_EOR;
             break;
+#endif
 
+#if defined(MSG_MORE)
         case SOCKET_SEND_FLAG_MORE:
             if ((1 << SOCKET_SEND_FLAG_MORE) & eflags)
                 tmp |= MSG_MORE;
             break;
+#endif
 
+#if defined(MSG_NOSIGNAL)
         case SOCKET_SEND_FLAG_NOSIGNAL:
             if ((1 << SOCKET_SEND_FLAG_NOSIGNAL) & eflags)
                 tmp |= MSG_NOSIGNAL;
             break;
+#endif
 
+#if defined(MSG_OOB)
         case SOCKET_SEND_FLAG_OOB:
             if ((1 << SOCKET_SEND_FLAG_OOB) & eflags)
                 tmp |= MSG_OOB;
             break;
+#endif
 
         default:
             return FALSE;
@@ -13557,20 +13599,26 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
                 "\r\n", ef, tmp) );
 
         switch (ef) {
+#if defined(MSG_CMSG_CLOEXEC)
         case SOCKET_RECV_FLAG_CMSG_CLOEXEC:
             if ((1 << SOCKET_RECV_FLAG_CMSG_CLOEXEC) & eflags)
                 tmp |= MSG_CMSG_CLOEXEC;
             break;
+#endif
 
+#if defined(MSG_ERRQUEUE)
         case SOCKET_RECV_FLAG_ERRQUEUE:
             if ((1 << SOCKET_RECV_FLAG_ERRQUEUE) & eflags)
                 tmp |= MSG_ERRQUEUE;
             break;
+#endif
 
+#if defined(MSG_OOB)
         case SOCKET_RECV_FLAG_OOB:
             if ((1 << SOCKET_RECV_FLAG_OOB) & eflags)
                 tmp |= MSG_OOB;
             break;
+#endif
 
             /*
              * <KOLLA>
@@ -13579,15 +13627,19 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
              *
              * </KOLLA>
              */
+#if defined(MSG_PEEK)
         case SOCKET_RECV_FLAG_PEEK:
             if ((1 << SOCKET_RECV_FLAG_PEEK) & eflags)
                 tmp |= MSG_PEEK;
             break;
+#endif
 
+#if defined(MSG_TRUNC)
         case SOCKET_RECV_FLAG_TRUNC:
             if ((1 << SOCKET_RECV_FLAG_TRUNC) & eflags)
                 tmp |= MSG_TRUNC;
             break;
+#endif
 
         default:
             return FALSE;
