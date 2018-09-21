@@ -529,8 +529,9 @@ block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= aes_gcm;
 block_encrypt(Type, Key, Ivec, {AAD, PlainText, TagLength}) when Type =:= aes_gcm;
                                                                  Type =:= aes_ccm ->
     aead_encrypt(Type, Key, Ivec, AAD, PlainText, TagLength);
-block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, PlainText}) ->
-    chacha20_poly1305_encrypt(Key, Ivec, AAD, PlainText).
+block_encrypt(chacha20_poly1305=Type, Key, Ivec, {AAD, PlainText}) ->
+    aead_encrypt(Type, Key, Ivec, AAD, PlainText, 16).
+
 
 -spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
@@ -560,11 +561,9 @@ block_decrypt(des3_cfb, Key0, Ivec, Data) ->
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
-                                                      Type =:= aes_ccm ->
-    aead_decrypt(Type, Key, Ivec, AAD, Data, Tag);
-block_decrypt(chacha20_poly1305, Key, Ivec, {AAD, Data, Tag}) ->
-    chacha20_poly1305_decrypt(Key, Ivec, AAD, Data, Tag).
-
+                                                      Type =:= aes_ccm;
+                                                      Type =:= chacha20_poly1305 ->
+    aead_decrypt(Type, Key, Ivec, AAD, Data, Tag).
 
 
 -spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
@@ -1742,12 +1741,6 @@ aead_encrypt(Type=aes_gcm, Key, Ivec, AAD, In) -> aead_encrypt(Type, Key, Ivec, 
 
 aead_encrypt(_Type, _Key, _Ivec, _AAD, _In, _TagLength) -> ?nif_stub.
 aead_decrypt(_Type, _Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
-
-%%
-%% Chacha20/Ppoly1305
-%%
-chacha20_poly1305_encrypt(_Key, _Ivec, _AAD, _In) -> ?nif_stub.
-chacha20_poly1305_decrypt(_Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 
 %%
 %% AES - with 256 bit key in infinite garble extension mode (IGE)
