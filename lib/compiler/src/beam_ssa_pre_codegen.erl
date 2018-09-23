@@ -23,11 +23,10 @@
 %% it has been annotated and transformed to help the code generator.
 %%
 %% * Some instructions are translated to other instructions closer to
-%% the BEAM instructions. For example, the put_tuple instruction is
-%% broken apart into the put_tuple_arity and put_tuple_elements
-%% instructions. Similary, the binary matching instructions are
-%% transformed from the optimization-friendly internal format to
-%% instruction more similar to the actual BEAM instructions.
+%% the BEAM instructions. For example, the binary matching
+%% instructions are transformed from the optimization-friendly
+%% internal format to instruction more similar to the actual BEAM
+%% instructions.
 %%
 %% * Blocks that will need an instruction for allocating a stack frame
 %% are annotated with a {frame_size,Size} annotation.
@@ -932,11 +931,11 @@ is_trap_bif(_, _, _) -> false.
 %%% used during matching.
 %%%
 %%% Depending on where variables are defined and used, they must
-%%% be handling in two different ways.
+%%% be handled in two different ways.
 %%%
 %%% Variables that are always defined in the receive (before branching
 %%% out into the different clauses of the receive) and used after the
-%%% receive, must be handled in the following way: Before each
+%%% receive must be handled in the following way: Before each
 %%% remove_message instruction, each such variable must be copied, and
 %%% all variables must be consolidated using a phi node in the
 %%% common exit block for the receive.
@@ -1646,7 +1645,7 @@ update_live_phis(_, _, Live) -> Live.
 %% reserve_yregs(St0) -> St.
 %%  In each block that allocates a stack frame, insert instructions
 %%  that copy variables that must be in Y registers (given by
-%%  YRegisters) to new variables.
+%%  the `yregs` annotation) to new variables.
 %%
 %%  Also allocate specific Y registers for try and catch tags.
 %%  The outermost try/catch tag is placed in y0, any directly
