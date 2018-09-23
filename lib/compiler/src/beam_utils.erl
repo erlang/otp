@@ -36,7 +36,7 @@
                         element(1, Val) =:= atom orelse
                         element(1, Val) =:= literal)).
 
-%% instruction() describes all instructions that are used during optimzation
+%% instruction() describes all instructions that are used during optimization
 %% (from beam_a to beam_z).
 -type instruction() :: atom() | tuple().
 
