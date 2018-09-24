@@ -1207,6 +1207,12 @@ cg_copy_1([#cg_set{dst=Dst0,args=Args}|T], St) ->
     end;
 cg_copy_1([], _St) -> [].
 
+-define(IS_LITERAL(Val), (Val =:= nil orelse
+                          element(1, Val) =:= integer orelse
+                          element(1, Val) =:= float orelse
+                          element(1, Val) =:= atom orelse
+                          element(1, Val) =:= literal)).
+
 bif_to_test('and', [V1,V2], Fail) ->
     [{test,is_eq_exact,Fail,[V1,{atom,true}]},
      {test,is_eq_exact,Fail,[V2,{atom,true}]}];
@@ -1220,7 +1226,62 @@ bif_to_test('or', [V1,V2], {f,Lbl}=Fail) when Lbl =/= 0 ->
 bif_to_test('not', [Var], Fail) ->
     [{test,is_eq_exact,Fail,[Var,{atom,false}]}];
 bif_to_test(Name, Args, Fail) ->
-    [beam_utils:bif_to_test(Name, Args, Fail)].
+    [bif_to_test_1(Name, Args, Fail)].
+
+bif_to_test_1(is_atom,     [_]=Ops, Fail) ->
+    {test,is_atom,Fail,Ops};
+bif_to_test_1(is_boolean,  [_]=Ops, Fail) ->
+    {test,is_boolean,Fail,Ops};
+bif_to_test_1(is_binary,   [_]=Ops, Fail) ->
+    {test,is_binary,Fail,Ops};
+bif_to_test_1(is_bitstring,[_]=Ops, Fail) ->
+    {test,is_bitstr,Fail,Ops};
+bif_to_test_1(is_float,    [_]=Ops, Fail) ->
+    {test,is_float,Fail,Ops};
+bif_to_test_1(is_function, [_]=Ops, Fail) ->
+    {test,is_function,Fail,Ops};
+bif_to_test_1(is_function, [_,_]=Ops, Fail) ->
+    {test,is_function2,Fail,Ops};
+bif_to_test_1(is_integer,  [_]=Ops, Fail) ->
+    {test,is_integer,Fail,Ops};
+bif_to_test_1(is_list,     [_]=Ops, Fail) ->
+    {test,is_list,Fail,Ops};
+bif_to_test_1(is_map,      [_]=Ops, Fail) ->
+    {test,is_map,Fail,Ops};
+bif_to_test_1(is_number,   [_]=Ops, Fail) ->
+    {test,is_number,Fail,Ops};
+bif_to_test_1(is_pid,      [_]=Ops, Fail) ->
+    {test,is_pid,Fail,Ops};
+bif_to_test_1(is_port,     [_]=Ops, Fail) ->
+    {test,is_port,Fail,Ops};
+bif_to_test_1(is_reference, [_]=Ops, Fail) ->
+    {test,is_reference,Fail,Ops};
+bif_to_test_1(is_tuple,    [_]=Ops, Fail) ->
+    {test,is_tuple,Fail,Ops};
+bif_to_test_1('=<', [A,B], Fail) ->
+    {test,is_ge,Fail,[B,A]};
+bif_to_test_1('>', [A,B], Fail) ->
+    {test,is_lt,Fail,[B,A]};
+bif_to_test_1('<', [_,_]=Ops, Fail) ->
+    {test,is_lt,Fail,Ops};
+bif_to_test_1('>=', [_,_]=Ops, Fail) ->
+    {test,is_ge,Fail,Ops};
+bif_to_test_1('==', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_eq,Fail,[A,C]};
+bif_to_test_1('==', [_,_]=Ops, Fail) ->
+    {test,is_eq,Fail,Ops};
+bif_to_test_1('/=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_ne,Fail,[A,C]};
+bif_to_test_1('/=', [_,_]=Ops, Fail) ->
+    {test,is_ne,Fail,Ops};
+bif_to_test_1('=:=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_eq_exact,Fail,[A,C]};
+bif_to_test_1('=:=', [_,_]=Ops, Fail) ->
+    {test,is_eq_exact,Fail,Ops};
+bif_to_test_1('=/=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_ne_exact,Fail,[A,C]};
+bif_to_test_1('=/=', [_,_]=Ops, Fail) ->
+    {test,is_ne_exact,Fail,Ops}.
 
 opt_call_moves(Is0, Arity) ->
     {Moves0,Is} = splitwith(fun({move,_,_}) -> true;

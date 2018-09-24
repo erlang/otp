@@ -23,7 +23,7 @@
 -module(beam_utils).
 -export([is_killed/3,is_killed_at/3,is_not_used/3,
 	 empty_label_index/0,index_label/3,index_labels/1,replace_labels/4,
-	 code_at/2,bif_to_test/3,is_pure_test/1,
+	 code_at/2,is_pure_test/1,
 	 split_even/1]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).
@@ -155,44 +155,6 @@ code_at(L, Ll) ->
                      fun((beam_asm:label()) -> term())) -> [instruction()].
 replace_labels(Is, Acc, D, Fb) ->
     replace_labels_1(Is, Acc, D, Fb).
-
-%% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
-%%  Convert a BIF to a test. Fail if not possible.
-
--spec bif_to_test(atom(), list(), fail()) -> test().
-
-bif_to_test(is_atom,     [_]=Ops, Fail) -> {test,is_atom,Fail,Ops};
-bif_to_test(is_boolean,  [_]=Ops, Fail) -> {test,is_boolean,Fail,Ops};
-bif_to_test(is_binary,   [_]=Ops, Fail) -> {test,is_binary,Fail,Ops};
-bif_to_test(is_bitstring,[_]=Ops, Fail) -> {test,is_bitstr,Fail,Ops};
-bif_to_test(is_float,    [_]=Ops, Fail) -> {test,is_float,Fail,Ops};
-bif_to_test(is_function, [_]=Ops, Fail) -> {test,is_function,Fail,Ops};
-bif_to_test(is_function, [_,_]=Ops, Fail) -> {test,is_function2,Fail,Ops};
-bif_to_test(is_integer,  [_]=Ops, Fail) -> {test,is_integer,Fail,Ops};
-bif_to_test(is_list,     [_]=Ops, Fail) -> {test,is_list,Fail,Ops};
-bif_to_test(is_map,      [_]=Ops, Fail) -> {test,is_map,Fail,Ops};
-bif_to_test(is_number,   [_]=Ops, Fail) -> {test,is_number,Fail,Ops};
-bif_to_test(is_pid,      [_]=Ops, Fail) -> {test,is_pid,Fail,Ops};
-bif_to_test(is_port,     [_]=Ops, Fail) -> {test,is_port,Fail,Ops};
-bif_to_test(is_reference, [_]=Ops, Fail) -> {test,is_reference,Fail,Ops};
-bif_to_test(is_tuple,    [_]=Ops, Fail)     -> {test,is_tuple,Fail,Ops};
-bif_to_test('=<', [A,B], Fail) -> {test,is_ge,Fail,[B,A]};
-bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
-bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
-bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
-bif_to_test('==', [C,A], Fail) when ?is_const(C) ->
-    {test,is_eq,Fail,[A,C]};
-bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
-bif_to_test('/=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_ne,Fail,[A,C]};
-bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
-bif_to_test('=:=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_eq_exact,Fail,[A,C]};
-bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
-bif_to_test('=/=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_ne_exact,Fail,[A,C]};
-bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops}.
-
 
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.
 %%  Return 'true' if the test instruction does not modify any
