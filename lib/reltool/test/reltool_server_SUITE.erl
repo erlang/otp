@@ -170,7 +170,7 @@ break(_Config) ->
 
 start_server(_Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([])),
-    Libs = lists:sort(erl_libs()),
+    Libs = reltool_test_lib:erl_libs(),
     StrippedDefault =
         case Libs of
             [] -> {sys, []};
@@ -184,7 +184,7 @@ start_server(_Config) ->
 %% Start a server process and check that it does not crash
 
 set_config(_Config) ->
-    Libs = lists:sort(erl_libs()),
+    Libs = reltool_test_lib:erl_libs(),
     Default =
         {sys,
          [
@@ -218,7 +218,15 @@ get_config(_Config) ->
     StdLibDir = filename:join(LibDir,"stdlib-"++StdVsn),
     SaslLibDir = filename:join(LibDir,"sasl-"++SaslVsn),
 
-    Sys = {sys,[{incl_cond, exclude},
+    Libs = reltool_test_lib:erl_libs(),
+    LibDirs =
+        case Libs of
+            [] -> [];
+            _ -> [{lib_dirs,Libs}]
+        end,
+
+    Sys = {sys,LibDirs ++
+               [{incl_cond, exclude},
 		{app,kernel,[{incl_cond,include}]},
 		{app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
 		{app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir}]}]},
@@ -227,13 +235,27 @@ get_config(_Config) ->
     ?m({ok, Sys}, reltool:get_config(Pid,false,false)),
 
     %% Include derived info
-    ?msym({ok,{sys,[{incl_cond, exclude},
-		    {erts,[]},
-		    {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
-		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
-		    {app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir},
-				 {mod,_,[]}|_]}]}},
-	  reltool:get_config(Pid,false,true)),
+    case Libs of
+        [] ->
+            ?msym({ok,{sys,[{incl_cond, exclude},
+                            {erts,[]},
+                            {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+                            {app,sasl,[{incl_cond,include},{vsn,SaslVsn},
+                                       {mod,_,[]}|_]},
+                            {app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir},
+                                         {mod,_,[]}|_]}]}},
+                  reltool:get_config(Pid,false,true));
+        _ ->
+            ?msym({ok,{sys,[{lib_dirs,Libs},
+                            {incl_cond, exclude},
+                            {erts,[]},
+                            {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+                            {app,sasl,[{incl_cond,include},{vsn,SaslVsn},
+                                       {mod,_,[]}|_]},
+                            {app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir},
+                                         {mod,_,[]}|_]}]}},
+                  reltool:get_config(Pid,false,true))
+    end,
 
     %% Include defaults
     ?msym({ok,{sys,[{root_dir,_},
@@ -304,11 +326,11 @@ get_config(_Config) ->
 %% OTP-9135, test that app_file option can be set to all | keep | strip
 
 otp_9135(_Config) ->
-    Libs = lists:sort(erl_libs()),
+    Libs = reltool_test_lib:erl_libs(),
     StrippedDefaultSys = 
         case Libs of
             [] -> [];
-            _  -> {lib_dirs, Libs}
+            _  -> [{lib_dirs, Libs}]
         end,
     
     Config1 = {sys,[{app_file, keep}]}, % this is the default
@@ -1718,13 +1740,19 @@ set_sys_and_undo(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 load_config_and_undo(Config) ->
-    Sys1 = {sys,[{incl_cond, exclude},
-		 {app,kernel,[{incl_cond,include}]},
-		 {app,sasl,[{incl_cond,include}]},
-		 {app,stdlib,[{incl_cond,include}]},
-		 {app,tools,[{incl_cond,include}]}]},
+    Sys1 = {sys,Cfg1=[{incl_cond, exclude},
+                      {app,kernel,[{incl_cond,include}]},
+                      {app,sasl,[{incl_cond,include}]},
+                      {app,stdlib,[{incl_cond,include}]},
+                      {app,tools,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
-    ?m({ok, Sys1}, reltool:get_config(Pid)),
+    Libs = reltool_test_lib:erl_libs(),
+    Sys11 =
+        case Libs of
+            [] -> Sys1;
+            _  -> {sys, [{lib_dirs, Libs}|Cfg1]}
+        end,
+    ?m({ok, Sys11}, reltool:get_config(Pid)),
     ?m({ok,[]}, reltool_server:get_status(Pid)),
 
     %% Get app and mod
@@ -1779,13 +1807,19 @@ load_config_and_undo(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test that load_config is properly rolled back if it fails
 load_config_fail(_Config) ->
-    Sys1 = {sys,[{incl_cond, exclude},
-		 {app,kernel,[{incl_cond,include}]},
-		 {app,sasl,[{incl_cond,include}]},
-		 {app,stdlib,[{incl_cond,include}]},
-		 {app,tools,[{incl_cond,include}]}]},
+    Sys1 = {sys,Cfg1=[{incl_cond, exclude},
+                      {app,kernel,[{incl_cond,include}]},
+                      {app,sasl,[{incl_cond,include}]},
+                      {app,stdlib,[{incl_cond,include}]},
+                      {app,tools,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
-    ?m({ok, Sys1}, reltool:get_config(Pid)),
+    Libs = reltool_test_lib:erl_libs(),
+    Sys11 =
+        case Libs of
+            [] -> Sys1;
+            _  -> {sys, [{lib_dirs, Libs}|Cfg1]}
+        end,
+    ?m({ok, Sys11}, reltool:get_config(Pid)),
     ?m({ok,[]}, reltool_server:get_status(Pid)),
 
     %% Get app and mod
@@ -1803,7 +1837,7 @@ load_config_fail(_Config) ->
 	  reltool_server:load_config(Pid,Sys2)),
 
     %% Check that a rollback is done to the old configuration
-    ?m({ok, Sys1}, reltool:get_config(Pid,false,false)),
+    ?m({ok, Sys11}, reltool:get_config(Pid,false,false)),
 
     %% and that tools is not changed (i.e. that the new configuration
     %% is not applied)
@@ -2073,25 +2107,42 @@ gen_rel_files(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 save_config(Config) ->
     PrivDir = ?config(priv_dir,Config),
-    Sys = {sys,[{incl_cond, exclude},
-		{app,kernel,[{incl_cond,include}]},
-		{app,sasl,[{incl_cond,include}]},
-		{app,stdlib,[{incl_cond,include}]}]},
+    Sys = {sys,Cfg=[{incl_cond, exclude},
+                    {app,kernel,[{incl_cond,include}]},
+                    {app,sasl,[{incl_cond,include}]},
+                    {app,stdlib,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
-    ?m({ok, Sys}, reltool:get_config(Pid)),
+    Libs = reltool_test_lib:erl_libs(),
+    Sys1 =
+        case Libs of
+            [] -> Sys;
+            _  -> {sys, [{lib_dirs, Libs}|Cfg]}
+        end,
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
 
     Simple = filename:join(PrivDir,"save_simple.reltool"),
     ?m(ok, reltool_server:save_config(Pid,Simple,false,false)),
-    ?m({ok,[Sys]}, file:consult(Simple)),
+    ?m({ok,[Sys1]}, file:consult(Simple)),
 
     Derivates = filename:join(PrivDir,"save_derivates.reltool"),
     ?m(ok, reltool_server:save_config(Pid,Derivates,false,true)),
-    ?msym({ok,[{sys,[{incl_cond, exclude},
-		     {erts,[]},
-		     {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
-		     {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
-		     {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}]},
-	  file:consult(Derivates)),
+    case Libs of
+        [] ->
+            ?msym({ok,[{sys,[{incl_cond, exclude},
+                             {erts,[]},
+                             {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+                             {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+                             {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}]},
+                  file:consult(Derivates));
+        _ ->
+            ?msym({ok,[{sys,[{lib_dirs,Libs},
+                             {incl_cond, exclude},
+                             {erts,[]},
+                             {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+                             {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+                             {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}]},
+                  file:consult(Derivates))
+    end,
 
     Defaults = filename:join(PrivDir,"save_defaults.reltool"),
     ?m(ok, reltool_server:save_config(Pid,Defaults,true,false)),
@@ -2547,9 +2598,6 @@ undefined_regexp(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
-
-erl_libs() ->
-    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
 
 datadir(Config) ->
     %% Removes the trailing slash...
