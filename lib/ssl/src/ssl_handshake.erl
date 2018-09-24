@@ -1128,26 +1128,50 @@ select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
-select_hashsign(HashSigns, Cert, KeyExAlgo, 
-		undefined, {Major, Minor} = Version)  when Major >= 3 andalso Minor >= 3->
-    select_hashsign(HashSigns, Cert, KeyExAlgo, tls_v1:default_signature_algs(Version), Version);
-select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, KeyExAlgo, SupportedHashSigns,
-		{Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
-    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
-     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+select_hashsign({ClientHashSigns, ClientSignatureSchemes},
+                Cert, KeyExAlgo, undefined, {Major, Minor} = Version)
+  when Major >= 3 andalso Minor >= 3->
+    select_hashsign({ClientHashSigns, ClientSignatureSchemes}, Cert, KeyExAlgo,
+                    tls_v1:default_signature_algs(Version), Version);
+select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
+                 ClientSignatureSchemes0},
+                Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
+  when Major >= 3 andalso Minor >= 3 ->
+    ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
+    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    SignAlgo = sign_algo(SignAlgo0),
+    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
-    SubSign = sign_algo(SubjAlgo),
-    
-    case lists:filter(fun({_, S} = Algos) when S == SubSign ->
-			      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
-			 (_)  ->
-			      false
-		      end, HashSigns) of
-	[] ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
-	[HashSign | _] ->
-	    HashSign
+    %% RFC 5246 (TLS 1.2)
+    %% If the client provided a "signature_algorithms" extension, then all
+    %% certificates provided by the server MUST be signed by a
+    %% hash/signature algorithm pair that appears in that extension.
+    %%
+    %% RFC 8446 (TLS 1.3)
+    %% TLS 1.3 provides two extensions for indicating which signature
+    %% algorithms may be used in digital signatures.  The
+    %% "signature_algorithms_cert" extension applies to signatures in
+    %% certificates and the "signature_algorithms" extension, which
+    %% originally appeared in TLS 1.2, applies to signatures in
+    %% CertificateVerify messages.
+    %%
+    %% If no "signature_algorithms_cert" extension is
+    %% present, then the "signature_algorithms" extension also applies to
+    %% signatures appearing in certificates.
+    case is_supported_sign(SignAlgo, Param, ClientHashSigns, ClientSignatureSchemes) of
+        true ->
+            case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
+                                      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
+                                 (_)  ->
+                                      false
+                              end, ClientHashSigns) of
+                [] ->
+                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+                [HashSign | _] ->
+                    HashSign
+            end;
+        false ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(_, Cert, _, _, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
@@ -1161,21 +1185,23 @@ select_hashsign(_, Cert, _, _, Version) ->
 %%
 %% Description: Handles signature algorithms selection for certificate requests (client) 
 %%--------------------------------------------------------------------
-select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSigns}, 
-				     certificate_types = Types}, Cert, SupportedHashSigns, 
+select_hashsign(#certificate_request{
+                   hashsign_algorithms = #hash_sign_algos{
+                                            hash_sign_algos = HashSigns},
+                   certificate_types = Types},
+                Cert,
+                SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPCertificate'{tbsCertificate = TBSCert,
-		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
-     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    SignAlgo = sign_algo(SignAlgo0),
+    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
-    Sign = sign_algo(SignAlgo),
-    SubSign = sign_algo(SubjAlgo),
-    
-    case is_acceptable_cert_type(SubSign, HashSigns, Types) andalso is_supported_sign(Sign, HashSigns) of
+    case is_acceptable_cert_type(PublicKeyAlgo, Types) andalso
+        %% certificate_request has no "signature_algorithms_cert"
+        %% extension in TLS 1.2.
+        is_supported_sign(SignAlgo, Param, HashSigns, undefined) of
 	true ->
-	    case lists:filter(fun({_, S} = Algos) when S == SubSign ->
+	    case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
 				 is_acceptable_hash_sign(Algos, SupportedHashSigns);
 			    (_)  ->
 				      false
@@ -1188,8 +1214,38 @@ select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash
 	false ->
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
-select_hashsign(#certificate_request{}, Cert, _, Version) ->
-    select_hashsign(undefined, Cert, undefined, [], Version).
+select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
+    {_, _, PublicKeyAlgo0} = get_cert_params(Cert),
+    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
+
+    %% Check cert even for TLS 1.0/1.1
+    case is_acceptable_cert_type(PublicKeyAlgo, Types) of
+        true ->
+            select_hashsign(undefined, Cert, undefined, [], Version);
+        false ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
+    end.
+
+
+%% Gets the relevant parameters of a certificate:
+%% - signature algorithm
+%% - parameters of the signature algorithm
+%% - public key algorithm (key type)
+get_cert_params(Cert) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert,
+		      signatureAlgorithm =
+                          {_,SignAlgo, Param}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, PublicKeyAlgo, _}} =
+        TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    {SignAlgo, Param, PublicKeyAlgo}.
+
+
+get_signature_scheme(undefined) ->
+    undefined;
+get_signature_scheme(#signature_scheme_list{
+                        signature_scheme_list = ClientSignatureSchemes}) ->
+    ClientSignatureSchemes.
+
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs({atom(), atom()}| undefined, oid(), ssl_record:ssl_version()) ->
@@ -1258,33 +1314,30 @@ int_to_bin(I) ->
     L = (length(integer_to_list(I, 16)) + 1) div 2,
     <<I:(L*8)>>.
 
-certificate_types(_, {N, M}) when N >= 3 andalso M >= 3 ->
-    case proplists:get_bool(ecdsa,  
-			    proplists:get_value(public_keys, crypto:supports())) of
-	true ->
-	    <<?BYTE(?ECDSA_SIGN), ?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>;
-	false ->
-	    <<?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>
-    end;
-
-certificate_types(#{key_exchange := KeyExchange}, _) when KeyExchange == rsa;
-                                                          KeyExchange == dh_rsa;
-                                                          KeyExchange == dhe_rsa;
-                                                          KeyExchange == ecdhe_rsa ->
-    <<?BYTE(?RSA_SIGN)>>;
-
-certificate_types(#{key_exchange := KeyExchange}, _)  when KeyExchange == dh_dss; 
-                                                           KeyExchange == dhe_dss;
-                                                           KeyExchange == srp_dss ->
-    <<?BYTE(?DSS_SIGN)>>;
-
-certificate_types(#{key_exchange := KeyExchange}, _) when KeyExchange == dh_ecdsa;
-                                                          KeyExchange == dhe_ecdsa;
-                                                          KeyExchange == ecdh_ecdsa;
-                                                          KeyExchange == ecdhe_ecdsa ->
-    <<?BYTE(?ECDSA_SIGN)>>;
+%% TLS 1.0+
+%% The end-entity certificate provided by the client MUST contain a
+%% key that is compatible with certificate_types.
+certificate_types(_, {N, M}) when N >= 3 andalso M >= 1 ->
+    ECDSA = supported_cert_type_or_empty(ecdsa, ?ECDSA_SIGN),
+    RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
+    DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
+    <<ECDSA/binary,RSA/binary,DSS/binary>>;
+%% SSL 3.0
 certificate_types(_, _) ->
-    <<?BYTE(?RSA_SIGN)>>.
+    RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
+    DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
+    <<RSA/binary,DSS/binary>>.
+
+%% Returns encoded certificate_type if algorithm is supported
+supported_cert_type_or_empty(Algo, Type) ->
+    case proplists:get_bool(
+           Algo,
+           proplists:get_value(public_keys, crypto:supports())) of
+        true ->
+            <<?BYTE(Type)>>;
+        false ->
+            <<>>
+    end.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
@@ -2355,17 +2408,6 @@ handle_srp_extension(undefined, Session) ->
 handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
-
-sign_algo(?rsaEncryption) ->
-    rsa;
-sign_algo(?'id-ecPublicKey') ->
-    ecdsa;
-sign_algo(?'id-dsa') ->
-    dsa;
-sign_algo(Alg) ->
-    {_, Sign} =public_key:pkix_sign_types(Alg),
-    Sign.
-
 is_acceptable_hash_sign( _, KeyExAlgo, _) when 
       KeyExAlgo == psk;
       KeyExAlgo == dhe_psk;
@@ -2381,15 +2423,80 @@ is_acceptable_hash_sign(Algos,_, SupportedHashSigns) ->
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
-is_acceptable_cert_type(Sign, _HashSigns, Types) ->
+is_acceptable_cert_type(Sign, Types) ->
     lists:member(sign_type(Sign), binary_to_list(Types)).
 
-is_supported_sign(Sign, HashSigns) ->
-     [] =/=  lists:dropwhile(fun({_, S}) when S =/= Sign -> 
-				     true;
-				(_)-> 
-				     false 
-			     end, HashSigns).
+%% signature_algorithms_cert = undefined
+is_supported_sign(SignAlgo, _, HashSigns, undefined) ->
+    lists:member(SignAlgo, HashSigns);
+
+%% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
+is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
+    Fun = fun (Scheme, Acc) ->
+                  {H0, S0, _} = ssl_cipher:scheme_to_components(Scheme),
+                  S1 = case S0 of
+                             rsa_pkcs1 -> rsa;
+                             S -> S
+                         end,
+                  H1 = case H0 of
+                             sha1 -> sha;
+                             H -> H
+                         end,
+                  Acc orelse (Sign =:= S1 andalso
+                              Hash =:= H1)
+          end,
+    lists:foldl(Fun, false, SignatureSchemes);
+
+%% TODO: Implement validation for the curve used in the signature
+%% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
+%% When the ecdsa-with-SHA1 algorithm identifier appears as the
+%% algorithm field in an AlgorithmIdentifier, the encoding MUST omit the
+%% parameters field.  That is, the AlgorithmIdentifier SHALL be a
+%% SEQUENCE of one component: the OBJECT IDENTIFIER ecdsa-with-SHA1.
+%%
+%% The elliptic curve parameters in the subjectPublicKeyInfo field of
+%% the certificate of the issuer SHALL apply to the verification of the
+%% signature.
+is_supported_sign({Hash, Sign}, _Param, _, SignatureSchemes) ->
+    Fun = fun (Scheme, Acc) ->
+                  {H0, S0, _} = ssl_cipher:scheme_to_components(Scheme),
+                  S1 = case S0 of
+                             rsa_pkcs1 -> rsa;
+                             S -> S
+                         end,
+                  H1 = case H0 of
+                             sha1 -> sha;
+                             H -> H
+                         end,
+                  Acc orelse (Sign  =:= S1 andalso
+                              Hash  =:= H1)
+          end,
+    lists:foldl(Fun, false, SignatureSchemes).
+
+%% SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
+%%   dsa | rsa-encryption | dh  | kea  | ec-public-key }
+public_key_algo(?rsaEncryption) ->
+    rsa;
+public_key_algo(?'id-ecPublicKey') ->
+    ecdsa;
+public_key_algo(?'id-dsa') ->
+    dsa.
+
+%% SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
+%%   dsa-with-sha1 | dsaWithSHA1 |  md2-with-rsa-encryption |
+%%   md5-with-rsa-encryption | sha1-with-rsa-encryption | sha-1with-rsa-encryption |
+%%   sha224-with-rsa-encryption |
+%%   sha256-with-rsa-encryption |
+%%   sha384-with-rsa-encryption |
+%%   sha512-with-rsa-encryption |
+%%   ecdsa-with-sha1 |
+%%   ecdsa-with-sha224 |
+%%   ecdsa-with-sha256 |
+%%   ecdsa-with-sha384 |
+%%   ecdsa-with-sha512 }
+sign_algo(Alg) ->
+    public_key:pkix_sign_types(Alg).
+
 sign_type(rsa) ->
     ?RSA_SIGN;
 sign_type(dsa) ->

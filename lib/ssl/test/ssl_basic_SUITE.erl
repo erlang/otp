@@ -3570,14 +3570,14 @@ conf_signature_algs(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()}, 
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  [{active, false}, {signature_algs, [{sha256, rsa}]} | ServerOpts]}]),
+				   {options,  [{active, false}, {signature_algs, [{sha, rsa}]} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = 
 	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 				   {host, Hostname},
 				   {from, self()}, 
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, [{active, false}, {signature_algs, [{sha256, rsa}]} | ClientOpts]}]),
+				   {options, [{active, false}, {signature_algs, [{sha, rsa}]} | ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
