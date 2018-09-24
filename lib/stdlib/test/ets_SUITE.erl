@@ -7247,11 +7247,11 @@ repeat_for_opts(F, [OptList | Tail], AccList) when is_list(OptList) ->
 repeat_for_opts(F, [Atom | Tail], AccList) when is_atom(Atom) ->
     repeat_for_opts(F, [repeat_for_opts_atom2list(Atom) | Tail ], AccList).
 
-repeat_for_opts_atom2list(set_types) -> [void,set,ordered_set,stim_cat_ord_set,cat_ord_set];
+repeat_for_opts_atom2list(set_types) -> [set,ordered_set,stim_cat_ord_set,cat_ord_set];
 repeat_for_opts_atom2list(ord_set_types) -> [ordered_set,stim_cat_ord_set,cat_ord_set];
-repeat_for_opts_atom2list(all_types) -> [void,set,ordered_set,stim_cat_ord_set,cat_ord_set,bag,duplicate_bag];
-repeat_for_opts_atom2list(all_non_stim_types) -> [void,set,ordered_set,cat_ord_set,bag,duplicate_bag];
-repeat_for_opts_atom2list(all_non_stim_set_types) -> [void,set,ordered_set,cat_ord_set];
+repeat_for_opts_atom2list(all_types) -> [set,ordered_set,stim_cat_ord_set,cat_ord_set,bag,duplicate_bag];
+repeat_for_opts_atom2list(all_non_stim_types) -> [set,ordered_set,cat_ord_set,bag,duplicate_bag];
+repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_set];
 repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [compressed,void].
