@@ -158,7 +158,7 @@ format_op({Prefix,Name}) ->
 format_op(Name) ->
     io_lib:format("~p", [Name]).
 
-format_register(#b_var{name=V}, #{registers:=Regs}) ->
+format_register(#b_var{}=V, #{registers:=Regs}) ->
     {Tag,N} = maps:get(V, Regs),
     io_lib:format("~p~p", [Tag,N]);
 format_register(_, #{}) -> "".
@@ -224,9 +224,9 @@ format_anno_1(Anno) ->
             [io_lib:format("  %% Anno: ~p\n", [Anno])]
     end.
 
-format_live_interval(#b_var{name=V}=Dst, #{live_intervals:=Intervals}) ->
+format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
     case Intervals of
-        #{V:=Rs0} ->
+        #{Dst:=Rs0} ->
             Rs1 = [io_lib:format("~p..~p", [Start,End]) ||
                       {Start,End} <- Rs0],
             Rs = lists:join(" ", Rs1),

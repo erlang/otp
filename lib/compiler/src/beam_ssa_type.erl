@@ -56,12 +56,12 @@
       Block :: beam_ssa:b_blk().
 
 opt(Linear, Args) ->
-    Ts = maps:from_list([{V,any} || #b_var{name=V} <- Args]),
+    Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
-    Defs = maps:from_list([{V,FakeCall#b_set{dst=Var}} ||
-                              #b_var{name=V}=Var <- Args]),
+    Defs = maps:from_list([{Var,FakeCall#b_set{dst=Var}} ||
+                              #b_var{}=Var <- Args]),
     D = #d{ds=Defs,ls=#{0=>Ts},sub=#{}},
     opt_1(Linear, D).
 
@@ -117,7 +117,7 @@ simplify_terminator(#b_switch{arg=Arg}=Sw, Sub, Ts) ->
 simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts) ->
     Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}.
 
-opt_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args0}=I0|Is],
+opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
        Ts0, Ds0, Ls, Sub0, Acc) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
@@ -136,7 +136,7 @@ opt_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args0}=I0|Is],
             Ds = Ds0#{Dst=>I},
             opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc])
     end;
-opt_is([#b_set{args=Args0,dst=#b_var{name=Dst}}=I0|Is],
+opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
        Ts0, Ds0, Ls, Sub0, Acc) ->
     Args = simplify_args(Args0, Sub0, Ts0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
@@ -361,9 +361,9 @@ simplify_arg(#b_remote{mod=Mod,name=Name}=Rem, Sub, Ts) ->
                  name=simplify_arg(Name, Sub, Ts)};
 simplify_arg(Arg, _Sub, _Ts) -> Arg.
 
-sub_arg(#b_var{name=V}=Old, Sub) ->
+sub_arg(#b_var{}=Old, Sub) ->
     case Sub of
-        #{V:=New} -> New;
+        #{Old:=New} -> New;
         #{} -> Old
     end.
 
@@ -387,7 +387,7 @@ anno_float_arg(_) -> convert.
 
 opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
     beam_ssa:normalize(Br);
-opt_terminator(#b_br{bool=#b_var{name=V}}=Br, Ts, Ds) ->
+opt_terminator(#b_br{bool=#b_var{}=V}=Br, Ts, Ds) ->
     #{V:=Set} = Ds,
     case Set of
         #b_set{op={bif,'=:='},args=[Bool,#b_literal{val=true}]} ->
@@ -429,7 +429,7 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts, D0) ->
     D = update_successor_bool(Bool, false, Fail, Ts, D0),
     SuccTs = infer_types(Bool, Ts, D0),
     update_successor_bool(Bool, true, Succ, SuccTs, D);
-update_successors(#b_switch{arg=#b_var{name=V},fail=Fail,list=List}, Ts, D0) ->
+update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts, D0) ->
     D = update_successor(Fail, Ts, D0),
     foldl(fun({Val,S}, A) ->
                   T = get_type(Val, Ts),
@@ -437,10 +437,10 @@ update_successors(#b_switch{arg=#b_var{name=V},fail=Fail,list=List}, Ts, D0) ->
           end, D, List);
 update_successors(#b_ret{}, _Ts, D) -> D.
 
-update_successor_bool(#b_var{name=V}=Var, BoolValue, S, Ts, D) ->
+update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
     case t_is_boolean(get_type(Var, Ts)) of
         true ->
-            update_successor(S, Ts#{V:=t_atom(BoolValue)}, D);
+            update_successor(S, Ts#{Var:=t_atom(BoolValue)}, D);
         false ->
             %% The `br` terminator is preceeded by an instruction that
             %% does not produce a boolean value, such a `new_try_tag`.
@@ -456,7 +456,7 @@ update_successor(S, Ts0, #d{ls=Ls}=D) ->
             D#d{ls=Ls#{S=>Ts0}}
     end.
 
-update_types(#b_set{op=Op,dst=#b_var{name=Dst},args=Args}, Ts, Ds) ->
+update_types(#b_set{op=Op,dst=Dst,args=Args}, Ts, Ds) ->
     T = type(Op, Args, Ts, Ds),
     Ts#{Dst=>T}.
 
@@ -531,7 +531,7 @@ type(put_tuple, Args, _Ts, _Ds) ->
         _ ->
             #t_tuple{exact=true,size=length(Args)}
     end;
-type(succeeded, [#b_var{name=Src}], Ts, Ds) ->
+type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     case maps:get(Src, Ds) of
         #b_set{op={bif,Bif},args=BifArgs} ->
             Types = get_types(BifArgs, Ts),
@@ -750,7 +750,7 @@ simplify_switch_bool(#b_switch{arg=B,list=List0}=Sw, Ts, Ds) ->
             Sw
     end.
 
-simplify_not(#b_br{bool=#b_var{name=V},succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
+simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
             case t_is_boolean(get_type(Bool, Ts)) of
@@ -768,7 +768,7 @@ get_types(Values, Ts) ->
     [get_type(Val, Ts) || Val <- Values].
 -spec get_type(beam_ssa:value(), type_db()) -> type().
 
-get_type(#b_var{name=V}, Ts) ->
+get_type(#b_var{}=V, Ts) ->
     #{V:=T} = Ts,
     T;
 get_type(#b_literal{val=Val}, _Ts) ->
@@ -794,40 +794,40 @@ get_type(#b_literal{val=Val}, _Ts) ->
             any
     end.
 
-infer_types(#b_var{name=V}, Ts, #d{ds=Ds}) ->
+infer_types(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
     Types = infer_type(Op, Args, Ds),
     meet_types(Types, Ts).
 
-infer_type({bif,element}, [#b_literal{val=Pos},#b_var{name=Tuple}], _Ds) ->
+infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
     if
         is_integer(Pos), 1 =< Pos ->
             [{Tuple,#t_tuple{size=Pos}}];
         true ->
             []
     end;
-infer_type({bif,'=:='}, [#b_var{name=Src},#b_literal{}=Lit], Ds) ->
+infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ds) ->
     Def = maps:get(Src, Ds),
     Type = get_type(Lit, #{}),
     [{Src,Type}|infer_tuple_size(Def, Lit) ++
          infer_first_element(Def, Lit)];
-infer_type({bif,Bif}, [#b_var{name=Src}]=Args, _Ds) ->
+infer_type({bif,Bif}, [#b_var{}=Src]=Args, _Ds) ->
     case inferred_bif_type(Bif, Args) of
         any -> [];
         T -> [{Src,T}]
     end;
-infer_type({bif,is_map_key}, [_,#b_var{name=Src}], _Ds) ->
+infer_type({bif,is_map_key}, [_,#b_var{}=Src], _Ds) ->
     [{Src,map}];
-infer_type({bif,map_get}, [_,#b_var{name=Src}], _Ds) ->
+infer_type({bif,map_get}, [_,#b_var{}=Src], _Ds) ->
     [{Src,map}];
-infer_type(bs_start_match, [#b_var{name=Bin}], _Ds) ->
+infer_type(bs_start_match, [#b_var{}=Bin], _Ds) ->
     [{Bin,{binary,1}}];
-infer_type(is_nonempty_list, [#b_var{name=Src}], _Ds) ->
+infer_type(is_nonempty_list, [#b_var{}=Src], _Ds) ->
     [{Src,cons}];
-infer_type(is_tagged_tuple, [#b_var{name=Src},#b_literal{val=Size},
+infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
                              #b_literal{val=Tag}], _Ds) ->
     [{Src,#t_tuple{exact=true,size=Size,elements=[Tag]}}];
-infer_type(succeeded, [#b_var{name=Src}], Ds) ->
+infer_type(succeeded, [#b_var{}=Src], Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
     infer_type(Op, Args, Ds);
 infer_type(_Op, _Args, _Ds) ->
@@ -903,13 +903,13 @@ inferred_bif_type(tl, [_]) -> cons;
 inferred_bif_type(tuple_size, [_]) -> #t_tuple{};
 inferred_bif_type(_, _) -> any.
 
-infer_tuple_size(#b_set{op={bif,tuple_size},args=[#b_var{name=Tuple}]},
+infer_tuple_size(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
                  #b_literal{val=Size}) when is_integer(Size) ->
     [{Tuple,#t_tuple{exact=true,size=Size}}];
 infer_tuple_size(_, _) -> [].
 
 infer_first_element(#b_set{op=get_tuple_element,
-                           args=[#b_var{name=Tuple},#b_literal{val=0}]},
+                           args=[#b_var{}=Tuple,#b_literal{val=0}]},
                     #b_literal{val=First}) ->
     [{Tuple,#t_tuple{size=1,elements=[First]}}];
 infer_first_element(_, _) -> [].

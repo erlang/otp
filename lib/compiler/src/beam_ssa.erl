@@ -523,15 +523,15 @@ update_phi_labels([], _, _, Blocks) -> Blocks.
 
 used(#b_blk{is=Is,last=Last}) ->
     used_1([Last|Is], ordsets:new());
-used(#b_br{bool=#b_var{name=V}}) ->
+used(#b_br{bool=#b_var{}=V}) ->
     [V];
-used(#b_ret{arg=#b_var{name=V}}) ->
+used(#b_ret{arg=#b_var{}=V}) ->
     [V];
 used(#b_set{op=phi,args=Args}) ->
-    ordsets:from_list([V || {#b_var{name=V},_} <- Args]);
+    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
 used(#b_set{args=Args}) ->
     ordsets:from_list(used_args(Args));
-used(#b_switch{arg=#b_var{name=V}}) ->
+used(#b_switch{arg=#b_var{}=V}) ->
     [V];
 used(_) -> [].
 
@@ -560,17 +560,16 @@ def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
 def_used_1([], _Preds, Def, Used) ->
     {ordsets:from_list(Def),gb_sets:to_list(Used)}.
 
-def_used_is([#b_set{op=phi,dst=#b_var{name=Dst},args=Args}|Is],
+def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
             Preds, Def0, Used0) ->
     Def = [Dst|Def0],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Used1 = [V || {#b_var{name=V},L} <- Args,
-                  gb_sets:is_member(L, Preds)],
+    Used1 = [V || {#b_var{}=V,L} <- Args, gb_sets:is_member(L, Preds)],
     Used = gb_sets:union(gb_sets:from_list(Used1), Used0),
     def_used_is(Is, Preds, Def, Used);
-def_used_is([#b_set{dst=#b_var{name=Dst}}=I|Is], Preds, Def0, Used0) ->
+def_used_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Used0) ->
     Def = [Dst|Def0],
     Used = gb_sets:union(gb_sets:from_list(used(I)), Used0),
     def_used_is(Is, Preds, Def, Used);
@@ -583,7 +582,7 @@ def_1([#b_blk{is=Is}|Bs], Def0) ->
 def_1([], Def) ->
     ordsets:from_list(Def).
 
-def_is([#b_set{dst=#b_var{name=Dst}}|Is], Def) ->
+def_is([#b_set{dst=Dst}|Is], Def) ->
     def_is(Is, [Dst|Def]);
 def_is([], Def) -> Def.
 
@@ -684,10 +683,10 @@ rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
 rpo_1([], _, Seen, Acc) ->
     {Acc,Seen}.
 
-rename_var(#b_var{name=Old}=V, Rename) ->
+rename_var(#b_var{}=Old, Rename) ->
     case Rename of
         #{Old:=New} -> New;
-        #{} -> V
+        #{} -> Old
     end;
 rename_var(#b_remote{mod=Mod0,name=Name0}=Remote, Rename) ->
     Mod = rename_var(Mod0, Rename),
@@ -758,7 +757,7 @@ update_phi_labels_is(Is, _, _) -> Is.
 rename_label(Old, Old, New) -> New;
 rename_label(Lbl, _Old, _New) -> Lbl.
 
-used_args([#b_var{name=V}|As]) ->
+used_args([#b_var{}=V|As]) ->
     [V|used_args(As)];
 used_args([#b_remote{mod=Mod,name=Name}|As]) ->
     used_args([Mod,Name|As]);

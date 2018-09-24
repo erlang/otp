@@ -319,8 +319,7 @@ record_opt([{L,#b_blk{is=Is0,last=Last}=Blk0}|Bs], Blocks) ->
     [{L,Blk}|record_opt(Bs, Blocks)];
 record_opt([], _Blocks) -> [].
 
-record_opt_is([#b_set{op={bif,is_tuple},dst=#b_var{name=Bool},
-                      args=[Tuple]}=Set],
+record_opt_is([#b_set{op={bif,is_tuple},dst=Bool,args=[Tuple]}=Set],
               Last, Blocks) ->
     case is_tagged_tuple(Tuple, Bool, Last, Blocks) of
         {yes,Size,Tag} ->
@@ -333,8 +332,8 @@ record_opt_is([I|Is], Last, Blocks) ->
     [I|record_opt_is(Is, Last, Blocks)];
 record_opt_is([], _Last, _Blocks) -> [].
 
-is_tagged_tuple(#b_var{name=Tuple}, Bool,
-                #b_br{bool=#b_var{name=Bool},succ=Succ,fail=Fail},
+is_tagged_tuple(#b_var{}=Tuple, Bool,
+                #b_br{bool=Bool,succ=Succ,fail=Fail},
                 Blocks) ->
     SuccBlk = maps:get(Succ, Blocks),
     is_tagged_tuple_1(SuccBlk, Tuple, Fail, Blocks);
@@ -342,15 +341,14 @@ is_tagged_tuple(_, _, _, _) -> no.
 
 is_tagged_tuple_1(#b_blk{is=Is,last=Last}, Tuple, Fail, Blocks) ->
     case Is of
-        [#b_set{op={bif,tuple_size},dst=#b_var{name=ArityVar},
-                args=[#b_var{name=Tuple}]},
+        [#b_set{op={bif,tuple_size},dst=ArityVar,
+                args=[#b_var{}=Tuple]},
          #b_set{op={bif,'=:='},
-                dst=#b_var{name=Bool},
-                args=[#b_var{name=ArityVar},
-                      #b_literal{val=ArityVal}=Arity]}]
+                dst=Bool,
+                args=[ArityVar, #b_literal{val=ArityVal}=Arity]}]
         when is_integer(ArityVal) ->
             case Last of
-                #b_br{bool=#b_var{name=Bool},succ=Succ,fail=Fail} ->
+                #b_br{bool=Bool,succ=Succ,fail=Fail} ->
                     SuccBlk = maps:get(Succ, Blocks),
                     case is_tagged_tuple_2(SuccBlk, Tuple, Fail) of
                         no ->
@@ -366,22 +364,22 @@ is_tagged_tuple_1(#b_blk{is=Is,last=Last}, Tuple, Fail, Blocks) ->
     end.
 
 is_tagged_tuple_2(#b_blk{is=Is,
-                         last=#b_br{bool=#b_var{name=Bool},fail=Fail}},
+                         last=#b_br{bool=#b_var{}=Bool,fail=Fail}},
                   Tuple, Fail) ->
     is_tagged_tuple_3(Is, Bool, Tuple);
 is_tagged_tuple_2(#b_blk{}, _, _) -> no.
 
 is_tagged_tuple_3([#b_set{op=get_tuple_element,
-                          dst=#b_var{name=TagVar},
-                          args=[#b_var{name=Tuple},#b_literal{val=0}]}|Is],
+                          dst=TagVar,
+                          args=[#b_var{}=Tuple,#b_literal{val=0}]}|Is],
                   Bool, Tuple) ->
     is_tagged_tuple_4(Is, Bool, TagVar);
 is_tagged_tuple_3([_|Is], Bool, Tuple) ->
     is_tagged_tuple_3(Is, Bool, Tuple);
 is_tagged_tuple_3([], _, _) -> no.
 
-is_tagged_tuple_4([#b_set{op={bif,'=:='},dst=#b_var{name=Bool},
-                          args=[#b_var{name=TagVar},
+is_tagged_tuple_4([#b_set{op={bif,'=:='},dst=Bool,
+                          args=[#b_var{}=TagVar,
                                 #b_literal{val=TagVal}=Tag]}],
                  Bool, TagVar) when is_atom(TagVal) ->
     {yes,Tag};
@@ -817,7 +815,7 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
             LiveMap;
         [_|_] ->
             PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
-            case [{P,V} || {#b_var{name=V},P} <- PhiArgs] of
+            case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
                     PhiLive = [{{L,P},gb_sets:union(gb_sets:from_list(Vs), Live0)} ||
@@ -834,16 +832,16 @@ live_opt_blk(#b_blk{is=Is0,last=Last}=Blk, Live0) ->
     {Is,Live} = live_opt_is(reverse(Is0), Live1, []),
     {Blk#b_blk{is=Is},Live}.
 
-live_opt_is([#b_set{op=phi,dst=#b_var{name=Dst}}=I|Is], Live, Acc) ->
+live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
     case gb_sets:is_member(Dst, Live) of
         true ->
             live_opt_is(Is, Live, [I|Acc]);
         false ->
             live_opt_is(Is, Live, Acc)
     end;
-live_opt_is([#b_set{op=succeeded,dst=#b_var{name=SuccDst}=SuccDstVar,
-                    args=[#b_var{name=Dst}]}=SuccI,
-             #b_set{dst=#b_var{name=Dst}}=I|Is], Live0, Acc) ->
+live_opt_is([#b_set{op=succeeded,dst=SuccDst=SuccDstVar,
+                    args=[Dst]}=SuccI,
+             #b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
             case gb_sets:is_member(SuccDst, Live0) of
@@ -870,7 +868,7 @@ live_opt_is([#b_set{op=succeeded,dst=#b_var{name=SuccDst}=SuccDstVar,
                     end
             end
     end;
-live_opt_is([#b_set{dst=#b_var{name=Dst}}=I|Is], Live0, Acc) ->
+live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
             Live1 = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(I))),
@@ -1427,7 +1425,7 @@ def_blocks([{L,#b_blk{is=Is}}|Bs]) ->
     def_blocks_is(Is, L, def_blocks(Bs));
 def_blocks([]) -> [].
 
-def_blocks_is([#b_set{op=get_tuple_element,dst=#b_var{name=Dst}}|Is], L, Acc) ->
+def_blocks_is([#b_set{op=get_tuple_element,dst=Dst}|Is], L, Acc) ->
     def_blocks_is(Is, L, [{Dst,L}|Acc]);
 def_blocks_is([_|Is], L, Acc) ->
     def_blocks_is(Is, L, Acc);
@@ -1570,7 +1568,7 @@ remove_def(V, #b_blk{is=Is0}=Blk) ->
     {Def,Is} = remove_def_is(Is0, V, []),
     {Def,Blk#b_blk{is=Is}}.
 
-remove_def_is([#b_set{dst=#b_var{name=Dst}}=Def|Is], Dst, Acc) ->
+remove_def_is([#b_set{dst=Dst}=Def|Is], Dst, Acc) ->
     {Def,reverse(Acc, Is)};
 remove_def_is([I|Is], Dst, Acc) ->
     remove_def_is(Is, Dst, [I|Acc]).

@@ -578,19 +578,17 @@ sanitize([], Count, Blocks0, Values) ->
 sanitize_is([#b_set{op=get_map_element,
                     args=[#b_literal{}=Map,Key]}=I0|Is],
             Count0, Values, _Changed, Acc) ->
-    {MapVarName,Count} = new_var_name('@ssa_map', Count0),
-    MapVar = #b_var{name=MapVarName},
+    {MapVar,Count} = new_var('@ssa_map', Count0),
     I = I0#b_set{args=[MapVar,Key]},
     Copy = #b_set{op=copy,dst=MapVar,args=[Map]},
     sanitize_is(Is, Count, Values, true, [I,Copy|Acc]);
-sanitize_is([#b_set{op=Op,dst=#b_var{name=Dst},args=Args0}=I0|Is0],
+sanitize_is([#b_set{op=Op,dst=Dst,args=Args0}=I0|Is0],
             Count, Values, Changed, Acc) ->
-    Args = map(fun(#b_var{name=V}=Var) ->
+    Args = map(fun(Var) ->
                        case Values of
-                           #{V:=New} -> New;
+                           #{Var:=New} -> New;
                            #{} -> Var
-                       end;
-                  (Lit) -> Lit
+                       end
                end, Args0),
     case sanitize_instr(Op, Args, I0) of
         {value,Value0} ->
@@ -703,8 +701,7 @@ prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
 fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
     F = fun (#b_set{op=put_tuple,args=Args}=Put, C0) ->
                 Arity = #b_literal{val=length(Args)},
-                {VarName,C} = new_var_name('@ssa_ignore', C0),
-                Ignore = #b_var{name=VarName},
+                {Ignore,C} = new_var('@ssa_ignore', C0),
                 {[Put#b_set{op=put_tuple_arity,args=[Arity]},
                   #b_set{dst=Ignore,op=put_tuple_elements,args=Args}],C};
            (I, C) -> {[I],C}
@@ -867,12 +864,12 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=make_fun,dst=#b_var{name=Fun}}|Is], {return,_}=Context) ->
+need_frame_1([#b_set{op=make_fun,dst=Fun}|Is], {return,_}=Context) ->
     %% Since make_fun clobbers X registers, a stack frame is needed if
     %% any of the following instructions use any other variable than
     %% the one holding the reference to the created fun.
     need_frame_1(Is, Context) orelse
-        case beam_ssa:used(#b_blk{is=Is,last=#b_ret{arg=#b_var{name=Fun}}}) of
+        case beam_ssa:used(#b_blk{is=Is,last=#b_ret{arg=Fun}}) of
             [Fun] -> false;
             [_|_] -> true
         end;
@@ -987,12 +984,10 @@ recv_common(Defs, Exit, Blocks) ->
 %%  in the exit block following the receive.
 
 recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
-    {Msg1,Count1} = new_var_name('@recv', Count0),
-    Msg = #b_var{name=Msg1},
+    {Msg,Count1} = new_var('@recv', Count0),
     Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, [Exit], Blocks0),
     N = length(Rm),
-    {MsgVars0,Count} = new_var_names(duplicate(N, '@recv'), Count1),
-    MsgVars = [#b_var{name=V} || V <- MsgVars0],
+    {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
     Phi = #b_set{op=phi,dst=Msg,args=PhiArgs},
     ExitBlk0 = maps:get(Exit, Blocks1),
@@ -1007,7 +1002,7 @@ recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     Ren = #{Msg=>V},
     Blocks1 = beam_ssa:rename_vars(Ren, [Rm], Blocks0),
     #b_blk{is=Is0} = Blk0 = maps:get(Rm, Blocks1),
-    Copy = #b_set{op=copy,dst=V,args=[#b_var{name=Msg}]},
+    Copy = #b_set{op=copy,dst=V,args=[Msg]},
     Is = insert_after_phis(Is0, [Copy]),
     Blk = Blk0#b_blk{is=Is},
     Blocks = Blocks1#{Rm:=Blk},
@@ -1038,13 +1033,11 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     {RmDefs,Used0} = beam_ssa:def_used([L], Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
     Used = ordsets:intersection(Def, Used0),
-    {NewVs,Count} = new_var_names(Used, Count0),
-    NewVars = [#b_var{name=V} || V <- NewVs],
+    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
     #b_blk{is=Is0} = Blk1 = maps:get(L, Blocks1),
-    CopyIs = [#b_set{op=copy,dst=New,args=[#b_var{name=Old}]} ||
-                 {Old,New} <- Ren],
+    CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
     Blk = Blk1#b_blk{is=Is},
     Blocks = maps:put(L, Blk, Blocks1),
@@ -1134,7 +1127,7 @@ find_rm_act([]) ->
 find_yregs(#st{frames=[]}=St) ->
     St;
 find_yregs(#st{frames=[_|_]=Frames,args=Args,ssa=Blocks0}=St) ->
-    FrameDefs = find_defs(Frames, Blocks0, [V || #b_var{name=V} <- Args]),
+    FrameDefs = find_defs(Frames, Blocks0, [V || #b_var{}=V <- Args]),
     Blocks = find_yregs_1(FrameDefs, Blocks0),
     St#st{ssa=Blocks}.
 
@@ -1189,7 +1182,7 @@ find_defs_1([L|Ls], Blocks, Frames, Seen0, Defs0, Acc0) ->
 find_defs_1([], _, _, Seen, _, Acc) ->
     {Acc,Seen}.
 
-find_defs_is([#b_set{dst=#b_var{name=Dst}}|Is], Acc) ->
+find_defs_is([#b_set{dst=Dst}|Is], Acc) ->
     find_defs_is(Is, [Dst|Acc]);
 find_defs_is([], Acc) -> Acc.
 
@@ -1207,7 +1200,7 @@ find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
     end;
 find_update_succ([], _, D) -> D.
 
-find_yregs_is([#b_set{dst=#b_var{name=Dst}}=I|Is], #dk{d=Defs0,k=Killed0}=Ys, Yregs0) ->
+find_yregs_is([#b_set{dst=Dst}=I|Is], #dk{d=Defs0,k=Killed0}=Ys, Yregs0) ->
     Used = beam_ssa:used(I),
     Yregs1 = ordsets:intersection(Used, Killed0),
     Yregs = ordsets:union(Yregs0, Yregs1),
@@ -1301,7 +1294,7 @@ copy_retval_1([F|Fs], Blocks0, Count0) ->
 copy_retval_1([], Blocks, Count) ->
     {Blocks,Count}.
 
-collect_yregs([#b_set{op=copy,dst=#b_var{name=Y},args=[#b_var{name=X}]}|Is],
+collect_yregs([#b_set{op=copy,dst=Y,args=[#b_var{}=X]}|Is],
               Yregs0) ->
     true = gb_sets:is_member(X, Yregs0),        %Assertion.
     Yregs = gb_sets:insert(Y, gb_sets:delete(X, Yregs0)),
@@ -1342,13 +1335,12 @@ copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
-copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetVal}=Dst}=I0|Is], RC, Yregs,
+copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
            Copy0, Count0, Acc0) when Op =:= call; Op =:= make_fun ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
-    case gb_sets:is_member(RetVal, Yregs) of
+    case gb_sets:is_member(Dst, Yregs) of
         true ->
-            {NewVarName,Count} = new_var_name(RetVal, Count1),
-            NewVar = #b_var{name=NewVarName},
+            {NewVar,Count} = new_var(RetName, Count1),
             Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
             I = I1#b_set{dst=NewVar},
             copy_retval_is(Is, RC, Yregs, Copy, Count, [I|Acc]);
@@ -1398,16 +1390,15 @@ copy_retval_is([], RC, _, Copy, Count, Acc) ->
 place_retval_copy(I, _Yregs, none, Count, Acc) ->
     {I,Count,Acc};
 place_retval_copy(#b_set{args=[F|Args0]}=I, Yregs, Copy, Count0, Acc0) ->
-    #b_set{dst=#b_var{name=Avoid}} = Copy,
+    #b_set{dst=Avoid} = Copy,
     {Args,Acc1,Count} = copy_func_args(Args0, Yregs, Avoid, Acc0, [], Count0),
     Acc = [Copy|Acc1],
     {I#b_set{args=[F|Args]},Count,Acc}.
 
-copy_func_args([#b_var{name=V}=A|As], Yregs, Avoid, CopyAcc, Acc, Count0) ->
-    case gb_sets:is_member(V, Yregs) of
-        true when V =/= Avoid ->
-            {NewVarName,Count} = new_var_name(V, Count0),
-            NewVar = #b_var{name=NewVarName},
+copy_func_args([#b_var{name=AName}=A|As], Yregs, Avoid, CopyAcc, Acc, Count0) ->
+    case gb_sets:is_member(A, Yregs) of
+        true when A =/= Avoid ->
+            {NewVar,Count} = new_var(AName, Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
             copy_func_args(As, Yregs, Avoid, [Copy|CopyAcc], [NewVar|Acc], Count);
         _ ->
@@ -1461,9 +1452,9 @@ opt_get_list_1([L|Ls], Res, Blocks0) ->
     end;
 opt_get_list_1([], _, Blocks) -> Blocks.
 
-opt_get_list_is([#b_set{op=get_hd,dst=#b_var{name=Hd},
+opt_get_list_is([#b_set{op=get_hd,dst=Hd,
                         args=[Cons]}=GetHd,
-                 #b_set{op=get_tl,dst=#b_var{name=Tl},
+                 #b_set{op=get_tl,dst=Tl,
                         args=[Cons]}=GetTl|Is],
                 Res, Acc, Changed) ->
     %% Note that when this pass is run, only Y registers have
@@ -1527,7 +1518,7 @@ number_is_2([], N, Acc) ->
 %%%
 
 live_intervals(#st{args=Args,ssa=Blocks}=St) ->
-    Vars0 = [{V,{0,1}} || #b_var{name=V} <- Args],
+    Vars0 = [{V,{0,1}} || #b_var{}=V <- Args],
     F = fun(L, _, A) -> live_interval_blk(L, Blocks, A) end,
     LiveMap0 = #{},
     Acc0 = {[],[],LiveMap0},
@@ -1583,18 +1574,18 @@ make_block_ranges([{V,[{use,_}|_]=Uses}|Vs], First, Acc) ->
     make_block_ranges(Vs, First, [{V,{First,Last}}|Acc]);
 make_block_ranges([], _, Acc) -> Acc.
 
-live_interval_blk_1([#b_set{op=phi,dst=#b_var{name=Dst}}|Is],
+live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is],
                     FirstNumber, Aliases, Acc0) ->
     Acc = [{Dst,{def,FirstNumber}}|Acc0],
     live_interval_blk_1(Is, FirstNumber, Aliases, Acc);
 live_interval_blk_1([#b_set{op=bs_start_match}=I|Is], FirstNumber,
                     Aliases0, Acc0) ->
     N = beam_ssa:get_anno(n, I),
-    #b_set{dst=#b_var{name=Dst}} = I,
+    #b_set{dst=Dst} = I,
     Acc1 = [{Dst,{def,N}}|Acc0],
     Aliases = case beam_ssa:get_anno(reuse_for_context, I) of
                   true ->
-                      #b_set{args=[#b_var{name=Src}]} = I,
+                      #b_set{args=[Src]} = I,
                       [{Dst,Src}|Aliases0];
                   false ->
                       Aliases0
@@ -1604,7 +1595,7 @@ live_interval_blk_1([#b_set{op=bs_start_match}=I|Is], FirstNumber,
 live_interval_blk_1([I|Is], FirstNumber, Aliases, Acc0) ->
     N = beam_ssa:get_anno(n, I),
     Acc1 = case I of
-               #b_set{dst=#b_var{name=Dst}} ->
+               #b_set{dst=Dst} ->
                    [{Dst,{def,N}}|Acc0];
                _ ->
                    Acc0
@@ -1640,9 +1631,9 @@ get_live(L, LiveMap) ->
         #{} -> []
     end.
 
-update_live_phis([#b_set{op=phi,dst=#b_var{name=Killed},args=Args}|Is],
+update_live_phis([#b_set{op=phi,dst=Killed,args=Args}|Is],
                  Pred, Live0) ->
-    Used = [V || {#b_var{name=V},L} <- Args, L =:= Pred],
+    Used = [V || {#b_var{}=V,L} <- Args, L =:= Pred],
     Live1 = ordsets:union(ordsets:from_list(Used), Live0),
     Live = ordsets:del_element(Killed, Live1),
     update_live_phis(Is, Pred, Live);
@@ -1710,10 +1701,10 @@ get_active(L, ActMap) ->
         #{} -> #{}
     end.
 
-reserve_try_tags_is([#b_set{op=new_try_tag,dst=#b_var{name=V}}|Is], Active) ->
+reserve_try_tags_is([#b_set{op=new_try_tag,dst=V}|Is], Active) ->
     N = map_size(Active),
     reserve_try_tags_is(Is, Active#{V=>N});
-reserve_try_tags_is([#b_set{op=kill_try_tag,args=[#b_var{name=Tag}]}|Is], Active) ->
+reserve_try_tags_is([#b_set{op=kill_try_tag,args=[Tag]}|Is], Active) ->
     reserve_try_tags_is(Is, maps:remove(Tag, Active));
 reserve_try_tags_is([_|Is], Active) ->
     reserve_try_tags_is(Is, Active);
@@ -1733,17 +1724,15 @@ update_act_map([], _, ActMap) -> ActMap.
 rename_vars([], _, Blocks, Count) ->
     {[],Blocks,Count};
 rename_vars(Vs, L, Blocks0, Count0) ->
-    {NewVs,Count} = new_var_names(Vs, Count0),
-    NewVars = [#b_var{name=V} || V <- NewVs],
+    {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
     Ren = zip(Vs, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
     #b_blk{is=Is0} = Blk0 = maps:get(L, Blocks1),
-    CopyIs = [#b_set{op=copy,dst=New,args=[#b_var{name=Old}]} ||
-                 {Old,New} <- Ren],
+    CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
     Blk = Blk0#b_blk{is=Is},
     Blocks = maps:put(L, Blk, Blocks1),
-    {NewVs,Blocks,Count}.
+    {NewVars,Blocks,Count}.
 
 insert_after_phis([#b_set{op=phi}=I|Is], InsertIs) ->
     [I|insert_after_phis(Is, InsertIs)];
@@ -1850,7 +1839,7 @@ reserve_regs(#st{args=Args,ssa=Blocks,intervals=Intervals,res=Res0}=St) ->
     Res = maps:from_list(Res3),
     St#st{res=reserve_xregs(Blocks, Res)}.
 
-reserve_arg_regs([#b_var{name=Arg}|Is], N, Acc) ->
+reserve_arg_regs([#b_var{}=Arg|Is], N, Acc) ->
     reserve_arg_regs(Is, N+1, [{Arg,{x,N}}|Acc]);
 reserve_arg_regs([], _, Acc) -> Acc.
 
@@ -1875,7 +1864,7 @@ reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
              #b_switch{}, ShortLived, A) ->
     reserve_zreg_1(Dst, ShortLived, A);
-reserve_zreg([#b_set{op=Op,dst=#b_var{name=Dst}}|Is], Last, ShortLived, A0) ->
+reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A0) ->
     IsZReg = case Op of
                  context_to_binary -> true;
                  bs_match_string -> true;
@@ -1901,7 +1890,7 @@ reserve_zreg([], #b_br{bool=Bool}, ShortLived, A) ->
     reserve_zreg_1(Bool, ShortLived, A);
 reserve_zreg([], _, _, A) -> A.
 
-reserve_zreg_1(#b_var{name=V}, ShortLived, A) ->
+reserve_zreg_1(#b_var{}=V, ShortLived, A) ->
     case cerl_sets:is_element(V, ShortLived) of
         true -> [{V,z}|A];
         false -> A
@@ -1914,7 +1903,7 @@ reserve_fregs(Blocks, Res) ->
         end,
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
-reserve_freg([#b_set{op={float,Op},dst=#b_var{name=V}}|Is], Res) ->
+reserve_freg([#b_set{op={float,Op},dst=V}|Is], Res) ->
     case Op of
         get ->
             reserve_freg(Is, Res);
@@ -1945,7 +1934,7 @@ reserve_xregs(Blocks, Res) ->
         end,
     beam_ssa:fold_po(F, Res, Blocks).
 
-reserve_xregs_is([#b_set{op=Op,dst=#b_var{name=Dst},args=Args}=I|Is], Res0, Xs0, Used0) ->
+reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
     Xs1 = case is_gc_safe(I) of
               true ->
                   Xs0;
@@ -1980,9 +1969,9 @@ reserve_terminator(L, #b_br{bool=#b_literal{val=true},succ=Succ}, Blocks, Res) -
 reserve_terminator(_, Last, _, _) ->
     {#{},beam_ssa:used(Last)}.
 
-res_xregs_from_phi([#b_set{op=phi,dst=#b_var{name=Dst},args=Args}|Is],
+res_xregs_from_phi([#b_set{op=phi,dst=Dst,args=Args}|Is],
                    Pred, Res, Acc) ->
-    case [V || {#b_var{name=V},L} <- Args, L =:= Pred] of
+    case [V || {#b_var{}=V,L} <- Args, L =:= Pred] of
         [] ->
             res_xregs_from_phi(Is, Pred, Res, Acc);
         [V] ->
@@ -1998,8 +1987,8 @@ res_xregs_from_phi(_, _, _, Acc) -> Acc.
 reserve_call_args(Args) ->
     reserve_call_args(Args, 0, #{}).
 
-reserve_call_args([#b_var{name=Name}|As], X, Xs) ->
-    reserve_call_args(As, X+1, Xs#{Name=>{x,X}});
+reserve_call_args([#b_var{}=Var|As], X, Xs) ->
+    reserve_call_args(As, X+1, Xs#{Var=>{x,X}});
 reserve_call_args([#b_literal{}|As], X, Xs) ->
     reserve_call_args(As, X+1, Xs);
 reserve_call_args([], _, Xs) -> Xs.
@@ -2078,9 +2067,9 @@ remove_unsuitable_aliases(#st{aliases=[_|_]=Aliases0,ssa=Blocks}=St) ->
 remove_unsuitable_aliases(#st{aliases=[]}=St) -> St.
 
 rem_unsuitable([#b_blk{is=Is}|Bs]) ->
-    Vs = [{V,Dst} ||
-        #b_set{op=bs_start_match,dst=#b_var{name=Dst},
-               args=[#b_var{name=V}]} <- Is],
+    Vs = [{Var,Dst} ||
+          #b_set{op=bs_start_match,dst=Dst,
+                 args=[#b_var{}=Var]} <- Is],
     Vs ++ rem_unsuitable(Bs);
 rem_unsuitable([]) -> [].
 
@@ -2432,14 +2421,14 @@ is_yreg({x,_}) -> false;
 is_yreg({z,_}) -> false;
 is_yreg({fr,_}) -> false.
 
-new_var_names([V0|Vs0], Count0) ->
-    {V,Count1} = new_var_name(V0, Count0),
-    {Vs,Count} = new_var_names(Vs0, Count1),
+new_vars([Base|Vs0], Count0) ->
+    {V,Count1} = new_var(Base, Count0),
+    {Vs,Count} = new_vars(Vs0, Count1),
     {[V|Vs],Count};
-new_var_names([], Count) -> {[],Count}.
+new_vars([], Count) -> {[],Count}.
 
-new_var_name({Base,Int}, Count) ->
+new_var({Base,Int}, Count)  ->
     true = is_integer(Int),                     %Assertion.
-    {{Base,Count},Count+1};
-new_var_name(Base, Count) ->
-    {{Base,Count},Count+1}.
+    {#b_var{name={Base,Count}},Count+1};
+new_var(Base, Count) ->
+    {#b_var{name={Base,Count}},Count+1}.
