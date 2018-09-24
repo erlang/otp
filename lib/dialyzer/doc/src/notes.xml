@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize Dialyzer's handling of left-associative use
+	    of <c>andalso</c> and <c>orelse</c> in guards. </p>
+          <p>
+	    Own Id: OTP-15268 Aux Id: ERL-680 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.3</title>
 
     <section><title>Improvements and New Features</title>

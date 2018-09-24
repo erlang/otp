@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.13.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize <c>observer</c> by using new
+	    <c>system_info(ets_count)</c> instead of more expensive
+	    <c>length(ets:all())</c>.</p>
+          <p>
+	    Own Id: OTP-15163 Aux Id: PR-1844 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.13</title>
 
     <section><title>Improvements and New Features</title>

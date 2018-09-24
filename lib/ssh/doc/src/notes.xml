@@ -30,6 +30,45 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extended the undocumented <c>ssh_dbg</c> debug module
+	    with an api for a circular trace buffer. This makes it
+	    easy to record the last low-level events before an error
+	    is detected. It is intended for solving difficult errors.</p>
+          <p>
+	    Own Id: OTP-15020</p>
+        </item>
+        <item>
+          <p>
+	    The key exchange methods
+	    <c>'curve25519-sha256@libssh.org'</c>,
+	    <c>'curve25519-sha256'</c> and <c>'curve448-sha512'</c>
+	    are implemented. The last two are defined in
+	    https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves</p>
+          <p>
+	    They all depends on that OpenSSL 1.1.1 or higher is used
+	    as cryptolib.</p>
+          <p>
+	    Own Id: OTP-15133 Aux Id: OTP-15240 </p>
+        </item>
+        <item>
+          <p>
+	    The cipher '<c>chacha20-poly1305@openssh.com</c>' is now
+	    supported if OpenSSL 1.1.1 or higher is used as
+	    cryptolib.</p>
+          <p>
+	    Own Id: OTP-15209 Aux Id: OTP-15164 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

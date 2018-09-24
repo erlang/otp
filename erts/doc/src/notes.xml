@@ -31,6 +31,159 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the seq_trace token to not be cleared when a process
+	    receives messages sent by erts. Some examples of when
+	    this could happen is all port BIFs, i.e.
+	    <c>open_port</c>, <c>port_command</c> etc etc.</p>
+          <p>
+	    Fix so that messages sent by nifs can be traced using
+	    normal and <c>seq_trace</c> tracing.</p>
+          <p>
+	    Own Id: OTP-15038 Aux Id: ERL-602 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed specs and documentation for <c>process_info</c>
+	    item <c>monitored_by</c> to include port identifiers and
+	    nif resources as possible types.</p>
+          <p>
+	    Own Id: OTP-15180 Aux Id: ERL-648 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in generation of erl_crash.dump, which could
+	    cause VM to crash.</p>
+          <p>
+	    Bug exist since erts-9.2 (OTP-20.2).</p>
+          <p>
+	    Own Id: OTP-15181</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where ctrl-break or ctrl-c would not trigger the
+	    break mode properly on Windows. This bug was introduced
+	    in erts-10.0 (OTP-21).</p>
+          <p>
+	    Own Id: OTP-15205</p>
+        </item>
+        <item>
+          <p>
+	    Fix a performance bug for reception of UDP packages,
+	    where a memory buffer would be reallocated when it should
+	    not have been.</p>
+          <p>
+	    Introduce a limit on the maximum automatic increase of
+	    the UDP user-space buffer to the theoretical max of the
+	    network PATH, i.e. 65535.</p>
+          <p>
+	    Own Id: OTP-15206</p>
+        </item>
+        <item>
+          <p>
+	    Fix alignment of erts allocator state internally in erts.
+	    With the improper alignment the emulator would refuse to
+	    start when compiled with clang on 32-bit systems.</p>
+          <p>
+	    Own Id: OTP-15208 Aux Id: PR-1897 ERL-677 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where too many concurrent calls to
+	    <c>erlang:open_port({spawn,"cmd"},...)</c> would result
+	    in the emulator terminating with the reason "Failed to
+	    write to erl_child_setup: ". After this fix the
+	    <c>open_port</c> call will throw an <c>emfile</c>
+	    exception instead.</p>
+          <p>
+	    Own Id: OTP-15210</p>
+        </item>
+        <item>
+          <p>
+	    Upgraded the ERTS internal PCRE library from version 8.41
+	    to version 8.42. See <url
+	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
+	    for information about changes made to PCRE. This library
+	    implements major parts of the <seealso
+	    marker="stdlib:re"><c>re</c></seealso> regular
+	    expressions module.</p>
+          <p>
+	    Own Id: OTP-15217</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>open_port({fd,X,Y}, ...)</c> to release the file
+	    descriptors from the pollset when closing the port.
+	    Without this fix the same file descriptor number could
+	    not be reused when doing multiple open_port and
+	    port_close sequences.</p>
+          <p>
+	    Own Id: OTP-15236 Aux Id: ERL-692 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>float_to_list/2</c> and
+	    <c>float_to_binary/2</c> with options
+	    <c>[{decimals,0},compact]</c> causing totally wrong
+	    results. Bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15276 Aux Id: PR-1920 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:memory</c> causing <c>ets</c> to
+	    report too much. This small false memory leak (16 bytes
+	    each time) can only happen when a specific race condition
+	    occurs between scheduler threads on a table with option
+	    <c>write_concurrency</c>.</p>
+          <p>
+	    Own Id: OTP-15278</p>
+        </item>
+        <item>
+          <p>
+	    Minor <c>configure</c> test fixes</p>
+          <p>
+	    Own Id: OTP-15282</p>
+        </item>
+        <item>
+          <p>
+	    Improved robustness of distribution connection setup. In
+	    OTP-21.0 a truly asynchronous connection setup was
+	    introduced. This is further improvement on that work to
+	    make the emulator more robust and also be able to recover
+	    in cases when involved Erlang processes misbehave.</p>
+          <p>
+	    Own Id: OTP-15297 Aux Id: OTP-15279, OTP-15280 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The socket options <c>recvtos</c>, <c>recvttl</c>,
+	    <c>recvtclass</c> and <c>pktoptions</c> have been
+	    implemented in the socket modules. See the documentation
+	    for the <c>gen_tcp</c>, <c>gen_udp</c> and <c>inet</c>
+	    modules. Note that support for these in the runtime
+	    system is platform dependent. Especially for
+	    <c>pktoptions</c> which is very Linux specific and
+	    obsoleted by the RFCs that defined it.</p>
+          <p>
+	    Own Id: OTP-15145 Aux Id: ERIERL-187 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.0.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -35,6 +35,41 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed <c>#DSAPrivateKey{}</c> as acceptable input to
+	    <c>public_key:verify/5</c>.</p>
+          <p>
+	    Own Id: OTP-15284</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The typing in the CRYPTO and PUBLIC_KEY applications are
+	    reworked and a few mistakes are corrected.</p>
+          <p>
+	    The documentation is now generated from the typing and
+	    some clarifications are made.</p>
+          <p>
+	    A new chapter on Algorithm Details such as key sizes and
+	    availability is added to the CRYPTO User's Guide.</p>
+          <p>
+	    Own Id: OTP-15134</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
