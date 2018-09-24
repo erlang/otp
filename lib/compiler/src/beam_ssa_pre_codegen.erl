@@ -574,21 +574,24 @@ sanitize([], Count, Blocks0, Values) ->
          false -> remove_unreachable(Ls, Blocks, Reachable, [])
      end,Count}.
 
-sanitize_is([#b_set{op=get_map_element,
-                    args=[#b_literal{}=Map,Key]}=I0|Is],
-            Count0, Values, _Changed, Acc) ->
-    {MapVar,Count} = new_var('@ssa_map', Count0),
-    I = I0#b_set{args=[MapVar,Key]},
-    Copy = #b_set{op=copy,dst=MapVar,args=[Map]},
-    sanitize_is(Is, Count, Values, true, [I,Copy|Acc]);
+sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
+            Count0, Values, Changed, Acc) ->
+    case sanitize_args(Args0, Values) of
+        [#b_literal{}=Map,Key] ->
+            %% Bind the literal map to a variable.
+            {MapVar,Count} = new_var('@ssa_map', Count0),
+            I = I0#b_set{args=[MapVar,Key]},
+            Copy = #b_set{op=copy,dst=MapVar,args=[Map]},
+            sanitize_is(Is, Count, Values, true, [I,Copy|Acc]);
+        [_,_]=Args0 ->
+            sanitize_is(Is, Count0, Values, Changed, [I0|Acc]);
+        [_,_]=Args ->
+            I = I0#b_set{args=Args},
+            sanitize_is(Is, Count0, Values, Changed, [I|Acc])
+    end;
 sanitize_is([#b_set{op=Op,dst=Dst,args=Args0}=I0|Is0],
-            Count, Values, Changed, Acc) ->
-    Args = map(fun(Var) ->
-                       case Values of
-                           #{Var:=New} -> New;
-                           #{} -> Var
-                       end
-               end, Args0),
+            Count, Values, Changed0, Acc) ->
+    Args = sanitize_args(Args0, Values),
     case sanitize_instr(Op, Args, I0) of
         {value,Value0} ->
             Value = #b_literal{val=Value0},
@@ -596,7 +599,9 @@ sanitize_is([#b_set{op=Op,dst=Dst,args=Args0}=I0|Is0],
         {ok,I} ->
             sanitize_is(Is0, Count, Values, true, [I|Acc]);
         ok ->
-            sanitize_is(Is0, Count, Values, Changed, [I0|Acc])
+            I = I0#b_set{args=Args},
+            Changed = Changed0 orelse Args =/= Args0,
+            sanitize_is(Is0, Count, Values, Changed, [I|Acc])
     end;
 sanitize_is([], Count, Values, Changed, Acc) ->
     case Changed of
@@ -605,6 +610,14 @@ sanitize_is([], Count, Values, Changed, Acc) ->
         false ->
             no_change
     end.
+
+sanitize_args(Args, Values) ->
+    map(fun(Var) ->
+                case Values of
+                    #{Var:=New} -> New;
+                    #{} -> Var
+                end
+        end, Args).
 
 sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
     case erl_bifs:is_pure(erlang, Bif, 1) of
