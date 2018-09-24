@@ -707,10 +707,6 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}},
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(bs_context_to_binary, [Src0], [], _Le, St) ->
-    Src = ssa_arg(Src0, St),
-    Set = #b_set{op=context_to_binary,args=[Src]},
-    {[Set],St};
 internal_cg(dsetelement, [Index0,Tuple0,New0], _Rs, _Le, St) ->
     [New,Tuple,#b_literal{val=Index1}] = ssa_args([New0,Tuple0,Index0], St),
     Index = #b_literal{val=Index1-1},

@@ -98,7 +98,7 @@
 -type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_init' | 'bs_init_writable' |
                    'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
                    'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
-                   'call' | 'catch_end' | 'context_to_binary' |
+                   'call' | 'catch_end' |
                    'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
                    'has_map_field' |

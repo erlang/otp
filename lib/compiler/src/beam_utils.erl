@@ -458,11 +458,6 @@ check_liveness(R, [{get_tuple_element,S,_,D}|Is], St) ->
 	D -> {killed,St};
 	_ -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{bs_context_to_binary,S}|Is], St) ->
-    case R of
-	S -> {used,St};
-	_ -> check_liveness(R, Is, St)
-    end;
 check_liveness(R, [{loop_rec,{f,_},{x,0}}|_], St) ->
     case R of
 	{x,_} ->

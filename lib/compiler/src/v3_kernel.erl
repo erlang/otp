@@ -1415,7 +1415,6 @@ is_remote_bif(_, _, _) -> false.
 %%  called for effect only.
 
 bif_vals(dsetelement, 3) -> 0;
-bif_vals(bs_context_to_binary, 1) -> 0;
 bif_vals(_, _) -> 1.
 
 bif_vals(_, _, _) -> 1.

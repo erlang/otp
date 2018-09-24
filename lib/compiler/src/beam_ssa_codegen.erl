@@ -345,7 +345,6 @@ classify_heap_need(bs_utf8_size) -> neutral;
 classify_heap_need(build_stacktrace) -> gc;
 classify_heap_need(call) -> gc;
 classify_heap_need(catch_end) -> gc;
-classify_heap_need(context_to_binary) -> gc;
 classify_heap_need(copy) -> neutral;
 classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
@@ -1395,8 +1394,6 @@ cg_instr(bs_set_position, [Ctx,Pos], _Dst) ->
     [{bs_set_position,Ctx,Pos}];
 cg_instr(build_stacktrace, Args, Dst) ->
     setup_args(Args) ++ [build_stacktrace|copy({x,0}, Dst)];
-cg_instr(context_to_binary, [Src], _Dst) ->
-    [{bs_context_to_binary,Src}];
 cg_instr(set_tuple_element=Op, [New,Tuple,{integer,Index}], _Dst) ->
     [{Op,New,Tuple,Index}];
 cg_instr({float,clearerror}, [], _Dst) ->

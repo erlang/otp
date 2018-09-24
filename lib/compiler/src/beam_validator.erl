@@ -286,17 +286,6 @@ valfun_1({try_case_end,Src}, Vst) ->
     assert_term(Src, Vst),
     kill_state(Vst);
 %% Instructions that cannot cause exceptions
-valfun_1({bs_context_to_binary,Ctx}, #vst{current=#st{x=Xs}}=Vst) ->
-    case Ctx of
-	{Tag,X} when Tag =:= x; Tag =:= y ->
-	    Type = case gb_trees:lookup(X, Xs) of
-		       {value,#ms{}} -> term;
-		       _ -> get_term_type(Ctx, Vst)
-		   end,
-	    set_type_reg(Type, Ctx, Vst);
-	_ ->
-	    error({bad_source,Ctx})
-    end;
 valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
