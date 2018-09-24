@@ -3457,6 +3457,13 @@ delete_large_tab_do(Opts,Data) ->
 
 
 delete_large_tab_1(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            delete_large_tab_2(Name, Flags, Data, Fix)
+    end.
+
+delete_large_tab_2(Name, Flags, Data, Fix) ->
     Tab = ets_new(Name, Flags),
     ets:insert(Tab, Data),
 
@@ -3528,6 +3535,13 @@ delete_large_named_table_do(Opts,Data) ->
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, true).
 
 delete_large_named_table_1(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            delete_large_named_table_2(Name, Flags, Data, Fix)
+    end.
+
+delete_large_named_table_2(Name, Flags, Data, Fix) ->
     Tab = ets_new(Name, Flags),
     ets:insert(Tab, Data),
 
@@ -3576,6 +3590,13 @@ evil_delete_do(Opts,Data) ->
 		  [TabA,TabB,TabC,TabD]).
 
 evil_delete_not_owner(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            evil_delete_not_owner_1(Name, Flags, Data, Fix)
+    end.
+
+evil_delete_not_owner_1(Name, Flags, Data, Fix) ->
     io:format("Not owner: ~p, fix = ~p", [Name,Fix]),
     Tab = ets_new(Name, [public|Flags]),
     ets:insert(Tab, Data),
@@ -3601,6 +3622,13 @@ evil_delete_not_owner(Name, Flags, Data, Fix) ->
     Tab.
 
 evil_delete_owner(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            evil_delete_owner_1(Name, Flags, Data, Fix)
+    end.
+
+evil_delete_owner_1(Name, Flags, Data, Fix) ->
     Fun = fun() ->
 		  Tab = ets_new(Name, [public|Flags]),
 		  ets:insert(Tab, Data),
@@ -7230,16 +7258,22 @@ repeat_for_opts(F, OptGenList) when is_function(F, 1) ->
 repeat_for_opts(F, [], Acc) ->
     lists:foldl(fun(Opts, RV_Acc) ->
 			OptList = lists:filter(fun(E) -> E =/= void end, Opts),
-			io:format("Calling with options ~p\n",[OptList]),
-			RV = F(OptList),
-			case RV_Acc of
-			    {comment,_} -> RV_Acc;
-			    _ -> case RV of
-				     {comment,_} -> RV;
-				     _ -> [RV | RV_Acc]
-				 end
-			end
-		end, [], Acc);
+                        case is_redundant_opts_combo(OptList) of
+                            true ->
+                                %%io:format("Ignoring redundant options ~p\n",[OptList]),
+                                ok;
+                            false ->
+                                io:format("Calling with options ~p\n",[OptList]),
+                                RV = F(OptList),
+                                case RV_Acc of
+                                    {comment,_} -> RV_Acc;
+                                    _ -> case RV of
+                                             {comment,_} -> RV;
+                                             _ -> [RV | RV_Acc]
+                                         end
+                                end
+                        end
+                end, [], Acc);
 repeat_for_opts(F, [OptList | Tail], []) when is_list(OptList) ->
     repeat_for_opts(F, Tail, [[Opt] || Opt <- OptList]);
 repeat_for_opts(F, [OptList | Tail], AccList) when is_list(OptList) ->
@@ -7256,6 +7290,13 @@ repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{writ
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [compressed,void].
 
+is_redundant_opts_combo(Opts) ->
+    (lists:member(stim_cat_ord_set, Opts) orelse
+     lists:member(cat_ord_set, Opts))
+        andalso
+    (lists:member({write_concurrency, false}, Opts) orelse
+     lists:member(private, Opts) orelse
+     lists:member(protected, Opts)).
 
 ets_new(Name, Opts) ->
     ReplaceStimOrdSetHelper =
