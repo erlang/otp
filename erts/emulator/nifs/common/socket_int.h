@@ -184,6 +184,7 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
 #define MKEL(E)             enif_make_list((E), 0)
 #define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M))
+#define MKPID(E, P)         enif_make_pid((E), (P))
 #define MKREF(E)            enif_make_ref((E))
 #define MKS(E,S)            enif_make_string((E), (S), ERL_NIF_LATIN1)
 #define MKSL(E,S,L)         enif_make_string_len((E), (S), (L), ERL_NIF_LATIN1)
