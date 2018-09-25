@@ -96,6 +96,7 @@ MODULES= \
 	standard_error_SUITE \
 	multi_load_SUITE \
 	zzz_SUITE \
+	socket_SUITE \
 	$(SOCKET_MODULES)
 
 APP_FILES = \
@@ -134,6 +135,7 @@ ERL_COMPILE_FLAGS +=
 EBIN = .
 
 SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
+TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
@@ -155,6 +157,8 @@ clean:
 	rm -f core
 
 docs:
+
+targets: $(TARGETS)
 
 socket: $(SOCKET_TARGETS)
 
