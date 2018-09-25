@@ -7839,8 +7839,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
              * cmsg options and values
              */
             PLACE_FOR(1+4, ptr);
-            *ptr = opt;
-            arg_ptr = ptr+1; /* Where to put total length */
+            *ptr++ = opt;
+            arg_ptr = ptr; /* Where to put total length */
             arg_sz = 0; /* Total length */
             for (cmsg_top = (struct cmsghdr*)(cmsgbuf.buf + cmsg_sz),
                      cmsg = (struct cmsghdr*)cmsgbuf.buf;
@@ -7852,7 +7852,6 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                     PLACE_FOR(1+4, ptr);                \
                     *ptr++ = OPT;                       \
                     put_cmsg_int32(cmsg, ptr);          \
-                    ptr += 4;                           \
                     arg_sz += 1+4;                      \
                     continue;                           \
                 }
@@ -7866,7 +7865,6 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                 PUT_CMSG_INT32(IPPROTO_IP, IP_TTL, INET_OPT_TTL);
 #endif
                 /* BSD uses the RECV* names in CMSG fields */
-            }
 #if defined(IPPROTO_IP) && defined(IP_RECVTOS)
                 PUT_CMSG_INT32(IPPROTO_IP, IP_RECVTOS, INET_OPT_TOS);
 #endif
@@ -7877,6 +7875,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                 PUT_CMSG_INT32(IPPROTO_IP, IP_RECVTTL, INET_OPT_TTL);
 #endif
 #undef PUT_CMSG_INT32
+            }
             put_int32(arg_sz, arg_ptr); /* Put total length */
             continue;
         }
