@@ -649,6 +649,7 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/atomics.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/counters.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/persistent_term.beam
 
 ifeq ($(TARGET),win32)
@@ -842,7 +843,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_bif_info.o	$(OBJDIR)/erl_bif_op.o \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
 	$(OBJDIR)/erl_bif_persistent.o \
-	$(OBJDIR)/erl_bif_atomics.o \
+	$(OBJDIR)/erl_bif_atomics.o    	$(OBJDIR)/erl_bif_counters.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
 	$(OBJDIR)/erl_bif_wrap.o	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \

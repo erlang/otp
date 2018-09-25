@@ -54,6 +54,7 @@ XML_REF3_EFILES = \
 	init.xml \
 	persistent_term.xml \
 	atomics.xml \
+	counters.xml \
 	zlib.xml
 
 XML_REF3_FILES = \

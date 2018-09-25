@@ -51,5 +51,6 @@
   <xi:include href="erl_nif.xml"/>
   <xi:include href="erl_tracer.xml"/>
   <xi:include href="atomics.xml"/>
+  <xi:include href="counters.xml"/>
 </application>
 

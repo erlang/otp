@@ -34,6 +34,7 @@
 		prim_inet,
 		prim_zip,
                 atomics,
+                counters,
 		zlib
 	    ]},
 	{registered, []},

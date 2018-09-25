@@ -51,6 +51,7 @@ MODULES= \
 	call_trace_SUITE \
 	code_SUITE \
 	code_parallel_load_SUITE \
+	counters_SUITE \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
