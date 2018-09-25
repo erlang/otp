@@ -33,6 +33,26 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Logger handler cth_log_redirect earlier called the
+	    report callback (report_cb) before calling the logger
+	    formatter. In some cases this would fail, since
+	    cth_log_redirect could not handle report callbacks with
+	    two arguments. This is now corrected, so only the
+	    formatter will call the report callback.</p>
+          <p>
+	    Own Id: OTP-15307</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.16</title>
 
     <section><title>Improvements and New Features</title>

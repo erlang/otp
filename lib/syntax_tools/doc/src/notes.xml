@@ -32,6 +32,44 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the <c>TypeName</c> type in erl_syntax_lib.</p>
+          <p>
+	    Own Id: OTP-15207 Aux Id: PR-1888 </p>
+        </item>
+        <item>
+	    <p> Correct unfolding of the stacktrace variable. </p>
+          <p>
+	    Own Id: OTP-15291 Aux Id: ERL-719 </p>
+        </item>
+        <item>
+	    <p> Correct <c>erl_syntax:revert/1</c> bug regarding the
+	    types <c>map()</c> and <c>tuple()</c>. </p>
+          <p>
+	    Own Id: OTP-15294</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support bitstrings as literals in module
+	    <c>erl_syntax</c>. </p>
+          <p>
+	    Own Id: OTP-15165 Aux Id: PR-1842 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.1.5</title>
     <section><title>Improvements and New Features</title>
       <list>

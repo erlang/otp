@@ -31,6 +31,111 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The values <c>all</c> and <c>none</c> are documented as
+	    valid value for the Kernel configuration parameter
+	    <c>logger_level</c>, but would cause a crash during node
+	    start. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15143</p>
+        </item>
+        <item>
+          <p>
+	    Fix some potential buggy behavior in how ticks are sent
+	    on inter node distribution connections. Tick is now sent
+	    to c-node even if there are unsent buffered data, as
+	    c-nodes need ticks in order to send reply ticks. The
+	    amount of sent data was also calculated wrongly when
+	    ticks were suppressed due to unsent buffered data.</p>
+          <p>
+	    Own Id: OTP-15162 Aux Id: ERIERL-191 </p>
+        </item>
+        <item>
+          <p>
+	    Non semantic change in dist_util.erl to silence dialyzer
+	    warning.</p>
+          <p>
+	    Own Id: OTP-15170</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>net_kernel:connect_node(node())</c> to return
+	    <c>true</c> (and do nothing) as it always has before
+	    OTP-21.0. Also documented this successful "self connect"
+	    as the expected behavior.</p>
+          <p>
+	    Own Id: OTP-15182 Aux Id: ERL-643 </p>
+        </item>
+        <item>
+          <p>
+	    The single_line option on logger_formatter would in some
+	    cases add an unwanted comma after the association arrows
+	    in a map. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15228</p>
+        </item>
+        <item>
+          <p>
+	    Improved robustness of distribution connection setup. In
+	    OTP-21.0 a truly asynchronous connection setup was
+	    introduced. This is further improvement on that work to
+	    make the emulator more robust and also be able to recover
+	    in cases when involved Erlang processes misbehave.</p>
+          <p>
+	    Own Id: OTP-15297 Aux Id: OTP-15279, OTP-15280 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new macro, <c>?LOG(Level,...)</c>, is added. This is
+	    equivalent to the existing <c>?LOG_&lt;LEVEL&gt;(...)</c>
+	    macros.</p>
+          <p>
+	    A new variant of Logger report callback is added, which
+	    takes an extra argument containing options for size
+	    limiting and line breaks. Module <c>proc_lib</c> in
+	    <c>STDLIB</c> uses this for crash reports.</p>
+          <p>
+	    Logger configuration is now checked a bit more for
+	    errors.</p>
+          <p>
+	    Own Id: OTP-15132</p>
+        </item>
+        <item>
+          <p>
+	    The socket options <c>recvtos</c>, <c>recvttl</c>,
+	    <c>recvtclass</c> and <c>pktoptions</c> have been
+	    implemented in the socket modules. See the documentation
+	    for the <c>gen_tcp</c>, <c>gen_udp</c> and <c>inet</c>
+	    modules. Note that support for these in the runtime
+	    system is platform dependent. Especially for
+	    <c>pktoptions</c> which is very Linux specific and
+	    obsoleted by the RFCs that defined it.</p>
+          <p>
+	    Own Id: OTP-15145 Aux Id: ERIERL-187 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>logger:set_application_level/2</c> for setting the
+	    logger level of all modules in one application.</p>
+          <p>
+	    Own Id: OTP-15146</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

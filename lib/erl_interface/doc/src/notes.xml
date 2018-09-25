@@ -31,6 +31,53 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>ei_connect</c> and friends also accept state
+	    <c>ok_simultaneous</c> during handshake, which means the
+	    other node has initiated a connection setup that will be
+	    cancelled in favor of this connection.</p>
+          <p>
+	    Own Id: OTP-15161 Aux Id: ERIERL-191 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_receive_msg</c>,
+	    <c>ei_xreceive_msg</c>, <c>ei_receive_msg_tmo</c> and
+	    <c>ei_xreceive_msg_tmo</c>. The <c>x-&gt;index</c> was
+	    set to entire buffer size instead of the number of bytes
+	    actually received.</p>
+          <p>
+	    Own Id: OTP-15171</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_connect_init</c> which could be
+	    provoked if called by concurrent threads.
+	    <c>ei_connect_init</c> called posix interface
+	    <c>gethostbyname</c> which is documented as not thread
+	    safe.</p>
+          <p>
+	    Own Id: OTP-15191</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in erl_compare_ext() ignoring the tail of lists
+	    of otherwise equal content. Example: <c>[a | b]</c> and
+	    <c>[a | c]</c> compared equal and <c>{[a], b}</c> and
+	    <c>{[a], c}</c> compared equal.</p>
+          <p>
+	    Own Id: OTP-15277 Aux Id: PR-1929 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

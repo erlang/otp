@@ -32,6 +32,58 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that prevented certain variable-sized
+	    binary comprehensions from compiling.</p>
+          <p>
+	    Own Id: OTP-15186 Aux Id: ERL-665 </p>
+        </item>
+        <item>
+	    <p>When compiling from Core Erlang, funs created in
+	    certain expressions that were only used for their
+	    side-effects were subtly broken.</p>
+          <p>
+	    Own Id: OTP-15188 Aux Id: ERL-658 </p>
+        </item>
+        <item>
+	    <p>There could be an internal consistency failure when a
+	    <c>receive</c> was nested in a
+	    <c>try</c>/<c>catch</c>.</p>
+          <p>
+	    Own Id: OTP-15218 Aux Id: ERL-684 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the matched out tail of a
+	    binary could be the entire original binary.</p>
+          <p>
+	    Own Id: OTP-15219 Aux Id: ERL-689 </p>
+        </item>
+        <item>
+	    <p>When <c>is_map_key/2</c> was used in a guard together
+	    with the <c>not/1</c> or <c>or/2</c> operators, the error
+	    behavior could be wrong when <c>is_map_key/2</c> was
+	    passed a non-map as the second argument. </p>
+	    <p>In rare circumstances, compiling code that uses
+	    <c>is_map_key/2</c> could cause an internal consistency
+	    check failure.</p>
+          <p>
+	    Own Id: OTP-15227 Aux Id: ERL-699 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when compiling a function
+	    with multiple receives in multiple clauses.</p>
+          <p>
+	    Own Id: OTP-15235 Aux Id: ERL-703 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.1.7</title>
 
     <section><title>Improvements and New Features</title>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the OTP_Mibs
     application.</p>
 
+<section><title>Otp_Mibs 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Otp_Mibs 1.2</title>
 
     <section><title>Improvements and New Features</title>

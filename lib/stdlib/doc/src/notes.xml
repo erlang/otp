@@ -31,6 +31,41 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The specs of <c>filename:basedir/2,3</c> are
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15252 Aux Id: ERL-667 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Let <c>dets:open_file()</c> exit with a <c>badarg</c>
+	    message if given a raw file name (a binary). </p>
+          <p>
+	    Own Id: OTP-15253 Aux Id: OTP-13229, ERL-55 </p>
+        </item>
+        <item>
+	    <p> The <c>Format</c> argument of the formatting
+	    functions in modules <c>io</c> and <c>io_lib</c> is
+	    accepted even if it is, for example, a list of binaries.
+	    This is how it used to be before Erlang/OTP 21.0. </p>
+          <p>
+	    Own Id: OTP-15304</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

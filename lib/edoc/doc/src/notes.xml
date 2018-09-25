@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.9.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
