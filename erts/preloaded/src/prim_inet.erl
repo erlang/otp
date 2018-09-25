@@ -520,12 +520,34 @@ sendfile(S, FileHandle, Offset, Length)
 sendfile(S, FileHandle, Offset, Length) ->
     case erlang:port_info(S, connected) of
         {connected, Pid} when Pid =:= self() ->
-            sendfile_1(S, FileHandle, Offset, Length);
+            Uncork = sendfile_maybe_cork(S),
+            Result = sendfile_1(S, FileHandle, Offset, Length),
+            sendfile_maybe_uncork(S, Uncork),
+            Result;
         {connected, Pid} when Pid =/= self() ->
             {error, not_owner};
         _Other ->
             {error, einval}
     end.
+
+sendfile_maybe_cork(S) ->
+    case getprotocol(S) of
+        tcp ->
+            case getopts(S, [nopush]) of
+                {ok, [{nopush,false}]} ->
+                    _ = setopts(S, [{nopush,true}]),
+                    true;
+                _ ->
+                    false
+            end;
+        _ -> false
+    end.
+
+sendfile_maybe_uncork(S, true) ->
+    _ = setopts(S, [{nopush,false}]),
+    ok;
+sendfile_maybe_uncork(_, false) ->
+    ok.
 
 sendfile_1(S, FileHandle, Offset, 0) ->
     sendfile_1(S, FileHandle, Offset, (1 bsl 63) - 1);
