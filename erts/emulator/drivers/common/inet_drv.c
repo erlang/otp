@@ -812,6 +812,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_PKTOPTIONS         45  /* IP(V6)_PKTOPTIONS get ancillary data */
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
+#define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -954,6 +955,12 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 #endif
 
+
+#if defined(TCP_CORK)
+#define INET_TCP_NOPUSH TCP_CORK
+#elif defined(TCP_NOPUSH) && !defined(__DARWIN__)
+#define INET_TCP_NOPUSH TCP_NOPUSH
+#endif
 
 #define BIN_REALLOC_MARGIN(x)  ((x)/4)  /* 25% */
 
@@ -6532,6 +6539,19 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		    (long)desc->port, desc->s, ival));
 	    break;
 
+	case TCP_OPT_NOPUSH:
+#if defined(INET_TCP_NOPUSH)
+	    proto = IPPROTO_TCP;
+	    type = INET_TCP_NOPUSH;
+	    DEBUGF(("inet_set_opts(%ld): s=%d, t=%d TCP_NOPUSH=%d\r\n",
+	            (long)desc->port, desc->s, type, ival));
+	    break;
+#else
+	    /* inet_fill_opts always returns a value for this option,
+	     * so we need to ignore it if not implemented, just in case */
+	    continue;
+#endif
+
 #if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
 
 	case UDP_OPT_MULTICAST_TTL:
@@ -7693,6 +7713,16 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    proto = IPPROTO_TCP;
 	    type = TCP_NODELAY;
 	    break;
+	case TCP_OPT_NOPUSH:
+#if defined(INET_TCP_NOPUSH)
+	    proto = IPPROTO_TCP;
+	    type = INET_TCP_NOPUSH;
+	    break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
 
 #if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
 	case UDP_OPT_MULTICAST_TTL:
