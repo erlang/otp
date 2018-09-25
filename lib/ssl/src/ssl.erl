@@ -1041,8 +1041,8 @@ handle_options(Opts0, Role, Host) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert, log_level,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
-                  max_handshake_size, handshake, customize_hostname_check],
+		  fallback, signature_algs, signature_algs_cert, eccs, honor_ecc_order,
+                  beast_mitigation, max_handshake_size, handshake, customize_hostname_check],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -1645,6 +1645,14 @@ new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordC
 					 handle_hashsigns_option(Value, 
 								 tls_version(RecordCB:highest_protocol_version()))}, 
 		    RecordCB);
+new_ssl_options([{signature_algs_cert, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(
+      Rest,
+      Opts#ssl_options{signature_algs_cert =
+                           handle_signature_algorithms_option(
+                             Value,
+                             tls_version(RecordCB:highest_protocol_version()))},
+      RecordCB);
 new_ssl_options([{protocol, dtls = Value} | Rest], #ssl_options{} = Opts, dtls_record = RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{protocol = Value}, RecordCB);
 new_ssl_options([{protocol, tls = Value} | Rest], #ssl_options{} = Opts, tls_record = RecordCB) -> 
