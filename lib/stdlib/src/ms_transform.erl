@@ -946,6 +946,7 @@ real_guard_function(node,0) -> true;
 real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;
 real_guard_function(size,1) -> true;
+real_guard_function(bit_size,1) -> true;
 real_guard_function(map_size,1) -> true;
 real_guard_function(map_get,2) -> true;
 real_guard_function(tl,1) -> true;
