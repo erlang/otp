@@ -131,6 +131,10 @@ passes(Opts) ->
           ?PASS(find_yregs),
           ?PASS(reserve_yregs),
 
+          %% Handle legacy binary match instruction that don't
+          %% accept a Y register as destination.
+          ?PASS(legacy_bs),
+
           %% Improve reuse of Y registers to potentially
           %% reduce the size of the stack frame.
           ?PASS(copy_retval),
@@ -611,6 +615,59 @@ bs_subst_ctx(#b_var{}=Var, CtxChain) ->
     end;
 bs_subst_ctx(Other, _CtxChain) ->
     Other.
+
+%% legacy_bs(St0) -> St.
+%%  Binary matching instructions in OTP 21 and earlier don't support
+%%  a Y register as destination. If St#st.use_bsm3 is false,
+%%  we will need to rewrite those instructions so that the result
+%%  is first put in an X register and then moved to a Y register
+%%  if the operation succeeded.
+
+legacy_bs(#st{use_bsm3=false,ssa=Blocks0,cnt=Count0,res=Res}=St) ->
+    IsYreg = maps:from_list([{V,true} || {V,{y,_}} <- Res]),
+    Linear0 = beam_ssa:linearize(Blocks0),
+    {Linear,Count} = legacy_bs(Linear0, IsYreg, Count0, #{}, []),
+    Blocks = maps:from_list(Linear),
+    St#st{ssa=Blocks,cnt=Count};
+legacy_bs(#st{use_bsm3=true}=St) -> St.
+
+legacy_bs([{L,Blk}|Bs], IsYreg, Count0, Copies0, Acc) ->
+    #b_blk{is=Is0,last=Last} = Blk,
+    Is1 = case Copies0 of
+              #{L:=Copy} -> [Copy|Is0];
+              #{} -> Is0
+          end,
+    {Is,Count,Copies} = legacy_bs_is(Is1, Last, IsYreg, Count0, Copies0, []),
+    legacy_bs(Bs, IsYreg, Count, Copies, [{L,Blk#b_blk{is=Is}}|Acc]);
+legacy_bs([], _IsYreg, Count, _Copies, Acc) ->
+    {Acc,Count}.
+
+legacy_bs_is([#b_set{op=Op,dst=Dst}=I0,
+              #b_set{op=succeeded,dst=SuccDst,args=[Dst]}=SuccI0],
+             Last, IsYreg, Count0, Copies0, Acc) ->
+    NeedsFix = is_map_key(Dst, IsYreg) andalso
+        case Op of
+            bs_get -> true;
+            bs_init -> true;
+            _ -> false
+        end,
+    case NeedsFix of
+        true ->
+            TempDst = #b_var{name={'@bs_temp_dst',Count0}},
+            Count = Count0 + 1,
+            I = I0#b_set{dst=TempDst},
+            SuccI = SuccI0#b_set{args=[TempDst]},
+            Copy = #b_set{op=copy,dst=Dst,args=[TempDst]},
+            #b_br{bool=SuccDst,succ=SuccL} = Last,
+            Copies = Copies0#{SuccL=>Copy},
+            legacy_bs_is([], Last, IsYreg, Count, Copies, [SuccI,I|Acc]);
+        false ->
+            legacy_bs_is([], Last, IsYreg, Count0, Copies0, [SuccI0,I0|Acc])
+    end;
+legacy_bs_is([I|Is], Last, IsYreg, Count, Copies, Acc) ->
+    legacy_bs_is(Is, Last, IsYreg, Count, Copies, [I|Acc]);
+legacy_bs_is([], _Last, _IsYreg, Count, Copies, Acc) ->
+    {reverse(Acc),Count,Copies}.
 
 %% sanitize(St0) -> St.
 %%  Remove constructs that can cause problems later:

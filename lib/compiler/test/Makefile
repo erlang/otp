@@ -98,6 +98,7 @@ INLINE= \
 	record
 
 R21= \
+        bs_construct \
         bs_match
 
 CORE_MODULES = \
