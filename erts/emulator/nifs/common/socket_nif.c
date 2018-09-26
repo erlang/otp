@@ -2918,15 +2918,14 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     eSockAddr = argv[1];
 
     SSDBG( descP,
-           ("SOCKET", "nif_bind -> args when sock = %d:"
+           ("SOCKET", "nif_bind -> args when sock = %d (0x%lX)"
             "\r\n   Socket:   %T"
             "\r\n   SockAddr: %T"
-            "\r\n", descP->sock, argv[0], eSockAddr) );
+            "\r\n", descP->sock, descP->state, argv[0], eSockAddr) );
 
     /* Make sure we are ready
      * Not sure how this would even happen, but...
      */
-    /* WHY NOT !IS_OPEN(...) */
     if (descP->state != SOCKET_STATE_OPEN)
         return esock_make_error(env, atom_exbadstate);
 
@@ -14646,11 +14645,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         /* We have a (current) writer and *may* therefor also have
          * writers waiting.
          */
-        
-        ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
-                                                  descP->currentWriter.ref,
-                                                  atom_closed,
-                                                  &descP->currentWriter.pid)) );
+
+        if (!compare_pids(env,
+                          &descP->closerPid,
+                          &descP->currentWriter.pid) &&
+            send_msg_nif_abort(env,
+                               descP->currentWriter.ref,
+                               atom_closed,
+                               &descP->currentWriter.pid) != NULL) {
+            /* Shall we really do this? 
+             * This happens if the controlling process has been killed!
+             */
+            esock_warning_msg("Failed sending abort (%T) message to "
+                              "current writer %T\r\n",
+                              descP->currentWriter.ref,
+                              descP->currentWriter.pid);
+        }
         
         /* And also deal with the waiting writers (in the same way) */
         inform_waiting_procs(env, descP, &descP->writersQ, TRUE, atom_closed);
@@ -14662,10 +14672,21 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * readers waiting.
          */
         
-        ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
-                                                  descP->currentReader.ref,
-                                                  atom_closed,
-                                                  &descP->currentReader.pid)) );
+        if (!compare_pids(env,
+                          &descP->closerPid,
+                          &descP->currentReader.pid) &&
+            send_msg_nif_abort(env,
+                               descP->currentReader.ref,
+                               atom_closed,
+                               &descP->currentReader.pid) != NULL) {
+            /* Shall we really do this? 
+             * This happens if the controlling process has been killed!
+             */
+            esock_warning_msg("Failed sending abort (%T) message to "
+                              "current reader %T\r\n",
+                              descP->currentReader.ref,
+                              descP->currentReader.pid);
+        }
         
         /* And also deal with the waiting readers (in the same way) */
         inform_waiting_procs(env, descP, &descP->readersQ, TRUE, atom_closed);
@@ -14676,10 +14697,21 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * acceptors waiting.
          */
         
-        ESOCK_ASSERT( (NULL == send_msg_nif_abort(env,
-                                                  descP->currentAcceptor.ref,
-                                                  atom_closed,
-                                                  &descP->currentAcceptor.pid)) );
+        if (!compare_pids(env,
+                          &descP->closerPid,
+                          &descP->currentAcceptor.pid) &&
+            send_msg_nif_abort(env,
+                               descP->currentAcceptor.ref,
+                               atom_closed,
+                               &descP->currentAcceptor.pid) != NULL) {
+            /* Shall we really do this? 
+             * This happens if the controlling process has been killed!
+             */
+            esock_warning_msg("Failed sending abort (%T) message to "
+                              "current acceptor %T\r\n",
+                              descP->currentAcceptor.ref,
+                              descP->currentAcceptor.pid);
+        }
         
         /* And also deal with the waiting acceptors (in the same way) */
         inform_waiting_procs(env, descP, &descP->acceptorsQ, TRUE, atom_closed);
@@ -14811,6 +14843,8 @@ void socket_down(ErlNifEnv*           env,
 
         descP->state      = SOCKET_STATE_CLOSING;
         descP->closeLocal = TRUE;
+        descP->closerPid  = *pid;
+        descP->closerMon  = *mon;
         descP->closeRef   = MKREF(env);
         enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
                     descP, NULL, descP->closeRef);
