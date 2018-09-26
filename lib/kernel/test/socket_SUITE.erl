@@ -25,6 +25,8 @@
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
+-export([init_per_suite/1,    end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
 -export([
@@ -34,7 +36,29 @@
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_send_and_recv_tcp4/1,
-         api_b_sendmsg_and_recvmsg_tcp4/1
+         api_b_sendmsg_and_recvmsg_tcp4/1,
+
+         %% Operation Timeout
+         to_connect_tcp4/1,
+         to_connect_tcp6/1,
+         to_accept_tcp4/1,
+         to_accept_tcp6/1,
+         to_send_tcp4/1,
+         to_send_tcp6/1,
+         to_sendto_udp4/1,
+         to_sendto_udp6/1,
+         to_sendmsg_tcp4/1,
+         to_sendmsg_tcp6/1,
+         to_recv_udp4/1,
+         to_recv_udp6/1,
+         to_recv_tcp4/1,
+         to_recv_tcp6/1,
+         to_recvfrom_udp4/1,
+         to_recvfrom_udp6/1,
+         to_recvmsg_udp4/1,
+         to_recvmsg_udp6/1,
+         to_recvmsg_tcp4/1,
+         to_recvmsg_tcp6/1
 
          %% Tickets
         ]).
@@ -64,18 +88,21 @@ all() ->
     ].
 
 groups() -> 
-    [{api,            [], api_cases()},
-     {api_basic,      [], api_basic_cases()}
+    [{api,             [], api_cases()},
+     {api_basic,       [], api_basic_cases()},
+     {op_with_timeout, [], op_with_timeout_cases()}
      %% {tickets,        [], ticket_cases()}
     ].
      
 api_cases() ->
     [
-     {group, api_basic}
+     {group, api_basic},
+     {group, op_with_timeout}
     ].
 
 api_basic_cases() ->
-    [api_b_open_and_close_udp4,
+    [
+     api_b_open_and_close_udp4,
      api_b_open_and_close_tcp4,
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendmsg_and_recvmsg_udp4,
@@ -83,8 +110,49 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_tcp4
     ].
 
+op_with_timeout_cases() ->
+    [
+     to_connect_tcp4,
+     to_connect_tcp6,
+     to_accept_tcp4,
+     to_accept_tcp6,
+     to_send_tcp4,
+     to_send_tcp6,
+     to_sendto_udp4,
+     to_sendto_udp6,
+     to_sendmsg_tcp4,
+     to_sendmsg_tcp6,
+     to_recv_udp4,
+     to_recv_udp6,
+     to_recv_tcp4,
+     to_recv_tcp6,
+     to_recvfrom_udp4,
+     to_recvfrom_udp6,
+     to_recvmsg_udp4,
+     to_recvmsg_udp6,
+     to_recvmsg_tcp4,
+     to_recvmsg_tcp6
+    ].
+
+
 %% ticket_cases() ->
 %%     [].
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_) ->
+    ok.
+
+init_per_testcase(_TC, Config) ->
+    Config.
+
+end_per_testcase(_TC, Config) ->
+    Config.
 
 
 
@@ -154,6 +222,8 @@ api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
     tc_end().
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive on an IPv4 UDP (dgram) socket
 %% using sendmsg and recvmsg.
 api_b_sendmsg_and_recvmsg_udp4(suite) ->
@@ -183,42 +253,19 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
     tc_end().
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 api_b_send_and_recv_udp(Domain, Send, Recv) ->
-    SockSrc = case socket:open(Domain, dgram, udp) of
-                  {ok, S1} ->
-                      S1;
-                  {error, OR1} ->
-                      ?FAIL({open, src, OR1})
-              end,
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, addr => LAddr}, 
-    case socket:bind(SockSrc, LSA) of
-        {ok, _} ->
-            ok;
-        {error, BR1} ->
-            ?FAIL({bind, src, BR1})
-    end,
-    SockDst = case socket:open(Domain, dgram, udp) of
-                  {ok, S2} ->
-                      S2;
-                  {error, OR2} ->
-                      ?FAIL({open, dst, OR2})
-              end,
-    case socket:bind(SockDst, LSA) of
-        {ok, _} ->
-            ok;
-        {error, BR2} ->
-            ?FAIL({bind, dst, BR2})
-    end,
-    Dst = case socket:sockname(SockDst) of
-              {ok, SA} ->
-                  SA;
-              {ok, SNR} ->
-                  ?FAIL({sockname, dst, SNR})
-          end,
-    ok = Send(SockSrc, ?BASIC_REQ, Dst),
+    SockSrc = sock_open(Domain, dgram, udp),
+    LAddr   = which_local_addr(Domain),
+    LSA     = #{family => Domain, addr => LAddr}, 
+    sock_bind(SockSrc, LSA),
+    SockDst = sock_open(Domain, dgram, udp),
+    sock_bind(SockDst, LSA),
+    Dst     = sock_sockname(SockDst),
+    ok      = Send(SockSrc, ?BASIC_REQ, Dst),
     {ok, {Src, ?BASIC_REQ}} = Recv(SockDst),
-    ok = Send(SockDst, ?BASIC_REP, Src),
+    ok      = Send(SockDst, ?BASIC_REP, Src),
     {ok, {Dst, ?BASIC_REP}} = Recv(SockSrc),
     socket:close(SockSrc),
     socket:close(SockDst),
@@ -246,6 +293,8 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
     tc_end().
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive using the msg functions (sendmsg and recvmsg)
 %% on an IPv4 TCP (stream) socket.
 api_b_sendmsg_and_recvmsg_tcp4(suite) ->
@@ -270,6 +319,8 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
     ok = api_b_send_and_recv_tcp(inet, Send, Recv),
     tc_end().
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 api_b_send_and_recv_tcp(Domain, Send, Recv) ->
     process_flag(trap_exit, true),
@@ -381,6 +432,528 @@ api_b_send_and_recv_tcp(Domain, Send, Recv) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the connect timeout option
+%% on an IPv4 TCP (stream) socket.
+to_connect_tcp4(suite) ->
+    [];
+to_connect_tcp4(doc) ->
+    [];
+to_connect_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(to_connect_tcp4),
+    ok = to_connect_tcp(inet),
+    tc_end().
+    %% not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the connect timeout option
+%% on an IPv6 TCP (stream) socket.
+to_connect_tcp6(suite) ->
+    [];
+to_connect_tcp6(doc) ->
+    [];
+to_connect_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_connect_tcp6),
+    %% ok = to_connect_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to_connect_tcp(Domain) ->
+    process_flag(trap_exit, true),
+    p("init"),
+    Client     = self(),
+    LocalAddr  = which_local_addr(Domain),
+    LocalSA    = #{family => Domain, addr => LocalAddr}, 
+    ServerName = f("~s:server", [get_tc_name()]),
+    Server = spawn_link(fun() ->
+                                set_tc_name(ServerName),
+                                p("open"),
+                                LSock = sock_open(Domain, stream, tcp),
+                                p("bind"),
+                                ServerLPort = sock_bind(LSock, LocalSA),
+                                p("listen on ~w", [ServerLPort]),
+                                sock_listen(LSock, 1),
+                                p("inform client"),
+                                Client ! {self(), ServerLPort},
+                                p("await termination command"),
+                                receive
+                                    die ->
+                                        p("terminating"),
+                                        exit(normal)
+                                end
+                        end),
+    
+    p("await server port"),
+    ServerLPort = 
+        receive
+            {Server, Port} ->
+                Port
+        end,
+    p("open(s)"),
+    CSock1       = sock_open(Domain, stream, tcp),
+    CSock2       = sock_open(Domain, stream, tcp),
+    CSock3       = sock_open(Domain, stream, tcp),
+    p("bind(s)"),
+    _ClientPort1 = sock_bind(CSock1, LocalSA),
+    _ClientPort2 = sock_bind(CSock2, LocalSA),
+    _ClientPort3 = sock_bind(CSock3, LocalSA),
+    ServerSA = LocalSA#{port => ServerLPort},
+    to_connect_tcp_await_timeout([CSock1, CSock2, CSock3], ServerSA),
+    p("terminate server"),
+    Server ! die,
+    receive
+        {'EXIT', Server, _} ->
+            p("server terminated"),
+            ok
+    end,
+    ok.
+
+
+to_connect_tcp_await_timeout(Socks, ServerSA) ->
+    to_connect_tcp_await_timeout(Socks, ServerSA, 1).
+
+to_connect_tcp_await_timeout([], _ServerSA, _ID) ->
+    ?FAIL(unexpected_success);
+to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
+    p("~w: try connect", [ID]),
+    case socket:connect(Sock, ServerSA, 5000) of
+        {error, timeout} ->
+            p("expected timeout (~w)", [ID]),
+            ok;
+        {error, Reason} ->
+            p("failed connecting: ~p", [Reason]),
+            ?FAIL({recv, Reason});
+        ok ->
+            p("unexpected success (~w) - try next", [ID]),
+            to_connect_tcp_await_timeout(Socks, ServerSA, ID+1)
+    end.
+        
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the accept timeout option
+%% on an IPv4 TCP (stream) socket.
+to_accept_tcp4(suite) ->
+    [];
+to_accept_tcp4(doc) ->
+    [];
+to_accept_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(to_accept_tcp4),
+    %% ok = to_accept_tcp(inet),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the accept timeout option
+%% on an IPv6 TCP (stream) socket.
+to_accept_tcp6(suite) ->
+    [];
+to_accept_tcp6(doc) ->
+    [];
+to_accept_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_accept_tcp6),
+    %% ok = to_accept_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the send timeout option
+%% on an IPv4 TCP (stream) socket.
+to_send_tcp4(suite) ->
+    [];
+to_send_tcp4(doc) ->
+    [];
+to_send_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(to_send_tcp4),
+    %% ok = to_send_tcp(inet),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the send timeout option
+%% on an IPv6 TCP (stream) socket.
+to_send_tcp6(suite) ->
+    [];
+to_send_tcp6(doc) ->
+    [];
+to_send_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_send_tcp6),
+    %% ok = to_send_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the sendto timeout option
+%% on an IPv4 UDP (dgram) socket.
+to_sendto_udp4(suite) ->
+    [];
+to_sendto_udp4(doc) ->
+    [];
+to_sendto_udp4(_Config) when is_list(_Config) ->
+    %% tc_begin(to_sendto_udp4),
+    %% ok = to_sendto_udp(inet),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the sendto timeout option
+%% on an IPv6 UDP (dgram) socket.
+to_sendto_udp6(suite) ->
+    [];
+to_sendto_udp6(doc) ->
+    [];
+to_sendto_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_sendto_udp6),
+    %% ok = to_sendto_udp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the sendmsg timeout option
+%% on an IPv4 TCP (stream) socket.
+to_sendmsg_tcp4(suite) ->
+    [];
+to_sendmsg_tcp4(doc) ->
+    [];
+to_sendmsg_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(to_sendmsg_tcp4),
+    %% ok = to_sendmsg_tcp(inet),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the sendmsg timeout option
+%% on an IPv6 TCP (stream) socket.
+to_sendmsg_tcp6(suite) ->
+    [];
+to_sendmsg_tcp6(doc) ->
+    [];
+to_sendmsg_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_sendmsg_tcp6),
+    %% ok = to_sendmsg_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recv timeout option
+%% on an IPv4 UDP (dgram) socket. To test this we must connect
+%% the socket.
+to_recv_udp4(suite) ->
+    [];
+to_recv_udp4(doc) ->
+    [];
+to_recv_udp4(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recv_udp4),
+    %% ok = to_recv_udp(inet),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recv timeout option
+%% on an IPv6 UDP (dgram) socket. To test this we must connect
+%% the socket.
+to_recv_udp6(suite) ->
+    [];
+to_recv_udp6(doc) ->
+    [];
+to_recv_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recv_udp6),
+    %% ok = to_recv_udp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recv timeout option
+%% on an IPv4 TCP (stream) socket.
+to_recv_tcp4(suite) ->
+    [];
+to_recv_tcp4(doc) ->
+    [];
+to_recv_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(to_recv_tcp4),
+    ok = to_recv_tcp(inet),
+    tc_end().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recv timeout option
+%% on an IPv6 TCP (stream) socket.
+to_recv_tcp6(suite) ->
+    [];
+to_recv_tcp6(doc) ->
+    [];
+to_recv_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recv_tcp6),
+    %% ok = to_recv_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to_recv_tcp(Domain) ->
+    process_flag(trap_exit, true),
+    p("server -> open"),
+    LSock     = sock_open(Domain, stream, tcp),
+    LocalAddr = which_local_addr(Domain),
+    LocalSA   = #{family => Domain, addr => LocalAddr}, 
+    p("server -> bind"),
+    ServerLPort     = sock_bind(LSock, LocalSA),
+    p("server(~w) -> listen", [ServerLPort]),
+    sock_listen(LSock),
+    ClientName = f("~s:client", [get_tc_name()]),
+    Client = spawn_link(fun() ->
+                                set_tc_name(ClientName),
+                                p("open"),
+                                CSock      = sock_open(Domain, stream, tcp),
+                                p("bind"),
+                                ClientPort = sock_bind(CSock, LocalSA),
+                                p("[~w] connect to ~w", 
+                                  [ClientPort, ServerLPort]),
+                                sock_connect(CSock, LocalSA#{port => ServerLPort}),
+                                p("await termination command"),
+                                receive
+                                    die ->
+                                        p("terminating"),
+                                        exit(normal)
+                                end
+                        end),
+    p("server -> accept on ~w", [ServerLPort]),
+    Sock      = sock_accept(LSock),
+    p("server -> recv"),
+    %% The zero (0) represents "give me everything you have"
+    case socket:recv(Sock, 0, 5000) of
+        {error, timeout} ->
+            p("server -> expected timeout"),
+            ok;
+        {ok, _Data} ->
+            ?FAIL(unexpected_success);
+        {error, Reason} ->
+            ?FAIL({recv, Reason})
+    end,
+    Client ! die,
+    receive
+        {'EXIT', Client, _} ->
+            ok
+    end,
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvfrom timeout option
+%% on an IPv4 UDP (dgram) socket.
+to_recvfrom_udp4(suite) ->
+    [];
+to_recvfrom_udp4(doc) ->
+    [];
+to_recvfrom_udp4(_Config) when is_list(_Config) ->
+    tc_begin(to_recvfrom_udp4),
+    ok = to_recvfrom_udp(inet),
+    tc_end().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvfrom timeout option
+%% on an IPv6 UDP (dgram) socket.
+to_recvfrom_udp6(suite) ->
+    [];
+to_recvfrom_udp6(doc) ->
+    [];
+to_recvfrom_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recvfrom_udp6),
+    %% ok = to_recvfrom_udp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to_recvfrom_udp(Domain) ->
+    process_flag(trap_exit, true),
+    p("init"),
+    LocalAddr = which_local_addr(Domain),
+    LocalSA   = #{family => Domain, addr => LocalAddr}, 
+    p("open"),
+    Sock      = sock_open(Domain, dgram, udp),
+    p("bind"),
+    _Port     = sock_bind(Sock, LocalSA),
+    p("recv"),
+    case socket:recvfrom(Sock, 0, 5000) of
+        {error, timeout} ->
+            p("expected timeout"),
+            ok;
+        {ok, _SrcData} ->
+            ?FAIL(unexpected_success);
+        {error, Reason} ->
+            ?FAIL({recv, Reason})
+    end,
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvmsg timeout option
+%% on an IPv4 UDP (dgram) socket.
+to_recvmsg_udp4(suite) ->
+    [];
+to_recvmsg_udp4(doc) ->
+    [];
+to_recvmsg_udp4(_Config) when is_list(_Config) ->
+    %% not_yet_implemented().
+    tc_begin(to_recvmsg_udp4),
+    ok = to_recvmsg_udp(inet),
+    tc_end().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvmsg timeout option
+%% on an IPv6 UDP (dgram) socket.
+to_recvmsg_udp6(suite) ->
+    [];
+to_recvmsg_udp6(doc) ->
+    [];
+to_recvmsg_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recvmsg_udp6),
+    %% ok = to_recvmsg_udp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to_recvmsg_udp(Domain) ->
+    process_flag(trap_exit, true),
+    p("init"),
+    LocalAddr = which_local_addr(Domain),
+    LocalSA   = #{family => Domain, addr => LocalAddr}, 
+    p("open"),
+    Sock      = sock_open(Domain, dgram, udp),
+    p("bind"),
+    _Port     = sock_bind(Sock, LocalSA),
+    p("recv"),
+    case socket:recvmsg(Sock, 5000) of
+        {error, timeout} ->
+            p("expected timeout"),
+            ok;
+        {ok, _MsgHdr} ->
+            ?FAIL(unexpected_success);
+        {error, Reason} ->
+            ?FAIL({recv, Reason})
+    end,
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvmsg timeout option
+%% on an IPv4 TCP (stream) socket.
+to_recvmsg_tcp4(suite) ->
+    [];
+to_recvmsg_tcp4(doc) ->
+    [];
+to_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(to_recvmsg_tcp4),
+    ok = to_recvmsg_tcp(inet),
+    tc_end().
+    %% not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is intended to test the recvmsg timeout option
+%% on an IPv6 TCP (stream) socket.
+to_recvmsg_tcp6(suite) ->
+    [];
+to_recvmsg_tcp6(doc) ->
+    [];
+to_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(to_recvmsg_tcp6),
+    %% ok = to_recvmsg_tcp(inet6),
+    %% tc_end().
+    not_yet_implemented().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to_recvmsg_tcp(Domain) ->
+    process_flag(trap_exit, true),
+    p("server -> open"),
+    LSock     = sock_open(Domain, stream, tcp),
+    LocalAddr = which_local_addr(Domain),
+    LocalSA   = #{family => Domain, addr => LocalAddr}, 
+    p("server -> bind"),
+    ServerLPort     = sock_bind(LSock, LocalSA),
+    p("server(~w) -> listen", [ServerLPort]),
+    sock_listen(LSock),
+    ClientName = f("~s:client", [get_tc_name()]),
+    Client = spawn_link(fun() ->
+                                set_tc_name(ClientName),
+                                p("open"),
+                                CSock      = sock_open(Domain, stream, tcp),
+                                p("bind"),
+                                ClientPort = sock_bind(CSock, LocalSA),
+                                p("[~w] connect to ~w", 
+                                  [ClientPort, ServerLPort]),
+                                sock_connect(CSock, LocalSA#{port => ServerLPort}),
+                                p("await termination command"),
+                                receive
+                                    die ->
+                                        p("terminating"),
+                                        exit(normal)
+                                end
+                        end),
+    p("server -> accept on ~w", [ServerLPort]),
+    Sock      = sock_accept(LSock),
+    p("server -> recv"),
+    %% The zero (0) represents "give me everything you have"
+    case socket:recvmsg(Sock, 5000) of
+        {error, timeout} ->
+            p("server -> expected timeout"),
+            ok;
+        {ok, _Data} ->
+            ?FAIL(unexpected_success);
+        {error, Reason} ->
+            ?FAIL({recv, Reason})
+    end,
+    Client ! die,
+    receive
+        {'EXIT', Client, _} ->
+            ok
+    end,
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This gets the local address (not 127.0...)
@@ -411,16 +984,136 @@ which_addr2(Domain, [_|IFO]) ->
     which_addr2(Domain, IFO).
    
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sock_open(Domain, Type, Proto) ->
+    try socket:open(Domain, Type, Proto) of
+        {ok, Socket} ->
+            Socket;
+        {error, Reason} ->
+            ?FAIL({open, Reason})
+    catch
+        C:E:S ->
+            ?FAIL({open, C, E, S})
+    end.
+
+
+sock_bind(Sock, SockAddr) ->
+    try socket:bind(Sock, SockAddr) of
+        {ok, Port} ->
+            Port;
+        {error, Reason} ->
+            p("sock_bind -> error: ~p", [Reason]),
+            ?FAIL({bind, Reason})
+    catch
+        C:E:S ->
+            p("sock_bind -> failed: ~p, ~p, ~p", [C, E, S]),
+            ?FAIL({bind, C, E, S})
+    end.
+
+sock_connect(Sock, SockAddr) ->
+    try socket:connect(Sock, SockAddr) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ?FAIL({connect, Reason})
+    catch
+        C:E:S ->
+            ?FAIL({connect, C, E, S})
+    end.
+    
+sock_sockname(Sock) ->
+    try socket:sockname(Sock) of
+        {ok, SockAddr} ->
+            SockAddr;
+        {error, Reason} ->
+            ?FAIL({sockname, Reason})
+    catch
+        C:E:S ->
+            ?FAIL({sockname, C, E, S})
+    end.
+    
+
+sock_listen(Sock) ->
+    sock_listen2(fun() -> socket:listen(Sock) end).
+
+sock_listen(Sock, BackLog) ->
+    sock_listen2(fun() -> socket:listen(Sock, BackLog) end).
+
+sock_listen2(Listen) ->
+    try Listen() of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ?FAIL({listen, Reason})
+    catch
+        C:E:S ->
+            ?FAIL({listen, C, E, S})
+    end.
+
+
+sock_accept(LSock) ->
+    try socket:accept(LSock) of
+        {ok, Sock} ->
+            Sock;
+        {error, Reason} ->
+            p("sock_accept -> error: ~p", [Reason]),
+            ?FAIL({accept, Reason})
+    catch
+        C:E:S ->
+            p("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
+            ?FAIL({accept, C, E, S})
+    end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+not_yet_implemented() ->
+    {skip, "not yet implemented"}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+set_tc_name(N) when is_atom(N) ->
+    set_tc_name(atom_to_list(N));
+set_tc_name(N) when is_list(N) ->
+    put(tc_name, N).
+
+get_tc_name() ->
+    get(tc_name).
+
 tc_begin(TC) ->
-    put(tc_name, TC),
-    p("begin").
+    set_tc_name(TC),
+    p("begin ***").
     
 tc_end() ->
+    p("done ***"),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 p(F) ->
     p(F, []).
 
 p(F, A) ->
-    io:format(user, "*** ~w " ++ F ++ "~n", [get(tc_name)|A]).
+    TcName = 
+        case get(tc_name) of
+            undefined ->
+                "";
+            Name when is_list(Name) ->
+                Name
+        end,
+    i("*** ~s[~p] " ++ F, [TcName,self()|A]).
 
+
+%% i(F) ->
+%%     i(F, []).
+
+i(F, A) ->
+    io:format(user, F ++ "~n", A).
