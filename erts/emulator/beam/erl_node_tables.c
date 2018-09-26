@@ -201,6 +201,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->send				= NULL;
     dep->cache				= NULL;
     dep->transcode_ctx                  = NULL;
+    dep->sequences                      = NULL;
 
     /* Link in */
 
@@ -1177,6 +1178,7 @@ static Eterm AM_system;
 static Eterm AM_timer;
 static Eterm AM_delayed_delete_timer;
 static Eterm AM_thread_progress_delete_timer;
+static Eterm AM_sequence;
 static Eterm AM_signal;
 
 static void setup_reference_table(void);
@@ -1218,6 +1220,7 @@ typedef struct dist_referrer_ {
     int ctrl_ref;
     int system_ref;
     int signal_ref;
+    int sequence_ref;
     Eterm id;
     Uint creation;
     Uint id_heap[ID_HEAP_SIZE];
@@ -1272,6 +1275,7 @@ erts_get_node_and_dist_references(struct process *proc)
 	INIT_AM(delayed_delete_timer);
         INIT_AM(thread_progress_delete_timer);
 	INIT_AM(signal);
+	INIT_AM(sequence);
 	references_atoms_need_init = 0;
     }
 
@@ -1309,8 +1313,9 @@ erts_get_node_and_dist_references(struct process *proc)
 #define TIMER_REF 8
 #define SYSTEM_REF 9
 #define SIGNAL_REF 10
+#define SEQUENCE_REF 11
 
-#define INC_TAB_SZ 10
+#define INC_TAB_SZ 11
 
 static void
 insert_dist_referrer(ReferredDist *referred_dist,
@@ -1344,6 +1349,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
 	drp->ctrl_ref = 0;
 	drp->system_ref = 0;
         drp->signal_ref = 0;
+        drp->sequence_ref = 0;
     }
 
     switch (type) {
@@ -1353,6 +1359,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
     case ETS_REF:	drp->ets_ref++;	        break;
     case SYSTEM_REF:	drp->system_ref++;	break;
     case SIGNAL_REF:	drp->signal_ref++;	break;
+    case SEQUENCE_REF:	drp->sequence_ref++;	break;
     default:		ASSERT(0);
     }
 }
@@ -1583,6 +1590,20 @@ insert_dist_monitors(DistEntry *dep)
     }
 }
 
+
+static int
+insert_sequence(ErtsDistExternal *edep, void *arg, Sint reds)
+{
+    insert_dist_entry(edep->dep, SEQUENCE_REF, *(Eterm*)arg, 0);
+    return 1;
+}
+
+static void
+insert_dist_sequences(DistEntry *dep)
+{
+    erts_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
+}
+
 static void
 clear_visited_p_monitors(ErtsPTabElementCommon *p)
 {
@@ -1774,11 +1795,9 @@ insert_message(ErtsMessage *msg, int type, Process *proc)
         else if (ERTS_SIG_IS_INTERNAL_MSG(msg))
             heap_frag = msg->data.heap_frag;
         else {
-            if (msg->data.dist_ext->dep)
-                insert_dist_entry(msg->data.dist_ext->dep,
-                                  type, proc->common.id, 0);
-            if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-                heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+            heap_frag = msg->data.heap_frag;
+            insert_dist_entry(erts_get_dist_ext(heap_frag)->dep,
+                              type, proc->common.id, 0);
         }
     }
     while (heap_frag) {
@@ -1816,6 +1835,13 @@ insert_sig_link(ErtsLink *lnk, void *arg, Sint reds)
     Process *proc = arg;
     insert_link_data(lnk, SIGNAL_REF, proc->common.id);
     return 1;
+}
+
+static void
+insert_sig_ext(ErtsDistExternal *edep, void *arg)
+{
+    Process *proc = arg;
+    insert_dist_entry(edep->dep, SIGNAL_REF, proc->common.id, 0);
 }
 
 static void
@@ -1898,6 +1924,7 @@ setup_reference_table(void)
                                             insert_sig_offheap,
                                             insert_sig_monitor,
                                             insert_sig_link,
+                                            insert_sig_ext,
                                             (void *) proc);
 
 	    /* Insert links */
@@ -1989,16 +2016,19 @@ setup_reference_table(void)
     for(dep = erts_visible_dist_entries; dep; dep = dep->next) {
         insert_dist_links(dep);
         insert_dist_monitors(dep);
+        insert_dist_sequences(dep);
     }
 
     for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
         insert_dist_links(dep);
         insert_dist_monitors(dep);
+        insert_dist_sequences(dep);
     }
 
     for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
         insert_dist_links(dep);
         insert_dist_monitors(dep);
+        insert_dist_sequences(dep);
     }
 
     /* Not connected dist entries should not have any links,
@@ -2006,6 +2036,7 @@ setup_reference_table(void)
     for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
         insert_dist_links(dep);
         insert_dist_monitors(dep);
+        insert_dist_sequences(dep);
     }
 
     /* Insert all ets tables */
@@ -2179,6 +2210,10 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
 		tup = MK_2TUP(AM_system, MK_UINT(drp->system_ref));
 		drl = MK_CONS(tup, drl);
 	    }
+            if(drp->sequence_ref) {
+		tup = MK_2TUP(AM_sequence, MK_UINT(drp->sequence_ref));
+		drl = MK_CONS(tup, drl);
+	    }
 	    if(drp->signal_ref) {
 		tup = MK_2TUP(AM_signal, MK_UINT(drp->signal_ref));
 		drl = MK_CONS(tup, drl);
@@ -2253,6 +2288,12 @@ static void noop_sig_offheap(ErlOffHeap *oh, void *arg)
 
 }
 
+static void noop_sig_ext(ErtsDistExternal *ext, void *arg)
+{
+
+}
+
+
 static void
 delete_reference_table(void)
 {
@@ -2303,6 +2344,7 @@ delete_reference_table(void)
                                             noop_sig_offheap,
                                             clear_visited_monitor,
                                             clear_visited_link,
+                                            noop_sig_ext,
                                             (void *) proc);
         }
     }

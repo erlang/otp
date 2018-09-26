@@ -44,7 +44,7 @@
 #include "erl_time.h"
 
 #if 0
-#define DEBUG_PRINT(FMT, ...) erts_printf(FMT "\r\n", ##__VA_ARGS__)
+#define DEBUG_PRINT(FMT, ...) do { erts_printf(FMT "\r\n", ##__VA_ARGS__); fflush(stdout); } while(0)
 #define DEBUG_PRINT_FD(FMT, STATE, ...)                                 \
     DEBUG_PRINT("%d: " FMT " (ev=%s, ac=%s, flg=%s)",                   \
                 (STATE) ? (STATE)->fd : (ErtsSysFdType)-1, ##__VA_ARGS__, \

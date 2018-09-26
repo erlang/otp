@@ -136,15 +136,8 @@
     </note>
   </section>
 
-  <section>  
+  <section>
     <title>Distribution Header</title>
-    <p>
-      <marker id="distribution_header"/>
-      As from ERTS 5.7.2 the old atom cache protocol was
-      dropped and a new one was introduced. This protocol
-      introduced the distribution header. Nodes with an ERTS version
-      earlier than 5.7.2 can still communicate with new nodes,
-      but no distribution header and no atom cache are used.</p>
     <p>
       The distribution header only contains an atom cache
       reference section, but can in the future contain more

@@ -899,7 +899,7 @@ DiB == gen_digest(ChA, ICA)?
       <item>
         <p>
           <seealso marker="erl_ext_dist#distribution_header">Distribution header
-          describing the atom cache.
+          describing the atom cache and fragmented distribution messages.
           </seealso>
         </p>
       </item>

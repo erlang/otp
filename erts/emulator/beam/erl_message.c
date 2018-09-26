@@ -219,6 +219,10 @@ erts_cleanup_message(ErtsMessage *mp)
     if (ERTS_SIG_IS_MSG(mp) && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
         bp = mp->data.heap_frag;
     } else {
+        /* All non msg signals are combined HFRAG messages,
+           but we overwrite the mp->data field with the
+           nm_signal queue ptr so have to fix that here
+           before freeing it. */
         mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
         bp = mp->hfrag.next;
         erts_cleanup_offheap(&mp->hfrag.off_heap);
@@ -234,7 +238,7 @@ erts_cleanup_messages(ErtsMessage *msgp)
     ErtsMessage *mp = msgp;
     while (mp) {
 	ErtsMessage *fmp;
-        erts_cleanup_message(mp);
+	erts_cleanup_message(mp);
 	fmp = mp;
 	mp = mp->next;
 	erts_free_message(fmp);
@@ -266,6 +270,7 @@ void
 erts_queue_dist_message(Process *rcvr,
 			ErtsProcLocks rcvr_locks,
 			ErtsDistExternal *dist_ext,
+                        ErlHeapFragment *hfrag,
 			Eterm token,
                         Eterm from)
 {
@@ -274,8 +279,26 @@ erts_queue_dist_message(Process *rcvr,
 
     ERTS_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
 
-    mp = erts_alloc_message(0, NULL);
-    mp->data.dist_ext = dist_ext;
+    if (hfrag) {
+        /* Fragmented message, allocate a message reference */
+        mp = erts_alloc_message(0, NULL);
+        mp->data.heap_frag = hfrag;
+    } else {
+        /* Un-fragmented message, allocate space for
+           token and dist_ext in message. */
+        Uint dist_ext_sz = erts_dist_ext_size(dist_ext) / sizeof(Eterm);
+        Uint token_sz = size_object(token);
+        Uint sz = token_sz + dist_ext_sz;
+        Eterm *hp;
+
+        mp = erts_alloc_message(sz, &hp);
+        mp->data.heap_frag = &mp->hfrag;
+        mp->hfrag.used_size = token_sz;
+
+        erts_make_dist_ext_copy(dist_ext, erts_get_dist_ext(mp->data.heap_frag));
+
+        token = copy_struct(token, token_sz, &hp, &mp->data.heap_frag->off_heap);
+    }
 
     ERL_MESSAGE_FROM(mp) = dist_ext->dep->sysname;
     ERL_MESSAGE_TERM(mp) = THE_NON_VALUE;
@@ -499,25 +522,27 @@ Uint
 erts_msg_attached_data_size_aux(ErtsMessage *msg)
 {
     Sint sz;
-    ASSERT(is_non_value(ERL_MESSAGE_TERM(msg)));
-    ASSERT(msg->data.dist_ext);
-    ASSERT(msg->data.dist_ext->heap_size < 0);
+    ErtsDistExternal *edep = erts_get_dist_ext(msg->data.heap_frag);
+    ASSERT(ERTS_SIG_IS_EXTERNAL_MSG(msg));
 
-    sz = erts_decode_dist_ext_size(msg->data.dist_ext);
-    if (sz < 0) {
-	/* Bad external
-	 * We leave the message intact in this case as it's not worth the trouble
-	 * to make all callers remove it from queue. It will be detected again
-	 * and removed from message queue later anyway.
-	 */
-	return 0;
+    if (edep->heap_size < 0) {
+
+        sz = erts_decode_dist_ext_size(edep, 1);
+        if (sz < 0) {
+            /* Bad external
+             * We leave the message intact in this case as it's not worth the trouble
+             * to make all callers remove it from queue. It will be detected again
+             * and removed from message queue later anyway.
+             */
+            return 0;
+        }
+
+        edep->heap_size = sz;
+    } else {
+        sz = edep->heap_size;
     }
-
-    msg->data.dist_ext->heap_size = sz;
-    if (is_not_nil(msg->m[1])) {
-	ErlHeapFragment *heap_frag;
-	heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-	sz += heap_frag->used_size;
+    if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {
+	sz += msg->data.heap_frag->used_size;
     }
     return sz;
 }
@@ -1165,7 +1190,7 @@ erts_factory_message_create(ErtsHeapFactory* factory,
     int on_heap;
     erts_aint32_t state;
 
-    state = proc ? erts_atomic32_read_nob(&proc->state) : 0;
+    state = proc ? erts_atomic32_read_nob(&proc->state) : ERTS_PSFLG_OFF_HEAP_MSGQ;
 
     if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
 	msgp = erts_alloc_message(sz, &hp);
@@ -1398,8 +1423,8 @@ void erts_factory_close(ErtsHeapFactory* factory)
 	    else
 		factory->message->data.heap_frag = factory->heap_frags;
 
-	    /* Fall through */
-	case FACTORY_HEAP_FRAGS:
+    /* Fall through */
+    case FACTORY_HEAP_FRAGS:
 	    bp = factory->heap_frags;
 	}
 

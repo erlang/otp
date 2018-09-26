@@ -228,6 +228,9 @@ erts_proc_sig_send_exit(Process *c_p, Eterm from, Eterm to,
  *
  * @param[in]     dist_ext      The exit reason in external term format
  *
+ * @param[in]     hfrag         Heap frag with trace token and dist_ext
+ *                              iff available, otherwise NULL.
+ *
  * @param[in]     reason        Exit reason.
  *
  * @param[in]     token         Seq trace token.
@@ -237,6 +240,7 @@ void
 erts_proc_sig_send_dist_exit(DistEntry *dep,
                              Eterm from, Eterm to,
                              ErtsDistExternal *dist_ext,
+                             ErlHeapFragment *hfrag,
                              Eterm reason, Eterm token);
 
 /**
@@ -322,6 +326,9 @@ erts_proc_sig_send_unlink(Process *c_p, ErtsLink *lnk);
  *
  * @param[in]     dist_ext      The exit reason in external term format
  *
+ * @param[in]     hfrag         Heap frag with trace token and dist_ext
+ *                              iff available, otherwise NULL.
+ *
  * @param[in]     reason        Exit reason.
  *
  * @param[in]     token         Seq trace token.
@@ -331,6 +338,7 @@ void
 erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
                                   Eterm from, Eterm to,
                                   ErtsDistExternal *dist_ext,
+                                  ErlHeapFragment *hfrag,
                                   Eterm reason, Eterm token);
 
 /**
@@ -426,6 +434,9 @@ erts_proc_sig_send_monitor(ErtsMonitor *mon, Eterm to);
  *
  * @param[in]     dist_ext      The exit reason in external term format
  *
+ * @param[in]     hfrag         Heap frag with trace token and dist_ext
+ *                              iff available, otherwise NULL.
+ *
  * @param[in]     reason        Exit reason.
  *
  */
@@ -433,6 +444,7 @@ void
 erts_proc_sig_send_dist_monitor_down(DistEntry *dep, Eterm ref,
                                      Eterm from, Eterm to,
                                      ErtsDistExternal *dist_ext,
+                                     ErlHeapFragment *hfrag,
                                      Eterm reason);
 
 /**
@@ -1035,6 +1047,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                                 void (*oh_func)(ErlOffHeap *, void *),
                                 ErtsMonitorFunc mon_func,
                                 ErtsLinkFunc lnk_func,
+                                void (*ext_func)(ErtsDistExternal *, void *),
                                 void *arg);
 
 extern Process *erts_dirty_process_signal_handler;

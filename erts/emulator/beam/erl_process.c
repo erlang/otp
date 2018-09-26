@@ -12111,6 +12111,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             case ERTS_DSIG_PREP_PENDING:
                 if (dist->connection_id == dsd.connection_id) {
                     code = erts_dsig_send_m_exit(&dsd,
+                                                 c_p->common.id,
                                                  watcher,
                                                  watched,
                                                  mdp->ref,

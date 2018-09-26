@@ -225,6 +225,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
             code = erts_dsig_send_link(&dsd, BIF_P->common.id, BIF_ARG_1);
             if (code == ERTS_DSIG_SEND_YIELD)
                 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            ASSERT(code == ERTS_DSIG_SEND_OK);
             BIF_RET(am_true);
             break;
         }
@@ -2094,6 +2095,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     ctx->return_term = am_ok;
     ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
+    ctx->dss.from = BIF_P->common.id;
 
     while (is_list(l)) {
 	if (CAR(list_val(l)) == am_noconnect) {
@@ -2246,6 +2248,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ctx->return_term = msg;
     ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
+    ctx->dss.from = p->common.id;
 
     result = do_send(p, to, msg, &ref, ctx);
 

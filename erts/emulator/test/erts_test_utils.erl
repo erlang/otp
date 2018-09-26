@@ -27,6 +27,7 @@
 -export([mk_ext_pid/3,
          mk_ext_port/2,
          mk_ext_ref/2,
+         available_internal_state/1,
          check_node_dist/0, check_node_dist/1, check_node_dist/3]).
 
 
@@ -157,6 +158,21 @@ mk_ext_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
     end.
 
 
+available_internal_state(Bool) when Bool == true; Bool == false ->
+    case {Bool,
+          (catch erts_debug:get_internal_state(available_internal_state))} of
+        {true, true} ->
+            true;
+        {false, true} ->
+            erts_debug:set_internal_state(available_internal_state, false),
+            true;
+        {true, _} ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            false;
+        {false, _} ->
+            false
+    end.
+
 
 %%
 %% Check reference counters for node- and dist entries.
@@ -168,16 +184,21 @@ check_node_dist() ->
                     end).
 
 check_node_dist(Fail) ->
+    AIS = available_internal_state(true),
+    [erlang:garbage_collect(P) || P <- erlang:processes()],
     {{node_references, NodeRefs},
      {dist_references, DistRefs}} =
         erts_debug:get_internal_state(node_and_dist_references),
-    check_node_dist(Fail, NodeRefs, DistRefs).
-
-
+    R = check_node_dist(Fail, NodeRefs, DistRefs),
+    available_internal_state(AIS),
+    R.
 
 check_node_dist(Fail, NodeRefs, DistRefs) ->
-    check_nd_refc({node(),erlang:system_info(creation)},                  
-                  NodeRefs, DistRefs, Fail).
+    AIS = available_internal_state(true),
+    R = check_nd_refc({node(),erlang:system_info(creation)},
+                  NodeRefs, DistRefs, Fail),
+    available_internal_state(AIS),
+    R.
 
 
 check_nd_refc({ThisNodeName, ThisCreation}, NodeRefs, DistRefs, Fail) ->

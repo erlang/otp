@@ -98,11 +98,22 @@ struct ErtsDistOutputBuf_ {
     byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;
-    Uint hopefull_flags;
+    Binary *bin;
+    /* Pointers to the distribution header,
+       if NULL the distr header is in the extp */
+    byte *hdrp;
+    byte *hdr_endp;
+    /* Pointers to the ctl + payload */
     byte *extp;
     byte *ext_endp;
+    /* Start of payload and hopefull_flags, used by transcode */
+    Uint hopefull_flags;
     byte *msg_start;
-    byte data[1];
+    /* start of the ext buffer, this is not always the same as extp
+       as the atom cache handling can use less then the allotted buffer.
+       This value is needed to calculate the size of this output buffer.*/
+    byte *ext_start;
+
 };
 
 typedef struct {
@@ -161,6 +172,8 @@ struct dist_entry_ {
     ErtsThrPrgrLaterOp later_op;
 
     struct transcode_context* transcode_ctx;
+
+    struct dist_sequences *sequences; /* Ongoing distribution sequences */
 };
 
 typedef struct erl_node_ {

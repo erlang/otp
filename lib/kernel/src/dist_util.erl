@@ -118,6 +118,8 @@ dflag2str(?DFLAG_BIG_SEQTRACE_LABELS) ->
     "BIG_SEQTRACE_LABELS";
 dflag2str(?DFLAG_EXIT_PAYLOAD) ->
     "EXIT_PAYLOAD";
+dflag2str(?DFLAG_FRAGMENTS) ->
+    "FRAGMENTS";
 dflag2str(_) ->
     "UNKNOWN".
 

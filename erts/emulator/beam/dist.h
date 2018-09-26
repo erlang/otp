@@ -48,6 +48,7 @@
 #define DFLAG_BIG_SEQTRACE_LABELS 0x100000
 #define DFLAG_NO_MAGIC            0x200000 /* internal for pending connection */
 #define DFLAG_EXIT_PAYLOAD        0x400000
+#define DFLAG_FRAGMENTS           0x800000
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -77,7 +78,8 @@
                             | DFLAG_BIG_CREATION              \
                             | DFLAG_SEND_SENDER               \
                             | DFLAG_BIG_SEQTRACE_LABELS       \
-                            | DFLAG_EXIT_PAYLOAD)
+                            | DFLAG_EXIT_PAYLOAD              \
+                            | DFLAG_FRAGMENTS)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -101,7 +103,7 @@
                                | DFLAG_BIG_CREATION)
 
 /* opcodes used in distribution messages */
-enum {
+enum dop {
     DOP_LINK                = 1,
     DOP_SEND                = 2,
     DOP_EXIT                = 3,
@@ -149,6 +151,16 @@ typedef struct {
     int no_suspend;
     Uint32 flags;
 } ErtsDSigData;
+
+/* Must be larger or equal to 16 */
+#ifdef DEBUG
+#define ERTS_DIST_FRAGMENT_SIZE 16
+#else
+/* This should be made configurable */
+#define ERTS_DIST_FRAGMENT_SIZE (64 * 1024)
+#endif
+
+#define ERTS_DIST_FRAGMENT_HEADER_SIZE (1 + 1 + 8 + 8) /* magic, header, seq id, frag id*/
 
 #define ERTS_DE_BUSY_LIMIT (1024*1024)
 extern int erts_dist_buf_busy_limit;
@@ -347,7 +359,8 @@ enum erts_dsig_send_phase {
     ERTS_DSIG_SEND_PHASE_MSG_SIZE,
     ERTS_DSIG_SEND_PHASE_ALLOC,
     ERTS_DSIG_SEND_PHASE_MSG_ENCODE,
-    ERTS_DSIG_SEND_PHASE_FIN
+    ERTS_DSIG_SEND_PHASE_FIN,
+    ERTS_DSIG_SEND_PHASE_SEND
 };
 
 struct erts_dsig_send_context {
@@ -356,12 +369,14 @@ struct erts_dsig_send_context {
 
     Eterm ctl;
     Eterm msg;
+    Eterm from;
     int force_busy;
     int force_encode;
     Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
     ErtsAtomCacheMap *acmp;
     ErtsDistOutputBuf *obuf;
+    Uint fragments;
     Uint32 flags;
     Process *c_p;
     union {
@@ -383,6 +398,7 @@ typedef struct {
     Eterm return_term;
 }ErtsSendContext;
 
+typedef struct dist_sequences DistSeqNode;
 
 /*
  * erts_dsig_send_* return values.
@@ -398,11 +414,11 @@ extern int erts_dsig_send_exit_tt(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_unlink(ErtsDSigData *, Eterm, Eterm);
 extern int erts_dsig_send_reg_msg(Eterm, Eterm, ErtsSendContext*);
 extern int erts_dsig_send_group_leader(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_exit(ErtsDSigData *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_exit2(ErtsDSigData *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_demonitor(ErtsDSigData *, Eterm, Eterm, Eterm, int);
 extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm, Eterm);
 
 extern int erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx);
 extern int erts_dsend_context_dtor(Binary*);
@@ -415,5 +431,9 @@ extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 extern Uint erts_dist_cache_size(void);
 
 extern Sint erts_abort_connection_rwunlock(DistEntry *dep);
+
+extern void erts_dist_seq_tree_foreach(
+    DistEntry *dep,
+    int (*func)(ErtsDistExternal *, void*, Sint), void *args);
 
 #endif
