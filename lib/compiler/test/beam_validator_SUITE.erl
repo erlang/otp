@@ -34,7 +34,7 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
-         receive_stacked/1]).
+         receive_stacked/1,aliased_types/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -63,7 +63,7 @@ groups() ->
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
-       receive_stacked]}].
+       receive_stacked,aliased_types]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -578,6 +578,21 @@ receive_stacked(Config) ->
     {ok,Mod,_} = compile:file(File, [binary]),
 
     ok.
+
+%% ERL-735: validator failed to track types on aliased registers, rejecting
+%% legitimate optimizations.
+%%
+%%    move x0 y0
+%%    bif hd L1 x0
+%%    get_hd y0     %% The validator failed to see that y0 was a list
+aliased_types(Config) when is_list(Config) ->
+    Bug = lists:seq(1, 5),
+    if
+        Config =/= [gurka, gaffel] -> %% Pointless branch.
+            _ = hd(Bug),
+            lists:seq(1, 5),
+            hd(Bug)
+    end.
 
 %%%-------------------------------------------------------------------------
 

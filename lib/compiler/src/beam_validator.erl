@@ -572,7 +572,7 @@ valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
     TupleType0 = get_term_type(Tuple, Vst0),
     Vst1 = branch_state(Fail, Vst0),
     TupleType = upgrade_tuple_type({tuple,[0]}, TupleType0),
-    Vst = set_type(TupleType, Tuple, Vst1),
+    Vst = set_aliased_type(TupleType, Tuple, Vst1),
     set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     TupleType0 = get_term_type(Tuple, Vst0),
@@ -589,20 +589,20 @@ valfun_4(raw_raise=I, Vst) ->
 valfun_4({bif,map_get,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
-    Vst = set_type(map, Map, Vst1),
+    Vst = set_aliased_type(map, Map, Vst1),
     Type = propagate_fragility(term, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
-    Vst = set_type(map, Map, Vst1),
+    Vst = set_aliased_type(map, Map, Vst1),
     Type = propagate_fragility(bool, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},[Cons]=Src,Dst}, Vst0)
   when Op =:= hd; Op =:= tl ->
     validate_src(Src, Vst0),
     Vst1 = branch_state(Fail, Vst0),
-    Vst = set_type(cons, Cons, Vst1),
+    Vst = set_aliased_type(cons, Cons, Vst1),
     Type0 = bif_type(Op, Src, Vst),
     Type = propagate_fragility(Type0, Src, Vst),
     set_type_reg(Type, Dst, Vst);
