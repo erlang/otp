@@ -210,29 +210,29 @@ DbTableMethod db_catree =
  * Internal CA tree related helper functions and macros
  */
 
-#define GET_ROUTE_NODE_KEY(node) (node->baseOrRoute.route.key.tpl[0])
-#define GET_BASE_NODE_LOCK(node) (&(node->baseOrRoute.base.lock))
-#define GET_ROUTE_NODE_LOCK(node) (&(node->baseOrRoute.route.lock))
+#define GET_ROUTE_NODE_KEY(node) (node->u.route.key.tpl[0])
+#define GET_BASE_NODE_LOCK(node) (&(node->u.base.lock))
+#define GET_ROUTE_NODE_LOCK(node) (&(node->u.route.lock))
 
 
 /* Helpers for reading and writing shared atomic variables */
 
 /* No memory barrier */
 #define GET_ROOT(tb) ((DbTableCATreeNode*)erts_atomic_read_nob(&(tb->root)))
-#define GET_LEFT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->baseOrRoute.route.left)))
-#define GET_RIGHT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->baseOrRoute.route.right)))
+#define GET_LEFT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->u.route.left)))
+#define GET_RIGHT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->u.route.right)))
 #define SET_ROOT(tb, v) erts_atomic_set_nob(&((tb)->root), (erts_aint_t)(v))
-#define SET_LEFT(ca_tree_route_node, v) erts_atomic_set_nob(&(ca_tree_route_node->baseOrRoute.route.left), (erts_aint_t)(v));
-#define SET_RIGHT(ca_tree_route_node, v) erts_atomic_set_nob(&(ca_tree_route_node->baseOrRoute.route.right), (erts_aint_t)(v));
+#define SET_LEFT(ca_tree_route_node, v) erts_atomic_set_nob(&(ca_tree_route_node->u.route.left), (erts_aint_t)(v));
+#define SET_RIGHT(ca_tree_route_node, v) erts_atomic_set_nob(&(ca_tree_route_node->u.route.right), (erts_aint_t)(v));
 
 
 /* Release or acquire barriers */
 #define GET_ROOT_ACQB(tb) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(tb->root)))
-#define GET_LEFT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->baseOrRoute.route.left)))
-#define GET_RIGHT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->baseOrRoute.route.right)))
+#define GET_LEFT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->u.route.left)))
+#define GET_RIGHT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->u.route.right)))
 #define SET_ROOT_RELB(tb, v) erts_atomic_set_relb(&((tb)->root), (erts_aint_t)(v))
-#define SET_LEFT_RELB(ca_tree_route_node, v) erts_atomic_set_relb(&(ca_tree_route_node->baseOrRoute.route.left), (erts_aint_t)(v));
-#define SET_RIGHT_RELB(ca_tree_route_node, v) erts_atomic_set_relb(&(ca_tree_route_node->baseOrRoute.route.right), (erts_aint_t)(v));
+#define SET_LEFT_RELB(ca_tree_route_node, v) erts_atomic_set_relb(&(ca_tree_route_node->u.route.left), (erts_aint_t)(v));
+#define SET_RIGHT_RELB(ca_tree_route_node, v) erts_atomic_set_relb(&(ca_tree_route_node->u.route.right), (erts_aint_t)(v));
 
 /* Compares a key to the key in a route node */
 static ERTS_INLINE Sint cmp_key_route(DbTableCommon * tb,
@@ -740,7 +740,7 @@ void unlock_route_node(DbTableCATreeRouteNode *route_node)
                     current_node = GET_RIGHT_ACQB(current_node);        \
                 }                                                       \
             }                                                           \
-            base_node = &current_node->baseOrRoute.base;                \
+            base_node = &current_node->u.base;                \
             LOCK(base_node);                                            \
             if ( ! base_node->is_valid ) {                              \
                 /* Retry */                                             \
@@ -792,7 +792,7 @@ static DbTableCATreeNode *create_catree_base_node(DbTableCATree *tb)
                       (DbTable *) tb,
                       sizeof(DbTableCATreeNode));
     DbTableCATreeBaseNode *new_base_node =
-        &new_base_node_container->baseOrRoute.base;
+        &new_base_node_container->u.base;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     new_base_node_container->is_base_node = 1;
     new_base_node->root = NULL;
@@ -817,8 +817,7 @@ create_catree_route_node(DbTableCommon * common_table_data,
     Eterm* top;
     Eterm key = GETKEY(common_table_data,keyTerm->tpl);
     int key_size = size_object(key);
-    Uint offset = offsetof(DbTableCATreeNode,baseOrRoute) +
-        offsetof(DbTableCATreeRouteNode,key);
+    Uint offset = offsetof(DbTableCATreeNode,u.route.key);
     size_t route_node_container_size =
         offset +
         sizeof(DbTerm) +
@@ -832,7 +831,7 @@ create_catree_route_node(DbTableCommon * common_table_data,
     DbTableCATreeNode *new_route_node_container =
         (DbTableCATreeNode*)new_route_node_container_bytes;
     DbTableCATreeRouteNode *new_route_node =
-        &new_route_node_container->baseOrRoute.route;
+        &new_route_node_container->u.route;
     new_route_node->tab = (DbTable *)common_table_data;
     if (key_size != 0) {
         newp->size = key_size;
@@ -859,7 +858,7 @@ static void free_catree_base_node(void* base_node_container_ptr)
     DbTableCATreeNode *base_node_container =
         (DbTableCATreeNode *)base_node_container_ptr;
     DbTableCATreeBaseNode *base_node =
-        &base_node_container->baseOrRoute.base;
+        &base_node_container->u.base;
     erts_rwmtx_destroy(&base_node->lock);
     erts_db_free(ERTS_ALC_T_DB_TABLE,
                  base_node->tab, base_node_container,
@@ -873,10 +872,9 @@ static void free_catree_routing_node(void *route_node_container_ptr)
     DbTableCATreeNode *route_node_container =
         (DbTableCATreeNode *)route_node_container_bytes;
     DbTableCATreeRouteNode *route_node =
-        &route_node_container->baseOrRoute.route;
+        &route_node_container->u.route;
     int key_size = route_node->key.size;
-    Uint offset = offsetof(DbTableCATreeNode,baseOrRoute) +
-        offsetof(DbTableCATreeRouteNode,key);
+    Uint offset = offsetof(DbTableCATreeNode,u.route.key);
     ErlOffHeap tmp_oh;
     DbTerm* db_term = (DbTerm*) (route_node_container_bytes + offset);
     erts_mtx_destroy(&route_node->lock);
@@ -1001,10 +999,10 @@ get_next_base_node_and_path(DbTableCommon *common_table_data,
                         stack);
         } else {
             Eterm pkey =
-                TOP_NODE(stack)->baseOrRoute.route.key.tpl[0]; /* pKey = key of parent */
+                TOP_NODE(stack)->u.route.key.tpl[0]; /* pKey = key of parent */
             POP_NODE(stack);
             while (!EMPTY_NODE(stack)) {
-                if (TOP_NODE(stack)->baseOrRoute.route.is_valid &&
+                if (TOP_NODE(stack)->u.route.is_valid &&
                    cmp_key_route(common_table_data, pkey, TOP_NODE(stack)) <= 0) {
                     return leftmost_base_node_and_path(GET_RIGHT_ACQB(TOP_NODE(stack)), stack);
                 } else {
@@ -1045,7 +1043,7 @@ lock_first_base_node(DbTable *tbl,
             PUSH_NODE(search_stack_ptr, current_node);
             current_node = GET_LEFT_ACQB(current_node);
         }
-        base_node = &current_node->baseOrRoute.base;
+        base_node = &current_node->u.base;
         rlock_base_node(base_node);
         if ( ! base_node->is_valid ) {
             /* Retry */
@@ -1076,7 +1074,7 @@ find_and_lock_next_base_node_and_path(DbTable *tbl,
     if (current_node == NULL) {
         return NULL;
     }
-    base_node = &current_node->baseOrRoute.base;
+    base_node = &current_node->u.base;
     rlock_base_node(base_node);
     if ( ! base_node->is_valid ) {
         /* Retry */
@@ -1102,7 +1100,7 @@ void unlock_and_release_locked_base_node_stack(DbTable *tbl,
     int i;
     for (i = 0; i < locked_base_nodes_stack_ptr->pos; i++) {
         current_node = locked_base_nodes_stack_ptr->array[i];
-        base_node = &current_node->baseOrRoute.base;
+        base_node = &current_node->u.base;
         if (locked_base_nodes_stack_ptr->pos > 1) {
             base_node->lock_statistics =     /* This is not atomic which is fine as */
                 base_node->lock_statistics + /* correctness does not depend on that. */
@@ -1178,7 +1176,7 @@ lock_base_node_with_key(DbTable *tbl,
                 current_node = GET_RIGHT_ACQB(current_node);
             }
         }
-        base_node = &current_node->baseOrRoute.base;
+        base_node = &current_node->u.base;
         rlock_base_node(base_node);
         if ( ! base_node->is_valid ) {
             /* Retry */
@@ -1204,7 +1202,7 @@ erl_db_catree_force_join_right(DbTableCommon *common_table_data,
     DbTableCATreeRouteNode *parent;
     DbTableCATreeNode *gparent_container;
     DbTableCATreeRouteNode *gparent;
-    DbTableCATreeBaseNode *base = &base_container->baseOrRoute.base;
+    DbTableCATreeBaseNode *base = &base_container->u.base;
     DbTableCATree *tb = (DbTableCATree *)common_table_data;
     DbTableCATreeNode *neighbor_base_container;
     DbTableCATreeBaseNode *neighbor_base;
@@ -1214,10 +1212,10 @@ erl_db_catree_force_join_right(DbTableCommon *common_table_data,
     if (parent_container == NULL) {
         return NULL;
     }
-    parent = &parent_container->baseOrRoute.route;
+    parent = &parent_container->u.route;
     do {
         neighbor_base_container = leftmost_base_node(GET_RIGHT_ACQB(parent_container));
-        neighbor_base = &neighbor_base_container->baseOrRoute.base;
+        neighbor_base = &neighbor_base_container->u.base;
         wlock_base_node_no_stats(neighbor_base);
         neighbour_not_valid = !neighbor_base->is_valid;
         if (neighbour_not_valid) {
@@ -1236,7 +1234,7 @@ erl_db_catree_force_join_right(DbTableCommon *common_table_data,
         }
         gparent_container = parent_of(tb, parent_container);
         if (gparent_container != NULL) {
-            gparent = &gparent_container->baseOrRoute.route;
+            gparent = &gparent_container->u.route;
             lock_route_node(gparent);
         } else {
             gparent = NULL;
@@ -1254,9 +1252,9 @@ erl_db_catree_force_join_right(DbTableCommon *common_table_data,
         unlock_route_node(gparent);
     }
     new_neighbor_base = create_catree_base_node(tb);
-    new_neighbor_base->baseOrRoute.base.root =
+    new_neighbor_base->u.base.root =
         join_trees(base->root, neighbor_base->root);
-    wlock_base_node_no_stats(&(new_neighbor_base->baseOrRoute.base));
+    wlock_base_node_no_stats(&(new_neighbor_base->u.base));
     neighbor_base_parent = NULL;
     if (GET_RIGHT(parent_container) == neighbor_base_container) {
         neighbor_base_parent = gparent_container;
@@ -1314,10 +1312,10 @@ merge_to_one_locked_base_node(DbTableCommon * common_table_data)
             parent_container = base_container;
             base_container = GET_LEFT_ACQB(base_container);
         }
-        wlock_base_node_no_stats(&(base_container->baseOrRoute.base));
-        is_not_valid = ! base_container->baseOrRoute.base.is_valid;
+        wlock_base_node_no_stats(&(base_container->u.base));
+        is_not_valid = ! base_container->u.base.is_valid;
         if (is_not_valid) {
-            wunlock_base_node(&(base_container->baseOrRoute.base));
+            wunlock_base_node(&(base_container->u.base));
         }
     } while(is_not_valid);
     do {
@@ -1341,7 +1339,7 @@ static void join_catree(DbTableCATree *tb,
     DbTableCATreeRouteNode *parent;
     DbTableCATreeNode *gparent_container;
     DbTableCATreeRouteNode *gparent;
-    DbTableCATreeBaseNode *base = &base_container->baseOrRoute.base;
+    DbTableCATreeBaseNode *base = &base_container->u.base;
     DbTableCATreeNode *neighbor_base_container;
     DbTableCATreeBaseNode *neighbor_base;
     DbTableCATreeNode *new_neighbor_base;
@@ -1351,10 +1349,10 @@ static void join_catree(DbTableCATree *tb,
         wunlock_base_node(base);
         return;
     }
-    parent = &parent_container->baseOrRoute.route;
+    parent = &parent_container->u.route;
     if (GET_LEFT(parent_container) == base_container) {
         neighbor_base_container = leftmost_base_node(GET_RIGHT_ACQB(parent_container));
-        neighbor_base = &neighbor_base_container->baseOrRoute.base;
+        neighbor_base = &neighbor_base_container->u.base;
         if (try_wlock_base_node(neighbor_base)) {
             /* Failed to acquire lock */
             base->lock_statistics = 0;
@@ -1378,7 +1376,7 @@ static void join_catree(DbTableCATree *tb,
                 }
                 gparent_container = parent_of(tb, parent_container);
                 if (gparent_container != NULL) {
-                    gparent = &gparent_container->baseOrRoute.route;
+                    gparent = &gparent_container->u.route;
                     lock_route_node(gparent);
                 } else {
                     gparent = NULL;
@@ -1396,7 +1394,7 @@ static void join_catree(DbTableCATree *tb,
                 unlock_route_node(gparent);
             }
             new_neighbor_base = create_catree_base_node(tb);
-            new_neighbor_base->baseOrRoute.base.root =
+            new_neighbor_base->u.base.root =
                 join_trees(base->root, neighbor_base->root);
             neighbor_base_parent = NULL;
             if (GET_RIGHT(parent_container) == neighbor_base_container) {
@@ -1408,7 +1406,7 @@ static void join_catree(DbTableCATree *tb,
         }
     } else { /* Symetric case */
         neighbor_base_container = rightmost_base_node(GET_LEFT_ACQB(parent_container));
-        neighbor_base = &neighbor_base_container->baseOrRoute.base;
+        neighbor_base = &neighbor_base_container->u.base;
         if (try_wlock_base_node(neighbor_base)) {
             /* Failed to acquire lock */
             base->lock_statistics = 0;
@@ -1432,7 +1430,7 @@ static void join_catree(DbTableCATree *tb,
                 }
                 gparent_container = parent_of(tb, parent_container);
                 if (gparent_container != NULL) {
-                    gparent = &gparent_container->baseOrRoute.route;
+                    gparent = &gparent_container->u.route;
                     lock_route_node(gparent);
                 } else {
                     gparent = NULL;
@@ -1450,7 +1448,7 @@ static void join_catree(DbTableCATree *tb,
                 unlock_route_node(gparent);
             }
             new_neighbor_base = create_catree_base_node(tb);
-            new_neighbor_base->baseOrRoute.base.root =
+            new_neighbor_base->u.base.root =
                 join_trees(neighbor_base->root, base->root);
             neighbor_base_parent = NULL;
             if (GET_LEFT(parent_container) == neighbor_base_container) {
@@ -1493,12 +1491,12 @@ static void split_catree(DbTableCommon *tb,
     DbTableCATreeNode *left_base_node;
     DbTableCATreeNode *right_base_node;
     DbTableCATreeNode *routing_node_container;
-    DbTableCATreeBaseNode *base = &base_container->baseOrRoute.base;
+    DbTableCATreeBaseNode *base = &base_container->u.base;
     DbTableCATreeRouteNode *parent;
     if (parent_container == NULL) {
         parent = NULL;
     } else {
-        parent =  &parent_container->baseOrRoute.route;
+        parent =  &parent_container->u.route;
     }
 
     if (less_than_two_elements(base->root)) {
@@ -1517,8 +1515,8 @@ static void split_catree(DbTableCommon *tb,
           create_catree_base_node((DbTableCATree*)tb);
         right_base_node =
           create_catree_base_node((DbTableCATree*)tb);
-        left_base_node->baseOrRoute.base.root = leftWriteBack;
-        right_base_node->baseOrRoute.base.root = rightWriteBack;
+        left_base_node->u.base.root = leftWriteBack;
+        right_base_node->u.base.root = rightWriteBack;
         routing_node_container = create_catree_route_node(tb,
                                                           left_base_node,
                                                           right_base_node,
@@ -1546,7 +1544,7 @@ static void catree_add_base_node_to_free_list(
         DbTableCATree *tb,
         DbTableCATreeNode *base_node_container)
 {
-    base_node_container->baseOrRoute.base.next =
+    base_node_container->u.base.next =
         tb->base_nodes_to_free_list;
     tb->base_nodes_to_free_list = base_node_container;
 }
@@ -1557,7 +1555,7 @@ static void catree_deque_base_node_from_free_list(DbTableCATree *tb)
         return; /* List empty */
     } else {
         DbTableCATreeNode *first = tb->base_nodes_to_free_list;
-        tb->base_nodes_to_free_list = first->baseOrRoute.base.next;
+        tb->base_nodes_to_free_list = first->u.base.next;
     }
 }
 
@@ -1640,7 +1638,7 @@ static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left)
     free_catree_base_node(base_node_container);
     base_node_container = catree_first_base_node_from_free_list(tb);
     if (base_node_container != NULL) {
-        PUSH_NODE(&tb->free_stack_elems, base_node_container->baseOrRoute.base.root);
+        PUSH_NODE(&tb->free_stack_elems, base_node_container->u.base.root);
     }
     return num_left;
 }
@@ -1675,7 +1673,7 @@ static int db_first_catree(Process *p, DbTable *tbl, Eterm *ret)
     int result;
     DECLARE_AND_INIT_BASE_NODE_SEARCH_STACKS;
     /* Find first base node */
-    base_node = &(lock_first_base_node(tbl, &search_stack, &locked_base_nodes_stack)->baseOrRoute.base);
+    base_node = &(lock_first_base_node(tbl, &search_stack, &locked_base_nodes_stack)->u.base);
     /* Find next base node until non-empty base node is found */
     while (base_node != NULL && base_node->root == NULL) {
         base_node = find_and_lock_next_base_node_and_path(tbl, &search_stack_ptr, &search_stack_copy_ptr, locked_base_nodes_stack_ptr);
@@ -1718,8 +1716,8 @@ static int db_last_catree(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableCATree *tb = &tbl->catree;
     DbTableCATreeNode *base = merge_to_one_locked_base_node(&tb->common);
-    int result = db_last_tree_common(p, tbl, base->baseOrRoute.base.root, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    int result = db_last_tree_common(p, tbl, base->u.base.root, ret, NULL);
+    wunlock_base_node(&(base->u.base));
     return result;
     
 }
@@ -1733,8 +1731,8 @@ static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     DbTableCATreeNode *base;
     init_tree_stack(&stack, stack_array, 0);
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_prev_tree_common(p, tbl, base->baseOrRoute.base.root, key, ret, &stack);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    result = db_prev_tree_common(p, tbl, base->u.base.root, key, ret, &stack);
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1839,9 +1837,9 @@ static int db_slot_catree(Process *p, DbTable *tbl,
     int result;
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_slot_tree_common(p, tbl, base->baseOrRoute.base.root,
+    result = db_slot_tree_common(p, tbl, base->u.base.root,
                                  slot_term, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1854,9 +1852,9 @@ static int db_select_continue_catree(Process *p,
     int result;
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_continue_tree_common(p, &tb->common, &base->baseOrRoute.base.root,
+    result = db_select_continue_tree_common(p, &tb->common, &base->u.base.root,
                                             continuation, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1868,10 +1866,10 @@ static int db_select_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_tree_common(p, &tb->common, &base->baseOrRoute.base.root,
+    result = db_select_tree_common(p, &tb->common, &base->u.base.root,
                                    tid, pattern, reverse, ret,
                                    NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1885,9 +1883,9 @@ static int db_select_count_continue_catree(Process *p,
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
     result = db_select_count_continue_tree_common(p, &tb->common,
-                                                  &base->baseOrRoute.base.root,
+                                                  &base->u.base.root,
                                                   continuation, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1898,9 +1896,9 @@ static int db_select_count_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_count_tree_common(p, &tb->common, &base->baseOrRoute.base.root,
+    result = db_select_count_tree_common(p, &tb->common, &base->u.base.root,
                                          tid, pattern, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1912,9 +1910,9 @@ static int db_select_chunk_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_chunk_tree_common(p, &tb->common, &base->baseOrRoute.base.root,
+    result = db_select_chunk_tree_common(p, &tb->common, &base->u.base.root,
                                          tid, pattern, chunk_size, reversed, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1930,9 +1928,9 @@ static int db_select_delete_continue_catree(Process *p,
     DbTableCATreeNode *base;
     init_tree_stack(&stack, stack_array, 0);
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_delete_continue_tree_common(p, tbl, &base->baseOrRoute.base.root,
+    result = db_select_delete_continue_tree_common(p, tbl, &base->u.base.root,
                                                    continuation, ret, &stack);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1946,9 +1944,9 @@ static int db_select_delete_catree(Process *p, DbTable *tbl, Eterm tid,
     DbTableCATreeNode *base;
     init_tree_stack(&stack, stack_array, 0);
     base = merge_to_one_locked_base_node(&tb->common);
-    result = db_select_delete_tree_common(p, tbl, &base->baseOrRoute.base.root,
+    result = db_select_delete_tree_common(p, tbl, &base->u.base.root,
                                           tid, pattern, ret, &stack);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1960,9 +1958,9 @@ static int db_select_replace_catree(Process *p, DbTable *tbl, Eterm tid,
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
     result = db_select_replace_tree_common(p, &tb->common,
-                                           &base->baseOrRoute.base.root,
+                                           &base->u.base.root,
                                            tid, pattern, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -1974,9 +1972,9 @@ static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
     DbTableCATreeNode *base;
     base = merge_to_one_locked_base_node(&tb->common);
     result = db_select_replace_continue_tree_common(p, &tb->common,
-                                                    &base->baseOrRoute.base.root,
+                                                    &base->u.base.root,
                                                     continuation, ret, NULL);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    wunlock_base_node(&(base->u.base));
     return result;
 }
 
@@ -2004,8 +2002,8 @@ static void db_print_catree(fmtfn_t to, void *to_arg,
 {
     DbTableCATree *tb = &tbl->catree;
     DbTableCATreeNode *base = merge_to_one_locked_base_node(&tb->common);
-    db_print_tree_common(to, to_arg, show, base->baseOrRoute.base.root, tbl);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    db_print_tree_common(to, to_arg, show, base->u.base.root, tbl);
+    wunlock_base_node(&(base->u.base));
 }
 
 /* Release all memory occupied by a single table */
@@ -2045,7 +2043,7 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
         } else {
             tb->is_routing_nodes_freed = 1; /* Ready with the routing nodes */
             first_base_node = catree_first_base_node_from_free_list(tb);
-            PUSH_NODE(&tb->free_stack_elems, first_base_node->baseOrRoute.base.root);
+            PUSH_NODE(&tb->free_stack_elems, first_base_node->u.base.root);
         }
     }
     while (catree_first_base_node_from_free_list(tb) != NULL) {
@@ -2083,8 +2081,8 @@ static void db_foreach_offheap_catree(DbTable *tbl,
 {
     DbTableCATree *tb = &tbl->catree;
     DbTableCATreeNode *base = merge_to_one_locked_base_node(&tb->common);
-    db_foreach_offheap_tree_common(base->baseOrRoute.base.root, func, arg);
-    wunlock_base_node(&(base->baseOrRoute.base));
+    db_foreach_offheap_tree_common(base->u.base.root, func, arg);
+    wunlock_base_node(&(base->u.base));
 }
 
 static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
@@ -2111,7 +2109,7 @@ static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *handle)
     DbTableCATreeNode *prev_node = handle->lck;    
     DbTableCATreeNode *current_node = handle->lck2;
     int current_level = handle->current_level;
-    DbTableCATreeBaseNode *base_node = &current_node->baseOrRoute.base;
+    DbTableCATreeBaseNode *base_node = &current_node->u.base;
     db_finalize_dbterm_tree_common(cret, handle, NULL);
     ERL_DB_CATREE_CREATE_DO_OPERATION_FUNCTION_ADAPT_AND_UNLOCK_PART;
     return;

@@ -58,7 +58,7 @@ typedef struct DbTableCATreeNode {
     union {
         DbTableCATreeRouteNode route;
         DbTableCATreeBaseNode base;
-    } baseOrRoute;
+    } u;
 } DbTableCATreeNode;
 
 typedef struct {
