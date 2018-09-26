@@ -22,7 +22,7 @@
 -export([n1_proc/2,remote_proc/2,
          dump_maps/0,create_maps/0,
          create_binaries/0,create_sub_binaries/1]).
--compile(r18).
+-compile(r20).
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->
