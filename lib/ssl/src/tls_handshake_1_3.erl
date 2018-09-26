@@ -89,7 +89,7 @@ decode_handshake(?CERTIFICATE, <<?BYTE(CSize), Context:CSize/binary,
        certificate_request_context = Context,
        entries = CertList
       };
-decode_handshake(?ENCRYPTED_EXTENSIONS, EncExts) ->
+decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) ->
     #encrypted_extensions{
        extensions = decode_extensions(EncExts)
       };

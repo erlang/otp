@@ -767,7 +767,7 @@ decode_vector(<<?UINT16(Len), Vector:Len/binary>>) ->
     Vector.
 
 %%--------------------------------------------------------------------
--spec decode_hello_extensions(binary(), tls_record:version(), client | server) -> map().
+-spec decode_hello_extensions(binary(), ssl_record:ssl_version(), client | server) -> map().
 %%
 %% Description: Decodes TLS hello extensions
 %%--------------------------------------------------------------------
