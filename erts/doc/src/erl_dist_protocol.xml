@@ -532,7 +532,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
     <marker id="distribution_handshake"/>
     <title>Distribution Handshake</title>
     <p>This section describes the distribution handshake protocol introduced
-      in Erlang/OTP R6. The handshake has remaining almost the same since then.</p>
+      in Erlang/OTP R6. The handshake has remained almost the same since then.</p>
 
     <section>
       <title>General</title>
@@ -979,6 +979,7 @@ DiB == gen_digest(ChA, ICA)?
       <tag><c>EXIT</c></tag>
       <item>
         <p><c>{3, FromPid, ToPid, Reason}</c></p>
+        <p>This signal is sent when a link has been broken</p>
       </item>
       <tag><c>UNLINK</c></tag>
       <item>
@@ -1001,6 +1002,7 @@ DiB == gen_digest(ChA, ICA)?
       <tag><c>EXIT2</c></tag>
       <item>
         <p><c>{8, FromPid, ToPid, Reason}</c></p>
+        <p>This signal is sent by a call to the erlang:exit/2 bif</p>
       </item>
     </taglist>
   </section>
