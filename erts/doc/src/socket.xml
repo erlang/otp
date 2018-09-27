@@ -147,6 +147,9 @@
       <name name="ipv6_pmtudisc"/>
     </datatype>
     <datatype>
+      <name name="sctp_assoc_id"/>
+    </datatype>
+    <datatype>
       <name name="sctp_sndrcvinfo"/>
     </datatype>
     <datatype>
@@ -481,7 +484,8 @@
 
     <func>
       <name name="sendto" arity="3"/>
-      <name name="sendto" arity="4"/>
+      <name name="sendto" arity="4" clause_i="1"/>
+      <name name="sendto" arity="4" clause_i="2"/>
       <name name="sendto" arity="5"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
