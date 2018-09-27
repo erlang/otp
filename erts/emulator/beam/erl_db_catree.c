@@ -804,8 +804,13 @@ static DbTableCATreeNode *create_catree_base_node(DbTableCATree *tb)
                         "erl_db_catree_base_node", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     new_base_node->lock_statistics = 0;
     new_base_node->is_valid = 1;
-    new_base_node->tab = (DbTable *) tb;
     return new_base_node_container;
+}
+
+static ERTS_INLINE Uint sizeof_route_node(Uint key_size)
+{
+    return (offsetof(DbTableCATreeNode, u.route.key.tpl[1])
+            + key_size*sizeof(Eterm));
 }
 
 static DbTableCATreeNode*
@@ -832,7 +837,6 @@ create_catree_route_node(DbTableCommon * common_table_data,
         (DbTableCATreeNode*)new_route_node_container_bytes;
     DbTableCATreeRouteNode *new_route_node =
         &new_route_node_container->u.route;
-    new_route_node->tab = (DbTable *)common_table_data;
     if (key_size != 0) {
         newp->size = key_size;
         top = &newp->tpl[1];
@@ -853,44 +857,41 @@ create_catree_route_node(DbTableCommon * common_table_data,
     return new_route_node_container;
 }
 
-static void free_catree_base_node(void* base_node_container_ptr)
+static void do_free_base_node(void* vptr)
 {
-    DbTableCATreeNode *base_node_container =
-        (DbTableCATreeNode *)base_node_container_ptr;
-    DbTableCATreeBaseNode *base_node =
-        &base_node_container->u.base;
-    erts_rwmtx_destroy(&base_node->lock);
-    erts_db_free(ERTS_ALC_T_DB_TABLE,
-                 base_node->tab, base_node_container,
-                 sizeof(DbTableCATreeNode));
+    DbTableCATreeNode *p = (DbTableCATreeNode *)vptr;
+    ASSERT(p->is_base_node);
+    erts_rwmtx_destroy(&p->u.base.lock);
+    erts_free(ERTS_ALC_T_DB_TABLE, p);
 }
 
-static void free_catree_routing_node(void *route_node_container_ptr)
+static void free_catree_base_node(DbTableCATree* tb, DbTableCATreeNode* p)
 {
-    size_t route_node_container_size;
-    byte* route_node_container_bytes = route_node_container_ptr;
-    DbTableCATreeNode *route_node_container =
-        (DbTableCATreeNode *)route_node_container_bytes;
-    DbTableCATreeRouteNode *route_node =
-        &route_node_container->u.route;
-    int key_size = route_node->key.size;
-    Uint offset = offsetof(DbTableCATreeNode,u.route.key);
-    ErlOffHeap tmp_oh;
-    DbTerm* db_term = (DbTerm*) (route_node_container_bytes + offset);
-    erts_mtx_destroy(&route_node->lock);
-    route_node_container_size =
-        offset +
-        sizeof(DbTerm) +
-        sizeof(Eterm)*key_size;
-    if (key_size != 0) {
-        tmp_oh.first = db_term->first_oh;
+    ASSERT(p->is_base_node);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof(DbTableCATreeNode), 0);
+    do_free_base_node(p);
+}
+
+static void do_free_route_node(void *vptr)
+{
+    DbTableCATreeNode *p = (DbTableCATreeNode *)vptr;
+    ASSERT(!p->is_base_node);
+    erts_mtx_destroy(&p->u.route.lock);
+    if (p->u.route.key.size != 0) {
+        ErlOffHeap tmp_oh;
+        tmp_oh.first = p->u.route.key.first_oh;
         erts_cleanup_offheap(&tmp_oh);
     }
-    erts_db_free(ERTS_ALC_T_DB_TABLE,
-                 route_node->tab,
-                 route_node_container,
-                 route_node_container_size);
+    erts_free(ERTS_ALC_T_DB_TABLE, p);
 }
+
+static void free_catree_route_node(DbTableCATree* tb, DbTableCATreeNode* p)
+{
+    ASSERT(!p->is_base_node);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_route_node(p->u.route.key.size), 0);
+    do_free_route_node(p);
+}
+
 
 /*
  * Returns the parent routing node of the specified
@@ -1272,16 +1273,22 @@ erl_db_catree_force_join_right(DbTableCommon *common_table_data,
     wunlock_base_node(base);
     wunlock_base_node(neighbor_base);
     /* Free the parent and base */
-    erts_schedule_thr_prgr_later_op(free_catree_routing_node,
-                                    parent_container,
-                                    &parent->free_item);
-    erts_schedule_thr_prgr_later_op(free_catree_base_node,
-                                    base_container,
-                                    &base->free_item);
-    erts_schedule_thr_prgr_later_op(free_catree_base_node,
-                                    neighbor_base_container,
-                                    &neighbor_base->free_item);
-                          
+    erts_schedule_db_free(common_table_data,
+                          do_free_route_node,
+                          parent_container,
+                          &parent->free_item,
+                          sizeof_route_node(parent->key.size));
+    erts_schedule_db_free(common_table_data,
+                          do_free_base_node,
+                          base_container,
+                          &base->free_item,
+                          sizeof(DbTableCATreeNode));
+    erts_schedule_db_free(common_table_data,
+                          do_free_base_node,
+                          neighbor_base_container,
+                          &neighbor_base->free_item,
+                          sizeof(DbTableCATreeNode));
+
     if (parent_container == neighbor_base_container) {
         *result_parent_wb = gparent_container;
     } else {
@@ -1470,15 +1477,21 @@ static void join_catree(DbTableCATree *tb,
     wunlock_base_node(base);
     wunlock_base_node(neighbor_base);
     /* Free the parent and base */
-    erts_schedule_thr_prgr_later_op(free_catree_routing_node,
-                                    parent_container,
-                                    &parent->free_item);
-    erts_schedule_thr_prgr_later_op(free_catree_base_node,
-                                    base_container,
-                                    &base->free_item);
-    erts_schedule_thr_prgr_later_op(free_catree_base_node,
-                                    neighbor_base_container,
-                                    &neighbor_base->free_item);
+    erts_schedule_db_free(&tb->common,
+                          do_free_route_node,
+                          parent_container,
+                          &parent->free_item,
+                          sizeof_route_node(parent->key.size));
+    erts_schedule_db_free(&tb->common,
+                          do_free_base_node,
+                          base_container,
+                          &base->free_item,
+                          sizeof(DbTableCATreeNode));
+    erts_schedule_db_free(&tb->common,
+                          do_free_base_node,
+                          neighbor_base_container,
+                          &neighbor_base->free_item,
+                          sizeof(DbTableCATreeNode));
 }
 
 
@@ -1530,9 +1543,11 @@ static void split_catree(DbTableCommon *tb,
         }
         base->is_valid = 0;
         wunlock_base_node(base);
-        erts_schedule_thr_prgr_later_op(free_catree_base_node,
-                                        base_container,
-                                        &base->free_item);
+        erts_schedule_db_free(tb,
+                              do_free_base_node,
+                              base_container,
+                              &base->free_item,
+                              sizeof(DbTableCATreeNode));
     }
 }
 
@@ -1594,7 +1609,7 @@ static SWord do_free_routing_nodes_catree_cont(DbTableCATree *tb, SWord num_left
                 PUSH_NODE(&tb->free_stack_rnodes, root);
                 root = p;
             } else {
-                free_catree_routing_node(root);
+                free_catree_route_node(tb, root);
                 if (--num_left >= 0) {
                     break;
                 } else {
@@ -1635,7 +1650,7 @@ static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left)
         }
     }
     catree_deque_base_node_from_free_list(tb);
-    free_catree_base_node(base_node_container);
+    free_catree_base_node(tb, base_node_container);
     base_node_container = catree_first_base_node_from_free_list(tb);
     if (base_node_container != NULL) {
         PUSH_NODE(&tb->free_stack_elems, base_node_container->u.base.root);

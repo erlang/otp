@@ -38,14 +38,12 @@ typedef struct {
     Sint lock_statistics;
     int is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
-    DbTable * tab; /* Table ptr, used when freeing using thread progress */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
 } DbTableCATreeBaseNode;
 
 typedef struct {
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
-    DbTable* tab; /* Table ptr, used when freeing using thread progress */
     erts_mtx_t lock; /* Used when joining route nodes */
     int is_valid; /* If this route node is still valid */
     erts_atomic_t left;

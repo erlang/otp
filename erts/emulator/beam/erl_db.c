@@ -409,30 +409,17 @@ static void
 free_dbtable(void *vtb)
 {
     DbTable *tb = (DbTable *) vtb;
-#ifdef HARDDEBUG
-	if (erts_atomic_read_nob(&tb->common.memory_size) != sizeof(DbTable)) {
-	    erts_fprintf(stderr, "ets: free_dbtable memory remain=%ld fix=%x\n",
-			 erts_atomic_read_nob(&tb->common.memory_size)-sizeof(DbTable),
-			 tb->common.fixations);
-	}
-#endif
-    if (erts_atomic_read_nob(&tb->common.memory_size) > sizeof(DbTable)) {
-        /* The CA tree implementation use delayed freeing and the  DbTable needs to
-           be freed after all other memory blocks that are allocated by the table. */
-        erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
-                                                (void *) tb,
-                                                &tb->release.data,
-                                                sizeof(DbTable));
-        return;
-    }
-	erts_rwmtx_destroy(&tb->common.rwlock);
-	erts_mtx_destroy(&tb->common.fixlock);
-	ASSERT(is_immed(tb->common.heir_data));
 
-        if (tb->common.btid)
-            erts_bin_release(tb->common.btid);
+    ASSERT(erts_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
 
-	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
+    erts_rwmtx_destroy(&tb->common.rwlock);
+    erts_mtx_destroy(&tb->common.fixlock);
+    ASSERT(is_immed(tb->common.heir_data));
+
+    if (tb->common.btid)
+        erts_bin_release(tb->common.btid);
+
+    erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
 }
 
 static void schedule_free_dbtable(DbTable* tb)
