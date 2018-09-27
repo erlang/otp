@@ -33,16 +33,32 @@
 
 #define FILE_SHARE_FLAGS (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
 
-#define LP_PREFIX L"\\\\?\\"
-#define LP_PREFIX_SIZE (sizeof(LP_PREFIX) - sizeof(WCHAR))
+/* Long paths can either be in the file (?) or the device (.) namespace. UNC
+ * paths are always in the file namespace. */
+#define LP_FILE_PREFIX L"\\\\?\\"
+#define LP_DEV_PREFIX L"\\\\.\\"
+#define LP_UNC_PREFIX (LP_FILE_PREFIX L"UNC\\")
+
+#define LP_PREFIX_SIZE (sizeof(LP_FILE_PREFIX) - sizeof(WCHAR))
 #define LP_PREFIX_LENGTH (LP_PREFIX_SIZE / sizeof(WCHAR))
+
+#define LP_UNC_PREFIX_SIZE (sizeof(LP_UNC_PREFIX) - sizeof(WCHAR))
+#define LP_UNC_PREFIX_LENGTH (LP_UNC_PREFIX_SIZE / sizeof(WCHAR))
+
+#define IS_LONG_PATH(length, data) \
+    ((length) >= LP_PREFIX_LENGTH && \
+         (!sys_memcmp((data), LP_FILE_PREFIX, LP_PREFIX_SIZE) || \
+          !sys_memcmp((data), LP_DEV_PREFIX, LP_PREFIX_SIZE)))
+
+#define IS_LONG_UNC_PATH(length, data) \
+    ((length) >= LP_UNC_PREFIX_LENGTH && \
+         !sys_memcmp((data), LP_UNC_PREFIX, LP_UNC_PREFIX_SIZE))
 
 #define PATH_LENGTH(path) (path->size / sizeof(WCHAR) - 1)
 
 #define ASSERT_PATH_FORMAT(path) \
     do { \
-        ASSERT(PATH_LENGTH(path) >= 4 && \
-            !memcmp(path->data, LP_PREFIX, LP_PREFIX_SIZE)); \
+        ASSERT(IS_LONG_PATH(PATH_LENGTH(path), (path)->data)); \
         ASSERT(PATH_LENGTH(path) == wcslen((WCHAR*)path->data)); \
     } while(0)
 
@@ -106,7 +122,7 @@ static posix_errno_t get_full_path(ErlNifEnv *env, WCHAR *input, efile_path_t *r
         return ENOENT;
     }
 
-    maximum_length += LP_PREFIX_LENGTH;
+    maximum_length += MAX(LP_PREFIX_LENGTH, LP_UNC_PREFIX_LENGTH);
 
     if(!enif_alloc_binary(maximum_length * sizeof(WCHAR), result)) {
         return ENOMEM;
@@ -115,18 +131,28 @@ static posix_errno_t get_full_path(ErlNifEnv *env, WCHAR *input, efile_path_t *r
     actual_length = GetFullPathNameW(input, maximum_length, (WCHAR*)result->data, NULL);
 
     if(actual_length < maximum_length) {
-        int has_long_path_prefix;
+        int is_long_path, maybe_unc_path;
         WCHAR *path_start;
 
-        /* Make sure we have a long-path prefix; GetFullPathNameW only adds one
-         * if the path is relative. */
-        has_long_path_prefix = actual_length >= LP_PREFIX_LENGTH &&
-            !sys_memcmp(result->data, LP_PREFIX, LP_PREFIX_SIZE);
+        /* The APIs we use have varying path length limits and sometimes
+         * behave differently when given a long-path prefix, so it's simplest
+         * to always use long paths. */
 
-        if(!has_long_path_prefix) {
+        is_long_path = IS_LONG_PATH(actual_length, result->data);
+        maybe_unc_path = !sys_memcmp(result->data, L"\\\\", sizeof(WCHAR) * 2);
+
+        if(maybe_unc_path && !is_long_path) {
+            /* \\localhost\c$\gurka -> \\?\UNC\localhost\c$\gurka */
+            sys_memmove(result->data + LP_UNC_PREFIX_SIZE,
+                &((WCHAR*)result->data)[2],
+                (actual_length - 1) * sizeof(WCHAR));
+            sys_memcpy(result->data, LP_UNC_PREFIX, LP_UNC_PREFIX_SIZE);
+            actual_length += LP_UNC_PREFIX_LENGTH;
+        } else if(!is_long_path) {
+            /* C:\gurka -> \\?\C:\gurka */
             sys_memmove(result->data + LP_PREFIX_SIZE, result->data,
                 (actual_length + 1) * sizeof(WCHAR));
-            sys_memcpy(result->data, LP_PREFIX, LP_PREFIX_SIZE);
+            sys_memcpy(result->data, LP_FILE_PREFIX, LP_PREFIX_SIZE);
             actual_length += LP_PREFIX_LENGTH;
         }
 
@@ -200,13 +226,19 @@ static int normalize_path_result(ErlNifBinary *path) {
     ASSERT(length < path->size / sizeof(WCHAR));
 
     /* Get rid of the long-path prefix, if present. */
-    if(length >= LP_PREFIX_LENGTH) {
-        if(!sys_memcmp(path_start, LP_PREFIX, LP_PREFIX_SIZE)) {
-            length -= LP_PREFIX_LENGTH;
 
-            sys_memmove(path_start, &path_start[LP_PREFIX_LENGTH],
-                length * sizeof(WCHAR));
-        }
+    if(IS_LONG_UNC_PATH(length, path_start)) {
+        /* The first two characters (\\) are the same for both long and short
+         * UNC paths. */
+        sys_memmove(&path_start[2], &path_start[LP_UNC_PREFIX_LENGTH],
+            (length - LP_UNC_PREFIX_LENGTH) * sizeof(WCHAR));
+
+        length -= LP_UNC_PREFIX_LENGTH - 2;
+    } else if(IS_LONG_PATH(length, path_start)) {
+        length -= LP_PREFIX_LENGTH;
+
+        sys_memmove(path_start, &path_start[LP_PREFIX_LENGTH],
+            length * sizeof(WCHAR));
     }
 
     path_end = &path_start[length];
@@ -318,49 +350,55 @@ static int has_same_mount_point(const efile_path_t *path_a, const efile_path_t *
 /* Mirrors the PathIsRootW function of the shell API, but doesn't choke on
  * paths longer than MAX_PATH. */
 static int is_path_root(const efile_path_t *path) {
-    const WCHAR *path_start, *path_end;
+    const WCHAR *path_start, *path_end, *path_iterator;
     int length;
 
     ASSERT_PATH_FORMAT(path);
 
-    path_start = (WCHAR*)path->data + LP_PREFIX_LENGTH;
-    length = PATH_LENGTH(path) - LP_PREFIX_LENGTH;
+    if(!IS_LONG_UNC_PATH(PATH_LENGTH(path), path->data)) {
+        path_start = (WCHAR*)path->data + LP_PREFIX_LENGTH;
+        length = PATH_LENGTH(path) - LP_PREFIX_LENGTH;
 
-    path_end = &path_start[length];
-
-    if(length == 1) {
         /* A single \ refers to the root of the current working directory. */
-        return IS_SLASH(path_start[0]);
-    } else if(length == 3 && iswalpha(path_start[0]) && path_start[1] == L':') {
+        if(length == 1) {
+            return IS_SLASH(path_start[0]);
+        }
+
         /* Drive letter. */
-        return IS_SLASH(path_start[2]);
-    } else if(length >= 4) {
-        /* Check whether we're a UNC root, eg. \\server, \\server\share */
-        const WCHAR *path_iterator;
-
-        if(!IS_SLASH(path_start[0]) || !IS_SLASH(path_start[1])) {
-            return 0;
+        if(length == 3 && iswalpha(path_start[0]) && path_start[1] == L':') {
+            return IS_SLASH(path_start[2]);
         }
 
-        path_iterator = path_start + 2;
-
-        /* Slide to the slash between the server and share names, if present. */
-        while(path_iterator < path_end && !IS_SLASH(*path_iterator)) {
-            path_iterator++;
-        }
-
-        /* Slide past the end of the string, stopping at the first slash we
-         * encounter. */
-        do {
-            path_iterator++;
-        }  while(path_iterator < path_end && !IS_SLASH(*path_iterator));
-
-        /* If we're past the end of the string and it didnt't end with a slash,
-         * then we're a root path. */
-        return path_iterator >= path_end && !IS_SLASH(path_start[length - 1]);
+        return 0;
     }
 
-    return 0;
+    /* Check whether we're a UNC root, eg. \\server, \\server\share */
+
+    path_start = (WCHAR*)path->data + LP_UNC_PREFIX_LENGTH;
+    length = PATH_LENGTH(path) - LP_UNC_PREFIX_LENGTH;
+
+    path_end = &path_start[length];
+    path_iterator = path_start;
+
+    /* Server name must be at least one character. */
+    if(length <= 1) {
+        return 0;
+    }
+
+    /* Slide to the slash between the server and share names, if present. */
+    while(path_iterator < path_end && !IS_SLASH(*path_iterator)) {
+        path_iterator++;
+    }
+
+    /* Slide past the end of the string, stopping at the first slash we
+     * encounter. */
+    do {
+        path_iterator++;
+    }  while(path_iterator < path_end && !IS_SLASH(*path_iterator));
+
+    /* If we're past the end of the string and it didnt't end with a slash,
+     * then we're a root path. */
+    return path_iterator >= path_end && !IS_SLASH(path_start[length - 1]);
 }
 
 posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
@@ -1248,11 +1286,22 @@ posix_errno_t efile_set_cwd(const efile_path_t *path) {
 
     /* We have to use _wchdir since that's the only function that updates the
      * per-drive working directory, but it naively assumes that all paths
-     * starting with \\ are UNC paths, so we have to skip the \\?\-prefix. */
-    path_start = (WCHAR*)path->data + LP_PREFIX_LENGTH;
+     * starting with \\ are UNC paths, so we have to skip the long-path prefix.
+     *
+     * _wchdir doesn't handle long-prefixed UNC paths either so we hand those
+     * to SetCurrentDirectoryW instead. The per-drive working directory is
+     * irrelevant for such paths anyway. */
 
-    if(_wchdir(path_start)) {
-        return windows_to_posix_errno(GetLastError());
+    if(!IS_LONG_UNC_PATH(PATH_LENGTH(path), path->data)) {
+        path_start = (WCHAR*)path->data + LP_PREFIX_LENGTH;
+
+        if(_wchdir(path_start)) {
+            return windows_to_posix_errno(GetLastError());
+        }
+    } else {
+        if(!SetCurrentDirectoryW((WCHAR*)path->data)) {
+            return windows_to_posix_errno(GetLastError());
+        }
     }
 
     return 0;
@@ -1333,7 +1382,7 @@ posix_errno_t efile_altname(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_TE
         int name_length;
 
         /* Reject path wildcards. */
-        if(wcspbrk(&((const WCHAR*)path->data)[4], L"?*")) {
+        if(wcspbrk(&((const WCHAR*)path->data)[LP_PREFIX_LENGTH], L"?*")) {
             return ENOENT;
         }
 

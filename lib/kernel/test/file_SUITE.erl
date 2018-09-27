@@ -100,7 +100,7 @@
 
 -export([unicode_mode/1]).
 
--export([volume_relative_paths/1]).
+-export([volume_relative_paths/1,unc_paths/1]).
 
 -export([tiny_writes/1, tiny_writes_delayed/1,
          large_writes/1, large_writes_delayed/1,
@@ -129,7 +129,7 @@ suite() ->
 
 all() -> 
     [unicode, altname, read_write_file, {group, dirs},
-     {group, files}, delete, rename, names, volume_relative_paths,
+     {group, files}, delete, rename, names, volume_relative_paths, unc_paths,
      {group, errors}, {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
@@ -2182,6 +2182,30 @@ volume_relative_paths(Config) when is_list(Config) ->
             {skip, "This test is Windows-specific."}
     end.
 
+unc_paths(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            %% We assume administrative shares are set up and reachable, and we
+            %% settle for testing presence as some of the returned data is
+            %% different.
+            {ok, _} = file:read_file_info("C:\\Windows\\explorer.exe"),
+            {ok, _} = file:read_file_info("\\\\localhost\\c$\\Windows\\explorer.exe"),
+
+            {ok, Cwd} = file:get_cwd(),
+
+            try
+                ok = file:set_cwd("\\\\localhost\\c$\\Windows\\"),
+                {ok, _} = file:read_file_info("explorer.exe")
+            after
+                file:set_cwd(Cwd)
+            end,
+
+            [] = flush(),
+            ok;
+        _ ->
+            {skip, "This test is Windows-specific."}
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -2210,7 +2234,8 @@ e_delete(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    %% Remove a character device.
-	    {error, eacces} = ?FILE_MODULE:delete("nul");
+	    expect({error, eacces}, {error, einval},
+                   ?FILE_MODULE:delete("nul"));
 	_ ->
 	    ?FILE_MODULE:write_file_info(
 	       Base, #file_info {mode=0}),
