@@ -20,9 +20,11 @@
  %% Up from - max one major revision back
  [{<<"5\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.0
   {<<"5\\.4(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.1+
-  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-21
+  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-21.0
+  {<<"6\\.1(\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-21.1
  %% Down to - max one major revision back
  [{<<"5\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.0
   {<<"5\\.4(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.1+
-  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-21
+  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-21.0
+  {<<"6\\.1(\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-21.1
 }.
