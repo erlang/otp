@@ -526,7 +526,7 @@ unique_folder(FunName, Arity, Options) ->
     case proplists:get_bool(llvm_save_temps, Options) of
       true ->  %% Store folder in current directory
         DirName;
-      false -> %% Temporarily store folder in tempfs (/dev/shm/)
+      false -> %% Temporarily store folder in tempfs or tmp dir
         tmpfs_folder() ++ DirName
     end,
   %% Make sure it does not exist
