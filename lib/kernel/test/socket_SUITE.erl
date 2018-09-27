@@ -30,7 +30,7 @@
 
 %% Test cases
 -export([
-         %% Basic
+         %% API Basic
          api_b_open_and_close_udp4/1,
          api_b_open_and_close_tcp4/1,
          api_b_sendto_and_recvfrom_udp4/1,
@@ -38,27 +38,27 @@
          api_b_send_and_recv_tcp4/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
 
-         %% Operation Timeout
-         to_connect_tcp4/1,
-         to_connect_tcp6/1,
-         to_accept_tcp4/1,
-         to_accept_tcp6/1,
-         to_send_tcp4/1,
-         to_send_tcp6/1,
-         to_sendto_udp4/1,
-         to_sendto_udp6/1,
-         to_sendmsg_tcp4/1,
-         to_sendmsg_tcp6/1,
-         to_recv_udp4/1,
-         to_recv_udp6/1,
-         to_recv_tcp4/1,
-         to_recv_tcp6/1,
-         to_recvfrom_udp4/1,
-         to_recvfrom_udp6/1,
-         to_recvmsg_udp4/1,
-         to_recvmsg_udp6/1,
-         to_recvmsg_tcp4/1,
-         to_recvmsg_tcp6/1
+         %% API Operation Timeout
+         api_to_connect_tcp4/1,
+         api_to_connect_tcp6/1,
+         api_to_accept_tcp4/1,
+         api_to_accept_tcp6/1,
+         api_to_send_tcp4/1,
+         api_to_send_tcp6/1,
+         api_to_sendapi_to_udp4/1,
+         api_to_sendapi_to_udp6/1,
+         api_to_sendmsg_tcp4/1,
+         api_to_sendmsg_tcp6/1,
+         api_to_recv_udp4/1,
+         api_to_recv_udp6/1,
+         api_to_recv_tcp4/1,
+         api_to_recv_tcp6/1,
+         api_to_recvfrom_udp4/1,
+         api_to_recvfrom_udp6/1,
+         api_to_recvmsg_udp4/1,
+         api_to_recvmsg_udp6/1,
+         api_to_recvmsg_tcp4/1,
+         api_to_recvmsg_tcp6/1
 
          %% Tickets
         ]).
@@ -88,16 +88,16 @@ all() ->
     ].
 
 groups() -> 
-    [{api,             [], api_cases()},
-     {api_basic,       [], api_basic_cases()},
-     {op_with_timeout, [], op_with_timeout_cases()}
-     %% {tickets,        [], ticket_cases()}
+    [{api,                 [], api_cases()},
+     {api_basic,           [], api_basic_cases()},
+     {api_op_with_timeout, [], api_op_with_timeout_cases()}
+     %% {tickets,             [], ticket_cases()}
     ].
      
 api_cases() ->
     [
      {group, api_basic},
-     {group, op_with_timeout}
+     {group, api_op_with_timeout}
     ].
 
 api_basic_cases() ->
@@ -110,28 +110,28 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_tcp4
     ].
 
-op_with_timeout_cases() ->
+api_op_with_timeout_cases() ->
     [
-     to_connect_tcp4,
-     to_connect_tcp6,
-     to_accept_tcp4,
-     to_accept_tcp6,
-     to_send_tcp4,
-     to_send_tcp6,
-     to_sendto_udp4,
-     to_sendto_udp6,
-     to_sendmsg_tcp4,
-     to_sendmsg_tcp6,
-     to_recv_udp4,
-     to_recv_udp6,
-     to_recv_tcp4,
-     to_recv_tcp6,
-     to_recvfrom_udp4,
-     to_recvfrom_udp6,
-     to_recvmsg_udp4,
-     to_recvmsg_udp6,
-     to_recvmsg_tcp4,
-     to_recvmsg_tcp6
+     api_to_connect_tcp4,
+     api_to_connect_tcp6,
+     api_to_accept_tcp4,
+     api_to_accept_tcp6,
+     api_to_send_tcp4,
+     api_to_send_tcp6,
+     api_to_sendapi_to_udp4,
+     api_to_sendapi_to_udp6,
+     api_to_sendmsg_tcp4,
+     api_to_sendmsg_tcp6,
+     api_to_recv_udp4,
+     api_to_recv_udp6,
+     api_to_recv_tcp4,
+     api_to_recv_tcp6,
+     api_to_recvfrom_udp4,
+     api_to_recvfrom_udp6,
+     api_to_recvmsg_udp4,
+     api_to_recvmsg_udp6,
+     api_to_recvmsg_tcp4,
+     api_to_recvmsg_tcp6
     ].
 
 
@@ -435,13 +435,13 @@ api_b_send_and_recv_tcp(Domain, Send, Recv) ->
 
 %% This test case is intended to test the connect timeout option
 %% on an IPv4 TCP (stream) socket.
-to_connect_tcp4(suite) ->
+api_to_connect_tcp4(suite) ->
     [];
-to_connect_tcp4(doc) ->
+api_to_connect_tcp4(doc) ->
     [];
-to_connect_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(to_connect_tcp4),
-    ok = to_connect_tcp(inet),
+api_to_connect_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(api_to_connect_tcp4),
+    ok = api_to_connect_tcp(inet),
     tc_end().
     %% not_yet_implemented().
 
@@ -450,20 +450,20 @@ to_connect_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the connect timeout option
 %% on an IPv6 TCP (stream) socket.
-to_connect_tcp6(suite) ->
+api_to_connect_tcp6(suite) ->
     [];
-to_connect_tcp6(doc) ->
+api_to_connect_tcp6(doc) ->
     [];
-to_connect_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_connect_tcp6),
-    %% ok = to_connect_tcp(inet6),
+api_to_connect_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_connect_tcp6),
+    %% ok = api_to_connect_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-to_connect_tcp(Domain) ->
+api_to_connect_tcp(Domain) ->
     process_flag(trap_exit, true),
     p("init"),
     Client     = self(),
@@ -503,7 +503,7 @@ to_connect_tcp(Domain) ->
     _ClientPort2 = sock_bind(CSock2, LocalSA),
     _ClientPort3 = sock_bind(CSock3, LocalSA),
     ServerSA = LocalSA#{port => ServerLPort},
-    to_connect_tcp_await_timeout([CSock1, CSock2, CSock3], ServerSA),
+    api_to_connect_tcp_await_timeout([CSock1, CSock2, CSock3], ServerSA),
     p("terminate server"),
     Server ! die,
     receive
@@ -514,12 +514,12 @@ to_connect_tcp(Domain) ->
     ok.
 
 
-to_connect_tcp_await_timeout(Socks, ServerSA) ->
-    to_connect_tcp_await_timeout(Socks, ServerSA, 1).
+api_to_connect_tcp_await_timeout(Socks, ServerSA) ->
+    api_to_connect_tcp_await_timeout(Socks, ServerSA, 1).
 
-to_connect_tcp_await_timeout([], _ServerSA, _ID) ->
+api_to_connect_tcp_await_timeout([], _ServerSA, _ID) ->
     ?FAIL(unexpected_success);
-to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
+api_to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
     p("~w: try connect", [ID]),
     case socket:connect(Sock, ServerSA, 5000) of
         {error, timeout} ->
@@ -530,7 +530,7 @@ to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
             ?FAIL({recv, Reason});
         ok ->
             p("unexpected success (~w) - try next", [ID]),
-            to_connect_tcp_await_timeout(Socks, ServerSA, ID+1)
+            api_to_connect_tcp_await_timeout(Socks, ServerSA, ID+1)
     end.
         
 
@@ -539,13 +539,13 @@ to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
 
 %% This test case is intended to test the accept timeout option
 %% on an IPv4 TCP (stream) socket.
-to_accept_tcp4(suite) ->
+api_to_accept_tcp4(suite) ->
     [];
-to_accept_tcp4(doc) ->
+api_to_accept_tcp4(doc) ->
     [];
-to_accept_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(to_accept_tcp4),
-    %% ok = to_accept_tcp(inet),
+api_to_accept_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_accept_tcp4),
+    %% ok = api_to_accept_tcp(inet),
     %% tc_end().
     not_yet_implemented().
 
@@ -554,13 +554,13 @@ to_accept_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the accept timeout option
 %% on an IPv6 TCP (stream) socket.
-to_accept_tcp6(suite) ->
+api_to_accept_tcp6(suite) ->
     [];
-to_accept_tcp6(doc) ->
+api_to_accept_tcp6(doc) ->
     [];
-to_accept_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_accept_tcp6),
-    %% ok = to_accept_tcp(inet6),
+api_to_accept_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_accept_tcp6),
+    %% ok = api_to_accept_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
@@ -569,13 +569,13 @@ to_accept_tcp6(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the send timeout option
 %% on an IPv4 TCP (stream) socket.
-to_send_tcp4(suite) ->
+api_to_send_tcp4(suite) ->
     [];
-to_send_tcp4(doc) ->
+api_to_send_tcp4(doc) ->
     [];
-to_send_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(to_send_tcp4),
-    %% ok = to_send_tcp(inet),
+api_to_send_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_send_tcp4),
+    %% ok = api_to_send_tcp(inet),
     %% tc_end().
     not_yet_implemented().
 
@@ -584,13 +584,13 @@ to_send_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the send timeout option
 %% on an IPv6 TCP (stream) socket.
-to_send_tcp6(suite) ->
+api_to_send_tcp6(suite) ->
     [];
-to_send_tcp6(doc) ->
+api_to_send_tcp6(doc) ->
     [];
-to_send_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_send_tcp6),
-    %% ok = to_send_tcp(inet6),
+api_to_send_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_send_tcp6),
+    %% ok = api_to_send_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
@@ -599,13 +599,13 @@ to_send_tcp6(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the sendto timeout option
 %% on an IPv4 UDP (dgram) socket.
-to_sendto_udp4(suite) ->
+api_to_sendapi_to_udp4(suite) ->
     [];
-to_sendto_udp4(doc) ->
+api_to_sendapi_to_udp4(doc) ->
     [];
-to_sendto_udp4(_Config) when is_list(_Config) ->
-    %% tc_begin(to_sendto_udp4),
-    %% ok = to_sendto_udp(inet),
+api_to_sendapi_to_udp4(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_sendapi_to_udp4),
+    %% ok = api_to_sendapi_to_udp(inet),
     %% tc_end().
     not_yet_implemented().
 
@@ -614,13 +614,13 @@ to_sendto_udp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the sendto timeout option
 %% on an IPv6 UDP (dgram) socket.
-to_sendto_udp6(suite) ->
+api_to_sendapi_to_udp6(suite) ->
     [];
-to_sendto_udp6(doc) ->
+api_to_sendapi_to_udp6(doc) ->
     [];
-to_sendto_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_sendto_udp6),
-    %% ok = to_sendto_udp(inet6),
+api_to_sendapi_to_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_sendapi_to_udp6),
+    %% ok = api_to_sendapi_to_udp(inet6),
     %% tc_end().
     not_yet_implemented().
 
@@ -629,13 +629,13 @@ to_sendto_udp6(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the sendmsg timeout option
 %% on an IPv4 TCP (stream) socket.
-to_sendmsg_tcp4(suite) ->
+api_to_sendmsg_tcp4(suite) ->
     [];
-to_sendmsg_tcp4(doc) ->
+api_to_sendmsg_tcp4(doc) ->
     [];
-to_sendmsg_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(to_sendmsg_tcp4),
-    %% ok = to_sendmsg_tcp(inet),
+api_to_sendmsg_tcp4(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_sendmsg_tcp4),
+    %% ok = api_to_sendmsg_tcp(inet),
     %% tc_end().
     not_yet_implemented().
 
@@ -644,13 +644,13 @@ to_sendmsg_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the sendmsg timeout option
 %% on an IPv6 TCP (stream) socket.
-to_sendmsg_tcp6(suite) ->
+api_to_sendmsg_tcp6(suite) ->
     [];
-to_sendmsg_tcp6(doc) ->
+api_to_sendmsg_tcp6(doc) ->
     [];
-to_sendmsg_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_sendmsg_tcp6),
-    %% ok = to_sendmsg_tcp(inet6),
+api_to_sendmsg_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_sendmsg_tcp6),
+    %% ok = api_to_sendmsg_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
@@ -660,13 +660,13 @@ to_sendmsg_tcp6(_Config) when is_list(_Config) ->
 %% This test case is intended to test the recv timeout option
 %% on an IPv4 UDP (dgram) socket. To test this we must connect
 %% the socket.
-to_recv_udp4(suite) ->
+api_to_recv_udp4(suite) ->
     [];
-to_recv_udp4(doc) ->
+api_to_recv_udp4(doc) ->
     [];
-to_recv_udp4(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recv_udp4),
-    %% ok = to_recv_udp(inet),
+api_to_recv_udp4(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recv_udp4),
+    %% ok = api_to_recv_udp(inet),
     %% tc_end().
     not_yet_implemented().
 
@@ -676,13 +676,13 @@ to_recv_udp4(_Config) when is_list(_Config) ->
 %% This test case is intended to test the recv timeout option
 %% on an IPv6 UDP (dgram) socket. To test this we must connect
 %% the socket.
-to_recv_udp6(suite) ->
+api_to_recv_udp6(suite) ->
     [];
-to_recv_udp6(doc) ->
+api_to_recv_udp6(doc) ->
     [];
-to_recv_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recv_udp6),
-    %% ok = to_recv_udp(inet6),
+api_to_recv_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recv_udp6),
+    %% ok = api_to_recv_udp(inet6),
     %% tc_end().
     not_yet_implemented().
 
@@ -691,13 +691,13 @@ to_recv_udp6(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the recv timeout option
 %% on an IPv4 TCP (stream) socket.
-to_recv_tcp4(suite) ->
+api_to_recv_tcp4(suite) ->
     [];
-to_recv_tcp4(doc) ->
+api_to_recv_tcp4(doc) ->
     [];
-to_recv_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(to_recv_tcp4),
-    ok = to_recv_tcp(inet),
+api_to_recv_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(api_to_recv_tcp4),
+    ok = api_to_recv_tcp(inet),
     tc_end().
 
 
@@ -705,20 +705,20 @@ to_recv_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the recv timeout option
 %% on an IPv6 TCP (stream) socket.
-to_recv_tcp6(suite) ->
+api_to_recv_tcp6(suite) ->
     [];
-to_recv_tcp6(doc) ->
+api_to_recv_tcp6(doc) ->
     [];
-to_recv_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recv_tcp6),
-    %% ok = to_recv_tcp(inet6),
+api_to_recv_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recv_tcp6),
+    %% ok = api_to_recv_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-to_recv_tcp(Domain) ->
+api_to_recv_tcp(Domain) ->
     process_flag(trap_exit, true),
     p("server -> open"),
     LSock     = sock_open(Domain, stream, tcp),
@@ -770,13 +770,13 @@ to_recv_tcp(Domain) ->
 
 %% This test case is intended to test the recvfrom timeout option
 %% on an IPv4 UDP (dgram) socket.
-to_recvfrom_udp4(suite) ->
+api_to_recvfrom_udp4(suite) ->
     [];
-to_recvfrom_udp4(doc) ->
+api_to_recvfrom_udp4(doc) ->
     [];
-to_recvfrom_udp4(_Config) when is_list(_Config) ->
-    tc_begin(to_recvfrom_udp4),
-    ok = to_recvfrom_udp(inet),
+api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
+    tc_begin(api_to_recvfrom_udp4),
+    ok = api_to_recvfrom_udp(inet),
     tc_end().
 
 
@@ -784,20 +784,20 @@ to_recvfrom_udp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the recvfrom timeout option
 %% on an IPv6 UDP (dgram) socket.
-to_recvfrom_udp6(suite) ->
+api_to_recvfrom_udp6(suite) ->
     [];
-to_recvfrom_udp6(doc) ->
+api_to_recvfrom_udp6(doc) ->
     [];
-to_recvfrom_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recvfrom_udp6),
-    %% ok = to_recvfrom_udp(inet6),
+api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recvfrom_udp6),
+    %% ok = api_to_recvfrom_udp(inet6),
     %% tc_end().
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-to_recvfrom_udp(Domain) ->
+api_to_recvfrom_udp(Domain) ->
     process_flag(trap_exit, true),
     p("init"),
     LocalAddr = which_local_addr(Domain),
@@ -823,14 +823,14 @@ to_recvfrom_udp(Domain) ->
 
 %% This test case is intended to test the recvmsg timeout option
 %% on an IPv4 UDP (dgram) socket.
-to_recvmsg_udp4(suite) ->
+api_to_recvmsg_udp4(suite) ->
     [];
-to_recvmsg_udp4(doc) ->
+api_to_recvmsg_udp4(doc) ->
     [];
-to_recvmsg_udp4(_Config) when is_list(_Config) ->
+api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
     %% not_yet_implemented().
-    tc_begin(to_recvmsg_udp4),
-    ok = to_recvmsg_udp(inet),
+    tc_begin(api_to_recvmsg_udp4),
+    ok = api_to_recvmsg_udp(inet),
     tc_end().
 
 
@@ -838,20 +838,20 @@ to_recvmsg_udp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the recvmsg timeout option
 %% on an IPv6 UDP (dgram) socket.
-to_recvmsg_udp6(suite) ->
+api_to_recvmsg_udp6(suite) ->
     [];
-to_recvmsg_udp6(doc) ->
+api_to_recvmsg_udp6(doc) ->
     [];
-to_recvmsg_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recvmsg_udp6),
-    %% ok = to_recvmsg_udp(inet6),
+api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recvmsg_udp6),
+    %% ok = api_to_recvmsg_udp(inet6),
     %% tc_end().
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-to_recvmsg_udp(Domain) ->
+api_to_recvmsg_udp(Domain) ->
     process_flag(trap_exit, true),
     p("init"),
     LocalAddr = which_local_addr(Domain),
@@ -877,13 +877,13 @@ to_recvmsg_udp(Domain) ->
 
 %% This test case is intended to test the recvmsg timeout option
 %% on an IPv4 TCP (stream) socket.
-to_recvmsg_tcp4(suite) ->
+api_to_recvmsg_tcp4(suite) ->
     [];
-to_recvmsg_tcp4(doc) ->
+api_to_recvmsg_tcp4(doc) ->
     [];
-to_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(to_recvmsg_tcp4),
-    ok = to_recvmsg_tcp(inet),
+api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    tc_begin(api_to_recvmsg_tcp4),
+    ok = api_to_recvmsg_tcp(inet),
     tc_end().
     %% not_yet_implemented().
 
@@ -892,20 +892,20 @@ to_recvmsg_tcp4(_Config) when is_list(_Config) ->
 
 %% This test case is intended to test the recvmsg timeout option
 %% on an IPv6 TCP (stream) socket.
-to_recvmsg_tcp6(suite) ->
+api_to_recvmsg_tcp6(suite) ->
     [];
-to_recvmsg_tcp6(doc) ->
+api_to_recvmsg_tcp6(doc) ->
     [];
-to_recvmsg_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(to_recvmsg_tcp6),
-    %% ok = to_recvmsg_tcp(inet6),
+api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    %% tc_begin(api_to_recvmsg_tcp6),
+    %% ok = api_to_recvmsg_tcp(inet6),
     %% tc_end().
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-to_recvmsg_tcp(Domain) ->
+api_to_recvmsg_tcp(Domain) ->
     process_flag(trap_exit, true),
     p("server -> open"),
     LSock     = sock_open(Domain, stream, tcp),
