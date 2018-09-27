@@ -1441,12 +1441,12 @@ static void join_catree(DbTableCATree *tb,
 }
 
 static void split_catree(DbTableCATree *tb,
-                         DbTableCATreeNode *parent,
-                         DbTableCATreeNode *base) {
+                         DbTableCATreeNode* ERTS_RESTRICT parent,
+                         DbTableCATreeNode* ERTS_RESTRICT base) {
     TreeDbTerm *splitOutWriteBack;
-    DbTableCATreeNode *new_left;
-    DbTableCATreeNode *new_right;
-    DbTableCATreeNode *new_route;
+    DbTableCATreeNode* ERTS_RESTRICT new_left;
+    DbTableCATreeNode* ERTS_RESTRICT new_right;
+    DbTableCATreeNode* ERTS_RESTRICT new_route;
 
     if (less_than_two_elements(base->u.base.root)) {
         base->u.base.lock_statistics = 0;
