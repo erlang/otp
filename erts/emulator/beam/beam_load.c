@@ -2868,6 +2868,7 @@ load_code(LoaderState* stp)
 	    break;
 	case op_bs_put_string_WW:
 	case op_i_bs_match_string_xfWW:
+	case op_i_bs_match_string_yfWW:
 	    new_string_patch(stp, ci-1);
 	    break;
 

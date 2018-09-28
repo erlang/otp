@@ -486,6 +486,8 @@ type(bs_extract, [Ctx], Ts, _Ds) ->
     Type;
 type(bs_match, Args, _Ts, _Ds) ->
     #t_bs_match{type=bs_match_type(Args)};
+type(bs_get_tail, _Args, _Ts, _Ds) ->
+    {binary, 1};
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
     case {Mod,Name,Args} of

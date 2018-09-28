@@ -66,13 +66,15 @@ passes(Opts0) ->
           ?PASS(ssa_opt_live),                  %Second time.
 
           ?PASS(ssa_opt_bsm),
+          ?PASS(ssa_opt_bsm_units),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_misc),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
-          ?PASS(ssa_opt_merge_blocks)],
+          ?PASS(ssa_opt_merge_blocks),
+          ?PASS(ssa_opt_trim_unreachable)],
     Negations = [{list_to_atom("no_"++atom_to_list(N)),N} ||
                     {N,_} <- Ps],
     Opts = proplists:substitute_negations(Negations, Opts0),
@@ -111,6 +113,9 @@ ssa_opt_type(#st{ssa=Linear,args=Args}=St) ->
 
 ssa_opt_blockify(#st{ssa=Linear}=St) ->
     St#st{ssa=maps:from_list(Linear)}.
+
+ssa_opt_trim_unreachable(#st{ssa=Blocks}=St) ->
+    St#st{ssa=beam_ssa:trim_unreachable(Blocks)}.
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
@@ -1002,6 +1007,110 @@ bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap) ->
 bsm_shortcut([], _PosMap) -> [].
 
 %%%
+%%% Eliminate redundant bs_test_unit2 instructions.
+%%%
+
+ssa_opt_bsm_units(#st{ssa=Linear}=St) ->
+    St#st{ssa=bsm_units(Linear, #{})}.
+
+bsm_units([{L,#b_blk{last=#b_br{succ=Succ,fail=Fail}}=Block0} | Bs], UnitMaps0) ->
+    UnitsIn = maps:get(L, UnitMaps0, #{}),
+    {Block, UnitsOut} = bsm_units_skip(Block0, UnitsIn),
+    UnitMaps1 = bsm_units_join(Succ, UnitsOut, UnitMaps0),
+    UnitMaps = bsm_units_join(Fail, UnitsIn, UnitMaps1),
+    [{L, Block} | bsm_units(Bs, UnitMaps)];
+bsm_units([{L,#b_blk{last=#b_switch{fail=Fail,list=Switch}}=Block} | Bs], UnitMaps0) ->
+    UnitsIn = maps:get(L, UnitMaps0, #{}),
+    Labels = [Fail | [Lbl || {_Arg, Lbl} <- Switch]],
+    UnitMaps = foldl(fun(Lbl, UnitMaps) ->
+                             bsm_units_join(Lbl, UnitsIn, UnitMaps)
+                     end, UnitMaps0, Labels),
+    [{L, Block} | bsm_units(Bs, UnitMaps)];
+bsm_units([{L, Block} | Bs], UnitMaps) ->
+    [{L, Block} | bsm_units(Bs, UnitMaps)];
+bsm_units([], _UnitMaps) ->
+    [].
+
+bsm_units_skip(Block, Units) ->
+    bsm_units_skip_1(Block#b_blk.is, Block, Units).
+
+bsm_units_skip_1([#b_set{op=bs_start_match,dst=New}|_], Block, Units) ->
+    %% We bail early since there can't be more than one match per block.
+    {Block, Units#{ New => 1 }};
+bsm_units_skip_1([#b_set{op=bs_match,
+                         dst=New,
+                         args=[#b_literal{val=skip},
+                               Ctx,
+                               #b_literal{val=binary},
+                               _Flags,
+                               #b_literal{val=all},
+                               #b_literal{val=OpUnit}]}=Skip | Test],
+                 Block0, Units) ->
+    [#b_set{op=succeeded,dst=Bool,args=[New]}] = Test, %Assertion.
+    #b_br{bool=Bool} = Last0 = Block0#b_blk.last, %Assertion.
+    CtxUnit = maps:get(Ctx, Units),
+    if
+        CtxUnit rem OpUnit =:= 0 ->
+            Is = takewhile(fun(I) -> I =/= Skip end, Block0#b_blk.is),
+            Last = Last0#b_br{bool=#b_literal{val=true}},
+            Block = Block0#b_blk{is=Is,last=Last},
+            {Block, Units#{ New => CtxUnit }};
+        CtxUnit rem OpUnit =/= 0 ->
+            {Block0, Units#{ New => OpUnit, Ctx => OpUnit }}
+    end;
+bsm_units_skip_1([#b_set{op=bs_match,dst=New,args=Args}|_], Block, Units) ->
+    [_,Ctx|_] = Args,
+    CtxUnit = maps:get(Ctx, Units),
+    OpUnit = bsm_op_unit(Args),
+    {Block, Units#{ New => gcd(OpUnit, CtxUnit) }};
+bsm_units_skip_1([_I | Is], Block, Units) ->
+    bsm_units_skip_1(Is, Block, Units);
+bsm_units_skip_1([], Block, Units) ->
+    {Block, Units}.
+
+bsm_op_unit([_,_,_,Size,#b_literal{val=U}]) ->
+    case Size of
+        #b_literal{val=Sz} when is_integer(Sz) -> Sz*U;
+        _ -> U
+    end;
+bsm_op_unit([#b_literal{val=string},_,#b_literal{val=String}]) ->
+    bit_size(String);
+bsm_op_unit([#b_literal{val=utf8}|_]) ->
+    8;
+bsm_op_unit([#b_literal{val=utf16}|_]) ->
+    16;
+bsm_op_unit([#b_literal{val=utf32}|_]) ->
+    32;
+bsm_op_unit(_) ->
+    1.
+
+%% Several paths can lead to the same match instruction and the inferred units
+%% may differ between them, so we can only keep the information that is common
+%% to all paths.
+bsm_units_join(Lbl, MapA, UnitMaps0) when is_map_key(Lbl, UnitMaps0) ->
+    MapB = maps:get(Lbl, UnitMaps0),
+    Merged = if
+                 map_size(MapB) =< map_size(MapA) ->
+                     bsm_units_join_1(maps:keys(MapB), MapA, MapB);
+                 map_size(MapB) > map_size(MapA) ->
+                     bsm_units_join_1(maps:keys(MapA), MapB, MapA)
+             end,
+    maps:put(Lbl, Merged, UnitMaps0);
+bsm_units_join(Lbl, MapA, UnitMaps0) when MapA =/= #{} ->
+    maps:put(Lbl, MapA, UnitMaps0);
+bsm_units_join(_Lbl, _MapA, UnitMaps0) ->
+    UnitMaps0.
+
+bsm_units_join_1([Key | Keys], Left, Right) when is_map_key(Key, Left) ->
+    UnitA = maps:get(Key, Left),
+    UnitB = maps:get(Key, Right),
+    bsm_units_join_1(Keys, Left, maps:put(Key, gcd(UnitA, UnitB), Right));
+bsm_units_join_1([Key | Keys], Left, Right) ->
+    bsm_units_join_1(Keys, Left, maps:remove(Key, Right));
+bsm_units_join_1([], _MapA, Right) ->
+    Right.
+
+%%%
 %%% Miscellanous optimizations in execution order.
 %%%
 
@@ -1617,6 +1726,12 @@ insert_def_is([], _V, Def) ->
 %%%
 %%% Common utilities.
 %%%
+
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
 
 rel2fam(S0) ->
     S1 = sofs:relation(S0),

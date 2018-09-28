@@ -276,12 +276,11 @@ select_nil(#k_val_clause{val=#k_nil{},body=B}, V, Tf, Vf, St0) ->
     {Is ++ Bis,St}.
 
 select_binary(#k_val_clause{val=#k_binary{segs=#k_var{name=Ctx0}},body=B},
-              #k_var{anno=Anno0}=Src, Tf, Vf, St0) ->
-    Anno = #{reuse_for_context=>member(reuse_for_context, Anno0)},
+              #k_var{}=Src, Tf, Vf, St0) ->
     {Ctx,St1} = new_ssa_var(Ctx0, St0),
     {Bis0,St2} = match_cg(B, Vf, St1),
     {TestIs,St} = make_cond_branch(succeeded, [Ctx], Tf, St2),
-    Bis1 = [#b_set{anno=Anno,op=bs_start_match,dst=Ctx,
+    Bis1 = [#b_set{op=bs_start_match,dst=Ctx,
                    args=[ssa_arg(Src, St)]}] ++ TestIs ++ Bis0,
     Bis = finish_bs_matching(Bis1),
     {Bis,St}.
@@ -708,10 +707,6 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}},
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(bs_context_to_binary, [Src0], [], _Le, St) ->
-    Src = ssa_arg(Src0, St),
-    Set = #b_set{op=context_to_binary,args=[Src]},
-    {[Set],St};
 internal_cg(dsetelement, [Index0,Tuple0,New0], _Rs, _Le, St) ->
     [New,Tuple,#b_literal{val=Index1}] = ssa_args([New0,Tuple0,Index0], St),
     Index = #b_literal{val=Index1-1},

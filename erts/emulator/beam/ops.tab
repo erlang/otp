@@ -1089,21 +1089,21 @@ func_info M F A => i_func_info u M F A
 %warm
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 xy f t t x
+i_bs_start_match2 xy f t t d
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
-i_bs_save2 x t
+i_bs_save2 xy t
 
 bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
-i_bs_restore2 x t
+i_bs_restore2 xy t
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 
-i_bs_match_string x f W W
+i_bs_match_string xy f W W
 
 # Fetching integers from binaries.
-bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
+bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
@@ -1112,50 +1112,50 @@ i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
 i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
    i_bs_get_integer_imm Ms Bits Live Fail Flags x | move x Y
 
-i_bs_get_integer_small_imm x W f? t x
-i_bs_get_integer_imm x W t f? t x
-i_bs_get_integer f? t t x s xy
-i_bs_get_integer_8 x f? xy
-i_bs_get_integer_16 x f? xy
+i_bs_get_integer_small_imm xy W f? t x
+i_bs_get_integer_imm xy W t f? t x
+i_bs_get_integer f? t t xy s d
+i_bs_get_integer_8 xy f? d
+i_bs_get_integer_16 xy f? d
 
 %if ARCH_64
-i_bs_get_integer_32 x f? xy
+i_bs_get_integer_32 xy f? d
 %endif
 
 # Fetching binaries from binaries.
-bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f? x t W t xy
-i_bs_get_binary2 f x t? s t xy
-i_bs_get_binary_all2 f? x t t xy
-i_bs_get_binary_all_reuse x f? t
+i_bs_get_binary_imm2 f? xy t W t d
+i_bs_get_binary2 f xy t? s t d
+i_bs_get_binary_all2 f? xy t t d
+i_bs_get_binary_all_reuse xy f? t
 
 # Fetching float from binaries.
-bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
+bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
 		gen_get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f? x t s t xy
+i_bs_get_float2 f? xy t s t d
 
 # Miscellanous
 
-bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
+bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
-i_bs_skip_bits_imm2 f? x W
-i_bs_skip_bits2 f? x xy t
-i_bs_skip_bits_all2 f? x t
+i_bs_skip_bits_imm2 f? xy W
+i_bs_skip_bits2 f? xy xy t
+i_bs_skip_bits_all2 f? xy t
 
-bs_test_tail2 Fail=f Ms=x Bits=u==0 => bs_test_zero_tail2 Fail Ms
-bs_test_tail2 Fail=f Ms=x Bits=u => bs_test_tail_imm2 Fail Ms Bits
-bs_test_zero_tail2 f? x
-bs_test_tail_imm2 f? x W
+bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms
+bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits
+bs_test_zero_tail2 f? xy
+bs_test_tail_imm2 f? xy W
 
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
-bs_test_unit f? x t
-bs_test_unit8 f? x
+bs_test_unit f? xy t
+bs_test_unit8 f? xy
 
 # An y register operand for bs_context_to_binary is rare,
 # but can happen because of inlining.
@@ -1167,23 +1167,55 @@ bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
 
 bs_context_to_binary x
 
+# Gets a bitstring from the tail of a context.
+bs_get_tail xy d t
+
+# New bs_start_match variant for contexts with external position storage.
+#
+# bs_get/set_position is used to save positions into registers instead of
+# "slots" in the context itself, which lets us continue matching even after
+# we've passed it off to another function.
+
+%if ARCH_64
+bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
+    i_bs_start_match3_gp Bin Live Fail Ctx Pos
+i_bs_start_match3_gp xy t f d x
+%endif
+
+bs_start_match3 Fail=f ica Live Dst => jump Fail
+bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
+
+i_bs_start_match3 xy t f d
+
+# Match context position instructions. 64-bit assumes that all positions can
+# fit into an unsigned small.
+
+%if ARCH_64
+    bs_get_position Src Dst Live => i_bs_get_position Src Dst
+    i_bs_get_position xy xy
+    bs_set_position xy xy
+%else
+    bs_get_position xy d t?
+    bs_set_position xy xy
+%endif
+
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #
-bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f? xy
+bs_get_utf8 Fail=f Ms=xy u u Dst=d => i_bs_get_utf8 Ms Fail Dst
+i_bs_get_utf8 xy f? d
 
-bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
+bs_skip_utf8 Fail=f Ms=xy u u => i_bs_get_utf8 Ms Fail x
 
-bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
-bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
+bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
+bs_skip_utf16 Fail=f Ms=xy u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f? t xy
+i_bs_get_utf16 xy f? t d
 
-bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
 	i_bs_validate_unicode_retract Fail Dst Ms
-bs_skip_utf32 Fail=f Ms=x Live=u Flags=u => \
+bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags x | \
 	i_bs_validate_unicode_retract Fail x Ms
 
