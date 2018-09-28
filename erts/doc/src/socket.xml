@@ -245,7 +245,8 @@
 	  doing a close does not guarantee that any data sent is delivered to
 	  the recipient before the close is detected at the remote side. </p>
 	  <p>One way to handle this is to use the
-	  <seealso marker="#shutdown/2"><c>shutdown</c></seealso> function
+	  <seealso marker="#shutdown/2"><c>shutdown</c></seealso>
+	  function
 	  (<c>socket:shutdown(Socket, write)</c>) to signal that no more data is
 	  to be sent and then wait for the read side of the socket to be closed.</p>
 	</note>
@@ -281,49 +282,6 @@
 	even if "we" support an option, that does not mean that the
 	underlying OS does.</p></note>
 
-	<!--
-	    We need these tables (one for each level) somewhere,
-	    but they don't work here, so where?
-
-        <p>Socket level options: </p>
-	<table>
-	  <row>
-	    <cell><em>Option Name</em></cell>
-	    <cell><em>Value Type</em></cell>
-	    <cell><em>Set</em></cell>
-	    <cell><em>Get</em></cell>
-	    <cell><em>Other</em></cell>
-	  </row>
-	  <row>
-	    <cell>acceptcon</cell>
-	    <cell>boolean()</cell>
-	    <cell>no</cell>
-	    <cell>yes</cell>
-	    <cell>none</cell>
-	  </row>
-	  <row>
-	    <cell>broadcast</cell>
-	    <cell>boolean()</cell>
-	    <cell>yes</cell>
-	    <cell>yes</cell>
-	    <cell>dgram</cell>
-	  </row>
-	  <row>
-	    <cell>debug</cell>
-	    <cell>integer()</cell>
-	    <cell>yes</cell>
-	    <cell>yes</cell>
-	    <cell>may require admin capability</cell>
-	  </row>
-	  <row>
-	    <cell>domain</cell>
-	    <cell>domain()</cell>
-	    <cell>no</cell>
-	    <cell>yes</cell>
-	    <cell>none</cell>
-	  </row>
-	</table>
-	-->
       </desc>
     </func>
 
@@ -501,6 +459,24 @@
       <name name="setopt" arity="4" clause_i="5"/>
       <name name="setopt" arity="4" clause_i="6"/>
       <name name="setopt" arity="4" clause_i="7"/>
+      <fsummary>Set options on a socket.</fsummary>
+      <desc>
+        <p>Set options on a socket.</p>
+	<p>What properties are valid depend both on <c>Level</c> and on
+	what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
+
+	<note><p>Not all options are valid on all platforms. That is,
+	even if "we" support an option, that does not mean that the
+	underlying OS does.</p></note>
+
+	<note><p>Sockets are set 'non-blocking' when created, so this option
+	is *not* available (as it would adversely effect the Erlang VM
+	to set a socket 'blocking').</p></note>
+      </desc>
+    </func>
+
+    <func>
       <name name="setopt" arity="4" clause_i="8"/>
       <fsummary>Set options on a socket.</fsummary>
       <desc>
@@ -539,213 +515,7 @@
   <section>
     <title>Examples</title>
     <marker id="examples"></marker>
-    <p>TBD: Need to implement a receiver process in order to be able to
-    implement active!</p>
-    <p>x_tcp.erl:</p>
-    <code type="none">
-listen(Addr, Port) ->
-  try
-    begin
-      Socket = case socket:open(inet, stream, tcp) of
-          {ok, Socket} ->
-             Socket;
-          {error, _} = OERROR ->
-             throw(OERROR)
-      end,
-      SockAddr = #in4_sockaddr{port = Port,
-	                       addr = Addr},
-      ok = case socket:bind(Socket, SockAddr) of
-               ok ->
-	         ok;
-	       {error, _} = BERROR ->
-	         throw(BERROR)
-	   end,
-      case socket:listen(Socket, 10) of
-	  ok ->
-	    {ok, Socket};
-	  {error, _} = LERROR ->
-	    throw(LERROR)
-      end
-    end
-  catch
-    throw:ERROR ->
-       ERROR
-end.
-    </code>
-
-    <code type="none">
-connect(Addr, Port) ->
-  try
-    begin
-      Socket = case socket:open(inet, stream, tcp) of
-          {ok, Socket} ->
-             Socket;
-          {error, _} = OERROR ->
-             throw(OERROR)
-      end,
-      BSockAddr = #in4_sockaddr{port = 0,
-	                        addr = any},
-      ok = case socket:bind(Socket, BSockAddr) of
-               ok ->
-	         ok;
-	       {error, _} = BERROR ->
-	         throw(BERROR)
-	   end,
-      CSockAddr = #in4_sockaddr{port = Port,
-	                        addr = Addr},
-      Socket = case socket:connect(Socket, CSockAddr) of
-	  {ok, Sock} ->
-	    Sock;
-	  {error, _} = CERROR ->
-	    throw(CERROR)
-      end,
-      case start_receiver(Socket) of
-          {ok, Pid} ->
-            ok = socket:ts_add(Socket, receiver, Pid),
-            {ok, Socket};
-          {error, _} = RERROR ->
-            socket:close(Socket),
-	    throw(RERROR)
-      end
-    end
-  catch
-    throw:ERROR ->
-       ERROR
-end.
-    </code>
-
-    <code type="none">
-accept(LSocket) ->
-  case socket:accept(LSocket) of
-      {ok, Socket} ->
-        case start_receiver(Socket) of
-	    {ok, Pid} ->
-	      ok = socket:ts_add(Socket, receiver, Pid),
-              {ok, Socket};
-            {error, _} = RERROR ->
-	      socket:close(Socket),
-              throw(RERROR)
-	end,
-      {error, _} = AERROR ->
-	AERROR
-  end.
-    </code>
-
-    <code type="none">
-send(Socket, Data) ->
-  socket:send(Socket, Data).
-    </code>
-
-    <code type="none">
-setopt(Socket, controlling_process = Item, Pid) when is_pid(Pid) ->
-  case socket:setopt(Socket, otp, Item, Pid) of
-      ok ->
-        {ok, Receiver} = socket:ts_get(Socket, receiver),
-        update_receiver(Receiver, {controlling_process, Pid),
-	ok;
-      {error, _} = ERROR ->
-        ERROR
-  end;
-setopt(Socket, active, Active) ->
-  {ok, Receiver} = socket:ts_get(Socket, receiver),
-  receiver_active(Receiver, Active),
-  ok;
-%% This is just to indicate that there will be more options
-%% that needs to be handled
-setopt(Socket, Item, Pid) when is_pid(Pid) ->
-  socket:setopt(Socket, which_level(Item), Item, Pid). 
-    </code>
-
-    <p>The receiver process: </p>
-    <code type="none">
-start_receiver(Socket) ->
-  CtrlProc = self(),
-  Ref = make_ref(),
-  Receiver = proc_lib:spawn_link(fun() -> receiver_init(CtrlProc, Ref) end),
-  receive
-      {?MODULE, started, Ref} ->
-          Receiver ! {?MODULE, receiver, Ref, Sock, true},
-          unlink(Receiver),
-	  {ok, Receiver};
-      {'EXIT', Receiver, Reason} ->
-	  {error, Reason}
-  end.
-
-receiver_active(Receiver, Active)
-  when (Active =:= false) orelse
-       (Active =:= true) orelse
-       (Active =:= once) orelse
-       is_integer(Active) ->
-  Receiver ! {?MODULE, active, What}.
-
-receiver_update(Receiver, What) ->
-  Ref = make_ref(),
-  Receiver ! {?MODULE, receiver_update, Ref, What},
-  receive
-      {?MODULE, receiver_upadate, Ref, Result} ->
-          Result
-  end.
-
--record(receiver, {sock            :: socket:socket(),
-		   ctrl            :: pid(),
-		   num_packages    :: infinity | non_neg_ineteger()}).
-
-receiver_init(Pid, Ref) ->
-    receive
-	{?MODULE, receiver, Ref, stop} ->
-	    i("received stop"),
-	    exit(normal);
-
-	{?MODULE, receiver, Ref, Sock, InitialMode} ->
-	    i("received socket: ~p", [Sock]),
-	    NumPackages = mode2pkgcount(InitialMode),
-	    receiver(#receiver{sock = Sock, ctrl = Pid})
-    end.
-
-mode2pkgcount(true) ->
-    infinity;
-mode2pkgcount(false) ->
-    0;
-mode2pkgcount(N) when is_integer(N) andalso (N >= 0) ->
-    N.
-
-receiver(#receiver{num_packages = 0} = State) ->
-    receive
-	{?MODULE, active, false} ->
-	    receiver(State);
-	{?MODULE, active, true} ->
-	    receiver(State#receiver{num_packages = infinity});
-	{?MODULE, active, once} ->
-	    receiver(State#receiver{num_packages = 1});
-	{?MODULE, active, N} when (N > 0) ->
-	    receiver(State#receiver{num_packages = N})
-    end;
-receiver(#receiver{num_packages = N, sock = Sock, ctrl = Pid} = State) ->
-    case socket:recv(Sock, 0) of
-	{ok, Package} when size(Package) > 0 ->
-	    Pid ! {tcp, Sock, Packege},
-	    case next_active(N) of
-		0 ->
-		    Pid ! {tcp_passive, Sock},
-		    receiver(State#{num_packages = 0});
-		NextN ->
-		    receiver(State#{num_packages = NextN})
-	    end;
-	{ok, Package} when size(Package) =:= 0 ->
-	    receiver(State);
-
-        {error, closed} ->
-	    i("closed"), 
-            Pid ! {tcp_closed, Sock},
-	    exit(normal);
-
-        {error, Reason} ->
-	    i("error: ~p", [Reason]), 
-            Pid ! {tcp_error, Sock, Reason},
-	    exit(normal)
-    end.
-    </code>
-    
+    <p>TBD</p>
   </section>
 </erlref>
 
