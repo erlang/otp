@@ -5327,7 +5327,7 @@ otp_7665_act(Tab,Min,Max,DelNr) ->
 %% Whitebox testing of meta name table hashing.
 meta_wb(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts_all_table_types(fun meta_wb_do/1),
+    repeat_for_opts_all_non_stim_table_types(fun meta_wb_do/1),
     verify_etsmem(EtsMem).
 
 
@@ -5614,25 +5614,28 @@ meta_newdel_named(Config) when is_list(Config) ->
 
 %% Concurrent insert's on same table.
 smp_insert(Config) when is_list(Config) ->
-    repeat_for_all_set_table_types(
-      fun(Opts) ->
-              ets_new(smp_insert,[named_table,public,{write_concurrency,true}|Opts]),
-              InitF = fun(_) -> ok end,
-              ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
-                      end,
-              FiniF = fun(_) -> ok end,
-              run_smp_workers(InitF,ExecF,FiniF,100000),
-              verify_table_load(smp_insert),
-              ets:delete(smp_insert)
-      end).
+    repeat_for_opts(fun smp_insert_do/1,
+                    [[set,ordered_set,stim_cat_ord_set]]).
+
+smp_insert_do(Opts) ->
+    ets_new(smp_insert,[named_table,public,{write_concurrency,true}|Opts]),
+    InitF = fun(_) -> ok end,
+    ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
+            end,
+    FiniF = fun(_) -> ok end,
+    run_smp_workers(InitF,ExecF,FiniF,100000),
+    verify_table_load(smp_insert),
+    ets:delete(smp_insert).
 
 %% Concurrent deletes on same fixated table.
 smp_fixed_delete(Config) when is_list(Config) ->
-    only_if_smp(fun()->smp_fixed_delete_do() end).
+    only_if_smp(fun()->
+                        repeat_for_opts(fun smp_fixed_delete_do/1,
+                                        [[set,ordered_set,stim_cat_ord_set]])
+                end).
 
-smp_fixed_delete_do() ->
-    repeat_for_opts_all_set_table_types(
-      fun(Opts) ->
+smp_fixed_delete_do(Opts) ->
+    begin
               T = ets_new(foo,[public,{write_concurrency,true}|Opts]),
               %%Mem = ets:info(T,memory),
               NumOfObjs = 100000,
@@ -5660,7 +5663,7 @@ smp_fixed_delete_do() ->
               %%Mem = ets:info(T,memory),
               %%verify_table_load(T),
               ets:delete(T)
-      end).
+      end.
 
 %% ERL-720
 %% Provoke race between ets:delete and table unfix (by select_count)
@@ -5915,8 +5918,11 @@ otp_8732(Config) when is_list(Config) ->
 
 %% Run concurrent select_delete (and inserts) on same table.
 smp_select_delete(Config) when is_list(Config) ->
-    repeat_for_opts_all_set_table_types(
-      fun(Opts) ->
+    repeat_for_opts(fun smp_select_delete_do/1,
+                    [[set,ordered_set,stim_cat_ord_set], read_concurrency, compressed]).
+
+smp_select_delete_do(Opts) ->
+    begin % indentation
               T = ets_new(smp_select_delete,[named_table,public,{write_concurrency,true}|Opts]),
               Mod = 17,
               Zeros = erlang:make_tuple(Mod,0),
@@ -5970,7 +5976,7 @@ smp_select_delete(Config) when is_list(Config) ->
               0 = ets:info(T,size),
               false = ets:info(T,fixed),
               ets:delete(T)
-      end),
+    end, % indentation
     ok.
 
 smp_select_replace(Config) when is_list(Config) ->
