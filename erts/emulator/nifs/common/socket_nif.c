@@ -501,6 +501,9 @@ typedef union {
 #define SOCKET_OPT_OTP_DEBUG        1
 #define SOCKET_OPT_OTP_IOW          2
 #define SOCKET_OPT_OTP_CTRL_PROC    3
+#define SOCKET_OPT_OTP_RCVBUF       4
+#define SOCKET_OPT_OTP_RCVCTRLBUF   6
+#define SOCKET_OPT_OTP_SNDCTRLBUF   7
 
 #define SOCKET_OPT_SOCK_ACCEPTCONN     1
 #define SOCKET_OPT_SOCK_BINDTODEVICE   3
@@ -1004,6 +1007,15 @@ static ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
 static ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*        env,
+                                       SocketDescriptor* descP,
+                                       ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*        env,
+                                           SocketDescriptor* descP,
+                                           ERL_NIF_TERM      eVal);
 static ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
@@ -1492,6 +1504,12 @@ static ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
                                     SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
+                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
+                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
+                                           SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
@@ -5001,6 +5019,18 @@ ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
         result = nsetopt_otp_ctrl_proc(env, descP, eVal);
         break;
 
+    case SOCKET_OPT_OTP_RCVBUF:
+        result = nsetopt_otp_rcvbuf(env, descP, eVal);
+        break;
+
+    case SOCKET_OPT_OTP_RCVCTRLBUF:
+        result = nsetopt_otp_rcvctrlbuf(env, descP, eVal);
+        break;
+
+    case SOCKET_OPT_OTP_SNDCTRLBUF:
+        result = nsetopt_otp_sndctrlbuf(env, descP, eVal);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -5074,6 +5104,74 @@ ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
 
     SSDBG( descP, ("SOCKET", "nsetopt_otp_ctrl_proc -> done\r\n") );
 
+    return esock_atom_ok;
+}
+
+
+
+/* nsetopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
+ */
+static
+ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*        env,
+                                SocketDescriptor* descP,
+                                ERL_NIF_TERM      eVal)
+{
+    size_t val;
+    char*  xres;
+
+    if ((xres = esock_decode_bufsz(env,
+                                   eVal,
+                                   SOCKET_RECV_BUFFER_SIZE_DEFAULT, &val)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    descP->rBufSz = val;
+    
+    return esock_atom_ok;
+}
+
+
+
+/* nsetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
+ */
+static
+ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+    size_t val;
+    char*  xres;
+
+    if ((xres = esock_decode_bufsz(env,
+                                   eVal,
+                                   SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT,
+                                   &val)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    descP->rCtrlSz = val;
+    
+    return esock_atom_ok;
+}
+
+
+
+/* nsetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
+ */
+static
+ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      eVal)
+{
+    size_t val;
+    char*  xres;
+
+    if ((xres = esock_decode_bufsz(env,
+                                   eVal,
+                                   SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT,
+                                   &val)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    descP->wCtrlSz = val;
+    
     return esock_atom_ok;
 }
 
@@ -8169,6 +8267,18 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
         result = ngetopt_otp_ctrl_proc(env, descP);
         break;
 
+    case SOCKET_OPT_OTP_RCVBUF:
+        result = ngetopt_otp_rcvbuf(env, descP);
+        break;
+
+    case SOCKET_OPT_OTP_RCVCTRLBUF:
+        result = ngetopt_otp_rcvctrlbuf(env, descP);
+        break;
+
+    case SOCKET_OPT_OTP_SNDCTRLBUF:
+        result = ngetopt_otp_sndctrlbuf(env, descP);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -8218,6 +8328,42 @@ ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
     return esock_make_ok2(env, eVal);
 }
 
+
+
+/* ngetopt_otp_rcvbuf - Handle the OTP (level) rcvbuf options
+ */
+static
+ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
+                                SocketDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = MKI(env, descP->rBufSz);
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* ngetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf options
+ */
+static
+ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
+                                    SocketDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = MKI(env, descP->rCtrlSz);
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* ngetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf options
+ */
+static
+ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
+                                    SocketDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = MKI(env, descP->wCtrlSz);
+
+    return esock_make_ok2(env, eVal);
+}
 
 
 /* The option has *not* been encoded. Instead it has been provided

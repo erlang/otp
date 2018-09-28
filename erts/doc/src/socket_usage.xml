@@ -81,6 +81,27 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <row>
+	<cell>rcvbuf</cell>
+	<cell>default | pos_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>default only valid for set</cell>
+      </row>
+      <row>
+	<cell>rcvctrlbuf</cell>
+	<cell>default | pos_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>default only valid for set</cell>
+      </row>
+      <row>
+	<cell>sndctrlbuf</cell>
+	<cell>default | pos_integer()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>default only valid for set</cell>
+      </row>
     </table>
     
     <p>Options for level <c>socket</c>: </p>

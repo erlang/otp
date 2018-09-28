@@ -320,12 +320,15 @@
 %% Should we just document it and leave it to the user?
 %% Or catch it in the encode functions?
 %% A setopt for a readonly option leads to einval?
+%% Do we really need a sndbuf?
 
 -type otp_socket_option() :: debug |
                              iow |
                              controlling_process |
                              rcvbuf |
-                             sndbuf.
+                             sndbuf |
+                             rcvctrlbuf |
+                             sndctrlbuf.
 %% Shall we have special treatment of linger??
 %% read-only options:
 %% domain | protocol | type.
@@ -645,6 +648,10 @@
 -define(SOCKET_OPT_OTP_DEBUG,            1).
 -define(SOCKET_OPT_OTP_IOW,              2).
 -define(SOCKET_OPT_OTP_CTRL_PROC,        3).
+-define(SOCKET_OPT_OTP_RCVBUF,           4).
+%%-define(SOCKET_OPT_OTP_SNDBUF,           5).
+-define(SOCKET_OPT_OTP_RCVCTRLBUF,       6).
+-define(SOCKET_OPT_OTP_SNDCTRLBUF,       7).
 
 %% *** SOCKET (socket) options
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
@@ -2136,9 +2143,9 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
             end
         end
     catch
-        throw:T ->
-            T;
-        error:Reason ->
+        throw:E:_S ->
+            E;
+        error:Reason:_Stack ->
             {error, Reason} % Process more?
     end.
 
@@ -2400,6 +2407,18 @@ enc_setopt_value(otp, debug, V, _, _, _) when is_boolean(V) ->
 enc_setopt_value(otp, iow, V, _, _, _) when is_boolean(V) ->
     V;
 enc_setopt_value(otp, controlling_process, V, _, _, _) when is_pid(V) ->
+    V;
+enc_setopt_value(otp, rcvbuf, V, _, _, _) when (V =:= default) ->
+    0;
+enc_setopt_value(otp, rcvbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
+    V;
+enc_setopt_value(otp, rcvctrlbuf, V, _, _, _) when (V =:= default) ->
+    0;
+enc_setopt_value(otp, rcvctrlbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
+    V;
+enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when (V =:= default) ->
+    0;
+enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
     V;
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
@@ -2871,6 +2890,12 @@ enc_sockopt_key(otp, iow, _, _, _, _) ->
     ?SOCKET_OPT_OTP_IOW;
 enc_sockopt_key(otp, controlling_process, _, _, _, _) ->
     ?SOCKET_OPT_OTP_CTRL_PROC;
+enc_sockopt_key(otp, rcvbuf, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_RCVBUF;
+enc_sockopt_key(otp, rcvctrlbuf, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_RCVCTRLBUF;
+enc_sockopt_key(otp, sndctrlbuf, _, _, _, _) ->
+    ?SOCKET_OPT_OTP_SNDCTRLBUF;
 enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
     not_supported({L, Opt});
 

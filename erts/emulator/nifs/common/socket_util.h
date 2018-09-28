@@ -158,6 +158,12 @@ char* esock_encode_protocol(ErlNifEnv*    env,
                             ERL_NIF_TERM* eProtocol);
 
 extern
+char* esock_decode_bufsz(ErlNifEnv*   env,
+                         ERL_NIF_TERM eVal,
+                         size_t       defSz,
+                         size_t*      sz);
+
+extern
 BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
                               const ERL_NIF_TERM eString,
                               char**             stringP);

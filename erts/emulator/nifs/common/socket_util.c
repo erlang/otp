@@ -1261,6 +1261,35 @@ char* esock_decode_protocol(ErlNifEnv*   env,
 
 
 
+/* +++ esock_decode_bufsz +++
+ *
+ * Decode an buffer size. The size of a buffer is: 
+ * 
+ *    Sz > 0 => Use provided value
+ *    Sz     => Use provided default
+ *
+ */
+extern
+char* esock_decode_bufsz(ErlNifEnv*   env,
+                         ERL_NIF_TERM eVal,
+                         size_t       defSz,
+                         size_t*      sz)
+{
+    int val;
+
+    if (!GET_INT(env, eVal, &val))
+        return ESOCK_STR_EINVAL;
+
+    if (val > 0)
+        *sz = (size_t) val;
+    else
+        *sz = defSz;
+
+    return NULL;
+}
+
+
+
 /* *** esock_decode_string ***
  *
  * Decode a string value. A successful decode results in an 

@@ -38,6 +38,9 @@
          api_b_send_and_recv_tcp4/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
 
+         %% API Options
+         api_opt_simple_otp_options/1,
+
          %% API Operation Timeout
          api_to_connect_tcp4/1,
          api_to_connect_tcp6/1,
@@ -90,13 +93,15 @@ all() ->
 groups() -> 
     [{api,                 [], api_cases()},
      {api_basic,           [], api_basic_cases()},
-     {api_op_with_timeout, [], api_op_with_timeout_cases()}
+     {api_op_with_timeout, [], api_op_with_timeout_cases()},
+     {api_options,         [], api_options_cases()}
      %% {tickets,             [], ticket_cases()}
     ].
      
 api_cases() ->
     [
      {group, api_basic},
+     {group, api_options},
      {group, api_op_with_timeout}
     ].
 
@@ -108,6 +113,11 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_send_and_recv_tcp4,
      api_b_sendmsg_and_recvmsg_tcp4
+    ].
+
+api_options_cases() ->
+    [
+     api_opt_simple_otp_options
     ].
 
 api_op_with_timeout_cases() ->
@@ -429,6 +439,92 @@ api_b_send_and_recv_tcp(Domain, Send, Recv) ->
     socket:close(ClientSock),
     ok.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Perform some simple getopt and setopt with the level = otp options
+api_opt_simple_otp_options(suite) ->
+    [];
+api_opt_simple_otp_options(doc) ->
+    [];
+api_opt_simple_otp_options(_Config) when is_list(_Config) ->
+    tc_begin(api_opt_simple_otp_options),
+
+    p("Create sockets"),
+    S1 = sock_open(inet, stream, tcp),
+    S2 = sock_open(inet, dgram,  udp),
+    
+    Get = fun(S, Key) ->
+                  socket:getopt(S, otp, Key)
+          end,
+    Set = fun(S, Key, Val) ->
+                  socket:setopt(S, otp, Key, Val)
+          end,
+
+    p("Create dummy process"),
+    Pid = spawn_link(fun() -> 
+                             receive
+                                 die -> 
+                                     exit(normal) 
+                             end 
+                     end),
+
+    F = fun(Sock) ->
+                p("Test IOW"),
+                {ok, IOW}    = Get(Sock, iow),
+                NotIOW       = not IOW,
+                ok           = Set(Sock, iow, NotIOW),
+                {ok, NotIOW} = Get(Sock, iow),
+
+                p("Test rcvbuf"),
+                {ok, RcvBuf}  = Get(Sock, rcvbuf),
+                RcvBuf2       = RcvBuf*2,
+                ok            = Set(Sock, rcvbuf, RcvBuf2),
+                {ok, RcvBuf2} = Get(Sock, rcvbuf),
+                ok            = Set(Sock, rcvbuf, default),
+                {ok, RcvBuf}  = Get(Sock, rcvbuf),
+
+                p("Test rcvctrlbuf"),
+                {ok, RcvCtrlBuf}  = Get(Sock, rcvctrlbuf),
+                RcvCtrlBuf2       = RcvCtrlBuf*2,
+                ok                = Set(Sock, rcvctrlbuf, RcvCtrlBuf2),
+                {ok, RcvCtrlBuf2} = Get(Sock, rcvctrlbuf),
+                ok                = Set(Sock, rcvctrlbuf, default),
+                {ok, RcvCtrlBuf}  = Get(Sock, rcvctrlbuf),
+
+                p("Test sndctrlbuf"),
+                {ok, SndCtrlBuf}  = Get(Sock, sndctrlbuf),
+                SndCtrlBuf2       = SndCtrlBuf*2,
+                ok                = Set(Sock, sndctrlbuf, SndCtrlBuf2),
+                {ok, SndCtrlBuf2} = Get(Sock, sndctrlbuf),
+                ok                = Set(Sock, sndctrlbuf, default),
+                {ok, RcvCtrlBuf}  = Get(Sock, sndctrlbuf),
+
+                p("Test controlling-process"),
+                Self = self(),
+                {ok, Self}   = Get(Sock, controlling_process),
+                ok           = Set(Sock, controlling_process, Pid),
+                {ok, Pid}    = Get(Sock, controlling_process)
+
+        end,
+
+    p("Test stream/tcp "),
+    F(S1),
+
+    p("Test dgram/udp "),
+    F(S2),
+
+    p("kill dummy process"),
+    %% This will also close its sockets (S1 and S2),
+    %% This should really be tested explicitly...
+    Pid ! die,
+
+    %% p("close sockets"),
+    %% sock_close(S1),
+    %% sock_close(S2),
+
+    tc_end().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1064,6 +1160,20 @@ sock_accept(LSock) ->
         C:E:S ->
             p("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
             ?FAIL({accept, C, E, S})
+    end.
+
+
+sock_close(Sock) ->
+    try socket:close(Sock) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            p("sock_close -> error: ~p", [Reason]),
+            ?FAIL({close, Reason})
+    catch
+        C:E:S ->
+            p("sock_close -> failed: ~p, ~p, ~p", [C, E, S]),
+            ?FAIL({close, C, E, S})
     end.
 
 
