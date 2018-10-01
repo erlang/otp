@@ -292,7 +292,6 @@ union erl_off_heap_ptr {
 /* controls warning mapping in error_logger */
 
 extern Eterm node_cookie;
-extern Uint display_items;	/* no of items to display in traces etc */
 
 extern int erts_backtrace_depth;
 extern erts_atomic32_t erts_max_gen_gcs;

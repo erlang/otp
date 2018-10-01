@@ -1562,10 +1562,10 @@ mandatory_modules() ->
 
 preloaded() ->
     %% Sorted
-    [erl_prim_loader,erl_tracer,erlang,
+    [erl_init,erl_prim_loader,erl_tracer,erlang,
      erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
-     init,otp_ring0,prim_buffer,prim_eval,prim_file,
+     init,prim_buffer,prim_eval,prim_file,
      prim_inet,prim_zip,zlib].
 
 %%______________________________________________________________________

@@ -208,7 +208,6 @@ atom dirty_nif_finalizer
 atom disable_trace
 atom disabled
 atom discard
-atom display_items
 atom dist
 atom dist_cmd
 atom dist_ctrl_put_data
@@ -237,6 +236,7 @@ atom eof
 atom eol
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_init
 atom erl_tracer
 atom erlang
 atom erl_signal_server

@@ -6829,7 +6829,7 @@
                         {native,false},
                         {compiler,"4.9.1"},
                         {md5,"55bb9fddcdf820938be2efee15eccd82"}]},
-                      {otp_ring0,
+                      {erl_init,
                        [{loaded,true},
                         {native,false},
                         {compiler,"4.9.1"},

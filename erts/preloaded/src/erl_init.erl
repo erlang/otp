@@ -17,15 +17,26 @@
 %%
 %% %CopyrightEnd%
 %%
--module(otp_ring0).
+-module(erl_init).
 
-%% Purpose : Start up of erlang system.
+%% Initial process of an Erlang system.
 
 -export([start/2]).
 
--spec start(_, term()) -> term().
-start(_Env, Argv) ->
-    run(init, boot, Argv).
+%% This gets the module name given by the +i option (default 'init')
+%% and the list of command line arguments
+
+-spec start(Mod, BootArgs) -> no_return() when
+      Mod :: module(),
+      BootArgs :: [binary()].
+start(Mod, BootArgs) ->
+    %% Load the static nifs
+    zlib:on_load(),
+    erl_tracer:on_load(),
+    prim_buffer:on_load(),
+    prim_file:on_load(),
+    %% Proceed to the specified boot module
+    run(Mod, boot, BootArgs).
 
 run(M, F, A) ->
     case erlang:function_exported(M, F, 1) of
