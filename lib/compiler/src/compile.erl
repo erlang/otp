@@ -210,8 +210,11 @@ do_compile(Input, Opts0) ->
                               {error,Reason}
                       end
              end,
-    %% Dialyzer has already spawned workers.
-    case lists:member(dialyzer, Opts) of
+    %% Some tools, like Dialyzer, has already spawned workers
+    %% and spawning extra workers actually slow the compilation
+    %% down instead of speeding it up, so we provide a mechanism
+    %% to bypass the compiler process.
+    case lists:member(no_spawn_compiler_process, Opts) of
         true ->
             IntFun();
         false ->
