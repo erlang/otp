@@ -198,6 +198,7 @@ no_side_effect(#b_set{op=Op}) ->
         has_map_field -> true;
         is_nonempty_list -> true;
         is_tagged_tuple -> true;
+        make_fun -> true;
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
