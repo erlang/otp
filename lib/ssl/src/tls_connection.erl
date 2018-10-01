@@ -341,8 +341,8 @@ reinit_handshake_data(State) ->
        tls_handshake_history = ssl_handshake:init_handshake_history()
      }.
 
-select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
-    HelloExtensions#hello_extensions.sni;
+select_sni_extension(#client_hello{extensions = #{sni := SNI}}) ->
+    SNI;
 select_sni_extension(_) ->
     undefined.
 
@@ -517,13 +517,13 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                               hello = Hello},
-     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};
+     [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #ssl_options{handshake = hello},
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                          hello = Hello},
-     [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};     
+     [{reply, From, {ok, Extensions}}]};     
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
 	     port = Port, session = #session{own_certificate = Cert} = Session0,

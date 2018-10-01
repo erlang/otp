@@ -100,7 +100,7 @@ client_hello(Host, Port, ConnectionStates,
 		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
 		    ssl_record:connection_states(), binary() | undefined, 
-		    #hello_extensions{}, {ssl_cipher_format:hash(), ssl_cipher_format:sign_algo()} | 
+                    HelloExt::map(), {ssl_cipher_format:hash(), ssl_cipher_format:sign_algo()} | 
                     undefined} | #alert{}.
 %%
 %% Description: Handles a received hello message
@@ -145,10 +145,9 @@ hello(#server_hello{server_version = {Major, Minor},
 %% - If "supported_version" is present (ServerHello):
 %%   - Abort handshake with an "illegal_parameter" alert
 hello(#server_hello{server_version = Version,
-                    extensions = #hello_extensions{
-                                    server_hello_selected_version =
-                                        #server_hello_selected_version{selected_version = Version}
-                                   }},
+                    extensions = #{server_hello_selected_version :=
+                                       #server_hello_selected_version{selected_version = Version}}
+                   },
       #ssl_options{versions = SupportedVersions},
       _ConnectionStates0, _Renegotiation) ->
     case tls_record:is_higher({3,4}, Version) of
@@ -196,10 +195,9 @@ hello(#server_hello{server_version = Version, random = Random,
 %%      e.g. Server 1.0,1.2 Client 1.1 -> ServerHello 1.0
 hello(#client_hello{client_version = _ClientVersion,
 		    cipher_suites = CipherSuites,
-                    extensions = #hello_extensions{
-                                    client_hello_versions =
-                                        #client_hello_versions{versions = ClientVersions}
-                                   }} = Hello,
+                    extensions = #{client_hello_versions :=
+                                       #client_hello_versions{versions = ClientVersions}
+                                  }} = Hello,
       #ssl_options{versions = Versions} = SslOpts,
       Info, Renegotiation) ->
     try
@@ -267,10 +265,7 @@ handle_client_hello(Version,
                                   cipher_suites = CipherSuites,
                                   compression_methods = Compressions,
                                   random = Random,
-                                  extensions = 
-                                      #hello_extensions{elliptic_curves = Curves,
-                                                        signature_algs = ClientHashSigns} 
-                                  = HelloExt},
+                                  extensions = HelloExt},
 		    #ssl_options{versions = Versions,
 				 signature_algs = SupportedHashSigns,
 				 eccs = SupportedECCs,
@@ -279,6 +274,8 @@ handle_client_hello(Version,
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
+            Curves = maps:get(elliptic_curves, HelloExt, undefined),
+            ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
@@ -407,13 +404,14 @@ get_tls_handshake_aux(_Version, Data, _, Acc) ->
 
 decode_handshake({3, N}, ?HELLO_REQUEST, <<>>) when N < 4 ->
     #hello_request{};
-decode_handshake(_Version, ?CLIENT_HELLO, 
+decode_handshake(Version, ?CLIENT_HELLO, 
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                    ?BYTE(SID_length), Session_ID:SID_length/binary,
                    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
                    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
                    Extensions/binary>>) ->
-    DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
+    Exts = ssl_handshake:decode_vector(Extensions),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, Version, client),
     #client_hello{
        client_version = {Major,Minor},
        random = Random,
@@ -426,5 +424,3 @@ decode_handshake({3, 4}, Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
-
-

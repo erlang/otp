@@ -89,7 +89,7 @@ decode_handshake(?CERTIFICATE, <<?BYTE(CSize), Context:CSize/binary,
        certificate_request_context = Context,
        entries = CertList
       };
-decode_handshake(?ENCRYPTED_EXTENSIONS, EncExts) ->
+decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) ->
     #encrypted_extensions{
        extensions = decode_extensions(EncExts)
       };
@@ -127,23 +127,27 @@ encode_cert_entries([], Acc) ->
     iolist_to_binary(lists:reverse(Acc));
 encode_cert_entries([#certificate_entry{data = Data,
                                         extensions = Exts} | Rest], Acc) ->
+    DSize = byte_size(Data),
     BinExts = encode_extensions(Exts),
-    Size = byte_size(Data),
+    ExtSize = byte_size(BinExts),
     encode_cert_entries(Rest, 
-                        [<<?UINT24(Size), Data/binary, BinExts/binary>> | Acc]).
+                        [<<?UINT24(DSize), Data/binary, ?UINT16(ExtSize), BinExts/binary>> | Acc]).
 
 decode_cert_entries(Entries) ->
     decode_cert_entries(Entries, []).
 
 decode_cert_entries(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT24(Esize), BinExts:Esize/binary,
+decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary,
                       Rest/binary>>, Acc) ->
     Exts = decode_extensions(BinExts),
     decode_cert_entries(Rest, [#certificate_entry{data = Data,
                                                   extensions = Exts} | Acc]).
 
 encode_extensions(Exts)->
-    ssl_handshake:encode_hello_extensions(Exts).
+    ssl_handshake:encode_extensions(extensions_list(Exts)).
 decode_extensions(Exts) ->
-    ssl_handshake:decode_hello_extensions(Exts).
+    ssl_handshake:decode_extensions(Exts).
+
+extensions_list(HelloExtensions) ->
+    [Ext || {_, Ext} <- maps:to_list(HelloExtensions)].
