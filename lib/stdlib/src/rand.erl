@@ -732,6 +732,8 @@ exsplus_seed({A1, A2, A3}) ->
                  tl(R1)]),
     R2.
 
+-dialyzer({no_improper_lists, exsss_seed/1}).
+
 exsss_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
@@ -745,8 +747,6 @@ exsss_seed({A1, A2, A3}) ->
     {S0, X1} = seed58(?MASK(64, A2) bxor X0),
     {S1, _} = seed58(?MASK(64, A3) bxor X1),
     [S0|S1].
-
--dialyzer({no_improper_lists, exsplus_next/1}).
 
 %% Advance Xorshift116 state one step
 -define(
@@ -767,6 +767,8 @@ exsss_seed({A1, A2, A3}) ->
        ?MASK(58, V_b + ?BSL(58, V_b, 3)) % V_b * 9
    end).
 
+-dialyzer({no_improper_lists, exsplus_next/1}).
+
 %% Advance state and generate 58bit unsigned integer
 -spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsplus_next([S1|S0]) ->
@@ -777,6 +779,8 @@ exsplus_next([S1|S0]) ->
 %%    S11 = S1 bxor ?BSL(58, S1, 24),
 %%    S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
 %%    {?MASK(58, S0 + S12), [S0|S12]}.
+
+-dialyzer({no_improper_lists, exsss_next/1}).
 
 -spec exsss_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsss_next([S1|S0]) ->
