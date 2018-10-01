@@ -28,15 +28,17 @@
 
 /* Property/category are bitfields to simplify their use in masks. */
 #define ERTS_LOCK_FLAGS_MASK_CATEGORY (0xFFC0)
-#define ERTS_LOCK_FLAGS_MASK_PROPERTY (0x0030)
+#define ERTS_LOCK_FLAGS_MASK_PROPERTY (0x0038)
 
 /* Type is a plain number. */
-#define ERTS_LOCK_FLAGS_MASK_TYPE     (0x000F)
+#define ERTS_LOCK_FLAGS_MASK_TYPE     (0x0007)
 
 #define ERTS_LOCK_FLAGS_TYPE_SPINLOCK (1)
 #define ERTS_LOCK_FLAGS_TYPE_MUTEX    (2)
 #define ERTS_LOCK_FLAGS_TYPE_PROCLOCK (3)
 
+/* Lock checker use real term order instead of raw word compare */
+#define ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER (1 << 3)
 /* "Static" guarantees that the lock will never be destroyed once created. */
 #define ERTS_LOCK_FLAGS_PROPERTY_STATIC     (1 << 4)
 #define ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE (1 << 5)
