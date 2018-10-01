@@ -23,17 +23,15 @@
 
 -export([module/2]).
 -export([clean_labels/1]).
--import(lists, [foldl/3]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
-    All = foldl(fun({function,_,_,Lbl,_}=Func,D) -> dict:store(Lbl, Func, D) end,
-		dict:new(), Fs0),
+    All = maps:from_list([{Lbl,Func} || {function,_,_,Lbl,_}=Func <- Fs0]),
     WorkList = rootset(Fs0, Exp, Attr),
-    Used = find_all_used(WorkList, All, sets:from_list(WorkList)),
+    Used = find_all_used(WorkList, All, cerl_sets:from_list(WorkList)),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
     Fs = maybe_remove_lines(Fs2, Opts),
@@ -55,16 +53,16 @@ rootset(Fs, Root0, Attr) ->
 %% Remove the unused functions.
 
 remove_unused([F|Fs], Used, All) ->
-    case sets:is_element(F, Used) of
+    case cerl_sets:is_element(F, Used) of
 	false -> remove_unused(Fs, Used, All);
-	true -> [dict:fetch(F, All)|remove_unused(Fs, Used, All)]
+	true -> [map_get(F, All)|remove_unused(Fs, Used, All)]
     end;
 remove_unused([], _, _) -> [].
-	    
+
 %% Find all used functions.
 
 find_all_used([F|Fs0], All, Used0) ->
-    {function,_,_,_,Code} = dict:fetch(F, All),
+    {function,_,_,_,Code} = map_get(F, All),
     {Fs,Used} = update_work_list(Code, {Fs0,Used0}),
     find_all_used(Fs, All, Used);
 find_all_used([], _All, Used) -> Used.
@@ -78,9 +76,9 @@ update_work_list([_|Is], Sets) ->
 update_work_list([], Sets) -> Sets.
 
 add_to_work_list(F, {Fs,Used}=Sets) ->
-    case sets:is_element(F, Used) of
+    case cerl_sets:is_element(F, Used) of
 	true -> Sets;
-	false -> {[F|Fs],sets:add_element(F, Used)}
+	false -> {[F|Fs],cerl_sets:add_element(F, Used)}
     end.
 
 

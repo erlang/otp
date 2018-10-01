@@ -49,9 +49,6 @@ function({function,Name,Arity,CLabel,Is0}) ->
 blockify(Is) ->
     blockify(Is, []).
 
-blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
-    %% Useless instruction sequence.
-    blockify(Is, Acc);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);

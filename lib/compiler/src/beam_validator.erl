@@ -479,16 +479,20 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
 	    error({bad_type,Type})
     end;
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
+    assert_not_literal(Src),
     assert_type(cons, Src, Vst0),
     Vst = set_type_reg(term, Src, D1, Vst0),
     set_type_reg(term, Src, D2, Vst);
 valfun_1({get_hd,Src,Dst}, Vst) ->
+    assert_not_literal(Src),
     assert_type(cons, Src, Vst),
     set_type_reg(term, Src, Dst, Vst);
 valfun_1({get_tl,Src,Dst}, Vst) ->
+    assert_not_literal(Src),
     assert_type(cons, Src, Vst),
     set_type_reg(term, Src, Dst, Vst);
 valfun_1({get_tuple_element,Src,I,Dst}, Vst) ->
+    assert_not_literal(Src),
     assert_type({tuple_element,I+1}, Src, Vst),
     set_type_reg(term, Src, Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
@@ -917,6 +921,7 @@ valfun_4(_, _) ->
     error(unknown_instruction).
 
 verify_get_map(Fail, Src, List, Vst0) ->
+    assert_not_literal(Src),                    %OTP 22.
     assert_type(map, Src, Vst0),
     Vst1 = foldl(fun(D, Vsti) ->
                          case is_reg_defined(D,Vsti) of
@@ -1465,6 +1470,10 @@ is_type_defined_y({y,Y}, #vst{current=#st{y=Ys}}) ->
 assert_term(Src, Vst) ->
     get_term_type(Src, Vst),
     ok.
+
+assert_not_literal({x,_}) -> ok;
+assert_not_literal({y,_}) -> ok;
+assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 
 %% The possible types.
 %%

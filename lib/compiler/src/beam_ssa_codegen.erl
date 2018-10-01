@@ -231,7 +231,7 @@ need_heap_never(_) -> false.
 
 need_heap_blks([{L,#cg_blk{is=Is0}=Blk0}|Bs], H0, Acc) ->
     {Is1,H1} = need_heap_is(reverse(Is0), H0, []),
-    {Ns,H} = need_heap_terminator(Bs, H1),
+    {Ns,H} = need_heap_terminator(Bs, L, H1),
     Is = Ns ++ Is1,
     Blk = Blk0#cg_blk{is=Is},
     need_heap_blks(Bs, H, [{L,Blk}|Acc]);
@@ -241,6 +241,13 @@ need_heap_blks([], H, Acc) ->
 need_heap_is([#cg_alloc{words=Words}=Alloc0|Is], N, Acc) ->
     Alloc = Alloc0#cg_alloc{words=add_heap_words(N, Words)},
     need_heap_is(Is, #need{}, [Alloc|Acc]);
+need_heap_is([#cg_set{anno=Anno,op=bs_init}=I0|Is], N, Acc) ->
+    Alloc = case need_heap_need(N) of
+                [#cg_alloc{words=Need}] -> alloc(Need);
+                [] -> 0
+            end,
+    I = I0#cg_set{anno=Anno#{alloc=>Alloc}},
+    need_heap_is(Is, #need{}, [I|Acc]);
 need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
     case classify_heap_need(Op, Args) of
         {put,Words} ->
@@ -256,11 +263,31 @@ need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
 need_heap_is([], N, Acc) ->
     {Acc,N}.
 
-need_heap_terminator([{_,#cg_blk{last=#cg_br{succ=Same,fail=Same}}}|_], N) ->
+need_heap_terminator([{_,#cg_blk{last=#cg_br{succ=L,fail=L}}}|_], L, N) ->
+    %% Fallthrough.
     {[],N};
-need_heap_terminator([{_,#cg_blk{}}|_], N) ->
+need_heap_terminator([{_,#cg_blk{is=Is,last=#cg_br{succ=L}}}|_], L, N) ->
+    case need_heap_need(N) of
+        [] ->
+            {[],#need{}};
+        [_|_]=Alloc ->
+            %% If the preceding instructions are a binary construction,
+            %% hoist the allocation and incorporate into the bs_init
+            %% instruction.
+            case reverse(Is) of
+                [#cg_set{op=succeeded},#cg_set{op=bs_init}|_] ->
+                    {[],N};
+                [#cg_set{op=bs_put}|_] ->
+                    {[],N};
+                _ ->
+                    %% Not binary construction. Must emit an allocation
+                    %% instruction in this block.
+                    {Alloc,#need{}}
+            end
+    end;
+need_heap_terminator([{_,#cg_blk{}}|_], _, N) ->
     {need_heap_need(N),#need{}};
-need_heap_terminator([], H) ->
+need_heap_terminator([], _, H) ->
     {need_heap_need(H),#need{}}.
 
 need_heap_need(#need{h=0,f=0}) -> [];
@@ -1041,12 +1068,13 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
     Fail = bif_fail(Fail0),
     Line = line(Anno),
+    Alloc = map_get(alloc, Anno),
     [#b_literal{val=Kind}|Args1] = Args0,
     case Kind of
         new ->
             [Dst,Size,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Live = get_live(I),
-            {[Line|cg_bs_init(Dst, Size, Unit, Live, Fail)],St};
+            {[Line|cg_bs_init(Dst, Size, Alloc, Unit, Live, Fail)],St};
         private_append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
@@ -1056,7 +1084,7 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
             Live = get_live(I),
-            Is = [Line,{bs_append,Fail,Bits,0,Live,Unit,Src,Flags,Dst}],
+            Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;
 cg_block([#cg_set{anno=Anno,op=bs_start_match,dst=Ctx0,args=[Bin0]}=I,
@@ -1204,6 +1232,12 @@ cg_copy_1([#cg_set{dst=Dst0,args=Args}|T], St) ->
     end;
 cg_copy_1([], _St) -> [].
 
+-define(IS_LITERAL(Val), (Val =:= nil orelse
+                          element(1, Val) =:= integer orelse
+                          element(1, Val) =:= float orelse
+                          element(1, Val) =:= atom orelse
+                          element(1, Val) =:= literal)).
+
 bif_to_test('and', [V1,V2], Fail) ->
     [{test,is_eq_exact,Fail,[V1,{atom,true}]},
      {test,is_eq_exact,Fail,[V2,{atom,true}]}];
@@ -1217,15 +1251,99 @@ bif_to_test('or', [V1,V2], {f,Lbl}=Fail) when Lbl =/= 0 ->
 bif_to_test('not', [Var], Fail) ->
     [{test,is_eq_exact,Fail,[Var,{atom,false}]}];
 bif_to_test(Name, Args, Fail) ->
-    [beam_utils:bif_to_test(Name, Args, Fail)].
+    [bif_to_test_1(Name, Args, Fail)].
+
+bif_to_test_1(is_atom,     [_]=Ops, Fail) ->
+    {test,is_atom,Fail,Ops};
+bif_to_test_1(is_boolean,  [_]=Ops, Fail) ->
+    {test,is_boolean,Fail,Ops};
+bif_to_test_1(is_binary,   [_]=Ops, Fail) ->
+    {test,is_binary,Fail,Ops};
+bif_to_test_1(is_bitstring,[_]=Ops, Fail) ->
+    {test,is_bitstr,Fail,Ops};
+bif_to_test_1(is_float,    [_]=Ops, Fail) ->
+    {test,is_float,Fail,Ops};
+bif_to_test_1(is_function, [_]=Ops, Fail) ->
+    {test,is_function,Fail,Ops};
+bif_to_test_1(is_function, [_,_]=Ops, Fail) ->
+    {test,is_function2,Fail,Ops};
+bif_to_test_1(is_integer,  [_]=Ops, Fail) ->
+    {test,is_integer,Fail,Ops};
+bif_to_test_1(is_list,     [_]=Ops, Fail) ->
+    {test,is_list,Fail,Ops};
+bif_to_test_1(is_map,      [_]=Ops, Fail) ->
+    {test,is_map,Fail,Ops};
+bif_to_test_1(is_number,   [_]=Ops, Fail) ->
+    {test,is_number,Fail,Ops};
+bif_to_test_1(is_pid,      [_]=Ops, Fail) ->
+    {test,is_pid,Fail,Ops};
+bif_to_test_1(is_port,     [_]=Ops, Fail) ->
+    {test,is_port,Fail,Ops};
+bif_to_test_1(is_reference, [_]=Ops, Fail) ->
+    {test,is_reference,Fail,Ops};
+bif_to_test_1(is_tuple,    [_]=Ops, Fail) ->
+    {test,is_tuple,Fail,Ops};
+bif_to_test_1('=<', [A,B], Fail) ->
+    {test,is_ge,Fail,[B,A]};
+bif_to_test_1('>', [A,B], Fail) ->
+    {test,is_lt,Fail,[B,A]};
+bif_to_test_1('<', [_,_]=Ops, Fail) ->
+    {test,is_lt,Fail,Ops};
+bif_to_test_1('>=', [_,_]=Ops, Fail) ->
+    {test,is_ge,Fail,Ops};
+bif_to_test_1('==', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_eq,Fail,[A,C]};
+bif_to_test_1('==', [_,_]=Ops, Fail) ->
+    {test,is_eq,Fail,Ops};
+bif_to_test_1('/=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_ne,Fail,[A,C]};
+bif_to_test_1('/=', [_,_]=Ops, Fail) ->
+    {test,is_ne,Fail,Ops};
+bif_to_test_1('=:=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_eq_exact,Fail,[A,C]};
+bif_to_test_1('=:=', [_,_]=Ops, Fail) ->
+    {test,is_eq_exact,Fail,Ops};
+bif_to_test_1('=/=', [C,A], Fail) when ?IS_LITERAL(C) ->
+    {test,is_ne_exact,Fail,[A,C]};
+bif_to_test_1('=/=', [_,_]=Ops, Fail) ->
+    {test,is_ne_exact,Fail,Ops}.
 
 opt_call_moves(Is0, Arity) ->
     {Moves0,Is} = splitwith(fun({move,_,_}) -> true;
+                               ({kill,_}) -> true;
                                (_) -> false
                             end, Is0),
     Moves = opt_call_moves_1(Moves0, Arity),
     Moves ++ Is.
 
+opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1|[{kill,_}|_]=Is], Arity) ->
+    %% There could be a {move,Tmp,{x,0}} instruction after the
+    %% kill/1 instructions (moved to there by opt_move_to_x0/1).
+    case splitwith(fun({kill,_}) -> true;
+                      (_) -> false
+                   end, Is) of
+        {Kills,[{move,{x,_}=Tmp,{x,0}}=M2]} ->
+            %% The two move/2 instructions (M1 and M2) can be combined
+            %% to one. The question is, though, is it safe to place
+            %% them after the kill/1 instructions?
+            case is_killed(Src, Kills, Arity) of
+                true ->
+                    %% Src (a Y register) is killed by one of the
+                    %% kill/1 instructions. Thus M1 and M2
+                    %% must be placed before the kill/1 instructions
+                    %% (essentially undoing what opt_move_to_x0/1
+                    %% did, which turned out to be a pessimization
+                    %% in this case).
+                    opt_call_moves_1([M1,M2|Kills], Arity);
+                false ->
+                    %% Src is not killed by any of the kill/1
+                    %% instructions. Thus it is safe to place
+                    %% M1 and M2 after the kill/1 instructions.
+                    opt_call_moves_1(Kills++[M1,M2], Arity)
+            end;
+        {_,_} ->
+            [M1|Is]
+    end;
 opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1,{move,Tmp,Dst}=M2|Is], Arity) ->
     case is_killed(Tmp, Is, Arity) of
         true ->
@@ -1239,6 +1357,10 @@ opt_call_moves_1([M|Ms], Arity) ->
     [M|opt_call_moves_1(Ms, Arity)];
 opt_call_moves_1([], _Arity) -> [].
 
+is_killed(Y, [{kill,Y}|_], _) ->
+    true;
+is_killed(R, [{kill,_}|Is], Arity) ->
+    is_killed(R, Is, Arity);
 is_killed(R, [{move,R,_}|_], _) ->
     false;
 is_killed(R, [{move,_,R}|_], _) ->
@@ -1246,7 +1368,9 @@ is_killed(R, [{move,_,R}|_], _) ->
 is_killed(R, [{move,_,_}|Is], Arity) ->
     is_killed(R, Is, Arity);
 is_killed({x,X}, [], Arity) ->
-    X >= Arity.
+    X >= Arity;
+is_killed({y,_}, [], _) ->
+    false.
 
 cg_alloc(#cg_alloc{stack=none,words=#need{h=0,f=0}}, _St) ->
     [];
@@ -1527,13 +1651,13 @@ cg_bs_put(Fail, [{atom,Type},{literal,Flags}|Args]) ->
             [{Op,Fail,{field_flags,Flags},Src}]
     end.
 
-cg_bs_init(Dst, Size0, Unit, Live, Fail) ->
+cg_bs_init(Dst, Size0, Alloc, Unit, Live, Fail) ->
     Op = case Unit of
              1 -> bs_init_bits;
              8 -> bs_init2
          end,
     Size = cg_bs_init_size(Size0),
-    [{Op,Fail,Size,0,Live,{field_flags,[]},Dst}].
+    [{Op,Fail,Size,Alloc,Live,{field_flags,[]},Dst}].
 
 cg_bs_init_size({x,_}=R) -> R;
 cg_bs_init_size({y,_}=R) -> R;
@@ -1652,12 +1776,41 @@ phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
     [#cg_set{op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
 phi_copies([], _) -> [].
 
+%% opt_move_to_x0([Instruction]) -> [Instruction].
+%%  Simple peep-hole optimization to move a {move,Any,{x,0}} past
+%%  any kill up to the next call instruction. (To give the loader
+%%  an opportunity to combine the 'move' and the 'call' instructions.)
+
+opt_move_to_x0(Moves) ->
+    opt_move_to_x0(Moves, []).
+
+opt_move_to_x0([{move,_,{x,0}}=I|Is0], Acc0) ->
+    case move_past_kill(Is0, I, Acc0) of
+       impossible -> opt_move_to_x0(Is0, [I|Acc0]);
+       {Is,Acc} -> opt_move_to_x0(Is, Acc)
+    end;
+opt_move_to_x0([I|Is], Acc) ->
+    opt_move_to_x0(Is, [I|Acc]);
+opt_move_to_x0([], Acc) -> reverse(Acc).
+
+move_past_kill([{kill,Src}|_], {move,Src,_}, _) ->
+    impossible;
+move_past_kill([{kill,_}=I|Is], Move, Acc) ->
+    move_past_kill(Is, Move, [I|Acc]);
+move_past_kill(Is, Move, Acc) ->
+    {Is,[Move|Acc]}.
+
 %% setup_args(Args, Anno, Context) -> [Instruction].
 %% setup_args(Args) -> [Instruction].
 %%  Set up X registers for a call.
 
 setup_args(Args, Anno, none, St) ->
-    setup_args(Args) ++ kill_yregs(Anno, St);
+    case {setup_args(Args),kill_yregs(Anno, St)} of
+        {Moves,[]} ->
+            Moves;
+        {Moves,Kills} ->
+            opt_move_to_x0(Moves ++ Kills)
+    end;
 setup_args(Args, _, _, _) ->
     setup_args(Args).
 

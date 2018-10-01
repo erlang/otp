@@ -23,14 +23,12 @@
 -module(beam_utils).
 -export([is_killed/3,is_killed_at/3,is_not_used/3,
 	 empty_label_index/0,index_label/3,index_labels/1,replace_labels/4,
-	 code_at/2,bif_to_test/3,is_pure_test/1,
-	 combine_heap_needs/2,
-	 split_even/1
-        ]).
+	 code_at/2,is_pure_test/1,
+	 split_even/1]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).
 
--import(lists, [flatmap/2,map/2,member/2,sort/1,reverse/1]).
+-import(lists, [map/2,member/2,sort/1,reverse/1]).
 
 -define(is_const(Val), (Val =:= nil orelse
                         element(1, Val) =:= integer orelse
@@ -38,7 +36,7 @@
                         element(1, Val) =:= atom orelse
                         element(1, Val) =:= literal)).
 
-%% instruction() describes all instructions that are used during optimzation
+%% instruction() describes all instructions that are used during optimization
 %% (from beam_a to beam_z).
 -type instruction() :: atom() | tuple().
 
@@ -158,44 +156,6 @@ code_at(L, Ll) ->
 replace_labels(Is, Acc, D, Fb) ->
     replace_labels_1(Is, Acc, D, Fb).
 
-%% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
-%%  Convert a BIF to a test. Fail if not possible.
-
--spec bif_to_test(atom(), list(), fail()) -> test().
-
-bif_to_test(is_atom,     [_]=Ops, Fail) -> {test,is_atom,Fail,Ops};
-bif_to_test(is_boolean,  [_]=Ops, Fail) -> {test,is_boolean,Fail,Ops};
-bif_to_test(is_binary,   [_]=Ops, Fail) -> {test,is_binary,Fail,Ops};
-bif_to_test(is_bitstring,[_]=Ops, Fail) -> {test,is_bitstr,Fail,Ops};
-bif_to_test(is_float,    [_]=Ops, Fail) -> {test,is_float,Fail,Ops};
-bif_to_test(is_function, [_]=Ops, Fail) -> {test,is_function,Fail,Ops};
-bif_to_test(is_function, [_,_]=Ops, Fail) -> {test,is_function2,Fail,Ops};
-bif_to_test(is_integer,  [_]=Ops, Fail) -> {test,is_integer,Fail,Ops};
-bif_to_test(is_list,     [_]=Ops, Fail) -> {test,is_list,Fail,Ops};
-bif_to_test(is_map,      [_]=Ops, Fail) -> {test,is_map,Fail,Ops};
-bif_to_test(is_number,   [_]=Ops, Fail) -> {test,is_number,Fail,Ops};
-bif_to_test(is_pid,      [_]=Ops, Fail) -> {test,is_pid,Fail,Ops};
-bif_to_test(is_port,     [_]=Ops, Fail) -> {test,is_port,Fail,Ops};
-bif_to_test(is_reference, [_]=Ops, Fail) -> {test,is_reference,Fail,Ops};
-bif_to_test(is_tuple,    [_]=Ops, Fail)     -> {test,is_tuple,Fail,Ops};
-bif_to_test('=<', [A,B], Fail) -> {test,is_ge,Fail,[B,A]};
-bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
-bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
-bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
-bif_to_test('==', [C,A], Fail) when ?is_const(C) ->
-    {test,is_eq,Fail,[A,C]};
-bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
-bif_to_test('/=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_ne,Fail,[A,C]};
-bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
-bif_to_test('=:=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_eq_exact,Fail,[A,C]};
-bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
-bif_to_test('=/=', [C,A], Fail) when ?is_const(C) ->
-    {test,is_ne_exact,Fail,[A,C]};
-bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops}.
-
-
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.
 %%  Return 'true' if the test instruction does not modify any
 %%  registers and/or bit syntax matching state.
@@ -217,19 +177,6 @@ is_pure_test({test,is_bitstr,_,[_]}) -> true;
 is_pure_test({test,is_function2,_,[_,_]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
-
-%% combine_heap_needs(HeapNeed1, HeapNeed2) -> HeapNeed
-%%  Combine the heap need for two allocation instructions.
-
--type heap_need_tag() :: 'floats' | 'words'.
--type heap_need() :: non_neg_integer() |
-                     {'alloc',[{heap_need_tag(),non_neg_integer()}]}.
--spec combine_heap_needs(heap_need(), heap_need()) -> heap_need().
-
-combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
-    H1 + H2;
-combine_heap_needs(H1, H2) ->
-    {alloc,combine_alloc_lists([H1,H2])}.
 
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
@@ -728,19 +675,6 @@ label(Old, D, Fb) ->
         #{Old := New} -> New;
         _ -> Fb(Old)
     end.
-
-%% Help function for combine_heap_needs.
-
-combine_alloc_lists(Al0) ->
-    Al1 = flatmap(fun(Words) when is_integer(Words) ->
-                         [{words,Words}];
-                    ({alloc,List}) ->
-                         List
-                 end, Al0),
-    Al2 = sofs:relation(Al1),
-    Al3 = sofs:relation_to_family(Al2),
-    Al4 = sofs:to_external(Al3),
-    [{Tag,lists:sum(L)} || {Tag,L} <- Al4].
 
 %% live_opt/4.
 
