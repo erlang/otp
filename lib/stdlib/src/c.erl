@@ -29,7 +29,7 @@
 	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
 	 bt/1, q/0,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
-	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
+	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1, clean_history/0]).
 
 -export([display_info/1]).
 -export([appcall/4]).
@@ -70,7 +70,8 @@ help() ->
 		   "nregs()    -- information about all registered processes\n"
 		   "uptime()   -- print node uptime\n"
 		   "xm(M)      -- cross reference check a module\n"
-		   "y(File)    -- generate a Yecc parser\n">>).
+		   "y(File)    -- generate a Yecc parser\n"
+           "clean_history()    -- clears the saved erl shell history\n">>).
 
 %% c(Module)
 %%  Compile a module/file.
@@ -1043,4 +1044,13 @@ appcall(App, M, F, Args) ->
 		Stk ->
 		    erlang:raise(error, undef, Stk)
 	    end
+    end.
+
+%% Cleans the erl shell history if Shell history is enabled
+clean_history() ->
+    case code:ensure_loaded(group_history) of
+        {module, group_history} ->
+            group_history:clean();
+        {error, nofile} ->
+            erlang:raise(error, undef, "Group history module not found!")
     end.

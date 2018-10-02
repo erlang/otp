@@ -28,7 +28,7 @@
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
 	 xm/1, bt/1, q/0,
-	 ni/0, nregs/0]).
+	 ni/0, nregs/0, clean_history/0]).
 
 -export([ih/0,iv/0,im/0,ii/1,ii/2,iq/1,ini/1,ini/2,inq/1,ib/2,ib/3,
 	 ir/2,ir/3,ibd/2,ibe/2,iba/3,ibc/3,
@@ -100,7 +100,7 @@ uptime()        -> c:uptime().
 xm(Mod)         -> c:xm(Mod).
 y(File)         -> c:y(File).
 y(File, Opts)   -> c:y(File, Opts).
-
+clean_history() -> c:clean_history().
 iaa(Flag)       -> calli(iaa, [Flag]).
 iaa(Flag,Fnk)   -> calli(iaa, [Flag,Fnk]).
 ist(Flag)       -> calli(ist, [Flag]).
