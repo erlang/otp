@@ -1052,5 +1052,5 @@ clean_history() ->
         {module, group_history} ->
             group_history:clean();
         {error, nofile} ->
-            erlang:raise(error, undef, "Group history module not found!")
+            erlang:error("Group history module not found! Please check your OTP version.")
     end.
