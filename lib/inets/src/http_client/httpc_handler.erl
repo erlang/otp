@@ -1645,14 +1645,14 @@ host_header(_, URI) ->
 tls_upgrade(#state{status = 
 		       {ssl_tunnel, 
 			#request{settings = 
-				     #http_options{ssl = {_, TLSOptions0} = SocketType},
+				     #http_options{ssl = {_, TLSOptions0} = SocketType, connect_timeout = ConnTimeout},
 				     address = {Host, _} = Address} = Request},
 		   session = #session{socket = TCPSocket} = Session0,
 		   options = Options} = State) ->
 
     TLSOptions = maybe_add_sni(Host, TLSOptions0),
 
-    case ssl:connect(TCPSocket, TLSOptions) of
+    case ssl:connect(TCPSocket, TLSOptions, ConnTimeout) of
 	{ok, TLSSocket} ->
 	    ClientClose = httpc_request:is_client_closing(Request#request.headers),
 	    SessionType = httpc_manager:session_type(Options),
