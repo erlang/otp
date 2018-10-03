@@ -3457,6 +3457,13 @@ delete_large_tab_do(Opts,Data) ->
 
 
 delete_large_tab_1(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            delete_large_tab_2(Name, Flags, Data, Fix)
+    end.
+
+delete_large_tab_2(Name, Flags, Data, Fix) ->
     Tab = ets_new(Name, Flags),
     ets:insert(Tab, Data),
 
@@ -3528,6 +3535,13 @@ delete_large_named_table_do(Opts,Data) ->
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, true).
 
 delete_large_named_table_1(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            delete_large_named_table_2(Name, Flags, Data, Fix)
+    end.
+
+delete_large_named_table_2(Name, Flags, Data, Fix) ->
     Tab = ets_new(Name, Flags),
     ets:insert(Tab, Data),
 
@@ -3576,6 +3590,13 @@ evil_delete_do(Opts,Data) ->
 		  [TabA,TabB,TabC,TabD]).
 
 evil_delete_not_owner(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            evil_delete_not_owner_1(Name, Flags, Data, Fix)
+    end.
+
+evil_delete_not_owner_1(Name, Flags, Data, Fix) ->
     io:format("Not owner: ~p, fix = ~p", [Name,Fix]),
     Tab = ets_new(Name, [public|Flags]),
     ets:insert(Tab, Data),
@@ -3601,6 +3622,13 @@ evil_delete_not_owner(Name, Flags, Data, Fix) ->
     Tab.
 
 evil_delete_owner(Name, Flags, Data, Fix) ->
+    case is_redundant_opts_combo(Flags) of
+        true -> skip;
+        false ->
+            evil_delete_owner_1(Name, Flags, Data, Fix)
+    end.
+
+evil_delete_owner_1(Name, Flags, Data, Fix) ->
     Fun = fun() ->
 		  Tab = ets_new(Name, [public|Flags]),
 		  ets:insert(Tab, Data),
@@ -5299,7 +5327,7 @@ otp_7665_act(Tab,Min,Max,DelNr) ->
 %% Whitebox testing of meta name table hashing.
 meta_wb(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    repeat_for_opts_all_table_types(fun meta_wb_do/1),
+    repeat_for_opts_all_non_stim_table_types(fun meta_wb_do/1),
     verify_etsmem(EtsMem).
 
 
@@ -5586,25 +5614,28 @@ meta_newdel_named(Config) when is_list(Config) ->
 
 %% Concurrent insert's on same table.
 smp_insert(Config) when is_list(Config) ->
-    repeat_for_all_set_table_types(
-      fun(Opts) ->
-              ets_new(smp_insert,[named_table,public,{write_concurrency,true}|Opts]),
-              InitF = fun(_) -> ok end,
-              ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
-                      end,
-              FiniF = fun(_) -> ok end,
-              run_smp_workers(InitF,ExecF,FiniF,100000),
-              verify_table_load(smp_insert),
-              ets:delete(smp_insert)
-      end).
+    repeat_for_opts(fun smp_insert_do/1,
+                    [[set,ordered_set,stim_cat_ord_set]]).
+
+smp_insert_do(Opts) ->
+    ets_new(smp_insert,[named_table,public,{write_concurrency,true}|Opts]),
+    InitF = fun(_) -> ok end,
+    ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
+            end,
+    FiniF = fun(_) -> ok end,
+    run_smp_workers(InitF,ExecF,FiniF,100000),
+    verify_table_load(smp_insert),
+    ets:delete(smp_insert).
 
 %% Concurrent deletes on same fixated table.
 smp_fixed_delete(Config) when is_list(Config) ->
-    only_if_smp(fun()->smp_fixed_delete_do() end).
+    only_if_smp(fun()->
+                        repeat_for_opts(fun smp_fixed_delete_do/1,
+                                        [[set,ordered_set,stim_cat_ord_set]])
+                end).
 
-smp_fixed_delete_do() ->
-    repeat_for_opts_all_set_table_types(
-      fun(Opts) ->
+smp_fixed_delete_do(Opts) ->
+    begin
               T = ets_new(foo,[public,{write_concurrency,true}|Opts]),
               %%Mem = ets:info(T,memory),
               NumOfObjs = 100000,
@@ -5632,7 +5663,7 @@ smp_fixed_delete_do() ->
               %%Mem = ets:info(T,memory),
               %%verify_table_load(T),
               ets:delete(T)
-      end).
+      end.
 
 %% ERL-720
 %% Provoke race between ets:delete and table unfix (by select_count)
@@ -5887,8 +5918,11 @@ otp_8732(Config) when is_list(Config) ->
 
 %% Run concurrent select_delete (and inserts) on same table.
 smp_select_delete(Config) when is_list(Config) ->
-    repeat_for_opts_all_set_table_types(
-      fun(Opts) ->
+    repeat_for_opts(fun smp_select_delete_do/1,
+                    [[set,ordered_set,stim_cat_ord_set], read_concurrency, compressed]).
+
+smp_select_delete_do(Opts) ->
+    begin % indentation
               T = ets_new(smp_select_delete,[named_table,public,{write_concurrency,true}|Opts]),
               Mod = 17,
               Zeros = erlang:make_tuple(Mod,0),
@@ -5942,7 +5976,7 @@ smp_select_delete(Config) when is_list(Config) ->
               0 = ets:info(T,size),
               false = ets:info(T,fixed),
               ets:delete(T)
-      end),
+    end, % indentation
     ok.
 
 smp_select_replace(Config) when is_list(Config) ->
@@ -6253,6 +6287,19 @@ do_work(WorksDoneSoFar, Table, ProbHelpTab, Range, Operations) ->
              do_work(WorksDoneSoFar + 1, Table, ProbHelpTab, Range, Operations)
     end.
 
+prefill_table(T, KeyRange, Num) ->
+    Seed = rand:uniform(KeyRange),
+    %%io:format("prefill_table: Seed = ~p\n", [Seed]),
+    RState = unique_rand_start(KeyRange, Seed),
+    prefill_table_loop(T, RState, Num),
+    Num = ets:info(T, size).
+
+prefill_table_loop(_, _, 0) ->
+    ok;
+prefill_table_loop(T, RS0, N) ->
+    {Key, RS1} = unique_rand_next(RS0),
+    ets:insert(T, {Key}),
+    prefill_table_loop(T, RS1, N-1).
 
 throughput_benchmark() -> 
     throughput_benchmark(false, not_set, not_set).
@@ -6337,14 +6384,6 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
                                         false -> Calculate([Count*2,Count|Rest])
                                     end
                             end,
-    PrefillTable = fun Prefill(T, KeyRange) ->
-                           Size = ets:info(T, size),
-                           case Size > KeyRange / 2 of
-                               true -> ok;
-                               false -> ets:insert(T, {rand:uniform(KeyRange)}),
-                                        Prefill(T, KeyRange)
-                           end
-                   end,
     CalculateOpsProbHelpTab =
         fun Calculate([{_, OpName}], _) ->
                 [{1.0, OpName}];
@@ -6386,7 +6425,7 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
             Range, Duration, RecoverTime) ->
                 ProbHelpTab = CalculateOpsProbHelpTab(Scenario, 0),
                 Table = ets:new(t, TableConfig),
-                PrefillTable(Table, Range),
+                prefill_table(Table, Range, Range div 2),
                 SafeFixTableIfRequired(Table, Scenario, true),
                 ParentPid = self(),
                 ChildPids =
@@ -6426,7 +6465,7 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
         end,
     KeyRanges = % Sizes of the key ranges
         case TestMode of
-            true -> [100000];
+            true -> [50000];
             false -> [1000000]
         end,
     Duration = 
@@ -7225,16 +7264,22 @@ repeat_for_opts(F, OptGenList) when is_function(F, 1) ->
 repeat_for_opts(F, [], Acc) ->
     lists:foldl(fun(Opts, RV_Acc) ->
 			OptList = lists:filter(fun(E) -> E =/= void end, Opts),
-			io:format("Calling with options ~p\n",[OptList]),
-			RV = F(OptList),
-			case RV_Acc of
-			    {comment,_} -> RV_Acc;
-			    _ -> case RV of
-				     {comment,_} -> RV;
-				     _ -> [RV | RV_Acc]
-				 end
-			end
-		end, [], Acc);
+                        case is_redundant_opts_combo(OptList) of
+                            true ->
+                                %%io:format("Ignoring redundant options ~p\n",[OptList]),
+                                ok;
+                            false ->
+                                io:format("Calling with options ~p\n",[OptList]),
+                                RV = F(OptList),
+                                case RV_Acc of
+                                    {comment,_} -> RV_Acc;
+                                    _ -> case RV of
+                                             {comment,_} -> RV;
+                                             _ -> [RV | RV_Acc]
+                                         end
+                                end
+                        end
+                end, [], Acc);
 repeat_for_opts(F, [OptList | Tail], []) when is_list(OptList) ->
     repeat_for_opts(F, Tail, [[Opt] || Opt <- OptList]);
 repeat_for_opts(F, [OptList | Tail], AccList) when is_list(OptList) ->
@@ -7242,15 +7287,22 @@ repeat_for_opts(F, [OptList | Tail], AccList) when is_list(OptList) ->
 repeat_for_opts(F, [Atom | Tail], AccList) when is_atom(Atom) ->
     repeat_for_opts(F, [repeat_for_opts_atom2list(Atom) | Tail ], AccList).
 
-repeat_for_opts_atom2list(set_types) -> [void,set,ordered_set,stim_cat_ord_set,cat_ord_set];
+repeat_for_opts_atom2list(set_types) -> [set,ordered_set,stim_cat_ord_set,cat_ord_set];
 repeat_for_opts_atom2list(ord_set_types) -> [ordered_set,stim_cat_ord_set,cat_ord_set];
-repeat_for_opts_atom2list(all_types) -> [void,set,ordered_set,stim_cat_ord_set,cat_ord_set,bag,duplicate_bag];
-repeat_for_opts_atom2list(all_non_stim_types) -> [void,set,ordered_set,cat_ord_set,bag,duplicate_bag];
-repeat_for_opts_atom2list(all_non_stim_set_types) -> [void,set,ordered_set,cat_ord_set];
+repeat_for_opts_atom2list(all_types) -> [set,ordered_set,stim_cat_ord_set,cat_ord_set,bag,duplicate_bag];
+repeat_for_opts_atom2list(all_non_stim_types) -> [set,ordered_set,cat_ord_set,bag,duplicate_bag];
+repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_set];
 repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [compressed,void].
 
+is_redundant_opts_combo(Opts) ->
+    (lists:member(stim_cat_ord_set, Opts) orelse
+     lists:member(cat_ord_set, Opts))
+        andalso
+    (lists:member({write_concurrency, false}, Opts) orelse
+     lists:member(private, Opts) orelse
+     lists:member(protected, Opts)).
 
 ets_new(Name, Opts) ->
     ReplaceStimOrdSetHelper =
@@ -7361,3 +7413,49 @@ syrup_factor() ->
         valgrind -> 20;
         _ -> 1
     end.
+
+
+%%
+%% This is a pseudo random number generator for UNIQUE integers.
+%% All integers between 1 and Max will be generated before it repeat itself.
+%% It's a variant of this one using quadratic residues by Jeff Preshing:
+%% http://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
+%%
+unique_rand_start(Max, Seed) ->
+    L = lists:dropwhile(fun(P) -> P < Max end,
+                        primes_3mod4()),
+    [P | _] = case L of
+                      [] ->
+                          error("Random range too large");
+                      _ ->
+                          L
+                  end,
+    3 = P rem 4,
+    {0, {Max, P, Seed}}.
+
+unique_rand_next({N, {Max, P, Seed}=Const}) ->
+    case dquad(P, N, Seed) + 1 of
+        RND when RND > Max ->  % Too large, skip
+            unique_rand_next({N+1, Const});
+        RND ->
+            {RND, {N+1, Const}}
+    end.
+
+%% A one-to-one relation between all integers 0 =< X < Prime
+%% if Prime rem 4 == 3.
+quad(Prime, X) ->
+    Rem = X*X rem Prime,
+    case 2*X < Prime of
+        true ->
+            Rem;
+        false ->
+            Prime - Rem
+    end.
+
+dquad(Prime, X, Seed) ->
+    quad(Prime, (quad(Prime, X) + Seed) rem Prime).
+
+%% Primes where P rem 4 == 3.
+primes_3mod4() ->
+    [103, 211, 503, 1019, 2003, 5003, 10007, 20011, 50023,
+     100003, 200003, 500083, 1000003, 2000003].
