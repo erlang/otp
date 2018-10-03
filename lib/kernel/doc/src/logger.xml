@@ -1123,6 +1123,26 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
+      <name>HModule:filter_config(Config) -> FilteredConfig</name>
+      <fsummary>Remove internal data from configuration.</fsummary>
+      <type>
+	<v>Config = FilteredConfig =
+	  <seealso marker="#type-handler_config">handler_config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called when one of the Logger API functions
+	  for fetching the handler configuration is called, for
+	  example
+	  <seealso marker="#get_handler_config-1">
+	    <c>logger:get_handler_config/1</c></seealso>.</p>
+	<p>It allows the handler to remove internal data fields from
+	  its configuration data before it is returned to the
+	  caller.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>HModule:log(LogEvent, Config) -> void()</name>
       <fsummary>Log the given log event.</fsummary>
       <type>

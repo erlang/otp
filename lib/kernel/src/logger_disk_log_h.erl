@@ -33,7 +33,8 @@
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/1, removing_handler/1, changing_config/3]).
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
+         filter_config/1]).
 
 %% handler internal
 -export([log_handler_info/4]).
@@ -246,6 +247,11 @@ log(LogEvent, Config = #{id := Name,
     true = is_process_alive(HPid),
     Bin = logger_h_common:log_to_binary(LogEvent, Config),
     logger_h_common:call_cast_or_drop(Name, HPid, ModeTab, Bin).
+
+%%%-----------------------------------------------------------------
+%%% Remove internal fields from configuration
+filter_config(#{config:=HConfig}=Config) ->
+    Config#{config=>maps:without([handler_pid,mode_tab],HConfig)}.
 
 %%%===================================================================
 %%% gen_server callbacks

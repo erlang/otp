@@ -92,6 +92,7 @@ all() ->
      disk_log_opts,
      default_formatter,
      logging,
+     filter_config,
      errors,
      formatter_fail,
      config_fail,
@@ -301,6 +302,20 @@ logging(Config) ->
 logging(cleanup, _Config) ->
     Name = list_to_atom(lists:concat([?FUNCTION_NAME,"_1"])),
     remove_and_stop(Name).
+
+filter_config(_Config) ->
+    ok = logger:add_handler(?MODULE,logger_disk_log_h,#{}),
+    {ok,#{config:=HConfig}=Config} = logger:get_handler_config(?MODULE),
+    HConfig = maps:without([handler_pid,mode_tab],HConfig),
+
+    FakeFullHConfig = HConfig#{handler_pid=>self(),mode_tab=>erlang:make_ref()},
+    #{config:=HConfig} =
+        logger_disk_log_h:filter_config(Config#{config=>FakeFullHConfig}),
+    ok.
+
+filter_config(cleanup,_Config) ->
+    logger:remove_handler(?MODULE),
+    ok.
 
 errors(Config) ->
     PrivDir = ?config(priv_dir,Config),

@@ -108,6 +108,7 @@ all() ->
      add_remove_instance_file1,
      add_remove_instance_file2,
      default_formatter,
+     filter_config,
      errors,
      formatter_fail,
      config_fail,
@@ -202,6 +203,20 @@ default_formatter(_Config) ->
     ct:capture_stop(),
     [Msg] = ct:capture_get(),
     match = re:run(Msg,"=NOTICE REPORT====.*\n"++M1,[{capture,none}]),
+    ok.
+
+filter_config(_Config) ->
+    ok = logger:add_handler(?MODULE,logger_std_h,#{}),
+    {ok,#{config:=HConfig}=Config} = logger:get_handler_config(?MODULE),
+    HConfig = maps:without([handler_pid,mode_tab],HConfig),
+
+    FakeFullHConfig = HConfig#{handler_pid=>self(),mode_tab=>erlang:make_ref()},
+    #{config:=HConfig} =
+        logger_std_h:filter_config(Config#{config=>FakeFullHConfig}),
+    ok.
+
+filter_config(cleanup,_Config) ->
+    logger:remove_handler(?MODULE),
     ok.
 
 errors(Config) ->

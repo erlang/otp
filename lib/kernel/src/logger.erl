@@ -463,7 +463,14 @@ get_primary_config() ->
       HandlerId :: handler_id(),
       Config :: handler_config().
 get_handler_config(HandlerId) ->
-    logger_config:get(?LOGGER_TABLE,HandlerId).
+    case logger_config:get(?LOGGER_TABLE,HandlerId) of
+        {ok,#{module:=Module}=Config} ->
+            {ok,try Module:filter_config(Config)
+                catch _:_ -> Config
+                end};
+        Error ->
+            Error
+    end.
 
 -spec get_handler_config() -> [Config] when
       Config :: handler_config().
