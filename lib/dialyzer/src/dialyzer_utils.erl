@@ -643,7 +643,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors,
    no_inline, strict_record_tests, strict_record_updates,
-   dialyzer].
+   dialyzer, no_spawn_compiler_process].
 
 -spec format_errors([{module(), string()}]) -> [string()].
 

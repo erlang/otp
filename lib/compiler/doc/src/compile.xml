@@ -415,6 +415,17 @@ module.beam: module.erl \
               is not documented, and can change between releases.</p>
           </item>
 
+          <tag><c>no_spawn_compiler_process</c></tag>
+          <item>
+            <p>By default, all code is compiled in a separate process
+              which is terminated at the end of compilation. However,
+              some tools, like Dialyzer or compilers for other BEAM languages,
+              may already manage their own worker processes and spawning
+              an extra process may slow the compilation down.
+              In such scenarios, you can pass this option to stop the
+              compiler from spawning an additional process.</p>
+          </item>
+
           <tag><c>no_strict_record_tests</c></tag>
           <item>
             <p>This option is not recommended.</p>
