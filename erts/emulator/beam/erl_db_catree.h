@@ -40,6 +40,16 @@ typedef struct {
     TreeDbTerm *root; /* The root of the sequential tree */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    struct {
+        Eterm key;
+        struct erl_off_heap_header* key_oh;
+        Uint key_size;
+        Eterm key_heap[1];
+    } lc;
+#endif
+    char end_of_struct__;
 } DbTableCATreeBaseNode;
 
 typedef struct {

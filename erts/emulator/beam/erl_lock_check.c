@@ -92,7 +92,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
-    {	"erl_db_catree_base_node",		"dynamic"		},
+    {	"erl_db_catree_base_node",		"term"		        },
     {	"erl_db_catree_route_node",		"dynamic"		},
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
@@ -1056,6 +1056,11 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 #endif
 }
 
+/*
+ * locked = 0    trylock failed
+ * locked > 0    trylock succeeded
+ * locked < 0    prelocking of newly created lock (no lock order check)
+ */
 void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t options,
 			   char *file, unsigned int line)
 {
@@ -1086,7 +1091,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
             int order = compare_locked_by_id_extra(tl_lck, lck);
 	    if (order <= 0) {
-		if (order == 0 && lck->check_order)
+		if (order == 0 && lck->check_order && locked >= 0)
 		    lock_twice("Trylocking", thr, lck, options);
 		if (locked) {
 		    ll->next = tl_lck->next;
@@ -1353,10 +1358,13 @@ erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags, Et
     lck->id = erts_lc_get_lock_order_id(name);
     lck->check_order = erts_lc_is_check_order(name);
     lck->extra = extra;
-    ASSERT(is_immed(lck->extra));
     lck->flags = flags;
-    if (lc_is_term_order(lck->id))
+    if (lc_is_term_order(lck->id)) {
         lck->flags |= ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER;
+        ASSERT(!is_header(lck->extra));
+    }
+    else
+        ASSERT(is_immed(lck->extra));
     lck->taken_options = 0;
     lck->inited = ERTS_LC_INITITALIZED;
 }
