@@ -31,6 +31,9 @@
          update_config/2, update_config/3,
          update_formatter_config/2]).
 
+%% Helper
+-export([diff_maps/2]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2]).
@@ -244,16 +247,22 @@ handle_call({change_config,SetOrUpd,HandlerId,Config0}, From,
                     update -> OldConfig
                 end,
             Config = maps:merge(Default,Config0),
-            call_h_async(
-              fun() ->
-                      call_h(Module,changing_config,[SetOrUpd,OldConfig,Config],
-                             {ok,Config})
-              end,
-              fun({ok,Config1}) ->
-                      logger_config:set(Tid,HandlerId,Config1);
-                 (Error) ->
-                      Error
-              end,From,State);
+            case check_config_change(OldConfig,Config) of
+                ok ->
+                    call_h_async(
+                      fun() ->
+                              call_h(Module,changing_config,
+                                     [SetOrUpd,OldConfig,Config],
+                                     {ok,Config})
+                      end,
+                      fun({ok,Config1}) ->
+                              logger_config:set(Tid,HandlerId,Config1);
+                         (Error) ->
+                              Error
+                      end,From,State);
+                Error ->
+                    {reply,Error,State}
+            end;
         _ ->
             {reply,{error,{not_found,HandlerId}},State}
     end;
@@ -262,16 +271,22 @@ handle_call({change_config,SetOrUpd,HandlerId,Key,Value}, From,
     case logger_config:get(Tid,HandlerId) of
         {ok,#{module:=Module}=OldConfig} ->
             Config = OldConfig#{Key=>Value},
-            call_h_async(
-              fun() ->
-                      call_h(Module,changing_config,[SetOrUpd,OldConfig,Config],
-                             {ok,Config})
-              end,
-              fun({ok,Config1}) ->
-                      logger_config:set(Tid,HandlerId,Config1);
-                 (Error) ->
-                      Error
-              end,From,State);
+            case check_config_change(OldConfig,Config) of
+                ok ->
+                    call_h_async(
+                      fun() ->
+                              call_h(Module,changing_config,
+                                     [SetOrUpd,OldConfig,Config],
+                                     {ok,Config})
+                      end,
+                      fun({ok,Config1}) ->
+                              logger_config:set(Tid,HandlerId,Config1);
+                         (Error) ->
+                              Error
+                      end,From,State);
+                Error ->
+                    {reply,Error,State}
+            end;
         _ ->
             {reply,{error,{not_found,HandlerId}},State}
     end;
@@ -486,6 +501,15 @@ check_formatter({Mod,Config}) ->
 check_formatter(Formatter) ->
     throw({invalid_formatter,Formatter}).
 
+%% When changing configuration for a handler, the id and module fields
+%% can not be changed.
+check_config_change(#{id:=Id,module:=Module},#{id:=Id,module:=Module}) ->
+    ok;
+check_config_change(OldConfig,NewConfig) ->
+    {Old,New} = logger_server:diff_maps(maps:with([id,module],OldConfig),
+                                        maps:with([id,module],NewConfig)),
+    {error,{illegal_config_change,Old,New}}.
+
 call_h(Module, Function, Args, DefRet) ->
     %% Not calling code:ensure_loaded + erlang:function_exported here,
     %% since in some rare terminal cases, the code_server might not
@@ -558,3 +582,14 @@ call_h_reply(Unexpected,State) ->
                    {process,?SERVER},
                    {message,Unexpected}]),
     {noreply,State}.
+
+%% Return two maps containing only the fields that differ.
+diff_maps(M1,M2) ->
+    diffs(lists:sort(maps:to_list(M1)),lists:sort(maps:to_list(M2)),#{},#{}).
+
+diffs([H|T1],[H|T2],D1,D2) ->
+    diffs(T1,T2,D1,D2);
+diffs([{K,V1}|T1],[{K,V2}|T2],D1,D2) ->
+    diffs(T1,T2,D1#{K=>V1},D2#{K=>V2});
+diffs([],[],D1,D2) ->
+    {D1,D2}.

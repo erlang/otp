@@ -35,7 +35,7 @@
          terminate/2, code_change/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/1, removing_handler/1, changing_config/2]).
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/3]).
 
 %% handler internal
 -export([log_handler_info/4]).
@@ -116,9 +116,8 @@ reset(Name) ->
 %%% Handler being added
 adding_handler(#{id:=Name}=Config) ->
     case check_config(adding, Config) of
-        {ok, Config1} ->
+        {ok, #{config:=HConfig}=Config1} ->
             %% create initial handler state by merging defaults with config
-            HConfig = maps:get(config, Config1, #{}),
             HState = maps:merge(get_init_state(), HConfig),
             case logger_h_common:overload_levels_ok(HState) of
                 true ->
@@ -135,22 +134,31 @@ adding_handler(#{id:=Name}=Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, config:=OldHConfig},
-                NewConfig=#{id:=Name}) ->
-    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = OldHConfig,
-    NewHConfig = maps:get(config, NewConfig, #{}),
-    case maps:get(type, NewHConfig, Type) of
-        Type ->
-            NewHConfig1 = NewHConfig#{type=>Type,
-                                      handler_pid=>HPid,
-                                      mode_tab=>ModeTab},
-            changing_config1(HPid, OldConfig,
-                             NewConfig#{config=>NewHConfig1});
-        _ ->
-            {error,{illegal_config_change,OldConfig,NewConfig}}
-    end;
-changing_config(OldConfig, NewConfig) ->
-    {error,{illegal_config_change,OldConfig,NewConfig}}.
+changing_config(SetOrUpdate,OldConfig=#{config:=OldHConfig},NewConfig) ->
+    WriteOnce = maps:with([type],OldHConfig),
+    ReadOnly = maps:with([handler_pid,mode_tab],OldHConfig),
+    NewHConfig0 = maps:get(config, NewConfig, #{}),
+    Default =
+        case SetOrUpdate of
+            set ->
+                %% Do not reset write-once fields to defaults
+                maps:merge(get_default_config(),WriteOnce);
+            update ->
+                OldHConfig
+        end,
+
+    %% Allow (accidentially) included read-only fields - just overwrite them
+    NewHConfig = maps:merge(maps:merge(Default, NewHConfig0),ReadOnly),
+
+    %% But fail if write-once fields are changed
+    case maps:with([type],NewHConfig) of
+        WriteOnce ->
+            changing_config1(maps:get(handler_pid,OldHConfig),
+                             OldConfig,
+                             NewConfig#{config=>NewHConfig});
+        Other ->
+            {error,{illegal_config_change,#{config=>WriteOnce},#{config=>Other}}}
+    end.
 
 changing_config1(HPid, OldConfig, NewConfig) ->
     case check_config(changing, NewConfig) of
@@ -169,8 +177,7 @@ changing_config1(HPid, OldConfig, NewConfig) ->
 check_config(adding, Config) ->
     %% Merge in defaults on handler level
     HConfig0 = maps:get(config, Config, #{}),
-    HConfig = maps:merge(#{type => standard_io},
-                         HConfig0),
+    HConfig = maps:merge(get_default_config(),HConfig0),
     case check_h_config(maps:to_list(HConfig)) of
         ok ->
             {ok,Config#{config=>HConfig}};
@@ -428,8 +435,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%-----------------------------------------------------------------
 %%%
-get_init_state() ->
-     #{sync_mode_qlen              => ?SYNC_MODE_QLEN,
+get_default_config() ->
+     #{type                        => standard_io,
+       sync_mode_qlen              => ?SYNC_MODE_QLEN,
        drop_mode_qlen              => ?DROP_MODE_QLEN,
        flush_qlen                  => ?FLUSH_QLEN,
        burst_limit_enable          => ?BURST_LIMIT_ENABLE,
@@ -439,9 +447,11 @@ get_init_state() ->
        overload_kill_qlen          => ?OVERLOAD_KILL_QLEN,
        overload_kill_mem_size      => ?OVERLOAD_KILL_MEM_SIZE,
        overload_kill_restart_after => ?OVERLOAD_KILL_RESTART_AFTER,
-       file_ctrl_sync_int          => ?CONTROLLER_SYNC_INTERVAL,
-       filesync_ok_qlen            => ?FILESYNC_OK_QLEN,
        filesync_repeat_interval    => ?FILESYNC_REPEAT_INTERVAL}.
+
+get_init_state() ->
+    #{file_ctrl_sync_int          => ?CONTROLLER_SYNC_INTERVAL,
+      filesync_ok_qlen            => ?FILESYNC_OK_QLEN}.
 
 %%%-----------------------------------------------------------------
 %%% Add a standard handler to the logger.
@@ -825,4 +835,3 @@ sync_dev(Fd, DevName, PrevSyncResult, HandlerName) ->
             logger_h_common:error_notify({HandlerName,filesync,DevName,Error}),
             Error
     end.
-
