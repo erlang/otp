@@ -27,7 +27,8 @@
          add_filter/2, remove_filter/2,
          set_module_level/2, unset_module_level/0,
          unset_module_level/1, cache_module_level/1,
-         set_config/2, set_config/3, update_config/2,
+         set_config/2, set_config/3,
+         update_config/2, update_config/3,
          update_formatter_config/2]).
 
 %% gen_server callbacks
@@ -116,6 +117,14 @@ set_config(Owner,Config) ->
     case sanity_check(Owner,Config) of
         ok ->
             call({change_config,set,Owner,Config});
+        Error ->
+            Error
+    end.
+
+update_config(Owner,Key,Value) ->
+    case sanity_check(Owner,Key,Value) of
+        ok ->
+            call({change_config,update,Owner,Key,Value});
         Error ->
             Error
     end.
