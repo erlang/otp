@@ -1314,11 +1314,7 @@ erl_db_catree_force_join_right(DbTableCATree *tb,
                           &neighbor->u.base.free_item,
                           sizeof_base_node(neighbor->u.base.lc.key_size));
 
-    if (parent == neighbor) {
-        *result_parent_wb = gparent;
-    } else {
-        *result_parent_wb = neighbor_parent;
-    }
+    *result_parent_wb = neighbor_parent;
     return new_neighbor;
 }
 
