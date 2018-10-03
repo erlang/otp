@@ -475,10 +475,11 @@ stats_standard_normal_box_muller_2(Config) when is_list(Config) ->
 
 
 stats_standard_normal(Config) when is_list(Config) ->
+    Retries = 7,
     try math:erfc(1.0) of
         _ ->
             stats_standard_normal(
-              fun rand:normal_s/1, rand:seed_s(exrop), 3)
+              fun rand:normal_s/1, rand:seed_s(exrop), Retries)
     catch error:_ ->
             {skip, "math:erfc/1 not supported"}
     end.
