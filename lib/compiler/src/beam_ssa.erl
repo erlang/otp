@@ -578,11 +578,11 @@ used(_) -> [].
 
 -spec definitions(Blocks :: block_map()) -> definition_map().
 definitions(Blocks) ->
-    beam_ssa:fold_instrs_rpo(fun(#b_set{ dst = Var }=I, Acc) ->
-                                     maps:put(Var, I, Acc);
-                                (_Terminator, Acc) ->
-                                     Acc
-                             end, [0], #{}, Blocks).
+    fold_instrs_rpo(fun(#b_set{ dst = Var }=I, Acc) ->
+                            maps:put(Var, I, Acc);
+                       (_Terminator, Acc) ->
+                            Acc
+                    end, [0], #{}, Blocks).
 
 -spec uses(Blocks :: block_map()) -> usage_map().
 uses(Blocks) ->
@@ -592,7 +592,7 @@ uses(Blocks) ->
       From :: [label()],
       Blocks :: block_map().
 uses(From, Blocks) ->
-    beam_ssa:fold_rpo(fun fold_uses_block/3, From, #{}, Blocks).
+    fold_rpo(fun fold_uses_block/3, From, #{}, Blocks).
 
 fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
     F = fun(I, UseMap) ->
@@ -600,7 +600,7 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
                               Uses0 = maps:get(Var, Acc, []),
                               Uses = [{Lbl, I} | Uses0],
                               maps:put(Var, Uses, Acc)
-                      end, UseMap, beam_ssa:used(I))
+                      end, UseMap, used(I))
         end,
     F(Last, foldl(F, UseMap0, Is)).
 
@@ -797,8 +797,8 @@ split_blocks_1([L|Ls], P, Blocks0, Count0) ->
             BefBlk = Blk#b_blk{is=Bef,last=Br},
             NewBlk = Blk#b_blk{is=Aft},
             Blocks1 = Blocks0#{L:=BefBlk,NewLbl=>NewBlk},
-            Successors = beam_ssa:successors(NewBlk),
-            Blocks = beam_ssa:update_phi_labels(Successors, L, NewLbl, Blocks1),
+            Successors = successors(NewBlk),
+            Blocks = update_phi_labels(Successors, L, NewLbl, Blocks1),
             split_blocks_1([NewLbl|Ls], P, Blocks, Count);
         no ->
             split_blocks_1(Ls, P, Blocks0, Count0)
