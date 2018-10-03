@@ -786,11 +786,11 @@ void unlock_route_node(DbTableCATreeNode *route_node)
 #  define sizeof_base_node(KEY_SZ) \
           (offsetof(DbTableCATreeNode, u.base.lc.key_heap) \
            + (KEY_SZ)*sizeof(Eterm))
-#  define LC_KEY(KEY) KEY
+#  define LC_ORDER(ORDER) ORDER
 #else
 #  define sizeof_base_node(KEY_SZ) \
           offsetof(DbTableCATreeNode, u.base.end_of_struct__)
-#  define LC_KEY(KEY) NIL
+#  define LC_ORDER(ORDER) NIL
 #endif
 
 static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
@@ -857,7 +857,8 @@ static DbTableCATreeNode*
 create_route_node(DbTableCATree *tb,
                   DbTableCATreeNode *left,
                   DbTableCATreeNode *right,
-                  DbTerm * keyTerm)
+                  DbTerm * keyTerm,
+                  DbTableCATreeNode* lc_parent)
 {
     Eterm* top;
     Eterm key = GETKEY(tb,keyTerm->tpl);
@@ -882,8 +883,20 @@ create_route_node(DbTableCATree *tb,
     p->u.route.is_valid = 1;
     erts_atomic_init_nob(&p->u.route.left, (erts_aint_t)left);
     erts_atomic_init_nob(&p->u.route.right, (erts_aint_t)right);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    /* Route node lock order is inverse tree depth (from leafs toward root) */
+    p->u.route.lc_order = (lc_parent == NULL ? MAX_SMALL :
+                           lc_parent->u.route.lc_order - 1);
+    /*
+     * This assert may eventually fail as we don't increase 'lc_order' in join
+     * operations when route nodes move up in the tree.
+     * Tough luck if you run a lock-checking VM for such a long time on 32-bit.
+     */
+    ERTS_LC_ASSERT(p->u.route.lc_order >= 0);
+#endif
     erts_mtx_init(&p->u.route.lock, "erl_db_catree_route_node",
-                  NIL, ERTS_LOCK_FLAGS_CATEGORY_DB);
+                  LC_ORDER(make_small(p->u.route.lc_order)),
+                  ERTS_LOCK_FLAGS_CATEGORY_DB);
     return p;
 }
 
@@ -1266,7 +1279,7 @@ erl_db_catree_force_join_right(DbTableCATree *tb,
         TreeDbTerm* new_root = join_trees(thiz->u.base.root,
                                           neighbor->u.base.root);
         new_neighbor = create_wlocked_base_node(tb, new_root,
-                                                LC_KEY(thiz->u.base.lc.key));
+                                                LC_ORDER(thiz->u.base.lc.key));
     }
 
     if (GET_RIGHT(parent) == neighbor) {
@@ -1407,7 +1420,7 @@ static void join_catree(DbTableCATree *tb,
                 TreeDbTerm* new_root = join_trees(thiz->u.base.root,
                                                   neighbor->u.base.root);
                 new_neighbor = create_base_node(tb, new_root,
-                                                LC_KEY(thiz->u.base.lc.key));
+                                                LC_ORDER(thiz->u.base.lc.key));
             }
             if (GET_RIGHT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1460,7 +1473,7 @@ static void join_catree(DbTableCATree *tb,
                 TreeDbTerm* new_root = join_trees(neighbor->u.base.root,
                                                   thiz->u.base.root);
                 new_neighbor = create_base_node(tb, new_root,
-                                                LC_KEY(thiz->u.base.lc.key));
+                                                LC_ORDER(thiz->u.base.lc.key));
             }
             if (GET_LEFT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1518,13 +1531,14 @@ static void split_catree(DbTableCATree *tb,
                    &left_tree, &right_tree);
 
         new_left = create_base_node(tb, left_tree,
-                                    LC_KEY(GETKEY(tb, left_tree->dbterm.tpl)));
+                                    LC_ORDER(GETKEY(tb, left_tree->dbterm.tpl)));
         new_right = create_base_node(tb, right_tree,
-                                     LC_KEY(GETKEY(tb, right_tree->dbterm.tpl)));
+                                     LC_ORDER(GETKEY(tb, right_tree->dbterm.tpl)));
         new_route = create_route_node(tb,
                                       new_left,
                                       new_right,
-                                      &splitOutWriteBack->dbterm);
+                                      &splitOutWriteBack->dbterm,
+                                      parent);
         if (parent == NULL) {
             SET_ROOT_RELB(tb, new_route);
         } else if(GET_LEFT(parent) == base) {

@@ -53,6 +53,9 @@ typedef struct {
 } DbTableCATreeBaseNode;
 
 typedef struct {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    Sint lc_order;
+#endif
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     erts_mtx_t lock; /* Used when joining route nodes */
     int is_valid; /* If this route node is still valid */

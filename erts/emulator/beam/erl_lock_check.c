@@ -93,7 +93,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
     {	"erl_db_catree_base_node",		"term"		        },
-    {	"erl_db_catree_route_node",		"dynamic"		},
+    {	"erl_db_catree_route_node",		"index"		        },
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
     {	"proc_msgq",				"pid"			},
