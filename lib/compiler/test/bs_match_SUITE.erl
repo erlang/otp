@@ -1690,14 +1690,22 @@ non_opt_eq([], <<>>) ->
 
 %% ERL-689
 
-erl_689(Config) ->
+erl_689(_Config) ->
     {{0, 0, 0}, <<>>} = do_erl_689_1(<<0>>, ?MODULE),
     {{2018, 8, 7}, <<>>} = do_erl_689_1(<<4,2018:16/little,8,7>>, ?MODULE),
     {{0, 0, 0}, <<>>} = do_erl_689_2(?MODULE, <<0>>),
     {{2018, 8, 7}, <<>>} = do_erl_689_2(?MODULE, <<4,2018:16/little,8,7>>),
     ok.
 
-do_erl_689_1(<<Length, Data/binary>>, _) ->
+do_erl_689_1(Arg1, Arg2) ->
+    Res = do_erl_689_1a(Arg1, Arg2),
+    Res = do_erl_689_1b(Arg1, Arg2).
+
+do_erl_689_2(Arg1, Arg2) ->
+    Res = do_erl_689_2a(Arg1, Arg2),
+    Res = do_erl_689_2b(Arg1, Arg2).
+
+do_erl_689_1a(<<Length, Data/binary>>, _) ->
     case {Data, Length} of
         {_, 0} ->
             %% bs_context_to_binary would incorrectly set Data to the original
@@ -1707,13 +1715,37 @@ do_erl_689_1(<<Length, Data/binary>>, _) ->
             {{Y, M, D}, Rest}
     end.
 
-do_erl_689_2(_, <<Length, Data/binary>>) ->
+do_erl_689_1b(<<Length, Data/binary>>, _) ->
+    case {Data, Length} of
+        {_, 0} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            id(0),
+            {{0, 0, 0}, Data};
+        {<<Y:16/little, M, D, Rest/binary>>, 4} ->
+            id(1),
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_2a(_, <<Length, Data/binary>>) ->
     case {Length, Data} of
         {0, _} ->
             %% bs_context_to_binary would incorrectly set Data to the original
             %% binary (before matching in the function head).
             {{0, 0, 0}, Data};
         {4, <<Y:16/little, M, D, Rest/binary>>} ->
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_2b(_, <<Length, Data/binary>>) ->
+    case {Length, Data} of
+        {0, _} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            id(0),
+            {{0, 0, 0}, Data};
+        {4, <<Y:16/little, M, D, Rest/binary>>} ->
+            id(1),
             {{Y, M, D}, Rest}
     end.
 
