@@ -1086,6 +1086,7 @@ lock_first_base_node(DbTable *tbl,
             break;
         /* Retry */
         runlock_base_node(base_node);
+        search_stack_ptr->pos = 0;
     }
     push_node_dyn_array(tbl, locked_base_nodes_stack_ptr, current_node);
     return current_node;
