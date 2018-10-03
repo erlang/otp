@@ -210,7 +210,7 @@ DbTableMethod db_catree =
  * Internal CA tree related helper functions and macros
  */
 
-#define GET_ROUTE_NODE_KEY(node) (node->u.route.key.tpl[0])
+#define GET_ROUTE_NODE_KEY(node) (node->u.route.key.term)
 #define GET_BASE_NODE_LOCK(node) (&(node->u.base.lock))
 #define GET_ROUTE_NODE_LOCK(node) (&(node->u.route.lock))
 
@@ -782,9 +782,38 @@ void unlock_route_node(DbTableCATreeNode *route_node)
     }
 
 
+static ERTS_INLINE
+void copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
+{
+    dst->size = key_size;
+    if (key_size != 0) {
+        Eterm* hp = &dst->heap[0];
+        ErlOffHeap tmp_offheap;
+        tmp_offheap.first  = NULL;
+        dst->term = copy_struct(key, key_size, &hp, &tmp_offheap);
+        dst->oh = tmp_offheap.first;
+    }
+    else {
+        ASSERT(is_immed(key));
+        dst->term = key;
+        dst->oh = NULL;
+    }
+}
+
+static ERTS_INLINE
+void destroy_route_key(DbRouteKey* key)
+{
+    if (key->oh) {
+        ErlOffHeap oh;
+        oh.first = key->oh;
+        erts_cleanup_offheap(&oh);
+    }
+}
+
+
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #  define sizeof_base_node(KEY_SZ) \
-          (offsetof(DbTableCATreeNode, u.base.lc.key_heap) \
+          (offsetof(DbTableCATreeNode, u.base.lc_key.heap) \
            + (KEY_SZ)*sizeof(Eterm))
 #  define LC_ORDER(ORDER) ORDER
 #else
@@ -813,16 +842,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
         rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    {
-        Eterm* hp = &p->u.base.lc.key_heap[0];
-        ErlOffHeap oh;
-
-        oh.first = NULL;
-        lc_key = copy_struct(lc_key, lc_key_size, &hp, &oh);
-        p->u.base.lc.key = lc_key;
-        p->u.base.lc.key_size = lc_key_size;
-        p->u.base.lc.key_oh = oh.first;
-    }
+    copy_route_key(&p->u.base.lc_key, lc_key, lc_key_size);
 #endif
     erts_rwmtx_init_opt(&p->u.base.lock, &rwmtx_opt,
                         "erl_db_catree_base_node",
@@ -849,7 +869,7 @@ DbTableCATreeNode *create_wlocked_base_node(DbTableCATree *tb,
 
 static ERTS_INLINE Uint sizeof_route_node(Uint key_size)
 {
-    return (offsetof(DbTableCATreeNode, u.route.key.tpl[1])
+    return (offsetof(DbTableCATreeNode, u.route.key.heap)
             + key_size*sizeof(Eterm));
 }
 
@@ -860,25 +880,13 @@ create_route_node(DbTableCATree *tb,
                   DbTerm * keyTerm,
                   DbTableCATreeNode* lc_parent)
 {
-    Eterm* top;
     Eterm key = GETKEY(tb,keyTerm->tpl);
     int key_size = size_object(key);
-    ErlOffHeap tmp_offheap;
     DbTableCATreeNode* p = erts_db_alloc(ERTS_ALC_T_DB_TABLE,
                                          (DbTable *) tb,
                                          sizeof_route_node(key_size));
 
-    if (key_size != 0) {
-        p->u.route.key.size = key_size;
-        top = &p->u.route.key.tpl[1];
-        tmp_offheap.first  = NULL;
-        p->u.route.key.tpl[0] = copy_struct(key, key_size, &top, &tmp_offheap);
-        p->u.route.key.first_oh = tmp_offheap.first;
-    } else {
-        p->u.route.key.size = key_size;
-        p->u.route.key.first_oh = NULL;
-        p->u.route.key.tpl[0] = key;
-    }
+    copy_route_key(&p->u.route.key, key, key_size);
     p->is_base_node = 0;
     p->u.route.is_valid = 1;
     erts_atomic_init_nob(&p->u.route.left, (erts_aint_t)left);
@@ -906,11 +914,7 @@ static void do_free_base_node(void* vptr)
     ASSERT(p->is_base_node);
     erts_rwmtx_destroy(&p->u.base.lock);
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    if (p->u.base.lc.key_size != 0) {
-        ErlOffHeap oh;
-        oh.first = p->u.base.lc.key_oh;
-        erts_cleanup_offheap(&oh);
-    }
+    destroy_route_key(&p->u.base.lc_key);
 #endif
     erts_free(ERTS_ALC_T_DB_TABLE, p);
 }
@@ -918,7 +922,7 @@ static void do_free_base_node(void* vptr)
 static void free_catree_base_node(DbTableCATree* tb, DbTableCATreeNode* p)
 {
     ASSERT(p->is_base_node);
-    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(p->u.base.lc.key_size), 0);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(p->u.base.lc_key.size), 0);
     do_free_base_node(p);
 }
 
@@ -927,11 +931,7 @@ static void do_free_route_node(void *vptr)
     DbTableCATreeNode *p = (DbTableCATreeNode *)vptr;
     ASSERT(!p->is_base_node);
     erts_mtx_destroy(&p->u.route.lock);
-    if (p->u.route.key.size != 0) {
-        ErlOffHeap tmp_oh;
-        tmp_oh.first = p->u.route.key.first_oh;
-        erts_cleanup_offheap(&tmp_oh);
-    }
+    destroy_route_key(&p->u.route.key);
     erts_free(ERTS_ALC_T_DB_TABLE, p);
 }
 
@@ -1038,7 +1038,7 @@ get_next_base_node_and_path(DbTableCATreeNode *base_node,
                         stack);
         } else {
             Eterm pkey =
-                TOP_NODE(stack)->u.route.key.tpl[0]; /* pKey = key of parent */
+                TOP_NODE(stack)->u.route.key.term; /* pKey = key of parent */
             POP_NODE(stack);
             while (!EMPTY_NODE(stack)) {
                 if (TOP_NODE(stack)->u.route.is_valid &&
@@ -1239,6 +1239,7 @@ erl_db_catree_force_join_right(DbTableCATree *tb,
     DbTableCATreeNode *neighbor;
     DbTableCATreeNode *new_neighbor;
     DbTableCATreeNode *neighbor_parent;
+    TreeDbTerm* new_root;
 
     if (parent == NULL) {
         return NULL;
@@ -1276,12 +1277,9 @@ erl_db_catree_force_join_right(DbTableCATree *tb,
         unlock_route_node(gparent);
     }
 
-    {
-        TreeDbTerm* new_root = join_trees(thiz->u.base.root,
-                                          neighbor->u.base.root);
-        new_neighbor = create_wlocked_base_node(tb, new_root,
-                                                LC_ORDER(thiz->u.base.lc.key));
-    }
+    new_root = join_trees(thiz->u.base.root, neighbor->u.base.root);
+    new_neighbor = create_wlocked_base_node(tb, new_root,
+                                            LC_ORDER(thiz->u.base.lc_key.term));
 
     if (GET_RIGHT(parent) == neighbor) {
         neighbor_parent = gparent;
@@ -1307,12 +1305,12 @@ erl_db_catree_force_join_right(DbTableCATree *tb,
                           do_free_base_node,
                           thiz,
                           &thiz->u.base.free_item,
-                          sizeof_base_node(thiz->u.base.lc.key_size));
+                          sizeof_base_node(thiz->u.base.lc_key.size));
     erts_schedule_db_free(&tb->common,
                           do_free_base_node,
                           neighbor,
                           &neighbor->u.base.free_item,
-                          sizeof_base_node(neighbor->u.base.lc.key_size));
+                          sizeof_base_node(neighbor->u.base.lc_key.size));
 
     *result_parent_wb = neighbor_parent;
     return new_neighbor;
@@ -1417,7 +1415,7 @@ static void join_catree(DbTableCATree *tb,
                 TreeDbTerm* new_root = join_trees(thiz->u.base.root,
                                                   neighbor->u.base.root);
                 new_neighbor = create_base_node(tb, new_root,
-                                                LC_ORDER(thiz->u.base.lc.key));
+                                                LC_ORDER(thiz->u.base.lc_key.term));
             }
             if (GET_RIGHT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1470,7 +1468,7 @@ static void join_catree(DbTableCATree *tb,
                 TreeDbTerm* new_root = join_trees(neighbor->u.base.root,
                                                   thiz->u.base.root);
                 new_neighbor = create_base_node(tb, new_root,
-                                                LC_ORDER(thiz->u.base.lc.key));
+                                                LC_ORDER(thiz->u.base.lc_key.term));
             }
             if (GET_LEFT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1500,12 +1498,12 @@ static void join_catree(DbTableCATree *tb,
                           do_free_base_node,
                           thiz,
                           &thiz->u.base.free_item,
-                          sizeof_base_node(thiz->u.base.lc.key_size));
+                          sizeof_base_node(thiz->u.base.lc_key.size));
     erts_schedule_db_free(&tb->common,
                           do_free_base_node,
                           neighbor,
                           &neighbor->u.base.free_item,
-                          sizeof_base_node(neighbor->u.base.lc.key_size));
+                          sizeof_base_node(neighbor->u.base.lc_key.size));
 }
 
 static void split_catree(DbTableCATree *tb,
@@ -1549,7 +1547,7 @@ static void split_catree(DbTableCATree *tb,
                               do_free_base_node,
                               base,
                               &base->u.base.free_item,
-                              sizeof_base_node(base->u.base.lc.key_size));
+                              sizeof_base_node(base->u.base.lc_key.size));
     }
 }
 

@@ -34,6 +34,13 @@
 struct DbTableCATreeNode;
 
 typedef struct {
+    Eterm term;
+    struct erl_off_heap_header* oh;
+    Uint size;
+    Eterm heap[1];
+} DbRouteKey;
+
+typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
     Sint lock_statistics;
     int is_valid; /* If this base node is still valid */
@@ -42,12 +49,7 @@ typedef struct {
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    struct {
-        Eterm key;
-        struct erl_off_heap_header* key_oh;
-        Uint key_size;
-        Eterm key_heap[1];
-    } lc;
+    DbRouteKey lc_key;
 #endif
     char end_of_struct__;
 } DbTableCATreeBaseNode;
@@ -61,7 +63,7 @@ typedef struct {
     int is_valid; /* If this route node is still valid */
     erts_atomic_t left;
     erts_atomic_t right;
-    DbTerm key;
+    DbRouteKey key;
 } DbTableCATreeRouteNode;
 
 typedef struct DbTableCATreeNode {
