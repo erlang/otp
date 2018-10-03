@@ -42,7 +42,8 @@
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
          beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,
          expression_before_match/1,erl_689/1,restore_on_call/1,
-         restore_after_catch/1,matches_on_parameter/1,big_positions/1]).
+         restore_after_catch/1,matches_on_parameter/1,big_positions/1,
+         matching_meets_apply/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -76,7 +77,8 @@ groups() ->
        get_payload,escape,num_slots_different,
        beam_bsm,guard,is_ascii,non_opt_eq,
        expression_before_match,erl_689,restore_on_call,
-       matches_on_parameter,big_positions]}].
+       matches_on_parameter,big_positions,
+       matching_meets_apply]}].
 
 
 init_per_suite(Config) ->
@@ -1888,5 +1890,25 @@ bp_start_match(<<"hello",B>>) -> {b,B}.
 bp_getpos(<<_:((1 bsl 27) - 8),T/bits>>) -> bp_getpos(T);
 bp_getpos(<<A,1:1,"gurka",A>>) -> {a,A};
 bp_getpos(<<B,"hello",B>>) -> {b,B}.
+
+matching_meets_apply(_Config) ->
+    <<"abc">> = do_matching_meets_apply(<<"/abc">>, []),
+    42 = do_matching_meets_apply(<<"">>, {erlang,-42}),
+    100 = do_matching_meets_apply(no_binary, {erlang,-100}),
+    ok.
+
+do_matching_meets_apply(<<$/, Rest/binary>>, _Handler) ->
+    id(Rest);
+do_matching_meets_apply(<<_/binary>>=Name, never_matches_a) ->
+    %% Used to crash the compiler because variables in a remote
+    %% were not handled properly by beam_ssa_bsm.
+    Name:foo(gurka);
+do_matching_meets_apply(<<_/binary>>=Name, never_matches_b) ->
+    %% Another case of the above.
+    foo:Name(gurka);
+do_matching_meets_apply(_Bin, {Handler, State}) ->
+    %% Another case of the above.
+    Handler:abs(State).
+
 
 id(I) -> I.
