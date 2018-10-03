@@ -1015,11 +1015,16 @@ client_hello_extensions(Version, CipherSuites,
         {3,4} ->
             HelloExtensions#{client_hello_versions => 
                                  #client_hello_versions{versions = Versions},
-                             signature_algs_cert => 
-                                 #signature_scheme_list{signature_scheme_list = SignatureSchemes}};
+                             signature_algs_cert =>
+                                 signature_scheme_list(SignatureSchemes)};
         _Else ->
             HelloExtensions
     end.
+
+signature_scheme_list(undefined) ->
+    undefined;
+signature_scheme_list(SignatureSchemes) ->
+    #signature_scheme_list{signature_scheme_list = SignatureSchemes}.
 
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                Exts, Version,

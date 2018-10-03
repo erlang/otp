@@ -975,10 +975,7 @@ handle_options(Opts0, Role, Host) ->
                            proplists:get_value(
                              signature_algs_cert,
                              Opts,
-                             default_option_role(server,
-                                                 tls_v1:default_signature_schemes(HighestVersion),
-                                                 Role
-                                                )),
+                             undefined),  %% Do not send by default
                            tls_version(HighestVersion)),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
@@ -1326,8 +1323,6 @@ handle_signature_algorithms_option(Value, Version) when is_list(Value)
 	_ ->
 	    Value
     end;
-handle_signature_algorithms_option(_, Version)  when Version >= {3, 4} ->
-    handle_signature_algorithms_option(tls_v1:default_signature_schemes(Version), Version);
 handle_signature_algorithms_option(_, _Version) ->
     undefined.
 
