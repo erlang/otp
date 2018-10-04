@@ -3052,26 +3052,36 @@ static
 ERL_NIF_TERM nconnect(ErlNifEnv*        env,
                       SocketDescriptor* descP)
 {
-    int code;
+    int code, save_errno = 0;
 
     /* Verify that we are where in the proper state */
 
-    if (!IS_OPEN(descP))
+    if (!IS_OPEN(descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> not open\r\n") );
         return esock_make_error(env, atom_exbadstate);
+    }
 
-    if (IS_CONNECTED(descP))
+    if (IS_CONNECTED(descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> already connected\r\n") );
         return esock_make_error(env, atom_eisconn);
+    }
 
-    if (IS_CONNECTING(descP))
+    if (IS_CONNECTING(descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> already connecting\r\n") );
         return esock_make_error(env, esock_atom_einval);
-
+    }
+    
     code = sock_connect(descP->sock,
                         (struct sockaddr*) &descP->remote,
                         descP->addrLen);
+    save_errno = sock_errno();
+
+    SSDBG( descP, ("SOCKET", "nif_sendto -> connect result: %d, %d\r\n",
+                   code, save_errno) );
 
     if (IS_SOCKET_ERROR(code) &&
-        ((sock_errno() == ERRNO_BLOCK) ||   /* Winsock2            */
-         (sock_errno() == EINPROGRESS))) {  /* Unix & OSE!!        */
+        ((save_errno == ERRNO_BLOCK) ||   /* Winsock2            */
+         (save_errno == EINPROGRESS))) {  /* Unix & OSE!!        */
         ERL_NIF_TERM ref = MKREF(env);
         descP->state = SOCKET_STATE_CONNECTING;
         SELECT(env,
@@ -3086,7 +3096,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
          */
         return esock_atom_ok;
     } else {
-        return esock_make_error_errno(env, sock_errno());
+        return esock_make_error_errno(env, save_errno);
     }
 
 }
@@ -3800,16 +3810,22 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
             descP->sock, argv[0], sendRef, sndData.size, eSockAddr, eflags) );
 
     /* THIS TEST IS NOT CORRECT!!! */
-    if (!IS_OPEN(descP))
+    if (!IS_OPEN(descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> not open (%u)\r\n", descP->state) );
         return esock_make_error(env, esock_atom_einval);
+    }
 
-    if (!esendflags2sendflags(eflags, &flags))
+    if (!esendflags2sendflags(eflags, &flags)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> sendflags decode failed\r\n") );
         return esock_make_error(env, esock_atom_einval);
+    }
 
     if ((xres = esock_decode_sockaddr(env, eSockAddr,
                                       &remoteAddr,
-                                      &remoteAddrLen)) != NULL)
+                                      &remoteAddrLen)) != NULL) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> sockaddr decode: %s\r\n", xres) );
         return esock_make_error_str(env, xres);
+    }
 
     MLOCK(descP->writeMtx);
 
@@ -4345,8 +4361,10 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     /* if (IS_OPEN(descP)) */
     /*     return esock_make_error(env, atom_enotconn); */
 
-    if (!erecvflags2recvflags(eflags, &flags))
+    if (!erecvflags2recvflags(eflags, &flags)) {
+        SSDBG( descP, ("SOCKET", "nif_recvfrom -> recvflags decode failed\r\n") );
         return enif_make_badarg(env);
+    }
 
     MLOCK(descP->readMtx);
 
@@ -14198,6 +14216,12 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
     unsigned int ef;
     int          tmp = 0;
 
+    /* First, check if we have any flags at all */
+    if (eflags == 0) {
+        *flags = 0;
+        return TRUE;
+    }
+        
     for (ef = SOCKET_SEND_FLAG_LOW; ef <= SOCKET_SEND_FLAG_HIGH; ef++) {
 
         switch (ef) {
@@ -14268,6 +14292,11 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
     SGDBG( ("SOCKET", "erecvflags2recvflags -> entry with"
             "\r\n   eflags: %d"
             "\r\n", eflags) );
+
+    if (eflags == 0) {
+        *flags = 0;
+        return TRUE;
+    }
 
     for (ef = SOCKET_RECV_FLAG_LOW; ef <= SOCKET_RECV_FLAG_HIGH; ef++) {
 
