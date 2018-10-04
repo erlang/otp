@@ -146,7 +146,7 @@
 	<cell>domain()</cell>
 	<cell>no</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell><em>Not</em> on FreeBSD (for instance)</cell>
       </row>
       <row>
 	<cell>dontroute</cell>

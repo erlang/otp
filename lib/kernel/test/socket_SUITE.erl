@@ -205,7 +205,15 @@ api_b_open_and_close(Domain, Type, Proto) ->
                  {error, Reason} ->
                      ?FAIL({open, Reason})
              end,
-    {ok, Domain} = socket:getopt(Socket, socket, domain),
+    %% Domain is not available on all platforms: 
+    case socket:getopt(Socket, socket, domain) of
+	{ok, Domain} ->
+	    ok;
+	{error, einval} ->
+	    ok;
+	Else ->
+	    ?FAIL({getopt, domain, Else})
+    end,
     {ok, Type}   = socket:getopt(Socket, socket, type),
     {ok, Proto}  = socket:getopt(Socket, socket, protocol),
     Self = self(),
@@ -691,6 +699,11 @@ api_to_connect_tcp6(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% We use the backlog (listen) argument to test this.
+%% Note that the behaviour of the TCP "server side" can vary when 
+%% a client connect to a "busy" server (full backlog).
+%% For instance, on FreeBSD (11.2) the reponse when the backlog is full
+%% is a econreset.
 
 api_to_connect_tcp(Domain) ->
     process_flag(trap_exit, true),
@@ -753,6 +766,9 @@ api_to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
     case socket:connect(Sock, ServerSA, 5000) of
         {error, timeout} ->
             p("expected timeout (~w)", [ID]),
+            ok;
+        {error, econnreset = Reason} ->
+            p("failed connecting: ~p - giving up", [Reason]),
             ok;
         {error, Reason} ->
             p("failed connecting: ~p", [Reason]),

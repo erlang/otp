@@ -652,6 +652,9 @@
 %%-define(SOCKET_OPT_OTP_SNDBUF,           5).
 -define(SOCKET_OPT_OTP_RCVCTRLBUF,       6).
 -define(SOCKET_OPT_OTP_SNDCTRLBUF,       7).
+-define(SOCKET_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
+-define(SOCKET_OPT_OTP_TYPE,             16#FF02). % INTERNAL
+-define(SOCKET_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
 
 %% *** SOCKET (socket) options
 -define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
@@ -2159,7 +2162,7 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
 
 which_domain(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_DOMAIN) of
+                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_DOMAIN) of
         {ok, Domain} ->
             Domain;
         {error, _} = ERROR ->
@@ -2173,7 +2176,7 @@ which_domain(SockRef) ->
 
 which_type(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_TYPE) of
+                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_TYPE) of
         {ok, Type} ->
             Type;
         {error, _} = ERROR ->
@@ -2186,9 +2189,9 @@ which_type(SockRef) ->
 
 which_protocol(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_SOCKET, ?SOCKET_OPT_SOCK_PROTOCOL) of
-        {ok, Type} ->
-            Type;
+                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_PROTOCOL) of
+        {ok, Proto} ->
+            Proto;
         {error, _} = ERROR ->
             throw(ERROR)
     end.
