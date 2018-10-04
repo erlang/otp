@@ -319,8 +319,8 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 /* Debug stuff... */
-#define SOCKET_NIF_DEBUG_DEFAULT FALSE
-#define SOCKET_DEBUG_DEFAULT     FALSE
+#define SOCKET_GLOBAL_DEBUG_DEFAULT FALSE
+#define SOCKET_DEBUG_DEFAULT        FALSE
 
 /* Counters and stuff (Don't know where to sent this stuff anyway) */
 #define SOCKET_NIF_IOW_DEFAULT FALSE
@@ -504,6 +504,9 @@ typedef union {
 #define SOCKET_OPT_OTP_RCVBUF       4
 #define SOCKET_OPT_OTP_RCVCTRLBUF   6
 #define SOCKET_OPT_OTP_SNDCTRLBUF   7
+#define SOCKET_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
+#define SOCKET_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
+#define SOCKET_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
 
 #define SOCKET_OPT_SOCK_ACCEPTCONN     1
 #define SOCKET_OPT_SOCK_BINDTODEVICE   3
@@ -1510,6 +1513,12 @@ static ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
+                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
+                                     SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
+                                         SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
@@ -8279,6 +8288,19 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
         result = ngetopt_otp_sndctrlbuf(env, descP);
         break;
 
+        /* *** INTERNAL *** */
+    case SOCKET_OPT_OTP_DOMAIN:
+        result = ngetopt_otp_domain(env, descP);
+        break;
+
+    case SOCKET_OPT_OTP_TYPE:
+        result = ngetopt_otp_type(env, descP);
+        break;
+
+    case SOCKET_OPT_OTP_PROTOCOL:
+        result = ngetopt_otp_protocol(env, descP);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -8364,6 +8386,124 @@ ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
 
     return esock_make_ok2(env, eVal);
 }
+
+
+/* ngetopt_otp_domain - Handle the OTP (level) domain options.
+ */
+static
+ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
+                                SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val = descP->domain;
+
+    switch (val) {
+    case AF_INET:
+        result = esock_make_ok2(env, esock_atom_inet);
+        break;
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+    case AF_INET6:
+        result = esock_make_ok2(env, esock_atom_inet6);
+        break;
+#endif
+
+#if defined(HAVE_SYS_UN_H)
+    case AF_UNIX:
+        result = esock_make_ok2(env, esock_atom_local);
+        break;
+#endif
+
+    default:
+        result = esock_make_error(env,
+                                  MKT2(env,
+                                       esock_atom_unknown,
+                                       MKI(env, val)));
+        break;
+    }
+    
+    return result;
+}
+
+
+/* ngetopt_otp_type - Handle the OTP (level) type options.
+ */
+static
+ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
+                              SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val = descP->type;
+
+    switch (val) {
+    case SOCK_STREAM:
+        result = esock_make_ok2(env, esock_atom_stream);
+        break;
+
+    case SOCK_DGRAM:
+        result = esock_make_ok2(env, esock_atom_dgram);
+        break;
+
+#ifdef HAVE_SCTP
+    case SOCK_SEQPACKET:
+        result = esock_make_ok2(env, esock_atom_seqpacket);
+        break;
+#endif
+    case SOCK_RAW:
+        result = esock_make_ok2(env, esock_atom_raw);
+        break;
+
+    case SOCK_RDM:
+        result = esock_make_ok2(env, esock_atom_rdm);
+        break;
+
+    default:
+        result = esock_make_error(env,
+                                  MKT2(env, esock_atom_unknown, MKI(env, val)));
+        break;
+    }
+
+    return result;
+}
+
+
+/* ngetopt_otp_protocol - Handle the OTP (level) protocol options.
+ */
+static
+ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
+                                  SocketDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val = descP->protocol;
+
+        switch (val) {
+        case IPPROTO_IP:
+            result = esock_make_ok2(env, esock_atom_ip);
+            break;
+
+        case IPPROTO_TCP:
+            result = esock_make_ok2(env, esock_atom_tcp);
+            break;
+
+        case IPPROTO_UDP:
+            result = esock_make_ok2(env, esock_atom_udp);
+            break;
+
+#if defined(HAVE_SCTP)
+        case IPPROTO_SCTP:
+            result = esock_make_ok2(env, esock_atom_sctp);
+            break;
+#endif
+
+        default:
+            result = esock_make_error(env,
+                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            break;
+    }
+
+    return result;
+}
+
 
 
 /* The option has *not* been encoded. Instead it has been provided
@@ -15279,7 +15419,7 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
      */
     ERL_NIF_TERM debug = MKA(env, "debug");
     
-    return esock_extract_bool_from_map(env, map, debug, SOCKET_NIF_DEBUG_DEFAULT);
+    return esock_extract_bool_from_map(env, map, debug, SOCKET_GLOBAL_DEBUG_DEFAULT);
 }
 
 static
